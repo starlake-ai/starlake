@@ -1,134 +1,135 @@
 var staticRTS = [{
 	"id": "1",
 	"name": "Server A",
-	"RTS":[{
+	"rts":[{
 		"id": "1",
-		"name": "SQL Storage SLAVE",
-		"rules":{
+		"tag":{
 			"id": "2",
 			"parity": "even",
 			"min": "1",
-			"max": "3"
+			"max": "3",
+			"name": "SQL Storage SLAVE"
 		},
 		"podType": "StateFull",
 		"cpu": "2",
 		"memory": "1",
-		"count": "2",
+		"count": "3",
 		"dataLocation": "./test/test2"
 	},{
 		"id": "2",
-		"name": "KAFKA",
-		"rules":{
+		"tag":{
 			"id": "3",
 			"parity": "even",
 			"min": "2",
-			"max": "9"
+			"max": "9",
+			"name": "KAFKA incl. Zoo Keeper"
 		},
 		"podType": "StateLess",
 		"cpu": "2",
 		"memory": "1",
-		"count": "2",
+		"count": "1",
 		"dataLocation": ""
 	},{
-		"id": "1",
-		"name": "SQL Storage MASTER",
-		"rules":{
+		"id": "3",
+		"name": "SQL MASTER",
+		"tag":{
 			"id": "1",
 			"parity": "odd",
 			"min": "1",
-			"max": "3"
+			"max": "3",
+			"name": "SQL Storage MASTER"
 		},
 		"podType": "StateFull",
 		"cpu": "2",
 		"memory": "1",
-		"count": "2",
+		"count": "1",
 		"dataLocation": "./test/test2"
 	}]
 },{
 	"id": "2",
 	"name": "Server B",
-	"RTS":[{
+	"rts":[{
 		"id": "1",
-		"name": "Elastic Search",
-		"rules":{
+		"tag":{
 			"id": "4",
 			"parity": "odd",
 			"min": "1",
-			"max": "1"
+			"max": "1",
+			"name": "Elastic Search"
 		},
 		"podType": "StateFull",
 		"cpu": "2",
 		"memory": "1",
-		"count": "2",
+		"count": "1",
 		"dataLocation": "./test/test2"
 	},{
 		"id": "2",
-		"name": "Micro Service",
-		"rules":{
+		"tag":{
 			"id": "7",
 			"parity": "odd",
 			"min": "1",
-			"max": "3"
+			"max": "3",
+			"name": "Micro Service"
 		},
 		"podType": "StateLess",
 		"cpu": "2",
 		"memory": "1",
-		"count": "2",
+		"count": "1",
 		"dataLocation": ""
 	}]
 },{
 	"id": "3",
 	"name": "Server C",
-	"RTS":[{
+	"rts":[{
 		"id": "1",
-		"name": "Elastic Search",
-		"rules":{
+		"tag":{
 			"id": "4",
 			"parity": "odd",
 			"min": "1",
-			"max": "1"
+			"max": "1",
+			"name": "Elastic Search"
 		},
 		"podType": "StateFull",
 		"cpu": "2",
 		"memory": "1",
-		"count": "2",
+		"count": "1",
 		"dataLocation": "./test/test2"
 	},{
 		"id": "2",
-		"name": "HDFS Master Node",
-		"rules":{
+		"tag":{
 			"id": "5",
 			"parity": "odd",
 			"min": "1",
-			"max": "3"
+			"max": "3",
+			"name": "HDFS Master Node"
 		},
 		"podType": "StateLess",
 		"cpu": "2",
 		"memory": "1",
-		"count": "2",
+		"count": "3",
 		"dataLocation": ""
 	},{
 		"id": "3",
-		"name": "Elastic Search",
-		"rules":{
-			"id": "4",
-			"parity": "odd",
+		"tag":{
+			"id": "8",
+			"parity": "even",
 			"min": "1",
-			"max": "1"
+			"max": "3",
+			"name": "JENKINS"
 		},
 		"podType": "StateFull",
 		"cpu": "2",
 		"memory": "1",
-		"count": "2",
+		"count": "3",
 		"dataLocation": "./test/test2"
 	},{
 		"id": "4",
-		"name": "HDFS Data Node",
-		"rules":{
+		"tag":{
 			"id": "6",
 			"parity": "none",
 			"min": "2",
-			"max": "3"
+			"max": "3",
+			"name": "HDFS Data Node"
 		},
 		"podType": "StateFull",
 		"cpu": "2",
@@ -139,14 +140,14 @@ var staticRTS = [{
 },{
 	"id": "4",
 	"name": "Server D",
-	"RTS":[{
+	"rts":[{
 		"id": "1",
-		"name": "HDFS Data Node",
-		"rules":{
+		"tag":{
 			"id": "6",
 			"parity": "none",
 			"min": "2",
-			"max": "3"
+			"max": "3",
+			"name": "HDFS Data Node"
 		},
 		"podType": "StateFull",
 		"cpu": "6",
