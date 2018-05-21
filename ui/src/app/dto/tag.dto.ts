@@ -4,13 +4,13 @@ export class TagDto {
 
 	public parity: string;
 
-	public min: number;
+	public min: string;
 
-	public max: number;
+	public max: string;
 
 	public name: string;
 
-	constructor(id?: string, parity?: string, min?: number, max?: number, name?: string) {
+	constructor(id?: string, parity?: string, min?: string, max?: string, name?: string) {
 		this.id = id;
 		this.parity = parity;
 		this.min = min;

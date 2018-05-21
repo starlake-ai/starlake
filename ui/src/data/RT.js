@@ -1,67 +1,67 @@
 var staticRT = [{
 	"id": "1",
-	"parity": "1",
+	"parity": "odd",
 	"min": "1",
 	"max": "3",
-	"name": "SQL Storage MASTER" 
+	"name": "SQL Storage MASTER"
 },{
 	"id": "2",
-	"parity": "1",
+	"parity": "even",
 	"min": "1",
 	"max": "3",
-	"name": "SQL Storage SLAVE" 
+	"name": "SQL Storage SLAVE"
 },{
 	"id": "3",
-	"parity": "2",
+	"parity": "even",
 	"min": "2",
 	"max": "9",
-	"name": "KAFKA incl. Zoo Keeper" 
+	"name": "KAFKA incl. Zoo Keeper"
 },{
 	"id": "4",
-	"parity": "1",
+	"parity": "odd",
 	"min": "1",
 	"max": "1",
-	"name": "Elastic Search" 
+	"name": "Elastic Search"
 },{
 	"id": "5",
-	"parity": "1",
+	"parity": "odd",
 	"min": "1",
 	"max": "3",
-	"name": "HDFS Master Node" 
+	"name": "HDFS Master Node"
 },{
 	"id": "6",
-	"parity": "2",
+	"parity": "none",
 	"min": "2",
 	"max": "3",
-	"name": "HDFS Data Node" 
+	"name": "HDFS Data Node"
 },{
 	"id": "7",
-	"parity": "1",
+	"parity": "odd",
 	"min": "1",
 	"max": "3",
-	"name": "Micro Service" 
+	"name": "Micro Service"
 },{
 	"id": "8",
-	"parity": "1",
+	"parity": "even",
 	"min": "1",
 	"max": "3",
-	"name": "JENKINS" 
+	"name": "JENKINS"
 },{
 	"id": "9",
-	"parity": "1",
+	"parity": "even",
 	"min": "1",
 	"max": "3",
-	"name": "DOKER Rep." 
+	"name": "DOKER Rep."
 },{
 	"id": "10",
-	"parity": "1",
+	"parity": "even",
 	"min": "1",
 	"max": "3",
-	"name": "Artifactory" 
+	"name": "Artifactory"
 },{
 	"id": "11",
-	"parity": "1",
+	"parity": "none",
 	"min": "1",
 	"max": "3",
-	"name": "Public Slave" 
-}];
+	"name": "Public Slave"
+}]
