@@ -6,11 +6,11 @@ export class ServerDto {
 
 	public name: string;
 
-	public RTS: Array<ResourceTypeDto>;
+	public rts: Array<ResourceTypeDto>;
 
-	constructor(id?: string, name?: string, RTS?: Array<ResourceTypeDto>) {
+	constructor(id?: string, name?: string, rts?: Array<ResourceTypeDto>) {
 		this.id = id;
 		this.name = name;
-		this.RTS = RTS;
+		this.rts = rts;
 	}
 }

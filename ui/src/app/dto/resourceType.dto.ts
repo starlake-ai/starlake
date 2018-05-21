@@ -1,12 +1,10 @@
-import { RulesDto } from './rules.dto';
+import { TagDto } from './tag.dto';
 
 export class ResourceTypeDto {
 
 	public id: string;
 
-	public name: string;
-
-	public rules: RulesDto;
+	public tag: TagDto;
 
 	public podType: string;
 
@@ -18,10 +16,9 @@ export class ResourceTypeDto {
 
 	public dataLocation: string;
 
-	constructor(id?: string, name?: string, rules?: RulesDto, podType?: string, cpu?: number, memory?: number, count?: number, dataLocation?: string) {
+	constructor(id?: string, tag?: TagDto, podType?: string, cpu?: number, memory?: number, count?: number, dataLocation?: string) {
 		this.id = id;
-		this.name = name;
-		this.rules = rules;
+		this.tag = tag;
 		this.cpu = cpu;
 		this.memory = memory;
 		this.count = count;
