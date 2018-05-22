@@ -1,0 +1,18 @@
+.rtElement{
+	display: inline-block;
+	border-radius: 10px;
+	color: #FFFFFF;
+	cursor: pointer;
+}
+
+.rtElement_1{background-color: #007BFF;}
+.rtElement_2{background-color: #8F4AFF;}
+.rtElement_3{background-color: #6C757D;}
+.rtElement_4{background-color: #28A745;}
+.rtElement_5{background-color: #DC3545;}
+.rtElement_6{background-color: #A8AF35;}
+.rtElement_7{background-color: #004896;}
+.rtElement_8{background-color: #553B7E;}
+.rtElement_9{background-color: #343A40;}
+.rtElement_10{background-color: #20C997;}
+.rtElement_11{background-color: #84000D;}
