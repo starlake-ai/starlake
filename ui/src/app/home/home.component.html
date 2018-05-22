@@ -2,8 +2,19 @@
 	<div class="container-fluid">
 		<div class="row">
 			<div class="col-lg-12">
-				<div class="rtElement mr-3 px-3 py-2" ngClass="rtElement_{{r.id}}" *ngFor="let r of resourceTypes">{{r.name}}</div>
+				<div pDraggable="rts" 
+                    (onDragStart)="dragStart($event,r)" (onDragEnd)="dragEnd($event)"
+					class="rtElement mr-3 px-3 py-2" ngClass="rtElement_{{r.id}}" *ngFor="let r of resourceTypes">{{r.name}}</div>
 			</div>
 		</div>
+		<div class="ui-grid-col-6 ui-widget-content" pDroppable="rts" (onDrop)="drop($event)"
+                [ngClass]="{'ui-state-highlight':draggedItem}">
+            <!-- <p-dataTable [value]="selectedCars">
+                <p-column field="vin" header="Vin"></p-column>
+                <p-column field="year" header="Year"></p-column>
+                <p-column field="brand" header="Brand"></p-column>
+                <p-column field="color" header="Color"></p-column>
+            </p-dataTable> -->
+        </div>
 	</div>
 </div>

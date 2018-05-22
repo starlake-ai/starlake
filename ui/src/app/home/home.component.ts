@@ -2,6 +2,10 @@ import { Component, OnInit } from '@angular/core';
 // import { Router } from '@angular/router';
 // import { Message } from 'primeng/primeng';
 
+import {DragDropModule} from 'primeng/dragdrop';
+import {DataTableModule} from 'primeng/datatable';
+import {PanelModule} from 'primeng/panel';
+
 import { ResourceTypesService } from '../services/resourceTypes.service';
 import { TagDto } from '../dto/tag.dto';
 
@@ -15,7 +19,9 @@ export class HomeComponent implements OnInit {
 
 	public resourceTypes: Array<TagDto>;
 	// public msgs: Array<Message>;
-
+    
+    draggedItem: TagDto;
+	
 	constructor(private resourceTypesService: ResourceTypesService) {
 		// this.msgs = [];
 	}
@@ -28,4 +34,20 @@ export class HomeComponent implements OnInit {
 			} // TO BE DELETED
 		);
 	}
+	
+	dragStart(event,tag: TagDto) {
+        this.draggedItem = tag;
+    }
+    
+    drop(event) {
+        if(this.draggedItem) {
+			console.log(this.draggedItem);
+            this.draggedItem = null;
+        }
+    }
+    
+    dragEnd(event) {
+			console.log(this.draggedItem);
+        this.draggedItem = null;
+    }
 }

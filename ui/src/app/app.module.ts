@@ -7,6 +7,11 @@ import { HttpModule, Http, RequestOptions } from '@angular/http';
 import { RouterModule } from '@angular/router';
 import { BrowserModule } from '@angular/platform-browser';
 
+// PrimeNg
+import {DragDropModule} from 'primeng/dragdrop';
+import {DataTableModule} from 'primeng/datatable';
+import {PanelModule} from 'primeng/panel';
+
 // Configuration
 import { AppConfiguration } from '../environments/app.configuration';
 
@@ -37,7 +42,10 @@ import { AppRoutes } from './app.routes';
 		ReactiveFormsModule,
 		CommonModule,
 		HttpModule,
-		RouterModule.forRoot(AppRoutes, {useHash: false})
+		RouterModule.forRoot(AppRoutes, {useHash: false}),
+		DragDropModule,
+		DataTableModule,
+		PanelModule
 	],
 	providers: [
 		AppConfiguration,
