@@ -5,6 +5,23 @@
 	cursor: pointer;
 }
 
+.rtElement i.fa{
+	font-size: 75%;
+	margin-left: 5px;
+}
+
+th .add{
+	cursor: pointer;
+}
+
+td.empty{
+	height: 50px;
+}
+
+td.highlight{
+	background: rgba(40, 167, 69, 0.2) !important;
+}
+
 .rtElement_1{background-color: #007BFF;}
 .rtElement_2{background-color: #8F4AFF;}
 .rtElement_3{background-color: #6C757D;}

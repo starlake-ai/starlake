@@ -1,1 +1,47 @@
-/* You can add global styles to this file, and also import other style files */
+.main-mask{
+	display: none;
+	position: fixed;
+	top: 0px;
+	left: 0px;
+	width: 100vw;
+	height: 100vh;
+	z-index: 10000;
+	background: rgba(204, 204, 204, 0.2);
+}
+
+.main-mask div{
+	background: #FFFFFF url("/assets/img/loading.gif") center 20px no-repeat;
+	background-size: 63px;
+	position: relative;
+	width: 260px;
+	height: 140px;
+	padding-top: 95px;
+	text-align: center;
+	top: 50%;
+	left: 50%;
+	margin-top: -50px;
+	margin-left: -130px;
+	border: 1px solid #CCCCCC;
+	border-radius: 6px;
+}
+
+div.error {
+	font-size: 70%;
+	color: #F44336;
+	opacity: 1;
+}
+
+/* Invalid */
+input.invalid,
+select.invalid,
+textarea.invalid,
+button.invalid {
+	border-color: #F44336 !important;
+}
+
+input.invalid:focus,
+select.invalid:focus,
+textarea.invalid:focus,
+button.invalid:focus {
+	box-shadow: 0 0 0 0.2rem rgba(244, 67, 54, 0.25);
+}

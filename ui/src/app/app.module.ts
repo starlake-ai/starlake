@@ -2,21 +2,27 @@
 import { APP_INITIALIZER, NgModule } from '@angular/core';
 import { Routes } from '@angular/router';
 import { CommonModule } from '@angular/common';
+import { HttpClientModule } from '@angular/common/http'; // TO BE DELETED
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { HttpModule, Http, RequestOptions } from '@angular/http';
 import { RouterModule } from '@angular/router';
 import { BrowserModule } from '@angular/platform-browser';
+import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
 
 // PrimeNg
 import {DragDropModule} from 'primeng/dragdrop';
-import {DataTableModule} from 'primeng/datatable';
 import {PanelModule} from 'primeng/panel';
+import {TableModule} from 'primeng/table';
+import {DialogModule} from 'primeng/dialog';
+import {TabViewModule} from 'primeng/tabview';
 
 // Configuration
 import { AppConfiguration } from '../environments/app.configuration';
 
 // Services
+import { JsonService } from './services/json.service'; // TO BE DELETED
 import { ResourceTypesService } from './services/resourceTypes.service';
+import { ServersService } from './services/servers.service';
 
 // Components
 import { AppComponent } from './app.component';
@@ -38,13 +44,18 @@ import { AppRoutes } from './app.routes';
 	],
 	imports: [
 		BrowserModule,
+		BrowserAnimationsModule,
 		FormsModule,
 		ReactiveFormsModule,
 		CommonModule,
 		HttpModule,
+		HttpClientModule, // TO BE DELETED
 		RouterModule.forRoot(AppRoutes, {useHash: false}),
+	// PrimeNg
 		DragDropModule,
-		DataTableModule,
+		TableModule,
+		DialogModule,
+		TabViewModule,
 		PanelModule
 	],
 	providers: [
@@ -55,7 +66,9 @@ import { AppRoutes } from './app.routes';
 			deps: [AppConfiguration],
 			multi: true
 		},
-		ResourceTypesService
+		JsonService, // TO BE DELETED
+		ResourceTypesService,
+		ServersService
 	],
 	bootstrap: [AppComponent]
 })

@@ -1,4 +1,4 @@
-[{
+var staticRTS = [{
 	"id": "1",
 	"name": "Server A",
 	"rts":[{
@@ -31,7 +31,6 @@
 		"dataLocation": ""
 	},{
 		"id": "3",
-		"name": "SQL MASTER",
 		"tag":{
 			"id": "1",
 			"parity": "odd",
@@ -155,4 +154,4 @@
 		"count": "2",
 		"dataLocation": "./test/test2"
 	}]
-}]
+}];
