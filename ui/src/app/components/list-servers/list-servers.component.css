@@ -1,0 +1,16 @@
+.listServers{
+	display: block;
+}
+
+.listServers table tbody > tr{
+	background: #FFFFFF !important;
+	color: #222222 !important;
+}
+
+.listServers table tbody > tr:nth-child(even) {
+	background-color: #FAFAFB !important;
+}
+
+.check{
+	width: 50px;
+}

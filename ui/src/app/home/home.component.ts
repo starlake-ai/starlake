@@ -3,17 +3,12 @@ import { FormGroup, FormControl, Validators, FormBuilder } from '@angular/forms'
 
 import { CommonComponent } from '../common.component';
 
-import {DragDropModule} from 'primeng/dragdrop';
-import {TableModule} from 'primeng/table';
-import {PanelModule} from 'primeng/panel';
-import {DialogModule} from 'primeng/dialog';
-import {TabViewModule} from 'primeng/tabview';
-
 import { ResourceTypesService } from '../services/resourceTypes.service';
 import { ServersService } from '../services/servers.service';
 import { JsonService } from '../services/json.service'; // TO BE DELETED
 import { TagDto } from '../dto/tag.dto';
 import { ServerDto } from '../dto/server.dto';
+import { ResourceTypeDto } from '../dto/resourceType.dto';
 
 import * as $ from 'jquery';
 
@@ -26,22 +21,20 @@ export class HomeComponent extends CommonComponent implements OnInit, OnDestroy,
 	public resourceTypes: Array<TagDto>;
 
 	private serversSubscription: any = null;
-	public servers: Array<ServerDto>;
+	public servers: Array<ServerDto> = [];
 
 	public draggedItem: TagDto;
+	public selectedResourceType: ResourceTypeDto;
+	public selectedServerId: string;
 
 	public showAddServer:boolean = false;
 	public newServerForm: FormGroup;
 	public newServerNameCtl: FormControl;
 
 	public showResourceTypeDialog:boolean = false;
-	public resourceTypeForm: FormGroup;
-	public resourceTypeIdCtl: FormControl;
-	public resourceTypeCountCtl: FormControl;
-	public resourceTypeCpuCtl: FormControl;
-	public resourceTypeMemoryCtl: FormControl;
-	public resourceTypePodTypeCtl: FormControl;
-	public resourceTypeDataLocationCtl: FormControl;
+
+	public selectedTagId:string = "";
+	public showListServers:boolean = false;
 
 	constructor(
 		private formBuilder: FormBuilder,
@@ -57,7 +50,6 @@ export class HomeComponent extends CommonComponent implements OnInit, OnDestroy,
 		this.getAllResourceTypes();
 		this.getAllServers();
 		this.initEmptyNewServerForm();
-		this.initEmptyResourceTypeForm();
 	}
 
 	ngAfterViewInit() {}
@@ -110,7 +102,7 @@ export class HomeComponent extends CommonComponent implements OnInit, OnDestroy,
 		this.showMask();
 		this.serversService.addNewServer(params).subscribe(
 			data => {
-				this.hideMask();
+				this.getAllServers();
 			},
 			err => {
 				this.servers = this.jsonService.addNewServer(params);
@@ -131,7 +123,7 @@ export class HomeComponent extends CommonComponent implements OnInit, OnDestroy,
 
 	public drop(event) {
 		if(this.draggedItem) {
-			// let serverId = $(event.target).data("server-id");
+			let serverId = $(event.target).data("server-id");
 			// let params:any = {
 				// resourceTypeId: this.draggedItem.id,
 				// podType: "STATELESS",
@@ -150,8 +142,15 @@ export class HomeComponent extends CommonComponent implements OnInit, OnDestroy,
 					// this.hideMask();
 				// }
 			// );
-			this.showResourceTypeDialog = true;
-			this.resourceTypeIdCtl.setValue(this.draggedItem.id);
+			let rt  = {
+				podType: "STATELESS",
+				cpu: "",
+				memory: "",
+				count: "",
+				dataLocation: "",
+				tag: this.draggedItem
+			}
+			this.openResourceType(rt, serverId);
 			this.draggedItem = null;
 		}
 	}
@@ -160,24 +159,36 @@ export class HomeComponent extends CommonComponent implements OnInit, OnDestroy,
 		this.draggedItem = null;
 	}
 
-	private initEmptyResourceTypeForm(){
-		this.resourceTypeIdCtl = new FormControl("", Validators.required);
-		this.resourceTypeCountCtl = new FormControl("", Validators.required);
-		this.resourceTypeCpuCtl = new FormControl("", Validators.required);
-		this.resourceTypeMemoryCtl = new FormControl("", Validators.required);
-		this.resourceTypePodTypeCtl = new FormControl("", Validators.required);
-		this.resourceTypeDataLocationCtl = new FormControl("");
-		this.resourceTypeForm = this.formBuilder.group({
-			"id": this.resourceTypeIdCtl,
-			"count": this.resourceTypeCountCtl,
-			"cpu": this.resourceTypeCpuCtl,
-			"memory": this.resourceTypeMemoryCtl,
-			"podType": this.resourceTypePodTypeCtl,
-			"dataLocation": this.resourceTypeDataLocationCtl
-		});
+	public openResourceType(resourceType, serverId){
+		this.selectedResourceType = resourceType;
+		this.selectedServerId = serverId;
+		this.showResourceTypeDialog = true;
 	}
 
-	public closeRsourceTypeDialog(){
+	public closeResourceType(){
 		this.showResourceTypeDialog = false;
+	}
+
+	public saveResourceType(request:any){
+		// TODO CALL SERVICE
+		console.log(request);
+		this.closeListServers();
+	}
+
+// Servers List
+	public openListServers(id){
+		this.selectedTagId = id;
+		this.showListServers = true;
+	}
+
+	public closeListServers(){
+		this.showListServers = false;
+		$(".ui-dialog-content").scrollTop(0);
+	}
+
+	public saveListServers(request:any){
+		// TODO CALL SERVICE
+		console.log(request);
+		this.closeListServers();
 	}
 }

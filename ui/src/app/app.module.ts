@@ -11,7 +11,6 @@ import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
 
 // PrimeNg
 import {DragDropModule} from 'primeng/dragdrop';
-import {PanelModule} from 'primeng/panel';
 import {TableModule} from 'primeng/table';
 import {DialogModule} from 'primeng/dialog';
 import {TabViewModule} from 'primeng/tabview';
@@ -24,10 +23,15 @@ import { JsonService } from './services/json.service'; // TO BE DELETED
 import { ResourceTypesService } from './services/resourceTypes.service';
 import { ServersService } from './services/servers.service';
 
+//Tools
+import {PipesModule} from './tools/pipes-module';
+
 // Components
 import { AppComponent } from './app.component';
-import { NavBarComponent } from './navbar/navbar.component';
 import { HomeComponent } from './home/home.component';
+import { NavBarComponent } from './components/navbar/navbar.component';
+import { ListServersComponent } from './components/list-servers/list-servers.component';
+import { ResourceTypeDetailsComponent } from './components/resource-type-details/resource-type-details.component';
 
 export function configServiceFactory(config: AppConfiguration) {
 	return () => config.load();
@@ -39,8 +43,10 @@ import { AppRoutes } from './app.routes';
 @NgModule({
 	declarations: [
 		AppComponent,
+		HomeComponent,
 		NavBarComponent,
-		HomeComponent
+		ListServersComponent,
+		ResourceTypeDetailsComponent
 	],
 	imports: [
 		BrowserModule,
@@ -51,12 +57,12 @@ import { AppRoutes } from './app.routes';
 		HttpModule,
 		HttpClientModule, // TO BE DELETED
 		RouterModule.forRoot(AppRoutes, {useHash: false}),
+		PipesModule,
 	// PrimeNg
 		DragDropModule,
 		TableModule,
 		DialogModule,
-		TabViewModule,
-		PanelModule
+		TabViewModule
 	],
 	providers: [
 		AppConfiguration,
