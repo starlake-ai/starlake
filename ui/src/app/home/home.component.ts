@@ -172,7 +172,7 @@ export class HomeComponent extends CommonComponent implements OnInit, OnDestroy,
 	public saveResourceType(request:any){
 		// TODO CALL SERVICE
 		console.log(request);
-		this.closeListServers();
+		this.closeResourceType();
 	}
 
 // Servers List

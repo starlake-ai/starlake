@@ -1,0 +1,18 @@
+.ui-tabview.ui-tabview-top > .ui-tabview-nav li{
+	border-bottom: 1px solid #BEBEBE;;
+}
+
+.ui-tabview .ui-tabview-nav > li.ui-state-active{
+	border-bottom-color: #FFFFFF;
+}
+
+.ui-tabview.ui-tabview-top > .ui-tabview-nav{
+	padding: 0px;
+}
+
+.ui-tabview-panels{
+	border: 1px solid #BEBEBE;
+	border-bottom-left-radius: 3px;
+	border-bottom-right-radius: 3px;
+	margin-top: -1px;
+}
