@@ -52,4 +52,13 @@ export class JsonService {
 		}
 		return this.servers;
 	}
+
+	deleteResourceType(id: string, resourceTypeId: string) {
+		let server = this.servers.find(s => s.id == id);
+		if(server){
+			let rts = server.rts.filter(rt => rt.id != resourceTypeId);
+			this.servers.find(s => s.id == id).rts = rts;
+		}
+		return this.servers;
+	}
 }

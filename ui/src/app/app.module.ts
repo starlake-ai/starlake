@@ -14,6 +14,7 @@ import {DragDropModule} from 'primeng/dragdrop';
 import {TableModule} from 'primeng/table';
 import {DialogModule} from 'primeng/dialog';
 import {TabViewModule} from 'primeng/tabview';
+import {TooltipModule} from 'primeng/tooltip';
 
 // Configuration
 import { AppConfiguration } from '../environments/app.configuration';
@@ -62,7 +63,8 @@ import { AppRoutes } from './app.routes';
 		DragDropModule,
 		TableModule,
 		DialogModule,
-		TabViewModule
+		TabViewModule,
+		TooltipModule
 	],
 	providers: [
 		AppConfiguration,

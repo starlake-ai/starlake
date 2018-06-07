@@ -1,17 +1,27 @@
 <div class="home-page page-content">
 	<div class="container-fluid">
-		<div class="row">
-			<div class="col-lg-12">
-				<div pDraggable="rts" (onDragStart)="dragStart($event, rt)" (onDragEnd)="dragEnd($event)" (click)="openListServers(rt.id)"
-					class="rtElement mt-3 mr-3 px-3 py-2" ngClass="rtElement_{{rt.id}}" *ngFor="let rt of resourceTypes; let i = index">{{rt.name}} <i class="fa fa-arrows"></i></div>
+		<div class="px-5 text-center">
+			<div class="row">
+				<div class="col-lg-12">
+					<div pDraggable="rts" (onDragStart)="dragStart($event, rt)" (onDragEnd)="dragEnd($event)" (click)="openListServers(rt.id)"
+						class="rtElement mt-3 mr-3 px-3 py-2" [style.background-color]="rt.color" *ngFor="let rt of resourceTypes; let i = index" pTooltip="{{rt.name}}" tooltipPosition="top" tooltipZIndex="1600">{{rt.id}}<i class="fa fa-arrows"></i></div>
+				</div>
 			</div>
 		</div>
 		<div class="row my-4">
 			<div class="col-lg-12">
-				<p-table [autoLayout]="true" [value]="servers">
+				<p-table [autoLayout]="true" [value]="filteredServers">
 					<ng-template pTemplate="header">
 						<tr>
-							<th>Server Name <i class="add pull-right fa fa-plus-circle fa-2x" (click)="showAddServer = true"></i></th>
+							<th style="min-width: 200px; width: 25%;">
+								<span *ngIf="!showFilterServer">Server Name</span>
+								<input type="text" *ngIf="showFilterServer" [(ngModel)]="filterServerName" class="form-control filterServer" (keyup)="updateServersList($event)">
+								<span class="pull-right">
+									<i class="pointer fa fa-search fa-2x mr-2" *ngIf="!showFilterServer" (click)="showFilterServer = true"></i>
+									<i class="pointer fa fa-times fa-2x mr-2" *ngIf="showFilterServer" (click)="removeServersFilter()"></i>
+									<i class="pointer fa fa-plus-circle fa-2x" (click)="showAddServer = true"></i>
+								</span>
+							</th>
 							<th>Resource Types</th>
 						</tr>
 					</ng-template>
@@ -19,7 +29,11 @@
 						<tr>
 							<td>{{server.name}}</td>
 							<td pDroppable="rts" (onDrop)="drop($event)" [ngClass]="{'highlight':draggedItem, 'empty': server.rts.length == 0}" [attr.data-server-id] = "server.id">
-								<div *ngFor="let rt of server.rts" class="rtElement my-2 mr-3 px-3" ngClass="rtElement_{{rt.tag.id}}" (click)="openResourceType(rt, server.id)">{{rt.tag.name}}</div>
+								<div class="rtListContainer" *ngFor="let rt of server.rts">
+									<!-- <div class="rtListElement my-2 mr-3 pl-3 py-1" [style.background-color]="rt.tag.color" (click)="openResourceType(rt, server.id)" pTooltip="{{rt.tag.name}}" tooltipPosition="top" tooltipZIndex="1600">{{rt.tag.id}}</div> -->
+									<div class="rtListElement my-2 mr-3 pl-3 py-1" [style.background-color]="rt.tag.color" pTooltip="{{rt.tag.name}}" tooltipPosition="top" tooltipZIndex="1600">{{rt.tag.id}}</div>
+									<i class="fa fa-times" (click)="deleteResourceType(rt.id, server.id)"></i>
+								</div>
 							</td>
 						</tr>
 					</ng-template>

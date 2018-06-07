@@ -4,11 +4,12 @@ var staticRTS = [{
 	"rts":[{
 		"id": "1",
 		"tag":{
-			"id": "2",
+			"id": "SSS",
 			"parity": "even",
 			"min": "1",
 			"max": "3",
-			"name": "SQL Storage SLAVE"
+			"name": "SQL Storage SLAVE",
+			"color": "#8F4AFF"
 		},
 		"podType": "StateFull",
 		"cpu": "2",
@@ -18,11 +19,12 @@ var staticRTS = [{
 	},{
 		"id": "2",
 		"tag":{
-			"id": "3",
+			"id": "KAF",
 			"parity": "even",
 			"min": "2",
 			"max": "9",
-			"name": "KAFKA incl. Zoo Keeper"
+			"name": "KAFKA incl. Zoo Keeper",
+			"color": "#6C757D"
 		},
 		"podType": "StateLess",
 		"cpu": "2",
@@ -33,11 +35,12 @@ var staticRTS = [{
 		"id": "3",
 		"name": "SQL MASTER",
 		"tag":{
-			"id": "1",
+			"id": "SSM",
 			"parity": "odd",
 			"min": "1",
 			"max": "3",
-			"name": "SQL Storage MASTER"
+			"name": "SQL Storage MASTER",
+			"color": "#007BFF"
 		},
 		"podType": "StateFull",
 		"cpu": "2",
@@ -51,11 +54,12 @@ var staticRTS = [{
 	"rts":[{
 		"id": "1",
 		"tag":{
-			"id": "4",
+			"id": "ELS",
 			"parity": "odd",
 			"min": "1",
 			"max": "1",
-			"name": "Elastic Search"
+			"name": "Elastic Search",
+			"color": "#28A745"
 		},
 		"podType": "StateFull",
 		"cpu": "2",
@@ -65,11 +69,12 @@ var staticRTS = [{
 	},{
 		"id": "2",
 		"tag":{
-			"id": "7",
+			"id": "MIS",
 			"parity": "odd",
 			"min": "1",
 			"max": "3",
-			"name": "Micro Service"
+			"name": "Micro Service",
+			"color": "#004896"
 		},
 		"podType": "StateLess",
 		"cpu": "2",
@@ -83,11 +88,12 @@ var staticRTS = [{
 	"rts":[{
 		"id": "1",
 		"tag":{
-			"id": "4",
+			"id": "ELS",
 			"parity": "odd",
 			"min": "1",
 			"max": "1",
-			"name": "Elastic Search"
+			"name": "Elastic Search",
+			"color": "#28A745"
 		},
 		"podType": "StateFull",
 		"cpu": "2",
@@ -97,11 +103,12 @@ var staticRTS = [{
 	},{
 		"id": "2",
 		"tag":{
-			"id": "5",
+			"id": "HMN",
 			"parity": "odd",
 			"min": "1",
 			"max": "3",
-			"name": "HDFS Master Node"
+			"name": "HDFS Master Node",
+			"color": "#DC3545"
 		},
 		"podType": "StateLess",
 		"cpu": "2",
@@ -111,11 +118,12 @@ var staticRTS = [{
 	},{
 		"id": "3",
 		"tag":{
-			"id": "8",
+			"id": "JEN",
 			"parity": "even",
 			"min": "1",
 			"max": "3",
-			"name": "JENKINS"
+			"name": "JENKINS",
+			"color": "#553B7E"
 		},
 		"podType": "StateFull",
 		"cpu": "2",
@@ -125,11 +133,12 @@ var staticRTS = [{
 	},{
 		"id": "4",
 		"tag":{
-			"id": "6",
+			"id": "HDN",
 			"parity": "none",
 			"min": "2",
 			"max": "3",
-			"name": "HDFS Data Node"
+			"name": "HDFS Data Node",
+			"color": "#A8AF35"
 		},
 		"podType": "StateFull",
 		"cpu": "2",
@@ -143,11 +152,12 @@ var staticRTS = [{
 	"rts":[{
 		"id": "1",
 		"tag":{
-			"id": "6",
+			"id": "HDN",
 			"parity": "none",
 			"min": "2",
 			"max": "3",
-			"name": "HDFS Data Node"
+			"name": "HDFS Data Node",
+			"color": "#A8AF35"
 		},
 		"podType": "StateFull",
 		"cpu": "6",
@@ -161,11 +171,12 @@ var staticRTS = [{
 	"rts":[{
 		"id": "1",
 		"tag":{
-			"id": "2",
+			"id": "SSS",
 			"parity": "even",
 			"min": "1",
 			"max": "3",
-			"name": "SQL Storage SLAVE"
+			"name": "SQL Storage SLAVE",
+			"color": "#8F4AFF"
 		},
 		"podType": "StateFull",
 		"cpu": "2",
@@ -175,11 +186,12 @@ var staticRTS = [{
 	},{
 		"id": "2",
 		"tag":{
-			"id": "3",
+			"id": "KAF",
 			"parity": "even",
 			"min": "2",
 			"max": "9",
-			"name": "KAFKA incl. Zoo Keeper"
+			"name": "KAFKA incl. Zoo Keeper",
+			"color": "#6C757D"
 		},
 		"podType": "StateLess",
 		"cpu": "2",
@@ -190,11 +202,12 @@ var staticRTS = [{
 		"id": "3",
 		"name": "SQL MASTER",
 		"tag":{
-			"id": "1",
+			"id": "SSM",
 			"parity": "odd",
 			"min": "1",
 			"max": "3",
-			"name": "SQL Storage MASTER"
+			"name": "SQL Storage MASTER",
+			"color": "#007BFF"
 		},
 		"podType": "StateFull",
 		"cpu": "2",
@@ -208,11 +221,12 @@ var staticRTS = [{
 	"rts":[{
 		"id": "1",
 		"tag":{
-			"id": "4",
+			"id": "ELS",
 			"parity": "odd",
 			"min": "1",
 			"max": "1",
-			"name": "Elastic Search"
+			"name": "Elastic Search",
+			"color": "#28A745"
 		},
 		"podType": "StateFull",
 		"cpu": "2",
@@ -222,11 +236,12 @@ var staticRTS = [{
 	},{
 		"id": "2",
 		"tag":{
-			"id": "7",
+			"id": "MIS",
 			"parity": "odd",
 			"min": "1",
 			"max": "3",
-			"name": "Micro Service"
+			"name": "Micro Service",
+			"color": "#004896"
 		},
 		"podType": "StateLess",
 		"cpu": "2",
@@ -240,11 +255,12 @@ var staticRTS = [{
 	"rts":[{
 		"id": "1",
 		"tag":{
-			"id": "4",
+			"id": "ELS",
 			"parity": "odd",
 			"min": "1",
 			"max": "1",
-			"name": "Elastic Search"
+			"name": "Elastic Search",
+			"color": "#28A745"
 		},
 		"podType": "StateFull",
 		"cpu": "2",
@@ -254,11 +270,12 @@ var staticRTS = [{
 	},{
 		"id": "2",
 		"tag":{
-			"id": "5",
+			"id": "HMN",
 			"parity": "odd",
 			"min": "1",
 			"max": "3",
-			"name": "HDFS Master Node"
+			"name": "HDFS Master Node",
+			"color": "#DC3545"
 		},
 		"podType": "StateLess",
 		"cpu": "2",
@@ -268,11 +285,12 @@ var staticRTS = [{
 	},{
 		"id": "3",
 		"tag":{
-			"id": "8",
+			"id": "JEN",
 			"parity": "even",
 			"min": "1",
 			"max": "3",
-			"name": "JENKINS"
+			"name": "JENKINS",
+			"color": "#553B7E"
 		},
 		"podType": "StateFull",
 		"cpu": "2",
@@ -282,11 +300,12 @@ var staticRTS = [{
 	},{
 		"id": "4",
 		"tag":{
-			"id": "6",
+			"id": "HDN",
 			"parity": "none",
 			"min": "2",
 			"max": "3",
-			"name": "HDFS Data Node"
+			"name": "HDFS Data Node",
+			"color": "#A8AF35"
 		},
 		"podType": "StateFull",
 		"cpu": "2",
@@ -300,11 +319,12 @@ var staticRTS = [{
 	"rts":[{
 		"id": "1",
 		"tag":{
-			"id": "6",
+			"id": "HDN",
 			"parity": "none",
 			"min": "2",
 			"max": "3",
-			"name": "HDFS Data Node"
+			"name": "HDFS Data Node",
+			"color": "#A8AF35"
 		},
 		"podType": "StateFull",
 		"cpu": "6",
@@ -318,11 +338,12 @@ var staticRTS = [{
 	"rts":[{
 		"id": "1",
 		"tag":{
-			"id": "2",
+			"id": "SSS",
 			"parity": "even",
 			"min": "1",
 			"max": "3",
-			"name": "SQL Storage SLAVE"
+			"name": "SQL Storage SLAVE",
+			"color": "#8F4AFF"
 		},
 		"podType": "StateFull",
 		"cpu": "2",
@@ -332,11 +353,12 @@ var staticRTS = [{
 	},{
 		"id": "2",
 		"tag":{
-			"id": "3",
+			"id": "KAF",
 			"parity": "even",
 			"min": "2",
 			"max": "9",
-			"name": "KAFKA incl. Zoo Keeper"
+			"name": "KAFKA incl. Zoo Keeper",
+			"color": "#6C757D"
 		},
 		"podType": "StateLess",
 		"cpu": "2",
@@ -347,11 +369,12 @@ var staticRTS = [{
 		"id": "3",
 		"name": "SQL MASTER",
 		"tag":{
-			"id": "1",
+			"id": "SSM",
 			"parity": "odd",
 			"min": "1",
 			"max": "3",
-			"name": "SQL Storage MASTER"
+			"name": "SQL Storage MASTER",
+			"color": "#007BFF"
 		},
 		"podType": "StateFull",
 		"cpu": "2",
@@ -365,11 +388,12 @@ var staticRTS = [{
 	"rts":[{
 		"id": "1",
 		"tag":{
-			"id": "4",
+			"id": "ELS",
 			"parity": "odd",
 			"min": "1",
 			"max": "1",
-			"name": "Elastic Search"
+			"name": "Elastic Search",
+			"color": "#28A745"
 		},
 		"podType": "StateFull",
 		"cpu": "2",
@@ -379,11 +403,12 @@ var staticRTS = [{
 	},{
 		"id": "2",
 		"tag":{
-			"id": "7",
+			"id": "MIS",
 			"parity": "odd",
 			"min": "1",
 			"max": "3",
-			"name": "Micro Service"
+			"name": "Micro Service",
+			"color": "#004896"
 		},
 		"podType": "StateLess",
 		"cpu": "2",
@@ -397,11 +422,12 @@ var staticRTS = [{
 	"rts":[{
 		"id": "1",
 		"tag":{
-			"id": "4",
+			"id": "ELS",
 			"parity": "odd",
 			"min": "1",
 			"max": "1",
-			"name": "Elastic Search"
+			"name": "Elastic Search",
+			"color": "#28A745"
 		},
 		"podType": "StateFull",
 		"cpu": "2",
@@ -411,11 +437,12 @@ var staticRTS = [{
 	},{
 		"id": "2",
 		"tag":{
-			"id": "5",
+			"id": "HMN",
 			"parity": "odd",
 			"min": "1",
 			"max": "3",
-			"name": "HDFS Master Node"
+			"name": "HDFS Master Node",
+			"color": "#DC3545"
 		},
 		"podType": "StateLess",
 		"cpu": "2",
@@ -425,11 +452,12 @@ var staticRTS = [{
 	},{
 		"id": "3",
 		"tag":{
-			"id": "8",
+			"id": "JEN",
 			"parity": "even",
 			"min": "1",
 			"max": "3",
-			"name": "JENKINS"
+			"name": "JENKINS",
+			"color": "#553B7E"
 		},
 		"podType": "StateFull",
 		"cpu": "2",
@@ -439,11 +467,12 @@ var staticRTS = [{
 	},{
 		"id": "4",
 		"tag":{
-			"id": "6",
+			"id": "HDN",
 			"parity": "none",
 			"min": "2",
 			"max": "3",
-			"name": "HDFS Data Node"
+			"name": "HDFS Data Node",
+			"color": "#A8AF35"
 		},
 		"podType": "StateFull",
 		"cpu": "2",
@@ -457,11 +486,12 @@ var staticRTS = [{
 	"rts":[{
 		"id": "1",
 		"tag":{
-			"id": "6",
+			"id": "HDN",
 			"parity": "none",
 			"min": "2",
 			"max": "3",
-			"name": "HDFS Data Node"
+			"name": "HDFS Data Node",
+			"color": "#A8AF35"
 		},
 		"podType": "StateFull",
 		"cpu": "6",
@@ -475,11 +505,12 @@ var staticRTS = [{
 	"rts":[{
 		"id": "1",
 		"tag":{
-			"id": "2",
+			"id": "SSS",
 			"parity": "even",
 			"min": "1",
 			"max": "3",
-			"name": "SQL Storage SLAVE"
+			"name": "SQL Storage SLAVE",
+			"color": "#8F4AFF"
 		},
 		"podType": "StateFull",
 		"cpu": "2",
@@ -489,11 +520,12 @@ var staticRTS = [{
 	},{
 		"id": "2",
 		"tag":{
-			"id": "3",
+			"id": "KAF",
 			"parity": "even",
 			"min": "2",
 			"max": "9",
-			"name": "KAFKA incl. Zoo Keeper"
+			"name": "KAFKA incl. Zoo Keeper",
+			"color": "#6C757D"
 		},
 		"podType": "StateLess",
 		"cpu": "2",
@@ -504,11 +536,12 @@ var staticRTS = [{
 		"id": "3",
 		"name": "SQL MASTER",
 		"tag":{
-			"id": "1",
+			"id": "SSM",
 			"parity": "odd",
 			"min": "1",
 			"max": "3",
-			"name": "SQL Storage MASTER"
+			"name": "SQL Storage MASTER",
+			"color": "#007BFF"
 		},
 		"podType": "StateFull",
 		"cpu": "2",
@@ -522,11 +555,12 @@ var staticRTS = [{
 	"rts":[{
 		"id": "1",
 		"tag":{
-			"id": "4",
+			"id": "ELS",
 			"parity": "odd",
 			"min": "1",
 			"max": "1",
-			"name": "Elastic Search"
+			"name": "Elastic Search",
+			"color": "#28A745"
 		},
 		"podType": "StateFull",
 		"cpu": "2",
@@ -536,11 +570,12 @@ var staticRTS = [{
 	},{
 		"id": "2",
 		"tag":{
-			"id": "7",
+			"id": "MIS",
 			"parity": "odd",
 			"min": "1",
 			"max": "3",
-			"name": "Micro Service"
+			"name": "Micro Service",
+			"color": "#004896"
 		},
 		"podType": "StateLess",
 		"cpu": "2",
@@ -554,11 +589,12 @@ var staticRTS = [{
 	"rts":[{
 		"id": "1",
 		"tag":{
-			"id": "4",
+			"id": "ELS",
 			"parity": "odd",
 			"min": "1",
 			"max": "1",
-			"name": "Elastic Search"
+			"name": "Elastic Search",
+			"color": "#28A745"
 		},
 		"podType": "StateFull",
 		"cpu": "2",
@@ -568,11 +604,12 @@ var staticRTS = [{
 	},{
 		"id": "2",
 		"tag":{
-			"id": "5",
+			"id": "HMN",
 			"parity": "odd",
 			"min": "1",
 			"max": "3",
-			"name": "HDFS Master Node"
+			"name": "HDFS Master Node",
+			"color": "#DC3545"
 		},
 		"podType": "StateLess",
 		"cpu": "2",
@@ -582,11 +619,12 @@ var staticRTS = [{
 	},{
 		"id": "3",
 		"tag":{
-			"id": "8",
+			"id": "JEN",
 			"parity": "even",
 			"min": "1",
 			"max": "3",
-			"name": "JENKINS"
+			"name": "JENKINS",
+			"color": "#553B7E"
 		},
 		"podType": "StateFull",
 		"cpu": "2",
@@ -596,11 +634,12 @@ var staticRTS = [{
 	},{
 		"id": "4",
 		"tag":{
-			"id": "6",
+			"id": "HDN",
 			"parity": "none",
 			"min": "2",
 			"max": "3",
-			"name": "HDFS Data Node"
+			"name": "HDFS Data Node",
+			"color": "#A8AF35"
 		},
 		"podType": "StateFull",
 		"cpu": "2",
@@ -614,11 +653,12 @@ var staticRTS = [{
 	"rts":[{
 		"id": "1",
 		"tag":{
-			"id": "6",
+			"id": "HDN",
 			"parity": "none",
 			"min": "2",
 			"max": "3",
-			"name": "HDFS Data Node"
+			"name": "HDFS Data Node",
+			"color": "#A8AF35"
 		},
 		"podType": "StateFull",
 		"cpu": "6",
@@ -632,11 +672,12 @@ var staticRTS = [{
 	"rts":[{
 		"id": "1",
 		"tag":{
-			"id": "2",
+			"id": "SSS",
 			"parity": "even",
 			"min": "1",
 			"max": "3",
-			"name": "SQL Storage SLAVE"
+			"name": "SQL Storage SLAVE",
+			"color": "#8F4AFF"
 		},
 		"podType": "StateFull",
 		"cpu": "2",
@@ -646,11 +687,12 @@ var staticRTS = [{
 	},{
 		"id": "2",
 		"tag":{
-			"id": "3",
+			"id": "KAF",
 			"parity": "even",
 			"min": "2",
 			"max": "9",
-			"name": "KAFKA incl. Zoo Keeper"
+			"name": "KAFKA incl. Zoo Keeper",
+			"color": "#6C757D"
 		},
 		"podType": "StateLess",
 		"cpu": "2",
@@ -661,11 +703,12 @@ var staticRTS = [{
 		"id": "3",
 		"name": "SQL MASTER",
 		"tag":{
-			"id": "1",
+			"id": "SSM",
 			"parity": "odd",
 			"min": "1",
 			"max": "3",
-			"name": "SQL Storage MASTER"
+			"name": "SQL Storage MASTER",
+			"color": "#007BFF"
 		},
 		"podType": "StateFull",
 		"cpu": "2",
@@ -679,11 +722,12 @@ var staticRTS = [{
 	"rts":[{
 		"id": "1",
 		"tag":{
-			"id": "4",
+			"id": "ELS",
 			"parity": "odd",
 			"min": "1",
 			"max": "1",
-			"name": "Elastic Search"
+			"name": "Elastic Search",
+			"color": "#28A745"
 		},
 		"podType": "StateFull",
 		"cpu": "2",
@@ -693,11 +737,12 @@ var staticRTS = [{
 	},{
 		"id": "2",
 		"tag":{
-			"id": "7",
+			"id": "MIS",
 			"parity": "odd",
 			"min": "1",
 			"max": "3",
-			"name": "Micro Service"
+			"name": "Micro Service",
+			"color": "#004896"
 		},
 		"podType": "StateLess",
 		"cpu": "2",
@@ -711,11 +756,12 @@ var staticRTS = [{
 	"rts":[{
 		"id": "1",
 		"tag":{
-			"id": "4",
+			"id": "ELS",
 			"parity": "odd",
 			"min": "1",
 			"max": "1",
-			"name": "Elastic Search"
+			"name": "Elastic Search",
+			"color": "#28A745"
 		},
 		"podType": "StateFull",
 		"cpu": "2",
@@ -725,11 +771,12 @@ var staticRTS = [{
 	},{
 		"id": "2",
 		"tag":{
-			"id": "5",
+			"id": "HMN",
 			"parity": "odd",
 			"min": "1",
 			"max": "3",
-			"name": "HDFS Master Node"
+			"name": "HDFS Master Node",
+			"color": "#DC3545"
 		},
 		"podType": "StateLess",
 		"cpu": "2",
@@ -739,11 +786,12 @@ var staticRTS = [{
 	},{
 		"id": "3",
 		"tag":{
-			"id": "8",
+			"id": "JEN",
 			"parity": "even",
 			"min": "1",
 			"max": "3",
-			"name": "JENKINS"
+			"name": "JENKINS",
+			"color": "#553B7E"
 		},
 		"podType": "StateFull",
 		"cpu": "2",
@@ -753,11 +801,12 @@ var staticRTS = [{
 	},{
 		"id": "4",
 		"tag":{
-			"id": "6",
+			"id": "HDN",
 			"parity": "none",
 			"min": "2",
 			"max": "3",
-			"name": "HDFS Data Node"
+			"name": "HDFS Data Node",
+			"color": "#A8AF35"
 		},
 		"podType": "StateFull",
 		"cpu": "2",
@@ -771,11 +820,12 @@ var staticRTS = [{
 	"rts":[{
 		"id": "1",
 		"tag":{
-			"id": "6",
+			"id": "HDN",
 			"parity": "none",
 			"min": "2",
 			"max": "3",
-			"name": "HDFS Data Node"
+			"name": "HDFS Data Node",
+			"color": "#A8AF35"
 		},
 		"podType": "StateFull",
 		"cpu": "6",
@@ -789,11 +839,12 @@ var staticRTS = [{
 	"rts":[{
 		"id": "1",
 		"tag":{
-			"id": "2",
+			"id": "SSS",
 			"parity": "even",
 			"min": "1",
 			"max": "3",
-			"name": "SQL Storage SLAVE"
+			"name": "SQL Storage SLAVE",
+			"color": "#8F4AFF"
 		},
 		"podType": "StateFull",
 		"cpu": "2",
@@ -803,11 +854,12 @@ var staticRTS = [{
 	},{
 		"id": "2",
 		"tag":{
-			"id": "3",
+			"id": "KAF",
 			"parity": "even",
 			"min": "2",
 			"max": "9",
-			"name": "KAFKA incl. Zoo Keeper"
+			"name": "KAFKA incl. Zoo Keeper",
+			"color": "#6C757D"
 		},
 		"podType": "StateLess",
 		"cpu": "2",
@@ -818,11 +870,12 @@ var staticRTS = [{
 		"id": "3",
 		"name": "SQL MASTER",
 		"tag":{
-			"id": "1",
+			"id": "SSM",
 			"parity": "odd",
 			"min": "1",
 			"max": "3",
-			"name": "SQL Storage MASTER"
+			"name": "SQL Storage MASTER",
+			"color": "#007BFF"
 		},
 		"podType": "StateFull",
 		"cpu": "2",
@@ -836,11 +889,12 @@ var staticRTS = [{
 	"rts":[{
 		"id": "1",
 		"tag":{
-			"id": "4",
+			"id": "ELS",
 			"parity": "odd",
 			"min": "1",
 			"max": "1",
-			"name": "Elastic Search"
+			"name": "Elastic Search",
+			"color": "#28A745"
 		},
 		"podType": "StateFull",
 		"cpu": "2",
@@ -850,11 +904,12 @@ var staticRTS = [{
 	},{
 		"id": "2",
 		"tag":{
-			"id": "7",
+			"id": "MIS",
 			"parity": "odd",
 			"min": "1",
 			"max": "3",
-			"name": "Micro Service"
+			"name": "Micro Service",
+			"color": "#004896"
 		},
 		"podType": "StateLess",
 		"cpu": "2",
@@ -868,11 +923,12 @@ var staticRTS = [{
 	"rts":[{
 		"id": "1",
 		"tag":{
-			"id": "4",
+			"id": "ELS",
 			"parity": "odd",
 			"min": "1",
 			"max": "1",
-			"name": "Elastic Search"
+			"name": "Elastic Search",
+			"color": "#28A745"
 		},
 		"podType": "StateFull",
 		"cpu": "2",
@@ -882,11 +938,12 @@ var staticRTS = [{
 	},{
 		"id": "2",
 		"tag":{
-			"id": "5",
+			"id": "HMN",
 			"parity": "odd",
 			"min": "1",
 			"max": "3",
-			"name": "HDFS Master Node"
+			"name": "HDFS Master Node",
+			"color": "#DC3545"
 		},
 		"podType": "StateLess",
 		"cpu": "2",
@@ -896,11 +953,12 @@ var staticRTS = [{
 	},{
 		"id": "3",
 		"tag":{
-			"id": "8",
+			"id": "JEN",
 			"parity": "even",
 			"min": "1",
 			"max": "3",
-			"name": "JENKINS"
+			"name": "JENKINS",
+			"color": "#553B7E"
 		},
 		"podType": "StateFull",
 		"cpu": "2",
@@ -910,11 +968,12 @@ var staticRTS = [{
 	},{
 		"id": "4",
 		"tag":{
-			"id": "6",
+			"id": "HDN",
 			"parity": "none",
 			"min": "2",
 			"max": "3",
-			"name": "HDFS Data Node"
+			"name": "HDFS Data Node",
+			"color": "#A8AF35"
 		},
 		"podType": "StateFull",
 		"cpu": "2",
@@ -928,11 +987,12 @@ var staticRTS = [{
 	"rts":[{
 		"id": "1",
 		"tag":{
-			"id": "6",
+			"id": "HDN",
 			"parity": "none",
 			"min": "2",
 			"max": "3",
-			"name": "HDFS Data Node"
+			"name": "HDFS Data Node",
+			"color": "#A8AF35"
 		},
 		"podType": "StateFull",
 		"cpu": "6",
@@ -946,11 +1006,12 @@ var staticRTS = [{
 	"rts":[{
 		"id": "1",
 		"tag":{
-			"id": "2",
+			"id": "SSS",
 			"parity": "even",
 			"min": "1",
 			"max": "3",
-			"name": "SQL Storage SLAVE"
+			"name": "SQL Storage SLAVE",
+			"color": "#8F4AFF"
 		},
 		"podType": "StateFull",
 		"cpu": "2",
@@ -960,11 +1021,12 @@ var staticRTS = [{
 	},{
 		"id": "2",
 		"tag":{
-			"id": "3",
+			"id": "KAF",
 			"parity": "even",
 			"min": "2",
 			"max": "9",
-			"name": "KAFKA incl. Zoo Keeper"
+			"name": "KAFKA incl. Zoo Keeper",
+			"color": "#6C757D"
 		},
 		"podType": "StateLess",
 		"cpu": "2",
@@ -975,11 +1037,12 @@ var staticRTS = [{
 		"id": "3",
 		"name": "SQL MASTER",
 		"tag":{
-			"id": "1",
+			"id": "SSM",
 			"parity": "odd",
 			"min": "1",
 			"max": "3",
-			"name": "SQL Storage MASTER"
+			"name": "SQL Storage MASTER",
+			"color": "#007BFF"
 		},
 		"podType": "StateFull",
 		"cpu": "2",
@@ -993,11 +1056,12 @@ var staticRTS = [{
 	"rts":[{
 		"id": "1",
 		"tag":{
-			"id": "4",
+			"id": "ELS",
 			"parity": "odd",
 			"min": "1",
 			"max": "1",
-			"name": "Elastic Search"
+			"name": "Elastic Search",
+			"color": "#28A745"
 		},
 		"podType": "StateFull",
 		"cpu": "2",
@@ -1007,11 +1071,12 @@ var staticRTS = [{
 	},{
 		"id": "2",
 		"tag":{
-			"id": "7",
+			"id": "MIS",
 			"parity": "odd",
 			"min": "1",
 			"max": "3",
-			"name": "Micro Service"
+			"name": "Micro Service",
+			"color": "#004896"
 		},
 		"podType": "StateLess",
 		"cpu": "2",
@@ -1025,11 +1090,12 @@ var staticRTS = [{
 	"rts":[{
 		"id": "1",
 		"tag":{
-			"id": "4",
+			"id": "ELS",
 			"parity": "odd",
 			"min": "1",
 			"max": "1",
-			"name": "Elastic Search"
+			"name": "Elastic Search",
+			"color": "#28A745"
 		},
 		"podType": "StateFull",
 		"cpu": "2",
@@ -1039,11 +1105,12 @@ var staticRTS = [{
 	},{
 		"id": "2",
 		"tag":{
-			"id": "5",
+			"id": "HMN",
 			"parity": "odd",
 			"min": "1",
 			"max": "3",
-			"name": "HDFS Master Node"
+			"name": "HDFS Master Node",
+			"color": "#DC3545"
 		},
 		"podType": "StateLess",
 		"cpu": "2",
@@ -1053,11 +1120,12 @@ var staticRTS = [{
 	},{
 		"id": "3",
 		"tag":{
-			"id": "8",
+			"id": "JEN",
 			"parity": "even",
 			"min": "1",
 			"max": "3",
-			"name": "JENKINS"
+			"name": "JENKINS",
+			"color": "#553B7E"
 		},
 		"podType": "StateFull",
 		"cpu": "2",
@@ -1067,11 +1135,12 @@ var staticRTS = [{
 	},{
 		"id": "4",
 		"tag":{
-			"id": "6",
+			"id": "HDN",
 			"parity": "none",
 			"min": "2",
 			"max": "3",
-			"name": "HDFS Data Node"
+			"name": "HDFS Data Node",
+			"color": "#A8AF35"
 		},
 		"podType": "StateFull",
 		"cpu": "2",
@@ -1085,11 +1154,12 @@ var staticRTS = [{
 	"rts":[{
 		"id": "1",
 		"tag":{
-			"id": "6",
+			"id": "HDN",
 			"parity": "none",
 			"min": "2",
 			"max": "3",
-			"name": "HDFS Data Node"
+			"name": "HDFS Data Node",
+			"color": "#A8AF35"
 		},
 		"podType": "StateFull",
 		"cpu": "6",
@@ -1103,11 +1173,12 @@ var staticRTS = [{
 	"rts":[{
 		"id": "1",
 		"tag":{
-			"id": "2",
+			"id": "SSS",
 			"parity": "even",
 			"min": "1",
 			"max": "3",
-			"name": "SQL Storage SLAVE"
+			"name": "SQL Storage SLAVE",
+			"color": "#8F4AFF"
 		},
 		"podType": "StateFull",
 		"cpu": "2",
@@ -1117,11 +1188,12 @@ var staticRTS = [{
 	},{
 		"id": "2",
 		"tag":{
-			"id": "3",
+			"id": "KAF",
 			"parity": "even",
 			"min": "2",
 			"max": "9",
-			"name": "KAFKA incl. Zoo Keeper"
+			"name": "KAFKA incl. Zoo Keeper",
+			"color": "#6C757D"
 		},
 		"podType": "StateLess",
 		"cpu": "2",
@@ -1132,11 +1204,12 @@ var staticRTS = [{
 		"id": "3",
 		"name": "SQL MASTER",
 		"tag":{
-			"id": "1",
+			"id": "SSM",
 			"parity": "odd",
 			"min": "1",
 			"max": "3",
-			"name": "SQL Storage MASTER"
+			"name": "SQL Storage MASTER",
+			"color": "#007BFF"
 		},
 		"podType": "StateFull",
 		"cpu": "2",
@@ -1150,11 +1223,12 @@ var staticRTS = [{
 	"rts":[{
 		"id": "1",
 		"tag":{
-			"id": "4",
+			"id": "ELS",
 			"parity": "odd",
 			"min": "1",
 			"max": "1",
-			"name": "Elastic Search"
+			"name": "Elastic Search",
+			"color": "#28A745"
 		},
 		"podType": "StateFull",
 		"cpu": "2",
@@ -1164,11 +1238,12 @@ var staticRTS = [{
 	},{
 		"id": "2",
 		"tag":{
-			"id": "7",
+			"id": "MIS",
 			"parity": "odd",
 			"min": "1",
 			"max": "3",
-			"name": "Micro Service"
+			"name": "Micro Service",
+			"color": "#004896"
 		},
 		"podType": "StateLess",
 		"cpu": "2",
@@ -1182,11 +1257,12 @@ var staticRTS = [{
 	"rts":[{
 		"id": "1",
 		"tag":{
-			"id": "4",
+			"id": "ELS",
 			"parity": "odd",
 			"min": "1",
 			"max": "1",
-			"name": "Elastic Search"
+			"name": "Elastic Search",
+			"color": "#28A745"
 		},
 		"podType": "StateFull",
 		"cpu": "2",
@@ -1196,11 +1272,12 @@ var staticRTS = [{
 	},{
 		"id": "2",
 		"tag":{
-			"id": "5",
+			"id": "HMN",
 			"parity": "odd",
 			"min": "1",
 			"max": "3",
-			"name": "HDFS Master Node"
+			"name": "HDFS Master Node",
+			"color": "#DC3545"
 		},
 		"podType": "StateLess",
 		"cpu": "2",
@@ -1210,11 +1287,12 @@ var staticRTS = [{
 	},{
 		"id": "3",
 		"tag":{
-			"id": "8",
+			"id": "JEN",
 			"parity": "even",
 			"min": "1",
 			"max": "3",
-			"name": "JENKINS"
+			"name": "JENKINS",
+			"color": "#553B7E"
 		},
 		"podType": "StateFull",
 		"cpu": "2",
@@ -1224,11 +1302,12 @@ var staticRTS = [{
 	},{
 		"id": "4",
 		"tag":{
-			"id": "6",
+			"id": "HDN",
 			"parity": "none",
 			"min": "2",
 			"max": "3",
-			"name": "HDFS Data Node"
+			"name": "HDFS Data Node",
+			"color": "#A8AF35"
 		},
 		"podType": "StateFull",
 		"cpu": "2",
@@ -1242,11 +1321,12 @@ var staticRTS = [{
 	"rts":[{
 		"id": "1",
 		"tag":{
-			"id": "6",
+			"id": "HDN",
 			"parity": "none",
 			"min": "2",
 			"max": "3",
-			"name": "HDFS Data Node"
+			"name": "HDFS Data Node",
+			"color": "#A8AF35"
 		},
 		"podType": "StateFull",
 		"cpu": "6",

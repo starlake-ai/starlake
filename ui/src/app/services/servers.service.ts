@@ -21,4 +21,8 @@ export class ServersService extends AbstractServerService {
 	addResourceType(id: string, params: any) {
 		return this.post(`servers/${id}/resourceType`, params);
 	}
+
+	deleteResourceType(id: string, resourceTypeId: string) {
+		return this.delete(`servers/${id}/resourceType/${resourceTypeId}`);
+	}
 }

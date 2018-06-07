@@ -1,67 +1,78 @@
 [{
-	"id": "1",
+	"id": "SSM",
 	"parity": "odd",
 	"min": "1",
 	"max": "3",
-	"name": "SQL Storage MASTER"
+	"name": "SQL Storage MASTER",
+	"color": "#007BFF"
 },{
-	"id": "2",
+	"id": "SSS",
 	"parity": "even",
 	"min": "1",
 	"max": "3",
-	"name": "SQL Storage SLAVE"
+	"name": "SQL Storage SLAVE",
+	"color": "#8F4AFF"
 },{
-	"id": "3",
+	"id": "KAF",
 	"parity": "even",
 	"min": "2",
 	"max": "9",
-	"name": "KAFKA incl. Zoo Keeper"
+	"name": "KAFKA incl. Zoo Keeper",
+	"color": "#6C757D"
 },{
-	"id": "4",
+	"id": "ELS",
 	"parity": "odd",
 	"min": "1",
 	"max": "1",
-	"name": "Elastic Search"
+	"name": "Elastic Search",
+	"color": "#28A745"
 },{
-	"id": "5",
+	"id": "HMN",
 	"parity": "odd",
 	"min": "1",
 	"max": "3",
-	"name": "HDFS Master Node"
+	"name": "HDFS Master Node",
+	"color": "#DC3545"
 },{
-	"id": "6",
+	"id": "HDN",
 	"parity": "none",
 	"min": "2",
 	"max": "3",
-	"name": "HDFS Data Node"
+	"name": "HDFS Data Node",
+	"color": "#A8AF35"
 },{
-	"id": "7",
+	"id": "MIS",
 	"parity": "odd",
 	"min": "1",
 	"max": "3",
-	"name": "Micro Service"
+	"name": "Micro Service",
+	"color": "#004896"
 },{
-	"id": "8",
+	"id": "JEN",
 	"parity": "even",
 	"min": "1",
 	"max": "3",
-	"name": "JENKINS"
+	"name": "JENKINS",
+	"color": "#553B7E"
 },{
-	"id": "9",
+	"id": "DOK",
 	"parity": "even",
 	"min": "1",
 	"max": "3",
-	"name": "DOKER Rep."
+	"name": "DOKER Rep.",
+	"color": "#343A40"
 },{
-	"id": "10",
+	"id": "ART",
 	"parity": "even",
 	"min": "1",
 	"max": "3",
-	"name": "Artifactory"
+	"name": "Artifactory",
+	"color": "#20C997"
 },{
-	"id": "11",
+	"id": "PUS",
 	"parity": "none",
 	"min": "1",
 	"max": "3",
-	"name": "Public Slave"
+	"name": "Public Slave",
+	"color": "#84000D"
 }]

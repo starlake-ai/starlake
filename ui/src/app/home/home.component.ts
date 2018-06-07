@@ -22,10 +22,14 @@ export class HomeComponent extends CommonComponent implements OnInit, OnDestroy,
 
 	private serversSubscription: any = null;
 	public servers: Array<ServerDto> = [];
+	public filteredServers: Array<ServerDto> = [];
 
 	public draggedItem: TagDto;
 	public selectedResourceType: ResourceTypeDto;
 	public selectedServerId: string;
+
+	public filterServerName:string = "";
+	public showFilterServer:boolean = false;
 
 	public showAddServer:boolean = false;
 	public newServerForm: FormGroup;
@@ -74,13 +78,26 @@ export class HomeComponent extends CommonComponent implements OnInit, OnDestroy,
 		this.serversSubscription = this.serversService.getAllServers().subscribe(
 			result => {
 				this.servers = result;
+				this.filteredServers = result;
 				this.hideMask();
 			},
 			err => {
-				this.jsonService.getStaticServers().then( RTS => this.servers = RTS );
+				this.jsonService.getStaticServers().then( RTS => { this.servers = RTS; this.filteredServers = RTS } );
 				this.hideMask();
 			}
 		);
+	}
+
+	public updateServersList(e){
+		if(e.keyCode == 27)
+			this.removeServersFilter();
+		this.filteredServers = this.servers.filter(s => s.name.toLowerCase().trim().indexOf(this.filterServerName.toLowerCase().trim()) >= 0);
+	}
+
+	public removeServersFilter(){
+		this.filteredServers = this.servers;
+		this.filterServerName = "";
+		this.showFilterServer = false;
 	}
 // Server
 	private initEmptyNewServerForm(){
@@ -124,34 +141,34 @@ export class HomeComponent extends CommonComponent implements OnInit, OnDestroy,
 	public drop(event) {
 		if(this.draggedItem) {
 			let serverId = $(event.target).data("server-id");
-			// let params:any = {
-				// resourceTypeId: this.draggedItem.id,
-				// podType: "STATELESS",
-				// cpu: "0",
-				// memory: "0",
-				// count: "0",
-				// dataLocation: ""
-			// }
-			// this.showMask();
-			// this.serversService.addResourceType(serverId, params).subscribe(
-				// data => {
-					// this.hideMask();
-				// },
-				// err => {
-					// this.servers = this.jsonService.addResourceType(serverId, params);
-					// this.hideMask();
-				// }
-			// );
-			let rt  = {
+			let params:any = {
+				resourceTypeId: this.draggedItem.id,
 				podType: "STATELESS",
-				cpu: "",
-				memory: "",
-				count: "",
-				dataLocation: "",
-				tag: this.draggedItem
+				cpu: "0",
+				memory: "0",
+				count: "0",
+				dataLocation: ""
 			}
-			this.openResourceType(rt, serverId);
-			this.draggedItem = null;
+			this.showMask();
+			this.serversService.addResourceType(serverId, params).subscribe(
+				data => {
+					this.hideMask();
+				},
+				err => {
+					this.servers = this.jsonService.addResourceType(serverId, params);
+					this.hideMask();
+				}
+			);
+			// let rt  = {
+				// podType: "STATELESS",
+				// cpu: "",
+				// memory: "",
+				// count: "",
+				// dataLocation: "",
+				// tag: this.draggedItem
+			// }
+			// this.openResourceType(rt, serverId);
+			// this.draggedItem = null;
 		}
 	}
 
@@ -163,6 +180,19 @@ export class HomeComponent extends CommonComponent implements OnInit, OnDestroy,
 		this.selectedResourceType = resourceType;
 		this.selectedServerId = serverId;
 		this.showResourceTypeDialog = true;
+	}
+
+	public deleteResourceType(resourceTypeId, serverId){
+		this.showMask();
+		this.serversService.deleteResourceType(serverId, resourceTypeId).subscribe(
+			data => {
+				this.hideMask();
+			},
+			err => {
+				this.servers = this.jsonService.deleteResourceType(serverId, resourceTypeId);
+				this.hideMask();
+			}
+		);
 	}
 
 	public closeResourceType(){
