@@ -1,7 +1,16 @@
-<p-dialog header="Resource Type" [(visible)]="visible" [modal]="true" [responsive]="true" [width]="800" [resizable]="false" [focusOnShow]="false" [contentStyle]="{'max-height':'545px'}" (onHide)="closeRsourceTypeDialog()">
+<p-dialog header="Resource Type" [(visible)]="visible" [modal]="true" [responsive]="true" [width]="800" [resizable]="false" [focusOnShow]="false" [contentStyle]="{'height':'600px'}" (onHide)="closeRsourceTypeDialog()">
 	<p-tabView>
 		<p-tabPanel header="Servers">
-			<p-table styleClass="listServers" [autoLayout]="true" [value]="sortedServers" [(selection)]="selectedServers" dataKey="id">
+			<p-table #dt styleClass="detialsListServers" [autoLayout]="true" [value]="sortedServers" [(selection)]="selectedServers" dataKey="id">
+				<ng-template pTemplate="caption">
+					<div class="table-caption">
+						<div class="filter">
+							<i class="fa fa-search"></i>
+							<input type="text" class="filter-input" placeholder="Filter by name" (input)="dt.filter($event.target.value, 'name', 'contains')"/>
+						</div>
+						List Of Servers
+					</div>
+				</ng-template>
 				<ng-template pTemplate="header">
 					<tr>
 						<th class="check text-center"><p-tableHeaderCheckbox></p-tableHeaderCheckbox></th>

@@ -10,12 +10,80 @@
 	margin-left: 5px;
 }
 
-.form-control.filterServer{
-	display: inline-block;
-	width: auto;
+/* Filter Caption */
+.table-caption{
+	position: relative;
+	height: 27px;
 }
 
-th .pointer{
+.table-caption .filter{
+	position: absolute;
+	top: 0px;
+	left: 0px;
+	height: 100%;
+}
+
+.table-caption .filter .filter-input{
+	min-width: 300px;
+    padding: 3px 5px 3px 25px;
+    font-size: 14px;
+    line-height: 14px;
+    color: #495057;
+    background-color: #FFFFFF;
+    background-clip: padding-box;
+    border: 1px solid #CED4DA;
+    border-radius: 5px;
+    transition: border-color .15s ease-in-out,box-shadow .15s ease-in-out;
+}
+
+.table-caption .filter .fa-search{
+	position: absolute;
+	width: 14px;
+	height: 14px;
+	top: 6px;
+	left: 5px;
+	font-size: 14px;
+}
+
+/* .table-caption .add{ */
+	/* position: absolute; */
+	/* top: -2px; */
+	/* right: 0px; */
+	/* height: 100%; */
+/* } */
+/* END Filter Caption */
+
+/* Filter Header */
+th.form-container{
+	position: relative;
+	min-width: 200px;
+	width: 25%;
+	height: 50px;
+}
+
+th.form-container .form{
+	position: relative;
+	padding-right: 80px;
+}
+
+th.form-container .form .form-control{
+	padding-right: 30px;
+}
+
+th.form-container .form .clear{
+	position: absolute;
+    right: 90px;
+    top: 11px;
+}
+
+th.form-container .icons{
+	position: absolute;
+	right: 5px;
+	top: 8px;
+}
+/* END Filter Header */
+
+.pointer{
 	cursor: pointer;
 }
 
@@ -36,7 +104,7 @@ td.highlight{
 	padding-right: 30px;
 	border-radius: 10px;
 	color: #FFFFFF;
-	}
+}
 
 .rtListContainer i.fa-times{
 	position: absolute;

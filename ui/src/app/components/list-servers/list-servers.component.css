@@ -11,6 +11,41 @@
 	background-color: #FAFAFB !important;
 }
 
-.check{
+.listServers .check{
 	width: 50px;
+}
+
+/* Filter Caption */
+.listServers .table-caption{
+	position: relative;
+	height: 27px;
+}
+
+.listServers .table-caption .filter{
+	position: absolute;
+	top: 0px;
+	left: 0px;
+	height: 100%;
+}
+
+.listServers .table-caption .filter .filter-input{
+	min-width: 200px;
+    padding: 3px 5px 3px 25px;
+    font-size: 14px;
+    line-height: 14px;
+    color: #495057;
+    background-color: #FFFFFF;
+    background-clip: padding-box;
+    border: 1px solid #CED4DA;
+    border-radius: 5px;
+    transition: border-color .15s ease-in-out,box-shadow .15s ease-in-out;
+}
+
+.listServers .table-caption .filter .fa-search{
+	position: absolute;
+	width: 14px;
+	height: 14px;
+	top: 6px;
+	left: 5px;
+	font-size: 14px;
 }

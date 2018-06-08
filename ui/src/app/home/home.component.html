@@ -10,17 +10,33 @@
 		</div>
 		<div class="row my-4">
 			<div class="col-lg-12">
-				<p-table [autoLayout]="true" [value]="filteredServers">
+				<!-- <p-table #dt [autoLayout]="true" [value]="filteredServers"> -->
+				<p-table #dt [autoLayout]="true" [value]="servers">
+					<ng-template pTemplate="caption">
+						<div class="table-caption">
+							<div class="filter">
+								<i class="fa fa-search"></i>
+								<input type="text" class="filter-input" placeholder="Filter by name" (input)="dt.filter($event.target.value, 'name', 'contains')"/>
+							</div>
+							List Of Servers
+						</div>
+					</ng-template>
 					<ng-template pTemplate="header">
 						<tr>
-							<th style="min-width: 200px; width: 25%;">
-								<span *ngIf="!showFilterServer">Server Name</span>
-								<input type="text" *ngIf="showFilterServer" [(ngModel)]="filterServerName" class="form-control filterServer" (keyup)="updateServersList($event)">
-								<span class="pull-right">
-									<i class="pointer fa fa-search fa-2x mr-2" *ngIf="!showFilterServer" (click)="showFilterServer = true"></i>
-									<i class="pointer fa fa-times fa-2x mr-2" *ngIf="showFilterServer" (click)="removeServersFilter()"></i>
-									<i class="pointer fa fa-plus-circle fa-2x" (click)="showAddServer = true"></i>
-								</span>
+							<!-- <th class="form-container"> -->
+								<!-- <div class="form"> -->
+									<!-- <span *ngIf="!showFilterServer">Server Name</span> -->
+									<!-- <input type="text" *ngIf="showFilterServer" id="filter" [(ngModel)]="filterServerName" class="form-control" (keyup)="updateServersList($event)" placeholder="Filter by name"> -->
+									<!-- <i class="pointer fa fa-times text-danger clear" *ngIf="showFilterServer" (click)="clearServersFilter()"></i> -->
+								<!-- </div> -->
+								<!-- <div class="icons"> -->
+									<!-- <i class="pointer fa fa-search fa-2x mr-2" *ngIf="!showFilterServer" (click)="showServersFilter()"></i> -->
+									<!-- <i class="pointer fa fa-times fa-2x mr-2" *ngIf="showFilterServer" (click)="closeServersFilter()"></i> -->
+									<!-- <i class="pointer fa fa-plus-circle fa-2x" (click)="showAddServer = true"></i> -->
+								<!-- </div> -->
+							<!-- </th> -->
+							<th>
+								Server Name <i class="pull-right pointer fa fa-plus-circle fa-2x" (click)="showAddServer = true"></i>
 							</th>
 							<th>Resource Types</th>
 						</tr>

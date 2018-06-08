@@ -22,14 +22,14 @@ export class HomeComponent extends CommonComponent implements OnInit, OnDestroy,
 
 	private serversSubscription: any = null;
 	public servers: Array<ServerDto> = [];
-	public filteredServers: Array<ServerDto> = [];
 
 	public draggedItem: TagDto;
 	public selectedResourceType: ResourceTypeDto;
 	public selectedServerId: string;
 
-	public filterServerName:string = "";
-	public showFilterServer:boolean = false;
+	// public filteredServers: Array<ServerDto> = [];
+	// public filterServerName:string = "";
+	// public showFilterServer:boolean = false;
 
 	public showAddServer:boolean = false;
 	public newServerForm: FormGroup;
@@ -78,27 +78,38 @@ export class HomeComponent extends CommonComponent implements OnInit, OnDestroy,
 		this.serversSubscription = this.serversService.getAllServers().subscribe(
 			result => {
 				this.servers = result;
-				this.filteredServers = result;
+				// this.filteredServers = result;
 				this.hideMask();
 			},
 			err => {
-				this.jsonService.getStaticServers().then( RTS => { this.servers = RTS; this.filteredServers = RTS } );
+				// this.jsonService.getStaticServers().then( RTS => { this.servers = RTS; this.filteredServers = RTS } );
+				this.jsonService.getStaticServers().then( RTS => this.servers = RTS );
 				this.hideMask();
 			}
 		);
 	}
 
-	public updateServersList(e){
-		if(e.keyCode == 27)
-			this.removeServersFilter();
-		this.filteredServers = this.servers.filter(s => s.name.toLowerCase().trim().indexOf(this.filterServerName.toLowerCase().trim()) >= 0);
-	}
+	// public updateServersList(e){
+		// if(e.keyCode == 27)
+			// this.closeServersFilter();
+		// this.filteredServers = this.servers.filter(s => s.name.toLowerCase().trim().indexOf(this.filterServerName.toLowerCase().trim()) >= 0);
+	// }
 
-	public removeServersFilter(){
-		this.filteredServers = this.servers;
-		this.filterServerName = "";
-		this.showFilterServer = false;
-	}
+	// public showServersFilter(){
+		// this.showFilterServer = true;
+		// setTimeout(() => {$("#filter").focus();}, 10);
+	// }
+
+	// public clearServersFilter(){
+		// this.filteredServers = this.servers;
+		// this.filterServerName = "";
+		// $("#filter").focus();
+	// }
+
+	// public closeServersFilter(){
+		// this.clearServersFilter();
+		// this.showFilterServer = false;
+	// }
 // Server
 	private initEmptyNewServerForm(){
 		this.newServerNameCtl = new FormControl("", Validators.required);
