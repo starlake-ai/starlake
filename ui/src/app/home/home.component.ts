@@ -27,13 +27,12 @@ export class HomeComponent extends CommonComponent implements OnInit, OnDestroy,
 	public selectedResourceType: ResourceTypeDto;
 	public selectedServerId: string;
 
-	// public filteredServers: Array<ServerDto> = [];
-	// public filterServerName:string = "";
-	// public showFilterServer:boolean = false;
-
 	public showAddServer:boolean = false;
 	public newServerForm: FormGroup;
 	public newServerNameCtl: FormControl;
+	
+	public errorMessage:string = "";
+	public showErrorDialog:boolean = false;
 
 	public showResourceTypeDialog:boolean = false;
 
@@ -78,38 +77,15 @@ export class HomeComponent extends CommonComponent implements OnInit, OnDestroy,
 		this.serversSubscription = this.serversService.getAllServers().subscribe(
 			result => {
 				this.servers = result;
-				// this.filteredServers = result;
 				this.hideMask();
 			},
 			err => {
-				// this.jsonService.getStaticServers().then( RTS => { this.servers = RTS; this.filteredServers = RTS } );
 				this.jsonService.getStaticServers().then( RTS => this.servers = RTS );
 				this.hideMask();
 			}
 		);
 	}
 
-	// public updateServersList(e){
-		// if(e.keyCode == 27)
-			// this.closeServersFilter();
-		// this.filteredServers = this.servers.filter(s => s.name.toLowerCase().trim().indexOf(this.filterServerName.toLowerCase().trim()) >= 0);
-	// }
-
-	// public showServersFilter(){
-		// this.showFilterServer = true;
-		// setTimeout(() => {$("#filter").focus();}, 10);
-	// }
-
-	// public clearServersFilter(){
-		// this.filteredServers = this.servers;
-		// this.filterServerName = "";
-		// $("#filter").focus();
-	// }
-
-	// public closeServersFilter(){
-		// this.clearServersFilter();
-		// this.showFilterServer = false;
-	// }
 // Server
 	private initEmptyNewServerForm(){
 		this.newServerNameCtl = new FormControl("", Validators.required);
@@ -145,13 +121,47 @@ export class HomeComponent extends CommonComponent implements OnInit, OnDestroy,
 	}
 
 // Resource Type
-	public dragStart(event,tag: TagDto) {
+	public dragStart(event, tag: TagDto) {
 		this.draggedItem = tag;
+	}
+
+	public dragEnd(event) {
+		this.draggedItem = null;
+		$("td.highlight").removeClass("highlight");
+		$("td.disabled").removeClass("disabled");
+	}
+
+	public dragEnter(event) {
+		if($(event.target).prop("tagName").toLowerCase() != "td")
+			return false;
+		$("td.highlight").removeClass("highlight");
+		$("td.disabled").removeClass("disabled");
+		let serverId = $(event.target).data("server-id");
+		let server = this.servers.find(s => s.id == serverId);
+		if(this.draggedItem){
+			if(server.rts.filter(r => r.tag.id == this.draggedItem.id).length == 0){
+				$(event.target).closest("td").addClass("highlight");
+			}
+			else{
+				$(event.target).closest("td").addClass("disabled");
+			}
+		}
+	}
+
+	public dragLeave(event) {
 	}
 
 	public drop(event) {
 		if(this.draggedItem) {
-			let serverId = $(event.target).data("server-id");
+			$("td.highlight").removeClass("highlight");
+			$("td.disabled").removeClass("disabled");
+			let serverId = $(event.target).closest("td").data("server-id");
+			let server = this.servers.find(s => s.id == serverId);
+			if(server.rts.filter(r => r.tag.id == this.draggedItem.id).length > 0){
+				this.errorMessage = "Tag " + this.draggedItem.id + " already exist in server " + server.name;
+				this.showErrorDialog = true;
+				return false;
+			}
 			let params:any = {
 				resourceTypeId: this.draggedItem.id,
 				podType: "STATELESS",
@@ -183,8 +193,20 @@ export class HomeComponent extends CommonComponent implements OnInit, OnDestroy,
 		}
 	}
 
-	public dragEnd(event) {
-		this.draggedItem = null;
+	public canDropItem(server){
+		if(this.draggedItem){
+			if(server.rts.filter(r => r.tag.id == this.draggedItem.id).length == 0)
+				return true;
+		}
+		return false;
+	}
+
+	public canNotDropItem(server){
+		if(this.draggedItem){
+			if(server.rts.filter(r => r.tag.id == this.draggedItem.id).length > 0)
+				return true;
+		}
+		return false;
 	}
 
 	public openResourceType(resourceType, serverId){
@@ -231,5 +253,11 @@ export class HomeComponent extends CommonComponent implements OnInit, OnDestroy,
 		// TODO CALL SERVICE
 		console.log(request);
 		this.closeListServers();
+	}
+
+// Error Dialogue
+	public closeErrorDialog(){
+		this.showErrorDialog = false;
+		this.errorMessage = "";
 	}
 }

@@ -1,3 +1,15 @@
+.home-page{
+	padding-top: 80px;
+}
+
+.rtElementsContainer{
+	position: fixed;
+	top: 60px;
+	width: 100%;
+	background-color: #FFFFFF;
+	z-index: 1500;
+}
+
 .rtElement{
 	display: inline-block;
 	border-radius: 10px;
@@ -45,43 +57,7 @@
 	font-size: 14px;
 }
 
-/* .table-caption .add{ */
-	/* position: absolute; */
-	/* top: -2px; */
-	/* right: 0px; */
-	/* height: 100%; */
-/* } */
 /* END Filter Caption */
-
-/* Filter Header */
-th.form-container{
-	position: relative;
-	min-width: 200px;
-	width: 25%;
-	height: 50px;
-}
-
-th.form-container .form{
-	position: relative;
-	padding-right: 80px;
-}
-
-th.form-container .form .form-control{
-	padding-right: 30px;
-}
-
-th.form-container .form .clear{
-	position: absolute;
-    right: 90px;
-    top: 11px;
-}
-
-th.form-container .icons{
-	position: absolute;
-	right: 5px;
-	top: 8px;
-}
-/* END Filter Header */
 
 .pointer{
 	cursor: pointer;
@@ -93,6 +69,18 @@ td.empty{
 
 td.highlight{
 	background: rgba(40, 167, 69, 0.2) !important;
+}
+
+td.disabled{
+	background: rgba(255, 0, 0, 1) !important;
+	background: repeating-linear-gradient(
+					135deg,
+					transparent,
+					transparent 20px,
+					rgba(255, 0, 0, 0.6) 20px,
+					rgba(255, 0, 0, 0.6) 25px
+				) !important;
+
 }
 
 .rtListContainer{
