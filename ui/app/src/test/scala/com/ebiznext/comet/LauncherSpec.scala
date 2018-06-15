@@ -8,10 +8,9 @@ import org.scalatest.{Matchers, WordSpec}
 class LauncherSpec extends WordSpec with Matchers {
   "Ansible" should {
     "getNodes" in {
-      val (exit, out, err)= Launcher.runCommand("ansible agent,master -i /Users/hayssams/git/datalab-v2/datalab/platforms/demo/ovh_inventory.ini --list-hosts")
-      System.out.println(exit)
-      System.out.println(out)
-      System.out.println(err)
+      val path = getClass.getResource("/inventory.ini").getPath
+      val (exit, out, err)= Launcher.runCommand(s"ansible agent,master -i $path --list-hosts")
+      assert(exit == 0)
       new NodeService().getNodes().foreach(println)
       assert(true)
     }

@@ -8,6 +8,7 @@ import akka.http.scaladsl.server.directives.MethodDirectives.{get, post}
 import akka.http.scaladsl.server.directives.RouteDirectives.complete
 import akka.util.Timeout
 import com.ebiznext.comet.utils.JsonSupport
+import com.typesafe.config.ConfigFactory
 
 import scala.concurrent.duration._
 
@@ -16,15 +17,17 @@ trait CometRoutes extends JsonSupport {
 
   lazy val log = Logging(system, classOf[CometRoutes])
   implicit lazy val timeout = Timeout(5.seconds) // usually we'd obtain the timeout from the system's configuration
+  val webapp = ConfigFactory.load().getString("webapp.root")
+
   lazy val cometRoutes: Route =
-    pathPrefix("nodes") {
+    pathPrefix("/api/nodes") {
       pathEnd {
         get {
           complete("")
         }
       }
     } ~
-      pathPrefix("tags") {
+      pathPrefix("/api/tags") {
         //#users-get-delete
         pathEnd {
           get {
@@ -35,10 +38,18 @@ trait CometRoutes extends JsonSupport {
             }
         }
       } ~
-      pathEnd {
-        getFromResourceDirectory("webapp/index.html")
+      pathSingleSlash {
+        if (webapp.length > 0)
+          getFromFile(s"$webapp/index.html")
+        else
+          getFromResource("$webapp/index.html")
       } ~
-      pathPrefix("webapp") {
-        getFromResourceDirectory("webapp")
+      path(Remaining) { remaining: String =>
+        if (webapp.length > 0)
+          getFromFile(s"$webapp/$remaining")
+        else
+          getFromResource(s"webapp/$remaining")
+
+
       }
 }
