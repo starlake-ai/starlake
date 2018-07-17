@@ -14,6 +14,10 @@ class LauncherSpec extends WordSpec with Matchers {
       new NodeService().getNodes().foreach(println)
       assert(true)
     }
+    "getGroups" in {
+      val res = new NodeService().getGroups()
+      println(res)
+    }
     "BuildTagsIni" in {
       println(new TagService().buildTagIni(List(Tag("server1", List("SSS", "SSM")), Tag("server2", List("JKM", "JKS")))))
       assert(true)
