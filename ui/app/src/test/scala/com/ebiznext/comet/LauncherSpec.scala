@@ -1,15 +1,15 @@
 package com.ebiznext.comet
 
 import com.ebiznext.comet.model.CometModel.Tag
-import com.ebiznext.comet.services.{NodeService, TagService}
+import com.ebiznext.comet.services.{ NodeService, TagService }
 import com.ebiznext.comet.utils.Launcher
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.{ Matchers, WordSpec }
 
 class LauncherSpec extends WordSpec with Matchers {
   "Ansible" should {
     "getNodes" in {
       val path = getClass.getResource("/inventory.ini").getPath
-      val (exit, out, err)= Launcher.runCommand(s"ansible agent,master -i $path --list-hosts")
+      val (exit, out, err) = Launcher.runCommand(s"ansible agent,master -i $path --list-hosts")
       assert(exit == 0)
       new NodeService().getNodes().foreach(println)
       assert(true)

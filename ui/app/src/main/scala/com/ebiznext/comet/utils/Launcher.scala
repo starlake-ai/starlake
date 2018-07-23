@@ -1,5 +1,5 @@
 package com.ebiznext.comet.utils
-import java.io.{ByteArrayOutputStream, PrintWriter}
+import java.io.{ ByteArrayOutputStream, PrintWriter }
 
 import sys.process._
 
