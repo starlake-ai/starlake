@@ -1,6 +1,7 @@
 lazy val akkaHttpVersion = "10.0.11"
 lazy val akkaVersion = "2.5.11"
 lazy val rocksdbVersion = "5.7.3"
+lazy val json4sJackson = "3.5.4"
 
 lazy val root = (project in file(".")).
   settings(
@@ -14,7 +15,7 @@ lazy val root = (project in file(".")).
       "com.typesafe.akka" %% "akka-http-spray-json" % akkaHttpVersion,
       "com.typesafe.akka" %% "akka-http-xml" % akkaHttpVersion,
       "com.typesafe.akka" %% "akka-stream" % akkaVersion,
-      "org.json4s" %% "json4s-jackson" % "3.5.4",
+      "org.json4s" %% "json4s-jackson" % json4sJackson,
       "org.rocksdb" % "rocksdbjni" % rocksdbVersion,
       "com.typesafe.akka" %% "akka-http-testkit" % akkaHttpVersion % Test,
       "com.typesafe.akka" %% "akka-testkit" % akkaVersion % Test,
