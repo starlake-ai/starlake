@@ -11,4 +11,7 @@ class RocksDBConnection(config: RocksDBConfiguration) {
 
   RocksDB.loadLibrary()
 
+  def close() = {
+    db.close()
+  }
 }

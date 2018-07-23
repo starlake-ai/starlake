@@ -12,8 +12,10 @@ import org.scalatest.{ BeforeAndAfter, BeforeAndAfterAll, FlatSpec }
 class RocksDBConnectionSpec extends FlatSpec with BeforeAndAfter with BeforeAndAfterAll {
 
   lazy val tempDir = Files.createTempDirectory("comet-test").toFile
+  lazy val db = getConnection().db
 
   override def afterAll(): Unit = {
+    db.close()
     FileUtils.deleteDirectory(tempDir.getAbsoluteFile)
   }
 
@@ -23,7 +25,6 @@ class RocksDBConnectionSpec extends FlatSpec with BeforeAndAfter with BeforeAndA
   }
 
   "RocksDb" should "work" in {
-    val db = getConnection().db
     (1 to 10).foreach { i =>
       db.put(Array(i toByte), s"VALUE$i".toCharArray.map(_.toByte))
     }
