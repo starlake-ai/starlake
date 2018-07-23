@@ -5,7 +5,7 @@ import org.rocksdb.Options
 /**
   * Created by Mourad on 23/07/2018.
   */
-case class RocksDBConfiguration(path: String, createIfMissing: Boolean = false) {
+case class RocksDBConfiguration(path: String, createIfMissing: Boolean = true) {
 
   def toOptions: Options = {
     new Options().setCreateIfMissing(createIfMissing)
