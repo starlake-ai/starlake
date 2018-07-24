@@ -6,7 +6,7 @@ import org.rocksdb.{ RocksDB, WriteOptions }
 /**
  * Created by Mourad on 23/07/2018.
  */
-class RocksDBConnection(config: RocksDBConfiguration) {
+class RocksDBConnection(config: RocksDBConfig) {
   import SerDeUtils._
   lazy val db = RocksDB.open(config.toOptions, config.path)
   lazy val writeOptions = new WriteOptions().setDisableWAL(false).setSync(true)

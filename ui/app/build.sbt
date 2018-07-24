@@ -5,6 +5,12 @@ lazy val rocksdbVersion = "5.7.3"
 lazy val json4sJackson = "3.5.4"
 lazy val commonsIOVersion = "2.6"
 lazy val commonsLang3Version = "3.7"
+lazy val typesafeConfig = "1.3.3"
+lazy val configs = "0.4.4"
+lazy val scalaLogging = "3.9.0"
+lazy val logback = "1.2.3"
+lazy val log4s = "1.3.6"
+
 
 lazy val root = (project in file(".")).
   settings(
@@ -21,6 +27,11 @@ lazy val root = (project in file(".")).
       "org.json4s" %% "json4s-jackson" % json4sJackson,
       "org.rocksdb" % "rocksdbjni" % rocksdbVersion,
       "commons-io" % "commons-io" % commonsIOVersion,
+      "com.typesafe"      % "config"   % typesafeConfig,
+      "com.typesafe.scala-logging" %% "scala-logging"  % scalaLogging,
+      "ch.qos.logback"             % "logback-classic" % logback,
+      "org.log4s"                  %% "log4s"          % log4s,
+      "com.github.kxbmap" %% "configs" % configs,
       "org.apache.commons" % "commons-lang3" % commonsLang3Version,
       "com.typesafe.akka" %% "akka-http-testkit" % akkaHttpVersion % Test,
       "com.typesafe.akka" %% "akka-testkit" % akkaVersion % Test,
