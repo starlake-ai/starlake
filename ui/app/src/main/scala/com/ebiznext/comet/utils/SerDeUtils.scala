@@ -14,7 +14,7 @@ object SerDeUtils {
   }
 
   def deserialize(value: Array[Byte]): Any = {
-    val valueDeserialized: Any = SerializationUtils.deserialize(value)
+    val valueDeserialized: Any = if (value != null) SerializationUtils.deserialize(value) else null
     valueDeserialized
   }
 }
