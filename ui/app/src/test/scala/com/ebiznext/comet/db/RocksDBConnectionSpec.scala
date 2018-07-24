@@ -4,16 +4,16 @@ import java.nio.file.Files
 import java.util.UUID
 
 import org.apache.commons.io.FileUtils
-import org.scalatest.{ BeforeAndAfter, BeforeAndAfterAll, FlatSpec }
+import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll, FlatSpec}
 
 /**
- * Created by Mourad on 23/07/2018.
- */
+  * Created by Mourad on 23/07/2018.
+  */
 class RocksDBConnectionSpec extends FlatSpec with BeforeAndAfter with BeforeAndAfterAll {
 
-  lazy val tempDir = Files.createTempDirectory("comet-test").toFile
+  lazy val tempDir                 = Files.createTempDirectory("comet-test").toFile
   lazy val conn: RocksDBConnection = getConnection()
-  val db = conn.db
+  val db                           = conn.db
 
   override def afterAll(): Unit = {
     db.close()
@@ -47,13 +47,18 @@ class RocksDBConnectionSpec extends FlatSpec with BeforeAndAfter with BeforeAndA
 
   "RocksDbConnection methods" should "work properly" in {
     (1 to 100).foreach { i =>
-      conn.write(i, s"VALUE$i")
-      val actualvalue: String = conn.read(i).getOrElse("").asInstanceOf[String]
-      assert(actualvalue == s"VALUE$i")
+      val expected = s"VALUE$i"
+
+      conn.write(i, expected)
+
+      val actualvalue: String = conn.read(i)
+      assert(actualvalue == expected)
+
       conn.delete(i)
-      conn.read(i) match {
+
+      Option(conn.read(i)) match {
         case Some(value) => fail(s"Value $value of key $i should be deleted")
-        case None => succeed
+        case None        => succeed
       }
     }
   }

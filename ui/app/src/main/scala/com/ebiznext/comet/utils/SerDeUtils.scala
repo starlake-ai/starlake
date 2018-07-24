@@ -1,20 +1,23 @@
 package com.ebiznext.comet.utils
 
-import org.apache.commons.lang3.SerializationUtils
 import java.io.{ Serializable => JSerializable }
+
+import org.apache.commons.lang3.SerializationUtils
 
 /**
  * Created by Mourad on 23/07/2018.
  */
 object SerDeUtils {
 
-  def serialize(value: Any): Array[Byte] = {
+  implicit def serialize[P](value: P): Array[Byte] = {
     val valueSerialized: Array[Byte] = SerializationUtils.serialize(value.asInstanceOf[JSerializable])
     valueSerialized
   }
 
-  def deserialize(value: Array[Byte]): Any = {
-    val valueDeserialized: Any = if (value != null) SerializationUtils.deserialize(value) else null
-    valueDeserialized
+  implicit def deserialize[P >: Null <: AnyRef](value: Array[Byte]): P = {
+    Option(value) match {
+      case Some(v) => SerializationUtils.deserialize(value)
+      case None => null
+    }
   }
 }

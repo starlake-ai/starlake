@@ -14,9 +14,9 @@ class SerDeUtilsSpec extends FlatSpec with BeforeAndAfter with BeforeAndAfterAll
     val key: String = "KEY1"
     val caseClass: Tag = Tag("tagId", tags = Seq("tag1", "tag2"))
 
-    assert(id == deserialize(serialize(id)).asInstanceOf[Int])
-    assert(key == deserialize(serialize(key)).asInstanceOf[String])
-    assert(caseClass == deserialize(serialize(caseClass)).asInstanceOf[Tag])
+    assert(id == deserialize[Integer](serialize(id)))
+    assert(key == deserialize[String](serialize(key)))
+    assert(caseClass == deserialize[Tag](serialize(caseClass)))
 
   }
 }
