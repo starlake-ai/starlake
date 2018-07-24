@@ -24,13 +24,22 @@ class RocksDBConnectionSpec extends FlatSpec with BeforeAndAfter with BeforeAndA
     new RocksDBConnection(RocksDBConfiguration(path))
   }
 
-  "RocksDb" should "work" in {
+  "RocksDb" should "put and get properly" in {
     (1 to 10).foreach { i =>
       db.put(Array(i toByte), s"VALUE$i".toCharArray.map(_.toByte))
     }
     (1 to 10).foreach { i =>
-      val actual = new String(db.get(Array(i toByte)))
-      assert(actual == s"VALUE$i")
+      assert(new String(db.get(Array(i toByte))) == s"VALUE$i")
+    }
+  }
+
+  "RocksDb" should "remove properly" in {
+    (1 to 10).foreach { i =>
+      db.put(Array(i toByte), s"VALUE$i".toCharArray.map(_.toByte))
+    }
+    (1 to 10).foreach { i =>
+      db.remove(Array(i toByte))
+      assert(db.get(Array(i toByte)) == null)
     }
   }
 
