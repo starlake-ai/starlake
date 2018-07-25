@@ -14,6 +14,7 @@ class RocksDBConnectionSpec extends FlatSpec with BeforeAndAfter with BeforeAndA
   lazy val tempDir = Files.createTempDirectory("comet-test").toFile
   lazy val conn: RocksDBConnection = getConnection()
   val db = conn.db
+  val keys = (1 to 100).map(String.valueOf(_))
 
   override def afterAll(): Unit = {
     db.close()
@@ -26,37 +27,38 @@ class RocksDBConnectionSpec extends FlatSpec with BeforeAndAfter with BeforeAndA
   }
 
   "RocksDb" should "put and get properly" in {
-    (1 to 100).foreach { i =>
+    keys.foreach { i =>
       db.put(Array(i toByte), s"VALUE$i".toCharArray.map(_.toByte))
     }
-    (1 to 100).foreach { i =>
+    keys.foreach { i =>
       val actualvalue: String = new String(db.get(Array(i toByte)))
       assert(actualvalue == s"VALUE$i")
     }
   }
 
   it should "remove properly" in {
-    (1 to 100).foreach { i =>
+    keys.foreach { i =>
       db.put(Array(i toByte), s"VALUE$i".toCharArray.map(_.toByte))
     }
-    (1 to 100).foreach { i =>
+    keys.foreach { i =>
       db.remove(Array(i toByte))
       assert(db.get(Array(i toByte)) == null)
     }
   }
 
   "RocksDbConnection methods" should "work properly" in {
-    (1 to 100).foreach { i =>
+
+    keys.foreach { i =>
       val expected = s"VALUE$i"
 
-      conn.write(i, expected)
+      conn.write[String](i, expected)
 
-      val actualvalue: String = conn.read(i)
-      assert(actualvalue == expected)
+      val actualValue: String = conn.read[String](i).get
+      assert(actualValue == expected)
 
       conn.delete(i)
 
-      Option(conn.read(i)) match {
+      conn.read[String](i) match {
         case Some(value) => fail(s"Value $value of key $i should be deleted")
         case None => succeed
       }

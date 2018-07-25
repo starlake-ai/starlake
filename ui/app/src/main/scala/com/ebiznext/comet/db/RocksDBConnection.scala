@@ -15,16 +15,16 @@ class RocksDBConnection(config: RocksDBConfig) {
     db.close()
   }
 
-  def read[K, V >: Null <: AnyRef](key: K): V = this.synchronized {
-    deserialize(db.get(serialize(key)))
+  def read[V <: AnyRef](key: String)(implicit m: Manifest[V]): Option[V] = this.synchronized {
+    deserialize[V](db.get(serialize[String](key)))
   }
 
-  def write[K, V](key: K, value: V) = this.synchronized {
-    db.put(writeOptions, key, value)
+  def write[V <: AnyRef](key: String, value: V)(implicit m: Manifest[V]): Unit = this.synchronized {
+    db.put(writeOptions, serialize[String](key), deserialize[V](value))
   }
 
-  def delete[K](key: K) = this.synchronized {
-    db.delete(key)
+  def delete(key: String): Unit = this.synchronized {
+    db.delete(serialize[String](key))
   }
 
 }
