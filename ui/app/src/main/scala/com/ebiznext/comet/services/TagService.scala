@@ -1,6 +1,6 @@
 package com.ebiznext.comet.services
 
-import com.ebiznext.comet.model.CometModel.Tag
+import com.ebiznext.comet.model.CometModel.{ Node, Tag }
 
 class TagService {
 
@@ -8,13 +8,16 @@ class TagService {
     Array[Tag]()
   }
 
-  def buildTagIni(servers: Seq[Tag]): String = {
-    servers.map { server =>
-      val section = s"[${server.id}]"
-      val attrs = server.tags.map(tag => s"$tag:true").toList.mkString(";")
-      s"""$section
+  def buildTagIni(servers: Seq[Node]): String = {
+    servers
+      .map { server =>
+        val section = s"[${server.id}]"
+        val attrs = server.tags.map(tag => s"$tag:true").toList.mkString(";")
+        s"""$section
          |DCOS_ATTRIBUTES=$attrs
        """.stripMargin
-    }.toList.mkString("\n")
+      }
+      .toList
+      .mkString("\n")
   }
 }

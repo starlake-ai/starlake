@@ -1,6 +1,6 @@
 package com.ebiznext.comet
 
-import com.ebiznext.comet.model.CometModel.Tag
+import com.ebiznext.comet.model.CometModel.{ Node, Tag }
 import com.ebiznext.comet.services.{ NodeService, TagService }
 import com.ebiznext.comet.utils.Launcher
 import org.scalatest.{ Matchers, WordSpec }
@@ -19,7 +19,14 @@ class LauncherSpec extends WordSpec with Matchers {
       println(res)
     }
     "BuildTagsIni" in {
-      println(new TagService().buildTagIni(List(Tag("server1", List("SSS", "SSM")), Tag("server2", List("JKM", "JKS")))))
+      println(
+        new TagService().buildTagIni(
+          List(
+            Node.empty.copy(id = "server1", tags = List(Tag("SSS", "SSS"), Tag("SSM", "SSM"))),
+            Node.empty.copy(id = "server2", tags = List(Tag("JKS", "JKS"), Tag("JKM", "JKM")))
+          )
+        )
+      )
       assert(true)
     }
   }
