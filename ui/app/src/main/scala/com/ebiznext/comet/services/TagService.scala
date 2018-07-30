@@ -1,6 +1,6 @@
 package com.ebiznext.comet.services
 
-import com.ebiznext.comet.model.CometModel.{Node, Tag}
+import com.ebiznext.comet.model.CometModel.{ Node, Tag }
 
 class TagService {
 
