@@ -6,13 +6,12 @@ import com.ebiznext.comet.controllers.CometRoutes
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.{ Matchers, WordSpec }
 
-class CometRoutesSpec extends WordSpec with Matchers with ScalaFutures with ScalatestRouteTest
-    with CometRoutes {
+class CometRoutesSpec extends WordSpec with Matchers with ScalaFutures with ScalatestRouteTest with CometRoutes {
 
   lazy val routes = cometRoutes
   "UserRoutes" should {
     "return no users if no present (GET /users)" in {
-      val request = HttpRequest(uri = "/tags")
+      val request = HttpRequest(uri = "/services")
 
       request ~> routes ~> check {
         status should ===(StatusCodes.OK)
@@ -21,11 +20,11 @@ class CometRoutesSpec extends WordSpec with Matchers with ScalaFutures with Scal
         contentType should ===(ContentTypes.`application/json`)
 
         // and no entries should be in the list:
-        entityAs[String] should ===("""{"tags":[]}""")
+        entityAs[String] should ===("""{"services":[]}""")
       }
     }
   }
-  //    "be able to add users (POST /tags)" in {
+  //    "be able to add users (POST /services)" in {
   //      val ta = Tag("Kapi", 42, "jp")
   //      val userEntity = Marshal(user).to[MessageEntity].futureValue // futureValue is from ScalaFutures
   //

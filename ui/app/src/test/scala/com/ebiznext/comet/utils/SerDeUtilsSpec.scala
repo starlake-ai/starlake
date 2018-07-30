@@ -13,7 +13,7 @@ class SerDeUtilsSpec extends FlatSpec {
     import SerDeUtils._
     val id: Int = 12345
     val key: String = "KEY1"
-    val caseClass: Tag = Tag(id = "tagId", label = "tag1")
+    val caseClass: Tag = Tag.empty.copy(id = "tagId", name = "tag1")
 
     assert(id == deserialize[Integer](serialize(Integer.valueOf(id))).get)
     assert(key == deserialize[String](serialize(key)).get)
@@ -22,10 +22,21 @@ class SerDeUtilsSpec extends FlatSpec {
   }
 
   it should "work with multi level nested objects" in {
-    val document: User = User("id", "mail@company.com",
-      List(Cluster("c1", None, "",
-        List(Node.empty.copy(id = "server1", tags =
-          List(Tag("SSS", "SSS"), Tag("SSM", "SSM")))))))
+    val document: User = User(
+      "id",
+      "mail@company.com",
+      List(
+        Cluster(
+          "c1",
+          None,
+          "",
+          List(Node.empty.copy(
+            id = "server1",
+            services = List(Tag.empty.copy("SSS", "SSS"), Tag.empty.copy("SSM", "SSM"))
+          ))
+        )
+      )
+    )
     assert(document == deserialize[User](serialize(document)).get)
 
   }

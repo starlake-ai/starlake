@@ -12,7 +12,7 @@ class TagService {
     servers
       .map { server =>
         val section = s"[${server.id}]"
-        val attrs = server.tags.map(tag => s"$tag:true").toList.mkString(";")
+        val attrs = server.services.map(tag => s"$tag:true").toList.mkString(";")
         s"""$section
          |DCOS_ATTRIBUTES=$attrs
        """.stripMargin
