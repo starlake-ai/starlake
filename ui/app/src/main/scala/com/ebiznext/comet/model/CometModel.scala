@@ -1,28 +1,31 @@
 package com.ebiznext.comet.model
+
+import java.awt.Color
+
 import com.ebiznext.comet.utils.JsonSupport
+
 
 object CometModel extends JsonSupport {
 
-  case class Tag(id: String, parity: String, min: String, max: String, name: String, color: String)
-  case class Service(
-    id: String,
-    tag: Tag,
-    podType: String,
-    cpu: String,
-    memory: String,
-    count: String,
-    dataLocation: String
-  )
-  case class Node(id: String, name: Option[String], ip: Option[String], services: Seq[Tag])
-  case class Cluster(id: String, name: Option[String], inventoryFile: String, nodes: Seq[Node])
-  case class User(id: String, mail: String, clusters: Seq[Cluster])
+  sealed case class Parity(value: String)
 
-  object Node {
-    def empty: Node = Node("", None, None, List())
-  }
+  object Parity {
+    object ODD extends Parity("ODD")
+    object EVEN extends Parity("EVEN")
+    object IGNORE extends Parity("IGNORE")
 
-  object Tag {
-    def empty: Tag = Tag("", "", "", "", "", "")
+    val values = Seq(ODD, EVEN, IGNORE)
   }
+  
+  import Parity._
+
+  case class Tag(name: String, defaultValue: String, parity: Parity = IGNORE, min: Int = 1, max: Int = Integer.MAX_VALUE, color: Color = Color.blue)
+  case class TagValue(name:String, value:String)
+
+  case class Node(name: String, tags : Set[TagValue])
+
+  case class Cluster(id: String, inventoryFile: String, tags: Set[Tag], nodes: Set[Node], nodeGroups: Set[Node])
+
+  case class User(id: String, clusters: Set[Cluster])
 
 }

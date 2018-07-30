@@ -19,17 +19,7 @@ class LauncherSpec extends WordSpec with Matchers {
       println(res)
     }
     "BuildTagsIni" in {
-      println(
-        new TagService().buildTagIni(
-          List(
-            Node.empty.copy(
-              id = "server1",
-              services = List(Tag.empty.copy("SSS", "SSS"), Tag.empty.copy("SSM", "SSM"))
-            ),
-            Node.empty.copy(id = "server2", services = List(Tag.empty.copy("JKS", "JKS"), Tag.empty.copy("JKM", "JKM")))
-          )
-        )
-      )
+      println(new TagService().buildTagIni(List(Tag("server1", List("SSS", "SSM")), Tag("server2", List("JKM", "JKS")))))
       assert(true)
     }
   }
