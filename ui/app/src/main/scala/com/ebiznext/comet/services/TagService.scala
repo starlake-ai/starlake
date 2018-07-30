@@ -23,17 +23,16 @@ class TagService {
       .mkString("\n")
   }
 
-  def createTag(userId: String, clusterId: String, tag: Tag): Future[Option[String]] = ???
+  def create(userId: String, clusterId: String, tag: Tag): Future[Option[String]] = ???
 
-  def deleteTag(userId: String, clusterId: String, tagName: String): Future[Unit] = ???
+  def delete(userId: String, clusterId: String, tagName: String): Future[Unit] = ???
 
-  def updateTag(userId: String, clusterId: String, tagName: String, newTag: Tag): Future[Unit] = ???
+  def update(userId: String, clusterId: String, tagName: String, newTag: Tag): Future[Unit] = ???
 
   def assignTagToNode(
     userId: String,
     clusterId: String,
     nodeName: String,
-    tagName: String,
     tagValue: TagValue,
     useDefautValue: Boolean
   ): Future[Option[Node]] = ???

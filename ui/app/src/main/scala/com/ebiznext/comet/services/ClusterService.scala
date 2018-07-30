@@ -1,4 +1,6 @@
 package com.ebiznext.comet.services
+import java.nio.file.Path
+
 import com.ebiznext.comet.model.CometModel.Cluster
 
 import scala.concurrent.Future
@@ -12,10 +14,10 @@ class ClusterService {
 
   def delete(userId: String, clusterId: String): Future[Unit] = ???
 
-  def update(userId: String, clusterId: String, newCluster: Cluster): Future[Cluster] = ???
+  def update(userId: String, clusterId: String, newCluster: Cluster): Future[Option[String]] = ???
 
   def clone(userId: String, clusterId: String, tagsOnly: Boolean): Future[Option[String]] = ???
 
-  def buildAnsibleScript(userId: String, clusterId: String): Future[Option[String]] = ???
+  def buildAnsibleScript(userId: String, clusterId: String): Future[Option[Path]] = ???
 
 }
