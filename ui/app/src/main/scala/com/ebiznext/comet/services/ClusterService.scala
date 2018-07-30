@@ -8,13 +8,13 @@ import scala.concurrent.Future
  */
 class ClusterService {
 
-  def createCluster(userId: String, cluster: Cluster): Future[Option[String]] = ???
+  def create(userId: String, cluster: Cluster): Future[Option[String]] = ???
 
-  def deleteCluster(userId: String, clusterId: String): Future[Unit] = ???
+  def delete(userId: String, clusterId: String): Future[Unit] = ???
 
-  def updateCluster(userId: String, clusterId: String, newCluster: Cluster): Future[Cluster] = ???
+  def update(userId: String, clusterId: String, newCluster: Cluster): Future[Cluster] = ???
 
-  def cloneCluster(userId: String, clusterId: String, tagsOnly: Boolean): Future[Option[String]] = ???
+  def clone(userId: String, clusterId: String, tagsOnly: Boolean): Future[Option[String]] = ???
 
   def buildAnsibleScript(userId: String, clusterId: String): Future[Option[String]] = ???
 
