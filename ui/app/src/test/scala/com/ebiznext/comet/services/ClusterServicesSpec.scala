@@ -36,12 +36,40 @@ class ClusterServicesSpec extends WordSpec with RocksDBConnectionMockBaseSpec {
           case Success(value)     => value shouldBe cluster1.id
         }
       }
+      "throw exception if Cluster object with same id already exists" in {
+        clusterService.create(user1.id, cluster1)
+        clusterService.create(user1.id, cluster1) match {
+          case Failure(exception) => succeed
+          case Success(value)     => fail("this should'nt happen.")
+        }
+      }
+      "throw exception if userId does not exist" in {
+        clusterService.create("user2", cluster1) match {
+          case Failure(exception) => succeed
+          case Success(value)     => fail("this should'nt happen.")
+        }
+      }
     }
+
     "get" should {
-      "return a Cluster object by his id" in {
+      "return a Cluster object by his id when the object" in {
+        clusterService.create(user1.id, cluster1)
         clusterService.get(user1.id, cluster1.id) match {
           case Failure(exception) => fail(exception)
           case Success(value)     => value shouldBe cluster1
+        }
+      }
+      "throw an Exception when there is no ClusterID of the given userId" in {
+        clusterService.create(user1.id, cluster1)
+        clusterService.get(user1.id, "id2") match {
+          case Failure(exception) => succeed
+          case Success(value)     => fail("this should'nt happen.")
+        }
+      }
+      "throw exception if userId does not exist" in {
+        clusterService.get("user2", cluster1.id) match {
+          case Failure(exception) => succeed
+          case Success(value)     => fail("this should'nt happen.")
         }
       }
     }
