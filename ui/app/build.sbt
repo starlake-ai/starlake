@@ -13,6 +13,7 @@ lazy val logback = "1.2.3"
 lazy val log4s = "1.3.6"
 lazy val json4sVersion = "3.5.2"
 lazy val akkaHttpJsonVersion = "1.16.0"
+lazy val macWireVersion = "2.3.1"
 
 
 lazy val root = (project in file(".")).
@@ -39,6 +40,10 @@ lazy val root = (project in file(".")).
       "com.typesafe.scala-logging" %% "scala-logging"  % scalaLogging,
       "ch.qos.logback"             % "logback-classic" % logback,
       "org.log4s"                  %% "log4s"          % log4s,
+      "com.softwaremill.macwire" %% "macros"     % macWireVersion % "provided",
+      "com.softwaremill.macwire" %% "macrosakka" % macWireVersion % "provided",
+      "com.softwaremill.macwire" %% "util"       % macWireVersion,
+      "com.softwaremill.macwire" %% "proxy"      % macWireVersion,
       "com.github.kxbmap" %% "configs" % configs,
       "org.apache.commons" % "commons-lang3" % commonsLang3Version,
       "com.typesafe.akka" %% "akka-http-testkit" % akkaHttpVersion % Test,
