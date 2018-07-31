@@ -74,10 +74,16 @@ class ClusterServicesSpec extends WordSpec with RocksDBConnectionMockBaseSpec {
       }
     }
     "delete" should {
-      "return nothing neither the get deleted Cluster id" in {
+      "return nothing and delete the cluster instence for the given user Id" in {
         clusterService.delete(user1.id, cluster1.id) match {
           case Failure(exception) => fail(exception)
           case Success(_)         => clusterService.get(user1.id, cluster1.id).toOption.isEmpty shouldBe true
+        }
+      }
+      "throw exception if userId does not exist" in {
+        clusterService.delete("user2", cluster1.id) match {
+          case Failure(exception) => succeed
+          case Success(value)     => fail("this should'nt happen.")
         }
       }
     }
@@ -86,6 +92,24 @@ class ClusterServicesSpec extends WordSpec with RocksDBConnectionMockBaseSpec {
         clusterService.update(user1.id, cluster1.id, newCluster1) match {
           case Failure(exception) => fail(exception)
           case Success(value)     => value shouldBe newCluster1
+        }
+      }
+      "Create a new Cluster object if the given clusterId doesn't exist" in {
+        clusterService.create(user1.id, cluster1)
+        clusterService.update(user1.id, "id2", newCluster1) match {
+          case Failure(exception) => fail("this should'nt happen.")
+          case Success(value) => {
+            value shouldBe newCluster1
+            value.id shouldBe newCluster1.id
+            value shouldNot (be(cluster1))
+            clusterService.create(user1.id, cluster1).toOption.size shouldBe 2
+          }
+        }
+      }
+      "throw exception if userId does not exist" in {
+        clusterService.update("user2", cluster1.id, newCluster1) match {
+          case Failure(exception) => succeed
+          case Success(value)     => fail("this should'nt happen.")
         }
       }
     }
