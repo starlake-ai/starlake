@@ -2,7 +2,7 @@ package com.ebiznext.comet.services
 import java.nio.file.Path
 
 import com.ebiznext.comet.config.Settings
-import com.ebiznext.comet.db.{RocksDBConfig, RocksDBConnection}
+import com.ebiznext.comet.db.{ RocksDBConfig, RocksDBConnection }
 import com.ebiznext.comet.model.CometModel.Cluster
 import com.softwaremill.macwire._
 
@@ -10,12 +10,14 @@ import scala.concurrent.ExecutionContext
 import scala.util.Try
 
 /**
-  * Created by Mourad on 30/07/2018.
-  */
+ * Created by Mourad on 30/07/2018.
+ */
 class ClusterService(implicit executionContext: ExecutionContext) {
 
-  lazy val rocksDBConfig: RocksDBConfig    = Settings.rocksDBConfig
+  lazy val rocksDBConfig: RocksDBConfig = Settings.rocksDBConfig
   lazy val dbConnection: RocksDBConnection = wire[RocksDBConnection]
+
+  def get(userId: String, clusterId: String): Try[Cluster] = ???
 
   def create(userId: String, cluster: Cluster): Try[String] = ???
 
