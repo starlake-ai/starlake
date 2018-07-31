@@ -1,7 +1,9 @@
 package com.ebiznext.comet.db
+import java.io.File
 import java.nio.file.Files
 import java.util.UUID
 
+import org.apache.commons.io.FileUtils
 import org.scalatest._
 
 import scala.collection.mutable
@@ -10,9 +12,12 @@ import scala.collection.mutable
  * Created by Mourad on 31/07/2018.
  */
 trait RocksDBConnectionSpecUtils {
+  val tempFile: File = Files.createTempDirectory("comet-test").toFile
+  val tempPath: String = tempFile.getAbsolutePath + "/" + UUID.randomUUID()
+
   class RocksDBConnectionLike
     extends RocksDBConnection(
-      RocksDBConfig(Files.createTempDirectory("comet-test").toFile.getAbsolutePath + "/" + UUID.randomUUID())
+      RocksDBConfig(tempPath)
     )
 
   class RocksDBConnectionMock extends RocksDBConnectionLike {
@@ -41,6 +46,11 @@ trait RocksDBConnectionBaseSpec
 
   lazy val rocksdbConnection = new RocksDBConnectionLike()
   lazy val rockdb = rocksdbConnection.db
+
+  override def afterAll(): Unit = {
+    rockdb.close()
+    FileUtils.deleteDirectory(tempFile.getAbsoluteFile)
+  }
 }
 
 trait RocksDBConnectionMockBaseSpec
