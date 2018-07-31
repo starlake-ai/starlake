@@ -41,6 +41,12 @@ object CometModel extends JsonSupport {
 
   case class Cluster(id: String, inventoryFile: String, tags: Set[Tag], nodes: Set[Node], nodeGroups: Set[Node])
 
+  object Cluster {
+    def empty: Cluster = Cluster("", "", Set(), Set(), Set())
+  }
   case class User(id: String, clusters: Set[Cluster])
 
+  object User {
+    def empty: User = User("", Set())
+  }
 }
