@@ -10,21 +10,21 @@ class RocksDBConnectionSpec extends FlatSpec with RocksDBConnectionBaseSpec {
 
   "RocksDb" should "put and get properly" in {
     keys.foreach { i =>
-      rockdb.put(Array(i toByte), s"VALUE$i".toCharArray.map(_.toByte))
+      rocksDb.put(Array(i toByte), s"VALUE$i".toCharArray.map(_.toByte))
     }
     keys.foreach { i =>
-      val actualvalue: String = new String(rockdb.get(Array(i toByte)))
+      val actualvalue: String = new String(rocksDb.get(Array(i toByte)))
       assert(actualvalue == s"VALUE$i")
     }
   }
 
   it should "remove properly" in {
     keys.foreach { i =>
-      rockdb.put(Array(i toByte), s"VALUE$i".toCharArray.map(_.toByte))
+      rocksDb.put(Array(i toByte), s"VALUE$i".toCharArray.map(_.toByte))
     }
     keys.foreach { i =>
-      rockdb.remove(Array(i toByte))
-      assert(rockdb.get(Array(i toByte)) == null)
+      rocksDb.remove(Array(i toByte))
+      assert(rocksDb.get(Array(i toByte)) == null)
     }
   }
 

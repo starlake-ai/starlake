@@ -17,11 +17,20 @@ class ClusterServicesSpec extends WordSpec with RocksDBConnectionMockBaseSpec {
   val newCluster1 = Cluster.empty.copy("id1", "inventoryFile2")
   val user1       = User("user1", Set())
 
+  before {
+    rocksdbConnection.write(user1.id, user1)
+    val maybeUser: Option[User] = rocksdbConnection.read[User](user1.id)
+    maybeUser match {
+      case Some(user) => succeed
+      case None       => fail(s"DB should at least have User ${user1.id} ")
+    }
+  }
+
   val clusterService: ClusterService = new ClusterService
 
   "ClusterService" when {
     "create" should {
-      "return the new created cluster id" in {
+      "return the new created Cluster id" in {
         clusterService.create(user1.id, cluster1) match {
           case Failure(exception) => fail(exception)
           case Success(value)     => value shouldBe cluster1.id
@@ -29,7 +38,7 @@ class ClusterServicesSpec extends WordSpec with RocksDBConnectionMockBaseSpec {
       }
     }
     "get" should {
-      "return a cluster object by his id" in {
+      "return a Cluster object by his id" in {
         clusterService.get(user1.id, cluster1.id) match {
           case Failure(exception) => fail(exception)
           case Success(value)     => value shouldBe cluster1
@@ -37,7 +46,7 @@ class ClusterServicesSpec extends WordSpec with RocksDBConnectionMockBaseSpec {
       }
     }
     "delete" should {
-      "return nothing neither the get deleted cluster id" in {
+      "return nothing neither the get deleted Cluster id" in {
         clusterService.delete(user1.id, cluster1.id) match {
           case Failure(exception) => fail(exception)
           case Success(_)         => clusterService.get(user1.id, cluster1.id).toOption.isEmpty shouldBe true
@@ -45,7 +54,7 @@ class ClusterServicesSpec extends WordSpec with RocksDBConnectionMockBaseSpec {
       }
     }
     "update" should {
-      "return the newly updated cluster object" in {
+      "return the newly updated Cluster object" in {
         clusterService.update(user1.id, cluster1.id, newCluster1) match {
           case Failure(exception) => fail(exception)
           case Success(value)     => value shouldBe newCluster1
@@ -53,7 +62,7 @@ class ClusterServicesSpec extends WordSpec with RocksDBConnectionMockBaseSpec {
       }
     }
     "clone" should {
-      "return the id of the fully cloned cluster object" in {
+      "return the id of the fully cloned Cluster object" in {
         clusterService.clone(user1.id, cluster1.id, false) match {
           case Failure(exception) => fail(exception)
           case Success(id) => {
@@ -71,7 +80,7 @@ class ClusterServicesSpec extends WordSpec with RocksDBConnectionMockBaseSpec {
           }
         }
       }
-      "return the id of the cloned cluster object that contains only the tags definitions" in {
+      "return the id of the cloned Cluster object that contains only the tags definitions" in {
         clusterService.clone(user1.id, cluster1.id, true) match {
           case Failure(exception) => fail(exception)
           case Success(id) => {

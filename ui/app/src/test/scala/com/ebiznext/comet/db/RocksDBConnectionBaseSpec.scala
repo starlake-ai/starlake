@@ -1,9 +1,6 @@
 package com.ebiznext.comet.db
-import java.io.File
-import java.nio.file.Files
-import java.util.UUID
-
-import org.apache.commons.io.FileUtils
+import better.files._
+import com.ebiznext.comet.config.Settings
 import org.scalatest._
 
 import scala.collection.mutable
@@ -12,13 +9,8 @@ import scala.collection.mutable
  * Created by Mourad on 31/07/2018.
  */
 trait RocksDBConnectionSpecUtils {
-  val tempFile: File = Files.createTempDirectory("comet-test").toFile
-  val tempPath: String = tempFile.getAbsolutePath + "/" + UUID.randomUUID()
 
-  class RocksDBConnectionLike
-    extends RocksDBConnection(
-      RocksDBConfig(tempPath)
-    )
+  class RocksDBConnectionLike extends RocksDBConnection(Settings.rocksDBConfig)
 
   class RocksDBConnectionMock extends RocksDBConnectionLike {
 
@@ -34,22 +26,23 @@ trait RocksDBConnectionSpecUtils {
 
   object RocksDBConnectionMock {
 
-    val dbMocked: mutable.HashMap[String, AnyRef] = mutable.HashMap.empty
+    var dbMocked: mutable.HashMap[String, AnyRef] = mutable.HashMap.empty
   }
 }
 
 trait RocksDBConnectionBaseSpec
     extends TestSuite
+    with Matchers
     with RocksDBConnectionSpecUtils
     with BeforeAndAfterAll
     with BeforeAndAfter {
 
-  lazy val rocksdbConnection = new RocksDBConnectionLike()
-  lazy val rockdb = rocksdbConnection.db
+  implicit lazy val rocksdbConnection = new RocksDBConnectionLike()
+  lazy val rocksDb = rocksdbConnection.db
 
-  override def afterAll(): Unit = {
-    rockdb.close()
-    FileUtils.deleteDirectory(tempFile.getAbsoluteFile)
+  override def afterAll = {
+    rocksDb.close()
+    Settings.rocksDBConfig.path.toFile.delete()
   }
 }
 
@@ -60,6 +53,7 @@ trait RocksDBConnectionMockBaseSpec
     with BeforeAndAfterAll
     with BeforeAndAfter {
 
-  lazy val rocksdbConnection = new RocksDBConnectionMock()
+  implicit lazy val rocksdbConnection = new RocksDBConnectionMock()
+  lazy val rocksDb = RocksDBConnectionMock.dbMocked
 
 }
