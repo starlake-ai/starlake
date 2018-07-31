@@ -21,7 +21,7 @@ class ClusterService {
 
   def delete(userId: String, clusterId: String): Future[Unit] = ???
 
-  def update(userId: String, clusterId: String, newCluster: Cluster): Future[Try[String]] = ???
+  def update(userId: String, clusterId: String, newCluster: Cluster): Future[Try[Cluster]] = ???
 
   def clone(userId: String, clusterId: String, tagsOnly: Boolean): Future[Try[String]] = ???
 
