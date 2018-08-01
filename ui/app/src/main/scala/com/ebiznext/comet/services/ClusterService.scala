@@ -37,8 +37,9 @@ class ClusterService(implicit executionContext: ExecutionContext, implicit val d
             logger.error(message)
             None
           case None =>
-            val newUser = u.copy(id = u.id, clusters = clusters + cluster)
-            dbConnection.write[User](newUser.id, newUser)
+            //TODO get Nodes and Node groups before build
+            val user = u.copy(id = u.id, clusters = clusters + cluster)
+            dbConnection.write[User](user.id, user)
             Some(cluster.id)
         }
       case None =>
