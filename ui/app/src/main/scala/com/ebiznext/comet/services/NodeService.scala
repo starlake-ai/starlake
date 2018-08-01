@@ -1,8 +1,11 @@
 package com.ebiznext.comet.services
 
+import com.ebiznext.comet.model.CometModel.{ Node, TagValue }
 import com.ebiznext.comet.utils.Launcher
 import org.json4s._
 import org.json4s.jackson.JsonMethods._
+
+import scala.concurrent.Future
 
 class NodeService {
   def getNodes(): Seq[String] = {
@@ -36,4 +39,10 @@ class NodeService {
         Map()
     }
   }
+
+  def assignTag(userId: String, clusterId: String, nodeName: String, tagValue: TagValue): Future[Option[Node]] = ???
+
+  def unassignTag(userId: String, clusterId: String, nodeName: String, tagName: String): Future[Option[Node]] = ???
 }
+
+object NodeService extends NodeService

@@ -1,6 +1,7 @@
 package com.ebiznext.comet.model
 
 import java.awt.Color
+import java.nio.file.Path
 
 import com.ebiznext.comet.utils.JsonSupport
 
@@ -26,21 +27,12 @@ object CometModel extends JsonSupport {
     max: Int = Integer.MAX_VALUE,
     color: Color = Color.blue
   )
-  case class TagValue(name: String, value: String)
-  object TagValue {
+  case class TagValue(name: String, value: String, useDefault: Boolean)
 
-    def empty: TagValue = TagValue("", "")
-  }
+  case class Node(name: String, tags: Set[TagValue] = Set())
 
-  case class Node(name: String, tags: Set[TagValue])
+  case class Cluster(id: String, inventoryFile: Path, tags: Set[Tag] = Set(), nodes: Set[Node] = Set(), nodeGroups: Set[Node] = Set())
 
-  object Node {
-
-    def empty: Node = Node("", Set())
-  }
-
-  case class Cluster(id: String, inventoryFile: String, tags: Set[Tag], nodes: Set[Node], nodeGroups: Set[Node])
-
-  case class User(id: String, clusters: Set[Cluster])
+  case class User(id: String, clusters: Set[Cluster] = Set())
 
 }

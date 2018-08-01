@@ -6,7 +6,7 @@ import scala.concurrent.Future
 
 class TagService {
 
-  def getTags(): Seq[Tag] = {
+  def retrieve(userId: String, clusterId: String): Seq[Tag] = {
     Array[Tag]()
   }
 
@@ -29,15 +29,6 @@ class TagService {
 
   def update(userId: String, clusterId: String, tagName: String, newTag: Tag): Future[Unit] = ???
 
-  def assignTagToNode(
-    userId: String,
-    clusterId: String,
-    nodeName: String,
-    tagValue: TagValue,
-    useDefautValue: Boolean
-  ): Future[Option[Node]] = ???
-
-  def unassignTagFromNode(userId: String, clusterId: String, nodeName: String, tagName: String): Future[Option[Node]] =
-    ???
-
 }
+
+object TagService extends TagService

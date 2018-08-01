@@ -18,4 +18,8 @@ object Settings {
 
   val rocksDBConfig: RocksDBConfig = Configs[RocksDBConfig].get(config, "rocksDB").result
 
+  case class CometConfig(inventories: String)
+
+  val cometConfig: CometConfig = Configs[CometConfig].get(config, "comet").result
+
 }

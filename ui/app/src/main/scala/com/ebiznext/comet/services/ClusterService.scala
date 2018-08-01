@@ -1,4 +1,5 @@
 package com.ebiznext.comet.services
+
 import java.nio.file.Path
 
 import com.ebiznext.comet.model.CometModel.Cluster
@@ -12,6 +13,8 @@ class ClusterService {
 
   def create(userId: String, cluster: Cluster): Future[Option[String]] = ???
 
+  def retrieve(userId: String, clusterId: String): Future[Option[Cluster]] = ???
+
   def delete(userId: String, clusterId: String): Future[Unit] = ???
 
   def update(userId: String, clusterId: String, newCluster: Cluster): Future[Option[String]] = ???
@@ -21,3 +24,5 @@ class ClusterService {
   def buildAnsibleScript(userId: String, clusterId: String): Future[Option[Path]] = ???
 
 }
+
+object ClusterService extends ClusterService
