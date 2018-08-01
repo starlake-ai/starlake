@@ -15,8 +15,12 @@ class ClusterServicesSpec extends WordSpec with RocksDBConnectionMockBaseSpec {
 
   val id1, id2: String = generateId
 
-  val cluster1: Cluster    = Cluster.empty.copy(id1, "inventoryFile1")
-  val newCluster1: Cluster = Cluster.empty.copy(id1, "inventoryFile2")
+  val inventoryFile: File   = Resource.getUrl("inventory.ini").getPath.toFile
+  val inventoryFile1Content = inventoryFile.lines.toString
+  val inventoryFile2Content =
+    inventoryFile.lines.map(l => if (l.contains("slave")) l.replace("slave", "escalve")).toString
+  val cluster1: Cluster    = Cluster.empty.copy(id1, inventoryFile1Content)
+  val newCluster1: Cluster = Cluster.empty.copy(id1, inventoryFile2Content)
   val user1                = User("user1", Set())
 
   before {
@@ -55,6 +59,7 @@ class ClusterServicesSpec extends WordSpec with RocksDBConnectionMockBaseSpec {
           case Success(_) => fail("this should'nt happen.")
         }
       }
+      "build nodes and nodes groups from inventory file" in {}
     }
 
     "get" should {
