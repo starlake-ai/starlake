@@ -1,8 +1,10 @@
 package com.ebiznext.comet.services
 import java.nio.file.Path
 
+import better.files.{File, _}
 import com.ebiznext.comet.db.RocksDBConnection
 import com.ebiznext.comet.model.CometModel.{Cluster, User, _}
+import com.ebiznext.comet.utils.Launcher
 import com.typesafe.scalalogging.LazyLogging
 
 import scala.concurrent.ExecutionContext
@@ -80,6 +82,24 @@ class ClusterService(implicit executionContext: ExecutionContext, implicit val d
     }
   }
 
-  def buildAnsibleScript(userId: String, clusterId: String): Try[Option[Path]] = ???
+  def buildAnsibleScript(userId: String, clusterId: String): Try[Option[Path]] = Try {
+    val baseTempDir: File = File.newTemporaryDirectory()
+    val baseDir: String   = s"$baseTempDir/$userId"
+    baseDir.toFile.createIfNotExists(asDirectory = true, createParents = true)
+    val generatedZipFilePath: String = s"$baseDir/$clusterId.zip"
+    //TODO edit the cmd with the one that generate the zip
+    val cmd              = s"touch $generatedZipFilePath && ls $generatedZipFilePath"
+    val (exit, out, err) = Launcher.runCommand(cmd)
+    exit match {
+      case 0 =>
+        logger.info(out)
+      //TODO
+      case _ =>
+        logger.error(s"$exit")
+        logger.error(out)
+        logger.error(err)
+    }
+    Some(generatedZipFilePath.toFile.path)
+  }
 
 }

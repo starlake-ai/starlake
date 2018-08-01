@@ -188,10 +188,14 @@ class ClusterServicesSpec extends WordSpec with RocksDBConnectionMockBaseSpec {
       }
     }
     "buildAnsibleScript" should {
-      "return the path of the generated zip on the server" in {
+      "return the r of the generated zip on the server" in {
         clusterService.buildAnsibleScript(user1.id, cluster1.id) match {
           case Failure(exception) => fail(exception)
-          case Success(path)      => path.toString.toFile.extension shouldBe "zip"
+          case Success(r) =>
+            r match {
+              case Some(path) => path.toString.toFile.extension.get shouldBe ".zip"
+              case None       => fail("this should'nt happen.")
+            }
         }
       }
     }
