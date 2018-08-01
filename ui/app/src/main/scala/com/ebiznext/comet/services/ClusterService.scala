@@ -59,7 +59,19 @@ class ClusterService(implicit executionContext: ExecutionContext, implicit val d
     }
   }
 
-  def delete(userId: String, clusterId: String): Try[Unit] = ???
+  def delete(userId: String, clusterId: String): Try[Unit] = Try {
+    val user: Option[User] = dbConnection.read[User](userId)
+    user match {
+      case Some(u) =>
+        dbConnection.write[User](u.id, User(u.id, u.clusters.filterNot(_.id == clusterId)))
+      case None => {
+        val message = s"User with id $userId not found!"
+        logger.error(message)
+        throw new Exception(message)
+      }
+
+    }
+  }
 
   def update(userId: String, clusterId: String, newCluster: Cluster): Try[Cluster] = ???
 

@@ -94,16 +94,13 @@ class ClusterServicesSpec extends WordSpec with RocksDBConnectionMockBaseSpec {
           case Success(value)     => value shouldBe newCluster1
         }
       }
-      "Create a new Cluster object if the given clusterId doesn't exist" in {
+      "Nothing to update if the given clusterId doesn't exist" in {
         clusterService.create(user1.id, cluster1)
         clusterService.update(user1.id, "id2", newCluster1) match {
-          case Failure(exception) => fail("this should'nt happen.")
-          case Success(value) => {
-            value shouldBe newCluster1
-            value.id shouldBe newCluster1.id
-            value shouldNot (be(cluster1))
-            clusterService.create(user1.id, cluster1).toOption.size shouldBe 2
+          case Failure(exception) => {
+            clusterService.get(user1.id, "id2").toOption.isEmpty
           }
+          case Success(value) => fail("this should'nt happen.")
         }
       }
       "throw exception if userId does not exist" in {
