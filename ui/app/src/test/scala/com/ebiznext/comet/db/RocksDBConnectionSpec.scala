@@ -6,7 +6,7 @@ import org.scalatest.FlatSpec
  */
 class RocksDBConnectionSpec extends FlatSpec with RocksDBConnectionBaseSpec {
 
-  val keys = (1 to 100).map(String.valueOf(_))
+  val keys: List[String] = (1 to 100).map(String.valueOf).toList
 
   "RocksDb" should "put and get properly" in {
     keys.foreach { i =>
@@ -23,7 +23,7 @@ class RocksDBConnectionSpec extends FlatSpec with RocksDBConnectionBaseSpec {
       rocksDb.put(Array(i toByte), s"VALUE$i".toCharArray.map(_.toByte))
     }
     keys.foreach { i =>
-      rocksDb.remove(Array(i toByte))
+      rocksDb.delete(Array(i toByte))
       assert(rocksDb.get(Array(i toByte)) == null)
     }
   }
@@ -41,7 +41,7 @@ class RocksDBConnectionSpec extends FlatSpec with RocksDBConnectionBaseSpec {
       rocksdbConnection.delete(i)
 
       rocksdbConnection.read[String](i) match {
-        case Some(value) => fail(s"Value $value of key $i should be deleted")
+        case Some(v) => fail(s"Value $v of key $i should be deleted")
         case None => succeed
       }
     }

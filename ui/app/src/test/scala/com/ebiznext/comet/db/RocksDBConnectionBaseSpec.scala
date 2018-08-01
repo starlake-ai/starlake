@@ -1,6 +1,7 @@
 package com.ebiznext.comet.db
 import better.files._
 import com.ebiznext.comet.config.Settings
+import org.rocksdb.RocksDB
 import org.scalatest._
 
 import scala.collection.mutable
@@ -26,7 +27,7 @@ trait RocksDBConnectionSpecUtils {
 
   object RocksDBConnectionMock {
 
-    var dbMocked: mutable.HashMap[String, AnyRef] = mutable.HashMap.empty
+    val dbMocked: mutable.HashMap[String, AnyRef] = mutable.HashMap.empty
   }
 }
 
@@ -37,10 +38,10 @@ trait RocksDBConnectionBaseSpec
     with BeforeAndAfterAll
     with BeforeAndAfter {
 
-  implicit lazy val rocksdbConnection = new RocksDBConnectionLike()
-  lazy val rocksDb = rocksdbConnection.db
+  implicit lazy val rocksdbConnection: RocksDBConnectionLike = new RocksDBConnectionLike()
+  lazy val rocksDb: RocksDB = rocksdbConnection.db
 
-  override def afterAll = {
+  override def afterAll: Unit = {
     rocksDb.close()
     Settings.rocksDBConfig.path.toFile.delete()
   }
@@ -53,7 +54,7 @@ trait RocksDBConnectionMockBaseSpec
     with BeforeAndAfterAll
     with BeforeAndAfter {
 
-  implicit lazy val rocksdbConnection = new RocksDBConnectionMock()
-  lazy val rocksDb = RocksDBConnectionMock.dbMocked
+  implicit lazy val rocksdbConnection: RocksDBConnectionMock = new RocksDBConnectionMock()
+  lazy val rocksDb: mutable.HashMap[String, AnyRef] = RocksDBConnectionMock.dbMocked
 
 }
