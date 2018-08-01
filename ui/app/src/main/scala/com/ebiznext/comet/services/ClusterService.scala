@@ -15,8 +15,7 @@ class ClusterService(implicit executionContext: ExecutionContext, implicit val d
     extends LazyLogging {
 
   def get(userId: String, clusterId: String): Try[Option[Cluster]] = Try {
-    val user: Option[User] = dbConnection.read[User](userId)
-    user match {
+    dbConnection.read[User](userId) match { // FIXME replace with User Service
       case Some(u) =>
         u.clusters.find(_.id == clusterId)
       case None =>
@@ -27,8 +26,7 @@ class ClusterService(implicit executionContext: ExecutionContext, implicit val d
   }
 
   def create(userId: String, cluster: Cluster): Try[Option[String]] = Try {
-    val user: Option[User] = dbConnection.read[User](userId)
-    user match {
+    dbConnection.read[User](userId) match { // FIXME replace with User Service
       case Some(u) =>
         val clusters: Set[Cluster] = u.clusters
         clusters.find(_.id == cluster.id) match {
@@ -36,12 +34,10 @@ class ClusterService(implicit executionContext: ExecutionContext, implicit val d
             val message = s"Cluster object with id ${c.id} already exists!"
             logger.error(message)
             None
-
           case None =>
             val newUser = u.copy(id = u.id, clusters = clusters + cluster)
             dbConnection.write[User](newUser.id, newUser)
             Some(cluster.id)
-
         }
       case None =>
         val message = s"User with id $userId not found! "
@@ -52,8 +48,7 @@ class ClusterService(implicit executionContext: ExecutionContext, implicit val d
   }
 
   def delete(userId: String, clusterId: String): Try[Unit] = Try {
-    val user: Option[User] = dbConnection.read[User](userId)
-    user match {
+    dbConnection.read[User](userId) match { // FIXME replace with User Service
       case Some(u) =>
         dbConnection.write[User](u.id, User(u.id, u.clusters.filterNot(_.id == clusterId)))
       case None =>
@@ -63,7 +58,16 @@ class ClusterService(implicit executionContext: ExecutionContext, implicit val d
     }
   }
 
-  def update(userId: String, clusterId: String, newCluster: Cluster): Try[Option[Cluster]] = ???
+  def update(userId: String, clusterId: String, newCluster: Cluster): Try[Option[Cluster]] = {
+    get(userId, clusterId).flatMap[Option[Cluster]] {
+      case None => Try(None) // Nothing to update
+      case Some(cluster) =>
+        val updatedCluster = newCluster.copy(id = cluster.id)
+        delete(userId, cluster.id).flatMap { _ =>
+          create(userId, updatedCluster).map(_ => Some(updatedCluster))
+        }
+    }
+  }
 
   def clone(userId: String, clusterId: String, tagsOnly: Boolean): Try[Option[String]] = ???
 
