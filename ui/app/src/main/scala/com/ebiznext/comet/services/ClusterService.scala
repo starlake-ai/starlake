@@ -2,7 +2,7 @@ package com.ebiznext.comet.services
 import java.nio.file.Path
 
 import com.ebiznext.comet.db.RocksDBConnection
-import com.ebiznext.comet.model.CometModel.{Cluster, User}
+import com.ebiznext.comet.model.CometModel.{Cluster, User, _}
 import com.typesafe.scalalogging.LazyLogging
 
 import scala.concurrent.ExecutionContext
@@ -69,7 +69,16 @@ class ClusterService(implicit executionContext: ExecutionContext, implicit val d
     }
   }
 
-  def clone(userId: String, clusterId: String, tagsOnly: Boolean): Try[Option[String]] = ???
+  def clone(userId: String, clusterId: String, tagsOnly: Boolean): Try[Option[String]] = {
+    get(userId, clusterId).flatMap[Option[String]] {
+      case None => Try(None) // Nothing to update
+      case Some(cluster) =>
+        if (tagsOnly)
+          create(userId, Cluster.empty.copy(tags = cluster.tags))
+        else
+          create(userId, cluster.copy(id = generateId))
+    }
+  }
 
   def buildAnsibleScript(userId: String, clusterId: String): Try[Option[Path]] = ???
 

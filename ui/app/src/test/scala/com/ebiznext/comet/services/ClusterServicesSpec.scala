@@ -1,7 +1,7 @@
 package com.ebiznext.comet.services
 import better.files._
 import com.ebiznext.comet.db.RocksDBConnectionMockBaseSpec
-import com.ebiznext.comet.model.CometModel.{Cluster, User}
+import com.ebiznext.comet.model.CometModel.{Cluster, User, _}
 import org.scalatest.WordSpec
 
 import scala.util.{Failure, Success}
@@ -13,8 +13,10 @@ class ClusterServicesSpec extends WordSpec with RocksDBConnectionMockBaseSpec {
 
   import scala.concurrent.ExecutionContext.Implicits.global
 
-  val cluster1: Cluster    = Cluster.empty.copy("id1", "inventoryFile1")
-  val newCluster1: Cluster = Cluster.empty.copy("id1", "inventoryFile2")
+  val id1, id2: String = generateId
+
+  val cluster1: Cluster    = Cluster.empty.copy(id1, "inventoryFile1")
+  val newCluster1: Cluster = Cluster.empty.copy(id1, "inventoryFile2")
   val user1                = User("user1", Set())
 
   before {
@@ -30,13 +32,13 @@ class ClusterServicesSpec extends WordSpec with RocksDBConnectionMockBaseSpec {
 
   "ClusterService" when {
     "create" should {
-      "return the new created Cluster id" in {
+      "return the new created Cluster r" in {
         clusterService.create(user1.id, cluster1) match {
           case Failure(exception) => fail(exception)
           case Success(v)         => v.getOrElse("") shouldBe cluster1.id
         }
       }
-      "Nothing happen when Cluster object with same id already exists" in {
+      "Nothing happen when Cluster object with same r already exists" in {
         clusterService.create(user1.id, cluster1)
         clusterService.create(user1.id, cluster1) match {
           case Failure(exception) => fail(exception)
@@ -56,7 +58,7 @@ class ClusterServicesSpec extends WordSpec with RocksDBConnectionMockBaseSpec {
     }
 
     "get" should {
-      "return a Cluster object by his id when the object" in {
+      "return a Cluster object by his r when the object" in {
         clusterService.create(user1.id, cluster1)
         clusterService.get(user1.id, cluster1.id) match {
           case Failure(exception) => fail(exception)
@@ -67,7 +69,7 @@ class ClusterServicesSpec extends WordSpec with RocksDBConnectionMockBaseSpec {
       }
       "Nothing is returned when there is no ClusterID of the given userId" in {
         clusterService.create(user1.id, cluster1)
-        clusterService.get(user1.id, "id2") match {
+        clusterService.get(user1.id, id2) match {
           case Failure(exception) => fail(exception)
           case Success(v)         => v.isDefined shouldBe false
         }
@@ -115,7 +117,7 @@ class ClusterServicesSpec extends WordSpec with RocksDBConnectionMockBaseSpec {
       }
       "Nothing to update if the given clusterId doesn't exist" in {
         clusterService.create(user1.id, cluster1)
-        clusterService.update(user1.id, "id2", newCluster1) match {
+        clusterService.update(user1.id, id2, newCluster1) match {
           case Failure(exception) => fail(exception)
           case Success(r) =>
             r match {
@@ -134,47 +136,54 @@ class ClusterServicesSpec extends WordSpec with RocksDBConnectionMockBaseSpec {
 
     "clone" should {
       "return the id of the fully cloned Cluster object" in {
+        clusterService.create(user1.id, cluster1)
         clusterService.clone(user1.id, cluster1.id, tagsOnly = false) match {
           case Failure(exception) => fail(exception)
-          case Success(id) =>
-            clusterService.get(user1.id, id.get) match {
-              case Success(maybeCluster) =>
-                maybeCluster match {
-                  case Some(cluster) =>
-                    cluster.id shouldBe id
-                    cluster.id shouldNot be(cluster1.id)
-                    cluster.inventoryFile shouldBe cluster1.inventoryFile
-                    cluster.tags forall cluster1.tags shouldBe true
-                    cluster.nodeGroups forall cluster1.nodeGroups shouldBe true
-                    cluster.nodes forall cluster1.nodes shouldBe true
-
-                  case None => fail(message = "We expect to have a Cluster instance!")
+          case Success(r) =>
+            r match {
+              case Some(id) =>
+                clusterService.get(user1.id, id) match {
+                  case Success(maybeCluster) =>
+                    maybeCluster match {
+                      case Some(cluster) =>
+                        cluster.id shouldBe id
+                        cluster.id shouldNot be(cluster1.id)
+                        cluster.inventoryFile shouldBe cluster1.inventoryFile
+                        cluster.tags forall cluster1.tags shouldBe true
+                        cluster.nodeGroups forall cluster1.nodeGroups shouldBe true
+                        cluster.nodes forall cluster1.nodes shouldBe true
+                      case None => fail(message = "We expect to have a Cluster instance!")
+                    }
+                  case Failure(exception) => fail(exception)
                 }
-              case Failure(exception) => fail(exception)
+              case None => fail("this should'nt happen.")
             }
 
         }
       }
       "return the id of the cloned Cluster object that contains only the tags definitions" in {
+        clusterService.create(user1.id, cluster1)
         clusterService.clone(user1.id, cluster1.id, tagsOnly = true) match {
           case Failure(exception) => fail(exception)
-          case Success(id) =>
-            clusterService.get(user1.id, id.get) match {
-              case Success(maybeCluster) =>
-                maybeCluster match {
-                  case Some(cluster) =>
-                    cluster.id shouldBe id
-                    cluster.id shouldNot be(cluster1.id)
-                    cluster.inventoryFile.isEmpty shouldBe true
-                    cluster.tags forall cluster1.tags shouldBe true
-                    cluster.nodeGroups.isEmpty shouldBe true
-                    cluster.nodes.isEmpty shouldBe true
-
-                  case None => fail("We expect to have a cluster instance!")
+          case Success(r) =>
+            r match {
+              case Some(id) =>
+                clusterService.get(user1.id, id) match {
+                  case Success(maybeCluster) =>
+                    maybeCluster match {
+                      case Some(cluster) =>
+                        cluster.id shouldBe id
+                        cluster.id shouldNot be(cluster1.id)
+                        cluster.inventoryFile.isEmpty shouldBe true
+                        cluster.tags forall cluster1.tags shouldBe true
+                        cluster.nodeGroups.isEmpty shouldBe true
+                        cluster.nodes.isEmpty shouldBe true
+                      case None => fail("We expect to have a cluster instance!")
+                    }
+                  case Failure(exception) => fail(exception)
                 }
-              case Failure(exception) => fail(exception)
+              case None => fail("this should'nt happen.")
             }
-
         }
       }
     }
