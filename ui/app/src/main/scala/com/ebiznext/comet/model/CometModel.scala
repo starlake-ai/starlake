@@ -1,8 +1,67 @@
 package com.ebiznext.comet.model
 
-object CometModel {
+import java.awt.Color
+import java.util.UUID
 
-  case class Tag(id:String, tags: Seq[String])
-  case class Node(id:String)
+import com.ebiznext.comet.utils.JsonSupport
+
+object CometModel extends JsonSupport {
+
+  sealed case class Parity(value: String)
+
+  object Parity {
+    object ODD    extends Parity("ODD")
+    object EVEN   extends Parity("EVEN")
+    object IGNORE extends Parity("IGNORE")
+
+    val values = Seq(ODD, EVEN, IGNORE)
+  }
+
+  import Parity._
+
+  case class Tag(
+      name: String,
+      defaultValue: String,
+      parity: Parity = IGNORE,
+      min: Int = 1,
+      max: Int = Integer.MAX_VALUE,
+      color: Color = Color.blue
+  )
+
+  object Tag {
+    def empty: Tag = Tag("", "", IGNORE, 1, Integer.MAX_VALUE, Color.blue)
+  }
+
+  case class TagValue(name: String, value: String)
+  object TagValue {
+
+    def empty: TagValue = TagValue("", "")
+  }
+
+  case class Node(name: String, tags: Set[TagValue])
+
+  object Node {
+
+    def empty: Node = Node("", Set())
+  }
+
+  case class NodeGroup(name: String, nodes: Set[Node])
+
+  object NodeGroup {
+    def empty: NodeGroup = NodeGroup("", Set())
+  }
+
+  case class Cluster(id: String, inventoryFile: String, tags: Set[Tag], nodes: Set[Node], nodeGroups: Set[NodeGroup])
+
+  object Cluster {
+    def empty: Cluster = Cluster(generateId, "", Set(), Set(), Set())
+  }
+  case class User(id: String, clusters: Set[Cluster])
+
+  object User {
+    def empty: User = User("", Set())
+  }
+
+  def generateId: String = UUID.randomUUID().toString
 
 }

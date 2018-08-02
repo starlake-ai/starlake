@@ -4,7 +4,7 @@ import akka.actor.ActorSystem
 import akka.event.Logging
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
-import akka.http.scaladsl.server.directives.MethodDirectives.{get, post}
+import akka.http.scaladsl.server.directives.MethodDirectives.{ get, post }
 import akka.http.scaladsl.server.directives.RouteDirectives.complete
 import akka.util.Timeout
 import com.ebiznext.comet.utils.JsonSupport
@@ -27,7 +27,7 @@ trait CometRoutes extends JsonSupport {
         }
       }
     } ~
-      pathPrefix("/api/tags") {
+      pathPrefix("/api/services") {
         //#users-get-delete
         pathEnd {
           get {
@@ -49,7 +49,6 @@ trait CometRoutes extends JsonSupport {
           getFromFile(s"$webapp/$remaining")
         else
           getFromResource(s"webapp/$remaining")
-
 
       }
 }
