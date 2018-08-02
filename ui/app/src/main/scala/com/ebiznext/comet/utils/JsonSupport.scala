@@ -1,11 +1,22 @@
 package com.ebiznext.comet.utils
-import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
-import com.ebiznext.comet.model.CometModel.{Node, Tag}
-import spray.json.DefaultJsonProtocol
+import de.heikoseeberger.akkahttpjson4s.Json4sSupport
+import org.json4s.ext.{ JavaTypesSerializers, JodaTimeSerializers }
+import org.json4s.jackson.JsonMethods._
+import org.json4s.{ DefaultFormats, Formats, _ }
 
-trait JsonSupport extends SprayJsonSupport {
-  import DefaultJsonProtocol._
+import scala.util.Try
 
-  implicit val taJsonFormat = jsonFormat2(Tag)
-  implicit val nodeJsonFormat = jsonFormat1(Node)
+trait JsonSupport extends Json4sSupport {
+
+  implicit val serialization = jackson.Serialization
+
+  implicit val formats: Formats = DefaultFormats ++ JodaTimeSerializers.all ++ JavaTypesSerializers.all ++ CustomSerializers.all
+
+  def toJSON[T <: AnyRef](o: T): String = serialization.write(o)
+
+  def fromJSON[T <: AnyRef](json: String)(implicit m: Manifest[T]): Option[T] = {
+    val value: JValue = parse(json)
+    Try(value.extract[T](formats, m)).toOption
+
+  }
 }
