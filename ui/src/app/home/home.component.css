@@ -1,103 +1,103 @@
-.home-page{
-	padding-top: 80px;
+.home-page {
+  padding-top: 80px;
 }
 
-.rtElementsContainer{
-	position: fixed;
-	top: 60px;
-	width: 100%;
-	background-color: #FFFFFF;
-	z-index: 90;
+.rtElementsContainer {
+  position: fixed;
+  top: 60px;
+  width: 100%;
+  background-color: #FFFFFF;
+  z-index: 90;
 }
 
-.rtElement{
-	display: inline-block;
-	border-radius: 10px;
-	color: #FFFFFF;
-	cursor: pointer;
+.rtElement {
+  display: inline-block;
+  border-radius: 10px;
+  color: #FFFFFF;
+  cursor: pointer;
 }
 
-.rtElement i.fa-arrows{
-	font-size: 80%;
-	margin-left: 5px;
+.rtElement i.fa-arrows {
+  font-size: 80%;
+  margin-left: 5px;
 }
 
 /* Filter Caption */
-.table-caption{
-	position: relative;
-	height: 27px;
+.table-caption {
+  position: relative;
+  height: 27px;
 }
 
-.table-caption .filter{
-	position: absolute;
-	top: 0px;
-	left: 0px;
-	height: 100%;
+.table-caption .filter {
+  position: absolute;
+  top: 0px;
+  left: 0px;
+  height: 100%;
 }
 
-.table-caption .filter .filter-input{
-	min-width: 300px;
-    padding: 3px 5px 3px 25px;
-    font-size: 14px;
-    line-height: 14px;
-    color: #495057;
-    background-color: #FFFFFF;
-    background-clip: padding-box;
-    border: 1px solid #CED4DA;
-    border-radius: 5px;
-    transition: border-color .15s ease-in-out,box-shadow .15s ease-in-out;
+.table-caption .filter .filter-input {
+  min-width: 300px;
+  padding: 3px 5px 3px 25px;
+  font-size: 14px;
+  line-height: 14px;
+  color: #495057;
+  background-color: #FFFFFF;
+  background-clip: padding-box;
+  border: 1px solid #CED4DA;
+  border-radius: 5px;
+  transition: border-color .15s ease-in-out, box-shadow .15s ease-in-out;
 }
 
-.table-caption .filter .fa-search{
-	position: absolute;
-	width: 14px;
-	height: 14px;
-	top: 6px;
-	left: 5px;
-	font-size: 14px;
+.table-caption .filter .fa-search {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  top: 6px;
+  left: 5px;
+  font-size: 14px;
 }
 
 /* END Filter Caption */
 
-.pointer{
-	cursor: pointer;
+.pointer {
+  cursor: pointer;
 }
 
-td.empty{
-	height: 50px;
+td.empty {
+  height: 50px;
 }
 
-td.highlight{
-	background: rgba(40, 167, 69, 0.2) !important;
+td.highlight {
+  background: rgba(40, 167, 69, 0.2) !important;
 }
 
-td.disabled{
-	background: rgba(255, 0, 0, 1) !important;
-	background: repeating-linear-gradient(
-					135deg,
-					transparent,
-					transparent 20px,
-					rgba(255, 0, 0, 0.6) 20px,
-					rgba(255, 0, 0, 0.6) 25px
-				) !important;
+td.disabled {
+  background: rgba(255, 0, 0, 1) !important;
+  background: repeating-linear-gradient(
+    135deg,
+    transparent,
+    transparent 20px,
+    rgba(255, 0, 0, 0.6) 20px,
+    rgba(255, 0, 0, 0.6) 25px
+  ) !important;
 
 }
 
-.rtListContainer{
-	display: inline-block;
-	position: relative;
+.rtListContainer {
+  display: inline-block;
+  position: relative;
 }
 
-.rtListContainer .rtListElement{
-	padding-right: 30px;
-	border-radius: 10px;
-	color: #FFFFFF;
+.rtListContainer .rtListElement {
+  padding-right: 30px;
+  border-radius: 10px;
+  color: #FFFFFF;
 }
 
-.rtListContainer i.fa-times{
-	position: absolute;
-	top: 0.75rem;
-	right: 25px;
-	color: #FFFFFF;
-	cursor: pointer;
+.rtListContainer i.fa-times {
+  position: absolute;
+  top: 0.75rem;
+  right: 25px;
+  color: #FFFFFF;
+  cursor: pointer;
 }

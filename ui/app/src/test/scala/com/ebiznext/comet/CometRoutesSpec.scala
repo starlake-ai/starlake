@@ -4,9 +4,14 @@ import akka.http.scaladsl.model._
 import akka.http.scaladsl.testkit.ScalatestRouteTest
 import com.ebiznext.comet.controllers.CometRoutes
 import org.scalatest.concurrent.ScalaFutures
-import org.scalatest.{ Matchers, WordSpec }
+import org.scalatest.{Matchers, WordSpec}
 
-class CometRoutesSpec extends WordSpec with Matchers with ScalaFutures with ScalatestRouteTest with CometRoutes {
+class CometRoutesSpec
+    extends WordSpec
+    with Matchers
+    with ScalaFutures
+    with ScalatestRouteTest
+    with CometRoutes {
 
   lazy val routes = cometRoutes
   "UserRoutes" should {

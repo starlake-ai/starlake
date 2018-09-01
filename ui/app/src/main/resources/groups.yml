@@ -1,4 +1,4 @@
 ---
 - hosts: localhost
   tasks:
-    - debug: var=groups
+  - debug: var=groups

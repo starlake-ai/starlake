@@ -1,12 +1,12 @@
 package com.ebiznext.comet.config
 
-import com.ebiznext.comet.db.RocksDBConfig
-import com.typesafe.config.{ Config, ConfigFactory }
+import com.ebiznext.comet.db.{RocksDBConfig, RocksDBConnection}
+import com.typesafe.config.{Config, ConfigFactory}
 import configs.Configs
 
 /**
- * Created by Mourad on 24/07/2018.
- */
+  * Created by Mourad on 24/07/2018.
+  */
 object Settings {
 
   import com.ebiznext.comet.utils.SettingsUtil._
@@ -16,10 +16,12 @@ object Settings {
   val interface = config.getString("http.interface")
   val port = config.getInt("http.port")
 
-  val rocksDBConfig: RocksDBConfig = Configs[RocksDBConfig].get(config, "rocksDB").result
+  val rocksDBConfig: RocksDBConfig =
+    Configs[RocksDBConfig].get(config, "rocksDB").result
+  implicit val rockDBConnection = new RocksDBConnection(rocksDBConfig)
+  val cometConfig: CometConfig =
+    Configs[CometConfig].get(config, "comet").result
 
   case class CometConfig(inventories: String)
-
-  val cometConfig: CometConfig = Configs[CometConfig].get(config, "comet").result
 
 }

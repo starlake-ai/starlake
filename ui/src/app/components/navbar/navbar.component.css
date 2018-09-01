@@ -1,15 +1,15 @@
-.page-top-menu{
-	position: fixed;
-	top: 0px;
-	left: 0px;
-	width: 100%;
-	height: 60px;
-	line-height: 60px;
-	z-index: 90;
+.page-top-menu {
+  position: fixed;
+  top: 0px;
+  left: 0px;
+  width: 100%;
+  height: 60px;
+  line-height: 60px;
+  z-index: 90;
 }
 
-.page-top-menu div{
-    display: block;
-	width: 100%;
-	font-size: 1.5rem;
+.page-top-menu div {
+  display: block;
+  width: 100%;
+  font-size: 1.5rem;
 }
