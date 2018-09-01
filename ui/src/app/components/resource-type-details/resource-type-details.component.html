@@ -1,78 +1,91 @@
-<p-dialog header="Resource Type" [(visible)]="visible" [modal]="true" [responsive]="true" [width]="800" [resizable]="false" [focusOnShow]="false" [contentStyle]="{'height':'600px'}" (onHide)="closeRsourceTypeDialog()">
-	<p-tabView>
-		<p-tabPanel header="Servers">
-			<p-table #dt styleClass="detialsListServers" [autoLayout]="true" [value]="sortedServers" [(selection)]="selectedServers" dataKey="id">
-				<ng-template pTemplate="caption">
-					<div class="table-caption">
-						<div class="filter">
-							<i class="fa fa-search"></i>
-							<input type="text" class="filter-input" placeholder="Filter by name" (input)="dt.filter($event.target.value, 'name', 'contains')"/>
-						</div>
-						List Of Servers
-					</div>
-				</ng-template>
-				<ng-template pTemplate="header">
-					<tr>
-						<th class="check text-center"><p-tableHeaderCheckbox></p-tableHeaderCheckbox></th>
-						<th>Server Name</th>
-					</tr>
-				</ng-template>
-				<ng-template pTemplate="body" let-server>
-					<tr [pSelectableRow]="server">
-						<td class="check text-center"><p-tableCheckbox [value]="server"></p-tableCheckbox></td>
-						<td>{{server.name}}</td>
-					</tr>
-				</ng-template>
-			</p-table>
-		</p-tabPanel>
-		<p-tabPanel header="Details" [selected]="true">
-			<form [formGroup]="form">
-				<input type="hidden" formControlName="serverId"/>
-				<input type="hidden" formControlName="resourceTypeId"/>
-				<div class="form-group">
-					<label for="count">Count</label>
-					<input type="text" [ngClass]="['form-control', getValidity(countCtl)]" formControlName="count" placeholder="Count" id="count"/>
-					<small *ngIf="countCtl && countCtl.invalid && countCtl.dirty" class="error">
-						Ce champs est requis
-					</small>
-				</div>
-				<div class="form-group">
-					<label for="cpu">CPU</label>
-					<input type="text" [ngClass]="['form-control', getValidity(cpuCtl)]" formControlName="cpu" placeholder="Cpu" id="cpu"/>
-					<small *ngIf="cpuCtl && cpuCtl.invalid && cpuCtl.dirty" class="error">
-						Ce champs est requis
-					</small>
-				</div>
-				<div class="form-group">
-					<label for="memory">Memory</label>
-					<input type="text" [ngClass]="['form-control', getValidity(memoryCtl)]" formControlName="memory" placeholder="Memory" id="memory"/>
-					<small *ngIf="memoryCtl && memoryCtl.invalid && memoryCtl.dirty" class="error">
-						Ce champs est requis
-					</small>
-				</div>
-				<div class="form-group">
-					<label for="podType">Pod Type</label>
-					<select [ngClass]="['form-control', getValidity(podTypeCtl)]" formControlName="podType" id="podType" (change)="changePodType()">
-						<option [value]="podTypes.STATELESS">State less</option>
-						<option [value]="podTypes.STATEFULL">State full</option>
-					</select>
-					<small *ngIf="podTypeCtl && podTypeCtl.invalid && podTypeCtl.dirty" class="error">
-						Ce champs est requis
-					</small>
-				</div>
-				<div class="form-group" *ngIf="showDataLocation">
-					<label for="dataLocation">Data Location</label>
-					<input type="text" [ngClass]="['form-control', getValidity(dataLocationCtl)]" formControlName="dataLocation" placeholder="Data Location" id="dataLocation"/>
-					<small *ngIf="dataLocationCtl && dataLocationCtl.invalid && dataLocationCtl.dirty" class="error">
-						Ce champs est requis
-					</small>
-				</div>
-			</form>
-		</p-tabPanel>
-	</p-tabView>
-	
-	<p-footer>
-		<button type="button" class="btn btn-secondary" (click)="closeRsourceTypeDialog()">Cancel</button>
-		<button type="button" class="btn btn-primary ml-2" (click)="submitRsourceTypeDialog()">Save</button>
-	</p-footer>
+<p-dialog header="Resource Type" [(visible)]="visible" [modal]="true" [responsive]="true" [width]="800"
+          [resizable]="false" [focusOnShow]="false" [contentStyle]="{'height':'600px'}"
+          (onHide)="closeRsourceTypeDialog()">
+  <p-tabView>
+    <p-tabPanel header="Servers">
+      <p-table #dt styleClass="detialsListServers" [autoLayout]="true" [value]="sortedServers"
+               [(selection)]="selectedServers" dataKey="id">
+        <ng-template pTemplate="caption">
+          <div class="table-caption">
+            <div class="filter">
+              <i class="fa fa-search"></i>
+              <input type="text" class="filter-input" placeholder="Filter by name"
+                     (input)="dt.filter($event.target.value, 'name', 'contains')"/>
+            </div>
+            List Of Servers
+          </div>
+        </ng-template>
+        <ng-template pTemplate="header">
+          <tr>
+            <th class="check text-center">
+              <p-tableHeaderCheckbox></p-tableHeaderCheckbox>
+            </th>
+            <th>Server Name</th>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-server>
+          <tr [pSelectableRow]="server">
+            <td class="check text-center">
+              <p-tableCheckbox [value]="server"></p-tableCheckbox>
+            </td>
+            <td>{{server.name}}</td>
+          </tr>
+        </ng-template>
+      </p-table>
+    </p-tabPanel>
+    <p-tabPanel header="Details" [selected]="true">
+      <form [formGroup]="form">
+        <input type="hidden" formControlName="serverId"/>
+        <input type="hidden" formControlName="resourceTypeId"/>
+        <div class="form-group">
+          <label for="count">Count</label>
+          <input type="text" [ngClass]="['form-control', getValidity(countCtl)]" formControlName="count"
+                 placeholder="Count" id="count"/>
+          <small *ngIf="countCtl && countCtl.invalid && countCtl.dirty" class="error">
+            Ce champs est requis
+          </small>
+        </div>
+        <div class="form-group">
+          <label for="cpu">CPU</label>
+          <input type="text" [ngClass]="['form-control', getValidity(cpuCtl)]" formControlName="cpu" placeholder="Cpu"
+                 id="cpu"/>
+          <small *ngIf="cpuCtl && cpuCtl.invalid && cpuCtl.dirty" class="error">
+            Ce champs est requis
+          </small>
+        </div>
+        <div class="form-group">
+          <label for="memory">Memory</label>
+          <input type="text" [ngClass]="['form-control', getValidity(memoryCtl)]" formControlName="memory"
+                 placeholder="Memory" id="memory"/>
+          <small *ngIf="memoryCtl && memoryCtl.invalid && memoryCtl.dirty" class="error">
+            Ce champs est requis
+          </small>
+        </div>
+        <div class="form-group">
+          <label for="podType">Pod Type</label>
+          <select [ngClass]="['form-control', getValidity(podTypeCtl)]" formControlName="podType" id="podType"
+                  (change)="changePodType()">
+            <option [value]="podTypes.STATELESS">State less</option>
+            <option [value]="podTypes.STATEFULL">State full</option>
+          </select>
+          <small *ngIf="podTypeCtl && podTypeCtl.invalid && podTypeCtl.dirty" class="error">
+            Ce champs est requis
+          </small>
+        </div>
+        <div class="form-group" *ngIf="showDataLocation">
+          <label for="dataLocation">Data Location</label>
+          <input type="text" [ngClass]="['form-control', getValidity(dataLocationCtl)]" formControlName="dataLocation"
+                 placeholder="Data Location" id="dataLocation"/>
+          <small *ngIf="dataLocationCtl && dataLocationCtl.invalid && dataLocationCtl.dirty" class="error">
+            Ce champs est requis
+          </small>
+        </div>
+      </form>
+    </p-tabPanel>
+  </p-tabView>
+
+  <p-footer>
+    <button type="button" class="btn btn-secondary" (click)="closeRsourceTypeDialog()">Cancel</button>
+    <button type="button" class="btn btn-primary ml-2" (click)="submitRsourceTypeDialog()">Save</button>
+  </p-footer>
 </p-dialog>

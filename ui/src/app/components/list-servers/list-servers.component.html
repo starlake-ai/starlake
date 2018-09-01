@@ -1,29 +1,36 @@
-<p-dialog header="Resource Type Servers" [(visible)]="visible" [modal]="true" [responsive]="true" [width]="800" [resizable]="false" [focusOnShow]="false" [contentStyle]="{'height':'600px'}" (onHide)="closeServersDialog()">
-	<p-table #dt styleClass="listServers" [autoLayout]="true" [value]="sortedServers" [(selection)]="selectedServers" dataKey="id">
-		<ng-template pTemplate="caption">
-			<div class="table-caption">
-				<div class="filter">
-					<i class="fa fa-search"></i>
-					<input type="text" class="filter-input" placeholder="Filter by name" (input)="dt.filter($event.target.value, 'name', 'contains')"/>
-				</div>
-				List Of Servers
-			</div>
-		</ng-template>
-		<ng-template pTemplate="header">
-			<tr>
-				<th class="check text-center"><p-tableHeaderCheckbox></p-tableHeaderCheckbox></th>
-				<th>Server Name</th>
-			</tr>
-		</ng-template>
-		<ng-template pTemplate="body" let-server>
-			<tr [pSelectableRow]="server">
-				<td class="check text-center"><p-tableCheckbox [value]="server"></p-tableCheckbox></td>
-				<td>{{server.name}}</td>
-			</tr>
-		</ng-template>
-	</p-table>
-	<p-footer>
-		<button type="button" class="btn btn-secondary" (click)="closeServersDialog()">Cancel</button>
-		<button type="button" class="btn btn-primary ml-2" (click)="submitServersDialog()">Save</button>
-	</p-footer>
+<p-dialog header="Resource Type Servers" [(visible)]="visible" [modal]="true" [responsive]="true" [width]="800"
+          [resizable]="false" [focusOnShow]="false" [contentStyle]="{'height':'600px'}" (onHide)="closeServersDialog()">
+  <p-table #dt styleClass="listServers" [autoLayout]="true" [value]="sortedServers" [(selection)]="selectedServers"
+           dataKey="id">
+    <ng-template pTemplate="caption">
+      <div class="table-caption">
+        <div class="filter">
+          <i class="fa fa-search"></i>
+          <input type="text" class="filter-input" placeholder="Filter by name"
+                 (input)="dt.filter($event.target.value, 'name', 'contains')"/>
+        </div>
+        List Of Servers
+      </div>
+    </ng-template>
+    <ng-template pTemplate="header">
+      <tr>
+        <th class="check text-center">
+          <p-tableHeaderCheckbox></p-tableHeaderCheckbox>
+        </th>
+        <th>Server Name</th>
+      </tr>
+    </ng-template>
+    <ng-template pTemplate="body" let-server>
+      <tr [pSelectableRow]="server">
+        <td class="check text-center">
+          <p-tableCheckbox [value]="server"></p-tableCheckbox>
+        </td>
+        <td>{{server.name}}</td>
+      </tr>
+    </ng-template>
+  </p-table>
+  <p-footer>
+    <button type="button" class="btn btn-secondary" (click)="closeServersDialog()">Cancel</button>
+    <button type="button" class="btn btn-primary ml-2" (click)="submitServersDialog()">Save</button>
+  </p-footer>
 </p-dialog>
