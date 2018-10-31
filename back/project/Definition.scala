@@ -26,6 +26,5 @@ trait Definition {
     sbt
       .Project(id = name, base = src)
       .configs(IntegrationTest)
-      .settings(sbt.Defaults.itSettings: _*)
 
 }
