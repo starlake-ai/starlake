@@ -26,14 +26,13 @@ class SchemaHandlerSpec extends FlatSpec with Matchers with Data {
   DatasetArea.initDomains(storageHandler, schemaHandler.domains.map(_.name))
 
   "Ingest CSV" should "produce file in accepted" in {
-    val stream: InputStream = getClass.getResourceAsStream("/SCHEMA-VALID.dsv")
+    val stream: InputStream = getClass.getResourceAsStream("/SCHEMA-VALID-NOHEADER.dsv")
     val lines = scala.io.Source.fromInputStream(stream).getLines().mkString("\n")
-    val targetPath = DatasetArea.path(DatasetArea.pending("DOMAIN"), "SCHEMA-VALID.dsv")
+    val targetPath = DatasetArea.path(DatasetArea.pending("DOMAIN"), "SCHEMA-VALID-NOHEADER.dsv")
     storageHandler.write(lines, targetPath)
     val validator = new DatasetValidator(storageHandler, schemaHandler, new LaunchHandler {
       override def launch(domain: String, schema: String, path: Path): Boolean = ???
     })
     validator.run()
   }
-
 }

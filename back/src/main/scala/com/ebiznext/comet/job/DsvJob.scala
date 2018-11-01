@@ -14,14 +14,14 @@ import org.apache.spark.sql._
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
 import org.apache.spark.sql.types.StructType
 
-case class ColInfo(colData: String, colName: String, typeName: String, pattern: String)
+case class ColInfo(colData: String, colName: String, typeName: String, pattern: String, success: Boolean)
 
 case class RowInfo(colInfos: List[ColInfo])
 
-case class ColResult(colInfo: ColInfo, success: Boolean, sparkValue: Any)
+case class ColResult(colInfo: ColInfo, sparkValue: Any)
 
 case class RowResult(colResults: List[ColResult]) {
-  def isRejected: Boolean = colResults.exists(!_.success)
+  def isRejected: Boolean = colResults.exists(!_.colInfo.success)
 
   def isAccepted: Boolean = !isRejected
 }
@@ -72,55 +72,29 @@ class DsvJob(domain: Domain, schema: SchemaModel.Schema, types: List[Type], meta
     }
     StructType(sparkFields)
   }
+  
+  private val schemaTypes: List[Type] = {
+    val mapTypes: Map[String, Type] = types.map(tpe => tpe.name -> tpe).toMap
+    schema.attributes.map { attribute =>
+      mapTypes(attribute.`type`)
+    }
+  }
 
   private def validate(dataset: DataFrame) = {
-    val (rejectedRDD, acceptedRDD) = DsvTask.validate(session, dataset, this.schemaHeaders, types, sparkType)
+    val (rejectedRDD, acceptedRDD) = DsvTask.validate(session, dataset, this.schemaHeaders, schemaTypes, sparkType)
     val writeMode = metadata.getWrite()
 
-    val rejectedPath = DatasetArea.path(domain.name, "rejected")
-    savedRows(session.createDataFrame(rejectedRDD), rejectedPath, writeMode,HiveArea.rejected)
+    val rejectedPath = new Path(DatasetArea.path(domain.name, "rejected"), schema.name)
+    saveRows(session.createDataFrame(rejectedRDD), rejectedPath, writeMode, HiveArea.rejected)
 
-    val acceptedPath = DatasetArea.path(domain.name, "accepted")
-    savedRows(session.createDataFrame(acceptedRDD, sparkType), acceptedPath, writeMode,HiveArea.accepted)
-//    saveRejectedRows(session.createDataFrame(rejectedRDD))
-//    saveAcceptedRows(session.createDataFrame(acceptedRDD, sparkType))
+    val acceptedPath = new Path(DatasetArea.path(domain.name, "accepted"), schema.name)
+    saveRows(session.createDataFrame(acceptedRDD, sparkType), acceptedPath, writeMode, HiveArea.accepted)
+    //    saveRejectedRows(session.createDataFrame(rejectedRDD))
+    //    saveAcceptedRows(session.createDataFrame(acceptedRDD, sparkType))
   }
 
-  def saveAcceptedRows(dataset: DataFrame): Unit = {
-    val count = dataset.count()
-    val validPath = DatasetArea.path(DatasetArea.accepted(domain.name), schema.name)
-    val saveMode = metadata.getWrite() match {
-      case OVERWRITE => SaveMode.Overwrite
-      case APPEND => SaveMode.Append
-    }
-    val acceptedHiveDB = HiveArea.accepted(domain.name)
-    val tableName = schema.name
 
-    logger.info(s"Output $count to $validPath in $saveMode")
-    session.sql(s"create database if not exists $acceptedHiveDB")
-    session.sql(s"use $acceptedHiveDB")
-    session.sql(s"drop table if exists $tableName")
-    dataset.write.mode(saveMode).option("path", validPath.toString).saveAsTable(schema.name)
-  }
-
-  def saveRejectedRows(dataset: DataFrame): Unit = {
-    val count = dataset.count()
-    val rejectedtPath = DatasetArea.path(DatasetArea.rejected(domain.name), schema.name)
-    val saveMode = metadata.getWrite() match {
-      case OVERWRITE => SaveMode.Overwrite
-      case APPEND => SaveMode.Append
-    }
-    val rejectedHiveDB = HiveArea.rejected(domain.name)
-    val tableName = schema.name
-
-    logger.info(s"Output $count to $rejectedtPath in $saveMode")
-    session.sql(s"create database if not exists $rejectedHiveDB")
-    session.sql(s"use $rejectedHiveDB")
-    session.sql(s"drop table if exists $tableName")
-    dataset.write.mode(saveMode).option("path", rejectedtPath.toString).saveAsTable(tableName)
-  }
-
-  def savedRows(dataset: DataFrame, targetPath: Path, writeMode: Write, area: HiveArea): Unit = {
+  def saveRows(dataset: DataFrame, targetPath: Path, writeMode: Write, area: HiveArea): Unit = {
     val count = dataset.count()
     val saveMode = writeMode match {
       case OVERWRITE => SaveMode.Overwrite
@@ -129,7 +103,7 @@ class DsvJob(domain: Domain, schema: SchemaModel.Schema, types: List[Type], meta
     val hiveDB = HiveArea.area(domain.name, area)
     val tableName = schema.name
 
-    logger.info(s"Output $count to $targetPath in $saveMode")
+    logger.info(s"DSV Output $count to $targetPath in $saveMode")
     session.sql(s"create database if not exists $hiveDB")
     session.sql(s"use $hiveDB")
     session.sql(s"drop table if exists $tableName")
@@ -138,8 +112,6 @@ class DsvJob(domain: Domain, schema: SchemaModel.Schema, types: List[Type], meta
 
   def run(args: Array[String]): Unit = {
     validate(loadDataSet())
-    val targetPath = new Path(DatasetArea.staging(domain.name), path.getName)
-    storageHandler.move(path, targetPath)
   }
 }
 
@@ -158,7 +130,7 @@ object DsvTask {
               tpe.primitiveType.fromString(colValue)
             else
               null
-            ColResult(ColInfo(colValue, colName, tpe.name, tpe.pattern.pattern()), success, sparkValue)
+            ColResult(ColInfo(colValue, colName, tpe.name, tpe.pattern.pattern(), success), sparkValue)
           } toList
         )
       }
@@ -168,8 +140,9 @@ object DsvTask {
 
     val acceptedRDD: RDD[Row] = checkedRDD.filter(_.isAccepted).map { rowResult =>
       val sparkValues: List[Any] = rowResult.colResults.map(_.sparkValue)
-      new GenericRowWithSchema(Row(sparkValues).toSeq.toArray, sparkType)
+      new GenericRowWithSchema(Row(sparkValues: _*).toSeq.toArray, sparkType)
     }
     (rejectedRDD, acceptedRDD)
   }
 }
+
