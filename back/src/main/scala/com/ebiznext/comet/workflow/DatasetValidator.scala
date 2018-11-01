@@ -43,6 +43,8 @@ class DatasetValidator(storageHandler: StorageHandler,
       case JSON=>
         throw new Exception("Not yet Implemented");
     }
+    val targetPath = new Path(DatasetArea.staging(domain.name), path.getName)
+    storageHandler.move(path, targetPath)
   }
 
   def ingesting(domain: Domain, schema: SchemaModel.Schema, path: Path): Unit = {
