@@ -6,8 +6,9 @@ import java.util.regex.Pattern
 
 import com.ebiznext.comet.schema.model.SchemaModel.Format.DSV
 import com.ebiznext.comet.schema.model.SchemaModel.Mode.FILE
-import com.ebiznext.comet.schema.model.SchemaModel.Write.APPEND
+import com.ebiznext.comet.schema.model.SchemaModel.Write.{APPEND, OVERWRITE}
 import org.apache.hadoop.fs.Path
+import org.apache.spark.sql.SaveMode
 import org.apache.spark.sql.catalyst.parser.CatalystSqlParser
 import org.apache.spark.sql.types.StructField
 import org.json4s.{CustomSerializer, DefaultFormats, JNull, JString}
@@ -27,7 +28,14 @@ object SchemaModel {
 
   }
 
-  sealed case class Write(value: String)
+  sealed case class Write(value: String) {
+    def toSaveMode: SaveMode = {
+      this match {
+        case OVERWRITE => SaveMode.Overwrite
+        case APPEND => SaveMode.Append
+      }
+    }
+  }
 
   object Write {
 
@@ -227,7 +235,7 @@ object SchemaModel {
       pattern.matcher(name).matches()
     }
 
-    def sparkType(fieldName:String, nullable: Boolean): StructField = {
+    def sparkType(fieldName: String, nullable: Boolean): StructField = {
       StructField(fieldName, CatalystSqlParser.parseDataType(primitiveType.value), nullable)
     }
 
@@ -256,13 +264,12 @@ object SchemaModel {
                     metadata: Metadata)
 
   case class Domain(name: String,
-                    directory: String,
+                    directory: Path,
                     metadata: Metadata,
                     schemas: List[Schema]) {
     def findSchema(filename: String): Option[Schema] = {
       schemas.find(_.pattern.matcher(filename).matches())
     }
-    def directoryPath: Path = new Path(directory)
   }
 
   case class Metadata(
@@ -356,7 +363,14 @@ object SchemaModel {
     Some("yyyy-MM-dd"),
     Some("yyyy-MM-dd HH:mm:ss")
   )
+
+
+  case class BusinessTask(sql: String, domain: String, dataset: String, write: Write)
+
+  case class BusinessJob(name: String, cron: String, tasks: Array[BusinessTask])
+
 }
+
 
 /*
 "metadata": {

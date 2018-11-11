@@ -1,10 +1,10 @@
-import Common._
+
 
 name := "comet"
 
 version := "0.1"
 
-scalaVersion := "2.11.12"
+scalaVersion := "2.11.8"
 
 
 scalacOptions += "-Xmacro-settings:materialize-derivations"
@@ -20,9 +20,18 @@ addCommandAlias("pr", ";clean;publish") // clean and publish globally
 
 addCommandAlias("pld", ";clean;local:publishLocal;dockerComposeUp") // clean and publish/launch the docker environment
 
+// Libraries
 val json4sNative = "org.json4s" %% "json4s-native" % Versions.json4s
 
 val scalaTest = "org.scalatest" %% "scalatest" % Versions.scalatest % "test"
+
+val betterfiles =Seq("com.github.pathikrit" %% "better-files" % Versions.betterFiles)
+
+val spark = Seq(
+  "org.apache.spark" %% "spark-core" % Versions.spark % "provided",
+  "org.apache.spark" %% "spark-sql" % Versions.spark % "provided",
+  "org.apache.spark" %% "spark-hive" % Versions.spark % "provided"
+)
 
 val logging = Seq(
   "com.typesafe.scala-logging" %% "scala-logging" % Versions.scalaLogging
@@ -31,21 +40,32 @@ val logging = Seq(
 val pureConfig = Seq(
   "com.typesafe" % "config" % Versions.typesafeConfig,
   "com.github.pureconfig" %% "pureconfig" % Versions.pureConfig
-)
-
-val postgres = Seq( "org.postgresql" % "postgresql" % "42.2.5")
-
-//.map(_.excludeAll(allSparkExclusions: _*))
+).map(_.exclude("com.chuusai", "shapeless_2.11"))
 
 
-//excludeDependencies  ++= Seq("org.slf4j" % "slf4j-log4j12", "log4j" %"log4j")
+val shapeless = Seq("com.chuusai" %% "shapeless" % "2.3.2" % "provided")
+
+val postgres = Seq("org.postgresql" % "postgresql" % "42.2.5")
 
 val hikaricp = Seq("com.zaxxer" % "HikariCP" % "2.5.1")
 
-libraryDependencies ++= Seq(json4sNative, scalaTest) ++ logging  ++ pureConfig ++ postgres ++ hikaricp // ++ spark
+val okhttp = Seq("com.squareup.okhttp3" % "okhttp" % "3.11.0")
 
-Compile / unmanagedJars ++= {
-  val base = file("/Users/hayssams/programs/spark-2.3.2-bin-hadoop2.7/jars")
-  val customJars = base ** "*.jar"
-  customJars.classpath
+libraryDependencies ++= Seq(json4sNative, scalaTest) ++ logging ++ pureConfig ++ postgres ++ hikaricp ++ spark ++ shapeless ++ okhttp ++ betterfiles
+
+
+// Assembly
+mainClass in Compile := Some("com.ebiznext.comet.job.Main")
+
+test in assembly := {}
+
+
+// Git
+enablePlugins(GitVersioning)
+
+git.useGitDescribe := true
+
+git.gitTagToVersionNumber := { tag: String =>
+  if (tag matches "[0-9]+\\..*") Some(tag)
+  else None
 }
