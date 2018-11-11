@@ -1,13 +1,11 @@
 package com.ebiznext.comet.schema.handlers
 
-import java.util.regex.Pattern
-
 import com.ebiznext.comet.config.DatasetArea
 import com.ebiznext.comet.schema.model.SchemaModel
 import com.ebiznext.comet.schema.model.SchemaModel.{Domain, Schema, Type, Types}
 import org.apache.hadoop.fs.Path
 import org.json4s.Formats
-import org.json4s.native.Serialization.{read => jsread, write => jswrite}
+import org.json4s.native.Serialization.{read => jsread}
 
  class SchemaHandler(storage: StorageHandler) {
   implicit val formats: Formats = SchemaModel.formats

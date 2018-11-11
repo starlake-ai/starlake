@@ -9,8 +9,14 @@ import org.apache.hadoop.fs._
 trait StorageHandler {
 
   def move(path: Path, path1: Path): Boolean
+
   def delete(path: Path)
+
   def mkdirs(path: Path)
+
+  def copyFromLocal(source: Path, dest: Path): Unit
+
+  def moveFromLocal(source: Path, dest: Path): Unit
 
   def read(path: Path): String
 
@@ -23,7 +29,7 @@ trait StorageHandler {
 
 class HdfsStorageHandler extends StorageHandler {
   implicit def convertToScalaIterator[T](
-      underlying: RemoteIterator[T]): Iterator[T] = {
+                                          underlying: RemoteIterator[T]): Iterator[T] = {
     case class wrapper(underlying: RemoteIterator[T]) extends Iterator[T] {
       override def hasNext = underlying.hasNext
 
@@ -64,6 +70,7 @@ class HdfsStorageHandler extends StorageHandler {
       .toList
   }
 
+
   override def move(path: Path, dest: Path): Boolean = {
     val conf = new Configuration()
     val fs = FileSystem.get(conf)
@@ -80,5 +87,17 @@ class HdfsStorageHandler extends StorageHandler {
     val conf = new Configuration()
     val fs = FileSystem.get(conf)
     fs.mkdirs(path)
+  }
+
+  override def copyFromLocal(source: Path, dest: Path): Unit = {
+    val conf = new Configuration()
+    val fs = FileSystem.get(conf)
+    fs.copyFromLocalFile(source, dest)
+  }
+
+  override def moveFromLocal(source: Path, dest: Path): Unit = {
+    val conf = new Configuration()
+    val fs = FileSystem.get(conf)
+    fs.moveFromLocalFile(source, dest)
   }
 }

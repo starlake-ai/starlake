@@ -31,5 +31,5 @@ class SparkEnv(name: String)
     thisConf
   }
 
-  lazy val session: SparkSession = SparkSession.builder.config(config).enableHiveSupport().getOrCreate()
+  lazy val session: SparkSession = SparkSession.builder.config(config).getOrCreate()
 }

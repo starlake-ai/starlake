@@ -5,7 +5,7 @@ import java.io.InputStream
 import com.ebiznext.comet.config.DatasetArea
 import com.ebiznext.comet.data.Data
 import com.ebiznext.comet.schema.model.SchemaModel
-import com.ebiznext.comet.workflow.DatasetValidator
+import com.ebiznext.comet.workflow.DatasetWorkflow
 import org.apache.hadoop.fs.Path
 import org.scalatest.{FlatSpec, Matchers}
 
@@ -30,9 +30,7 @@ class SchemaHandlerSpec extends FlatSpec with Matchers with Data {
     val lines = scala.io.Source.fromInputStream(stream).getLines().mkString("\n")
     val targetPath = DatasetArea.path(DatasetArea.pending("DOMAIN"), "SCHEMA-VALID-NOHEADER.dsv")
     storageHandler.write(lines, targetPath)
-    val validator = new DatasetValidator(storageHandler, schemaHandler, new LaunchHandler {
-      override def launch(domain: String, schema: String, path: Path): Boolean = ???
-    })
-    validator.run()
+    val validator = new DatasetWorkflow(storageHandler, schemaHandler, new AirflowLauncher)
+    validator.loadPending()
   }
 }

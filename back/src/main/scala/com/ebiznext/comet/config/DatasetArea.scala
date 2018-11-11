@@ -23,6 +23,8 @@ object DatasetArea {
 
   def rejected(domain: String): Path = path(domain, "rejected")
 
+  def business(domain: String): Path = path(domain, "business")
+
   val metadata = new Path(s"/$env/metadata")
   val types = new Path(metadata, "types")
   val domains = new Path(metadata, "domains")
@@ -54,7 +56,7 @@ object HiveArea {
 
   object accepted extends HiveArea("accepted")
 
-  object exposed extends HiveArea("exposed")
+  object business extends HiveArea("business")
 
   def area(domain: String, area: HiveArea) = s"${domain}_${area.value}"
 

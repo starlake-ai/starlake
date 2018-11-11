@@ -6,7 +6,6 @@ import java.time.Instant
 import com.ebiznext.comet.config.{DatasetArea, HiveArea}
 import com.ebiznext.comet.schema.handlers.StorageHandler
 import com.ebiznext.comet.schema.model.SchemaModel
-import com.ebiznext.comet.schema.model.SchemaModel.Write.{APPEND, OVERWRITE}
 import com.ebiznext.comet.schema.model.SchemaModel.{Domain, Metadata, Type, Write}
 import org.apache.hadoop.fs.Path
 import org.apache.spark.rdd.RDD
@@ -81,7 +80,7 @@ class DsvJob(domain: Domain, schema: SchemaModel.Schema, types: List[Type], meta
   }
 
   private def validate(dataset: DataFrame) = {
-    val (rejectedRDD, acceptedRDD) = DsvTask.validate(session, dataset, this.schemaHeaders, schemaTypes, sparkType)
+    val (rejectedRDD, acceptedRDD) = DsvIngestTask.validate(session, dataset, this.schemaHeaders, schemaTypes, sparkType)
     val writeMode = metadata.getWrite()
 
     val rejectedPath = new Path(DatasetArea.path(domain.name, "rejected"), schema.name)
@@ -96,14 +95,11 @@ class DsvJob(domain: Domain, schema: SchemaModel.Schema, types: List[Type], meta
 
   def saveRows(dataset: DataFrame, targetPath: Path, writeMode: Write, area: HiveArea): Unit = {
     val count = dataset.count()
-    val saveMode = writeMode match {
-      case OVERWRITE => SaveMode.Overwrite
-      case APPEND => SaveMode.Append
-    }
+    val saveMode = writeMode.toSaveMode
     val hiveDB = HiveArea.area(domain.name, area)
     val tableName = schema.name
 
-    logger.info(s"DSV Output $count to $targetPath in $saveMode")
+    logger.info(s"DSV Output $count to Hive table $hiveDB/$tableName($saveMode) at $targetPath")
     session.sql(s"create database if not exists $hiveDB")
     session.sql(s"use $hiveDB")
     session.sql(s"drop table if exists $tableName")
@@ -115,7 +111,7 @@ class DsvJob(domain: Domain, schema: SchemaModel.Schema, types: List[Type], meta
   }
 }
 
-object DsvTask {
+object DsvIngestTask {
   def validate(session: SparkSession, dataset: DataFrame, schemaHeaders: List[String], types: List[Type], sparkType: StructType): (RDD[RowInfo], RDD[Row]) = {
     val now = Timestamp.from(Instant.now)
     val checkedRDD: RDD[RowResult] = dataset.rdd.mapPartitions { partition =>
