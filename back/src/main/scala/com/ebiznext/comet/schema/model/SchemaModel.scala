@@ -7,16 +7,17 @@ import java.util.regex.Pattern
 import com.ebiznext.comet.schema.model.SchemaModel.Format.DSV
 import com.ebiznext.comet.schema.model.SchemaModel.Mode.FILE
 import com.ebiznext.comet.schema.model.SchemaModel.Write.{APPEND, OVERWRITE}
-import org.apache.hadoop.fs.Path
+import com.fasterxml.jackson.core.JsonParser
+import com.fasterxml.jackson.databind.annotation.{JsonDeserialize, JsonSerialize}
+import com.fasterxml.jackson.databind.ser.std.ToStringSerializer
+import com.fasterxml.jackson.databind.{DeserializationContext, JsonDeserializer}
 import org.apache.spark.sql.SaveMode
 import org.apache.spark.sql.catalyst.parser.CatalystSqlParser
 import org.apache.spark.sql.types.StructField
-import org.json4s.{CustomSerializer, DefaultFormats, JNull, JString}
 
 import scala.util.{Failure, Success, Try}
 
 object SchemaModel {
-  val formats = DefaultFormats + FormatSerializer + ModeSerializer + WriteSerializer + PrivacyLevelSerializer + PatternSerializer + PathSerializer + PrimitiveTypeSerializer
 
   sealed case class Mode(value: String)
 
@@ -55,48 +56,6 @@ object SchemaModel {
 
   }
 
-  case object ModeSerializer
-    extends CustomSerializer[Mode](_ =>
-      ( {
-        case JString(data) =>
-          data match {
-            case "FILE" => Mode.FILE
-            case "STREAM" => Mode.STREAM
-          }
-        case JNull => null
-      }, {
-        case mode: Mode =>
-          JString(mode.value)
-      }))
-
-  case object WriteSerializer
-    extends CustomSerializer[Write](_ =>
-      ( {
-        case JString(data) =>
-          data match {
-            case "OVERWRITE" => Write.OVERWRITE
-            case "APPEND" => Write.APPEND
-          }
-        case JNull => null
-      }, {
-        case write: Write =>
-          JString(write.value)
-      }))
-
-  case object FormatSerializer
-    extends CustomSerializer[Format](_ =>
-      ( {
-        case JString(data) =>
-          data match {
-            case "DSV" => Format.DSV
-            case "JSON" => Format.JSON
-          }
-        case JNull => null
-      }, {
-        case format: Format =>
-          JString(format.value)
-      }))
-
   sealed case class PrivacyLevel(value: String)
 
   object PrivacyLevel {
@@ -113,37 +72,26 @@ object SchemaModel {
 
   }
 
-  case object PathSerializer
-    extends CustomSerializer[Path](_ =>
-      ( {
-        case JString(data) =>
-          new Path(data)
-        case JNull => null
-      }, {
-        case path: Path =>
-          JString(path.toString)
-      }))
-
-
-  case object PrivacyLevelSerializer
-    extends CustomSerializer[PrivacyLevel](_ =>
-      ( {
-        case JString(data) =>
-          data match {
-            case "NONE" => PrivacyLevel.NONE
-            case "HIDE" => PrivacyLevel.HIDE
-            case "MD5" => PrivacyLevel.MD5
-            case "SHA1" => PrivacyLevel.SHA1
-            case "AES" => PrivacyLevel.AES
-          }
-        case JNull => null
-      }, {
-        case privacy: PrivacyLevel =>
-          JString(privacy.value)
-      }))
-
   sealed abstract case class PrimitiveType(value: String) {
     def fromString(str: String, format: String = null): Any
+
+    override def toString: String = value
+  }
+
+
+  class PrimitiveTypeDeserializer extends JsonDeserializer[PrimitiveType]  {
+    override def deserialize(jp: JsonParser, ctx: DeserializationContext): PrimitiveType = {
+      val value = jp.readValueAs[String](classOf[String])
+      value match {
+        case "string" => PrimitiveType.string
+        case "long" => PrimitiveType.long
+        case "double" => PrimitiveType.double
+        case "boolean" => PrimitiveType.boolean
+        case "byte" => PrimitiveType.byte
+        case "date" => PrimitiveType.date
+        case "timestamp" => PrimitiveType.timestamp
+      }
+    }
   }
 
   object PrimitiveType {
@@ -208,29 +156,10 @@ object SchemaModel {
 
   }
 
-  case object PrimitiveTypeSerializer
-    extends CustomSerializer[PrimitiveType](_ =>
-      ( {
-        case JString(data) =>
-          data match {
-            case "string" => PrimitiveType.string
-            case "long" => PrimitiveType.long
-            case "double" => PrimitiveType.double
-            case "boolean" => PrimitiveType.boolean
-            case "byte" => PrimitiveType.byte
-            case "date" => PrimitiveType.date
-            case "timestamp" => PrimitiveType.timestamp
-          }
-        case JNull => null
-      }, {
-        case primitive: PrimitiveType =>
-          JString(primitive.value)
-      }))
-
   case class Types(types: List[Type]) {
   }
 
-  case class Type(name: String, primitiveType: PrimitiveType, pattern: Pattern) {
+  case class Type(name: String,  @JsonSerialize(using = classOf[ToStringSerializer]) @JsonDeserialize(using = classOf[PrimitiveTypeDeserializer]) primitiveType: PrimitiveType, pattern: Pattern) {
     def matches(value: String): Boolean = {
       pattern.matcher(name).matches()
     }
@@ -240,18 +169,6 @@ object SchemaModel {
     }
 
   }
-
-  case object PatternSerializer
-    extends CustomSerializer[Pattern](_ =>
-      ( {
-        case JString(data) =>
-          Pattern.compile(data)
-
-        case JNull => null
-      }, {
-        case pattern: Pattern =>
-          JString(pattern.pattern())
-      }))
 
   case class DSVAttribute(name: String,
                           `type`: String,
@@ -264,7 +181,7 @@ object SchemaModel {
                     metadata: Metadata)
 
   case class Domain(name: String,
-                    directory: Path,
+                    directory: String,
                     metadata: Metadata,
                     schemas: List[Schema]) {
     def findSchema(filename: String): Option[Schema] = {

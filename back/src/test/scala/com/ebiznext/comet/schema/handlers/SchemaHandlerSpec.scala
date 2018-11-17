@@ -4,14 +4,18 @@ import java.io.InputStream
 
 import com.ebiznext.comet.config.DatasetArea
 import com.ebiznext.comet.data.Data
-import com.ebiznext.comet.schema.model.SchemaModel
 import com.ebiznext.comet.workflow.DatasetWorkflow
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
+import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import org.apache.hadoop.fs.Path
 import org.scalatest.{FlatSpec, Matchers}
 
+
 class SchemaHandlerSpec extends FlatSpec with Matchers with Data {
-  import org.json4s.native.Serialization.{read => jsread, write => jswrite}
-  implicit val formats = SchemaModel.formats
+  val mapper: ObjectMapper = new ObjectMapper(new YAMLFactory())
+  // provides all of the Scala goodiness
+  mapper.registerModule(DefaultScalaModule)
   val storageHandler = new HdfsStorageHandler
   val schemaHandler = new SchemaHandler(storageHandler)
   
@@ -19,9 +23,9 @@ class SchemaHandlerSpec extends FlatSpec with Matchers with Data {
   
   val sh = new HdfsStorageHandler
   val domainsPath = new Path(DatasetArea.domains, domain.name +".json")
-  sh.write(jswrite(domain), domainsPath)
+  sh.write(mapper.writeValueAsString(domain), domainsPath)
   val typesPath = new Path(DatasetArea.types, "types.json")
-  sh.write(jswrite(types), typesPath)
+  sh.write(mapper.writeValueAsString(types), typesPath)
 
   DatasetArea.initDomains(storageHandler, schemaHandler.domains.map(_.name))
 

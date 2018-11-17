@@ -1,7 +1,6 @@
 object Versions {
   val sparkAvro = "4.0.0"
   val hadoop = "2.7.3"
-  val json4s = "3.2.11"
   val spark = "2.3.2"
   val curator = "2.6.0"
   val scalatest = "3.0.5"
@@ -16,7 +15,7 @@ object Versions {
   val hive = "3.1.0"
   val log4s = "1.3.3"
   val betterFiles ="3.6.0"
-
+  val jackson = "2.6.7"
 }
 
 object Common extends Definition
