@@ -76,7 +76,7 @@ class DatasetWorkflow(storageHandler: StorageHandler,
     val localFS = new LocalFileSystem
     val domains = schemaHandler.domains
     domains.foreach { domain =>
-      storageHandler.list(domain.directory, ".ack").foreach { path: Path =>
+      storageHandler.list(new Path(domain.directory), ".ack").foreach { path: Path =>
         val ackFile: files.File = localFS.pathToFile(path).toScala
         val fileStr = ackFile.pathAsString
         val prefixStr = fileStr.stripSuffix(".ack")

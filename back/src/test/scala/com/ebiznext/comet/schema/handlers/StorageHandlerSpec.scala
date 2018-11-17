@@ -1,40 +1,43 @@
 package com.ebiznext.comet.schema.handlers
 
-import java.io.File
-
 import com.ebiznext.comet.data.Data
-import com.ebiznext.comet.schema.model.SchemaModel
 import com.ebiznext.comet.schema.model.SchemaModel.{Domain, Types}
 import org.apache.hadoop.fs.Path
 import org.scalatest.{FlatSpec, Matchers}
-import org.json4s.native.Serialization.{read => jsread, write => jswrite}
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
+import com.fasterxml.jackson.module.scala.DefaultScalaModule
 
 class StorageHandlerSpec extends FlatSpec with Matchers with Data {
-  implicit val formats = SchemaModel.formats
+  val mapper: ObjectMapper = new ObjectMapper(new YAMLFactory())
+  // provides all of the Scala goodiness
+  mapper.registerModule(DefaultScalaModule)
 
-  "Domain Case Class" should "be written as json" in {
-    val path = new Path("/tmp/domain.json")
+  "Domain Case Class" should "be written as yaml" in {
+    val path = new Path("/tmp/domain.yml")
     val sh = new HdfsStorageHandler
-    sh.write(jswrite(domain), path)
+
+    sh.write(mapper.writeValueAsString(domain), path)
   }
 
-  "json Domain" should "be read into a case class" in {
-    val path = new Path("/tmp/domain.json")
+  "yaml Domain" should "be read into a case class" in {
+    val path = new Path("/tmp/domain.yml")
     val sh = new HdfsStorageHandler
-    val ldomain = jsread[Domain](sh.read(path))
-    // assert(ldomain == domain)
+
+    val ldomain = mapper.readValue(sh.read(path), classOf[Domain])
+    assert(ldomain == domain)
   }
 
-  "Types Case Class" should "be written as json" in {
-    val path = new Path("/tmp/types.json")
+  "Types Case Class" should "be written as yaml" in {
+    val path = new Path("/tmp/types.yml")
     val sh = new HdfsStorageHandler
-    sh.write(jswrite(types), path)
+    sh.write(mapper.writeValueAsString(types), path)
   }
 
-  "json Types" should "be read into a case class" in {
-    val path = new Path("/tmp/types.json")
+  "yaml Types" should "be read into a case class" in {
+    val path = new Path("/tmp/types.yml")
     val sh = new HdfsStorageHandler
-    val ltypes = jsread[Types](sh.read(path))
-    //assert(ltypes == types)
+    val ltypes = mapper.readValue(sh.read(path), classOf[Types])
+    assert(ltypes == types)
   }
 }
