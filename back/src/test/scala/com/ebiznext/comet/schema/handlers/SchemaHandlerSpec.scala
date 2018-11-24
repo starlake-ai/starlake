@@ -18,11 +18,11 @@ class SchemaHandlerSpec extends FlatSpec with Matchers with Data {
   mapper.registerModule(DefaultScalaModule)
   val storageHandler = new HdfsStorageHandler
   val schemaHandler = new SchemaHandler(storageHandler)
-  
+
   DatasetArea.init(storageHandler)
-  
+
   val sh = new HdfsStorageHandler
-  val domainsPath = new Path(DatasetArea.domains, domain.name +".json")
+  val domainsPath = new Path(DatasetArea.domains, domain.name + ".json")
   sh.write(mapper.writeValueAsString(domain), domainsPath)
   val typesPath = new Path(DatasetArea.types, "types.json")
   sh.write(mapper.writeValueAsString(types), typesPath)
@@ -37,4 +37,5 @@ class SchemaHandlerSpec extends FlatSpec with Matchers with Data {
     val validator = new DatasetWorkflow(storageHandler, schemaHandler, new AirflowLauncher)
     validator.loadPending()
   }
+
 }
