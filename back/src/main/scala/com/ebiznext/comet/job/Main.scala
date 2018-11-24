@@ -16,7 +16,7 @@ object Main extends Data {
 
   val usage =
     """
-    Usage: Main ingest domain schema pat
+    Usage: Main ingest domain schema path
     Usage: Main watch
   """
 

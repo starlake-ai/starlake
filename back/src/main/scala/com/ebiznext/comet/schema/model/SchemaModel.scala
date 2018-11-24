@@ -10,7 +10,7 @@ import com.ebiznext.comet.schema.model.SchemaModel.Write.{APPEND, OVERWRITE}
 import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.databind.annotation.{JsonDeserialize, JsonSerialize}
 import com.fasterxml.jackson.databind.ser.std.ToStringSerializer
-import com.fasterxml.jackson.databind.{DeserializationContext, JsonDeserializer}
+import com.fasterxml.jackson.databind.{DeserializationContext, JsonDeserializer, JsonNode}
 import org.apache.spark.sql.SaveMode
 import org.apache.spark.sql.catalyst.parser.CatalystSqlParser
 import org.apache.spark.sql.types.StructField
@@ -19,9 +19,19 @@ import scala.util.{Failure, Success, Try}
 
 object SchemaModel {
 
-  sealed case class Mode(value: String)
+  @JsonSerialize(using = classOf[ToStringSerializer])
+  @JsonDeserialize(using = classOf[ModeDeserializer])
+  sealed case class Mode(value: String) {
+    override def toString: String = value
+  }
 
   object Mode {
+    def fromString(value: String): Mode = {
+      value.toUpperCase() match {
+        case "FILE" => Mode.FILE
+        case "STREAM" => Mode.STREAM
+      }
+    }
 
     object FILE extends Mode("FILE")
 
@@ -29,7 +39,18 @@ object SchemaModel {
 
   }
 
+  class ModeDeserializer extends JsonDeserializer[Mode] {
+    override def deserialize(jp: JsonParser, ctx: DeserializationContext): Mode = {
+      val value = jp.readValueAs[String](classOf[String])
+      Mode.fromString(value)
+    }
+  }
+
+  @JsonSerialize(using = classOf[ToStringSerializer])
+  @JsonDeserialize(using = classOf[WriteDeserializer])
   sealed case class Write(value: String) {
+    override def toString: String = value
+
     def toSaveMode: SaveMode = {
       this match {
         case OVERWRITE => SaveMode.Overwrite
@@ -39,6 +60,12 @@ object SchemaModel {
   }
 
   object Write {
+    def fromString(value: String): Write = {
+      value.toUpperCase() match {
+        case "OVERWRITE" => Write.OVERWRITE
+        case "APPEND" => Write.APPEND
+      }
+    }
 
     object OVERWRITE extends Write("OVERWRITE")
 
@@ -46,9 +73,26 @@ object SchemaModel {
 
   }
 
-  sealed case class Format(value: String)
+  class WriteDeserializer extends JsonDeserializer[Write] {
+    override def deserialize(jp: JsonParser, ctx: DeserializationContext): Write = {
+      val value = jp.readValueAs[String](classOf[String])
+      Write.fromString(value)
+    }
+  }
+
+  @JsonSerialize(using = classOf[ToStringSerializer])
+  @JsonDeserialize(using = classOf[FormatDeserializer])
+  sealed case class Format(value: String) {
+    override def toString: String = value
+  }
 
   object Format {
+    def fromString(value: String): Format = {
+      value.toUpperCase match {
+        case "DSV" => Format.DSV
+        case "JSON" => Format.JSON
+      }
+    }
 
     object DSV extends Format("DSV")
 
@@ -56,9 +100,29 @@ object SchemaModel {
 
   }
 
-  sealed case class PrivacyLevel(value: String)
+  class FormatDeserializer extends JsonDeserializer[Format] {
+    override def deserialize(jp: JsonParser, ctx: DeserializationContext): Format = {
+      val value = jp.readValueAs[String](classOf[String])
+      Format.fromString(value)
+    }
+  }
+
+  @JsonSerialize(using = classOf[ToStringSerializer])
+  @JsonDeserialize(using = classOf[PrivacyLevelDeserializer])
+  sealed case class PrivacyLevel(value: String) {
+    override def toString: String = value
+  }
 
   object PrivacyLevel {
+    def fromString(value: String): PrivacyLevel = {
+      value.toUpperCase() match {
+        case "NONE" => PrivacyLevel.NONE
+        case "HIDE" => PrivacyLevel.HIDE
+        case "MD5" => PrivacyLevel.MD5
+        case "SHA1" => PrivacyLevel.SHA1
+        case "AES" => PrivacyLevel.AES
+      }
+    }
 
     object NONE extends PrivacyLevel("NONE")
 
@@ -72,6 +136,15 @@ object SchemaModel {
 
   }
 
+  class PrivacyLevelDeserializer extends JsonDeserializer[PrivacyLevel] {
+    override def deserialize(jp: JsonParser, ctx: DeserializationContext): PrivacyLevel = {
+      val value = jp.readValueAs[String](classOf[String])
+      PrivacyLevel.fromString(value)
+    }
+  }
+
+  @JsonSerialize(using = classOf[ToStringSerializer])
+  @JsonDeserialize(using = classOf[PrimitiveTypeDeserializer])
   sealed abstract case class PrimitiveType(value: String) {
     def fromString(str: String, format: String = null): Any
 
@@ -79,7 +152,7 @@ object SchemaModel {
   }
 
 
-  class PrimitiveTypeDeserializer extends JsonDeserializer[PrimitiveType]  {
+  class PrimitiveTypeDeserializer extends JsonDeserializer[PrimitiveType] {
     override def deserialize(jp: JsonParser, ctx: DeserializationContext): PrimitiveType = {
       val value = jp.readValueAs[String](classOf[String])
       value match {
@@ -159,7 +232,7 @@ object SchemaModel {
   case class Types(types: List[Type]) {
   }
 
-  case class Type(name: String,  @JsonSerialize(using = classOf[ToStringSerializer]) @JsonDeserialize(using = classOf[PrimitiveTypeDeserializer]) primitiveType: PrimitiveType, pattern: Pattern) {
+  case class Type(name: String, primitiveType: PrimitiveType, pattern: Pattern) {
     def matches(value: String): Boolean = {
       pattern.matcher(name).matches()
     }
@@ -189,6 +262,8 @@ object SchemaModel {
     }
   }
 
+
+  @JsonDeserialize(using = classOf[MetadataDeserializer])
   case class Metadata(
                        mode: Option[Mode] = None,
                        format: Option[Format] = None,
@@ -200,6 +275,7 @@ object SchemaModel {
                        dateFormat: Option[String] = None,
                        timestampFormat: Option[String] = None
                      ) {
+
     def getMode(): Mode = mode.getOrElse(FILE)
 
     def getFormat(): Format = format.getOrElse(DSV)
@@ -232,6 +308,7 @@ object SchemaModel {
     }
   }
 
+
   object Metadata {
     def Dsv(
              separator: Option[String],
@@ -249,6 +326,23 @@ object SchemaModel {
       Some("yyyy-MM-dd"),
       Some("yyyy-MM-dd HH:mm:ss")
     )
+  }
+
+
+  class MetadataDeserializer extends JsonDeserializer[Metadata] {
+    override def deserialize(jp: JsonParser, ctx: DeserializationContext): Metadata = {
+      val node: JsonNode = jp.getCodec().readTree(jp)
+      val mode = if (node.get("mode").isNull) None else Some(Mode.fromString(node.get("mode").asText))
+      val format = if (node.get("format").isNull) None else Some(Format.fromString(node.get("format").asText))
+      val withHeader = if (node.get("withHeader").isNull) None else Some(node.get("withHeader").asBoolean())
+      val separator = if (node.get("separator").isNull) None else Some(node.get("separator").asText)
+      val quote = if (node.get("quote").isNull) None else Some(node.get("quote").asText)
+      val escape = if (node.get("escape").isNull) None else Some(node.get("escape").asText)
+      val write = if (node.get("write").isNull) None else Some(Write.fromString(node.get("write").asText))
+      val dateFormat = if (node.get("dateFormat").isNull) None else Some(node.get("dateFormat").asText)
+      val timestampFormat = if (node.get("timestampFormat").isNull) None else Some(node.get("timestampFormat").asText)
+      Metadata(mode, format, withHeader, separator, quote, escape, write, dateFormat, timestampFormat)
+    }
   }
 
   def Json(separator: Option[String],
@@ -284,7 +378,7 @@ object SchemaModel {
 
   case class BusinessTask(sql: String, domain: String, dataset: String, write: Write)
 
-  case class BusinessJob(name: String, cron: String, tasks: Array[BusinessTask])
+  case class BusinessJob(name: String, cron: String, tasks: List[BusinessTask])
 
 }
 
