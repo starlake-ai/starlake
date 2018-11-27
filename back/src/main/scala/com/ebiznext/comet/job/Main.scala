@@ -1,7 +1,7 @@
 package com.ebiznext.comet.job
 
 import com.ebiznext.comet.config.DatasetArea
-import com.ebiznext.comet.data.Data
+import com.ebiznext.comet.sample.SampleData
 import com.ebiznext.comet.schema.handlers.{AirflowLauncher, HdfsStorageHandler, SchemaHandler}
 import com.ebiznext.comet.workflow.DatasetWorkflow
 import com.fasterxml.jackson.databind.ObjectMapper
@@ -9,7 +9,7 @@ import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import org.apache.hadoop.fs.Path
 
-object Main extends Data {
+object Main extends SampleData {
   // uses Jackson YAML to parsing, relies on SnakeYAML for low level handling
   val mapper: ObjectMapper = new ObjectMapper(new YAMLFactory())
   mapper.registerModule(DefaultScalaModule)

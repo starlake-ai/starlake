@@ -1,7 +1,7 @@
 package com.ebiznext.comet.schema.handlers
 
 import com.ebiznext.comet.config.DatasetArea
-import com.ebiznext.comet.data.Data
+import com.ebiznext.comet.sample.SampleData
 import com.ebiznext.comet.schema.model.SchemaModel._
 import org.apache.hadoop.fs.Path
 import org.scalatest.{FlatSpec, Matchers}
@@ -9,7 +9,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 
-class StorageHandlerSpec extends FlatSpec with Matchers with Data {
+class StorageHandlerSpec extends FlatSpec with Matchers with SampleData {
   val mapper: ObjectMapper = new ObjectMapper(new YAMLFactory())
   // provides all of the Scala goodiness
   mapper.registerModule(DefaultScalaModule)

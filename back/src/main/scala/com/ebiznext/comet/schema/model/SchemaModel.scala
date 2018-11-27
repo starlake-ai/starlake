@@ -376,23 +376,21 @@ object SchemaModel {
   )
 
 
+  /**
+    * 
+    * @param sql SQL request to exexute (do not forget to prefix table names with the database name
+    * @param domain Output domain in Business Area (Will be the Database name in Hive)
+    * @param dataset Dataset Name in Business Area (Will be the Table name in Hive)
+    * @param write   Append to or overwrite existing data
+    */
   case class BusinessTask(sql: String, domain: String, dataset: String, write: Write)
 
+  /**
+    *
+    * @param name Buisiness Job logical name
+    * @param cron All business task will be executed at this time
+    * @param tasks List of business tasks to execute
+    */
   case class BusinessJob(name: String, cron: String, tasks: List[BusinessTask])
 
 }
-
-
-/*
-"metadata": {
-"source": "EBOUTIQUE",
-"fileCode": "EBOUTIQUE_ADDRESSES",
-"nameFormat": "ADDRESSES-.*\\.dsv\\.bz2",
-"fileFormat": "CSV",
-"separator": "|",
-"isReferential": false,
-"dataType": "cold",
-"dateFormat": "yyyy-MM-dd",
-"timestampFormat": "yyyy-MM-dd HH:mm:ss"
-}
- */

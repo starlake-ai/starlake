@@ -3,7 +3,7 @@ package com.ebiznext.comet.schema.handlers
 import java.io.InputStream
 
 import com.ebiznext.comet.config.DatasetArea
-import com.ebiznext.comet.data.Data
+import com.ebiznext.comet.sample.SampleData
 import com.ebiznext.comet.workflow.DatasetWorkflow
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
@@ -12,7 +12,7 @@ import org.apache.hadoop.fs.Path
 import org.scalatest.{FlatSpec, Matchers}
 
 
-class SchemaHandlerSpec extends FlatSpec with Matchers with Data {
+class SchemaHandlerSpec extends FlatSpec with Matchers with SampleData {
   val mapper: ObjectMapper = new ObjectMapper(new YAMLFactory())
   // provides all of the Scala goodiness
   mapper.registerModule(DefaultScalaModule)
