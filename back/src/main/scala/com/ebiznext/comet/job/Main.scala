@@ -20,6 +20,17 @@ object Main extends SampleData {
     Usage: Main watch
   """
 
+  private def printUsage() = {
+    println(
+      """
+        |Usage :
+        |comet business jobname
+        |comet watch
+        |comet import
+        |comet ingest datasetDomain, datasetSchema, datasetPath
+      """.stripMargin)
+  }
+
   def main(args: Array[String]) = {
     val storageHandler = new HdfsStorageHandler
     val schemaHandler = new SchemaHandler(storageHandler)
@@ -46,9 +57,12 @@ object Main extends SampleData {
     val arglist = args.toList
     println(s"Running DatasetValidator $arglist")
     arglist(0) match {
+      case "business" if arglist.length == 2 => validator.businessJob(arglist(1))
+      case "import" => validator.loadLanding()
       case "watch" => validator.loadPending()
       case "ingest" if arglist.length == 4 =>
         validator.ingest(arglist(1), arglist(2), arglist(3))
+      case _ => printUsage()
     }
   }
 }

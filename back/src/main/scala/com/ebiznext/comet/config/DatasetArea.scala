@@ -28,6 +28,7 @@ object DatasetArea {
   val metadata = new Path(s"/$env/metadata")
   val types = new Path(metadata, "types")
   val domains = new Path(metadata, "domains")
+  val business = new Path(metadata, "business")
 
 
   def init(storage: StorageHandler): Unit = {

@@ -1,15 +1,14 @@
 package com.ebiznext.comet.workflow
 
-import better.files
 import better.files._
 import com.ebiznext.comet.config.DatasetArea
-import com.ebiznext.comet.job.DsvJob
+import com.ebiznext.comet.job.{AutoBusinessJob, DsvJob}
 import com.ebiznext.comet.schema.handlers.{LaunchHandler, SchemaHandler, StorageHandler}
 import com.ebiznext.comet.schema.model.SchemaModel
 import com.ebiznext.comet.schema.model.SchemaModel.Domain
 import com.ebiznext.comet.schema.model.SchemaModel.Format.{DSV, JSON}
 import com.typesafe.scalalogging.StrictLogging
-import org.apache.hadoop.fs.{LocalFileSystem, Path}
+import org.apache.hadoop.fs.Path
 
 class DatasetWorkflow(storageHandler: StorageHandler,
                       schemaHandler: SchemaHandler,
@@ -73,11 +72,12 @@ class DatasetWorkflow(storageHandler: StorageHandler,
   }
 
   def loadLanding(): Unit = {
-    val localFS = new LocalFileSystem
     val domains = schemaHandler.domains
     domains.foreach { domain =>
-      storageHandler.list(new Path(domain.directory), ".ack").foreach { path: Path =>
-        val ackFile: files.File = localFS.pathToFile(path).toScala
+      val inputDir = File(domain.directory)
+
+      inputDir.list(_.extension == Some(".ack")).foreach { path =>
+        val ackFile: File = path
         val fileStr = ackFile.pathAsString
         val prefixStr = fileStr.stripSuffix(".ack")
         val tgz = File(prefixStr + ".tgz")
@@ -86,9 +86,11 @@ class DatasetWorkflow(storageHandler: StorageHandler,
         ackFile.delete()
         if (tgz.exists) {
           tgz.unGzipTo(tmpDir)
+          tgz.delete()
         }
         else if (zip.exists) {
-          tgz.unzipTo(tmpDir)
+          zip.unzipTo(tmpDir)
+          zip.delete()
         }
         else {
           logger.error(s"No archive found for file ${ackFile.pathAsString}")
@@ -97,6 +99,7 @@ class DatasetWorkflow(storageHandler: StorageHandler,
           val dest = DatasetArea.pending(domain.name)
           tmpDir.list.foreach { file =>
             val source = new Path(file.pathAsString)
+            logger.info(s"Importing ${file.pathAsString}")
             storageHandler.moveFromLocal(source, dest)
           }
           tmpDir.delete()
@@ -111,5 +114,13 @@ class DatasetWorkflow(storageHandler: StorageHandler,
       domain <- domains.find(_.name == domainName)
       schema <- domain.schemas.find(_.name == schemaName)
     } yield ingesting(domain, schema, new Path(path))
+  }
+
+  def businessJob(jobname: String): Unit = {
+    val job = schemaHandler.business(jobname)
+    job.tasks.foreach { task =>
+      val action = new AutoBusinessJob(job.name, task.sql, task.domain, task.dataset, task.write)
+      action.run()
+    }
   }
 }

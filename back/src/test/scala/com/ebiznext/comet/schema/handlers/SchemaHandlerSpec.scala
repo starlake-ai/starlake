@@ -22,20 +22,31 @@ class SchemaHandlerSpec extends FlatSpec with Matchers with SampleData {
   DatasetArea.init(storageHandler)
 
   val sh = new HdfsStorageHandler
-  val domainsPath = new Path(DatasetArea.domains, domain.name + ".json")
+  val domainsPath = new Path(DatasetArea.domains, domain.name + ".yml")
   sh.write(mapper.writeValueAsString(domain), domainsPath)
-  val typesPath = new Path(DatasetArea.types, "types.json")
+  val typesPath = new Path(DatasetArea.types, "types.yml")
   sh.write(mapper.writeValueAsString(types), typesPath)
 
   DatasetArea.initDomains(storageHandler, schemaHandler.domains.map(_.name))
 
   "Ingest CSV" should "produce file in accepted" in {
-    val stream: InputStream = getClass.getResourceAsStream("/SCHEMA-VALID-NOHEADER.dsv")
+    val stream: InputStream = getClass.getResourceAsStream("/SCHEMA-VALID.dsv")
     val lines = scala.io.Source.fromInputStream(stream).getLines().mkString("\n")
-    val targetPath = DatasetArea.path(DatasetArea.pending("DOMAIN"), "SCHEMA-VALID-NOHEADER.dsv")
+    val targetPath = DatasetArea.path(DatasetArea.pending("DOMAIN"), "SCHEMA-VALID.dsv")
     storageHandler.write(lines, targetPath)
     val validator = new DatasetWorkflow(storageHandler, schemaHandler, new AirflowLauncher)
     validator.loadPending()
   }
 
+  "Import" should "copy to HDFS" in {
+    val validator = new DatasetWorkflow(storageHandler, schemaHandler, new AirflowLauncher)
+    validator.loadLanding()
+  }
+  "Watch" should "request Airflow" in {
+    val validator = new DatasetWorkflow(storageHandler, schemaHandler, new AirflowLauncher)
+    validator.loadPending()
+  }
+
 }
+
+

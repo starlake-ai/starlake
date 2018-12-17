@@ -4,7 +4,7 @@ import java.util.regex.Pattern
 
 import com.ebiznext.comet.schema.model.SchemaModel._
 
-class SampleData {
+trait SampleData {
   /**
     * types:
     * - name: "string"

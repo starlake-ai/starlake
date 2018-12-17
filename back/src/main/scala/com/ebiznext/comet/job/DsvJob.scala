@@ -51,6 +51,7 @@ class DsvJob(domain: Domain, schema: SchemaModel.Schema, types: List[Type], meta
       .option("escape", metadata.getEscape())
       .option("parserLib", "UNIVOCITY")
       .csv(path.toString)
+    df.show()
     if (metadata.withHeader.getOrElse(false)) {
       val datasetHeaders: List[String] = df.columns.toList.map(cleanHeaderCol)
       val (_, drop) = intersectHeaders(datasetHeaders, schemaHeaders)
@@ -81,6 +82,7 @@ class DsvJob(domain: Domain, schema: SchemaModel.Schema, types: List[Type], meta
 
   private def validate(dataset: DataFrame) = {
     val (rejectedRDD, acceptedRDD) = DsvIngestTask.validate(session, dataset, this.schemaHeaders, schemaTypes, sparkType)
+
     val writeMode = metadata.getWrite()
 
     val rejectedPath = new Path(DatasetArea.path(domain.name, "rejected"), schema.name)
@@ -114,6 +116,9 @@ class DsvJob(domain: Domain, schema: SchemaModel.Schema, types: List[Type], meta
 object DsvIngestTask {
   def validate(session: SparkSession, dataset: DataFrame, schemaHeaders: List[String], types: List[Type], sparkType: StructType): (RDD[RowInfo], RDD[Row]) = {
     val now = Timestamp.from(Instant.now)
+    val rdds = dataset.rdd
+    val all = rdds.collect()
+    dataset.show()
     val checkedRDD: RDD[RowResult] = dataset.rdd.mapPartitions { partition =>
       partition.map { row: Row =>
         val rowCols = row.toSeq.zip(schemaHeaders).map {

@@ -5,7 +5,7 @@ import com.typesafe.scalalogging.StrictLogging
 
 object Settings extends StrictLogging {
 
-  case class Airflow(endpoint: String, ingestCommand: String)
+  case class Airflow(endpoint: String)
 
   case class Comet(env: String, airflow: Airflow)
 

@@ -19,8 +19,9 @@ class SchemaModelSpec extends FlatSpec with Matchers with SampleData {
     assert(1 == 1)
   }
 
-  "json case object" should "deserialize as case olass" in {
-    val jsdomain = mapper.readValue(domainStr, classOf[Domain])
-    assert(jsdomain == domain)
-  }
+//  "json case object" should "deserialize as case olass" in {
+//    val jsdomain = mapper.readValue(domainStr, classOf[Domain])
+//    assert(jsdomain == domain)
+//  }
+
 }

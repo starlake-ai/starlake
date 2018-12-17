@@ -6,7 +6,7 @@ import com.ebiznext.comet.schema.model.SchemaModel.Write
 import org.apache.hadoop.fs.Path
 
 class AutoBusinessJob(override val name: String, sql: String, domain: String, dataset: String, write:Write) extends SparkJob {
-  override def run(args: Array[String]): Unit = {
+  override def run(args: Array[String] = Array()): Unit = {
     val hiveDB = HiveArea.area(domain, business)
     val tableName = dataset
     session.sql(s"create database if not exists $hiveDB")

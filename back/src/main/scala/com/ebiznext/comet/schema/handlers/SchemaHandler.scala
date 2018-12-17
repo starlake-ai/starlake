@@ -1,7 +1,7 @@
 package com.ebiznext.comet.schema.handlers
 
 import com.ebiznext.comet.config.DatasetArea
-import com.ebiznext.comet.schema.model.SchemaModel.{Domain, Schema, Type, Types}
+import com.ebiznext.comet.schema.model.SchemaModel._
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
@@ -24,14 +24,22 @@ class SchemaHandler(storage: StorageHandler) {
    types.types.find(_.name == tpe).getOrElse(throw new Exception(s"Invalid Type $tpe found"))
  }
 
- lazy val domains: List[Domain] = {
-   storage
-     .list(DatasetArea.domains, ".yml")
-     .map(path => mapper.readValue(storage.read(path), classOf[Domain]))
+  lazy val domains: List[Domain] = {
+    storage
+      .list(DatasetArea.domains, ".yml")
+      .map(path => mapper.readValue(storage.read(path), classOf[Domain]))
 
- }
+  }
 
- def getDomain(name: String): Option[Domain] = {
+  lazy val business: Map[String, BusinessJob] = {
+    storage
+      .list(DatasetArea.business, ".yml")
+      .map(path => mapper.readValue(storage.read(path), classOf[BusinessJob]))
+      .map(job => job.name -> job).toMap
+
+  }
+
+  def getDomain(name: String): Option[Domain] = {
    domains.find(_.name == name)
  }
 

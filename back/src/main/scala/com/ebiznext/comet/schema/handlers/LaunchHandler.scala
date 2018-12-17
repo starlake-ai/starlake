@@ -30,9 +30,8 @@ class AirflowLauncher extends LaunchHandler {
 
   override def ingest(domain: String, schema: String, path: Path): Boolean = {
     val endpoint = Settings.comet.airflow.endpoint
-    val ingestCommand = Settings.comet.airflow.ingestCommand
     val url = s"$endpoint/dags/comet_ingest/dag_runs"
-    val command = s"$ingestCommand $domain $schema ${path.toString}"
+    val command = s"ingest $domain $schema ${path.toString}"
     val json =s"""{"conf":"{\\"command\\":\\"$command\\"}"}"""
     post(url, json) match {
       case Success(response) =>
