@@ -391,6 +391,6 @@ object SchemaModel {
     * @param cron All business task will be executed at this time
     * @param tasks List of business tasks to execute
     */
-  case class BusinessJob(name: String, cron: String, tasks: List[BusinessTask])
+  case class BusinessJob(name: String, tasks: List[BusinessTask])
 
 }
