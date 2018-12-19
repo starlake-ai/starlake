@@ -2,7 +2,7 @@ package com.ebiznext.comet.workflow
 
 import better.files._
 import com.ebiznext.comet.config.DatasetArea
-import com.ebiznext.comet.job.{AutoBusinessJob, DsvJob}
+import com.ebiznext.comet.job.{AutoBusinessJob, DsvJob, JsonJob}
 import com.ebiznext.comet.schema.handlers.{LaunchHandler, SchemaHandler, StorageHandler}
 import com.ebiznext.comet.schema.model.SchemaModel
 import com.ebiznext.comet.schema.model.SchemaModel.Domain
@@ -40,7 +40,7 @@ class DatasetWorkflow(storageHandler: StorageHandler,
       case DSV =>
         new DsvJob(domain, schema, schemaHandler.types.types, metadata, path, storageHandler).run(null)
       case JSON =>
-        throw new Exception("Not yet Implemented");
+        new JsonJob(domain, schema, schemaHandler.types.types, metadata, path, storageHandler).run(null)
     }
     val targetPath = new Path(DatasetArea.staging(domain.name), path.getName)
     storageHandler.move(path, targetPath)

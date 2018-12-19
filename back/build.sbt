@@ -38,13 +38,15 @@ val logging = Seq(
   "com.typesafe.scala-logging" %% "scala-logging" % Versions.scalaLogging
 )
 
-val pureConfig = Seq(
-  "com.typesafe" % "config" % Versions.typesafeConfig,
-  "com.github.pureconfig" %% "pureconfig" % Versions.pureConfig
-).map(_.exclude("com.chuusai", "shapeless_2.11"))
+//val pureConfig = Seq(
+//  "com.typesafe" % "config" % Versions.typesafeConfig,
+//  "com.github.pureconfig" %% "pureconfig" % Versions.pureConfig
+//).map(_.exclude("com.chuusai", "shapeless_2.11"))
+
+val pureConfig = Seq("com.typesafe" % "config" % Versions.typesafeConfig)
 
 
-val shapeless = Seq("com.chuusai" %% "shapeless" % "2.3.2" % "provided")
+//val shapeless = Seq("com.chuusai" %% "shapeless" % "2.0.0" % "provided")
 
 val postgres = Seq("org.postgresql" % "postgresql" % "42.2.5")
 
@@ -61,7 +63,7 @@ val jackson = Seq(
 
 libraryDependencies ++= scalaTest ++
   logging ++ pureConfig ++ postgres ++ hikaricp ++ spark ++
-  shapeless ++ okhttp ++ betterfiles ++ jackson
+  /* shapeless ++ */ okhttp ++ betterfiles ++ jackson
 
 
 // Assembly

@@ -42,7 +42,7 @@ class DsvJob(domain: Domain, schema: SchemaModel.Schema, types: List[Type], meta
   }
 
 
-  private def loadDataSet(): DataFrame = {
+  def loadDataSet(): DataFrame = {
     val df = session.read.format("com.databricks.spark.csv")
       .option("header", metadata.isWithHeader().toString)
       .option("inferSchema", value = false)
