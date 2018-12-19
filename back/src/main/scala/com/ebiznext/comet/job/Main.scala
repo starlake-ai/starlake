@@ -38,17 +38,8 @@ object Main extends SampleData {
     DatasetArea.init(storageHandler)
 
     val sh = new HdfsStorageHandler
-    val domainsPath = new Path(DatasetArea.domains, domain.name + ".yml")
-    sh.write(mapper.writeValueAsString(domain), domainsPath)
-    val typesPath = new Path(DatasetArea.types, "types.yml")
-    sh.write(mapper.writeValueAsString(types), typesPath)
 
     DatasetArea.initDomains(storageHandler, schemaHandler.domains.map(_.name))
-
-    //    val stream: InputStream = getClass.getResourceAsStream("/SCHEMA-VALID-NOHEADER.dsv")
-    //    val lines = scala.io.Source.fromInputStream(stream).getLines().mkString("\n")
-    //    val targetPath = DatasetArea.path(DatasetArea.pending("DOMAIN"), "SCHEMA-VALID-NOHEADER.dsv")
-    //    storageHandler.write(lines, targetPath)
 
     val validator = new DatasetWorkflow(storageHandler, schemaHandler, new AirflowLauncher)
 
