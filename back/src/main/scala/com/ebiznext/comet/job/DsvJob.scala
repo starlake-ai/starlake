@@ -6,7 +6,7 @@ import java.time.Instant
 import com.ebiznext.comet.config.{DatasetArea, HiveArea}
 import com.ebiznext.comet.schema.handlers.StorageHandler
 import com.ebiznext.comet.schema.model.SchemaModel
-import com.ebiznext.comet.schema.model.SchemaModel.{Domain, Metadata, Type, Write}
+import com.ebiznext.comet.schema.model.SchemaModel._
 import org.apache.hadoop.fs.Path
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql._
@@ -31,7 +31,7 @@ class DsvJob(domain: Domain, schema: SchemaModel.Schema, types: List[Type], meta
 
   val schemaHeaders: List[String] = schema.attributes.map(_.name)
 
-  def cleanHeaderCol(header: String): String = header.toLowerCase.replaceAll("\"", "").replaceAll("\uFEFF", "")
+  def cleanHeaderCol(header: String): String = header.replaceAll("\"", "").replaceAll("\uFEFF", "")
 
   def validateHeader(datasetHeaders: List[String], schemaHeaders: List[String]): Boolean = {
     schemaHeaders.forall(schemaHeader => datasetHeaders.contains(schemaHeader))
@@ -81,7 +81,7 @@ class DsvJob(domain: Domain, schema: SchemaModel.Schema, types: List[Type], meta
   }
 
   private def validate(dataset: DataFrame) = {
-    val (rejectedRDD, acceptedRDD) = DsvIngestTask.validate(session, dataset, this.schemaHeaders, schemaTypes, sparkType)
+    val (rejectedRDD, acceptedRDD) = DsvIngestTask.validate(session, dataset, this.schema.attributes, schemaTypes, sparkType)
 
     val writeMode = metadata.getWrite()
 
@@ -114,24 +114,24 @@ class DsvJob(domain: Domain, schema: SchemaModel.Schema, types: List[Type], meta
 }
 
 object DsvIngestTask {
-  def validate(session: SparkSession, dataset: DataFrame, schemaHeaders: List[String], types: List[Type], sparkType: StructType): (RDD[RowInfo], RDD[Row]) = {
+  def validate(session: SparkSession, dataset: DataFrame, attributes: List[DSVAttribute], types: List[Type], sparkType: StructType): (RDD[RowInfo], RDD[Row]) = {
     val now = Timestamp.from(Instant.now)
     val rdds = dataset.rdd
-    val all = rdds.collect()
     dataset.show()
     val checkedRDD: RDD[RowResult] = dataset.rdd.mapPartitions { partition =>
       partition.map { row: Row =>
-        val rowCols = row.toSeq.zip(schemaHeaders).map {
-          case (colValue, colName) => (Option(colValue).getOrElse("").toString, colName)
+        val rowCols = row.toSeq.zip(attributes).map {
+          case (colValue, colAttribute) => (Option(colValue).getOrElse("").toString, colAttribute)
         }.zip(types)
         RowResult(
-          rowCols.map { case ((colValue, colName), tpe) =>
-            val success = tpe.pattern.matcher(colValue).matches()
+          rowCols.map { case ((colValue, colAttribute), tpe) =>
+            val success =
+              (!colAttribute.required && colValue.isEmpty) || tpe.pattern.matcher(colValue).matches()
             val sparkValue = if (success)
               tpe.primitiveType.fromString(colValue)
             else
               null
-            ColResult(ColInfo(colValue, colName, tpe.name, tpe.pattern.pattern(), success), sparkValue)
+            ColResult(ColInfo(colValue, colAttribute.name, tpe.name, tpe.pattern.pattern(), success), sparkValue)
           } toList
         )
       }

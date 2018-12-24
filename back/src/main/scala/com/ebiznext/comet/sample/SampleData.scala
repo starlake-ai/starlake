@@ -69,7 +69,7 @@ trait SampleData {
           DSVAttribute("lastname", "string", false, PrivacyLevel.SHA1),
           DSVAttribute("age", "age", false, PrivacyLevel.HIDE)
         ),
-        Metadata(withHeader = Some(true))
+        Some(Metadata(withHeader = Some(true)))
       )
     )
   )

@@ -5,7 +5,7 @@ import com.ebiznext.comet.config.DatasetArea
 import com.ebiznext.comet.job.{AutoBusinessJob, DsvJob, JsonJob}
 import com.ebiznext.comet.schema.handlers.{LaunchHandler, SchemaHandler, StorageHandler}
 import com.ebiznext.comet.schema.model.SchemaModel
-import com.ebiznext.comet.schema.model.SchemaModel.Domain
+import com.ebiznext.comet.schema.model.SchemaModel.{Domain, Metadata}
 import com.ebiznext.comet.schema.model.SchemaModel.Format.{DSV, JSON}
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
@@ -34,7 +34,7 @@ class DatasetWorkflow(storageHandler: StorageHandler,
 
 
   private def staging(domain: Domain, schema: SchemaModel.Schema, path: Path): Unit = {
-    val metadata = domain.metadata.merge(schema.metadata)
+    val metadata = domain.metadata.merge(schema.metadata.getOrElse(Metadata()))
 
     metadata.getFormat() match {
       case DSV =>
@@ -64,8 +64,8 @@ class DatasetWorkflow(storageHandler: StorageHandler,
       }
       resolved.foreach {
         case (Some(schema), path) =>
-          //ingesting(domain, schema, path)
-          launchHandler.ingest(domain.name, schema.name, path)
+          ingesting(domain, schema, path)
+          //launchHandler.ingest(domain.name, schema.name, path)
         case (None, _) => throw new Exception("Should never happen")
       }
     }
@@ -81,10 +81,15 @@ class DatasetWorkflow(storageHandler: StorageHandler,
         val fileStr = ackFile.pathAsString
         val prefixStr = fileStr.stripSuffix(".ack")
         val tgz = File(prefixStr + ".tgz")
+        val gz = File(prefixStr + ".gz")
         val tmpDir = File(prefixStr)
         val zip = File(prefixStr + ".zip")
         ackFile.delete()
-        if (tgz.exists) {
+        if (gz.exists) {
+          gz.unGzipTo(tmpDir)
+          gz.delete()
+        }
+        else if (tgz.exists) {
           tgz.unGzipTo(tmpDir)
           tgz.delete()
         }
