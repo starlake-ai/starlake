@@ -19,7 +19,7 @@ default_args = {
     # 'end_date': datetime(2016, 1, 1),
 }
 
-dag = DAG('comet_watcher', catchup=False, default_args=default_args, schedule_interval=None)
+dag = DAG('comet_watcher', max_active_runs=1, catchup=False, default_args=default_args, schedule_interval="*/1 * * * *")
 COMET_SPARK_CMD = os.environ.get('COMET_SPARK_CMD', '')
 
 # t1, t2 and t3 are examples of tasks created by instantiating operators

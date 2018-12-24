@@ -251,7 +251,7 @@ object SchemaModel {
   case class Schema(name: String,
                     pattern: Pattern,
                     attributes: List[DSVAttribute],
-                    metadata: Metadata)
+                    metadata: Option[Metadata])
 
   case class Domain(name: String,
                     directory: String,

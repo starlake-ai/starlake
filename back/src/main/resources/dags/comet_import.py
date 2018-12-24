@@ -19,7 +19,7 @@ default_args = {
     # 'end_date': datetime(2016, 1, 1),
 }
 
-dag = DAG('comet_import', catchup=False, default_args=default_args, schedule_interval="*/1 * * * *")
+dag = DAG('comet_import', max_active_runs=1, catchup=False, default_args=default_args, schedule_interval="*/1 * * * *")
 COMET_SPARK_CMD = os.environ.get('COMET_SPARK_CMD', '')
 
 # export COMET_SPARK_CMD="/Users/hayssams/programs/spark-2.4.0-bin-hadoop2.7/bin/spark-submit --class com.ebiznext.comet.job.Main /Users/hayssams/git/comet/app/back/target/scala-2.11/comet-assembly-0.1.jar"
