@@ -13,7 +13,7 @@ trait SparkJob extends StrictLogging {
   lazy val sparkEnv = new SparkEnv(name)
   lazy val session: SparkSession = sparkEnv.session
 
-  def run(args: Array[String]): Unit
+  def run(args: Array[String]): SparkSession
 
   def partitionedDatasetWriter(dataset: DataFrame, partition: List[String]): DataFrameWriter[Row] = {
     partition match {

@@ -121,6 +121,8 @@ object SchemaModel {
         case "HIDE" => PrivacyLevel.HIDE
         case "MD5" => PrivacyLevel.MD5
         case "SHA1" => PrivacyLevel.SHA1
+        case "SHA256" => PrivacyLevel.SHA256
+        case "SHA512" => PrivacyLevel.SHA512
         case "AES" => PrivacyLevel.AES
       }
     }
@@ -132,6 +134,10 @@ object SchemaModel {
     object MD5 extends PrivacyLevel("MD5")
 
     object SHA1 extends PrivacyLevel("SHA1")
+
+    object SHA256 extends PrivacyLevel("SHA256")
+
+    object SHA512 extends PrivacyLevel("SHA512")
 
     object AES extends PrivacyLevel("AES")
 
@@ -252,7 +258,10 @@ object SchemaModel {
   case class Schema(name: String,
                     pattern: Pattern,
                     attributes: List[DSVAttribute],
-                    metadata: Option[Metadata]) {
+                    metadata: Option[Metadata],
+                    presql: Option[List[String]],
+                    postsql: Option[List[String]]
+                   ) {
     def validatePartitionColumns(): Boolean = {
       metadata.forall(_.getPartition().forall(attributes.map(_.name).union(Metadata.CometPartitionColumns).contains))
     }
@@ -261,7 +270,8 @@ object SchemaModel {
   case class Domain(name: String,
                     directory: String,
                     metadata: Metadata,
-                    schemas: List[Schema]) {
+                    schemas: List[Schema]
+                   ) {
     def findSchema(filename: String): Option[Schema] = {
       schemas.find(_.pattern.matcher(filename).matches())
     }
@@ -320,6 +330,7 @@ object SchemaModel {
 
   object Metadata {
     val CometPartitionColumns = List("comet_year", "comet_month", "comet_day", "comet_hour", "comet_minute")
+
     def Dsv(
              separator: Option[String],
              quote: Option[String],
@@ -398,7 +409,8 @@ object SchemaModel {
     * @param dataset Dataset Name in Business Area (Will be the Table name in Hive)
     * @param write   Append to or overwrite existing data
     */
-  case class BusinessTask(sql: String, domain: String, dataset: String, write: Write, partition:List[String])
+  case class BusinessTask(sql: String, domain: String, dataset: String, write: Write, partition: List[String],
+                          presql: Option[List[String]], postsql: Option[List[String]])
 
   /**
     *

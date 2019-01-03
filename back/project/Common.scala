@@ -2,6 +2,7 @@ object Versions {
   val sparkAvro = "4.0.0"
   val hadoop = "2.7.3"
   val spark = "2.1.0"
+//  val spark = "2.4.0"
   val curator = "2.6.0"
   val scalatest = "3.0.5"
   val springBoot = "2.0.6.RELEASE"
