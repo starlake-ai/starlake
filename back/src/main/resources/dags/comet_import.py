@@ -21,10 +21,9 @@ default_args = {
 
 dag = DAG('comet_import', max_active_runs=1, catchup=False, default_args=default_args, schedule_interval="*/1 * * * *")
 COMET_SPARK_CMD = os.environ.get('COMET_SPARK_CMD', '')
-
+# To compute histogram add --conf spark.sql.statistics.histogram.enabled=true
 # export COMET_SPARK_CMD="/Users/hayssams/programs/spark-2.4.0-bin-hadoop2.7/bin/spark-submit --class com.ebiznext.comet.job.Main /Users/hayssams/git/comet/app/back/target/scala-2.11/comet-assembly-0.1.jar"
 # export COMET_SPARK_CMD="/Users/hayssams/programs/spark-2.1.0-bin-hadoop2.7/bin/spark-submit --class com.ebiznext.comet.job.Main /Users/hayssams/git/comet/app/back/target/scala-2.11/comet-assembly-0.1.jar"
-# t1, t2 and t3 are examples of tasks created by instantiating operators
 t1 = BashOperator(
     task_id='comet_import',
     bash_command= COMET_SPARK_CMD + ' import',

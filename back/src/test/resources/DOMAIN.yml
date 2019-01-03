@@ -26,11 +26,11 @@ schemas:
       - name: "lastname"
         type: "string"
         required: false
-        privacy: "SHA1"
+        privacy: "HIDE"
       - name: "age"
         type: "age"
         required: false
-        privacy: "HIDE"
+        privacy: "NONE"
     metadata:
       mode: "FILE"
       format: "DSV"

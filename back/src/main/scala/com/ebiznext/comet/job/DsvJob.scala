@@ -8,7 +8,6 @@ import com.ebiznext.comet.schema.handlers.StorageHandler
 import com.ebiznext.comet.schema.model.SchemaModel
 import com.ebiznext.comet.schema.model.SchemaModel._
 import org.apache.hadoop.fs.Path
-import org.apache.spark
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql._
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
@@ -16,7 +15,7 @@ import org.apache.spark.sql.types.StructType
 
 case class ColInfo(colData: String, colName: String, typeName: String, pattern: String, success: Boolean)
 
-case class RowInfo(colInfos: List[ColInfo])
+case class RowInfo(timestamp: Timestamp, colInfos: List[ColInfo])
 
 case class ColResult(colInfo: ColInfo, sparkValue: Any)
 
@@ -101,7 +100,7 @@ class DsvJob(domain: Domain, schema: SchemaModel.Schema, types: List[Type], meta
     val saveMode = writeMode.toSaveMode
     val hiveDB = HiveArea.area(domain.name, area)
     val tableName = schema.name
-    import spark.sql.functions._
+    val fullTableName = s"$hiveDB.$tableName"
     logger.info(s"DSV Output $count to Hive table $hiveDB/$tableName($saveMode) at $targetPath")
     session.sql(s"create database if not exists $hiveDB")
     session.sql(s"use $hiveDB")
@@ -110,11 +109,17 @@ class DsvJob(domain: Domain, schema: SchemaModel.Schema, types: List[Type], meta
 
     val partitionedDF = partitionedDatasetWriter(dataset, metadata.partition.getOrElse(Nil))
 
-    partitionedDF.mode(saveMode).option("path", targetPath.toString).saveAsTable(s"$hiveDB.$tableName")
+    partitionedDF.mode(saveMode).option("path", targetPath.toString).saveAsTable(fullTableName)
+
+    val allCols = session.table(fullTableName).columns.mkString(",")
+    val analyzeTable = s"ANALYZE TABLE $fullTableName COMPUTE STATISTICS FOR COLUMNS $allCols"
   }
 
-  def run(args: Array[String]): Unit = {
+  def run(args: Array[String]): SparkSession = {
+    schema.presql.getOrElse(Nil).foreach(session.sql)
     validate(loadDataSet())
+    schema.postsql.getOrElse(Nil).foreach(session.sql)
+    session
   }
 }
 
@@ -133,9 +138,30 @@ object DsvIngestTask {
             val validNumberOfColumns = attributes.length <= rowCols.length
             val optionalColIsEmpty = !colAttribute.required && colValue.isEmpty
             val colPatternIsValid = tpe.pattern.matcher(colValue).matches()
+            val privacy = colAttribute.privacy match {
+              case PrivacyLevel.NONE =>
+                colValue
+              // TODO if conditions below should be tested during schema load.
+              case PrivacyLevel.HIDE if tpe.primitiveType == PrimitiveType.string =>
+                ""
+              case PrivacyLevel.MD5 if tpe.primitiveType == PrimitiveType.string =>
+                Utils.md5(colValue)
+              case PrivacyLevel.SHA1 if tpe.primitiveType == PrimitiveType.string =>
+                Utils.sha1(colValue)
+              case PrivacyLevel.SHA256 if tpe.primitiveType == PrimitiveType.string =>
+                Utils.sha256(colValue)
+              case PrivacyLevel.SHA512 if tpe.primitiveType == PrimitiveType.string =>
+                Utils.sha512(colValue)
+              case PrivacyLevel.SHA512 if tpe.primitiveType == PrimitiveType.string =>
+                // TODO Implement AES
+                throw new Exception("AES Not yet implemented")
+              case _ =>
+                // TODO should never happen  if schema is checked at load time
+                colValue
+            }
             val success = validNumberOfColumns && (optionalColIsEmpty || colPatternIsValid)
             val sparkValue = if (success)
-              tpe.primitiveType.fromString(colValue)
+              tpe.primitiveType.fromString(privacy)
             else
               null
             ColResult(ColInfo(colValue, colAttribute.name, tpe.name, tpe.pattern.pattern(), success), sparkValue)
@@ -144,7 +170,7 @@ object DsvIngestTask {
       }
     } cache()
 
-    val rejectedRDD: RDD[RowInfo] = checkedRDD.filter(_.isRejected).map(rr => RowInfo(rr.colResults.map(_.colInfo)))
+    val rejectedRDD: RDD[RowInfo] = checkedRDD.filter(_.isRejected).map(rr => RowInfo(now, rr.colResults.map(_.colInfo)))
 
     val acceptedRDD: RDD[Row] = checkedRDD.filter(_.isAccepted).map { rowResult =>
       val sparkValues: List[Any] = rowResult.colResults.map(_.sparkValue)

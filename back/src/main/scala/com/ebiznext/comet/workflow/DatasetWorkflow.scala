@@ -103,7 +103,7 @@ class DatasetWorkflow(storageHandler: StorageHandler,
     domains.foreach { domain =>
       val inputDir = File(domain.directory)
 
-      inputDir.list(_.extension == Some(".ack")).foreach { path =>
+      inputDir.list(_.extension.contains(".ack")).foreach { path =>
         val ackFile: File = path
         val fileStr = ackFile.pathAsString
         val prefixStr = fileStr.stripSuffix(".ack")
@@ -161,7 +161,7 @@ class DatasetWorkflow(storageHandler: StorageHandler,
   def businessJob(jobname: String): Unit = {
     val job = schemaHandler.business(jobname)
     job.tasks.foreach { task =>
-      val action = new AutoBusinessJob(job.name, task.sql, task.domain, task.dataset, task.write)
+      val action = new AutoBusinessJob(job.name, task)
       action.run()
     }
   }

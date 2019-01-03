@@ -7,7 +7,7 @@ object Settings extends StrictLogging {
 
   case class Airflow(endpoint: String)
 
-  case class Comet(env: String, staging: Boolean, airflow: Airflow)
+  case class Comet(datasets: String, metadata: String, staging: Boolean, airflow: Airflow)
 
   val config: Config = ConfigFactory.load()
   //  val comet = pureconfig.loadConfig[Comet] match {
@@ -20,7 +20,8 @@ object Settings extends StrictLogging {
 
   val airflow = Airflow(config.getString("airflow.endpoint"))
   val comet = Comet(
-    config.getString("env"),
+    config.getString("datasets"),
+    config.getString("metadata"),
     config.getBoolean("staging"),
     airflow
   )

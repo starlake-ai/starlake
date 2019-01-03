@@ -5,9 +5,8 @@ import org.apache.hadoop.fs.Path
 
 object DatasetArea {
 
-  val env: String = Settings.comet.env
 
-  def path(domain: String, area: String) = new Path(s"/$env/datasets/$area/$domain")
+  def path(domain: String, area: String) = new Path(s"${Settings.comet.datasets}/$area/$domain")
 
   def path(domainPath: Path, schema: String) = new Path(domainPath, schema)
 
@@ -31,7 +30,7 @@ object DatasetArea {
 
   def business(domain: String): Path = path(domain, "business")
 
-  val metadata = new Path(s"/$env/metadata")
+  val metadata = new Path(s"${Settings.comet.metadata}")
   val types = new Path(metadata, "types")
   val domains = new Path(metadata, "domains")
   val business = new Path(metadata, "business")
