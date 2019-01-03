@@ -1,18 +1,33 @@
 package com.ebiznext.comet.workflow
 
 import better.files._
-import com.ebiznext.comet.config.DatasetArea
+import com.ebiznext.comet.config.{DatasetArea, Settings}
 import com.ebiznext.comet.job.{AutoBusinessJob, DsvJob, JsonJob}
 import com.ebiznext.comet.schema.handlers.{LaunchHandler, SchemaHandler, StorageHandler}
 import com.ebiznext.comet.schema.model.SchemaModel
-import com.ebiznext.comet.schema.model.SchemaModel.{Domain, Metadata}
 import com.ebiznext.comet.schema.model.SchemaModel.Format.{DSV, JSON}
+import com.ebiznext.comet.schema.model.SchemaModel.{Domain, Metadata}
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
 
 class DatasetWorkflow(storageHandler: StorageHandler,
                       schemaHandler: SchemaHandler,
                       launchHandler: LaunchHandler) extends StrictLogging {
+
+  //  private val timeFormat = "yyyyMMdd-HHmmss-SSS"
+  //  private val timePattern = Pattern.compile(".+\\.\\d\\d\\d\\d\\d\\d\\d\\d-\\d\\d\\d\\d\\d\\d-\\d\\d\\d")
+  //
+  //  private def nameWithNowTime(name: String): String = {
+  //    name + "." + LocalDateTime.now().format(DateTimeFormatter.ofPattern(timeFormat))
+  //  }
+  //
+  //  private def nameWithoutNowTime(name: String): String = {
+  //    if (timePattern.matcher(name).matches()) {
+  //      name.substring(0, name.lastIndexOf('.'))
+  //    }
+  //    else
+  //      name
+  //  }
 
   /**
     *
@@ -24,11 +39,12 @@ class DatasetWorkflow(storageHandler: StorageHandler,
     Iterable[(Option[SchemaModel.Schema], Path)]) = {
     val paths = storageHandler.list(DatasetArea.pending(domainName))
     val domain = schemaHandler.getDomain(domainName)
-    val schemas: Iterable[(Option[SchemaModel.Schema], Path)] = for {
-      schema <- paths.map { path =>
-        (domain.get.findSchema(path.getName), path)
-      }
-    } yield schema
+    val schemas: Iterable[(Option[SchemaModel.Schema], Path)] =
+      for {
+        schema <- paths.map { path =>
+          (domain.get.findSchema(path.getName), path) // getName without timestamp
+        }
+      } yield schema
     schemas.partition(_._1.isDefined)
   }
 
@@ -42,8 +58,13 @@ class DatasetWorkflow(storageHandler: StorageHandler,
       case JSON =>
         new JsonJob(domain, schema, schemaHandler.types.types, metadata, path, storageHandler).run(null)
     }
-    val targetPath = new Path(DatasetArea.staging(domain.name), path.getName)
-    storageHandler.move(path, targetPath)
+    if (Settings.comet.staging) {
+      val targetPath = new Path(DatasetArea.staging(domain.name), path.getName)
+      storageHandler.move(path, targetPath)
+    }
+    else {
+      storageHandler.delete(path)
+    }
   }
 
   private def ingesting(domain: Domain, schema: SchemaModel.Schema, path: Path): Unit = {
@@ -53,8 +74,15 @@ class DatasetWorkflow(storageHandler: StorageHandler,
     }
   }
 
-  def loadPending(): Unit = {
-    val domains = schemaHandler.domains
+  def loadPending(includes: List[String] = Nil, excludes: List[String] = Nil): Unit = {
+    val domains = (includes, excludes) match {
+      case (Nil, Nil) => schemaHandler.domains
+      case (_, Nil) =>
+        schemaHandler.domains.filter(domain => includes.contains(domain.name))
+      case (Nil, _) =>
+        schemaHandler.domains.filter(domain => !excludes.contains(domain.name))
+    }
+
     domains.foreach { domain =>
       val (resolved, unresolved) = pending(domain.name)
       unresolved.foreach {
@@ -64,8 +92,7 @@ class DatasetWorkflow(storageHandler: StorageHandler,
       }
       resolved.foreach {
         case (Some(schema), path) =>
-          ingesting(domain, schema, path)
-          //launchHandler.ingest(domain.name, schema.name, path)
+          launchHandler.ingest(domain, schema, path)
         case (None, _) => throw new Exception("Should never happen")
       }
     }
@@ -84,6 +111,8 @@ class DatasetWorkflow(storageHandler: StorageHandler,
         val gz = File(prefixStr + ".gz")
         val tmpDir = File(prefixStr)
         val zip = File(prefixStr + ".zip")
+        val rawFormats = Array(".json", ".csv", ".dsv").map(ext => File(prefixStr + ext))
+        val existRawFile = rawFormats.find(file => file.exists)
         ackFile.delete()
         if (gz.exists) {
           gz.unGzipTo(tmpDir)
@@ -97,15 +126,23 @@ class DatasetWorkflow(storageHandler: StorageHandler,
           zip.unzipTo(tmpDir)
           zip.delete()
         }
+        else if (existRawFile.isDefined) {
+          existRawFile.foreach { file =>
+            val tmpFile = File(tmpDir, file.name)
+            tmpDir.createDirectories()
+            file.moveTo(tmpFile)
+          }
+        }
         else {
           logger.error(s"No archive found for file ${ackFile.pathAsString}")
         }
         if (tmpDir.exists) {
-          val dest = DatasetArea.pending(domain.name)
+          val destFolder = DatasetArea.pending(domain.name) // Add FileName with timestamp in nanos
           tmpDir.list.foreach { file =>
             val source = new Path(file.pathAsString)
             logger.info(s"Importing ${file.pathAsString}")
-            storageHandler.moveFromLocal(source, dest)
+            val destFile = new Path(destFolder, file.name)
+            storageHandler.moveFromLocal(source, destFile)
           }
           tmpDir.delete()
         }

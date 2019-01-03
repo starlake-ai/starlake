@@ -42,7 +42,7 @@ class StorageHandlerSpec extends FlatSpec with Matchers with SampleData {
   }
 
   "Business Job Definition" should "be valid json" in {
-    val businessTask1 = BusinessTask("select * from domain", "DOMAIN", "ANALYSE", Write.OVERWRITE)
+    val businessTask1 = BusinessTask("select * from domain", "DOMAIN", "ANALYSE", Write.OVERWRITE, Nil)
     val businessJob = BusinessJob("business1", List(businessTask1))
     val sh = new HdfsStorageHandler
     val path = new Path("/tmp/business.yml")

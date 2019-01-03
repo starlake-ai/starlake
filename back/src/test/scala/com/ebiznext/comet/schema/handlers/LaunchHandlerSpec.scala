@@ -12,6 +12,5 @@ import org.scalatest.{FlatSpec, Matchers}
 class LaunchHandlerSpec extends FlatSpec with Matchers with SampleData {
   "Launch" should "Airflow task" in {
     val launch = new AirflowLauncher
-    launch.ingest("", "", new Path("/"))
   }
 }

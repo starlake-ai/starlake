@@ -20,7 +20,7 @@ default_args = {
 
 dag = DAG('comet_ingest', max_active_runs=1, catchup=False, default_args=default_args, schedule_interval = None)
 
-COMET_SPARK_CMD = os.environ.get('COMET_SPARK_CMD', 'coucou')
+COMET_SPARK_CMD = os.environ.get('COMET_SPARK_CMD', '')
 
 templated_command = COMET_SPARK_CMD + """ {{ dag_run.conf['command'] }}"""
 

@@ -9,6 +9,7 @@ import com.ebiznext.comet.schema.model.SchemaModel.Mode.FILE
 import com.ebiznext.comet.schema.model.SchemaModel.Write.{APPEND, OVERWRITE}
 import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.databind.annotation.{JsonDeserialize, JsonSerialize}
+import com.fasterxml.jackson.databind.node.ArrayNode
 import com.fasterxml.jackson.databind.ser.std.ToStringSerializer
 import com.fasterxml.jackson.databind.{DeserializationContext, JsonDeserializer, JsonNode}
 import org.apache.spark.sql.SaveMode
@@ -232,7 +233,7 @@ object SchemaModel {
   case class Types(types: List[Type]) {
   }
 
-  case class Type(name: String, primitiveType: PrimitiveType, pattern: Pattern) {
+  case class Type(name: String, pattern: Pattern, primitiveType: PrimitiveType = PrimitiveType.string) {
     def matches(value: String): Boolean = {
       pattern.matcher(name).matches()
     }
@@ -244,14 +245,18 @@ object SchemaModel {
   }
 
   case class DSVAttribute(name: String,
-                          `type`: String,
-                          required: Boolean,
-                          privacy: PrivacyLevel)
+                          `type`: String = "string",
+                          required: Boolean = true,
+                          privacy: PrivacyLevel = PrivacyLevel.NONE)
 
   case class Schema(name: String,
                     pattern: Pattern,
                     attributes: List[DSVAttribute],
-                    metadata: Option[Metadata])
+                    metadata: Option[Metadata]) {
+    def validatePartitionColumns(): Boolean = {
+      metadata.forall(_.getPartition().forall(attributes.map(_.name).union(Metadata.CometPartitionColumns).contains))
+    }
+  }
 
   case class Domain(name: String,
                     directory: String,
@@ -272,6 +277,7 @@ object SchemaModel {
                        quote: Option[String] = None,
                        escape: Option[String] = None,
                        write: Option[Write] = None,
+                       partition: Option[List[String]] = None,
                        dateFormat: Option[String] = None,
                        timestampFormat: Option[String] = None
                      ) {
@@ -290,6 +296,8 @@ object SchemaModel {
 
     def getWrite(): Write = write.getOrElse(APPEND)
 
+    def getPartition(): List[String] = partition.getOrElse(Nil)
+
     def merge(child: Metadata): Metadata = {
       def defined[T](parent: Option[T], child: Option[T]): Option[T] =
         if (child.isDefined) child else parent
@@ -302,6 +310,7 @@ object SchemaModel {
         defined(this.quote, child.quote),
         defined(this.escape, child.escape),
         defined(this.write, child.write),
+        defined(this.partition, child.partition),
         defined(this.dateFormat, child.dateFormat),
         defined(this.timestampFormat, child.timestampFormat)
       )
@@ -310,6 +319,7 @@ object SchemaModel {
 
 
   object Metadata {
+    val CometPartitionColumns = List("comet_year", "comet_month", "comet_day", "comet_hour", "comet_minute")
     def Dsv(
              separator: Option[String],
              quote: Option[String],
@@ -323,6 +333,7 @@ object SchemaModel {
       quote,
       escape,
       write,
+      None,
       Some("yyyy-MM-dd"),
       Some("yyyy-MM-dd HH:mm:ss")
     )
@@ -339,9 +350,11 @@ object SchemaModel {
       val quote = if (node.get("quote").isNull) None else Some(node.get("quote").asText)
       val escape = if (node.get("escape").isNull) None else Some(node.get("escape").asText)
       val write = if (node.get("write").isNull) None else Some(Write.fromString(node.get("write").asText))
+      import scala.collection.JavaConverters._
+      val partition = if (node.get("partition") == null || node.get("partition").isNull) None else Some(node.get("partition").asInstanceOf[ArrayNode].elements.asScala.toList.map(_.asText()))
       val dateFormat = if (node.get("dateFormat").isNull) None else Some(node.get("dateFormat").asText)
       val timestampFormat = if (node.get("timestampFormat").isNull) None else Some(node.get("timestampFormat").asText)
-      Metadata(mode, format, withHeader, separator, quote, escape, write, dateFormat, timestampFormat)
+      Metadata(mode, format, withHeader, separator, quote, escape, write, partition, dateFormat, timestampFormat)
     }
   }
 
@@ -356,6 +369,7 @@ object SchemaModel {
     quote,
     escape,
     write,
+    None,
     Some("yyyy-MM-dd"),
     Some("yyyy-MM-dd HH:mm:ss")
   )
@@ -371,24 +385,25 @@ object SchemaModel {
     quote,
     escape,
     Some(Write.APPEND),
+    None,
     Some("yyyy-MM-dd"),
     Some("yyyy-MM-dd HH:mm:ss")
   )
 
 
   /**
-    * 
-    * @param sql SQL request to exexute (do not forget to prefix table names with the database name
-    * @param domain Output domain in Business Area (Will be the Database name in Hive)
+    *
+    * @param sql     SQL request to exexute (do not forget to prefix table names with the database name
+    * @param domain  Output domain in Business Area (Will be the Database name in Hive)
     * @param dataset Dataset Name in Business Area (Will be the Table name in Hive)
     * @param write   Append to or overwrite existing data
     */
-  case class BusinessTask(sql: String, domain: String, dataset: String, write: Write)
+  case class BusinessTask(sql: String, domain: String, dataset: String, write: Write, partition:List[String])
 
   /**
     *
-    * @param name Buisiness Job logical name
-    * @param cron All business task will be executed at this time
+    * @param name  Buisiness Job logical name
+    * @param cron  All business task will be executed at this time
     * @param tasks List of business tasks to execute
     */
   case class BusinessJob(name: String, tasks: List[BusinessTask])
