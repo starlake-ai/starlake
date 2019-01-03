@@ -17,6 +17,12 @@ object DatasetArea {
 
   def staging(domain: String): Path = path(domain, "staging")
 
+  def archive(domain: String): Path = {
+
+    path(domain, "archive")
+
+  }
+
   def ingesting(domain: String): Path = path(domain, "ingesting")
 
   def accepted(domain: String): Path = path(domain, "accepted")

@@ -2,7 +2,7 @@ package com.ebiznext.comet.job
 
 import com.ebiznext.comet.config.DatasetArea
 import com.ebiznext.comet.sample.SampleData
-import com.ebiznext.comet.schema.handlers.{AirflowLauncher, HdfsStorageHandler, SchemaHandler}
+import com.ebiznext.comet.schema.handlers.{AirflowLauncher, HdfsStorageHandler, SchemaHandler, SimpleLauncher}
 import com.ebiznext.comet.workflow.DatasetWorkflow
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
@@ -25,9 +25,9 @@ object Main extends SampleData {
       """
         |Usage :
         |comet business jobname
-        |comet watch
+        |comet watch [+/-DOMAIN1,DOMAIN2,...]
         |comet import
-        |comet ingest datasetDomain, datasetSchema, datasetPath
+        |comet ingest datasetDomain datasetSchema datasetPath
       """.stripMargin)
   }
 
@@ -41,7 +41,7 @@ object Main extends SampleData {
 
     DatasetArea.initDomains(storageHandler, schemaHandler.domains.map(_.name))
 
-    val validator = new DatasetWorkflow(storageHandler, schemaHandler, new AirflowLauncher)
+    val validator = new DatasetWorkflow(storageHandler, schemaHandler, new SimpleLauncher)
 
     if (args.length == 0) println(usage)
 
@@ -50,7 +50,18 @@ object Main extends SampleData {
     arglist(0) match {
       case "business" if arglist.length == 2 => validator.businessJob(arglist(1))
       case "import" => validator.loadLanding()
-      case "watch" => validator.loadPending()
+      case "watch" => 
+        if (arglist.length == 2) {
+          val param = arglist(1)
+          if (param.startsWith("-"))
+            validator.loadPending(Nil, param.substring(1).split(',').toList)
+          else if (param.startsWith("+"))
+            validator.loadPending(param.substring(1).split(',').toList, Nil)
+          else
+            validator.loadPending(param.split(',').toList, Nil)
+        }
+        else
+          validator.loadPending()
       case "ingest" if arglist.length == 4 =>
         validator.ingest(arglist(1), arglist(2), arglist(3))
       case _ => printUsage()

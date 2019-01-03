@@ -1,0 +1,43 @@
+---
+name: "DOMAIN"
+directory: "/tmp/incomping/DOMAIN"
+metadata:
+  mode: "FILE"
+  format: "DSV"
+  withHeader: false
+  separator: ";"
+  quote: "\""
+  escape: "\\"
+  write: "APPEND"
+  partition:
+    - comet_year
+    - comet_month
+    - comet_day
+  dateFormat: "yyyy-MM-dd"
+  timestampFormat: "yyyy-MM-dd HH:mm:ss"
+schemas:
+  - name: "User"
+    pattern: "SCHEMA-.*.dsv"
+    attributes:
+      - name: "firstname"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "lastname"
+        type: "string"
+        required: false
+        privacy: "SHA1"
+      - name: "age"
+        type: "age"
+        required: false
+        privacy: "HIDE"
+    metadata:
+      mode: "FILE"
+      format: "DSV"
+      withHeader: true
+      separator: ";"
+      quote: "\""
+      escape: "\\"
+      write: "APPEND"
+      dateFormat: null
+      timestampFormat: null

@@ -23,9 +23,9 @@ class SchemaHandlerSpec extends FlatSpec with Matchers with SampleData {
 
   val sh = new HdfsStorageHandler
   val domainsPath = new Path(DatasetArea.domains, domain.name + ".yml")
-  sh.write(mapper.writeValueAsString(domain), domainsPath)
+  sh.write(loadFile("/DOMAIN.yml"), domainsPath)
   val typesPath = new Path(DatasetArea.types, "types.yml")
-  sh.write(mapper.writeValueAsString(types), typesPath)
+  sh.write(loadFile("/types.yml"), typesPath)
 
   DatasetArea.initDomains(storageHandler, schemaHandler.domains.map(_.name))
 
@@ -34,16 +34,16 @@ class SchemaHandlerSpec extends FlatSpec with Matchers with SampleData {
     val lines = scala.io.Source.fromInputStream(stream).getLines().mkString("\n")
     val targetPath = DatasetArea.path(DatasetArea.pending("DOMAIN"), "SCHEMA-VALID.dsv")
     storageHandler.write(lines, targetPath)
-    val validator = new DatasetWorkflow(storageHandler, schemaHandler, new AirflowLauncher)
+    val validator = new DatasetWorkflow(storageHandler, schemaHandler, new SimpleLauncher)
     validator.loadPending()
   }
 
   "Import" should "copy to HDFS" in {
-    val validator = new DatasetWorkflow(storageHandler, schemaHandler, new AirflowLauncher)
+    val validator = new DatasetWorkflow(storageHandler, schemaHandler, new SimpleLauncher)
     validator.loadLanding()
   }
   "Watch" should "request Airflow" in {
-    val validator = new DatasetWorkflow(storageHandler, schemaHandler, new AirflowLauncher)
+    val validator = new DatasetWorkflow(storageHandler, schemaHandler, new SimpleLauncher)
     validator.loadPending()
   }
 

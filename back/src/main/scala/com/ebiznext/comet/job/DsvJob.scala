@@ -8,6 +8,7 @@ import com.ebiznext.comet.schema.handlers.StorageHandler
 import com.ebiznext.comet.schema.model.SchemaModel
 import com.ebiznext.comet.schema.model.SchemaModel._
 import org.apache.hadoop.fs.Path
+import org.apache.spark
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql._
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
@@ -72,7 +73,7 @@ class DsvJob(domain: Domain, schema: SchemaModel.Schema, types: List[Type], meta
     }
     StructType(sparkFields)
   }
-  
+
   private val schemaTypes: List[Type] = {
     val mapTypes: Map[String, Type] = types.map(tpe => tpe.name -> tpe).toMap
     schema.attributes.map { attribute =>
@@ -100,12 +101,16 @@ class DsvJob(domain: Domain, schema: SchemaModel.Schema, types: List[Type], meta
     val saveMode = writeMode.toSaveMode
     val hiveDB = HiveArea.area(domain.name, area)
     val tableName = schema.name
-
+    import spark.sql.functions._
     logger.info(s"DSV Output $count to Hive table $hiveDB/$tableName($saveMode) at $targetPath")
     session.sql(s"create database if not exists $hiveDB")
     session.sql(s"use $hiveDB")
-    session.sql(s"drop table if exists $tableName")
-    dataset.write.mode(saveMode).option("path", targetPath.toString).saveAsTable(tableName)
+    session.sql(s"drop table if exists $hiveDB.$tableName")
+
+
+    val partitionedDF = partitionedDatasetWriter(dataset, metadata.partition.getOrElse(Nil))
+
+    partitionedDF.mode(saveMode).option("path", targetPath.toString).saveAsTable(s"$hiveDB.$tableName")
   }
 
   def run(args: Array[String]): Unit = {
@@ -125,8 +130,10 @@ object DsvIngestTask {
         }.zip(types)
         RowResult(
           rowCols.map { case ((colValue, colAttribute), tpe) =>
-            val success =
-              (!colAttribute.required && colValue.isEmpty) || tpe.pattern.matcher(colValue).matches()
+            val validNumberOfColumns = attributes.length <= rowCols.length
+            val optionalColIsEmpty = !colAttribute.required && colValue.isEmpty
+            val colPatternIsValid = tpe.pattern.matcher(colValue).matches()
+            val success = validNumberOfColumns && (optionalColIsEmpty || colPatternIsValid)
             val sparkValue = if (success)
               tpe.primitiveType.fromString(colValue)
             else
