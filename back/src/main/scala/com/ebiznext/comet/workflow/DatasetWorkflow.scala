@@ -50,7 +50,7 @@ class DatasetWorkflow(storageHandler: StorageHandler,
 
 
   private def staging(domain: Domain, schema: SchemaModel.Schema, path: Path): Unit = {
-    val metadata = domain.metadata.merge(schema.metadata.getOrElse(Metadata()))
+    val metadata = domain.metadata.getOrElse(Metadata()).`import`(schema.metadata.getOrElse(Metadata()))
 
     metadata.getFormat() match {
       case DSV =>
@@ -111,7 +111,7 @@ class DatasetWorkflow(storageHandler: StorageHandler,
         val gz = File(prefixStr + ".gz")
         val tmpDir = File(prefixStr)
         val zip = File(prefixStr + ".zip")
-        val rawFormats = Array(".json", ".csv", ".dsv").map(ext => File(prefixStr + ext))
+        val rawFormats = Array(".json", ".csv", ".dsv", ".psv").map(ext => File(prefixStr + ext))
         val existRawFile = rawFormats.find(file => file.exists)
         ackFile.delete()
         if (gz.exists) {

@@ -3,7 +3,7 @@ package com.ebiznext.comet.job
 import java.sql.Timestamp
 import java.time.Instant
 
-import com.ebiznext.comet.config.{DatasetArea, HiveArea}
+import com.ebiznext.comet.config.{DatasetArea, HiveArea, Settings}
 import com.ebiznext.comet.schema.handlers.StorageHandler
 import com.ebiznext.comet.schema.model.SchemaModel
 import com.ebiznext.comet.schema.model.SchemaModel._
@@ -12,6 +12,8 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.sql._
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
 import org.apache.spark.sql.types.StructType
+
+import scala.util.{Failure, Success, Try}
 
 case class ColInfo(colData: String, colName: String, typeName: String, pattern: String, success: Boolean)
 
@@ -68,7 +70,7 @@ class DsvJob(domain: Domain, schema: SchemaModel.Schema, types: List[Type], meta
   private val sparkType: StructType = {
     val mapTypes = types.map(tpe => tpe.name -> tpe).toMap
     val sparkFields = schema.attributes.map { attribute =>
-      mapTypes(attribute.`type`).sparkType(attribute.name, !attribute.required)
+      mapTypes(attribute.`type`).sparkType(attribute.name, !attribute.required, attribute.comment)
     }
     StructType(sparkFields)
   }
@@ -81,8 +83,14 @@ class DsvJob(domain: Domain, schema: SchemaModel.Schema, types: List[Type], meta
   }
 
   private def validate(dataset: DataFrame) = {
-    val (rejectedRDD, acceptedRDD) = DsvIngestTask.validate(session, dataset, this.schema.attributes, schemaTypes, sparkType)
-
+    val (rejectedRDD, acceptedRDD) = DsvIngestTask.validate(session, dataset, this.schema.attributes, metadata.getDateFormat(), metadata.getTimestampFormat(), schemaTypes, sparkType)
+    logger.whenInfoEnabled {
+      val inputCount = dataset.count()
+      val acceptedCount = acceptedRDD.count()
+      val rejectedCount = rejectedRDD.count()
+      val inputFiles = dataset.inputFiles.mkString(",")
+      logger.info(s"ingestion-summary -> files: [$inputFiles], input: $inputCount, accepted: $acceptedCount, rejected:$rejectedCount")
+    }
     val writeMode = metadata.getWrite()
 
     val rejectedPath = new Path(DatasetArea.path(domain.name, "rejected"), schema.name)
@@ -101,18 +109,31 @@ class DsvJob(domain: Domain, schema: SchemaModel.Schema, types: List[Type], meta
     val hiveDB = HiveArea.area(domain.name, area)
     val tableName = schema.name
     val fullTableName = s"$hiveDB.$tableName"
-    logger.info(s"DSV Output $count to Hive table $hiveDB/$tableName($saveMode) at $targetPath")
-    session.sql(s"create database if not exists $hiveDB")
-    session.sql(s"use $hiveDB")
-    session.sql(s"drop table if exists $hiveDB.$tableName")
-
+    if (Settings.comet.hive) {
+      logger.info(s"DSV Output $count to Hive table $hiveDB/$tableName($saveMode) at $targetPath")
+      val dbComment = domain.comment.getOrElse("")
+      session.sql(s"create database if not exists $hiveDB comment '$dbComment'")
+      session.sql(s"use $hiveDB")
+      session.sql(s"drop table if exists $hiveDB.$tableName")
+    }
 
     val partitionedDF = partitionedDatasetWriter(dataset, metadata.partition.getOrElse(Nil))
 
-    partitionedDF.mode(saveMode).option("path", targetPath.toString).saveAsTable(fullTableName)
-
-    val allCols = session.table(fullTableName).columns.mkString(",")
-    val analyzeTable = s"ANALYZE TABLE $fullTableName COMPUTE STATISTICS FOR COLUMNS $allCols"
+    val targetDataset = partitionedDF.mode(saveMode).option("path", targetPath.toString)
+    if (Settings.comet.hive) {
+      targetDataset.saveAsTable(fullTableName)
+      val tableComment = schema.comment.getOrElse("")
+      session.sql(s"ALTER TABLE $fullTableName SET TBLPROPERTIES ('comment' = '$tableComment')")
+      if (Settings.comet.analyze) {
+        val allCols = session.table(fullTableName).columns.mkString(",")
+        val analyzeTable = s"ANALYZE TABLE $fullTableName COMPUTE STATISTICS FOR COLUMNS $allCols"
+        if (session.version.substring(0, 3).toDouble >= 2.4)
+          session.sql(analyzeTable)
+      }
+    }
+    else {
+      targetDataset.save()
+    }
   }
 
   def run(args: Array[String]): SparkSession = {
@@ -124,7 +145,7 @@ class DsvJob(domain: Domain, schema: SchemaModel.Schema, types: List[Type], meta
 }
 
 object DsvIngestTask {
-  def validate(session: SparkSession, dataset: DataFrame, attributes: List[DSVAttribute], types: List[Type], sparkType: StructType): (RDD[RowInfo], RDD[Row]) = {
+  def validate(session: SparkSession, dataset: DataFrame, attributes: List[DSVAttribute], dateFormat: String, timeFormat: String, types: List[Type], sparkType: StructType): (RDD[RowInfo], RDD[Row]) = {
     val now = Timestamp.from(Instant.now)
     val rdds = dataset.rdd
     dataset.show()
@@ -159,12 +180,17 @@ object DsvIngestTask {
                 // TODO should never happen  if schema is checked at load time
                 colValue
             }
-            val success = validNumberOfColumns && (optionalColIsEmpty || colPatternIsValid)
-            val sparkValue = if (success)
-              tpe.primitiveType.fromString(privacy)
-            else
-              null
-            ColResult(ColInfo(colValue, colAttribute.name, tpe.name, tpe.pattern.pattern(), success), sparkValue)
+            val colPatternOK = validNumberOfColumns && (optionalColIsEmpty || colPatternIsValid)
+            val (sparkValue, colParseOK) =
+              if (colPatternOK) {
+                Try(tpe.primitiveType.fromString(privacy, dateFormat, timeFormat)) match {
+                  case Success(res) => (res, true)
+                  case Failure(_) => (null, false)
+                }
+              }
+              else
+                (null, false)
+            ColResult(ColInfo(colValue, colAttribute.name, tpe.name, tpe.pattern.pattern(), colPatternOK && colParseOK), sparkValue)
           } toList
         )
       }

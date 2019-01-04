@@ -57,7 +57,7 @@ trait SampleData {
   )
 
   val domain = Domain("DOMAIN", "/tmp/incoming/DOMAIN",
-    Metadata(
+    Some(Metadata(
       Some(Mode.FILE),
       Some(Format.DSV),
       Some(false),
@@ -67,7 +67,7 @@ trait SampleData {
       Some(Write.APPEND),
       None,
       Some("yyyy-MM-dd"),
-      Some("yyyy-MM-dd HH:mm:ss")),
+      Some("yyyy-MM-dd HH:mm:ss"))),
     List(
       Schema("User", Pattern.compile("SCHEMA-.*.dsv"),
         List(
@@ -76,9 +76,11 @@ trait SampleData {
           DSVAttribute("age", "age", false, PrivacyLevel.HIDE)
         ),
         Some(Metadata(withHeader = Some(true))),
+        Some("Schema Comment"),
         Some(List("SQL1", "SQL2")),
         None
       )
-    )
+    ),
+    Some("Domain Comment")
   )
 }

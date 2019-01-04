@@ -1,6 +1,6 @@
 package com.ebiznext.comet.job
 
-import com.ebiznext.comet.config.DatasetArea
+import com.ebiznext.comet.config.{DatasetArea, Settings}
 import com.ebiznext.comet.sample.SampleData
 import com.ebiznext.comet.schema.handlers.{AirflowLauncher, HdfsStorageHandler, SchemaHandler, SimpleLauncher}
 import com.ebiznext.comet.workflow.DatasetWorkflow
@@ -41,7 +41,7 @@ object Main extends SampleData {
 
     DatasetArea.initDomains(storageHandler, schemaHandler.domains.map(_.name))
 
-    val validator = new DatasetWorkflow(storageHandler, schemaHandler, new SimpleLauncher)
+    val validator = new DatasetWorkflow(storageHandler, schemaHandler, Settings.comet.getLauncher())
 
     if (args.length == 0) println(usage)
 

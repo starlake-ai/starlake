@@ -1,6 +1,7 @@
 package com.ebiznext.comet.schema.model
 
 import java.sql.Timestamp
+import java.time.temporal.TemporalAccessor
 import java.time.{Instant, LocalDateTime, ZoneId, ZonedDateTime}
 import java.util.regex.Pattern
 
@@ -153,7 +154,7 @@ object SchemaModel {
   @JsonSerialize(using = classOf[ToStringSerializer])
   @JsonDeserialize(using = classOf[PrimitiveTypeDeserializer])
   sealed abstract case class PrimitiveType(value: String) {
-    def fromString(str: String, format: String = null): Any
+    def fromString(str: String, dateFormat: String = null, timeFormat: String = null): Any
 
     override def toString: String = value
   }
@@ -177,30 +178,30 @@ object SchemaModel {
   object PrimitiveType {
 
     object string extends PrimitiveType("string") {
-      def fromString(str: String, format: String): Any = str
+      def fromString(str: String, dateFormat: String = null, timeFormat: String = null): Any = str
     }
 
     object long extends PrimitiveType("long") {
-      def fromString(str: String, format: String): Any = if (str == null || str.isEmpty) null else str.toLong
+      def fromString(str: String, dateFormat: String, timeFormat: String): Any = if (str == null || str.isEmpty) null else str.toLong
     }
 
     object double extends PrimitiveType("double") {
-      def fromString(str: String, format: String): Any = if (str == null || str.isEmpty) null else str.toDouble
+      def fromString(str: String, dateFormat: String, timeFormat: String): Any = if (str == null || str.isEmpty) null else str.toDouble
     }
 
     object boolean extends PrimitiveType("boolean") {
-      def fromString(str: String, format: String): Any = if (str == null || str.isEmpty) null else str.toBoolean
+      def fromString(str: String, dateFormat: String, timeFormat: String): Any = if (str == null || str.isEmpty) null else str.toBoolean
     }
 
     object byte extends PrimitiveType("byte") {
-      def fromString(str: String, format: String): Any = if (str == null || str.isEmpty) null else str.toByte
+      def fromString(str: String, dateFormat: String, timeFormat: String): Any = if (str == null || str.isEmpty) null else str.toByte
     }
 
 
     private def instantFromString(str: String, format: String): Instant = {
       import java.time.format.DateTimeFormatter
       val formatter = DateTimeFormatter.ofPattern(format)
-      val dateTime = formatter.parse(str)
+      val dateTime: TemporalAccessor = formatter.parse(str)
       Try(Instant.from(dateTime)) match {
         case Success(instant) =>
           instant
@@ -212,23 +213,25 @@ object SchemaModel {
     }
 
     object date extends PrimitiveType("date") {
-      def fromString(str: String, format: String): Any = {
+      def fromString(str: String, dateFormat: String, timeFormat: String): Any = {
         if (str == null || str.isEmpty)
           null
         else {
-          val instant = instantFromString(str, format)
-          new java.sql.Date(instant.toEpochMilli)
+          import java.text.SimpleDateFormat
+          val df = new SimpleDateFormat(dateFormat)
+          val date = df.parse(str)
+          new java.sql.Date(date.getTime)
 
         }
       }
     }
 
     object timestamp extends PrimitiveType("timestamp") {
-      def fromString(str: String, format: String): Any = {
+      def fromString(str: String, dateFormat: String, timeFormat: String): Any = {
         if (str == null || str.isEmpty)
           null
         else {
-          val instant = instantFromString(str, format)
+          val instant = instantFromString(str, timeFormat)
           Timestamp.from(instant)
         }
       }
@@ -244,21 +247,22 @@ object SchemaModel {
       pattern.matcher(name).matches()
     }
 
-    def sparkType(fieldName: String, nullable: Boolean): StructField = {
-      StructField(fieldName, CatalystSqlParser.parseDataType(primitiveType.value), nullable)
+    def sparkType(fieldName: String, nullable: Boolean, comment: Option[String]): StructField = {
+      StructField(fieldName, CatalystSqlParser.parseDataType(primitiveType.value), nullable).withComment(comment.getOrElse(""))
     }
-
   }
 
   case class DSVAttribute(name: String,
                           `type`: String = "string",
                           required: Boolean = true,
-                          privacy: PrivacyLevel = PrivacyLevel.NONE)
+                          privacy: PrivacyLevel = PrivacyLevel.NONE,
+                          comment: Option[String] = None)
 
   case class Schema(name: String,
                     pattern: Pattern,
                     attributes: List[DSVAttribute],
                     metadata: Option[Metadata],
+                    comment: Option[String],
                     presql: Option[List[String]],
                     postsql: Option[List[String]]
                    ) {
@@ -269,8 +273,9 @@ object SchemaModel {
 
   case class Domain(name: String,
                     directory: String,
-                    metadata: Metadata,
-                    schemas: List[Schema]
+                    metadata: Option[Metadata],
+                    schemas: List[Schema],
+                    comment: Option[String]
                    ) {
     def findSchema(filename: String): Option[Schema] = {
       schemas.find(_.pattern.matcher(filename).matches())
@@ -308,7 +313,11 @@ object SchemaModel {
 
     def getPartition(): List[String] = partition.getOrElse(Nil)
 
-    def merge(child: Metadata): Metadata = {
+    def getDateFormat() = dateFormat.getOrElse("yyyy-MM-dd")
+
+    def getTimestampFormat() = timestampFormat.getOrElse("yyyy-MM-dd HH:mm:ss")
+
+    def `import`(child: Metadata): Metadata = {
       def defined[T](parent: Option[T], child: Option[T]): Option[T] =
         if (child.isDefined) child else parent
 
@@ -354,17 +363,20 @@ object SchemaModel {
   class MetadataDeserializer extends JsonDeserializer[Metadata] {
     override def deserialize(jp: JsonParser, ctx: DeserializationContext): Metadata = {
       val node: JsonNode = jp.getCodec().readTree(jp)
-      val mode = if (node.get("mode").isNull) None else Some(Mode.fromString(node.get("mode").asText))
-      val format = if (node.get("format").isNull) None else Some(Format.fromString(node.get("format").asText))
-      val withHeader = if (node.get("withHeader").isNull) None else Some(node.get("withHeader").asBoolean())
-      val separator = if (node.get("separator").isNull) None else Some(node.get("separator").asText)
-      val quote = if (node.get("quote").isNull) None else Some(node.get("quote").asText)
-      val escape = if (node.get("escape").isNull) None else Some(node.get("escape").asText)
-      val write = if (node.get("write").isNull) None else Some(Write.fromString(node.get("write").asText))
+
+      def isNull(field: String): Boolean = node.get(field) == null || node.get(field).isNull
+
+      val mode = if (isNull("mode")) None else Some(Mode.fromString(node.get("mode").asText))
+      val format = if (isNull("format")) None else Some(Format.fromString(node.get("format").asText))
+      val withHeader = if (isNull("withHeader")) None else Some(node.get("withHeader").asBoolean())
+      val separator = if (isNull("separator")) None else Some(node.get("separator").asText)
+      val quote = if (isNull("quote")) None else Some(node.get("quote").asText)
+      val escape = if (isNull("escape")) None else Some(node.get("escape").asText)
+      val write = if (isNull("write")) None else Some(Write.fromString(node.get("write").asText))
       import scala.collection.JavaConverters._
-      val partition = if (node.get("partition") == null || node.get("partition").isNull) None else Some(node.get("partition").asInstanceOf[ArrayNode].elements.asScala.toList.map(_.asText()))
-      val dateFormat = if (node.get("dateFormat").isNull) None else Some(node.get("dateFormat").asText)
-      val timestampFormat = if (node.get("timestampFormat").isNull) None else Some(node.get("timestampFormat").asText)
+      val partition = if (isNull("partition")) None else Some(node.get("partition").asInstanceOf[ArrayNode].elements.asScala.toList.map(_.asText()))
+      val dateFormat = if (isNull("dateFormat")) None else Some(node.get("dateFormat").asText)
+      val timestampFormat = if (isNull("timestampFormat")) None else Some(node.get("timestampFormat").asText)
       Metadata(mode, format, withHeader, separator, quote, escape, write, partition, dateFormat, timestampFormat)
     }
   }
