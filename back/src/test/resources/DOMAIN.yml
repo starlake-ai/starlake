@@ -1,6 +1,6 @@
 ---
 name: "DOMAIN"
-directory: "/tmp/incomping/DOMAIN"
+directory: "/Users/hayssams/git/comet/app/back/src/test/resources/incoming/DOMAIN"
 metadata:
   mode: "FILE"
   format: "DSV"
@@ -28,7 +28,7 @@ schemas:
         required: false
         privacy: "HIDE"
       - name: "age"
-        type: "age"
+        type: "int"
         required: false
         privacy: "NONE"
     metadata:
