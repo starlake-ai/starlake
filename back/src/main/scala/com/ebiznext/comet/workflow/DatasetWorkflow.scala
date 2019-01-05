@@ -2,7 +2,7 @@ package com.ebiznext.comet.workflow
 
 import better.files._
 import com.ebiznext.comet.config.{DatasetArea, Settings}
-import com.ebiznext.comet.job.{AutoBusinessJob, DsvJob, JsonJob}
+import com.ebiznext.comet.job.{AutoJob, DsvJob, JsonJob}
 import com.ebiznext.comet.schema.handlers.{LaunchHandler, SchemaHandler, StorageHandler}
 import com.ebiznext.comet.schema.model.SchemaModel
 import com.ebiznext.comet.schema.model.SchemaModel.Format.{DSV, JSON}
@@ -161,7 +161,7 @@ class DatasetWorkflow(storageHandler: StorageHandler,
   def businessJob(jobname: String): Unit = {
     val job = schemaHandler.business(jobname)
     job.tasks.foreach { task =>
-      val action = new AutoBusinessJob(job.name, task)
+      val action = new AutoJob(job.name, job.getArea(), task)
       action.run()
     }
   }

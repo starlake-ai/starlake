@@ -33,7 +33,7 @@ class SchemaHandler(storage: StorageHandler) {
 
   lazy val business: Map[String, BusinessJob] = {
     storage
-      .list(DatasetArea.business, ".yml")
+      .list(DatasetArea.jobs, ".yml")
       .map(path => mapper.readValue(storage.read(path), classOf[BusinessJob]))
       .map(job => job.name -> job).toMap
 

@@ -1,6 +1,10 @@
 package com.ebiznext.comet.config
 
 import com.ebiznext.comet.schema.handlers.StorageHandler
+import com.fasterxml.jackson.core.JsonParser
+import com.fasterxml.jackson.databind.annotation.{JsonDeserialize, JsonSerialize}
+import com.fasterxml.jackson.databind.ser.std.ToStringSerializer
+import com.fasterxml.jackson.databind.{DeserializationContext, JsonDeserializer}
 import org.apache.hadoop.fs.Path
 
 object DatasetArea {
@@ -33,7 +37,7 @@ object DatasetArea {
   val metadata = new Path(s"${Settings.comet.metadata}")
   val types = new Path(metadata, "types")
   val domains = new Path(metadata, "domains")
-  val business = new Path(metadata, "business")
+  val jobs = new Path(metadata, "jobs")
 
 
   def init(storage: StorageHandler): Unit = {
@@ -54,9 +58,29 @@ object DatasetArea {
   }
 }
 
-sealed case class HiveArea(value: String)
+
+class HiveAreaDeserializer extends JsonDeserializer[HiveArea] {
+  override def deserialize(jp: JsonParser, ctx: DeserializationContext): HiveArea = {
+    val value = jp.readValueAs[String](classOf[String])
+    HiveArea.fromString(value)
+  }
+}
+
+@JsonSerialize(using = classOf[ToStringSerializer])
+@JsonDeserialize(using = classOf[HiveAreaDeserializer])
+sealed case class HiveArea(value: String) {
+  override def toString: String = value
+}
 
 object HiveArea {
+  def fromString(value: String): HiveArea = {
+    value.toUpperCase() match {
+      case "rejected" => HiveArea.rejected
+      case "accepted" => HiveArea.accepted
+      case "business" => HiveArea.business
+      case custom => HiveArea(custom)
+    }
+  }
 
   object rejected extends HiveArea("rejected")
 
@@ -64,6 +88,6 @@ object HiveArea {
 
   object business extends HiveArea("business")
 
-  def area(domain: String, area: HiveArea) = s"${domain}_${area.value}"
+  def area(domain: String, area: HiveArea): String = s"${domain}_${area.value}"
 
 }
