@@ -119,7 +119,7 @@ class DsvJob(domain: Domain, schema: SchemaModel.Schema, types: List[Type], meta
 
     val partitionedDF = partitionedDatasetWriter(dataset, metadata.partition.getOrElse(Nil))
 
-    val targetDataset = partitionedDF.mode(saveMode).option("path", targetPath.toString)
+    val targetDataset = partitionedDF.mode(saveMode).format("parquet").option("path", targetPath.toString)
     if (Settings.comet.hive) {
       targetDataset.saveAsTable(fullTableName)
       val tableComment = schema.comment.getOrElse("")

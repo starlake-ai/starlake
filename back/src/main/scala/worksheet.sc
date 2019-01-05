@@ -59,3 +59,6 @@ pdouble.matcher("12.23").matches()
 
 val pint = Pattern.compile("[0-9][0-9]*")
 pint.matcher("1223").matches()
+
+val pdate2 = Pattern.compile("(19[0-9]{2}|2[0-9]{3})-(0[1-9]|1[012])-([123]0|[012][1-9]|31)( ([01][0-9]|2[0-3]):([0-5][0-9]):([0-5][0-9]))?")
+pdate2.matcher("2018-12-24 12:23:56").matches()

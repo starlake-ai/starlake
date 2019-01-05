@@ -5,6 +5,7 @@ import java.time.temporal.TemporalAccessor
 import java.time.{Instant, LocalDateTime, ZoneId, ZonedDateTime}
 import java.util.regex.Pattern
 
+import com.ebiznext.comet.config.HiveArea
 import com.ebiznext.comet.schema.model.SchemaModel.Format.DSV
 import com.ebiznext.comet.schema.model.SchemaModel.Mode.FILE
 import com.ebiznext.comet.schema.model.SchemaModel.Write.{APPEND, OVERWRITE}
@@ -422,14 +423,15 @@ object SchemaModel {
     * @param write   Append to or overwrite existing data
     */
   case class BusinessTask(sql: String, domain: String, dataset: String, write: Write, partition: List[String],
-                          presql: Option[List[String]], postsql: Option[List[String]])
+                          presql: Option[List[String]], postsql: Option[List[String]], area: Option[HiveArea] = None)
 
   /**
     *
     * @param name  Buisiness Job logical name
-    * @param cron  All business task will be executed at this time
     * @param tasks List of business tasks to execute
     */
-  case class BusinessJob(name: String, tasks: List[BusinessTask])
+  case class BusinessJob(name: String, tasks: List[BusinessTask], area: Option[HiveArea] = None) {
+    def getArea() = area.getOrElse(HiveArea.business)
+  }
 
 }
