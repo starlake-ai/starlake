@@ -38,21 +38,10 @@ val logging = Seq(
   "com.typesafe.scala-logging" %% "scala-logging" % Versions.scalaLogging
 )
 
-//val pureConfig = Seq(
-//  "com.typesafe" % "config" % Versions.typesafeConfig,
-//  "com.github.pureconfig" %% "pureconfig" % Versions.pureConfig
-//).map(_.exclude("com.chuusai", "shapeless_2.11"))
 
-val pureConfig = Seq("com.typesafe" % "config" % Versions.typesafeConfig)
+val typedConfigs = Seq("com.github.kxbmap" %% "configs" % Versions.configs)
 
-
-//val shapeless = Seq("com.chuusai" %% "shapeless" % "2.0.0" % "provided")
-
-val postgres = Seq("org.postgresql" % "postgresql" % "42.2.5")
-
-val hikaricp = Seq("com.zaxxer" % "HikariCP" % "2.5.1")
-
-val okhttp = Seq("com.squareup.okhttp3" % "okhttp" % "3.11.0")
+val okhttp = Seq("com.squareup.okhttp3" % "okhttp" % Versions.okhttp)
 
 val jackson = Seq(
   "com.fasterxml.jackson.core" % "jackson-core" % Versions.jackson,
@@ -61,9 +50,7 @@ val jackson = Seq(
   "com.fasterxml.jackson.dataformat" % "jackson-dataformat-yaml" % Versions.jackson
 )
 
-libraryDependencies ++= scalaTest ++
-  logging ++ pureConfig ++ postgres ++ hikaricp ++ spark ++
-  /* shapeless ++ */ okhttp ++ betterfiles ++ jackson
+libraryDependencies ++= scalaTest ++ logging ++ typedConfigs ++ spark ++ okhttp ++ betterfiles ++ jackson
 
 
 // Assembly

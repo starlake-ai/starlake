@@ -2,6 +2,8 @@ import java.time.format.DateTimeFormatter
 import java.time.{Instant, LocalDateTime}
 import java.util.regex.Pattern
 
+import com.ebiznext.comet.schema.model.SchemaModel.Domain
+
 System.getenv("HIVE_HOME")
 
 
@@ -13,7 +15,7 @@ val p2 = Pattern.compile("SCHEMA-.*.dsv")
 p2.matcher("SCHEMA-1.dsv").matches()
 
 
-val name ="x.20190102-234415-936"
+val name = "x.20190102-234415-936"
 val p3 = Pattern.compile(".+\\.\\d\\d\\d\\d\\d\\d\\d\\d-\\d\\d\\d\\d\\d\\d-\\d\\d\\d")
 p3.matcher(name).matches()
 
@@ -62,3 +64,4 @@ pint.matcher("1223").matches()
 
 val pdate2 = Pattern.compile("(19[0-9]{2}|2[0-9]{3})-(0[1-9]|1[012])-([123]0|[012][1-9]|31)( ([01][0-9]|2[0-3]):([0-5][0-9]):([0-5][0-9]))?")
 pdate2.matcher("2018-12-24 12:23:56").matches()
+

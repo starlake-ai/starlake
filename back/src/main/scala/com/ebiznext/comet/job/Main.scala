@@ -2,14 +2,14 @@ package com.ebiznext.comet.job
 
 import com.ebiznext.comet.config.{DatasetArea, Settings}
 import com.ebiznext.comet.sample.SampleData
-import com.ebiznext.comet.schema.handlers.{AirflowLauncher, HdfsStorageHandler, SchemaHandler, SimpleLauncher}
+import com.ebiznext.comet.schema.handlers.{HdfsStorageHandler, SchemaHandler}
 import com.ebiznext.comet.workflow.DatasetWorkflow
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
-import org.apache.hadoop.fs.Path
+import com.typesafe.scalalogging.StrictLogging
 
-object Main extends SampleData {
+object Main extends StrictLogging {
   // uses Jackson YAML to parsing, relies on SnakeYAML for low level handling
   val mapper: ObjectMapper = new ObjectMapper(new YAMLFactory())
   mapper.registerModule(DefaultScalaModule)
@@ -24,7 +24,7 @@ object Main extends SampleData {
     println(
       """
         |Usage :
-        |comet business jobname
+        |comet job jobname
         |comet watch [+/-DOMAIN1,DOMAIN2,...]
         |comet import
         |comet ingest datasetDomain datasetSchema datasetPath
@@ -46,11 +46,11 @@ object Main extends SampleData {
     if (args.length == 0) println(usage)
 
     val arglist = args.toList
-    println(s"Running DatasetValidator $arglist")
-    arglist(0) match {
-      case "business" if arglist.length == 2 => validator.businessJob(arglist(1))
+    logger.info(s"Running Comet $arglist")
+    arglist.head match {
+      case "job" if arglist.length == 2 => validator.autoJob(arglist(1))
       case "import" => validator.loadLanding()
-      case "watch" => 
+      case "watch" =>
         if (arglist.length == 2) {
           val param = arglist(1)
           if (param.startsWith("-"))

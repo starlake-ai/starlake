@@ -3,7 +3,6 @@ from airflow import DAG
 from airflow.operators.bash_operator import BashOperator
 from datetime import datetime, timedelta
 
-
 default_args = {
     'owner': 'airflow',
     'depends_on_past': False,
@@ -26,6 +25,5 @@ COMET_SPARK_CMD = os.environ.get('COMET_SPARK_CMD', '')
 # export COMET_SPARK_CMD="/Users/hayssams/programs/spark-2.1.0-bin-hadoop2.7/bin/spark-submit --class com.ebiznext.comet.job.Main /Users/hayssams/git/comet/app/back/target/scala-2.11/comet-assembly-0.1.jar"
 t1 = BashOperator(
     task_id='comet_import',
-    bash_command= COMET_SPARK_CMD + ' import',
+    bash_command=COMET_SPARK_CMD + ' import',
     dag=dag)
-

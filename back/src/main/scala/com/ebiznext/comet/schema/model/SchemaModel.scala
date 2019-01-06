@@ -18,6 +18,7 @@ import org.apache.spark.sql.SaveMode
 import org.apache.spark.sql.catalyst.parser.CatalystSqlParser
 import org.apache.spark.sql.types.StructField
 
+import scala.collection.mutable
 import scala.util.{Failure, Success, Try}
 
 object SchemaModel {
@@ -253,15 +254,32 @@ object SchemaModel {
     }
   }
 
-  case class DSVAttribute(name: String,
-                          `type`: String = "string",
-                          required: Boolean = true,
-                          privacy: PrivacyLevel = PrivacyLevel.NONE,
-                          comment: Option[String] = None)
+  case class Attribute(name: String,
+                       `type`: String = "string",
+                       required: Boolean = true,
+                       privacy: PrivacyLevel = PrivacyLevel.NONE,
+                       comment: Option[String] = None,
+                       rename: Option[String] = None,
+                       attributes: Option[List[Attribute]] = None
+                      ) {
+    def checkValidity(types: Types): Either[List[String], Boolean] = {
+      val errorList: mutable.MutableList[String] = mutable.MutableList.empty
+      val primitiveType = types.types.find(_.name == `type`).map(_.primitiveType)
+      primitiveType match {
+        case None => errorList += s"Invalid Type ${`type`}"
+        case Some(tpe) if tpe != PrimitiveType.string =>
+          errorList += s"string is the only supported primitive type for an attribute when privacy is requested"
+      }
+      if (errorList.nonEmpty)
+        Left(errorList.toList)
+      else
+        Right(true)
+    }
+  }
 
   case class Schema(name: String,
                     pattern: Pattern,
-                    attributes: List[DSVAttribute],
+                    attributes: List[Attribute],
                     metadata: Option[Metadata],
                     comment: Option[String],
                     presql: Option[List[String]],
@@ -270,17 +288,29 @@ object SchemaModel {
     def validatePartitionColumns(): Boolean = {
       metadata.forall(_.getPartition().forall(attributes.map(_.name).union(Metadata.CometPartitionColumns).contains))
     }
+
+    def renamedAttributes(): List[(String, String)] = {
+      attributes.filter(_.rename.isDefined).map(attribute => (attribute.name, attribute.rename.get))
+    }
   }
 
   case class Domain(name: String,
                     directory: String,
-                    metadata: Option[Metadata],
-                    schemas: List[Schema],
-                    comment: Option[String]
+                    metadata: Option[Metadata] = None,
+                    schemas: List[Schema] = Nil,
+                    comment: Option[String] = None,
+                    extensions: Option[List[String]] = None,
+                    ack: Option[String] = None
                    ) {
     def findSchema(filename: String): Option[Schema] = {
       schemas.find(_.pattern.matcher(filename).matches())
     }
+
+    def getExtensions(): List[String] = {
+      extensions.getOrElse(List("json", "csv", "dsv", "psv")).map("." + _)
+    }
+
+    def getAck(): String = ack.map("." + _).getOrElse(".ack")
   }
 
 
@@ -297,6 +327,19 @@ object SchemaModel {
                        dateFormat: Option[String] = None,
                        timestampFormat: Option[String] = None
                      ) {
+    override def toString: String =
+      s"""
+         |mode:${getMode()}
+         |format:${getFormat()}
+         |withHeader:${isWithHeader()}
+         |separator:${getSeparator()}
+         |quote:${getQuote()}
+         |escape:${getEscape()}
+         |write:${getWrite()}
+         |partition:${getPartition()}
+         |dateFormat:${getDateFormat()}
+         |timestampFormat:${getTimestampFormat()}
+       """.stripMargin
 
     def getMode(): Mode = mode.getOrElse(FILE)
 
@@ -422,15 +465,15 @@ object SchemaModel {
     * @param dataset Dataset Name in Business Area (Will be the Table name in Hive)
     * @param write   Append to or overwrite existing data
     */
-  case class BusinessTask(sql: String, domain: String, dataset: String, write: Write, partition: List[String],
-                          presql: Option[List[String]], postsql: Option[List[String]], area: Option[HiveArea] = None)
+  case class AutoTask(sql: String, domain: String, dataset: String, write: Write, partition: List[String],
+                      presql: Option[List[String]], postsql: Option[List[String]], area: Option[HiveArea] = None)
 
   /**
     *
     * @param name  Buisiness Job logical name
     * @param tasks List of business tasks to execute
     */
-  case class BusinessJob(name: String, tasks: List[BusinessTask], area: Option[HiveArea] = None) {
+  case class AutoJob(name: String, tasks: List[AutoTask], area: Option[HiveArea] = None) {
     def getArea() = area.getOrElse(HiveArea.business)
   }
 
