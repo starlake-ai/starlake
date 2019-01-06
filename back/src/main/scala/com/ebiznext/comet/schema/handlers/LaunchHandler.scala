@@ -4,11 +4,12 @@ import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.config.Settings.comet
 import com.ebiznext.comet.job.Main
 import com.ebiznext.comet.schema.model.SchemaModel.{Domain, Schema}
+import com.typesafe.scalalogging.StrictLogging
 import okhttp3._
 import okio.Buffer
 import org.apache.hadoop.fs.Path
 
-import scala.util.{Success, Try}
+import scala.util.{Failure, Success, Try}
 
 trait LaunchHandler {
   def ingest(domain: Domain, schema: Schema, path: Path): Boolean = ingest(domain, schema, path :: Nil)
@@ -17,18 +18,18 @@ trait LaunchHandler {
 }
 
 
-
-class SimpleLauncher extends LaunchHandler {
+class SimpleLauncher extends LaunchHandler with StrictLogging {
   override def ingest(domain: Domain, schema: Schema, paths: List[Path]): Boolean = {
     paths.foreach { path =>
-      val params =  Array("ingest", domain.name, schema.name, path.toString)
+      val params = Array("ingest", domain.name, schema.name, path.toString)
+      logger.info(s"Launch Ingestion: ${params.mkString(" ")}")
       Main.main(params)
     }
     true
   }
 }
 
-class AirflowLauncher extends LaunchHandler {
+class AirflowLauncher extends LaunchHandler with StrictLogging {
   def post(url: String, json: String): Try[String] = {
     Try {
       val JSON: MediaType = MediaType.parse("application/json; charset=utf-8")
@@ -37,7 +38,7 @@ class AirflowLauncher extends LaunchHandler {
       val request: Request = new Request.Builder().url(url).post(body).build
       val buffer = new Buffer()
       request.body().writeTo(buffer)
-      println(request.toString + "\n" + buffer.readUtf8())
+      logger.debug("Post to Airflow: " + request.toString + "\n" + buffer.readUtf8())
       val response: Response = client.newCall(request).execute
       response.body.string
     }
@@ -48,10 +49,11 @@ class AirflowLauncher extends LaunchHandler {
     val url = s"$endpoint/dags/comet_ingest/dag_runs"
     val command = s"""ingest ${domain.name} ${schema.name} ${path.mkString(",")}"""
     val json =s"""{"conf":"{\\"command\\":\\"$command\\"}"}"""
+    logger.info(s"Post to Airflow: $json")
     post(url, json) match {
       case Success(response) =>
-        println(response)
-      case scala.util.Failure(exception) => throw exception
+        logger.info(s"Airflow returned: $response")
+      case Failure(exception) => throw exception
     }
     true
   }

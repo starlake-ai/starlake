@@ -3,7 +3,6 @@ from airflow import DAG
 from airflow.operators.bash_operator import BashOperator
 from datetime import datetime, timedelta
 
-
 default_args = {
     'owner': 'airflow',
     'depends_on_past': False,
@@ -26,6 +25,5 @@ COMET_DOMAIN = os.environ.get('COMET_DOMAIN', '')
 # t1, t2 and t3 are examples of tasks created by instantiating operators
 t1 = BashOperator(
     task_id='comet_watcher',
-    bash_command= COMET_SPARK_CMD + ' watch ' + COMET_DOMAIN,
+    bash_command=COMET_SPARK_CMD + ' watch ' + COMET_DOMAIN,
     dag=dag)
-

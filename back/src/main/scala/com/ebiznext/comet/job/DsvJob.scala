@@ -97,9 +97,17 @@ class DsvJob(domain: Domain, schema: SchemaModel.Schema, types: List[Type], meta
     saveRows(session.createDataFrame(rejectedRDD), rejectedPath, writeMode, HiveArea.rejected)
 
     val acceptedPath = new Path(DatasetArea.path(domain.name, "accepted"), schema.name)
-    saveRows(session.createDataFrame(acceptedRDD, sparkType), acceptedPath, writeMode, HiveArea.accepted)
-    //    saveRejectedRows(session.createDataFrame(rejectedRDD))
-    //    saveAcceptedRows(session.createDataFrame(acceptedRDD, sparkType))
+    val renamedAttributes = schema.renamedAttributes().toMap
+    logger.whenInfoEnabled {
+      renamedAttributes.foreach { case (name, rename) =>
+        logger.info(s"renaming column $name to $rename")
+      }
+    }
+    val acceptedDF = session.createDataFrame(acceptedRDD, sparkType)
+    val cols = acceptedDF.columns.map { column =>
+      org.apache.spark.sql.functions.col(column).as(renamedAttributes.getOrElse(column, column))
+    }
+    saveRows(acceptedDF.select(cols: _*), acceptedPath, writeMode, HiveArea.accepted)
   }
 
 
@@ -145,7 +153,7 @@ class DsvJob(domain: Domain, schema: SchemaModel.Schema, types: List[Type], meta
 }
 
 object DsvIngestTask {
-  def validate(session: SparkSession, dataset: DataFrame, attributes: List[DSVAttribute], dateFormat: String, timeFormat: String, types: List[Type], sparkType: StructType): (RDD[RowInfo], RDD[Row]) = {
+  def validate(session: SparkSession, dataset: DataFrame, attributes: List[Attribute], dateFormat: String, timeFormat: String, types: List[Type], sparkType: StructType): (RDD[RowInfo], RDD[Row]) = {
     val now = Timestamp.from(Instant.now)
     val rdds = dataset.rdd
     dataset.show()
@@ -162,22 +170,21 @@ object DsvIngestTask {
             val privacy = colAttribute.privacy match {
               case PrivacyLevel.NONE =>
                 colValue
-              // TODO if conditions below should be tested during schema load.
-              case PrivacyLevel.HIDE if tpe.primitiveType == PrimitiveType.string =>
+              case PrivacyLevel.HIDE =>
                 ""
-              case PrivacyLevel.MD5 if tpe.primitiveType == PrimitiveType.string =>
+              case PrivacyLevel.MD5 =>
                 Utils.md5(colValue)
-              case PrivacyLevel.SHA1 if tpe.primitiveType == PrimitiveType.string =>
+              case PrivacyLevel.SHA1 =>
                 Utils.sha1(colValue)
-              case PrivacyLevel.SHA256 if tpe.primitiveType == PrimitiveType.string =>
+              case PrivacyLevel.SHA256 =>
                 Utils.sha256(colValue)
-              case PrivacyLevel.SHA512 if tpe.primitiveType == PrimitiveType.string =>
+              case PrivacyLevel.SHA512 =>
                 Utils.sha512(colValue)
-              case PrivacyLevel.SHA512 if tpe.primitiveType == PrimitiveType.string =>
+              case PrivacyLevel.SHA512 =>
                 // TODO Implement AES
                 throw new Exception("AES Not yet implemented")
               case _ =>
-                // TODO should never happen  if schema is checked at load time
+                // should never happen
                 colValue
             }
             val colPatternOK = validNumberOfColumns && (optionalColIsEmpty || colPatternIsValid)

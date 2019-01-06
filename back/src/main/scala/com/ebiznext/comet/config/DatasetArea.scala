@@ -18,13 +18,7 @@ object DatasetArea {
 
   def unresolved(domain: String): Path = path(domain, "unresolved")
 
-  def staging(domain: String): Path = path(domain, "staging")
-
-  def archive(domain: String): Path = {
-
-    path(domain, "archive")
-
-  }
+  def archive(domain: String): Path = path(domain, "archive")
 
   def ingesting(domain: String): Path = path(domain, "ingesting")
 
@@ -51,7 +45,7 @@ object DatasetArea {
     domains.foreach { domain =>
       storage.mkdirs(pending(domain))
       storage.mkdirs(unresolved(domain))
-      storage.mkdirs(staging(domain))
+      storage.mkdirs(archive(domain))
       storage.mkdirs(accepted(domain))
       storage.mkdirs(rejected(domain))
     }

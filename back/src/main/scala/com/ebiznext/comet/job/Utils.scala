@@ -24,6 +24,7 @@ object Utils {
   def sha256(s: String): String = {
     algo("SHA-256", s)
   }
+
   def sha512(s: String): String = {
     algo("SHA-512", s)
   }

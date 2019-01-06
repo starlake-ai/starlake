@@ -37,10 +37,10 @@ trait SampleData {
     * pattern: "[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\\\.[A-Za-z]{2,6}"
     */
 
-    def loadFile(filename:String): String = {
-      val stream: InputStream = getClass.getResourceAsStream(filename)
-      scala.io.Source.fromInputStream(stream).getLines().mkString("\n")
-    }
+  def loadFile(filename: String): String = {
+    val stream: InputStream = getClass.getResourceAsStream(filename)
+    scala.io.Source.fromInputStream(stream).getLines().mkString("\n")
+  }
 
   val types = Types(
     List(
@@ -71,9 +71,9 @@ trait SampleData {
     List(
       Schema("User", Pattern.compile("SCHEMA-.*.dsv"),
         List(
-          DSVAttribute("firstname", "string", false, PrivacyLevel.NONE),
-          DSVAttribute("lastname", "string", false, PrivacyLevel.SHA1),
-          DSVAttribute("age", "age", false, PrivacyLevel.HIDE)
+          Attribute("firstname", "string", false, PrivacyLevel.NONE),
+          Attribute("lastname", "string", false, PrivacyLevel.SHA1),
+          Attribute("age", "age", false, PrivacyLevel.HIDE)
         ),
         Some(Metadata(withHeader = Some(true))),
         Some("Schema Comment"),
