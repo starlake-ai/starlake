@@ -25,6 +25,7 @@ object Mode {
 
   val modes: Set[Mode] = Set(FILE, STREAM)
 }
+
 class ModeDeserializer extends JsonDeserializer[Mode] {
   override def deserialize(jp: JsonParser, ctx: DeserializationContext): Mode = {
     val value = jp.readValueAs[String](classOf[String])

@@ -1,8 +1,9 @@
-import sbt.{ClasspathDependency, File, IntegrationTest, Project, file}
+import sbt.{File, IntegrationTest, Project, file}
 
 trait Definition {
 
   def play(name: String): Project = play(name, file(name))
+
   def play(name: String, src: File): Project =
     sbt
       .Project(id = name, base = src)
