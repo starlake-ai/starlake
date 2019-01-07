@@ -1,7 +1,6 @@
 package com.ebiznext.comet.job
 
 import com.ebiznext.comet.config.{DatasetArea, Settings}
-import com.ebiznext.comet.sample.SampleData
 import com.ebiznext.comet.schema.handlers.{HdfsStorageHandler, SchemaHandler}
 import com.ebiznext.comet.workflow.DatasetWorkflow
 import com.fasterxml.jackson.databind.ObjectMapper

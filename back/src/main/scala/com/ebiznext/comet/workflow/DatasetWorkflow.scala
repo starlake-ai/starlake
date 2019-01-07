@@ -4,12 +4,10 @@ import better.files._
 import com.ebiznext.comet.config.{DatasetArea, Settings}
 import com.ebiznext.comet.job.{AutoJob, DsvJob, JsonJob}
 import com.ebiznext.comet.schema.handlers.{LaunchHandler, SchemaHandler, StorageHandler}
-import com.ebiznext.comet.schema.model.SchemaModel
-import com.ebiznext.comet.schema.model.SchemaModel.Format.{DSV, JSON}
-import com.ebiznext.comet.schema.model.SchemaModel.{Domain, Metadata}
+import com.ebiznext.comet.schema.model.Format.{DSV, JSON}
+import com.ebiznext.comet.schema.model.{Domain, Metadata, Schema}
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
-import org.scalatest.path
 
 class DatasetWorkflow(storageHandler: StorageHandler,
                       schemaHandler: SchemaHandler,
@@ -35,14 +33,14 @@ class DatasetWorkflow(storageHandler: StorageHandler,
     * @param domainName
     * @return resolved && unresolved schemas / path
     */
-  private def pending(domainName: String): (Iterable[(Option[SchemaModel.Schema], Path)],
-    Iterable[(Option[SchemaModel.Schema], Path)]) = {
+  private def pending(domainName: String): (Iterable[(Option[Schema], Path)],
+    Iterable[(Option[Schema], Path)]) = {
     val pendingArea = DatasetArea.pending(domainName)
     logger.info(s"List files in $pendingArea")
     val paths = storageHandler.list(pendingArea)
     logger.info(s"Found ${paths.mkString(",")}")
     val domain = schemaHandler.getDomain(domainName).toList
-    val schemas: Iterable[(Option[SchemaModel.Schema], Path)] =
+    val schemas: Iterable[(Option[Schema], Path)] =
       for {
         domain <- domain
         schema <- paths.map { path =>
@@ -56,7 +54,7 @@ class DatasetWorkflow(storageHandler: StorageHandler,
   }
 
 
-  private def ingesting(domain: Domain, schema: SchemaModel.Schema, pendingPath: Path): Unit = {
+  private def ingesting(domain: Domain, schema: Schema, pendingPath: Path): Unit = {
     val ingestingPath: Path = new Path(DatasetArea.ingesting(domain.name), pendingPath.getName)
     logger.info(s"Start Ingestion on domain: ${domain.name} with schema: ${schema.name} on file: $pendingPath")
     if (storageHandler.move(pendingPath, ingestingPath)) {

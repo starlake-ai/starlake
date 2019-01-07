@@ -1,9 +1,8 @@
 package com.ebiznext.comet.schema.handlers
 
 import com.ebiznext.comet.config.Settings
-import com.ebiznext.comet.config.Settings.comet
 import com.ebiznext.comet.job.Main
-import com.ebiznext.comet.schema.model.SchemaModel.{Domain, Schema}
+import com.ebiznext.comet.schema.model.{Domain, Schema}
 import com.typesafe.scalalogging.StrictLogging
 import okhttp3._
 import okio.Buffer

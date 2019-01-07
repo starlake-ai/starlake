@@ -1,8 +1,7 @@
 package com.ebiznext.comet.job
 
-import com.ebiznext.comet.config.HiveArea.business
 import com.ebiznext.comet.config.{DatasetArea, HiveArea, Settings}
-import com.ebiznext.comet.schema.model.SchemaModel.AutoTask
+import com.ebiznext.comet.schema.model.AutoTask
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.SparkSession
 

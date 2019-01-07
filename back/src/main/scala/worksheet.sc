@@ -2,7 +2,7 @@ import java.time.format.DateTimeFormatter
 import java.time.{Instant, LocalDateTime}
 import java.util.regex.Pattern
 
-import com.ebiznext.comet.schema.model.SchemaModel.Domain
+import .Domain
 
 System.getenv("HIVE_HOME")
 

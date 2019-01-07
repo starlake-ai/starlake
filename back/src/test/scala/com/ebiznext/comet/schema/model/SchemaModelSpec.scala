@@ -1,13 +1,12 @@
 package com.ebiznext.comet.schema.model
 
 import com.ebiznext.comet.sample.SampleData
-import com.ebiznext.comet.schema.model.SchemaModel.Domain
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import org.scalatest._
 
-case class XMode(mode: SchemaModel.Mode)
+case class XMode(mode: Mode)
 
 class SchemaModelSpec extends FlatSpec with Matchers with SampleData {
   val mapper: ObjectMapper = new ObjectMapper(new YAMLFactory())

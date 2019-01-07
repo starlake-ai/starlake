@@ -5,8 +5,7 @@ import java.time.Instant
 
 import com.ebiznext.comet.config.{DatasetArea, HiveArea, Settings}
 import com.ebiznext.comet.schema.handlers.StorageHandler
-import com.ebiznext.comet.schema.model.SchemaModel
-import com.ebiznext.comet.schema.model.SchemaModel._
+import com.ebiznext.comet.schema.model._
 import org.apache.hadoop.fs.Path
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql._
@@ -28,7 +27,7 @@ case class RowResult(colResults: List[ColResult]) {
 }
 
 
-class DsvJob(domain: Domain, schema: SchemaModel.Schema, types: List[Type], metadata: Metadata, path: Path, storageHandler: StorageHandler) extends SparkJob {
+class DsvJob(domain: Domain, schema: Schema, types: List[Type], metadata: Metadata, path: Path, storageHandler: StorageHandler) extends SparkJob {
   override def name: String = path.getName
 
   val schemaHeaders: List[String] = schema.attributes.map(_.name)

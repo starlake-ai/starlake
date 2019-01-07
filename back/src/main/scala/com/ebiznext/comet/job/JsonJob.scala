@@ -1,12 +1,11 @@
 package com.ebiznext.comet.job
 
 import com.ebiznext.comet.schema.handlers.StorageHandler
-import com.ebiznext.comet.schema.model.SchemaModel
-import com.ebiznext.comet.schema.model.SchemaModel.{Domain, Metadata, Type}
+import com.ebiznext.comet.schema.model._
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.DataFrame
 
-class JsonJob(domain: Domain, schema: SchemaModel.Schema, types: List[Type], metadata: Metadata, path: Path, storageHandler: StorageHandler) extends DsvJob(domain, schema, types, metadata, path, storageHandler) {
+class JsonJob(domain: Domain, schema: Schema, types: List[Type], metadata: Metadata, path: Path, storageHandler: StorageHandler) extends DsvJob(domain, schema, types, metadata, path, storageHandler) {
   override def loadDataSet(): DataFrame = {
     val df = session.read.json(path.toString)
     df.show()

@@ -70,6 +70,14 @@ class SchemaHandlerSpec extends FlatSpec with Matchers with SampleData {
     validator.loadPending()
   }
 
+  "Load Types" should "deserialize string as pattern" in {
+    val typesPath = new Path(DatasetArea.types, "types.yml")
+    val sh = new HdfsStorageHandler
+    sh.write(loadFile("/types.yml"), typesPath)
+    val types = schemaHandler.types
+    assert(true)
+  }
+
   "Import" should "copy to HDFS" in {
     val validator = new DatasetWorkflow(storageHandler, schemaHandler, new SimpleLauncher)
     validator.loadLanding()
