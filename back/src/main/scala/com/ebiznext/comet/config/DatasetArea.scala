@@ -48,6 +48,7 @@ object DatasetArea {
       storage.mkdirs(archive(domain))
       storage.mkdirs(accepted(domain))
       storage.mkdirs(rejected(domain))
+      storage.mkdirs(business(domain))
     }
   }
 }
