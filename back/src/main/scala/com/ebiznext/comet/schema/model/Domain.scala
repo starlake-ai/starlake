@@ -39,12 +39,9 @@ case class Domain(name: String,
       }
     }
 
-    // Check Schema name unicity
-    val duplicates = schemas.map(_.name).groupBy(identity).mapValues(_.size).filter {
-      case (key, size) => size > 1
-    }
-    duplicates.foreach { case (key, size) =>
-      errorList += s"$key is defined $size times. A schema can only be defined once."
+
+    duplicates(schemas.map(_.name), "%s is defined %d times. A schema can only be defined once.") match {
+      case Left(errors) => errorList ++= errors
     }
 
     // TODO Check partition columns

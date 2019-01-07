@@ -12,7 +12,6 @@ import scala.util.{Failure, Success, Try}
 
 trait LaunchHandler {
   def ingest(domain: Domain, schema: Schema, path: Path): Boolean = ingest(domain, schema, path :: Nil)
-
   def ingest(domain: Domain, schema: Schema, path: List[Path]): Boolean
 }
 
