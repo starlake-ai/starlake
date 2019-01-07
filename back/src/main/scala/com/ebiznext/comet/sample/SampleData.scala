@@ -3,7 +3,7 @@ package com.ebiznext.comet.sample
 import java.io.InputStream
 import java.util.regex.Pattern
 
-import com.ebiznext.comet.schema.model.SchemaModel._
+import com.ebiznext.comet.schema.model._
 
 trait SampleData {
   /**

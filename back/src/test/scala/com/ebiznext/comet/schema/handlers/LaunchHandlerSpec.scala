@@ -4,7 +4,6 @@ import java.io.InputStream
 
 import com.ebiznext.comet.config.DatasetArea
 import com.ebiznext.comet.sample.SampleData
-import com.ebiznext.comet.schema.model.SchemaModel
 import com.ebiznext.comet.workflow.DatasetWorkflow
 import org.apache.hadoop.fs.Path
 import org.scalatest.{FlatSpec, Matchers}

@@ -1,9 +1,5 @@
 package com.ebiznext.comet.job
 
-import java.security.MessageDigest
-
-import javax.xml.bind.DatatypeConverter
-
 object Utils {
 
   private def algo(alg: String, data: String): String = {

@@ -1,7 +1,7 @@
 package com.ebiznext.comet.schema.handlers
 
 import com.ebiznext.comet.sample.SampleData
-import com.ebiznext.comet.schema.model.SchemaModel._
+import com.ebiznext.comet.schema.model._
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
@@ -43,7 +43,7 @@ class StorageHandlerSpec extends FlatSpec with Matchers with SampleData {
 
   "Business Job Definition" should "be valid json" in {
     val businessTask1 = AutoTask("select * from domain", "DOMAIN", "ANALYSE", Write.OVERWRITE, List("comet_year", "comet_month"), None, None)
-    val businessJob = AutoJob("business1", List(businessTask1))
+    val businessJob = AutoJobDesc("business1", List(businessTask1))
     val sh = new HdfsStorageHandler
     val path = new Path("/tmp/business.yml")
     sh.write(mapper.writeValueAsString(businessJob), path)

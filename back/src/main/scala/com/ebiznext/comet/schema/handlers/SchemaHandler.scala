@@ -1,7 +1,8 @@
 package com.ebiznext.comet.schema.handlers
 
 import com.ebiznext.comet.config.DatasetArea
-import com.ebiznext.comet.schema.model.SchemaModel._
+import com.ebiznext.comet.job.AutoJob
+import com.ebiznext.comet.schema.model._
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
@@ -30,10 +31,10 @@ class SchemaHandler(storage: StorageHandler) {
 
   }
 
-  lazy val jobs: Map[String, AutoJob] = {
+  lazy val jobs: Map[String, AutoJobDesc] = {
     storage
       .list(DatasetArea.jobs, ".yml")
-      .map(path => mapper.readValue(storage.read(path), classOf[AutoJob]))
+      .map(path => mapper.readValue(storage.read(path), classOf[AutoJobDesc]))
       .map(job => job.name -> job).toMap
 
   }

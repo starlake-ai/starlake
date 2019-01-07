@@ -1,7 +1,7 @@
 package com.ebiznext.comet.job
 
 import com.ebiznext.comet.config.{KerberosSession, SparkEnv}
-import com.ebiznext.comet.schema.model.SchemaModel.Metadata
+import com.ebiznext.comet.schema.model.Metadata
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.security.UserGroupInformation
 import org.apache.spark.sql.functions._
