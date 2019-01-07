@@ -1,7 +1,6 @@
 package com.ebiznext.comet.schema.handlers
 
 import com.ebiznext.comet.config.DatasetArea
-import com.ebiznext.comet.job.AutoJob
 import com.ebiznext.comet.schema.model._
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory

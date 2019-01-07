@@ -15,6 +15,7 @@ object Settings extends StrictLogging {
       case "airflow" => new AirflowLauncher
     }
   }
+
   val config: Config = ConfigFactory.load()
   val comet: Comet = config.extract[Comet].valueOrThrow { error =>
     error.messages.foreach(err => logger.error(err))
