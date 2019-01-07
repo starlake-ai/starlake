@@ -29,8 +29,12 @@ case class Schema(name: String,
       attribute.checkValidity(types) match {
         case Left(errors) => errorList ++= errors
       }
-
     }
+
+    duplicates(attributes.map(_.name), "%s is defined %d times. An attribute can only be defined once.") match {
+      case Left(errors) => errorList ++= errors
+    }
+
     if (errorList.nonEmpty)
       Left(errorList.toList)
     else
