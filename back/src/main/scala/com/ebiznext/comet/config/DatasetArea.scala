@@ -14,19 +14,19 @@ object DatasetArea {
 
   def path(domainPath: Path, schema: String) = new Path(domainPath, schema)
 
-  def pending(domain: String): Path = path(domain, "pending")
+  def pending(domain: String): Path = path(domain, Settings.comet.area.pending)
 
-  def unresolved(domain: String): Path = path(domain, "unresolved")
+  def unresolved(domain: String): Path = path(domain, Settings.comet.area.unresolved)
 
-  def archive(domain: String): Path = path(domain, "archive")
+  def archive(domain: String): Path = path(domain, Settings.comet.area.archive)
 
-  def ingesting(domain: String): Path = path(domain, "ingesting")
+  def ingesting(domain: String): Path = path(domain, Settings.comet.area.ingesting)
 
-  def accepted(domain: String): Path = path(domain, "accepted")
+  def accepted(domain: String): Path = path(domain, Settings.comet.area.accepted)
 
-  def rejected(domain: String): Path = path(domain, "rejected")
+  def rejected(domain: String): Path = path(domain, Settings.comet.area.rejected)
 
-  def business(domain: String): Path = path(domain, "business")
+  def business(domain: String): Path = path(domain, Settings.comet.area.business)
 
   val metadata = new Path(s"${Settings.comet.metadata}")
   val types = new Path(metadata, "types")
@@ -68,19 +68,19 @@ sealed case class HiveArea(value: String) {
 
 object HiveArea {
   def fromString(value: String): HiveArea = {
-    value.toUpperCase() match {
-      case "rejected" => HiveArea.rejected
-      case "accepted" => HiveArea.accepted
-      case "business" => HiveArea.business
+    value.toLowerCase() match {
+      case Settings.comet.area.rejected => HiveArea.rejected
+      case Settings.comet.area.accepted => HiveArea.accepted
+      case Settings.comet.area.business => HiveArea.business
       case custom => HiveArea(custom)
     }
   }
 
-  object rejected extends HiveArea("rejected")
+  object rejected extends HiveArea(Settings.comet.area.rejected)
 
-  object accepted extends HiveArea("accepted")
+  object accepted extends HiveArea(Settings.comet.area.accepted)
 
-  object business extends HiveArea("business")
+  object business extends HiveArea(Settings.comet.area.business)
 
   def area(domain: String, area: HiveArea): String = s"${domain}_${area.value}"
 
