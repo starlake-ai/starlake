@@ -25,14 +25,16 @@ case class Schema(name: String,
     val tableNamePattern = Pattern.compile("[a-zA-Z][a-zA-Z0-9_]{1,256}")
     if (!tableNamePattern.matcher(name).matches())
       errorList += s"Schema with name $name should respect the pattern ${tableNamePattern.pattern()}"
+
     attributes.foreach { attribute =>
-      attribute.checkValidity(types) match {
-        case Left(errors) => errorList ++= errors
+      for (errors <- attribute.checkValidity(types).left) {
+        errorList ++= errors
       }
     }
 
-    duplicates(attributes.map(_.name), "%s is defined %d times. An attribute can only be defined once.") match {
-      case Left(errors) => errorList ++= errors
+    val duplicateErrorMessage = "%s is defined %d times. An attribute can only be defined once."
+    for (errors <- duplicates(attributes.map(_.name), duplicateErrorMessage).left) {
+      errorList ++= errors
     }
 
     if (errorList.nonEmpty)

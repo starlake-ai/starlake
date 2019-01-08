@@ -1,7 +1,7 @@
 package com.ebiznext.comet.schema.handlers
 
-import com.ebiznext.comet.sample.SampleData
 import com.ebiznext.comet.schema.model._
+import com.ebiznext.comet.sample.SampleData
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.scala.DefaultScalaModule

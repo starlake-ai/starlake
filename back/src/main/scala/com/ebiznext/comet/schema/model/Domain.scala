@@ -34,14 +34,14 @@ case class Domain(name: String,
 
     // Check Schema validity
     schemas.foreach { schema =>
-      schema.checkValidity(types) match {
-        case Left(errors) => errorList ++= errors
+      for (errors <- schema.checkValidity(types).left) {
+        errorList ++= errors
       }
     }
 
-
-    duplicates(schemas.map(_.name), "%s is defined %d times. A schema can only be defined once.") match {
-      case Left(errors) => errorList ++= errors
+    val duplicatesErrorMessage = "%s is defined %d times. A schema can only be defined once."
+    for (errors <- duplicates(schemas.map(_.name), duplicatesErrorMessage).left) {
+      errorList ++= errors
     }
 
     // TODO Check partition columns
