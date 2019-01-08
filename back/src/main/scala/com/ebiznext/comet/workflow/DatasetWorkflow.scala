@@ -13,21 +13,6 @@ class DatasetWorkflow(storageHandler: StorageHandler,
                       schemaHandler: SchemaHandler,
                       launchHandler: LaunchHandler) extends StrictLogging {
 
-  //  private val timeFormat = "yyyyMMdd-HHmmss-SSS"
-  //  private val timePattern = Pattern.compile(".+\\.\\d\\d\\d\\d\\d\\d\\d\\d-\\d\\d\\d\\d\\d\\d-\\d\\d\\d")
-  //
-  //  private def nameWithNowTime(name: String): String = {
-  //    name + "." + LocalDateTime.now().format(DateTimeFormatter.ofPattern(timeFormat))
-  //  }
-  //
-  //  private def nameWithoutNowTime(name: String): String = {
-  //    if (timePattern.matcher(name).matches()) {
-  //      name.substring(0, name.lastIndexOf('.'))
-  //    }
-  //    else
-  //      name
-  //  }
-
   /**
     *
     * @param domainName
@@ -65,6 +50,8 @@ class DatasetWorkflow(storageHandler: StorageHandler,
           new DsvJob(domain, schema, schemaHandler.types.types, metadata, ingestingPath, storageHandler).run(null)
         case JSON =>
           new JsonJob(domain, schema, schemaHandler.types.types, metadata, ingestingPath, storageHandler).run(null)
+        case _ =>
+          throw new Exception("Should never happen")
       }
       if (Settings.comet.archive) {
         val archivePath = new Path(DatasetArea.archive(domain.name), ingestingPath.getName)
@@ -86,6 +73,7 @@ class DatasetWorkflow(storageHandler: StorageHandler,
         schemaHandler.domains.filter(domain => includes.contains(domain.name))
       case (Nil, _) =>
         schemaHandler.domains.filter(domain => !excludes.contains(domain.name))
+      case (_, _) => throw new Exception("Should never happen ")
     }
     logger.info(s"Domains that will be watched: ${domains.map(_.name).mkString(",")}")
 

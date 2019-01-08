@@ -17,6 +17,8 @@ sealed case class Write(value: String) {
     this match {
       case OVERWRITE => SaveMode.Overwrite
       case APPEND => SaveMode.Append
+      case _ =>
+        throw new Exception("Should never happen")
     }
   }
 }
