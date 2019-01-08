@@ -7,8 +7,24 @@ import configs.syntax._
 
 object Settings extends StrictLogging {
 
+  /**
+    *
+    * @param endpoint : Airflow REST API endpoint, aka. http://127.0.0.1:8080/api/experimental
+    */
   case class Airflow(endpoint: String)
 
+  /**
+    * datasets in the data pipeline go through several stages and
+    * are stored on disk at each of these stages.
+    * This setting allow to customize the folder names of each of these stages.
+    * @param pending : Name of the pending area
+    * @param unresolved : Named of the unresolved area
+    * @param archive : Name of the archive area
+    * @param ingesting : Name of the ingesting area
+    * @param accepted : Name of the accepted area
+    * @param rejected : Name of the rejected area
+    * @param business : Name of the business area
+    */
   case class Area(pending: String,
                   unresolved: String,
                   archive: String,
@@ -18,6 +34,17 @@ object Settings extends StrictLogging {
                   business: String
                  )
 
+  /**
+    *
+    * @param datasets : Absolute path, datasets root folder beneath which each area is defined.
+    * @param metadata : Absolute path, location where all types / domains and auto jobs are defined
+    * @param archive : Should we backup the ingested datasets ? true by default
+    * @param launcher : Cron Job Manager: simple (useful for testing) or airflow ? simple by default
+    * @param analyze : Should we create basics Hive statistics on the generated dataset ? true by default
+    * @param hive : Should we create a Hive Table ? true by default
+    * @param area : see Area above
+    * @param airflow : Airflow end point. Should be defined even if simple launccher is used instead of airflow.
+    */
   case class Comet(datasets: String, metadata: String, archive: Boolean,
                    launcher: String,
                    analyze: Boolean, hive: Boolean,
@@ -29,24 +56,6 @@ object Settings extends StrictLogging {
     }
   }
 
-  /*
-  area {
-  pending = "pending"
-  pending = ${?COMET_PENDING}
-  unresolved = "unresolved"
-  unresolved = ${?COMET_UNRESOLVED}
-  archive = "archive"
-  archive = ${?COMET_ARCHIVE}
-  ingesting = "ingesting"
-  ingesting = ${?COMET_INGESTING}
-  accepted = "accepted"
-  accepted = ${?COMET_ACCEPTED}
-  rejected = "rejected"
-  rejected = ${?COMET_REJECTED}
-  business = "business"
-  business = ${?COMET_BUSINESS}
-}
-   */
 
   val config: Config = ConfigFactory.load()
   val comet: Comet = config.extract[Comet].valueOrThrow { error =>
