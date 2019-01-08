@@ -1,6 +1,6 @@
 package com.ebiznext.comet.job
 
-import com.ebiznext.comet.config.{KerberosSession, SparkEnv}
+import com.ebiznext.comet.config.SparkEnv
 import com.ebiznext.comet.schema.model.Metadata
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.security.UserGroupInformation
@@ -32,30 +32,6 @@ trait SparkJob extends StrictLogging {
         partitionedDF.drop("comet_date").write.partitionBy(strippedCols: _*)
       case cols if !cols.exists(Metadata.CometPartitionColumns.contains) =>
         dataset.write.partitionBy(cols: _*)
-    }
-  }
-
-  def main(args: Array[String]): Unit = {
-    try {
-      val principal: Option[String] = Option(
-        sparkEnv.config.get("spark.yarn.principal", null))
-      val keytab: Option[String] = Option(
-        sparkEnv.config.get("spark.yarn.keytab", null))
-      logger.info(
-        s"principal=$principal/keytab=$keytab=UserGroupInformation.isSecurityEnabled=${UserGroupInformation.isSecurityEnabled}"
-      )
-
-      (principal, keytab, UserGroupInformation.isSecurityEnabled) match {
-        case (Some(principal), Some(keytab), true) =>
-          logger.info(s"principal=$principal / keytab=$keytab")
-          KerberosSession.launch(principal, keytab, principal, run, args)
-        case (_, _, false) =>
-          run(args)
-        case (_, _, true) => // Get Keytab from elsewhere
-          throw new Exception("missing spark.yarn.principal / spark.yarn.keytab")
-      }
-    } finally {
-      session.stop()
     }
   }
 }
