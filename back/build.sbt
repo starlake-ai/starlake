@@ -52,6 +52,8 @@ val jackson = Seq(
 
 libraryDependencies ++= scalaTest ++ logging ++ typedConfigs ++ spark ++ okhttp ++ betterfiles ++ jackson
 
+// Required when running tests in intellij
+dependencyOverrides += "org.scalatest" %% "scalatest" % Versions.scalatest
 
 // Assembly
 mainClass in Compile := Some("com.ebiznext.comet.job.Main")
