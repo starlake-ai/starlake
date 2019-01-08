@@ -28,26 +28,7 @@ object Settings extends StrictLogging {
       case "airflow" => new AirflowLauncher
     }
   }
-
-  /*
-  area {
-  pending = "pending"
-  pending = ${?COMET_PENDING}
-  unresolved = "unresolved"
-  unresolved = ${?COMET_UNRESOLVED}
-  archive = "archive"
-  archive = ${?COMET_ARCHIVE}
-  ingesting = "ingesting"
-  ingesting = ${?COMET_INGESTING}
-  accepted = "accepted"
-  accepted = ${?COMET_ACCEPTED}
-  rejected = "rejected"
-  rejected = ${?COMET_REJECTED}
-  business = "business"
-  business = ${?COMET_BUSINESS}
-}
-   */
-
+  
   val config: Config = ConfigFactory.load()
   val comet: Comet = config.extract[Comet].valueOrThrow { error =>
     error.messages.foreach(err => logger.error(err))
