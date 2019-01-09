@@ -8,6 +8,10 @@ import com.fasterxml.jackson.databind.{DeserializationContext, JsonDeserializer}
 import org.apache.spark.sql.SaveMode
 
 
+/**
+  * During ingestion, should the data be appended to the previous ones or should it replace the existing ones ?
+  * @param value : OVERWRITE or APPEND
+  */
 @JsonSerialize(using = classOf[ToStringSerializer])
 @JsonDeserialize(using = classOf[WriteDeserializer])
 sealed case class Write(value: String) {

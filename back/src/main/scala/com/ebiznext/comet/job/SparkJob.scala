@@ -20,6 +20,7 @@ trait SparkJob extends StrictLogging {
       case Nil => dataset.write
       case cols if cols.forall(Metadata.CometPartitionColumns.contains) =>
         // TODO Should we issue a warning if used with Overwrite mode ????
+        // TODO Check that teh year / month / day / hour / minute do not already exist
         var partitionedDF = dataset.withColumn("comet_date", current_date())
         cols.foreach {
           case "comet_year" => partitionedDF = partitionedDF.withColumn("year", year(col("comet_date")))
