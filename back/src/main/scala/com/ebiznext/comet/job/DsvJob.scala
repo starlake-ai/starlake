@@ -179,7 +179,7 @@ object DsvIngestTask {
                 Utils.sha256(colValue)
               case PrivacyLevel.SHA512 =>
                 Utils.sha512(colValue)
-              case PrivacyLevel.SHA512 =>
+              case PrivacyLevel.AES =>
                 // TODO Implement AES
                 throw new Exception("AES Not yet implemented")
               case _ =>
