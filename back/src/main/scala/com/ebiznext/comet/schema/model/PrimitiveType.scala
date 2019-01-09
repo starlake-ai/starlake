@@ -11,6 +11,12 @@ import com.fasterxml.jackson.databind.{DeserializationContext, JsonDeserializer}
 
 import scala.util.{Failure, Success, Try}
 
+
+/**
+  * Spark supported primitive types. These are the only valid raw types.
+  * Dataframes columns are converted to these types before the data is ingested
+  * @param value : string, long, double, boolean, byte, date, timestamp
+  */
 @JsonSerialize(using = classOf[ToStringSerializer])
 @JsonDeserialize(using = classOf[PrimitiveTypeDeserializer])
 sealed abstract case class PrimitiveType(value: String) {

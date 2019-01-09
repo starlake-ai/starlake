@@ -8,6 +8,23 @@ import com.fasterxml.jackson.databind.annotation.JsonDeserialize
 import com.fasterxml.jackson.databind.node.ArrayNode
 import com.fasterxml.jackson.databind.{DeserializationContext, JsonDeserializer, JsonNode}
 
+/**
+  * Specify Schema properties.
+  * These properties may be specified at the schema or domain level
+  * Any property non specified at the schema level is taken from the
+  * one specified at the domain level or else the default value is returned.
+  *
+  * @param mode            : FILE mode by default
+  * @param format          : DSV by default
+  * @param withHeader      : does the dataset has a header ? true bu default
+  * @param separator       : the column separator,  ';' by default
+  * @param quote           : The String quote char, '"' by default
+  * @param escape          : escaping char '\' by default
+  * @param write           : Write mode, APPEND by default
+  * @param partition       : Partition columns, no partitioning by default
+  * @param dateFormat      : Column date format when primitive type is date, yyyy-MM-dd  by default
+  * @param timestampFormat : Column timestamp format when primitive type is timestamp, "yyyy-MM-dd HH:mm:ss by default
+  */
 @JsonDeserialize(using = classOf[MetadataDeserializer])
 case class Metadata(
                      mode: Option[Mode] = None,
@@ -55,7 +72,23 @@ case class Metadata(
 
   def getTimestampFormat() = timestampFormat.getOrElse("yyyy-MM-dd HH:mm:ss")
 
+  /**
+    * Merge this metadata with its child.
+    * Any property defined at the child level overrides the one defined at this level
+    * This allow a schema to override the domain metadata attribute
+    * Applied to a Domain level metadata
+    *
+    * @param child : Schema level metadata
+    * @return the metadata resulting of the merge of the schema and the domain metadata.
+    */
   def `import`(child: Metadata): Metadata = {
+    /**
+      * Merge a single attribute
+      *
+      * @param parent : Domain level metadata attribute
+      * @param child  : Schema level metadata attribute
+      * @return attribute if defined, the domain attribute otherwise.
+      */
     def defined[T](parent: Option[T], child: Option[T]): Option[T] =
       if (child.isDefined) child else parent
 
@@ -76,6 +109,9 @@ case class Metadata(
 
 
 object Metadata {
+  /**
+    * Predefined partition columns.
+    */
   val CometPartitionColumns = List("comet_year", "comet_month", "comet_day", "comet_hour", "comet_minute")
 
   def Dsv(

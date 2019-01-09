@@ -5,6 +5,10 @@ import com.fasterxml.jackson.databind.annotation.{JsonDeserialize, JsonSerialize
 import com.fasterxml.jackson.databind.ser.std.ToStringSerializer
 import com.fasterxml.jackson.databind.{DeserializationContext, JsonDeserializer}
 
+/**
+  * Recognized file type format. This will select allow the correct parser
+  * @param value : JSON of DSV
+  */
 @JsonSerialize(using = classOf[ToStringSerializer])
 @JsonDeserialize(using = classOf[FormatDeserializer])
 sealed case class Format(value: String) {
