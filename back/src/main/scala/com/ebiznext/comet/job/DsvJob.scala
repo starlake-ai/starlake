@@ -92,10 +92,10 @@ class DsvJob(domain: Domain, schema: Schema, types: List[Type], metadata: Metada
     }
     val writeMode = metadata.getWrite()
 
-    val rejectedPath = new Path(DatasetArea.path(domain.name, "rejected"), schema.name)
+    val rejectedPath = new Path(DatasetArea.rejected(domain.name), schema.name)
     saveRows(session.createDataFrame(rejectedRDD), rejectedPath, writeMode, HiveArea.rejected)
 
-    val acceptedPath = new Path(DatasetArea.path(domain.name, "accepted"), schema.name)
+    val acceptedPath = new Path(DatasetArea.accepted(domain.name), schema.name)
     val renamedAttributes = schema.renamedAttributes().toMap
     logger.whenInfoEnabled {
       renamedAttributes.foreach { case (name, rename) =>
@@ -179,7 +179,7 @@ object DsvIngestTask {
                 Utils.sha256(colValue)
               case PrivacyLevel.SHA512 =>
                 Utils.sha512(colValue)
-              case PrivacyLevel.SHA512 =>
+              case PrivacyLevel.AES =>
                 // TODO Implement AES
                 throw new Exception("AES Not yet implemented")
               case _ =>
