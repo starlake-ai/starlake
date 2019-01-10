@@ -1,6 +1,6 @@
 import java.time.format.DateTimeFormatter
 import java.time.{Instant, LocalDateTime}
-import java.util.regex.Pattern.Domain
+import java.util.regex.Pattern
 
 System.getenv("HIVE_HOME")
 
