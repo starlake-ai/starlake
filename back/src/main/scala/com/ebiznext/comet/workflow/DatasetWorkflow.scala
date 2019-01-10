@@ -9,6 +9,13 @@ import com.ebiznext.comet.schema.model.{Domain, Metadata, Schema}
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
 
+
+/**
+  *
+  * @param storageHandler
+  * @param schemaHandler
+  * @param launchHandler
+  */
 class DatasetWorkflow(storageHandler: StorageHandler,
                       schemaHandler: SchemaHandler,
                       launchHandler: LaunchHandler) extends StrictLogging {
@@ -39,29 +46,26 @@ class DatasetWorkflow(storageHandler: StorageHandler,
   }
 
 
-  private def ingesting(domain: Domain, schema: Schema, pendingPath: Path): Unit = {
-    val ingestingPath: Path = new Path(DatasetArea.ingesting(domain.name), pendingPath.getName)
-    logger.info(s"Start Ingestion on domain: ${domain.name} with schema: ${schema.name} on file: $pendingPath")
-    if (storageHandler.move(pendingPath, ingestingPath)) {
-      val metadata = domain.metadata.getOrElse(Metadata()).`import`(schema.metadata.getOrElse(Metadata()))
-      logger.info(s"Ingesting domain: ${domain.name} with schema: ${schema.name} on file: $pendingPath with metadata $metadata")
-      metadata.getFormat() match {
-        case DSV =>
-          new DsvJob(domain, schema, schemaHandler.types.types, metadata, ingestingPath, storageHandler).run(null)
-        case JSON =>
-          new JsonJob(domain, schema, schemaHandler.types.types, metadata, ingestingPath, storageHandler).run(null)
-        case _ =>
-          throw new Exception("Should never happen")
-      }
-      if (Settings.comet.archive) {
-        val archivePath = new Path(DatasetArea.archive(domain.name), ingestingPath.getName)
-        logger.info(s"Backing up file $ingestingPath to $archivePath")
-        storageHandler.move(ingestingPath, archivePath)
-      }
-      else {
-        logger.info(s"Deleting file $ingestingPath")
-        storageHandler.delete(ingestingPath)
-      }
+  private def ingesting(domain: Domain, schema: Schema, ingestingPath: Path): Unit = {
+    logger.info(s"Start Ingestion on domain: ${domain.name} with schema: ${schema.name} on file: $ingestingPath")
+    val metadata = domain.metadata.getOrElse(Metadata()).`import`(schema.metadata.getOrElse(Metadata()))
+    logger.info(s"Ingesting domain: ${domain.name} with schema: ${schema.name} on file: $ingestingPath with metadata $metadata")
+    metadata.getFormat() match {
+      case DSV =>
+        new DsvJob(domain, schema, schemaHandler.types.types, ingestingPath, storageHandler).run(null)
+      case JSON =>
+        new JsonJob(domain, schema, schemaHandler.types.types, ingestingPath, storageHandler).run(null)
+      case _ =>
+        throw new Exception("Should never happen")
+    }
+    if (Settings.comet.archive) {
+      val archivePath = new Path(DatasetArea.archive(domain.name), ingestingPath.getName)
+      logger.info(s"Backing up file $ingestingPath to $archivePath")
+      storageHandler.move(ingestingPath, archivePath)
+    }
+    else {
+      logger.info(s"Deleting file $ingestingPath")
+      storageHandler.delete(ingestingPath)
     }
   }
 
@@ -87,9 +91,11 @@ class DatasetWorkflow(storageHandler: StorageHandler,
           storageHandler.move(path, targetPath)
       }
       resolved.foreach {
-        case (Some(schema), path) =>
-          logger.info(s"Ingest resolved file : ${path.getName} with schema ${schema.name}")
-          launchHandler.ingest(domain, schema, path)
+        case (Some(schema), pendingPath) =>
+          logger.info(s"Ingest resolved file : ${pendingPath.getName} with schema ${schema.name}")
+          val ingestingPath: Path = new Path(DatasetArea.ingesting(domain.name), pendingPath.getName)
+          if (storageHandler.move(pendingPath, ingestingPath))
+            launchHandler.ingest(domain, schema, ingestingPath)
         case (None, _) => throw new Exception("Should never happen")
       }
     }
@@ -152,12 +158,12 @@ class DatasetWorkflow(storageHandler: StorageHandler,
     }
   }
 
-  def ingest(domainName: String, schemaName: String, pendingPath: String): Unit = {
+  def ingest(domainName: String, schemaName: String, ingestingPath: String): Unit = {
     val domains = schemaHandler.domains
     for {
       domain <- domains.find(_.name == domainName)
       schema <- domain.schemas.find(_.name == schemaName)
-    } yield ingesting(domain, schema, new Path(pendingPath))
+    } yield ingesting(domain, schema, new Path(ingestingPath))
   }
 
   def autoJob(jobname: String): Unit = {

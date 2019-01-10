@@ -20,9 +20,9 @@ default_args = {
 
 dag = DAG('comet_watcher', max_active_runs=1, catchup=False, default_args=default_args, schedule_interval="*/1 * * * *")
 COMET_SPARK_CMD = os.environ.get('COMET_SPARK_CMD', '')
-
+COMET_DOMAIN =  os.environ.get('COMET_DOMAIN', '')
 # t1, t2 and t3 are examples of tasks created by instantiating operators
 t1 = BashOperator(
     task_id='comet_watcher',
-    bash_command=COMET_SPARK_CMD + ' watch',
+    bash_command=COMET_SPARK_CMD + ' watch ' + COMET_DOMAIN,
     dag=dag)
