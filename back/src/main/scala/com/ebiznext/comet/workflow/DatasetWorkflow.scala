@@ -11,96 +11,29 @@ import org.apache.hadoop.fs.Path
 
 
 /**
+  *The whole worklfow works as follow :
+  *   - loadLanding : Zipped files are uncompressed or raw files extracted from the local filesystem.
+  *   -loadPending :
+  *     files recognized with filename patterns are stored in the ingesting area and submitted for ingestion
+  *     files with unrecognized filename patterns are stored in the unresolved area
+  *   - ingest : files are finllyand ingested and save as parquet files and hive tables
   *
-  * @param storageHandler
-  * @param schemaHandler
-  * @param launchHandler
+  * @param storageHandler : Minimum set of features required for the underlying filesystem
+  * @param schemaHandler : Schema interface
+  * @param launchHandler : Cron Manager interface
   */
 class DatasetWorkflow(storageHandler: StorageHandler,
                       schemaHandler: SchemaHandler,
                       launchHandler: LaunchHandler) extends StrictLogging {
 
   /**
-    *
-    * @param domainName
-    * @return resolved && unresolved schemas / path
+    * Load file from the landing area
+    * files are loaded one domain at a time
+    * each domain has its own directory
+    * compressed files are uncompressed if a corresponding ack file exist.
+    * raw file should also have a corresponding ack file
+    * before moving the files to the pending area, the ack files are deleted
     */
-  private def pending(domainName: String): (Iterable[(Option[Schema], Path)],
-    Iterable[(Option[Schema], Path)]) = {
-    val pendingArea = DatasetArea.pending(domainName)
-    logger.info(s"List files in $pendingArea")
-    val paths = storageHandler.list(pendingArea)
-    logger.info(s"Found ${paths.mkString(",")}")
-    val domain = schemaHandler.getDomain(domainName).toList
-    val schemas: Iterable[(Option[Schema], Path)] =
-      for {
-        domain <- domain
-        schema <- paths.map { path =>
-          (domain.findSchema(path.getName), path) // getName without timestamp
-        }
-      } yield {
-        logger.info(s"Found Schema ${schema._1.map(_.name).getOrElse("None")} for file ${schema._2}")
-        schema
-      }
-    schemas.partition(_._1.isDefined)
-  }
-
-
-  private def ingesting(domain: Domain, schema: Schema, ingestingPath: Path): Unit = {
-    logger.info(s"Start Ingestion on domain: ${domain.name} with schema: ${schema.name} on file: $ingestingPath")
-    val metadata = domain.metadata.getOrElse(Metadata()).`import`(schema.metadata.getOrElse(Metadata()))
-    logger.info(s"Ingesting domain: ${domain.name} with schema: ${schema.name} on file: $ingestingPath with metadata $metadata")
-    metadata.getFormat() match {
-      case DSV =>
-        new DsvJob(domain, schema, schemaHandler.types.types, ingestingPath, storageHandler).run(null)
-      case JSON =>
-        new SimpleJsonJob(domain, schema, schemaHandler.types.types, ingestingPath, storageHandler).run(null)
-      case _ =>
-        throw new Exception("Should never happen")
-    }
-    if (Settings.comet.archive) {
-      val archivePath = new Path(DatasetArea.archive(domain.name), ingestingPath.getName)
-      logger.info(s"Backing up file $ingestingPath to $archivePath")
-      storageHandler.move(ingestingPath, archivePath)
-    }
-    else {
-      logger.info(s"Deleting file $ingestingPath")
-      storageHandler.delete(ingestingPath)
-    }
-  }
-
-  def loadPending(includes: List[String] = Nil, excludes: List[String] = Nil): Unit = {
-    val domains = (includes, excludes) match {
-      case (Nil, Nil) =>
-        schemaHandler.domains
-      case (_, Nil) =>
-        schemaHandler.domains.filter(domain => includes.contains(domain.name))
-      case (Nil, _) =>
-        schemaHandler.domains.filter(domain => !excludes.contains(domain.name))
-      case (_, _) => throw new Exception("Should never happen ")
-    }
-    logger.info(s"Domains that will be watched: ${domains.map(_.name).mkString(",")}")
-
-    domains.foreach { domain =>
-      logger.info(s"Watch Domain: ${domain.name}")
-      val (resolved, unresolved) = pending(domain.name)
-      unresolved.foreach {
-        case (_, path) =>
-          val targetPath = new Path(DatasetArea.unresolved(domain.name), path.getName)
-          logger.info(s"Unresolved file : ${path.getName}")
-          storageHandler.move(path, targetPath)
-      }
-      resolved.foreach {
-        case (Some(schema), pendingPath) =>
-          logger.info(s"Ingest resolved file : ${pendingPath.getName} with schema ${schema.name}")
-          val ingestingPath: Path = new Path(DatasetArea.ingesting(domain.name), pendingPath.getName)
-          if (storageHandler.move(pendingPath, ingestingPath))
-            launchHandler.ingest(domain, schema, ingestingPath)
-        case (None, _) => throw new Exception("Should never happen")
-      }
-    }
-  }
-
   def loadLanding(): Unit = {
     val domains = schemaHandler.domains
     domains.foreach { domain =>
@@ -158,6 +91,79 @@ class DatasetWorkflow(storageHandler: StorageHandler,
     }
   }
 
+  /**
+    * Split files into resolved and unresolved datasets. A file is unresolved if a corresponding schema is not found.
+    * Schema matching is based on the dataset filename pattern
+    * @param includes Load pending dataset of these domain only
+    * @param excludes : Do not load datasets of these domains
+    * if both lists are empty, all domains are included
+    */
+  def loadPending(includes: List[String] = Nil, excludes: List[String] = Nil): Unit = {
+    val domains = (includes, excludes) match {
+      case (Nil, Nil) =>
+        schemaHandler.domains
+      case (_, Nil) =>
+        schemaHandler.domains.filter(domain => includes.contains(domain.name))
+      case (Nil, _) =>
+        schemaHandler.domains.filter(domain => !excludes.contains(domain.name))
+      case (_, _) => throw new Exception("Should never happen ")
+    }
+    logger.info(s"Domains that will be watched: ${domains.map(_.name).mkString(",")}")
+
+    domains.foreach { domain =>
+      logger.info(s"Watch Domain: ${domain.name}")
+      val (resolved, unresolved) = pending(domain.name)
+      unresolved.foreach {
+        case (_, path) =>
+          val targetPath = new Path(DatasetArea.unresolved(domain.name), path.getName)
+          logger.info(s"Unresolved file : ${path.getName}")
+          storageHandler.move(path, targetPath)
+      }
+      resolved.foreach {
+        case (Some(schema), pendingPath) =>
+          logger.info(s"Ingest resolved file : ${pendingPath.getName} with schema ${schema.name}")
+          val ingestingPath: Path = new Path(DatasetArea.ingesting(domain.name), pendingPath.getName)
+          if (storageHandler.move(pendingPath, ingestingPath))
+            launchHandler.ingest(domain, schema, ingestingPath)
+        case (None, _) => throw new Exception("Should never happen")
+      }
+    }
+  }
+
+
+
+  /**
+    *
+    * @param domainName : Domaine name
+    * @return resolved && unresolved schemas / path
+    */
+  private def pending(domainName: String): (Iterable[(Option[Schema], Path)],
+    Iterable[(Option[Schema], Path)]) = {
+    val pendingArea = DatasetArea.pending(domainName)
+    logger.info(s"List files in $pendingArea")
+    val paths = storageHandler.list(pendingArea)
+    logger.info(s"Found ${paths.mkString(",")}")
+    val domain = schemaHandler.getDomain(domainName).toList
+    val schemas: Iterable[(Option[Schema], Path)] =
+      for {
+        domain <- domain
+        schema <- paths.map { path =>
+          (domain.findSchema(path.getName), path) // getName without timestamp
+        }
+      } yield {
+        logger.info(s"Found Schema ${schema._1.map(_.name).getOrElse("None")} for file ${schema._2}")
+        schema
+      }
+    schemas.partition(_._1.isDefined)
+  }
+
+
+  /**
+    * Ingest the file (called by the cron manager at ingestion time for a specific dataset
+    * @param domainName : domain name of the dataset
+    * @param schemaName schema name of the dataset
+    * @param ingestingPath : Absolute path of the file to ingest (present in the ingesting area of the domain)
+    */
   def ingest(domainName: String, schemaName: String, ingestingPath: String): Unit = {
     val domains = schemaHandler.domains
     for {
@@ -166,6 +172,33 @@ class DatasetWorkflow(storageHandler: StorageHandler,
     } yield ingesting(domain, schema, new Path(ingestingPath))
   }
 
+  private def ingesting(domain: Domain, schema: Schema, ingestingPath: Path): Unit = {
+    logger.info(s"Start Ingestion on domain: ${domain.name} with schema: ${schema.name} on file: $ingestingPath")
+    val metadata = domain.metadata.getOrElse(Metadata()).`import`(schema.metadata.getOrElse(Metadata()))
+    logger.info(s"Ingesting domain: ${domain.name} with schema: ${schema.name} on file: $ingestingPath with metadata $metadata")
+    metadata.getFormat() match {
+      case DSV =>
+        new DsvJob(domain, schema, schemaHandler.types.types, ingestingPath, storageHandler).run(null)
+      case JSON =>
+        new SimpleJsonJob(domain, schema, schemaHandler.types.types, ingestingPath, storageHandler).run(null)
+      case _ =>
+        throw new Exception("Should never happen")
+    }
+    if (Settings.comet.archive) {
+      val archivePath = new Path(DatasetArea.archive(domain.name), ingestingPath.getName)
+      logger.info(s"Backing up file $ingestingPath to $archivePath")
+      storageHandler.move(ingestingPath, archivePath)
+    }
+    else {
+      logger.info(s"Deleting file $ingestingPath")
+      storageHandler.delete(ingestingPath)
+    }
+  }
+
+  /**
+    * Successively run each task of a job
+    * @param jobname : job namle as defined in the YML file.
+    */
   def autoJob(jobname: String): Unit = {
     val job = schemaHandler.jobs(jobname)
     job.tasks.foreach { task =>
