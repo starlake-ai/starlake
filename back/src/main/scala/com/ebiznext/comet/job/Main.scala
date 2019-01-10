@@ -8,6 +8,17 @@ import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.typesafe.scalalogging.StrictLogging
 
+
+/**
+  * The root of all things.
+  *  - importing from landing
+  *  - submitting requests to the cron manager
+  *  - ingesting the datasets
+  *  - running an auto job
+  * All these things ared laaunched from here.
+  * See printUsage below to understand the CLI syntax.
+  *
+  */
 object Main extends StrictLogging {
   // uses Jackson YAML to parsing, relies on SnakeYAML for low level handling
   val mapper: ObjectMapper = new ObjectMapper(new YAMLFactory())
@@ -30,6 +41,21 @@ object Main extends StrictLogging {
       """.stripMargin)
   }
 
+  /**
+    * @param args depends on the action required
+    *             to run a job:
+    *   - call "comet job jobname" where jobname is the name of the job
+    *             as defined in one of the definition files present in the metadata/jobs folder.
+    *             to import files from a local file system
+    *   - call "comet import", this will move files in the landing area to the pending area
+    *             to watch for files wiating to be processed
+    *   - call"comet watch [{+|–}domain1,domain2,domain3]" with a optional domain list separated by a ','.
+    *             When called without any domain, will watch for all domain folders in the landing area
+    *             When called with a '+' sign, will look only for this domain folders in the landing area
+    *             When called with a '-' sign, will look for all domain folder in the landing area except the ones in the command lines.
+    *   - call "comet ingest domain schema hdfs://datasets/domain/pending/file.dsv"
+    *           to ingest a file defined by its schema in the specified domain
+    */
   def main(args: Array[String]) = {
     val storageHandler = new HdfsStorageHandler
     val schemaHandler = new SchemaHandler(storageHandler)

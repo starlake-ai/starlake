@@ -5,6 +5,7 @@ import java.time.Instant
 
 import com.ebiznext.comet.config.{DatasetArea, HiveArea, Settings}
 import com.ebiznext.comet.schema.handlers.StorageHandler
+import com.ebiznext.comet.schema.model.Rejection.{ColInfo, ColResult, RowInfo, RowResult}
 import com.ebiznext.comet.schema.model._
 import org.apache.hadoop.fs.Path
 import org.apache.spark.rdd.RDD
@@ -14,21 +15,18 @@ import org.apache.spark.sql.types.StructType
 
 import scala.util.{Failure, Success, Try}
 
-case class ColInfo(colData: String, colName: String, typeName: String, pattern: String, success: Boolean)
 
-case class RowInfo(timestamp: Timestamp, colInfos: List[ColInfo])
-
-case class ColResult(colInfo: ColInfo, sparkValue: Any)
-
-case class RowResult(colResults: List[ColResult]) {
-  def isRejected: Boolean = colResults.exists(!_.colInfo.success)
-
-  def isAccepted: Boolean = !isRejected
-}
-
-
-class DsvJob(domain: Domain, schema: Schema, types: List[Type], metadata: Metadata, path: Path, storageHandler: StorageHandler) extends SparkJob {
+/**
+  *
+  * @param domain : Input Dataset Domain
+  * @param schema : Input Dataset Schema
+  * @param types : List of globally defined types
+  * @param path : Input dataset path
+  * @param storageHandler : Storage Handler
+  */
+class DsvJob(domain: Domain, schema: Schema, types: List[Type], path: Path, storageHandler: StorageHandler) extends SparkJob {
   override def name: String = path.getName
+  val metadata = domain.metadata.getOrElse(Metadata()).`import`(schema.metadata.getOrElse(Metadata()))
 
   val schemaHeaders: List[String] = schema.attributes.map(_.name)
 
@@ -172,13 +170,13 @@ object DsvIngestTask {
               case PrivacyLevel.HIDE =>
                 ""
               case PrivacyLevel.MD5 =>
-                Utils.md5(colValue)
+                Encryption.md5(colValue)
               case PrivacyLevel.SHA1 =>
-                Utils.sha1(colValue)
+                Encryption.sha1(colValue)
               case PrivacyLevel.SHA256 =>
-                Utils.sha256(colValue)
+                Encryption.sha256(colValue)
               case PrivacyLevel.SHA512 =>
-                Utils.sha512(colValue)
+                Encryption.sha512(colValue)
               case PrivacyLevel.AES =>
                 // TODO Implement AES
                 throw new Exception("AES Not yet implemented")
