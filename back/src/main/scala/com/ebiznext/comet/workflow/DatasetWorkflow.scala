@@ -2,7 +2,7 @@ package com.ebiznext.comet.workflow
 
 import better.files._
 import com.ebiznext.comet.config.{DatasetArea, Settings}
-import com.ebiznext.comet.job.{AutoJob, DsvJob, JsonJob}
+import com.ebiznext.comet.job.{AutoJob, DsvJob, SimpleJsonJob}
 import com.ebiznext.comet.schema.handlers.{LaunchHandler, SchemaHandler, StorageHandler}
 import com.ebiznext.comet.schema.model.Format.{DSV, JSON}
 import com.ebiznext.comet.schema.model.{Domain, Metadata, Schema}
@@ -54,7 +54,7 @@ class DatasetWorkflow(storageHandler: StorageHandler,
       case DSV =>
         new DsvJob(domain, schema, schemaHandler.types.types, ingestingPath, storageHandler).run(null)
       case JSON =>
-        new JsonJob(domain, schema, schemaHandler.types.types, ingestingPath, storageHandler).run(null)
+        new SimpleJsonJob(domain, schema, schemaHandler.types.types, ingestingPath, storageHandler).run(null)
       case _ =>
         throw new Exception("Should never happen")
     }

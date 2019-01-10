@@ -6,7 +6,15 @@ import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.DataFrame
 
 
-class JsonJob(domain: Domain, schema: Schema, types: List[Type], path: Path, storageHandler: StorageHandler) extends DsvJob(domain, schema, types, path, storageHandler) {
+/**
+  * Parse a simple one level json file. Complex types such as arrays & maps are not supported.
+  * @param domain         : Input Dataset Domain
+  * @param schema         : Input Dataset Schema
+  * @param types          : List of globally defined types
+  * @param path           : Input dataset path
+  * @param storageHandler : Storage Handler
+  */
+class SimpleJsonJob(domain: Domain, schema: Schema, types: List[Type], path: Path, storageHandler: StorageHandler) extends DsvJob(domain, schema, types, path, storageHandler) {
   override def loadDataSet(): DataFrame = {
     val df = session.read.json(path.toString)
     df.show()

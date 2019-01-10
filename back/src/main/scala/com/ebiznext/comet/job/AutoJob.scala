@@ -5,6 +5,15 @@ import com.ebiznext.comet.schema.model.AutoTask
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.SparkSession
 
+/**
+  *
+  * Execute the SQL Task and store it in parquet. If Hive support is enabled, also store it as a Hive Table.
+  * If analyze support is active, also compute basic statistics for the dataset.
+  *
+  * @param name        : Job Name as defined in the YML job description file
+  * @param defaultArea : Where the resulting dataset is stored by default if not specified in the task
+  * @param task        : Task to run
+  */
 class AutoJob(override val name: String, defaultArea: HiveArea, task: AutoTask) extends SparkJob {
   def run(args: Array[String] = Array()): SparkSession = {
     if (Settings.comet.hive) {
@@ -20,7 +29,7 @@ class AutoJob(override val name: String, defaultArea: HiveArea, task: AutoTask) 
       val targetPath = new Path(DatasetArea.path(task.domain, targetArea.value), task.dataset)
       val partitionedDF = partitionedDatasetWriter(dataframe, task.partition)
       partitionedDF.mode(task.write.toSaveMode).format("parquet").option("path", targetPath.toString).saveAsTable(fullTableName)
-      if (Settings.comet.hive) {
+      if (Settings.comet.analyze) {
         val allCols = session.table(fullTableName).columns.mkString(",")
         val analyzeTable = s"ANALYZE TABLE $fullTableName COMPUTE STATISTICS FOR COLUMNS $allCols"
         if (session.version.substring(0, 3).toDouble >= 2.4)
