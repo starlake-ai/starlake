@@ -17,30 +17,66 @@ import scala.util.{Failure, Success, Try}
 
 
 /**
+  * Main class to ingest delimiter separated values file
   *
-  * @param domain : Input Dataset Domain
-  * @param schema : Input Dataset Schema
-  * @param types : List of globally defined types
-  * @param path : Input dataset path
+  * @param domain         : Input Dataset Domain
+  * @param schema         : Input Dataset Schema
+  * @param types          : List of globally defined types
+  * @param path           : Input dataset path
   * @param storageHandler : Storage Handler
   */
 class DsvJob(domain: Domain, schema: Schema, types: List[Type], path: Path, storageHandler: StorageHandler) extends SparkJob {
+  /**
+    *
+    * @return Spark Job name
+    */
   override def name: String = path.getName
+
+  /**
+    * Merged metadata
+    */
   val metadata = domain.metadata.getOrElse(Metadata()).`import`(schema.metadata.getOrElse(Metadata()))
 
+  /**
+    * dataset Header names as defined by the schema
+    */
   val schemaHeaders: List[String] = schema.attributes.map(_.name)
 
+  /**
+    * remove any extra quote / BOM in the header
+    *
+    * @param header : Header column name
+    * @return
+    */
   def cleanHeaderCol(header: String): String = header.replaceAll("\"", "").replaceAll("\uFEFF", "")
 
+  /**
+    *
+    * @param datasetHeaders : Headers found in the dataset
+    * @param schemaHeaders  : Headers defined in the schema
+    * @return success  if all headers in the schema exist in the dataset
+    */
   def validateHeader(datasetHeaders: List[String], schemaHeaders: List[String]): Boolean = {
     schemaHeaders.forall(schemaHeader => datasetHeaders.contains(schemaHeader))
   }
 
+  /**
+    *
+    * @param datasetHeaders : Headers found in the dataset
+    * @param schemaHeaders  : Headers defined in the schema
+    * @return two lists : One with thecolumns present in the schema and the dataset and onther with the headers present in the dataset only
+    */
   def intersectHeaders(datasetHeaders: List[String], schemaHeaders: List[String]): (List[String], List[String]) = {
     datasetHeaders.partition(schemaHeaders.contains)
   }
 
 
+  /**
+    * Load dataset using spark csv reader and all metadata. Does not infer schema.
+    * columns not defined in the schema are dropped fro the dataset (require datsets with a header)
+    *
+    * @return Spark Dataset
+    */
   def loadDataSet(): DataFrame = {
     val df = session.read.format("com.databricks.spark.csv")
       .option("header", metadata.isWithHeader().toString)
@@ -63,7 +99,10 @@ class DsvJob(domain: Domain, schema: Schema, types: List[Type], path: Path, stor
       df
   }
 
-
+  /**
+    * Return Schema as a spark StructType
+    *
+    */
   private val sparkType: StructType = {
     val mapTypes = types.map(tpe => tpe.name -> tpe).toMap
     val sparkFields = schema.attributes.map { attribute =>
@@ -72,6 +111,9 @@ class DsvJob(domain: Domain, schema: Schema, types: List[Type], path: Path, stor
     StructType(sparkFields)
   }
 
+  /**
+    * Return the ordered list of types used in the schema
+    */
   private val schemaTypes: List[Type] = {
     val mapTypes: Map[String, Type] = types.map(tpe => tpe.name -> tpe).toMap
     schema.attributes.map { attribute =>
@@ -79,6 +121,12 @@ class DsvJob(domain: Domain, schema: Schema, types: List[Type], path: Path, stor
     }
   }
 
+  /**
+    * Apply the schema to the dataset. This is where all the magic happen
+    * Valid records are stored in the accepted path / table and invalid records in the rejected path / table
+    *
+    * @param dataset : Spark Dataset
+    */
   private def validate(dataset: DataFrame) = {
     val (rejectedRDD, acceptedRDD) = DsvIngestTask.validate(session, dataset, this.schema.attributes, metadata.getDateFormat(), metadata.getTimestampFormat(), schemaTypes, sparkType)
     logger.whenInfoEnabled {
@@ -108,6 +156,14 @@ class DsvJob(domain: Domain, schema: Schema, types: List[Type], path: Path, stor
   }
 
 
+  /**
+    * Save typed dataset in parquet. If hive support is active, also register it as a Hive Table and if analyze is active, also compute basic statistics
+    *
+    * @param dataset    : dataset to save
+    * @param targetPath : absolute path
+    * @param writeMode  : Append or overwrite
+    * @param area       : accpeted or rejected area
+    */
   def saveRows(dataset: DataFrame, targetPath: Path, writeMode: Write, area: HiveArea): Unit = {
     val count = dataset.count()
     val saveMode = writeMode.toSaveMode
@@ -141,6 +197,13 @@ class DsvJob(domain: Domain, schema: Schema, types: List[Type], path: Path, stor
     }
   }
 
+
+  /**
+    * Main entry point as required by the Spark Job interface
+    *
+    * @param args : arbitrary list of arguments
+    * @return : Spark Session used for the job
+    */
   def run(args: Array[String]): SparkSession = {
     schema.presql.getOrElse(Nil).foreach(session.sql)
     validate(loadDataSet())
@@ -149,7 +212,28 @@ class DsvJob(domain: Domain, schema: Schema, types: List[Type], path: Path, stor
   }
 }
 
+
+/**
+  * The Spark task that run on each worker
+  */
 object DsvIngestTask {
+  /**
+    * For each col of each row
+    *   - we extract the col value / the col constraints / col type
+    *   - we check that the constraints are verified
+    *   - we apply any required privacy transformation
+    *   - parse the column into the target primitive Spark Type
+    * We end up using catalyst to create a Spark Row
+    *
+    * @param session    : The Spark session
+    * @param dataset    : The dataset
+    * @param attributes : the col attributes
+    * @param dateFormat : expected java date pattern in the dataset
+    * @param timeFormat : expected java timestamp pattern in the dataset
+    * @param types      : List of globally defined types
+    * @param sparkType  : The expected Spark Type for valid rows
+    * @return Two RDDs : One RDD for rejected rows and one RDD for accepted rows
+    */
   def validate(session: SparkSession, dataset: DataFrame, attributes: List[Attribute], dateFormat: String, timeFormat: String, types: List[Type], sparkType: StructType): (RDD[RowInfo], RDD[Row]) = {
     val now = Timestamp.from(Instant.now)
     val rdds = dataset.rdd
