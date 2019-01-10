@@ -41,12 +41,12 @@ class SchemaHandlerSpec extends FlatSpec with Matchers with SampleData {
   "Ingest Dream Contact CSV" should "produce file in accepted" in {
     val sh = new HdfsStorageHandler
     val domainsPath = new Path(DatasetArea.domains, "dream.yml")
-    sh.write(loadFile("/LV/dream.yml"), domainsPath)
+    sh.write(loadFile("/sample/dream/dream.yml"), domainsPath)
     val typesPath = new Path(DatasetArea.types, "types.yml")
-    sh.write(loadFile("/LV/types.yml"), typesPath)
+    sh.write(loadFile("/sample/dream/types.yml"), typesPath)
     DatasetArea.initDomains(storageHandler, schemaHandler.domains.map(_.name))
 
-    val stream: InputStream = getClass.getResourceAsStream("/LV/OneClient_Contact_20190101_090800_008.psv")
+    val stream: InputStream = getClass.getResourceAsStream("/sample/dream//OneClient_Contact_20190101_090800_008.psv")
     val lines = scala.io.Source.fromInputStream(stream).getLines().mkString("\n")
     val targetPath = DatasetArea.path(DatasetArea.pending("dream"), "OneClient_Contact_20190101_090800_008.psv")
     storageHandler.write(lines, targetPath)
@@ -57,12 +57,12 @@ class SchemaHandlerSpec extends FlatSpec with Matchers with SampleData {
   "Ingest Dream Segment CSV" should "produce file in accepted" in {
     val sh = new HdfsStorageHandler
     val domainsPath = new Path(DatasetArea.domains, "dream.yml")
-    sh.write(loadFile("/LV/dream.yml"), domainsPath)
+    sh.write(loadFile("/sample/dream/dream.yml"), domainsPath)
     val typesPath = new Path(DatasetArea.types, "types.yml")
-    sh.write(loadFile("/LV/types.yml"), typesPath)
+    sh.write(loadFile("/sample/dream/types.yml"), typesPath)
     DatasetArea.initDomains(storageHandler, schemaHandler.domains.map(_.name))
 
-    val stream: InputStream = getClass.getResourceAsStream("/LV/OneClient_Segmentation_20190101_090800_008.psv")
+    val stream: InputStream = getClass.getResourceAsStream("/sample/dream/OneClient_Segmentation_20190101_090800_008.psv")
     val lines = scala.io.Source.fromInputStream(stream).getLines().mkString("\n")
     val targetPath = DatasetArea.path(DatasetArea.pending("dream"), "OneClient_Segmentation_20190101_090800_008.psv")
     storageHandler.write(lines, targetPath)
