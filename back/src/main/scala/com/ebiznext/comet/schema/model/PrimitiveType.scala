@@ -15,6 +15,7 @@ import scala.util.{Failure, Success, Try}
 /**
   * Spark supported primitive types. These are the only valid raw types.
   * Dataframes columns are converted to these types before the data is ingested
+  *
   * @param value : string, long, double, boolean, byte, date, timestamp
   */
 @JsonSerialize(using = classOf[ToStringSerializer])
@@ -27,18 +28,34 @@ sealed abstract case class PrimitiveType(value: String) {
 
 
 class PrimitiveTypeDeserializer extends JsonDeserializer[PrimitiveType] {
+  def simpleTypeFromString(value: String): Option[PrimitiveType] = {
+    value match {
+      case "string" => Some(PrimitiveType.string)
+      case "long" => Some(PrimitiveType.long)
+      case "double" => Some(PrimitiveType.double)
+      case "boolean" => Some(PrimitiveType.boolean)
+      case "byte" => Some(PrimitiveType.byte)
+      case "date" => Some(PrimitiveType.date)
+      case "timestamp" => Some(PrimitiveType.timestamp)
+      case _ => None
+    }
+  }
+
   override def deserialize(jp: JsonParser, ctx: DeserializationContext): PrimitiveType = {
     val value = jp.readValueAs[String](classOf[String])
-    value match {
-      case "string" => PrimitiveType.string
-      case "long" => PrimitiveType.long
-      case "double" => PrimitiveType.double
-      case "boolean" => PrimitiveType.boolean
-      case "byte" => PrimitiveType.byte
-      case "date" => PrimitiveType.date
-      case "timestamp" => PrimitiveType.timestamp
-      case tpe =>
-        throw new Exception(s"Invalid Primity Type $tpe")
+    simpleTypeFromString(value) match {
+      case Some(tpe) => tpe
+      case None =>
+        value match {
+          case "map" => PrimitiveType.map
+          case "array" => PrimitiveType.array
+          case tpe if tpe.startsWith("array_of_") =>
+            val subtypeString = tpe.substring("array_of_".length)
+            val subtpe = simpleTypeFromString(subtypeString).getOrElse(throw new Exception)
+            subtpe
+          case tpe =>
+            throw new Exception(s"Invalid Primitive Type $tpe")
+        }
     }
   }
 }
@@ -65,6 +82,13 @@ object PrimitiveType {
     def fromString(str: String, dateFormat: String, timeFormat: String): Any = if (str == null || str.isEmpty) null else str.toByte
   }
 
+  object array extends PrimitiveType("array") {
+    def fromString(str: String, dateFormat: String, timeFormat: String): Any = throw new Exception
+  }
+
+  object map extends PrimitiveType("map") {
+    def fromString(str: String, dateFormat: String, timeFormat: String): Any = throw new Exception
+  }
 
   private def instantFromString(str: String, format: String): Instant = {
     import java.time.format.DateTimeFormatter
@@ -105,5 +129,5 @@ object PrimitiveType {
     }
   }
 
-  val primitiveTypes: Set[PrimitiveType] = Set(string, long, double, boolean, byte, date, timestamp)
+  val primitiveTypes: Set[PrimitiveType] = Set(string, long, double, boolean, byte, date, timestamp, array, map)
 }

@@ -30,5 +30,7 @@ case class Type(name: String, pattern: Pattern, primitiveType: PrimitiveType = P
   def sparkType(fieldName: String, nullable: Boolean, comment: Option[String]): StructField = {
     StructField(fieldName, CatalystSqlParser.parseDataType(primitiveType.value), nullable).withComment(comment.getOrElse(""))
   }
+
+
 }
 
