@@ -1,0 +1,647 @@
+---
+name: "icon"
+directory: "/srv/data/tmp/incoming/icon"
+metadata:
+  mode: "FILE"
+  format: "DSV" 
+  withHeader: true
+  separator: "|"
+  quote: "\""
+  escape: "\\"
+  write: "APPEND"
+  dateFormat: "yyyy-MM-dd"
+  timestampFormat: "yyyy-MM-dd HH:mm:ss"
+  partition:
+    - comet_year
+    - comet_month
+    - comet_day
+schemas:
+  - name: "task"
+    pattern: "PRD_Task_*.*"
+    attributes:
+      - name: "id"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "action_type"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "icon_action_date"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "icon_action_contact_channel"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "date_of_creation"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "date_of_modification"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "dream_id"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "description"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "icon_action_CA_owner_SF_code"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "CA_owner_country"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "CA_owner_currency"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "CA_owner_default_store"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "CA_owner_active"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "CA_owner_name"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "CA_owner_retail_code"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "status"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "subject"
+        type: "string"
+        required: false
+        privacy: "NONE"
+  - name: "event"
+    pattern: "icon_event.*"
+    attributes:
+      - name: "id"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "appointment_type"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "date"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "client_confirmation"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "date_of_creation"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "date_of_modification"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "dream_id"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "description"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "all_day_event"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "location"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "occasion"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "CA_owner_SF_code"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "CA_owner_country"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "CA_owner_currency"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "CA_owner_default_store"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "CA_owner_active"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "CA_owner_name"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "CA_owner_retail_code"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "sale_transac_code"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "sale_amount"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "sale_done"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "subject"
+        type: "string"
+        required: false
+        privacy: "NONE"
+  - name: "voice"
+    pattern: "PRD_Voice_*.*"
+    attributes:
+      - name: "id"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Answer_Date"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Contact_Channel"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Close_Date"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Comment_History"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Country_Code"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "DreamID"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Email_Date"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Follow_up_by"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Transac_code"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q01Answer"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q01Shortname"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q02Answer"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q02Shortname"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q03Answer"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q03Shortname"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q04Answer"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q04Shortname"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q05Answer"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q05Shortname"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q06Answer"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q06Shortname"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q07Answer"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q07Shortname"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q08Answer"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q08Shortname"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q09Answer"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q09Shortname"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q10Answer"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q11Answer"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q11Shortname"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q12Shortname"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q13Answer"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q13Shortname"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q14Answer"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q14Shortname"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q15Answer"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q15Shortname"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q16Answer"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q16Shortname"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q17Answer"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q17Shortname"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q18Answer"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q18Shortname"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q19Answer"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q19Shortname"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q20Answer"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q20Shortname"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q21Answer"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q22Answer"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q22Shortname"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q23Answer"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q23Shortname"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q24Answer"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q24Shortname"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q25Answer"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q25Shortname"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q26Answer"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q26Shortname"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q27Answer"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q27Shortname"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q28Answer"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q28Shortname"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q29Answer"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q29Shortname"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q30Answer"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q30Shortname"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q31Answer"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q31Shortname"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q32Answer"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q32Shortname"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q33Answer"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q33Shortname"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q34Answer"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q34Shortname"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q35Answer"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q35Shortname"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q36Answer"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q36Shortname"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q37Answer"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q37Shortname"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q38Answer"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q38Shortname"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q39Answer"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q39Shortname"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q40Answer"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q40Shortname"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q41Answer"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q41Shortname"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q42Answer"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q42Shortname"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q43Answer"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q43Shortname"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q44Answer"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q44Shortname"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q45Answer"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q45Shortname"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q46Answer"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q46Shortname"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q47Answer"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q47Shortname"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q48Answer"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q48Shortname"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q49Answer"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q49Shortname"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q50Answer"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Q50Shortname"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Root_Cause_Dissatisfaction"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Status"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "transac_channel_retail_code"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "transac_channel_name"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Survey_Comment"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Survey_Type"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Transac_Product_Category_Code"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "transac_date"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "Type"
+        type: "string"
+        required: false
+        privacy: "NONE"
