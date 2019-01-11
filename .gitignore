@@ -73,3 +73,8 @@ fabric.properties
 *.class
 *.log
 
+# VSCode
+.vscode/
+
+# Sphinx
+_build/
