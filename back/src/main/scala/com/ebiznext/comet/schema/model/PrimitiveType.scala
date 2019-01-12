@@ -8,6 +8,8 @@ import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.databind.annotation.{JsonDeserialize, JsonSerialize}
 import com.fasterxml.jackson.databind.ser.std.ToStringSerializer
 import com.fasterxml.jackson.databind.{DeserializationContext, JsonDeserializer}
+import org.apache.spark.sql.catalyst.parser.CatalystSqlParser
+import org.apache.spark.sql.types.{DataType, DataTypes}
 
 import scala.util.{Failure, Success, Try}
 
@@ -16,7 +18,7 @@ import scala.util.{Failure, Success, Try}
   * Spark supported primitive types. These are the only valid raw types.
   * Dataframes columns are converted to these types before the data is ingested
   *
-  * @param value : string, long, double, boolean, byte, date, timestamp
+  * @param value : string, long, double, boolean, byte, date, timestamp, decimal with (precision=30, scale=15)
   */
 @JsonSerialize(using = classOf[ToStringSerializer])
 @JsonDeserialize(using = classOf[PrimitiveTypeDeserializer])
@@ -24,6 +26,8 @@ sealed abstract case class PrimitiveType(value: String) {
   def fromString(str: String, dateFormat: String = null, timeFormat: String = null): Any
 
   override def toString: String = value
+
+  def sparkType: DataType = CatalystSqlParser.parseDataType(value)
 }
 
 
@@ -37,6 +41,7 @@ class PrimitiveTypeDeserializer extends JsonDeserializer[PrimitiveType] {
       case "byte" => Some(PrimitiveType.byte)
       case "date" => Some(PrimitiveType.date)
       case "timestamp" => Some(PrimitiveType.timestamp)
+      case "decimal" => Some(PrimitiveType.decimal)
       case _ => None
     }
   }
@@ -72,6 +77,14 @@ object PrimitiveType {
 
   object double extends PrimitiveType("double") {
     def fromString(str: String, dateFormat: String, timeFormat: String): Any = if (str == null || str.isEmpty) null else str.toDouble
+  }
+
+  object decimal extends PrimitiveType("decimal") {
+    val defaultDecimalType = DataTypes.createDecimalType(30, 15)
+
+    def fromString(str: String, dateFormat: String, timeFormat: String): Any = if (str == null || str.isEmpty) null else BigDecimal(str)
+
+    override def sparkType: DataType = defaultDecimalType
   }
 
   object boolean extends PrimitiveType("boolean") {
@@ -129,5 +142,5 @@ object PrimitiveType {
     }
   }
 
-  val primitiveTypes: Set[PrimitiveType] = Set(string, long, double, boolean, byte, date, timestamp, array, map)
+  val primitiveTypes: Set[PrimitiveType] = Set(string, long, double, decimal, boolean, byte, date, timestamp, array, map)
 }
