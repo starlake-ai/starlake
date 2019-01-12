@@ -87,16 +87,21 @@ class DsvJob(domain: Domain, schema: Schema, types: List[Type], path: Path, stor
       .option("parserLib", "UNIVOCITY")
       .csv(path.toString)
     df.show()
-    if (metadata.withHeader.getOrElse(false)) {
-      val datasetHeaders: List[String] = df.columns.toList.map(cleanHeaderCol)
-      val (_, drop) = intersectHeaders(datasetHeaders, schemaHeaders)
-      if (drop.nonEmpty) {
+    metadata.withHeader match {
+      case Some(true) =>
+        val datasetHeaders: List[String] = df.columns.toList.map(cleanHeaderCol)
+        val (_, drop) = intersectHeaders(datasetHeaders, schemaHeaders)
+        if (datasetHeaders.length == drop.length) {
+          throw new Exception(
+            s"""No attribute found in input dataset ${path.toString}
+               | SchemaHeaders : ${schemaHeaders.mkString(",")}
+               | Dataset Headers : ${datasetHeaders.mkString(",")}
+             """.stripMargin)
+        }
         df.drop(drop: _*)
-      }
-      else
+      case Some(false) | None =>
         df
-    } else
-      df
+    }
   }
 
   /**
@@ -127,7 +132,9 @@ class DsvJob(domain: Domain, schema: Schema, types: List[Type], path: Path, stor
     *
     * @param dataset : Spark Dataset
     */
-  private def validate(dataset: DataFrame) = {
+  private def validate(dataset: DataFrame)
+
+  = {
     val (rejectedRDD, acceptedRDD) = DsvIngestTask.validate(session, dataset, this.schema.attributes, metadata.getDateFormat(), metadata.getTimestampFormat(), schemaTypes, sparkType)
     logger.whenInfoEnabled {
       val inputCount = dataset.count()

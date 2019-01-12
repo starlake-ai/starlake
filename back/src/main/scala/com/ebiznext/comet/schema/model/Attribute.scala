@@ -40,6 +40,9 @@ case class Attribute(name: String,
     if (!colNamePattern.matcher(name).matches())
       errorList += s"attribute with name $name should respect the pattern ${colNamePattern.pattern()}"
 
+    if (!rename.forall(colNamePattern.matcher(_).matches()))
+      errorList += s"renamed attribute with renamed name '$rename' should respect the pattern ${colNamePattern.pattern()}"
+
     val primitiveType = types.types.find(_.name == `type`).map(_.primitiveType)
     primitiveType match {
       case None => errorList += s"Invalid Type ${`type`}"
