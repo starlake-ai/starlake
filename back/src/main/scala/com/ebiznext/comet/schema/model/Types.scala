@@ -2,11 +2,11 @@ package com.ebiznext.comet.schema.model
 
 import java.util.regex.Pattern
 
-import org.apache.spark.sql.catalyst.parser.CatalystSqlParser
 import org.apache.spark.sql.types.StructField
 
 /**
   * List of globally defined types
+  *
   * @param types : Type list
   */
 case class Types(types: List[Type]) {
@@ -18,8 +18,9 @@ case class Types(types: List[Type]) {
 
 /**
   * Semantic Type
-  * @param name : Type name
-  * @param pattern : Pattern use to check that the input data matches the pattern
+  *
+  * @param name          : Type name
+  * @param pattern       : Pattern use to check that the input data matches the pattern
   * @param primitiveType : Spark Column Type of the attribute
   */
 case class Type(name: String, pattern: Pattern, primitiveType: PrimitiveType = PrimitiveType.string) {
@@ -28,7 +29,7 @@ case class Type(name: String, pattern: Pattern, primitiveType: PrimitiveType = P
   }
 
   def sparkType(fieldName: String, nullable: Boolean, comment: Option[String]): StructField = {
-    StructField(fieldName, CatalystSqlParser.parseDataType(primitiveType.value), nullable).withComment(comment.getOrElse(""))
+    StructField(fieldName, primitiveType.sparkType, nullable).withComment(comment.getOrElse(""))
   }
 
 

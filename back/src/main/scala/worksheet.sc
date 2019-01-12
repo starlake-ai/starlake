@@ -2,6 +2,8 @@ import java.time.format.DateTimeFormatter
 import java.time.{Instant, LocalDateTime}
 import java.util.regex.Pattern
 
+import scala.math.BigDecimal
+
 System.getenv("HIVE_HOME")
 
 
@@ -18,33 +20,11 @@ val p3 = Pattern.compile(".+\\.\\d\\d\\d\\d\\d\\d\\d\\d-\\d\\d\\d\\d\\d\\d-\\d\\
 p3.matcher(name).matches()
 
 name.substring(0, name.lastIndexOf('.'))
-
-Instant.now().toString
-Instant.now().toString
-Instant.now().toString
 Instant.now().toString
 
 LocalDateTime
   .now()
   .format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss-SSS"))
-
-LocalDateTime
-  .now()
-  .format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss-SSS"))
-
-LocalDateTime
-  .now()
-  .format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss-SSS"))
-
-LocalDateTime
-  .now()
-  .format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss-SSS"))
-
-LocalDateTime
-  .now()
-  .format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss-SSS"))
-
-
 
 
 val pdatetime = Pattern.compile("(19[0-9]{2}|2[0-9]{3})-(0[1-9]|1[012])-([123]0|[012][1-9]|31) ([01][0-9]|2[0-3]):([0-5][0-9]):([0-5][0-9])")
@@ -63,3 +43,15 @@ pint.matcher("1223").matches()
 val pdate2 = Pattern.compile("(19[0-9]{2}|2[0-9]{3})-(0[1-9]|1[012])-([123]0|[012][1-9]|31)( ([01][0-9]|2[0-3]):([0-5][0-9]):([0-5][0-9]))?")
 pdate2.matcher("2018-12-24 12:23:56").matches()
 
+
+
+val pdecimal2 = Pattern.compile("string||long||double||boolean||byte||date||timestamp||decimal(\\(([0-9]{1,}),([0-9]{1,})\\))?")
+val matcher = pdecimal2.matcher("decimal(12,1)")
+if (matcher.find()) {
+  println(matcher.group(1))
+  println(matcher.group(2))
+}
+
+pdecimal2.matcher("decimal").matches()
+pdecimal2.matcher("string").matches()
+pdecimal2.matcher("byte").matches()
