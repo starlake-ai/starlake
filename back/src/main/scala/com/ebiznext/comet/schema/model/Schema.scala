@@ -37,7 +37,7 @@ case class Schema(name: String,
     */
   def renamedAttributes(): List[(String, String)] = {
     attributes.map(attr => (attr.name, attr.getFinalName())).filter {
-      case (name, finalName) => name != finalName
+      case (sourceName, finalName) => sourceName != finalName
     }
   }
 
