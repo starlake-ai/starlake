@@ -178,7 +178,7 @@ class DsvJob(domain: Domain, schema: Schema, types: List[Type], path: Path, stor
     val tableName = schema.name
     val fullTableName = s"$hiveDB.$tableName"
     if (Settings.comet.hive) {
-      logger.info(s"DSV Output $count  records to Hive table $hiveDB/$tableName($saveMode) at $targetPath")
+      logger.info(s"DSV Output $count records to Hive table $hiveDB/$tableName($saveMode) at $targetPath")
       val dbComment = domain.comment.getOrElse("")
       session.sql(s"create database if not exists $hiveDB comment '$dbComment'")
       session.sql(s"use $hiveDB")
