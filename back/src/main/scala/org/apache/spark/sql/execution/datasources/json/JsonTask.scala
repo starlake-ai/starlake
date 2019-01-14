@@ -39,6 +39,8 @@ import org.apache.spark.sql.catalyst.analysis.TypeCoercion
 import org.apache.spark.sql.catalyst.json.JacksonUtils
 import org.apache.spark.sql.types._
 
+import scala.collection.mutable
+
 /**
   * Code here comes from org.apache.spark.sql.execution.datasources.json.InferSchema
   *
@@ -50,49 +52,57 @@ object JsonTask {
       o1.name.compare(o2.name)
     }
   }
-LongType
 
-  def compareTypes(schemaType: DataType, datasetType: DataType, schemaTypeNullable: Boolean = false): Boolean = {
-    (schemaType, datasetType) match {
-      case (t1, t2) if t1 == t2 => true
-      case (_, NullType) if schemaTypeNullable => true
-      case (_: FractionalType, _: IntegralType) => true
-      case (_: DecimalType, _: DecimalType) => true
-      case (_: TimestampType, _: DateType) | (_: DateType, _: TimestampType) => true
-      case (_: StringType, _: StringType) => true
+  def compareTypes(context: List[String], schemaType: (String, DataType, Boolean), datasetType: (String, DataType, Boolean)): List[String] = {
+    val schemaTypeNullable: Boolean = schemaType._3
+    (schemaType._2, datasetType._2) match {
+      case (t1, t2) if t1 == t2 => Nil
+      case (_, NullType) if schemaTypeNullable => Nil
+      case (_: FractionalType, _: IntegralType) => Nil
+      case (_: DecimalType, _: DecimalType) => Nil
+      case (_: TimestampType, _: DateType) | (_: DateType, _: TimestampType) => Nil
+      case (_: StringType, _: StringType) => Nil
       case (StructType(fields1), StructType(fields2)) =>
+        val errorList: mutable.MutableList[String] = mutable.MutableList.empty
         var f1Idx = 0
         var f2Idx = 0
         var typeComp = true
-        if (fields1.length < fields2.length)
-          typeComp = false
-        while ((f1Idx < fields1.length || f2Idx < fields2.length) && typeComp) {
+        while (f1Idx < fields1.length && f2Idx < fields2.length) {
           val f1 = fields1(f1Idx)
           val f2 = fields2(f2Idx)
           val nameComp = f1.name.compareTo(f2.name)
           if (nameComp < 0 && f1.nullable) {
             // Field exists in schema is name and is not present in the message
-            typeComp = true
             // go get the next field in the schema
             f1Idx += 1
           }
           else if (nameComp == 0) {
-            // field is present in the schema and the dataset : check taht types are equal
+            // field is present in the schema and the dataset : check that types are equal
             val f1Type = f1.dataType
             val f2Type = f2.dataType
-            typeComp = compareTypes(f1Type, f2Type, f1.nullable)
+            errorList ++= compareTypes(context :+ schemaType._1, (f1.name, f1Type, f1.nullable), (f2.name, f2Type, f2.nullable))
             f1Idx += 1
             f2Idx += 1
+            typeComp = typeComp && errorList.isEmpty
           }
           else {
             // Field is present in the message but not in the schema.
+            errorList += s"unkonwn field ${f2.name} : ${f2.dataType.typeName} in context ${context.mkString(".")}"
             typeComp = false
           }
         }
-        typeComp
+        while (f2Idx < fields2.length) {
+          val f2 = fields2(f2Idx)
+          errorList += s"unkonwn field ${f2.name} : ${f2.dataType.typeName} in context ${context.mkString(".")}"
+          f2Idx += 1
+        }
+
+        errorList.toList
       case (ArrayType(elementType1, containsNull1), ArrayType(elementType2, _)) =>
-        compareTypes(elementType1, elementType2, containsNull1)
-      case _ => false
+        compareTypes(context :+ schemaType._1, (schemaType._1, elementType1, containsNull1), (schemaType._1, elementType2, containsNull1))
+      case (_, _) =>
+        List(s"Validation error in context: ${context.mkString(".")}, ${datasetType._1}:${datasetType._2} isnullable:${datasetType._3} against " +
+          s"schema ${schemaType._1}:${schemaType._2} isnullable:${schemaType._3}")
     }
   }
 

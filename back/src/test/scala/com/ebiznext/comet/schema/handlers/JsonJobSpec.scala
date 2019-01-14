@@ -43,7 +43,7 @@ class JsonJobSpec extends FlatSpec with Matchers {
       t2 <- res2
 
     } yield {
-      JsonTask.compareTypes(t1, t2)
+      JsonTask.compareTypes(Nil, ("root", t1, true), ("root", t2, true))
     }
     println(res)
   }
@@ -53,7 +53,7 @@ class JsonJobSpec extends FlatSpec with Matchers {
       """
         |{
         |						"GlossSeeAlso": ["GML", "XML"],
-        |           "IntArray":[1.3, 2.2]
+        |           "IntArray":[1.1, 2.2]
         |}
       """.stripMargin
 
@@ -62,6 +62,41 @@ class JsonJobSpec extends FlatSpec with Matchers {
         |{
         |						"GlossSeeAlso": ["GML", null],
         |           "IntArray":[1, 2],
+        |}
+      """.stripMargin
+
+    val res1 = JsonJob.parseString(json1)
+    val res2 = JsonJob.parseString(json2)
+    println(res1)
+    println(res2)
+    println(res1.toString)
+    val res = for {
+      t1 <- res1
+      t2 <- res2
+
+    } yield {
+      JsonTask.compareTypes(Nil, ("root", t1, true), ("root", t2, true))
+    }
+    println(res)
+  }
+
+  "Parse compatible json" should "fail" in {
+    val json1 =
+      """
+        |{
+        |						"GlossSeeAlso": ["GML", "XML"],
+        |           "IntArray":[1, 2]
+        |}
+      """.stripMargin
+
+    val json2 =
+      """
+        |{
+        |           "abc": {
+        |           "x":"y"
+        |           },
+        |						"GlossSeeAlso": ["GML", null],
+        |           "IntArray":[1, 2.2],
         |           "unknown":null
         |}
       """.stripMargin
@@ -76,7 +111,7 @@ class JsonJobSpec extends FlatSpec with Matchers {
       t2 <- res2
 
     } yield {
-      JsonTask.compareTypes(t1, t2)
+      JsonTask.compareTypes(Nil, ("root", t1, true), ("root", t2, true))
     }
     println(res)
   }
