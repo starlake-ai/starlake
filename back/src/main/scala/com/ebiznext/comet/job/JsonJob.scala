@@ -56,3 +56,49 @@ class JsonJob(domain: Domain, schema: Schema, types: List[Type], path: Path, sto
   }
 }
 
+object JsonJob extends SparkJob {
+  override def name: String = "JsonJob"
+
+  override def run(args: Array[String]): SparkSession = {
+    val json =
+      """
+        |{
+        |    "glossary": {
+        |        "title": "example glossary",
+        |		"GlossDiv": {
+        |            "title": "S",
+        |			"GlossList": {
+        |                "GlossEntry": {
+        |                    "ID": "SGML",
+        |					"SortAs": "SGML",
+        |					"GlossTerm": "Standard Generalized Markup Language",
+        |					"Acronym": "SGML",
+        |					"Abbrev": "ISO 8879:1986",
+        |					"GlossDef": {
+        |                        "para": "A meta-markup language, used to create markup languages such as DocBook.",
+        |						"GlossSeeAlso": ["GML", "XML"],
+        |           "IntArray":[1, 2]
+        |                    },
+        |					"GlossSee": "markup"
+        |                }
+        |            }
+        |        }
+        |    }
+        |}
+      """.stripMargin
+
+    val res = parseString(json)
+    println(res.toString)
+    this.session
+  }
+
+  def parseString(content: String): Try[DataType] = {
+    Try {
+      Utils.withResources(factory.createParser(content)) { parser =>
+        parser.nextToken()
+        inferSchema(parser)
+      }
+    }
+  }
+
+}

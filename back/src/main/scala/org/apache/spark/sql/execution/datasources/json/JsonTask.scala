@@ -50,6 +50,52 @@ object JsonTask {
       o1.name.compare(o2.name)
     }
   }
+LongType
+
+  def compareTypes(schemaType: DataType, datasetType: DataType, schemaTypeNullable: Boolean = false): Boolean = {
+    (schemaType, datasetType) match {
+      case (t1, t2) if t1 == t2 => true
+      case (_, NullType) if schemaTypeNullable => true
+      case (_: FractionalType, _: IntegralType) => true
+      case (_: DecimalType, _: DecimalType) => true
+      case (_: TimestampType, _: DateType) | (_: DateType, _: TimestampType) => true
+      case (_: StringType, _: StringType) => true
+      case (StructType(fields1), StructType(fields2)) =>
+        var f1Idx = 0
+        var f2Idx = 0
+        var typeComp = true
+        if (fields1.length < fields2.length)
+          typeComp = false
+        while ((f1Idx < fields1.length || f2Idx < fields2.length) && typeComp) {
+          val f1 = fields1(f1Idx)
+          val f2 = fields2(f2Idx)
+          val nameComp = f1.name.compareTo(f2.name)
+          if (nameComp < 0 && f1.nullable) {
+            // Field exists in schema is name and is not present in the message
+            typeComp = true
+            // go get the next field in the schema
+            f1Idx += 1
+          }
+          else if (nameComp == 0) {
+            // field is present in the schema and the dataset : check taht types are equal
+            val f1Type = f1.dataType
+            val f2Type = f2.dataType
+            typeComp = compareTypes(f1Type, f2Type, f1.nullable)
+            f1Idx += 1
+            f2Idx += 1
+          }
+          else {
+            // Field is present in the message but not in the schema.
+            typeComp = false
+          }
+        }
+        typeComp
+      case (ArrayType(elementType1, containsNull1), ArrayType(elementType2, _)) =>
+        compareTypes(elementType1, elementType2, containsNull1)
+      case _ => false
+    }
+  }
+
 
   def compatibleType(t1: DataType, t2: DataType): DataType = {
     TypeCoercion.findTightestCommonTypeOfTwo(t1, t2).getOrElse {
@@ -120,7 +166,7 @@ object JsonTask {
     * Convert NullType to StringType and remove StructTypes with no fields
     */
   private def canonicalizeType(tpe: DataType): Option[DataType] = tpe match {
-    case at @ ArrayType(elementType, _) =>
+    case at@ArrayType(elementType, _) =>
       for {
         canonicalType <- canonicalizeType(elementType)
       } yield {
