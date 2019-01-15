@@ -2,7 +2,7 @@ package com.ebiznext.comet.schema.model
 
 import java.util.regex.Pattern
 
-import org.apache.spark.sql.types.{DataType, StructField, StructType}
+import org.apache.spark.sql.types.{StructField, StructType}
 
 import scala.collection.mutable
 
