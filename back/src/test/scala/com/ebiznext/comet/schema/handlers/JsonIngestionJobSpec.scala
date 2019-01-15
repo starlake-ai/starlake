@@ -1,7 +1,7 @@
 package com.ebiznext.comet.schema.handlers
 
 import com.ebiznext.comet.job.JsonJob
-import org.apache.spark.sql.execution.datasources.json.JsonTask
+import org.apache.spark.sql.execution.datasources.json.JsonUtil
 import org.scalatest.{FlatSpec, Matchers}
 
 import scala.util.Try
@@ -35,15 +35,15 @@ class JsonJobSpec extends FlatSpec with Matchers {
         |}
       """.stripMargin
 
-    val res1 = JsonJob.parseString(json)
-    val res2 = JsonJob.parseString(json)
+    val res1 = JsonUtil.parseString(json)
+    val res2 = JsonUtil.parseString(json)
     println(res1.toString)
     val res = for {
       t1 <- res1
       t2 <- res2
 
     } yield {
-      JsonTask.compareTypes(Nil, ("root", t1, true), ("root", t2, true))
+      JsonUtil.compareTypes(Nil, ("root", t1, true), ("root", t2, true))
     }
     println(res)
   }
@@ -65,8 +65,8 @@ class JsonJobSpec extends FlatSpec with Matchers {
         |}
       """.stripMargin
 
-    val res1 = JsonJob.parseString(json1)
-    val res2 = JsonJob.parseString(json2)
+    val res1 = JsonUtil.parseString(json1)
+    val res2 = JsonUtil.parseString(json2)
     println(res1)
     println(res2)
     println(res1.toString)
@@ -75,7 +75,7 @@ class JsonJobSpec extends FlatSpec with Matchers {
       t2 <- res2
 
     } yield {
-      JsonTask.compareTypes(Nil, ("root", t1, true), ("root", t2, true))
+      JsonUtil.compareTypes(Nil, ("root", t1, true), ("root", t2, true))
     }
     println(res)
   }
@@ -84,6 +84,10 @@ class JsonJobSpec extends FlatSpec with Matchers {
     val json1 =
       """
         |{
+        |           "complexArray": [
+        |              {"a": "Hello"},
+        |              {"a": "Hello"}
+        |                   ],
         |						"GlossSeeAlso": ["GML", "XML"],
         |           "IntArray":[1, 2]
         |}
@@ -101,8 +105,8 @@ class JsonJobSpec extends FlatSpec with Matchers {
         |}
       """.stripMargin
 
-    val res1 = JsonJob.parseString(json1)
-    val res2 = JsonJob.parseString(json2)
+    val res1 = JsonUtil.parseString(json1)
+    val res2 = JsonUtil.parseString(json2)
     println(res1)
     println(res2)
     println(res1.toString)
@@ -111,7 +115,7 @@ class JsonJobSpec extends FlatSpec with Matchers {
       t2 <- res2
 
     } yield {
-      JsonTask.compareTypes(Nil, ("root", t1, true), ("root", t2, true))
+      JsonUtil.compareTypes(Nil, ("root", t1, true), ("root", t2, true))
     }
     println(res)
   }
