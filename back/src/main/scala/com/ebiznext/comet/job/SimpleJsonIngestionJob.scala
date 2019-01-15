@@ -8,6 +8,8 @@ import org.apache.spark.sql.DataFrame
 
 /**
   * Parse a simple one level json file. Complex types such as arrays & maps are not supported.
+  * Use JsonIngestionJob instead.
+  * This class is for simpel json only that makes it way faster.
   * @param domain         : Input Dataset Domain
   * @param schema         : Input Dataset Schema
   * @param types          : List of globally defined types
