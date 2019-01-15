@@ -1,12 +1,15 @@
 package com.ebiznext.comet.schema.handlers
 
-import com.ebiznext.comet.job.JsonIngestionJob
+import java.io.InputStream
+
+import com.ebiznext.comet.config.DatasetArea
+import com.ebiznext.comet.sample.SampleData
+import com.ebiznext.comet.workflow.DatasetWorkflow
+import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.execution.datasources.json.JsonUtil
 import org.scalatest.{FlatSpec, Matchers}
 
-import scala.util.Try
-
-class JsonIngestionJobSpec extends FlatSpec with Matchers {
+class JsonIngestionJobSpec extends FlatSpec with Matchers with SampleData {
   "Parse exact same json" should "succeed" in {
     val json =
       """
@@ -120,4 +123,19 @@ class JsonIngestionJobSpec extends FlatSpec with Matchers {
     println(res)
   }
 
+  "Ingest Complex JSON" should "produce file in accepted" in {
+    val sh = new HdfsStorageHandler
+    val domainsPath = new Path(DatasetArea.domains, "json.yml")
+    sh.write(loadFile("/sample/json/json.yml"), domainsPath)
+    val typesPath = new Path(DatasetArea.types, "types.yml")
+    sh.write(loadFile("/sample/json/types.yml"), typesPath)
+    DatasetArea.initDomains(storageHandler, schemaHandler.domains.map(_.name))
+
+    val stream: InputStream = getClass.getResourceAsStream("/sample/json/complex.json")
+    val lines = scala.io.Source.fromInputStream(stream).getLines().mkString("\n")
+    val targetPath = DatasetArea.path(DatasetArea.pending("json"), "complex.json")
+    storageHandler.write(lines, targetPath)
+    val validator = new DatasetWorkflow(storageHandler, schemaHandler, new SimpleLauncher)
+    validator.loadPending()
+  }
 }

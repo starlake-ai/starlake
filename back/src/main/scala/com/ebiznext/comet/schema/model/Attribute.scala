@@ -11,6 +11,7 @@ import scala.collection.mutable
   *
   * @param name       : Attribute name as defined in the source dataset
   * @param `type`     : semantic type of the attribute
+  * @param array      : Is it an array ?
   * @param required   : Should this attribute always be present in the source
   * @param privacy    : Shoudl this attribute be applied a privacy transformaiton at ingestion time
   * @param comment    : free text for attribute description
@@ -37,8 +38,11 @@ case class Attribute(name: String,
     * @param types : List of defined types.
     * @return true if attribute is valid
     */
-  def checkValidity(types: Types): Either[List[String], Boolean] = {
+  def checkValidity(types: List[Type]): Either[List[String], Boolean] = {
+
     val errorList: mutable.MutableList[String] = mutable.MutableList.empty
+    if (`type` == null)
+      errorList += s"$this : unspecified type"
 
     val colNamePattern = Pattern.compile("[a-zA-Z][a-zA-Z0-9_]{1,767}")
     if (!colNamePattern.matcher(name).matches())
@@ -47,11 +51,16 @@ case class Attribute(name: String,
     if (!rename.forall(colNamePattern.matcher(_).matches()))
       errorList += s"renamed attribute with renamed name '$rename' should respect the pattern ${colNamePattern.pattern()}"
 
-    val primitiveType = types.types.find(_.name == `type`).map(_.primitiveType)
+    val primitiveType = types.find(_.name == `type`).map(_.primitiveType)
     primitiveType match {
       case Some(tpe) if tpe != PrimitiveType.string && privacy != PrivacyLevel.NONE =>
-        errorList += s"string is the only supported primitive type for an attribute when privacy is requested"
+        errorList += s"Attribute $this : string is the only supported primitive type for an attribute when privacy is requested"
+      case Some(tpe) if tpe == PrimitiveType.struct && attributes.isEmpty =>
+        errorList += s"Attribute $this : Struct types have at least one attribute."
+      case Some(tpe) if tpe != PrimitiveType.struct && attributes.isDefined =>
+        errorList += s"Attribute $this : Simple attributes cannot have sub-attributes"
       case None if attributes.isEmpty => errorList += s"Invalid Type ${`type`}"
+      case _ => // good boy
     }
 
     if (errorList.nonEmpty)
@@ -62,22 +71,30 @@ case class Attribute(name: String,
 
   /**
     *
-    * Spark Type if this attribute is a priitive type of array of primitive type
+    * Spark Type if this attribute is a primitive type of array of primitive type
+    *
     * @param types : List of gloablly defined types
     * @return Primitive type if attribute is a leaf node or array of primitive type, None otherwise
     */
-  def primitiveSparkType(types: Types): Option[DataType] = {
-    types.types.find(_.name == `type`).map(_.primitiveType).map(tpe => ArrayType(tpe.sparkType, !required))
+  def primitiveSparkType(types: Types): DataType = {
+    types.types.find(_.name == `type`).map(_.primitiveType).map { tpe =>
+      if (array)
+        ArrayType(tpe.sparkType, !required)
+      else
+        tpe.sparkType
+    }.getOrElse(PrimitiveType.struct.sparkType)
   }
 
   /**
     * Go get recursively the Spark tree type of this object
+    *
     * @param types : List of globalluy defined types
     * @return Spark type of this attribute
     */
   def sparkType(types: Types): DataType = {
-    primitiveSparkType(types) match {
-      case None =>
+    val tpe = primitiveSparkType(types)
+    tpe match {
+      case _: StructType =>
         attributes.map { attrs =>
           val fields = attrs.map { attr =>
             StructField(attr.name, attr.sparkType(types), !attr.required)
@@ -86,10 +103,9 @@ case class Attribute(name: String,
             ArrayType(StructType(fields))
           else
             StructType(fields)
-        } getOrElse (throw new Exception)
+        } getOrElse (throw new Exception("Should never happen: empty list of attributes"))
 
-      case Some(tpe) =>
-        tpe
+      case simpleType => simpleType
     }
   }
 

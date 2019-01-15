@@ -178,11 +178,11 @@ class DatasetWorkflow(storageHandler: StorageHandler,
     logger.info(s"Ingesting domain: ${domain.name} with schema: ${schema.name} on file: $ingestingPath with metadata $metadata")
     metadata.getFormat() match {
       case DSV =>
-        new DsvIngestionJob(domain, schema, schemaHandler.types.types, ingestingPath, storageHandler).run(null)
+        new DsvIngestionJob(domain, schema, schemaHandler.types, ingestingPath, storageHandler).run(null)
       case SIMPLE_JSON =>
-        new SimpleJsonIngestionJob(domain, schema, schemaHandler.types.types, ingestingPath, storageHandler).run(null)
+        new SimpleJsonIngestionJob(domain, schema, schemaHandler.types, ingestingPath, storageHandler).run(null)
       case JSON =>
-        new JsonIngestionJob(domain, schema, schemaHandler.types.types, ingestingPath, storageHandler).run(null)
+        new JsonIngestionJob(domain, schema, schemaHandler.types, ingestingPath, storageHandler).run(null)
       case _ =>
         throw new Exception("Should never happen")
     }

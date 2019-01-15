@@ -3,25 +3,13 @@ package com.ebiznext.comet.schema.handlers
 import java.io.InputStream
 
 import com.ebiznext.comet.config.DatasetArea
-import com.ebiznext.comet.job.JsonIngestionJob
 import com.ebiznext.comet.sample.SampleData
 import com.ebiznext.comet.workflow.DatasetWorkflow
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
-import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import org.apache.hadoop.fs.Path
 import org.scalatest.{FlatSpec, Matchers}
 
 
 class SchemaHandlerSpec extends FlatSpec with Matchers with SampleData {
-  val mapper: ObjectMapper = new ObjectMapper(new YAMLFactory())
-  // provides all of the Scala goodiness
-  mapper.registerModule(DefaultScalaModule)
-  val storageHandler = new HdfsStorageHandler
-  val schemaHandler = new SchemaHandler(storageHandler)
-
-  DatasetArea.init(storageHandler)
-
 
   "Ingest CSV" should "produce file in accepted" in {
     val sh = new HdfsStorageHandler
@@ -41,7 +29,7 @@ class SchemaHandlerSpec extends FlatSpec with Matchers with SampleData {
 
   "Ingest Dream Icon CSV" should "produce file in accepted" in {
     val sh = new HdfsStorageHandler
-    val domainsPath = new Path(DatasetArea.domains, "icon.yml")
+    val domainsPath = new Path(DatasetArea.domains, "json.yml")
     sh.write(loadFile("/sample/icon/icon.yml"), domainsPath)
     val typesPath = new Path(DatasetArea.types, "types.yml")
     sh.write(loadFile("/sample/icon/types.yml"), typesPath)
