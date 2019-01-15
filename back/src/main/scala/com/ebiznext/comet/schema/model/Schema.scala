@@ -2,6 +2,8 @@ package com.ebiznext.comet.schema.model
 
 import java.util.regex.Pattern
 
+import org.apache.spark.sql.types.{DataType, StructField, StructType}
+
 import scala.collection.mutable
 
 /**
@@ -32,7 +34,20 @@ case class Schema(name: String,
 
 
   /**
+    * This Schema as a Spark Catalyst Schema
+    * @param types : globally defined types
+    * @returnSpark Catalyst Schema
+    */
+  def sparkType(types: Types): StructType = {
+    val fields = attributes.map { attr =>
+      StructField(attr.name, attr.sparkType(types), !attr.required)
+    }
+    StructType(fields)
+  }
+
+  /**
     * return the list of renamed attributes
+    *
     * @return list of tuples (oldname, newname)
     */
   def renamedAttributes(): List[(String, String)] = {
