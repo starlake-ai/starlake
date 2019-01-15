@@ -8,8 +8,7 @@ import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.databind.annotation.{JsonDeserialize, JsonSerialize}
 import com.fasterxml.jackson.databind.ser.std.ToStringSerializer
 import com.fasterxml.jackson.databind.{DeserializationContext, JsonDeserializer}
-import org.apache.spark.sql.catalyst.parser.CatalystSqlParser
-import org.apache.spark.sql.types.{DataType, DataTypes}
+import org.apache.spark.sql.types._
 
 import scala.util.{Failure, Success, Try}
 
@@ -27,7 +26,7 @@ sealed abstract case class PrimitiveType(value: String) {
 
   override def toString: String = value
 
-  def sparkType: DataType = CatalystSqlParser.parseDataType(value)
+  def sparkType: DataType
 }
 
 
@@ -52,12 +51,9 @@ class PrimitiveTypeDeserializer extends JsonDeserializer[PrimitiveType] {
       case Some(tpe) => tpe
       case None =>
         value match {
-          case "map" => PrimitiveType.map
-          case "array" => PrimitiveType.array
           case tpe if tpe.startsWith("array_of_") =>
             val subtypeString = tpe.substring("array_of_".length)
-            val subtpe = simpleTypeFromString(subtypeString).getOrElse(throw new Exception)
-            subtpe
+            simpleTypeFromString(subtypeString).getOrElse(throw new Exception)
           case tpe =>
             throw new Exception(s"Invalid Primitive Type $tpe")
         }
@@ -69,14 +65,17 @@ object PrimitiveType {
 
   object string extends PrimitiveType("string") {
     def fromString(str: String, dateFormat: String = null, timeFormat: String = null): Any = str
+    def sparkType: DataType = StringType
   }
 
   object long extends PrimitiveType("long") {
     def fromString(str: String, dateFormat: String, timeFormat: String): Any = if (str == null || str.isEmpty) null else str.toLong
+    def sparkType: DataType = LongType
   }
 
   object double extends PrimitiveType("double") {
     def fromString(str: String, dateFormat: String, timeFormat: String): Any = if (str == null || str.isEmpty) null else str.toDouble
+    def sparkType: DataType = DoubleType
   }
 
   object decimal extends PrimitiveType("decimal") {
@@ -89,18 +88,12 @@ object PrimitiveType {
 
   object boolean extends PrimitiveType("boolean") {
     def fromString(str: String, dateFormat: String, timeFormat: String): Any = if (str == null || str.isEmpty) null else str.toBoolean
+    def sparkType: DataType = BooleanType
   }
 
   object byte extends PrimitiveType("byte") {
     def fromString(str: String, dateFormat: String, timeFormat: String): Any = if (str == null || str.isEmpty) null else str.toByte
-  }
-
-  object array extends PrimitiveType("array") {
-    def fromString(str: String, dateFormat: String, timeFormat: String): Any = throw new Exception
-  }
-
-  object map extends PrimitiveType("map") {
-    def fromString(str: String, dateFormat: String, timeFormat: String): Any = throw new Exception
+    def sparkType: DataType = ByteType
   }
 
   private def instantFromString(str: String, format: String): Instant = {
@@ -129,6 +122,7 @@ object PrimitiveType {
 
       }
     }
+    def sparkType: DataType = DateType
   }
 
   object timestamp extends PrimitiveType("timestamp") {
@@ -140,7 +134,8 @@ object PrimitiveType {
         Timestamp.from(instant)
       }
     }
+    def sparkType: DataType = TimestampType
   }
 
-  val primitiveTypes: Set[PrimitiveType] = Set(string, long, double, decimal, boolean, byte, date, timestamp, array, map)
+  val primitiveTypes: Set[PrimitiveType] = Set(string, long, double, decimal, boolean, byte, date, timestamp)
 }
