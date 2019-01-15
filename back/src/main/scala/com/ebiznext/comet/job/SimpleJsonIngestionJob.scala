@@ -14,7 +14,7 @@ import org.apache.spark.sql.DataFrame
   * @param path           : Input dataset path
   * @param storageHandler : Storage Handler
   */
-class SimpleJsonJob(domain: Domain, schema: Schema, types: List[Type], path: Path, storageHandler: StorageHandler) extends DsvJob(domain, schema, types, path, storageHandler) {
+class SimpleJsonIngestionJob(domain: Domain, schema: Schema, types: List[Type], path: Path, storageHandler: StorageHandler) extends DsvIngestionJob(domain, schema, types, path, storageHandler) {
   override def loadDataSet(): DataFrame = {
     val df = session.read.json(path.toString)
     df.show()

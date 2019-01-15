@@ -66,29 +66,29 @@ object Main extends StrictLogging {
 
     DatasetArea.initDomains(storageHandler, schemaHandler.domains.map(_.name))
 
-    val validator = new DatasetWorkflow(storageHandler, schemaHandler, Settings.comet.getLauncher())
+    val workflow = new DatasetWorkflow(storageHandler, schemaHandler, Settings.comet.getLauncher())
 
     if (args.length == 0) println(usage)
 
     val arglist = args.toList
     logger.info(s"Running Comet $arglist")
     arglist.head match {
-      case "job" if arglist.length == 2 => validator.autoJob(arglist(1))
-      case "import" => validator.loadLanding()
+      case "job" if arglist.length == 2 => workflow.autoJob(arglist(1))
+      case "import" => workflow.loadLanding()
       case "watch" =>
         if (arglist.length == 2) {
           val param = arglist(1)
           if (param.startsWith("-"))
-            validator.loadPending(Nil, param.substring(1).split(',').toList)
+            workflow.loadPending(Nil, param.substring(1).split(',').toList)
           else if (param.startsWith("+"))
-            validator.loadPending(param.substring(1).split(',').toList, Nil)
+            workflow.loadPending(param.substring(1).split(',').toList, Nil)
           else
-            validator.loadPending(param.split(',').toList, Nil)
+            workflow.loadPending(param.split(',').toList, Nil)
         }
         else
-          validator.loadPending()
+          workflow.loadPending()
       case "ingest" if arglist.length == 4 =>
-        validator.ingest(arglist(1), arglist(2), arglist(3))
+        workflow.ingest(arglist(1), arglist(2), arglist(3))
       case _ => printUsage()
     }
   }

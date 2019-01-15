@@ -25,17 +25,13 @@ import scala.util.{Failure, Success, Try}
   * @param path           : Input dataset path
   * @param storageHandler : Storage Handler
   */
-class DsvJob(val domain: Domain, val schema: Schema, val types: List[Type], val path: Path, storageHandler: StorageHandler) extends IngestionJob {
+class DsvIngestionJob(val domain: Domain, val schema: Schema, val types: List[Type], val path: Path, storageHandler: StorageHandler) extends IngestionJob {
   /**
     *
     * @return Spark Job name
     */
   override def name: String = path.getName
 
-  /**
-    * Merged metadata
-    */
-  val metadata = domain.metadata.getOrElse(Metadata()).`import`(schema.metadata.getOrElse(Metadata()))
 
   /**
     * dataset Header names as defined by the schema
@@ -132,8 +128,8 @@ class DsvJob(val domain: Domain, val schema: Schema, val types: List[Type], val 
     *
     * @param dataset : Spark Dataset
     */
-  private def validate(dataset: DataFrame) = {
-    val (rejectedRDD, acceptedRDD) = DsvUtil.validate(session, dataset, this.schema.attributes, metadata.getDateFormat(), metadata.getTimestampFormat(), schemaTypes, sparkType)
+  def ingest(dataset: DataFrame): Unit = {
+    val (rejectedRDD, acceptedRDD) = DsvIngestionUtil.validate(session, dataset, this.schema.attributes, metadata.getDateFormat(), metadata.getTimestampFormat(), schemaTypes, sparkType)
     logger.whenInfoEnabled {
       val inputCount = dataset.count()
       val acceptedCount = acceptedRDD.count()
@@ -167,7 +163,7 @@ class DsvJob(val domain: Domain, val schema: Schema, val types: List[Type], val 
 /**
   * The Spark task that run on each worker
   */
-object DsvUtil {
+object DsvIngestionUtil {
   /**
     * For each col of each row
     *   - we extract the col value / the col constraints / col type
