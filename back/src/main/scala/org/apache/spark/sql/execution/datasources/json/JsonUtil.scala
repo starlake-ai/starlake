@@ -33,20 +33,24 @@ package org.apache.spark.sql.execution.datasources.json
 
 import java.util.Comparator
 
+import com.ebiznext.comet.utils.Utils
 import com.fasterxml.jackson.core.JsonToken._
 import com.fasterxml.jackson.core.{JsonFactory, JsonParser}
+import org.apache.spark.rdd.RDD
+import org.apache.spark.sql.Row
 import org.apache.spark.sql.catalyst.analysis.TypeCoercion
 import org.apache.spark.sql.catalyst.json.JacksonUtils
 import org.apache.spark.sql.types._
 
 import scala.collection.mutable
+import scala.util.{Failure, Success, Try}
 
 /**
   * Code here comes from org.apache.spark.sql.execution.datasources.json.InferSchema
   *
   *
   */
-object JsonTask {
+object JsonUtil {
   private[this] val structFieldComparator = new Comparator[StructField] {
     override def compare(o1: StructField, o2: StructField): Int = {
       o1.name.compare(o2.name)
@@ -293,6 +297,34 @@ object JsonTask {
         throw new Exception("Should never happen")
     }
 
+  }
+
+  def parseString(content: String): Try[DataType] = {
+    Try {
+      Utils.withResources(factory.createParser(content)) { parser =>
+        parser.nextToken()
+        JsonUtil.inferSchema(parser)
+      }
+    }
+  }
+
+  def parseRDD(inputRDD: RDD[Row], schemaSparkType: DataType): RDD[Either[List[String], String]] = {
+    inputRDD.mapPartitions { partition =>
+      partition.map { row =>
+        val rowAsString = row.toString()
+        parseString(rowAsString) match {
+          case Success(datasetType) =>
+            val errorList = compareTypes(schemaSparkType, datasetType)
+            if (errorList.isEmpty)
+              Right(rowAsString)
+            else
+              Left(errorList)
+
+          case Failure(exception) =>
+            Left(List(exception.toString))
+        }
+      }
+    }
   }
 
   val factory = new JsonFactory()

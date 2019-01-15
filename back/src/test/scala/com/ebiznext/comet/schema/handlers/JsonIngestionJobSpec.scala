@@ -1,12 +1,12 @@
 package com.ebiznext.comet.schema.handlers
 
-import com.ebiznext.comet.job.JsonJob
+import com.ebiznext.comet.job.JsonIngestionJob
 import org.apache.spark.sql.execution.datasources.json.JsonUtil
 import org.scalatest.{FlatSpec, Matchers}
 
 import scala.util.Try
 
-class JsonJobSpec extends FlatSpec with Matchers {
+class JsonIngestionJobSpec extends FlatSpec with Matchers {
   "Parse exact same json" should "succeed" in {
     val json =
       """
