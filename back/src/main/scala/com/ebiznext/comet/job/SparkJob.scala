@@ -1,8 +1,10 @@
 package com.ebiznext.comet.job
 
-import com.ebiznext.comet.config.SparkEnv
-import com.ebiznext.comet.schema.model.Metadata
+import com.ebiznext.comet.config.{DatasetArea, HiveArea, Settings, SparkEnv}
+import com.ebiznext.comet.schema.model.{Domain, Metadata, Schema, Write}
 import com.typesafe.scalalogging.StrictLogging
+import org.apache.hadoop.fs.Path
+import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.{DataFrame, DataFrameWriter, Row, SparkSession}
 
@@ -55,6 +57,7 @@ trait SparkJob extends StrictLogging {
           case "comet_minute" if !dataSetsCols.contains("minute") => partitionedDF = partitionedDF.withColumn("minute", minute(col("comet_date")))
         }
         val strippedCols = cols.map(_.substring("comet_".length))
+        // does not work on nested fields -> https://issues.apache.org/jira/browse/SPARK-18084
         partitionedDF.drop("comet_date").write.partitionBy(strippedCols: _*)
       case cols if !cols.exists(Metadata.CometPartitionColumns.contains) =>
         dataset.write.partitionBy(cols: _*)
