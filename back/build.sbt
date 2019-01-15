@@ -31,7 +31,8 @@ val betterfiles = Seq("com.github.pathikrit" %% "better-files" % Versions.better
 val spark = Seq(
   "org.apache.spark" %% "spark-core" % Versions.spark % "provided",
   "org.apache.spark" %% "spark-sql" % Versions.spark % "provided",
-  "org.apache.spark" %% "spark-hive" % Versions.spark % "provided"
+  "org.apache.spark" %% "spark-hive" % Versions.spark % "provided",
+  "org.apache.spark" %% "spark-mllib" % Versions.spark % "provided"
 )
 
 val logging = Seq(
