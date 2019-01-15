@@ -51,8 +51,8 @@ case class Schema(name: String,
     * @return list of tuples (oldname, newname)
     */
   def renamedAttributes(): List[(String, String)] = {
-    attributes.map(attr => (attr.name, attr.getFinalName())).filter {
-      case (sourceName, finalName) => sourceName != finalName
+    attributes.filter(attr => attr.name != attr.getFinalName()).map { attr =>
+      (attr.name, attr.getFinalName())
     }
   }
 
