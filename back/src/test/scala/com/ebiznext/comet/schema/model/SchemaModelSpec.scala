@@ -1,9 +1,6 @@
 package com.ebiznext.comet.schema.model
 
 import com.ebiznext.comet.sample.SampleData
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
-import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import org.scalatest._
 
 case class XMode(mode: Mode)
