@@ -7,6 +7,9 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 
 
+/**
+  *
+  */
 trait IngestionJob extends SparkJob {
   def domain: Domain
 
@@ -22,7 +25,7 @@ trait IngestionJob extends SparkJob {
   /**
     * Dataset loading strategy (JSOn / CSV / ...)
     *
-    * @return Spark Dataframe loaded usingmetadata options
+    * @return Spark Dataframe loaded using metadata options
     */
   def loadDataSet(): DataFrame
 

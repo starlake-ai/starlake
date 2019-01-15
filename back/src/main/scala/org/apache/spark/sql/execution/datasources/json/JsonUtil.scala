@@ -57,10 +57,18 @@ object JsonUtil {
     }
   }
 
+  
   def compareTypes(schemaType: DataType, datasetType: DataType): List[String] = {
     compareTypes(Nil, ("root", schemaType, true), ("root", datasetType, true))
   }
 
+  /**
+    * similar to compatibleType(...) but instead of creating a new datatype, simply check the compatibility
+    * @param context : attribute tree, makes error messages more understandable
+    * @param schemaType
+    * @param datasetType
+    * @return List of error strings, Nil when datasetType is compatible with schemaType
+    */
   def compareTypes(context: List[String], schemaType: (String, DataType, Boolean), datasetType: (String, DataType, Boolean)): List[String] = {
     val schemaTypeNullable: Boolean = schemaType._3
     (schemaType._2, datasetType._2) match {

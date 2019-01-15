@@ -1,10 +1,8 @@
 package com.ebiznext.comet.job
 
-import com.ebiznext.comet.config.{DatasetArea, HiveArea, Settings, SparkEnv}
-import com.ebiznext.comet.schema.model.{Domain, Metadata, Schema, Write}
+import com.ebiznext.comet.config.SparkEnv
+import com.ebiznext.comet.schema.model.Metadata
 import com.typesafe.scalalogging.StrictLogging
-import org.apache.hadoop.fs.Path
-import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.{DataFrame, DataFrameWriter, Row, SparkSession}
 

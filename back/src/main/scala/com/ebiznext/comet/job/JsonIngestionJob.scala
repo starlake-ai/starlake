@@ -1,8 +1,5 @@
 package com.ebiznext.comet.job
 
-import java.sql.Timestamp
-import java.time.Instant
-
 import com.ebiznext.comet.config.{DatasetArea, HiveArea}
 import com.ebiznext.comet.schema.handlers.StorageHandler
 import com.ebiznext.comet.schema.model._
@@ -10,11 +7,25 @@ import org.apache.hadoop.fs.Path
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.execution.datasources.json.JsonUtil
 import org.apache.spark.sql.types.StructType
-import org.apache.spark.sql.{DataFrame, Row, SparkSession}
+import org.apache.spark.sql.{DataFrame, Row}
 
 
+/**
+  * Main class to complex json delimiter separated values file
+  * If your json contains only one level simple attribute aka. kind of dsv but in json format please use SIMPLE_JSON instead. It's way faster
+  *
+  * @param domain         : Input Dataset Domain
+  * @param schema         : Input Dataset Schema
+  * @param types          : List of globally defined types
+  * @param path           : Input dataset path
+  * @param storageHandler : Storage Handler
+  */
 class JsonIngestionJob(val domain: Domain, val schema: Schema, val types: List[Type], val path: Path, storageHandler: StorageHandler) extends IngestionJob {
 
+  /**
+    * load the json as an RDD of String
+    * @return Spark Dataframe loaded using metadata options
+    */
   def loadDataSet(): DataFrame = {
     val df = session.read.format("com.databricks.spark.csv")
       .option("inferSchema", value = false)
@@ -26,6 +37,10 @@ class JsonIngestionJob(val domain: Domain, val schema: Schema, val types: List[T
   lazy val schemaSparkType: StructType = schema.sparkType(Types(types))
 
 
+  /**
+    * Where the magic happen
+    * @param dataset input dataset as a RDD of string
+    */
   def ingest(dataset: DataFrame): Unit = {
     val rdd = dataset.rdd
     dataset.show()
@@ -35,15 +50,23 @@ class JsonIngestionJob(val domain: Domain, val schema: Schema, val types: List[T
     rejectedRDD.collect().foreach(println)
     val acceptedDF = session.read.json(acceptedRDD)
     saveRejected(rejectedRDD)
-    saveAccepted(acceptedDF)
+    saveAccepted(acceptedDF) // prefer to let Spark compute the final schema
   }
 
+  /**
+    * Let spark compute the schema of the accepted records when saving
+    * @param acceptedDF
+    */
   def saveAccepted(acceptedDF: DataFrame): Unit = {
     val writeMode = metadata.getWrite()
     val acceptedPath = new Path(DatasetArea.accepted(domain.name), schema.name)
     saveRows(acceptedDF, acceptedPath, writeMode, HiveArea.accepted)
   }
 
+  /**
+    * Use the schema we used for validation when saving
+    * @param acceptedRDD
+    */
   def saveAccepted(acceptedRDD: RDD[Row]): Unit = {
     val writeMode = metadata.getWrite()
     val acceptedPath = new Path(DatasetArea.accepted(domain.name), schema.name)
