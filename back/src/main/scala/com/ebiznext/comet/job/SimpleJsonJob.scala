@@ -16,7 +16,13 @@ import org.apache.spark.sql.DataFrame
   */
 class SimpleJsonJob(domain: Domain, schema: Schema, types: List[Type], path: Path, storageHandler: StorageHandler) extends DsvJob(domain, schema, types, path, storageHandler) {
   override def loadDataSet(): DataFrame = {
-    val df = session.read.json(path.toString)
+    val df =
+      if (metadata.getArray()) {
+        val jsonRDD = session.sparkContext.wholeTextFiles(path.toString).map(x => x._2)
+        session.read.json(jsonRDD)
+      } else {
+        session.read.option("multiline", metadata.getMultiline().toString).json(path.toString)
+      }
     df.show()
     if (metadata.withHeader.getOrElse(false)) {
       val datasetHeaders: List[String] = df.columns.toList.map(cleanHeaderCol)
