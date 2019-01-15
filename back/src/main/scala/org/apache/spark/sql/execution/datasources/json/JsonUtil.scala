@@ -57,7 +57,7 @@ object JsonUtil {
     }
   }
 
-  
+
   def compareTypes(schemaType: DataType, datasetType: DataType): List[String] = {
     compareTypes(Nil, ("root", schemaType, true), ("root", datasetType, true))
   }

@@ -2,8 +2,6 @@ import java.time.format.DateTimeFormatter
 import java.time.{Instant, LocalDateTime}
 import java.util.regex.Pattern
 
-import scala.math.BigDecimal
-
 System.getenv("HIVE_HOME")
 
 
