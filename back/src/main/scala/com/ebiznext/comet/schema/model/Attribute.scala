@@ -2,6 +2,8 @@ package com.ebiznext.comet.schema.model
 
 import java.util.regex.Pattern
 
+import org.apache.spark.sql.types._
+
 import scala.collection.mutable
 
 /**
@@ -17,12 +19,14 @@ import scala.collection.mutable
   */
 case class Attribute(name: String,
                      `type`: String = "string",
+                     array: Boolean = false,
                      required: Boolean = true,
                      privacy: PrivacyLevel = PrivacyLevel.NONE,
                      comment: Option[String] = None,
                      rename: Option[String] = None,
                      attributes: Option[List[Attribute]] = None
                     ) {
+
   /**
     * Check attribute validity
     * An attribute is valid if :
@@ -45,15 +49,48 @@ case class Attribute(name: String,
 
     val primitiveType = types.types.find(_.name == `type`).map(_.primitiveType)
     primitiveType match {
-      case None => errorList += s"Invalid Type ${`type`}"
       case Some(tpe) if tpe != PrimitiveType.string && privacy != PrivacyLevel.NONE =>
         errorList += s"string is the only supported primitive type for an attribute when privacy is requested"
+      case None if attributes.isEmpty => errorList += s"Invalid Type ${`type`}"
     }
 
     if (errorList.nonEmpty)
       Left(errorList.toList)
     else
       Right(true)
+  }
+
+  /**
+    *
+    * Spark Type if this attribute is a priitive type of array of primitive type
+    * @param types : List of gloablly defined types
+    * @return Primitive type if attribute is a leaf node or array of primitive type, None otherwise
+    */
+  def primitiveSparkType(types: Types): Option[DataType] = {
+    types.types.find(_.name == `type`).map(_.primitiveType).map(tpe => ArrayType(tpe.sparkType, !required))
+  }
+
+  /**
+    * Go get recursively the Spark tree type of this object
+    * @param types : List of globalluy defined types
+    * @return Spark type of this attribute
+    */
+  def sparkType(types: Types): DataType = {
+    primitiveSparkType(types) match {
+      case None =>
+        attributes.map { attrs =>
+          val fields = attrs.map { attr =>
+            StructField(attr.name, attr.sparkType(types), !attr.required)
+          }
+          if (array)
+            ArrayType(StructType(fields))
+          else
+            StructType(fields)
+        } getOrElse (throw new Exception)
+
+      case Some(tpe) =>
+        tpe
+    }
   }
 
   /**
