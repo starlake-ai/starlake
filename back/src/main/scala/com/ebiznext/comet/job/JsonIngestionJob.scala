@@ -13,7 +13,7 @@ import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 
 
-class JsonIngestionJob(val domain: Domain, val schema: Schema, types: List[Type], path: Path, storageHandler: StorageHandler) extends IngestionJob {
+class JsonIngestionJob(val domain: Domain, val schema: Schema, val types: List[Type], val path: Path, storageHandler: StorageHandler) extends IngestionJob {
 
   def loadDataSet(): DataFrame = {
     val df = session.read.format("com.databricks.spark.csv")
@@ -23,7 +23,7 @@ class JsonIngestionJob(val domain: Domain, val schema: Schema, types: List[Type]
     df
   }
 
-  val schemaSparkType: StructType = schema.sparkType(Types(types))
+  lazy val schemaSparkType: StructType = schema.sparkType(Types(types))
 
 
   def ingest(dataset: DataFrame): Unit = {
@@ -32,7 +32,7 @@ class JsonIngestionJob(val domain: Domain, val schema: Schema, types: List[Type]
     val checkedRDD = JsonUtil.parseRDD(rdd, schemaSparkType).cache()
     val acceptedRDD: RDD[String] = checkedRDD.filter(_.isRight).map(_.right.get)
     val rejectedRDD: RDD[String] = checkedRDD.filter(_.isLeft).map(_.left.get.mkString("\n"))
-
+    rejectedRDD.collect().foreach(println)
     val acceptedDF = session.read.json(acceptedRDD)
     saveRejected(rejectedRDD)
     saveAccepted(acceptedDF)

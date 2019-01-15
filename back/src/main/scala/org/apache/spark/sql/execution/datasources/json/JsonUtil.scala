@@ -67,10 +67,14 @@ object JsonUtil {
       case (t1, t2) if t1 == t2 => Nil
       case (_, NullType) if schemaTypeNullable => Nil
       case (_: FractionalType, _: IntegralType) => Nil
+      case (_: DecimalType, _: IntegralType) => Nil
+      case (_: DecimalType, _: FractionalType) => Nil
       case (_: DecimalType, _: DecimalType) => Nil
       case (_: TimestampType, _: DateType) | (_: DateType, _: TimestampType) => Nil
       case (_: StringType, _: StringType) => Nil
-      case (StructType(fields1), StructType(fields2)) =>
+      case (StructType(unsortedFields1), StructType(unsortedFields2)) =>
+        val fields1 = unsortedFields1.sortBy(_.name)
+        val fields2 = unsortedFields2.sortBy(_.name)
         val errorList: mutable.MutableList[String] = mutable.MutableList.empty
         var f1Idx = 0
         var f2Idx = 0
@@ -311,7 +315,7 @@ object JsonUtil {
   def parseRDD(inputRDD: RDD[Row], schemaSparkType: DataType): RDD[Either[List[String], String]] = {
     inputRDD.mapPartitions { partition =>
       partition.map { row =>
-        val rowAsString = row.toString()
+        val rowAsString = row.getAs[String](0)
         parseString(rowAsString) match {
           case Success(datasetType) =>
             val errorList = compareTypes(schemaSparkType, datasetType)

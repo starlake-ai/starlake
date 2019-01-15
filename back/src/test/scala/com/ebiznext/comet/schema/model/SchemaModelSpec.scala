@@ -9,9 +9,6 @@ import org.scalatest._
 case class XMode(mode: Mode)
 
 class SchemaModelSpec extends FlatSpec with Matchers with SampleData {
-  val mapper: ObjectMapper = new ObjectMapper(new YAMLFactory())
-  // provides all of the Scala goodiness
-  mapper.registerModule(DefaultScalaModule)
 
   "Case Object" should "serialize as a simple string" in {
     println(mapper.writeValueAsString(domain))

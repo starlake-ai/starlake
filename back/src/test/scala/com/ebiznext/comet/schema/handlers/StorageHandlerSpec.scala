@@ -9,9 +9,6 @@ import org.apache.hadoop.fs.Path
 import org.scalatest.{FlatSpec, Matchers}
 
 class StorageHandlerSpec extends FlatSpec with Matchers with SampleData {
-  val mapper: ObjectMapper = new ObjectMapper(new YAMLFactory())
-  // provides all of the Scala goodiness
-  mapper.registerModule(DefaultScalaModule)
 
   "Domain Case Class" should "be written as yaml" in {
     val path = new Path("/tmp/domain.yml")

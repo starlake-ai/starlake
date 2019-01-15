@@ -65,7 +65,7 @@ case class Schema(name: String,
     * @param types : List of globally defined types
     * @return error list of true
     */
-  def checkValidity(types: Types): Either[List[String], Boolean] = {
+  def checkValidity(types: List[Type]): Either[List[String], Boolean] = {
     val errorList: mutable.MutableList[String] = mutable.MutableList.empty
     val tableNamePattern = Pattern.compile("[a-zA-Z][a-zA-Z0-9_]{1,256}")
     if (!tableNamePattern.matcher(name).matches())

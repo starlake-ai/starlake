@@ -22,9 +22,9 @@ class SchemaHandler(storage: StorageHandler) {
     * All defined types.
     * Types are located in the only file "types.yml"
     */
-  lazy val types: Types = {
+  lazy val types: List[Type] = {
     val typesPath = new Path(DatasetArea.types, "types.yml")
-    mapper.readValue(storage.read(typesPath), classOf[Types])
+    mapper.readValue(storage.read(typesPath), classOf[Types]).types
   }
 
   /**
@@ -34,7 +34,7 @@ class SchemaHandler(storage: StorageHandler) {
     * @return Unique type referenced by this name.
     */
   def getType(tpe: String): Option[Type] = {
-    types.types.find(_.name == tpe)
+    types.find(_.name == tpe)
   }
 
   /**

@@ -62,7 +62,7 @@ case class Domain(name: String,
     * @param types
     * @return
     */
-  def checkValidity(types: Types): Either[List[String], Boolean] = {
+  def checkValidity(types: List[Type]): Either[List[String], Boolean] = {
     val errorList: mutable.MutableList[String] = mutable.MutableList.empty
 
     // Check Domain name validity
