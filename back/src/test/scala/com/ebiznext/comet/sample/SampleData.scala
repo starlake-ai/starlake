@@ -3,7 +3,12 @@ package com.ebiznext.comet.sample
 import java.io.InputStream
 import java.util.regex.Pattern
 
+import com.ebiznext.comet.config.DatasetArea
+import com.ebiznext.comet.schema.handlers.{HdfsStorageHandler, SchemaHandler}
 import com.ebiznext.comet.schema.model._
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
+import com.fasterxml.jackson.module.scala.DefaultScalaModule
 
 trait SampleData {
   /**
@@ -83,4 +88,14 @@ trait SampleData {
     ),
     Some("Domain Comment")
   )
+
+  val mapper: ObjectMapper = new ObjectMapper(new YAMLFactory())
+  // provides all of the Scala goodiness
+  mapper.registerModule(DefaultScalaModule)
+  val storageHandler = new HdfsStorageHandler
+  val schemaHandler = new SchemaHandler(storageHandler)
+
+  DatasetArea.init(storageHandler)
+
+
 }
