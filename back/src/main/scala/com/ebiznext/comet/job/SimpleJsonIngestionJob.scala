@@ -10,6 +10,7 @@ import org.apache.spark.sql.DataFrame
   * Parse a simple one level json file. Complex types such as arrays & maps are not supported.
   * Use JsonIngestionJob instead.
   * This class is for simpel json only that makes it way faster.
+  *
   * @param domain         : Input Dataset Domain
   * @param schema         : Input Dataset Schema
   * @param types          : List of globally defined types
@@ -18,7 +19,14 @@ import org.apache.spark.sql.DataFrame
   */
 class SimpleJsonIngestionJob(domain: Domain, schema: Schema, types: List[Type], path: Path, storageHandler: StorageHandler) extends DsvIngestionJob(domain, schema, types, path, storageHandler) {
   override def loadDataSet(): DataFrame = {
-    val df = session.read.json(path.toString)
+    val df =
+      if (metadata.getArray()) {
+        val jsonRDD = session.sparkContext.wholeTextFiles(path.toString).map(x => x._2)
+        session.read.json(jsonRDD)
+      } else {
+        session.read.option("multiline", metadata.getMultiline().toString).json(path.toString)
+      }
+
     df.show()
     if (metadata.withHeader.getOrElse(false)) {
       val datasetHeaders: List[String] = df.columns.toList.map(cleanHeaderCol)

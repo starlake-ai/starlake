@@ -16,6 +16,8 @@ import com.fasterxml.jackson.databind.{DeserializationContext, JsonDeserializer,
   *
   * @param mode            : FILE mode by default
   * @param format          : DSV by default
+  * @param multiline       : are json objects on a single line or multiple line ? Single by default.  false means single. false also means faster
+  * @param array           : Is a json stored as a single object array ? false by default
   * @param withHeader      : does the dataset has a header ? true bu default
   * @param separator       : the column separator,  ';' by default
   * @param quote           : The String quote char, '"' by default
@@ -29,6 +31,8 @@ import com.fasterxml.jackson.databind.{DeserializationContext, JsonDeserializer,
 case class Metadata(
                      mode: Option[Mode] = None,
                      format: Option[Format] = None,
+                     multiline: Option[Boolean] = None,
+                     array: Option[Boolean] = None,
                      withHeader: Option[Boolean] = None,
                      separator: Option[String] = None,
                      quote: Option[String] = None,
@@ -42,6 +46,8 @@ case class Metadata(
     s"""
        |mode:${getMode()}
        |format:${getFormat()}
+       |multiline:${getMultiline()}
+       |array:${getArray()}
        |withHeader:${isWithHeader()}
        |separator:${getSeparator()}
        |quote:${getQuote()}
@@ -55,6 +61,10 @@ case class Metadata(
   def getMode(): Mode = mode.getOrElse(FILE)
 
   def getFormat(): Format = format.getOrElse(DSV)
+
+  def getMultiline(): Boolean = multiline.getOrElse(false)
+
+  def getArray(): Boolean = array.getOrElse(false)
 
   def isWithHeader(): Boolean = withHeader.getOrElse(true)
 
@@ -96,6 +106,8 @@ case class Metadata(
       defined(this.mode, child.mode),
       defined(this.format, child.format),
       defined(this.withHeader, child.withHeader),
+      defined(this.multiline, child.multiline),
+      defined(this.array, child.array),
       defined(this.separator, child.separator),
       defined(this.quote, child.quote),
       defined(this.escape, child.escape),
@@ -122,6 +134,8 @@ object Metadata {
          ) = new Metadata(
     Some(Mode.FILE),
     Some(Format.DSV),
+    Some(false),
+    Some(false),
     Some(true),
     separator,
     quote,
@@ -142,6 +156,8 @@ class MetadataDeserializer extends JsonDeserializer[Metadata] {
 
     val mode = if (isNull("mode")) None else Some(Mode.fromString(node.get("mode").asText))
     val format = if (isNull("format")) None else Some(Format.fromString(node.get("format").asText))
+    val multiline = if (isNull("multiline")) None else Some(node.get("multiline").asBoolean())
+    val array = if (isNull("array")) None else Some(node.get("array").asBoolean())
     val withHeader = if (isNull("withHeader")) None else Some(node.get("withHeader").asBoolean())
     val separator = if (isNull("separator")) None else Some(node.get("separator").asText)
     val quote = if (isNull("quote")) None else Some(node.get("quote").asText)
@@ -151,6 +167,6 @@ class MetadataDeserializer extends JsonDeserializer[Metadata] {
     val partition = if (isNull("partition")) None else Some(node.get("partition").asInstanceOf[ArrayNode].elements.asScala.toList.map(_.asText()))
     val dateFormat = if (isNull("dateFormat")) None else Some(node.get("dateFormat").asText)
     val timestampFormat = if (isNull("timestampFormat")) None else Some(node.get("timestampFormat").asText)
-    Metadata(mode, format, withHeader, separator, quote, escape, write, partition, dateFormat, timestampFormat)
+    Metadata(mode, format, multiline, array, withHeader, separator, quote, escape, write, partition, dateFormat, timestampFormat)
   }
 }

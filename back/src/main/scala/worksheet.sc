@@ -53,3 +53,7 @@ if (matcher.find()) {
 pdecimal2.matcher("decimal").matches()
 pdecimal2.matcher("string").matches()
 pdecimal2.matcher("byte").matches()
+
+true.toString
+val x :Boolean = false
+x.toString
