@@ -75,6 +75,22 @@ class SchemaHandlerSpec extends FlatSpec with Matchers with SampleData {
     validator.loadPending()
   }
 
+  "Ingest Dream Locations JSON" should "produce file in accepted" in {
+    val sh = new HdfsStorageHandler
+    val domainsPath = new Path(DatasetArea.domains, "locations.yml")
+    sh.write(loadFile("/sample/simple-json-locations/locations.yml"), domainsPath)
+    val typesPath = new Path(DatasetArea.types, "types.yml")
+    sh.write(loadFile("/sample/simple-json-locations/types.yml"), typesPath)
+    DatasetArea.initDomains(storageHandler, schemaHandler.domains.map(_.name))
+
+    val stream: InputStream = getClass.getResourceAsStream("/sample/simple-json-locations/locations.json")
+    val lines = scala.io.Source.fromInputStream(stream).getLines().mkString("\n")
+    val targetPath = DatasetArea.path(DatasetArea.pending("locations"), "locations.json")
+    storageHandler.write(lines, targetPath)
+    val validator = new DatasetWorkflow(storageHandler, schemaHandler, new SimpleLauncher)
+    validator.loadPending()
+  }
+
   "Load Business Definition" should "produce business dataset" in {
     val sh = new HdfsStorageHandler
     val jobsPath = new Path(DatasetArea.jobs, "business.yml")

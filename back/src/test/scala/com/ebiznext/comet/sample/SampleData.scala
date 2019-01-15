@@ -66,6 +66,8 @@ trait SampleData {
       Some(Mode.FILE),
       Some(Format.DSV),
       Some(false),
+      Some(false),
+      Some(false),
       Some(";"),
       Some("\""),
       Some("\\"),

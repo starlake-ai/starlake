@@ -82,7 +82,7 @@ class DsvIngestionJob(val domain: Domain, val schema: Schema, val types: List[Ty
       .option("escape", metadata.getEscape())
       .option("parserLib", "UNIVOCITY")
       .csv(path.toString)
-    df.show()
+    df.printSchema()
     metadata.withHeader match {
       case Some(true) =>
         val datasetHeaders: List[String] = df.columns.toList.map(cleanHeaderCol)
@@ -184,7 +184,7 @@ object DsvIngestionUtil {
   def validate(session: SparkSession, dataset: DataFrame, attributes: List[Attribute], dateFormat: String, timeFormat: String, types: List[Type], sparkType: StructType): (RDD[String], RDD[Row]) = {
     val now = Timestamp.from(Instant.now)
     val rdds = dataset.rdd
-    dataset.show()
+    dataset.printSchema()
     val checkedRDD: RDD[RowResult] = dataset.rdd.mapPartitions { partition =>
       partition.map { row: Row =>
         val rowCols = row.toSeq.zip(attributes).map {

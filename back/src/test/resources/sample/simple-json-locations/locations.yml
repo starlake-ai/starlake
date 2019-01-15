@@ -1,0 +1,31 @@
+---
+name: "locations"
+directory: "/tmp"
+metadata:
+  mode: "FILE"
+  format: "SIMPLE_JSON"
+  multiline: true
+  array: true
+  withHeader: true
+  separator: ""
+  quote: "\""
+  escape: "\\"
+  write: "APPEND"
+  dateFormat: "yyyy-MM-dd"
+  timestampFormat: "yyyy-MM-dd HH:mm:ss"
+  partition:
+    - comet_year
+    - comet_month
+    - comet_day
+schemas:
+  - name: "locations"
+    pattern: "locations.*"
+    attributes:
+      - name: "id"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "name"
+        type: "string"
+        required: false
+        privacy: "NONE"

@@ -30,7 +30,7 @@ class JsonIngestionJob(val domain: Domain, val schema: Schema, val types: List[T
     val df = session.read.format("com.databricks.spark.csv")
       .option("inferSchema", value = false)
       .text(path.toString)
-    df.show()
+    df.printSchema()
     df
   }
 
@@ -43,7 +43,7 @@ class JsonIngestionJob(val domain: Domain, val schema: Schema, val types: List[T
     */
   def ingest(dataset: DataFrame): Unit = {
     val rdd = dataset.rdd
-    dataset.show()
+    dataset.printSchema()
     val checkedRDD = JsonUtil.parseRDD(rdd, schemaSparkType).cache()
     val acceptedRDD: RDD[String] = checkedRDD.filter(_.isRight).map(_.right.get)
     val rejectedRDD: RDD[String] = checkedRDD.filter(_.isLeft).map(_.left.get.mkString("\n"))
