@@ -74,9 +74,9 @@ object JsonUtil {
     (schemaType._2, datasetType._2) match {
       case (t1, t2) if t1 == t2 => Nil
       case (_, NullType) if schemaTypeNullable => Nil
+      case (_: IntegralType, _: IntegralType) => Nil
       case (_: FractionalType, _: IntegralType) => Nil
-      case (_: DecimalType, _: IntegralType) => Nil
-      case (_: DecimalType, _: FractionalType) => Nil
+      case (_: FractionalType, _: FractionalType) => Nil
       case (_: DecimalType, _: DecimalType) => Nil
       case (_: TimestampType, _: DateType) | (_: DateType, _: TimestampType) => Nil
       case (_: StringType, _: StringType) => Nil
