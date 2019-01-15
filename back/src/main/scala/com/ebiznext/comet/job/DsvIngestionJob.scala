@@ -3,7 +3,7 @@ package com.ebiznext.comet.job
 import java.sql.Timestamp
 import java.time.Instant
 
-import com.ebiznext.comet.config.{DatasetArea, HiveArea, Settings}
+import com.ebiznext.comet.config.{DatasetArea, HiveArea}
 import com.ebiznext.comet.schema.handlers.StorageHandler
 import com.ebiznext.comet.schema.model.Rejection.{ColInfo, ColResult, RowInfo, RowResult}
 import com.ebiznext.comet.schema.model._
@@ -25,7 +25,7 @@ import scala.util.{Failure, Success, Try}
   * @param path           : Input dataset path
   * @param storageHandler : Storage Handler
   */
-class DsvJob(domain: Domain, schema: Schema, types: List[Type], path: Path, storageHandler: StorageHandler) extends SparkJob {
+class DsvJob(val domain: Domain, val schema: Schema, val types: List[Type], val path: Path, storageHandler: StorageHandler) extends IngestionJob {
   /**
     *
     * @return Spark Job name
@@ -132,10 +132,8 @@ class DsvJob(domain: Domain, schema: Schema, types: List[Type], path: Path, stor
     *
     * @param dataset : Spark Dataset
     */
-  private def validate(dataset: DataFrame)
-
-  = {
-    val (rejectedRDD, acceptedRDD) = DsvIngestTask.validate(session, dataset, this.schema.attributes, metadata.getDateFormat(), metadata.getTimestampFormat(), schemaTypes, sparkType)
+  private def validate(dataset: DataFrame) = {
+    val (rejectedRDD, acceptedRDD) = DsvUtil.validate(session, dataset, this.schema.attributes, metadata.getDateFormat(), metadata.getTimestampFormat(), schemaTypes, sparkType)
     logger.whenInfoEnabled {
       val inputCount = dataset.count()
       val acceptedCount = acceptedRDD.count()
@@ -143,11 +141,12 @@ class DsvJob(domain: Domain, schema: Schema, types: List[Type], path: Path, stor
       val inputFiles = dataset.inputFiles.mkString(",")
       logger.info(s"ingestion-summary -> files: [$inputFiles], input: $inputCount, accepted: $acceptedCount, rejected:$rejectedCount")
     }
+    saveRejected(rejectedRDD)
+    saveAccepted(acceptedRDD)
+  }
+
+  def saveAccepted(acceptedRDD: RDD[Row]) = {
     val writeMode = metadata.getWrite()
-
-    val rejectedPath = new Path(DatasetArea.rejected(domain.name), schema.name)
-    saveRows(session.createDataFrame(rejectedRDD), rejectedPath, writeMode, HiveArea.rejected)
-
     val acceptedPath = new Path(DatasetArea.accepted(domain.name), schema.name)
     val renamedAttributes = schema.renamedAttributes().toMap
     logger.whenInfoEnabled {
@@ -162,68 +161,13 @@ class DsvJob(domain: Domain, schema: Schema, types: List[Type], path: Path, stor
     saveRows(acceptedDF.select(cols: _*), acceptedPath, writeMode, HiveArea.accepted)
   }
 
-
-  /**
-    * Save typed dataset in parquet. If hive support is active, also register it as a Hive Table and if analyze is active, also compute basic statistics
-    *
-    * @param dataset    : dataset to save
-    * @param targetPath : absolute path
-    * @param writeMode  : Append or overwrite
-    * @param area       : accpeted or rejected area
-    */
-  def saveRows(dataset: DataFrame, targetPath: Path, writeMode: Write, area: HiveArea): Unit = {
-    val count = dataset.count()
-    val saveMode = writeMode.toSaveMode
-    val hiveDB = HiveArea.area(domain.name, area)
-    val tableName = schema.name
-    val fullTableName = s"$hiveDB.$tableName"
-    if (Settings.comet.hive) {
-      logger.info(s"DSV Output $count records to Hive table $hiveDB/$tableName($saveMode) at $targetPath")
-      val dbComment = domain.comment.getOrElse("")
-      session.sql(s"create database if not exists $hiveDB comment '$dbComment'")
-      session.sql(s"use $hiveDB")
-      session.sql(s"drop table if exists $hiveDB.$tableName")
-    }
-
-    val partitionedDF = partitionedDatasetWriter(dataset, metadata.partition.getOrElse(Nil))
-
-    val targetDataset = partitionedDF.mode(saveMode).format("parquet").option("path", targetPath.toString)
-    if (Settings.comet.hive) {
-      targetDataset.saveAsTable(fullTableName)
-      val tableComment = schema.comment.getOrElse("")
-      session.sql(s"ALTER TABLE $fullTableName SET TBLPROPERTIES ('comment' = '$tableComment')")
-      if (Settings.comet.analyze) {
-        val allCols = session.table(fullTableName).columns.mkString(",")
-        val analyzeTable = s"ANALYZE TABLE $fullTableName COMPUTE STATISTICS FOR COLUMNS $allCols"
-        if (session.version.substring(0, 3).toDouble >= 2.4)
-          session.sql(analyzeTable)
-      }
-    }
-    else {
-      targetDataset.save()
-    }
-  }
-
-
-  /**
-    * Main entry point as required by the Spark Job interface
-    *
-    * @param args : arbitrary list of arguments
-    * @return : Spark Session used for the job
-    */
-  def run(args: Array[String]): SparkSession = {
-    schema.presql.getOrElse(Nil).foreach(session.sql)
-    validate(loadDataSet())
-    schema.postsql.getOrElse(Nil).foreach(session.sql)
-    session
-  }
 }
 
 
 /**
   * The Spark task that run on each worker
   */
-object DsvIngestTask {
+object DsvUtil {
   /**
     * For each col of each row
     *   - we extract the col value / the col constraints / col type
@@ -241,7 +185,7 @@ object DsvIngestTask {
     * @param sparkType  : The expected Spark Type for valid rows
     * @return Two RDDs : One RDD for rejected rows and one RDD for accepted rows
     */
-  def validate(session: SparkSession, dataset: DataFrame, attributes: List[Attribute], dateFormat: String, timeFormat: String, types: List[Type], sparkType: StructType): (RDD[RowInfo], RDD[Row]) = {
+  def validate(session: SparkSession, dataset: DataFrame, attributes: List[Attribute], dateFormat: String, timeFormat: String, types: List[Type], sparkType: StructType): (RDD[String], RDD[Row]) = {
     val now = Timestamp.from(Instant.now)
     val rdds = dataset.rdd
     dataset.show()
@@ -291,7 +235,7 @@ object DsvIngestTask {
       }
     } cache()
 
-    val rejectedRDD: RDD[RowInfo] = checkedRDD.filter(_.isRejected).map(rr => RowInfo(now, rr.colResults.map(_.colInfo)))
+    val rejectedRDD: RDD[String] = checkedRDD.filter(_.isRejected).map(rr => RowInfo(now, rr.colResults.map(_.colInfo)).toString)
 
     val acceptedRDD: RDD[Row] = checkedRDD.filter(_.isAccepted).map { rowResult =>
       val sparkValues: List[Any] = rowResult.colResults.map(_.sparkValue)
