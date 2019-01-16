@@ -4,7 +4,7 @@ import scala.collection.mutable
 
 package object model {
   /**
-    * Utility tp extract duplicates and their number of occurrences
+    * Utility to extract duplicates and their number of occurrences
     *
     * @param values       : Liste of strings
     * @param errorMessage : Error Message that should contains placeholders for the value(%s) and number of occurrences (%d)

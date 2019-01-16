@@ -16,7 +16,7 @@ import org.apache.hadoop.fs.Path
   *   -loadPending :
   *     files recognized with filename patterns are stored in the ingesting area and submitted for ingestion
   *     files with unrecognized filename patterns are stored in the unresolved area
-  *   - ingest : files are finllyand ingested and save as parquet files and hive tables
+  *   - ingest : files are finally ingested and saved as parquet files and hive tables
   *
   * @param storageHandler : Minimum set of features required for the underlying filesystem
   * @param schemaHandler : Schema interface
