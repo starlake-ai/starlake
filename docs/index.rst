@@ -9,4 +9,5 @@ Welcome to Comet data pipeline's documentation!
 .. toctree::
    :maxdepth: 2
 
+   contribute
    contribute-docs
