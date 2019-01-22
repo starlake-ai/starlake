@@ -1,8 +1,8 @@
 package com.ebiznext.comet.schema.model
 
 import java.sql.Timestamp
+import java.time._
 import java.time.temporal.TemporalAccessor
-import java.time.{Instant, LocalDateTime, ZoneId, ZonedDateTime}
 
 import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.databind.annotation.{JsonDeserialize, JsonSerialize}
@@ -99,17 +99,25 @@ object PrimitiveType {
 
   private def instantFromString(str: String, format: String): Instant = {
     import java.time.format.DateTimeFormatter
-    val formatter = DateTimeFormatter.ofPattern(format)
-    val dateTime: TemporalAccessor = formatter.parse(str)
-    Try(Instant.from(dateTime)) match {
-      case Success(instant) =>
-        instant
+    format match {
+      case "epoch_second" =>
+        Instant.ofEpochSecond(str.toLong)
+      case "epoch_milli" =>
+        Instant.ofEpochMilli(str.toLong)
+      case _ =>
+        val formatter = DateTimeFormatter.ofPattern(format)
+        val dateTime: TemporalAccessor = formatter.parse(str)
+        Try(Instant.from(dateTime)) match {
+          case Success(instant) =>
+            instant
 
-      case Failure(ex) =>
-        val localDateTime = LocalDateTime.from(dateTime)
-        ZonedDateTime.of(localDateTime, ZoneId.systemDefault()).toInstant
+          case Failure(_) =>
+            val localDateTime = LocalDateTime.from(dateTime)
+            ZonedDateTime.of(localDateTime, ZoneId.systemDefault()).toInstant
+        }
     }
   }
+
 
   object date extends PrimitiveType("date") {
     def fromString(str: String, dateFormat: String, timeFormat: String): Any = {
