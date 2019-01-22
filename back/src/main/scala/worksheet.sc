@@ -4,6 +4,12 @@ import java.util.regex.Pattern
 
 System.getenv("HIVE_HOME")
 
+val p0 = Pattern.compile("(?i)true|false|yes|no|[yn01]")
+p0.matcher("TruE").matches()
+
+val p01 = Pattern.compile(".")
+p01.matcher("X").matches()
+
 
 val p1 = Pattern.compile("a*b")
 p1.matcher("aaab").matches()
