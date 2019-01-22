@@ -27,7 +27,7 @@ The main advantages of the Comet Data Pipeline project are :
 
 
 How it works
-============
+------------
 
 Comet Data Pipeline automates the loading and parsing of files and
 their ingestion into a Hadoop Datalake where datasets become
