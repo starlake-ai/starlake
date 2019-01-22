@@ -13,7 +13,8 @@ Getting started with Comet Data Pipeline:
 
    start_introduction
    start_quickstart
-   start_architecture
+   start_complete
+   contribute-docs
 
 Install Guide:
 
@@ -23,7 +24,6 @@ Install Guide:
    install_overview
    install_install
    install_configure
-   install_architecture
 
 Administration Guide:
 
