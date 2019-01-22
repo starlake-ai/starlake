@@ -17,7 +17,8 @@ On debian like:
 
     apt-get install python-pip \
                     python-setuptools \
-                    plantuml
+                    plantuml \
+                    python-sphinx
 
 This documentation can be rendered on your side by following these steps:
  - *cd <COMET_APP_HOME>/docs*
