@@ -16,6 +16,7 @@ import scala.collection.mutable
   * @param privacy    : Shoudl this attribute be applied a privacy transformaiton at ingestion time
   * @param comment    : free text for attribute description
   * @param rename     : If present, the attribute is renamed with this name
+  * @param stat       : If present, what kind of stat should be computed for this field
   * @param attributes : List of sub-attributes
   */
 case class Attribute(name: String,
@@ -25,6 +26,7 @@ case class Attribute(name: String,
                      privacy: PrivacyLevel = PrivacyLevel.NONE,
                      comment: Option[String] = None,
                      rename: Option[String] = None,
+                     stat: Option[Stat] = None,
                      attributes: Option[List[Attribute]] = None
                     ) {
 
