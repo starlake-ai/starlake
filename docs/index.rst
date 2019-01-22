@@ -14,14 +14,12 @@ Getting started with Comet Data Pipeline:
    start_introduction
    start_quickstart
    start_complete
-   contribute-docs
 
 Install Guide:
 
 .. toctree::
    :maxdepth: 2
 
-   install_overview
    install_install
    install_configure
 
@@ -39,8 +37,5 @@ Developers Guide:
    :maxdepth: 2
 
    dev_contribute
-   dev_workflow
-   dev_build_install
-   dev_ideas
 
 
