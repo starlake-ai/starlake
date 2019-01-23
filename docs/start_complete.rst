@@ -475,4 +475,4 @@ Below, he complete domain definition files.
 
 
 
-With the types catalog and file schemas defined we are ready to ingest  
+With the types catalog and file schemas defined we are ready to ingest
