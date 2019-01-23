@@ -15,6 +15,8 @@ trait StorageHandler {
 
   def delete(path: Path)
 
+  def exist(path: Path) : Boolean
+
   def mkdirs(path: Path)
 
   def copyFromLocal(source: Path, dest: Path): Unit
@@ -137,5 +139,11 @@ class HdfsStorageHandler extends StorageHandler {
     val conf = new Configuration()
     val fs = FileSystem.get(conf)
     fs.moveFromLocalFile(source, dest)
+  }
+
+  override def exist(path: Path): Boolean = {
+    val conf = new Configuration()
+    val fs = FileSystem.get(conf)
+    fs.exists(path)
   }
 }
