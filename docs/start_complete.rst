@@ -25,9 +25,9 @@ as CSV  files. Below is an extract of these files.
 .. code-block:: text
 
  
- order_id|customer_id|amount|seller_id
- 12345|A009701|123.65|AQZERD
- 56432|B308629|23.8|AQZERD
+ order_id,customer_id,amount,seller_id
+ 12345,A009701,123.65,AQZERD
+ 56432,B308629,23.8,AQZERD
 
 .. note::
  Before sending the files, the "sales" department zip all its files
@@ -40,10 +40,33 @@ The sellers dataset is sent as JSON array by the HR department.
 .. code-block:: json
 
  [
-     { "id":"AQZERD", "seller_email":"me@acme.com" },
-     { "id":"TYUEZG", "seller_email":"acme.com" }
+     { "id":"AQZERD", "seller_email":"me@acme.com", "location_id": 1},
+     { "id":"TYUEZG", "seller_email":"acme.com","location_id": 2 }
 
  ]
+
+``File locations-2018-05-10.json from the HR department``
+
+.. code-block:: json
+
+    {
+        "id":1,
+        "address": {
+            "city":"Paris",
+            "stores": ["Store 1", "Store 2", "Store 3"]
+            "country":"France"
+        }
+    }
+    {
+        "id":2,
+        "address": {
+            "city":"Berlin",
+            "country":"Germany"
+        }
+    }
+
+
+
 
 .. note::
  the HR department does not zip its files. It simply copy them into the
@@ -232,6 +255,8 @@ we need to add schema definitions to the domain description file,
 aka $COMET_METADATA/domains/sales.yml.
 
 
+You can define only one domain per YAML domain definition file.
+
 Schema Rules
 ~~~~~~~~~~~~
 
@@ -255,8 +280,8 @@ First, we add the schema definition to the "customer" file in the domain definit
       - "csv"
       - "dsv"
     schema:
-      - name: "customer"
-        pattern: "customer-.*.dsv"
+      - name: "customers"
+        pattern: "customers-.*.dsv"
         metadata:
           mode: "FILE"
           format: "DSV"
@@ -307,6 +332,16 @@ The schema section in the YAML above should be read as follows :
    metadata.quote, How are string delimited
    metadata.escape, How are characters escaped
    metadata.write, Should we APPEND or OVERWRITE existing data in the HDFS cluster
+   metadata.multiline, "Are JSON objects on multiple line. Used when format is JSON or SIMPLE_JSON. This slow down parsing"
+   metadata.array, "Should we treat the file as an array of objects. Used  when format is JSON or SIMPLE_JSON"
+
+
+.. note::
+   Simple JSON are JSON with top level attributes of basic types only. JSON may be used wherever
+   you use SIMPLE_JSON but SIMPLE_JSON will make parsing much faster.
+
+Metadata properties may also be defined at the domain level. They will be inherited by all schemas of the domain.
+Any metadata property may be redefined at the attribute level.
 
 Each field in the input file is defined using by its name, type and privacy level.
 When a header is present, fields do not need to be ordered, since Comet uses the field name.
@@ -323,3 +358,121 @@ The attributes section in the YAML above should be read as follows :
    privacy, "How should this field be protected. Valid values are NONE, HIDE, MD5, SHA1, SHA256, SHA512, AES(not impemented)"
    rename, "When header is present, this is the new field name in the ingested dataset"
    stat, "When statistics generation is requested, should this field be treated as continous, discrete or text value ? Valid values are CONTINUOUS, DISCRETE, TEXT, NONE"
+   array, "true when this attribute is an array, false by default"
+
+
+Below, he complete domain definition files.
+
+``File $COMET_METADATA/domains/sales.yml``
+
+.. code-block:: yaml
+
+    name: "sales"
+    directory: "/mnt/incoming/sales"
+    metadata:
+      mode: "FILE"
+      format: "DSV"
+      withHeader: true
+      quote: "\""
+      escape: "\\"
+      write: "APPEND"
+    schema:
+      - name: "customers"
+        pattern: "customers-.*.dsv"
+        metadata:
+          separator: "|"
+        attributes:
+          - name: "id"
+            type: "string"
+            required: true
+          - name: "signup"
+            type: "datetime"
+            required: false
+          - name: "contact"
+            type: "email"
+            required: false
+          - name: "name1"
+            type: "string"
+            required: false
+            rename: "firstname"
+          - name: "name2"
+            type: "string"
+            required: false
+            rename: "lastname"
+          - name: "birthdate"
+            type: "date"
+            required: false
+            privacy: "HIDE"
+      - name: "orders"
+        pattern: "orders-.*.dsv"
+        metadata:
+          separator: "|"
+        attributes:
+          - name: "order_id"
+            type: "string"
+            required: true
+            rename: "id"
+          - name: "customer_id"
+            type: "string"
+            required: false
+          - name: "amount"
+            type: "decimal"
+            required: false
+          - name: "seller_id"
+            type: "string"
+            required: false
+
+
+
+``File $COMET_METADATA/domains/hr.yml``
+
+.. code-block:: yaml
+
+    name: "hr"
+    directory: "/mnt/incoming/hr"
+    metadata:
+      mode: "FILE"
+      write: "APPEND"
+    schema:
+      - name: "sellers"
+        pattern: "sellers-.*.dsv"
+        metadata:
+          array: true
+          format: "SIMPLE_JSON"
+        attributes:
+          - name: "id"
+            type: "string"
+            required: true
+          - name: "seller_email"
+            type: "email"
+            required: true
+          - name: "location_id"
+            type: "int"
+            required: true
+      - name: "locations"
+        pattern: "locations-.*.dsv"
+        metadata:
+          format: "JSON"
+          multiline: true
+        attributes:
+          - name: "id"
+            type: "string"
+            required: true
+          - name: "address"
+            type: "struct"
+            required: true
+            attributes:
+              - name: "city"
+                type: "string"
+                required: true
+              - name: "stores"
+                type: "string"
+                array: true
+                required: false
+              - name: "country"
+                type: "string"
+                required: true
+
+
+
+With the types catalog and file schemas defined we are ready to ingest  
