@@ -11,7 +11,7 @@ import org.apache.hadoop.fs._
   */
 trait StorageHandler {
 
-  def move(path: Path, path1: Path): Boolean
+  def move(src: Path, dst: Path): Boolean
 
   def delete(path: Path)
 
