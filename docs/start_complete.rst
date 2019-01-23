@@ -16,7 +16,7 @@ as CSV  files. Below is an extract of these files.
 
 .. code-block:: text
 
- id|signup|email|birthdate|name1|name2
+ id|signup|contact|birthdate|name1|name2
  A009701|2010-01-31 23:04:15|me@home.com|1980-10-14|Donald|Obama
  B308629|2016-12-01 09:56:02|you@land.com|1980-10-14|Barack|Trump
 
@@ -237,12 +237,58 @@ Schema Rules
 
 A schema is associated to an incoming file if the filename matches the pattern
 defined in the schema.
-The schema hold the parsing rules through metadata decribing the file format
+The schema hold the parsing rules through metadata describing the file format
 and type mapping rules for each attribute.
 
+First, we add the schema definition to the "customer" file in the domain definition file
 
+``File $COMET_METADATA/domains/sales.yml``
 
+.. code-block:: yaml
 
-
-
-
+    name: "sales"
+    directory: "/mnt/incoming/sales"
+    ack: "ack"
+    extensions:
+      - "json"
+      - "psv"
+      - "csv"
+      - "dsv"
+    schema:
+      - name: "customer"
+        pattern: "customer-.*.dsv"
+        metadata:
+          mode: "FILE"
+          format: "DSV"
+          withHeader: true
+          separator: "|"
+          quote: "\""
+          escape: "\\"
+          write: "APPEND"
+        attributes:
+          - name: "id"
+            type: "string"
+            required: true
+            privacy: "NONE"
+          - name: "signup"
+            type: "datetime"
+            required: false
+            privacy: "NONE"
+          - name: "contact"
+            type: "email"
+            required: false
+            privacy: "NONE"
+          - name: "name1"
+            type: "string"
+            required: false
+            privacy: "NONE"
+            rename: "firstname"
+          - name: "name2"
+            type: "string"
+            required: false
+            privacy: "NONE"
+            rename: "lastname"
+          - name: "birthdate"
+            type: "date"
+            required: false
+            privacy: "HIDE"
