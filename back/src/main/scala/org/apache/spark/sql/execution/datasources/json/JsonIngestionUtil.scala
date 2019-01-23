@@ -50,7 +50,7 @@ import scala.util.{Failure, Success, Try}
   *
   *
   */
-object JsonUtil {
+object JsonIngestionUtil {
   private[this] val structFieldComparator = new Comparator[StructField] {
     override def compare(o1: StructField, o2: StructField): Int = {
       o1.name.compare(o2.name)
@@ -315,7 +315,7 @@ object JsonUtil {
     Try {
       Utils.withResources(factory.createParser(content)) { parser =>
         parser.nextToken()
-        JsonUtil.inferSchema(parser)
+        JsonIngestionUtil.inferSchema(parser)
       }
     }
   }
