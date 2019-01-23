@@ -71,18 +71,19 @@ trait SampleData {
       Some(";"),
       Some("\""),
       Some("\\"),
-      Some(Write.APPEND),
+      Some(WriteMode.APPEND),
       None,
       Some("yyyy-MM-dd"),
       Some("yyyy-MM-dd HH:mm:ss"))),
     List(
       Schema("User", Pattern.compile("SCHEMA-.*.dsv"),
         List(
-          Attribute("firstname", "string", false, false, PrivacyLevel.NONE),
-          Attribute("lastname", "string", false, false, PrivacyLevel.SHA1),
-          Attribute("age", "age", false, false, PrivacyLevel.HIDE)
+          Attribute("firstname", "string", Some(false), false, Some(PrivacyLevel.NONE)),
+          Attribute("lastname", "string", Some(false), false, Some(PrivacyLevel.SHA1)),
+          Attribute("age", "age", Some(false), false, Some(PrivacyLevel.HIDE))
         ),
         Some(Metadata(withHeader = Some(true))),
+        None,
         Some("Schema Comment"),
         Some(List("SQL1", "SQL2")),
         None
