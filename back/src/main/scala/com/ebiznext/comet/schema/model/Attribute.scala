@@ -20,9 +20,9 @@ import scala.collection.mutable
   */
 case class Attribute(name: String,
                      `type`: String = "string",
-                     array: Boolean = false,
+                     array: Option[Boolean] = None,
                      required: Boolean = true,
-                     privacy: PrivacyLevel = PrivacyLevel.NONE,
+                     privacy: Option[PrivacyLevel] = None,
                      comment: Option[String] = None,
                      rename: Option[String] = None,
                      attributes: Option[List[Attribute]] = None
@@ -53,7 +53,7 @@ case class Attribute(name: String,
 
     val primitiveType = types.find(_.name == `type`).map(_.primitiveType)
     primitiveType match {
-      case Some(tpe) if tpe != PrimitiveType.string && privacy != PrivacyLevel.NONE =>
+      case Some(tpe) if tpe != PrimitiveType.string && getPrivacy() != PrivacyLevel.NONE =>
         errorList += s"Attribute $this : string is the only supported primitive type for an attribute when privacy is requested"
       case Some(tpe) if tpe == PrimitiveType.struct && attributes.isEmpty =>
         errorList += s"Attribute $this : Struct types have at least one attribute."
@@ -78,7 +78,7 @@ case class Attribute(name: String,
     */
   def primitiveSparkType(types: Types): DataType = {
     types.types.find(_.name == `type`).map(_.primitiveType).map { tpe =>
-      if (array)
+    if (isArray())
         ArrayType(tpe.sparkType, !required)
       else
         tpe.sparkType
@@ -99,7 +99,7 @@ case class Attribute(name: String,
           val fields = attrs.map { attr =>
             StructField(attr.name, attr.sparkType(types), !attr.required)
           }
-          if (array)
+          if (isArray())
             ArrayType(StructType(fields))
           else
             StructType(fields)
@@ -113,4 +113,6 @@ case class Attribute(name: String,
     * @return renamed column if defined, source name otherwise
     */
   def getFinalName(): String = rename.getOrElse(name)
+  def getPrivacy() : PrivacyLevel = this.privacy.getOrElse(PrivacyLevel.NONE)
+  def isArray(): Boolean = this.array.getOrElse(false)
 }

@@ -1,6 +1,6 @@
 package com.ebiznext.comet.schema.model
 
-import com.ebiznext.comet.schema.model.Write.{APPEND, ERROR_IF_EXISTS, IGNORE, OVERWRITE}
+import com.ebiznext.comet.schema.model.WriteMode.{APPEND, ERROR_IF_EXISTS, IGNORE, OVERWRITE}
 import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.databind.annotation.{JsonDeserialize, JsonSerialize}
 import com.fasterxml.jackson.databind.ser.std.ToStringSerializer
@@ -16,7 +16,7 @@ import org.apache.spark.sql.SaveMode
   */
 @JsonSerialize(using = classOf[ToStringSerializer])
 @JsonDeserialize(using = classOf[WriteDeserializer])
-sealed case class Write(value: String) {
+sealed case class WriteMode(value: String) {
   override def toString: String = value
 
   def toSaveMode: SaveMode = {
@@ -31,31 +31,31 @@ sealed case class Write(value: String) {
   }
 }
 
-object Write {
-  def fromString(value: String): Write = {
+object WriteMode {
+  def fromString(value: String): WriteMode = {
     value.toUpperCase() match {
-      case "OVERWRITE" => Write.OVERWRITE
-      case "APPEND" => Write.APPEND
-      case "ERROR_IF_EXISTS" => Write.ERROR_IF_EXISTS
-      case "IGNORE" => Write.IGNORE
+      case "OVERWRITE" => WriteMode.OVERWRITE
+      case "APPEND" => WriteMode.APPEND
+      case "ERROR_IF_EXISTS" => WriteMode.ERROR_IF_EXISTS
+      case "IGNORE" => WriteMode.IGNORE
     }
   }
 
-  object OVERWRITE extends Write("OVERWRITE")
+  object OVERWRITE extends WriteMode("OVERWRITE")
 
-  object APPEND extends Write("APPEND")
+  object APPEND extends WriteMode("APPEND")
 
-  object ERROR_IF_EXISTS extends Write("ERROR_IF_EXISTS")
+  object ERROR_IF_EXISTS extends WriteMode("ERROR_IF_EXISTS")
 
-  object IGNORE extends Write("IGNORE")
+  object IGNORE extends WriteMode("IGNORE")
 
-  val writes: Set[Write] = Set(OVERWRITE, APPEND, ERROR_IF_EXISTS, IGNORE)
+  val writes: Set[WriteMode] = Set(OVERWRITE, APPEND, ERROR_IF_EXISTS, IGNORE)
 }
 
-class WriteDeserializer extends JsonDeserializer[Write] {
-  override def deserialize(jp: JsonParser, ctx: DeserializationContext): Write = {
+class WriteDeserializer extends JsonDeserializer[WriteMode] {
+  override def deserialize(jp: JsonParser, ctx: DeserializationContext): WriteMode = {
     val value = jp.readValueAs[String](classOf[String])
-    Write.fromString(value)
+    WriteMode.fromString(value)
   }
 }
 
