@@ -23,7 +23,7 @@ case class Types(types: List[Type]) {
   * @param pattern       : Pattern use to check that the input data matches the pattern
   * @param primitiveType : Spark Column Type of the attribute
   */
-case class Type(name: String, pattern: Pattern, primitiveType: PrimitiveType = PrimitiveType.string) {
+case class Type(name: String, pattern: Pattern, primitiveType: PrimitiveType = PrimitiveType.string, sample : Option[String] = None, comment:Option[String] = None) {
   def matches(value: String): Boolean = {
     pattern.matcher(name).matches()
   }

@@ -20,11 +20,25 @@ class SchemaHandler(storage: StorageHandler) {
 
   /**
     * All defined types.
+    * Load all default types defined in the file default.yml
     * Types are located in the only file "types.yml"
+    * Types redefined in the file "types.yml" supersede the ones in "default.yml"
     */
   lazy val types: List[Type] = {
-    val typesPath = new Path(DatasetArea.types, "types.yml")
-    mapper.readValue(storage.read(typesPath), classOf[Types]).types
+    def loadTypes(filename: String): List[Type] = {
+      val typesPath = new Path(DatasetArea.types, filename)
+      if (storage.exist(typesPath))
+        mapper.readValue(storage.read(typesPath), classOf[Types]).types
+      else
+        List.empty[Type]
+    }
+
+    val defaultTypes = loadTypes("default.yml")
+    val types = loadTypes("types.yml")
+
+    val redefinedTypeNames = defaultTypes.map(_.name).intersect(types.map(_.name))
+
+    defaultTypes.filter(defaultType => !redefinedTypeNames.contains(defaultType.name)) ++ types
   }
 
   /**
