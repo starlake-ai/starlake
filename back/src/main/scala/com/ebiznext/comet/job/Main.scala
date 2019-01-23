@@ -62,19 +62,7 @@ object Main extends StrictLogging {
   def main(args: Array[String]) = {
     val storageHandler = new HdfsStorageHandler
     val schemaHandler = new SchemaHandler(storageHandler)
-
-    val job = new SparkJob {
-      override def name: String = "TEST"
-
-      override def run(args: Array[String]): SparkSession = {
-        session.read.parquet("/tmp/datasets/accepted/sales/orders/").show(1000, false)
-        session
-      }
-    }
-    Try(job.run(null))
     DatasetArea.init(storageHandler)
-
-    val sh = new HdfsStorageHandler
 
     DatasetArea.initDomains(storageHandler, schemaHandler.domains.map(_.name))
 
