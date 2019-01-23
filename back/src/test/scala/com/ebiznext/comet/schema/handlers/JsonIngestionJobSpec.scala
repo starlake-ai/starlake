@@ -6,7 +6,7 @@ import com.ebiznext.comet.config.DatasetArea
 import com.ebiznext.comet.sample.SampleData
 import com.ebiznext.comet.workflow.DatasetWorkflow
 import org.apache.hadoop.fs.Path
-import org.apache.spark.sql.execution.datasources.json.JsonUtil
+import org.apache.spark.sql.execution.datasources.json.JsonIngestionUtil
 import org.scalatest.{FlatSpec, Matchers}
 
 class JsonIngestionJobSpec extends FlatSpec with Matchers with SampleData {
@@ -38,15 +38,15 @@ class JsonIngestionJobSpec extends FlatSpec with Matchers with SampleData {
         |}
       """.stripMargin
 
-    val res1 = JsonUtil.parseString(json)
-    val res2 = JsonUtil.parseString(json)
+    val res1 = JsonIngestionUtil.parseString(json)
+    val res2 = JsonIngestionUtil.parseString(json)
     println(res1.toString)
     val res = for {
       t1 <- res1
       t2 <- res2
 
     } yield {
-      JsonUtil.compareTypes(Nil, ("root", t1, true), ("root", t2, true))
+      JsonIngestionUtil.compareTypes(Nil, ("root", t1, true), ("root", t2, true))
     }
     println(res)
   }
@@ -68,8 +68,8 @@ class JsonIngestionJobSpec extends FlatSpec with Matchers with SampleData {
         |}
       """.stripMargin
 
-    val res1 = JsonUtil.parseString(json1)
-    val res2 = JsonUtil.parseString(json2)
+    val res1 = JsonIngestionUtil.parseString(json1)
+    val res2 = JsonIngestionUtil.parseString(json2)
     println(res1)
     println(res2)
     println(res1.toString)
@@ -78,7 +78,7 @@ class JsonIngestionJobSpec extends FlatSpec with Matchers with SampleData {
       t2 <- res2
 
     } yield {
-      JsonUtil.compareTypes(Nil, ("root", t1, true), ("root", t2, true))
+      JsonIngestionUtil.compareTypes(Nil, ("root", t1, true), ("root", t2, true))
     }
     println(res)
   }
@@ -108,8 +108,8 @@ class JsonIngestionJobSpec extends FlatSpec with Matchers with SampleData {
         |}
       """.stripMargin
 
-    val res1 = JsonUtil.parseString(json1)
-    val res2 = JsonUtil.parseString(json2)
+    val res1 = JsonIngestionUtil.parseString(json1)
+    val res2 = JsonIngestionUtil.parseString(json2)
     println(res1)
     println(res2)
     println(res1.toString)
@@ -118,7 +118,7 @@ class JsonIngestionJobSpec extends FlatSpec with Matchers with SampleData {
       t2 <- res2
 
     } yield {
-      JsonUtil.compareTypes(Nil, ("root", t1, true), ("root", t2, true))
+      JsonIngestionUtil.compareTypes(Nil, ("root", t1, true), ("root", t2, true))
     }
     println(res)
   }

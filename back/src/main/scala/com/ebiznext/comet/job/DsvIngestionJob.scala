@@ -3,7 +3,6 @@ package com.ebiznext.comet.job
 import java.sql.Timestamp
 import java.time.Instant
 
-import com.ebiznext.comet.config.{DatasetArea, HiveArea}
 import com.ebiznext.comet.schema.handlers.StorageHandler
 import com.ebiznext.comet.schema.model.Rejection.{ColInfo, ColResult, RowInfo, RowResult}
 import com.ebiznext.comet.schema.model._
@@ -25,7 +24,7 @@ import scala.util.{Failure, Success, Try}
   * @param path           : Input dataset path
   * @param storageHandler : Storage Handler
   */
-class DsvIngestionJob(val domain: Domain, val schema: Schema, val types: List[Type], val path: Path, storageHandler: StorageHandler) extends IngestionJob {
+class DsvIngestionJob(val domain: Domain, val schema: Schema, val types: List[Type], val path: Path, val storageHandler: StorageHandler) extends IngestionJob {
   /**
     *
     * @return Spark Job name
@@ -142,8 +141,6 @@ class DsvIngestionJob(val domain: Domain, val schema: Schema, val types: List[Ty
   }
 
   def saveAccepted(acceptedRDD: RDD[Row]) = {
-    val writeMode = metadata.getWrite()
-    val acceptedPath = new Path(DatasetArea.accepted(domain.name), schema.name)
     val renamedAttributes = schema.renamedAttributes().toMap
     logger.whenInfoEnabled {
       renamedAttributes.foreach { case (name, rename) =>
@@ -154,7 +151,7 @@ class DsvIngestionJob(val domain: Domain, val schema: Schema, val types: List[Ty
     val cols = acceptedDF.columns.map { column =>
       org.apache.spark.sql.functions.col(column).as(renamedAttributes.getOrElse(column, column))
     }
-    saveRows(acceptedDF.select(cols: _*), acceptedPath, writeMode, HiveArea.accepted)
+    super.saveAccepted(acceptedDF.select(cols: _*))
   }
 
 }
@@ -195,7 +192,7 @@ object DsvIngestionUtil {
             val validNumberOfColumns = attributes.length <= rowCols.length
             val optionalColIsEmpty = !colAttribute.required && colValue.isEmpty
             val colPatternIsValid = tpe.pattern.matcher(colValue).matches()
-            val privacy = colAttribute.privacy match {
+            val privacy = colAttribute.getPrivacy() match {
               case PrivacyLevel.NONE =>
                 colValue
               case PrivacyLevel.HIDE =>
