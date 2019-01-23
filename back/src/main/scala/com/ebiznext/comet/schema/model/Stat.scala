@@ -22,6 +22,7 @@ object Stat {
       case "DISCRETE" => Stat.DISCRETE
       case "CONTINUOUS" => Stat.CONTINUOUS
       case "TEXT" => Stat.TEXT
+      case "NONE" => Stat.NONE
     }
   }
 
@@ -31,7 +32,9 @@ object Stat {
 
   object TEXT extends Stat("TEXT")
 
-  val stats: Set[Stat] = Set(DISCRETE, CONTINUOUS, TEXT)
+  object NONE extends Stat("NONE")
+
+  val stats: Set[Stat] = Set(NONE, DISCRETE, CONTINUOUS, TEXT)
 }
 
 class StatDeserializer extends JsonDeserializer[Stat] {
