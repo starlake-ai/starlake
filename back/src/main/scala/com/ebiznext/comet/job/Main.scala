@@ -7,6 +7,9 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.typesafe.scalalogging.StrictLogging
+import org.apache.spark.sql.SparkSession
+
+import scala.util.Try
 
 
 /**
@@ -60,6 +63,15 @@ object Main extends StrictLogging {
     val storageHandler = new HdfsStorageHandler
     val schemaHandler = new SchemaHandler(storageHandler)
 
+    val job = new SparkJob {
+      override def name: String = "TEST"
+
+      override def run(args: Array[String]): SparkSession = {
+        session.read.parquet("/tmp/datasets/accepted/sales/orders/").show(1000, false)
+        session
+      }
+    }
+    Try(job.run(null))
     DatasetArea.init(storageHandler)
 
     val sh = new HdfsStorageHandler
