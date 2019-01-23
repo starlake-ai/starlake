@@ -292,3 +292,34 @@ First, we add the schema definition to the "customer" file in the domain definit
             type: "date"
             required: false
             privacy: "HIDE"
+
+The schema section in the YAML above should be read as follows :
+
+.. csv-table:: Schema definition
+   :widths: 20, 60
+
+   pattern,Filename pattern to match in the domain directory
+   name, Schema name: HDFS folder where the dataset is stored and Hive table prefix.
+   metadata.mode, always FILE. STREAM is reserved for future use.
+   metadata.format, DSV for delimiter separated values file. SIMPLE_JSON and JSON are also supported.
+   metadata.withHeader, Does the input file has a header
+   metadata.separator, What is the field separator
+   metadata.quote, How are string delimited
+   metadata.escape, How are characters escaped
+   metadata.write, Should we APPEND or OVERWRITE existing data in the HDFS cluster
+
+Each field in the input file is defined using by its name, type and privacy level.
+When a header is present, fields do not need to be ordered, since Comet uses the field name.
+
+The attributes section in the YAML above should be read as follows :
+
+
+.. csv-table:: Attribute definition
+   :widths: 20, 60
+
+   name, "Field name as specified in the header. If no header is present, this willthe field name in the ingested dataset."
+   type, Type as defined in the Type Rules section above.
+   required, Can this field be empty ?
+   privacy, "How should this field be protected. Valid values are NONE, HIDE, MD5, SHA1, SHA256, SHA512, AES(not impemented)"
+   rename, "When header is present, this is the new field name in the ingested dataset"
+   stat, "When statistics generation is requested, should this field be treated as continous, discrete or text value ? Valid values are CONTINUOUS, DISCRETE, TEXT, NONE"
