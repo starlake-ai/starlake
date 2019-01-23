@@ -152,7 +152,7 @@ trait IngestionJob extends SparkJob {
   def run(args: Array[String]): SparkSession = {
     domain.checkValidity(types) match {
       case Left(errors) =>
-        errors.foreach(println)
+        errors.foreach(logger.error)
       case Right(true) =>
         schema.presql.getOrElse(Nil).foreach(session.sql)
         ingest(loadDataSet())
