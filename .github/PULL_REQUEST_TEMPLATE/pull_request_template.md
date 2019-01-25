@@ -1,7 +1,7 @@
 ## Summary
 A clear and concise description of the overall goals of the pull request's commits.
 
-**Related Issue: #IssueId**
+**Related Issue: resolves #IssueId**
 
 **PR Type: Bug Fix | Feature | Documentation**
 
