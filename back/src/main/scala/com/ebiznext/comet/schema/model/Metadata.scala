@@ -103,18 +103,18 @@ case class Metadata(
       if (child.isDefined) child else parent
 
     Metadata(
-      defined(this.mode, child.mode),
-      defined(this.format, child.format),
-      defined(this.withHeader, child.withHeader),
-      defined(this.multiline, child.multiline),
-      defined(this.array, child.array),
-      defined(this.separator, child.separator),
-      defined(this.quote, child.quote),
-      defined(this.escape, child.escape),
-      defined(this.write, child.write),
-      defined(this.partition, child.partition),
-      defined(this.dateFormat, child.dateFormat),
-      defined(this.timestampFormat, child.timestampFormat)
+      mode = defined(this.mode, child.mode),
+      format = defined(this.format, child.format),
+      multiline = defined(this.multiline, child.multiline),
+      array = defined(this.array, child.array),
+      withHeader = defined(this.withHeader, child.withHeader),
+      separator = defined(this.separator, child.separator),
+      quote = defined(this.quote, child.quote),
+      escape = defined(this.escape, child.escape),
+      write = defined(this.write, child.write),
+      partition = defined(this.partition, child.partition),
+      dateFormat = defined(this.dateFormat, child.dateFormat),
+      timestampFormat = defined(this.timestampFormat, child.timestampFormat)
     )
   }
 }
