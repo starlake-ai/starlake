@@ -24,7 +24,6 @@ schemas:
     pattern: "locations-.*.json"
     metadata:
       format: "JSON"
-      multiline: true
       write: "OVERWRITE"
     attributes:
       - name: "id"

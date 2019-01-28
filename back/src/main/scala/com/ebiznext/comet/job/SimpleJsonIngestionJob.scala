@@ -27,6 +27,12 @@ class SimpleJsonIngestionJob(domain: Domain, schema: Schema, types: List[Type], 
         session.read.option("multiline", metadata.getMultiline()).json(path.toString)
       }
     df.printSchema()
+    df.collect().foreach(println)
+    df.foreach { r =>
+      val x = r.mkString(",")
+      println(x)
+    }
+
     if (metadata.withHeader.getOrElse(false)) {
       val datasetHeaders: List[String] = df.columns.toList.map(cleanHeaderCol)
       val (_, drop) = intersectHeaders(datasetHeaders, schemaHeaders)
