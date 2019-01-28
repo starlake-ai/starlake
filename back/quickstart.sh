@@ -4,7 +4,7 @@ echo $DIR
 
 rm -r /tmp/metadata /tmp/incoming
 #rm -r /tmp/datasets
-cp -rv $DIR/src/test/resources/sample/start/* /tmp
+cp -rv $DIR/src/test/resources/sample/quickstart/* /tmp
 ls -R /tmp/metadata /tmp/incoming
 
 
