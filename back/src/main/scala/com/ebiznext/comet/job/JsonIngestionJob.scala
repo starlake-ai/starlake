@@ -41,7 +41,7 @@ class JsonIngestionJob(val domain: Domain, val schema: Schema, val types: List[T
     * Where the magic happen
     * @param dataset input dataset as a RDD of string
     */
-  def ingest(dataset: DataFrame): Unit = {
+  def ingest(dataset: DataFrame): (RDD[_], RDD[_]) = {
     val rdd = dataset.rdd
     dataset.printSchema()
     val checkedRDD = JsonIngestionUtil.parseRDD(rdd, schemaSparkType).cache()
@@ -51,6 +51,7 @@ class JsonIngestionJob(val domain: Domain, val schema: Schema, val types: List[T
     val acceptedDF = session.read.json(acceptedRDD)
     saveRejected(rejectedRDD)
     saveAccepted(acceptedDF) // prefer to let Spark compute the final schema
+    (rejectedRDD, acceptedRDD)
   }
 
   /**

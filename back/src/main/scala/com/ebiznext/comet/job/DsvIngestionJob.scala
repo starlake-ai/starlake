@@ -99,27 +99,6 @@ class DsvIngestionJob(val domain: Domain, val schema: Schema, val types: List[Ty
     }
   }
 
-  /**
-    * Return Schema as a spark StructType
-    *
-    */
-  private val sparkType: StructType = {
-    val mapTypes = types.map(tpe => tpe.name -> tpe).toMap
-    val sparkFields = schema.attributes.map { attribute =>
-      mapTypes(attribute.`type`).sparkType(attribute.name, !attribute.required, attribute.comment)
-    }
-    StructType(sparkFields)
-  }
-
-  /**
-    * Return the ordered list of types used in the schema
-    */
-  private val schemaTypes: List[Type] = {
-    val mapTypes: Map[String, Type] = types.map(tpe => tpe.name -> tpe).toMap
-    schema.attributes.map { attribute =>
-      mapTypes(attribute.`type`)
-    }
-  }
 
   /**
     * Apply the schema to the dataset. This is where all the magic happen
@@ -127,27 +106,39 @@ class DsvIngestionJob(val domain: Domain, val schema: Schema, val types: List[Ty
     *
     * @param dataset : Spark Dataset
     */
-  def ingest(dataset: DataFrame): Unit = {
-    val (rejectedRDD, acceptedRDD) = DsvIngestionUtil.validate(session, dataset, this.schema.attributes, metadata.getDateFormat(), metadata.getTimestampFormat(), schemaTypes, sparkType)
-    logger.whenInfoEnabled {
-      val inputCount = dataset.count()
-      val acceptedCount = acceptedRDD.count()
-      val rejectedCount = rejectedRDD.count()
-      val inputFiles = dataset.inputFiles.mkString(",")
-      logger.info(s"ingestion-summary -> files: [$inputFiles], input: $inputCount, accepted: $acceptedCount, rejected:$rejectedCount")
+  def ingest(dataset: DataFrame): (RDD[_], RDD[_]) = {
+    def reorderAttributes(): List[Attribute] = {
+      val attributesMap = this.schema.attributes.map(attr => (attr.name, attr)).toMap
+      dataset.columns.map(colName => attributesMap(colName)).toList
     }
+
+    val orderedAttributes = reorderAttributes()
+
+    def reorderTypes(): (List[Type], StructType) = {
+      val mapTypes: Map[String, Type] = types.map(tpe => tpe.name -> tpe).toMap
+      val (tpes, sparkFields) = orderedAttributes.map { attribute =>
+        val tpe = mapTypes(attribute.`type`)
+        (tpe, tpe.sparkType(attribute.name, !attribute.required, attribute.comment))
+      }.unzip
+      (tpes, StructType(sparkFields))
+    }
+
+    val (orderedTypes, orderedSparkTypes) = reorderTypes()
+
+    val (rejectedRDD, acceptedRDD) = DsvIngestionUtil.validate(session, dataset, orderedAttributes, metadata.getDateFormat(), metadata.getTimestampFormat(), orderedTypes, orderedSparkTypes)
     saveRejected(rejectedRDD)
-    saveAccepted(acceptedRDD)
+    saveAccepted(acceptedRDD, orderedSparkTypes)
+    (rejectedRDD, acceptedRDD)
   }
 
-  def saveAccepted(acceptedRDD: RDD[Row]) = {
+  def saveAccepted(acceptedRDD: RDD[Row], orderedSparkTypes: StructType) = {
     val renamedAttributes = schema.renamedAttributes().toMap
     logger.whenInfoEnabled {
       renamedAttributes.foreach { case (name, rename) =>
         logger.info(s"renaming column $name to $rename")
       }
     }
-    val acceptedDF = session.createDataFrame(acceptedRDD, sparkType)
+    val acceptedDF = session.createDataFrame(acceptedRDD, orderedSparkTypes)
     val cols = acceptedDF.columns.map { column =>
       org.apache.spark.sql.functions.col(column).as(renamedAttributes.getOrElse(column, column))
     }
@@ -181,9 +172,9 @@ object DsvIngestionUtil {
   def validate(session: SparkSession, dataset: DataFrame, attributes: List[Attribute], dateFormat: String, timeFormat: String, types: List[Type], sparkType: StructType): (RDD[String], RDD[Row]) = {
     val now = Timestamp.from(Instant.now)
     val rdds = dataset.rdd
-    dataset.printSchema()
     val checkedRDD: RDD[RowResult] = dataset.rdd.mapPartitions { partition =>
       partition.map { row: Row =>
+        println(row.toString())
         val rowCols = row.toSeq.zip(attributes).map {
           case (colValue, colAttribute) => (Option(colValue).getOrElse("").toString, colAttribute)
         }.zip(types)

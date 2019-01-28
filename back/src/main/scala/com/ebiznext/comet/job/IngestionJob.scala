@@ -37,7 +37,7 @@ trait IngestionJob extends SparkJob {
     *
     * @param dataset
     */
-  def ingest(dataset: DataFrame): Unit
+  def ingest(dataset: DataFrame): (RDD[_], RDD[_])
 
   def saveRejected(rejectedRDD: RDD[String]) = {
     val writeMode = metadata.getWriteMode()
@@ -152,10 +152,19 @@ trait IngestionJob extends SparkJob {
   def run(args: Array[String]): SparkSession = {
     domain.checkValidity(types) match {
       case Left(errors) =>
-        errors.foreach(logger.error)
+        errors.foreach(err => logger.error(err))
       case Right(true) =>
         schema.presql.getOrElse(Nil).foreach(session.sql)
-        ingest(loadDataSet())
+        val dataset = loadDataSet()
+        val (rejectedRDD, acceptedRDD) = ingest(dataset)
+        logger.whenInfoEnabled {
+          val inputCount = dataset.count()
+          val acceptedCount = acceptedRDD.count()
+          val rejectedCount = rejectedRDD.count()
+          val inputFiles = dataset.inputFiles.mkString(",")
+          logger.info(s"ingestion-summary -> files: [$inputFiles], input: $inputCount, accepted: $acceptedCount, rejected:$rejectedCount")
+        }
+
         schema.postsql.getOrElse(Nil).foreach(session.sql)
     }
     session
