@@ -3,7 +3,7 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 echo $DIR
 
 rm -r /tmp/metadata /tmp/incoming
-#rm -r /tmp/datasets
+rm -r /tmp/datasets
 cp -rv $DIR/src/test/resources/sample/quickstart/* /tmp
 ls -R /tmp/metadata /tmp/incoming
 
