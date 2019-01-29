@@ -6,8 +6,15 @@ Problem description
 
 Say we have to ingest customers, orders and sellers into the datalake.
 The customers and orders are provided by the "sales" department while
-the sellers dataset is provided by the HR departement.
+the sellers and locations datasets are provided by the HR departement.
 
+The orders dataset contains new, updated and deleted orders.
+Once imported, we want the deleted orders to be removed from the dataset and
+we want to keep only the last update of each order.
+
+
+The locations dataset should replace the previous imported locations dataset
+while all others datasets are just updates of the previous imported ones.
 
 The customers and orders dataset are sent by the "sales" department
 as CSV  files. Below is an extract of these files.
@@ -49,21 +56,8 @@ The sellers dataset is sent as JSON array by the HR department.
 
 .. code-block:: json
 
-    {
-        "id":1,
-        "address": {
-            "city":"Paris",
-            "stores": ["Store 1", "Store 2", "Store 3"]
-            "country":"France"
-        }
-    }
-    {
-        "id":2,
-        "address": {
-            "city":"Berlin",
-            "country":"Germany"
-        }
-    }
+    { "id":1, "address": { "city":"Paris", "stores": ["Store 1", "Store 2", "Store 3"] "country":"France" }}
+    { "id":2, "address": { "city":"Berlin", "country":"Germany" }}
 
 
 
@@ -279,9 +273,9 @@ First, we add the schema definition to the "customer" file in the domain definit
       - "psv"
       - "csv"
       - "dsv"
-    schema:
+    schemas:
       - name: "customers"
-        pattern: "customers-.*.dsv"
+        pattern: "customers-.*.psv"
         metadata:
           mode: "FILE"
           format: "DSV"
@@ -292,31 +286,33 @@ First, we add the schema definition to the "customer" file in the domain definit
           write: "APPEND"
         attributes:
           - name: "id"
-            type: "string"
+            type: "customerid"
             required: true
-            privacy: "NONE"
           - name: "signup"
             type: "datetime"
             required: false
-            privacy: "NONE"
           - name: "contact"
             type: "email"
             required: false
-            privacy: "NONE"
+          - name: "birthdate"
+            type: "date"
+            required: false
           - name: "name1"
             type: "string"
             required: false
-            privacy: "NONE"
             rename: "firstname"
           - name: "name2"
             type: "string"
             required: false
-            privacy: "NONE"
             rename: "lastname"
-          - name: "birthdate"
-            type: "date"
-            required: false
-            privacy: "HIDE"
+        metadata:
+          mode: "FILE"
+          format: "DSV"
+          withHeader: true
+          separator: "|"
+          quote: "\""
+          escape: "\\"
+          write: "APPEND"
 
 The schema section in the YAML above should be read as follows :
 
@@ -332,8 +328,8 @@ The schema section in the YAML above should be read as follows :
    metadata.quote, How are string delimited
    metadata.escape, How are characters escaped
    metadata.write, Should we APPEND or OVERWRITE existing data in the HDFS cluster
-   metadata.multiline, "Are JSON objects on multiple line. Used when format is JSON or SIMPLE_JSON. This slow down parsing"
-   metadata.array, "Should we treat the file as an array of objects. Used  when format is JSON or SIMPLE_JSON"
+   metadata.multiline, "Are JSON object on multiple line. Used when format is JSON or SIMPLE_JSON. This slow down parsing"
+   metadata.array, "Should we treat the file as a single array of JSON objects. Used  when format is JSON or SIMPLE_JSON and the input data is in brackets [...]"
 
 
 .. note::
@@ -356,7 +352,7 @@ The attributes section in the YAML above should be read as follows :
    type, Type as defined in the Type Rules section above.
    required, Can this field be empty ?
    privacy, "How should this field be protected. Valid values are NONE, HIDE, MD5, SHA1, SHA256, SHA512, AES(not impemented)"
-   rename, "When header is present, this is the new field name in the ingested dataset"
+   rename, "When header is present in DSV files, this is the new field name in the ingested dataset"
    stat, "When statistics generation is requested, should this field be treated as continous, discrete or text value ? Valid values are CONTINUOUS, DISCRETE, TEXT, NONE"
    array, "true when this attribute is an array, false by default"
 
@@ -368,7 +364,7 @@ Below, he complete domain definition files.
 .. code-block:: yaml
 
     name: "sales"
-    directory: "/mnt/incoming/sales"
+    directory: "/tmp/incoming/sales"
     metadata:
       mode: "FILE"
       format: "DSV"
@@ -376,20 +372,23 @@ Below, he complete domain definition files.
       quote: "\""
       escape: "\\"
       write: "APPEND"
-    schema:
+    schemas:
       - name: "customers"
-        pattern: "customers-.*.dsv"
+        pattern: "customers-.*.psv"
         metadata:
           separator: "|"
         attributes:
           - name: "id"
-            type: "string"
+            type: "customerid"
             required: true
           - name: "signup"
             type: "datetime"
             required: false
           - name: "contact"
             type: "email"
+            required: false
+          - name: "birthdate"
+            type: "date"
             required: false
           - name: "name1"
             type: "string"
@@ -399,21 +398,21 @@ Below, he complete domain definition files.
             type: "string"
             required: false
             rename: "lastname"
-          - name: "birthdate"
-            type: "date"
-            required: false
-            privacy: "HIDE"
       - name: "orders"
-        pattern: "orders-.*.dsv"
+        pattern: "orders-.*.csv"
+        merge:
+          key:
+            - "id"
+          delete: "customer_id is null"
         metadata:
-          separator: "|"
+          separator: ","
         attributes:
           - name: "order_id"
             type: "string"
             required: true
             rename: "id"
           - name: "customer_id"
-            type: "string"
+            type: "customerid"
             required: false
           - name: "amount"
             type: "decimal"
@@ -423,22 +422,27 @@ Below, he complete domain definition files.
             required: false
 
 
+The merge attribute above should be read as follows::
+ * When a new orders dataset is imported, only the last occurrence of the record identified by the key column "id" should be kept
+ * and any record imported with a null column_id should be removed from the existing dataset.
+
 
 ``File $COMET_METADATA/domains/hr.yml``
 
 .. code-block:: yaml
 
     name: "hr"
-    directory: "/mnt/incoming/hr"
+    directory: "/tmp/incoming/hr"
     metadata:
       mode: "FILE"
-      write: "APPEND"
-    schema:
+      format: "JSON"
+    schemas:
       - name: "sellers"
-        pattern: "sellers-.*.dsv"
+        pattern: "sellers-.*.json"
         metadata:
           array: true
           format: "SIMPLE_JSON"
+          write: "APPEND"
         attributes:
           - name: "id"
             type: "string"
@@ -447,13 +451,13 @@ Below, he complete domain definition files.
             type: "email"
             required: true
           - name: "location_id"
-            type: "int"
+            type: "long"
             required: true
       - name: "locations"
-        pattern: "locations-.*.dsv"
+        pattern: "locations-.*.json"
         metadata:
           format: "JSON"
-          multiline: true
+          write: "OVERWRITE"
         attributes:
           - name: "id"
             type: "string"
@@ -472,7 +476,6 @@ Below, he complete domain definition files.
               - name: "country"
                 type: "string"
                 required: true
-
 
 
 With the types catalog and file schemas defined we are ready to ingest
