@@ -95,7 +95,7 @@ class DsvIngestionJob(val domain: Domain, val schema: Schema, val types: List[Ty
         }
         df.drop(drop: _*)
       case Some(false) | None =>
-        df.toDF(schema.attributes.map(_.name).take(df.columns.length): _*)
+        df.toDF(schema.attributes.map(_.name).take(Math.min(df.columns.length,schema.attributes.length)): _*)
     }
   }
 
