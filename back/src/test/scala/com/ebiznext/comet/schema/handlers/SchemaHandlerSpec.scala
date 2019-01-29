@@ -93,8 +93,8 @@ class SchemaHandlerSpec extends FlatSpec with Matchers with SampleData {
 
   "Load Business Definition" should "produce business dataset" in {
     val sh = new HdfsStorageHandler
-    val jobsPath = new Path(DatasetArea.jobs, "business.yml")
-    sh.write(loadFile("/business.yml"), jobsPath)
+    val jobsPath = new Path(DatasetArea.jobs, "sample/metadata/business/business.yml")
+    sh.write(loadFile("/sample/metadata/business/business.yml"), jobsPath)
     DatasetArea.initDomains(storageHandler, schemaHandler.domains.map(_.name))
     val validator = new DatasetWorkflow(storageHandler, schemaHandler, new SimpleLauncher)
     validator.autoJob("business1")
