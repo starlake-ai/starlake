@@ -48,7 +48,7 @@ trait IngestionJob extends SparkJob {
   }
 
 
-  def getWriteMode(): WriteMode = schema.merge.map(_ => WriteMode.OVERWRITE).getOrElse(WriteMode.APPEND)
+  def getWriteMode(): WriteMode = schema.merge.map(_ => WriteMode.OVERWRITE).getOrElse(metadata.getWriteMode())
 
   /**
     * Merge new and existing dataset if required
