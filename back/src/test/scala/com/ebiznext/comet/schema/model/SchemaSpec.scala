@@ -8,7 +8,7 @@ import org.scalatest.{FlatSpec, Matchers}
 class SchemaSpec extends FlatSpec with Matchers with SampleData {
 
   "Attribute type" should "be valid" in {
-    val stream: InputStream = getClass.getResourceAsStream("/sample/metadata/types/default.yml")
+    val stream: InputStream = getClass.getResourceAsStream("/quickstart/metadata/types/default.yml")
     val lines = scala.io.Source.fromInputStream(stream).getLines().mkString("\n")
     val types = mapper.readValue(lines, classOf[Types])
     val attr = Attribute("attr",
@@ -22,7 +22,7 @@ class SchemaSpec extends FlatSpec with Matchers with SampleData {
     errs.left.get.foreach(println)
   }
   "Attribute privacy" should "be applied on string type only" in {
-    val stream: InputStream = getClass.getResourceAsStream("/sample/metadata/types/default.yml")
+    val stream: InputStream = getClass.getResourceAsStream("/quickstart/metadata/types/default.yml")
     val lines = scala.io.Source.fromInputStream(stream).getLines().mkString("\n")
     val types = mapper.readValue(lines, classOf[Types])
     val attr = Attribute("attr",
@@ -36,7 +36,7 @@ class SchemaSpec extends FlatSpec with Matchers with SampleData {
     errs.left.get.foreach(println)
   }
   "Sub Attribute" should "be present for struct types only" in {
-    val stream: InputStream = getClass.getResourceAsStream("/sample/metadata/types/default.yml")
+    val stream: InputStream = getClass.getResourceAsStream("/quickstart/metadata/types/default.yml")
     val lines = scala.io.Source.fromInputStream(stream).getLines().mkString("\n")
     val types = mapper.readValue(lines, classOf[Types])
     val attr = Attribute("attr",

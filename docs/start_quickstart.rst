@@ -1,7 +1,7 @@
 Quick Start
 ============
 
-The example in the folder ``src/test/resources/sample`` import into the cluster teh following files :
+The example in the folder ``src/test/resources/quickstart`` import into the cluster teh following files :
 
 From the sales departement, customers and orders in delimiter separated files :
  - customers and orders are appended to the previous imported data
@@ -27,7 +27,7 @@ in the ``target/scala-2.11`` directory.
 Run it
 ------
 
-To run the sample on a local filesystem, simply copy the content of the sample directory to your /tmp directory.
+To run the quickstart on a local filesystem, simply copy the content of the quickstart directory to your /tmp directory.
 This will create the ``/tmp/metadata`` and the ``/tmp/incoming`` folders.
 
 Import the datasets into the cluster using spark-submit :
