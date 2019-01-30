@@ -1,5 +1,9 @@
 package com.ebiznext.comet.utils
 
+import java.io.{PrintWriter, StringWriter}
+
+import com.typesafe.scalalogging.Logger
+
 import scala.util.control.NonFatal
 
 object Utils {
@@ -41,4 +45,11 @@ object Utils {
     }
   }
 
+
+  def logException(logger:Logger, exception : Throwable) = {
+    val sw = new StringWriter
+    exception.printStackTrace(new PrintWriter(sw))
+    logger.error(sw.toString)
+
+  }
 }

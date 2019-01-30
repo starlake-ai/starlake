@@ -1,13 +1,18 @@
 package com.ebiznext.comet.workflow
 
+import java.io.{PrintWriter, StringWriter}
+
 import better.files._
 import com.ebiznext.comet.config.{DatasetArea, Settings}
 import com.ebiznext.comet.job.{AutoJob, DsvIngestionJob, JsonIngestionJob, SimpleJsonIngestionJob}
 import com.ebiznext.comet.schema.handlers.{LaunchHandler, SchemaHandler, StorageHandler}
 import com.ebiznext.comet.schema.model.Format.{DSV, JSON, SIMPLE_JSON}
 import com.ebiznext.comet.schema.model.{Domain, Metadata, Schema}
+import com.ebiznext.comet.utils.Utils
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
+
+import scala.util.{Failure, Success, Try}
 
 
 /**
@@ -39,7 +44,7 @@ class DatasetWorkflow(storageHandler: StorageHandler,
     domains.foreach { domain =>
       val inputDir = File(domain.directory)
       logger.info(s"Scanning $inputDir")
-      inputDir.list(_.extension.contains(domain.getAck())).foreach { path =>
+      inputDir.list(_.extension.contains(domain.getAck())).toList.foreach { path =>
         val ackFile: File = path
         val fileStr = ackFile.pathAsString
         val prefixStr = fileStr.stripSuffix(domain.getAck())
@@ -69,8 +74,8 @@ class DatasetWorkflow(storageHandler: StorageHandler,
         else if (existRawFile.isDefined) {
           existRawFile.foreach { file =>
             logger.info(s"Found raw file $existRawFile")
-            val tmpFile = File(tmpDir, file.name)
             tmpDir.createDirectories()
+            val tmpFile = File(tmpDir, file.name)
             file.moveTo(tmpFile)
           }
         }
@@ -176,7 +181,7 @@ class DatasetWorkflow(storageHandler: StorageHandler,
     logger.info(s"Start Ingestion on domain: ${domain.name} with schema: ${schema.name} on file: $ingestingPath")
     val metadata = domain.metadata.getOrElse(Metadata()).`import`(schema.metadata.getOrElse(Metadata()))
     logger.info(s"Ingesting domain: ${domain.name} with schema: ${schema.name} on file: $ingestingPath with metadata $metadata")
-    metadata.getFormat() match {
+    val ingestionResult = Try(metadata.getFormat() match {
       case DSV =>
         new DsvIngestionJob(domain, schema, schemaHandler.types, ingestingPath, storageHandler).run(null)
       case SIMPLE_JSON =>
@@ -185,15 +190,20 @@ class DatasetWorkflow(storageHandler: StorageHandler,
         new JsonIngestionJob(domain, schema, schemaHandler.types, ingestingPath, storageHandler).run(null)
       case _ =>
         throw new Exception("Should never happen")
-    }
-    if (Settings.comet.archive) {
-      val archivePath = new Path(DatasetArea.archive(domain.name), ingestingPath.getName)
-      logger.info(s"Backing up file $ingestingPath to $archivePath")
-      storageHandler.move(ingestingPath, archivePath)
-    }
-    else {
-      logger.info(s"Deleting file $ingestingPath")
-      storageHandler.delete(ingestingPath)
+    })
+    ingestionResult match {
+      case Success(_) =>
+        if (Settings.comet.archive) {
+          val archivePath = new Path(DatasetArea.archive(domain.name), ingestingPath.getName)
+          logger.info(s"Backing up file $ingestingPath to $archivePath")
+          storageHandler.move(ingestingPath, archivePath)
+        }
+        else {
+          logger.info(s"Deleting file $ingestingPath")
+          storageHandler.delete(ingestingPath)
+        }
+      case Failure(exception) =>
+        Utils.logException(logger, exception)
     }
   }
 

@@ -6,7 +6,36 @@
 Welcome to Comet data pipeline's documentation!
 ===============================================
 
+Getting started with Comet Data Pipeline:
+
 .. toctree::
    :maxdepth: 2
 
-   contribute-docs
+   start_introduction
+   start_quickstart
+   start_complete
+
+Install Guide:
+
+.. toctree::
+   :maxdepth: 2
+
+   install_install
+   install_configure
+
+Administration Guide:
+
+.. toctree::
+   :maxdepth: 2
+
+   admin_overview
+
+
+Developers Guide:
+
+.. toctree::
+   :maxdepth: 2
+
+   dev_contribute
+
+
