@@ -6,6 +6,14 @@ import org.apache.spark.sql.types.{StructField, StructType}
 
 import scala.collection.mutable
 
+
+/**
+  * How dataset are merge
+  * @param key list of attributes to join existing with incoming data. Use renamed columns here.
+  * @param delete Optional valid sql condition on the incoming dataset. Use renamed column here.
+  */
+case class MergeOptions(key: List[String], delete: Option[String] = None)
+
 /**
   * Dataset Schema
   *
@@ -21,6 +29,7 @@ case class Schema(name: String,
                   pattern: Pattern,
                   attributes: List[Attribute],
                   metadata: Option[Metadata],
+                  merge: Option[MergeOptions],
                   comment: Option[String],
                   presql: Option[List[String]],
                   postsql: Option[List[String]]
@@ -35,6 +44,7 @@ case class Schema(name: String,
 
   /**
     * This Schema as a Spark Catalyst Schema
+    *
     * @param types : globally defined types
     * @returnSpark Catalyst Schema
     */
