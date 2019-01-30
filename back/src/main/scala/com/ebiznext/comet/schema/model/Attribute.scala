@@ -39,7 +39,6 @@ case class Attribute(name: String,
     * @return true if attribute is valid
     */
   def checkValidity(types: List[Type]): Either[List[String], Boolean] = {
-
     val errorList: mutable.MutableList[String] = mutable.MutableList.empty
     if (`type` == null)
       errorList += s"$this : unspecified type"
@@ -52,17 +51,21 @@ case class Attribute(name: String,
       errorList += s"renamed attribute with renamed name '$rename' should respect the pattern ${colNamePattern.pattern()}"
 
     val primitiveType = types.find(_.name == `type`).map(_.primitiveType)
+
     primitiveType match {
-      case Some(tpe) if tpe != PrimitiveType.string && getPrivacy() != PrivacyLevel.NONE =>
-        errorList += s"Attribute $this : string is the only supported primitive type for an attribute when privacy is requested"
-      case Some(tpe) if tpe == PrimitiveType.struct && attributes.isEmpty =>
-        errorList += s"Attribute $this : Struct types have at least one attribute."
-      case Some(tpe) if tpe != PrimitiveType.struct && attributes.isDefined =>
-        errorList += s"Attribute $this : Simple attributes cannot have sub-attributes"
+      case Some(tpe) =>
+        if (tpe != PrimitiveType.string && getPrivacy() != PrivacyLevel.NONE)
+          errorList += s"Attribute $this : string is the only supported primitive type for an attribute when privacy is requested"
+        if (tpe == PrimitiveType.struct && attributes.isEmpty)
+          errorList += s"Attribute $this : Struct types have at least one attribute."
+        if (tpe != PrimitiveType.struct && attributes.isDefined)
+          errorList += s"Attribute $this : Simple attributes cannot have sub-attributes"
       case None if attributes.isEmpty => errorList += s"Invalid Type ${`type`}"
       case _ => // good boy
     }
-
+    attributes.collect {
+      case list if list.isEmpty => errorList += s"Attribute $this : when present, attributes list cannot be empty."
+    }
     if (errorList.nonEmpty)
       Left(errorList.toList)
     else
@@ -78,7 +81,7 @@ case class Attribute(name: String,
     */
   def primitiveSparkType(types: Types): DataType = {
     types.types.find(_.name == `type`).map(_.primitiveType).map { tpe =>
-    if (isArray())
+      if (isArray())
         ArrayType(tpe.sparkType, !required)
       else
         tpe.sparkType
@@ -113,6 +116,8 @@ case class Attribute(name: String,
     * @return renamed column if defined, source name otherwise
     */
   def getFinalName(): String = rename.getOrElse(name)
-  def getPrivacy() : PrivacyLevel = this.privacy.getOrElse(PrivacyLevel.NONE)
+
+  def getPrivacy(): PrivacyLevel = this.privacy.getOrElse(PrivacyLevel.NONE)
+
   def isArray(): Boolean = this.array.getOrElse(false)
 }
