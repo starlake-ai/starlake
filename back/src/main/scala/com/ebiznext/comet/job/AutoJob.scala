@@ -27,7 +27,7 @@ class AutoJob(override val name: String, defaultArea: HiveArea, task: AutoTask) 
       session.sql(s"drop table if exists $tableName")
       val dataframe = session.sql(task.sql)
       val targetPath = new Path(DatasetArea.path(task.domain, targetArea.value), task.dataset)
-      val partitionedDF = partitionedDatasetWriter(dataframe, task.partition)
+      val partitionedDF = partitionedDatasetWriter(dataframe, task.getPartitions())
       partitionedDF.mode(task.write.toSaveMode).format("parquet").option("path", targetPath.toString).saveAsTable(fullTableName)
       if (Settings.comet.analyze) {
         val allCols = session.table(fullTableName).columns.mkString(",")

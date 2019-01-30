@@ -5,7 +5,7 @@ import com.ebiznext.comet.schema.handlers.StorageHandler
 import com.ebiznext.comet.schema.model._
 import org.apache.hadoop.fs.Path
 import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.execution.datasources.json.JsonUtil
+import org.apache.spark.sql.execution.datasources.json.JsonIngestionUtil
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, Row}
 
@@ -20,7 +20,7 @@ import org.apache.spark.sql.{DataFrame, Row}
   * @param path           : Input dataset path
   * @param storageHandler : Storage Handler
   */
-class JsonIngestionJob(val domain: Domain, val schema: Schema, val types: List[Type], val path: Path, storageHandler: StorageHandler) extends IngestionJob {
+class JsonIngestionJob(val domain: Domain, val schema: Schema, val types: List[Type], val path: Path, val storageHandler: StorageHandler) extends IngestionJob {
 
   /**
     * load the json as an RDD of String
@@ -41,34 +41,26 @@ class JsonIngestionJob(val domain: Domain, val schema: Schema, val types: List[T
     * Where the magic happen
     * @param dataset input dataset as a RDD of string
     */
-  def ingest(dataset: DataFrame): Unit = {
+  def ingest(dataset: DataFrame): (RDD[_], RDD[_]) = {
     val rdd = dataset.rdd
     dataset.printSchema()
-    val checkedRDD = JsonUtil.parseRDD(rdd, schemaSparkType).cache()
+    val checkedRDD = JsonIngestionUtil.parseRDD(rdd, schemaSparkType).cache()
     val acceptedRDD: RDD[String] = checkedRDD.filter(_.isRight).map(_.right.get)
     val rejectedRDD: RDD[String] = checkedRDD.filter(_.isLeft).map(_.left.get.mkString("\n"))
     rejectedRDD.collect().foreach(println)
     val acceptedDF = session.read.json(acceptedRDD)
     saveRejected(rejectedRDD)
     saveAccepted(acceptedDF) // prefer to let Spark compute the final schema
-  }
-
-  /**
-    * Let spark compute the schema of the accepted records when saving
-    * @param acceptedDF
-    */
-  def saveAccepted(acceptedDF: DataFrame): Unit = {
-    val writeMode = metadata.getWrite()
-    val acceptedPath = new Path(DatasetArea.accepted(domain.name), schema.name)
-    saveRows(acceptedDF, acceptedPath, writeMode, HiveArea.accepted)
+    (rejectedRDD, acceptedRDD)
   }
 
   /**
     * Use the schema we used for validation when saving
     * @param acceptedRDD
     */
+  @deprecated("We let Spark compute the final schema")
   def saveAccepted(acceptedRDD: RDD[Row]): Unit = {
-    val writeMode = metadata.getWrite()
+    val writeMode = metadata.getWriteMode()
     val acceptedPath = new Path(DatasetArea.accepted(domain.name), schema.name)
     saveRows(session.createDataFrame(acceptedRDD, schemaSparkType), acceptedPath, writeMode, HiveArea.accepted)
   }
