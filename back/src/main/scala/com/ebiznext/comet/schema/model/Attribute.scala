@@ -122,4 +122,9 @@ case class Attribute(name: String,
   def getPrivacy(): PrivacyLevel = this.privacy.getOrElse(PrivacyLevel.NONE)
 
   def isArray(): Boolean = this.array.getOrElse(false)
+
+  def isRequired(): Boolean = Option(this.required).getOrElse(false)
+
+  def getStat(): Stat = this.stat.getOrElse(Stat.NONE)
+
 }
