@@ -7,6 +7,9 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.typesafe.scalalogging.StrictLogging
+import org.apache.spark.sql.SparkSession
+
+import scala.util.Try
 
 
 /**
@@ -59,10 +62,7 @@ object Main extends StrictLogging {
   def main(args: Array[String]) = {
     val storageHandler = new HdfsStorageHandler
     val schemaHandler = new SchemaHandler(storageHandler)
-
     DatasetArea.init(storageHandler)
-
-    val sh = new HdfsStorageHandler
 
     DatasetArea.initDomains(storageHandler, schemaHandler.domains.map(_.name))
 

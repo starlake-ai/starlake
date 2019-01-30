@@ -20,13 +20,15 @@ import org.apache.spark.sql.DataFrame
 class SimpleJsonIngestionJob(domain: Domain, schema: Schema, types: List[Type], path: Path, storageHandler: StorageHandler) extends DsvIngestionJob(domain, schema, types, path, storageHandler) {
   override def loadDataSet(): DataFrame = {
     val df =
-      if (metadata.getArray()) {
+      if (metadata.isArray()) {
         val jsonRDD = session.sparkContext.wholeTextFiles(path.toString).map(x => x._2)
         session.read.json(jsonRDD)
       } else {
-        session.read.option("multiline", metadata.getMultiline().toString).json(path.toString)
+        session.read.option("multiline", metadata.getMultiline()).json(path.toString)
       }
     df.printSchema()
+    if(df.columns.exists(col => col == "_corrupt_record"))
+      throw new Exception(s"Invalid JSON File: ${path.toString}. SIMPLE_JSON require a valid json file ")
     if (metadata.withHeader.getOrElse(false)) {
       val datasetHeaders: List[String] = df.columns.toList.map(cleanHeaderCol)
       val (_, drop) = intersectHeaders(datasetHeaders, schemaHeaders)
