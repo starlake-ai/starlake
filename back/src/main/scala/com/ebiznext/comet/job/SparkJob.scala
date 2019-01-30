@@ -1,7 +1,7 @@
 package com.ebiznext.comet.job
 
 import com.ebiznext.comet.config.SparkEnv
-import com.ebiznext.comet.schema.model.Metadata
+import com.ebiznext.comet.schema.model.{MergeOptions, Metadata}
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.{DataFrame, DataFrameWriter, Row, SparkSession}

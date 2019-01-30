@@ -2,7 +2,7 @@ package com.ebiznext.comet.schema.model
 
 import com.ebiznext.comet.schema.model.Format.DSV
 import com.ebiznext.comet.schema.model.Mode.FILE
-import com.ebiznext.comet.schema.model.Write.APPEND
+import com.ebiznext.comet.schema.model.WriteMode.APPEND
 import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize
 import com.fasterxml.jackson.databind.node.ArrayNode
@@ -37,34 +37,34 @@ case class Metadata(
                      separator: Option[String] = None,
                      quote: Option[String] = None,
                      escape: Option[String] = None,
-                     write: Option[Write] = None,
+                     write: Option[WriteMode] = None,
                      partition: Option[List[String]] = None,
                      dateFormat: Option[String] = None,
                      timestampFormat: Option[String] = None
                    ) {
   override def toString: String =
     s"""
-       |mode:${getMode()}
+       |mode:${getIngestMode()}
        |format:${getFormat()}
        |multiline:${getMultiline()}
-       |array:${getArray()}
+       |array:${isArray()}
        |withHeader:${isWithHeader()}
        |separator:${getSeparator()}
        |quote:${getQuote()}
        |escape:${getEscape()}
-       |write:${getWrite()}
+       |write:${getWriteMode()}
        |partition:${getPartition()}
        |dateFormat:${getDateFormat()}
        |timestampFormat:${getTimestampFormat()}
        """.stripMargin
 
-  def getMode(): Mode = mode.getOrElse(FILE)
+  def getIngestMode(): Mode = mode.getOrElse(FILE)
 
   def getFormat(): Format = format.getOrElse(DSV)
 
   def getMultiline(): Boolean = multiline.getOrElse(false)
 
-  def getArray(): Boolean = array.getOrElse(false)
+  def isArray(): Boolean = array.getOrElse(false)
 
   def isWithHeader(): Boolean = withHeader.getOrElse(true)
 
@@ -74,7 +74,7 @@ case class Metadata(
 
   def getEscape(): String = escape.getOrElse("\\")
 
-  def getWrite(): Write = write.getOrElse(APPEND)
+  def getWriteMode(): WriteMode = write.getOrElse(APPEND)
 
   def getPartition(): List[String] = partition.getOrElse(Nil)
 
@@ -103,18 +103,18 @@ case class Metadata(
       if (child.isDefined) child else parent
 
     Metadata(
-      defined(this.mode, child.mode),
-      defined(this.format, child.format),
-      defined(this.withHeader, child.withHeader),
-      defined(this.multiline, child.multiline),
-      defined(this.array, child.array),
-      defined(this.separator, child.separator),
-      defined(this.quote, child.quote),
-      defined(this.escape, child.escape),
-      defined(this.write, child.write),
-      defined(this.partition, child.partition),
-      defined(this.dateFormat, child.dateFormat),
-      defined(this.timestampFormat, child.timestampFormat)
+      mode = defined(this.mode, child.mode),
+      format = defined(this.format, child.format),
+      multiline = defined(this.multiline, child.multiline),
+      array = defined(this.array, child.array),
+      withHeader = defined(this.withHeader, child.withHeader),
+      separator = defined(this.separator, child.separator),
+      quote = defined(this.quote, child.quote),
+      escape = defined(this.escape, child.escape),
+      write = defined(this.write, child.write),
+      partition = defined(this.partition, child.partition),
+      dateFormat = defined(this.dateFormat, child.dateFormat),
+      timestampFormat = defined(this.timestampFormat, child.timestampFormat)
     )
   }
 }
@@ -130,7 +130,7 @@ object Metadata {
            separator: Option[String],
            quote: Option[String],
            escape: Option[String],
-           write: Option[Write]
+           write: Option[WriteMode]
          ) = new Metadata(
     Some(Mode.FILE),
     Some(Format.DSV),
@@ -162,7 +162,7 @@ class MetadataDeserializer extends JsonDeserializer[Metadata] {
     val separator = if (isNull("separator")) None else Some(node.get("separator").asText)
     val quote = if (isNull("quote")) None else Some(node.get("quote").asText)
     val escape = if (isNull("escape")) None else Some(node.get("escape").asText)
-    val write = if (isNull("write")) None else Some(Write.fromString(node.get("write").asText))
+    val write = if (isNull("write")) None else Some(WriteMode.fromString(node.get("write").asText))
     import scala.collection.JavaConverters._
     val partition = if (isNull("partition")) None else Some(node.get("partition").asInstanceOf[ArrayNode].elements.asScala.toList.map(_.asText()))
     val dateFormat = if (isNull("dateFormat")) None else Some(node.get("dateFormat").asText)
