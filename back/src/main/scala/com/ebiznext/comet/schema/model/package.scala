@@ -22,6 +22,13 @@ package object model {
       Left(errorList.toList)
     else
       Right(true)
+  }
 
+  def combine(errors1: Either[List[String], Boolean], errors2: Either[List[String], Boolean]*): Either[List[String], Boolean] = {
+    val allErrors = errors1 :: List(errors2: _*)
+    val errors = allErrors.collect {
+      case Left(err) => err
+    }.flatten
+    if (errors.isEmpty) Right(true) else Left(errors)
   }
 }
