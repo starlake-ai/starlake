@@ -8,7 +8,7 @@ import org.scalatest.{FlatSpec, Matchers}
 class TypesSpec extends FlatSpec with Matchers with SampleData {
 
   "Default types" should "be valid" in {
-    val stream: InputStream = getClass.getResourceAsStream("/sample/metadata/types/default.yml")
+    val stream: InputStream = getClass.getResourceAsStream("/quickstart/metadata/types/default.yml")
     val lines = scala.io.Source.fromInputStream(stream).getLines().mkString("\n")
     val types = mapper.readValue(lines, classOf[Types])
     val res = types.checkValidity()
@@ -22,7 +22,7 @@ class TypesSpec extends FlatSpec with Matchers with SampleData {
   }
 
   "Duplicate  type names" should "be refused" in {
-    val stream: InputStream = getClass.getResourceAsStream("/sample/metadata/types/default.yml")
+    val stream: InputStream = getClass.getResourceAsStream("/quickstart/metadata/types/default.yml")
     val lines = scala.io.Source.fromInputStream(stream).getLines().mkString("\n") +
       """
         |  - name: "long"
