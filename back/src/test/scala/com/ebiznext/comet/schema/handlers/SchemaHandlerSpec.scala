@@ -14,12 +14,12 @@ class SchemaHandlerSpec extends FlatSpec with Matchers with SampleData {
   "Ingest CSV" should "produce file in accepted" in {
     val sh = new HdfsStorageHandler
     val domainsPath = new Path(DatasetArea.domains, "DOMAIN.yml")
-    sh.write(loadFile("/DOMAIN.yml"), domainsPath)
+    sh.write(loadFile("/sample/DOMAIN.yml"), domainsPath)
     val typesPath = new Path(DatasetArea.types, "types.yml")
-    sh.write(loadFile("/types.yml"), typesPath)
+    sh.write(loadFile("/sample/types.yml"), typesPath)
 
     DatasetArea.initDomains(storageHandler, schemaHandler.domains.map(_.name))
-    val stream: InputStream = getClass.getResourceAsStream("/SCHEMA-VALID.dsv")
+    val stream: InputStream = getClass.getResourceAsStream("/sample/SCHEMA-VALID.dsv")
     val lines = scala.io.Source.fromInputStream(stream).getLines().mkString("\n")
     val targetPath = DatasetArea.path(DatasetArea.pending("DOMAIN"), "SCHEMA-VALID.dsv")
     storageHandler.write(lines, targetPath)
