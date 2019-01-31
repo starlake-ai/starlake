@@ -36,7 +36,7 @@ available as Hive tables.
 
 The diagram below 
 
-![Complete Comet Data pipeline]( docs/assets/cdp-howitworks.png "Complete Comet Data pipeline")
+![Complete Comet Data pipeline]( docs/user/assets/cdp-howitworks.png "Complete Comet Data pipeline")
 
 
 1. Landing Area : Files are first stored in the local file system
