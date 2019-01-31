@@ -24,6 +24,7 @@ The main advantages of the Comet Data Pipeline project are :
 * Transform text files to strongly typed records
 * Support semantic types
 * Force privacy on specific fields (RGPD)
+* very, very simple piece of software to administer
 
 
 How it works
