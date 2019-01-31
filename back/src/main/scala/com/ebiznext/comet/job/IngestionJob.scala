@@ -117,12 +117,12 @@ trait IngestionJob extends SparkJob {
 
       val mergePath = s"${targetPath.toString}.merge"
       val targetDataset = if (merge) {
-        partitionedDF.mode(SaveMode.Overwrite).format("parquet").option("path", mergePath).save()
+        partitionedDF.mode(SaveMode.Overwrite).format(Settings.comet.writeFormat).option("path", mergePath).save()
         partitionedDatasetWriter(session.read.parquet(mergePath.toString), metadata.partition.getOrElse(Nil))
       }
       else
         partitionedDF
-      val finalDataset = targetDataset.mode(saveMode).format("parquet").option("path", targetPath.toString)
+      val finalDataset = targetDataset.mode(saveMode).format(Settings.comet.writeFormat).option("path", targetPath.toString)
       if (Settings.comet.hive) {
         finalDataset.saveAsTable(fullTableName)
         val tableComment = schema.comment.getOrElse("")
