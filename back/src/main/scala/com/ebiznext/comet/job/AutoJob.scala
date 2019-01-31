@@ -7,7 +7,7 @@ import org.apache.spark.sql.SparkSession
 
 /**
   *
-  * Execute the SQL Task and store it in parquet. If Hive support is enabled, also store it as a Hive Table.
+  * Execute the SQL Task and store it in parquet/orc/.... If Hive support is enabled, also store it as a Hive Table.
   * If analyze support is active, also compute basic statistics for the dataset.
   *
   * @param name        : Job Name as defined in the YML job description file
