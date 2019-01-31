@@ -77,7 +77,6 @@ object JsonIngestionUtil {
       case (_: IntegralType, _: IntegralType) => Nil
       case (_: FractionalType, _: IntegralType) => Nil
       case (_: FractionalType, _: FractionalType) => Nil
-      case (_: DecimalType, _: DecimalType) => Nil
       case (_: TimestampType, _: DateType) | (_: DateType, _: TimestampType) => Nil
       case (_: StringType, _: StringType) => Nil
       case (StructType(unsortedFields1), StructType(unsortedFields2)) =>

@@ -2,6 +2,9 @@ import java.time.format.DateTimeFormatter
 import java.time.{Instant, LocalDateTime}
 import java.util.regex.Pattern
 
+
+
+val dec = BigDecimal("10.0")
 System.getenv("HIVE_HOME")
 
 val p0 = Pattern.compile("(?i)true|false|yes|no|[yn01]")
