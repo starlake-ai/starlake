@@ -2,6 +2,7 @@ package com.ebiznext.comet.schema.model
 
 import java.sql.Timestamp
 import java.time._
+import java.time.format.DateTimeFormatter
 import java.time.temporal.TemporalAccessor
 
 import com.fasterxml.jackson.core.JsonParser
@@ -106,7 +107,7 @@ object PrimitiveType {
       case "epoch_milli" =>
         Instant.ofEpochMilli(str.toLong)
       case _ =>
-        val formatter = DateTimeFormatter.ofPattern(format)
+        val formatter = PrimitiveType.formatters.getOrElse(format, DateTimeFormatter.ofPattern(format))
         val dateTime: TemporalAccessor = formatter.parse(str)
         Try(Instant.from(dateTime)) match {
           case Success(instant) =>
@@ -150,4 +151,25 @@ object PrimitiveType {
   }
 
   val primitiveTypes: Set[PrimitiveType] = Set(string, long, double, decimal, boolean, byte, date, timestamp, struct)
+
+  import DateTimeFormatter._
+
+  val formatters = Map(
+    "BASIC_ISO_DATE" -> BASIC_ISO_DATE,
+    "ISO_LOCAL_DATE" -> ISO_LOCAL_DATE,
+    "ISO_OFFSET_DATE" -> ISO_OFFSET_DATE,
+    "ISO_DATE" -> ISO_DATE,
+    "ISO_LOCAL_TIME" -> ISO_LOCAL_TIME,
+    "ISO_OFFSET_TIME" -> ISO_OFFSET_TIME,
+    "ISO_TIME" -> ISO_TIME,
+    "ISO_LOCAL_DATE_TIME" -> ISO_LOCAL_DATE_TIME,
+    "ISO_OFFSET_DATE_TIME" -> ISO_OFFSET_DATE_TIME,
+    "ISO_ZONED_DATE_TIME" -> ISO_ZONED_DATE_TIME,
+    "ISO_DATE_TIME" -> ISO_DATE_TIME,
+    "ISO_ORDINAL_DATE" -> ISO_ORDINAL_DATE,
+    "ISO_WEEK_DATE" -> ISO_WEEK_DATE,
+    "ISO_INSTANT" -> ISO_INSTANT,
+    "RFC_1123_DATE_TIME" -> RFC_1123_DATE_TIME)
+
+
 }
