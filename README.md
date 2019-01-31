@@ -1,5 +1,7 @@
 # About Comet Data Pipeline
 
+Complete documentation available [here](https://comet-app.readthedocs.io/en/dev-format-strategy/)
+
 ## Introduction
 
 The purpose of this project is to efficiently ingest various data
