@@ -9,8 +9,6 @@ metadata:
   quote: "\""
   escape: "\\"
   write: "OVERWRITE"
-  dateFormat: "yyyy-MM-dd"
-  timestampFormat: "yyyy-MM-dd HH:mm:ss"
   partition:
     - comet_year
     - comet_month
@@ -20,7 +18,7 @@ schemas:
     pattern: "OneClient_Segmentation.*.*"
     attributes:
       - name: "dream_id"
-        type: "int"
+        type: "long"
         required: false
         privacy: "NONE"
         rename: "dreamkey"
@@ -46,7 +44,7 @@ schemas:
     pattern: "OneClient_Contact.*"
     attributes:
       - name: "dream_id"
-        type: "int"
+        type: "long"
         required: false
         privacy: "NONE"
       - name: "gender"
@@ -54,15 +52,15 @@ schemas:
         required: false
         privacy: "NONE"
       - name: "birthdate_day"
-        type: "int"
+        type: "long"
         required: false
         privacy: "NONE"
       - name: "birthdate_month"
-        type: "int"
+        type: "long"
         required: false
         privacy: "NONE"
       - name: "birthdate_year"
-        type: "int"
+        type: "long"
         required: false
         privacy: "NONE"
       - name: "nationality"
@@ -70,7 +68,7 @@ schemas:
         required: false
         privacy: "NONE"
       - name: "customer_creation_date"
-        type: "datetime"
+        type: "timestamp"
         required: false
         privacy: "NONE"
       - name: "zip_code"
@@ -106,43 +104,43 @@ schemas:
         required: false
         privacy: "NONE"
       - name: "stop_mailing_flag"
-        type: "int"
+        type: "long"
         required: false
         privacy: "NONE"
       - name: "stop_emailing_flag"
-        type: "int"
+        type: "long"
         required: false
         privacy: "NONE"
       - name: "stop_home_phone_flag"
-        type: "int"
+        type: "long"
         required: false
         privacy: "NONE"
       - name: "stop_mobile_phone_flag"
-        type: "int"
+        type: "long"
         required: false
         privacy: "NONE"
       - name: "stop_call_flag"
-        type: "int"
+        type: "long"
         required: false
         privacy: "NONE"
       - name: "stop_sms_mms_flag"
-        type: "int"
+        type: "long"
         required: false
         privacy: "NONE"
       - name: "can_email"
-        type: "int"
+        type: "long"
         required: false
         privacy: "NONE"
       - name: "can_mail"
-        type: "int"
+        type: "long"
         required: false
         privacy: "NONE"
       - name: "can_call"
-        type: "int"
+        type: "long"
         required: false
         privacy: "NONE"
       - name: "can_sms"
-        type: "int"
+        type: "long"
         required: false
         privacy: "NONE"
       - name: "attached_channel"
@@ -158,23 +156,23 @@ schemas:
         required: false
         privacy: "NONE"
       - name: "turnover_hist_euro"
-        type: "DECIMAL"
+        type: "decimal"
         required: false
         privacy: "NONE"
       - name: "turnover_hist_dollar"
-        type: "DECIMAL"
+        type: "decimal"
         required: false
         privacy: "NONE"
       - name: "number_of_products_hist"
-        type: "int"
+        type: "long"
         required: false
         privacy: "NONE"
       - name: "number_of_transactions_hist"
-        type: "int"
+        type: "long"
         required: false
         privacy: "NONE"
       - name: "typology_code"
-        type: "int"
+        type: "long"
         required: false
         privacy: "NONE"
       - name: "typology"
@@ -210,7 +208,7 @@ schemas:
         required: false
         privacy: "NONE"
       - name: "complaint_last_closure_date"
-        type: "datetime"
+        type: "timestamp"
         required: false
         privacy: "NONE"
       - name: "segmentation"
@@ -238,31 +236,31 @@ schemas:
         required: false
         privacy: "NONE"
       - name: "turnover_histyuan"
-        type: "DECIMAL"
+        type: "decimal"
         required: false
         privacy: "NONE"
       - name: "turnover_histyen"
-        type: "DECIMAL"
+        type: "decimal"
         required: false
         privacy: "NONE"
       - name: "turnover_histeuro_wo_tx"
-        type: "DECIMAL"
+        type: "decimal"
         required: false
         privacy: "NONE"
       - name: "turnover_histdollar_wo_tx"
-        type: "DECIMAL"
+        type: "decimal"
         required: false
         privacy: "NONE"
       - name: "turnover_histyuan_wo_tx"
-        type: "DECIMAL"
+        type: "decimal"
         required: false
         privacy: "NONE"
       - name: "turnover_histyen_wo_tx"
-        type: "DECIMAL"
+        type: "decimal"
         required: false
         privacy: "NONE"
       - name: "title_id"
-        type: "int"
+        type: "long"
         required: false
         privacy: "NONE"
       - name: "title_label"
@@ -270,7 +268,7 @@ schemas:
         required: false
         privacy: "NONE"
       - name: "civility_id"
-        type: "int"
+        type: "long"
         required: false
         privacy: "NONE"
       - name: "civility_label"
@@ -278,7 +276,7 @@ schemas:
         required: false
         privacy: "NONE"
       - name: "channel_visited_id"
-        type: "int"
+        type: "long"
         required: false
         privacy: "NONE"
       - name: "channel_visited_label"
@@ -294,35 +292,35 @@ schemas:
         required: false
         privacy: "NONE"
       - name: "isvalid_mainpostal_adr"
-        type: "int"
+        type: "long"
         required: false
         privacy: "NONE"
       - name: "isvalid_email"
-        type: "int"
+        type: "long"
         required: false
         privacy: "NONE"
       - name: "isvalid_pmobile_phone"
-        type: "int"
+        type: "long"
         required: false
         privacy: "NONE"
       - name: "isvalid_phome_phone"
-        type: "int"
+        type: "long"
         required: false
         privacy: "NONE"
       - name: "isvalid_birthd"
-        type: "int"
+        type: "long"
         required: false
         privacy: "NONE"
       - name: "has_serial_number"
-        type: "int"
+        type: "long"
         required: false
         privacy: "NONE"
       - name: "has_lock_number"
-        type: "int"
+        type: "long"
         required: false
         privacy: "NONE"
       - name: "has_active_icon_lic"
-        type: "int"
+        type: "long"
         required: false
         privacy: "NONE"
       - name: "cust_initiales"
@@ -338,7 +336,7 @@ schemas:
         required: false
         privacy: "NONE"
       - name: "cust_segmentation_id"
-        type: "int"
+        type: "long"
         required: false
         privacy: "NONE"
       - name: "id_10k"
