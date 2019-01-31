@@ -1,8 +1,10 @@
+****************
 Complete Example
-================
+****************
 
 Problem description
--------------------
+###################
+
 
 Say we have to ingest customers, orders and sellers into the datalake.
 The customers and orders are provided by the "sales" department while
@@ -71,7 +73,7 @@ The sellers dataset is sent as JSON array by the HR department.
 
 
 Ingestion Rules
----------------
+###############
 
 Ingestion rules are stored in the HDFS folder referenced by the COMET_METADATA
 environment variable (/tmp/metadata by default).
@@ -89,7 +91,7 @@ Schema files decribe how the input files are parsed using a set of rules :
 
 
 Type Rules
-~~~~~~~~~~
+**********
 
 Types are defined in the HDFS file $COMET_METADATA/types/types.yml.
 
@@ -107,8 +109,7 @@ A type is defined by:
    * ``date``` : date only fields
    * ``timestamp``: date time fields
 * the pattern it should match : A java pattern matching expression that matches the field
-   * for types of primitive type "date" or date time, "epoch_milli", "epoch_second" or any
-predefined or custom date pattern as defined in the DateTimeFormatter_ Specification.
+   * for types of primitive type "date" or date time, "epoch_milli", "epoch_second" or any predefined or custom date pattern as defined in the DateTimeFormatter_ Specification.
 
 For each primitive type, a type is defined by default. These default types are
 located in the file $COMET_METADATA/types/default.yml and they may be redefined
@@ -191,7 +192,7 @@ types we want to recognize, we may start defining our schemas.
 
 
 Domain Rules
-~~~~~~~~~~~~
+************
 
 Files are organized by domain. In our example, the "customers" and "orders"
 files belong to the "sales" domain  and the "sellers" file belong to the "HR"
@@ -254,7 +255,7 @@ aka $COMET_METADATA/domains/sales.yml.
 You can define only one domain per YAML domain definition file.
 
 Schema Rules
-~~~~~~~~~~~~
+************
 
 A schema is associated to an incoming file if the filename matches the pattern
 defined in the schema.

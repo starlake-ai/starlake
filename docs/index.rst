@@ -3,27 +3,27 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
+***********************************************
 Welcome to Comet data pipeline's documentation!
-===============================================
+***********************************************
 
 Getting started with Comet Data Pipeline:
 
-User Guide
 
 .. toctree::
+   :caption: User Guide
    :maxdepth: 2
 
-   start_introduction
-   start_quickstart
-   start_complete
-   install_install
-   install_configure
-   admin
-
-Developer Guide
+   user/start_introduction
+   user/start_quickstart
+   user/start_complete
+   user/install_install
+   user/install_configure
+   user/admin
 
 .. toctree::
+   :caption: Developer Guide
    :maxdepth: 2
 
-   contribute
+   developer/contribute
 
