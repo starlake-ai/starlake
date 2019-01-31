@@ -146,4 +146,21 @@ class HdfsStorageHandler extends StorageHandler {
     val fs = FileSystem.get(conf)
     fs.exists(path)
   }
+
+  def defaultBlockSize(path: Path): Long = {
+    val conf = new Configuration()
+    val fs = FileSystem.get(conf)
+    fs.getDefaultBlockSize(path)
+  }
+
+  def contentSummary(path: Path): ContentSummary = {
+    val conf = new Configuration()
+    val fs = FileSystem.get(conf)
+    fs.getContentSummary(path)
+  }
+
+  def spaceConsumed(path: Path): Long = {
+    contentSummary(path).getSpaceConsumed
+  }
+
 }
