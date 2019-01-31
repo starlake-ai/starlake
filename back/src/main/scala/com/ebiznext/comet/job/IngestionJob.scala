@@ -57,6 +57,7 @@ trait IngestionJob extends SparkJob {
     * @param acceptedDF
     */
   def saveAccepted(acceptedDF: DataFrame): Unit = {
+    session.sparkContext.getRDDStorageInfo
     val writeMode = getWriteMode()
     val acceptedPath = new Path(DatasetArea.accepted(domain.name), schema.name)
     val mergedDF = schema.merge.map { mergeOptions =>
@@ -153,7 +154,7 @@ trait IngestionJob extends SparkJob {
     domain.checkValidity(types) match {
       case Left(errors) =>
         errors.foreach(err => logger.error(err))
-      case Right(true) =>
+      case Right(_) =>
         schema.presql.getOrElse(Nil).foreach(session.sql)
         val dataset = loadDataSet()
         val (rejectedRDD, acceptedRDD) = ingest(dataset)
