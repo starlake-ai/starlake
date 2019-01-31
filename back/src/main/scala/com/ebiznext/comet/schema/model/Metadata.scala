@@ -38,9 +38,7 @@ case class Metadata(
                      quote: Option[String] = None,
                      escape: Option[String] = None,
                      write: Option[WriteMode] = None,
-                     partition: Option[List[String]] = None,
-                     dateFormat: Option[String] = None,
-                     timestampFormat: Option[String] = None
+                     partition: Option[List[String]] = None
                    ) {
   override def toString: String =
     s"""
@@ -54,8 +52,6 @@ case class Metadata(
        |escape:${getEscape()}
        |write:${getWriteMode()}
        |partition:${getPartition()}
-       |dateFormat:${getDateFormat()}
-       |timestampFormat:${getTimestampFormat()}
        """.stripMargin
 
   def getIngestMode(): Mode = mode.getOrElse(FILE)
@@ -77,10 +73,6 @@ case class Metadata(
   def getWriteMode(): WriteMode = write.getOrElse(APPEND)
 
   def getPartition(): List[String] = partition.getOrElse(Nil)
-
-  def getDateFormat() = dateFormat.getOrElse("yyyy-MM-dd")
-
-  def getTimestampFormat() = timestampFormat.getOrElse("yyyy-MM-dd HH:mm:ss")
 
   /**
     * Merge this metadata with its child.
@@ -112,9 +104,7 @@ case class Metadata(
       quote = defined(this.quote, child.quote),
       escape = defined(this.escape, child.escape),
       write = defined(this.write, child.write),
-      partition = defined(this.partition, child.partition),
-      dateFormat = defined(this.dateFormat, child.dateFormat),
-      timestampFormat = defined(this.timestampFormat, child.timestampFormat)
+      partition = defined(this.partition, child.partition)
     )
   }
 }
@@ -141,9 +131,7 @@ object Metadata {
     quote,
     escape,
     write,
-    None,
-    Some("yyyy-MM-dd"),
-    Some("yyyy-MM-dd HH:mm:ss")
+    None
   )
 }
 
@@ -165,8 +153,6 @@ class MetadataDeserializer extends JsonDeserializer[Metadata] {
     val write = if (isNull("write")) None else Some(WriteMode.fromString(node.get("write").asText))
     import scala.collection.JavaConverters._
     val partition = if (isNull("partition")) None else Some(node.get("partition").asInstanceOf[ArrayNode].elements.asScala.toList.map(_.asText()))
-    val dateFormat = if (isNull("dateFormat")) None else Some(node.get("dateFormat").asText)
-    val timestampFormat = if (isNull("timestampFormat")) None else Some(node.get("timestampFormat").asText)
-    Metadata(mode, format, multiline, array, withHeader, separator, quote, escape, write, partition, dateFormat, timestampFormat)
+    Metadata(mode, format, multiline, array, withHeader, separator, quote, escape, write, partition)
   }
 }
