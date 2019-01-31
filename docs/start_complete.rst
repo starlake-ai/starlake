@@ -107,6 +107,8 @@ A type is defined by:
    * ``date``` : date only fields
    * ``timestamp``: date time fields
 * the pattern it should match : A java pattern matching expression that matches the field
+   * for types of primitive type "date" or date time, "epoch_milli", "epoch_second" or any
+predefined or custom date pattern as defined in the DateTimeFormatter_ Specification.
 
 For each primitive type, a type is defined by default. These default types are
 located in the file $COMET_METADATA/types/default.yml and they may be redefined
@@ -129,7 +131,7 @@ in the file $COMET_METADATA/types/types.yml
         comment: "Any set of chars"
     - name: "date"
         primitiveType: "date"
-        pattern: "(0?[1-9]|[12][0-9]|3[01])/(0?[1-9]|1[012])/((19|20)\\\\d\\\\d)"
+        pattern: "yyyy/MM/dd"
         sample: "2018/07/21"
         comment: "Data in the format yyyy/MM/dd"
     - name: "double"
@@ -153,7 +155,7 @@ in the file $COMET_METADATA/types/types.yml
         sample: "TruE"
     - name: "timestamp"
         primitiveType: "timestamp"
-        pattern: "\\d+"
+        pattern: "epoch_milli"
         sample: "1548165436433"
         comment: "date/time in epoch millis"
 
@@ -479,3 +481,6 @@ The merge attribute above should be read as follows::
 
 
 With the types catalog and file schemas defined we are ready to ingest
+
+
+.. _DateTimeFormatter: https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/time/format/DateTimeFormatter.html#BASIC_ISO_DATE
