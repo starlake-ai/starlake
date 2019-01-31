@@ -1,5 +1,7 @@
 # About Comet Data Pipeline
 
+## Introduction
+
 The purpose of this project is to efficiently ingest various data
 sources in different formats and make them available for analytics.
 Usualluy, ingestion is done by writing hand made custom parsers that
@@ -26,9 +28,7 @@ The main advantages of the Comet Data Pipeline project are :
 * Force privacy on specific fields (RGPD)
 * very, very simple piece of software to administer
 
-
-How it works
-############
+## How it works
 
 Comet Data Pipeline automates the loading and parsing of files and
 their ingestion into a Hadoop Datalake where datasets become
