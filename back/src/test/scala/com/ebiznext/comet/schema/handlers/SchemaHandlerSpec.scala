@@ -47,6 +47,8 @@ class SchemaHandlerSpec extends FlatSpec with Matchers with SampleData {
     val sh = new HdfsStorageHandler
     val domainsPath = new Path(DatasetArea.domains, "dream.yml")
     sh.write(loadFile("/sample/dream/dream.yml"), domainsPath)
+    val defaultTypesPath = new Path(DatasetArea.types, "default.yml")
+    sh.write(loadFile("/sample/default.yml"), defaultTypesPath)
     val typesPath = new Path(DatasetArea.types, "types.yml")
     sh.write(loadFile("/sample/dream/types.yml"), typesPath)
     DatasetArea.initDomains(storageHandler, schemaHandler.domains.map(_.name))
@@ -63,6 +65,8 @@ class SchemaHandlerSpec extends FlatSpec with Matchers with SampleData {
     val sh = new HdfsStorageHandler
     val domainsPath = new Path(DatasetArea.domains, "dream.yml")
     sh.write(loadFile("/sample/dream/dream.yml"), domainsPath)
+    val defaultTypesPath = new Path(DatasetArea.types, "default.yml")
+    sh.write(loadFile("/sample/default.yml"), defaultTypesPath)
     val typesPath = new Path(DatasetArea.types, "types.yml")
     sh.write(loadFile("/sample/dream/types.yml"), typesPath)
     DatasetArea.initDomains(storageHandler, schemaHandler.domains.map(_.name))
