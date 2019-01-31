@@ -14,11 +14,11 @@ Getting started with Comet Data Pipeline:
    :caption: User Guide
    :maxdepth: 2
 
-   user/start_introduction
-   user/start_quickstart
-   user/start_complete
-   user/install_install
-   user/install_configure
+   user/introduction
+   user/quickstart
+   user/complete
+   user/install
+   user/configure
    user/admin
 
 .. toctree::

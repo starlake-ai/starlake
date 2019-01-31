@@ -33,7 +33,7 @@ This will create the ``/tmp/metadata`` and the ``/tmp/incoming`` folders.
 
 Import the datasets into the cluster using spark-submit :
 
-``$SPARK_HOME/bin/spark-submit target/scala-2.11/comet-assembly-VERSION.jar ingest``
+``$SPARK_HOME/bin/spark-submit target/scala-2.11/comet-assembly-VERSION.jar import``
 
 
 This will put the datasets in the ``/tmp/datasets/pending/`` folder. In real life, this will be a HDFS folder.
