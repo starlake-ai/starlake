@@ -22,7 +22,7 @@ import scala.util.{Failure, Success, Try}
 @JsonSerialize(using = classOf[ToStringSerializer])
 @JsonDeserialize(using = classOf[PrimitiveTypeDeserializer])
 sealed abstract case class PrimitiveType(value: String) {
-  def fromString(str: String, dateFormat: String = null, timeFormat: String = null): Any
+  def fromString(str: String, dateFormat: String = null): Any
 
   override def toString: String = value
 
@@ -42,6 +42,7 @@ class PrimitiveTypeDeserializer extends JsonDeserializer[PrimitiveType] {
       case "timestamp" => PrimitiveType.timestamp
       case "decimal" => PrimitiveType.decimal
       case "struct" => PrimitiveType.struct
+      case _ => throw new Exception(s"Invalid primitive type: $value not in ${PrimitiveType.primitiveTypes}")
     }
   }
 
@@ -54,19 +55,19 @@ class PrimitiveTypeDeserializer extends JsonDeserializer[PrimitiveType] {
 object PrimitiveType {
 
   object string extends PrimitiveType("string") {
-    def fromString(str: String, dateFormat: String = null, timeFormat: String = null): Any = str
+    def fromString(str: String, dateFormat: String = null): Any = str
 
     def sparkType: DataType = StringType
   }
 
   object long extends PrimitiveType("long") {
-    def fromString(str: String, dateFormat: String, timeFormat: String): Any = if (str == null || str.isEmpty) null else str.toLong
+    def fromString(str: String, dateFormat: String): Any = if (str == null || str.isEmpty) null else str.toLong
 
     def sparkType: DataType = LongType
   }
 
   object double extends PrimitiveType("double") {
-    def fromString(str: String, dateFormat: String, timeFormat: String): Any = if (str == null || str.isEmpty) null else str.toDouble
+    def fromString(str: String, dateFormat: String): Any = if (str == null || str.isEmpty) null else str.toDouble
 
     def sparkType: DataType = DoubleType
   }
@@ -74,25 +75,25 @@ object PrimitiveType {
   object decimal extends PrimitiveType("decimal") {
     val defaultDecimalType = DataTypes.createDecimalType(30, 15)
 
-    def fromString(str: String, dateFormat: String, timeFormat: String): Any = if (str == null || str.isEmpty) null else BigDecimal(str)
+    def fromString(str: String, dateFormat: String): Any = if (str == null || str.isEmpty) null else BigDecimal(str)
 
     override def sparkType: DataType = defaultDecimalType
   }
 
   object boolean extends PrimitiveType("boolean") {
-    def fromString(str: String, dateFormat: String, timeFormat: String): Any = if (str == null || str.isEmpty) null else str.toBoolean
+    def fromString(str: String, dateFormat: String): Any = if (str == null || str.isEmpty) null else str.toBoolean
 
     def sparkType: DataType = BooleanType
   }
 
   object byte extends PrimitiveType("byte") {
-    def fromString(str: String, dateFormat: String, timeFormat: String): Any = if (str == null || str.isEmpty) null else str.toByte
+    def fromString(str: String, dateFormat: String): Any = if (str == null || str.isEmpty) null else str.toByte
 
     def sparkType: DataType = ByteType
   }
 
   object struct extends PrimitiveType("struct") {
-    def fromString(str: String, dateFormat: String, timeFormat: String): Any = if (str == null || str.isEmpty) null else str.toByte
+    def fromString(str: String, dateFormat: String): Any = if (str == null || str.isEmpty) null else str.toByte
 
     def sparkType: DataType = new StructType(Array.empty[StructField])
   }
@@ -120,7 +121,7 @@ object PrimitiveType {
 
 
   object date extends PrimitiveType("date") {
-    def fromString(str: String, dateFormat: String, timeFormat: String): Any = {
+    def fromString(str: String, dateFormat: String): Any = {
       if (str == null || str.isEmpty)
         null
       else {
@@ -136,7 +137,7 @@ object PrimitiveType {
   }
 
   object timestamp extends PrimitiveType("timestamp") {
-    def fromString(str: String, dateFormat: String, timeFormat: String): Any = {
+    def fromString(str: String, timeFormat: String): Any = {
       if (str == null || str.isEmpty)
         null
       else {

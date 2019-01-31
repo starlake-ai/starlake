@@ -125,7 +125,7 @@ class DsvIngestionJob(val domain: Domain, val schema: Schema, val types: List[Ty
 
     val (orderedTypes, orderedSparkTypes) = reorderTypes()
 
-    val (rejectedRDD, acceptedRDD) = DsvIngestionUtil.validate(session, dataset, orderedAttributes, metadata.getDateFormat(), metadata.getTimestampFormat(), orderedTypes, orderedSparkTypes)
+    val (rejectedRDD, acceptedRDD) = DsvIngestionUtil.validate(session, dataset, orderedAttributes, orderedTypes, orderedSparkTypes)
     saveRejected(rejectedRDD)
     saveAccepted(acceptedRDD, orderedSparkTypes)
     (rejectedRDD, acceptedRDD)
@@ -169,7 +169,7 @@ object DsvIngestionUtil {
     * @param sparkType  : The expected Spark Type for valid rows
     * @return Two RDDs : One RDD for rejected rows and one RDD for accepted rows
     */
-  def validate(session: SparkSession, dataset: DataFrame, attributes: List[Attribute], dateFormat: String, timeFormat: String, types: List[Type], sparkType: StructType): (RDD[String], RDD[Row]) = {
+  def validate(session: SparkSession, dataset: DataFrame, attributes: List[Attribute], types: List[Type], sparkType: StructType): (RDD[String], RDD[Row]) = {
     val now = Timestamp.from(Instant.now)
     val rdds = dataset.rdd
     val checkedRDD: RDD[RowResult] = dataset.rdd.mapPartitions { partition =>
@@ -182,7 +182,7 @@ object DsvIngestionUtil {
           rowCols.map { case ((colValue, colAttribute), tpe) =>
             val validNumberOfColumns = attributes.length <= rowCols.length
             val optionalColIsEmpty = !colAttribute.required && colValue.isEmpty
-            val colPatternIsValid = tpe.pattern.matcher(colValue).matches()
+            val colPatternIsValid = tpe.matches(colValue)
             val privacy = colAttribute.getPrivacy() match {
               case PrivacyLevel.NONE =>
                 colValue
@@ -206,14 +206,14 @@ object DsvIngestionUtil {
             val colPatternOK = validNumberOfColumns && (optionalColIsEmpty || colPatternIsValid)
             val (sparkValue, colParseOK) =
               if (colPatternOK) {
-                Try(tpe.primitiveType.fromString(privacy, dateFormat, timeFormat)) match {
+                Try(tpe.sparkValue(privacy)) match {
                   case Success(res) => (res, true)
                   case Failure(_) => (null, false)
                 }
               }
               else
                 (null, false)
-            ColResult(ColInfo(colValue, colAttribute.name, tpe.name, tpe.pattern.pattern(), colPatternOK && colParseOK), sparkValue)
+            ColResult(ColInfo(colValue, colAttribute.name, tpe.name, tpe.pattern, colPatternOK && colParseOK), sparkValue)
           } toList
         )
       }
