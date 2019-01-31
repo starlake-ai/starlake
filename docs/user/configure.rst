@@ -260,8 +260,8 @@ Ingestion DAG
         #on_failure_callback=slack_task(":red_circle: Task Comet Ingest Failed: "),
         #on_success_callback=slack_task(":ok_hand: Task Comet Ingest Success: "),
         env={
-            'COMET_DATASETS':"/project/comet_ing_auto",
-            'COMET_METADATA':"/project/comet_ing_auto/metadata",
+            'COMET_DATASETS':"/project/data",
+            'COMET_METADATA':"/project/metadata",
             'COMET_AREA_ACCEPTED':"working",
             'COMET_AREA_PENDING':"staging",
             'COMET_ARCHIVE':"true",
