@@ -36,6 +36,7 @@ case class Type(name: String, pattern: String, primitiveType: PrimitiveType = Pr
 
   def matches(value: String): Boolean = {
     primitiveType match {
+      case PrimitiveType.struct => true
       case PrimitiveType.date =>
         Try(date.fromString(value, pattern)).isSuccess
       case PrimitiveType.timestamp =>
@@ -58,13 +59,15 @@ case class Type(name: String, pattern: String, primitiveType: PrimitiveType = Pr
 
     val patternIsValid = Try {
       primitiveType match {
+        case PrimitiveType.struct =>
         case PrimitiveType.date =>
           new SimpleDateFormat(pattern)
         case PrimitiveType.timestamp =>
           pattern match {
             case "epoch_second" | "epoch_milli" =>
+            case _ if PrimitiveType.formatters.keys.toList.contains(pattern) =>
             case _ =>
-              val formatter = DateTimeFormatter.ofPattern(pattern)
+              DateTimeFormatter.ofPattern(pattern)
           }
         case _ =>
           Pattern.compile(pattern)
