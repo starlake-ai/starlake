@@ -1,5 +1,6 @@
+***********
 Quick Start
-============
+***********
 
 The example in the folder ``src/test/resources/quickstart`` import into the cluster teh following files :
 
@@ -17,7 +18,7 @@ From the HR departement, sellers and locations in json files :
 
 
 Build it
---------
+########
 
 Clone the project, install sbt 1.0+ and run ``sbt clean assembly``. This will create the following assembly
 in the ``target/scala-2.11`` directory.
@@ -25,7 +26,7 @@ in the ``target/scala-2.11`` directory.
 
 
 Run it
-------
+######
 
 To run the quickstart on a local filesystem, simply copy the content of the quickstart directory to your /tmp directory.
 This will create the ``/tmp/metadata`` and the ``/tmp/incoming`` folders.
