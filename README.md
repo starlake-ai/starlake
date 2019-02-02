@@ -36,8 +36,6 @@ Comet Data Pipeline automates the loading and parsing of files and
 their ingestion into a Hadoop Datalake where datasets become
 available as Hive tables.
 
-The diagram below 
-
 ![Complete Comet Data pipeline]( docs/user/assets/cdp-howitworks.png "Complete Comet Data pipeline")
 
 
