@@ -163,8 +163,6 @@ object DsvIngestionUtil {
     * @param session    : The Spark session
     * @param dataset    : The dataset
     * @param attributes : the col attributes
-    * @param dateFormat : expected java date pattern in the dataset
-    * @param timeFormat : expected java timestamp pattern in the dataset
     * @param types      : List of globally defined types
     * @param sparkType  : The expected Spark Type for valid rows
     * @return Two RDDs : One RDD for rejected rows and one RDD for accepted rows
