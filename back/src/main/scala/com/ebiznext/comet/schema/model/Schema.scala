@@ -46,7 +46,7 @@ case class Schema(name: String,
     * This Schema as a Spark Catalyst Schema
     *
     * @param types : globally defined types
-    * @returnSpark Catalyst Schema
+    * @return Spark Catalyst Schema
     */
   def sparkType(types: Types): StructType = {
     val fields = attributes.map { attr =>
