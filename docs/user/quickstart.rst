@@ -33,14 +33,18 @@ This will create the ``/tmp/metadata`` and the ``/tmp/incoming`` folders.
 
 Import the datasets into the cluster using spark-submit :
 
-``$SPARK_HOME/bin/spark-submit target/scala-2.11/comet-assembly-VERSION.jar import``
+.. code-block:: console
+
+   $SPARK_HOME/bin/spark-submit target/scala-2.11/comet-assembly-VERSION.jar import
 
 
 This will put the datasets in the ``/tmp/datasets/pending/`` folder. In real life, this will be a HDFS folder.
 
 Run the ingestion process as follows :
 
-``$SPARK_HOME/bin/spark-submit target/scala-2.11/comet-assembly-VERSION.jar watch``
+.. code-block:: console
+
+   $SPARK_HOME/bin/spark-submit target/scala-2.11/comet-assembly-VERSION.jar watch
 
 
 This will ingest the four datasets of the two domains (hr & sales) and store them as parquet files into the folders:
