@@ -65,9 +65,20 @@ test in assembly := {}
 // Git
 enablePlugins(GitVersioning)
 
+
 git.useGitDescribe := true
 
 git.gitTagToVersionNumber := { tag: String =>
   if (tag matches "[0-9]+\\..*") Some(tag)
   else None
 }
+
+// Shinx plugin
+enablePlugins(SphinxPlugin)
+
+sourceDirectory in Sphinx := baseDirectory.value / ".." / "docs"
+
+// Scaladoc
+enablePlugins(SiteScaladocPlugin)
+
+publishSite
