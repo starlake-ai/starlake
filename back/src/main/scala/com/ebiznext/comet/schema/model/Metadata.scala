@@ -75,6 +75,16 @@ case class Metadata(
   def getPartition(): List[String] = partition.getOrElse(Nil)
 
   /**
+    * Merge a single attribute
+    *
+    * @param parent : Domain level metadata attribute
+    * @param child  : Schema level metadata attribute
+    * @return attribute if merge, the domain attribute otherwise.
+    */
+  protected def merge[T](parent: Option[T], child: Option[T]): Option[T] =
+    if (child.isDefined) child else parent
+
+  /**
     * Merge this metadata with its child.
     * Any property defined at the child level overrides the one defined at this level
     * This allow a schema to override the domain metadata attribute
@@ -84,27 +94,17 @@ case class Metadata(
     * @return the metadata resulting of the merge of the schema and the domain metadata.
     */
   def `import`(child: Metadata): Metadata = {
-    /**
-      * Merge a single attribute
-      *
-      * @param parent : Domain level metadata attribute
-      * @param child  : Schema level metadata attribute
-      * @return attribute if defined, the domain attribute otherwise.
-      */
-    def defined[T](parent: Option[T], child: Option[T]): Option[T] =
-      if (child.isDefined) child else parent
-
     Metadata(
-      mode = defined(this.mode, child.mode),
-      format = defined(this.format, child.format),
-      multiline = defined(this.multiline, child.multiline),
-      array = defined(this.array, child.array),
-      withHeader = defined(this.withHeader, child.withHeader),
-      separator = defined(this.separator, child.separator),
-      quote = defined(this.quote, child.quote),
-      escape = defined(this.escape, child.escape),
-      write = defined(this.write, child.write),
-      partition = defined(this.partition, child.partition)
+      mode = merge(this.mode, child.mode),
+      format = merge(this.format, child.format),
+      multiline = merge(this.multiline, child.multiline),
+      array = merge(this.array, child.array),
+      withHeader = merge(this.withHeader, child.withHeader),
+      separator = merge(this.separator, child.separator),
+      quote = merge(this.quote, child.quote),
+      escape = merge(this.escape, child.escape),
+      write = merge(this.write, child.write),
+      partition = merge(this.partition, child.partition)
     )
   }
 }

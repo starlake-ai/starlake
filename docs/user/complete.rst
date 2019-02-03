@@ -502,8 +502,7 @@ How it works
 ~~~~~~~~~~~~
 1. On startup, all the domain definitions files are loaded from the folder /tmp/metadata/domains
 2. Directories referenced by the ``directory`` attribute in the YAML domain definition files are scanned for incoming files. The incoming folder must be accessible locally or through a mount point.
-3. Any compressed file or file with any default extension or with one of the extension defined by the ``extensions`` attribute 
-are moved to the cluster in the domain pending folder, /tmp/datasets/pending/``DOMAIN NAME``/ by default.
+3. Any compressed file or file with any default extension or with one of the extension defined by the ``extensions`` attribute are moved to the cluster in the domain pending folder, /tmp/datasets/pending/``DOMAIN NAME``/ by default.
 
 Running it
 ~~~~~~~~~~
@@ -564,6 +563,7 @@ Running it
 ~~~~~~~~~~
 To interactively run it, copy the input file in the pending area
 of a domain and run it as follows:
+
 .. code:: console
 
    $ SPARK_HOME/bin/spark-submit comet-assembly-VERSION.jar ingest DOMAIN_NAME SCHEMA_NAME hdfs://datasets/domain/pending/file.dsv
