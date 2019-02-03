@@ -29,7 +29,6 @@ case class Attribute(name: String,
                      stat: Option[Stat] = None,
                      attributes: Option[List[Attribute]] = None
                     ) {
-
   /**
     * Check attribute validity
     * An attribute is valid if :
