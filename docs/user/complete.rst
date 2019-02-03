@@ -115,7 +115,7 @@ For each primitive type, a type is defined by default. These default types are
 located in the file $COMET_METADATA/types/default.yml and they may be redefined
 in the file $COMET_METADATA/types/types.yml
 
-``File $COMET_METADATA/types/default.yml``
+File ``$COMET_METADATA/types/default.yml``
 
 .. code-block:: yaml
 
@@ -165,7 +165,7 @@ We may add new types that map to these primitive types.
 For our example above, we will add the following
 semantic types to allow better validation on the input fields
 
-``File $COMET_METADATA/types/types.yml``
+File ``$COMET_METADATA/types/types.yml``
 
 .. code-block:: yaml
 
@@ -215,7 +215,7 @@ in the cluster.
 
 The file below explains it all:
 
-``File $COMET_METADATA/domains/sales.yml``
+File ``$COMET_METADATA/domains/sales.yml``
 
 .. code-block:: yaml
 
@@ -264,7 +264,7 @@ and type mapping rules for each attribute.
 
 First, we add the schema definition to the "customer" file in the domain definition file
 
-``File $COMET_METADATA/domains/sales.yml``
+File ``$COMET_METADATA/domains/sales.yml``
 
 .. code-block:: yaml
 
@@ -362,12 +362,12 @@ The attributes section in the YAML above should be read as follows :
 
 Below, he complete domain definition files.
 
-``File $COMET_METADATA/domains/sales.yml``
+File ``$COMET_METADATA/domains/sales.yml``
 
 .. code-block:: yaml
 
     name: "sales"
-    directory: "/tmp/incoming/sales"
+    directory: "/mnt/incoming/sales"
     metadata:
       mode: "FILE"
       format: "DSV"
@@ -430,12 +430,12 @@ The merge attribute above should be read as follows::
  * and any record imported with a null column_id should be removed from the existing dataset.
 
 
-``File $COMET_METADATA/domains/hr.yml``
+File ``$COMET_METADATA/domains/hr.yml``
 
 .. code-block:: yaml
 
     name: "hr"
-    directory: "/tmp/incoming/hr"
+    directory: "/mnt/incoming/hr"
     metadata:
       mode: "FILE"
       format: "JSON"
@@ -483,5 +483,88 @@ The merge attribute above should be read as follows::
 
 With the types catalog and file schemas defined we are ready to ingest
 
+Ingestion Workflow
+##################
+The ingestion process follows the steps below :
+
+1. Import Step : Files are imported to the cluster in the pending area.
+2. Watch Step : Files in the pending area are submitted for ingestion to the Job Manager (Airflow for example).
+3. Ingestion Step: Files are validated and converted to a cluster defined file format (parquet, orc ...) and saved as Hive tables.
+
+
+Before running the steps below, please configure first the environment variables
+as described in the 
+
+Import Step
+***********
+
+How it works
+~~~~~~~~~~~~
+1. On startup, all the domain definitions files are loaded from the folder /tmp/metadata/domains
+2. Directories referenced by the ``directory`` attribute in the YAML domain definition files are scanned for incoming files. The incoming folder must be accessible locally or through a mount point.
+3. Any compressed file or file with any default extension or with one of the extension defined by the ``extensions`` attribute 
+are moved to the cluster in the domain pending folder, /tmp/datasets/pending/``DOMAIN NAME``/ by default.
+
+Running it
+~~~~~~~~~~
+To run the import step, you have to have the spark & hadoop
+client libraries in your classpath. You may get them automatically
+by running the import step with the spark-submit command:
+
+.. code:: console
+
+   $SPARK_HOME/bin/spark-submit comet-assembly-VERSION.jar import
+
+
+Watch Step
+***********
+
+How it works
+~~~~~~~~~~~~
+The Watch process will scan the all domain pending folders in the cluster.
+Any file that matches the pattern defined by the ``pattern`` attribute in
+the schema section of the domain definition file is submitted to the Job Manager.
+Files that do not match any pattern are moved to the unresolved
+folder, /tmp/datasets/unresolved/``DOMAIN NAME``/ by default.
+
+Once copied to the pending folder, a request for ingestion (see step below) is submitted to the Job Manager.
+
+.. note::
+   By the default the ``simple`` job manager is invoked. This simple manager
+   used for debugging & testing purpose would launch the ingestion step inside the current process.
+   In production, you would configure a job manager running on your cluster.
+   Comet comes with the ``airflow`` job manager and sample DAGs required to run all three steps.
+
+
+Running it
+~~~~~~~~~~
+To run the import step, you have to have the spark & hadoop
+client libraries in your classpath. You may get them automatically
+by running the watch step with the spark-submit command:
+
+.. code:: console
+
+   $SPARK_HOME/bin/spark-submit comet-assembly-VERSION.jar watch
+
 
 .. _DateTimeFormatter: https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/time/format/DateTimeFormatter.html#BASIC_ISO_DATE
+
+Ingestion Step
+**************
+
+How it works
+~~~~~~~~~~~~
+Unlike the steps above, this step does not scan any folder.
+It takes as its parameters the domain name, schema name and
+full path of the file that need to be ingested. That's why it is usually
+invoked through request submitted to a job manager by at the Watch Step.
+
+
+Running it
+~~~~~~~~~~
+To interactively run it, copy the input file in the pending area
+of a domain and run it as follows:
+.. code:: console
+
+   $ SPARK_HOME/bin/spark-submit comet-assembly-VERSION.jar ingest DOMAIN_NAME SCHEMA_NAME hdfs://datasets/domain/pending/file.dsv
+
