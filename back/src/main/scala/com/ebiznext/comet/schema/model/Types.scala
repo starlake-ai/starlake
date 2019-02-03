@@ -30,7 +30,8 @@ case class Types(types: List[Type]) {
   * @param format        : Pattern use to check that the input data matches the pattern
   * @param primitiveType : Spark Column Type of the attribute
   */
-case class Type(name: String, pattern: String, primitiveType: PrimitiveType = PrimitiveType.string, sample: Option[String] = None, comment: Option[String] = None) {
+case class Type(name: String, pattern: String, primitiveType: PrimitiveType = PrimitiveType.string,
+                sample: Option[String] = None, comment: Option[String] = None, stat: Option[Stat] = None) {
   // Used only when object is not a date nor a timestamp
   private lazy val textPattern = Pattern.compile(pattern)
 
