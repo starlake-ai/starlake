@@ -7,7 +7,7 @@ import com.ebiznext.comet.config.{DatasetArea, Settings}
 import com.ebiznext.comet.job.{AutoJob, DsvIngestionJob, JsonIngestionJob, SimpleJsonIngestionJob}
 import com.ebiznext.comet.schema.handlers.{LaunchHandler, SchemaHandler, StorageHandler}
 import com.ebiznext.comet.schema.model.Format.{DSV, JSON, SIMPLE_JSON}
-import com.ebiznext.comet.schema.model.{Domain, Metadata, Schema}
+import com.ebiznext.comet.schema.model.{AutoJobDesc, Domain, Metadata, Schema}
 import com.ebiznext.comet.utils.Utils
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
@@ -223,8 +223,7 @@ class DatasetWorkflow(storageHandler: StorageHandler,
     * Successively run each task of a job
     * @param jobname : job namle as defined in the YML file.
     */
-  def autoJob(job: AU): Unit = {
-    val job = schemaHandler.jobs(jobname)
+  def autoJob(job: AutoJobDesc): Unit = {
     job.tasks.foreach { task =>
       val action = new AutoJob(job.name, job.getArea(), task)
       action.run()
