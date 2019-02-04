@@ -529,7 +529,7 @@ folder, /tmp/datasets/unresolved/``DOMAIN NAME``/ by default.
 Once copied to the pending folder, a request for ingestion (see step below) is submitted to the Job Manager.
 
 .. note::
-   By the default the ``simple`` job manager is invoked. This simple manager
+   By default the ``simple`` job manager is invoked. This simple manager
    used for debugging & testing purpose would launch the ingestion step inside the current process.
    In production, you would configure a job manager running on your cluster.
    Comet comes with the ``airflow`` job manager and sample DAGs required to run all three steps.
