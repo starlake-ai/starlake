@@ -20,8 +20,11 @@ From the HR departement, sellers and locations in json files :
 Build it
 ########
 
-Clone the project, install sbt 1.0+ and run ``sbt clean assembly``. This will create the following assembly
-in the ``target/scala-2.11`` directory.
+Clone the project, install sbt 1.0+ and run ``sbt clean assembly makeSite``. This will create :
+
+- the assembly in the ``target/scala-2.11`` directory
+- This site documentation in ``/target/sphinx/html``
+- The Scala source code documentation in ``target/scala-2.11/api``
 
 
 
