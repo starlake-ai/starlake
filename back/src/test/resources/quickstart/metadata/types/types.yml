@@ -1,0 +1,17 @@
+---
+types:
+  - name: "email"
+    primitiveType: "string"
+    pattern: "[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,6}"
+    sample: "me@company.com"
+    comment: "Valid email only"
+  - name: "customerid"
+    primitiveType: "string"
+    pattern: "[A-Z][0-9]{6}"
+    sample: "A123456"
+    comment: "Letter followed by 6 digits"
+  - name: "sellerid"
+    primitiveType: "string"
+    pattern: "[0-9]{6}"
+    sample: "123456"
+    comment: "6 digits string"
