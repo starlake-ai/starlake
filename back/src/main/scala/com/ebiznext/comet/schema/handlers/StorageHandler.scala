@@ -6,11 +6,16 @@ import org.apache.commons.io.IOUtils
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs._
 
+/**
+  * Interface required by any filesystem manager
+  */
 trait StorageHandler {
 
-  def move(path: Path, path1: Path): Boolean
+  def move(src: Path, dst: Path): Boolean
 
   def delete(path: Path)
+
+  def exist(path: Path) : Boolean
 
   def mkdirs(path: Path)
 
@@ -27,17 +32,16 @@ trait StorageHandler {
            since: LocalDateTime = LocalDateTime.MIN): List[Path]
 }
 
+/**
+  * HDFS Filesystem Handler
+  */
 class HdfsStorageHandler extends StorageHandler {
-  implicit def convertToScalaIterator[T](
-                                          underlying: RemoteIterator[T]): Iterator[T] = {
-    case class wrapper(underlying: RemoteIterator[T]) extends Iterator[T] {
-      override def hasNext = underlying.hasNext
 
-      override def next = underlying.next
-    }
-    wrapper(underlying)
-  }
-
+  /**
+    * Read a UTF-8 text file into a string used to load yml configuration files
+    * @param path : Absolute file path
+    * @return file content as a string
+    */
   def read(path: Path): String = {
     val conf = new Configuration()
     val fs = FileSystem.get(conf)
@@ -46,6 +50,11 @@ class HdfsStorageHandler extends StorageHandler {
     content
   }
 
+  /**
+    * Write a string to a UTF-8 text file. Used for yml configuration files.
+    * @param data file content as a string
+    * @param path : Absolute file path
+    */
   def write(data: String, path: Path): Unit = {
     val conf = new Configuration()
     val fs = FileSystem.get(conf)
@@ -55,6 +64,13 @@ class HdfsStorageHandler extends StorageHandler {
     os.close()
   }
 
+  /**
+    * List all files in folder
+    * @param path Absolute folder path
+    * @param extension : Files should end with this string. To list all files, simply provide an empty string
+    * @param since Minimum modification time of liste files. To list all files, simply provide the beginning of all times
+    * @return List of Path
+    */
   def list(path: Path, extension: String, since: LocalDateTime): List[Path] = {
     val conf = new Configuration()
     val fs = FileSystem.get(conf)
@@ -71,33 +87,80 @@ class HdfsStorageHandler extends StorageHandler {
   }
 
 
+  /**
+    * Move file
+    * @param path source path (file or folder)
+    * @param dest destination path (file or folder)
+    * @return
+    */
   override def move(path: Path, dest: Path): Boolean = {
     val conf = new Configuration()
     val fs = FileSystem.get(conf)
     FileUtil.copy(fs, path, fs, dest, true, true, conf)
   }
 
+  /**
+    * delete file (skip trash)
+    * @param path : Absolute path of file to delete
+    */
   override def delete(path: Path): Unit = {
     val conf = new Configuration()
     val fs = FileSystem.get(conf)
     fs.delete(path, true)
   }
 
+  /**
+    * Create folder if it does not exsit including any intermediary non existent folder
+    * @param path Absolute path of folder to create
+    */
   override def mkdirs(path: Path): Unit = {
     val conf = new Configuration()
     val fs = FileSystem.get(conf)
     fs.mkdirs(path)
   }
 
+  /**
+    * Copy file from local filesystem to target file system
+    * @param source Local file path
+    * @param dest destination file path
+    */
   override def copyFromLocal(source: Path, dest: Path): Unit = {
     val conf = new Configuration()
     val fs = FileSystem.get(conf)
     fs.copyFromLocalFile(source, dest)
   }
 
+  /**
+    * Move file from local filesystem to target file system
+    * @param source Local file path
+    * @param dest destination file path
+    */
   override def moveFromLocal(source: Path, dest: Path): Unit = {
     val conf = new Configuration()
     val fs = FileSystem.get(conf)
     fs.moveFromLocalFile(source, dest)
   }
+
+  override def exist(path: Path): Boolean = {
+    val conf = new Configuration()
+    val fs = FileSystem.get(conf)
+    fs.exists(path)
+  }
+
+  def defaultBlockSize(path: Path): Long = {
+    val conf = new Configuration()
+    val fs = FileSystem.get(conf)
+    fs.getDefaultBlockSize(path)
+  }
+
+  def contentSummary(path: Path): ContentSummary = {
+    val conf = new Configuration()
+    val fs = FileSystem.get(conf)
+    fs.getContentSummary(path)
+  }
+
+  def spaceConsumed(path: Path): Long = {
+    contentSummary(path).getSpaceConsumed
+  }
+
 }
