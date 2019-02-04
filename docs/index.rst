@@ -17,9 +17,7 @@ Getting started with Comet Data Pipeline:
    user/introduction
    user/quickstart
    user/complete
-   user/install
    user/configure
-   user/admin
 
 .. toctree::
    :caption: Developer Guide
