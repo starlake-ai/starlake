@@ -10,13 +10,46 @@ import org.apache.hadoop.fs.Path
 
 import scala.util.{Failure, Success, Try}
 
+/**
+  * Interface required for any cron job launcher
+  */
 trait LaunchHandler {
+  /**
+    * Submit to the cron manager a single file for ingestion
+    *
+    * @param domain : Domain to which belong this dataset
+    * @param schema : Schema of the dataset
+    * @param path   : absolute path where the source dataset  (JSON / CSV / ...) is located
+    * @return success / failure
+    */
   def ingest(domain: Domain, schema: Schema, path: Path): Boolean = ingest(domain, schema, path :: Nil)
-  def ingest(domain: Domain, schema: Schema, path: List[Path]): Boolean
+
+  /**
+    * Submit to the cron manager multiple files for ingestion.
+    * All the files should have the schema schema and belong to the same domain.
+    *
+    * @param domain : Domain to which belong this dataset
+    * @param schema : Schema of the dataset
+    * @param paths  : absolute paths where the source datasets  (JSON / CSV / ...) are located
+    * @return success / failure
+    */
+  def ingest(domain: Domain, schema: Schema, paths: List[Path]): Boolean
 }
 
 
+/**
+  * Simple Launcher will directly invoke the ingestion method wityhout using a cron manager.
+  * This is userfull for testing purpose
+  */
 class SimpleLauncher extends LaunchHandler with StrictLogging {
+  /**
+    * call directly the main assembly with the "ingest" parameter
+    *
+    * @param domain : Domain to which belong this dataset
+    * @param schema : Schema of the dataset
+    * @param paths  : absolute paths where the source datasets  (JSON / CSV / ...) are located
+    * @return success / failure
+    */
   override def ingest(domain: Domain, schema: Schema, paths: List[Path]): Boolean = {
     paths.foreach { path =>
       val params = Array("ingest", domain.name, schema.name, path.toString)
@@ -27,8 +60,13 @@ class SimpleLauncher extends LaunchHandler with StrictLogging {
   }
 }
 
+/**
+  * Airflow Launcher will submit a request for ingestion to Airflow
+  * using the REST API. The requested DAG must exist in Airflow first.
+  */
 class AirflowLauncher extends LaunchHandler with StrictLogging {
-  def post(url: String, json: String): Try[String] = {
+
+  protected def post(url: String, json: String): Try[String] = {
     Try {
       val JSON: MediaType = MediaType.parse("application/json; charset=utf-8")
       val client: OkHttpClient = new OkHttpClient
@@ -38,22 +76,33 @@ class AirflowLauncher extends LaunchHandler with StrictLogging {
       request.body().writeTo(buffer)
       logger.debug("Post to Airflow: " + request.toString + "\n" + buffer.readUtf8())
       val response: Response = client.newCall(request).execute
-      response.body.string
+      val responseBody = response.body.string
+      logger.debug("Post result from Airflow: " + responseBody)
+      responseBody
     }
   }
 
-  override def ingest(domain: Domain, schema: Schema, path: List[Path]): Boolean = {
+  /**
+    * Request the execution of the "comet-ingest" DAG in Airflow
+    *
+    * @param domain : Domain to which belong this dataset
+    * @param schema : Schema of the dataset
+    * @param paths  : absolute paths where the source datasets  (JSON / CSV / ...) are located
+    * @return success if request accepted
+    */
+  override def ingest(domain: Domain, schema: Schema, paths: List[Path]): Boolean = {
     val endpoint = Settings.comet.airflow.endpoint
     val url = s"$endpoint/dags/comet_ingest/dag_runs"
-    val command = s"""ingest ${domain.name} ${schema.name} ${path.mkString(",")}"""
+    val command = s"""ingest ${domain.name} ${schema.name} ${paths.mkString(",")}"""
     val json =s"""{"conf":"{\\"command\\":\\"$command\\"}"}"""
     logger.info(s"Post to Airflow: $json")
     post(url, json) match {
-      case Success(response) =>
-        logger.info(s"Airflow returned: $response")
-      case Failure(exception) => throw exception
+      case Success(_) =>
+        true
+      case Failure(exception) =>
+        logger.error("Failed to post request to Airflow", exception)
+        false
     }
-    true
   }
 }
 
