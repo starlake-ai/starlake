@@ -86,7 +86,7 @@ object JsonIngestionUtil {
         var f1Idx = 0
         var f2Idx = 0
         var typeComp = true
-        while (f1Idx < fields1.length && f2Idx < fields2.length) {
+        while (f1Idx < fields1.length && f2Idx < fields2.length && typeComp) {
           val f1 = fields1(f1Idx)
           val f2 = fields2(f2Idx)
           val nameComp = f1.name.compareTo(f2.name)

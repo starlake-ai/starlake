@@ -92,7 +92,7 @@ class JsonIngestionJobSpec extends FlatSpec with Matchers with SampleData {
         |              {"a": "Hello"}
         |                   ],
         |						"GlossSeeAlso": ["GML", "XML"],
-        |           "IntArray":[1, 2]
+        |           "myArray":[1, 2]
         |}
       """.stripMargin
 
@@ -103,7 +103,7 @@ class JsonIngestionJobSpec extends FlatSpec with Matchers with SampleData {
         |           "x":"y"
         |           },
         |						"GlossSeeAlso": ["GML", null],
-        |           "IntArray":[1, 2.2],
+        |           "myArray":[1, 2.2],
         |           "unknown":null
         |}
       """.stripMargin
