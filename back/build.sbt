@@ -31,7 +31,8 @@ val betterfiles = Seq("com.github.pathikrit" %% "better-files" % Versions.better
 val spark = Seq(
   "org.apache.spark" %% "spark-core" % Versions.spark % "provided",
   "org.apache.spark" %% "spark-sql" % Versions.spark % "provided",
-  "org.apache.spark" %% "spark-hive" % Versions.spark % "provided"
+  "org.apache.spark" %% "spark-hive" % Versions.spark % "provided",
+  "org.apache.spark" %% "spark-mllib" % Versions.spark % "provided"
 )
 
 val logging = Seq(
@@ -52,6 +53,8 @@ val jackson = Seq(
 
 libraryDependencies ++= scalaTest ++ logging ++ typedConfigs ++ spark ++ okhttp ++ betterfiles ++ jackson
 
+// Required when running tests in intellij
+dependencyOverrides += "org.scalatest" %% "scalatest" % Versions.scalatest
 
 // Assembly
 mainClass in Compile := Some("com.ebiznext.comet.job.Main")
@@ -62,9 +65,20 @@ test in assembly := {}
 // Git
 enablePlugins(GitVersioning)
 
+
 git.useGitDescribe := true
 
 git.gitTagToVersionNumber := { tag: String =>
   if (tag matches "[0-9]+\\..*") Some(tag)
   else None
 }
+
+// Shinx plugin
+enablePlugins(SphinxPlugin)
+
+sourceDirectory in Sphinx := baseDirectory.value / ".." / "docs"
+
+// Scaladoc
+enablePlugins(SiteScaladocPlugin)
+
+publishSite

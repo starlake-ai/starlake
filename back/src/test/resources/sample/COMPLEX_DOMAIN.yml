@@ -32,6 +32,7 @@ schemas:
         required: false
         privacy: "NONE"
       - name: "address"
+        type: "map"
         attributes:
           - name: "road_number"
             type: "int"
