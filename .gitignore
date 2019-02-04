@@ -104,5 +104,10 @@ project/plugins/project/
 !.vscode/launch.json
 !.vscode/extensions.json
 
-### VisualStudioCode Patch ###
-# Ignore all local history of files
+# For Hive
+TempStatsStore/
+metastore/
+metastore_db/
+sql/hive-thriftserver/test_warehouses
+warehouse/
+spark-warehouse/
