@@ -2,6 +2,7 @@ package com.ebiznext.comet.schema.model
 
 import java.util.regex.Pattern
 
+import com.fasterxml.jackson.annotation.JsonIgnore
 import org.apache.spark.sql.types._
 
 import scala.collection.mutable
@@ -116,6 +117,7 @@ case class Attribute(name: String,
   /**
     * @return renamed column if defined, source name otherwise
     */
+  @JsonIgnore
   def getFinalName(): String = rename.getOrElse(name)
 
   def getPrivacy(): PrivacyLevel = this.privacy.getOrElse(PrivacyLevel.NONE)
