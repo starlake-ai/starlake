@@ -65,6 +65,7 @@ Below is how the HDFS folders look like by default for the provided quickstart s
 
 
 By setting the env vars below, you may change default settings.
+
 .. csv-table::
    :widths: 25 50 25
 
