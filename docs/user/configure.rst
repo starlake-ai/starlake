@@ -62,7 +62,11 @@ Below is how the HDFS folders look like by default for the provided quickstart s
             |-- default.yml (Default semantic types)
             `-- types.yml (User defined semantic types, overwrite default ones)
 
+
+
+By setting the env vars below, you may change default settings.
 .. csv-table::
+   :widths: 25 50 25
 
    Env. Var, Description, Default value
    COMET_DATASETS,Once imported where the datasets are stored in HDFS,hdfs:///tmp/datasets
@@ -92,7 +96,8 @@ Below is how the HDFS folders look like by default for the provided quickstart s
 Airflow DAGs
 ############
 
-Sample airflow DAGs ...
+Comet Data Pipeline comes with native  Airflow support.
+Below are DAG definitions for each of the three ingestion steps on an kerberized HDFS cluster.
 
 Import DAG
 ----------
