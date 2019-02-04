@@ -27,22 +27,6 @@ class SchemaHandlerSpec extends FlatSpec with Matchers with SampleData {
     validator.loadPending()
   }
 
-  "Ingest Dream Icon CSV" should "produce file in accepted" in {
-    val sh = new HdfsStorageHandler
-    val domainsPath = new Path(DatasetArea.domains, "json.yml")
-    sh.write(loadFile("/sample/icon/icon.yml"), domainsPath)
-    val typesPath = new Path(DatasetArea.types, "types.yml")
-    sh.write(loadFile("/sample/icon/types.yml"), typesPath)
-    DatasetArea.initDomains(storageHandler, schemaHandler.domains.map(_.name))
-
-    val stream: InputStream = getClass.getResourceAsStream("/sample/icon/icon_event.psv")
-    val lines = scala.io.Source.fromInputStream(stream).getLines().mkString("\n")
-    val targetPath = DatasetArea.path(DatasetArea.pending("icon"), "icon_event.psv")
-    storageHandler.write(lines, targetPath)
-    val validator = new DatasetWorkflow(storageHandler, schemaHandler, new SimpleLauncher)
-    validator.loadPending()
-  }
-
   "Ingest Dream Contact CSV" should "produce file in accepted" in {
     val sh = new HdfsStorageHandler
     val domainsPath = new Path(DatasetArea.domains, "dream.yml")
@@ -107,7 +91,7 @@ class SchemaHandlerSpec extends FlatSpec with Matchers with SampleData {
   "Load Types" should "deserialize string as pattern" in {
     val typesPath = new Path(DatasetArea.types, "types.yml")
     val sh = new HdfsStorageHandler
-    sh.write(loadFile("/types.yml"), typesPath)
+    sh.write(loadFile("/sample/types.yml"), typesPath)
     val types = schemaHandler.types
     assert(true)
   }

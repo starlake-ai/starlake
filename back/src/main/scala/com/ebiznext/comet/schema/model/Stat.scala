@@ -11,7 +11,7 @@ import com.fasterxml.jackson.databind.{DeserializationContext, JsonDeserializer}
   * @param value : DISCRETE or CONTINUOUS or TEXT or NONE
   */
 @JsonSerialize(using = classOf[ToStringSerializer])
-@JsonDeserialize(using = classOf[ModeDeserializer])
+@JsonDeserialize(using = classOf[StatDeserializer])
 sealed case class Stat(value: String) {
   override def toString: String = value
 }
