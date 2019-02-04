@@ -218,4 +218,16 @@ class DatasetWorkflow(storageHandler: StorageHandler,
       action.run()
     }
   }
+
+  /**
+    * Successively run each task of a job
+    * @param jobname : job namle as defined in the YML file.
+    */
+  def autoJob(job: AU): Unit = {
+    val job = schemaHandler.jobs(jobname)
+    job.tasks.foreach { task =>
+      val action = new AutoJob(job.name, job.getArea(), task)
+      action.run()
+    }
+  }
 }

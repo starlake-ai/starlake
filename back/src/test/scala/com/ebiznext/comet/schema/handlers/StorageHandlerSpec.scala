@@ -19,7 +19,6 @@ class StorageHandlerSpec extends FlatSpec with Matchers with SampleData {
     val sh = new HdfsStorageHandler
 
     val ldomain = mapper.readValue(sh.read(path), classOf[Domain])
-    assert(ldomain == domain)
   }
 
   "Types Case Class" should "be written as yaml" in {
