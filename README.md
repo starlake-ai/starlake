@@ -1,6 +1,6 @@
 # About Comet Data Pipeline
 
-Complete documentation available [here](https://comet-app.readthedocs.io/en/dev-format-strategy/)
+Complete documentation available [here](https://comet-app.readthedocs.io/)
 
 ## Introduction
 
