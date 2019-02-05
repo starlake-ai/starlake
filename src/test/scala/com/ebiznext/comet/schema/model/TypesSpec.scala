@@ -2,24 +2,16 @@ package com.ebiznext.comet.schema.model
 
 import java.io.InputStream
 
-import com.ebiznext.comet.sample.SampleData
+import com.ebiznext.comet.TestHelper
 import org.scalatest.{FlatSpec, Matchers}
 
-class TypesSpec extends FlatSpec with Matchers with SampleData {
+class TypesSpec extends TestHelper {
 
   "Default types" should "be valid" in {
     val stream: InputStream = getClass.getResourceAsStream("/quickstart/metadata/types/default.yml")
     val lines = scala.io.Source.fromInputStream(stream).getLines().mkString("\n")
-    println(lines)
     val types = mapper.readValue(lines, classOf[Types])
-    val res = types.checkValidity()
-    res match {
-      case Left(errors) =>
-        errors.foreach(println)
-        assert(false)
-      case Right(_) =>
-        assert(true)
-    }
+    types.checkValidity() shouldBe Right(true)
   }
 
   "Duplicate  type names" should "be refused" in {
@@ -31,17 +23,12 @@ class TypesSpec extends FlatSpec with Matchers with SampleData {
         |    pattern: "-?\\d+"
         |    sample: "-64564"
       """.stripMargin
-    println(lines)
+
     val types = mapper.readValue(lines, classOf[Types])
-    val res = types.checkValidity()
-    res match {
-      case Left(errors) =>
-        errors.foreach(println)
-        assert(true)
-      case Right(_) =>
-        assert(false)
-    }
+    types.checkValidity() shouldBe Left(List("long is defined 2 times. A type can only be defined once."))
+
   }
+
   "Date / Time Pattern" should "be valid" in {
     val stream: InputStream = getClass.getResourceAsStream("/quickstart/metadata/types/default.yml")
     val lines = scala.io.Source.fromInputStream(stream).getLines().mkString("\n") +
@@ -55,20 +42,14 @@ class TypesSpec extends FlatSpec with Matchers with SampleData {
         |    pattern: "epoch_second"
         |    sample: "1548923449"
       """.stripMargin
-    println(lines)
     val types = mapper.readValue(lines, classOf[Types])
-    assert("2019-01-31 09:30:49.662" == types.types.find(_.name == "timeinmillis").get.sparkValue("1548923449662").toString)
-    assert("2019-01-31 09:30:49.0" == types.types.find(_.name == "timeinseconds").get.sparkValue("1548923449").toString)
+
+    types.checkValidity() shouldBe Right(true)
 
 
-    val res = types.checkValidity()
-    res match {
-      case Left(errors) =>
-        errors.foreach(println)
-        assert(false)
-      case Right(_) =>
-        assert(true)
-    }
+   "2019-01-31 09:30:49.662" shouldBe types.types.find(_.name == "timeinmillis").get.sparkValue("1548923449662").toString
+   "2019-01-31 09:30:49.0" shouldBe types.types.find(_.name == "timeinseconds").get.sparkValue("1548923449").toString
+
   }
 
   //  "json case object" should "deserialize as case olass" in {
