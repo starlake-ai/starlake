@@ -1,15 +1,17 @@
 package com.ebiznext.comet.schema.handlers
 
 import java.io.InputStream
-
+import com.ebiznext.comet.TestHelper
 import com.ebiznext.comet.config.DatasetArea
-import com.ebiznext.comet.sample.SampleData
 import com.ebiznext.comet.workflow.DatasetWorkflow
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.execution.datasources.json.JsonIngestionUtil
-import org.scalatest.{FlatSpec, Matchers}
+import org.apache.spark.sql.types._
 
-class JsonIngestionJobSpec extends FlatSpec with Matchers with SampleData {
+import scala.util.Success
+
+class JsonIngestionJobSpec extends TestHelper {
+  // TODO Change naming
   "Parse exact same json" should "succeed" in {
     val json =
       """
@@ -38,19 +40,65 @@ class JsonIngestionJobSpec extends FlatSpec with Matchers with SampleData {
         |}
       """.stripMargin
 
-    val res1 = JsonIngestionUtil.parseString(json)
-    val res2 = JsonIngestionUtil.parseString(json)
-    println(res1.toString)
-    val res = for {
-      t1 <- res1
-      t2 <- res2
-
-    } yield {
-      JsonIngestionUtil.compareTypes(Nil, ("root", t1, true), ("root", t2, true))
-    }
-    println(res)
+      JsonIngestionUtil.parseString(json) shouldBe Success(
+        StructType(
+          Seq(
+            StructField(
+              "glossary",
+              StructType(
+                Seq(
+                  StructField("title", StringType, true),
+                  StructField(
+                    "GlossDiv",
+                    StructType(
+                      Seq(
+                        StructField("title", StringType, true),
+                        StructField(
+                          "GlossList",
+                          StructType(
+                            Seq(
+                              StructField(
+                                "GlossEntry",
+                                StructType(
+                                  Seq(
+                                    StructField("ID", StringType, true),
+                                    StructField("SortAs", StringType, true),
+                                    StructField("GlossTerm", StringType, true),
+                                    StructField("Acronym", StringType, true),
+                                    StructField("Abbrev", StringType, true),
+                                    StructField(
+                                      "GlossDef",
+                                      StructType(
+                                        Seq(
+                                          StructField("para", StringType, true),
+                                          StructField("GlossSeeAlso", ArrayType(StringType, true), true),
+                                          StructField("IntArray", ArrayType(LongType, true), true)
+                                        )
+                                      ),
+                                      true
+                                    ),
+                                    StructField("GlossSee", StringType, true)
+                                  )
+                                ),
+                                true
+                              )
+                            )
+                          ),
+                          true
+                        )
+                      )
+                    ),
+                    true
+                  )
+                )
+              ),
+              true
+            )
+          )
+        )
+      )
   }
-
+  // TODO Change naming
   "Parse compatible json" should "succeed" in {
     val json1 =
       """
@@ -64,65 +112,73 @@ class JsonIngestionJobSpec extends FlatSpec with Matchers with SampleData {
       """
         |{
         |						"GlossSeeAlso": ["GML", null],
-        |           "IntArray":[1, 2],
+        |           "IntArray":[1, 2]
         |}
       """.stripMargin
 
-    val res1 = JsonIngestionUtil.parseString(json1)
-    val res2 = JsonIngestionUtil.parseString(json2)
-    println(res1)
-    println(res2)
-    println(res1.toString)
-    val res = for {
-      t1 <- res1
-      t2 <- res2
+    JsonIngestionUtil.parseString(json1) shouldBe Success(
+          StructType(
+            Seq(
+              StructField("GlossSeeAlso", ArrayType(StringType, true), true),
+              StructField("IntArray", ArrayType(DoubleType, true), true)
+            )
+          )
+        )
 
-    } yield {
-      JsonIngestionUtil.compareTypes(Nil, ("root", t1, true), ("root", t2, true))
-    }
-    println(res)
+    JsonIngestionUtil.parseString(json2) shouldBe Success(
+      StructType(
+        Seq(
+          StructField("GlossSeeAlso", ArrayType(StringType, true), true),
+          StructField("IntArray", ArrayType(LongType, true), true)
+        )
+      )
+    )
   }
-
+  // TODO Change naming
   "Parse compatible json" should "fail" in {
     val json1 =
       """
         |{
-        |           "complexArray": [
-        |              {"a": "Hello"},
-        |              {"a": "Hello"}
-        |                   ],
-        |						"GlossSeeAlso": ["GML", "XML"],
-        |           "myArray":[1, 2]
+        |   "complexArray": [ {"a": "Hello"}, {"a": "Hello"} ],
+        |	  "GlossSeeAlso": ["GML", "XML"],
+        |   "myArray":[1, 2]
         |}
       """.stripMargin
 
     val json2 =
       """
         |{
-        |           "abc": {
-        |           "x":"y"
-        |           },
-        |						"GlossSeeAlso": ["GML", null],
-        |           "myArray":[1, 2.2],
-        |           "unknown":null
+        |  "abc": { "x":"y" },
+        |	 "GlossSeeAlso": ["GML", null],
+        |  "myArray":[1, 2.2],
+        |  "unknown":null
         |}
       """.stripMargin
 
-    val res1 = JsonIngestionUtil.parseString(json1)
-    val res2 = JsonIngestionUtil.parseString(json2)
-    println(res1)
-    println(res2)
-    println(res1.toString)
-    val res = for {
-      t1 <- res1
-      t2 <- res2
+    JsonIngestionUtil.parseString(json1) shouldBe Success(
+      StructType(
+        Seq(
+          StructField("complexArray", ArrayType(StructType(Seq(StructField("a", StringType, true))), true), true),
+          StructField("GlossSeeAlso", ArrayType(StringType, true), true),
+          StructField("myArray", ArrayType(LongType, true), true)
+        )
+      )
+    )
 
-    } yield {
-      JsonIngestionUtil.compareTypes(Nil, ("root", t1, true), ("root", t2, true))
-    }
-    println(res)
+    JsonIngestionUtil.parseString(json2) shouldBe Success(
+      StructType(
+        Seq(
+          StructField("abc", StructType(Seq(StructField("x", StringType, true))), true),
+          StructField("GlossSeeAlso", ArrayType(StringType, true), true),
+          StructField("myArray", ArrayType(DoubleType, true), true),
+          StructField("unknown", NullType, true)
+        )
+      )
+    )
+
   }
 
+  // TODO Fix warning :) And should we test sth ?
   "Ingest Complex JSON" should "produce file in accepted" in {
     val sh = new HdfsStorageHandler
     val domainsPath = new Path(DatasetArea.domains, "json.yml")
@@ -137,5 +193,6 @@ class JsonIngestionJobSpec extends FlatSpec with Matchers with SampleData {
     storageHandler.write(lines, targetPath)
     val validator = new DatasetWorkflow(storageHandler, schemaHandler, new SimpleLauncher)
     validator.loadPending()
+    //TODO Complete test
   }
 }
