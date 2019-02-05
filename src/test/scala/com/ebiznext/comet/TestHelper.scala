@@ -1,4 +1,4 @@
-package com.ebiznext.comet.sample
+package com.ebiznext.comet
 
 import java.io.InputStream
 import java.util.regex.Pattern
@@ -9,8 +9,10 @@ import com.ebiznext.comet.schema.model._
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
+import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
 
-trait SampleData {
+trait TestHelper extends FlatSpec with Matchers with BeforeAndAfterAll {
+
   /**
     * types:
     * - name: "string"
@@ -96,7 +98,12 @@ trait SampleData {
   val storageHandler = new HdfsStorageHandler
   val schemaHandler = new SchemaHandler(storageHandler)
 
-  DatasetArea.init(storageHandler)
-
-
+  override protected def beforeAll(): Unit = {
+    super.beforeAll()
+    DatasetArea.init(storageHandler)
+  }
+  override protected def afterAll(): Unit = {
+    super.afterAll()
+    DatasetArea.init(storageHandler)
+  }
 }
