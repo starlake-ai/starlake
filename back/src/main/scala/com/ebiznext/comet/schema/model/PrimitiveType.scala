@@ -114,8 +114,22 @@ object PrimitiveType {
             instant
 
           case Failure(_) =>
-            val localDateTime = LocalDateTime.from(dateTime)
-            ZonedDateTime.of(localDateTime, ZoneId.systemDefault()).toInstant
+//            val localDateTime = LocalDateTime.from(dateTime)
+//            ZonedDateTime.of(localDateTime, ZoneId.systemDefault()).toInstant
+            Try {
+              val localDateTime = LocalDateTime.from(dateTime)
+              ZonedDateTime.of(localDateTime, ZoneId.systemDefault()).toInstant
+            } match {
+              case Success(instant) =>
+                instant
+              case Failure(_) =>
+                // Try to parse it as a date without time and still make it a timestamp.
+                // Cloudera 5.X with Hive 1.1 workaround
+                import java.text.SimpleDateFormat
+                val df = new SimpleDateFormat(format)
+                val date = df.parse(str)
+                Instant.ofEpochMilli(date.getTime)
+            }
         }
     }
   }
