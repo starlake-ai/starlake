@@ -52,7 +52,7 @@ Run the ingestion process as follows :
 
 This will ingest the four datasets of the two domains (hr & sales) and store them as parquet files into the folders:
  - /tmp/datasets/accepted for valid records
- - /tmp/datasets/rekjected for invalid records
+ - /tmp/datasets/rejected for invalid records
  - /tmp/datasets/unresolved for unrecognized files
 
 
