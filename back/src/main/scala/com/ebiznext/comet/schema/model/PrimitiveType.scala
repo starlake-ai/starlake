@@ -13,7 +13,6 @@ import org.apache.spark.sql.types._
 
 import scala.util.{Failure, Success, Try}
 
-
 /**
   * Spark supported primitive types. These are the only valid raw types.
   * Dataframes columns are converted to these types before the data is ingested
@@ -30,20 +29,23 @@ sealed abstract case class PrimitiveType(value: String) {
   def sparkType: DataType
 }
 
-
 class PrimitiveTypeDeserializer extends JsonDeserializer[PrimitiveType] {
+
   def simpleTypeFromString(value: String): PrimitiveType = {
     value match {
-      case "string" => PrimitiveType.string
-      case "long" => PrimitiveType.long
-      case "double" => PrimitiveType.double
-      case "boolean" => PrimitiveType.boolean
-      case "byte" => PrimitiveType.byte
-      case "date" => PrimitiveType.date
+      case "string"    => PrimitiveType.string
+      case "long"      => PrimitiveType.long
+      case "double"    => PrimitiveType.double
+      case "boolean"   => PrimitiveType.boolean
+      case "byte"      => PrimitiveType.byte
+      case "date"      => PrimitiveType.date
       case "timestamp" => PrimitiveType.timestamp
-      case "decimal" => PrimitiveType.decimal
-      case "struct" => PrimitiveType.struct
-      case _ => throw new Exception(s"Invalid primitive type: $value not in ${PrimitiveType.primitiveTypes}")
+      case "decimal"   => PrimitiveType.decimal
+      case "struct"    => PrimitiveType.struct
+      case _ =>
+        throw new Exception(
+          s"Invalid primitive type: $value not in ${PrimitiveType.primitiveTypes}"
+        )
     }
   }
 
@@ -62,13 +64,17 @@ object PrimitiveType {
   }
 
   object long extends PrimitiveType("long") {
-    def fromString(str: String, dateFormat: String): Any = if (str == null || str.isEmpty) null else str.toLong
+
+    def fromString(str: String, dateFormat: String): Any =
+      if (str == null || str.isEmpty) null else str.toLong
 
     def sparkType: DataType = LongType
   }
 
   object double extends PrimitiveType("double") {
-    def fromString(str: String, dateFormat: String): Any = if (str == null || str.isEmpty) null else str.toDouble
+
+    def fromString(str: String, dateFormat: String): Any =
+      if (str == null || str.isEmpty) null else str.toDouble
 
     def sparkType: DataType = DoubleType
   }
@@ -76,25 +82,32 @@ object PrimitiveType {
   object decimal extends PrimitiveType("decimal") {
     val defaultDecimalType = DataTypes.createDecimalType(30, 15)
 
-    def fromString(str: String, dateFormat: String): Any = if (str == null || str.isEmpty) null else BigDecimal(str)
+    def fromString(str: String, dateFormat: String): Any =
+      if (str == null || str.isEmpty) null else BigDecimal(str)
 
     override def sparkType: DataType = defaultDecimalType
   }
 
   object boolean extends PrimitiveType("boolean") {
-    def fromString(str: String, dateFormat: String): Any = if (str == null || str.isEmpty) null else str.toBoolean
+
+    def fromString(str: String, dateFormat: String): Any =
+      if (str == null || str.isEmpty) null else str.toBoolean
 
     def sparkType: DataType = BooleanType
   }
 
   object byte extends PrimitiveType("byte") {
-    def fromString(str: String, dateFormat: String): Any = if (str == null || str.isEmpty) null else str.toByte
+
+    def fromString(str: String, dateFormat: String): Any =
+      if (str == null || str.isEmpty) null else str.toByte
 
     def sparkType: DataType = ByteType
   }
 
   object struct extends PrimitiveType("struct") {
-    def fromString(str: String, dateFormat: String): Any = if (str == null || str.isEmpty) null else str.toByte
+
+    def fromString(str: String, dateFormat: String): Any =
+      if (str == null || str.isEmpty) null else str.toByte
 
     def sparkType: DataType = new StructType(Array.empty[StructField])
   }
@@ -107,15 +120,14 @@ object PrimitiveType {
       case "epoch_milli" =>
         Instant.ofEpochMilli(str.toLong)
       case _ =>
-        val formatter = PrimitiveType.formatters.getOrElse(format, DateTimeFormatter.ofPattern(format))
+        val formatter = PrimitiveType.formatters
+          .getOrElse(format, DateTimeFormatter.ofPattern(format))
         val dateTime: TemporalAccessor = formatter.parse(str)
         Try(Instant.from(dateTime)) match {
           case Success(instant) =>
             instant
 
           case Failure(_) =>
-//            val localDateTime = LocalDateTime.from(dateTime)
-//            ZonedDateTime.of(localDateTime, ZoneId.systemDefault()).toInstant
             Try {
               val localDateTime = LocalDateTime.from(dateTime)
               ZonedDateTime.of(localDateTime, ZoneId.systemDefault()).toInstant
@@ -134,8 +146,8 @@ object PrimitiveType {
     }
   }
 
-
   object date extends PrimitiveType("date") {
+
     def fromString(str: String, dateFormat: String): Any = {
       if (str == null || str.isEmpty)
         null
@@ -152,6 +164,7 @@ object PrimitiveType {
   }
 
   object timestamp extends PrimitiveType("timestamp") {
+
     def fromString(str: String, timeFormat: String): Any = {
       if (str == null || str.isEmpty)
         null
@@ -164,26 +177,27 @@ object PrimitiveType {
     def sparkType: DataType = TimestampType
   }
 
-  val primitiveTypes: Set[PrimitiveType] = Set(string, long, double, decimal, boolean, byte, date, timestamp, struct)
+  val primitiveTypes: Set[PrimitiveType] =
+    Set(string, long, double, decimal, boolean, byte, date, timestamp, struct)
 
   import DateTimeFormatter._
 
   val formatters = Map(
-    "BASIC_ISO_DATE" -> BASIC_ISO_DATE,
-    "ISO_LOCAL_DATE" -> ISO_LOCAL_DATE,
-    "ISO_OFFSET_DATE" -> ISO_OFFSET_DATE,
-    "ISO_DATE" -> ISO_DATE,
-    "ISO_LOCAL_TIME" -> ISO_LOCAL_TIME,
-    "ISO_OFFSET_TIME" -> ISO_OFFSET_TIME,
-    "ISO_TIME" -> ISO_TIME,
-    "ISO_LOCAL_DATE_TIME" -> ISO_LOCAL_DATE_TIME,
+    "BASIC_ISO_DATE"       -> BASIC_ISO_DATE,
+    "ISO_LOCAL_DATE"       -> ISO_LOCAL_DATE,
+    "ISO_OFFSET_DATE"      -> ISO_OFFSET_DATE,
+    "ISO_DATE"             -> ISO_DATE,
+    "ISO_LOCAL_TIME"       -> ISO_LOCAL_TIME,
+    "ISO_OFFSET_TIME"      -> ISO_OFFSET_TIME,
+    "ISO_TIME"             -> ISO_TIME,
+    "ISO_LOCAL_DATE_TIME"  -> ISO_LOCAL_DATE_TIME,
     "ISO_OFFSET_DATE_TIME" -> ISO_OFFSET_DATE_TIME,
-    "ISO_ZONED_DATE_TIME" -> ISO_ZONED_DATE_TIME,
-    "ISO_DATE_TIME" -> ISO_DATE_TIME,
-    "ISO_ORDINAL_DATE" -> ISO_ORDINAL_DATE,
-    "ISO_WEEK_DATE" -> ISO_WEEK_DATE,
-    "ISO_INSTANT" -> ISO_INSTANT,
-    "RFC_1123_DATE_TIME" -> RFC_1123_DATE_TIME)
-
+    "ISO_ZONED_DATE_TIME"  -> ISO_ZONED_DATE_TIME,
+    "ISO_DATE_TIME"        -> ISO_DATE_TIME,
+    "ISO_ORDINAL_DATE"     -> ISO_ORDINAL_DATE,
+    "ISO_WEEK_DATE"        -> ISO_WEEK_DATE,
+    "ISO_INSTANT"          -> ISO_INSTANT,
+    "RFC_1123_DATE_TIME"   -> RFC_1123_DATE_TIME
+  )
 
 }

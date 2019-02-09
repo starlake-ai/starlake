@@ -16,9 +16,10 @@ sealed case class Mode(value: String) {
 }
 
 object Mode {
+
   def fromString(value: String): Mode = {
     value.toUpperCase() match {
-      case "FILE" => Mode.FILE
+      case "FILE"   => Mode.FILE
       case "STREAM" => Mode.STREAM
     }
   }
