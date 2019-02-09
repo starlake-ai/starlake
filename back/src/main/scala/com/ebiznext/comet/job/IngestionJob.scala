@@ -44,8 +44,8 @@ trait IngestionJob extends SparkJob {
     val writeMode = metadata.getWriteMode()
     val rejectedPath = new Path(DatasetArea.rejected(domain.name), schema.name)
     import session.implicits._
-    rejectedRDD.toDF.show(1000, false)
-    saveRows(rejectedRDD.toDF, rejectedPath, writeMode, HiveArea.rejected)
+    rejectedRDD.toDF.show(100, false)
+    saveRows(rejectedRDD.toDF, rejectedPath, writeMode, HiveArea.rejected, false)
   }
 
   def getWriteMode(): WriteMode =
@@ -107,7 +107,7 @@ trait IngestionJob extends SparkJob {
     targetPath: Path,
     writeMode: WriteMode,
     area: HiveArea,
-    merge: Boolean = false
+    merge: Boolean
   ): Unit = {
     if (dataset.columns.size > 0) {
       val count = dataset.count()
