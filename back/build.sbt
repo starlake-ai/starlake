@@ -82,3 +82,7 @@ sourceDirectory in Sphinx := baseDirectory.value / ".." / "docs"
 enablePlugins(SiteScaladocPlugin)
 
 publishSite
+
+
+// Format on compile
+scalafmtOnCompile  := true,

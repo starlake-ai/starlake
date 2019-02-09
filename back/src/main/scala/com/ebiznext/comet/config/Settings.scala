@@ -26,14 +26,15 @@ object Settings extends StrictLogging {
     * @param rejected   : Name of the rejected area
     * @param business   : Name of the business area
     */
-  case class Area(pending: String,
-                  unresolved: String,
-                  archive: String,
-                  ingesting: String,
-                  accepted: String,
-                  rejected: String,
-                  business: String
-                 )
+  case class Area(
+    pending: String,
+    unresolved: String,
+    archive: String,
+    ingesting: String,
+    accepted: String,
+    rejected: String,
+    business: String
+  )
 
   /**
     *
@@ -54,25 +55,30 @@ object Settings extends StrictLogging {
     * @param area        : see Area above
     * @param airflow     : Airflow end point. Should be defined even if simple launccher is used instead of airflow.
     */
-  case class Comet(datasets: String, metadata: String, archive: Boolean,
-                   writeFormat: String,
-                   launcher: String,
-                   analyze: Boolean, hive: Boolean,
-                   area: Area,
-                   airflow: Airflow) {
+  case class Comet(
+    datasets: String,
+    metadata: String,
+    archive: Boolean,
+    writeFormat: String,
+    launcher: String,
+    analyze: Boolean,
+    hive: Boolean,
+    area: Area,
+    airflow: Airflow
+  ) {
+
     def getLauncher(): LaunchHandler = launcher match {
-      case "simple" => new SimpleLauncher
+      case "simple"  => new SimpleLauncher
       case "airflow" => new AirflowLauncher
     }
   }
 
-
   val config: Config = ConfigFactory.load()
+
   val comet: Comet = config.extract[Comet].valueOrThrow { error =>
     error.messages.foreach(err => logger.error(err))
     throw new Exception("Failed to load config")
   }
   logger.info(s"Using Config $comet")
-
 
 }

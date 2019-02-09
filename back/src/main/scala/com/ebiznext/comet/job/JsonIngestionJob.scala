@@ -9,7 +9,6 @@ import org.apache.spark.sql.execution.datasources.json.JsonIngestionUtil
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, Row}
 
-
 /**
   * Main class to complex json delimiter separated values file
   * If your json contains only one level simple attribute aka. kind of dsv but in json format please use SIMPLE_JSON instead. It's way faster
@@ -20,14 +19,21 @@ import org.apache.spark.sql.{DataFrame, Row}
   * @param path           : Input dataset path
   * @param storageHandler : Storage Handler
   */
-class JsonIngestionJob(val domain: Domain, val schema: Schema, val types: List[Type], val path: Path, val storageHandler: StorageHandler) extends IngestionJob {
+class JsonIngestionJob(
+  val domain: Domain,
+  val schema: Schema,
+  val types: List[Type],
+  val path: Path,
+  val storageHandler: StorageHandler
+) extends IngestionJob {
 
   /**
     * load the json as an RDD of String
     * @return Spark Dataframe loaded using metadata options
     */
   def loadDataSet(): DataFrame = {
-    val df = session.read.format("com.databricks.spark.csv")
+    val df = session.read
+      .format("com.databricks.spark.csv")
       .option("inferSchema", value = false)
       .text(path.toString)
     df.printSchema()
@@ -35,7 +41,6 @@ class JsonIngestionJob(val domain: Domain, val schema: Schema, val types: List[T
   }
 
   lazy val schemaSparkType: StructType = schema.sparkType(Types(types))
-
 
   /**
     * Where the magic happen
@@ -46,7 +51,8 @@ class JsonIngestionJob(val domain: Domain, val schema: Schema, val types: List[T
     dataset.printSchema()
     val checkedRDD = JsonIngestionUtil.parseRDD(rdd, schemaSparkType).cache()
     val acceptedRDD: RDD[String] = checkedRDD.filter(_.isRight).map(_.right.get)
-    val rejectedRDD: RDD[String] = checkedRDD.filter(_.isLeft).map(_.left.get.mkString("\n"))
+    val rejectedRDD: RDD[String] =
+      checkedRDD.filter(_.isLeft).map(_.left.get.mkString("\n"))
     rejectedRDD.collect().foreach(println)
     val acceptedDF = session.read.json(acceptedRDD)
     saveRejected(rejectedRDD)
@@ -62,9 +68,13 @@ class JsonIngestionJob(val domain: Domain, val schema: Schema, val types: List[T
   def saveAccepted(acceptedRDD: RDD[Row]): Unit = {
     val writeMode = metadata.getWriteMode()
     val acceptedPath = new Path(DatasetArea.accepted(domain.name), schema.name)
-    saveRows(session.createDataFrame(acceptedRDD, schemaSparkType), acceptedPath, writeMode, HiveArea.accepted)
+    saveRows(
+      session.createDataFrame(acceptedRDD, schemaSparkType),
+      acceptedPath,
+      writeMode,
+      HiveArea.accepted
+    )
   }
-
 
   override def name: String = "JsonJob"
 }

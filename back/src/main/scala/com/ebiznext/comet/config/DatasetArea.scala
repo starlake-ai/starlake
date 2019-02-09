@@ -16,7 +16,8 @@ import org.apache.hadoop.fs.Path
   */
 object DatasetArea {
 
-  def path(domain: String, area: String) = new Path(s"${Settings.comet.datasets}/$area/$domain")
+  def path(domain: String, area: String) =
+    new Path(s"${Settings.comet.datasets}/$area/$domain")
 
   def path(domainPath: Path, schema: String) = new Path(domainPath, schema)
 
@@ -35,7 +36,8 @@ object DatasetArea {
     * @param domain : Domain name
     * @return Absolute path to the pending unresolved folder of domain
     */
-  def unresolved(domain: String): Path = path(domain, Settings.comet.area.unresolved)
+  def unresolved(domain: String): Path =
+    path(domain, Settings.comet.area.unresolved)
 
   /**
     * Once ingested datasets are archived in this folder.
@@ -51,7 +53,8 @@ object DatasetArea {
     * @param domain : Domain name
     * @return Absolute path to the ingesting folder of domain
     */
-  def ingesting(domain: String): Path = path(domain, Settings.comet.area.ingesting)
+  def ingesting(domain: String): Path =
+    path(domain, Settings.comet.area.ingesting)
 
   /**
     * Valid records for datasets the specified domain are stored in this folder.
@@ -59,7 +62,8 @@ object DatasetArea {
     * @param domain : Domain name
     * @return Absolute path to the ingesting folder of domain
     */
-  def accepted(domain: String): Path = path(domain, Settings.comet.area.accepted)
+  def accepted(domain: String): Path =
+    path(domain, Settings.comet.area.accepted)
 
   /**
     * Invalid records and the reason why they have been rejected for the datasets of the specified domain are stored in this folder.
@@ -67,7 +71,8 @@ object DatasetArea {
     * @param domain : Domain name
     * @return Absolute path to the rejected folder of domain
     */
-  def rejected(domain: String): Path = path(domain, Settings.comet.area.rejected)
+  def rejected(domain: String): Path =
+    path(domain, Settings.comet.area.rejected)
 
   /**
     * Default target folder for autojobs applied to datasets in this domain
@@ -75,13 +80,13 @@ object DatasetArea {
     * @param domain : Domain name
     * @return Absolute path to the business folder of domain
     */
-  def business(domain: String): Path = path(domain, Settings.comet.area.business)
+  def business(domain: String): Path =
+    path(domain, Settings.comet.area.business)
 
   val metadata = new Path(s"${Settings.comet.metadata}")
   val types = new Path(metadata, "types")
   val domains = new Path(metadata, "domains")
   val jobs = new Path(metadata, "jobs")
-
 
   /**
     *
@@ -94,11 +99,12 @@ object DatasetArea {
   def initDomains(storage: StorageHandler, domains: Iterable[String]): Unit = {
     init(storage)
     domains.foreach { domain =>
-      List(pending _, unresolved _, archive _, accepted _, rejected _, business _).map(_ (domain)).foreach(storage.mkdirs)
+      List(pending _, unresolved _, archive _, accepted _, rejected _, business _)
+        .map(_(domain))
+        .foreach(storage.mkdirs)
     }
   }
 }
-
 
 /**
   * After going through the data pipeline
@@ -110,12 +116,13 @@ object DatasetArea {
   *     - The ciustom database : contains tables where autojob tables are created when a specific area is defined
   */
 object HiveArea {
+
   def fromString(value: String): HiveArea = {
     value.toLowerCase() match {
       case Settings.comet.area.rejected => HiveArea.rejected
       case Settings.comet.area.accepted => HiveArea.accepted
       case Settings.comet.area.business => HiveArea.business
-      case custom => HiveArea(custom)
+      case custom                       => HiveArea(custom)
     }
   }
 

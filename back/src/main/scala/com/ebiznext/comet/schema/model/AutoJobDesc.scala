@@ -10,8 +10,16 @@ import com.ebiznext.comet.config.HiveArea
   * @param dataset Dataset Name in Business Area (Will be the Table name in Hive)
   * @param write   Append to or overwrite existing data
   */
-case class AutoTask(sql: String, domain: String, dataset: String, write: WriteMode, partition: Option[List[String]],
-                    presql: Option[List[String]], postsql: Option[List[String]], area: Option[HiveArea] = None) {
+case class AutoTask(
+  sql: String,
+  domain: String,
+  dataset: String,
+  write: WriteMode,
+  partition: Option[List[String]],
+  presql: Option[List[String]],
+  postsql: Option[List[String]],
+  area: Option[HiveArea] = None
+) {
   def getPartitions() = partition.getOrElse(Nil)
 }
 
@@ -23,4 +31,3 @@ case class AutoTask(sql: String, domain: String, dataset: String, write: WriteMo
 case class AutoJobDesc(name: String, tasks: List[AutoTask], area: Option[HiveArea] = None) {
   def getArea() = area.getOrElse(HiveArea.business)
 }
-
