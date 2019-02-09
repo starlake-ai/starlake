@@ -13,7 +13,7 @@ import org.apache.spark.sql.{DataFrame, DataFrameWriter, Row, SparkSession}
 trait SparkJob extends StrictLogging {
   def name: String
 
-  lazy val sparkEnv = new SparkEnv(name)
+  lazy val sparkEnv: SparkEnv = new SparkEnv(name)
   lazy val session: SparkSession = sparkEnv.session
 
   /**

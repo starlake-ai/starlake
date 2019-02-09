@@ -11,7 +11,7 @@ object Settings extends StrictLogging {
     *
     * @param endpoint : Airflow REST API endpoint, aka. http://127.0.0.1:8080/api/experimental
     */
-  case class Airflow(endpoint: String)
+  final case class Airflow(endpoint: String)
 
   /**
     * datasets in the data pipeline go through several stages and
@@ -26,7 +26,7 @@ object Settings extends StrictLogging {
     * @param rejected   : Name of the rejected area
     * @param business   : Name of the business area
     */
-  case class Area(
+  final case class Area(
     pending: String,
     unresolved: String,
     archive: String,
@@ -41,7 +41,7 @@ object Settings extends StrictLogging {
     * @param discreteMaxCardinality : Max number of unique values allowed in cardinality compute
     *
     */
-  case class Stat(discreteMaxCardinality: Int)
+  final case class Stat(discreteMaxCardinality: Int)
 
   /**
     *
@@ -55,7 +55,7 @@ object Settings extends StrictLogging {
     * @param area        : see Area above
     * @param airflow     : Airflow end point. Should be defined even if simple launccher is used instead of airflow.
     */
-  case class Comet(
+  final case class Comet(
     datasets: String,
     metadata: String,
     archive: Boolean,
