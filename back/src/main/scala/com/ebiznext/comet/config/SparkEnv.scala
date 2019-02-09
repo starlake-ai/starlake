@@ -19,7 +19,7 @@ class SparkEnv(name: String) extends StrictLogging {
   /**
     * Load spark.* properties rom the application conf file
     */
-  val config = {
+  val config: SparkConf = {
     val now = LocalDateTime
       .now()
       .format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss.SSS"))

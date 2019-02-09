@@ -83,10 +83,10 @@ object DatasetArea {
   def business(domain: String): Path =
     path(domain, Settings.comet.area.business)
 
-  val metadata = new Path(s"${Settings.comet.metadata}")
-  val types = new Path(metadata, "types")
-  val domains = new Path(metadata, "domains")
-  val jobs = new Path(metadata, "jobs")
+  val metadata: Path = new Path(s"${Settings.comet.metadata}")
+  val types: Path = new Path(metadata, "types")
+  val domains: Path = new Path(metadata, "domains")
+  val jobs: Path = new Path(metadata, "jobs")
 
   /**
     *

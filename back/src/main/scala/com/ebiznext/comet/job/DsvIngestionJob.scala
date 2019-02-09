@@ -149,7 +149,7 @@ class DsvIngestionJob(
     (rejectedRDD, acceptedRDD)
   }
 
-  def saveAccepted(acceptedRDD: RDD[Row], orderedSparkTypes: StructType) = {
+  def saveAccepted(acceptedRDD: RDD[Row], orderedSparkTypes: StructType): Unit = {
     val renamedAttributes = schema.renamedAttributes().toMap
     logger.whenInfoEnabled {
       renamedAttributes.foreach {
