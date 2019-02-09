@@ -11,7 +11,8 @@ import org.apache.spark.sql.SparkSession
 /**
   * Any Spark Job will inherit from this class.
   * All properties defined in application conf file and prefixed by the "spark" key will be loaded into the Spark Job
-  * @param name: Cusom spark application name prefix. The current datetime is appended this the Spark Job name
+  *
+  * @param name : Cusom spark application name prefix. The current datetime is appended this the Spark Job name
   */
 class SparkEnv(name: String) extends StrictLogging {
 
@@ -23,7 +24,9 @@ class SparkEnv(name: String) extends StrictLogging {
       .now()
       .format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss.SSS"))
     val appName = s"$name-$now"
-    val thisConf = new SparkConf().setAppName(appName)
+    val thisConf = new SparkConf()
+
+    thisConf.setAppName(appName)
 
     import scala.collection.JavaConversions._
     ConfigFactory
