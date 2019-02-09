@@ -85,4 +85,4 @@ publishSite
 
 
 // Format on compile
-scalafmtOnCompile  := true,
+scalafmtOnCompile  := true
