@@ -72,7 +72,8 @@ class JsonIngestionJob(
       session.createDataFrame(acceptedRDD, schemaSparkType),
       acceptedPath,
       writeMode,
-      HiveArea.accepted
+      HiveArea.accepted,
+      schema.merge.isDefined
     )
   }
 
