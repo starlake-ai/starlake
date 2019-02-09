@@ -29,17 +29,17 @@ import com.fasterxml.jackson.databind.{DeserializationContext, JsonDeserializer,
   */
 @JsonDeserialize(using = classOf[MetadataDeserializer])
 case class Metadata(
-                     mode: Option[Mode] = None,
-                     format: Option[Format] = None,
-                     multiline: Option[Boolean] = None,
-                     array: Option[Boolean] = None,
-                     withHeader: Option[Boolean] = None,
-                     separator: Option[String] = None,
-                     quote: Option[String] = None,
-                     escape: Option[String] = None,
-                     write: Option[WriteMode] = None,
-                     partition: Option[List[String]] = None
-                   ) {
+  mode: Option[Mode] = None,
+  format: Option[Format] = None,
+  multiline: Option[Boolean] = None,
+  array: Option[Boolean] = None,
+  withHeader: Option[Boolean] = None,
+  separator: Option[String] = None,
+  quote: Option[String] = None,
+  escape: Option[String] = None,
+  write: Option[WriteMode] = None,
+  partition: Option[List[String]] = None
+) {
   override def toString: String =
     s"""
        |mode:${getIngestMode()}
@@ -109,19 +109,20 @@ case class Metadata(
   }
 }
 
-
 object Metadata {
+
   /**
     * Predefined partition columns.
     */
-  val CometPartitionColumns = List("comet_year", "comet_month", "comet_day", "comet_hour", "comet_minute")
+  val CometPartitionColumns =
+    List("comet_year", "comet_month", "comet_day", "comet_hour", "comet_minute")
 
   def Dsv(
-           separator: Option[String],
-           quote: Option[String],
-           escape: Option[String],
-           write: Option[WriteMode]
-         ) = new Metadata(
+    separator: Option[String],
+    quote: Option[String],
+    escape: Option[String],
+    write: Option[WriteMode]
+  ) = new Metadata(
     Some(Mode.FILE),
     Some(Format.DSV),
     Some(false),
@@ -135,24 +136,46 @@ object Metadata {
   )
 }
 
-
 class MetadataDeserializer extends JsonDeserializer[Metadata] {
   override def deserialize(jp: JsonParser, ctx: DeserializationContext): Metadata = {
     val node: JsonNode = jp.getCodec().readTree(jp)
 
-    def isNull(field: String): Boolean = node.get(field) == null || node.get(field).isNull
+    def isNull(field: String): Boolean =
+      node.get(field) == null || node.get(field).isNull
 
-    val mode = if (isNull("mode")) None else Some(Mode.fromString(node.get("mode").asText))
-    val format = if (isNull("format")) None else Some(Format.fromString(node.get("format").asText))
-    val multiline = if (isNull("multiline")) None else Some(node.get("multiline").asBoolean())
-    val array = if (isNull("array")) None else Some(node.get("array").asBoolean())
-    val withHeader = if (isNull("withHeader")) None else Some(node.get("withHeader").asBoolean())
-    val separator = if (isNull("separator")) None else Some(node.get("separator").asText)
+    val mode =
+      if (isNull("mode")) None
+      else Some(Mode.fromString(node.get("mode").asText))
+    val format =
+      if (isNull("format")) None
+      else Some(Format.fromString(node.get("format").asText))
+    val multiline =
+      if (isNull("multiline")) None else Some(node.get("multiline").asBoolean())
+    val array =
+      if (isNull("array")) None else Some(node.get("array").asBoolean())
+    val withHeader =
+      if (isNull("withHeader")) None
+      else Some(node.get("withHeader").asBoolean())
+    val separator =
+      if (isNull("separator")) None else Some(node.get("separator").asText)
     val quote = if (isNull("quote")) None else Some(node.get("quote").asText)
     val escape = if (isNull("escape")) None else Some(node.get("escape").asText)
-    val write = if (isNull("write")) None else Some(WriteMode.fromString(node.get("write").asText))
+    val write =
+      if (isNull("write")) None
+      else Some(WriteMode.fromString(node.get("write").asText))
     import scala.collection.JavaConverters._
-    val partition = if (isNull("partition")) None else Some(node.get("partition").asInstanceOf[ArrayNode].elements.asScala.toList.map(_.asText()))
+    val partition =
+      if (isNull("partition")) None
+      else
+        Some(
+          node
+            .get("partition")
+            .asInstanceOf[ArrayNode]
+            .elements
+            .asScala
+            .toList
+            .map(_.asText())
+        )
     Metadata(mode, format, multiline, array, withHeader, separator, quote, escape, write, partition)
   }
 }

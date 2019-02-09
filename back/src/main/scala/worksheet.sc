@@ -1,8 +1,32 @@
 import java.time.format.DateTimeFormatter
-import java.time.{Instant, LocalDateTime}
+import java.time.temporal.TemporalAccessor
+import java.time.{Instant, LocalDateTime, ZoneId, ZonedDateTime}
 import java.util.regex.Pattern
 
+import scala.util.{Failure, Success, Try}
 
+
+
+val dtf = DateTimeFormatter.ofPattern("yyyy-MM-dd")
+val dateTime: TemporalAccessor = dtf.parse("2018-11-30")
+val xx = Try(Instant.from(dateTime)) match {
+  case Success(instant) =>
+    instant
+
+  case Failure(_) =>
+    Try {
+      val localDateTime = LocalDateTime.from(dateTime)
+      ZonedDateTime.of(localDateTime, ZoneId.systemDefault()).toInstant
+    } match {
+      case Success(instant) =>
+        instant
+      case Failure(_) =>
+        import java.text.SimpleDateFormat
+        val df = new SimpleDateFormat("yyyy-MM-dd")
+        val date = df.parse("2018-11-30")
+        Instant.ofEpochMilli(date.getTime)
+    }
+}
 
 val dec = BigDecimal("10.0")
 System.getenv("HIVE_HOME")

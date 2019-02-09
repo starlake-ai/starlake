@@ -6,7 +6,6 @@ import org.apache.spark.sql.types.{StructField, StructType}
 
 import scala.collection.mutable
 
-
 /**
   * How dataset are merge
   * @param key list of attributes to join existing with incoming data. Use renamed columns here.
@@ -25,22 +24,30 @@ case class MergeOptions(key: List[String], delete: Option[String] = None)
   * @param presql     :  SQL code executed before the file is ingested
   * @param postsql    : SQL code executed right after the file has been ingested
   */
-case class Schema(name: String,
-                  pattern: Pattern,
-                  attributes: List[Attribute],
-                  metadata: Option[Metadata],
-                  merge: Option[MergeOptions],
-                  comment: Option[String],
-                  presql: Option[List[String]],
-                  postsql: Option[List[String]]
-                 ) {
+case class Schema(
+  name: String,
+  pattern: Pattern,
+  attributes: List[Attribute],
+  metadata: Option[Metadata],
+  merge: Option[MergeOptions],
+  comment: Option[String],
+  presql: Option[List[String]],
+  postsql: Option[List[String]]
+) {
+
   /**
     * @return Are the parittions columns defined in the metadata valid column names
     */
   def validatePartitionColumns(): Boolean = {
-    metadata.forall(_.getPartition().forall(attributes.map(_.getFinalName()).union(Metadata.CometPartitionColumns).contains))
+    metadata.forall(
+      _.getPartition().forall(
+        attributes
+          .map(_.getFinalName())
+          .union(Metadata.CometPartitionColumns)
+          .contains
+      )
+    )
   }
-
 
   /**
     * This Schema as a Spark Catalyst Schema
@@ -87,7 +94,8 @@ case class Schema(name: String,
       }
     }
 
-    val duplicateErrorMessage = "%s is defined %d times. An attribute can only be defined once."
+    val duplicateErrorMessage =
+      "%s is defined %d times. An attribute can only be defined once."
     for (errors <- duplicates(attributes.map(_.name), duplicateErrorMessage).left) {
       errorList ++= errors
     }
@@ -98,4 +106,3 @@ case class Schema(name: String,
       Right(true)
   }
 }
-

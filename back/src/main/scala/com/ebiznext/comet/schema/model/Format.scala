@@ -18,11 +18,12 @@ sealed case class Format(value: String) {
 }
 
 object Format {
+
   def fromString(value: String): Format = {
     value.toUpperCase match {
-      case "DSV" => Format.DSV
+      case "DSV"         => Format.DSV
       case "SIMPLE_JSON" => Format.SIMPLE_JSON
-      case "JSON" => Format.JSON
+      case "JSON"        => Format.JSON
     }
   }
 
@@ -41,4 +42,3 @@ class FormatDeserializer extends JsonDeserializer[Format] {
     Format.fromString(value)
   }
 }
-

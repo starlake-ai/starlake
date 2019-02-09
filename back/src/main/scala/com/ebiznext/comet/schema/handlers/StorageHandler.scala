@@ -15,7 +15,7 @@ trait StorageHandler {
 
   def delete(path: Path)
 
-  def exist(path: Path) : Boolean
+  def exist(path: Path): Boolean
 
   def mkdirs(path: Path)
 
@@ -27,9 +27,7 @@ trait StorageHandler {
 
   def write(data: String, path: Path): Unit
 
-  def list(path: Path,
-           extension: String = "",
-           since: LocalDateTime = LocalDateTime.MIN): List[Path]
+  def list(path: Path, extension: String = "", since: LocalDateTime = LocalDateTime.MIN): List[Path]
 }
 
 /**
@@ -79,13 +77,13 @@ class HdfsStorageHandler extends StorageHandler {
       .filter { status =>
         val time = LocalDateTime.ofInstant(
           Instant.ofEpochMilli(status.getModificationTime),
-          ZoneId.systemDefault)
+          ZoneId.systemDefault
+        )
         time.isAfter(since) && status.getPath().getName().endsWith(extension)
       }
       .map(status => status.getPath())
       .toList
   }
-
 
   /**
     * Move file

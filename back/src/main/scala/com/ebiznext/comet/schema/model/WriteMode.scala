@@ -7,7 +7,6 @@ import com.fasterxml.jackson.databind.ser.std.ToStringSerializer
 import com.fasterxml.jackson.databind.{DeserializationContext, JsonDeserializer}
 import org.apache.spark.sql.SaveMode
 
-
 /**
   * During ingestion, should the data be appended to the previous ones or should it replace the existing ones ?
   * see Spark SaveMode for more options.
@@ -21,10 +20,10 @@ sealed case class WriteMode(value: String) {
 
   def toSaveMode: SaveMode = {
     this match {
-      case OVERWRITE => SaveMode.Overwrite
-      case APPEND => SaveMode.Append
+      case OVERWRITE       => SaveMode.Overwrite
+      case APPEND          => SaveMode.Append
       case ERROR_IF_EXISTS => SaveMode.ErrorIfExists
-      case IGNORE => SaveMode.Ignore
+      case IGNORE          => SaveMode.Ignore
       case _ =>
         throw new Exception("Should never happen")
     }
@@ -32,12 +31,13 @@ sealed case class WriteMode(value: String) {
 }
 
 object WriteMode {
+
   def fromString(value: String): WriteMode = {
     value.toUpperCase() match {
-      case "OVERWRITE" => WriteMode.OVERWRITE
-      case "APPEND" => WriteMode.APPEND
+      case "OVERWRITE"       => WriteMode.OVERWRITE
+      case "APPEND"          => WriteMode.APPEND
       case "ERROR_IF_EXISTS" => WriteMode.ERROR_IF_EXISTS
-      case "IGNORE" => WriteMode.IGNORE
+      case "IGNORE"          => WriteMode.IGNORE
     }
   }
 
@@ -58,4 +58,3 @@ class WriteDeserializer extends JsonDeserializer[WriteMode] {
     WriteMode.fromString(value)
   }
 }
-
