@@ -40,7 +40,7 @@ trait IngestionJob extends SparkJob {
     */
   def ingest(dataset: DataFrame): (RDD[_], RDD[_])
 
-  def saveRejected(rejectedRDD: RDD[String]) = {
+  def saveRejected(rejectedRDD: RDD[String]): Unit = {
     val writeMode = metadata.getWriteMode()
     val rejectedPath = new Path(DatasetArea.rejected(domain.name), schema.name)
     import session.implicits._
