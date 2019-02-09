@@ -493,7 +493,7 @@ The ingestion process follows the steps below :
 
 
 Before running the steps below, please configure first the environment variables
-as described in the 
+as described in the Configuration section.
 
 Import Step
 ***********
