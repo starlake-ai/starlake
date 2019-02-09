@@ -8,7 +8,12 @@ object Encryption {
     val m = java.security.MessageDigest.getInstance(alg)
     val b = data.getBytes("UTF-8")
     m.update(b, 0, b.length)
-    new java.math.BigInteger(1, m.digest()).toString(16).reverse.padTo(32, "0").reverse.mkString
+    new java.math.BigInteger(1, m.digest())
+      .toString(16)
+      .reverse
+      .padTo(32, "0")
+      .reverse
+      .mkString
   }
 
   def md5(s: String): String = {

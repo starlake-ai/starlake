@@ -19,13 +19,18 @@ object Rejection {
     * @param pattern  : applied pattern
     * @param success  : true if column is valid, false otherwise
     */
-  case class ColInfo(colData: String, colName: String, typeName: String, pattern: String, success: Boolean) {
+  case class ColInfo(
+    colData: String,
+    colName: String,
+    typeName: String,
+    pattern: String,
+    success: Boolean
+  ) {
     override def toString: String = {
       val failMsg = if (success) "success" else "failure"
       s"$failMsg $colName:$typeName($pattern) = $colData"
     }
   }
-
 
   /**
     * Rejected Row information
