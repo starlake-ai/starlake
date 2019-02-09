@@ -22,7 +22,7 @@ trait SparkJob extends StrictLogging {
     * @param args : arbitrary list of arguments
     * @return : Spark Session used for the job
     */
-  def run(args: Array[String]): SparkSession
+  def run(args: Array[String] = Array()): SparkSession
 
   /**
     * Partition a dataset using dataset columns.
