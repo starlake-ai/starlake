@@ -18,7 +18,7 @@ class StorageHandlerSpec extends FlatSpec with Matchers with SampleData {
     val path = new Path("/tmp/domain.yml")
     val sh = new HdfsStorageHandler
 
-    val ldomain = mapper.readValue(sh.read(path), classOf[Domain])
+    val _ = mapper.readValue(sh.read(path), classOf[Domain])
   }
 
   "Types Case Class" should "be written as yaml" in {
@@ -35,7 +35,15 @@ class StorageHandlerSpec extends FlatSpec with Matchers with SampleData {
   }
 
   "Business Job Definition" should "be valid json" in {
-    val businessTask1 = AutoTask("select * from domain", "DOMAIN", "ANALYSE", WriteMode.OVERWRITE, Some(List("comet_year", "comet_month")), None, None)
+    val businessTask1 = AutoTask(
+      "select * from domain",
+      "DOMAIN",
+      "ANALYSE",
+      WriteMode.OVERWRITE,
+      Some(List("comet_year", "comet_month")),
+      None,
+      None
+    )
     val businessJob = AutoJobDesc("business1", List(businessTask1))
     val sh = new HdfsStorageHandler
     val path = new Path("/tmp/business.yml")
