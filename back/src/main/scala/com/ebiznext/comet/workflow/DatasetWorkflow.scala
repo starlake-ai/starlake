@@ -1,7 +1,5 @@
 package com.ebiznext.comet.workflow
 
-import java.io.{PrintWriter, StringWriter}
-
 import better.files._
 import com.ebiznext.comet.config.{DatasetArea, Settings}
 import com.ebiznext.comet.job.{AutoJob, DsvIngestionJob, JsonIngestionJob, SimpleJsonIngestionJob}
@@ -175,6 +173,7 @@ class DatasetWorkflow(
       domain <- domains.find(_.name == domainName)
       schema <- domain.schemas.find(_.name == schemaName)
     } yield ingesting(domain, schema, new Path(ingestingPath))
+    ()
   }
 
   private def ingesting(domain: Domain, schema: Schema, ingestingPath: Path): Unit = {
@@ -190,7 +189,7 @@ class DatasetWorkflow(
     val ingestionResult = Try(metadata.getFormat() match {
       case DSV =>
         new DsvIngestionJob(domain, schema, schemaHandler.types, ingestingPath, storageHandler)
-          .run(null)
+          .run()
       case SIMPLE_JSON =>
         new SimpleJsonIngestionJob(
           domain,
@@ -198,10 +197,10 @@ class DatasetWorkflow(
           schemaHandler.types,
           ingestingPath,
           storageHandler
-        ).run(null)
+        ).run()
       case JSON =>
         new JsonIngestionJob(domain, schema, schemaHandler.types, ingestingPath, storageHandler)
-          .run(null)
+          .run()
       case _ =>
         throw new Exception("Should never happen")
     })
@@ -211,10 +210,10 @@ class DatasetWorkflow(
           val archivePath =
             new Path(DatasetArea.archive(domain.name), ingestingPath.getName)
           logger.info(s"Backing up file $ingestingPath to $archivePath")
-          storageHandler.move(ingestingPath, archivePath)
+          val _ = storageHandler.move(ingestingPath, archivePath)
         } else {
           logger.info(s"Deleting file $ingestingPath")
-          storageHandler.delete(ingestingPath)
+          val _ = storageHandler.delete(ingestingPath)
         }
       case Failure(exception) =>
         Utils.logException(logger, exception)

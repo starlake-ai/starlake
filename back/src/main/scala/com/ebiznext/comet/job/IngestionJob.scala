@@ -159,7 +159,7 @@ trait IngestionJob extends SparkJob {
       } else {
         finalDataset.save()
       }
-      //storageHandler.delete(new Path(mergePath))
+      val _ = storageHandler.delete(new Path(mergePath))
 
     } else {
       logger.warn("Empty dataset with no columns won't be saved")
@@ -172,7 +172,7 @@ trait IngestionJob extends SparkJob {
     * @param args : arbitrary list of arguments
     * @return : Spark Session used for the job
     */
-  def run(args: Array[String]): SparkSession = {
+  def run(): SparkSession = {
     domain.checkValidity(types) match {
       case Left(errors) =>
         errors.foreach(err => logger.error(err))

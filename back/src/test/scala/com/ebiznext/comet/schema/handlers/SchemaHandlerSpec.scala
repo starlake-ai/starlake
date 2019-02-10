@@ -8,7 +8,6 @@ import com.ebiznext.comet.workflow.DatasetWorkflow
 import org.apache.hadoop.fs.Path
 import org.scalatest.{FlatSpec, Matchers}
 
-
 class SchemaHandlerSpec extends FlatSpec with Matchers with SampleData {
 
   "Ingest CSV" should "produce file in accepted" in {
@@ -37,9 +36,11 @@ class SchemaHandlerSpec extends FlatSpec with Matchers with SampleData {
     sh.write(loadFile("/sample/dream/types.yml"), typesPath)
     DatasetArea.initDomains(storageHandler, schemaHandler.domains.map(_.name))
 
-    val stream: InputStream = getClass.getResourceAsStream("/sample/dream//OneClient_Contact_20190101_090800_008.psv")
+    val stream: InputStream =
+      getClass.getResourceAsStream("/sample/dream//OneClient_Contact_20190101_090800_008.psv")
     val lines = scala.io.Source.fromInputStream(stream).getLines().mkString("\n")
-    val targetPath = DatasetArea.path(DatasetArea.pending("dream"), "OneClient_Contact_20190101_090800_008.psv")
+    val targetPath =
+      DatasetArea.path(DatasetArea.pending("dream"), "OneClient_Contact_20190101_090800_008.psv")
     storageHandler.write(lines, targetPath)
     val validator = new DatasetWorkflow(storageHandler, schemaHandler, new SimpleLauncher)
     validator.loadPending()
@@ -55,9 +56,13 @@ class SchemaHandlerSpec extends FlatSpec with Matchers with SampleData {
     sh.write(loadFile("/sample/dream/types.yml"), typesPath)
     DatasetArea.initDomains(storageHandler, schemaHandler.domains.map(_.name))
 
-    val stream: InputStream = getClass.getResourceAsStream("/sample/dream/OneClient_Segmentation_20190101_090800_008.psv")
+    val stream: InputStream =
+      getClass.getResourceAsStream("/sample/dream/OneClient_Segmentation_20190101_090800_008.psv")
     val lines = scala.io.Source.fromInputStream(stream).getLines().mkString("\n")
-    val targetPath = DatasetArea.path(DatasetArea.pending("dream"), "OneClient_Segmentation_20190101_090800_008.psv")
+    val targetPath = DatasetArea.path(
+      DatasetArea.pending("dream"),
+      "OneClient_Segmentation_20190101_090800_008.psv"
+    )
     storageHandler.write(lines, targetPath)
     val validator = new DatasetWorkflow(storageHandler, schemaHandler, new SimpleLauncher)
     validator.loadPending()
@@ -71,7 +76,8 @@ class SchemaHandlerSpec extends FlatSpec with Matchers with SampleData {
     sh.write(loadFile("/sample/simple-json-locations/types.yml"), typesPath)
     DatasetArea.initDomains(storageHandler, schemaHandler.domains.map(_.name))
 
-    val stream: InputStream = getClass.getResourceAsStream("/sample/simple-json-locations/locations.json")
+    val stream: InputStream =
+      getClass.getResourceAsStream("/sample/simple-json-locations/locations.json")
     val lines = scala.io.Source.fromInputStream(stream).getLines().mkString("\n")
     val targetPath = DatasetArea.path(DatasetArea.pending("locations"), "locations.json")
     storageHandler.write(lines, targetPath)
@@ -92,7 +98,6 @@ class SchemaHandlerSpec extends FlatSpec with Matchers with SampleData {
     val typesPath = new Path(DatasetArea.types, "types.yml")
     val sh = new HdfsStorageHandler
     sh.write(loadFile("/sample/types.yml"), typesPath)
-    val types = schemaHandler.types
     assert(true)
   }
 
@@ -106,5 +111,3 @@ class SchemaHandlerSpec extends FlatSpec with Matchers with SampleData {
   }
 
 }
-
-
