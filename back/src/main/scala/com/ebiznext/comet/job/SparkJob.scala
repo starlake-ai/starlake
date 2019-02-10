@@ -1,7 +1,7 @@
 package com.ebiznext.comet.job
 
 import com.ebiznext.comet.config.SparkEnv
-import com.ebiznext.comet.schema.model.{MergeOptions, Metadata}
+import com.ebiznext.comet.schema.model.Metadata
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.{DataFrame, DataFrameWriter, Row, SparkSession}
@@ -22,7 +22,7 @@ trait SparkJob extends StrictLogging {
     * @param args : arbitrary list of arguments
     * @return : Spark Session used for the job
     */
-  def run(args: Array[String] = Array()): SparkSession
+  def run(): SparkSession
 
   /**
     * Partition a dataset using dataset columns.

@@ -13,11 +13,11 @@ trait StorageHandler {
 
   def move(src: Path, dst: Path): Boolean
 
-  def delete(path: Path)
+  def delete(path: Path): Boolean
 
   def exist(path: Path): Boolean
 
-  def mkdirs(path: Path)
+  def mkdirs(path: Path): Boolean
 
   def copyFromLocal(source: Path, dest: Path): Unit
 
@@ -101,7 +101,7 @@ class HdfsStorageHandler extends StorageHandler {
     * delete file (skip trash)
     * @param path : Absolute path of file to delete
     */
-  override def delete(path: Path): Unit = {
+  override def delete(path: Path): Boolean = {
     val conf = new Configuration()
     val fs = FileSystem.get(conf)
     fs.delete(path, true)
@@ -111,7 +111,7 @@ class HdfsStorageHandler extends StorageHandler {
     * Create folder if it does not exsit including any intermediary non existent folder
     * @param path Absolute path of folder to create
     */
-  override def mkdirs(path: Path): Unit = {
+  override def mkdirs(path: Path): Boolean = {
     val conf = new Configuration()
     val fs = FileSystem.get(conf)
     fs.mkdirs(path)

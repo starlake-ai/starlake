@@ -11,7 +11,7 @@ object Encryption {
     new java.math.BigInteger(1, m.digest())
       .toString(16)
       .reverse
-      .padTo(32, "0")
+      .padTo(32, '0')
       .reverse
       .mkString
   }
