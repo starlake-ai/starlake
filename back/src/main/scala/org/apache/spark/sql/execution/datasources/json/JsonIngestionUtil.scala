@@ -279,8 +279,6 @@ object JsonIngestionUtil {
     case (ty1, ty2) => compatibleType(ty1, ty2)
   }
 
-  private[this] val emptyStructFieldArray = Array.empty[StructField]
-
   def inferSchema(parser: JsonParser): DataType = {
     parser.getCurrentToken match {
       case null | VALUE_NULL => NullType

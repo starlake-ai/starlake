@@ -196,7 +196,6 @@ object DsvIngestionUtil {
     sparkType: StructType
   ): (RDD[String], RDD[Row]) = {
     val now = Timestamp.from(Instant.now)
-    val rdds = dataset.rdd
     val checkedRDD: RDD[RowResult] = dataset.rdd.mapPartitions { partition =>
       partition.map { row: Row =>
         println(row.toString())
@@ -252,7 +251,7 @@ object DsvIngestionUtil {
                 ),
                 sparkValue
               )
-          } toList
+          }.toList
         )
       }
     } cache ()

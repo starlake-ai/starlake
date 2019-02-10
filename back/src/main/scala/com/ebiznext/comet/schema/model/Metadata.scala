@@ -138,7 +138,7 @@ object Metadata {
 
 class MetadataDeserializer extends JsonDeserializer[Metadata] {
   override def deserialize(jp: JsonParser, ctx: DeserializationContext): Metadata = {
-    val node: JsonNode = jp.getCodec().readTree(jp)
+    val node: JsonNode = jp.getCodec().readTree[JsonNode](jp)
 
     def isNull(field: String): Boolean =
       node.get(field) == null || node.get(field).isNull
