@@ -64,7 +64,7 @@ class JsonIngestionJob(
     * Use the schema we used for validation when saving
     * @param acceptedRDD
     */
-  @deprecated("We let Spark compute the final schema")
+  @deprecated("We let Spark compute the final schema", "")
   def saveAccepted(acceptedRDD: RDD[Row]): Unit = {
     val writeMode = metadata.getWriteMode()
     val acceptedPath = new Path(DatasetArea.accepted(domain.name), schema.name)
