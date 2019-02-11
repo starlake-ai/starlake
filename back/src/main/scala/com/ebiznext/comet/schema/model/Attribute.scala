@@ -20,16 +20,18 @@ import scala.collection.mutable
   * @param stat       : If present, what kind of stat should be computed for this field
   * @param attributes : List of sub-attributes
   */
-case class Attribute(name: String,
-                     `type`: String = "string",
-                     array: Option[Boolean] = None,
-                     required: Boolean = true,
-                     privacy: Option[PrivacyLevel] = None,
-                     comment: Option[String] = None,
-                     rename: Option[String] = None,
-                     stat: Option[Stat] = None,
-                     attributes: Option[List[Attribute]] = None
-                    ) {
+case class Attribute(
+  name: String,
+  `type`: String = "string",
+  array: Option[Boolean] = None,
+  required: Boolean = true,
+  privacy: Option[PrivacyLevel] = None,
+  comment: Option[String] = None,
+  rename: Option[String] = None,
+  stat: Option[Stat] = None,
+  attributes: Option[List[Attribute]] = None
+) {
+
   /**
     * Check attribute validity
     * An attribute is valid if :
@@ -63,10 +65,11 @@ case class Attribute(name: String,
         if (tpe != PrimitiveType.struct && attributes.isDefined)
           errorList += s"Attribute $this : Simple attributes cannot have sub-attributes"
       case None if attributes.isEmpty => errorList += s"Invalid Type ${`type`}"
-      case _ => // good boy
+      case _                          => // good boy
     }
     attributes.collect {
-      case list if list.isEmpty => errorList += s"Attribute $this : when present, attributes list cannot be empty."
+      case list if list.isEmpty =>
+        errorList += s"Attribute $this : when present, attributes list cannot be empty."
     }
     if (errorList.nonEmpty)
       Left(errorList.toList)
@@ -82,12 +85,16 @@ case class Attribute(name: String,
     * @return Primitive type if attribute is a leaf node or array of primitive type, None otherwise
     */
   def primitiveSparkType(types: Types): DataType = {
-    types.types.find(_.name == `type`).map(_.primitiveType).map { tpe =>
-      if (isArray())
-        ArrayType(tpe.sparkType, !required)
-      else
-        tpe.sparkType
-    }.getOrElse(PrimitiveType.struct.sparkType)
+    types.types
+      .find(_.name == `type`)
+      .map(_.primitiveType)
+      .map { tpe =>
+        if (isArray())
+          ArrayType(tpe.sparkType, !required)
+        else
+          tpe.sparkType
+      }
+      .getOrElse(PrimitiveType.struct.sparkType)
   }
 
   /**
