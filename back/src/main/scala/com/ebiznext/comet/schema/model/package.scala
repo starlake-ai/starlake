@@ -3,6 +3,7 @@ package com.ebiznext.comet.schema
 import scala.collection.mutable
 
 package object model {
+
   /**
     * Utility to extract duplicates and their number of occurrences
     *
@@ -15,8 +16,9 @@ package object model {
     val duplicates = values.groupBy(identity).mapValues(_.size).filter {
       case (key, size) => size > 1
     }
-    duplicates.foreach { case (key, size) =>
-      errorList += errorMessage.format(key, size)
+    duplicates.foreach {
+      case (key, size) =>
+        errorList += errorMessage.format(key, size)
     }
     if (errorList.nonEmpty)
       Left(errorList.toList)
@@ -24,7 +26,10 @@ package object model {
       Right(true)
   }
 
-  def combine(errors1: Either[List[String], Boolean], errors2: Either[List[String], Boolean]*): Either[List[String], Boolean] = {
+  def combine(
+    errors1: Either[List[String], Boolean],
+    errors2: Either[List[String], Boolean]*
+  ): Either[List[String], Boolean] = {
     val allErrors = errors1 :: List(errors2: _*)
     val errors = allErrors.collect {
       case Left(err) => err
