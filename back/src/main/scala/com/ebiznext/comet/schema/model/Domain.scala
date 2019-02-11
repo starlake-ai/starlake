@@ -18,14 +18,16 @@ import scala.collection.mutable
   * @param extensions : recognized filename extensions (json, csv, dsv, psv) are recognized by default
   * @param ack : Ack extension used for each file
   */
-case class Domain(name: String,
-                  directory: String,
-                  metadata: Option[Metadata] = None,
-                  schemas: List[Schema] = Nil,
-                  comment: Option[String] = None,
-                  extensions: Option[List[String]] = None,
-                  ack: Option[String] = None
-                 ) {
+case class Domain(
+  name: String,
+  directory: String,
+  metadata: Option[Metadata] = None,
+  schemas: List[Schema] = Nil,
+  comment: Option[String] = None,
+  extensions: Option[List[String]] = None,
+  ack: Option[String] = None
+) {
+
   /**
     * Get schema from filename
     * Schema are matched against filenames using filename patterns.
@@ -50,7 +52,6 @@ case class Domain(name: String,
     * @return the ack attribute or ".ack" by default
     */
   def getAck(): String = ack.map("." + _).getOrElse(".ack")
-
 
   /**
     * Is this Domain valid ? A domain is valid if :
@@ -77,7 +78,8 @@ case class Domain(name: String,
       }
     }
 
-    val duplicatesErrorMessage = "%s is defined %d times. A schema can only be defined once."
+    val duplicatesErrorMessage =
+      "%s is defined %d times. A schema can only be defined once."
     for (errors <- duplicates(schemas.map(_.name), duplicatesErrorMessage).left) {
       errorList ++= errors
     }

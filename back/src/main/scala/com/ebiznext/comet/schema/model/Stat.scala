@@ -17,12 +17,13 @@ sealed case class Stat(value: String) {
 }
 
 object Stat {
+
   def fromString(value: String): Stat = {
     value.toUpperCase() match {
-      case "DISCRETE" => Stat.DISCRETE
+      case "DISCRETE"   => Stat.DISCRETE
       case "CONTINUOUS" => Stat.CONTINUOUS
-      case "TEXT" => Stat.TEXT
-      case "NONE" => Stat.NONE
+      case "TEXT"       => Stat.TEXT
+      case "NONE"       => Stat.NONE
     }
   }
 
