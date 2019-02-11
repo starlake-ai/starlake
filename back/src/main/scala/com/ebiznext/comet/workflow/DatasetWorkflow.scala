@@ -1,7 +1,5 @@
 package com.ebiznext.comet.workflow
 
-import java.io.{PrintWriter, StringWriter}
-
 import better.files._
 import com.ebiznext.comet.config.{DatasetArea, Settings}
 import com.ebiznext.comet.job.{AutoJob, DsvIngestionJob, JsonIngestionJob, SimpleJsonIngestionJob}
@@ -13,7 +11,6 @@ import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
 
 import scala.util.{Failure, Success, Try}
-
 
 /**
   *The whole worklfow works as follow :
@@ -27,9 +24,11 @@ import scala.util.{Failure, Success, Try}
   * @param schemaHandler : Schema interface
   * @param launchHandler : Cron Manager interface
   */
-class DatasetWorkflow(storageHandler: StorageHandler,
-                      schemaHandler: SchemaHandler,
-                      launchHandler: LaunchHandler) extends StrictLogging {
+class DatasetWorkflow(
+  storageHandler: StorageHandler,
+  schemaHandler: SchemaHandler,
+  launchHandler: LaunchHandler
+) extends StrictLogging {
 
   /**
     * Load file from the landing area
@@ -52,7 +51,8 @@ class DatasetWorkflow(storageHandler: StorageHandler,
         val gz = File(prefixStr + ".gz")
         val tmpDir = File(prefixStr)
         val zip = File(prefixStr + ".zip")
-        val rawFormats = domain.getExtensions().map(ext => File(prefixStr + ext))
+        val rawFormats =
+          domain.getExtensions().map(ext => File(prefixStr + ext))
         val existRawFile = rawFormats.find(file => file.exists)
         logger.info(s"Found ack file $ackFile")
         ackFile.delete()
@@ -60,26 +60,22 @@ class DatasetWorkflow(storageHandler: StorageHandler,
           logger.info(s"Found compressed file $gz")
           gz.unGzipTo(tmpDir)
           gz.delete()
-        }
-        else if (tgz.exists) {
+        } else if (tgz.exists) {
           logger.info(s"Found compressed file $tgz")
           tgz.unGzipTo(tmpDir)
           tgz.delete()
-        }
-        else if (zip.exists) {
+        } else if (zip.exists) {
           logger.info(s"Found compressed file $zip")
           zip.unzipTo(tmpDir)
           zip.delete()
-        }
-        else if (existRawFile.isDefined) {
+        } else if (existRawFile.isDefined) {
           existRawFile.foreach { file =>
             logger.info(s"Found raw file $existRawFile")
             tmpDir.createDirectories()
             val tmpFile = File(tmpDir, file.name)
             file.moveTo(tmpFile)
           }
-        }
-        else {
+        } else {
           logger.error(s"No archive found for file ${ackFile.pathAsString}")
         }
         if (tmpDir.exists) {
@@ -120,14 +116,16 @@ class DatasetWorkflow(storageHandler: StorageHandler,
       val (resolved, unresolved) = pending(domain.name)
       unresolved.foreach {
         case (_, path) =>
-          val targetPath = new Path(DatasetArea.unresolved(domain.name), path.getName)
+          val targetPath =
+            new Path(DatasetArea.unresolved(domain.name), path.getName)
           logger.info(s"Unresolved file : ${path.getName}")
           storageHandler.move(path, targetPath)
       }
       resolved.foreach {
         case (Some(schema), pendingPath) =>
           logger.info(s"Ingest resolved file : ${pendingPath.getName} with schema ${schema.name}")
-          val ingestingPath: Path = new Path(DatasetArea.ingesting(domain.name), pendingPath.getName)
+          val ingestingPath: Path =
+            new Path(DatasetArea.ingesting(domain.name), pendingPath.getName)
           if (storageHandler.move(pendingPath, ingestingPath))
             launchHandler.ingest(domain, schema, ingestingPath)
         case (None, _) => throw new Exception("Should never happen")
@@ -135,15 +133,14 @@ class DatasetWorkflow(storageHandler: StorageHandler,
     }
   }
 
-
-
   /**
     *
     * @param domainName : Domaine name
     * @return resolved && unresolved schemas / path
     */
-  private def pending(domainName: String): (Iterable[(Option[Schema], Path)],
-    Iterable[(Option[Schema], Path)]) = {
+  private def pending(
+    domainName: String
+  ): (Iterable[(Option[Schema], Path)], Iterable[(Option[Schema], Path)]) = {
     val pendingArea = DatasetArea.pending(domainName)
     logger.info(s"List files in $pendingArea")
     val paths = storageHandler.list(pendingArea)
@@ -156,12 +153,13 @@ class DatasetWorkflow(storageHandler: StorageHandler,
           (domain.findSchema(path.getName), path) // getName without timestamp
         }
       } yield {
-        logger.info(s"Found Schema ${schema._1.map(_.name).getOrElse("None")} for file ${schema._2}")
+        logger.info(
+          s"Found Schema ${schema._1.map(_.name).getOrElse("None")} for file ${schema._2}"
+        )
         schema
       }
     schemas.partition(_._1.isDefined)
   }
-
 
   /**
     * Ingest the file (called by the cron manager at ingestion time for a specific dataset
@@ -175,32 +173,47 @@ class DatasetWorkflow(storageHandler: StorageHandler,
       domain <- domains.find(_.name == domainName)
       schema <- domain.schemas.find(_.name == schemaName)
     } yield ingesting(domain, schema, new Path(ingestingPath))
+    ()
   }
 
   private def ingesting(domain: Domain, schema: Schema, ingestingPath: Path): Unit = {
-    logger.info(s"Start Ingestion on domain: ${domain.name} with schema: ${schema.name} on file: $ingestingPath")
-    val metadata = domain.metadata.getOrElse(Metadata()).`import`(schema.metadata.getOrElse(Metadata()))
-    logger.info(s"Ingesting domain: ${domain.name} with schema: ${schema.name} on file: $ingestingPath with metadata $metadata")
+    logger.info(
+      s"Start Ingestion on domain: ${domain.name} with schema: ${schema.name} on file: $ingestingPath"
+    )
+    val metadata = domain.metadata
+      .getOrElse(Metadata())
+      .`import`(schema.metadata.getOrElse(Metadata()))
+    logger.info(
+      s"Ingesting domain: ${domain.name} with schema: ${schema.name} on file: $ingestingPath with metadata $metadata"
+    )
     val ingestionResult = Try(metadata.getFormat() match {
       case DSV =>
-        new DsvIngestionJob(domain, schema, schemaHandler.types, ingestingPath, storageHandler).run(null)
+        new DsvIngestionJob(domain, schema, schemaHandler.types, ingestingPath, storageHandler)
+          .run()
       case SIMPLE_JSON =>
-        new SimpleJsonIngestionJob(domain, schema, schemaHandler.types, ingestingPath, storageHandler).run(null)
+        new SimpleJsonIngestionJob(
+          domain,
+          schema,
+          schemaHandler.types,
+          ingestingPath,
+          storageHandler
+        ).run()
       case JSON =>
-        new JsonIngestionJob(domain, schema, schemaHandler.types, ingestingPath, storageHandler).run(null)
+        new JsonIngestionJob(domain, schema, schemaHandler.types, ingestingPath, storageHandler)
+          .run()
       case _ =>
         throw new Exception("Should never happen")
     })
     ingestionResult match {
       case Success(_) =>
         if (Settings.comet.archive) {
-          val archivePath = new Path(DatasetArea.archive(domain.name), ingestingPath.getName)
+          val archivePath =
+            new Path(DatasetArea.archive(domain.name), ingestingPath.getName)
           logger.info(s"Backing up file $ingestingPath to $archivePath")
-          storageHandler.move(ingestingPath, archivePath)
-        }
-        else {
+          val _ = storageHandler.move(ingestingPath, archivePath)
+        } else {
           logger.info(s"Deleting file $ingestingPath")
-          storageHandler.delete(ingestingPath)
+          val _ = storageHandler.delete(ingestingPath)
         }
       case Failure(exception) =>
         Utils.logException(logger, exception)

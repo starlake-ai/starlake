@@ -14,6 +14,7 @@ import scala.util.{Failure, Success, Try}
   * Interface required for any cron job launcher
   */
 trait LaunchHandler {
+
   /**
     * Submit to the cron manager a single file for ingestion
     *
@@ -22,7 +23,8 @@ trait LaunchHandler {
     * @param path   : absolute path where the source dataset  (JSON / CSV / ...) is located
     * @return success / failure
     */
-  def ingest(domain: Domain, schema: Schema, path: Path): Boolean = ingest(domain, schema, path :: Nil)
+  def ingest(domain: Domain, schema: Schema, path: Path): Boolean =
+    ingest(domain, schema, path :: Nil)
 
   /**
     * Submit to the cron manager multiple files for ingestion.
@@ -36,12 +38,12 @@ trait LaunchHandler {
   def ingest(domain: Domain, schema: Schema, paths: List[Path]): Boolean
 }
 
-
 /**
   * Simple Launcher will directly invoke the ingestion method wityhout using a cron manager.
   * This is userfull for testing purpose
   */
 class SimpleLauncher extends LaunchHandler with StrictLogging {
+
   /**
     * call directly the main assembly with the "ingest" parameter
     *
@@ -93,8 +95,9 @@ class AirflowLauncher extends LaunchHandler with StrictLogging {
   override def ingest(domain: Domain, schema: Schema, paths: List[Path]): Boolean = {
     val endpoint = Settings.comet.airflow.endpoint
     val url = s"$endpoint/dags/comet_ingest/dag_runs"
-    val command = s"""ingest ${domain.name} ${schema.name} ${paths.mkString(",")}"""
-    val json =s"""{"conf":"{\\"command\\":\\"$command\\"}"}"""
+    val command =
+      s"""ingest ${domain.name} ${schema.name} ${paths.mkString(",")}"""
+    val json = s"""{"conf":"{\\"command\\":\\"$command\\"}"}"""
     logger.info(s"Post to Airflow: $json")
     post(url, json) match {
       case Success(_) =>
@@ -105,7 +108,3 @@ class AirflowLauncher extends LaunchHandler with StrictLogging {
     }
   }
 }
-
-
-
-
