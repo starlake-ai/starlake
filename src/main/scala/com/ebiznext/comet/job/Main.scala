@@ -7,10 +7,6 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.typesafe.scalalogging.StrictLogging
-import org.apache.spark.sql.SparkSession
-
-import scala.util.Try
-
 
 /**
   * The root of all things.
@@ -34,8 +30,7 @@ object Main extends StrictLogging {
   """
 
   private def printUsage() = {
-    println(
-      """
+    println("""
         |Usage :
         |comet job jobname
         |comet watch [+/-DOMAIN1,DOMAIN2,...]
@@ -74,7 +69,7 @@ object Main extends StrictLogging {
     logger.info(s"Running Comet $arglist")
     arglist.head match {
       case "job" if arglist.length == 2 => workflow.autoJob(arglist(1))
-      case "import" => workflow.loadLanding()
+      case "import"                     => workflow.loadLanding()
       case "watch" =>
         if (arglist.length == 2) {
           val param = arglist(1)
@@ -84,8 +79,7 @@ object Main extends StrictLogging {
             workflow.loadPending(param.substring(1).split(',').toList, Nil)
           else
             workflow.loadPending(param.split(',').toList, Nil)
-        }
-        else
+        } else
           workflow.loadPending()
       case "ingest" if arglist.length == 4 =>
         workflow.ingest(arglist(1), arglist(2), arglist(3))

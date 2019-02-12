@@ -8,10 +8,13 @@ import org.scalatest.{FlatSpec, Matchers}
 class SchemaSpec extends FlatSpec with Matchers with TestHelper {
 
   "Attribute type" should "be valid" in {
-    val stream: InputStream = getClass.getResourceAsStream("/quickstart/metadata/types/default.yml")
-    val lines = scala.io.Source.fromInputStream(stream).getLines().mkString("\n")
+    val stream: InputStream =
+      getClass.getResourceAsStream("/quickstart/metadata/types/default.yml")
+    val lines =
+      scala.io.Source.fromInputStream(stream).getLines().mkString("\n")
     val types = mapper.readValue(lines, classOf[Types])
-    val attr = Attribute("attr",
+    val attr = Attribute(
+      "attr",
       "invalid-type", // should raise error non existent type
       Some(true),
       true,
@@ -22,26 +25,34 @@ class SchemaSpec extends FlatSpec with Matchers with TestHelper {
   }
 
   "Attribute privacy" should "be applied on string type only" in {
-    val stream: InputStream = getClass.getResourceAsStream("/quickstart/metadata/types/default.yml")
-    val lines = scala.io.Source.fromInputStream(stream).getLines().mkString("\n")
+    val stream: InputStream =
+      getClass.getResourceAsStream("/quickstart/metadata/types/default.yml")
+    val lines =
+      scala.io.Source.fromInputStream(stream).getLines().mkString("\n")
     val types = mapper.readValue(lines, classOf[Types])
-    val attr = Attribute("attr",
+    val attr = Attribute(
+      "attr",
       "long",
       Some(true),
       true,
       Some(PrivacyLevel.MD5) // Should raise an error. Privacy cannot be applied on types other than string
     )
     attr.checkValidity(types.types) shouldBe
-      Left(
-        List("Attribute Attribute(attr,long,Some(true),true,Some(MD5),None,None,None,None) : string is the only supported primitive type for an attribute when privacy is requested")
+    Left(
+      List(
+        "Attribute Attribute(attr,long,Some(true),true,Some(MD5),None,None,None,None) : string is the only supported primitive type for an attribute when privacy is requested"
       )
+    )
   }
 
   "Sub Attribute" should "be present for struct types only" in {
-    val stream: InputStream = getClass.getResourceAsStream("/quickstart/metadata/types/default.yml")
-    val lines = scala.io.Source.fromInputStream(stream).getLines().mkString("\n")
+    val stream: InputStream =
+      getClass.getResourceAsStream("/quickstart/metadata/types/default.yml")
+    val lines =
+      scala.io.Source.fromInputStream(stream).getLines().mkString("\n")
     val types = mapper.readValue(lines, classOf[Types])
-    val attr = Attribute("attr",
+    val attr = Attribute(
+      "attr",
       "long",
       Some(true),
       true,
