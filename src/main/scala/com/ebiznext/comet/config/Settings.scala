@@ -11,7 +11,7 @@ object Settings extends StrictLogging {
     *
     * @param endpoint : Airflow REST API endpoint, aka. http://127.0.0.1:8080/api/experimental
     */
-  case class Airflow(endpoint: String)
+  final case class Airflow(endpoint: String)
 
   /**
     * datasets in the data pipeline go through several stages and
@@ -26,21 +26,22 @@ object Settings extends StrictLogging {
     * @param rejected   : Name of the rejected area
     * @param business   : Name of the business area
     */
-  case class Area(pending: String,
-                  unresolved: String,
-                  archive: String,
-                  ingesting: String,
-                  accepted: String,
-                  rejected: String,
-                  business: String
-                 )
+  final case class Area(
+    pending: String,
+    unresolved: String,
+    archive: String,
+    ingesting: String,
+    accepted: String,
+    rejected: String,
+    business: String
+  )
 
   /**
     *
     * @param discreteMaxCardinality : Max number of unique values allowed in cardinality compute
     *
     */
-  case class Stat(discreteMaxCardinality: Int)
+  final case class Stat(discreteMaxCardinality: Int)
 
   /**
     *
@@ -54,25 +55,30 @@ object Settings extends StrictLogging {
     * @param area        : see Area above
     * @param airflow     : Airflow end point. Should be defined even if simple launccher is used instead of airflow.
     */
-  case class Comet(datasets: String, metadata: String, archive: Boolean,
-                   writeFormat: String,
-                   launcher: String,
-                   analyze: Boolean, hive: Boolean,
-                   area: Area,
-                   airflow: Airflow) {
+  final case class Comet(
+    datasets: String,
+    metadata: String,
+    archive: Boolean,
+    writeFormat: String,
+    launcher: String,
+    analyze: Boolean,
+    hive: Boolean,
+    area: Area,
+    airflow: Airflow
+  ) {
+
     def getLauncher(): LaunchHandler = launcher match {
-      case "simple" => new SimpleLauncher
+      case "simple"  => new SimpleLauncher
       case "airflow" => new AirflowLauncher
     }
   }
 
-
   val config: Config = ConfigFactory.load()
+
   val comet: Comet = config.extract[Comet].valueOrThrow { error =>
     error.messages.foreach(err => logger.error(err))
     throw new Exception("Failed to load config")
   }
   logger.info(s"Using Config $comet")
-
 
 }
