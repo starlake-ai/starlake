@@ -16,15 +16,16 @@ sealed case class PrivacyLevel(value: String) {
 }
 
 object PrivacyLevel {
+
   def fromString(value: String): PrivacyLevel = {
     value.toUpperCase() match {
-      case "NONE" => PrivacyLevel.NONE
-      case "HIDE" => PrivacyLevel.HIDE
-      case "MD5" => PrivacyLevel.MD5
-      case "SHA1" => PrivacyLevel.SHA1
+      case "NONE"   => PrivacyLevel.NONE
+      case "HIDE"   => PrivacyLevel.HIDE
+      case "MD5"    => PrivacyLevel.MD5
+      case "SHA1"   => PrivacyLevel.SHA1
       case "SHA256" => PrivacyLevel.SHA256
       case "SHA512" => PrivacyLevel.SHA512
-      case "AES" => PrivacyLevel.AES
+      case "AES"    => PrivacyLevel.AES
     }
   }
 
@@ -42,7 +43,8 @@ object PrivacyLevel {
 
   object AES extends PrivacyLevel("AES")
 
-  val privacyLevels: Set[PrivacyLevel] = Set(NONE, HIDE, MD5, SHA1, SHA256, SHA512, AES)
+  val privacyLevels: Set[PrivacyLevel] =
+    Set(NONE, HIDE, MD5, SHA1, SHA256, SHA512, AES)
 }
 
 class PrivacyLevelDeserializer extends JsonDeserializer[PrivacyLevel] {
@@ -51,4 +53,3 @@ class PrivacyLevelDeserializer extends JsonDeserializer[PrivacyLevel] {
     PrivacyLevel.fromString(value)
   }
 }
-

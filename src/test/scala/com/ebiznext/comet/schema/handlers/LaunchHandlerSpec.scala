@@ -5,6 +5,6 @@ import org.scalatest.{FlatSpec, Matchers}
 
 class LaunchHandlerSpec extends TestHelper {
   "Launch" should "Airflow task" in {
-    val launch = new AirflowLauncher
+    val _ = new AirflowLauncher
   }
 }

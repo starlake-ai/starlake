@@ -57,7 +57,6 @@ object JsonIngestionUtil {
     }
   }
 
-
   def compareTypes(schemaType: DataType, datasetType: DataType): List[String] = {
     compareTypes(Nil, ("root", schemaType, true), ("root", datasetType, true))
   }
@@ -69,15 +68,20 @@ object JsonIngestionUtil {
     * @param datasetType
     * @return List of errors, Nil when datasetType is compatible with schemaType
     */
-  def compareTypes(context: List[String], schemaType: (String, DataType, Boolean), datasetType: (String, DataType, Boolean)): List[String] = {
+  def compareTypes(
+    context: List[String],
+    schemaType: (String, DataType, Boolean),
+    datasetType: (String, DataType, Boolean)
+  ): List[String] = {
     val schemaTypeNullable: Boolean = schemaType._3
     (schemaType._2, datasetType._2) match {
-      case (t1, t2) if t1 == t2 => Nil
-      case (_, NullType) if schemaTypeNullable => Nil
-      case (_: IntegralType, _: IntegralType) => Nil
-      case (_: FractionalType, _: IntegralType) => Nil
+      case (t1, t2) if t1 == t2                   => Nil
+      case (_, NullType) if schemaTypeNullable    => Nil
+      case (_: IntegralType, _: IntegralType)     => Nil
+      case (_: FractionalType, _: IntegralType)   => Nil
       case (_: FractionalType, _: FractionalType) => Nil
-      case (_: TimestampType, _: DateType) | (_: DateType, _: TimestampType) => Nil
+      case (_: TimestampType, _: DateType) | (_: DateType, _: TimestampType) =>
+        Nil
       case (_: StringType, _: StringType) => Nil
       case (StructType(unsortedFields1), StructType(unsortedFields2)) =>
         val fields1 = unsortedFields1.sortBy(_.name)
@@ -94,17 +98,19 @@ object JsonIngestionUtil {
             // Field exists in schema is name and is not present in the message
             // go get the next field in the schema
             f1Idx += 1
-          }
-          else if (nameComp == 0) {
+          } else if (nameComp == 0) {
             // field is present in the schema and the dataset : check that types are equal
             val f1Type = f1.dataType
             val f2Type = f2.dataType
-            errorList ++= compareTypes(context :+ schemaType._1, (f1.name, f1Type, f1.nullable), (f2.name, f2Type, f2.nullable))
+            errorList ++= compareTypes(
+              context :+ schemaType._1,
+              (f1.name, f1Type, f1.nullable),
+              (f2.name, f2Type, f2.nullable)
+            )
             f1Idx += 1
             f2Idx += 1
             typeComp = typeComp && errorList.isEmpty
-          }
-          else {
+          } else {
             // Field is present in the message but not in the schema.
             errorList += s"unkonwn field ${f2.name} : ${f2.dataType.typeName} in context ${context.mkString(".")}"
             typeComp = false
@@ -118,13 +124,19 @@ object JsonIngestionUtil {
 
         errorList.toList
       case (ArrayType(elementType1, containsNull1), ArrayType(elementType2, _)) =>
-        compareTypes(context :+ schemaType._1, (schemaType._1, elementType1, containsNull1), (schemaType._1, elementType2, containsNull1))
+        compareTypes(
+          context :+ schemaType._1,
+          (schemaType._1, elementType1, containsNull1),
+          (schemaType._1, elementType2, containsNull1)
+        )
       case (_, _) =>
-        List(s"Validation error in context: ${context.mkString(".")}, ${datasetType._1}:${datasetType._2} isnullable:${datasetType._3} against " +
-          s"schema ${schemaType._1}:${schemaType._2} isnullable:${schemaType._3}")
+        List(
+          s"Validation error in context: ${context
+            .mkString(".")}, ${datasetType._1}:${datasetType._2} isnullable:${datasetType._3} against " +
+          s"schema ${schemaType._1}:${schemaType._2} isnullable:${schemaType._3}"
+        )
     }
   }
-
 
   def compatibleType(t1: DataType, t2: DataType): DataType = {
     TypeCoercion.findTightestCommonTypeOfTwo(t1, t2).getOrElse {
@@ -152,7 +164,8 @@ object JsonIngestionUtil {
             val f2Name = fields2(f2Idx).name
             val comp = f1Name.compareTo(f2Name)
             if (comp == 0) {
-              val dataType = compatibleType(fields1(f1Idx).dataType, fields2(f2Idx).dataType)
+              val dataType =
+                compatibleType(fields1(f1Idx).dataType, fields2(f2Idx).dataType)
               newFields.add(StructField(f1Name, dataType, nullable = true))
               f1Idx += 1
               f2Idx += 1
@@ -195,7 +208,7 @@ object JsonIngestionUtil {
     * Convert NullType to StringType and remove StructTypes with no fields
     */
   private def canonicalizeType(tpe: DataType): Option[DataType] = tpe match {
-    case at@ArrayType(elementType, _) =>
+    case at @ ArrayType(elementType, _) =>
       for {
         canonicalType <- canonicalizeType(elementType)
       } yield {
@@ -219,12 +232,13 @@ object JsonIngestionUtil {
       }
 
     case NullType => Some(StringType)
-    case other => Some(other)
+    case other    => Some(other)
   }
 
   private def withCorruptField(
-                                struct: StructType,
-                                columnNameOfCorruptRecords: String): StructType = {
+    struct: StructType,
+    columnNameOfCorruptRecords: String
+  ): StructType = {
     if (!struct.fieldNames.contains(columnNameOfCorruptRecords)) {
       // If this given struct does not have a column used for corrupt records,
       // add this field.
@@ -243,8 +257,9 @@ object JsonIngestionUtil {
     * Remove top-level ArrayType wrappers and merge the remaining schemas
     */
   private def compatibleRootType(
-                                  columnNameOfCorruptRecords: String,
-                                  shouldHandleCorruptRecord: Boolean): (DataType, DataType) => DataType = {
+    columnNameOfCorruptRecords: String,
+    shouldHandleCorruptRecord: Boolean
+  ): (DataType, DataType) => DataType = {
     // Since we support array of json objects at the top level,
     // we need to check the element type and find the root level data type.
     case (ArrayType(ty1, _), ty2) =>
@@ -263,8 +278,6 @@ object JsonIngestionUtil {
     // Usually, when we reach here, ty1 and ty2 are two StructTypes.
     case (ty1, ty2) => compatibleType(ty1, ty2)
   }
-
-  private[this] val emptyStructFieldArray = Array.empty[StructField]
 
   def inferSchema(parser: JsonParser): DataType = {
     parser.getCurrentToken match {

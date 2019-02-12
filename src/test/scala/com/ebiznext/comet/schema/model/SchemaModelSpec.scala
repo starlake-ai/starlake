@@ -5,7 +5,7 @@ import org.scalatest._
 
 case class XMode(mode: Mode)
 
-class SchemaModelSpec extends  TestHelper {
+class SchemaModelSpec extends TestHelper {
 
   // TODO what we want to do exactly ?
   "Case Object" should "serialize as a simple string" in {

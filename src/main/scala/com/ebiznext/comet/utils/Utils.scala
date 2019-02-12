@@ -7,6 +7,7 @@ import com.typesafe.scalalogging.Logger
 import scala.util.control.NonFatal
 
 object Utils {
+
   /**
     * Handle tansparently autocloseable resources and correctly chain exceptions
     *
@@ -31,8 +32,7 @@ object Utils {
     }
   }
 
-  private def closeAndAddSuppressed(e: Throwable,
-                                    resource: AutoCloseable): Unit = {
+  private def closeAndAddSuppressed(e: Throwable, resource: AutoCloseable): Unit = {
     if (e != null) {
       try {
         resource.close()
@@ -45,8 +45,7 @@ object Utils {
     }
   }
 
-
-  def logException(logger:Logger, exception : Throwable) = {
+  def logException(logger: Logger, exception: Throwable) = {
     val sw = new StringWriter
     exception.printStackTrace(new PrintWriter(sw))
     logger.error(sw.toString)
