@@ -1,7 +1,11 @@
 import sbt.{Def, _}
 import sbt.Keys._
 import com.typesafe.sbt.GitPlugin.autoImport._
+import com.typesafe.sbt.site.SiteScaladocPlugin
+import com.typesafe.sbt.site.sphinx.SphinxPlugin
 import sbtassembly.AssemblyKeys._
+import com.typesafe.sbt.site.sphinx.SphinxPlugin.autoImport.Sphinx
+import org.scalafmt.sbt.ScalafmtPlugin.autoImport.scalafmtOnCompile
 
 object Common {
 
@@ -15,7 +19,9 @@ object Common {
     ).flatten
 
   def cometPlugins: Seq[AutoPlugin] = Seq(
-    com.typesafe.sbt.GitVersioning
+    com.typesafe.sbt.GitVersioning,
+    SphinxPlugin,
+    SiteScaladocPlugin
   )
 
   def gitSettings = Seq(
@@ -29,6 +35,9 @@ object Common {
   def assemlySettings = Seq(
     test in assembly := {},
     mainClass in Compile := Some("com.ebiznext.comet.job.Main")
+  )
+  def docsSettings = Seq(
+    sourceDirectory in Sphinx := baseDirectory.value / "docs"
   )
 
   def customSettings: Seq[Def.Setting[_]] =
@@ -44,8 +53,9 @@ object Common {
         Tests.Argument(TestFrameworks.JUnit, "-v", "-a")
       ),
       version := "0.1",
-      parallelExecution in Test := false
-    ) ++ gitSettings ++ assemlySettings
+      parallelExecution in Test := false,
+      scalafmtOnCompile  := true
+    ) ++ gitSettings ++ assemlySettings ++ docsSettings
 
 }
 
