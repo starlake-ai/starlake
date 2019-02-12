@@ -7,7 +7,6 @@ import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import org.apache.hadoop.fs.Path
 
-
 /**
   * Handles access to datasets metadata,  eq. domains / types / schemas.
   *
@@ -36,7 +35,8 @@ class SchemaHandler(storage: StorageHandler) {
     val defaultTypes = loadTypes("default.yml")
     val types = loadTypes("types.yml")
 
-    val redefinedTypeNames = defaultTypes.map(_.name).intersect(types.map(_.name))
+    val redefinedTypeNames =
+      defaultTypes.map(_.name).intersect(types.map(_.name))
 
     defaultTypes.filter(defaultType => !redefinedTypeNames.contains(defaultType.name)) ++ types
   }
@@ -70,7 +70,8 @@ class SchemaHandler(storage: StorageHandler) {
     storage
       .list(DatasetArea.jobs, ".yml")
       .map(path => mapper.readValue(storage.read(path), classOf[AutoJobDesc]))
-      .map(job => job.name -> job).toMap
+      .map(job => job.name -> job)
+      .toMap
 
   }
 

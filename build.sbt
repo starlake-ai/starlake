@@ -19,3 +19,5 @@ Common.enableCometAliases
 enablePlugins(Common.cometPlugins :_ *)
 
 Common.customSettings
+
+publishSite

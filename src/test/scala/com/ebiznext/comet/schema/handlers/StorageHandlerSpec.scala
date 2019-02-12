@@ -19,7 +19,7 @@ class StorageHandlerSpec extends TestHelper {
     val path = new Path("/tmp/domain.yml")
     val sh = new HdfsStorageHandler
 
-    val ldomain = mapper.readValue(sh.read(path), classOf[Domain])
+    val _ = mapper.readValue(sh.read(path), classOf[Domain])
   }
 
   //TODO shouldn't we test sth ?
@@ -39,7 +39,15 @@ class StorageHandlerSpec extends TestHelper {
 
   //TODO shouldn't we test sth ?
   "Business Job Definition" should "be valid json" in {
-    val businessTask1 = AutoTask("select * from domain", "DOMAIN", "ANALYSE", WriteMode.OVERWRITE, Some(List("comet_year", "comet_month")), None, None)
+    val businessTask1 = AutoTask(
+      "select * from domain",
+      "DOMAIN",
+      "ANALYSE",
+      WriteMode.OVERWRITE,
+      Some(List("comet_year", "comet_month")),
+      None,
+      None
+    )
     val businessJob = AutoJobDesc("business1", List(businessTask1))
     val sh = new HdfsStorageHandler
     val path = new Path("/tmp/business.yml")
