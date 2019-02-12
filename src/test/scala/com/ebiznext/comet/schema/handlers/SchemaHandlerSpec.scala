@@ -10,7 +10,7 @@ import org.scalatest.{FlatSpec, Matchers}
 
 class SchemaHandlerSpec extends TestHelper {
 
-  //TODO shouldn't we test sth ?
+  //TODO shouldn't we test sth ? Check parquet in Working
   "Ingest CSV" should "produce file in accepted" in {
     val sh = new HdfsStorageHandler
     val domainsPath = new Path(DatasetArea.domains, "DOMAIN.yml")
@@ -29,6 +29,7 @@ class SchemaHandlerSpec extends TestHelper {
     val validator =
       new DatasetWorkflow(storageHandler, schemaHandler, new SimpleLauncher)
     validator.loadPending()
+
   }
   //TODO shouldn't we test sth ?
   "Ingest Dream Contact CSV" should "produce file in accepted" in {

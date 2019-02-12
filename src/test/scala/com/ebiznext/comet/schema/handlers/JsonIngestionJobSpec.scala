@@ -7,12 +7,11 @@ import com.ebiznext.comet.workflow.DatasetWorkflow
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.execution.datasources.json.JsonIngestionUtil
 import org.apache.spark.sql.types._
-
 import scala.util.Success
 
 class JsonIngestionJobSpec extends TestHelper {
-  // TODO Change naming
-  "Parse exact same json" should "succeed" in {
+
+  "Parse valid json" should "succeed" in {
     val json =
       """
         |{
@@ -101,9 +100,7 @@ class JsonIngestionJobSpec extends TestHelper {
         )
       )
     )
-  }
-  // TODO Change naming
-  "Parse compatible json" should "succeed" in {
+
     val json1 =
       """
         |{
@@ -137,55 +134,22 @@ class JsonIngestionJobSpec extends TestHelper {
         )
       )
     )
+
   }
-  // TODO Change naming
-  "Parse compatible json" should "fail" in {
+
+  "Parse invalid json" should "fail" in {
     val json1 =
       """
         |{
         |   "complexArray": [ {"a": "Hello"}, {"a": "Hello"} ],
-        |	  "GlossSeeAlso": ["GML", "XML"],
+        |	  "GlossSeeAlso": ["GML", "XML"]
         |   "myArray":[1, 2]
         |}
       """.stripMargin
 
-    val json2 =
-      """
-        |{
-        |  "abc": { "x":"y" },
-        |	 "GlossSeeAlso": ["GML", null],
-        |  "myArray":[1, 2.2],
-        |  "unknown":null
-        |}
-      """.stripMargin
-
-    JsonIngestionUtil.parseString(json1) shouldBe Success(
-      StructType(
-        Seq(
-          StructField(
-            "complexArray",
-            ArrayType(StructType(Seq(StructField("a", StringType, true))), true),
-            true
-          ),
-          StructField("GlossSeeAlso", ArrayType(StringType, true), true),
-          StructField("myArray", ArrayType(LongType, true), true)
-        )
-      )
-    )
-
-    JsonIngestionUtil.parseString(json2) shouldBe Success(
-      StructType(
-        Seq(
-          StructField("abc", StructType(Seq(StructField("x", StringType, true))), true),
-          StructField("GlossSeeAlso", ArrayType(StringType, true), true),
-          StructField("myArray", ArrayType(DoubleType, true), true),
-          StructField("unknown", NullType, true)
-        )
-      )
-    )
+    JsonIngestionUtil.parseString(json1).isSuccess shouldBe false
 
   }
-
   // TODO Fix warning :) And should we test sth ?
   "Ingest Complex JSON" should "produce file in accepted" in {
     val sh = new HdfsStorageHandler
