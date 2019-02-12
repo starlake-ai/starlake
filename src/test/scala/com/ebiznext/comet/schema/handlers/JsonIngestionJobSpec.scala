@@ -40,63 +40,67 @@ class JsonIngestionJobSpec extends TestHelper {
         |}
       """.stripMargin
 
-      JsonIngestionUtil.parseString(json) shouldBe Success(
-        StructType(
-          Seq(
-            StructField(
-              "glossary",
-              StructType(
-                Seq(
-                  StructField("title", StringType, true),
-                  StructField(
-                    "GlossDiv",
-                    StructType(
-                      Seq(
-                        StructField("title", StringType, true),
-                        StructField(
-                          "GlossList",
-                          StructType(
-                            Seq(
-                              StructField(
-                                "GlossEntry",
-                                StructType(
-                                  Seq(
-                                    StructField("ID", StringType, true),
-                                    StructField("SortAs", StringType, true),
-                                    StructField("GlossTerm", StringType, true),
-                                    StructField("Acronym", StringType, true),
-                                    StructField("Abbrev", StringType, true),
-                                    StructField(
-                                      "GlossDef",
-                                      StructType(
-                                        Seq(
-                                          StructField("para", StringType, true),
-                                          StructField("GlossSeeAlso", ArrayType(StringType, true), true),
-                                          StructField("IntArray", ArrayType(LongType, true), true)
-                                        )
-                                      ),
-                                      true
+    JsonIngestionUtil.parseString(json) shouldBe Success(
+      StructType(
+        Seq(
+          StructField(
+            "glossary",
+            StructType(
+              Seq(
+                StructField("title", StringType, true),
+                StructField(
+                  "GlossDiv",
+                  StructType(
+                    Seq(
+                      StructField("title", StringType, true),
+                      StructField(
+                        "GlossList",
+                        StructType(
+                          Seq(
+                            StructField(
+                              "GlossEntry",
+                              StructType(
+                                Seq(
+                                  StructField("ID", StringType, true),
+                                  StructField("SortAs", StringType, true),
+                                  StructField("GlossTerm", StringType, true),
+                                  StructField("Acronym", StringType, true),
+                                  StructField("Abbrev", StringType, true),
+                                  StructField(
+                                    "GlossDef",
+                                    StructType(
+                                      Seq(
+                                        StructField("para", StringType, true),
+                                        StructField(
+                                          "GlossSeeAlso",
+                                          ArrayType(StringType, true),
+                                          true
+                                        ),
+                                        StructField("IntArray", ArrayType(LongType, true), true)
+                                      )
                                     ),
-                                    StructField("GlossSee", StringType, true)
-                                  )
-                                ),
-                                true
-                              )
+                                    true
+                                  ),
+                                  StructField("GlossSee", StringType, true)
+                                )
+                              ),
+                              true
                             )
-                          ),
-                          true
-                        )
+                          )
+                        ),
+                        true
                       )
-                    ),
-                    true
-                  )
+                    )
+                  ),
+                  true
                 )
-              ),
-              true
-            )
+              )
+            ),
+            true
           )
         )
       )
+    )
   }
   // TODO Change naming
   "Parse compatible json" should "succeed" in {
@@ -117,13 +121,13 @@ class JsonIngestionJobSpec extends TestHelper {
       """.stripMargin
 
     JsonIngestionUtil.parseString(json1) shouldBe Success(
-          StructType(
-            Seq(
-              StructField("GlossSeeAlso", ArrayType(StringType, true), true),
-              StructField("IntArray", ArrayType(DoubleType, true), true)
-            )
-          )
+      StructType(
+        Seq(
+          StructField("GlossSeeAlso", ArrayType(StringType, true), true),
+          StructField("IntArray", ArrayType(DoubleType, true), true)
         )
+      )
+    )
 
     JsonIngestionUtil.parseString(json2) shouldBe Success(
       StructType(
@@ -158,7 +162,11 @@ class JsonIngestionJobSpec extends TestHelper {
     JsonIngestionUtil.parseString(json1) shouldBe Success(
       StructType(
         Seq(
-          StructField("complexArray", ArrayType(StructType(Seq(StructField("a", StringType, true))), true), true),
+          StructField(
+            "complexArray",
+            ArrayType(StructType(Seq(StructField("a", StringType, true))), true),
+            true
+          ),
           StructField("GlossSeeAlso", ArrayType(StringType, true), true),
           StructField("myArray", ArrayType(LongType, true), true)
         )
@@ -187,11 +195,15 @@ class JsonIngestionJobSpec extends TestHelper {
     sh.write(loadFile("/sample/json/types.yml"), typesPath)
     DatasetArea.initDomains(storageHandler, schemaHandler.domains.map(_.name))
 
-    val stream: InputStream = getClass.getResourceAsStream("/sample/json/complex.json")
-    val lines = scala.io.Source.fromInputStream(stream).getLines().mkString("\n")
-    val targetPath = DatasetArea.path(DatasetArea.pending("json"), "complex.json")
+    val stream: InputStream =
+      getClass.getResourceAsStream("/sample/json/complex.json")
+    val lines =
+      scala.io.Source.fromInputStream(stream).getLines().mkString("\n")
+    val targetPath =
+      DatasetArea.path(DatasetArea.pending("json"), "complex.json")
     storageHandler.write(lines, targetPath)
-    val validator = new DatasetWorkflow(storageHandler, schemaHandler, new SimpleLauncher)
+    val validator =
+      new DatasetWorkflow(storageHandler, schemaHandler, new SimpleLauncher)
     validator.loadPending()
     //TODO Complete test
   }
