@@ -36,6 +36,7 @@ object Common {
     test in assembly := {},
     mainClass in Compile := Some("com.ebiznext.comet.job.Main")
   )
+
   def docsSettings = Seq(
     sourceDirectory in Sphinx := baseDirectory.value / "docs"
   )
@@ -54,7 +55,7 @@ object Common {
       ),
       version := "0.1",
       parallelExecution in Test := false,
-      scalafmtOnCompile  := true
+      scalafmtOnCompile := true
     ) ++ gitSettings ++ assemlySettings ++ docsSettings
 
 }
@@ -62,7 +63,7 @@ object Common {
 object Versions {
   val sparkAvro = "4.0.0"
   val hadoop = "2.7.3"
-  val spark = "2.1.0"
+  val spark = "2.1.3"
   //val spark = "2.3.2"
   //  val spark = "2.4.0"
   val curator = "2.6.0"

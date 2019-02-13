@@ -55,7 +55,7 @@ class SchemaHandler(storage: StorageHandler) {
     * All defined domains
     * Domains are defined under the "domains" folder in the metadata folder
     */
-  lazy val domains: List[Domain] = {
+  def domains: List[Domain] = {
     storage
       .list(DatasetArea.domains, ".yml")
       .map(path => mapper.readValue(storage.read(path), classOf[Domain]))

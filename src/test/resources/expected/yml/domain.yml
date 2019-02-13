@@ -1,0 +1,73 @@
+---
+name: "DOMAIN"
+directory: "/tmp/incoming/DOMAIN"
+metadata:
+  mode: "FILE"
+  format: "DSV"
+  multiline: false
+  array: false
+  withHeader: false
+  separator: ";"
+  quote: "\""
+  escape: "\\"
+  write: "APPEND"
+  partition: []
+  ingestMode: "FILE"
+  writeMode: "APPEND"
+schemas:
+- name: "User"
+  pattern: "SCHEMA-.*.dsv"
+  attributes:
+  - name: "firstname"
+    type: "string"
+    array: false
+    required: false
+    privacy: "NONE"
+    comment: null
+    rename: null
+    stat: "NONE"
+    attributes: null
+  - name: "lastname"
+    type: "string"
+    array: false
+    required: false
+    privacy: "SHA1"
+    comment: null
+    rename: null
+    stat: "NONE"
+    attributes: null
+  - name: "age"
+    type: "age"
+    array: false
+    required: false
+    privacy: "HIDE"
+    comment: null
+    rename: null
+    stat: "NONE"
+    attributes: null
+  metadata:
+    mode: null
+    format: "DSV"
+    multiline: false
+    array: false
+    withHeader: true
+    separator: ";"
+    quote: "\""
+    escape: "\\"
+    write: null
+    partition: []
+    ingestMode: "FILE"
+    writeMode: "APPEND"
+  merge: null
+  comment: "Schema Comment"
+  presql:
+  - "SQL1"
+  - "SQL2"
+  postsql: null
+comment: "Domain Comment"
+extensions:
+- ".json"
+- ".csv"
+- ".dsv"
+- ".psv"
+ack: ".ack"
