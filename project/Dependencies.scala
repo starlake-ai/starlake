@@ -7,16 +7,16 @@ object Dependencies {
     ExclusionRule(organization = "org.codehaus.jackson")
   )
 
-  val scalaTest = Seq("org.scalatest" %% "scalatest" % Versions.scalatest % "test")
+  val scalaTest = Seq(
+    "org.scalatest" %% "scalatest" % Versions.scalatest,
+    "org.scalatest" %% "scalatest" % Versions.scalatest % "test"
+  )
 
   val betterfiles = Seq("com.github.pathikrit" %% "better-files" % Versions.betterFiles)
-
-
 
   val logging = Seq(
     "com.typesafe.scala-logging" %% "scala-logging" % Versions.scalaLogging
   )
-
 
   val typedConfigs = Seq("com.github.kxbmap" %% "configs" % Versions.configs)
 
@@ -28,7 +28,6 @@ object Dependencies {
     "com.fasterxml.jackson.core" % "jackson-databind" % Versions.jackson,
     "com.fasterxml.jackson.dataformat" % "jackson-dataformat-yaml" % Versions.jackson
   )
-
 
   val spark = Seq(
     "org.apache.spark" %% "spark-core" % Versions.spark % "provided",

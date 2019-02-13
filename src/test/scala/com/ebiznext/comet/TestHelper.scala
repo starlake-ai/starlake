@@ -1,6 +1,9 @@
 package com.ebiznext.comet
 
-import java.io.InputStream
+import java.io.{File, InputStream}
+import java.nio.file.Files
+import java.time.LocalDate
+import java.util.Calendar
 import java.util.regex.Pattern
 
 import com.ebiznext.comet.config.DatasetArea
@@ -9,7 +12,15 @@ import com.ebiznext.comet.schema.model._
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
+import com.fasterxml.jackson.module.scala.experimental.ScalaObjectMapper
+import org.apache.hadoop.fs.Path
+import org.apache.spark.SparkContext
+import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
+import org.apache.spark.sql.functions._
+import org.apache.spark.sql.types.StructType
+
+import scala.io.Source
 
 trait TestHelper extends FlatSpec with Matchers with BeforeAndAfterAll {
 
@@ -47,6 +58,32 @@ trait TestHelper extends FlatSpec with Matchers with BeforeAndAfterAll {
     val stream: InputStream = getClass.getResourceAsStream(filename)
     scala.io.Source.fromInputStream(stream).getLines().mkString("\n")
   }
+
+  def readFileContent(path: String): String =
+    Source.fromFile(path).getLines.mkString("\n")
+
+  def readFileContent(path: Path): String = readFileContent(path.toUri.getPath)
+
+  def getResPath(path: String): String = getClass.getResource(path).toURI.getPath
+
+  def prepareDateColumns(df: DataFrame): DataFrame = {
+
+    df.withColumn("comet_date", current_date())
+      .withColumn("year", year(col("comet_date")))
+      .withColumn("month", month(col("comet_date")))
+      .withColumn("day", dayofmonth(col("comet_date")))
+      .drop("comet_date")
+  }
+
+  def prepareSchema(schema: StructType): StructType =
+    StructType(schema.fields.filterNot(f => List("year", "month", "day").contains(f.name)))
+
+  def getTodayPartitionPath: String = {
+    val now = LocalDate.now
+    s"year=${now.getYear}/month=${now.getMonthValue}/day=${now.getDayOfMonth}"
+  }
+
+  def cleanMetadata = (new File(cometMetadataPath)).listFiles().map(_.delete())
 
   val types = Types(
     List(
@@ -105,18 +142,35 @@ trait TestHelper extends FlatSpec with Matchers with BeforeAndAfterAll {
     Some("Domain Comment")
   )
 
-  val mapper: ObjectMapper = new ObjectMapper(new YAMLFactory())
+  val mapper = new ObjectMapper(new YAMLFactory()) with ScalaObjectMapper
   // provides all of the Scala goodiness
   mapper.registerModule(DefaultScalaModule)
+
   val storageHandler = new HdfsStorageHandler
   val schemaHandler = new SchemaHandler(storageHandler)
 
+  lazy val tempFile = (Files.createTempDirectory("comet")).toString
+
+  lazy val cometDatasetsPath = tempFile + "/datasets"
+  lazy val cometMetadataPath = tempFile + "/metadata"
+
+  lazy val sparkSession = SparkSession.builder
+    .master("local[*]")
+    .getOrCreate
+
   override protected def beforeAll(): Unit = {
     super.beforeAll()
+    // Init
+    System.setProperty("COMET_DATASETS", cometDatasetsPath)
+    System.setProperty("COMET_METADATA", cometMetadataPath)
+
+    new File("/tmp/DOMAIN").mkdir()
+    new File("/tmp/dream").mkdir()
+
     DatasetArea.init(storageHandler)
   }
   override protected def afterAll(): Unit = {
     super.afterAll()
-    DatasetArea.init(storageHandler)
+    sparkSession.stop()
   }
 }
