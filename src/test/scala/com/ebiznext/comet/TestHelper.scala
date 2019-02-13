@@ -5,7 +5,7 @@ import java.nio.file.Files
 import java.time.LocalDate
 import java.util.Calendar
 import java.util.regex.Pattern
-
+import scala.collection.JavaConverters._
 import com.ebiznext.comet.config.DatasetArea
 import com.ebiznext.comet.schema.handlers.{HdfsStorageHandler, SchemaHandler}
 import com.ebiznext.comet.schema.model._
@@ -13,6 +13,8 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.fasterxml.jackson.module.scala.experimental.ScalaObjectMapper
+import org.apache.commons.io.FileUtils
+import org.apache.commons.io.filefilter.TrueFileFilter
 import org.apache.hadoop.fs.Path
 import org.apache.spark.SparkContext
 import org.apache.spark.sql.{DataFrame, SparkSession}
@@ -21,6 +23,7 @@ import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.StructType
 
 import scala.io.Source
+import scala.util.Try
 
 trait TestHelper extends FlatSpec with Matchers with BeforeAndAfterAll {
 
@@ -83,7 +86,19 @@ trait TestHelper extends FlatSpec with Matchers with BeforeAndAfterAll {
     s"year=${now.getYear}/month=${now.getMonthValue}/day=${now.getDayOfMonth}"
   }
 
-  def cleanMetadata = (new File(cometMetadataPath)).listFiles().map(_.delete())
+  def cleanMetadata = Try((new File(cometMetadataPath)).listFiles().map(_.delete()))
+
+  def cleanDatasets =
+    Try {
+      FileUtils
+        .listFiles(
+          new File(cometDatasetsPath),
+          TrueFileFilter.INSTANCE,
+          TrueFileFilter.INSTANCE
+        )
+        .asScala
+        .map(_.delete())
+    }
 
   val types = Types(
     List(
