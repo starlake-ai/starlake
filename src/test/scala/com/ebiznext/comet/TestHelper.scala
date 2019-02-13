@@ -86,7 +86,16 @@ trait TestHelper extends FlatSpec with Matchers with BeforeAndAfterAll {
     s"year=${now.getYear}/month=${now.getMonthValue}/day=${now.getDayOfMonth}"
   }
 
-  def cleanMetadata = Try((new File(cometMetadataPath)).listFiles().map(_.delete()))
+  def cleanMetadata = Try {
+    FileUtils
+      .listFiles(
+        new File(cometMetadataPath),
+        TrueFileFilter.INSTANCE,
+        TrueFileFilter.INSTANCE
+      )
+      .asScala
+      .map(_.delete())
+  }
 
   def cleanDatasets =
     Try {
