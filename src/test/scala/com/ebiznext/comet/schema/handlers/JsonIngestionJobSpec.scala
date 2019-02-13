@@ -1,6 +1,5 @@
 package com.ebiznext.comet.schema.handlers
 
-import java.io.InputStream
 import com.ebiznext.comet.TestHelper
 import com.ebiznext.comet.config.DatasetArea
 import com.ebiznext.comet.workflow.DatasetWorkflow
@@ -150,25 +149,39 @@ class JsonIngestionJobSpec extends TestHelper {
     JsonIngestionUtil.parseString(json1).isSuccess shouldBe false
 
   }
-  // TODO Fix warning :) And should we test sth ?
-  "Ingest Complex JSON" should "produce file in accepted" in {
-    val sh = new HdfsStorageHandler
+
+  "Ingest Complex JSON" should "should be ingested from pending to accepted, and archived" in {
+
     val domainsPath = new Path(DatasetArea.domains, "json.yml")
-    sh.write(loadFile("/sample/json/json.yml"), domainsPath)
+    storageHandler.write(loadFile("/sample/json/json.yml"), domainsPath)
+
     val typesPath = new Path(DatasetArea.types, "types.yml")
-    sh.write(loadFile("/sample/json/types.yml"), typesPath)
+    storageHandler.write(loadFile("/sample/json/types.yml"), typesPath)
+
     DatasetArea.initDomains(storageHandler, schemaHandler.domains.map(_.name))
 
-    val stream: InputStream =
-      getClass.getResourceAsStream("/sample/json/complex.json")
-    val lines =
-      scala.io.Source.fromInputStream(stream).getLines().mkString("\n")
     val targetPath =
       DatasetArea.path(DatasetArea.pending("json"), "complex.json")
-    storageHandler.write(lines, targetPath)
+
+    storageHandler.write(loadFile("/sample/json/complex.json"), targetPath)
+
     val validator =
       new DatasetWorkflow(storageHandler, schemaHandler, new SimpleLauncher)
     validator.loadPending()
-    //TODO Complete test
+
+    // Check archive
+
+    readFileContent(cometDatasetsPath + "/archive/json/complex.json") shouldBe loadFile(
+      "/sample/json/complex.json"
+    )
+
+    // Accepted should have the same data as input
+    sparkSession.read
+      .parquet(cometDatasetsPath + s"/accepted/json/sample_json/${getTodayPartitionPath}")
+      .except(
+        sparkSession.read.json(getClass.getResource("/sample/json/complex.json").toURI.getPath)
+      )
+      .count() shouldBe 0
+
   }
 }
