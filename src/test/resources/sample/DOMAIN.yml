@@ -1,6 +1,6 @@
 ---
 name: "DOMAIN"
-directory: "/Users/hayssams/git/comet/app/back/src/test/resources/incoming/DOMAIN"
+directory: "/tmp/DOMAIN"
 metadata:
   mode: "FILE"
   format: "DSV"

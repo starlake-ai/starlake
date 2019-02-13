@@ -1,6 +1,6 @@
 ---
 name: "dream"
-directory: "/Users/hayssams/git/comet/app/back/src/test/resources/incoming/dream"
+directory: "/tmp/dream"
 metadata:
   mode: "FILE"
   format: "DSV"
