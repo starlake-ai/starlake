@@ -71,9 +71,4 @@ class TypesSpec extends TestHelper {
 
   }
 
-  //  "json case object" should "deserialize as case olass" in {
-  //    val jsdomain = mapper.readValue(domainStr, classOf[Domain])
-  //    assert(jsdomain == domain)
-  //  }
-
 }
