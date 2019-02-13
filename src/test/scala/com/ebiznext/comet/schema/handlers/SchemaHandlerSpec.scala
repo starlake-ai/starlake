@@ -11,11 +11,14 @@ import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.{DataFrame, Dataset}
 import org.scalatest.{FlatSpec, Matchers}
 
+import scala.util.Try
+
 case class TypeToImport(name: String, path: String)
 
 class SchemaHandlerSpec extends TestHelper {
 
-  def pp(df: DataFrame) = {
+  // TODO Helper (to delete)
+  def printDF(df: DataFrame) = {
     df.printSchema
     df.show(false)
   }
@@ -33,6 +36,7 @@ class SchemaHandlerSpec extends TestHelper {
     def launch: Unit = {
 
       cleanMetadata
+      cleanDatasets
 
       val domainsPath = new Path(domain, domainName)
 
@@ -100,14 +104,14 @@ class SchemaHandlerSpec extends TestHelper {
       val acceptedDf = sparkSession.read
         .parquet(cometDatasetsPath + s"/accepted/$targetName/User/${getTodayPartitionPath}")
 
-      pp(acceptedDf)
+      printDF(acceptedDf)
       val expectedAccepted = (
         sparkSession.read
           .schema(acceptedDf.schema)
           .json(getResPath("/expected/datasets/accepted/DOMAIN/User.json"))
         )
 
-      pp(expectedAccepted)
+      printDF(expectedAccepted)
       acceptedDf.except(expectedAccepted).count() shouldBe 0
 
     }
@@ -142,6 +146,15 @@ class SchemaHandlerSpec extends TestHelper {
       ) shouldBe loadFile(
         targetFile
       )
+
+      //If we run this test alone, we do not have rejected, else we have rejected but not accepted ...
+      Try {
+        printDF(
+          sparkSession.read.parquet(
+            cometDatasetsPath + "/rejected/dream/client"
+          )
+        )
+      }
 
       // Accepted should have the same data as input
       val acceptedDf = sparkSession.read
