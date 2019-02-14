@@ -1,11 +1,11 @@
 package com.ebiznext.comet.schema.handlers
 
-import com.ebiznext.comet.TestHelper
+import com.ebiznext.comet.{TestHelper, TypeToImport}
 import com.ebiznext.comet.config.DatasetArea
-import com.ebiznext.comet.workflow.DatasetWorkflow
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.execution.datasources.json.JsonIngestionUtil
 import org.apache.spark.sql.types._
+
 import scala.util.Success
 
 class JsonIngestionJobSpec extends TestHelper {
@@ -152,36 +152,41 @@ class JsonIngestionJobSpec extends TestHelper {
 
   "Ingest Complex JSON" should "should be ingested from pending to accepted, and archived" in {
 
-    val domainsPath = new Path(DatasetArea.domains, "json.yml")
-    storageHandler.write(loadFile("/sample/json/json.yml"), domainsPath)
+    new SpecTrait {
+      cleanMetadata
+      cleanDatasets
+      override val domain: Path = DatasetArea.domains
+      override val domainName: String = "json.yml"
+      override val domainFile: String = "/sample/json/json.yml"
 
-    val typesPath = new Path(DatasetArea.types, "types.yml")
-    storageHandler.write(loadFile("/sample/json/types.yml"), typesPath)
-
-    DatasetArea.initDomains(storageHandler, schemaHandler.domains.map(_.name))
-
-    val targetPath =
-      DatasetArea.path(DatasetArea.pending("json"), "complex.json")
-
-    storageHandler.write(loadFile("/sample/json/complex.json"), targetPath)
-
-    val validator =
-      new DatasetWorkflow(storageHandler, schemaHandler, new SimpleLauncher)
-    validator.loadPending()
-
-    // Check archive
-
-    readFileContent(cometDatasetsPath + "/archive/json/complex.json") shouldBe loadFile(
-      "/sample/json/complex.json"
-    )
-
-    // Accepted should have the same data as input
-    sparkSession.read
-      .parquet(cometDatasetsPath + s"/accepted/json/sample_json/${getTodayPartitionPath}")
-      .except(
-        sparkSession.read.json(getClass.getResource("/sample/json/complex.json").toURI.getPath)
+      override val types: List[TypeToImport] = List(
+        TypeToImport(
+          "types.yml",
+          "/sample/json/types.yml"
+        )
       )
-      .count() shouldBe 0
+      override val targetName: String = "json"
+      override val targetFile: String = "/sample/json/complex.json"
+
+      launch
+
+      // Check archive
+
+      readFileContent(cometDatasetsPath + s"/archive/${targetName}/complex.json") shouldBe loadFile(
+        "/sample/json/complex.json"
+      )
+
+      // Accepted should have the same data as input
+      sparkSession.read
+        .parquet(
+          cometDatasetsPath + s"/accepted/${targetName}/sample_json/${getTodayPartitionPath}"
+        )
+        .except(
+          sparkSession.read
+            .json(getClass.getResource(s"/sample/${targetName}/complex.json").toURI.getPath)
+        )
+        .count() shouldBe 0
+    }
 
   }
 }
