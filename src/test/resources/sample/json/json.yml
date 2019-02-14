@@ -1,6 +1,6 @@
 ---
 name: "json"
-directory: "/tmp"
+directory: "/tmp/json"
 metadata:
   mode: "FILE"
   format: "JSON"
