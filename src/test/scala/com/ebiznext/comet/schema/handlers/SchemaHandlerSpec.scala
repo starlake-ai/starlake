@@ -1,19 +1,12 @@
 package com.ebiznext.comet.schema.handlers
 
-import java.io.InputStream
-import java.time.LocalDate
-
-import com.ebiznext.comet.TestHelper
+import com.ebiznext.comet.{TestHelper, TypeToImport}
 import com.ebiznext.comet.config.DatasetArea
-import com.ebiznext.comet.schema.model.Domain
 import com.ebiznext.comet.workflow.DatasetWorkflow
 import org.apache.hadoop.fs.Path
-import org.apache.spark.sql.{DataFrame, Dataset}
-import org.scalatest.{FlatSpec, Matchers}
+import org.apache.spark.sql.DataFrame
 
 import scala.util.Try
-
-case class TypeToImport(name: String, path: String)
 
 class SchemaHandlerSpec extends TestHelper {
 
@@ -21,46 +14,6 @@ class SchemaHandlerSpec extends TestHelper {
   def printDF(df: DataFrame) = {
     df.printSchema
     df.show(false)
-  }
-
-  trait SpecTrait {
-    val domain: Path
-    val domainName: String
-    val domainFile: String
-
-    val types: List[TypeToImport]
-
-    val targetName: String
-    val targetFile: String
-
-    def launch: Unit = {
-
-      cleanMetadata
-      cleanDatasets
-
-      val domainsPath = new Path(domain, domainName)
-
-      storageHandler.write(loadFile(domainFile), domainsPath)
-
-      types.foreach { typeToImport =>
-        val typesPath = new Path(DatasetArea.types, typeToImport.name)
-        storageHandler.write(loadFile(typeToImport.path), typesPath)
-      }
-
-      DatasetArea.initDomains(storageHandler, schemaHandler.domains.map(_.name))
-
-      DatasetArea.init(storageHandler)
-
-      val targetPath =
-        DatasetArea.path(DatasetArea.pending(targetName), new Path(targetFile).getName)
-      storageHandler.write(loadFile(targetFile), targetPath)
-
-      val validator =
-        new DatasetWorkflow(storageHandler, schemaHandler, new SimpleLauncher)
-
-      validator.loadPending()
-    }
-
   }
 
   "Ingest CSV" should "produce file in accepted" in {
@@ -131,7 +84,7 @@ class SchemaHandlerSpec extends TestHelper {
           "/sample/default.yml"
         ),
         TypeToImport(
-          "dream.yml",
+          "types.yml",
           "/sample/dream/types.yml"
         )
       )
@@ -259,7 +212,7 @@ class SchemaHandlerSpec extends TestHelper {
     }
 
   }
-  //TODO TOFIX & shouldn't we test sth ?
+  //TODO TOFIX
 //  "Load Business Definition" should "produce business dataset" in {
 //    val sh = new HdfsStorageHandler
 //    val jobsPath = new Path(DatasetArea.jobs, "sample/metadata/business/business.yml")
@@ -268,23 +221,15 @@ class SchemaHandlerSpec extends TestHelper {
 //    val validator = new DatasetWorkflow(storageHandler, schemaHandler, new SimpleLauncher)
 //    validator.autoJob("business1")
 //  }
-//  //TODO shouldn't we test sth ?
-//  "Load Types" should "deserialize string as pattern" in {
-//    val typesPath = new Path(DatasetArea.types, "types.yml")
-//    val sh = new HdfsStorageHandler
-//    sh.write(loadFile("/sample/types.yml"), typesPath)
-////    assert(true)
-//  }
-//  //TODO TOFIX & shouldn't we test sth ?
-////  "Import" should "copy to HDFS" in {
-////    val validator = new DatasetWorkflow(storageHandler, schemaHandler, new SimpleLauncher)
-////    validator.loadLanding()
-////  }
-//  //TODO shouldn't we test sth ?
-//  "Watch" should "request Airflow" in {
-//    val validator =
-//      new DatasetWorkflow(storageHandler, schemaHandler, new SimpleLauncher)
-//    validator.loadPending()
-//  }
+
+  "Writing types" should "work" in {
+
+    val typesPath = new Path(DatasetArea.types, "types.yml")
+
+    storageHandler.write(loadFile("/sample/types.yml"), typesPath)
+
+    readFileContent(typesPath) shouldBe loadFile("/sample/types.yml")
+
+  }
 
 }
