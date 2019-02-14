@@ -171,7 +171,6 @@ trait TestHelper extends FlatSpec with Matchers with BeforeAndAfterAll {
   mapper.registerModule(DefaultScalaModule)
 
   val storageHandler = new HdfsStorageHandler
-  val schemaHandler = new SchemaHandler(storageHandler)
 
   lazy val cometDatasetsPath = TestHelper.tempFile + "/datasets"
   lazy val cometMetadataPath = TestHelper.tempFile + "/metadata"
@@ -201,6 +200,9 @@ trait TestHelper extends FlatSpec with Matchers with BeforeAndAfterAll {
   }
 
   trait SpecTrait {
+
+    def schemaHandler = new SchemaHandler(storageHandler)
+
     val domain: Path
     val domainName: String
     val domainFile: String
