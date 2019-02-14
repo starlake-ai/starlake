@@ -168,14 +168,12 @@ class DatasetWorkflow(
     * @param ingestingPath : Absolute path of the file to ingest (present in the ingesting area of the domain)
     */
   def ingest(domainName: String, schemaName: String, ingestingPath: String): Unit = {
-    schemaHandler.domains.find(_.name == domainName).foreach { domain =>
-      domain.schemas.find(_.name == schemaName) match {
-        case Some(schema) => ingesting(domain, schema, new Path(ingestingPath))
-        case None =>
-          throw new Exception(s"Could not find a schema ${schemaName} in domain ${domainName}")
-      }
-
-    }
+    val domains = schemaHandler.domains
+    for {
+      domain <- domains.find(_.name == domainName)
+      schema <- domain.schemas.find(_.name == schemaName)
+    } yield ingesting(domain, schema, new Path(ingestingPath))
+    ()
   }
 
   private def ingesting(domain: Domain, schema: Schema, ingestingPath: Path): Unit = {
