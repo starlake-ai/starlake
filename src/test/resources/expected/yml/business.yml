@@ -1,0 +1,17 @@
+---
+name: "business1"
+tasks:
+- sql: "select * from domain"
+  domain: "DOMAIN"
+  dataset: "ANALYSE"
+  write: "OVERWRITE"
+  partition:
+  - "comet_year"
+  - "comet_month"
+  presql: null
+  postsql: null
+  area: null
+  partitions:
+  - "comet_year"
+  - "comet_month"
+area: "business"
