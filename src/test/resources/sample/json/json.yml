@@ -1,0 +1,51 @@
+---
+name: "json"
+directory: "/tmp/json"
+metadata:
+  mode: "FILE"
+  format: "JSON"
+  separator: "|"
+  write: "APPEND"
+  dateFormat: "yyyy-MM-dd"
+  timestampFormat: "yyyy-MM-dd HH:mm:ss"
+  partition:
+    - comet_year
+    - comet_month
+    - comet_day
+schemas:
+  - name: "sample_json"
+    pattern: "complex.*"
+    attributes:
+      - name: "textattr"
+        type: "string"
+        required: true
+        privacy: "NONE"
+      - name: "nullattr"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "structAttr"
+        type: "struct"
+        attributes:
+          - name: "intAttr"
+            type: "int"
+            required: true
+            privacy: "NONE"
+          - name: "decimalAttr"
+            type: "decimal"
+            required: false
+            privacy: "NONE"
+          - name: "doubleAttr"
+            type: "double"
+            required: false
+            privacy: "NONE"
+          - name: "arrayOfString"
+            type: "string"
+            array: true
+            required: false
+            privacy: "NONE"
+          - name: "arrayOfInt"
+            type: "int"
+            array: true
+            required: false
+            privacy: "NONE"
