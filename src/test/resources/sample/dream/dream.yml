@@ -9,6 +9,7 @@ metadata:
   quote: "\""
   escape: "\\"
   write: "OVERWRITE"
+  partition_count: "0.1"
   partition:
     - comet_year
     - comet_month
