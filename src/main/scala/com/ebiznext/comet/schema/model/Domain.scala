@@ -51,7 +51,7 @@ case class Domain(
     * Ack file should be present for each file to ingest.
     * @return the ack attribute or ".ack" by default
     */
-  def getAck(): String = ack.map("." + _).getOrElse(".ack")
+  def getAck(): String = ack.map(ack => if (ack.nonEmpty) "." + ack else ack).getOrElse(".ack")
 
   /**
     * Is this Domain valid ? A domain is valid if :

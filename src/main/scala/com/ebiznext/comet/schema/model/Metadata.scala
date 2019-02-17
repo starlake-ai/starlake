@@ -5,7 +5,6 @@ import com.ebiznext.comet.schema.model.Mode.FILE
 import com.ebiznext.comet.schema.model.WriteMode.APPEND
 import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize
-import com.fasterxml.jackson.databind.node.ArrayNode
 import com.fasterxml.jackson.databind.{DeserializationContext, JsonDeserializer, JsonNode}
 
 /**
@@ -29,17 +28,17 @@ import com.fasterxml.jackson.databind.{DeserializationContext, JsonDeserializer,
   */
 @JsonDeserialize(using = classOf[MetadataDeserializer])
 case class Metadata(
-  mode: Option[Mode] = None,
-  format: Option[Format] = None,
-  multiline: Option[Boolean] = None,
-  array: Option[Boolean] = None,
-  withHeader: Option[Boolean] = None,
-  separator: Option[String] = None,
-  quote: Option[String] = None,
-  escape: Option[String] = None,
-  write: Option[WriteMode] = None,
-  partition: Option[List[String]] = None
-) {
+                     mode: Option[Mode] = None,
+                     format: Option[Format] = None,
+                     multiline: Option[Boolean] = None,
+                     array: Option[Boolean] = None,
+                     withHeader: Option[Boolean] = None,
+                     separator: Option[String] = None,
+                     quote: Option[String] = None,
+                     escape: Option[String] = None,
+                     write: Option[WriteMode] = None,
+                     partition: Option[Partition] = None
+                   ) {
   override def toString: String =
     s"""
        |mode:${getIngestMode()}
@@ -51,7 +50,7 @@ case class Metadata(
        |quote:${getQuote()}
        |escape:${getEscape()}
        |write:${getWriteMode()}
-       |partition:${getPartition()}
+       |partition:${getPartitionAttributes()}
        """.stripMargin
 
   def getIngestMode(): Mode = mode.getOrElse(FILE)
@@ -72,7 +71,11 @@ case class Metadata(
 
   def getWriteMode(): WriteMode = write.getOrElse(APPEND)
 
-  def getPartition(): List[String] = partition.getOrElse(Nil)
+  def getPartitionAttributes(): List[String] = partition.map(_.getAtrributes()).getOrElse(Nil)
+
+  def getPartitionStrategy(): Double = partition.map(_.getStrategy()).getOrElse(0.0)
+
+  def isPartitionAbsolute(): Boolean = partition.exists(_.isAbsolute())
 
   /**
     * Merge a single attribute
@@ -118,11 +121,11 @@ object Metadata {
     List("comet_year", "comet_month", "comet_day", "comet_hour", "comet_minute")
 
   def Dsv(
-    separator: Option[String],
-    quote: Option[String],
-    escape: Option[String],
-    write: Option[WriteMode]
-  ) = new Metadata(
+           separator: Option[String],
+           quote: Option[String],
+           escape: Option[String],
+           write: Option[WriteMode]
+         ) = new Metadata(
     Some(Mode.FILE),
     Some(Format.DSV),
     Some(false),
@@ -163,18 +166,11 @@ class MetadataDeserializer extends JsonDeserializer[Metadata] {
     val write =
       if (isNull("write")) None
       else Some(WriteMode.fromString(node.get("write").asText))
-    import scala.collection.JavaConverters._
     val partition =
       if (isNull("partition")) None
       else
         Some(
-          node
-            .get("partition")
-            .asInstanceOf[ArrayNode]
-            .elements
-            .asScala
-            .toList
-            .map(_.asText())
+          new PartitionDeserializer().deserialize(node.get("partition"))
         )
     Metadata(mode, format, multiline, array, withHeader, separator, quote, escape, write, partition)
   }
