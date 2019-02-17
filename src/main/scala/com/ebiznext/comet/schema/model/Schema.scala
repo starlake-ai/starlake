@@ -40,7 +40,7 @@ case class Schema(
     */
   def validatePartitionColumns(): Boolean = {
     metadata.forall(
-      _.getPartition().forall(
+      _.getPartitionAttributes().forall(
         attributes
           .map(_.getFinalName())
           .union(Metadata.CometPartitionColumns)

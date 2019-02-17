@@ -103,13 +103,13 @@ trait IngestionJob extends SparkJob {
     * @param area       : accepted or rejected area
     */
   def saveRows(
-    dataset: DataFrame,
-    targetPath: Path,
-    writeMode: WriteMode,
-    area: HiveArea,
-    merge: Boolean
-  ): Unit = {
-    if (dataset.columns.size > 0) {
+                dataset: DataFrame,
+                targetPath: Path,
+                writeMode: WriteMode,
+                area: HiveArea,
+                merge: Boolean
+              ): Unit = {
+    if (dataset.columns.length > 0) {
       val count = dataset.count()
       val saveMode = writeMode.toSaveMode
       val hiveDB = HiveArea.area(domain.name, area)
@@ -126,7 +126,9 @@ trait IngestionJob extends SparkJob {
       }
 
       val partitionedDF =
-        partitionedDatasetWriter(dataset, metadata.partition.getOrElse(Nil))
+        partitionedDatasetWriter(dataset, metadata.getPartitionAttributes())
+
+      val tmpPath = s"${targetPath.toString}.tmp"
 
       val mergePath = s"${targetPath.toString}.merge"
       val targetDataset = if (merge) {
@@ -137,10 +139,13 @@ trait IngestionJob extends SparkJob {
           .save()
         partitionedDatasetWriter(
           session.read.parquet(mergePath.toString),
-          metadata.partition.getOrElse(Nil)
+          metadata.getPartitionAttributes()
         )
       } else
         partitionedDF
+      if (metadata.isPartitionAbsolute()) {
+        require(metadata.getPartitionStrategy() >= 1)
+      }
       val finalDataset = targetDataset
         .mode(saveMode)
         .format(Settings.comet.writeFormat)
