@@ -29,7 +29,7 @@ as CSV  files. Below is an extract of these files.
  A009701|2010-01-31 23:04:15|me@home.com|1980-10-14|Donald|Obama
  B308629|2016-12-01 09:56:02|you@land.com|1980-10-14|Barack|Trump
 
-``File orders-2018-05-10.psv from the "sales" department``
+``File orders-2018-05-10.csv from the "sales" department``
 
 .. code-block:: text
 
@@ -103,10 +103,10 @@ A type is defined by:
    * ``string``
    * ``byte``: single char field
    * ``decimal``: For exact arithmetic. Used for money computation
-   * ``long```: integers
+   * ``long``: integers
    * ``double``: floating numbers
-   * ``boolean```: boolean values
-   * ``date``` : date only fields
+   * ``boolean``: boolean values
+   * ``date`` : date only fields
    * ``timestamp``: date time fields
 * the pattern it should match : A java pattern matching expression that matches the field
    * for types of primitive type "date" or date time, "epoch_milli", "epoch_second" or any predefined or custom date pattern as defined in the DateTimeFormatter_ Specification.
@@ -139,19 +139,14 @@ File ``$COMET_METADATA/types/default.yml``
         primitiveType: "double"
         pattern: "-?\\d*\\.{0,1}\\d+"
         sample: "-45.78"
-        comment: "Any flating value"
-    - name: "double"
-        primitiveType: "double"
-        pattern: "-?\\d*\\.{0,1}\\d+"
-        sample: "-45.787686786876"
-        comment: "Any flating value"
+        comment: "Any floating value"
     - name: "long"
         primitiveType: "long"
         pattern: "-?\\d+"
         sample: "-64564"
         comment: "any positive or negative number"
     - name: "boolean"
-        primitiveType: "long"
+        primitiveType: "boolean"
         pattern: "(?i)true|false|yes|no|[yn01]"
         sample: "TruE"
     - name: "timestamp"
@@ -191,6 +186,7 @@ Now that we have defined the set of semantic
 types we want to recognize, we may start defining our schemas.
 
 
+
 Domain Rules
 ************
 
@@ -202,7 +198,7 @@ Domain rules are YAML files located in the folder
 $COMET_METADATA/domains. They defined :
 
 * The directory where the files coming from this domain are stored
-* The ack extension for ack files. "ack" by default
+* The ack extension for ack files. "ack" by default.
 * Raw file extensions to recognize.  "json", "csv", "dsv", "psv" by default.
 
 The ingestion pipeline also automatically recognize compressed files with
@@ -246,6 +242,12 @@ ingest it if present :
 * dataset.csv
 * dataset.dsv
 * dataset.psv
+
+.. note::
+
+ To process files without relying on ack files, simply define the ack attribute with an empty string :
+
+ ``ack : ""``
 
 To ingest files present in the domain incoming directory (/mnt/incoming/sales),
 we need to add schema definitions to the domain description file,
@@ -424,8 +426,17 @@ File ``$COMET_METADATA/domains/sales.yml``
             type: "string"
             required: false
 
+.. note::
 
-The merge attribute above should be read as follows::
+ The merge attribute above should be read as follows:
+
+ .. code-block:: yaml
+
+    merge:
+      key:
+        - "id"
+      delete: "customer_id is null"
+
  * When a new orders dataset is imported, only the last occurrence of the record identified by the key column "id" should be kept
  * and any record imported with a null column_id should be removed from the existing dataset.
 
@@ -481,7 +492,73 @@ File ``$COMET_METADATA/domains/hr.yml``
                 required: true
 
 
-With the types catalog and file schemas defined we are ready to ingest
+Write Strategy
+***************
+
+Partitioning
+~~~~~~~~~~~~
+You may control partitioning strategy and tell Comet how you wish to partition your
+data on disk by specifying one or more attributes in the input file as partition columns.
+
+If you want to use ingestion date/time as partition columns, you can use predefined attributes
+``year``, ``month`` ``day``, ``hour``, ``minute`` prefixed by ``comet_``. These columns will
+appear as regular attributes in the resulting dataset and without the prefix ``comet_``
+
+Below an example of how to partition by ingestion year, month and day.
+
+.. code-block:: yaml
+
+  - metadata:
+    partition:
+      - "comet_year"
+      - "comet_month"
+      - "comet_day"
+
+Compaction
+~~~~~~~~~~
+When saving files as parquet or orc or whatever, the optimal number of partitions depend on the dataset size,
+number of records, the size of each record and the HDFS block size.
+
+The goal is to optimise the number of partitions during the write phase.
+
+
+You have 3 choices available :
+
+Solution 1 : Naive Compaction
+"""""""""""""""""""""""""""""
+1. Save the file in a temporary location
+2. Get the dataset size on HDFS.
+3. Divide the dataset size by the  HDFS block size to get the number of partitions
+4. Save the dataset to the target HDFS location with the computed number of partitions
+
+The main drawback of this approach is that we need to save the file twice.
+
+Solution 2 : Sampling
+"""""""""""""""""""""
+1. Get a percentage of the records in the dataframe before saving it.
+2. Save it to a temporary location
+3. Estimate the size of the final dataset on HDFS based on the size of the sample on HDFS
+4. Compute the number of partitions based on this estimation
+5. Save the dataset to the target HDFS location with the computed number of partitions
+
+The Naive solution is in fact identical to the Sampling one with a sampling percentage of 100%.
+
+Solution 3 : Absolute Compaction
+""""""""""""""""""""""""""""""""
+The number of partitions is defined by the user at the schema level.
+
+
+
+Example :
+
+* 0.0 => Means no optimisation.
+
+* 1.0 => Naïve Compaction
+
+* Any integer between 1 ... Int.max => Absolute number of partitions
+
+
+With the types catalog, file schemas and save strategy defined we are ready to ingest
 
 Ingestion Workflow
 ##################
