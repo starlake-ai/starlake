@@ -24,7 +24,7 @@ class StorageHandlerSpec extends TestHelper {
     resultDomain.name shouldBe domain.name
     resultDomain.directory shouldBe domain.directory
     //TODO TOFIX : domain written is not the domain expected, the test below just to make debug easy
-    resultDomain.metadata shouldBe domain.metadata.map(_.copy(partition = Some(Partition(0.0, Some(Nil)))))
+    resultDomain.metadata shouldBe domain.metadata.map(_.copy(partition = Some(Partition(Some(0.0), Some(false), Some(Nil)))))
     resultDomain.ack shouldBe Some(domain.getAck())
     resultDomain.comment shouldBe domain.comment
     resultDomain.extensions shouldBe Some(domain.getExtensions())
