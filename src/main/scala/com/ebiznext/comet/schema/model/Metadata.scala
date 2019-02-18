@@ -23,8 +23,6 @@ import com.fasterxml.jackson.databind.{DeserializationContext, JsonDeserializer,
   * @param escape          : escaping char '\' by default
   * @param write           : Write mode, APPEND by default
   * @param partition       : Partition columns, no partitioning by default
-  * @param dateFormat      : Column date format when primitive type is date, yyyy-MM-dd  by default
-  * @param timestampFormat : Column timestamp format when primitive type is timestamp, "yyyy-MM-dd HH:mm:ss by default
   */
 @JsonDeserialize(using = classOf[MetadataDeserializer])
 case class Metadata(
