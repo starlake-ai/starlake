@@ -5,7 +5,6 @@ import com.ebiznext.comet.schema.model.Mode.FILE
 import com.ebiznext.comet.schema.model.WriteMode.APPEND
 import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize
-import com.fasterxml.jackson.databind.node.ArrayNode
 import com.fasterxml.jackson.databind.{DeserializationContext, JsonDeserializer, JsonNode}
 
 /**
@@ -24,8 +23,6 @@ import com.fasterxml.jackson.databind.{DeserializationContext, JsonDeserializer,
   * @param escape          : escaping char '\' by default
   * @param write           : Write mode, APPEND by default
   * @param partition       : Partition columns, no partitioning by default
-  * @param dateFormat      : Column date format when primitive type is date, yyyy-MM-dd  by default
-  * @param timestampFormat : Column timestamp format when primitive type is timestamp, "yyyy-MM-dd HH:mm:ss by default
   */
 @JsonDeserialize(using = classOf[MetadataDeserializer])
 case class Metadata(
@@ -38,7 +35,7 @@ case class Metadata(
   quote: Option[String] = None,
   escape: Option[String] = None,
   write: Option[WriteMode] = None,
-  partition: Option[List[String]] = None
+  partition: Option[Partition] = None
 ) {
   override def toString: String =
     s"""
@@ -51,7 +48,7 @@ case class Metadata(
        |quote:${getQuote()}
        |escape:${getEscape()}
        |write:${getWriteMode()}
-       |partition:${getPartition()}
+       |partition:${getPartitionAttributes()}
        """.stripMargin
 
   def getIngestMode(): Mode = mode.getOrElse(FILE)
@@ -72,7 +69,9 @@ case class Metadata(
 
   def getWriteMode(): WriteMode = write.getOrElse(APPEND)
 
-  def getPartition(): List[String] = partition.getOrElse(Nil)
+  def getPartitionAttributes(): List[String] = partition.map(_.getAtrributes()).getOrElse(Nil)
+
+  def getPartitionSampling(): Double = partition.map(_.getSampling()).getOrElse(0.0)
 
   /**
     * Merge a single attribute
@@ -163,18 +162,11 @@ class MetadataDeserializer extends JsonDeserializer[Metadata] {
     val write =
       if (isNull("write")) None
       else Some(WriteMode.fromString(node.get("write").asText))
-    import scala.collection.JavaConverters._
     val partition =
       if (isNull("partition")) None
       else
         Some(
-          node
-            .get("partition")
-            .asInstanceOf[ArrayNode]
-            .elements
-            .asScala
-            .toList
-            .map(_.asText())
+          new PartitionDeserializer().deserialize(node.get("partition"))
         )
     Metadata(mode, format, multiline, array, withHeader, separator, quote, escape, write, partition)
   }
