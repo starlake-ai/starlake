@@ -35,7 +35,7 @@ class SimpleJsonIngestionJob(
           .json(path.toString)
       }
     df.printSchema()
-    if (df.columns.exists(col => col == "_corrupt_record"))
+    if (df.columns.contains("_corrupt_record"))
       throw new Exception(
         s"Invalid JSON File: ${path.toString}. SIMPLE_JSON require a valid json file "
       )
