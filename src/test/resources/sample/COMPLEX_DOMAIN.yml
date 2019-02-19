@@ -10,9 +10,10 @@ metadata:
   escape: "\\"
   write: "APPEND"
   partition:
-    - comet_year
-    - comet_month
-    - comet_day
+    attributes:
+      - comet_year
+      - comet_month
+      - comet_day
   dateFormat: "yyyy-MM-dd"
   timestampFormat: "yyyy-MM-dd HH:mm:ss"
 schemas:
