@@ -440,9 +440,10 @@ Below an example of how to partition by ingestion year, month and day.
 
   - metadata:
     partition:
-      - "comet_year"
-      - "comet_month"
-      - "comet_day"
+        attributes:
+          - "comet_year"
+          - "comet_month"
+          - "comet_day"
 
 Compaction
 ~~~~~~~~~~
