@@ -11,7 +11,4 @@ tasks:
   presql: null
   postsql: null
   area: null
-  partitions:
-  - "comet_year"
-  - "comet_month"
 area: "business"

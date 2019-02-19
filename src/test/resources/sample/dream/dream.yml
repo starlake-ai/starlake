@@ -9,11 +9,12 @@ metadata:
   quote: "\""
   escape: "\\"
   write: "OVERWRITE"
-  partition_count: "0.1"
   partition:
-    - comet_year
-    - comet_month
-    - comet_day
+    sampling: 0.5
+    attributes:
+      - comet_year
+      - comet_month
+      - comet_day
 schemas:
   - name: "segment"
     pattern: "OneClient_Segmentation.*.*"
