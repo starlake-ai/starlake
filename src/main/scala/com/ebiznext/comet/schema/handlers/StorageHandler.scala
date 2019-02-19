@@ -28,6 +28,13 @@ trait StorageHandler {
   def write(data: String, path: Path): Unit
 
   def list(path: Path, extension: String = "", since: LocalDateTime = LocalDateTime.MIN): List[Path]
+
+  def blockSize(path: Path): Long
+
+  def contentSummary(path: Path): ContentSummary
+
+  def spaceConsumed(path: Path): Long
+
 }
 
 /**
@@ -37,6 +44,7 @@ class HdfsStorageHandler extends StorageHandler {
 
   /**
     * Read a UTF-8 text file into a string used to load yml configuration files
+    *
     * @param path : Absolute file path
     * @return file content as a string
     */
@@ -50,6 +58,7 @@ class HdfsStorageHandler extends StorageHandler {
 
   /**
     * Write a string to a UTF-8 text file. Used for yml configuration files.
+    *
     * @param data file content as a string
     * @param path : Absolute file path
     */
@@ -64,9 +73,10 @@ class HdfsStorageHandler extends StorageHandler {
 
   /**
     * List all files in folder
-    * @param path Absolute folder path
+    *
+    * @param path      Absolute folder path
     * @param extension : Files should end with this string. To list all files, simply provide an empty string
-    * @param since Minimum modification time of liste files. To list all files, simply provide the beginning of all times
+    * @param since     Minimum modification time of liste files. To list all files, simply provide the beginning of all times
     * @return List of Path
     */
   def list(path: Path, extension: String, since: LocalDateTime): List[Path] = {
@@ -87,6 +97,7 @@ class HdfsStorageHandler extends StorageHandler {
 
   /**
     * Move file
+    *
     * @param path source path (file or folder)
     * @param dest destination path (file or folder)
     * @return
@@ -99,6 +110,7 @@ class HdfsStorageHandler extends StorageHandler {
 
   /**
     * delete file (skip trash)
+    *
     * @param path : Absolute path of file to delete
     */
   override def delete(path: Path): Boolean = {
@@ -109,6 +121,7 @@ class HdfsStorageHandler extends StorageHandler {
 
   /**
     * Create folder if it does not exsit including any intermediary non existent folder
+    *
     * @param path Absolute path of folder to create
     */
   override def mkdirs(path: Path): Boolean = {
@@ -119,8 +132,9 @@ class HdfsStorageHandler extends StorageHandler {
 
   /**
     * Copy file from local filesystem to target file system
+    *
     * @param source Local file path
-    * @param dest destination file path
+    * @param dest   destination file path
     */
   override def copyFromLocal(source: Path, dest: Path): Unit = {
     val conf = new Configuration()
@@ -130,8 +144,9 @@ class HdfsStorageHandler extends StorageHandler {
 
   /**
     * Move file from local filesystem to target file system
+    *
     * @param source Local file path
-    * @param dest destination file path
+    * @param dest   destination file path
     */
   override def moveFromLocal(source: Path, dest: Path): Unit = {
     val conf = new Configuration()
@@ -145,7 +160,7 @@ class HdfsStorageHandler extends StorageHandler {
     fs.exists(path)
   }
 
-  def defaultBlockSize(path: Path): Long = {
+  def blockSize(path: Path): Long = {
     val conf = new Configuration()
     val fs = FileSystem.get(conf)
     fs.getDefaultBlockSize(path)

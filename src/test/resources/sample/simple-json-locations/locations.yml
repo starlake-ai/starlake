@@ -14,9 +14,10 @@ metadata:
   dateFormat: "yyyy-MM-dd"
   timestampFormat: "yyyy-MM-dd HH:mm:ss"
   partition:
-    - comet_year
-    - comet_month
-    - comet_day
+    attributes:
+      - comet_year
+      - comet_month
+      - comet_day
 schemas:
   - name: "locations"
     pattern: "locations.*"
