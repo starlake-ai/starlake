@@ -103,12 +103,12 @@ trait IngestionJob extends SparkJob {
     * @param area       : accepted or rejected area
     */
   def saveRows(
-                dataset: DataFrame,
-                targetPath: Path,
-                writeMode: WriteMode,
-                area: HiveArea,
-                merge: Boolean
-              ): Unit = {
+    dataset: DataFrame,
+    targetPath: Path,
+    writeMode: WriteMode,
+    area: HiveArea,
+    merge: Boolean
+  ): Unit = {
     if (dataset.columns.length > 0) {
       val count = dataset.count()
       val saveMode = writeMode.toSaveMode
@@ -125,10 +125,36 @@ trait IngestionJob extends SparkJob {
         session.sql(s"drop table if exists $hiveDB.$tableName")
       }
 
-      val partitionedDF =
-        partitionedDatasetWriter(dataset, metadata.getPartitionAttributes())
+      val tmpPath = new Path(s"${targetPath.toString}.tmp")
 
-      val tmpPath = s"${targetPath.toString}.tmp"
+      val nbPartitions = metadata.getPartitionSampling() match {
+        case 0.0 => // default partitioning
+          dataset.rdd.getNumPartitions
+        case fraction if fraction > 0.0 && fraction < 1.0 =>
+          // Use sample to determine partitioning
+
+          val minFraction =
+            if (fraction * count >= 1) // Make sure we get at least on item in teh dataset
+              fraction
+            else // We make sure we get at least 1 item which is 2 because of double imprecision for huge numbers.
+              2 / count
+
+          val sampledDataset = dataset.sample(false, minFraction)
+          partitionedDatasetWriter(sampledDataset, metadata.getPartitionAttributes())
+            .mode(SaveMode.ErrorIfExists)
+            .format(Settings.comet.writeFormat)
+            .option("path", tmpPath.toString)
+            .save()
+          val consumed = storageHandler.spaceConsumed(tmpPath) / fraction
+          val blocksize = storageHandler.blockSize(tmpPath)
+          storageHandler.delete(tmpPath)
+          Math.max(consumed / blocksize, 1).toInt
+        case count if count >= 1.0 =>
+          count.toInt
+      }
+
+      val partitionedDF =
+        partitionedDatasetWriter(dataset.coalesce(nbPartitions), metadata.getPartitionAttributes())
 
       val mergePath = s"${targetPath.toString}.merge"
       val targetDataset = if (merge) {
@@ -143,9 +169,6 @@ trait IngestionJob extends SparkJob {
         )
       } else
         partitionedDF
-      if (metadata.isPartitionAbsolute()) {
-        require(metadata.getPartitionStrategy() >= 1)
-      }
       val finalDataset = targetDataset
         .mode(saveMode)
         .format(Settings.comet.writeFormat)

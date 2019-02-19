@@ -1,6 +1,7 @@
 package com.ebiznext.comet.schema.model
 
 import com.ebiznext.comet.config.HiveArea
+import com.fasterxml.jackson.annotation.JsonIgnore
 
 /**
   * Task executed in teh context of a job
@@ -20,6 +21,8 @@ case class AutoTask(
   postsql: Option[List[String]],
   area: Option[HiveArea] = None
 ) {
+
+  @JsonIgnore
   def getPartitions() = partition.getOrElse(Nil)
 }
 
