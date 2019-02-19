@@ -123,12 +123,12 @@ trait IngestionJob extends SparkJob {
     * @param area       : accepted or rejected area
     */
   def saveRows(
-    dataset: DataFrame,
-    targetPath: Path,
-    writeMode: WriteMode,
-    area: HiveArea,
-    merge: Boolean
-  ): Unit = {
+                dataset: DataFrame,
+                targetPath: Path,
+                writeMode: WriteMode,
+                area: HiveArea,
+                merge: Boolean
+              ): Unit = {
     if (dataset.columns.length > 0) {
       val count = dataset.count()
       val saveMode = writeMode.toSaveMode
@@ -156,8 +156,10 @@ trait IngestionJob extends SparkJob {
           val minFraction =
             if (fraction * count >= 1) // Make sure we get at least on item in teh dataset
               fraction
-            else // We make sure we get at least 1 item which is 2 because of double imprecision for huge numbers.
+            else if (count > 0) // We make sure we get at least 1 item which is 2 because of double imprecision for huge numbers.
               2 / count
+            else
+              0
 
           val sampledDataset = dataset.sample(false, minFraction)
           partitionedDatasetWriter(sampledDataset, metadata.getPartitionAttributes())
