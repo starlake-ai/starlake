@@ -487,7 +487,7 @@ Example :
 
 * Any integer between 1 ... Int.max => Absolute number of partitions
 
-Below an example of compaction based on a sampling of 10%
+Below an example of compaction based on a sampling of 20%
 
 .. code-block:: yaml
 
