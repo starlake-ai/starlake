@@ -70,6 +70,7 @@ By setting the env vars below, you may change default settings.
    :widths: 25 50 25
 
    Env. Var, Description, Default value
+   COMET_TMPDIR,"When compacting data and estimating number of partitions, Comet stores intermediates files in this folder",hdfs:///tmp/comet_tmp
    COMET_DATASETS,Once imported where the datasets are stored in HDFS,hdfs:///tmp/datasets
    COMET_METADATA,HDFS root fodler where domains and types metadata are stored,/tmp/metadata
    COMET_ARCHIVE,Should we archive on HDFS the incoming files once they are ingested,true
