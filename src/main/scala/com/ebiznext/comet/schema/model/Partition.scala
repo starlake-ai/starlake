@@ -5,22 +5,21 @@ import com.fasterxml.jackson.databind.annotation.JsonDeserialize
 import com.fasterxml.jackson.databind.node.ArrayNode
 import com.fasterxml.jackson.databind.{DeserializationContext, JsonDeserializer, JsonNode}
 
-
 /**
   *
-  * @param strategy
-  * @param absolute
-  * @param attributes
+  * @param sampling : 0.0 means no sampling, > 0  && < 1 means sample datsets, >=1 absolue number of partitions.
+  * @param attributes : Attributes used to partition de data.
   */
 @JsonDeserialize(using = classOf[PartitionDeserializer])
-case class Partition(strategy: Option[Double], absolute: Option[Boolean], attributes: Option[List[String]]) {
+case class Partition(
+  sampling: Option[Double],
+  attributes: Option[List[String]]
+) {
   def getAtrributes(): List[String] = attributes.getOrElse(Nil)
 
-  def getStrategy() = strategy.getOrElse(0.0)
+  def getSampling() = sampling.getOrElse(0.0)
 
-  def isAbsolute() = absolute.getOrElse(false)
 }
-
 
 class PartitionDeserializer extends JsonDeserializer[Partition] {
   override def deserialize(jp: JsonParser, ctx: DeserializationContext): Partition = {
@@ -32,16 +31,10 @@ class PartitionDeserializer extends JsonDeserializer[Partition] {
     def isNull(field: String): Boolean =
       node.get(field) == null || node.get(field).isNull
 
-    val strategy =
-      if (isNull("strategy")) 0.0
+    val sampling =
+      if (isNull("sampling")) 0.0
       else
-        node.get("strategy").asDouble()
-
-    val absolute =
-      if (isNull("absolute")) false
-      else
-        node.get("absolute").asBoolean()
-
+        node.get("sampling").asDouble()
 
     import scala.collection.JavaConverters._
     val attributes =
@@ -56,6 +49,6 @@ class PartitionDeserializer extends JsonDeserializer[Partition] {
             .toList
             .map(_.asText())
         )
-    Partition(Some(strategy), Some(absolute), attributes)
+    Partition(Some(sampling), attributes)
   }
 }

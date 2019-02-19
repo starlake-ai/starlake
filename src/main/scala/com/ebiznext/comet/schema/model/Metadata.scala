@@ -26,17 +26,17 @@ import com.fasterxml.jackson.databind.{DeserializationContext, JsonDeserializer,
   */
 @JsonDeserialize(using = classOf[MetadataDeserializer])
 case class Metadata(
-                     mode: Option[Mode] = None,
-                     format: Option[Format] = None,
-                     multiline: Option[Boolean] = None,
-                     array: Option[Boolean] = None,
-                     withHeader: Option[Boolean] = None,
-                     separator: Option[String] = None,
-                     quote: Option[String] = None,
-                     escape: Option[String] = None,
-                     write: Option[WriteMode] = None,
-                     partition: Option[Partition] = None
-                   ) {
+  mode: Option[Mode] = None,
+  format: Option[Format] = None,
+  multiline: Option[Boolean] = None,
+  array: Option[Boolean] = None,
+  withHeader: Option[Boolean] = None,
+  separator: Option[String] = None,
+  quote: Option[String] = None,
+  escape: Option[String] = None,
+  write: Option[WriteMode] = None,
+  partition: Option[Partition] = None
+) {
   override def toString: String =
     s"""
        |mode:${getIngestMode()}
@@ -71,9 +71,7 @@ case class Metadata(
 
   def getPartitionAttributes(): List[String] = partition.map(_.getAtrributes()).getOrElse(Nil)
 
-  def getPartitionStrategy(): Double = partition.map(_.getStrategy()).getOrElse(0.0)
-
-  def isPartitionAbsolute(): Boolean = partition.exists(_.isAbsolute())
+  def getPartitionSampling(): Double = partition.map(_.getSampling()).getOrElse(0.0)
 
   /**
     * Merge a single attribute
@@ -119,11 +117,11 @@ object Metadata {
     List("comet_year", "comet_month", "comet_day", "comet_hour", "comet_minute")
 
   def Dsv(
-           separator: Option[String],
-           quote: Option[String],
-           escape: Option[String],
-           write: Option[WriteMode]
-         ) = new Metadata(
+    separator: Option[String],
+    quote: Option[String],
+    escape: Option[String],
+    write: Option[WriteMode]
+  ) = new Metadata(
     Some(Mode.FILE),
     Some(Format.DSV),
     Some(false),
