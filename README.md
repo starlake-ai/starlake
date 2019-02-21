@@ -1,3 +1,5 @@
+https://travis-ci.com/ebiznext/comet-data-pipeline.svg?branch=master
+
 # About Comet Data Pipeline
 
 Complete documentation available [here](https://comet-app.readthedocs.io/)
