@@ -23,7 +23,6 @@ package com.ebiznext.comet.schema.model
 import java.io.InputStream
 
 import com.ebiznext.comet.TestHelper
-import org.scalatest.{FlatSpec, Matchers}
 
 class TypesSpec extends TestHelper {
 
@@ -78,16 +77,25 @@ class TypesSpec extends TestHelper {
 
     types.checkValidity() shouldBe Right(true)
 
-    "2019-01-31 09:30:49.662" shouldBe types.types
+    def localTime(dateString: String) = {
+      val calendar = java.util.Calendar.getInstance
+      val sdf = new java.text.SimpleDateFormat("yyyy-MM-dd hh:mm:ss.SSS")
+      sdf.setTimeZone(java.util.TimeZone.getTimeZone("Europe/Paris"))
+      calendar.setTime(sdf.parse(dateString))
+      sdf.setTimeZone(java.util.TimeZone.getDefault)
+      sdf.format(calendar.getTime())
+    }
+
+    localTime("2019-01-31 09:30:49.662") shouldBe types.types
       .find(_.name == "timeinmillis")
       .get
       .sparkValue("1548923449662")
       .toString
-    "2019-01-31 09:30:49.0" shouldBe types.types
+    localTime("2019-01-31 09:30:49.0") shouldBe types.types
       .find(_.name == "timeinseconds")
       .get
       .sparkValue("1548923449")
-      .toString
+      .toString + "00"
 
   }
 
