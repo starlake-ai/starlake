@@ -138,9 +138,9 @@ class SchemaHandlerSpec extends TestHelper {
           .schema(acceptedDf.schema)
           .json(getResPath("/expected/datasets/accepted/dream/client.json"))
         )
-
-      acceptedDf.except(expectedAccepted).count() shouldBe 0
-
+      expectedAccepted.show(false)
+      acceptedDf.show(false)
+      acceptedDf.select("dream_id").except(expectedAccepted.select("dream_id")).count() shouldBe 0
     }
 
   }
