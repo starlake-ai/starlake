@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.com/ebiznext/comet-data-pipeline.svg?branch=master)](https://travis-ci.com/ebiznext/comet-data-pipeline)
+
 # About Comet Data Pipeline
 
 Complete documentation available [here](https://comet-app.readthedocs.io/)
