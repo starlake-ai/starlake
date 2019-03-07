@@ -61,17 +61,21 @@ case class Type(
   stat: Option[Stat] = None
 ) {
   // Used only when object is not a date nor a timestamp
-  private lazy val textPattern = Pattern.compile(pattern)
+  private lazy val textPattern = Pattern.compile(pattern, Pattern.MULTILINE)
 
   def matches(value: String): Boolean = {
-    primitiveType match {
-      case PrimitiveType.struct => true
-      case PrimitiveType.date =>
-        Try(date.fromString(value, pattern)).isSuccess
-      case PrimitiveType.timestamp =>
-        Try(timestamp.fromString(value, pattern)).isSuccess
+    name match {
+      case "string" => true
       case _ =>
-        textPattern.matcher(value).matches()
+        primitiveType match {
+          case PrimitiveType.struct => true
+          case PrimitiveType.date =>
+            Try(date.fromString(value, pattern)).isSuccess
+          case PrimitiveType.timestamp =>
+            Try(timestamp.fromString(value, pattern)).isSuccess
+          case _ =>
+            textPattern.matcher(value).matches()
+        }
     }
   }
 
