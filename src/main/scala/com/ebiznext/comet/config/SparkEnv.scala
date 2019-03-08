@@ -67,5 +67,5 @@ class SparkEnv(name: String) extends StrictLogging {
     * Creates a Spark Session with the spark.* keys defined the applciation conf file.
     */
   lazy val session: SparkSession =
-    SparkSession.builder.config(config).getOrCreate()
+    SparkSession.builder.config(config).enableHiveSupport().getOrCreate()
 }
