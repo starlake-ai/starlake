@@ -1,94 +1,82 @@
 package com.ebiznext.comet.job
 
-
-
-
-import org.apache.spark.SparkConf
-import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
+import org.apache.spark.sql._
 import org.apache.spark.sql.functions.col
-import better.files.{File, _}
-import File._
-
+import better.files.File
+import com.ebiznext.comet.job.SaveDatastatJob.session.implicits._
 
 
 /**  To record statistics with other information during ingestion.
   *
   */
 
-object SaveDatastatJob {
+object SaveDatastatJob extends SparkJob {
 
+  /** data Statistics information and status of the data
+    *
+    * @param domain                      : Domain name
+    * @param schema                      : Schema
+    * @param variableName                : Variable name from the attributes
+    * @param timesIngestion              : The time at ingestion
+    *
+    * @param stageState                  : The stage state  (consolidated or Ingested)
+    */
 
-    /** data Statistics information and status of the data
-      *
-      * @param domain                      : Domain name
-      * @param schema                      : Schema
-      * @param variableName                : Variable name from the attributes
-      * @param minMetric                   : The minimum value associates with the variable
-      * @param maxMetric                   : The maximum value associates with the variable
-      * @param meanMetric                  : The mean value associates with the variable
-      * @param countMetric                 : The count value associates with the variable
-      * @param countMissValMetric          : The count value of missing values associates with the variable
-      * @param varMetric                   : The variance value associates with the variable
-      * @param stddevMetric                : The stddev value associates with the variable
-      * @param sumMetric                   : The sum value associates with the variable
-      * @param skewnessMetric              : The skewness value associates with the variable
-      * @param kurtosisMetric              : The kurtosis value associates with the variable
-      * @param percentile25Metric          : The percentile25 value associates with the variable
-      * @param medianMetric                : The median value associates with the variable
-      * @param percentile75Metric          : The percentile25 value associates with the variable
-      * @param categoryMetric              : The category value associates with the variable (in the case of discrete variable)
-      * @param countDiscreteMetric         : The count value associates with the variable (in the case of discrete variable)
-      * @param frequenciesMetric           : The frequencies values associates with the variable (in the case of discrete variable)
-      * @param CountMissValuesDiscrete     : The count value of missing values value associates with the variable (in the case of discrete variable)
-      * @param timesIngestion              : The time at ingestion
-      * @param stageState                  : The stage state  (consolidated or Ingested)
-      */
-    case class dataStatCaseClass( domain: String,
-                                  schema: String,
-                                  variableName: String,
-
-                                  min: Option[Double],
-                                  max: Option[Double],
-                                  mean: Option[Double],
-                                  count: Option[Long],
-                                  missingValues: Option[Long],
-                                  variance: Option[Double],
-                                  standarddev: Option[Double],
-                                  sum: Option[Double],
-                                  skewness: Option[Double],
-                                  kurtosis: Option[Double],
-                                  percentile25: Option[Double],
-                                  median: Option[Double],
-                                  percentile75: Option[Double],
-
-                                  category: Option[List[String]],
-                                  countDisticnt: Option[Int],
-                                  countBycategory: Option[Map[String, Long]],
-                                  frequencies: Option[Map[String, Double]],
-
-                                  missingValuesDiscrete: Option[Long],
-
-                                  timesIngestion: String,
-                                  stageState: String)
-
+  /**
+    *
+    * @param domain : Domain name
+    * @param schema : Schema
+    * @param variableName : Variable name from the attributes
+    * @param min : Min metric
+    * @param max : Max metric
+    * @param mean : Mean metric
+    * @param count : Count metric
+    * @param missingValues : Missing Values metric
+    * @param variance : Variance metric
+    * @param standarddev : Standard deviation metric
+    * @param sum : Sum metric
+    * @param skewness : Skewness metric
+    * @param kurtosis : Kurtosis metric
+    * @param percentile25 : Percentile25 metric
+    * @param median : Median metric
+    * @param percentile75 : Percentile75 metric
+    * @param category : Category metric
+    * @param countDistinct : Count Distinct metric
+    * @param countByCategory : Count By Category metric
+    * @param frequencies : Frequency metric
+    * @param missingValuesDiscrete : Missing Values Discrete metric
+    * @param timesIngestion : The time at ingestion
+    * @param stageState : The stage state  (consolidated or Ingested)
+    */
+  case class dataStatCaseClass(
+                                domain: String,
+                                schema: String,
+                                variableName: String,
+                                min: Option[Double],
+                                max: Option[Double],
+                                mean: Option[Double],
+                                count: Option[Long],
+                                missingValues: Option[Long],
+                                variance: Option[Double],
+                                standarddev: Option[Double],
+                                sum: Option[Double],
+                                skewness: Option[Double],
+                                kurtosis: Option[Double],
+                                percentile25: Option[Double],
+                                median: Option[Double],
+                                percentile75: Option[Double],
+                                category: Option[List[String]],
+                                countDistinct: Option[Int],
+                                countByCategory: Option[Map[String, Long]],
+                                frequencies: Option[Map[String, Double]],
+                                missingValuesDiscrete: Option[Long],
+                                timesIngestion: String,
+                                stageState: String
+                              )
 
   /**
     * Spark configuration
     */
-
-  val conf = new SparkConf()          // set the configuration
-    .setAppName("Statistic Summary")
-    .setMaster("local[*]")
-
-
-
-  val spark = SparkSession           // init sparksession
-    .builder
-    .config(conf)
-    .appName("readxlsx")
-    .getOrCreate()
-
-  import spark.implicits._
 
   /** Function to get values of option
     *
@@ -98,15 +86,8 @@ object SaveDatastatJob {
 
   def getShow(x: Option[Any]) = x match {
     case Some(s) => s
-    case None => "?"
+    case None    => "?"
   }
-
-  def myFunc(inVal: Option[Double]): Option[BigDecimal] = {
-    Some(inVal.map(BigDecimal(_)).getOrElse(BigDecimal(0.0)))
-  }
-
-
-
 
   /** Function that retrieves class names for each variable (case discrete variable)
     * @param dataInit     : Dataframe that contains all the computed metrics
@@ -114,10 +95,11 @@ object SaveDatastatJob {
     * @return             : list of all class associates to the variable
     */
 
-  def getListCategory(dataInit: DataFrame , nameVariable : String) : (List[String] , Int) = {
+  def getListCategory(dataInit: DataFrame, nameVariable: String): (List[String], Int) = {
     val dataReduiceCategory: DataFrame = dataInit.filter(col("Variables").isin(nameVariable))
-    val listCategory: List[String]  = dataReduiceCategory.select("Category").collect.map(_.getString(0)).toList
-    val lengthListCategory : Int = listCategory.length
+    val listCategory: List[String] =
+      dataReduiceCategory.select("Category").collect.map(_.getString(0)).toList
+    val lengthListCategory: Int = listCategory.length
     (listCategory, lengthListCategory)
   }
 
@@ -128,13 +110,16 @@ object SaveDatastatJob {
     * @return              : the value of the distinct count
     */
 
-  def getMapCategoryCountDiscrete(dataInit: DataFrame , nameVariable : String, nameCategory : String): Long = {
-    val metricName : String = "CountDiscrete"
+  def getMapCategoryCountDiscrete(
+                                   dataInit: DataFrame,
+                                   nameVariable: String,
+                                   nameCategory: String
+                                 ): Long = {
+    val metricName: String = "CountDiscrete"
     val dataReduiceCategory: DataFrame = dataInit.filter(col("Variables").isin(nameVariable))
     val dataCategory: DataFrame = dataReduiceCategory.filter(col("Category").isin(nameCategory))
     dataCategory.select(col(metricName)).first().getLong(0)
   }
-
 
   /** Function that retrieves the values of the Frequencies metric (frequency) for one category  associate to one variable (case discrete variable)
     * @param dataInit      : Dataframe that contains all the computed metrics
@@ -143,15 +128,16 @@ object SaveDatastatJob {
     * @return              : the value of the frequency
     */
 
-  def getMapCategoryFrequencies(dataInit: DataFrame , nameVariable : String, nameCategory : String): Double = {
-    val metricName : String = "Frequencies"
+  def getMapCategoryFrequencies(
+                                 dataInit: DataFrame,
+                                 nameVariable: String,
+                                 nameCategory: String
+                               ): Double = {
+    val metricName: String = "Frequencies"
     val dataReduiceCategory: DataFrame = dataInit.filter(col("Variables").isin(nameVariable))
     val dataCategory: DataFrame = dataReduiceCategory.filter(col("Category").isin(nameCategory))
     dataCategory.select(col(metricName)).first().getDouble(0)
   }
-
-
-
 
   /** Function to save the statDataFrame to parque the first time
     * @param dataToSave : statDataFrame
@@ -159,7 +145,7 @@ object SaveDatastatJob {
     * @return           : the resulting dataframe
     */
 
-  def saveParquet(dataToSave: DataFrame, path : String) : DataFrame  = {
+  def saveParquet(dataToSave: DataFrame, path: String): DataFrame = {
     dataToSave.coalesce(1).write.mode("append").parquet(path)
     dataToSave
   }
@@ -170,26 +156,105 @@ object SaveDatastatJob {
     * @return           : the resulting dataframe
     */
 
-
-  def saveDeleteParquet(dataToSave: DataFrame, path : String, saveDirectoryName: String) : DataFrame  = {
-    val pathReel : String = path + "/" + saveDirectoryName + "/"
+  def saveDeleteParquet(
+                         dataToSave: DataFrame,
+                         path: String,
+                         saveDirectoryName: String
+                       ): DataFrame = {
+    val pathReel: String = path + "/" + saveDirectoryName + "/"
     val fileFinal: File = File(pathReel)
 
-    val pathIntermediate : String = path + "/" + "intermediateDirectory" + "/"
+    val pathIntermediate: String = path + "/" + "intermediateDirectory" + "/"
     val fileIntermediate: File = File(pathIntermediate)
 
-    val dataByVariableStored  : DataFrame = spark.read.parquet(pathReel).union(dataToSave)
+    val dataByVariableStored: DataFrame = session.read.parquet(pathReel).union(dataToSave)
     dataByVariableStored.coalesce(1).write.mode("append").parquet(pathIntermediate)
     fileFinal.delete()
 
-    val dataStored: DataFrame = spark.read.parquet(pathIntermediate)
+    val dataStored: DataFrame = session.read.parquet(pathIntermediate)
     dataStored.coalesce(1).write.mode("append").parquet(pathReel)
     fileIntermediate.delete()
 
-    val dataFinal: DataFrame = spark.read.parquet(pathReel )
+    val dataFinal: DataFrame = session.read.parquet(pathReel)
     dataFinal
   }
 
+  /** Function that get Long type metric
+    * @param metric     : the dataset
+    * @param colName    : the column name
+    * @return           : the metric in Option type of Long
+    */
+  def getMetricLongType(metric: Dataset[Row],colName: String): Option[Long] = {
+    metric.count() match {
+      case 1 => Some(metric.select(colName).first().getLong(0))
+      case _ => None
+    }
+  }
+
+  /** Function that get Double type metric
+    * @param metric     : the dataset
+    * @param colName    : the column name
+    * @return           : the metric in Option type of Double
+    */
+  def getMetricDoubleType(metric: Dataset[Row],colName: String): Option[Double] = {
+    metric.count() match {
+      case 1 => Some(metric.select(colName).first().getDouble(0))
+      case _ => None
+    }
+  }
+
+  /** Function that get String type metric
+    * @param metric     : the dataset
+    * @param colName    : the column name
+    * @return           : the metric in Option type of List of String
+    */
+  def getMetricListStringType(metric: Dataset[Row], colName: String): Option[List[String]] = {
+    metric.count() match {
+      case 1 => None
+      case _ => Some(metric.select("Category").collect.map(_.getString(0)).toList)
+    }
+  }
+
+  /** Function that get countByCategory and frequencies metrics
+    * @param dfStatistics     : the dataframe
+    * @param colName    : the column name
+    * @return           : the metric in Option type of Map[String,A]
+    */
+  def getMetricCount[A](dfStatistics: DataFrame, colName : String, threshold : Int, f: (DataFrame,String,String) => A) : Option[Map[String, A]] = {
+    dfStatistics.filter(col("Variables").isin(colName)).count() match {
+      case _ if getListCategory(dfStatistics, colName)._2 - threshold < 0 => Some(Map((getListCategory(dfStatistics, colName)._1).map(x => (x -> f(dfStatistics, colName, x))): _*))
+      case _ => None
+    }
+  }
+
+  /** Function that get missingValuesDiscrete variable metric
+    * @param dfStatistics     : the dataframe
+    * @param colName    : the column name
+    * @param threshold  : the threshold
+    * @return           : the metric in Option type of Long
+    */
+  def getMetricCountMissValuesDiscrete(dfStatistics: DataFrame, colName: String, threshold: Int) = {
+    dfStatistics.filter(col("Variables").isin(colName)).count() match {
+      case _ if getListCategory(dfStatistics, colName)._2 - threshold < 0 => Some(dfStatistics
+        .filter(col("Variables").isin(colName))
+        .select("CountMissValuesDiscrete")
+        .first()
+        .getLong(0)
+      )
+      case _ => None
+    }
+  }
+
+  /** Function that get countDistinct variable metric
+    * @param dfStatistics     : the dataframe
+    * @param colName    : the column name
+    * @return           : the metric in Option type of Int
+    */
+  def getMetricCountDistinct(dfStatistics: DataFrame, colName: String) = {
+    dfStatistics.filter(col("Variables").isin(colName)).count()  match {
+      case 1 => None
+      case _ => Some(getListCategory(dfStatistics, colName)_2)}
+  }
 
   /** Function to save the dfStatistics to parquet format.
     * @param dfStatistics      : Dataframe that contains all the computed metrics
@@ -202,102 +267,72 @@ object SaveDatastatJob {
     * @param threshold         : The limit value for the number of sub-class to consider
     * @return                  : the stored dataframe version of the parquet file
     */
+  def saveDataStatToParquet(
+                             dfStatistics: DataFrame,
+                             domain: String,
+                             schema: String,
+                             timeIngestion: String,
+                             stageState: String,
+                             path: String,
+                             saveDirectoryName: String,
+                             threshold: Int
+                           ): DataFrame = {
 
 
-  def saveDataStatToParquet(dfStatistics: DataFrame, domain: String, schema: String, timeIngestion : String, stageState : String , path : String, saveDirectoryName: String,  threshold : Int) : DataFrame = {
+    val listVariable: List[String] = dfStatistics
+      .select("Variables")
+      .select("Variables")
+      .collect
+      .map(_.getString(0))
+      .toList
+      .distinct
+    val listRowByVariable: List[dataStatCaseClass] = listVariable.map(
+      c =>
+        dataStatCaseClass(
+          domain,
+          schema,
+          c,
+          getMetricDoubleType(dfStatistics.filter(col("Variables").isin(c)),"Min"),
+          getMetricDoubleType(dfStatistics.filter(col("Variables").isin(c)),"Max"),
+          getMetricDoubleType(dfStatistics.filter(col("Variables").isin(c)),"Mean"),
+          getMetricLongType(dfStatistics.filter(col("Variables").isin(c)),"Count"),
+          getMetricLongType(dfStatistics.filter(col("Variables").isin(c)),"CountMissValues"),
+          getMetricDoubleType(dfStatistics.filter(col("Variables").isin(c)),"Var"),
+          getMetricDoubleType(dfStatistics.filter(col("Variables").isin(c)),"Stddev"),
+          getMetricDoubleType(dfStatistics.filter(col("Variables").isin(c)),"Sum"),
+          getMetricDoubleType(dfStatistics.filter(col("Variables").isin(c)),"Skewness"),
+          getMetricDoubleType(dfStatistics.filter(col("Variables").isin(c)),"Kurtosis"),
+          getMetricDoubleType(dfStatistics.filter(col("Variables").isin(c)),"Percentile25"),
+          getMetricDoubleType(dfStatistics.filter(col("Variables").isin(c)),"Median"),
+          getMetricDoubleType(dfStatistics.filter(col("Variables").isin(c)),"Percentile75"),
+          getMetricListStringType(dfStatistics.filter(col("Variables").isin(c)),"Category"),
+          getMetricCountDistinct(dfStatistics,c),
+          getMetricCount(dfStatistics,c,threshold,getMapCategoryCountDiscrete),
+          getMetricCount(dfStatistics,c,threshold,getMapCategoryFrequencies),
+          getMetricCountMissValuesDiscrete(dfStatistics,c,threshold),
+          timeIngestion,
+          stageState
+        )
+    )
 
-
-    val listVariable : List[String]= dfStatistics.select("Variables").select("Variables").collect.map(_.getString(0)).toList.distinct
-    val listRowByVariable : List[SaveStatistics.dataStatCaseClass]= listVariable.map(c => dataStatCaseClass(
-      domain,
-      schema,
-      c,
-
-      dfStatistics.filter(col("Variables").isin(c)).count()  match { case 1 => Some(dfStatistics.filter(col("Variables").isin(c)).select("Min").first().getDouble(0))
-      case _ => None},
-      dfStatistics.filter(col("Variables").isin(c)).count()  match { case 1 => Some(dfStatistics.filter(col("Variables").isin(c)).select("Max").first().getDouble(0))
-      case _ => None},
-      dfStatistics.filter(col("Variables").isin(c)).count()  match { case 1 => Some(dfStatistics.filter(col("Variables").isin(c)).select("Mean").first().getDouble(0))
-      case _ => None},
-      dfStatistics.filter(col("Variables").isin(c)).count()  match { case 1 => Some(dfStatistics.filter(col("Variables").isin(c)).select("Count").first().getLong(0))
-      case _ => None},
-      dfStatistics.filter(col("Variables").isin(c)).count()  match { case 1 => Some(dfStatistics.filter(col("Variables").isin(c)).select("CountMissValues").first().getLong(0))
-      case _ => None},
-      dfStatistics.filter(col("Variables").isin(c)).count()  match { case 1 => Some(dfStatistics.filter(col("Variables").isin(c)).select("Var").first().getDouble(0))
-      case _ => None},
-      dfStatistics.filter(col("Variables").isin(c)).count()  match { case 1 => Some(dfStatistics.filter(col("Variables").isin(c)).select("Stddev").first().getDouble(0))
-      case _ => None},
-      dfStatistics.filter(col("Variables").isin(c)).count()  match { case 1 => Some(dfStatistics.filter(col("Variables").isin(c)).select("Sum").first().getDouble(0))
-      case _ => None},
-      dfStatistics.filter(col("Variables").isin(c)).count()  match { case 1 => Some(dfStatistics.filter(col("Variables").isin(c)).select("Skewness").first().getDouble(0))
-      case _ => None},
-      dfStatistics.filter(col("Variables").isin(c)).count()  match { case 1 => Some(dfStatistics.filter(col("Variables").isin(c)).select("Kurtosis").first().getDouble(0))
-      case _ => None},
-      dfStatistics.filter(col("Variables").isin(c)).count()  match { case 1 => Some(dfStatistics.filter(col("Variables").isin(c)).select("Percentile25").first().getDouble(0))
-      case _ => None},
-      dfStatistics.filter(col("Variables").isin(c)).count()  match { case 1 => Some(dfStatistics.filter(col("Variables").isin(c)).select("Median").first().getDouble(0))
-      case _ => None},
-      dfStatistics.filter(col("Variables").isin(c)).count()  match { case 1 => Some(dfStatistics.filter(col("Variables").isin(c)).select("Percentile75").first().getDouble(0))
-      case _ => None},
-
-
-
-      dfStatistics.filter(col("Variables").isin(c)).count()  match {
-        case 1 => None
-        case _ => Some(dfStatistics.filter(col("Variables").isin(c)).select("Category").collect.map(_.getString(0)).toList)},
-
-      dfStatistics.filter(col("Variables").isin(c)).count()  match {
-        case 1 => None
-        case _ => Some(getListCategory(dfStatistics, c)_2)},
-
-      dfStatistics.filter(col("Variables").isin(c)).count()  match {
-        case 1 => None
-        case _ => (getListCategory(dfStatistics, c)_2) - threshold < 0 match {
-          case true => Some(Map((getListCategory(dfStatistics, c)._1).map(x => (x -> getMapCategoryCountDiscrete(dfStatistics, c, x))): _*))
-          case false => None }
-      },
-
-      dfStatistics.filter(col("Variables").isin(c)).count()  match {
-        case 1 => None
-        case _ => (getListCategory(dfStatistics, c)_2) -threshold < 0 match {
-          case true => Some(Map((getListCategory(dfStatistics, c)._1).map(x => (x -> getMapCategoryFrequencies(dfStatistics, c, x))): _*))
-          case false => None
-        }
-      },
-
-
-      dfStatistics.filter(col("Variables").isin(c)).count()  match {
-        case 1 => None
-        case _ => (getListCategory(dfStatistics, c)_2) - threshold < 0 match {
-          case true => Some(dfStatistics.filter(col("Variables").isin(c)).select("CountMissValuesDiscrete").first().getLong(0))
-          case false => None
-        }
-      },
-
-      timeIngestion,
-      stageState))
-
-    val dataByVariable   = listRowByVariable.toDF
-    val pathReel : String = path + "/" + saveDirectoryName + "/"
+    val dataByVariable = listRowByVariable.toDF
+    val pathReel: String = path + "/" + saveDirectoryName + "/"
     val fileFinal: File = File(pathReel)
 
-    fileFinal.isEmpty  match {
+    fileFinal.isEmpty match {
       case true  => saveParquet(dataByVariable, pathReel)
       case false => saveDeleteParquet(dataByVariable, path, saveDirectoryName)
     }
 
-
   }
 
+  override def name: String = "Json Stat Job"
 
-
-
-
-
-
-
-
-
+  /**
+    * Just to force any spark job to implement its entry point using within the "run" method
+    *
+    * @param args : arbitrary list of arguments
+    * @return : Spark Session used for the job
+    */
+  override def run(): SparkSession = ???
 }
-
-
