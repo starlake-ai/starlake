@@ -55,7 +55,7 @@ class PrimitiveTypeDeserializer extends JsonDeserializer[PrimitiveType] {
     value match {
       case "string"    => PrimitiveType.string
       case "long"      => PrimitiveType.long
-      case "int"      => PrimitiveType.int
+      case "int"       => PrimitiveType.int
       case "double"    => PrimitiveType.double
       case "boolean"   => PrimitiveType.boolean
       case "byte"      => PrimitiveType.byte
