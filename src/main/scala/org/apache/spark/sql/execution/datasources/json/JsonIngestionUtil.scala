@@ -26,7 +26,7 @@ import com.fasterxml.jackson.core.JsonToken._
 import com.fasterxml.jackson.core.{JsonFactory, JsonParser}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.Row
-import org.apache.spark.sql.catalyst.analysis.TypeCoercion
+import org.apache.spark.sql.catalyst.analysis.TypeCoercion.numericPrecedence
 import org.apache.spark.sql.catalyst.json.JacksonUtils
 import org.apache.spark.sql.types._
 
@@ -51,6 +51,7 @@ object JsonIngestionUtil {
 
   /**
     * similar to compatibleType(...) but instead of creating a new datatype, simply check the compatibility
+    *
     * @param context : full path to attribute, makes error messages more understandable
     * @param schemaType
     * @param datasetType
@@ -126,8 +127,31 @@ object JsonIngestionUtil {
     }
   }
 
+  // From Spark TypeCoercion
+  val findTightestCommonTypeOfTwo: (DataType, DataType) => Option[DataType] = {
+    case (t1, t2) if t1 == t2 => Some(t1)
+    case (NullType, t1)       => Some(t1)
+    case (t1, NullType)       => Some(t1)
+
+    case (t1: IntegralType, t2: DecimalType) if t2.isWiderThan(t1) =>
+      Some(t2)
+    case (t1: DecimalType, t2: IntegralType) if t1.isWiderThan(t2) =>
+      Some(t1)
+
+    // Promote numeric types to the highest of the two
+    case (t1: NumericType, t2: NumericType)
+        if !t1.isInstanceOf[DecimalType] && !t2.isInstanceOf[DecimalType] =>
+      val index = numericPrecedence.lastIndexWhere(t => t == t1 || t == t2)
+      Some(numericPrecedence(index))
+
+    case (_: TimestampType, _: DateType) | (_: DateType, _: TimestampType) =>
+      Some(TimestampType)
+
+    case _ => None
+  }
+
   def compatibleType(t1: DataType, t2: DataType): DataType = {
-    TypeCoercion.findTightestCommonTypeOfTwo(t1, t2).getOrElse {
+    findTightestCommonTypeOfTwo(t1, t2).getOrElse {
       (t1, t2) match {
         case (DoubleType, _: DecimalType) | (_: DecimalType, DoubleType) =>
           DoubleType
