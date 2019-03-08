@@ -1,11 +1,11 @@
 package com.ebiznext.comet.schema.handlers
 
+import com.ebiznext.comet.job.StatDescCodeJob
 import org.apache.log4j.{Level, Logger}
-import org.apache.spark.{SparkConf}
-import org.apache.spark.sql.{SparkSession}
+import org.apache.spark.SparkConf
+import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.functions._
 import org.scalatest.FlatSpec
-import statDesc.SaveStatistics._
 
 import scala.reflect.runtime.universe._
 
@@ -66,7 +66,7 @@ class StatDescJobSpec extends FlatSpec {
   // val titanicDiscreteAttributes: List[String] = Seq("Survived", "Pclass","Siblings","Parents","Sex").toList
 
 
-  val partialContinuousMetric : List[StatDescCode.ContinuousMetric]= List(StatDescCode.Min, StatDescCode.Max)
+  val partialContinuousMetric : List[StatDescCodeJob.ContinuousMetric]= List(StatDescCodeJob.Min, StatDescCodeJob.Max)
 
 
   /**
@@ -85,9 +85,9 @@ class StatDescJobSpec extends FlatSpec {
     * Descriptive statistics of the dataframe for Quantitative variable:
     */
 
-  val result0 = StatDescCode.computeContinuiousMetric(dataInitialUsed, listContnuousAttributes, StatDescCode.allContinuousMetrics)
+  val result0 = StatDescCodeJob.computeContinuiousMetric(dataInitialUsed, listContnuousAttributes, StatDescCodeJob.allContinuousMetrics)
 
-  val result1 = StatDescCode.computeContinuiousMetric(dataInitialUsed, listContnuousAttributes, partialContinuousMetric)
+  val result1 = StatDescCodeJob.computeContinuiousMetric(dataInitialUsed, listContnuousAttributes, partialContinuousMetric)
 
 
   /**
