@@ -55,6 +55,7 @@ class PrimitiveTypeDeserializer extends JsonDeserializer[PrimitiveType] {
     value match {
       case "string"    => PrimitiveType.string
       case "long"      => PrimitiveType.long
+      case "int"      => PrimitiveType.int
       case "double"    => PrimitiveType.double
       case "boolean"   => PrimitiveType.boolean
       case "byte"      => PrimitiveType.byte
@@ -89,6 +90,14 @@ object PrimitiveType {
       if (str == null || str.isEmpty) null else str.toLong
 
     def sparkType: DataType = LongType
+  }
+
+  object int extends PrimitiveType("int") {
+
+    def fromString(str: String, dateFormat: String): Any =
+      if (str == null || str.isEmpty) null else str.toInt
+
+    def sparkType: DataType = IntegerType
   }
 
   object double extends PrimitiveType("double") {
@@ -198,7 +207,7 @@ object PrimitiveType {
   }
 
   val primitiveTypes: Set[PrimitiveType] =
-    Set(string, long, double, decimal, boolean, byte, date, timestamp, struct)
+    Set(string, long, int, double, decimal, boolean, byte, date, timestamp, struct)
 
   import DateTimeFormatter._
 
