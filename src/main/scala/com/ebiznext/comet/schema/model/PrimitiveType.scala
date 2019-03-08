@@ -207,7 +207,7 @@ object PrimitiveType {
   }
 
   val primitiveTypes: Set[PrimitiveType] =
-    Set(string, long, double, decimal, boolean, byte, date, timestamp, struct)
+    Set(string, long, int, double, decimal, boolean, byte, date, timestamp, struct)
 
   import DateTimeFormatter._
 
