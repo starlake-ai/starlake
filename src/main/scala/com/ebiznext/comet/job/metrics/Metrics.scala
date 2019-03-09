@@ -1,19 +1,16 @@
-package com.ebiznext.comet.job
+package com.ebiznext.comet.job.metrics
 
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.{Column, DataFrame}
 
-
-object StatDescCodeJob extends StrictLogging{
-
+object Metrics extends StrictLogging {
 
 
-
-  /**  Case Continuous Variable  with all Metrics
+  /** Case Continuous Variable  with all Metrics
     *
-    * @param name       : the name of the variable
-    * @param function   : the metric function
+    * @param name     : the name of the variable
+    * @param function : the metric function
     */
 
 
@@ -49,13 +46,13 @@ object StatDescCodeJob extends StrictLogging{
 
   /**
     *
-    * @param e        : the name of the column
-    * @param string   : the name of the metric
-    * @param stat     : the metric function
-    * @return         : the computed value of the function
+    * @param e      : the name of the column
+    * @param string : the name of the metric
+    * @param stat   : the metric function
+    * @return : the computed value of the function
     */
 
-  def customMetric(e:Column, string: String, stat:Column=>Column):Column= {
+  def customMetric(e: Column, string: String, stat: Column => Column): Column = {
     val aliasMetric: String = string + "(" + e.toString() + ")"
     stat(e).as(aliasMetric)
   }
@@ -63,82 +60,82 @@ object StatDescCodeJob extends StrictLogging{
 
   /** customize mean of the column e
     *
-    * @param e        : the name of the column
+    * @param e : the name of the column
     * @return Integer : the computed  value of the mean
     */
 
   def customMean(e: Column): Column = {
-    customMetric(e:Column, "Mean", mean)
+    customMetric(e: Column, "Mean", mean)
   }
 
   /** customize variance of the column e
     *
-    * @param e        : the name of the column
+    * @param e : the name of the column
     * @return Integer : the computed  value of the variance
     */
 
   def customVariance(e: Column): Column = {
-    customMetric(e:Column, "Var", variance)
+    customMetric(e: Column, "Var", variance)
   }
 
   /** customize Stddev of the column e
     *
-    * @param e        : the name of the column
+    * @param e : the name of the column
     * @return Integer : the computed  value of the Stddev
     */
 
   def customStddev(e: Column): Column = {
-    customMetric(e:Column, "Stddev", stddev)
+    customMetric(e: Column, "Stddev", stddev)
   }
 
   /**
     *
-    * @param e            : the name of the column
-    * @param string       : the name of the metric
-    * @param stat         : the metric function
-    * @param stat_method  : the approximation method
-    * @param value        : the value to pass to stat_method
+    * @param e           : the name of the column
+    * @param string      : the name of the metric
+    * @param stat        : the metric function
+    * @param stat_method : the approximation method
+    * @param value       : the value to pass to stat_method
     * @return
     */
-  def customMetricUDF(e:Column, string: String, statistics:(String, Column*)=>Column, stat_method:String, value:Double):Column= {
+  def customMetricUDF(e: Column, string: String, statistics: (String, Column *) => Column, stat_method: String, value: Double): Column = {
 
     val aliasMetric: String = string + "(" + e.toString() + ")"
-    statistics(stat_method,e,lit(value)).as(aliasMetric)
+    statistics(stat_method, e, lit(value)).as(aliasMetric)
   }
 
   /** customize Median of the column e
     *
-    * @param e        : the name of the column
+    * @param e : the name of the column
     * @return Integer : the computed  value of the Median
     */
 
   def customMedian(e: Column): Column = {
-    customMetricUDF(e:Column, "Median", callUDF,"percentile_approx", 0.50)
+    customMetricUDF(e: Column, "Median", callUDF, "percentile_approx", 0.50)
   }
 
   /** customize percentile of order 0.75 of the column e
     *
-    * @param e        : the name of the column
+    * @param e : the name of the column
     * @return Integer : the computed  value of the percentile of order 0.75
     */
 
   def percentile75(e: Column): Column = {
-    customMetricUDF(e:Column, "Percentile75", callUDF,"percentile_approx", 0.75)
+    customMetricUDF(e: Column, "Percentile75", callUDF, "percentile_approx", 0.75)
   }
 
   /** customize percentile of order 0.25 of the column e
     *
-    * @param e        : the name of the column
+    * @param e : the name of the column
     * @return Integer : the computed  value of the percentile of order 0.25
     */
 
   def percentile25(e: Column): Column = {
-    customMetricUDF(e:Column, "Percentile25", callUDF,"percentile_approx", 0.25)
+    customMetricUDF(e: Column, "Percentile25", callUDF, "percentile_approx", 0.25)
   }
 
   /** costumize missing values
     *
-    * @param e   : the name of the column
+    * @param e : the name of the column
     * @return Integer : the number of missing values, NaN  values and null values
     */
 
@@ -149,11 +146,9 @@ object StatDescCodeJob extends StrictLogging{
     val unionMissingValues = sum(when(e.isNull
       || e === ""
       || e === " "
-      || e.isNaN,1).otherwise(0))
+      || e.isNaN, 1).otherwise(0))
     unionMissingValues.as(aliasCountMissValues)
   }
-
-
 
 
   object Percentile75 extends ContinuousMetric("Percentile75", percentile75)
@@ -174,16 +169,15 @@ object StatDescCodeJob extends StrictLogging{
     *
     */
 
-  val allContinuousMetrics: List[ContinuousMetric] = List(Min, Max, Mean, Count,CountMissValues,Variance,
-                                                          Stddev, Sum, Skewness, Kurtosis, Percentile25, Median, Percentile75)
+  val continuousMetrics: List[ContinuousMetric] = List(Min, Max, Mean, Count, CountMissValues, Variance,
+    Stddev, Sum, Skewness, Kurtosis, Percentile25, Median, Percentile75)
 
 
-
-  /**  Function to split the DataFrame metric (metricFrame)  to get a sequence of partial DataFrame metric by variable.
+  /** Function to split the DataFrame metric (metricFrame)  to get a sequence of partial DataFrame metric by variable.
     *
     * @param namecol     : the name of the column.
     * @param metricFrame : the DataFrame of all the computed metrics for each variable by columns.
-    * @return            : the DataFrame metric  associated to the variable (namecol).
+    * @return : the DataFrame metric  associated to the variable (namecol).
     */
 
   def splitdata(namecol: String, metricFrame: DataFrame): DataFrame = {
@@ -191,17 +185,17 @@ object StatDescCodeJob extends StrictLogging{
     val splitHead = metricFrame.select(listHead.head, listHead.tail: _*)
     val dataSplit: DataFrame = splitHead.select(splitHead.columns.map(c => bround(col(c), 3).alias(c)): _*) // Reduice decimal values to 3
     val dataSplitPartiel = dataSplit.withColumn("Variables", lit(namecol)) // add  column of name Variables
-    val dataSplitPartielHeader = dataSplitPartiel.columns.toList.map(str => str.replaceAll("\\("+namecol+"\\)", "")).map(_.capitalize)
+    val dataSplitPartielHeader = dataSplitPartiel.columns.toList.map(str => str.replaceAll("\\(" + namecol + "\\)", "")).map(_.capitalize)
     dataSplitPartiel.toDF(dataSplitPartielHeader: _*)
   }
 
 
-  /**  Function to combine all the partial DataFrame metric by variable (to get one DataFrame by row).
+  /** Function to combine all the partial DataFrame metric by variable (to get one DataFrame by row).
     *
     * @param indexToDataFrame : function that link the index to  each partial DataFrame metric by variable.
     * @param indexDataFrame   : index associated  with partial DataFrame metric by variable.
     * @param variableList     : list of variable.
-    * @return                 : DataFrame metric  of all variables by row.
+    * @return : DataFrame metric  of all variables by row.
     */
 
   def unionFrame(indexToDataFrame: Int => DataFrame)(indexDataFrame: Int, variableList: List[String]): DataFrame = {
@@ -209,6 +203,7 @@ object StatDescCodeJob extends StrictLogging{
       if (indexDataFrame == variableList.length - 1) result
       else iter(indexDataFrame + 1, result.union(indexToDataFrame(indexDataFrame + 1)))
     }
+
     iter(indexDataFrame, indexToDataFrame(indexDataFrame))
   }
 
@@ -222,8 +217,8 @@ object StatDescCodeJob extends StrictLogging{
     */
 
 
-  def computeContinuiousMetric(dataUse: DataFrame, attributes: List[String], operations: List[ContinuousMetric]) : DataFrame = {
-    val headerDataUse  = dataUse.columns.toList
+  def computeContinuiousMetric(dataUse: DataFrame, attributes: List[String], operations: List[ContinuousMetric]): DataFrame = {
+    val headerDataUse = dataUse.columns.toList
     val intersectionHeaderAttributes = headerDataUse.intersect(attributes)
     val listDifference = attributes.filterNot(headerDataUse.contains)
 
@@ -243,18 +238,17 @@ object StatDescCodeJob extends StrictLogging{
   }
 
 
-
-  case class DiscreteMetric(name: String, function: (DataFrame , String) => DataFrame)
+  case class DiscreteMetric(name: String, function: (DataFrame, String) => DataFrame)
 
   /** customize count for discrete variable
     *
-    * @param dataInit    : initial DataFrame
-    * @param e           : name of the column
-    * @return  DataFrame : whit the name of category and the value of the count
+    * @param dataInit : initial DataFrame
+    * @param e        : name of the column
+    * @return DataFrame : whit the name of category and the value of the count
     */
 
 
-  def customCountDiscrete(dataInit: DataFrame , e: String): DataFrame= {
+  def customCountDiscrete(dataInit: DataFrame, e: String): DataFrame = {
     val valueCount: DataFrame = dataInit.groupBy(e).count()
     valueCount.toDF("Category", "CountDiscrete")
   }
@@ -262,45 +256,42 @@ object StatDescCodeJob extends StrictLogging{
 
   /** customize Category for discrete variable
     *
-    * @param dataInit    : initial DataFrame
-    * @param e           : name of the column
-    * @return  DataFrame : whit the name of category
+    * @param dataInit : initial DataFrame
+    * @param e        : name of the column
+    * @return DataFrame : whit the name of category
     */
 
-  def customCategory(dataInit: DataFrame , e: String): DataFrame= {
+  def customCategory(dataInit: DataFrame, e: String): DataFrame = {
     val valueCategory: DataFrame = dataInit.groupBy(e).count()
     valueCategory.toDF("Category", "CountDiscrete").select("Category")
   }
 
   /** customize Frequencies for discrete variable
     *
-    * @param dataInit    : initial DataFrame
-    * @param e           : name of the column
-    * @return  DataFrame : whit the name of category and the values of the Frequencies
+    * @param dataInit : initial DataFrame
+    * @param e        : name of the column
+    * @return DataFrame : whit the name of category and the values of the Frequencies
     */
 
-  def customFrequencies(dataInit: DataFrame , e: String): DataFrame= {
+  def customFrequencies(dataInit: DataFrame, e: String): DataFrame = {
     val subColFrame: DataFrame = customCountDiscrete(dataInit, e)
     val sumValues: Long = subColFrame.agg(sum("CountDiscrete")).first.getAs[Long](0)
-    val valueFrequencies: DataFrame= subColFrame.withColumn("Frequencies", bround(subColFrame("CountDiscrete") / sumValues, 3))
-    valueFrequencies.select("Category","Frequencies")
+    val valueFrequencies: DataFrame = subColFrame.withColumn("Frequencies", bround(subColFrame("CountDiscrete") / sumValues, 3))
+    valueFrequencies.select("Category", "Frequencies")
   }
 
 
   /**
     *
-    * @param dataInit   : initial DataFrame
-    * @param e          : the name of the column
+    * @param dataInit : initial DataFrame
+    * @param e        : the name of the column
     * @return DataFrame : whit the number of missing values, NaN  values and null values
     */
-  def customCountMissValuesDiscrete(dataInit: DataFrame , e: String):   DataFrame= {
-    val numMissValues =  dataInit.filter(dataInit(e).isNull || dataInit(e) === " " || dataInit(e).isNaN).count()
-    val subColFrame: DataFrame = customCategory(dataInit, e).withColumn("CountMissValuesDiscrete",lit(numMissValues))
+  def customCountMissValuesDiscrete(dataInit: DataFrame, e: String): DataFrame = {
+    val numMissValues = dataInit.filter(dataInit(e).isNull || dataInit(e) === " " || dataInit(e).isNaN).count()
+    val subColFrame: DataFrame = customCategory(dataInit, e).withColumn("CountMissValuesDiscrete", lit(numMissValues))
     subColFrame.toDF("Category", "CountMissValuesDiscrete")
   }
-
-
-
 
 
   object Category extends DiscreteMetric("Category", customCategory)
@@ -312,12 +303,11 @@ object StatDescCodeJob extends StrictLogging{
   object CountMissValuesDiscrete extends DiscreteMetric("CountMissValuesDiscrete", customCountMissValuesDiscrete)
 
 
-
   /** List of all available metrics.
     *
     */
 
-  val allDiscreteMetrics: List[DiscreteMetric] = List(Category, CountDiscrete, Frequencies, CountMissValuesDiscrete)
+  val discreteMetrics: List[DiscreteMetric] = List(Category, CountDiscrete, Frequencies, CountMissValuesDiscrete)
 
   /** Function to compute each partial DataFrame metric by variable.
     *
@@ -328,8 +318,8 @@ object StatDescCodeJob extends StrictLogging{
     */
 
   def subFrame(dataInit: DataFrame, name: String, operations: List[DiscreteMetric]): DataFrame = {
-    val metrics: List[DataFrame] =  operations.map(metric => metric.function(dataInit, name))
-    val metricFrame: DataFrame = metrics.reduce((a, b) => a.join(b,"Category"))
+    val metrics: List[DataFrame] = operations.map(metric => metric.function(dataInit, name))
+    val metricFrame: DataFrame = metrics.reduce((a, b) => a.join(b, "Category"))
     metricFrame.withColumn("Variables", lit(name))
   }
 
@@ -342,25 +332,23 @@ object StatDescCodeJob extends StrictLogging{
     */
 
 
+  def computeDiscretMetric(dataUse: DataFrame, attributes: List[String], operations: List[DiscreteMetric]): DataFrame = {
 
-  def computeDiscretMetric(dataUse: DataFrame, attributes: List[String], operations: List[DiscreteMetric]):  DataFrame= {
-
-    val headerDataUse  = dataUse.columns.toList
+    val headerDataUse = dataUse.columns.toList
     val intersectionHeaderAttributes = headerDataUse.intersect(attributes)
     val listDifference = attributes.filterNot(headerDataUse.contains)
 
-    val attributeChecked =  intersectionHeaderAttributes.nonEmpty match {
-      case true   => attributes
-      case false  =>
+    val attributeChecked = intersectionHeaderAttributes.nonEmpty match {
+      case true => attributes
+      case false =>
         logger.error("These attributes are not part of the variable names: " + listDifference.mkString(","))
         headerDataUse
     }
 
     val colRenamed: List[String] = "Variables" :: operations.map(_.name)
-    val matrixMetric = unionFrame(x => subFrame(dataUse, attributeChecked(x),operations))(0, attributeChecked)
+    val matrixMetric = unionFrame(x => subFrame(dataUse, attributeChecked(x), operations))(0, attributeChecked)
     matrixMetric.select(colRenamed.head, colRenamed.tail: _*)
   }
-
 
 
 }
