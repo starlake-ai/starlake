@@ -18,7 +18,7 @@
  *
  */
 
-package com.ebiznext.comet.job
+package com.ebiznext.comet.job.ingest
 
 import com.ebiznext.comet.config.{DatasetArea, HiveArea}
 import com.ebiznext.comet.schema.handlers.StorageHandler
@@ -73,7 +73,6 @@ class JsonIngestionJob(
     val acceptedRDD: RDD[String] = checkedRDD.filter(_.isRight).map(_.right.get)
     val rejectedRDD: RDD[String] =
       checkedRDD.filter(_.isLeft).map(_.left.get.mkString("\n"))
-    rejectedRDD.collect().foreach(println)
     val acceptedDF = session.read.json(acceptedRDD)
     saveRejected(rejectedRDD)
     saveAccepted(acceptedDF) // prefer to let Spark compute the final schema
