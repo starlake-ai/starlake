@@ -141,6 +141,8 @@ object PrimitiveType {
     def sparkType: DataType = new StructType(Array.empty[StructField])
   }
 
+  val offsetMillis = ZonedDateTime.now.getOffset.getTotalSeconds * 1000
+  
   private def instantFromString(str: String, format: String): Instant = {
     import java.time.format.DateTimeFormatter
     format match {
@@ -169,7 +171,6 @@ object PrimitiveType {
                 import java.text.SimpleDateFormat
                 val df = new SimpleDateFormat(format)
                 val date = df.parse(str)
-                val offsetMillis = ZonedDateTime.now.getOffset.getTotalSeconds * 1000
                 Instant.ofEpochMilli(date.getTime + offsetMillis)
             }
         }
