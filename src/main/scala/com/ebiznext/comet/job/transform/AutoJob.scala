@@ -18,10 +18,11 @@
  *
  */
 
-package com.ebiznext.comet.job
+package com.ebiznext.comet.job.transform
 
 import com.ebiznext.comet.config.{DatasetArea, HiveArea, Settings}
 import com.ebiznext.comet.schema.model.AutoTask
+import com.ebiznext.comet.utils.SparkJob
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.SparkSession
 

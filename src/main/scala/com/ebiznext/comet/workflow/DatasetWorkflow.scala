@@ -22,10 +22,11 @@ package com.ebiznext.comet.workflow
 
 import better.files._
 import com.ebiznext.comet.config.{DatasetArea, Settings}
-import com.ebiznext.comet.job.{AutoJob, DsvIngestionJob, JsonIngestionJob, SimpleJsonIngestionJob}
+import com.ebiznext.comet.job.ingest.{DsvIngestionJob, JsonIngestionJob, SimpleJsonIngestionJob}
 import com.ebiznext.comet.schema.handlers.{LaunchHandler, SchemaHandler, StorageHandler}
 import com.ebiznext.comet.schema.model.Format.{DSV, JSON, SIMPLE_JSON}
 import com.ebiznext.comet.schema.model.{AutoJobDesc, Domain, Metadata, Schema}
+import com.ebiznext.comet.job.transform.AutoJob
 import com.ebiznext.comet.utils.Utils
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
