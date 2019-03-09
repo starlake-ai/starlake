@@ -25,6 +25,7 @@ import java.time.{Instant, LocalDateTime, ZoneId}
 import org.apache.commons.io.IOUtils
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs._
+import org.apache.spark.sql.execution.streaming.FileStreamSource.Timestamp
 
 /**
   * Interface required by any filesystem manager
@@ -52,6 +53,8 @@ trait StorageHandler {
   def blockSize(path: Path): Long
 
   def contentSummary(path: Path): ContentSummary
+
+  def lastModified(path:Path) : Timestamp
 
   def spaceConsumed(path: Path): Long
 
@@ -194,6 +197,13 @@ class HdfsStorageHandler extends StorageHandler {
 
   def spaceConsumed(path: Path): Long = {
     contentSummary(path).getSpaceConsumed
+  }
+
+  def lastModified(path: Path) : Timestamp = {
+    val conf = new Configuration()
+    val fs = FileSystem.get(conf)
+    fs.getFileStatus(path).getModificationTime
+
   }
 
 }

@@ -18,7 +18,7 @@
  *
  */
 
-package com.ebiznext.comet.job
+package com.ebiznext.comet.job.ingest
 
 import com.ebiznext.comet.schema.handlers.StorageHandler
 import com.ebiznext.comet.schema.model._
