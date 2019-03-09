@@ -47,26 +47,27 @@ object Settings extends StrictLogging {
     * @param business   : Name of the business area
     */
   final case class Area(
-    pending: String,
-    unresolved: String,
-    archive: String,
-    ingesting: String,
-    accepted: String,
-    rejected: String,
-    business: String
-  )
+                         pending: String,
+                         unresolved: String,
+                         archive: String,
+                         ingesting: String,
+                         accepted: String,
+                         rejected: String,
+                         business: String
+                       )
 
   /**
     *
     * @param discreteMaxCardinality : Max number of unique values allowed in cardinality compute
     *
     */
-  final case class Stat(discreteMaxCardinality: Int)
+  final case class Metrics(path: String, discreteMaxCardinality: Int)
 
   /**
     *
     * @param datasets    : Absolute path, datasets root folder beneath which each area is defined.
     * @param metadata    : Absolute path, location where all types / domains and auto jobs are defined
+    * @param metrics     : Absolute path, location where all computed metrics are stored
     * @param archive     : Should we backup the ingested datasets ? true by default
     * @param writeFormat : Choose between parquet, orc ... Default is parquet
     * @param launcher    : Cron Job Manager: simple (useful for testing) or airflow ? simple by default
@@ -76,19 +77,20 @@ object Settings extends StrictLogging {
     * @param airflow     : Airflow end point. Should be defined even if simple launccher is used instead of airflow.
     */
   final case class Comet(
-    datasets: String,
-    metadata: String,
-    archive: Boolean,
-    writeFormat: String,
-    launcher: String,
-    analyze: Boolean,
-    hive: Boolean,
-    area: Area,
-    airflow: Airflow
-  ) {
+                          datasets: String,
+                          metadata: String,
+                          metrics: Metrics,
+                          archive: Boolean,
+                          writeFormat: String,
+                          launcher: String,
+                          analyze: Boolean,
+                          hive: Boolean,
+                          area: Area,
+                          airflow: Airflow
+                        ) {
 
     def getLauncher(): LaunchHandler = launcher match {
-      case "simple"  => new SimpleLauncher
+      case "simple" => new SimpleLauncher
       case "airflow" => new AirflowLauncher
     }
   }
