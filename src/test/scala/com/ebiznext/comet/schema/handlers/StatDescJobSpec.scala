@@ -55,7 +55,7 @@ class StatDescJobSpec extends FlatSpec {
     */
 
 
-  val pathDataInitial : String = "./src/test/ressources/iris.csv"
+  val pathDataInitial : String = "./src/test/resources/iris.csv"
 
   val listContnuousAttributes: List[String] = Seq("SepalLength", "SepalWidth","PetalLength","PetalWidth").toList
   val listDiscreteAttributes: List[String] = Seq("Name").toList
