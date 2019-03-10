@@ -142,7 +142,7 @@ object PrimitiveType {
   }
 
   val offsetMillis = ZonedDateTime.now.getOffset.getTotalSeconds * 1000
-  
+
   private def instantFromString(str: String, format: String): Instant = {
     import java.time.format.DateTimeFormatter
     format match {

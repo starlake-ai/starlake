@@ -100,7 +100,7 @@ class DatasetWorkflow(
           logger.error(s"No archive found for file ${ackFile.pathAsString}")
         }
         if (tmpDir.exists) {
-          val destFolder = DatasetArea.pending(domain.name) // Add FileName with timestamp in nanos
+          val destFolder = DatasetArea.pending(domain.name)
           tmpDir.list.foreach { file =>
             val source = new Path(file.pathAsString)
             logger.info(s"Importing ${file.pathAsString}")

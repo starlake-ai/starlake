@@ -10,16 +10,17 @@ import org.apache.spark.sql._
 import org.apache.spark.sql.execution.streaming.FileStreamSource.Timestamp
 import org.apache.spark.sql.functions.col
 
-
 /** To record statistics with other information during ingestion.
   *
   */
 
-class MetricsJob(datasetPath: Path,
-                 domain: Domain,
-                 schema: Schema,
-                 stage: String,
-                 storageHandler: StorageHandler) extends SparkJob {
+class MetricsJob(
+  datasetPath: Path,
+  domain: Domain,
+  schema: Schema,
+  stage: String,
+  storageHandler: StorageHandler
+) extends SparkJob {
 
   /**
     *
@@ -45,35 +46,35 @@ class MetricsJob(datasetPath: Path,
     * @param frequencies           : Frequency metric
     * @param missingValuesDiscrete : Missing Values Discrete metric
     */
-  case class MetricRow(domain: String,
-                       schema: String,
-                       variableName: String,
-                       min: Option[Long],
-                       max: Option[Long],
-                       mean: Option[Long],
-                       count: Option[Long],
-                       missingValues: Option[Long],
-                       variance: Option[Double],
-                       standarddev: Option[Double],
-                       sum: Option[Double],
-                       skewness: Option[Double],
-                       kurtosis: Option[Double],
-                       percentile25: Option[Double],
-                       median: Option[Double],
-                       percentile75: Option[Double],
-                       category: Option[List[String]],
-                       countDistinct: Option[Int],
-                       countByCategory: Option[Map[String, Long]],
-                       frequencies: Option[Map[String, Double]],
-                       missingValuesDiscrete: Option[Long],
-                       timestamp: Long,
-                       stage: String
-                      )
+  case class MetricRow(
+    domain: String,
+    schema: String,
+    variableName: String,
+    min: Option[Long],
+    max: Option[Long],
+    mean: Option[Long],
+    count: Option[Long],
+    missingValues: Option[Long],
+    variance: Option[Double],
+    standarddev: Option[Double],
+    sum: Option[Double],
+    skewness: Option[Double],
+    kurtosis: Option[Double],
+    percentile25: Option[Double],
+    median: Option[Double],
+    percentile75: Option[Double],
+    category: Option[List[String]],
+    countDistinct: Option[Int],
+    countByCategory: Option[Map[String, Long]],
+    frequencies: Option[Map[String, Double]],
+    missingValuesDiscrete: Option[Long],
+    timestamp: Long,
+    stage: String
+  )
 
   /**
     * Spark configuration
     */
-
   /** Function to get values of option
     *
     * @param x
@@ -82,7 +83,7 @@ class MetricsJob(datasetPath: Path,
 
   def getShow(x: Option[Any]) = x match {
     case Some(s) => s
-    case None => "?"
+    case None    => "?"
   }
 
   /** Function that retrieves class names for each variable (case discrete variable)
@@ -109,10 +110,10 @@ class MetricsJob(datasetPath: Path,
     */
 
   def getMapCategoryCountDiscrete(
-                                   dataInit: DataFrame,
-                                   nameVariable: String,
-                                   nameCategory: String
-                                 ): Long = {
+    dataInit: DataFrame,
+    nameVariable: String,
+    nameCategory: String
+  ): Long = {
     val metricName: String = "CountDiscrete"
     val dataReduiceCategory: DataFrame = dataInit.filter(col("Variables").isin(nameVariable))
     val dataCategory: DataFrame = dataReduiceCategory.filter(col("Category").isin(nameCategory))
@@ -128,10 +129,10 @@ class MetricsJob(datasetPath: Path,
     */
 
   def getMapCategoryFrequencies(
-                                 dataInit: DataFrame,
-                                 nameVariable: String,
-                                 nameCategory: String
-                               ): Double = {
+    dataInit: DataFrame,
+    nameVariable: String,
+    nameCategory: String
+  ): Double = {
     val metricName: String = "Frequencies"
     val dataReduiceCategory: DataFrame = dataInit.filter(col("Variables").isin(nameVariable))
     val dataCategory: DataFrame = dataReduiceCategory.filter(col("Category").isin(nameCategory))
@@ -157,9 +158,7 @@ class MetricsJob(datasetPath: Path,
     * @return : the resulting dataframe
     */
 
-  def saveDeleteParquet(
-                         dataToSave: DataFrame,
-                         path: Path) = {
+  def saveDeleteParquet(dataToSave: DataFrame, path: Path) = {
 
     val pathIntermediate = new Path(path, "intermediateDirectory")
 
@@ -218,9 +217,20 @@ class MetricsJob(datasetPath: Path,
     * @param colName      : the column name
     * @return : the metric in Option type of Map[String,A]
     */
-  def getMetricCount[A](dfStatistics: DataFrame, colName: String, threshold: Int, f: (DataFrame, String, String) => A): Option[Map[String, A]] = {
+  def getMetricCount[A](
+    dfStatistics: DataFrame,
+    colName: String,
+    threshold: Int,
+    f: (DataFrame, String, String) => A
+  ): Option[Map[String, A]] = {
     dfStatistics.filter(col("Variables").isin(colName)).count() match {
-      case _ if getListCategory(dfStatistics, colName)._2 - threshold < 0 => Some(Map((getListCategory(dfStatistics, colName)._1).map(x => (x -> f(dfStatistics, colName, x))): _*))
+      case _ if getListCategory(dfStatistics, colName)._2 - threshold < 0 =>
+        Some(
+          Map(
+            (getListCategory(dfStatistics, colName)._1)
+              .map(x => (x -> f(dfStatistics, colName, x))): _*
+          )
+        )
       case _ => None
     }
   }
@@ -234,12 +244,14 @@ class MetricsJob(datasetPath: Path,
     */
   def getMetricCountMissValuesDiscrete(dfStatistics: DataFrame, colName: String, threshold: Int) = {
     dfStatistics.filter(col("Variables").isin(colName)).count() match {
-      case _ if getListCategory(dfStatistics, colName)._2 - threshold < 0 => Some(dfStatistics
-        .filter(col("Variables").isin(colName))
-        .select("CountMissValuesDiscrete")
-        .first()
-        .getLong(0)
-      )
+      case _ if getListCategory(dfStatistics, colName)._2 - threshold < 0 =>
+        Some(
+          dfStatistics
+            .filter(col("Variables").isin(colName))
+            .select("CountMissValuesDiscrete")
+            .first()
+            .getLong(0)
+        )
       case _ => None
     }
   }
@@ -270,15 +282,14 @@ class MetricsJob(datasetPath: Path,
     * @return : the stored dataframe version of the parquet file
     */
   def saveDataStatToParquet(
-                             dfStatistics: DataFrame,
-                             domain: Domain,
-                             schema: Schema,
-                             ingestionTime: Timestamp,
-                             stageState: String,
-                             path: Path,
-                             threshold: Int
-                           ): DataFrame = {
-
+    dfStatistics: DataFrame,
+    domain: Domain,
+    schema: Schema,
+    ingestionTime: Timestamp,
+    stageState: String,
+    path: Path,
+    threshold: Int
+  ): DataFrame = {
 
     val listVariable: List[String] = dfStatistics
       .select("Variables")
@@ -287,34 +298,33 @@ class MetricsJob(datasetPath: Path,
       .map(_.getString(0))
       .toList
       .distinct
-    val listRowByVariable = listVariable.map {
-      c =>
-        val metric = dfStatistics.filter(col("Variables").isin(c))
-        MetricRow(
-          domain.name,
-          schema.name,
-          c,
-          getMetricLongType(metric, "Min"),
-          getMetricLongType(metric, "Max"),
-          getMetricLongType(metric, "Mean"),
-          getMetricLongType(metric, "Count"),
-          getMetricLongType(metric, "CountMissValues"),
-          getMetricDoubleType(metric, "Var"),
-          getMetricDoubleType(metric, "Stddev"),
-          getMetricDoubleType(metric, "Sum"),
-          getMetricDoubleType(metric, "Skewness"),
-          getMetricDoubleType(metric, "Kurtosis"),
-          getMetricDoubleType(metric, "Percentile25"),
-          getMetricDoubleType(metric, "Median"),
-          getMetricDoubleType(metric, "Percentile75"),
-          getMetricListStringType(metric, "Category"),
-          getMetricCountDistinct(dfStatistics, c),
-          getMetricCount(dfStatistics, c, threshold, getMapCategoryCountDiscrete),
-          getMetricCount(dfStatistics, c, threshold, getMapCategoryFrequencies),
-          getMetricCountMissValuesDiscrete(dfStatistics, c, threshold),
-          ingestionTime,
-          stageState
-        )
+    val listRowByVariable = listVariable.map { c =>
+      val metric = dfStatistics.filter(col("Variables").isin(c))
+      MetricRow(
+        domain.name,
+        schema.name,
+        c,
+        getMetricLongType(metric, "Min"),
+        getMetricLongType(metric, "Max"),
+        getMetricLongType(metric, "Mean"),
+        getMetricLongType(metric, "Count"),
+        getMetricLongType(metric, "CountMissValues"),
+        getMetricDoubleType(metric, "Var"),
+        getMetricDoubleType(metric, "Stddev"),
+        getMetricDoubleType(metric, "Sum"),
+        getMetricDoubleType(metric, "Skewness"),
+        getMetricDoubleType(metric, "Kurtosis"),
+        getMetricDoubleType(metric, "Percentile25"),
+        getMetricDoubleType(metric, "Median"),
+        getMetricDoubleType(metric, "Percentile75"),
+        getMetricListStringType(metric, "Category"),
+        getMetricCountDistinct(dfStatistics, c),
+        getMetricCount(dfStatistics, c, threshold, getMapCategoryCountDiscrete),
+        getMetricCount(dfStatistics, c, threshold, getMapCategoryFrequencies),
+        getMetricCountMissValuesDiscrete(dfStatistics, c, threshold),
+        ingestionTime,
+        stageState
+      )
     }
 
     import session.implicits._
@@ -329,16 +339,14 @@ class MetricsJob(datasetPath: Path,
 
   override def name: String = "Json Stat Job"
 
-
   def metricsPath(path: String): Path = {
     new Path(
-      path.
-        replace("{domain}", domain.name).
-        replace("{schema}", schema.name).
-        replace("{dataset}", datasetPath.toString)
+      path
+        .replace("{domain}", domain.name)
+        .replace("{schema}", schema.name)
+        .replace("{dataset}", datasetPath.toString)
     )
   }
-
 
   /**
     * Just to force any spark job to implement its entry point using within the "run" method
@@ -371,5 +379,3 @@ class MetricsJob(datasetPath: Path,
     session
   }
 }
-
-

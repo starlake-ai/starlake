@@ -104,12 +104,12 @@ trait IngestionJob extends SparkJob {
     * @param area       : accepted or rejected area
     */
   def saveRows(
-                dataset: DataFrame,
-                targetPath: Path,
-                writeMode: WriteMode,
-                area: HiveArea,
-                merge: Boolean
-              ): Unit = {
+    dataset: DataFrame,
+    targetPath: Path,
+    writeMode: WriteMode,
+    area: HiveArea,
+    merge: Boolean
+  ): Unit = {
     if (dataset.columns.length > 0) {
       val count = dataset.count()
       val saveMode = writeMode.toSaveMode
@@ -185,7 +185,15 @@ trait IngestionJob extends SparkJob {
           val analyzeTable =
             s"ANALYZE TABLE $fullTableName COMPUTE STATISTICS FOR COLUMNS $allCols"
           if (session.version.substring(0, 3).toDouble >= 2.4)
-            session.sql(analyzeTable)
+            try {
+              session.sql(analyzeTable)
+            } catch {
+              case e: Throwable =>
+                logger.warn(
+                  s"Failed to compute statistics for table $fullTableName on columns $allCols"
+                )
+                e.printStackTrace()
+            }
         }
       } else {
         finalDataset.save()
