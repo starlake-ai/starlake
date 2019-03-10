@@ -48,7 +48,7 @@ case class Attribute(
   privacy: Option[PrivacyLevel] = None,
   comment: Option[String] = None,
   rename: Option[String] = None,
-  stat: Option[Stat] = None,
+  indexType: Option[IndexType] = None,
   attributes: Option[List[Attribute]] = None
 ) {
 
@@ -141,6 +141,8 @@ case class Attribute(
     }
   }
 
+  def esMapping() = {}
+
   /**
     * @return renamed column if defined, source name otherwise
     */
@@ -153,6 +155,6 @@ case class Attribute(
 
   def isRequired(): Boolean = Option(this.required).getOrElse(false)
 
-  def getStat(): Stat = this.stat.getOrElse(Stat.NONE)
+  def getIndexType(): IndexType = this.indexType.getOrElse(IndexType.NONE)
 
 }
