@@ -47,14 +47,14 @@ object Settings extends StrictLogging {
     * @param business   : Name of the business area
     */
   final case class Area(
-                         pending: String,
-                         unresolved: String,
-                         archive: String,
-                         ingesting: String,
-                         accepted: String,
-                         rejected: String,
-                         business: String
-                       )
+    pending: String,
+    unresolved: String,
+    archive: String,
+    ingesting: String,
+    accepted: String,
+    rejected: String,
+    business: String
+  )
 
   /**
     *
@@ -77,20 +77,20 @@ object Settings extends StrictLogging {
     * @param airflow     : Airflow end point. Should be defined even if simple launccher is used instead of airflow.
     */
   final case class Comet(
-                          datasets: String,
-                          metadata: String,
-                          metrics: Metrics,
-                          archive: Boolean,
-                          writeFormat: String,
-                          launcher: String,
-                          analyze: Boolean,
-                          hive: Boolean,
-                          area: Area,
-                          airflow: Airflow
-                        ) {
+    datasets: String,
+    metadata: String,
+    metrics: Metrics,
+    archive: Boolean,
+    writeFormat: String,
+    launcher: String,
+    analyze: Boolean,
+    hive: Boolean,
+    area: Area,
+    airflow: Airflow
+  ) {
 
     def getLauncher(): LaunchHandler = launcher match {
-      case "simple" => new SimpleLauncher
+      case "simple"  => new SimpleLauncher
       case "airflow" => new AirflowLauncher
     }
   }
