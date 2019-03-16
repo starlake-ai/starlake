@@ -57,6 +57,7 @@ class SimpleJsonIngestionJob(
     df.printSchema()
     import session.implicits._
     if (df.columns.contains("_corrupt_record")) {
+      //TODO send rejected records to rejected area
       df.filter($"_corrupt_record".isNotNull).show(100, false)
       throw new Exception(
         s"Invalid JSON File: ${path.toString}. SIMPLE_JSON require a valid json file "

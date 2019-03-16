@@ -351,18 +351,18 @@ class MetricsJob(
   /**
     * Just to force any spark job to implement its entry point using within the "run" method
     *
-    * @param args : arbitrary list of arguments
     * @return : Spark Session used for the job
     */
   override def run(): SparkSession = {
     val dataUse: DataFrame = session.read.parquet(datasetPath.toString)
-    val attributes: List[String] = ???
+    val attributes: List[String] = schema.discreteAttrs().map(_.name)
     val discreteOps: List[DiscreteMetric] = Metrics.discreteMetrics
     val continuousOps: List[ContinuousMetric] = Metrics.continuousMetrics
     val stageState: String = ???
     val metricsPath: Path = new Path(Settings.comet.metrics.path)
-    val discreteDataset = Metrics.computeDiscretMetric(dataUse, attributes, discreteOps)
-    val continuousDataset = Metrics.computeContinuiousMetric(dataUse, attributes, continuousOps)
+
+    val discreteDataset = Metrics.computeDiscretMetric(dataUse, schema.discreteAttrs().map(_.name), discreteOps)
+    val continuousDataset = Metrics.computeContinuiousMetric(dataUse, schema.continuousAttrs().map(_.name), continuousOps)
 
     val savePath = new Path(metricsPath, new Path(domain.name, schema.name))
     storageHandler.mkdirs(savePath)
