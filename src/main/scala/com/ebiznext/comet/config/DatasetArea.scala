@@ -105,9 +105,11 @@ object DatasetArea {
 
   val metadata: Path = new Path(s"${Settings.comet.metadata}")
   val types: Path = new Path(metadata, "types")
+  val mapping: Path = new Path(metadata, "mapping")
   val domains: Path = new Path(metadata, "domains")
   val jobs: Path = new Path(metadata, "jobs")
 
+  println(Settings.comet)
   /**
     *
     * @param storage
@@ -120,7 +122,7 @@ object DatasetArea {
     init(storage)
     domains.foreach { domain =>
       List(pending _, unresolved _, archive _, accepted _, rejected _, business _)
-        .map(_(domain))
+        .map(_ (domain))
         .foreach(storage.mkdirs)
     }
   }
@@ -142,7 +144,7 @@ object HiveArea {
       case Settings.comet.area.rejected => HiveArea.rejected
       case Settings.comet.area.accepted => HiveArea.accepted
       case Settings.comet.area.business => HiveArea.business
-      case custom                       => HiveArea(custom)
+      case custom => HiveArea(custom)
     }
   }
 
