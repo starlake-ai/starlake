@@ -48,7 +48,7 @@ case class Attribute(
   privacy: Option[PrivacyLevel] = None,
   comment: Option[String] = None,
   rename: Option[String] = None,
-  stat: Option[Stat] = None,
+  metricType: Option[MetricType] = None,
   attributes: Option[List[Attribute]] = None
 ) {
 
@@ -104,8 +104,9 @@ case class Attribute(
     * @param types : List of gloablly defined types
     * @return Primitive type if attribute is a leaf node or array of primitive type, None otherwise
     */
-  def primitiveSparkType(types: Types): DataType = {
-    types.types
+  def primitiveSparkType(): DataType = {
+    import com.ebiznext.comet.config.Settings.schemaHandler.types
+    types
       .find(_.name == `type`)
       .map(_.primitiveType)
       .map { tpe =>
@@ -120,16 +121,15 @@ case class Attribute(
   /**
     * Go get recursively the Spark tree type of this object
     *
-    * @param types : List of globalluy defined types
     * @return Spark type of this attribute
     */
-  def sparkType(types: Types): DataType = {
-    val tpe = primitiveSparkType(types)
+  def sparkType(): DataType = {
+    val tpe = primitiveSparkType()
     tpe match {
       case _: StructType =>
         attributes.map { attrs =>
           val fields = attrs.map { attr =>
-            StructField(attr.name, attr.sparkType(types), !attr.required)
+            StructField(attr.name, attr.sparkType(), !attr.required)
           }
           if (isArray())
             ArrayType(StructType(fields))
@@ -138,6 +138,63 @@ case class Attribute(
         } getOrElse (throw new Exception("Should never happen: empty list of attributes"))
 
       case simpleType => simpleType
+    }
+  }
+
+  def mapping(): String = {
+    import com.ebiznext.comet.config.Settings.schemaHandler.types
+    attributes match {
+      case Some(attrs) =>
+        s"""
+           |"$name": {
+           |  "properties" : {
+           |  ${attrs.map(_.mapping()).mkString(",")}
+           |  }
+           |}
+         """.stripMargin
+
+      case None =>
+        types.find(_.name == this.`type`).map { tpe =>
+          val typeMapping = tpe.getIndexMapping().toString
+          tpe.primitiveType match {
+            case PrimitiveType.date =>
+              s"""
+                 |"$name": {
+                 |  "type": "$typeMapping"
+                 | "format" : "${tpe.pattern}"
+                 |}
+              """.stripMargin
+            case PrimitiveType.timestamp =>
+              val format = tpe.pattern match {
+                case "epoch_milli"                                         => Some("epoch_millis")
+                case "epoch_second"                                        => Some("epoch_second")
+                case x if PrimitiveType.dateFormatters.keys.exists(_ == x) => None
+                case y                                                     => Some(y)
+              }
+              format match {
+                case Some(fmt) =>
+                  s"""
+                     |"$name": {
+                     |"type": "$typeMapping"
+                     | "format" : "$fmt"
+                     |}
+              """.stripMargin
+                case None => // Not Supported date format for ES TODO : needs to be implemented
+                  s"""
+                     |"$name": {
+                     |"type": "keyword"
+                     |}
+              """.stripMargin
+              }
+
+            case _ =>
+              s"""
+                 |"$name": {
+                 |  "type": "$typeMapping"
+                 |}
+          """.stripMargin
+          }
+        } getOrElse (throw new Exception("Cannot map unknown type"))
     }
   }
 
@@ -153,6 +210,12 @@ case class Attribute(
 
   def isRequired(): Boolean = Option(this.required).getOrElse(false)
 
-  def getStat(): Stat = this.stat.getOrElse(Stat.NONE)
-
+  @JsonIgnore
+  def getMetricType(): MetricType = {
+    import com.ebiznext.comet.config.Settings.schemaHandler.types
+    types.find(_.name == this.`type`).flatMap(_.indexType).getOrElse(MetricType.NONE)
+    this.metricType.getOrElse {
+      types.find(_.name == this.`type`).flatMap(_.indexType).getOrElse(MetricType.NONE)
+    }
+  }
 }

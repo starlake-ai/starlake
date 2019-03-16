@@ -21,8 +21,8 @@
 package com.ebiznext.comet.job
 
 import com.ebiznext.comet.config.{DatasetArea, Settings}
-import com.ebiznext.comet.schema.handlers.{HdfsStorageHandler, SchemaHandler}
-import com.ebiznext.comet.workflow.DatasetWorkflow
+import com.ebiznext.comet.job.index.IndexConfig
+import com.ebiznext.comet.workflow.IngestionWorkflow
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
@@ -50,13 +50,16 @@ object Main extends StrictLogging {
   """
 
   private def printUsage() = {
-    println("""
+    println(
+      """
         |Usage :
         |comet job jobname
         |comet watch [+/-DOMAIN1,DOMAIN2,...]
         |comet import
         |comet ingest datasetDomain datasetSchema datasetPath
-      """.stripMargin)
+        |comet index --domain domain --schema schema --resource index-name/type-name --id type-id --mapping mapping --format parquet|json|json-array --dataset datasetPath --conf key=value,key=value,...
+        |      """.stripMargin
+    )
   }
 
   /**
@@ -72,16 +75,16 @@ object Main extends StrictLogging {
     *             When called with a '+' sign, will look only for this domain folders in the landing area
     *             When called with a '-' sign, will look for all domain folder in the landing area except the ones in the command lines.
     *   - call "comet ingest domain schema hdfs://datasets/domain/pending/file.dsv"
-    *           to ingest a file defined by its schema in the specified domain
+    *             to ingest a file defined by its schema in the specified domain
     */
-  def main(args: Array[String]) = {
-    val storageHandler = new HdfsStorageHandler
-    val schemaHandler = new SchemaHandler(storageHandler)
+  def main(args: Array[String]): Unit = {
+    import Settings.{schemaHandler, storageHandler}
     DatasetArea.init(storageHandler)
 
     DatasetArea.initDomains(storageHandler, schemaHandler.domains.map(_.name))
 
-    val workflow = new DatasetWorkflow(storageHandler, schemaHandler, Settings.comet.getLauncher())
+    val workflow =
+      new IngestionWorkflow(storageHandler, schemaHandler, Settings.comet.getLauncher())
 
     if (args.length == 0) println(usage)
 
@@ -103,6 +106,15 @@ object Main extends StrictLogging {
           workflow.loadPending()
       case "ingest" if arglist.length == 4 =>
         workflow.ingest(arglist(1), arglist(2), arglist(3))
+
+      case "index" =>
+        IndexConfig.parse(args.drop(1)) match {
+          case Some(config) =>
+            // do something
+            workflow.index(config)
+          case _ =>
+            printUsage()
+        }
       case _ => printUsage()
     }
   }
