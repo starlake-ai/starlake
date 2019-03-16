@@ -54,7 +54,7 @@ trait StorageHandler {
 
   def contentSummary(path: Path): ContentSummary
 
-  def lastModified(path:Path) : Timestamp
+  def lastModified(path: Path): Timestamp
 
   def spaceConsumed(path: Path): Long
 
@@ -199,11 +199,11 @@ class HdfsStorageHandler extends StorageHandler {
     contentSummary(path).getSpaceConsumed
   }
 
-  def lastModified(path: Path) : Timestamp = {
+  def lastModified(path: Path): Timestamp = {
     val conf = new Configuration()
     val fs = FileSystem.get(conf)
     fs.getFileStatus(path).getModificationTime
-
   }
-
 }
+
+object HdfsStorageHandler extends HdfsStorageHandler
