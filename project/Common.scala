@@ -85,7 +85,7 @@ object Versions {
   val hadoop = "2.7.3"
   val spark = "2.1.3"
   //val spark = "2.3.2"
-  //  val spark = "2.4.0"
+  // val spark = "2.4.0"
   val curator = "2.6.0"
   val scalatest = "3.0.5"
   val springBoot = "2.0.6.RELEASE"
@@ -101,6 +101,9 @@ object Versions {
   val betterFiles = "3.6.0"
   val jackson = "2.6.5"
   val configs = "0.4.4"
+  val esHadoop = "6.6.2"
+  val scopt = "4.0.0-RC2"
+  val sttp = "1.5.11"
 }
 
 object Resolvers {

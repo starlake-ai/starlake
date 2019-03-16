@@ -203,7 +203,7 @@ class HdfsStorageHandler extends StorageHandler {
     val conf = new Configuration()
     val fs = FileSystem.get(conf)
     fs.getFileStatus(path).getModificationTime
-
   }
-
 }
+
+object HdfsStorageHandler extends HdfsStorageHandler

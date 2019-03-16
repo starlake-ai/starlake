@@ -41,37 +41,60 @@ object IndexMapping {
 
   def fromString(value: String): IndexMapping = {
     value.toUpperCase() match {
-      case "text"    => IndexMapping.Text
+      case "text" => IndexMapping.Text
       case "keyword" => IndexMapping.Keyword
 
-      case "long"         => IndexMapping.Long
-      case "integer"      => IndexMapping.Integer
-      case "short"        => IndexMapping.Short
-      case "byte"         => IndexMapping.Byte
-      case "double"       => IndexMapping.Double
-      case "float"        => IndexMapping.Float
-      case "half_float"   => IndexMapping.HalfFloat
+      case "long" => IndexMapping.Long
+      case "integer" => IndexMapping.Integer
+      case "short" => IndexMapping.Short
+      case "byte" => IndexMapping.Byte
+      case "double" => IndexMapping.Double
+      case "float" => IndexMapping.Float
+      case "half_float" => IndexMapping.HalfFloat
       case "scaled_float" => IndexMapping.ScaledFloat
 
-      case "date"    => IndexMapping.Date
+      case "date" => IndexMapping.Date
       case "boolean" => IndexMapping.Boolean
 
       case "binary" => IndexMapping.Binary
 
       case "integer_range" => IndexMapping.IntegerRange
-      case "float_range"   => IndexMapping.FloatRange
-      case "long_range"    => IndexMapping.LongRange
-      case "double_range"  => IndexMapping.DoubleRange
-      case "date_range"    => IndexMapping.DateRange
+      case "float_range" => IndexMapping.FloatRange
+      case "long_range" => IndexMapping.LongRange
+      case "double_range" => IndexMapping.DoubleRange
+      case "date_range" => IndexMapping.DateRange
 
-      case "geo_point"   => IndexMapping.GeoPoint
-      case "geo_shape"   => IndexMapping.GeoShape
-      case "ip"          => IndexMapping.Ip
-      case "completion"  => IndexMapping.Completion
+      case "geo_point" => IndexMapping.GeoPoint
+      case "geo_shape" => IndexMapping.GeoShape
+      case "ip" => IndexMapping.Ip
+      case "completion" => IndexMapping.Completion
       case "token_count" => IndexMapping.TokenCount
 
       case "object" => IndexMapping.Object
-      case "array"  => IndexMapping.Array
+      case "array" => IndexMapping.Array
+      case _ =>
+        throw new Exception(
+          s"Invalid value for index type: $value not in $indexMappings"
+        )
+    }
+  }
+
+  def fromType(primitiveType: PrimitiveType) = {
+    primitiveType match {
+      case PrimitiveType.string => IndexMapping.Keyword
+      case PrimitiveType.long => IndexMapping.Long
+      case PrimitiveType.int => IndexMapping.Integer
+      case PrimitiveType.double => IndexMapping.Double
+      case PrimitiveType.boolean => IndexMapping.Boolean
+      case PrimitiveType.byte => IndexMapping.Byte
+      case PrimitiveType.date => IndexMapping.Date
+      case PrimitiveType.timestamp => IndexMapping.Date
+      case PrimitiveType.decimal => IndexMapping.Long
+      case PrimitiveType.struct => IndexMapping.Object
+      case _ =>
+        throw new Exception(
+          s"Invalid primitive type: $primitiveType not in ${PrimitiveType.primitiveTypes}"
+        )
     }
   }
 
