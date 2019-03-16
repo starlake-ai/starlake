@@ -361,8 +361,10 @@ class MetricsJob(
     val stageState: String = ???
     val metricsPath: Path = new Path(Settings.comet.metrics.path)
 
-    val discreteDataset = Metrics.computeDiscretMetric(dataUse, schema.discreteAttrs().map(_.name), discreteOps)
-    val continuousDataset = Metrics.computeContinuiousMetric(dataUse, schema.continuousAttrs().map(_.name), continuousOps)
+    val discreteDataset =
+      Metrics.computeDiscretMetric(dataUse, schema.discreteAttrs().map(_.name), discreteOps)
+    val continuousDataset =
+      Metrics.computeContinuiousMetric(dataUse, schema.continuousAttrs().map(_.name), continuousOps)
 
     val savePath = new Path(metricsPath, new Path(domain.name, schema.name))
     storageHandler.mkdirs(savePath)

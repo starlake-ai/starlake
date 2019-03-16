@@ -42,14 +42,14 @@ import scala.collection.mutable
   * @param ack        : Ack extension used for each file
   */
 case class Domain(
-                   name: String,
-                   directory: String,
-                   metadata: Option[Metadata] = None,
-                   schemas: List[Schema] = Nil,
-                   comment: Option[String] = None,
-                   extensions: Option[List[String]] = None,
-                   ack: Option[String] = None
-                 ) {
+  name: String,
+  directory: String,
+  metadata: Option[Metadata] = None,
+  schemas: List[Schema] = Nil,
+  comment: Option[String] = None,
+  extensions: Option[List[String]] = None,
+  ack: Option[String] = None
+) {
 
   /**
     * Get schema from filename

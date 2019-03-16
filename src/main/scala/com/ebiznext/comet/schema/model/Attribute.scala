@@ -41,16 +41,16 @@ import scala.collection.mutable
   * @param attributes : List of sub-attributes
   */
 case class Attribute(
-                      name: String,
-                      `type`: String = "string",
-                      array: Option[Boolean] = None,
-                      required: Boolean = true,
-                      privacy: Option[PrivacyLevel] = None,
-                      comment: Option[String] = None,
-                      rename: Option[String] = None,
-                      metricType: Option[MetricType] = None,
-                      attributes: Option[List[Attribute]] = None
-                    ) {
+  name: String,
+  `type`: String = "string",
+  array: Option[Boolean] = None,
+  required: Boolean = true,
+  privacy: Option[PrivacyLevel] = None,
+  comment: Option[String] = None,
+  rename: Option[String] = None,
+  metricType: Option[MetricType] = None,
+  attributes: Option[List[Attribute]] = None
+) {
 
   /**
     * Check attribute validity
@@ -85,7 +85,7 @@ case class Attribute(
         if (tpe != PrimitiveType.struct && attributes.isDefined)
           errorList += s"Attribute $this : Simple attributes cannot have sub-attributes"
       case None if attributes.isEmpty => errorList += s"Invalid Type ${`type`}"
-      case _ => // good boy
+      case _                          => // good boy
     }
     attributes.collect {
       case list if list.isEmpty =>
@@ -166,10 +166,10 @@ case class Attribute(
               """.stripMargin
             case PrimitiveType.timestamp =>
               val format = tpe.pattern match {
-                case "epoch_milli" => Some("epoch_millis")
-                case "epoch_second" => Some("epoch_second")
+                case "epoch_milli"                                         => Some("epoch_millis")
+                case "epoch_second"                                        => Some("epoch_second")
                 case x if PrimitiveType.dateFormatters.keys.exists(_ == x) => None
-                case y => Some(y)
+                case y                                                     => Some(y)
               }
               format match {
                 case Some(fmt) =>

@@ -46,15 +46,15 @@ case class MergeOptions(key: List[String], delete: Option[String] = None)
   * @param postsql    : SQL code executed right after the file has been ingested
   */
 case class Schema(
-                   name: String,
-                   pattern: Pattern,
-                   attributes: List[Attribute],
-                   metadata: Option[Metadata],
-                   merge: Option[MergeOptions],
-                   comment: Option[String],
-                   presql: Option[List[String]],
-                   postsql: Option[List[String]]
-                 ) {
+  name: String,
+  pattern: Pattern,
+  attributes: List[Attribute],
+  metadata: Option[Metadata],
+  merge: Option[MergeOptions],
+  comment: Option[String],
+  presql: Option[List[String]],
+  postsql: Option[List[String]]
+) {
 
   /**
     * @return Are the parittions columns defined in the metadata valid column names
@@ -129,9 +129,11 @@ case class Schema(
 
   def discreteAttrs(): List[Attribute] = attributes.filter(_.getMetricType() == MetricType.DISCRETE)
 
-  def continuousAttrs(): List[Attribute] = attributes.filter(_.getMetricType() == MetricType.CONTINUOUS)
+  def continuousAttrs(): List[Attribute] =
+    attributes.filter(_.getMetricType() == MetricType.CONTINUOUS)
 
-  def mappingConfig(): EsMapping = this.metadata.flatMap(_.mapping).getOrElse(EsMapping(Some(s"$name/$name"), None, None))
+  def mappingConfig(): EsMapping =
+    this.metadata.flatMap(_.mapping).getOrElse(EsMapping(Some(s"$name/$name"), None, None))
 
   def mapping(template: Option[String]): String = {
     val attrs = attributes.map(_.mapping()).mkString(",")

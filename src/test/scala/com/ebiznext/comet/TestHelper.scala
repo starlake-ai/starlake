@@ -28,7 +28,7 @@ import java.util.regex.Pattern
 import com.ebiznext.comet.config.DatasetArea
 import com.ebiznext.comet.schema.handlers.{HdfsStorageHandler, SchemaHandler, SimpleLauncher}
 import com.ebiznext.comet.schema.model._
-import com.ebiznext.comet.workflow.DatasetWorkflow
+import com.ebiznext.comet.workflow.IngestionWorkflow
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
@@ -253,7 +253,7 @@ trait TestHelper extends FlatSpec with Matchers with BeforeAndAfterAll {
       storageHandler.write(loadFile(targetFile), targetPath)
 
       val validator =
-        new DatasetWorkflow(storageHandler, schemaHandler, new SimpleLauncher)
+        new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
 
       validator.loadPending()
     }

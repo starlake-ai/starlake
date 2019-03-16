@@ -22,7 +22,14 @@ package com.ebiznext.comet.config
 
 import java.util.Map
 
-import com.ebiznext.comet.schema.handlers.{AirflowLauncher, HdfsStorageHandler, LaunchHandler, SchemaHandler, SimpleLauncher}
+import com.ebiznext.comet.schema.handlers.{
+  AirflowLauncher,
+  HdfsStorageHandler,
+  LaunchHandler,
+  SchemaHandler,
+  SimpleLauncher,
+  StorageHandler
+}
 import com.typesafe.config.{Config, ConfigFactory}
 import com.typesafe.scalalogging.StrictLogging
 import configs.syntax._
@@ -49,14 +56,14 @@ object Settings extends StrictLogging {
     * @param business   : Name of the business area
     */
   final case class Area(
-                         pending: String,
-                         unresolved: String,
-                         archive: String,
-                         ingesting: String,
-                         accepted: String,
-                         rejected: String,
-                         business: String
-                       )
+    pending: String,
+    unresolved: String,
+    archive: String,
+    ingesting: String,
+    accepted: String,
+    rejected: String,
+    business: String
+  )
 
   final case class Elasticsearch(active: Boolean, options: Map[String, String])
 
@@ -81,34 +88,32 @@ object Settings extends StrictLogging {
     * @param airflow     : Airflow end point. Should be defined even if simple launccher is used instead of airflow.
     */
   final case class Comet(
-                          datasets: String,
-                          metadata: String,
-                          metrics: Metrics,
-                          archive: Boolean,
-                          writeFormat: String,
-                          launcher: String,
-                          analyze: Boolean,
-                          hive: Boolean,
-                          area: Area,
-                          airflow: Airflow,
-                          elasticsearch: Elasticsearch
-                        ) {
+    datasets: String,
+    metadata: String,
+    metrics: Metrics,
+    archive: Boolean,
+    writeFormat: String,
+    launcher: String,
+    analyze: Boolean,
+    hive: Boolean,
+    area: Area,
+    airflow: Airflow,
+    elasticsearch: Elasticsearch
+  ) {
 
     def getLauncher(): LaunchHandler = launcher match {
-      case "simple" => new SimpleLauncher
-      case "airflow" => new AirflowLauncher
+      case "simple"  => new SimpleLauncher()
+      case "airflow" => new AirflowLauncher()
     }
   }
 
   val config: Config = ConfigFactory.load()
-
 
   val comet: Comet = config.extract[Comet].valueOrThrow { error =>
     error.messages.foreach(err => logger.error(err))
     throw new Exception("Failed to load config")
   }
   logger.info(s"Using Config $comet")
-
 
   val storageHandler = new HdfsStorageHandler
   val schemaHandler = new SchemaHandler(storageHandler)

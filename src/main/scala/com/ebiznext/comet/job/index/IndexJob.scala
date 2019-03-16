@@ -24,14 +24,12 @@ import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.schema.handlers.StorageHandler
 import com.ebiznext.comet.utils.SparkJob
 import com.softwaremill.sttp._
-import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.SparkSession
 
 class IndexJob(
-                cliConfig: IndexConfig,
-                storageHandler: StorageHandler
-              ) extends SparkJob {
-
+  cliConfig: IndexConfig,
+  storageHandler: StorageHandler
+) extends SparkJob {
 
   val esresource = Some(("es.resource.write", s"${cliConfig.resource}"))
   val esId = cliConfig.id.map("es.mapping.id" -> _)
@@ -88,19 +86,21 @@ class IndexJob(
       sttp.auth.basic(u, p)
     }
 
-    val request = authSttp.getOrElse(sttp).
-      body(content).
-      put(uri"$protocol://$host:$port/_template/${cliConfig.domain}_${cliConfig.schema}").
-      contentType("application/json")
+    val request = authSttp
+      .getOrElse(sttp)
+      .body(content)
+      .put(uri"$protocol://$host:$port/_template/${cliConfig.domain}_${cliConfig.schema}")
+      .contentType("application/json")
 
     val response = request.send()
     val ok = (200 to 299) contains response.code
 
     val allConf = esOptions.toList ++ esCliConf.toList
-    allConf.foldLeft(df.write)((w, kv) => w.option(kv._1, kv._2)).
-      format("org.elasticsearch.spark.sql").
-      mode("overwrite").
-      save(cliConfig.getResource())
+    allConf
+      .foldLeft(df.write)((w, kv) => w.option(kv._1, kv._2))
+      .format("org.elasticsearch.spark.sql")
+      .mode("overwrite")
+      .save(cliConfig.getResource())
 
     session
   }

@@ -28,7 +28,6 @@ import com.fasterxml.jackson.databind.annotation.JsonDeserialize
 import com.fasterxml.jackson.databind.{DeserializationContext, JsonDeserializer, JsonNode}
 import org.apache.hadoop.fs.Path
 
-
 case class EsMapping(resource: Option[String], id: Option[String], template: Option[Path])
 
 /**
@@ -50,18 +49,18 @@ case class EsMapping(resource: Option[String], id: Option[String], template: Opt
   */
 @JsonDeserialize(using = classOf[MetadataDeserializer])
 case class Metadata(
-                     mode: Option[Mode] = None,
-                     format: Option[Format] = None,
-                     multiline: Option[Boolean] = None,
-                     array: Option[Boolean] = None,
-                     withHeader: Option[Boolean] = None,
-                     separator: Option[String] = None,
-                     quote: Option[String] = None,
-                     escape: Option[String] = None,
-                     write: Option[WriteMode] = None,
-                     partition: Option[Partition] = None,
-                     mapping: Option[EsMapping] = None
-                   ) {
+  mode: Option[Mode] = None,
+  format: Option[Format] = None,
+  multiline: Option[Boolean] = None,
+  array: Option[Boolean] = None,
+  withHeader: Option[Boolean] = None,
+  separator: Option[String] = None,
+  quote: Option[String] = None,
+  escape: Option[String] = None,
+  write: Option[WriteMode] = None,
+  partition: Option[Partition] = None,
+  mapping: Option[EsMapping] = None
+) {
   override def toString: String =
     s"""
        |mode:${getIngestMode()}
@@ -143,11 +142,11 @@ object Metadata {
     List("comet_year", "comet_month", "comet_day", "comet_hour", "comet_minute")
 
   def Dsv(
-           separator: Option[String],
-           quote: Option[String],
-           escape: Option[String],
-           write: Option[WriteMode]
-         ) = new Metadata(
+    separator: Option[String],
+    quote: Option[String],
+    escape: Option[String],
+    write: Option[WriteMode]
+  ) = new Metadata(
     Some(Mode.FILE),
     Some(Format.DSV),
     Some(false),

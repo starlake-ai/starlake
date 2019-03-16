@@ -21,8 +21,8 @@
 package com.ebiznext.comet.schema.handlers
 
 import com.ebiznext.comet.config.Settings
-import com.ebiznext.comet.job.Main
 import com.ebiznext.comet.schema.model.{Domain, Schema}
+import com.ebiznext.comet.workflow.IngestionWorkflow
 import com.typesafe.scalalogging.StrictLogging
 import okhttp3._
 import okio.Buffer
@@ -43,8 +43,8 @@ trait LaunchHandler {
     * @param path   : absolute path where the source dataset  (JSON / CSV / ...) is located
     * @return success / failure
     */
-  def ingest(domain: Domain, schema: Schema, path: Path): Boolean =
-    ingest(domain, schema, path :: Nil)
+  def ingest(workflow: IngestionWorkflow, domain: Domain, schema: Schema, path: Path): Boolean =
+    ingest(workflow, domain, schema, path :: Nil)
 
   /**
     * Submit to the cron manager multiple files for ingestion.
@@ -55,7 +55,12 @@ trait LaunchHandler {
     * @param paths  : absolute paths where the source datasets  (JSON / CSV / ...) are located
     * @return success / failure
     */
-  def ingest(domain: Domain, schema: Schema, paths: List[Path]): Boolean
+  def ingest(
+    workflow: IngestionWorkflow,
+    domain: Domain,
+    schema: Schema,
+    paths: List[Path]
+  ): Boolean
 }
 
 /**
@@ -72,11 +77,15 @@ class SimpleLauncher extends LaunchHandler with StrictLogging {
     * @param paths  : absolute paths where the source datasets  (JSON / CSV / ...) are located
     * @return success / failure
     */
-  override def ingest(domain: Domain, schema: Schema, paths: List[Path]): Boolean = {
+  override def ingest(
+    workflow: IngestionWorkflow,
+    domain: Domain,
+    schema: Schema,
+    paths: List[Path]
+  ): Boolean = {
     paths.foreach { path =>
-      val params = Array("ingest", domain.name, schema.name, path.toString)
-      logger.info(s"Launch Ingestion: ${params.mkString(" ")}")
-      Main.main(params)
+      logger.info(s"Launch Ingestion: ${domain.name} ${schema.name} ${path.toString} ")
+      workflow.ingest(domain.name, schema.name, path.toString)
     }
     true
   }
@@ -112,7 +121,12 @@ class AirflowLauncher extends LaunchHandler with StrictLogging {
     * @param paths  : absolute paths where the source datasets  (JSON / CSV / ...) are located
     * @return success if request accepted
     */
-  override def ingest(domain: Domain, schema: Schema, paths: List[Path]): Boolean = {
+  override def ingest(
+    workflow: IngestionWorkflow,
+    domain: Domain,
+    schema: Schema,
+    paths: List[Path]
+  ): Boolean = {
     val endpoint = Settings.comet.airflow.endpoint
     val url = s"$endpoint/dags/comet_ingest/dag_runs"
     val command =
