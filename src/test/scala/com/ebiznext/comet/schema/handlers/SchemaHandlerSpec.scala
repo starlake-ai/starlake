@@ -20,9 +20,8 @@
 
 package com.ebiznext.comet.schema.handlers
 
-import com.ebiznext.comet.{TestHelper, TypeToImport}
 import com.ebiznext.comet.config.DatasetArea
-import com.ebiznext.comet.workflow.DatasetWorkflow
+import com.ebiznext.comet.{TestHelper, TypeToImport}
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.DataFrame
 
@@ -41,7 +40,7 @@ class SchemaHandlerSpec extends TestHelper {
     new SpecTrait {
       override val domain: Path = DatasetArea.domains
       override val domainName: String = "DOMAIN.yml"
-      override val domainFile: String = "/sample/DOMAIN.yml"
+      override val domainFile: String = s"/sample/$domainName"
 
       override val types: List[TypeToImport] = List(
         TypeToImport(
@@ -78,25 +77,22 @@ class SchemaHandlerSpec extends TestHelper {
         .parquet(cometDatasetsPath + s"/accepted/$targetName/User/${getTodayPartitionPath}")
 
       printDF(acceptedDf)
-      val expectedAccepted = (
+      val expectedAccepted =
         sparkSession.read
           .schema(acceptedDf.schema)
           .json(getResPath("/expected/datasets/accepted/DOMAIN/User.json"))
-        )
 
       printDF(expectedAccepted)
       acceptedDf.except(expectedAccepted).count() shouldBe 0
 
     }
-
   }
 
   "Ingest Dream Contact CSV" should "produce file in accepted" in {
-
     new SpecTrait {
       override val domain: Path = DatasetArea.domains
       override val domainName: String = "dream.yml"
-      override val domainFile: String = "/sample/dream/dream.yml"
+      override val domainFile: String = s"/sample/dream/$domainName"
 
       override val types: List[TypeToImport] = List(
         TypeToImport(
@@ -133,11 +129,11 @@ class SchemaHandlerSpec extends TestHelper {
       val acceptedDf = sparkSession.read
         .parquet(cometDatasetsPath + s"/accepted/$targetName/client/${getTodayPartitionPath}")
 
-      val expectedAccepted = (
+      val expectedAccepted =
         sparkSession.read
           .schema(acceptedDf.schema)
           .json(getResPath("/expected/datasets/accepted/dream/client.json"))
-        )
+
       expectedAccepted.show(false)
       acceptedDf.show(false)
       acceptedDf.select("dream_id").except(expectedAccepted.select("dream_id")).count() shouldBe 0
@@ -150,7 +146,7 @@ class SchemaHandlerSpec extends TestHelper {
     new SpecTrait {
       override val domain: Path = DatasetArea.domains
       override val domainName: String = "dream.yml"
-      override val domainFile: String = "/sample/dream/dream.yml"
+      override val domainFile: String = s"/sample/dream/$domainName"
 
       override val types: List[TypeToImport] = List(
         TypeToImport(
@@ -179,11 +175,11 @@ class SchemaHandlerSpec extends TestHelper {
       val acceptedDf = sparkSession.read
         .parquet(cometDatasetsPath + s"/accepted/$targetName/segment/${getTodayPartitionPath}")
 
-      val expectedAccepted = (
+      val expectedAccepted =
         sparkSession.read
           .schema(acceptedDf.schema)
           .json(getResPath("/expected/datasets/accepted/dream/segment.json"))
-        )
+
       acceptedDf.except(expectedAccepted).count() shouldBe 0
 
     }
@@ -195,7 +191,7 @@ class SchemaHandlerSpec extends TestHelper {
     new SpecTrait {
       override val domain: Path = DatasetArea.domains
       override val domainName: String = "locations.yml"
-      override val domainFile: String = "/sample/simple-json-locations/locations.yml"
+      override val domainFile: String = s"/sample/simple-json-locations/$domainName"
 
       override val types: List[TypeToImport] = List(
         TypeToImport(
@@ -218,14 +214,13 @@ class SchemaHandlerSpec extends TestHelper {
 
       // Accepted should have the same data as input
       val acceptedDf = sparkSession.read
-        .parquet(cometDatasetsPath + s"/accepted/$targetName/locations/${getTodayPartitionPath}")
+        .parquet(cometDatasetsPath + s"/accepted/$targetName/locations/$getTodayPartitionPath")
 
-      val expectedAccepted = (
+      val expectedAccepted =
         sparkSession.read
           .json(
             getResPath("/expected/datasets/accepted/locations/locations.json")
           )
-        )
 
       acceptedDf.except(expectedAccepted).count() shouldBe 0
 
@@ -233,14 +228,14 @@ class SchemaHandlerSpec extends TestHelper {
 
   }
   //TODO TOFIX
-//  "Load Business Definition" should "produce business dataset" in {
-//    val sh = new HdfsStorageHandler
-//    val jobsPath = new Path(DatasetArea.jobs, "sample/metadata/business/business.yml")
-//    sh.write(loadFile("/sample/metadata/business/business.yml"), jobsPath)
-//    DatasetArea.initDomains(storageHandler, schemaHandler.domains.map(_.name))
-//    val validator = new DatasetWorkflow(storageHandler, schemaHandler, new SimpleLauncher)
-//    validator.autoJob("business1")
-//  }
+  //  "Load Business Definition" should "produce business dataset" in {
+  //    val sh = new HdfsStorageHandler
+  //    val jobsPath = new Path(DatasetArea.jobs, "sample/metadata/business/business.yml")
+  //    sh.write(loadFile("/sample/metadata/business/business.yml"), jobsPath)
+  //    DatasetArea.initDomains(storageHandler, schemaHandler.domains.map(_.name))
+  //    val validator = new DatasetWorkflow(storageHandler, schemaHandler, new SimpleLauncher)
+  //    validator.autoJob("business1")
+  //  }
 
   "Writing types" should "work" in {
 

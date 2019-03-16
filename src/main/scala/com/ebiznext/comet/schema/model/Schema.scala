@@ -28,7 +28,8 @@ import scala.collection.mutable
 
 /**
   * How dataset are merge
-  * @param key list of attributes to join existing with incoming data. Use renamed columns here.
+  *
+  * @param key    list of attributes to join existing with incoming data. Use renamed columns here.
   * @param delete Optional valid sql condition on the incoming dataset. Use renamed column here.
   */
 case class MergeOptions(key: List[String], delete: Option[String] = None)
@@ -75,9 +76,9 @@ case class Schema(
     * @param types : globally defined types
     * @return Spark Catalyst Schema
     */
-  def sparkType(types: Types): StructType = {
+  def sparkType(): StructType = {
     val fields = attributes.map { attr =>
-      StructField(attr.name, attr.sparkType(types), !attr.required)
+      StructField(attr.name, attr.sparkType(), !attr.required)
     }
     StructType(fields)
   }
@@ -100,7 +101,7 @@ case class Schema(
     *   - attribute name can occur only once in the schema
     *
     * @param types : List of globally defined types
-    * @return error list of true
+    * @return error list or true
     */
   def checkValidity(types: List[Type]): Either[List[String], Boolean] = {
     val errorList: mutable.MutableList[String] = mutable.MutableList.empty
@@ -124,5 +125,44 @@ case class Schema(
       Left(errorList.toList)
     else
       Right(true)
+  }
+
+  def discreteAttrs(): List[Attribute] = attributes.filter(_.getMetricType() == MetricType.DISCRETE)
+
+  def continuousAttrs(): List[Attribute] =
+    attributes.filter(_.getMetricType() == MetricType.CONTINUOUS)
+
+  def mappingConfig(): EsMapping =
+    this.metadata.flatMap(_.mapping).getOrElse(EsMapping(Some(s"$name/$name"), None, None))
+
+  def mapping(template: Option[String]): String = {
+    val attrs = attributes.map(_.mapping()).mkString(",")
+    val properties =
+      s"""
+         |"properties": {
+         |$attrs
+         |}
+      """.stripMargin
+
+    template.getOrElse {
+      s"""
+         |{
+         |  "index_patterns": ["$name", "$name-*"],
+         |  "settings": {
+         |    "number_of_shards": "1",
+         |    "number_of_replicas": "0"
+         |  },
+         |  "mappings": {
+         |    "_doc": {
+         |      "_source": {
+         |        "enabled": true
+         |      },
+         |      __PROPERTIES__
+         |    }
+         |  }
+         |}
+      """.stripMargin.replace("__PROPERTIES__", properties)
+    }
+
   }
 }
