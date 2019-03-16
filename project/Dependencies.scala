@@ -56,6 +56,17 @@ object Dependencies {
     "org.apache.spark" %% "spark-mllib" % Versions.spark % "provided"
   )
 
-  val dependencies = logging ++ typedConfigs ++ spark ++ okhttp ++ betterfiles ++ jackson ++ scalaTest
+
+  val esHadoop = Seq(
+    "org.elasticsearch" % "elasticsearch-hadoop" % Versions.esHadoop
+  )
+
+  val scopt = Seq(
+    "com.github.scopt" %% "scopt" % Versions.scopt
+  )
+
+  val sttp = Seq ("com.softwaremill.sttp" %% "core" % Versions.sttp)
+
+  val dependencies = logging ++ typedConfigs ++ spark ++ okhttp ++ betterfiles ++ jackson ++ scalaTest ++ scopt ++ esHadoop ++ sttp
 
 }

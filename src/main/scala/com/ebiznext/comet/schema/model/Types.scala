@@ -46,49 +46,33 @@ case class Types(types: List[Type]) {
   }
 }
 
+
 /**
   * Semantic Type
   *
   * @param name          : Type name
-  * @param pattern        : Pattern use to check that the input data matches the pattern
+  * @param pattern       : Pattern use to check that the input data matches the pattern
   * @param primitiveType : Spark Column Type of the attribute
   */
 case class Type(
-  name: String,
-  pattern: String,
-  primitiveType: PrimitiveType = PrimitiveType.string,
-  sample: Option[String] = None,
-  comment: Option[String] = None,
-  indexType: Option[IndexType] = None,
-  indexMapping: Option[IndexMapping] = None
-) {
+                 name: String,
+                 pattern: String,
+                 primitiveType: PrimitiveType = PrimitiveType.string,
+                 sample: Option[String] = None,
+                 comment: Option[String] = None,
+                 indexType: Option[MetricType] = None,
+                 indexMapping: Option[IndexMapping] = None
+               ) {
   // Used only when object is not a date nor a timestamp
   private lazy val textPattern = Pattern.compile(pattern, Pattern.MULTILINE)
 
   @JsonIgnore
-  def getIndexType(): IndexType = indexType.getOrElse(IndexType.CONTINUOUS)
+  def getIndexType(): MetricType = indexType.getOrElse(MetricType.NONE)
 
   @JsonIgnore
   def getIndexMapping(): IndexMapping = {
     require(PrimitiveType.primitiveTypes.contains(primitiveType))
-    indexMapping.getOrElse {
-      primitiveType match {
-        case PrimitiveType.string    => IndexMapping.Keyword
-        case PrimitiveType.long      => IndexMapping.Long
-        case PrimitiveType.int       => IndexMapping.Integer
-        case PrimitiveType.double    => IndexMapping.Double
-        case PrimitiveType.boolean   => IndexMapping.Boolean
-        case PrimitiveType.byte      => IndexMapping.Byte
-        case PrimitiveType.date      => IndexMapping.Date
-        case PrimitiveType.timestamp => IndexMapping.Date
-        case PrimitiveType.decimal   => IndexMapping.Long
-        case PrimitiveType.struct    => IndexMapping.Object
-        case _ =>
-          throw new Exception(
-            s"Invalid primitive type: $primitiveType not in ${PrimitiveType.primitiveTypes}"
-          )
-      }
-    }
+    IndexMapping.fromType(primitiveType)
   }
 
   def matches(value: String): Boolean = {
@@ -126,8 +110,8 @@ case class Type(
           new SimpleDateFormat(pattern)
         case PrimitiveType.timestamp =>
           pattern match {
-            case "epoch_second" | "epoch_milli"                              =>
-            case _ if PrimitiveType.formatters.keys.toList.contains(pattern) =>
+            case "epoch_second" | "epoch_milli" =>
+            case _ if PrimitiveType.dateFormatters.keys.toList.contains(pattern) =>
             case _ =>
               DateTimeFormatter.ofPattern(pattern)
           }
