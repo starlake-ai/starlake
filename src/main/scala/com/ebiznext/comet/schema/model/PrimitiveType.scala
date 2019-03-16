@@ -149,7 +149,7 @@ object PrimitiveType {
       case "epoch_milli" =>
         Instant.ofEpochMilli(str.toLong)
       case _ =>
-        val formatter = PrimitiveType.formatters
+        val formatter = PrimitiveType.dateFormatters
           .getOrElse(format, DateTimeFormatter.ofPattern(format))
         val dateTime: TemporalAccessor = formatter.parse(str)
         Try(Instant.from(dateTime)) match {
@@ -211,7 +211,7 @@ object PrimitiveType {
 
   import DateTimeFormatter._
 
-  val formatters = Map(
+  val dateFormatters = Map(
     "BASIC_ISO_DATE"       -> BASIC_ISO_DATE,
     "ISO_LOCAL_DATE"       -> ISO_LOCAL_DATE,
     "ISO_OFFSET_DATE"      -> ISO_OFFSET_DATE,
