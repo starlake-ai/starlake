@@ -31,36 +31,36 @@ import com.fasterxml.jackson.databind.{DeserializationContext, JsonDeserializer}
   * @param value : DISCRETE or CONTINUOUS or TEXT or NONE
   */
 @JsonSerialize(using = classOf[ToStringSerializer])
-@JsonDeserialize(using = classOf[StatDeserializer])
-sealed case class Stat(value: String) {
+@JsonDeserialize(using = classOf[IndexTypeDeserializer])
+sealed case class MetricType(value: String) {
   override def toString: String = value
 }
 
-object Stat {
+object MetricType {
 
-  def fromString(value: String): Stat = {
+  def fromString(value: String): MetricType = {
     value.toUpperCase() match {
-      case "DISCRETE"   => Stat.DISCRETE
-      case "CONTINUOUS" => Stat.CONTINUOUS
-      case "TEXT"       => Stat.TEXT
-      case "NONE"       => Stat.NONE
+      case "DISCRETE"   => MetricType.DISCRETE
+      case "CONTINUOUS" => MetricType.CONTINUOUS
+      case "TEXT"       => MetricType.TEXT
+      case "NONE"       => MetricType.NONE
     }
   }
 
-  object DISCRETE extends Stat("DISCRETE")
+  object DISCRETE extends MetricType("DISCRETE")
 
-  object CONTINUOUS extends Stat("CONTINUOUS")
+  object CONTINUOUS extends MetricType("CONTINUOUS")
 
-  object TEXT extends Stat("TEXT")
+  object TEXT extends MetricType("TEXT")
 
-  object NONE extends Stat("NONE")
+  object NONE extends MetricType("NONE")
 
-  val stats: Set[Stat] = Set(NONE, DISCRETE, CONTINUOUS, TEXT)
+  val indexTypes: Set[MetricType] = Set(NONE, DISCRETE, CONTINUOUS, TEXT)
 }
 
-class StatDeserializer extends JsonDeserializer[Stat] {
-  override def deserialize(jp: JsonParser, ctx: DeserializationContext): Stat = {
+class IndexTypeDeserializer extends JsonDeserializer[MetricType] {
+  override def deserialize(jp: JsonParser, ctx: DeserializationContext): MetricType = {
     val value = jp.readValueAs[String](classOf[String])
-    Stat.fromString(value)
+    MetricType.fromString(value)
   }
 }

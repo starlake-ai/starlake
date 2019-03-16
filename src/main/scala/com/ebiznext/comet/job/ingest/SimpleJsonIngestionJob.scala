@@ -55,18 +55,16 @@ class SimpleJsonIngestionJob(
           .json(path.toString)
       }
     df.printSchema()
-    if (df.columns.contains("_corrupt_record"))
+    import session.implicits._
+    if (df.columns.contains("_corrupt_record")) {
+      //TODO send rejected records to rejected area
+      df.filter($"_corrupt_record".isNotNull).show(100, false)
       throw new Exception(
         s"Invalid JSON File: ${path.toString}. SIMPLE_JSON require a valid json file "
       )
-    if (metadata.withHeader.getOrElse(false)) {
-      val datasetHeaders: List[String] = df.columns.toList.map(cleanHeaderCol)
-      val (_, drop) = intersectHeaders(datasetHeaders, schemaHeaders)
-      if (drop.nonEmpty) {
-        df.drop(drop: _*)
-      } else
-        df
-    } else
+    } else {
       df
+    }
+
   }
 }
