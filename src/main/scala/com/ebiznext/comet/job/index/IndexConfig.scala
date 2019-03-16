@@ -25,16 +25,16 @@ import org.apache.hadoop.fs.Path
 import scopt.OParser
 
 case class IndexConfig(
+  resource: Option[String] = None,
+  id: Option[String] = None,
+  mapping: Option[Path] = None,
+  domain: String = "",
+  schema: String = "",
+  format: String = "",
+  dataset: Option[Path] = None,
+  conf: Map[String, String] = Map()
+) {
 
-                        resource: Option[String] = None,
-                        id: Option[String] = None,
-                        mapping: Option[Path] = None,
-                        domain: String = "",
-                        schema: String = "",
-                        format: String = "",
-                        dataset: Option[Path] = None,
-                        conf: Map[String, String] = Map()
-                      ) {
   def getDataset(): Path = {
     dataset.getOrElse {
       new Path(s"${Settings.comet.datasets}/${Settings.comet.area.accepted}/$domain/$schema")
@@ -48,8 +48,8 @@ case class IndexConfig(
   }
 }
 
-
 object IndexConfig {
+
   def parse(args: Seq[String]): Option[IndexConfig] = {
     val builder = OParser.builder[IndexConfig]
     val parser: OParser[Unit, IndexConfig] = {
@@ -61,45 +61,39 @@ object IndexConfig {
           .action((x, c) => c.copy(resource = Some(x)))
           .optional()
           .text("Elasticsearch index/type name"),
-
         opt[String]("id")
           .action((x, c) => c.copy(id = Some(x)))
           .optional()
           .text("Elasticsearch Document Id"),
-
         opt[String]("mapping")
           .action((x, c) => c.copy(mapping = Some(new Path(x))))
           .optional()
           .text("Path to Elasticsearch Mapping File"),
-
         opt[String]("domain")
           .action((x, c) => c.copy(domain = x))
           .required()
           .text("Domain Name"),
-
         opt[String]("schema")
           .action((x, c) => c.copy(schema = x))
           .required()
           .text("Schema Name"),
-
         opt[String]("format")
           .action((x, c) => c.copy(format = x))
           .required()
           .text("Dataset input file : parquet, json or json-array"),
-
         opt[String]("dataset")
           .action((x, c) => c.copy(dataset = Some(new Path(x))))
           .optional()
           .text("Input dataset path"),
-
         opt[Map[String, String]]("conf")
           .action((x, c) => c.copy(conf = x))
           .optional()
-          .valueName("es.batch.size.entries=1000,es.batch.size.bytes=1mb... (see https://www.elastic.co/guide/en/elasticsearch/hadoop/current/configuration.html)")
+          .valueName(
+            "es.batch.size.entries=1000,es.batch.size.bytes=1mb... (see https://www.elastic.co/guide/en/elasticsearch/hadoop/current/configuration.html)"
+          )
           .text("eshadoop configuration options")
       )
     }
     OParser.parse(parser, args, IndexConfig())
   }
 }
-
