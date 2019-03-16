@@ -22,11 +22,12 @@ package com.ebiznext.comet.workflow
 
 import better.files._
 import com.ebiznext.comet.config.{DatasetArea, Settings}
+import com.ebiznext.comet.job.index.{IndexConfig, IndexJob}
 import com.ebiznext.comet.job.ingest.{DsvIngestionJob, JsonIngestionJob, SimpleJsonIngestionJob}
+import com.ebiznext.comet.job.transform.AutoJob
 import com.ebiznext.comet.schema.handlers.{LaunchHandler, SchemaHandler, StorageHandler}
 import com.ebiznext.comet.schema.model.Format.{DSV, JSON, SIMPLE_JSON}
 import com.ebiznext.comet.schema.model.{AutoJobDesc, Domain, Metadata, Schema}
-import com.ebiznext.comet.job.transform.AutoJob
 import com.ebiznext.comet.utils.Utils
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
@@ -34,22 +35,23 @@ import org.apache.hadoop.fs.Path
 import scala.util.{Failure, Success, Try}
 
 /**
-  *The whole worklfow works as follow :
+  * The whole worklfow works as follow :
   *   - loadLanding : Zipped files are uncompressed or raw files extracted from the local filesystem.
-  *   -loadPending :
-  *     files recognized with filename patterns are stored in the ingesting area and submitted for ingestion
-  *     files with unrecognized filename patterns are stored in the unresolved area
+  * -loadPending :
+  * files recognized with filename patterns are stored in the ingesting area and submitted for ingestion
+  * files with unrecognized filename patterns are stored in the unresolved area
   *   - ingest : files are finally ingested and saved as parquet/orc/... files and hive tables
   *
   * @param storageHandler : Minimum set of features required for the underlying filesystem
-  * @param schemaHandler : Schema interface
-  * @param launchHandler : Cron Manager interface
+  * @param schemaHandler  : Schema interface
+  * @param launchHandler  : Cron Manager interface
   */
-class DatasetWorkflow(
+class IngestionWorkflow(
   storageHandler: StorageHandler,
   schemaHandler: SchemaHandler,
   launchHandler: LaunchHandler
 ) extends StrictLogging {
+  val domains = schemaHandler.domains
 
   /**
     * Load file from the landing area
@@ -60,7 +62,6 @@ class DatasetWorkflow(
     * before moving the files to the pending area, the ack files are deleted
     */
   def loadLanding(): Unit = {
-    val domains = schemaHandler.domains
     domains.foreach { domain =>
       val inputDir = File(domain.directory)
       logger.info(s"Scanning $inputDir")
@@ -100,7 +101,7 @@ class DatasetWorkflow(
           logger.error(s"No archive found for file ${ackFile.pathAsString}")
         }
         if (tmpDir.exists) {
-          val destFolder = DatasetArea.pending(domain.name) // Add FileName with timestamp in nanos
+          val destFolder = DatasetArea.pending(domain.name)
           tmpDir.list.foreach { file =>
             val source = new Path(file.pathAsString)
             logger.info(s"Importing ${file.pathAsString}")
@@ -116,23 +117,24 @@ class DatasetWorkflow(
   /**
     * Split files into resolved and unresolved datasets. A file is unresolved if a corresponding schema is not found.
     * Schema matching is based on the dataset filename pattern
+    *
     * @param includes Load pending dataset of these domain only
     * @param excludes : Do not load datasets of these domains
-    * if both lists are empty, all domains are included
+    *                 if both lists are empty, all domains are included
     */
   def loadPending(includes: List[String] = Nil, excludes: List[String] = Nil): Unit = {
-    val domains = (includes, excludes) match {
+    val includedDomains = (includes, excludes) match {
       case (Nil, Nil) =>
-        schemaHandler.domains
+        domains
       case (_, Nil) =>
-        schemaHandler.domains.filter(domain => includes.contains(domain.name))
+        domains.filter(domain => includes.contains(domain.name))
       case (Nil, _) =>
-        schemaHandler.domains.filter(domain => !excludes.contains(domain.name))
+        domains.filter(domain => !excludes.contains(domain.name))
       case (_, _) => throw new Exception("Should never happen ")
     }
     logger.info(s"Domains that will be watched: ${domains.map(_.name).mkString(",")}")
 
-    domains.foreach { domain =>
+    includedDomains.foreach { domain =>
       logger.info(s"Watch Domain: ${domain.name}")
       val (resolved, unresolved) = pending(domain.name)
       unresolved.foreach {
@@ -148,7 +150,8 @@ class DatasetWorkflow(
           val ingestingPath: Path =
             new Path(DatasetArea.ingesting(domain.name), pendingPath.getName)
           if (storageHandler.move(pendingPath, ingestingPath))
-            launchHandler.ingest(domain, schema, ingestingPath)
+            launchHandler.ingest(this, domain, schema, ingestingPath)
+
         case (None, _) => throw new Exception("Should never happen")
       }
     }
@@ -184,12 +187,12 @@ class DatasetWorkflow(
 
   /**
     * Ingest the file (called by the cron manager at ingestion time for a specific dataset
-    * @param domainName : domain name of the dataset
-    * @param schemaName schema name of the dataset
+    *
+    * @param domainName    : domain name of the dataset
+    * @param schemaName    schema name of the dataset
     * @param ingestingPath : Absolute path of the file to ingest (present in the ingesting area of the domain)
     */
   def ingest(domainName: String, schemaName: String, ingestingPath: String): Unit = {
-    val domains = schemaHandler.domains
     for {
       domain <- domains.find(_.name == domainName)
       schema <- domain.schemas.find(_.name == schemaName)
@@ -239,10 +242,13 @@ class DatasetWorkflow(
       case Failure(exception) =>
         Utils.logException(logger, exception)
     }
+    if (Settings.comet.elasticsearch.active)
+      index(IndexConfig(format = "parquet", domain = domain.name, schema = schema.name))
   }
 
   /**
     * Successively run each task of a job
+    *
     * @param jobname : job namle as defined in the YML file.
     */
   def autoJob(jobname: String): Unit = {
@@ -255,6 +261,7 @@ class DatasetWorkflow(
 
   /**
     * Successively run each task of a job
+    *
     * @param jobname : job namle as defined in the YML file.
     */
   def autoJob(job: AutoJobDesc): Unit = {
@@ -262,5 +269,9 @@ class DatasetWorkflow(
       val action = new AutoJob(job.name, job.getArea(), task)
       action.run()
     }
+  }
+
+  def index(config: IndexConfig) = {
+    new IndexJob(config, Settings.storageHandler).run()
   }
 }

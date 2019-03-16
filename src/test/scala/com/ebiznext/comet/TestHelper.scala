@@ -25,11 +25,10 @@ import java.nio.file.Files
 import java.time.LocalDate
 import java.util.regex.Pattern
 
-import scala.collection.JavaConverters._
 import com.ebiznext.comet.config.DatasetArea
 import com.ebiznext.comet.schema.handlers.{HdfsStorageHandler, SchemaHandler, SimpleLauncher}
 import com.ebiznext.comet.schema.model._
-import com.ebiznext.comet.workflow.DatasetWorkflow
+import com.ebiznext.comet.workflow.IngestionWorkflow
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
@@ -37,11 +36,12 @@ import com.fasterxml.jackson.module.scala.experimental.ScalaObjectMapper
 import org.apache.commons.io.FileUtils
 import org.apache.commons.io.filefilter.TrueFileFilter
 import org.apache.hadoop.fs.Path
-import org.apache.spark.sql.{DataFrame, SparkSession}
-import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.{DataFrame, SparkSession}
+import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
 
+import scala.collection.JavaConverters._
 import scala.io.Source
 import scala.util.Try
 
@@ -214,6 +214,7 @@ trait TestHelper extends FlatSpec with Matchers with BeforeAndAfterAll {
 
     DatasetArea.init(storageHandler)
   }
+
   override protected def afterAll(): Unit = {
     super.afterAll()
     sparkSession.stop()
@@ -252,12 +253,13 @@ trait TestHelper extends FlatSpec with Matchers with BeforeAndAfterAll {
       storageHandler.write(loadFile(targetFile), targetPath)
 
       val validator =
-        new DatasetWorkflow(storageHandler, schemaHandler, new SimpleLauncher)
+        new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
 
       validator.loadPending()
     }
 
   }
+
 }
 
 object TestHelper {

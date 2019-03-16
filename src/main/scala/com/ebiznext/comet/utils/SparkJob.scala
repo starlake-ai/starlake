@@ -19,7 +19,6 @@ trait SparkJob extends StrictLogging {
   /**
     * Just to force any spark job to implement its entry point using within the "run" method
     *
-    * @param args : arbitrary list of arguments
     * @return : Spark Session used for the job
     */
   def run(): SparkSession

@@ -25,6 +25,7 @@ import java.time.format.DateTimeFormatter
 import java.util.regex.Pattern
 
 import com.ebiznext.comet.schema.model.PrimitiveType.{date, timestamp}
+import com.fasterxml.jackson.annotation.JsonIgnore
 import org.apache.spark.sql.types.StructField
 
 import scala.collection.mutable
@@ -49,7 +50,7 @@ case class Types(types: List[Type]) {
   * Semantic Type
   *
   * @param name          : Type name
-  * @param format        : Pattern use to check that the input data matches the pattern
+  * @param pattern       : Pattern use to check that the input data matches the pattern
   * @param primitiveType : Spark Column Type of the attribute
   */
 case class Type(
@@ -58,10 +59,20 @@ case class Type(
   primitiveType: PrimitiveType = PrimitiveType.string,
   sample: Option[String] = None,
   comment: Option[String] = None,
-  stat: Option[Stat] = None
+  indexType: Option[MetricType] = None,
+  indexMapping: Option[IndexMapping] = None
 ) {
   // Used only when object is not a date nor a timestamp
   private lazy val textPattern = Pattern.compile(pattern, Pattern.MULTILINE)
+
+  @JsonIgnore
+  def getIndexType(): MetricType = indexType.getOrElse(MetricType.NONE)
+
+  @JsonIgnore
+  def getIndexMapping(): IndexMapping = {
+    require(PrimitiveType.primitiveTypes.contains(primitiveType))
+    IndexMapping.fromType(primitiveType)
+  }
 
   def matches(value: String): Boolean = {
     name match {
@@ -98,8 +109,8 @@ case class Type(
           new SimpleDateFormat(pattern)
         case PrimitiveType.timestamp =>
           pattern match {
-            case "epoch_second" | "epoch_milli"                              =>
-            case _ if PrimitiveType.formatters.keys.toList.contains(pattern) =>
+            case "epoch_second" | "epoch_milli"                                  =>
+            case _ if PrimitiveType.dateFormatters.keys.toList.contains(pattern) =>
             case _ =>
               DateTimeFormatter.ofPattern(pattern)
           }

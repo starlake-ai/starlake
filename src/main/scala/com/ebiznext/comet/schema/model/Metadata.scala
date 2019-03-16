@@ -26,6 +26,9 @@ import com.ebiznext.comet.schema.model.WriteMode.APPEND
 import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize
 import com.fasterxml.jackson.databind.{DeserializationContext, JsonDeserializer, JsonNode}
+import org.apache.hadoop.fs.Path
+
+case class EsMapping(resource: Option[String], id: Option[String], template: Option[Path])
 
 /**
   * Specify Schema properties.
@@ -33,16 +36,16 @@ import com.fasterxml.jackson.databind.{DeserializationContext, JsonDeserializer,
   * Any property non specified at the schema level is taken from the
   * one specified at the domain level or else the default value is returned.
   *
-  * @param mode            : FILE mode by default
-  * @param format          : DSV by default
-  * @param multiline       : are json objects on a single line or multiple line ? Single by default.  false means single. false also means faster
-  * @param array           : Is a json stored as a single object array ? false by default
-  * @param withHeader      : does the dataset has a header ? true bu default
-  * @param separator       : the column separator,  ';' by default
-  * @param quote           : The String quote char, '"' by default
-  * @param escape          : escaping char '\' by default
-  * @param write           : Write mode, APPEND by default
-  * @param partition       : Partition columns, no partitioning by default
+  * @param mode       : FILE mode by default
+  * @param format     : DSV by default
+  * @param multiline  : are json objects on a single line or multiple line ? Single by default.  false means single. false also means faster
+  * @param array      : Is a json stored as a single object array ? false by default
+  * @param withHeader : does the dataset has a header ? true bu default
+  * @param separator  : the column separator,  ';' by default
+  * @param quote      : The String quote char, '"' by default
+  * @param escape     : escaping char '\' by default
+  * @param write      : Write mode, APPEND by default
+  * @param partition  : Partition columns, no partitioning by default
   */
 @JsonDeserialize(using = classOf[MetadataDeserializer])
 case class Metadata(
@@ -55,7 +58,8 @@ case class Metadata(
   quote: Option[String] = None,
   escape: Option[String] = None,
   write: Option[WriteMode] = None,
-  partition: Option[Partition] = None
+  partition: Option[Partition] = None,
+  mapping: Option[EsMapping] = None
 ) {
   override def toString: String =
     s"""
@@ -69,6 +73,7 @@ case class Metadata(
        |escape:${getEscape()}
        |write:${getWriteMode()}
        |partition:${getPartitionAttributes()}
+       |mapping:${mapping}
        """.stripMargin
 
   def getIngestMode(): Mode = mode.getOrElse(FILE)
