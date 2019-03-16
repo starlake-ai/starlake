@@ -46,7 +46,6 @@ case class Types(types: List[Type]) {
   }
 }
 
-
 /**
   * Semantic Type
   *
@@ -55,14 +54,14 @@ case class Types(types: List[Type]) {
   * @param primitiveType : Spark Column Type of the attribute
   */
 case class Type(
-                 name: String,
-                 pattern: String,
-                 primitiveType: PrimitiveType = PrimitiveType.string,
-                 sample: Option[String] = None,
-                 comment: Option[String] = None,
-                 indexType: Option[MetricType] = None,
-                 indexMapping: Option[IndexMapping] = None
-               ) {
+  name: String,
+  pattern: String,
+  primitiveType: PrimitiveType = PrimitiveType.string,
+  sample: Option[String] = None,
+  comment: Option[String] = None,
+  indexType: Option[MetricType] = None,
+  indexMapping: Option[IndexMapping] = None
+) {
   // Used only when object is not a date nor a timestamp
   private lazy val textPattern = Pattern.compile(pattern, Pattern.MULTILINE)
 
@@ -110,7 +109,7 @@ case class Type(
           new SimpleDateFormat(pattern)
         case PrimitiveType.timestamp =>
           pattern match {
-            case "epoch_second" | "epoch_milli" =>
+            case "epoch_second" | "epoch_milli"                                  =>
             case _ if PrimitiveType.dateFormatters.keys.toList.contains(pattern) =>
             case _ =>
               DateTimeFormatter.ofPattern(pattern)

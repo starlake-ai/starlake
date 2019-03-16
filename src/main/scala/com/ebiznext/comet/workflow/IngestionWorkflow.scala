@@ -46,11 +46,13 @@ import scala.util.{Failure, Success, Try}
   * @param schemaHandler  : Schema interface
   * @param launchHandler  : Cron Manager interface
   */
-class DatasetWorkflow(
-                       storageHandler: StorageHandler,
-                       schemaHandler: SchemaHandler,
-                       launchHandler: LaunchHandler
-                     ) extends StrictLogging {
+class IngestionWorkflow(
+  storageHandler: StorageHandler,
+  schemaHandler: SchemaHandler,
+  launchHandler: LaunchHandler
+) extends StrictLogging {
+  val domains = schemaHandler.domains
+
   /**
     * Load file from the landing area
     * files are loaded one domain at a time
@@ -60,7 +62,6 @@ class DatasetWorkflow(
     * before moving the files to the pending area, the ack files are deleted
     */
   def loadLanding(): Unit = {
-    val domains = schemaHandler.domains
     domains.foreach { domain =>
       val inputDir = File(domain.directory)
       logger.info(s"Scanning $inputDir")
@@ -122,18 +123,18 @@ class DatasetWorkflow(
     *                 if both lists are empty, all domains are included
     */
   def loadPending(includes: List[String] = Nil, excludes: List[String] = Nil): Unit = {
-    val domains = (includes, excludes) match {
+    val includedDomains = (includes, excludes) match {
       case (Nil, Nil) =>
-        schemaHandler.domains
+        domains
       case (_, Nil) =>
-        schemaHandler.domains.filter(domain => includes.contains(domain.name))
+        domains.filter(domain => includes.contains(domain.name))
       case (Nil, _) =>
-        schemaHandler.domains.filter(domain => !excludes.contains(domain.name))
+        domains.filter(domain => !excludes.contains(domain.name))
       case (_, _) => throw new Exception("Should never happen ")
     }
     logger.info(s"Domains that will be watched: ${domains.map(_.name).mkString(",")}")
 
-    domains.foreach { domain =>
+    includedDomains.foreach { domain =>
       logger.info(s"Watch Domain: ${domain.name}")
       val (resolved, unresolved) = pending(domain.name)
       unresolved.foreach {
@@ -149,7 +150,8 @@ class DatasetWorkflow(
           val ingestingPath: Path =
             new Path(DatasetArea.ingesting(domain.name), pendingPath.getName)
           if (storageHandler.move(pendingPath, ingestingPath))
-            launchHandler.ingest(domain, schema, ingestingPath)
+            launchHandler.ingest(this, domain, schema, ingestingPath)
+
         case (None, _) => throw new Exception("Should never happen")
       }
     }
@@ -161,8 +163,8 @@ class DatasetWorkflow(
     * @return resolved && unresolved schemas / path
     */
   private def pending(
-                       domainName: String
-                     ): (Iterable[(Option[Schema], Path)], Iterable[(Option[Schema], Path)]) = {
+    domainName: String
+  ): (Iterable[(Option[Schema], Path)], Iterable[(Option[Schema], Path)]) = {
     val pendingArea = DatasetArea.pending(domainName)
     logger.info(s"List files in $pendingArea")
     val paths = storageHandler.list(pendingArea)
@@ -191,7 +193,6 @@ class DatasetWorkflow(
     * @param ingestingPath : Absolute path of the file to ingest (present in the ingesting area of the domain)
     */
   def ingest(domainName: String, schemaName: String, ingestingPath: String): Unit = {
-    val domains = schemaHandler.domains
     for {
       domain <- domains.find(_.name == domainName)
       schema <- domain.schemas.find(_.name == schemaName)
@@ -241,7 +242,8 @@ class DatasetWorkflow(
       case Failure(exception) =>
         Utils.logException(logger, exception)
     }
-    index(IndexConfig(format = "parquet", domain=domain.name, schema = schema.name))
+    if (Settings.comet.elasticsearch.active)
+      index(IndexConfig(format = "parquet", domain = domain.name, schema = schema.name))
   }
 
   /**
