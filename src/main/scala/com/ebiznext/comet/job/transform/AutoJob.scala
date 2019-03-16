@@ -62,7 +62,16 @@ class AutoJob(override val name: String, defaultArea: HiveArea, task: AutoTask) 
         val analyzeTable =
           s"ANALYZE TABLE $fullTableName COMPUTE STATISTICS FOR COLUMNS $allCols"
         if (session.version.substring(0, 3).toDouble >= 2.4)
-          session.sql(analyzeTable)
+          try {
+            session.sql(analyzeTable)
+          } catch {
+            case e: Throwable =>
+              logger.warn(
+                s"Failed to compute statistics for table $fullTableName on columns $allCols"
+              )
+              e.printStackTrace()
+          }
+
       }
       task.postsql.getOrElse(Nil).foreach(session.sql)
     }
