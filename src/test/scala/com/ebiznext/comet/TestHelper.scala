@@ -224,17 +224,16 @@ trait TestHelper extends FlatSpec with Matchers with BeforeAndAfterAll {
 
     def schemaHandler = new SchemaHandler(storageHandler)
 
-    val domain: Path
+    final val domain: Path = DatasetArea.domains
     val domainName: String
     val domainFile: String
 
     val types: List[TypeToImport]
 
-    val targetName: String
-    val targetFile: String
+    val schemaName: String
+    val dataset: String
 
-    def launch: Unit = {
-
+    protected def init(): Unit = {
       val domainsPath = new Path(domain, domainName)
 
       storageHandler.write(loadFile(domainFile), domainsPath)
@@ -248,12 +247,18 @@ trait TestHelper extends FlatSpec with Matchers with BeforeAndAfterAll {
 
       DatasetArea.init(storageHandler)
 
-      val targetPath =
-        DatasetArea.path(DatasetArea.pending(targetName), new Path(targetFile).getName)
-      storageHandler.write(loadFile(targetFile), targetPath)
 
-      val validator =
-        new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
+    }
+
+    def loadPending(): Unit = {
+
+      init()
+
+      val validator = new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
+
+      val targetPath = DatasetArea.path(DatasetArea.pending(schemaName), new Path(dataset).getName)
+
+      storageHandler.write(loadFile(dataset), targetPath)
 
       validator.loadPending()
     }

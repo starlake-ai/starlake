@@ -141,8 +141,7 @@ case class Schema(
       s"""
          |"properties": {
          |$attrs
-         |}
-      """.stripMargin
+         |}""".stripMargin
 
     template.getOrElse {
       s"""
@@ -157,11 +156,10 @@ case class Schema(
          |      "_source": {
          |        "enabled": true
          |      },
-         |      __PROPERTIES__
+         |__PROPERTIES__
          |    }
          |  }
-         |}
-      """.stripMargin.replace("__PROPERTIES__", properties)
+         |}""".stripMargin.replace("__PROPERTIES__", properties)
     }
 
   }
