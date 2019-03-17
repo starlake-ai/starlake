@@ -21,6 +21,7 @@
 package com.ebiznext.comet.schema.handlers
 
 import com.ebiznext.comet.config.DatasetArea
+import com.ebiznext.comet.schema.model.Schema
 import com.ebiznext.comet.{TestHelper, TypeToImport}
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.DataFrame
@@ -38,7 +39,6 @@ class SchemaHandlerSpec extends TestHelper {
   "Ingest CSV" should "produce file in accepted" in {
 
     new SpecTrait {
-      override val domain: Path = DatasetArea.domains
       override val domainName: String = "DOMAIN.yml"
       override val domainFile: String = s"/sample/$domainName"
 
@@ -49,20 +49,20 @@ class SchemaHandlerSpec extends TestHelper {
         )
       )
 
-      override val targetName: String = "DOMAIN"
-      override val targetFile: String = "/sample/SCHEMA-VALID.dsv"
+      override val schemaName: String = "DOMAIN"
+      override val dataset: String = "/sample/SCHEMA-VALID.dsv"
 
-      launch
+      loadPending
 
       // Check Archived
-      readFileContent(cometDatasetsPath + s"/archive/$targetName/SCHEMA-VALID.dsv") shouldBe loadFile(
-        targetFile
+      readFileContent(cometDatasetsPath + s"/archive/$schemaName/SCHEMA-VALID.dsv") shouldBe loadFile(
+        dataset
       )
 
       // Check rejected
 
       val rejectedDf = sparkSession.read
-        .parquet(cometDatasetsPath + s"/rejected/$targetName/User")
+        .parquet(cometDatasetsPath + s"/rejected/$schemaName/User")
 
       val expectedRejectedF = prepareDateColumns(
         sparkSession.read
@@ -74,7 +74,7 @@ class SchemaHandlerSpec extends TestHelper {
 
       // Accepted should have the same data as input
       val acceptedDf = sparkSession.read
-        .parquet(cometDatasetsPath + s"/accepted/$targetName/User/${getTodayPartitionPath}")
+        .parquet(cometDatasetsPath + s"/accepted/$schemaName/User/${getTodayPartitionPath}")
 
       printDF(acceptedDf)
       val expectedAccepted =
@@ -90,7 +90,6 @@ class SchemaHandlerSpec extends TestHelper {
 
   "Ingest Dream Contact CSV" should "produce file in accepted" in {
     new SpecTrait {
-      override val domain: Path = DatasetArea.domains
       override val domainName: String = "dream.yml"
       override val domainFile: String = s"/sample/dream/$domainName"
 
@@ -105,15 +104,15 @@ class SchemaHandlerSpec extends TestHelper {
         )
       )
 
-      override val targetName: String = "dream"
-      override val targetFile: String = "/sample/dream/OneClient_Contact_20190101_090800_008.psv"
+      override val schemaName: String = "dream"
+      override val dataset: String = "/sample/dream/OneClient_Contact_20190101_090800_008.psv"
 
-      launch
+      loadPending
 
       readFileContent(
-        cometDatasetsPath + s"/archive/$targetName/OneClient_Contact_20190101_090800_008.psv"
+        cometDatasetsPath + s"/archive/$schemaName/OneClient_Contact_20190101_090800_008.psv"
       ) shouldBe loadFile(
-        targetFile
+        dataset
       )
 
       //If we run this test alone, we do not have rejected, else we have rejected but not accepted ...
@@ -127,7 +126,7 @@ class SchemaHandlerSpec extends TestHelper {
 
       // Accepted should have the same data as input
       val acceptedDf = sparkSession.read
-        .parquet(cometDatasetsPath + s"/accepted/$targetName/client/${getTodayPartitionPath}")
+        .parquet(cometDatasetsPath + s"/accepted/$schemaName/client/${getTodayPartitionPath}")
 
       val expectedAccepted =
         sparkSession.read
@@ -144,7 +143,6 @@ class SchemaHandlerSpec extends TestHelper {
   "Ingest Dream Segment CSV" should "produce file in accepted" in {
 
     new SpecTrait {
-      override val domain: Path = DatasetArea.domains
       override val domainName: String = "dream.yml"
       override val domainFile: String = s"/sample/dream/$domainName"
 
@@ -159,21 +157,21 @@ class SchemaHandlerSpec extends TestHelper {
         )
       )
 
-      override val targetName: String = "dream"
-      override val targetFile: String =
+      override val schemaName: String = "dream"
+      override val dataset: String =
         "/sample/dream/OneClient_Segmentation_20190101_090800_008.psv"
 
-      launch
+      loadPending
 
       readFileContent(
-        cometDatasetsPath + s"/archive/$targetName/OneClient_Segmentation_20190101_090800_008.psv"
+        cometDatasetsPath + s"/archive/$schemaName/OneClient_Segmentation_20190101_090800_008.psv"
       ) shouldBe loadFile(
-        targetFile
+        dataset
       )
 
       // Accepted should have the same data as input
       val acceptedDf = sparkSession.read
-        .parquet(cometDatasetsPath + s"/accepted/$targetName/segment/${getTodayPartitionPath}")
+        .parquet(cometDatasetsPath + s"/accepted/$schemaName/segment/${getTodayPartitionPath}")
 
       val expectedAccepted =
         sparkSession.read
@@ -189,7 +187,6 @@ class SchemaHandlerSpec extends TestHelper {
   "Ingest Dream Locations JSON" should "produce file in accepted" in {
 
     new SpecTrait {
-      override val domain: Path = DatasetArea.domains
       override val domainName: String = "locations.yml"
       override val domainFile: String = s"/sample/simple-json-locations/$domainName"
 
@@ -200,21 +197,21 @@ class SchemaHandlerSpec extends TestHelper {
         )
       )
 
-      override val targetName: String = "locations"
-      override val targetFile: String =
+      override val schemaName: String = "locations"
+      override val dataset: String =
         "/sample/simple-json-locations/locations.json"
 
-      launch
+      loadPending
 
       readFileContent(
-        cometDatasetsPath + s"/archive/$targetName/locations.json"
+        cometDatasetsPath + s"/archive/$schemaName/locations.json"
       ) shouldBe loadFile(
-        targetFile
+        dataset
       )
 
       // Accepted should have the same data as input
       val acceptedDf = sparkSession.read
-        .parquet(cometDatasetsPath + s"/accepted/$targetName/locations/$getTodayPartitionPath")
+        .parquet(cometDatasetsPath + s"/accepted/$schemaName/locations/$getTodayPartitionPath")
 
       val expectedAccepted =
         sparkSession.read
@@ -247,4 +244,55 @@ class SchemaHandlerSpec extends TestHelper {
 
   }
 
+  "Mapping Schema" should "produce valid template" in {
+    new SpecTrait {
+      override val domainName: String = "locations.yml"
+      override val domainFile: String = s"/sample/simple-json-locations/$domainName"
+
+      override val types: List[TypeToImport] = List(
+        TypeToImport(
+          "types.yml",
+          "/sample/simple-json-locations/types.yml"
+        )
+      )
+
+      override val schemaName: String = "locations"
+      override val dataset: String =
+        "/sample/simple-json-locations/locations.json"
+
+      init()
+      val schema: Option[Schema] = schemaHandler.domains.find(_.name == "locations").flatMap(_.schemas.find(_.name == "locations"))
+      val expected: String =
+        """
+          |{
+          |  "index_patterns": ["locations", "locations-*"],
+          |  "settings": {
+          |    "number_of_shards": "1",
+          |    "number_of_replicas": "0"
+          |  },
+          |  "mappings": {
+          |    "_doc": {
+          |      "_source": {
+          |        "enabled": true
+          |      },
+          |
+          |"properties": {
+          |
+          |"id": {
+          |  "type": "keyword"
+          |},
+          |"name": {
+          |  "type": "keyword"
+          |}
+          |}
+          |    }
+          |  }
+          |}
+        """.stripMargin.trim
+      val mapping = schema.map(_.mapping(None)).map(_.trim).getOrElse("")
+      println(mapping)
+      mapping shouldBe expected
+    }
+
+  }
 }
