@@ -48,24 +48,13 @@ class StorageHandlerSpec extends TestHelper {
     resultDomain.ack shouldBe Some(domain.getAck())
     resultDomain.comment shouldBe domain.comment
     resultDomain.extensions shouldBe Some(domain.getExtensions())
-    //    resultDomain.schemas shouldBe domain.schemas.map(
-    //      s =>
-    //        s.copy(
-    //          attributes = s.attributes.map(_.copy(stat = Some(Stat.NONE))),
-    //          metadata = s.metadata.map(_.copy(partition = Some(List())))
-    //      )
-    //    )
-
   }
 
   "Types Case Class" should "be written as yaml and read correctly" in {
 
     storageHandler.write(mapper.writeValueAsString(types), pathType)
-
     readFileContent(pathType) shouldBe loadFile("/expected/yml/types.yml")
-
     val resultType: Types = mapper.readValue[Types](storageHandler.read(pathType))
-
     resultType shouldBe types
 
   }
@@ -81,7 +70,6 @@ class StorageHandlerSpec extends TestHelper {
       None
     )
     val businessJob = AutoJobDesc("business1", List(businessTask1))
-
     storageHandler.write(mapper.writeValueAsString(businessJob), pathBusiness)
     readFileContent(pathBusiness) shouldBe loadFile("/expected/yml/business.yml")
   }
