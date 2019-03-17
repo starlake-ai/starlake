@@ -175,7 +175,6 @@ class JsonIngestionJobSpec extends TestHelper {
     new SpecTrait {
       cleanMetadata
       cleanDatasets
-      override val domain: Path = DatasetArea.domains
       override val domainName: String = "json.yml"
       override val domainFile: String = "/sample/json/json.yml"
 
@@ -185,25 +184,25 @@ class JsonIngestionJobSpec extends TestHelper {
           "/sample/json/types.yml"
         )
       )
-      override val targetName: String = "json"
-      override val targetFile: String = "/sample/json/complex.json"
+      override val schemaName: String = "json"
+      override val dataset: String = "/sample/json/complex.json"
 
-      launch
+      loadPending
 
       // Check archive
 
-      readFileContent(cometDatasetsPath + s"/archive/${targetName}/complex.json") shouldBe loadFile(
+      readFileContent(cometDatasetsPath + s"/archive/${schemaName}/complex.json") shouldBe loadFile(
         "/sample/json/complex.json"
       )
 
       // Accepted should have the same data as input
       sparkSession.read
         .parquet(
-          cometDatasetsPath + s"/accepted/${targetName}/sample_json/${getTodayPartitionPath}"
+          cometDatasetsPath + s"/accepted/${schemaName}/sample_json/${getTodayPartitionPath}"
         )
         .except(
           sparkSession.read
-            .json(getClass.getResource(s"/sample/${targetName}/complex.json").toURI.getPath)
+            .json(getClass.getResource(s"/sample/${schemaName}/complex.json").toURI.getPath)
         )
         .count() shouldBe 0
     }
