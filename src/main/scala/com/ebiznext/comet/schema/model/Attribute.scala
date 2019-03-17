@@ -150,8 +150,7 @@ case class Attribute(
            |  "properties" : {
            |  ${attrs.map(_.mapping()).mkString(",")}
            |  }
-           |}
-         """.stripMargin
+           |}""".stripMargin
 
       case None =>
         types.find(_.name == this.`type`).map { tpe =>
@@ -162,8 +161,7 @@ case class Attribute(
                  |"$name": {
                  |  "type": "$typeMapping"
                  | "format" : "${tpe.pattern}"
-                 |}
-              """.stripMargin
+                 |}""".stripMargin
             case PrimitiveType.timestamp =>
               val format = tpe.pattern match {
                 case "epoch_milli"                                         => Some("epoch_millis")
@@ -177,22 +175,19 @@ case class Attribute(
                      |"$name": {
                      |"type": "$typeMapping"
                      | "format" : "$fmt"
-                     |}
-              """.stripMargin
+                     |}""".stripMargin
                 case None => // Not Supported date format for ES TODO : needs to be implemented
                   s"""
                      |"$name": {
                      |"type": "keyword"
-                     |}
-              """.stripMargin
+                     |}""".stripMargin
               }
 
             case _ =>
               s"""
                  |"$name": {
                  |  "type": "$typeMapping"
-                 |}
-          """.stripMargin
+                 |}""".stripMargin
           }
         } getOrElse (throw new Exception("Cannot map unknown type"))
     }
