@@ -69,6 +69,7 @@ class StorageHandlerSpec extends TestHelper {
     )
     val businessJob = AutoJobDesc("business1", List(businessTask1))
     storageHandler.write(mapper.writeValueAsString(businessJob), pathBusiness)
+    println(readFileContent(pathBusiness))
     readFileContent(pathBusiness) shouldBe loadFile("/expected/yml/business.yml")
   }
 
