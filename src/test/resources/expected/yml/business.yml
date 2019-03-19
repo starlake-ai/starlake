@@ -11,4 +11,6 @@ tasks:
   presql: null
   postsql: null
   area: null
+  index: null
+  mapping: null
 area: "business"
