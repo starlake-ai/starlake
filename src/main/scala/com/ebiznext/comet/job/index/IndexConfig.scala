@@ -24,8 +24,9 @@ import com.ebiznext.comet.config.Settings
 import org.apache.hadoop.fs.Path
 import scopt.OParser
 
+
 case class IndexConfig(
-                        resource: Option[String] = None,
+                        timestamp: Option[String] = None,
                         id: Option[String] = None,
                         mapping: Option[Path] = None,
                         domain: String = "",
@@ -46,8 +47,10 @@ case class IndexConfig(
   def getTypeName(): String = s"${domain}_$schema"
 
   def getResource(): String = {
-    resource.getOrElse {
-      s"${this.getIndexName()}/${getTypeName()}"
+    timestamp.map { ts =>
+      s"${this.getIndexName()}-$ts/_doc"
+    } getOrElse {
+      s"${this.getIndexName()}/_doc"
     }
   }
 }
@@ -61,10 +64,10 @@ object IndexConfig {
       OParser.sequence(
         programName("comet"),
         head("comet", "1.x"),
-        opt[String]("resource")
-          .action((x, c) => c.copy(resource = Some(x)))
+        opt[String]("timestamp")
+          .action((x, c) => c.copy(timestamp = Some(x)))
           .optional()
-          .text("Elasticsearch index/type name"),
+          .text("Elasticsearch index timestamp suffix as in {@timestamp|yyyy.MM.dd}"),
         opt[String]("id")
           .action((x, c) => c.copy(id = Some(x)))
           .optional()
