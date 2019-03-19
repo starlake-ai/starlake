@@ -149,8 +149,16 @@ class IngestionWorkflow(
           logger.info(s"Ingest resolved file : ${pendingPath.getName} with schema ${schema.name}")
           val ingestingPath: Path =
             new Path(DatasetArea.ingesting(domain.name), pendingPath.getName)
-          if (storageHandler.move(pendingPath, ingestingPath))
-            launchHandler.ingest(this, domain, schema, ingestingPath)
+          if (storageHandler.move(pendingPath, ingestingPath)) {
+            try {
+              launchHandler.ingest(this, domain, schema, ingestingPath)
+            }
+            catch {
+              case t: Throwable =>
+                t.printStackTrace()
+              // Continue to nextpending file
+            }
+          }
 
         case (None, _) => throw new Exception("Should never happen")
       }
@@ -246,12 +254,13 @@ class IngestionWorkflow(
     val meta = schema.mergedMetadata(domain.metadata)
     if (meta.isIndexed() && Settings.comet.elasticsearch.active) {
       val mapping = schema.mergedMetadata(domain.metadata).mapping
-      index(IndexConfig(
-        resource = mapping.flatMap(_.resource),
-        id = mapping.flatMap(_.id),
-        format = "parquet",
-        domain = domain.name,
-        schema = schema.name))
+      launchHandler.index(this,
+        IndexConfig(
+          timestamp = mapping.flatMap(_.timestamp),
+          id = mapping.flatMap(_.id),
+          format = "parquet",
+          domain = domain.name,
+          schema = schema.name))
     }
   }
 
@@ -259,19 +268,20 @@ class IngestionWorkflow(
     val targetArea = task.area.getOrElse(job.getArea())
     val targetPath = new Path(DatasetArea.path(task.domain, targetArea.value), task.dataset)
     val mapping = task.mapping
-    index(IndexConfig(
-      resource = mapping.flatMap(_.resource),
-      id = mapping.flatMap(_.id),
-      format = "parquet",
-      domain = task.domain,
-      schema = task.dataset,
-      dataset = Some(targetPath)))
+    launchHandler.index(this,
+      IndexConfig(
+        timestamp = mapping.flatMap(_.timestamp),
+        id = mapping.flatMap(_.id),
+        format = "parquet",
+        domain = task.domain,
+        schema = task.dataset,
+        dataset = Some(targetPath)))
   }
 
   /**
     * Successively run each task of a job
     *
-    * @param jobname : job namle as defined in the YML file.
+    * @param jobname : job name as defined in the YML file.
     */
   def autoJob(jobname: String): Unit = {
     val job = schemaHandler.jobs(jobname)

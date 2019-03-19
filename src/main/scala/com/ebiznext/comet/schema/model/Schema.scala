@@ -132,7 +132,7 @@ case class Schema(
   def continuousAttrs(): List[Attribute] =
     attributes.filter(_.getMetricType() == MetricType.CONTINUOUS)
 
-  def mapping(template: Option[String]): String = {
+  def mapping(template: Option[String], domainName: String): String = {
     val attrs = attributes.map(_.mapping()).mkString(",")
     val properties =
       s"""
@@ -143,7 +143,7 @@ case class Schema(
     template.getOrElse {
       s"""
          |{
-         |  "index_patterns": ["$name", "$name-*"],
+         |  "index_patterns": ["${domainName}_$name", "${domainName}_$name-*"],
          |  "settings": {
          |    "number_of_shards": "1",
          |    "number_of_replicas": "0"
@@ -170,7 +170,7 @@ case class Schema(
 }
 
 object Schema {
-  def mapping(templateName: String, obj: StructField): String = {
+  def mapping(domainName:String, schemaName: String, obj: StructField): String = {
     def buildAttributeTree(obj: StructField): Attribute = {
       obj.dataType match {
         case StringType | LongType | IntegerType | ShortType |
@@ -184,6 +184,6 @@ object Schema {
       }
     }
 
-    Schema(templateName, Pattern.compile("ignore"), buildAttributeTree(obj).attributes.getOrElse(Nil), None, None, None, None, None).mapping(None)
+    Schema(schemaName, Pattern.compile("ignore"), buildAttributeTree(obj).attributes.getOrElse(Nil), None, None, None, None, None).mapping(None, domainName)
   }
 }
