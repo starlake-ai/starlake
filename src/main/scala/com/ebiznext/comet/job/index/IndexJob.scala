@@ -22,9 +22,11 @@ package com.ebiznext.comet.job.index
 
 import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.schema.handlers.StorageHandler
+import com.ebiznext.comet.schema.model.{Attribute, Schema}
 import com.ebiznext.comet.utils.SparkJob
 import com.softwaremill.sttp._
 import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.types.StructField
 
 class IndexJob(
   cliConfig: IndexConfig,
@@ -66,7 +68,10 @@ class IndexJob(
         schema <- domain.schemas.find(_.name == cliConfig.schema)
       } yield schema.mapping(domain.mapping(schema))
 
-      dynamicTemplate.getOrElse(throw new Exception("Should never happen"))
+      dynamicTemplate.getOrElse {
+        // Handle datasets without YAML schema
+        Schema.mapping(cliConfig.getResource(), StructField("ignore", df.schema))
+      }
     }
 
     import scala.collection.JavaConverters._

@@ -23,9 +23,7 @@ trait IngestionJob extends SparkJob {
   /**
     * Merged metadata
     */
-  lazy val metadata: Metadata = domain.metadata
-    .getOrElse(Metadata())
-    .`import`(schema.metadata.getOrElse(Metadata()))
+  lazy val metadata: Metadata = schema.mergedMetadata(domain.metadata)
 
   /**
     * Dataset loading strategy (JSOn / CSV / ...)
@@ -104,12 +102,12 @@ trait IngestionJob extends SparkJob {
     * @param area       : accepted or rejected area
     */
   def saveRows(
-    dataset: DataFrame,
-    targetPath: Path,
-    writeMode: WriteMode,
-    area: HiveArea,
-    merge: Boolean
-  ): Unit = {
+                dataset: DataFrame,
+                targetPath: Path,
+                writeMode: WriteMode,
+                area: HiveArea,
+                merge: Boolean
+              ): Unit = {
     if (dataset.columns.length > 0) {
       val count = dataset.count()
       val saveMode = writeMode.toSaveMode
@@ -128,7 +126,7 @@ trait IngestionJob extends SparkJob {
 
       val tmpPath = new Path(s"${targetPath.toString}.tmp")
 
-      val nbPartitions = metadata.getPartitionSampling() match {
+      val nbPartitions = metadata.getSamplingStrategy() match {
         case 0.0 => // default partitioning
           dataset.rdd.getNumPartitions
         case fraction if fraction > 0.0 && fraction < 1.0 =>
