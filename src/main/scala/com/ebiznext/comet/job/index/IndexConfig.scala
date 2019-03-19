@@ -25,15 +25,15 @@ import org.apache.hadoop.fs.Path
 import scopt.OParser
 
 case class IndexConfig(
-  resource: Option[String] = None,
-  id: Option[String] = None,
-  mapping: Option[Path] = None,
-  domain: String = "",
-  schema: String = "",
-  format: String = "",
-  dataset: Option[Path] = None,
-  conf: Map[String, String] = Map()
-) {
+                        resource: Option[String] = None,
+                        id: Option[String] = None,
+                        mapping: Option[Path] = None,
+                        domain: String = "",
+                        schema: String = "",
+                        format: String = "",
+                        dataset: Option[Path] = None,
+                        conf: Map[String, String] = Map()
+                      ) {
 
   def getDataset(): Path = {
     dataset.getOrElse {
@@ -41,9 +41,13 @@ case class IndexConfig(
     }
   }
 
+  def getIndexName(): String = s"${domain}_$schema"
+
+  def getTypeName(): String = s"${domain}_$schema"
+
   def getResource(): String = {
     resource.getOrElse {
-      s"${domain}_$schema/${domain}_$schema"
+      s"${this.getIndexName()}/${getTypeName()}"
     }
   }
 }
