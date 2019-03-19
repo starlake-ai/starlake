@@ -20,11 +20,14 @@
 
 package com.ebiznext.comet.schema.handlers
 
+import java.net.URL
+
 import com.ebiznext.comet.config.DatasetArea
-import com.ebiznext.comet.schema.model.Schema
+import com.ebiznext.comet.schema.model.{Attribute, Schema}
 import com.ebiznext.comet.{TestHelper, TypeToImport}
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.types.StructField
 
 import scala.util.Try
 
@@ -295,4 +298,28 @@ class SchemaHandlerSpec extends TestHelper {
     }
 
   }
+  "JSON Schema" should "produce valid template" in {
+    new SpecTrait {
+      override val domainName: String = "locations.yml"
+      override val domainFile: String = s"/sample/simple-json-locations/$domainName"
+
+      override val types: List[TypeToImport] = List(
+        TypeToImport(
+          "types.yml",
+          "/sample/mapping/types.yml"
+        )
+      )
+
+      override val schemaName: String = "locations"
+      override val dataset: String =
+        "/sample/simple-json-locations/locations.json"
+
+      init()
+
+      val ds : URL = getClass.getResource("/sample/mapping/dataset")
+
+      println(Schema.mapping("dataset", StructField("ignore", sparkSession.read.parquet(ds.toString).schema)))
+    }
+  }
+
 }

@@ -27,7 +27,7 @@ import com.ebiznext.comet.job.ingest.{DsvIngestionJob, JsonIngestionJob, SimpleJ
 import com.ebiznext.comet.job.transform.AutoJob
 import com.ebiznext.comet.schema.handlers.{LaunchHandler, SchemaHandler, StorageHandler}
 import com.ebiznext.comet.schema.model.Format.{DSV, JSON, SIMPLE_JSON}
-import com.ebiznext.comet.schema.model.{AutoJobDesc, Domain, Metadata, Schema}
+import com.ebiznext.comet.schema.model._
 import com.ebiznext.comet.utils.Utils
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
@@ -47,11 +47,11 @@ import scala.util.{Failure, Success, Try}
   * @param launchHandler  : Cron Manager interface
   */
 class IngestionWorkflow(
-  storageHandler: StorageHandler,
-  schemaHandler: SchemaHandler,
-  launchHandler: LaunchHandler
-) extends StrictLogging {
-  val domains = schemaHandler.domains
+                         storageHandler: StorageHandler,
+                         schemaHandler: SchemaHandler,
+                         launchHandler: LaunchHandler
+                       ) extends StrictLogging {
+  val domains: List[Domain] = schemaHandler.domains
 
   /**
     * Load file from the landing area
@@ -163,8 +163,8 @@ class IngestionWorkflow(
     * @return resolved && unresolved schemas / path
     */
   private def pending(
-    domainName: String
-  ): (Iterable[(Option[Schema], Path)], Iterable[(Option[Schema], Path)]) = {
+                       domainName: String
+                     ): (Iterable[(Option[Schema], Path)], Iterable[(Option[Schema], Path)]) = {
     val pendingArea = DatasetArea.pending(domainName)
     logger.info(s"List files in $pendingArea")
     val paths = storageHandler.list(pendingArea)
@@ -242,8 +242,30 @@ class IngestionWorkflow(
       case Failure(exception) =>
         Utils.logException(logger, exception)
     }
-    if (Settings.comet.elasticsearch.active)
-      index(IndexConfig(format = "parquet", domain = domain.name, schema = schema.name))
+
+    val meta = schema.mergedMetadata(domain.metadata)
+    if (meta.isIndexed() && Settings.comet.elasticsearch.active) {
+      val mapping = schema.mergedMetadata(domain.metadata).mapping
+      index(IndexConfig(
+        resource = mapping.flatMap(_.resource),
+        id = mapping.flatMap(_.id),
+        format = "parquet",
+        domain = domain.name,
+        schema = schema.name))
+    }
+  }
+
+  def index(job: AutoJobDesc, task: AutoTask): Unit = {
+    val targetArea = task.area.getOrElse(job.getArea())
+    val targetPath = new Path(DatasetArea.path(task.domain, targetArea.value), task.dataset)
+    val mapping = task.mapping
+    index(IndexConfig(
+      resource = mapping.flatMap(_.resource),
+      id = mapping.flatMap(_.id),
+      format = "parquet",
+      domain = task.domain,
+      schema = task.dataset,
+      dataset = Some(targetPath)))
   }
 
   /**
@@ -256,18 +278,22 @@ class IngestionWorkflow(
     job.tasks.foreach { task =>
       val action = new AutoJob(job.name, job.getArea(), task)
       action.run()
+      if (task.isIndexed() && Settings.comet.elasticsearch.active) {
+        index(job, task)
+      }
     }
   }
 
   /**
     * Successively run each task of a job
     *
-    * @param jobname : job namle as defined in the YML file.
+    * @param job : job as defined in the YML file.
     */
   def autoJob(job: AutoJobDesc): Unit = {
     job.tasks.foreach { task =>
       val action = new AutoJob(job.name, job.getArea(), task)
       action.run()
+      index(job, task)
     }
   }
 
