@@ -207,14 +207,14 @@ class MetadataDeserializer extends JsonDeserializer[Metadata] {
     val mapping =
       if (isNull(node, "mapping")) None
       else {
-        val indexField = node.get("index")
-        val resource =
-          if (isNull(indexField, "resource")) None
-          else Some(indexField.get("resource").asText)
+        val mappingField = node.get("mapping")
+        val timestamp =
+          if (isNull(mappingField, "timestamp")) None
+          else Some(mappingField.get("timestamp").asText)
         val id =
-          if (isNull(indexField, "id")) None
-          else Some(indexField.get("id").asText)
-        Some(EsMapping(resource, id))
+          if (isNull(mappingField, "id")) None
+          else Some(mappingField.get("id").asText)
+        Some(EsMapping(timestamp, id))
       }
     Metadata(mode, format, multiline, array, withHeader, separator, quote, escape, write, partition, index, mapping)
   }
