@@ -157,10 +157,10 @@ case class Attribute(
           val typeMapping = tpe.getIndexMapping().toString
           tpe.primitiveType match {
             case PrimitiveType.date =>
+              //  "format" : "${tpe.pattern}"
               s"""
                  |"$name": {
                  |  "type": "$typeMapping"
-                 | "format" : "${tpe.pattern}"
                  |}""".stripMargin
             case PrimitiveType.timestamp =>
               val format = tpe.pattern match {
@@ -171,10 +171,10 @@ case class Attribute(
               }
               format match {
                 case Some(fmt) =>
+                  //"format" : "$fmt"
                   s"""
                      |"$name": {
                      |"type": "$typeMapping"
-                     | "format" : "$fmt"
                      |}""".stripMargin
                 case None => // Not Supported date format for ES TODO : needs to be implemented
                   s"""

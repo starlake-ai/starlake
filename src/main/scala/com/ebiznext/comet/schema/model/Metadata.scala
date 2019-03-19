@@ -26,8 +26,9 @@ import com.ebiznext.comet.schema.model.WriteMode.APPEND
 import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize
 import com.fasterxml.jackson.databind.{DeserializationContext, JsonDeserializer, JsonNode}
+import org.apache.spark.sql.SaveMode
 
-case class EsMapping(resource: Option[String], id: Option[String])
+case class EsMapping(timestamp: Option[String], id: Option[String])
 
 /**
   * Specify Schema properties.
