@@ -253,7 +253,7 @@ class IngestionWorkflow(
 
     val meta = schema.mergedMetadata(domain.metadata)
     if (meta.isIndexed() && Settings.comet.elasticsearch.active) {
-      val mapping = schema.mergedMetadata(domain.metadata).mapping
+      val mapping = meta.mapping
       launchHandler.index(this,
         IndexConfig(
           timestamp = mapping.flatMap(_.timestamp),
