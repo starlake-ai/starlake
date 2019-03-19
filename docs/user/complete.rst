@@ -1,6 +1,6 @@
-#########
+*********
 Ingestion
-#########
+*********
 
 Ingestion Rules
 ###############
@@ -576,6 +576,27 @@ Ingestion Step
 How it works
 ~~~~~~~~~~~~
 Unlike the steps above, this step does not scan any folder.
+It takes as its parameters the domain name, schema name and
+full path of the file that need to be ingested. That's why it is usually
+invoked through request submitted to a job manager by at the Watch Step.
+
+
+Running it
+~~~~~~~~~~
+To interactively run it, copy the input file in the pending area
+of a domain and run it as follows:
+
+.. code:: console
+
+   $ SPARK_HOME/bin/spark-submit comet-assembly-VERSION.jar ingest DOMAIN_NAME SCHEMA_NAME hdfs://datasets/domain/pending/file.dsv
+
+
+Export Step
+**************
+
+How it works
+~~~~~~~~~~~~
+This step is conecerned with exporting the dataset to Elasticsearch / SQl Database / csv or json file
 It takes as its parameters the domain name, schema name and
 full path of the file that need to be ingested. That's why it is usually
 invoked through request submitted to a job manager by at the Watch Step.
