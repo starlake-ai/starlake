@@ -247,7 +247,6 @@ trait TestHelper extends FlatSpec with Matchers with BeforeAndAfterAll {
 
       DatasetArea.init(storageHandler)
 
-
     }
 
     def loadPending(): Unit = {

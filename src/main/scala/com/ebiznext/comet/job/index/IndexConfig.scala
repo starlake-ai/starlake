@@ -26,17 +26,16 @@ import com.ebiznext.comet.config.Settings
 import org.apache.hadoop.fs.Path
 import scopt.OParser
 
-
 case class IndexConfig(
-                        timestamp: Option[String] = None,
-                        id: Option[String] = None,
-                        mapping: Option[Path] = None,
-                        domain: String = "",
-                        schema: String = "",
-                        format: String = "",
-                        dataset: Option[Path] = None,
-                        conf: Map[String, String] = Map()
-                      ) {
+  timestamp: Option[String] = None,
+  id: Option[String] = None,
+  mapping: Option[Path] = None,
+  domain: String = "",
+  schema: String = "",
+  format: String = "",
+  dataset: Option[Path] = None,
+  conf: Map[String, String] = Map()
+) {
 
   def getDataset(): Path = {
     dataset.getOrElse {
@@ -50,14 +49,12 @@ case class IndexConfig(
 
   private val pattern = Pattern.compile("\\{(.*)\\|(.*)\\}")
 
-
   def getTimestampCol(): Option[String] = {
     timestamp.flatMap { ts =>
       val matcher = pattern.matcher(ts)
       if (matcher.matches()) {
         Some(matcher.group(1))
-      }
-      else {
+      } else {
         None
       }
     }

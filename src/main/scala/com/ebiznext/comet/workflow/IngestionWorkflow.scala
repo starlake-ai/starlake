@@ -47,10 +47,10 @@ import scala.util.{Failure, Success, Try}
   * @param launchHandler  : Cron Manager interface
   */
 class IngestionWorkflow(
-                         storageHandler: StorageHandler,
-                         schemaHandler: SchemaHandler,
-                         launchHandler: LaunchHandler
-                       ) extends StrictLogging {
+  storageHandler: StorageHandler,
+  schemaHandler: SchemaHandler,
+  launchHandler: LaunchHandler
+) extends StrictLogging {
   val domains: List[Domain] = schemaHandler.domains
 
   /**
@@ -152,8 +152,7 @@ class IngestionWorkflow(
           if (storageHandler.move(pendingPath, ingestingPath)) {
             try {
               launchHandler.ingest(this, domain, schema, ingestingPath)
-            }
-            catch {
+            } catch {
               case t: Throwable =>
                 t.printStackTrace()
               // Continue to nextpending file
@@ -171,8 +170,8 @@ class IngestionWorkflow(
     * @return resolved && unresolved schemas / path
     */
   private def pending(
-                       domainName: String
-                     ): (Iterable[(Option[Schema], Path)], Iterable[(Option[Schema], Path)]) = {
+    domainName: String
+  ): (Iterable[(Option[Schema], Path)], Iterable[(Option[Schema], Path)]) = {
     val pendingArea = DatasetArea.pending(domainName)
     logger.info(s"List files in $pendingArea")
     val paths = storageHandler.list(pendingArea)
@@ -254,13 +253,16 @@ class IngestionWorkflow(
     val meta = schema.mergedMetadata(domain.metadata)
     if (meta.isIndexed() && Settings.comet.elasticsearch.active) {
       val mapping = meta.mapping
-      launchHandler.index(this,
+      launchHandler.index(
+        this,
         IndexConfig(
           timestamp = mapping.flatMap(_.timestamp),
           id = mapping.flatMap(_.id),
           format = "parquet",
           domain = domain.name,
-          schema = schema.name))
+          schema = schema.name
+        )
+      )
     }
   }
 
@@ -268,14 +270,17 @@ class IngestionWorkflow(
     val targetArea = task.area.getOrElse(job.getArea())
     val targetPath = new Path(DatasetArea.path(task.domain, targetArea.value), task.dataset)
     val mapping = task.mapping
-    launchHandler.index(this,
+    launchHandler.index(
+      this,
       IndexConfig(
         timestamp = mapping.flatMap(_.timestamp),
         id = mapping.flatMap(_.id),
         format = "parquet",
         domain = task.domain,
         schema = task.dataset,
-        dataset = Some(targetPath)))
+        dataset = Some(targetPath)
+      )
+    )
   }
 
   /**
