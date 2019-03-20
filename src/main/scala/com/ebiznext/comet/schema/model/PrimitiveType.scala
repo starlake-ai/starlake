@@ -53,17 +53,17 @@ class PrimitiveTypeDeserializer extends JsonDeserializer[PrimitiveType] {
 
   def simpleTypeFromString(value: String): PrimitiveType = {
     value match {
-      case "string" => PrimitiveType.string
-      case "long" => PrimitiveType.long
-      case "int" => PrimitiveType.int
-      case "short" => PrimitiveType.short
-      case "double" => PrimitiveType.double
-      case "boolean" => PrimitiveType.boolean
-      case "byte" => PrimitiveType.byte
-      case "date" => PrimitiveType.date
+      case "string"    => PrimitiveType.string
+      case "long"      => PrimitiveType.long
+      case "int"       => PrimitiveType.int
+      case "short"     => PrimitiveType.short
+      case "double"    => PrimitiveType.double
+      case "boolean"   => PrimitiveType.boolean
+      case "byte"      => PrimitiveType.byte
+      case "date"      => PrimitiveType.date
       case "timestamp" => PrimitiveType.timestamp
-      case "decimal" => PrimitiveType.decimal
-      case "struct" => PrimitiveType.struct
+      case "decimal"   => PrimitiveType.decimal
+      case "struct"    => PrimitiveType.struct
       case _ =>
         throw new Exception(
           s"Invalid primitive type: $value not in ${PrimitiveType.primitiveTypes}"
@@ -221,21 +221,21 @@ object PrimitiveType {
   import DateTimeFormatter._
 
   val dateFormatters = Map(
-    "BASIC_ISO_DATE" -> BASIC_ISO_DATE,
-    "ISO_LOCAL_DATE" -> ISO_LOCAL_DATE,
-    "ISO_OFFSET_DATE" -> ISO_OFFSET_DATE,
-    "ISO_DATE" -> ISO_DATE,
-    "ISO_LOCAL_TIME" -> ISO_LOCAL_TIME,
-    "ISO_OFFSET_TIME" -> ISO_OFFSET_TIME,
-    "ISO_TIME" -> ISO_TIME,
-    "ISO_LOCAL_DATE_TIME" -> ISO_LOCAL_DATE_TIME,
+    "BASIC_ISO_DATE"       -> BASIC_ISO_DATE,
+    "ISO_LOCAL_DATE"       -> ISO_LOCAL_DATE,
+    "ISO_OFFSET_DATE"      -> ISO_OFFSET_DATE,
+    "ISO_DATE"             -> ISO_DATE,
+    "ISO_LOCAL_TIME"       -> ISO_LOCAL_TIME,
+    "ISO_OFFSET_TIME"      -> ISO_OFFSET_TIME,
+    "ISO_TIME"             -> ISO_TIME,
+    "ISO_LOCAL_DATE_TIME"  -> ISO_LOCAL_DATE_TIME,
     "ISO_OFFSET_DATE_TIME" -> ISO_OFFSET_DATE_TIME,
-    "ISO_ZONED_DATE_TIME" -> ISO_ZONED_DATE_TIME,
-    "ISO_DATE_TIME" -> ISO_DATE_TIME,
-    "ISO_ORDINAL_DATE" -> ISO_ORDINAL_DATE,
-    "ISO_WEEK_DATE" -> ISO_WEEK_DATE,
-    "ISO_INSTANT" -> ISO_INSTANT,
-    "RFC_1123_DATE_TIME" -> RFC_1123_DATE_TIME
+    "ISO_ZONED_DATE_TIME"  -> ISO_ZONED_DATE_TIME,
+    "ISO_DATE_TIME"        -> ISO_DATE_TIME,
+    "ISO_ORDINAL_DATE"     -> ISO_ORDINAL_DATE,
+    "ISO_WEEK_DATE"        -> ISO_WEEK_DATE,
+    "ISO_INSTANT"          -> ISO_INSTANT,
+    "RFC_1123_DATE_TIME"   -> RFC_1123_DATE_TIME
   )
 
 }
