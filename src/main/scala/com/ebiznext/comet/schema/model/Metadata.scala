@@ -50,19 +50,19 @@ case class EsMapping(timestamp: Option[String], id: Option[String])
   */
 @JsonDeserialize(using = classOf[MetadataDeserializer])
 case class Metadata(
-                     mode: Option[Mode] = None,
-                     format: Option[Format] = None,
-                     multiline: Option[Boolean] = None,
-                     array: Option[Boolean] = None,
-                     withHeader: Option[Boolean] = None,
-                     separator: Option[String] = None,
-                     quote: Option[String] = None,
-                     escape: Option[String] = None,
-                     write: Option[WriteMode] = None,
-                     partition: Option[Partition] = None,
-                     index: Option[Boolean] = None,
-                     mapping: Option[EsMapping] = None
-                   ) {
+  mode: Option[Mode] = None,
+  format: Option[Format] = None,
+  multiline: Option[Boolean] = None,
+  array: Option[Boolean] = None,
+  withHeader: Option[Boolean] = None,
+  separator: Option[String] = None,
+  quote: Option[String] = None,
+  escape: Option[String] = None,
+  write: Option[WriteMode] = None,
+  partition: Option[Partition] = None,
+  index: Option[Boolean] = None,
+  mapping: Option[EsMapping] = None
+) {
   override def toString: String =
     s"""
        |mode:${getIngestMode()}
@@ -136,7 +136,6 @@ case class Metadata(
       partition = merge(this.partition, child.partition),
       index = merge(this.index, child.index),
       mapping = merge(this.mapping, child.mapping)
-
     )
   }
 }
@@ -150,11 +149,11 @@ object Metadata {
     List("comet_year", "comet_month", "comet_day", "comet_hour", "comet_minute")
 
   def Dsv(
-           separator: Option[String],
-           quote: Option[String],
-           escape: Option[String],
-           write: Option[WriteMode]
-         ) = new Metadata(
+    separator: Option[String],
+    quote: Option[String],
+    escape: Option[String],
+    write: Option[WriteMode]
+  ) = new Metadata(
     Some(Mode.FILE),
     Some(Format.DSV),
     Some(false),
@@ -216,6 +215,19 @@ class MetadataDeserializer extends JsonDeserializer[Metadata] {
           else Some(mappingField.get("id").asText)
         Some(EsMapping(timestamp, id))
       }
-    Metadata(mode, format, multiline, array, withHeader, separator, quote, escape, write, partition, index, mapping)
+    Metadata(
+      mode,
+      format,
+      multiline,
+      array,
+      withHeader,
+      separator,
+      quote,
+      escape,
+      write,
+      partition,
+      index,
+      mapping
+    )
   }
 }
