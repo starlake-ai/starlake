@@ -46,15 +46,15 @@ case class MergeOptions(key: List[String], delete: Option[String] = None)
   * @param postsql    : SQL code executed right after the file has been ingested
   */
 case class Schema(
-                   name: String,
-                   pattern: Pattern,
-                   attributes: List[Attribute],
-                   metadata: Option[Metadata],
-                   merge: Option[MergeOptions],
-                   comment: Option[String],
-                   presql: Option[List[String]],
-                   postsql: Option[List[String]]
-                 ) {
+  name: String,
+  pattern: Pattern,
+  attributes: List[Attribute],
+  metadata: Option[Metadata],
+  merge: Option[MergeOptions],
+  comment: Option[String],
+  presql: Option[List[String]],
+  postsql: Option[List[String]]
+) {
 
   /**
     * @return Are the parittions columns defined in the metadata valid column names
@@ -170,20 +170,35 @@ case class Schema(
 }
 
 object Schema {
-  def mapping(domainName:String, schemaName: String, obj: StructField): String = {
+
+  def mapping(domainName: String, schemaName: String, obj: StructField): String = {
     def buildAttributeTree(obj: StructField): Attribute = {
       obj.dataType match {
-        case StringType | LongType | IntegerType | ShortType |
-             DoubleType | BooleanType | ByteType | DateType |
-             TimestampType => Attribute(obj.name, obj.dataType.typeName, required = !obj.nullable)
-        case d: DecimalType => Attribute(obj.name, "decimal", required = !obj.nullable)
+        case StringType | LongType | IntegerType | ShortType | DoubleType | BooleanType | ByteType |
+            DateType | TimestampType =>
+          Attribute(obj.name, obj.dataType.typeName, required = !obj.nullable)
+        case d: DecimalType                   => Attribute(obj.name, "decimal", required = !obj.nullable)
         case ArrayType(eltType, containsNull) => buildAttributeTree(obj.copy(dataType = eltType))
         case x: StructType =>
-          new Attribute(obj.name, "struct", required = !obj.nullable, attributes = Some(x.fields.map(buildAttributeTree).toList))
+          new Attribute(
+            obj.name,
+            "struct",
+            required = !obj.nullable,
+            attributes = Some(x.fields.map(buildAttributeTree).toList)
+          )
         case _ => throw new Exception(s"Unsupported Date type ${obj.dataType} for object $obj ")
       }
     }
 
-    Schema(schemaName, Pattern.compile("ignore"), buildAttributeTree(obj).attributes.getOrElse(Nil), None, None, None, None, None).mapping(None, domainName)
+    Schema(
+      schemaName,
+      Pattern.compile("ignore"),
+      buildAttributeTree(obj).attributes.getOrElse(Nil),
+      None,
+      None,
+      None,
+      None,
+      None
+    ).mapping(None, domainName)
   }
 }

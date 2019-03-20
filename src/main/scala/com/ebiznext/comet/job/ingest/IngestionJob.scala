@@ -102,12 +102,12 @@ trait IngestionJob extends SparkJob {
     * @param area       : accepted or rejected area
     */
   def saveRows(
-                dataset: DataFrame,
-                targetPath: Path,
-                writeMode: WriteMode,
-                area: HiveArea,
-                merge: Boolean
-              ): Unit = {
+    dataset: DataFrame,
+    targetPath: Path,
+    writeMode: WriteMode,
+    area: HiveArea,
+    merge: Boolean
+  ): Unit = {
     if (dataset.columns.length > 0) {
       val count = dataset.count()
       val saveMode = writeMode.toSaveMode
