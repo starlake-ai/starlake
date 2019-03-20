@@ -21,6 +21,7 @@
 package com.ebiznext.comet.schema.handlers
 
 import com.ebiznext.comet.config.Settings
+import com.ebiznext.comet.job.index.IndexConfig
 import com.ebiznext.comet.schema.model.{Domain, Schema}
 import com.ebiznext.comet.workflow.IngestionWorkflow
 import com.typesafe.scalalogging.StrictLogging
@@ -56,11 +57,18 @@ trait LaunchHandler {
     * @return success / failure
     */
   def ingest(
-    workflow: IngestionWorkflow,
-    domain: Domain,
-    schema: Schema,
-    paths: List[Path]
-  ): Boolean
+              workflow: IngestionWorkflow,
+              domain: Domain,
+              schema: Schema,
+              paths: List[Path]
+            ): Boolean
+
+  /**
+    * Index into elasticsearch
+    *
+    * @param config
+    */
+  def index(workflow: IngestionWorkflow, config: IndexConfig): Boolean
 }
 
 /**
@@ -78,15 +86,26 @@ class SimpleLauncher extends LaunchHandler with StrictLogging {
     * @return success / failure
     */
   override def ingest(
-    workflow: IngestionWorkflow,
-    domain: Domain,
-    schema: Schema,
-    paths: List[Path]
-  ): Boolean = {
+                       workflow: IngestionWorkflow,
+                       domain: Domain,
+                       schema: Schema,
+                       paths: List[Path]
+                     ): Boolean = {
     paths.foreach { path =>
       logger.info(s"Launch Ingestion: ${domain.name} ${schema.name} ${path.toString} ")
       workflow.ingest(domain.name, schema.name, path.toString)
     }
+    true
+  }
+
+  /**
+    * Index into elasticsearch
+    *
+    * @param config
+    */
+  override def index(workflow: IngestionWorkflow, config: IndexConfig): Boolean = {
+    logger.info(s"Launch index: ${config}")
+    workflow.index(config)
     true
   }
 }
@@ -122,11 +141,11 @@ class AirflowLauncher extends LaunchHandler with StrictLogging {
     * @return success if request accepted
     */
   override def ingest(
-    workflow: IngestionWorkflow,
-    domain: Domain,
-    schema: Schema,
-    paths: List[Path]
-  ): Boolean = {
+                       workflow: IngestionWorkflow,
+                       domain: Domain,
+                       schema: Schema,
+                       paths: List[Path]
+                     ): Boolean = {
     val endpoint = Settings.comet.airflow.endpoint
     val url = s"$endpoint/dags/comet_ingest/dag_runs"
     val command =
@@ -140,5 +159,33 @@ class AirflowLauncher extends LaunchHandler with StrictLogging {
         logger.error("Failed to post request to Airflow", exception)
         false
     }
+  }
+
+  /**
+    * Index into elasticsearch
+    *
+    * @param config
+    */
+  override def index(workflow: IngestionWorkflow, config: IndexConfig): Boolean = {
+    val endpoint = Settings.comet.airflow.endpoint
+    val url = s"$endpoint/dags/comet_ingest/dag_runs"
+    // comet index --domain domain --schema schema --resource index-name/type-name --id type-id --mapping mapping
+    //    --format parquet|json|json-array --dataset datasetPath
+    //    --conf key=value,key=value,...
+    val resource = s"--timestamp ${config.timestamp} --domain ${config.domain} --schema ${config.schema} --format ${config.format} --dataset ${config.getDataset()}"
+    val id = config.id.map(id => s"--id $id")
+    val mapping = config.mapping.map(path => s"--mapping ${path.toString}")
+    val params = List(Some(resource), id, mapping).flatten.mkString(" ")
+    val command = s"""index $params """
+    val json = s"""{"conf":"{\\"command\\":\\"$command\\"}"}"""
+    logger.info(s"Post to Airflow: $json")
+    post(url, json) match {
+      case Success(_) =>
+        true
+      case Failure(exception) =>
+        logger.error("Failed to post request to Airflow", exception)
+        false
+    }
+
   }
 }
