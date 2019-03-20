@@ -37,6 +37,7 @@ import org.apache.spark.sql.SparkSession
   * @param task        : Task to run
   */
 class AutoJob(override val name: String, defaultArea: HiveArea, task: AutoTask) extends SparkJob {
+
   def run(): SparkSession = {
     if (Settings.comet.hive) {
       task.presql.getOrElse(Nil).foreach(session.sql)
