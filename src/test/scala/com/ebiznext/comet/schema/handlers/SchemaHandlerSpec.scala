@@ -20,11 +20,14 @@
 
 package com.ebiznext.comet.schema.handlers
 
+import java.net.URL
+
 import com.ebiznext.comet.config.DatasetArea
-import com.ebiznext.comet.schema.model.Schema
+import com.ebiznext.comet.schema.model.{Attribute, Schema}
 import com.ebiznext.comet.{TestHelper, TypeToImport}
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.types.StructField
 
 import scala.util.Try
 
@@ -74,7 +77,7 @@ class SchemaHandlerSpec extends TestHelper {
 
       // Accepted should have the same data as input
       val acceptedDf = sparkSession.read
-        .parquet(cometDatasetsPath + s"/accepted/$schemaName/User/${getTodayPartitionPath}")
+        .parquet(cometDatasetsPath + s"/accepted/$schemaName/User/$getTodayPartitionPath")
 
       printDF(acceptedDf)
       val expectedAccepted =
@@ -265,7 +268,7 @@ class SchemaHandlerSpec extends TestHelper {
       val expected: String =
         """
           |{
-          |  "index_patterns": ["locations", "locations-*"],
+          |  "index_patterns": ["locations_locations", "locations_locations-*"],
           |  "settings": {
           |    "number_of_shards": "1",
           |    "number_of_replicas": "0"
@@ -289,10 +292,34 @@ class SchemaHandlerSpec extends TestHelper {
           |  }
           |}
         """.stripMargin.trim
-      val mapping = schema.map(_.mapping(None)).map(_.trim).getOrElse("")
+      val mapping = schema.map(_.mapping(None, "locations")).map(_.trim).getOrElse("")
       println(mapping)
       mapping shouldBe expected
     }
 
   }
+  "JSON Schema" should "produce valid template" in {
+    new SpecTrait {
+      override val domainName: String = "locations.yml"
+      override val domainFile: String = s"/sample/simple-json-locations/$domainName"
+
+      override val types: List[TypeToImport] = List(
+        TypeToImport(
+          "types.yml",
+          "/sample/mapping/types.yml"
+        )
+      )
+
+      override val schemaName: String = "locations"
+      override val dataset: String =
+        "/sample/simple-json-locations/locations.json"
+
+      init()
+
+      val ds : URL = getClass.getResource("/sample/mapping/dataset")
+
+      println(Schema.mapping("domain", "schema", StructField("ignore", sparkSession.read.parquet(ds.toString).schema)))
+    }
+  }
+
 }

@@ -26,9 +26,9 @@ import com.ebiznext.comet.schema.model.WriteMode.APPEND
 import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize
 import com.fasterxml.jackson.databind.{DeserializationContext, JsonDeserializer, JsonNode}
-import org.apache.hadoop.fs.Path
+import org.apache.spark.sql.SaveMode
 
-case class EsMapping(resource: Option[String], id: Option[String], template: Option[Path])
+case class EsMapping(timestamp: Option[String], id: Option[String])
 
 /**
   * Specify Schema properties.
@@ -46,21 +46,23 @@ case class EsMapping(resource: Option[String], id: Option[String], template: Opt
   * @param escape     : escaping char '\' by default
   * @param write      : Write mode, APPEND by default
   * @param partition  : Partition columns, no partitioning by default
+  * @param index      : should the dataset be indexed in elasticsearch after ingestion ?
   */
 @JsonDeserialize(using = classOf[MetadataDeserializer])
 case class Metadata(
-  mode: Option[Mode] = None,
-  format: Option[Format] = None,
-  multiline: Option[Boolean] = None,
-  array: Option[Boolean] = None,
-  withHeader: Option[Boolean] = None,
-  separator: Option[String] = None,
-  quote: Option[String] = None,
-  escape: Option[String] = None,
-  write: Option[WriteMode] = None,
-  partition: Option[Partition] = None,
-  mapping: Option[EsMapping] = None
-) {
+                     mode: Option[Mode] = None,
+                     format: Option[Format] = None,
+                     multiline: Option[Boolean] = None,
+                     array: Option[Boolean] = None,
+                     withHeader: Option[Boolean] = None,
+                     separator: Option[String] = None,
+                     quote: Option[String] = None,
+                     escape: Option[String] = None,
+                     write: Option[WriteMode] = None,
+                     partition: Option[Partition] = None,
+                     index: Option[Boolean] = None,
+                     mapping: Option[EsMapping] = None
+                   ) {
   override def toString: String =
     s"""
        |mode:${getIngestMode()}
@@ -73,6 +75,7 @@ case class Metadata(
        |escape:${getEscape()}
        |write:${getWriteMode()}
        |partition:${getPartitionAttributes()}
+       |index:${isIndexed()}
        |mapping:${mapping}
        """.stripMargin
 
@@ -96,7 +99,9 @@ case class Metadata(
 
   def getPartitionAttributes(): List[String] = partition.map(_.getAtrributes()).getOrElse(Nil)
 
-  def getPartitionSampling(): Double = partition.map(_.getSampling()).getOrElse(0.0)
+  def getSamplingStrategy(): Double = partition.map(_.getSampling()).getOrElse(0.0)
+
+  def isIndexed(): Boolean = index.getOrElse(false)
 
   /**
     * Merge a single attribute
@@ -128,7 +133,10 @@ case class Metadata(
       quote = merge(this.quote, child.quote),
       escape = merge(this.escape, child.escape),
       write = merge(this.write, child.write),
-      partition = merge(this.partition, child.partition)
+      partition = merge(this.partition, child.partition),
+      index = merge(this.index, child.index),
+      mapping = merge(this.mapping, child.mapping)
+
     )
   }
 }
@@ -142,11 +150,11 @@ object Metadata {
     List("comet_year", "comet_month", "comet_day", "comet_hour", "comet_minute")
 
   def Dsv(
-    separator: Option[String],
-    quote: Option[String],
-    escape: Option[String],
-    write: Option[WriteMode]
-  ) = new Metadata(
+           separator: Option[String],
+           quote: Option[String],
+           escape: Option[String],
+           write: Option[WriteMode]
+         ) = new Metadata(
     Some(Mode.FILE),
     Some(Format.DSV),
     Some(false),
@@ -156,6 +164,7 @@ object Metadata {
     quote,
     escape,
     write,
+    None,
     None
   )
 }
@@ -164,35 +173,49 @@ class MetadataDeserializer extends JsonDeserializer[Metadata] {
   override def deserialize(jp: JsonParser, ctx: DeserializationContext): Metadata = {
     val node: JsonNode = jp.getCodec().readTree[JsonNode](jp)
 
-    def isNull(field: String): Boolean =
+    def isNull(node: JsonNode, field: String): Boolean =
       node.get(field) == null || node.get(field).isNull
 
     val mode =
-      if (isNull("mode")) None
+      if (isNull(node, "mode")) None
       else Some(Mode.fromString(node.get("mode").asText))
     val format =
-      if (isNull("format")) None
+      if (isNull(node, "format")) None
       else Some(Format.fromString(node.get("format").asText))
     val multiline =
-      if (isNull("multiline")) None else Some(node.get("multiline").asBoolean())
+      if (isNull(node, "multiline")) None else Some(node.get("multiline").asBoolean())
     val array =
-      if (isNull("array")) None else Some(node.get("array").asBoolean())
+      if (isNull(node, "array")) None else Some(node.get("array").asBoolean())
     val withHeader =
-      if (isNull("withHeader")) None
+      if (isNull(node, "withHeader")) None
       else Some(node.get("withHeader").asBoolean())
     val separator =
-      if (isNull("separator")) None else Some(node.get("separator").asText)
-    val quote = if (isNull("quote")) None else Some(node.get("quote").asText)
-    val escape = if (isNull("escape")) None else Some(node.get("escape").asText)
+      if (isNull(node, "separator")) None else Some(node.get("separator").asText)
+    val quote = if (isNull(node, "quote")) None else Some(node.get("quote").asText)
+    val escape = if (isNull(node, "escape")) None else Some(node.get("escape").asText)
     val write =
-      if (isNull("write")) None
+      if (isNull(node, "write")) None
       else Some(WriteMode.fromString(node.get("write").asText))
     val partition =
-      if (isNull("partition")) None
+      if (isNull(node, "partition")) None
       else
         Some(
           new PartitionDeserializer().deserialize(node.get("partition"))
         )
-    Metadata(mode, format, multiline, array, withHeader, separator, quote, escape, write, partition)
+    val index =
+      if (isNull(node, "index")) None else Some(node.get("index").asBoolean())
+    val mapping =
+      if (isNull(node, "mapping")) None
+      else {
+        val mappingField = node.get("mapping")
+        val timestamp =
+          if (isNull(mappingField, "timestamp")) None
+          else Some(mappingField.get("timestamp").asText)
+        val id =
+          if (isNull(mappingField, "id")) None
+          else Some(mappingField.get("id").asText)
+        Some(EsMapping(timestamp, id))
+      }
+    Metadata(mode, format, multiline, array, withHeader, separator, quote, escape, write, partition, index, mapping)
   }
 }

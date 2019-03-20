@@ -22,16 +22,18 @@ package com.ebiznext.comet.job.index
 
 import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.schema.handlers.StorageHandler
+import com.ebiznext.comet.schema.model.Schema
 import com.ebiznext.comet.utils.SparkJob
 import com.softwaremill.sttp._
-import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.types.StructField
+import org.apache.spark.sql.{SaveMode, SparkSession}
 
 class IndexJob(
-  cliConfig: IndexConfig,
-  storageHandler: StorageHandler
-) extends SparkJob {
+                cliConfig: IndexConfig,
+                storageHandler: StorageHandler
+              ) extends SparkJob {
 
-  val esresource = Some(("es.resource.write", s"${cliConfig.resource}"))
+  val esresource = Some(("es.resource.write", s"${cliConfig.getResource()}"))
   val esId = cliConfig.id.map("es.mapping.id" -> _)
   val esCliConf = cliConfig.conf ++ List(esresource, esId).flatten.toMap
   val path = cliConfig.getDataset()
@@ -45,7 +47,8 @@ class IndexJob(
     * @return : Spark Session used for the job
     */
   override def run(): SparkSession = {
-    val df = format match {
+    logger.info(s"Indexing resource ${cliConfig.getResource()} with $cliConfig")
+    val inputDF = format match {
       case "json" =>
         session.read
           .option("multiline", true)
@@ -60,15 +63,30 @@ class IndexJob(
         session.read.parquet(path.toString)
     }
 
+    // Convert timestamp field to ISO8601 date time, so that ES Hadoop can handle it correctly.
+    val df = cliConfig.getTimestampCol().map { tsCol =>
+      import org.apache.spark.sql.functions._
+      inputDF.
+        withColumn("comet_es_tmp", date_format(col(tsCol), "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")).
+        drop(tsCol).
+        withColumnRenamed("comet_es_tmp", tsCol)
+    } getOrElse inputDF
+
+
     val content = cliConfig.mapping.map(storageHandler.read).getOrElse {
       val dynamicTemplate = for {
         domain <- Settings.schemaHandler.getDomain(cliConfig.domain)
         schema <- domain.schemas.find(_.name == cliConfig.schema)
-      } yield schema.mapping(domain.mapping(schema))
+      } yield schema.mapping(domain.mapping(schema), domain.name)
 
-      dynamicTemplate.getOrElse(throw new Exception("Should never happen"))
+      dynamicTemplate.getOrElse {
+        // Handle datasets without YAML schema
+        // We handle only index name like idx-{...}
+        Schema.mapping(cliConfig.domain, cliConfig.schema, StructField("ignore", df.schema))
+      }
     }
 
+    logger.info(s"Registering template ${cliConfig.domain}_${cliConfig.schema} -> $content")
     import scala.collection.JavaConverters._
     val esOptions = Settings.comet.elasticsearch.options.asScala.toMap
     val host: String = esOptions.getOrElse("es.nodes", "localhost")
@@ -86,21 +104,32 @@ class IndexJob(
       sttp.auth.basic(u, p)
     }
 
-    val request = authSttp
+    val requestDel = authSttp
+      .getOrElse(sttp)
+      .body(content)
+      .delete(uri"$protocol://$host:$port/_template/${cliConfig.domain}_${cliConfig.schema}")
+      .contentType("application/json")
+    val responseDel = requestDel.send()
+
+    val requestPut = authSttp
       .getOrElse(sttp)
       .body(content)
       .put(uri"$protocol://$host:$port/_template/${cliConfig.domain}_${cliConfig.schema}")
       .contentType("application/json")
 
-    val response = request.send()
-    val ok = (200 to 299) contains response.code
-
-    val allConf = esOptions.toList ++ esCliConf.toList
-    allConf
-      .foldLeft(df.write)((w, kv) => w.option(kv._1, kv._2))
-      .format("org.elasticsearch.spark.sql")
-      .mode("overwrite")
-      .save(cliConfig.getResource())
+    val responsePut = requestPut.send()
+    val ok = (200 to 299) contains responsePut.code
+    if (ok) {
+      val allConf = esOptions.toList ++ esCliConf.toList
+      logger.info(s"sending ${df.count()} documents to Elasticsearch using $allConf")
+      allConf
+        .foldLeft(df.write)((w, kv) => w.option(kv._1, kv._2))
+        .format("org.elasticsearch.spark.sql")
+        .mode(SaveMode.Overwrite)
+        .save(cliConfig.getResource())
+    } else {
+      logger.error("Failed to create template")
+    }
 
     session
   }

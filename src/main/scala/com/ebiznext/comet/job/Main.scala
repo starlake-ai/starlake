@@ -57,7 +57,7 @@ object Main extends StrictLogging {
         |comet watch [+/-DOMAIN1,DOMAIN2,...]
         |comet import
         |comet ingest datasetDomain datasetSchema datasetPath
-        |comet index --domain domain --schema schema --resource index-name/type-name --id type-id --mapping mapping --format parquet|json|json-array --dataset datasetPath --conf key=value,key=value,...
+        |comet index --domain domain --schema schema --timestamp {@timestamp|yyyy.MM.dd} --id type-id --mapping mapping --format parquet|json|json-array --dataset datasetPath --conf key=value,key=value,...
         |      """.stripMargin
     )
   }
