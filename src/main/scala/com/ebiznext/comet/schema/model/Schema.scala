@@ -22,14 +22,14 @@ package com.ebiznext.comet.schema.model
 
 import java.util.regex.Pattern
 
-import org.apache.spark.sql.types.{StructField, StructType}
+import org.apache.spark.sql.types._
 
 import scala.collection.mutable
 
 /**
   * How dataset are merge
   *
-  * @param key    list of attributes to join existing with incoming data. Use renamed columns here.
+  * @param key    list of attributes to join existing with incoming dataset. Use renamed columns here.
   * @param delete Optional valid sql condition on the incoming dataset. Use renamed column here.
   */
 case class MergeOptions(key: List[String], delete: Option[String] = None)
@@ -46,15 +46,15 @@ case class MergeOptions(key: List[String], delete: Option[String] = None)
   * @param postsql    : SQL code executed right after the file has been ingested
   */
 case class Schema(
-  name: String,
-  pattern: Pattern,
-  attributes: List[Attribute],
-  metadata: Option[Metadata],
-  merge: Option[MergeOptions],
-  comment: Option[String],
-  presql: Option[List[String]],
-  postsql: Option[List[String]]
-) {
+                   name: String,
+                   pattern: Pattern,
+                   attributes: List[Attribute],
+                   metadata: Option[Metadata],
+                   merge: Option[MergeOptions],
+                   comment: Option[String],
+                   presql: Option[List[String]],
+                   postsql: Option[List[String]]
+                 ) {
 
   /**
     * @return Are the parittions columns defined in the metadata valid column names
@@ -132,10 +132,7 @@ case class Schema(
   def continuousAttrs(): List[Attribute] =
     attributes.filter(_.getMetricType() == MetricType.CONTINUOUS)
 
-  def mappingConfig(): EsMapping =
-    this.metadata.flatMap(_.mapping).getOrElse(EsMapping(Some(s"$name/$name"), None, None))
-
-  def mapping(template: Option[String]): String = {
+  def mapping(template: Option[String], domainName: String): String = {
     val attrs = attributes.map(_.mapping()).mkString(",")
     val properties =
       s"""
@@ -146,7 +143,7 @@ case class Schema(
     template.getOrElse {
       s"""
          |{
-         |  "index_patterns": ["$name", "$name-*"],
+         |  "index_patterns": ["${domainName}_$name", "${domainName}_$name-*"],
          |  "settings": {
          |    "number_of_shards": "1",
          |    "number_of_replicas": "0"
@@ -162,5 +159,31 @@ case class Schema(
          |}""".stripMargin.replace("__PROPERTIES__", properties)
     }
 
+  }
+
+  def mergedMetadata(domainMetadata: Option[Metadata]): Metadata = {
+    domainMetadata
+      .getOrElse(Metadata())
+      .`import`(this.metadata.getOrElse(Metadata()))
+
+  }
+}
+
+object Schema {
+  def mapping(domainName:String, schemaName: String, obj: StructField): String = {
+    def buildAttributeTree(obj: StructField): Attribute = {
+      obj.dataType match {
+        case StringType | LongType | IntegerType | ShortType |
+             DoubleType | BooleanType | ByteType | DateType |
+             TimestampType => Attribute(obj.name, obj.dataType.typeName, required = !obj.nullable)
+        case d: DecimalType => Attribute(obj.name, "decimal", required = !obj.nullable)
+        case ArrayType(eltType, containsNull) => buildAttributeTree(obj.copy(dataType = eltType))
+        case x: StructType =>
+          new Attribute(obj.name, "struct", required = !obj.nullable, attributes = Some(x.fields.map(buildAttributeTree).toList))
+        case _ => throw new Exception(s"Unsupported Date type ${obj.dataType} for object $obj ")
+      }
+    }
+
+    Schema(schemaName, Pattern.compile("ignore"), buildAttributeTree(obj).attributes.getOrElse(Nil), None, None, None, None, None).mapping(None, domainName)
   }
 }

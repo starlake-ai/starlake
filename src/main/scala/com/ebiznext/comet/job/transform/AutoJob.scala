@@ -21,6 +21,7 @@
 package com.ebiznext.comet.job.transform
 
 import com.ebiznext.comet.config.{DatasetArea, HiveArea, Settings}
+import com.ebiznext.comet.job.index.IndexConfig
 import com.ebiznext.comet.schema.model.AutoTask
 import com.ebiznext.comet.utils.SparkJob
 import org.apache.hadoop.fs.Path
@@ -36,7 +37,6 @@ import org.apache.spark.sql.SparkSession
   * @param task        : Task to run
   */
 class AutoJob(override val name: String, defaultArea: HiveArea, task: AutoTask) extends SparkJob {
-
   def run(): SparkSession = {
     if (Settings.comet.hive) {
       task.presql.getOrElse(Nil).foreach(session.sql)
