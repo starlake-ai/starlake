@@ -20,20 +20,23 @@
 
 package com.ebiznext.comet.job.index
 
+import java.util.regex.Pattern
+
 import com.ebiznext.comet.config.Settings
 import org.apache.hadoop.fs.Path
 import scopt.OParser
 
+
 case class IndexConfig(
-  resource: Option[String] = None,
-  id: Option[String] = None,
-  mapping: Option[Path] = None,
-  domain: String = "",
-  schema: String = "",
-  format: String = "",
-  dataset: Option[Path] = None,
-  conf: Map[String, String] = Map()
-) {
+                        timestamp: Option[String] = None,
+                        id: Option[String] = None,
+                        mapping: Option[Path] = None,
+                        domain: String = "",
+                        schema: String = "",
+                        format: String = "",
+                        dataset: Option[Path] = None,
+                        conf: Map[String, String] = Map()
+                      ) {
 
   def getDataset(): Path = {
     dataset.getOrElse {
@@ -41,9 +44,30 @@ case class IndexConfig(
     }
   }
 
+  def getIndexName(): String = s"${domain}_$schema"
+
+  def getTypeName(): String = s"${domain}_$schema"
+
+  private val pattern = Pattern.compile("\\{(.*)\\|(.*)\\}")
+
+
+  def getTimestampCol(): Option[String] = {
+    timestamp.flatMap { ts =>
+      val matcher = pattern.matcher(ts)
+      if (matcher.matches()) {
+        Some(matcher.group(1))
+      }
+      else {
+        None
+      }
+    }
+  }
+
   def getResource(): String = {
-    resource.getOrElse {
-      s"${domain}_$schema/${domain}_$schema"
+    timestamp.map { ts =>
+      s"${this.getIndexName()}-$ts/_doc"
+    } getOrElse {
+      s"${this.getIndexName()}/_doc"
     }
   }
 }
@@ -57,10 +81,10 @@ object IndexConfig {
       OParser.sequence(
         programName("comet"),
         head("comet", "1.x"),
-        opt[String]("resource")
-          .action((x, c) => c.copy(resource = Some(x)))
+        opt[String]("timestamp")
+          .action((x, c) => c.copy(timestamp = Some(x)))
           .optional()
-          .text("Elasticsearch index/type name"),
+          .text("Elasticsearch index timestamp suffix as in {@timestamp|yyyy.MM.dd}"),
         opt[String]("id")
           .action((x, c) => c.copy(id = Some(x)))
           .optional()

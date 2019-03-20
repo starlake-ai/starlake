@@ -83,6 +83,7 @@ object IndexMapping {
     primitiveType match {
       case PrimitiveType.string    => IndexMapping.Keyword
       case PrimitiveType.long      => IndexMapping.Long
+      case PrimitiveType.short       => IndexMapping.Short
       case PrimitiveType.int       => IndexMapping.Integer
       case PrimitiveType.double    => IndexMapping.Double
       case PrimitiveType.boolean   => IndexMapping.Boolean
