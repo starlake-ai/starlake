@@ -41,7 +41,7 @@ available as Hive tables.
 ![Complete Comet Data pipeline]( docs/user/assets/cdp-howitworks.png "Complete Comet Data pipeline")
 
 
-1. Landing Area : Files are first arrive in the local file system
+1. Landing Area : Files are first stored in the local file system
 2. Staging Area : Files associated with a schema are imported into the datalake
 3. Working Area : Staged Files are parsed against their schema and records are rejected or accepted and made available in parquet/orc/... files as Hive Tables.
 4. Business Area : Tables in the working area may be joined to provide a hoslictic view of the data through the definition of AutoJob.
