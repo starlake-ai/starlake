@@ -32,25 +32,23 @@ import com.fasterxml.jackson.annotation.JsonIgnore
   * @param write   Append to or overwrite existing dataset
   */
 case class AutoTask(
-                     sql: String,
-                     domain: String,
-                     dataset: String,
-                     write: WriteMode,
-                     partition: Option[List[String]]= None,
-                     presql: Option[List[String]] = None,
-                     postsql: Option[List[String]] = None,
-                     area: Option[HiveArea] = None,
-                     index: Option[Boolean] = None,
-                     mapping: Option[EsMapping] = None
-
-                   ) {
+  sql: String,
+  domain: String,
+  dataset: String,
+  write: WriteMode,
+  partition: Option[List[String]] = None,
+  presql: Option[List[String]] = None,
+  postsql: Option[List[String]] = None,
+  area: Option[HiveArea] = None,
+  index: Option[Boolean] = None,
+  mapping: Option[EsMapping] = None
+) {
 
   @JsonIgnore
   def getPartitions() = partition.getOrElse(Nil)
 
   @JsonIgnore
   def isIndexed() = index.getOrElse(false)
-
 
 }
 

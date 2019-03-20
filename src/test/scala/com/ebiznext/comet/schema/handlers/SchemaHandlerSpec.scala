@@ -264,7 +264,9 @@ class SchemaHandlerSpec extends TestHelper {
         "/sample/simple-json-locations/locations.json"
 
       init()
-      val schema: Option[Schema] = schemaHandler.domains.find(_.name == "locations").flatMap(_.schemas.find(_.name == "locations"))
+      val schema: Option[Schema] = schemaHandler.domains
+        .find(_.name == "locations")
+        .flatMap(_.schemas.find(_.name == "locations"))
       val expected: String =
         """
           |{
@@ -316,9 +318,15 @@ class SchemaHandlerSpec extends TestHelper {
 
       init()
 
-      val ds : URL = getClass.getResource("/sample/mapping/dataset")
+      val ds: URL = getClass.getResource("/sample/mapping/dataset")
 
-      println(Schema.mapping("domain", "schema", StructField("ignore", sparkSession.read.parquet(ds.toString).schema)))
+      println(
+        Schema.mapping(
+          "domain",
+          "schema",
+          StructField("ignore", sparkSession.read.parquet(ds.toString).schema)
+        )
+      )
     }
   }
 
