@@ -96,6 +96,7 @@ object Settings extends StrictLogging {
     launcher: String,
     analyze: Boolean,
     hive: Boolean,
+    grouped: Boolean,
     area: Area,
     airflow: Airflow,
     elasticsearch: Elasticsearch
