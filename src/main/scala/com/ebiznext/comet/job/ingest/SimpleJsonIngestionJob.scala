@@ -40,19 +40,19 @@ class SimpleJsonIngestionJob(
   domain: Domain,
   schema: Schema,
   types: List[Type],
-  path: Path,
+  path: List[Path],
   storageHandler: StorageHandler
 ) extends DsvIngestionJob(domain, schema, types, path, storageHandler) {
   override def loadDataSet(): DataFrame = {
     val df =
       if (metadata.isArray()) {
         val jsonRDD =
-          session.sparkContext.wholeTextFiles(path.toString).map(x => x._2)
+          session.sparkContext.wholeTextFiles(path.map(_.toString).mkString(",")).map(x => x._2)
         session.read.json(jsonRDD)
       } else {
         session.read
           .option("multiline", metadata.getMultiline())
-          .json(path.toString)
+          .json(path.map(_.toString): _*)
       }
     df.printSchema()
     import session.implicits._
@@ -60,7 +60,7 @@ class SimpleJsonIngestionJob(
       //TODO send rejected records to rejected area
       df.filter($"_corrupt_record".isNotNull).show(100, false)
       throw new Exception(
-        s"Invalid JSON File: ${path.toString}. SIMPLE_JSON require a valid json file "
+        s"""Invalid JSON File: ${path.map(_.toString).mkString(",")}. SIMPLE_JSON require a valid json file """
       )
     } else {
       df
