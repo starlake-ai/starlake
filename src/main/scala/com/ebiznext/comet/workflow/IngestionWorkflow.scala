@@ -47,10 +47,10 @@ import scala.util.{Failure, Success, Try}
   * @param launchHandler  : Cron Manager interface
   */
 class IngestionWorkflow(
-  storageHandler: StorageHandler,
-  schemaHandler: SchemaHandler,
-  launchHandler: LaunchHandler
-) extends StrictLogging {
+                         storageHandler: StorageHandler,
+                         schemaHandler: SchemaHandler,
+                         launchHandler: LaunchHandler
+                       ) extends StrictLogging {
   val domains: List[Domain] = schemaHandler.domains
 
   /**
@@ -144,22 +144,33 @@ class IngestionWorkflow(
           logger.info(s"Unresolved file : ${path.getName}")
           storageHandler.move(path, targetPath)
       }
-      resolved.foreach {
-        case (Some(schema), pendingPath) =>
-          logger.info(s"Ingest resolved file : ${pendingPath.getName} with schema ${schema.name}")
-          val ingestingPath: Path =
-            new Path(DatasetArea.ingesting(domain.name), pendingPath.getName)
-          if (storageHandler.move(pendingPath, ingestingPath)) {
-            try {
-              launchHandler.ingest(this, domain, schema, ingestingPath)
-            } catch {
-              case t: Throwable =>
-                t.printStackTrace()
-              // Continue to nextpending file
-            }
-          }
 
+      // We group files with the same schema to ingest them together in a single step.
+      val groupedResolved: Map[Schema, Iterable[Path]] = resolved.map {
+        case (Some(schema), path) => (schema, path)
         case (None, _) => throw new Exception("Should never happen")
+      } groupBy (_._1) mapValues (it => it.map(_._2))
+
+      groupedResolved.foreach {
+        case (schema, pendingPaths) =>
+          logger.info(s"""Ingest resolved file : ${pendingPaths.map(_.getName).mkString(",")} with schema ${schema.name}""")
+          val ingestingPaths = pendingPaths.map { pendingPath =>
+            val ingestingPath = new Path(DatasetArea.ingesting(domain.name), pendingPath.getName)
+            if (!storageHandler.move(pendingPath, ingestingPath)) {
+              logger.error(s"Could not move $pendingPath to $ingestingPath")
+            }
+            ingestingPath
+          }
+          try {
+            if (Settings.comet.grouped)
+              launchHandler.ingest(this, domain, schema, ingestingPaths.toList)
+            else
+              ingestingPaths.foreach(launchHandler.ingest(this, domain, schema, _))
+          } catch {
+            case t: Throwable =>
+              t.printStackTrace()
+            // Continue to nextpending file
+          }
       }
     }
   }
@@ -170,8 +181,8 @@ class IngestionWorkflow(
     * @return resolved && unresolved schemas / path
     */
   private def pending(
-    domainName: String
-  ): (Iterable[(Option[Schema], Path)], Iterable[(Option[Schema], Path)]) = {
+                       domainName: String
+                     ): (Iterable[(Option[Schema], Path)], Iterable[(Option[Schema], Path)]) = {
     val pendingArea = DatasetArea.pending(domainName)
     logger.info(s"List files in $pendingArea")
     val paths = storageHandler.list(pendingArea)
@@ -203,11 +214,11 @@ class IngestionWorkflow(
     for {
       domain <- domains.find(_.name == domainName)
       schema <- domain.schemas.find(_.name == schemaName)
-    } yield ingesting(domain, schema, new Path(ingestingPath))
+    } yield ingesting(domain, schema, List(new Path(ingestingPath)))
     ()
   }
 
-  private def ingesting(domain: Domain, schema: Schema, ingestingPath: Path): Unit = {
+  private def ingesting(domain: Domain, schema: Schema, ingestingPath: List[Path]): Unit = {
     logger.info(
       s"Start Ingestion on domain: ${domain.name} with schema: ${schema.name} on file: $ingestingPath"
     )
@@ -238,13 +249,16 @@ class IngestionWorkflow(
     ingestionResult match {
       case Success(_) =>
         if (Settings.comet.archive) {
-          val archivePath =
-            new Path(DatasetArea.archive(domain.name), ingestingPath.getName)
-          logger.info(s"Backing up file $ingestingPath to $archivePath")
-          val _ = storageHandler.move(ingestingPath, archivePath)
-        } else {
+          ingestingPath.foreach { ingestingPath =>
+            val archivePath =
+              new Path(DatasetArea.archive(domain.name), ingestingPath.getName)
+            logger.info(s"Backing up file $ingestingPath to $archivePath")
+            val _ = storageHandler.move(ingestingPath, archivePath)
+          }
+        }
+        else {
           logger.info(s"Deleting file $ingestingPath")
-          val _ = storageHandler.delete(ingestingPath)
+          ingestingPath.foreach(storageHandler.delete)
         }
       case Failure(exception) =>
         Utils.logException(logger, exception)
