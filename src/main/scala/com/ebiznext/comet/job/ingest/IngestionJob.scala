@@ -82,6 +82,14 @@ trait IngestionJob extends SparkJob {
     * @return merged dataframe
     */
   def merge(inputDF: DataFrame, existingDF: DataFrame, merge: MergeOptions): DataFrame = {
+    logger.info(s"existingDF field count=${existingDF.schema.fields.length}")
+    logger.info(s"inputDF field count=${inputDF.schema.fields.length}")
+    logger.info(s"existingDF field list=${existingDF.schema.fields.map(_.name).toString}")
+    logger.info(s"inputDF field list=${inputDF.schema.fields.map(_.name).toString}")
+
+    if (existingDF.schema.fields.length != inputDF.schema.fields.length) {
+      throw new RuntimeException("Input Dataset and existing HDFS dataset do not have the same number of columns. Check for changes in the dataset schema ?")
+    }
     val toDeleteDF = existingDF.join(inputDF.select(merge.key.head, merge.key.tail: _*), merge.key)
     val updatesDF = merge.delete
       .map(condition => inputDF.filter(s"not ($condition)"))
@@ -102,12 +110,12 @@ trait IngestionJob extends SparkJob {
     * @param area       : accepted or rejected area
     */
   def saveRows(
-    dataset: DataFrame,
-    targetPath: Path,
-    writeMode: WriteMode,
-    area: HiveArea,
-    merge: Boolean
-  ): Unit = {
+                dataset: DataFrame,
+                targetPath: Path,
+                writeMode: WriteMode,
+                area: HiveArea,
+                merge: Boolean
+              ): Unit = {
     if (dataset.columns.length > 0) {
       val count = dataset.count()
       val saveMode = writeMode.toSaveMode
