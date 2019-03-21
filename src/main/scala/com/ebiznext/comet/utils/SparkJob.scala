@@ -60,6 +60,8 @@ trait SparkJob extends StrictLogging {
             partitionedDF = partitionedDF.withColumn("hour", hour(col("comet_date")))
           case "comet_minute" if !dataSetsCols.contains("minute") =>
             partitionedDF = partitionedDF.withColumn("minute", minute(col("comet_date")))
+          case _ =>
+            partitionedDF
         }
         val strippedCols = cols.map(_.substring("comet_".length))
         // does not work on nested fields -> https://issues.apache.org/jira/browse/SPARK-18084
