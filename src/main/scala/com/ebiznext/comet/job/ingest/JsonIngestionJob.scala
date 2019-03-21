@@ -40,22 +40,23 @@ import org.apache.spark.sql.{DataFrame, Row}
   * @param storageHandler : Storage Handler
   */
 class JsonIngestionJob(
-  val domain: Domain,
-  val schema: Schema,
-  val types: List[Type],
-  val path: Path,
-  val storageHandler: StorageHandler
-) extends IngestionJob {
+                        val domain: Domain,
+                        val schema: Schema,
+                        val types: List[Type],
+                        val path: List[Path],
+                        val storageHandler: StorageHandler
+                      ) extends IngestionJob {
 
   /**
     * load the json as an RDD of String
+    *
     * @return Spark Dataframe loaded using metadata options
     */
   def loadDataSet(): DataFrame = {
     val df = session.read
       .format("com.databricks.spark.csv")
       .option("inferSchema", value = false)
-      .text(path.toString)
+      .text(path.map(_.toString): _*)
     df.printSchema()
     df
   }
@@ -64,6 +65,7 @@ class JsonIngestionJob(
 
   /**
     * Where the magic happen
+    *
     * @param dataset input dataset as a RDD of string
     */
   def ingest(dataset: DataFrame): (RDD[_], RDD[_]) = {
@@ -81,6 +83,7 @@ class JsonIngestionJob(
 
   /**
     * Use the schema we used for validation when saving
+    *
     * @param acceptedRDD
     */
   @deprecated("We let Spark compute the final schema", "")
