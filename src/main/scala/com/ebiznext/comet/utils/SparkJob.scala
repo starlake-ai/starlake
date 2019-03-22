@@ -76,6 +76,7 @@ trait SparkJob extends StrictLogging {
     }
   }
   def partitionDataset(dataset: DataFrame, partition: List[String]): DataFrame = {
+    logger.info(s"""Partitioning on ${partition.mkString(",")}""")
     partition match {
       case Nil => dataset
       case cols if cols.forall(Metadata.CometPartitionColumns.contains) =>
@@ -97,7 +98,7 @@ trait SparkJob extends StrictLogging {
           case _ =>
             partitionedDF
         }
-        partitionedDF
+        partitionedDF.drop("comet_date")
       case cols if !cols.exists(Metadata.CometPartitionColumns.contains) =>
         dataset
       case _ =>
