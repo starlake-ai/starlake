@@ -83,17 +83,18 @@ trait IngestionJob extends SparkJob {
     */
   def merge(inputDF: DataFrame, existingDF: DataFrame, merge: MergeOptions): DataFrame = {
     logger.info(s"existingDF field count=${existingDF.schema.fields.length}")
-    logger.info(s"inputDF field count=${inputDF.schema.fields.length}")
-    logger.info(s"existingDF field list=${existingDF.schema.fields.map(_.name).toString}")
     logger.info(s"inputDF field list=${inputDF.schema.fields.map(_.name).toString}")
 
-    if (existingDF.schema.fields.length != inputDF.schema.fields.length) {
+    val partitionedInputDF = partitionDataset(inputDF, metadata.getPartitionAttributes())
+
+    if (existingDF.schema.fields.length != partitionedInputDF.schema.fields.length) {
       throw new RuntimeException("Input Dataset and existing HDFS dataset do not have the same number of columns. Check for changes in the dataset schema ?")
     }
-    val toDeleteDF = existingDF.join(inputDF.select(merge.key.head, merge.key.tail: _*), merge.key)
+
+    val toDeleteDF = existingDF.join(partitionedInputDF.select(merge.key.head, merge.key.tail: _*), merge.key)
     val updatesDF = merge.delete
-      .map(condition => inputDF.filter(s"not ($condition)"))
-      .getOrElse(inputDF)
+      .map(condition => partitionedInputDF.filter(s"not ($condition)"))
+      .getOrElse(partitionedInputDF)
     logger.whenDebugEnabled {
       logger.debug(s"Merge detected ${toDeleteDF.count()} items to update/delete")
       logger.debug(s"Merge detected ${updatesDF.count()} items to update/insert")
@@ -214,7 +215,6 @@ trait IngestionJob extends SparkJob {
   /**
     * Main entry point as required by the Spark Job interface
     *
-    * @param args : arbitrary list of arguments
     * @return : Spark Session used for the job
     */
   def run(): SparkSession = {
