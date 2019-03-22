@@ -45,12 +45,12 @@ import scala.util.{Failure, Success, Try}
   * @param storageHandler : Storage Handler
   */
 class DsvIngestionJob(
-                       val domain: Domain,
-                       val schema: Schema,
-                       val types: List[Type],
-                       val path: List[Path],
-                       val storageHandler: StorageHandler
-                     ) extends IngestionJob {
+  val domain: Domain,
+  val schema: Schema,
+  val types: List[Type],
+  val path: List[Path],
+  val storageHandler: StorageHandler
+) extends IngestionJob {
 
   /**
     *
@@ -90,9 +90,9 @@ class DsvIngestionJob(
     * @return two lists : One with thecolumns present in the schema and the dataset and onther with the headers present in the dataset only
     */
   def intersectHeaders(
-                        datasetHeaders: List[String],
-                        schemaHeaders: List[String]
-                      ): (List[String], List[String]) = {
+    datasetHeaders: List[String],
+    schemaHeaders: List[String]
+  ): (List[String], List[String]) = {
     datasetHeaders.partition(schemaHeaders.contains)
   }
 
@@ -119,8 +119,7 @@ class DsvIngestionJob(
           val datasetHeaders: List[String] = df.columns.toList.map(cleanHeaderCol)
           val (_, drop) = intersectHeaders(datasetHeaders, schemaHeaders)
           if (datasetHeaders.length == drop.length) {
-            throw new Exception(
-              s"""No attribute found in input dataset ${path.toString}
+            throw new Exception(s"""No attribute found in input dataset ${path.toString}
                  | SchemaHeaders : ${schemaHeaders.mkString(",")}
                  | Dataset Headers : ${datasetHeaders.mkString(",")}
              """.stripMargin)
@@ -134,8 +133,7 @@ class DsvIngestionJob(
           )
       }
       Success(resDF)
-    }
-    catch {
+    } catch {
       case e: Exception =>
         Failure(e)
     }
@@ -220,12 +218,12 @@ object DsvIngestionUtil {
     * @return Two RDDs : One RDD for rejected rows and one RDD for accepted rows
     */
   def validate(
-                session: SparkSession,
-                dataset: DataFrame,
-                attributes: List[Attribute],
-                types: List[Type],
-                sparkType: StructType
-              ): (RDD[String], RDD[Row]) = {
+    session: SparkSession,
+    dataset: DataFrame,
+    attributes: List[Attribute],
+    types: List[Type],
+    sparkType: StructType
+  ): (RDD[String], RDD[Row]) = {
     val now = Timestamp.from(Instant.now)
     val checkedRDD: RDD[RowResult] = dataset.rdd.mapPartitions { partition =>
       partition.map { row: Row =>
@@ -267,7 +265,7 @@ object DsvIngestionUtil {
                 if (colPatternOK) {
                   Try(tpe.sparkValue(privacy)) match {
                     case Success(res) => (res, true)
-                    case Failure(_) => (null, false)
+                    case Failure(_)   => (null, false)
                   }
                 } else
                   (null, false)
@@ -284,7 +282,7 @@ object DsvIngestionUtil {
           }.toList
         )
       }
-    } cache()
+    } cache ()
 
     val rejectedRDD: RDD[String] = checkedRDD
       .filter(_.isRejected)
