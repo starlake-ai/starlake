@@ -92,20 +92,24 @@ trait IngestionJob extends SparkJob {
 
     val partitionedInputDF = partitionDataset(inputDF, metadata.getPartitionAttributes())
     logger.info(s"partitionedInputDF field count=${partitionedInputDF.schema.fields.length}")
-    logger.info(s"""partitionedInputDF field list=${partitionedInputDF.schema.fields.map(_.name).mkString(",")}""")
+    logger.info(s"""partitionedInputDF field list=${partitionedInputDF.schema.fields
+      .map(_.name)
+      .mkString(",")}""")
 
     if (existingDF.schema.fields.length != partitionedInputDF.schema.fields.length) {
-      throw new RuntimeException("Input Dataset and existing HDFS dataset do not have the same number of columns. Check for changes in the dataset schema ?")
+      throw new RuntimeException(
+        "Input Dataset and existing HDFS dataset do not have the same number of columns. Check for changes in the dataset schema ?"
+      )
     }
 
     // Force orderinfg of columns to be the same
     val orderedExisting = existingDF.select(partitionedInputDF.columns.map((col(_))): _*)
 
-
     // Force orderinfg again of columns to be the same since join operation change it otherwise except below won"'t work.
     val toDeleteDF =
-      orderedExisting.
-        join(partitionedInputDF.select(merge.key.head, merge.key.tail: _*), merge.key).select(partitionedInputDF.columns.map((col(_))): _*)
+      orderedExisting
+        .join(partitionedInputDF.select(merge.key.head, merge.key.tail: _*), merge.key)
+        .select(partitionedInputDF.columns.map((col(_))): _*)
     val updatesDF = merge.delete
       .map(condition => partitionedInputDF.filter(s"not ($condition)"))
       .getOrElse(partitionedInputDF)
@@ -129,12 +133,12 @@ trait IngestionJob extends SparkJob {
     * @param area       : accepted or rejected area
     */
   def saveRows(
-                dataset: DataFrame,
-                targetPath: Path,
-                writeMode: WriteMode,
-                area: HiveArea,
-                merge: Boolean
-              ): Unit = {
+    dataset: DataFrame,
+    targetPath: Path,
+    writeMode: WriteMode,
+    area: HiveArea,
+    merge: Boolean
+  ): Unit = {
     if (dataset.columns.length > 0) {
       val count = dataset.count()
       val saveMode = writeMode.toSaveMode
@@ -148,7 +152,14 @@ trait IngestionJob extends SparkJob {
         val dbComment = domain.comment.getOrElse("")
         session.sql(s"create database if not exists $hiveDB comment '$dbComment'")
         session.sql(s"use $hiveDB")
-        session.sql(s"drop table if exists $hiveDB.$tableName")
+        try {
+          session.sql(s"drop table if exists $hiveDB.$tableName")
+        } catch {
+          case e: Exception =>
+            logger.warn("Ignore error when hdfs files not found")
+            Utils.logException(logger, e)
+
+        }
       }
 
       val tmpPath = new Path(s"${targetPath.toString}.tmp")
@@ -240,6 +251,7 @@ trait IngestionJob extends SparkJob {
       case Left(errors) =>
         errors.foreach(err => logger.error(err))
       case Right(_) =>
+        val start = System.currentTimeMillis()
         schema.presql.getOrElse(Nil).foreach(session.sql)
         val dataset = loadDataSet()
         dataset match {
@@ -251,7 +263,19 @@ trait IngestionJob extends SparkJob {
               val rejectedCount = rejectedRDD.count()
               val inputFiles = dataset.inputFiles.mkString(",")
               logger.info(
-                s"ingestion-summary -> files: [$inputFiles], input: $inputCount, accepted: $acceptedCount, rejected:$rejectedCount"
+                s"ingestion-summary -> files: [$inputFiles], domain: ${domain.name}, schema: ${schema.name}, input: $inputCount, accepted: $acceptedCount, rejected:$rejectedCount"
+              )
+              val end = System.currentTimeMillis()
+              IngestionLog(
+                inputFiles,
+                domain.name,
+                schema.name,
+                success = true,
+                inputCount,
+                acceptedCount,
+                rejectedCount,
+                start,
+                end - start
               )
             }
 

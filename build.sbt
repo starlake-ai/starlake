@@ -19,7 +19,15 @@ scalaVersion := scala211
 
 organizationHomepage := Some(url("http://www.ebiznext.com"))
 
-libraryDependencies := dependencies
+libraryDependencies := {
+  val spark = {
+    CrossVersion.partialVersion(scalaVersion.value) match {
+      case Some((2, scalaMajor)) if scalaMajor == 12 => spark212
+      case Some((2, scalaMajor)) if scalaMajor == 11 => spark211
+    }
+  }
+  dependencies ++ spark
+}
 
 Common.enableCometAliases
 
