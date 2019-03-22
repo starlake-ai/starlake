@@ -83,9 +83,13 @@ trait IngestionJob extends SparkJob {
     */
   def merge(inputDF: DataFrame, existingDF: DataFrame, merge: MergeOptions): DataFrame = {
     logger.info(s"existingDF field count=${existingDF.schema.fields.length}")
-    logger.info(s"inputDF field list=${inputDF.schema.fields.map(_.name).toString}")
+    logger.info(s"""existingDF field list=${existingDF.schema.fields.map(_.name).mkString(",")}""")
+    logger.info(s"inputDF field count=${inputDF.schema.fields.length}")
+    logger.info(s"""inputDF field list=${inputDF.schema.fields.map(_.name).mkString(",")}""")
 
     val partitionedInputDF = partitionDataset(inputDF, metadata.getPartitionAttributes())
+    logger.info(s"partitionedInputDF field count=${partitionedInputDF.schema.fields.length}")
+    logger.info(s"""partitionedInputDF field list=${partitionedInputDF.schema.fields.map(_.name).mkString(",")}""")
 
     if (existingDF.schema.fields.length != partitionedInputDF.schema.fields.length) {
       throw new RuntimeException("Input Dataset and existing HDFS dataset do not have the same number of columns. Check for changes in the dataset schema ?")
