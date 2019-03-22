@@ -75,4 +75,35 @@ trait SparkJob extends StrictLogging {
 
     }
   }
+  def partitionDataset(dataset: DataFrame, partition: List[String]): DataFrame = {
+    partition match {
+      case Nil => dataset
+      case cols if cols.forall(Metadata.CometPartitionColumns.contains) =>
+        // TODO Should we issue a warning if used with Overwrite mode ????
+        // TODO Check that the year / month / day / hour / minute do not already exist
+        var partitionedDF = dataset.withColumn("comet_date", current_date())
+        val dataSetsCols = dataset.columns.toList
+        cols.foreach {
+          case "comet_year" if !dataSetsCols.contains("year") =>
+            partitionedDF = partitionedDF.withColumn("year", year(col("comet_date")))
+          case "comet_month" if !dataSetsCols.contains("month") =>
+            partitionedDF = partitionedDF.withColumn("month", month(col("comet_date")))
+          case "comet_day" if !dataSetsCols.contains("day") =>
+            partitionedDF = partitionedDF.withColumn("day", dayofmonth(col("comet_date")))
+          case "comet_hour" if !dataSetsCols.contains("hour") =>
+            partitionedDF = partitionedDF.withColumn("hour", hour(col("comet_date")))
+          case "comet_minute" if !dataSetsCols.contains("minute") =>
+            partitionedDF = partitionedDF.withColumn("minute", minute(col("comet_date")))
+          case _ =>
+            partitionedDF
+        }
+        partitionedDF
+      case cols if !cols.exists(Metadata.CometPartitionColumns.contains) =>
+        dataset
+      case _ =>
+        dataset
+
+    }
+  }
+
 }

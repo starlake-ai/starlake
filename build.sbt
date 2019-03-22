@@ -15,7 +15,7 @@ organization := "com.ebiznext"
 
 organizationName := "Ebiznext"
 
-scalaVersion := scala212
+scalaVersion := scala211
 
 organizationHomepage := Some(url("http://www.ebiznext.com"))
 
