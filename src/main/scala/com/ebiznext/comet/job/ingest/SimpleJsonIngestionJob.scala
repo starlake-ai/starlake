@@ -25,6 +25,8 @@ import com.ebiznext.comet.schema.model._
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.DataFrame
 
+import scala.util.{Failure, Success, Try}
+
 /**
   * Parse a simple one level json file. Complex types such as arrays & maps are not supported.
   * Use JsonIngestionJob instead.
@@ -37,34 +39,42 @@ import org.apache.spark.sql.DataFrame
   * @param storageHandler : Storage Handler
   */
 class SimpleJsonIngestionJob(
-  domain: Domain,
-  schema: Schema,
-  types: List[Type],
-  path: List[Path],
-  storageHandler: StorageHandler
-) extends DsvIngestionJob(domain, schema, types, path, storageHandler) {
-  override def loadDataSet(): DataFrame = {
-    val df =
-      if (metadata.isArray()) {
-        val jsonRDD =
-          session.sparkContext.wholeTextFiles(path.map(_.toString).mkString(",")).map(x => x._2)
-        session.read.json(jsonRDD)
-      } else {
-        session.read
-          .option("multiline", metadata.getMultiline())
-          .json(path.map(_.toString): _*)
-      }
-    df.printSchema()
-    import session.implicits._
-    if (df.columns.contains("_corrupt_record")) {
-      //TODO send rejected records to rejected area
-      df.filter($"_corrupt_record".isNotNull).show(100, false)
-      throw new Exception(
-        s"""Invalid JSON File: ${path.map(_.toString).mkString(",")}. SIMPLE_JSON require a valid json file """
-      )
-    } else {
-      df
-    }
+                              domain: Domain,
+                              schema: Schema,
+                              types: List[Type],
+                              path: List[Path],
+                              storageHandler: StorageHandler
+                            ) extends DsvIngestionJob(domain, schema, types, path, storageHandler) {
 
+  override def loadDataSet(): Try[DataFrame] = {
+    try {
+
+      val df =
+        if (metadata.isArray()) {
+          val jsonRDD =
+            session.sparkContext.wholeTextFiles(path.map(_.toString).mkString(",")).map(x => x._2)
+          session.read.json(jsonRDD)
+        } else {
+          session.read
+            .option("multiline", metadata.getMultiline())
+            .json(path.map(_.toString): _*)
+        }
+      df.printSchema()
+      import session.implicits._
+      val resDF = if (df.columns.contains("_corrupt_record")) {
+        //TODO send rejected records to rejected area
+        df.filter($"_corrupt_record".isNotNull).show(100, false)
+        throw new Exception(
+          s"""Invalid JSON File: ${path.map(_.toString).mkString(",")}. SIMPLE_JSON require a valid json file """
+        )
+      } else {
+        df
+      }
+      Success(resDF)
+    }
+    catch {
+      case e: Exception =>
+        Failure(e)
+    }
   }
 }
