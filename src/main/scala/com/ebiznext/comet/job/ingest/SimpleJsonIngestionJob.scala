@@ -39,12 +39,12 @@ import scala.util.{Failure, Success, Try}
   * @param storageHandler : Storage Handler
   */
 class SimpleJsonIngestionJob(
-                              domain: Domain,
-                              schema: Schema,
-                              types: List[Type],
-                              path: List[Path],
-                              storageHandler: StorageHandler
-                            ) extends DsvIngestionJob(domain, schema, types, path, storageHandler) {
+  domain: Domain,
+  schema: Schema,
+  types: List[Type],
+  path: List[Path],
+  storageHandler: StorageHandler
+) extends DsvIngestionJob(domain, schema, types, path, storageHandler) {
 
   override def loadDataSet(): Try[DataFrame] = {
     try {
@@ -65,14 +65,15 @@ class SimpleJsonIngestionJob(
         //TODO send rejected records to rejected area
         df.filter($"_corrupt_record".isNotNull).show(100, false)
         throw new Exception(
-          s"""Invalid JSON File: ${path.map(_.toString).mkString(",")}. SIMPLE_JSON require a valid json file """
+          s"""Invalid JSON File: ${path
+            .map(_.toString)
+            .mkString(",")}. SIMPLE_JSON require a valid json file """
         )
       } else {
         df
       }
       Success(resDF)
-    }
-    catch {
+    } catch {
       case e: Exception =>
         Failure(e)
     }
