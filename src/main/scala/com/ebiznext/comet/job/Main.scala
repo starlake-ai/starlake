@@ -27,6 +27,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.typesafe.scalalogging.StrictLogging
+import org.apache.hadoop.fs.Path
 
 /**
   * The root of all things.
@@ -105,7 +106,7 @@ object Main extends StrictLogging {
         } else
           workflow.loadPending()
       case "ingest" if arglist.length == 4 =>
-        workflow.ingest(arglist(1), arglist(2), arglist(3))
+        workflow.ingest(arglist(1), arglist(2), arglist(3).split(',').map(new Path(_)).toList)
 
       case "index" =>
         IndexConfig.parse(args.drop(1)) match {

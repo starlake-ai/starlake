@@ -102,36 +102,44 @@ class DsvIngestionJob(
     *
     * @return Spark Dataset
     */
-  def loadDataSet(): DataFrame = {
-    val df = session.read
-      .format("com.databricks.spark.csv")
-      .option("header", metadata.isWithHeader().toString)
-      .option("inferSchema", value = false)
-      .option("delimiter", metadata.getSeparator())
-      .option("quote", metadata.getQuote())
-      .option("escape", metadata.getEscape())
-      .option("parserLib", "UNIVOCITY")
-      .csv(path.map(_.toString): _*)
-    df.printSchema()
-    metadata.withHeader match {
-      case Some(true) =>
-        val datasetHeaders: List[String] = df.columns.toList.map(cleanHeaderCol)
-        val (_, drop) = intersectHeaders(datasetHeaders, schemaHeaders)
-        if (datasetHeaders.length == drop.length) {
-          throw new Exception(
-            s"""No attribute found in input dataset ${path.toString}
-               | SchemaHeaders : ${schemaHeaders.mkString(",")}
-               | Dataset Headers : ${datasetHeaders.mkString(",")}
+  def loadDataSet(): Try[DataFrame] = {
+    try {
+      val df = session.read
+        .format("com.databricks.spark.csv")
+        .option("header", metadata.isWithHeader().toString)
+        .option("inferSchema", value = false)
+        .option("delimiter", metadata.getSeparator())
+        .option("quote", metadata.getQuote())
+        .option("escape", metadata.getEscape())
+        .option("parserLib", "UNIVOCITY")
+        .csv(path.map(_.toString): _*)
+      df.printSchema()
+      val resDF = metadata.withHeader match {
+        case Some(true) =>
+          val datasetHeaders: List[String] = df.columns.toList.map(cleanHeaderCol)
+          val (_, drop) = intersectHeaders(datasetHeaders, schemaHeaders)
+          if (datasetHeaders.length == drop.length) {
+            throw new Exception(
+              s"""No attribute found in input dataset ${path.toString}
+                 | SchemaHeaders : ${schemaHeaders.mkString(",")}
+                 | Dataset Headers : ${datasetHeaders.mkString(",")}
              """.stripMargin)
-        }
-        df.drop(drop: _*)
-      case Some(false) | None =>
-        df.toDF(
-          schema.attributes
-            .map(_.name)
-            .take(Math.min(df.columns.length, schema.attributes.length)): _*
-        )
+          }
+          df.drop(drop: _*)
+        case Some(false) | None =>
+          df.toDF(
+            schema.attributes
+              .map(_.name)
+              .take(Math.min(df.columns.length, schema.attributes.length)): _*
+          )
+      }
+      Success(resDF)
     }
+    catch {
+      case e: Exception =>
+        Failure(e)
+    }
+
   }
 
   /**
