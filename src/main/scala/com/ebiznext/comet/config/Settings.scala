@@ -90,6 +90,7 @@ object Settings extends StrictLogging {
                           analyze: Boolean,
                           hive: Boolean,
                           grouped: Boolean,
+                          mergeForceDisinct: Boolean,
                           area: Area,
                           airflow: Airflow,
                           elasticsearch: Elasticsearch
