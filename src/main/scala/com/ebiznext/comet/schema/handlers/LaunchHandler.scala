@@ -57,11 +57,11 @@ trait LaunchHandler {
     * @return success / failure
     */
   def ingest(
-    workflow: IngestionWorkflow,
-    domain: Domain,
-    schema: Schema,
-    paths: List[Path]
-  ): Boolean
+              workflow: IngestionWorkflow,
+              domain: Domain,
+              schema: Schema,
+              paths: List[Path]
+            ): Boolean
 
   /**
     * Index into elasticsearch
@@ -86,11 +86,11 @@ class SimpleLauncher extends LaunchHandler with StrictLogging {
     * @return success / failure
     */
   override def ingest(
-    workflow: IngestionWorkflow,
-    domain: Domain,
-    schema: Schema,
-    paths: List[Path]
-  ): Boolean = {
+                       workflow: IngestionWorkflow,
+                       domain: Domain,
+                       schema: Schema,
+                       paths: List[Path]
+                     ): Boolean = {
     paths.foreach { path =>
       logger.info(s"Launch Ingestion: ${domain.name} ${schema.name} ${path.toString} ")
       workflow.ingest(domain.name, schema.name, path.toString)
@@ -141,13 +141,14 @@ class AirflowLauncher extends LaunchHandler with StrictLogging {
     * @return success if request accepted
     */
   override def ingest(
-    workflow: IngestionWorkflow,
-    domain: Domain,
-    schema: Schema,
-    paths: List[Path]
-  ): Boolean = {
+                       workflow: IngestionWorkflow,
+                       domain: Domain,
+                       schema: Schema,
+                       paths: List[Path]
+                     ): Boolean = {
     val endpoint = Settings.comet.airflow.endpoint
-    val url = s"$endpoint/dags/comet_ingest/dag_runs"
+    val ingest = Settings.comet.airflow.ingest
+    val url = s"$endpoint/dags/$ingest/dag_runs"
     val command =
       s"""ingest ${domain.name} ${schema.name} ${paths.mkString(",")}"""
     val json = s"""{"conf":"{\\"command\\":\\"$command\\"}"}"""
@@ -173,7 +174,7 @@ class AirflowLauncher extends LaunchHandler with StrictLogging {
     //    --format parquet|json|json-array --dataset datasetPath
     //    --conf key=value,key=value,...
     val resource =
-      s"--timestamp ${config.timestamp} --domain ${config.domain} --schema ${config.schema} --format ${config.format} --dataset ${config.getDataset()}"
+    s"--timestamp ${config.timestamp} --domain ${config.domain} --schema ${config.schema} --format ${config.format} --dataset ${config.getDataset()}"
     val id = config.id.map(id => s"--id $id")
     val mapping = config.mapping.map(path => s"--mapping ${path.toString}")
     val params = List(Some(resource), id, mapping).flatten.mkString(" ")
