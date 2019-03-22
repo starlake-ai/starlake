@@ -6,6 +6,7 @@ import com.ebiznext.comet.schema.model._
 import com.ebiznext.comet.utils.SparkJob
 import org.apache.hadoop.fs.Path
 import org.apache.spark.rdd.RDD
+import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.{DataFrame, SaveMode, SparkSession}
 
 /**
@@ -95,7 +96,14 @@ trait IngestionJob extends SparkJob {
       throw new RuntimeException("Input Dataset and existing HDFS dataset do not have the same number of columns. Check for changes in the dataset schema ?")
     }
 
-    val toDeleteDF = existingDF.join(partitionedInputDF.select(merge.key.head, merge.key.tail: _*), merge.key)
+    // Force orderinfg of columns to be the same
+    val orderedExisting = existingDF.select(partitionedInputDF.columns.map((col(_))): _*)
+
+
+    // Force orderinfg again of columns to be the same since join operation change it otherwise except below won"'t work.
+    val toDeleteDF =
+      orderedExisting.
+        join(partitionedInputDF.select(merge.key.head, merge.key.tail: _*), merge.key).select(partitionedInputDF.columns.map((col(_))): _*)
     val updatesDF = merge.delete
       .map(condition => partitionedInputDF.filter(s"not ($condition)"))
       .getOrElse(partitionedInputDF)
@@ -103,7 +111,11 @@ trait IngestionJob extends SparkJob {
       logger.debug(s"Merge detected ${toDeleteDF.count()} items to update/delete")
       logger.debug(s"Merge detected ${updatesDF.count()} items to update/insert")
     }
-    existingDF.except(toDeleteDF).union(updatesDF)
+    orderedExisting.except(toDeleteDF).union(updatesDF).show(false)
+    if (Settings.comet.mergeForceDisinct)
+      orderedExisting.except(toDeleteDF).union(updatesDF).distinct()
+    else
+      orderedExisting.except(toDeleteDF).union(updatesDF)
   }
 
   /**
