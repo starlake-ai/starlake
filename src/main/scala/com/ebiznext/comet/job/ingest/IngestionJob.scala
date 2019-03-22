@@ -3,11 +3,13 @@ package com.ebiznext.comet.job.ingest
 import com.ebiznext.comet.config.{DatasetArea, HiveArea, Settings}
 import com.ebiznext.comet.schema.handlers.StorageHandler
 import com.ebiznext.comet.schema.model._
-import com.ebiznext.comet.utils.SparkJob
+import com.ebiznext.comet.utils.{SparkJob, Utils}
 import org.apache.hadoop.fs.Path
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.{DataFrame, SaveMode, SparkSession}
+
+import scala.util.{Failure, Success, Try}
 
 /**
   *
@@ -31,7 +33,7 @@ trait IngestionJob extends SparkJob {
     *
     * @return Spark Dataframe loaded using metadata options
     */
-  def loadDataSet(): DataFrame
+  def loadDataSet(): Try[DataFrame]
 
   /**
     * ingestion algorithm
@@ -112,7 +114,7 @@ trait IngestionJob extends SparkJob {
       logger.debug(s"Merge detected ${updatesDF.count()} items to update/insert")
     }
     orderedExisting.except(toDeleteDF).union(updatesDF).show(false)
-    if (Settings.comet.mergeForceDisinct)
+    if (Settings.comet.mergeForceDistinct)
       orderedExisting.except(toDeleteDF).union(updatesDF).distinct()
     else
       orderedExisting.except(toDeleteDF).union(updatesDF)
@@ -240,18 +242,24 @@ trait IngestionJob extends SparkJob {
       case Right(_) =>
         schema.presql.getOrElse(Nil).foreach(session.sql)
         val dataset = loadDataSet()
-        val (rejectedRDD, acceptedRDD) = ingest(dataset)
-        logger.whenInfoEnabled {
-          val inputCount = dataset.count()
-          val acceptedCount = acceptedRDD.count()
-          val rejectedCount = rejectedRDD.count()
-          val inputFiles = dataset.inputFiles.mkString(",")
-          logger.info(
-            s"ingestion-summary -> files: [$inputFiles], input: $inputCount, accepted: $acceptedCount, rejected:$rejectedCount"
-          )
-        }
+        dataset match {
+          case Success(dataset) =>
+            val (rejectedRDD, acceptedRDD) = ingest(dataset)
+            logger.whenInfoEnabled {
+              val inputCount = dataset.count()
+              val acceptedCount = acceptedRDD.count()
+              val rejectedCount = rejectedRDD.count()
+              val inputFiles = dataset.inputFiles.mkString(",")
+              logger.info(
+                s"ingestion-summary -> files: [$inputFiles], input: $inputCount, accepted: $acceptedCount, rejected:$rejectedCount"
+              )
+            }
 
-        schema.postsql.getOrElse(Nil).foreach(session.sql)
+            schema.postsql.getOrElse(Nil).foreach(session.sql)
+          case Failure(exception) =>
+            Utils.logException(logger, exception)
+            throw exception
+        }
     }
     session
   }
