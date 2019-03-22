@@ -75,10 +75,11 @@ trait SparkJob extends StrictLogging {
 
     }
   }
+
   def partitionDataset(dataset: DataFrame, partition: List[String]): DataFrame = {
     logger.info(s"""Partitioning on ${partition.mkString(",")}""")
     partition match {
-      case Nil => dataset
+      case Nil                                                          => dataset
       case cols if cols.forall(Metadata.CometPartitionColumns.contains) =>
         // TODO Should we issue a warning if used with Overwrite mode ????
         // TODO Check that the year / month / day / hour / minute do not already exist
