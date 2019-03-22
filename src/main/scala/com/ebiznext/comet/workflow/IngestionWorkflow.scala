@@ -210,11 +210,11 @@ class IngestionWorkflow(
     * @param schemaName    schema name of the dataset
     * @param ingestingPath : Absolute path of the file to ingest (present in the ingesting area of the domain)
     */
-  def ingest(domainName: String, schemaName: String, ingestingPath: String): Unit = {
+  def ingest(domainName: String, schemaName: String, ingestingPaths: List[Path]): Unit = {
     for {
       domain <- domains.find(_.name == domainName)
       schema <- domain.schemas.find(_.name == schemaName)
-    } yield ingesting(domain, schema, List(new Path(ingestingPath)))
+    } yield ingesting(domain, schema, ingestingPaths)
     ()
   }
 
