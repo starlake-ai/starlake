@@ -29,6 +29,8 @@ import org.apache.spark.sql.execution.datasources.json.JsonIngestionUtil
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, Row}
 
+import scala.util.{Failure, Success, Try}
+
 /**
   * Main class to complex json delimiter separated values file
   * If your json contains only one level simple attribute aka. kind of dsv but in json format please use SIMPLE_JSON instead. It's way faster
@@ -52,13 +54,20 @@ class JsonIngestionJob(
     *
     * @return Spark Dataframe loaded using metadata options
     */
-  def loadDataSet(): DataFrame = {
-    val df = session.read
-      .format("com.databricks.spark.csv")
-      .option("inferSchema", value = false)
-      .text(path.map(_.toString): _*)
-    df.printSchema()
-    df
+  def loadDataSet(): Try[DataFrame] = {
+
+    try {
+      val df = session.read
+        .format("com.databricks.spark.csv")
+        .option("inferSchema", value = false)
+        .text(path.map(_.toString): _*)
+      df.printSchema()
+      Success(df)
+    }
+    catch {
+      case e: Exception =>
+        Failure(e)
+    }
   }
 
   lazy val schemaSparkType: StructType = schema.sparkType()
