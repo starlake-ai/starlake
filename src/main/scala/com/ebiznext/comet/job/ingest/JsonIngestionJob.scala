@@ -42,12 +42,12 @@ import scala.util.{Failure, Success, Try}
   * @param storageHandler : Storage Handler
   */
 class JsonIngestionJob(
-                        val domain: Domain,
-                        val schema: Schema,
-                        val types: List[Type],
-                        val path: List[Path],
-                        val storageHandler: StorageHandler
-                      ) extends IngestionJob {
+  val domain: Domain,
+  val schema: Schema,
+  val types: List[Type],
+  val path: List[Path],
+  val storageHandler: StorageHandler
+) extends IngestionJob {
 
   /**
     * load the json as an RDD of String
@@ -63,8 +63,7 @@ class JsonIngestionJob(
         .text(path.map(_.toString): _*)
       df.printSchema()
       Success(df)
-    }
-    catch {
+    } catch {
       case e: Exception =>
         Failure(e)
     }

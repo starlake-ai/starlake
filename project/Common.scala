@@ -18,14 +18,14 @@
  *
  */
 
-import sbt.{Def, _}
-import sbt.Keys._
 import com.typesafe.sbt.GitPlugin.autoImport._
 import com.typesafe.sbt.site.SiteScaladocPlugin
 import com.typesafe.sbt.site.sphinx.SphinxPlugin
-import sbtassembly.AssemblyKeys._
 import com.typesafe.sbt.site.sphinx.SphinxPlugin.autoImport.Sphinx
 import org.scalafmt.sbt.ScalafmtPlugin.autoImport.scalafmtOnCompile
+import sbt.Keys._
+import sbt.{Def, _}
+import sbtassembly.AssemblyKeys._
 
 object Common {
 
@@ -80,11 +80,13 @@ object Common {
 
 }
 
+
 object Versions {
   val sparkAvro = "4.0.0"
   val hadoop = "2.7.3"
-  val spark = "2.1.0"
   val curator = "2.6.0"
+  val spark211 = "2.1.0"
+  val spark212 = "2.4.0"
   val scalatest = "3.0.5"
   val springBoot = "2.0.6.RELEASE"
   val typesafeConfig = "1.2.1"
