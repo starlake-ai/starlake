@@ -115,7 +115,7 @@ class MetricsJob(
     */
   def saveDataset(dataToSave: DataFrame, path: Path): Unit = {
     if (storageHandler.exist(path)) {
-      val pathIntermediate = new Path(path, "intermediateDirectory")
+      val pathIntermediate = new Path(path, ".stat")
 
       val dataByVariableStored: DataFrame = session.read.parquet(path.toString).union(dataToSave)
       dataByVariableStored.coalesce(1).write.mode("append").parquet(pathIntermediate.toString)
@@ -299,6 +299,7 @@ class MetricsJob(
     *
     * @return : Spark Session used for the job
     */
+  // TODO Implement stageState
   override def run(): SparkSession = {
     val dataUse: DataFrame = session.read.parquet(datasetPath.toString)
     val attributes: List[String] = schema.discreteAttrs().map(_.name)
