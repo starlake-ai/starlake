@@ -113,12 +113,12 @@ object Metrics extends StrictLogging {
     * @return
     */
   def customMetricUDF(
-                       e: Column,
-                       metricName: String,
-                       metricFunction: (String, Column*) => Column,
-                       approxMethod: String,
-                       approxValue: Double
-                     ): Column = {
+    e: Column,
+    metricName: String,
+    metricFunction: (String, Column*) => Column,
+    approxMethod: String,
+    approxValue: Double
+  ): Column = {
 
     val aliasMetric: String = metricName + "(" + e.toString() + ")"
     metricFunction(approxMethod, e, lit(approxValue)).as(aliasMetric)
@@ -165,9 +165,9 @@ object Metrics extends StrictLogging {
     val unionMissingValues = sum(
       when(
         e.isNull
-          || e === ""
-          || e === " "
-          || e.isNaN,
+        || e === ""
+        || e === " "
+        || e.isNaN,
         1
       ).otherwise(0)
     )
@@ -208,10 +208,10 @@ object Metrics extends StrictLogging {
     */
 
   def computeContinuiousMetric(
-                                dataInit: DataFrame,
-                                attributes: List[String],
-                                operations: List[ContinuousMetric]
-                              ): DataFrame = {
+    dataInit: DataFrame,
+    attributes: List[String],
+    operations: List[ContinuousMetric]
+  ): DataFrame = {
     val headerDataUse = dataInit.columns.toList
     val intersectionHeaderAttributes = headerDataUse.intersect(attributes)
     val listDifference = attributes.filterNot(headerDataUse.contains)
@@ -246,7 +246,7 @@ object Metrics extends StrictLogging {
   object Frequencies extends DiscreteMetric("Frequencies", customFrequencies)
 
   object CountMissValuesDiscrete
-    extends DiscreteMetric("CountMissValuesDiscrete", customCountMissValuesDiscrete)
+      extends DiscreteMetric("CountMissValuesDiscrete", customCountMissValuesDiscrete)
 
   /** List of all available metrics.
     *
@@ -319,10 +319,10 @@ object Metrics extends StrictLogging {
     */
 
   def regroupDiscreteMetricsByVariable(
-                                        dataInit: DataFrame,
-                                        name: String,
-                                        operations: List[DiscreteMetric]
-                                      ): DataFrame = {
+    dataInit: DataFrame,
+    name: String,
+    operations: List[DiscreteMetric]
+  ): DataFrame = {
     val metrics: List[DataFrame] = operations.map(metric => metric.function(dataInit, name))
     val metricFrame: DataFrame = metrics.reduce((a, b) => a.join(b, "Category"))
     metricFrame.withColumn("Variables", lit(name))
@@ -337,10 +337,10 @@ object Metrics extends StrictLogging {
     */
 
   def computeDiscretMetric(
-                            dataInit: DataFrame,
-                            attributes: List[String],
-                            operations: List[DiscreteMetric]
-                          ): DataFrame = {
+    dataInit: DataFrame,
+    attributes: List[String],
+    operations: List[DiscreteMetric]
+  ): DataFrame = {
 
     val headerDataUse = dataInit.columns.toList
     val intersectionHeaderAttributes = headerDataUse.intersect(attributes)

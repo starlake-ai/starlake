@@ -14,6 +14,14 @@ import org.apache.spark.sql.functions.col
   *
   */
 
+/**
+  *
+  * @param datasetPath      : Path to the dataset
+  * @param domain           : Domain name
+  * @param schema           : Schema
+  * @param stage            : stage
+  * @param storageHandler   : Storage Handler
+  */
 class MetricsJob(
   datasetPath: Path,
   domain: Domain,
@@ -33,7 +41,7 @@ class MetricsJob(
     * @param count                 : Count metric
     * @param missingValues         : Missing Values metric
     * @param variance              : Variance metric
-    * @param standarddev           : Standard deviation metric
+    * @param standardDev           : Standard deviation metric
     * @param sum                   : Sum metric
     * @param skewness              : Skewness metric
     * @param kurtosis              : Kurtosis metric
@@ -56,7 +64,7 @@ class MetricsJob(
     count: Option[Long],
     missingValues: Option[Long],
     variance: Option[Double],
-    standarddev: Option[Double],
+    standardDev: Option[Double],
     sum: Option[Double],
     skewness: Option[Double],
     kurtosis: Option[Double],
@@ -228,7 +236,7 @@ class MetricsJob(
     * @param stageState        : stage (unit / global)
     * @param path              : path where to save the file
     * @param threshold         : The limit value for the number of sub-class to consider
-    * @return : the stored dataframe version of the parquet file
+    * @return                  : the stored dataframe version of the parquet file
     */
   def saveDataStatToParquet(
     dfStatistics: DataFrame,
