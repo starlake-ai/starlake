@@ -60,7 +60,7 @@ object Main extends StrictLogging {
         |comet import
         |comet ingest datasetDomain datasetSchema datasetPath
         |comet index --domain domain --schema schema --timestamp {@timestamp|yyyy.MM.dd} --id type-id --mapping mapping --format parquet|json|json-array --dataset datasetPath --conf key=value,key=value,...
-        |comet infer-schema datasetPath savePath
+        |comet infer-schema datasetPath savePath header (Optional)
         |      """.stripMargin
     )
   }
@@ -120,7 +120,14 @@ object Main extends StrictLogging {
         }
 
       case "infer-schema" => {
-        InferSchema(arglist(1),arglist(2))
+        if (arglist.length < 3)
+          new InferSchema(arglist(1), arglist(2))
+        else
+          arglist(3).toLowerCase() match {
+            case "true" | "false" =>
+              new InferSchema(arglist(1), arglist(2), Option(arglist(3).toBoolean))
+            case _ => printUsage()
+          }
 
       }
       case _ => printUsage()
