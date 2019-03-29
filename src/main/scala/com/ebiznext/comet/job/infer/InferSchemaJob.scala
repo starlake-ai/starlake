@@ -1,6 +1,9 @@
 package com.ebiznext.comet.job.infer
 
+import java.util.regex.Pattern
+
 import com.ebiznext.comet.schema.handlers.InferSchemaHandler
+import com.ebiznext.comet.schema.model.Attribute
 import com.ebiznext.comet.utils.SparkJob
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
@@ -17,6 +20,8 @@ object InferSchemaJob extends SparkJob{
       .textFile(path.toString)
   }
 
+
+  //TODO manage mode
   /** Get domain name
     *
     * @return the domain name
@@ -76,15 +81,6 @@ object InferSchemaJob extends SparkJob{
     * @return the domain name
     */
   def getDomainName(path: Path) : String = {
-    path.getParent.getName
-  }
-
-  /** Get domain pattern
-    *
-    * @param path : file path
-    * @return the domain pattern
-    */
-  def getDomainPattern(path: Path) : String = {
     path.getName
   }
 
@@ -97,11 +93,38 @@ object InferSchemaJob extends SparkJob{
     path.toString.replace(path.getName, "")
   }
 
+  /** Get schema name
+    *
+    * @param path : file path
+    * @return the schema name
+    */
+  def getSchemaName(path: Path) : String = {
+    val fileName = path.getName
+
+    if(fileName.contains("."))
+      fileName.split("\\.").head
+    else
+      fileName
+  }
+
+  /** Get domain pattern
+    *
+    * @param path : file path
+    * @return the domain pattern
+    */
+  def getSchemaPattern(path: Path) : String = {
+    path.getName
+  }
+
   /** Get header option
     *
     * @return the header option
     */
   def getWithHeader : Boolean = {
+    false
+  }
+
+  def getMultiline : Boolean = {
     false
   }
 
@@ -111,6 +134,10 @@ object InferSchemaJob extends SparkJob{
 
   def getEscape: String = {
     "\\"
+  }
+
+  def getWriteMode : String = {
+    "OVERWRITE"
   }
 
   /**
@@ -149,8 +176,37 @@ object InferSchemaJob extends SparkJob{
     */
   override def run(): SparkSession = session
 
-  val rf = readFile(new Path("/tmp/ty/toy.json"))
-  val cdf = createDataFrameWithFormat(rf, new Path("/tmp/ty/toy.json" ))
+  val path = new Path("/tmp/ty/toy.json")
+  val rf = readFile(path)
+  val cdf = createDataFrameWithFormat(rf, path)
 
-  new InferSchemaHandler(cdf)
+  val mode = getMode
+
+  val format = getFormatFile(rf,getExtensionFile(path))
+
+  val multiline = getMultiline
+
+  val array = if(format == "ARRAY_JSON") true else false
+
+  val withHeader = getWithHeader
+
+  val separator = getSeparator(rf)
+
+  val quote = getQuote
+
+  val escape = getEscape
+
+  val writeMode = getWriteMode
+
+  val inferSchema = new InferSchemaHandler(cdf)
+
+  val attributes: List[Attribute] = inferSchema.createAttributes(cdf.schema)
+  val metadata = inferSchema.createMetaData(mode,format,multiline,array,withHeader,separator,quote,escape,writeMode,None,false,None)
+
+  val schema = inferSchema.createSchema(getSchemaName(path),Pattern.compile(getSchemaPattern(path)),attributes,metadata)
+
+  val domain = inferSchema.createDomain(getDomainName(path),getDomainDirectoryName(path),None, List(schema))
+
+  inferSchema.generateYaml(domain, "/tmp/res.yml")
+
 }
