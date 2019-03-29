@@ -22,6 +22,7 @@ package com.ebiznext.comet.job
 
 import com.ebiznext.comet.config.{DatasetArea, Settings}
 import com.ebiznext.comet.job.index.IndexConfig
+import com.ebiznext.comet.job.infer.InferSchema
 import com.ebiznext.comet.workflow.IngestionWorkflow
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
@@ -59,6 +60,7 @@ object Main extends StrictLogging {
         |comet import
         |comet ingest datasetDomain datasetSchema datasetPath
         |comet index --domain domain --schema schema --timestamp {@timestamp|yyyy.MM.dd} --id type-id --mapping mapping --format parquet|json|json-array --dataset datasetPath --conf key=value,key=value,...
+        |comet infer-schema datasetPath savePath
         |      """.stripMargin
     )
   }
@@ -118,7 +120,7 @@ object Main extends StrictLogging {
         }
 
       case "infer-schema" => {
-        //todo write parser
+        InferSchema(arglist(1),arglist(2))
 
       }
       case _ => printUsage()
