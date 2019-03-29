@@ -10,11 +10,12 @@ import org.apache.spark.sql.types.{ArrayType, StructType}
 
 class InferSchemaHandler(dataframe: DataFrame) {
 
-  private def createAttributes(schema: StructType): List[Attribute] = {
+   def createAttributes(schema: StructType): List[Attribute] = {
     schema
       .map(
         row =>
           row.dataType.typeName match {
+
             case "struct" =>
               Attribute(
                 row.name,
@@ -23,6 +24,7 @@ class InferSchemaHandler(dataframe: DataFrame) {
                 !row.nullable,
                 attributes = Some(createAttributes(row.dataType.asInstanceOf[StructType]))
               )
+
             case "array" =>
               val elemType = row.dataType.asInstanceOf[ArrayType].elementType
               if (elemType.typeName.equals("struct"))
@@ -38,6 +40,7 @@ class InferSchemaHandler(dataframe: DataFrame) {
               else
                 // if it is a regular array. {ages: [21, 25]}
                 Attribute(row.name, elemType.typeName, Some(true), !row.nullable)
+
             case _ => Attribute(row.name, row.dataType.typeName, Some(false), !row.nullable)
         }
       )
@@ -74,7 +77,7 @@ class InferSchemaHandler(dataframe: DataFrame) {
     )
   }
 
-  private def createSchema(
+   def createSchema(
     name: String,
     pattern: Pattern,
     attributes: List[Attribute],
@@ -85,11 +88,24 @@ class InferSchemaHandler(dataframe: DataFrame) {
     postsql: Option[List[String]]
   ): Schema = {
 
-    Schema(name, pattern, attributes, Some(metadata), merge, comment, None, None)
+    Schema(name, pattern, attributes, Some(metadata), merge, comment, presql, postsql)
   }
 
-  def generateYaml(schema: Schema, savePath:String): Unit = {
-    val data: Schema = schema
+  def createDomain(name: String,
+                   directory: String,
+                   metadata: Option[Metadata] = None,
+                   schemas: List[Schema] = Nil,
+                   comment: Option[String] = None,
+                   extensions: Option[List[String]] = None,
+                   ack: Option[String] = None): Domain = {
+
+    Domain(name: String, directory: String, metadata: Option[Metadata], schemas: List[Schema], comment: Option[String], extensions: Option[List[String]], ack: Option[String])
+  }
+
+
+
+  def generateYaml(domain: Domain, savePath:String): Unit = {
+    val data: Domain = domain
     val mapper: ObjectMapper = new ObjectMapper(new YAMLFactory)
       .registerModule(DefaultScalaModule)
 
