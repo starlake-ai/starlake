@@ -82,10 +82,10 @@ class InferSchemaHandler(dataframe: DataFrame) {
     pattern: Pattern,
     attributes: List[Attribute],
     metadata: Metadata,
-    merge: Option[MergeOptions],
-    comment: Option[String],
-    presql: Option[List[String]],
-    postsql: Option[List[String]]
+    merge: Option[MergeOptions] = None,
+    comment: Option[String] = None,
+    presql: Option[List[String]] = None,
+    postsql: Option[List[String]] = None
   ): Schema = {
 
     Schema(name, pattern, attributes, Some(metadata), merge, comment, presql, postsql)
