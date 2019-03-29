@@ -116,6 +116,11 @@ object Main extends StrictLogging {
           case _ =>
             printUsage()
         }
+
+      case "infer-schema" => {
+        //todo write parser
+
+      }
       case _ => printUsage()
     }
   }
