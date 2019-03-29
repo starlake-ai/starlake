@@ -1,52 +1,37 @@
+/*
+ *
+ *  * Licensed to the Apache Software Foundation (ASF) under one or more
+ *  * contributor license agreements.  See the NOTICE file distributed with
+ *  * this work for additional information regarding copyright ownership.
+ *  * The ASF licenses this file to You under the Apache License, Version 2.0
+ *  * (the "License"); you may not use this file except in compliance with
+ *  * the License.  You may obtain a copy of the License at
+ *  *
+ *  *    http://www.apache.org/licenses/LICENSE-2.0
+ *  *
+ *  * Unless required by applicable law or agreed to in writing, software
+ *  * distributed under the License is distributed on an "AS IS" BASIS,
+ *  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  * See the License for the specific language governing permissions and
+ *  * limitations under the License.
+ *
+ *
+ */
+
 package com.ebiznext.comet.job.infer
 
 import java.util.regex.Pattern
 
-import com.ebiznext.comet.job.infer.InferSchemaJob._
 import com.ebiznext.comet.schema.handlers.InferSchemaHandler
 import com.ebiznext.comet.schema.model.Attribute
 import com.ebiznext.comet.utils.SparkJob
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 
+class InferSchema(dataPath: String, savePath: String, header: Option[Boolean] = Some(false)) {
 
-case class InferSchema(dataPath : String,
-                       savePath: String) {
+  InferSchemaJob.infer(dataPath, savePath, header.getOrElse(false))
 
-  val path = new Path(dataPath)
-
-  val datasetWithoutFormat = readFile(path)
-
-  val dataframeWithFormat = createDataFrameWithFormat(datasetWithoutFormat, path)
-
-  val mode = getMode
-
-  val format = getFormatFile(datasetWithoutFormat,getExtensionFile(path))
-
-  val multiline = getMultiline
-
-  val array = if(format == "ARRAY_JSON") true else false
-
-  val withHeader = getWithHeader
-
-  val separator = getSeparator(datasetWithoutFormat)
-
-  val quote = getQuote
-
-  val escape = getEscape
-
-  val writeMode = getWriteMode
-
-  val inferSchema = new InferSchemaHandler(dataframeWithFormat)
-
-  val attributes: List[Attribute] = inferSchema.createAttributes(dataframeWithFormat.schema)
-  val metadata = inferSchema.createMetaData(mode,format,multiline,array,withHeader,separator,quote,escape,writeMode,None,false,None)
-
-  val schema = inferSchema.createSchema(getSchemaName(path),Pattern.compile(getSchemaPattern(path)),attributes,metadata)
-
-  val domain = inferSchema.createDomain(getDomainName(path),getDomainDirectoryName(path),None, List(schema))
-
-  inferSchema.generateYaml(domain, savePath)
 }
 
 object InferSchemaJob extends SparkJob {
@@ -72,10 +57,10 @@ object InferSchemaJob extends SparkJob {
     * @param path : file path
     * @return the file extension
     */
-  def getExtensionFile(path: Path) ={
+  def getExtensionFile(path: Path) = {
     val fileName = path.getName
 
-    if(fileName.contains("."))
+    if (fileName.contains("."))
       fileName.split("\\.").last
     else
       ""
@@ -87,14 +72,15 @@ object InferSchemaJob extends SparkJob {
     * @param extension : extension file
     * @return
     */
-  def getFormatFile(datasetInit: Dataset[String], extension : String): String = {
+  def getFormatFile(datasetInit: Dataset[String], extension: String): String = {
     val firstLine = datasetInit.first()
 
     firstLine.charAt(0).toString match {
-      case "{"  => "JSON"
+      case "{" => "JSON"
       case "[" => "ARRAY_JSON"
-      case _  => if (extension.matches(".*sv$")) "DSV"
-            else throw new Exception("The format of this file is not supported")
+      case _ =>
+        if (extension.matches(".*sv$")) "DSV"
+        else throw new Exception("The format of this file is not supported")
     }
   }
 
@@ -110,7 +96,8 @@ object InferSchemaJob extends SparkJob {
       .flatMap(_.toCharArray)
       .map(w => (w, 1))
       .reduceByKey(_ + _)
-      .first()._1
+      .first()
+      ._1
       .toString
   }
 
@@ -119,7 +106,7 @@ object InferSchemaJob extends SparkJob {
     * @param path : file path
     * @return the domain name
     */
-  def getDomainName(path: Path) : String = {
+  def getDomainName(path: Path): String = {
     path.getParent.getName
   }
 
@@ -137,10 +124,10 @@ object InferSchemaJob extends SparkJob {
     * @param path : file path
     * @return the schema name
     */
-  def getSchemaName(path: Path) : String = {
+  def getSchemaName(path: Path): String = {
     val fileName = path.getName
 
-    if(fileName.contains("."))
+    if (fileName.contains("."))
       fileName.split("\\.").head
     else
       fileName
@@ -151,22 +138,9 @@ object InferSchemaJob extends SparkJob {
     * @param path : file path
     * @return the schema pattern
     */
-  def getSchemaPattern(path: Path) : String = {
+  def getSchemaPattern(path: Path): String = {
     path.getName
   }
-
-  /** Get header option
-    *
-    * @return the header option
-    */
-  def getWithHeader : Boolean = false
-
-
-  /** Get multiline option
-    *
-    * @return the multiline option
-    */
-  def getMultiline : Boolean = false
 
   /** Get quote option
     *
@@ -180,8 +154,7 @@ object InferSchemaJob extends SparkJob {
     */
   def getEscape: String = "\\"
 
-
-  def getWriteMode : String = {
+  def getWriteMode: String = {
     "APPEND"
   }
 
@@ -191,24 +164,30 @@ object InferSchemaJob extends SparkJob {
     * @param path : file path
     * @return
     */
-  def createDataFrameWithFormat(datasetInit: Dataset[String],path: Path): DataFrame = {
+  def createDataFrameWithFormat(
+    datasetInit: Dataset[String],
+    path: Path,
+    header: Boolean
+  ): DataFrame = {
     val formatFile = getFormatFile(datasetInit, getExtensionFile(path))
 
     formatFile match {
-      case "JSON" | "ARRAY_JSON" => session.read
-        .format("json")
-        .option("inferSchema", false)
-        .load(path.toString)
+      case "JSON" | "ARRAY_JSON" =>
+        session.read
+          .format("json")
+          .option("inferSchema", false)
+          .load(path.toString)
 
-      case "DSV" => session.read
-        .format("com.databricks.spark.csv")
-        .option("header", getWithHeader)
-        .option("inferSchema", false)
-        .option("delimiter", getSeparator(datasetInit))
-        .option("quote", getQuote)
-        .option("escape", getEscape)
-        .option("parserLib", "UNIVOCITY")
-        .load(path.toString)
+      case "DSV" =>
+        session.read
+          .format("com.databricks.spark.csv")
+          .option("header", header)
+          .option("inferSchema", false)
+          .option("delimiter", getSeparator(datasetInit))
+          .option("quote", getQuote)
+          .option("escape", getEscape)
+          .option("parserLib", "UNIVOCITY")
+          .load(path.toString)
     }
   }
 
@@ -219,8 +198,68 @@ object InferSchemaJob extends SparkJob {
     *
     * @return : Spark Session used for the job
     */
+  def infer(dataPath: String, savePath: String, header: Boolean) = {
+    val path = new Path(dataPath)
+
+    val datasetWithoutFormat = readFile(path)
+
+    val dataframeWithFormat = createDataFrameWithFormat(datasetWithoutFormat, path, header)
+
+    val mode = getMode
+
+    val format = getFormatFile(datasetWithoutFormat, getExtensionFile(path))
+
+    val array = if (format == "ARRAY_JSON") true else false
+
+    val withHeader = header
+
+    val separator = getSeparator(datasetWithoutFormat)
+
+    val quote = getQuote
+
+    val escape = getEscape
+
+    val writeMode = getWriteMode
+
+    val inferSchema = new InferSchemaHandler(dataframeWithFormat)
+
+    val attributes: List[Attribute] = inferSchema.createAttributes(dataframeWithFormat.schema)
+
+    val metadata = inferSchema.createMetaData(
+      mode,
+      format,
+      multiline = false, //multiline is not supported
+      array,
+      withHeader,
+      separator,
+      quote,
+      escape,
+      writeMode,
+      index = false
+    )
+
+    val schema = inferSchema.createSchema(
+      getSchemaName(path),
+      Pattern.compile(getSchemaPattern(path)),
+      attributes,
+      metadata
+    )
+
+    val domain =
+      inferSchema.createDomain(
+        getDomainName(path),
+        getDomainDirectoryName(path),
+        None,
+        List(schema) // todo add support to iterate over all the files in a directory
+      )
+
+    inferSchema.generateYaml(domain, savePath)
+  }
+
+  /**
+    * Just to force any spark job to implement its entry point using within the "run" method
+    *
+    * @return : Spark Session used for the job
+    */
   override def run(): SparkSession = session
-
-
-
 }
