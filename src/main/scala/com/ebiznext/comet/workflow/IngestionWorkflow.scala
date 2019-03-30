@@ -23,6 +23,7 @@ package com.ebiznext.comet.workflow
 import better.files._
 import com.ebiznext.comet.config.{DatasetArea, Settings}
 import com.ebiznext.comet.job.index.{IndexConfig, IndexJob}
+import com.ebiznext.comet.job.infer.{InferConfig, InferSchema}
 import com.ebiznext.comet.job.ingest.{DsvIngestionJob, JsonIngestionJob, SimpleJsonIngestionJob}
 import com.ebiznext.comet.job.transform.AutoJob
 import com.ebiznext.comet.schema.handlers.{LaunchHandler, SchemaHandler, StorageHandler}
@@ -329,5 +330,9 @@ class IngestionWorkflow(
 
   def index(config: IndexConfig) = {
     new IndexJob(config, Settings.storageHandler).run()
+  }
+
+  def infer(config: InferConfig) = {
+    new InferSchema(config.inputPath, config.outputPath, config.header)
   }
 }

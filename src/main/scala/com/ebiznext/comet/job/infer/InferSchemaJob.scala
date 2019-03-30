@@ -205,9 +205,9 @@ object InferSchemaJob extends SparkJob {
 
     val dataframeWithFormat = createDataFrameWithFormat(datasetWithoutFormat, path, header)
 
-    val mode = getMode
+    val mode = Option(getMode)
 
-    val format = getFormatFile(datasetWithoutFormat, getExtensionFile(path))
+    val format = Option(getFormatFile(datasetWithoutFormat, getExtensionFile(path)))
 
     val array = if (format == "ARRAY_JSON") true else false
 
@@ -228,21 +228,22 @@ object InferSchemaJob extends SparkJob {
     val metadata = inferSchema.createMetaData(
       mode,
       format,
-      multiline = false, //multiline is not supported
-      array,
-      withHeader,
-      separator,
-      quote,
-      escape,
-      writeMode,
-      index = false
+      None, //multiline is not supported
+      Option(array),
+      Option(withHeader),
+      Option(separator),
+      Option(quote),
+      Option(escape),
+      Option(writeMode),
+      None,
+      None
     )
 
     val schema = inferSchema.createSchema(
       getSchemaName(path),
       Pattern.compile(getSchemaPattern(path)),
       attributes,
-      metadata
+      Some(metadata)
     )
 
     val domain =
