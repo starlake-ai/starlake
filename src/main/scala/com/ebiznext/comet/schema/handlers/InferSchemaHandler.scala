@@ -1,21 +1,45 @@
+/*
+ *
+ *  * Licensed to the Apache Software Foundation (ASF) under one or more
+ *  * contributor license agreements.  See the NOTICE file distributed with
+ *  * this work for additional information regarding copyright ownership.
+ *  * The ASF licenses this file to You under the Apache License, Version 2.0
+ *  * (the "License"); you may not use this file except in compliance with
+ *  * the License.  You may obtain a copy of the License at
+ *  *
+ *  *    http://www.apache.org/licenses/LICENSE-2.0
+ *  *
+ *  * Unless required by applicable law or agreed to in writing, software
+ *  * distributed under the License is distributed on an "AS IS" BASIS,
+ *  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  * See the License for the specific language governing permissions and
+ *  * limitations under the License.
+ *
+ *
+ */
+
 package com.ebiznext.comet.schema.handlers
 import java.io.File
 import java.util.regex.Pattern
+import com.ebiznext.comet.job.Main
 import com.ebiznext.comet.schema.model._
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
-import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.types.{ArrayType, StructType}
 
 class InferSchemaHandler(dataframe: DataFrame) {
 
-   def createAttributes(schema: StructType): List[Attribute] = {
+  /***
+    *   Traverses the schema and returns a list of attributes.
+    * @param schema Schema so that we find all Attributes
+    * @return List of Attributes
+    */
+  def createAttributes(schema: StructType): List[Attribute] = {
     schema
       .map(
         row =>
           row.dataType.typeName match {
 
+            // if the datatype is a struct {...} containing one or more other field
             case "struct" =>
               Attribute(
                 row.name,
@@ -41,75 +65,120 @@ class InferSchemaHandler(dataframe: DataFrame) {
                 // if it is a regular array. {ages: [21, 25]}
                 Attribute(row.name, elemType.typeName, Some(true), !row.nullable)
 
+            // if the datatype is a simple Attribute
             case _ => Attribute(row.name, row.dataType.typeName, Some(false), !row.nullable)
         }
       )
       .toList
   }
 
+  /***
+    *   builds the Metadata case class. check case class metadata for attribute definition
+    * @param mode
+    * @param format
+    * @param multiline
+    * @param array
+    * @param withHeader
+    * @param separator
+    * @param quote
+    * @param escape
+    * @param write
+    * @param partition
+    * @param index
+    * @param mapping
+    * @return
+    */
+  // todo can we replace mode, format and writemode by values instead of options
   def createMetaData(
-    mode: String,
-    format: String,
-    multiline: Boolean,
-    array: Boolean,
-    withHeader: Boolean,
-    separator: String,
-    quote: String,
-    escape: String,
-    write: String,
+    mode: Option[String] = None,
+    format: Option[String] = None,
+    multiline: Option[Boolean] = None,
+    array: Option[Boolean],
+    withHeader: Option[Boolean],
+    separator: Option[String],
+    quote: Option[String],
+    escape: Option[String],
+    write: Option[String] = None,
     partition: Option[Partition] = None,
-    index: Boolean,
+    index: Option[Boolean] = None,
     mapping: Option[EsMapping] = None
   ): Metadata = {
     Metadata(
-      Some(Mode.fromString(mode)),
-      Some(Format.fromString(format)),
-      Some(multiline),
-      Some(array),
-      Some(withHeader),
-      Some(separator),
-      Some(quote),
-      Some(escape),
-      Some(WriteMode.fromString(write)),
+      Some(Mode.fromString(mode.getOrElse("FILE"))),
+      Some(Format.fromString(format.getOrElse("DSV"))),
+      multiline,
+      array,
+      withHeader,
+      separator,
+      quote,
+      escape,
+      Some(WriteMode.fromString(write.getOrElse("APPEND"))),
       partition,
-      Some(index),
+      index,
       mapping
     )
   }
 
-   def createSchema(
+  /***
+    *   builds the Schema case class
+    * @param name
+    * @param pattern
+    * @param attributes
+    * @param metadata
+    * @param merge
+    * @param comment
+    * @param presql
+    * @param postsql
+    * @return
+    */
+
+  // todo can we use something like automapper?
+  def createSchema(
     name: String,
     pattern: Pattern,
     attributes: List[Attribute],
-    metadata: Metadata,
+    metadata: Option[Metadata],
     merge: Option[MergeOptions] = None,
     comment: Option[String] = None,
     presql: Option[List[String]] = None,
     postsql: Option[List[String]] = None
   ): Schema = {
 
-    Schema(name, pattern, attributes, Some(metadata), merge, comment, presql, postsql)
+    Schema(name, pattern, attributes, metadata, merge, comment, presql, postsql)
   }
 
-  def createDomain(name: String,
-                   directory: String,
-                   metadata: Option[Metadata] = None,
-                   schemas: List[Schema] = Nil,
-                   comment: Option[String] = None,
-                   extensions: Option[List[String]] = None,
-                   ack: Option[String] = None): Domain = {
+  /***
+    * Builds the Domain case class
+    * @param name
+    * @param directory
+    * @param metadata
+    * @param schemas
+    * @param comment
+    * @param extensions
+    * @param ack
+    * @return
+    */
 
-    Domain(name: String, directory: String, metadata: Option[Metadata], schemas: List[Schema], comment: Option[String], extensions: Option[List[String]], ack: Option[String])
+  def createDomain(
+    name: String,
+    directory: String,
+    metadata: Option[Metadata] = None,
+    schemas: List[Schema] = Nil,
+    comment: Option[String] = None,
+    extensions: Option[List[String]] = None,
+    ack: Option[String] = None
+  ): Domain = {
+
+    Domain(name, directory, metadata, schemas, comment, extensions, ack)
   }
 
-
-
-  def generateYaml(domain: Domain, savePath:String): Unit = {
-    val data: Domain = domain
-    val mapper: ObjectMapper = new ObjectMapper(new YAMLFactory)
-      .registerModule(DefaultScalaModule)
-
-    mapper.writeValue(new File(savePath), data)
+  /***
+    * Generates the YAML file using the domain object and a savepath
+    * @param domain Domain case class
+    * @param savePath path to save files.
+    */
+  def generateYaml(domain: Domain, savePath: String): Unit = {
+    Main.mapper.writeValue(new File(savePath), domain)
   }
 
 }
