@@ -39,5 +39,4 @@ class InferSchemaJobSpec extends TestHelper {
 
   }
 
-
 }
