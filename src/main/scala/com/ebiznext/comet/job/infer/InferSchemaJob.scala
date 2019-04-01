@@ -58,41 +58,18 @@ object InferSchemaJob extends SparkJob {
     */
   def getMode: String = "FILE"
 
-  /** Get extension file
-    *
-    * @param path : file path
-    * @return the file extension
-    */
-  def getExtensionFile(path: Path) = {
-    val fileName = path.getName
-
-    if (fileName.contains("."))
-      fileName.split("\\.").last
-    else
-      ""
-  }
-
   /** Get format file
     *
     * @param datasetInit : created dataset without specifying format
-    * @param extension : extension file
     * @return
     */
-  def getFormatFile(datasetInit: Dataset[String], extension: String): String = {
+  def getFormatFile(datasetInit: Dataset[String]): String = {
     val firstLine = datasetInit.first()
 
     // todo check with Rayan
     if (firstLine.startsWith("{") & firstLine.endsWith("}")) "JSON"
     else if (firstLine.startsWith("[")) "ARRAY_JSON"
     else "DSV"
-
-    firstLine.charAt(0).toString match {
-      case "{" => "JSON"
-      case "[" => "ARRAY_JSON"
-      case _ =>
-        if (extension.matches(".*sv$")) "DSV"
-        else throw new Exception("The format of this file is not supported")
-    }
   }
 
   /** Get separator file
@@ -157,20 +134,20 @@ object InferSchemaJob extends SparkJob {
     path: Path,
     header: Boolean
   ): DataFrame = {
-    val formatFile = getFormatFile(datasetInit, getExtensionFile(path))
+    val formatFile = getFormatFile(datasetInit)
 
     formatFile match {
       case "JSON" | "ARRAY_JSON" =>
         session.read
           .format("json")
-          .option("inferSchema", false)
+          .option("inferSchema", true)
           .load(path.toString)
 
       case "DSV" =>
         session.read
           .format("com.databricks.spark.csv")
           .option("header", header)
-          .option("inferSchema", false)
+          .option("inferSchema", true)
           .option("delimiter", getSeparator(datasetInit))
           .option("quote", getQuote)
           .option("escape", getEscape)
@@ -201,7 +178,7 @@ object InferSchemaJob extends SparkJob {
 
     val mode = Option(getMode)
 
-    val format = Option(getFormatFile(datasetWithoutFormat, getExtensionFile(path)))
+    val format = Option(getFormatFile(datasetWithoutFormat))
 
     val array = if (format.getOrElse("") == "ARRAY_JSON") true else false
 
@@ -215,7 +192,7 @@ object InferSchemaJob extends SparkJob {
 
     val writeMode = getWriteMode
 
-    val inferSchema = new InferSchemaHandler(dataframeWithFormat)
+    val inferSchema = InferSchemaHandler
 
     val attributes: List[Attribute] = inferSchema.createAttributes(dataframeWithFormat.schema)
 
