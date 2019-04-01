@@ -333,6 +333,12 @@ class IngestionWorkflow(
   }
 
   def infer(config: InferConfig) = {
-    new InferSchema(config.inputPath, config.outputPath, config.header)
+    new InferSchema(
+      config.domainName,
+      config.schemaName,
+      config.inputPath,
+      config.outputPath,
+      config.header
+    )
   }
 }

@@ -23,14 +23,20 @@ package com.ebiznext.comet.job.infer
 import java.util.regex.Pattern
 
 import com.ebiznext.comet.schema.handlers.InferSchemaHandler
-import com.ebiznext.comet.schema.model.Attribute
+import com.ebiznext.comet.schema.model.{Attribute, Domain}
 import com.ebiznext.comet.utils.SparkJob
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 
-class InferSchema(dataPath: String, savePath: String, header: Option[Boolean] = Some(false)) {
+class InferSchema(
+  domainName: String,
+  schemaName: String,
+  dataPath: String,
+  savePath: String,
+  header: Option[Boolean] = Some(false)
+) {
 
-  InferSchemaJob.infer(dataPath, savePath, header.getOrElse(false))
+  InferSchemaJob.infer(domainName, schemaName, dataPath, savePath, header.getOrElse(false))
 
 }
 
@@ -46,9 +52,9 @@ object InferSchemaJob extends SparkJob {
       .textFile(path.toString)
   }
 
-  /** Get domain name
+  /** Get Mode
     *
-    * @return the domain name
+    * @return the Mode, for now we will assume file
     */
   def getMode: String = "FILE"
 
@@ -74,6 +80,11 @@ object InferSchemaJob extends SparkJob {
     */
   def getFormatFile(datasetInit: Dataset[String], extension: String): String = {
     val firstLine = datasetInit.first()
+
+    // todo check with Rayan
+    if (firstLine.startsWith("{") & firstLine.endsWith("}")) "JSON"
+    else if (firstLine.startsWith("[")) "ARRAY_JSON"
+    else "DSV"
 
     firstLine.charAt(0).toString match {
       case "{" => "JSON"
@@ -101,15 +112,6 @@ object InferSchemaJob extends SparkJob {
       .toString
   }
 
-  /** Get domain name
-    *
-    * @param path : file path
-    * @return the domain name
-    */
-  def getDomainName(path: Path): String = {
-    path.getParent.getName
-  }
-
   /** Get domain directory name
     *
     * @param path : file path
@@ -117,20 +119,6 @@ object InferSchemaJob extends SparkJob {
     */
   def getDomainDirectoryName(path: Path): String = {
     path.toString.replace(path.getName, "")
-  }
-
-  /** Get schema name
-    *
-    * @param path : file path
-    * @return the schema name
-    */
-  def getSchemaName(path: Path): String = {
-    val fileName = path.getName
-
-    if (fileName.contains("."))
-      fileName.split("\\.").head
-    else
-      fileName
   }
 
   /** Get schema pattern
@@ -198,7 +186,13 @@ object InferSchemaJob extends SparkJob {
     *
     * @return : Spark Session used for the job
     */
-  def infer(dataPath: String, savePath: String, header: Boolean) = {
+  def infer(
+    domainName: String,
+    schemaName: String,
+    dataPath: String,
+    savePath: String,
+    header: Boolean
+  ) = {
     val path = new Path(dataPath)
 
     val datasetWithoutFormat = readFile(path)
@@ -209,7 +203,7 @@ object InferSchemaJob extends SparkJob {
 
     val format = Option(getFormatFile(datasetWithoutFormat, getExtensionFile(path)))
 
-    val array = if (format == "ARRAY_JSON") true else false
+    val array = if (format.getOrElse("") == "ARRAY_JSON") true else false
 
     val withHeader = header
 
@@ -240,15 +234,15 @@ object InferSchemaJob extends SparkJob {
     )
 
     val schema = inferSchema.createSchema(
-      getSchemaName(path),
+      schemaName,
       Pattern.compile(getSchemaPattern(path)),
       attributes,
       Some(metadata)
     )
 
-    val domain =
+    val domain: Domain =
       inferSchema.createDomain(
-        getDomainName(path),
+        domainName,
         getDomainDirectoryName(path),
         None,
         List(schema) // todo add support to iterate over all the files in a directory
