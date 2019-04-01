@@ -3,6 +3,7 @@ import scopt.OParser
 
 case class InferConfig(
   domainName: String = "",
+  schemaName: String = "",
   inputPath: String = "",
   outputPath: String = "",
   header: Option[Boolean] = Some(false)
@@ -20,6 +21,10 @@ object InferSchemaConfig {
         head("comet", "1.x"),
         opt[String]("domain")
           .action((x, c) => c.copy(domainName = x))
+          .required()
+          .text("Domain Name"),
+        opt[String]("schema")
+          .action((x, c) => c.copy(schemaName = x))
           .required()
           .text("Domain Name"),
         opt[String]("input")
