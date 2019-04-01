@@ -233,7 +233,9 @@ object Metrics extends StrictLogging {
       attributeChecked
         .map(x => regroupContinuousMetricsByVariable(x, metricFrame))
         .reduce(_.union(_))
-    matrixMetric.select(colRenamed.head, colRenamed.tail: _*)
+    matrixMetric
+      .select(colRenamed.head, colRenamed.tail: _*)
+      .withColumn("Variable_Type", lit("Continuous"))
 
   }
 
@@ -360,7 +362,9 @@ object Metrics extends StrictLogging {
       attributeChecked
         .map(x => regroupDiscreteMetricsByVariable(dataInit, x, operations))
         .reduce(_.union(_))
-    matrixMetric.select(colRenamed.head, colRenamed.tail: _*)
+    matrixMetric
+      .select(colRenamed.head, colRenamed.tail: _*)
+      .withColumn("Variable_Type", lit("Discrete"))
   }
 
 }
