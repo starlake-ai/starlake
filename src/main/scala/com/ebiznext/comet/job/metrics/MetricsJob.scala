@@ -241,7 +241,7 @@ class MetricsJob(
     * @param threshold     : The limit value for the number of sub-class to consider
     * @return : the stored dataframe version of the parquet file
     */
-  def createDataframeToSave(
+  def formatDataframeToSave(
                              dfStatistics: DataFrame,
                              domain: Domain,
                              schema: Schema,
@@ -280,7 +280,13 @@ class MetricsJob(
         getMetricListStringType(metric, "Category"),
         getMetricCountDistinct(dfStatistics, c),
         getMetricCount[Long](dfStatistics, c, threshold, "CountDiscrete", getCategoryMetric[Long]),
-        getMetricCount[Double](dfStatistics,c,threshold,"Frequencies",getCategoryMetric[Double]),
+        getMetricCount[Double](
+          dfStatistics,
+          c,
+          threshold,
+          "Frequencies",
+          getCategoryMetric[Double]
+        ),
         getMetricCountMissValuesDiscrete(dfStatistics, c, threshold),
         ingestionTime,
         stageState
@@ -330,7 +336,7 @@ class MetricsJob(
     storageHandler.mkdirs(savePath)
 
     val disDataframe = this
-      .createDataframeToSave(
+      .formatDataframeToSave(
         discreteDataset,
         domain,
         schema,
@@ -341,7 +347,7 @@ class MetricsJob(
       )
 
     val conDataframe = this
-      .createDataframeToSave(
+      .formatDataframeToSave(
         continuousDataset,
         domain,
         schema,
