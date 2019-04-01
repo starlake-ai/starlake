@@ -60,7 +60,7 @@ object Main extends StrictLogging {
         |comet import
         |comet ingest datasetDomain datasetSchema datasetPath
         |comet index --domain domain --schema schema --timestamp {@timestamp|yyyy.MM.dd} --id type-id --mapping mapping --format parquet|json|json-array --dataset datasetPath --conf key=value,key=value,...
-        |comet infer-schema --domain domainName --input datasetpath --output outputPath --with-header withHeaderBoolean
+        |comet infer-schema --domain domainName --schema schemaName --input datasetpath --output outputPath --with-header withHeaderBoolean
         |      """.stripMargin
     )
   }
@@ -79,7 +79,7 @@ object Main extends StrictLogging {
     *             When called with a '-' sign, will look for all domain folder in the landing area except the ones in the command lines.
     *   - call "comet ingest domain schema hdfs://datasets/domain/pending/file.dsv"
     *             to ingest a file defined by its schema in the specified domain
-    *   -call "comet infer-schema --domain domainName --input datasetpath --output outputPath --with-header boolean
+    *   -call "comet infer-schema --domain domainName --schema schemaName --input datasetpath --output outputPath --with-header boolean
     */
   def main(args: Array[String]): Unit = {
     import Settings.{schemaHandler, storageHandler}
