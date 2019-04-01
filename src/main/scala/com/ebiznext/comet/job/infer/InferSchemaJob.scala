@@ -28,18 +28,29 @@ import com.ebiznext.comet.utils.SparkJob
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 
+/***
+  *
+  * @param domainName : name of the domain
+  * @param schemaName : name of the schema
+  * @param dataPath   : path to the dataset to infer schema from. format is file:///path/to/read
+  * @param savePath   : path to save the yaml file. format is /path/to/save
+  * @param header     : option of boolean to check if header should be included.
+  */
 class InferSchema(
-                   domainName: String,
-                   schemaName: String,
-                   dataPath: String,
-                   savePath: String,
-                   header: Option[Boolean] = Some(false)
-                 ) {
+  domainName: String,
+  schemaName: String,
+  dataPath: String,
+  savePath: String,
+  header: Option[Boolean] = Some(false)
+) {
 
   InferSchemaJob.infer(domainName, schemaName, dataPath, savePath, header.getOrElse(false))
 
 }
 
+/***
+  * Infers the schema of a given datapath, domain name, schema name.
+  */
 object InferSchemaJob extends SparkJob {
 
   /** Read file without specifying the format
@@ -84,7 +95,6 @@ object InferSchemaJob extends SparkJob {
       .toString
   }
 
-
   /** Get domain directory name
     *
     * @param path : file path
@@ -110,10 +120,10 @@ object InferSchemaJob extends SparkJob {
     * @return
     */
   def createDataFrameWithFormat(
-                                 datasetInit: Dataset[String],
-                                 path: Path,
-                                 header: Boolean
-                               ): DataFrame = {
+    datasetInit: Dataset[String],
+    path: Path,
+    header: Boolean
+  ): DataFrame = {
     val formatFile = getFormatFile(datasetInit)
 
     formatFile match {
@@ -142,12 +152,12 @@ object InferSchemaJob extends SparkJob {
     * @return : Spark Session used for the job
     */
   def infer(
-             domainName: String,
-             schemaName: String,
-             dataPath: String,
-             savePath: String,
-             header: Boolean
-           ): Unit = {
+    domainName: String,
+    schemaName: String,
+    dataPath: String,
+    savePath: String,
+    header: Boolean
+  ): Unit = {
     val path = new Path(dataPath)
 
     val datasetWithoutFormat = readFile(path)
