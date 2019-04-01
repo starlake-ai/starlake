@@ -88,7 +88,7 @@ class InferSchemaHandler(dataframe: DataFrame) {
     * @param mapping
     * @return
     */
-  // todo can we replace mode, format and writemode by values instead of options
+  // todo can we replace mode, format and writemode by values instead of options of strings
   def createMetaData(
     mode: Option[String] = None,
     format: Option[String] = None,
@@ -132,7 +132,6 @@ class InferSchemaHandler(dataframe: DataFrame) {
     * @return
     */
 
-  // todo can we use something like automapper?
   def createSchema(
     name: String,
     pattern: Pattern,
