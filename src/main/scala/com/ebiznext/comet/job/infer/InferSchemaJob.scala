@@ -29,12 +29,12 @@ import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 
 class InferSchema(
-  domainName: String,
-  schemaName: String,
-  dataPath: String,
-  savePath: String,
-  header: Option[Boolean] = Some(false)
-) {
+                   domainName: String,
+                   schemaName: String,
+                   dataPath: String,
+                   savePath: String,
+                   header: Option[Boolean] = Some(false)
+                 ) {
 
   InferSchemaJob.infer(domainName, schemaName, dataPath, savePath, header.getOrElse(false))
 
@@ -70,7 +70,7 @@ object InferSchemaJob extends SparkJob {
     if (firstLine.startsWith("{") & firstLine.endsWith("}")) "JSON"
     else if (firstLine.startsWith("[") & lastLine.endsWith("]")) "ARRAY_JSON"
     else "DSV"
-    
+
   }
 
   /** Get separator file
@@ -112,14 +112,14 @@ object InferSchemaJob extends SparkJob {
   /**
     *
     * @param datasetInit : created dataset without specifying format
-    * @param path : file path
+    * @param path        : file path
     * @return
     */
   def createDataFrameWithFormat(
-    datasetInit: Dataset[String],
-    path: Path,
-    header: Boolean
-  ): DataFrame = {
+                                 datasetInit: Dataset[String],
+                                 path: Path,
+                                 header: Boolean
+                               ): DataFrame = {
     val formatFile = getFormatFile(datasetInit)
 
     formatFile match {
@@ -148,12 +148,12 @@ object InferSchemaJob extends SparkJob {
     * @return : Spark Session used for the job
     */
   def infer(
-    domainName: String,
-    schemaName: String,
-    dataPath: String,
-    savePath: String,
-    header: Boolean
-  ): Unit = {
+             domainName: String,
+             schemaName: String,
+             dataPath: String,
+             savePath: String,
+             header: Boolean
+           ): Unit = {
     val path = new Path(dataPath)
 
     val datasetWithoutFormat = readFile(path)
