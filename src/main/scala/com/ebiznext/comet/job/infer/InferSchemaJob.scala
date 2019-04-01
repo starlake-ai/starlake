@@ -52,12 +52,6 @@ object InferSchemaJob extends SparkJob {
       .textFile(path.toString)
   }
 
-  /** Get Mode
-    *
-    * @return the Mode, for now we will assume file
-    */
-  def getMode: String = "FILE"
-
   /** Get format file
     *
     * @param datasetInit : created dataset without specifying format
@@ -160,8 +154,6 @@ object InferSchemaJob extends SparkJob {
 
     val dataframeWithFormat = createDataFrameWithFormat(datasetWithoutFormat, path, header)
 
-    val mode = Option(getMode)
-
     val format = Option(getFormatFile(datasetWithoutFormat))
 
     val array = if (format.getOrElse("") == "ARRAY_JSON") true else false
@@ -175,9 +167,7 @@ object InferSchemaJob extends SparkJob {
     val attributes: List[Attribute] = inferSchema.createAttributes(dataframeWithFormat.schema)
 
     val metadata = inferSchema.createMetaData(
-      mode,
       format,
-      None, //multiline is not supported
       Option(array),
       Option(withHeader),
       Option(separator)
@@ -194,7 +184,7 @@ object InferSchemaJob extends SparkJob {
       inferSchema.createDomain(
         domainName,
         getDomainDirectoryName(path),
-        schemas = List(schema) // todo add support to iterate over all the files in a directory
+        schemas = List(schema)
       )
 
     inferSchema.generateYaml(domain, savePath)
