@@ -75,11 +75,12 @@ object InferSchemaHandler {
   /***
     *   builds the Metadata case class. check case class metadata for attribute definition
     *
-    * @param format
-    * @param multiline
-    * @param array
-    * @param withHeader
-    * @param separator
+    * @param mode       : FILE mode by default
+    * @param format     : DSV by default
+    * @param multiline  : are json objects on a single line or multiple line ? Single by default.  false means single. false also means faster
+    * @param array      : Is a json stored as a single object array ? false by default
+    * @param withHeader : does the dataset has a header ? true bu default
+    * @param separator  : the column separator,  ';' by default
     * @return
     */
 
@@ -90,7 +91,7 @@ object InferSchemaHandler {
     separator: Option[String]
   ): Metadata = {
     Metadata(
-      Some(Mode.fromString("FILE")),
+      mode = Some(Mode.fromString("FILE")),
       Some(Format.fromString(format.getOrElse("DSV"))),
       multiline = None,
       array,
@@ -102,10 +103,10 @@ object InferSchemaHandler {
   /***
     *   builds the Schema case class
     *
-    * @param name
-    * @param pattern
-    * @param attributes
-    * @param metadata
+    * @param name       : Schema name, must be unique in the domain. Will become the hive table name
+    * @param pattern    : filename pattern to which this schema must be applied
+    * @param attributes : datasets columns
+    * @param metadata   : Dataset metadata
     * @return
     */
 
@@ -122,10 +123,11 @@ object InferSchemaHandler {
   /***
     * Builds the Domain case class
     *
-    * @param name
-    * @param directory
-    * @param metadata
-    * @param schemas
+    * @param name       : Domain name
+    * @param directory  : Folder on the local filesystem where incomping files are stored.
+    *                   This folder will be scanned regurlaly to move the dataset to the cluster
+    * @param metadata   : Default Schema meta data.
+    * @param schemas    : List of schema for each dataset in this domain
     * @return
     */
 
