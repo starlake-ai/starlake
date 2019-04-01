@@ -65,10 +65,12 @@ object InferSchemaJob extends SparkJob {
     */
   def getFormatFile(datasetInit: Dataset[String]): String = {
     val firstLine = datasetInit.first()
+    val lastLine = datasetInit.collect().last
 
     if (firstLine.startsWith("{") & firstLine.endsWith("}")) "JSON"
-    else if (firstLine.startsWith("[")) "ARRAY_JSON"
+    else if (firstLine.startsWith("[") & lastLine.endsWith("]")) "ARRAY_JSON"
     else "DSV"
+    
   }
 
   /** Get separator file
@@ -79,14 +81,15 @@ object InferSchemaJob extends SparkJob {
   def getSeparator(datasetInit: Dataset[String]): String = {
     session.sparkContext
       .parallelize(datasetInit.take(10))
-      .map(x => x.replaceAll("[A-Za-z0-9 \"'()?!éèîàÀÉÈç+]", ""))
+      .map(x => x.replaceAll("[A-Za-z0-9 \"'()@?!éèîàÀÉÈç+]", ""))
       .flatMap(_.toCharArray)
       .map(w => (w, 1))
       .reduceByKey(_ + _)
-      .first()
+      .max
       ._1
       .toString
   }
+
 
   /** Get domain directory name
     *
