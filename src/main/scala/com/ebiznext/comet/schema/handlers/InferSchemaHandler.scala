@@ -23,10 +23,9 @@ import java.io.File
 import java.util.regex.Pattern
 import com.ebiznext.comet.job.Main
 import com.ebiznext.comet.schema.model._
-import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.types.{ArrayType, StructType}
 
-class InferSchemaHandler(dataframe: DataFrame) {
+object InferSchemaHandler {
 
   /***
     *   Traverses the schema and returns a list of attributes.
