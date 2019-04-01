@@ -47,7 +47,7 @@ object InferSchemaJob extends SparkJob {
     * @param path : file path
     * @return a dataset of string that contains data file
     */
-  def readFile(path: Path) = {
+  def readFile(path: Path): Dataset[String] = {
     session.read
       .textFile(path.toString)
   }
@@ -66,7 +66,6 @@ object InferSchemaJob extends SparkJob {
   def getFormatFile(datasetInit: Dataset[String]): String = {
     val firstLine = datasetInit.first()
 
-    // todo check with Rayan
     if (firstLine.startsWith("{") & firstLine.endsWith("}")) "JSON"
     else if (firstLine.startsWith("[")) "ARRAY_JSON"
     else "DSV"
@@ -77,7 +76,7 @@ object InferSchemaJob extends SparkJob {
     * @param datasetInit : created dataset without specifying format
     * @return the file separator
     */
-  def getSeparator(datasetInit: Dataset[String]) = {
+  def getSeparator(datasetInit: Dataset[String]): String = {
     session.sparkContext
       .parallelize(datasetInit.take(10))
       .map(x => x.replaceAll("[A-Za-z0-9 \"'()?!éèîàÀÉÈç+]", ""))
@@ -107,22 +106,6 @@ object InferSchemaJob extends SparkJob {
     path.getName
   }
 
-  /** Get quote option
-    *
-    * @return the quote option
-    */
-  def getQuote: String = "\""
-
-  /** Get escape option
-    *
-    * @return the escape option
-    */
-  def getEscape: String = "\\"
-
-  def getWriteMode: String = {
-    "APPEND"
-  }
-
   /**
     *
     * @param datasetInit : created dataset without specifying format
@@ -140,17 +123,15 @@ object InferSchemaJob extends SparkJob {
       case "JSON" | "ARRAY_JSON" =>
         session.read
           .format("json")
-          .option("inferSchema", true)
+          .option("inferSchema", value = true)
           .load(path.toString)
 
       case "DSV" =>
         session.read
           .format("com.databricks.spark.csv")
           .option("header", header)
-          .option("inferSchema", true)
+          .option("inferSchema", value = true)
           .option("delimiter", getSeparator(datasetInit))
-          .option("quote", getQuote)
-          .option("escape", getEscape)
           .option("parserLib", "UNIVOCITY")
           .load(path.toString)
     }
@@ -169,7 +150,7 @@ object InferSchemaJob extends SparkJob {
     dataPath: String,
     savePath: String,
     header: Boolean
-  ) = {
+  ): Unit = {
     val path = new Path(dataPath)
 
     val datasetWithoutFormat = readFile(path)
@@ -186,12 +167,6 @@ object InferSchemaJob extends SparkJob {
 
     val separator = getSeparator(datasetWithoutFormat)
 
-    val quote = getQuote
-
-    val escape = getEscape
-
-    val writeMode = getWriteMode
-
     val inferSchema = InferSchemaHandler
 
     val attributes: List[Attribute] = inferSchema.createAttributes(dataframeWithFormat.schema)
@@ -202,12 +177,7 @@ object InferSchemaJob extends SparkJob {
       None, //multiline is not supported
       Option(array),
       Option(withHeader),
-      Option(separator),
-      Option(quote),
-      Option(escape),
-      Option(writeMode),
-      None,
-      None
+      Option(separator)
     )
 
     val schema = inferSchema.createSchema(
@@ -221,8 +191,7 @@ object InferSchemaJob extends SparkJob {
       inferSchema.createDomain(
         domainName,
         getDomainDirectoryName(path),
-        None,
-        List(schema) // todo add support to iterate over all the files in a directory
+        schemas = List(schema) // todo add support to iterate over all the files in a directory
       )
 
     inferSchema.generateYaml(domain, savePath)
