@@ -75,7 +75,6 @@ object InferSchemaHandler {
   /***
     *   builds the Metadata case class. check case class metadata for attribute definition
     *
-    * @param mode
     * @param format
     * @param multiline
     * @param array
@@ -85,17 +84,15 @@ object InferSchemaHandler {
     */
 
   def createMetaData(
-    mode: Option[String] = None,
     format: Option[String] = None,
-    multiline: Option[Boolean] = None,
     array: Option[Boolean],
     withHeader: Option[Boolean],
     separator: Option[String]
   ): Metadata = {
     Metadata(
-      Some(Mode.fromString(mode.getOrElse("FILE"))),
+      Some(Mode.fromString("FILE")),
       Some(Format.fromString(format.getOrElse("DSV"))),
-      multiline,
+      multiline = None,
       array,
       withHeader,
       separator
@@ -112,7 +109,6 @@ object InferSchemaHandler {
     * @return
     */
 
-  // todo check with hayssam why schema case class doesnt have default params
   def createSchema(
     name: String,
     pattern: Pattern,
