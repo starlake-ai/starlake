@@ -9,6 +9,7 @@ import org.apache.hadoop.fs.Path
 import org.apache.spark.sql._
 import org.apache.spark.sql.execution.streaming.FileStreamSource.Timestamp
 import org.apache.spark.sql.functions.col
+import org.apache.spark.sql.types._
 
 /**
   *
@@ -38,21 +39,21 @@ case class MetricRow(
                       domain: String,
                       schema: String,
                       variableName: String,
-                      min: Option[Long],
-                      max: Option[Long],
+                      min: Option[Double],
+                      max: Option[Double],
                       mean: Option[Double],
                       count: Option[Long],
                       missingValues: Option[Long],
                       variance: Option[Double],
                       standardDev: Option[Double],
-                      sum: Option[Long],
+                      sum: Option[Double],
                       skewness: Option[Double],
                       kurtosis: Option[Double],
-                      percentile25: Option[Long],
-                      median: Option[Long],
-                      percentile75: Option[Long],
+                      percentile25: Option[Double],
+                      median: Option[Double],
+                      percentile75: Option[Double],
                       category: Option[List[String]],
-                      countDistinct: Option[Int],
+                      countDistinct: Option[Long],
                       countByCategory: Option[Map[String, Long]],
                       frequencies: Option[Map[String, Double]],
                       missingValuesDiscrete: Option[Long],
@@ -223,7 +224,7 @@ class MetricsJob(
     * @param colName      : the column name
     * @return : the metric in Option type of Int
     */
-  def getMetricCountDistinct(metric: DataFrame, colName: String): Option[Int] = {
+  def getMetricCountDistinct(metric: DataFrame, colName: String): Option[Long] = {
     metric.select("Variable_Type").first().getString(0) match {
       case "Discrete" => Some(getListCategory(metric, colName).length)
       case _          => None
@@ -250,7 +251,6 @@ class MetricsJob(
                              path: Path,
                              threshold: Int
                            ): DataFrame = {
-
     val listVariable: List[String] = dfStatistics
       .select("Variables")
       .collect
@@ -259,24 +259,23 @@ class MetricsJob(
       .distinct
     val listRowByVariable = listVariable.map { c =>
       val metric = dfStatistics.filter(col("Variables").isin(c))
-      metric.printSchema()
       MetricRow(
         domain.name,
         schema.name,
         c,
-        getMetric[Long](metric, "Min"),
-        getMetric[Long](metric, "Max"),
+        getMetric[Double](metric, "Min"),
+        getMetric[Double](metric, "Max"),
         getMetric[Double](metric, "Mean"),
         getMetric[Long](metric, "Count"),
         getMetric[Long](metric, "CountMissValues"),
         getMetric[Double](metric, "Var"),
         getMetric[Double](metric, "Stddev"),
-        getMetric[Long](metric, "Sum"),
+        getMetric[Double](metric, "Sum"),
         getMetric[Double](metric, "Skewness"),
         getMetric[Double](metric, "Kurtosis"),
-        getMetric[Long](metric, "Percentile25"),
-        getMetric[Long](metric, "Median"),
-        getMetric[Long](metric, "Percentile75"),
+        getMetric[Double](metric, "Percentile25"),
+        getMetric[Double](metric, "Median"),
+        getMetric[Double](metric, "Percentile75"),
         getMetricListStringType(metric, "Category"),
         getMetricCountDistinct(dfStatistics, c),
         getMetricCount[Long](dfStatistics, c, threshold, "CountDiscrete", getCategoryMetric[Long]),
@@ -313,6 +312,26 @@ class MetricsJob(
     )
   }
 
+  /** Function that enforce type on certain discrete metrics column to avoid types casts problems
+    * The types we enforce are the same as those in the case class MetricRow attributes.
+    * @param statsDf the dataframe we want to type
+    * @return typed dataframe
+    */
+  def discreteMetricTyping(statsDf: DataFrame): DataFrame = {
+    statsDf
+      .withColumn("Min", statsDf.col("Min").cast(DoubleType))
+      .withColumn("Max", statsDf.col("Max").cast(DoubleType))
+      .withColumn("Mean", statsDf.col("Mean").cast(DoubleType))
+      .withColumn("Var", statsDf.col("Var").cast(DoubleType))
+      .withColumn("Stddev", statsDf.col("Stddev").cast(DoubleType))
+      .withColumn("Sum", statsDf.col("Sum").cast(DoubleType))
+      .withColumn("Skewness", statsDf.col("Skewness").cast(DoubleType))
+      .withColumn("Kurtosis", statsDf.col("Kurtosis").cast(DoubleType))
+      .withColumn("Percentile25", statsDf.col("Percentile25").cast(DoubleType))
+      .withColumn("Median", statsDf.col("Median").cast(DoubleType))
+      .withColumn("Percentile75", statsDf.col("Percentile75").cast(DoubleType))
+  }
+
   /**
     * Just to force any spark job to implement its entry point using within the "run" method
     *
@@ -331,7 +350,7 @@ class MetricsJob(
     val discreteDataset =
       Metrics.computeDiscretMetric(dataUse, discAttr, discreteOps)
     val continuousDataset =
-      Metrics.computeContinuiousMetric(dataUse, continAttr, continuousOps)
+      discreteMetricTyping(Metrics.computeContinuiousMetric(dataUse, continAttr, continuousOps))
 
     storageHandler.mkdirs(savePath)
 
