@@ -43,7 +43,7 @@ object Format {
     value.toUpperCase match {
       case "DSV"         => Format.DSV
       case "SIMPLE_JSON" => Format.SIMPLE_JSON
-      case "JSON"        => Format.JSON
+      case "JSON" | "ARRAY_JSON"       => Format.JSON
     }
   }
 
