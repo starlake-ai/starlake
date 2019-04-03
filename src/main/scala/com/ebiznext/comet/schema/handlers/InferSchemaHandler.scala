@@ -21,8 +21,11 @@
 package com.ebiznext.comet.schema.handlers
 import java.io.File
 import java.util.regex.Pattern
+
 import com.ebiznext.comet.job.Main
 import com.ebiznext.comet.schema.model._
+import org.apache.hadoop.conf.Configuration
+import org.apache.hadoop.fs.{FSDataOutputStream, FileSystem, Path}
 import org.apache.spark.sql.types.{ArrayType, StructType}
 
 object InferSchemaHandler {
@@ -148,7 +151,8 @@ object InferSchemaHandler {
     * @param savePath path to save files.
     */
   def generateYaml(domain: Domain, savePath: String): Unit = {
-    Main.mapper.writeValue(new File(savePath), domain)
+    val os = HdfsStorageHandler.getOutputStream(new Path(savePath))
+    Main.mapper.writeValue(os, domain)
   }
 
 }

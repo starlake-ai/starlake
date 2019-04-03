@@ -58,12 +58,22 @@ trait StorageHandler {
 
   def spaceConsumed(path: Path): Long
 
+  def getOutputStream(path: Path): FSDataOutputStream
+
 }
 
 /**
   * HDFS Filesystem Handler
   */
 class HdfsStorageHandler extends StorageHandler {
+
+  def getOutputStream(path: Path): FSDataOutputStream = {
+    val conf = new Configuration()
+    val fs = FileSystem.get(conf)
+    fs.delete(path, false)
+    val outputStream: FSDataOutputStream = fs.create(path)
+    outputStream
+  }
 
   /**
     * Read a UTF-8 text file into a string used to load yml configuration files
