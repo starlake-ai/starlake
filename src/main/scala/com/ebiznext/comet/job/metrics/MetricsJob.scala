@@ -250,9 +250,9 @@ class MetricsJob(
                       stageState: String,
                       path: Path,
                       threshold: Int
-                    ): Unit = {
+                    ): DataFrame = {
 
-    val dataToSave = listDfStats
+    listDfStats
       .map { dfStatistics =>
         val listVariable: List[String] = dfStatistics
           .select("Variables")
@@ -305,8 +305,6 @@ class MetricsJob(
 
       }
       .reduce(_.union(_))
-
-    save(dataToSave, path)
   }
 
   override def name: String = "Compute metrics job"
@@ -366,7 +364,7 @@ class MetricsJob(
     val continuousDataset =
       discreteMetricTyping(Metrics.computeContinuiousMetric(dataUse, continAttr, continuousOps))
 
-    extractMetrics(
+    val allMetricsDf = extractMetrics(
       List(discreteDataset, continuousDataset),
       domain,
       schema,
@@ -376,6 +374,7 @@ class MetricsJob(
       Settings.comet.metrics.discreteMaxCardinality
     )
 
+    save(allMetricsDf, savePath)
     session
   }
 }
