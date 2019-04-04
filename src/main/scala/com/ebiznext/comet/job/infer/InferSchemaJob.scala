@@ -28,32 +28,33 @@ import com.ebiznext.comet.utils.SparkJob
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 
-/***
+/** *
   *
   * @param domainName : name of the domain
   * @param schemaName : name of the schema
-  * @param dataPath   : path to the dataset to infer schema from. format is file:///path/to/read
+  * @param dataPath   : path to the dataset to infer schema from. format is /path/to/read
   * @param savePath   : path to save the yaml file. format is /path/to/save
-  * @param header     : option of boolean to check if header should be included.
+  * @param header     : option of boolean to check if header should be included (false by default)
   */
 class InferSchema(
-  domainName: String,
-  schemaName: String,
-  dataPath: String,
-  savePath: String,
-  header: Option[Boolean] = Some(false)
-) {
+                   domainName: String,
+                   schemaName: String,
+                   dataPath: String,
+                   savePath: String,
+                   header: Option[Boolean] = Some(false)
+                 ) {
 
   InferSchemaJob.infer(domainName, schemaName, dataPath, savePath, header.getOrElse(false))
 
 }
 
-/***
+/** *
   * Infers the schema of a given datapath, domain name, schema name.
   */
 object InferSchemaJob extends SparkJob {
 
-  /** Read file without specifying the format
+  /**
+    * Read file without specifying the format
     *
     * @param path : file path
     * @return a dataset of string that contains data file
@@ -63,14 +64,28 @@ object InferSchemaJob extends SparkJob {
       .textFile(path.toString)
   }
 
-  /** Get format file
+  /**
+    * Get format file by using the first and the last line of the dataset
+    * We use mapPartitionsWithIndex to retrieve these informations to make sure that the first line really corresponds to the first line (same for the last)
     *
     * @param datasetInit : created dataset without specifying format
     * @return
     */
   def getFormatFile(datasetInit: Dataset[String]): String = {
-    val firstLine = datasetInit.first()
-    val lastLine = datasetInit.collect().last
+    val rddDatasetInit = datasetInit.rdd
+    val lastPartitionNo = rddDatasetInit.getNumPartitions - 1
+
+    //Get foreach data its index into a tuple
+    val partitionWithIndex = rddDatasetInit.mapPartitionsWithIndex { (index, iterator) => {
+      val myList = iterator.toList
+      myList.map(x => (index, x)).iterator
+    }
+    }
+
+    //The first line is stored into the 0th partition
+    val firstLine = partitionWithIndex.filter(_._1 == 0).first._2
+    //The last line is stored into the last partition
+    val lastLine = partitionWithIndex.filter(_._1 == lastPartitionNo).collect().last._2
 
     if (firstLine.startsWith("{") & firstLine.endsWith("}")) "JSON"
     else if (firstLine.startsWith("[") & lastLine.endsWith("]")) "ARRAY_JSON"
@@ -78,7 +93,8 @@ object InferSchemaJob extends SparkJob {
 
   }
 
-  /** Get separator file
+  /**
+    * Get separator file by taking the character that appears the most in 10 lines of the dataset
     *
     * @param datasetInit : created dataset without specifying format
     * @return the file separator
@@ -95,7 +111,8 @@ object InferSchemaJob extends SparkJob {
       .toString
   }
 
-  /** Get domain directory name
+  /**
+    * Get domain directory name
     *
     * @param path : file path
     * @return the domain directory name
@@ -104,7 +121,8 @@ object InferSchemaJob extends SparkJob {
     path.toString.replace(path.getName, "")
   }
 
-  /** Get schema pattern
+  /**
+    * Get schema pattern
     *
     * @param path : file path
     * @return the schema pattern
@@ -114,16 +132,17 @@ object InferSchemaJob extends SparkJob {
   }
 
   /**
+    * Create the dataframe with its associated format
     *
     * @param datasetInit : created dataset without specifying format
     * @param path        : file path
     * @return
     */
   def createDataFrameWithFormat(
-    datasetInit: Dataset[String],
-    path: Path,
-    header: Boolean
-  ): DataFrame = {
+                                 datasetInit: Dataset[String],
+                                 path: Path,
+                                 header: Boolean
+                               ): DataFrame = {
     val formatFile = getFormatFile(datasetInit)
 
     formatFile match {
@@ -152,12 +171,12 @@ object InferSchemaJob extends SparkJob {
     * @return : Spark Session used for the job
     */
   def infer(
-    domainName: String,
-    schemaName: String,
-    dataPath: String,
-    savePath: String,
-    header: Boolean
-  ): Unit = {
+             domainName: String,
+             schemaName: String,
+             dataPath: String,
+             savePath: String,
+             header: Boolean
+           ): Unit = {
     val path = new Path(dataPath)
 
     val datasetWithoutFormat = readFile(path)
