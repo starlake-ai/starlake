@@ -67,6 +67,12 @@ trait StorageHandler {
   */
 class HdfsStorageHandler extends StorageHandler {
 
+  /**
+    * Gets the outputstream given a path
+    *
+    * @param path : path
+    * @return FSDataOutputStream
+    */
   def getOutputStream(path: Path): FSDataOutputStream = {
     val conf = new Configuration()
     val fs = FileSystem.get(conf)
@@ -96,10 +102,7 @@ class HdfsStorageHandler extends StorageHandler {
     * @param path : Absolute file path
     */
   def write(data: String, path: Path): Unit = {
-    val conf = new Configuration()
-    val fs = FileSystem.get(conf)
-    fs.delete(path, false)
-    val os: FSDataOutputStream = fs.create(path)
+    val os: FSDataOutputStream = getOutputStream(path)
     os.writeBytes(data)
     os.close()
   }
