@@ -150,7 +150,7 @@ class MetricsJob(
     * @return : Option of T either Double or Long depending on the metric.
     */
   def getMetric[T: Manifest](metric: DataFrame, colName: String): Option[T] = {
-    metric.select("Variable_Type").first().getString(0) match {
+    metric.select("_metricType_").first().getString(0) match {
       case "Continuous" => Some(metric.select(colName).first().getAs[T](0))
       case _            => None
     }
@@ -163,7 +163,7 @@ class MetricsJob(
     * @return : the metric in Option type of List of String
     */
   def getMetricListStringType(metric: DataFrame, colName: String): Option[List[String]] = {
-    metric.select("Variable_Type").first().getString(0) match {
+    metric.select("_metricType_").first().getString(0) match {
       case "Discrete" => Some(metric.select("Category").collect.map(_.getString(0)).toList)
       case _          => None
     }
@@ -182,7 +182,7 @@ class MetricsJob(
                          metric: String,
                          f: (DataFrame, String, String, String) => A
                        ): Option[Map[String, A]] = {
-    dfStatistics.select("Variable_Type").first().getString(0) match {
+    dfStatistics.select("_metricType_").first().getString(0) match {
       case "Discrete" if getListCategory(dfStatistics, colName).length - threshold < 0 =>
         Some(
           Map(
@@ -206,7 +206,7 @@ class MetricsJob(
                                         colName: String,
                                         threshold: Int
                                       ): Option[Long] = {
-    dfStatistics.select("Variable_Type").first().getString(0) match {
+    dfStatistics.select("_metricType_").first().getString(0) match {
       case "Discrete" if getListCategory(dfStatistics, colName).length - threshold < 0 =>
         Some(
           dfStatistics
@@ -226,7 +226,7 @@ class MetricsJob(
     * @return : the metric in Option type of Int
     */
   def getMetricCountDistinct(metric: DataFrame, colName: String): Option[Long] = {
-    metric.select("Variable_Type").first().getString(0) match {
+    metric.select("_metricType_").first().getString(0) match {
       case "Discrete" => Some(getListCategory(metric, colName).length)
       case _          => None
     }
