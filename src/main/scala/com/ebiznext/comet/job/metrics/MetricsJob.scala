@@ -152,7 +152,7 @@ class MetricsJob(
   def getMetric[T: Manifest](metric: DataFrame, colName: String): Option[T] = {
     metric.select("_metricType_").first().getString(0) match {
       case "Continuous" => Some(metric.select(colName).first().getAs[T](0))
-      case _            => None
+      case _ => None
     }
   }
 
@@ -165,7 +165,7 @@ class MetricsJob(
   def getMetricListStringType(metric: DataFrame, colName: String): Option[List[String]] = {
     metric.select("_metricType_").first().getString(0) match {
       case "Discrete" => Some(metric.select("Category").collect.map(_.getString(0)).toList)
-      case _          => None
+      case _ => None
     }
   }
 
@@ -228,81 +228,93 @@ class MetricsJob(
   def getMetricCountDistinct(metric: DataFrame, colName: String): Option[Long] = {
     metric.select("_metricType_").first().getString(0) match {
       case "Discrete" => Some(getListCategory(metric, colName).length)
-      case _          => None
+      case _ => None
     }
   }
 
-  /** Function to save the dfStatistics to parquet format.
+  /** Function that unify metric dataframes schemas on MetricRow case class, then write save the result to parquet
     *
-    * @param dfStatistics  : Dataframe that contains all the computed metrics
+    * @param dfStatistics  : List of dataframes that contains metrics of each type (continuous and discrete)
     * @param domain        : name of the domain
     * @param schema        : schema of the initial data
     * @param ingestionTime : time which correspond to the ingestion
     * @param stageState    : stage (unit / global)
     * @param path          : path where to save the file
     * @param threshold     : The limit value for the number of sub-class to consider
-    * @return : the stored dataframe version of the parquet file
     */
   def extractMetrics(
-                      dfStatistics: DataFrame,
+                      listDfStats: List[DataFrame],
                       domain: Domain,
                       schema: Schema,
                       ingestionTime: Timestamp,
                       stageState: String,
                       path: Path,
                       threshold: Int
-                    ): DataFrame = {
-    val listVariable: List[String] = dfStatistics
-      .select("Variables")
-      .collect
-      .map(_.getString(0))
-      .toList
-      .distinct
-    val listRowByVariable = listVariable.map { c =>
-      val metric = dfStatistics.filter(col("Variables").isin(c))
-      MetricRow(
-        domain.name,
-        schema.name,
-        c,
-        getMetric[Double](metric, "Min"),
-        getMetric[Double](metric, "Max"),
-        getMetric[Double](metric, "Mean"),
-        getMetric[Long](metric, "Count"),
-        getMetric[Long](metric, "CountMissValues"),
-        getMetric[Double](metric, "Var"),
-        getMetric[Double](metric, "Stddev"),
-        getMetric[Double](metric, "Sum"),
-        getMetric[Double](metric, "Skewness"),
-        getMetric[Double](metric, "Kurtosis"),
-        getMetric[Double](metric, "Percentile25"),
-        getMetric[Double](metric, "Median"),
-        getMetric[Double](metric, "Percentile75"),
-        getMetricListStringType(metric, "Category"),
-        getMetricCountDistinct(dfStatistics, c),
-        getMetricCount[Long](dfStatistics, c, threshold, "CountDiscrete", getCategoryMetric[Long]),
-        getMetricCount[Double](
-          dfStatistics,
-          c,
-          threshold,
-          "Frequencies",
-          getCategoryMetric[Double]
-        ),
-        getMetricCountMissValuesDiscrete(dfStatistics, c, threshold),
-        ingestionTime,
-        stageState
-      )
-    }
+                    ): Unit = {
 
-    session.createDataFrame(listRowByVariable)
+    val dataToSave = listDfStats
+      .map { dfStatistics =>
+        val listVariable: List[String] = dfStatistics
+          .select("Variables")
+          .collect
+          .map(_.getString(0))
+          .toList
+          .distinct
+        val listRowByVariable = listVariable.map { c =>
+          val metric = dfStatistics.filter(col("Variables").isin(c))
+          MetricRow(
+            domain.name,
+            schema.name,
+            c,
+            getMetric[Double](metric, "Min"),
+            getMetric[Double](metric, "Max"),
+            getMetric[Double](metric, "Mean"),
+            getMetric[Long](metric, "Count"),
+            getMetric[Long](metric, "CountMissValues"),
+            getMetric[Double](metric, "Var"),
+            getMetric[Double](metric, "Stddev"),
+            getMetric[Double](metric, "Sum"),
+            getMetric[Double](metric, "Skewness"),
+            getMetric[Double](metric, "Kurtosis"),
+            getMetric[Double](metric, "Percentile25"),
+            getMetric[Double](metric, "Median"),
+            getMetric[Double](metric, "Percentile75"),
+            getMetricListStringType(metric, "Category"),
+            getMetricCountDistinct(dfStatistics, c),
+            getMetricCount[Long](
+              dfStatistics,
+              c,
+              threshold,
+              "CountDiscrete",
+              getCategoryMetric[Long]
+            ),
+            getMetricCount[Double](
+              dfStatistics,
+              c,
+              threshold,
+              "Frequencies",
+              getCategoryMetric[Double]
+            ),
+            getMetricCountMissValuesDiscrete(dfStatistics, c, threshold),
+            ingestionTime,
+            stageState
+          )
+        }
 
+        session.createDataFrame(listRowByVariable)
+
+      }
+      .reduce(_.union(_))
+
+    save(dataToSave, path)
   }
 
   override def name: String = "Compute metrics job"
 
   /** Function to build the metrics save path
     *
-    * @param path          : path where metrics are stored
-    * @return              : path where the metrics for the specified schema are stored
+    * @param path : path where metrics are stored
+    * @return : path where the metrics for the specified schema are stored
     */
   def getMetricsPath(path: String): Path = {
     new Path(
@@ -315,6 +327,7 @@ class MetricsJob(
 
   /** Function that enforce type on certain discrete metrics column to avoid types casts problems
     * The types we enforce are the same as those in the case class MetricRow attributes.
+    *
     * @param statsDf the dataframe we want to type
     * @return typed dataframe
     */
@@ -353,29 +366,15 @@ class MetricsJob(
     val continuousDataset =
       discreteMetricTyping(Metrics.computeContinuiousMetric(dataUse, continAttr, continuousOps))
 
-    val disDataframe = this
-      .extractMetrics(
-        discreteDataset,
-        domain,
-        schema,
-        storageHandler.lastModified(datasetPath),
-        stageState,
-        savePath,
-        Settings.comet.metrics.discreteMaxCardinality
-      )
-
-    val conDataframe = this
-      .extractMetrics(
-        continuousDataset,
-        domain,
-        schema,
-        storageHandler.lastModified(datasetPath),
-        stageState,
-        savePath,
-        Settings.comet.metrics.discreteMaxCardinality
-      )
-
-    save(disDataframe.union(conDataframe), savePath)
+    extractMetrics(
+      List(discreteDataset, continuousDataset),
+      domain,
+      schema,
+      storageHandler.lastModified(datasetPath),
+      stageState,
+      savePath,
+      Settings.comet.metrics.discreteMaxCardinality
+    )
 
     session
   }
