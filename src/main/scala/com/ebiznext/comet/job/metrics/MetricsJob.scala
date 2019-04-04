@@ -123,18 +123,19 @@ class MetricsJob(
     * @param dataToSave :   dataset to be saved
     * @param path       :   Path to save the file at
     */
-  def saveDataset(dataToSave: DataFrame, path: Path): Unit = {
-    if (!storageHandler.list(path).isEmpty) {
-      val pathIntermediate = new Path(path, ".stat")
+  def save(dataToSave: DataFrame, path: Path): Unit = {
+    if (storageHandler.exist(path)) {
+      val pathIntermediate = new Path(path.getParent, ".stat")
       val dataByVariableStored: DataFrame = session.read.parquet(path.toString).union(dataToSave)
       dataByVariableStored.coalesce(1).write.mode("append").parquet(pathIntermediate.toString)
-      storageHandler.list(path, ".parquet").map(storageHandler.delete(_))
-      storageHandler.list(pathIntermediate, ".parquet").map(storageHandler.move(_, path))
+      storageHandler.delete(path)
+      storageHandler.move(pathIntermediate, path)
       storageHandler.delete(pathIntermediate)
       logger.whenDebugEnabled {
         session.read.parquet(path.toString).show(1000, truncate = false)
       }
     } else {
+      storageHandler.mkdirs(path)
       dataToSave.coalesce(1).write.mode("append").parquet(path.toString)
 
     }
@@ -242,15 +243,15 @@ class MetricsJob(
     * @param threshold     : The limit value for the number of sub-class to consider
     * @return : the stored dataframe version of the parquet file
     */
-  def formatDataframeToSave(
-                             dfStatistics: DataFrame,
-                             domain: Domain,
-                             schema: Schema,
-                             ingestionTime: Timestamp,
-                             stageState: String,
-                             path: Path,
-                             threshold: Int
-                           ): DataFrame = {
+  def extractMetrics(
+                      dfStatistics: DataFrame,
+                      domain: Domain,
+                      schema: Schema,
+                      ingestionTime: Timestamp,
+                      stageState: String,
+                      path: Path,
+                      threshold: Int
+                    ): DataFrame = {
     val listVariable: List[String] = dfStatistics
       .select("Variables")
       .collect
@@ -352,10 +353,8 @@ class MetricsJob(
     val continuousDataset =
       discreteMetricTyping(Metrics.computeContinuiousMetric(dataUse, continAttr, continuousOps))
 
-    storageHandler.mkdirs(savePath)
-
     val disDataframe = this
-      .formatDataframeToSave(
+      .extractMetrics(
         discreteDataset,
         domain,
         schema,
@@ -366,7 +365,7 @@ class MetricsJob(
       )
 
     val conDataframe = this
-      .formatDataframeToSave(
+      .extractMetrics(
         continuousDataset,
         domain,
         schema,
@@ -376,7 +375,7 @@ class MetricsJob(
         Settings.comet.metrics.discreteMaxCardinality
       )
 
-    saveDataset(disDataframe.union(conDataframe), savePath)
+    save(disDataframe.union(conDataframe), savePath)
 
     session
   }
