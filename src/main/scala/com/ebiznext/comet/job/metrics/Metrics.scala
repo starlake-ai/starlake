@@ -235,7 +235,7 @@ object Metrics extends StrictLogging {
         .reduce(_.union(_))
     matrixMetric
       .select(colRenamed.head, colRenamed.tail: _*)
-      .withColumn("Variable_Type", lit("Continuous"))
+      .withColumn("_metricType_", lit("Continuous"))
 
   }
 
@@ -364,7 +364,7 @@ object Metrics extends StrictLogging {
         .reduce(_.union(_))
     matrixMetric
       .select(colRenamed.head, colRenamed.tail: _*)
-      .withColumn("Variable_Type", lit("Discrete"))
+      .withColumn("_metricType_", lit("Discrete"))
   }
 
 }
