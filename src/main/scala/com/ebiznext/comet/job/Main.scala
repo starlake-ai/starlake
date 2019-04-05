@@ -23,6 +23,7 @@ package com.ebiznext.comet.job
 import com.ebiznext.comet.config.{DatasetArea, Settings}
 import com.ebiznext.comet.job.index.IndexConfig
 import com.ebiznext.comet.job.infer.InferSchemaConfig
+import com.ebiznext.comet.job.metrics.MetricsConfig
 import com.ebiznext.comet.workflow.IngestionWorkflow
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
@@ -61,6 +62,7 @@ object Main extends StrictLogging {
         |comet ingest datasetDomain datasetSchema datasetPath
         |comet index --domain domain --schema schema --timestamp {@timestamp|yyyy.MM.dd} --id type-id --mapping mapping --format parquet|json|json-array --dataset datasetPath --conf key=value,key=value,...
         |comet infer-schema --domain domainName --schema schemaName --input datasetpath --output outputPath --with-header headerBoolean
+        |comet metrics --domain domain --schema schema
         |      """.stripMargin
     )
   }
@@ -80,6 +82,8 @@ object Main extends StrictLogging {
     *   - call "comet ingest domain schema hdfs://datasets/domain/pending/file.dsv"
     *             to ingest a file defined by its schema in the specified domain
     *   -call "comet infer-schema --domain domainName --schema schemaName --input datasetpath --output outputPath --with-header boolean
+    *   - call "comet metrics --domain domain-name --schema schema-name "
+    *             to compute all metrics on specific schema in a specific domain
     */
   def main(args: Array[String]): Unit = {
     import Settings.{schemaHandler, storageHandler}
@@ -127,6 +131,14 @@ object Main extends StrictLogging {
           case _            => printUsage()
         }
       }
+      case "metrics" =>
+        MetricsConfig.parse(args.drop(1)) match {
+          case Some(config) =>
+            workflow.metric(config)
+          case _ =>
+            printUsage()
+        }
+
       case _ => printUsage()
     }
   }
