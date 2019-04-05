@@ -79,7 +79,7 @@ class MetricsJob(
                   schema: Schema,
                   stage: String,
                   storageHandler: StorageHandler
-                ) extends SparkJob {
+                ) extends SparkJob{
 
   /** Function that retrieves class names for each variable (case discrete variable)
     *
