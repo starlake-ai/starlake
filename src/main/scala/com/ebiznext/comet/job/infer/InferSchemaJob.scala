@@ -79,11 +79,17 @@ object InferSchemaJob extends SparkJob {
     val partitionWithIndex = rddDatasetInit.mapPartitionsWithIndex { (index, iterator) => {
       val iteratorList = iterator.toList
       //The first line is stored into the 0th partition
-      if (index == 0)
+      //Check if data is stored on the same partition (if true return directly the first and the last line)
+      if (index == 0 & lastPartitionNo == 0) {
+        Iterator(iteratorList.take(1).head, iteratorList.reverse.take(1).last)
+      }
+      else if (index == 0 & lastPartitionNo != 0) {
         iteratorList.take(1).iterator
+      }
       //The last line is stored into the last partition
-      else if (index == lastPartitionNo)
+      else if (index == lastPartitionNo) {
         iteratorList.reverse.take(1).iterator
+      }
       else
         Iterator()
     }
