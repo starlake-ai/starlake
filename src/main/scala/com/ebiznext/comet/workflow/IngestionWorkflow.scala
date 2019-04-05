@@ -25,6 +25,7 @@ import com.ebiznext.comet.config.{DatasetArea, Settings}
 import com.ebiznext.comet.job.index.{IndexConfig, IndexJob}
 import com.ebiznext.comet.job.infer.{InferConfig, InferSchema}
 import com.ebiznext.comet.job.ingest.{DsvIngestionJob, JsonIngestionJob, SimpleJsonIngestionJob}
+import com.ebiznext.comet.job.metrics.{MetricsConfig, MetricsJob}
 import com.ebiznext.comet.job.transform.AutoJob
 import com.ebiznext.comet.schema.handlers.{LaunchHandler, SchemaHandler, StorageHandler}
 import com.ebiznext.comet.schema.model.Format.{DSV, JSON, SIMPLE_JSON}
@@ -340,5 +341,32 @@ class IngestionWorkflow(
       config.outputPath,
       config.header
     )
+
+  /**
+    * Runs the metrics job
+    *
+    * @param cliConfig : Client's configuration for metrics computing
+    */
+  def metric(cliConfig: MetricsConfig): Unit = {
+    //Lookup for the domain given as prompt arguments, if is found then find the given schema in this domain
+    val cmdArgs = for {
+      domain <- Settings.schemaHandler.getDomain(cliConfig.domain)
+      schema <- domain.schemas.find(_.name == cliConfig.schema)
+    } yield (domain, schema)
+
+    cmdArgs match {
+      case Some((domain: Domain, schema: Schema)) => {
+        val datasetPath = cliConfig.getDataset()
+        val stage: String = "unit"
+        new MetricsJob(
+          datasetPath,
+          domain,
+          schema,
+          stage,
+          storageHandler
+        ).run()
+      }
+      case None => logger.error("The domain or schema you specified doesn't exist! ")
+    }
   }
 }
