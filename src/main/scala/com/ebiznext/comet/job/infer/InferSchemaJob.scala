@@ -75,17 +75,22 @@ object InferSchemaJob extends SparkJob {
     val rddDatasetInit = datasetInit.rdd
     val lastPartitionNo = rddDatasetInit.getNumPartitions - 1
 
-    //Get foreach data its index into a tuple
+    //Retrieve the first and the last line of a dataset
     val partitionWithIndex = rddDatasetInit.mapPartitionsWithIndex { (index, iterator) => {
-      val myList = iterator.toList
-      myList.map(x => (index, x)).iterator
+      val iteratorList = iterator.toList
+      //The first line is stored into the 0th partition
+      if (index == 0)
+        iteratorList.take(1).iterator
+      //The last line is stored into the last partition
+      else if (index == lastPartitionNo)
+        iteratorList.reverse.take(1).iterator
+      else
+        Iterator()
     }
     }
 
-    //The first line is stored into the 0th partition
-    val firstLine = partitionWithIndex.filter(_._1 == 0).first._2
-    //The last line is stored into the last partition
-    val lastLine = partitionWithIndex.filter(_._1 == lastPartitionNo).collect().last._2
+    val firstLine = partitionWithIndex.first
+    val lastLine = partitionWithIndex.collect().last
 
     if (firstLine.startsWith("{") & firstLine.endsWith("}")) "JSON"
     else if (firstLine.startsWith("[") & lastLine.endsWith("]")) "ARRAY_JSON"
