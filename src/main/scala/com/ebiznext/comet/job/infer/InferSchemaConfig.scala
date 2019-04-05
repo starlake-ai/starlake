@@ -29,7 +29,7 @@ case class InferConfig(
                         header: Option[Boolean] = Some(false)
                       )
 
-object InferSchemaConfig {
+object InferSchemaConfig{
 
   /**
     *
