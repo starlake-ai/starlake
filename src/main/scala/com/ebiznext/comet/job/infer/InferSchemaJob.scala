@@ -42,7 +42,7 @@ class InferSchema(
                    dataPath: String,
                    savePath: String,
                    header: Option[Boolean] = Some(false)
-                 ) {
+                 ){
 
   InferSchemaJob.infer(domainName, schemaName, dataPath, savePath, header.getOrElse(false))
 
@@ -51,7 +51,7 @@ class InferSchema(
 /** *
   * Infers the schema of a given datapath, domain name, schema name.
   */
-object InferSchemaJob extends SparkJob {
+object InferSchemaJob extends SparkJob{
 
   /**
     * Read file without specifying the format
@@ -82,15 +82,13 @@ object InferSchemaJob extends SparkJob {
       //Check if data is stored on the same partition (if true return directly the first and the last line)
       if (index == 0 & lastPartitionNo == 0) {
         Iterator(iteratorList.take(1).head, iteratorList.reverse.take(1).last)
-      }
-      else if (index == 0 & lastPartitionNo != 0) {
+      } else if (index == 0 & lastPartitionNo != 0) {
         iteratorList.take(1).iterator
       }
       //The last line is stored into the last partition
       else if (index == lastPartitionNo) {
         iteratorList.reverse.take(1).iterator
-      }
-      else
+      } else
         Iterator()
     }
     }
