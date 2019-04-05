@@ -87,7 +87,7 @@ class StatDescJobSpec extends FlatSpec {
     */
   val dimensionTable = (partialContinuousMetric.size + 1) * (listContnuousAttributes.size + 1)
 
-  val dimensionDataframe = (result1.columns.size) * (result1
+  val dimensionDataframe = (result1.columns.size-1) * (result1
     .select(col("Variables"))
     .collect()
     .map(_.getString(0))
