@@ -33,17 +33,17 @@ import com.fasterxml.jackson.databind.{DeserializationContext, JsonDeserializer}
   */
 @JsonSerialize(using = classOf[ToStringSerializer])
 @JsonDeserialize(using = classOf[FormatDeserializer])
-sealed case class Format(value: String) {
+sealed case class Format(value: String){
   override def toString: String = value
 }
 
-object Format {
+object Format{
 
   def fromString(value: String): Format = {
     value.toUpperCase match {
-      case "DSV"         => Format.DSV
+      case "DSV" => Format.DSV
       case "SIMPLE_JSON" => Format.SIMPLE_JSON
-      case "JSON"        => Format.JSON
+      case "JSON" | "ARRAY_JSON" => Format.JSON
     }
   }
 
@@ -56,7 +56,7 @@ object Format {
   val formats: Set[Format] = Set(DSV, SIMPLE_JSON, JSON)
 }
 
-class FormatDeserializer extends JsonDeserializer[Format] {
+class FormatDeserializer extends JsonDeserializer[Format]{
   override def deserialize(jp: JsonParser, ctx: DeserializationContext): Format = {
     val value = jp.readValueAs[String](classOf[String])
     Format.fromString(value)
