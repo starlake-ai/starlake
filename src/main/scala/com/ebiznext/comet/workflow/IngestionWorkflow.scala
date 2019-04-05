@@ -23,6 +23,7 @@ package com.ebiznext.comet.workflow
 import better.files._
 import com.ebiznext.comet.config.{DatasetArea, Settings}
 import com.ebiznext.comet.job.index.{IndexConfig, IndexJob}
+import com.ebiznext.comet.job.infer.{InferConfig, InferSchema}
 import com.ebiznext.comet.job.ingest.{DsvIngestionJob, JsonIngestionJob, SimpleJsonIngestionJob}
 import com.ebiznext.comet.job.metrics.{MetricsConfig, MetricsJob}
 import com.ebiznext.comet.job.transform.AutoJob
@@ -332,6 +333,16 @@ class IngestionWorkflow(
     new IndexJob(config, Settings.storageHandler).run()
   }
 
+  def infer(config: InferConfig) = {
+    new InferSchema(
+      config.domainName,
+      config.schemaName,
+      config.inputPath,
+      config.outputPath,
+      config.header
+    )
+  }
+
   /**
     * Runs the metrics job
     *
@@ -358,6 +369,5 @@ class IngestionWorkflow(
       }
       case None => logger.error("The domain or schema you specified doesn't exist! ")
     }
-
   }
 }
