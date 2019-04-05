@@ -7,7 +7,7 @@ import scopt.OParser
 case class MetricsConfig(
                           domain: String = "",
                           schema: String = ""
-                        ) {
+                        ){
 
   /** Function to build path of data to compute metrics on
     * using the attribute domain and schema and ingested files path.
@@ -20,7 +20,7 @@ case class MetricsConfig(
 
 }
 
-object MetricsConfig {
+object MetricsConfig{
 
   /** Function to parse command line arguments (domain and schema).
     *
