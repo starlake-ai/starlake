@@ -26,7 +26,7 @@ import com.ebiznext.comet.schema.model._
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.types.{ArrayType, StructType}
 
-object InferSchemaHandler {
+object InferSchemaHandler{
 
   /** *
     * Traverses the schema and returns a list of attributes.

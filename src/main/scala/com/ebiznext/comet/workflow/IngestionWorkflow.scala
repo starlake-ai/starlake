@@ -341,6 +341,7 @@ class IngestionWorkflow(
       config.outputPath,
       config.header
     )
+  }
 
   /**
     * Runs the metrics job
