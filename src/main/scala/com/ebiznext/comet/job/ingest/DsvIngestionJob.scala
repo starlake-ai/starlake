@@ -114,6 +114,8 @@ class DsvIngestionJob(
         .option("parserLib", "UNIVOCITY")
         .csv(path.map(_.toString): _*)
       df.printSchema()
+      df.first()
+
       val resDF = metadata.withHeader match {
         case Some(true) =>
           val datasetHeaders: List[String] = df.columns.toList.map(cleanHeaderCol)

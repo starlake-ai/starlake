@@ -37,12 +37,12 @@ import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
   * @param header     : option of boolean to check if header should be included (false by default)
   */
 class InferSchema(
-                   domainName: String,
-                   schemaName: String,
-                   dataPath: String,
-                   savePath: String,
-                   header: Option[Boolean] = Some(false)
-                 ){
+  domainName: String,
+  schemaName: String,
+  dataPath: String,
+  savePath: String,
+  header: Option[Boolean] = Some(false)
+) {
 
   InferSchemaJob.infer(domainName, schemaName, dataPath, savePath, header.getOrElse(false))
 
@@ -51,7 +51,7 @@ class InferSchema(
 /** *
   * Infers the schema of a given datapath, domain name, schema name.
   */
-object InferSchemaJob extends SparkJob{
+object InferSchemaJob extends SparkJob {
 
   /**
     * Read file without specifying the format
@@ -76,21 +76,22 @@ object InferSchemaJob extends SparkJob{
     val lastPartitionNo = rddDatasetInit.getNumPartitions - 1
 
     //Retrieve the first and the last line of a dataset
-    val partitionWithIndex = rddDatasetInit.mapPartitionsWithIndex { (index, iterator) => {
-      val iteratorList = iterator.toList
-      //The first line is stored into the 0th partition
-      //Check if data is stored on the same partition (if true return directly the first and the last line)
-      if (index == 0 & lastPartitionNo == 0) {
-        Iterator(iteratorList.take(1).head, iteratorList.reverse.take(1).last)
-      } else if (index == 0 & lastPartitionNo != 0) {
-        iteratorList.take(1).iterator
+    val partitionWithIndex = rddDatasetInit.mapPartitionsWithIndex { (index, iterator) =>
+      {
+        val iteratorList = iterator.toList
+        //The first line is stored into the 0th partition
+        //Check if data is stored on the same partition (if true return directly the first and the last line)
+        if (index == 0 & lastPartitionNo == 0) {
+          Iterator(iteratorList.take(1).head, iteratorList.reverse.take(1).last)
+        } else if (index == 0 & lastPartitionNo != 0) {
+          iteratorList.take(1).iterator
+        }
+        //The last line is stored into the last partition
+        else if (index == lastPartitionNo) {
+          iteratorList.reverse.take(1).iterator
+        } else
+          Iterator()
       }
-      //The last line is stored into the last partition
-      else if (index == lastPartitionNo) {
-        iteratorList.reverse.take(1).iterator
-      } else
-        Iterator()
-    }
     }
 
     val firstLine = partitionWithIndex.first
@@ -148,10 +149,10 @@ object InferSchemaJob extends SparkJob{
     * @return
     */
   def createDataFrameWithFormat(
-                                 datasetInit: Dataset[String],
-                                 path: Path,
-                                 header: Boolean
-                               ): DataFrame = {
+    datasetInit: Dataset[String],
+    path: Path,
+    header: Boolean
+  ): DataFrame = {
     val formatFile = getFormatFile(datasetInit)
 
     formatFile match {
@@ -180,12 +181,12 @@ object InferSchemaJob extends SparkJob{
     * @return : Spark Session used for the job
     */
   def infer(
-             domainName: String,
-             schemaName: String,
-             dataPath: String,
-             savePath: String,
-             header: Boolean
-           ): Unit = {
+    domainName: String,
+    schemaName: String,
+    dataPath: String,
+    savePath: String,
+    header: Boolean
+  ): Unit = {
     val path = new Path(dataPath)
 
     val datasetWithoutFormat = readFile(path)
