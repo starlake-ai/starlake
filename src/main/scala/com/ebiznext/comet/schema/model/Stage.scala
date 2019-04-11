@@ -26,39 +26,35 @@ import com.fasterxml.jackson.databind.ser.std.ToStringSerializer
 import com.fasterxml.jackson.databind.{DeserializationContext, JsonDeserializer}
 
 /**
-  * Recognized file type format. This will select  the correct parser
+  * Big versus Fast data ingestion. Are we ingesting a file or a message stream ?
   *
-  * @param value : SIMPLE_JSON, JSON of DSV
-  *              Simple Json is made of a single level attributes of simple types (no arrray or map or sub objects)
+  * @param value : FILE or STREAM
   */
 @JsonSerialize(using = classOf[ToStringSerializer])
-@JsonDeserialize(using = classOf[FormatDeserializer])
-sealed case class Format(value: String) {
+@JsonDeserialize(using = classOf[StageDeserializer])
+sealed case class Stage(value: String) {
   override def toString: String = value
 }
 
-object Format {
+object Stage {
 
-  def fromString(value: String): Format = {
-    value.toUpperCase match {
-      case "DSV"                 => Format.DSV
-      case "SIMPLE_JSON"         => Format.SIMPLE_JSON
-      case "JSON" | "ARRAY_JSON" => Format.JSON
+  def fromString(value: String): Stage = {
+    value.toUpperCase() match {
+      case "UNIT"   => Stage.UNIT
+      case "GLOBAL" => Stage.GLOBAL
     }
   }
 
-  object DSV extends Format("DSV")
+  object UNIT extends Stage("UNIT")
 
-  object SIMPLE_JSON extends Format("SIMPLE_JSON")
+  object GLOBAL extends Stage("GLOBAL")
 
-  object JSON extends Format("JSON")
-
-  val formats: Set[Format] = Set(DSV, SIMPLE_JSON, JSON)
+  val stages: Set[Stage] = Set(UNIT, GLOBAL)
 }
 
-class FormatDeserializer extends JsonDeserializer[Format] {
-  override def deserialize(jp: JsonParser, ctx: DeserializationContext): Format = {
+class StageDeserializer extends JsonDeserializer[Stage] {
+  override def deserialize(jp: JsonParser, ctx: DeserializationContext): Stage = {
     val value = jp.readValueAs[String](classOf[String])
-    Format.fromString(value)
+    Stage.fromString(value)
   }
 }
