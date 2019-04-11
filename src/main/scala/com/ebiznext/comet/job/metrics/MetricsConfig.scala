@@ -1,26 +1,11 @@
 package com.ebiznext.comet.job.metrics
 
-import com.ebiznext.comet.config.Settings
-import org.apache.hadoop.fs.Path
+import com.ebiznext.comet.schema.model.Stage
 import scopt.OParser
 
-case class MetricsConfig(
-                          domain: String = "",
-                          schema: String = ""
-                        ){
+case class MetricsConfig(domain: String = "", schema: String = "", stage: Option[Stage] = None)
 
-  /** Function to build path of data to compute metrics on
-    * using the attribute domain and schema and ingested files path.
-    *
-    * @return : the path of data to compute metrics on
-    */
-  def getDataset(): Path = {
-    new Path(s"${Settings.comet.datasets}/${Settings.comet.area.accepted}/$domain/$schema")
-  }
-
-}
-
-object MetricsConfig{
+object MetricsConfig {
 
   /** Function to parse command line arguments (domain and schema).
     *
@@ -41,7 +26,11 @@ object MetricsConfig{
         opt[String]("schema")
           .action((x, c) => c.copy(schema = x))
           .required()
-          .text("Schema Name")
+          .text("Schema Name"),
+        opt[String]("stage")
+          .action((x, c) => c.copy(stage = Some(Stage.fromString(x))))
+          .optional()
+          .text("Stage (UNIT or GLOBAL")
       )
     }
     OParser.parse(parser, args, MetricsConfig())

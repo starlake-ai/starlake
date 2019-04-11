@@ -71,7 +71,7 @@ object Settings extends StrictLogging {
     * @param discreteMaxCardinality : Max number of unique values allowed in cardinality compute
     *
     */
-  final case class Metrics(path: String, discreteMaxCardinality: Int)
+  final case class Metrics(path: String, discreteMaxCardinality: Int, active: Boolean)
 
   /**
     *
