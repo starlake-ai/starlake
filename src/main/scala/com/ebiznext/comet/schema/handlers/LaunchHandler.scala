@@ -167,7 +167,7 @@ class AirflowLauncher extends LaunchHandler with StrictLogging {
     */
   override def index(workflow: IngestionWorkflow, config: IndexConfig): Boolean = {
     val endpoint = Settings.comet.airflow.endpoint
-    val url = s"$endpoint/dags/comet_ingest/dag_runs"
+    val url = s"$endpoint/dags/comet_index/dag_runs"
     // comet index --domain domain --schema schema --resource index-name/type-name --id type-id --mapping mapping
     //    --format parquet|json|json-array --dataset datasetPath
     //    --conf key=value,key=value,...

@@ -22,14 +22,14 @@ package com.ebiznext.comet.job.infer
 import scopt.OParser
 
 case class InferConfig(
-                        domainName: String = "",
-                        schemaName: String = "",
-                        inputPath: String = "",
-                        outputPath: String = "",
-                        header: Option[Boolean] = Some(false)
-                      )
+  domainName: String = "",
+  schemaName: String = "",
+  inputPath: String = "",
+  outputPath: String = "",
+  header: Option[Boolean] = Some(false)
+)
 
-object InferSchemaConfig{
+object InferSchemaConfig {
 
   /**
     *

@@ -210,9 +210,9 @@ class IngestionWorkflow(
   /**
     * Ingest the file (called by the cron manager at ingestion time for a specific dataset
     *
-    * @param domainName    : domain name of the dataset
-    * @param schemaName    schema name of the dataset
-    * @param ingestingPath : Absolute path of the file to ingest (present in the ingesting area of the domain)
+    * @param domainName     : domain name of the dataset
+    * @param schemaName     schema name of the dataset
+    * @param ingestingPaths : Absolute path of the file to ingest (present in the ingesting area of the domain)
     */
   def ingest(domainName: String, schemaName: String, ingestingPaths: List[Path]): Unit = {
     for {
@@ -357,10 +357,8 @@ class IngestionWorkflow(
 
     cmdArgs match {
       case Some((domain: Domain, schema: Schema)) => {
-        val datasetPath = cliConfig.getDataset()
-        val stage: String = "unit"
+        val stage: Stage = cliConfig.stage.getOrElse(Stage.UNIT)
         new MetricsJob(
-          datasetPath,
           domain,
           schema,
           stage,
