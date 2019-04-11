@@ -56,6 +56,13 @@ object Dependencies {
     "org.apache.spark" %% "spark-mllib" % Versions.spark211 % "provided"
   )
 
+  val spark211_240 = Seq(
+    "org.apache.spark" %% "spark-core" % Versions.spark211_240 % "provided",
+    "org.apache.spark" %% "spark-sql" % Versions.spark211_240 % "provided",
+    "org.apache.spark" %% "spark-hive" % Versions.spark211_240 % "provided",
+    "org.apache.spark" %% "spark-mllib" % Versions.spark211_240 % "provided"
+  )
+
   val spark212 = Seq(
     "org.apache.spark" %% "spark-core" % Versions.spark212 % "provided",
     "org.apache.spark" %% "spark-sql" % Versions.spark212 % "provided",
@@ -72,7 +79,9 @@ object Dependencies {
     "com.github.scopt" %% "scopt" % Versions.scopt
   )
 
-  val sttp = Seq ("com.softwaremill.sttp" %% "core" % Versions.sttp)
+  val sttp = Seq("com.softwaremill.sttp" %% "core" % Versions.sttp)
+
+  
 
   val dependencies = logging ++ typedConfigs ++ okhttp ++ betterfiles ++ jackson ++ scalaTest ++ scopt ++ esHadoop ++ sttp
 }

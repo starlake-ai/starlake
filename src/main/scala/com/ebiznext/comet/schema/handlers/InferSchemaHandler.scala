@@ -26,7 +26,7 @@ import com.ebiznext.comet.schema.model._
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.types.{ArrayType, StructType}
 
-object InferSchemaHandler{
+object InferSchemaHandler {
 
   /** *
     * Traverses the schema and returns a list of attributes.
@@ -53,8 +53,8 @@ object InferSchemaHandler{
             case "array" =>
               val elemType = row.dataType.asInstanceOf[ArrayType].elementType
               if (elemType.typeName.equals("struct"))
-              // if the array contains elements of type struct.
-              // {people: [{name:Person1, age:22},{name:Person2, age:25}]}
+                // if the array contains elements of type struct.
+                // {people: [{name:Person1, age:22},{name:Person2, age:25}]}
                 Attribute(
                   row.name,
                   elemType.typeName,
@@ -63,12 +63,12 @@ object InferSchemaHandler{
                   attributes = Some(createAttributes(elemType.asInstanceOf[StructType]))
                 )
               else
-              // if it is a regular array. {ages: [21, 25]}
+                // if it is a regular array. {ages: [21, 25]}
                 Attribute(row.name, elemType.typeName, Some(true), !row.nullable)
 
             // if the datatype is a simple Attribute
             case _ => Attribute(row.name, row.dataType.typeName, Some(false), !row.nullable)
-          }
+        }
       )
       .toList
   }
@@ -86,11 +86,11 @@ object InferSchemaHandler{
     */
 
   def createMetaData(
-                      format: Option[String] = None,
-                      array: Option[Boolean],
-                      withHeader: Option[Boolean],
-                      separator: Option[String]
-                    ): Metadata = {
+    format: Option[String] = None,
+    array: Option[Boolean],
+    withHeader: Option[Boolean],
+    separator: Option[String]
+  ): Metadata = {
     Metadata(
       mode = Some(Mode.fromString("FILE")),
       Some(Format.fromString(format.getOrElse("DSV"))),
@@ -112,11 +112,11 @@ object InferSchemaHandler{
     */
 
   def createSchema(
-                    name: String,
-                    pattern: Pattern,
-                    attributes: List[Attribute],
-                    metadata: Option[Metadata]
-                  ): Schema = {
+    name: String,
+    pattern: Pattern,
+    attributes: List[Attribute],
+    metadata: Option[Metadata]
+  ): Schema = {
 
     Schema(name, pattern, attributes, metadata, None, None, None, None)
   }
@@ -133,11 +133,11 @@ object InferSchemaHandler{
     */
 
   def createDomain(
-                    name: String,
-                    directory: String,
-                    metadata: Option[Metadata] = None,
-                    schemas: List[Schema] = Nil
-                  ): Domain = {
+    name: String,
+    directory: String,
+    metadata: Option[Metadata] = None,
+    schemas: List[Schema] = Nil
+  ): Domain = {
 
     Domain(name, directory, metadata, schemas)
   }
