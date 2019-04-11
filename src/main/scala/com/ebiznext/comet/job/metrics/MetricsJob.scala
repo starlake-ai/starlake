@@ -1,9 +1,9 @@
 package com.ebiznext.comet.job.metrics
 
-import com.ebiznext.comet.config.Settings
+import com.ebiznext.comet.config.{DatasetArea, Settings}
 import com.ebiznext.comet.job.metrics.Metrics.{ContinuousMetric, DiscreteMetric}
 import com.ebiznext.comet.schema.handlers.StorageHandler
-import com.ebiznext.comet.schema.model.{Domain, Schema}
+import com.ebiznext.comet.schema.model.{Domain, Schema, Stage}
 import com.ebiznext.comet.utils.SparkJob
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql._
@@ -36,30 +36,30 @@ import org.apache.spark.sql.types._
   * @param missingValuesDiscrete : Missing Values Discrete metric
   */
 case class MetricRow(
-                      domain: String,
-                      schema: String,
-                      variableName: String,
-                      min: Option[Double],
-                      max: Option[Double],
-                      mean: Option[Double],
-                      count: Option[Long],
-                      missingValues: Option[Long],
-                      variance: Option[Double],
-                      standardDev: Option[Double],
-                      sum: Option[Double],
-                      skewness: Option[Double],
-                      kurtosis: Option[Double],
-                      percentile25: Option[Double],
-                      median: Option[Double],
-                      percentile75: Option[Double],
-                      category: Option[List[String]],
-                      countDistinct: Option[Long],
-                      countByCategory: Option[Map[String, Long]],
-                      frequencies: Option[Map[String, Double]],
-                      missingValuesDiscrete: Option[Long],
-                      timestamp: Long,
-                      stage: String
-                    )
+  domain: String,
+  schema: String,
+  variableName: String,
+  min: Option[Double],
+  max: Option[Double],
+  mean: Option[Double],
+  count: Option[Long],
+  missingValues: Option[Long],
+  variance: Option[Double],
+  standardDev: Option[Double],
+  sum: Option[Double],
+  skewness: Option[Double],
+  kurtosis: Option[Double],
+  percentile25: Option[Double],
+  median: Option[Double],
+  percentile75: Option[Double],
+  category: Option[List[String]],
+  countDistinct: Option[Long],
+  countByCategory: Option[Map[String, Long]],
+  frequencies: Option[Map[String, Double]],
+  missingValuesDiscrete: Option[Long],
+  timestamp: Long,
+  stage: Stage
+)
 
 /** To record statistics with other information during ingestion.
   *
@@ -67,19 +67,17 @@ case class MetricRow(
 
 /**
   *
-  * @param datasetPath    : Path to the dataset
   * @param domain         : Domain name
   * @param schema         : Schema
   * @param stage          : stage
   * @param storageHandler : Storage Handler
   */
 class MetricsJob(
-                  datasetPath: Path,
-                  domain: Domain,
-                  schema: Schema,
-                  stage: String,
-                  storageHandler: StorageHandler
-                ) extends SparkJob{
+  domain: Domain,
+  schema: Schema,
+  stage: Stage,
+  storageHandler: StorageHandler
+) extends SparkJob {
 
   /** Function that retrieves class names for each variable (case discrete variable)
     *
@@ -105,11 +103,11 @@ class MetricsJob(
     * @return :   T, Long for CountDiscrete and Double for Frequencies
     */
   def getCategoryMetric[T: Manifest](
-                                      dataInit: DataFrame,
-                                      nameVariable: String,
-                                      nameCategory: String,
-                                      metric: String
-                                    ): T = {
+    dataInit: DataFrame,
+    nameVariable: String,
+    nameCategory: String,
+    metric: String
+  ): T = {
     val dataReduceCategory: DataFrame = dataInit.filter(col("Variables").isin(nameVariable))
     val dataCategory: DataFrame = dataReduceCategory.filter(col("Category").isin(nameCategory))
     dataCategory.select(col(metric)).first().getAs[T](0)
@@ -125,18 +123,27 @@ class MetricsJob(
     */
   def save(dataToSave: DataFrame, path: Path): Unit = {
     if (storageHandler.exist(path)) {
-      val pathIntermediate = new Path(path.getParent, ".stat")
-      val dataByVariableStored: DataFrame = session.read.parquet(path.toString).union(dataToSave)
+      val pathIntermediate = new Path(path.getParent, ".metrics")
+      val dataByVariableStored: DataFrame = session.read
+        .option("header", "true")
+        .option("sep", '\t')
+        .csv(path.toString)
+        .union(dataToSave)
       dataByVariableStored.coalesce(1).write.mode("append").parquet(pathIntermediate.toString)
       storageHandler.delete(path)
       storageHandler.move(pathIntermediate, path)
-      storageHandler.delete(pathIntermediate)
       logger.whenDebugEnabled {
         session.read.parquet(path.toString).show(1000, truncate = false)
       }
     } else {
       storageHandler.mkdirs(path)
-      dataToSave.coalesce(1).write.mode("append").parquet(path.toString)
+      dataToSave
+        .coalesce(1)
+        .write
+        .option("header", "true")
+        .option("sep", '\t')
+        .mode("append")
+        .csv(path.toString)
 
     }
   }
@@ -152,7 +159,7 @@ class MetricsJob(
   def getMetric[T: Manifest](metric: DataFrame, colName: String): Option[T] = {
     metric.select("_metricType_").first().getString(0) match {
       case "Continuous" => Some(metric.select(colName).first().getAs[T](0))
-      case _ => None
+      case _            => None
     }
   }
 
@@ -165,7 +172,7 @@ class MetricsJob(
   def getMetricListStringType(metric: DataFrame, colName: String): Option[List[String]] = {
     metric.select("_metricType_").first().getString(0) match {
       case "Discrete" => Some(metric.select("Category").collect.map(_.getString(0)).toList)
-      case _ => None
+      case _          => None
     }
   }
 
@@ -176,12 +183,12 @@ class MetricsJob(
     * @return : the metric in Option type of Map[String,A]
     */
   def getMetricCount[A](
-                         dfStatistics: DataFrame,
-                         colName: String,
-                         threshold: Int,
-                         metric: String,
-                         f: (DataFrame, String, String, String) => A
-                       ): Option[Map[String, A]] = {
+    dfStatistics: DataFrame,
+    colName: String,
+    threshold: Int,
+    metric: String,
+    f: (DataFrame, String, String, String) => A
+  ): Option[Map[String, A]] = {
     dfStatistics.select("_metricType_").first().getString(0) match {
       case "Discrete" if getListCategory(dfStatistics, colName).length - threshold < 0 =>
         Some(
@@ -202,10 +209,10 @@ class MetricsJob(
     * @return : the metric in Option type of Long
     */
   def getMetricCountMissValuesDiscrete(
-                                        dfStatistics: DataFrame,
-                                        colName: String,
-                                        threshold: Int
-                                      ): Option[Long] = {
+    dfStatistics: DataFrame,
+    colName: String,
+    threshold: Int
+  ): Option[Long] = {
     dfStatistics.select("_metricType_").first().getString(0) match {
       case "Discrete" if getListCategory(dfStatistics, colName).length - threshold < 0 =>
         Some(
@@ -221,36 +228,34 @@ class MetricsJob(
 
   /** Function that get countDistinct variable metric
     *
-    * @param dfStatistics : the dataframe
-    * @param colName      : the column name
+    * @param metric  : the dataframe
+    * @param colName : the column name
     * @return : the metric in Option type of Int
     */
   def getMetricCountDistinct(metric: DataFrame, colName: String): Option[Long] = {
     metric.select("_metricType_").first().getString(0) match {
       case "Discrete" => Some(getListCategory(metric, colName).length)
-      case _ => None
+      case _          => None
     }
   }
 
   /** Function that unify metric dataframes schemas on MetricRow case class, then write save the result to parquet
     *
-    * @param dfStatistics  : List of dataframes that contains metrics of each type (continuous and discrete)
+    * @param listDfStats   : List of dataframes that contains metrics of each type (continuous and discrete)
     * @param domain        : name of the domain
     * @param schema        : schema of the initial data
     * @param ingestionTime : time which correspond to the ingestion
     * @param stageState    : stage (unit / global)
-    * @param path          : path where to save the file
     * @param threshold     : The limit value for the number of sub-class to consider
     */
   def extractMetrics(
-                      listDfStats: List[DataFrame],
-                      domain: Domain,
-                      schema: Schema,
-                      ingestionTime: Timestamp,
-                      stageState: String,
-                      path: Path,
-                      threshold: Int
-                    ): DataFrame = {
+    listDfStats: List[DataFrame],
+    domain: Domain,
+    schema: Schema,
+    ingestionTime: Timestamp,
+    stageState: Stage,
+    threshold: Int
+  ): DataFrame = {
 
     listDfStats
       .map { dfStatistics =>
@@ -319,7 +324,6 @@ class MetricsJob(
       path
         .replace("{domain}", domain.name)
         .replace("{schema}", schema.name)
-        .replace("{dataset}", datasetPath.toString)
     )
   }
 
@@ -350,27 +354,30 @@ class MetricsJob(
     * @return : Spark Session used for the job
     */
   override def run(): SparkSession = {
+    val datasetPath = new Path(DatasetArea.accepted(domain.name), schema.name)
     val dataUse: DataFrame = session.read.parquet(datasetPath.toString)
-    val discAttr: List[String] = schema.discreteAttrs().map(_.name)
-    val continAttr: List[String] = schema.continuousAttrs().map(_.name)
+    run(dataUse, storageHandler.lastModified(datasetPath))
+  }
+
+  def run(dataUse: DataFrame, timestamp: Timestamp): SparkSession = {
+    val discAttrs: List[String] = schema.discreteAttrs().map(_.getFinalName())
+    val continAttrs: List[String] = schema.continuousAttrs().map(_.getFinalName())
 
     val discreteOps: List[DiscreteMetric] = Metrics.discreteMetrics
     val continuousOps: List[ContinuousMetric] = Metrics.continuousMetrics
-    val stageState: String = stage
     val savePath: Path = getMetricsPath(Settings.comet.metrics.path)
 
     val discreteDataset =
-      Metrics.computeDiscretMetric(dataUse, discAttr, discreteOps)
+      Metrics.computeDiscretMetric(dataUse, discAttrs, discreteOps)
     val continuousDataset =
-      discreteMetricTyping(Metrics.computeContinuiousMetric(dataUse, continAttr, continuousOps))
+      discreteMetricTyping(Metrics.computeContinuiousMetric(dataUse, continAttrs, continuousOps))
 
     val allMetricsDf = extractMetrics(
       List(discreteDataset, continuousDataset),
       domain,
       schema,
-      storageHandler.lastModified(datasetPath),
-      stageState,
-      savePath,
+      timestamp,
+      stage,
       Settings.comet.metrics.discreteMaxCardinality
     )
 

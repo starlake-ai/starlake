@@ -1,6 +1,7 @@
 package com.ebiznext.comet.job.ingest
 
 import com.ebiznext.comet.config.{DatasetArea, HiveArea, Settings}
+import com.ebiznext.comet.job.metrics.MetricsJob
 import com.ebiznext.comet.schema.handlers.StorageHandler
 import com.ebiznext.comet.schema.model._
 import com.ebiznext.comet.utils.{SparkJob, Utils}
@@ -62,7 +63,10 @@ trait IngestionJob extends SparkJob {
     * @param acceptedDF
     */
   def saveAccepted(acceptedDF: DataFrame): Unit = {
-    session.sparkContext.getRDDStorageInfo
+    if (Settings.comet.metrics.active) {
+      new MetricsJob(this.domain, this.schema, Stage.UNIT, this.storageHandler)
+        .run(acceptedDF, System.currentTimeMillis())
+    }
     val writeMode = getWriteMode()
     val acceptedPath = new Path(DatasetArea.accepted(domain.name), schema.name)
     val mergedDF = schema.merge.map { mergeOptions =>
@@ -74,6 +78,9 @@ trait IngestionJob extends SparkJob {
     } getOrElse (acceptedDF)
 
     saveRows(mergedDF, acceptedPath, writeMode, HiveArea.accepted, schema.merge.isDefined)
+    if (Settings.comet.metrics.active) {
+      new MetricsJob(this.domain, this.schema, Stage.GLOBAL, storageHandler).run()
+    }
   }
 
   /**
@@ -278,7 +285,6 @@ trait IngestionJob extends SparkJob {
                 end - start
               )
             }
-
             schema.postsql.getOrElse(Nil).foreach(session.sql)
           case Failure(exception) =>
             Utils.logException(logger, exception)
