@@ -39,7 +39,6 @@ class InferSchemaJobSpec extends TestHelper {
 
   }
 
-
   "GetFormatJson" should "succeed" in {
 
     InferSchemaJob.getFormatFile(dataset_json) shouldBe "JSON"
@@ -57,6 +56,5 @@ class InferSchemaJobSpec extends TestHelper {
     InferSchemaJob.getFormatFile(dataset_jsonArrayMultiline) shouldBe "ARRAY_JSON"
 
   }
-
 
 }

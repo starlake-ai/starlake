@@ -1,9 +1,8 @@
 package com.ebiznext.comet.job.metrics
 
 import com.typesafe.scalalogging.StrictLogging
-import org.apache.spark.sql.functions._
+import org.apache.spark.sql.functions.{callUDF, lit, _}
 import org.apache.spark.sql.{Column, DataFrame}
-import org.apache.spark.sql.functions.{callUDF, lit}
 
 object Metrics extends StrictLogging {
 
@@ -62,9 +61,9 @@ object Metrics extends StrictLogging {
 
   /** Customize function metric in the case continuous variabes used for :  mean, variance and stddev
     *
-    * @param e      : the column
-    * @param metricName : the name of the metric
-    * @param metricFunction   : the metric function
+    * @param e              : the column
+    * @param metricName     : the name of the metric
+    * @param metricFunction : the metric function
     * @return : the computed value of the function
     */
 
@@ -105,11 +104,11 @@ object Metrics extends StrictLogging {
 
   /** Customize function metric in the case continuous variabes used for : percentile 25, median and percentile75
     *
-    * @param e           : the column
-    * @param metricName      : the name of the metric
-    * @param metricFunction        : the metric function
-    * @param approxMethod : the approximation method
-    * @param approxValue       : the value to pass to stat_method
+    * @param e              : the column
+    * @param metricName     : the name of the metric
+    * @param metricFunction : the metric function
+    * @param approxMethod   : the approximation method
+    * @param approxValue    : the value to pass to stat_method
     * @return
     */
   def customMetricUDF(
@@ -199,36 +198,53 @@ object Metrics extends StrictLogging {
     addVariablesColumn.toDF(removeNameColumnMetric: _*)
   }
 
+  private def extractMetricsAttributes(
+    dataset: DataFrame,
+    continuousAttributes: List[String]
+  ): List[String] = {
+    println("============================")
+    dataset.dtypes.foreach(println)
+    val datasetAttributes = dataset.dtypes.flatMap {
+      case (f, t) =>
+        if (t.startsWith("StructType") || t.startsWith("ArrayType"))
+          None
+        else
+          Some(f)
+    } toList
+
+    datasetAttributes.foreach(println)
+
+    println("============================")
+    val intersectionAttributes = datasetAttributes.intersect(continuousAttributes)
+    val listDifference = continuousAttributes.filterNot(datasetAttributes.contains)
+    if (intersectionAttributes.nonEmpty) {
+      intersectionAttributes
+    } else {
+      logger.warn(
+        "These attributes are not part of the variable names: " + listDifference.mkString(",")
+      )
+      datasetAttributes
+    }
+  }
+
   /** Function to compute the DataFrame metrics by row
     *
-    * @param dataInit    : initial DataFrame.
-    * @param attributes : name list of all variables.
-    * @param operations : list of metrics you want to calculate.
+    * @param dataset              : initial DataFrame.
+    * @param continuousAttributes : name list of all variables.
+    * @param operations           : list of metrics you want to calculate.
     * @return DataFrame : DataFrame metric  of all variables by row.
     */
 
-  def computeContinuiousMetric(
-    dataInit: DataFrame,
-    attributes: List[String],
+  def computeContinuousMetric(
+    dataset: DataFrame,
+    continuousAttributes: List[String],
     operations: List[ContinuousMetric]
   ): DataFrame = {
-    val headerDataUse = dataInit.columns.toList
-    val intersectionHeaderAttributes = headerDataUse.intersect(attributes)
-    val listDifference = attributes.filterNot(headerDataUse.contains)
-
-    val attributeChecked = intersectionHeaderAttributes.nonEmpty match {
-      case true => attributes
-      case false =>
-        logger.error(
-          "These attributes are not part of the variable names: " + listDifference.mkString(",")
-        )
-        headerDataUse
-    }
-
+    val attributeChecked = extractMetricsAttributes(dataset, continuousAttributes)
     val colRenamed: List[String] = "Variables" :: operations.map(_.name)
     val metrics: List[Column] =
       attributeChecked.flatMap(name => operations.map(metric => metric.function(col(name))))
-    val metricFrame: DataFrame = dataInit.agg(metrics.head, metrics.tail: _*)
+    val metricFrame: DataFrame = dataset.agg(metrics.head, metrics.tail: _*)
     val matrixMetric =
       attributeChecked
         .map(x => regroupContinuousMetricsByVariable(x, metricFrame))
@@ -332,35 +348,22 @@ object Metrics extends StrictLogging {
 
   /** Function to combine all the partial DataFrame metric by variable (to get one DataFrame by row).
     *
-    * @param dataInit    : initial DataFrame.
-    * @param attributes : name of the variable.
-    * @param operations : list of metrics you want to calculate.
+    * @param dataset            : initial DataFrame.
+    * @param discreteAttributes : name of the variable.
+    * @param operations         : list of metrics you want to calculate.
     * @return DataFrame : DataFrame with alle the metric by variable by row
     */
 
   def computeDiscretMetric(
-    dataInit: DataFrame,
-    attributes: List[String],
+    dataset: DataFrame,
+    discreteAttributes: List[String],
     operations: List[DiscreteMetric]
   ): DataFrame = {
-
-    val headerDataUse = dataInit.columns.toList
-    val intersectionHeaderAttributes = headerDataUse.intersect(attributes)
-    val listDifference = attributes.filterNot(headerDataUse.contains)
-
-    val attributeChecked = intersectionHeaderAttributes.nonEmpty match {
-      case true => attributes
-      case false =>
-        logger.error(
-          "These attributes are not part of the variable names: " + listDifference.mkString(",")
-        )
-        headerDataUse
-    }
-
+    val attributeChecked = extractMetricsAttributes(dataset, discreteAttributes)
     val colRenamed: List[String] = "Variables" :: operations.map(_.name)
     val matrixMetric =
       attributeChecked
-        .map(x => regroupDiscreteMetricsByVariable(dataInit, x, operations))
+        .map(x => regroupDiscreteMetricsByVariable(dataset, x, operations))
         .reduce(_.union(_))
     matrixMetric
       .select(colRenamed.head, colRenamed.tail: _*)
