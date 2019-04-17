@@ -70,13 +70,13 @@ class StatDescJobSpec extends FlatSpec {
     * Descriptive statistics of the dataframe for Quantitative variable:
     */
 
-  val result0 = Metrics.computeContinuiousMetric(
+  val result0 = Metrics.computeContinuousMetric(
     dataInitialUsed,
     listContnuousAttributes,
     Metrics.continuousMetrics
   )
 
-  val result1 = Metrics.computeContinuiousMetric(
+  val result1 = Metrics.computeContinuousMetric(
     dataInitialUsed,
     listContnuousAttributes,
     partialContinuousMetric
@@ -87,7 +87,7 @@ class StatDescJobSpec extends FlatSpec {
     */
   val dimensionTable = (partialContinuousMetric.size + 1) * (listContnuousAttributes.size + 1)
 
-  val dimensionDataframe = (result1.columns.size-1) * (result1
+  val dimensionDataframe = (result1.columns.size - 1) * (result1
     .select(col("Variables"))
     .collect()
     .map(_.getString(0))
