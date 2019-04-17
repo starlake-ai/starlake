@@ -125,11 +125,13 @@ class MetricsJob(
     if (storageHandler.exist(path)) {
       val pathIntermediate = new Path(path.getParent, ".metrics")
       val dataByVariableStored: DataFrame = session.read
-        .option("header", "true")
-        .option("sep", '\t')
-        .csv(path.toString)
+        .parquet(path.toString)
         .union(dataToSave)
-      dataByVariableStored.coalesce(1).write.mode("append").parquet(pathIntermediate.toString)
+      dataByVariableStored
+        .coalesce(1)
+        .write
+        .mode("append")
+        .parquet(pathIntermediate.toString)
       storageHandler.delete(path)
       storageHandler.move(pathIntermediate, path)
       logger.whenDebugEnabled {
@@ -140,10 +142,8 @@ class MetricsJob(
       dataToSave
         .coalesce(1)
         .write
-        .option("header", "true")
-        .option("sep", '\t')
         .mode("append")
-        .csv(path.toString)
+        .parquet(path.toString)
 
     }
   }
@@ -370,7 +370,7 @@ class MetricsJob(
     val discreteDataset =
       Metrics.computeDiscretMetric(dataUse, discAttrs, discreteOps)
     val continuousDataset =
-      discreteMetricTyping(Metrics.computeContinuiousMetric(dataUse, continAttrs, continuousOps))
+      discreteMetricTyping(Metrics.computeContinuousMetric(dataUse, continAttrs, continuousOps))
 
     val allMetricsDf = extractMetrics(
       List(discreteDataset, continuousDataset),
