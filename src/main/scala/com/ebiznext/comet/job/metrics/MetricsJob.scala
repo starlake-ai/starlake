@@ -10,7 +10,6 @@ import org.apache.spark.sql._
 import org.apache.spark.sql.execution.streaming.FileStreamSource.Timestamp
 import org.apache.spark.sql.functions.{col, lit}
 
-
 /**
   *
   * @param domain                : Domain name
@@ -79,7 +78,6 @@ class MetricsJob(
   storageHandler: StorageHandler
 ) extends SparkJob {
 
-
   override def name: String = "Compute metrics job"
 
   /** Function to build the metrics save path
@@ -138,8 +136,16 @@ class MetricsJob(
     * @return Dataframe : that contain the full metrics  with all variables and all metrics
     */
 
-  def generateFullMetric(dataMetric : DataFrame, listAttibutes: List[String], colName: List[Column]): DataFrame= {
-    listAttibutes.foldLeft(dataMetric){(data, nameCol) =>  data.withColumn(nameCol, lit(null) ) }.select(colName:_*)
+  def generateFullMetric(
+    dataMetric: DataFrame,
+    listAttibutes: List[String],
+    colName: List[Column]
+  ): DataFrame = {
+    listAttibutes
+      .foldLeft(dataMetric) { (data, nameCol) =>
+        data.withColumn(nameCol, lit(null))
+      }
+      .select(colName: _*)
 
   }
 
@@ -154,31 +160,96 @@ class MetricsJob(
     * @return
     */
 
-  def unionDisContMetric( discreteDataset : DataFrame,
-                          continuousDataset : DataFrame,
-                          domain: Domain,
-                          schema: Schema,
-                          ingestionTime: Timestamp,
-                          stageState: Stage) : DataFrame= {
+  def unionDisContMetric(
+    discreteDataset: DataFrame,
+    continuousDataset: DataFrame,
+    domain: Domain,
+    schema: Schema,
+    ingestionTime: Timestamp,
+    stageState: Stage
+  ): DataFrame = {
 
-    val listDiscAttrName: List[String] = List("min", "max", "mean", "count", "variance", "standardDev", "sum", "skewness", "kurtosis", "percentile25", "median", "percentile75", "missingValues")
-    val listContAttrName: List[String] = List("category", "countDistinct","countByCategory", "frequencies", "missingValuesDiscrete")
-    val listtotal: List[String] = List("variableName","min", "max", "mean", "count", "variance", "standardDev", "sum", "skewness", "kurtosis", "percentile25", "median", "percentile75", "missingValues","category", "countDistinct","countByCategory", "frequencies", "missingValuesDiscrete")
-    val sortSelectCol : List[String] = List("domain","schema","variableName","min","max", "mean", "count", "missingValues", "standardDev", "variance", "sum", "skewness", "kurtosis", "percentile25", "median", "percentile75", "category", "countDistinct", "countByCategory", "frequencies", "missingValuesDiscrete", "ingestionTime","stageState")
+    val listDiscAttrName: List[String] = List(
+      "min",
+      "max",
+      "mean",
+      "count",
+      "variance",
+      "standardDev",
+      "sum",
+      "skewness",
+      "kurtosis",
+      "percentile25",
+      "median",
+      "percentile75",
+      "missingValues"
+    )
+    val listContAttrName: List[String] =
+      List("category", "countDistinct", "countByCategory", "frequencies", "missingValuesDiscrete")
+    val listtotal: List[String] = List(
+      "variableName",
+      "min",
+      "max",
+      "mean",
+      "count",
+      "variance",
+      "standardDev",
+      "sum",
+      "skewness",
+      "kurtosis",
+      "percentile25",
+      "median",
+      "percentile75",
+      "missingValues",
+      "category",
+      "countDistinct",
+      "countByCategory",
+      "frequencies",
+      "missingValuesDiscrete"
+    )
+    val sortSelectCol: List[String] = List(
+      "domain",
+      "schema",
+      "variableName",
+      "min",
+      "max",
+      "mean",
+      "count",
+      "missingValues",
+      "standardDev",
+      "variance",
+      "sum",
+      "skewness",
+      "kurtosis",
+      "percentile25",
+      "median",
+      "percentile75",
+      "category",
+      "countDistinct",
+      "countByCategory",
+      "frequencies",
+      "missingValuesDiscrete",
+      "ingestionTime",
+      "stageState"
+    )
 
-    val neededColList: List[Column] = listtotal.map(x=> col(x) )
+    val neededColList: List[Column] = listtotal.map(x => col(x))
 
+    val coupleDataMetrics =
+      List((discreteDataset, listDiscAttrName), (continuousDataset, listContAttrName))
 
-    val coupleDataMetrics = List((discreteDataset,listDiscAttrName),(continuousDataset,listContAttrName))
-
-    coupleDataMetrics.map(tupleDataMetric => generateFullMetric(tupleDataMetric._1, tupleDataMetric._2, neededColList)).reduce(_ union _)
+    coupleDataMetrics
+      .map(
+        tupleDataMetric => generateFullMetric(tupleDataMetric._1, tupleDataMetric._2, neededColList)
+      )
+      .reduce(_ union _)
       .withColumn("domain", lit(domain))
       .withColumn("schema", lit(schema))
       .withColumn("ingestionTime", lit(ingestionTime))
-      .withColumn("stageState", lit(stageState)).select(sortSelectCol.head, sortSelectCol.tail: _*)
+      .withColumn("stageState", lit(stageState))
+      .select(sortSelectCol.head, sortSelectCol.tail: _*)
 
   }
-
 
   /**
     * Just to force any spark job to implement its entry point using within the "run" method
@@ -199,15 +270,14 @@ class MetricsJob(
     val continuousOps: List[ContinuousMetric] = Metrics.continuousMetrics
     val savePath: Path = getMetricsPath(Settings.comet.metrics.path)
 
-    val discreteDataset = Metrics.computeDiscretMetric(dataUse, discAttrs, discreteOps)
-    val continuousDataset = Metrics.computeContinuousMetric(dataUse, continAttrs, continuousOps)
+    val discreteDataset: DataFrame = Metrics.computeDiscretMetric(dataUse, discAttrs, discreteOps)
+    val continuousDataset: DataFrame =
+      Metrics.computeContinuousMetric(dataUse, continAttrs, continuousOps)
 
+    val allMetricsDf: DataFrame =
+      unionDisContMetric(discreteDataset, continuousDataset, domain, schema, timestamp, stage)
 
-    val allMetricsDf = unionDisContMetric(discreteDataset, continuousDataset,
-      domain,
-      schema,
-      timestamp,
-      stage)
+    allMetricsDf.show()
 
     save(allMetricsDf, savePath)
     session
