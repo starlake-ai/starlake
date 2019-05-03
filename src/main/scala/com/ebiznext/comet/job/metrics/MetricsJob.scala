@@ -246,8 +246,8 @@ class MetricsJob(
         tupleDataMetric => generateFullMetric(tupleDataMetric._1, tupleDataMetric._2, neededColList)
       )
       .reduce(_ union _)
-      .withColumn("domain", lit(domain))
-      .withColumn("schema", lit(schema))
+      .withColumn("domain", lit(domain.name))
+      .withColumn("schema", lit(schema.name))
       .withColumn("ingestionTime", lit(ingestionTime))
       .withColumn("stageState", lit(stageState))
       .select(sortSelectCol.head, sortSelectCol.tail: _*)
@@ -276,6 +276,16 @@ class MetricsJob(
     val discreteDataset: DataFrame = Metrics.computeDiscretMetric(dataUse, discAttrs, discreteOps)
     val continuousDataset: DataFrame =
       Metrics.computeContinuousMetric(dataUse, continAttrs, continuousOps)
+
+    logger.info("The discret metrics: \n\n ")
+
+    discreteDataset.show()
+
+    logger.info("The Continuous metrics metrics: \n\n ")
+
+    continuousDataset.show()
+
+    logger.info("First's part done: \n\n ")
 
     val allMetricsDf: DataFrame =
       unionDisContMetric(discreteDataset, continuousDataset, domain, schema, timestamp, stage)
