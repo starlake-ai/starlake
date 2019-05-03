@@ -57,7 +57,7 @@ case class MetricRow(
   frequencies: Option[Map[String, Double]],
   missingValuesDiscrete: Option[Long],
   timestamp: Long,
-  stage: Stage
+  stage: String
 )
 
 /** To record statistics with other information during ingestion.
@@ -249,7 +249,7 @@ class MetricsJob(
       .withColumn("domain", lit(domain.name))
       .withColumn("schema", lit(schema.name))
       .withColumn("ingestionTime", lit(ingestionTime))
-      .withColumn("stageState", lit(stageState))
+      .withColumn("stageState", lit(stageState.toString))
       .select(sortSelectCol.head, sortSelectCol.tail: _*)
 
   }
