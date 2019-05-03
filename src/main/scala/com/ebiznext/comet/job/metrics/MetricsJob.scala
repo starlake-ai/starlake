@@ -1,7 +1,7 @@
 package com.ebiznext.comet.job.metrics
 
 import com.ebiznext.comet.config.{DatasetArea, Settings}
-import com.ebiznext.comet.job.metrics.Metrics.{ContinuousMetric, DiscreteMetric}
+import com.ebiznext.comet.job.metrics.Metrics.{logger, ContinuousMetric, DiscreteMetric}
 import com.ebiznext.comet.schema.handlers.StorageHandler
 import com.ebiznext.comet.schema.model.{Domain, Schema, Stage}
 import com.ebiznext.comet.utils.SparkJob
@@ -235,6 +235,9 @@ class MetricsJob(
 
     val neededColList: List[Column] = listtotal.map(x => col(x))
 
+    logger.info(
+      "The liste of Columne: " + neededColList
+    )
     val coupleDataMetrics =
       List((discreteDataset, listDiscAttrName), (continuousDataset, listContAttrName))
 
