@@ -13,31 +13,31 @@ object Metrics extends StrictLogging {
     */
   case class ContinuousMetric(name: String, function: Column => Column)
 
-  object Min extends ContinuousMetric("Min", min)
+  object Min extends ContinuousMetric("min", min)
 
-  object Max extends ContinuousMetric("Max", max)
+  object Max extends ContinuousMetric("max", max)
 
-  object Count extends ContinuousMetric("Count", count)
+  object Count extends ContinuousMetric("count", count)
 
-  object Sum extends ContinuousMetric("Sum", sum)
+  object Sum extends ContinuousMetric("sum", sum)
 
-  object Skewness extends ContinuousMetric("Skewness", skewness)
+  object Skewness extends ContinuousMetric("skewness", skewness)
 
-  object Kurtosis extends ContinuousMetric("Kurtosis", kurtosis)
+  object Kurtosis extends ContinuousMetric("kurtosis", kurtosis)
 
-  object Percentile75 extends ContinuousMetric("Percentile75", percentile75)
+  object Percentile75 extends ContinuousMetric("percentile75", percentile75)
 
-  object Percentile25 extends ContinuousMetric("Percentile25", percentile25)
+  object Percentile25 extends ContinuousMetric("percentile25", percentile25)
 
-  object Median extends ContinuousMetric("Median", customMedian)
+  object Median extends ContinuousMetric("median", customMedian)
 
-  object Mean extends ContinuousMetric("Mean", customMean)
+  object Mean extends ContinuousMetric("mean", customMean)
 
-  object Variance extends ContinuousMetric("Var", customVariance)
+  object Variance extends ContinuousMetric("variance", customVariance)
 
-  object Stddev extends ContinuousMetric("Stddev", customStddev)
+  object Stddev extends ContinuousMetric("standardDev", customStddev)
 
-  object CountMissValues extends ContinuousMetric("CountMissValues", customCountMissValues)
+  object CountMissValues extends ContinuousMetric("missingValues", customCountMissValues)
 
   /** List of all available metrics
     *
@@ -79,7 +79,7 @@ object Metrics extends StrictLogging {
     */
 
   def customMean(e: Column): Column = {
-    customMetric(e: Column, "Mean", mean)
+    customMetric(e: Column, "mean", mean)
   }
 
   /** Customize variance of the column e
@@ -89,7 +89,7 @@ object Metrics extends StrictLogging {
     */
 
   def customVariance(e: Column): Column = {
-    customMetric(e: Column, "Var", variance)
+    customMetric(e: Column, "variance", variance)
   }
 
   /** Customize Stddev of the column e
@@ -99,7 +99,7 @@ object Metrics extends StrictLogging {
     */
 
   def customStddev(e: Column): Column = {
-    customMetric(e: Column, "Stddev", stddev)
+    customMetric(e: Column, "standardDev", stddev)
   }
 
   /** Customize function metric in the case continuous variabes used for : percentile 25, median and percentile75
@@ -130,7 +130,7 @@ object Metrics extends StrictLogging {
     */
 
   def percentile25(e: Column): Column = {
-    customMetricUDF(e: Column, "Percentile25", callUDF, "percentile_approx", 0.25)
+    customMetricUDF(e: Column, "percentile25", callUDF, "percentile_approx", 0.25)
   }
 
   /** Customize Median of the column e
@@ -140,7 +140,7 @@ object Metrics extends StrictLogging {
     */
 
   def customMedian(e: Column): Column = {
-    customMetricUDF(e: Column, "Median", callUDF, "percentile_approx", 0.50)
+    customMetricUDF(e: Column, "median", callUDF, "percentile_approx", 0.50)
   }
 
   /** Customize percentile of order 0.75 of the column e
@@ -150,7 +150,7 @@ object Metrics extends StrictLogging {
     */
 
   def percentile75(e: Column): Column = {
-    customMetricUDF(e: Column, "Percentile75", callUDF, "percentile_approx", 0.75)
+    customMetricUDF(e: Column, "percentile75", callUDF, "percentile_approx", 0.75)
   }
 
   /** Customize missing values
@@ -160,7 +160,7 @@ object Metrics extends StrictLogging {
     */
   def customCountMissValues(e: Column): Column = {
     val nameCol = e.toString()
-    val aliasCountMissValues: String = "CountMissValues" + "(" + nameCol + ")"
+    val aliasCountMissValues: String = "missingValues" + "(" + nameCol + ")"
     val unionMissingValues = sum(
       when(
         e.isNull
@@ -190,7 +190,7 @@ object Metrics extends StrictLogging {
       selectedListColumns.columns.map(c => bround(col(c), 3).alias(c)): _*
     )
     //Add column Variables that contains the nameCol
-    val addVariablesColumn: DataFrame = broundColumns.withColumn("Variables", lit(nameCol))
+    val addVariablesColumn: DataFrame = broundColumns.withColumn("variableName", lit(nameCol))
     //Remove nameCol to keep only the metric name foreach metric.
     val removeNameColumnMetric = addVariablesColumn.columns.toList
       .map(str => str.replaceAll("\\(" + nameCol + "\\)", ""))
@@ -241,7 +241,7 @@ object Metrics extends StrictLogging {
     operations: List[ContinuousMetric]
   ): DataFrame = {
     val attributeChecked = extractMetricsAttributes(dataset, continuousAttributes)
-    val colRenamed: List[String] = "Variables" :: operations.map(_.name)
+    val colRenamed: List[String] = "variableName" :: operations.map(_.name)
     val metrics: List[Column] =
       attributeChecked.flatMap(name => operations.map(metric => metric.function(col(name))))
     val metricFrame: DataFrame = dataset.agg(metrics.head, metrics.tail: _*)
@@ -273,7 +273,7 @@ object Metrics extends StrictLogging {
     */
 
   val discreteMetrics: List[DiscreteMetric] =
-    List(Category,CountDistinct, CountDiscrete, Frequencies, CountMissValuesDiscrete)
+    List(Category, CountDistinct, CountDiscrete, Frequencies, CountMissValuesDiscrete)
 
   /** Function to compute the Dataframe metric by variable
     *
