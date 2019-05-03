@@ -277,20 +277,10 @@ class MetricsJob(
     val continuousDataset: DataFrame =
       Metrics.computeContinuousMetric(dataUse, continAttrs, continuousOps)
 
-    logger.info("The discret metrics: \n\n ")
-
-    discreteDataset.show()
-
-    logger.info("The Continuous metrics metrics: \n\n ")
-
-    continuousDataset.show()
-
-    logger.info("First's part done: \n\n ")
 
     val allMetricsDf: DataFrame =
       unionDisContMetric(discreteDataset, continuousDataset, domain, schema, timestamp, stage)
 
-    allMetricsDf.show()
 
     save(allMetricsDf, savePath)
     session
