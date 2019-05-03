@@ -1,12 +1,36 @@
 package com.ebiznext.comet.schema.handlers
 
-import com.ebiznext.comet.TestHelper
 import com.ebiznext.comet.job.metrics.Metrics
+import org.apache.log4j.{Level, Logger}
+import org.apache.spark.SparkConf
+import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.functions._
+import org.scalatest.FlatSpec
+
 import scala.reflect.runtime.universe._
 
-class StatDescJobSpec extends TestHelper {
+class StatDescJobSpec extends FlatSpec {
 
+  /**
+    * Custom Log Levels
+    */
+  Logger.getLogger("org").setLevel(Level.OFF)
+  Logger.getLogger("akka").setLevel(Level.OFF)
+  Logger.getLogger("org.apache.spark").setLevel(Level.OFF)
+
+  /**
+    * Spark configuration
+    */
+
+  val conf = new SparkConf() // set the configuration
+    .setAppName("Statistic Summary")
+    .setMaster("local[*]")
+
+  val spark = SparkSession // init sparksession
+    .builder
+    .config(conf)
+    .appName("readxlsx")
+    .getOrCreate()
 
   /** Function to get the Type
     *
@@ -36,7 +60,7 @@ class StatDescJobSpec extends TestHelper {
     *  Read the data .csv
     */
 
-  val dataInitialUsed = sparkSession.read
+  val dataInitialUsed = spark.read
     .format("csv")
     .option("header", "true") //reading the headers
     .option("mode", "DROPMALFORMED")
