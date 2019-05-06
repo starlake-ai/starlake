@@ -1,7 +1,7 @@
 package com.ebiznext.comet.job.metrics
 
 import com.ebiznext.comet.config.{DatasetArea, Settings}
-import com.ebiznext.comet.job.metrics.Metrics.{logger, ContinuousMetric, DiscreteMetric}
+import com.ebiznext.comet.job.metrics.Metrics.{ContinuousMetric, DiscreteMetric}
 import com.ebiznext.comet.schema.handlers.StorageHandler
 import com.ebiznext.comet.schema.model.{Domain, Schema, Stage}
 import com.ebiznext.comet.utils.SparkJob
@@ -9,56 +9,6 @@ import org.apache.hadoop.fs.Path
 import org.apache.spark.sql._
 import org.apache.spark.sql.execution.streaming.FileStreamSource.Timestamp
 import org.apache.spark.sql.functions.{col, lit}
-
-/**
-  *
-  * @param domain                : Domain name
-  * @param schema                : Schema
-  * @param variableName          : Variable name from the attributes
-  * @param min                   : Min metric
-  * @param max                   : Max metric
-  * @param mean                  : Mean metric
-  * @param count                 : Count metric
-  * @param missingValues         : Missing Values metric
-  * @param variance              : Variance metric
-  * @param standardDev           : Standard deviation metric
-  * @param sum                   : Sum metric
-  * @param skewness              : Skewness metric
-  * @param kurtosis              : Kurtosis metric
-  * @param percentile25          : Percentile25 metric
-  * @param median                : Median metric
-  * @param percentile75          : Percentile75 metric
-  * @param category              : Category metric
-  * @param countDistinct         : Count Distinct metric
-  * @param countByCategory       : Count By Category metric
-  * @param frequencies           : Frequency metric
-  * @param missingValuesDiscrete : Missing Values Discrete metric
-  */
-case class MetricRow(
-  domain: String,
-  schema: String,
-  variableName: String,
-  min: Option[Double],
-  max: Option[Double],
-  mean: Option[Double],
-  count: Option[Long],
-  missingValues: Option[Long],
-  variance: Option[Double],
-  standardDev: Option[Double],
-  sum: Option[Double],
-  skewness: Option[Double],
-  kurtosis: Option[Double],
-  percentile25: Option[Double],
-  median: Option[Double],
-  percentile75: Option[Double],
-  category: Option[List[String]],
-  countDistinct: Option[Long],
-  countByCategory: Option[Map[String, Long]],
-  frequencies: Option[Map[String, Double]],
-  missingValuesDiscrete: Option[Long],
-  timestamp: Long,
-  stage: String
-)
 
 /** To record statistics with other information during ingestion.
   *
@@ -277,10 +227,8 @@ class MetricsJob(
     val continuousDataset: DataFrame =
       Metrics.computeContinuousMetric(dataUse, continAttrs, continuousOps)
 
-
     val allMetricsDf: DataFrame =
       unionDisContMetric(discreteDataset, continuousDataset, domain, schema, timestamp, stage)
-
 
     save(allMetricsDf, savePath)
     session
