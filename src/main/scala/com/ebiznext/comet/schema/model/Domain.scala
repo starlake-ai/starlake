@@ -116,7 +116,7 @@ case class Domain(
 
     // Check Schema validity
     schemas.foreach { schema =>
-      for (errors <- schema.checkValidity(types).left) {
+      for (errors <- schema.checkValidity(types, this.metadata).left) {
         errorList ++= errors
       }
     }

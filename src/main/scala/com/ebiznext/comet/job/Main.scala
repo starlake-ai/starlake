@@ -20,6 +20,8 @@
 
 package com.ebiznext.comet.job
 
+import java.io.File
+
 import com.ebiznext.comet.config.{DatasetArea, Settings}
 import com.ebiznext.comet.job.index.IndexConfig
 import com.ebiznext.comet.job.infer.InferSchemaConfig

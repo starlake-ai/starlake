@@ -24,11 +24,11 @@ import better.files._
 import com.ebiznext.comet.config.{DatasetArea, Settings}
 import com.ebiznext.comet.job.index.{IndexConfig, IndexJob}
 import com.ebiznext.comet.job.infer.{InferConfig, InferSchema}
-import com.ebiznext.comet.job.ingest.{DsvIngestionJob, JsonIngestionJob, SimpleJsonIngestionJob}
+import com.ebiznext.comet.job.ingest.{DsvIngestionJob, JsonIngestionJob, PositionIngestionJob, SimpleJsonIngestionJob}
 import com.ebiznext.comet.job.metrics.{MetricsConfig, MetricsJob}
 import com.ebiznext.comet.job.transform.AutoJob
 import com.ebiznext.comet.schema.handlers.{LaunchHandler, SchemaHandler, StorageHandler}
-import com.ebiznext.comet.schema.model.Format.{DSV, JSON, SIMPLE_JSON}
+import com.ebiznext.comet.schema.model.Format.{DSV, JSON, POSITION, SIMPLE_JSON}
 import com.ebiznext.comet.schema.model._
 import com.ebiznext.comet.utils.Utils
 import com.typesafe.scalalogging.StrictLogging
@@ -49,10 +49,10 @@ import scala.util.{Failure, Success, Try}
   * @param launchHandler  : Cron Manager interface
   */
 class IngestionWorkflow(
-  storageHandler: StorageHandler,
-  schemaHandler: SchemaHandler,
-  launchHandler: LaunchHandler
-) extends StrictLogging {
+                         storageHandler: StorageHandler,
+                         schemaHandler: SchemaHandler,
+                         launchHandler: LaunchHandler
+                       ) extends StrictLogging {
   val domains: List[Domain] = schemaHandler.domains
 
   /**
@@ -79,7 +79,8 @@ class IngestionWorkflow(
           domain.getExtensions().map(ext => File(prefixStr + ext))
         val existRawFile = rawFormats.find(file => file.exists)
         logger.info(s"Found ack file $ackFile")
-        ackFile.delete()
+        if (!domain.getAck().isEmpty)
+          ackFile.delete()
         if (gz.exists) {
           logger.info(s"Found compressed file $gz")
           gz.unGzipTo(tmpDir)
@@ -150,14 +151,17 @@ class IngestionWorkflow(
       // We group files with the same schema to ingest them together in a single step.
       val groupedResolved: Map[Schema, Iterable[Path]] = resolved.map {
         case (Some(schema), path) => (schema, path)
-        case (None, _)            => throw new Exception("Should never happen")
+        case (None, _) => throw new Exception("Should never happen")
       } groupBy (_._1) mapValues (it => it.map(_._2))
 
       groupedResolved.foreach {
         case (schema, pendingPaths) =>
-          logger.info(s"""Ingest resolved file : ${pendingPaths
-            .map(_.getName)
-            .mkString(",")} with schema ${schema.name}""")
+          logger.info(
+            s"""Ingest resolved file : ${
+              pendingPaths
+                .map(_.getName)
+                .mkString(",")
+            } with schema ${schema.name}""")
           val ingestingPaths = pendingPaths.map { pendingPath =>
             val ingestingPath = new Path(DatasetArea.ingesting(domain.name), pendingPath.getName)
             if (!storageHandler.move(pendingPath, ingestingPath)) {
@@ -185,8 +189,8 @@ class IngestionWorkflow(
     * @return resolved && unresolved schemas / path
     */
   private def pending(
-    domainName: String
-  ): (Iterable[(Option[Schema], Path)], Iterable[(Option[Schema], Path)]) = {
+                       domainName: String
+                     ): (Iterable[(Option[Schema], Path)], Iterable[(Option[Schema], Path)]) = {
     val pendingArea = DatasetArea.pending(domainName)
     logger.info(s"List files in $pendingArea")
     val paths = storageHandler.list(pendingArea)
@@ -247,6 +251,8 @@ class IngestionWorkflow(
       case JSON =>
         new JsonIngestionJob(domain, schema, schemaHandler.types, ingestingPath, storageHandler)
           .run()
+      case POSITION =>
+        new PositionIngestionJob(domain, schema, schemaHandler.types, ingestingPath, storageHandler).run()
       case _ =>
         throw new Exception("Should never happen")
     })
@@ -308,7 +314,7 @@ class IngestionWorkflow(
   def autoJob(jobname: String): Unit = {
     val job = schemaHandler.jobs(jobname)
     job.tasks.foreach { task =>
-      val action = new AutoJob(job.name, job.getArea(), task)
+      val action = new AutoJob(job.name, job.getArea(), task, storageHandler)
       action.run()
       if (task.isIndexed() && Settings.comet.elasticsearch.active) {
         index(job, task)
@@ -323,7 +329,7 @@ class IngestionWorkflow(
     */
   def autoJob(job: AutoJobDesc): Unit = {
     job.tasks.foreach { task =>
-      val action = new AutoJob(job.name, job.getArea(), task)
+      val action = new AutoJob(job.name, job.getArea(), task, storageHandler)
       action.run()
       index(job, task)
     }

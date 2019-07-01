@@ -20,7 +20,7 @@
 
 package com.ebiznext.comet.schema.model
 
-import java.io.InputStream
+import java.io.{InputStream, StringWriter}
 
 import com.ebiznext.comet.TestHelper
 import org.scalatest.{FlatSpec, Matchers}
@@ -58,11 +58,11 @@ class SchemaSpec extends FlatSpec with Matchers with TestHelper {
       Some(PrivacyLevel.MD5) // Should raise an error. Privacy cannot be applied on types other than string
     )
     attr.checkValidity(types.types) shouldBe
-    Left(
-      List(
-        "Attribute Attribute(attr,long,Some(true),true,Some(MD5),None,None,None,None) : string is the only supported primitive type for an attribute when privacy is requested"
+      Left(
+        List(
+          "Attribute Attribute(attr,long,Some(true),true,Some(MD5),None,None,None,None) : string is the only supported primitive type for an attribute when privacy is requested"
+        )
       )
-    )
   }
 
   "Sub Attribute" should "be present for struct types only" in {
@@ -87,4 +87,29 @@ class SchemaSpec extends FlatSpec with Matchers with TestHelper {
 
     attr.checkValidity(types.types) shouldBe Left(expectedErrors)
   }
+
+  "Position serialization" should "output all fields" in {
+    val yml =
+      """---
+        |name: "hello"
+        |type: "string"
+        |array: false
+        |required: true
+        |privacy: "NONE"
+        |comment: null
+        |rename: null
+        |metricType: null
+        |attributes: null
+        |position:
+        |  first: 1
+        |  last: 2
+        |  ltrim: true
+        |  rtrim: true""".stripMargin
+
+    val attr = Attribute("hello", position = Some(Position(1, 2)))
+    val writer = new StringWriter()
+    mapper.writer().writeValue(writer, attr)
+    writer.toString.trim should equal(yml)
+  }
+
 }
