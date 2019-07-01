@@ -4,10 +4,10 @@ import com.ebiznext.comet.TestHelper
 import com.ebiznext.comet.job.metrics.Metrics._
 import org.apache.spark.sql.functions._
 
-class StatDescJobSpec extends TestHelper  {
+class StatDescJobSpec extends TestHelper {
 
   /**
-    *  Inputs for the test :  Header (list of the variable) and Metrics (Metrics to use)
+    * Inputs for the test :  Header (list of the variable) and Metrics (Metrics to use)
     */
 
   val listContnuousAttributes: List[String] =
@@ -17,7 +17,7 @@ class StatDescJobSpec extends TestHelper  {
   val partialContinuousMetric: List[ContinuousMetric] = List(Min, Max)
 
   /**
-    *  Read the data .csv
+    * Read the data .csv
     */
 
   val dataInitialUsed = sparkSession.read
@@ -25,7 +25,6 @@ class StatDescJobSpec extends TestHelper  {
     .option("header", "true") //reading the headers
     .option("mode", "DROPMALFORMED")
     .load("./src/test/resources/iris.csv")
-
 
   /**
     * Descriptive statistics of the dataframe for Quantitative variable:
@@ -44,71 +43,80 @@ class StatDescJobSpec extends TestHelper  {
   )
 
   /**
-    *  1- test : Test on the mean of the dimension
+    * 1- test : Test on the mean of the dimension
     */
   val dimensionTable = (partialContinuousMetric.size + 1) * (listContnuousAttributes.size + 1)
 
-  val dimensionDataframe = (result1.columns.size - 1) * (result1
-    .select(col("variableName"))
-    .collect()
-    .map(_.getString(0))
-    .toList
-    .size + 1)
+  val dimensionDataframe = result1.map { result1 =>
+    (result1.columns.size - 1) * (result1
+      .select(col("attribute"))
+      .collect()
+      .map(_.getString(0))
+      .toList
+      .size + 1)
+  }
 
   "The size  of the Table " should "be tested" in {
-    assert(dimensionTable - dimensionDataframe == 0)
+    assert(dimensionTable - dimensionDataframe.getOrElse(0) == 0)
   }
 
   /**
-    *  2- test : Test for all values of the Mean
+    * 2- test : Test for all values of the Mean
     */
 
   val meanList: List[Double] =
     listContnuousAttributes.map(name => dataInitialUsed.select(avg(name)).first().getDouble(0))
 
-  val meanListTable: List[Double] = result0.select(col("mean")).collect().map(_.getDouble(0)).toList
+  val meanListTable: List[Double] = result0.map { result0 =>
+    result0.select(col("mean")).collect().map(_.getDouble(0)).toList
+  } getOrElse (Nil)
 
   "All values of The Mean " should "be tested" in {
     assert(meanList.zip(meanListTable).map(x => x._1 - x._2).sum <= 0.00001)
   }
 
   /**
-    *  3- test : Test for all values of the Min
+    * 3- test : Test for all values of the Min
     */
 
   val minList: List[Double] = listContnuousAttributes.map(
     name => dataInitialUsed.select(min(name)).first().getString(0).toDouble
   )
 
-  val minListTable: List[Double] = result0.select(col("min")).collect().map(_.getDouble(0)).toList
+  val minListTable: List[Double] = result0.map { result0 =>
+    result0.select(col("min")).collect().map(_.getDouble(0)).toList
+  } getOrElse (Nil)
 
   "All values of The Min" should "be tested" in {
     assert(minList.zip(minListTable).map(x => x._1 - x._2).sum <= 0.00001)
   }
 
   /**
-    *  4- test : Test for all values of the Max
+    * 4- test : Test for all values of the Max
     */
 
   val maxList: List[Double] = listContnuousAttributes.map(
     name => dataInitialUsed.select(max(name)).first().getString(0).toDouble
   )
 
-  val maxListTable: List[Double] = result0.select(col("max")).collect().map(_.getDouble(0)).toList
+  val maxListTable: List[Double] = result0.map { result0 =>
+    result0.select(col("max")).collect().map(_.getDouble(0)).toList
+  } getOrElse (Nil)
 
   "All values of The Max" should "be tested" in {
     assert(maxList.zip(maxListTable).map(x => x._1 - x._2).sum <= 0.00001)
   }
 
   /**
-    *  5- test : Test for all values of the standardDev
+    * 5- test : Test for all values of the standardDev
     */
 
   val stddevList: List[Double] =
     listContnuousAttributes.map(name => dataInitialUsed.select(stddev(name)).first().getDouble(0))
 
-  val stddevListTable: List[Double] =
+  val stddevListTable: List[Double] = result0.map { result0 =>
     result0.select(col("standardDev")).collect().map(_.getDouble(0)).toList
+  } getOrElse Nil
 
   "All values of The standardDev" should "be tested" in {
     assert(stddevList.zip(stddevListTable).map(x => x._1 - x._2).sum <= 0.001)
@@ -121,9 +129,9 @@ class StatDescJobSpec extends TestHelper  {
   val skewnessList: List[Double] =
     listContnuousAttributes.map(name => dataInitialUsed.select(skewness(name)).first().getDouble(0))
 
-  val skewnessListTable: List[Double] =
+  val skewnessListTable: List[Double] = result0.map { result0 =>
     result0.select(col("skewness")).collect().map(_.getDouble(0)).toList
-
+  } getOrElse (Nil)
   "All values of The Skewness" should "be tested" in {
     assert(skewnessList.zip(skewnessListTable).map(x => x._1 - x._2).sum <= 0.001)
   }
@@ -135,8 +143,9 @@ class StatDescJobSpec extends TestHelper  {
   val kurtosisList: List[Double] =
     listContnuousAttributes.map(name => dataInitialUsed.select(kurtosis(name)).first().getDouble(0))
 
-  val kurtosisListTable: List[Double] =
+  val kurtosisListTable: List[Double] = result0.map { result0 =>
     result0.select(col("kurtosis")).collect().map(_.getDouble(0)).toList
+  } getOrElse (Nil)
 
   "All values of The Kurtosis" should "be tested" in {
     assert(kurtosisList.zip(kurtosisListTable).map(x => x._1 - x._2).sum <= 0.001)
