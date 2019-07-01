@@ -20,6 +20,8 @@
 
 package com.ebiznext.comet.schema.handlers
 
+import java.io.File
+
 import com.ebiznext.comet.TestHelper
 import com.ebiznext.comet.schema.model._
 import org.apache.hadoop.fs.Path
