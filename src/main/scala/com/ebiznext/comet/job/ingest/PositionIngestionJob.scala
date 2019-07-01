@@ -31,7 +31,7 @@ import org.apache.hadoop.fs.Path
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql._
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
-import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.types.{StringType, StructField, StructType}
 
 import scala.util.{Failure, Success, Try}
 
@@ -44,96 +44,28 @@ import scala.util.{Failure, Success, Try}
   * @param path           : Input dataset path
   * @param storageHandler : Storage Handler
   */
-class DsvIngestionJob(
-  val domain: Domain,
-  val schema: Schema,
-  val types: List[Type],
-  val path: List[Path],
-  val storageHandler: StorageHandler
-) extends IngestionJob {
-
-  /**
-    *
-    * @return Spark Job name
-    */
-  override def name: String =
-    s"""${domain.name}-${schema.name}-${path.map(_.getName).mkString(",")}"""
-
-  /**
-    * dataset Header names as defined by the schema
-    */
-  val schemaHeaders: List[String] = schema.attributes.map(_.name)
-
-  /**
-    * remove any extra quote / BOM in the header
-    *
-    * @param header : Header column name
-    * @return
-    */
-  def cleanHeaderCol(header: String): String =
-    header.replaceAll("\"", "").replaceAll("\uFEFF", "")
-
-  /**
-    *
-    * @param datasetHeaders : Headers found in the dataset
-    * @param schemaHeaders  : Headers defined in the schema
-    * @return success  if all headers in the schema exist in the dataset
-    */
-  def validateHeader(datasetHeaders: List[String], schemaHeaders: List[String]): Boolean = {
-    schemaHeaders.forall(schemaHeader => datasetHeaders.contains(schemaHeader))
-  }
-
-  /**
-    *
-    * @param datasetHeaders : Headers found in the dataset
-    * @param schemaHeaders  : Headers defined in the schema
-    * @return two lists : One with thecolumns present in the schema and the dataset and onther with the headers present in the dataset only
-    */
-  def intersectHeaders(
-    datasetHeaders: List[String],
-    schemaHeaders: List[String]
-  ): (List[String], List[String]) = {
-    datasetHeaders.partition(schemaHeaders.contains)
-  }
-
+class PositionIngestionJob(
+                            domain: Domain,
+                            schema: Schema,
+                            types: List[Type],
+                            path: List[Path],
+                            storageHandler: StorageHandler
+                          ) extends DsvIngestionJob(domain, schema, types, path, storageHandler) {
   /**
     * Load dataset using spark csv reader and all metadata. Does not infer schema.
     * columns not defined in the schema are dropped fro the dataset (require datsets with a header)
     *
-    * @return Spark Dataset
+    * @return Spark DataFrame where each row holds a single string
     */
-  def loadDataSet(): Try[DataFrame] = {
+  override def loadDataSet(): Try[DataFrame] = {
     try {
-      val df = session.read
-        .format("com.databricks.spark.csv")
-        .option("header", metadata.isWithHeader().toString)
-        .option("inferSchema", value = false)
-        .option("delimiter", metadata.getSeparator())
-        .option("quote", metadata.getQuote())
-        .option("escape", metadata.getEscape())
-        .option("parserLib", "UNIVOCITY")
-        .csv(path.map(_.toString): _*)
-      df.printSchema()
-
-      val resDF = metadata.withHeader match {
+      val df = session.read.text(path.map(_.toString): _*)
+      metadata.withHeader match {
         case Some(true) =>
-          val datasetHeaders: List[String] = df.columns.toList.map(cleanHeaderCol)
-          val (_, drop) = intersectHeaders(datasetHeaders, schemaHeaders)
-          if (datasetHeaders.length == drop.length) {
-            throw new Exception(s"""No attribute found in input dataset ${path.toString}
-                 | SchemaHeaders : ${schemaHeaders.mkString(",")}
-                 | Dataset Headers : ${datasetHeaders.mkString(",")}
-             """.stripMargin)
-          }
-          df.drop(drop: _*)
+          Failure(new Exception("No Header allowed for Position File Format "))
         case Some(false) | None =>
-          df.toDF(
-            schema.attributes
-              .map(_.name)
-              .take(Math.min(df.columns.length, schema.attributes.length)): _*
-          )
+          Success(df)
       }
-      Success(resDF)
     } catch {
       case e: Exception =>
         Failure(e)
@@ -145,9 +77,13 @@ class DsvIngestionJob(
     * Apply the schema to the dataset. This is where all the magic happen
     * Valid records are stored in the accepted path / table and invalid records in the rejected path / table
     *
-    * @param dataset : Spark Dataset
+    * @param input : Spark Dataset
     */
-  def ingest(dataset: DataFrame): (RDD[_], RDD[_]) = {
+  override def ingest(input: DataFrame): (RDD[_], RDD[_]) = {
+
+    val dataset: DataFrame = PositionIngestionUtil.prepare(session, input, schema.attributes)
+
+
     def reorderAttributes(): List[Attribute] = {
       val attributesMap =
         this.schema.attributes.map(attr => (attr.name, attr)).toMap
@@ -167,7 +103,7 @@ class DsvIngestionJob(
 
     val (orderedTypes, orderedSparkTypes) = reorderTypes()
 
-    val (rejectedRDD, acceptedRDD) = DsvIngestionUtil.validate(
+    val (rejectedRDD, acceptedRDD) = PositionIngestionUtil.validate(
       session,
       dataset,
       orderedAttributes,
@@ -179,29 +115,38 @@ class DsvIngestionJob(
     (rejectedRDD, acceptedRDD)
   }
 
-  def saveAccepted(acceptedRDD: RDD[Row], orderedSparkTypes: StructType): Unit = {
-    val renamedAttributes = schema.renamedAttributes().toMap
-    logger.whenInfoEnabled {
-      renamedAttributes.foreach {
-        case (name, rename) =>
-          logger.info(s"renaming column $name to $rename")
-      }
-    }
-    val acceptedDF = session.createDataFrame(acceptedRDD, orderedSparkTypes)
-    val cols = acceptedDF.columns.map { column =>
-      org.apache.spark.sql.functions
-        .col(column)
-        .as(renamedAttributes.getOrElse(column, column))
-    }
-    super.saveAccepted(acceptedDF.select(cols: _*))
-  }
-
 }
 
 /**
   * The Spark task that run on each worker
   */
-object DsvIngestionUtil {
+object PositionIngestionUtil {
+
+  def prepare(session: SparkSession, input: DataFrame, attributes: List[Attribute]) = {
+    def getRow(x: String, positions: List[Position]): Row = {
+      val columnArray = new Array[String](positions.length)
+      if (positions.last.first >= x.length)
+        Row.fromSeq(columnArray)
+      else {
+        for (i <- positions.indices) {
+          columnArray(i) = x.substring(positions(i).first, positions(i).last + 1)
+        }
+        Row.fromSeq(columnArray)
+      }
+    }
+
+    val positions = attributes.map(_.position.get)
+    val fieldTypeArray = new Array[StructField](positions.length)
+    for (i <- attributes.indices) {
+      fieldTypeArray(i) = StructField(s"col$i", StringType)
+    }
+    val rdd = input.rdd.map {
+      row => getRow(row.getString(0), positions)
+    }
+
+    val dataset = session.createDataFrame(rdd, StructType(fieldTypeArray)).toDF(attributes.map(_.name): _*)
+    dataset
+  }
 
   /**
     * For each col of each row
@@ -219,12 +164,12 @@ object DsvIngestionUtil {
     * @return Two RDDs : One RDD for rejected rows and one RDD for accepted rows
     */
   def validate(
-    session: SparkSession,
-    dataset: DataFrame,
-    attributes: List[Attribute],
-    types: List[Type],
-    sparkType: StructType
-  ): (RDD[String], RDD[Row]) = {
+                session: SparkSession,
+                dataset: DataFrame,
+                attributes: List[Attribute],
+                types: List[Type],
+                sparkType: StructType
+              ): (RDD[String], RDD[Row]) = {
     val now = Timestamp.from(Instant.now)
     val checkedRDD: RDD[RowResult] = dataset.rdd.mapPartitions { partition =>
       partition.map { row: Row =>
@@ -264,9 +209,10 @@ object DsvIngestionUtil {
               val colPatternOK = validNumberOfColumns && (optionalColIsEmpty || colPatternIsValid)
               val (sparkValue, colParseOK) =
                 if (colPatternOK) {
+                  val x = tpe.sparkValue(privacy)
                   Try(tpe.sparkValue(privacy)) match {
                     case Success(res) => (res, true)
-                    case Failure(_)   => (null, false)
+                    case Failure(_) => (null, false)
                   }
                 } else
                   (null, false)
@@ -283,7 +229,7 @@ object DsvIngestionUtil {
           }.toList
         )
       }
-    } cache ()
+    } cache()
 
     val rejectedRDD: RDD[String] = checkedRDD
       .filter(_.isRejected)

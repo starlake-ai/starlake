@@ -1,0 +1,103 @@
+---
+name: "position"
+directory: "/tmp/position"
+ack: ""
+metadata:
+  mode: "FILE"
+  format: "POSITION"
+  withHeader: false
+  separator: "|"
+  quote: "\""
+  escape: "\\"
+  write: "OVERWRITE"
+  partition:
+    sampling: 0.5
+    attributes:
+      - comet_year
+      - comet_month
+      - comet_day
+schemas:
+  - name: "account"
+    pattern: ".*TBL"
+    attributes:
+      - name: "code0"
+        type: "byte"
+        required: true
+        privacy: "NONE"
+        position:
+          first: 0
+          last: 0
+          ltrim: false
+          rtrim: false
+      - name: "code1"
+        type: "byte"
+        required: true
+        privacy: "NONE"
+        position:
+          first: 1
+          last: 1
+          ltrim: false
+          rtrim: false
+      - name: "code2"
+        type: "byte"
+        required: true
+        privacy: "NONE"
+        position:
+          first: 2
+          last: 2
+          ltrim: false
+          rtrim: false
+      - name: "bancode"
+        type: "string"
+        required: true
+        privacy: "NONE"
+        position:
+          first: 3
+          last: 7
+          ltrim: false
+          rtrim: false
+      - name: "account"
+        type: "string"
+        required: true
+        privacy: "NONE"
+        position:
+          first: 8
+          last: 26
+          ltrim: false
+          rtrim: false
+      - name: "date1"
+        type: "datefr"
+        required: true
+        privacy: "NONE"
+        position:
+          first: 27
+          last: 36
+          ltrim: false
+          rtrim: false
+      - name: "dtcode"
+        type: "byte"
+        required: true
+        privacy: "NONE"
+        position:
+          first: 37
+          last: 37
+          ltrim: false
+          rtrim: false
+      - name: "date2"
+        type: "datefr"
+        required: true
+        privacy: "NONE"
+        position:
+          first: 38
+          last: 47
+          ltrim: false
+          rtrim: false
+      - name: "date3"
+        type: "datefr"
+        required: true
+        privacy: "NONE"
+        position:
+          first: 48
+          last: 57
+          ltrim: false
+          rtrim: false
