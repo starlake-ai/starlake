@@ -137,7 +137,7 @@ object PrimitiveType {
   object byte extends PrimitiveType("byte") {
 
     def fromString(str: String, dateFormat: String): Any =
-      if (str == null || str.isEmpty) null else str.toByte
+      if (str == null || str.isEmpty) null else str.head.toByte
 
     def sparkType: DataType = ByteType
   }

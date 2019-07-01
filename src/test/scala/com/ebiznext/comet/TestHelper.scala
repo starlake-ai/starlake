@@ -211,6 +211,7 @@ trait TestHelper extends FlatSpec with Matchers with BeforeAndAfterAll {
     new File("/tmp/DOMAIN").mkdir()
     new File("/tmp/dream").mkdir()
     new File("/tmp/json").mkdir()
+    new File("/tmp/position").mkdir()
 
     DatasetArea.init(storageHandler)
   }
