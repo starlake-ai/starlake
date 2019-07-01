@@ -37,8 +37,9 @@ import scala.collection.mutable
   * @param privacy    : Shoudl this attribute be applied a privacy transformaiton at ingestion time
   * @param comment    : free text for attribute description
   * @param rename     : If present, the attribute is renamed with this name
-  * @param stat       : If present, what kind of stat should be computed for this field
+  * @param metricType       : If present, what kind of stat should be computed for this field
   * @param attributes : List of sub-attributes
+  * @param position   : Valid only where file format is POSITION
   */
 case class Attribute(
   name: String,
@@ -49,7 +50,8 @@ case class Attribute(
   comment: Option[String] = None,
   rename: Option[String] = None,
   metricType: Option[MetricType] = None,
-  attributes: Option[List[Attribute]] = None
+  attributes: Option[List[Attribute]] = None,
+  position: Option[Position] = None
 ) {
 
   /**
@@ -101,7 +103,6 @@ case class Attribute(
     *
     * Spark Type if this attribute is a primitive type of array of primitive type
     *
-    * @param types : List of gloablly defined types
     * @return Primitive type if attribute is a leaf node or array of primitive type, None otherwise
     */
   def primitiveSparkType(): DataType = {
