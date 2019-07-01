@@ -46,15 +46,15 @@ case class MergeOptions(key: List[String], delete: Option[String] = None)
   * @param postsql    : SQL code executed right after the file has been ingested
   */
 case class Schema(
-  name: String,
-  pattern: Pattern,
-  attributes: List[Attribute],
-  metadata: Option[Metadata],
-  merge: Option[MergeOptions],
-  comment: Option[String],
-  presql: Option[List[String]],
-  postsql: Option[List[String]]
-) {
+                   name: String,
+                   pattern: Pattern,
+                   attributes: List[Attribute],
+                   metadata: Option[Metadata],
+                   merge: Option[MergeOptions],
+                   comment: Option[String],
+                   presql: Option[List[String]],
+                   postsql: Option[List[String]]
+                 ) {
 
   /**
     * @return Are the parittions columns defined in the metadata valid column names
@@ -73,7 +73,6 @@ case class Schema(
   /**
     * This Schema as a Spark Catalyst Schema
     *
-    * @param types : globally defined types
     * @return Spark Catalyst Schema
     */
   def sparkType(): StructType = {
@@ -103,7 +102,7 @@ case class Schema(
     * @param types : List of globally defined types
     * @return error list or true
     */
-  def checkValidity(types: List[Type]): Either[List[String], Boolean] = {
+  def checkValidity(types: List[Type], domainMetaData: Option[Metadata]): Either[List[String], Boolean] = {
     val errorList: mutable.MutableList[String] = mutable.MutableList.empty
     val tableNamePattern = Pattern.compile("[a-zA-Z][a-zA-Z0-9_]{1,256}")
     if (!tableNamePattern.matcher(name).matches())
@@ -120,6 +119,26 @@ case class Schema(
     for (errors <- duplicates(attributes.map(_.name), duplicateErrorMessage).left) {
       errorList ++= errors
     }
+    val format = this.mergedMetadata(domainMetaData).format
+    format match {
+      case Some(Format.POSITION) =>
+        val attrsAsArray = attributes.toArray
+        for (i <- 0 until attrsAsArray.length - 1) {
+          val pos1 = attrsAsArray(i).position
+          val pos2 = attrsAsArray(i + 1).position
+          (pos1, pos2) match {
+            case (Some(pos1), Some(pos2)) =>
+              if (pos1.last >= pos2.first) {
+                errorList += s"Positions should be ordered : ${pos1.last} > ${pos2.first}"
+              }
+            case (_, _) =>
+              errorList += s"All attributes should have their position defined"
+
+          }
+        }
+      case _ =>
+    }
+
 
     if (errorList.nonEmpty)
       Left(errorList.toList)
@@ -175,9 +194,9 @@ object Schema {
     def buildAttributeTree(obj: StructField): Attribute = {
       obj.dataType match {
         case StringType | LongType | IntegerType | ShortType | DoubleType | BooleanType | ByteType |
-            DateType | TimestampType =>
+             DateType | TimestampType =>
           Attribute(obj.name, obj.dataType.typeName, required = !obj.nullable)
-        case d: DecimalType                   => Attribute(obj.name, "decimal", required = !obj.nullable)
+        case d: DecimalType => Attribute(obj.name, "decimal", required = !obj.nullable)
         case ArrayType(eltType, containsNull) => buildAttributeTree(obj.copy(dataType = eltType))
         case x: StructType =>
           new Attribute(

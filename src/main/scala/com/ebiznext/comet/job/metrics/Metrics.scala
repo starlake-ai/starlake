@@ -1,7 +1,9 @@
 package com.ebiznext.comet.job.metrics
 
+import com.ebiznext.comet.config.Settings
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.sql.functions._
+import org.apache.spark.sql.types._
 import org.apache.spark.sql.{Column, DataFrame}
 
 object Metrics extends StrictLogging {
@@ -164,9 +166,7 @@ object Metrics extends StrictLogging {
     val unionMissingValues = sum(
       when(
         e.isNull
-        || e === ""
-        || e === " "
-        || e.isNaN,
+        || e === "",
         1
       ).otherwise(0)
     )
@@ -182,7 +182,7 @@ object Metrics extends StrictLogging {
 
   def regroupContinuousMetricsByVariable(nameCol: String, metricFrame: DataFrame): DataFrame = {
     //Get the whole list of headers that contains the column name
-    val listColumns = metricFrame.columns.filter(_.contains(nameCol)).sorted
+    val listColumns = metricFrame.columns.filter(_.contains(s"($nameCol)")).sorted
     //Select only columns in listColumns
     val selectedListColumns: DataFrame = metricFrame.select(listColumns.head, listColumns.tail: _*)
     //Reduce decimal values to 3
@@ -190,7 +190,7 @@ object Metrics extends StrictLogging {
       selectedListColumns.columns.map(c => bround(col(c), 3).alias(c)): _*
     )
     //Add column Variables that contains the nameCol
-    val addVariablesColumn: DataFrame = broundColumns.withColumn("variableName", lit(nameCol))
+    val addVariablesColumn: DataFrame = broundColumns.withColumn("attribute", lit(nameCol))
     //Remove nameCol to keep only the metric name foreach metric.
     val removeNameColumnMetric = addVariablesColumn.columns.toList
       .map(str => str.replaceAll("\\(" + nameCol + "\\)", ""))
@@ -202,28 +202,28 @@ object Metrics extends StrictLogging {
     dataset: DataFrame,
     continuousAttributes: List[String]
   ): List[String] = {
-    println("============================")
-    dataset.dtypes.foreach(println)
-    val datasetAttributes = dataset.dtypes.flatMap {
-      case (f, t) =>
-        if (t.startsWith("StructType") || t.startsWith("ArrayType"))
-          None
-        else
-          Some(f)
-    } toList
+    def isOfValidContinuousType(field: StructField) = field.dataType match {
+      case LongType | IntegerType | ShortType | DoubleType | ByteType =>
+        true
+      case _ =>
+        logger.info(s"Invalid continuous field ${field.name}=${field.dataType}")
+        false
+    }
 
-    datasetAttributes.foreach(println)
-
-    println("============================")
+    val datasetAttributes = dataset.schema.fields.filter(isOfValidContinuousType).map(_.name).toList
+    logger.info(s"Valid Continuous datasetAttributes Attrs =$datasetAttributes")
     val intersectionAttributes = datasetAttributes.intersect(continuousAttributes)
+    logger.info(s"Valid intersectionAttributes Attrs =$intersectionAttributes")
     val listDifference = continuousAttributes.filterNot(datasetAttributes.contains)
     if (intersectionAttributes.nonEmpty) {
       intersectionAttributes
-    } else {
+    } else if (Settings.comet.metrics.infer) {
       logger.warn(
         "These attributes are not part of the variable names: " + listDifference.mkString(",")
       )
       datasetAttributes
+    } else {
+      Nil
     }
   }
 
@@ -239,20 +239,27 @@ object Metrics extends StrictLogging {
     dataset: DataFrame,
     continuousAttributes: List[String],
     operations: List[ContinuousMetric]
-  ): DataFrame = {
+  ): Option[DataFrame] = {
     val attributeChecked = extractMetricsAttributes(dataset, continuousAttributes)
-    val colRenamed: List[String] = "variableName" :: operations.map(_.name)
+    logger.info(s"Continuous attributes : $attributeChecked")
+    val colRenamed: List[String] = "attribute" :: operations.map(_.name)
     val metrics: List[Column] =
       attributeChecked.flatMap(name => operations.map(metric => metric.function(col(name))))
-    val metricFrame: DataFrame = dataset.agg(metrics.head, metrics.tail: _*)
-    val matrixMetric =
-      attributeChecked
-        .map(x => regroupContinuousMetricsByVariable(x, metricFrame))
-        .reduce(_.union(_))
-    matrixMetric
-      .select(colRenamed.head, colRenamed.tail: _*)
-      .withColumn("_metricType_", lit("Continuous"))
+    metrics match {
+      case Nil =>
+        None
+      case _ =>
+        val metricFrame: DataFrame = dataset.agg(metrics.head, metrics.tail: _*)
+        val matrixMetric =
+          attributeChecked
+            .map(x => regroupContinuousMetricsByVariable(x, metricFrame))
+            .reduce(_.union(_))
 
+        val res = matrixMetric
+          .select(colRenamed.head, colRenamed.tail: _*)
+          .withColumn("_metricType_", lit("Continuous"))
+        Some(res)
+    }
   }
 
   case class DiscreteMetric(name: String, function: ((Column, DataFrame)) => Column)
@@ -292,7 +299,7 @@ object Metrics extends StrictLogging {
       operations.map(metric => metric.function((colVar, dataCatCountFreq)))
     dataCatCountFreq
       .agg(listcol.head, listcol.tail: _*)
-      .withColumn("variableName", lit(colVar.toString()))
+      .withColumn("attribute", lit(colVar.toString()))
   }
 
   /** Function to compute the Dataframe with Category, Count and Frequencies obtain from the initial Dataframe
@@ -311,15 +318,13 @@ object Metrics extends StrictLogging {
       .withColumn(
         "NumMissVals",
         when(
-          col("Category").isNotNull.&&(col("Category").notEqual(" ")).&&(!col("Category").isNaN),
+          col("Category").isNotNull.&&(col("Category").notEqual(" ")),
           lit(0)
         ).otherwise(col("CountDiscrete"))
       )
       .withColumn(
         "CategoryChange",
         when(col("Category").isNull, "Null_Values")
-          .when(col("Category").isNaN, "NaN_Values")
-          .when(col("Category").equalTo(" "), "Empty_Values")
           .otherwise(col("Category"))
       )
 
@@ -327,7 +332,7 @@ object Metrics extends StrictLogging {
 
   }
 
-  /**  Function to extract the column that contains the list of category
+  /** Function to extract the column that contains the list of category
     *
     * @param dataCategoryCount : the data frame obtain from categoryCountFreqDataframe()
     * @return Column : of that contain the list of category values
@@ -379,10 +384,10 @@ object Metrics extends StrictLogging {
 
   /** Customize Metric Discret for discrete variable
     *
-    * @param e  : name of the column
+    * @param e                 : name of the column
     * @param dataCategoryCount : the dataframe obtain from categoryCountFreqDataframe()
-    * @param metricName     : te metric name
-    * @param metricFunction : the metric function
+    * @param metricName        : te metric name
+    * @param metricFunction    : the metric function
     * @return Column : the computed value of the function
     */
 
@@ -471,7 +476,6 @@ object Metrics extends StrictLogging {
     * @param dataInit   : initial DataFrame.
     * @param attributes : name of the variable.
     * @param operations : list of metrics you want to calculate.
-    * @param threshold  : number max  for the number of categories
     * @return DataFrame : DataFrame with alle the metric by variable by row
     */
 
@@ -479,29 +483,45 @@ object Metrics extends StrictLogging {
     dataInit: DataFrame,
     attributes: List[String],
     operations: List[DiscreteMetric]
-  ): DataFrame = {
+  ): Option[DataFrame] = {
 
-    val headerDataUse = dataInit.columns.toList
+    def isOfValidDiscreteType(field: StructField) = field.dataType match {
+      case StringType | LongType | IntegerType | ShortType | DoubleType | BooleanType | ByteType =>
+        true
+      case _ => false
+    }
+
+    val headerDataUse = dataInit.schema.fields.filter(isOfValidDiscreteType).map(_.name).toList
     val intersectionHeaderAttributes = headerDataUse.intersect(attributes)
     val listDifference = attributes.filterNot(headerDataUse.contains)
 
-    val attributeChecked = intersectionHeaderAttributes.nonEmpty match {
-      case true => attributes
-      case false =>
-        logger.error(
+    val attributeChecked: List[String] =
+      if (intersectionHeaderAttributes.nonEmpty) {
+        intersectionHeaderAttributes
+      } else if (Settings.comet.metrics.infer) {
+        logger.warn(
           "These attributes are not part of the variable names: " + listDifference.mkString(",")
         )
         headerDataUse
+      } else {
+        Nil
+      }
+
+    attributeChecked match {
+      case Nil =>
+        None
+      case _ =>
+        val colRenamed: List[String] = "attribute" :: operations.map(_.name)
+        val matrixMetric: DataFrame = attributeChecked
+          .map(name => categoryCountFreqDataframe(col(name), dataInit))
+          .map(colData => dataToMetricData(colData, operations))
+          .reduce(_.union(_))
+        val res = matrixMetric
+          .select(colRenamed.head, colRenamed.tail: _*)
+          .withColumn("_metricType_", lit("Discrete"))
+        Some(res)
     }
 
-    val colRenamed: List[String] = "variableName" :: operations.map(_.name)
-    val matrixMetric: DataFrame = attributeChecked
-      .map(name => categoryCountFreqDataframe(col(name), dataInit))
-      .map(colData => dataToMetricData(colData, operations))
-      .reduce(_.union(_))
-    matrixMetric
-      .select(colRenamed.head, colRenamed.tail: _*)
-      .withColumn("_metricType_", lit("Discrete"))
-
   }
+
 }

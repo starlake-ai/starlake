@@ -54,14 +54,17 @@ class MetricsJob(
   def save(dataToSave: DataFrame, path: Path): Unit = {
     if (storageHandler.exist(path)) {
       val pathIntermediate = new Path(path.getParent, ".metrics")
+
       val dataByVariableStored: DataFrame = session.read
         .parquet(path.toString)
         .union(dataToSave)
+
       dataByVariableStored
         .coalesce(1)
         .write
         .mode("append")
         .parquet(pathIntermediate.toString)
+
       storageHandler.delete(path)
       storageHandler.move(pathIntermediate, path)
       logger.whenDebugEnabled {
@@ -80,9 +83,9 @@ class MetricsJob(
 
   /** Function that retrieves full metrics dataframe with both set discrete and continuous metrics
     *
-    * @param dataMetric : dataframe obtain from computeDiscretMetric( ) or computeContinuiousMetric( )
+    * @param dataMetric    : dataframe obtain from computeDiscretMetric( ) or computeContinuiousMetric( )
     * @param listAttibutes : list of all variables
-    * @param colName  : list of column
+    * @param colName       : list of column
     * @return Dataframe : that contain the full metrics  with all variables and all metrics
     */
 
@@ -101,12 +104,12 @@ class MetricsJob(
 
   /** Function Function that unifies discrete and continuous metrics dataframe, then write save the result to parquet
     *
-    * @param discreteDataset : dataframe that contains all the discrete metrics
+    * @param discreteDataset   : dataframe that contains all the discrete metrics
     * @param continuousDataset : dataframe that contains all the continuous metrics
-    * @param domain    : name of the domain
-    * @param schema    : schema of the initial data
-    * @param ingestionTime : time which correspond to the ingestion
-    * @param stageState   : stage (unit / global)
+    * @param domain            : name of the domain
+    * @param schema            : schema of the initial data
+    * @param ingestionTime     : time which correspond to the ingestion
+    * @param stageState        : stage (unit / global)
     * @return
     */
 
@@ -137,7 +140,7 @@ class MetricsJob(
     val listContAttrName: List[String] =
       List("category", "countDistinct", "countByCategory", "frequencies", "missingValuesDiscrete")
     val listtotal: List[String] = List(
-      "variableName",
+      "attribute",
       "min",
       "max",
       "mean",
@@ -160,7 +163,7 @@ class MetricsJob(
     val sortSelectCol: List[String] = List(
       "domain",
       "schema",
-      "variableName",
+      "attribute",
       "min",
       "max",
       "mean",
@@ -223,14 +226,14 @@ class MetricsJob(
     val continuousOps: List[ContinuousMetric] = Metrics.continuousMetrics
     val savePath: Path = getMetricsPath(Settings.comet.metrics.path)
 
-    val discreteDataset: DataFrame = Metrics.computeDiscretMetric(dataUse, discAttrs, discreteOps)
-    val continuousDataset: DataFrame =
-      Metrics.computeContinuousMetric(dataUse, continAttrs, continuousOps)
-
-    val allMetricsDf: DataFrame =
-      unionDisContMetric(discreteDataset, continuousDataset, domain, schema, timestamp, stage)
-
-    save(allMetricsDf, savePath)
+    Metrics.computeDiscretMetric(dataUse, discAttrs, discreteOps) map { discreteDataset =>
+      Metrics.computeContinuousMetric(dataUse, continAttrs, continuousOps).map {
+        continuousDataset =>
+          val allMetricsDf: DataFrame =
+            unionDisContMetric(discreteDataset, continuousDataset, domain, schema, timestamp, stage)
+          save(allMetricsDf, savePath)
+      }
+    }
     session
   }
 }

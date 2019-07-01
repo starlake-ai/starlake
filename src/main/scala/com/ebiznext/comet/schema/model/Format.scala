@@ -42,12 +42,15 @@ object Format {
   def fromString(value: String): Format = {
     value.toUpperCase match {
       case "DSV"                 => Format.DSV
+      case "POSITION"            => Format.POSITION
       case "SIMPLE_JSON"         => Format.SIMPLE_JSON
       case "JSON" | "ARRAY_JSON" => Format.JSON
     }
   }
 
   object DSV extends Format("DSV")
+
+  object POSITION extends Format("POSITION")
 
   object SIMPLE_JSON extends Format("SIMPLE_JSON")
 
