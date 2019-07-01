@@ -41,14 +41,14 @@ class PositionIngestionJobSpec extends TestHelper {
         )
       )
       override val schemaName: String = "position"
-      override val dataset: String = "/sample/position/POSTBL"
+      override val dataset: String = "/sample/position/XPOSTBL"
 
       loadPending
 
       // Check archive
 
-      readFileContent(cometDatasetsPath + s"/archive/${schemaName}/POSTBL") shouldBe loadFile(
-        "/sample/position/POSTBL"
+      readFileContent(cometDatasetsPath + s"/archive/${schemaName}/XPOSTBL") shouldBe loadFile(
+        "/sample/position/XPOSTBL"
       )
 
       // Accepted should have the same data as input
@@ -57,7 +57,7 @@ class PositionIngestionJobSpec extends TestHelper {
           cometDatasetsPath + s"/accepted/${schemaName}/account/${getTodayPartitionPath}"
         ).count() shouldBe
         sparkSession.read
-          .text(getClass.getResource(s"/sample/${schemaName}/POSTBL").toURI.getPath).count()
+          .text(getClass.getResource(s"/sample/${schemaName}/XPOSTBL").toURI.getPath).count()
     }
 
   }
