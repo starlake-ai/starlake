@@ -241,26 +241,12 @@ object DsvIngestionUtil {
               val validNumberOfColumns = attributes.length <= rowCols.length
               val optionalColIsEmpty = !colAttribute.required && colValue.isEmpty
               val colPatternIsValid = tpe.matches(colValue)
-              val privacy = colAttribute.getPrivacy() match {
-                case PrivacyLevel.NONE =>
+              val privacyLevel = colAttribute.getPrivacy()
+              val privacy =
+                if (privacyLevel == PrivacyLevel.None)
                   colValue
-                case PrivacyLevel.HIDE =>
-                  ""
-                case PrivacyLevel.MD5 =>
-                  Encryption.md5(colValue)
-                case PrivacyLevel.SHA1 =>
-                  Encryption.sha1(colValue)
-                case PrivacyLevel.SHA256 =>
-                  Encryption.sha256(colValue)
-                case PrivacyLevel.SHA512 =>
-                  Encryption.sha512(colValue)
-                case PrivacyLevel.AES =>
-                  // TODO Implement AES
-                  throw new Exception("AES Not yet implemented")
-                case _ =>
-                  // should never happen
-                  colValue
-              }
+              else
+                  privacyLevel.encrypt(colValue)
               val colPatternOK = validNumberOfColumns && (optionalColIsEmpty || colPatternIsValid)
               val (sparkValue, colParseOK) =
                 if (colPatternOK) {

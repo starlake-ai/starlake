@@ -289,7 +289,7 @@ class IngestionWorkflow(
     }
   }
 
-  def index(job: AutoJobDesc, task: AutoTask): Unit = {
+  def index(job: AutoJobDesc, task: AutoTaskDesc): Unit = {
     val targetArea = task.area.getOrElse(job.getArea())
     val targetPath = new Path(DatasetArea.path(task.domain, targetArea.value), task.dataset)
     val mapping = task.mapping
