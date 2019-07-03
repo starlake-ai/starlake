@@ -20,51 +20,43 @@
 
 package com.ebiznext.comet.schema.model
 
+import com.ebiznext.comet.config.Settings
+import com.ebiznext.comet.utils.Encryption
 import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.databind.annotation.{JsonDeserialize, JsonSerialize}
 import com.fasterxml.jackson.databind.ser.std.ToStringSerializer
 import com.fasterxml.jackson.databind.{DeserializationContext, JsonDeserializer}
 
+import scala.collection.JavaConverters._
+import scala.reflect.runtime.universe
+
 /**
   * How (the attribute should be transformed at ingestion time ?
+  *
   * @param value algorithm to use : NONE, HIDE, MD5, SHA1, SHA256, SHA512, AES
   */
 @JsonSerialize(using = classOf[ToStringSerializer])
 @JsonDeserialize(using = classOf[PrivacyLevelDeserializer])
 sealed case class PrivacyLevel(value: String) {
   override def toString: String = value
+
+  def encrypt(s: String): String = PrivacyLevel.all(value)._1.encrypt(s)
+
 }
 
 object PrivacyLevel {
-
-  def fromString(value: String): PrivacyLevel = {
-    value.toUpperCase() match {
-      case "NONE"   => PrivacyLevel.NONE
-      case "HIDE"   => PrivacyLevel.HIDE
-      case "MD5"    => PrivacyLevel.MD5
-      case "SHA1"   => PrivacyLevel.SHA1
-      case "SHA256" => PrivacyLevel.SHA256
-      case "SHA512" => PrivacyLevel.SHA512
-      case "AES"    => PrivacyLevel.AES
-    }
+  lazy val all = Settings.comet.privacy.options.asScala.map { case (k, objName) =>
+    val runtimeMirror = universe.runtimeMirror(getClass.getClassLoader)
+    val module = runtimeMirror.staticModule(objName)
+    val obj: universe.ModuleMirror = runtimeMirror.reflectModule(module)
+    val encryption = obj.instance.asInstanceOf[Encryption]
+    (k.toUpperCase(), (encryption, new PrivacyLevel(k.toUpperCase())))
   }
 
-  object NONE extends PrivacyLevel("NONE")
+  // Improve Scan performance
+  lazy val None = all("NONE")._2
 
-  object HIDE extends PrivacyLevel("HIDE")
-
-  object MD5 extends PrivacyLevel("MD5")
-
-  object SHA1 extends PrivacyLevel("SHA1")
-
-  object SHA256 extends PrivacyLevel("SHA256")
-
-  object SHA512 extends PrivacyLevel("SHA512")
-
-  object AES extends PrivacyLevel("AES")
-
-  val privacyLevels: Set[PrivacyLevel] =
-    Set(NONE, HIDE, MD5, SHA1, SHA256, SHA512, AES)
+  def fromString(value: String): PrivacyLevel = all(value.toUpperCase())._2
 }
 
 class PrivacyLevelDeserializer extends JsonDeserializer[PrivacyLevel] {

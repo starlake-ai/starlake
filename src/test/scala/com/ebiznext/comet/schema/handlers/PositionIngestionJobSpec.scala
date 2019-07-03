@@ -20,6 +20,7 @@
 
 package com.ebiznext.comet.schema.handlers
 
+import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.{TestHelper, TypeToImport}
 
 class PositionIngestionJobSpec extends TestHelper {
@@ -42,7 +43,7 @@ class PositionIngestionJobSpec extends TestHelper {
       )
       override val schemaName: String = "position"
       override val dataset: String = "/sample/position/XPOSTBL"
-
+      println(Settings.comet.datasets)
       loadPending
 
       // Check archive

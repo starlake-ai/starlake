@@ -30,8 +30,9 @@ import com.fasterxml.jackson.annotation.JsonIgnore
   * @param domain  Output domain in Business Area (Will be the Database name in Hive)
   * @param dataset Dataset Name in Business Area (Will be the Table name in Hive)
   * @param write   Append to or overwrite existing dataset
+  * @param area   Target Area where domain / dataset will be stored
   */
-case class AutoTask(
+case class AutoTaskDesc(
   sql: String,
   domain: String,
   dataset: String,
@@ -57,6 +58,6 @@ case class AutoTask(
   * @param name  Job logical name
   * @param tasks List of business tasks to execute
   */
-case class AutoJobDesc(name: String, tasks: List[AutoTask], area: Option[HiveArea] = None) {
+case class AutoJobDesc(name: String, tasks: List[AutoTaskDesc], area: Option[HiveArea] = None) {
   def getArea() = area.getOrElse(HiveArea.business)
 }
