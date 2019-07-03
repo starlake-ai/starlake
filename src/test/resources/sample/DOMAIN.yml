@@ -27,7 +27,7 @@ schemas:
       - name: "lastname"
         type: "string"
         required: false
-        privacy: "HIDE"
+        privacy: "MD5"
       - name: "age"
         type: "int"
         required: false

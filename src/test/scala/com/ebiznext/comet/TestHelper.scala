@@ -129,7 +129,7 @@ trait TestHelper extends FlatSpec with Matchers with BeforeAndAfterAll {
         .map(_.delete())
     }
 
-  val types = Types(
+  lazy val types = Types(
     List(
       Type("string", ".+", PrimitiveType.string),
       Type("time", "(1[012]|[1-9]):[0-5][0-9](\\\\s)?(?i)(am|pm)"),
@@ -150,7 +150,7 @@ trait TestHelper extends FlatSpec with Matchers with BeforeAndAfterAll {
     )
   )
 
-  val domain = Domain(
+  lazy val domain = Domain(
     "DOMAIN",
     "/tmp/incoming/DOMAIN",
     Some(
@@ -172,9 +172,9 @@ trait TestHelper extends FlatSpec with Matchers with BeforeAndAfterAll {
         "User",
         Pattern.compile("SCHEMA-.*.dsv"),
         List(
-          Attribute("firstname", "string", Some(false), false, Some(PrivacyLevel.NONE)),
-          Attribute("lastname", "string", Some(false), false, Some(PrivacyLevel.SHA1)),
-          Attribute("age", "age", Some(false), false, Some(PrivacyLevel.HIDE))
+          Attribute("firstname", "string", Some(false), false, Some(PrivacyLevel.None)),
+          Attribute("lastname", "string", Some(false), false, Some(PrivacyLevel("SHA1"))),
+          Attribute("age", "age", Some(false), false, Some(PrivacyLevel("HIDE")))
         ),
         Some(Metadata(withHeader = Some(true))),
         None,
