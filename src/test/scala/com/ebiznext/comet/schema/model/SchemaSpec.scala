@@ -38,7 +38,7 @@ class SchemaSpec extends FlatSpec with Matchers with TestHelper {
       "invalid-type", // should raise error non existent type
       Some(true),
       true,
-      Some(PrivacyLevel.MD5) // Should raise an error. Privacy cannot be applied on types other than string
+      Some(PrivacyLevel("MD5")) // Should raise an error. Privacy cannot be applied on types other than string
     )
 
     attr.checkValidity(types.types) shouldBe Left(List("Invalid Type invalid-type"))
@@ -55,7 +55,7 @@ class SchemaSpec extends FlatSpec with Matchers with TestHelper {
       "long",
       Some(true),
       true,
-      Some(PrivacyLevel.MD5) // Should raise an error. Privacy cannot be applied on types other than string
+      Some(PrivacyLevel("MD5")) // Should raise an error. Privacy cannot be applied on types other than string
     )
     attr.checkValidity(types.types) shouldBe
       Left(
@@ -76,7 +76,7 @@ class SchemaSpec extends FlatSpec with Matchers with TestHelper {
       "long",
       Some(true),
       true,
-      Some(PrivacyLevel.MD5), // Should raise an error. Privacy cannot be applied on types other than string
+      Some(PrivacyLevel("MD5")), // Should raise an error. Privacy cannot be applied on types other than string
       attributes = Some(List[Attribute]())
     )
     val expectedErrors = List(

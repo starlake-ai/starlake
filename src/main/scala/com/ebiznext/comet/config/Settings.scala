@@ -64,6 +64,8 @@ object Settings extends StrictLogging {
     business: String
   )
 
+  final case class Privacy(options: Map[String, String])
+
   final case class Elasticsearch(active: Boolean, options: Map[String, String])
 
   /**
@@ -104,7 +106,8 @@ object Settings extends StrictLogging {
     mergeForceDistinct: Boolean,
     area: Area,
     airflow: Airflow,
-    elasticsearch: Elasticsearch
+    elasticsearch: Elasticsearch,
+    privacy:Privacy
   ) {
 
     def getLauncher(): LaunchHandler = launcher match {
@@ -115,9 +118,12 @@ object Settings extends StrictLogging {
 
   val config: Config = ConfigFactory.load()
 
-  val comet: Comet = config.extract[Comet].valueOrThrow { error =>
-    error.messages.foreach(err => logger.error(err))
-    throw new Exception("Failed to load config")
+  lazy val comet: Comet = {
+    println("hello")
+    config.extract[Comet].valueOrThrow { error =>
+      error.messages.foreach(err => logger.error(err))
+      throw new Exception("Failed to load config")
+    }
   }
   logger.info(s"Using Config $comet")
 
