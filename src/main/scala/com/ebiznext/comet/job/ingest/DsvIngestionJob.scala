@@ -245,7 +245,7 @@ object DsvIngestionUtil {
               val privacy =
                 if (privacyLevel == PrivacyLevel.None)
                   colValue
-              else
+                else
                   privacyLevel.encrypt(colValue)
               val colPatternOK = validNumberOfColumns && (optionalColIsEmpty || colPatternIsValid)
               val (sparkValue, colParseOK) =

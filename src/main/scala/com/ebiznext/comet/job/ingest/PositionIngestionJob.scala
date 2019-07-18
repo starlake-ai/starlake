@@ -45,12 +45,13 @@ import scala.util.{Failure, Success, Try}
   * @param storageHandler : Storage Handler
   */
 class PositionIngestionJob(
-                            domain: Domain,
-                            schema: Schema,
-                            types: List[Type],
-                            path: List[Path],
-                            storageHandler: StorageHandler
-                          ) extends DsvIngestionJob(domain, schema, types, path, storageHandler) {
+  domain: Domain,
+  schema: Schema,
+  types: List[Type],
+  path: List[Path],
+  storageHandler: StorageHandler
+) extends DsvIngestionJob(domain, schema, types, path, storageHandler) {
+
   /**
     * Load dataset using spark csv reader and all metadata. Does not infer schema.
     * columns not defined in the schema are dropped fro the dataset (require datsets with a header)
@@ -82,7 +83,6 @@ class PositionIngestionJob(
   override def ingest(input: DataFrame): (RDD[_], RDD[_]) = {
 
     val dataset: DataFrame = PositionIngestionUtil.prepare(session, input, schema.attributes)
-
 
     def reorderAttributes(): List[Attribute] = {
       val attributesMap =
@@ -140,11 +140,12 @@ object PositionIngestionUtil {
     for (i <- attributes.indices) {
       fieldTypeArray(i) = StructField(s"col$i", StringType)
     }
-    val rdd = input.rdd.map {
-      row => getRow(row.getString(0), positions)
+    val rdd = input.rdd.map { row =>
+      getRow(row.getString(0), positions)
     }
 
-    val dataset = session.createDataFrame(rdd, StructType(fieldTypeArray)).toDF(attributes.map(_.name): _*)
+    val dataset =
+      session.createDataFrame(rdd, StructType(fieldTypeArray)).toDF(attributes.map(_.name): _*)
     dataset
   }
 
@@ -164,12 +165,12 @@ object PositionIngestionUtil {
     * @return Two RDDs : One RDD for rejected rows and one RDD for accepted rows
     */
   def validate(
-                session: SparkSession,
-                dataset: DataFrame,
-                attributes: List[Attribute],
-                types: List[Type],
-                sparkType: StructType
-              ): (RDD[String], RDD[Row]) = {
+    session: SparkSession,
+    dataset: DataFrame,
+    attributes: List[Attribute],
+    types: List[Type],
+    sparkType: StructType
+  ): (RDD[String], RDD[Row]) = {
     val now = Timestamp.from(Instant.now)
     val checkedRDD: RDD[RowResult] = dataset.rdd.mapPartitions { partition =>
       partition.map { row: Row =>
@@ -198,7 +199,7 @@ object PositionIngestionUtil {
                   val x = tpe.sparkValue(privacy)
                   Try(tpe.sparkValue(privacy)) match {
                     case Success(res) => (res, true)
-                    case Failure(_) => (null, false)
+                    case Failure(_)   => (null, false)
                   }
                 } else
                   (null, false)
@@ -215,7 +216,7 @@ object PositionIngestionUtil {
           }.toList
         )
       }
-    } cache()
+    } cache ()
 
     val rejectedRDD: RDD[String] = checkedRDD
       .filter(_.isRejected)

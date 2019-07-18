@@ -23,6 +23,7 @@ package com.ebiznext.comet.schema.model
 import java.util.regex.Pattern
 
 import com.fasterxml.jackson.annotation.JsonIgnore
+import com.typesafe.scalalogging.{LazyLogging, StrictLogging}
 import org.apache.spark.sql.types._
 
 import scala.collection.mutable
@@ -52,7 +53,7 @@ case class Attribute(
   metricType: Option[MetricType] = None,
   attributes: Option[List[Attribute]] = None,
   position: Option[Position] = None
-) {
+) extends LazyLogging {
 
   /**
     * Check attribute validity
@@ -209,9 +210,23 @@ case class Attribute(
   @JsonIgnore
   def getMetricType(): MetricType = {
     import com.ebiznext.comet.config.Settings.schemaHandler.types
-    types.find(_.name == this.`type`).flatMap(_.indexType).getOrElse(MetricType.NONE)
-    this.metricType.getOrElse {
-      types.find(_.name == this.`type`).flatMap(_.indexType).getOrElse(MetricType.NONE)
+    import com.ebiznext.comet.utils.DataTypeEx._
+    val sparkType = types.find(_.name == this.`type`).map(_.primitiveType.sparkType)
+    logger.info(s"Attribute Metric ==> $name, $metricType, $sparkType")
+    (sparkType, metricType) match {
+      case (Some(sparkType), Some(MetricType.DISCRETE)) =>
+        if (sparkType.isOfValidDiscreteType()) {
+          MetricType.DISCRETE
+        } else
+          MetricType.NONE
+      case (Some(sparkType), Some(MetricType.CONTINUOUS)) =>
+        if (sparkType.isOfValidContinuousType()) {
+          MetricType.CONTINUOUS
+        } else
+          MetricType.NONE
+      case (_, _) =>
+        MetricType.NONE
     }
+
   }
 }

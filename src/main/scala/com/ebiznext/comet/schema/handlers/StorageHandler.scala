@@ -27,6 +27,8 @@ import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs._
 import org.apache.spark.sql.execution.streaming.FileStreamSource.Timestamp
 
+import scala.util.{Failure, Success, Try}
+
 /**
   * Interface required by any filesystem manager
   */
@@ -59,6 +61,10 @@ trait StorageHandler {
   def spaceConsumed(path: Path): Long
 
   def getOutputStream(path: Path): FSDataOutputStream
+
+  def touchz(path: Path): Try[Unit]
+
+  def touch(path: Path): Try[Unit]
 
 }
 
@@ -216,6 +222,19 @@ class HdfsStorageHandler extends StorageHandler {
     val conf = new Configuration()
     val fs = FileSystem.get(conf)
     fs.getFileStatus(path).getModificationTime
+  }
+
+  override def touchz(path: Path): Try[Unit] = {
+    val conf = new Configuration()
+    val fs = FileSystem.get(conf)
+    Try(fs.create(path, false).close())
+  }
+
+  override def touch(path: Path): Try[Unit] = {
+    val conf = new Configuration()
+    val fs = FileSystem.get(conf)
+    Try(fs.setTimes(path, System.currentTimeMillis(), -1))
+
   }
 }
 

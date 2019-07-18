@@ -45,12 +45,13 @@ sealed case class PrivacyLevel(value: String) {
 }
 
 object PrivacyLevel {
-  lazy val all = Settings.comet.privacy.options.asScala.map { case (k, objName) =>
-    val runtimeMirror = universe.runtimeMirror(getClass.getClassLoader)
-    val module = runtimeMirror.staticModule(objName)
-    val obj: universe.ModuleMirror = runtimeMirror.reflectModule(module)
-    val encryption = obj.instance.asInstanceOf[Encryption]
-    (k.toUpperCase(), (encryption, new PrivacyLevel(k.toUpperCase())))
+  lazy val all = Settings.comet.privacy.options.asScala.map {
+    case (k, objName) =>
+      val runtimeMirror = universe.runtimeMirror(getClass.getClassLoader)
+      val module = runtimeMirror.staticModule(objName)
+      val obj: universe.ModuleMirror = runtimeMirror.reflectModule(module)
+      val encryption = obj.instance.asInstanceOf[Encryption]
+      (k.toUpperCase(), (encryption, new PrivacyLevel(k.toUpperCase())))
   }
 
   // Improve Scan performance

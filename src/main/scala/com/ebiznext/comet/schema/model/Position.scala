@@ -30,4 +30,3 @@ package com.ebiznext.comet.schema.model
   *
   */
 case class Position(first: Int, last: Int, ltrim: Boolean = true, rtrim: Boolean = true)
-

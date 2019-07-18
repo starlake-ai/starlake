@@ -76,8 +76,7 @@ object Settings extends StrictLogging {
   final case class Metrics(
     path: String,
     discreteMaxCardinality: Int,
-    active: Boolean,
-    infer: Boolean
+    active: Boolean
   )
 
   /**
@@ -98,6 +97,7 @@ object Settings extends StrictLogging {
     metadata: String,
     metrics: Metrics,
     archive: Boolean,
+    lockPath: String,
     writeFormat: String,
     launcher: String,
     analyze: Boolean,
@@ -107,7 +107,7 @@ object Settings extends StrictLogging {
     area: Area,
     airflow: Airflow,
     elasticsearch: Elasticsearch,
-    privacy:Privacy
+    privacy: Privacy
   ) {
 
     def getLauncher(): LaunchHandler = launcher match {
@@ -119,7 +119,6 @@ object Settings extends StrictLogging {
   val config: Config = ConfigFactory.load()
 
   lazy val comet: Comet = {
-    println("hello")
     config.extract[Comet].valueOrThrow { error =>
       error.messages.foreach(err => logger.error(err))
       throw new Exception("Failed to load config")

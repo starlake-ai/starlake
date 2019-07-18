@@ -9,6 +9,7 @@ import org.apache.hadoop.fs.Path
 import org.apache.spark.sql._
 import org.apache.spark.sql.execution.streaming.FileStreamSource.Timestamp
 import org.apache.spark.sql.functions.{col, lit}
+import org.apache.spark.sql.types._
 
 /** To record statistics with other information during ingestion.
   *
@@ -114,19 +115,19 @@ class MetricsJob(
     */
 
   def unionDisContMetric(
-    discreteDataset: DataFrame,
-    continuousDataset: DataFrame,
+    discreteDataset: Option[DataFrame],
+    continuousDataset: Option[DataFrame],
     domain: Domain,
     schema: Schema,
+    count: Long,
     ingestionTime: Timestamp,
     stageState: Stage
-  ): DataFrame = {
+  ): Option[DataFrame] = {
 
-    val listDiscAttrName: List[String] = List(
+    val listContAttrName: List[String] = List(
       "min",
       "max",
       "mean",
-      "count",
       "variance",
       "standardDev",
       "sum",
@@ -137,14 +138,63 @@ class MetricsJob(
       "percentile75",
       "missingValues"
     )
-    val listContAttrName: List[String] =
+    /*
+root
+ |-- attribute: string (nullable = false)
+ |-- min: long (nullable = true)
+ |-- max: long (nullable = true)
+ |-- mean: double (nullable = true)
+ |-- count: long (nullable = true)
+ |-- missingValues: long (nullable = true)
+ |-- variance: double (nullable = true)
+ |-- standardDev: double (nullable = true)
+ |-- sum: long (nullable = true)
+ |-- skewness: double (nullable = true)
+ |-- kurtosis: double (nullable = true)
+ |-- percentile25: long (nullable = true)
+ |-- median: long (nullable = true)
+ |-- percentile75: long (nullable = true)
+ |-- cometMetric: string (nullable = false)
+
+     */
+    val continuousSchema = StructType(
+      Array(
+        StructField("attribute", StringType, false),
+        StructField("min", LongType, false),
+        StructField("max", LongType, false),
+        StructField("mean", DoubleType, false),
+        StructField("missingValues", LongType, false),
+        StructField("variance", DoubleType, false),
+        StructField("standardDev", DoubleType, false),
+        StructField("sum", LongType, false),
+        StructField("skewness", DoubleType, false),
+        StructField("kurtosis", LongType, false),
+        StructField("percentile25", LongType, false),
+        StructField("median", LongType, false),
+        StructField("percentile75", LongType, false),
+        StructField("cometMetric", StringType, false)
+      )
+    )
+
+    val listDiscAttrName: List[String] =
       List("category", "countDistinct", "countByCategory", "frequencies", "missingValuesDiscrete")
+    val discreteSchema = StructType(
+      Array(
+        StructField("attribute", StringType, false),
+        StructField("category", ArrayType(StringType), false),
+        StructField("countDistinct", LongType, false),
+        StructField("countByCategory", ArrayType(MapType(StringType, LongType)), false),
+        StructField("frequencies", ArrayType(MapType(StringType, DoubleType)), false),
+        StructField("missingValuesDiscrete", LongType, false),
+        StructField("cometMetric", StringType, false)
+      )
+    )
+
     val listtotal: List[String] = List(
       "attribute",
       "min",
       "max",
       "mean",
-      "count",
       "variance",
       "standardDev",
       "sum",
@@ -167,7 +217,6 @@ class MetricsJob(
       "min",
       "max",
       "mean",
-      "count",
       "missingValues",
       "standardDev",
       "variance",
@@ -182,29 +231,61 @@ class MetricsJob(
       "countByCategory",
       "frequencies",
       "missingValuesDiscrete",
-      "ingestionTime",
-      "stageState"
+      "count",
+      "cometTime",
+      "cometStage"
     )
 
     val neededColList: List[Column] = listtotal.map(x => col(x))
 
     logger.info(
-      "The liste of Columne: " + neededColList
+      "The list of Columns: " + neededColList
     )
-    val coupleDataMetrics =
-      List((discreteDataset, listDiscAttrName), (continuousDataset, listContAttrName))
+    /*
+    val x = (discreteDataset, continuousDataset) match {
 
-    coupleDataMetrics
+      case (Some(discreteDataset), Some(continuousDataset)) =>
+        (discreteDataset, continuousDataset)
+      case (Some(discreteDataset), None) =>
+        (discreteDataset, )
+      case (None, Some(continuousDataset)) =>
+        Some(continuousDataset)
+      case (None, None) =>
+        None
+    }
+     */
+    discreteDataset.foreach(_.printSchema())
+    continuousDataset.foreach(_.printSchema())
+
+    val emptyContinuousDataset =
+      session.createDataFrame(new java.util.ArrayList[Row](), continuousSchema)
+    val emptyDiscreteDataset =
+      session.createDataFrame(new java.util.ArrayList[Row](), discreteSchema)
+
+    val coupleDataMetrics =
+      (discreteDataset, continuousDataset) match {
+        case (Some(discreteDataset), Some(continuousDataset)) =>
+          List((discreteDataset, listContAttrName), (continuousDataset, listDiscAttrName))
+        case (None, Some(continuousDataset)) =>
+          List((emptyDiscreteDataset, listContAttrName), (continuousDataset, listDiscAttrName))
+        case (Some(discreteDataset), None) =>
+          List((discreteDataset, listContAttrName), (emptyContinuousDataset, listDiscAttrName))
+        case (None, None) =>
+          List((emptyDiscreteDataset, listContAttrName), (emptyContinuousDataset, listDiscAttrName))
+      }
+
+    val result = coupleDataMetrics
       .map(
         tupleDataMetric => generateFullMetric(tupleDataMetric._1, tupleDataMetric._2, neededColList)
       )
       .reduce(_ union _)
       .withColumn("domain", lit(domain.name))
       .withColumn("schema", lit(schema.name))
-      .withColumn("ingestionTime", lit(ingestionTime))
-      .withColumn("stageState", lit(stageState.toString))
+      .withColumn("count", lit(count))
+      .withColumn("cometTime", lit(ingestionTime))
+      .withColumn("cometStage", lit(stageState.toString))
       .select(sortSelectCol.head, sortSelectCol.tail: _*)
-
+    Some(result)
   }
 
   /**
@@ -221,19 +302,25 @@ class MetricsJob(
   def run(dataUse: DataFrame, timestamp: Timestamp): SparkSession = {
     val discAttrs: List[String] = schema.discreteAttrs().map(_.getFinalName())
     val continAttrs: List[String] = schema.continuousAttrs().map(_.getFinalName())
-
+    logger.info("Discrete Attributes -> " + discAttrs.mkString(","))
+    logger.info("Continuous Attributes -> " + continAttrs.mkString(","))
     val discreteOps: List[DiscreteMetric] = Metrics.discreteMetrics
     val continuousOps: List[ContinuousMetric] = Metrics.continuousMetrics
     val savePath: Path = getMetricsPath(Settings.comet.metrics.path)
-
-    Metrics.computeDiscretMetric(dataUse, discAttrs, discreteOps) map { discreteDataset =>
-      Metrics.computeContinuousMetric(dataUse, continAttrs, continuousOps).map {
-        continuousDataset =>
-          val allMetricsDf: DataFrame =
-            unionDisContMetric(discreteDataset, continuousDataset, domain, schema, timestamp, stage)
-          save(allMetricsDf, savePath)
-      }
-    }
+    val count = dataUse.count()
+    val discreteDataset = Metrics.computeDiscretMetric(dataUse, discAttrs, discreteOps)
+    val continuousDataset = Metrics.computeContinuousMetric(dataUse, continAttrs, continuousOps)
+    val allMetricsDf =
+      unionDisContMetric(
+        discreteDataset,
+        continuousDataset,
+        domain,
+        schema,
+        count,
+        timestamp,
+        stage
+      )
+    allMetricsDf.foreach(allMetricsDf => save(allMetricsDf, savePath))
     session
   }
 }
