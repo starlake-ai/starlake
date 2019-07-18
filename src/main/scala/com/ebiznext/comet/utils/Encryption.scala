@@ -4,6 +4,7 @@ package com.ebiznext.comet.utils
   * Several encryption methods used in privacy management
   */
 object Encryption {
+
   def algo(alg: String, data: String): String = {
     val m = java.security.MessageDigest.getInstance(alg)
     val b = data.getBytes("UTF-8")

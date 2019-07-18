@@ -25,7 +25,6 @@ schemas:
     privacy: "NONE"
     comment: null
     rename: null
-    stat: "NONE"
     attributes: null
   - name: "lastname"
     type: "string"
@@ -34,7 +33,6 @@ schemas:
     privacy: "SHA1"
     comment: null
     rename: null
-    stat: "NONE"
     attributes: null
   - name: "age"
     type: "age"
@@ -43,7 +41,6 @@ schemas:
     privacy: "HIDE"
     comment: null
     rename: null
-    stat: "NONE"
     attributes: null
   metadata:
     mode: null

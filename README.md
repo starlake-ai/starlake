@@ -46,3 +46,5 @@ available as Hive tables.
 3. Working Area : Staged Files are parsed against their schema and records are rejected or accepted and made available in parquet/orc/... files as Hive Tables.
 4. Business Area : Tables in the working area may be joined to provide a hoslictic view of the data through the definition of AutoJob.
 5. Data visualization : parquet/orc/... tables may be exposed in datawarehouses or elasticsearch indexes
+
+

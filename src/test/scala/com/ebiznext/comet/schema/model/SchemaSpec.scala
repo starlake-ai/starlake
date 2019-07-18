@@ -58,11 +58,11 @@ class SchemaSpec extends FlatSpec with Matchers with TestHelper {
       Some(PrivacyLevel("MD5")) // Should raise an error. Privacy cannot be applied on types other than string
     )
     attr.checkValidity(types.types) shouldBe
-      Left(
-        List(
-          "Attribute Attribute(attr,long,Some(true),true,Some(MD5),None,None,None,None) : string is the only supported primitive type for an attribute when privacy is requested"
-        )
+    Left(
+      List(
+        "Attribute Attribute(attr,long,Some(true),true,Some(MD5),None,None,None,None,None) : string is the only supported primitive type for an attribute when privacy is requested"
       )
+    )
   }
 
   "Sub Attribute" should "be present for struct types only" in {
@@ -80,9 +80,9 @@ class SchemaSpec extends FlatSpec with Matchers with TestHelper {
       attributes = Some(List[Attribute]())
     )
     val expectedErrors = List(
-      "Attribute Attribute(attr,long,Some(true),true,Some(MD5),None,None,None,Some(List())) : string is the only supported primitive type for an attribute when privacy is requested",
-      "Attribute Attribute(attr,long,Some(true),true,Some(MD5),None,None,None,Some(List())) : Simple attributes cannot have sub-attributes",
-      "Attribute Attribute(attr,long,Some(true),true,Some(MD5),None,None,None,Some(List())) : when present, attributes list cannot be empty."
+      "Attribute Attribute(attr,long,Some(true),true,Some(MD5),None,None,None,Some(List()),None) : string is the only supported primitive type for an attribute when privacy is requested",
+      "Attribute Attribute(attr,long,Some(true),true,Some(MD5),None,None,None,Some(List()),None) : Simple attributes cannot have sub-attributes",
+      "Attribute Attribute(attr,long,Some(true),true,Some(MD5),None,None,None,Some(List()),None) : when present, attributes list cannot be empty."
     )
 
     attr.checkValidity(types.types) shouldBe Left(expectedErrors)

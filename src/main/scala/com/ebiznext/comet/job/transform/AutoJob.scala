@@ -38,10 +38,10 @@ import org.apache.spark.sql.{SaveMode, SparkSession}
   * @param task        : Task to run
   */
 class AutoJob(
-               override val name: String,
-               defaultArea: HiveArea,
-               task: AutoTaskDesc,
-               storageHandler: StorageHandler
+  override val name: String,
+  defaultArea: HiveArea,
+  task: AutoTaskDesc,
+  storageHandler: StorageHandler
 ) extends SparkJob {
 
   def run(): SparkSession = {

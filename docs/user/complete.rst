@@ -286,13 +286,41 @@ The attributes section in the YAML above should be read as follows :
    name, "Field name as specified in the header. If no header is present, this willthe field name in the ingested dataset."
    type, Type as defined in the Type Rules section above.
    required, Can this field be empty ?
-   privacy, "How should this field be protected. Valid values are NONE, HIDE, MD5, SHA1, SHA256, SHA512, AES(not impemented)"
+   privacy, "How should this field be altered during parsing."
    rename, "When header is present in DSV files, this is the new field name in the ingested dataset"
-   stat, "When statistics generation is requested, should this field be treated as continous, discrete or text value ? Valid values are CONTINUOUS, DISCRETE, TEXT, NONE"
+   metricType, "When statistics generation is requested, should this field be treated as continous, discrete or text value ? Valid values are CONTINUOUS, DISCRETE, TEXT, NONE"
    array, "true when this attribute is an array, false by default"
 
+Privacy Strategy
+~~~~~~~~~~~~~~~~
 
-Below, he complete domain definition files.
+Default valid values are NONE, HIDE, MD5, SHA1, SHA256, SHA512, AES(not impemented).
+Custom values may also be defined by adding a new privacy option in the application.conf. The default reference.conf file defines the following valid privacy
+strategies:
+
+.. code-block:: JavaScript
+
+    privacy {
+      options = {
+        "none":"com.ebiznext.comet.utils.No",
+        "hide":"com.ebiznext.comet.utils.Hide",
+        "md5":"com.ebiznext.comet.utils.Md5",
+        "sha1":"com.ebiznext.comet.utils.Sha1",
+        "sha256":"com.ebiznext.comet.utils.Sha256",
+        "sha512":"com.ebiznext.comet.utils.Sha512"
+      }
+    }
+
+Any new privacy strategy should implement the following trait :
+
+.. code-block:: scala
+
+    trait Encryption {
+      def encrypt(s: String): String
+    }
+
+
+Below, the complete domain definition files.
 
 File ``$COMET_METADATA/domains/sales.yml``
 
@@ -610,4 +638,5 @@ of a domain and run it as follows:
 .. code:: console
 
    $ SPARK_HOME/bin/spark-submit comet-assembly-VERSION.jar ingest DOMAIN_NAME SCHEMA_NAME hdfs://datasets/domain/pending/file.dsv
+
 

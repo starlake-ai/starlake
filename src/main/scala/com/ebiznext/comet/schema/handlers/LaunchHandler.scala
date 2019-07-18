@@ -150,6 +150,9 @@ class AirflowLauncher extends LaunchHandler with StrictLogging {
     val command =
       s"""ingest ${domain.name} ${schema.name} ${paths.mkString(",")}"""
     val json = s"""{"conf":"{\\"command\\":\\"$command\\"}"}"""
+
+    // We make sure two successive calls to the same dag id do not occur in the same second, otherwise Airflow will produce an error.
+    Thread.sleep(1000)
     logger.info(s"Post to Airflow: $json")
     post(url, json) match {
       case Success(_) =>
