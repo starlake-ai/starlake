@@ -31,7 +31,7 @@ import com.fasterxml.jackson.databind.{DeserializationContext, JsonDeserializer}
   * @param value : DISCRETE or CONTINUOUS or TEXT or NONE
   */
 @JsonSerialize(using = classOf[ToStringSerializer])
-@JsonDeserialize(using = classOf[IndexTypeDeserializer])
+@JsonDeserialize(using = classOf[MetricTypeDeserializer])
 sealed case class MetricType(value: String) {
   override def toString: String = value
 }
@@ -55,10 +55,10 @@ object MetricType {
 
   object NONE extends MetricType("NONE")
 
-  val indexTypes: Set[MetricType] = Set(NONE, DISCRETE, CONTINUOUS, TEXT)
+  val metricTypes: Set[MetricType] = Set(NONE, DISCRETE, CONTINUOUS, TEXT)
 }
 
-class IndexTypeDeserializer extends JsonDeserializer[MetricType] {
+class MetricTypeDeserializer extends JsonDeserializer[MetricType] {
   override def deserialize(jp: JsonParser, ctx: DeserializationContext): MetricType = {
     val value = jp.readValueAs[String](classOf[String])
     MetricType.fromString(value)

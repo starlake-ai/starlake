@@ -56,9 +56,11 @@ class PositionIngestionJobSpec extends TestHelper {
       sparkSession.read
         .parquet(
           cometDatasetsPath + s"/accepted/${schemaName}/account/${getTodayPartitionPath}"
-        ).count() shouldBe
-        sparkSession.read
-          .text(getClass.getResource(s"/sample/${schemaName}/XPOSTBL").toURI.getPath).count()
+        )
+        .count() shouldBe
+      sparkSession.read
+        .text(getClass.getResource(s"/sample/${schemaName}/XPOSTBL").toURI.getPath)
+        .count()
     }
 
   }
