@@ -59,14 +59,10 @@ case class Type(
   primitiveType: PrimitiveType = PrimitiveType.string,
   sample: Option[String] = None,
   comment: Option[String] = None,
-  indexType: Option[MetricType] = None,
   indexMapping: Option[IndexMapping] = None
 ) {
   // Used only when object is not a date nor a timestamp
   private lazy val textPattern = Pattern.compile(pattern, Pattern.MULTILINE)
-
-  @JsonIgnore
-  def getIndexType(): MetricType = indexType.getOrElse(MetricType.NONE)
 
   @JsonIgnore
   def getIndexMapping(): IndexMapping = {
