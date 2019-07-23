@@ -119,13 +119,18 @@ object Main extends StrictLogging {
         val domain = arglist(1)
         val schema = arglist(2)
         val paths = arglist(3)
-        val lockPath = new Path(Settings.comet.lockPath, s"${domain}_${schema}.lock")
+        val lockPath = new Path(Settings.comet.lock.path, s"${domain}_${schema}.lock")
         val locker = new FileLock(lockPath, storageHandler)
-        locker.tryLock(1000 * 3600 * 2)
-        val ingestResult = Try {
-          workflow.ingest(domain, schema, paths.split(',').map(new Path(_)).toList)
-        }
-        locker.release()
+        val waitTimeMillis = Settings.comet.lock.ingestionTimeout
+        val ingestResult =
+          if (locker.tryLock(waitTimeMillis)) {
+            Try {
+              workflow.ingest(domain, schema, paths.split(',').map(new Path(_)).toList)
+            }
+            locker.release()
+          } else {
+            Failure(new Exception(s"Failed to obtain lock on file $lockPath waited (millis) $waitTimeMillis"))
+          }
         ingestResult match {
           case Failure(e) =>
             throw e

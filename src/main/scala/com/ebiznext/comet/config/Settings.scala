@@ -79,6 +79,8 @@ object Settings extends StrictLogging {
     active: Boolean
   )
 
+  final case class Lock(path:String, metricsTimeout : Long, ingestionTimeout : Long)
+
   /**
     *
     * @param datasets    : Absolute path, datasets root folder beneath which each area is defined.
@@ -97,7 +99,7 @@ object Settings extends StrictLogging {
     metadata: String,
     metrics: Metrics,
     archive: Boolean,
-    lockPath: String,
+    lock: Lock,
     writeFormat: String,
     launcher: String,
     analyze: Boolean,
