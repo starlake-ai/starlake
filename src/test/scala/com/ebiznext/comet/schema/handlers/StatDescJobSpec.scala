@@ -24,11 +24,13 @@ class StatDescJobSpec extends TestHelper {
     .format("csv")
     .option("header", "true") //reading the headers
     .option("mode", "DROPMALFORMED")
+    .option("inferSchema", "true")
     .load("./src/test/resources/iris.csv")
 
   /**
     * Descriptive statistics of the dataframe for Quantitative variable:
     */
+  dataInitialUsed.printSchema()
 
   val result0 = computeContinuousMetric(
     dataInitialUsed,
@@ -47,7 +49,10 @@ class StatDescJobSpec extends TestHelper {
     */
   val dimensionTable = (partialContinuousMetric.size + 1) * (listContnuousAttributes.size + 1)
 
+  println(s"-->$dimensionTable")
+
   val dimensionDataframe = result1.map { result1 =>
+    result1.printSchema()
     (result1.columns.size - 1) * (result1
       .select(col("attribute"))
       .collect()
@@ -80,7 +85,7 @@ class StatDescJobSpec extends TestHelper {
     */
 
   val minList: List[Double] = listContnuousAttributes.map(
-    name => dataInitialUsed.select(min(name)).first().getString(0).toDouble
+    name => dataInitialUsed.select(min(name)).first().getDouble(0)
   )
 
   val minListTable: List[Double] = result0.map { result0 =>
@@ -96,7 +101,7 @@ class StatDescJobSpec extends TestHelper {
     */
 
   val maxList: List[Double] = listContnuousAttributes.map(
-    name => dataInitialUsed.select(max(name)).first().getString(0).toDouble
+    name => dataInitialUsed.select(max(name)).first().getDouble(0)
   )
 
   val maxListTable: List[Double] = result0.map { result0 =>
