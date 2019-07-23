@@ -6,13 +6,33 @@ import org.apache.hadoop.fs.Path
 
 import scala.util.{Failure, Success}
 
+/**
+  * HDFS does not have a file locking mechanism.
+  * We implement it here in the following way
+  * - A file is locked when it's modification time is less than 5000ms tahn the current time
+  * - If the modification time is older tahn the current time of more than 5000ms, it is considered unlocked.
+  * - The owner of a lock spawn a thread that update the modification every 5s to keep the lock
+  * - The process willing to get the lock check every 5s second for the modification time of the file to gain the lock.
+  * - When a process gain the lock, it deletes the file first and tries to create a new one, this make sure that of two process gaining the lock, only one will be able to recreate it after deletion.
+  *
+  * To gain the lock, call tryLock, to release it, call release.
+  *
+  * @param path Lock File path
+  * @param storageHandler Filesystem Handler
+  */
 class FileLock(path: Path, storageHandler: StorageHandler) extends StrictLogging {
   val checkinPeriod = 5000L
   val fileWatcher = new LockWatcher(path, storageHandler, checkinPeriod)
 
-  def tryLock(timeoutInMillis: Long): Boolean = {
+  /**
+    * Try to gain the lock during timeoutInMillis millis
+    *
+    * @param timeoutInMillis number of milliseconds during which the calling process will try to get the lock before it time out. -1 means no timeout
+    * @return true when locked is acquired, false otherwise
+    */
+  def tryLock(timeoutInMillis: Long = -1): Boolean = {
     storageHandler.mkdirs(path.getParent)
-    val maxTries = timeoutInMillis / checkinPeriod
+    val maxTries = if (timeoutInMillis == -1) Integer.MAX_VALUE else timeoutInMillis / checkinPeriod
     var numberOfTries = 1
     logger.info(s"Trying to acquire lock for file ${path.toString} during $timeoutInMillis ms")
     var ok = false
@@ -43,6 +63,9 @@ class FileLock(path: Path, storageHandler: StorageHandler) extends StrictLogging
     ok
   }
 
+  /**
+    * Release the lock and delete the lock file.
+    */
   def release(): Unit = fileWatcher.release()
 
   private def watch(): Unit = {
@@ -65,6 +88,7 @@ class LockWatcher(path: Path, storageHandler: StorageHandler, checkinPeriod: Lon
         storageHandler.touch(path)
         println(s"watcher modified=${storageHandler.lastModified(path)}")
       }
+      storageHandler.delete(path)
     } catch {
       case e: InterruptedException =>
         e.printStackTrace();
