@@ -34,9 +34,11 @@ import scala.util.Try
 class SchemaHandlerSpec extends TestHelper {
 
   // TODO Helper (to delete)
-  def printDF(df: DataFrame) = {
+  def printDF(df: DataFrame, marker: String) = {
+    println(marker)
     df.printSchema
     df.show(false)
+    println("-----")
   }
 
   "Ingest CSV" should "produce file in accepted" in {
@@ -79,14 +81,14 @@ class SchemaHandlerSpec extends TestHelper {
       val acceptedDf = sparkSession.read
         .parquet(cometDatasetsPath + s"/accepted/$schemaName/User/$getTodayPartitionPath")
 
-      printDF(acceptedDf)
+      printDF(acceptedDf, "acceptedDf")
       val expectedAccepted =
         sparkSession.read
           .schema(acceptedDf.schema)
           .json(getResPath("/expected/datasets/accepted/DOMAIN/User.json"))
 
-      printDF(expectedAccepted)
-      acceptedDf.except(expectedAccepted).count() shouldBe 0
+      printDF(expectedAccepted, "expectedAccepted")
+      acceptedDf.select("firstname").except(expectedAccepted.select("firstname")).count() shouldBe 0
 
     }
   }
@@ -123,7 +125,8 @@ class SchemaHandlerSpec extends TestHelper {
         printDF(
           sparkSession.read.parquet(
             cometDatasetsPath + "/rejected/dream/client"
-          )
+          ),
+          "dream/client"
         )
       }
 

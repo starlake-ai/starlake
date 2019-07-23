@@ -129,7 +129,11 @@ object Main extends StrictLogging {
             }
             locker.release()
           } else {
-            Failure(new Exception(s"Failed to obtain lock on file $lockPath waited (millis) $waitTimeMillis"))
+            Failure(
+              new Exception(
+                s"Failed to obtain lock on file $lockPath waited (millis) $waitTimeMillis"
+              )
+            )
           }
         ingestResult match {
           case Failure(e) =>
