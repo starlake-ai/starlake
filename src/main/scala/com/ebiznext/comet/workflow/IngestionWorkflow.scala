@@ -179,7 +179,7 @@ class IngestionWorkflow(
           } catch {
             case t: Throwable =>
               t.printStackTrace()
-            // Continue to nextpending file
+            // Continue to next pending file
           }
       }
     }
