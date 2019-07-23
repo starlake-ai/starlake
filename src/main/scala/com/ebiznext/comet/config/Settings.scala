@@ -79,7 +79,7 @@ object Settings extends StrictLogging {
     active: Boolean
   )
 
-  final case class Lock(path:String, metricsTimeout : Long, ingestionTimeout : Long)
+  final case class Lock(path: String, metricsTimeout: Long, ingestionTimeout: Long)
 
   /**
     *
