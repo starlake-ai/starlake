@@ -4,7 +4,7 @@ import com.ebiznext.comet.config.{DatasetArea, Settings}
 import com.ebiznext.comet.job.metrics.Metrics.{ContinuousMetric, DiscreteMetric}
 import com.ebiznext.comet.schema.handlers.StorageHandler
 import com.ebiznext.comet.schema.model.{Domain, Schema, Stage}
-import com.ebiznext.comet.utils.SparkJob
+import com.ebiznext.comet.utils.{FileLock, SparkJob}
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql._
 import org.apache.spark.sql.execution.streaming.FileStreamSource.Timestamp
@@ -41,6 +41,16 @@ class MetricsJob(
       path
         .replace("{domain}", domain.name)
         .replace("{schema}", schema.name)
+    )
+  }
+
+  def getLockPath(path: String): Path = {
+    new Path(
+      Settings.comet.lock.path,
+      "metrics" + path
+        .replace("{domain}", domain.name)
+        .replace("{schema}", schema.name)
+        .replace('/', '_') + ".lock"
     )
   }
 
@@ -320,7 +330,17 @@ root
         timestamp,
         stage
       )
-    allMetricsDf.foreach(allMetricsDf => save(allMetricsDf, savePath))
+    val lockPath = getLockPath(Settings.comet.metrics.path)
+    val waitTimeMillis = Settings.comet.lock.metricsTimeout
+    val locker = new FileLock(lockPath, storageHandler)
+    if (locker.tryLock(waitTimeMillis)) {
+      allMetricsDf.foreach(allMetricsDf => save(allMetricsDf, savePath))
+      locker.release()
+    } else {
+      throw new Exception(
+        s"Failed to obtain lock on file $lockPath waited (millis) $waitTimeMillis"
+      )
+    }
     session
   }
 }
