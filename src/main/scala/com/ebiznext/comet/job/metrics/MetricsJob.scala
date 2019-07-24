@@ -11,6 +11,8 @@ import org.apache.spark.sql.execution.streaming.FileStreamSource.Timestamp
 import org.apache.spark.sql.functions.{col, lit}
 import org.apache.spark.sql.types._
 
+import scala.util.{Failure, Success, Try}
+
 /** To record statistics with other information during ingestion.
   *
   */
@@ -333,14 +335,23 @@ root
     val lockPath = getLockPath(Settings.comet.metrics.path)
     val waitTimeMillis = Settings.comet.lock.metricsTimeout
     val locker = new FileLock(lockPath, storageHandler)
-    if (locker.tryLock(waitTimeMillis)) {
-      allMetricsDf.foreach(allMetricsDf => save(allMetricsDf, savePath))
-      locker.release()
+    val metricsResult = if (locker.tryLock(waitTimeMillis)) {
+      Try(allMetricsDf.foreach(allMetricsDf => save(allMetricsDf, savePath)))
     } else {
-      throw new Exception(
-        s"Failed to obtain lock on file $lockPath waited (millis) $waitTimeMillis"
+      Failure(
+        new Exception(
+          s"Failed to obtain lock on file $lockPath waited (millis) $waitTimeMillis"
+        )
       )
     }
+    locker.release()
+    metricsResult match {
+      case Failure(e) =>
+        throw e
+      case Success(_) =>
+      // do nothing
+    }
+
     session
   }
 }

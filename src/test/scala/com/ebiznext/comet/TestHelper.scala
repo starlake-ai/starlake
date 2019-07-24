@@ -264,6 +264,13 @@ trait TestHelper extends FlatSpec with Matchers with BeforeAndAfterAll {
     }
 
   }
+  def printDF(df: DataFrame, marker: String) = {
+    println(marker)
+    df.printSchema
+    df.show(false)
+    println("-----")
+  }
+
 
 }
 
