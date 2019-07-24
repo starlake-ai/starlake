@@ -127,7 +127,6 @@ object Main extends StrictLogging {
             Try {
               workflow.ingest(domain, schema, paths.split(',').map(new Path(_)).toList)
             }
-            locker.release()
           } else {
             Failure(
               new Exception(
@@ -135,6 +134,7 @@ object Main extends StrictLogging {
               )
             )
           }
+        locker.release()
         ingestResult match {
           case Failure(e) =>
             throw e
