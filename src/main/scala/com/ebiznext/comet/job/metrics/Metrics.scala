@@ -1,5 +1,6 @@
 package com.ebiznext.comet.job.metrics
 
+import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.utils.DataTypeEx._
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.sql.functions._
@@ -348,7 +349,7 @@ object Metrics extends StrictLogging {
     * @return Column : of that contain the list of frequencies values
     */
 
-  def metricFrenquence(dataCategoryCount: DataFrame): Column = {
+  def metricFrequency(dataCategoryCount: DataFrame): Column = {
     collect_list(map(col("CategoryChange"), col("Frequencies"))).as("frequencies")
   }
 
@@ -442,7 +443,7 @@ object Metrics extends StrictLogging {
       colNameDataCatCount._1,
       colNameDataCatCount._2,
       "frequencies",
-      metricFrenquence
+      metricFrequency
     )
   }
 
