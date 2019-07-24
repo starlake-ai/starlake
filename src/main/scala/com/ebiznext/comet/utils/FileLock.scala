@@ -86,7 +86,7 @@ class LockWatcher(path: Path, storageHandler: StorageHandler, checkinPeriod: Lon
       while (!stop) {
         Thread.sleep(checkinPeriod)
         storageHandler.touch(path)
-        println(s"watcher modified=${storageHandler.lastModified(path)}")
+        println(s"watcher $path modified=${storageHandler.lastModified(path)}")
       }
       storageHandler.delete(path)
     } catch {

@@ -53,11 +53,12 @@ class PositionIngestionJobSpec extends TestHelper {
       )
 
       // Accepted should have the same data as input
-      sparkSession.read
+      val acceptedDf = sparkSession.read
         .parquet(
           cometDatasetsPath + s"/accepted/${schemaName}/account/${getTodayPartitionPath}"
         )
-        .count() shouldBe
+      printDF(acceptedDf, "acceptedDf")
+      acceptedDf.count() shouldBe
       sparkSession.read
         .text(getClass.getResource(s"/sample/${schemaName}/XPOSTBL").toURI.getPath)
         .count()

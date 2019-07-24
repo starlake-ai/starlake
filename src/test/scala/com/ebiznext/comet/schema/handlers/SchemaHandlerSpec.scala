@@ -34,13 +34,6 @@ import scala.util.Try
 class SchemaHandlerSpec extends TestHelper {
 
   // TODO Helper (to delete)
-  def printDF(df: DataFrame, marker: String) = {
-    println(marker)
-    df.printSchema
-    df.show(false)
-    println("-----")
-  }
-
   "Ingest CSV" should "produce file in accepted" in {
 
     new SpecTrait {
