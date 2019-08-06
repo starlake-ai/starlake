@@ -31,8 +31,13 @@ import scala.collection.mutable
   *
   * @param key    list of attributes to join existing with incoming dataset. Use renamed columns here.
   * @param delete Optional valid sql condition on the incoming dataset. Use renamed column here.
+  * @param timestamp Timestamp column used to identify last version, if not specified currently ingested row is considered the last
   */
-case class MergeOptions(key: List[String], delete: Option[String] = None)
+case class MergeOptions(
+  key: List[String],
+  delete: Option[String] = None,
+  timestamp: Option[String] = None
+)
 
 /**
   * Dataset Schema
