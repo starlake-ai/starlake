@@ -7,6 +7,7 @@ import com.ebiznext.comet.schema.model._
 import com.ebiznext.comet.utils.{SparkJob, Utils}
 import org.apache.hadoop.fs.Path
 import org.apache.spark.rdd.RDD
+import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.{DataFrame, SaveMode, SparkSession}
 
@@ -113,18 +114,28 @@ trait IngestionJob extends SparkJob {
     val orderedExisting = existingDF.select(partitionedInputDF.columns.map((col(_))): _*)
 
     // Force orderinfg again of columns to be the same since join operation change it otherwise except below won"'t work.
-    val toDeleteDF =
+    val commonDF =
       orderedExisting
         .join(partitionedInputDF.select(merge.key.head, merge.key.tail: _*), merge.key)
         .select(partitionedInputDF.columns.map((col(_))): _*)
+
+    val toDeleteDF = merge.timestamp.map { timestamp =>
+      val w = Window.partitionBy(merge.key.head, merge.key.tail: _*).orderBy(col(timestamp).desc)
+      import org.apache.spark.sql.functions.row_number
+      commonDF
+        .withColumn("rownum", row_number.over(w))
+        .where(col("rownum") =!= 1)
+        .drop("rownum")
+    } getOrElse (commonDF)
+
     val updatesDF = merge.delete
       .map(condition => partitionedInputDF.filter(s"not ($condition)"))
       .getOrElse(partitionedInputDF)
     logger.whenDebugEnabled {
       logger.debug(s"Merge detected ${toDeleteDF.count()} items to update/delete")
       logger.debug(s"Merge detected ${updatesDF.count()} items to update/insert")
+      orderedExisting.except(toDeleteDF).union(updatesDF).show(false)
     }
-    orderedExisting.except(toDeleteDF).union(updatesDF).show(false)
     if (Settings.comet.mergeForceDistinct)
       orderedExisting.except(toDeleteDF).union(updatesDF).distinct()
     else
