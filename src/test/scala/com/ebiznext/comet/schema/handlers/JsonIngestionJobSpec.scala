@@ -175,8 +175,8 @@ class JsonIngestionJobSpec extends TestHelper {
     new SpecTrait {
       cleanMetadata
       cleanDatasets
-      override val domainName: String = "json.yml"
-      override val domainFile: String = "/sample/json/json.yml"
+      override val domainFilename: String = "json.yml"
+      override val sourceDomainPathname: String = "/sample/json/json.yml"
 
       override val types: List[TypeToImport] = List(
         TypeToImport(
@@ -184,25 +184,25 @@ class JsonIngestionJobSpec extends TestHelper {
           "/sample/json/types.yml"
         )
       )
-      override val schemaName: String = "json"
-      override val dataset: String = "/sample/json/complex.json"
+      override val datasetDomainName: String = "json"
+      override val sourceDatasetPathName: String = "/sample/json/complex.json"
 
       loadPending
 
       // Check archive
 
-      readFileContent(cometDatasetsPath + s"/archive/${schemaName}/complex.json") shouldBe loadFile(
+      readFileContent(cometDatasetsPath + s"/archive/${datasetDomainName}/complex.json") shouldBe loadFile(
         "/sample/json/complex.json"
       )
 
       // Accepted should have the same data as input
       sparkSession.read
         .parquet(
-          cometDatasetsPath + s"/accepted/${schemaName}/sample_json/${getTodayPartitionPath}"
+          cometDatasetsPath + s"/accepted/${datasetDomainName}/sample_json/${getTodayPartitionPath}"
         )
         .except(
           sparkSession.read
-            .json(getClass.getResource(s"/sample/${schemaName}/complex.json").toURI.getPath)
+            .json(getClass.getResource(s"/sample/${datasetDomainName}/complex.json").toURI.getPath)
         )
         .count() shouldBe 0
     }

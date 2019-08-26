@@ -112,6 +112,7 @@ class DsvIngestionJob(
         .option("quote", metadata.getQuote())
         .option("escape", metadata.getEscape())
         .option("parserLib", "UNIVOCITY")
+        .option("encoding", metadata.getEncoding())
         .csv(path.map(_.toString): _*)
       df.printSchema()
 

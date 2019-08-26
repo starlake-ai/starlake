@@ -95,7 +95,7 @@ object Main extends StrictLogging {
     DatasetArea.initDomains(storageHandler, schemaHandler.domains.map(_.name))
 
     val workflow =
-      new IngestionWorkflow(storageHandler, schemaHandler, Settings.comet.getLauncher())
+      new IngestionWorkflow(storageHandler, schemaHandler, Settings.comet.launcherService)
 
     if (args.length == 0) println(usage)
 
