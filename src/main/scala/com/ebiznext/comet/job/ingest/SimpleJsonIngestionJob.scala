@@ -23,7 +23,7 @@ package com.ebiznext.comet.job.ingest
 import com.ebiznext.comet.schema.handlers.StorageHandler
 import com.ebiznext.comet.schema.model._
 import org.apache.hadoop.fs.Path
-import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.{DataFrame, Encoders}
 
 import scala.util.{Failure, Success, Try}
 
@@ -53,9 +53,10 @@ class SimpleJsonIngestionJob(
         if (metadata.isArray()) {
           val jsonRDD =
             session.sparkContext.wholeTextFiles(path.map(_.toString).mkString(",")).map(x => x._2)
-          session.read.json(jsonRDD)
+          session.read.json(session.createDataset(jsonRDD)(Encoders.STRING))
         } else {
           session.read
+            .option("encoding", metadata.getEncoding())
             .option("multiline", metadata.getMultiline())
             .json(path.map(_.toString): _*)
         }

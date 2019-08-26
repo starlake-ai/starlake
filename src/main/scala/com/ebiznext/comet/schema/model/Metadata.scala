@@ -37,6 +37,7 @@ case class EsMapping(timestamp: Option[String], id: Option[String])
   *
   * @param mode       : FILE mode by default
   * @param format     : DSV by default
+  * @param encoding   : UTF-8 by default
   * @param multiline  : are json objects on a single line or multiple line ? Single by default.  false means single. false also means faster
   * @param array      : Is a json stored as a single object array ? false by default
   * @param withHeader : does the dataset has a header ? true bu default
@@ -51,6 +52,7 @@ case class EsMapping(timestamp: Option[String], id: Option[String])
 case class Metadata(
   mode: Option[Mode] = None,
   format: Option[Format] = None,
+  encoding: Option[String] = None,
   multiline: Option[Boolean] = None,
   array: Option[Boolean] = None,
   withHeader: Option[Boolean] = None,
@@ -66,6 +68,7 @@ case class Metadata(
     s"""
        |mode:${getIngestMode()}
        |format:${getFormat()}
+       |encoding:${getEncoding()}
        |multiline:${getMultiline()}
        |array:${isArray()}
        |withHeader:${isWithHeader()}
@@ -81,6 +84,8 @@ case class Metadata(
   def getIngestMode(): Mode = mode.getOrElse(FILE)
 
   def getFormat(): Format = format.getOrElse(DSV)
+
+  def getEncoding(): String = encoding.getOrElse("UTF-8")
 
   def getMultiline(): Boolean = multiline.getOrElse(false)
 
@@ -125,6 +130,7 @@ case class Metadata(
     Metadata(
       mode = merge(this.mode, child.mode),
       format = merge(this.format, child.format),
+      encoding = merge(this.encoding, child.encoding),
       multiline = merge(this.multiline, child.multiline),
       array = merge(this.array, child.array),
       withHeader = merge(this.withHeader, child.withHeader),
@@ -155,6 +161,7 @@ object Metadata {
   ) = new Metadata(
     Some(Mode.FILE),
     Some(Format.DSV),
+    None,
     Some(false),
     Some(false),
     Some(true),
@@ -180,6 +187,9 @@ class MetadataDeserializer extends JsonDeserializer[Metadata] {
     val format =
       if (isNull(node, "format")) None
       else Some(Format.fromString(node.get("format").asText))
+    val encoding =
+      if (isNull(node, "encoding")) None
+      else Some(node.get("encoding").asText)
     val multiline =
       if (isNull(node, "multiline")) None else Some(node.get("multiline").asBoolean())
     val array =
@@ -217,6 +227,7 @@ class MetadataDeserializer extends JsonDeserializer[Metadata] {
     Metadata(
       mode,
       format,
+      encoding,
       multiline,
       array,
       withHeader,

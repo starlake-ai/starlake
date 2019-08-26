@@ -25,11 +25,16 @@ import com.ebiznext.comet.{TestHelper, TypeToImport}
 
 class PositionIngestionJobSpec extends TestHelper {
   "Ingest Position File" should "should be ingested from pending to accepted, and archived" in {
+    import org.slf4j.impl.StaticLoggerBinder
+    val binder = StaticLoggerBinder.getSingleton
+    System.out.println(binder.getLoggerFactory)
+    System.out.println(binder.getLoggerFactoryClassStr)
+
     new SpecTrait {
       cleanMetadata
       cleanDatasets
-      override val domainName: String = "position.yml"
-      override val domainFile: String = "/sample/position/position.yml"
+      override val domainFilename: String = "position.yml"
+      override val sourceDomainPathname: String = "/sample/position/position.yml"
 
       override val types: List[TypeToImport] = List(
         TypeToImport(
@@ -41,27 +46,73 @@ class PositionIngestionJobSpec extends TestHelper {
           "/sample/position/types.yml"
         )
       )
-      override val schemaName: String = "position"
-      override val dataset: String = "/sample/position/XPOSTBL"
+      override val datasetDomainName: String = "position"
+      override val sourceDatasetPathName: String = "/sample/position/XPOSTBL"
       println(Settings.comet.datasets)
       loadPending
 
       // Check archive
 
-      readFileContent(cometDatasetsPath + s"/archive/${schemaName}/XPOSTBL") shouldBe loadFile(
+      readFileContent(cometDatasetsPath + s"/archive/${datasetDomainName}/XPOSTBL") shouldBe loadFile(
         "/sample/position/XPOSTBL"
       )
 
       // Accepted should have the same data as input
       val acceptedDf = sparkSession.read
         .parquet(
-          cometDatasetsPath + s"/accepted/${schemaName}/account/${getTodayPartitionPath}"
+          cometDatasetsPath + s"/accepted/${datasetDomainName}/account/${getTodayPartitionPath}"
         )
       printDF(acceptedDf, "acceptedDf")
       acceptedDf.count() shouldBe
       sparkSession.read
-        .text(getClass.getResource(s"/sample/${schemaName}/XPOSTBL").toURI.getPath)
+        .text(getClass.getResource(s"/sample/${datasetDomainName}/XPOSTBL").toURI.getPath)
         .count()
+    }
+
+  }
+  "Ingest Position File" should "should be ingested from pending to accepted, and archived" in {
+    import org.slf4j.impl.StaticLoggerBinder
+    val binder = StaticLoggerBinder.getSingleton
+    System.out.println(binder.getLoggerFactory)
+    System.out.println(binder.getLoggerFactoryClassStr)
+
+    new SpecTrait {
+      cleanMetadata
+      cleanDatasets
+      override val domainFilename: String = "position.yml"
+      override val sourceDomainPathname: String = "/sample/position/position.yml"
+
+      override val types: List[TypeToImport] = List(
+        TypeToImport(
+          "default.yml",
+          "/sample/default.yml"
+        ),
+        TypeToImport(
+          "types.yml",
+          "/sample/position/types.yml"
+        )
+      )
+      override val datasetDomainName: String = "position"
+      override val sourceDatasetPathName: String = "/sample/position/XPOSTBL"
+      println(Settings.comet.datasets)
+      loadPending
+
+      // Check archive
+
+      readFileContent(cometDatasetsPath + s"/archive/${datasetDomainName}/XPOSTBL") shouldBe loadFile(
+        "/sample/position/XPOSTBL"
+      )
+
+      // Accepted should have the same data as input
+      val acceptedDf = sparkSession.read
+        .parquet(
+          cometDatasetsPath + s"/accepted/${datasetDomainName}/account/${getTodayPartitionPath}"
+        )
+      printDF(acceptedDf, "acceptedDf")
+      acceptedDf.count() shouldBe
+        sparkSession.read
+          .text(getClass.getResource(s"/sample/${datasetDomainName}/XPOSTBL").toURI.getPath)
+          .count()
     }
 
   }
