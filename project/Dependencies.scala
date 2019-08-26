@@ -81,7 +81,5 @@ object Dependencies {
 
   val sttp = Seq("com.softwaremill.sttp" %% "core" % Versions.sttp)
 
-  
-
   val dependencies = logging ++ typedConfigs ++ okhttp ++ betterfiles ++ jackson ++ scalaTest ++ scopt ++ esHadoop ++ sttp
 }

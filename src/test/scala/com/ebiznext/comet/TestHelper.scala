@@ -42,7 +42,7 @@ import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
 
 import scala.collection.JavaConverters._
-import scala.io.Source
+import scala.io.{Codec, Source}
 import scala.util.Try
 
 trait TestHelper extends FlatSpec with Matchers with BeforeAndAfterAll {
@@ -77,7 +77,7 @@ trait TestHelper extends FlatSpec with Matchers with BeforeAndAfterAll {
     * primitiveType: "string"
     * pattern: "[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\\\.[A-Za-z]{2,6}"
     */
-  def loadFile(filename: String): String = {
+  def loadFile(filename: String)(implicit codec : Codec): String = {
     val stream: InputStream = getClass.getResourceAsStream(filename)
     scala.io.Source.fromInputStream(stream).getLines().mkString("\n")
   }
@@ -157,6 +157,7 @@ trait TestHelper extends FlatSpec with Matchers with BeforeAndAfterAll {
       Metadata(
         Some(Mode.FILE),
         Some(Format.DSV),
+        None,
         Some(false),
         Some(false),
         Some(false),
@@ -225,19 +226,19 @@ trait TestHelper extends FlatSpec with Matchers with BeforeAndAfterAll {
 
     def schemaHandler = new SchemaHandler(storageHandler)
 
-    final val domain: Path = DatasetArea.domains
-    val domainName: String
-    val domainFile: String
+    final val domainMetadataRootPath: Path = DatasetArea.domains
+    val domainFilename: String
+    val sourceDomainPathname: String
 
     val types: List[TypeToImport]
 
-    val schemaName: String
-    val dataset: String
+    val datasetDomainName: String
+    val sourceDatasetPathName: String
 
     protected def init(): Unit = {
-      val domainsPath = new Path(domain, domainName)
+      val domainPath = new Path(domainMetadataRootPath, domainFilename)
 
-      storageHandler.write(loadFile(domainFile), domainsPath)
+      storageHandler.write(loadFile(sourceDomainPathname), domainPath)
 
       types.foreach { typeToImport =>
         val typesPath = new Path(DatasetArea.types, typeToImport.name)
@@ -250,27 +251,27 @@ trait TestHelper extends FlatSpec with Matchers with BeforeAndAfterAll {
 
     }
 
-    def loadPending(): Unit = {
+    def loadPending(implicit codec : Codec): Unit = {
 
       init()
 
       val validator = new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
 
-      val targetPath = DatasetArea.path(DatasetArea.pending(schemaName), new Path(dataset).getName)
+      val targetPath = DatasetArea.path(DatasetArea.pending(datasetDomainName), new Path(sourceDatasetPathName).getName)
 
-      storageHandler.write(loadFile(dataset), targetPath)
+      storageHandler.write(loadFile(sourceDatasetPathName), targetPath)
 
       validator.loadPending()
     }
 
   }
+
   def printDF(df: DataFrame, marker: String) = {
     println(marker)
     df.printSchema
     df.show(false)
     println("-----")
   }
-
 
 }
 

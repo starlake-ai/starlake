@@ -1,10 +1,13 @@
 package com.ebiznext.comet.utils
 
-import com.ebiznext.comet.config.SparkEnv
+import java.util.UUID
+
+import com.ebiznext.comet.config.{Settings, SparkEnv}
 import com.ebiznext.comet.schema.model.Metadata
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.{DataFrame, DataFrameWriter, Row, SparkSession}
+import org.slf4j.MDC
 
 /**
   * All Spark Job extend this trait.
@@ -12,10 +15,8 @@ import org.apache.spark.sql.{DataFrame, DataFrameWriter, Row, SparkSession}
   */
 trait SparkJob extends StrictLogging {
   def name: String
-
   lazy val sparkEnv: SparkEnv = new SparkEnv(name)
   lazy val session: SparkSession = sparkEnv.session
-
   /**
     * Just to force any spark job to implement its entry point using within the "run" method
     *

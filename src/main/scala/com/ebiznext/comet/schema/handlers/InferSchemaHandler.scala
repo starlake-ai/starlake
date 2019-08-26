@@ -76,9 +76,7 @@ object InferSchemaHandler {
   /** *
     * builds the Metadata case class. check case class metadata for attribute definition
     *
-    * @param mode       : FILE mode by default
     * @param format     : DSV by default
-    * @param multiline  : are json objects on a single line or multiple line ? Single by default.  false means single. false also means faster
     * @param array      : Is a json stored as a single object array ? false by default
     * @param withHeader : does the dataset has a header ? true bu default
     * @param separator  : the column separator,  ';' by default
@@ -92,8 +90,9 @@ object InferSchemaHandler {
     separator: Option[String]
   ): Metadata = {
     Metadata(
-      mode = Some(Mode.fromString("FILE")),
+      Some(Mode.fromString("FILE")),
       Some(Format.fromString(format.getOrElse("DSV"))),
+      None,
       multiline = None,
       array,
       withHeader,

@@ -26,7 +26,6 @@ import java.time.Instant
 import com.ebiznext.comet.schema.handlers.StorageHandler
 import com.ebiznext.comet.schema.model.Rejection.{ColInfo, ColResult, RowInfo, RowResult}
 import com.ebiznext.comet.schema.model._
-import com.ebiznext.comet.utils.Encryption
 import org.apache.hadoop.fs.Path
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql._
@@ -60,7 +59,8 @@ class PositionIngestionJob(
     */
   override def loadDataSet(): Try[DataFrame] = {
     try {
-      val df = session.read.text(path.map(_.toString): _*)
+      val df =
+        session.read.option("encoding", metadata.getEncoding()).text(path.map(_.toString): _*)
       metadata.withHeader match {
         case Some(true) =>
           Failure(new Exception("No Header allowed for Position File Format "))
