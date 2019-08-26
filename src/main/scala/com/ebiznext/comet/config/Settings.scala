@@ -20,7 +20,7 @@
 
 package com.ebiznext.comet.config
 
-import java.util.Map
+import java.util.{Map, UUID}
 
 import com.ebiznext.comet.schema.handlers.{
   AirflowLauncher,
@@ -32,8 +32,16 @@ import com.ebiznext.comet.schema.handlers.{
 import com.typesafe.config.{Config, ConfigFactory}
 import com.typesafe.scalalogging.StrictLogging
 import configs.syntax._
+import org.slf4j.MDC
 
 object Settings extends StrictLogging {
+  val jobId = UUID.randomUUID()
+
+  import java.lang.management.{ManagementFactory, RuntimeMXBean}
+
+  val rt: RuntimeMXBean = ManagementFactory.getRuntimeMXBean
+  MDC.put("PID", rt.getName)
+  MDC.put("JID", jobId.toString)
 
   /**
     *
@@ -112,10 +120,11 @@ object Settings extends StrictLogging {
     privacy: Privacy
   ) {
 
-    def getLauncher(): LaunchHandler = launcher match {
+    val launcherService: LaunchHandler = launcher match {
       case "simple"  => new SimpleLauncher()
       case "airflow" => new AirflowLauncher()
     }
+
   }
 
   val config: Config = ConfigFactory.load()
