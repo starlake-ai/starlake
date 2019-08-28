@@ -25,6 +25,7 @@ import java.time.Instant
 
 import com.ebiznext.comet.schema.handlers.StorageHandler
 import com.ebiznext.comet.schema.model.Rejection.{ColInfo, ColResult, RowInfo, RowResult}
+import com.ebiznext.comet.schema.model.Trim.{BOTH, LEFT, RIGHT}
 import com.ebiznext.comet.schema.model._
 import org.apache.hadoop.fs.Path
 import org.apache.spark.rdd.RDD
@@ -123,16 +124,15 @@ class PositionIngestionJob(
 object PositionIngestionUtil {
 
   def prepare(session: SparkSession, input: DataFrame, attributes: List[Attribute]) = {
-    def getRow(x: String, positions: List[Position]): Row = {
+    def getRow(inputLine: String, positions: List[Position]): Row = {
       val columnArray = new Array[String](positions.length)
-      if (positions.last.first >= x.length)
-        Row.fromSeq(columnArray)
-      else {
-        for (i <- positions.indices) {
-          columnArray(i) = x.substring(positions(i).first, positions(i).last + 1)
-        }
-        Row.fromSeq(columnArray)
+      val inputLen = inputLine.length
+      for (i <- positions.indices) {
+        val first = positions(i).first
+        val last = positions(i).last + 1
+        columnArray(i) = if (last <= inputLen) inputLine.substring(first, last) else ""
       }
+      Row.fromSeq(columnArray)
     }
 
     val positions = attributes.map(_.position.get)
@@ -171,6 +171,8 @@ object PositionIngestionUtil {
     types: List[Type],
     sparkType: StructType
   ): (RDD[String], RDD[Row]) = {
+    def ltrim(s: String) = s.replaceAll("^\\s+", "")
+    def rtrim(s: String) = s.replaceAll("\\s+$", "")
     val now = Timestamp.from(Instant.now)
     val checkedRDD: RDD[RowResult] = dataset.rdd.mapPartitions { partition =>
       partition.map { row: Row =>
@@ -183,7 +185,20 @@ object PositionIngestionUtil {
           .zip(types)
         RowResult(
           rowCols.map {
-            case ((colValue, colAttribute), tpe) =>
+            case ((colRawValue, colAttribute), tpe) =>
+              val timmedColValue = colAttribute.position.map { position =>
+                position.trim match {
+                  case Some(LEFT)  => ltrim(colRawValue)
+                  case Some(RIGHT) => rtrim(colRawValue)
+                  case Some(BOTH)  => colRawValue.trim()
+                  case _           => colRawValue
+                }
+              } getOrElse (colRawValue)
+
+              val colValue =
+                if (timmedColValue.length == 0) colAttribute.default.getOrElse("")
+                else timmedColValue
+
               val validNumberOfColumns = attributes.length <= rowCols.length
               val optionalColIsEmpty = !colAttribute.required && colValue.isEmpty
               val colPatternIsValid = tpe.matches(colValue)
@@ -196,7 +211,6 @@ object PositionIngestionUtil {
               val colPatternOK = validNumberOfColumns && (optionalColIsEmpty || colPatternIsValid)
               val (sparkValue, colParseOK) =
                 if (colPatternOK) {
-                  val x = tpe.sparkValue(privacy)
                   Try(tpe.sparkValue(privacy)) match {
                     case Success(res) => (res, true)
                     case Failure(_)   => (null, false)

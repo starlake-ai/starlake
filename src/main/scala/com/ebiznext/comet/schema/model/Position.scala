@@ -25,8 +25,7 @@ package com.ebiznext.comet.schema.model
   *
   * @param first : First char position
   * @param last   : last char position
-  * @param ltrim : trim left
-  * @param rtrim : trim right
+  * @param trim : trim left / right / both / none
   *
   */
-case class Position(first: Int, last: Int, ltrim: Boolean = true, rtrim: Boolean = true)
+case class Position(first: Int, last: Int, trim: Option[Trim])
