@@ -30,33 +30,36 @@ import com.fasterxml.jackson.databind.{DeserializationContext, JsonDeserializer}
   * @param value : FILE or STREAM
   */
 @JsonSerialize(using = classOf[ToStringSerializer])
-@JsonDeserialize(using = classOf[ModeDeserializer])
-sealed case class Mode(value: String) {
+@JsonDeserialize(using = classOf[TrimDeserializer])
+sealed case class Trim(value: String) {
   override def toString: String = value
 }
 
-object Mode {
+object Trim {
 
-  def fromString(value: String): Mode = {
+  def fromString(value: String): Trim = {
     value.toUpperCase() match {
-      case "FILE"            => Mode.FILE
-      case "STREAM"          => Mode.STREAM
-      case "FILE_AND_STREAM" => Mode.FILE_AND_STREAM
+      case "LEFT"  => Trim.LEFT
+      case "RIGHT" => Trim.RIGHT
+      case "BOTH"  => Trim.BOTH
+      case "NONE"  => Trim.NONE
     }
   }
 
-  object FILE extends Mode("FILE")
+  object LEFT extends Trim("LEFT")
 
-  object STREAM extends Mode("STREAM")
+  object RIGHT extends Trim("RIGHT")
 
-  object FILE_AND_STREAM extends Mode("FILE_AND_STREAM")
+  object BOTH extends Trim("BOTH")
 
-  val modes: Set[Mode] = Set(FILE, STREAM, FILE_AND_STREAM)
+  object NONE extends Trim("NONE")
+
+  val modes: Set[Trim] = Set(LEFT, RIGHT, BOTH, NONE)
 }
 
-class ModeDeserializer extends JsonDeserializer[Mode] {
-  override def deserialize(jp: JsonParser, ctx: DeserializationContext): Mode = {
+class TrimDeserializer extends JsonDeserializer[Trim] {
+  override def deserialize(jp: JsonParser, ctx: DeserializationContext): Trim = {
     val value = jp.readValueAs[String](classOf[String])
-    Mode.fromString(value)
+    Trim.fromString(value)
   }
 }

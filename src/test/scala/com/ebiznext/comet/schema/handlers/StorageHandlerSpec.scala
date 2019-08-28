@@ -20,8 +20,6 @@
 
 package com.ebiznext.comet.schema.handlers
 
-import java.io.File
-
 import com.ebiznext.comet.TestHelper
 import com.ebiznext.comet.schema.model._
 import org.apache.hadoop.fs.Path
@@ -74,5 +72,6 @@ class StorageHandlerSpec extends TestHelper {
     println(readFileContent(pathBusiness))
     readFileContent(pathBusiness) shouldBe loadFile("/expected/yml/business.yml")
   }
-
 }
+
+

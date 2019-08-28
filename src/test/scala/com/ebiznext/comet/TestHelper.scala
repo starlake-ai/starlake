@@ -77,7 +77,7 @@ trait TestHelper extends FlatSpec with Matchers with BeforeAndAfterAll {
     * primitiveType: "string"
     * pattern: "[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\\\.[A-Za-z]{2,6}"
     */
-  def loadFile(filename: String)(implicit codec : Codec): String = {
+  def loadFile(filename: String)(implicit codec: Codec): String = {
     val stream: InputStream = getClass.getResourceAsStream(filename)
     scala.io.Source.fromInputStream(stream).getLines().mkString("\n")
   }
@@ -237,7 +237,6 @@ trait TestHelper extends FlatSpec with Matchers with BeforeAndAfterAll {
 
     protected def init(): Unit = {
       val domainPath = new Path(domainMetadataRootPath, domainFilename)
-
       storageHandler.write(loadFile(sourceDomainPathname), domainPath)
 
       types.foreach { typeToImport =>
@@ -251,13 +250,16 @@ trait TestHelper extends FlatSpec with Matchers with BeforeAndAfterAll {
 
     }
 
-    def loadPending(implicit codec : Codec): Unit = {
+    def loadPending(implicit codec: Codec): Unit = {
 
       init()
 
       val validator = new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
 
-      val targetPath = DatasetArea.path(DatasetArea.pending(datasetDomainName), new Path(sourceDatasetPathName).getName)
+      val targetPath = DatasetArea.path(
+        DatasetArea.pending(datasetDomainName),
+        new Path(sourceDatasetPathName).getName
+      )
 
       storageHandler.write(loadFile(sourceDatasetPathName), targetPath)
 

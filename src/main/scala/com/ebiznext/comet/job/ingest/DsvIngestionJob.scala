@@ -26,7 +26,6 @@ import java.time.Instant
 import com.ebiznext.comet.schema.handlers.StorageHandler
 import com.ebiznext.comet.schema.model.Rejection.{ColInfo, ColResult, RowInfo, RowResult}
 import com.ebiznext.comet.schema.model._
-import com.ebiznext.comet.utils.Encryption
 import org.apache.hadoop.fs.Path
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql._
@@ -238,7 +237,9 @@ object DsvIngestionUtil {
           .zip(types)
         RowResult(
           rowCols.map {
-            case ((colValue, colAttribute), tpe) =>
+            case ((rawColValue, colAttribute), tpe) =>
+              val colValue =
+                if (rawColValue.length == 0) colAttribute.default.getOrElse("") else rawColValue
               val validNumberOfColumns = attributes.length <= rowCols.length
               val optionalColIsEmpty = !colAttribute.required && colValue.isEmpty
               val colPatternIsValid = tpe.matches(colValue)
