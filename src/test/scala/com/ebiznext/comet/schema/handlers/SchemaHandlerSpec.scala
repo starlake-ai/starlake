@@ -103,7 +103,8 @@ class SchemaHandlerSpec extends TestHelper {
       )
 
       override val datasetDomainName: String = "dream"
-      override val sourceDatasetPathName: String = "/sample/dream/OneClient_Contact_20190101_090800_008.psv"
+      override val sourceDatasetPathName: String =
+        "/sample/dream/OneClient_Contact_20190101_090800_008.psv"
 
       loadPending
 
@@ -125,7 +126,9 @@ class SchemaHandlerSpec extends TestHelper {
 
       // Accepted should have the same data as input
       val acceptedDf = sparkSession.read
-        .parquet(cometDatasetsPath + s"/accepted/$datasetDomainName/client/${getTodayPartitionPath}")
+        .parquet(
+          cometDatasetsPath + s"/accepted/$datasetDomainName/client/${getTodayPartitionPath}"
+        )
 
       val expectedAccepted =
         sparkSession.read
@@ -170,7 +173,9 @@ class SchemaHandlerSpec extends TestHelper {
 
       // Accepted should have the same data as input
       val acceptedDf = sparkSession.read
-        .parquet(cometDatasetsPath + s"/accepted/$datasetDomainName/segment/${getTodayPartitionPath}")
+        .parquet(
+          cometDatasetsPath + s"/accepted/$datasetDomainName/segment/${getTodayPartitionPath}"
+        )
 
       val expectedAccepted =
         sparkSession.read
@@ -210,7 +215,9 @@ class SchemaHandlerSpec extends TestHelper {
 
       // Accepted should have the same data as input
       val acceptedDf = sparkSession.read
-        .parquet(cometDatasetsPath + s"/accepted/$datasetDomainName/locations/$getTodayPartitionPath")
+        .parquet(
+          cometDatasetsPath + s"/accepted/$datasetDomainName/locations/$getTodayPartitionPath"
+        )
 
       val expectedAccepted =
         sparkSession.read

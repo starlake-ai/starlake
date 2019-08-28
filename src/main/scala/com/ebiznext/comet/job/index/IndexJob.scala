@@ -105,7 +105,6 @@ class IndexJob(
 
     val requestDel = authSttp
       .getOrElse(sttp)
-      .body(content)
       .delete(uri"$protocol://$host:$port/_template/${cliConfig.domain}_${cliConfig.schema}")
       .contentType("application/json")
     val responseDel = requestDel.send()
