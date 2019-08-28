@@ -17,6 +17,7 @@ trait SparkJob extends StrictLogging {
   def name: String
   lazy val sparkEnv: SparkEnv = new SparkEnv(name)
   lazy val session: SparkSession = sparkEnv.session
+
   /**
     * Just to force any spark job to implement its entry point using within the "run" method
     *

@@ -27,8 +27,6 @@ schemas:
         position:
           first: 0
           last: 0
-          ltrim: false
-          rtrim: false
       - name: "code1"
         type: "byte"
         required: true
@@ -36,8 +34,6 @@ schemas:
         position:
           first: 1
           last: 1
-          ltrim: false
-          rtrim: false
       - name: "code2"
         type: "byte"
         required: true
@@ -45,8 +41,6 @@ schemas:
         position:
           first: 2
           last: 2
-          ltrim: false
-          rtrim: false
       - name: "bancode"
         type: "string"
         required: true
@@ -54,8 +48,6 @@ schemas:
         position:
           first: 3
           last: 7
-          ltrim: false
-          rtrim: false
       - name: "account"
         type: "string"
         required: true
@@ -63,8 +55,6 @@ schemas:
         position:
           first: 8
           last: 26
-          ltrim: false
-          rtrim: false
       - name: "date1"
         type: "datefr"
         required: true
@@ -72,8 +62,6 @@ schemas:
         position:
           first: 27
           last: 36
-          ltrim: false
-          rtrim: false
       - name: "dtcode"
         type: "byte"
         required: true
@@ -81,8 +69,7 @@ schemas:
         position:
           first: 37
           last: 37
-          ltrim: false
-          rtrim: false
+          trim: BOTH
       - name: "date2"
         type: "datefr"
         required: true
@@ -90,8 +77,7 @@ schemas:
         position:
           first: 38
           last: 47
-          ltrim: false
-          rtrim: false
+          trim: both
       - name: "date3"
         type: "datefr"
         required: true
@@ -99,5 +85,3 @@ schemas:
         position:
           first: 48
           last: 57
-          ltrim: false
-          rtrim: false

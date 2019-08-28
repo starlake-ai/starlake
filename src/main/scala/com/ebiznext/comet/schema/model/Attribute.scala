@@ -23,10 +23,11 @@ package com.ebiznext.comet.schema.model
 import java.util.regex.Pattern
 
 import com.fasterxml.jackson.annotation.JsonIgnore
-import com.typesafe.scalalogging.{LazyLogging, StrictLogging}
+import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.sql.types._
 
 import scala.collection.mutable
+import scala.util.{Failure, Success}
 
 /**
   * A field in the schema. For struct fields, the field "attributes" contains all sub attributes
@@ -52,7 +53,8 @@ case class Attribute(
   rename: Option[String] = None,
   metricType: Option[MetricType] = None,
   attributes: Option[List[Attribute]] = None,
-  position: Option[Position] = None
+  position: Option[Position] = None,
+  default: Option[String] = None
 ) extends LazyLogging {
 
   /**
@@ -70,14 +72,15 @@ case class Attribute(
     if (`type` == null)
       errorList += s"$this : unspecified type"
 
-    val colNamePattern = Pattern.compile("[a-zA-Z][a-zA-Z0-9_]{1,767}")
+    val colNamePattern = Pattern.compile("[a-zA-Z_][a-zA-Z0-9_]{1,767}")
     if (!colNamePattern.matcher(name).matches())
       errorList += s"attribute with name $name should respect the pattern ${colNamePattern.pattern()}"
 
     if (!rename.forall(colNamePattern.matcher(_).matches()))
       errorList += s"renamed attribute with renamed name '$rename' should respect the pattern ${colNamePattern.pattern()}"
 
-    val primitiveType = types.find(_.name == `type`).map(_.primitiveType)
+    val tpe = types.find(_.name == `type`)
+    val primitiveType = tpe.map(_.primitiveType)
 
     primitiveType match {
       case Some(tpe) =>
@@ -90,10 +93,32 @@ case class Attribute(
       case None if attributes.isEmpty => errorList += s"Invalid Type ${`type`}"
       case _                          => // good boy
     }
+
+    default.foreach { default =>
+      if (required)
+        errorList += s"attribute with name $name: default value valid for optional fields only"
+      primitiveType.foreach { primitiveType =>
+        if (primitiveType == PrimitiveType.struct)
+          errorList += s"attribute with name $name: default value not valid for struct type fields"
+        tpe.foreach {
+          _.sparkValue(default) match {
+            case Success(_) =>
+            case Failure(e) =>
+              errorList += s"attribute with name $name: Invalid default value for tha attribute type ${e.getMessage()}"
+          }
+        }
+      }
+      array.foreach { isArray =>
+        if (isArray)
+          errorList += s"attribute with name $name: default value not valid for array fields"
+      }
+    }
+
     attributes.collect {
       case list if list.isEmpty =>
         errorList += s"Attribute $this : when present, attributes list cannot be empty."
     }
+
     if (errorList.nonEmpty)
       Left(errorList.toList)
     else
