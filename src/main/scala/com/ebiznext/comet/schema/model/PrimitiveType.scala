@@ -220,7 +220,7 @@ object PrimitiveType {
 
   import DateTimeFormatter._
 
-  val dateFormatters = Map(
+  val dateFormatters: Map[String, DateTimeFormatter] = Map(
     "BASIC_ISO_DATE"       -> BASIC_ISO_DATE,
     "ISO_LOCAL_DATE"       -> ISO_LOCAL_DATE,
     "ISO_OFFSET_DATE"      -> ISO_OFFSET_DATE,
