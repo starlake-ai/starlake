@@ -3,6 +3,8 @@ package com.ebiznext.comet.job.ingest
 import com.ebiznext.comet.config.{DatasetArea, HiveArea, Settings}
 import com.ebiznext.comet.job.metrics.MetricsJob
 import com.ebiznext.comet.schema.handlers.StorageHandler
+import com.ebiznext.comet.schema.model.Rejection.{ColInfo, ColResult}
+import com.ebiznext.comet.schema.model.Trim.{BOTH, LEFT, RIGHT}
 import com.ebiznext.comet.schema.model._
 import com.ebiznext.comet.utils.{SparkJob, Utils}
 import org.apache.hadoop.fs.Path
@@ -259,6 +261,7 @@ trait IngestionJob extends SparkJob {
     }
   }
 
+
   /**
     * Main entry point as required by the Spark Job interface
     *
@@ -305,4 +308,57 @@ trait IngestionJob extends SparkJob {
     session
   }
 
+}
+
+
+object IngestionUtil {
+  def validateCol(
+                             validNumberOfColumns: Boolean,
+                             colRawValue: String,
+                             colAttribute: Attribute,
+                             tpe: Type
+                           ) = {
+    def ltrim(s: String) = s.replaceAll("^\\s+", "")
+    def rtrim(s: String) = s.replaceAll("\\s+$", "")
+    val trimmedColValue = colAttribute.position.map { position =>
+      position.trim match {
+        case Some(LEFT)  => ltrim(colRawValue)
+        case Some(RIGHT) => rtrim(colRawValue)
+        case Some(BOTH)  => colRawValue.trim()
+        case _           => colRawValue
+      }
+    } getOrElse (colRawValue)
+
+    val colValue =
+      if (trimmedColValue.length == 0) colAttribute.default.getOrElse("")
+      else trimmedColValue
+
+    val optionalColIsEmpty = !colAttribute.required && colValue.isEmpty
+    val colPatternIsValid = tpe.matches(colValue)
+    val privacyLevel = colAttribute.getPrivacy()
+    val privacy =
+      if (privacyLevel == PrivacyLevel.None)
+        colValue
+      else
+        privacyLevel.encrypt(colValue)
+    val colPatternOK = validNumberOfColumns && (optionalColIsEmpty || colPatternIsValid)
+    val (sparkValue, colParseOK) =
+      if (colPatternOK) {
+        Try(tpe.sparkValue(privacy)) match {
+          case Success(res) => (res, true)
+          case Failure(_)   => (null, false)
+        }
+      } else
+        (null, false)
+    ColResult(
+      ColInfo(
+        colValue,
+        colAttribute.name,
+        tpe.name,
+        tpe.pattern,
+        colPatternOK && colParseOK
+      ),
+      sparkValue
+    )
+  }
 }

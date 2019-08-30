@@ -171,8 +171,6 @@ object PositionIngestionUtil {
     types: List[Type],
     sparkType: StructType
   ): (RDD[String], RDD[Row]) = {
-    def ltrim(s: String) = s.replaceAll("^\\s+", "")
-    def rtrim(s: String) = s.replaceAll("\\s+$", "")
     val now = Timestamp.from(Instant.now)
     val checkedRDD: RDD[RowResult] = dataset.rdd.mapPartitions { partition =>
       partition.map { row: Row =>
@@ -183,50 +181,11 @@ object PositionIngestionUtil {
               (Option(colValue).getOrElse("").toString, colAttribute)
           }
           .zip(types)
+        val validNumberOfColumns = attributes.length <= rowCols.length
         RowResult(
           rowCols.map {
             case ((colRawValue, colAttribute), tpe) =>
-              val timmedColValue = colAttribute.position.map { position =>
-                position.trim match {
-                  case Some(LEFT)  => ltrim(colRawValue)
-                  case Some(RIGHT) => rtrim(colRawValue)
-                  case Some(BOTH)  => colRawValue.trim()
-                  case _           => colRawValue
-                }
-              } getOrElse (colRawValue)
-
-              val colValue =
-                if (timmedColValue.length == 0) colAttribute.default.getOrElse("")
-                else timmedColValue
-
-              val validNumberOfColumns = attributes.length <= rowCols.length
-              val optionalColIsEmpty = !colAttribute.required && colValue.isEmpty
-              val colPatternIsValid = tpe.matches(colValue)
-              val privacyLevel = colAttribute.getPrivacy()
-              val privacy =
-                if (privacyLevel == PrivacyLevel.None)
-                  colValue
-                else
-                  privacyLevel.encrypt(colValue)
-              val colPatternOK = validNumberOfColumns && (optionalColIsEmpty || colPatternIsValid)
-              val (sparkValue, colParseOK) =
-                if (colPatternOK) {
-                  Try(tpe.sparkValue(privacy)) match {
-                    case Success(res) => (res, true)
-                    case Failure(_)   => (null, false)
-                  }
-                } else
-                  (null, false)
-              ColResult(
-                ColInfo(
-                  colValue,
-                  colAttribute.name,
-                  tpe.name,
-                  tpe.pattern,
-                  colPatternOK && colParseOK
-                ),
-                sparkValue
-              )
+              IngestionUtil.validateCol(validNumberOfColumns, colRawValue, colAttribute, tpe)
           }.toList
         )
       }
