@@ -157,9 +157,9 @@ class DsvIngestionJob(
     val orderedAttributes = reorderAttributes()
 
     def reorderTypes(): (List[Type], StructType) = {
-      val mapTypes: Map[String, Type] = types.map(tpe => tpe.name -> tpe).toMap
+      val typeMap: Map[String, Type] = types.map(tpe => tpe.name -> tpe).toMap
       val (tpes, sparkFields) = orderedAttributes.map { attribute =>
-        val tpe = mapTypes(attribute.`type`)
+        val tpe = typeMap(attribute.`type`)
         (tpe, tpe.sparkType(attribute.name, !attribute.required, attribute.comment))
       }.unzip
       (tpes, StructType(sparkFields))
@@ -235,39 +235,11 @@ object DsvIngestionUtil {
               (Option(colValue).getOrElse("").toString, colAttribute)
           }
           .zip(types)
+        val validNumberOfColumns = attributes.length <= rowCols.length
         RowResult(
           rowCols.map {
-            case ((rawColValue, colAttribute), tpe) =>
-              val colValue =
-                if (rawColValue.length == 0) colAttribute.default.getOrElse("") else rawColValue
-              val validNumberOfColumns = attributes.length <= rowCols.length
-              val optionalColIsEmpty = !colAttribute.required && colValue.isEmpty
-              val colPatternIsValid = tpe.matches(colValue)
-              val privacyLevel = colAttribute.getPrivacy()
-              val privacy =
-                if (privacyLevel == PrivacyLevel.None)
-                  colValue
-                else
-                  privacyLevel.encrypt(colValue)
-              val colPatternOK = validNumberOfColumns && (optionalColIsEmpty || colPatternIsValid)
-              val (sparkValue, colParseOK) =
-                if (colPatternOK) {
-                  Try(tpe.sparkValue(privacy)) match {
-                    case Success(res) => (res, true)
-                    case Failure(_)   => (null, false)
-                  }
-                } else
-                  (null, false)
-              ColResult(
-                ColInfo(
-                  colValue,
-                  colAttribute.name,
-                  tpe.name,
-                  tpe.pattern,
-                  colPatternOK && colParseOK
-                ),
-                sparkValue
-              )
+            case ((colRawValue, colAttribute), tpe) =>
+              IngestionUtil.validateCol(validNumberOfColumns, colRawValue, colAttribute, tpe)
           }.toList
         )
       }
