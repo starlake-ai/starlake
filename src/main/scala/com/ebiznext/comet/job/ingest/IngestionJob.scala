@@ -261,7 +261,6 @@ trait IngestionJob extends SparkJob {
     }
   }
 
-
   /**
     * Main entry point as required by the Spark Job interface
     *
@@ -310,14 +309,14 @@ trait IngestionJob extends SparkJob {
 
 }
 
-
 object IngestionUtil {
+
   def validateCol(
-                             validNumberOfColumns: Boolean,
-                             colRawValue: String,
-                             colAttribute: Attribute,
-                             tpe: Type
-                           ) = {
+    validNumberOfColumns: Boolean,
+    colRawValue: String,
+    colAttribute: Attribute,
+    tpe: Type
+  ) = {
     def ltrim(s: String) = s.replaceAll("^\\s+", "")
     def rtrim(s: String) = s.replaceAll("\\s+$", "")
     val trimmedColValue = colAttribute.position.map { position =>
