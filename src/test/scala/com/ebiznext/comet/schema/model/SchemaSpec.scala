@@ -60,7 +60,7 @@ class SchemaSpec extends FlatSpec with Matchers with TestHelper {
     attr.checkValidity(types.types) shouldBe
     Left(
       List(
-        "Attribute Attribute(attr,long,Some(true),true,Some(MD5),None,None,None,None,None) : string is the only supported primitive type for an attribute when privacy is requested"
+        "Attribute Attribute(attr,long,Some(true),true,Some(MD5),None,None,None,None,None,None) : string is the only supported primitive type for an attribute when privacy is requested"
       )
     )
   }
@@ -80,9 +80,9 @@ class SchemaSpec extends FlatSpec with Matchers with TestHelper {
       attributes = Some(List[Attribute]())
     )
     val expectedErrors = List(
-      "Attribute Attribute(attr,long,Some(true),true,Some(MD5),None,None,None,Some(List()),None) : string is the only supported primitive type for an attribute when privacy is requested",
-      "Attribute Attribute(attr,long,Some(true),true,Some(MD5),None,None,None,Some(List()),None) : Simple attributes cannot have sub-attributes",
-      "Attribute Attribute(attr,long,Some(true),true,Some(MD5),None,None,None,Some(List()),None) : when present, attributes list cannot be empty."
+      "Attribute Attribute(attr,long,Some(true),true,Some(MD5),None,None,None,Some(List()),None,None) : string is the only supported primitive type for an attribute when privacy is requested",
+      "Attribute Attribute(attr,long,Some(true),true,Some(MD5),None,None,None,Some(List()),None,None) : Simple attributes cannot have sub-attributes",
+      "Attribute Attribute(attr,long,Some(true),true,Some(MD5),None,None,None,Some(List()),None,None) : when present, attributes list cannot be empty."
     )
 
     attr.checkValidity(types.types) shouldBe Left(expectedErrors)
@@ -103,12 +103,14 @@ class SchemaSpec extends FlatSpec with Matchers with TestHelper {
         |position:
         |  first: 1
         |  last: 2
-        |  trim: NONE
-        |  """.stripMargin
+        |  trim: "NONE"
+        |default: null""".stripMargin
 
-    val attr = Attribute("hello", position = Some(Position(1, 2, None)))
+    val attr = Attribute("hello", position = Some(Position(1, 2, Some(Trim.NONE))))
     val writer = new StringWriter()
     mapper.writer().writeValue(writer, attr)
+    println(writer.toString)
+    println(yml)
     writer.toString.trim should equal(yml)
   }
 
