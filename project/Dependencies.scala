@@ -70,6 +70,9 @@ object Dependencies {
     "org.apache.spark" %% "spark-mllib" % Versions.spark212 % "provided"
   )
 
+  val gcs = Seq(
+    "com.google.cloud.bigdataoss" % "gcs-connector" % Versions.gcs exclude("javax.jms", "jms") exclude("com.sun.jdmk", "jmxtools") exclude("com.sun.jmx", "jmxri")
+  )
 
   val esHadoop = Seq(
     "org.elasticsearch" % "elasticsearch-hadoop" % Versions.esHadoop
