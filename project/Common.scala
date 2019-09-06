@@ -64,7 +64,7 @@ object Common {
   def customSettings: Seq[Def.Setting[_]] =
     Seq(
       scalacOptions ++= Seq(
-        "-Xmacro-settings:materialize-derivations",
+        "-Xmacro-settings:materialize-derivations"
       ),
       testOptions in Test ++= Seq(
         // show full stack traces and test case durations
@@ -105,6 +105,7 @@ object Versions {
   val esHadoop = "6.6.2"
   val scopt = "4.0.0-RC2"
   val sttp = "1.5.11"
+  val gcs = "hadoop2-2.0.0"
 }
 
 object Resolvers {
