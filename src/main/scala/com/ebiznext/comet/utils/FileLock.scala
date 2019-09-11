@@ -75,7 +75,8 @@ class FileLock(path: Path, storageHandler: StorageHandler) extends StrictLogging
 }
 
 class LockWatcher(path: Path, storageHandler: StorageHandler, checkinPeriod: Long)
-    extends Runnable {
+    extends Runnable
+    with StrictLogging {
 
   def release(): Unit =
     stop = true
@@ -86,7 +87,7 @@ class LockWatcher(path: Path, storageHandler: StorageHandler, checkinPeriod: Lon
       while (!stop) {
         Thread.sleep(checkinPeriod)
         storageHandler.touch(path)
-        println(s"watcher $path modified=${storageHandler.lastModified(path)}")
+        logger.info(s"watcher $path modified=${storageHandler.lastModified(path)}")
       }
       storageHandler.delete(path)
     } catch {

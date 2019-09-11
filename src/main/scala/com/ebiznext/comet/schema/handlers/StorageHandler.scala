@@ -20,6 +20,7 @@
 
 package com.ebiznext.comet.schema.handlers
 
+import java.io.ByteArrayOutputStream
 import java.time.{Instant, LocalDateTime, ZoneId}
 
 import org.apache.commons.io.IOUtils
@@ -27,7 +28,7 @@ import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs._
 import org.apache.spark.sql.execution.streaming.FileStreamSource.Timestamp
 
-import scala.util.{Failure, Success, Try}
+import scala.util.Try
 
 /**
   * Interface required by any filesystem manager
@@ -38,7 +39,7 @@ trait StorageHandler {
 
   def delete(path: Path): Boolean
 
-  def exist(path: Path): Boolean
+  def exists(path: Path): Boolean
 
   def mkdirs(path: Path): Boolean
 
@@ -66,12 +67,18 @@ trait StorageHandler {
 
   def touch(path: Path): Try[Unit]
 
+  def unzip(source: Path, targetDir: Path): Try[Unit]
+
 }
 
 /**
   * HDFS Filesystem Handler
   */
-class HdfsStorageHandler extends StorageHandler {
+class HdfsStorageHandler(fileSystem: Option[String]) extends StorageHandler {
+
+  val conf = new Configuration()
+  fileSystem.map(fileSystem => conf.set("fs.defaultFS", fileSystem))
+  val fs: FileSystem = FileSystem.get(conf)
 
   /**
     * Gets the outputstream given a path
@@ -80,8 +87,6 @@ class HdfsStorageHandler extends StorageHandler {
     * @return FSDataOutputStream
     */
   def getOutputStream(path: Path): FSDataOutputStream = {
-    val conf = new Configuration()
-    val fs = FileSystem.get(conf)
     fs.delete(path, false)
     val outputStream: FSDataOutputStream = fs.create(path)
     outputStream
@@ -94,8 +99,7 @@ class HdfsStorageHandler extends StorageHandler {
     * @return file content as a string
     */
   def read(path: Path): String = {
-    val conf = new Configuration()
-    val fs = FileSystem.get(conf)
+
     val stream = fs.open(path)
     val content = IOUtils.toString(stream, "UTF-8")
     content
@@ -122,8 +126,7 @@ class HdfsStorageHandler extends StorageHandler {
     * @return List of Path
     */
   def list(path: Path, extension: String, since: LocalDateTime): List[Path] = {
-    val conf = new Configuration()
-    val fs = FileSystem.get(conf)
+
     val iterator: RemoteIterator[LocatedFileStatus] = fs.listFiles(path, false)
     iterator
       .filter { status =>
@@ -145,8 +148,7 @@ class HdfsStorageHandler extends StorageHandler {
     * @return
     */
   override def move(path: Path, dest: Path): Boolean = {
-    val conf = new Configuration()
-    val fs = FileSystem.get(conf)
+
     FileUtil.copy(fs, path, fs, dest, true, true, conf)
   }
 
@@ -156,8 +158,7 @@ class HdfsStorageHandler extends StorageHandler {
     * @param path : Absolute path of file to delete
     */
   override def delete(path: Path): Boolean = {
-    val conf = new Configuration()
-    val fs = FileSystem.get(conf)
+
     fs.delete(path, true)
   }
 
@@ -167,8 +168,7 @@ class HdfsStorageHandler extends StorageHandler {
     * @param path Absolute path of folder to create
     */
   override def mkdirs(path: Path): Boolean = {
-    val conf = new Configuration()
-    val fs = FileSystem.get(conf)
+
     fs.mkdirs(path)
   }
 
@@ -179,8 +179,7 @@ class HdfsStorageHandler extends StorageHandler {
     * @param dest   destination file path
     */
   override def copyFromLocal(source: Path, dest: Path): Unit = {
-    val conf = new Configuration()
-    val fs = FileSystem.get(conf)
+
     fs.copyFromLocalFile(source, dest)
   }
 
@@ -191,26 +190,22 @@ class HdfsStorageHandler extends StorageHandler {
     * @param dest   destination file path
     */
   override def moveFromLocal(source: Path, dest: Path): Unit = {
-    val conf = new Configuration()
-    val fs = FileSystem.get(conf)
+
     fs.moveFromLocalFile(source, dest)
   }
 
-  override def exist(path: Path): Boolean = {
-    val conf = new Configuration()
-    val fs = FileSystem.get(conf)
+  override def exists(path: Path): Boolean = {
+
     fs.exists(path)
   }
 
   def blockSize(path: Path): Long = {
-    val conf = new Configuration()
-    val fs = FileSystem.get(conf)
+
     fs.getDefaultBlockSize(path)
   }
 
   def contentSummary(path: Path): ContentSummary = {
-    val conf = new Configuration()
-    val fs = FileSystem.get(conf)
+
     fs.getContentSummary(path)
   }
 
@@ -219,23 +214,44 @@ class HdfsStorageHandler extends StorageHandler {
   }
 
   def lastModified(path: Path): Timestamp = {
-    val conf = new Configuration()
-    val fs = FileSystem.get(conf)
+
     fs.getFileStatus(path).getModificationTime
   }
 
   override def touchz(path: Path): Try[Unit] = {
-    val conf = new Configuration()
-    val fs = FileSystem.get(conf)
+
     Try(fs.create(path, false).close())
   }
 
   override def touch(path: Path): Try[Unit] = {
-    val conf = new Configuration()
-    val fs = FileSystem.get(conf)
+
     Try(fs.setTimes(path, System.currentTimeMillis(), -1))
 
   }
-}
 
-object HdfsStorageHandler extends HdfsStorageHandler
+  override def unzip(sourceFile: Path, targetDir: Path): Try[Unit] = {
+    import java.util.zip.ZipInputStream
+    Try {
+      if (!fs.exists(sourceFile)) throw new Exception(sourceFile.toString + " does not exist")
+      val fsInputStream = fs.open(sourceFile)
+      val zipInputStream = new ZipInputStream(fsInputStream)
+      Stream
+        .continually(zipInputStream.getNextEntry)
+        .takeWhile(ze => ze != null && !ze.isDirectory)
+        .foreach { zipEntry =>
+          val entryName = zipEntry.getName()
+          val outputStream = new ByteArrayOutputStream()
+          val buf = new Array[Byte](4096)
+          var bytesRead = zipInputStream.read(buf, 0, 4096)
+          while (bytesRead > -1) {
+            outputStream.write(buf, 0, bytesRead)
+            bytesRead = zipInputStream.read(buf, 0, 4096)
+          }
+          outputStream.close()
+          zipInputStream.closeEntry()
+        }
+      zipInputStream.close()
+
+    }
+  }
+}

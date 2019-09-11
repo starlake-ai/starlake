@@ -24,8 +24,7 @@ import java.sql.Timestamp
 import java.time.Instant
 
 import com.ebiznext.comet.schema.handlers.StorageHandler
-import com.ebiznext.comet.schema.model.Rejection.{ColInfo, ColResult, RowInfo, RowResult}
-import com.ebiznext.comet.schema.model.Trim.{BOTH, LEFT, RIGHT}
+import com.ebiznext.comet.schema.model.Rejection.{RowInfo, RowResult}
 import com.ebiznext.comet.schema.model._
 import org.apache.hadoop.fs.Path
 import org.apache.spark.rdd.RDD
