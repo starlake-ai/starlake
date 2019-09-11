@@ -22,7 +22,6 @@ package com.ebiznext.comet.schema.model
 
 import java.util.regex.Pattern
 
-import better.files.File
 import com.ebiznext.comet.config.{DatasetArea, Settings}
 import org.apache.hadoop.fs.Path
 
@@ -73,7 +72,7 @@ case class Domain(
     */
   def mapping(schema: Schema): Option[String] = {
     val template = new Path(new Path(DatasetArea.mapping, this.name), schema.name + ".json")
-    if (Settings.storageHandler.exist(template))
+    if (Settings.storageHandler.exists(template))
       Some(Settings.storageHandler.read(template))
     else
       None
@@ -130,8 +129,8 @@ case class Domain(
     // TODO Check partition columns
 
     // TODO Validate directory
-    val inputDir = File(this.directory)
-    if (!inputDir.exists) {
+    val inputDir = new Path(this.directory)
+    if (!Settings.storageHandler.exists(inputDir)) {
       errorList += s"$directory not found"
     }
     if (errorList.nonEmpty)

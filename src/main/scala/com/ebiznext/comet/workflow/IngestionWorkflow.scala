@@ -20,7 +20,7 @@
 
 package com.ebiznext.comet.workflow
 
-import better.files._
+import better.files.File
 import com.ebiznext.comet.config.{DatasetArea, Settings}
 import com.ebiznext.comet.job.index.{IndexConfig, IndexJob}
 import com.ebiznext.comet.job.infer.{InferConfig, InferSchema}
@@ -70,60 +70,67 @@ class IngestionWorkflow(
     */
   def loadLanding(): Unit = {
     domains.foreach { domain =>
-      val inputDir = File(domain.directory)
+      val storageHandler = Settings.storageHandler
+      val inputDir = new Path(domain.directory)
       logger.info(s"Scanning $inputDir")
-      inputDir.list(_.extension.contains(domain.getAck())).toList.foreach { path =>
-        val ackFile: File = path
-        val fileStr = ackFile.pathAsString
+      storageHandler.list(inputDir, domain.getAck()).foreach { path =>
+        val ackFile = path
+        val fileStr = ackFile.toString
         val prefixStr = fileStr.stripSuffix(domain.getAck())
-        val tgz = File(prefixStr + ".tgz")
-        val gz = File(prefixStr + ".gz")
-        val tmpDir = File(prefixStr)
-        val zip = File(prefixStr + ".zip")
+        val tgz = new Path(prefixStr + ".tgz")
+        val gz = new Path(prefixStr + ".gz")
+        val tmpDir = new Path(prefixStr)
+        val zip = new Path(prefixStr + ".zip")
         val rawFormats =
-          domain.getExtensions().map(ext => File(prefixStr + ext))
-        val existRawFile = rawFormats.find(file => file.exists)
+          domain.getExtensions().map(ext => new Path(prefixStr + ext))
+        val existRawFile = rawFormats.find(file => storageHandler.exists(file))
         logger.info(s"Found ack file $ackFile")
         if (!domain.getAck().isEmpty)
-          ackFile.delete()
-        if (gz.exists) {
-          logger.info(s"Found compressed file $gz")
-          gz.unGzipTo(tmpDir)
-          gz.delete()
-        } else if (tgz.exists) {
-          logger.info(s"Found compressed file $tgz")
-          tgz.unGzipTo(tmpDir)
-          tgz.delete()
-        } else if (zip.exists) {
-          logger.info(s"Found compressed file $zip")
-          zip.unzipTo(tmpDir)
-          zip.delete()
-        } else if (existRawFile.isDefined) {
+          storageHandler.delete(ackFile)
+        if (existRawFile.isDefined) {
           existRawFile.foreach { file =>
             logger.info(s"Found raw file $existRawFile")
-            tmpDir.createDirectories()
-            val tmpFile = File(tmpDir, file.name)
-            file.moveTo(tmpFile)
+            storageHandler.mkdirs(tmpDir)
+            val tmpFile = new Path(tmpDir, file.getName)
+            storageHandler.move(file, tmpFile)
+          }
+        } else if (storageHandler.fs.getScheme() == "file") {
+          if (storageHandler.exists(gz)) {
+            logger.info(s"Found compressed file $gz")
+            File(Path.getPathWithoutSchemeAndAuthority(gz).toString).unGzipTo(File(tmpDir.toString))
+            storageHandler.delete(gz)
+          } else if (storageHandler.exists(tgz)) {
+            logger.info(s"Found compressed file $tgz")
+            File(Path.getPathWithoutSchemeAndAuthority(tgz).toString)
+              .unGzipTo(File(tmpDir.toString))
+            storageHandler.delete(tgz)
+          } else if (storageHandler.exists(zip)) {
+            logger.info(s"Found compressed file $zip")
+            File(Path.getPathWithoutSchemeAndAuthority(zip).toString).unzipTo(File(tmpDir.toString))
+            storageHandler.delete(zip)
+          } else {
+            logger.error(s"No archive found for ack ${ackFile.toString}")
           }
         } else {
-          logger.error(s"No archive found for file ${ackFile.pathAsString}")
+          logger.error(s"No file found for ack ${ackFile.toString}")
         }
-        if (tmpDir.exists) {
+        if (storageHandler.exists(tmpDir)) {
           val destFolder = DatasetArea.pending(domain.name)
-          tmpDir.list.foreach { file =>
-            val source = new Path(file.pathAsString)
-            logger.info(s"Importing ${file.pathAsString}")
-            val destFile = new Path(destFolder, file.name)
+          storageHandler.list(tmpDir).foreach { file =>
+            val source = new Path(file.toString)
+            logger.info(s"Importing ${file.toString}")
+            val destFile = new Path(destFolder, file.getName)
             storageHandler.moveFromLocal(source, destFile)
           }
-          tmpDir.delete()
+          storageHandler.delete(tmpDir)
         }
       }
     }
   }
 
   /**
-    * Split files into resolved and unresolved datasets. A file is unresolved if a corresponding schema is not found.
+    * Split files into resolved and unresolved datasets. A file is unresolved
+    * if a corresponding schema is not found.
     * Schema matching is based on the dataset filename pattern
     *
     * @param includes Load pending dataset of these domain only
@@ -309,6 +316,16 @@ class IngestionWorkflow(
     )
   }
 
+  def infer(config: InferConfig) = {
+    new InferSchema(
+      config.domainName,
+      config.schemaName,
+      config.inputPath,
+      config.outputPath,
+      config.header
+    )
+  }
+
   /**
     * Successively run each task of a job
     *
@@ -340,16 +357,6 @@ class IngestionWorkflow(
 
   def index(config: IndexConfig) = {
     new IndexJob(config, Settings.storageHandler).run()
-  }
-
-  def infer(config: InferConfig) = {
-    new InferSchema(
-      config.domainName,
-      config.schemaName,
-      config.inputPath,
-      config.outputPath,
-      config.header
-    )
   }
 
   /**

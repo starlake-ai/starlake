@@ -27,8 +27,8 @@ class PositionIngestionJobSpec extends TestHelper {
   "Ingest Position File" should "should be ingested from pending to accepted, and archived" in {
     import org.slf4j.impl.StaticLoggerBinder
     val binder = StaticLoggerBinder.getSingleton
-    System.out.println(binder.getLoggerFactory)
-    System.out.println(binder.getLoggerFactoryClassStr)
+    logger.debug(binder.getLoggerFactory.toString)
+    logger.debug(binder.getLoggerFactoryClassStr)
 
     new SpecTrait {
       cleanMetadata
@@ -48,7 +48,7 @@ class PositionIngestionJobSpec extends TestHelper {
       )
       override val datasetDomainName: String = "position"
       override val sourceDatasetPathName: String = "/sample/position/XPOSTBL"
-      println(Settings.comet.datasets)
+      logger.info(Settings.comet.datasets)
       loadPending
 
       // Check archive

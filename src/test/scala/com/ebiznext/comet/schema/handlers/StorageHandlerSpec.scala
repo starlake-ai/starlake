@@ -21,6 +21,7 @@
 package com.ebiznext.comet.schema.handlers
 
 import com.ebiznext.comet.TestHelper
+import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.schema.model._
 import org.apache.hadoop.fs.Path
 
@@ -69,7 +70,15 @@ class StorageHandlerSpec extends TestHelper {
     )
     val businessJob = AutoJobDesc("business1", List(businessTask1))
     storageHandler.write(mapper.writeValueAsString(businessJob), pathBusiness)
-    println(readFileContent(pathBusiness))
+    logger.info(readFileContent(pathBusiness))
     readFileContent(pathBusiness) shouldBe loadFile("/expected/yml/business.yml")
+  }
+
+  "Check fs google storage uri" should "be gs" in {
+    assert(
+      "/user/comet" == Path
+        .getPathWithoutSchemeAndAuthority(new Path("file:///user/comet"))
+        .toString
+    )
   }
 }

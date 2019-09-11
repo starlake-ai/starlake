@@ -65,7 +65,7 @@ class MetricsJob(
     * @param path       :   Path to save the file at
     */
   def save(dataToSave: DataFrame, path: Path): Unit = {
-    if (storageHandler.exist(path)) {
+    if (storageHandler.exists(path)) {
       val pathIntermediate = new Path(path.getParent, ".metrics")
 
       val dataByVariableStored: DataFrame = session.read

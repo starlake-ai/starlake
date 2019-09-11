@@ -46,7 +46,7 @@ class SchemaHandler(storage: StorageHandler) {
   lazy val types: List[Type] = {
     def loadTypes(filename: String): List[Type] = {
       val typesPath = new Path(DatasetArea.types, filename)
-      if (storage.exist(typesPath))
+      if (storage.exists(typesPath))
         mapper.readValue(storage.read(typesPath), classOf[Types]).types
       else
         List.empty[Type]

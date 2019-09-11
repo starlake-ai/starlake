@@ -117,7 +117,8 @@ object Settings extends StrictLogging {
     area: Area,
     airflow: Airflow,
     elasticsearch: Elasticsearch,
-    privacy: Privacy
+    privacy: Privacy,
+    fileSystem: Option[String]
   ) {
 
     val launcherService: LaunchHandler = launcher match {
@@ -127,7 +128,7 @@ object Settings extends StrictLogging {
 
   }
 
-  val config: Config = ConfigFactory.load()
+  lazy val config: Config = ConfigFactory.load()
 
   lazy val comet: Comet = {
     config.extract[Comet].valueOrThrow { error =>
@@ -137,7 +138,7 @@ object Settings extends StrictLogging {
   }
   logger.info(s"Using Config $comet")
 
-  val storageHandler = new HdfsStorageHandler
-  val schemaHandler = new SchemaHandler(storageHandler)
+  lazy val storageHandler = new HdfsStorageHandler(comet.fileSystem)
+  lazy val schemaHandler = new SchemaHandler(storageHandler)
 
 }
