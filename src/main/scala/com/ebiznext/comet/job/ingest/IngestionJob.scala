@@ -47,10 +47,16 @@ trait IngestionJob extends SparkJob {
   def ingest(dataset: DataFrame): (RDD[_], RDD[_])
 
   def saveRejected(rejectedRDD: RDD[String]): Unit = {
+    logger.whenDebugEnabled {
+      logger.debug(s"rejectedRDD SIZE ${rejectedRDD.count()}")
+      rejectedRDD.take(1000).foreach(rejected => logger.debug(rejected))
+    }
     val writeMode = metadata.getWriteMode()
     val rejectedPath = new Path(DatasetArea.rejected(domain.name), schema.name)
     import session.implicits._
-    rejectedRDD.toDF.show(100, false)
+    logger.whenDebugEnabled {
+      rejectedRDD.toDF.show(1000, false)
+    }
     saveRows(rejectedRDD.toDF, rejectedPath, writeMode, HiveArea.rejected, false)
   }
 
@@ -66,6 +72,10 @@ trait IngestionJob extends SparkJob {
     * @param acceptedDF
     */
   def saveAccepted(acceptedDF: DataFrame): Unit = {
+    logger.whenDebugEnabled {
+      logger.debug(s"acceptedRDD SIZE ${acceptedDF.count()}")
+      acceptedDF.show(1000)
+    }
     if (Settings.comet.metrics.active) {
       new MetricsJob(this.domain, this.schema, Stage.UNIT, this.storageHandler)
         .run(acceptedDF, System.currentTimeMillis())
@@ -73,7 +83,7 @@ trait IngestionJob extends SparkJob {
     val writeMode = getWriteMode()
     val acceptedPath = new Path(DatasetArea.accepted(domain.name), schema.name)
     val mergedDF = schema.merge.map { mergeOptions =>
-      if (storageHandler.exist(new Path(acceptedPath, "_SUCCESS"))) {
+      if (storageHandler.exists(new Path(acceptedPath, "_SUCCESS"))) {
         val existingDF = session.read.parquet(acceptedPath.toString)
         merge(acceptedDF, existingDF, mergeOptions)
       } else

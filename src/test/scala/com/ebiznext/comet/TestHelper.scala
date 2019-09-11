@@ -25,14 +25,15 @@ import java.nio.file.Files
 import java.time.LocalDate
 import java.util.regex.Pattern
 
-import com.ebiznext.comet.config.DatasetArea
-import com.ebiznext.comet.schema.handlers.{HdfsStorageHandler, SchemaHandler, SimpleLauncher}
+import com.ebiznext.comet.config.{DatasetArea, Settings}
+import com.ebiznext.comet.schema.handlers.{SchemaHandler, SimpleLauncher}
 import com.ebiznext.comet.schema.model._
 import com.ebiznext.comet.workflow.IngestionWorkflow
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.fasterxml.jackson.module.scala.experimental.ScalaObjectMapper
+import com.typesafe.scalalogging.StrictLogging
 import org.apache.commons.io.FileUtils
 import org.apache.commons.io.filefilter.TrueFileFilter
 import org.apache.hadoop.fs.Path
@@ -45,7 +46,7 @@ import scala.collection.JavaConverters._
 import scala.io.{Codec, Source}
 import scala.util.Try
 
-trait TestHelper extends FlatSpec with Matchers with BeforeAndAfterAll {
+trait TestHelper extends FlatSpec with Matchers with BeforeAndAfterAll with StrictLogging {
 
   /**
     * types:
@@ -191,14 +192,19 @@ trait TestHelper extends FlatSpec with Matchers with BeforeAndAfterAll {
   // provides all of the Scala goodiness
   mapper.registerModule(DefaultScalaModule)
 
-  val storageHandler = new HdfsStorageHandler
-
   lazy val cometDatasetsPath = TestHelper.tempFile + "/datasets"
   lazy val cometMetadataPath = TestHelper.tempFile + "/metadata"
 
   lazy val sparkSession = SparkSession.builder
     .master("local[*]")
     .getOrCreate
+
+  /**
+    * Never ever use Settings.something before this method is called
+    * This would break tests
+    * So we make everything lazy here
+    */
+  lazy val storageHandler = Settings.storageHandler
 
   override protected def beforeAll(): Unit = {
     super.beforeAll()
@@ -269,10 +275,11 @@ trait TestHelper extends FlatSpec with Matchers with BeforeAndAfterAll {
   }
 
   def printDF(df: DataFrame, marker: String) = {
-    println(marker)
+    logger.info(s"Displaying schema for $marker")
     df.printSchema
+    logger.info(s"Displaying data for $marker")
     df.show(false)
-    println("-----")
+    logger.info("-----")
   }
 
 }

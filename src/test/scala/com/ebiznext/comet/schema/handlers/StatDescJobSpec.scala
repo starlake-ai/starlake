@@ -49,7 +49,7 @@ class StatDescJobSpec extends TestHelper {
     */
   val dimensionTable = (partialContinuousMetric.size + 1) * (listContnuousAttributes.size + 1)
 
-  println(s"-->$dimensionTable")
+  logger.info(s"-->$dimensionTable")
 
   val dimensionDataframe = result1.map { result1 =>
     result1.printSchema()

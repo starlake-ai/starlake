@@ -298,7 +298,7 @@ class SchemaHandlerSpec extends TestHelper {
           |}
         """.stripMargin.trim
       val mapping = schema.map(_.mapping(None, "locations")).map(_.trim).getOrElse("")
-      println(mapping)
+      logger.info(mapping)
       mapping shouldBe expected
     }
 
@@ -323,7 +323,7 @@ class SchemaHandlerSpec extends TestHelper {
 
       val ds: URL = getClass.getResource("/sample/mapping/dataset")
 
-      println(
+      logger.info(
         Schema.mapping(
           "domain",
           "schema",
