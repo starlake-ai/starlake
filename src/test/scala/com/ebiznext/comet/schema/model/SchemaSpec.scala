@@ -109,8 +109,8 @@ class SchemaSpec extends FlatSpec with Matchers with TestHelper {
     val attr = Attribute("hello", position = Some(Position(1, 2, Some(Trim.NONE))))
     val writer = new StringWriter()
     mapper.writer().writeValue(writer, attr)
-    println(writer.toString)
-    println(yml)
+    logger.info(writer.toString)
+    logger.info(yml)
     writer.toString.trim should equal(yml)
   }
 

@@ -49,13 +49,8 @@ object Main extends StrictLogging {
   val mapper: ObjectMapper = new ObjectMapper(new YAMLFactory())
   mapper.registerModule(DefaultScalaModule)
 
-  val usage =
-    """
-    Usage: Main ingest domain schema path
-    Usage: Main watch
-  """
-
   private def printUsage() = {
+    // scalastyle:off println
     println(
       """
         |Usage :
@@ -68,6 +63,7 @@ object Main extends StrictLogging {
         |comet metrics --domain domain --schema schema
         |      """.stripMargin
     )
+    // scalastyle:on println
   }
 
   /**
@@ -97,7 +93,7 @@ object Main extends StrictLogging {
     val workflow =
       new IngestionWorkflow(storageHandler, schemaHandler, Settings.comet.launcherService)
 
-    if (args.length == 0) println(usage)
+    if (args.length == 0) printUsage()
 
     val arglist = args.toList
     logger.info(s"Running Comet $arglist")
