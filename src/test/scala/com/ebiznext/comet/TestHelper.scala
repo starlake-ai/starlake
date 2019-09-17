@@ -48,36 +48,6 @@ import scala.util.Try
 
 trait TestHelper extends FlatSpec with Matchers with BeforeAndAfterAll with StrictLogging {
 
-  /**
-    * types:
-    * - name: "string"
-    * primitiveType: "string"
-    * pattern: ".+"
-    * - name: "time"
-    * primitiveType: "string"
-    * pattern: "(1[012]|[1-9]):[0-5][0-9](\\\\s)?(?i)(am|pm)"
-    * - name: "time24"
-    * primitiveType: "string"
-    * pattern: "([01]?[0-9]|2[0-3]):[0-5][0-9]"
-    * - name: "date"
-    * primitiveType: "date"
-    * pattern: "(0?[1-9]|[12][0-9]|3[01])/(0?[1-9]|1[012])/((19|20)\\\\d\\\\d)"
-    * - name: "username"
-    * primitiveType: "string"
-    * pattern: "[a-z0-9_-]{3,15}"
-    * - name: "age"
-    * primitiveType: "long"
-    * pattern: "[0-9]{1,15}"
-    * - name: "color"
-    * primitiveType: "string"
-    * pattern: "#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})"
-    * - name: "ip"
-    * primitiveType: "string"
-    * pattern: "([01]?\\d\\d?|2[0-4]\\d|25[0-5])\\.([01]?\\d\\d?|2[0-4]\\d|25[0-5])\\.([01]?\\d\\d?|2[0-4]\\d|25[0-5])\\.([01]?\\d\\d?|2[0-4]\\d|25[0-5])"
-    * - name: "email"
-    * primitiveType: "string"
-    * pattern: "[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\\\.[A-Za-z]{2,6}"
-    */
   def loadFile(filename: String)(implicit codec: Codec): String = {
     val stream: InputStream = getClass.getResourceAsStream(filename)
     scala.io.Source.fromInputStream(stream).getLines().mkString("\n")
@@ -91,7 +61,6 @@ trait TestHelper extends FlatSpec with Matchers with BeforeAndAfterAll with Stri
   def getResPath(path: String): String = getClass.getResource(path).toURI.getPath
 
   def prepareDateColumns(df: DataFrame): DataFrame = {
-
     df.withColumn("comet_date", current_date())
       .withColumn("year", year(col("comet_date")))
       .withColumn("month", month(col("comet_date")))
@@ -285,8 +254,12 @@ trait TestHelper extends FlatSpec with Matchers with BeforeAndAfterAll with Stri
 }
 
 object TestHelper {
+
   // Use the same temp file for all UT
-  val tempFile: String = (Files.createTempDirectory("comet")).toString
+  val tempFile: String = {
+    val fs = Option(System.getenv("COMET_FS"))
+    fs.getOrElse((Files.createTempDirectory("comet")).toString)
+  }
 }
 
 case class TypeToImport(name: String, path: String)

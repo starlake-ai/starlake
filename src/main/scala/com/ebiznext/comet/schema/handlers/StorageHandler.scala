@@ -77,7 +77,19 @@ trait StorageHandler {
 class HdfsStorageHandler(fileSystem: Option[String]) extends StorageHandler {
 
   val conf = new Configuration()
-  fileSystem.map(fileSystem => conf.set("fs.defaultFS", fileSystem))
+
+  lazy val normalizedFileSystem: Option[String] = {
+    fileSystem.map { fs =>
+      if (fs.endsWith(":"))
+        fs + "//"
+      else if (!fs.endsWith("://") && fs.last == '/')
+        fs.dropRight(1)
+      else
+        fs
+    }
+  }
+
+  normalizedFileSystem.map(fs => conf.set("fs.defaultFS", fs))
   val fs: FileSystem = FileSystem.get(conf)
 
   /**
@@ -185,13 +197,15 @@ class HdfsStorageHandler(fileSystem: Option[String]) extends StorageHandler {
 
   /**
     * Move file from local filesystem to target file system
-    *
+    * If source FS Scheme is not "file" then issue a regular move
     * @param source Local file path
     * @param dest   destination file path
     */
   override def moveFromLocal(source: Path, dest: Path): Unit = {
-
-    fs.moveFromLocalFile(source, dest)
+    if (fs.getScheme() == "file")
+      fs.moveFromLocalFile(source, dest)
+    else
+      move(source, dest)
   }
 
   override def exists(path: Path): Boolean = {
