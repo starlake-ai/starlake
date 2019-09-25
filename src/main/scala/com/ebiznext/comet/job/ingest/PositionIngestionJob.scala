@@ -20,16 +20,11 @@
 
 package com.ebiznext.comet.job.ingest
 
-import java.sql.Timestamp
-import java.time.Instant
-
 import com.ebiznext.comet.schema.handlers.StorageHandler
-import com.ebiznext.comet.schema.model.Rejection.{RowInfo, RowResult}
 import com.ebiznext.comet.schema.model._
 import org.apache.hadoop.fs.Path
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql._
-import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
 
 import scala.util.{Failure, Success, Try}
@@ -103,7 +98,7 @@ class PositionIngestionJob(
 
     val (orderedTypes, orderedSparkTypes) = reorderTypes()
 
-    val (rejectedRDD, acceptedRDD) = PositionIngestionUtil.validate(
+    val (rejectedRDD, acceptedRDD) = DsvIngestionUtil.validate(
       session,
       dataset,
       orderedAttributes,
@@ -148,56 +143,4 @@ object PositionIngestionUtil {
     dataset
   }
 
-  /**
-    * For each col of each row
-    *   - we extract the col value / the col constraints / col type
-    *   - we check that the constraints are verified
-    *   - we apply any required privacy transformation
-    *   - parse the column into the target primitive Spark Type
-    * We end up using catalyst to create a Spark Row
-    *
-    * @param session    : The Spark session
-    * @param dataset    : The dataset
-    * @param attributes : the col attributes
-    * @param types      : List of globally defined types
-    * @param sparkType  : The expected Spark Type for valid rows
-    * @return Two RDDs : One RDD for rejected rows and one RDD for accepted rows
-    */
-  def validate(
-    session: SparkSession,
-    dataset: DataFrame,
-    attributes: List[Attribute],
-    types: List[Type],
-    sparkType: StructType
-  ): (RDD[String], RDD[Row]) = {
-    val now = Timestamp.from(Instant.now)
-    val checkedRDD: RDD[RowResult] = dataset.rdd.mapPartitions { partition =>
-      partition.map { row: Row =>
-        val rowCols = row.toSeq
-          .zip(attributes)
-          .map {
-            case (colValue, colAttribute) =>
-              (Option(colValue).getOrElse("").toString, colAttribute)
-          }
-          .zip(types)
-        val validNumberOfColumns = attributes.length <= rowCols.length
-        RowResult(
-          rowCols.map {
-            case ((colRawValue, colAttribute), tpe) =>
-              IngestionUtil.validateCol(validNumberOfColumns, colRawValue, colAttribute, tpe)
-          }.toList
-        )
-      }
-    } cache ()
-
-    val rejectedRDD: RDD[String] = checkedRDD
-      .filter(_.isRejected)
-      .map(rr => RowInfo(now, rr.colResults.map(_.colInfo)).toString)
-
-    val acceptedRDD: RDD[Row] = checkedRDD.filter(_.isAccepted).map { rowResult =>
-      val sparkValues: List[Any] = rowResult.colResults.map(_.sparkValue)
-      new GenericRowWithSchema(Row(sparkValues: _*).toSeq.toArray, sparkType)
-    }
-    (rejectedRDD, acceptedRDD)
-  }
 }

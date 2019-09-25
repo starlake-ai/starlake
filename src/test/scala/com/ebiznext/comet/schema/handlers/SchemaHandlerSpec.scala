@@ -33,6 +33,17 @@ import scala.util.Try
 
 class SchemaHandlerSpec extends TestHelper {
 
+  val allTypes: List[TypeToImport] = List(
+    TypeToImport(
+      "default.yml",
+      "/sample/default.yml"
+    ),
+    TypeToImport(
+      "types.yml",
+      "/sample/types.yml"
+    )
+  )
+
   // TODO Helper (to delete)
   "Ingest CSV" should "produce file in accepted" in {
 
@@ -40,13 +51,7 @@ class SchemaHandlerSpec extends TestHelper {
       override val domainFilename: String = "DOMAIN.yml"
       override val sourceDomainPathname: String = s"/sample/$domainFilename"
 
-      override val types: List[TypeToImport] = List(
-        TypeToImport(
-          "types.yml",
-          "/sample/types.yml"
-        )
-      )
-
+      override val types = allTypes
       override val datasetDomainName: String = "DOMAIN"
       override val sourceDatasetPathName: String = "/sample/SCHEMA-VALID.dsv"
 
@@ -91,17 +96,7 @@ class SchemaHandlerSpec extends TestHelper {
       override val domainFilename: String = "dream.yml"
       override val sourceDomainPathname: String = s"/sample/dream/$domainFilename"
 
-      override val types: List[TypeToImport] = List(
-        TypeToImport(
-          "default.yml",
-          "/sample/default.yml"
-        ),
-        TypeToImport(
-          "types.yml",
-          "/sample/dream/types.yml"
-        )
-      )
-
+      override val types = allTypes
       override val datasetDomainName: String = "dream"
       override val sourceDatasetPathName: String =
         "/sample/dream/OneClient_Contact_20190101_090800_008.psv"
@@ -148,16 +143,7 @@ class SchemaHandlerSpec extends TestHelper {
       override val domainFilename: String = "dream.yml"
       override val sourceDomainPathname: String = s"/sample/dream/$domainFilename"
 
-      override val types: List[TypeToImport] = List(
-        TypeToImport(
-          "default.yml",
-          "/sample/default.yml"
-        ),
-        TypeToImport(
-          "dream.yml",
-          "/sample/dream/types.yml"
-        )
-      )
+      override val types = allTypes
 
       override val datasetDomainName: String = "dream"
       override val sourceDatasetPathName: String =
@@ -194,12 +180,7 @@ class SchemaHandlerSpec extends TestHelper {
       override val domainFilename: String = "locations.yml"
       override val sourceDomainPathname: String = s"/sample/simple-json-locations/$domainFilename"
 
-      override val types: List[TypeToImport] = List(
-        TypeToImport(
-          "types.yml",
-          "/sample/simple-json-locations/types.yml"
-        )
-      )
+      override val types = allTypes
 
       override val datasetDomainName: String = "locations"
       override val sourceDatasetPathName: String =
@@ -255,12 +236,7 @@ class SchemaHandlerSpec extends TestHelper {
       override val domainFilename: String = "locations.yml"
       override val sourceDomainPathname: String = s"/sample/simple-json-locations/$domainFilename"
 
-      override val types: List[TypeToImport] = List(
-        TypeToImport(
-          "types.yml",
-          "/sample/simple-json-locations/types.yml"
-        )
-      )
+      override val types = allTypes
 
       override val datasetDomainName: String = "locations"
       override val sourceDatasetPathName: String =
@@ -308,12 +284,7 @@ class SchemaHandlerSpec extends TestHelper {
       override val domainFilename: String = "locations.yml"
       override val sourceDomainPathname: String = s"/sample/simple-json-locations/$domainFilename"
 
-      override val types: List[TypeToImport] = List(
-        TypeToImport(
-          "types.yml",
-          "/sample/mapping/types.yml"
-        )
-      )
+      override val types = allTypes
 
       override val datasetDomainName: String = "locations"
       override val sourceDatasetPathName: String =

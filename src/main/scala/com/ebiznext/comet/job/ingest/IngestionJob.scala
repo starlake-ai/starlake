@@ -277,7 +277,7 @@ trait IngestionJob extends SparkJob {
     * @return : Spark Session used for the job
     */
   def run(): SparkSession = {
-    domain.checkValidity(types) match {
+    domain.checkValidity() match {
       case Left(errors) =>
         errors.foreach(err => logger.error(err))
       case Right(_) =>
@@ -322,7 +322,6 @@ trait IngestionJob extends SparkJob {
 object IngestionUtil {
 
   def validateCol(
-    validNumberOfColumns: Boolean,
     colRawValue: String,
     colAttribute: Attribute,
     tpe: Type
@@ -350,7 +349,7 @@ object IngestionUtil {
         colValue
       else
         privacyLevel.encrypt(colValue)
-    val colPatternOK = validNumberOfColumns && (optionalColIsEmpty || colPatternIsValid)
+    val colPatternOK = optionalColIsEmpty || colPatternIsValid
     val (sparkValue, colParseOK) =
       if (colPatternOK) {
         Try(tpe.sparkValue(privacy)) match {
