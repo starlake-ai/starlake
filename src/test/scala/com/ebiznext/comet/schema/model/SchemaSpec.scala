@@ -41,7 +41,7 @@ class SchemaSpec extends FlatSpec with Matchers with TestHelper {
       Some(PrivacyLevel("MD5")) // Should raise an error. Privacy cannot be applied on types other than string
     )
 
-    attr.checkValidity(types.types) shouldBe Left(List("Invalid Type invalid-type"))
+    attr.checkValidity() shouldBe Left(List("Invalid Type invalid-type"))
   }
 
   "Attribute privacy" should "be applied on string type only" in {
@@ -57,7 +57,7 @@ class SchemaSpec extends FlatSpec with Matchers with TestHelper {
       true,
       Some(PrivacyLevel("MD5")) // Should raise an error. Privacy cannot be applied on types other than string
     )
-    attr.checkValidity(types.types) shouldBe
+    attr.checkValidity() shouldBe
     Left(
       List(
         "Attribute Attribute(attr,long,Some(true),true,Some(MD5),None,None,None,None,None,None) : string is the only supported primitive type for an attribute when privacy is requested"
@@ -85,7 +85,7 @@ class SchemaSpec extends FlatSpec with Matchers with TestHelper {
       "Attribute Attribute(attr,long,Some(true),true,Some(MD5),None,None,None,Some(List()),None,None) : when present, attributes list cannot be empty."
     )
 
-    attr.checkValidity(types.types) shouldBe Left(expectedErrors)
+    attr.checkValidity() shouldBe Left(expectedErrors)
   }
 
   "Position serialization" should "output all fields" in {
