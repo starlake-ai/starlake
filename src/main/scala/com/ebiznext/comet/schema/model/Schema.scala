@@ -22,6 +22,7 @@ package com.ebiznext.comet.schema.model
 
 import java.util.regex.Pattern
 
+import org.apache.spark.sql
 import org.apache.spark.sql.types._
 
 import scala.collection.mutable
@@ -58,7 +59,8 @@ case class Schema(
   merge: Option[MergeOptions],
   comment: Option[String],
   presql: Option[List[String]],
-  postsql: Option[List[String]]
+  postsql: Option[List[String]],
+  tags: Option[Set[String]] = None
 ) {
 
   /**
@@ -104,11 +106,9 @@ case class Schema(
     *   - attribute name should be a valid Hive column identifier
     *   - attribute name can occur only once in the schema
     *
-    * @param types : List of globally defined types
     * @return error list or true
     */
   def checkValidity(
-    types: List[Type],
     domainMetaData: Option[Metadata]
   ): Either[List[String], Boolean] = {
     val errorList: mutable.MutableList[String] = mutable.MutableList.empty
@@ -117,7 +117,7 @@ case class Schema(
       errorList += s"Schema with name $name should respect the pattern ${tableNamePattern.pattern()}"
 
     attributes.foreach { attribute =>
-      for (errors <- attribute.checkValidity(types).left) {
+      for (errors <- attribute.checkValidity().left) {
         errorList ++= errors
       }
     }

@@ -36,7 +36,7 @@ import scala.util.{Failure, Success}
   * @param `type`     : semantic type of the attribute
   * @param array      : Is it an array ?
   * @param required   : Should this attribute always be present in the source
-  * @param privacy    : Shoudl this attribute be applied a privacy transformaiton at ingestion time
+  * @param privacy    : Should this attribute be applied a privacy transformaiton at ingestion time
   * @param comment    : free text for attribute description
   * @param rename     : If present, the attribute is renamed with this name
   * @param metricType       : If present, what kind of stat should be computed for this field
@@ -54,7 +54,8 @@ case class Attribute(
   metricType: Option[MetricType] = None,
   attributes: Option[List[Attribute]] = None,
   position: Option[Position] = None,
-  default: Option[String] = None
+  default: Option[String] = None,
+  tags: Option[Set[String]] = None
 ) extends LazyLogging {
 
   /**
@@ -64,10 +65,10 @@ case class Attribute(
     *     - its type is defined
     *     - When a privacy function is defined its primitive type is a string
     *
-    * @param types : List of defined types.
     * @return true if attribute is valid
     */
-  def checkValidity(types: List[Type]): Either[List[String], Boolean] = {
+  def checkValidity(): Either[List[String], Boolean] = {
+    import com.ebiznext.comet.config.Settings.schemaHandler
     val errorList: mutable.MutableList[String] = mutable.MutableList.empty
     if (`type` == null)
       errorList += s"$this : unspecified type"
@@ -79,7 +80,7 @@ case class Attribute(
     if (!rename.forall(colNamePattern.matcher(_).matches()))
       errorList += s"renamed attribute with renamed name '$rename' should respect the pattern ${colNamePattern.pattern()}"
 
-    val tpe = types.find(_.name == `type`)
+    val tpe = schemaHandler.types.find(_.name == `type`)
     val primitiveType = tpe.map(_.primitiveType)
 
     primitiveType match {
@@ -125,6 +126,12 @@ case class Attribute(
       Right(true)
   }
 
+  lazy val tpe: Option[Type] = {
+    import com.ebiznext.comet.config.Settings.schemaHandler
+    schemaHandler.types
+      .find(_.name == `type`)
+  }
+
   /**
     *
     * Spark Type if this attribute is a primitive type of array of primitive type
@@ -132,9 +139,7 @@ case class Attribute(
     * @return Primitive type if attribute is a leaf node or array of primitive type, None otherwise
     */
   def primitiveSparkType(): DataType = {
-    import com.ebiznext.comet.config.Settings.schemaHandler.types
-    types
-      .find(_.name == `type`)
+    tpe
       .map(_.primitiveType)
       .map { tpe =>
         if (isArray())
@@ -169,7 +174,6 @@ case class Attribute(
   }
 
   def mapping(): String = {
-    import com.ebiznext.comet.config.Settings.schemaHandler.types
     attributes match {
       case Some(attrs) =>
         s"""
@@ -180,7 +184,7 @@ case class Attribute(
            |}""".stripMargin
 
       case None =>
-        types.find(_.name == this.`type`).map { tpe =>
+        tpe.map { tpe =>
           val typeMapping = tpe.getIndexMapping().toString
           tpe.primitiveType match {
             case PrimitiveType.date =>
@@ -234,9 +238,8 @@ case class Attribute(
 
   @JsonIgnore
   def getMetricType(): MetricType = {
-    import com.ebiznext.comet.config.Settings.schemaHandler.types
     import com.ebiznext.comet.utils.DataTypeEx._
-    val sparkType = types.find(_.name == this.`type`).map(_.primitiveType.sparkType)
+    val sparkType = tpe.map(_.primitiveType.sparkType)
     logger.info(s"Attribute Metric ==> $name, $metricType, $sparkType")
     (sparkType, metricType) match {
       case (Some(sparkType), Some(MetricType.DISCRETE)) =>

@@ -1,0 +1,20 @@
+steps:
+  - name: 'gcr.io/cloud-builders/git'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        git fetch --tags --depth=1 && git checkout tags/$$COMET_VERSION
+    env:
+      - 'COMET_VERSION=${_COMET_VERSION}'
+
+  - name: 'gcr.io/$PROJECT_ID/scala-sbt'
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        ./sbt-gcp.sh publish
+    timeout: 20m0s
+
+tags: ['cloud-build-comet']
+timeout: 25m0s
