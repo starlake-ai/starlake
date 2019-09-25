@@ -102,10 +102,9 @@ case class Domain(
     *   - Partitions columns are valid columns
     *   - The input directory is a valid path
     *
-    * @param types
     * @return
     */
-  def checkValidity(types: List[Type]): Either[List[String], Boolean] = {
+  def checkValidity(): Either[List[String], Boolean] = {
     val errorList: mutable.MutableList[String] = mutable.MutableList.empty
 
     // Check Domain name validity
@@ -115,7 +114,7 @@ case class Domain(
 
     // Check Schema validity
     schemas.foreach { schema =>
-      for (errors <- schema.checkValidity(types, this.metadata).left) {
+      for (errors <- schema.checkValidity(this.metadata).left) {
         errorList ++= errors
       }
     }

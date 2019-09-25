@@ -21,6 +21,7 @@ package org.apache.spark.sql.execution.datasources.json
 
 import java.util.Comparator
 
+import com.ebiznext.comet.schema.model.Attribute
 import com.ebiznext.comet.utils.Utils
 import com.fasterxml.jackson.core.JsonToken._
 import com.fasterxml.jackson.core.{JsonFactory, JsonParser}
@@ -53,8 +54,8 @@ object JsonIngestionUtil {
     * similar to compatibleType(...) but instead of creating a new datatype, simply check the compatibility
     *
     * @param context : full path to attribute, makes error messages more understandable
-    * @param schemaType
-    * @param datasetType
+    * @param schemaType : (attributeName, attributeType, isRequired) coming from the schema
+    * @param datasetType: (attributeName, attributeType, isRequired) coming from the dataset
     * @return List of errors, Nil when datasetType is compatible with schemaType
     */
   def compareTypes(
@@ -84,11 +85,11 @@ object JsonIngestionUtil {
           val f2 = fields2(f2Idx)
           val nameComp = f1.name.compareTo(f2.name)
           if (nameComp < 0 && f1.nullable) {
-            // Field exists in schema is name and is not present in the message
+            // Field exists in schema  and is not present in the input record
             // go get the next field in the schema
             f1Idx += 1
           } else if (nameComp == 0) {
-            // field is present in the schema and the dataset : check that types are equal
+            // field is present in the schema and the input record : check that types are equal
             val f1Type = f1.dataType
             val f2Type = f2.dataType
             errorList ++= compareTypes(

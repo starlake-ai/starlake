@@ -81,9 +81,11 @@ class HdfsStorageHandler(fileSystem: Option[String]) extends StorageHandler {
   lazy val normalizedFileSystem: Option[String] = {
     fileSystem.map { fs =>
       if (fs.endsWith(":"))
-        fs + "//"
+        fs + "///"
       else if (!fs.endsWith("://") && fs.last == '/')
         fs.dropRight(1)
+      else if (fs.endsWith("://"))
+        fs + "/."
       else
         fs
     }

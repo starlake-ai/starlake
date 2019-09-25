@@ -236,12 +236,30 @@ object DsvIngestionUtil {
           }
           .zip(types)
         val validNumberOfColumns = attributes.length <= rowCols.length
-        RowResult(
-          rowCols.map {
-            case ((colRawValue, colAttribute), tpe) =>
-              IngestionUtil.validateCol(validNumberOfColumns, colRawValue, colAttribute, tpe)
-          }.toList
-        )
+        if (!validNumberOfColumns) {
+          RowResult(
+            rowCols.map {
+              case ((colRawValue, colAttribute), tpe) =>
+                ColResult(
+                  ColInfo(
+                    colRawValue,
+                    colAttribute.name,
+                    tpe.name,
+                    tpe.pattern,
+                    false
+                  ),
+                  null
+                )
+            }.toList
+          )
+        } else {
+          RowResult(
+            rowCols.map {
+              case ((colRawValue, colAttribute), tpe) =>
+                IngestionUtil.validateCol(colRawValue, colAttribute, tpe)
+            }.toList
+          )
+        }
       }
     } cache ()
 

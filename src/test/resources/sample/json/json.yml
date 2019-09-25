@@ -17,6 +17,10 @@ schemas:
   - name: "sample_json"
     pattern: "complex.*"
     attributes:
+      - name: "email"
+        type: "email"
+        required: true
+        privacy: "NONE"
       - name: "textattr"
         type: "string"
         required: true
