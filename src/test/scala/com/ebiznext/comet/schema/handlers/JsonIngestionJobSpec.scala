@@ -178,12 +178,6 @@ class JsonIngestionJobSpec extends TestHelper {
       override val domainFilename: String = "json.yml"
       override val sourceDomainPathname: String = "/sample/json/json.yml"
 
-      override val types: List[TypeToImport] = List(
-        TypeToImport(
-          "types.yml",
-          "/sample/json/types.yml"
-        )
-      )
       override val datasetDomainName: String = "json"
       override val sourceDatasetPathName: String = "/sample/json/complex.json"
 

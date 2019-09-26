@@ -22,7 +22,7 @@ package com.ebiznext.comet.schema.handlers
 
 import java.net.URL
 
-import com.ebiznext.comet.config.DatasetArea
+import com.ebiznext.comet.config.{DatasetArea, Settings}
 import com.ebiznext.comet.schema.model.{Attribute, Schema}
 import com.ebiznext.comet.{TestHelper, TypeToImport}
 import org.apache.hadoop.fs.Path
@@ -33,25 +33,15 @@ import scala.util.Try
 
 class SchemaHandlerSpec extends TestHelper {
 
-  val allTypes: List[TypeToImport] = List(
-    TypeToImport(
-      "default.yml",
-      "/sample/default.yml"
-    ),
-    TypeToImport(
-      "types.yml",
-      "/sample/types.yml"
-    )
-  )
-
   // TODO Helper (to delete)
   "Ingest CSV" should "produce file in accepted" in {
 
     new SpecTrait {
+      cleanMetadata
+      cleanDatasets
       override val domainFilename: String = "DOMAIN.yml"
       override val sourceDomainPathname: String = s"/sample/$domainFilename"
 
-      override val types = allTypes
       override val datasetDomainName: String = "DOMAIN"
       override val sourceDatasetPathName: String = "/sample/SCHEMA-VALID.dsv"
 
@@ -93,10 +83,11 @@ class SchemaHandlerSpec extends TestHelper {
 
   "Ingest Dream Contact CSV" should "produce file in accepted" in {
     new SpecTrait {
+      cleanMetadata
+      cleanDatasets
       override val domainFilename: String = "dream.yml"
       override val sourceDomainPathname: String = s"/sample/dream/$domainFilename"
 
-      override val types = allTypes
       override val datasetDomainName: String = "dream"
       override val sourceDatasetPathName: String =
         "/sample/dream/OneClient_Contact_20190101_090800_008.psv"
@@ -140,10 +131,10 @@ class SchemaHandlerSpec extends TestHelper {
   "Ingest Dream Segment CSV" should "produce file in accepted" in {
 
     new SpecTrait {
+      cleanMetadata
+      cleanDatasets
       override val domainFilename: String = "dream.yml"
       override val sourceDomainPathname: String = s"/sample/dream/$domainFilename"
-
-      override val types = allTypes
 
       override val datasetDomainName: String = "dream"
       override val sourceDatasetPathName: String =
@@ -177,10 +168,10 @@ class SchemaHandlerSpec extends TestHelper {
   "Ingest Dream Locations JSON" should "produce file in accepted" in {
 
     new SpecTrait {
+      cleanMetadata
+      cleanDatasets
       override val domainFilename: String = "locations.yml"
       override val sourceDomainPathname: String = s"/sample/simple-json-locations/$domainFilename"
-
-      override val types = allTypes
 
       override val datasetDomainName: String = "locations"
       override val sourceDatasetPathName: String =
@@ -233,17 +224,17 @@ class SchemaHandlerSpec extends TestHelper {
 
   "Mapping Schema" should "produce valid template" in {
     new SpecTrait {
+      cleanMetadata
+      cleanDatasets
       override val domainFilename: String = "locations.yml"
       override val sourceDomainPathname: String = s"/sample/simple-json-locations/$domainFilename"
-
-      override val types = allTypes
 
       override val datasetDomainName: String = "locations"
       override val sourceDatasetPathName: String =
         "/sample/simple-json-locations/locations.json"
 
       init()
-      val schema: Option[Schema] = schemaHandler.domains
+      val schema: Option[Schema] = Settings.schemaHandler.domains
         .find(_.name == "locations")
         .flatMap(_.schemas.find(_.name == "locations"))
       val expected: String =
@@ -281,10 +272,10 @@ class SchemaHandlerSpec extends TestHelper {
   }
   "JSON Schema" should "produce valid template" in {
     new SpecTrait {
+      cleanMetadata
+      cleanDatasets
       override val domainFilename: String = "locations.yml"
       override val sourceDomainPathname: String = s"/sample/simple-json-locations/$domainFilename"
-
-      override val types = allTypes
 
       override val datasetDomainName: String = "locations"
       override val sourceDatasetPathName: String =
