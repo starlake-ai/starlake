@@ -5,7 +5,6 @@ import sbt.internal.util.complete.DefaultParsers
 
 name := "comet"
 
-version := "0.1.1"
 
 //val mavenLocal = "Local Maven" at Path.userHome.asFile.toURI.toURL + ".m2/repository"
 //resolvers += Resolver.mavenLocal
