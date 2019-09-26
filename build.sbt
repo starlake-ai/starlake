@@ -61,6 +61,8 @@ publishTo in ThisBuild := {
 
 // Release
 
+releaseCrossBuild :=  true
+
 releaseNextVersion := { ver =>
   Version(ver) match {
     case Some(v @ Version(_, Seq(_, 0), _)) => v.bump(sbtrelease.Version.Bump.Minor).asSnapshot.string
@@ -73,11 +75,12 @@ releaseProcess := Seq[ReleaseStep](
   checkSnapshotDependencies,
   inquireVersions,
   runClean,
-  runTest,
+  releaseStepCommand("+test"),
   setReleaseVersion,
   commitReleaseVersion,
   tagRelease,
-  releaseStepCommand("universal:publish"), // publish jars and tgz archives in the snapshot or release repository
+  releaseStepCommand("+publish"),
+  // releaseStepCommand("universal:publish"), // publish jars and tgz archives in the snapshot or release repository
   setNextVersion,
   commitNextVersion,
   pushChanges
