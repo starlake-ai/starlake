@@ -36,16 +36,6 @@ class PositionIngestionJobSpec extends TestHelper {
       override val domainFilename: String = "position.yml"
       override val sourceDomainPathname: String = "/sample/position/position.yml"
 
-      override val types: List[TypeToImport] = List(
-        TypeToImport(
-          "default.yml",
-          "/sample/default.yml"
-        ),
-        TypeToImport(
-          "types.yml",
-          "/sample/position/types.yml"
-        )
-      )
       override val datasetDomainName: String = "position"
       override val sourceDatasetPathName: String = "/sample/position/XPOSTBL"
       logger.info(Settings.comet.datasets)

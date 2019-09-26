@@ -25,11 +25,11 @@ import java.io.{InputStream, StringWriter}
 import com.ebiznext.comet.TestHelper
 import org.scalatest.{FlatSpec, Matchers}
 
-class SchemaSpec extends FlatSpec with Matchers with TestHelper {
+class SchemaSpec extends TestHelper {
 
   "Attribute type" should "be valid" in {
     val stream: InputStream =
-      getClass.getResourceAsStream("/quickstart/metadata/types/default.yml")
+      getClass.getResourceAsStream("/sample/default.yml")
     val lines =
       scala.io.Source.fromInputStream(stream).getLines().mkString("\n")
     val types = mapper.readValue(lines, classOf[Types])
@@ -45,11 +45,6 @@ class SchemaSpec extends FlatSpec with Matchers with TestHelper {
   }
 
   "Attribute privacy" should "be applied on string type only" in {
-    val stream: InputStream =
-      getClass.getResourceAsStream("/quickstart/metadata/types/default.yml")
-    val lines =
-      scala.io.Source.fromInputStream(stream).getLines().mkString("\n")
-    val types = mapper.readValue(lines, classOf[Types])
     val attr = Attribute(
       "attr",
       "long",
@@ -60,17 +55,12 @@ class SchemaSpec extends FlatSpec with Matchers with TestHelper {
     attr.checkValidity() shouldBe
     Left(
       List(
-        "Attribute Attribute(attr,long,Some(true),true,Some(MD5),None,None,None,None,None,None) : string is the only supported primitive type for an attribute when privacy is requested"
+        "Attribute Attribute(attr,long,Some(true),true,Some(MD5),None,None,None,None,None,None,None) : string is the only supported primitive type for an attribute when privacy is requested"
       )
     )
   }
 
   "Sub Attribute" should "be present for struct types only" in {
-    val stream: InputStream =
-      getClass.getResourceAsStream("/quickstart/metadata/types/default.yml")
-    val lines =
-      scala.io.Source.fromInputStream(stream).getLines().mkString("\n")
-    val types = mapper.readValue(lines, classOf[Types])
     val attr = Attribute(
       "attr",
       "long",
@@ -80,9 +70,9 @@ class SchemaSpec extends FlatSpec with Matchers with TestHelper {
       attributes = Some(List[Attribute]())
     )
     val expectedErrors = List(
-      "Attribute Attribute(attr,long,Some(true),true,Some(MD5),None,None,None,Some(List()),None,None) : string is the only supported primitive type for an attribute when privacy is requested",
-      "Attribute Attribute(attr,long,Some(true),true,Some(MD5),None,None,None,Some(List()),None,None) : Simple attributes cannot have sub-attributes",
-      "Attribute Attribute(attr,long,Some(true),true,Some(MD5),None,None,None,Some(List()),None,None) : when present, attributes list cannot be empty."
+      "Attribute Attribute(attr,long,Some(true),true,Some(MD5),None,None,None,Some(List()),None,None,None) : string is the only supported primitive type for an attribute when privacy is requested",
+      "Attribute Attribute(attr,long,Some(true),true,Some(MD5),None,None,None,Some(List()),None,None,None) : Simple attributes cannot have sub-attributes",
+      "Attribute Attribute(attr,long,Some(true),true,Some(MD5),None,None,None,Some(List()),None,None,None) : when present, attributes list cannot be empty."
     )
 
     attr.checkValidity() shouldBe Left(expectedErrors)
@@ -104,13 +94,21 @@ class SchemaSpec extends FlatSpec with Matchers with TestHelper {
         |  first: 1
         |  last: 2
         |  trim: "NONE"
-        |default: null""".stripMargin
+        |default: null
+        |tags: null
+        |tpe:
+        |  name: "string"
+        |  pattern: ".+"
+        |  primitiveType: "string"
+        |  sample: "Hello World"
+        |  comment: "Any set of chars"
+        |  indexMapping: null""".stripMargin
 
     val attr = Attribute("hello", position = Some(Position(1, 2, Some(Trim.NONE))))
     val writer = new StringWriter()
     mapper.writer().writeValue(writer, attr)
-    logger.info(writer.toString)
-    logger.info(yml)
+    logger.info("--" + writer.toString + "--")
+    logger.info("++" + yml + "++")
     writer.toString.trim should equal(yml)
   }
 
