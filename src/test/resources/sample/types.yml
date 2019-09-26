@@ -1,51 +1,36 @@
 ---
 types:
-  - name: "string"
+  - name: datetime
+    primitiveType: "timestamp"
+    pattern: "yyyy-MM-dd HH:mm:ss"
+    sample: "2019-12-31 23:59:02"
+    comment: "date/time in epoch millis"
+  - name: time
+    pattern: "(1[012]|[1-9]):[0-5][0-9](\\\\s)?(?i)(am|pm)"
     primitiveType: "string"
-    pattern: ".+"
-    sample: "Hello World"
-    comment: "Any set of chars"
-  - name: "byte"
-    primitiveType: "byte"
-    pattern: "."
-    sample: "x"
-    comment: "Any set of chars"
-  - name: "date"
+  - name: time24
+    pattern: "([01]?[0-9]|2[0-3]):[0-5][0-9]"
+    primitiveType: "string"
+  - name: username
+    pattern: "[a-z0-9_-]{3,15}"
+    primitiveType: "string"
+  - name: datefr
     primitiveType: "date"
-    pattern: "yyyy-MM-dd"
-    sample: "2018-07-21"
-    comment: "Date in the format yyyy-MM-dd"
-  - name: "double"
-    primitiveType: "double"
-    pattern: "-?\\d*\\.{0,1}\\d+"
-    sample: "-45.78"
-    comment: "Any flating value"
-  - name: "decimal"
-    primitiveType: "decimal"
-    pattern: "-?\\d*\\.{0,1}\\d+"
-    sample: "-45.787686786876"
-    comment: "Any flating value"
-  - name: "long"
-    primitiveType: "long"
-    pattern: "-?\\d+"
-    sample: "-64564"
-    comment: "any positive or negative number"
-  - name: "short"
-    primitiveType: "short"
-    pattern: "-?\\d+"
-    sample: "564"
-    comment: "any positive or negative number"
-  - name: "boolean"
-    primitiveType: "long"
-    pattern: "(?i)true|false|yes|no|[yn01]"
-    sample: "TruE"
-  - name: "datetime"
-    primitiveType: "timestamp"
-    pattern: "yyyy-MM-dd HH:mm:ss"
-    sample: "2019-12-31 23:59:02"
-    comment: "date/time in epoch millis"
-  - name: "timestamp"
-    primitiveType: "timestamp"
-    pattern: "yyyy-MM-dd HH:mm:ss"
-    sample: "2019-12-31 23:59:02"
-    comment: "date/time in epoch millis"
+    pattern: "dd.MM.yyyy"
+    sample: "21.07.2018"
+    comment: "Data in the format dd.MM.yyyy"
+  - name: email
+    primitiveType: string
+    pattern: "[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,6}"
+    sample: me@company.com
+    comment: Valid email only
+  - name: date_fr
+    primitiveType: date
+    pattern: "dd/MM/yyyy"
+    sample: 21/07/2018
+    comment: Date in the format dd/MM/yyyy
+  - name: date_fr2
+    primitiveType: date
+    pattern: "dd.MM.yyyy"
+    sample: 21.07.2018
+    comment: Date in the format dd.MM.yyyy

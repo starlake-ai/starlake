@@ -48,6 +48,17 @@ import scala.util.Try
 
 trait TestHelper extends FlatSpec with Matchers with BeforeAndAfterAll with StrictLogging {
 
+  val allTypes: List[TypeToImport] = List(
+    TypeToImport(
+      "default.yml",
+      "/sample/default.yml"
+    ),
+    TypeToImport(
+      "types.yml",
+      "/sample/types.yml"
+    )
+  )
+
   def loadFile(filename: String)(implicit codec: Codec): String = {
     val stream: InputStream = getClass.getResourceAsStream(filename)
     scala.io.Source.fromInputStream(stream).getLines().mkString("\n")
@@ -98,27 +109,6 @@ trait TestHelper extends FlatSpec with Matchers with BeforeAndAfterAll with Stri
         .asScala
         .map(_.delete())
     }
-
-  lazy val types = Types(
-    List(
-      Type("string", ".+", PrimitiveType.string),
-      Type("time", "(1[012]|[1-9]):[0-5][0-9](\\\\s)?(?i)(am|pm)"),
-      Type("time24", "([01]?[0-9]|2[0-3]):[0-5][0-9]"),
-      Type(
-        "date",
-        "(0?[1-9]|[12][0-9]|3[01])/(0?[1-9]|1[012])/((19|20)\\\\d\\\\d)",
-        PrimitiveType.date
-      ),
-      Type("username", "[a-z0-9_-]{3,15}"),
-      Type("age", "[a-z0-9_-]{3,15}", PrimitiveType.long),
-      Type("color", "#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})", PrimitiveType.string),
-      Type(
-        "ip",
-        "([01]?\\d\\d?|2[0-4]\\d|25[0-5])\\.([01]?\\d\\d?|2[0-4]\\d|25[0-5])\\.([01]?\\d\\d?|2[0-4]\\d|25[0-5])\\.([01]?\\d\\d?|2[0-4]\\d|25[0-5])"
-      ),
-      Type("email", "[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\\\.[A-Za-z]{2,6}")
-    )
-  )
 
   lazy val domain = Domain(
     "DOMAIN",
@@ -189,6 +179,11 @@ trait TestHelper extends FlatSpec with Matchers with BeforeAndAfterAll with Stri
     new File("/tmp/json").mkdir()
     new File("/tmp/position").mkdir()
 
+    allTypes.foreach { typeToImport =>
+      val typesPath = new Path(DatasetArea.types, typeToImport.name)
+      storageHandler.write(loadFile(typeToImport.path), typesPath)
+    }
+
     DatasetArea.init(storageHandler)
   }
 
@@ -205,8 +200,6 @@ trait TestHelper extends FlatSpec with Matchers with BeforeAndAfterAll with Stri
     val domainFilename: String
     val sourceDomainPathname: String
 
-    val types: List[TypeToImport]
-
     val datasetDomainName: String
     val sourceDatasetPathName: String
 
@@ -214,7 +207,7 @@ trait TestHelper extends FlatSpec with Matchers with BeforeAndAfterAll with Stri
       val domainPath = new Path(domainMetadataRootPath, domainFilename)
       storageHandler.write(loadFile(sourceDomainPathname), domainPath)
 
-      types.foreach { typeToImport =>
+      allTypes.foreach { typeToImport =>
         val typesPath = new Path(DatasetArea.types, typeToImport.name)
         storageHandler.write(loadFile(typeToImport.path), typesPath)
       }
