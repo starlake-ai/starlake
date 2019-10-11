@@ -96,7 +96,7 @@ class JsonIngestionJob(
     * @param acceptedRDD
     */
   @deprecated("We let Spark compute the final schema", "")
-  def saveAccepted(acceptedRDD: RDD[Row]): Unit = {
+  def saveAccepted(acceptedRDD: RDD[Row]): Path = {
     val writeMode = metadata.getWriteMode()
     val acceptedPath = new Path(DatasetArea.accepted(domain.name), schema.name)
     saveRows(
@@ -106,6 +106,7 @@ class JsonIngestionJob(
       HiveArea.accepted,
       schema.merge.isDefined
     )
+    acceptedPath
   }
 
   override def name: String = "JsonJob"

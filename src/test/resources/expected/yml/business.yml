@@ -12,5 +12,5 @@ tasks:
   postsql: null
   area: null
   index: null
-  mapping: null
+  properties: null
 area: "business"
