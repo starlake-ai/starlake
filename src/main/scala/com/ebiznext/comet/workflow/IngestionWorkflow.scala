@@ -22,6 +22,7 @@ package com.ebiznext.comet.workflow
 
 import better.files.File
 import com.ebiznext.comet.config.{DatasetArea, Settings}
+import com.ebiznext.comet.job.bqload.{BigQueryLoadConfig, BigQueryLoadJob}
 import com.ebiznext.comet.job.index.{IndexConfig, IndexJob}
 import com.ebiznext.comet.job.infer.{InferConfig, InferSchema}
 import com.ebiznext.comet.job.ingest.{
@@ -284,30 +285,60 @@ class IngestionWorkflow(
     }
 
     val meta = schema.mergedMetadata(domain.metadata)
-    if (meta.isIndexed() && Settings.comet.elasticsearch.active) {
-      val mapping = meta.mapping
-      launchHandler.index(
-        this,
-        IndexConfig(
-          timestamp = mapping.flatMap(_.timestamp),
-          id = mapping.flatMap(_.id),
-          format = "parquet",
-          domain = domain.name,
-          schema = schema.name
+    meta.getIndexSink() match {
+      case Some(IndexSink.ES) if Settings.comet.elasticsearch.active =>
+        val properties = meta.properties
+        launchHandler.index(
+          this,
+          IndexConfig(
+            timestamp = properties.flatMap(_.get("timestamp")),
+            id = properties.flatMap(_.get("id")),
+            format = "parquet",
+            domain = domain.name,
+            schema = schema.name
+          )
         )
-      )
+      case Some(IndexSink.BQ) =>
+        val (createDisposition, writeDisposition) = meta.getWriteMode match {
+          case WriteMode.OVERWRITE =>
+            ("CREATE_IF_NEEDED", "WRITE_TRUNCATE")
+          case WriteMode.APPEND =>
+            ("CREATE_IF_NEEDED", "WRITE_APPEND")
+          case WriteMode.ERROR_IF_EXISTS =>
+            ("CREATE_IF_NEEDED", "WRITE_EMPTY")
+          case WriteMode.IGNORE =>
+            ("CREATE_NEVER", "WRITE_EMPTY")
+          case _ =>
+            ("CREATE_IF_NEEDED", "WRITE_TRUNCATE")
+        }
+        launchHandler.bqload(
+          this,
+          BigQueryLoadConfig(
+            sourceFile = new Path(DatasetArea.accepted(domain.name), schema.name).toString,
+            outputTable = schema.name,
+            outputDataset = domain.name,
+            sourceFormat = "parquet",
+            createDisposition = createDisposition,
+            writeDisposition = writeDisposition,
+            location = meta.getProperties().get("location"),
+            outputPartition = meta.getProperties().get("timestamp"),
+            days = meta.getProperties().get("days").map(_.toInt)
+          )
+        )
+      case _ =>
+      // ignore
     }
   }
 
   def index(job: AutoJobDesc, task: AutoTaskDesc): Unit = {
     val targetArea = task.area.getOrElse(job.getArea())
     val targetPath = new Path(DatasetArea.path(task.domain, targetArea.value), task.dataset)
-    val mapping = task.mapping
+    val properties = task.properties
     launchHandler.index(
       this,
       IndexConfig(
-        timestamp = mapping.flatMap(_.timestamp),
-        id = mapping.flatMap(_.id),
+        timestamp = properties.flatMap(_.get("timestamp")),
+        id = properties.flatMap(_.get("id")),
         format = "parquet",
         domain = task.domain,
         schema = task.dataset,
@@ -357,6 +388,10 @@ class IngestionWorkflow(
 
   def index(config: IndexConfig) = {
     new IndexJob(config, Settings.storageHandler).run()
+  }
+
+  def bqload(config: BigQueryLoadConfig) = {
+    new BigQueryLoadJob(config, Settings.storageHandler).run()
   }
 
   /**

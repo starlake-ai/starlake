@@ -305,13 +305,13 @@ root
     *
     * @return : Spark Session used for the job
     */
-  override def run(): SparkSession = {
+  override def run(): Try[SparkSession] = {
     val datasetPath = new Path(DatasetArea.accepted(domain.name), schema.name)
     val dataUse: DataFrame = session.read.parquet(datasetPath.toString)
     run(dataUse, storageHandler.lastModified(datasetPath))
   }
 
-  def run(dataUse: DataFrame, timestamp: Timestamp): SparkSession = {
+  def run(dataUse: DataFrame, timestamp: Timestamp): Try[SparkSession] = {
     val discAttrs: List[String] = schema.discreteAttrs().map(_.getFinalName())
     val continAttrs: List[String] = schema.continuousAttrs().map(_.getFinalName())
     logger.info("Discrete Attributes -> " + discAttrs.mkString(","))
@@ -347,11 +347,9 @@ root
     locker.release()
     metricsResult match {
       case Failure(e) =>
-        throw e
+        Failure(throw e)
       case Success(_) =>
-      // do nothing
+        Success(session)
     }
-
-    session
   }
 }
