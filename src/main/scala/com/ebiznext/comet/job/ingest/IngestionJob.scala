@@ -46,7 +46,7 @@ trait IngestionJob extends SparkJob {
     */
   def ingest(dataset: DataFrame): (RDD[_], RDD[_])
 
-  def saveRejected(rejectedRDD: RDD[String]): Unit = {
+  def saveRejected(rejectedRDD: RDD[String]): Path = {
     logger.whenDebugEnabled {
       logger.debug(s"rejectedRDD SIZE ${rejectedRDD.count()}")
       rejectedRDD.take(1000).foreach(rejected => logger.debug(rejected))
@@ -58,6 +58,7 @@ trait IngestionJob extends SparkJob {
       rejectedRDD.toDF.show(1000, false)
     }
     saveRows(rejectedRDD.toDF, rejectedPath, writeMode, HiveArea.rejected, false)
+    rejectedPath
   }
 
   def getWriteMode(): WriteMode =
@@ -71,7 +72,7 @@ trait IngestionJob extends SparkJob {
     *
     * @param acceptedDF
     */
-  def saveAccepted(acceptedDF: DataFrame): Unit = {
+  def saveAccepted(acceptedDF: DataFrame): Path = {
     logger.whenDebugEnabled {
       logger.debug(s"acceptedRDD SIZE ${acceptedDF.count()}")
       acceptedDF.show(1000)
@@ -94,6 +95,7 @@ trait IngestionJob extends SparkJob {
     if (Settings.comet.metrics.active) {
       new MetricsJob(this.domain, this.schema, Stage.GLOBAL, storageHandler).run()
     }
+    acceptedPath
   }
 
   /**
@@ -276,10 +278,13 @@ trait IngestionJob extends SparkJob {
     *
     * @return : Spark Session used for the job
     */
-  def run(): SparkSession = {
+  def run(): Try[SparkSession] = {
     domain.checkValidity() match {
       case Left(errors) =>
-        errors.foreach(err => logger.error(err))
+        val errs = errors.reduce { (errs, err) =>
+          errs + "\n" + err
+        }
+        Failure(throw new Exception(errs))
       case Right(_) =>
         val start = System.currentTimeMillis()
         schema.presql.getOrElse(Nil).foreach(session.sql)
@@ -309,12 +314,12 @@ trait IngestionJob extends SparkJob {
               )
             }
             schema.postsql.getOrElse(Nil).foreach(session.sql)
+            Success(session)
           case Failure(exception) =>
             Utils.logException(logger, exception)
-            throw exception
+            Failure(throw exception)
         }
     }
-    session
   }
 
 }

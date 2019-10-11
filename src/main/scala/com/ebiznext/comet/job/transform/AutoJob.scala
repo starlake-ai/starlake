@@ -28,6 +28,8 @@ import com.ebiznext.comet.utils.SparkJob
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.{SaveMode, SparkSession}
 
+import scala.util.{Success, Try}
+
 /**
   *
   * Execute the SQL Task and store it in parquet/orc/.... If Hive support is enabled, also store it as a Hive Table.
@@ -44,7 +46,7 @@ class AutoJob(
   storageHandler: StorageHandler
 ) extends SparkJob {
 
-  def run(): SparkSession = {
+  def run(): Try[SparkSession] = {
     if (Settings.comet.hive) {
       task.presql.getOrElse(Nil).foreach(session.sql)
       val targetArea = task.area.getOrElse(defaultArea)
@@ -93,6 +95,6 @@ class AutoJob(
       }
       task.postsql.getOrElse(Nil).foreach(session.sql)
     }
-    session
+    Success(session)
   }
 }

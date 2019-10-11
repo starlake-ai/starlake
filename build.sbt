@@ -1,10 +1,9 @@
 import Dependencies._
-import sbtrelease.Version
-import ReleaseTransformations._
 import sbt.internal.util.complete.DefaultParsers
+import sbtrelease.ReleasePlugin.autoImport.ReleaseTransformations._
+import sbtrelease.Version
 
 name := "comet"
-
 
 //val mavenLocal = "Local Maven" at Path.userHome.asFile.toURI.toURL + ".m2/repository"
 //resolvers += Resolver.mavenLocal
@@ -43,7 +42,6 @@ Common.customSettings
 
 Test / fork := true
 
-
 artifact in (Compile, assembly) := {
   val art: Artifact = (artifact in (Compile, assembly)).value
   art.withClassifier(Some("assembly"))
@@ -53,21 +51,22 @@ addArtifact(artifact in (Compile, assembly), assembly)
 
 publishTo in ThisBuild := {
   sys.env.get("GCS_BUCKET_ARTEFACTS") match {
-    case None => None
+    case None        => None
     case Some(value) => Some(GCSPublisher.forBucket(value, AccessRights.InheritBucket))
   }
 }
 
-
 // Release
 
-releaseCrossBuild :=  true
+releaseCrossBuild := true
 
 releaseNextVersion := { ver =>
   Version(ver) match {
-    case Some(v @ Version(_, Seq(_, 0), _)) => v.bump(sbtrelease.Version.Bump.Minor).asSnapshot.string
-    case Some(v @ Version(_, Seq(_, _), _)) => v.bump(sbtrelease.Version.Bump.Bugfix).asSnapshot.string
-    case None                               => sys.error("No version detected")
+    case Some(v @ Version(_, Seq(_, 0), _)) =>
+      v.bump(sbtrelease.Version.Bump.Minor).asSnapshot.string
+    case Some(v @ Version(_, Seq(_, _), _)) =>
+      v.bump(sbtrelease.Version.Bump.Bugfix).asSnapshot.string
+    case None => sys.error("No version detected")
   }
 }
 
@@ -89,22 +88,40 @@ releaseProcess := Seq[ReleaseStep](
 releaseCommitMessage := s"Add CLoud Build ${ReleasePlugin.runtimeVersion.value}"
 
 val writeNextVersion =
-  Command("writeNextVersion")(_ => DefaultParsers.SpaceClass ~> DefaultParsers.NotQuoted)((st, str) => {
-    Version(str) match {
-      case Some(ver) =>
-        val verStr = ver.string
-        val versionFile = Project.extract(st).get(releaseVersionFile)
-        val useGlobal = Project.extract(st).get(releaseUseGlobalVersion)
-        val formattedVer = (if (useGlobal) globalVersionString else versionString) format verStr
-        IO.writeLines(versionFile, Seq(formattedVer))
-        val refreshedSt = reapply(Seq(
-          if (useGlobal) version in ThisBuild := verStr
-          else version := verStr
-        ),
-          st)
+  Command("writeNextVersion")(_ => DefaultParsers.SpaceClass ~> DefaultParsers.NotQuoted)(
+    (st, str) => {
+      Version(str) match {
+        case Some(ver) =>
+          val verStr = ver.string
+          val versionFile = Project.extract(st).get(releaseVersionFile)
+          val useGlobal = Project.extract(st).get(releaseUseGlobalVersion)
+          val formattedVer = (if (useGlobal) globalVersionString else versionString) format verStr
+          IO.writeLines(versionFile, Seq(formattedVer))
+          val refreshedSt = reapply(
+            Seq(
+              if (useGlobal) version in ThisBuild := verStr
+              else version := verStr
+            ),
+            st
+          )
 
-        commitNextVersion.action(refreshedSt)
+          commitNextVersion.action(refreshedSt)
 
-      case _ => sys.error("Input version does not follow semver")
+        case _ => sys.error("Input version does not follow semver")
+      }
     }
-  })
+  )
+
+// Shade it or else bigquery wont work because spark comes with an older version of google common.
+assemblyShadeRules in assembly := Seq(
+  ShadeRule
+    .rename(
+      "com.google.cloud.hadoop.io.bigquery.**" -> "shadeio.@1",
+      "com.google.common.**" -> "shadebase.@1"
+    )
+    .inAll
+)
+
+//assemblyExcludedJars in assembly <<= (fullClasspath in assembly) map { cp =>
+// cp filter {x => x.data.getName.matches("sbt.*") || x.data.getName.matches(".*macros.*")}
+// }

@@ -27,8 +27,6 @@ import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize
 import com.fasterxml.jackson.databind.{DeserializationContext, JsonDeserializer, JsonNode}
 
-case class EsMapping(timestamp: Option[String], id: Option[String])
-
 /**
   * Specify Schema properties.
   * These properties may be specified at the schema or domain level
@@ -61,8 +59,8 @@ case class Metadata(
   escape: Option[String] = None,
   write: Option[WriteMode] = None,
   partition: Option[Partition] = None,
-  index: Option[Boolean] = None,
-  mapping: Option[EsMapping] = None
+  index: Option[IndexSink] = None,
+  properties: Option[Map[String, String]] = None
 ) {
   override def toString: String =
     s"""
@@ -77,8 +75,8 @@ case class Metadata(
        |escape:${getEscape()}
        |write:${getWriteMode()}
        |partition:${getPartitionAttributes()}
-       |index:${isIndexed()}
-       |mapping:${mapping}
+       |index:${getIndexSink()}
+       |properties:${properties}
        """.stripMargin
 
   def getIngestMode(): Mode = mode.getOrElse(FILE)
@@ -105,7 +103,9 @@ case class Metadata(
 
   def getSamplingStrategy(): Double = partition.map(_.getSampling()).getOrElse(0.0)
 
-  def isIndexed(): Boolean = index.getOrElse(false)
+  def getIndexSink(): Option[IndexSink] = index
+
+  def getProperties(): Map[String, String] = properties.getOrElse(Map.empty)
 
   /**
     * Merge a single attribute
@@ -140,7 +140,7 @@ case class Metadata(
       write = merge(this.write, child.write),
       partition = merge(this.partition, child.partition),
       index = merge(this.index, child.index),
-      mapping = merge(this.mapping, child.mapping)
+      properties = merge(this.properties, child.properties)
     )
   }
 }
@@ -211,18 +211,21 @@ class MetadataDeserializer extends JsonDeserializer[Metadata] {
           new PartitionDeserializer().deserialize(node.get("partition"))
         )
     val index =
-      if (isNull(node, "index")) None else Some(node.get("index").asBoolean())
-    val mapping =
-      if (isNull(node, "mapping")) None
+      if (isNull(node, "index")) None else Some(IndexSink.fromString(node.get("index").asText))
+    val mapping: Option[Map[String, String]] =
+      if (isNull(node, "properties"))
+        None
       else {
-        val mappingField = node.get("mapping")
-        val timestamp =
-          if (isNull(mappingField, "timestamp")) None
-          else Some(mappingField.get("timestamp").asText)
-        val id =
-          if (isNull(mappingField, "id")) None
-          else Some(mappingField.get("id").asText)
-        Some(EsMapping(timestamp, id))
+        val mappingField = node.get("properties")
+        import scala.collection.JavaConverters._
+        val fields = mappingField
+          .fieldNames()
+          .asScala
+          .map { fieldName =>
+            (fieldName, mappingField.get(fieldName).asText())
+        } toMap
+
+        Some(fields)
       }
     Metadata(
       mode,

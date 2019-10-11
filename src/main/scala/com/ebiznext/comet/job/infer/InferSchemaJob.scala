@@ -28,6 +28,8 @@ import com.ebiznext.comet.utils.SparkJob
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 
+import scala.util.{Success, Try}
+
 /** *
   *
   * @param domainName : name of the domain
@@ -234,5 +236,5 @@ object InferSchemaJob extends SparkJob {
     *
     * @return : Spark Session used for the job
     */
-  override def run(): SparkSession = session
+  override def run(): Try[SparkSession] = Success(session)
 }
