@@ -21,6 +21,7 @@
 package com.ebiznext.comet.job
 
 import com.ebiznext.comet.config.{DatasetArea, Settings}
+import com.ebiznext.comet.job.bqload.BigQueryLoadConfig
 import com.ebiznext.comet.job.index.IndexConfig
 import com.ebiznext.comet.job.infer.InferSchemaConfig
 import com.ebiznext.comet.job.metrics.MetricsConfig
@@ -59,6 +60,7 @@ object Main extends StrictLogging {
         |comet import
         |comet ingest datasetDomain datasetSchema datasetPath
         |comet index --domain domain --schema schema --timestamp {@timestamp|yyyy.MM.dd} --id type-id --mapping mapping --format parquet|json|json-array --dataset datasetPath --conf key=value,key=value,...
+        |comet bqload --source_file file --output_table table --source_format parquet --create_disposition CREATE_IF_NEEDED --write_disposition WRITE_TRUNCATE
         |comet infer-schema --domain domainName --schema schemaName --input datasetpath --output outputPath --with-header headerBoolean
         |comet metrics --domain domain --schema schema
         |      """.stripMargin
@@ -143,6 +145,15 @@ object Main extends StrictLogging {
           case Some(config) =>
             // do something
             workflow.index(config)
+          case _ =>
+            printUsage()
+        }
+
+      case "bqload" =>
+        BigQueryLoadConfig.parse(args.drop(1)) match {
+          case Some(config) =>
+            // do something
+            workflow.bqload(config)
           case _ =>
             printUsage()
         }

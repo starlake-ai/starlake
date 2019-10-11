@@ -21,6 +21,7 @@
 package com.ebiznext.comet.schema.handlers
 
 import com.ebiznext.comet.config.Settings
+import com.ebiznext.comet.job.bqload.BigQueryLoadConfig
 import com.ebiznext.comet.job.index.IndexConfig
 import com.ebiznext.comet.schema.model.{Domain, Schema}
 import com.ebiznext.comet.workflow.IngestionWorkflow
@@ -69,6 +70,13 @@ trait LaunchHandler {
     * @param config
     */
   def index(workflow: IngestionWorkflow, config: IndexConfig): Boolean
+
+  /**
+    * Load to BigQuery
+    *
+    * @param config
+    */
+  def bqload(workflow: IngestionWorkflow, config: BigQueryLoadConfig): Boolean
 }
 
 /**
@@ -106,6 +114,18 @@ class SimpleLauncher extends LaunchHandler with StrictLogging {
     workflow.index(config)
     true
   }
+
+  /**
+    * Load to BigQuery
+    *
+    * @param config
+    */
+  override def bqload(workflow: IngestionWorkflow, config: BigQueryLoadConfig): Boolean = {
+    logger.info(s"Launch bq: ${config}")
+    workflow.bqload(config)
+    true
+
+  }
 }
 
 /**
@@ -114,8 +134,10 @@ class SimpleLauncher extends LaunchHandler with StrictLogging {
   */
 class AirflowLauncher extends LaunchHandler with StrictLogging {
 
-  protected def post(url: String, json: String): Try[String] = {
+  protected def post(url: String, command: String): Boolean = {
     Try {
+      val json = s"""{"conf":"{\\"command\\":\\"$command\\"}"}"""
+      logger.info(s"Post to Airflow: $json")
       val JSON: MediaType = MediaType.parse("application/json; charset=utf-8")
       val client: OkHttpClient = new OkHttpClient
       val body: RequestBody = RequestBody.create(JSON, json)
@@ -127,7 +149,14 @@ class AirflowLauncher extends LaunchHandler with StrictLogging {
       val responseBody = response.body.string
       logger.debug("Post result from Airflow: " + responseBody)
       responseBody
+    } match {
+      case Success(_) =>
+        true
+      case Failure(exception) =>
+        logger.error("Failed to post request to Airflow", exception)
+        false
     }
+
   }
 
   /**
@@ -149,18 +178,10 @@ class AirflowLauncher extends LaunchHandler with StrictLogging {
     val url = s"$endpoint/dags/$ingest/dag_runs"
     val command =
       s"""ingest ${domain.name} ${schema.name} ${paths.mkString(",")}"""
-    val json = s"""{"conf":"{\\"command\\":\\"$command\\"}"}"""
 
     // We make sure two successive calls to the same dag id do not occur in the same second, otherwise Airflow will produce an error.
     Thread.sleep(1000)
-    logger.info(s"Post to Airflow: $json")
-    post(url, json) match {
-      case Success(_) =>
-        true
-      case Failure(exception) =>
-        logger.error("Failed to post request to Airflow", exception)
-        false
-    }
+    post(url, command)
   }
 
   /**
@@ -174,21 +195,39 @@ class AirflowLauncher extends LaunchHandler with StrictLogging {
     // comet index --domain domain --schema schema --resource index-name/type-name --id type-id --mapping mapping
     //    --format parquet|json|json-array --dataset datasetPath
     //    --conf key=value,key=value,...
-    val resource =
-      s"--timestamp ${config.timestamp} --domain ${config.domain} --schema ${config.schema} --format ${config.format} --dataset ${config.getDataset()}"
+    val resource = List(
+      s"--timestamp ${config.timestamp}",
+      s"--domain ${config.domain}",
+      s"--schema ${config.schema}",
+      s"--format ${config.format}",
+      s"--dataset ${config.getDataset()}"
+    ).mkString(" ")
     val id = config.id.map(id => s"--id $id")
     val mapping = config.mapping.map(path => s"--mapping ${path.toString}")
     val params = List(Some(resource), id, mapping).flatten.mkString(" ")
     val command = s"""index $params """
-    val json = s"""{"conf":"{\\"command\\":\\"$command\\"}"}"""
-    logger.info(s"Post to Airflow: $json")
-    post(url, json) match {
-      case Success(_) =>
-        true
-      case Failure(exception) =>
-        logger.error("Failed to post request to Airflow", exception)
-        false
-    }
-
+    post(url, command)
   }
+
+  /**
+    * Load to BigQuery
+    *
+    * @param config
+    */
+  override def bqload(workflow: IngestionWorkflow, config: BigQueryLoadConfig): Boolean = {
+    val endpoint = Settings.comet.airflow.endpoint
+    val url = s"$endpoint/dags/comet_bqload/dag_runs"
+    val params = List(
+      s"--source_file ${config.sourceFile}",
+      s"--output_dataset ${config.outputDataset}",
+      s"--output_table ${config.outputTable}",
+      s"--source_format ${config.sourceFormat}",
+      s"--create_disposition ${config.createDisposition}",
+      s"--write_disposition ${config.writeDisposition}",
+      config.outputPartition.map(partition => s"--output_partition $partition").getOrElse("")
+    ).mkString(" ")
+    val command = s"""bqload $params """
+    post(url, command)
+  }
+
 }

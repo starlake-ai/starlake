@@ -23,7 +23,7 @@ package com.ebiznext.comet.schema.handlers
 import java.net.URL
 
 import com.ebiznext.comet.config.{DatasetArea, Settings}
-import com.ebiznext.comet.schema.model.{Attribute, Schema}
+import com.ebiznext.comet.schema.model.{Attribute, Metadata, Schema}
 import com.ebiznext.comet.{TestHelper, TypeToImport}
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.DataFrame
@@ -295,4 +295,18 @@ class SchemaHandlerSpec extends TestHelper {
     }
   }
 
+  "Custom mapping in Metadata" should "be read as a map" in {
+    val sch = new SchemaHandler(null)
+    val content = """mode: FILE
+                    |withHeader: false
+                    |encoding: ISO-8859-1
+                    |format: POSITION
+                    |index: BQ
+                    |write: OVERWRITE
+                    |mapping:
+                    |  timestamp: _PARTITIONTIME
+                    |""".stripMargin
+    val metadata = sch.mapper.readValue(content, classOf[Metadata])
+    println(metadata)
+  }
 }

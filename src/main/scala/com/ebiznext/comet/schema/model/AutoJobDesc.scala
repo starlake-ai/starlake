@@ -42,7 +42,7 @@ case class AutoTaskDesc(
   postsql: Option[List[String]] = None,
   area: Option[HiveArea] = None,
   index: Option[Boolean] = None,
-  mapping: Option[EsMapping] = None
+  properties: Option[Map[String, String]] = None
 ) {
 
   @JsonIgnore

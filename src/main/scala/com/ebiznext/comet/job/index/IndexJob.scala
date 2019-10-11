@@ -28,6 +28,8 @@ import com.softwaremill.sttp._
 import org.apache.spark.sql.types.StructField
 import org.apache.spark.sql.{SaveMode, SparkSession}
 
+import scala.util.{Failure, Success, Try}
+
 class IndexJob(
   cliConfig: IndexConfig,
   storageHandler: StorageHandler
@@ -46,7 +48,7 @@ class IndexJob(
     *
     * @return : Spark Session used for the job
     */
-  override def run(): SparkSession = {
+  override def run(): Try[SparkSession] = {
     logger.info(s"Indexing resource ${cliConfig.getResource()} with $cliConfig")
     val inputDF = format match {
       case "json" =>
@@ -125,10 +127,9 @@ class IndexJob(
         .format("org.elasticsearch.spark.sql")
         .mode(SaveMode.Overwrite)
         .save(cliConfig.getResource())
+      Success(session)
     } else {
-      logger.error("Failed to create template")
+      Failure(throw new Exception("Failed to create template"))
     }
-
-    session
   }
 }
