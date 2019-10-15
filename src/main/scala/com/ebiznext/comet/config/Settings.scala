@@ -110,6 +110,7 @@ object Settings extends StrictLogging {
     lock: Lock,
     writeFormat: String,
     launcher: String,
+    chewerPrefix : String,
     analyze: Boolean,
     hive: Boolean,
     grouped: Boolean,
