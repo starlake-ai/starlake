@@ -309,4 +309,5 @@ class SchemaHandlerSpec extends TestHelper {
     val metadata = sch.mapper.readValue(content, classOf[Metadata])
     println(metadata)
   }
+
 }
