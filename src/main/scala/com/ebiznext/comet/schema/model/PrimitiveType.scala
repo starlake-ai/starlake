@@ -148,9 +148,9 @@ object PrimitiveType {
     def fromString(str: String, pattern: String): Any = {
       if (pattern.indexOf("<-TF->") >= 0) {
         val tf = pattern.split("<-TF->")
-        if (Pattern.compile(tf(0), Pattern.MULTILINE).matcher(value).matches())
+        if (Pattern.compile(tf(0), Pattern.MULTILINE).matcher(str).matches())
           true
-        else if (Pattern.compile(tf(1), Pattern.MULTILINE).matcher(value).matches())
+        else if (Pattern.compile(tf(1), Pattern.MULTILINE).matcher(str).matches())
           false
         else
           throw new Exception(s"value $str does not match $pattern")

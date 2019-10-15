@@ -1,4 +1,4 @@
-firstname;lastname;age
-x;y;z
-hayssam;saleh;121
-yoann;baudy;122
+firstname;lastname;age;ok
+x;y;z;no
+hayssam;saleh;121;true
+yoann;baudy;122;0
