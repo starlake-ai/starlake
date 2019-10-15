@@ -24,7 +24,7 @@ import java.text.SimpleDateFormat
 import java.time.format.DateTimeFormatter
 import java.util.regex.Pattern
 
-import com.ebiznext.comet.schema.model.PrimitiveType.{date, timestamp}
+import com.ebiznext.comet.schema.model.PrimitiveType.{boolean, date, timestamp}
 import com.fasterxml.jackson.annotation.JsonIgnore
 import org.apache.spark.sql.types.StructField
 
@@ -61,8 +61,6 @@ case class Type(
   comment: Option[String] = None,
   indexMapping: Option[IndexMapping] = None
 ) {
-  // Used only when object is not a date nor a timestamp
-  private lazy val textPattern = Pattern.compile(pattern, Pattern.MULTILINE)
 
   @JsonIgnore
   def getIndexMapping(): IndexMapping = {
@@ -80,7 +78,10 @@ case class Type(
             Try(date.fromString(value, pattern)).isSuccess
           case PrimitiveType.timestamp =>
             Try(timestamp.fromString(value, pattern)).isSuccess
+          case PrimitiveType.boolean =>
+            boolean.matches(value, pattern)
           case _ =>
+            val textPattern = Pattern.compile(pattern, Pattern.MULTILINE)
             textPattern.matcher(value).matches()
         }
     }
@@ -110,13 +111,20 @@ case class Type(
             case _ =>
               DateTimeFormatter.ofPattern(pattern)
           }
+        case PrimitiveType.boolean =>
+          val tf = pattern.split("<-TF->")
+          assert(tf.size == 2)
+          Pattern.compile(tf(0), Pattern.MULTILINE)
+          Pattern.compile(tf(1), Pattern.MULTILINE)
         case _ =>
           Pattern.compile(pattern)
       }
     }
     if (patternIsValid.isFailure)
       errorList += s"Invalid Pattern $pattern in type $name"
-    val ok = sample.forall(this.matches)
+    val ok = sample.forall { sample =>
+      this.matches(sample)
+    }
     if (!ok)
       errorList += s"Sample $sample does not match pattern $pattern in type $name"
     if (errorList.nonEmpty)
