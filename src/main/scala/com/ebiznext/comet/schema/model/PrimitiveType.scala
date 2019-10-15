@@ -24,6 +24,7 @@ import java.sql.Timestamp
 import java.time._
 import java.time.format.DateTimeFormatter
 import java.time.temporal.TemporalAccessor
+import java.util.regex.Pattern
 
 import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.databind.annotation.{JsonDeserialize, JsonSerialize}
@@ -42,7 +43,7 @@ import scala.util.{Failure, Success, Try}
 @JsonSerialize(using = classOf[ToStringSerializer])
 @JsonDeserialize(using = classOf[PrimitiveTypeDeserializer])
 sealed abstract case class PrimitiveType(value: String) {
-  def fromString(str: String, dateFormat: String = null): Any
+  def fromString(str: String, pattern: String = null): Any
 
   override def toString: String = value
 
@@ -80,14 +81,14 @@ class PrimitiveTypeDeserializer extends JsonDeserializer[PrimitiveType] {
 object PrimitiveType {
 
   object string extends PrimitiveType("string") {
-    def fromString(str: String, dateFormat: String = null): Any = str
+    def fromString(str: String, pattern: String = null): Any = str
 
     def sparkType: DataType = StringType
   }
 
   object long extends PrimitiveType("long") {
 
-    def fromString(str: String, dateFormat: String): Any =
+    def fromString(str: String, pattern: String): Any =
       if (str == null || str.isEmpty) null else str.toLong
 
     def sparkType: DataType = LongType
@@ -95,7 +96,7 @@ object PrimitiveType {
 
   object int extends PrimitiveType("int") {
 
-    def fromString(str: String, dateFormat: String): Any =
+    def fromString(str: String, pattern: String): Any =
       if (str == null || str.isEmpty) null else str.toInt
 
     def sparkType: DataType = IntegerType
@@ -103,7 +104,7 @@ object PrimitiveType {
 
   object short extends PrimitiveType("short") {
 
-    def fromString(str: String, dateFormat: String): Any =
+    def fromString(str: String, pattern: String): Any =
       if (str == null || str.isEmpty) null else str.toShort
 
     def sparkType: DataType = ShortType
@@ -111,7 +112,7 @@ object PrimitiveType {
 
   object double extends PrimitiveType("double") {
 
-    def fromString(str: String, dateFormat: String): Any =
+    def fromString(str: String, pattern: String): Any =
       if (str == null || str.isEmpty) null else str.toDouble
 
     def sparkType: DataType = DoubleType
@@ -120,7 +121,7 @@ object PrimitiveType {
   object decimal extends PrimitiveType("decimal") {
     val defaultDecimalType = DataTypes.createDecimalType(30, 15)
 
-    def fromString(str: String, dateFormat: String): Any =
+    def fromString(str: String, pattern: String): Any =
       if (str == null || str.isEmpty) null else BigDecimal(str)
 
     override def sparkType: DataType = defaultDecimalType
@@ -128,15 +129,42 @@ object PrimitiveType {
 
   object boolean extends PrimitiveType("boolean") {
 
-    def fromString(str: String, dateFormat: String): Any =
-      if (str == null || str.isEmpty) null else str.toBoolean
+    def matches(str: String, pattern: String): Boolean = {
+      if (pattern.indexOf("<-TF->") >= 0) {
+        val tf = pattern.split("<-TF->")
+        Pattern
+          .compile(tf(0), Pattern.MULTILINE)
+          .matcher(str)
+          .matches() ||
+        Pattern
+          .compile(tf(1), Pattern.MULTILINE)
+          .matcher(str)
+          .matches()
+      } else {
+        throw new Exception(s"Invalid pattern $pattern for type boolean and value $str")
+      }
+    }
+
+    def fromString(str: String, pattern: String): Any = {
+      if (pattern.indexOf("<-TF->") >= 0) {
+        val tf = pattern.split("<-TF->")
+        if (Pattern.compile(tf(0), Pattern.MULTILINE).matcher(value).matches())
+          true
+        else if (Pattern.compile(tf(1), Pattern.MULTILINE).matcher(value).matches())
+          false
+        else
+          throw new Exception(s"value $str does not match $pattern")
+      } else {
+        throw new Exception(s"Operator <-TF-> required in pattern $pattern to validate $str")
+      }
+    }
 
     def sparkType: DataType = BooleanType
   }
 
   object byte extends PrimitiveType("byte") {
 
-    def fromString(str: String, dateFormat: String): Any =
+    def fromString(str: String, pattern: String): Any =
       if (str == null || str.isEmpty) null else str.head.toByte
 
     def sparkType: DataType = ByteType
@@ -144,7 +172,7 @@ object PrimitiveType {
 
   object struct extends PrimitiveType("struct") {
 
-    def fromString(str: String, dateFormat: String): Any =
+    def fromString(str: String, pattern: String): Any =
       if (str == null || str.isEmpty) null else str.toByte
 
     def sparkType: DataType = new StructType(Array.empty[StructField])
@@ -186,12 +214,12 @@ object PrimitiveType {
 
   object date extends PrimitiveType("date") {
 
-    def fromString(str: String, dateFormat: String): Any = {
+    def fromString(str: String, pattern: String): Any = {
       if (str == null || str.isEmpty)
         null
       else {
         import java.text.SimpleDateFormat
-        val df = new SimpleDateFormat(dateFormat)
+        val df = new SimpleDateFormat(pattern)
         val date = df.parse(str)
         new java.sql.Date(date.getTime)
 
