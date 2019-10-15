@@ -32,6 +32,10 @@ schemas:
         type: "int"
         required: false
         privacy: "NONE"
+      - name: "ok"
+        type: "boolean"
+        required: false
+        privacy: "NONE"
     metadata:
       mode: "FILE"
       format: "DSV"

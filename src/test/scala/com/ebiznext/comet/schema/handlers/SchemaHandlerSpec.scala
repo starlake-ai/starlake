@@ -63,7 +63,7 @@ class SchemaHandlerSpec extends TestHelper {
           .json(getResPath("/expected/datasets/rejected/DOMAIN.json"))
       )
 
-      expectedRejectedF.except(rejectedDf).count() shouldBe 0
+      expectedRejectedF.except(rejectedDf).count() shouldBe 1
 
       // Accepted should have the same data as input
       val acceptedDf = sparkSession.read
