@@ -20,15 +20,18 @@ schemas:
   - name: "User"
     pattern: "SCHEMA-.*.dsv"
     attributes:
-      - name: "firstname"
+      - name: "first name"
+        rename: "firstname"
         type: "string"
         required: false
         privacy: "NONE"
-      - name: "lastname"
+      - name: "last name"
+        rename: "lastname"
         type: "string"
         required: false
         privacy: "MD5"
-      - name: "age"
+      - name: "age°"
+        rename: "age"
         type: "int"
         required: false
         privacy: "NONE"
