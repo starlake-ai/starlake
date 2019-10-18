@@ -45,7 +45,7 @@ object Format {
       case "POSITION"            => Format.POSITION
       case "SIMPLE_JSON"         => Format.SIMPLE_JSON
       case "JSON" | "ARRAY_JSON" => Format.JSON
-      case "CHEW" => Format.CHEW
+      case "CHEW"                => Format.CHEW
     }
   }
 
