@@ -178,16 +178,17 @@ object PrimitiveType {
     def sparkType: DataType = new StructType(Array.empty[StructField])
   }
 
-  private def instantFromString(str: String, format: String): Instant = {
+  private def instantFromString(str: String, fullPattern: String): Instant = {
     import java.time.format.DateTimeFormatter
-    format match {
+    fullPattern match {
       case "epoch_second" =>
         Instant.ofEpochSecond(str.toLong)
       case "epoch_milli" =>
         Instant.ofEpochMilli(str.toLong)
       case _ =>
+        val formats = fullPattern.split("<->")
         val formatter = PrimitiveType.dateFormatters
-          .getOrElse(format, DateTimeFormatter.ofPattern(format))
+          .getOrElse(formats(0), DateTimeFormatter.ofPattern(formats(0)))
         val dateTime: TemporalAccessor = formatter.parse(str)
         Try(Instant.from(dateTime)) match {
           case Success(instant) =>
@@ -196,7 +197,10 @@ object PrimitiveType {
           case Failure(_) =>
             Try {
               val localDateTime = LocalDateTime.from(dateTime)
-              ZonedDateTime.of(localDateTime, ZoneId.systemDefault()).toInstant
+              if (formats.length == 2)
+                ZonedDateTime.of(localDateTime, ZoneId.of(formats(1))).toInstant
+              else
+                ZonedDateTime.of(localDateTime, ZoneId.systemDefault()).toInstant
             } match {
               case Success(instant) =>
                 instant
@@ -204,7 +208,7 @@ object PrimitiveType {
                 // Try to parse it as a date without time and still make it a timestamp.
                 // Cloudera 5.X with Hive 1.1 workaround
                 import java.text.SimpleDateFormat
-                val df = new SimpleDateFormat(format)
+                val df = new SimpleDateFormat(formats(0))
                 val date = df.parse(str)
                 Instant.ofEpochMilli(date.getTime)
             }
