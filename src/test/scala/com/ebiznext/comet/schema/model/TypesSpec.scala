@@ -72,7 +72,12 @@ class TypesSpec extends TestHelper {
         |    primitiveType: "timestamp"
         |    pattern: "epoch_second"
         |    sample: "1548923449"
-      """.stripMargin
+        |  - name: "utcdate"
+        |    primitiveType: "timestamp"
+        |    pattern: "dd/MM/yyyy HH:mm:ss"
+        |    zone: "UTC-06:00"
+        |    sample: "12/02/2019 08:03:05"
+        |      """.stripMargin
     val types = mapper.readValue(lines, classOf[Types])
 
     types.checkValidity() shouldBe Right(true)
@@ -96,6 +101,12 @@ class TypesSpec extends TestHelper {
       .get
       .sparkValue("1548923449")
       .toString + "00"
+
+    "2019-01-31 09:30:49.0" should not be types.types
+      .find(_.name == "utcdate")
+      .get
+      .sparkValue("31/01/2019 09:30:49")
+      .toString
 
   }
 
