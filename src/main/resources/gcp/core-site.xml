@@ -45,6 +45,10 @@
         <name>fs.defaultFS</name>
         <value>gs://comet-app</value>
     </property>
+    <property>
+        <name>fs.gs.system.bucket</name>
+        <value>comet-app</value>
+    </property>
 </configuration>
 
 

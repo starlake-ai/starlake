@@ -57,10 +57,14 @@ case class Type(
   name: String,
   pattern: String,
   primitiveType: PrimitiveType = PrimitiveType.string,
+  zone:Option[String] = None,
   sample: Option[String] = None,
   comment: Option[String] = None,
   indexMapping: Option[IndexMapping] = None
 ) {
+
+  @JsonIgnore
+  val fullPattern = zone.map(z => pattern + "<->" + z).getOrElse(pattern)
 
   @JsonIgnore
   def getIndexMapping(): IndexMapping = {
@@ -77,7 +81,7 @@ case class Type(
           case PrimitiveType.date =>
             Try(date.fromString(value, pattern)).isSuccess
           case PrimitiveType.timestamp =>
-            Try(timestamp.fromString(value, pattern)).isSuccess
+            Try(timestamp.fromString(value, fullPattern)).isSuccess
           case PrimitiveType.boolean =>
             boolean.matches(value, pattern)
           case _ =>
@@ -88,7 +92,7 @@ case class Type(
   }
 
   def sparkValue(value: String): Any = {
-    primitiveType.fromString(value, pattern)
+    primitiveType.fromString(value, fullPattern)
   }
 
   def sparkType(fieldName: String, nullable: Boolean, comment: Option[String]): StructField = {
