@@ -100,6 +100,7 @@ class SchemaSpec extends TestHelper {
         |  name: "string"
         |  pattern: ".+"
         |  primitiveType: "string"
+        |  zone: null
         |  sample: "Hello World"
         |  comment: "Any set of chars"
         |  indexMapping: null""".stripMargin

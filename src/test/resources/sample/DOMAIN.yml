@@ -30,7 +30,7 @@ schemas:
         type: "string"
         required: false
         privacy: "MD5"
-      - name: "age°"
+      - name: "age"
         rename: "age"
         type: "int"
         required: false

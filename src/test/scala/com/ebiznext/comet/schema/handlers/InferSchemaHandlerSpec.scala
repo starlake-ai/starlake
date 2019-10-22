@@ -89,9 +89,10 @@ class InferSchemaHandlerSpec extends TestHelper {
     val dsv: List[Attribute] = InferSchemaHandler.createAttributes(df1.schema)
 
     val dsv1: List[Attribute] = List(
-      Attribute("firstname", "string", Some(false), required = false),
-      Attribute("lastname", "string", Some(false), required = false),
-      Attribute("age", "string", Some(false), required = false)
+      Attribute("first name", "string", Some(false), required = false),
+      Attribute("last name", "string", Some(false), required = false),
+      Attribute("age", "string", Some(false), required = false),
+      Attribute("ok", "string", Some(false), required = false)
     )
     dsv shouldBe dsv1
 

@@ -12,7 +12,9 @@ case class BigQueryLoadConfig(
   writeDisposition: String = "",
   location: Option[String] = None,
   days: Option[Int] = None
-)
+) {
+  def getLocation(): String = this.location.getOrElse("EU")
+}
 
 object BigQueryLoadConfig {
 
