@@ -21,9 +21,11 @@
 package com.ebiznext.comet.schema.model
 
 import java.sql.Timestamp
+import java.text.NumberFormat
 import java.time._
 import java.time.format.DateTimeFormatter
 import java.time.temporal.TemporalAccessor
+import java.util.Locale
 import java.util.regex.Pattern
 
 import com.fasterxml.jackson.core.JsonParser
@@ -43,7 +45,7 @@ import scala.util.{Failure, Success, Try}
 @JsonSerialize(using = classOf[ToStringSerializer])
 @JsonDeserialize(using = classOf[PrimitiveTypeDeserializer])
 sealed abstract case class PrimitiveType(value: String) {
-  def fromString(str: String, pattern: String = null): Any
+  def fromString(str: String, pattern: String = null, zone: String = null): Any
 
   override def toString: String = value
 
@@ -81,14 +83,14 @@ class PrimitiveTypeDeserializer extends JsonDeserializer[PrimitiveType] {
 object PrimitiveType {
 
   object string extends PrimitiveType("string") {
-    def fromString(str: String, pattern: String = null): Any = str
+    def fromString(str: String, pattern: String, zone: String): Any = str
 
     def sparkType: DataType = StringType
   }
 
   object long extends PrimitiveType("long") {
 
-    def fromString(str: String, pattern: String): Any =
+    def fromString(str: String, pattern: String, zone: String): Any =
       if (str == null || str.isEmpty) null else str.toLong
 
     def sparkType: DataType = LongType
@@ -96,7 +98,7 @@ object PrimitiveType {
 
   object int extends PrimitiveType("int") {
 
-    def fromString(str: String, pattern: String): Any =
+    def fromString(str: String, pattern: String, zone: String): Any =
       if (str == null || str.isEmpty) null else str.toInt
 
     def sparkType: DataType = IntegerType
@@ -104,7 +106,7 @@ object PrimitiveType {
 
   object short extends PrimitiveType("short") {
 
-    def fromString(str: String, pattern: String): Any =
+    def fromString(str: String, pattern: String, zone: String): Any =
       if (str == null || str.isEmpty) null else str.toShort
 
     def sparkType: DataType = ShortType
@@ -112,8 +114,18 @@ object PrimitiveType {
 
   object double extends PrimitiveType("double") {
 
-    def fromString(str: String, pattern: String): Any =
-      if (str == null || str.isEmpty) null else str.toDouble
+    def fromString(str: String, pattern: String, zone: String): Any = {
+      if (str == null || str.isEmpty)
+        null
+      else if (zone == null)
+        str.toDouble
+      else {
+        val locale = zone.split('_')
+        val currentLocale: Locale = new Locale(locale(0), locale(1))
+        val numberFormatter = NumberFormat.getNumberInstance(currentLocale)
+        numberFormatter.parse(str).doubleValue()
+      }
+    }
 
     def sparkType: DataType = DoubleType
   }
@@ -121,7 +133,7 @@ object PrimitiveType {
   object decimal extends PrimitiveType("decimal") {
     val defaultDecimalType = DataTypes.createDecimalType(30, 15)
 
-    def fromString(str: String, pattern: String): Any =
+    def fromString(str: String, pattern: String, zone: String): Any =
       if (str == null || str.isEmpty) null else BigDecimal(str)
 
     override def sparkType: DataType = defaultDecimalType
@@ -145,7 +157,7 @@ object PrimitiveType {
       }
     }
 
-    def fromString(str: String, pattern: String): Any = {
+    def fromString(str: String, pattern: String, zone: String): Any = {
       if (pattern.indexOf("<-TF->") >= 0) {
         val tf = pattern.split("<-TF->")
         if (Pattern.compile(tf(0), Pattern.MULTILINE).matcher(str).matches())
@@ -164,7 +176,7 @@ object PrimitiveType {
 
   object byte extends PrimitiveType("byte") {
 
-    def fromString(str: String, pattern: String): Any =
+    def fromString(str: String, pattern: String, zone: String): Any =
       if (str == null || str.isEmpty) null else str.head.toByte
 
     def sparkType: DataType = ByteType
@@ -172,23 +184,22 @@ object PrimitiveType {
 
   object struct extends PrimitiveType("struct") {
 
-    def fromString(str: String, pattern: String): Any =
+    def fromString(str: String, pattern: String, zone: String): Any =
       if (str == null || str.isEmpty) null else str.toByte
 
     def sparkType: DataType = new StructType(Array.empty[StructField])
   }
 
-  private def instantFromString(str: String, fullPattern: String): Instant = {
+  private def instantFromString(str: String, pattern: String, zone: String): Instant = {
     import java.time.format.DateTimeFormatter
-    fullPattern match {
+    pattern match {
       case "epoch_second" =>
         Instant.ofEpochSecond(str.toLong)
       case "epoch_milli" =>
         Instant.ofEpochMilli(str.toLong)
       case _ =>
-        val formats = fullPattern.split("<->")
         val formatter = PrimitiveType.dateFormatters
-          .getOrElse(formats(0), DateTimeFormatter.ofPattern(formats(0)))
+          .getOrElse(pattern, DateTimeFormatter.ofPattern(pattern))
         val dateTime: TemporalAccessor = formatter.parse(str)
         Try(Instant.from(dateTime)) match {
           case Success(instant) =>
@@ -197,8 +208,8 @@ object PrimitiveType {
           case Failure(_) =>
             Try {
               val localDateTime = LocalDateTime.from(dateTime)
-              if (formats.length == 2)
-                ZonedDateTime.of(localDateTime, ZoneId.of(formats(1))).toInstant
+              if (pattern != null)
+                ZonedDateTime.of(localDateTime, ZoneId.of(zone)).toInstant
               else
                 ZonedDateTime.of(localDateTime, ZoneId.systemDefault()).toInstant
             } match {
@@ -208,7 +219,7 @@ object PrimitiveType {
                 // Try to parse it as a date without time and still make it a timestamp.
                 // Cloudera 5.X with Hive 1.1 workaround
                 import java.text.SimpleDateFormat
-                val df = new SimpleDateFormat(formats(0))
+                val df = new SimpleDateFormat(pattern)
                 val date = df.parse(str)
                 Instant.ofEpochMilli(date.getTime)
             }
@@ -218,7 +229,7 @@ object PrimitiveType {
 
   object date extends PrimitiveType("date") {
 
-    def fromString(str: String, pattern: String): Any = {
+    def fromString(str: String, pattern: String, zone: String): Any = {
       if (str == null || str.isEmpty)
         null
       else {
@@ -235,11 +246,11 @@ object PrimitiveType {
 
   object timestamp extends PrimitiveType("timestamp") {
 
-    def fromString(str: String, timeFormat: String): Any = {
+    def fromString(str: String, timeFormat: String, zone: String): Any = {
       if (str == null || str.isEmpty)
         null
       else {
-        val instant = instantFromString(str, timeFormat)
+        val instant = instantFromString(str, timeFormat, zone)
         Timestamp.from(instant)
       }
     }

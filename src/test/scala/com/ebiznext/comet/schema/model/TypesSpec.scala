@@ -42,7 +42,7 @@ class TypesSpec extends TestHelper {
       .fromInputStream(stream)
       .getLines()
       .mkString("\n") +
-    """
+      """
         |  - name: "long"
         |    primitiveType: "long"
         |    pattern: "-?\\d+"
@@ -53,6 +53,35 @@ class TypesSpec extends TestHelper {
     types.checkValidity() shouldBe Left(
       List("long is defined 2 times. A type can only be defined once.")
     )
+
+  }
+
+  "Money Zone" should "be valid" in {
+    val stream: InputStream =
+      getClass.getResourceAsStream("/quickstart/metadata/types/default.yml")
+    val lines = scala.io.Source
+      .fromInputStream(stream)
+      .getLines()
+      .mkString("\n") +
+      """
+        |  - name: "frenchdouble"
+        |    primitiveType: "double"
+        |    pattern: "-?\\d*,{0,1}\\d+"
+        |    zone: fr_FR
+        |    sample: "-64564,21"
+      """.stripMargin
+    val types = mapper.readValue(lines, classOf[Types])
+    "-123.45" shouldBe types.types
+      .find(_.name == "double")
+      .get
+      .sparkValue("-123.45")
+      .toString
+
+    "-123.45" shouldBe types.types
+      .find(_.name == "frenchdouble")
+      .get
+      .sparkValue("-123,45")
+      .toString
 
   }
 
