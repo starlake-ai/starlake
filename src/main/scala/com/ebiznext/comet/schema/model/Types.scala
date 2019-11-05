@@ -57,7 +57,7 @@ case class Type(
   name: String,
   pattern: String,
   primitiveType: PrimitiveType = PrimitiveType.string,
-  zone:Option[String] = None,
+  zone: Option[String] = None,
   sample: Option[String] = None,
   comment: Option[String] = None,
   indexMapping: Option[IndexMapping] = None

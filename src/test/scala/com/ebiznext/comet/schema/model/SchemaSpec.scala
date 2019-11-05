@@ -23,7 +23,6 @@ package com.ebiznext.comet.schema.model
 import java.io.{InputStream, StringWriter}
 
 import com.ebiznext.comet.TestHelper
-import org.scalatest.{FlatSpec, Matchers}
 
 class SchemaSpec extends TestHelper {
 

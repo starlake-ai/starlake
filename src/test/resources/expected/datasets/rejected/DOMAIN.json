@@ -1,1 +1,3 @@
-{"value":"success firstname:string(.+) = x\nsuccess lastname:string(.+) = y\nfailure age:int([-|\\+|0-9][0-9]*) = z"}
+{
+  "value": "success firstname:string(.+) = x\nsuccess lastname:string(.+) = y\nfailure age:int([-|\\+|0-9][0-9]*) = z"
+}
