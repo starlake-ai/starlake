@@ -20,8 +20,6 @@
 
 package com.ebiznext.comet.job.ingest
 
-import java.sql.Timestamp
-
 case class IngestionLog(
   paths: String,
   domain: String,

@@ -52,21 +52,21 @@
 </configuration>
 
 
-<!--
-<?xml version="1.0" encoding="UTF-8"?>
-<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+        <!--
+        <?xml version="1.0" encoding="UTF-8"?>
+        <?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
 
-<configuration>
-    <property>
-        <name>hadoop.tmp.dir</name>
-        <value>/Users/hayssams/hdfs/tmp</value>
-        <description>A base for other temporary directories.</description>
-    </property>
-    <property>
-        <name>fs.default.name</name>
-        <value>hdfs://localhost:9000</value>
-    </property>
+        <configuration>
+            <property>
+                <name>hadoop.tmp.dir</name>
+                <value>/Users/hayssams/hdfs/tmp</value>
+                <description>A base for other temporary directories.</description>
+            </property>
+            <property>
+                <name>fs.default.name</name>
+                <value>hdfs://localhost:9000</value>
+            </property>
 
-</configuration>
+        </configuration>
 
--->
+        -->

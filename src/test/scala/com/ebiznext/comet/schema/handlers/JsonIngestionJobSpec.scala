@@ -20,9 +20,7 @@
 
 package com.ebiznext.comet.schema.handlers
 
-import com.ebiznext.comet.{TestHelper, TypeToImport}
-import com.ebiznext.comet.config.DatasetArea
-import org.apache.hadoop.fs.Path
+import com.ebiznext.comet.TestHelper
 import org.apache.spark.sql.execution.datasources.json.JsonIngestionUtil
 import org.apache.spark.sql.types._
 

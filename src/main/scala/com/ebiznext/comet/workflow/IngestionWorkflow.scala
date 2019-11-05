@@ -25,17 +25,11 @@ import com.ebiznext.comet.config.{DatasetArea, Settings}
 import com.ebiznext.comet.job.bqload.{BigQueryLoadConfig, BigQueryLoadJob}
 import com.ebiznext.comet.job.index.{IndexConfig, IndexJob}
 import com.ebiznext.comet.job.infer.{InferConfig, InferSchema}
-import com.ebiznext.comet.job.ingest.{
-  ChewerJob,
-  DsvIngestionJob,
-  JsonIngestionJob,
-  PositionIngestionJob,
-  SimpleJsonIngestionJob
-}
+import com.ebiznext.comet.job.ingest._
 import com.ebiznext.comet.job.metrics.{MetricsConfig, MetricsJob}
 import com.ebiznext.comet.job.transform.AutoJob
 import com.ebiznext.comet.schema.handlers.{LaunchHandler, SchemaHandler, StorageHandler}
-import com.ebiznext.comet.schema.model.Format.{CHEW, DSV, JSON, POSITION, SIMPLE_JSON}
+import com.ebiznext.comet.schema.model.Format._
 import com.ebiznext.comet.schema.model._
 import com.ebiznext.comet.utils.Utils
 import com.typesafe.scalalogging.StrictLogging
