@@ -1,6 +1,5 @@
 package com.ebiznext.comet.job.metrics
 
-import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.utils.DataTypeEx._
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.sql.functions._

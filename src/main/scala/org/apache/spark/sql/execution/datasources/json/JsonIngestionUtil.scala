@@ -21,7 +21,6 @@ package org.apache.spark.sql.execution.datasources.json
 
 import java.util.Comparator
 
-import com.ebiznext.comet.schema.model.Attribute
 import com.ebiznext.comet.utils.Utils
 import com.fasterxml.jackson.core.JsonToken._
 import com.fasterxml.jackson.core.{JsonFactory, JsonParser}

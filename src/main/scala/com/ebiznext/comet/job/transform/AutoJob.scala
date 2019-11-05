@@ -21,7 +21,6 @@
 package com.ebiznext.comet.job.transform
 
 import com.ebiznext.comet.config.{DatasetArea, HiveArea, Settings}
-import com.ebiznext.comet.job.index.IndexConfig
 import com.ebiznext.comet.schema.handlers.StorageHandler
 import com.ebiznext.comet.schema.model.AutoTaskDesc
 import com.ebiznext.comet.utils.SparkJob
@@ -47,36 +46,34 @@ class AutoJob(
 ) extends SparkJob {
 
   def run(): Try[SparkSession] = {
+    val targetArea = task.area.getOrElse(defaultArea)
+    task.presql.getOrElse(Nil).foreach(session.sql)
+    val targetPath =
+      new Path(DatasetArea.path(task.domain, targetArea.value), task.dataset)
+    val mergePath = s"${targetPath.toString}.merge"
+
+    val dataframe = session.sql(task.sql)
+    val partitionedDF =
+      partitionedDatasetWriter(dataframe, task.getPartitions())
+    partitionedDF
+      .mode(SaveMode.Overwrite)
+      .format(Settings.comet.writeFormat)
+      .option("path", mergePath)
+      .save()
+
+    val finalDataset = partitionedDF
+      .mode(task.write.toSaveMode)
+      .format(Settings.comet.writeFormat)
+      .option("path", targetPath.toString)
+    val _ = storageHandler.delete(new Path(mergePath))
     if (Settings.comet.hive) {
-      task.presql.getOrElse(Nil).foreach(session.sql)
-      val targetArea = task.area.getOrElse(defaultArea)
-      val hiveDB = HiveArea.area(task.domain, targetArea)
       val tableName = task.dataset
+      val hiveDB = HiveArea.area(task.domain, targetArea)
       val fullTableName = s"$hiveDB.$tableName"
       session.sql(s"create database if not exists $hiveDB")
       session.sql(s"use $hiveDB")
       session.sql(s"drop table if exists $tableName")
-      val dataframe = session.sql(task.sql)
-      val targetPath =
-        new Path(DatasetArea.path(task.domain, targetArea.value), task.dataset)
-
-      val mergePath = s"${targetPath.toString}.merge"
-      val partitionedDF =
-        partitionedDatasetWriter(dataframe, task.getPartitions())
-      partitionedDF
-        .mode(SaveMode.Overwrite)
-        .format(Settings.comet.writeFormat)
-        .option("path", mergePath)
-        .save()
-
-      val finalDataset = partitionedDF
-        .mode(task.write.toSaveMode)
-        .format(Settings.comet.writeFormat)
-        .option("path", targetPath.toString)
-
       finalDataset.saveAsTable(fullTableName)
-      val _ = storageHandler.delete(new Path(mergePath))
-
       if (Settings.comet.analyze) {
         val allCols = session.table(fullTableName).columns.mkString(",")
         val analyzeTable =
@@ -91,10 +88,9 @@ class AutoJob(
               )
               e.printStackTrace()
           }
-
       }
-      task.postsql.getOrElse(Nil).foreach(session.sql)
     }
+    task.postsql.getOrElse(Nil).foreach(session.sql)
     Success(session)
   }
 }
