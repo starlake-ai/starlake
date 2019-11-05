@@ -20,7 +20,7 @@
 
 package com.ebiznext.comet.job.transform
 
-import com.ebiznext.comet.config.{DatasetArea, HiveArea, Settings}
+import com.ebiznext.comet.config.{DatasetArea, HiveArea, Settings, UdfRegistration}
 import com.ebiznext.comet.schema.handlers.StorageHandler
 import com.ebiznext.comet.schema.model.AutoTaskDesc
 import com.ebiznext.comet.utils.SparkJob
@@ -41,12 +41,24 @@ import scala.util.{Success, Try}
 class AutoJob(
   override val name: String,
   defaultArea: HiveArea,
+  udf: Option[String],
+  views: Option[Map[String, String]],
   task: AutoTaskDesc,
   storageHandler: StorageHandler
 ) extends SparkJob {
 
   def run(): Try[SparkSession] = {
     val targetArea = task.area.getOrElse(defaultArea)
+    udf.foreach { udf =>
+      val udfInstance: UdfRegistration =
+        Class.forName(udf).newInstance.asInstanceOf[UdfRegistration]
+      udfInstance.register(session)
+    }
+    views.getOrElse(Map()).foreach {
+      case (key, value) =>
+        val df = session.read.parquet(value)
+        df.createOrReplaceTempView(key)
+    }
     task.presql.getOrElse(Nil).foreach(session.sql)
     val targetPath =
       new Path(DatasetArea.path(task.domain, targetArea.value), task.dataset)
