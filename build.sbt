@@ -18,7 +18,7 @@ organization := "com.ebiznext"
 
 organizationName := "Ebiznext"
 
-scalaVersion := scala211
+scalaVersion := scala212
 
 organizationHomepage := Some(url("http://www.ebiznext.com"))
 
@@ -78,8 +78,10 @@ releaseProcess := Seq[ReleaseStep](
   setReleaseVersion,
   commitReleaseVersion,
   tagRelease,
-  releaseStepCommand("+publish"),
+  // releaseStepCommand("+publish"),
   // releaseStepCommand("universal:publish"), // publish jars and tgz archives in the snapshot or release repository
+  releaseStepCommandAndRemaining("+publishSigned"),
+  releaseStepCommand("sonatypeBundleRelease"),
   setNextVersion,
   commitNextVersion,
   pushChanges
@@ -117,7 +119,7 @@ assemblyShadeRules in assembly := Seq(
   ShadeRule
     .rename(
       "com.google.cloud.hadoop.io.bigquery.**" -> "shadeio.@1",
-      "com.google.common.**" -> "shadebase.@1"
+      "com.google.common.**"                   -> "shadebase.@1"
     )
     .inAll
 )
@@ -125,3 +127,23 @@ assemblyShadeRules in assembly := Seq(
 //assemblyExcludedJars in assembly <<= (fullClasspath in assembly) map { cp =>
 // cp filter {x => x.data.getName.matches("sbt.*") || x.data.getName.matches(".*macros.*")}
 // }
+
+publishTo := sonatypePublishToBundle.value
+
+// Your profile name of the sonatype account. The default is the same with the organization value
+sonatypeProfileName := "com.ebiznext"
+
+// To sync with Maven central, you need to supply the following information:
+publishMavenStyle := true
+
+// Open-source license of your choice
+licenses := Seq("APL2" -> url("http://www.apache.org/licenses/LICENSE-2.0.txt"))
+
+// Where is the source code hosted: GitHub or GitLab?
+import xerial.sbt.Sonatype._
+sonatypeProjectHosting := Some(GitHubHosting("ebiznext", "comet-data-pipeline", "hayssam.saleh@ebiznext.com"))
+
+developers := List(
+  Developer(id="hayssams", name="Hayssam Saleh", email="hayssam.saleh@ebiznext.com", url=url("https://www.ebiznext.com"))
+)
+

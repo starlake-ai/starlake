@@ -23,8 +23,7 @@ import sbt._
 object Dependencies {
 
   val jacksonExclusions = Seq(
-    ExclusionRule(organization = "com.fasterxml.jackson.core"),
-    ExclusionRule(organization = "org.codehaus.jackson")
+    ExclusionRule(organization = "com.fasterxml.jackson.core")
   )
 
   val scalaTest = Seq(
@@ -46,6 +45,7 @@ object Dependencies {
     "com.fasterxml.jackson.core" % "jackson-core" % Versions.jackson,
     "com.fasterxml.jackson.core" % "jackson-annotations" % Versions.jackson,
     "com.fasterxml.jackson.core" % "jackson-databind" % Versions.jackson,
+    "com.fasterxml.jackson.module" %% "jackson-module-scala" % Versions.jackson,
     "com.fasterxml.jackson.dataformat" % "jackson-dataformat-yaml" % Versions.jackson
   )
 
@@ -77,13 +77,13 @@ object Dependencies {
     // A more recent version of guava is requierd for the big query connector
     "com.google.guava" % "guava" % "28.1-jre",
     // We include the files below because guava above introduce static constructors which break previous hadoop versions
-    "org.apache.hadoop" % "hadoop-mapreduce-client-core" % "2.7.3",
-    "org.apache.hadoop" % "hadoop-common" % "2.7.3" exclude ("commons-beanutils", "commons-beanutils") exclude ("commons-beanutils", "commons-beanutils-core"),
+    "org.apache.hadoop" % "hadoop-mapreduce-client-core" % "2.7.3" exclude ("javax.servlet", "servlet-api") exclude ("aopalliance", "aopalliance") exclude("org.sonatype.sisu.inject", "cglib"),
+    "org.apache.hadoop" % "hadoop-common" % "2.7.3" exclude ("commons-beanutils", "commons-beanutils") exclude ("commons-beanutils", "commons-beanutils-core") exclude ("javax.servlet", "servlet-api") exclude ("aopalliance", "aopalliance") exclude("org.sonatype.sisu.inject", "cglib"),
     "org.xerial.snappy" % "snappy-java" % "1.1.7.3"
   )
 
   val esHadoop = Seq(
-    "org.elasticsearch" % "elasticsearch-hadoop" % Versions.esHadoop
+    "org.elasticsearch" % "elasticsearch-hadoop" % Versions.esHadoop exclude("org.apache.hadoop", "hadoop-common")
   )
 
   val scopt = Seq(
@@ -92,5 +92,14 @@ object Dependencies {
 
   val sttp = Seq("com.softwaremill.sttp" %% "core" % Versions.sttp)
 
-  val dependencies = logging ++ typedConfigs ++ okhttp ++ betterfiles ++ jackson ++ scalaTest ++ scopt ++ esHadoop ++ sttp ++ gcp
+  val atlas = Seq(
+    //"org.apache.atlas" % "apache-atlas" % "2.0.0" pomOnly(),
+    "org.apache.atlas" % "atlas-intg" % "2.0.0" excludeAll (jacksonExclusions: _*) exclude ("asm", "asm"),
+    "org.apache.atlas" % "atlas-client-common" % "2.0.0" excludeAll (jacksonExclusions: _*) exclude ("asm", "asm"),
+    //"org.apache.atlas" % "atlas-client" % "2.0.0" pomOnly(),
+    "org.apache.atlas" % "atlas-common" % "2.0.0" excludeAll (jacksonExclusions: _*) exclude ("asm", "asm"),
+    "org.apache.atlas" % "atlas-client-v2" % "2.0.0" excludeAll (jacksonExclusions: _*) exclude ("asm", "asm")
+  )
+
+  val dependencies = logging ++ typedConfigs ++ okhttp ++ betterfiles ++ jackson ++ scalaTest ++ scopt ++ esHadoop ++ sttp ++ gcp ++ atlas
 }

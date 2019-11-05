@@ -22,11 +22,10 @@ package com.ebiznext.comet.schema.handlers
 
 import java.net.URL
 
+import com.ebiznext.comet.TestHelper
 import com.ebiznext.comet.config.{DatasetArea, Settings}
-import com.ebiznext.comet.schema.model.{Attribute, Metadata, Schema}
-import com.ebiznext.comet.{TestHelper, TypeToImport}
+import com.ebiznext.comet.schema.model.{Metadata, Schema}
 import org.apache.hadoop.fs.Path
-import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.types.StructField
 
 import scala.util.Try

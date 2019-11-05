@@ -1,13 +1,10 @@
 package com.ebiznext.comet.utils
 
-import java.util.UUID
-
-import com.ebiznext.comet.config.{Settings, SparkEnv}
+import com.ebiznext.comet.config.SparkEnv
 import com.ebiznext.comet.schema.model.Metadata
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.{DataFrame, DataFrameWriter, Row, SparkSession}
-import org.slf4j.MDC
 
 import scala.util.Try
 

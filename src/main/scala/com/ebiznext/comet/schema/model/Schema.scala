@@ -22,8 +22,6 @@ package com.ebiznext.comet.schema.model
 
 import java.util.regex.Pattern
 
-import com.ebiznext.comet.job.ingest.ChewerJob
-import org.apache.spark.sql
 import org.apache.spark.sql.types._
 
 import scala.collection.mutable

@@ -42,7 +42,7 @@ class TypesSpec extends TestHelper {
       .fromInputStream(stream)
       .getLines()
       .mkString("\n") +
-      """
+    """
         |  - name: "long"
         |    primitiveType: "long"
         |    pattern: "-?\\d+"
@@ -63,7 +63,7 @@ class TypesSpec extends TestHelper {
       .fromInputStream(stream)
       .getLines()
       .mkString("\n") +
-      """
+    """
         |  - name: "frenchdouble"
         |    primitiveType: "double"
         |    pattern: "-?\\d*,{0,1}\\d+"

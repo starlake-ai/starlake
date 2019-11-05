@@ -114,3 +114,4 @@ spark-warehouse/
 
 #docs
 docs/_build
+/src/test/resources/nps/

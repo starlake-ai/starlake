@@ -7,8 +7,12 @@ import com.ebiznext.comet.schema.handlers.StorageHandler
 import com.ebiznext.comet.utils.SparkJob
 import com.google.api.services.bigquery.model.TimePartitioning
 import com.google.cloud.bigquery.testing.RemoteBigQueryHelper
-import com.google.cloud.bigquery.{BigQuery, DatasetId, DatasetInfo}
-import com.google.cloud.hadoop.io.bigquery.output.{BigQueryOutputConfiguration, BigQueryTimePartitioning, IndirectBigQueryOutputFormat}
+import com.google.cloud.bigquery.{DatasetId, DatasetInfo}
+import com.google.cloud.hadoop.io.bigquery.output.{
+  BigQueryOutputConfiguration,
+  BigQueryTimePartitioning,
+  IndirectBigQueryOutputFormat
+}
 import com.google.cloud.hadoop.io.bigquery.{BigQueryConfiguration, BigQueryFileFormat}
 import com.google.gson.JsonParser
 import org.apache.hadoop.fs.Path

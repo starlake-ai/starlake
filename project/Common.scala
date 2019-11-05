@@ -14,7 +14,7 @@
  *  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *  * See the License for the specific language governing permissions and
  *  * limitations under the License.
- *  
+ *
  *
  */
 
@@ -80,7 +80,6 @@ object Common {
 
 }
 
-
 object Versions {
   val sparkAvro = "4.0.0"
   val hadoop = "2.7.3"
@@ -100,7 +99,7 @@ object Versions {
   val hive = "3.1.0"
   val log4s = "1.3.3"
   val betterFiles = "3.6.0"
-  val jackson = "2.6.5"
+  val jackson = "2.7.9"
   val configs = "0.4.4"
   val esHadoop = "6.6.2"
   val scopt = "4.0.0-RC2"
