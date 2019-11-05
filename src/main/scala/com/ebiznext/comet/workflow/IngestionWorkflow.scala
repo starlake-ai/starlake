@@ -369,13 +369,7 @@ class IngestionWorkflow(
     */
   def autoJob(jobname: String): Unit = {
     val job = schemaHandler.jobs(jobname)
-    job.tasks.foreach { task =>
-      val action = new AutoJob(job.name, job.getArea(), job.udf, job.views, task, storageHandler)
-      action.run()
-      if (task.isIndexed() && Settings.comet.elasticsearch.active) {
-        index(job, task)
-      }
-    }
+    autoJob(job)
   }
 
   /**
@@ -387,7 +381,9 @@ class IngestionWorkflow(
     job.tasks.foreach { task =>
       val action = new AutoJob(job.name, job.getArea(), job.udf, job.views, task, storageHandler)
       action.run()
-      index(job, task)
+      if (task.isIndexed() && Settings.comet.elasticsearch.active) {
+        index(job, task)
+      }
     }
   }
 
