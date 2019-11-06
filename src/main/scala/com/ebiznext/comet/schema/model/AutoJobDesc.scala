@@ -62,7 +62,7 @@ case class AutoJobDesc(
   name: String,
   tasks: List[AutoTaskDesc],
   area: Option[HiveArea] = None,
-  udf : Option[String] = None,
+  udf: Option[String] = None,
   views: Option[Map[String, String]] = None
 ) {
   def getArea() = area.getOrElse(HiveArea.business)
