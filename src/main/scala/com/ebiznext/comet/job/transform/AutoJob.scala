@@ -102,6 +102,9 @@ class AutoJob(
           }
       }
     }
+    else {
+      finalDataset.save()
+    }
     task.postsql.getOrElse(Nil).foreach(session.sql)
     Success(session)
   }
