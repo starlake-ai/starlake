@@ -20,6 +20,8 @@
 
 package com.ebiznext.comet.job.transform
 
+import java.time.LocalDateTime
+
 import com.ebiznext.comet.config.{DatasetArea, HiveArea, Settings, UdfRegistration}
 import com.ebiznext.comet.schema.handlers.StorageHandler
 import com.ebiznext.comet.schema.model.AutoTaskDesc
@@ -41,6 +43,8 @@ import scala.util.{Success, Try}
 class AutoJob(
   override val name: String,
   defaultArea: HiveArea,
+  format: Option[String],
+  coalesce: Boolean,
   udf: Option[String],
   views: Option[Map[String, String]],
   task: AutoTaskDesc,
@@ -66,7 +70,10 @@ class AutoJob(
 
     val dataframe = session.sql(task.sql)
     val partitionedDF =
-      partitionedDatasetWriter(dataframe, task.getPartitions())
+      partitionedDatasetWriter(
+        if (coalesce) dataframe.coalesce(1) else dataframe,
+        task.getPartitions()
+      )
     partitionedDF
       .mode(SaveMode.Overwrite)
       .format(Settings.comet.writeFormat)
@@ -75,8 +82,9 @@ class AutoJob(
 
     val finalDataset = partitionedDF
       .mode(task.write.toSaveMode)
-      .format(Settings.comet.writeFormat)
+      .format(format.getOrElse(Settings.comet.writeFormat))
       .option("path", targetPath.toString)
+
     val _ = storageHandler.delete(new Path(mergePath))
     if (Settings.comet.hive) {
       val tableName = task.dataset
@@ -101,9 +109,15 @@ class AutoJob(
               e.printStackTrace()
           }
       }
-    }
-    else {
+    } else {
       finalDataset.save()
+      if (coalesce) {
+        val csvPath = storageHandler.list(targetPath, ".csv", LocalDateTime.MIN).head
+        val tmpFile = new Path(targetPath.getParent, targetPath.getName() + ".tmp")
+        storageHandler.move(csvPath, tmpFile)
+        storageHandler.delete(targetPath)
+        storageHandler.move(tmpFile, targetPath)
+      }
     }
     task.postsql.getOrElse(Nil).foreach(session.sql)
     Success(session)

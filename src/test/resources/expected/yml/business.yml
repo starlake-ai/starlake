@@ -14,3 +14,7 @@ tasks:
   index: null
   properties: null
 area: "business"
+format: "parquet"
+coalesce: true
+udf: null
+views: null
