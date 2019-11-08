@@ -87,7 +87,7 @@ class StorageHandlerSpec extends TestHelper {
       WriteMode.OVERWRITE,
       Some(List("comet_year", "comet_month"))
     )
-    val businessJob = AutoJobDesc("business1", List(businessTask1))
+    val businessJob = AutoJobDesc("business1", List(businessTask1), None, Some("parquet"), Some(true))
     storageHandler.write(mapper.writeValueAsString(businessJob), pathBusiness)
     logger.info(readFileContent(pathBusiness))
     readFileContent(pathBusiness) shouldBe loadFile("/expected/yml/business.yml")

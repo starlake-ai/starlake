@@ -62,6 +62,8 @@ case class AutoJobDesc(
   name: String,
   tasks: List[AutoTaskDesc],
   area: Option[HiveArea] = None,
+  format: Option[String],
+  coalesce: Option[Boolean],
   udf: Option[String] = None,
   views: Option[Map[String, String]] = None
 ) {
