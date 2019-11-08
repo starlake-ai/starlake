@@ -77,13 +77,13 @@ object Dependencies {
     // A more recent version of guava is requierd for the big query connector
     "com.google.guava" % "guava" % "28.1-jre",
     // We include the files below because guava above introduce static constructors which break previous hadoop versions
-    "org.apache.hadoop" % "hadoop-mapreduce-client-core" % "2.7.3" exclude ("javax.servlet", "servlet-api") exclude ("aopalliance", "aopalliance") exclude("org.sonatype.sisu.inject", "cglib"),
-    "org.apache.hadoop" % "hadoop-common" % "2.7.3" exclude ("commons-beanutils", "commons-beanutils") exclude ("commons-beanutils", "commons-beanutils-core") exclude ("javax.servlet", "servlet-api") exclude ("aopalliance", "aopalliance") exclude("org.sonatype.sisu.inject", "cglib"),
+    "org.apache.hadoop" % "hadoop-mapreduce-client-core" % "2.7.3" exclude ("javax.servlet", "servlet-api") exclude ("aopalliance", "aopalliance") exclude ("org.sonatype.sisu.inject", "cglib"),
+    "org.apache.hadoop" % "hadoop-common" % "2.7.3" exclude ("commons-beanutils", "commons-beanutils") exclude ("commons-beanutils", "commons-beanutils-core") exclude ("javax.servlet", "servlet-api") exclude ("aopalliance", "aopalliance") exclude ("org.sonatype.sisu.inject", "cglib"),
     "org.xerial.snappy" % "snappy-java" % "1.1.7.3"
   )
 
   val esHadoop = Seq(
-    "org.elasticsearch" % "elasticsearch-hadoop" % Versions.esHadoop exclude("org.apache.hadoop", "hadoop-common")
+    "org.elasticsearch" % "elasticsearch-hadoop" % Versions.esHadoop exclude ("org.apache.hadoop", "hadoop-common")
   )
 
   val scopt = Seq(
