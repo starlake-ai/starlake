@@ -114,10 +114,8 @@ class AutoJob(
       finalDataset.save()
       if (coalesce) {
         val csvPath = storageHandler.list(targetPath, ".csv", LocalDateTime.MIN).head
-        val tmpFile = new Path(targetPath.getParent, targetPath.getName() + ".tmp")
-        storageHandler.move(csvPath, tmpFile)
-        storageHandler.delete(targetPath)
-        storageHandler.move(tmpFile, targetPath)
+        val finalCsvPath = new Path(targetPath, targetPath.getName() + ".csv")
+        storageHandler.move(csvPath, finalCsvPath)
       }
     }
     task.postsql.getOrElse(Nil).foreach(session.sql)
