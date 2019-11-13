@@ -60,7 +60,8 @@ class AutoJob(
     }
     views.getOrElse(Map()).foreach {
       case (key, value) =>
-        val df = session.read.parquet(value)
+        val fullPath = if (value.startsWith("/")) value else s"${Settings.comet.datasets}/$value"
+        val df = session.read.parquet(fullPath)
         df.createOrReplaceTempView(key)
     }
     task.presql.getOrElse(Nil).foreach(session.sql)
