@@ -379,7 +379,16 @@ class IngestionWorkflow(
     */
   def autoJob(job: AutoJobDesc): Unit = {
     job.tasks.foreach { task =>
-      val action = new AutoJob(job.name, job.getArea(), Some("parquet"), job.coalesce.getOrElse(false), job.udf, job.views, task, storageHandler)
+      val action = new AutoJob(
+        job.name,
+        job.getArea(),
+        Some("parquet"),
+        job.coalesce.getOrElse(false),
+        job.udf,
+        job.views,
+        task,
+        storageHandler
+      )
       action.run()
       if (task.isIndexed() && Settings.comet.elasticsearch.active) {
         index(job, task)
