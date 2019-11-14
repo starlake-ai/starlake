@@ -382,7 +382,7 @@ class IngestionWorkflow(
       val action = new AutoJob(
         job.name,
         job.getArea(),
-        Some("parquet"),
+        job.format,
         job.coalesce.getOrElse(false),
         job.udf,
         job.views,
