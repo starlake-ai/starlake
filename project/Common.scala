@@ -22,6 +22,7 @@ import com.typesafe.sbt.GitPlugin.autoImport._
 import com.typesafe.sbt.site.SiteScaladocPlugin
 import com.typesafe.sbt.site.sphinx.SphinxPlugin
 import com.typesafe.sbt.site.sphinx.SphinxPlugin.autoImport.Sphinx
+import com.typesafe.sbt.{GitBranchPrompt, GitVersioning}
 import org.scalafmt.sbt.ScalafmtPlugin.autoImport.scalafmtOnCompile
 import sbt.Keys._
 import sbt.{Def, _}
@@ -39,17 +40,26 @@ object Common {
     ).flatten
 
   def cometPlugins: Seq[AutoPlugin] = Seq(
-    com.typesafe.sbt.GitVersioning,
+    GitVersioning,
+    GitBranchPrompt,
     SphinxPlugin,
     SiteScaladocPlugin
   )
 
   def gitSettings = Seq(
-    git.useGitDescribe := true,
-    git.gitTagToVersionNumber := { tag: String =>
-      if (tag matches "[0-9]+\\..*") Some(tag)
-      else None
+    git.useGitDescribe := true, {
+      val VersionRegex = "v([0-9]+.[0-9]+.[0-9]+)-?(.*)?".r
+      git.gitTagToVersionNumber := {
+        case VersionRegex(v, "")         => Some(v)
+        case VersionRegex(v, "SNAPSHOT") => Some(s"$v-SNAPSHOT")
+        case VersionRegex(v, s)          => Some(s"$v-$s-SNAPSHOT")
+        case _                           => None
+      }
     }
+    //    git.gitTagToVersionNumber := { tag: String =>
+//      if (tag matches "[0-9]+\\..*") Some(tag)
+//      else None
+//    }
   )
 
   def assemlySettings = Seq(
