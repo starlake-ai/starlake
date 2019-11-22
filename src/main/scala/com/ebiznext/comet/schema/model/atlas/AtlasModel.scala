@@ -337,6 +337,7 @@ class AtlasModel(urls: Array[String], basicAuthUsernamePassword: Array[String])
     default.foreach { default =>
       entity.setAttribute("default", default)
     }
+    //entity.setLabels(labels)
     entity.setRelationshipAttribute("schema", toAtlasRelatedObjectId(schema))
     getOrCreateInstance(entity)
   }
@@ -359,6 +360,7 @@ class AtlasModel(urls: Array[String], basicAuthUsernamePassword: Array[String])
     merge.foreach { merge =>
       entity.setAttribute("merge", createMergeOptions(merge))
     }
+    //entity.setLabels(tags)
     entity.setRelationshipAttribute("domain", toAtlasRelatedObjectId(domain))
     val sch = getOrCreateInstance(entity)
     val atlasAttrs: List[AtlasEntity] = attributes.map { attribute =>
