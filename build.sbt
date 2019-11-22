@@ -71,6 +71,8 @@ releaseNextVersion := { ver =>
   }
 }
 
+releaseIgnoreUntrackedFiles := true
+
 releaseProcess := Seq[ReleaseStep](
   checkSnapshotDependencies,
   inquireVersions,
