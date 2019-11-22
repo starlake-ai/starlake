@@ -83,7 +83,6 @@ object Common {
         // -a Show stack traces a nd exception class name for AssertionErrors.
         Tests.Argument(TestFrameworks.JUnit, "-v", "-a")
       ),
-      version := "0.1.1",
       parallelExecution in Test := false,
       scalafmtOnCompile := true
     ) ++ gitSettings ++ assemlySettings ++ docsSettings
