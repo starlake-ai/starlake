@@ -2,6 +2,7 @@ import Dependencies._
 import sbt.internal.util.complete.DefaultParsers
 import sbtrelease.ReleasePlugin.autoImport.ReleaseTransformations._
 import sbtrelease.Version
+import sbtrelease.Version.Bump.{Minor, Next}
 
 name := "comet"
 
@@ -18,7 +19,7 @@ organization := "com.ebiznext"
 
 organizationName := "Ebiznext"
 
-scalaVersion := scala212
+scalaVersion := scala211
 
 organizationHomepage := Some(url("http://www.ebiznext.com"))
 
@@ -88,6 +89,8 @@ releaseProcess := Seq[ReleaseStep](
 )
 
 releaseCommitMessage := s"Add CLoud Build ${ReleasePlugin.runtimeVersion.value}"
+
+releaseVersionBump := Next
 
 val writeNextVersion =
   Command("writeNextVersion")(_ => DefaultParsers.SpaceClass ~> DefaultParsers.NotQuoted)(
