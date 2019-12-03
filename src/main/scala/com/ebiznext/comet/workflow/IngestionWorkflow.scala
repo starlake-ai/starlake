@@ -27,13 +27,14 @@ import com.ebiznext.comet.job.index.{IndexConfig, IndexJob}
 import com.ebiznext.comet.job.infer.{InferConfig, InferSchema}
 import com.ebiznext.comet.job.ingest._
 import com.ebiznext.comet.job.metrics.{MetricsConfig, MetricsJob}
-import com.ebiznext.comet.job.transform.AutoJob
+import com.ebiznext.comet.job.transform.AutoTask
 import com.ebiznext.comet.schema.handlers.{LaunchHandler, SchemaHandler, StorageHandler}
 import com.ebiznext.comet.schema.model.Format._
 import com.ebiznext.comet.schema.model._
 import com.ebiznext.comet.utils.Utils
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
+import org.apache.spark.sql.SparkSession
 
 import scala.util.{Failure, Success, Try}
 
@@ -293,8 +294,7 @@ class IngestionWorkflow(
     meta.getIndexSink() match {
       case Some(IndexSink.ES) if Settings.comet.elasticsearch.active =>
         val properties = meta.properties
-        launchHandler.index(
-          this,
+        index(
           IndexConfig(
             timestamp = properties.flatMap(_.get("timestamp")),
             id = properties.flatMap(_.get("id")),
@@ -303,21 +303,12 @@ class IngestionWorkflow(
             schema = schema.name
           )
         )
+
       case Some(IndexSink.BQ) =>
-        val (createDisposition, writeDisposition) = meta.getWriteMode match {
-          case WriteMode.OVERWRITE =>
-            ("CREATE_IF_NEEDED", "WRITE_TRUNCATE")
-          case WriteMode.APPEND =>
-            ("CREATE_IF_NEEDED", "WRITE_APPEND")
-          case WriteMode.ERROR_IF_EXISTS =>
-            ("CREATE_IF_NEEDED", "WRITE_EMPTY")
-          case WriteMode.IGNORE =>
-            ("CREATE_NEVER", "WRITE_EMPTY")
-          case _ =>
-            ("CREATE_IF_NEEDED", "WRITE_TRUNCATE")
-        }
-        launchHandler.bqload(
-          this,
+        val (createDisposition: String, writeDisposition: String) = getBQDisposition(
+          meta.getWriteMode()
+        )
+        bqload(
           BigQueryLoadConfig(
             sourceFile = new Path(DatasetArea.accepted(domain.name), schema.name).toString,
             outputTable = schema.name,
@@ -333,6 +324,22 @@ class IngestionWorkflow(
       case _ =>
       // ignore
     }
+  }
+
+  private def getBQDisposition(writeMode: WriteMode) = {
+    val (createDisposition, writeDisposition) = writeMode match {
+      case WriteMode.OVERWRITE =>
+        ("CREATE_IF_NEEDED", "WRITE_TRUNCATE")
+      case WriteMode.APPEND =>
+        ("CREATE_IF_NEEDED", "WRITE_APPEND")
+      case WriteMode.ERROR_IF_EXISTS =>
+        ("CREATE_IF_NEEDED", "WRITE_EMPTY")
+      case WriteMode.IGNORE =>
+        ("CREATE_NEVER", "WRITE_EMPTY")
+      case _ =>
+        ("CREATE_IF_NEEDED", "WRITE_TRUNCATE")
+    }
+    (createDisposition, writeDisposition)
   }
 
   def index(job: AutoJobDesc, task: AutoTaskDesc): Unit = {
@@ -379,7 +386,7 @@ class IngestionWorkflow(
     */
   def autoJob(job: AutoJobDesc): Unit = {
     job.tasks.foreach { task =>
-      val action = new AutoJob(
+      val action = new AutoTask(
         job.name,
         job.getArea(),
         job.format,
@@ -389,18 +396,41 @@ class IngestionWorkflow(
         task,
         storageHandler
       )
-      action.run()
-      if (task.isIndexed() && Settings.comet.elasticsearch.active) {
-        index(job, task)
+      action.run() match {
+        case Success(_) =>
+          task.getIndexSink() match {
+            case Some(IndexSink.ES) if Settings.comet.elasticsearch.active =>
+              index(job, task)
+            case Some(IndexSink.BQ) =>
+              val (createDisposition, writeDisposition) = this.getBQDisposition(task.write)
+              bqload(
+                BigQueryLoadConfig(
+                  sourceFile = task.getTargetPath(job.getArea()).toString,
+                  outputTable = task.dataset,
+                  outputDataset = task.domain,
+                  sourceFormat = "parquet",
+                  createDisposition = createDisposition,
+                  writeDisposition = writeDisposition,
+                  location = task.properties.flatMap(_.get("location")),
+                  outputPartition = task.properties.flatMap(_.get("timestamp")),
+                  days = task.properties.flatMap(_.get("days").map(_.toInt))
+                )
+              )
+            case _ =>
+            // ignore
+
+          }
+        case Failure(exception) =>
+          exception.printStackTrace()
       }
     }
   }
 
-  def index(config: IndexConfig) = {
+  def index(config: IndexConfig): Try[SparkSession] = {
     new IndexJob(config, Settings.storageHandler).run()
   }
 
-  def bqload(config: BigQueryLoadConfig) = {
+  def bqload(config: BigQueryLoadConfig): Try[SparkSession] = {
     new BigQueryLoadJob(config, Settings.storageHandler).run()
   }
 
