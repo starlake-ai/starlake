@@ -40,7 +40,7 @@ import scala.util.{Success, Try}
   * @param defaultArea : Where the resulting dataset is stored by default if not specified in the task
   * @param task        : Task to run
   */
-class AutoJob(
+class AutoTask(
   override val name: String,
   defaultArea: HiveArea,
   format: Option[String],
@@ -52,7 +52,6 @@ class AutoJob(
 ) extends SparkJob {
 
   def run(): Try[SparkSession] = {
-    val targetArea = task.area.getOrElse(defaultArea)
     udf.foreach { udf =>
       val udfInstance: UdfRegistration =
         Class.forName(udf).newInstance.asInstanceOf[UdfRegistration]
@@ -65,8 +64,7 @@ class AutoJob(
         df.createOrReplaceTempView(key)
     }
     task.presql.getOrElse(Nil).foreach(session.sql)
-    val targetPath =
-      new Path(DatasetArea.path(task.domain, targetArea.value), task.dataset)
+    val targetPath = task.getTargetPath(defaultArea)
     val mergePath = s"${targetPath.toString}.merge"
 
     val dataframe = session.sql(task.sql)
@@ -89,7 +87,7 @@ class AutoJob(
     val _ = storageHandler.delete(new Path(mergePath))
     if (Settings.comet.hive) {
       val tableName = task.dataset
-      val hiveDB = HiveArea.area(task.domain, targetArea)
+      val hiveDB = task.getHiveDB(defaultArea)
       val fullTableName = s"$hiveDB.$tableName"
       session.sql(s"create database if not exists $hiveDB")
       session.sql(s"use $hiveDB")
@@ -122,3 +120,26 @@ class AutoJob(
     Success(session)
   }
 }
+
+/*
+name: "facturation"
+udf: "com.ebiznext.comet.external.EvolanUdf"
+format: "csv"
+coalesce: true
+views:
+  ref_client: "/trainings/jupyter/work/ebiznext/business/patrice/client"
+  ref_societe: "/trainings/jupyter/work/ebiznext/accepted/patrice/societe"
+tasks:
+  - sql: |
+      select
+        clients.INTITULE_TIERS,
+        clients.CODE_POSTAL,
+
+      from  ref_client clients
+      where
+        clients.CODE_SOCIETE in (1, 2? 3, 4)
+    domain: "factu"
+    dataset: "facturation"
+    write: "OVERWRITE"
+    area: "business"
+ */

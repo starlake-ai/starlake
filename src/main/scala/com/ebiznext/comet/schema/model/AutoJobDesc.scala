@@ -20,15 +20,16 @@
 
 package com.ebiznext.comet.schema.model
 
-import com.ebiznext.comet.config.HiveArea
+import com.ebiznext.comet.config.{DatasetArea, HiveArea}
 import com.fasterxml.jackson.annotation.JsonIgnore
+import org.apache.hadoop.fs.Path
 
 /**
   * Task executed in teh context of a job
   *
   * @param sql     SQL request to exexute (do not forget to prefix table names with the database name
-  * @param domain  Output domain in Business Area (Will be the Database name in Hive)
-  * @param dataset Dataset Name in Business Area (Will be the Table name in Hive)
+  * @param domain  Output domain in Business Area (Will be the Database name in Hive or Dataset in BigQuery)
+  * @param dataset Dataset Name in Business Area (Will be the Table name in Hive & BigQuery)
   * @param write   Append to or overwrite existing dataset
   * @param area   Target Area where domain / dataset will be stored
   */
@@ -41,15 +42,25 @@ case class AutoTaskDesc(
   presql: Option[List[String]] = None,
   postsql: Option[List[String]] = None,
   area: Option[HiveArea] = None,
-  index: Option[Boolean] = None,
+  index: Option[IndexSink] = None,
   properties: Option[Map[String, String]] = None
 ) {
 
   @JsonIgnore
-  def getPartitions() = partition.getOrElse(Nil)
+  def getPartitions(): List[String] = partition.getOrElse(Nil)
 
   @JsonIgnore
-  def isIndexed() = index.getOrElse(false)
+  def getIndexSink(): Option[IndexSink] = index
+
+  def getTargetPath(defaultArea: HiveArea): Path = {
+    val targetArea = area.getOrElse(defaultArea)
+    new Path(DatasetArea.path(domain, targetArea.value), dataset)
+  }
+
+  def getHiveDB(defaultArea: HiveArea): String = {
+    val targetArea = area.getOrElse(defaultArea)
+    HiveArea.area(domain, targetArea)
+  }
 
 }
 
