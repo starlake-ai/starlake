@@ -89,6 +89,8 @@ object Settings extends StrictLogging {
 
   final case class Lock(path: String, metricsTimeout: Long, ingestionTimeout: Long)
 
+  final case class Atlas(uri: String, user: String, password: String, owner: String)
+
   /**
     *
     * @param datasets    : Absolute path, datasets root folder beneath which each area is defined.
@@ -118,6 +120,7 @@ object Settings extends StrictLogging {
     area: Area,
     airflow: Airflow,
     elasticsearch: Elasticsearch,
+    atlas: Atlas,
     privacy: Privacy,
     fileSystem: Option[String]
   ) {

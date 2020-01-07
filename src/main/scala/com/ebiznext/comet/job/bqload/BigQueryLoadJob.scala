@@ -35,6 +35,7 @@ class BigQueryLoadJob(
     */
   override def run(): Try[SparkSession] = {
     val conf = session.sparkContext.hadoopConfiguration
+    logger.info(s"BigQuery Config $cliConfig")
 
     val projectId = conf.get("fs.gs.project.id")
     val bucket = conf.get("fs.gs.system.bucket")
@@ -45,6 +46,8 @@ class BigQueryLoadJob(
     // Temp output bucket that is deleted upon completion of job.
     val jsonPath = ("gs://" + bucket + "/tmp/" + UUID.randomUUID())
     val inputPath = cliConfig.sourceFile
+    logger.info(s"Input path $inputPath")
+    logger.info(s"Json path $jsonPath")
     BigQueryOutputConfiguration.configureWithAutoSchema(
       conf,
       outputTableId,
@@ -73,6 +76,7 @@ class BigQueryLoadJob(
         );
       conf.set(BigQueryConfiguration.OUTPUT_TABLE_PARTITIONING_KEY, timePartitioning.getAsJson)
     }
+
     Try {
       val bigqueryHelper = RemoteBigQueryHelper.create
       val bigquery = bigqueryHelper.getOptions().getService();
@@ -85,23 +89,26 @@ class BigQueryLoadJob(
           .build
         bigquery.create(datasetInfo)
       }
-
+      logger.info(s"dataset read")
       val sourceJson = if (cliConfig.sourceFormat.equalsIgnoreCase("parquet")) {
         val parquetDF = session.read.parquet(inputPath)
+        logger.info("Read parquet File")
         parquetDF.write.json(jsonPath)
+        logger.info(s"Written to $jsonPath")
         jsonPath
       } else if (cliConfig.sourceFormat.equalsIgnoreCase("json")) {
         inputPath
       } else {
         throw new Exception(s"Unknown format ${cliConfig.sourceFormat}")
       }
+      logger.info(s"Source Json $sourceJson")
 
       session.sparkContext
         .textFile(sourceJson)
         .map(text => (null, new JsonParser().parse(text).getAsJsonObject))
         .saveAsNewAPIHadoopDataset(conf)
       Settings.storageHandler.delete(new Path(sourceJson))
+      session
     }
-    Success(session)
   }
 }
