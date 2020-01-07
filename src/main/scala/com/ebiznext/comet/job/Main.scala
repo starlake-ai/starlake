@@ -21,6 +21,7 @@
 package com.ebiznext.comet.job
 
 import com.ebiznext.comet.config.{DatasetArea, Settings}
+import com.ebiznext.comet.job.atlas.AtlasConfig
 import com.ebiznext.comet.job.bqload.BigQueryLoadConfig
 import com.ebiznext.comet.job.index.IndexConfig
 import com.ebiznext.comet.job.infer.InferSchemaConfig
@@ -145,6 +146,15 @@ object Main extends StrictLogging {
           case Some(config) =>
             // do something
             workflow.index(config)
+          case _ =>
+            printUsage()
+        }
+
+      case "atlas" =>
+        AtlasConfig.parse(args.drop(1)) match {
+          case Some(config) =>
+            // do something
+            workflow.atlas(config)
           case _ =>
             printUsage()
         }

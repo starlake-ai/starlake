@@ -67,6 +67,5 @@ object InferSchemaConfig {
       )
     }
     OParser.parse(parser, args, InferConfig())
-
   }
 }

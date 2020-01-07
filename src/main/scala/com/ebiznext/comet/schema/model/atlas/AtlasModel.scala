@@ -1,12 +1,15 @@
 package com.ebiznext.comet.schema.model.atlas
 
-import com.ebiznext.comet.schema.handlers.SchemaHandler
+import com.ebiznext.comet.config.Settings
+import com.ebiznext.comet.job.atlas.AtlasConfig
+import com.ebiznext.comet.schema.handlers.{SchemaHandler, StorageHandler}
 import com.ebiznext.comet.schema.model._
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.atlas.model.instance.EntityMutations.EntityOperation
 import org.apache.atlas.model.instance._
 import org.apache.atlas.{AtlasClientV2, AtlasServiceException}
 import org.apache.commons.collections.CollectionUtils
+import org.apache.hadoop.fs.Path
 
 import scala.util.{Failure, Success, Try}
 
@@ -401,14 +404,25 @@ class AtlasModel(urls: Array[String], basicAuthUsernamePassword: Array[String])
     Try(atlasClientV2.getEntityByAttribute(objectType, attributes).getEntity)
   }
 
-}
+  def run(config: AtlasConfig, storage: StorageHandler): Unit = {
+    val deleteFirst = config.delete
+    val folderFiles =
+    config.folder.map { folder =>
+      storage.list(new Path(folder), ".yml").map(_.toString)
+    } getOrElse (Nil)
+    val allFiles = config.files ++ folderFiles
+    allFiles.foreach { file =>
+      val domainContent = storage.read(new Path(file))
+      createAtlasModel(storage, domainContent, deleteFirst)
+    }
+  }
 
-object AtlasModel extends AtlasModel(Array("http://127.0.0.1:21000"), Array("admin", "admin")) {
-
-  def main(args: Array[String]): Unit = {
-    val deleteFirst = false
-    val sch = new SchemaHandler(null)
-    val domainContent = AtlasData.domainContent
+  private def createAtlasModel(
+    storage: StorageHandler,
+    domainContent: String,
+    deleteFirst: Boolean
+  ) = {
+    val sch = new SchemaHandler(storage)
     val dom = sch.mapper.readValue(domainContent, classOf[Domain])
 
     val entity = getObjectId(dom.name, DOMAIN_TYPE)
@@ -418,7 +432,7 @@ object AtlasModel extends AtlasModel(Array("http://127.0.0.1:21000"), Array("adm
       Array(dom.name),
       dom.name,
       dom.comment.getOrElse(""),
-      "hayssams-test",
+      Settings.comet.atlas.owner,
       dom.directory,
       dom.metadata,
       dom.extensions.map(_.toArray),
