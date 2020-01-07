@@ -52,7 +52,7 @@ addArtifact(artifact in (Compile, assembly), assembly)
 
 publishTo in ThisBuild := {
   sys.env.get("GCS_BUCKET_ARTEFACTS") match {
-    case None        => None
+    case None        => sonatypePublishToBundle.value
     case Some(value) => Some(GCSPublisher.forBucket(value, AccessRights.InheritBucket))
   }
 }
@@ -132,8 +132,6 @@ assemblyShadeRules in assembly := Seq(
 //assemblyExcludedJars in assembly <<= (fullClasspath in assembly) map { cp =>
 // cp filter {x => x.data.getName.matches("sbt.*") || x.data.getName.matches(".*macros.*")}
 // }
-
-publishTo := sonatypePublishToBundle.value
 
 // Your profile name of the sonatype account. The default is the same with the organization value
 sonatypeProfileName := "com.ebiznext"

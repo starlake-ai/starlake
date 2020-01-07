@@ -22,6 +22,7 @@ package com.ebiznext.comet.workflow
 
 import better.files.File
 import com.ebiznext.comet.config.{DatasetArea, Settings}
+import com.ebiznext.comet.job.atlas.{AtlasConfig, AtlasJob}
 import com.ebiznext.comet.job.bqload.{BigQueryLoadConfig, BigQueryLoadJob}
 import com.ebiznext.comet.job.index.{IndexConfig, IndexJob}
 import com.ebiznext.comet.job.infer.{InferConfig, InferSchema}
@@ -73,16 +74,17 @@ class IngestionWorkflow(
       storageHandler.list(inputDir, domain.getAck()).foreach { path =>
         val ackFile = path
         val fileStr = ackFile.toString
-        val prefixStr = fileStr.stripSuffix(domain.getAck())
-        val tgz = new Path(prefixStr + ".tgz")
-        val gz = new Path(prefixStr + ".gz")
+        val prefixStr =
+          if (domain.getAck().isEmpty) fileStr.substring(0, fileStr.lastIndexOf('.'))
+          else fileStr.stripSuffix(domain.getAck())
         val tmpDir = new Path(prefixStr)
-        val zip = new Path(prefixStr + ".zip")
         val rawFormats =
-          domain.getExtensions().map(ext => new Path(prefixStr + ext))
+          if (domain.getAck().isEmpty) List(ackFile)
+          else
+            domain.getExtensions().map(ext => new Path(prefixStr + ext))
         val existRawFile = rawFormats.find(file => storageHandler.exists(file))
         logger.info(s"Found ack file $ackFile")
-        if (!domain.getAck().isEmpty)
+        if (domain.getAck().nonEmpty)
           storageHandler.delete(ackFile)
         if (existRawFile.isDefined) {
           existRawFile.foreach { file =>
@@ -92,6 +94,9 @@ class IngestionWorkflow(
             storageHandler.move(file, tmpFile)
           }
         } else if (storageHandler.fs.getScheme() == "file") {
+          val tgz = new Path(prefixStr + ".tgz")
+          val gz = new Path(prefixStr + ".gz")
+          val zip = new Path(prefixStr + ".zip")
           if (storageHandler.exists(gz)) {
             logger.info(s"Found compressed file $gz")
             File(Path.getPathWithoutSchemeAndAuthority(gz).toString).unGzipTo(File(tmpDir.toString))
@@ -431,7 +436,16 @@ class IngestionWorkflow(
   }
 
   def bqload(config: BigQueryLoadConfig): Try[SparkSession] = {
-    new BigQueryLoadJob(config, Settings.storageHandler).run()
+    val res = new BigQueryLoadJob(config, Settings.storageHandler).run()
+    res match {
+      case Success(_) => ;
+      case Failure(e) => logger.info("BQLoad Failed", e)
+    }
+    res
+  }
+
+  def atlas(config: AtlasConfig): Unit = {
+    new AtlasJob(config, Settings.storageHandler).run()
   }
 
   /**
