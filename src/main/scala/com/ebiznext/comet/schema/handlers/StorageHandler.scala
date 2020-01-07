@@ -140,18 +140,21 @@ class HdfsStorageHandler(fileSystem: Option[String]) extends StorageHandler {
     * @return List of Path
     */
   def list(path: Path, extension: String, since: LocalDateTime): List[Path] = {
-
-    val iterator: RemoteIterator[LocatedFileStatus] = fs.listFiles(path, false)
-    iterator
-      .filter { status =>
-        val time = LocalDateTime.ofInstant(
-          Instant.ofEpochMilli(status.getModificationTime),
-          ZoneId.systemDefault
-        )
-        time.isAfter(since) && status.getPath().getName().endsWith(extension)
-      }
-      .map(status => status.getPath())
-      .toList
+    try {
+      val iterator: RemoteIterator[LocatedFileStatus] = fs.listFiles(path, false)
+      iterator
+        .filter { status =>
+          val time = LocalDateTime.ofInstant(
+            Instant.ofEpochMilli(status.getModificationTime),
+            ZoneId.systemDefault
+          )
+          time.isAfter(since) && status.getPath().getName().endsWith(extension)
+        }
+        .map(status => status.getPath())
+        .toList
+    } catch {
+      case _: Throwable => Nil
+    }
   }
 
   /**
