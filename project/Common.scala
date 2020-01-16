@@ -91,7 +91,6 @@ object Common {
 
 object Versions {
   val sparkAvro = "4.0.0"
-  val hadoop = "2.7.3"
   val curator = "2.6.0"
   val spark211 = "2.1.0"
   val spark211_240 = "2.4.4"
@@ -110,12 +109,14 @@ object Versions {
   val betterFiles = "3.6.0"
   val jackson = "2.7.9"
   val configs = "0.4.4"
-  val esHadoop = "6.6.2"
+  val esHadoop = "7.5.1"
   val scopt = "4.0.0-RC2"
   val sttp = "1.5.11"
-  val gcs = "hadoop2-2.0.0"
-  val hadoopbq = "hadoop2-1.0.0"
-  val bq = "1.96.0"
+//  val gcs = "hadoop2-2.0.0"
+  val gcs = "hadoop3-2.0.0"
+  val hadoopbq = "hadoop3-1.0.0"
+  val bq = "1.103.0"
+  val hadoop = "3.2.0"
 }
 
 object Resolvers {

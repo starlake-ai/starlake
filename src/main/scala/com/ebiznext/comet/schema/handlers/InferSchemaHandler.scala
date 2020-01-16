@@ -20,6 +20,7 @@
 
 package com.ebiznext.comet.schema.handlers
 
+import java.io.StringWriter
 import java.util.regex.Pattern
 
 import com.ebiznext.comet.config.Settings
@@ -150,8 +151,10 @@ object InferSchemaHandler {
     * @param savePath path to save files.
     */
   def generateYaml(domain: Domain, savePath: String): Unit = {
-    val os = Settings.storageHandler.getOutputStream(new Path(savePath))
-    Main.mapper.writeValue(os, domain)
+    val obj = Settings.storageHandler.read(new Path(savePath))
+    val objw = new StringWriter()
+    objw.write(obj)
+    Main.mapper.writeValue(objw, domain)
   }
 
 }
