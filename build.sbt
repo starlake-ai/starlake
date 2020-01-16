@@ -33,8 +33,6 @@ libraryDependencies := {
   dependencies ++ spark
 }
 
-unmanagedJars in Compile += file("lib/gcs-connector-hadoop2-latest.jar")
-
 Common.enableCometAliases
 
 enablePlugins(Common.cometPlugins: _*)
@@ -129,9 +127,17 @@ assemblyShadeRules in assembly := Seq(
     .inAll
 )
 
-//assemblyExcludedJars in assembly <<= (fullClasspath in assembly) map { cp =>
-// cp filter {x => x.data.getName.matches("sbt.*") || x.data.getName.matches(".*macros.*")}
-// }
+assemblyMergeStrategy in assembly := {
+  case PathList("META-INF", xs @ _*) => MergeStrategy.discard
+  case x => MergeStrategy.first
+}
+
+assemblyExcludedJars in assembly := {
+  val cp: Classpath = (fullClasspath in assembly).value
+  cp.foreach(x => println("->"+x.data.getName))
+  //cp filter {_.data.getName.matches("hadoop-.*-2.6.5.jar")}
+  Nil
+}
 
 // Your profile name of the sonatype account. The default is the same with the organization value
 sonatypeProfileName := "com.ebiznext"
@@ -150,3 +156,4 @@ developers := List(
   Developer(id="hayssams", name="Hayssam Saleh", email="hayssam.saleh@ebiznext.com", url=url("https://www.ebiznext.com"))
 )
 
+//logLevel in assembly := Level.Debug
