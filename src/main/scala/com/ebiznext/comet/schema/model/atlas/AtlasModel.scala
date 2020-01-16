@@ -5,9 +5,6 @@ import com.ebiznext.comet.job.atlas.AtlasConfig
 import com.ebiznext.comet.schema.handlers.{SchemaHandler, StorageHandler}
 import com.ebiznext.comet.schema.model._
 import com.typesafe.scalalogging.StrictLogging
-import org.apache.atlas.model.instance.EntityMutations.EntityOperation
-import org.apache.atlas.model.instance._
-import org.apache.atlas.{AtlasClientV2, AtlasServiceException}
 import org.apache.commons.collections.CollectionUtils
 import org.apache.hadoop.fs.Path
 
@@ -15,24 +12,28 @@ import scala.util.{Failure, Success, Try}
 
 class AtlasModel(urls: Array[String], basicAuthUsernamePassword: Array[String])
     extends StrictLogging {
-  val PROJECT_TYPE = "Project"
-  val BUCKET_TYPE = "Bucket"
-  val FILE_TYPE = "DataFile"
-  val BQTABLE_TYPE = "BQTable"
-  val PROCESS_TYPE = "CometProcess"
+  def run(config: AtlasConfig, storage: StorageHandler): Unit = ???
 
-  val DOMAIN_TYPE = "Domain"
-  val SCHEMA_TYPE = "Schema"
-  val ATTRIBUTE_TYPE = "Attribute"
-  val METADATA_STRUCT = "Metadata"
-  val POSITION_STRUCT = "Position"
-  val MERGE_OPTIONS_STRUCT = "MergeOptions"
+  /*
+      val PROJECT_TYPE = "Project"
+      val BUCKET_TYPE = "Bucket"
+      val FILE_TYPE = "DataFile"
+      val BQTABLE_TYPE = "BQTable"
+      val PROCESS_TYPE = "CometProcess"
 
-  val QUALIFIED_NAME = "qualifiedName"
-  val REFERENCEABLE_ATTRIBUTE_NAME: String = QUALIFIED_NAME
-  val CLUSTER_SUFFIX = "@cl1"
-  val atlasClientV2 = new AtlasClientV2(urls, basicAuthUsernamePassword)
+      val DOMAIN_TYPE = "Domain"
+      val SCHEMA_TYPE = "Schema"
+      val ATTRIBUTE_TYPE = "Attribute"
+      val METADATA_STRUCT = "Metadata"
+      val POSITION_STRUCT = "Position"
+      val MERGE_OPTIONS_STRUCT = "MergeOptions"
 
+      val QUALIFIED_NAME = "qualifiedName"
+      val REFERENCEABLE_ATTRIBUTE_NAME: String = QUALIFIED_NAME
+      val CLUSTER_SUFFIX = "@cl1"
+      val atlasClientV2 = new AtlasClientV2(urls, basicAuthUsernamePassword)
+   */
+  /*
   private def toAtlasClassifications(
     classificationNames: Array[String]
   ): java.util.List[AtlasClassification] = {
@@ -278,7 +279,7 @@ class AtlasModel(urls: Array[String], basicAuthUsernamePassword: Array[String])
     val existingDirectory = result.getAttribute("directory").asInstanceOf[String]
     val existingMetadata = Option(result.getAttribute("metadata").asInstanceOf[AtlasStruct])
     val existingExtensions = Option(result.getAttribute("extensions").asInstanceOf[Array[String]])
-     */
+ */
     result
   }
 
@@ -461,4 +462,5 @@ class AtlasModel(urls: Array[String], basicAuthUsernamePassword: Array[String])
       )
     }
   }
+ */
 }

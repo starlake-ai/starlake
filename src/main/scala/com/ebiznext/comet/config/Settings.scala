@@ -120,6 +120,7 @@ object Settings extends StrictLogging {
     area: Area,
     airflow: Airflow,
     elasticsearch: Elasticsearch,
+    hadoop: Map[String, String],
     atlas: Atlas,
     privacy: Privacy,
     fileSystem: Option[String]
