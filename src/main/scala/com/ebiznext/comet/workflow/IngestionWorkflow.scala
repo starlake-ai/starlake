@@ -67,6 +67,7 @@ class IngestionWorkflow(
     * before moving the files to the pending area, the ack files are deleted
     */
   def loadLanding(): Unit = {
+    logger.info("LoadLanding")
     domains.foreach { domain =>
       val storageHandler = Settings.storageHandler
       val inputDir = new Path(domain.directory)
@@ -99,7 +100,8 @@ class IngestionWorkflow(
           val zip = new Path(prefixStr + ".zip")
           if (storageHandler.exists(gz)) {
             logger.info(s"Found compressed file $gz")
-            File(Path.getPathWithoutSchemeAndAuthority(gz).toString).unGzipTo(File(tmpDir.toString))
+            File(Path.getPathWithoutSchemeAndAuthority(gz).toString)
+              .unGzipTo(File(tmpDir.toString))
             storageHandler.delete(gz)
           } else if (storageHandler.exists(tgz)) {
             logger.info(s"Found compressed file $tgz")
@@ -108,7 +110,8 @@ class IngestionWorkflow(
             storageHandler.delete(tgz)
           } else if (storageHandler.exists(zip)) {
             logger.info(s"Found compressed file $zip")
-            File(Path.getPathWithoutSchemeAndAuthority(zip).toString).unzipTo(File(tmpDir.toString))
+            File(Path.getPathWithoutSchemeAndAuthority(zip).toString)
+              .unzipTo(File(tmpDir.toString))
             storageHandler.delete(zip)
           } else {
             logger.error(s"No archive found for ack ${ackFile.toString}")
