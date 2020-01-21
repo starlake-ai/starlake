@@ -136,36 +136,36 @@ object DatasetArea {
   *     - The business database : contains tables where autjob tables are created by default
   *     - The ciustom database : contains tables where autojob tables are created when a specific area is defined
   */
-object HiveArea {
+object StorageArea {
 
-  def fromString(value: String): HiveArea = {
+  def fromString(value: String): StorageArea = {
     value.toLowerCase() match {
-      case Settings.comet.area.rejected => HiveArea.rejected
-      case Settings.comet.area.accepted => HiveArea.accepted
-      case Settings.comet.area.business => HiveArea.business
-      case custom                       => HiveArea(custom)
+      case Settings.comet.area.rejected => StorageArea.rejected
+      case Settings.comet.area.accepted => StorageArea.accepted
+      case Settings.comet.area.business => StorageArea.business
+      case custom                       => StorageArea(custom)
     }
   }
 
-  object rejected extends HiveArea(Settings.comet.area.rejected)
+  object rejected extends StorageArea(Settings.comet.area.rejected)
 
-  object accepted extends HiveArea(Settings.comet.area.accepted)
+  object accepted extends StorageArea(Settings.comet.area.accepted)
 
-  object business extends HiveArea(Settings.comet.area.business)
+  object business extends StorageArea(Settings.comet.area.business)
 
-  def area(domain: String, area: HiveArea): String = s"${domain}_${area.value}"
+  def area(domain: String, area: StorageArea): String = s"${domain}_${area.value}"
 
 }
 
-class HiveAreaDeserializer extends JsonDeserializer[HiveArea] {
-  override def deserialize(jp: JsonParser, ctx: DeserializationContext): HiveArea = {
+class StorageAreaDeserializer extends JsonDeserializer[StorageArea] {
+  override def deserialize(jp: JsonParser, ctx: DeserializationContext): StorageArea = {
     val value = jp.readValueAs[String](classOf[String])
-    HiveArea.fromString(value)
+    StorageArea.fromString(value)
   }
 }
 
 @JsonSerialize(using = classOf[ToStringSerializer])
-@JsonDeserialize(using = classOf[HiveAreaDeserializer])
-sealed case class HiveArea(value: String) {
+@JsonDeserialize(using = classOf[StorageAreaDeserializer])
+sealed case class StorageArea(value: String) {
   override def toString: String = value
 }
