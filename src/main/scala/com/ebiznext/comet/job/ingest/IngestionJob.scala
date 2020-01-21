@@ -1,6 +1,6 @@
 package com.ebiznext.comet.job.ingest
 
-import com.ebiznext.comet.config.{DatasetArea, HiveArea, Settings}
+import com.ebiznext.comet.config.{DatasetArea, StorageArea, Settings}
 import com.ebiznext.comet.job.metrics.MetricsJob
 import com.ebiznext.comet.schema.handlers.StorageHandler
 import com.ebiznext.comet.schema.model.Rejection.{ColInfo, ColResult}
@@ -26,6 +26,8 @@ trait IngestionJob extends SparkJob {
   def storageHandler: StorageHandler
 
   def types: List[Type]
+
+  def path: List[Path]
 
   /**
     * Merged metadata
@@ -57,7 +59,7 @@ trait IngestionJob extends SparkJob {
     logger.whenDebugEnabled {
       rejectedRDD.toDF.show(1000, false)
     }
-    saveRows(rejectedRDD.toDF, rejectedPath, writeMode, HiveArea.rejected, false)
+    saveRows(rejectedRDD.toDF, rejectedPath, writeMode, StorageArea.rejected, false)
     rejectedPath
   }
 
@@ -91,7 +93,7 @@ trait IngestionJob extends SparkJob {
         acceptedDF
     } getOrElse (acceptedDF)
 
-    saveRows(mergedDF, acceptedPath, writeMode, HiveArea.accepted, schema.merge.isDefined)
+    saveRows(mergedDF, acceptedPath, writeMode, StorageArea.accepted, schema.merge.isDefined)
     if (Settings.comet.metrics.active) {
       new MetricsJob(this.domain, this.schema, Stage.GLOBAL, storageHandler).run()
     }
@@ -165,16 +167,16 @@ trait IngestionJob extends SparkJob {
     * @param area       : accepted or rejected area
     */
   def saveRows(
-    dataset: DataFrame,
-    targetPath: Path,
-    writeMode: WriteMode,
-    area: HiveArea,
-    merge: Boolean
+                dataset: DataFrame,
+                targetPath: Path,
+                writeMode: WriteMode,
+                area: StorageArea,
+                merge: Boolean
   ): Unit = {
     if (dataset.columns.length > 0) {
       val count = dataset.count()
       val saveMode = writeMode.toSaveMode
-      val hiveDB = HiveArea.area(domain.name, area)
+      val hiveDB = StorageArea.area(domain.name, area)
       val tableName = schema.name
       val fullTableName = s"$hiveDB.$tableName"
       if (Settings.comet.hive) {
@@ -301,7 +303,7 @@ trait IngestionJob extends SparkJob {
                 s"ingestion-summary -> files: [$inputFiles], domain: ${domain.name}, schema: ${schema.name}, input: $inputCount, accepted: $acceptedCount, rejected:$rejectedCount"
               )
               val end = System.currentTimeMillis()
-              IngestionLog(
+              val log = AuditLog(
                 inputFiles,
                 domain.name,
                 schema.name,
@@ -310,13 +312,29 @@ trait IngestionJob extends SparkJob {
                 acceptedCount,
                 rejectedCount,
                 start,
-                end - start
+                end - start,
+                ""
               )
+              SparkAuditLogWriter.append(session, log)
             }
             schema.postsql.getOrElse(Nil).foreach(session.sql)
             Success(session)
           case Failure(exception) =>
-            Utils.logException(logger, exception)
+            val end = System.currentTimeMillis()
+            val err = Utils.exceptionAsString(exception)
+            AuditLog(
+              path.map(_.toString).mkString(","),
+              domain.name,
+              schema.name,
+              success = false,
+              0,
+              0,
+              0,
+              start,
+              end - start,
+              err
+            )
+            logger.error(err)
             Failure(throw exception)
         }
     }

@@ -87,6 +87,11 @@ object Settings extends StrictLogging {
     active: Boolean
   )
 
+  final case class Audit(
+    path: String,
+    active: Boolean
+  )
+
   final case class Lock(path: String, metricsTimeout: Long, ingestionTimeout: Long)
 
   final case class Atlas(uri: String, user: String, password: String, owner: String)
@@ -96,6 +101,7 @@ object Settings extends StrictLogging {
     * @param datasets    : Absolute path, datasets root folder beneath which each area is defined.
     * @param metadata    : Absolute path, location where all types / domains and auto jobs are defined
     * @param metrics     : Absolute path, location where all computed metrics are stored
+    * @param audit       : Absolute path, location where all log are stored
     * @param archive     : Should we backup the ingested datasets ? true by default
     * @param writeFormat : Choose between parquet, orc ... Default is parquet
     * @param launcher    : Cron Job Manager: simple (useful for testing) or airflow ? simple by default
@@ -108,6 +114,7 @@ object Settings extends StrictLogging {
     datasets: String,
     metadata: String,
     metrics: Metrics,
+    audit: Audit,
     archive: Boolean,
     lock: Lock,
     writeFormat: String,
