@@ -20,7 +20,7 @@
 
 package com.ebiznext.comet.job.ingest
 
-import com.ebiznext.comet.config.{DatasetArea, HiveArea}
+import com.ebiznext.comet.config.{DatasetArea, StorageArea}
 import com.ebiznext.comet.schema.handlers.StorageHandler
 import com.ebiznext.comet.schema.model._
 import org.apache.hadoop.fs.Path
@@ -103,7 +103,7 @@ class JsonIngestionJob(
       session.createDataFrame(acceptedRDD, schemaSparkType),
       acceptedPath,
       writeMode,
-      HiveArea.accepted,
+      StorageArea.accepted,
       schema.merge.isDefined
     )
     acceptedPath

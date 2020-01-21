@@ -66,9 +66,12 @@ object Utils {
   }
 
   def logException(logger: Logger, exception: Throwable) = {
+    logger.error(exceptionAsString(exception).toString)
+  }
+
+  def exceptionAsString(exception: Throwable): String = {
     val sw = new StringWriter
     exception.printStackTrace(new PrintWriter(sw))
-    logger.error(sw.toString)
-
+    sw.toString
   }
 }
