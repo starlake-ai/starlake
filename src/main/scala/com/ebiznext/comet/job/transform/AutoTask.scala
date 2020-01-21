@@ -22,7 +22,7 @@ package com.ebiznext.comet.job.transform
 
 import java.time.LocalDateTime
 
-import com.ebiznext.comet.config.{DatasetArea, StorageArea, Settings, UdfRegistration}
+import com.ebiznext.comet.config.{DatasetArea, Settings, StorageArea, UdfRegistration}
 import com.ebiznext.comet.schema.handlers.StorageHandler
 import com.ebiznext.comet.schema.model.AutoTaskDesc
 import com.ebiznext.comet.utils.SparkJob
@@ -41,14 +41,14 @@ import scala.util.{Success, Try}
   * @param task        : Task to run
   */
 class AutoTask(
-                override val name: String,
-                defaultArea: StorageArea,
-                format: Option[String],
-                coalesce: Boolean,
-                udf: Option[String],
-                views: Option[Map[String, String]],
-                task: AutoTaskDesc,
-                storageHandler: StorageHandler
+  override val name: String,
+  defaultArea: StorageArea,
+  format: Option[String],
+  coalesce: Boolean,
+  udf: Option[String],
+  views: Option[Map[String, String]],
+  task: AutoTaskDesc,
+  storageHandler: StorageHandler
 ) extends SparkJob {
 
   def run(): Try[SparkSession] = {
