@@ -22,6 +22,7 @@ package com.ebiznext.comet.schema.model
 
 import java.util.regex.Pattern
 
+import com.google.cloud.bigquery.{Field, LegacySQLTypeName}
 import org.apache.spark.sql.types._
 
 import scala.collection.mutable
@@ -86,6 +87,38 @@ case class Schema(
       StructField(attr.name, attr.sparkType(), !attr.required)
     }
     StructType(fields)
+  }
+
+  import com.google.cloud.bigquery.{Schema => BQSchema}
+
+  def bqSchema(): BQSchema = {
+    def convert(sparkType: DataType): LegacySQLTypeName = {
+
+      val BQ_NUMERIC_PRECISION = 38
+      val BQ_NUMERIC_SCALE = 9
+      lazy val NUMERIC_SPARK_TYPE =
+        DataTypes.createDecimalType(BQ_NUMERIC_PRECISION, BQ_NUMERIC_SCALE)
+
+      sparkType match {
+        case BooleanType                                     => LegacySQLTypeName.BOOLEAN
+        case LongType | IntegerType                          => LegacySQLTypeName.INTEGER
+        case DoubleType | FloatType                          => LegacySQLTypeName.FLOAT
+        case StringType                                      => LegacySQLTypeName.STRING
+        case BinaryType                                      => LegacySQLTypeName.BYTES
+        case DateType                                        => LegacySQLTypeName.DATE
+        case TimestampType                                   => LegacySQLTypeName.TIMESTAMP
+        case DecimalType.SYSTEM_DEFAULT | NUMERIC_SPARK_TYPE => LegacySQLTypeName.NUMERIC
+        case _                                               => throw new IllegalArgumentException("Unsupported type")
+      }
+    }
+    val fields = attributes map { attribute =>
+      Field
+        .newBuilder(attribute.rename.getOrElse(attribute.name), convert(attribute.sparkType()))
+        .setMode(if (attribute.required) Field.Mode.REQUIRED else Field.Mode.NULLABLE)
+        .setDescription(attribute.comment.getOrElse(""))
+        .build()
+    }
+    BQSchema.of(fields: _*)
   }
 
   /**

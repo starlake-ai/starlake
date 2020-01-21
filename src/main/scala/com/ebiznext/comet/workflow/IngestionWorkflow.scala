@@ -188,6 +188,42 @@ class IngestionWorkflow(
               launchHandler.ingest(this, domain, schema, ingestingPaths.toList)
             else
               ingestingPaths.foreach(launchHandler.ingest(this, domain, schema, _))
+
+            val meta = schema.mergedMetadata(domain.metadata)
+            meta.getIndexSink() match {
+              case Some(IndexSink.ES) if Settings.comet.elasticsearch.active =>
+                val properties = meta.properties
+                index(
+                  IndexConfig(
+                    timestamp = properties.flatMap(_.get("timestamp")),
+                    id = properties.flatMap(_.get("id")),
+                    format = "parquet",
+                    domain = domain.name,
+                    schema = schema.name
+                  )
+                )
+
+              case Some(IndexSink.BQ) =>
+                val (createDisposition: String, writeDisposition: String) = getBQDisposition(
+                  meta.getWriteMode()
+                )
+                bqload(
+                  BigQueryLoadConfig(
+                    sourceFile = new Path(DatasetArea.accepted(domain.name), schema.name).toString,
+                    outputTable = schema.name,
+                    outputDataset = domain.name,
+                    sourceFormat = "parquet",
+                    createDisposition = createDisposition,
+                    writeDisposition = writeDisposition,
+                    location = meta.getProperties().get("location"),
+                    outputPartition = meta.getProperties().get("timestamp"),
+                    days = meta.getProperties().get("days").map(_.toInt)
+                  ),
+                  Some(schema)
+                )
+              case _ =>
+              // ignore
+            }
           } catch {
             case t: Throwable =>
               t.printStackTrace()
@@ -297,41 +333,6 @@ class IngestionWorkflow(
       case Failure(exception) =>
         Utils.logException(logger, exception)
     }
-
-    val meta = schema.mergedMetadata(domain.metadata)
-    meta.getIndexSink() match {
-      case Some(IndexSink.ES) if Settings.comet.elasticsearch.active =>
-        val properties = meta.properties
-        index(
-          IndexConfig(
-            timestamp = properties.flatMap(_.get("timestamp")),
-            id = properties.flatMap(_.get("id")),
-            format = "parquet",
-            domain = domain.name,
-            schema = schema.name
-          )
-        )
-
-      case Some(IndexSink.BQ) =>
-        val (createDisposition: String, writeDisposition: String) = getBQDisposition(
-          meta.getWriteMode()
-        )
-        bqload(
-          BigQueryLoadConfig(
-            sourceFile = new Path(DatasetArea.accepted(domain.name), schema.name).toString,
-            outputTable = schema.name,
-            outputDataset = domain.name,
-            sourceFormat = "parquet",
-            createDisposition = createDisposition,
-            writeDisposition = writeDisposition,
-            location = meta.getProperties().get("location"),
-            outputPartition = meta.getProperties().get("timestamp"),
-            days = meta.getProperties().get("days").map(_.toInt)
-          )
-        )
-      case _ =>
-      // ignore
-    }
   }
 
   private def getBQDisposition(writeMode: WriteMode) = {
@@ -438,8 +439,8 @@ class IngestionWorkflow(
     new IndexJob(config, Settings.storageHandler).run()
   }
 
-  def bqload(config: BigQueryLoadConfig): Try[SparkSession] = {
-    val res = new BigQueryLoadJob(config, Settings.storageHandler).run()
+  def bqload(config: BigQueryLoadConfig, maybeSchema: Option[Schema] = None): Try[SparkSession] = {
+    val res = new BigQueryLoadJob(config, Settings.storageHandler, maybeSchema).run()
     res match {
       case Success(_) => ;
       case Failure(e) => logger.info("BQLoad Failed", e)
