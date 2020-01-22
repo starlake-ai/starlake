@@ -34,16 +34,16 @@ import org.apache.hadoop.fs.Path
   * @param area   Target Area where domain / dataset will be stored
   */
 case class AutoTaskDesc(
-                         sql: String,
-                         domain: String,
-                         dataset: String,
-                         write: WriteMode,
-                         partition: Option[List[String]] = None,
-                         presql: Option[List[String]] = None,
-                         postsql: Option[List[String]] = None,
-                         area: Option[StorageArea] = None,
-                         index: Option[IndexSink] = None,
-                         properties: Option[Map[String, String]] = None
+  sql: String,
+  domain: String,
+  dataset: String,
+  write: WriteMode,
+  partition: Option[List[String]] = None,
+  presql: Option[List[String]] = None,
+  postsql: Option[List[String]] = None,
+  area: Option[StorageArea] = None,
+  index: Option[IndexSink] = None,
+  properties: Option[Map[String, String]] = None
 ) {
 
   @JsonIgnore
@@ -70,13 +70,13 @@ case class AutoTaskDesc(
   * @param tasks List of business tasks to execute
   */
 case class AutoJobDesc(
-                        name: String,
-                        tasks: List[AutoTaskDesc],
-                        area: Option[StorageArea] = None,
-                        format: Option[String],
-                        coalesce: Option[Boolean],
-                        udf: Option[String] = None,
-                        views: Option[Map[String, String]] = None
+  name: String,
+  tasks: List[AutoTaskDesc],
+  area: Option[StorageArea] = None,
+  format: Option[String],
+  coalesce: Option[Boolean],
+  udf: Option[String] = None,
+  views: Option[Map[String, String]] = None
 ) {
   def getArea() = area.getOrElse(StorageArea.business)
 }

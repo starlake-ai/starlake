@@ -1,6 +1,6 @@
 package com.ebiznext.comet.job.ingest
 
-import com.ebiznext.comet.config.{DatasetArea, StorageArea, Settings}
+import com.ebiznext.comet.config.{DatasetArea, Settings, StorageArea}
 import com.ebiznext.comet.job.metrics.MetricsJob
 import com.ebiznext.comet.schema.handlers.StorageHandler
 import com.ebiznext.comet.schema.model.Rejection.{ColInfo, ColResult}
@@ -167,11 +167,11 @@ trait IngestionJob extends SparkJob {
     * @param area       : accepted or rejected area
     */
   def saveRows(
-                dataset: DataFrame,
-                targetPath: Path,
-                writeMode: WriteMode,
-                area: StorageArea,
-                merge: Boolean
+    dataset: DataFrame,
+    targetPath: Path,
+    writeMode: WriteMode,
+    area: StorageArea,
+    merge: Boolean
   ): Unit = {
     if (dataset.columns.length > 0) {
       val count = dataset.count()
