@@ -4,9 +4,8 @@ import java.util.UUID
 
 import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.schema.handlers.StorageHandler
+import com.ebiznext.comet.schema.model.Schema
 import com.ebiznext.comet.utils.SparkJob
-import com.google.cloud.bigquery.JobInfo.{CreateDisposition, WriteDisposition}
-import com.google.cloud.bigquery.TimePartitioning.Type
 import com.google.cloud.bigquery._
 import com.google.cloud.bigquery.testing.RemoteBigQueryHelper
 import com.google.cloud.hadoop.io.bigquery.output.{
@@ -24,7 +23,8 @@ import scala.util.Try
 
 class BigQueryLoadJob(
   cliConfig: BigQueryLoadConfig,
-  storageHandler: StorageHandler
+  storageHandler: StorageHandler,
+  maybeSchema: scala.Option[Schema] = None
 ) extends SparkJob {
 
   override def name: String = s"bqload-${cliConfig.outputTable}"
@@ -124,17 +124,17 @@ class BigQueryLoadJob(
     * @return : Spark Session used for the job
     */
   def runBigQuery(): Try[SparkSession] = {
+
     val conf = session.sparkContext.hadoopConfiguration
     logger.info(s"BigQuery Config $cliConfig")
 
     val projectId = conf.get("fs.gs.project.id")
     val bucket = conf.get("fs.gs.system.bucket")
-    val inputPath = "gs://" + bucket + cliConfig.sourceFile
-    logger.info(s"Input path $inputPath")
 
-    Try {
-      val bigqueryHelper = RemoteBigQueryHelper.create
-      val bigquery = bigqueryHelper.getOptions().getService();
+    val bigqueryHelper = RemoteBigQueryHelper.create
+    val bigquery = bigqueryHelper.getOptions.getService
+
+    def getOrCreateDataset() = {
       val datasetId = DatasetId.of(projectId, cliConfig.outputDataset)
       val dataset = scala.Option(bigquery.getDataset(datasetId))
       dataset.getOrElse {
@@ -144,50 +144,67 @@ class BigQueryLoadJob(
           .build
         bigquery.create(datasetInfo)
       }
+    }
+
+    def getOrCreateTable(): Table = {
       import com.google.cloud.bigquery.TableId
+      import com.google.cloud.bigquery.StandardTableDefinition
+      import com.google.cloud.bigquery.TableInfo
+
       val tableId = TableId.of(cliConfig.outputDataset, cliConfig.outputTable)
-      val timeField =
-        cliConfig.outputPartition.map { outputPartition =>
+
+      scala.Option(bigquery.getTable(tableId)) getOrElse {
+
+        val tableDefinitionBuilder = maybeSchema.fold(StandardTableDefinition.newBuilder()) {
+          schema =>
+            StandardTableDefinition.of(schema.bqSchema()).toBuilder
+        }
+
+        cliConfig.outputPartition.foreach { outputPartition =>
+          import com.google.cloud.bigquery.TimePartitioning
           val timeField =
             if (List("_PARTITIONDATE", "_PARTITIONTIME").contains(outputPartition))
               TimePartitioning
-                .newBuilder(Type.valueOf("DAY"))
+                .newBuilder(TimePartitioning.Type.DAY)
                 .setRequirePartitionFilter(true)
+                .build()
             else
               TimePartitioning
-                .newBuilder(Type.valueOf("DAY"))
+                .newBuilder(TimePartitioning.Type.DAY)
                 .setRequirePartitionFilter(true)
                 .setField(outputPartition)
-
-          cliConfig.days
-            .map(_ * 3600 * 24 * 1000L)
-            .map(ms => timeField.setExpirationMs(ms))
-            .getOrElse(timeField)
+                .build()
+          tableDefinitionBuilder.setTimePartitioning(timeField)
         }
 
-      val format = cliConfig.sourceFormat match {
-        case "parquet" => FormatOptions.parquet()
-        case "json"    => FormatOptions.json()
-        case _         => throw new Exception(s"Unknown format ${cliConfig.sourceFormat}")
+        val tableDefinition = tableDefinitionBuilder.build()
+        val tableInfo = TableInfo.newBuilder(tableId, tableDefinition).build
+        bigquery.create(tableInfo)
       }
-      val bqconfigBuilder = LoadJobConfiguration
-        .builder(tableId, inputPath)
-        .setFormatOptions(FormatOptions.parquet())
-        .setCreateDisposition(CreateDisposition.valueOf(cliConfig.createDisposition))
-        .setWriteDisposition(WriteDisposition.valueOf(cliConfig.writeDisposition))
-      val bqconfig =
-        timeField
-          .map(time => bqconfigBuilder.setTimePartitioning(time.build()))
-          .getOrElse(bqconfigBuilder)
-          .build();
-      import com.google.cloud.bigquery.JobInfo
-      val loadJob = bigquery.create(JobInfo.of(bqconfig))
-      loadJob.waitFor()
-      import com.google.cloud.bigquery.StandardTableDefinition
-      // Check the table
-      val destinationTable = bigquery.getTable(tableId).getDefinition[StandardTableDefinition]
-      logger.info("State: " + loadJob.getStatus.getState)
-      logger.info("Loaded %d rows.\n", destinationTable.getNumRows)
+    }
+
+    getOrCreateDataset()
+    val table = getOrCreateTable()
+
+    Try {
+      val inputDataset = s"gs://$bucket${cliConfig.sourceFile}/*.parquet"
+      logger.info(s"source ds: $inputDataset")
+      logger.info(s"TableId: ${table.getTableId}")
+
+      val config = LoadJobConfiguration
+        .newBuilder(table.getTableId, inputDataset, FormatOptions.parquet())
+        .setCreateDisposition(JobInfo.CreateDisposition.valueOf(cliConfig.createDisposition))
+        .setWriteDisposition(JobInfo.WriteDisposition.valueOf(cliConfig.writeDisposition))
+        .build()
+      val jobInfo = JobInfo.of(config)
+
+      val job = bigquery.create(jobInfo)
+      job.waitFor()
+
+      val stdTableDefinition =
+        bigquery.getTable(table.getTableId).getDefinition().asInstanceOf[StandardTableDefinition]
+      logger.info(s"Inserted ${stdTableDefinition.getNumRows} into BQ")
+
       session
     }
   }
@@ -197,5 +214,5 @@ class BigQueryLoadJob(
     *
     * @return : Spark Session used for the job
     */
-  override def run(): Try[SparkSession] = runSpark()
+  override def run(): Try[SparkSession] = runBigQuery()
 }
