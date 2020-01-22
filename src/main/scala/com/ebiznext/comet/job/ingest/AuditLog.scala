@@ -54,7 +54,7 @@ case class AuditLog(
 
 object SparkAuditLogWriter {
 
-  def append(session: SparkSession,  log: AuditLog) = {
+  def append(session: SparkSession, log: AuditLog) = {
     val lockPath = new Path(Settings.comet.audit.path, s"audit.lock")
     val locker = new FileLock(lockPath, Settings.storageHandler)
     if (Settings.comet.audit.active && locker.tryLock()) {
