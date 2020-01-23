@@ -25,6 +25,8 @@ import com.ebiznext.comet.utils.FileLock
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.{SaveMode, SparkSession}
 
+import scala.util.{Failure, Success, Try}
+
 case class AuditLog(
   paths: String,
   domain: String,
@@ -53,19 +55,25 @@ case class AuditLog(
 }
 
 object SparkAuditLogWriter {
-
   def append(session: SparkSession, log: AuditLog) = {
     val lockPath = new Path(Settings.comet.audit.path, s"audit.lock")
     val locker = new FileLock(lockPath, Settings.storageHandler)
     if (Settings.comet.audit.active && locker.tryLock()) {
-      import session.implicits._
-      val auditPath = new Path(Settings.comet.audit.path, s"ingestion-log")
-      Seq(log).toDF.write
-        .mode(SaveMode.Append)
-        .format(Settings.comet.writeFormat)
-        .option("path", auditPath.toString)
-        .save()
+      val res = Try {
+        import session.implicits._
+        val auditPath = new Path(Settings.comet.audit.path, s"ingestion-log")
+        Seq(log).toDF.write
+          .mode(SaveMode.Append)
+          .format(Settings.comet.writeFormat)
+          .option("path", auditPath.toString)
+          .save()
+      }
+      locker.release()
+      res match {
+        case Success(_) =>
+        case Failure(e) =>
+          throw e;
+      }
     }
   }
-
 }
