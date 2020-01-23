@@ -126,10 +126,10 @@ trait IngestionJob extends SparkJob {
       )
     }
 
-    // Force orderinfg of columns to be the same
+    // Force ordering of columns to be the same
     val orderedExisting = existingDF.select(partitionedInputDF.columns.map((col(_))): _*)
 
-    // Force orderinfg again of columns to be the same since join operation change it otherwise except below won"'t work.
+    // Force ordering again of columns to be the same since join operation change it otherwise except below won"'t work.
     val commonDF =
       orderedExisting
         .join(partitionedInputDF.select(merge.key.head, merge.key.tail: _*), merge.key)
@@ -230,7 +230,7 @@ trait IngestionJob extends SparkJob {
         partitionedDatasetWriter(dataset.coalesce(nbPartitions), metadata.getPartitionAttributes())
 
       val mergePath = s"${targetPath.toString}.merge"
-      val targetDataset = if (merge) {
+      val targetDataset = if (merge && area != StorageArea.rejected) {
         partitionedDF
           .mode(SaveMode.Overwrite)
           .format(Settings.comet.writeFormat)
