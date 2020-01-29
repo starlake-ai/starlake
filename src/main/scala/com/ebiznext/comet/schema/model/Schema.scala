@@ -101,14 +101,14 @@ case class Schema(
 
       sparkType match {
         case BooleanType                                     => LegacySQLTypeName.BOOLEAN
-        case LongType | IntegerType                          => LegacySQLTypeName.INTEGER
+        case ByteType | LongType | IntegerType               => LegacySQLTypeName.INTEGER
         case DoubleType | FloatType                          => LegacySQLTypeName.FLOAT
         case StringType                                      => LegacySQLTypeName.STRING
         case BinaryType                                      => LegacySQLTypeName.BYTES
         case DateType                                        => LegacySQLTypeName.DATE
         case TimestampType                                   => LegacySQLTypeName.TIMESTAMP
         case DecimalType.SYSTEM_DEFAULT | NUMERIC_SPARK_TYPE => LegacySQLTypeName.NUMERIC
-        case _                                               => throw new IllegalArgumentException("Unsupported type")
+        case _                                               => throw new IllegalArgumentException(s"Unsupported type:$sparkType")
       }
     }
     val fields = attributes map { attribute =>
