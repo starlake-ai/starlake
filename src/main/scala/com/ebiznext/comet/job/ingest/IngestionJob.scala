@@ -348,7 +348,7 @@ object IngestionUtil {
     colRawValue: String,
     colAttribute: Attribute,
     tpe: Type
-  ) = {
+  ): ColResult = {
     def ltrim(s: String) = s.replaceAll("^\\s+", "")
     def rtrim(s: String) = s.replaceAll("\\s+$", "")
     val trimmedColValue = colAttribute.position.map { position =>
