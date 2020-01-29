@@ -129,7 +129,7 @@ class BigQueryLoadJob(
     logger.info(s"BigQuery Config $cliConfig")
 
     val projectId = conf.get("fs.gs.project.id")
-    val bucket = conf.get("fs.gs.system.bucket")
+    val bucket = conf.get("fs.defaultFS")
 
     val bigqueryHelper = RemoteBigQueryHelper.create
     val bigquery = bigqueryHelper.getOptions.getService
@@ -187,7 +187,7 @@ class BigQueryLoadJob(
     val table = getOrCreateTable()
 
     Try {
-      val inputDataset = s"gs://$bucket${cliConfig.sourceFile}/*.parquet"
+      val inputDataset = s"$bucket${cliConfig.sourceFile}/*.parquet"
       logger.info(s"source ds: $inputDataset")
       logger.info(s"TableId: ${table.getTableId}")
 
@@ -202,8 +202,8 @@ class BigQueryLoadJob(
       job.waitFor()
 
       val stdTableDefinition =
-        bigquery.getTable(table.getTableId).getDefinition().asInstanceOf[StandardTableDefinition]
-      logger.info(s"Inserted ${stdTableDefinition.getNumRows} into BQ")
+        bigquery.getTable(table.getTableId).getDefinition.asInstanceOf[StandardTableDefinition]
+      logger.info(s"Inserted ${stdTableDefinition.getNumRows} rows into BQ")
 
       session
     }
