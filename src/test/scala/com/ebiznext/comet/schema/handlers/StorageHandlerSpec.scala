@@ -22,7 +22,8 @@ package com.ebiznext.comet.schema.handlers
 
 import com.ebiznext.comet.TestHelper
 import com.ebiznext.comet.schema.model._
-import org.apache.hadoop.fs.Path
+import org.apache.hadoop.conf.Configuration
+import org.apache.hadoop.fs.{FileSystem, FileUtil, Path}
 
 class StorageHandlerSpec extends TestHelper {
 

@@ -35,7 +35,7 @@ trait IngestionJob extends SparkJob {
   lazy val metadata: Metadata = schema.mergedMetadata(domain.metadata)
 
   /**
-    * Dataset loading strategy (JSOn / CSV / ...)
+    * Dataset loading strategy (JSON / CSV / ...)
     *
     * @return Spark Dataframe loaded using metadata options
     */
