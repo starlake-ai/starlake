@@ -1,3 +1,12 @@
 language: scala
+jdk:
+  #- oraclejdk8
+  #- oraclejdk9
+  - openjdk8
+  - openjdk10
+  # Note: as of 2020-02-11, JDK11 doesn't work (ASM6 can't support bytecode version 55)
+  
 scala:
   - 2.11.12
+#  - 2.12.10
+# Note: as of 2020-02-11, this doesn't work under scala 2.12.10 — Jackson 2.9.5 incompatibility
