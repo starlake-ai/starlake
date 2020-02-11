@@ -9,7 +9,7 @@ name := "comet"
 //val mavenLocal = "Local Maven" at Path.userHome.asFile.toURI.toURL + ".m2/repository"
 //resolvers += Resolver.mavenLocal
 
-lazy val scala212 = "2.12.8"
+lazy val scala212 = "2.12.10"
 lazy val scala211 = "2.11.12"
 lazy val supportedScalaVersions = List(scala212, scala211)
 
