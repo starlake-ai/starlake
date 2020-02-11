@@ -23,6 +23,7 @@ package com.ebiznext.comet
 import java.io.{File, InputStream}
 import java.nio.file.Files
 import java.time.LocalDate
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.regex.Pattern
 
 import com.ebiznext.comet.config.{DatasetArea, Settings}
@@ -154,9 +155,9 @@ trait TestHelper extends FlatSpec with Matchers with BeforeAndAfterAll with Stri
   lazy val cometDatasetsPath = TestHelper.tempFile + "/datasets"
   lazy val cometMetadataPath = TestHelper.tempFile + "/metadata"
 
-  lazy val sparkSession = SparkSession.builder
-    .master("local[*]")
-    .getOrCreate
+  private val sparkSessionInterest = TestHelper.TestSparkSessionInterest()
+
+  lazy val sparkSession = sparkSessionInterest.get
 
   /**
     * Never ever use Settings.something before this method is called
@@ -189,7 +190,7 @@ trait TestHelper extends FlatSpec with Matchers with BeforeAndAfterAll with Stri
 
   override protected def afterAll(): Unit = {
     super.afterAll()
-    sparkSession.stop()
+    sparkSessionInterest.close()
   }
 
   trait SpecTrait {
@@ -247,6 +248,137 @@ trait TestHelper extends FlatSpec with Matchers with BeforeAndAfterAll with Stri
 }
 
 object TestHelper {
+
+  /**
+    * This class manages an interest into having an access to the (effectively global) Test SparkSession
+    */
+  private case class TestSparkSessionInterest() extends AutoCloseable {
+    private val closed = new AtomicBoolean(false)
+
+    TestSparkSession.acquire()
+
+    def get: SparkSession = TestSparkSession.get
+
+    def close(): Unit =
+      if (!closed.getAndSet(true)) TestSparkSession.release()
+  }
+
+  /**
+    * This class manages the lifetime of the SparkSession that is shared among various Suites (instances of TestHelper)
+    * that may be running concurrently.
+    *
+    * @note certain scenarios (such as single-core test execution) can create a window where no TestSparkSessionInterest()
+    *       instances exist. In which case, SparkSessions will be closed, destroyed and rebuilt for each Suite.
+    */
+  private object TestSparkSession extends StrictLogging {
+
+    /**
+      * This state machine manages the lifetime of the (effectively global) [[SparkSession]] instance shared between
+      * the Suites that inherit from [[TestHelper]].
+      *
+      * The allowed transitions allow for:
+      *   - registration of interest into having access to the SparkSession
+      *   - deferred creation of the SparkSession until there is an actual use
+      *   - closure of the SparkSession when there is no longer any expressed interest
+      *   - re-start of a fresh SparkSession in case additional Suites spin up after closure of the SparkSession
+      */
+    sealed abstract class State {
+      def references: Int
+      def acquire: State
+      def get: (SparkSession, State)
+      def release: State
+    }
+
+    object State {
+      case object Empty extends State {
+        def references: Int = 0
+
+        def acquire: State = Latent(1)
+
+        def release: State =
+          throw new IllegalStateException(
+            "cannot release a Global Spark Session that was never started"
+          )
+
+        override def get: (SparkSession, State) =
+          throw new IllegalStateException(
+            "cannot get global SparkSession without first acquiring a lease to it"
+          ) // can we avoid this?
+      }
+
+      final case class Latent(references: Int) extends State {
+        def acquire: Latent = Latent(references + 1)
+        def release: State = if (references > 1) Latent(references - 1) else Empty
+
+        def get: (SparkSession, Running) = {
+          val session =
+            SparkSession.builder
+              .master("local[*]")
+              .getOrCreate
+
+          (session, Running(references, session))
+        }
+      }
+
+      final case class Running(references: Int, session: SparkSession) extends State {
+        override def get: (SparkSession, State) = (session, this)
+
+        override def acquire: State = Running(references + 1, session)
+        override def release: State =
+          if (references > 1) {
+            Running(references - 1, session)
+          } else {
+            session.close()
+            Terminated
+          }
+      }
+
+      case object Terminated extends State {
+        override def references: Int = 0
+
+        override def get: (SparkSession, State) =
+          throw new IllegalStateException(
+            "cannot get new global SparkSession after one was created then closed"
+          )
+
+        override def acquire: State = {
+          logger.debug(
+            "Terminated SparkInterest sees new acquisition — clearing up old closed SparkSession"
+          )
+          SparkSession.clearActiveSession()
+          SparkSession.clearDefaultSession()
+
+          Empty.acquire
+        }
+
+        override def release: State =
+          throw new IllegalStateException(
+            "cannot release again a Global Spark Session after it was already closed"
+          )
+      }
+    }
+
+    private var state: State = State.Empty
+
+    def get: SparkSession = this.synchronized {
+      val (session, nstate) = state.get
+      state = nstate
+      logger.trace(s"handing out SparkSession instance, now state=${nstate}")
+      session
+    }
+
+    def acquire(): Unit = this.synchronized {
+      val nstate = state.acquire
+      logger.trace(s"acquired new interest into SparkSession instance, now state=${nstate}")
+      state = nstate
+    }
+
+    def release(): Unit = this.synchronized {
+      val nstate = state.release
+      logger.trace(s"released interest from SparkSession instances, now state=${nstate}")
+      state = nstate
+    }
+  }
 
   // Use the same temp file for all UT
   val tempFile: String = {
