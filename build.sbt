@@ -30,7 +30,14 @@ libraryDependencies := {
       case Some((2, scalaMajor)) if scalaMajor == 11 => spark211_240
     }
   }
-  dependencies ++ spark
+  val jackson = {
+    CrossVersion.partialVersion(scalaVersion.value) match {
+      case Some((2, scalaMajor)) if scalaMajor == 12 => jackson212
+      case Some((2, scalaMajor)) if scalaMajor == 11 => jackson211
+    }
+  }
+  
+  dependencies ++ spark ++ jackson
 }
 
 Common.enableCometAliases
