@@ -44,12 +44,20 @@ object Dependencies {
 
   val okhttp = Seq("com.squareup.okhttp3" % "okhttp" % Versions.okhttp)
 
-  val jackson = Seq(
-    "com.fasterxml.jackson.core" % "jackson-core" % Versions.jackson,
-    "com.fasterxml.jackson.core" % "jackson-annotations" % Versions.jackson,
-    "com.fasterxml.jackson.core" % "jackson-databind" % Versions.jackson,
-    "com.fasterxml.jackson.module" %% "jackson-module-scala" % Versions.jackson,
-    "com.fasterxml.jackson.dataformat" % "jackson-dataformat-yaml" % Versions.jackson
+  val jackson211 = Seq(
+    "com.fasterxml.jackson.core" % "jackson-core" % Versions.jackson211,
+    "com.fasterxml.jackson.core" % "jackson-annotations" % Versions.jackson211,
+    "com.fasterxml.jackson.core" % "jackson-databind" % Versions.jackson211,
+    "com.fasterxml.jackson.module" %% "jackson-module-scala" % Versions.jackson211,
+    "com.fasterxml.jackson.dataformat" % "jackson-dataformat-yaml" % Versions.jackson211
+  )
+
+  val jackson212 = Seq(
+    "com.fasterxml.jackson.core" % "jackson-core" % Versions.jackson212,
+    "com.fasterxml.jackson.core" % "jackson-annotations" % Versions.jackson212,
+    "com.fasterxml.jackson.core" % "jackson-databind" % Versions.jackson212,
+    "com.fasterxml.jackson.module" %% "jackson-module-scala" % Versions.jackson212,
+    "com.fasterxml.jackson.dataformat" % "jackson-dataformat-yaml" % Versions.jackson212
   )
 
   val spark211 = Seq(
@@ -121,6 +129,6 @@ object Dependencies {
     "org.apache.hadoop" % "hadoop-client" % Versions.hadoop % "provided" excludeAll (jacksonExclusions: _*)
   )
 
-  val dependencies = logging ++ typedConfigs ++ okhttp ++ betterfiles ++ jackson ++ scalaTest ++ scopt ++ hadoop ++ esHadoop ++ sttp ++ gcp ++ azure // ++ atlas
+  val dependencies = logging ++ typedConfigs ++ okhttp ++ betterfiles ++ scalaTest ++ scopt ++ hadoop ++ esHadoop ++ sttp ++ gcp ++ azure // ++ atlas
 
 }
