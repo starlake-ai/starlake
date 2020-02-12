@@ -35,13 +35,13 @@ import configs.syntax._
 import org.slf4j.MDC
 
 object Settings extends StrictLogging {
-  val jobId = UUID.randomUUID()
+  val jobId = UUID.randomUUID().toString
 
   import java.lang.management.{ManagementFactory, RuntimeMXBean}
 
   val rt: RuntimeMXBean = ManagementFactory.getRuntimeMXBean
   MDC.put("PID", rt.getName)
-  MDC.put("JID", jobId.toString)
+  MDC.put("JID", jobId)
 
   /**
     *
@@ -84,12 +84,17 @@ object Settings extends StrictLogging {
   final case class Metrics(
     path: String,
     discreteMaxCardinality: Int,
-    active: Boolean
+    active: Boolean,
+    index: String,
+    options: Map[String, String]
   )
 
   final case class Audit(
     path: String,
-    active: Boolean
+    active: Boolean,
+    index: String,
+    options: Map[String, String],
+    maxErrors: Int
   )
 
   final case class Lock(path: String, metricsTimeout: Long, ingestionTimeout: Long)

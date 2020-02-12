@@ -1,9 +1,10 @@
 package com.ebiznext.comet.job.bqload
 
+import org.apache.spark.sql.DataFrame
 import scopt.OParser
 
 case class BigQueryLoadConfig(
-  sourceFile: String = "",
+  sourceFile: Either[String, DataFrame] = Left(""),
   outputDataset: String = "",
   outputTable: String = "",
   outputPartition: Option[String] = None,
@@ -27,7 +28,7 @@ object BigQueryLoadConfig {
         programName("comet"),
         head("comet", "1.x"),
         opt[String]("source_file")
-          .action((x, c) => c.copy(sourceFile = x))
+          .action((x, c) => c.copy(sourceFile = Left(x)))
           .text("Full Path to source file"),
         opt[String]("output_dataset")
           .action((x, c) => c.copy(outputDataset = x))
