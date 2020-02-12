@@ -1,17 +1,24 @@
 package com.ebiznext.comet.job.ingest
 
+import java.sql.Timestamp
+import java.time.Instant
+
 import com.ebiznext.comet.config.{DatasetArea, Settings, StorageArea}
+import com.ebiznext.comet.job.bqload.{BigQueryLoadConfig, BigQueryLoadJob}
+import com.ebiznext.comet.job.index.{IndexConfig, IndexJob}
 import com.ebiznext.comet.job.metrics.MetricsJob
 import com.ebiznext.comet.schema.handlers.StorageHandler
 import com.ebiznext.comet.schema.model.Rejection.{ColInfo, ColResult}
 import com.ebiznext.comet.schema.model.Trim.{BOTH, LEFT, RIGHT}
 import com.ebiznext.comet.schema.model._
 import com.ebiznext.comet.utils.{SparkJob, Utils}
+import com.google.cloud.bigquery.{Field, LegacySQLTypeName}
 import org.apache.hadoop.fs.Path
 import org.apache.spark.rdd.RDD
+import org.apache.spark.sql._
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions.col
-import org.apache.spark.sql.{DataFrame, SaveMode, SparkSession}
+import org.apache.spark.sql.types.{StringType, StructField, StructType, TimestampType}
 
 import scala.util.{Failure, Success, Try}
 
@@ -28,6 +35,8 @@ trait IngestionJob extends SparkJob {
   def types: List[Type]
 
   def path: List[Path]
+
+  val now: Timestamp = java.sql.Timestamp.from(Instant.now)
 
   /**
     * Merged metadata
@@ -49,17 +58,18 @@ trait IngestionJob extends SparkJob {
   def ingest(dataset: DataFrame): (RDD[_], RDD[_])
 
   def saveRejected(rejectedRDD: RDD[String]): Path = {
-    logger.whenDebugEnabled {
-      logger.debug(s"rejectedRDD SIZE ${rejectedRDD.count()}")
-      rejectedRDD.take(1000).foreach(rejected => logger.debug(rejected))
-    }
-    val writeMode = metadata.getWriteMode()
-    val rejectedPath = new Path(DatasetArea.rejected(domain.name), schema.name)
+    logger.info(s"rejectedRDD SIZE ${rejectedRDD.count()}")
+    rejectedRDD.take(100).foreach(rejected => logger.info(rejected.replaceAll("\n", "|")))
+    val writeMode = WriteMode.APPEND
     import session.implicits._
     logger.whenDebugEnabled {
-      rejectedRDD.toDF.show(1000, false)
+      rejectedRDD.toDF.show(100, false)
     }
-    saveRows(rejectedRDD.toDF, rejectedPath, writeMode, StorageArea.rejected, false)
+    val domainName = domain.name
+    val schemaName = schema.name
+    val (rejectedDF, rejectedPath) =
+      IngestionUtil.saveRejected(session, rejectedRDD, domainName, schemaName.toString, now)
+    saveRows(rejectedDF, rejectedPath, WriteMode.APPEND, StorageArea.rejected, false)
     rejectedPath
   }
 
@@ -74,7 +84,7 @@ trait IngestionJob extends SparkJob {
     *
     * @param acceptedDF
     */
-  def saveAccepted(acceptedDF: DataFrame): Path = {
+  def saveAccepted(acceptedDF: DataFrame): (DataFrame, Path) = {
     logger.whenDebugEnabled {
       logger.debug(s"acceptedRDD SIZE ${acceptedDF.count()}")
       acceptedDF.show(1000)
@@ -94,10 +104,50 @@ trait IngestionJob extends SparkJob {
     } getOrElse (acceptedDF)
 
     saveRows(mergedDF, acceptedPath, writeMode, StorageArea.accepted, schema.merge.isDefined)
+
     if (Settings.comet.metrics.active) {
       new MetricsJob(this.domain, this.schema, Stage.GLOBAL, storageHandler).run()
     }
-    acceptedPath
+    (mergedDF, acceptedPath)
+  }
+
+  def index(mergedDF: DataFrame): Unit = {
+    val meta = schema.mergedMetadata(domain.metadata)
+    meta.getIndexSink() match {
+      case Some(IndexSink.ES) if Settings.comet.elasticsearch.active =>
+        val properties = meta.properties
+        val config = IndexConfig(
+          timestamp = properties.flatMap(_.get("timestamp")),
+          id = properties.flatMap(_.get("id")),
+          format = "parquet",
+          domain = domain.name,
+          schema = schema.name
+        )
+        new IndexJob(config, Settings.storageHandler).run()
+      case Some(IndexSink.BQ) =>
+        val (createDisposition: String, writeDisposition: String) = Utils.getBQDisposition(
+          meta.getWriteMode()
+        )
+        val config = BigQueryLoadConfig(
+          sourceFile = Right(mergedDF),
+          outputTable = schema.name,
+          outputDataset = domain.name,
+          sourceFormat = "parquet",
+          createDisposition = createDisposition,
+          writeDisposition = writeDisposition,
+          location = meta.getProperties().get("location"),
+          outputPartition = meta.getProperties().get("timestamp"),
+          days = meta.getProperties().get("days").map(_.toInt)
+        )
+        val res = new BigQueryLoadJob(config).run()
+        res match {
+          case Success(_) => ;
+          case Failure(e) => logger.info("BQLoad Failed", e)
+        }
+
+      case _ =>
+      // ignore
+    }
   }
 
   /**
@@ -172,7 +222,7 @@ trait IngestionJob extends SparkJob {
     writeMode: WriteMode,
     area: StorageArea,
     merge: Boolean
-  ): Unit = {
+  ): (DataFrameWriter[Row], String) = {
     if (dataset.columns.length > 0) {
       val count = dataset.count()
       val saveMode = writeMode.toSaveMode
@@ -242,12 +292,12 @@ trait IngestionJob extends SparkJob {
         )
       } else
         partitionedDF
-      val finalDataset = targetDataset
+      val targetDatasetWriter = targetDataset
         .mode(saveMode)
         .format(Settings.comet.writeFormat)
         .option("path", targetPath.toString)
       if (Settings.comet.hive) {
-        finalDataset.saveAsTable(fullTableName)
+        targetDatasetWriter.saveAsTable(fullTableName)
         val tableComment = schema.comment.getOrElse("")
         session.sql(s"ALTER TABLE $fullTableName SET TBLPROPERTIES ('comment' = '$tableComment')")
         if (Settings.comet.analyze) {
@@ -266,12 +316,16 @@ trait IngestionJob extends SparkJob {
             }
         }
       } else {
-        finalDataset.save()
+        targetDatasetWriter.save()
       }
-      val _ = storageHandler.delete(new Path(mergePath))
-
+      logger.info(s"Saved ${dataset.count()} rows to $targetPath")
+      storageHandler.delete(new Path(mergePath))
+      if (merge && area != StorageArea.rejected)
+        logger.info(s"deleted merge file $mergePath")
+      (targetDataset, mergePath)
     } else {
       logger.warn("Empty dataset with no columns won't be saved")
+      (null, null)
     }
   }
 
@@ -288,7 +342,7 @@ trait IngestionJob extends SparkJob {
         }
         Failure(throw new Exception(errs))
       case Right(_) =>
-        val start = System.currentTimeMillis()
+        val start = Timestamp.from(Instant.now())
         schema.presql.getOrElse(Nil).foreach(session.sql)
         val dataset = loadDataSet()
         dataset match {
@@ -302,8 +356,9 @@ trait IngestionJob extends SparkJob {
               logger.info(
                 s"ingestion-summary -> files: [$inputFiles], domain: ${domain.name}, schema: ${schema.name}, input: $inputCount, accepted: $acceptedCount, rejected:$rejectedCount"
               )
-              val end = System.currentTimeMillis()
+              val end = Timestamp.from(Instant.now())
               val log = AuditLog(
+                Settings.jobId,
                 inputFiles,
                 domain.name,
                 schema.name,
@@ -312,17 +367,18 @@ trait IngestionJob extends SparkJob {
                 acceptedCount,
                 rejectedCount,
                 start,
-                end - start,
-                ""
+                end.getTime - start.getTime,
+                "success"
               )
               SparkAuditLogWriter.append(session, log)
             }
             schema.postsql.getOrElse(Nil).foreach(session.sql)
             Success(session)
           case Failure(exception) =>
-            val end = System.currentTimeMillis()
+            val end = Timestamp.from(Instant.now())
             val err = Utils.exceptionAsString(exception)
             AuditLog(
+              Settings.jobId,
               path.map(_.toString).mkString(","),
               domain.name,
               schema.name,
@@ -331,7 +387,7 @@ trait IngestionJob extends SparkJob {
               0,
               0,
               start,
-              end - start,
+              end.getTime - start.getTime,
               err
             )
             logger.error(err)
@@ -343,6 +399,66 @@ trait IngestionJob extends SparkJob {
 }
 
 object IngestionUtil {
+
+  val rejectedCols = List(
+    ("jobid", LegacySQLTypeName.STRING, StringType),
+    ("timestamp", LegacySQLTypeName.TIMESTAMP, TimestampType),
+    ("domain", LegacySQLTypeName.STRING, StringType),
+    ("schema", LegacySQLTypeName.STRING, StringType),
+    ("error", LegacySQLTypeName.STRING, StringType),
+    ("path", LegacySQLTypeName.STRING, StringType)
+  )
+  import com.google.cloud.bigquery.{Schema => BQSchema}
+  private def bigqueryRejectedSchema(): BQSchema = {
+    val fields = rejectedCols map { attribute =>
+      Field
+        .newBuilder(attribute._1, attribute._2)
+        .setMode(Field.Mode.REQUIRED)
+        .setDescription("")
+        .build()
+    }
+    BQSchema.of(fields: _*)
+  }
+
+  def saveRejected(
+    session: SparkSession,
+    rejectedRDD: RDD[String],
+    domainName: String,
+    schemaName: String,
+    now: Timestamp
+  ): (DataFrame, Path) = {
+    import session.implicits._
+    val rejectedPath = new Path(DatasetArea.rejected(domainName), schemaName)
+    val rejectedPathName = rejectedPath.toString
+    val rejectedTypedRDD = rejectedRDD.map { err =>
+      (Settings.jobId, now, domainName, schemaName, err, rejectedPathName)
+    }
+    val rejectedDF = session
+      .createDataFrame(
+        rejectedTypedRDD.toDF().rdd,
+        StructType(
+          rejectedCols.map(col => StructField(col._1, col._3, nullable = false))
+        )
+      )
+      .toDF(rejectedCols.map(_._1): _*)
+      .limit(Settings.comet.audit.maxErrors)
+
+    if (Settings.comet.audit.index == " BQ") {
+      val bqConfig = BigQueryLoadConfig(
+        Right(rejectedDF),
+        Settings.comet.audit.options.getOrDefault("bq-dataset", "audit"),
+        "rejected",
+        None,
+        "parquet",
+        "CREATE_IF_NEEDED",
+        "WRITE_APPEND",
+        None,
+        None
+      )
+      new BigQueryLoadJob(bqConfig, Some(bigqueryRejectedSchema())).run()
+    }
+    (rejectedDF, rejectedPath)
+  }
 
   def validateCol(
     colRawValue: String,
