@@ -86,7 +86,8 @@ class JsonIngestionJob(
       checkedRDD.filter(_.isLeft).map(_.left.get.mkString("\n"))
     val acceptedDF = session.read.json(session.createDataset(acceptedRDD)(Encoders.STRING))
     saveRejected(rejectedRDD)
-    saveAccepted(acceptedDF) // prefer to let Spark compute the final schema
+    val (df, path) = saveAccepted(acceptedDF) // prefer to let Spark compute the final schema
+    index(df)
     (rejectedRDD, acceptedRDD)
   }
 

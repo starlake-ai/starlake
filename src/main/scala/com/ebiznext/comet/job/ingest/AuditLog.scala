@@ -20,14 +20,21 @@
 
 package com.ebiznext.comet.job.ingest
 
+import java.sql.Timestamp
+
 import com.ebiznext.comet.config.Settings
+import com.ebiznext.comet.job.bqload.{BigQueryLoadConfig, BigQueryLoadJob}
 import com.ebiznext.comet.utils.FileLock
+import com.google.cloud.bigquery.{Field, LegacySQLTypeName}
 import org.apache.hadoop.fs.Path
+import org.apache.spark.rdd.RDD
+import org.apache.spark.sql.types._
 import org.apache.spark.sql.{SaveMode, SparkSession}
 
 import scala.util.{Failure, Success, Try}
 
 case class AuditLog(
+  jobid: String,
   paths: String,
   domain: String,
   schema: String,
@@ -35,12 +42,13 @@ case class AuditLog(
   count: Long,
   countOK: Long,
   countKO: Long,
-  timestamp: Long,
+  timestamp: Timestamp,
   duration: Long,
-  errorMessage: String
+  message: String
 ) {
   override def toString(): String = {
     s"""
+       |jobid=$jobid
        |paths=$paths
        |domain=$domain
        |schema=$schema
@@ -50,17 +58,45 @@ case class AuditLog(
        |countKO=$countKO
        |timestamp=$timestamp
        |duration=$duration
-       |""".stripMargin.split('\n').mkString(",")
+       |message=$message
+       |       |""".stripMargin.split('\n').mkString(",")
   }
 }
 
 object SparkAuditLogWriter {
+
+  val auditCols = List(
+    ("jobid", LegacySQLTypeName.STRING, StringType),
+    ("paths", LegacySQLTypeName.STRING, StringType),
+    ("domain", LegacySQLTypeName.STRING, StringType),
+    ("schema", LegacySQLTypeName.STRING, StringType),
+    ("success", LegacySQLTypeName.BOOLEAN, BooleanType),
+    ("count", LegacySQLTypeName.INTEGER, LongType),
+    ("countOK", LegacySQLTypeName.INTEGER, LongType),
+    ("countKO", LegacySQLTypeName.INTEGER, LongType),
+    ("timestamp", LegacySQLTypeName.TIMESTAMP, TimestampType),
+    ("duration", LegacySQLTypeName.INTEGER, LongType),
+    ("message", LegacySQLTypeName.STRING, StringType)
+  )
+
+  import com.google.cloud.bigquery.{Schema => BQSchema}
+  private def bigqueryAuditSchema(): BQSchema = {
+    val fields = auditCols.map { attribute =>
+      Field
+        .newBuilder(attribute._1, attribute._2)
+        .setMode(Field.Mode.REQUIRED)
+        .setDescription("")
+        .build()
+    }
+    BQSchema.of(fields: _*)
+  }
+
   def append(session: SparkSession, log: AuditLog) = {
     val lockPath = new Path(Settings.comet.audit.path, s"audit.lock")
     val locker = new FileLock(lockPath, Settings.storageHandler)
+    import session.implicits._
     if (Settings.comet.audit.active && locker.tryLock()) {
       val res = Try {
-        import session.implicits._
         val auditPath = new Path(Settings.comet.audit.path, s"ingestion-log")
         Seq(log).toDF.write
           .mode(SaveMode.Append)
@@ -74,6 +110,30 @@ object SparkAuditLogWriter {
         case Failure(e) =>
           throw e;
       }
+    }
+    val auditTypedRDD: RDD[AuditLog] = session.sparkContext.parallelize(Seq(log))
+    val auditDF = session
+      .createDataFrame(
+        auditTypedRDD.toDF().rdd,
+        StructType(
+          auditCols.map(col => StructField(col._1, col._3, nullable = false))
+        )
+      )
+      .toDF(auditCols.map(_._1): _*)
+
+    if (Settings.comet.audit.index == "BQ") {
+      val bqConfig = BigQueryLoadConfig(
+        Right(auditDF),
+        Settings.comet.audit.options.getOrDefault("bq-dataset", "audit"),
+        "audit",
+        None,
+        "parquet",
+        "CREATE_IF_NEEDED",
+        "WRITE_APPEND",
+        None,
+        None
+      )
+      new BigQueryLoadJob(bqConfig, Some(bigqueryAuditSchema())).run()
     }
   }
 }
