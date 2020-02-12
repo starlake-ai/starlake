@@ -430,8 +430,9 @@ object IngestionUtil {
     import session.implicits._
     val rejectedPath = new Path(DatasetArea.rejected(domainName), schemaName)
     val rejectedPathName = rejectedPath.toString
+    val jobid = Settings.jobId
     val rejectedTypedRDD = rejectedRDD.map { err =>
-      (Settings.jobId, now, domainName, schemaName, err, rejectedPathName)
+      (jobid, now, domainName, schemaName, err, rejectedPathName)
     }
     val rejectedDF = session
       .createDataFrame(
@@ -443,7 +444,7 @@ object IngestionUtil {
       .toDF(rejectedCols.map(_._1): _*)
       .limit(Settings.comet.audit.maxErrors)
 
-    if (Settings.comet.audit.index == " BQ") {
+    if (Settings.comet.audit.index == "BQ") {
       val bqConfig = BigQueryLoadConfig(
         Right(rejectedDF),
         Settings.comet.audit.options.getOrDefault("bq-dataset", "audit"),
