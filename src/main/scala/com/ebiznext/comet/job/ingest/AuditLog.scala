@@ -64,7 +64,6 @@ case class AuditLog(
 }
 
 object SparkAuditLogWriter {
-
   val auditCols = List(
     ("jobid", LegacySQLTypeName.STRING, StringType),
     ("paths", LegacySQLTypeName.STRING, StringType),
