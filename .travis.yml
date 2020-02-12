@@ -8,5 +8,4 @@ jdk:
   
 scala:
   - 2.11.12
-#  - 2.12.10
-# Note: as of 2020-02-11, this doesn't work under scala 2.12.10 — Jackson 2.9.5 incompatibility
+  - 2.12.10

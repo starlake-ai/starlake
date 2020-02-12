@@ -74,7 +74,9 @@ class StorageHandlerSpec extends TestHelper {
     )
 
     storageHandler.write(mapper.writeValueAsString(types), pathType)
-    readFileContent(pathType) shouldBe loadFile("/expected/yml/types.yml")
+    val fileContent = readFileContent(pathType)
+    val expectedFileContent = loadFile(s"/expected/yml/types_${versionSuffix}.yml")
+    fileContent shouldBe expectedFileContent
     val resultType: Types = mapper.readValue[Types](storageHandler.read(pathType))
     resultType shouldBe types
 
