@@ -49,6 +49,8 @@ import scala.util.Try
 
 trait TestHelper extends FlatSpec with Matchers with BeforeAndAfterAll with StrictLogging {
 
+  def versionSuffix: String = TestHelperAux.versionSuffix
+
   val allTypes: List[TypeToImport] = List(
     TypeToImport(
       "default.yml",

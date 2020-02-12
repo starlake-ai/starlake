@@ -107,7 +107,8 @@ object Versions {
   val hive = "3.1.0"
   val log4s = "1.3.3"
   val betterFiles = "3.6.0"
-  val jackson = "2.7.9"
+  val jackson211 = "2.7.9"
+  val jackson212 = "2.9.5"  
   val configs = "0.4.4"
   val esHadoop = "7.5.1"
   val scopt = "4.0.0-RC2"
@@ -121,7 +122,7 @@ object Versions {
 
 object Resolvers {
 
-  val typeSafe = "Typesafe repository" at "http://repo.typesafe.com/typesafe/releases/"
+  val typeSafe = "Typesafe repository" at "https://repo.typesafe.com/typesafe/releases/"
 
   val allResolvers = Seq(
     typeSafe

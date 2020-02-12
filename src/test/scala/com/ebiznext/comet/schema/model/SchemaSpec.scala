@@ -78,31 +78,7 @@ class SchemaSpec extends TestHelper {
   }
 
   "Position serialization" should "output all fields" in {
-    val yml =
-      """---
-        |name: "hello"
-        |type: "string"
-        |array: false
-        |required: true
-        |privacy: "NONE"
-        |comment: null
-        |rename: null
-        |metricType: null
-        |attributes: null
-        |position:
-        |  first: 1
-        |  last: 2
-        |  trim: "NONE"
-        |default: null
-        |tags: null
-        |tpe:
-        |  name: "string"
-        |  pattern: ".+"
-        |  primitiveType: "string"
-        |  zone: null
-        |  sample: "Hello World"
-        |  comment: "Any set of chars"
-        |  indexMapping: null""".stripMargin
+    val yml = loadFile(s"/expected/yml/position_serialization_${versionSuffix}.yml")
 
     val attr = Attribute("hello", position = Some(Position(1, 2, Some(Trim.NONE))))
     val writer = new StringWriter()
