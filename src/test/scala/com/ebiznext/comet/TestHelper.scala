@@ -62,13 +62,16 @@ trait TestHelper extends FlatSpec with Matchers with BeforeAndAfterAll with Stri
     )
   )
 
+  import TestHelperAux.using
+  private def readSourceContentAsString(source: Source): String = source.getLines().mkString("\n")
+
   def loadFile(filename: String)(implicit codec: Codec): String = {
     val stream: InputStream = getClass.getResourceAsStream(filename)
-    scala.io.Source.fromInputStream(stream).getLines().mkString("\n")
+    using(Source.fromInputStream(stream))(readSourceContentAsString)
   }
 
   def readFileContent(path: String): String =
-    Source.fromFile(path).getLines.mkString("\n")
+    using(Source.fromFile(path))(readSourceContentAsString)
 
   def readFileContent(path: Path): String = readFileContent(path.toUri.getPath)
 
