@@ -59,7 +59,9 @@ class SparkEnv(name: String) extends StrictLogging {
           thisConf.set("spark." + key, value)
       }
     thisConf.set("spark.app.id", appName)
-    thisConf.getAll.foreach(x => logger.info(x._1 + "=" + x._2))
+    logger.whenDebugEnabled {
+      thisConf.getAll.foreach(x => logger.debug(x._1 + "=" + x._2))
+    }
     thisConf
   }
 

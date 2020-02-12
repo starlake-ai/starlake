@@ -36,6 +36,7 @@ import com.ebiznext.comet.utils.Utils
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.SparkSession
+import com.google.cloud.bigquery.{Schema => BQSchema}
 
 import scala.util.{Failure, Success, Try}
 
@@ -188,42 +189,6 @@ class IngestionWorkflow(
               launchHandler.ingest(this, domain, schema, ingestingPaths.toList)
             else
               ingestingPaths.foreach(launchHandler.ingest(this, domain, schema, _))
-
-            val meta = schema.mergedMetadata(domain.metadata)
-            meta.getIndexSink() match {
-              case Some(IndexSink.ES) if Settings.comet.elasticsearch.active =>
-                val properties = meta.properties
-                index(
-                  IndexConfig(
-                    timestamp = properties.flatMap(_.get("timestamp")),
-                    id = properties.flatMap(_.get("id")),
-                    format = "parquet",
-                    domain = domain.name,
-                    schema = schema.name
-                  )
-                )
-
-              case Some(IndexSink.BQ) =>
-                val (createDisposition: String, writeDisposition: String) = getBQDisposition(
-                  meta.getWriteMode()
-                )
-                bqload(
-                  BigQueryLoadConfig(
-                    sourceFile = new Path(DatasetArea.accepted(domain.name), schema.name).toString,
-                    outputTable = schema.name,
-                    outputDataset = domain.name,
-                    sourceFormat = "parquet",
-                    createDisposition = createDisposition,
-                    writeDisposition = writeDisposition,
-                    location = meta.getProperties().get("location"),
-                    outputPartition = meta.getProperties().get("timestamp"),
-                    days = meta.getProperties().get("days").map(_.toInt)
-                  ),
-                  Some(schema)
-                )
-              case _ =>
-              // ignore
-            }
           } catch {
             case t: Throwable =>
               t.printStackTrace()
@@ -335,22 +300,6 @@ class IngestionWorkflow(
     }
   }
 
-  private def getBQDisposition(writeMode: WriteMode) = {
-    val (createDisposition, writeDisposition) = writeMode match {
-      case WriteMode.OVERWRITE =>
-        ("CREATE_IF_NEEDED", "WRITE_TRUNCATE")
-      case WriteMode.APPEND =>
-        ("CREATE_IF_NEEDED", "WRITE_APPEND")
-      case WriteMode.ERROR_IF_EXISTS =>
-        ("CREATE_IF_NEEDED", "WRITE_EMPTY")
-      case WriteMode.IGNORE =>
-        ("CREATE_NEVER", "WRITE_EMPTY")
-      case _ =>
-        ("CREATE_IF_NEEDED", "WRITE_TRUNCATE")
-    }
-    (createDisposition, writeDisposition)
-  }
-
   def index(job: AutoJobDesc, task: AutoTaskDesc): Unit = {
     val targetArea = task.area.getOrElse(job.getArea())
     val targetPath = new Path(DatasetArea.path(task.domain, targetArea.value), task.dataset)
@@ -411,10 +360,10 @@ class IngestionWorkflow(
             case Some(IndexSink.ES) if Settings.comet.elasticsearch.active =>
               index(job, task)
             case Some(IndexSink.BQ) =>
-              val (createDisposition, writeDisposition) = this.getBQDisposition(task.write)
+              val (createDisposition, writeDisposition) = Utils.getBQDisposition(task.write)
               bqload(
                 BigQueryLoadConfig(
-                  sourceFile = task.getTargetPath(job.getArea()).toString,
+                  sourceFile = Left(task.getTargetPath(job.getArea()).toString),
                   outputTable = task.dataset,
                   outputDataset = task.domain,
                   sourceFormat = "parquet",
@@ -439,13 +388,11 @@ class IngestionWorkflow(
     new IndexJob(config, Settings.storageHandler).run()
   }
 
-  def bqload(config: BigQueryLoadConfig, maybeSchema: Option[Schema] = None): Try[SparkSession] = {
-    val res = new BigQueryLoadJob(config, Settings.storageHandler, maybeSchema).run()
-    res match {
-      case Success(_) => ;
-      case Failure(e) => logger.info("BQLoad Failed", e)
-    }
-    res
+  def bqload(
+    config: BigQueryLoadConfig,
+    maybeSchema: Option[BQSchema] = None
+  ): Try[SparkSession] = {
+    new BigQueryLoadJob(config, maybeSchema).run()
   }
 
   def atlas(config: AtlasConfig): Unit = {

@@ -175,11 +175,13 @@ class DsvIngestionJob(
       orderedSparkTypes
     )
     saveRejected(rejectedRDD)
-    saveAccepted(acceptedRDD, orderedSparkTypes)
+
+    val (df, _) = saveAccepted(acceptedRDD, orderedSparkTypes)
+    index(df)
     (rejectedRDD, acceptedRDD)
   }
 
-  def saveAccepted(acceptedRDD: RDD[Row], orderedSparkTypes: StructType): Path = {
+  def saveAccepted(acceptedRDD: RDD[Row], orderedSparkTypes: StructType): (DataFrame, Path) = {
     val renamedAttributes = schema.renamedAttributes().toMap
     logger.whenInfoEnabled {
       renamedAttributes.foreach {
@@ -193,7 +195,8 @@ class DsvIngestionJob(
         .col(column)
         .as(renamedAttributes.getOrElse(column, column))
     }
-    super.saveAccepted(acceptedDF.select(cols: _*))
+    val finalDF = acceptedDF.select(cols: _*)
+    super.saveAccepted(finalDF)
   }
 
 }
@@ -265,7 +268,7 @@ object DsvIngestionUtil {
 
     val rejectedRDD: RDD[String] = checkedRDD
       .filter(_.isRejected)
-      .map(rr => RowInfo(now, rr.colResults.map(_.colInfo)).toString)
+      .map(rr => RowInfo(now, rr.colResults.filter(!_.colInfo.success).map(_.colInfo)).toString)
 
     val acceptedRDD: RDD[Row] = checkedRDD.filter(_.isAccepted).map { rowResult =>
       val sparkValues: List[Any] = rowResult.colResults.map(_.sparkValue)
