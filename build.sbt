@@ -9,7 +9,7 @@ name := "comet"
 //val mavenLocal = "Local Maven" at Path.userHome.asFile.toURI.toURL + ".m2/repository"
 //resolvers += Resolver.mavenLocal
 
-lazy val scala212 = "2.12.8"
+lazy val scala212 = "2.12.10"
 lazy val scala211 = "2.11.12"
 lazy val supportedScalaVersions = List(scala212, scala211)
 
@@ -30,7 +30,14 @@ libraryDependencies := {
       case Some((2, scalaMajor)) if scalaMajor == 11 => spark211_240
     }
   }
-  dependencies ++ spark
+  val jackson = {
+    CrossVersion.partialVersion(scalaVersion.value) match {
+      case Some((2, scalaMajor)) if scalaMajor == 12 => jackson212
+      case Some((2, scalaMajor)) if scalaMajor == 11 => jackson211
+    }
+  }
+  
+  dependencies ++ spark ++ jackson
 }
 
 Common.enableCometAliases
