@@ -113,11 +113,11 @@ object Settings extends StrictLogging {
   )
 
   final case class Jdbc(
-                          uri: String,
-                          user: String,
-                          password: String,
-                          driver: String
-                        )
+    uri: String,
+    user: String,
+    password: String,
+    driver: String
+  )
 
   final case class Lock(
     path: String,
