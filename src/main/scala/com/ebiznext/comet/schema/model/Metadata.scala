@@ -26,6 +26,7 @@ import com.ebiznext.comet.schema.model.WriteMode.APPEND
 import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize
 import com.fasterxml.jackson.databind.{DeserializationContext, JsonDeserializer, JsonNode}
+import scala.language.postfixOps
 
 /**
   * Specify Schema properties.
