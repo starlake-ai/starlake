@@ -398,7 +398,9 @@ class IngestionWorkflow(
   }
 
   def jdbcload(config: JdbcLoadConfig): Try[SparkSession] = {
-    new JdbcLoadJob(config).run()
+    val loadJob = new JdbcLoadJob(config)
+    loadJob.getOrCreateTables()
+    loadJob.run()
   }
 
   def atlas(config: AtlasConfig): Unit = {
