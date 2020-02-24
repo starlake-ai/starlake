@@ -171,7 +171,9 @@ trait IngestionJob extends SparkJob {
             partitions = meta.getProperties().getOrElse("parttitions", "1").toInt,
             batchSize = meta.getProperties().getOrElse("batchsize", "1000").toInt
           )
-          val res = new JdbcLoadJob(jdbcConfig).run()
+          val loadJob = new JdbcLoadJob(jdbcConfig)
+          loadJob.getOrCreateTables()
+          val res = loadJob.run()
           res match {
             case Success(_) => ;
             case Failure(e) => logger.error("BQLoad Failed", e)
@@ -504,7 +506,9 @@ object IngestionUtil {
           partitions = settings.comet.audit.options.getOrDefault("parttitions", "1").toInt,
           batchSize = settings.comet.audit.options.getOrDefault("batchsize", "1000").toInt
         )
-        new JdbcLoadJob(jdbcConfig).run()
+        val loadJob = new JdbcLoadJob(jdbcConfig)
+        loadJob.getOrCreateTables()
+        loadJob.run()
       case "NONE" =>
         Success( () )
     }

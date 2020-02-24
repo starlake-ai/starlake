@@ -128,6 +128,10 @@ object Dependencies {
     "org.apache.hadoop" % "hadoop-client" % Versions.hadoop % "provided" excludeAll (jacksonExclusions: _*)
   )
 
-  val dependencies = logging ++ typedConfigs ++ okhttp ++ betterfiles ++ scalaTest ++ scopt ++ hadoop ++ esHadoop ++ sttp ++ gcp ++ azure // ++ atlas
+  val h2 = Seq(
+    "com.h2database" % "h2" % Versions.h2 % Test
+  )
+  val dependencies = logging ++ typedConfigs ++ okhttp ++ betterfiles ++ scalaTest ++ scopt ++ hadoop ++ esHadoop ++
+    sttp ++ gcp ++ azure ++ h2 // ++ atlas
 
 }

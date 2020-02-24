@@ -4,7 +4,8 @@ import java.sql.DriverManager
 
 import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.utils.{SparkJob, Utils}
-import org.apache.spark.sql.SparkSession
+import com.google.cloud.bigquery.JobInfo.WriteDisposition
+import org.apache.spark.sql.{SaveMode, SparkSession}
 
 import scala.util.{Failure, Success, Try}
 
@@ -15,7 +16,7 @@ class JdbcLoadJob(
   override def name: String = s"jdbcload-JDBC-${cliConfig.outputTable}"
 
   val conf = session.sparkContext.hadoopConfiguration
-  logger.info(s"BigQuery Config $cliConfig")
+  logger.info(s"JDBC Config $cliConfig")
   val driver = cliConfig.driver
   val url = cliConfig.url
   val user = cliConfig.user
@@ -24,14 +25,18 @@ class JdbcLoadJob(
 
   def getOrCreateTables() = {
     val conn = DriverManager.getConnection(url, user, password)
-    val stmt = conn.createStatement
-    val tables = List("jdbc-audit-table", "jdbc-rejected-table" /*, "jdbc-metrics-table" */ )
-    tables.foreach { table =>
-      val sqlCreateTable = Settings.comet.audit.options.get(table).format(cliConfig.outputTable)
-      stmt.executeUpdate(sqlCreateTable)
+    try {
+      val stmt = conn.createStatement
+      val tables = List("jdbc-audit-table", "jdbc-rejected-table" /*, "jdbc-metrics-table" */)
+      tables.foreach { table =>
+        // FIXME: find a way to locate the name of the table, test whether it exists, and if not THEN attempt creation
+        val sqlCreateTable = Settings.comet.audit.options.get(table).format(cliConfig.outputTable)
+        stmt.executeUpdate(sqlCreateTable)
+      }
+      stmt.close()
+    } finally {
+      conn.close()
     }
-    stmt.close()
-    conn.close()
   }
 
   def runJDBC(): Try[SparkSession] = {
@@ -47,12 +52,13 @@ class JdbcLoadJob(
         .format("jdbc")
         .option("numPartitions", cliConfig.partitions)
         .option("batchsize", cliConfig.batchSize)
-        .option("truncate", cliConfig.writeDisposition == "WRITE_TRUNCATE")
+        .option("truncate", cliConfig.writeDisposition == WriteDisposition.WRITE_TRUNCATE)
         .option("driver", driver)
         .option("url", url)
         .option("dbtable", cliConfig.outputTable)
         .option("user", user)
         .option("password", password)
+        .mode(SaveMode.Append)
         .save()
       session
     }
