@@ -505,6 +505,8 @@ object IngestionUtil {
           batchSize = settings.comet.audit.options.getOrDefault("batchsize", "1000").toInt
         )
         new JdbcLoadJob(jdbcConfig).run()
+      case "NONE" =>
+        Success( () )
     }
     res match {
       case Success(_) => Success(rejectedDF, rejectedPath)
