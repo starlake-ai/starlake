@@ -25,6 +25,7 @@ import com.ebiznext.comet.job.atlas.AtlasConfig
 import com.ebiznext.comet.job.bqload.BigQueryLoadConfig
 import com.ebiznext.comet.job.index.IndexConfig
 import com.ebiznext.comet.job.infer.InferSchemaConfig
+import com.ebiznext.comet.job.jdbcload.JdbcLoadConfig
 import com.ebiznext.comet.job.metrics.MetricsConfig
 import com.ebiznext.comet.utils.FileLock
 import com.ebiznext.comet.workflow.IngestionWorkflow
@@ -152,8 +153,15 @@ object Main extends StrictLogging {
       case "bqload" =>
         BigQueryLoadConfig.parse(args.drop(1)) match {
           case Some(config) =>
-            // do something
             workflow.bqload(config)
+          case _ =>
+            printUsage()
+        }
+
+      case "sqlload" =>
+        JdbcLoadConfig.parse(args.drop(1)) match {
+          case Some(config) =>
+            workflow.jdbcload(config)
           case _ =>
             printUsage()
         }
