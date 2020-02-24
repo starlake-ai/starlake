@@ -24,7 +24,7 @@ import java.sql.Timestamp
 
 import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.job.bqload.{BigQueryLoadConfig, BigQueryLoadJob}
-import com.ebiznext.comet.job.jdbcload.JdbcLoadConfig
+import com.ebiznext.comet.job.jdbcload.{JdbcLoadConfig, JdbcLoadJob}
 import com.ebiznext.comet.utils.FileLock
 import com.google.cloud.bigquery.JobInfo.{CreateDisposition, WriteDisposition}
 import com.google.cloud.bigquery.{Field, LegacySQLTypeName}
@@ -119,31 +119,36 @@ object SparkAuditLogWriter {
       )
       .toDF(auditCols.map(_._1): _*)
 
-    if (settings.comet.audit.index == "JDBC") {
-      val jdbcConfig = JdbcLoadConfig(
-        Right(auditDF),
-        "audit",
-        CreateDisposition.CREATE_IF_NEEDED,
-        WriteDisposition.WRITE_APPEND,
-        settings.comet.audit.options.get("jdbc-driver"),
-        settings.comet.audit.options.get("jdbc-uri"),
-        settings.comet.audit.options.get("jdbc-user"),
-        settings.comet.audit.options.get("jdbc-password")
-      )
-    }
-    else if (settings.comet.audit.index == "BQ") {
-      val bqConfig = BigQueryLoadConfig(
-        Right(auditDF),
-        settings.comet.audit.options.getOrDefault("bq-dataset", "audit"),
-        "audit",
-        None,
-        "parquet",
-        "CREATE_IF_NEEDED",
-        "WRITE_APPEND",
-        None,
-        None
-      )
-      new BigQueryLoadJob(bqConfig, Some(bigqueryAuditSchema())).run()
+    settings.comet.audit.index match {
+      case "JDBC" =>
+        val jdbcConfig = JdbcLoadConfig(
+          Right(auditDF),
+          "audit",
+          CreateDisposition.CREATE_IF_NEEDED,
+          WriteDisposition.WRITE_APPEND,
+          settings.comet.audit.options.get("jdbc-driver"),
+          settings.comet.audit.options.get("jdbc-uri"),
+          settings.comet.audit.options.get("jdbc-user"),
+          settings.comet.audit.options.get("jdbc-password")
+        )
+        new JdbcLoadJob(jdbcConfig).run()
+
+      case "BQ" =>
+        val bqConfig = BigQueryLoadConfig(
+          Right(auditDF),
+          settings.comet.audit.options.getOrDefault("bq-dataset", "audit"),
+          "audit",
+          None,
+          "parquet",
+          "CREATE_IF_NEEDED",
+          "WRITE_APPEND",
+          None,
+          None
+        )
+        new BigQueryLoadJob(bqConfig, Some(bigqueryAuditSchema())).run()
+
+      case "NONE" =>
+        // this is a NOP
     }
   }
 }
