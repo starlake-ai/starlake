@@ -27,16 +27,17 @@ import com.ebiznext.comet.job.bqload.{BigQueryLoadConfig, BigQueryLoadJob}
 import com.ebiznext.comet.job.index.{IndexConfig, IndexJob}
 import com.ebiznext.comet.job.infer.{InferConfig, InferSchema}
 import com.ebiznext.comet.job.ingest._
+import com.ebiznext.comet.job.jdbcload.{JdbcLoadConfig, JdbcLoadJob}
 import com.ebiznext.comet.job.metrics.{MetricsConfig, MetricsJob}
 import com.ebiznext.comet.job.transform.AutoTask
 import com.ebiznext.comet.schema.handlers.{LaunchHandler, SchemaHandler, StorageHandler}
 import com.ebiznext.comet.schema.model.Format._
 import com.ebiznext.comet.schema.model._
 import com.ebiznext.comet.utils.Utils
+import com.google.cloud.bigquery.{Schema => BQSchema}
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.SparkSession
-import com.google.cloud.bigquery.{Schema => BQSchema}
 
 import scala.util.{Failure, Success, Try}
 
@@ -361,7 +362,7 @@ class IngestionWorkflow(
             case Some(IndexSink.ES) if settings.comet.elasticsearch.active =>
               index(job, task)
             case Some(IndexSink.BQ) =>
-              val (createDisposition, writeDisposition) = Utils.getBQDisposition(task.write)
+              val (createDisposition, writeDisposition) = Utils.getDBDisposition(task.write)
               bqload(
                 BigQueryLoadConfig(
                   sourceFile = Left(task.getTargetPath(job.getArea()).toString),
@@ -394,6 +395,10 @@ class IngestionWorkflow(
     maybeSchema: Option[BQSchema] = None
   ): Try[SparkSession] = {
     new BigQueryLoadJob(config, maybeSchema).run()
+  }
+
+  def jdbcload(config: JdbcLoadConfig): Try[SparkSession] = {
+    new JdbcLoadJob(config).run()
   }
 
   def atlas(config: AtlasConfig): Unit = {

@@ -112,6 +112,13 @@ object Settings extends StrictLogging {
     maxErrors: Int
   )
 
+  final case class Jdbc(
+                          uri: String,
+                          user: String,
+                          password: String,
+                          driver: String
+                        )
+
   final case class Lock(
     path: String,
     metricsTimeout: Long,
@@ -175,6 +182,7 @@ object Settings extends StrictLogging {
     airflow: Airflow,
     elasticsearch: Elasticsearch,
     hadoop: juMap[String, String],
+    jdbc: Map[String, Jdbc],
     atlas: Atlas,
     privacy: Privacy,
     fileSystem: Option[String]
