@@ -76,7 +76,7 @@ object Utils {
     sw.toString
   }
 
-  def getBQDisposition(writeMode: WriteMode): (String, String) = {
+  def getDBDisposition(writeMode: WriteMode): (String, String) = {
     val (createDisposition, writeDisposition) = writeMode match {
       case WriteMode.OVERWRITE =>
         ("CREATE_IF_NEEDED", "WRITE_TRUNCATE")
