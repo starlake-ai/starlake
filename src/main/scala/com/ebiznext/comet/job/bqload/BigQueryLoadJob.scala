@@ -16,7 +16,7 @@ class BigQueryLoadJob(
 )(implicit val settings: Settings)
     extends SparkJob {
 
-  override def name: String = s"bqload-${cliConfig.outputTable}"
+  override def name: String = s"bqload-${cliConfig.outputDataset}-${cliConfig.outputTable}"
 
   val conf = session.sparkContext.hadoopConfiguration
   logger.info(s"BigQuery Config $cliConfig")
@@ -135,7 +135,7 @@ class BigQueryLoadJob(
     Try {
       bqPartition()
 
-      lazy val sourceDF =
+      val sourceDF =
         inputPath match {
           case Left(path) => session.read.parquet(path)
           case Right(df)  => df
