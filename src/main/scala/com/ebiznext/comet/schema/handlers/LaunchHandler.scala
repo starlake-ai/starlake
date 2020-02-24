@@ -85,6 +85,7 @@ trait LaunchHandler {
   def bqload(workflow: IngestionWorkflow, config: BigQueryLoadConfig)(
     implicit settings: Settings
   ): Boolean
+
   /**
     * Load to JDBC Database
     *
@@ -146,6 +147,7 @@ class SimpleLauncher extends LaunchHandler with StrictLogging {
     true
 
   }
+
   /**
     * Load to JDBC
     *

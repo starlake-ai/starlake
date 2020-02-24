@@ -41,7 +41,7 @@ object IndexSink {
 
   def fromString(value: String): IndexSink = {
     value.toUpperCase match {
-      case "JDBC"   => IndexSink.JDBC
+      case "JDBC" => IndexSink.JDBC
       case "BQ"   => IndexSink.BQ
       case "ES"   => IndexSink.ES
     }
