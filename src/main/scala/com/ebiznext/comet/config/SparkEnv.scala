@@ -48,11 +48,12 @@ class SparkEnv(name: String) extends StrictLogging {
 
     thisConf.setAppName(appName)
 
-    import scala.collection.JavaConversions._
+    import scala.collection.JavaConverters._
     ConfigFactory
       .load()
       .getConfig("spark")
       .entrySet()
+      .asScala
       .map(x => (x.getKey, x.getValue.unwrapped().toString))
       .foreach {
         case (key, value) =>

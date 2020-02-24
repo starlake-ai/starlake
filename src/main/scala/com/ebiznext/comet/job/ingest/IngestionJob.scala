@@ -21,6 +21,7 @@ import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types.{StringType, StructField, StructType, TimestampType}
 
 import scala.util.{Failure, Success, Try}
+import scala.language.existentials
 
 /**
   *
