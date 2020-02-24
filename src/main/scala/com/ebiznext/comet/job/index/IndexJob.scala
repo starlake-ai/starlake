@@ -57,9 +57,8 @@ class IndexJob(
           .json(path.toString)
 
       case "json-array" =>
-        val jsonRDD =
-          session.sparkContext.wholeTextFiles(path.toString).map(x => x._2)
-        session.read.json(jsonRDD)
+        val jsonDS = session.read.textFile(path.toString)
+        session.read.json(jsonDS)
 
       case "parquet" =>
         session.read.parquet(path.toString)
