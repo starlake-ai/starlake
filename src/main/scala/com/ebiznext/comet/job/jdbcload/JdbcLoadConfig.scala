@@ -5,19 +5,20 @@ import org.apache.spark.sql.DataFrame
 import scopt.OParser
 
 case class JdbcLoadConfig(
-                           sourceFile: Either[String, DataFrame] = Left(""),
-                           outputTable: String = "",
-                           createDisposition: CreateDisposition = CreateDisposition.CREATE_IF_NEEDED,
-                           writeDisposition: WriteDisposition = WriteDisposition.WRITE_APPEND,
-                           driver: String = "",
-                           url: String = "",
-                           user: String = "",
-                           password: String = "",
-                           partitions : Int = 1,
-                           batchSize : Int = 1000
+  sourceFile: Either[String, DataFrame] = Left(""),
+  outputTable: String = "",
+  createDisposition: CreateDisposition = CreateDisposition.CREATE_IF_NEEDED,
+  writeDisposition: WriteDisposition = WriteDisposition.WRITE_APPEND,
+  driver: String = "",
+  url: String = "",
+  user: String = "",
+  password: String = "",
+  partitions: Int = 1,
+  batchSize: Int = 1000
 )
 
 object JdbcLoadConfig {
+
   // comet bqload  --source_file xxx --output_table schema --source_format parquet --create_disposition  CREATE_IF_NEEDED --write_disposition WRITE_TRUNCATE
   //               --partitions 1  --batch_size 1000 --user username --password pwd -- url jdbcurl
   def parse(args: Seq[String]): Option[JdbcLoadConfig] = {

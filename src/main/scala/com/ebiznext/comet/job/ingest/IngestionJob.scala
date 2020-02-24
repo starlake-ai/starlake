@@ -71,10 +71,12 @@ trait IngestionJob extends SparkJob {
     val domainName = domain.name
     val schemaName = schema.name
     IngestionUtil.saveRejected(session, rejectedRDD, domainName, schemaName.toString, now) match {
-      case Success((rejectedDF, rejectedPath)) => (rejectedDF, rejectedPath)
+      case Success((rejectedDF, rejectedPath)) =>
+        (rejectedDF, rejectedPath)
         saveRows(rejectedDF, rejectedPath, WriteMode.APPEND, StorageArea.rejected, false)
         Success(rejectedPath)
-      case Failure(exception) => logger.error("Failed to save Rejected", exception)
+      case Failure(exception) =>
+        logger.error("Failed to save Rejected", exception)
         Failure(exception)
     }
   }
