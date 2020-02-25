@@ -23,6 +23,7 @@ package com.ebiznext.comet.job.ingest
 import java.sql.Timestamp
 
 import com.ebiznext.comet.config.Settings
+import com.ebiznext.comet.config.Settings.IndexOutput
 import com.ebiznext.comet.job.bqload.{BigQueryLoadConfig, BigQueryLoadJob}
 import com.ebiznext.comet.job.jdbcload.{JdbcLoadConfig, JdbcLoadJob}
 import com.ebiznext.comet.utils.FileLock
@@ -120,16 +121,22 @@ object SparkAuditLogWriter {
       .toDF(auditCols.map(_._1): _*)
 
     settings.comet.audit.index match {
-      case "JDBC" =>
-        val name = Settings.comet.audit.options.get("jdbc")
-        val jdbcConfig = JdbcLoadConfig.fromComet(name, Settings.comet, Right(auditDF), "audit")
+      case IndexOutput.Jdbc(name, partitions, batchSize) =>
+        val jdbcConfig = JdbcLoadConfig.fromComet(
+          name,
+          settings.comet,
+          Right(auditDF),
+          "audit",
+          partitions = partitions,
+          batchSize = batchSize
+        )
         new JdbcLoadJob(jdbcConfig).run()
 
-      case "BQ" =>
+      case IndexOutput.BigQuery(dataset) =>
         val bqConfig = BigQueryLoadConfig(
           Right(auditDF),
-          settings.comet.audit.options.getOrDefault("bq-dataset", "audit"),
-          "audit",
+          outputDataset = dataset,
+          outputTable = "audit",
           None,
           "parquet",
           "CREATE_IF_NEEDED",
@@ -139,8 +146,8 @@ object SparkAuditLogWriter {
         )
         new BigQueryLoadJob(bqConfig, Some(bigqueryAuditSchema())).run()
 
-      case "NONE" =>
-        // this is a NOP
+      case IndexOutput.None =>
+      // this is a NOP
     }
   }
 }
