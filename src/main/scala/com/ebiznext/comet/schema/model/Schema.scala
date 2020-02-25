@@ -192,8 +192,7 @@ case class Schema(
   def continuousAttrs()(implicit settings: Settings): List[Attribute] =
     attributes.filter(_.getMetricType() == MetricType.CONTINUOUS)
 
-  def mapping(template: Option[String], domainName: String)
-             (implicit settings: Settings): String = {
+  def mapping(template: Option[String], domainName: String)(implicit settings: Settings): String = {
     val attrs = attributes.map(_.mapping()).mkString(",")
     val properties =
       s"""
