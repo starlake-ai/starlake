@@ -84,7 +84,7 @@ trait TestHelper extends AnyFlatSpec with Matchers with BeforeAndAfterAll with S
         |COMET_METRICS_PATH="${cometTestRoot}/metrics/{domain}/{schema}"
         |COMET_AUDIT_PATH="${cometTestRoot}/audit"
         |
-        |include required("reference")
+        |include required("application-test.conf")
         |""".stripMargin,
       ConfigParseOptions.defaults().setAllowMissing(false)
     )

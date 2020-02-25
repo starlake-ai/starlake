@@ -22,9 +22,13 @@ case class JdbcLoadConfig(
 
 object JdbcLoadConfig {
 
-  def checkTablePresent(jdbcName: String, comet: Settings.Comet,
-                        jdbcOptions: Settings.Jdbc, jdbcEngine: Settings.JdbcEngine,
-                        outputTable: String): Unit = {
+  def checkTablePresent(
+    jdbcName: String,
+    comet: Settings.Comet,
+    jdbcOptions: Settings.Jdbc,
+    jdbcEngine: Settings.JdbcEngine,
+    outputTable: String
+  ): Unit = {
     val table = jdbcEngine.tables(outputTable)
 
     val conn = DriverManager.getConnection(jdbcOptions.uri, jdbcOptions.user, jdbcOptions.password)
@@ -45,16 +49,17 @@ object JdbcLoadConfig {
 
   }
 
-  def fromComet(jdbcName: String,
-            comet: Settings.Comet,
-            sourceFile: Either[String, DataFrame],
-            outputTable: String,
-            createDisposition: CreateDisposition = CreateDisposition.CREATE_IF_NEEDED,
-            writeDisposition: WriteDisposition = WriteDisposition.WRITE_APPEND,
-            partitions: Int = 1,
-            batchSize: Int = 1000,
-                createTableIfAbsent: Boolean = true
-           ): JdbcLoadConfig = {
+  def fromComet(
+    jdbcName: String,
+    comet: Settings.Comet,
+    sourceFile: Either[String, DataFrame],
+    outputTable: String,
+    createDisposition: CreateDisposition = CreateDisposition.CREATE_IF_NEEDED,
+    writeDisposition: WriteDisposition = WriteDisposition.WRITE_APPEND,
+    partitions: Int = 1,
+    batchSize: Int = 1000,
+    createTableIfAbsent: Boolean = true
+  ): JdbcLoadConfig = {
     // TODO: wanted to just call this "apply" but I'd need to get rid of the defaults in the ctor above
 
     val jdbcOptions = comet.jdbc(jdbcName)
@@ -70,10 +75,12 @@ object JdbcLoadConfig {
       outputTable = outputTableName,
       createDisposition = createDisposition,
       writeDisposition = writeDisposition,
-      jdbcEngine.driver, jdbcOptions.uri, jdbcOptions.user, jdbcOptions.password
+      jdbcEngine.driver,
+      jdbcOptions.uri,
+      jdbcOptions.user,
+      jdbcOptions.password
     )
   }
-
 
   // comet bqload  --source_file xxx --output_table schema --source_format parquet --create_disposition  CREATE_IF_NEEDED --write_disposition WRITE_TRUNCATE
   //               --partitions 1  --batch_size 1000 --user username --password pwd -- url jdbcurl

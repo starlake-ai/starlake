@@ -92,8 +92,33 @@ object Settings extends StrictLogging {
 
   final case class Elasticsearch(active: Boolean, options: juMap[String, String])
 
+  /**
+    * A type of Index Output (TODO: is the name right?)
+    *
+    * This is used to define an auxiliary output for Audit or Metrics data, in addition to the Parquets
+    * The default Index Output is None, but additional types exists (such as BigQuery or Jdbc)
+    *
+    */
+  sealed abstract class IndexOutput
 
+  object IndexOutput {
 
+    /**
+      * A no-operation Index Output (disabling external output beyond the in-lake parquets)
+      */
+    final case object None extends IndexOutput
+
+    /**
+      * Describes an Index Output delivering values into a BigQuery dataset
+      */
+    final case class BigQuery(bqDataset: String) extends IndexOutput
+
+    /**
+      * Describes an Index Output delivering values into a JDBC-accessible SQL database
+      */
+    final case class Jdbc(jdbcConnection: String, partitions: Int = 1, batchSize: Int = 1000)
+        extends IndexOutput
+  }
 
   /**
     *
@@ -104,15 +129,13 @@ object Settings extends StrictLogging {
     path: String,
     discreteMaxCardinality: Int,
     active: Boolean,
-    index: String,
-    options: juMap[String, String]
+    index: IndexOutput
   )
 
   final case class Audit(
     path: String,
     active: Boolean,
-    index: String,
-    options: juMap[String, String],
+    index: IndexOutput,
     maxErrors: Int
   )
 
@@ -148,8 +171,10 @@ object Settings extends StrictLogging {
   final case class JdbcEngine(
     driver: String,
     tables: scala.collection.Map[String, JdbcEngine.TableDdl]
-                               )
+  )
+
   object JdbcEngine {
+
     /**
       * A descriptor of the specific SQL DDL statements required to manage a specific Comet table in a JDBC-accessible
       * database engine
@@ -160,9 +185,7 @@ object Settings extends StrictLogging {
       *
       * @note pingSql is optional, and will default to `select * from $name where 1=0` as Spark SQL does
       */
-    final case class TableDdl(name: String,
-                              createSql: String,
-                              pingSql: Option[String] = None) {
+    final case class TableDdl(name: String, createSql: String, pingSql: Option[String] = None) {
       def effectivePingSql: String = pingSql.getOrElse(s"select * from $name where 1=0")
     }
   }
@@ -278,6 +301,9 @@ object Settings extends StrictLogging {
   def schemaHandler(implicit settings: Settings): SchemaHandler = settings.schemaHandler
 
   private implicit val jdbcEngineConfigs: Configs[JdbcEngine] = Configs.derive[JdbcEngine]
+  private implicit val indexOutputConfigs: Configs[IndexOutput] = Configs.derive[IndexOutput]
+
+  lazy val config: Config = ConfigFactory.load()
 
   def apply(
     config: Config = ConfigFactory
