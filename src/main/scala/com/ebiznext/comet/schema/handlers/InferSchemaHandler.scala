@@ -69,19 +69,11 @@ object InferSchemaHandler {
                 )
               else
                 // if it is a regular array. {ages: [21, 25]}
-                Attribute(
-                  row.name,
-                  elemType.typeName,
-                  Some(true),
-                  !row.nullable)
+                Attribute(row.name, elemType.typeName, Some(true), !row.nullable)
 
             // if the datatype is a simple Attribute
             case _ =>
-              Attribute(
-                row.name,
-                row.dataType.typeName,
-                Some(false),
-                !row.nullable)
+              Attribute(row.name, row.dataType.typeName, Some(false), !row.nullable)
         }
       )
       .toList
