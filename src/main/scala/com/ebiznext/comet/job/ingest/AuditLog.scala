@@ -123,9 +123,7 @@ object SparkAuditLogWriter {
       case "JDBC" =>
         val name = Settings.comet.audit.options.get("jdbc")
         val jdbcConfig = JdbcLoadConfig.fromComet(name, Settings.comet, Right(auditDF), "audit")
-        val loadJob = new JdbcLoadJob(jdbcConfig)
-        loadJob.getOrCreateTables()
-        loadJob.run()
+        new JdbcLoadJob(jdbcConfig).run()
 
       case "BQ" =>
         val bqConfig = BigQueryLoadConfig(
