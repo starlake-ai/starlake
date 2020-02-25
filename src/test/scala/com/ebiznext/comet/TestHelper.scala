@@ -23,6 +23,7 @@ package com.ebiznext.comet
 import java.io.{File, InputStream}
 import java.nio.file.Files
 import java.time.LocalDate
+import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.regex.Pattern
 
@@ -30,10 +31,13 @@ import com.ebiznext.comet.config.{DatasetArea, Settings}
 import com.ebiznext.comet.schema.handlers.{SchemaHandler, SimpleLauncher}
 import com.ebiznext.comet.schema.model._
 import com.ebiznext.comet.workflow.IngestionWorkflow
-import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.module.SimpleModule
+import com.fasterxml.jackson.databind.ser.DefaultSerializerProvider
+import com.fasterxml.jackson.databind.{InjectableValues, ObjectMapper}
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.fasterxml.jackson.module.scala.experimental.ScalaObjectMapper
+import com.typesafe.config.{Config, ConfigFactory, ConfigParseOptions, ConfigResolveOptions}
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.commons.io.FileUtils
 import org.apache.commons.io.filefilter.TrueFileFilter
@@ -48,6 +52,35 @@ import scala.io.{Codec, Source}
 import scala.util.Try
 
 trait TestHelper extends FlatSpec with Matchers with BeforeAndAfterAll with StrictLogging {
+
+  private lazy val cometTestPrefix: String = s"comet-test-${TestHelper.runtimeId}"
+  private lazy val cometTestInstanceId: String =
+    s"${this.getClass.getSimpleName}-${java.util.UUID.randomUUID()}"
+
+  lazy val cometTestId: String = s"${cometTestPrefix}-${cometTestInstanceId}"
+  lazy val cometTestRoot: String = Files.createTempDirectory(cometTestId).toAbsolutePath.toString
+  lazy val cometDatasetsPath: String = cometTestRoot + "/datasets"
+  lazy val cometMetadataPath: String = cometTestRoot + "/metadata"
+
+  def testConfiguration: Config = {
+    val rootConfig = ConfigFactory.parseString(
+      s"""
+        |COMET_ROOT="${cometTestRoot}"
+        |COMET_TEST_ID="${cometTestId}"
+        |COMET_DATASETS="${cometDatasetsPath}"
+        |COMET_METADATA="${cometMetadataPath}"
+        |COMET_TMPDIR="${cometTestRoot}/tmp"
+        |
+        |include required("reference")
+        |""".stripMargin,
+      ConfigParseOptions.defaults().setAllowMissing(false)
+    )
+    val testConfig = ConfigFactory.load(rootConfig, ConfigResolveOptions.noSystem())
+
+    testConfig
+  }
+
+  implicit lazy val settings: Settings = Settings(testConfiguration)
 
   def versionSuffix: String = TestHelperAux.versionSuffix
 
@@ -139,9 +172,30 @@ trait TestHelper extends FlatSpec with Matchers with BeforeAndAfterAll with Stri
         "User",
         Pattern.compile("SCHEMA-.*.dsv"),
         List(
-          Attribute("firstname", "string", Some(false), false, Some(PrivacyLevel.None)),
-          Attribute("lastname", "string", Some(false), false, Some(PrivacyLevel("SHA1"))),
-          Attribute("age", "age", Some(false), false, Some(PrivacyLevel("HIDE")))
+          Attribute(
+            "firstname",
+            "string",
+            Some(false),
+            false,
+            Some(PrivacyLevel.None),
+            settings = settings
+          ),
+          Attribute(
+            "lastname",
+            "string",
+            Some(false),
+            false,
+            Some(PrivacyLevel("SHA1")),
+            settings = settings
+          ),
+          Attribute(
+            "age",
+            "age",
+            Some(false),
+            false,
+            Some(PrivacyLevel("HIDE")),
+            settings = settings
+          )
         ),
         Some(Metadata(withHeader = Some(true))),
         None,
@@ -153,37 +207,37 @@ trait TestHelper extends FlatSpec with Matchers with BeforeAndAfterAll with Stri
     Some("Domain Comment")
   )
 
-  val mapper = new ObjectMapper(new YAMLFactory()) with ScalaObjectMapper
-  // provides all of the Scala goodiness
-  mapper.registerModule(DefaultScalaModule)
+  lazy val mapper: ObjectMapper with ScalaObjectMapper = {
+    val mapper = new ObjectMapper(new YAMLFactory()) with ScalaObjectMapper
+    // provides all of the Scala goodiness
+    mapper.registerModule(DefaultScalaModule)
+    //mapper.registerModule(new SimpleModule().setMixInAnnotation(classOf[ObjectMapper], classOf[SchemaHandler.MixinsForObjectMapper]))
+    mapper.setInjectableValues({
+      val iv = new InjectableValues.Std()
+      iv.addValue(classOf[Settings], settings)
+      iv: InjectableValues
+    })
 
-  lazy val cometDatasetsPath = TestHelper.tempFile + "/datasets"
-  lazy val cometMetadataPath = TestHelper.tempFile + "/metadata"
+    mapper
+  }
 
   private val sparkSessionInterest = TestHelper.TestSparkSessionInterest()
 
   lazy val sparkSession = sparkSessionInterest.get
 
-  /**
-    * Never ever use Settings.something before this method is called
-    * This would break tests
-    * So we make everything lazy here
-    */
-  lazy val storageHandler = Settings.storageHandler
+  def storageHandler = settings.storageHandler
 
   override protected def beforeAll(): Unit = {
     super.beforeAll()
 
     // Init
-    System.setProperty("COMET_DATASETS", cometDatasetsPath)
-    System.setProperty("COMET_METADATA", cometMetadataPath)
-
+    new File(cometTestRoot).mkdirs()
     new File(cometDatasetsPath).mkdir()
     new File(cometMetadataPath).mkdir()
-    new File("/tmp/DOMAIN").mkdir()
-    new File("/tmp/dream").mkdir()
-    new File("/tmp/json").mkdir()
-    new File("/tmp/position").mkdir()
+    new File(cometTestRoot + "/DOMAIN").mkdir()
+    new File(cometTestRoot + "/dream").mkdir()
+    new File(cometTestRoot + "/json").mkdir()
+    new File(cometTestRoot + "/position").mkdir()
 
     allTypes.foreach { typeToImport =>
       val typesPath = new Path(DatasetArea.types, typeToImport.name)
@@ -385,11 +439,7 @@ object TestHelper {
     }
   }
 
-  // Use the same temp file for all UT
-  val tempFile: String = {
-    val fs = Option(System.getenv("COMET_FS"))
-    fs.getOrElse((Files.createTempDirectory("comet")).toString)
-  }
+  private val runtimeId: String = UUID.randomUUID().toString
 }
 
 case class TypeToImport(name: String, path: String)

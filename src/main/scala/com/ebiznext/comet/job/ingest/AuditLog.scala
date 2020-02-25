@@ -91,7 +91,9 @@ object SparkAuditLogWriter {
     BQSchema.of(fields: _*)
   }
 
-  def append(session: SparkSession, log: AuditLog) = {
+  def append(session: SparkSession, log: AuditLog)(
+    implicit /* TODO: make me explicit */ settings: Settings
+  ) = {
     val lockPath = new Path(Settings.comet.audit.path, s"audit.lock")
     val locker = new FileLock(lockPath, Settings.storageHandler)
     import session.implicits._

@@ -49,7 +49,8 @@ class AutoTask(
   views: Option[Map[String, String]],
   task: AutoTaskDesc,
   storageHandler: StorageHandler
-) extends SparkJob {
+)(implicit val settings: Settings)
+    extends SparkJob {
 
   def run(): Try[SparkSession] = {
     udf.foreach { udf =>

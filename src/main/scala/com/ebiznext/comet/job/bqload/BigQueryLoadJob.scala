@@ -13,7 +13,8 @@ import scala.util.{Failure, Success, Try}
 class BigQueryLoadJob(
   cliConfig: BigQueryLoadConfig,
   maybeSchema: scala.Option[BQSchema] = None
-) extends SparkJob {
+)(implicit /* TODO: make me explicit */ val settings: Settings)
+    extends SparkJob {
 
   override def name: String = s"bqload-${cliConfig.outputTable}"
 
