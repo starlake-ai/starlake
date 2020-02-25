@@ -1,5 +1,7 @@
 package com.ebiznext.comet.job.jdbcload
 
+import java.sql.{DriverManager, SQLException}
+
 import com.ebiznext.comet.config.Settings
 import com.google.cloud.bigquery.JobInfo.{CreateDisposition, WriteDisposition}
 import org.apache.spark.sql.DataFrame
@@ -20,6 +22,29 @@ case class JdbcLoadConfig(
 
 object JdbcLoadConfig {
 
+  def checkTablePresent(jdbcName: String, comet: Settings.Comet,
+                        jdbcOptions: Settings.Jdbc, jdbcEngine: Settings.JdbcEngine,
+                        outputTable: String): Unit = {
+    val table = jdbcEngine.tables(outputTable)
+
+    val conn = DriverManager.getConnection(jdbcOptions.uri, jdbcOptions.user, jdbcOptions.password)
+
+    try {
+      val stmt = conn.createStatement
+      try {
+        val rs = stmt.executeQuery(table.effectivePingSql)
+        rs.close() // we don't need to fetch the result, it should be empty anyways.
+      } catch {
+        case _: SQLException =>
+          stmt.executeUpdate(table.createSql)
+      }
+      stmt.close()
+    } finally {
+      conn.close()
+    }
+
+  }
+
   def fromComet(jdbcName: String,
             comet: Settings.Comet,
             sourceFile: Either[String, DataFrame],
@@ -27,13 +52,18 @@ object JdbcLoadConfig {
             createDisposition: CreateDisposition = CreateDisposition.CREATE_IF_NEEDED,
             writeDisposition: WriteDisposition = WriteDisposition.WRITE_APPEND,
             partitions: Int = 1,
-            batchSize: Int = 1000
+            batchSize: Int = 1000,
+                createTableIfAbsent: Boolean = true
            ): JdbcLoadConfig = {
     // TODO: wanted to just call this "apply" but I'd need to get rid of the defaults in the ctor above
 
     val jdbcOptions = comet.jdbc(jdbcName)
     val jdbcEngine = comet.jdbcEngines(jdbcOptions.engine)
     val outputTableName = jdbcEngine.tables(outputTable).name
+
+    if (createTableIfAbsent) {
+      checkTablePresent(jdbcName, comet, jdbcOptions, jdbcEngine, outputTable)
+    }
 
     JdbcLoadConfig(
       sourceFile = sourceFile,
@@ -42,8 +72,6 @@ object JdbcLoadConfig {
       writeDisposition = writeDisposition,
       jdbcEngine.driver, jdbcOptions.uri, jdbcOptions.user, jdbcOptions.password
     )
-
-
   }
 
 

@@ -92,6 +92,9 @@ object Settings extends StrictLogging {
 
   final case class Elasticsearch(active: Boolean, options: juMap[String, String])
 
+
+
+
   /**
     *
     * @param discreteMaxCardinality : Max number of unique values allowed in cardinality compute
@@ -117,8 +120,8 @@ object Settings extends StrictLogging {
     * Describes a connection to a JDBC-accessible database engine
     *
     * @param uri the URI of the database engine. It must start with "jdbc:"
-    * @param user the username under which to connect to the database engine (TODO: make me optional)
-    * @param password the password to use in order to connect to the database engine (TODO: make me optional)
+    * @param user the username under which to connect to the database engine
+    * @param password the password to use in order to connect to the database engine
     * @param engineOverride the index into the [[Comet.jdbcEngines]] map of the underlying database engine, in case
     *                       one cannot use the engine name from the uri
     *
@@ -128,8 +131,8 @@ object Settings extends StrictLogging {
     */
   final case class Jdbc(
     uri: String,
-    user: String,
-    password: String,
+    user: String = "",
+    password: String = "",
     engineOverride: Option[String] = None
   ) {
     def engine: String = engineOverride.getOrElse(uri.split(':')(1))
@@ -153,8 +156,15 @@ object Settings extends StrictLogging {
       *
       * @param name the name of the table as it is known on the database engine
       * @param createSql the SQL Create Table statement with the database-specific type, constraints etc. tacked on.
+      * @param pingSql a cheap SQL query whose results are irrelevant but guaranteed to trigger an error in case the table is absent
+      *
+      * @note pingSql is optional, and will default to `select * from $name where 1=0` as Spark SQL does
       */
-    final case class TableDdl(name: String, createSql: String /* TODO: pingSql */)
+    final case class TableDdl(name: String,
+                              createSql: String,
+                              pingSql: Option[String] = None) {
+      def effectivePingSql: String = pingSql.getOrElse(s"select * from $name where 1=0")
+    }
   }
 
 
