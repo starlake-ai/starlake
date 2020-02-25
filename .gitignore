@@ -121,3 +121,6 @@ src/test/resources/application.conf
 # Unix traditional
 *~
 ~*
+
+#Mac
+.DS_Store
