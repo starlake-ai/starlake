@@ -21,6 +21,7 @@
 package com.ebiznext.comet.config
 
 import java.io.ObjectStreamException
+import java.util.concurrent.TimeUnit
 import java.util.{Locale, UUID, Map => juMap}
 
 import com.ebiznext.comet.schema.handlers.{
@@ -31,12 +32,22 @@ import com.ebiznext.comet.schema.handlers.{
   SimpleLauncher,
   StorageHandler
 }
-import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.core.{JsonGenerator, JsonParser}
+import com.fasterxml.jackson.databind.annotation.{JsonDeserialize, JsonSerialize}
+import com.fasterxml.jackson.databind.{
+  DeserializationContext,
+  JsonDeserializer,
+  JsonSerializer,
+  ObjectMapper,
+  SerializerProvider
+}
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.typesafe.config.{Config, ConfigFactory, ConfigValue, ConfigValueFactory}
 import com.typesafe.scalalogging.{Logger, StrictLogging}
 import configs.syntax._
 import org.slf4j.MDC
+
+import scala.concurrent.duration.FiniteDuration
 
 object Settings extends StrictLogging {
   private def loggerForCompanionInstances: Logger = logger
@@ -106,7 +117,30 @@ object Settings extends StrictLogging {
     maxErrors: Int
   )
 
-  final case class Lock(path: String, metricsTimeout: Long, ingestionTimeout: Long)
+  final case class Lock(
+    path: String,
+    metricsTimeout: Long,
+    ingestionTimeout: Long,
+    @JsonSerialize(using = classOf[FiniteDurationSerializer])
+    @JsonDeserialize(using = classOf[FiniteDurationDeserializer])
+    pollTime: FiniteDuration = FiniteDuration(5000L, TimeUnit.MILLISECONDS)
+  )
+
+  final class FiniteDurationSerializer extends JsonSerializer[FiniteDuration] {
+    override def serialize(
+      value: FiniteDuration,
+      gen: JsonGenerator,
+      serializers: SerializerProvider
+    ): Unit = {
+      gen.writeNumber(value.toMillis)
+    }
+  }
+  final class FiniteDurationDeserializer extends JsonDeserializer[FiniteDuration] {
+    override def deserialize(p: JsonParser, ctxt: DeserializationContext): FiniteDuration = {
+      val milliseconds = ctxt.readValue(p, classOf[Long])
+      FiniteDuration.apply(milliseconds, TimeUnit.MILLISECONDS)
+    }
+  }
 
   final case class Atlas(uri: String, user: String, password: String, owner: String)
 
@@ -183,13 +217,13 @@ object Settings extends StrictLogging {
     }
   }
 
-  @deprecated("please use and pass on a Settings instance instead")
+  @deprecated("please use and pass on a Settings instance instead", "2020-02-25")
   def comet(implicit settings: Settings): Comet = settings.comet
 
-  @deprecated("please use and pass on a Settings instance instead")
+  @deprecated("please use and pass on a Settings instance instead", "2020-02-25")
   def storageHandler(implicit settings: Settings): HdfsStorageHandler = settings.storageHandler
 
-  @deprecated("please use and pass on a Settings instance instead")
+  @deprecated("please use and pass on a Settings instance instead", "2020-02-25")
   def schemaHandler(implicit settings: Settings): SchemaHandler = settings.schemaHandler
 
   def apply(
