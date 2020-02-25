@@ -56,7 +56,8 @@ class IngestionWorkflow(
   storageHandler: StorageHandler,
   schemaHandler: SchemaHandler,
   launchHandler: LaunchHandler
-) extends StrictLogging {
+)(implicit /* TODO: make me explicit */ settings: Settings)
+    extends StrictLogging {
   val domains: List[Domain] = schemaHandler.domains
 
   /**

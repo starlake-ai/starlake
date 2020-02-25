@@ -45,7 +45,9 @@ trait LaunchHandler {
     * @param path   : absolute path where the source dataset  (JSON / CSV / ...) is located
     * @return success / failure
     */
-  def ingest(workflow: IngestionWorkflow, domain: Domain, schema: Schema, path: Path): Boolean =
+  def ingest(workflow: IngestionWorkflow, domain: Domain, schema: Schema, path: Path)(
+    implicit /* TODO: make me explicit */ settings: Settings
+  ): Boolean =
     ingest(workflow, domain, schema, path :: Nil)
 
   /**
@@ -62,21 +64,25 @@ trait LaunchHandler {
     domain: Domain,
     schema: Schema,
     paths: List[Path]
-  ): Boolean
+  )(implicit /* TODO: make me explicit */ settings: Settings): Boolean
 
   /**
     * Index into elasticsearch
     *
     * @param config
     */
-  def index(workflow: IngestionWorkflow, config: IndexConfig): Boolean
+  def index(workflow: IngestionWorkflow, config: IndexConfig)(
+    implicit /* TODO: make me explicit */ settings: Settings
+  ): Boolean
 
   /**
     * Load to BigQuery
     *
     * @param config
     */
-  def bqload(workflow: IngestionWorkflow, config: BigQueryLoadConfig): Boolean
+  def bqload(workflow: IngestionWorkflow, config: BigQueryLoadConfig)(
+    implicit /* TODO: make me explicit */ settings: Settings
+  ): Boolean
 }
 
 /**
@@ -98,7 +104,7 @@ class SimpleLauncher extends LaunchHandler with StrictLogging {
     domain: Domain,
     schema: Schema,
     paths: List[Path]
-  ): Boolean = {
+  )(implicit /* TODO: make me explicit */ settings: Settings): Boolean = {
     logger.info(s"Launch Ingestion: ${domain.name} ${schema.name} $paths ")
     workflow.ingest(domain.name, schema.name, paths)
     true
@@ -109,7 +115,9 @@ class SimpleLauncher extends LaunchHandler with StrictLogging {
     *
     * @param config
     */
-  override def index(workflow: IngestionWorkflow, config: IndexConfig): Boolean = {
+  override def index(workflow: IngestionWorkflow, config: IndexConfig)(
+    implicit /* TODO: make me explicit */ settings: Settings
+  ): Boolean = {
     logger.info(s"Launch index: ${config}")
     workflow.index(config)
     true
@@ -120,7 +128,9 @@ class SimpleLauncher extends LaunchHandler with StrictLogging {
     *
     * @param config
     */
-  override def bqload(workflow: IngestionWorkflow, config: BigQueryLoadConfig): Boolean = {
+  override def bqload(workflow: IngestionWorkflow, config: BigQueryLoadConfig)(
+    implicit /* TODO: make me explicit */ settings: Settings
+  ): Boolean = {
     logger.info(s"Launch bq: ${config}")
     workflow.bqload(config)
     true
@@ -172,7 +182,7 @@ class AirflowLauncher extends LaunchHandler with StrictLogging {
     domain: Domain,
     schema: Schema,
     paths: List[Path]
-  ): Boolean = {
+  )(implicit /* TODO: make me explicit */ settings: Settings): Boolean = {
     val endpoint = Settings.comet.airflow.endpoint
     val ingest = Settings.comet.airflow.ingest
     val url = s"$endpoint/dags/$ingest/dag_runs"
@@ -189,7 +199,9 @@ class AirflowLauncher extends LaunchHandler with StrictLogging {
     *
     * @param config
     */
-  override def index(workflow: IngestionWorkflow, config: IndexConfig): Boolean = {
+  override def index(workflow: IngestionWorkflow, config: IndexConfig)(
+    implicit /* TODO: make me explicit */ settings: Settings
+  ): Boolean = {
     val endpoint = Settings.comet.airflow.endpoint
     val url = s"$endpoint/dags/comet_index/dag_runs"
     // comet index --domain domain --schema schema --resource index-name/type-name --id type-id --mapping mapping
@@ -214,7 +226,9 @@ class AirflowLauncher extends LaunchHandler with StrictLogging {
     *
     * @param config
     */
-  override def bqload(workflow: IngestionWorkflow, config: BigQueryLoadConfig): Boolean = {
+  override def bqload(workflow: IngestionWorkflow, config: BigQueryLoadConfig)(
+    implicit /* TODO: make me explicit */ settings: Settings
+  ): Boolean = {
     val endpoint = Settings.comet.airflow.endpoint
     val url = s"$endpoint/dags/comet_bqload/dag_runs"
     val params = List(

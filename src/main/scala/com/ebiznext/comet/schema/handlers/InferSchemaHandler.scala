@@ -37,7 +37,9 @@ object InferSchemaHandler {
     * @param schema Schema so that we find all Attributes
     * @return List of Attributes
     */
-  def createAttributes(schema: StructType): List[Attribute] = {
+  def createAttributes(
+    schema: StructType
+  )(implicit /* TODO: make me explicit */ settings: Settings): List[Attribute] = {
     schema
       .map(
         row =>
@@ -50,7 +52,8 @@ object InferSchemaHandler {
                 row.dataType.typeName,
                 Some(false),
                 !row.nullable,
-                attributes = Some(createAttributes(row.dataType.asInstanceOf[StructType]))
+                attributes = Some(createAttributes(row.dataType.asInstanceOf[StructType])),
+                settings = settings
               )
 
             case "array" =>
@@ -63,14 +66,28 @@ object InferSchemaHandler {
                   elemType.typeName,
                   Some(true),
                   !row.nullable,
-                  attributes = Some(createAttributes(elemType.asInstanceOf[StructType]))
+                  attributes = Some(createAttributes(elemType.asInstanceOf[StructType])),
+                  settings = settings
                 )
               else
                 // if it is a regular array. {ages: [21, 25]}
-                Attribute(row.name, elemType.typeName, Some(true), !row.nullable)
+                Attribute(
+                  row.name,
+                  elemType.typeName,
+                  Some(true),
+                  !row.nullable,
+                  settings = settings
+                )
 
             // if the datatype is a simple Attribute
-            case _ => Attribute(row.name, row.dataType.typeName, Some(false), !row.nullable)
+            case _ =>
+              Attribute(
+                row.name,
+                row.dataType.typeName,
+                Some(false),
+                !row.nullable,
+                settings = settings
+              )
         }
       )
       .toList
@@ -150,7 +167,9 @@ object InferSchemaHandler {
     * @param domain   Domain case class
     * @param savePath path to save files.
     */
-  def generateYaml(domain: Domain, savePath: String): Unit = {
+  def generateYaml(domain: Domain, savePath: String)(
+    implicit /* TODO: make me explicit */ settings: Settings
+  ): Unit = {
     val obj = Settings.storageHandler.read(new Path(savePath))
     val objw = new StringWriter()
     objw.write(obj)

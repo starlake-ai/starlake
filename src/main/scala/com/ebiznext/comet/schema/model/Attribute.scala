@@ -22,8 +22,10 @@ package com.ebiznext.comet.schema.model
 
 import java.util.regex.Pattern
 
-import com.fasterxml.jackson.annotation.JsonIgnore
+import com.ebiznext.comet.config.Settings
+import com.fasterxml.jackson.annotation.{JacksonInject, JsonIgnore}
 import com.typesafe.scalalogging.LazyLogging
+import javax.swing.UIDefaults.LazyInputMap
 import org.apache.spark.sql.types._
 
 import scala.collection.mutable
@@ -55,8 +57,15 @@ case class Attribute(
   attributes: Option[List[Attribute]] = None,
   position: Option[Position] = None,
   default: Option[String] = None,
-  tags: Option[Set[String]] = None
+  tags: Option[Set[String]] = None,
+  @JacksonInject("com.ebiznext.comet.config.Settings")
+  @JsonIgnore
+  settings: Settings
 ) extends LazyLogging {
+
+  override def toString: String =
+    // we pretend the "settings" field does not exist
+    s"Attribute(${name},${`type`},${array},${required},${privacy},${comment},${rename},${metricType},${attributes},${position},${default},${tags})"
 
   /**
     * Check attribute validity
@@ -68,7 +77,6 @@ case class Attribute(
     * @return true if attribute is valid
     */
   def checkValidity(): Either[List[String], Boolean] = {
-    import com.ebiznext.comet.config.Settings.schemaHandler
     val errorList: mutable.MutableList[String] = mutable.MutableList.empty
     if (`type` == null)
       errorList += s"$this : unspecified type"
@@ -80,7 +88,6 @@ case class Attribute(
     if (!rename.forall(colNamePattern.matcher(_).matches()))
       errorList += s"renamed attribute with renamed name '$rename' should respect the pattern ${colNamePattern.pattern()}"
 
-    val tpe = schemaHandler.types.find(_.name == `type`)
     val primitiveType = tpe.map(_.primitiveType)
 
     primitiveType match {
@@ -127,8 +134,7 @@ case class Attribute(
   }
 
   lazy val tpe: Option[Type] = {
-    import com.ebiznext.comet.config.Settings.schemaHandler
-    schemaHandler.types
+    settings.schemaHandler.types
       .find(_.name == `type`)
   }
 

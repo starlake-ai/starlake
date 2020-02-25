@@ -427,7 +427,7 @@ object IngestionUtil {
     domainName: String,
     schemaName: String,
     now: Timestamp
-  ): (DataFrame, Path) = {
+  )(implicit /* TODO: make me explicit */ settings: Settings): (DataFrame, Path) = {
     import session.implicits._
     val rejectedPath = new Path(DatasetArea.rejected(domainName), schemaName)
     val rejectedPathName = rejectedPath.toString
@@ -466,6 +466,8 @@ object IngestionUtil {
     colRawValue: String,
     colAttribute: Attribute,
     tpe: Type
+  )(
+    implicit /* TODO: make me explicit. Avoid rebuilding the PrivacyLevel(settings) at each invocation? */ settings: Settings
   ): ColResult = {
     def ltrim(s: String) = s.replaceAll("^\\s+", "")
     def rtrim(s: String) = s.replaceAll("\\s+$", "")
