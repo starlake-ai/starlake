@@ -1,5 +1,6 @@
 package com.ebiznext.comet.job.jdbcload
 
+import com.ebiznext.comet.config.Settings
 import com.google.cloud.bigquery.JobInfo.{CreateDisposition, WriteDisposition}
 import org.apache.spark.sql.DataFrame
 import scopt.OParser
@@ -18,6 +19,33 @@ case class JdbcLoadConfig(
 )
 
 object JdbcLoadConfig {
+
+  def fromComet(jdbcName: String,
+            comet: Settings.Comet,
+            sourceFile: Either[String, DataFrame],
+            outputTable: String,
+            createDisposition: CreateDisposition = CreateDisposition.CREATE_IF_NEEDED,
+            writeDisposition: WriteDisposition = WriteDisposition.WRITE_APPEND,
+            partitions: Int = 1,
+            batchSize: Int = 1000
+           ): JdbcLoadConfig = {
+    // TODO: wanted to just call this "apply" but I'd need to get rid of the defaults in the ctor above
+
+    val jdbcOptions = comet.jdbc(jdbcName)
+    val jdbcEngine = comet.jdbcEngines(jdbcOptions.engine)
+    val outputTableName = jdbcEngine.tables(outputTable).name
+
+    JdbcLoadConfig(
+      sourceFile = sourceFile,
+      outputTable = outputTableName,
+      createDisposition = createDisposition,
+      writeDisposition = writeDisposition,
+      jdbcEngine.driver, jdbcOptions.uri, jdbcOptions.user, jdbcOptions.password
+    )
+
+
+  }
+
 
   // comet bqload  --source_file xxx --output_table schema --source_format parquet --create_disposition  CREATE_IF_NEEDED --write_disposition WRITE_TRUNCATE
   //               --partitions 1  --batch_size 1000 --user username --password pwd -- url jdbcurl
