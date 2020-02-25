@@ -13,10 +13,3 @@ position:
   trim: "NONE"
 default: null
 tags: null
-tpe:
-  name: "string"
-  pattern: ".+"
-  primitiveType: "string"
-  zone: null
-  sample: "Hello World"
-  comment: "Any set of chars"

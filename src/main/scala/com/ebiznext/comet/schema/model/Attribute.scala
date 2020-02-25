@@ -57,10 +57,7 @@ case class Attribute(
   attributes: Option[List[Attribute]] = None,
   position: Option[Position] = None,
   default: Option[String] = None,
-  tags: Option[Set[String]] = None,
-  @JacksonInject("com.ebiznext.comet.config.Settings")
-  @JsonIgnore
-  settings: Settings
+  tags: Option[Set[String]] = None
 ) extends LazyLogging {
 
   override def toString: String =
@@ -76,7 +73,7 @@ case class Attribute(
     *
     * @return true if attribute is valid
     */
-  def checkValidity(): Either[List[String], Boolean] = {
+  def checkValidity()(implicit settings: Settings): Either[List[String], Boolean] = {
     val errorList: mutable.MutableList[String] = mutable.MutableList.empty
     if (`type` == null)
       errorList += s"$this : unspecified type"
@@ -133,7 +130,7 @@ case class Attribute(
       Right(true)
   }
 
-  lazy val tpe: Option[Type] = {
+  def tpe(implicit settings: Settings): Option[Type] = {
     settings.schemaHandler.types
       .find(_.name == `type`)
   }
@@ -144,7 +141,7 @@ case class Attribute(
     *
     * @return Primitive type if attribute is a leaf node or array of primitive type, None otherwise
     */
-  def primitiveSparkType(): DataType = {
+  def primitiveSparkType()(implicit settings: Settings): DataType = {
     tpe
       .map(_.primitiveType)
       .map { tpe =>
@@ -161,7 +158,7 @@ case class Attribute(
     *
     * @return Spark type of this attribute
     */
-  def sparkType(): DataType = {
+  def sparkType()(implicit settings: Settings): DataType = {
     val tpe = primitiveSparkType()
     tpe match {
       case _: StructType =>
@@ -179,7 +176,7 @@ case class Attribute(
     }
   }
 
-  def mapping(): String = {
+  def mapping()(implicit settings: Settings): String = {
     attributes match {
       case Some(attrs) =>
         s"""
@@ -243,7 +240,7 @@ case class Attribute(
   def isRequired(): Boolean = Option(this.required).getOrElse(false)
 
   @JsonIgnore
-  def getMetricType(): MetricType = {
+  def getMetricType()(implicit settings: Settings): MetricType = {
     import com.ebiznext.comet.utils.DataTypeEx._
     val sparkType = tpe.map(_.primitiveType.sparkType)
     logger.info(s"Attribute Metric ==> $name, $metricType, $sparkType")
