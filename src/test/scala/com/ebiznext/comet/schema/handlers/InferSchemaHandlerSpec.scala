@@ -4,9 +4,9 @@ import com.ebiznext.comet.schema.model.Attribute
 
 class InferSchemaHandlerSpec extends TestHelper {
 
-  import sparkSession.implicits._
-
   "CreateAttributes" should "create the correct list of attributes for a complex Json" in {
+    val sparkImplicits = sparkSession.implicits
+    import sparkImplicits._
 
     val ComplexjsonStr = """{ "metadata": { "key": 84896, "value": 54 }}"""
 
@@ -34,6 +34,9 @@ class InferSchemaHandlerSpec extends TestHelper {
   }
 
   "CreateAttributes" should "create the correct list of attributes for a simple Json" in {
+    val sparkImplicits = sparkSession.implicits
+    import sparkImplicits._
+
     val SimpleJsonStr = """{ "key": "Fares", "value": 3 }}"""
 
     val df1 = sparkSession.read
@@ -50,6 +53,9 @@ class InferSchemaHandlerSpec extends TestHelper {
   }
 
   "CreateAttributes" should "create the correct list of attributes for an array Json" in {
+    val sparkImplicits = sparkSession.implicits
+    import sparkImplicits._
+
     val arrayJson = """
       |[
       |	{
