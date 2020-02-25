@@ -154,29 +154,29 @@ trait IngestionJob extends SparkJob {
         }
 
       case Some(IndexSink.JDBC) =>
-        val (createDisposition: String, writeDisposition: String) = Utils.getDBDisposition(
-          meta.getWriteMode()
-        )
-        meta.getProperties().get("jdbc").foreach { name =>
-          val jdbcOptions = settings.comet.jdbc(name)
-          val jdbcConfig = JdbcLoadConfig(
-            sourceFile = Right(mergedDF),
-            outputTable = schema.name,
-            createDisposition = CreateDisposition.valueOf(createDisposition),
-            writeDisposition = WriteDisposition.valueOf(writeDisposition),
-            jdbcOptions.driver,
-            jdbcOptions.uri,
-            jdbcOptions.user,
-            jdbcOptions.password,
-            partitions = meta.getProperties().getOrElse("parttitions", "1").toInt,
-            batchSize = meta.getProperties().getOrElse("batchsize", "1000").toInt
+        val (createDisposition: CreateDisposition, writeDisposition: WriteDisposition) = {
+
+          val (cd, wd) = Utils.getDBDisposition(
+            meta.getWriteMode()
           )
+          (CreateDisposition.valueOf(cd), WriteDisposition.valueOf(wd))
+        }
+        meta.getProperties().get("jdbc").foreach { jdbcName =>
+
+          val partitions = meta.getProperties().getOrElse("partitions", "1").toInt
+          val batchSize = meta.getProperties().getOrElse("batchsize", "1000").toInt
+
+          val jdbcConfig = JdbcLoadConfig.fromComet(jdbcName, Settings.comet, Right(mergedDF), schema.name,
+            createDisposition = createDisposition,
+            writeDisposition = writeDisposition,
+            partitions = partitions, batchSize = batchSize)
+
           val loadJob = new JdbcLoadJob(jdbcConfig)
           loadJob.getOrCreateTables()
           val res = loadJob.run()
           res match {
             case Success(_) => ;
-            case Failure(e) => logger.error("BQLoad Failed", e)
+            case Failure(e) => logger.error("JDBCLoad Failed", e)
           }
         }
 
@@ -492,20 +492,13 @@ object IngestionUtil {
         )
         new BigQueryLoadJob(bqConfig, Some(bigqueryRejectedSchema())).run()
       case "JDBC" =>
-        val jdbcOptions =
-          settings.comet.jdbc(settings.comet.audit.options.getOrDefault("jdbc", "audit"))
-        val jdbcConfig = JdbcLoadConfig(
-          sourceFile = Right(rejectedDF),
-          outputTable = "rejected",
-          CreateDisposition.CREATE_IF_NEEDED,
-          WriteDisposition.WRITE_APPEND,
-          jdbcOptions.driver,
-          jdbcOptions.uri,
-          jdbcOptions.user,
-          jdbcOptions.password,
-          partitions = settings.comet.audit.options.getOrDefault("parttitions", "1").toInt,
-          batchSize = settings.comet.audit.options.getOrDefault("batchsize", "1000").toInt
-        )
+        val jdbcName = settings.comet.audit.options.getOrDefault("jdbc", "audit")
+        val partitions = settings.comet.audit.options.getOrDefault("partitions", "1").toInt
+        val batchSize = settings.comet.audit.options.getOrDefault("batchsize", "1000").toInt
+
+        val jdbcConfig = JdbcLoadConfig.fromComet(jdbcName, settings.comet, Right(rejectedDF), "rejected",
+          partitions = partitions, batchSize = batchSize)
+
         val loadJob = new JdbcLoadJob(jdbcConfig)
         loadJob.getOrCreateTables()
         loadJob.run()
