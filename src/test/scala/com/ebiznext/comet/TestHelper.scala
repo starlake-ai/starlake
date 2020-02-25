@@ -37,7 +37,13 @@ import com.fasterxml.jackson.databind.{InjectableValues, ObjectMapper}
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.fasterxml.jackson.module.scala.experimental.ScalaObjectMapper
-import com.typesafe.config.{Config, ConfigFactory, ConfigParseOptions, ConfigResolveOptions}
+import com.typesafe.config.{
+  Config,
+  ConfigFactory,
+  ConfigParseOptions,
+  ConfigResolveOptions,
+  ConfigValueFactory
+}
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.commons.io.FileUtils
 import org.apache.commons.io.filefilter.TrueFileFilter
@@ -75,7 +81,10 @@ trait TestHelper extends FlatSpec with Matchers with BeforeAndAfterAll with Stri
         |""".stripMargin,
       ConfigParseOptions.defaults().setAllowMissing(false)
     )
-    val testConfig = ConfigFactory.load(rootConfig, ConfigResolveOptions.noSystem())
+    val testConfig =
+      ConfigFactory
+        .load(rootConfig, ConfigResolveOptions.noSystem())
+        .withValue("lock.poll-time", ConfigValueFactory.fromAnyRef("5 ms")) // in local mode we don't need to wait quite as much as we do on a real cluster
 
     testConfig
   }
