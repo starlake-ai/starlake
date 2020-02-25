@@ -20,22 +20,27 @@
 
 package com.ebiznext.comet.config
 
-import java.util.{Map, UUID}
+import java.io.ObjectStreamException
+import java.util.{Locale, UUID, Map => juMap}
 
 import com.ebiznext.comet.schema.handlers.{
   AirflowLauncher,
   HdfsStorageHandler,
   LaunchHandler,
   SchemaHandler,
-  SimpleLauncher
+  SimpleLauncher,
+  StorageHandler
 }
-import com.typesafe.config.{Config, ConfigFactory}
-import com.typesafe.scalalogging.StrictLogging
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.module.scala.DefaultScalaModule
+import com.typesafe.config.{Config, ConfigFactory, ConfigValue, ConfigValueFactory}
+import com.typesafe.scalalogging.{Logger, StrictLogging}
 import configs.syntax._
 import org.slf4j.MDC
 
 object Settings extends StrictLogging {
-  val jobId = UUID.randomUUID().toString
+  private def loggerForCompanionInstances: Logger = logger
+  val jobId: String = UUID.randomUUID().toString
 
   import java.lang.management.{ManagementFactory, RuntimeMXBean}
 
@@ -70,11 +75,15 @@ object Settings extends StrictLogging {
     accepted: String,
     rejected: String,
     business: String
-  )
+  ) {
+    val acceptedFinal: String = accepted.toLowerCase(Locale.ROOT)
+    val rejectedFinal: String = rejected.toLowerCase(Locale.ROOT)
+    val businessFinal: String = business.toLowerCase(Locale.ROOT)
+  }
 
-  final case class Privacy(options: Map[String, String])
+  final case class Privacy(options: juMap[String, String])
 
-  final case class Elasticsearch(active: Boolean, options: Map[String, String])
+  final case class Elasticsearch(active: Boolean, options: juMap[String, String])
 
   /**
     *
@@ -86,14 +95,14 @@ object Settings extends StrictLogging {
     discreteMaxCardinality: Int,
     active: Boolean,
     index: String,
-    options: Map[String, String]
+    options: juMap[String, String]
   )
 
   final case class Audit(
     path: String,
     active: Boolean,
     index: String,
-    options: Map[String, String],
+    options: juMap[String, String],
     maxErrors: Int
   )
 
@@ -132,30 +141,86 @@ object Settings extends StrictLogging {
     area: Area,
     airflow: Airflow,
     elasticsearch: Elasticsearch,
-    hadoop: Map[String, String],
+    hadoop: juMap[String, String],
     atlas: Atlas,
     privacy: Privacy,
     fileSystem: Option[String]
-  ) {
+  ) extends Serializable {
 
-    val launcherService: LaunchHandler = launcher match {
+    @transient
+    lazy val launcherService: LaunchHandler = launcher match {
       case "simple"  => new SimpleLauncher()
       case "airflow" => new AirflowLauncher()
     }
 
+    @throws(classOf[ObjectStreamException])
+    protected def writeReplace: AnyRef = {
+      Comet.JsonWrapped(this)
+    }
   }
 
-  lazy val config: Config = ConfigFactory.load()
+  object Comet {
+    private case class JsonWrapped(jsonValue: String) {
 
-  lazy val comet: Comet = {
-    config.extract[Comet].valueOrThrow { error =>
+      @throws(classOf[ObjectStreamException])
+      protected def readResolve: AnyRef = {
+        val unwrapped = JsonWrapped.jsonMapper.readValue(jsonValue, classOf[Comet])
+        unwrapped
+      }
+    }
+    private object JsonWrapped {
+      private def jsonMapper: ObjectMapper = {
+        val mapper = new ObjectMapper()
+        mapper.registerModule(DefaultScalaModule)
+        mapper
+      }
+
+      def apply(comet: Comet): JsonWrapped = {
+        val writer = jsonMapper.writerFor(classOf[Comet])
+        val asJson = writer.writeValueAsString(comet)
+        JsonWrapped(asJson)
+      }
+    }
+  }
+
+  @deprecated("please use and pass on a Settings instance instead")
+  def comet(implicit settings: Settings): Comet = settings.comet
+
+  @deprecated("please use and pass on a Settings instance instead")
+  def storageHandler(implicit settings: Settings): HdfsStorageHandler = settings.storageHandler
+
+  @deprecated("please use and pass on a Settings instance instead")
+  def schemaHandler(implicit settings: Settings): SchemaHandler = settings.schemaHandler
+
+  def apply(
+    config: Config = ConfigFactory
+      .load()
+      .withValue("job-id", ConfigValueFactory.fromAnyRef(Settings.jobId, "per instance"))
+  ): Settings = {
+    val loaded = config.extract[Comet].valueOrThrow { error =>
       error.messages.foreach(err => logger.error(err))
       throw new Exception("Failed to load config")
     }
+    logger.info(s"Using Config $loaded")
+    Settings(loaded)
   }
-  logger.info(s"Using Config $comet")
+}
 
-  lazy val storageHandler = new HdfsStorageHandler(comet.fileSystem)
-  lazy val schemaHandler = new SchemaHandler(storageHandler)
+final case class Settings(comet: Settings.Comet) extends Serializable {
+  def logger: Logger = Settings.loggerForCompanionInstances
 
+  @transient
+  lazy val storageHandler: HdfsStorageHandler = {
+    implicit val self
+      : Settings = this /* TODO: remove this once HdfsStorageHandler explicitly takes Settings or Settings.Comet in */
+    new HdfsStorageHandler(comet.fileSystem)
+  }
+
+  @transient
+  lazy val schemaHandler: SchemaHandler = {
+    implicit val self
+      : Settings = this /* TODO: remove this once HdfsStorageHandler explicitly takes Settings or Settings.Comet in */
+    new SchemaHandler(storageHandler)
+  }
+  def jobId: String = Settings.jobId
 }

@@ -21,17 +21,18 @@
 package com.ebiznext.comet.schema.handlers
 
 import com.ebiznext.comet.TestHelper
+import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.schema.model._
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, FileUtil, Path}
 
 class StorageHandlerSpec extends TestHelper {
 
-  lazy val pathDomain = new Path(TestHelper.tempFile + "/domain.yml")
+  lazy val pathDomain = new Path(cometTestRoot + "/domain.yml")
 
-  lazy val pathType = new Path(TestHelper.tempFile + "/types.yml")
+  lazy val pathType = new Path(cometTestRoot + "/types.yml")
 
-  lazy val pathBusiness = new Path(TestHelper.tempFile + "/business.yml")
+  lazy val pathBusiness = new Path(cometTestRoot + "/business.yml")
 
   "Domain Case Class" should "be written as yaml and read correctly" in {
 
@@ -92,7 +93,13 @@ class StorageHandlerSpec extends TestHelper {
     )
     val businessJob =
       AutoJobDesc("business1", List(businessTask1), None, Some("parquet"), Some(true))
-    storageHandler.write(mapper.writeValueAsString(businessJob), pathBusiness)
+
+    val businessJobDef = mapper
+      .writer()
+      .withAttribute(classOf[Settings], settings)
+      .writeValueAsString(businessJob)
+
+    storageHandler.write(businessJobDef, pathBusiness)
     logger.info(readFileContent(pathBusiness))
     readFileContent(pathBusiness) shouldBe loadFile("/expected/yml/business.yml")
   }

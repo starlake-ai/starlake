@@ -76,7 +76,9 @@ trait StorageHandler extends StrictLogging {
 /**
   * HDFS Filesystem Handler
   */
-class HdfsStorageHandler(fileSystem: Option[String]) extends StorageHandler {
+class HdfsStorageHandler(fileSystem: Option[String])(
+  implicit /* TODO: make me explicit */ settings: Settings
+) extends StorageHandler {
 
   val conf = new Configuration()
   conf.set(
