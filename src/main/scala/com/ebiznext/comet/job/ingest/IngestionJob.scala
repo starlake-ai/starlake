@@ -171,9 +171,7 @@ trait IngestionJob extends SparkJob {
             writeDisposition = writeDisposition,
             partitions = partitions, batchSize = batchSize)
 
-          val loadJob = new JdbcLoadJob(jdbcConfig)
-          loadJob.getOrCreateTables()
-          val res = loadJob.run()
+          val res = new JdbcLoadJob(jdbcConfig).run()
           res match {
             case Success(_) => ;
             case Failure(e) => logger.error("JDBCLoad Failed", e)
@@ -499,9 +497,8 @@ object IngestionUtil {
         val jdbcConfig = JdbcLoadConfig.fromComet(jdbcName, settings.comet, Right(rejectedDF), "rejected",
           partitions = partitions, batchSize = batchSize)
 
-        val loadJob = new JdbcLoadJob(jdbcConfig)
-        loadJob.getOrCreateTables()
-        loadJob.run()
+        new JdbcLoadJob(jdbcConfig).run()
+
       case "NONE" =>
         Success( () )
     }

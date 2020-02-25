@@ -23,22 +23,6 @@ class JdbcLoadJob(
   val password = cliConfig.password
   Class.forName(driver)
 
-  def getOrCreateTables() = {
-    val conn = DriverManager.getConnection(url, user, password)
-    try {
-      val stmt = conn.createStatement
-      val tables = List("jdbc-audit-table", "jdbc-rejected-table" /*, "jdbc-metrics-table" */)
-      tables.foreach { table =>
-        // FIXME: find a way to locate the name of the table, test whether it exists, and if not THEN attempt creation
-        val sqlCreateTable = Settings.comet.audit.options.get(table).format(cliConfig.outputTable)
-        stmt.executeUpdate(sqlCreateTable)
-      }
-      stmt.close()
-    } finally {
-      conn.close()
-    }
-  }
-
   def runJDBC(): Try[SparkSession] = {
     val inputPath = cliConfig.sourceFile
     logger.info(s"Input path $inputPath")
