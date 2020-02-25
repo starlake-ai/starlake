@@ -83,7 +83,7 @@ case class Schema(
     *
     * @return Spark Catalyst Schema
     */
-  def sparkType(): StructType = {
+  def sparkType()(implicit settings: Settings): StructType = {
     val fields = attributes.map { attr =>
       StructField(attr.name, attr.sparkType(), !attr.required)
     }
@@ -92,7 +92,7 @@ case class Schema(
 
   import com.google.cloud.bigquery.{Schema => BQSchema}
 
-  def bqSchema(): BQSchema = {
+  def bqSchema()(implicit settings: Settings): BQSchema = {
     def convert(sparkType: DataType): LegacySQLTypeName = {
 
       val BQ_NUMERIC_PRECISION = 38
@@ -143,7 +143,7 @@ case class Schema(
     */
   def checkValidity(
     domainMetaData: Option[Metadata]
-  ): Either[List[String], Boolean] = {
+  )(implicit settings: Settings): Either[List[String], Boolean] = {
     val errorList: mutable.MutableList[String] = mutable.MutableList.empty
     val tableNamePattern = Pattern.compile("[a-zA-Z][a-zA-Z0-9_]{1,256}")
     if (!tableNamePattern.matcher(name).matches())
@@ -186,12 +186,14 @@ case class Schema(
       Right(true)
   }
 
-  def discreteAttrs(): List[Attribute] = attributes.filter(_.getMetricType() == MetricType.DISCRETE)
+  def discreteAttrs()(implicit settings: Settings): List[Attribute] =
+    attributes.filter(_.getMetricType() == MetricType.DISCRETE)
 
-  def continuousAttrs(): List[Attribute] =
+  def continuousAttrs()(implicit settings: Settings): List[Attribute] =
     attributes.filter(_.getMetricType() == MetricType.CONTINUOUS)
 
-  def mapping(template: Option[String], domainName: String): String = {
+  def mapping(template: Option[String], domainName: String)
+             (implicit settings: Settings): String = {
     val attrs = attributes.map(_.mapping()).mkString(",")
     val properties =
       s"""
@@ -237,17 +239,16 @@ object Schema {
       obj.dataType match {
         case StringType | LongType | IntegerType | ShortType | DoubleType | BooleanType | ByteType |
             DateType | TimestampType =>
-          Attribute(obj.name, obj.dataType.typeName, required = !obj.nullable, settings = settings)
+          Attribute(obj.name, obj.dataType.typeName, required = !obj.nullable)
         case d: DecimalType =>
-          Attribute(obj.name, "decimal", required = !obj.nullable, settings = settings)
+          Attribute(obj.name, "decimal", required = !obj.nullable)
         case ArrayType(eltType, containsNull) => buildAttributeTree(obj.copy(dataType = eltType))
         case x: StructType =>
           new Attribute(
             obj.name,
             "struct",
             required = !obj.nullable,
-            attributes = Some(x.fields.map(buildAttributeTree).toList),
-            settings = settings
+            attributes = Some(x.fields.map(buildAttributeTree).toList)
           )
         case _ => throw new Exception(s"Unsupported Date type ${obj.dataType} for object $obj ")
       }
