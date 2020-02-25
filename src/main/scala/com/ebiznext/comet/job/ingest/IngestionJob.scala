@@ -3,6 +3,7 @@ package com.ebiznext.comet.job.ingest
 import java.sql.Timestamp
 import java.time.Instant
 
+import com.ebiznext.comet.config.Settings.IndexOutput
 import com.ebiznext.comet.config.{DatasetArea, Settings, StorageArea}
 import com.ebiznext.comet.job.bqload.{BigQueryLoadConfig, BigQueryLoadJob}
 import com.ebiznext.comet.job.index.{IndexConfig, IndexJob}
@@ -162,14 +163,19 @@ trait IngestionJob extends SparkJob {
           (CreateDisposition.valueOf(cd), WriteDisposition.valueOf(wd))
         }
         meta.getProperties().get("jdbc").foreach { jdbcName =>
-
           val partitions = meta.getProperties().getOrElse("partitions", "1").toInt
           val batchSize = meta.getProperties().getOrElse("batchsize", "1000").toInt
 
-          val jdbcConfig = JdbcLoadConfig.fromComet(jdbcName, Settings.comet, Right(mergedDF), schema.name,
+          val jdbcConfig = JdbcLoadConfig.fromComet(
+            jdbcName,
+            Settings.comet,
+            Right(mergedDF),
+            schema.name,
             createDisposition = createDisposition,
             writeDisposition = writeDisposition,
-            partitions = partitions, batchSize = batchSize)
+            partitions = partitions,
+            batchSize = batchSize
+          )
 
           val res = new JdbcLoadJob(jdbcConfig).run()
           res match {
@@ -476,11 +482,11 @@ object IngestionUtil {
       .limit(settings.comet.audit.maxErrors)
 
     val res = settings.comet.audit.index match {
-      case "BQ" =>
+      case IndexOutput.BigQuery(dataset) =>
         val bqConfig = BigQueryLoadConfig(
           Right(rejectedDF),
-          settings.comet.audit.options.getOrDefault("bq-dataset", "audit"),
-          "rejected",
+          outputDataset = dataset,
+          outputTable = "rejected",
           None,
           "parquet",
           "CREATE_IF_NEEDED",
@@ -489,18 +495,15 @@ object IngestionUtil {
           None
         )
         new BigQueryLoadJob(bqConfig, Some(bigqueryRejectedSchema())).run()
-      case "JDBC" =>
-        val jdbcName = settings.comet.audit.options.getOrDefault("jdbc", "audit")
-        val partitions = settings.comet.audit.options.getOrDefault("partitions", "1").toInt
-        val batchSize = settings.comet.audit.options.getOrDefault("batchsize", "1000").toInt
 
+      case IndexOutput.Jdbc(jdbcName, partitions, batchSize) =>
         val jdbcConfig = JdbcLoadConfig.fromComet(jdbcName, settings.comet, Right(rejectedDF), "rejected",
           partitions = partitions, batchSize = batchSize)
 
         new JdbcLoadJob(jdbcConfig).run()
 
-      case "NONE" =>
-        Success( () )
+      case IndexOutput.None =>
+        Success(())
     }
     res match {
       case Success(_) => Success(rejectedDF, rejectedPath)
