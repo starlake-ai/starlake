@@ -121,15 +121,8 @@ object SparkAuditLogWriter {
 
     settings.comet.audit.index match {
       case "JDBC" =>
-        val name = settings.comet.audit.options.get("jdbc")
-        val jdbcOptions = settings.comet.jdbc(name)
-        val jdbcConfig = JdbcLoadConfig(
-          Right(auditDF),
-          "audit",
-          CreateDisposition.CREATE_IF_NEEDED,
-          WriteDisposition.WRITE_APPEND,
-          jdbcOptions.driver, jdbcOptions.uri, jdbcOptions.user, jdbcOptions.password
-        )
+        val name = Settings.comet.audit.options.get("jdbc")
+        val jdbcConfig = JdbcLoadConfig.fromComet(name, Settings.comet, Right(auditDF), "audit")
         val loadJob = new JdbcLoadJob(jdbcConfig)
         loadJob.getOrCreateTables()
         loadJob.run()

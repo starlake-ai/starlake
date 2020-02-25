@@ -45,6 +45,7 @@ import com.fasterxml.jackson.databind.{
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.typesafe.config.{Config, ConfigFactory, ConfigValue, ConfigValueFactory}
 import com.typesafe.scalalogging.{Logger, StrictLogging}
+import configs.Configs
 import configs.syntax._
 import org.slf4j.MDC
 
@@ -112,12 +113,50 @@ object Settings extends StrictLogging {
     maxErrors: Int
   )
 
+  /**
+    * Describes a connection to a JDBC-accessible database engine
+    *
+    * @param uri the URI of the database engine. It must start with "jdbc:"
+    * @param user the username under which to connect to the database engine (TODO: make me optional)
+    * @param password the password to use in order to connect to the database engine (TODO: make me optional)
+    * @param engineOverride the index into the [[Comet.jdbcEngines]] map of the underlying database engine, in case
+    *                       one cannot use the engine name from the uri
+    *
+    * @note the use case for engineOverride is when you need to have an alternate schema definition
+    *       (e.g. non-standard table names) alongside with the regular schema definition, on the same
+    *       underlying engine.
+    */
   final case class Jdbc(
     uri: String,
     user: String,
     password: String,
-    driver: String
-  )
+    engineOverride: Option[String] = None
+  ) {
+    def engine: String = engineOverride.getOrElse(uri.split(':')(1))
+  }
+
+  /**
+    * Describes how to use a specific type of JDBC-accessible database engine
+    *
+    * @param driver the qualified class name of the JDBC Driver to use for the specific engine
+    * @param tables for each of the Standard Table Names used by Comet, the specific SQL DDL statements as expected
+    *               in the engine's own dialect.
+    */
+  final case class JdbcEngine(
+    driver: String,
+    tables: scala.collection.Map[String, JdbcEngine.TableDdl]
+                               )
+  object JdbcEngine {
+    /**
+      * A descriptor of the specific SQL DDL statements required to manage a specific Comet table in a JDBC-accessible
+      * database engine
+      *
+      * @param name the name of the table as it is known on the database engine
+      * @param createSql the SQL Create Table statement with the database-specific type, constraints etc. tacked on.
+      */
+    final case class TableDdl(name: String, createSql: String /* TODO: pingSql */)
+  }
+
 
   final case class Lock(
     path: String,
@@ -183,6 +222,7 @@ object Settings extends StrictLogging {
     elasticsearch: Elasticsearch,
     hadoop: juMap[String, String],
     jdbc: Map[String, Jdbc],
+    jdbcEngines: Map[String, JdbcEngine],
     atlas: Atlas,
     privacy: Privacy,
     fileSystem: Option[String]
@@ -227,6 +267,8 @@ object Settings extends StrictLogging {
   @deprecated("please use and pass on a Settings instance instead", "2020-02-25") // ready to remove
   def schemaHandler(implicit settings: Settings): SchemaHandler = settings.schemaHandler
 
+  private implicit val jdbcEngineConfigs: Configs[JdbcEngine] = Configs.derive[JdbcEngine]
+
   def apply(
     config: Config = ConfigFactory
       .load()
@@ -237,7 +279,7 @@ object Settings extends StrictLogging {
 
     val loaded = effectiveConfig.extract[Comet].valueOrThrow { error =>
       error.messages.foreach(err => logger.error(err))
-      throw new Exception("Failed to load config")
+      throw new Exception(s"Failed to load config: $error")
     }
     logger.info(s"Using Config $loaded")
     Settings(loaded)
