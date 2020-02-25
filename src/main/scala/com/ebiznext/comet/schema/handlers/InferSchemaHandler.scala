@@ -52,8 +52,7 @@ object InferSchemaHandler {
                 row.dataType.typeName,
                 Some(false),
                 !row.nullable,
-                attributes = Some(createAttributes(row.dataType.asInstanceOf[StructType])),
-                settings = settings
+                attributes = Some(createAttributes(row.dataType.asInstanceOf[StructType]))
               )
 
             case "array" =>
@@ -66,8 +65,7 @@ object InferSchemaHandler {
                   elemType.typeName,
                   Some(true),
                   !row.nullable,
-                  attributes = Some(createAttributes(elemType.asInstanceOf[StructType])),
-                  settings = settings
+                  attributes = Some(createAttributes(elemType.asInstanceOf[StructType]))
                 )
               else
                 // if it is a regular array. {ages: [21, 25]}
@@ -75,9 +73,7 @@ object InferSchemaHandler {
                   row.name,
                   elemType.typeName,
                   Some(true),
-                  !row.nullable,
-                  settings = settings
-                )
+                  !row.nullable)
 
             // if the datatype is a simple Attribute
             case _ =>
@@ -85,9 +81,7 @@ object InferSchemaHandler {
                 row.name,
                 row.dataType.typeName,
                 Some(false),
-                !row.nullable,
-                settings = settings
-              )
+                !row.nullable)
         }
       )
       .toList

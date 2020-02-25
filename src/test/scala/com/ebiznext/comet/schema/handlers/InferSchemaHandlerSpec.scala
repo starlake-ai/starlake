@@ -14,9 +14,9 @@ class InferSchemaHandlerSpec extends TestHelper {
       .option("inferSchema", value = true)
       .json(Seq(ComplexjsonStr).toDS)
 
-    val complexAttr2 = Attribute("key", "long", Some(false), required = false, settings = settings)
+    val complexAttr2 = Attribute("key", "long", Some(false), required = false)
     val complexAttr3 =
-      Attribute("value", "long", Some(false), required = false, settings = settings)
+      Attribute("value", "long", Some(false), required = false)
 
     val complexAttr1: List[Attribute] = List(
       Attribute(
@@ -24,8 +24,7 @@ class InferSchemaHandlerSpec extends TestHelper {
         "struct",
         Some(false),
         required = false,
-        attributes = Some(List(complexAttr2, complexAttr3)),
-        settings = settings
+        attributes = Some(List(complexAttr2, complexAttr3))
       )
     )
 
@@ -44,8 +43,8 @@ class InferSchemaHandlerSpec extends TestHelper {
     val simpleAttr: List[Attribute] = InferSchemaHandler.createAttributes(df1.schema)
 
     val simpleAttr1: List[Attribute] = List(
-      Attribute("key", "string", Some(false), required = false, settings = settings),
-      Attribute("value", "long", Some(false), required = false, settings = settings)
+      Attribute("key", "string", Some(false), required = false),
+      Attribute("value", "long", Some(false), required = false)
     )
     simpleAttr shouldBe simpleAttr1
   }
@@ -71,8 +70,8 @@ class InferSchemaHandlerSpec extends TestHelper {
     val arrayAttr: List[Attribute] = InferSchemaHandler.createAttributes(df1.schema)
 
     val arrayAttr1: List[Attribute] = List(
-      Attribute("id", "long", Some(false), required = false, settings = settings),
-      Attribute("name", "string", Some(true), required = false, settings = settings)
+      Attribute("id", "long", Some(false), required = false),
+      Attribute("name", "string", Some(true), required = false)
     )
 
     arrayAttr shouldBe arrayAttr1
@@ -91,10 +90,10 @@ class InferSchemaHandlerSpec extends TestHelper {
     val dsv: List[Attribute] = InferSchemaHandler.createAttributes(df1.schema)
 
     val dsv1: List[Attribute] = List(
-      Attribute("first name", "string", Some(false), required = false, settings = settings),
-      Attribute("last name", "string", Some(false), required = false, settings = settings),
-      Attribute("age", "string", Some(false), required = false, settings = settings),
-      Attribute("ok", "string", Some(false), required = false, settings = settings)
+      Attribute("first name", "string", Some(false), required = false),
+      Attribute("last name", "string", Some(false), required = false),
+      Attribute("age", "string", Some(false), required = false),
+      Attribute("ok", "string", Some(false), required = false)
     )
     dsv shouldBe dsv1
 
@@ -112,9 +111,9 @@ class InferSchemaHandlerSpec extends TestHelper {
     val dsv: List[Attribute] = InferSchemaHandler.createAttributes(df1.schema)
 
     val dsv1: List[Attribute] = List(
-      Attribute("_c0", "string", Some(false), required = false, settings = settings),
-      Attribute("_c1", "string", Some(false), required = false, settings = settings),
-      Attribute("_c2", "integer", Some(false), required = false, settings = settings)
+      Attribute("_c0", "string", Some(false), required = false),
+      Attribute("_c1", "string", Some(false), required = false),
+      Attribute("_c2", "integer", Some(false), required = false)
     )
     dsv shouldBe dsv1
 

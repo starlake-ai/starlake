@@ -177,24 +177,21 @@ trait TestHelper extends FlatSpec with Matchers with BeforeAndAfterAll with Stri
             "string",
             Some(false),
             false,
-            Some(PrivacyLevel.None),
-            settings = settings
+            Some(PrivacyLevel.None)
           ),
           Attribute(
             "lastname",
             "string",
             Some(false),
             false,
-            Some(PrivacyLevel("SHA1")),
-            settings = settings
+            Some(PrivacyLevel("SHA1"))
           ),
           Attribute(
             "age",
             "age",
             Some(false),
             false,
-            Some(PrivacyLevel("HIDE")),
-            settings = settings
+            Some(PrivacyLevel("HIDE"))
           )
         ),
         Some(Metadata(withHeader = Some(true))),
