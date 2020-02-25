@@ -22,6 +22,7 @@ package com.ebiznext.comet.schema.model
 
 import java.util.regex.Pattern
 
+import com.ebiznext.comet.config.Settings
 import com.google.cloud.bigquery.{Field, LegacySQLTypeName}
 import org.apache.spark.sql.types._
 
@@ -229,20 +230,24 @@ case class Schema(
 
 object Schema {
 
-  def mapping(domainName: String, schemaName: String, obj: StructField): String = {
+  def mapping(domainName: String, schemaName: String, obj: StructField)(
+    implicit settings: Settings
+  ): String = {
     def buildAttributeTree(obj: StructField): Attribute = {
       obj.dataType match {
         case StringType | LongType | IntegerType | ShortType | DoubleType | BooleanType | ByteType |
             DateType | TimestampType =>
-          Attribute(obj.name, obj.dataType.typeName, required = !obj.nullable)
-        case d: DecimalType                   => Attribute(obj.name, "decimal", required = !obj.nullable)
+          Attribute(obj.name, obj.dataType.typeName, required = !obj.nullable, settings = settings)
+        case d: DecimalType =>
+          Attribute(obj.name, "decimal", required = !obj.nullable, settings = settings)
         case ArrayType(eltType, containsNull) => buildAttributeTree(obj.copy(dataType = eltType))
         case x: StructType =>
           new Attribute(
             obj.name,
             "struct",
             required = !obj.nullable,
-            attributes = Some(x.fields.map(buildAttributeTree).toList)
+            attributes = Some(x.fields.map(buildAttributeTree).toList),
+            settings = settings
           )
         case _ => throw new Exception(s"Unsupported Date type ${obj.dataType} for object $obj ")
       }

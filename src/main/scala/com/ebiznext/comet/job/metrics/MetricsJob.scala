@@ -29,7 +29,8 @@ class MetricsJob(
   schema: Schema,
   stage: Stage,
   storageHandler: StorageHandler
-) extends SparkJob {
+)(implicit val settings: Settings)
+    extends SparkJob {
 
   override def name: String = "Compute metrics job"
 

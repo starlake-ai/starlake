@@ -31,6 +31,7 @@ import com.ebiznext.comet.workflow.IngestionWorkflow
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
+import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
 
@@ -88,6 +89,7 @@ object Main extends StrictLogging {
     *             to compute all metrics on specific schema in a specific domain
     */
   def main(args: Array[String]): Unit = {
+    implicit val settings: Settings = Settings(ConfigFactory.load())
     import Settings.{schemaHandler, storageHandler}
     DatasetArea.init(storageHandler)
 

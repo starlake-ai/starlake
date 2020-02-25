@@ -20,6 +20,7 @@
 
 package com.ebiznext.comet.job.ingest
 
+import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.schema.handlers.StorageHandler
 import com.ebiznext.comet.schema.model._
 import org.apache.hadoop.fs.Path
@@ -44,7 +45,8 @@ class PositionIngestionJob(
   types: List[Type],
   path: List[Path],
   storageHandler: StorageHandler
-) extends DsvIngestionJob(domain, schema, types, path, storageHandler) {
+)(implicit settings: Settings)
+    extends DsvIngestionJob(domain, schema, types, path, storageHandler) {
 
   /**
     * Load dataset using spark csv reader and all metadata. Does not infer schema.
