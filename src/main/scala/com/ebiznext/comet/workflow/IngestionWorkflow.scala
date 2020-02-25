@@ -399,7 +399,6 @@ class IngestionWorkflow(
 
   def jdbcload(config: JdbcLoadConfig): Try[SparkSession] = {
     val loadJob = new JdbcLoadJob(config)
-    loadJob.getOrCreateTables()
     loadJob.run()
   }
 
