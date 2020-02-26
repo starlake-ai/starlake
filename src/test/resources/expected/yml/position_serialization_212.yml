@@ -6,6 +6,7 @@ required: true
 privacy: "NONE"
 comment: null
 rename: null
+metricType: null
 attributes: null
 position:
   first: 1
