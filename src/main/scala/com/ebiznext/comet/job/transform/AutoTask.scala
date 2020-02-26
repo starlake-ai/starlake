@@ -55,7 +55,11 @@ class AutoTask(
   def run(): Try[SparkSession] = {
     udf.foreach { udf =>
       val udfInstance: UdfRegistration =
-        Class.forName(udf).newInstance.asInstanceOf[UdfRegistration]
+        Class
+          .forName(udf)
+          .getDeclaredConstructor(Seq.empty: _*)
+          .newInstance()
+          .asInstanceOf[UdfRegistration]
       udfInstance.register(session)
     }
     views.getOrElse(Map()).foreach {
