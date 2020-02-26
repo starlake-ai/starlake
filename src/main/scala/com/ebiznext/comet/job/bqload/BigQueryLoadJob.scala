@@ -175,7 +175,7 @@ class BigQueryLoadJob(
     */
   override def run(): Try[SparkSession] = {
     val res =
-      if (Settings.comet.audit.active && Settings.comet.audit.index == "BQ")
+      if (settings.comet.audit.active && settings.comet.audit.index == "BQ")
         runBQSparkConnector()
       else
         Success(session)

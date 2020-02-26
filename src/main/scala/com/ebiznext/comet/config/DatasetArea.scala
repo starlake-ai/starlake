@@ -44,7 +44,7 @@ import org.apache.hadoop.fs.Path
 object DatasetArea {
 
   def path(domain: String, area: String)(implicit /* TODO: make me explicit */ settings: Settings) =
-    new Path(s"${Settings.comet.datasets}/$area/$domain")
+    new Path(s"${settings.comet.datasets}/$area/$domain")
 
   def path(domainPath: Path, schema: String) = new Path(domainPath, schema)
 
@@ -55,7 +55,7 @@ object DatasetArea {
     * @return Absolute path to the pending folder of domain
     */
   def pending(domain: String)(implicit /* TODO: make me explicit */ settings: Settings): Path =
-    path(domain, Settings.comet.area.pending)
+    path(domain, settings.comet.area.pending)
 
   /**
     * datasets with a file name that could not match any schema file name pattern in the specified domain
@@ -65,7 +65,7 @@ object DatasetArea {
     * @return Absolute path to the pending unresolved folder of domain
     */
   def unresolved(domain: String)(implicit /* TODO: make me explicit */ settings: Settings): Path =
-    path(domain, Settings.comet.area.unresolved)
+    path(domain, settings.comet.area.unresolved)
 
   /**
     * Once ingested datasets are archived in this folder.
@@ -74,7 +74,7 @@ object DatasetArea {
     * @return Absolute path to the archive folder of domain
     */
   def archive(domain: String)(implicit /* TODO: make me explicit */ settings: Settings): Path =
-    path(domain, Settings.comet.area.archive)
+    path(domain, settings.comet.area.archive)
 
   /**
     * Datasets of the specified domain currently being ingested are located in this folder
@@ -83,7 +83,7 @@ object DatasetArea {
     * @return Absolute path to the ingesting folder of domain
     */
   def ingesting(domain: String)(implicit /* TODO: make me explicit */ settings: Settings): Path =
-    path(domain, Settings.comet.area.ingesting)
+    path(domain, settings.comet.area.ingesting)
 
   /**
     * Valid records for datasets the specified domain are stored in this folder.
@@ -92,7 +92,7 @@ object DatasetArea {
     * @return Absolute path to the ingesting folder of domain
     */
   def accepted(domain: String)(implicit /* TODO: make me explicit */ settings: Settings): Path =
-    path(domain, Settings.comet.area.accepted)
+    path(domain, settings.comet.area.accepted)
 
   /**
     * Invalid records and the reason why they have been rejected for the datasets of the specified domain are stored in this folder.
@@ -101,7 +101,7 @@ object DatasetArea {
     * @return Absolute path to the rejected folder of domain
     */
   def rejected(domain: String)(implicit /* TODO: make me explicit */ settings: Settings): Path =
-    path(domain, Settings.comet.area.rejected)
+    path(domain, settings.comet.area.rejected)
 
   /**
     * Default target folder for autojobs applied to datasets in this domain
@@ -110,10 +110,10 @@ object DatasetArea {
     * @return Absolute path to the business folder of domain
     */
   def business(domain: String)(implicit /* TODO: make me explicit */ settings: Settings): Path =
-    path(domain, Settings.comet.area.business)
+    path(domain, settings.comet.area.business)
 
   def metadata(implicit /* TODO: make me explicit */ settings: Settings): Path =
-    new Path(s"${Settings.comet.metadata}")
+    new Path(s"${settings.comet.metadata}")
 
   def types(implicit /* TODO: make me explicit */ settings: Settings): Path =
     new Path(metadata, "types")
@@ -162,16 +162,16 @@ object StorageArea {
 
   def fromString(value: String)(implicit settings: Settings): StorageArea = {
 
-    val rejected = Settings.comet.area.rejected.toLowerCase(Locale.ROOT)
-    val accepted = Settings.comet.area.accepted.toLowerCase(Locale.ROOT)
-    val business = Settings.comet.area.business.toLowerCase(Locale.ROOT)
+    val rejected = settings.comet.area.rejected.toLowerCase(Locale.ROOT)
+    val accepted = settings.comet.area.accepted.toLowerCase(Locale.ROOT)
+    val business = settings.comet.area.business.toLowerCase(Locale.ROOT)
 
     val lcValue = value.toLowerCase(Locale.ROOT)
 
     lcValue match {
-      case _ if lcValue == Settings.comet.area.rejectedFinal => StorageArea.rejected
-      case _ if lcValue == Settings.comet.area.acceptedFinal => StorageArea.accepted
-      case _ if lcValue == Settings.comet.area.businessFinal => StorageArea.business
+      case _ if lcValue == settings.comet.area.rejectedFinal => StorageArea.rejected
+      case _ if lcValue == settings.comet.area.acceptedFinal => StorageArea.accepted
+      case _ if lcValue == settings.comet.area.businessFinal => StorageArea.business
       case custom                                            => StorageArea.Custom(custom)
     }
   }

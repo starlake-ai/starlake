@@ -49,7 +49,7 @@ class MetricsJob(
 
   def getLockPath(path: String): Path = {
     new Path(
-      Settings.comet.lock.path,
+      settings.comet.lock.path,
       "metrics" + path
         .replace("{domain}", domain.name)
         .replace("{schema}", schema.name)
@@ -319,7 +319,7 @@ root
     logger.info("Continuous Attributes -> " + continAttrs.mkString(","))
     val discreteOps: List[DiscreteMetric] = Metrics.discreteMetrics
     val continuousOps: List[ContinuousMetric] = Metrics.continuousMetrics
-    val savePath: Path = getMetricsPath(Settings.comet.metrics.path)
+    val savePath: Path = getMetricsPath(settings.comet.metrics.path)
     val count = dataUse.count()
     val discreteDataset = Metrics.computeDiscretMetric(dataUse, discAttrs, discreteOps)
     val continuousDataset = Metrics.computeContinuousMetric(dataUse, continAttrs, continuousOps)
@@ -333,8 +333,8 @@ root
         timestamp,
         stage
       )
-    val lockPath = getLockPath(Settings.comet.metrics.path)
-    val waitTimeMillis = Settings.comet.lock.metricsTimeout
+    val lockPath = getLockPath(settings.comet.metrics.path)
+    val waitTimeMillis = settings.comet.lock.metricsTimeout
     val locker = new FileLock(lockPath, storageHandler)
     val metricsResult = if (locker.tryLock(waitTimeMillis)) {
       Try(allMetricsDf.foreach(allMetricsDf => save(allMetricsDf, savePath)))
