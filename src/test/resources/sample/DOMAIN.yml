@@ -1,6 +1,6 @@
 ---
 name: "DOMAIN"
-directory: "/tmp/DOMAIN"
+directory: "£COMET_TEST_ROOT£/DOMAIN"
 metadata:
   mode: "FILE"
   format: "DSV"

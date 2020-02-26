@@ -1,6 +1,6 @@
 ---
 name: "locations"
-directory: "/tmp"
+directory: "£COMET_TEST_ROOT£"
 metadata:
   mode: "FILE"
   format: "SIMPLE_JSON"

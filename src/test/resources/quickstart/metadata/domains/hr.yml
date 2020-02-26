@@ -1,6 +1,6 @@
 name: "hr"
-directory: "/tmp/incoming/hr"
-metadata:
+directory: "£COMET_TEST_ROOT£/incoming/hr"
+metadata:>
   mode: "FILE"
   format: "JSON"
 schemas:
