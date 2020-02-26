@@ -20,21 +20,16 @@
 
 package com.ebiznext.comet.config
 
-<<<<<<< HEAD
 import java.io.ObjectStreamException
 import java.lang.management.{ManagementFactory, RuntimeMXBean}
 import java.util.concurrent.TimeUnit
 import java.util.{Locale, UUID, Map => juMap}
-=======
-import java.util.{Map, UUID}
->>>>>>> scalafmt
 
 import com.ebiznext.comet.schema.handlers.{
   AirflowLauncher,
   HdfsStorageHandler,
   LaunchHandler,
   SchemaHandler,
-<<<<<<< HEAD
   SimpleLauncher,
   StorageHandler
 }
@@ -50,10 +45,6 @@ import com.fasterxml.jackson.databind.{
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.typesafe.config.{Config, ConfigFactory, ConfigValue, ConfigValueFactory}
 import com.typesafe.scalalogging.{Logger, StrictLogging}
-=======
-  SimpleLauncher
-}
->>>>>>> scalafmt
 import com.ebiznext.comet.schema.model.IndexSink
 import configs.Configs
 import configs.syntax._
