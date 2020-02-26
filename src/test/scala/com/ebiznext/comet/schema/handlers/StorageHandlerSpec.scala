@@ -20,6 +20,8 @@
 
 package com.ebiznext.comet.schema.handlers
 
+import java.util.regex.Pattern
+
 import com.ebiznext.comet.TestHelper
 import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.schema.model._
@@ -35,6 +37,60 @@ class StorageHandlerSpec extends TestHelper {
   lazy val pathBusiness = new Path(cometTestRoot + "/business.yml")
 
   "Domain Case Class" should "be written as yaml and read correctly" in {
+    val domain = Domain(
+      "DOMAIN",
+      s"${cometTestRoot}/incoming/DOMAIN",
+      Some(
+        Metadata(
+          Some(Mode.FILE),
+          Some(Format.DSV),
+          None,
+          Some(false),
+          Some(false),
+          Some(false),
+          Some(";"),
+          Some("\""),
+          Some("\\"),
+          Some(WriteMode.APPEND),
+          None
+        )
+      ),
+      List(
+        Schema(
+          "User",
+          Pattern.compile("SCHEMA-.*.dsv"),
+          List(
+            Attribute(
+              "firstname",
+              "string",
+              Some(false),
+              false,
+              Some(PrivacyLevel.None)
+            ),
+            Attribute(
+              "lastname",
+              "string",
+              Some(false),
+              false,
+              Some(PrivacyLevel("SHA1"))
+            ),
+            Attribute(
+              "age",
+              "age",
+              Some(false),
+              false,
+              Some(PrivacyLevel("HIDE"))
+            )
+          ),
+          Some(Metadata(withHeader = Some(true))),
+          None,
+          Some("Schema Comment"),
+          Some(List("SQL1", "SQL2")),
+          None
+        )
+      ),
+      Some("Domain Comment")
+    )
 
     storageHandler.write(mapper.writeValueAsString(domain), pathDomain)
 

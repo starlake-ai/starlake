@@ -53,6 +53,7 @@ import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
 
+import scala.annotation.tailrec
 import scala.collection.JavaConverters._
 import scala.io.{Codec, Source}
 import scala.util.Try
@@ -76,6 +77,9 @@ trait TestHelper extends FlatSpec with Matchers with BeforeAndAfterAll with Stri
         |COMET_DATASETS="${cometDatasetsPath}"
         |COMET_METADATA="${cometMetadataPath}"
         |COMET_TMPDIR="${cometTestRoot}/tmp"
+        |COMET_LOCK_PATH="${cometTestRoot}/locks"
+        |COMET_METRICS_PATH="${cometTestRoot}/metrics/{domain}/{schema}"
+        |COMET_AUDIT_PATH="${cometTestRoot}/audit"
         |
         |include required("reference")
         |""".stripMargin,
@@ -116,6 +120,89 @@ trait TestHelper extends FlatSpec with Matchers with BeforeAndAfterAll with Stri
     using(Source.fromFile(path))(readSourceContentAsString)
 
   def readFileContent(path: Path): String = readFileContent(path.toUri.getPath)
+
+  /** substitution patterns for test sample file resources.
+    *
+    * Note that the highly unusual choice of the £ character as a substitution variable marker has been made in order
+    * to reduce the likelihood of £ being used at all in the original text stream
+    *
+    * (although there IS a ££ -> £ substitution, using the more traditional $ or % choices would have caused uncomfortable
+    * and confusing confusions with the content)
+    *
+    */
+  val TestFileSubstitutions = Seq(
+    "£COMET_TEST_ROOT£" -> cometTestRoot,
+    "££"                -> "£"
+  )
+
+  private val SubstitutionPattern = "^£(.*?)£$".r
+  private val readySubstitutions = TestFileSubstitutions.map {
+    case (SubstitutionPattern(variableName), value) => (variableName, value)
+  }.toMap
+
+  def applyTestFileSubstitutions(fileContent: String): String = {
+    @tailrec
+    def recursiveApply(buffer: StringBuilder, start: Int, nextEvent: Int): String = {
+      fileContent.indexOf("£", start) match {
+        case -1 =>
+          /* this is it, we're done! */
+          buffer.append(fileContent.substring(start))
+          buffer.toString()
+
+        case index =>
+          fileContent.indexOf("£", index + 1) match {
+            case -1 =>
+              throw new IllegalArgumentException(
+                s"at position ${index}, unclosed £ substitution\n   in fileContent=${fileContent}"
+              )
+
+            case nextIndex =>
+              val substitutionName = fileContent.substring(index + 1, nextIndex)
+              readySubstitutions.get(substitutionName) match {
+                case None =>
+                  throw new IllegalArgumentException(
+                    s"at position ${index}, unknown substitution £${substitutionName}£\n   in fileContent=${fileContent}"
+                  )
+
+                case Some(substitutionValue) =>
+                  buffer.append(fileContent.substring(start, index))
+                  buffer.append(substitutionValue)
+                  recursiveApply(buffer, nextIndex + 1, fileContent.indexOf("£", index + 1))
+              }
+          }
+      }
+    }
+
+    /* we don't use fileContent.replace(pattern1, value1).replace(pattern2, value2) etc. as:
+       1. String#replace internally compiles a regex (!)
+       2. it is difficult to manage priorities between patterns and what happens if one pattern match overlaps another
+       (e.g if we have ££COMET_TEST_ROOT££ in the resource file, the correct output is £COMET_TEST_ROOT£ not
+       £/tmp/foobar/£)
+     */
+
+    val nextPercent = fileContent.indexOf("£")
+    if (nextPercent < 0) {
+      fileContent /* NO substitution — break here immediately */
+    } else {
+      val result = recursiveApply(new StringBuilder, 0, nextPercent)
+      result
+    }
+  }
+
+  def deliverTestFile(importPath: String, targetPath: Path): Unit = {
+    val content = loadFile(importPath)
+    val testContent = applyTestFileSubstitutions(content)
+
+    storageHandler.write(testContent, targetPath)
+
+    logger.whenTraceEnabled {
+      if (content != testContent) {
+        logger.trace(s"delivered ${importPath} to ${targetPath.toString}, WITH substitutions")
+      } else {
+        logger.trace(s"delivered ${importPath} to ${targetPath.toString}")
+      }
+    }
+  }
 
   def getResPath(path: String): String = getClass.getResource(path).toURI.getPath
 
@@ -158,61 +245,6 @@ trait TestHelper extends FlatSpec with Matchers with BeforeAndAfterAll with Stri
         .map(_.delete())
     }
 
-  lazy val domain = Domain(
-    "DOMAIN",
-    "/tmp/incoming/DOMAIN",
-    Some(
-      Metadata(
-        Some(Mode.FILE),
-        Some(Format.DSV),
-        None,
-        Some(false),
-        Some(false),
-        Some(false),
-        Some(";"),
-        Some("\""),
-        Some("\\"),
-        Some(WriteMode.APPEND),
-        None
-      )
-    ),
-    List(
-      Schema(
-        "User",
-        Pattern.compile("SCHEMA-.*.dsv"),
-        List(
-          Attribute(
-            "firstname",
-            "string",
-            Some(false),
-            false,
-            Some(PrivacyLevel.None)
-          ),
-          Attribute(
-            "lastname",
-            "string",
-            Some(false),
-            false,
-            Some(PrivacyLevel("SHA1"))
-          ),
-          Attribute(
-            "age",
-            "age",
-            Some(false),
-            false,
-            Some(PrivacyLevel("HIDE"))
-          )
-        ),
-        Some(Metadata(withHeader = Some(true))),
-        None,
-        Some("Schema Comment"),
-        Some(List("SQL1", "SQL2")),
-        None
-      )
-    ),
-    Some("Domain Comment")
-  )
-
   lazy val mapper: ObjectMapper with ScalaObjectMapper = {
     val mapper = new ObjectMapper(new YAMLFactory()) with ScalaObjectMapper
     // provides all of the Scala goodiness
@@ -247,7 +279,7 @@ trait TestHelper extends FlatSpec with Matchers with BeforeAndAfterAll with Stri
 
     allTypes.foreach { typeToImport =>
       val typesPath = new Path(DatasetArea.types, typeToImport.name)
-      storageHandler.write(loadFile(typeToImport.path), typesPath)
+      deliverTestFile(typeToImport.path, typesPath)
     }
 
     DatasetArea.init(storageHandler)
@@ -271,11 +303,11 @@ trait TestHelper extends FlatSpec with Matchers with BeforeAndAfterAll with Stri
 
     protected def init(): Unit = {
       val domainPath = new Path(domainMetadataRootPath, domainFilename)
-      storageHandler.write(loadFile(sourceDomainPathname), domainPath)
+      deliverTestFile(sourceDomainPathname, domainPath)
 
       allTypes.foreach { typeToImport =>
         val typesPath = new Path(DatasetArea.types, typeToImport.name)
-        storageHandler.write(loadFile(typeToImport.path), typesPath)
+        deliverTestFile(typeToImport.path, typesPath)
       }
 
       DatasetArea.initDomains(storageHandler, schemaHandler.domains.map(_.name))
@@ -295,7 +327,7 @@ trait TestHelper extends FlatSpec with Matchers with BeforeAndAfterAll with Stri
         new Path(sourceDatasetPathName).getName
       )
 
-      storageHandler.write(loadFile(sourceDatasetPathName), targetPath)
+      deliverTestFile(sourceDatasetPathName, targetPath)
 
       validator.loadPending()
     }

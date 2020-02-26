@@ -1,6 +1,6 @@
 ---
 name: "dream"
-directory: "/tmp/dream"
+directory: "£COMET_TEST_ROOT£/dream"
 metadata:
   mode: "FILE"
   format: "DSV"
