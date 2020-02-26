@@ -408,7 +408,7 @@ class IngestionWorkflow(
   def metric(cliConfig: MetricsConfig): Unit = {
     //Lookup for the domain given as prompt arguments, if is found then find the given schema in this domain
     val cmdArgs = for {
-      domain <- Settings.schemaHandler.getDomain(cliConfig.domain)
+      domain <- settings.schemaHandler.getDomain(cliConfig.domain)
       schema <- domain.schemas.find(_.name == cliConfig.schema)
     } yield (domain, schema)
 
