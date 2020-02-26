@@ -97,20 +97,14 @@ object SparkAuditLogWriter {
     val lockPath = new Path(settings.comet.audit.path, s"audit.lock")
     val locker = new FileLock(lockPath, settings.storageHandler)
     import session.implicits._
-    if (settings.comet.audit.active && locker.tryLock()) {
-      val res = Try {
+    if (settings.comet.audit.active) {
+      locker.doExclusively() {
         val auditPath = new Path(settings.comet.audit.path, s"ingestion-log")
         Seq(log).toDF.write
           .mode(SaveMode.Append)
           .format(settings.comet.writeFormat)
           .option("path", auditPath.toString)
           .save()
-      }
-      locker.release()
-      res match {
-        case Success(_) =>
-        case Failure(e) =>
-          throw e;
       }
     }
     val auditTypedRDD: RDD[AuditLog] = session.sparkContext.parallelize(Seq(log))
