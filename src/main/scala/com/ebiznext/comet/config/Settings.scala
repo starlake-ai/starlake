@@ -20,16 +20,21 @@
 
 package com.ebiznext.comet.config
 
+<<<<<<< HEAD
 import java.io.ObjectStreamException
 import java.lang.management.{ManagementFactory, RuntimeMXBean}
 import java.util.concurrent.TimeUnit
 import java.util.{Locale, UUID, Map => juMap}
+=======
+import java.util.{Map, UUID}
+>>>>>>> scalafmt
 
 import com.ebiznext.comet.schema.handlers.{
   AirflowLauncher,
   HdfsStorageHandler,
   LaunchHandler,
   SchemaHandler,
+<<<<<<< HEAD
   SimpleLauncher,
   StorageHandler
 }
@@ -45,6 +50,10 @@ import com.fasterxml.jackson.databind.{
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.typesafe.config.{Config, ConfigFactory, ConfigValue, ConfigValueFactory}
 import com.typesafe.scalalogging.{Logger, StrictLogging}
+=======
+  SimpleLauncher
+}
+>>>>>>> scalafmt
 import com.ebiznext.comet.schema.model.IndexSink
 import configs.Configs
 import configs.syntax._
@@ -127,8 +136,6 @@ object Settings extends StrictLogging {
         extends IndexSinkSettings {
       override def indexSinkType: IndexSink.JDBC.type = IndexSink.JDBC
     }
-
-
     // TODO: IndexSink has ES, too. Is there a use case for this?
     // Maybe later; additional sink types (e.g. Kafka/Pulsar)?
   }
@@ -146,10 +153,10 @@ object Settings extends StrictLogging {
   )
 
   final case class Audit(
-                          path: String,
-                          active: Boolean,
-                          index: IndexSinkSettings,
-                          maxErrors: Int
+    path: String,
+    active: Boolean,
+    index: IndexSinkSettings,
+    maxErrors: Int
   )
 
   /**
