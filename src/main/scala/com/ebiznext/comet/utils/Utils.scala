@@ -25,6 +25,7 @@ import java.io.{PrintWriter, StringWriter}
 import com.ebiznext.comet.schema.model.WriteMode
 import com.typesafe.scalalogging.Logger
 
+import scala.util.{Success, Try, Failure}
 import scala.util.control.NonFatal
 
 object Utils {
@@ -65,6 +66,25 @@ object Utils {
       resource.close()
     }
   }
+
+  /**
+    * If the provided [[attempt]] is a [[Success[T]]], do nothing.
+    * If it is a [[Failure]], then log the contained exception as a side effect and carry on
+    *
+    * @param attempt
+    * @param logger the logger onto which to log results
+    * @tparam T
+    * @return the original [[attempt]] with no alteration (everything happens as a side effect)
+    */
+  def logFailure[T](attempt: Try[T], logger: Logger): Try[T] =
+    attempt match {
+      case success @ Success(_) =>
+        success
+
+      case failure @ Failure(exception) =>
+        logException(logger, exception)
+        failure
+    }
 
   def logException(logger: Logger, exception: Throwable) = {
     logger.error(exceptionAsString(exception).toString)
