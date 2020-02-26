@@ -72,7 +72,7 @@ class SparkEnv(name: String)(implicit /* TODO: make this explicit */ settings: S
     */
   lazy val session: SparkSession = {
     val session =
-      if (Settings.comet.hive)
+      if (settings.comet.hive)
         SparkSession.builder.config(config).enableHiveSupport().getOrCreate()
       else
         SparkSession.builder.config(config).getOrCreate()
