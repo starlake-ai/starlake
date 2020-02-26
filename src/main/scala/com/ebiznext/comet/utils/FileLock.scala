@@ -1,6 +1,7 @@
 package com.ebiznext.comet.utils
 
-import java.util.concurrent.TimeoutException
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.{Semaphore, TimeUnit, TimeoutException}
 
 import com.ebiznext.comet.schema.handlers.StorageHandler
 import com.typesafe.scalalogging.StrictLogging
@@ -27,7 +28,9 @@ import scala.util.{Failure, Success, Try}
   */
 class FileLock(path: Path, storageHandler: StorageHandler) extends StrictLogging {
   def checkinPeriod: Long = storageHandler.lockAcquisitionPollTime.toMillis
-  val fileWatcher = new LockWatcher(path, storageHandler, checkinPeriod)
+  def refreshPeriod: Long = storageHandler.lockRefreshPollTime.toMillis
+
+  private val fileWatcher = new FileLock.LockWatcher(path, storageHandler, refreshPeriod)
 
   /**
     * Try to perform an operation while holding a lock exclusively
@@ -71,6 +74,8 @@ class FileLock(path: Path, storageHandler: StorageHandler) extends StrictLogging
     * @return true when locked is acquired (caller is responsible for calling [[release()]], false otherwise
     */
   def tryLock(timeoutInMillis: Long = -1): Boolean = {
+    fileWatcher.checkPristine()
+
     storageHandler.mkdirs(path.getParent)
     val maxTries = if (timeoutInMillis == -1) Integer.MAX_VALUE else timeoutInMillis / checkinPeriod
     var numberOfTries = 1
@@ -86,13 +91,16 @@ class FileLock(path: Path, storageHandler: StorageHandler) extends StrictLogging
           true
         case Failure(_) =>
           val lastModified = storageHandler.lastModified(path)
+          val currentTimeMillis = System.currentTimeMillis()
+
           logger.info(s"""
               |lastModified=$lastModified
-              |System.currentTimeMillis()=${System.currentTimeMillis()}
+              |System.currentTimeMillis()=${currentTimeMillis}
               |checkinPeriod*4=${checkinPeriod * 4}
-
+              |refreshPeriod*4=${refreshPeriod * 4}
+              |
           """)
-          if (System.currentTimeMillis() - lastModified > checkinPeriod * 4) {
+          if ((currentTimeMillis - lastModified) > (refreshPeriod * 4)) {
             storageHandler.delete(path)
           }
           numberOfTries = numberOfTries + 1
@@ -109,31 +117,61 @@ class FileLock(path: Path, storageHandler: StorageHandler) extends StrictLogging
   def release(): Unit = fileWatcher.release()
 
   private def watch(): Unit = {
-    val th = new Thread(fileWatcher, s"LockWatcher-${System.currentTimeMillis()}")
+    val th = new Thread(fileWatcher, s"LockWatcher-${System.currentTimeMillis()}-${path.toString}")
     th.start()
   }
 }
 
-class LockWatcher(path: Path, storageHandler: StorageHandler, checkinPeriod: Long)
-    extends Runnable
-    with StrictLogging {
+object FileLock {
 
-  def release(): Unit =
-    stop = true
+  private class LockWatcher(path: Path, storageHandler: StorageHandler, reportingPeriod: Long)
+      extends Runnable
+      with StrictLogging {
 
-  var stop = false
-  override def run(): Unit = {
-    try {
-      while (!stop) {
-        Thread.sleep(checkinPeriod)
-        storageHandler.touch(path)
-        logger.info(s"watcher $path modified=${storageHandler.lastModified(path)}")
-      }
-      storageHandler.delete(path)
-    } catch {
-      case e: InterruptedException =>
-        e.printStackTrace();
+    private val pristine = new AtomicBoolean(true)
+
+    def checkPristine(): Unit = {
+      val wasPristine = pristine.getAndSet(false)
+      if (!wasPristine)
+        throw new IllegalStateException(
+          s"FileLock instance on ${path} had already been used, cannot re-use"
+        )
     }
-  }
+    private val spent = new AtomicBoolean(false)
 
+    private val sem = new Semaphore(0)
+
+    def release(): Unit = {
+      val wasAlreadySpent = spent.getAndSet(true)
+      if (wasAlreadySpent)
+        throw new IllegalStateException(
+          s"LockWatcher thread on ${path} already spent, cannot release again"
+        )
+      sem.release()
+    }
+
+    override def run(): Unit = {
+      /* if this thread starts, this means that our parent thread owns the lock.
+       *
+       * Our purpose is to regularly remind the user that something on *this* JVM owns the lock, and then destroy the
+       * lockfile once we've been notified we no longer need to.
+       *
+       * We also regularly touch the lockfile in order to demonstrate to external users (on other JVMs or on other nodes)
+       * that indeed, something is still alive and interested in this lock. An operator might use this as a clue to
+       * decide that a lock file is stale and deserves to be removed.
+       * */
+      try {
+        while (!sem.tryAcquire(reportingPeriod, TimeUnit.MILLISECONDS)) {
+          // we've slept checkinPeriod and failed to acquire the semaphore; let's remind the operator that we hold the lock, and carry on
+          storageHandler.touch(path)
+          logger.info(s"watcher $path modified=${storageHandler.lastModified(path)}")
+        }
+        storageHandler.delete(path)
+      } catch {
+        case e: InterruptedException =>
+          e.printStackTrace();
+      }
+    }
+
+  }
 }
