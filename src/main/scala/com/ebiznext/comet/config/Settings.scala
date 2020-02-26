@@ -181,12 +181,6 @@ object Settings extends StrictLogging {
     fileSystem: Option[String]
   ) extends Serializable {
 
-    @transient
-    lazy val launcherService: LaunchHandler = launcher match {
-      case "simple"  => new SimpleLauncher()
-      case "airflow" => new AirflowLauncher()
-    }
-
     @throws(classOf[ObjectStreamException])
     protected def writeReplace: AnyRef = {
       Comet.JsonWrapped(this)
@@ -240,6 +234,12 @@ object Settings extends StrictLogging {
   }
 }
 
+/**
+  * This class holds the current Comet settings and an assembly of reference instances for core, shared services
+  *
+  * SMELL: this may be the start of a Dependency Injection root (but at 2-3 objects, is DI justified? probably not
+  * quite yet) — cchepelov
+  */
 final case class Settings(comet: Settings.Comet) extends Serializable {
   def logger: Logger = Settings.loggerForCompanionInstances
 
@@ -256,5 +256,12 @@ final case class Settings(comet: Settings.Comet) extends Serializable {
       : Settings = this /* TODO: remove this once HdfsStorageHandler explicitly takes Settings or Settings.Comet in */
     new SchemaHandler(storageHandler)
   }
+
+  @transient
+  lazy val launcherService: LaunchHandler = comet.launcher match {
+    case "simple"  => new SimpleLauncher()
+    case "airflow" => new AirflowLauncher()
+  }
+
   def jobId: String = Settings.jobId
 }

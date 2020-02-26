@@ -90,13 +90,13 @@ object Main extends StrictLogging {
     */
   def main(args: Array[String]): Unit = {
     implicit val settings: Settings = Settings(ConfigFactory.load())
-    import Settings.{schemaHandler, storageHandler}
+    import settings.{schemaHandler, storageHandler, launcherService}
     DatasetArea.init(storageHandler)
 
     DatasetArea.initDomains(storageHandler, schemaHandler.domains.map(_.name))
 
     val workflow =
-      new IngestionWorkflow(storageHandler, schemaHandler, Settings.comet.launcherService)
+      new IngestionWorkflow(storageHandler, schemaHandler, launcherService)
 
     if (args.length == 0) printUsage()
 
