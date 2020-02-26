@@ -68,10 +68,6 @@ class JdbcLoadJob(
         Success(session)
     }
 
-    res match {
-      case Success(_)         =>
-      case Failure(exception) => Utils.logException(logger, exception)
-    }
-    res
+    Utils.logFailure(res, logger)
   }
 }
