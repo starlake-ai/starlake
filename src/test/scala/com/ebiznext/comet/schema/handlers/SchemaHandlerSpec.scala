@@ -233,7 +233,7 @@ class SchemaHandlerSpec extends TestHelper {
         "/sample/simple-json-locations/locations.json"
 
       init()
-      val schema: Option[Schema] = Settings.schemaHandler.domains
+      val schema: Option[Schema] = settings.schemaHandler.domains
         .find(_.name == "locations")
         .flatMap(_.schemas.find(_.name == "locations"))
       val expected: String =
