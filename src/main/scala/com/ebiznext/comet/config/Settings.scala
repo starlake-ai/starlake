@@ -118,7 +118,10 @@ object Settings extends StrictLogging {
     ingestionTimeout: Long,
     @JsonSerialize(using = classOf[FiniteDurationSerializer])
     @JsonDeserialize(using = classOf[FiniteDurationDeserializer])
-    pollTime: FiniteDuration = FiniteDuration(5000L, TimeUnit.MILLISECONDS)
+    pollTime: FiniteDuration = FiniteDuration(5000L, TimeUnit.MILLISECONDS),
+    @JsonSerialize(using = classOf[FiniteDurationSerializer])
+    @JsonDeserialize(using = classOf[FiniteDurationDeserializer])
+    refreshTime: FiniteDuration = FiniteDuration(5000L, TimeUnit.MILLISECONDS)
   )
 
   final class FiniteDurationSerializer extends JsonSerializer[FiniteDuration] {

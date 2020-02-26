@@ -71,6 +71,7 @@ trait StorageHandler extends StrictLogging {
   def touch(path: Path): Try[Unit]
 
   def lockAcquisitionPollTime: FiniteDuration
+  def lockRefreshPollTime: FiniteDuration
 
   def unzip(source: Path, targetDir: Path): Try[Unit]
 
@@ -102,6 +103,7 @@ class HdfsStorageHandler(fileSystem: Option[String])(
   }
 
   override def lockAcquisitionPollTime: FiniteDuration = settings.comet.lock.pollTime
+  override def lockRefreshPollTime: FiniteDuration = settings.comet.lock.refreshTime
 
   normalizedFileSystem.foreach(fs => conf.set("fs.defaultFS", fs))
   import scala.collection.JavaConverters._
