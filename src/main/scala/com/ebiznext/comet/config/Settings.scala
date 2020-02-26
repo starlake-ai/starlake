@@ -214,10 +214,10 @@ object Settings extends StrictLogging {
   @deprecated("please use and pass on a Settings instance instead", "2020-02-25")
   def comet(implicit settings: Settings): Comet = settings.comet
 
-  @deprecated("please use and pass on a Settings instance instead", "2020-02-25")
+  @deprecated("please use and pass on a Settings instance instead", "2020-02-25") // ready to remove
   def storageHandler(implicit settings: Settings): HdfsStorageHandler = settings.storageHandler
 
-  @deprecated("please use and pass on a Settings instance instead", "2020-02-25")
+  @deprecated("please use and pass on a Settings instance instead", "2020-02-25") // ready to remove
   def schemaHandler(implicit settings: Settings): SchemaHandler = settings.schemaHandler
 
   def apply(

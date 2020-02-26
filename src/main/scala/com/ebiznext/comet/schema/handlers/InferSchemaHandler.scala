@@ -156,7 +156,7 @@ object InferSchemaHandler {
   def generateYaml(domain: Domain, savePath: String)(
     implicit /* TODO: make me explicit */ settings: Settings
   ): Unit = {
-    val obj = Settings.storageHandler.read(new Path(savePath))
+    val obj = settings.storageHandler.read(new Path(savePath))
     val objw = new StringWriter()
     objw.write(obj)
     Main.mapper.writeValue(objw, domain)

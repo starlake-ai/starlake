@@ -95,7 +95,7 @@ object SparkAuditLogWriter {
     implicit /* TODO: make me explicit */ settings: Settings
   ) = {
     val lockPath = new Path(Settings.comet.audit.path, s"audit.lock")
-    val locker = new FileLock(lockPath, Settings.storageHandler)
+    val locker = new FileLock(lockPath, settings.storageHandler)
     import session.implicits._
     if (Settings.comet.audit.active && locker.tryLock()) {
       val res = Try {
