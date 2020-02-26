@@ -3,7 +3,7 @@ package com.ebiznext.comet.job.ingest
 import java.sql.Timestamp
 import java.time.Instant
 
-import com.ebiznext.comet.config.Settings.IndexOutput
+import com.ebiznext.comet.config.Settings.IndexSinkSettings
 import com.ebiznext.comet.config.{DatasetArea, Settings, StorageArea}
 import com.ebiznext.comet.job.bqload.{BigQueryLoadConfig, BigQueryLoadJob}
 import com.ebiznext.comet.job.index.{IndexConfig, IndexJob}
@@ -482,7 +482,7 @@ object IngestionUtil {
       .limit(settings.comet.audit.maxErrors)
 
     val res = settings.comet.audit.index match {
-      case IndexOutput.BigQuery(dataset) =>
+      case IndexSinkSettings.BigQuery(dataset) =>
         val bqConfig = BigQueryLoadConfig(
           Right(rejectedDF),
           outputDataset = dataset,
@@ -496,13 +496,13 @@ object IngestionUtil {
         )
         new BigQueryLoadJob(bqConfig, Some(bigqueryRejectedSchema())).run()
 
-      case IndexOutput.Jdbc(jdbcName, partitions, batchSize) =>
+      case IndexSinkSettings.Jdbc(jdbcName, partitions, batchSize) =>
         val jdbcConfig = JdbcLoadConfig.fromComet(jdbcName, settings.comet, Right(rejectedDF), "rejected",
           partitions = partitions, batchSize = batchSize)
 
         new JdbcLoadJob(jdbcConfig).run()
 
-      case IndexOutput.None =>
+      case IndexSinkSettings.None =>
         Success(())
     }
     res match {

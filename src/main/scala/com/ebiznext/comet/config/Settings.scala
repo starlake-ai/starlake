@@ -45,6 +45,7 @@ import com.fasterxml.jackson.databind.{
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.typesafe.config.{Config, ConfigFactory, ConfigValue, ConfigValueFactory}
 import com.typesafe.scalalogging.{Logger, StrictLogging}
+import com.ebiznext.comet.schema.model.IndexSink
 import configs.Configs
 import configs.syntax._
 import org.slf4j.MDC
@@ -93,31 +94,43 @@ object Settings extends StrictLogging {
   final case class Elasticsearch(active: Boolean, options: juMap[String, String])
 
   /**
-    * A type of Index Output (TODO: is the name right?)
+    * Configuration for [[IndexSink]]
     *
     * This is used to define an auxiliary output for Audit or Metrics data, in addition to the Parquets
-    * The default Index Output is None, but additional types exists (such as BigQuery or Jdbc)
+    * The default Index Sink is None, but additional types exists (such as BigQuery or Jdbc)
     *
     */
-  sealed abstract class IndexOutput
+  sealed abstract class IndexSinkSettings {
+    def indexSinkType: IndexSink
+  }
 
-  object IndexOutput {
+  object IndexSinkSettings {
 
     /**
       * A no-operation Index Output (disabling external output beyond the in-lake parquets)
       */
-    final case object None extends IndexOutput
+    final case object None extends IndexSinkSettings {
+      override def indexSinkType: IndexSink.None.type = IndexSink.None
+    }
 
     /**
       * Describes an Index Output delivering values into a BigQuery dataset
       */
-    final case class BigQuery(bqDataset: String) extends IndexOutput
+    final case class BigQuery(bqDataset: String) extends IndexSinkSettings {
+      override def indexSinkType: IndexSink.BQ.type = IndexSink.BQ
+    }
 
     /**
       * Describes an Index Output delivering values into a JDBC-accessible SQL database
       */
     final case class Jdbc(jdbcConnection: String, partitions: Int = 1, batchSize: Int = 1000)
-        extends IndexOutput
+        extends IndexSinkSettings {
+      override def indexSinkType: IndexSink.JDBC.type = IndexSink.JDBC
+    }
+
+
+    // TODO: IndexSink has ES, too. Is there a use case for this?
+    // Maybe later; additional sink types (e.g. Kafka/Pulsar)?
   }
 
   /**
@@ -129,14 +142,14 @@ object Settings extends StrictLogging {
     path: String,
     discreteMaxCardinality: Int,
     active: Boolean,
-    index: IndexOutput
+    index: IndexSinkSettings
   )
 
   final case class Audit(
-    path: String,
-    active: Boolean,
-    index: IndexOutput,
-    maxErrors: Int
+                          path: String,
+                          active: Boolean,
+                          index: IndexSinkSettings,
+                          maxErrors: Int
   )
 
   /**
@@ -301,7 +314,7 @@ object Settings extends StrictLogging {
   def schemaHandler(implicit settings: Settings): SchemaHandler = settings.schemaHandler
 
   private implicit val jdbcEngineConfigs: Configs[JdbcEngine] = Configs.derive[JdbcEngine]
-  private implicit val indexOutputConfigs: Configs[IndexOutput] = Configs.derive[IndexOutput]
+  private implicit val indexOutputConfigs: Configs[IndexSinkSettings] = Configs.derive[IndexSinkSettings]
 
   lazy val config: Config = ConfigFactory.load()
 
