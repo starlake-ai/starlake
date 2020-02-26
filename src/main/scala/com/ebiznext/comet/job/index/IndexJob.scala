@@ -89,7 +89,7 @@ class IndexJob(
 
     logger.info(s"Registering template ${cliConfig.domain}_${cliConfig.schema} -> $content")
     import scala.collection.JavaConverters._
-    val esOptions = Settings.comet.elasticsearch.options.asScala.toMap
+    val esOptions = settings.comet.elasticsearch.options.asScala.toMap
     val host: String = esOptions.getOrElse("es.nodes", "localhost")
     val port = esOptions.getOrElse("es.port", "9200").toInt
     val ssl = esOptions.getOrElse("es.net.ssl", "false").toBoolean

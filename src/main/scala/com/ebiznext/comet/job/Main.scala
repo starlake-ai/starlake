@@ -90,7 +90,7 @@ object Main extends StrictLogging {
     */
   def main(args: Array[String]): Unit = {
     implicit val settings: Settings = Settings(ConfigFactory.load())
-    import settings.{schemaHandler, storageHandler, launcherService}
+    import settings.{launcherService, schemaHandler, storageHandler}
     DatasetArea.init(storageHandler)
 
     DatasetArea.initDomains(storageHandler, schemaHandler.domains.map(_.name))
@@ -120,9 +120,9 @@ object Main extends StrictLogging {
         val domain = arglist(1)
         val schema = arglist(2)
         val paths = arglist(3)
-        val lockPath = new Path(Settings.comet.lock.path, s"${domain}_${schema}.lock")
+        val lockPath = new Path(settings.comet.lock.path, s"${domain}_${schema}.lock")
         val locker = new FileLock(lockPath, storageHandler)
-        val waitTimeMillis = Settings.comet.lock.ingestionTimeout
+        val waitTimeMillis = settings.comet.lock.ingestionTimeout
         val ingestResult =
           if (locker.tryLock(waitTimeMillis)) {
             Try {

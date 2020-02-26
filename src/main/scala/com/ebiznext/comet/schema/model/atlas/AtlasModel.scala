@@ -433,7 +433,7 @@ class AtlasModel(urls: Array[String], basicAuthUsernamePassword: Array[String])
       Array(dom.name),
       dom.name,
       dom.comment.getOrElse(""),
-      Settings.comet.atlas.owner,
+      settings.comet.atlas.owner,
       dom.directory,
       dom.metadata,
       dom.extensions.map(_.toArray),

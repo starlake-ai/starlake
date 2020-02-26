@@ -39,7 +39,7 @@ case class IndexConfig(
 
   def getDataset()(implicit /* TODO: make me explicit */ settings: Settings): Path = {
     dataset.getOrElse {
-      new Path(s"${Settings.comet.datasets}/${Settings.comet.area.accepted}/$domain/$schema")
+      new Path(s"${settings.comet.datasets}/${settings.comet.area.accepted}/$domain/$schema")
     }
   }
 

@@ -90,7 +90,7 @@ trait IngestionJob extends SparkJob {
       logger.debug(s"acceptedRDD SIZE ${acceptedDF.count()}")
       acceptedDF.show(1000)
     }
-    if (Settings.comet.metrics.active) {
+    if (settings.comet.metrics.active) {
       new MetricsJob(this.domain, this.schema, Stage.UNIT, this.storageHandler)
         .run(acceptedDF, System.currentTimeMillis())
     }
@@ -106,7 +106,7 @@ trait IngestionJob extends SparkJob {
 
     saveRows(mergedDF, acceptedPath, writeMode, StorageArea.accepted, schema.merge.isDefined)
 
-    if (Settings.comet.metrics.active) {
+    if (settings.comet.metrics.active) {
       new MetricsJob(this.domain, this.schema, Stage.GLOBAL, storageHandler).run()
     }
     (mergedDF, acceptedPath)
@@ -115,7 +115,7 @@ trait IngestionJob extends SparkJob {
   def index(mergedDF: DataFrame): Unit = {
     val meta = schema.mergedMetadata(domain.metadata)
     meta.getIndexSink() match {
-      case Some(IndexSink.ES) if Settings.comet.elasticsearch.active =>
+      case Some(IndexSink.ES) if settings.comet.elasticsearch.active =>
         val properties = meta.properties
         val config = IndexConfig(
           timestamp = properties.flatMap(_.get("timestamp")),
@@ -203,7 +203,7 @@ trait IngestionJob extends SparkJob {
       logger.debug(s"Merge detected ${updatesDF.count()} items to update/insert")
       orderedExisting.except(toDeleteDF).union(updatesDF).show(false)
     }
-    if (Settings.comet.mergeForceDistinct)
+    if (settings.comet.mergeForceDistinct)
       orderedExisting.except(toDeleteDF).union(updatesDF).distinct()
     else
       orderedExisting.except(toDeleteDF).union(updatesDF)
@@ -230,7 +230,7 @@ trait IngestionJob extends SparkJob {
       val hiveDB = StorageArea.area(domain.name, area)
       val tableName = schema.name
       val fullTableName = s"$hiveDB.$tableName"
-      if (Settings.comet.hive) {
+      if (settings.comet.hive) {
         logger.info(
           s"DSV Output $count records to Hive table $hiveDB/$tableName($saveMode) at $targetPath"
         )
@@ -266,7 +266,7 @@ trait IngestionJob extends SparkJob {
           val sampledDataset = dataset.sample(false, minFraction)
           partitionedDatasetWriter(sampledDataset, metadata.getPartitionAttributes())
             .mode(SaveMode.ErrorIfExists)
-            .format(Settings.comet.writeFormat)
+            .format(settings.comet.writeFormat)
             .option("path", tmpPath.toString)
             .save()
           val consumed = storageHandler.spaceConsumed(tmpPath) / fraction
@@ -284,7 +284,7 @@ trait IngestionJob extends SparkJob {
       val targetDataset = if (merge && area != StorageArea.rejected) {
         partitionedDF
           .mode(SaveMode.Overwrite)
-          .format(Settings.comet.writeFormat)
+          .format(settings.comet.writeFormat)
           .option("path", mergePath)
           .save()
         partitionedDatasetWriter(
@@ -295,13 +295,13 @@ trait IngestionJob extends SparkJob {
         partitionedDF
       val targetDatasetWriter = targetDataset
         .mode(saveMode)
-        .format(Settings.comet.writeFormat)
+        .format(settings.comet.writeFormat)
         .option("path", targetPath.toString)
-      if (Settings.comet.hive) {
+      if (settings.comet.hive) {
         targetDatasetWriter.saveAsTable(fullTableName)
         val tableComment = schema.comment.getOrElse("")
         session.sql(s"ALTER TABLE $fullTableName SET TBLPROPERTIES ('comment' = '$tableComment')")
-        if (Settings.comet.analyze) {
+        if (settings.comet.analyze) {
           val allCols = session.table(fullTableName).columns.mkString(",")
           val analyzeTable =
             s"ANALYZE TABLE $fullTableName COMPUTE STATISTICS FOR COLUMNS $allCols"
@@ -443,12 +443,12 @@ object IngestionUtil {
         )
       )
       .toDF(rejectedCols.map(_._1): _*)
-      .limit(Settings.comet.audit.maxErrors)
+      .limit(settings.comet.audit.maxErrors)
 
-    if (Settings.comet.audit.index == "BQ") {
+    if (settings.comet.audit.index == "BQ") {
       val bqConfig = BigQueryLoadConfig(
         Right(rejectedDF),
-        Settings.comet.audit.options.getOrDefault("bq-dataset", "audit"),
+        settings.comet.audit.options.getOrDefault("bq-dataset", "audit"),
         "rejected",
         None,
         "parquet",
