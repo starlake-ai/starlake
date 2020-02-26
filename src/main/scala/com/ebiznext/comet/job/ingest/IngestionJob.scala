@@ -124,7 +124,7 @@ trait IngestionJob extends SparkJob {
           domain = domain.name,
           schema = schema.name
         )
-        new IndexJob(config, Settings.storageHandler).run()
+        new IndexJob(config, settings.storageHandler).run()
       case Some(IndexSink.BQ) =>
         val (createDisposition: String, writeDisposition: String) = Utils.getBQDisposition(
           meta.getWriteMode()
