@@ -65,6 +65,8 @@ class MetricsJob(
     *
     * @param dataToSave :   dataset to be saved
     * @param path       :   Path to save the file at
+    *
+    *
     */
   def save(dataToSave: DataFrame, path: Path): Unit = {
     if (storageHandler.exists(path)) {
@@ -335,20 +337,84 @@ root
         stage
       )
 
-    val metricsResult = allMetricsDfMaybe match {
+
+    val combinedResult = allMetricsDfMaybe match {
       case Some(allMetricsDf) =>
         val lockPath = getLockPath(settings.comet.metrics.path)
         val waitTimeMillis = settings.comet.lock.metricsTimeout
         val locker = new FileLock(lockPath, storageHandler)
 
-        locker.tryExclusively(waitTimeMillis) {
+        val metricsResult = locker.tryExclusively(waitTimeMillis) {
           save(allMetricsDf, savePath)
+        }
+        val metricsSinkResult = sinkMetrics(allMetricsDf)
+
+        for {
+          _ <- metricsResult
+          _ <- metricsSinkResult
+        } yield {
+          session
         }
 
       case None =>
         Success(())
     }
-
-    metricsResult.map(_ => session)
+    combinedResult.map(_ => session)
   }
+
+
+  private def sinkMetrics(metricsDf: DataFrame): Try[Unit] = {
+    if (settings.comet.metrics.active) {
+      settings.comet.metrics.index match {
+        case Settings.IndexSinkSettings.None =>
+          Success( () )
+
+        case Settings.IndexSinkSettings.BigQuery(bqDataset) =>
+          Try { sinkMetricsToBigQuery(metricsDf, bqDataset) }
+
+        case Settings.IndexSinkSettings.Jdbc(jdbcConnection, partitions, batchSize) =>
+          Try { sinkMetricsToJdbc(metricsDf, jdbcConnection, partitions, batchSize) }
+      }
+    } else {
+      Success( () )
+    }
+  }
+
+  private def sinkMetricsToBigQuery(metricsDf: DataFrame, bqDataset: String): Unit = ??? // TODO: implement me
+
+  private def sinkMetricsToJdbc(metricsDf: DataFrame, jdbcConnection: String, partitions: Int, batchSize: Int): Unit = {
+    /* WIP comment:
+
+    the main difficulty here is that while 'save' will generate a parquet file, which we might read and just push away
+    through the sink, we cannot actually send it unconditionally.
+
+    The problem is that if metrics are generated onto an already existing path, the actual 'save' process is to read
+    the already-existing file and merge it into the oncoming data set.
+
+    We should be able to have multiple outputs, one prong towards the sink and one prong towards the Parquet.
+    We can't on this platform (hi, Sparky), so we actually must split into two-or-three jobs:
+
+    if (blank output path):
+      - job 1 (this): save into output path (as .parquet)
+      - job 2: read output path, push to sink
+    else:
+      - job 1 (this): save into INTERMEDIATE path (as .parquet)
+      - job 2: read INTERMEDIATE path, push to sink
+      - job 3: read all INTERMEDIATES, merge into output path, remove intermediates
+
+    in fact we could consider that only the (non-blank output path) case is necessary, with a smart reduction of
+    "job 3" to "just move the single intermediate as output" if that is the case (this is effectively a port of
+    the current approach within the save() method)
+
+    But we need to record a state machine of pending metrics, so that subsequent runs of MetricsJob can re-attempt
+    "job 3" whenever it had failed (even on 'older' paths).
+
+
+     */
+
+
+    ???
+  }
+
+
 }
