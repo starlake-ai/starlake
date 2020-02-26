@@ -21,6 +21,7 @@
 package com.ebiznext.comet.config
 
 import java.io.ObjectStreamException
+import java.lang.management.{ManagementFactory, RuntimeMXBean}
 import java.util.concurrent.TimeUnit
 import java.util.{Locale, UUID, Map => juMap}
 
@@ -51,13 +52,7 @@ import scala.concurrent.duration.FiniteDuration
 
 object Settings extends StrictLogging {
   private def loggerForCompanionInstances: Logger = logger
-  val jobId: String = UUID.randomUUID().toString
-
   import java.lang.management.{ManagementFactory, RuntimeMXBean}
-
-  val rt: RuntimeMXBean = ManagementFactory.getRuntimeMXBean
-  MDC.put("PID", rt.getName)
-  MDC.put("JID", jobId)
 
   /**
     *
@@ -159,6 +154,7 @@ object Settings extends StrictLogging {
     * @param airflow     : Airflow end point. Should be defined even if simple launccher is used instead of airflow.
     */
   final case class Comet(
+    jobId: String,
     datasets: String,
     metadata: String,
     metrics: Metrics,
@@ -223,9 +219,12 @@ object Settings extends StrictLogging {
   def apply(
     config: Config = ConfigFactory
       .load()
-      .withValue("job-id", ConfigValueFactory.fromAnyRef(Settings.jobId, "per instance"))
   ): Settings = {
-    val loaded = config.extract[Comet].valueOrThrow { error =>
+    val jobId = UUID.randomUUID().toString
+    val effectiveConfig = config
+      .withValue("job-id", ConfigValueFactory.fromAnyRef(jobId, "per JVM instance"))
+
+    val loaded = effectiveConfig.extract[Comet].valueOrThrow { error =>
       error.messages.foreach(err => logger.error(err))
       throw new Exception("Failed to load config")
     }
@@ -240,7 +239,7 @@ object Settings extends StrictLogging {
   * SMELL: this may be the start of a Dependency Injection root (but at 2-3 objects, is DI justified? probably not
   * quite yet) — cchepelov
   */
-final case class Settings(comet: Settings.Comet) extends Serializable {
+final case class Settings(comet: Settings.Comet) {
   def logger: Logger = Settings.loggerForCompanionInstances
 
   @transient
@@ -263,5 +262,20 @@ final case class Settings(comet: Settings.Comet) extends Serializable {
     case "airflow" => new AirflowLauncher()
   }
 
-  def jobId: String = Settings.jobId
+  /** Publish MDC information into the logging stack.
+    *
+    * @note this is inherently an effectful operation, which effects global shared mutable state.
+    *       It should make little sense to run this code in tests.
+    */
+  def publishMDCData(): Unit = {
+    val rt: RuntimeMXBean = ManagementFactory.getRuntimeMXBean
+    MDC.put("PID", rt.getName)
+    val oldJobId = Option(MDC.get("JID")).getOrElse(comet.jobId)
+    require(
+      oldJobId == comet.jobId,
+      s"cannot publish different MDC data; a previous jobId ${oldJobId} had been published," +
+      s" attempting to reset to ${comet.jobId}"
+    )
+    MDC.put("JID", comet.jobId)
+  }
 }
