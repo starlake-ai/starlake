@@ -71,7 +71,7 @@ class IngestionWorkflow(
   def loadLanding(): Unit = {
     logger.info("LoadLanding")
     domains.foreach { domain =>
-      val storageHandler = Settings.storageHandler
+      val storageHandler = settings.storageHandler
       val inputDir = new Path(domain.directory)
       logger.info(s"Scanning $inputDir")
       storageHandler.list(inputDir, domain.getAck()).foreach { path =>
@@ -386,7 +386,7 @@ class IngestionWorkflow(
   }
 
   def index(config: IndexConfig): Try[SparkSession] = {
-    new IndexJob(config, Settings.storageHandler).run()
+    new IndexJob(config, settings.storageHandler).run()
   }
 
   def bqload(
@@ -397,7 +397,7 @@ class IngestionWorkflow(
   }
 
   def atlas(config: AtlasConfig): Unit = {
-    new AtlasJob(config, Settings.storageHandler).run()
+    new AtlasJob(config, settings.storageHandler).run()
   }
 
   /**
