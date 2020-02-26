@@ -94,15 +94,15 @@ object SparkAuditLogWriter {
   def append(session: SparkSession, log: AuditLog)(
     implicit /* TODO: make me explicit */ settings: Settings
   ) = {
-    val lockPath = new Path(Settings.comet.audit.path, s"audit.lock")
+    val lockPath = new Path(settings.comet.audit.path, s"audit.lock")
     val locker = new FileLock(lockPath, settings.storageHandler)
     import session.implicits._
-    if (Settings.comet.audit.active && locker.tryLock()) {
+    if (settings.comet.audit.active && locker.tryLock()) {
       val res = Try {
-        val auditPath = new Path(Settings.comet.audit.path, s"ingestion-log")
+        val auditPath = new Path(settings.comet.audit.path, s"ingestion-log")
         Seq(log).toDF.write
           .mode(SaveMode.Append)
-          .format(Settings.comet.writeFormat)
+          .format(settings.comet.writeFormat)
           .option("path", auditPath.toString)
           .save()
       }
@@ -123,10 +123,10 @@ object SparkAuditLogWriter {
       )
       .toDF(auditCols.map(_._1): _*)
 
-    if (Settings.comet.audit.index == "BQ") {
+    if (settings.comet.audit.index == "BQ") {
       val bqConfig = BigQueryLoadConfig(
         Right(auditDF),
-        Settings.comet.audit.options.getOrDefault("bq-dataset", "audit"),
+        settings.comet.audit.options.getOrDefault("bq-dataset", "audit"),
         "audit",
         None,
         "parquet",

@@ -105,7 +105,7 @@ class HdfsStorageHandler(fileSystem: Option[String])(
 
   normalizedFileSystem.foreach(fs => conf.set("fs.defaultFS", fs))
   import scala.collection.JavaConverters._
-  Settings.comet.hadoop.asScala.toMap.foreach {
+  settings.comet.hadoop.asScala.toMap.foreach {
     case (k, v) =>
       conf.set(k, v)
   }

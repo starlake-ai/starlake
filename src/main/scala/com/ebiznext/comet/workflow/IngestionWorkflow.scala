@@ -186,7 +186,7 @@ class IngestionWorkflow(
             ingestingPath
           }
           try {
-            if (Settings.comet.grouped)
+            if (settings.comet.grouped)
               launchHandler.ingest(this, domain, schema, ingestingPaths.toList)
             else
               ingestingPaths.foreach(launchHandler.ingest(this, domain, schema, _))
@@ -272,7 +272,7 @@ class IngestionWorkflow(
           .run()
       case CHEW =>
         ChewerJob.run(
-          s"${Settings.comet.chewerPrefix}.${domain.name}.${schema.name}",
+          s"${settings.comet.chewerPrefix}.${domain.name}.${schema.name}",
           domain,
           schema,
           schemaHandler.types,
@@ -285,7 +285,7 @@ class IngestionWorkflow(
     })
     ingestionResult match {
       case Success(_) =>
-        if (Settings.comet.archive) {
+        if (settings.comet.archive) {
           ingestingPath.foreach { ingestingPath =>
             val archivePath =
               new Path(DatasetArea.archive(domain.name), ingestingPath.getName)
@@ -358,7 +358,7 @@ class IngestionWorkflow(
       action.run() match {
         case Success(_) =>
           task.getIndexSink() match {
-            case Some(IndexSink.ES) if Settings.comet.elasticsearch.active =>
+            case Some(IndexSink.ES) if settings.comet.elasticsearch.active =>
               index(job, task)
             case Some(IndexSink.BQ) =>
               val (createDisposition, writeDisposition) = Utils.getBQDisposition(task.write)
