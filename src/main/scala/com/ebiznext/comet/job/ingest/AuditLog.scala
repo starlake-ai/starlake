@@ -23,7 +23,7 @@ package com.ebiznext.comet.job.ingest
 import java.sql.Timestamp
 
 import com.ebiznext.comet.config.Settings
-import com.ebiznext.comet.config.Settings.IndexOutput
+import com.ebiznext.comet.config.Settings.IndexSinkSettings
 import com.ebiznext.comet.job.bqload.{BigQueryLoadConfig, BigQueryLoadJob}
 import com.ebiznext.comet.job.jdbcload.{JdbcLoadConfig, JdbcLoadJob}
 import com.ebiznext.comet.utils.FileLock
@@ -121,7 +121,7 @@ object SparkAuditLogWriter {
       .toDF(auditCols.map(_._1): _*)
 
     settings.comet.audit.index match {
-      case IndexOutput.Jdbc(name, partitions, batchSize) =>
+      case IndexSinkSettings.Jdbc(name, partitions, batchSize) =>
         val jdbcConfig = JdbcLoadConfig.fromComet(
           name,
           settings.comet,
@@ -132,7 +132,7 @@ object SparkAuditLogWriter {
         )
         new JdbcLoadJob(jdbcConfig).run()
 
-      case IndexOutput.BigQuery(dataset) =>
+      case IndexSinkSettings.BigQuery(dataset) =>
         val bqConfig = BigQueryLoadConfig(
           Right(auditDF),
           outputDataset = dataset,
@@ -146,7 +146,7 @@ object SparkAuditLogWriter {
         )
         new BigQueryLoadJob(bqConfig, Some(bigqueryAuditSchema())).run()
 
-      case IndexOutput.None =>
+      case IndexSinkSettings.None =>
       // this is a NOP
     }
   }
