@@ -359,7 +359,7 @@ trait IngestionJob extends SparkJob {
               )
               val end = Timestamp.from(Instant.now())
               val log = AuditLog(
-                Settings.jobId,
+                s"${settings.comet.jobId}",
                 inputFiles,
                 domain.name,
                 schema.name,
@@ -379,7 +379,7 @@ trait IngestionJob extends SparkJob {
             val end = Timestamp.from(Instant.now())
             val err = Utils.exceptionAsString(exception)
             AuditLog(
-              Settings.jobId,
+              s"${settings.comet.jobId}",
               path.map(_.toString).mkString(","),
               domain.name,
               schema.name,
@@ -431,7 +431,7 @@ object IngestionUtil {
     import session.implicits._
     val rejectedPath = new Path(DatasetArea.rejected(domainName), schemaName)
     val rejectedPathName = rejectedPath.toString
-    val jobid = Settings.jobId
+    val jobid = s"${settings.comet.jobId}"
     val rejectedTypedRDD = rejectedRDD.map { err =>
       (jobid, now, domainName, schemaName, err, rejectedPathName)
     }

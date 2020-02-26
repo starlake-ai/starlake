@@ -34,6 +34,7 @@ import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
+import org.slf4j.MDC
 
 import scala.util.{Failure, Success, Try}
 
@@ -90,6 +91,8 @@ object Main extends StrictLogging {
     */
   def main(args: Array[String]): Unit = {
     implicit val settings: Settings = Settings(ConfigFactory.load())
+    settings.publishMDCData()
+
     import settings.{launcherService, schemaHandler, storageHandler}
     DatasetArea.init(storageHandler)
 
