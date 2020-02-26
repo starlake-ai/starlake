@@ -76,7 +76,7 @@ class IndexJob(
 
     val content = cliConfig.mapping.map(storageHandler.read).getOrElse {
       val dynamicTemplate = for {
-        domain <- Settings.schemaHandler.getDomain(cliConfig.domain)
+        domain <- settings.schemaHandler.getDomain(cliConfig.domain)
         schema <- domain.schemas.find(_.name == cliConfig.schema)
       } yield schema.mapping(domain.mapping(schema), domain.name)
 
