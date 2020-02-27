@@ -38,7 +38,13 @@ import com.fasterxml.jackson.databind.{InjectableValues, ObjectMapper}
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.fasterxml.jackson.module.scala.experimental.ScalaObjectMapper
-import com.typesafe.config.{Config, ConfigFactory, ConfigParseOptions, ConfigResolveOptions, ConfigValueFactory}
+import com.typesafe.config.{
+  Config,
+  ConfigFactory,
+  ConfigParseOptions,
+  ConfigResolveOptions,
+  ConfigValueFactory
+}
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.commons.io.FileUtils
 import org.apache.commons.io.filefilter.TrueFileFilter
@@ -115,7 +121,6 @@ trait TestHelper extends FlatSpec with Matchers with BeforeAndAfterAll with Stri
     using(Source.fromFile(path))(readSourceContentAsString)
 
   def readFileContent(path: Path): String = readFileContent(path.toUri.getPath)
-
 
   /** substitution patterns for test sample file resources.
     *
