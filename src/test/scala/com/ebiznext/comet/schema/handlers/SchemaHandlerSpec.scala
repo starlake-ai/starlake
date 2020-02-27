@@ -23,7 +23,7 @@ package com.ebiznext.comet.schema.handlers
 import java.net.URL
 
 import com.ebiznext.comet.TestHelper
-import com.ebiznext.comet.config.{DatasetArea, Settings}
+import com.ebiznext.comet.config.DatasetArea
 import com.ebiznext.comet.schema.model.{Metadata, Schema}
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.types.StructField

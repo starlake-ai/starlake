@@ -11,7 +11,7 @@ import org.apache.spark.sql.execution.streaming.FileStreamSource.Timestamp
 import org.apache.spark.sql.functions.{col, lit}
 import org.apache.spark.sql.types._
 
-import scala.util.{Failure, Success, Try}
+import scala.util.{Success, Try}
 
 /** To record statistics with other information during ingestion.
   *
