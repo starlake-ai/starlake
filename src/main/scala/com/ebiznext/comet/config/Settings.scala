@@ -25,15 +25,28 @@ import java.lang.management.{ManagementFactory, RuntimeMXBean}
 import java.util.concurrent.TimeUnit
 import java.util.{Locale, UUID, Map => juMap}
 
-import com.ebiznext.comet.schema.handlers.{AirflowLauncher, HdfsStorageHandler, LaunchHandler, SchemaHandler, SimpleLauncher, StorageHandler}
+import com.ebiznext.comet.schema.handlers.{
+  AirflowLauncher,
+  HdfsStorageHandler,
+  LaunchHandler,
+  SchemaHandler,
+  SimpleLauncher,
+  StorageHandler
+}
 import com.fasterxml.jackson.core.{JsonGenerator, JsonParser}
 import com.fasterxml.jackson.databind.annotation.{JsonDeserialize, JsonSerialize}
-import com.fasterxml.jackson.databind.{DeserializationContext, JsonDeserializer, JsonSerializer, ObjectMapper, SerializerProvider}
+import com.fasterxml.jackson.databind.{
+  DeserializationContext,
+  JsonDeserializer,
+  JsonSerializer,
+  ObjectMapper,
+  SerializerProvider
+}
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.typesafe.config.{Config, ConfigFactory, ConfigValue, ConfigValueFactory}
 import com.typesafe.scalalogging.{Logger, StrictLogging}
 import com.ebiznext.comet.schema.model.IndexSink
-import com.ebiznext.comet.utils.CometJacksonModule
+import com.ebiznext.comet.utils.CometObjectMapper
 import com.fasterxml.jackson.annotation.JsonTypeInfo
 import configs.Configs
 import configs.syntax._
@@ -257,12 +270,7 @@ object Settings extends StrictLogging {
       }
     }
     private object JsonWrapped {
-      private def jsonMapper: ObjectMapper = {
-        val mapper = new ObjectMapper()
-        mapper.registerModule(DefaultScalaModule)
-        mapper.registerModule(CometJacksonModule)
-        mapper
-      }
+      private def jsonMapper: ObjectMapper = new CometObjectMapper()
 
       def apply(comet: Comet): JsonWrapped = {
         val writer = jsonMapper.writerFor(classOf[Comet])
