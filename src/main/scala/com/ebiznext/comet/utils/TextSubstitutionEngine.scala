@@ -7,7 +7,7 @@ import scala.annotation.tailrec
   * substitution in a way that is more reliable and faster than applying a sequence of [[String#replace]]
   * operations.
   *
-  * The default start and end variable separators are £ and £, respectively, but can be configured to be
+  * The default start and end variable separators are \_\_ and \_\_, respectively, but can be configured to be
   * anything suitable.
   */
 final class TextSubstitutionEngine private (
@@ -49,7 +49,7 @@ final class TextSubstitutionEngine private (
                 case Some(substitutionValue) =>
                   buffer.append(sourceContent.substring(start, index))
                   buffer.append(substitutionValue)
-                  val nextEvent = sourceContent.indexOf("£", index + patternEnd.length)
+                  val nextEvent = sourceContent.indexOf("__", index + patternEnd.length)
                   recursiveApply(buffer, nextIndex + patternEnd.length, nextEvent)
               }
           }
@@ -59,8 +59,8 @@ final class TextSubstitutionEngine private (
     /* we don't use fileContent.replace(pattern1, value1).replace(pattern2, value2) etc. as:
        1. String#replace internally compiles a regex (!)
        2. it is difficult to manage priorities between patterns and what happens if one pattern match overlaps another
-       (e.g if we have ££COMET_TEST_ROOT££ in the resource file, the correct output is £COMET_TEST_ROOT£ not
-       £/tmp/foobar/£)
+       (e.g if we have ____COMET_TEST_ROOT____ in the resource file, the correct output is __COMET_TEST_ROOT__ not
+       __/tmp/foobar/__)
      */
 
     val firstEvent = sourceContent.indexOf(patternStart)
@@ -74,8 +74,8 @@ final class TextSubstitutionEngine private (
 }
 
 object TextSubstitutionEngine {
-  val DefaultSubstitutionPatternStart = "£"
-  val DefaultSubstitutionPatternEnd = "£"
+  val DefaultSubstitutionPatternStart = "__"
+  val DefaultSubstitutionPatternEnd = "__"
 
   def apply(
     patternStart: String,
