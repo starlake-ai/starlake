@@ -168,7 +168,7 @@ trait IngestionJob extends SparkJob {
 
           val jdbcConfig = JdbcLoadConfig.fromComet(
             jdbcName,
-            Settings.comet,
+            settings.comet,
             Right(mergedDF),
             schema.name,
             createDisposition = createDisposition,
@@ -497,8 +497,14 @@ object IngestionUtil {
         new BigQueryLoadJob(bqConfig, Some(bigqueryRejectedSchema())).run()
 
       case IndexSinkSettings.Jdbc(jdbcName, partitions, batchSize) =>
-        val jdbcConfig = JdbcLoadConfig.fromComet(jdbcName, settings.comet, Right(rejectedDF), "rejected",
-          partitions = partitions, batchSize = batchSize)
+        val jdbcConfig = JdbcLoadConfig.fromComet(
+          jdbcName,
+          settings.comet,
+          Right(rejectedDF),
+          "rejected",
+          partitions = partitions,
+          batchSize = batchSize
+        )
 
         new JdbcLoadJob(jdbcConfig).run()
 

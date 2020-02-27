@@ -12,7 +12,8 @@ import scala.util.{Failure, Success, Try}
 
 class JdbcLoadJob(
   cliConfig: JdbcLoadConfig
-)(implicit val settings: Settings) extends SparkJob {
+)(implicit val settings: Settings)
+    extends SparkJob {
 
   override def name: String = s"jdbcload-JDBC-${cliConfig.outputTable}"
 
@@ -55,8 +56,8 @@ class JdbcLoadJob(
     * @return : Spark Session used for the job
     */
   override def run(): Try[SparkSession] = {
-    val res = Settings.comet.audit.index match {
-      case _: IndexSinkSettings.Jdbc if Settings.comet.audit.active =>
+    val res = settings.comet.audit.index match {
+      case _: IndexSinkSettings.Jdbc if settings.comet.audit.active =>
         runJDBC()
 
       case _: IndexSinkSettings.Jdbc =>
