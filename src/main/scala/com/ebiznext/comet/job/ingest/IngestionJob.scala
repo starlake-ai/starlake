@@ -427,7 +427,7 @@ object IngestionUtil {
     domainName: String,
     schemaName: String,
     now: Timestamp
-  )(implicit /* TODO: make me explicit */ settings: Settings): (DataFrame, Path) = {
+  )(implicit settings: Settings): (DataFrame, Path) = {
     import session.implicits._
     val rejectedPath = new Path(DatasetArea.rejected(domainName), schemaName)
     val rejectedPathName = rejectedPath.toString
