@@ -49,7 +49,7 @@ class SchemaSpec extends TestHelper {
       "long",
       Some(true),
       true,
-      Some(PrivacyLevel("MD5")) // Should raise an error. Privacy cannot be applied on types other than string
+      Some(PrivacyLevel("MD5")) // Should raise an error. Privacy cannot be applied on types other than stringsettings = settings
     )
     attr.checkValidity() shouldBe
     Left(
@@ -80,7 +80,8 @@ class SchemaSpec extends TestHelper {
   "Position serialization" should "output all fields" in {
     val yml = loadFile(s"/expected/yml/position_serialization_${versionSuffix}.yml")
 
-    val attr = Attribute("hello", position = Some(Position(1, 2, Some(Trim.NONE))))
+    val attr =
+      Attribute("hello", position = Some(Position(1, 2, Some(Trim.NONE))))
     val writer = new StringWriter()
     mapper.writer().writeValue(writer, attr)
     logger.info("--" + writer.toString + "--")

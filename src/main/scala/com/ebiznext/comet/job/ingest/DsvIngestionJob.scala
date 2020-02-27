@@ -23,6 +23,7 @@ package com.ebiznext.comet.job.ingest
 import java.sql.Timestamp
 import java.time.Instant
 
+import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.schema.handlers.StorageHandler
 import com.ebiznext.comet.schema.model.Rejection.{ColInfo, ColResult, RowInfo, RowResult}
 import com.ebiznext.comet.schema.model._
@@ -49,7 +50,8 @@ class DsvIngestionJob(
   val types: List[Type],
   val path: List[Path],
   val storageHandler: StorageHandler
-) extends IngestionJob {
+)(implicit val settings: Settings)
+    extends IngestionJob {
 
   /**
     *
@@ -227,7 +229,7 @@ object DsvIngestionUtil {
     attributes: List[Attribute],
     types: List[Type],
     sparkType: StructType
-  ): (RDD[String], RDD[Row]) = {
+  )(implicit settings: Settings): (RDD[String], RDD[Row]) = {
     val now = Timestamp.from(Instant.now)
     val checkedRDD: RDD[RowResult] = dataset.rdd.mapPartitions { partition =>
       partition.map { row: Row =>

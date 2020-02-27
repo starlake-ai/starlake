@@ -28,14 +28,15 @@ import com.typesafe.scalalogging.StrictLogging
 class AtlasJob(
   cliConfig: AtlasConfig,
   storageHandler: StorageHandler
-) extends StrictLogging {
+)(implicit settings: Settings)
+    extends StrictLogging {
 
   def run(): Unit = {
     logger.info(s"")
-    val uris = cliConfig.uris.map(_.toArray).getOrElse(Array(Settings.comet.atlas.uri))
+    val uris = cliConfig.uris.map(_.toArray).getOrElse(Array(settings.comet.atlas.uri))
     val userPassword = (cliConfig.user, cliConfig.password) match {
       case (Some(user), Some(pwd)) => Array(user, pwd)
-      case _                       => Array(Settings.comet.atlas.user, Settings.comet.atlas.password)
+      case _                       => Array(settings.comet.atlas.user, settings.comet.atlas.password)
     }
     new AtlasModel(uris, userPassword).run(cliConfig, storageHandler)
   }

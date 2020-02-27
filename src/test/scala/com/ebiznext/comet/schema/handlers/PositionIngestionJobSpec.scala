@@ -38,7 +38,7 @@ class PositionIngestionJobSpec extends TestHelper {
 
       override val datasetDomainName: String = "position"
       override val sourceDatasetPathName: String = "/sample/position/XPOSTBL"
-      logger.info(Settings.comet.datasets)
+      logger.info(settings.comet.datasets)
       loadPending
 
       // Check archive
