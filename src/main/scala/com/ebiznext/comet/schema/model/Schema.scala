@@ -218,7 +218,7 @@ case class Schema(
          |      },
          |
          |"properties": {
-         |£ATTRIBUTES£
+         |__ATTRIBUTES__
          |}
          |    }
          |  }
