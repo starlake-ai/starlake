@@ -43,7 +43,7 @@ import org.apache.hadoop.fs.Path
   */
 object DatasetArea {
 
-  def path(domain: String, area: String)(implicit /* TODO: make me explicit */ settings: Settings) =
+  def path(domain: String, area: String)(implicit settings: Settings) =
     new Path(s"${settings.comet.datasets}/$area/$domain")
 
   def path(domainPath: Path, schema: String) = new Path(domainPath, schema)
@@ -54,7 +54,7 @@ object DatasetArea {
     * @param domain : Domain Name
     * @return Absolute path to the pending folder of domain
     */
-  def pending(domain: String)(implicit /* TODO: make me explicit */ settings: Settings): Path =
+  def pending(domain: String)(implicit settings: Settings): Path =
     path(domain, settings.comet.area.pending)
 
   /**
@@ -64,7 +64,7 @@ object DatasetArea {
     * @param domain : Domain name
     * @return Absolute path to the pending unresolved folder of domain
     */
-  def unresolved(domain: String)(implicit /* TODO: make me explicit */ settings: Settings): Path =
+  def unresolved(domain: String)(implicit settings: Settings): Path =
     path(domain, settings.comet.area.unresolved)
 
   /**
@@ -73,7 +73,7 @@ object DatasetArea {
     * @param domain : Domain name
     * @return Absolute path to the archive folder of domain
     */
-  def archive(domain: String)(implicit /* TODO: make me explicit */ settings: Settings): Path =
+  def archive(domain: String)(implicit settings: Settings): Path =
     path(domain, settings.comet.area.archive)
 
   /**
@@ -82,7 +82,7 @@ object DatasetArea {
     * @param domain : Domain name
     * @return Absolute path to the ingesting folder of domain
     */
-  def ingesting(domain: String)(implicit /* TODO: make me explicit */ settings: Settings): Path =
+  def ingesting(domain: String)(implicit settings: Settings): Path =
     path(domain, settings.comet.area.ingesting)
 
   /**
@@ -91,7 +91,7 @@ object DatasetArea {
     * @param domain : Domain name
     * @return Absolute path to the ingesting folder of domain
     */
-  def accepted(domain: String)(implicit /* TODO: make me explicit */ settings: Settings): Path =
+  def accepted(domain: String)(implicit settings: Settings): Path =
     path(domain, settings.comet.area.accepted)
 
   /**
@@ -100,7 +100,7 @@ object DatasetArea {
     * @param domain : Domain name
     * @return Absolute path to the rejected folder of domain
     */
-  def rejected(domain: String)(implicit /* TODO: make me explicit */ settings: Settings): Path =
+  def rejected(domain: String)(implicit settings: Settings): Path =
     path(domain, settings.comet.area.rejected)
 
   /**
@@ -109,22 +109,22 @@ object DatasetArea {
     * @param domain : Domain name
     * @return Absolute path to the business folder of domain
     */
-  def business(domain: String)(implicit /* TODO: make me explicit */ settings: Settings): Path =
+  def business(domain: String)(implicit settings: Settings): Path =
     path(domain, settings.comet.area.business)
 
-  def metadata(implicit /* TODO: make me explicit */ settings: Settings): Path =
+  def metadata(implicit settings: Settings): Path =
     new Path(s"${settings.comet.metadata}")
 
-  def types(implicit /* TODO: make me explicit */ settings: Settings): Path =
+  def types(implicit settings: Settings): Path =
     new Path(metadata, "types")
 
-  def mapping(implicit /* TODO: make me explicit */ settings: Settings): Path =
+  def mapping(implicit settings: Settings): Path =
     new Path(metadata, "mapping")
 
-  def domains(implicit /* TODO: make me explicit */ settings: Settings): Path =
+  def domains(implicit settings: Settings): Path =
     new Path(metadata, "domains")
 
-  def jobs(implicit /* TODO: make me explicit */ settings: Settings): Path =
+  def jobs(implicit settings: Settings): Path =
     new Path(metadata, "jobs")
 
   /**
@@ -133,12 +133,12 @@ object DatasetArea {
     */
   def init(
     storage: StorageHandler
-  )(implicit /* TODO: make me explicit */ settings: Settings): Unit = {
+  )(implicit settings: Settings): Unit = {
     List(metadata, types, domains).foreach(storage.mkdirs)
   }
 
   def initDomains(storage: StorageHandler, domains: Iterable[String])(
-    implicit /* TODO: make me explicit */ settings: Settings
+    implicit settings: Settings
   ): Unit = {
     init(storage)
     domains.foreach { domain =>

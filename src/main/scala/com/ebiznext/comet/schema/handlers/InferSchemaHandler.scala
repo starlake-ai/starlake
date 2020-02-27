@@ -39,7 +39,7 @@ object InferSchemaHandler {
     */
   def createAttributes(
     schema: StructType
-  )(implicit /* TODO: make me explicit */ settings: Settings): List[Attribute] = {
+  )(implicit settings: Settings): List[Attribute] = {
     schema
       .map(
         row =>
@@ -154,7 +154,7 @@ object InferSchemaHandler {
     * @param savePath path to save files.
     */
   def generateYaml(domain: Domain, savePath: String)(
-    implicit /* TODO: make me explicit */ settings: Settings
+    implicit settings: Settings
   ): Unit = {
     val obj = settings.storageHandler.read(new Path(savePath))
     val objw = new StringWriter()
