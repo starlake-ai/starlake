@@ -1,6 +1,6 @@
 package com.ebiznext.comet.utils
 
-import com.ebiznext.comet.config.SparkEnv
+import com.ebiznext.comet.config.{Settings, SparkEnv}
 import com.ebiznext.comet.schema.model.Metadata
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.sql.functions._
@@ -14,6 +14,8 @@ import scala.util.Try
   */
 trait SparkJob extends StrictLogging {
   def name: String
+  implicit def settings: Settings /* TODO: make me explicit */
+
   lazy val sparkEnv: SparkEnv = new SparkEnv(name)
   lazy val session: SparkSession = sparkEnv.session
 

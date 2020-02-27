@@ -1,0 +1,842 @@
+{
+    "enumDefs": [
+        {
+            "name": "FileStatus",
+            "serviceType": "comet",
+            "typeVersion": "1.0",
+            "elementDefs": [
+                {
+                    "ordinal": 1,
+                    "value": "UNRESOLVED"
+                },
+                {
+                    "ordinal": 2,
+                    "value": "ARCHIVED"
+                },
+                {
+                    "ordinal": 3,
+                    "value": "ACCEPTED"
+                },
+                {
+                    "ordinal": 4,
+                    "value": "REJECTED"
+                },
+                {
+                    "ordinal": 5,
+                    "value": "PENDING"
+                },
+                {
+                    "ordinal": 6,
+                    "value": "EXPOSED"
+                }
+            ]
+        },
+        {
+            "name": "Trim",
+            "serviceType": "comet",
+            "typeVersion": "1.0",
+            "elementDefs": [
+                {
+                    "ordinal": 1,
+                    "value": "LEFT"
+                },
+                {
+                    "ordinal": 2,
+                    "value": "RIGHT"
+                },
+                {
+                    "ordinal": 3,
+                    "value": "BOTH"
+                },
+                {
+                    "ordinal": 4,
+                    "value": "NONE"
+                }
+            ]
+        },
+        {
+            "name": "PrivacyLevel",
+            "serviceType": "comet",
+            "typeVersion": "1.0",
+            "elementDefs": [
+                {
+                    "ordinal": 1,
+                    "value": "A"
+                },
+                {
+                    "ordinal": 2,
+                    "value": "B"
+                },
+                {
+                    "ordinal": 3,
+                    "value": "C"
+                },
+                {
+                    "ordinal": 4,
+                    "value": "D"
+                }
+            ]
+        },
+        {
+            "name": "MetricType",
+            "serviceType": "comet",
+            "typeVersion": "1.0",
+            "elementDefs": [
+                {
+                    "ordinal": 1,
+                    "value": "DISCRETE"
+                },
+                {
+                    "ordinal": 2,
+                    "value": "CONTINUOUS"
+                },
+                {
+                    "ordinal": 3,
+                    "value": "TEXT"
+                },
+                {
+                    "ordinal": 4,
+                    "value": "NONE"
+                }
+            ]
+        },
+        {
+            "name": "FileFormat",
+            "serviceType": "comet",
+            "typeVersion": "1.0",
+            "elementDefs": [
+                {
+                    "ordinal": 1,
+                    "value": "DSV"
+                },
+                {
+                    "ordinal": 2,
+                    "value": "POSITION"
+                },
+                {
+                    "ordinal": 3,
+                    "value": "SIMPLE_JSON"
+                },
+                {
+                    "ordinal": 4,
+                    "value": "JSON"
+                },
+                {
+                    "ordinal": 5,
+                    "value": "ARRAY_JSON"
+                },
+                {
+                    "ordinal": 6,
+                    "value": "CHEW"
+                },
+                {
+                    "ordinal": 7,
+                    "value": "PARQUET"
+                },
+                {
+                    "ordinal": 8,
+                    "value": "AVRO"
+                }
+            ]
+        },        
+        {
+            "name": "IngestionMode",
+            "serviceType": "comet",
+            "typeVersion": "1.0",
+            "elementDefs": [
+                {
+                    "ordinal": 1,
+                    "value": "FILE"
+                },
+                {
+                    "ordinal": 2,
+                    "value": "STREAM"
+                },
+                {
+                    "ordinal": 3,
+                    "value": "FILE_AND_STREAM"
+                }
+            ]
+        },
+        {
+            "name": "WriteMode",
+            "serviceType": "comet",
+            "typeVersion": "1.0",
+            "elementDefs": [
+                {
+                    "ordinal": 1,
+                    "value": "OVERWRITE"
+                },
+                {
+                    "ordinal": 2,
+                    "value": "APPEND"
+                },
+                {
+                    "ordinal": 3,
+                    "value": "ERROR_IF_EXISTS"
+                },
+                {
+                    "ordinal": 4,
+                    "value": "IGNORE"
+                }
+            ]
+        },
+        {
+            "name": "FileSink",
+            "serviceType": "comet",
+            "typeVersion": "1.0",
+            "elementDefs": [
+                {
+                    "ordinal": 1,
+                    "value": "ES"
+                },
+                {
+                    "ordinal": 2,
+                    "value": "BQ"
+                }
+            ]
+        }
+
+    ],
+    "structDefs": [
+        {
+            "name": "Metadata",
+            "serviceType": "comet",
+            "typeVersion": "1.0",
+            "attributeDefs": [
+                {
+                    "name": "mode",
+                    "typeName": "IngestionMode",
+                    "cardinality": "SINGLE",
+                    "isIndexable": false,
+                    "isOptional": true,
+                    "isUnique": false
+                },
+                {
+                    "name": "format",
+                    "typeName": "FileFormat",
+                    "cardinality": "SINGLE",
+                    "isIndexable": false,
+                    "isOptional": true,
+                    "isUnique": false
+                },
+                {
+                    "name": "encoding",
+                    "typeName": "string",
+                    "cardinality": "SINGLE",
+                    "isIndexable": false,
+                    "isOptional": true,
+                    "isUnique": false
+                },
+                {
+                    "name": "multiline",
+                    "typeName": "boolean",
+                    "cardinality": "SINGLE",
+                    "isIndexable": false,
+                    "isOptional": true,
+                    "isUnique": false
+                },
+                {
+                    "name": "array",
+                    "typeName": "boolean",
+                    "cardinality": "SINGLE",
+                    "isIndexable": false,
+                    "isOptional": true,
+                    "isUnique": false
+                },
+                {
+                    "name": "withHeader",
+                    "typeName": "boolean",
+                    "cardinality": "SINGLE",
+                    "isIndexable": false,
+                    "isOptional": true,
+                    "isUnique": false
+                },
+                {
+                    "name": "separator",
+                    "typeName": "string",
+                    "cardinality": "SINGLE",
+                    "isIndexable": false,
+                    "isOptional": true,
+                    "isUnique": false
+                },
+                {
+                    "name": "quote",
+                    "typeName": "string",
+                    "cardinality": "SINGLE",
+                    "isIndexable": false,
+                    "isOptional": true,
+                    "isUnique": false
+                },
+                {
+                    "name": "escape",
+                    "typeName": "string",
+                    "cardinality": "SINGLE",
+                    "isIndexable": false,
+                    "isOptional": true,
+                    "isUnique": false
+                },
+                {
+                    "name": "write",
+                    "typeName": "WriteMode",
+                    "cardinality": "SINGLE",
+                    "isIndexable": false,
+                    "isOptional": true,
+                    "isUnique": false
+                },
+                {
+                    "name": "index",
+                    "typeName": "FileSink",
+                    "cardinality": "SINGLE",
+                    "isIndexable": false,
+                    "isOptional": true,
+                    "isUnique": false
+                },
+                {
+                    "name": "properties",
+                    "typeName": "map<string,string>",
+                    "cardinality": "SINGLE",
+                    "isIndexable": false,
+                    "isOptional": true,
+                    "isUnique": false
+                }
+            ]
+        },
+        {
+            "name": "MergeOptions",
+            "serviceType": "hive",
+            "typeVersion": "1.0",
+            "attributeDefs": [
+                {
+                    "name": "key",
+                    "typeName": "array<string>",
+                    "cardinality": "SET",
+                    "isIndexable": false,
+                    "isOptional": false,
+                    "isUnique": false
+                },
+                {
+                    "name": "delete",
+                    "typeName": "string",
+                    "cardinality": "SINGLE",
+                    "isIndexable": false,
+                    "isOptional": true,
+                    "isUnique": false
+                },
+                {
+                    "name": "timestamp",
+                    "typeName": "string",
+                    "cardinality": "SINGLE",
+                    "isIndexable": false,
+                    "isOptional": true,
+                    "isUnique": false
+                }
+            ]
+        },
+            {
+            "name": "Position",
+            "serviceType": "hive",
+            "typeVersion": "1.0",
+            "attributeDefs": [
+                {
+                    "name": "first",
+                    "typeName": "int",
+                    "cardinality": "SINGLE",
+                    "isIndexable": false,
+                    "isOptional": false,
+                    "isUnique": false
+                },
+                {
+                    "name": "last",
+                    "typeName": "int",
+                    "cardinality": "SINGLE",
+                    "isIndexable": false,
+                    "isOptional": false,
+                    "isUnique": false
+                },
+                {
+                    "name": "trim",
+                    "typeName": "Trim",
+                    "cardinality": "SINGLE",
+                    "isIndexable": false,
+                    "isOptional": true,
+                    "isUnique": false
+                }
+            ]
+        }
+ 
+    ],
+    "classificationDefs": [],
+    "entityDefs": [
+        {
+            "name": "Domain",
+            "superTypes": [
+                "Asset"
+            ],
+            "serviceType": "comet",
+            "typeVersion": "1.0",
+            "attributeDefs": [
+                {
+                    "name": "directory",
+                    "typeName": "string",
+                    "cardinality": "SINGLE",
+                    "isIndexable": false,
+                    "isOptional": false,
+                    "isUnique": false
+                },
+                {
+                    "name": "metadata",
+                    "typeName": "Metadata",
+                    "cardinality": "SINGLE",
+                    "isIndexable": false,
+                    "isOptional": true,
+                    "isUnique": false
+                },
+                {
+                    "name": "extensions",
+                    "typeName": "array<string>",
+                    "cardinality": "SET",
+                    "isIndexable": false,
+                    "isOptional": true,
+                    "isUnique": false
+                },
+                {
+                    "name": "ack",
+                    "typeName": "string",
+                    "cardinality": "SINGLE",
+                    "isIndexable": false,
+                    "isOptional": true,
+                    "isUnique": false
+                }
+            ]
+        },
+        {
+            "name": "Schema",
+            "superTypes": [
+                "Asset"
+            ],
+            "serviceType": "comet",
+            "typeVersion": "1.0",
+            "attributeDefs": [
+                {
+                    "name": "pattern",
+                    "typeName": "string",
+                    "cardinality": "SINGLE",
+                    "isIndexable": false,
+                    "isOptional": false,
+                    "isUnique": false
+                },
+                {
+                    "name": "metadata",
+                    "typeName": "Metadata",
+                    "cardinality": "SINGLE",
+                    "isIndexable": false,
+                    "isOptional": true,
+                    "isUnique": false
+                },
+                {
+                    "name": "merge",
+                    "typeName": "MergeOptions",
+                    "cardinality": "SINGLE",
+                    "isIndexable": false,
+                    "isOptional": true,
+                    "isUnique": false
+                },
+                {
+                    "name": "tags",
+                    "typeName": "array<string>",
+                    "cardinality": "SET",
+                    "isIndexable": false,
+                    "isOptional": true,
+                    "isUnique": false
+                }
+            ]
+        },
+        {
+            "name": "Attribute",
+            "superTypes": [
+                "Asset"
+            ],
+            "serviceType": "comet",
+            "typeVersion": "1.0",
+            "attributeDefs": [
+                {
+                    "name": "type",
+                    "typeName": "string",
+                    "cardinality": "SINGLE",
+                    "isIndexable": false,
+                    "isOptional": false,
+                    "isUnique": false
+                },
+                {
+                    "name": "array",
+                    "typeName": "boolean",
+                    "cardinality": "SINGLE",
+                    "isIndexable": false,
+                    "isOptional": true,
+                    "isUnique": false
+                },
+                {
+                    "name": "required",
+                    "typeName": "boolean",
+                    "cardinality": "SINGLE",
+                    "isIndexable": false,
+                    "isOptional": false,
+                    "isUnique": false
+                },
+                {
+                    "name": "privacy",
+                    "typeName": "PrivacyLevel",
+                    "cardinality": "SINGLE",
+                    "isIndexable": false,
+                    "isOptional": true,
+                    "isUnique": false
+                },
+                {
+                    "name": "rename",
+                    "typeName": "string",
+                    "cardinality": "SINGLE",
+                    "isIndexable": false,
+                    "isOptional": true,
+                    "isUnique": false
+                },
+                {
+                    "name": "metricType",
+                    "typeName": "MetricType",
+                    "cardinality": "SINGLE",
+                    "isIndexable": false,
+                    "isOptional": true,
+                    "isUnique": false
+                },
+                {
+                    "name": "position",
+                    "typeName": "Position",
+                    "cardinality": "SINGLE",
+                    "isIndexable": false,
+                    "isOptional": true,
+                    "isUnique": false
+                },
+                {
+                    "name": "default",
+                    "typeName": "string",
+                    "cardinality": "SINGLE",
+                    "isIndexable": false,
+                    "isOptional": true,
+                    "isUnique": false
+                },
+                {
+                    "name": "tags",
+                    "typeName": "array<string>",
+                    "cardinality": "SINGLE",
+                    "isIndexable": false,
+                    "isOptional": true,
+                    "isUnique": false
+                }
+            ]
+        },
+        {
+            "name": "Project",
+            "superTypes": [
+                "Asset"
+            ],
+            "serviceType": "comet",
+            "typeVersion": "1.0",
+            "attributeDefs": []
+        },
+        {
+            "name": "Bucket",
+            "superTypes": [
+                "Asset"
+            ],
+            "serviceType": "comet",
+            "typeVersion": "1.0",
+            "attributeDefs": []
+        },
+        {
+            "name": "DataFile",
+            "superTypes": [
+                "DataSet"
+            ],
+            "serviceType": "comet",
+            "typeVersion": "1.0",
+            "attributeDefs": [
+                {
+                    "name": "createTime",
+                    "typeName": "date",
+                    "cardinality": "SINGLE",
+                    "isIndexable": false,
+                    "isOptional": false,
+                    "isUnique": false
+                },
+                {
+                    "name": "modifiedTime",
+                    "typeName": "date",
+                    "cardinality": "SINGLE",
+                    "isIndexable": false,
+                    "isOptional": false,
+                    "isUnique": false
+                },
+                {
+                    "name": "size",
+                    "typeName": "long",
+                    "cardinality": "SINGLE",
+                    "isIndexable": false,
+                    "isOptional": false,
+                    "isUnique": false
+                },
+                {
+                    "name": "rowCount",
+                    "typeName": "long",
+                    "cardinality": "SINGLE",
+                    "isIndexable": false,
+                    "isOptional": false,
+                    "isUnique": false
+                },
+                {
+                    "name": "status",
+                    "typeName": "FileStatus",
+                    "cardinality": "SINGLE",
+                    "isIndexable": false,
+                    "isOptional": false,
+                    "isUnique": false
+                },
+                {
+                    "name": "isFile",
+                    "typeName": "boolean",
+                    "cardinality": "SINGLE",
+                    "isIndexable": false,
+                    "isOptional": false,
+                    "isUnique": false
+                },
+                {
+                    "name": "format",
+                    "typeName": "FileFormat",
+                    "cardinality": "SINGLE",
+                    "isIndexable": false,
+                    "isOptional": false,
+                    "isUnique": false
+                }
+            ]
+        },
+        {
+            "name": "BQTable",
+            "superTypes": [
+                "DataSet"
+            ],
+            "serviceType": "comet",
+            "typeVersion": "1.0",
+            "attributeDefs": [
+                {
+                    "name": "createTime",
+                    "typeName": "date",
+                    "cardinality": "SINGLE",
+                    "isIndexable": false,
+                    "isOptional": false,
+                    "isUnique": false
+                },
+                {
+                    "name": "modifiedTime",
+                    "typeName": "date",
+                    "cardinality": "SINGLE",
+                    "isIndexable": false,
+                    "isOptional": false,
+                    "isUnique": false
+                },
+                {
+                    "name": "rowCount",
+                    "typeName": "long",
+                    "cardinality": "SINGLE",
+                    "isIndexable": false,
+                    "isOptional": false,
+                    "isUnique": false
+                },
+                {
+                    "name": "size",
+                    "typeName": "long",
+                    "cardinality": "SINGLE",
+                    "isIndexable": false,
+                    "isOptional": false,
+                    "isUnique": false
+                },
+                {
+                    "name": "expiration",
+                    "typeName": "string",
+                    "cardinality": "SINGLE",
+                    "isIndexable": false,
+                    "isOptional": false,
+                    "isUnique": false
+                },
+                {
+                    "name": "location",
+                    "typeName": "string",
+                    "cardinality": "SINGLE",
+                    "isIndexable": false,
+                    "isOptional": false,
+                    "isUnique": false
+                },
+                {
+                    "name": "tableType",
+                    "typeName": "string",
+                    "cardinality": "SINGLE",
+                    "isIndexable": false,
+                    "isOptional": false,
+                    "isUnique": false
+                },
+                {
+                    "name": "partitionField",
+                    "typeName": "string",
+                    "cardinality": "SINGLE",
+                    "isIndexable": false,
+                    "isOptional": true,
+                    "isUnique": false
+                },
+                {
+                    "name": "partitionFilterRequired",
+                    "typeName": "boolean",
+                    "cardinality": "SINGLE",
+                    "isIndexable": false,
+                    "isOptional": true,
+                    "isUnique": false
+                },
+                {
+                    "name": "dataset",
+                    "typeName": "string",
+                    "cardinality": "SINGLE",
+                    "isIndexable": false,
+                    "isOptional": false,
+                    "isUnique": false
+                }
+            ]
+        },
+        {
+            "name": "CometProcess",
+            "superTypes": [
+                "Process"
+            ],
+            "serviceType": "comet",
+            "typeVersion": "1.0",
+            "attributeDefs": [
+                {
+                    "name": "startTime",
+                    "typeName": "date",
+                    "cardinality": "SINGLE",
+                    "isIndexable": false,
+                    "isOptional": false,
+                    "isUnique": false
+                },
+                {
+                    "name": "endTime",
+                    "typeName": "date",
+                    "cardinality": "SINGLE",
+                    "isIndexable": false,
+                    "isOptional": false,
+                    "isUnique": false
+                }
+            ]
+        }
+    ],
+    "relationshipDefs": [
+        {
+            "name": "project_bqtable",
+            "serviceType": "comet",
+            "typeVersion": "1.0",
+            "relationshipCategory": "COMPOSITION",
+            "relationshipLabel": "__project.bucket",
+            "endDef1": {
+                "type": "Project",
+                "name": "tables",
+                "isContainer": true,
+                "cardinality": "SET"
+            },
+            "endDef2": {
+                "type": "BQTable",
+                "name": "project",
+                "isContainer": false,
+                "cardinality": "SINGLE"
+            },
+            "propagateTags": "NONE"
+        },
+        {
+            "name": "bucket_datafile",
+            "serviceType": "comet",
+            "typeVersion": "1.0",
+            "relationshipCategory": "COMPOSITION",
+            "relationshipLabel": "__project.bucket",
+            "endDef1": {
+                "type": "Bucket",
+                "name": "files",
+                "isContainer": true,
+                "cardinality": "SET"
+            },
+            "endDef2": {
+                "type": "DataFile",
+                "name": "bucket",
+                "isContainer": false,
+                "cardinality": "SINGLE"
+            },
+            "propagateTags": "NONE"
+        },
+        {
+            "name": "project_bucket",
+            "serviceType": "comet",
+            "typeVersion": "1.0",
+            "relationshipCategory": "COMPOSITION",
+            "relationshipLabel": "__project.bucket",
+            "endDef1": {
+                "type": "Project",
+                "name": "buckets",
+                "isContainer": true,
+                "cardinality": "SET"
+            },
+            "endDef2": {
+                "type": "Bucket",
+                "name": "project",
+                "isContainer": false,
+                "cardinality": "SINGLE"
+            },
+            "propagateTags": "NONE"
+        },
+        {
+            "name": "domain_schema",
+            "serviceType": "comet",
+            "typeVersion": "1.0",
+            "relationshipCategory": "COMPOSITION",
+            "relationshipLabel": "__domain.schema",
+            "endDef1": {
+                "type": "Domain",
+                "name": "schemas",
+                "isContainer": true,
+                "cardinality": "SET"
+            },
+            "endDef2": {
+                "type": "Schema",
+                "name": "domain",
+                "isContainer": false,
+                "cardinality": "SINGLE"
+            },
+            "propagateTags": "NONE"
+        },
+        {
+            "name": "schema_attributes",
+            "serviceType": "comet",
+            "typeVersion": "1.0",
+            "relationshipCategory": "COMPOSITION",
+            "relationshipLabel": "__schema.attributes",
+            "endDef1": {
+                "type": "Schema",
+                "name": "columns",
+                "isContainer": true,
+                "cardinality": "SET",
+                "isLegacyAttribute": true
+            },
+            "endDef2": {
+                "type": "Attribute",
+                "name": "schema",
+                "isContainer": false,
+                "cardinality": "SINGLE",
+                "isLegacyAttribute": true
+            },
+            "propagateTags": "NONE"
+        }
+    ]
+}

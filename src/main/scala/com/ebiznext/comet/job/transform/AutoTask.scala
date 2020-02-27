@@ -22,7 +22,7 @@ package com.ebiznext.comet.job.transform
 
 import java.time.LocalDateTime
 
-import com.ebiznext.comet.config.{DatasetArea, HiveArea, Settings, UdfRegistration}
+import com.ebiznext.comet.config.{DatasetArea, Settings, StorageArea, UdfRegistration}
 import com.ebiznext.comet.schema.handlers.StorageHandler
 import com.ebiznext.comet.schema.model.AutoTaskDesc
 import com.ebiznext.comet.utils.SparkJob
@@ -40,33 +40,36 @@ import scala.util.{Success, Try}
   * @param defaultArea : Where the resulting dataset is stored by default if not specified in the task
   * @param task        : Task to run
   */
-class AutoJob(
+class AutoTask(
   override val name: String,
-  defaultArea: HiveArea,
+  defaultArea: StorageArea,
   format: Option[String],
   coalesce: Boolean,
   udf: Option[String],
   views: Option[Map[String, String]],
   task: AutoTaskDesc,
   storageHandler: StorageHandler
-) extends SparkJob {
+)(implicit val settings: Settings)
+    extends SparkJob {
 
   def run(): Try[SparkSession] = {
-    val targetArea = task.area.getOrElse(defaultArea)
     udf.foreach { udf =>
       val udfInstance: UdfRegistration =
-        Class.forName(udf).newInstance.asInstanceOf[UdfRegistration]
+        Class
+          .forName(udf)
+          .getDeclaredConstructor(Seq.empty: _*)
+          .newInstance()
+          .asInstanceOf[UdfRegistration]
       udfInstance.register(session)
     }
     views.getOrElse(Map()).foreach {
       case (key, value) =>
-        val fullPath = if (value.startsWith("/")) value else s"${Settings.comet.datasets}/$value"
+        val fullPath = if (value.startsWith("/")) value else s"${settings.comet.datasets}/$value"
         val df = session.read.parquet(fullPath)
         df.createOrReplaceTempView(key)
     }
     task.presql.getOrElse(Nil).foreach(session.sql)
-    val targetPath =
-      new Path(DatasetArea.path(task.domain, targetArea.value), task.dataset)
+    val targetPath = task.getTargetPath(defaultArea)
     val mergePath = s"${targetPath.toString}.merge"
 
     val dataframe = session.sql(task.sql)
@@ -77,25 +80,25 @@ class AutoJob(
       )
     partitionedDF
       .mode(SaveMode.Overwrite)
-      .format(Settings.comet.writeFormat)
+      .format(settings.comet.writeFormat)
       .option("path", mergePath)
       .save()
 
     val finalDataset = partitionedDF
       .mode(task.write.toSaveMode)
-      .format(format.getOrElse(Settings.comet.writeFormat))
+      .format(format.getOrElse(settings.comet.writeFormat))
       .option("path", targetPath.toString)
 
     val _ = storageHandler.delete(new Path(mergePath))
-    if (Settings.comet.hive) {
+    if (settings.comet.hive) {
       val tableName = task.dataset
-      val hiveDB = HiveArea.area(task.domain, targetArea)
+      val hiveDB = task.getHiveDB(defaultArea)
       val fullTableName = s"$hiveDB.$tableName"
       session.sql(s"create database if not exists $hiveDB")
       session.sql(s"use $hiveDB")
       session.sql(s"drop table if exists $tableName")
       finalDataset.saveAsTable(fullTableName)
-      if (Settings.comet.analyze) {
+      if (settings.comet.analyze) {
         val allCols = session.table(fullTableName).columns.mkString(",")
         val analyzeTable =
           s"ANALYZE TABLE $fullTableName COMPUTE STATISTICS FOR COLUMNS $allCols"
@@ -122,3 +125,26 @@ class AutoJob(
     Success(session)
   }
 }
+
+/*
+name: "facturation"
+udf: "com.ebiznext.comet.external.EvolanUdf"
+format: "csv"
+coalesce: true
+views:
+  ref_client: "/trainings/jupyter/work/ebiznext/business/patrice/client"
+  ref_societe: "/trainings/jupyter/work/ebiznext/accepted/patrice/societe"
+tasks:
+  - sql: |
+      select
+        clients.INTITULE_TIERS,
+        clients.CODE_POSTAL,
+
+      from  ref_client clients
+      where
+        clients.CODE_SOCIETE in (1, 2? 3, 4)
+    domain: "factu"
+    dataset: "facturation"
+    write: "OVERWRITE"
+    area: "business"
+ */

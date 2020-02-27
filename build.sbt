@@ -2,13 +2,14 @@ import Dependencies._
 import sbt.internal.util.complete.DefaultParsers
 import sbtrelease.ReleasePlugin.autoImport.ReleaseTransformations._
 import sbtrelease.Version
+import sbtrelease.Version.Bump.{Minor, Next}
 
 name := "comet"
 
 //val mavenLocal = "Local Maven" at Path.userHome.asFile.toURI.toURL + ".m2/repository"
 //resolvers += Resolver.mavenLocal
 
-lazy val scala212 = "2.12.8"
+lazy val scala212 = "2.12.10"
 lazy val scala211 = "2.11.12"
 lazy val supportedScalaVersions = List(scala212, scala211)
 
@@ -18,7 +19,12 @@ organization := "com.ebiznext"
 
 organizationName := "Ebiznext"
 
-scalaVersion := scala212
+scalaVersion := scala211
+
+scalacOptions ++= Seq(
+  "-deprecation",
+  "-feature"
+)
 
 organizationHomepage := Some(url("http://www.ebiznext.com"))
 
@@ -29,10 +35,15 @@ libraryDependencies := {
       case Some((2, scalaMajor)) if scalaMajor == 11 => spark211_240
     }
   }
-  dependencies ++ spark
+  val jackson = {
+    CrossVersion.partialVersion(scalaVersion.value) match {
+      case Some((2, scalaMajor)) if scalaMajor == 12 => jackson212
+      case Some((2, scalaMajor)) if scalaMajor == 11 => jackson211
+    }
+  }
+  
+  dependencies ++ spark ++ jackson
 }
-
-unmanagedJars in Compile += file("lib/gcs-connector-hadoop2-latest.jar")
 
 Common.enableCometAliases
 
@@ -51,7 +62,7 @@ addArtifact(artifact in (Compile, assembly), assembly)
 
 publishTo in ThisBuild := {
   sys.env.get("GCS_BUCKET_ARTEFACTS") match {
-    case None        => None
+    case None        => sonatypePublishToBundle.value
     case Some(value) => Some(GCSPublisher.forBucket(value, AccessRights.InheritBucket))
   }
 }
@@ -69,6 +80,8 @@ releaseNextVersion := { ver =>
     case None => sys.error("No version detected")
   }
 }
+
+releaseIgnoreUntrackedFiles := true
 
 releaseProcess := Seq[ReleaseStep](
   checkSnapshotDependencies,
@@ -88,6 +101,8 @@ releaseProcess := Seq[ReleaseStep](
 )
 
 releaseCommitMessage := s"Add CLoud Build ${ReleasePlugin.runtimeVersion.value}"
+
+releaseVersionBump := Next
 
 val writeNextVersion =
   Command("writeNextVersion")(_ => DefaultParsers.SpaceClass ~> DefaultParsers.NotQuoted)(
@@ -124,11 +139,17 @@ assemblyShadeRules in assembly := Seq(
     .inAll
 )
 
-//assemblyExcludedJars in assembly <<= (fullClasspath in assembly) map { cp =>
-// cp filter {x => x.data.getName.matches("sbt.*") || x.data.getName.matches(".*macros.*")}
-// }
+assemblyMergeStrategy in assembly := {
+  case PathList("META-INF", xs @ _*) => MergeStrategy.discard
+  case x => MergeStrategy.first
+}
 
-publishTo := sonatypePublishToBundle.value
+assemblyExcludedJars in assembly := {
+  val cp: Classpath = (fullClasspath in assembly).value
+  cp.foreach(x => println("->"+x.data.getName))
+  //cp filter {_.data.getName.matches("hadoop-.*-2.6.5.jar")}
+  Nil
+}
 
 // Your profile name of the sonatype account. The default is the same with the organization value
 sonatypeProfileName := "com.ebiznext"
@@ -147,3 +168,4 @@ developers := List(
   Developer(id="hayssams", name="Hayssam Saleh", email="hayssam.saleh@ebiznext.com", url=url("https://www.ebiznext.com"))
 )
 
+//logLevel in assembly := Level.Debug

@@ -22,18 +22,21 @@ package com.ebiznext.comet.workflow
 
 import better.files.File
 import com.ebiznext.comet.config.{DatasetArea, Settings}
+import com.ebiznext.comet.job.atlas.{AtlasConfig, AtlasJob}
 import com.ebiznext.comet.job.bqload.{BigQueryLoadConfig, BigQueryLoadJob}
 import com.ebiznext.comet.job.index.{IndexConfig, IndexJob}
 import com.ebiznext.comet.job.infer.{InferConfig, InferSchema}
 import com.ebiznext.comet.job.ingest._
 import com.ebiznext.comet.job.metrics.{MetricsConfig, MetricsJob}
-import com.ebiznext.comet.job.transform.AutoJob
+import com.ebiznext.comet.job.transform.AutoTask
 import com.ebiznext.comet.schema.handlers.{LaunchHandler, SchemaHandler, StorageHandler}
 import com.ebiznext.comet.schema.model.Format._
 import com.ebiznext.comet.schema.model._
 import com.ebiznext.comet.utils.Utils
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
+import org.apache.spark.sql.SparkSession
+import com.google.cloud.bigquery.{Schema => BQSchema}
 
 import scala.util.{Failure, Success, Try}
 
@@ -53,7 +56,8 @@ class IngestionWorkflow(
   storageHandler: StorageHandler,
   schemaHandler: SchemaHandler,
   launchHandler: LaunchHandler
-) extends StrictLogging {
+)(implicit settings: Settings)
+    extends StrictLogging {
   val domains: List[Domain] = schemaHandler.domains
 
   /**
@@ -65,23 +69,25 @@ class IngestionWorkflow(
     * before moving the files to the pending area, the ack files are deleted
     */
   def loadLanding(): Unit = {
+    logger.info("LoadLanding")
     domains.foreach { domain =>
-      val storageHandler = Settings.storageHandler
+      val storageHandler = settings.storageHandler
       val inputDir = new Path(domain.directory)
       logger.info(s"Scanning $inputDir")
       storageHandler.list(inputDir, domain.getAck()).foreach { path =>
         val ackFile = path
         val fileStr = ackFile.toString
-        val prefixStr = fileStr.stripSuffix(domain.getAck())
-        val tgz = new Path(prefixStr + ".tgz")
-        val gz = new Path(prefixStr + ".gz")
+        val prefixStr =
+          if (domain.getAck().isEmpty) fileStr.substring(0, fileStr.lastIndexOf('.'))
+          else fileStr.stripSuffix(domain.getAck())
         val tmpDir = new Path(prefixStr)
-        val zip = new Path(prefixStr + ".zip")
         val rawFormats =
-          domain.getExtensions().map(ext => new Path(prefixStr + ext))
+          if (domain.getAck().isEmpty) List(ackFile)
+          else
+            domain.getExtensions().map(ext => new Path(prefixStr + ext))
         val existRawFile = rawFormats.find(file => storageHandler.exists(file))
         logger.info(s"Found ack file $ackFile")
-        if (!domain.getAck().isEmpty)
+        if (domain.getAck().nonEmpty)
           storageHandler.delete(ackFile)
         if (existRawFile.isDefined) {
           existRawFile.foreach { file =>
@@ -91,9 +97,13 @@ class IngestionWorkflow(
             storageHandler.move(file, tmpFile)
           }
         } else if (storageHandler.fs.getScheme() == "file") {
+          val tgz = new Path(prefixStr + ".tgz")
+          val gz = new Path(prefixStr + ".gz")
+          val zip = new Path(prefixStr + ".zip")
           if (storageHandler.exists(gz)) {
             logger.info(s"Found compressed file $gz")
-            File(Path.getPathWithoutSchemeAndAuthority(gz).toString).unGzipTo(File(tmpDir.toString))
+            File(Path.getPathWithoutSchemeAndAuthority(gz).toString)
+              .unGzipTo(File(tmpDir.toString))
             storageHandler.delete(gz)
           } else if (storageHandler.exists(tgz)) {
             logger.info(s"Found compressed file $tgz")
@@ -102,7 +112,8 @@ class IngestionWorkflow(
             storageHandler.delete(tgz)
           } else if (storageHandler.exists(zip)) {
             logger.info(s"Found compressed file $zip")
-            File(Path.getPathWithoutSchemeAndAuthority(zip).toString).unzipTo(File(tmpDir.toString))
+            File(Path.getPathWithoutSchemeAndAuthority(zip).toString)
+              .unzipTo(File(tmpDir.toString))
             storageHandler.delete(zip)
           } else {
             logger.error(s"No archive found for ack ${ackFile.toString}")
@@ -175,7 +186,7 @@ class IngestionWorkflow(
             ingestingPath
           }
           try {
-            if (Settings.comet.grouped)
+            if (settings.comet.grouped)
               launchHandler.ingest(this, domain, schema, ingestingPaths.toList)
             else
               ingestingPaths.foreach(launchHandler.ingest(this, domain, schema, _))
@@ -261,7 +272,7 @@ class IngestionWorkflow(
           .run()
       case CHEW =>
         ChewerJob.run(
-          s"${Settings.comet.chewerPrefix}.${domain.name}.${schema.name}",
+          s"${settings.comet.chewerPrefix}.${domain.name}.${schema.name}",
           domain,
           schema,
           schemaHandler.types,
@@ -274,7 +285,7 @@ class IngestionWorkflow(
     })
     ingestionResult match {
       case Success(_) =>
-        if (Settings.comet.archive) {
+        if (settings.comet.archive) {
           ingestingPath.foreach { ingestingPath =>
             val archivePath =
               new Path(DatasetArea.archive(domain.name), ingestingPath.getName)
@@ -287,51 +298,6 @@ class IngestionWorkflow(
         }
       case Failure(exception) =>
         Utils.logException(logger, exception)
-    }
-
-    val meta = schema.mergedMetadata(domain.metadata)
-    meta.getIndexSink() match {
-      case Some(IndexSink.ES) if Settings.comet.elasticsearch.active =>
-        val properties = meta.properties
-        launchHandler.index(
-          this,
-          IndexConfig(
-            timestamp = properties.flatMap(_.get("timestamp")),
-            id = properties.flatMap(_.get("id")),
-            format = "parquet",
-            domain = domain.name,
-            schema = schema.name
-          )
-        )
-      case Some(IndexSink.BQ) =>
-        val (createDisposition, writeDisposition) = meta.getWriteMode match {
-          case WriteMode.OVERWRITE =>
-            ("CREATE_IF_NEEDED", "WRITE_TRUNCATE")
-          case WriteMode.APPEND =>
-            ("CREATE_IF_NEEDED", "WRITE_APPEND")
-          case WriteMode.ERROR_IF_EXISTS =>
-            ("CREATE_IF_NEEDED", "WRITE_EMPTY")
-          case WriteMode.IGNORE =>
-            ("CREATE_NEVER", "WRITE_EMPTY")
-          case _ =>
-            ("CREATE_IF_NEEDED", "WRITE_TRUNCATE")
-        }
-        launchHandler.bqload(
-          this,
-          BigQueryLoadConfig(
-            sourceFile = new Path(DatasetArea.accepted(domain.name), schema.name).toString,
-            outputTable = schema.name,
-            outputDataset = domain.name,
-            sourceFormat = "parquet",
-            createDisposition = createDisposition,
-            writeDisposition = writeDisposition,
-            location = meta.getProperties().get("location"),
-            outputPartition = meta.getProperties().get("timestamp"),
-            days = meta.getProperties().get("days").map(_.toInt)
-          )
-        )
-      case _ =>
-      // ignore
     }
   }
 
@@ -379,7 +345,7 @@ class IngestionWorkflow(
     */
   def autoJob(job: AutoJobDesc): Unit = {
     job.tasks.foreach { task =>
-      val action = new AutoJob(
+      val action = new AutoTask(
         job.name,
         job.getArea(),
         job.format,
@@ -389,19 +355,49 @@ class IngestionWorkflow(
         task,
         storageHandler
       )
-      action.run()
-      if (task.isIndexed() && Settings.comet.elasticsearch.active) {
-        index(job, task)
+      action.run() match {
+        case Success(_) =>
+          task.getIndexSink() match {
+            case Some(IndexSink.ES) if settings.comet.elasticsearch.active =>
+              index(job, task)
+            case Some(IndexSink.BQ) =>
+              val (createDisposition, writeDisposition) = Utils.getBQDisposition(task.write)
+              bqload(
+                BigQueryLoadConfig(
+                  sourceFile = Left(task.getTargetPath(job.getArea()).toString),
+                  outputTable = task.dataset,
+                  outputDataset = task.domain,
+                  sourceFormat = "parquet",
+                  createDisposition = createDisposition,
+                  writeDisposition = writeDisposition,
+                  location = task.properties.flatMap(_.get("location")),
+                  outputPartition = task.properties.flatMap(_.get("timestamp")),
+                  days = task.properties.flatMap(_.get("days").map(_.toInt))
+                )
+              )
+            case _ =>
+            // ignore
+
+          }
+        case Failure(exception) =>
+          exception.printStackTrace()
       }
     }
   }
 
-  def index(config: IndexConfig) = {
-    new IndexJob(config, Settings.storageHandler).run()
+  def index(config: IndexConfig): Try[SparkSession] = {
+    new IndexJob(config, settings.storageHandler).run()
   }
 
-  def bqload(config: BigQueryLoadConfig) = {
-    new BigQueryLoadJob(config, Settings.storageHandler).run()
+  def bqload(
+    config: BigQueryLoadConfig,
+    maybeSchema: Option[BQSchema] = None
+  ): Try[SparkSession] = {
+    new BigQueryLoadJob(config, maybeSchema).run()
+  }
+
+  def atlas(config: AtlasConfig): Unit = {
+    new AtlasJob(config, settings.storageHandler).run()
   }
 
   /**
@@ -412,7 +408,7 @@ class IngestionWorkflow(
   def metric(cliConfig: MetricsConfig): Unit = {
     //Lookup for the domain given as prompt arguments, if is found then find the given schema in this domain
     val cmdArgs = for {
-      domain <- Settings.schemaHandler.getDomain(cliConfig.domain)
+      domain <- settings.schemaHandler.getDomain(cliConfig.domain)
       schema <- domain.schemas.find(_.name == cliConfig.schema)
     } yield (domain, schema)
 

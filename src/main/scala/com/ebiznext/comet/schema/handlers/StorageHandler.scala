@@ -23,17 +23,20 @@ package com.ebiznext.comet.schema.handlers
 import java.io.ByteArrayOutputStream
 import java.time.{Instant, LocalDateTime, ZoneId}
 
+import com.ebiznext.comet.config.Settings
+import com.typesafe.scalalogging.StrictLogging
 import org.apache.commons.io.IOUtils
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs._
 import org.apache.spark.sql.execution.streaming.FileStreamSource.Timestamp
 
+import scala.concurrent.duration.FiniteDuration
 import scala.util.Try
 
 /**
   * Interface required by any filesystem manager
   */
-trait StorageHandler {
+trait StorageHandler extends StrictLogging {
 
   def move(src: Path, dst: Path): Boolean
 
@@ -67,6 +70,9 @@ trait StorageHandler {
 
   def touch(path: Path): Try[Unit]
 
+  def lockAcquisitionPollTime: FiniteDuration
+  def lockRefreshPollTime: FiniteDuration
+
   def unzip(source: Path, targetDir: Path): Try[Unit]
 
 }
@@ -74,10 +80,15 @@ trait StorageHandler {
 /**
   * HDFS Filesystem Handler
   */
-class HdfsStorageHandler(fileSystem: Option[String]) extends StorageHandler {
+class HdfsStorageHandler(fileSystem: Option[String])(
+  implicit settings: Settings
+) extends StorageHandler {
 
   val conf = new Configuration()
-
+  conf.set(
+    "fs.azure.account.key.hayssams.dfs.core.windows.net",
+    "fm2rEMVDBuWyEWw+NjvCZCdS20NJ4FX9eRunkXyhnakhKjaMzzFDOw/wBg2clWsVZnUDZQ+4ceSMpAR5RJvXGw=="
+  )
   lazy val normalizedFileSystem: Option[String] = {
     fileSystem.map { fs =>
       if (fs.endsWith(":"))
@@ -91,8 +102,20 @@ class HdfsStorageHandler(fileSystem: Option[String]) extends StorageHandler {
     }
   }
 
-  normalizedFileSystem.map(fs => conf.set("fs.defaultFS", fs))
+  override def lockAcquisitionPollTime: FiniteDuration = settings.comet.lock.pollTime
+  override def lockRefreshPollTime: FiniteDuration = settings.comet.lock.refreshTime
+
+  normalizedFileSystem.foreach(fs => conf.set("fs.defaultFS", fs))
+  import scala.collection.JavaConverters._
+  settings.comet.hadoop.asScala.toMap.foreach {
+    case (k, v) =>
+      conf.set(k, v)
+  }
+
   val fs: FileSystem = FileSystem.get(conf)
+  logger.info("fs=" + fs)
+  logger.info("fs.getHomeDirectory=" + fs.getHomeDirectory)
+  logger.info("fs.getUri=" + fs.getUri)
 
   /**
     * Gets the outputstream given a path
@@ -140,18 +163,25 @@ class HdfsStorageHandler(fileSystem: Option[String]) extends StorageHandler {
     * @return List of Path
     */
   def list(path: Path, extension: String, since: LocalDateTime): List[Path] = {
-
-    val iterator: RemoteIterator[LocatedFileStatus] = fs.listFiles(path, false)
-    iterator
-      .filter { status =>
-        val time = LocalDateTime.ofInstant(
-          Instant.ofEpochMilli(status.getModificationTime),
-          ZoneId.systemDefault
-        )
-        time.isAfter(since) && status.getPath().getName().endsWith(extension)
-      }
-      .map(status => status.getPath())
-      .toList
+    logger.info(s"list($path, $extension, $since)")
+    try {
+      val iterator: RemoteIterator[LocatedFileStatus] = fs.listFiles(path, false)
+      iterator
+        .filter { status =>
+          logger.info(s"found file=$status")
+          val time = LocalDateTime.ofInstant(
+            Instant.ofEpochMilli(status.getModificationTime),
+            ZoneId.systemDefault
+          )
+          time.isAfter(since) && status.getPath().getName().endsWith(extension)
+        }
+        .map(status => status.getPath())
+        .toList
+    } catch {
+      case e: Throwable =>
+        logger.warn(s"Ignoring folder $path", e)
+        Nil
+    }
   }
 
   /**

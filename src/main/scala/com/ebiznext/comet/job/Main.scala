@@ -21,6 +21,7 @@
 package com.ebiznext.comet.job
 
 import com.ebiznext.comet.config.{DatasetArea, Settings}
+import com.ebiznext.comet.job.atlas.AtlasConfig
 import com.ebiznext.comet.job.bqload.BigQueryLoadConfig
 import com.ebiznext.comet.job.index.IndexConfig
 import com.ebiznext.comet.job.infer.InferSchemaConfig
@@ -30,8 +31,10 @@ import com.ebiznext.comet.workflow.IngestionWorkflow
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
+import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
+import org.slf4j.MDC
 
 import scala.util.{Failure, Success, Try}
 
@@ -87,13 +90,16 @@ object Main extends StrictLogging {
     *             to compute all metrics on specific schema in a specific domain
     */
   def main(args: Array[String]): Unit = {
-    import Settings.{schemaHandler, storageHandler}
+    implicit val settings: Settings = Settings(ConfigFactory.load())
+    settings.publishMDCData()
+
+    import settings.{launcherService, schemaHandler, storageHandler}
     DatasetArea.init(storageHandler)
 
     DatasetArea.initDomains(storageHandler, schemaHandler.domains.map(_.name))
 
     val workflow =
-      new IngestionWorkflow(storageHandler, schemaHandler, Settings.comet.launcherService)
+      new IngestionWorkflow(storageHandler, schemaHandler, launcherService)
 
     if (args.length == 0) printUsage()
 
@@ -117,27 +123,12 @@ object Main extends StrictLogging {
         val domain = arglist(1)
         val schema = arglist(2)
         val paths = arglist(3)
-        val lockPath = new Path(Settings.comet.lock.path, s"${domain}_${schema}.lock")
+        val lockPath = new Path(settings.comet.lock.path, s"${domain}_${schema}.lock")
         val locker = new FileLock(lockPath, storageHandler)
-        val waitTimeMillis = Settings.comet.lock.ingestionTimeout
-        val ingestResult =
-          if (locker.tryLock(waitTimeMillis)) {
-            Try {
-              workflow.ingest(domain, schema, paths.split(',').map(new Path(_)).toList)
-            }
-          } else {
-            Failure(
-              new Exception(
-                s"Failed to obtain lock on file $lockPath waited (millis) $waitTimeMillis"
-              )
-            )
-          }
-        locker.release()
-        ingestResult match {
-          case Failure(e) =>
-            throw e
-          case Success(_) =>
-          // do nothing
+        val waitTimeMillis = settings.comet.lock.ingestionTimeout
+
+        locker.doExclusively(waitTimeMillis) {
+          workflow.ingest(domain, schema, paths.split(',').map(new Path(_)).toList)
         }
 
       case "index" =>
@@ -145,6 +136,15 @@ object Main extends StrictLogging {
           case Some(config) =>
             // do something
             workflow.index(config)
+          case _ =>
+            printUsage()
+        }
+
+      case "atlas" =>
+        AtlasConfig.parse(args.drop(1)) match {
+          case Some(config) =>
+            // do something
+            workflow.atlas(config)
           case _ =>
             printUsage()
         }

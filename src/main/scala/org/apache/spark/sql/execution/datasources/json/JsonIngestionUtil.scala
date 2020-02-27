@@ -101,13 +101,15 @@ object JsonIngestionUtil {
             typeComp = typeComp && errorList.isEmpty
           } else {
             // Field is present in the message but not in the schema.
-            errorList += s"unkonwn field ${f2.name} : ${f2.dataType.typeName} in context ${context.mkString(".")}"
+            errorList += s"""${f2.name}, ${f2.dataType.typeName}, ${context.mkString(".")}, unknown field ${f2.name} : ${f2.dataType.typeName} in context ${context
+              .mkString(".")}"""
             typeComp = false
           }
         }
         while (f2Idx < fields2.length) {
           val f2 = fields2(f2Idx)
-          errorList += s"unkonwn field ${f2.name} : ${f2.dataType.typeName} in context ${context.mkString(".")}"
+          errorList += s"""${f2.name}, ${f2.dataType.typeName}, ${context.mkString(".")}, unknown field ${f2.name} : ${f2.dataType.typeName} in context ${context
+            .mkString(".")}"""
           f2Idx += 1
         }
 
