@@ -1,5 +1,5 @@
 name: "hr"
-directory: "£COMET_TEST_ROOT£/incoming/hr"
+directory: "__COMET_TEST_ROOT__/incoming/hr"
 metadata:>
   mode: "FILE"
   format: "JSON"
