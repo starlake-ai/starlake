@@ -37,7 +37,9 @@ object InferSchemaHandler {
     * @param schema Schema so that we find all Attributes
     * @return List of Attributes
     */
-  def createAttributes(schema: StructType): List[Attribute] = {
+  def createAttributes(
+    schema: StructType
+  )(implicit settings: Settings): List[Attribute] = {
     schema
       .map(
         row =>
@@ -70,7 +72,8 @@ object InferSchemaHandler {
                 Attribute(row.name, elemType.typeName, Some(true), !row.nullable)
 
             // if the datatype is a simple Attribute
-            case _ => Attribute(row.name, row.dataType.typeName, Some(false), !row.nullable)
+            case _ =>
+              Attribute(row.name, row.dataType.typeName, Some(false), !row.nullable)
         }
       )
       .toList
@@ -150,8 +153,10 @@ object InferSchemaHandler {
     * @param domain   Domain case class
     * @param savePath path to save files.
     */
-  def generateYaml(domain: Domain, savePath: String): Unit = {
-    val obj = Settings.storageHandler.read(new Path(savePath))
+  def generateYaml(domain: Domain, savePath: String)(
+    implicit settings: Settings
+  ): Unit = {
+    val obj = settings.storageHandler.read(new Path(savePath))
     val objw = new StringWriter()
     objw.write(obj)
     Main.mapper.writeValue(objw, domain)

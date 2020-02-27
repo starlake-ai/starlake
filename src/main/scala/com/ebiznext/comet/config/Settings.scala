@@ -20,28 +20,39 @@
 
 package com.ebiznext.comet.config
 
-import java.util.{Map, UUID}
+import java.io.ObjectStreamException
+import java.lang.management.{ManagementFactory, RuntimeMXBean}
+import java.util.concurrent.TimeUnit
+import java.util.{Locale, UUID, Map => juMap}
 
 import com.ebiznext.comet.schema.handlers.{
   AirflowLauncher,
   HdfsStorageHandler,
   LaunchHandler,
   SchemaHandler,
-  SimpleLauncher
+  SimpleLauncher,
+  StorageHandler
 }
-import com.typesafe.config.{Config, ConfigFactory}
-import com.typesafe.scalalogging.StrictLogging
+import com.fasterxml.jackson.core.{JsonGenerator, JsonParser}
+import com.fasterxml.jackson.databind.annotation.{JsonDeserialize, JsonSerialize}
+import com.fasterxml.jackson.databind.{
+  DeserializationContext,
+  JsonDeserializer,
+  JsonSerializer,
+  ObjectMapper,
+  SerializerProvider
+}
+import com.fasterxml.jackson.module.scala.DefaultScalaModule
+import com.typesafe.config.{Config, ConfigFactory, ConfigValue, ConfigValueFactory}
+import com.typesafe.scalalogging.{Logger, StrictLogging}
 import configs.syntax._
 import org.slf4j.MDC
 
+import scala.concurrent.duration.FiniteDuration
+
 object Settings extends StrictLogging {
-  val jobId = UUID.randomUUID().toString
-
+  private def loggerForCompanionInstances: Logger = logger
   import java.lang.management.{ManagementFactory, RuntimeMXBean}
-
-  val rt: RuntimeMXBean = ManagementFactory.getRuntimeMXBean
-  MDC.put("PID", rt.getName)
-  MDC.put("JID", jobId)
 
   /**
     *
@@ -70,11 +81,15 @@ object Settings extends StrictLogging {
     accepted: String,
     rejected: String,
     business: String
-  )
+  ) {
+    val acceptedFinal: String = accepted.toLowerCase(Locale.ROOT)
+    val rejectedFinal: String = rejected.toLowerCase(Locale.ROOT)
+    val businessFinal: String = business.toLowerCase(Locale.ROOT)
+  }
 
-  final case class Privacy(options: Map[String, String])
+  final case class Privacy(options: juMap[String, String])
 
-  final case class Elasticsearch(active: Boolean, options: Map[String, String])
+  final case class Elasticsearch(active: Boolean, options: juMap[String, String])
 
   /**
     *
@@ -86,18 +101,44 @@ object Settings extends StrictLogging {
     discreteMaxCardinality: Int,
     active: Boolean,
     index: String,
-    options: Map[String, String]
+    options: juMap[String, String]
   )
 
   final case class Audit(
     path: String,
     active: Boolean,
     index: String,
-    options: Map[String, String],
+    options: juMap[String, String],
     maxErrors: Int
   )
 
-  final case class Lock(path: String, metricsTimeout: Long, ingestionTimeout: Long)
+  final case class Lock(
+    path: String,
+    metricsTimeout: Long,
+    ingestionTimeout: Long,
+    @JsonSerialize(using = classOf[FiniteDurationSerializer])
+    @JsonDeserialize(using = classOf[FiniteDurationDeserializer])
+    pollTime: FiniteDuration = FiniteDuration(5000L, TimeUnit.MILLISECONDS),
+    @JsonSerialize(using = classOf[FiniteDurationSerializer])
+    @JsonDeserialize(using = classOf[FiniteDurationDeserializer])
+    refreshTime: FiniteDuration = FiniteDuration(5000L, TimeUnit.MILLISECONDS)
+  )
+
+  final class FiniteDurationSerializer extends JsonSerializer[FiniteDuration] {
+    override def serialize(
+      value: FiniteDuration,
+      gen: JsonGenerator,
+      serializers: SerializerProvider
+    ): Unit = {
+      gen.writeNumber(value.toMillis)
+    }
+  }
+  final class FiniteDurationDeserializer extends JsonDeserializer[FiniteDuration] {
+    override def deserialize(p: JsonParser, ctxt: DeserializationContext): FiniteDuration = {
+      val milliseconds = ctxt.readValue(p, classOf[Long])
+      FiniteDuration.apply(milliseconds, TimeUnit.MILLISECONDS)
+    }
+  }
 
   final case class Atlas(uri: String, user: String, password: String, owner: String)
 
@@ -116,6 +157,7 @@ object Settings extends StrictLogging {
     * @param airflow     : Airflow end point. Should be defined even if simple launccher is used instead of airflow.
     */
   final case class Comet(
+    jobId: String,
     datasets: String,
     metadata: String,
     metrics: Metrics,
@@ -132,30 +174,111 @@ object Settings extends StrictLogging {
     area: Area,
     airflow: Airflow,
     elasticsearch: Elasticsearch,
-    hadoop: Map[String, String],
+    hadoop: juMap[String, String],
     atlas: Atlas,
     privacy: Privacy,
     fileSystem: Option[String]
-  ) {
+  ) extends Serializable {
 
-    val launcherService: LaunchHandler = launcher match {
-      case "simple"  => new SimpleLauncher()
-      case "airflow" => new AirflowLauncher()
+    @throws(classOf[ObjectStreamException])
+    protected def writeReplace: AnyRef = {
+      Comet.JsonWrapped(this)
     }
-
   }
 
-  lazy val config: Config = ConfigFactory.load()
+  object Comet {
+    private case class JsonWrapped(jsonValue: String) {
 
-  lazy val comet: Comet = {
-    config.extract[Comet].valueOrThrow { error =>
+      @throws(classOf[ObjectStreamException])
+      protected def readResolve: AnyRef = {
+        val unwrapped = JsonWrapped.jsonMapper.readValue(jsonValue, classOf[Comet])
+        unwrapped
+      }
+    }
+    private object JsonWrapped {
+      private def jsonMapper: ObjectMapper = {
+        val mapper = new ObjectMapper()
+        mapper.registerModule(DefaultScalaModule)
+        mapper
+      }
+
+      def apply(comet: Comet): JsonWrapped = {
+        val writer = jsonMapper.writerFor(classOf[Comet])
+        val asJson = writer.writeValueAsString(comet)
+        JsonWrapped(asJson)
+      }
+    }
+  }
+
+  @deprecated("please use and pass on a Settings instance instead", "2020-02-25") // ready to remove
+  def comet(implicit settings: Settings): Comet = settings.comet
+
+  @deprecated("please use and pass on a Settings instance instead", "2020-02-25") // ready to remove
+  def storageHandler(implicit settings: Settings): HdfsStorageHandler = settings.storageHandler
+
+  @deprecated("please use and pass on a Settings instance instead", "2020-02-25") // ready to remove
+  def schemaHandler(implicit settings: Settings): SchemaHandler = settings.schemaHandler
+
+  def apply(
+    config: Config = ConfigFactory
+      .load()
+  ): Settings = {
+    val jobId = UUID.randomUUID().toString
+    val effectiveConfig = config
+      .withValue("job-id", ConfigValueFactory.fromAnyRef(jobId, "per JVM instance"))
+
+    val loaded = effectiveConfig.extract[Comet].valueOrThrow { error =>
       error.messages.foreach(err => logger.error(err))
       throw new Exception("Failed to load config")
     }
+    logger.info(s"Using Config $loaded")
+    Settings(loaded)
   }
-  logger.info(s"Using Config $comet")
+}
 
-  lazy val storageHandler = new HdfsStorageHandler(comet.fileSystem)
-  lazy val schemaHandler = new SchemaHandler(storageHandler)
+/**
+  * This class holds the current Comet settings and an assembly of reference instances for core, shared services
+  *
+  * SMELL: this may be the start of a Dependency Injection root (but at 2-3 objects, is DI justified? probably not
+  * quite yet) — cchepelov
+  */
+final case class Settings(comet: Settings.Comet) {
+  def logger: Logger = Settings.loggerForCompanionInstances
 
+  @transient
+  lazy val storageHandler: HdfsStorageHandler = {
+    implicit val self
+      : Settings = this /* TODO: remove this once HdfsStorageHandler explicitly takes Settings or Settings.Comet in */
+    new HdfsStorageHandler(comet.fileSystem)
+  }
+
+  @transient
+  lazy val schemaHandler: SchemaHandler = {
+    implicit val self
+      : Settings = this /* TODO: remove this once HdfsStorageHandler explicitly takes Settings or Settings.Comet in */
+    new SchemaHandler(storageHandler)
+  }
+
+  @transient
+  lazy val launcherService: LaunchHandler = comet.launcher match {
+    case "simple"  => new SimpleLauncher()
+    case "airflow" => new AirflowLauncher()
+  }
+
+  /** Publish MDC information into the logging stack.
+    *
+    * @note this is inherently an effectful operation, which effects global shared mutable state.
+    *       It should make little sense to run this code in tests.
+    */
+  def publishMDCData(): Unit = {
+    val rt: RuntimeMXBean = ManagementFactory.getRuntimeMXBean
+    MDC.put("PID", rt.getName)
+    val oldJobId = Option(MDC.get("JID")).getOrElse(comet.jobId)
+    require(
+      oldJobId == comet.jobId,
+      s"cannot publish different MDC data; a previous jobId ${oldJobId} had been published," +
+      s" attempting to reset to ${comet.jobId}"
+    )
+    MDC.put("JID", comet.jobId)
+  }
 }
