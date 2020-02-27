@@ -72,7 +72,7 @@ case class Domain(
     */
   def mapping(
     schema: Schema
-  )(implicit /* TODO: make me explicit */ settings: Settings): Option[String] = {
+  )(implicit settings: Settings): Option[String] = {
     val template = new Path(new Path(DatasetArea.mapping, this.name), schema.name + ".json")
     if (settings.storageHandler.exists(template))
       Some(settings.storageHandler.read(template))
@@ -107,7 +107,7 @@ case class Domain(
     * @return
     */
   def checkValidity()(
-    implicit /* TODO: make me explicit */ settings: Settings
+    implicit settings: Settings
   ): Either[List[String], Boolean] = {
     val errorList: mutable.MutableList[String] = mutable.MutableList.empty
 

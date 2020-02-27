@@ -43,7 +43,7 @@ import scala.reflect.runtime.universe
 sealed case class PrivacyLevel(value: String) {
   override def toString: String = value
 
-  def encrypt(s: String)(implicit /* TODO: make me explicit */ settings: Settings): String =
+  def encrypt(s: String)(implicit settings: Settings): String =
     PrivacyLevel.ForSettings(settings).all(value)._1.encrypt(s)
 
 }

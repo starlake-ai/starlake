@@ -33,7 +33,7 @@ import scala.util.{Failure, Success, Try}
 class IndexJob(
   cliConfig: IndexConfig,
   storageHandler: StorageHandler
-)(implicit /* TODO: make me explicit */ val settings: Settings)
+)(implicit val settings: Settings)
     extends SparkJob {
 
   val esresource = Some(("es.resource.write", s"${cliConfig.getResource()}"))
