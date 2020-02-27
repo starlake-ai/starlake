@@ -27,7 +27,7 @@ import com.ebiznext.comet.job.index.IndexConfig
 import com.ebiznext.comet.job.infer.InferSchemaConfig
 import com.ebiznext.comet.job.jdbcload.JdbcLoadConfig
 import com.ebiznext.comet.job.metrics.MetricsConfig
-import com.ebiznext.comet.utils.{CometJacksonModule, FileLock}
+import com.ebiznext.comet.utils.{CometJacksonModule, CometObjectMapper, FileLock}
 import com.ebiznext.comet.workflow.IngestionWorkflow
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
@@ -51,9 +51,7 @@ import scala.util.{Failure, Success, Try}
   */
 object Main extends StrictLogging {
   // uses Jackson YAML to parsing, relies on SnakeYAML for low level handling
-  val mapper: ObjectMapper = new ObjectMapper(new YAMLFactory())
-  mapper.registerModule(DefaultScalaModule)
-  mapper.registerModule(CometJacksonModule)
+  val mapper: ObjectMapper = new CometObjectMapper(new YAMLFactory())
 
   private def printUsage() = {
     // scalastyle:off println

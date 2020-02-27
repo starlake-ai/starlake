@@ -31,7 +31,7 @@ import com.ebiznext.comet.config.{DatasetArea, Settings}
 import com.ebiznext.comet.job.Main.mapper
 import com.ebiznext.comet.schema.handlers.{SchemaHandler, SimpleLauncher}
 import com.ebiznext.comet.schema.model._
-import com.ebiznext.comet.utils.{CometJacksonModule, TextSubstitutionEngine}
+import com.ebiznext.comet.utils.{CometJacksonModule, CometObjectMapper, TextSubstitutionEngine}
 import com.ebiznext.comet.workflow.IngestionWorkflow
 import com.fasterxml.jackson.databind.module.SimpleModule
 import com.fasterxml.jackson.databind.ser.DefaultSerializerProvider
@@ -39,7 +39,13 @@ import com.fasterxml.jackson.databind.{InjectableValues, ObjectMapper}
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.fasterxml.jackson.module.scala.experimental.ScalaObjectMapper
-import com.typesafe.config.{Config, ConfigFactory, ConfigParseOptions, ConfigResolveOptions, ConfigValueFactory}
+import com.typesafe.config.{
+  Config,
+  ConfigFactory,
+  ConfigParseOptions,
+  ConfigResolveOptions,
+  ConfigValueFactory
+}
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.commons.io.FileUtils
 import org.apache.commons.io.filefilter.TrueFileFilter
@@ -187,17 +193,7 @@ trait TestHelper extends AnyFlatSpec with Matchers with BeforeAndAfterAll with S
     }
 
   lazy val mapper: ObjectMapper with ScalaObjectMapper = {
-    val mapper = new ObjectMapper(new YAMLFactory()) with ScalaObjectMapper
-    // provides all of the Scala goodiness
-    mapper.registerModule(DefaultScalaModule)
-    mapper.registerModule(CometJacksonModule)
-    //mapper.registerModule(new SimpleModule().setMixInAnnotation(classOf[ObjectMapper], classOf[SchemaHandler.MixinsForObjectMapper]))
-    mapper.setInjectableValues({
-      val iv = new InjectableValues.Std()
-      iv.addValue(classOf[Settings], settings)
-      iv: InjectableValues
-    })
-
+    val mapper = new CometObjectMapper(new YAMLFactory(), (classOf[Settings], settings) :: Nil)
     mapper
   }
 
