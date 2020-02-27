@@ -25,7 +25,6 @@ import java.util.Locale
 import com.ebiznext.comet.schema.handlers.StorageHandler
 import com.fasterxml.jackson.core.{JsonGenerator, JsonParser}
 import com.fasterxml.jackson.databind.annotation.{JsonDeserialize, JsonSerialize}
-import com.fasterxml.jackson.databind.ser.std.ToStringSerializer
 import com.fasterxml.jackson.databind.{
   DeserializationContext,
   JsonDeserializer,

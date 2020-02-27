@@ -21,7 +21,6 @@
 package com.ebiznext.comet.schema.handlers
 
 import com.ebiznext.comet.TestHelper
-import com.ebiznext.comet.config.Settings
 
 class PositionIngestionJobSpec extends TestHelper {
   "Ingest Position File" should "should be ingested from pending to accepted, and archived" in {

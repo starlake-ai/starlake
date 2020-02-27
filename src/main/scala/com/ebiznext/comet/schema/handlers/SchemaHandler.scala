@@ -22,13 +22,9 @@ package com.ebiznext.comet.schema.handlers
 
 import com.ebiznext.comet.config.{DatasetArea, Settings}
 import com.ebiznext.comet.schema.model._
-import com.ebiznext.comet.utils.{CometJacksonModule, CometObjectMapper}
-import com.fasterxml.jackson.annotation.JsonIgnoreType
-import com.fasterxml.jackson.databind.{InjectableValues, ObjectMapper}
-import com.fasterxml.jackson.databind.module.SimpleModule
-import com.fasterxml.jackson.databind.ser.DefaultSerializerProvider
+import com.ebiznext.comet.utils.CometObjectMapper
+import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
-import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.fasterxml.jackson.module.scala.experimental.ScalaObjectMapper
 import org.apache.hadoop.fs.Path
 

@@ -26,7 +26,6 @@ import com.ebiznext.comet.job.index.IndexConfig
 import com.ebiznext.comet.job.jdbcload.JdbcLoadConfig
 import com.ebiznext.comet.schema.model.{Domain, Schema}
 import com.ebiznext.comet.workflow.IngestionWorkflow
-import com.google.cloud.bigquery.JobInfo.WriteDisposition
 import com.typesafe.scalalogging.StrictLogging
 import okhttp3._
 import okio.Buffer

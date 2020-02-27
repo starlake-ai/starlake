@@ -14,7 +14,7 @@ import scala.util.Try
   */
 trait SparkJob extends StrictLogging {
   def name: String
-  implicit def settings: Settings /* TODO: make me explicit */
+  implicit def settings: Settings
 
   lazy val sparkEnv: SparkEnv = new SparkEnv(name)
   lazy val session: SparkSession = sparkEnv.session
