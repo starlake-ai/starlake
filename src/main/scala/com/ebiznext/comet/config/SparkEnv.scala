@@ -23,7 +23,7 @@ package com.ebiznext.comet.config
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
-import com.typesafe.config.ConfigFactory
+import com.typesafe.config.{Config, ConfigFactory}
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.SparkSession
@@ -37,29 +37,24 @@ import org.apache.spark.sql.SparkSession
 class SparkEnv(name: String)(implicit settings: Settings) extends StrictLogging {
 
   /**
-    * Load spark.* properties rom the application conf file
+    * Load spark.* properties from the loaded application conf file
     */
   val config: SparkConf = {
     val now = LocalDateTime
       .now()
       .format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss.SSS"))
     val appName = s"$name-$now"
-    val thisConf = new SparkConf()
-
-    thisConf.setAppName(appName)
 
     import scala.collection.JavaConverters._
-    ConfigFactory
-      .load()
-      .getConfig("spark")
+    val thisConf = settings.sparkConfig
       .entrySet()
       .asScala
+      .to[Vector]
       .map(x => (x.getKey, x.getValue.unwrapped().toString))
-      .foreach {
-        case (key, value) =>
-          thisConf.set("spark." + key, value)
-      }
-    thisConf.set("spark.app.id", appName)
+      .foldLeft(new SparkConf()) { case (conf, (key, value)) => conf.set("spark." + key, value) }
+      .setAppName(appName)
+      .set("spark.app.id", appName)
+
     logger.whenDebugEnabled {
       thisConf.getAll.foreach(x => logger.debug(x._1 + "=" + x._2))
     }

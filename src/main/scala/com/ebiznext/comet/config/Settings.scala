@@ -25,10 +25,23 @@ import java.lang.management.{ManagementFactory, RuntimeMXBean}
 import java.util.concurrent.TimeUnit
 import java.util.{Locale, UUID, Map => juMap}
 
-import com.ebiznext.comet.schema.handlers.{AirflowLauncher, HdfsStorageHandler, LaunchHandler, SchemaHandler, SimpleLauncher, StorageHandler}
+import com.ebiznext.comet.schema.handlers.{
+  AirflowLauncher,
+  HdfsStorageHandler,
+  LaunchHandler,
+  SchemaHandler,
+  SimpleLauncher,
+  StorageHandler
+}
 import com.fasterxml.jackson.core.{JsonGenerator, JsonParser}
 import com.fasterxml.jackson.databind.annotation.{JsonDeserialize, JsonSerialize}
-import com.fasterxml.jackson.databind.{DeserializationContext, JsonDeserializer, JsonSerializer, ObjectMapper, SerializerProvider}
+import com.fasterxml.jackson.databind.{
+  DeserializationContext,
+  JsonDeserializer,
+  JsonSerializer,
+  ObjectMapper,
+  SerializerProvider
+}
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.typesafe.config.{Config, ConfigFactory, ConfigValue, ConfigValueFactory}
 import com.typesafe.scalalogging.{Logger, StrictLogging}
@@ -294,12 +307,7 @@ object Settings extends StrictLogging {
   private implicit val indexOutputConfigs: Configs[IndexSinkSettings] =
     Configs.derive[IndexSinkSettings]
 
-  lazy val config: Config = ConfigFactory.load()
-
-  def apply(
-    config: Config = ConfigFactory
-      .load()
-  ): Settings = {
+  def apply(config: Config): Settings = {
     val jobId = UUID.randomUUID().toString
     val effectiveConfig = config
       .withValue("job-id", ConfigValueFactory.fromAnyRef(jobId, "per JVM instance"))
@@ -309,7 +317,7 @@ object Settings extends StrictLogging {
       throw new Exception(s"Failed to load config: $error")
     }
     logger.info(s"Using Config $loaded")
-    Settings(loaded)
+    Settings(loaded, effectiveConfig.getConfig("spark"))
   }
 }
 
@@ -319,7 +327,7 @@ object Settings extends StrictLogging {
   * SMELL: this may be the start of a Dependency Injection root (but at 2-3 objects, is DI justified? probably not
   * quite yet) — cchepelov
   */
-final case class Settings(comet: Settings.Comet) {
+final case class Settings(comet: Settings.Comet, sparkConfig: Config) {
   def logger: Logger = Settings.loggerForCompanionInstances
 
   @transient
