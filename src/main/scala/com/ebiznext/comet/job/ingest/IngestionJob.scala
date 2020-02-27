@@ -348,30 +348,28 @@ trait IngestionJob extends SparkJob {
         dataset match {
           case Success(dataset) =>
             val (rejectedRDD, acceptedRDD) = ingest(dataset)
-            logger.whenInfoEnabled {
-              val inputCount = dataset.count()
-              val acceptedCount = acceptedRDD.count()
-              val rejectedCount = rejectedRDD.count()
-              val inputFiles = dataset.inputFiles.mkString(",")
-              logger.info(
-                s"ingestion-summary -> files: [$inputFiles], domain: ${domain.name}, schema: ${schema.name}, input: $inputCount, accepted: $acceptedCount, rejected:$rejectedCount"
-              )
-              val end = Timestamp.from(Instant.now())
-              val log = AuditLog(
-                Settings.jobId,
-                inputFiles,
-                domain.name,
-                schema.name,
-                success = true,
-                inputCount,
-                acceptedCount,
-                rejectedCount,
-                start,
-                end.getTime - start.getTime,
-                "success"
-              )
-              SparkAuditLogWriter.append(session, log)
-            }
+            val inputCount = dataset.count()
+            val acceptedCount = acceptedRDD.count()
+            val rejectedCount = rejectedRDD.count()
+            val inputFiles = dataset.inputFiles.mkString(",")
+            logger.info(
+              s"ingestion-summary -> files: [$inputFiles], domain: ${domain.name}, schema: ${schema.name}, input: $inputCount, accepted: $acceptedCount, rejected:$rejectedCount"
+            )
+            val end = Timestamp.from(Instant.now())
+            val log = AuditLog(
+              Settings.jobId,
+              inputFiles,
+              domain.name,
+              schema.name,
+              success = true,
+              inputCount,
+              acceptedCount,
+              rejectedCount,
+              start,
+              end.getTime - start.getTime,
+              "success"
+            )
+            SparkAuditLogWriter.append(session, log)
             schema.postsql.getOrElse(Nil).foreach(session.sql)
             Success(session)
           case Failure(exception) =>
