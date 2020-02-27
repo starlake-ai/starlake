@@ -23,17 +23,28 @@ package com.ebiznext.comet
 import java.io.{File, InputStream}
 import java.nio.file.Files
 import java.time.LocalDate
+import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.regex.Pattern
 
 import com.ebiznext.comet.config.{DatasetArea, Settings}
 import com.ebiznext.comet.schema.handlers.{SchemaHandler, SimpleLauncher}
 import com.ebiznext.comet.schema.model._
+import com.ebiznext.comet.utils.TextSubstitutionEngine
 import com.ebiznext.comet.workflow.IngestionWorkflow
-import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.module.SimpleModule
+import com.fasterxml.jackson.databind.ser.DefaultSerializerProvider
+import com.fasterxml.jackson.databind.{InjectableValues, ObjectMapper}
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.fasterxml.jackson.module.scala.experimental.ScalaObjectMapper
+import com.typesafe.config.{
+  Config,
+  ConfigFactory,
+  ConfigParseOptions,
+  ConfigResolveOptions,
+  ConfigValueFactory
+}
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.commons.io.FileUtils
 import org.apache.commons.io.filefilter.TrueFileFilter
@@ -43,11 +54,47 @@ import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
 
+import scala.annotation.tailrec
 import scala.collection.JavaConverters._
 import scala.io.{Codec, Source}
 import scala.util.Try
 
 trait TestHelper extends FlatSpec with Matchers with BeforeAndAfterAll with StrictLogging {
+
+  private lazy val cometTestPrefix: String = s"comet-test-${TestHelper.runtimeId}"
+  private lazy val cometTestInstanceId: String =
+    s"${this.getClass.getSimpleName}-${java.util.UUID.randomUUID()}"
+
+  lazy val cometTestId: String = s"${cometTestPrefix}-${cometTestInstanceId}"
+  lazy val cometTestRoot: String = Files.createTempDirectory(cometTestId).toAbsolutePath.toString
+  lazy val cometDatasetsPath: String = cometTestRoot + "/datasets"
+  lazy val cometMetadataPath: String = cometTestRoot + "/metadata"
+
+  def testConfiguration: Config = {
+    val rootConfig = ConfigFactory.parseString(
+      s"""
+        |COMET_ROOT="${cometTestRoot}"
+        |COMET_TEST_ID="${cometTestId}"
+        |COMET_DATASETS="${cometDatasetsPath}"
+        |COMET_METADATA="${cometMetadataPath}"
+        |COMET_TMPDIR="${cometTestRoot}/tmp"
+        |COMET_LOCK_PATH="${cometTestRoot}/locks"
+        |COMET_METRICS_PATH="${cometTestRoot}/metrics/{domain}/{schema}"
+        |COMET_AUDIT_PATH="${cometTestRoot}/audit"
+        |
+        |include required("reference")
+        |""".stripMargin,
+      ConfigParseOptions.defaults().setAllowMissing(false)
+    )
+    val testConfig =
+      ConfigFactory
+        .load(rootConfig, ConfigResolveOptions.noSystem())
+        .withValue("lock.poll-time", ConfigValueFactory.fromAnyRef("5 ms")) // in local mode we don't need to wait quite as much as we do on a real cluster
+
+    testConfig
+  }
+
+  implicit lazy val settings: Settings = Settings(testConfiguration)
 
   def versionSuffix: String = TestHelperAux.versionSuffix
 
@@ -62,15 +109,44 @@ trait TestHelper extends FlatSpec with Matchers with BeforeAndAfterAll with Stri
     )
   )
 
+  import TestHelperAux.using
+  private def readSourceContentAsString(source: Source): String = source.getLines().mkString("\n")
+
   def loadFile(filename: String)(implicit codec: Codec): String = {
     val stream: InputStream = getClass.getResourceAsStream(filename)
-    scala.io.Source.fromInputStream(stream).getLines().mkString("\n")
+    using(Source.fromInputStream(stream))(readSourceContentAsString)
   }
 
   def readFileContent(path: String): String =
-    Source.fromFile(path).getLines.mkString("\n")
+    using(Source.fromFile(path))(readSourceContentAsString)
 
   def readFileContent(path: Path): String = readFileContent(path.toUri.getPath)
+
+  /** substitution patterns for test sample file resources.
+    *
+    */
+  private val testResourceSubstitutionEngine = TextSubstitutionEngine(
+    "COMET_TEST_ROOT" -> cometTestRoot
+  )
+
+  def applyTestFileSubstitutions(fileContent: String): String = {
+    testResourceSubstitutionEngine.apply(fileContent)
+  }
+
+  def deliverTestFile(importPath: String, targetPath: Path): Unit = {
+    val content = loadFile(importPath)
+    val testContent = applyTestFileSubstitutions(content)
+
+    storageHandler.write(testContent, targetPath)
+
+    logger.whenTraceEnabled {
+      if (content != testContent) {
+        logger.trace(s"delivered ${importPath} to ${targetPath.toString}, WITH substitutions")
+      } else {
+        logger.trace(s"delivered ${importPath} to ${targetPath.toString}")
+      }
+    }
+  }
 
   def getResPath(path: String): String = getClass.getResource(path).toURI.getPath
 
@@ -113,78 +189,41 @@ trait TestHelper extends FlatSpec with Matchers with BeforeAndAfterAll with Stri
         .map(_.delete())
     }
 
-  lazy val domain = Domain(
-    "DOMAIN",
-    "/tmp/incoming/DOMAIN",
-    Some(
-      Metadata(
-        Some(Mode.FILE),
-        Some(Format.DSV),
-        None,
-        Some(false),
-        Some(false),
-        Some(false),
-        Some(";"),
-        Some("\""),
-        Some("\\"),
-        Some(WriteMode.APPEND),
-        None
-      )
-    ),
-    List(
-      Schema(
-        "User",
-        Pattern.compile("SCHEMA-.*.dsv"),
-        List(
-          Attribute("firstname", "string", Some(false), false, Some(PrivacyLevel.None)),
-          Attribute("lastname", "string", Some(false), false, Some(PrivacyLevel("SHA1"))),
-          Attribute("age", "age", Some(false), false, Some(PrivacyLevel("HIDE")))
-        ),
-        Some(Metadata(withHeader = Some(true))),
-        None,
-        Some("Schema Comment"),
-        Some(List("SQL1", "SQL2")),
-        None
-      )
-    ),
-    Some("Domain Comment")
-  )
+  lazy val mapper: ObjectMapper with ScalaObjectMapper = {
+    val mapper = new ObjectMapper(new YAMLFactory()) with ScalaObjectMapper
+    // provides all of the Scala goodiness
+    mapper.registerModule(DefaultScalaModule)
+    //mapper.registerModule(new SimpleModule().setMixInAnnotation(classOf[ObjectMapper], classOf[SchemaHandler.MixinsForObjectMapper]))
+    mapper.setInjectableValues({
+      val iv = new InjectableValues.Std()
+      iv.addValue(classOf[Settings], settings)
+      iv: InjectableValues
+    })
 
-  val mapper = new ObjectMapper(new YAMLFactory()) with ScalaObjectMapper
-  // provides all of the Scala goodiness
-  mapper.registerModule(DefaultScalaModule)
-
-  lazy val cometDatasetsPath = TestHelper.tempFile + "/datasets"
-  lazy val cometMetadataPath = TestHelper.tempFile + "/metadata"
+    mapper
+  }
 
   private val sparkSessionInterest = TestHelper.TestSparkSessionInterest()
 
   lazy val sparkSession = sparkSessionInterest.get
 
-  /**
-    * Never ever use Settings.something before this method is called
-    * This would break tests
-    * So we make everything lazy here
-    */
-  lazy val storageHandler = Settings.storageHandler
+  def storageHandler = settings.storageHandler
 
   override protected def beforeAll(): Unit = {
     super.beforeAll()
 
     // Init
-    System.setProperty("COMET_DATASETS", cometDatasetsPath)
-    System.setProperty("COMET_METADATA", cometMetadataPath)
-
+    new File(cometTestRoot).mkdirs()
     new File(cometDatasetsPath).mkdir()
     new File(cometMetadataPath).mkdir()
-    new File("/tmp/DOMAIN").mkdir()
-    new File("/tmp/dream").mkdir()
-    new File("/tmp/json").mkdir()
-    new File("/tmp/position").mkdir()
+    new File(cometTestRoot + "/DOMAIN").mkdir()
+    new File(cometTestRoot + "/dream").mkdir()
+    new File(cometTestRoot + "/json").mkdir()
+    new File(cometTestRoot + "/position").mkdir()
 
     allTypes.foreach { typeToImport =>
       val typesPath = new Path(DatasetArea.types, typeToImport.name)
-      storageHandler.write(loadFile(typeToImport.path), typesPath)
+      deliverTestFile(typeToImport.path, typesPath)
     }
 
     DatasetArea.init(storageHandler)
@@ -208,11 +247,11 @@ trait TestHelper extends FlatSpec with Matchers with BeforeAndAfterAll with Stri
 
     protected def init(): Unit = {
       val domainPath = new Path(domainMetadataRootPath, domainFilename)
-      storageHandler.write(loadFile(sourceDomainPathname), domainPath)
+      deliverTestFile(sourceDomainPathname, domainPath)
 
       allTypes.foreach { typeToImport =>
         val typesPath = new Path(DatasetArea.types, typeToImport.name)
-        storageHandler.write(loadFile(typeToImport.path), typesPath)
+        deliverTestFile(typeToImport.path, typesPath)
       }
 
       DatasetArea.initDomains(storageHandler, schemaHandler.domains.map(_.name))
@@ -232,7 +271,7 @@ trait TestHelper extends FlatSpec with Matchers with BeforeAndAfterAll with Stri
         new Path(sourceDatasetPathName).getName
       )
 
-      storageHandler.write(loadFile(sourceDatasetPathName), targetPath)
+      deliverTestFile(sourceDatasetPathName, targetPath)
 
       validator.loadPending()
     }
@@ -382,11 +421,7 @@ object TestHelper {
     }
   }
 
-  // Use the same temp file for all UT
-  val tempFile: String = {
-    val fs = Option(System.getenv("COMET_FS"))
-    fs.getOrElse((Files.createTempDirectory("comet")).toString)
-  }
+  private val runtimeId: String = UUID.randomUUID().toString
 }
 
 case class TypeToImport(name: String, path: String)

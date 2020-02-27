@@ -20,7 +20,7 @@
 
 package com.ebiznext.comet.schema.model
 
-import com.ebiznext.comet.config.{DatasetArea, StorageArea}
+import com.ebiznext.comet.config.{DatasetArea, Settings, StorageArea}
 import com.fasterxml.jackson.annotation.JsonIgnore
 import org.apache.hadoop.fs.Path
 
@@ -52,7 +52,7 @@ case class AutoTaskDesc(
   @JsonIgnore
   def getIndexSink(): Option[IndexSink] = index
 
-  def getTargetPath(defaultArea: StorageArea): Path = {
+  def getTargetPath(defaultArea: StorageArea)(implicit settings: Settings): Path = {
     val targetArea = area.getOrElse(defaultArea)
     new Path(DatasetArea.path(domain, targetArea.value), dataset)
   }

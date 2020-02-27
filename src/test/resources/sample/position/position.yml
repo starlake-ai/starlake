@@ -1,6 +1,6 @@
 ---
 name: "position"
-directory: "/tmp/position"
+directory: "__COMET_TEST_ROOT__/position"
 ack: ""
 metadata:
   mode: "FILE"
