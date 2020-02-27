@@ -18,16 +18,26 @@
  *
  */
 
-package com.ebiznext.comet.job.ingest
+package com.ebiznext.comet.job.atlas
 
-case class IngestionLog(
-  paths: String,
-  domain: String,
-  schema: String,
-  success: Boolean,
-  count: Long,
-  countOK: Long,
-  countKO: Long,
-  timestamp: Long,
-  duration: Long
-)
+import com.ebiznext.comet.config.Settings
+import com.ebiznext.comet.schema.handlers.StorageHandler
+import com.ebiznext.comet.schema.model.atlas.AtlasModel
+import com.typesafe.scalalogging.StrictLogging
+
+class AtlasJob(
+  cliConfig: AtlasConfig,
+  storageHandler: StorageHandler
+)(implicit settings: Settings)
+    extends StrictLogging {
+
+  def run(): Unit = {
+    logger.info(s"")
+    val uris = cliConfig.uris.map(_.toArray).getOrElse(Array(settings.comet.atlas.uri))
+    val userPassword = (cliConfig.user, cliConfig.password) match {
+      case (Some(user), Some(pwd)) => Array(user, pwd)
+      case _                       => Array(settings.comet.atlas.user, settings.comet.atlas.password)
+    }
+    new AtlasModel(uris, userPassword).run(cliConfig, storageHandler)
+  }
+}

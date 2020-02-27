@@ -20,11 +20,18 @@
 
 package com.ebiznext.comet.config
 
+import java.util.Locale
+
 import com.ebiznext.comet.schema.handlers.StorageHandler
-import com.fasterxml.jackson.core.JsonParser
+import com.fasterxml.jackson.core.{JsonGenerator, JsonParser}
 import com.fasterxml.jackson.databind.annotation.{JsonDeserialize, JsonSerialize}
 import com.fasterxml.jackson.databind.ser.std.ToStringSerializer
-import com.fasterxml.jackson.databind.{DeserializationContext, JsonDeserializer}
+import com.fasterxml.jackson.databind.{
+  DeserializationContext,
+  JsonDeserializer,
+  JsonSerializer,
+  SerializerProvider
+}
 import org.apache.hadoop.fs.Path
 
 /**
@@ -36,8 +43,8 @@ import org.apache.hadoop.fs.Path
   */
 object DatasetArea {
 
-  def path(domain: String, area: String) =
-    new Path(s"${Settings.comet.datasets}/$area/$domain")
+  def path(domain: String, area: String)(implicit settings: Settings) =
+    new Path(s"${settings.comet.datasets}/$area/$domain")
 
   def path(domainPath: Path, schema: String) = new Path(domainPath, schema)
 
@@ -47,7 +54,8 @@ object DatasetArea {
     * @param domain : Domain Name
     * @return Absolute path to the pending folder of domain
     */
-  def pending(domain: String): Path = path(domain, Settings.comet.area.pending)
+  def pending(domain: String)(implicit settings: Settings): Path =
+    path(domain, settings.comet.area.pending)
 
   /**
     * datasets with a file name that could not match any schema file name pattern in the specified domain
@@ -56,8 +64,8 @@ object DatasetArea {
     * @param domain : Domain name
     * @return Absolute path to the pending unresolved folder of domain
     */
-  def unresolved(domain: String): Path =
-    path(domain, Settings.comet.area.unresolved)
+  def unresolved(domain: String)(implicit settings: Settings): Path =
+    path(domain, settings.comet.area.unresolved)
 
   /**
     * Once ingested datasets are archived in this folder.
@@ -65,7 +73,8 @@ object DatasetArea {
     * @param domain : Domain name
     * @return Absolute path to the archive folder of domain
     */
-  def archive(domain: String): Path = path(domain, Settings.comet.area.archive)
+  def archive(domain: String)(implicit settings: Settings): Path =
+    path(domain, settings.comet.area.archive)
 
   /**
     * Datasets of the specified domain currently being ingested are located in this folder
@@ -73,8 +82,8 @@ object DatasetArea {
     * @param domain : Domain name
     * @return Absolute path to the ingesting folder of domain
     */
-  def ingesting(domain: String): Path =
-    path(domain, Settings.comet.area.ingesting)
+  def ingesting(domain: String)(implicit settings: Settings): Path =
+    path(domain, settings.comet.area.ingesting)
 
   /**
     * Valid records for datasets the specified domain are stored in this folder.
@@ -82,8 +91,8 @@ object DatasetArea {
     * @param domain : Domain name
     * @return Absolute path to the ingesting folder of domain
     */
-  def accepted(domain: String): Path =
-    path(domain, Settings.comet.area.accepted)
+  def accepted(domain: String)(implicit settings: Settings): Path =
+    path(domain, settings.comet.area.accepted)
 
   /**
     * Invalid records and the reason why they have been rejected for the datasets of the specified domain are stored in this folder.
@@ -91,8 +100,8 @@ object DatasetArea {
     * @param domain : Domain name
     * @return Absolute path to the rejected folder of domain
     */
-  def rejected(domain: String): Path =
-    path(domain, Settings.comet.area.rejected)
+  def rejected(domain: String)(implicit settings: Settings): Path =
+    path(domain, settings.comet.area.rejected)
 
   /**
     * Default target folder for autojobs applied to datasets in this domain
@@ -100,24 +109,37 @@ object DatasetArea {
     * @param domain : Domain name
     * @return Absolute path to the business folder of domain
     */
-  def business(domain: String): Path =
-    path(domain, Settings.comet.area.business)
+  def business(domain: String)(implicit settings: Settings): Path =
+    path(domain, settings.comet.area.business)
 
-  val metadata: Path = new Path(s"${Settings.comet.metadata}")
-  val types: Path = new Path(metadata, "types")
-  val mapping: Path = new Path(metadata, "mapping")
-  val domains: Path = new Path(metadata, "domains")
-  val jobs: Path = new Path(metadata, "jobs")
+  def metadata(implicit settings: Settings): Path =
+    new Path(s"${settings.comet.metadata}")
+
+  def types(implicit settings: Settings): Path =
+    new Path(metadata, "types")
+
+  def mapping(implicit settings: Settings): Path =
+    new Path(metadata, "mapping")
+
+  def domains(implicit settings: Settings): Path =
+    new Path(metadata, "domains")
+
+  def jobs(implicit settings: Settings): Path =
+    new Path(metadata, "jobs")
 
   /**
     *
     * @param storage
     */
-  def init(storage: StorageHandler): Unit = {
+  def init(
+    storage: StorageHandler
+  )(implicit settings: Settings): Unit = {
     List(metadata, types, domains).foreach(storage.mkdirs)
   }
 
-  def initDomains(storage: StorageHandler, domains: Iterable[String]): Unit = {
+  def initDomains(storage: StorageHandler, domains: Iterable[String])(
+    implicit settings: Settings
+  ): Unit = {
     init(storage)
     domains.foreach { domain =>
       List(pending _, unresolved _, archive _, accepted _, rejected _, business _)
@@ -136,36 +158,72 @@ object DatasetArea {
   *     - The business database : contains tables where autjob tables are created by default
   *     - The ciustom database : contains tables where autojob tables are created when a specific area is defined
   */
-object HiveArea {
+object StorageArea {
 
-  def fromString(value: String): HiveArea = {
-    value.toLowerCase() match {
-      case Settings.comet.area.rejected => HiveArea.rejected
-      case Settings.comet.area.accepted => HiveArea.accepted
-      case Settings.comet.area.business => HiveArea.business
-      case custom                       => HiveArea(custom)
+  def fromString(value: String)(implicit settings: Settings): StorageArea = {
+
+    val rejected = settings.comet.area.rejected.toLowerCase(Locale.ROOT)
+    val accepted = settings.comet.area.accepted.toLowerCase(Locale.ROOT)
+    val business = settings.comet.area.business.toLowerCase(Locale.ROOT)
+
+    val lcValue = value.toLowerCase(Locale.ROOT)
+
+    lcValue match {
+      case _ if lcValue == settings.comet.area.rejectedFinal => StorageArea.rejected
+      case _ if lcValue == settings.comet.area.acceptedFinal => StorageArea.accepted
+      case _ if lcValue == settings.comet.area.businessFinal => StorageArea.business
+      case custom                                            => StorageArea.Custom(custom)
     }
   }
 
-  object rejected extends HiveArea(Settings.comet.area.rejected)
+  case object rejected extends StorageArea {
+    def value: String = "rejected"
+  }
+  case object accepted extends StorageArea {
+    def value: String = "accepted"
+  }
+  case object business extends StorageArea {
+    def value: String = "business"
+  }
 
-  object accepted extends HiveArea(Settings.comet.area.accepted)
+  final case class Custom(value: String) extends StorageArea
 
-  object business extends HiveArea(Settings.comet.area.business)
-
-  def area(domain: String, area: HiveArea): String = s"${domain}_${area.value}"
+  def area(domain: String, area: StorageArea): String = s"${domain}_${area.value}"
 
 }
 
-class HiveAreaDeserializer extends JsonDeserializer[HiveArea] {
-  override def deserialize(jp: JsonParser, ctx: DeserializationContext): HiveArea = {
+final class StorageAreaSerializer extends JsonSerializer[StorageArea] {
+  override def serialize(
+    value: StorageArea,
+    gen: JsonGenerator,
+    serializers: SerializerProvider
+  ): Unit = {
+    val settings = serializers.getAttribute(classOf[Settings]).asInstanceOf[Settings]
+    require(settings != null, "the SerializationContext lacks a Settings instance")
+
+    val strValue = value match {
+      case StorageArea.accepted            => settings.comet.area.accepted
+      case StorageArea.rejected            => settings.comet.area.rejected
+      case StorageArea.business            => settings.comet.area.business
+      case StorageArea.Custom(customValue) => customValue
+    }
+
+    gen.writeString(strValue)
+  }
+}
+final class StorageAreaDeserializer extends JsonDeserializer[StorageArea] {
+  override def deserialize(jp: JsonParser, ctx: DeserializationContext): StorageArea = {
+    val settings = ctx.getAttribute(classOf[Settings]).asInstanceOf[Settings]
+    require(settings != null, "the DeserializationContext lacks a Settings instance")
+
     val value = jp.readValueAs[String](classOf[String])
-    HiveArea.fromString(value)
+    StorageArea.fromString(value)(settings)
   }
 }
 
-@JsonSerialize(using = classOf[ToStringSerializer])
-@JsonDeserialize(using = classOf[HiveAreaDeserializer])
-sealed case class HiveArea(value: String) {
+@JsonSerialize(using = classOf[StorageAreaSerializer])
+@JsonDeserialize(using = classOf[StorageAreaDeserializer])
+sealed abstract class StorageArea {
+  def value: String
   override def toString: String = value
 }

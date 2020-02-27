@@ -70,10 +70,12 @@ case class Domain(
     *         that will be replaced by the schema attributes dynamically
     *         computed mappings
     */
-  def mapping(schema: Schema): Option[String] = {
+  def mapping(
+    schema: Schema
+  )(implicit settings: Settings): Option[String] = {
     val template = new Path(new Path(DatasetArea.mapping, this.name), schema.name + ".json")
-    if (Settings.storageHandler.exists(template))
-      Some(Settings.storageHandler.read(template))
+    if (settings.storageHandler.exists(template))
+      Some(settings.storageHandler.read(template))
     else
       None
   }
@@ -104,7 +106,9 @@ case class Domain(
     *
     * @return
     */
-  def checkValidity(): Either[List[String], Boolean] = {
+  def checkValidity()(
+    implicit settings: Settings
+  ): Either[List[String], Boolean] = {
     val errorList: mutable.MutableList[String] = mutable.MutableList.empty
 
     // Check Domain name validity
@@ -129,7 +133,7 @@ case class Domain(
 
     // TODO Validate directory
     val inputDir = new Path(this.directory)
-    if (!Settings.storageHandler.exists(inputDir)) {
+    if (!settings.storageHandler.exists(inputDir)) {
       errorList += s"$directory not found"
     }
     if (errorList.nonEmpty)

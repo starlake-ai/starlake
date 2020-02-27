@@ -21,6 +21,7 @@
 package com.ebiznext.comet.schema
 
 import org.apache.hadoop.fs.RemoteIterator
+import scala.language.implicitConversions
 
 package object handlers {
 

@@ -48,7 +48,8 @@ object Rejection {
   ) {
     override def toString: String = {
       val failMsg = if (success) "success" else "failure"
-      s"$failMsg $colName:$typeName($pattern) = $colData"
+      //s"$failMsg $colName:$typeName($pattern) = $colData"
+      s"""$colName,$typeName,"$pattern","$colData",$failMsg"""
     }
   }
 

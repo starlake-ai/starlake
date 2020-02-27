@@ -1,5 +1,5 @@
 name: "sales"
-directory: "/tmp/incoming/sales"
+directory: "__COMET_TEST_ROOT__/incoming/sales"
 metadata:
   mode: "FILE"
   format: "DSV"

@@ -1,35 +1,39 @@
 package com.ebiznext.comet.schema.model.atlas
 
-import com.ebiznext.comet.schema.handlers.SchemaHandler
+import com.ebiznext.comet.config.Settings
+import com.ebiznext.comet.job.atlas.AtlasConfig
+import com.ebiznext.comet.schema.handlers.{SchemaHandler, StorageHandler}
 import com.ebiznext.comet.schema.model._
 import com.typesafe.scalalogging.StrictLogging
-import org.apache.atlas.model.instance.EntityMutations.EntityOperation
-import org.apache.atlas.model.instance._
-import org.apache.atlas.{AtlasClientV2, AtlasServiceException}
 import org.apache.commons.collections.CollectionUtils
+import org.apache.hadoop.fs.Path
 
 import scala.util.{Failure, Success, Try}
 
 class AtlasModel(urls: Array[String], basicAuthUsernamePassword: Array[String])
     extends StrictLogging {
-  val PROJECT_TYPE = "Project"
-  val BUCKET_TYPE = "Bucket"
-  val FILE_TYPE = "DataFile"
-  val BQTABLE_TYPE = "BQTable"
-  val PROCESS_TYPE = "CometProcess"
+  def run(config: AtlasConfig, storage: StorageHandler): Unit = ???
 
-  val DOMAIN_TYPE = "Domain"
-  val SCHEMA_TYPE = "Schema"
-  val ATTRIBUTE_TYPE = "Attribute"
-  val METADATA_STRUCT = "Metadata"
-  val POSITION_STRUCT = "Position"
-  val MERGE_OPTIONS_STRUCT = "MergeOptions"
+  /*
+      val PROJECT_TYPE = "Project"
+      val BUCKET_TYPE = "Bucket"
+      val FILE_TYPE = "DataFile"
+      val BQTABLE_TYPE = "BQTable"
+      val PROCESS_TYPE = "CometProcess"
 
-  val QUALIFIED_NAME = "qualifiedName"
-  val REFERENCEABLE_ATTRIBUTE_NAME: String = QUALIFIED_NAME
-  val CLUSTER_SUFFIX = "@cl1"
-  val atlasClientV2 = new AtlasClientV2(urls, basicAuthUsernamePassword)
+      val DOMAIN_TYPE = "Domain"
+      val SCHEMA_TYPE = "Schema"
+      val ATTRIBUTE_TYPE = "Attribute"
+      val METADATA_STRUCT = "Metadata"
+      val POSITION_STRUCT = "Position"
+      val MERGE_OPTIONS_STRUCT = "MergeOptions"
 
+      val QUALIFIED_NAME = "qualifiedName"
+      val REFERENCEABLE_ATTRIBUTE_NAME: String = QUALIFIED_NAME
+      val CLUSTER_SUFFIX = "@cl1"
+      val atlasClientV2 = new AtlasClientV2(urls, basicAuthUsernamePassword)
+   */
+  /*
   private def toAtlasClassifications(
     classificationNames: Array[String]
   ): java.util.List[AtlasClassification] = {
@@ -275,7 +279,7 @@ class AtlasModel(urls: Array[String], basicAuthUsernamePassword: Array[String])
     val existingDirectory = result.getAttribute("directory").asInstanceOf[String]
     val existingMetadata = Option(result.getAttribute("metadata").asInstanceOf[AtlasStruct])
     val existingExtensions = Option(result.getAttribute("extensions").asInstanceOf[Array[String]])
-     */
+ */
     result
   }
 
@@ -337,6 +341,7 @@ class AtlasModel(urls: Array[String], basicAuthUsernamePassword: Array[String])
     default.foreach { default =>
       entity.setAttribute("default", default)
     }
+    //entity.setLabels(labels)
     entity.setRelationshipAttribute("schema", toAtlasRelatedObjectId(schema))
     getOrCreateInstance(entity)
   }
@@ -359,6 +364,7 @@ class AtlasModel(urls: Array[String], basicAuthUsernamePassword: Array[String])
     merge.foreach { merge =>
       entity.setAttribute("merge", createMergeOptions(merge))
     }
+    //entity.setLabels(tags)
     entity.setRelationshipAttribute("domain", toAtlasRelatedObjectId(domain))
     val sch = getOrCreateInstance(entity)
     val atlasAttrs: List[AtlasEntity] = attributes.map { attribute =>
@@ -399,14 +405,25 @@ class AtlasModel(urls: Array[String], basicAuthUsernamePassword: Array[String])
     Try(atlasClientV2.getEntityByAttribute(objectType, attributes).getEntity)
   }
 
-}
+  def run(config: AtlasConfig, storage: StorageHandler): Unit = {
+    val deleteFirst = config.delete
+    val folderFiles =
+    config.folder.map { folder =>
+      storage.list(new Path(folder), ".yml").map(_.toString)
+    } getOrElse (Nil)
+    val allFiles = config.files ++ folderFiles
+    allFiles.foreach { file =>
+      val domainContent = storage.read(new Path(file))
+      createAtlasModel(storage, domainContent, deleteFirst)
+    }
+  }
 
-object AtlasModel extends AtlasModel(Array("http://127.0.0.1:21000"), Array("admin", "admin")) {
-
-  def main(args: Array[String]): Unit = {
-    val deleteFirst = false
-    val sch = new SchemaHandler(null)
-    val domainContent = AtlasData.domainContent
+  private def createAtlasModel(
+    storage: StorageHandler,
+    domainContent: String,
+    deleteFirst: Boolean
+  ) = {
+    val sch = new SchemaHandler(storage)
     val dom = sch.mapper.readValue(domainContent, classOf[Domain])
 
     val entity = getObjectId(dom.name, DOMAIN_TYPE)
@@ -416,7 +433,7 @@ object AtlasModel extends AtlasModel(Array("http://127.0.0.1:21000"), Array("adm
       Array(dom.name),
       dom.name,
       dom.comment.getOrElse(""),
-      "hayssams-test",
+      settings.comet.atlas.owner,
       dom.directory,
       dom.metadata,
       dom.extensions.map(_.toArray),
@@ -445,4 +462,5 @@ object AtlasModel extends AtlasModel(Array("http://127.0.0.1:21000"), Array("adm
       )
     }
   }
+ */
 }
