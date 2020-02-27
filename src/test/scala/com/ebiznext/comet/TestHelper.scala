@@ -25,27 +25,15 @@ import java.nio.file.Files
 import java.time.LocalDate
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
-import java.util.regex.Pattern
 
 import com.ebiznext.comet.config.{DatasetArea, Settings}
-import com.ebiznext.comet.job.Main.mapper
 import com.ebiznext.comet.schema.handlers.{SchemaHandler, SimpleLauncher}
-import com.ebiznext.comet.schema.model._
-import com.ebiznext.comet.utils.{CometJacksonModule, CometObjectMapper, TextSubstitutionEngine}
+import com.ebiznext.comet.utils.{CometObjectMapper, TextSubstitutionEngine}
 import com.ebiznext.comet.workflow.IngestionWorkflow
-import com.fasterxml.jackson.databind.module.SimpleModule
-import com.fasterxml.jackson.databind.ser.DefaultSerializerProvider
-import com.fasterxml.jackson.databind.{InjectableValues, ObjectMapper}
+import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
-import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.fasterxml.jackson.module.scala.experimental.ScalaObjectMapper
-import com.typesafe.config.{
-  Config,
-  ConfigFactory,
-  ConfigParseOptions,
-  ConfigResolveOptions,
-  ConfigValueFactory
-}
+import com.typesafe.config._
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.commons.io.FileUtils
 import org.apache.commons.io.filefilter.TrueFileFilter
@@ -55,7 +43,6 @@ import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.scalatest.BeforeAndAfterAll
 
-import scala.annotation.tailrec
 import scala.collection.JavaConverters._
 import scala.io.{Codec, Source}
 import scala.util.Try

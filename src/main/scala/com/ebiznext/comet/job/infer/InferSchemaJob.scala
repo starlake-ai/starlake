@@ -25,11 +25,8 @@ import java.util.regex.Pattern
 import com.ebiznext.comet.config.{Settings, SparkEnv}
 import com.ebiznext.comet.schema.handlers.InferSchemaHandler
 import com.ebiznext.comet.schema.model.{Attribute, Domain}
-import com.ebiznext.comet.utils.SparkJob
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
-
-import scala.util.{Success, Try}
 
 /** *
   *

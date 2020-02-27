@@ -27,17 +27,13 @@ import com.ebiznext.comet.job.index.IndexConfig
 import com.ebiznext.comet.job.infer.InferSchemaConfig
 import com.ebiznext.comet.job.jdbcload.JdbcLoadConfig
 import com.ebiznext.comet.job.metrics.MetricsConfig
-import com.ebiznext.comet.utils.{CometJacksonModule, CometObjectMapper, FileLock}
+import com.ebiznext.comet.utils.{CometObjectMapper, FileLock}
 import com.ebiznext.comet.workflow.IngestionWorkflow
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
-import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
-import org.slf4j.MDC
-
-import scala.util.{Failure, Success, Try}
 
 /**
   * The root of all things.

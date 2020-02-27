@@ -2,7 +2,7 @@ import Dependencies._
 import sbt.internal.util.complete.DefaultParsers
 import sbtrelease.ReleasePlugin.autoImport.ReleaseTransformations._
 import sbtrelease.Version
-import sbtrelease.Version.Bump.{Minor, Next}
+import sbtrelease.Version.Bump.Next
 
 name := "comet"
 
