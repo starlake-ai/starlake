@@ -20,15 +20,16 @@
 
 package com.ebiznext.comet.schema.model
 
-import com.ebiznext.comet.config.HiveArea
+import com.ebiznext.comet.config.{DatasetArea, Settings, StorageArea}
 import com.fasterxml.jackson.annotation.JsonIgnore
+import org.apache.hadoop.fs.Path
 
 /**
   * Task executed in teh context of a job
   *
   * @param sql     SQL request to exexute (do not forget to prefix table names with the database name
-  * @param domain  Output domain in Business Area (Will be the Database name in Hive)
-  * @param dataset Dataset Name in Business Area (Will be the Table name in Hive)
+  * @param domain  Output domain in Business Area (Will be the Database name in Hive or Dataset in BigQuery)
+  * @param dataset Dataset Name in Business Area (Will be the Table name in Hive & BigQuery)
   * @param write   Append to or overwrite existing dataset
   * @param area   Target Area where domain / dataset will be stored
   */
@@ -40,16 +41,26 @@ case class AutoTaskDesc(
   partition: Option[List[String]] = None,
   presql: Option[List[String]] = None,
   postsql: Option[List[String]] = None,
-  area: Option[HiveArea] = None,
-  index: Option[Boolean] = None,
+  area: Option[StorageArea] = None,
+  index: Option[IndexSink] = None,
   properties: Option[Map[String, String]] = None
 ) {
 
   @JsonIgnore
-  def getPartitions() = partition.getOrElse(Nil)
+  def getPartitions(): List[String] = partition.getOrElse(Nil)
 
   @JsonIgnore
-  def isIndexed() = index.getOrElse(false)
+  def getIndexSink(): Option[IndexSink] = index
+
+  def getTargetPath(defaultArea: StorageArea)(implicit settings: Settings): Path = {
+    val targetArea = area.getOrElse(defaultArea)
+    new Path(DatasetArea.path(domain, targetArea.value), dataset)
+  }
+
+  def getHiveDB(defaultArea: StorageArea): String = {
+    val targetArea = area.getOrElse(defaultArea)
+    StorageArea.area(domain, targetArea)
+  }
 
 }
 
@@ -61,11 +72,11 @@ case class AutoTaskDesc(
 case class AutoJobDesc(
   name: String,
   tasks: List[AutoTaskDesc],
-  area: Option[HiveArea] = None,
+  area: Option[StorageArea] = None,
   format: Option[String],
   coalesce: Option[Boolean],
   udf: Option[String] = None,
   views: Option[Map[String, String]] = None
 ) {
-  def getArea() = area.getOrElse(HiveArea.business)
+  def getArea() = area.getOrElse(StorageArea.business)
 }

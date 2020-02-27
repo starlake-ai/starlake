@@ -22,6 +22,7 @@ import com.typesafe.sbt.GitPlugin.autoImport._
 import com.typesafe.sbt.site.SiteScaladocPlugin
 import com.typesafe.sbt.site.sphinx.SphinxPlugin
 import com.typesafe.sbt.site.sphinx.SphinxPlugin.autoImport.Sphinx
+import com.typesafe.sbt.{GitBranchPrompt, GitVersioning}
 import org.scalafmt.sbt.ScalafmtPlugin.autoImport.scalafmtOnCompile
 import sbt.Keys._
 import sbt.{Def, _}
@@ -39,17 +40,26 @@ object Common {
     ).flatten
 
   def cometPlugins: Seq[AutoPlugin] = Seq(
-    com.typesafe.sbt.GitVersioning,
+    GitVersioning,
+    GitBranchPrompt,
     SphinxPlugin,
     SiteScaladocPlugin
   )
 
   def gitSettings = Seq(
-    git.useGitDescribe := true,
-    git.gitTagToVersionNumber := { tag: String =>
-      if (tag matches "[0-9]+\\..*") Some(tag)
-      else None
+    git.useGitDescribe := true, {
+      val VersionRegex = "v([0-9]+.[0-9]+.[0-9]+)-?(.*)?".r
+      git.gitTagToVersionNumber := {
+        case VersionRegex(v, "")         => Some(v)
+        case VersionRegex(v, "SNAPSHOT") => Some(s"$v-SNAPSHOT")
+        case VersionRegex(v, s)          => Some(s"$v-$s-SNAPSHOT")
+        case _                           => None
+      }
     }
+    //    git.gitTagToVersionNumber := { tag: String =>
+//      if (tag matches "[0-9]+\\..*") Some(tag)
+//      else None
+//    }
   )
 
   def assemlySettings = Seq(
@@ -73,7 +83,6 @@ object Common {
         // -a Show stack traces a nd exception class name for AssertionErrors.
         Tests.Argument(TestFrameworks.JUnit, "-v", "-a")
       ),
-      version := "0.1.1",
       parallelExecution in Test := false,
       scalafmtOnCompile := true
     ) ++ gitSettings ++ assemlySettings ++ docsSettings
@@ -82,7 +91,6 @@ object Common {
 
 object Versions {
   val sparkAvro = "4.0.0"
-  val hadoop = "2.7.3"
   val curator = "2.6.0"
   val spark211 = "2.1.0"
   val spark211_240 = "2.4.4"
@@ -99,19 +107,22 @@ object Versions {
   val hive = "3.1.0"
   val log4s = "1.3.3"
   val betterFiles = "3.6.0"
-  val jackson = "2.7.9"
+  val jackson211 = "2.7.9"
+  val jackson212 = "2.9.5"  
   val configs = "0.4.4"
-  val esHadoop = "6.6.2"
+  val esHadoop = "7.5.1"
   val scopt = "4.0.0-RC2"
   val sttp = "1.5.11"
-  val gcs = "hadoop2-2.0.0"
-  val hadoopbq = "hadoop2-1.0.0"
-  val bq = "1.96.0"
+//  val gcs = "hadoop2-2.0.0"
+  val gcs = "hadoop3-2.0.0"
+  val hadoopbq = "hadoop3-1.0.0"
+  val bq = "1.103.0"
+  val hadoop = "3.2.0"
 }
 
 object Resolvers {
 
-  val typeSafe = "Typesafe repository" at "http://repo.typesafe.com/typesafe/releases/"
+  val typeSafe = "Typesafe repository" at "https://repo.typesafe.com/typesafe/releases/"
 
   val allResolvers = Seq(
     typeSafe

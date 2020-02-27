@@ -23,6 +23,7 @@ package com.ebiznext.comet.job.ingest
 import java.sql.Timestamp
 import java.time.Instant
 
+import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.schema.handlers.StorageHandler
 import com.ebiznext.comet.schema.model.Rejection.{ColInfo, ColResult, RowInfo, RowResult}
 import com.ebiznext.comet.schema.model._
@@ -49,7 +50,8 @@ class DsvIngestionJob(
   val types: List[Type],
   val path: List[Path],
   val storageHandler: StorageHandler
-) extends IngestionJob {
+)(implicit val settings: Settings)
+    extends IngestionJob {
 
   /**
     *
@@ -175,11 +177,13 @@ class DsvIngestionJob(
       orderedSparkTypes
     )
     saveRejected(rejectedRDD)
-    saveAccepted(acceptedRDD, orderedSparkTypes)
+
+    val (df, _) = saveAccepted(acceptedRDD, orderedSparkTypes)
+    index(df)
     (rejectedRDD, acceptedRDD)
   }
 
-  def saveAccepted(acceptedRDD: RDD[Row], orderedSparkTypes: StructType): Path = {
+  def saveAccepted(acceptedRDD: RDD[Row], orderedSparkTypes: StructType): (DataFrame, Path) = {
     val renamedAttributes = schema.renamedAttributes().toMap
     logger.whenInfoEnabled {
       renamedAttributes.foreach {
@@ -193,7 +197,8 @@ class DsvIngestionJob(
         .col(column)
         .as(renamedAttributes.getOrElse(column, column))
     }
-    super.saveAccepted(acceptedDF.select(cols: _*))
+    val finalDF = acceptedDF.select(cols: _*)
+    super.saveAccepted(finalDF)
   }
 
 }
@@ -224,7 +229,7 @@ object DsvIngestionUtil {
     attributes: List[Attribute],
     types: List[Type],
     sparkType: StructType
-  ): (RDD[String], RDD[Row]) = {
+  )(implicit settings: Settings): (RDD[String], RDD[Row]) = {
     val now = Timestamp.from(Instant.now)
     val checkedRDD: RDD[RowResult] = dataset.rdd.mapPartitions { partition =>
       partition.map { row: Row =>
@@ -265,7 +270,7 @@ object DsvIngestionUtil {
 
     val rejectedRDD: RDD[String] = checkedRDD
       .filter(_.isRejected)
-      .map(rr => RowInfo(now, rr.colResults.map(_.colInfo)).toString)
+      .map(rr => RowInfo(now, rr.colResults.filter(!_.colInfo.success).map(_.colInfo)).toString)
 
     val acceptedRDD: RDD[Row] = checkedRDD.filter(_.isAccepted).map { rowResult =>
       val sparkValues: List[Any] = rowResult.colResults.map(_.sparkValue)

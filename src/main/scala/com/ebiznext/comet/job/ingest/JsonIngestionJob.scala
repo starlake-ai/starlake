@@ -20,7 +20,7 @@
 
 package com.ebiznext.comet.job.ingest
 
-import com.ebiznext.comet.config.{DatasetArea, HiveArea}
+import com.ebiznext.comet.config.{DatasetArea, Settings, StorageArea}
 import com.ebiznext.comet.schema.handlers.StorageHandler
 import com.ebiznext.comet.schema.model._
 import org.apache.hadoop.fs.Path
@@ -47,7 +47,8 @@ class JsonIngestionJob(
   val types: List[Type],
   val path: List[Path],
   val storageHandler: StorageHandler
-) extends IngestionJob {
+)(implicit val settings: Settings)
+    extends IngestionJob {
 
   /**
     * load the json as an RDD of String
@@ -86,7 +87,8 @@ class JsonIngestionJob(
       checkedRDD.filter(_.isLeft).map(_.left.get.mkString("\n"))
     val acceptedDF = session.read.json(session.createDataset(acceptedRDD)(Encoders.STRING))
     saveRejected(rejectedRDD)
-    saveAccepted(acceptedDF) // prefer to let Spark compute the final schema
+    val (df, path) = saveAccepted(acceptedDF) // prefer to let Spark compute the final schema
+    index(df)
     (rejectedRDD, acceptedRDD)
   }
 
@@ -103,7 +105,7 @@ class JsonIngestionJob(
       session.createDataFrame(acceptedRDD, schemaSparkType),
       acceptedPath,
       writeMode,
-      HiveArea.accepted,
+      StorageArea.accepted,
       schema.merge.isDefined
     )
     acceptedPath
