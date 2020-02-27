@@ -25,27 +25,15 @@ import java.lang.management.{ManagementFactory, RuntimeMXBean}
 import java.util.concurrent.TimeUnit
 import java.util.{Locale, UUID, Map => juMap}
 
-import com.ebiznext.comet.schema.handlers.{
-  AirflowLauncher,
-  HdfsStorageHandler,
-  LaunchHandler,
-  SchemaHandler,
-  SimpleLauncher,
-  StorageHandler
-}
+import com.ebiznext.comet.schema.handlers.{AirflowLauncher, HdfsStorageHandler, LaunchHandler, SchemaHandler, SimpleLauncher, StorageHandler}
 import com.fasterxml.jackson.core.{JsonGenerator, JsonParser}
 import com.fasterxml.jackson.databind.annotation.{JsonDeserialize, JsonSerialize}
-import com.fasterxml.jackson.databind.{
-  DeserializationContext,
-  JsonDeserializer,
-  JsonSerializer,
-  ObjectMapper,
-  SerializerProvider
-}
+import com.fasterxml.jackson.databind.{DeserializationContext, JsonDeserializer, JsonSerializer, ObjectMapper, SerializerProvider}
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.typesafe.config.{Config, ConfigFactory, ConfigValue, ConfigValueFactory}
 import com.typesafe.scalalogging.{Logger, StrictLogging}
 import com.ebiznext.comet.schema.model.IndexSink
+import com.ebiznext.comet.utils.CometJacksonModule
 import com.fasterxml.jackson.annotation.JsonTypeInfo
 import configs.Configs
 import configs.syntax._
@@ -207,29 +195,9 @@ object Settings extends StrictLogging {
     path: String,
     metricsTimeout: Long,
     ingestionTimeout: Long,
-    @JsonSerialize(using = classOf[FiniteDurationSerializer])
-    @JsonDeserialize(using = classOf[FiniteDurationDeserializer])
     pollTime: FiniteDuration = FiniteDuration(5000L, TimeUnit.MILLISECONDS),
-    @JsonSerialize(using = classOf[FiniteDurationSerializer])
-    @JsonDeserialize(using = classOf[FiniteDurationDeserializer])
     refreshTime: FiniteDuration = FiniteDuration(5000L, TimeUnit.MILLISECONDS)
   )
-
-  final class FiniteDurationSerializer extends JsonSerializer[FiniteDuration] {
-    override def serialize(
-      value: FiniteDuration,
-      gen: JsonGenerator,
-      serializers: SerializerProvider
-    ): Unit = {
-      gen.writeNumber(value.toMillis)
-    }
-  }
-  final class FiniteDurationDeserializer extends JsonDeserializer[FiniteDuration] {
-    override def deserialize(p: JsonParser, ctxt: DeserializationContext): FiniteDuration = {
-      val milliseconds = ctxt.readValue(p, classOf[Long])
-      FiniteDuration.apply(milliseconds, TimeUnit.MILLISECONDS)
-    }
-  }
 
   final case class Atlas(uri: String, user: String, password: String, owner: String)
 
@@ -292,6 +260,7 @@ object Settings extends StrictLogging {
       private def jsonMapper: ObjectMapper = {
         val mapper = new ObjectMapper()
         mapper.registerModule(DefaultScalaModule)
+        mapper.registerModule(CometJacksonModule)
         mapper
       }
 

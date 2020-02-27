@@ -22,6 +22,7 @@ package com.ebiznext.comet.schema.handlers
 
 import com.ebiznext.comet.config.{DatasetArea, Settings}
 import com.ebiznext.comet.schema.model._
+import com.ebiznext.comet.utils.CometJacksonModule
 import com.fasterxml.jackson.annotation.JsonIgnoreType
 import com.fasterxml.jackson.databind.{InjectableValues, ObjectMapper}
 import com.fasterxml.jackson.databind.module.SimpleModule
@@ -50,6 +51,7 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) {
   val mapper: ObjectMapper with ScalaObjectMapper = {
     val mapper = new ObjectMapper(new YAMLFactory()) with ScalaObjectMapper
     mapper.registerModule(DefaultScalaModule)
+    mapper.registerModule(CometJacksonModule)
     mapper.registerModule(
       new SimpleModule()
         .setMixInAnnotation(classOf[ObjectMapper], classOf[SchemaHandler.MixinsForObjectMapper])
