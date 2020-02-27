@@ -25,27 +25,15 @@ import java.lang.management.{ManagementFactory, RuntimeMXBean}
 import java.util.concurrent.TimeUnit
 import java.util.{Locale, UUID, Map => juMap}
 
-import com.ebiznext.comet.schema.handlers.{
-  AirflowLauncher,
-  HdfsStorageHandler,
-  LaunchHandler,
-  SchemaHandler,
-  SimpleLauncher,
-  StorageHandler
-}
+import com.ebiznext.comet.schema.handlers.{AirflowLauncher, HdfsStorageHandler, LaunchHandler, SchemaHandler, SimpleLauncher, StorageHandler}
 import com.fasterxml.jackson.core.{JsonGenerator, JsonParser}
 import com.fasterxml.jackson.databind.annotation.{JsonDeserialize, JsonSerialize}
-import com.fasterxml.jackson.databind.{
-  DeserializationContext,
-  JsonDeserializer,
-  JsonSerializer,
-  ObjectMapper,
-  SerializerProvider
-}
+import com.fasterxml.jackson.databind.{DeserializationContext, JsonDeserializer, JsonSerializer, ObjectMapper, SerializerProvider}
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.typesafe.config.{Config, ConfigFactory, ConfigValue, ConfigValueFactory}
 import com.typesafe.scalalogging.{Logger, StrictLogging}
 import com.ebiznext.comet.schema.model.IndexSink
+import com.fasterxml.jackson.annotation.JsonTypeInfo
 import configs.Configs
 import configs.syntax._
 import org.slf4j.MDC
@@ -100,7 +88,8 @@ object Settings extends StrictLogging {
     * The default Index Sink is None, but additional types exists (such as BigQuery or Jdbc)
     *
     */
-  sealed abstract class IndexSinkSettings {
+  @JsonTypeInfo(use = JsonTypeInfo.Id.MINIMAL_CLASS)
+  sealed abstract class IndexSinkSettings(val `type`: String) {
     def indexSinkType: IndexSink
   }
 
@@ -109,14 +98,14 @@ object Settings extends StrictLogging {
     /**
       * A no-operation Index Output (disabling external output beyond the in-lake parquets)
       */
-    final case object None extends IndexSinkSettings {
+    final case object None extends IndexSinkSettings("None") {
       override def indexSinkType: IndexSink.None.type = IndexSink.None
     }
 
     /**
       * Describes an Index Output delivering values into a BigQuery dataset
       */
-    final case class BigQuery(bqDataset: String) extends IndexSinkSettings {
+    final case class BigQuery(bqDataset: String) extends IndexSinkSettings("BigQuery") {
       override def indexSinkType: IndexSink.BQ.type = IndexSink.BQ
     }
 
@@ -124,7 +113,7 @@ object Settings extends StrictLogging {
       * Describes an Index Output delivering values into a JDBC-accessible SQL database
       */
     final case class Jdbc(jdbcConnection: String, partitions: Int = 1, batchSize: Int = 1000)
-        extends IndexSinkSettings {
+        extends IndexSinkSettings("Jdbc") {
       override def indexSinkType: IndexSink.JDBC.type = IndexSink.JDBC
     }
     // TODO: IndexSink has ES, too. Is there a use case for this?
@@ -200,7 +189,6 @@ object Settings extends StrictLogging {
       def effectivePingSql: String = pingSql.getOrElse(s"select * from $name where 1=0")
     }
   }
-
 
   final case class Lock(
     path: String,
@@ -302,17 +290,9 @@ object Settings extends StrictLogging {
     }
   }
 
-  @deprecated("please use and pass on a Settings instance instead", "2020-02-25") // ready to remove
-  def comet(implicit settings: Settings): Comet = settings.comet
-
-  @deprecated("please use and pass on a Settings instance instead", "2020-02-25") // ready to remove
-  def storageHandler(implicit settings: Settings): HdfsStorageHandler = settings.storageHandler
-
-  @deprecated("please use and pass on a Settings instance instead", "2020-02-25") // ready to remove
-  def schemaHandler(implicit settings: Settings): SchemaHandler = settings.schemaHandler
-
   private implicit val jdbcEngineConfigs: Configs[JdbcEngine] = Configs.derive[JdbcEngine]
-  private implicit val indexOutputConfigs: Configs[IndexSinkSettings] = Configs.derive[IndexSinkSettings]
+  private implicit val indexOutputConfigs: Configs[IndexSinkSettings] =
+    Configs.derive[IndexSinkSettings]
 
   lazy val config: Config = ConfigFactory.load()
 

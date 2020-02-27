@@ -25,7 +25,7 @@ import java.io.{PrintWriter, StringWriter}
 import com.ebiznext.comet.schema.model.WriteMode
 import com.typesafe.scalalogging.Logger
 
-import scala.util.{Success, Try, Failure}
+import scala.util.{Failure, Success, Try}
 import scala.util.control.NonFatal
 
 object Utils {
