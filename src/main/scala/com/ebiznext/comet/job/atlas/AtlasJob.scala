@@ -28,7 +28,7 @@ import com.typesafe.scalalogging.StrictLogging
 class AtlasJob(
   cliConfig: AtlasConfig,
   storageHandler: StorageHandler
-)(implicit /* TODO: make me explicit */ settings: Settings)
+)(implicit settings: Settings)
     extends StrictLogging {
 
   def run(): Unit = {

@@ -92,7 +92,7 @@ object SparkAuditLogWriter {
   }
 
   def append(session: SparkSession, log: AuditLog)(
-    implicit /* TODO: make me explicit */ settings: Settings
+    implicit settings: Settings
   ) = {
     val lockPath = new Path(settings.comet.audit.path, s"audit.lock")
     val locker = new FileLock(lockPath, settings.storageHandler)

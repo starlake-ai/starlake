@@ -34,8 +34,7 @@ import org.apache.spark.sql.SparkSession
   *
   * @param name : Cusom spark application name prefix. The current datetime is appended this the Spark Job name
   */
-class SparkEnv(name: String)(implicit /* TODO: make this explicit */ settings: Settings)
-    extends StrictLogging {
+class SparkEnv(name: String)(implicit settings: Settings) extends StrictLogging {
 
   /**
     * Load spark.* properties rom the application conf file
