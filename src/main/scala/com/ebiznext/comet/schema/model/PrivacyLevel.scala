@@ -20,7 +20,10 @@
 
 package com.ebiznext.comet.schema.model
 
+import java.util.Locale
+
 import com.ebiznext.comet.config.Settings
+import com.ebiznext.comet.schema.model.PrivacyLevel.getClass
 import com.ebiznext.comet.utils.Encryption
 import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.databind.annotation.{JsonDeserialize, JsonSerialize}
@@ -40,29 +43,48 @@ import scala.reflect.runtime.universe
 sealed case class PrivacyLevel(value: String) {
   override def toString: String = value
 
-  def encrypt(s: String): String = PrivacyLevel.all(value)._1.encrypt(s)
+  def encrypt(s: String)(implicit settings: Settings): String =
+    PrivacyLevel.ForSettings(settings).all(value)._1.encrypt(s)
 
 }
 
 object PrivacyLevel {
-  lazy val all = Settings.comet.privacy.options.asScala.map {
-    case (k, objName) =>
+
+  case class ForSettings(settings: Settings) {
+
+    private def make(schemeName: String, encryptionObject: String): Encryption = {
       val runtimeMirror = universe.runtimeMirror(getClass.getClassLoader)
-      val module = runtimeMirror.staticModule(objName)
+      val module = runtimeMirror.staticModule(encryptionObject)
       val obj: universe.ModuleMirror = runtimeMirror.reflectModule(module)
       val encryption = obj.instance.asInstanceOf[Encryption]
-      (k.toUpperCase(), (encryption, new PrivacyLevel(k.toUpperCase())))
+      encryption
+
+    }
+
+    def get(schemeName: String): Encryption = {
+      val encryptionObject = settings.comet.privacy.options.asScala(schemeName)
+      make(schemeName, encryptionObject)
+    }
+
+    lazy val all = settings.comet.privacy.options.asScala.map {
+      case (k, objName) =>
+        val encryption = make(k, objName)
+        val key = k.toUpperCase(Locale.ROOT)
+        (key, (encryption, new PrivacyLevel(key)))
+    }
+
+    // Improve Scan performance
+    def fromString(value: String): PrivacyLevel = all(value.toUpperCase())._2
+
   }
 
-  // Improve Scan performance
-  lazy val None = all("NONE")._2
-
-  def fromString(value: String): PrivacyLevel = all(value.toUpperCase())._2
+  val None: PrivacyLevel = PrivacyLevel("NONE")
 }
 
 class PrivacyLevelDeserializer extends JsonDeserializer[PrivacyLevel] {
+
   override def deserialize(jp: JsonParser, ctx: DeserializationContext): PrivacyLevel = {
     val value = jp.readValueAs[String](classOf[String])
-    PrivacyLevel.fromString(value)
+    PrivacyLevel(value.toUpperCase(Locale.ROOT)) /* TODO: prior to 2020-02-25 we enforced a valid PrivacyLevel at deser time */
   }
 }

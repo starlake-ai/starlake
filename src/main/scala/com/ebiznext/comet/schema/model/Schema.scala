@@ -22,6 +22,9 @@ package com.ebiznext.comet.schema.model
 
 import java.util.regex.Pattern
 
+import com.ebiznext.comet.config.Settings
+import com.ebiznext.comet.utils.TextSubstitutionEngine
+import com.google.cloud.bigquery.{Field, LegacySQLTypeName}
 import org.apache.spark.sql.types._
 
 import scala.collection.mutable
@@ -81,11 +84,43 @@ case class Schema(
     *
     * @return Spark Catalyst Schema
     */
-  def sparkType(): StructType = {
+  def sparkType()(implicit settings: Settings): StructType = {
     val fields = attributes.map { attr =>
       StructField(attr.name, attr.sparkType(), !attr.required)
     }
     StructType(fields)
+  }
+
+  import com.google.cloud.bigquery.{Schema => BQSchema}
+
+  def bqSchema()(implicit settings: Settings): BQSchema = {
+    def convert(sparkType: DataType): LegacySQLTypeName = {
+
+      val BQ_NUMERIC_PRECISION = 38
+      val BQ_NUMERIC_SCALE = 9
+      lazy val NUMERIC_SPARK_TYPE =
+        DataTypes.createDecimalType(BQ_NUMERIC_PRECISION, BQ_NUMERIC_SCALE)
+
+      sparkType match {
+        case BooleanType                                     => LegacySQLTypeName.BOOLEAN
+        case ByteType | LongType | IntegerType               => LegacySQLTypeName.INTEGER
+        case DoubleType | FloatType                          => LegacySQLTypeName.FLOAT
+        case StringType                                      => LegacySQLTypeName.STRING
+        case BinaryType                                      => LegacySQLTypeName.BYTES
+        case DateType                                        => LegacySQLTypeName.DATE
+        case TimestampType                                   => LegacySQLTypeName.TIMESTAMP
+        case DecimalType.SYSTEM_DEFAULT | NUMERIC_SPARK_TYPE => LegacySQLTypeName.NUMERIC
+        case _                                               => throw new IllegalArgumentException(s"Unsupported type:$sparkType")
+      }
+    }
+    val fields = attributes map { attribute =>
+      Field
+        .newBuilder(attribute.rename.getOrElse(attribute.name), convert(attribute.sparkType()))
+        .setMode(if (attribute.required) Field.Mode.REQUIRED else Field.Mode.NULLABLE)
+        .setDescription(attribute.comment.getOrElse(""))
+        .build()
+    }
+    BQSchema.of(fields: _*)
   }
 
   /**
@@ -109,7 +144,7 @@ case class Schema(
     */
   def checkValidity(
     domainMetaData: Option[Metadata]
-  ): Either[List[String], Boolean] = {
+  )(implicit settings: Settings): Either[List[String], Boolean] = {
     val errorList: mutable.MutableList[String] = mutable.MutableList.empty
     val tableNamePattern = Pattern.compile("[a-zA-Z][a-zA-Z0-9_]{1,256}")
     if (!tableNamePattern.matcher(name).matches())
@@ -152,12 +187,13 @@ case class Schema(
       Right(true)
   }
 
-  def discreteAttrs(): List[Attribute] = attributes.filter(_.getMetricType() == MetricType.DISCRETE)
+  def discreteAttrs()(implicit settings: Settings): List[Attribute] =
+    attributes.filter(_.getMetricType() == MetricType.DISCRETE)
 
-  def continuousAttrs(): List[Attribute] =
+  def continuousAttrs()(implicit settings: Settings): List[Attribute] =
     attributes.filter(_.getMetricType() == MetricType.CONTINUOUS)
 
-  def mapping(template: Option[String], domainName: String): String = {
+  def mapping(template: Option[String], domainName: String)(implicit settings: Settings): String = {
     val attrs = attributes.map(_.mapping()).mkString(",")
     val properties =
       s"""
@@ -165,7 +201,9 @@ case class Schema(
          |$attrs
          |}""".stripMargin
 
-    template.getOrElse {
+    val tse = TextSubstitutionEngine("PROPERTIES" -> properties, "ATTRIBUTES" -> attrs)
+
+    tse.apply(template.getOrElse {
       s"""
          |{
          |  "index_patterns": ["${domainName}_$name", "${domainName}_$name-*"],
@@ -178,12 +216,14 @@ case class Schema(
          |      "_source": {
          |        "enabled": true
          |      },
-         |__PROPERTIES__
+         |
+         |"properties": {
+         |__ATTRIBUTES__
+         |}
          |    }
          |  }
-         |}""".stripMargin.replace("__PROPERTIES__", properties)
-    }
-
+         |}""".stripMargin
+    })
   }
 
   def mergedMetadata(domainMetadata: Option[Metadata]): Metadata = {
@@ -196,13 +236,16 @@ case class Schema(
 
 object Schema {
 
-  def mapping(domainName: String, schemaName: String, obj: StructField): String = {
+  def mapping(domainName: String, schemaName: String, obj: StructField)(
+    implicit settings: Settings
+  ): String = {
     def buildAttributeTree(obj: StructField): Attribute = {
       obj.dataType match {
         case StringType | LongType | IntegerType | ShortType | DoubleType | BooleanType | ByteType |
             DateType | TimestampType =>
           Attribute(obj.name, obj.dataType.typeName, required = !obj.nullable)
-        case d: DecimalType                   => Attribute(obj.name, "decimal", required = !obj.nullable)
+        case d: DecimalType =>
+          Attribute(obj.name, "decimal", required = !obj.nullable)
         case ArrayType(eltType, containsNull) => buildAttributeTree(obj.copy(dataType = eltType))
         case x: StructType =>
           new Attribute(

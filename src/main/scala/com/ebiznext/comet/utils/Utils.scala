@@ -22,6 +22,7 @@ package com.ebiznext.comet.utils
 
 import java.io.{PrintWriter, StringWriter}
 
+import com.ebiznext.comet.schema.model.WriteMode
 import com.typesafe.scalalogging.Logger
 
 import scala.util.control.NonFatal
@@ -66,9 +67,29 @@ object Utils {
   }
 
   def logException(logger: Logger, exception: Throwable) = {
+    logger.error(exceptionAsString(exception).toString)
+  }
+
+  def exceptionAsString(exception: Throwable): String = {
     val sw = new StringWriter
     exception.printStackTrace(new PrintWriter(sw))
-    logger.error(sw.toString)
-
+    sw.toString
   }
+
+  def getBQDisposition(writeMode: WriteMode): (String, String) = {
+    val (createDisposition, writeDisposition) = writeMode match {
+      case WriteMode.OVERWRITE =>
+        ("CREATE_IF_NEEDED", "WRITE_TRUNCATE")
+      case WriteMode.APPEND =>
+        ("CREATE_IF_NEEDED", "WRITE_APPEND")
+      case WriteMode.ERROR_IF_EXISTS =>
+        ("CREATE_IF_NEEDED", "WRITE_EMPTY")
+      case WriteMode.IGNORE =>
+        ("CREATE_NEVER", "WRITE_EMPTY")
+      case _ =>
+        ("CREATE_IF_NEEDED", "WRITE_TRUNCATE")
+    }
+    (createDisposition, writeDisposition)
+  }
+
 }
