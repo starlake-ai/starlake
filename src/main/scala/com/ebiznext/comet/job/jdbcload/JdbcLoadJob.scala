@@ -1,14 +1,12 @@
 package com.ebiznext.comet.job.jdbcload
 
-import java.sql.DriverManager
-
 import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.config.Settings.IndexSinkSettings
 import com.ebiznext.comet.utils.{SparkJob, Utils}
 import com.google.cloud.bigquery.JobInfo.WriteDisposition
 import org.apache.spark.sql.{SaveMode, SparkSession}
 
-import scala.util.{Failure, Success, Try}
+import scala.util.{Success, Try}
 
 class JdbcLoadJob(
   cliConfig: JdbcLoadConfig

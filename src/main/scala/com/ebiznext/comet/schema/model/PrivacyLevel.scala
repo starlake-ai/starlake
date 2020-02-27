@@ -23,7 +23,6 @@ package com.ebiznext.comet.schema.model
 import java.util.Locale
 
 import com.ebiznext.comet.config.Settings
-import com.ebiznext.comet.schema.model.PrivacyLevel.getClass
 import com.ebiznext.comet.utils.Encryption
 import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.databind.annotation.{JsonDeserialize, JsonSerialize}

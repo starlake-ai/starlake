@@ -25,8 +25,7 @@ import java.util.regex.Pattern
 import com.ebiznext.comet.TestHelper
 import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.schema.model._
-import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs.{FileSystem, FileUtil, Path}
+import org.apache.hadoop.fs.Path
 
 class StorageHandlerSpec extends TestHelper {
 

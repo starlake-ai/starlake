@@ -30,24 +30,14 @@ import com.ebiznext.comet.schema.handlers.{
   HdfsStorageHandler,
   LaunchHandler,
   SchemaHandler,
-  SimpleLauncher,
-  StorageHandler
+  SimpleLauncher
 }
-import com.fasterxml.jackson.core.{JsonGenerator, JsonParser}
-import com.fasterxml.jackson.databind.annotation.{JsonDeserialize, JsonSerialize}
-import com.fasterxml.jackson.databind.{
-  DeserializationContext,
-  JsonDeserializer,
-  JsonSerializer,
-  ObjectMapper,
-  SerializerProvider
-}
-import com.fasterxml.jackson.module.scala.DefaultScalaModule
-import com.typesafe.config.{Config, ConfigFactory, ConfigValue, ConfigValueFactory}
-import com.typesafe.scalalogging.{Logger, StrictLogging}
 import com.ebiznext.comet.schema.model.IndexSink
 import com.ebiznext.comet.utils.CometObjectMapper
 import com.fasterxml.jackson.annotation.JsonTypeInfo
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.typesafe.config.{Config, ConfigValueFactory}
+import com.typesafe.scalalogging.{Logger, StrictLogging}
 import configs.Configs
 import configs.syntax._
 import org.slf4j.MDC
@@ -56,7 +46,6 @@ import scala.concurrent.duration.FiniteDuration
 
 object Settings extends StrictLogging {
   private def loggerForCompanionInstances: Logger = logger
-  import java.lang.management.{ManagementFactory, RuntimeMXBean}
 
   /**
     *

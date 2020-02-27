@@ -23,7 +23,6 @@ package com.ebiznext.comet.config
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
-import com.typesafe.config.{Config, ConfigFactory}
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.SparkSession

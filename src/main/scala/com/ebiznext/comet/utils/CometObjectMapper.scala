@@ -1,6 +1,5 @@
 package com.ebiznext.comet.utils
 
-import com.ebiznext.comet.config.Settings
 import com.fasterxml.jackson.annotation.JsonIgnoreType
 import com.fasterxml.jackson.core.JsonFactory
 import com.fasterxml.jackson.databind.module.SimpleModule

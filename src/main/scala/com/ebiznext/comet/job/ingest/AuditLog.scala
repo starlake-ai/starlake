@@ -27,14 +27,11 @@ import com.ebiznext.comet.config.Settings.IndexSinkSettings
 import com.ebiznext.comet.job.bqload.{BigQueryLoadConfig, BigQueryLoadJob}
 import com.ebiznext.comet.job.jdbcload.{JdbcLoadConfig, JdbcLoadJob}
 import com.ebiznext.comet.utils.FileLock
-import com.google.cloud.bigquery.JobInfo.{CreateDisposition, WriteDisposition}
 import com.google.cloud.bigquery.{Field, LegacySQLTypeName}
 import org.apache.hadoop.fs.Path
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{SaveMode, SparkSession}
-
-import scala.util.{Failure, Success, Try}
 
 case class AuditLog(
   jobid: String,

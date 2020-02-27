@@ -23,9 +23,8 @@ package com.ebiznext.comet.schema.model
 import java.util.regex.Pattern
 
 import com.ebiznext.comet.config.Settings
-import com.fasterxml.jackson.annotation.{JacksonInject, JsonIgnore}
+import com.fasterxml.jackson.annotation.JsonIgnore
 import com.typesafe.scalalogging.LazyLogging
-import javax.swing.UIDefaults.LazyInputMap
 import org.apache.spark.sql.types._
 
 import scala.collection.mutable
