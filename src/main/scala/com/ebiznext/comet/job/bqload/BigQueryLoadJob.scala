@@ -13,7 +13,8 @@ import scala.util.{Failure, Success, Try}
 class BigQueryLoadJob(
   cliConfig: BigQueryLoadConfig,
   maybeSchema: scala.Option[BQSchema] = None
-) extends SparkJob {
+)(implicit val settings: Settings)
+    extends SparkJob {
 
   override def name: String = s"bqload-${cliConfig.outputTable}"
 
@@ -174,7 +175,7 @@ class BigQueryLoadJob(
     */
   override def run(): Try[SparkSession] = {
     val res =
-      if (Settings.comet.audit.active && Settings.comet.audit.index == "BQ")
+      if (settings.comet.audit.active && settings.comet.audit.index == "BQ")
         runBQSparkConnector()
       else
         Success(session)

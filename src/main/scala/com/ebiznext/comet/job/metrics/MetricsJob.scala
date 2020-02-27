@@ -29,7 +29,8 @@ class MetricsJob(
   schema: Schema,
   stage: Stage,
   storageHandler: StorageHandler
-) extends SparkJob {
+)(implicit val settings: Settings)
+    extends SparkJob {
 
   override def name: String = "Compute metrics job"
 
@@ -48,7 +49,7 @@ class MetricsJob(
 
   def getLockPath(path: String): Path = {
     new Path(
-      Settings.comet.lock.path,
+      settings.comet.lock.path,
       "metrics" + path
         .replace("{domain}", domain.name)
         .replace("{schema}", schema.name)
@@ -57,8 +58,9 @@ class MetricsJob(
   }
 
   /**
-    * Saves a dataset. if the path is empty (the first time we call metrics on the schema) then we can write
-    * if there's already parquet files stored in it, then create a temporary directory to compute on, and flush
+    * Saves a dataset. If the path is empty (the first time we call metrics on the schema) then we can write.
+    *
+    * If there's already parquet files stored in it, then create a temporary directory to compute on, and flush
     * the path to move updated metrics in it
     *
     * @param dataToSave :   dataset to be saved
@@ -318,11 +320,11 @@ root
     logger.info("Continuous Attributes -> " + continAttrs.mkString(","))
     val discreteOps: List[DiscreteMetric] = Metrics.discreteMetrics
     val continuousOps: List[ContinuousMetric] = Metrics.continuousMetrics
-    val savePath: Path = getMetricsPath(Settings.comet.metrics.path)
+    val savePath: Path = getMetricsPath(settings.comet.metrics.path)
     val count = dataUse.count()
     val discreteDataset = Metrics.computeDiscretMetric(dataUse, discAttrs, discreteOps)
     val continuousDataset = Metrics.computeContinuousMetric(dataUse, continAttrs, continuousOps)
-    val allMetricsDf =
+    val allMetricsDfMaybe =
       unionDisContMetric(
         discreteDataset,
         continuousDataset,
@@ -332,24 +334,21 @@ root
         timestamp,
         stage
       )
-    val lockPath = getLockPath(Settings.comet.metrics.path)
-    val waitTimeMillis = Settings.comet.lock.metricsTimeout
-    val locker = new FileLock(lockPath, storageHandler)
-    val metricsResult = if (locker.tryLock(waitTimeMillis)) {
-      Try(allMetricsDf.foreach(allMetricsDf => save(allMetricsDf, savePath)))
-    } else {
-      Failure(
-        new Exception(
-          s"Failed to obtain lock on file $lockPath waited (millis) $waitTimeMillis"
-        )
-      )
+
+    val metricsResult = allMetricsDfMaybe match {
+      case Some(allMetricsDf) =>
+        val lockPath = getLockPath(settings.comet.metrics.path)
+        val waitTimeMillis = settings.comet.lock.metricsTimeout
+        val locker = new FileLock(lockPath, storageHandler)
+
+        locker.tryExclusively(waitTimeMillis) {
+          save(allMetricsDf, savePath)
+        }
+
+      case None =>
+        Success(())
     }
-    locker.release()
-    metricsResult match {
-      case Failure(e) =>
-        Failure(throw e)
-      case Success(_) =>
-        Success(session)
-    }
+
+    metricsResult.map(_ => session)
   }
 }

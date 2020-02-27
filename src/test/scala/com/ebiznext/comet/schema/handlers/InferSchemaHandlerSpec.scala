@@ -4,18 +4,19 @@ import com.ebiznext.comet.schema.model.Attribute
 
 class InferSchemaHandlerSpec extends TestHelper {
 
-  import sparkSession.implicits._
-
   "CreateAttributes" should "create the correct list of attributes for a complex Json" in {
+    val sparkImplicits = sparkSession.implicits
+    import sparkImplicits._
 
     val ComplexjsonStr = """{ "metadata": { "key": 84896, "value": 54 }}"""
 
     val df = sparkSession.read
       .option("inferSchema", value = true)
-      .json(Seq(ComplexjsonStr).toDS.rdd)
+      .json(Seq(ComplexjsonStr).toDS)
 
     val complexAttr2 = Attribute("key", "long", Some(false), required = false)
-    val complexAttr3 = Attribute("value", "long", Some(false), required = false)
+    val complexAttr3 =
+      Attribute("value", "long", Some(false), required = false)
 
     val complexAttr1: List[Attribute] = List(
       Attribute(
@@ -33,11 +34,14 @@ class InferSchemaHandlerSpec extends TestHelper {
   }
 
   "CreateAttributes" should "create the correct list of attributes for a simple Json" in {
+    val sparkImplicits = sparkSession.implicits
+    import sparkImplicits._
+
     val SimpleJsonStr = """{ "key": "Fares", "value": 3 }}"""
 
     val df1 = sparkSession.read
       .option("inferSchema", value = true)
-      .json(Seq(SimpleJsonStr).toDS.rdd)
+      .json(Seq(SimpleJsonStr).toDS)
 
     val simpleAttr: List[Attribute] = InferSchemaHandler.createAttributes(df1.schema)
 
@@ -49,6 +53,9 @@ class InferSchemaHandlerSpec extends TestHelper {
   }
 
   "CreateAttributes" should "create the correct list of attributes for an array Json" in {
+    val sparkImplicits = sparkSession.implicits
+    import sparkImplicits._
+
     val arrayJson = """
       |[
       |	{
@@ -64,7 +71,7 @@ class InferSchemaHandlerSpec extends TestHelper {
 
     val df1 = sparkSession.read
       .option("inferSchema", value = true)
-      .json(Seq(arrayJson).toDS.rdd)
+      .json(Seq(arrayJson).toDS)
 
     val arrayAttr: List[Attribute] = InferSchemaHandler.createAttributes(df1.schema)
 
