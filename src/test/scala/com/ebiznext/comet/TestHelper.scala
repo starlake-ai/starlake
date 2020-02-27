@@ -123,51 +123,45 @@ trait TestHelper extends FlatSpec with Matchers with BeforeAndAfterAll with Stri
 
   /** substitution patterns for test sample file resources.
     *
-    * Note that the highly unusual choice of the £ character as a substitution variable marker has been made in order
-    * to reduce the likelihood of £ being used at all in the original text stream
-    *
-    * (although there IS a ££ -> £ substitution, using the more traditional $ or % choices would have caused uncomfortable
-    * and confusing confusions with the content)
-    *
     */
   val TestFileSubstitutions = Seq(
-    "£COMET_TEST_ROOT£" -> cometTestRoot,
-    "££"                -> "£"
+    "COMET_TEST_ROOT" -> cometTestRoot
   )
 
-  private val SubstitutionPattern = "^£(.*?)£$".r
-  private val readySubstitutions = TestFileSubstitutions.map {
-    case (SubstitutionPattern(variableName), value) => (variableName, value)
-  }.toMap
+  private val SubstitutionPatternStart = "£"
+  private val SubstitutionPatternEnd = "£"
+  private val readySubstitutions = (TestFileSubstitutions ++ Seq("" -> "")).toMap
 
   def applyTestFileSubstitutions(fileContent: String): String = {
     @tailrec
     def recursiveApply(buffer: StringBuilder, start: Int, nextEvent: Int): String = {
-      fileContent.indexOf("£", start) match {
+      fileContent.indexOf(SubstitutionPatternStart, start) match {
         case -1 =>
           /* this is it, we're done! */
           buffer.append(fileContent.substring(start))
           buffer.toString()
 
         case index =>
-          fileContent.indexOf("£", index + 1) match {
+          val endIndex = fileContent.indexOf(SubstitutionPatternEnd, index + SubstitutionPatternStart.length)
+          endIndex match {
             case -1 =>
               throw new IllegalArgumentException(
-                s"at position ${index}, unclosed £ substitution\n   in fileContent=${fileContent}"
+                s"at position ${index}, unclosed ${SubstitutionPatternStart}substitution${SubstitutionPatternEnd}\n   in fileContent=${fileContent}"
               )
 
             case nextIndex =>
-              val substitutionName = fileContent.substring(index + 1, nextIndex)
+              val substitutionName = fileContent.substring(index + SubstitutionPatternStart.length, nextIndex)
               readySubstitutions.get(substitutionName) match {
                 case None =>
                   throw new IllegalArgumentException(
-                    s"at position ${index}, unknown substitution £${substitutionName}£\n   in fileContent=${fileContent}"
+                    s"at position ${index}, unknown substitution ${SubstitutionPatternStart}${substitutionName}${SubstitutionPatternEnd}\n   in fileContent=${fileContent}"
                   )
 
                 case Some(substitutionValue) =>
                   buffer.append(fileContent.substring(start, index))
                   buffer.append(substitutionValue)
-                  recursiveApply(buffer, nextIndex + 1, fileContent.indexOf("£", index + 1))
+                  val nextEvent = fileContent.indexOf("£", index + SubstitutionPatternEnd.length)
+                  recursiveApply(buffer, nextIndex + SubstitutionPatternEnd.length, nextEvent)
               }
           }
       }
@@ -180,11 +174,11 @@ trait TestHelper extends FlatSpec with Matchers with BeforeAndAfterAll with Stri
        £/tmp/foobar/£)
      */
 
-    val nextPercent = fileContent.indexOf("£")
-    if (nextPercent < 0) {
+    val firstEvent = fileContent.indexOf(SubstitutionPatternStart)
+    if (firstEvent < 0) {
       fileContent /* NO substitution — break here immediately */
     } else {
-      val result = recursiveApply(new StringBuilder, 0, nextPercent)
+      val result = recursiveApply(new StringBuilder, 0, firstEvent)
       result
     }
   }
