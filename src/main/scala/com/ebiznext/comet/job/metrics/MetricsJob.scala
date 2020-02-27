@@ -337,7 +337,6 @@ root
         stage
       )
 
-
     val combinedResult = allMetricsDfMaybe match {
       case Some(allMetricsDf) =>
         val lockPath = getLockPath(settings.comet.metrics.path)
@@ -362,12 +361,11 @@ root
     combinedResult.map(_ => session)
   }
 
-
   private def sinkMetrics(metricsDf: DataFrame): Try[Unit] = {
     if (settings.comet.metrics.active) {
       settings.comet.metrics.index match {
         case Settings.IndexSinkSettings.None =>
-          Success( () )
+          Success(())
 
         case Settings.IndexSinkSettings.BigQuery(bqDataset) =>
           Try { sinkMetricsToBigQuery(metricsDf, bqDataset) }
@@ -376,13 +374,19 @@ root
           Try { sinkMetricsToJdbc(metricsDf, jdbcConnection, partitions, batchSize) }
       }
     } else {
-      Success( () )
+      Success(())
     }
   }
 
-  private def sinkMetricsToBigQuery(metricsDf: DataFrame, bqDataset: String): Unit = ??? // TODO: implement me
+  private def sinkMetricsToBigQuery(metricsDf: DataFrame, bqDataset: String): Unit =
+    ??? // TODO: implement me
 
-  private def sinkMetricsToJdbc(metricsDf: DataFrame, jdbcConnection: String, partitions: Int, batchSize: Int): Unit = {
+  private def sinkMetricsToJdbc(
+    metricsDf: DataFrame,
+    jdbcConnection: String,
+    partitions: Int,
+    batchSize: Int
+  ): Unit = {
     /* WIP comment:
 
     the main difficulty here is that while 'save' will generate a parquet file, which we might read and just push away
@@ -412,9 +416,7 @@ root
 
      */
 
-
     ???
   }
-
 
 }

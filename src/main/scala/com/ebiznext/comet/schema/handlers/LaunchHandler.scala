@@ -153,7 +153,9 @@ class SimpleLauncher extends LaunchHandler with StrictLogging {
     *
     * @param config
     */
-  override def jdbcload(workflow: IngestionWorkflow, config: JdbcLoadConfig)(implicit settings: Settings): Boolean = {
+  override def jdbcload(workflow: IngestionWorkflow, config: JdbcLoadConfig)(
+    implicit settings: Settings
+  ): Boolean = {
     logger.info(s"Launch JDBC: ${config}")
     workflow.jdbcload(config)
     true
@@ -272,7 +274,9 @@ class AirflowLauncher extends LaunchHandler with StrictLogging {
     *
     * @param config
     */
-  override def jdbcload(workflow: IngestionWorkflow, config: JdbcLoadConfig)(implicit settings: Settings): Boolean = {
+  override def jdbcload(workflow: IngestionWorkflow, config: JdbcLoadConfig)(
+    implicit settings: Settings
+  ): Boolean = {
     val endpoint = settings.comet.airflow.endpoint
     val url = s"$endpoint/dags/comet_jdbcload/dag_runs"
     val params = List(
