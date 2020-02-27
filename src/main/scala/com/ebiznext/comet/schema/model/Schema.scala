@@ -23,6 +23,7 @@ package com.ebiznext.comet.schema.model
 import java.util.regex.Pattern
 
 import com.ebiznext.comet.config.Settings
+import com.ebiznext.comet.utils.TextSubstitutionEngine
 import com.google.cloud.bigquery.{Field, LegacySQLTypeName}
 import org.apache.spark.sql.types._
 
@@ -200,7 +201,9 @@ case class Schema(
          |$attrs
          |}""".stripMargin
 
-    template.getOrElse {
+    val tse = TextSubstitutionEngine("PROPERTIES" -> properties, "ATTRIBUTES" -> attrs)
+
+    tse.apply(template.getOrElse {
       s"""
          |{
          |  "index_patterns": ["${domainName}_$name", "${domainName}_$name-*"],
@@ -213,12 +216,14 @@ case class Schema(
          |      "_source": {
          |        "enabled": true
          |      },
-         |__PROPERTIES__
+         |
+         |"properties": {
+         |£ATTRIBUTES£
+         |}
          |    }
          |  }
-         |}""".stripMargin.replace("__PROPERTIES__", properties)
-    }
-
+         |}""".stripMargin
+    })
   }
 
   def mergedMetadata(domainMetadata: Option[Metadata]): Metadata = {
