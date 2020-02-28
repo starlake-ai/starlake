@@ -96,6 +96,7 @@ project/plugins/project/
 ### Scala ###
 *.class
 *.log
+*.sc
 
 ### VisualStudioCode ###
 .vscode/*
