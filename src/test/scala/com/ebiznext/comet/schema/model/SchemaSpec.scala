@@ -89,4 +89,17 @@ class SchemaSpec extends TestHelper {
     writer.toString.trim should equal(yml)
   }
 
+  "Default value for an attribute" should "only be used for non obligatory fields" in {
+    val requiredAttribute =
+      Attribute("requiredAttribute", "long", required = true, default = Some("10"))
+    requiredAttribute.checkValidity() shouldBe Left(
+      List(
+        s"attribute with name ${requiredAttribute.name}: default value valid for optional fields only"
+      )
+    )
+
+    val optionalAttribute =
+      Attribute("optionalAttribute", "long", required = false, default = Some("10"))
+    optionalAttribute.checkValidity() shouldBe Right(true)
+  }
 }
