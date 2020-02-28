@@ -108,7 +108,7 @@ object Versions {
   val log4s = "1.3.3"
   val betterFiles = "3.6.0"
   val jackson211 = "2.7.9"
-  val jackson212 = "2.9.5"  
+  val jackson212 = "2.9.10"  
   val configs = "0.4.4"
   val esHadoop = "7.5.1"
   val scopt = "4.0.0-RC2"
