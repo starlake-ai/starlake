@@ -22,6 +22,7 @@ package com.ebiznext.comet.schema.handlers
 
 import java.sql.{DriverManager, SQLException}
 
+import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.{JdbcChecks, TestHelper}
 import com.ebiznext.comet.job.ingest.{AuditLog, RejectedRecord}
 import com.typesafe.config.{Config, ConfigFactory}
@@ -32,7 +33,7 @@ import org.scalatest.Assertion
 import scala.annotation.tailrec
 import scala.util.Success
 
-abstract class JsonIngestionJobSpec extends TestHelper with JdbcChecks {
+class JsonIngestionJobSpec extends TestHelper with JdbcChecks {
 
   "Parse valid json" should "succeed" in {
     val json =
@@ -174,67 +175,68 @@ abstract class JsonIngestionJobSpec extends TestHelper with JdbcChecks {
 
   }
 
-  "Ingest Complex JSON" should "should be ingested from pending to accepted, and archived" in {
+  def checkIngestComplexJson(
+    variant: String,
+    configuration: Config,
+    expectedAuditLogs: Settings => List[AuditLog],
+    expectedRejectLogs: Settings => List[RejectedRecord]
+  ) = {
+    new WithSettings(configuration) {
+      ("Ingest Complex JSON " + variant) should ("should be ingested from pending to accepted, and archived " + variant) in {
 
-    new SpecTrait {
-      cleanMetadata
-      cleanDatasets
-      override val domainFilename: String = "json.yml"
-      override val sourceDomainPathname: String = "/sample/json/json.yml"
+        new SpecTrait(
+          domainFilename = "json.yml",
+          sourceDomainPathname = "/sample/json/json.yml",
+          datasetDomainName = "json",
+          sourceDatasetPathName = "/sample/json/complex.json"
+        ) {
 
-      override val datasetDomainName: String = "json"
-      override val sourceDatasetPathName: String = "/sample/json/complex.json"
+          cleanMetadata
+          cleanDatasets
 
-      loadPending
+          loadPending
 
-      // Check archive
+          // Check archive
 
-      readFileContent(cometDatasetsPath + s"/archive/${datasetDomainName}/complex.json") shouldBe loadFile(
-        "/sample/json/complex.json"
-      )
+          logger.info(
+            s"thread ${Thread.currentThread().getId} ABOUT TO CHECK " + cometDatasetsPath + s"/archive/${datasetDomainName}/complex.json"
+          )
+          readFileContent(cometDatasetsPath + s"/archive/${datasetDomainName}/complex.json") shouldBe loadFile(
+            "/sample/json/complex.json"
+          )
 
-      // Accepted should have the same data as input
-      sparkSession.read
-        .parquet(
-          cometDatasetsPath + s"/accepted/${datasetDomainName}/sample_json/${getTodayPartitionPath}"
-        )
-        .except(
+          // Accepted should have the same data as input
           sparkSession.read
-            .json(getClass.getResource(s"/sample/${datasetDomainName}/complex.json").toURI.getPath)
-        )
-        .count() shouldBe 0
+            .parquet(
+              cometDatasetsPath + s"/accepted/${datasetDomainName}/sample_json/${getTodayPartitionPath}"
+            )
+            .except(
+              sparkSession.read
+                .json(
+                  getClass.getResource(s"/sample/${datasetDomainName}/complex.json").toURI.getPath
+                )
+            )
+            .count() shouldBe 0
+        }
+        expectingAudit("test-h2", expectedAuditLogs(settings): _*)
+        expectingRejections("test-h2", expectedRejectLogs(settings): _*)
+      }
     }
-    expectingAudit("test-h2", expectedAuditLogs: _*)
-    expectingRejections("test-h2", expectedRejectLogs: _*)
   }
 
-  protected def expectedAuditLogs: List[AuditLog]
-  protected def expectedRejectLogs: List[RejectedRecord] = Nil
-}
-
-class JsonIngestionJobSpecWithoutAuditSink extends JsonIngestionJobSpec {
-  override def testConfiguration: Config =
+  checkIngestComplexJson(
+    "(with None sink)",
     ConfigFactory
       .parseString("""
-        |audit.index.type = "None"
-        |audit.index.jdbc-connection = "test-h2"
-        |""".stripMargin)
-      .withFallback(super.testConfiguration)
+                   |audit.index.type = "None"
+                   |audit.index.jdbc-connection = "test-h2"
+                   |""".stripMargin)
+      .withFallback(super.testConfiguration),
+    _ => Nil,
+    _ => Nil
+  )
 
-  override protected def expectedAuditLogs: List[AuditLog] = Nil
-}
-
-class JsonIngestionJobSpecWithJdbcAuditSink extends JsonIngestionJobSpec {
-  override def testConfiguration: Config =
-    ConfigFactory
-      .parseString("""
-        |audit.index.type = "Jdbc"
-        |audit.index.jdbc-connection = "test-h2"
-        |
-        |""".stripMargin)
-      .withFallback(super.testConfiguration)
-
-  override protected def expectedAuditLogs: List[AuditLog] =
+  private def expectedJdbcAuditLogs(settings: Settings) =
     AuditLog(
       jobid = settings.comet.jobId,
       paths = "file://" + settings.comet.datasets + "/ingesting/json/complex.json",
@@ -249,4 +251,15 @@ class JsonIngestionJobSpecWithJdbcAuditSink extends JsonIngestionJobSpec {
       message = "success"
     ) :: Nil
 
+  checkIngestComplexJson(
+    "(with JDBC sink)",
+    ConfigFactory
+      .parseString("""
+                   |audit.index.type = "Jdbc"
+                   |audit.index.jdbc-connection = "test-h2"
+                   |""".stripMargin)
+      .withFallback(super.testConfiguration),
+    expectedJdbcAuditLogs,
+    _ => Nil
+  )
 }

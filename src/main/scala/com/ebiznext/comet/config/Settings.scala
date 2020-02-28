@@ -304,13 +304,6 @@ final case class Settings(comet: Settings.Comet, sparkConfig: Config) {
   }
 
   @transient
-  lazy val schemaHandler: SchemaHandler = {
-    implicit val self
-      : Settings = this /* TODO: remove this once HdfsStorageHandler explicitly takes Settings or Settings.Comet in */
-    new SchemaHandler(storageHandler)
-  }
-
-  @transient
   lazy val launcherService: LaunchHandler = comet.launcher match {
     case "simple"  => new SimpleLauncher()
     case "airflow" => new AirflowLauncher()

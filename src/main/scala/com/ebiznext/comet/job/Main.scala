@@ -27,6 +27,7 @@ import com.ebiznext.comet.job.index.IndexConfig
 import com.ebiznext.comet.job.infer.InferSchemaConfig
 import com.ebiznext.comet.job.jdbcload.JdbcLoadConfig
 import com.ebiznext.comet.job.metrics.MetricsConfig
+import com.ebiznext.comet.schema.handlers.SchemaHandler
 import com.ebiznext.comet.utils.{CometObjectMapper, FileLock}
 import com.ebiznext.comet.workflow.IngestionWorkflow
 import com.fasterxml.jackson.databind.ObjectMapper
@@ -89,8 +90,9 @@ object Main extends StrictLogging {
     implicit val settings: Settings = Settings(ConfigFactory.load())
     settings.publishMDCData()
 
-    import settings.{launcherService, schemaHandler, storageHandler}
+    import settings.{launcherService, storageHandler}
     DatasetArea.init(storageHandler)
+    val schemaHandler = new SchemaHandler(storageHandler)
 
     DatasetArea.initDomains(storageHandler, schemaHandler.domains.map(_.name))
 
