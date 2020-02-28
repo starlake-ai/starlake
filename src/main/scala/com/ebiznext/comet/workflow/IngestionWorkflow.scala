@@ -255,22 +255,41 @@ class IngestionWorkflow(
     )
     val ingestionResult = Try(metadata.getFormat() match {
       case DSV =>
-        new DsvIngestionJob(domain, schema, schemaHandler.types, ingestingPath, storageHandler)
-          .run()
+        new DsvIngestionJob(
+          domain,
+          schema,
+          schemaHandler.types,
+          ingestingPath,
+          storageHandler,
+          schemaHandler
+        ).run()
       case SIMPLE_JSON =>
         new SimpleJsonIngestionJob(
           domain,
           schema,
           schemaHandler.types,
           ingestingPath,
-          storageHandler
+          storageHandler,
+          schemaHandler
         ).run()
       case JSON =>
-        new JsonIngestionJob(domain, schema, schemaHandler.types, ingestingPath, storageHandler)
-          .run()
+        new JsonIngestionJob(
+          domain,
+          schema,
+          schemaHandler.types,
+          ingestingPath,
+          storageHandler,
+          schemaHandler
+        ).run()
       case POSITION =>
-        new PositionIngestionJob(domain, schema, schemaHandler.types, ingestingPath, storageHandler)
-          .run()
+        new PositionIngestionJob(
+          domain,
+          schema,
+          schemaHandler.types,
+          ingestingPath,
+          storageHandler,
+          schemaHandler
+        ).run()
       case CHEW =>
         ChewerJob.run(
           s"${settings.comet.chewerPrefix}.${domain.name}.${schema.name}",
@@ -387,7 +406,7 @@ class IngestionWorkflow(
   }
 
   def index(config: IndexConfig): Try[SparkSession] = {
-    new IndexJob(config, settings.storageHandler).run()
+    new IndexJob(config, storageHandler, schemaHandler).run()
   }
 
   def bqload(
@@ -403,7 +422,7 @@ class IngestionWorkflow(
   }
 
   def atlas(config: AtlasConfig): Unit = {
-    new AtlasJob(config, settings.storageHandler).run()
+    new AtlasJob(config, storageHandler).run()
   }
 
   /**
@@ -414,7 +433,7 @@ class IngestionWorkflow(
   def metric(cliConfig: MetricsConfig): Unit = {
     //Lookup for the domain given as prompt arguments, if is found then find the given schema in this domain
     val cmdArgs = for {
-      domain <- settings.schemaHandler.getDomain(cliConfig.domain)
+      domain <- schemaHandler.getDomain(cliConfig.domain)
       schema <- domain.schemas.find(_.name == cliConfig.schema)
     } yield (domain, schema)
 
@@ -425,7 +444,8 @@ class IngestionWorkflow(
           domain,
           schema,
           stage,
-          storageHandler
+          storageHandler,
+          schemaHandler
         ).run()
       }
       case None => logger.error("The domain or schema you specified doesn't exist! ")

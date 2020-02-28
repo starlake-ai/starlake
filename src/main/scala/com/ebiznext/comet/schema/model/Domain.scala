@@ -23,6 +23,7 @@ package com.ebiznext.comet.schema.model
 import java.util.regex.Pattern
 
 import com.ebiznext.comet.config.{DatasetArea, Settings}
+import com.ebiznext.comet.schema.handlers.SchemaHandler
 import org.apache.hadoop.fs.Path
 
 import scala.collection.mutable
@@ -106,9 +107,9 @@ case class Domain(
     *
     * @return
     */
-  def checkValidity()(
-    implicit settings: Settings
-  ): Either[List[String], Boolean] = {
+  def checkValidity(
+    schemaHandler: SchemaHandler
+  )(implicit settings: Settings): Either[List[String], Boolean] = {
     val errorList: mutable.MutableList[String] = mutable.MutableList.empty
 
     // Check Domain name validity
@@ -118,7 +119,7 @@ case class Domain(
 
     // Check Schema validity
     schemas.foreach { schema =>
-      for (errors <- schema.checkValidity(this.metadata).left) {
+      for (errors <- schema.checkValidity(this.metadata, schemaHandler).left) {
         errorList ++= errors
       }
     }

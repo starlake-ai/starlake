@@ -21,7 +21,7 @@
 package com.ebiznext.comet.job.ingest
 
 import com.ebiznext.comet.config.{DatasetArea, Settings, StorageArea}
-import com.ebiznext.comet.schema.handlers.StorageHandler
+import com.ebiznext.comet.schema.handlers.{SchemaHandler, StorageHandler}
 import com.ebiznext.comet.schema.model._
 import org.apache.hadoop.fs.Path
 import org.apache.spark.rdd.RDD
@@ -46,7 +46,8 @@ class JsonIngestionJob(
   val schema: Schema,
   val types: List[Type],
   val path: List[Path],
-  val storageHandler: StorageHandler
+  val storageHandler: StorageHandler,
+  val schemaHandler: SchemaHandler
 )(implicit val settings: Settings)
     extends IngestionJob {
 
@@ -71,7 +72,7 @@ class JsonIngestionJob(
     }
   }
 
-  lazy val schemaSparkType: StructType = schema.sparkType()
+  lazy val schemaSparkType: StructType = schema.sparkType(schemaHandler)
 
   /**
     * Where the magic happen
