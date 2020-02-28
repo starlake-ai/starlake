@@ -29,7 +29,7 @@ import javax.swing.UIDefaults.LazyInputMap
 import org.apache.spark.sql.types._
 
 import scala.collection.mutable
-import scala.util.{Failure, Success}
+import scala.util.{Failure, Success, Try}
 
 /**
   * A field in the schema. For struct fields, the field "attributes" contains all sub attributes
@@ -105,8 +105,8 @@ case class Attribute(
       primitiveType.foreach { primitiveType =>
         if (primitiveType == PrimitiveType.struct)
           errorList += s"attribute with name $name: default value not valid for struct type fields"
-        tpe.foreach {
-          _.sparkValue(default) match {
+        tpe.foreach { someTpe =>
+          Try(someTpe.sparkValue(default)) match {
             case Success(_) =>
             case Failure(e) =>
               errorList += s"attribute with name $name: Invalid default value for tha attribute type ${e.getMessage()}"
