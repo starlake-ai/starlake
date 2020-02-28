@@ -23,6 +23,7 @@ package com.ebiznext.comet.schema.model
 import java.util.regex.Pattern
 
 import com.ebiznext.comet.config.Settings
+import com.ebiznext.comet.schema.handlers.SchemaHandler
 import com.ebiznext.comet.utils.TextSubstitutionEngine
 import com.google.cloud.bigquery.{Field, LegacySQLTypeName}
 import org.apache.spark.sql.types._
@@ -84,16 +85,16 @@ case class Schema(
     *
     * @return Spark Catalyst Schema
     */
-  def sparkType()(implicit settings: Settings): StructType = {
+  def sparkType(schemaHandler: SchemaHandler): StructType = {
     val fields = attributes.map { attr =>
-      StructField(attr.name, attr.sparkType(), !attr.required)
+      StructField(attr.name, attr.sparkType(schemaHandler), !attr.required)
     }
     StructType(fields)
   }
 
   import com.google.cloud.bigquery.{Schema => BQSchema}
 
-  def bqSchema()(implicit settings: Settings): BQSchema = {
+  def bqSchema(schemaHandler: SchemaHandler): BQSchema = {
     def convert(sparkType: DataType): LegacySQLTypeName = {
 
       val BQ_NUMERIC_PRECISION = 38
@@ -115,7 +116,10 @@ case class Schema(
     }
     val fields = attributes map { attribute =>
       Field
-        .newBuilder(attribute.rename.getOrElse(attribute.name), convert(attribute.sparkType()))
+        .newBuilder(
+          attribute.rename.getOrElse(attribute.name),
+          convert(attribute.sparkType(schemaHandler))
+        )
         .setMode(if (attribute.required) Field.Mode.REQUIRED else Field.Mode.NULLABLE)
         .setDescription(attribute.comment.getOrElse(""))
         .build()
@@ -143,15 +147,16 @@ case class Schema(
     * @return error list or true
     */
   def checkValidity(
-    domainMetaData: Option[Metadata]
-  )(implicit settings: Settings): Either[List[String], Boolean] = {
+    domainMetaData: Option[Metadata],
+    schemaHandler: SchemaHandler
+  ): Either[List[String], Boolean] = {
     val errorList: mutable.MutableList[String] = mutable.MutableList.empty
     val tableNamePattern = Pattern.compile("[a-zA-Z][a-zA-Z0-9_]{1,256}")
     if (!tableNamePattern.matcher(name).matches())
       errorList += s"Schema with name $name should respect the pattern ${tableNamePattern.pattern()}"
 
     attributes.foreach { attribute =>
-      for (errors <- attribute.checkValidity().left) {
+      for (errors <- attribute.checkValidity(schemaHandler).left) {
         errorList ++= errors
       }
     }
@@ -187,14 +192,18 @@ case class Schema(
       Right(true)
   }
 
-  def discreteAttrs()(implicit settings: Settings): List[Attribute] =
-    attributes.filter(_.getMetricType() == MetricType.DISCRETE)
+  def discreteAttrs(schemaHandler: SchemaHandler): List[Attribute] =
+    attributes.filter(_.getMetricType(schemaHandler) == MetricType.DISCRETE)
 
-  def continuousAttrs()(implicit settings: Settings): List[Attribute] =
-    attributes.filter(_.getMetricType() == MetricType.CONTINUOUS)
+  def continuousAttrs(schemaHandler: SchemaHandler): List[Attribute] =
+    attributes.filter(_.getMetricType(schemaHandler) == MetricType.CONTINUOUS)
 
-  def mapping(template: Option[String], domainName: String)(implicit settings: Settings): String = {
-    val attrs = attributes.map(_.mapping()).mkString(",")
+  def mapping(
+    template: Option[String],
+    domainName: String,
+    schemaHandler: SchemaHandler
+  ): String = {
+    val attrs = attributes.map(_.mapping(schemaHandler)).mkString(",")
     val properties =
       s"""
          |"properties": {
@@ -236,8 +245,11 @@ case class Schema(
 
 object Schema {
 
-  def mapping(domainName: String, schemaName: String, obj: StructField)(
-    implicit settings: Settings
+  def mapping(
+    domainName: String,
+    schemaName: String,
+    obj: StructField,
+    schemaHandler: SchemaHandler
   ): String = {
     def buildAttributeTree(obj: StructField): Attribute = {
       obj.dataType match {
@@ -267,6 +279,6 @@ object Schema {
       None,
       None,
       None
-    ).mapping(None, domainName)
+    ).mapping(None, domainName, schemaHandler)
   }
 }

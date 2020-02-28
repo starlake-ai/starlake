@@ -4,6 +4,7 @@ import java.sql.{DriverManager, ResultSet, SQLException, Timestamp}
 import java.time.Instant
 
 import com.ebiznext.comet
+import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.job.ingest.{AuditLog, RejectedRecord}
 import org.scalatest.Assertion
 
@@ -20,7 +21,7 @@ trait JdbcChecks {
     referenceDatasetName: String,
     columns: immutable.Seq[String],
     expectedValues: immutable.Seq[T]
-  )(rowToEntity: ResultSet => T): Assertion = {
+  )(rowToEntity: ResultSet => T)(implicit settings: Settings): Assertion = {
 
     val jdbcOptions = settings.comet.jdbc(jdbcName)
     val engine = settings.comet.jdbcEngines(jdbcOptions.engine)
@@ -89,7 +90,9 @@ trait JdbcChecks {
     }
   }
 
-  protected def expectingRejections(jdbcName: String, values: RejectedRecord*): Assertion = {
+  protected def expectingRejections(jdbcName: String, values: RejectedRecord*)(
+    implicit settings: Settings
+  ): Assertion = {
     val testEnd: Timestamp = Timestamp.from(Instant.now)
 
     expectingJdbcDataset(
@@ -115,7 +118,9 @@ trait JdbcChecks {
 
   }
 
-  protected def expectingAudit(jdbcName: String, values: AuditLog*): Assertion = {
+  protected def expectingAudit(jdbcName: String, values: AuditLog*)(
+    implicit settings: Settings
+  ): Assertion = {
     val testEnd: Timestamp = Timestamp.from(Instant.now)
 
     expectingJdbcDataset(

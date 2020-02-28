@@ -21,7 +21,7 @@
 package com.ebiznext.comet.job.ingest
 
 import com.ebiznext.comet.config.Settings
-import com.ebiznext.comet.schema.handlers.StorageHandler
+import com.ebiznext.comet.schema.handlers.{SchemaHandler, StorageHandler}
 import com.ebiznext.comet.schema.model._
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.{DataFrame, Encoders}
@@ -44,9 +44,10 @@ class SimpleJsonIngestionJob(
   schema: Schema,
   types: List[Type],
   path: List[Path],
-  storageHandler: StorageHandler
+  storageHandler: StorageHandler,
+  schemaHandler: SchemaHandler
 )(implicit settings: Settings)
-    extends DsvIngestionJob(domain, schema, types, path, storageHandler) {
+    extends DsvIngestionJob(domain, schema, types, path, storageHandler, schemaHandler) {
 
   override def loadDataSet(): Try[DataFrame] = {
     try {
