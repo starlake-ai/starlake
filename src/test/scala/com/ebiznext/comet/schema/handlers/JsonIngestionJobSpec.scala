@@ -20,13 +20,19 @@
 
 package com.ebiznext.comet.schema.handlers
 
-import com.ebiznext.comet.TestHelper
+import java.sql.{DriverManager, SQLException}
+
+import com.ebiznext.comet.{JdbcChecks, TestHelper}
+import com.ebiznext.comet.job.ingest.{AuditLog, RejectedRecord}
+import com.typesafe.config.{Config, ConfigFactory}
 import org.apache.spark.sql.execution.datasources.json.JsonIngestionUtil
 import org.apache.spark.sql.types._
+import org.scalatest.Assertion
 
+import scala.annotation.tailrec
 import scala.util.Success
 
-class JsonIngestionJobSpec extends TestHelper {
+abstract class JsonIngestionJobSpec extends TestHelper with JdbcChecks {
 
   "Parse valid json" should "succeed" in {
     val json =
@@ -198,6 +204,49 @@ class JsonIngestionJobSpec extends TestHelper {
         )
         .count() shouldBe 0
     }
-
+    expectingAudit("test-h2", expectedAuditLogs: _*)
+    expectingRejections("test-h2", expectedRejectLogs: _*)
   }
+
+  protected def expectedAuditLogs: List[AuditLog]
+  protected def expectedRejectLogs: List[RejectedRecord] = Nil
+}
+
+class JsonIngestionJobSpecWithoutAuditSink extends JsonIngestionJobSpec {
+  override def testConfiguration: Config =
+    ConfigFactory
+      .parseString("""
+        |audit.index.type = "None"
+        |audit.index.jdbc-connection = "test-h2"
+        |""".stripMargin)
+      .withFallback(super.testConfiguration)
+
+  override protected def expectedAuditLogs: List[AuditLog] = Nil
+}
+
+class JsonIngestionJobSpecWithJdbcAuditSink extends JsonIngestionJobSpec {
+  override def testConfiguration: Config =
+    ConfigFactory
+      .parseString("""
+        |audit.index.type = "Jdbc"
+        |audit.index.jdbc-connection = "test-h2"
+        |
+        |""".stripMargin)
+      .withFallback(super.testConfiguration)
+
+  override protected def expectedAuditLogs: List[AuditLog] =
+    AuditLog(
+      jobid = settings.comet.jobId,
+      paths = "file://" + settings.comet.datasets + "/ingesting/json/complex.json",
+      domain = "json",
+      schema = "sample_json",
+      success = true,
+      count = 1,
+      countOK = 1,
+      countKO = 0,
+      timestamp = TestStart,
+      duration = 1 /* fake */,
+      message = "success"
+    ) :: Nil
+
 }
