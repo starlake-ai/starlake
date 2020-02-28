@@ -9,7 +9,7 @@ import com.ebiznext.comet.job.bqload.{BigQueryLoadConfig, BigQueryLoadJob}
 import com.ebiznext.comet.job.index.{IndexConfig, IndexJob}
 import com.ebiznext.comet.job.jdbcload.{JdbcLoadConfig, JdbcLoadJob}
 import com.ebiznext.comet.job.metrics.MetricsJob
-import com.ebiznext.comet.schema.handlers.StorageHandler
+import com.ebiznext.comet.schema.handlers.{SchemaHandler, StorageHandler}
 import com.ebiznext.comet.schema.model.Rejection.{ColInfo, ColResult}
 import com.ebiznext.comet.schema.model.Trim.{BOTH, LEFT, RIGHT}
 import com.ebiznext.comet.schema.model._
@@ -35,6 +35,7 @@ trait IngestionJob extends SparkJob {
   def schema: Schema
 
   def storageHandler: StorageHandler
+  def schemaHandler: SchemaHandler
 
   def types: List[Type]
 
@@ -99,7 +100,7 @@ trait IngestionJob extends SparkJob {
       acceptedDF.show(1000)
     }
     if (settings.comet.metrics.active) {
-      new MetricsJob(this.domain, this.schema, Stage.UNIT, this.storageHandler)
+      new MetricsJob(this.domain, this.schema, Stage.UNIT, this.storageHandler, this.schemaHandler)
         .run(acceptedDF, System.currentTimeMillis())
     }
     val writeMode = getWriteMode()
@@ -115,7 +116,7 @@ trait IngestionJob extends SparkJob {
     saveRows(mergedDF, acceptedPath, writeMode, StorageArea.accepted, schema.merge.isDefined)
 
     if (settings.comet.metrics.active) {
-      new MetricsJob(this.domain, this.schema, Stage.GLOBAL, storageHandler).run()
+      new MetricsJob(this.domain, this.schema, Stage.GLOBAL, storageHandler, schemaHandler).run()
     }
     (mergedDF, acceptedPath)
   }
@@ -132,7 +133,7 @@ trait IngestionJob extends SparkJob {
           domain = domain.name,
           schema = schema.name
         )
-        new IndexJob(config, settings.storageHandler).run()
+        new IndexJob(config, storageHandler, schemaHandler).run()
       case Some(IndexSink.BQ) =>
         val (createDisposition: String, writeDisposition: String) = Utils.getDBDisposition(
           meta.getWriteMode()
@@ -374,7 +375,7 @@ trait IngestionJob extends SparkJob {
     * @return : Spark Session used for the job
     */
   def run(): Try[SparkSession] = {
-    domain.checkValidity() match {
+    domain.checkValidity(schemaHandler) match {
       case Left(errors) =>
         val errs = errors.reduce { (errs, err) =>
           errs + "\n" + err

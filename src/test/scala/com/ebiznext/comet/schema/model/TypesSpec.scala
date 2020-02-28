@@ -25,118 +25,119 @@ import java.io.InputStream
 import com.ebiznext.comet.TestHelper
 
 class TypesSpec extends TestHelper {
-
-  "Default types" should "be valid" in {
-    val stream: InputStream =
-      getClass.getResourceAsStream("/quickstart/metadata/types/default.yml")
-    val lines =
-      scala.io.Source.fromInputStream(stream).getLines().mkString("\n")
-    val types = mapper.readValue(lines, classOf[Types])
-    types.checkValidity() shouldBe Right(true)
-  }
-
-  "Duplicate  type names" should "be refused" in {
-    val stream: InputStream =
-      getClass.getResourceAsStream("/quickstart/metadata/types/default.yml")
-    val lines = scala.io.Source
-      .fromInputStream(stream)
-      .getLines()
-      .mkString("\n") +
-    """
-        |  - name: "long"
-        |    primitiveType: "long"
-        |    pattern: "-?\\d+"
-        |    sample: "-64564"
-      """.stripMargin
-
-    val types = mapper.readValue(lines, classOf[Types])
-    types.checkValidity() shouldBe Left(
-      List("long is defined 2 times. A type can only be defined once.")
-    )
-
-  }
-
-  "Money Zone" should "be valid" in {
-    val stream: InputStream =
-      getClass.getResourceAsStream("/quickstart/metadata/types/default.yml")
-    val lines = scala.io.Source
-      .fromInputStream(stream)
-      .getLines()
-      .mkString("\n") +
-    """
-        |  - name: "frenchdouble"
-        |    primitiveType: "double"
-        |    pattern: "-?\\d*,{0,1}\\d+"
-        |    zone: fr_FR
-        |    sample: "-64564,21"
-      """.stripMargin
-    val types = mapper.readValue(lines, classOf[Types])
-    "-123.45" shouldBe types.types
-      .find(_.name == "double")
-      .get
-      .sparkValue("-123.45")
-      .toString
-
-    "-123.45" shouldBe types.types
-      .find(_.name == "frenchdouble")
-      .get
-      .sparkValue("-123,45")
-      .toString
-
-  }
-
-  "Date / Time Pattern" should "be valid" in {
-    val stream: InputStream =
-      getClass.getResourceAsStream("/quickstart/metadata/types/default.yml")
-    val lines = scala.io.Source
-      .fromInputStream(stream)
-      .getLines()
-      .mkString("\n") +
-    """
-        |  - name: "timeinmillis"
-        |    primitiveType: "timestamp"
-        |    pattern: "epoch_milli"
-        |    sample: "1548923449662"
-        |  - name: "timeinseconds"
-        |    primitiveType: "timestamp"
-        |    pattern: "epoch_second"
-        |    sample: "1548923449"
-        |  - name: "utcdate"
-        |    primitiveType: "timestamp"
-        |    pattern: "dd/MM/yyyy HH:mm:ss"
-        |    zone: "UTC-06:00"
-        |    sample: "12/02/2019 08:03:05"
-        |      """.stripMargin
-    val types = mapper.readValue(lines, classOf[Types])
-
-    types.checkValidity() shouldBe Right(true)
-
-    def localTime(dateString: String) = {
-      val calendar = java.util.Calendar.getInstance
-      val sdf = new java.text.SimpleDateFormat("yyyy-MM-dd hh:mm:ss.SSS")
-      sdf.setTimeZone(java.util.TimeZone.getTimeZone("Europe/Paris"))
-      calendar.setTime(sdf.parse(dateString))
-      sdf.setTimeZone(java.util.TimeZone.getDefault)
-      sdf.format(calendar.getTime())
+  new WithSettings() {
+    "Default types" should "be valid" in {
+      val stream: InputStream =
+        getClass.getResourceAsStream("/quickstart/metadata/types/default.yml")
+      val lines =
+        scala.io.Source.fromInputStream(stream).getLines().mkString("\n")
+      val types = mapper.readValue(lines, classOf[Types])
+      types.checkValidity() shouldBe Right(true)
     }
 
-    localTime("2019-01-31 09:30:49.662") shouldBe types.types
-      .find(_.name == "timeinmillis")
-      .get
-      .sparkValue("1548923449662")
-      .toString
-    localTime("2019-01-31 09:30:49.0") shouldBe types.types
-      .find(_.name == "timeinseconds")
-      .get
-      .sparkValue("1548923449")
-      .toString + "00"
+    "Duplicate  type names" should "be refused" in {
+      val stream: InputStream =
+        getClass.getResourceAsStream("/quickstart/metadata/types/default.yml")
+      val lines = scala.io.Source
+        .fromInputStream(stream)
+        .getLines()
+        .mkString("\n") +
+      """
+          |  - name: "long"
+          |    primitiveType: "long"
+          |    pattern: "-?\\d+"
+          |    sample: "-64564"
+      """.stripMargin
 
-    "2019-01-31 09:30:49.0" should not be types.types
-      .find(_.name == "utcdate")
-      .get
-      .sparkValue("31/01/2019 09:30:49")
-      .toString
+      val types = mapper.readValue(lines, classOf[Types])
+      types.checkValidity() shouldBe Left(
+        List("long is defined 2 times. A type can only be defined once.")
+      )
+
+    }
+
+    "Money Zone" should "be valid" in {
+      val stream: InputStream =
+        getClass.getResourceAsStream("/quickstart/metadata/types/default.yml")
+      val lines = scala.io.Source
+        .fromInputStream(stream)
+        .getLines()
+        .mkString("\n") +
+      """
+          |  - name: "frenchdouble"
+          |    primitiveType: "double"
+          |    pattern: "-?\\d*,{0,1}\\d+"
+          |    zone: fr_FR
+          |    sample: "-64564,21"
+      """.stripMargin
+      val types = mapper.readValue(lines, classOf[Types])
+      "-123.45" shouldBe types.types
+        .find(_.name == "double")
+        .get
+        .sparkValue("-123.45")
+        .toString
+
+      "-123.45" shouldBe types.types
+        .find(_.name == "frenchdouble")
+        .get
+        .sparkValue("-123,45")
+        .toString
+
+    }
+
+    "Date / Time Pattern" should "be valid" in {
+      val stream: InputStream =
+        getClass.getResourceAsStream("/quickstart/metadata/types/default.yml")
+      val lines = scala.io.Source
+        .fromInputStream(stream)
+        .getLines()
+        .mkString("\n") +
+      """
+          |  - name: "timeinmillis"
+          |    primitiveType: "timestamp"
+          |    pattern: "epoch_milli"
+          |    sample: "1548923449662"
+          |  - name: "timeinseconds"
+          |    primitiveType: "timestamp"
+          |    pattern: "epoch_second"
+          |    sample: "1548923449"
+          |  - name: "utcdate"
+          |    primitiveType: "timestamp"
+          |    pattern: "dd/MM/yyyy HH:mm:ss"
+          |    zone: "UTC-06:00"
+          |    sample: "12/02/2019 08:03:05"
+          |      """.stripMargin
+      val types = mapper.readValue(lines, classOf[Types])
+
+      types.checkValidity() shouldBe Right(true)
+
+      def localTime(dateString: String) = {
+        val calendar = java.util.Calendar.getInstance
+        val sdf = new java.text.SimpleDateFormat("yyyy-MM-dd hh:mm:ss.SSS")
+        sdf.setTimeZone(java.util.TimeZone.getTimeZone("Europe/Paris"))
+        calendar.setTime(sdf.parse(dateString))
+        sdf.setTimeZone(java.util.TimeZone.getDefault)
+        sdf.format(calendar.getTime())
+      }
+
+      localTime("2019-01-31 09:30:49.662") shouldBe types.types
+        .find(_.name == "timeinmillis")
+        .get
+        .sparkValue("1548923449662")
+        .toString
+      localTime("2019-01-31 09:30:49.0") shouldBe types.types
+        .find(_.name == "timeinseconds")
+        .get
+        .sparkValue("1548923449")
+        .toString + "00"
+
+      "2019-01-31 09:30:49.0" should not be types.types
+        .find(_.name == "utcdate")
+        .get
+        .sparkValue("31/01/2019 09:30:49")
+        .toString
+
+    }
 
   }
-
 }

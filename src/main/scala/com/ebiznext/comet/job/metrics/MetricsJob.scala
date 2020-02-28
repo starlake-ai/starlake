@@ -2,7 +2,7 @@ package com.ebiznext.comet.job.metrics
 
 import com.ebiznext.comet.config.{DatasetArea, Settings}
 import com.ebiznext.comet.job.metrics.Metrics.{ContinuousMetric, DiscreteMetric}
-import com.ebiznext.comet.schema.handlers.StorageHandler
+import com.ebiznext.comet.schema.handlers.{SchemaHandler, StorageHandler}
 import com.ebiznext.comet.schema.model.{Domain, Schema, Stage}
 import com.ebiznext.comet.utils.{FileLock, SparkJob}
 import org.apache.hadoop.fs.Path
@@ -28,7 +28,8 @@ class MetricsJob(
   domain: Domain,
   schema: Schema,
   stage: Stage,
-  storageHandler: StorageHandler
+  storageHandler: StorageHandler,
+  schemaHandler: SchemaHandler
 )(implicit val settings: Settings)
     extends SparkJob {
 
@@ -316,8 +317,8 @@ root
   }
 
   def run(dataUse: DataFrame, timestamp: Timestamp): Try[SparkSession] = {
-    val discAttrs: List[String] = schema.discreteAttrs().map(_.getFinalName())
-    val continAttrs: List[String] = schema.continuousAttrs().map(_.getFinalName())
+    val discAttrs: List[String] = schema.discreteAttrs(schemaHandler).map(_.getFinalName())
+    val continAttrs: List[String] = schema.continuousAttrs(schemaHandler).map(_.getFinalName())
     logger.info("Discrete Attributes -> " + discAttrs.mkString(","))
     logger.info("Continuous Attributes -> " + continAttrs.mkString(","))
     val discreteOps: List[DiscreteMetric] = Metrics.discreteMetrics
