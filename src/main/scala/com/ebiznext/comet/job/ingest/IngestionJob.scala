@@ -469,7 +469,7 @@ object IngestionUtil {
     val rejectedPathName = rejectedPath.toString
     val jobid = s"${settings.comet.jobId}"
     val rejectedTypedRDD = rejectedRDD.map { err =>
-      (jobid, now, domainName, schemaName, err, rejectedPathName)
+      RejectedRecord(jobid, now, domainName, schemaName, err, rejectedPathName)
     }
     val rejectedDF = session
       .createDataFrame(
