@@ -171,7 +171,7 @@ trait IngestionJob extends SparkJob {
             jdbcName,
             settings.comet,
             Right(mergedDF),
-            schema.name,
+            outputTable = schema.name,
             createDisposition = createDisposition,
             writeDisposition = writeDisposition,
             partitions = partitions,
