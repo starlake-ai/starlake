@@ -95,7 +95,7 @@ object Versions {
   val spark211 = "2.1.0"
   val spark211_240 = "2.4.4"
   val spark212 = "2.4.4"
-  val scalatest = "3.0.5"
+  val scalatest = "3.0.8"
   val springBoot = "2.0.6.RELEASE"
   val typesafeConfig = "1.2.1"
   val okhttp = "3.11.0"
