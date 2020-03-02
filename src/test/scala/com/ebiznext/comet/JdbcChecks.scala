@@ -38,7 +38,6 @@ trait JdbcChecks {
           None
         } catch {
           case ex: SQLException =>
-            logger.warn("blorp:", ex)
             /* this is okay! we're almost certainly lacking a table, which is as good as empty for this purpose */
             Some(Vector.empty)
         }
