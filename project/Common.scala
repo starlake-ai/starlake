@@ -112,7 +112,7 @@ object Versions {
   val configs = "0.4.4"
   val esHadoop = "7.5.2"
   val scopt = "4.0.0-RC2"
-  val sttp = "1.5.11"
+  val sttp = "1.5.19"
 //  val gcs = "hadoop2-2.0.0"
   val gcs = "hadoop3-2.0.0"
   val hadoopbq = "hadoop3-1.0.0"
