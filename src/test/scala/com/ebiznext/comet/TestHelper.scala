@@ -52,14 +52,16 @@ import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, SparkSession}
-import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
+import org.scalatest.BeforeAndAfterAll
 
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._
 import scala.io.{Codec, Source}
 import scala.util.Try
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
-trait TestHelper extends FlatSpec with Matchers with BeforeAndAfterAll with StrictLogging {
+trait TestHelper extends AnyFlatSpec with Matchers with BeforeAndAfterAll with StrictLogging {
 
   private lazy val cometTestPrefix: String = s"comet-test-${TestHelper.runtimeId}"
   private lazy val cometTestInstanceId: String =
