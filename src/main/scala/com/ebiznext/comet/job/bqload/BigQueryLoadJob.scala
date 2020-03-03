@@ -114,7 +114,7 @@ class BigQueryLoadJob(
         cliConfig.createDisposition
       )
       cliConfig.outputPartition.foreach { outputPartition =>
-        import com.google.api.services.bigquery.model.TimePartitioning
+        import com.google.cloud.hadoop.repackaged.bigquery.com.google.api.services.bigquery.model.TimePartitioning
         val timeField =
           if (List("_PARTITIONDATE", "_PARTITIONTIME").contains(outputPartition))
             new TimePartitioning().setType("DAY").setRequirePartitionFilter(true)

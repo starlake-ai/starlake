@@ -113,7 +113,6 @@ object Versions {
   val esHadoop = "7.6.0"
   val scopt = "4.0.0-RC2"
   val sttp = "1.7.2"
-//  val gcs = "hadoop2-2.0.0"
   val gcs = "hadoop3-2.0.1"
   val hadoopbq = "hadoop3-1.0.0"
   val bq = "1.103.0"
@@ -127,5 +126,7 @@ object Resolvers {
   val allResolvers = Seq(
     typeSafe
   )
+
+  val googleCloudBigDataMavenRepo = "https://repo1.maven.org/maven2/com/google/cloud/bigdataoss"
 
 }
