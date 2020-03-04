@@ -358,7 +358,7 @@ trait IngestionJob extends SparkJob {
             )
             val end = Timestamp.from(Instant.now())
             val log = AuditLog(
-              Settings.jobId,
+              s"${settings.comet.jobId}",
               inputFiles,
               domain.name,
               schema.name,
