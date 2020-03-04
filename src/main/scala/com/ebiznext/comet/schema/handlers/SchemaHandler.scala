@@ -20,22 +20,47 @@
 
 package com.ebiznext.comet.schema.handlers
 
-import com.ebiznext.comet.config.DatasetArea
+import com.ebiznext.comet.config.{DatasetArea, Settings}
 import com.ebiznext.comet.schema.model._
-import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.annotation.JsonIgnoreType
+import com.fasterxml.jackson.databind.{InjectableValues, ObjectMapper}
+import com.fasterxml.jackson.databind.module.SimpleModule
+import com.fasterxml.jackson.databind.ser.DefaultSerializerProvider
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
+import com.fasterxml.jackson.module.scala.experimental.ScalaObjectMapper
 import org.apache.hadoop.fs.Path
+
+object SchemaHandler {
+
+  // https://github.com/FasterXML/jackson-databind/issues/962
+  @JsonIgnoreType
+  private class MixinsForObjectMapper
+
+}
 
 /**
   * Handles access to datasets metadata,  eq. domains / types / schemas.
   *
   * @param storage : Underlying filesystem manager
   */
-class SchemaHandler(storage: StorageHandler) {
+class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) {
+
   // uses Jackson YAML for parsing, relies on SnakeYAML for low level handling
-  val mapper: ObjectMapper = new ObjectMapper(new YAMLFactory())
-  mapper.registerModule(DefaultScalaModule)
+  val mapper: ObjectMapper with ScalaObjectMapper = {
+    val mapper = new ObjectMapper(new YAMLFactory()) with ScalaObjectMapper
+    mapper.registerModule(DefaultScalaModule)
+    mapper.registerModule(
+      new SimpleModule()
+        .setMixInAnnotation(classOf[ObjectMapper], classOf[SchemaHandler.MixinsForObjectMapper])
+    )
+    mapper.setInjectableValues({
+      val iv = new InjectableValues.Std()
+      iv.addValue(classOf[Settings], settings)
+      iv: InjectableValues
+    })
+    mapper
+  }
 
   /**
     * All defined types.
