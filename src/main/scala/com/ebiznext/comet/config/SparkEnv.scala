@@ -34,7 +34,7 @@ import org.apache.spark.sql.SparkSession
   *
   * @param name : Cusom spark application name prefix. The current datetime is appended this the Spark Job name
   */
-class SparkEnv(name: String) extends StrictLogging {
+class SparkEnv(name: String)(implicit settings: Settings) extends StrictLogging {
 
   /**
     * Load spark.* properties rom the application conf file
@@ -48,11 +48,12 @@ class SparkEnv(name: String) extends StrictLogging {
 
     thisConf.setAppName(appName)
 
-    import scala.collection.JavaConversions._
+    import scala.collection.JavaConverters._
     ConfigFactory
       .load()
       .getConfig("spark")
       .entrySet()
+      .asScala
       .map(x => (x.getKey, x.getValue.unwrapped().toString))
       .foreach {
         case (key, value) =>
@@ -70,7 +71,7 @@ class SparkEnv(name: String) extends StrictLogging {
     */
   lazy val session: SparkSession = {
     val session =
-      if (Settings.comet.hive)
+      if (settings.comet.hive)
         SparkSession.builder.config(config).enableHiveSupport().getOrCreate()
       else
         SparkSession.builder.config(config).getOrCreate()

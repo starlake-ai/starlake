@@ -19,26 +19,29 @@ class StatDescJobSpec extends TestHelper {
   /**
     * Read the data .csv
     */
+  lazy val dataInitialUsed = {
 
-  val dataInitialUsed = sparkSession.read
-    .format("csv")
-    .option("header", "true") //reading the headers
-    .option("mode", "DROPMALFORMED")
-    .option("inferSchema", "true")
-    .load("./src/test/resources/iris.csv")
+    val value = sparkSession.read
+      .format("csv")
+      .option("header", "true") //reading the headers
+      .option("mode", "DROPMALFORMED")
+      .option("inferSchema", "true")
+      .load("./src/test/resources/iris.csv")
 
-  /**
-    * Descriptive statistics of the dataframe for Quantitative variable:
-    */
-  dataInitialUsed.printSchema()
+    /**
+      * Descriptive statistics of the dataframe for Quantitative variable:
+      */
+    value.printSchema()
+    value
+  }
 
-  val result0 = computeContinuousMetric(
+  lazy val result0 = computeContinuousMetric(
     dataInitialUsed,
     listContnuousAttributes,
     continuousMetrics
   )
 
-  val result1 = computeContinuousMetric(
+  lazy val result1 = computeContinuousMetric(
     dataInitialUsed,
     listContnuousAttributes,
     partialContinuousMetric
@@ -47,11 +50,15 @@ class StatDescJobSpec extends TestHelper {
   /**
     * 1- test : Test on the mean of the dimension
     */
-  val dimensionTable = (partialContinuousMetric.size + 1) * (listContnuousAttributes.size + 1)
+  lazy val dimensionTable = {
+    val dimensionTable =
+    (partialContinuousMetric.size + 1) * (listContnuousAttributes.size + 1)
+    logger.info(s"-->$dimensionTable")
 
-  logger.info(s"-->$dimensionTable")
+    dimensionTable
+  }
 
-  val dimensionDataframe = result1.map { result1 =>
+  lazy val dimensionDataframe = result1.map { result1 =>
     result1.printSchema()
     (result1.columns.size - 1) * (result1
       .select(col("attribute"))
@@ -68,11 +75,10 @@ class StatDescJobSpec extends TestHelper {
   /**
     * 2- test : Test for all values of the Mean
     */
-
-  val meanList: List[Double] =
+  lazy val meanList: List[Double] =
     listContnuousAttributes.map(name => dataInitialUsed.select(avg(name)).first().getDouble(0))
 
-  val meanListTable: List[Double] = result0.map { result0 =>
+  lazy val meanListTable: List[Double] = result0.map { result0 =>
     result0.select(col("mean")).collect().map(_.getDouble(0)).toList
   } getOrElse (Nil)
 
@@ -83,12 +89,11 @@ class StatDescJobSpec extends TestHelper {
   /**
     * 3- test : Test for all values of the Min
     */
-
-  val minList: List[Double] = listContnuousAttributes.map(
+  lazy val minList: List[Double] = listContnuousAttributes.map(
     name => dataInitialUsed.select(min(name)).first().getDouble(0)
   )
 
-  val minListTable: List[Double] = result0.map { result0 =>
+  lazy val minListTable: List[Double] = result0.map { result0 =>
     result0.select(col("min")).collect().map(_.getDouble(0)).toList
   } getOrElse (Nil)
 
@@ -99,12 +104,11 @@ class StatDescJobSpec extends TestHelper {
   /**
     * 4- test : Test for all values of the Max
     */
-
-  val maxList: List[Double] = listContnuousAttributes.map(
+  lazy val maxList: List[Double] = listContnuousAttributes.map(
     name => dataInitialUsed.select(max(name)).first().getDouble(0)
   )
 
-  val maxListTable: List[Double] = result0.map { result0 =>
+  lazy val maxListTable: List[Double] = result0.map { result0 =>
     result0.select(col("max")).collect().map(_.getDouble(0)).toList
   } getOrElse (Nil)
 
@@ -115,11 +119,10 @@ class StatDescJobSpec extends TestHelper {
   /**
     * 5- test : Test for all values of the standardDev
     */
-
-  val stddevList: List[Double] =
+  lazy val stddevList: List[Double] =
     listContnuousAttributes.map(name => dataInitialUsed.select(stddev(name)).first().getDouble(0))
 
-  val stddevListTable: List[Double] = result0.map { result0 =>
+  lazy val stddevListTable: List[Double] = result0.map { result0 =>
     result0.select(col("standardDev")).collect().map(_.getDouble(0)).toList
   } getOrElse Nil
 
@@ -130,13 +133,13 @@ class StatDescJobSpec extends TestHelper {
   /**
     * 6- test : Test for all values of the Skewness
     */
-
-  val skewnessList: List[Double] =
+  lazy val skewnessList: List[Double] =
     listContnuousAttributes.map(name => dataInitialUsed.select(skewness(name)).first().getDouble(0))
 
-  val skewnessListTable: List[Double] = result0.map { result0 =>
+  lazy val skewnessListTable: List[Double] = result0.map { result0 =>
     result0.select(col("skewness")).collect().map(_.getDouble(0)).toList
   } getOrElse (Nil)
+
   "All values of The Skewness" should "be tested" in {
     assert(skewnessList.zip(skewnessListTable).map(x => x._1 - x._2).sum <= 0.001)
   }
@@ -144,11 +147,10 @@ class StatDescJobSpec extends TestHelper {
   /**
     * 7- test : Test for all values of the kurtosis
     */
-
-  val kurtosisList: List[Double] =
+  lazy val kurtosisList: List[Double] =
     listContnuousAttributes.map(name => dataInitialUsed.select(kurtosis(name)).first().getDouble(0))
 
-  val kurtosisListTable: List[Double] = result0.map { result0 =>
+  lazy val kurtosisListTable: List[Double] = result0.map { result0 =>
     result0.select(col("kurtosis")).collect().map(_.getDouble(0)).toList
   } getOrElse (Nil)
 

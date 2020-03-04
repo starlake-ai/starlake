@@ -22,6 +22,7 @@ package com.ebiznext.comet.job.infer
 
 import java.util.regex.Pattern
 
+import com.ebiznext.comet.config.{Settings, SparkEnv}
 import com.ebiznext.comet.schema.handlers.InferSchemaHandler
 import com.ebiznext.comet.schema.model.{Attribute, Domain}
 import com.ebiznext.comet.utils.SparkJob
@@ -44,16 +45,21 @@ class InferSchema(
   dataPath: String,
   savePath: String,
   header: Option[Boolean] = Some(false)
-) {
+)(implicit settings: Settings) {
 
-  InferSchemaJob.infer(domainName, schemaName, dataPath, savePath, header.getOrElse(false))
+  (new InferSchemaJob).infer(domainName, schemaName, dataPath, savePath, header.getOrElse(false))
 
 }
 
 /** *
   * Infers the schema of a given datapath, domain name, schema name.
   */
-object InferSchemaJob extends SparkJob {
+class InferSchemaJob(implicit settings: Settings) {
+
+  def name: String = "InferSchema"
+
+  private val sparkEnv: SparkEnv = new SparkEnv(name)
+  private val session: SparkSession = sparkEnv.session
 
   /**
     * Read file without specifying the format
@@ -175,8 +181,6 @@ object InferSchemaJob extends SparkJob {
     }
   }
 
-  override def name: String = "InferSchema"
-
   /**
     * Just to force any spark job to implement its entry point using within the "run" method
     *
@@ -230,11 +234,4 @@ object InferSchemaJob extends SparkJob {
 
     inferSchema.generateYaml(domain, savePath)
   }
-
-  /**
-    * Just to force any spark job to implement its entry point using within the "run" method
-    *
-    * @return : Spark Session used for the job
-    */
-  override def run(): Try[SparkSession] = Success(session)
 }
