@@ -56,7 +56,8 @@ class IngestionWorkflow(
   storageHandler: StorageHandler,
   schemaHandler: SchemaHandler,
   launchHandler: LaunchHandler
-) extends StrictLogging {
+)(implicit settings: Settings)
+    extends StrictLogging {
   val domains: List[Domain] = schemaHandler.domains
 
   /**
@@ -70,7 +71,7 @@ class IngestionWorkflow(
   def loadLanding(): Unit = {
     logger.info("LoadLanding")
     domains.foreach { domain =>
-      val storageHandler = Settings.storageHandler
+      val storageHandler = settings.storageHandler
       val inputDir = new Path(domain.directory)
       logger.info(s"Scanning $inputDir")
       storageHandler.list(inputDir, domain.getAck()).foreach { path =>
@@ -185,7 +186,7 @@ class IngestionWorkflow(
             ingestingPath
           }
           try {
-            if (Settings.comet.grouped)
+            if (settings.comet.grouped)
               launchHandler.ingest(this, domain, schema, ingestingPaths.toList)
             else
               ingestingPaths.foreach(launchHandler.ingest(this, domain, schema, _))
@@ -271,7 +272,7 @@ class IngestionWorkflow(
           .run()
       case CHEW =>
         ChewerJob.run(
-          s"${Settings.comet.chewerPrefix}.${domain.name}.${schema.name}",
+          s"${settings.comet.chewerPrefix}.${domain.name}.${schema.name}",
           domain,
           schema,
           schemaHandler.types,
@@ -284,7 +285,7 @@ class IngestionWorkflow(
     })
     ingestionResult match {
       case Success(_) =>
-        if (Settings.comet.archive) {
+        if (settings.comet.archive) {
           ingestingPath.foreach { ingestingPath =>
             val archivePath =
               new Path(DatasetArea.archive(domain.name), ingestingPath.getName)
@@ -357,7 +358,7 @@ class IngestionWorkflow(
       action.run() match {
         case Success(_) =>
           task.getIndexSink() match {
-            case Some(IndexSink.ES) if Settings.comet.elasticsearch.active =>
+            case Some(IndexSink.ES) if settings.comet.elasticsearch.active =>
               index(job, task)
             case Some(IndexSink.BQ) =>
               val (createDisposition, writeDisposition) = Utils.getBQDisposition(task.write)
@@ -385,7 +386,7 @@ class IngestionWorkflow(
   }
 
   def index(config: IndexConfig): Try[SparkSession] = {
-    new IndexJob(config, Settings.storageHandler).run()
+    new IndexJob(config, settings.storageHandler).run()
   }
 
   def bqload(
@@ -396,7 +397,7 @@ class IngestionWorkflow(
   }
 
   def atlas(config: AtlasConfig): Unit = {
-    new AtlasJob(config, Settings.storageHandler).run()
+    new AtlasJob(config, settings.storageHandler).run()
   }
 
   /**
@@ -407,7 +408,7 @@ class IngestionWorkflow(
   def metric(cliConfig: MetricsConfig): Unit = {
     //Lookup for the domain given as prompt arguments, if is found then find the given schema in this domain
     val cmdArgs = for {
-      domain <- Settings.schemaHandler.getDomain(cliConfig.domain)
+      domain <- settings.schemaHandler.getDomain(cliConfig.domain)
       schema <- domain.schemas.find(_.name == cliConfig.schema)
     } yield (domain, schema)
 

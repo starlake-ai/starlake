@@ -33,7 +33,8 @@ import scala.util.{Failure, Success, Try}
 class IndexJob(
   cliConfig: IndexConfig,
   storageHandler: StorageHandler
-) extends SparkJob {
+)(implicit val settings: Settings)
+    extends SparkJob {
 
   val esresource = Some(("es.resource.write", s"${cliConfig.getResource()}"))
   val esId = cliConfig.id.map("es.mapping.id" -> _)
@@ -57,9 +58,8 @@ class IndexJob(
           .json(path.toString)
 
       case "json-array" =>
-        val jsonRDD =
-          session.sparkContext.wholeTextFiles(path.toString).map(x => x._2)
-        session.read.json(jsonRDD)
+        val jsonDS = session.read.textFile(path.toString)
+        session.read.json(jsonDS)
 
       case "parquet" =>
         session.read.parquet(path.toString)
@@ -76,7 +76,7 @@ class IndexJob(
 
     val content = cliConfig.mapping.map(storageHandler.read).getOrElse {
       val dynamicTemplate = for {
-        domain <- Settings.schemaHandler.getDomain(cliConfig.domain)
+        domain <- settings.schemaHandler.getDomain(cliConfig.domain)
         schema <- domain.schemas.find(_.name == cliConfig.schema)
       } yield schema.mapping(domain.mapping(schema), domain.name)
 
@@ -89,7 +89,7 @@ class IndexJob(
 
     logger.info(s"Registering template ${cliConfig.domain}_${cliConfig.schema} -> $content")
     import scala.collection.JavaConverters._
-    val esOptions = Settings.comet.elasticsearch.options.asScala.toMap
+    val esOptions = settings.comet.elasticsearch.options.asScala.toMap
     val host: String = esOptions.getOrElse("es.nodes", "localhost")
     val port = esOptions.getOrElse("es.port", "9200").toInt
     val ssl = esOptions.getOrElse("es.net.ssl", "false").toBoolean

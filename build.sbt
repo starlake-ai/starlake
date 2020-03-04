@@ -21,6 +21,11 @@ organizationName := "Ebiznext"
 
 scalaVersion := scala211
 
+scalacOptions ++= Seq(
+  "-deprecation",
+  "-feature"
+)
+
 organizationHomepage := Some(url("http://www.ebiznext.com"))
 
 libraryDependencies := {
@@ -123,16 +128,6 @@ val writeNextVersion =
       }
     }
   )
-
-// Shade it or else bigquery wont work because spark comes with an older version of google common.
-assemblyShadeRules in assembly := Seq(
-  ShadeRule
-    .rename(
-      "com.google.cloud.hadoop.io.bigquery.**" -> "shadeio.@1",
-      "com.google.common.**"                   -> "shadebase.@1"
-    )
-    .inAll
-)
 
 assemblyMergeStrategy in assembly := {
   case PathList("META-INF", xs @ _*) => MergeStrategy.discard
