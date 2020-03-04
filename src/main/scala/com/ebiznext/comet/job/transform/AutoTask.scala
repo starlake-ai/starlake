@@ -49,17 +49,22 @@ class AutoTask(
   views: Option[Map[String, String]],
   task: AutoTaskDesc,
   storageHandler: StorageHandler
-) extends SparkJob {
+)(implicit val settings: Settings)
+    extends SparkJob {
 
   def run(): Try[SparkSession] = {
     udf.foreach { udf =>
       val udfInstance: UdfRegistration =
-        Class.forName(udf).newInstance.asInstanceOf[UdfRegistration]
+        Class
+          .forName(udf)
+          .getDeclaredConstructor(Seq.empty: _*)
+          .newInstance()
+          .asInstanceOf[UdfRegistration]
       udfInstance.register(session)
     }
     views.getOrElse(Map()).foreach {
       case (key, value) =>
-        val fullPath = if (value.startsWith("/")) value else s"${Settings.comet.datasets}/$value"
+        val fullPath = if (value.startsWith("/")) value else s"${settings.comet.datasets}/$value"
         val df = session.read.parquet(fullPath)
         df.createOrReplaceTempView(key)
     }
@@ -75,17 +80,17 @@ class AutoTask(
       )
     partitionedDF
       .mode(SaveMode.Overwrite)
-      .format(Settings.comet.writeFormat)
+      .format(settings.comet.writeFormat)
       .option("path", mergePath)
       .save()
 
     val finalDataset = partitionedDF
       .mode(task.write.toSaveMode)
-      .format(format.getOrElse(Settings.comet.writeFormat))
+      .format(format.getOrElse(settings.comet.writeFormat))
       .option("path", targetPath.toString)
 
     val _ = storageHandler.delete(new Path(mergePath))
-    if (Settings.comet.hive) {
+    if (settings.comet.hive) {
       val tableName = task.dataset
       val hiveDB = task.getHiveDB(defaultArea)
       val fullTableName = s"$hiveDB.$tableName"
@@ -93,7 +98,7 @@ class AutoTask(
       session.sql(s"use $hiveDB")
       session.sql(s"drop table if exists $tableName")
       finalDataset.saveAsTable(fullTableName)
-      if (Settings.comet.analyze) {
+      if (settings.comet.analyze) {
         val allCols = session.table(fullTableName).columns.mkString(",")
         val analyzeTable =
           s"ANALYZE TABLE $fullTableName COMPUTE STATISTICS FOR COLUMNS $allCols"

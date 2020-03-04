@@ -49,7 +49,7 @@ class SchemaSpec extends TestHelper {
       "long",
       Some(true),
       true,
-      Some(PrivacyLevel("MD5")) // Should raise an error. Privacy cannot be applied on types other than string
+      Some(PrivacyLevel("MD5")) // Should raise an error. Privacy cannot be applied on types other than stringsettings = settings
     )
     attr.checkValidity() shouldBe
     Left(
@@ -80,7 +80,8 @@ class SchemaSpec extends TestHelper {
   "Position serialization" should "output all fields" in {
     val yml = loadFile(s"/expected/yml/position_serialization_${versionSuffix}.yml")
 
-    val attr = Attribute("hello", position = Some(Position(1, 2, Some(Trim.NONE))))
+    val attr =
+      Attribute("hello", position = Some(Position(1, 2, Some(Trim.NONE))))
     val writer = new StringWriter()
     mapper.writer().writeValue(writer, attr)
     logger.info("--" + writer.toString + "--")
@@ -88,4 +89,17 @@ class SchemaSpec extends TestHelper {
     writer.toString.trim should equal(yml)
   }
 
+  "Default value for an attribute" should "only be used for non obligatory fields" in {
+    val requiredAttribute =
+      Attribute("requiredAttribute", "long", required = true, default = Some("10"))
+    requiredAttribute.checkValidity() shouldBe Left(
+      List(
+        s"attribute with name ${requiredAttribute.name}: default value valid for optional fields only"
+      )
+    )
+
+    val optionalAttribute =
+      Attribute("optionalAttribute", "long", required = false, default = Some("10"))
+    optionalAttribute.checkValidity() shouldBe Right(true)
+  }
 }

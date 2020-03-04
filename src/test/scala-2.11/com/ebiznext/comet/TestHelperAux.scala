@@ -20,6 +20,17 @@
 
 package com.ebiznext.comet
 
+import scala.io.Source
+
 private object TestHelperAux {
   val versionSuffix: String = "211" // We are under scala 2.11
+
+  def using[ /* A <: AutoCloseable, */ B](resource: Source /* A */ )(f: Source /* A */ => B): B =
+    // Source wasn't yet AutoCloseable in Scala 2.11 (!)
+    try {
+      f(resource)
+    } finally {
+      resource.close()
+    }
+
 }

@@ -30,6 +30,7 @@ import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs._
 import org.apache.spark.sql.execution.streaming.FileStreamSource.Timestamp
 
+import scala.concurrent.duration.FiniteDuration
 import scala.util.Try
 
 /**
@@ -69,6 +70,9 @@ trait StorageHandler extends StrictLogging {
 
   def touch(path: Path): Try[Unit]
 
+  def lockAcquisitionPollTime: FiniteDuration
+  def lockRefreshPollTime: FiniteDuration
+
   def unzip(source: Path, targetDir: Path): Try[Unit]
 
 }
@@ -76,7 +80,9 @@ trait StorageHandler extends StrictLogging {
 /**
   * HDFS Filesystem Handler
   */
-class HdfsStorageHandler(fileSystem: Option[String]) extends StorageHandler {
+class HdfsStorageHandler(fileSystem: Option[String])(
+  implicit settings: Settings
+) extends StorageHandler {
 
   val conf = new Configuration()
   conf.set(
@@ -96,9 +102,12 @@ class HdfsStorageHandler(fileSystem: Option[String]) extends StorageHandler {
     }
   }
 
+  override def lockAcquisitionPollTime: FiniteDuration = settings.comet.lock.pollTime
+  override def lockRefreshPollTime: FiniteDuration = settings.comet.lock.refreshTime
+
   normalizedFileSystem.foreach(fs => conf.set("fs.defaultFS", fs))
   import scala.collection.JavaConverters._
-  Settings.comet.hadoop.asScala.toMap.foreach {
+  settings.comet.hadoop.asScala.toMap.foreach {
     case (k, v) =>
       conf.set(k, v)
   }

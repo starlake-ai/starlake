@@ -96,6 +96,7 @@ project/plugins/project/
 ### Scala ###
 *.class
 *.log
+*.sc
 
 ### VisualStudioCode ###
 .vscode/*
@@ -121,3 +122,6 @@ src/test/resources/application.conf
 # Unix traditional
 *~
 ~*
+
+#Mac
+.DS_Store
