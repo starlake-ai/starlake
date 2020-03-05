@@ -41,8 +41,8 @@ libraryDependencies := {
       case Some((2, scalaMajor)) if scalaMajor == 11 => jackson211
     }
   }
-  
-  dependencies ++ spark ++ jackson
+
+  dependencies ++ spark ++ jackson ++ scalaReflection(scalaVersion.value)
 }
 
 Common.enableCometAliases
