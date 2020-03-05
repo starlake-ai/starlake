@@ -28,6 +28,8 @@ import com.typesafe.scalalogging.Logger
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try}
 
+import scala.reflect.runtime.universe.{SingleType, TypeTag}
+
 object Utils {
 
   /**
@@ -110,6 +112,13 @@ object Utils {
         ("CREATE_IF_NEEDED", "WRITE_TRUNCATE")
     }
     (createDisposition, writeDisposition)
+  }
+
+  /**
+    * @return true if the value provided by x is an object
+    **/
+  def isObject[T](x: T)(implicit tag: TypeTag[T]): Boolean = PartialFunction.cond(tag.tpe) {
+    case SingleType(_, _) => true
   }
 
 }
