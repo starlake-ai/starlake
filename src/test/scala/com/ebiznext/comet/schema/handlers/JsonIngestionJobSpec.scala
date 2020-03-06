@@ -80,7 +80,8 @@ abstract class JsonIngestionJobSpecBase(variant: String) extends TestHelper with
   }
 }
 
-class JsonIngestionJobNoIndexNoAuditSpec extends JsonIngestionJobSpecBase("No Index, No Audit") {
+class JsonIngestionJobNoIndexNoMetricsNoAuditSpec
+    extends JsonIngestionJobSpecBase("No Index, No Metrics, No Audit") {
   override def configuration: Config =
     ConfigFactory
       .parseString("""
@@ -94,14 +95,27 @@ class JsonIngestionJobNoIndexNoAuditSpec extends JsonIngestionJobSpecBase("No In
   override def expectedRejectLogs(implicit settings: Settings): List[RejectedRecord] = Nil
 }
 
-class JsonIngestionJobSpecNoIndexJdbcAuditSpec
-    extends JsonIngestionJobSpecBase("No Index, Jdbc Audit") {
+class JsonIngestionJobSpecNoIndexJdbcMetricsJdbcAuditSpec
+    extends JsonIngestionJobSpecBase("No Index, Jdbc Metrics, Jdbc Audit") {
 
   override def configuration: Config =
     ConfigFactory
       .parseString("""
-                     |audit.index.type = "Jdbc"
-                     |audit.index.jdbc-connection = "test-h2"
+                     |metrics {
+                     |  active = true
+                     |  index {
+                     |    type = "Jdbc"
+                     |    jdbc-connection = "test-h2"
+                     |  }
+                     |}
+                     |
+                     |audit {
+                     |  active = true
+                     |  index {
+                     |    type = "Jdbc"
+                     |    jdbc-connection = "test-h2"
+                     |  }
+                     |}
                      |""".stripMargin)
       .withFallback(super.testConfiguration)
 
