@@ -185,8 +185,9 @@ trait IngestionJob extends SparkJob {
           }
         }
 
-      case _ =>
-      // ignore
+      case Some(IndexSink.None) | None =>
+        // ignore
+        logger.trace("not producing an index, as requested (no sink or sink at None explicitly)")
     }
   }
 
