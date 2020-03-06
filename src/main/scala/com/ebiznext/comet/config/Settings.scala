@@ -33,9 +33,10 @@ import com.ebiznext.comet.schema.handlers.{
   SimpleLauncher
 }
 import com.ebiznext.comet.schema.model.IndexSink
-import com.ebiznext.comet.utils.CometObjectMapper
+import com.ebiznext.comet.utils.{CometJacksonModule, CometObjectMapper}
 import com.fasterxml.jackson.annotation.JsonTypeInfo
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize
 import com.typesafe.config.{Config, ConfigValueFactory}
 import com.typesafe.scalalogging.{Logger, StrictLogging}
 import configs.Configs
@@ -99,10 +100,16 @@ object Settings extends StrictLogging {
   object IndexSinkSettings {
 
     /**
-      * A no-operation Index Output (disabling external output beyond the in-lake parquets)
+      * A no-operation Index Output (disabling external output beyond the business area parquets)
       */
-    final case object None extends IndexSinkSettings("None") {
+    @JsonTypeInfo(use = JsonTypeInfo.Id.MINIMAL_CLASS)
+    @JsonDeserialize(builder = classOf[None.NoneBuilder])
+    case object None
+        extends IndexSinkSettings("None")
+        with CometJacksonModule.JacksonProtectedSingleton {
       override def indexSinkType: IndexSink.None.type = IndexSink.None
+
+      class NoneBuilder extends CometJacksonModule.ProtectedSingletonBuilder[None.type]
     }
 
     /**
@@ -269,9 +276,9 @@ object Settings extends StrictLogging {
     }
   }
 
-  private implicit val jdbcEngineConfigs: Configs[JdbcEngine] = Configs.derive[JdbcEngine]
-  private implicit val indexOutputConfigs: Configs[IndexSinkSettings] =
+  private implicit val indexSinkSettinsConfigs: Configs[IndexSinkSettings] =
     Configs.derive[IndexSinkSettings]
+  private implicit val jdbcEngineConfigs: Configs[JdbcEngine] = Configs.derive[JdbcEngine]
 
   def apply(config: Config): Settings = {
     val jobId = UUID.randomUUID().toString
