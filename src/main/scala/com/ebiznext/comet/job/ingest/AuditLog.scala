@@ -40,8 +40,8 @@ case class AuditLog(
   schema: String,
   success: Boolean,
   count: Long,
-  countOK: Long,
-  countKO: Long,
+  countAccepted: Long,
+  countRejected: Long,
   timestamp: Timestamp,
   duration: Long,
   message: String
@@ -54,8 +54,8 @@ case class AuditLog(
        |schema=$schema
        |success=$success
        |count=$count
-       |countOK=$countOK
-       |countKO=$countKO
+       |countAccepted=$countAccepted
+       |countRejected=$countRejected
        |timestamp=$timestamp
        |duration=$duration
        |message=$message
@@ -72,8 +72,8 @@ object SparkAuditLogWriter {
     ("schema", LegacySQLTypeName.STRING, StringType),
     ("success", LegacySQLTypeName.BOOLEAN, BooleanType),
     ("count", LegacySQLTypeName.INTEGER, LongType),
-    ("countOK", LegacySQLTypeName.INTEGER, LongType),
-    ("countKO", LegacySQLTypeName.INTEGER, LongType),
+    ("countAccepted", LegacySQLTypeName.INTEGER, LongType),
+    ("countRejected", LegacySQLTypeName.INTEGER, LongType),
     ("timestamp", LegacySQLTypeName.TIMESTAMP, TimestampType),
     ("duration", LegacySQLTypeName.INTEGER, LongType),
     ("message", LegacySQLTypeName.STRING, StringType)
