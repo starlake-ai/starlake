@@ -111,6 +111,7 @@ class DsvIngestionJob(
         .option("header", metadata.isWithHeader().toString)
         .option("inferSchema", value = false)
         .option("delimiter", metadata.getSeparator())
+        .option("multiLine", metadata.getMultiline())
         .option("quote", metadata.getQuote())
         .option("escape", metadata.getEscape())
         .option("parserLib", "UNIVOCITY")
