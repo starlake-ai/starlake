@@ -126,7 +126,7 @@ trait JdbcChecks {
       jdbcName,
       "audit",
       "jobid" :: "paths" :: "domain" :: "schema" :: "success" ::
-      "count" :: "countOK" :: "countKO" :: "timestamp" ::
+      "count" :: "countAccepted" :: "countRejected" :: "timestamp" ::
       "duration" :: "message" :: Nil,
       values.to[Vector]
     ) { rs =>
@@ -137,8 +137,8 @@ trait JdbcChecks {
         rs.getString("schema"),
         rs.getBoolean("success"),
         rs.getInt("count"),
-        rs.getInt("countOK"),
-        rs.getInt("countKO"),
+        rs.getInt("countAccepted"),
+        rs.getInt("countRejected"),
         rs.getTimestamp("timestamp"),
         rs.getInt("duration"),
         rs.getString("message")
