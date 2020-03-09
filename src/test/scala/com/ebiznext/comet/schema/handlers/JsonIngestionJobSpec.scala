@@ -127,8 +127,8 @@ class JsonIngestionJobSpecNoIndexJdbcMetricsJdbcAuditSpec
       schema = "sample_json",
       success = true,
       count = 1,
-      countOK = 1,
-      countKO = 0,
+      countAccepted = 1,
+      countRejected = 0,
       timestamp = TestStart,
       duration = 1 /* fake */,
       message = "success"
