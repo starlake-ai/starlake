@@ -1,11 +1,15 @@
 package com.ebiznext.comet.job.metrics
 
 import com.ebiznext.comet.config.{DatasetArea, Settings}
+import com.ebiznext.comet.job.ingest.MetricRecord
+import com.ebiznext.comet.job.jdbcload.JdbcLoadConfig
 import com.ebiznext.comet.job.metrics.Metrics.{ContinuousMetric, DiscreteMetric}
 import com.ebiznext.comet.schema.handlers.{SchemaHandler, StorageHandler}
 import com.ebiznext.comet.schema.model.{Domain, Schema, Stage}
 import com.ebiznext.comet.utils.{FileLock, SparkJob}
+import com.google.cloud.bigquery.JobInfo.WriteDisposition
 import org.apache.hadoop.fs.Path
+import org.apache.hadoop.metrics2.MetricsRecord
 import org.apache.spark.sql._
 import org.apache.spark.sql.execution.streaming.FileStreamSource.Timestamp
 import org.apache.spark.sql.functions.{col, lit}
@@ -369,10 +373,22 @@ root
           Success(())
 
         case Settings.IndexSinkSettings.BigQuery(bqDataset) =>
-          Try { sinkMetricsToBigQuery(metricsDf, bqDataset) }
+          Try {
+            sinkMetricsToBigQuery(metricsDf, bqDataset)
+          }
 
         case Settings.IndexSinkSettings.Jdbc(jdbcConnection, partitions, batchSize) =>
-          Try { sinkMetricsToJdbc(metricsDf, jdbcConnection, partitions, batchSize) }
+          Try {
+            val jdbcConfig = JdbcLoadConfig.fromComet(
+              jdbcConnection,
+              settings.comet,
+              Right(metricsDf),
+              "metrics",
+              partitions = partitions,
+              batchSize = batchSize
+            )
+            sinkMetricsToJdbc(jdbcConfig)
+          }
       }
     } else {
       Success(())
@@ -382,42 +398,95 @@ root
   private def sinkMetricsToBigQuery(metricsDf: DataFrame, bqDataset: String): Unit =
     ??? // TODO: implement me
 
+  private implicit val memsideEncoder: Encoder[MetricRecord] = Encoders.product[MetricRecord]
+  private implicit val sqlableEncoder: Encoder[MetricRecord.AsSql] =
+    Encoders.product[MetricRecord.AsSql]
+
   private def sinkMetricsToJdbc(
-    metricsDf: DataFrame,
-    jdbcConnection: String,
-    partitions: Int,
-    batchSize: Int
+    cliConfig: JdbcLoadConfig
   ): Unit = {
-    /* WIP comment:
+    cliConfig.sourceFile match {
+      case Left(_) =>
+        throw new IllegalArgumentException("unsupported case with named source")
+      case Right(metricsDf) =>
+        // TODO: SMELL: Refused Bequest
+        require(
+          cliConfig.writeDisposition == WriteDisposition.WRITE_APPEND,
+          s"unsupported write disposition ${cliConfig.writeDisposition}, only WRITE_APPEND is supported"
+        )
 
-    the main difficulty here is that while 'save' will generate a parquet file, which we might read and just push away
-    through the sink, we cannot actually send it unconditionally.
+        val converter = MetricRecord.MetricRecordConverter()
 
-    The problem is that if metrics are generated onto an already existing path, the actual 'save' process is to read
-    the already-existing file and merge it into the oncoming data set.
+        /*
+        object FieldIndices {
+          val domain: Int = metricsDf.schema.fieldIndex("domain")
+          val schema: Int = metricsDf.schema.fieldIndex("schema")
+          val min: Int = metricsDf.schema.fieldIndex("min")
+          val max: Int = metricsDf.schema.fieldIndex("max")
+          val mean: Int = metricsDf.schema.fieldIndex("mean")
+          val missingValues: Int = metricsDf.schema.fieldIndex("missingValues")
+          val standardDev: Int = metricsDf.schema.fieldIndex("standardDev")
+          val variance: Int = metricsDf.schema.fieldIndex("variance")
+          val sum: Int = metricsDf.schema.fieldIndex("sum")
+          val skewness: Int = metricsDf.schema.fieldIndex("skewness")
+          val kurtosis: Int = metricsDf.schema.fieldIndex("kurtosis")
+          val percentile25: Int = metricsDf.schema.fieldIndex("percentile25")
+          val median: Int = metricsDf.schema.fieldIndex("median")
+          val percentile75: Int = metricsDf.schema.fieldIndex("percentile75")
+          val category: Int = metricsDf.schema.fieldIndex("category")
+          val countDistinct: Int = metricsDf.schema.fieldIndex("countDistinct")
+          val countByCategory: Int = metricsDf.schema.fieldIndex("countByCategory")
+          val frequencies: Int = metricsDf.schema.fieldIndex("frequencies")
+          val missingValuesDiscrete: Int = metricsDf.schema.fieldIndex("missingValuesDiscrete")
+          val count: Int = metricsDf.schema.fieldIndex("count")
+          val cometTime: Int = metricsDf.schema.fieldIndex("cometTime")
+          val cometStage: Int = metricsDf.schema.fieldIndex("cometStage")
+        }
 
-    We should be able to have multiple outputs, one prong towards the sink and one prong towards the Parquet.
-    We can't on this platform (hi, Sparky), so we actually must split into two-or-three jobs:
+        val sqlableMetricsDf = metricsDf.map { (row: Row) =>
+          val memSide = MetricRecord(
+            row.getAs[String](FieldIndices.domain),
+            row.getAs[String](FieldIndices.schema),
+            row.getAs[Option[Long]](FieldIndices.min),
+            row.getAs[Option[Long]](FieldIndices.max),
+            row.getAs[Option[Double]](FieldIndices.mean),
+            row.getAs[Option[Long]](FieldIndices.missingValues),
+            row.getAs[Option[Double]](FieldIndices.standardDev),
+            row.getAs[Option[Double]](FieldIndices.variance),
+            row.getAs[Option[Long]](FieldIndices.sum),
+            row.getAs[Option[Double]](FieldIndices.skewness),
+            row.getAs[Option[Long]](FieldIndices.kurtosis),
+            row.getAs[Option[Long]](FieldIndices.percentile25),
+            row.getAs[Option[Long]](FieldIndices.median),
+            row.getAs[Option[Long]](FieldIndices.percentile75),
+            row.getAs[Option[Seq[String]]](FieldIndices.category),
+            row.getAs[Option[Long]](FieldIndices.countDistinct),
+            row.getAs[Option[Seq[Map[String, Option[Long]]]]](FieldIndices.countByCategory),
+            row.getAs[Option[Seq[Map[String, Option[Long]]]]](FieldIndices.frequencies),
+            row.getAs[Option[Long]](FieldIndices.missingValuesDiscrete),
+            row.getAs[Long](FieldIndices.count),
+            row.getAs[Long](FieldIndices.cometTime),
+            row.getAs[String](FieldIndices.cometStage)
+          )
 
-    if (blank output path):
-      - job 1 (this): save into output path (as .parquet)
-      - job 2: read output path, push to sink
-    else:
-      - job 1 (this): save into INTERMEDIATE path (as .parquet)
-      - job 2: read INTERMEDIATE path, push to sink
-      - job 3: read all INTERMEDIATES, merge into output path, remove intermediates
+          converter.toSqlCompatible(memSide)
+        }
+         */
+        val sqlableMetricsDf = metricsDf.as[MetricRecord].map(converter.toSqlCompatible)
 
-    in fact we could consider that only the (non-blank output path) case is necessary, with a smart reduction of
-    "job 3" to "just move the single intermediate as output" if that is the case (this is effectively a port of
-    the current approach within the save() method)
-
-    But we need to record a state machine of pending metrics, so that subsequent runs of MetricsJob can re-attempt
-    "job 3" whenever it had failed (even on 'older' paths).
-
-
-     */
-
-    ???
+        sqlableMetricsDf.write
+          .format("jdbc")
+          .option("numPartitions", cliConfig.partitions)
+          .option("batchsize", cliConfig.batchSize)
+          .option("truncate", cliConfig.writeDisposition == WriteDisposition.WRITE_TRUNCATE)
+          .option("driver", cliConfig.driver)
+          .option("url", cliConfig.url)
+          .option("dbtable", cliConfig.outputTable)
+          .option("user", cliConfig.user)
+          .option("password", cliConfig.password)
+          .mode(SaveMode.Append)
+          .save()
+    }
   }
 
 }
