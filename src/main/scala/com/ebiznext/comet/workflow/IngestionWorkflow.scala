@@ -253,7 +253,7 @@ class IngestionWorkflow(
     logger.info(
       s"Ingesting domain: ${domain.name} with schema: ${schema.name} on file: $ingestingPath with metadata $metadata"
     )
-    val ingestionResult = Try(metadata.getFormat() match {
+    val ingestionResult: Try[SparkSession] = Try(metadata.getFormat() match {
       case DSV =>
         new DsvIngestionJob(
           domain,
@@ -262,7 +262,7 @@ class IngestionWorkflow(
           ingestingPath,
           storageHandler,
           schemaHandler
-        ).run()
+        ).run().get
       case SIMPLE_JSON =>
         new SimpleJsonIngestionJob(
           domain,
@@ -271,7 +271,7 @@ class IngestionWorkflow(
           ingestingPath,
           storageHandler,
           schemaHandler
-        ).run()
+        ).run().get
       case JSON =>
         new JsonIngestionJob(
           domain,
@@ -280,7 +280,7 @@ class IngestionWorkflow(
           ingestingPath,
           storageHandler,
           schemaHandler
-        ).run()
+        ).run().get
       case POSITION =>
         new PositionIngestionJob(
           domain,
@@ -289,7 +289,7 @@ class IngestionWorkflow(
           ingestingPath,
           storageHandler,
           schemaHandler
-        ).run()
+        ).run().get
       case CHEW =>
         ChewerJob.run(
           s"${settings.comet.chewerPrefix}.${domain.name}.${schema.name}",
@@ -298,7 +298,8 @@ class IngestionWorkflow(
           schemaHandler.types,
           ingestingPath,
           storageHandler
-        )
+        ).get
+
 
       case _ =>
         throw new Exception("Should never happen")
