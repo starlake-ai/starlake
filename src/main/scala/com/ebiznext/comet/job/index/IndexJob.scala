@@ -21,7 +21,7 @@
 package com.ebiznext.comet.job.index
 
 import com.ebiznext.comet.config.Settings
-import com.ebiznext.comet.schema.handlers.StorageHandler
+import com.ebiznext.comet.schema.handlers.{SchemaHandler, StorageHandler}
 import com.ebiznext.comet.schema.model.Schema
 import com.ebiznext.comet.utils.SparkJob
 import com.softwaremill.sttp._
@@ -32,7 +32,8 @@ import scala.util.{Failure, Success, Try}
 
 class IndexJob(
   cliConfig: IndexConfig,
-  storageHandler: StorageHandler
+  storageHandler: StorageHandler,
+  schemaHandler: SchemaHandler
 )(implicit val settings: Settings)
     extends SparkJob {
 
@@ -76,14 +77,19 @@ class IndexJob(
 
     val content = cliConfig.mapping.map(storageHandler.read).getOrElse {
       val dynamicTemplate = for {
-        domain <- settings.schemaHandler.getDomain(cliConfig.domain)
+        domain <- schemaHandler.getDomain(cliConfig.domain)
         schema <- domain.schemas.find(_.name == cliConfig.schema)
-      } yield schema.mapping(domain.mapping(schema), domain.name)
+      } yield schema.mapping(domain.mapping(schema), domain.name, schemaHandler)
 
       dynamicTemplate.getOrElse {
         // Handle datasets without YAML schema
         // We handle only index name like idx-{...}
-        Schema.mapping(cliConfig.domain, cliConfig.schema, StructField("ignore", df.schema))
+        Schema.mapping(
+          cliConfig.domain,
+          cliConfig.schema,
+          StructField("ignore", df.schema),
+          schemaHandler
+        )
       }
     }
 

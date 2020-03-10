@@ -20,184 +20,120 @@
 
 package com.ebiznext.comet.schema.handlers
 
-import com.ebiznext.comet.TestHelper
+import java.sql.{DriverManager, SQLException}
+
+import com.ebiznext.comet.config.Settings
+import com.ebiznext.comet.{JdbcChecks, TestHelper}
+import com.ebiznext.comet.job.ingest.{AuditLog, RejectedRecord}
+import com.typesafe.config.{Config, ConfigFactory}
 import org.apache.spark.sql.execution.datasources.json.JsonIngestionUtil
 import org.apache.spark.sql.types._
+import org.scalatest.Assertion
 
+import scala.annotation.tailrec
 import scala.util.Success
 
-class JsonIngestionJobSpec extends TestHelper {
+abstract class JsonIngestionJobSpecBase(variant: String) extends TestHelper with JdbcChecks {
 
-  "Parse valid json" should "succeed" in {
-    val json =
-      """
-        |{
-        |    "glossary": {
-        |        "title": "example glossary",
-        |		"GlossDiv": {
-        |            "title": "S",
-        |			"GlossList": {
-        |                "GlossEntry": {
-        |                    "ID": "SGML",
-        |					"SortAs": "SGML",
-        |					"GlossTerm": "Standard Generalized Markup Language",
-        |					"Acronym": "SGML",
-        |					"Abbrev": "ISO 8879:1986",
-        |					"GlossDef": {
-        |                        "para": "A meta-markup language, used to create markup languages such as DocBook.",
-        |						"GlossSeeAlso": ["GML", "XML"],
-        |           "IntArray":[1, 2]
-        |                    },
-        |					"GlossSee": "markup"
-        |                }
-        |            }
-        |        }
-        |    }
-        |}
-      """.stripMargin
+  def expectedAuditLogs(implicit settings: Settings): List[AuditLog]
 
-    JsonIngestionUtil.parseString(json) shouldBe Success(
-      StructType(
-        Seq(
-          StructField(
-            "glossary",
-            StructType(
-              Seq(
-                StructField("title", StringType, true),
-                StructField(
-                  "GlossDiv",
-                  StructType(
-                    Seq(
-                      StructField("title", StringType, true),
-                      StructField(
-                        "GlossList",
-                        StructType(
-                          Seq(
-                            StructField(
-                              "GlossEntry",
-                              StructType(
-                                Seq(
-                                  StructField("ID", StringType, true),
-                                  StructField("SortAs", StringType, true),
-                                  StructField("GlossTerm", StringType, true),
-                                  StructField("Acronym", StringType, true),
-                                  StructField("Abbrev", StringType, true),
-                                  StructField(
-                                    "GlossDef",
-                                    StructType(
-                                      Seq(
-                                        StructField("para", StringType, true),
-                                        StructField(
-                                          "GlossSeeAlso",
-                                          ArrayType(StringType, true),
-                                          true
-                                        ),
-                                        StructField("IntArray", ArrayType(LongType, true), true)
-                                      )
-                                    ),
-                                    true
-                                  ),
-                                  StructField("GlossSee", StringType, true)
-                                )
-                              ),
-                              true
-                            )
-                          )
-                        ),
-                        true
-                      )
-                    )
-                  ),
-                  true
-                )
-              )
-            ),
-            true
+  def expectedRejectLogs(implicit settings: Settings): List[RejectedRecord]
+
+  def configuration: Config
+
+  ("Ingest Complex JSON " + variant) should ("should be ingested from pending to accepted, and archived ") in {
+    new WithSettings(configuration) {
+
+      new SpecTrait(
+        domainFilename = "json.yml",
+        sourceDomainPathname = "/sample/json/json.yml",
+        datasetDomainName = "json",
+        sourceDatasetPathName = "/sample/json/complex.json"
+      ) {
+
+        cleanMetadata
+        cleanDatasets
+
+        loadPending
+
+        // Check archive
+        readFileContent(cometDatasetsPath + s"/archive/${datasetDomainName}/complex.json") shouldBe loadFile(
+          "/sample/json/complex.json"
+        )
+
+        // Accepted should have the same data as input
+        sparkSession.read
+          .parquet(
+            cometDatasetsPath + s"/accepted/${datasetDomainName}/sample_json/${getTodayPartitionPath}"
           )
-        )
-      )
-    )
-
-    val json1 =
-      """
-        |{
-        |						"GlossSeeAlso": ["GML", "XML"],
-        |           "IntArray":[1.1, 2.2]
-        |}
-      """.stripMargin
-
-    val json2 =
-      """
-        |{
-        |						"GlossSeeAlso": ["GML", null],
-        |           "IntArray":[1, 2]
-        |}
-      """.stripMargin
-
-    JsonIngestionUtil.parseString(json1) shouldBe Success(
-      StructType(
-        Seq(
-          StructField("GlossSeeAlso", ArrayType(StringType, true), true),
-          StructField("IntArray", ArrayType(DoubleType, true), true)
-        )
-      )
-    )
-
-    JsonIngestionUtil.parseString(json2) shouldBe Success(
-      StructType(
-        Seq(
-          StructField("GlossSeeAlso", ArrayType(StringType, true), true),
-          StructField("IntArray", ArrayType(LongType, true), true)
-        )
-      )
-    )
-
-  }
-
-  "Parse invalid json" should "fail" in {
-    val json1 =
-      """
-        |{
-        |   "complexArray": [ {"a": "Hello"}, {"a": "Hello"} ],
-        |	  "GlossSeeAlso": ["GML", "XML"]
-        |   "myArray":[1, 2]
-        |}
-      """.stripMargin
-
-    JsonIngestionUtil.parseString(json1).isSuccess shouldBe false
-
-  }
-
-  "Ingest Complex JSON" should "should be ingested from pending to accepted, and archived" in {
-
-    new SpecTrait {
-      cleanMetadata
-      cleanDatasets
-      override val domainFilename: String = "json.yml"
-      override val sourceDomainPathname: String = "/sample/json/json.yml"
-
-      override val datasetDomainName: String = "json"
-      override val sourceDatasetPathName: String = "/sample/json/complex.json"
-
-      loadPending
-
-      // Check archive
-
-      readFileContent(cometDatasetsPath + s"/archive/${datasetDomainName}/complex.json") shouldBe loadFile(
-        "/sample/json/complex.json"
-      )
-
-      // Accepted should have the same data as input
-      sparkSession.read
-        .parquet(
-          cometDatasetsPath + s"/accepted/${datasetDomainName}/sample_json/${getTodayPartitionPath}"
-        )
-        .except(
-          sparkSession.read
-            .json(getClass.getResource(s"/sample/${datasetDomainName}/complex.json").toURI.getPath)
-        )
-        .count() shouldBe 0
+          .except(
+            sparkSession.read
+              .json(
+                getClass.getResource(s"/sample/${datasetDomainName}/complex.json").toURI.getPath
+              )
+          )
+          .count() shouldBe 0
+      }
+      expectingAudit("test-h2", expectedAuditLogs(settings): _*)
+      expectingRejections("test-h2", expectedRejectLogs(settings): _*)
     }
-
   }
+}
+
+class JsonIngestionJobNoIndexNoMetricsNoAuditSpec
+    extends JsonIngestionJobSpecBase("No Index, No Metrics, No Audit") {
+  override def configuration: Config =
+    ConfigFactory
+      .parseString("""
+          |audit.index.type = "None"
+          |audit.index.jdbc-connection = "test-h2"
+          |""".stripMargin)
+      .withFallback(super.testConfiguration)
+
+  override def expectedAuditLogs(implicit settings: Settings): List[AuditLog] = Nil
+
+  override def expectedRejectLogs(implicit settings: Settings): List[RejectedRecord] = Nil
+}
+
+class JsonIngestionJobSpecNoIndexJdbcMetricsJdbcAuditSpec
+    extends JsonIngestionJobSpecBase("No Index, Jdbc Metrics, Jdbc Audit") {
+
+  override def configuration: Config =
+    ConfigFactory
+      .parseString("""
+                     |metrics {
+                     |  active = true
+                     |  index {
+                     |    type = "Jdbc"
+                     |    jdbc-connection = "test-h2"
+                     |  }
+                     |}
+                     |
+                     |audit {
+                     |  active = true
+                     |  index {
+                     |    type = "Jdbc"
+                     |    jdbc-connection = "test-h2"
+                     |  }
+                     |}
+                     |""".stripMargin)
+      .withFallback(super.testConfiguration)
+
+  override def expectedAuditLogs(implicit settings: Settings): List[AuditLog] =
+    AuditLog(
+      jobid = settings.comet.jobId,
+      paths = "file://" + settings.comet.datasets + "/ingesting/json/complex.json",
+      domain = "json",
+      schema = "sample_json",
+      success = true,
+      count = 1,
+      countAccepted = 1,
+      countRejected = 0,
+      timestamp = TestStart,
+      duration = 1 /* fake */,
+      message = "success"
+    ) :: Nil
+
+  override def expectedRejectLogs(implicit settings: Settings): List[RejectedRecord] =
+    Nil
 }

@@ -20,8 +20,6 @@
 
 package com.ebiznext.comet
 
-import scala.io.Source
-
 private object TestHelperAux {
   val versionSuffix: String = "212" // We are under scala 2.12
 

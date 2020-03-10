@@ -23,9 +23,9 @@ package com.ebiznext.comet.schema.model
 import java.util.regex.Pattern
 
 import com.ebiznext.comet.config.Settings
-import com.fasterxml.jackson.annotation.{JacksonInject, JsonIgnore}
+import com.ebiznext.comet.schema.handlers.SchemaHandler
+import com.fasterxml.jackson.annotation.JsonIgnore
 import com.typesafe.scalalogging.LazyLogging
-import javax.swing.UIDefaults.LazyInputMap
 import org.apache.spark.sql.types._
 
 import scala.collection.mutable
@@ -73,7 +73,7 @@ case class Attribute(
     *
     * @return true if attribute is valid
     */
-  def checkValidity()(implicit settings: Settings): Either[List[String], Boolean] = {
+  def checkValidity(schemaHandler: SchemaHandler): Either[List[String], Boolean] = {
     val errorList: mutable.MutableList[String] = mutable.MutableList.empty
     if (`type` == null)
       errorList += s"$this : unspecified type"
@@ -85,7 +85,7 @@ case class Attribute(
     if (!rename.forall(colNamePattern.matcher(_).matches()))
       errorList += s"renamed attribute with renamed name '$rename' should respect the pattern ${colNamePattern.pattern()}"
 
-    val primitiveType = tpe.map(_.primitiveType)
+    val primitiveType = tpe(schemaHandler).map(_.primitiveType)
 
     primitiveType match {
       case Some(tpe) =>
@@ -105,7 +105,7 @@ case class Attribute(
       primitiveType.foreach { primitiveType =>
         if (primitiveType == PrimitiveType.struct)
           errorList += s"attribute with name $name: default value not valid for struct type fields"
-        tpe.foreach { someTpe =>
+        tpe(schemaHandler).foreach { someTpe =>
           Try(someTpe.sparkValue(default)) match {
             case Success(_) =>
             case Failure(e) =>
@@ -130,8 +130,8 @@ case class Attribute(
       Right(true)
   }
 
-  def tpe(implicit settings: Settings): Option[Type] = {
-    settings.schemaHandler.types
+  def tpe(schemaHandler: SchemaHandler): Option[Type] = {
+    schemaHandler.types
       .find(_.name == `type`)
   }
 
@@ -141,8 +141,8 @@ case class Attribute(
     *
     * @return Primitive type if attribute is a leaf node or array of primitive type, None otherwise
     */
-  def primitiveSparkType()(implicit settings: Settings): DataType = {
-    tpe
+  def primitiveSparkType(schemaHandler: SchemaHandler): DataType = {
+    tpe(schemaHandler)
       .map(_.primitiveType)
       .map { tpe =>
         if (isArray())
@@ -158,13 +158,13 @@ case class Attribute(
     *
     * @return Spark type of this attribute
     */
-  def sparkType()(implicit settings: Settings): DataType = {
-    val tpe = primitiveSparkType()
+  def sparkType(schemaHandler: SchemaHandler): DataType = {
+    val tpe = primitiveSparkType(schemaHandler)
     tpe match {
       case _: StructType =>
         attributes.map { attrs =>
           val fields = attrs.map { attr =>
-            StructField(attr.name, attr.sparkType(), !attr.required)
+            StructField(attr.name, attr.sparkType(schemaHandler), !attr.required)
           }
           if (isArray())
             ArrayType(StructType(fields))
@@ -176,18 +176,18 @@ case class Attribute(
     }
   }
 
-  def mapping()(implicit settings: Settings): String = {
+  def mapping(schemaHandler: SchemaHandler): String = {
     attributes match {
       case Some(attrs) =>
         s"""
            |"$name": {
            |  "properties" : {
-           |  ${attrs.map(_.mapping()).mkString(",")}
+           |  ${attrs.map(_.mapping(schemaHandler)).mkString(",")}
            |  }
            |}""".stripMargin
 
       case None =>
-        tpe.map { tpe =>
+        tpe(schemaHandler).map { tpe =>
           val typeMapping = tpe.getIndexMapping().toString
           tpe.primitiveType match {
             case PrimitiveType.date =>
@@ -240,9 +240,9 @@ case class Attribute(
   def isRequired(): Boolean = Option(this.required).getOrElse(false)
 
   @JsonIgnore
-  def getMetricType()(implicit settings: Settings): MetricType = {
+  def getMetricType(schemaHandler: SchemaHandler): MetricType = {
     import com.ebiznext.comet.utils.DataTypeEx._
-    val sparkType = tpe.map(_.primitiveType.sparkType)
+    val sparkType = tpe(schemaHandler).map(_.primitiveType.sparkType)
     logger.info(s"Attribute Metric ==> $name, $metricType, $sparkType")
     (sparkType, metricType) match {
       case (Some(sparkType), Some(MetricType.DISCRETE)) =>

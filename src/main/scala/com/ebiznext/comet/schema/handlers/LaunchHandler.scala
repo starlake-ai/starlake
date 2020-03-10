@@ -23,6 +23,7 @@ package com.ebiznext.comet.schema.handlers
 import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.job.bqload.BigQueryLoadConfig
 import com.ebiznext.comet.job.index.IndexConfig
+import com.ebiznext.comet.job.jdbcload.JdbcLoadConfig
 import com.ebiznext.comet.schema.model.{Domain, Schema}
 import com.ebiznext.comet.workflow.IngestionWorkflow
 import com.typesafe.scalalogging.StrictLogging
@@ -83,6 +84,15 @@ trait LaunchHandler {
   def bqload(workflow: IngestionWorkflow, config: BigQueryLoadConfig)(
     implicit settings: Settings
   ): Boolean
+
+  /**
+    * Load to JDBC Database
+    *
+    * @param config
+    */
+  def jdbcload(workflow: IngestionWorkflow, config: JdbcLoadConfig)(
+    implicit settings: Settings
+  ): Boolean
 }
 
 /**
@@ -133,6 +143,20 @@ class SimpleLauncher extends LaunchHandler with StrictLogging {
   ): Boolean = {
     logger.info(s"Launch bq: ${config}")
     workflow.bqload(config)
+    true
+
+  }
+
+  /**
+    * Load to JDBC
+    *
+    * @param config
+    */
+  override def jdbcload(workflow: IngestionWorkflow, config: JdbcLoadConfig)(
+    implicit settings: Settings
+  ): Boolean = {
+    logger.info(s"Launch JDBC: ${config}")
+    workflow.jdbcload(config)
     true
 
   }
@@ -241,6 +265,31 @@ class AirflowLauncher extends LaunchHandler with StrictLogging {
       config.outputPartition.map(partition => s"--output_partition $partition").getOrElse("")
     ).mkString(" ")
     val command = s"""bqload $params """
+    post(url, command)
+  }
+
+  /**
+    * Load to JDBC sink
+    *
+    * @param config
+    */
+  override def jdbcload(workflow: IngestionWorkflow, config: JdbcLoadConfig)(
+    implicit settings: Settings
+  ): Boolean = {
+    val endpoint = settings.comet.airflow.endpoint
+    val url = s"$endpoint/dags/comet_jdbcload/dag_runs"
+    val params = List(
+      s"--source_file ${config.sourceFile}",
+      s"--partitions ${config.partitions}",
+      s"--password ${config.password}",
+      s"--user ${config.user}",
+      s"--batch_size ${config.batchSize}",
+      s"--driver ${config.driver}",
+      s"--url ${config.url}",
+      s"--create_disposition ${config.createDisposition}",
+      s"--write_disposition ${config.writeDisposition}"
+    ).mkString(" ")
+    val command = s"""jdbcload $params """
     post(url, command)
   }
 
