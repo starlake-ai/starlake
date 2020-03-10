@@ -24,7 +24,7 @@ import java.sql.Timestamp
 import java.time.Instant
 
 import com.ebiznext.comet.config.Settings
-import com.ebiznext.comet.schema.handlers.StorageHandler
+import com.ebiznext.comet.schema.handlers.{SchemaHandler, StorageHandler}
 import com.ebiznext.comet.schema.model.Rejection.{ColInfo, ColResult, RowInfo, RowResult}
 import com.ebiznext.comet.schema.model._
 import org.apache.hadoop.fs.Path
@@ -49,7 +49,8 @@ class DsvIngestionJob(
   val schema: Schema,
   val types: List[Type],
   val path: List[Path],
-  val storageHandler: StorageHandler
+  val storageHandler: StorageHandler,
+  val schemaHandler: SchemaHandler
 )(implicit val settings: Settings)
     extends IngestionJob {
 

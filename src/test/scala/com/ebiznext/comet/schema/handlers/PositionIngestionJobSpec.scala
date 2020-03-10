@@ -21,7 +21,6 @@
 package com.ebiznext.comet.schema.handlers
 
 import com.ebiznext.comet.TestHelper
-import com.ebiznext.comet.config.Settings
 
 class PositionIngestionJobSpec extends TestHelper {
   "Ingest Position File" should "should be ingested from pending to accepted, and archived" in {
@@ -30,34 +29,37 @@ class PositionIngestionJobSpec extends TestHelper {
     logger.debug(binder.getLoggerFactory.toString)
     logger.debug(binder.getLoggerFactoryClassStr)
 
-    new SpecTrait {
-      cleanMetadata
-      cleanDatasets
-      override val domainFilename: String = "position.yml"
-      override val sourceDomainPathname: String = "/sample/position/position.yml"
+    new WithSettings() {
+      new SpecTrait(
+        domainFilename = "position.yml",
+        sourceDomainPathname = "/sample/position/position.yml",
+        datasetDomainName = "position",
+        sourceDatasetPathName = "/sample/position/XPOSTBL"
+      ) {
+        cleanMetadata
+        cleanDatasets
 
-      override val datasetDomainName: String = "position"
-      override val sourceDatasetPathName: String = "/sample/position/XPOSTBL"
-      logger.info(settings.comet.datasets)
-      loadPending
+        logger.info(settings.comet.datasets)
+        loadPending
 
-      // Check archive
+        // Check archive
 
-      readFileContent(cometDatasetsPath + s"/archive/${datasetDomainName}/XPOSTBL") shouldBe loadFile(
-        "/sample/position/XPOSTBL"
-      )
-
-      // Accepted should have the same data as input
-      val acceptedDf = sparkSession.read
-        .parquet(
-          cometDatasetsPath + s"/accepted/${datasetDomainName}/account/${getTodayPartitionPath}"
+        readFileContent(cometDatasetsPath + s"/archive/${datasetDomainName}/XPOSTBL") shouldBe loadFile(
+          "/sample/position/XPOSTBL"
         )
-      printDF(acceptedDf, "acceptedDf")
-      acceptedDf.count() shouldBe
-      sparkSession.read
-        .text(getClass.getResource(s"/sample/${datasetDomainName}/XPOSTBL").toURI.getPath)
-        .count()
-    }
 
+        // Accepted should have the same data as input
+        val acceptedDf = sparkSession.read
+          .parquet(
+            cometDatasetsPath + s"/accepted/${datasetDomainName}/account/${getTodayPartitionPath}"
+          )
+        printDF(acceptedDf, "acceptedDf")
+        acceptedDf.count() shouldBe
+        sparkSession.read
+          .text(getClass.getResource(s"/sample/${datasetDomainName}/XPOSTBL").toURI.getPath)
+          .count()
+      }
+
+    }
   }
 }

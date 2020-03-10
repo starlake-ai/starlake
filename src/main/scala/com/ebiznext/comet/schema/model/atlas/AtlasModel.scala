@@ -1,14 +1,8 @@
 package com.ebiznext.comet.schema.model.atlas
 
-import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.job.atlas.AtlasConfig
-import com.ebiznext.comet.schema.handlers.{SchemaHandler, StorageHandler}
-import com.ebiznext.comet.schema.model._
+import com.ebiznext.comet.schema.handlers.StorageHandler
 import com.typesafe.scalalogging.StrictLogging
-import org.apache.commons.collections.CollectionUtils
-import org.apache.hadoop.fs.Path
-
-import scala.util.{Failure, Success, Try}
 
 class AtlasModel(urls: Array[String], basicAuthUsernamePassword: Array[String])
     extends StrictLogging {

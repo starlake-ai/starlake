@@ -23,83 +23,88 @@ package com.ebiznext.comet.schema.model
 import java.io.{InputStream, StringWriter}
 
 import com.ebiznext.comet.TestHelper
+import com.ebiznext.comet.schema.handlers.SchemaHandler
 
 class SchemaSpec extends TestHelper {
 
-  "Attribute type" should "be valid" in {
-    val stream: InputStream =
-      getClass.getResourceAsStream("/sample/default.yml")
-    val lines =
-      scala.io.Source.fromInputStream(stream).getLines().mkString("\n")
-    val types = mapper.readValue(lines, classOf[Types])
-    val attr = Attribute(
-      "attr",
-      "invalid-type", // should raise error non existent type
-      Some(true),
-      true,
-      Some(PrivacyLevel("MD5")) // Should raise an error. Privacy cannot be applied on types other than string
-    )
+  new WithSettings() {
+    val schemaHandler = new SchemaHandler(storageHandler)
 
-    attr.checkValidity() shouldBe Left(List("Invalid Type invalid-type"))
-  }
-
-  "Attribute privacy" should "be applied on string type only" in {
-    val attr = Attribute(
-      "attr",
-      "long",
-      Some(true),
-      true,
-      Some(PrivacyLevel("MD5")) // Should raise an error. Privacy cannot be applied on types other than stringsettings = settings
-    )
-    attr.checkValidity() shouldBe
-    Left(
-      List(
-        "Attribute Attribute(attr,long,Some(true),true,Some(MD5),None,None,None,None,None,None,None) : string is the only supported primitive type for an attribute when privacy is requested"
+    "Attribute type" should "be valid" in {
+      val stream: InputStream =
+        getClass.getResourceAsStream("/sample/default.yml")
+      val lines =
+        scala.io.Source.fromInputStream(stream).getLines().mkString("\n")
+      val types = mapper.readValue(lines, classOf[Types])
+      val attr = Attribute(
+        "attr",
+        "invalid-type", // should raise error non existent type
+        Some(true),
+        true,
+        Some(PrivacyLevel("MD5")) // Should raise an error. Privacy cannot be applied on types other than string
       )
-    )
-  }
 
-  "Sub Attribute" should "be present for struct types only" in {
-    val attr = Attribute(
-      "attr",
-      "long",
-      Some(true),
-      true,
-      Some(PrivacyLevel("MD5")), // Should raise an error. Privacy cannot be applied on types other than string
-      attributes = Some(List[Attribute]())
-    )
-    val expectedErrors = List(
-      "Attribute Attribute(attr,long,Some(true),true,Some(MD5),None,None,None,Some(List()),None,None,None) : string is the only supported primitive type for an attribute when privacy is requested",
-      "Attribute Attribute(attr,long,Some(true),true,Some(MD5),None,None,None,Some(List()),None,None,None) : Simple attributes cannot have sub-attributes",
-      "Attribute Attribute(attr,long,Some(true),true,Some(MD5),None,None,None,Some(List()),None,None,None) : when present, attributes list cannot be empty."
-    )
+      attr.checkValidity(schemaHandler) shouldBe Left(List("Invalid Type invalid-type"))
+    }
 
-    attr.checkValidity() shouldBe Left(expectedErrors)
-  }
-
-  "Position serialization" should "output all fields" in {
-    val yml = loadFile(s"/expected/yml/position_serialization_${versionSuffix}.yml")
-
-    val attr =
-      Attribute("hello", position = Some(Position(1, 2, Some(Trim.NONE))))
-    val writer = new StringWriter()
-    mapper.writer().writeValue(writer, attr)
-    logger.info("--" + writer.toString + "--")
-    logger.info("++" + yml + "++")
-    writer.toString.trim should equal(yml)
-  }
-
-  "Default value for an attribute" should "only be used for non obligatory fields" in {
-    val requiredAttribute =
-      Attribute("requiredAttribute", "long", required = true, default = Some("10"))
-    requiredAttribute.checkValidity() shouldBe Left(
-      List(
-        s"attribute with name ${requiredAttribute.name}: default value valid for optional fields only"
+    "Attribute privacy" should "be applied on string type only" in {
+      val attr = Attribute(
+        "attr",
+        "long",
+        Some(true),
+        true,
+        Some(PrivacyLevel("MD5")) // Should raise an error. Privacy cannot be applied on types other than stringsettings = settings
       )
-    )
+      attr.checkValidity(schemaHandler) shouldBe
+      Left(
+        List(
+          "Attribute Attribute(attr,long,Some(true),true,Some(MD5),None,None,None,None,None,None,None) : string is the only supported primitive type for an attribute when privacy is requested"
+        )
+      )
+    }
 
-    val optionalAttribute =
-      Attribute("optionalAttribute", "long", required = false, default = Some("10"))
-    optionalAttribute.checkValidity() shouldBe Right(true)
+    "Sub Attribute" should "be present for struct types only" in {
+      val attr = Attribute(
+        "attr",
+        "long",
+        Some(true),
+        true,
+        Some(PrivacyLevel("MD5")), // Should raise an error. Privacy cannot be applied on types other than string
+        attributes = Some(List[Attribute]())
+      )
+      val expectedErrors = List(
+        "Attribute Attribute(attr,long,Some(true),true,Some(MD5),None,None,None,Some(List()),None,None,None) : string is the only supported primitive type for an attribute when privacy is requested",
+        "Attribute Attribute(attr,long,Some(true),true,Some(MD5),None,None,None,Some(List()),None,None,None) : Simple attributes cannot have sub-attributes",
+        "Attribute Attribute(attr,long,Some(true),true,Some(MD5),None,None,None,Some(List()),None,None,None) : when present, attributes list cannot be empty."
+      )
+
+      attr.checkValidity(schemaHandler) shouldBe Left(expectedErrors)
+    }
+
+    "Position serialization" should "output all fields" in {
+      val yml = loadFile(s"/expected/yml/position_serialization_${versionSuffix}.yml")
+
+      val attr =
+        Attribute("hello", position = Some(Position(1, 2, Some(Trim.NONE))))
+      val writer = new StringWriter()
+      mapper.writer().writeValue(writer, attr)
+      logger.info("--" + writer.toString + "--")
+      logger.info("++" + yml + "++")
+      writer.toString.trim should equal(yml)
+    }
+
+    "Default value for an attribute" should "only be used for non obligatory fields" in {
+      val requiredAttribute =
+        Attribute("requiredAttribute", "long", required = true, default = Some("10"))
+      requiredAttribute.checkValidity(schemaHandler) shouldBe Left(
+        List(
+          s"attribute with name ${requiredAttribute.name}: default value valid for optional fields only"
+        )
+      )
+
+      val optionalAttribute =
+        Attribute("optionalAttribute", "long", required = false, default = Some("10"))
+      optionalAttribute.checkValidity(schemaHandler) shouldBe Right(true)
+    }
   }
 }

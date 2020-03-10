@@ -3,15 +3,18 @@ package com.ebiznext.comet.job.ingest
 import java.sql.Timestamp
 import java.time.Instant
 
+import com.ebiznext.comet.config.Settings.IndexSinkSettings
 import com.ebiznext.comet.config.{DatasetArea, Settings, StorageArea}
 import com.ebiznext.comet.job.bqload.{BigQueryLoadConfig, BigQueryLoadJob}
 import com.ebiznext.comet.job.index.{IndexConfig, IndexJob}
+import com.ebiznext.comet.job.jdbcload.{JdbcLoadConfig, JdbcLoadJob}
 import com.ebiznext.comet.job.metrics.MetricsJob
-import com.ebiznext.comet.schema.handlers.StorageHandler
+import com.ebiznext.comet.schema.handlers.{SchemaHandler, StorageHandler}
 import com.ebiznext.comet.schema.model.Rejection.{ColInfo, ColResult}
 import com.ebiznext.comet.schema.model.Trim.{BOTH, LEFT, RIGHT}
 import com.ebiznext.comet.schema.model._
 import com.ebiznext.comet.utils.{SparkJob, Utils}
+import com.google.cloud.bigquery.JobInfo.{CreateDisposition, WriteDisposition}
 import com.google.cloud.bigquery.{Field, LegacySQLTypeName}
 import org.apache.hadoop.fs.Path
 import org.apache.spark.rdd.RDD
@@ -20,8 +23,8 @@ import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types.{StringType, StructField, StructType, TimestampType}
 
-import scala.util.{Failure, Success, Try}
 import scala.language.existentials
+import scala.util.{Failure, Success, Try}
 
 /**
   *
@@ -32,6 +35,7 @@ trait IngestionJob extends SparkJob {
   def schema: Schema
 
   def storageHandler: StorageHandler
+  def schemaHandler: SchemaHandler
 
   def types: List[Type]
 
@@ -58,7 +62,7 @@ trait IngestionJob extends SparkJob {
     */
   def ingest(dataset: DataFrame): (RDD[_], RDD[_])
 
-  def saveRejected(rejectedRDD: RDD[String]): Path = {
+  def saveRejected(rejectedRDD: RDD[String]): Try[Path] = {
     logger.info(s"rejectedRDD SIZE ${rejectedRDD.count()}")
     rejectedRDD.take(100).foreach(rejected => logger.info(rejected.replaceAll("\n", "|")))
     val writeMode = WriteMode.APPEND
@@ -68,10 +72,15 @@ trait IngestionJob extends SparkJob {
     }
     val domainName = domain.name
     val schemaName = schema.name
-    val (rejectedDF, rejectedPath) =
-      IngestionUtil.saveRejected(session, rejectedRDD, domainName, schemaName.toString, now)
-    saveRows(rejectedDF, rejectedPath, WriteMode.APPEND, StorageArea.rejected, false)
-    rejectedPath
+    IngestionUtil.saveRejected(session, rejectedRDD, domainName, schemaName.toString, now) match {
+      case Success((rejectedDF, rejectedPath)) =>
+        (rejectedDF, rejectedPath)
+        saveRows(rejectedDF, rejectedPath, WriteMode.APPEND, StorageArea.rejected, false)
+        Success(rejectedPath)
+      case Failure(exception) =>
+        logger.error("Failed to save Rejected", exception)
+        Failure(exception)
+    }
   }
 
   def getWriteMode(): WriteMode =
@@ -91,7 +100,7 @@ trait IngestionJob extends SparkJob {
       acceptedDF.show(1000)
     }
     if (settings.comet.metrics.active) {
-      new MetricsJob(this.domain, this.schema, Stage.UNIT, this.storageHandler)
+      new MetricsJob(this.domain, this.schema, Stage.UNIT, this.storageHandler, this.schemaHandler)
         .run(acceptedDF, System.currentTimeMillis())
     }
     val writeMode = getWriteMode()
@@ -107,7 +116,7 @@ trait IngestionJob extends SparkJob {
     saveRows(mergedDF, acceptedPath, writeMode, StorageArea.accepted, schema.merge.isDefined)
 
     if (settings.comet.metrics.active) {
-      new MetricsJob(this.domain, this.schema, Stage.GLOBAL, storageHandler).run()
+      new MetricsJob(this.domain, this.schema, Stage.GLOBAL, storageHandler, schemaHandler).run()
     }
     (mergedDF, acceptedPath)
   }
@@ -124,9 +133,9 @@ trait IngestionJob extends SparkJob {
           domain = domain.name,
           schema = schema.name
         )
-        new IndexJob(config, settings.storageHandler).run()
+        new IndexJob(config, storageHandler, schemaHandler).run()
       case Some(IndexSink.BQ) =>
-        val (createDisposition: String, writeDisposition: String) = Utils.getBQDisposition(
+        val (createDisposition: String, writeDisposition: String) = Utils.getDBDisposition(
           meta.getWriteMode()
         )
         val config = BigQueryLoadConfig(
@@ -143,11 +152,42 @@ trait IngestionJob extends SparkJob {
         val res = new BigQueryLoadJob(config).run()
         res match {
           case Success(_) => ;
-          case Failure(e) => logger.info("BQLoad Failed", e)
+          case Failure(e) => logger.error("BQLoad Failed", e)
         }
 
-      case _ =>
-      // ignore
+      case Some(IndexSink.JDBC) =>
+        val (createDisposition: CreateDisposition, writeDisposition: WriteDisposition) = {
+
+          val (cd, wd) = Utils.getDBDisposition(
+            meta.getWriteMode()
+          )
+          (CreateDisposition.valueOf(cd), WriteDisposition.valueOf(wd))
+        }
+        meta.getProperties().get("jdbc").foreach { jdbcName =>
+          val partitions = meta.getProperties().getOrElse("partitions", "1").toInt
+          val batchSize = meta.getProperties().getOrElse("batchsize", "1000").toInt
+
+          val jdbcConfig = JdbcLoadConfig.fromComet(
+            jdbcName,
+            settings.comet,
+            Right(mergedDF),
+            outputTable = schema.name,
+            createDisposition = createDisposition,
+            writeDisposition = writeDisposition,
+            partitions = partitions,
+            batchSize = batchSize
+          )
+
+          val res = new JdbcLoadJob(jdbcConfig).run()
+          res match {
+            case Success(_) => ;
+            case Failure(e) => logger.error("JDBCLoad Failed", e)
+          }
+        }
+
+      case Some(IndexSink.None) | None =>
+        // ignore
+        logger.trace("not producing an index, as requested (no sink or sink at None explicitly)")
     }
   }
 
@@ -336,7 +376,7 @@ trait IngestionJob extends SparkJob {
     * @return : Spark Session used for the job
     */
   def run(): Try[SparkSession] = {
-    domain.checkValidity() match {
+    domain.checkValidity(schemaHandler) match {
       case Left(errors) =>
         val errs = errors.reduce { (errs, err) =>
           errs + "\n" + err
@@ -425,13 +465,13 @@ object IngestionUtil {
     domainName: String,
     schemaName: String,
     now: Timestamp
-  )(implicit settings: Settings): (DataFrame, Path) = {
+  )(implicit settings: Settings): Try[(Dataset[Row], Path)] = {
     import session.implicits._
     val rejectedPath = new Path(DatasetArea.rejected(domainName), schemaName)
     val rejectedPathName = rejectedPath.toString
     val jobid = s"${settings.comet.jobId}"
     val rejectedTypedRDD = rejectedRDD.map { err =>
-      (jobid, now, domainName, schemaName, err, rejectedPathName)
+      RejectedRecord(jobid, now, domainName, schemaName, err, rejectedPathName)
     }
     val rejectedDF = session
       .createDataFrame(
@@ -443,21 +483,40 @@ object IngestionUtil {
       .toDF(rejectedCols.map(_._1): _*)
       .limit(settings.comet.audit.maxErrors)
 
-    if (settings.comet.audit.index == "BQ") {
-      val bqConfig = BigQueryLoadConfig(
-        Right(rejectedDF),
-        settings.comet.audit.options.getOrDefault("bq-dataset", "audit"),
-        "rejected",
-        None,
-        "parquet",
-        "CREATE_IF_NEEDED",
-        "WRITE_APPEND",
-        None,
-        None
-      )
-      new BigQueryLoadJob(bqConfig, Some(bigqueryRejectedSchema())).run()
+    val res = settings.comet.audit.index match {
+      case IndexSinkSettings.BigQuery(dataset) =>
+        val bqConfig = BigQueryLoadConfig(
+          Right(rejectedDF),
+          outputDataset = dataset,
+          outputTable = "rejected",
+          None,
+          "parquet",
+          "CREATE_IF_NEEDED",
+          "WRITE_APPEND",
+          None,
+          None
+        )
+        new BigQueryLoadJob(bqConfig, Some(bigqueryRejectedSchema())).run()
+
+      case IndexSinkSettings.Jdbc(jdbcName, partitions, batchSize) =>
+        val jdbcConfig = JdbcLoadConfig.fromComet(
+          jdbcName,
+          settings.comet,
+          Right(rejectedDF),
+          "rejected",
+          partitions = partitions,
+          batchSize = batchSize
+        )
+
+        new JdbcLoadJob(jdbcConfig).run()
+
+      case IndexSinkSettings.None =>
+        Success(())
     }
-    (rejectedDF, rejectedPath)
+    res match {
+      case Success(_) => Success(rejectedDF, rejectedPath)
+      case Failure(e) => Failure(e)
+    }
   }
 
   def validateCol(

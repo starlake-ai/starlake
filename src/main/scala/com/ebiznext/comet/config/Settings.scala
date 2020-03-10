@@ -30,21 +30,16 @@ import com.ebiznext.comet.schema.handlers.{
   HdfsStorageHandler,
   LaunchHandler,
   SchemaHandler,
-  SimpleLauncher,
-  StorageHandler
+  SimpleLauncher
 }
-import com.fasterxml.jackson.core.{JsonGenerator, JsonParser}
-import com.fasterxml.jackson.databind.annotation.{JsonDeserialize, JsonSerialize}
-import com.fasterxml.jackson.databind.{
-  DeserializationContext,
-  JsonDeserializer,
-  JsonSerializer,
-  ObjectMapper,
-  SerializerProvider
-}
-import com.fasterxml.jackson.module.scala.DefaultScalaModule
-import com.typesafe.config.{Config, ConfigFactory, ConfigValue, ConfigValueFactory}
+import com.ebiznext.comet.schema.model.IndexSink
+import com.ebiznext.comet.utils.{CometJacksonModule, CometObjectMapper}
+import com.fasterxml.jackson.annotation.JsonTypeInfo
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize
+import com.typesafe.config.{Config, ConfigValueFactory}
 import com.typesafe.scalalogging.{Logger, StrictLogging}
+import configs.Configs
 import configs.syntax._
 import org.slf4j.MDC
 
@@ -52,7 +47,6 @@ import scala.concurrent.duration.FiniteDuration
 
 object Settings extends StrictLogging {
   private def loggerForCompanionInstances: Logger = logger
-  import java.lang.management.{ManagementFactory, RuntimeMXBean}
 
   /**
     *
@@ -92,6 +86,51 @@ object Settings extends StrictLogging {
   final case class Elasticsearch(active: Boolean, options: juMap[String, String])
 
   /**
+    * Configuration for [[IndexSink]]
+    *
+    * This is used to define an auxiliary output for Audit or Metrics data, in addition to the Parquets
+    * The default Index Sink is None, but additional types exists (such as BigQuery or Jdbc)
+    *
+    */
+  @JsonTypeInfo(use = JsonTypeInfo.Id.MINIMAL_CLASS)
+  sealed abstract class IndexSinkSettings(val `type`: String) {
+    def indexSinkType: IndexSink
+  }
+
+  object IndexSinkSettings {
+
+    /**
+      * A no-operation Index Output (disabling external output beyond the business area parquets)
+      */
+    @JsonTypeInfo(use = JsonTypeInfo.Id.MINIMAL_CLASS)
+    @JsonDeserialize(builder = classOf[None.NoneBuilder])
+    case object None
+        extends IndexSinkSettings("None")
+        with CometJacksonModule.JacksonProtectedSingleton {
+      override def indexSinkType: IndexSink.None.type = IndexSink.None
+
+      class NoneBuilder extends CometJacksonModule.ProtectedSingletonBuilder[None.type]
+    }
+
+    /**
+      * Describes an Index Output delivering values into a BigQuery dataset
+      */
+    final case class BigQuery(bqDataset: String) extends IndexSinkSettings("BigQuery") {
+      override def indexSinkType: IndexSink.BQ.type = IndexSink.BQ
+    }
+
+    /**
+      * Describes an Index Output delivering values into a JDBC-accessible SQL database
+      */
+    final case class Jdbc(jdbcConnection: String, partitions: Int = 1, batchSize: Int = 1000)
+        extends IndexSinkSettings("Jdbc") {
+      override def indexSinkType: IndexSink.JDBC.type = IndexSink.JDBC
+    }
+    // TODO: IndexSink has ES, too. Is there a use case for this?
+    // Maybe later; additional sink types (e.g. Kafka/Pulsar)?
+  }
+
+  /**
     *
     * @param discreteMaxCardinality : Max number of unique values allowed in cardinality compute
     *
@@ -100,45 +139,74 @@ object Settings extends StrictLogging {
     path: String,
     discreteMaxCardinality: Int,
     active: Boolean,
-    index: String,
-    options: juMap[String, String]
+    index: IndexSinkSettings
   )
 
   final case class Audit(
     path: String,
     active: Boolean,
-    index: String,
-    options: juMap[String, String],
+    index: IndexSinkSettings,
     maxErrors: Int
   )
+
+  /**
+    * Describes a connection to a JDBC-accessible database engine
+    *
+    * @param uri the URI of the database engine. It must start with "jdbc:"
+    * @param user the username under which to connect to the database engine
+    * @param password the password to use in order to connect to the database engine
+    * @param engineOverride the index into the [[Comet.jdbcEngines]] map of the underlying database engine, in case
+    *                       one cannot use the engine name from the uri
+    *
+    * @note the use case for engineOverride is when you need to have an alternate schema definition
+    *       (e.g. non-standard table names) alongside with the regular schema definition, on the same
+    *       underlying engine.
+    */
+  final case class Jdbc(
+    uri: String,
+    user: String = "",
+    password: String = "",
+    engineOverride: Option[String] = None
+  ) {
+    def engine: String = engineOverride.getOrElse(uri.split(':')(1))
+  }
+
+  /**
+    * Describes how to use a specific type of JDBC-accessible database engine
+    *
+    * @param driver the qualified class name of the JDBC Driver to use for the specific engine
+    * @param tables for each of the Standard Table Names used by Comet, the specific SQL DDL statements as expected
+    *               in the engine's own dialect.
+    */
+  final case class JdbcEngine(
+    driver: String,
+    tables: scala.collection.Map[String, JdbcEngine.TableDdl]
+  )
+
+  object JdbcEngine {
+
+    /**
+      * A descriptor of the specific SQL DDL statements required to manage a specific Comet table in a JDBC-accessible
+      * database engine
+      *
+      * @param name the name of the table as it is known on the database engine
+      * @param createSql the SQL Create Table statement with the database-specific type, constraints etc. tacked on.
+      * @param pingSql a cheap SQL query whose results are irrelevant but guaranteed to trigger an error in case the table is absent
+      *
+      * @note pingSql is optional, and will default to `select * from $name where 1=0` as Spark SQL does
+      */
+    final case class TableDdl(name: String, createSql: String, pingSql: Option[String] = None) {
+      def effectivePingSql: String = pingSql.getOrElse(s"select * from $name where 1=0")
+    }
+  }
 
   final case class Lock(
     path: String,
     metricsTimeout: Long,
     ingestionTimeout: Long,
-    @JsonSerialize(using = classOf[FiniteDurationSerializer])
-    @JsonDeserialize(using = classOf[FiniteDurationDeserializer])
     pollTime: FiniteDuration = FiniteDuration(5000L, TimeUnit.MILLISECONDS),
-    @JsonSerialize(using = classOf[FiniteDurationSerializer])
-    @JsonDeserialize(using = classOf[FiniteDurationDeserializer])
     refreshTime: FiniteDuration = FiniteDuration(5000L, TimeUnit.MILLISECONDS)
   )
-
-  final class FiniteDurationSerializer extends JsonSerializer[FiniteDuration] {
-    override def serialize(
-      value: FiniteDuration,
-      gen: JsonGenerator,
-      serializers: SerializerProvider
-    ): Unit = {
-      gen.writeNumber(value.toMillis)
-    }
-  }
-  final class FiniteDurationDeserializer extends JsonDeserializer[FiniteDuration] {
-    override def deserialize(p: JsonParser, ctxt: DeserializationContext): FiniteDuration = {
-      val milliseconds = ctxt.readValue(p, classOf[Long])
-      FiniteDuration.apply(milliseconds, TimeUnit.MILLISECONDS)
-    }
-  }
 
   final case class Atlas(uri: String, user: String, password: String, owner: String)
 
@@ -175,6 +243,8 @@ object Settings extends StrictLogging {
     airflow: Airflow,
     elasticsearch: Elasticsearch,
     hadoop: juMap[String, String],
+    jdbc: Map[String, Jdbc],
+    jdbcEngines: Map[String, JdbcEngine],
     atlas: Atlas,
     privacy: Privacy,
     fileSystem: Option[String]
@@ -196,11 +266,7 @@ object Settings extends StrictLogging {
       }
     }
     private object JsonWrapped {
-      private def jsonMapper: ObjectMapper = {
-        val mapper = new ObjectMapper()
-        mapper.registerModule(DefaultScalaModule)
-        mapper
-      }
+      private def jsonMapper: ObjectMapper = new CometObjectMapper()
 
       def apply(comet: Comet): JsonWrapped = {
         val writer = jsonMapper.writerFor(classOf[Comet])
@@ -210,29 +276,21 @@ object Settings extends StrictLogging {
     }
   }
 
-  @deprecated("please use and pass on a Settings instance instead", "2020-02-25") // ready to remove
-  def comet(implicit settings: Settings): Comet = settings.comet
+  private implicit val indexSinkSettinsConfigs: Configs[IndexSinkSettings] =
+    Configs.derive[IndexSinkSettings]
+  private implicit val jdbcEngineConfigs: Configs[JdbcEngine] = Configs.derive[JdbcEngine]
 
-  @deprecated("please use and pass on a Settings instance instead", "2020-02-25") // ready to remove
-  def storageHandler(implicit settings: Settings): HdfsStorageHandler = settings.storageHandler
-
-  @deprecated("please use and pass on a Settings instance instead", "2020-02-25") // ready to remove
-  def schemaHandler(implicit settings: Settings): SchemaHandler = settings.schemaHandler
-
-  def apply(
-    config: Config = ConfigFactory
-      .load()
-  ): Settings = {
+  def apply(config: Config): Settings = {
     val jobId = UUID.randomUUID().toString
     val effectiveConfig = config
       .withValue("job-id", ConfigValueFactory.fromAnyRef(jobId, "per JVM instance"))
 
     val loaded = effectiveConfig.extract[Comet].valueOrThrow { error =>
       error.messages.foreach(err => logger.error(err))
-      throw new Exception("Failed to load config")
+      throw new Exception(s"Failed to load config: $error")
     }
     logger.info(s"Using Config $loaded")
-    Settings(loaded)
+    Settings(loaded, effectiveConfig.getConfig("spark"))
   }
 }
 
@@ -242,7 +300,7 @@ object Settings extends StrictLogging {
   * SMELL: this may be the start of a Dependency Injection root (but at 2-3 objects, is DI justified? probably not
   * quite yet) — cchepelov
   */
-final case class Settings(comet: Settings.Comet) {
+final case class Settings(comet: Settings.Comet, sparkConfig: Config) {
   def logger: Logger = Settings.loggerForCompanionInstances
 
   @transient
@@ -250,13 +308,6 @@ final case class Settings(comet: Settings.Comet) {
     implicit val self
       : Settings = this /* TODO: remove this once HdfsStorageHandler explicitly takes Settings or Settings.Comet in */
     new HdfsStorageHandler(comet.fileSystem)
-  }
-
-  @transient
-  lazy val schemaHandler: SchemaHandler = {
-    implicit val self
-      : Settings = this /* TODO: remove this once HdfsStorageHandler explicitly takes Settings or Settings.Comet in */
-    new SchemaHandler(storageHandler)
   }
 
   @transient
