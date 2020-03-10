@@ -102,6 +102,7 @@ trait IngestionJob extends SparkJob {
     if (settings.comet.metrics.active) {
       new MetricsJob(this.domain, this.schema, Stage.UNIT, this.storageHandler, this.schemaHandler)
         .run(acceptedDF, System.currentTimeMillis())
+        .get
     }
     val writeMode = getWriteMode()
     val acceptedPath = new Path(DatasetArea.accepted(domain.name), schema.name)
@@ -116,7 +117,9 @@ trait IngestionJob extends SparkJob {
     saveRows(mergedDF, acceptedPath, writeMode, StorageArea.accepted, schema.merge.isDefined)
 
     if (settings.comet.metrics.active) {
-      new MetricsJob(this.domain, this.schema, Stage.GLOBAL, storageHandler, schemaHandler).run()
+      new MetricsJob(this.domain, this.schema, Stage.GLOBAL, storageHandler, schemaHandler)
+        .run()
+        .get
     }
     (mergedDF, acceptedPath)
   }
@@ -388,31 +391,33 @@ trait IngestionJob extends SparkJob {
         val dataset = loadDataSet()
         dataset match {
           case Success(dataset) =>
-            val (rejectedRDD, acceptedRDD) = ingest(dataset)
-            val inputCount = dataset.count()
-            val acceptedCount = acceptedRDD.count()
-            val rejectedCount = rejectedRDD.count()
-            val inputFiles = dataset.inputFiles.mkString(",")
-            logger.info(
-              s"ingestion-summary -> files: [$inputFiles], domain: ${domain.name}, schema: ${schema.name}, input: $inputCount, accepted: $acceptedCount, rejected:$rejectedCount"
-            )
-            val end = Timestamp.from(Instant.now())
-            val log = AuditLog(
-              s"${settings.comet.jobId}",
-              inputFiles,
-              domain.name,
-              schema.name,
-              success = true,
-              inputCount,
-              acceptedCount,
-              rejectedCount,
-              start,
-              end.getTime - start.getTime,
-              "success"
-            )
-            SparkAuditLogWriter.append(session, log)
-            schema.postsql.getOrElse(Nil).foreach(session.sql)
-            Success(session)
+            Try {
+              val (rejectedRDD, acceptedRDD) = ingest(dataset)
+              val inputCount = dataset.count()
+              val acceptedCount = acceptedRDD.count()
+              val rejectedCount = rejectedRDD.count()
+              val inputFiles = dataset.inputFiles.mkString(",")
+              logger.info(
+                s"ingestion-summary -> files: [$inputFiles], domain: ${domain.name}, schema: ${schema.name}, input: $inputCount, accepted: $acceptedCount, rejected:$rejectedCount"
+              )
+              val end = Timestamp.from(Instant.now())
+              val log = AuditLog(
+                s"${settings.comet.jobId}",
+                inputFiles,
+                domain.name,
+                schema.name,
+                success = true,
+                inputCount,
+                acceptedCount,
+                rejectedCount,
+                start,
+                end.getTime - start.getTime,
+                "success"
+              )
+              SparkAuditLogWriter.append(session, log)
+              schema.postsql.getOrElse(Nil).foreach(session.sql)
+              session
+            }
           case Failure(exception) =>
             val end = Timestamp.from(Instant.now())
             val err = Utils.exceptionAsString(exception)
