@@ -41,11 +41,11 @@ object ChewerJob {
     types: List[Type],
     path: List[Path],
     storageHandler: StorageHandler
-  ): Unit = {
+  ): Try[SparkSession] = {
     val runtimeMirror = universe.runtimeMirror(getClass.getClassLoader)
     val module = runtimeMirror.staticModule(objName)
     val obj: universe.ModuleMirror = runtimeMirror.reflectModule(module)
     val chewer = obj.instance.asInstanceOf[ChewerJob]
-    chewer.run(domain, schema, types, path, storageHandler);
+    chewer.run(domain, schema, types, path, storageHandler)
   }
 }
