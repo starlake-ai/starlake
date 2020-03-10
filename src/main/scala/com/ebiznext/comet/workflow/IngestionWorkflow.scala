@@ -291,15 +291,16 @@ class IngestionWorkflow(
           schemaHandler
         ).run().get
       case CHEW =>
-        ChewerJob.run(
-          s"${settings.comet.chewerPrefix}.${domain.name}.${schema.name}",
-          domain,
-          schema,
-          schemaHandler.types,
-          ingestingPath,
-          storageHandler
-        ).get
-
+        ChewerJob
+          .run(
+            s"${settings.comet.chewerPrefix}.${domain.name}.${schema.name}",
+            domain,
+            schema,
+            schemaHandler.types,
+            ingestingPath,
+            storageHandler
+          )
+          .get
 
       case _ =>
         throw new Exception("Should never happen")
