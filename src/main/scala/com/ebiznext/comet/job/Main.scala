@@ -25,18 +25,16 @@ import com.ebiznext.comet.job.atlas.AtlasConfig
 import com.ebiznext.comet.job.bqload.BigQueryLoadConfig
 import com.ebiznext.comet.job.index.IndexConfig
 import com.ebiznext.comet.job.infer.InferSchemaConfig
+import com.ebiznext.comet.job.jdbcload.JdbcLoadConfig
 import com.ebiznext.comet.job.metrics.MetricsConfig
-import com.ebiznext.comet.utils.FileLock
+import com.ebiznext.comet.schema.handlers.SchemaHandler
+import com.ebiznext.comet.utils.{CometObjectMapper, FileLock}
 import com.ebiznext.comet.workflow.IngestionWorkflow
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
-import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
-import org.slf4j.MDC
-
-import scala.util.{Failure, Success, Try}
 
 /**
   * The root of all things.
@@ -50,8 +48,7 @@ import scala.util.{Failure, Success, Try}
   */
 object Main extends StrictLogging {
   // uses Jackson YAML to parsing, relies on SnakeYAML for low level handling
-  val mapper: ObjectMapper = new ObjectMapper(new YAMLFactory())
-  mapper.registerModule(DefaultScalaModule)
+  val mapper: ObjectMapper = new CometObjectMapper(new YAMLFactory())
 
   private def printUsage() = {
     // scalastyle:off println
@@ -93,8 +90,9 @@ object Main extends StrictLogging {
     implicit val settings: Settings = Settings(ConfigFactory.load())
     settings.publishMDCData()
 
-    import settings.{launcherService, schemaHandler, storageHandler}
+    import settings.{launcherService, storageHandler}
     DatasetArea.init(storageHandler)
+    val schemaHandler = new SchemaHandler(storageHandler)
 
     DatasetArea.initDomains(storageHandler, schemaHandler.domains.map(_.name))
 
@@ -152,8 +150,15 @@ object Main extends StrictLogging {
       case "bqload" =>
         BigQueryLoadConfig.parse(args.drop(1)) match {
           case Some(config) =>
-            // do something
             workflow.bqload(config)
+          case _ =>
+            printUsage()
+        }
+
+      case "sqlload" =>
+        JdbcLoadConfig.parse(args.drop(1)) match {
+          case Some(config) =>
+            workflow.jdbcload(config)
           case _ =>
             printUsage()
         }

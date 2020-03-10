@@ -21,6 +21,9 @@
 import sbt.{ExclusionRule, _}
 
 object Dependencies {
+  def scalaReflection(scalaVersion: String) = Seq(
+    "org.scala-lang" % "scala-reflect" % scalaVersion
+  )
 
   val jacksonExclusions = Seq(
     ExclusionRule(organization = "com.fasterxml.jackson.core"),
@@ -128,6 +131,10 @@ object Dependencies {
     "org.apache.hadoop" % "hadoop-client" % Versions.hadoop % "provided" excludeAll (jacksonExclusions: _*)
   )
 
-  val dependencies = logging ++ typedConfigs ++ okhttp ++ betterfiles ++ scalaTest ++ scopt ++ hadoop ++ esHadoop ++ sttp ++ gcp ++ azure // ++ atlas
+  val h2 = Seq(
+    "com.h2database" % "h2" % Versions.h2 % Test
+  )
+  val dependencies = logging ++ typedConfigs ++ okhttp ++ betterfiles ++ scalaTest ++ scopt ++ hadoop ++ esHadoop ++
+    sttp ++ gcp ++ azure ++ h2 // ++ atlas
 
 }
