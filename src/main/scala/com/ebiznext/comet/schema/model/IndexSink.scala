@@ -41,17 +41,22 @@ object IndexSink {
 
   def fromString(value: String): IndexSink = {
     value.toUpperCase match {
+      case "None" => IndexSink.None
+      case "JDBC" => IndexSink.JDBC
       case "BQ"   => IndexSink.BQ
       case "ES"   => IndexSink.ES
-      case "TRUE" => IndexSink.ES
     }
   }
+
+  object None extends IndexSink("None")
 
   object BQ extends IndexSink("BQ")
 
   object ES extends IndexSink("ES")
 
-  val sinks: Set[IndexSink] = Set(BQ, ES)
+  object JDBC extends IndexSink("JDBC")
+
+  val sinks: Set[IndexSink] = Set(None, BQ, ES, JDBC)
 }
 
 class IndexSinkDeserializer extends JsonDeserializer[IndexSink] {

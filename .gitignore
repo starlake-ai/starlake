@@ -117,7 +117,6 @@ spark-warehouse/
 docs/_build
 src/test/resources/nps/
 src/main/resources/application.conf
-src/test/resources/application.conf
 
 # Unix traditional
 *~

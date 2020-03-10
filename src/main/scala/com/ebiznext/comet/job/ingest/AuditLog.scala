@@ -23,15 +23,15 @@ package com.ebiznext.comet.job.ingest
 import java.sql.Timestamp
 
 import com.ebiznext.comet.config.Settings
+import com.ebiznext.comet.config.Settings.IndexSinkSettings
 import com.ebiznext.comet.job.bqload.{BigQueryLoadConfig, BigQueryLoadJob}
+import com.ebiznext.comet.job.jdbcload.{JdbcLoadConfig, JdbcLoadJob}
 import com.ebiznext.comet.utils.FileLock
 import com.google.cloud.bigquery.{Field, LegacySQLTypeName}
 import org.apache.hadoop.fs.Path
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{SaveMode, SparkSession}
-
-import scala.util.{Failure, Success, Try}
 
 case class AuditLog(
   jobid: String,
@@ -40,8 +40,8 @@ case class AuditLog(
   schema: String,
   success: Boolean,
   count: Long,
-  countOK: Long,
-  countKO: Long,
+  countAccepted: Long,
+  countRejected: Long,
   timestamp: Timestamp,
   duration: Long,
   message: String
@@ -54,8 +54,8 @@ case class AuditLog(
        |schema=$schema
        |success=$success
        |count=$count
-       |countOK=$countOK
-       |countKO=$countKO
+       |countAccepted=$countAccepted
+       |countRejected=$countRejected
        |timestamp=$timestamp
        |duration=$duration
        |message=$message
@@ -72,8 +72,8 @@ object SparkAuditLogWriter {
     ("schema", LegacySQLTypeName.STRING, StringType),
     ("success", LegacySQLTypeName.BOOLEAN, BooleanType),
     ("count", LegacySQLTypeName.INTEGER, LongType),
-    ("countOK", LegacySQLTypeName.INTEGER, LongType),
-    ("countKO", LegacySQLTypeName.INTEGER, LongType),
+    ("countAccepted", LegacySQLTypeName.INTEGER, LongType),
+    ("countRejected", LegacySQLTypeName.INTEGER, LongType),
     ("timestamp", LegacySQLTypeName.TIMESTAMP, TimestampType),
     ("duration", LegacySQLTypeName.INTEGER, LongType),
     ("message", LegacySQLTypeName.STRING, StringType)
@@ -117,19 +117,34 @@ object SparkAuditLogWriter {
       )
       .toDF(auditCols.map(_._1): _*)
 
-    if (settings.comet.audit.index == "BQ") {
-      val bqConfig = BigQueryLoadConfig(
-        Right(auditDF),
-        settings.comet.audit.options.getOrDefault("bq-dataset", "audit"),
-        "audit",
-        None,
-        "parquet",
-        "CREATE_IF_NEEDED",
-        "WRITE_APPEND",
-        None,
-        None
-      )
-      new BigQueryLoadJob(bqConfig, Some(bigqueryAuditSchema())).run()
+    settings.comet.audit.index match {
+      case IndexSinkSettings.Jdbc(name, partitions, batchSize) =>
+        val jdbcConfig = JdbcLoadConfig.fromComet(
+          name,
+          settings.comet,
+          Right(auditDF),
+          "audit",
+          partitions = partitions,
+          batchSize = batchSize
+        )
+        new JdbcLoadJob(jdbcConfig).run()
+
+      case IndexSinkSettings.BigQuery(dataset) =>
+        val bqConfig = BigQueryLoadConfig(
+          Right(auditDF),
+          outputDataset = dataset,
+          outputTable = "audit",
+          None,
+          "parquet",
+          "CREATE_IF_NEEDED",
+          "WRITE_APPEND",
+          None,
+          None
+        )
+        new BigQueryLoadJob(bqConfig, Some(bigqueryAuditSchema())).run()
+
+      case IndexSinkSettings.None =>
+      // this is a NOP
     }
   }
 }
