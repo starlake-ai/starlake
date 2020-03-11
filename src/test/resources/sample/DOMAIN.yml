@@ -33,6 +33,7 @@ schemas:
       - name: "age"
         rename: "age"
         type: "int"
+        metricType: "discrete"
         required: false
         privacy: "NONE"
       - name: "ok"
