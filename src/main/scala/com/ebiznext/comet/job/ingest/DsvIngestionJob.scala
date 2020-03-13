@@ -107,10 +107,10 @@ class DsvIngestionJob(
   def loadDataSet(): Try[DataFrame] = {
     try {
       val df = session.read
-        .format("com.databricks.spark.csv")
         .option("header", metadata.isWithHeader().toString)
         .option("inferSchema", value = false)
         .option("delimiter", metadata.getSeparator())
+        .option("multiLine", metadata.getMultiline())
         .option("quote", metadata.getQuote())
         .option("escape", metadata.getEscape())
         .option("parserLib", "UNIVOCITY")
