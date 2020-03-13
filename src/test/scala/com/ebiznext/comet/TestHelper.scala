@@ -196,6 +196,7 @@ trait TestHelper extends AnyFlatSpec with Matchers with BeforeAndAfterAll with S
     new File(cometTestRoot).mkdirs()
     new File(cometDatasetsPath).mkdir()
     new File(cometMetadataPath).mkdir()
+    new File(cometTestRoot + "/yelp").mkdir()
     new File(cometTestRoot + "/DOMAIN").mkdir()
     new File(cometTestRoot + "/dream").mkdir()
     new File(cometTestRoot + "/json").mkdir()
