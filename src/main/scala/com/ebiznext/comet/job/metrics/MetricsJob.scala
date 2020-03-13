@@ -45,11 +45,7 @@ class MetricsJob(
     * @return : path where the metrics for the specified schema are stored
     */
   def getMetricsPath(path: String): Path = {
-    new Path(
-      path
-        .replace("{domain}", domain.name)
-        .replace("{schema}", schema.name)
-    )
+    DatasetArea.metrics(domain.name, schema.name)
   }
 
   def getLockPath(path: String): Path = {
