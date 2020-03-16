@@ -198,14 +198,24 @@ root
     )
 
     val listDiscAttrName: List[String] =
-      List("category", "countDistinct", "countByCategory", "frequencies", "missingValuesDiscrete")
+      List("countDistinct", "catCountFreq", "missingValuesDiscrete")
     val discreteSchema = StructType(
       Array(
         StructField("attribute", StringType, false),
-        StructField("category", ArrayType(StringType), false),
         StructField("countDistinct", LongType, false),
-        StructField("countByCategory", ArrayType(MapType(StringType, LongType)), false),
-        StructField("frequencies", ArrayType(MapType(StringType, DoubleType)), false),
+        StructField(
+          "catCountFreq",
+          ArrayType(
+            StructType(
+              Array(
+                StructField("category", StringType, false),
+                StructField("count", LongType, false),
+                StructField("frequency", DoubleType, false)
+              )
+            )
+          ),
+          false
+        ),
         StructField("missingValuesDiscrete", LongType, false),
         StructField("cometMetric", StringType, false)
       )
@@ -225,10 +235,8 @@ root
       "median",
       "percentile75",
       "missingValues",
-      "category",
       "countDistinct",
-      "countByCategory",
-      "frequencies",
+      "catCountFreq",
       "missingValuesDiscrete"
     )
     val sortSelectCol: List[String] = List(
@@ -247,10 +255,8 @@ root
       "percentile25",
       "median",
       "percentile75",
-      "category",
       "countDistinct",
-      "countByCategory",
-      "frequencies",
+      "catCountFreq",
       "missingValuesDiscrete",
       "count",
       "cometTime",

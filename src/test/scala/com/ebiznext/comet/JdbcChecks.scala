@@ -5,7 +5,7 @@ import java.time.Instant
 
 import com.ebiznext.comet
 import com.ebiznext.comet.config.Settings
-import com.ebiznext.comet.job.ingest.{AuditLog, MetricRecord, RejectedRecord}
+import com.ebiznext.comet.job.ingest.{AuditLog, CatCountFreq, MetricRecord, RejectedRecord}
 import org.scalatest.Assertion
 
 import scala.annotation.tailrec
@@ -196,8 +196,8 @@ trait JdbcChecks {
       "metrics",
       "domain" :: "schema" ::
       "min" :: "max" :: "mean" :: "missingValues" :: "standardDev" :: "variance" :: "sum" ::
-      "skewness" :: "kurtosis" :: "percentile25" :: "median" :: "percentile75" :: "category" ::
-      "countDistinct" :: "countByCategory" :: "frequencies" :: "missingValuesDiscrete" :: "count" ::
+      "skewness" :: "kurtosis" :: "percentile25" :: "median" :: "percentile75" ::
+      "countDistinct" :: "catCountFreq" :: "missingValuesDiscrete" :: "count" ::
       "cometTime" :: "cometStage" :: Nil,
       values.to[Vector]
     ) { rs =>
@@ -217,10 +217,8 @@ trait JdbcChecks {
         rs.getLongOption("percentile25"),
         rs.getLongOption("median"),
         rs.getLongOption("percentile75"),
-        rs.getStringOption("category"),
         rs.getLongOption("countDistinct"),
-        rs.getStringOption("countByCategory"),
-        rs.getStringOption("frequencies"),
+        rs.getStringOption("catCountFreq"),
         rs.getLongOption("missingValuesDiscrete"),
         rs.getLong("count"),
         rs.getLong("cometTime"),
