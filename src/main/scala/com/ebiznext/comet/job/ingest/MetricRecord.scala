@@ -6,6 +6,8 @@ import com.fasterxml.jackson.databind.ObjectMapper
 
 import scala.reflect.ClassTag
 
+final case class CatCountFreq(category: String, count: Long, frequency: Double)
+
 case class MetricRecord(
   domain: String,
   schema: String,
@@ -22,10 +24,8 @@ case class MetricRecord(
   percentile25: Option[Long],
   median: Option[Long],
   percentile75: Option[Long],
-  category: Option[Seq[String]],
   countDistinct: Option[Long],
-  countByCategory: Option[Seq[Map[String, Option[Long]]]],
-  frequencies: Option[Seq[Map[String, Option[Long]]]],
+  catCountFreq: Option[Seq[CatCountFreq]],
   missingValuesDiscrete: Option[Long],
   count: Long,
   cometTime: Long,
@@ -60,10 +60,8 @@ case class MetricRecord(
       s"percentile25=${skewness.map(_.toString).getOrElse("?")}",
       s"median=${median.map(_.toString).getOrElse("?")}",
       s"percentile75=${percentile75.map(_.toString).getOrElse("?")}",
-      s"category=${category.map(_.mkString(",")).getOrElse("?")}",
       s"countDistinct=${countDistinct.map(_.toString).getOrElse("?")}",
-      s"countByCategory=${countByCategory.map(seqOfMapStringOptToString).getOrElse("?")}",
-      s"frequencies=${frequencies.map(seqOfMapStringOptToString).getOrElse("?")}",
+      s"catCountFreq=${catCountFreq.map(_.toString).getOrElse("?")}",
       s"missingValuesDiscrete=${missingValuesDiscrete.map(_.toString).getOrElse("?")}",
       s"skewness=${skewness.map(_.toString).getOrElse("?")}",
       s"count=$count",
@@ -107,10 +105,8 @@ object MetricRecord {
     percentile25: Option[Long],
     median: Option[Long],
     percentile75: Option[Long],
-    category: Option[String],
     countDistinct: Option[Long],
-    countByCategory: Option[String],
-    frequencies: Option[String],
+    catCountFreq: Option[String],
     missingValuesDiscrete: Option[Long],
     count: Long,
     cometTime: Long,
@@ -189,6 +185,8 @@ object MetricRecord {
 
     implicit object ForSeqMapStringOptionDouble
         extends UsingObjectMapper[Seq[Map[String, Option[Double]]]](mapper)
+
+    implicit object ForSeqCatCountFreq extends UsingObjectMapper[Seq[CatCountFreq]](mapper)
 
   }
 
