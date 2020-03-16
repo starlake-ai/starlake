@@ -197,7 +197,7 @@ trait JdbcChecks {
       "domain" :: "schema" ::
       "min" :: "max" :: "mean" :: "missingValues" :: "standardDev" :: "variance" :: "sum" ::
       "skewness" :: "kurtosis" :: "percentile25" :: "median" :: "percentile75" ::
-      "countDistinct"  :: "catCountFreq" :: "missingValuesDiscrete" :: "count" ::
+      "countDistinct" :: "catCountFreq" :: "missingValuesDiscrete" :: "count" ::
       "cometTime" :: "cometStage" :: Nil,
       values.to[Vector]
     ) { rs =>
