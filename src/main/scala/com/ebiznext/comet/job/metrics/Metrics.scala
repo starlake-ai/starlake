@@ -3,6 +3,7 @@ package com.ebiznext.comet.job.metrics
 import com.ebiznext.comet.utils.DataTypeEx._
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.sql.functions._
+import org.apache.spark.sql.types.{DoubleType, IntegerType, LongType, StringType, StructType}
 import org.apache.spark.sql.{Column, DataFrame}
 
 object Metrics extends StrictLogging {
@@ -254,13 +255,11 @@ object Metrics extends StrictLogging {
 
   case class DiscreteMetric(name: String, function: ((Column, DataFrame)) => Column)
 
-  object Category extends DiscreteMetric("category", customCategory)
-
   object CountDistinct extends DiscreteMetric("countDistinct", customCountDistinct)
 
-  object CountDiscrete extends DiscreteMetric("countByCategory", customCountDiscrete)
+  object CatCountFreq extends DiscreteMetric("catCountFreq", customCatCountFreq)
 
-  object Frequencies extends DiscreteMetric("frequencies", customFrequencies)
+  object CountDiscrete extends DiscreteMetric("countByCategory", customCountDiscrete)
 
   object CountMissValuesDiscrete
       extends DiscreteMetric("missingValuesDiscrete", customCountMissValuesDiscrete)
@@ -270,7 +269,7 @@ object Metrics extends StrictLogging {
     */
 
   val discreteMetrics: List[DiscreteMetric] =
-    List(Category, CountDistinct, CountDiscrete, Frequencies, CountMissValuesDiscrete)
+    List(CountDistinct, CatCountFreq, CountMissValuesDiscrete)
 
   /** Function to compute the Dataframe metric by variable
     *
@@ -287,9 +286,19 @@ object Metrics extends StrictLogging {
     val dataCatCountFreq: DataFrame = colNamDataCatCountFreq._2
     val listcol: List[Column] =
       operations.map(metric => metric.function((colVar, dataCatCountFreq)))
+
     dataCatCountFreq
+      .withColumn(
+        "cat_count_freq",
+        struct(
+          col("Category").cast(StringType).as("category"),
+          col("CountDiscrete").cast(LongType).as("count"),
+          col("Frequencies").cast(DoubleType).as("frequency")
+        )
+      )
       .agg(listcol.head, listcol.tail: _*)
       .withColumn("attribute", lit(colVar.toString()))
+
   }
 
   /** Function to compute the Dataframe with Category, Count and Frequencies obtain from the initial Dataframe
@@ -308,14 +317,13 @@ object Metrics extends StrictLogging {
       .withColumn(
         "NumMissVals",
         when(
-          col("Category").isNotNull.&&(col("Category").notEqual(" ")),
+          col("Category").isNotNull,
           lit(0)
         ).otherwise(col("CountDiscrete"))
       )
       .withColumn(
         "CategoryChange",
-        when(col("Category").isNull, "Null_Values")
-          .otherwise(col("Category"))
+        col("Category")
       )
 
     (e, dataCatCountFreq)
@@ -360,6 +368,15 @@ object Metrics extends StrictLogging {
 
   def metricCountDistinct(dataCategoryCount: DataFrame): Column = {
     count(col("Category"))
+  }
+
+  /** Function to extract the column that contains the list of struct cat_count_freq
+    *
+    * @param dataCategoryCount
+    * @return
+    */
+  def metricCatCountFreq(dataCategoryCount: DataFrame): Column = {
+    collect_list(col("cat_count_freq")).as("catCountFreq")
   }
 
   /** Function to extract the column that contains the list of number of Missing values
@@ -413,6 +430,20 @@ object Metrics extends StrictLogging {
       colNameDataCatCount._2,
       "countDistinct",
       metricCountDistinct
+    )
+  }
+
+  /** Customize catCountFreq for discrete variable
+    *
+    * @param colNameDataCatCount
+    * @return
+    */
+  def customCatCountFreq(colNameDataCatCount: (Column, DataFrame)): Column = {
+    customMetricDiscret(
+      colNameDataCatCount._1,
+      colNameDataCatCount._2,
+      "catCountFreq",
+      metricCatCountFreq
     )
   }
 
