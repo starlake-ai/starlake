@@ -85,7 +85,6 @@ object Dependencies {
     "org.apache.spark" %% "spark-mllib" % Versions.spark212 % "provided"
   )
 
-
   val gcsConnectorShadedJar = s"${Resolvers.googleCloudBigDataMavenRepo}/gcs-connector/${Versions.gcs}/gcs-connector-${Versions.gcs}-shaded.jar"
   val gcpBigQueryConnectorShadedJar = s"${Resolvers.googleCloudBigDataMavenRepo}/bigquery-connector/${Versions.hadoopbq}/bigquery-connector-${Versions.hadoopbq}-shaded.jar"
 
@@ -131,10 +130,14 @@ object Dependencies {
     "org.apache.hadoop" % "hadoop-client" % Versions.hadoop % "provided" excludeAll (jacksonExclusions: _*)
   )
 
+  val excelClientApi = Seq(
+    "org.apache.poi" % "poi-ooxml" % Versions.poi
+  )
+
   val h2 = Seq(
     "com.h2database" % "h2" % Versions.h2 % Test
   )
-  val dependencies = logging ++ typedConfigs ++ okhttp ++ betterfiles ++ scalaTest ++ scopt ++ hadoop ++ esHadoop ++
-    sttp ++ gcp ++ azure ++ h2 // ++ atlas
 
+  val dependencies = logging ++ typedConfigs ++ okhttp ++ betterfiles ++ scalaTest ++ scopt ++ hadoop ++ esHadoop ++
+  sttp ++ gcp ++ azure ++ h2 ++ excelClientApi // ++ atlas
 }
