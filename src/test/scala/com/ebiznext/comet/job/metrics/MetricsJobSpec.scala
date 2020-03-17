@@ -7,8 +7,6 @@ import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
-import org.scalatest.matchers.should
-import org.scalatest.matchers.should.Matchers
 
 class MetricsJobSpec extends TestHelper {
 
@@ -27,39 +25,39 @@ class MetricsJobSpec extends TestHelper {
     */
   val expectedMetricsSchema = StructType(
     Array(
-      StructField("domain", StringType, true),
-      StructField("schema", StringType, true),
-      StructField("attribute", StringType, true),
-      StructField("min", DoubleType, true),
-      StructField("max", DoubleType, true),
-      StructField("mean", DoubleType, true),
-      StructField("missingValues", LongType, true),
-      StructField("standardDev", DoubleType, true),
-      StructField("variance", DoubleType, true),
-      StructField("sum", DoubleType, true),
-      StructField("skewness", DoubleType, true),
-      StructField("kurtosis", DoubleType, true),
-      StructField("percentile25", DoubleType, true),
-      StructField("median", DoubleType, true),
-      StructField("percentile75", DoubleType, true),
-      StructField("countDistinct", LongType, true),
+      StructField("domain", StringType, nullable = true),
+      StructField("schema", StringType, nullable = true),
+      StructField("attribute", StringType, nullable = true),
+      StructField("min", DoubleType, nullable = true),
+      StructField("max", DoubleType, nullable = true),
+      StructField("mean", DoubleType, nullable = true),
+      StructField("missingValues", LongType, nullable = true),
+      StructField("standardDev", DoubleType, nullable = true),
+      StructField("variance", DoubleType, nullable = true),
+      StructField("sum", DoubleType, nullable = true),
+      StructField("skewness", DoubleType, nullable = true),
+      StructField("kurtosis", DoubleType, nullable = true),
+      StructField("percentile25", DoubleType, nullable = true),
+      StructField("median", DoubleType, nullable = true),
+      StructField("percentile75", DoubleType, nullable = true),
+      StructField("countDistinct", LongType, nullable = true),
       StructField(
         "catCountFreq",
         ArrayType(
           StructType(
             Array(
-              StructField("category", StringType, true),
-              StructField("count", LongType, true),
-              StructField("frequency", DoubleType, true)
+              StructField("category", StringType, nullable = true),
+              StructField("count", LongType, nullable = true),
+              StructField("frequency", DoubleType, nullable = true)
             )
           )
         ),
-        true
+        nullable = true
       ),
-      StructField("missingValuesDiscrete", LongType, true),
-      StructField("count", LongType, true),
-      StructField("cometTime", LongType, true),
-      StructField("cometStage", StringType, true)
+      StructField("missingValuesDiscrete", LongType, nullable = true),
+      StructField("count", LongType, nullable = true),
+      StructField("cometTime", LongType, nullable = true),
+      StructField("cometStage", StringType, nullable = true)
     )
   )
 
