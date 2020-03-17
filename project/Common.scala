@@ -118,6 +118,7 @@ object Versions {
   val bq = "1.103.0"
   val hadoop = "3.2.0"
   val h2 = "1.4.200" // Test only
+  val poi = "4.1.1"
 }
 
 object Resolvers {

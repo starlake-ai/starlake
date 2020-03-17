@@ -60,6 +60,10 @@ artifact in (Compile, assembly) := {
 
 addArtifact(artifact in (Compile, assembly), assembly)
 
+commands += Command.command("assemblyTrulyFatJar") { state =>
+  """set assembly / fullClasspath := (Compile / fullClasspath).value""" :: "assembly" :: state
+}
+
 publishTo in ThisBuild := {
   sys.env.get("GCS_BUCKET_ARTEFACTS") match {
     case None        => sonatypePublishToBundle.value
@@ -140,6 +144,11 @@ assemblyExcludedJars in assembly := {
   //cp filter {_.data.getName.matches("hadoop-.*-2.6.5.jar")}
   Nil
 }
+
+// poi needs a version of commons-compress newer than the one shipped with spark
+assemblyShadeRules in assembly := Seq(
+  ShadeRule.rename("org.apache.commons.compress.**" -> "shadeio.commons.compress.@1").inAll
+)
 
 // Your profile name of the sonatype account. The default is the same with the organization value
 sonatypeProfileName := "com.ebiznext"
