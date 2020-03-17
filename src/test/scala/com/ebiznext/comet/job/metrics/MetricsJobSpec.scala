@@ -1,15 +1,14 @@
 package com.ebiznext.comet.job.metrics
 
-import java.net.URL
-
 import com.ebiznext.comet.TestHelper
 import com.ebiznext.comet.config.DatasetArea
 import com.ebiznext.comet.job.metrics.Metrics._
-import com.ebiznext.comet.schema.handlers.SchemaHandler
-import com.ebiznext.comet.schema.model.{Metadata, Schema}
+import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions._
-import org.apache.spark.sql.types.StructField
+import org.apache.spark.sql.types._
+import org.scalatest.matchers.should
+import org.scalatest.matchers.should.Matchers
 
 class MetricsJobSpec extends TestHelper {
 
@@ -22,6 +21,47 @@ class MetricsJobSpec extends TestHelper {
   val listDiscreteAttributes: List[String] = Seq("Name").toList
 
   val partialContinuousMetric: List[ContinuousMetric] = List(Min, Max)
+
+  /**
+    * schema of metrics
+    */
+  val expectedMetricsSchema = StructType(
+    Array(
+      StructField("domain", StringType, true),
+      StructField("schema", StringType, true),
+      StructField("attribute", StringType, true),
+      StructField("min", DoubleType, true),
+      StructField("max", DoubleType, true),
+      StructField("mean", DoubleType, true),
+      StructField("missingValues", LongType, true),
+      StructField("standardDev", DoubleType, true),
+      StructField("variance", DoubleType, true),
+      StructField("sum", DoubleType, true),
+      StructField("skewness", DoubleType, true),
+      StructField("kurtosis", DoubleType, true),
+      StructField("percentile25", DoubleType, true),
+      StructField("median", DoubleType, true),
+      StructField("percentile75", DoubleType, true),
+      StructField("countDistinct", LongType, true),
+      StructField(
+        "catCountFreq",
+        ArrayType(
+          StructType(
+            Array(
+              StructField("category", StringType, true),
+              StructField("count", LongType, true),
+              StructField("frequency", DoubleType, true)
+            )
+          )
+        ),
+        true
+      ),
+      StructField("missingValuesDiscrete", LongType, true),
+      StructField("count", LongType, true),
+      StructField("cometTime", LongType, true),
+      StructField("cometStage", StringType, true)
+    )
+  )
 
   /**
     * Read the data .csv
@@ -176,16 +216,28 @@ class MetricsJobSpec extends TestHelper {
         cleanMetadata
         cleanDatasets
         loadPending
-        val countAccepted = sparkSession.read
-          .parquet(cometDatasetsPath + s"/accepted/$datasetDomainName/business").count()
+        val countAccepted: Long = sparkSession.read
+          .parquet(cometDatasetsPath + s"/accepted/$datasetDomainName/business")
+          .count()
 
-        val path = DatasetArea.metrics("yelp", "business")
-        val metricsDf = sparkSession.read.parquet(path.toString)
-        metricsDf.show(false)
+        val path: Path = DatasetArea.metrics("yelp", "business")
+        val metricsDf: DataFrame = sparkSession.read.parquet(path.toString)
+        metricsDf.schema shouldBe expectedMetricsSchema
         import sparkSession.implicits._
-        val counts = metricsDf.select("attribute", "count").map(r => (r.getString(0), r.getLong(1))).collect()
-        println(counts)
-        counts.count(_._2 == countAccepted) shouldBe counts.length
+        val metricsSelectedColumns =
+          metricsDf
+            .select("domain", "schema", "attribute")
+            .map(r => (r.getString(0), r.getString(1), r.getString(2)))
+            .take(7)
+        metricsSelectedColumns should contain allElementsOf Array(
+          ("yelp", "business", "city"),
+          ("yelp", "business", "is_open"),
+          ("yelp", "business", "postal_code"),
+          ("yelp", "business", "state"),
+          ("yelp", "business", "review_count"),
+          ("yelp", "business", "stars"),
+          ("yelp", "business", "is_open")
+        )
       }
     }
   }
