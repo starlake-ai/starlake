@@ -21,10 +21,13 @@ object SchemaGen extends LazyLogging {
   }
 
   /**
-    * build pre encryption Domain => for each attribute of each schema set :
-    *     - type to "string"
-    *     - required to False
-    *     - rename to None
+    * Encryption of a data source is done by running a specific ingestion job that aims only to apply Privacy rules on the
+    * concerned attributes.
+    * To apply the Encryption process on the data sources of a given Domain, we need a corresponding "PreEncryption Domain".
+    * The PreEncryption domain contains the same Schemas as the initial Domain but with less constraints on the attributes,
+    * which speeds up the encryption process by limiting it to applying the Encryption methods on columns with
+    * privacy attributes.
+    *
     * @param domain
     */
   def genPreEncryptionDomain(domain: Domain): Domain = {
@@ -56,8 +59,7 @@ object SchemaGen extends LazyLogging {
           )
           schema.copy(metadata = postEncryptMetaData)
         }
-        case Some(_) => schema
-        case None    => schema
+        case _ => schema
       }
     }
     val postEncryptDomain = domain.copy(schemas = postEncryptSchemas)
@@ -87,15 +89,15 @@ object Main extends App {
   else {
     val arglist = args.toList
     val outputPath = settings.comet.metadata
-    arglist.head match {
-      case "generate-yml" if arglist.length == 2 => generateSchema(arglist(1))
-      case "generate-encryptionYml" if arglist.length == 2 => {
+    (arglist.head, arglist.size) match {
+      case ("generate-yml", 2) => generateSchema(arglist(1))
+      case ("generate-encryptionYml", 2) => {
         val domainOpt = new XlsReader(arglist(1)).getDomain()
         domainOpt.foreach { d =>
           val preEncrypt = genPreEncryptionDomain(d)
-          writeDomainYaml(preEncrypt, outputPath, "preEncrypt-" + preEncrypt.name)
+          writeDomainYaml(preEncrypt, outputPath, "pre-encrypt-" + preEncrypt.name)
           val postEncrypt = genPostEncryptionDomain(d)
-          writeDomainYaml(postEncrypt, outputPath, "postEncrypt-" + d.name)
+          writeDomainYaml(postEncrypt, outputPath, "post-encrypt-" + d.name)
         }
       }
       case _ => printUsage()
