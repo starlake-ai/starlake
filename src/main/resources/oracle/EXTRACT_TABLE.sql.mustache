@@ -1,0 +1,92 @@
+-- MISE EN FORME POUR L'ECRITURE DANS LE FICHIER
+SET FEED OFF
+SET ECHO OFF
+SET VERIFY OFF
+SET HEADING OFF
+SET TERMOUT ON
+SET CONCAT "#"
+SET MARKUP CSV ON DELIMITER "{{delimiter}}"
+-- ARRET EN ECHEC EN CAS D'ERREUR SQL
+WHENEVER SQLERROR exit 1;
+
+-- RECUPERATION DU DOSSIER DE SORTIE
+DEFINE OUTPUT_DIR = &1;
+
+-- STOCKAGE DU DATE TIME COURANT EN STRING DANS DATE_TIME_CHAR
+DEFINE DATE_TIME_PATTERN = 'yyyymmddhhmiss';
+COLUMN DT_VAL NEW_VALUE DATE_TIME_CHAR;
+SELECT TO_CHAR(SYSDATE, '&DATE_TIME_PATTERN') DT_VAL FROM DUAL;
+
+-- STOCKAGE DE LA DATE DE DERNIER EXPORT DANS LAST_EXPORT_DATE
+COLUMN LED NEW_VALUE LAST_EXPORT_DATE;
+SELECT
+    COALESCE(
+        (
+            SELECT
+                LAST_EXPORT_DATE
+            FROM
+                EXPORT_STATUS
+            WHERE
+                TABLE_NAME = '{{table_name}}'
+        ),
+        TO_DATE('19700101','yyyymmdd') -- SI PAS D'EXPORT DATE EN TABLE, EPOCH
+    ) LED
+FROM
+    DUAL;
+
+-- OUVERTURE DU FICHIER
+PROMPT EXPORTING {{table_name}} TO &OUTPUT_DIR#/{{output_file_base}}_&DATE_TIME_CHAR#.csv;
+SPOOL &OUTPUT_DIR#/{{output_file_base}}_&DATE_TIME_CHAR#.csv REPLACE
+
+SELECT
+    {{columns}}
+FROM
+    {{table_name}}
+{{#is_delta}}
+WHERE
+    {{delta_column}} >= &LAST_EXPORT_DATE
+{{/is_delta}}
+
+-- FERMETURE DU FICHIER
+SPOOL OFF
+
+-- MISE À JOUR DE LA TABLE REPORTING
+BEGIN
+    UPDATE
+        EXPORT_STATUS
+    SET
+        TABLE_NAME = '{{table_name}}',
+        LAST_EXPORT_DATE = TO_DATE(&DATE_TIME_CHAR, '&DATE_TIME_PATTERN'),
+        LAST_EXPORT_NB_OF_ROWS = (
+            SELECT
+                COUNT(*)
+            FROM
+                {{table_name}}
+            WHERE
+                {{delta_column}} >= '&LAST_EXPORT_DATE'
+        )
+    WHERE
+        TABLE_NAME = '{{table_name}}';
+    IF
+        SQL%ROWCOUNT = 0
+    THEN -- PAS DE LIGNE UPDATEES
+        INSERT INTO
+            EXPORT_STATUS (TABLE_NAME, LAST_EXPORT_DATE, LAST_EXPORT_NB_OF_ROWS)
+        VALUES
+            (
+                '{{table_name}}',
+                TO_DATE(&DATE_TIME_CHAR, '&DATE_TIME_PATTERN'),
+                (
+                    SELECT
+                        COUNT(*)
+                    FROM
+                        {{table_name}}
+                    WHERE
+                        {{delta_column}} >= '&LAST_EXPORT_DATE'
+                )
+            );
+    END IF;
+END;
+/
+
+EXIT SUCCESS
