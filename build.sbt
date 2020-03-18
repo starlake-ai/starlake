@@ -60,7 +60,9 @@ artifact in (Compile, assembly) := {
 
 addArtifact(artifact in (Compile, assembly), assembly)
 
-commands += Command.command("assemblyTrulyFatJar") { state =>
+// Builds a far JAR with embedded spark libraries and other provided libs.
+// Can be useful for running YAML generation without having a spark distribution
+commands += Command.command("assemblyWithSpark") { state =>
   """set assembly / fullClasspath := (Compile / fullClasspath).value""" :: "assembly" :: state
 }
 
@@ -145,9 +147,9 @@ assemblyExcludedJars in assembly := {
   Nil
 }
 
-// poi needs a version of commons-compress newer than the one shipped with spark
+// poi needs a newer version of commons-compress (> 1.17) than the one shipped with spark (1.4)
 assemblyShadeRules in assembly := Seq(
-  ShadeRule.rename("org.apache.commons.compress.**" -> "shadeio.commons.compress.@1").inAll
+  ShadeRule.rename("org.apache.commons.compress.**" -> "poiShade.commons.compress.@1").inAll
 )
 
 // Your profile name of the sonatype account. The default is the same with the organization value
