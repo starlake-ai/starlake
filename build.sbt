@@ -60,6 +60,12 @@ artifact in (Compile, assembly) := {
 
 addArtifact(artifact in (Compile, assembly), assembly)
 
+// Builds a far JAR with embedded spark libraries and other provided libs.
+// Can be useful for running YAML generation without having a spark distribution
+commands += Command.command("assemblyWithSpark") { state =>
+  """set assembly / fullClasspath := (Compile / fullClasspath).value""" :: "assembly" :: state
+}
+
 publishTo in ThisBuild := {
   sys.env.get("GCS_BUCKET_ARTEFACTS") match {
     case None        => sonatypePublishToBundle.value
@@ -140,6 +146,11 @@ assemblyExcludedJars in assembly := {
   //cp filter {_.data.getName.matches("hadoop-.*-2.6.5.jar")}
   Nil
 }
+
+// poi needs a newer version of commons-compress (> 1.17) than the one shipped with spark (1.4)
+assemblyShadeRules in assembly := Seq(
+  ShadeRule.rename("org.apache.commons.compress.**" -> "poiShade.commons.compress.@1").inAll
+)
 
 // Your profile name of the sonatype account. The default is the same with the organization value
 sonatypeProfileName := "com.ebiznext"
