@@ -15,8 +15,8 @@ import scala.util.{Success, Try}
   */
 class XlsReader(path: String) {
 
-  val workbook: Workbook = WorkbookFactory.create(new File(path))
-  val formatter = new DataFormatter
+  private val workbook: Workbook = WorkbookFactory.create(new File(path))
+  private val formatter = new DataFormatter
 
   private lazy val domain: Option[Domain] = {
     workbook.getSheet("domain").asScala.drop(1).headOption.flatMap { row =>
