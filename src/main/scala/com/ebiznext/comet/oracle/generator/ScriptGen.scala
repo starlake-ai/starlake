@@ -14,21 +14,16 @@ object ScriptGen extends StrictLogging {
   val engine: TemplateEngine = new TemplateEngine
 
   /**
-    * Generate an extraction script based on a template and its params
+    * Generate an extraction script payload based on a template and its params
     * @param template The extraction script template
     * @param templateParams Its params
-    * @return The produced script file
+    * @return The produced script payload
     */
-  def templatize(template: File, templateParams: TemplateParams): File = {
-    val scriptPayload = engine.layout(
+  def templatize(template: File, templateParams: TemplateParams): String = {
+    engine.layout(
       template.pathAsString,
       templateParams.paramMap
     )
-
-    val scriptFile =
-      templateParams.scriptOutputFile.createFileIfNotExists().overwrite(scriptPayload)
-    logger.info(s"Successfully generated script $scriptFile")
-    scriptFile
   }
 
   /**
@@ -41,15 +36,38 @@ object ScriptGen extends StrictLogging {
   def generate(domain: Domain, scriptTemplateFile: File, scriptsOutputPath: File): List[File] = {
     val preEncryptionDomain = SchemaGen.genPreEncryptionDomain(domain)
     val templateSettings = TemplateParams.fromDomain(preEncryptionDomain, scriptsOutputPath)
-    templateSettings.map(templatize(scriptTemplateFile, _))
+    templateSettings.map { ts =>
+      val scriptPayload = templatize(scriptTemplateFile, ts)
+      val scriptFile =
+        ts.scriptOutputFile.createFileIfNotExists().overwrite(scriptPayload)
+      logger.info(s"Successfully generated script $scriptFile")
+      scriptFile
+    }
   }
 
   def printUsage(): Unit = println(ScriptGenConfig.usage)
 
 }
 
+/*
+tableToExport = schema.name,
+      columnsToExport = schema.attributes.map(_.name),
+      isDelta = schema.metadata.flatMap(_.write).contains(WriteMode.APPEND),
+      deltaColumn = schema.merge.flatMap(_.timestamp),
+      dsvDelimiter = schema.metadata.flatMap(_.separator).getOrElse(","),
+      exportOutputFileBase = exportFileBase,
+      scriptOutputFile = scriptsOutputFolder / scriptOutputFileName
+ */
 /**
   * Generate Oracle sqlplus extraction scripts based on a given Excel referential file
+  * The Excel referential should, at least, specify :
+  * - "schema" sheet
+  *   - a table name (col A)
+  *   - a file pattern (col B) which is used as the export file base name
+  *   - a write mode (col D): APPEND or OVERWRITE
+  *   - a delta column (col H) if in APPEND mode : the column which is used to determine new rows for each exports
+  * - in corresponding source (table) sheets:
+  *   - the columns to extract
   * Usage: comet [script-gen] [options]
   *
   * Command: script-gen
