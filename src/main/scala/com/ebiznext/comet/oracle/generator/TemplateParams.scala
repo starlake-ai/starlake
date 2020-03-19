@@ -25,14 +25,18 @@ case class TemplateParams(
   scriptOutputFile: File
 ) {
 
-  def toParamMap: Map[String, Any] = Map(
-    "table_name"       -> tableToExport.toUpperCase,
-    "delimiter"        -> dsvDelimiter,
-    "columns"          -> columnsToExport.map(_.toUpperCase).mkString(", "),
-    "output_file_base" -> exportOutputFileBase,
-    "delta_column"     -> deltaColumn.map(_.toUpperCase).getOrElse(""),
-    "is_delta"         -> isDelta
-  )
+  val paramMap: Map[String, Any] = {
+    val exportType: String = if (isDelta) "DELTA" else "FULL"
+    Map(
+      "table_name"       -> tableToExport.toUpperCase,
+      "delimiter"        -> dsvDelimiter,
+      "columns"          -> columnsToExport.map(_.toUpperCase).mkString(", "),
+      "output_file_base" -> exportOutputFileBase,
+      "delta_column"     -> deltaColumn.map(_.toUpperCase).getOrElse(""),
+      "is_delta"         -> isDelta,
+      "export_type"      -> exportType
+    )
+  }
 }
 
 object TemplateParams {
@@ -60,15 +64,11 @@ object TemplateParams {
     schema: Schema,
     scriptsOutputFolder: File
   ): TemplateParams = {
-    val exportType: String = schema.metadata.flatMap(_.write).fold("FULL") {
-      case WriteMode.APPEND => "DELTA"
-      case _                => "FULL"
-    }
-    val scriptOutputFileName = s"EXTRACT_${schema.name}_$exportType.sql"
+    val scriptOutputFileName = s"EXTRACT_${schema.name}.sql"
     // exportFileBase is the csv file name base such as EXPORT_L58MA_CLIENT_DELTA_...
     // Considering a pattern like EXPORT_L58MA_CLIENT_*
     // The script which is generated will append the current date time to that base (EXPORT_L58MA_CLIENT_18032020173100).
-    val exportFileBase = s"${schema.pattern.toString.split("\\_\\*").head}_$exportType"
+    val exportFileBase = s"${schema.pattern.toString.split("\\_\\*").head}"
     new TemplateParams(
       tableToExport = schema.name,
       columnsToExport = schema.attributes.map(_.name),

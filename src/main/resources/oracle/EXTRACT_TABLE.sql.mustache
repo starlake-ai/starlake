@@ -14,7 +14,7 @@ DEFINE OUTPUT_DIR = &1;
 
 -- STOCKAGE DU DATE TIME COURANT EN STRING DANS DATE_TIME_CHAR
 DEFINE DATE_TIME_PATTERN = 'yyyymmddhhmiss';
-COLUMN DT_VAL NEW_VALUE DATE_TIME_CHAR;
+COLUMN DT_VAL NEW_VALUE CURRENT_EXPORT_DATE_CHAR;
 SELECT TO_CHAR(SYSDATE, '&DATE_TIME_PATTERN') DT_VAL FROM DUAL;
 
 -- STOCKAGE DE LA DATE DE DERNIER EXPORT DANS LAST_EXPORT_DATE
@@ -35,16 +35,23 @@ FROM
     DUAL;
 
 -- OUVERTURE DU FICHIER
-PROMPT EXPORTING {{table_name}} TO &OUTPUT_DIR#/{{output_file_base}}_&DATE_TIME_CHAR#.csv;
-SPOOL &OUTPUT_DIR#/{{output_file_base}}_&DATE_TIME_CHAR#.csv REPLACE
+PROMPT EXPORTING {{table_name}} TO &OUTPUT_DIR#/{{output_file_base}}_{{export_type}}_&CURRENT_EXPORT_DATE_CHAR#.csv;
+SPOOL &OUTPUT_DIR#/{{output_file_base}}_{{export_type}}_&CURRENT_EXPORT_DATE_CHAR#.csvq REPLACE
 
+{{#is_delta}}
 SELECT
     {{columns}}
 FROM
     {{table_name}}
-{{#is_delta}}
 WHERE
-    {{delta_column}} >= &LAST_EXPORT_DATE
+    {{delta_column}} >= '&LAST_EXPORT_DATE';
+{{/is_delta}}
+
+{{^is_delta}}
+SELECT
+    {{columns}}
+FROM
+    {{table_name}};
 {{/is_delta}}
 
 -- FERMETURE DU FICHIER
@@ -56,7 +63,8 @@ BEGIN
         EXPORT_STATUS
     SET
         TABLE_NAME = '{{table_name}}',
-        LAST_EXPORT_DATE = TO_DATE(&DATE_TIME_CHAR, '&DATE_TIME_PATTERN'),
+        LAST_EXPORT_DATE = TO_DATE(&CURRENT_EXPORT_DATE_CHAR, '&DATE_TIME_PATTERN'),
+        EXPORT_TYPE = '{{export_type}}'
         LAST_EXPORT_NB_OF_ROWS = (
             SELECT
                 COUNT(*)
@@ -71,11 +79,12 @@ BEGIN
         SQL%ROWCOUNT = 0
     THEN -- PAS DE LIGNE UPDATEES
         INSERT INTO
-            EXPORT_STATUS (TABLE_NAME, LAST_EXPORT_DATE, LAST_EXPORT_NB_OF_ROWS)
+            EXPORT_STATUS (TABLE_NAME, LAST_EXPORT_DATE, EXPORT_TYPE, LAST_EXPORT_NB_OF_ROWS)
         VALUES
             (
                 '{{table_name}}',
-                TO_DATE(&DATE_TIME_CHAR, '&DATE_TIME_PATTERN'),
+                TO_DATE(&CURRENT_EXPORT_DATE_CHAR, '&DATE_TIME_PATTERN'),
+                '{{export_type}}',
                 (
                     SELECT
                         COUNT(*)
