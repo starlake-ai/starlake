@@ -21,8 +21,8 @@ object ScriptGenConfig {
     import builder._
     OParser.sequence(
       programName("comet"),
-      cmd("script-gen"),
       head("comet", "1.x"),
+      cmd("script-gen"),
       opt[String]("referentialFile")
         .validate(exists("Excel referential file"))
         .action((x, c) => c.copy(referentialFile = File(x)))
@@ -37,7 +37,19 @@ object ScriptGenConfig {
         .validate(exists("Script output folder"))
         .action((x, c) => c.copy(scriptOutputDir = File(x)))
         .required()
-        .text("Scripts output folder")
+        .text("Scripts output folder"),
+      note(
+        """
+          |The Excel referential should, at least, specify :
+          |   - "schema" sheet
+          |     - a table name (col A)
+          |     - a file pattern (col B) which is used as the export file base name
+          |     - a write mode (col D): APPEND or OVERWRITE
+          |     - a delta column (col H) if in APPEND mode : the column which is used to determine new rows for each exports
+          |   - in corresponding source (table) sheets:
+          |     - the columns to extract
+          |""".stripMargin
+      )
     )
   }
   val usage: String = OParser.usage(parser, RenderingMode.TwoColumns)

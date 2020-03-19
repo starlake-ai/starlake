@@ -27,21 +27,25 @@ case class TemplateParams(
 
   val paramMap: Map[String, Any] = {
     val exportType: String = if (isDelta) "DELTA" else "FULL"
-    Map(
-      "table_name"       -> tableToExport.toUpperCase,
-      "delimiter"        -> dsvDelimiter,
-      "columns"          -> columnsToExport.map(_.toUpperCase).mkString(", "),
-      "output_file_base" -> exportOutputFileBase,
-      "delta_column"     -> deltaColumn.map(_.toUpperCase).getOrElse(""),
-      "is_delta"         -> isDelta,
-      "export_type"      -> exportType
-    )
+    deltaColumn
+      .map(_.toUpperCase)
+      .foldLeft(
+        List(
+          "table_name"       -> tableToExport.toUpperCase,
+          "delimiter"        -> dsvDelimiter,
+          "columns"          -> columnsToExport.map(_.toUpperCase).mkString(", "),
+          "output_file_base" -> exportOutputFileBase,
+          "is_delta"         -> isDelta,
+          "export_type"      -> exportType
+        )
+      ) { case (list, deltaCol) => list :+ ("delta_column" -> deltaCol.toUpperCase) }
+      .toMap
   }
 }
 
 object TemplateParams {
 
-  val dateFormater = DateTimeFormatter.ISO_DATE
+  val dateFormater: DateTimeFormatter = DateTimeFormatter.ISO_DATE
 
   /**
     * Generating all the TemplateParams, corresponding to all the schema's tables of the domain
@@ -69,11 +73,12 @@ object TemplateParams {
     // Considering a pattern like EXPORT_L58MA_CLIENT_*
     // The script which is generated will append the current date time to that base (EXPORT_L58MA_CLIENT_18032020173100).
     val exportFileBase = s"${schema.pattern.toString.split("\\_\\*").head}"
+    val isDelta = schema.metadata.flatMap(_.write).contains(WriteMode.APPEND)
     new TemplateParams(
       tableToExport = schema.name,
       columnsToExport = schema.attributes.map(_.name),
-      isDelta = schema.metadata.flatMap(_.write).contains(WriteMode.APPEND),
-      deltaColumn = schema.merge.flatMap(_.timestamp),
+      isDelta = isDelta,
+      deltaColumn = if (isDelta) schema.merge.flatMap(_.timestamp) else None,
       dsvDelimiter = schema.metadata.flatMap(_.separator).getOrElse(","),
       exportOutputFileBase = exportFileBase,
       scriptOutputFile = scriptsOutputFolder / scriptOutputFileName

@@ -8,7 +8,7 @@ import com.ebiznext.comet.schema.model.{Domain, Format}
 class SchemaGenSpec extends TestHelper {
   new WithSettings() {
     "Parsing a sample xlsx file" should "generate a yml file" in {
-      SchemaGen.generateSchema(getClass().getResource("/sample/SomeDomainTemplate.xlsx").getPath)
+      SchemaGen.generateSchema(getClass().getResource("/sample/SomeDomainTemplate.xls").getPath)
       val outputFile = new File(settings.comet.metadata + "/someDomain.yml")
       outputFile.exists() shouldBe true
       val result = YamlSerializer.mapper.readValue(outputFile, classOf[Domain])
@@ -17,12 +17,14 @@ class SchemaGenSpec extends TestHelper {
       val schema1 = result.schemas.filter(_.name == "SCHEMA1").head
       schema1.metadata.flatMap(_.format) shouldBe Some(Format.POSITION)
       schema1.attributes.size shouldBe 19
+      schema1.merge.flatMap(_.timestamp) shouldBe Some("UPDATE")
+      schema1.merge.map(_.key) shouldBe Some(List("ID1", "ID2"))
       val schema2 = result.schemas.filter(_.name == "SCHEMA2").head
       schema2.metadata.flatMap(_.format) shouldBe Some(Format.DSV)
       schema2.attributes.size shouldBe 19
     }
 
-    val reader = new XlsReader(getClass().getResource("/sample/SomeDomainTemplate.xlsx").getPath)
+    val reader = new XlsReader(getClass().getResource("/sample/SomeDomainTemplate.xls").getPath)
     val domainOpt = reader.getDomain()
 
     "a preEncryption domain" should "have only string types" in {
