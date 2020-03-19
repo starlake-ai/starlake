@@ -3,7 +3,7 @@ SET FEED OFF
 SET ECHO OFF
 SET VERIFY OFF
 SET HEADING OFF
-SET TERMOUT ON
+SET TERMOUT OFF
 SET CONCAT "#"
 SET MARKUP CSV ON DELIMITER "{{delimiter}}"
 -- ARRET EN ECHEC EN CAS D'ERREUR SQL
@@ -23,11 +23,11 @@ SELECT
     COALESCE(
         (
             SELECT
-                LAST_EXPORT_DATE
+                DA_LAST_EXPORT_DATE
             FROM
-                EXPORT_STATUS
+                L58OT.L58MA_EXPORT_STATUS
             WHERE
-                TABLE_NAME = '{{table_name}}'
+                LI_TABLE_NAME = '{{table_name}}'
         ),
         TO_DATE('19700101','yyyymmdd') -- SI PAS D'EXPORT DATE EN TABLE, EPOCH
     ) LED
@@ -36,13 +36,13 @@ FROM
 
 -- OUVERTURE DU FICHIER
 PROMPT EXPORTING {{table_name}} TO &OUTPUT_DIR#/{{output_file_base}}_{{export_type}}_&CURRENT_EXPORT_DATE_CHAR#.csv;
-SPOOL &OUTPUT_DIR#/{{output_file_base}}_{{export_type}}_&CURRENT_EXPORT_DATE_CHAR#.csvq REPLACE
+SPOOL &OUTPUT_DIR#/{{output_file_base}}_{{export_type}}_&CURRENT_EXPORT_DATE_CHAR#.csv REPLACE
 
 {{#is_delta}}
 SELECT
     {{columns}}
 FROM
-    {{table_name}}
+    L58OB.{{table_name}}
 WHERE
     {{delta_column}} >= '&LAST_EXPORT_DATE';
 {{/is_delta}}
@@ -51,7 +51,7 @@ WHERE
 SELECT
     {{columns}}
 FROM
-    {{table_name}};
+    L58OB.{{table_name}};
 {{/is_delta}}
 
 -- FERMETURE DU FICHIER
@@ -60,28 +60,30 @@ SPOOL OFF
 -- MISE À JOUR DE LA TABLE REPORTING
 BEGIN
     UPDATE
-        EXPORT_STATUS
+        L58OT.L58MA_EXPORT_STATUS
     SET
-        TABLE_NAME = '{{table_name}}',
-        LAST_EXPORT_DATE = TO_DATE(&CURRENT_EXPORT_DATE_CHAR, '&DATE_TIME_PATTERN'),
-        EXPORT_TYPE = '{{export_type}}'
-        LAST_EXPORT_NB_OF_ROWS = (
+        LI_SCHEMA_NAME = 'L58OB',
+        LI_TABLE_NAME = '{{table_name}}',
+        DA_LAST_EXPORT_DATE = TO_DATE(&CURRENT_EXPORT_DATE_CHAR, '&DATE_TIME_PATTERN'),
+        TYPE_LAST_EXPORT = '{{export_type}}',
+        NB_ROWS_LAST_EXPORT = (
             SELECT
                 COUNT(*)
             FROM
-                {{table_name}}
+                L58OB.{{table_name}}
             WHERE
                 {{delta_column}} >= '&LAST_EXPORT_DATE'
         )
     WHERE
-        TABLE_NAME = '{{table_name}}';
+        LI_TABLE_NAME = '{{table_name}}';
     IF
         SQL%ROWCOUNT = 0
     THEN -- PAS DE LIGNE UPDATEES
         INSERT INTO
-            EXPORT_STATUS (TABLE_NAME, LAST_EXPORT_DATE, EXPORT_TYPE, LAST_EXPORT_NB_OF_ROWS)
+            L58OT.L58MA_EXPORT_STATUS (LI_SCHEMA_NAME, LI_TABLE_NAME, DA_LAST_EXPORT_DATE, TYPE_LAST_EXPORT, NB_ROWS_LAST_EXPORT)
         VALUES
             (
+                'L58OB',
                 '{{table_name}}',
                 TO_DATE(&CURRENT_EXPORT_DATE_CHAR, '&DATE_TIME_PATTERN'),
                 '{{export_type}}',
@@ -89,7 +91,7 @@ BEGIN
                     SELECT
                         COUNT(*)
                     FROM
-                        {{table_name}}
+                        L58OB.{{table_name}}
                     WHERE
                         {{delta_column}} >= '&LAST_EXPORT_DATE'
                 )
