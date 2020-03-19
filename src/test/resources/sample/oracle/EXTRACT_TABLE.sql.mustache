@@ -1,0 +1,103 @@
+-- MISE EN FORME POUR L'ECRITURE DANS LE FICHIER
+SET FEED OFF
+SET ECHO OFF
+SET VERIFY OFF
+SET HEADING OFF
+SET TERMOUT OFF
+SET CONCAT "#"
+SET MARKUP CSV ON DELIMITER "{{delimiter}}"
+-- ARRET EN ECHEC EN CAS D'ERREUR SQL
+WHENEVER SQLERROR exit 1;
+
+-- RECUPERATION DU DOSSIER DE SORTIE
+DEFINE OUTPUT_DIR = &1;
+
+-- STOCKAGE DU DATE TIME COURANT EN STRING DANS DATE_TIME_CHAR
+DEFINE DATE_TIME_PATTERN = 'yyyymmddhhmiss';
+COLUMN DT_VAL NEW_VALUE CURRENT_EXPORT_DATE_CHAR;
+SELECT TO_CHAR(SYSDATE, '&DATE_TIME_PATTERN') DT_VAL FROM DUAL;
+
+-- STOCKAGE DE LA DATE DE DERNIER EXPORT DANS LAST_EXPORT_DATE
+COLUMN LED NEW_VALUE LAST_EXPORT_DATE;
+SELECT
+    COALESCE(
+        (
+            SELECT
+                DA_LAST_EXPORT_DATE
+            FROM
+                L58OT.L58MA_EXPORT_STATUS
+            WHERE
+                LI_TABLE_NAME = '{{table_name}}'
+        ),
+        TO_DATE('19700101','yyyymmdd') -- SI PAS D'EXPORT DATE EN TABLE, EPOCH
+    ) LED
+FROM
+    DUAL;
+
+-- OUVERTURE DU FICHIER
+PROMPT EXPORTING {{table_name}} TO &OUTPUT_DIR#/{{output_file_base}}_{{export_type}}_&CURRENT_EXPORT_DATE_CHAR#.csv;
+SPOOL &OUTPUT_DIR#/{{output_file_base}}_{{export_type}}_&CURRENT_EXPORT_DATE_CHAR#.csv REPLACE
+
+{{#is_delta}}
+SELECT
+    {{columns}}
+FROM
+    L58OB.{{table_name}}
+WHERE
+    {{delta_column}} >= '&LAST_EXPORT_DATE';
+{{/is_delta}}
+
+{{^is_delta}}
+SELECT
+    {{columns}}
+FROM
+    L58OB.{{table_name}};
+{{/is_delta}}
+
+-- FERMETURE DU FICHIER
+SPOOL OFF
+
+-- MISE À JOUR DE LA TABLE REPORTING
+BEGIN
+    UPDATE
+        L58OT.L58MA_EXPORT_STATUS
+    SET
+        LI_SCHEMA_NAME = 'L58OB',
+        LI_TABLE_NAME = '{{table_name}}',
+        DA_LAST_EXPORT_DATE = TO_DATE(&CURRENT_EXPORT_DATE_CHAR, '&DATE_TIME_PATTERN'),
+        TYPE_LAST_EXPORT = '{{export_type}}',
+        NB_ROWS_LAST_EXPORT = (
+            SELECT
+                COUNT(*)
+            FROM
+                L58OB.{{table_name}}
+            WHERE
+                {{delta_column}} >= '&LAST_EXPORT_DATE'
+        )
+    WHERE
+        LI_TABLE_NAME = '{{table_name}}';
+    IF
+        SQL%ROWCOUNT = 0
+    THEN -- PAS DE LIGNE UPDATEES
+        INSERT INTO
+            L58OT.L58MA_EXPORT_STATUS (LI_SCHEMA_NAME, LI_TABLE_NAME, DA_LAST_EXPORT_DATE, TYPE_LAST_EXPORT, NB_ROWS_LAST_EXPORT)
+        VALUES
+            (
+                'L58OB',
+                '{{table_name}}',
+                TO_DATE(&CURRENT_EXPORT_DATE_CHAR, '&DATE_TIME_PATTERN'),
+                '{{export_type}}',
+                (
+                    SELECT
+                        COUNT(*)
+                    FROM
+                        L58OB.{{table_name}}
+                    WHERE
+                        {{delta_column}} >= '&LAST_EXPORT_DATE'
+                )
+            );
+    END IF;
+END;
+/
+
+EXIT SUCCESS
