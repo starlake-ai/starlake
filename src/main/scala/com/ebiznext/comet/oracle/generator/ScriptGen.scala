@@ -22,7 +22,7 @@ object ScriptGen extends StrictLogging {
   def templatize(template: File, templateParams: TemplateParams): File = {
     val scriptPayload = engine.layout(
       template.pathAsString,
-      templateParams.toParamMap
+      templateParams.paramMap
     )
 
     val scriptFile =
