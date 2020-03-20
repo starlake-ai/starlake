@@ -23,11 +23,11 @@ SELECT
     COALESCE(
         (
             SELECT
-                DA_LAST_EXPORT_DATE
+                LAST_EXPORT_DATE
             FROM
-                L58OT.L58MA_EXPORT_STATUS
+                EXPORT_STATUS
             WHERE
-                LI_TABLE_NAME = '{{table_name}}'
+                TABLE_NAME = '{{table_name}}'
         ),
         TO_DATE('19700101','yyyymmdd') -- SI PAS D'EXPORT DATE EN TABLE, EPOCH
     ) LED
@@ -44,7 +44,7 @@ SELECT
     TO_CHAR({{name}}){{trailing_col_char}}
     {{/columns}}
 FROM
-    L58OB.{{table_name}}
+    {{table_name}}
 WHERE
     {{delta_column}} >= '&LAST_EXPORT_DATE';
 {{/full_export}}
@@ -55,7 +55,7 @@ SELECT
     TO_CHAR({{name}}){{trailing_col_char}}
     {{/columns}}
 FROM
-    L58OB.{{table_name}};
+    {{table_name}};
 {{/full_export}}
 
 -- FERMETURE DU FICHIER
@@ -64,11 +64,11 @@ SPOOL OFF
 -- MISE À JOUR DE LA TABLE REPORTING
 BEGIN
     UPDATE
-        L58OT.L58MA_EXPORT_STATUS
+        EXPORT_STATUS
     SET
-        LI_SCHEMA_NAME = 'L58OB',
-        LI_TABLE_NAME = '{{table_name}}',
-        DA_LAST_EXPORT_DATE = TO_DATE(&CURRENT_EXPORT_DATE_CHAR, '&DATE_TIME_PATTERN'),
+        SCHEMA_NAME = 'SCHEMA1',
+        TABLE_NAME = '{{table_name}}',
+        LAST_EXPORT_DATE = TO_DATE(&CURRENT_EXPORT_DATE_CHAR, '&DATE_TIME_PATTERN'),
         {{#full_export}}
         TYPE_LAST_EXPORT = 'FULL',
         {{/full_export}}
@@ -79,20 +79,20 @@ BEGIN
             SELECT
                 COUNT(*)
             FROM
-                L58OB.{{table_name}}
+                {{table_name}}
             WHERE
                 {{delta_column}} >= '&LAST_EXPORT_DATE'
         )
     WHERE
-        LI_TABLE_NAME = '{{table_name}}';
+        TABLE_NAME = '{{table_name}}';
     IF
         SQL%ROWCOUNT = 0
     THEN -- PAS DE LIGNE UPDATEES
         INSERT INTO
-            L58OT.L58MA_EXPORT_STATUS (LI_SCHEMA_NAME, LI_TABLE_NAME, DA_LAST_EXPORT_DATE, TYPE_LAST_EXPORT, NB_ROWS_LAST_EXPORT)
+            EXPORT_STATUS (SCHEMA_NAME, TABLE_NAME, LAST_EXPORT_DATE, TYPE_LAST_EXPORT, NB_ROWS_LAST_EXPORT)
         VALUES
             (
-                'L58OB',
+                'SCHEMA1',
                 '{{table_name}}',
                 TO_DATE(&CURRENT_EXPORT_DATE_CHAR, '&DATE_TIME_PATTERN'),
                 {{#full_export}}
@@ -105,7 +105,7 @@ BEGIN
                     SELECT
                         COUNT(*)
                     FROM
-                        L58OB.{{table_name}}
+                        {{table_name}}
                     WHERE
                         {{delta_column}} >= '&LAST_EXPORT_DATE'
                 )
