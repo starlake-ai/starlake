@@ -35,24 +35,24 @@ FROM
     DUAL;
 
 -- OUVERTURE DU FICHIER
-PROMPT EXPORTING {{table_name}} TO &OUTPUT_DIR#/{{output_file_base}}_{{export_type}}_&CURRENT_EXPORT_DATE_CHAR#.csv;
-SPOOL &OUTPUT_DIR#/{{output_file_base}}_{{export_type}}_&CURRENT_EXPORT_DATE_CHAR#.csv REPLACE
+PROMPT EXPORTING {{table_name}} TO &OUTPUT_DIR#/{{export_file}}_{{#full_export}}FULL{{/full_export}}{{^full_export}}DELTA{{/full_export}}_&CURRENT_EXPORT_DATE_CHAR#.csv;
+SPOOL &OUTPUT_DIR#/{{export_file}}_{{#full_export}}FULL{{/full_export}}{{^full_export}}DELTA{{/full_export}}_&CURRENT_EXPORT_DATE_CHAR#.csv REPLACE
 
-{{#is_delta}}
+{{^full_export}}
 SELECT
     {{columns}}
 FROM
     L58OB.{{table_name}}
 WHERE
     {{delta_column}} >= '&LAST_EXPORT_DATE';
-{{/is_delta}}
+{{/full_export}}
 
-{{^is_delta}}
+{{#full_export}}
 SELECT
     {{columns}}
 FROM
     L58OB.{{table_name}};
-{{/is_delta}}
+{{/full_export}}
 
 -- FERMETURE DU FICHIER
 SPOOL OFF
@@ -65,7 +65,12 @@ BEGIN
         LI_SCHEMA_NAME = 'L58OB',
         LI_TABLE_NAME = '{{table_name}}',
         DA_LAST_EXPORT_DATE = TO_DATE(&CURRENT_EXPORT_DATE_CHAR, '&DATE_TIME_PATTERN'),
-        TYPE_LAST_EXPORT = '{{export_type}}',
+        {{#full_export}}
+        TYPE_LAST_EXPORT = 'FULL',
+        {{/full_export}}
+        {{^full_export}}
+        TYPE_LAST_EXPORT = 'DELTA',
+        {{/full_export}}
         NB_ROWS_LAST_EXPORT = (
             SELECT
                 COUNT(*)
@@ -86,7 +91,12 @@ BEGIN
                 'L58OB',
                 '{{table_name}}',
                 TO_DATE(&CURRENT_EXPORT_DATE_CHAR, '&DATE_TIME_PATTERN'),
-                '{{export_type}}',
+                {{#full_export}}
+                'FULL',
+                {{/full_export}}
+                {{^full_export}}
+                'DELTA',
+                {{/full_export}}
                 (
                     SELECT
                         COUNT(*)
