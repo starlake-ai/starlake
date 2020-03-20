@@ -1,4 +1,4 @@
-package com.ebiznext.comet.oracle.generator
+package com.ebiznext.comet.database.extractor
 
 import better.files.File
 import org.scalatest.matchers.should.Matchers
@@ -11,7 +11,7 @@ class ScriptGenSpec extends org.scalatest.FlatSpec with Matchers {
     val templateParams: TemplateParams = TemplateParams(
       tableToExport = "table1",
       columnsToExport = List("col1", "col2"),
-      isDelta = true,
+      fullExport = false,
       dsvDelimiter = ",",
       deltaColumn = Some("updateCol"),
       exportOutputFileBase = "output_file",
@@ -20,13 +20,13 @@ class ScriptGenSpec extends org.scalatest.FlatSpec with Matchers {
 
     val templatePayload: String = ScriptGen.templatize(
       File(
-        getClass.getResource("/sample/oracle/EXTRACT_TABLE.sql.mustache").getPath
+        getClass.getResource("/sample/database/EXTRACT_TABLE.sql.mustache").getPath
       ),
       templateParams
     )
 
     templatePayload shouldBe File(
-      getClass.getResource("/sample/oracle/expected_script_payload.txt").getPath
+      getClass.getResource("/sample/database/expected_script_payload.txt").getPath
     ).lines.mkString("\n")
   }
 
