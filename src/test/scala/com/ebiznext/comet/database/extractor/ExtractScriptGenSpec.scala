@@ -3,7 +3,7 @@ package com.ebiznext.comet.database.extractor
 import better.files.File
 import org.scalatest.matchers.should.Matchers
 
-class ScriptGenSpec extends org.scalatest.FlatSpec with Matchers {
+class ExtractScriptGenSpec extends org.scalatest.FlatSpec with Matchers {
 
   val scriptOutputFolder: File = File("/tmp")
 
