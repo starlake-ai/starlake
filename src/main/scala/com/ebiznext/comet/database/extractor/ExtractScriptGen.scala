@@ -45,7 +45,7 @@ object ScriptGen extends StrictLogging {
     }
   }
 
-  def printUsage(): Unit = println(ScriptGenConfig.usage)
+  def printUsage(): Unit = println(ExtractScriptGenConfig.usage)
 
 }
 
@@ -90,7 +90,7 @@ object Main extends App with StrictLogging {
 
   logger.info(s"Running Comet $arglist")
 
-  ScriptGenConfig.parse(args) match {
+  ExtractScriptGenConfig.parse(args) match {
     case Some(config) =>
       // Extracting the domain from the Excel referential file
       val domain: Option[Domain] = new XlsReader(config.referentialFile.pathAsString).getDomain

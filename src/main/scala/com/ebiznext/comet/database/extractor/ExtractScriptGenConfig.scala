@@ -3,21 +3,21 @@ package com.ebiznext.comet.database.extractor
 import better.files.File
 import scopt.{OParser, RenderingMode}
 
-case class ScriptGenConfig(
+case class ExtractScriptGenConfig(
   referentialFile: File = File("."),
   scriptTemplateFile: File = File("."),
   scriptOutputDir: File = File(".")
 )
 
-object ScriptGenConfig {
+object ExtractScriptGenConfig {
 
-  val builder = OParser.builder[ScriptGenConfig]
+  val builder = OParser.builder[ExtractScriptGenConfig]
 
   def exists(name: String)(path: String): Either[String, Unit] =
     if (File(path).exists) Right(())
     else Left(s"$name at path $path does not exist")
 
-  val parser: OParser[Unit, ScriptGenConfig] = {
+  val parser: OParser[Unit, ExtractScriptGenConfig] = {
     import builder._
     OParser.sequence(
       programName("comet"),
@@ -69,6 +69,6 @@ object ScriptGenConfig {
     * @param args : Command line parameters
     * @return : an Option of MetricConfing with the parsed domain and schema names.
     */
-  def parse(args: Seq[String]): Option[ScriptGenConfig] =
-    OParser.parse(parser, args, ScriptGenConfig.apply())
+  def parse(args: Seq[String]): Option[ExtractScriptGenConfig] =
+    OParser.parse(parser, args, ExtractScriptGenConfig.apply())
 }
