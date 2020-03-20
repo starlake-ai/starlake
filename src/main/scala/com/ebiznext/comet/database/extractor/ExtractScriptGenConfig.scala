@@ -37,9 +37,19 @@ object ExtractScriptGenConfig {
           |
           |In there you'll write your extraction export process (sqlplus for Oracle, pgsql for PostgreSQL as an example).
           |In that template you can use the following parameters:
-          | table_name  -> the table to export
-          | delimiter   -> the resulting dsv file delimiter
-          | columns     -> the columns to export
+          | - table_name  -> the table to export
+          | - delimiter   -> the resulting dsv file delimiter
+          | - columns     -> the columns to export
+          |   columns is a Mustache map, it gives you access, for each column, to:
+          |    - name               -> the column name
+          |    - trailing_col_char  -> the separator to append to the column (, if the is more columns to come, "" otherwise)
+          |                            Here is an example how to use it in a template:
+          |                              SELECT
+          |                              {{#columns}}
+          |                              TO_CHAR({{name}}){{trailing_col_char}}
+          |                              {{/columns}}
+          |                              FROM
+          |                              {{table_name}};
           | export_file -> the export file name
           | full_export -> if the export is a full or delta export (the logic is to be implemented in your script)
           |""".stripMargin

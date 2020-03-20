@@ -40,7 +40,9 @@ SPOOL &OUTPUT_DIR#/{{export_file}}_{{#full_export}}FULL{{/full_export}}{{^full_e
 
 {{^full_export}}
 SELECT
-    {{columns}}
+    {{#columns}}
+    TO_CHAR({{name}}){{trailing_col_char}}
+    {{/columns}}
 FROM
     L58OB.{{table_name}}
 WHERE
@@ -49,7 +51,9 @@ WHERE
 
 {{#full_export}}
 SELECT
-    {{columns}}
+    {{#columns}}
+    TO_CHAR({{name}}){{trailing_col_char}}
+    {{/columns}}
 FROM
     L58OB.{{table_name}};
 {{/full_export}}

@@ -26,13 +26,27 @@ case class TemplateParams(
 ) {
 
   val paramMap: Map[String, Any] = {
+
+    // This is how we deal with the last element not needing a trailing a comma in a Mustache template
+    val columnsParam: List[Map[String, Any]] = columnsToExport.map(_.toUpperCase) match {
+      case head :: Nil => List(Map("name" -> head, "trailing_col_char" -> ""))
+      case Nil => Nil
+      case atLeastTwoElemList =>
+        val allButLast = atLeastTwoElemList.dropRight(1)
+        val last = atLeastTwoElemList.last
+        allButLast
+          .map(c => Map("name" -> c, "trailing_col_char" -> ",")) :+ Map(
+          "name"              -> last,
+          "trailing_col_char" -> ""
+        )
+    }
     deltaColumn
       .map(_.toUpperCase)
       .foldLeft(
         List(
           "table_name"  -> tableToExport.toUpperCase,
           "delimiter"   -> dsvDelimiter,
-          "columns"     -> columnsToExport.map(_.toUpperCase).mkString(", "),
+          "columns"     -> columnsParam,
           "export_file" -> exportOutputFileBase,
           "full_export" -> fullExport
         )
