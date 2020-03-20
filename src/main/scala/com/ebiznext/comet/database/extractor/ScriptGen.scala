@@ -1,4 +1,4 @@
-package com.ebiznext.comet.oracle.generator
+package com.ebiznext.comet.database.extractor
 
 import better.files.File
 import com.ebiznext.comet.config.Settings
@@ -49,17 +49,8 @@ object ScriptGen extends StrictLogging {
 
 }
 
-/*
-tableToExport = schema.name,
-      columnsToExport = schema.attributes.map(_.name),
-      isDelta = schema.metadata.flatMap(_.write).contains(WriteMode.APPEND),
-      deltaColumn = schema.merge.flatMap(_.timestamp),
-      dsvDelimiter = schema.metadata.flatMap(_.separator).getOrElse(","),
-      exportOutputFileBase = exportFileBase,
-      scriptOutputFile = scriptsOutputFolder / scriptOutputFileName
- */
 /**
-  * Generate Oracle sqlplus extraction scripts based on a given Excel referential file
+  * Generate an extraction scripts based on a given Excel referential file
   * The Excel referential should, at least, specify :
   * - "schema" sheet
   *   - a table name (col A)
@@ -68,6 +59,18 @@ tableToExport = schema.name,
   *   - a delta column (col H) if in APPEND mode : the column which is used to determine new rows for each exports
   * - in corresponding source (table) sheets:
   *   - the columns to extract
+  *
+  * You also have to provide a Mustache (http://mustache.github.io/mustache.5.html) template file.
+  *
+  * Here you'll write your extraction export process (sqlplus for Oracle, pgsql for PostgreSQL as an example).
+  * In that template you can use the following parameters:
+  *
+  * table_name  -> the table to export
+  * delimiter   -> the resulting dsv file delimiter
+  * columns     -> the columns to export
+  * export_file -> the export file name
+  * full_export -> if the export is a full or delta export (the logic is to be implemented in your script)
+  *
   * Usage: comet [script-gen] [options]
   *
   * Command: script-gen

@@ -1,9 +1,9 @@
-package com.ebiznext.comet.oracle.generator
+package com.ebiznext.comet.database.extractor
 
 import java.util.regex.Pattern
 
 import better.files.File
-import com.ebiznext.comet.schema.model.{Attribute, MergeOptions, Metadata, Schema, WriteMode}
+import com.ebiznext.comet.schema.model._
 import org.scalatest.matchers.should.Matchers
 
 class TemplateParamsSpec extends org.scalatest.FlatSpec with Matchers {
@@ -24,7 +24,7 @@ class TemplateParamsSpec extends org.scalatest.FlatSpec with Matchers {
     val expectedTemplateParams = TemplateParams(
       tableToExport = "table1",
       columnsToExport = List("col1", "col2"),
-      isDelta = true,
+      fullExport = false,
       dsvDelimiter = ",",
       deltaColumn = Some("updateCol"),
       exportOutputFileBase = "output_file",
@@ -33,7 +33,7 @@ class TemplateParamsSpec extends org.scalatest.FlatSpec with Matchers {
     TemplateParams.fromSchema(schema, scriptOutputFolder) shouldBe expectedTemplateParams
   }
 
-  it should "generate the correct TemplateParams for a other Schema" in {
+  it should "generate the correct TemplateParams for an other Schema" in {
     val schema: Schema = Schema(
       name = "table1",
       pattern = Pattern.compile("output_file_*.csv"),
@@ -48,7 +48,7 @@ class TemplateParamsSpec extends org.scalatest.FlatSpec with Matchers {
     val expectedTemplateParams = TemplateParams(
       tableToExport = "table1",
       columnsToExport = List("col1", "col2"),
-      isDelta = false,
+      fullExport = true,
       dsvDelimiter = "|",
       deltaColumn = None,
       exportOutputFileBase = "output_file",
