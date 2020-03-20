@@ -1,0 +1,247 @@
+---
+name: "yelp"
+directory: "__COMET_TEST_ROOT__/yelp"
+metadata:
+  mode: FILE
+  format: JSON
+schemas:
+  - name: business
+    pattern: business.json
+    metadata:
+      array: false
+      write: OVERWRITE
+    attributes:
+      - name: business_id
+        type: string
+        required: true
+      - name: name
+        type: string
+        required: false
+      - name: address
+        type: string
+        required: false
+      - name: city
+        type: string
+        required: false
+        metricType: "discrete"
+      - name: state
+        type: string
+        required: false
+        metricType: "discrete"
+      - name: postal_code
+        type: string
+        required: false
+        metricType: "discrete"
+      - name: latitude
+        type: double
+        required: false
+      - name: longitude
+        type: double
+        required: false
+      - name: stars
+        type: double
+        required: false
+        metricType: "continuous"
+      - name: review_count
+        type: long
+        required: false
+        metricType: "continuous"
+      - name: is_open
+        type: int
+        required: false
+        metricType: "discrete"
+      - name: attributes
+        type: struct
+        required: false
+        attributes:
+          - name: AcceptsInsurance
+            type: boolean
+            required: false
+            metricType: "discrete"
+          - name: AgesAllowed
+            type: string
+            required: false
+            metricType: "discrete"
+          - name: Alcohol
+            type: string
+            required: false
+            metricType: "discrete"
+          - name: Ambience
+            type: string
+            required: false
+            metricType: "discrete"
+          - name: BYOB
+            type: boolean
+            required: false
+            metricType: "discrete"
+          - name: BYOBCorkage
+            type: string
+            required: false
+            metricType: "discrete"
+          - name: BestNights
+            type: string
+            required: false
+            metricType: "discrete"
+          - name: BikeParking
+            type: boolean
+            required: false
+            metricType: "discrete"
+          - name: BusinessAcceptsBitcoin
+            type: boolean
+            required: false
+            metricType: "discrete"
+          - name: BusinessAcceptsCreditCards
+            type: boolean
+            required: false
+            metricType: "discrete"
+          - name: BusinessParking
+            type: string
+            required: false
+            metricType: "discrete"
+          - name: ByAppointmentOnly
+            type: boolean
+            required: false
+            metricType: "discrete"
+          - name: Caters
+            type: boolean
+            required: false
+            metricType: "discrete"
+          - name: CoatCheck
+            type: boolean
+            required: false
+            metricType: "discrete"
+          - name: Corkage
+            type: boolean
+            required: false
+            metricType: "discrete"
+          - name: DietaryRestrictions
+            type: string
+            required: false
+            metricType: "discrete"
+          - name: DogsAllowed
+            type: boolean
+            required: false
+            metricType: "discrete"
+          - name: DriveThru
+            type: boolean
+            required: false
+            metricType: "discrete"
+          - name: GoodForDancing
+            type: boolean
+            required: false
+            metricType: "discrete"
+          - name: GoodForKids
+            type: boolean
+            required: false
+            metricType: "discrete"
+          - name: GoodForMeal
+            type: string
+            required: false
+            metricType: "discrete"
+          - name: HairSpecializesIn
+            type: string
+            required: false
+            metricType: "discrete"
+          - name: HappyHour
+            type: boolean
+            required: false
+            metricType: "discrete"
+          - name: HasTV
+            type: boolean
+            required: false
+            metricType: "discrete"
+          - name: Music
+            type: string
+            required: false
+            metricType: "discrete"
+          - name: NoiseLevel
+            type: string
+            required: false
+            metricType: "discrete"
+          - name: Open24Hours
+            type: boolean
+            required: false
+            metricType: "discrete"
+          - name: OutdoorSeating
+            type: boolean
+            required: false
+            metricType: "discrete"
+          - name: RestaurantsAttire
+            type: string
+            required: false
+            metricType: "discrete"
+          - name: RestaurantsCounterService
+            type: boolean
+            required: false
+            metricType: "discrete"
+          - name: RestaurantsDelivery
+            type: boolean
+            required: false
+            metricType: "discrete"
+          - name: RestaurantsGoodForGroups
+            type: boolean
+            required: false
+            metricType: "discrete"
+          - name: RestaurantsPriceRange2
+            type: string
+            required: false
+            metricType: "discrete"
+          - name: RestaurantsReservations
+            type: boolean
+            required: false
+            metricType: "discrete"
+          - name: RestaurantsTableService
+            type: boolean
+            required: false
+            metricType: "discrete"
+          - name: RestaurantsTakeOut
+            type: boolean
+            required: false
+            metricType: "discrete"
+          - name: Smoking
+            type: string
+            required: false
+            metricType: "discrete"
+          - name: WheelchairAccessible
+            type: boolean
+            required: false
+            metricType: "discrete"
+          - name: WiFi
+            type: string
+            required: false
+            metricType: "discrete"
+      - name: categories
+        type: string
+        required: false
+      - name: hours
+        type: struct
+        required: false
+        attributes:
+          - name: Monday
+            type: string
+            required: false
+            metricType: "discrete"
+          - name: Tuesday
+            type: string
+            required: false
+            metricType: "discrete"
+          - name: Wednesday
+            type: string
+            required: false
+            metricType: "discrete"
+          - name: Thursday
+            type: string
+            required: false
+            metricType: "discrete"
+          - name: Friday
+            type: string
+            required: false
+            metricType: "discrete"
+          - name: Saturday
+            type: string
+            required: false
+            metricType: "discrete"
+          - name: Sunday
+            type: string
+            required: false
+            metricType: "discrete"

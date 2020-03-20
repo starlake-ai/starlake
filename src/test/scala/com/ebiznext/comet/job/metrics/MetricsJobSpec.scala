@@ -1,10 +1,14 @@
-package com.ebiznext.comet.schema.handlers
+package com.ebiznext.comet.job.metrics
 
 import com.ebiznext.comet.TestHelper
+import com.ebiznext.comet.config.DatasetArea
 import com.ebiznext.comet.job.metrics.Metrics._
+import org.apache.hadoop.fs.Path
+import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions._
+import org.apache.spark.sql.types._
 
-class StatDescJobSpec extends TestHelper {
+class MetricsJobSpec extends TestHelper {
 
   /**
     * Inputs for the test :  Header (list of the variable) and Metrics (Metrics to use)
@@ -15,6 +19,47 @@ class StatDescJobSpec extends TestHelper {
   val listDiscreteAttributes: List[String] = Seq("Name").toList
 
   val partialContinuousMetric: List[ContinuousMetric] = List(Min, Max)
+
+  /**
+    * schema of metrics
+    */
+  val expectedMetricsSchema = StructType(
+    Array(
+      StructField("domain", StringType, nullable = true),
+      StructField("schema", StringType, nullable = true),
+      StructField("attribute", StringType, nullable = true),
+      StructField("min", DoubleType, nullable = true),
+      StructField("max", DoubleType, nullable = true),
+      StructField("mean", DoubleType, nullable = true),
+      StructField("missingValues", LongType, nullable = true),
+      StructField("standardDev", DoubleType, nullable = true),
+      StructField("variance", DoubleType, nullable = true),
+      StructField("sum", DoubleType, nullable = true),
+      StructField("skewness", DoubleType, nullable = true),
+      StructField("kurtosis", DoubleType, nullable = true),
+      StructField("percentile25", DoubleType, nullable = true),
+      StructField("median", DoubleType, nullable = true),
+      StructField("percentile75", DoubleType, nullable = true),
+      StructField("countDistinct", LongType, nullable = true),
+      StructField(
+        "catCountFreq",
+        ArrayType(
+          StructType(
+            Array(
+              StructField("category", StringType, nullable = true),
+              StructField("count", LongType, nullable = true),
+              StructField("frequency", DoubleType, nullable = true)
+            )
+          )
+        ),
+        nullable = true
+      ),
+      StructField("missingValuesDiscrete", LongType, nullable = true),
+      StructField("count", LongType, nullable = true),
+      StructField("cometTime", LongType, nullable = true),
+      StructField("cometStage", StringType, nullable = true)
+    )
+  )
 
   /**
     * Read the data .csv
@@ -156,5 +201,42 @@ class StatDescJobSpec extends TestHelper {
 
   "All values of The Kurtosis" should "be tested" in {
     assert(kurtosisList.zip(kurtosisListTable).map(x => x._1 - x._2).sum <= 0.001)
+  }
+
+  new WithSettings() {
+    "Yelp Business Metrics" should "produce correct metrics" in {
+      new SpecTrait(
+        domainFilename = "yelp.yml",
+        sourceDomainPathname = s"/sample/yelp/yelp.yml",
+        datasetDomainName = "yelp",
+        sourceDatasetPathName = "/sample/yelp/business.json"
+      ) {
+        cleanMetadata
+        cleanDatasets
+        loadPending
+        val countAccepted: Long = sparkSession.read
+          .parquet(cometDatasetsPath + s"/accepted/$datasetDomainName/business")
+          .count()
+
+        val path: Path = DatasetArea.metrics("yelp", "business")
+        val metricsDf: DataFrame = sparkSession.read.parquet(path.toString)
+        metricsDf.schema shouldBe expectedMetricsSchema
+        import sparkSession.implicits._
+        val metricsSelectedColumns =
+          metricsDf
+            .select("domain", "schema", "attribute")
+            .map(r => (r.getString(0), r.getString(1), r.getString(2)))
+            .take(7)
+        metricsSelectedColumns should contain allElementsOf Array(
+          ("yelp", "business", "city"),
+          ("yelp", "business", "is_open"),
+          ("yelp", "business", "postal_code"),
+          ("yelp", "business", "state"),
+          ("yelp", "business", "review_count"),
+          ("yelp", "business", "stars"),
+          ("yelp", "business", "is_open")
+        )
+      }
+    }
   }
 }
