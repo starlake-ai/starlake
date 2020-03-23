@@ -33,8 +33,7 @@ object ScriptGen extends StrictLogging {
     * @return The list of produced files
     */
   def generate(domain: Domain, scriptTemplateFile: File, scriptsOutputPath: File): List[File] = {
-    val preEncryptionDomain = SchemaGen.genPreEncryptionDomain(domain)
-    val templateSettings = TemplateParams.fromDomain(preEncryptionDomain, scriptsOutputPath)
+    val templateSettings = TemplateParams.fromDomain(domain, scriptsOutputPath)
     templateSettings.map { ts =>
       val scriptPayload = templatize(scriptTemplateFile, ts)
       val scriptFile =
