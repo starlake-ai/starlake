@@ -41,7 +41,6 @@ case class TemplateParams(
         )
     }
     deltaColumn
-      .map(_.toUpperCase)
       .foldLeft(
         List(
           "table_name"  -> tableToExport.toUpperCase,
