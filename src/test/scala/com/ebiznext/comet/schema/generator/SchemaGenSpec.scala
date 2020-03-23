@@ -17,7 +17,7 @@ class SchemaGenSpec extends TestHelper {
       val schema1 = result.schemas.filter(_.name == "SCHEMA1").head
       schema1.metadata.flatMap(_.format) shouldBe Some(Format.POSITION)
       schema1.attributes.size shouldBe 19
-      schema1.merge.flatMap(_.timestamp) shouldBe Some("UPDATE")
+      schema1.merge.flatMap(_.timestamp) shouldBe Some("ATTRIBUTE_1")
       schema1.merge.map(_.key) shouldBe Some(List("ID1", "ID2"))
       val schema2 = result.schemas.filter(_.name == "SCHEMA2").head
       schema2.metadata.flatMap(_.format) shouldBe Some(Format.DSV)
