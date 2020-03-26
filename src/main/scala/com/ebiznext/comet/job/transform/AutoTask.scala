@@ -28,7 +28,8 @@ import com.ebiznext.comet.schema.model.AutoTaskDesc
 import com.ebiznext.comet.utils.SparkJob
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.{SaveMode, SparkSession}
-
+import com.ebiznext.comet.utils.Formatter._
+import scala.language.reflectiveCalls
 import scala.util.{Success, Try}
 
 /**
@@ -39,6 +40,7 @@ import scala.util.{Success, Try}
   * @param name        : Job Name as defined in the YML job description file
   * @param defaultArea : Where the resulting dataset is stored by default if not specified in the task
   * @param task        : Task to run
+  * @param sqlParameters : Sql Parameters to pass to SQL statements
   */
 class AutoTask(
   override val name: String,
@@ -48,7 +50,8 @@ class AutoTask(
   udf: Option[String],
   views: Option[Map[String, String]],
   task: AutoTaskDesc,
-  storageHandler: StorageHandler
+  storageHandler: StorageHandler,
+  sqlParameters: Option[Map[String, String]]
 )(implicit val settings: Settings)
     extends SparkJob {
 
@@ -72,7 +75,12 @@ class AutoTask(
     val targetPath = task.getTargetPath(defaultArea)
     val mergePath = s"${targetPath.toString}.merge"
 
-    val dataframe = session.sql(task.sql)
+    val dataframe = sqlParameters match {
+      case Some(mapParams) =>
+        session.sql(task.sql.richFormat(mapParams))
+      case _ => session.sql(task.sql)
+
+    }
     val partitionedDF =
       partitionedDatasetWriter(
         if (coalesce) dataframe.coalesce(1) else dataframe,
