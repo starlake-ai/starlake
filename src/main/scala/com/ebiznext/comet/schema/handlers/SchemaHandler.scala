@@ -98,7 +98,6 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) {
       .map(path => mapper.readValue(storage.read(path), classOf[AutoJobDesc]))
       .map(job => job.name -> job)
       .toMap
-
   }
 
   /**
