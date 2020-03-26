@@ -220,7 +220,9 @@ final class StorageAreaSerializer extends JsonSerializer[StorageArea] {
 }
 final class StorageAreaDeserializer extends JsonDeserializer[StorageArea] {
   override def deserialize(jp: JsonParser, ctx: DeserializationContext): StorageArea = {
-    val settings = ctx.getAttribute(classOf[Settings]).asInstanceOf[Settings]
+    val settings = ctx
+      .findInjectableValue("com.ebiznext.comet.config.Settings", null, null)
+      .asInstanceOf[Settings]
     require(settings != null, "the DeserializationContext lacks a Settings instance")
 
     val value = jp.readValueAs[String](classOf[String])
