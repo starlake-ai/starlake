@@ -61,6 +61,10 @@ class XlsReader(path: String) {
           .map(_.toBoolean)
         val separator = Option(row.getCell(6, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
           .map(formatter.formatCellValue)
+        val deltaColOpt = Option(row.getCell(7, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
+          .map(formatter.formatCellValue)
+        val identityKeysOpt = Option(row.getCell(8, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
+          .map(formatter.formatCellValue)
 
         (nameOpt, patternOpt) match {
           case (Some(name), Some(pattern)) => {
@@ -77,7 +81,28 @@ class XlsReader(path: String) {
               index = None,
               properties = None
             )
-            Some(Schema(name, pattern, attributes = Nil, Some(metaData), None, None, None, None))
+            val mergeOptions: Option[MergeOptions] = (deltaColOpt, identityKeysOpt) match {
+              case (Some(deltaCol), Some(identityKeys)) =>
+                Some(
+                  MergeOptions(
+                    key = identityKeys.split(",").toList.map(_.trim),
+                    timestamp = Some(deltaCol)
+                  )
+                )
+              case _ => None
+            }
+            Some(
+              Schema(
+                name,
+                pattern,
+                attributes = Nil,
+                Some(metaData),
+                mergeOptions,
+                None,
+                None,
+                None
+              )
+            )
           }
           case _ => None
         }

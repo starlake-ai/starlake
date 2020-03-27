@@ -45,3 +45,9 @@ object Hide extends Encryption {
 object No extends Encryption {
   def encrypt(s: String): String = s
 }
+
+
+
+
+
+
