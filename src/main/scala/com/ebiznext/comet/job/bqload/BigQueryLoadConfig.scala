@@ -30,13 +30,16 @@ object BigQueryLoadConfig extends CliConfig[BigQueryLoadConfig] {
       head("comet", "1.x"),
       opt[String]("source_file")
         .action((x, c) => c.copy(sourceFile = Left(x)))
-        .text("Full Path to source file"),
+        .text("Full Path to source file")
+      .required(),
       opt[String]("output_dataset")
         .action((x, c) => c.copy(outputDataset = x))
-        .text("BigQuery Output Dataset"),
+        .text("BigQuery Output Dataset")
+        .required(),
       opt[String]("output_table")
         .action((x, c) => c.copy(outputTable = x))
-        .text("BigQuery Output Table"),
+        .text("BigQuery Output Table")
+        .required(),
       opt[String]("output_partition")
         .action((x, c) => c.copy(outputPartition = Some(x)))
         .text("BigQuery Partition Field ")

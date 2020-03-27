@@ -3,6 +3,7 @@ package com.ebiznext.comet.job.convert
 import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.schema.handlers.StorageHandler
 import com.ebiznext.comet.utils.SparkJob
+import com.typesafe.config.ConfigFactory
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.SparkSession
 
@@ -30,7 +31,7 @@ class Parquet2CSV(config: Parquet2CSVConfig, val storageHandler: StorageHandler)
       case Some(folder) => folder
     }
     allPaths.flatMap { path: Path =>
-      val successPath = new Path(path, "_SUCCESS")
+        val successPath = new Path(path, "_SUCCESS")
       storageHandler.exists(successPath) match {
         case true =>
           val csvPath = new Path(outputPath, path.getName() + ".csv")
@@ -56,5 +57,20 @@ class Parquet2CSV(config: Parquet2CSVConfig, val storageHandler: StorageHandler)
       }
     }
     Success(session)
+  }
+}
+
+object Parquet2CSV {
+  def main(args:Array[String]): Unit = {
+    implicit val settings: Settings = Settings(ConfigFactory.load())
+    settings.publishMDCData()
+
+    import settings.{storageHandler}
+    Parquet2CSVConfig.parse(args) match {
+      case Some(config) =>
+        new Parquet2CSV(config, storageHandler)
+      case _ =>
+        println(Parquet2CSVConfig.usage())
+    }
   }
 }
