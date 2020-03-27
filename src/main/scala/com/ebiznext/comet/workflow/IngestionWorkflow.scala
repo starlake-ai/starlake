@@ -25,7 +25,7 @@ import com.ebiznext.comet.config.{DatasetArea, Settings}
 import com.ebiznext.comet.job.atlas.{AtlasConfig, AtlasJob}
 import com.ebiznext.comet.job.bqload.{BigQueryLoadConfig, BigQueryLoadJob}
 import com.ebiznext.comet.job.index.{IndexConfig, IndexJob}
-import com.ebiznext.comet.job.infer.{InferConfig, InferSchema}
+import com.ebiznext.comet.job.infer.{InferSchema, InferSchemaConfig}
 import com.ebiznext.comet.job.ingest._
 import com.ebiznext.comet.job.jdbcload.{JdbcLoadConfig, JdbcLoadJob}
 import com.ebiznext.comet.job.metrics.{MetricsConfig, MetricsJob}
@@ -231,11 +231,11 @@ class IngestionWorkflow(
   /**
     * Ingest the file (called by the cron manager at ingestion time for a specific dataset
     *
-    * @param domainName     : domain name of the dataset
-    * @param schemaName     schema name of the dataset
-    * @param ingestingPaths : Absolute path of the file to ingest (present in the ingesting area of the domain)
     */
-  def ingest(domainName: String, schemaName: String, ingestingPaths: List[Path]): Unit = {
+  def ingest(config: IngestConfig): Unit = {
+    val domainName = config.domain
+    val schemaName = config.schema
+    val ingestingPaths = config.paths
     for {
       domain <- domains.find(_.name == domainName)
       schema <- domain.schemas.find(_.name == schemaName)
@@ -340,7 +340,7 @@ class IngestionWorkflow(
     )
   }
 
-  def infer(config: InferConfig) = {
+  def infer(config: InferSchemaConfig) = {
     new InferSchema(
       config.domainName,
       config.schemaName,
