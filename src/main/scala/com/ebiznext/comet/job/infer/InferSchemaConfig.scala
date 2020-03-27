@@ -19,9 +19,10 @@
  */
 package com.ebiznext.comet.job.infer
 
+import com.ebiznext.comet.utils.CliConfig
 import scopt.OParser
 
-case class InferConfig(
+case class InferSchemaConfig(
   domainName: String = "",
   schemaName: String = "",
   inputPath: String = "",
@@ -29,43 +30,42 @@ case class InferConfig(
   header: Option[Boolean] = Some(false)
 )
 
-object InferSchemaConfig {
+object InferSchemaConfig extends CliConfig[InferSchemaConfig] {
+
+  val parser: OParser[Unit, InferSchemaConfig] = {
+    val builder = OParser.builder[InferSchemaConfig]
+    import builder._
+    OParser.sequence(
+      programName("comet"),
+      head("comet", "1.x"),
+      opt[String]("domain")
+        .action((x, c) => c.copy(domainName = x))
+        .required()
+        .text("Domain Name"),
+      opt[String]("schema")
+        .action((x, c) => c.copy(schemaName = x))
+        .required()
+        .text("Domain Name"),
+      opt[String]("input")
+        .action((x, c) => c.copy(inputPath = x))
+        .required()
+        .text("Input Path"),
+      opt[String]("output")
+        .action((x, c) => c.copy(outputPath = x))
+        .required()
+        .text("Output Path"),
+      opt[Option[Boolean]]("with-header")
+        .action((x, c) => c.copy(header = x))
+        .optional()
+        .text("Does the file contain a header")
+    )
+  }
 
   /**
     *
     * @param args args list passed from command line
-    * @return Option of case class InferConfig.
+    * @return Option of case class InferSchemaConfig.
     */
-  def parse(args: Seq[String]): Option[InferConfig] = {
-    val builder = OParser.builder[InferConfig]
-
-    val parser: OParser[Unit, InferConfig] = {
-      import builder._
-      OParser.sequence(
-        programName("comet"),
-        head("comet", "1.x"),
-        opt[String]("domain")
-          .action((x, c) => c.copy(domainName = x))
-          .required()
-          .text("Domain Name"),
-        opt[String]("schema")
-          .action((x, c) => c.copy(schemaName = x))
-          .required()
-          .text("Domain Name"),
-        opt[String]("input")
-          .action((x, c) => c.copy(inputPath = x))
-          .required()
-          .text("Input Path"),
-        opt[String]("output")
-          .action((x, c) => c.copy(outputPath = x))
-          .required()
-          .text("Output Path"),
-        opt[Option[Boolean]]("with-header")
-          .action((x, c) => c.copy(header = x))
-          .optional()
-          .text("Does the file contain a header")
-      )
-    }
-    OParser.parse(parser, args, InferConfig())
-  }
+  def parse(args: Seq[String]): Option[InferSchemaConfig] =
+    OParser.parse(parser, args, InferSchemaConfig())
 }
