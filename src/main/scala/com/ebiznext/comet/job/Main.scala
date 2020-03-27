@@ -23,8 +23,10 @@ package com.ebiznext.comet.job
 import com.ebiznext.comet.config.{DatasetArea, Settings}
 import com.ebiznext.comet.job.atlas.AtlasConfig
 import com.ebiznext.comet.job.bqload.BigQueryLoadConfig
+import com.ebiznext.comet.job.convert.Parquet2CSVConfig
 import com.ebiznext.comet.job.index.IndexConfig
 import com.ebiznext.comet.job.infer.InferSchemaConfig
+import com.ebiznext.comet.job.ingest.IngestConfig
 import com.ebiznext.comet.job.jdbcload.JdbcLoadConfig
 import com.ebiznext.comet.job.metrics.MetricsConfig
 import com.ebiznext.comet.schema.handlers.SchemaHandler
@@ -53,16 +55,17 @@ object Main extends StrictLogging {
   private def printUsage() = {
     // scalastyle:off println
     println(
-      """
-        |Usage :
+      s"""
+        |Usage : One of
         |comet job jobname
         |comet watch [+/-DOMAIN1,DOMAIN2,...]
         |comet import
-        |comet ingest datasetDomain datasetSchema datasetPath
-        |comet index --domain domain --schema schema --timestamp {@timestamp|yyyy.MM.dd} --id type-id --mapping mapping --format parquet|json|json-array --dataset datasetPath --conf key=value,key=value,...
-        |comet bqload --source_file file --output_table table --source_format parquet --create_disposition CREATE_IF_NEEDED --write_disposition WRITE_TRUNCATE
-        |comet infer-schema --domain domainName --schema schemaName --input datasetpath --output outputPath --with-header headerBoolean
-        |comet metrics --domain domain --schema schema
+        |${IngestConfig.usage()}
+        |${IndexConfig.usage()}
+        |${BigQueryLoadConfig.usage()}
+        |${InferSchemaConfig.usage()}
+        |${MetricsConfig.usage()}
+        |${Parquet2CSVConfig.usage()}
         |      """.stripMargin
     )
     // scalastyle:on println
@@ -117,25 +120,29 @@ object Main extends StrictLogging {
             workflow.loadPending(param.split(',').toList, Nil)
         } else
           workflow.loadPending()
-      case "ingest" if arglist.length == 4 =>
-        val domain = arglist(1)
-        val schema = arglist(2)
-        val paths = arglist(3)
-        val lockPath = new Path(settings.comet.lock.path, s"${domain}_${schema}.lock")
-        val locker = new FileLock(lockPath, storageHandler)
-        val waitTimeMillis = settings.comet.lock.ingestionTimeout
+      case "ingest" =>
+        IngestConfig.parse(args.drop(1)) match {
+          case Some(config) =>
+            val lockPath =
+              new Path(settings.comet.lock.path, s"${config.domain}_${config.schema}.lock")
+            val locker = new FileLock(lockPath, storageHandler)
+            val waitTimeMillis = settings.comet.lock.ingestionTimeout
 
-        locker.doExclusively(waitTimeMillis) {
-          workflow.ingest(domain, schema, paths.split(',').map(new Path(_)).toList)
+            locker.doExclusively(waitTimeMillis) {
+              workflow.ingest(config)
+            }
+
+          case _ =>
+            println(IngestConfig.usage())
+
         }
-
       case "index" =>
         IndexConfig.parse(args.drop(1)) match {
           case Some(config) =>
             // do something
             workflow.index(config)
           case _ =>
-            printUsage()
+            println(IndexConfig.usage())
         }
 
       case "atlas" =>
@@ -144,7 +151,7 @@ object Main extends StrictLogging {
             // do something
             workflow.atlas(config)
           case _ =>
-            printUsage()
+            println(AtlasConfig.usage())
         }
 
       case "bqload" =>
@@ -152,7 +159,7 @@ object Main extends StrictLogging {
           case Some(config) =>
             workflow.bqload(config)
           case _ =>
-            printUsage()
+            println(BigQueryLoadConfig.usage())
         }
 
       case "sqlload" =>
@@ -160,13 +167,13 @@ object Main extends StrictLogging {
           case Some(config) =>
             workflow.jdbcload(config)
           case _ =>
-            printUsage()
+            println(JdbcLoadConfig.usage())
         }
 
       case "infer-schema" => {
         InferSchemaConfig.parse(args.drop(1)) match {
           case Some(config) => workflow.infer(config)
-          case _            => printUsage()
+          case _            => println(InferSchemaConfig.usage())
         }
       }
       case "metrics" =>
@@ -174,7 +181,7 @@ object Main extends StrictLogging {
           case Some(config) =>
             workflow.metric(config)
           case _ =>
-            printUsage()
+            println(MetricsConfig.usage())
         }
 
       case _ => printUsage()
