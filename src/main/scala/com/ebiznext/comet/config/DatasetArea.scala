@@ -102,7 +102,7 @@ object DatasetArea {
   def rejected(domain: String)(implicit settings: Settings): Path =
     path(domain, settings.comet.area.rejected)
 
-  def metrics(domain:String, schema:String)(implicit settings: Settings) : Path = {
+  def metrics(domain: String, schema: String)(implicit settings: Settings): Path = {
     val path = settings.comet.metrics.path
     new Path(
       path

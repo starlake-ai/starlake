@@ -30,7 +30,7 @@ case class TemplateParams(
     // This is how we deal with the last element not needing a trailing a comma in a Mustache template
     val columnsParam: List[Map[String, Any]] = columnsToExport.map(_.toUpperCase) match {
       case head :: Nil => List(Map("name" -> head, "trailing_col_char" -> ""))
-      case Nil => Nil
+      case Nil         => Nil
       case atLeastTwoElemList =>
         val allButLast = atLeastTwoElemList.dropRight(1)
         val last = atLeastTwoElemList.last
