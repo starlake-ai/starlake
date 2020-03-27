@@ -83,7 +83,12 @@ class XlsReader(path: String) {
             )
             val mergeOptions: Option[MergeOptions] = (deltaColOpt, identityKeysOpt) match {
               case (Some(deltaCol), Some(identityKeys)) =>
-                Some(MergeOptions(key = identityKeys.split(",").toList.map(_.trim), timestamp = Some(deltaCol)))
+                Some(
+                  MergeOptions(
+                    key = identityKeys.split(",").toList.map(_.trim),
+                    timestamp = Some(deltaCol)
+                  )
+                )
               case _ => None
             }
             Some(
