@@ -1,8 +1,8 @@
 package com.ebiznext.comet.database.extractor
 
 import better.files.File
-import com.ebiznext.comet.config.Settings
-import com.ebiznext.comet.schema.generator.{SchemaGen, XlsReader}
+import com.ebiznext.comet.config.{DatasetArea, Settings}
+import com.ebiznext.comet.schema.handlers.SchemaHandler
 import com.ebiznext.comet.schema.model.Domain
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.StrictLogging
@@ -48,15 +48,13 @@ object ScriptGen extends StrictLogging {
 }
 
 /**
-  * Generate an extraction scripts based on a given Excel referential file
-  * The Excel referential should, at least, specify :
-  * - "schema" sheet
-  *   - a table name (col A)
-  *   - a file pattern (col B) which is used as the export file base name
-  *   - a write mode (col D): APPEND or OVERWRITE
-  *   - a delta column (col H) if in APPEND mode : the column which is used to determine new rows for each exports
-  * - in corresponding source (table) sheets:
-  *   - the columns to extract
+  * Generate extraction scripts based on a given domain
+  * The schemas should at least, specify :
+  *    - a table name (schemas.name)
+  *    - a file pattern (schemas.pattern) which is used as the export file base name
+  *    - a write mode (schemas.metadata.write): APPEND or OVERWRITE
+  *    - a delta column (schemas.merge.timestamp) if in APPEND mode : the column which is used to determine new rows for each exports
+  *    - the columns to extract (schemas.attributes.name*)
   *
   * You also have to provide a Mustache (http://mustache.github.io/mustache.5.html) template file.
   *
@@ -82,32 +80,30 @@ object ScriptGen extends StrictLogging {
   * Usage: comet [script-gen] [options]
   *
   * Command: script-gen
-  *
-  * --referentialFile <value>
-  *     Excel referential file
-  * --templateFile <value>
-  *     Script template file
-  * --scriptsOutputDir <value>
-  *     Scripts output folder
+  *   --domain <value>            The domain for which to generate extract scripts
+  *   --templateFile <value>      Script template file
+  *   --scriptsOutputDir <value>  Scripts output folder
   */
 object Main extends App with StrictLogging {
 
   import ScriptGen._
+  import settings.storageHandler
+  DatasetArea.init(storageHandler)
+  val schemaHandler = new SchemaHandler(storageHandler)
+  val domains: List[Domain] = schemaHandler.domains
 
   val arglist = args.toList
-
   logger.info(s"Running Comet $arglist")
 
   ExtractScriptGenConfig.parse(args) match {
     case Some(config) =>
       // Extracting the domain from the Excel referential file
-      val domain: Option[Domain] = new XlsReader(config.referentialFile.pathAsString).getDomain
-      domain match {
+      domains.find(_.name == config.domain) match {
         case Some(domain) =>
           ScriptGen.generate(domain, config.scriptTemplateFile, config.scriptOutputDir)
           System.exit(0)
         case None =>
-          logger.error("Excel referential file was malformed")
+          logger.error(s"No domain found for domain name ${config.domain}")
           System.exit(1)
       }
     case _ =>
