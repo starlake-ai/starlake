@@ -4,7 +4,7 @@ import better.files.File
 import scopt.{OParser, RenderingMode}
 
 case class ExtractScriptGenConfig(
-  referentialFile: File = File("."),
+  domain: String = "",
   scriptTemplateFile: File = File("."),
   scriptOutputDir: File = File(".")
 )
@@ -24,14 +24,12 @@ object ExtractScriptGenConfig {
       head("comet", "1.x"),
       note(
         """
-          |The Excel referential should, at least, specify :
-          |   - "schema" sheet
-          |     - a table name (col A)
-          |     - a file pattern (col B) which is used as the export file base name
-          |     - a write mode (col D): APPEND or OVERWRITE
-          |     - a delta column (col H) if in APPEND mode : the column which is used to determine new rows for each exports
-          |   - in corresponding source (table) sheets:
-          |     - the columns to extract
+          |The schemas should at least, specify :
+          |     - a table name (schemas.name)
+          |     - a file pattern (schemas.pattern) which is used as the export file base name
+          |     - a write mode (schemas.metadata.write): APPEND or OVERWRITE
+          |     - a delta column (schemas.merge.timestamp) if in APPEND mode : the column which is used to determine new rows for each exports
+          |     - the columns to extract (schemas.attributes.name*)
           |
           |You also have to provide a Mustache (http://mustache.github.io/mustache.5.html) template file.
           |
@@ -55,11 +53,10 @@ object ExtractScriptGenConfig {
           |""".stripMargin
       ),
       cmd("script-gen"),
-      opt[String]("referentialFile")
-        .validate(exists("Excel referential file"))
-        .action((x, c) => c.copy(referentialFile = File(x)))
+      opt[String]("domain")
+        .action((x, c) => c.copy(domain = x))
         .required()
-        .text("Excel referential file"),
+        .text("The domain for which to generate extract scripts"),
       opt[String]("templateFile")
         .validate(exists("Script template file"))
         .action((x, c) => c.copy(scriptTemplateFile = File(x)))
