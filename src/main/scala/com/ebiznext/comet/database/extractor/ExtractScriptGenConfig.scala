@@ -40,7 +40,7 @@ object ExtractScriptGenConfig {
           | - columns     -> the columns to export
           |   columns is a Mustache map, it gives you access, for each column, to:
           |    - name               -> the column name
-          |    - trailing_col_char  -> the separator to append to the column (, if the is more columns to come, "" otherwise)
+          |    - trailing_col_char  -> the separator to append to the column (, if there are more columns to come, "" otherwise)
           |                            Here is an example how to use it in a template:
           |                              SELECT
           |                              {{#columns}}
