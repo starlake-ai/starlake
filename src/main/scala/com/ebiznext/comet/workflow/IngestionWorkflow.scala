@@ -354,10 +354,21 @@ class IngestionWorkflow(
     * Successively run each task of a job
     *
     * @param jobname : job name as defined in the YML file.
+    * @param argParams : sql parameters to pass to SQL statements.
     */
-  def autoJob(jobname: String): Unit = {
+  def autoJobRun(jobname: String, argParams: Option[String] = None): Unit = {
     val job = schemaHandler.jobs(jobname)
-    autoJob(job)
+    val parameters: Option[Map[String, String]] = argParams
+      .map {
+        _.replaceAll("\\s", "")
+          .split(Array(',', '='))
+          .grouped(2)
+          .map {
+            case Array(k, v) => k -> v
+          }
+          .toMap
+      }
+    autoJob(job, parameters)
   }
 
   /**
@@ -365,7 +376,7 @@ class IngestionWorkflow(
     *
     * @param job : job as defined in the YML file.
     */
-  def autoJob(job: AutoJobDesc): Unit = {
+  def autoJob(job: AutoJobDesc, sqlParameters: Option[Map[String, String]]): Unit = {
     job.tasks.foreach { task =>
       val action = new AutoTask(
         job.name,
@@ -375,7 +386,8 @@ class IngestionWorkflow(
         job.udf,
         job.views,
         task,
-        storageHandler
+        storageHandler,
+        sqlParameters
       )
       action.run() match {
         case Success(_) =>

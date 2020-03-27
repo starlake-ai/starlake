@@ -104,8 +104,13 @@ object Main extends StrictLogging {
     val arglist = args.toList
     logger.info(s"Running Comet $arglist")
     arglist.head match {
-      case "job" if arglist.length == 2 => workflow.autoJob(arglist(1))
-      case "import"                     => workflow.loadLanding()
+      case "job" =>
+        if (arglist.length == 2)
+          workflow.autoJobRun(arglist(1))
+        else if (arglist.length == 3)
+          workflow.autoJobRun(arglist(1), Some(arglist(2)))
+        else logger.error(s"Number of arguments not respected: Please check your input: $arglist")
+      case "import" => workflow.loadLanding()
       case "watch" =>
         if (arglist.length == 2) {
           val param = arglist(1)
