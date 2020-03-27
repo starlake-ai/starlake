@@ -94,10 +94,12 @@ object JdbcLoadConfig extends CliConfig[JdbcLoadConfig] {
       head("comet", "1.x"),
       opt[String]("source_file")
         .action((x, c) => c.copy(sourceFile = Left(x)))
-        .text("Full Path to source file"),
+        .text("Full Path to source file")
+        .required(),
       opt[String]("output_table")
         .action((x, c) => c.copy(outputTable = x))
-        .text("JDBC Output Table"),
+        .text("JDBC Output Table")
+        .required(),
       opt[String]("driver")
         .action((x, c) => c.copy(driver = x))
         .text("JDBC Driver to use"),
