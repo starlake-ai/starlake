@@ -93,7 +93,7 @@ object Main extends StrictLogging {
   def main(args: Array[String]): Unit = {
     implicit val settings: Settings = Settings(ConfigFactory.load())
     settings.publishMDCData()
-
+    logger.info(s"Comet Version ${BuildInfo.version}")
     import settings.{launcherService, storageHandler}
     DatasetArea.init(storageHandler)
     val schemaHandler = new SchemaHandler(storageHandler)
