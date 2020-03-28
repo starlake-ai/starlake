@@ -1,7 +1,9 @@
 package com.ebiznext.comet.job.convert
 
+import com.ebiznext.comet.schema.model.WriteMode
 import com.ebiznext.comet.utils.CliConfig
 import org.apache.hadoop.fs.Path
+import org.apache.spark.sql.SaveMode
 import scopt.OParser
 
 case class Parquet2CSVConfig(
@@ -9,9 +11,10 @@ case class Parquet2CSVConfig(
   val outputFolder: Option[Path] = None,
   val domainName: Option[String] = None,
   val schemaName: Option[String] = None,
-  val withHeader: Option[Boolean] = None,
-  val separator: Option[String] = None,
-  val partitions: Option[Int] = None
+  val withHeader: Boolean = false,
+  val writeMode: Option[WriteMode] = None,
+  val separator: String = ",",
+  val partitions: Int = 1
 )
 
 object Parquet2CSVConfig extends CliConfig[Parquet2CSVConfig] {
@@ -22,11 +25,11 @@ object Parquet2CSVConfig extends CliConfig[Parquet2CSVConfig] {
     OParser.sequence(
       programName("comet"),
       head("comet", "1.x"),
-      opt[String]("input")
+      opt[String]("input_folder")
         .action((x, c) => c.copy(inputFolder = new Path(x)))
         .text("Full Path to input folder")
         .required(),
-      opt[String]("output_dataset")
+      opt[String]("output_folder")
         .action((x, c) => c.copy(outputFolder = Some(new Path(x))))
         .text("Full Path to output folder")
         .optional(),
@@ -38,17 +41,21 @@ object Parquet2CSVConfig extends CliConfig[Parquet2CSVConfig] {
         .action((x, c) => c.copy(schemaName = Some(x)))
         .text("Schema Name  ")
         .optional(),
-      opt[String]("with_header")
-        .action((x, c) => c.copy(withHeader = Some(x.toBoolean)))
+      opt[Unit]("with_header")
+        .action((_, c) => c.copy(withHeader = true))
         .text("Include header in output file ?")
         .optional(),
+      opt[String]("write_mode")
+        .action((x, c) => c.copy(writeMode = Some(WriteMode.fromString(x))))
+        .text(s"One of ${WriteMode.writes}")
+        .optional(),
       opt[String]("separator")
-        .action((x, c) => c.copy(separator = Some(x)))
-        .text("Separator to use ?")
+        .action((x, c) => c.copy(separator = x))
+        .text("Separator to use")
         .optional(),
       opt[String]("partitions")
-        .action((x, c) => c.copy(partitions = Some(x.toInt)))
-        .text("How many output partitions ?")
+        .action((x, c) => c.copy(partitions = x.toInt))
+        .text("How many output partitions")
         .optional()
     )
   }
