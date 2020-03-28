@@ -1,5 +1,6 @@
 package com.ebiznext.comet.job.convert
 
+import buildinfo.BuildInfo
 import com.ebiznext.comet.schema.model.WriteMode
 import com.ebiznext.comet.utils.CliConfig
 import org.apache.hadoop.fs.Path
@@ -24,14 +25,15 @@ object Parquet2CSVConfig extends CliConfig[Parquet2CSVConfig] {
     import builder._
     OParser.sequence(
       programName("comet"),
-      head("comet", "1.x"),
-      opt[String]("input_folder")
+      note("example => --input_dir /tmp/datasets/accepted/ --output_dir /tmp/datasets/csv/ --domain sales --schema orders --with_header  --separator ,  --partitions 1 --write_mode overwrite"),
+      head("comet", BuildInfo.version),
+      opt[String]("input_dir")
         .action((x, c) => c.copy(inputFolder = new Path(x)))
-        .text("Full Path to input folder")
+        .text("Full Path to input directory")
         .required(),
-      opt[String]("output_folder")
+      opt[String]("output_dir")
         .action((x, c) => c.copy(outputFolder = Some(new Path(x))))
-        .text("Full Path to output folder")
+        .text("Full Path to output directory, input_dir is used if not present")
         .optional(),
       opt[String]("domain")
         .action((x, c) => c.copy(domainName = Some(x)))

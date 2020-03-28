@@ -22,6 +22,7 @@ package com.ebiznext.comet.job.index
 
 import java.util.regex.Pattern
 
+import buildinfo.BuildInfo
 import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.utils.CliConfig
 import org.apache.hadoop.fs.Path
@@ -77,7 +78,7 @@ object IndexConfig extends CliConfig[IndexConfig] {
     import builder._
     OParser.sequence(
       programName("comet"),
-      head("comet", "1.x"),
+      head("comet", BuildInfo.version),
       opt[String]("timestamp")
         .action((x, c) => c.copy(timestamp = Some(x)))
         .optional()
