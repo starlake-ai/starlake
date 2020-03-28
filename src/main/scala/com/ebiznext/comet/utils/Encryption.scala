@@ -46,16 +46,3 @@ object No extends Encryption {
   def encrypt(s: String): String = s
 }
 
-object Initials extends Encryption {
-  def encrypt(s: String): String = {
-    s.split("\\s+").map(_.substring(0,1)).mkString(".")
-  }
-}
-
-object EmailMD5 extends Encryption {
-  def encrypt(s: String): String = {
-    val split = s.split('@')
-    Md5.encrypt(split(0)) + "@" + split(1)
-  }
-}
-
