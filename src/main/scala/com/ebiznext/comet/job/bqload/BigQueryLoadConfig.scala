@@ -1,5 +1,6 @@
 package com.ebiznext.comet.job.bqload
 
+import buildinfo.BuildInfo
 import com.ebiznext.comet.job.ingest.IngestConfig
 import com.ebiznext.comet.job.ingest.IngestConfig.parser
 import com.ebiznext.comet.utils.CliConfig
@@ -27,7 +28,7 @@ object BigQueryLoadConfig extends CliConfig[BigQueryLoadConfig] {
     import builder._
     OParser.sequence(
       programName("comet"),
-      head("comet", "1.x"),
+      head("comet", BuildInfo.version),
       opt[String]("source_file")
         .action((x, c) => c.copy(sourceFile = Left(x)))
         .text("Full Path to source file")

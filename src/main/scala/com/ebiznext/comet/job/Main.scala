@@ -20,6 +20,7 @@
 
 package com.ebiznext.comet.job
 
+import buildinfo.BuildInfo
 import com.ebiznext.comet.config.{DatasetArea, Settings}
 import com.ebiznext.comet.job.atlas.AtlasConfig
 import com.ebiznext.comet.job.bqload.BigQueryLoadConfig

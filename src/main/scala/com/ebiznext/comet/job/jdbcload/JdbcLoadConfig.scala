@@ -2,6 +2,7 @@ package com.ebiznext.comet.job.jdbcload
 
 import java.sql.{DriverManager, SQLException}
 
+import buildinfo.BuildInfo
 import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.utils.CliConfig
 import com.google.cloud.bigquery.JobInfo.{CreateDisposition, WriteDisposition}
@@ -91,7 +92,7 @@ object JdbcLoadConfig extends CliConfig[JdbcLoadConfig] {
     import builder._
     OParser.sequence(
       programName("comet"),
-      head("comet", "1.x"),
+      head("comet", BuildInfo.version),
       opt[String]("source_file")
         .action((x, c) => c.copy(sourceFile = Left(x)))
         .text("Full Path to source file")
