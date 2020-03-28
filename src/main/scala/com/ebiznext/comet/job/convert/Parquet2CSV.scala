@@ -10,6 +10,17 @@ import org.apache.spark.sql.{SaveMode, SparkSession}
 
 import scala.util.{Success, Try}
 
+/**
+  * Convert parquet files to CSV.
+  * The folder hierarchy should be in the form /input_folder/domain/schema/part*.parquet
+  * Once converted the csv files is put in the folder /output_folder/domain/schema.csv file
+  * When the specified number of parittions is 1 then /output_folder/domain/schema.csv is the file containing the data
+  * otherwise, it is a folder containng the part*.csv files.
+  * When output_folder is not specified, then the input_folder is used a the base output folder.
+  * @param config
+  * @param storageHandler
+  * @param settings
+  */
 class Parquet2CSV(config: Parquet2CSVConfig, val storageHandler: StorageHandler)(
   implicit val settings: Settings
 ) extends SparkJob {
