@@ -1,5 +1,6 @@
 package com.ebiznext.comet.job.metrics
 
+import buildinfo.BuildInfo
 import com.ebiznext.comet.schema.model.Stage
 import com.ebiznext.comet.utils.CliConfig
 import scopt.OParser
@@ -13,7 +14,7 @@ object MetricsConfig extends CliConfig[MetricsConfig] {
     import builder._
     OParser.sequence(
       programName("comet"),
-      head("comet", "1.x"),
+      head("comet", BuildInfo.version),
       opt[String]("domain")
         .action((x, c) => c.copy(domain = x))
         .required()

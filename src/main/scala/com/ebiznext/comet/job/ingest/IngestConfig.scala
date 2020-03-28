@@ -21,6 +21,7 @@
 package com.ebiznext.comet.job.ingest
 
 
+import buildinfo.BuildInfo
 import com.ebiznext.comet.utils.CliConfig
 import org.apache.hadoop.fs.Path
 import scopt.OParser
@@ -44,7 +45,7 @@ object IngestConfig extends CliConfig[IngestConfig] {
     import builder._
     OParser.sequence(
       programName("comet"),
-      head("comet", "1.x"),
+      head("comet", BuildInfo.version),
       arg[String]("domain")
         .required()
         .action((x, c) => c.copy(domain = x))
