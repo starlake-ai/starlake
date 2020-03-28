@@ -23,7 +23,7 @@ package com.ebiznext.comet.job
 import com.ebiznext.comet.config.{DatasetArea, Settings}
 import com.ebiznext.comet.job.atlas.AtlasConfig
 import com.ebiznext.comet.job.bqload.BigQueryLoadConfig
-import com.ebiznext.comet.job.convert.Parquet2CSVConfig
+import com.ebiznext.comet.job.convert.{Parquet2CSV, Parquet2CSVConfig}
 import com.ebiznext.comet.job.index.IndexConfig
 import com.ebiznext.comet.job.infer.InferSchemaConfig
 import com.ebiznext.comet.job.ingest.IngestConfig
@@ -185,6 +185,14 @@ object Main extends StrictLogging {
         MetricsConfig.parse(args.drop(1)) match {
           case Some(config) =>
             workflow.metric(config)
+          case _ =>
+            println(MetricsConfig.usage())
+        }
+
+      case "parquet2csv" =>
+        Parquet2CSVConfig.parse(args.drop(1)) match {
+          case Some(config) =>
+            new Parquet2CSV(config, storageHandler).run()
           case _ =>
             println(MetricsConfig.usage())
         }
