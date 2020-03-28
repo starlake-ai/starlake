@@ -2,10 +2,11 @@ package com.ebiznext.comet.job.convert
 
 import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.schema.handlers.StorageHandler
+import com.ebiznext.comet.schema.model.WriteMode
 import com.ebiznext.comet.utils.SparkJob
 import com.typesafe.config.ConfigFactory
 import org.apache.hadoop.fs.Path
-import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.{SaveMode, SparkSession}
 
 import scala.util.{Success, Try}
 
@@ -31,18 +32,22 @@ class Parquet2CSV(config: Parquet2CSVConfig, val storageHandler: StorageHandler)
       case Some(folder) => folder
     }
     allPaths.flatMap { path: Path =>
-        val successPath = new Path(path, "_SUCCESS")
+      val successPath = new Path(path, "_SUCCESS")
+      println("par"+config.partitions)
       storageHandler.exists(successPath) match {
         case true =>
-          val csvPath = new Path(outputPath, path.getName() + ".csv")
+          val csvPath =
+            new Path(new Path(outputPath, path.getParent.getName()), path.getName() + ".csv")
           session.read
             .parquet(path.toString)
-            .coalesce(config.partitions.getOrElse(1))
+            .coalesce(config.partitions)
             .write
-            .option("header", String.valueOf(config.withHeader.getOrElse(true)))
-            .save(csvPath.toString)
-          if (config.partitions.getOrElse(1) == 1) {
-            val files = storageHandler.list(csvPath, "parquet")
+            .mode(config.writeMode.getOrElse(WriteMode.ERROR_IF_EXISTS).toSaveMode)
+            .option("delimiter", config.separator)
+            .option("header", String.valueOf(config.withHeader))
+            .csv(csvPath.toString)
+          if (config.partitions == 1) {
+            val files = storageHandler.list(csvPath, "csv")
             files.foreach { f =>
               val tmpFile = new Path(csvPath.getParent, csvPath.getName + ".tmp")
               storageHandler.move(f, tmpFile)
@@ -61,14 +66,14 @@ class Parquet2CSV(config: Parquet2CSVConfig, val storageHandler: StorageHandler)
 }
 
 object Parquet2CSV {
-  def main(args:Array[String]): Unit = {
+  def main(args: Array[String]): Unit = {
     implicit val settings: Settings = Settings(ConfigFactory.load())
     settings.publishMDCData()
 
-    import settings.{storageHandler}
+    import settings.storageHandler
     Parquet2CSVConfig.parse(args) match {
       case Some(config) =>
-        new Parquet2CSV(config, storageHandler)
+        new Parquet2CSV(config, storageHandler).run()
       case _ =>
         println(Parquet2CSVConfig.usage())
     }
