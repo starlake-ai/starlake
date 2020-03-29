@@ -69,6 +69,39 @@ case class Type(
     IndexMapping.fromType(primitiveType)
   }
 
+  /**
+    * Left :  User defined Pattern
+    * Right : Tuple of Pattern for handling the special case of boolean (True Pattern, False Pattern).
+    */
+  @JsonIgnore
+  val compiledPattern: Option[Either[Pattern, (Pattern, Pattern)]] = {
+    name match {
+      case "string" => None
+      case _ =>
+        primitiveType match {
+          case PrimitiveType.struct => None
+          case PrimitiveType.date =>
+            None
+          case PrimitiveType.timestamp =>
+            None
+          case PrimitiveType.boolean =>
+            val tf = pattern.split("<-TF->")
+            Some(
+              Right(
+                (
+                  Pattern
+                    .compile(tf(0), Pattern.MULTILINE),
+                  Pattern
+                    .compile(tf(1), Pattern.MULTILINE)
+                )
+              )
+            )
+          case _ =>
+            Some(Left(Pattern.compile(pattern, Pattern.MULTILINE)))
+        }
+    }
+  }
+
   def matches(value: String): Boolean = {
     name match {
       case "string" => true
@@ -80,9 +113,11 @@ case class Type(
           case PrimitiveType.timestamp =>
             Try(timestamp.fromString(value, pattern, zone.getOrElse(null))).isSuccess
           case PrimitiveType.boolean =>
-            boolean.matches(value, pattern)
+            // We can get the pattern safely since checkValidity has been called by now
+            boolean.matches(value, compiledPattern.get.right.get._1, compiledPattern.get.right.get._2)
           case _ =>
-            val textPattern = Pattern.compile(pattern, Pattern.MULTILINE)
+            // We can get the pattern safely since checkValidity has been called by now
+            val textPattern = compiledPattern.get.left.get
             textPattern.matcher(value).matches()
         }
     }
