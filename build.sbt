@@ -28,7 +28,7 @@ scalacOptions ++= Seq(
 
 organizationHomepage := Some(url("http://www.ebiznext.com"))
 
-libraryDependencies := {
+libraryDependencies ++= {
   val spark = {
     CrossVersion.partialVersion(scalaVersion.value) match {
       case Some((2, scalaMajor)) if scalaMajor == 12 => spark212
