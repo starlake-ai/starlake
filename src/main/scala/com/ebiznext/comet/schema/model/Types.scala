@@ -139,7 +139,7 @@ case class Type(
 
     val patternIsValid = Try {
       primitiveType match {
-        case PrimitiveType.struct =>
+        case PrimitiveType.struct => // ignore
         case PrimitiveType.date =>
           new SimpleDateFormat(pattern)
         case PrimitiveType.timestamp =>
