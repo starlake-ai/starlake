@@ -1,11 +1,34 @@
 package com.ebiznext.comet.job.metrics
 
+import buildinfo.BuildInfo
 import com.ebiznext.comet.schema.model.Stage
+import com.ebiznext.comet.utils.CliConfig
 import scopt.OParser
 
 case class MetricsConfig(domain: String = "", schema: String = "", stage: Option[Stage] = None)
 
-object MetricsConfig {
+object MetricsConfig extends CliConfig[MetricsConfig] {
+
+  val parser: OParser[Unit, MetricsConfig] = {
+    val builder = OParser.builder[MetricsConfig]
+    import builder._
+    OParser.sequence(
+      programName("comet"),
+      head("comet", BuildInfo.version),
+      opt[String]("domain")
+        .action((x, c) => c.copy(domain = x))
+        .required()
+        .text("Domain Name"),
+      opt[String]("schema")
+        .action((x, c) => c.copy(schema = x))
+        .required()
+        .text("Schema Name"),
+      opt[String]("stage")
+        .action((x, c) => c.copy(stage = Some(Stage.fromString(x))))
+        .optional()
+        .text("Stage (UNIT or GLOBAL")
+    )
+  }
 
   /** Function to parse command line arguments (domain and schema).
     *
@@ -13,26 +36,6 @@ object MetricsConfig {
     * @return : an Option of MetricConfing with the parsed domain and schema names.
     */
   def parse(args: Seq[String]): Option[MetricsConfig] = {
-    val builder = OParser.builder[MetricsConfig]
-    val parser: OParser[Unit, MetricsConfig] = {
-      import builder._
-      OParser.sequence(
-        programName("comet"),
-        head("comet", "1.x"),
-        opt[String]("domain")
-          .action((x, c) => c.copy(domain = x))
-          .required()
-          .text("Domain Name"),
-        opt[String]("schema")
-          .action((x, c) => c.copy(schema = x))
-          .required()
-          .text("Schema Name"),
-        opt[String]("stage")
-          .action((x, c) => c.copy(stage = Some(Stage.fromString(x))))
-          .optional()
-          .text("Stage (UNIT or GLOBAL")
-      )
-    }
     OParser.parse(parser, args, MetricsConfig())
   }
 }

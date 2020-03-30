@@ -1,5 +1,7 @@
 package com.ebiznext.comet.job.atlas
 
+import buildinfo.BuildInfo
+import com.ebiznext.comet.utils.CliConfig
 import scopt.OParser
 
 case class AtlasConfig(
@@ -11,42 +13,40 @@ case class AtlasConfig(
   files: List[String] = Nil
 )
 
-object AtlasConfig {
+object AtlasConfig extends CliConfig[AtlasConfig] {
 
-  // comet atlas  --delete --files file1,file2 --folder uri
-  def parse(args: Seq[String]): Option[AtlasConfig] = {
+  val parser: OParser[Unit, AtlasConfig] = {
     val builder = OParser.builder[AtlasConfig]
-    val parser: OParser[Unit, AtlasConfig] = {
-      import builder._
-      OParser.sequence(
-        programName("comet"),
-        head("comet", "1.x"),
-        opt[Unit]("delete")
-          .action((_, c) => c.copy(delete = true))
-          .optional()
-          .text("Should we delete the previous schemas ?"),
-        opt[String]("folder")
-          .action((x, c) => c.copy(folder = Some(x)))
-          .optional()
-          .text("Folder with yaml schema files"),
-        opt[String]("uris")
-          .action((x, c) => c.copy(uris = Some(x.split(",").toList.map(_.trim))))
-          .optional()
-          .text("Atlas URI"),
-        opt[String]("user")
-          .action((x, c) => c.copy(user = Some(x)))
-          .optional()
-          .text("Atlas User"),
-        opt[String]("password")
-          .action((x, c) => c.copy(password = Some(x)))
-          .optional()
-          .text("Atlas password"),
-        opt[String]("files")
-          .action((x, c) => c.copy(files = x.split(",").toList.map(_.trim)))
-          .optional()
-          .text("List of YML files")
-      )
-    }
-    OParser.parse(parser, args, AtlasConfig())
+    import builder._
+    OParser.sequence(
+      programName("comet"),
+      head("comet", BuildInfo.version),
+      opt[Unit]("delete")
+        .action((_, c) => c.copy(delete = true))
+        .optional()
+        .text("Should we delete the previous schemas ?"),
+      opt[String]("folder")
+        .action((x, c) => c.copy(folder = Some(x)))
+        .optional()
+        .text("Folder with yaml schema files"),
+      opt[String]("uris")
+        .action((x, c) => c.copy(uris = Some(x.split(",").toList.map(_.trim))))
+        .optional()
+        .text("Atlas URI"),
+      opt[String]("user")
+        .action((x, c) => c.copy(user = Some(x)))
+        .optional()
+        .text("Atlas User"),
+      opt[String]("password")
+        .action((x, c) => c.copy(password = Some(x)))
+        .optional()
+        .text("Atlas password"),
+      opt[String]("files")
+        .action((x, c) => c.copy(files = x.split(",").toList.map(_.trim)))
+        .optional()
+        .text("List of YML files")
+    )
   }
+  // comet atlas  --delete --files file1,file2 --folder uri
+  def parse(args: Seq[String]): Option[AtlasConfig] = OParser.parse(parser, args, AtlasConfig())
 }
