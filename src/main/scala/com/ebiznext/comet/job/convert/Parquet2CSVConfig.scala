@@ -4,18 +4,17 @@ import buildinfo.BuildInfo
 import com.ebiznext.comet.schema.model.WriteMode
 import com.ebiznext.comet.utils.CliConfig
 import org.apache.hadoop.fs.Path
-import org.apache.spark.sql.SaveMode
 import scopt.OParser
 
 case class Parquet2CSVConfig(
-  val inputFolder: Path = new Path("/"),
-  val outputFolder: Option[Path] = None,
-  val domainName: Option[String] = None,
-  val schemaName: Option[String] = None,
-  val withHeader: Boolean = false,
-  val writeMode: Option[WriteMode] = None,
-  val separator: String = ",",
-  val partitions: Int = 1
+  inputFolder: Path = new Path("/"),
+  outputFolder: Option[Path] = None,
+  domainName: Option[String] = None,
+  schemaName: Option[String] = None,
+  withHeader: Boolean = false,
+  writeMode: Option[WriteMode] = None,
+  separator: String = ",",
+  partitions: Int = 1
 )
 
 object Parquet2CSVConfig extends CliConfig[Parquet2CSVConfig] {
