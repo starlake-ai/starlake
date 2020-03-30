@@ -124,3 +124,6 @@ src/main/resources/application.conf
 
 #Mac
 .DS_Store
+
+#Python
+venv
