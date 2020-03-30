@@ -85,10 +85,6 @@ class HdfsStorageHandler(fileSystem: Option[String])(
 ) extends StorageHandler {
 
   val conf = new Configuration()
-  conf.set(
-    "fs.azure.account.key.hayssams.dfs.core.windows.net",
-    "fm2rEMVDBuWyEWw+NjvCZCdS20NJ4FX9eRunkXyhnakhKjaMzzFDOw/wBg2clWsVZnUDZQ+4ceSMpAR5RJvXGw=="
-  )
   lazy val normalizedFileSystem: Option[String] = {
     fileSystem.map { fs =>
       if (fs.endsWith(":"))

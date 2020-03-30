@@ -27,6 +27,7 @@ import org.scalafmt.sbt.ScalafmtPlugin.autoImport.scalafmtOnCompile
 import sbt.Keys._
 import sbt.{Def, _}
 import sbtassembly.AssemblyKeys._
+import sbtbuildinfo.BuildInfoPlugin
 
 object Common {
 
@@ -43,7 +44,8 @@ object Common {
     GitVersioning,
     GitBranchPrompt,
     SphinxPlugin,
-    SiteScaladocPlugin
+    SiteScaladocPlugin,
+    BuildInfoPlugin
   )
 
   def gitSettings = Seq(

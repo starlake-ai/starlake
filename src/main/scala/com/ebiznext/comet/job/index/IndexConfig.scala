@@ -22,7 +22,9 @@ package com.ebiznext.comet.job.index
 
 import java.util.regex.Pattern
 
+import buildinfo.BuildInfo
 import com.ebiznext.comet.config.Settings
+import com.ebiznext.comet.utils.CliConfig
 import org.apache.hadoop.fs.Path
 import scopt.OParser
 
@@ -69,52 +71,51 @@ case class IndexConfig(
   }
 }
 
-object IndexConfig {
+object IndexConfig extends CliConfig[IndexConfig] {
 
-  def parse(args: Seq[String]): Option[IndexConfig] = {
+  val parser: OParser[Unit, IndexConfig] = {
     val builder = OParser.builder[IndexConfig]
-    val parser: OParser[Unit, IndexConfig] = {
-      import builder._
-      OParser.sequence(
-        programName("comet"),
-        head("comet", "1.x"),
-        opt[String]("timestamp")
-          .action((x, c) => c.copy(timestamp = Some(x)))
-          .optional()
-          .text("Elasticsearch index timestamp suffix as in {@timestamp|yyyy.MM.dd}"),
-        opt[String]("id")
-          .action((x, c) => c.copy(id = Some(x)))
-          .optional()
-          .text("Elasticsearch Document Id"),
-        opt[String]("mapping")
-          .action((x, c) => c.copy(mapping = Some(new Path(x))))
-          .optional()
-          .text("Path to Elasticsearch Mapping File"),
-        opt[String]("domain")
-          .action((x, c) => c.copy(domain = x))
-          .required()
-          .text("Domain Name"),
-        opt[String]("schema")
-          .action((x, c) => c.copy(schema = x))
-          .required()
-          .text("Schema Name"),
-        opt[String]("format")
-          .action((x, c) => c.copy(format = x))
-          .required()
-          .text("Dataset input file : parquet, json or json-array"),
-        opt[String]("dataset")
-          .action((x, c) => c.copy(dataset = Some(new Path(x))))
-          .optional()
-          .text("Input dataset path"),
-        opt[Map[String, String]]("conf")
-          .action((x, c) => c.copy(conf = x))
-          .optional()
-          .valueName(
-            "es.batch.size.entries=1000,es.batch.size.bytes=1mb... (see https://www.elastic.co/guide/en/elasticsearch/hadoop/current/configuration.html)"
-          )
-          .text("eshadoop configuration options")
-      )
-    }
-    OParser.parse(parser, args, IndexConfig())
+    import builder._
+    OParser.sequence(
+      programName("comet"),
+      head("comet", BuildInfo.version),
+      opt[String]("timestamp")
+        .action((x, c) => c.copy(timestamp = Some(x)))
+        .optional()
+        .text("Elasticsearch index timestamp suffix as in {@timestamp|yyyy.MM.dd}"),
+      opt[String]("id")
+        .action((x, c) => c.copy(id = Some(x)))
+        .optional()
+        .text("Elasticsearch Document Id"),
+      opt[String]("mapping")
+        .action((x, c) => c.copy(mapping = Some(new Path(x))))
+        .optional()
+        .text("Path to Elasticsearch Mapping File"),
+      opt[String]("domain")
+        .action((x, c) => c.copy(domain = x))
+        .required()
+        .text("Domain Name"),
+      opt[String]("schema")
+        .action((x, c) => c.copy(schema = x))
+        .required()
+        .text("Schema Name"),
+      opt[String]("format")
+        .action((x, c) => c.copy(format = x))
+        .required()
+        .text("Dataset input file : parquet, json or json-array"),
+      opt[String]("dataset")
+        .action((x, c) => c.copy(dataset = Some(new Path(x))))
+        .optional()
+        .text("Input dataset path"),
+      opt[Map[String, String]]("conf")
+        .action((x, c) => c.copy(conf = x))
+        .optional()
+        .valueName(
+          "es.batch.size.entries=1000,es.batch.size.bytes=1mb... (see https://www.elastic.co/guide/en/elasticsearch/hadoop/current/configuration.html)"
+        )
+        .text("eshadoop configuration options")
+    )
   }
+
+  def parse(args: Seq[String]): Option[IndexConfig] = OParser.parse(parser, args, IndexConfig())
 }
