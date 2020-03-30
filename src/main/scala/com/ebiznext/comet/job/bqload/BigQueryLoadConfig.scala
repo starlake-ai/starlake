@@ -1,8 +1,6 @@
 package com.ebiznext.comet.job.bqload
 
 import buildinfo.BuildInfo
-import com.ebiznext.comet.job.ingest.IngestConfig
-import com.ebiznext.comet.job.ingest.IngestConfig.parser
 import com.ebiznext.comet.utils.CliConfig
 import org.apache.spark.sql.DataFrame
 import scopt.OParser
