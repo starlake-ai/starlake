@@ -553,7 +553,7 @@ object IngestionUtil {
       if (privacyLevel == PrivacyLevel.None)
         colValue
       else
-        privacyLevel.encrypt(colValue)
+        privacyLevel.crypt(colValue)
     val colPatternOK = optionalColIsEmpty || colPatternIsValid
     val (sparkValue, colParseOK) =
       if (colPatternOK) {
