@@ -23,7 +23,7 @@ package com.ebiznext.comet.schema.model
 import java.util.Locale
 
 import com.ebiznext.comet.config.Settings
-import com.ebiznext.comet.utils.Encryption
+import com.ebiznext.comet.privacy.PrivacyEngine
 import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.databind.annotation.{JsonDeserialize, JsonSerialize}
 import com.fasterxml.jackson.databind.ser.std.ToStringSerializer
@@ -42,25 +42,30 @@ import scala.reflect.runtime.universe
 sealed case class PrivacyLevel(value: String) {
   override def toString: String = value
 
-  def encrypt(s: String)(implicit settings: Settings): String =
-    PrivacyLevel.ForSettings(settings).all(value)._1.encrypt(s)
+  def crypt(s: String)(implicit settings: Settings): String = {
+    val (privacyAlgo, privacyParams) = PrivacyLevel.ForSettings(settings).all(value)._1
+    if (privacyParams.isEmpty)
+      privacyAlgo.crypt(s)
+    else
+      privacyAlgo.crypt(s, privacyParams)
+
+  }
 
 }
 
 object PrivacyLevel {
 
   case class ForSettings(settings: Settings) {
-
-    private def make(schemeName: String, encryptionObject: String): Encryption = {
+    private def make(schemeName: String, encryptionAlgo: String): (PrivacyEngine, List[Any]) = {
+      val (privacyObject, typedParams) = PrivacyEngine.parse(encryptionAlgo)
       val runtimeMirror = universe.runtimeMirror(getClass.getClassLoader)
-      val module = runtimeMirror.staticModule(encryptionObject)
+      val module = runtimeMirror.staticModule(privacyObject)
       val obj: universe.ModuleMirror = runtimeMirror.reflectModule(module)
-      val encryption = obj.instance.asInstanceOf[Encryption]
-      encryption
-
+      val encryption = obj.instance.asInstanceOf[PrivacyEngine]
+      (encryption, typedParams)
     }
 
-    def get(schemeName: String): Encryption = {
+    def get(schemeName: String): (PrivacyEngine, List[Any]) = {
       val encryptionObject = settings.comet.privacy.options.asScala(schemeName)
       make(schemeName, encryptionObject)
     }
