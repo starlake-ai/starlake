@@ -1,0 +1,117 @@
+-- MISE EN FORME POUR L'ECRITURE DANS LE FICHIER
+SET FEED OFF
+SET ECHO OFF
+SET VERIFY OFF
+SET HEADING OFF
+SET TERMOUT OFF
+SET CONCAT "#"
+SET MARKUP CSV ON DELIMITER "{{delimiter}}"
+-- ARRET EN ECHEC EN CAS D'ERREUR SQL
+WHENEVER SQLERROR exit 1;
+
+-- RECUPERATION DU DOSSIER DE SORTIE
+DEFINE OUTPUT_DIR = &1;
+
+-- STOCKAGE DU DATE TIME COURANT EN STRING DANS DATE_TIME_CHAR
+DEFINE DATE_TIME_PATTERN = 'yyyymmddhhmiss';
+COLUMN DT_VAL NEW_VALUE CURRENT_EXPORT_DATE_CHAR;
+SELECT TO_CHAR(SYSDATE, '&DATE_TIME_PATTERN') DT_VAL FROM DUAL;
+
+-- STOCKAGE DE LA DATE DE DERNIER EXPORT DANS LAST_EXPORT_DATE
+COLUMN LED NEW_VALUE LAST_EXPORT_DATE;
+SELECT
+    COALESCE(
+        (
+            SELECT
+                LAST_EXPORT_DATE
+            FROM
+                EXPORT_STATUS
+            WHERE
+                TABLE_NAME = '{{table_name}}'
+        ),
+        TO_DATE('19700101','yyyymmdd') -- SI PAS D'EXPORT DATE EN TABLE, EPOCH
+    ) LED
+FROM
+    DUAL;
+
+-- OUVERTURE DU FICHIER
+PROMPT EXPORTING {{table_name}} TO &OUTPUT_DIR#/{{export_file}}_{{#full_export}}FULL{{/full_export}}{{^full_export}}DELTA{{/full_export}}_&CURRENT_EXPORT_DATE_CHAR#.csv;
+SPOOL &OUTPUT_DIR#/{{export_file}}_{{#full_export}}FULL{{/full_export}}{{^full_export}}DELTA{{/full_export}}_&CURRENT_EXPORT_DATE_CHAR#.csv REPLACE
+
+{{^full_export}}
+SELECT
+    {{#columns}}
+    TO_CHAR({{name}}){{trailing_col_char}}
+    {{/columns}}
+FROM
+    {{table_name}}
+WHERE
+    {{delta_column}} >= '&LAST_EXPORT_DATE';
+{{/full_export}}
+
+{{#full_export}}
+SELECT
+    {{#columns}}
+    TO_CHAR({{name}}){{trailing_col_char}}
+    {{/columns}}
+FROM
+    {{table_name}};
+{{/full_export}}
+
+-- FERMETURE DU FICHIER
+SPOOL OFF
+
+-- MISE À JOUR DE LA TABLE REPORTING
+BEGIN
+    UPDATE
+        EXPORT_STATUS
+    SET
+        SCHEMA_NAME = 'SCHEMA1',
+        TABLE_NAME = '{{table_name}}',
+        LAST_EXPORT_DATE = TO_DATE(&CURRENT_EXPORT_DATE_CHAR, '&DATE_TIME_PATTERN'),
+        {{#full_export}}
+        TYPE_LAST_EXPORT = 'FULL',
+        {{/full_export}}
+        {{^full_export}}
+        TYPE_LAST_EXPORT = 'DELTA',
+        {{/full_export}}
+        NB_ROWS_LAST_EXPORT = (
+            SELECT
+                COUNT(*)
+            FROM
+                {{table_name}}
+            WHERE
+                {{delta_column}} >= '&LAST_EXPORT_DATE'
+        )
+    WHERE
+        TABLE_NAME = '{{table_name}}';
+    IF
+        SQL%ROWCOUNT = 0
+    THEN -- PAS DE LIGNE UPDATEES
+        INSERT INTO
+            EXPORT_STATUS (SCHEMA_NAME, TABLE_NAME, LAST_EXPORT_DATE, TYPE_LAST_EXPORT, NB_ROWS_LAST_EXPORT)
+        VALUES
+            (
+                'SCHEMA1',
+                '{{table_name}}',
+                TO_DATE(&CURRENT_EXPORT_DATE_CHAR, '&DATE_TIME_PATTERN'),
+                {{#full_export}}
+                'FULL',
+                {{/full_export}}
+                {{^full_export}}
+                'DELTA',
+                {{/full_export}}
+                (
+                    SELECT
+                        COUNT(*)
+                    FROM
+                        {{table_name}}
+                    WHERE
+                        {{delta_column}} >= '&LAST_EXPORT_DATE'
+                )
+            );
+    END IF;
+END;
+/
+
+EXIT SUCCESS

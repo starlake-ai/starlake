@@ -27,8 +27,7 @@ import org.scalafmt.sbt.ScalafmtPlugin.autoImport.scalafmtOnCompile
 import sbt.Keys._
 import sbt.{Def, _}
 import sbtassembly.AssemblyKeys._
-import sbtbuildinfo.BuildInfoPlugin.autoImport.{BuildInfoKey, buildInfoKeys, buildInfoPackage}
-import sbtbuildinfo.{BuildInfoKey, BuildInfoPlugin}
+import sbtbuildinfo.BuildInfoPlugin
 
 object Common {
 
@@ -111,7 +110,7 @@ object Versions {
   val log4s = "1.3.3"
   val betterFiles = "3.8.0"
   val jackson211 = "2.7.9"
-  val jackson212 = "2.9.10"  
+  val jackson212 = "2.9.10"
   val configs = "0.4.4"
   val esHadoop = "7.6.1"
   val scopt = "4.0.0-RC2"
@@ -122,6 +121,7 @@ object Versions {
   val hadoop = "3.2.0"
   val h2 = "1.4.200" // Test only
   val poi = "4.1.2"
+  val scalate = "1.9.5"
 }
 
 object Resolvers {
