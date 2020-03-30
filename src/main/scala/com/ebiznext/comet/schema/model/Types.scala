@@ -75,13 +75,7 @@ case class Type(
       case "string" => None
       case _ =>
         primitiveType match {
-          case PrimitiveType.struct => None
-          case PrimitiveType.date =>
-            None
-          case PrimitiveType.timestamp =>
-            None
-          case PrimitiveType.boolean =>
-            None
+          case PrimitiveType.struct | PrimitiveType.date | PrimitiveType.timestamp | PrimitiveType.boolean => None
           case _ =>
             Some(Pattern.compile(pattern, Pattern.MULTILINE))
         }
@@ -94,11 +88,7 @@ case class Type(
       case "string" => None
       case _ =>
         primitiveType match {
-          case PrimitiveType.struct => None
-          case PrimitiveType.date =>
-            None
-          case PrimitiveType.timestamp =>
-            None
+          case PrimitiveType.struct | PrimitiveType.date | PrimitiveType.timestamp => None
           case PrimitiveType.boolean =>
             val tf = pattern.split("<-TF->")
             Some(
