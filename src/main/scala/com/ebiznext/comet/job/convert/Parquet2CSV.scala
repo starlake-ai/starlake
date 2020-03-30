@@ -44,7 +44,6 @@ class Parquet2CSV(config: Parquet2CSVConfig, val storageHandler: StorageHandler)
     }
     allPaths.flatMap { path: Path =>
       val successPath = new Path(path, "_SUCCESS")
-      println("par"+config.partitions)
       storageHandler.exists(successPath) match {
         case true =>
           val csvPath =
