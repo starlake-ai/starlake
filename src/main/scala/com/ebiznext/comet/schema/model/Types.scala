@@ -69,6 +69,42 @@ case class Type(
     IndexMapping.fromType(primitiveType)
   }
 
+  @JsonIgnore
+  val textPattern: Option[Pattern] = {
+    name match {
+      case "string" => None
+      case _ =>
+        primitiveType match {
+          case PrimitiveType.struct | PrimitiveType.date | PrimitiveType.timestamp | PrimitiveType.boolean => None
+          case _ =>
+            Some(Pattern.compile(pattern, Pattern.MULTILINE))
+        }
+    }
+  }
+
+  @JsonIgnore
+  val booleanPattern: Option[(Pattern, Pattern)] = {
+    name match {
+      case "string" => None
+      case _ =>
+        primitiveType match {
+          case PrimitiveType.struct | PrimitiveType.date | PrimitiveType.timestamp => None
+          case PrimitiveType.boolean =>
+            val tf = pattern.split("<-TF->")
+            Some(
+                (
+                  Pattern
+                    .compile(tf(0), Pattern.MULTILINE),
+                  Pattern
+                    .compile(tf(1), Pattern.MULTILINE)
+                )
+            )
+          case _ =>
+            None
+        }
+    }
+  }
+
   def matches(value: String): Boolean = {
     name match {
       case "string" => true
@@ -78,12 +114,13 @@ case class Type(
           case PrimitiveType.date =>
             Try(date.fromString(value, pattern)).isSuccess
           case PrimitiveType.timestamp =>
-            Try(timestamp.fromString(value, pattern, zone.getOrElse(null))).isSuccess
+            Try(timestamp.fromString(value, pattern, zone.orNull)).isSuccess
           case PrimitiveType.boolean =>
-            boolean.matches(value, pattern)
+            // We can get the pattern safely since checkValidity has been called by now
+            boolean.matches(value, booleanPattern.get._1, booleanPattern.get._2)
           case _ =>
-            val textPattern = Pattern.compile(pattern, Pattern.MULTILINE)
-            textPattern.matcher(value).matches()
+            // We can get the pattern safely since checkValidity has been called by now
+              textPattern.get.matcher(value).matches()
         }
     }
   }
@@ -102,7 +139,7 @@ case class Type(
 
     val patternIsValid = Try {
       primitiveType match {
-        case PrimitiveType.struct =>
+        case PrimitiveType.struct => // ignore
         case PrimitiveType.date =>
           new SimpleDateFormat(pattern)
         case PrimitiveType.timestamp =>
