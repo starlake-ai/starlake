@@ -69,12 +69,27 @@ case class Type(
     IndexMapping.fromType(primitiveType)
   }
 
-  /**
-    * Left :  User defined Pattern
-    * Right : Tuple of Pattern for handling the special case of boolean (True Pattern, False Pattern).
-    */
   @JsonIgnore
-  val compiledPattern: Option[Either[Pattern, (Pattern, Pattern)]] = {
+  val textPattern: Option[Pattern] = {
+    name match {
+      case "string" => None
+      case _ =>
+        primitiveType match {
+          case PrimitiveType.struct => None
+          case PrimitiveType.date =>
+            None
+          case PrimitiveType.timestamp =>
+            None
+          case PrimitiveType.boolean =>
+            None
+          case _ =>
+            Some(Pattern.compile(pattern, Pattern.MULTILINE))
+        }
+    }
+  }
+
+  @JsonIgnore
+  val booleanPattern: Option[(Pattern, Pattern)] = {
     name match {
       case "string" => None
       case _ =>
@@ -87,17 +102,15 @@ case class Type(
           case PrimitiveType.boolean =>
             val tf = pattern.split("<-TF->")
             Some(
-              Right(
                 (
                   Pattern
                     .compile(tf(0), Pattern.MULTILINE),
                   Pattern
                     .compile(tf(1), Pattern.MULTILINE)
                 )
-              )
             )
           case _ =>
-            Some(Left(Pattern.compile(pattern, Pattern.MULTILINE)))
+            None
         }
     }
   }
@@ -111,14 +124,13 @@ case class Type(
           case PrimitiveType.date =>
             Try(date.fromString(value, pattern)).isSuccess
           case PrimitiveType.timestamp =>
-            Try(timestamp.fromString(value, pattern, zone.getOrElse(null))).isSuccess
+            Try(timestamp.fromString(value, pattern, zone.orNull)).isSuccess
           case PrimitiveType.boolean =>
             // We can get the pattern safely since checkValidity has been called by now
-            boolean.matches(value, compiledPattern.get.right.get._1, compiledPattern.get.right.get._2)
+            boolean.matches(value, booleanPattern.get._1, booleanPattern.get._2)
           case _ =>
             // We can get the pattern safely since checkValidity has been called by now
-            val textPattern = compiledPattern.get.left.get
-            textPattern.matcher(value).matches()
+              textPattern.get.matcher(value).matches()
         }
     }
   }
