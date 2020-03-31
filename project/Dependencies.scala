@@ -122,7 +122,7 @@ object Dependencies {
 
   val azure = Seq(
     "org.apache.hadoop" % "hadoop-azure" % "3.2.1" % "provided" excludeAll (jacksonExclusions: _*),
-    "com.microsoft.azure" % "azure-storage" % "8.6.2" % "provided" excludeAll (jacksonExclusions: _*)
+    "com.microsoft.azure" % "azure-storage" % "8.6.3" % "provided" excludeAll (jacksonExclusions: _*)
   )
 
   val hadoop = Seq(
