@@ -32,11 +32,11 @@ class Parquet2CSV(config: Parquet2CSVConfig, val storageHandler: StorageHandler)
       case (Some(domainName), Some(schemaName)) =>
         List(new Path(new Path(config.inputFolder, domainName), schemaName))
       case (Some(domainName), None) =>
-        storageHandler.list(new Path(config.inputFolder, domainName))
+        storageHandler.listDirectories(new Path(config.inputFolder, domainName))
       case (None, None) =>
         storageHandler
-          .list(config.inputFolder)
-          .flatMap(domainPath => storageHandler.list(domainPath))
+          .listDirectories(config.inputFolder)
+          .flatMap(domainPath => storageHandler.listDirectories(domainPath))
     }
     val outputPath = config.outputFolder match {
       case None         => config.inputFolder
@@ -66,6 +66,8 @@ class Parquet2CSV(config: Parquet2CSVConfig, val storageHandler: StorageHandler)
               storageHandler.move(tmpFile, csvPath)
             }
           }
+          if (config.deleteSource)
+            storageHandler.delete(path)
           Some(csvPath)
         case false =>
           None
@@ -76,6 +78,7 @@ class Parquet2CSV(config: Parquet2CSVConfig, val storageHandler: StorageHandler)
 }
 
 object Parquet2CSV {
+
   def main(args: Array[String]): Unit = {
     implicit val settings: Settings = Settings(ConfigFactory.load())
     settings.publishMDCData()
