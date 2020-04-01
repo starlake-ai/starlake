@@ -13,6 +13,7 @@ case class Parquet2CSVConfig(
   schemaName: Option[String] = None,
   withHeader: Boolean = false,
   writeMode: Option[WriteMode] = None,
+  deleteSource: Boolean = false,
   separator: String = ",",
   partitions: Int = 1
 )
@@ -24,7 +25,9 @@ object Parquet2CSVConfig extends CliConfig[Parquet2CSVConfig] {
     import builder._
     OParser.sequence(
       programName("comet"),
-      note("example => --input_dir /tmp/datasets/accepted/ --output_dir /tmp/datasets/csv/ --domain sales --schema orders --with_header  --separator ,  --partitions 1 --write_mode overwrite"),
+      note(
+        "example => --input_dir /tmp/datasets/accepted/ --output_dir /tmp/datasets/csv/ --domain sales --schema orders --with_header  --separator ,  --partitions 1 --write_mode overwrite"
+      ),
       head("comet", BuildInfo.version),
       opt[String]("input_dir")
         .action((x, c) => c.copy(inputFolder = new Path(x)))
@@ -45,6 +48,10 @@ object Parquet2CSVConfig extends CliConfig[Parquet2CSVConfig] {
       opt[Unit]("with_header")
         .action((_, c) => c.copy(withHeader = true))
         .text("Include header in output file ?")
+        .optional(),
+      opt[Unit]("delete_source")
+        .action((_, c) => c.copy(deleteSource = true))
+        .text("delete source parquet file ?")
         .optional(),
       opt[String]("write_mode")
         .action((x, c) => c.copy(writeMode = Some(WriteMode.fromString(x))))
