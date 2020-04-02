@@ -54,6 +54,8 @@ trait StorageHandler extends StrictLogging {
 
   def write(data: String, path: Path): Unit
 
+  def listDirectories(path: Path): List[Path]
+
   def list(path: Path, extension: String = "", since: LocalDateTime = LocalDateTime.MIN): List[Path]
 
   def blockSize(path: Path): Long
@@ -85,6 +87,7 @@ class HdfsStorageHandler(fileSystem: Option[String])(
 ) extends StorageHandler {
 
   val conf = new Configuration()
+
   lazy val normalizedFileSystem: Option[String] = {
     fileSystem.map { fs =>
       if (fs.endsWith(":"))
@@ -149,6 +152,9 @@ class HdfsStorageHandler(fileSystem: Option[String])(
     os.writeBytes(data)
     os.close()
   }
+
+  def listDirectories(path: Path): List[Path] =
+    fs.listStatus(path).filter(_.isDirectory).map(_.getPath).toList
 
   /**
     * List all files in folder
