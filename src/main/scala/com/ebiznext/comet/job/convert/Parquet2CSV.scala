@@ -48,13 +48,13 @@ class Parquet2CSV(config: Parquet2CSVConfig, val storageHandler: StorageHandler)
         case true =>
           val csvPath =
             new Path(new Path(outputPath, path.getParent.getName()), path.getName() + ".csv")
-          session.read
+          val writer = session.read
             .parquet(path.toString)
             .coalesce(config.partitions)
             .write
             .mode(config.writeMode.getOrElse(WriteMode.ERROR_IF_EXISTS).toSaveMode)
-            .option("delimiter", config.separator)
-            .option("header", String.valueOf(config.withHeader))
+          config.options
+            .foldLeft(writer)((w, kv) => w.option(kv._1, kv._2))
             .csv(csvPath.toString)
           if (config.partitions == 1) {
             val files = storageHandler.list(csvPath, "csv")
