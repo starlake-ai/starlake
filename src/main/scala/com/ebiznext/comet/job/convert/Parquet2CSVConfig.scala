@@ -11,9 +11,9 @@ case class Parquet2CSVConfig(
   outputFolder: Option[Path] = None,
   domainName: Option[String] = None,
   schemaName: Option[String] = None,
-  withHeader: Boolean = false,
   writeMode: Option[WriteMode] = None,
-  separator: String = ",",
+  deleteSource: Boolean = false,
+  options: List[(String, String)] = Nil,
   partitions: Int = 1
 )
 
@@ -24,7 +24,9 @@ object Parquet2CSVConfig extends CliConfig[Parquet2CSVConfig] {
     import builder._
     OParser.sequence(
       programName("comet"),
-      note("example => --input_dir /tmp/datasets/accepted/ --output_dir /tmp/datasets/csv/ --domain sales --schema orders --with_header  --separator ,  --partitions 1 --write_mode overwrite"),
+      note(
+        "example => --input_dir /tmp/datasets/accepted/ --output_dir /tmp/datasets/csv/ --domain sales --schema orders --option header=true  --option separator=,  --partitions 1 --write_mode overwrite"
+      ),
       head("comet", BuildInfo.version),
       opt[String]("input_dir")
         .action((x, c) => c.copy(inputFolder = new Path(x)))
@@ -42,17 +44,20 @@ object Parquet2CSVConfig extends CliConfig[Parquet2CSVConfig] {
         .action((x, c) => c.copy(schemaName = Some(x)))
         .text("Schema Name  ")
         .optional(),
-      opt[Unit]("with_header")
-        .action((_, c) => c.copy(withHeader = true))
-        .text("Include header in output file ?")
+      opt[Unit]("delete_source")
+        .action((_, c) => c.copy(deleteSource = true))
+        .text("delete source parquet file ?")
         .optional(),
       opt[String]("write_mode")
         .action((x, c) => c.copy(writeMode = Some(WriteMode.fromString(x))))
         .text(s"One of ${WriteMode.writes}")
         .optional(),
-      opt[String]("separator")
-        .action((x, c) => c.copy(separator = x))
-        .text("Separator to use")
+      opt[String]("option")
+        .action((x, c) => {
+          val option = x.split('=')
+          c.copy(options = c.options :+ (option(0) -> option(1)))
+        })
+        .text("option to use (sep, delimiter, quote, quoteAll, escape, header ...)")
         .optional(),
       opt[String]("partitions")
         .action((x, c) => c.copy(partitions = x.toInt))
