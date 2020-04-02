@@ -25,10 +25,9 @@ class Parquet2CSVSpec extends TestHelper {
       Some(new Path(outputDir.pathAsString)),
       Some(domainName),
       Some(schemaName),
-      true,
       Some(WriteMode.ERROR_IF_EXISTS),
       deleteSource = false,
-      "|",
+      options = List("sep" -> "|", "header" -> "true"),
       1
     )
 
