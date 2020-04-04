@@ -195,7 +195,7 @@ object Main extends StrictLogging {
           case Some(config) =>
             new Parquet2CSV(config, storageHandler).run()
           case _ =>
-            println(MetricsConfig.usage())
+            println(Parquet2CSVConfig.usage())
         }
 
       case _ => printUsage()
