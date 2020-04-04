@@ -53,6 +53,7 @@ object Parquet2CSVConfig extends CliConfig[Parquet2CSVConfig] {
         .text(s"One of ${WriteMode.writes}")
         .optional(),
       opt[String]("option")
+        .unbounded()
         .action((x, c) => {
           val option = x.split('=')
           c.copy(options = c.options :+ (option(0) -> option(1)))
