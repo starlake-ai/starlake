@@ -1,0 +1,38 @@
+---
+name: "locations"
+directory: "__COMET_TEST_ROOT__"
+metadata:
+  mode: "FILE"
+  format: "XML"
+  multiline: true
+  array: true
+  withHeader: true
+  separator: ""
+  quote: "\""
+  escape: "\\"
+  write: "APPEND"
+  dateFormat: "yyyy-MM-dd"
+  timestampFormat: "yyyy-MM-dd HH:mm:ss"
+  xml:
+    rowTag: element
+  partition:
+    attributes:
+      - comet_year
+      - comet_month
+      - comet_day
+schemas:
+  - name: "locations"
+    pattern: "locations.*"
+    attributes:
+      - name: "_continent"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "id"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "name"
+        type: "string"
+        required: false
+        privacy: "NONE"

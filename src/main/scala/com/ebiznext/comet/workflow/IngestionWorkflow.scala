@@ -170,9 +170,9 @@ class IngestionWorkflow(
 
       // We group files with the same schema to ingest them together in a single step.
       val groupedResolved: Map[Schema, Iterable[Path]] = resolved.map {
-        case (Some(schema), path) => (schema, path)
-        case (None, _)            => throw new Exception("Should never happen")
-      } groupBy (_._1) mapValues (it => it.map(_._2))
+          case (Some(schema), path) => (schema, path)
+          case (None, _)            => throw new Exception("Should never happen")
+        } groupBy (_._1) mapValues (it => it.map(_._2))
 
       groupedResolved.foreach {
         case (schema, pendingPaths) =>
@@ -274,6 +274,15 @@ class IngestionWorkflow(
         ).run().get
       case JSON =>
         new JsonIngestionJob(
+          domain,
+          schema,
+          schemaHandler.types,
+          ingestingPath,
+          storageHandler,
+          schemaHandler
+        ).run().get
+      case XML =>
+        new XmlIngestionJob(
           domain,
           schema,
           schemaHandler.types,
