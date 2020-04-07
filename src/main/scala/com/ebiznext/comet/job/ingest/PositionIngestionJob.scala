@@ -138,9 +138,7 @@ object PositionIngestionUtil {
     for (i <- attributes.indices) {
       fieldTypeArray(i) = StructField(s"col$i", StringType)
     }
-    val rdd = input.rdd.map { row =>
-      getRow(row.getString(0), positions)
-    }
+    val rdd = input.rdd.map { row => getRow(row.getString(0), positions) }
 
     val dataset =
       session.createDataFrame(rdd, StructType(fieldTypeArray)).toDF(attributes.map(_.name): _*)

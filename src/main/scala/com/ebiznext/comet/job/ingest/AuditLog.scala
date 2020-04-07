@@ -46,6 +46,7 @@ case class AuditLog(
   duration: Long,
   message: String
 ) {
+
   override def toString(): String = {
     s"""
        |jobid=$jobid
@@ -80,6 +81,7 @@ object SparkAuditLogWriter {
   )
 
   import com.google.cloud.bigquery.{Schema => BQSchema}
+
   private def bigqueryAuditSchema(): BQSchema = {
     val fields = auditCols.map { attribute =>
       Field
