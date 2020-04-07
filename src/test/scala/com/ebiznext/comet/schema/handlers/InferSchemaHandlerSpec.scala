@@ -1,4 +1,5 @@
 package com.ebiznext.comet.schema.handlers
+
 import com.ebiznext.comet.TestHelper
 import com.ebiznext.comet.schema.model.Attribute
 

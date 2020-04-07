@@ -42,6 +42,7 @@ case class Partition(
 }
 
 class PartitionDeserializer extends JsonDeserializer[Partition] {
+
   override def deserialize(jp: JsonParser, ctx: DeserializationContext): Partition = {
     val node: JsonNode = jp.getCodec().readTree[JsonNode](jp)
     deserialize(node)

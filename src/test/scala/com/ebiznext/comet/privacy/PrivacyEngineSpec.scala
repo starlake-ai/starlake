@@ -1,6 +1,5 @@
 package com.ebiznext.comet.privacy
 
-
 import com.ebiznext.comet.TestHelper
 import com.ebiznext.comet.privacy.{Email, IPv4, IPv6, Initials, Mask, PrivacyEngine}
 
@@ -8,21 +7,21 @@ class PrivacyEngineSpec extends TestHelper {
 
   new WithSettings() {
     "Parsing a single arg encryption algo" should "succeed" in {
-      val (algo, params)  = PrivacyEngine.parse("com.ebiznext.comet.privacy.Approx(10)")
+      val (algo, params) = PrivacyEngine.parse("com.ebiznext.comet.privacy.Approx(10)")
       algo should equal("com.ebiznext.comet.privacy.Approx")
-      params.head shouldBe a [Int]
-      params should equal (List(10))
+      params.head shouldBe a[Int]
+      params should equal(List(10))
     }
     "Parsing a multiple arg encryption algo" should "succeed" in {
-      val (algo, params)  = PrivacyEngine.parse("package.SomeAlgo('X', \"Hello\", 12, false, 12.34)")
+      val (algo, params) = PrivacyEngine.parse("package.SomeAlgo('X', \"Hello\", 12, false, 12.34)")
       algo should equal("package.SomeAlgo")
       params should have length 5
-      params(0) shouldBe a [Char]
-      params(1) shouldBe a [String]
-      params(2) shouldBe a [Int]
-      params(3) shouldBe a [Boolean]
-      params(4) shouldBe a [Double]
-      params should equal (List('X', "Hello", 12, false, 12.34))
+      params(0) shouldBe a[Char]
+      params(1) shouldBe a[String]
+      params(2) shouldBe a[Int]
+      params(3) shouldBe a[Boolean]
+      params(4) shouldBe a[Double]
+      params should equal(List('X', "Hello", 12, false, 12.34))
     }
 
     "Initials Masking Firstname" should "succeed" in {
@@ -38,7 +37,7 @@ class PrivacyEngineSpec extends TestHelper {
     "Email Masking" should "succeed" in {
       val result = Email.crypt("john@doe.com")
       result should have length "527bd5b5d689e2c32ae974c6229ff785@doe.com".length
-      result should endWith ("@doe.com")
+      result should endWith("@doe.com")
     }
 
     "IPv4 Masking" should "succeed" in {
