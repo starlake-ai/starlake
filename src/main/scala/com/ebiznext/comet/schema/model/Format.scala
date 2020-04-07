@@ -45,6 +45,7 @@ object Format {
       case "POSITION"            => Format.POSITION
       case "SIMPLE_JSON"         => Format.SIMPLE_JSON
       case "JSON" | "ARRAY_JSON" => Format.JSON
+      case "XML"                 => Format.XML
       case "CHEW"                => Format.CHEW
     }
   }
@@ -57,12 +58,15 @@ object Format {
 
   object JSON extends Format("JSON")
 
+  object XML extends Format("XML")
+
   object CHEW extends Format("CHEW")
 
-  val formats: Set[Format] = Set(DSV, POSITION, SIMPLE_JSON, JSON, CHEW)
+  val formats: Set[Format] = Set(DSV, POSITION, SIMPLE_JSON, JSON, XML, CHEW)
 }
 
 class FormatDeserializer extends JsonDeserializer[Format] {
+
   override def deserialize(jp: JsonParser, ctx: DeserializationContext): Format = {
     val value = jp.readValueAs[String](classOf[String])
     Format.fromString(value)

@@ -21,6 +21,7 @@
 import sbt.{ExclusionRule, _}
 
 object Dependencies {
+
   def scalaReflection(scalaVersion: String) = Seq(
     "org.scala-lang" % "scala-reflect" % scalaVersion
   )
@@ -68,6 +69,7 @@ object Dependencies {
     "org.apache.spark" %% "spark-sql" % Versions.spark211 % "provided",
     "org.apache.spark" %% "spark-hive" % Versions.spark211 % "provided",
     "org.apache.spark" %% "spark-mllib" % Versions.spark211 % "provided",
+    "com.databricks" %% "spark-xml" % Versions.sparXML211,
     "com.google.cloud.spark" %% "spark-bigquery-with-dependencies" % "0.12.0-beta"
   )
 
@@ -75,14 +77,16 @@ object Dependencies {
     "org.apache.spark" %% "spark-core" % Versions.spark211_240 % "provided" excludeAll (jacksonExclusions: _*),
     "org.apache.spark" %% "spark-sql" % Versions.spark211_240 % "provided" excludeAll (jacksonExclusions: _*),
     "org.apache.spark" %% "spark-hive" % Versions.spark211_240 % "provided" excludeAll (jacksonExclusions: _*),
-    "org.apache.spark" %% "spark-mllib" % Versions.spark211_240 % "provided" excludeAll (jacksonExclusions: _*)
+    "org.apache.spark" %% "spark-mllib" % Versions.spark211_240 % "provided" excludeAll (jacksonExclusions: _*),
+    "com.databricks" %% "spark-xml" % Versions.sparXML211_240
   )
 
   val spark212 = Seq(
     "org.apache.spark" %% "spark-core" % Versions.spark212 % "provided",
     "org.apache.spark" %% "spark-sql" % Versions.spark212 % "provided",
     "org.apache.spark" %% "spark-hive" % Versions.spark212 % "provided",
-    "org.apache.spark" %% "spark-mllib" % Versions.spark212 % "provided"
+    "org.apache.spark" %% "spark-mllib" % Versions.spark212 % "provided",
+    "com.databricks" %% "spark-xml" % Versions.sparXML212
   )
 
   val gcsConnectorShadedJar =
@@ -145,6 +149,7 @@ object Dependencies {
     "org.scalatra.scalate" %% "scalate-core" % Versions.scalate
   )
 
-  val dependencies = scalate ++ logging ++ typedConfigs ++ okhttp ++ betterfiles ++ scalaTest ++ scopt ++ hadoop ++ esHadoop ++
-  sttp ++ gcp ++ azure ++ h2 ++ excelClientApi // ++ atlas
+  val dependencies =
+    scalate ++ logging ++ typedConfigs ++ okhttp ++ betterfiles ++ scalaTest ++ scopt ++ hadoop ++ esHadoop ++
+    sttp ++ gcp ++ azure ++ h2 ++ excelClientApi // ++ atlas
 }

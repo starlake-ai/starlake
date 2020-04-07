@@ -79,7 +79,8 @@ class XlsReader(path: String) {
               write = write,
               partition = None,
               index = None,
-              properties = None
+              properties = None,
+              xml = None
             )
             val mergeOptions: Option[MergeOptions] = (deltaColOpt, identityKeysOpt) match {
               case (Some(deltaCol), Some(identityKeys)) =>
