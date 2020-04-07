@@ -30,7 +30,7 @@ object BigQueryLoadConfig extends CliConfig[BigQueryLoadConfig] {
       opt[String]("source_file")
         .action((x, c) => c.copy(sourceFile = Left(x)))
         .text("Full Path to source file")
-      .required(),
+        .required(),
       opt[String]("output_dataset")
         .action((x, c) => c.copy(outputDataset = x))
         .text("BigQuery Output Dataset")
