@@ -39,10 +39,10 @@ class TypesSpec extends TestHelper {
       val stream: InputStream =
         getClass.getResourceAsStream("/quickstart/metadata/types/default.yml")
       val lines = scala.io.Source
-        .fromInputStream(stream)
-        .getLines()
-        .mkString("\n") +
-      """
+          .fromInputStream(stream)
+          .getLines()
+          .mkString("\n") +
+        """
           |  - name: "long"
           |    primitiveType: "long"
           |    pattern: "-?\\d+"
@@ -60,10 +60,10 @@ class TypesSpec extends TestHelper {
       val stream: InputStream =
         getClass.getResourceAsStream("/quickstart/metadata/types/default.yml")
       val lines = scala.io.Source
-        .fromInputStream(stream)
-        .getLines()
-        .mkString("\n") +
-      """
+          .fromInputStream(stream)
+          .getLines()
+          .mkString("\n") +
+        """
           |  - name: "frenchdouble"
           |    primitiveType: "double"
           |    pattern: "-?\\d*,{0,1}\\d+"
@@ -89,10 +89,10 @@ class TypesSpec extends TestHelper {
       val stream: InputStream =
         getClass.getResourceAsStream("/quickstart/metadata/types/default.yml")
       val lines = scala.io.Source
-        .fromInputStream(stream)
-        .getLines()
-        .mkString("\n") +
-      """
+          .fromInputStream(stream)
+          .getLines()
+          .mkString("\n") +
+        """
           |  - name: "timeinmillis"
           |    primitiveType: "timestamp"
           |    pattern: "epoch_milli"

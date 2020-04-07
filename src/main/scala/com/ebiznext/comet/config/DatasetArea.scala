@@ -187,9 +187,11 @@ object StorageArea {
   case object rejected extends StorageArea {
     def value: String = "rejected"
   }
+
   case object accepted extends StorageArea {
     def value: String = "accepted"
   }
+
   case object business extends StorageArea {
     def value: String = "business"
   }
@@ -201,6 +203,7 @@ object StorageArea {
 }
 
 final class StorageAreaSerializer extends JsonSerializer[StorageArea] {
+
   override def serialize(
     value: StorageArea,
     gen: JsonGenerator,
@@ -219,7 +222,9 @@ final class StorageAreaSerializer extends JsonSerializer[StorageArea] {
     gen.writeString(strValue)
   }
 }
+
 final class StorageAreaDeserializer extends JsonDeserializer[StorageArea] {
+
   override def deserialize(jp: JsonParser, ctx: DeserializationContext): StorageArea = {
     val settings = ctx
       .findInjectableValue("com.ebiznext.comet.config.Settings", null, null)
