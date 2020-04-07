@@ -533,14 +533,13 @@ object IngestionUtil {
   ): ColResult = {
     def ltrim(s: String) = s.replaceAll("^\\s+", "")
     def rtrim(s: String) = s.replaceAll("\\s+$", "")
-    val trimmedColValue = colAttribute.position.map { position =>
-        position.trim match {
-          case Some(LEFT)  => ltrim(colRawValue)
-          case Some(RIGHT) => rtrim(colRawValue)
-          case Some(BOTH)  => colRawValue.trim()
-          case _           => colRawValue
-        }
-      } getOrElse (colRawValue)
+
+    val trimmedColValue = colAttribute.trim match {
+      case Some(LEFT)  => ltrim(colRawValue)
+      case Some(RIGHT) => rtrim(colRawValue)
+      case Some(BOTH)  => colRawValue.trim()
+      case _           => colRawValue
+    }
 
     val colValue =
       if (trimmedColValue.length == 0) colAttribute.default.getOrElse("")
