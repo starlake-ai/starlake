@@ -8,4 +8,3 @@ trait CliConfig[T] {
   def parse(args: Seq[String]): Option[T]
 
 }
-

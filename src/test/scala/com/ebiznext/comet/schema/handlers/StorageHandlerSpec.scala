@@ -164,8 +164,8 @@ class StorageHandlerSpec extends TestHelper {
   "Check fs google storage uri" should "be gs" in {
     assert(
       "/user/comet" == Path
-        .getPathWithoutSchemeAndAuthority(new Path("file:///user/comet"))
-        .toString
+          .getPathWithoutSchemeAndAuthority(new Path("file:///user/comet"))
+          .toString
     )
   }
 }

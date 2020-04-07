@@ -39,7 +39,9 @@ import scala.util.{Failure, Success, Try}
   *
   */
 object JsonIngestionUtil {
+
   private[this] val structFieldComparator = new Comparator[StructField] {
+
     override def compare(o1: StructField, o2: StructField): Int = {
       o1.name.compare(o2.name)
     }
@@ -257,7 +259,7 @@ object JsonIngestionUtil {
       // If this given struct does not have a column used for corrupt records,
       // add this field.
       val newFields: Array[StructField] =
-      StructField(columnNameOfCorruptRecords, StringType, nullable = true) +: struct.fields
+        StructField(columnNameOfCorruptRecords, StringType, nullable = true) +: struct.fields
       // Note: other code relies on this sorting for correctness, so don't remove it!
       java.util.Arrays.sort(newFields, structFieldComparator)
       StructType(newFields)
