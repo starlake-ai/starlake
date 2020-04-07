@@ -46,6 +46,7 @@ object Rejection {
     pattern: String,
     success: Boolean
   ) {
+
     override def toString: String = {
       val failMsg = if (success) "success" else "failure"
       //s"$failMsg $colName:$typeName($pattern) = $colData"
@@ -60,6 +61,7 @@ object Rejection {
     * @param colInfos  : column parsing results for this row
     */
   case class RowInfo(timestamp: Timestamp, colInfos: List[ColInfo]) {
+
     override def toString: String = {
       colInfos.map(_.toString).mkString("\n")
 

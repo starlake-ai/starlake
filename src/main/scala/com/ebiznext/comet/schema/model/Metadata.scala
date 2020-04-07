@@ -64,6 +64,7 @@ case class Metadata(
   index: Option[IndexSink] = None,
   properties: Option[Map[String, String]] = None
 ) {
+
   override def toString: String =
     s"""
        |mode:${getIngestMode()}
@@ -177,6 +178,7 @@ object Metadata {
 }
 
 class MetadataDeserializer extends JsonDeserializer[Metadata] {
+
   override def deserialize(jp: JsonParser, ctx: DeserializationContext): Metadata = {
     val node: JsonNode = jp.getCodec().readTree[JsonNode](jp)
 
@@ -223,9 +225,7 @@ class MetadataDeserializer extends JsonDeserializer[Metadata] {
         val fields = mappingField
           .fieldNames()
           .asScala
-          .map { fieldName =>
-            (fieldName, mappingField.get(fieldName).asText())
-        } toMap
+          .map { fieldName => (fieldName, mappingField.get(fieldName).asText()) } toMap
 
         Some(fields)
       }

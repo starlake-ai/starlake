@@ -177,6 +177,7 @@ object IndexMapping {
 }
 
 class IndexMappingDeserializer extends JsonDeserializer[IndexMapping] {
+
   override def deserialize(jp: JsonParser, ctx: DeserializationContext): IndexMapping = {
     val value = jp.readValueAs[String](classOf[String])
     IndexMapping.fromString(value)
