@@ -63,6 +63,7 @@ object Format {
 }
 
 class FormatDeserializer extends JsonDeserializer[Format] {
+
   override def deserialize(jp: JsonParser, ctx: DeserializationContext): Format = {
     val value = jp.readValueAs[String](classOf[String])
     Format.fromString(value)

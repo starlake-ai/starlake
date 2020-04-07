@@ -51,6 +51,7 @@ sealed case class WriteMode(value: String) {
 }
 
 object WriteMode {
+
   def fromString(value: String): WriteMode = {
     value.toUpperCase() match {
       case "OVERWRITE"       => WriteMode.OVERWRITE
@@ -74,6 +75,7 @@ object WriteMode {
 }
 
 class WriteDeserializer extends JsonDeserializer[WriteMode] {
+
   override def deserialize(jp: JsonParser, ctx: DeserializationContext): WriteMode = {
     val value = jp.readValueAs[String](classOf[String])
     WriteMode.fromString(value)
