@@ -233,41 +233,41 @@ object DsvIngestionUtil {
   )(implicit settings: Settings): (RDD[String], RDD[Row]) = {
     val now = Timestamp.from(Instant.now)
     val checkedRDD: RDD[RowResult] = dataset.rdd.mapPartitions { partition =>
-      partition.map { row: Row =>
-        val rowCols = row.toSeq
-          .zip(attributes)
-          .map {
-            case (colValue, colAttribute) =>
-              (Option(colValue).getOrElse("").toString, colAttribute)
+        partition.map { row: Row =>
+          val rowCols = row.toSeq
+            .zip(attributes)
+            .map {
+              case (colValue, colAttribute) =>
+                (Option(colValue).getOrElse("").toString, colAttribute)
+            }
+            .zip(types)
+          val validNumberOfColumns = attributes.length <= rowCols.length
+          if (!validNumberOfColumns) {
+            RowResult(
+              rowCols.map {
+                case ((colRawValue, colAttribute), tpe) =>
+                  ColResult(
+                    ColInfo(
+                      colRawValue,
+                      colAttribute.name,
+                      tpe.name,
+                      tpe.pattern,
+                      false
+                    ),
+                    null
+                  )
+              }.toList
+            )
+          } else {
+            RowResult(
+              rowCols.map {
+                case ((colRawValue, colAttribute), tpe) =>
+                  IngestionUtil.validateCol(colRawValue, colAttribute, tpe)
+              }.toList
+            )
           }
-          .zip(types)
-        val validNumberOfColumns = attributes.length <= rowCols.length
-        if (!validNumberOfColumns) {
-          RowResult(
-            rowCols.map {
-              case ((colRawValue, colAttribute), tpe) =>
-                ColResult(
-                  ColInfo(
-                    colRawValue,
-                    colAttribute.name,
-                    tpe.name,
-                    tpe.pattern,
-                    false
-                  ),
-                  null
-                )
-            }.toList
-          )
-        } else {
-          RowResult(
-            rowCols.map {
-              case ((colRawValue, colAttribute), tpe) =>
-                IngestionUtil.validateCol(colRawValue, colAttribute, tpe)
-            }.toList
-          )
         }
-      }
-    } cache ()
+      } cache ()
 
     val rejectedRDD: RDD[String] = checkedRDD
       .filter(_.isRejected)
