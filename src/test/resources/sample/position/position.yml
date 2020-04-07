@@ -66,18 +66,18 @@ schemas:
         type: "byte"
         required: true
         privacy: "NONE"
+        trim: BOTH
         position:
           first: 37
           last: 37
-          trim: BOTH
       - name: "date2"
         type: "datefr"
         required: true
         privacy: "NONE"
+        trim: both
         position:
           first: 38
           last: 47
-          trim: both
       - name: "date3"
         type: "datefr"
         required: true

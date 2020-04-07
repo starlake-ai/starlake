@@ -11,6 +11,6 @@ attributes: null
 position:
   first: 1
   last: 2
-  trim: "NONE"
 default: null
 tags: null
+trim: null
