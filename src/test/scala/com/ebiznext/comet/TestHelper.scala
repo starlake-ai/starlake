@@ -52,6 +52,7 @@ import org.scalatest.matchers.should.Matchers
 trait TestHelper extends AnyFlatSpec with Matchers with BeforeAndAfterAll with StrictLogging {
 
   private lazy val cometTestPrefix: String = s"comet-test-${TestHelper.runtimeId}"
+
   private lazy val cometTestInstanceId: String =
     s"${this.getClass.getSimpleName}-${java.util.UUID.randomUUID()}"
 
@@ -79,7 +80,10 @@ trait TestHelper extends AnyFlatSpec with Matchers with BeforeAndAfterAll with S
     val testConfig =
       ConfigFactory
         .load(rootConfig, ConfigResolveOptions.noSystem())
-        .withValue("lock.poll-time", ConfigValueFactory.fromAnyRef("5 ms")) // in local mode we don't need to wait quite as much as we do on a real cluster
+        .withValue(
+          "lock.poll-time",
+          ConfigValueFactory.fromAnyRef("5 ms")
+        ) // in local mode we don't need to wait quite as much as we do on a real cluster
 
     testConfig
   }
@@ -98,7 +102,10 @@ trait TestHelper extends AnyFlatSpec with Matchers with BeforeAndAfterAll with S
   )
 
   import TestHelperAux.using
-  private def readSourceContentAsString(source: Source): String = source.getLines().mkString("\n")
+
+  private def readSourceContentAsString(source: Source): String = {
+    source.getLines().mkString("\n")
+  }
 
   def loadFile(filename: String)(implicit codec: Codec): String = {
     val stream: InputStream = getClass.getResourceAsStream(filename)
@@ -155,7 +162,7 @@ trait TestHelper extends AnyFlatSpec with Matchers with BeforeAndAfterAll with S
       mapper
     }
 
-    def deliverTestFile(importPath: String, targetPath: Path): Unit = {
+    def deliverTestFile(importPath: String, targetPath: Path)(implicit codec: Codec): Unit = {
       val content = loadFile(importPath)
       val testContent = applyTestFileSubstitutions(content)
 
@@ -328,6 +335,7 @@ object TestHelper {
     }
 
     object State {
+
       case object Empty extends State {
         def references: Int = 0
 
@@ -362,6 +370,7 @@ object TestHelper {
         override def get: (SparkSession, State) = (session, this)
 
         override def acquire: State = Running(references + 1, session)
+
         override def release: State =
           if (references > 1) {
             Running(references - 1, session)
