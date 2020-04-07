@@ -113,9 +113,7 @@ class MetricsJob(
     colName: List[Column]
   ): DataFrame = {
     listAttibutes
-      .foldLeft(dataMetric) { (data, nameCol) =>
-        data.withColumn(nameCol, lit(null))
-      }
+      .foldLeft(dataMetric) { (data, nameCol) => data.withColumn(nameCol, lit(null)) }
       .select(colName: _*)
 
   }
@@ -298,8 +296,8 @@ root
       }
 
     val result = coupleDataMetrics
-      .map(
-        tupleDataMetric => generateFullMetric(tupleDataMetric._1, tupleDataMetric._2, neededColList)
+      .map(tupleDataMetric =>
+        generateFullMetric(tupleDataMetric._1, tupleDataMetric._2, neededColList)
       )
       .reduce(_ union _)
       .withColumn("domain", lit(domain.name))
@@ -401,6 +399,7 @@ root
     ??? // TODO: implement me
 
   private implicit val memsideEncoder: Encoder[MetricRecord] = Encoders.product[MetricRecord]
+
   private implicit val sqlableEncoder: Encoder[MetricRecord.AsSql] =
     Encoders.product[MetricRecord.AsSql]
 

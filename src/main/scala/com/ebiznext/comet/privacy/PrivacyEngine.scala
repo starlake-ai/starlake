@@ -23,7 +23,7 @@ object PrivacyEngine {
     def parseParams(params: List[String]): List[Any] =
       params.map { param =>
         if (param.startsWith("\"") && param.endsWith("\""))
-          param.substring(1, param.length-1)
+          param.substring(1, param.length - 1)
         else if (param.startsWith("'") && param.endsWith("'"))
           param.charAt(1)
         else if (param.contains('.'))
@@ -86,6 +86,7 @@ object Initials extends PrivacyEngine {
 
 object Email extends PrivacyEngine {
   def crypt(s: String): String = crypt(s, List("MD5"))
+
   override def crypt(s: String, params: List[Any]): String = {
     assert(params.length == 1)
     val split = s.split('@')
@@ -96,6 +97,7 @@ object Email extends PrivacyEngine {
 trait IP extends PrivacyEngine {
   def separator: Char
   def crypt(s: String): String = encrypt(s, 1)
+
   override def crypt(s: String, params: List[Any]): String = {
     assert(params.length == 1)
     encrypt(s, params.head.asInstanceOf[Int])
@@ -118,6 +120,7 @@ object IPv6 extends IP {
 object Approx extends PrivacyEngine {
   val rnd = new Random()
   override def crypt(s: String): String = crypt(s.toDouble, 100).toString
+
   override def crypt(s: String, params: List[Any]): String = {
     assert(params.length == 1)
     crypt(s.toDouble, params.head.asInstanceOf[Int]).toString
@@ -135,6 +138,7 @@ object Approx extends PrivacyEngine {
 
 object Mask extends PrivacyEngine {
   override def crypt(s: String): String = crypt(s, 'X', 8, 1, 1)
+
   override def crypt(s: String, params: List[Any]): String = {
     assert(params.length == 4)
     val maskingChar = params(0).asInstanceOf[Char]
@@ -145,12 +149,12 @@ object Mask extends PrivacyEngine {
   }
 
   def crypt(
-             s: String,
-             maskingChar: Char,
-             numberOfChars: Int,
-             leftSide: Int,
-             rightSide: Int
-           ): String = {
+    s: String,
+    maskingChar: Char,
+    numberOfChars: Int,
+    leftSide: Int,
+    rightSide: Int
+  ): String = {
     s match {
       case input if input.length <= leftSide =>
         "%s%s".format(input, maskingChar.toString * numberOfChars)

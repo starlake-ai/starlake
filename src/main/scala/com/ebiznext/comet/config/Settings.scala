@@ -257,6 +257,7 @@ object Settings extends StrictLogging {
   }
 
   object Comet {
+
     private case class JsonWrapped(jsonValue: String) {
 
       @throws(classOf[ObjectStreamException])
@@ -265,6 +266,7 @@ object Settings extends StrictLogging {
         unwrapped
       }
     }
+
     private object JsonWrapped {
       private def jsonMapper: ObjectMapper = new CometObjectMapper()
 

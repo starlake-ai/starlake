@@ -48,8 +48,7 @@ class BigQueryLoadJob(
     scala.Option(bigquery.getTable(tableId)) getOrElse {
 
       val tableDefinitionBuilder = maybeSchema.fold(StandardTableDefinition.newBuilder()) {
-        schema =>
-          StandardTableDefinition.of(schema).toBuilder
+        schema => StandardTableDefinition.of(schema).toBuilder
       }
 
       cliConfig.outputPartition.foreach { outputPartition =>
@@ -184,7 +183,9 @@ class BigQueryLoadJob(
         Success(session)
 
       case _ =>
-        logger.warn("BigQuery Audit not selected, yet BigQueryLoadJob attempted — no output") // TODO: shouldn't this be an IllegalStateException?
+        logger.warn(
+          "BigQuery Audit not selected, yet BigQueryLoadJob attempted — no output"
+        ) // TODO: shouldn't this be an IllegalStateException?
         Success(session)
     }
 
