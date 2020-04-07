@@ -41,7 +41,9 @@ class SchemaSpec extends TestHelper {
         "invalid-type", // should raise error non existent type
         Some(true),
         true,
-        Some(PrivacyLevel("MD5")) // Should raise an error. Privacy cannot be applied on types other than string
+        Some(
+          PrivacyLevel("MD5")
+        ) // Should raise an error. Privacy cannot be applied on types other than string
       )
 
       attr.checkValidity(schemaHandler) shouldBe Left(List("Invalid Type invalid-type"))
@@ -53,7 +55,9 @@ class SchemaSpec extends TestHelper {
         "long",
         Some(true),
         true,
-        Some(PrivacyLevel("MD5")) // Should raise an error. Privacy cannot be applied on types other than stringsettings = settings
+        Some(
+          PrivacyLevel("MD5")
+        ) // Should raise an error. Privacy cannot be applied on types other than stringsettings = settings
       )
       attr.checkValidity(schemaHandler) shouldBe
       Left(
@@ -69,7 +73,9 @@ class SchemaSpec extends TestHelper {
         "long",
         Some(true),
         true,
-        Some(PrivacyLevel("MD5")), // Should raise an error. Privacy cannot be applied on types other than string
+        Some(
+          PrivacyLevel("MD5")
+        ), // Should raise an error. Privacy cannot be applied on types other than string
         attributes = Some(List[Attribute]())
       )
       val expectedErrors = List(
@@ -85,7 +91,7 @@ class SchemaSpec extends TestHelper {
       val yml = loadFile(s"/expected/yml/position_serialization_${versionSuffix}.yml")
 
       val attr =
-        Attribute("hello", position = Some(Position(1, 2, Some(Trim.NONE))))
+        Attribute("hello", position = Some(Position(1, 2)))
       val writer = new StringWriter()
       mapper.writer().writeValue(writer, attr)
       logger.info("--" + writer.toString + "--")
