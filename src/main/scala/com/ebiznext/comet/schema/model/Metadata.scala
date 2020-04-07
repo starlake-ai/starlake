@@ -62,8 +62,10 @@ case class Metadata(
   write: Option[WriteMode] = None,
   partition: Option[Partition] = None,
   index: Option[IndexSink] = None,
-  properties: Option[Map[String, String]] = None
+  properties: Option[Map[String, String]] = None,
+  xml: Option[Map[String, String]] = None
 ) {
+
   override def toString: String =
     s"""
        |mode:${getIngestMode()}
@@ -79,6 +81,7 @@ case class Metadata(
        |partition:${getPartitionAttributes()}
        |index:${getIndexSink()}
        |properties:${properties}
+       |xml:${xml}
        """.stripMargin
 
   def getIngestMode(): Mode = mode.getOrElse(FILE)
@@ -142,7 +145,8 @@ case class Metadata(
       write = merge(this.write, child.write),
       partition = merge(this.partition, child.partition),
       index = merge(this.index, child.index),
-      properties = merge(this.properties, child.properties)
+      properties = merge(this.properties, child.properties),
+      xml = merge(this.xml, child.xml)
     )
   }
 }
@@ -177,6 +181,7 @@ object Metadata {
 }
 
 class MetadataDeserializer extends JsonDeserializer[Metadata] {
+
   override def deserialize(jp: JsonParser, ctx: DeserializationContext): Metadata = {
     val node: JsonNode = jp.getCodec().readTree[JsonNode](jp)
 
@@ -223,9 +228,20 @@ class MetadataDeserializer extends JsonDeserializer[Metadata] {
         val fields = mappingField
           .fieldNames()
           .asScala
-          .map { fieldName =>
-            (fieldName, mappingField.get(fieldName).asText())
-        } toMap
+          .map { fieldName => (fieldName, mappingField.get(fieldName).asText()) } toMap
+
+        Some(fields)
+      }
+    val xml: Option[Map[String, String]] =
+      if (isNull(node, "xml"))
+        None
+      else {
+        val xmlField = node.get("xml")
+        import scala.collection.JavaConverters._
+        val fields = xmlField
+          .fieldNames()
+          .asScala
+          .map { fieldName => (fieldName, xmlField.get(fieldName).asText()) } toMap
 
         Some(fields)
       }
@@ -242,7 +258,8 @@ class MetadataDeserializer extends JsonDeserializer[Metadata] {
       write,
       partition,
       index,
-      mapping
+      mapping,
+      xml
     )
   }
 }
