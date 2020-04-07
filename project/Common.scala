@@ -37,7 +37,10 @@ object Common {
       addCommandAlias("cc", ";clean;compile"), // clean and compile
       addCommandAlias("pl", ";clean;publishLocal"), // clean and publish locally
       addCommandAlias("pr", ";clean;publish"), // clean and publish globally
-      addCommandAlias("pld", ";clean;local:publishLocal;dockerComposeUp") // clean and publish/launch the docker environment
+      addCommandAlias(
+        "pld",
+        ";clean;local:publishLocal;dockerComposeUp"
+      ) // clean and publish/launch the docker environment
     ).flatten
 
   def cometPlugins: Seq[AutoPlugin] = Seq(
@@ -95,8 +98,11 @@ object Versions {
   val sparkAvro = "4.0.0"
   val curator = "2.6.0"
   val spark211 = "2.1.0"
+  val sparXML211 = "0.4.0"
   val spark211_240 = "2.4.5"
   val spark212 = "2.4.5"
+  val sparXML212 = "2.4.5"
+  val sparXML211_240 = "0.9.0"
   val scalatest = "3.1.1"
   val springBoot = "2.0.6.RELEASE"
   val typesafeConfig = "1.2.1"
