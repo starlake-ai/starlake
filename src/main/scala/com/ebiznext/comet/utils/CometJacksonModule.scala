@@ -58,6 +58,7 @@ object CometJacksonModule extends CometJacksonModule {
     * @see https://github.com/FasterXML/jackson-module-scala/issues/211
     */
   trait JacksonProtectedSingleton {
+
     private val (registeredInstance, theirBuildStack) =
       jacksonProtectedSingletons.getOrElseUpdate(
         this.getClass,
@@ -142,6 +143,7 @@ private object CometJacksonModuleContents {
   }
 
   object CometSerializers extends Serializers.Base {
+
     private val serializers: Map[Class[_], JsonSerializer[_]] =
       (FiniteDurationSerializer :: Nil).map(ser => ser.handledType() -> ser).toMap
 
@@ -157,6 +159,7 @@ private object CometJacksonModuleContents {
   }
 
   object CometDeserializers extends Deserializers.Base {
+
     private val deserializers: Map[Class[_], JsonDeserializer[_]] =
       (FiniteDurationDeserializer :: Nil).map(ser => ser.handledType() -> ser).toMap
 

@@ -60,6 +60,7 @@ object IndexSink {
 }
 
 class IndexSinkDeserializer extends JsonDeserializer[IndexSink] {
+
   override def deserialize(jp: JsonParser, ctx: DeserializationContext): IndexSink = {
     val value = jp.readValueAs[String](classOf[String])
     IndexSink.fromString(value)

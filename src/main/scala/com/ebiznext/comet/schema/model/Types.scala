@@ -75,7 +75,9 @@ case class Type(
       case "string" => None
       case _ =>
         primitiveType match {
-          case PrimitiveType.struct | PrimitiveType.date | PrimitiveType.timestamp | PrimitiveType.boolean => None
+          case PrimitiveType.struct | PrimitiveType.date | PrimitiveType.timestamp |
+              PrimitiveType.boolean =>
+            None
           case _ =>
             Some(Pattern.compile(pattern, Pattern.MULTILINE))
         }
@@ -92,12 +94,12 @@ case class Type(
           case PrimitiveType.boolean =>
             val tf = pattern.split("<-TF->")
             Some(
-                (
-                  Pattern
-                    .compile(tf(0), Pattern.MULTILINE),
-                  Pattern
-                    .compile(tf(1), Pattern.MULTILINE)
-                )
+              (
+                Pattern
+                  .compile(tf(0), Pattern.MULTILINE),
+                Pattern
+                  .compile(tf(1), Pattern.MULTILINE)
+              )
             )
           case _ =>
             None
@@ -120,7 +122,7 @@ case class Type(
             boolean.matches(value, booleanPattern.get._1, booleanPattern.get._2)
           case _ =>
             // We can get the pattern safely since checkValidity has been called by now
-              textPattern.get.matcher(value).matches()
+            textPattern.get.matcher(value).matches()
         }
     }
   }
@@ -160,9 +162,7 @@ case class Type(
     }
     if (patternIsValid.isFailure)
       errorList += s"Invalid Pattern $pattern in type $name"
-    val ok = sample.forall { sample =>
-      this.matches(sample)
-    }
+    val ok = sample.forall { sample => this.matches(sample) }
     if (!ok)
       errorList += s"Sample $sample does not match pattern $pattern in type $name"
     if (errorList.nonEmpty)

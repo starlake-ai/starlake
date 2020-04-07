@@ -35,11 +35,10 @@ case class MetricRecord(
   override def toString: String = {
     def seqOfMapStringOptToString[T](l: Seq[Map[String, Option[T]]]): String = {
       "[" + l
-        .map(
-          li =>
-            "{" + li
-              .map { case (k, v) => s"$k: ${v.map(_.toString).getOrElse("?")}" }
-              .mkString(",") + "}"
+        .map(li =>
+          "{" + li
+            .map { case (k, v) => s"$k: ${v.map(_.toString).getOrElse("?")}" }
+            .mkString(",") + "}"
         )
         .mkString(",") + "]"
     }
@@ -137,6 +136,7 @@ object MetricRecord {
 
     class UsingObjectMapper[T: ClassTag](mapper: ObjectMapper)
         extends SqlCompatibleEncoder[T, String] {
+
       override def toSqlCompatible(field: T): String =
         mapper.writeValueAsString(field)
 
@@ -160,6 +160,7 @@ object MetricRecord {
 
     case class ForOption[T, U]()(implicit inner: SqlCompatibleEncoder[T, U])
         extends SqlCompatibleEncoder[Option[T], Option[U]] {
+
       override def toSqlCompatible(field: Option[T]): Option[U] =
         field.map(inner.toSqlCompatible)
 
@@ -208,6 +209,7 @@ object MetricRecord {
       implicit hconv: SqlCompatibleEncoder[TH, UH],
       tconv: HListEncoder[TT, UT]
     ) extends HListEncoder[TH :: TT, UH :: UT] {
+
       override def toSqlCompatible(memSide: TH :: TT): UH :: UT = {
         val (mh :: mt) = memSide
         val sh = hconv.toSqlCompatible(mh)
