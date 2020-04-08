@@ -83,6 +83,7 @@ abstract class JsonIngestionJobSpecBase(variant: String) extends TestHelper with
 
 class JsonIngestionJobNoIndexNoMetricsNoAuditSpec
     extends JsonIngestionJobSpecBase("No Index, No Metrics, No Audit") {
+
   override def configuration: Config =
     ConfigFactory
       .parseString("""

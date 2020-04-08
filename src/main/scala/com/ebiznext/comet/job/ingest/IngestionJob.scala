@@ -107,12 +107,12 @@ trait IngestionJob extends SparkJob {
     val writeMode = getWriteMode()
     val acceptedPath = new Path(DatasetArea.accepted(domain.name), schema.name)
     val mergedDF = schema.merge.map { mergeOptions =>
-      if (storageHandler.exists(new Path(acceptedPath, "_SUCCESS"))) {
-        val existingDF = session.read.parquet(acceptedPath.toString)
-        merge(acceptedDF, existingDF, mergeOptions)
-      } else
-        acceptedDF
-    } getOrElse (acceptedDF)
+        if (storageHandler.exists(new Path(acceptedPath, "_SUCCESS"))) {
+          val existingDF = session.read.parquet(acceptedPath.toString)
+          merge(acceptedDF, existingDF, mergeOptions)
+        } else
+          acceptedDF
+      } getOrElse (acceptedDF)
 
     saveRows(mergedDF, acceptedPath, writeMode, StorageArea.accepted, schema.merge.isDefined)
 
@@ -230,13 +230,13 @@ trait IngestionJob extends SparkJob {
         .select(partitionedInputDF.columns.map((col(_))): _*)
 
     val toDeleteDF = merge.timestamp.map { timestamp =>
-      val w = Window.partitionBy(merge.key.head, merge.key.tail: _*).orderBy(col(timestamp).desc)
-      import org.apache.spark.sql.functions.row_number
-      commonDF
-        .withColumn("rownum", row_number.over(w))
-        .where(col("rownum") =!= 1)
-        .drop("rownum")
-    } getOrElse (commonDF)
+        val w = Window.partitionBy(merge.key.head, merge.key.tail: _*).orderBy(col(timestamp).desc)
+        import org.apache.spark.sql.functions.row_number
+        commonDF
+          .withColumn("rownum", row_number.over(w))
+          .where(col("rownum") =!= 1)
+          .drop("rownum")
+      } getOrElse (commonDF)
 
     val updatesDF = merge.delete
       .map(condition => partitionedInputDF.filter(s"not ($condition)"))
@@ -381,9 +381,7 @@ trait IngestionJob extends SparkJob {
   def run(): Try[SparkSession] = {
     domain.checkValidity(schemaHandler) match {
       case Left(errors) =>
-        val errs = errors.reduce { (errs, err) =>
-          errs + "\n" + err
-        }
+        val errs = errors.reduce { (errs, err) => errs + "\n" + err }
         Failure(throw new Exception(errs))
       case Right(_) =>
         val start = Timestamp.from(Instant.now())
@@ -453,6 +451,7 @@ object IngestionUtil {
     ("path", LegacySQLTypeName.STRING, StringType)
   )
   import com.google.cloud.bigquery.{Schema => BQSchema}
+
   private def bigqueryRejectedSchema(): BQSchema = {
     val fields = rejectedCols map { attribute =>
       Field
@@ -527,20 +526,20 @@ object IngestionUtil {
   def validateCol(
     colRawValue: String,
     colAttribute: Attribute,
-    tpe: Type
+    tpe: Type,
+    colMap: Map[String, String]
   )(
     implicit /* TODO: make me explicit. Avoid rebuilding the PrivacyLevel(settings) at each invocation? */ settings: Settings
   ): ColResult = {
     def ltrim(s: String) = s.replaceAll("^\\s+", "")
     def rtrim(s: String) = s.replaceAll("\\s+$", "")
-    val trimmedColValue = colAttribute.position.map { position =>
-      position.trim match {
-        case Some(LEFT)  => ltrim(colRawValue)
-        case Some(RIGHT) => rtrim(colRawValue)
-        case Some(BOTH)  => colRawValue.trim()
-        case _           => colRawValue
-      }
-    } getOrElse (colRawValue)
+
+    val trimmedColValue = colAttribute.trim match {
+      case Some(LEFT)  => ltrim(colRawValue)
+      case Some(RIGHT) => rtrim(colRawValue)
+      case Some(BOTH)  => colRawValue.trim()
+      case _           => colRawValue
+    }
 
     val colValue =
       if (trimmedColValue.length == 0) colAttribute.default.getOrElse("")
@@ -553,7 +552,7 @@ object IngestionUtil {
       if (privacyLevel == PrivacyLevel.None)
         colValue
       else
-        privacyLevel.crypt(colValue)
+        privacyLevel.crypt(colValue, colMap)
     val colPatternOK = optionalColIsEmpty || colPatternIsValid
     val (sparkValue, colParseOK) =
       if (colPatternOK) {
