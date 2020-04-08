@@ -41,39 +41,38 @@ object InferSchemaHandler {
     schema: StructType
   )(implicit settings: Settings): List[Attribute] = {
     schema
-      .map(
-        row =>
-          row.dataType.typeName match {
+      .map(row =>
+        row.dataType.typeName match {
 
-            // if the datatype is a struct {...} containing one or more other field
-            case "struct" =>
+          // if the datatype is a struct {...} containing one or more other field
+          case "struct" =>
+            Attribute(
+              row.name,
+              row.dataType.typeName,
+              Some(false),
+              !row.nullable,
+              attributes = Some(createAttributes(row.dataType.asInstanceOf[StructType]))
+            )
+
+          case "array" =>
+            val elemType = row.dataType.asInstanceOf[ArrayType].elementType
+            if (elemType.typeName.equals("struct"))
+              // if the array contains elements of type struct.
+              // {people: [{name:Person1, age:22},{name:Person2, age:25}]}
               Attribute(
                 row.name,
-                row.dataType.typeName,
-                Some(false),
+                elemType.typeName,
+                Some(true),
                 !row.nullable,
-                attributes = Some(createAttributes(row.dataType.asInstanceOf[StructType]))
+                attributes = Some(createAttributes(elemType.asInstanceOf[StructType]))
               )
+            else
+              // if it is a regular array. {ages: [21, 25]}
+              Attribute(row.name, elemType.typeName, Some(true), !row.nullable)
 
-            case "array" =>
-              val elemType = row.dataType.asInstanceOf[ArrayType].elementType
-              if (elemType.typeName.equals("struct"))
-                // if the array contains elements of type struct.
-                // {people: [{name:Person1, age:22},{name:Person2, age:25}]}
-                Attribute(
-                  row.name,
-                  elemType.typeName,
-                  Some(true),
-                  !row.nullable,
-                  attributes = Some(createAttributes(elemType.asInstanceOf[StructType]))
-                )
-              else
-                // if it is a regular array. {ages: [21, 25]}
-                Attribute(row.name, elemType.typeName, Some(true), !row.nullable)
-
-            // if the datatype is a simple Attribute
-            case _ =>
-              Attribute(row.name, row.dataType.typeName, Some(false), !row.nullable)
+          // if the datatype is a simple Attribute
+          case _ =>
+            Attribute(row.name, row.dataType.typeName, Some(false), !row.nullable)
         }
       )
       .toList

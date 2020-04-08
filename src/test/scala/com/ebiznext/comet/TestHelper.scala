@@ -102,7 +102,10 @@ trait TestHelper extends AnyFlatSpec with Matchers with BeforeAndAfterAll with S
   )
 
   import TestHelperAux.using
-  private def readSourceContentAsString(source: Source): String = source.getLines().mkString("\n")
+
+  private def readSourceContentAsString(source: Source): String = {
+    source.getLines().mkString("\n")
+  }
 
   def loadFile(filename: String)(implicit codec: Codec): String = {
     val stream: InputStream = getClass.getResourceAsStream(filename)

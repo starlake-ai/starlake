@@ -14,11 +14,14 @@ import scala.language.implicitConversions
 import scala.util.Random
 
 object ResultSetScala {
+
   case class ResultSetExtra(rs: ResultSet) extends AnyVal {
+
     private def getFooOption[T](columnIndex: Int, getFoo: Int => T): Option[T] = {
       val l = getFoo(columnIndex)
       if (rs.wasNull()) None else Some(l)
     }
+
     private def getFooOption[T](columnLabel: String, getFoo: String => T): Option[T] = {
       val l = getFoo(columnLabel)
       if (rs.wasNull()) None else Some(l)
@@ -112,13 +115,19 @@ trait JdbcChecks {
     private val FakeDuration = Random.nextInt(5000)
 
     override def standardize(item: AuditLog): AuditLog = {
-      item.copy(timestamp = TestStart, duration = FakeDuration) // We pretend the AuditLog entry has been generated exactly at TestStart.
+      item.copy(
+        timestamp = TestStart,
+        duration = FakeDuration
+      ) // We pretend the AuditLog entry has been generated exactly at TestStart.
     }
   }
 
   implicit object RejectedRecordStandardizer extends ItemStandardizer[RejectedRecord] {
+
     override def standardize(item: RejectedRecord): RejectedRecord = {
-      item.copy(timestamp = TestStart) // We pretend the RejectedRecord entry has been generated exactly at TestStart.
+      item.copy(timestamp =
+        TestStart
+      ) // We pretend the RejectedRecord entry has been generated exactly at TestStart.
     }
   }
 
@@ -237,11 +246,13 @@ trait ItemStandardizer[T] {
 }
 
 trait ItemStandardizerLowPriority {
+
   implicit def identityStandardizer[T]: ItemStandardizer[T] =
     new ItemStandardizerLowPriority.IdentityStandardizer[T]()
 }
 
 object ItemStandardizerLowPriority {
+
   final class IdentityStandardizer[T]() extends ItemStandardizer[T] {
     override def standardize(value: T): T = value
   }

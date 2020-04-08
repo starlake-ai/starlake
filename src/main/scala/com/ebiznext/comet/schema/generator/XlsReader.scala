@@ -6,6 +6,7 @@ import java.util.regex.Pattern
 import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.schema.model._
 import org.apache.poi.ss.usermodel.{DataFormatter, Row, Workbook, WorkbookFactory}
+
 import scala.collection.JavaConverters._
 import scala.util.{Success, Try}
 
@@ -156,14 +157,14 @@ class XlsReader(path: String) {
                     case Success(v) => v - 1
                     case _          => 0
                   }
-                  val positionTrim =
-                    Option(row.getCell(11, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
-                      .map(formatter.formatCellValue)
-                      .map(Trim.fromString)
-                  Some(Position(positionStart, positionEnd, positionTrim))
+                  Some(Position(positionStart, positionEnd))
                 }
                 case _ => None
               }
+              val attributeTrim =
+                Option(row.getCell(11, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
+                  .map(formatter.formatCellValue)
+                  .map(Trim.fromString)
 
               (nameOpt, semTypeOpt) match {
                 case (Some(name), Some(semType)) =>
@@ -177,10 +178,11 @@ class XlsReader(path: String) {
                       comment = commentOpt,
                       rename = renameOpt,
                       metricType = metricType,
-                      attributes = None,
+                      trim = attributeTrim,
                       position = positionOpt,
                       default = defaultOpt,
-                      tags = None
+                      tags = None,
+                      attributes = None
                     )
                   )
                 case _ => None
