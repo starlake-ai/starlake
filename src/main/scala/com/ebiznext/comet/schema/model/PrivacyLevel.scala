@@ -42,13 +42,9 @@ import scala.reflect.runtime.universe
 sealed case class PrivacyLevel(value: String) {
   override def toString: String = value
 
-  def crypt(s: String)(implicit settings: Settings): String = {
+  def crypt(s: String, colMap: Map[String, String])(implicit settings: Settings): String = {
     val (privacyAlgo, privacyParams) = PrivacyLevel.ForSettings(settings).all(value)._1
-    if (privacyParams.isEmpty)
-      privacyAlgo.crypt(s)
-    else
-      privacyAlgo.crypt(s, privacyParams)
-
+    privacyAlgo.crypt(s, colMap, privacyParams)
   }
 
 }

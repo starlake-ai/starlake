@@ -526,12 +526,14 @@ object IngestionUtil {
   def validateCol(
     colRawValue: String,
     colAttribute: Attribute,
-    tpe: Type
+    tpe: Type,
+    colMap: Map[String, String]
   )(
     implicit /* TODO: make me explicit. Avoid rebuilding the PrivacyLevel(settings) at each invocation? */ settings: Settings
   ): ColResult = {
     def ltrim(s: String) = s.replaceAll("^\\s+", "")
     def rtrim(s: String) = s.replaceAll("\\s+$", "")
+
     val trimmedColValue = colAttribute.trim match {
       case Some(LEFT)  => ltrim(colRawValue)
       case Some(RIGHT) => rtrim(colRawValue)
@@ -550,7 +552,7 @@ object IngestionUtil {
       if (privacyLevel == PrivacyLevel.None)
         colValue
       else
-        privacyLevel.crypt(colValue)
+        privacyLevel.crypt(colValue, colMap)
     val colPatternOK = optionalColIsEmpty || colPatternIsValid
     val (sparkValue, colParseOK) =
       if (colPatternOK) {
