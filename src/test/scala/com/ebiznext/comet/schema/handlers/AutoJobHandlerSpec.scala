@@ -159,5 +159,50 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         ("test3", "test4", 40)
       )
     }
+
+    "trigger AutoJob using an UDF" should "generate a dataset in business" in {
+
+      val businessTask1 = AutoTaskDesc(
+        "select concatWithSpace(firstname, lastname) as fullName user_View",
+        "user",
+        "user",
+        WriteMode.OVERWRITE,
+        area = Some(StorageArea.fromString("business"))
+      )
+      val businessJob =
+        AutoJobDesc(
+          "fullName",
+          List(businessTask1),
+          None,
+          Some("parquet"),
+          Some(false),
+          udf = Some("com.ebiznext.comet.udf.TestUdf"),
+          views = Some(Map("user_View" -> "accepted/user"))
+        )
+      val schemaHandler = new SchemaHandler(storageHandler)
+
+      val businessJobDef = mapper
+        .writer()
+        .withAttribute(classOf[Settings], settings)
+        .writeValueAsString(businessJob)
+
+      storageHandler.write(businessJobDef, pathBusiness)
+
+      val workflow =
+        new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
+
+      workflow.autoJobRun("fullName")
+
+      sparkSession.read
+        .load(pathDatasetBusiness.toString)
+        .select("fullName")
+        .take(6)
+        .map(r => r.getString(0))
+        .toList should contain allElementsOf List(
+        ("John Doe"),
+        ("fred abruzzi"),
+        ("test3 test4")
+      )
+    }
   }
 }
