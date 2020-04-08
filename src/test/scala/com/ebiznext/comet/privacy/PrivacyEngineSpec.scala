@@ -25,44 +25,60 @@ class PrivacyEngineSpec extends TestHelper {
     }
 
     "Initials Masking Firstname" should "succeed" in {
-      val result = Initials.crypt("John")
+      val result = Initials.crypt("John", Map.empty[String, String], Nil)
       result shouldBe "J."
     }
 
     "Initials Masking Composite name" should "succeed" in {
-      val result = Initials.crypt("John Doe")
+      val result = Initials.crypt("John Doe", Map.empty[String, String], Nil)
       result shouldBe "J.D."
     }
 
     "Email Masking" should "succeed" in {
-      val result = Email.crypt("john@doe.com")
+      val result = Email.crypt("john@doe.com", Map.empty[String, String], List("MD5"))
       result should have length "527bd5b5d689e2c32ae974c6229ff785@doe.com".length
       result should endWith("@doe.com")
     }
 
     "IPv4 Masking" should "succeed" in {
-      val result = IPv4.crypt("192.168.2.1")
+      val result = IPv4.crypt("192.168.2.1", Map.empty[String, String], List(1))
       result shouldBe "192.168.2.0"
     }
 
     "IPv4 Masking Multti group" should "succeed" in {
-      val result = IPv4.encrypt("192.168.2.1", 2)
+      val result = IPv4.crypt("192.168.2.1", 2)
       result shouldBe "192.168.0.0"
     }
 
     "IPv6 Masking" should "succeed" in {
-      val result = IPv6.crypt("2001:db8:0:85a3::ac1f:8001")
+      val result = IPv6.crypt("2001:db8:0:85a3::ac1f:8001", Map.empty[String, String], List(1))
       result shouldBe "2001:db8:0:85a3::ac1f:0"
     }
 
     "IPv6 Masking multi group" should "succeed" in {
-      val result = IPv6.encrypt("2001:db8:0:85a3::ac1f:8001", 3)
+      val result = IPv6.crypt("2001:db8:0:85a3::ac1f:8001", 3)
       result shouldBe "2001:db8:0:85a3:0:0:0"
     }
 
     "Generic Masking" should "succeed" in {
       val result = Mask.crypt("+3360102030405", '*', 8, 4, 2)
       result shouldBe "+336********05"
+    }
+
+    "Context based crypting" should "succeed" in {
+      object ConditionalHide extends PrivacyEngine {
+        override def crypt(s: String, colMap: Map[String, String], params: List[Any]): String = {
+          if (colMap.isDefinedAt("col1")) s else ""
+        }
+      }
+      val colMap =
+        Map("col1" -> "value1", "col2" -> "value2", "col3" -> "value3", "col4" -> "value4")
+      val result1 = ConditionalHide.crypt("value2", colMap, Nil)
+      result1 shouldBe "value2"
+
+      val result2 = ConditionalHide.crypt("value5", colMap - "col1", Nil)
+      result2 shouldBe ""
+
     }
   }
 }
