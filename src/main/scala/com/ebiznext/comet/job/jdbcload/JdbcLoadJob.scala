@@ -63,7 +63,9 @@ class JdbcLoadJob(
         Success(session)
 
       case _ =>
-        logger.warn("JDBC Audit not selected, yet JdbcLoadJob attempted — no output") // TODO: shouldn't this be an IllegalStateException?
+        logger.warn(
+          "JDBC Audit not selected, yet JdbcLoadJob attempted — no output"
+        ) // TODO: shouldn't this be an IllegalStateException?
         Success(session)
     }
 

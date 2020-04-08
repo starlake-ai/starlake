@@ -59,6 +59,7 @@ object MetricType {
 }
 
 class MetricTypeDeserializer extends JsonDeserializer[MetricType] {
+
   override def deserialize(jp: JsonParser, ctx: DeserializationContext): MetricType = {
     val value = jp.readValueAs[String](classOf[String])
     MetricType.fromString(value)

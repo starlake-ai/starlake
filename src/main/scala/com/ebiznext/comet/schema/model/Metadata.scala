@@ -228,7 +228,9 @@ class MetadataDeserializer extends JsonDeserializer[Metadata] {
         val fields = mappingField
           .fieldNames()
           .asScala
-          .map { fieldName => (fieldName, mappingField.get(fieldName).asText()) } toMap
+          .map { fieldName =>
+            (fieldName, mappingField.get(fieldName).asText())
+        } toMap
 
         Some(fields)
       }
@@ -241,7 +243,9 @@ class MetadataDeserializer extends JsonDeserializer[Metadata] {
         val fields = xmlField
           .fieldNames()
           .asScala
-          .map { fieldName => (fieldName, xmlField.get(fieldName).asText()) } toMap
+          .map { fieldName =>
+            (fieldName, xmlField.get(fieldName).asText())
+        } toMap
 
         Some(fields)
       }

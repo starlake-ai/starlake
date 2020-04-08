@@ -20,7 +20,6 @@
 
 package com.ebiznext.comet.job.ingest
 
-
 import buildinfo.BuildInfo
 import com.ebiznext.comet.utils.CliConfig
 import org.apache.hadoop.fs.Path
