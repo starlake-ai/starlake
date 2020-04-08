@@ -60,7 +60,7 @@ class AutoTask(
       val udfInstance: UdfRegistration =
         Class
           .forName(udf)
-          .getDeclaredConstructor(Seq.empty: _*)
+          .getDeclaredConstructor()
           .newInstance()
           .asInstanceOf[UdfRegistration]
       udfInstance.register(session)
@@ -133,26 +133,3 @@ class AutoTask(
     Success(session)
   }
 }
-
-/*
-name: "facturation"
-udf: "com.ebiznext.comet.external.EvolanUdf"
-format: "csv"
-coalesce: true
-views:
-  ref_client: "/trainings/jupyter/work/ebiznext/business/patrice/client"
-  ref_societe: "/trainings/jupyter/work/ebiznext/accepted/patrice/societe"
-tasks:
-  - sql: |
-      select
-        clients.INTITULE_TIERS,
-        clients.CODE_POSTAL,
-
-      from  ref_client clients
-      where
-        clients.CODE_SOCIETE in (1, 2? 3, 4)
-    domain: "factu"
-    dataset: "facturation"
-    write: "OVERWRITE"
-    area: "business"
- */
