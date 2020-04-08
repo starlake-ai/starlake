@@ -58,6 +58,7 @@ object Trim {
 }
 
 class TrimDeserializer extends JsonDeserializer[Trim] {
+
   override def deserialize(jp: JsonParser, ctx: DeserializationContext): Trim = {
     val value = jp.readValueAs[String](classOf[String])
     Trim.fromString(value)

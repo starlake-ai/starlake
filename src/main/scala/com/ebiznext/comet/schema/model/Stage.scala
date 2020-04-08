@@ -53,6 +53,7 @@ object Stage {
 }
 
 class StageDeserializer extends JsonDeserializer[Stage] {
+
   override def deserialize(jp: JsonParser, ctx: DeserializationContext): Stage = {
     val value = jp.readValueAs[String](classOf[String])
     Stage.fromString(value)
