@@ -163,7 +163,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
     "trigger AutoJob using an UDF" should "generate a dataset in business" in {
 
       val businessTask1 = AutoTaskDesc(
-        "select concatWithSpace(firstname, lastname) as fullName user_View",
+        "select concatWithSpace(firstname, lastname) as fullName from user_View",
         "user",
         "user",
         WriteMode.OVERWRITE,
@@ -196,7 +196,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       sparkSession.read
         .load(pathDatasetBusiness.toString)
         .select("fullName")
-        .take(6)
+        .take(7)
         .map(r => r.getString(0))
         .toList should contain allElementsOf List(
         ("John Doe"),
