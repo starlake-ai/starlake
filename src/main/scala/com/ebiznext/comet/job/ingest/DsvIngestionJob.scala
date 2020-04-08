@@ -234,13 +234,14 @@ object DsvIngestionUtil {
     val now = Timestamp.from(Instant.now)
     val checkedRDD: RDD[RowResult] = dataset.rdd.mapPartitions { partition =>
         partition.map { row: Row =>
-          val rowCols = row.toSeq
+          val rowValues: Seq[(String, Attribute)] = row.toSeq
             .zip(attributes)
             .map {
               case (colValue, colAttribute) =>
                 (Option(colValue).getOrElse("").toString, colAttribute)
             }
-            .zip(types)
+          val rowCols = rowValues.zip(types)
+          val colMap = rowValues.map(__ => (__._2.name, __._1)).toMap
           val validNumberOfColumns = attributes.length <= rowCols.length
           if (!validNumberOfColumns) {
             RowResult(
@@ -262,7 +263,7 @@ object DsvIngestionUtil {
             RowResult(
               rowCols.map {
                 case ((colRawValue, colAttribute), tpe) =>
-                  IngestionUtil.validateCol(colRawValue, colAttribute, tpe)
+                  IngestionUtil.validateCol(colRawValue, colAttribute, tpe, colMap)
               }.toList
             )
           }
