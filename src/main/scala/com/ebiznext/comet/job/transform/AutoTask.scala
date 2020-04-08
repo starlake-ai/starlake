@@ -60,7 +60,7 @@ class AutoTask(
       val udfInstance: UdfRegistration =
         Class
           .forName(udf)
-          .getDeclaredConstructor(Seq.empty: _*)
+          .getDeclaredConstructor()
           .newInstance()
           .asInstanceOf[UdfRegistration]
       udfInstance.register(session)
