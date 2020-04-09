@@ -545,11 +545,11 @@ object IngestionUtil {
       if (trimmedColValue.length == 0) colAttribute.default.getOrElse("")
       else trimmedColValue
 
-    val optionalColIsEmpty = !colAttribute.required && colValue.isEmpty
-    val colPatternIsValid = tpe.matches(colValue)
+    def optionalColIsEmpty = !colAttribute.required && colValue.isEmpty
+    def colPatternIsValid = tpe.matches(colValue)
     val privacyLevel = colAttribute.getPrivacy()
     val privacy =
-      if (privacyLevel == PrivacyLevel.None)
+      if (settings.comet.disablePrivacy || privacyLevel == PrivacyLevel.None)
         colValue
       else
         privacyLevel.crypt(colValue, colMap)
