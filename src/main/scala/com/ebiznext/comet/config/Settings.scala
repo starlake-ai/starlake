@@ -144,7 +144,6 @@ object Settings extends StrictLogging {
 
   final case class Audit(
     path: String,
-    active: Boolean,
     index: IndexSinkSettings,
     maxErrors: Int
   )
