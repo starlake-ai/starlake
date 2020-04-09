@@ -72,9 +72,8 @@ trait IngestionJob extends SparkJob {
     }
     val domainName = domain.name
     val schemaName = schema.name
-    IngestionUtil.saveRejected(session, rejectedRDD, domainName, schemaName.toString, now) match {
+    IngestionUtil.indexRejected(session, rejectedRDD, domainName, schemaName.toString, now) match {
       case Success((rejectedDF, rejectedPath)) =>
-        (rejectedDF, rejectedPath)
         saveRows(rejectedDF, rejectedPath, WriteMode.APPEND, StorageArea.rejected, false)
         Success(rejectedPath)
       case Failure(exception) =>
@@ -463,7 +462,7 @@ object IngestionUtil {
     BQSchema.of(fields: _*)
   }
 
-  def saveRejected(
+  def indexRejected(
     session: SparkSession,
     rejectedRDD: RDD[String],
     domainName: String,
@@ -487,36 +486,37 @@ object IngestionUtil {
       .toDF(rejectedCols.map(_._1): _*)
       .limit(settings.comet.audit.maxErrors)
 
-    val res = settings.comet.audit.index match {
-      case IndexSinkSettings.BigQuery(dataset) =>
-        val bqConfig = BigQueryLoadConfig(
-          Right(rejectedDF),
-          outputDataset = dataset,
-          outputTable = "rejected",
-          None,
-          "parquet",
-          "CREATE_IF_NEEDED",
-          "WRITE_APPEND",
-          None,
-          None
-        )
-        new BigQueryLoadJob(bqConfig, Some(bigqueryRejectedSchema())).run()
+    val res =
+      settings.comet.audit.index match {
+        case IndexSinkSettings.BigQuery(dataset) =>
+          val bqConfig = BigQueryLoadConfig(
+            Right(rejectedDF),
+            outputDataset = dataset,
+            outputTable = "rejected",
+            None,
+            "parquet",
+            "CREATE_IF_NEEDED",
+            "WRITE_APPEND",
+            None,
+            None
+          )
+          new BigQueryLoadJob(bqConfig, Some(bigqueryRejectedSchema())).run()
 
-      case IndexSinkSettings.Jdbc(jdbcName, partitions, batchSize) =>
-        val jdbcConfig = JdbcLoadConfig.fromComet(
-          jdbcName,
-          settings.comet,
-          Right(rejectedDF),
-          "rejected",
-          partitions = partitions,
-          batchSize = batchSize
-        )
+        case IndexSinkSettings.Jdbc(jdbcName, partitions, batchSize) =>
+          val jdbcConfig = JdbcLoadConfig.fromComet(
+            jdbcName,
+            settings.comet,
+            Right(rejectedDF),
+            "rejected",
+            partitions = partitions,
+            batchSize = batchSize
+          )
 
-        new JdbcLoadJob(jdbcConfig).run()
+          new JdbcLoadJob(jdbcConfig).run()
 
-      case IndexSinkSettings.None =>
-        Success(())
-    }
+        case IndexSinkSettings.None =>
+          Success(())
+      }
     res match {
       case Success(_) => Success(rejectedDF, rejectedPath)
       case Failure(e) => Failure(e)
