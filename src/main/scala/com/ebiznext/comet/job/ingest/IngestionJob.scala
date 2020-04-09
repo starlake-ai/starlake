@@ -553,7 +553,7 @@ object IngestionUtil {
         colValue
       else
         privacyLevel.crypt(colValue, colMap)
-    val colPatternOK = settings.comet.disablePrivacy || optionalColIsEmpty || colPatternIsValid
+    val colPatternOK = optionalColIsEmpty || colPatternIsValid
     val (sparkValue, colParseOK) =
       if (colPatternOK) {
         Try(tpe.sparkValue(privacy)) match {
