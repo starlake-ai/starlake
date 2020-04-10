@@ -147,9 +147,12 @@ assemblyExcludedJars in assembly := {
   Nil
 }
 
-// poi needs a newer version of commons-compress (> 1.17) than the one shipped with spark (1.4)
+
 assemblyShadeRules in assembly := Seq(
-  ShadeRule.rename("org.apache.commons.compress.**" -> "poiShade.commons.compress.@1").inAll
+  // poi needs a newer version of commons-compress (> 1.17) than the one shipped with spark (1.4)
+  ShadeRule.rename("org.apache.commons.compress.**" -> "poiShade.commons.compress.@1").inAll,
+  //shade it or else writing to bigquery wont work because spark comes with an older version of google common.
+  ShadeRule.rename("com.google.common.**" -> "shade.@0").inAll
 )
 
 // Your profile name of the sonatype account. The default is the same with the organization value
