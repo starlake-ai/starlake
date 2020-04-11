@@ -212,17 +212,18 @@ object Settings extends StrictLogging {
 
   /**
     *
-    * @param datasets    : Absolute path, datasets root folder beneath which each area is defined.
-    * @param metadata    : Absolute path, location where all types / domains and auto jobs are defined
-    * @param metrics     : Absolute path, location where all computed metrics are stored
-    * @param audit       : Absolute path, location where all log are stored
-    * @param archive     : Should we backup the ingested datasets ? true by default
-    * @param writeFormat : Choose between parquet, orc ... Default is parquet
-    * @param launcher    : Cron Job Manager: simple (useful for testing) or airflow ? simple by default
-    * @param analyze     : Should we create basics Hive statistics on the generated dataset ? true by default
-    * @param hive        : Should we create a Hive Table ? true by default
-    * @param area        : see Area above
-    * @param airflow     : Airflow end point. Should be defined even if simple launccher is used instead of airflow.
+    * @param datasets       : Absolute path, datasets root folder beneath which each area is defined.
+    * @param metadata       : Absolute path, location where all types / domains and auto jobs are defined
+    * @param metrics        : Absolute path, location where all computed metrics are stored
+    * @param audit          : Absolute path, location where all log are stored
+    * @param archive        : Should we backup the ingested datasets ? true by default
+    * @param writeFormat    : Choose between parquet, orc ... Default is parquet
+    * @param launcher       : Cron Job Manager : simple (useful for testing) or airflow ? simple by default
+    * @param analyze        : Should we create basics Hive statistics on the generated dataset ? true by default
+    * @param hive           : Should we create a Hive Table ? true by default
+    * @param area           : see Area above
+    * @param airflow        : Airflow end point. Should be defined even if simple launccher is used instead of airflow.
+    * @param disablePrivacy : Disable privacy
     */
   final case class Comet(
     jobId: String,
@@ -247,7 +248,8 @@ object Settings extends StrictLogging {
     jdbcEngines: Map[String, JdbcEngine],
     atlas: Atlas,
     privacy: Privacy,
-    fileSystem: Option[String]
+    fileSystem: Option[String],
+    disablePrivacy: Boolean
   ) extends Serializable {
 
     @throws(classOf[ObjectStreamException])
