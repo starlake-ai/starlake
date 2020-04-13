@@ -79,15 +79,15 @@ object Common {
   def customSettings: Seq[Def.Setting[_]] =
     Seq(
       scalacOptions ++= Seq(
-        "-Xmacro-settings:materialize-derivations"
-      ),
+          "-Xmacro-settings:materialize-derivations"
+        ),
       testOptions in Test ++= Seq(
-        // show full stack traces and test case durations
-        Tests.Argument("-oDF"),
-        // -v Log "test run started" / "test started" / "test run finished" events on log level "info" instead of "debug".
-        // -a Show stack traces a nd exception class name for AssertionErrors.
-        Tests.Argument(TestFrameworks.JUnit, "-v", "-a")
-      ),
+          // show full stack traces and test case durations
+          Tests.Argument("-oDF"),
+          // -v Log "test run started" / "test started" / "test run finished" events on log level "info" instead of "debug".
+          // -a Show stack traces a nd exception class name for AssertionErrors.
+          Tests.Argument(TestFrameworks.JUnit, "-v", "-a")
+        ),
       parallelExecution in Test := false,
       scalafmtOnCompile := true
     ) ++ gitSettings ++ assemlySettings ++ docsSettings
@@ -101,7 +101,7 @@ object Versions {
   val sparXML211 = "0.4.0"
   val spark211_240 = "2.4.5"
   val spark212 = "2.4.5"
-  val sparXML212 = "2.4.5"
+  val sparXML212 = "0.9.0"
   val sparXML211_240 = "0.9.0"
   val scalatest = "3.1.1"
   val springBoot = "2.0.6.RELEASE"
