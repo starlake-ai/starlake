@@ -23,11 +23,9 @@ package com.ebiznext.comet.job.ingest
 import com.ebiznext.comet.config.{DatasetArea, Settings, StorageArea}
 import com.ebiznext.comet.schema.handlers.{SchemaHandler, StorageHandler}
 import com.ebiznext.comet.schema.model._
-import com.ebiznext.comet.utils.Utils
 import org.apache.hadoop.fs.Path
 import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.execution.datasources.json.JsonIngestionUtil
-import org.apache.spark.sql.execution.datasources.json.JsonIngestionUtil.{compareTypes, factory}
+import org.apache.spark.sql.execution.datasources.json.JsonIngestionUtil.compareTypes
 import org.apache.spark.sql.types.{DataType, StructType}
 import org.apache.spark.sql.{DataFrame, Encoders, Row}
 
@@ -59,15 +57,24 @@ class XmlIngestionJob(
     * @return Spark Dataframe loaded using metadata options
     */
   def loadDataSet(): Try[DataFrame] = {
-
     try {
-      val df = session.read
-        .format("com.databricks.spark.csv")
-        .option("inferSchema", value = false)
-        .option("encoding", metadata.getEncoding())
-        .text(path.map(_.toString): _*)
-      df.printSchema()
-      Success(df)
+      val rowTag = metadata.xml.flatMap(_.get("rowTag"))
+      rowTag.map { rowTag =>
+        val df = path
+          .map { singlePath =>
+            session.read
+              .format("com.databricks.spark.xml")
+              .option("rowTag", rowTag)
+              .option("inferSchema", value = false)
+              .option("encoding", metadata.getEncoding())
+              .load(singlePath.toString)
+          }
+          .reduce((acc, df) => acc union df)
+        df.printSchema()
+        Success(df)
+      } getOrElse (Failure(
+        throw new Exception(s"rowTag not found for schema ${domain.name}.${schema.name}")
+      ))
     } catch {
       case e: Exception =>
         Failure(e)
@@ -82,71 +89,34 @@ class XmlIngestionJob(
     * @param dataset input dataset as a RDD of string
     */
   def ingest(dataset: DataFrame): (RDD[_], RDD[_]) = {
-    val rdd = dataset.rdd
     dataset.printSchema()
-    val checkedRDD = XmlIngestionJob.parseRDD(rdd, schemaSparkType).cache()
-    val acceptedRDD: RDD[String] = checkedRDD.filter(_.isRight).map(_.right.get)
-    val rejectedRDD: RDD[String] =
-      checkedRDD.filter(_.isLeft).map(_.left.get.mkString("\n"))
-    val acceptedDF = session.read.json(session.createDataset(acceptedRDD)(Encoders.STRING))
+    val datasetSchema = dataset.schema
+    val errorList = compareTypes(schemaSparkType, datasetSchema)
+    val rejectedRDD = session.sparkContext.parallelize(errorList)
     saveRejected(rejectedRDD)
-    val (df, path) = saveAccepted(acceptedDF) // prefer to let Spark compute the final schema
+    val (df, path) = saveAccepted(dataset) // prefer to let Spark compute the final schema
     index(df)
-    (rejectedRDD, acceptedRDD)
-  }
-
-  /**
-    * Use the schema we used for validation when saving
-    *
-    * @param acceptedRDD
-    */
-  @deprecated("We let Spark compute the final schema", "")
-  def saveAccepted(acceptedRDD: RDD[Row]): Path = {
-    val writeMode = metadata.getWriteMode()
-    val acceptedPath = new Path(DatasetArea.accepted(domain.name), schema.name)
-    saveRows(
-      session.createDataFrame(acceptedRDD, schemaSparkType),
-      acceptedPath,
-      writeMode,
-      StorageArea.accepted,
-      schema.merge.isDefined
-    )
-    acceptedPath
+    (rejectedRDD, dataset.rdd)
   }
 
   override def name: String = "JsonJob"
 }
 
 object XmlIngestionJob {
-  import com.databricks.spark.xml._
-
-  def parseString(content: String, schemaSparkType: StructType): Try[DataType] = {
-    Try {
-      val row = from_xml_string(content, schemaSparkType)
-      row.schema
-    }
-  }
 
   def parseRDD(
     inputRDD: RDD[Row],
     schemaSparkType: StructType
-  ): RDD[Either[List[String], String]] = {
+  ): RDD[Either[List[String], Row]] = {
     inputRDD.mapPartitions { partition =>
       partition.map { row =>
-        val rowAsString = row.getAs[String](0)
-        parseString(rowAsString, schemaSparkType) match {
-          case Success(datasetType) =>
-            val errorList = compareTypes(schemaSparkType, datasetType)
-            if (errorList.isEmpty)
-              Right(rowAsString)
-            else
-              Left(errorList)
-
-          case Failure(exception) =>
-            Left(List(exception.toString))
-        }
+        val rowSchema = row.schema
+        val errorList = compareTypes(schemaSparkType, rowSchema)
+        if (errorList.isEmpty)
+          Right(row)
+        else
+          Left(errorList)
       }
     }
   }
-
 }
