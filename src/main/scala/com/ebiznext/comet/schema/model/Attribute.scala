@@ -90,8 +90,6 @@ case class Attribute(
 
     primitiveType match {
       case Some(tpe) =>
-        if (tpe != PrimitiveType.string && getPrivacy() != PrivacyLevel.None)
-          errorList += s"Attribute $this : string is the only supported primitive type for an attribute when privacy is requested"
         if (tpe == PrimitiveType.struct && attributes.isEmpty)
           errorList += s"Attribute $this : Struct types have at least one attribute."
         if (tpe != PrimitiveType.struct && attributes.isDefined)
