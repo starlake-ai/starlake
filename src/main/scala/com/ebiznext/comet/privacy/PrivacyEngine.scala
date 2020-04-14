@@ -77,7 +77,17 @@ object Sha512 extends PrivacyEngine {
 }
 
 object Hide extends PrivacyEngine {
-  def crypt(s: String, colMap: Map[String, String], params: List[Any]): String = ""
+
+  def crypt(s: String, colMap: Map[String, String], params: List[Any]): String = {
+    if (params.isEmpty)
+      ""
+    else {
+      assert(params.length == 2)
+      val c = params(0).asInstanceOf[String]
+      val i = params(1).asInstanceOf[Int]
+      c * i
+    }
+  }
 }
 
 object No extends PrivacyEngine {
@@ -122,7 +132,7 @@ object IPv6 extends IP {
   override val separator: Char = ':'
 }
 
-object Approx extends PrivacyEngine {
+class ApproxDouble extends PrivacyEngine {
   val rnd = new Random()
 
   def crypt(s: String, colMap: Map[String, String], params: List[Any]): String = {
@@ -138,6 +148,17 @@ object Approx extends PrivacyEngine {
     else
       value + distance
   }
+}
+
+object ApproxDouble extends ApproxDouble {}
+
+object ApproxLong extends ApproxDouble {
+
+  override def crypt(s: String, colMap: Map[String, String], params: List[Any]): String = {
+    assert(params.length == 1)
+    crypt(s.toDouble, params.head.asInstanceOf[Int]).toLong.toString
+  }
+
 }
 
 object Mask extends PrivacyEngine {
