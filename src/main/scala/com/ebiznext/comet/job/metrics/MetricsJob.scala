@@ -9,7 +9,6 @@ import com.ebiznext.comet.schema.model.{Domain, Schema, Stage}
 import com.ebiznext.comet.utils.{FileLock, SparkJob}
 import com.google.cloud.bigquery.JobInfo.WriteDisposition
 import org.apache.hadoop.fs.Path
-import org.apache.hadoop.metrics2.MetricsRecord
 import org.apache.spark.sql._
 import org.apache.spark.sql.execution.streaming.FileStreamSource.Timestamp
 import org.apache.spark.sql.functions.{col, lit}
