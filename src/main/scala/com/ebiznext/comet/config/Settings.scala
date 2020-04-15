@@ -29,7 +29,6 @@ import com.ebiznext.comet.schema.handlers.{
   AirflowLauncher,
   HdfsStorageHandler,
   LaunchHandler,
-  SchemaHandler,
   SimpleLauncher
 }
 import com.ebiznext.comet.schema.model.IndexSink
