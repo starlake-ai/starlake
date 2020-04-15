@@ -47,8 +47,7 @@ class BigQueryLoadJob(
     scala.Option(bigquery.getTable(tableId)) getOrElse {
 
       val tableDefinitionBuilder = maybeSchema.fold(StandardTableDefinition.newBuilder()) {
-        schema =>
-          StandardTableDefinition.of(schema).toBuilder
+        schema => StandardTableDefinition.of(schema).toBuilder
       }
 
       cliConfig.outputPartition.foreach { outputPartition =>

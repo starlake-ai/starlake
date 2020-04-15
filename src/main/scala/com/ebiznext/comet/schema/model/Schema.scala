@@ -22,7 +22,6 @@ package com.ebiznext.comet.schema.model
 
 import java.util.regex.Pattern
 
-import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.schema.handlers.SchemaHandler
 import com.ebiznext.comet.utils.TextSubstitutionEngine
 import com.google.cloud.bigquery.{Field, LegacySQLTypeName}

@@ -41,13 +41,13 @@ import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, SparkSession}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.scalatest.{Assertion, BeforeAndAfterAll}
 
 import scala.collection.JavaConverters._
 import scala.io.{Codec, Source}
 import scala.util.Try
-import org.scalatest.flatspec.AnyFlatSpec
-import org.scalatest.matchers.should.Matchers
 
 trait TestHelper extends AnyFlatSpec with Matchers with BeforeAndAfterAll with StrictLogging {
 

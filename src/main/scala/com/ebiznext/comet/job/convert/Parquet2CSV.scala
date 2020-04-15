@@ -6,7 +6,7 @@ import com.ebiznext.comet.schema.model.WriteMode
 import com.ebiznext.comet.utils.SparkJob
 import com.typesafe.config.ConfigFactory
 import org.apache.hadoop.fs.Path
-import org.apache.spark.sql.{SaveMode, SparkSession}
+import org.apache.spark.sql.SparkSession
 
 import scala.util.{Success, Try}
 
