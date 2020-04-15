@@ -25,10 +25,11 @@ import java.time.LocalDateTime
 import com.ebiznext.comet.config.{Settings, StorageArea, UdfRegistration}
 import com.ebiznext.comet.schema.handlers.StorageHandler
 import com.ebiznext.comet.schema.model.AutoTaskDesc
+import com.ebiznext.comet.utils.Formatter._
 import com.ebiznext.comet.utils.SparkJob
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.{SaveMode, SparkSession}
-import com.ebiznext.comet.utils.Formatter._
+
 import scala.language.reflectiveCalls
 import scala.util.{Success, Try}
 

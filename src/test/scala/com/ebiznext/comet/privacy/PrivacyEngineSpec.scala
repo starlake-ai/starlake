@@ -1,7 +1,6 @@
 package com.ebiznext.comet.privacy
 
 import com.ebiznext.comet.TestHelper
-import com.ebiznext.comet.privacy.{Email, IPv4, IPv6, Initials, Mask, PrivacyEngine}
 
 class PrivacyEngineSpec extends TestHelper {
 

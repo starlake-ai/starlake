@@ -22,7 +22,6 @@ package com.ebiznext.comet.schema.model
 
 import java.util.regex.Pattern
 
-import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.schema.handlers.SchemaHandler
 import com.fasterxml.jackson.annotation.JsonIgnore
 import com.typesafe.scalalogging.LazyLogging
