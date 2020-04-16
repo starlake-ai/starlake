@@ -71,16 +71,18 @@ class AutoTask(
         val df = session.read.parquet(fullPath)
         df.createOrReplaceTempView(key)
     }
-    task.presql.getOrElse(Nil).foreach(session.sql)
-    val targetPath = task.getTargetPath(defaultArea)
-    val mergePath = s"${targetPath.toString}.merge"
 
     val dataframe = sqlParameters match {
       case Some(mapParams) =>
+        task.presql.getOrElse(Nil).foreach(req => session.sql(req.richFormat(mapParams)))
         session.sql(task.sql.richFormat(mapParams))
-      case _ => session.sql(task.sql)
+      case _ =>
+        task.presql.getOrElse(Nil).foreach(session.sql)
+        session.sql(task.sql)
 
     }
+    val targetPath = task.getTargetPath(defaultArea)
+    val mergePath = s"${targetPath.toString}.merge"
     val partitionedDF =
       partitionedDatasetWriter(
         if (coalesce) dataframe.coalesce(1) else dataframe,
