@@ -25,10 +25,11 @@ import java.time.LocalDateTime
 import com.ebiznext.comet.config.{Settings, StorageArea, UdfRegistration}
 import com.ebiznext.comet.schema.handlers.StorageHandler
 import com.ebiznext.comet.schema.model.AutoTaskDesc
+import com.ebiznext.comet.utils.Formatter._
 import com.ebiznext.comet.utils.SparkJob
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.{SaveMode, SparkSession}
-import com.ebiznext.comet.utils.Formatter._
+
 import scala.language.reflectiveCalls
 import scala.util.{Success, Try}
 
@@ -71,16 +72,18 @@ class AutoTask(
         val df = session.read.parquet(fullPath)
         df.createOrReplaceTempView(key)
     }
-    task.presql.getOrElse(Nil).foreach(session.sql)
-    val targetPath = task.getTargetPath(defaultArea)
-    val mergePath = s"${targetPath.toString}.merge"
 
     val dataframe = sqlParameters match {
       case Some(mapParams) =>
+        task.presql.getOrElse(Nil).foreach(req => session.sql(req.richFormat(mapParams)))
         session.sql(task.sql.richFormat(mapParams))
-      case _ => session.sql(task.sql)
+      case _ =>
+        task.presql.getOrElse(Nil).foreach(session.sql)
+        session.sql(task.sql)
 
     }
+    val targetPath = task.getTargetPath(defaultArea)
+    val mergePath = s"${targetPath.toString}.merge"
     val partitionedDF =
       partitionedDatasetWriter(
         if (coalesce) dataframe.coalesce(1) else dataframe,

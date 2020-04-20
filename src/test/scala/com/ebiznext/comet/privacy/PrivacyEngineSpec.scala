@@ -1,7 +1,6 @@
 package com.ebiznext.comet.privacy
 
 import com.ebiznext.comet.TestHelper
-import com.ebiznext.comet.privacy.{Email, IPv4, IPv6, Initials, Mask, PrivacyEngine}
 
 class PrivacyEngineSpec extends TestHelper {
 
@@ -65,6 +64,22 @@ class PrivacyEngineSpec extends TestHelper {
       result shouldBe "+336********05"
     }
 
+    "ApproxDouble" should "succeed" in {
+      val result = ApproxDouble.crypt("2.5", Map.empty[String, String], List(20))
+      result.toDouble shouldEqual 2.5 +- 0.5
+    }
+
+    "ApproxLong" should "succeed" in {
+      val result = ApproxLong.crypt("4", Map.empty[String, String], List(25))
+      result.toLong.toDouble shouldEqual 4.0 +- 1
+
+    }
+
+    "Hide" should "succeed" in {
+      val result = Hide.crypt("Hello", Map.empty[String, String], List("X", 5))
+      result shouldBe "XXXXX"
+
+    }
     "Context based crypting" should "succeed" in {
       object ConditionalHide extends PrivacyEngine {
         override def crypt(s: String, colMap: Map[String, String], params: List[Any]): String = {

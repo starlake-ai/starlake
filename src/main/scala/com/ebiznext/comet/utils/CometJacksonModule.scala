@@ -2,21 +2,12 @@ package com.ebiznext.comet.utils
 
 import java.util.concurrent.TimeUnit
 
-import com.fasterxml.jackson.annotation.{
-  JsonAnySetter,
-  JsonCreator,
-  JsonIdentityInfo,
-  JsonIgnoreType,
-  ObjectIdGenerator,
-  ObjectIdGenerators,
-  ObjectIdResolver
-}
-import com.fasterxml.jackson.annotation.JsonTypeInfo.Id
+import com.fasterxml.jackson.annotation.{JsonAnySetter, JsonIgnoreType}
 import com.fasterxml.jackson.core.{JsonGenerator, JsonParser}
-import com.fasterxml.jackson.databind.deser.Deserializers
-import com.fasterxml.jackson.databind.ser.Serializers
 import com.fasterxml.jackson.databind._
 import com.fasterxml.jackson.databind.annotation.JsonPOJOBuilder
+import com.fasterxml.jackson.databind.deser.Deserializers
+import com.fasterxml.jackson.databind.ser.Serializers
 import com.fasterxml.jackson.module.scala.JacksonModule
 
 import scala.concurrent.duration.FiniteDuration
