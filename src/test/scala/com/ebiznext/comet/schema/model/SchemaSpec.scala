@@ -49,22 +49,17 @@ class SchemaSpec extends TestHelper {
       attr.checkValidity(schemaHandler) shouldBe Left(List("Invalid Type invalid-type"))
     }
 
-    "Attribute privacy" should "be applied on string type only" in {
+    "Attribute privacy" should "appliable to any type" in {
       val attr = Attribute(
         "attr",
         "long",
         Some(true),
         true,
         Some(
-          PrivacyLevel("MD5")
+          PrivacyLevel("ApproxLong(20)")
         ) // Should raise an error. Privacy cannot be applied on types other than stringsettings = settings
       )
-      attr.checkValidity(schemaHandler) shouldBe
-      Left(
-        List(
-          "Attribute Attribute(attr,long,Some(true),true,Some(MD5),None,None,None,None,None,None,None) : string is the only supported primitive type for an attribute when privacy is requested"
-        )
-      )
+      attr.checkValidity(schemaHandler) shouldBe Right(true)
     }
 
     "Sub Attribute" should "be present for struct types only" in {
@@ -74,14 +69,13 @@ class SchemaSpec extends TestHelper {
         Some(true),
         true,
         Some(
-          PrivacyLevel("MD5")
+          PrivacyLevel("ApproxLong(20)")
         ), // Should raise an error. Privacy cannot be applied on types other than string
         attributes = Some(List[Attribute]())
       )
       val expectedErrors = List(
-        "Attribute Attribute(attr,long,Some(true),true,Some(MD5),None,None,None,Some(List()),None,None,None) : string is the only supported primitive type for an attribute when privacy is requested",
-        "Attribute Attribute(attr,long,Some(true),true,Some(MD5),None,None,None,Some(List()),None,None,None) : Simple attributes cannot have sub-attributes",
-        "Attribute Attribute(attr,long,Some(true),true,Some(MD5),None,None,None,Some(List()),None,None,None) : when present, attributes list cannot be empty."
+        "Attribute Attribute(attr,long,Some(true),true,Some(ApproxLong(20)),None,None,None,Some(List()),None,None,None) : Simple attributes cannot have sub-attributes",
+        "Attribute Attribute(attr,long,Some(true),true,Some(ApproxLong(20)),None,None,None,Some(List()),None,None,None) : when present, attributes list cannot be empty."
       )
 
       attr.checkValidity(schemaHandler) shouldBe Left(expectedErrors)

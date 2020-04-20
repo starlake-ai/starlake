@@ -2,14 +2,7 @@ package com.ebiznext.comet.schema.handlers
 
 import com.ebiznext.comet.TestHelper
 import org.apache.spark.sql.execution.datasources.json.JsonIngestionUtil
-import org.apache.spark.sql.types.{
-  ArrayType,
-  DoubleType,
-  LongType,
-  StringType,
-  StructField,
-  StructType
-}
+import org.apache.spark.sql.types._
 
 import scala.util.Success
 

@@ -3,9 +3,8 @@ package com.ebiznext.comet
 import java.sql.{DriverManager, ResultSet, SQLException, Timestamp}
 import java.time.Instant
 
-import com.ebiznext.comet
 import com.ebiznext.comet.config.Settings
-import com.ebiznext.comet.job.ingest.{AuditLog, CatCountFreq, MetricRecord, RejectedRecord}
+import com.ebiznext.comet.job.ingest.{AuditLog, MetricRecord, RejectedRecord}
 import org.scalatest.Assertion
 
 import scala.annotation.tailrec
