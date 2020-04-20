@@ -1,7 +1,6 @@
 package com.ebiznext.comet.job.bqload
 
 import com.ebiznext.comet.config.Settings
-import com.ebiznext.comet.config.Settings.IndexSinkSettings
 import com.ebiznext.comet.utils.{SparkJob, Utils}
 import com.google.cloud.bigquery.testing.RemoteBigQueryHelper
 import com.google.cloud.bigquery.{Schema => BQSchema, _}
@@ -9,7 +8,7 @@ import com.google.cloud.hadoop.io.bigquery.BigQueryConfiguration
 import com.google.cloud.hadoop.io.bigquery.output.BigQueryTimePartitioning
 import org.apache.spark.sql.{SaveMode, SparkSession}
 
-import scala.util.{Failure, Success, Try}
+import scala.util.Try
 
 class BigQueryLoadJob(
   cliConfig: BigQueryLoadConfig,
@@ -174,25 +173,7 @@ class BigQueryLoadJob(
     * @return : Spark Session used for the job
     */
   override def run(): Try[SparkSession] = {
-    val res = settings.comet.audit.index match {
-      case _: IndexSinkSettings.BigQuery if settings.comet.audit.active =>
-        runBQSparkConnector()
-
-      case _: IndexSinkSettings.BigQuery =>
-        logger.info("BigQuery Audit selected, but audit is inactive — no output")
-        Success(session)
-
-      case _ =>
-        logger.warn(
-          "BigQuery Audit not selected, yet BigQueryLoadJob attempted — no output"
-        ) // TODO: shouldn't this be an IllegalStateException?
-        Success(session)
-    }
-
-    res match {
-      case Success(_)         =>
-      case Failure(exception) => Utils.logException(logger, exception)
-    }
-    res
+    val res = runBQSparkConnector()
+    Utils.logFailure(res, logger)
   }
 }

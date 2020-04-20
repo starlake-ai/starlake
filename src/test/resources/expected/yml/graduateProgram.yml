@@ -1,0 +1,18 @@
+name: "graduateProgram"
+views:
+  graduate_View: "accepted/graduateProgram"
+tasks:
+  - domain: "graduateProgram"
+    area: "business"
+    dataset: "output"
+    write: "OVERWRITE"
+    presql: |
+      create or replace view graduate_agg_view
+      select degree,
+        department,
+        school
+      from graduate_View
+      where school={{school}}
+
+    sql:  |
+            SELECT * FROM graduate_agg_view

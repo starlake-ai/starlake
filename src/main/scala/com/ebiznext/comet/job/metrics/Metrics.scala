@@ -3,7 +3,7 @@ package com.ebiznext.comet.job.metrics
 import com.ebiznext.comet.utils.DataTypeEx._
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.sql.functions._
-import org.apache.spark.sql.types.{DoubleType, IntegerType, LongType, StringType, StructType}
+import org.apache.spark.sql.types.{DoubleType, LongType, StringType}
 import org.apache.spark.sql.{Column, DataFrame}
 
 object Metrics extends StrictLogging {
