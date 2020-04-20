@@ -11,9 +11,15 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
 
   lazy val pathBusiness = new Path(cometMetadataPath + "/jobs/user.yml")
 
-  lazy val pathDatasetBusiness = new Path(cometDatasetsPath + "/business/user/user")
+  lazy val pathGraduateProgramBusiness = new Path(cometMetadataPath + "/jobs/graduateProgram.yml")
 
-  lazy val pathAccepted = new Path(cometDatasetsPath + "/accepted/user")
+  lazy val pathGraduateDatasetProgramBusiness = new Path(cometDatasetsPath + "/business/graduateProgram/output")
+
+  lazy val pathUserDatasetBusiness = new Path(cometDatasetsPath + "/business/user/user")
+
+  lazy val pathUserAccepted = new Path(cometDatasetsPath + "/accepted/user")
+
+  lazy val pathGraduateProgramAccepted = new Path(cometDatasetsPath + "/accepted/graduateProgram")
 
   lazy val metadataPath = new Path(cometMetadataPath)
 
@@ -23,7 +29,14 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       .json(getResPath("/expected/datasets/accepted/DOMAIN/User.json"))
       .write
       .mode("overwrite")
-      .parquet(pathAccepted.toString)
+      .parquet(pathUserAccepted.toString)
+
+    sparkSession.read
+      .option("inferSchema", "true")
+      .json(getResPath("/expected/datasets/accepted/DOMAIN/graduateProgram.json"))
+      .write
+      .mode("overwrite")
+      .parquet(pathGraduateProgramAccepted.toString)
   }
 
   new WithSettings() {
@@ -59,7 +72,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       workflow.autoJobRun("user", Some("age=40"))
 
       val result = sparkSession.read
-        .load(pathDatasetBusiness.toString)
+        .load(pathUserDatasetBusiness.toString)
         .select("firstname", "lastname", "age")
         .take(2)
 
@@ -105,7 +118,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       workflow.autoJobRun("user", Some("age=25, lastname='Doe', firstname='John'"))
 
       val result = sparkSession.read
-        .load(pathDatasetBusiness.toString)
+        .load(pathUserDatasetBusiness.toString)
         .select("firstname", "lastname", "age")
         .take(2)
 
@@ -149,7 +162,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       workflow.autoJobRun("user")
 
       sparkSession.read
-        .load(pathDatasetBusiness.toString)
+        .load(pathUserDatasetBusiness.toString)
         .select("firstname", "lastname", "age")
         .take(6)
         .map(r => (r.getString(0), r.getString(1), r.getLong(2)))
@@ -194,7 +207,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       workflow.autoJobRun("fullName")
 
       sparkSession.read
-        .load(pathDatasetBusiness.toString)
+        .load(pathUserDatasetBusiness.toString)
         .select("fullName")
         .take(7)
         .map(r => r.getString(0))
@@ -203,6 +216,58 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         ("fred abruzzi"),
         ("test3 test4")
       )
+    }
+
+    "trigger AutoJob by passing parameters to presql statement" should "generate a dataset in business" in {
+
+      val businessTask1 = AutoTaskDesc(
+        "SELECT * FROM graduate_agg_view",
+        "graduateProgram",
+        "output",
+        WriteMode.OVERWRITE,
+        presql = Some(List("""
+            |create or replace temporary view graduate_agg_view as
+            |      select degree, department,
+            |      school
+            |      from graduate_View
+            |      where school={{school}}
+            |""".stripMargin)),
+        area = Some(StorageArea.fromString("business"))
+      )
+      val businessJob =
+        AutoJobDesc(
+          "graduateProgram",
+          List(businessTask1),
+          None,
+          Some("parquet"),
+          Some(false),
+          views = Some(Map("graduate_View" -> "accepted/graduateProgram"))
+        )
+      val schemaHandler = new SchemaHandler(storageHandler)
+
+      val businessJobDef = mapper
+        .writer()
+        .withAttribute(classOf[Settings], settings)
+        .writeValueAsString(businessJob)
+
+      val workflow =
+        new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
+      storageHandler.write(businessJobDef, pathGraduateProgramBusiness)
+
+      workflow.autoJobRun("graduateProgram", Some("school='UC_Berkeley'"))
+
+      val result = sparkSession.read
+        .load(pathGraduateDatasetProgramBusiness.toString)
+        .select("*")
+
+      result.take(7)
+        .map(r => (r.getString(0), r.getString(1), r.getString(2)))
+        .toList should contain allElementsOf List(
+        ("Masters", "School_of_Information", "UC_Berkeley"),
+        ("Masters", "EECS", "UC_Berkeley"),
+        ("Ph.D.", "EECS", "UC_Berkeley")
+      )
+
     }
   }
 }

@@ -29,7 +29,6 @@ import com.ebiznext.comet.schema.handlers.{
   AirflowLauncher,
   HdfsStorageHandler,
   LaunchHandler,
-  SchemaHandler,
   SimpleLauncher
 }
 import com.ebiznext.comet.schema.model.IndexSink
@@ -144,7 +143,6 @@ object Settings extends StrictLogging {
 
   final case class Audit(
     path: String,
-    active: Boolean,
     index: IndexSinkSettings,
     maxErrors: Int
   )
