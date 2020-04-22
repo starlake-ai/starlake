@@ -132,6 +132,45 @@ object IPv6 extends IP {
   override val separator: Char = ':'
 }
 
+trait RandomPrivacy extends PrivacyEngine {
+  val rnd: Random
+  final def gen(low: Double, up: Double): Double = low + (up - low) * rnd.nextDouble()
+  def genUnbounded(): Double
+  final def crypt(params: List[Any]): Double = {
+    assert(params.length == 2 || params.isEmpty)
+    params match {
+      case Nil =>
+        genUnbounded()
+      case lowerBound :: upperBound :: Nil =>
+        val low = lowerBound.asInstanceOf[Int].toDouble
+        val up = upperBound.asInstanceOf[Int].toDouble
+        gen(low, up)
+    }
+  }
+}
+
+object RandomDouble extends RandomPrivacy {
+  val rnd = new Random()
+  def genUnbounded(): Double = rnd.nextDouble()
+  override def crypt(s: String, colMap: Map[String, String], params: List[Any]): String = {
+    crypt(params).toString
+  }
+}
+
+object RandomLong extends RandomPrivacy {
+  val rnd = new Random()
+  override def genUnbounded(): Double = rnd.nextLong().toDouble
+  override def crypt(s: String, colMap: Map[String, String], params: List[Any]): String =
+    crypt(params).toLong.toString
+}
+
+object RandomInt extends RandomPrivacy {
+  val rnd = new Random()
+  override def genUnbounded(): Double = rnd.nextInt().toDouble
+  override def crypt(s: String, colMap: Map[String, String], params: List[Any]): String =
+    crypt(params).toInt.toString
+}
+
 class ApproxDouble extends PrivacyEngine {
   val rnd = new Random()
 

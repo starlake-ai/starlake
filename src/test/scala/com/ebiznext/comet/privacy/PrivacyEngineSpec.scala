@@ -75,6 +75,27 @@ class PrivacyEngineSpec extends TestHelper {
 
     }
 
+    "RandomDouble" should "succeed" in {
+      val resultWithoutBounds = RandomDouble.crypt("", Map.empty[String, String], List())
+      val resultWithBounds = RandomDouble.crypt("", Map.empty[String, String], List(10, 20))
+      resultWithoutBounds.toDouble shouldBe 0.5 +- 1
+      resultWithBounds.toDouble shouldBe 15.0 +- 5
+    }
+
+    "RandomLong" should "succeed" in {
+      val resultWithoutBounds = RandomLong.crypt("", Map.empty[String, String], List())
+      val resultWithBounds = RandomLong.crypt("", Map.empty[String, String], List(10, 20))
+      resultWithoutBounds.toLong shouldBe 0L +- Long.MaxValue
+      resultWithBounds.toLong shouldBe 15L +- 5
+    }
+
+    "RandomInt" should "succeed" in {
+      val resultWithoutBounds = RandomInt.crypt("", Map.empty[String, String], List())
+      val resultWithBounds = RandomInt.crypt("", Map.empty[String, String], List(10, 20))
+      resultWithoutBounds.toInt shouldBe 0 +- Int.MaxValue
+      resultWithBounds.toInt shouldBe 15 +- 5
+    }
+
     "Hide" should "succeed" in {
       val result = Hide.crypt("Hello", Map.empty[String, String], List("X", 5))
       result shouldBe "XXXXX"
