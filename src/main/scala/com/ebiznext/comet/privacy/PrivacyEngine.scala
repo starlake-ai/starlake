@@ -161,14 +161,14 @@ object RandomLong extends RandomPrivacy {
   val rnd = new Random()
   override def genUnbounded(): Double = rnd.nextLong().toDouble
   override def crypt(s: String, colMap: Map[String, String], params: List[Any]): String =
-    crypt(params).toLong.toString
+    (crypt(params) % Long.MaxValue).toLong.toString
 }
 
 object RandomInt extends RandomPrivacy {
   val rnd = new Random()
   override def genUnbounded(): Double = rnd.nextInt().toDouble
   override def crypt(s: String, colMap: Map[String, String], params: List[Any]): String =
-    crypt(params).toInt.toString
+    (crypt(params) % Int.MaxValue).toInt.toString
 }
 
 class ApproxDouble extends PrivacyEngine {
