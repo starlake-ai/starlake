@@ -1,14 +1,11 @@
 package com.ebiznext.comet.schema.generator
 
-import java.io.File
-
 import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.schema.model._
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.LazyLogging
 
 object SchemaGen extends LazyLogging {
-  import YamlSerializer._
 
   /**
     * Encryption of a data source is done by running a specific ingestion job that aims only to apply Privacy rules on the
@@ -44,21 +41,29 @@ object SchemaGen extends LazyLogging {
     *     - Separator : µ  //TODO perhaps read this from reference.conf
     * @param domain
     */
-  def genPostEncryptionDomain(domain: Domain): Domain = {
+  def genPostEncryptionDomain(domain: Domain, privacy: Seq[String]): Domain = {
     val postEncryptSchemas: List[Schema] = domain.schemas.map { schema =>
-      schema.metadata.flatMap(_.format) match {
-        case Some(Format.POSITION) => {
-          val postEncryptMetaData = schema.metadata.map(
-            _.copy(
-              format = Some(Format.DSV),
-              withHeader = Some(false), //TODO set to true, and make sure files are written with a header ?
-              separator = Some("µ")
-            )
-          )
-          schema.copy(metadata = postEncryptMetaData)
-        }
-        case _ => schema
+      val metadata = for {
+        metadata <- schema.metadata
+        format   <- metadata.format
+      } yield {
+        if (!List(Format.SIMPLE_JSON, Format.DSV, Format.POSITION).contains(format))
+          throw new Exception("Not Implemented")
+        metadata.copy(
+          format = Some(Format.DSV),
+          separator = Some("µ"),
+          withHeader = Some(false) //TODO set to true, and make sure files are written with a header ?
+        )
       }
+      val attributes = schema.attributes.map { attr =>
+        if (privacy == Nil || privacy.contains(
+              attr.privacy.getOrElse(PrivacyLevel.None).toString
+            ))
+          attr.copy(privacy = None)
+        else
+          attr
+      }
+      schema.copy(metadata = metadata, attributes = attributes)
     }
     val postEncryptDomain = domain.copy(schemas = postEncryptSchemas)
     postEncryptDomain
@@ -72,6 +77,9 @@ object SchemaGen extends LazyLogging {
   }
 
   def writeDomainYaml(domain: Domain, outputPath: String, fileName: String): Unit = {
+    import java.io.File
+
+    import YamlSerializer._
     logger.info(s"""Generated schemas:
                    |${serialize(domain)}""".stripMargin)
     serializeToFile(new File(outputPath, s"${fileName}.yml"), domain)
@@ -95,7 +103,7 @@ object Main extends App {
         } yield {
           val preEncrypt = genPreEncryptionDomain(domain, config.privacy)
           writeDomainYaml(preEncrypt, outputPath, "pre-encrypt-" + preEncrypt.name)
-          val postEncrypt = genPostEncryptionDomain(domain)
+          val postEncrypt = genPostEncryptionDomain(domain, config.privacy)
           writeDomainYaml(postEncrypt, outputPath, "post-encrypt-" + domain.name)
         }
       } else {
