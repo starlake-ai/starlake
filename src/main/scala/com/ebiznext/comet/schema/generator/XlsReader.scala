@@ -66,6 +66,8 @@ class XlsReader(path: String) {
           .map(formatter.formatCellValue)
         val identityKeysOpt = Option(row.getCell(8, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
           .map(formatter.formatCellValue)
+        val comment = Option(row.getCell(9, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
+          .map(formatter.formatCellValue)
 
         (nameOpt, patternOpt) match {
           case (Some(name), Some(pattern)) => {
@@ -99,7 +101,7 @@ class XlsReader(path: String) {
                 attributes = Nil,
                 Some(metaData),
                 mergeOptions,
-                None,
+                comment,
                 None,
                 None
               )
