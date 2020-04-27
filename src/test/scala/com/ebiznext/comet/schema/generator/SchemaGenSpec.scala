@@ -33,16 +33,31 @@ class SchemaGenSpec extends TestHelper {
       preEncrypt.schemas.flatMap(_.attributes).filter(_.`type` != "string") shouldBe empty
     }
 
-    "md5 & hide privacy policies" should "be applied in the pre-encrypt step " in {
+    private def validCount(domain: Domain, algo: String, count: Int) =
+      domain.schemas
+        .flatMap(_.attributes)
+        .filter(_.privacy.getOrElse(PrivacyLevel.None).toString == algo) should have length count
+
+    "SHA1 & HIDE privacy policies" should "be applied in the pre-encrypt step " in {
       domainOpt shouldBe defined
       val preEncrypt = SchemaGen.genPreEncryptionDomain(domainOpt.get, List("HIDE", "SHA1"))
-      def validCount(algo: String, count: Int) =
-        preEncrypt.schemas
-          .flatMap(_.attributes)
-          .filter(_.privacy.getOrElse(PrivacyLevel.None).toString == algo) should have length count
-      validCount("HIDE", 2)
-      validCount("MD5", 0)
-      validCount("SHA1", 1)
+      validCount(preEncrypt, "HIDE", 2)
+      validCount(preEncrypt, "MD5", 0)
+      validCount(preEncrypt, "SHA1", 1)
+    }
+    "All privacy policies" should "be applied in the pre-encrypt step " in {
+      domainOpt shouldBe defined
+      val preEncrypt = SchemaGen.genPreEncryptionDomain(domainOpt.get, Nil)
+      validCount(preEncrypt, "HIDE", 2)
+      validCount(preEncrypt, "MD5", 2)
+      validCount(preEncrypt, "SHA1", 1)
+    }
+    "No privacy policies" should "be applied in the post-encrypt step " in {
+      domainOpt shouldBe defined
+      val preEncrypt = SchemaGen.genPostEncryptionDomain(domainOpt.get, Nil)
+      validCount(preEncrypt, "HIDE", 0)
+      validCount(preEncrypt, "MD5", 0)
+      validCount(preEncrypt, "SHA1", 0)
     }
 
     "a preEncryption domain" should " not have required attributes" in {
@@ -56,10 +71,14 @@ class SchemaGenSpec extends TestHelper {
       domainOpt.get.schemas
         .flatMap(_.metadata)
         .count(_.format.contains(Format.POSITION)) shouldBe 1
-      val postEncrypt = SchemaGen.genPostEncryptionDomain(domainOpt.get)
+      val postEncrypt = SchemaGen.genPostEncryptionDomain(domainOpt.get, List("HIDE", "SHA1"))
       postEncrypt.schemas
         .flatMap(_.metadata)
         .filter(_.format.contains(Format.POSITION)) shouldBe empty
+      validCount(postEncrypt, "HIDE", 0)
+      validCount(postEncrypt, "MD5", 2)
+      validCount(postEncrypt, "SHA1", 0)
     }
   }
+
 }
