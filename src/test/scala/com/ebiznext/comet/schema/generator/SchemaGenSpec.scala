@@ -33,6 +33,11 @@ class SchemaGenSpec extends TestHelper {
       preEncrypt.schemas.flatMap(_.attributes).filter(_.`type` != "string") shouldBe empty
     }
 
+    "Column Description in schema" should "be present" in {
+      domainOpt shouldBe defined
+      domainOpt.get.schemas.flatMap(_.comment) should have length 1
+    }
+
     private def validCount(domain: Domain, algo: String, count: Int) =
       domain.schemas
         .flatMap(_.attributes)
