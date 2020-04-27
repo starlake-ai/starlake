@@ -85,6 +85,24 @@ class SchemaHandlerSpec extends TestHelper {
       }
     }
 
+    "Ingest schema with partition" should "produce partitioned output in accepted" in {
+      new SpecTrait(
+        domainFilename = "DOMAIN.yml",
+        sourceDomainPathname = s"/sample/DOMAIN.yml",
+        datasetDomainName = "DOMAIN",
+        sourceDatasetPathName = "/sample/Players.csv"
+      ) {
+        cleanMetadata
+        cleanDatasets
+        loadPending
+        private val firstLevel: List[Path] = storageHandler.listDirectories(
+          new Path(cometDatasetsPath + s"/accepted/$datasetDomainName/Players")
+        )
+        firstLevel.size shouldBe 2
+        firstLevel.foreach(storageHandler.listDirectories(_).size shouldBe 2)
+      }
+    }
+
     "Ingest Dream Contact CSV" should "produce file in accepted" in {
       new SpecTrait(
         domainFilename = "dream.yml",
