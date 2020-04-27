@@ -1,9 +1,10 @@
 package com.ebiznext.comet.database.extractor
 
 import better.files.File
+import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-class ExtractScriptGenSpec extends org.scalatest.FlatSpec with Matchers {
+class ExtractScriptGenSpec extends AnyFlatSpec with Matchers {
 
   val scriptOutputFolder: File = File("/tmp")
 

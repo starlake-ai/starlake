@@ -549,7 +549,7 @@ object IngestionUtil {
     def colPatternIsValid = tpe.matches(colValue)
     val privacyLevel = colAttribute.getPrivacy()
     val privacy =
-      if (settings.comet.disablePrivacy || privacyLevel == PrivacyLevel.None)
+      if (privacyLevel == PrivacyLevel.None)
         colValue
       else
         privacyLevel.crypt(colValue, colMap)

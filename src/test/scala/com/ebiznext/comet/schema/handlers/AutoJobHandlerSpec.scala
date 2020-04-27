@@ -13,7 +13,9 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
 
   lazy val pathGraduateProgramBusiness = new Path(cometMetadataPath + "/jobs/graduateProgram.yml")
 
-  lazy val pathGraduateDatasetProgramBusiness = new Path(cometDatasetsPath + "/business/graduateProgram/output")
+  lazy val pathGraduateDatasetProgramBusiness = new Path(
+    cometDatasetsPath + "/business/graduateProgram/output"
+  )
 
   lazy val pathUserDatasetBusiness = new Path(cometDatasetsPath + "/business/user/user")
 
@@ -260,7 +262,8 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         .load(pathGraduateDatasetProgramBusiness.toString)
         .select("*")
 
-      result.take(7)
+      result
+        .take(7)
         .map(r => (r.getString(0), r.getString(1), r.getString(2)))
         .toList should contain allElementsOf List(
         ("Masters", "School_of_Information", "UC_Berkeley"),
