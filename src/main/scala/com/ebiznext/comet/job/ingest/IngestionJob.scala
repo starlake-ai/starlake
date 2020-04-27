@@ -319,8 +319,17 @@ trait IngestionJob extends SparkJob {
           count.toInt
       }
 
+      // No need to apply partition on rejected dF
       val partitionedDF =
-        partitionedDatasetWriter(dataset.coalesce(nbPartitions), metadata.getPartitionAttributes())
+        if (area == StorageArea.rejected && !metadata
+              .getPartitionAttributes()
+              .forall(Metadata.CometPartitionColumns.contains(_)))
+          partitionedDatasetWriter(dataset.coalesce(nbPartitions), Nil)
+        else
+          partitionedDatasetWriter(
+            dataset.coalesce(nbPartitions),
+            metadata.getPartitionAttributes()
+          )
 
       val mergePath = s"${targetPath.toString}.merge"
       val targetDataset = if (merge && area != StorageArea.rejected) {
