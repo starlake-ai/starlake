@@ -16,8 +16,8 @@ trait Formatter {
   } = new {
 
     def richFormat(replacement: Map[String, String]): String =
-      (str /: replacement) { (res, entry) =>
-        res.replaceAll("\\{\\{%s\\}\\}".format(entry._1), entry._2.toString)
+      replacement.foldLeft(str) { (res, entry) =>
+        res.replaceAll("\\{\\{%s\\}\\}".format(entry._1), entry._2)
       }
   }
 }

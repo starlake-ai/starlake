@@ -146,6 +146,7 @@ trait NumericRandomPrivacy extends PrivacyEngine {
         val low = lowerBound.asInstanceOf[Int].toDouble
         val up = upperBound.asInstanceOf[Int].toDouble
         gen(low, up)
+      case _ => throw new Exception("Should never happen!")
     }
   }
 }

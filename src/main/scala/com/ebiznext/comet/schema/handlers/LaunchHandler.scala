@@ -28,9 +28,11 @@ import com.ebiznext.comet.job.jdbcload.JdbcLoadConfig
 import com.ebiznext.comet.schema.model.{Domain, Schema}
 import com.ebiznext.comet.workflow.IngestionWorkflow
 import com.typesafe.scalalogging.StrictLogging
-import okhttp3._
-import okio.Buffer
 import org.apache.hadoop.fs.Path
+import org.apache.http.client.methods.HttpPost
+import org.apache.http.entity.{ContentType, StringEntity}
+import org.apache.http.impl.client.HttpClients
+import org.apache.http.util.EntityUtils
 
 import scala.util.{Failure, Success, Try}
 
@@ -172,17 +174,19 @@ class AirflowLauncher extends LaunchHandler with StrictLogging {
   protected def post(url: String, command: String): Boolean = {
     Try {
       val json = s"""{"conf":"{\\"command\\":\\"$command\\"}"}"""
-      logger.info(s"Post to Airflow: $json")
-      val JSON: MediaType = MediaType.parse("application/json; charset=utf-8")
-      val client: OkHttpClient = new OkHttpClient
-      val body: RequestBody = RequestBody.create(JSON, json)
-      val request: Request = new Request.Builder().url(url).post(body).build
-      val buffer = new Buffer()
-      request.body().writeTo(buffer)
-      logger.debug("Post to Airflow: " + request.toString + "\n" + buffer.readUtf8())
-      val response: Response = client.newCall(request).execute
-      val responseBody = response.body.string
+      logger.info(s"JSON to post to Airflow: $json")
+      val client = HttpClients.createDefault
+      val requestEntity = new StringEntity(json, ContentType.APPLICATION_JSON);
+      val httpPost = new HttpPost(url)
+      httpPost.setEntity(requestEntity)
+      logger.debug(
+        "Posting to Airflow: " + httpPost.getURI.toString + "\n" + EntityUtils
+          .toString(httpPost.getEntity, "UTF-8")
+      )
+      val response = client.execute(httpPost)
+      val responseBody = EntityUtils.toString(response.getEntity, "UTF-8")
       logger.debug("Post result from Airflow: " + responseBody)
+      client.close();
       responseBody
     } match {
       case Success(_) =>
