@@ -50,3 +50,54 @@ schemas:
       write: "APPEND"
       dateFormat: null
       timestampFormat: null
+  - name: "Players"
+    pattern: "Players.*.csv"
+    attributes:
+      - name: "PK"
+        type: "string"
+        array: false
+        required: true
+        privacy: "NONE"
+        metricType: "NONE"
+      - name: "ATTRIBUTE_1"
+        type: "string"
+        array: false
+        required: true
+        privacy: "NONE"
+        metricType: "NONE"
+      - name: "ATTRIBUTE_2"
+        type: "string"
+        array: false
+        required: true
+        privacy: "NONE"
+        metricType: "NONE"
+      - name: "DOB"
+        type: "date"
+        array: false
+        required: true
+        privacy: "NONE"
+      - name: "YEAR"
+        type: "string"
+        array: false
+        required: false
+        privacy: "NONE"
+      - name: "MONTH"
+        type: "string"
+        array: false
+        required: false
+        privacy: "NONE"
+    metadata:
+      mode: "FILE"
+      format: "DSV"
+      encoding: "UTF-8"
+      multiline: false
+      withHeader: false
+      separator: ","
+      quote: "\""
+      escape: "\\"
+      write: "OVERWRITE"
+      ingestMode: "FILE"
+      partition:
+        attributes:
+          - "YEAR"
+          - "MONTH"

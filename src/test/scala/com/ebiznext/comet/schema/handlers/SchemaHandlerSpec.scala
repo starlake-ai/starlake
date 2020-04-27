@@ -58,11 +58,11 @@ class SchemaHandlerSpec extends TestHelper {
         val rejectedDf = sparkSession.read
           .parquet(cometDatasetsPath + s"/rejected/$datasetDomainName/User")
 
-        val expectedRejectedF = prepareDateColumns(
+        val expectedRejectedF =
           sparkSession.read
             .schema(prepareSchema(rejectedDf.schema))
             .json(getResPath("/expected/datasets/rejected/DOMAIN.json"))
-        )
+
 
         expectedRejectedF.except(rejectedDf).count() shouldBe 1
 
@@ -82,6 +82,22 @@ class SchemaHandlerSpec extends TestHelper {
           .except(expectedAccepted.select("firstname"))
           .count() shouldBe 0
 
+      }
+    }
+
+    "Ingest schema with partition" should "produce partitioned output in accepted" in {
+      new SpecTrait(
+        domainFilename = "DOMAIN.yml",
+        sourceDomainPathname = s"/sample/DOMAIN.yml",
+        datasetDomainName = "DOMAIN",
+        sourceDatasetPathName = "/sample/Players.csv"
+      ){
+        cleanMetadata
+        cleanDatasets
+        loadPending
+        private val firstLevel: List[Path] = storageHandler.listDirectories(new Path(cometDatasetsPath + s"/accepted/$datasetDomainName/Players"))
+        firstLevel.size shouldBe 2
+        firstLevel.foreach(storageHandler.listDirectories(_).size shouldBe 2)
       }
     }
 
