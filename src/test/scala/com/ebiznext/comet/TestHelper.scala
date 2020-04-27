@@ -134,14 +134,6 @@ trait TestHelper extends AnyFlatSpec with Matchers with BeforeAndAfterAll with S
 
   def getResPath(path: String): String = getClass.getResource(path).toURI.getPath
 
-  def prepareDateColumns(df: DataFrame): DataFrame = {
-    df.withColumn("comet_date", current_date())
-      .withColumn("year", year(col("comet_date")))
-      .withColumn("month", month(col("comet_date")))
-      .withColumn("day", dayofmonth(col("comet_date")))
-      .drop("comet_date")
-  }
-
   def prepareSchema(schema: StructType): StructType =
     StructType(schema.fields.filterNot(f => List("year", "month", "day").contains(f.name)))
 
