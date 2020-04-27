@@ -21,11 +21,6 @@ organizationName := "Ebiznext"
 
 scalaVersion := scala211
 
-scalacOptions ++= Seq(
-  "-deprecation",
-  "-feature"
-)
-
 organizationHomepage := Some(url("http://www.ebiznext.com"))
 
 libraryDependencies ++= {

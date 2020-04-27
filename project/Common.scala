@@ -37,7 +37,10 @@ object Common {
       addCommandAlias("cc", ";clean;compile"), // clean and compile
       addCommandAlias("pl", ";clean;publishLocal"), // clean and publish locally
       addCommandAlias("pr", ";clean;publish"), // clean and publish globally
-      addCommandAlias("pld", ";clean;local:publishLocal;dockerComposeUp") // clean and publish/launch the docker environment
+      addCommandAlias(
+        "pld",
+        ";clean;local:publishLocal;dockerComposeUp"
+      ) // clean and publish/launch the docker environment
     ).flatten
 
   def cometPlugins: Seq[AutoPlugin] = Seq(
@@ -76,15 +79,19 @@ object Common {
   def customSettings: Seq[Def.Setting[_]] =
     Seq(
       scalacOptions ++= Seq(
-        "-Xmacro-settings:materialize-derivations"
-      ),
+          "-deprecation",
+          "-feature",
+          "-Xmacro-settings:materialize-derivations",
+          "-Ywarn-unused-import",
+          "-Xfatal-warnings"
+        ),
       testOptions in Test ++= Seq(
-        // show full stack traces and test case durations
-        Tests.Argument("-oDF"),
-        // -v Log "test run started" / "test started" / "test run finished" events on log level "info" instead of "debug".
-        // -a Show stack traces a nd exception class name for AssertionErrors.
-        Tests.Argument(TestFrameworks.JUnit, "-v", "-a")
-      ),
+          // show full stack traces and test case durations
+          Tests.Argument("-oDF"),
+          // -v Log "test run started" / "test started" / "test run finished" events on log level "info" instead of "debug".
+          // -a Show stack traces a nd exception class name for AssertionErrors.
+          Tests.Argument(TestFrameworks.JUnit, "-v", "-a")
+        ),
       parallelExecution in Test := false,
       scalafmtOnCompile := true
     ) ++ gitSettings ++ assemlySettings ++ docsSettings
@@ -100,7 +107,6 @@ object Versions {
   val scalatest = "3.1.1"
   val springBoot = "2.0.6.RELEASE"
   val typesafeConfig = "1.2.1"
-  val okhttp = "4.5.0"
   val scalaLogging = "3.9.2"
   val logback = "1.2.3"
   val slf4j = "1.7.21"
