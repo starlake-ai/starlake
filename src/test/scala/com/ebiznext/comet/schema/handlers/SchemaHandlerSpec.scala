@@ -63,7 +63,6 @@ class SchemaHandlerSpec extends TestHelper {
             .schema(prepareSchema(rejectedDf.schema))
             .json(getResPath("/expected/datasets/rejected/DOMAIN.json"))
 
-
         expectedRejectedF.except(rejectedDf).count() shouldBe 1
 
         // Accepted should have the same data as input
@@ -91,11 +90,13 @@ class SchemaHandlerSpec extends TestHelper {
         sourceDomainPathname = s"/sample/DOMAIN.yml",
         datasetDomainName = "DOMAIN",
         sourceDatasetPathName = "/sample/Players.csv"
-      ){
+      ) {
         cleanMetadata
         cleanDatasets
         loadPending
-        private val firstLevel: List[Path] = storageHandler.listDirectories(new Path(cometDatasetsPath + s"/accepted/$datasetDomainName/Players"))
+        private val firstLevel: List[Path] = storageHandler.listDirectories(
+          new Path(cometDatasetsPath + s"/accepted/$datasetDomainName/Players")
+        )
         firstLevel.size shouldBe 2
         firstLevel.foreach(storageHandler.listDirectories(_).size shouldBe 2)
       }
