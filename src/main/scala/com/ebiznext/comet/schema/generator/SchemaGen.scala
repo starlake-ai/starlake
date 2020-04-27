@@ -10,16 +10,6 @@ import com.typesafe.scalalogging.LazyLogging
 object SchemaGen extends LazyLogging {
   import YamlSerializer._
 
-  def printUsage(): Unit = {
-    println("""
-        |Usage:
-        |- To generate Yaml for a domain with no encryption:
-        |SchemaGen generate-yml <Excel file>
-        |- To generate Yaml for a domain with encryption:
-        |SchemaGen generate-encryptionYml <Excel file>
-        |""".stripMargin)
-  }
-
   /**
     * Encryption of a data source is done by running a specific ingestion job that aims only to apply Privacy rules on the
     * concerned attributes.
@@ -30,9 +20,17 @@ object SchemaGen extends LazyLogging {
     *
     * @param domain
     */
-  def genPreEncryptionDomain(domain: Domain): Domain = {
+  def genPreEncryptionDomain(domain: Domain, privacy: Seq[String]): Domain = {
     val preEncryptSchemas: List[Schema] = domain.schemas.map { s =>
-      val newAtt = s.attributes.map(_.copy(`type` = "string", required = false, rename = None))
+      val newAtt =
+        s.attributes.map { attr =>
+          if (privacy == Nil || privacy.contains(
+                attr.privacy.getOrElse(PrivacyLevel.None).toString
+              ))
+            attr.copy(`type` = "string", required = false, rename = None)
+          else
+            attr.copy(`type` = "string", required = false, rename = None, privacy = None)
+        }
       s.copy(attributes = newAtt)
     }
     val preEncryptDomain = domain.copy(schemas = preEncryptSchemas)
@@ -81,26 +79,29 @@ object SchemaGen extends LazyLogging {
 
 }
 
+/**
+  * Générat the YAML files from the excel sheets s
+  */
 object Main extends App {
   import SchemaGen._
   implicit val settings: Settings = Settings(ConfigFactory.load())
-
-  if (args.length == 0) printUsage()
-  else {
-    val arglist = args.toList
-    val outputPath = settings.comet.metadata
-    (arglist.head, arglist.size) match {
-      case ("generate-yml", 2) => generateSchema(arglist(1))
-      case ("generate-encryptionYml", 2) => {
-        val domainOpt = new XlsReader(arglist(1)).getDomain()
-        domainOpt.foreach { d =>
-          val preEncrypt = genPreEncryptionDomain(d)
+  val outputPath = settings.comet.metadata
+  SchemaGenConfig.parse(args) match {
+    case Some(config) =>
+      if (config.encryption) {
+        for {
+          file   <- config.files
+          domain <- new XlsReader(file).getDomain()
+        } yield {
+          val preEncrypt = genPreEncryptionDomain(domain, config.privacy)
           writeDomainYaml(preEncrypt, outputPath, "pre-encrypt-" + preEncrypt.name)
-          val postEncrypt = genPostEncryptionDomain(d)
-          writeDomainYaml(postEncrypt, outputPath, "post-encrypt-" + d.name)
+          val postEncrypt = genPostEncryptionDomain(domain)
+          writeDomainYaml(postEncrypt, outputPath, "post-encrypt-" + domain.name)
         }
+      } else {
+        config.files.foreach(generateSchema)
       }
-      case _ => printUsage()
-    }
+    case _ =>
+      println(SchemaGenConfig.usage())
   }
 }

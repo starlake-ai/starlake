@@ -80,6 +80,10 @@ object Settings extends StrictLogging {
     val businessFinal: String = business.toLowerCase(Locale.ROOT)
   }
 
+  /**
+    *
+    * @param options : Map of privacy algorightms name -> PrivacyEngine
+    */
   final case class Privacy(options: juMap[String, String])
 
   final case class Elasticsearch(active: Boolean, options: juMap[String, String])
@@ -221,7 +225,6 @@ object Settings extends StrictLogging {
     * @param hive           : Should we create a Hive Table ? true by default
     * @param area           : see Area above
     * @param airflow        : Airflow end point. Should be defined even if simple launccher is used instead of airflow.
-    * @param disablePrivacy : Disable privacy
     */
   final case class Comet(
     jobId: String,
@@ -246,8 +249,7 @@ object Settings extends StrictLogging {
     jdbcEngines: Map[String, JdbcEngine],
     atlas: Atlas,
     privacy: Privacy,
-    fileSystem: Option[String],
-    disablePrivacy: Boolean
+    fileSystem: Option[String]
   ) extends Serializable {
 
     @throws(classOf[ObjectStreamException])
