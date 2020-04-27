@@ -21,6 +21,7 @@
 import sbt.{ExclusionRule, _}
 
 object Dependencies {
+
   def scalaReflection(scalaVersion: String) = Seq(
     "org.scala-lang" % "scala-reflect" % scalaVersion
   )
@@ -44,8 +45,6 @@ object Dependencies {
   )
 
   val typedConfigs = Seq("com.github.kxbmap" %% "configs" % Versions.configs)
-
-  val okhttp = Seq("com.squareup.okhttp3" % "okhttp" % Versions.okhttp)
 
   val jackson211 = Seq(
     "com.fasterxml.jackson.core" % "jackson-core" % Versions.jackson211,
@@ -145,6 +144,6 @@ object Dependencies {
     "org.scalatra.scalate" %% "scalate-core" % Versions.scalate
   )
 
-  val dependencies = scalate ++ logging ++ typedConfigs ++ okhttp ++ betterfiles ++ scalaTest ++ scopt ++ hadoop ++ esHadoop ++
+  val dependencies = scalate ++ logging ++ typedConfigs ++ betterfiles ++ scalaTest ++ scopt ++ hadoop ++ esHadoop ++
   sttp ++ gcp ++ azure ++ h2 ++ excelClientApi // ++ atlas
 }

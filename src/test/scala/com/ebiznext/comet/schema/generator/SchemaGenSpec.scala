@@ -4,7 +4,6 @@ import java.io.File
 
 import com.ebiznext.comet.TestHelper
 import com.ebiznext.comet.schema.model.{Domain, Format, PrivacyLevel}
-import com.ebiznext.comet.utils.{Hide, Md5, Sha1}
 
 class SchemaGenSpec extends TestHelper {
   new WithSettings() {

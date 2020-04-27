@@ -37,6 +37,7 @@ class Parquet2CSV(config: Parquet2CSVConfig, val storageHandler: StorageHandler)
         storageHandler
           .listDirectories(config.inputFolder)
           .flatMap(domainPath => storageHandler.listDirectories(domainPath))
+      case (None, Some(_)) => throw new Exception("Should never happen!")
     }
     val outputPath = config.outputFolder match {
       case None         => config.inputFolder
