@@ -58,10 +58,11 @@ class SchemaHandlerSpec extends TestHelper {
         val rejectedDf = sparkSession.read
           .parquet(cometDatasetsPath + s"/rejected/$datasetDomainName/User")
 
-        val expectedRejectedF =
+        val expectedRejectedF = prepareDateColumns(
           sparkSession.read
             .schema(prepareSchema(rejectedDf.schema))
             .json(getResPath("/expected/datasets/rejected/DOMAIN.json"))
+        )
 
         expectedRejectedF.except(rejectedDf).count() shouldBe 1
 
