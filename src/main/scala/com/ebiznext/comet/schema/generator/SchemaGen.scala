@@ -41,7 +41,7 @@ object SchemaGen extends LazyLogging {
     *     - Separator : µ  //TODO perhaps read this from reference.conf
     * @param domain
     */
-  def genPostEncryptionDomain(domain: Domain, privacy: Seq[String]): Domain = {
+  def genPostEncryptionDomain(domain: Domain, separator: String, privacy: Seq[String]): Domain = {
     val postEncryptSchemas: List[Schema] = domain.schemas.map { schema =>
       val metadata = for {
         metadata <- schema.metadata
@@ -51,7 +51,7 @@ object SchemaGen extends LazyLogging {
           throw new Exception("Not Implemented")
         metadata.copy(
           format = Some(Format.DSV),
-          separator = Some("µ"),
+          separator = Some(separator),
           withHeader = Some(false) //TODO set to true, and make sure files are written with a header ?
         )
       }
@@ -103,7 +103,7 @@ object Main extends App {
         } yield {
           val preEncrypt = genPreEncryptionDomain(domain, config.privacy)
           writeDomainYaml(preEncrypt, outputPath, "pre-encrypt-" + preEncrypt.name)
-          val postEncrypt = genPostEncryptionDomain(domain, config.privacy)
+          val postEncrypt = genPostEncryptionDomain(domain, "µ", config.privacy)
           writeDomainYaml(postEncrypt, outputPath, "post-encrypt-" + domain.name)
         }
       } else {
