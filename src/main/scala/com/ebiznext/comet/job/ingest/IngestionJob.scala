@@ -370,7 +370,8 @@ trait IngestionJob extends SparkJob {
       } else {
         targetDatasetWriter.save()
       }
-      logger.info(s"Saved ${dataset.count()} rows to $targetPath")
+      if(!merge)
+        logger.info(s"Saved ${dataset.count()} rows to $targetPath")
       storageHandler.delete(new Path(mergePath))
       if (merge && area != StorageArea.rejected)
         logger.info(s"deleted merge file $mergePath")
