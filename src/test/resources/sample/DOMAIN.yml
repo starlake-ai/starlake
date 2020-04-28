@@ -59,13 +59,13 @@ schemas:
         required: true
         privacy: "NONE"
         metricType: "NONE"
-      - name: "ATTRIBUTE_1"
+      - name: "firstName"
         type: "string"
         array: false
         required: true
         privacy: "NONE"
         metricType: "NONE"
-      - name: "ATTRIBUTE_2"
+      - name: "lastName"
         type: "string"
         array: false
         required: true
@@ -101,3 +101,6 @@ schemas:
         attributes:
           - "YEAR"
           - "MONTH"
+    merge:
+      key:
+        - "PK"
