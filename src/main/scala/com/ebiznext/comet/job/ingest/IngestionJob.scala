@@ -267,15 +267,11 @@ trait IngestionJob extends SparkJob {
     merge: Boolean
   ): (DataFrameWriter[Row], String) = {
     if (dataset.columns.length > 0) {
-      val count = dataset.count()
       val saveMode = writeMode.toSaveMode
       val hiveDB = StorageArea.area(domain.name, area)
       val tableName = schema.name
       val fullTableName = s"$hiveDB.$tableName"
       if (settings.comet.hive) {
-        logger.info(
-          s"DSV Output $count records to Hive table $hiveDB/$tableName($saveMode) at $targetPath"
-        )
         val dbComment = domain.comment.getOrElse("")
         session.sql(s"create database if not exists $hiveDB comment '$dbComment'")
         session.sql(s"use $hiveDB")
@@ -296,7 +292,7 @@ trait IngestionJob extends SparkJob {
           dataset.rdd.getNumPartitions
         case fraction if fraction > 0.0 && fraction < 1.0 =>
           // Use sample to determine partitioning
-
+          val count = dataset.count()
           val minFraction =
             if (fraction * count >= 1) // Make sure we get at least on item in teh dataset
               fraction
@@ -370,8 +366,6 @@ trait IngestionJob extends SparkJob {
       } else {
         targetDatasetWriter.save()
       }
-      if (!merge)
-        logger.info(s"Saved ${dataset.count()} rows to $targetPath")
       storageHandler.delete(new Path(mergePath))
       if (merge && area != StorageArea.rejected)
         logger.info(s"deleted merge file $mergePath")
