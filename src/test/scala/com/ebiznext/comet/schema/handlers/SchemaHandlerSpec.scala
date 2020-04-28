@@ -103,6 +103,34 @@ class SchemaHandlerSpec extends TestHelper {
       }
     }
 
+    "Ingest schema with merge" should "produce merged results accepted" in {
+      new SpecTrait(
+        domainFilename = "DOMAIN.yml",
+        sourceDomainPathname = s"/sample/DOMAIN.yml",
+        datasetDomainName = "DOMAIN",
+        sourceDatasetPathName = "/sample/Players.csv"
+      ) {
+        cleanMetadata
+        cleanDatasets
+        loadPending
+      }
+
+      new SpecTrait(
+        domainFilename = "DOMAIN.yml",
+        sourceDomainPathname = s"/sample/DOMAIN.yml",
+        datasetDomainName = "DOMAIN",
+        sourceDatasetPathName = "/sample/Players-merge.csv"
+      ) {
+        loadPending
+        val acceptedDf = sparkSession.read
+          .parquet(cometDatasetsPath + s"/accepted/$datasetDomainName/Players")
+        acceptedDf.count() shouldBe 6
+        acceptedDf.where("firstName == 'leo' and DOB == '1987-07-24'").count() shouldBe 1
+        acceptedDf.where("lastname == 'salah'").count() shouldBe 1
+
+      }
+    }
+
     "Ingest Dream Contact CSV" should "produce file in accepted" in {
       new SpecTrait(
         domainFilename = "dream.yml",
@@ -112,7 +140,6 @@ class SchemaHandlerSpec extends TestHelper {
       ) {
         cleanMetadata
         cleanDatasets
-
         loadPending
 
         readFileContent(
