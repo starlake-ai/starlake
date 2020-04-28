@@ -27,11 +27,13 @@ import scopt.OParser
   *
   * @param files List of Excel files
   * @param encryption Should pre & post encryption YAML be generated ?
+  * @param delimiter : Delimiter to use on generated CSV file after pre-encryption.
   * @param privacy What privacy policies are to be applied at the pre-encrypt step ? All by default.
   */
 case class SchemaGenConfig(
   files: Seq[String] = Nil,
   encryption: Boolean = true,
+  delimiter: String = "µ",
   privacy: Seq[String] = Nil
 )
 
@@ -51,6 +53,10 @@ object SchemaGenConfig extends CliConfig[SchemaGenConfig] {
         .action((x, c) => c.copy(encryption = x))
         .required()
         .text("If true generate pre and post encryption YML"),
+      opt[String]("delimiter")
+        .action((x, c) => c.copy(delimiter = x))
+        .optional()
+        .text("CSV delimiter to use in post-encrypt YML."),
       opt[Seq[String]]("privacy")
         .action((x, c) => c.copy(privacy = x))
         .optional()
