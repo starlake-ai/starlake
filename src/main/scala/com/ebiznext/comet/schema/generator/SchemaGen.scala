@@ -103,7 +103,7 @@ object Main extends App {
         } yield {
           val preEncrypt = genPreEncryptionDomain(domain, config.privacy)
           writeDomainYaml(preEncrypt, outputPath, "pre-encrypt-" + preEncrypt.name)
-          val postEncrypt = genPostEncryptionDomain(domain, "µ", config.privacy)
+          val postEncrypt = genPostEncryptionDomain(domain, config.delimiter, config.privacy)
           writeDomainYaml(postEncrypt, outputPath, "post-encrypt-" + domain.name)
         }
       } else {
