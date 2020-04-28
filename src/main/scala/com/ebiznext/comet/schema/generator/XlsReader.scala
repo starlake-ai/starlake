@@ -92,6 +92,10 @@ class XlsReader(path: String) {
                     timestamp = Some(deltaCol)
                   )
                 )
+              case (None, Some(identityKeys)) =>
+                Some(
+                  MergeOptions(key = identityKeys.split(",").toList.map(_.trim))
+                )
               case _ => None
             }
             Some(
