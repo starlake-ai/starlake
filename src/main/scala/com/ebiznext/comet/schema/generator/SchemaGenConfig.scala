@@ -56,7 +56,7 @@ object SchemaGenConfig extends CliConfig[SchemaGenConfig] {
       opt[String]("delimiter")
         .action((x, c) => c.copy(delimiter = x))
         .optional()
-        .text("If true generate pre and post encryption YML"),
+        .text("CSV delimiter to use in post-encrypt YML."),
       opt[Seq[String]]("privacy")
         .action((x, c) => c.copy(privacy = x))
         .optional()
