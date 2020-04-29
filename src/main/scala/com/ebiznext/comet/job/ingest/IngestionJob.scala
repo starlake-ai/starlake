@@ -63,12 +63,9 @@ trait IngestionJob extends SparkJob {
   def ingest(dataset: DataFrame): (RDD[_], RDD[_])
 
   def saveRejected(rejectedRDD: RDD[String]): Try[Path] = {
-    logger.info(s"rejectedRDD SIZE ${rejectedRDD.count()}")
-    rejectedRDD.take(100).foreach(rejected => logger.info(rejected.replaceAll("\n", "|")))
-    val writeMode = WriteMode.APPEND
-    import session.implicits._
     logger.whenDebugEnabled {
-      rejectedRDD.toDF.show(100, false)
+      logger.debug(s"rejectedRDD SIZE ${rejectedRDD.count()}")
+      rejectedRDD.take(100).foreach(rejected => logger.debug(rejected.replaceAll("\n", "|")))
     }
     val domainName = domain.name
     val schemaName = schema.name
