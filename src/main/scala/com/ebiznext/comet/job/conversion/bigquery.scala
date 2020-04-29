@@ -5,8 +5,8 @@ import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.types._
 
 /**
-  *
-  * Conversion between Spark DataFrame Schema and BigQuery Schema
+  * [X] whatever
+  * Conversion between [X] Schema and BigQuery Schema
   */
 object bigquery {
 
