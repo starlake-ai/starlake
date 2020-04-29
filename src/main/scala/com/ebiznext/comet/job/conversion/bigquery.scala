@@ -14,31 +14,32 @@ object bigquery {
     override def apply(v1: DataFrame): BQSchema = bqSchema(v1)
   }
 
+  def convert(sparkType: DataType): LegacySQLTypeName = {
+
+    val BQ_NUMERIC_PRECISION = 38
+    val BQ_NUMERIC_SCALE = 9
+    lazy val NUMERIC_SPARK_TYPE =
+      DataTypes.createDecimalType(BQ_NUMERIC_PRECISION, BQ_NUMERIC_SCALE)
+
+    sparkType match {
+      case BooleanType                                     => LegacySQLTypeName.BOOLEAN
+      case ByteType | LongType | IntegerType               => LegacySQLTypeName.INTEGER
+      case DoubleType | FloatType                          => LegacySQLTypeName.FLOAT
+      case StringType                                      => LegacySQLTypeName.STRING
+      case BinaryType                                      => LegacySQLTypeName.BYTES
+      case DateType                                        => LegacySQLTypeName.DATE
+      case TimestampType                                   => LegacySQLTypeName.TIMESTAMP
+      case DecimalType.SYSTEM_DEFAULT | NUMERIC_SPARK_TYPE => LegacySQLTypeName.NUMERIC
+      case _                                               => throw new IllegalArgumentException(s"Unsupported type:$sparkType")
+    }
+  }
+
   /**
     *
     * @param df Spark DataFrame
     * @return
     */
   private[conversion] def bqSchema(df: DataFrame): BQSchema = {
-    def convert(sparkType: DataType): LegacySQLTypeName = {
-
-      val BQ_NUMERIC_PRECISION = 38
-      val BQ_NUMERIC_SCALE = 9
-      lazy val NUMERIC_SPARK_TYPE =
-        DataTypes.createDecimalType(BQ_NUMERIC_PRECISION, BQ_NUMERIC_SCALE)
-
-      sparkType match {
-        case BooleanType                                     => LegacySQLTypeName.BOOLEAN
-        case ByteType | LongType | IntegerType               => LegacySQLTypeName.INTEGER
-        case DoubleType | FloatType                          => LegacySQLTypeName.FLOAT
-        case StringType                                      => LegacySQLTypeName.STRING
-        case BinaryType                                      => LegacySQLTypeName.BYTES
-        case DateType                                        => LegacySQLTypeName.DATE
-        case TimestampType                                   => LegacySQLTypeName.TIMESTAMP
-        case DecimalType.SYSTEM_DEFAULT | NUMERIC_SPARK_TYPE => LegacySQLTypeName.NUMERIC
-        case _                                               => throw new IllegalArgumentException(s"Unsupported type:$sparkType")
-      }
-    }
     val fields = fieldsSchemaAsMap(df.schema)
       .map {
         case (field: String, dataType: DataType) =>
