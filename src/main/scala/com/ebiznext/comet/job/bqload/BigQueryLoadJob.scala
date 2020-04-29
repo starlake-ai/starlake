@@ -17,9 +17,8 @@ class BigQueryLoadJob(
   maybeSchema: scala.Option[BQSchema] = None
 )(implicit val settings: Settings)
     extends SparkJob {
-  import cliConfig._
 
-  override def name: String = s"bqload-${outputDataset}-${outputTable}"
+  override def name: String = s"bqload-${cliConfig.outputDataset}-${cliConfig.outputTable}"
 
   val conf = session.sparkContext.hadoopConfiguration
   logger.info(s"BigQuery Config $cliConfig")
@@ -30,15 +29,15 @@ class BigQueryLoadJob(
   val projectId = conf.get("fs.gs.project.id")
   val bucket = conf.get("fs.defaultFS")
 
-  val tableId = TableId.of(outputDataset, outputTable)
+  val tableId = TableId.of(cliConfig.outputDataset, cliConfig.outputTable)
 
   def getOrCreateDataset(): Dataset = {
-    val datasetId = DatasetId.of(projectId, outputDataset)
+    val datasetId = DatasetId.of(projectId, cliConfig.outputDataset)
     val dataset = scala.Option(bigquery.getDataset(datasetId))
     dataset.getOrElse {
       val datasetInfo = DatasetInfo
-        .newBuilder(outputDataset)
-        .setLocation(getLocation())
+        .newBuilder(cliConfig.outputDataset)
+        .setLocation(cliConfig.getLocation())
         .build
       bigquery.create(datasetInfo)
     }
@@ -50,13 +49,13 @@ class BigQueryLoadJob(
     scala.Option(bigquery.getTable(tableId)) getOrElse {
 
       val tableDefinitionBuilder =
-        outputPartition match {
+        cliConfig.outputPartition match {
           case Some(_) =>
             StandardTableDefinition.of(df.to[BQSchema]).toBuilder
           case _ => StandardTableDefinition.newBuilder()
         }
 
-      outputPartition.foreach { outputPartition =>
+      cliConfig.outputPartition.foreach { outputPartition =>
         import com.google.cloud.bigquery.TimePartitioning
         val timeField =
           if (List("_PARTITIONDATE", "_PARTITIONTIME").contains(outputPartition))
@@ -69,7 +68,7 @@ class BigQueryLoadJob(
               .setRequirePartitionFilter(true)
               .setField(outputPartition)
 
-        val timeFieldWithExpiration = days
+        val timeFieldWithExpiration = cliConfig.days
           .map(_ * 3600 * 24 * 1000L)
           .map(ms => timeField.setExpirationMs(ms))
           .getOrElse(timeField)
@@ -89,14 +88,14 @@ class BigQueryLoadJob(
 
     val bucket = conf.get("fs.gs.system.bucket")
 
-    val inputPath = sourceFile
+    val inputPath = cliConfig.sourceFile
     logger.info(s"Input path $inputPath")
 
     logger.info(s"Temporary GCS path $bucket")
     session.conf.set("temporaryGcsBucket", bucket)
 
     val writeDisposition = JobInfo.WriteDisposition.valueOf(cliConfig.writeDisposition)
-    val tableId = TableId.of(outputDataset, outputTable)
+    val tableId = TableId.of(cliConfig.outputDataset, cliConfig.outputTable)
     val finalWriteDisposition = writeDisposition match {
       case JobInfo.WriteDisposition.WRITE_TRUNCATE =>
         logger.info(s"Deleting table $tableId")
@@ -122,9 +121,9 @@ class BigQueryLoadJob(
         )
         conf.set(
           BigQueryConfiguration.OUTPUT_TABLE_CREATE_DISPOSITION_KEY,
-          createDisposition
+          cliConfig.createDisposition
         )
-        outputPartition.foreach { outputPartition =>
+        cliConfig.outputPartition.foreach { outputPartition =>
           import com.google.cloud.hadoop.repackaged.bigquery.com.google.api.services.bigquery.model.TimePartitioning
           val timeField =
             if (List("_PARTITIONDATE", "_PARTITIONTIME").contains(outputPartition))
@@ -145,7 +144,7 @@ class BigQueryLoadJob(
 
       bqPartition()
 
-      val bqTable = s"${outputDataset}.${outputTable}"
+      val bqTable = s"${cliConfig.outputDataset}.${cliConfig.outputTable}"
 
       val stdTableDefinition =
         bigquery.getTable(table.getTableId).getDefinition.asInstanceOf[StandardTableDefinition]
