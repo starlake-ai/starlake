@@ -1,4 +1,4 @@
-package com.ebiznext.comet.job.conversion
+package com.ebiznext.comet.utils.conversion
 
 import com.google.cloud.bigquery.{Field, LegacySQLTypeName, Schema => BQSchema}
 import org.apache.spark.sql.DataFrame
@@ -8,7 +8,7 @@ import org.apache.spark.sql.types._
   * [X] whatever
   * Conversion between [X] Schema and BigQuery Schema
   */
-object bigquery {
+object BigQueryUtils {
 
   implicit val sparkToBq: Convertible[DataFrame, BQSchema] = new Convertible[DataFrame, BQSchema] {
     override def apply(v1: DataFrame): BQSchema = bqSchema(v1)
