@@ -1,8 +1,8 @@
 package com.ebiznext.comet.job.bqload
 
 import com.ebiznext.comet.config.Settings
-import com.ebiznext.comet.job.conversion.bigquery._
-import com.ebiznext.comet.job.conversion.syntax._
+import com.ebiznext.comet.utils.conversion.BigQueryUtils._
+import com.ebiznext.comet.utils.conversion.syntax._
 import com.ebiznext.comet.utils.{SparkJob, Utils}
 import com.google.cloud.bigquery.testing.RemoteBigQueryHelper
 import com.google.cloud.bigquery.{Schema => BQSchema, _}
