@@ -125,7 +125,7 @@ object PrimitiveType {
         val numberFormatter =
           NumberFormat.getNumberInstance(currentLocale).asInstanceOf[DecimalFormat]
         if (str.head == '+')
-            numberFormatter.setPositivePrefix("+"))
+            numberFormatter.setPositivePrefix("+")
         numberFormatter.parse(str).doubleValue()
       }
     }
