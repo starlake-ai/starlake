@@ -3,13 +3,14 @@ package com.ebiznext.comet.schema.generator
 import java.io.File
 
 import com.ebiznext.comet.TestHelper
+import com.ebiznext.comet.config.DatasetArea
 import com.ebiznext.comet.schema.model.{Domain, Format, PrivacyLevel}
 
 class SchemaGenSpec extends TestHelper {
   new WithSettings() {
     "Parsing a sample xlsx file" should "generate a yml file" in {
       SchemaGen.generateSchema(getClass().getResource("/sample/SomeDomainTemplate.xls").getPath)
-      val outputFile = new File(settings.comet.metadata + "/someDomain.yml")
+      val outputFile = new File(DatasetArea.domains.toString + "/someDomain.yml")
       outputFile.exists() shouldBe true
       val result = YamlSerializer.mapper.readValue(outputFile, classOf[Domain])
       result.name shouldBe "someDomain"
