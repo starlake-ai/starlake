@@ -82,7 +82,9 @@ class JsonIngestionJob(
   def ingest(dataset: DataFrame): (RDD[_], RDD[_]) = {
     val rdd = dataset.rdd
     dataset.printSchema()
-    val checkedRDD = JsonIngestionUtil.parseRDD(rdd, schemaSparkType).cache()
+    val checkedRDD = JsonIngestionUtil
+      .parseRDD(rdd, schemaSparkType)
+      .persist(settings.comet.cacheStorageLevel)
     val acceptedRDD: RDD[String] = checkedRDD.filter(_.isRight).map(_.right.get)
     val rejectedRDD: RDD[String] =
       checkedRDD.filter(_.isLeft).map(_.left.get.mkString("\n"))
