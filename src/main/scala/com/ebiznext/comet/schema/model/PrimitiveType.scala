@@ -124,9 +124,8 @@ object PrimitiveType {
         val currentLocale: Locale = new Locale(locale(0), locale(1))
         val numberFormatter =
           NumberFormat.getNumberInstance(currentLocale).asInstanceOf[DecimalFormat]
-        str.headOption
-          .withFilter(_.equals('+'))
-          .foreach(_ => numberFormatter.setPositivePrefix("+"))
+        if (str.head == '+')
+            numberFormatter.setPositivePrefix("+"))
         numberFormatter.parse(str).doubleValue()
       }
     }
