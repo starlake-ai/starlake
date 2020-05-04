@@ -1,6 +1,6 @@
 package com.ebiznext.comet.schema.generator
 
-import com.ebiznext.comet.config.Settings
+import com.ebiznext.comet.config.{DatasetArea, Settings}
 import com.ebiznext.comet.schema.model._
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.LazyLogging
@@ -72,7 +72,7 @@ object SchemaGen extends LazyLogging {
   def generateSchema(path: String)(implicit settings: Settings): Unit = {
     val reader = new XlsReader(path)
     reader.getDomain.foreach { domain =>
-      writeDomainYaml(domain, settings.comet.metadata, domain.name)
+      writeDomainYaml(domain, DatasetArea.domains.toString, domain.name)
     }
   }
 
@@ -93,7 +93,7 @@ object SchemaGen extends LazyLogging {
 object Main extends App {
   import SchemaGen._
   implicit val settings: Settings = Settings(ConfigFactory.load())
-  val outputPath = settings.comet.metadata
+  val outputPath = DatasetArea.domains.toString
   SchemaGenConfig.parse(args) match {
     case Some(config) =>
       if (config.encryption) {
