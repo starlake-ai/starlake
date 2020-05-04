@@ -268,7 +268,7 @@ object DsvIngestionUtil {
             )
           }
         }
-      } cache ()
+      } persist (settings.comet.cacheStorageLevel)
 
     val rejectedRDD: RDD[String] = checkedRDD
       .filter(_.isRejected)
