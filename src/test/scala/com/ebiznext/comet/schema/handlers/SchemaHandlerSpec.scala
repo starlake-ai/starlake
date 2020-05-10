@@ -49,7 +49,9 @@ class SchemaHandlerSpec extends TestHelper {
         loadPending
 
         // Check Archived
-        readFileContent(cometDatasetsPath + s"/archive/$datasetDomainName/SCHEMA-VALID.dsv") shouldBe loadFile(
+        readFileContent(
+          cometDatasetsPath + s"/archive/$datasetDomainName/SCHEMA-VALID.dsv"
+        ) shouldBe loadTextFile(
           sourceDatasetPathName
         )
 
@@ -144,7 +146,7 @@ class SchemaHandlerSpec extends TestHelper {
 
         readFileContent(
           cometDatasetsPath + s"/archive/$datasetDomainName/OneClient_Contact_20190101_090800_008.psv"
-        ) shouldBe loadFile(
+        ) shouldBe loadTextFile(
           sourceDatasetPathName
         )
 
@@ -191,7 +193,7 @@ class SchemaHandlerSpec extends TestHelper {
 
         readFileContent(
           cometDatasetsPath + s"/archive/$datasetDomainName/OneClient_Segmentation_20190101_090800_008.psv"
-        ) shouldBe loadFile(
+        ) shouldBe loadTextFile(
           sourceDatasetPathName
         )
 
@@ -227,7 +229,7 @@ class SchemaHandlerSpec extends TestHelper {
 
         readFileContent(
           cometDatasetsPath + s"/${settings.comet.area.archive}/$datasetDomainName/locations.json"
-        ) shouldBe loadFile(
+        ) shouldBe loadTextFile(
           sourceDatasetPathName
         )
 
@@ -264,7 +266,7 @@ class SchemaHandlerSpec extends TestHelper {
 
       deliverTestFile("/sample/types.yml", typesPath)
 
-      readFileContent(typesPath) shouldBe loadFile("/sample/types.yml")
+      readFileContent(typesPath) shouldBe loadTextFile("/sample/types.yml")
     }
 
     "Mapping Schema" should "produce valid template" in {
