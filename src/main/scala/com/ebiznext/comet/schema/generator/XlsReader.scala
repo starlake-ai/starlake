@@ -68,13 +68,15 @@ class XlsReader(path: String) {
           .map(formatter.formatCellValue)
         val comment = Option(row.getCell(9, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
           .map(formatter.formatCellValue)
+        val encodingOpt = Option(row.getCell(10, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
+          .map(formatter.formatCellValue)
 
         (nameOpt, patternOpt) match {
           case (Some(name), Some(pattern)) => {
             val metaData = Metadata(
               mode,
               format,
-              encoding = None,
+              encoding = encodingOpt,
               multiline = None,
               array = None,
               withHeader,
