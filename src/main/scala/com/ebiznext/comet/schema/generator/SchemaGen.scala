@@ -102,12 +102,20 @@ object Main extends App {
           domain <- new XlsReader(file).getDomain()
         } yield {
           val preEncrypt = genPreEncryptionDomain(domain, config.privacy)
-          writeDomainYaml(preEncrypt, config.outputPath.getOrElse(defaultOutputPath), "pre-encrypt-" + preEncrypt.name)
+          writeDomainYaml(
+            preEncrypt,
+            config.outputPath.getOrElse(defaultOutputPath),
+            "pre-encrypt-" + preEncrypt.name
+          )
           val postEncrypt = genPostEncryptionDomain(domain, config.delimiter, config.privacy)
-          writeDomainYaml(postEncrypt, config.outputPath.getOrElse(defaultOutputPath), "post-encrypt-" + domain.name)
+          writeDomainYaml(
+            postEncrypt,
+            config.outputPath.getOrElse(defaultOutputPath),
+            "post-encrypt-" + domain.name
+          )
         }
       } else {
-        config.files.foreach(generateSchema)
+        config.files.foreach(generateSchema(_, config.outputPath))
       }
     case _ =>
       println(SchemaGenConfig.usage())
