@@ -34,7 +34,8 @@ case class SchemaGenConfig(
   files: Seq[String] = Nil,
   encryption: Boolean = true,
   delimiter: String = "µ",
-  privacy: Seq[String] = Nil
+  privacy: Seq[String] = Nil,
+  outputPath: Option[String] = None
 )
 
 object SchemaGenConfig extends CliConfig[SchemaGenConfig] {
@@ -61,7 +62,12 @@ object SchemaGenConfig extends CliConfig[SchemaGenConfig] {
         .action((x, c) => c.copy(privacy = x))
         .optional()
         .text("""What privacy policies should be applied in the pre-encryption phase ? 
-                | All privacy policies are applied by default.""".stripMargin)
+                | All privacy policies are applied by default.""".stripMargin),
+      opt[Option[String]]("outputPath")
+        .action((x, c) => c.copy(outputPath = x))
+        .optional()
+        .text("""Path for saving the resulting YAML file(s).
+                | COMET domains path is used by default.""".stripMargin)
     )
   }
 
