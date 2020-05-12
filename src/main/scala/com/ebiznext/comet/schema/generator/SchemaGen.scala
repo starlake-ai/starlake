@@ -69,10 +69,10 @@ object SchemaGen extends LazyLogging {
     postEncryptDomain
   }
 
-  def generateSchema(path: String)(implicit settings: Settings): Unit = {
-    val reader = new XlsReader(path)
+  def generateSchema(inputPath: String,outputPath:Option[String]=None)(implicit settings: Settings): Unit = {
+    val reader = new XlsReader(inputPath)
     reader.getDomain.foreach { domain =>
-      writeDomainYaml(domain, DatasetArea.domains.toString, domain.name)
+      writeDomainYaml(domain, outputPath.getOrElse(DatasetArea.domains.toString), domain.name)
     }
   }
 
@@ -93,7 +93,7 @@ object SchemaGen extends LazyLogging {
 object Main extends App {
   import SchemaGen._
   implicit val settings: Settings = Settings(ConfigFactory.load())
-  val outputPath = DatasetArea.domains.toString
+  val defaultOutputPath = DatasetArea.domains.toString
   SchemaGenConfig.parse(args) match {
     case Some(config) =>
       if (config.encryption) {
@@ -102,12 +102,20 @@ object Main extends App {
           domain <- new XlsReader(file).getDomain()
         } yield {
           val preEncrypt = genPreEncryptionDomain(domain, config.privacy)
-          writeDomainYaml(preEncrypt, outputPath, "pre-encrypt-" + preEncrypt.name)
+          writeDomainYaml(
+            preEncrypt,
+            config.outputPath.getOrElse(defaultOutputPath),
+            "pre-encrypt-" + preEncrypt.name
+          )
           val postEncrypt = genPostEncryptionDomain(domain, config.delimiter, config.privacy)
-          writeDomainYaml(postEncrypt, outputPath, "post-encrypt-" + domain.name)
+          writeDomainYaml(
+            postEncrypt,
+            config.outputPath.getOrElse(defaultOutputPath),
+            "post-encrypt-" + domain.name
+          )
         }
       } else {
-        config.files.foreach(generateSchema)
+        config.files.foreach(generateSchema(_, config.outputPath))
       }
     case _ =>
       println(SchemaGenConfig.usage())

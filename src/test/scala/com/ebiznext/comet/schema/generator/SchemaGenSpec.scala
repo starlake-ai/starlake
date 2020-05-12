@@ -20,8 +20,10 @@ class SchemaGenSpec extends TestHelper {
       schema1.attributes.size shouldBe 19
       schema1.merge.flatMap(_.timestamp) shouldBe Some("ATTRIBUTE_1")
       schema1.merge.map(_.key) shouldBe Some(List("ID1", "ID2"))
+      schema1.metadata.flatMap(_.encoding) shouldBe Some("UTF-8")
       val schema2 = result.schemas.filter(_.name == "SCHEMA2").head
       schema2.metadata.flatMap(_.format) shouldBe Some(Format.DSV)
+      schema2.metadata.flatMap(_.encoding) shouldBe Some("ISO-8859-1")
       schema2.attributes.size shouldBe 19
     }
 
