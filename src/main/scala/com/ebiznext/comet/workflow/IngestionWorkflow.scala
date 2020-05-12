@@ -33,7 +33,7 @@ import com.ebiznext.comet.job.transform.AutoTask
 import com.ebiznext.comet.schema.handlers.{LaunchHandler, SchemaHandler, StorageHandler}
 import com.ebiznext.comet.schema.model.Format._
 import com.ebiznext.comet.schema.model._
-import com.ebiznext.comet.utils.Utils
+import com.ebiznext.comet.utils.{Unpacker, Utils}
 import com.google.cloud.bigquery.{Schema => BQSchema}
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
@@ -98,23 +98,26 @@ class IngestionWorkflow(
             storageHandler.move(file, tmpFile)
           }
         } else if (storageHandler.fs.getScheme() == "file") {
+          storageHandler.mkdirs(tmpDir)
           val tgz = new Path(prefixStr + ".tgz")
           val gz = new Path(prefixStr + ".gz")
           val zip = new Path(prefixStr + ".zip")
+          val tmpFile = Path.getPathWithoutSchemeAndAuthority(tmpDir).toString
           if (storageHandler.exists(gz)) {
             logger.info(s"Found compressed file $gz")
+
             File(Path.getPathWithoutSchemeAndAuthority(gz).toString)
-              .unGzipTo(File(tmpDir.toString))
+              .unGzipTo(File(tmpFile, File(prefixStr).name))
             storageHandler.delete(gz)
           } else if (storageHandler.exists(tgz)) {
             logger.info(s"Found compressed file $tgz")
-            File(Path.getPathWithoutSchemeAndAuthority(tgz).toString)
-              .unGzipTo(File(tmpDir.toString))
+            Unpacker
+              .unpack(File(Path.getPathWithoutSchemeAndAuthority(tgz).toString), File(tmpFile))
             storageHandler.delete(tgz)
           } else if (storageHandler.exists(zip)) {
             logger.info(s"Found compressed file $zip")
             File(Path.getPathWithoutSchemeAndAuthority(zip).toString)
-              .unzipTo(File(tmpDir.toString))
+              .unzipTo(File(tmpFile))
             storageHandler.delete(zip)
           } else {
             logger.error(s"No archive found for ack ${ackFile.toString}")
@@ -170,9 +173,9 @@ class IngestionWorkflow(
 
       // We group files with the same schema to ingest them together in a single step.
       val groupedResolved: Map[Schema, Iterable[Path]] = resolved.map {
-          case (Some(schema), path) => (schema, path)
-          case (None, _)            => throw new Exception("Should never happen")
-        } groupBy (_._1) mapValues (it => it.map(_._2))
+        case (Some(schema), path) => (schema, path)
+        case (None, _)            => throw new Exception("Should never happen")
+      } groupBy (_._1) mapValues (it => it.map(_._2))
 
       groupedResolved.foreach {
         case (schema, pendingPaths) =>
