@@ -52,9 +52,10 @@ class BigQueryLoadJob(
         cliConfig.outputPartition match {
           case Some(_) =>
             StandardTableDefinition.of(df.to[BQSchema]).toBuilder
-          case _ => maybeSchema.fold(StandardTableDefinition.newBuilder()) {
-            schema => StandardTableDefinition.of(schema).toBuilder
-          }
+          case _ =>
+            maybeSchema.fold(StandardTableDefinition.newBuilder()) { schema =>
+              StandardTableDefinition.of(schema).toBuilder
+            }
         }
 
       cliConfig.outputPartition.foreach { outputPartition =>
