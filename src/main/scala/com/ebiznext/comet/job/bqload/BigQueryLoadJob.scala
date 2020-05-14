@@ -49,12 +49,13 @@ class BigQueryLoadJob(
     scala.Option(bigquery.getTable(tableId)) getOrElse {
 
       val tableDefinitionBuilder =
-        cliConfig.outputPartition match {
-          case Some(_) =>
-            StandardTableDefinition.of(df.to[BQSchema]).toBuilder
+        maybeSchema match {
+          case Some(schema) =>
+            StandardTableDefinition.of(schema).toBuilder
           case _ =>
-            maybeSchema.fold(StandardTableDefinition.newBuilder()) { schema =>
-              StandardTableDefinition.of(schema).toBuilder
+            cliConfig.outputPartition match {
+              case Some(_) => StandardTableDefinition.of(df.to[BQSchema]).toBuilder
+              case _       => StandardTableDefinition.newBuilder()
             }
         }
 
