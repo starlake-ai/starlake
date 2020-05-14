@@ -152,8 +152,8 @@ object InferSchemaHandler {
     * @param domain   Domain case class
     * @param savePath path to save files.
     */
-  def generateYaml(domain: Domain, savePath: String)(
-    implicit settings: Settings
+  def generateYaml(domain: Domain, savePath: String)(implicit
+    settings: Settings
   ): Unit = {
     val obj = settings.storageHandler.read(new Path(savePath))
     val objw = new StringWriter()

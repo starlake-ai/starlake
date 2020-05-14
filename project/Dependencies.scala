@@ -67,7 +67,7 @@ object Dependencies {
     "org.apache.spark" %% "spark-sql" % Versions.spark211 % "provided",
     "org.apache.spark" %% "spark-hive" % Versions.spark211 % "provided",
     "org.apache.spark" %% "spark-mllib" % Versions.spark211 % "provided",
-    "com.google.cloud.spark" %% "spark-bigquery-with-dependencies" % "0.12.0-beta"
+    "com.google.cloud.spark" %% "spark-bigquery-with-dependencies" % "0.15.1-beta"
   )
 
   val spark211_240 = Seq(
@@ -94,7 +94,7 @@ object Dependencies {
     "com.google.cloud.bigdataoss" % "gcs-connector-shaded" % s"${Versions.gcs}-shaded" from gcsConnectorShadedJar exclude ("javax.jms", "jms") exclude ("com.sun.jdmk", "jmxtools") exclude ("com.sun.jmx", "jmxri") excludeAll (jacksonExclusions: _*),
     "com.google.cloud.bigdataoss" % "bigquery-connector-shaded" % s"${Versions.hadoopbq}-shaded" from gcpBigQueryConnectorShadedJar exclude ("javax.jms", "jms") exclude ("com.sun.jdmk", "jmxtools") exclude ("com.sun.jmx", "jmxri") excludeAll (jacksonExclusions: _*),
     "com.google.cloud" % "google-cloud-bigquery" % Versions.bq exclude ("javax.jms", "jms") exclude ("com.sun.jdmk", "jmxtools") exclude ("com.sun.jmx", "jmxri") excludeAll (jacksonExclusions: _*),
-    "com.google.cloud.spark" %% "spark-bigquery-with-dependencies" % "0.12.0-beta"
+    "com.google.cloud.spark" %% "spark-bigquery-with-dependencies" % "0.15.1-beta"
   )
 
   val esHadoop = Seq(

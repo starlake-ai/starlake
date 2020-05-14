@@ -1,6 +1,6 @@
 package com.ebiznext.comet.utils.conversion
 
-import com.google.cloud.bigquery.{Field, LegacySQLTypeName, Schema => BQSchema}
+import com.google.cloud.bigquery.{Field, FieldList, StandardSQLTypeName, Schema => BQSchema}
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.types._
 
@@ -14,7 +14,7 @@ object BigQueryUtils {
     override def apply(v1: DataFrame): BQSchema = bqSchema(v1)
   }
 
-  def convert(sparkType: DataType): LegacySQLTypeName = {
+  def convert(sparkType: DataType): StandardSQLTypeName = {
 
     val BQ_NUMERIC_PRECISION = 38
     val BQ_NUMERIC_SCALE = 9
@@ -22,14 +22,14 @@ object BigQueryUtils {
       DataTypes.createDecimalType(BQ_NUMERIC_PRECISION, BQ_NUMERIC_SCALE)
 
     sparkType match {
-      case BooleanType                                     => LegacySQLTypeName.BOOLEAN
-      case ByteType | LongType | IntegerType               => LegacySQLTypeName.INTEGER
-      case DoubleType | FloatType                          => LegacySQLTypeName.FLOAT
-      case StringType                                      => LegacySQLTypeName.STRING
-      case BinaryType                                      => LegacySQLTypeName.BYTES
-      case DateType                                        => LegacySQLTypeName.DATE
-      case TimestampType                                   => LegacySQLTypeName.TIMESTAMP
-      case DecimalType.SYSTEM_DEFAULT | NUMERIC_SPARK_TYPE => LegacySQLTypeName.NUMERIC
+      case BooleanType                                     => StandardSQLTypeName.BOOL
+      case ByteType | LongType | IntegerType               => StandardSQLTypeName.INT64
+      case DoubleType | FloatType                          => StandardSQLTypeName.NUMERIC
+      case StringType                                      => StandardSQLTypeName.STRING
+      case BinaryType                                      => StandardSQLTypeName.BYTES
+      case DateType                                        => StandardSQLTypeName.DATE
+      case TimestampType                                   => StandardSQLTypeName.TIMESTAMP
+      case DecimalType.SYSTEM_DEFAULT | NUMERIC_SPARK_TYPE => StandardSQLTypeName.NUMERIC
       case _                                               => throw new IllegalArgumentException(s"Unsupported type:$sparkType")
     }
   }
@@ -40,8 +40,32 @@ object BigQueryUtils {
     * @return
     */
   private[conversion] def bqSchema(df: DataFrame): BQSchema = {
-    val fields = fieldsSchemaAsMap(df.schema)
-      .map {
+
+    import scala.collection.JavaConverters._
+    def inferBqSchema(field: String, dataType: DataType) = {
+      (field, dataType) match {
+        case (field: String, dataType: ArrayType) =>
+          val elementTypes: Seq[(String, DataType)] = fieldsSchemaAsMap(dataType.elementType)
+          val arrayFields = elementTypes.map {
+            case (name, dataType) =>
+              Field
+                .newBuilder(
+                  name,
+                  convert(dataType)
+                )
+                .setMode(Field.Mode.NULLABLE)
+                .setDescription("")
+                .build()
+          }.asJava
+          Field
+            .newBuilder(
+              field,
+              StandardSQLTypeName.STRUCT,
+              FieldList.of(arrayFields)
+            )
+            .setMode(Field.Mode.REPEATED)
+            .setDescription("")
+            .build()
         case (field: String, dataType: DataType) =>
           Field
             .newBuilder(
@@ -51,6 +75,13 @@ object BigQueryUtils {
             .setMode(Field.Mode.NULLABLE)
             .setDescription("")
             .build()
+      }
+    }
+
+    val fields = fieldsSchemaAsMap(df.schema)
+      .map {
+        case (field, dataType) => inferBqSchema(field, dataType)
+
       }
     BQSchema.of(fields: _*)
   }
@@ -65,7 +96,7 @@ object BigQueryUtils {
   private def fieldsSchemaAsMap(schema: DataType): List[(String, DataType)] = {
     val fullName: String => String = name => name
     schema match {
-      case StructType(fields: Array[StructField]) =>
+      case StructType(fields) =>
         fields.toList.flatMap {
           case StructField(name, inner: StructType, _, _) =>
             (fullName(name), inner) +: fieldsSchemaAsMap(inner)
