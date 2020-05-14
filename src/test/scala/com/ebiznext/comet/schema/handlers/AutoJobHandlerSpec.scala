@@ -78,7 +78,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         .select("firstname", "lastname", "age")
         .take(2)
 
-      result.length shouldBe (2)
+      result.length shouldBe 2
 
       result
         .map(r => (r.getString(0), r.getString(1), r.getLong(2)))
@@ -124,7 +124,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         .select("firstname", "lastname", "age")
         .take(2)
 
-      result.length shouldBe (1)
+      result.length shouldBe 1
       result
         .map(r => (r.getString(0), r.getString(1), r.getLong(2)))
         .toList should contain allElementsOf List(
@@ -214,9 +214,9 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         .take(7)
         .map(r => r.getString(0))
         .toList should contain allElementsOf List(
-        ("John Doe"),
-        ("fred abruzzi"),
-        ("test3 test4")
+        "John Doe",
+        "fred abruzzi",
+        "test3 test4"
       )
     }
 

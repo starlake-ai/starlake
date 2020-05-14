@@ -116,8 +116,9 @@ object Utils {
   /**
     * @return true if the value provided by x is an object
     **/
-  def isObject[T](x: T)(implicit tag: TypeTag[T]): Boolean = PartialFunction.cond(tag.tpe) {
-    case SingleType => true
-  }
+  def isObject[T](x: T)(implicit tag: TypeTag[T]): Boolean =
+    PartialFunction.cond(tag.tpe) {
+      case SingleType => true
+    }
 
 }
