@@ -130,8 +130,8 @@ trait JdbcChecks {
     }
   }
 
-  protected def expectingRejections(jdbcName: String, values: RejectedRecord*)(
-    implicit settings: Settings
+  protected def expectingRejections(jdbcName: String, values: RejectedRecord*)(implicit
+    settings: Settings
   ): Assertion = {
     val testEnd: Timestamp = Timestamp.from(Instant.now)
 
@@ -158,8 +158,8 @@ trait JdbcChecks {
 
   }
 
-  protected def expectingAudit(jdbcName: String, values: AuditLog*)(
-    implicit settings: Settings
+  protected def expectingAudit(jdbcName: String, values: AuditLog*)(implicit
+    settings: Settings
   ): Assertion = {
     val testEnd: Timestamp = Timestamp.from(Instant.now)
 
@@ -192,8 +192,8 @@ trait JdbcChecks {
     }
   }
 
-  protected def expectingMetrics(jdbcName: String, values: MetricRecord*)(
-    implicit settings: Settings
+  protected def expectingMetrics(jdbcName: String, values: MetricRecord*)(implicit
+    settings: Settings
   ): Assertion = {
     val testEnd: Timestamp = Timestamp.from(Instant.now)
 

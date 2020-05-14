@@ -318,8 +318,8 @@ final case class Settings(comet: Settings.Comet, sparkConfig: Config) {
 
   @transient
   lazy val storageHandler: HdfsStorageHandler = {
-    implicit val self
-      : Settings = this /* TODO: remove this once HdfsStorageHandler explicitly takes Settings or Settings.Comet in */
+    implicit val self: Settings =
+      this /* TODO: remove this once HdfsStorageHandler explicitly takes Settings or Settings.Comet in */
     new HdfsStorageHandler(comet.fileSystem)
   }
 
