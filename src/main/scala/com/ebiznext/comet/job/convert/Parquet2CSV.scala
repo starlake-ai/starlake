@@ -21,8 +21,8 @@ import scala.util.{Success, Try}
   * @param storageHandler
   * @param settings
   */
-class Parquet2CSV(config: Parquet2CSVConfig, val storageHandler: StorageHandler)(
-  implicit val settings: Settings
+class Parquet2CSV(config: Parquet2CSVConfig, val storageHandler: StorageHandler)(implicit
+  val settings: Settings
 ) extends SparkJob {
 
   override def name: String = s"parquet-2-csv"
