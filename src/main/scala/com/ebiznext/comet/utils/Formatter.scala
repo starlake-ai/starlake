@@ -13,11 +13,12 @@ trait Formatter {
     */
   implicit def RichFormatter(str: String): Object {
     def richFormat(replacement: Map[String, String]): String
-  } = new {
+  } =
+    new {
 
-    def richFormat(replacement: Map[String, String]): String =
-      replacement.foldLeft(str) { (res, entry) =>
-        res.replaceAll("\\{\\{%s\\}\\}".format(entry._1), entry._2)
-      }
-  }
+      def richFormat(replacement: Map[String, String]): String =
+        replacement.foldLeft(str) { (res, entry) =>
+          res.replaceAll("\\{\\{%s\\}\\}".format(entry._1), entry._2)
+        }
+    }
 }

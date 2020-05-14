@@ -108,7 +108,7 @@ trait IngestionJob extends SparkJob {
           merge(acceptedDF, existingDF, mergeOptions)
         } else
           acceptedDF
-      } getOrElse (acceptedDF)
+      } getOrElse acceptedDF
 
     saveRows(mergedDF, acceptedPath, writeMode, StorageArea.accepted, schema.merge.isDefined)
 
@@ -232,7 +232,7 @@ trait IngestionJob extends SparkJob {
           .withColumn("rownum", row_number.over(w))
           .where(col("rownum") =!= 1)
           .drop("rownum")
-      } getOrElse (commonDF)
+      } getOrElse commonDF
 
     val updatesDF = merge.delete
       .map(condition => partitionedInputDF.filter(s"not ($condition)"))
@@ -293,7 +293,9 @@ trait IngestionJob extends SparkJob {
           val minFraction =
             if (fraction * count >= 1) // Make sure we get at least on item in teh dataset
               fraction
-            else if (count > 0) // We make sure we get at least 1 item which is 2 because of double imprecision for huge numbers.
+            else if (
+              count > 0
+            ) // We make sure we get at least 1 item which is 2 because of double imprecision for huge numbers.
               2 / count
             else
               0
@@ -314,9 +316,11 @@ trait IngestionJob extends SparkJob {
 
       // No need to apply partition on rejected dF
       val partitionedDF =
-        if (area == StorageArea.rejected && !metadata
-              .getPartitionAttributes()
-              .forall(Metadata.CometPartitionColumns.contains(_)))
+        if (
+          area == StorageArea.rejected && !metadata
+            .getPartitionAttributes()
+            .forall(Metadata.CometPartitionColumns.contains(_))
+        )
           partitionedDatasetWriter(dataset.coalesce(nbPartitions), Nil)
         else
           partitionedDatasetWriter(
