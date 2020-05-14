@@ -161,20 +161,21 @@ object Metadata {
     quote: Option[String],
     escape: Option[String],
     write: Option[WriteMode]
-  ) = new Metadata(
-    Some(Mode.FILE),
-    Some(Format.DSV),
-    None,
-    Some(false),
-    Some(false),
-    Some(true),
-    separator,
-    quote,
-    escape,
-    write,
-    None,
-    None
-  )
+  ) =
+    new Metadata(
+      Some(Mode.FILE),
+      Some(Format.DSV),
+      None,
+      Some(false),
+      Some(false),
+      Some(true),
+      separator,
+      quote,
+      escape,
+      write,
+      None,
+      None
+    )
 }
 
 class MetadataDeserializer extends JsonDeserializer[Metadata] {
