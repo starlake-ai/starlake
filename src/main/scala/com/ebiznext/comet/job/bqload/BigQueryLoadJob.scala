@@ -55,7 +55,7 @@ class BigQueryLoadJob(
           case _ =>
             cliConfig.outputPartition match {
               case Some(_) => StandardTableDefinition.of(df.to[BQSchema]).toBuilder
-              case _       => StandardTableDefinition.newBuilder()
+              case None       => StandardTableDefinition.newBuilder()
             }
         }
 
