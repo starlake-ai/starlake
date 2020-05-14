@@ -292,7 +292,7 @@ object Metrics extends StrictLogging {
         "cat_count_freq",
         struct(
           col("Category").cast(StringType).as("category"),
-          col("CountDiscrete").cast(LongType).as("count"),
+          col("CountDiscrete").cast(LongType).as("countDiscrete"),
           col("Frequencies").cast(DoubleType).as("frequency")
         )
       )

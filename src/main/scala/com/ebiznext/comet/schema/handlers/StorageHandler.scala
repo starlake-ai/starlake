@@ -82,8 +82,7 @@ trait StorageHandler extends StrictLogging {
 /**
   * HDFS Filesystem Handler
   */
-class HdfsStorageHandler(fileSystem: Option[String])(
-  implicit
+class HdfsStorageHandler(fileSystem: Option[String])(implicit
   settings: Settings
 ) extends StorageHandler {
 

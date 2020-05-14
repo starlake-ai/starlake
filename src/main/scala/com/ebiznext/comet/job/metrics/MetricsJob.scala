@@ -1,6 +1,7 @@
 package com.ebiznext.comet.job.metrics
 
 import com.ebiznext.comet.config.{DatasetArea, Settings}
+import com.ebiznext.comet.job.bqload.{BigQueryLoadConfig, BigQueryLoadJob}
 import com.ebiznext.comet.job.ingest.MetricRecord
 import com.ebiznext.comet.job.jdbcload.JdbcLoadConfig
 import com.ebiznext.comet.job.metrics.Metrics.{ContinuousMetric, DiscreteMetric}
@@ -13,7 +14,6 @@ import org.apache.spark.sql._
 import org.apache.spark.sql.execution.streaming.FileStreamSource.Timestamp
 import org.apache.spark.sql.functions.{col, lit}
 import org.apache.spark.sql.types._
-
 import scala.util.{Success, Try}
 
 /** To record statistics with other information during ingestion.
@@ -202,7 +202,7 @@ root
             StructType(
               Array(
                 StructField("category", StringType, false),
-                StructField("count", LongType, false),
+                StructField("countDiscrete", LongType, false),
                 StructField("frequency", DoubleType, false)
               )
             )
@@ -394,8 +394,23 @@ root
     }
   }
 
-  private def sinkMetricsToBigQuery(metricsDf: DataFrame, bqDataset: String): Unit =
-    ??? // TODO: implement me
+  private def sinkMetricsToBigQuery(metricsDf: DataFrame, bqDataset: String): Unit = {
+    import com.google.cloud.bigquery.{Schema => BQSchema}
+    import com.ebiznext.comet.utils.conversion.BigQueryUtils._
+    import com.ebiznext.comet.utils.conversion.syntax._
+    val config = BigQueryLoadConfig(
+      Right(metricsDf),
+      outputDataset = bqDataset,
+      outputTable = "metrics",
+      None,
+      "parquet",
+      "CREATE_IF_NEEDED",
+      "WRITE_APPEND",
+      None,
+      None
+    )
+    new BigQueryLoadJob(config, Some(metricsDf.to[BQSchema])).run()
+  }
 
   private implicit val memsideEncoder: Encoder[MetricRecord] = Encoders.product[MetricRecord]
 

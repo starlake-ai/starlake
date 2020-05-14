@@ -145,8 +145,8 @@ object DatasetArea {
     List(metadata, types, domains).foreach(storage.mkdirs)
   }
 
-  def initDomains(storage: StorageHandler, domains: Iterable[String])(
-    implicit settings: Settings
+  def initDomains(storage: StorageHandler, domains: Iterable[String])(implicit
+    settings: Settings
   ): Unit = {
     init(storage)
     domains.foreach { domain =>

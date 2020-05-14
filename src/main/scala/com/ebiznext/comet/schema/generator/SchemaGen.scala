@@ -21,9 +21,11 @@ object SchemaGen extends LazyLogging {
     val preEncryptSchemas: List[Schema] = domain.schemas.map { s =>
       val newAtt =
         s.attributes.map { attr =>
-          if (privacy == Nil || privacy.contains(
-                attr.privacy.getOrElse(PrivacyLevel.None).toString
-              ))
+          if (
+            privacy == Nil || privacy.contains(
+              attr.privacy.getOrElse(PrivacyLevel.None).toString
+            )
+          )
             attr.copy(`type` = "string", required = false, rename = None)
           else
             attr.copy(`type` = "string", required = false, rename = None, privacy = None)
@@ -52,13 +54,16 @@ object SchemaGen extends LazyLogging {
         metadata.copy(
           format = Some(Format.DSV),
           separator = Some(delimiter),
-          withHeader = Some(false) //TODO set to true, and make sure files are written with a header ?
+          withHeader =
+            Some(false) //TODO set to true, and make sure files are written with a header ?
         )
       }
       val attributes = schema.attributes.map { attr =>
-        if (privacy == Nil || privacy.contains(
-              attr.privacy.getOrElse(PrivacyLevel.None).toString
-            ))
+        if (
+          privacy == Nil || privacy.contains(
+            attr.privacy.getOrElse(PrivacyLevel.None).toString
+          )
+        )
           attr.copy(privacy = None)
         else
           attr
@@ -69,7 +74,9 @@ object SchemaGen extends LazyLogging {
     postEncryptDomain
   }
 
-  def generateSchema(inputPath: String,outputPath:Option[String]=None)(implicit settings: Settings): Unit = {
+  def generateSchema(inputPath: String, outputPath: Option[String] = None)(implicit
+    settings: Settings
+  ): Unit = {
     val reader = new XlsReader(inputPath)
     reader.getDomain.foreach { domain =>
       writeDomainYaml(domain, outputPath.getOrElse(DatasetArea.domains.toString), domain.name)

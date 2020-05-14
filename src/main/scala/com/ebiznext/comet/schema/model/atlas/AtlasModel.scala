@@ -273,7 +273,7 @@ class AtlasModel(urls: Array[String], basicAuthUsernamePassword: Array[String])
     val existingDirectory = result.getAttribute("directory").asInstanceOf[String]
     val existingMetadata = Option(result.getAttribute("metadata").asInstanceOf[AtlasStruct])
     val existingExtensions = Option(result.getAttribute("extensions").asInstanceOf[Array[String]])
- */
+   */
     result
   }
 
@@ -456,5 +456,5 @@ class AtlasModel(urls: Array[String], basicAuthUsernamePassword: Array[String])
       )
     }
   }
- */
+   */
 }
