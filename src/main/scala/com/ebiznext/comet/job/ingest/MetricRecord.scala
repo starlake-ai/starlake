@@ -6,7 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 
 import scala.reflect.ClassTag
 
-final case class CatCountFreq(category: String, count: Long, frequency: Double)
+final case class CatCountFreq(category: String, countDiscrete: Long, frequency: Double)
 
 case class MetricRecord(
   domain: String,
@@ -168,8 +168,8 @@ object MetricRecord {
         sqlSide.map(inner.fromSqlCompatible)
     }
 
-    implicit def forOption[T, U](
-      implicit inner: SqlCompatibleEncoder[T, U]
+    implicit def forOption[T, U](implicit
+      inner: SqlCompatibleEncoder[T, U]
     ): SqlCompatibleEncoder[Option[T], Option[U]] =
       ForOption[T, U]()
   }
@@ -205,8 +205,8 @@ object MetricRecord {
       override def fromSqlCompatible(sqlSide: HNil): HNil = HNil
     }
 
-    case class ForHCons[TH, TT <: HList, UH, UT <: HList]()(
-      implicit hconv: SqlCompatibleEncoder[TH, UH],
+    case class ForHCons[TH, TT <: HList, UH, UT <: HList]()(implicit
+      hconv: SqlCompatibleEncoder[TH, UH],
       tconv: HListEncoder[TT, UT]
     ) extends HListEncoder[TH :: TT, UH :: UT] {
 
@@ -225,8 +225,8 @@ object MetricRecord {
       }
     }
 
-    implicit def forHCons[TH, TT <: HList, UH, UT <: HList](
-      implicit hconv: SqlCompatibleEncoder[TH, UH],
+    implicit def forHCons[TH, TT <: HList, UH, UT <: HList](implicit
+      hconv: SqlCompatibleEncoder[TH, UH],
       tconv: HListEncoder[TT, UT]
     ): HListEncoder[TH :: TT, UH :: UT] =
       ForHCons()
