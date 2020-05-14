@@ -188,6 +188,13 @@ object PrimitiveType {
 
   private def instantFromString(str: String, pattern: String, zone: String): Instant = {
     import java.time.format.DateTimeFormatter
+
+    val zoneId = Option(zone) match {
+      case Some(z) => ZoneId.of(z)
+//      case None    => ZoneId.systemDefault()
+      case None => ZoneId.of("UTC")
+    }
+
     pattern match {
       case "epoch_second" =>
         Instant.ofEpochSecond(str.toLong)
@@ -196,29 +203,40 @@ object PrimitiveType {
       case _ =>
         val formatter = PrimitiveType.dateFormatters
           .getOrElse(pattern, DateTimeFormatter.ofPattern(pattern))
-        val dateTime: TemporalAccessor = formatter.parse(str)
-        Try(Instant.from(dateTime)) match {
-          case Success(instant) =>
-            instant
-
-          case Failure(_) =>
-            Try {
-              val localDateTime = LocalDateTime.from(dateTime)
-              if (pattern != null)
-                ZonedDateTime.of(localDateTime, ZoneId.of(zone)).toInstant
-              else
-                ZonedDateTime.of(localDateTime, ZoneId.systemDefault()).toInstant
-            } match {
-              case Success(instant) =>
-                instant
+        Try {
+          formatter.parse(str)
+        } match {
+          case Success(dateTime: TemporalAccessor) =>
+            Try(Instant.from(dateTime)) match {
+              case Success(instant) => instant
               case Failure(_) =>
-                // Try to parse it as a date without time and still make it a timestamp.
-                // Cloudera 5.X with Hive 1.1 workaround
-                import java.text.SimpleDateFormat
-                val df = new SimpleDateFormat(pattern)
-                val date = df.parse(str)
-                Instant.ofEpochMilli(date.getTime)
+                Try {
+                  val localDateTime = LocalDateTime.from(dateTime)
+                  ZonedDateTime.of(localDateTime, zoneId).toInstant
+                } match {
+                  case Success(instant) => instant
+                  case Failure(_)       =>
+                    // Try to parse it as a date without time and still make it a timestamp.
+                    import java.util.Date
+                    println(s"DataTime = $dateTime")
+                    val localDate = LocalDate.from(dateTime)
+                    println(s"localDate = $localDate")
+                    val date =
+                      Date.from(
+                        localDate.atStartOfDay().atZone(zoneId).toInstant
+                      )
+                    println(s"date = $date")
+                    println(s"instant = ${Instant.ofEpochMilli(date.getTime)}")
+                    Instant.ofEpochMilli(date.getTime)
+                }
             }
+          case Failure(_) =>
+            // Try to parse it as a date without time and still make it a timestamp.
+            // Cloudera 5.X with Hive 1.1 workaround
+            import java.text.SimpleDateFormat
+            val df = new SimpleDateFormat(pattern)
+            val date = df.parse(str)
+            Instant.ofEpochMilli(date.getTime)
         }
     }
   }
@@ -247,6 +265,8 @@ object PrimitiveType {
         null
       else {
         val instant = instantFromString(str, timeFormat, zone)
+        println(s"instant = $instant")
+        println(s"Actual result = ${Timestamp.from(instant)}")
         Timestamp.from(instant)
       }
     }
@@ -260,13 +280,15 @@ object PrimitiveType {
   import DateTimeFormatter._
 
   val dateFormatters: Map[String, DateTimeFormatter] = Map(
+    // ISO_LOCAL_TIME, ISO_OFFSET_TIME and ISO_TIME patterns are specific to time handling, without a date
+    // TODO keep default date set to Epoch ? Remove these patterns ?
+//    "ISO_LOCAL_TIME"       -> ISO_LOCAL_TIME,
+//    "ISO_OFFSET_TIME"      -> ISO_OFFSET_TIME,
+//    "ISO_TIME"             -> ISO_TIME,
     "BASIC_ISO_DATE"       -> BASIC_ISO_DATE,
     "ISO_LOCAL_DATE"       -> ISO_LOCAL_DATE,
     "ISO_OFFSET_DATE"      -> ISO_OFFSET_DATE,
     "ISO_DATE"             -> ISO_DATE,
-    "ISO_LOCAL_TIME"       -> ISO_LOCAL_TIME,
-    "ISO_OFFSET_TIME"      -> ISO_OFFSET_TIME,
-    "ISO_TIME"             -> ISO_TIME,
     "ISO_LOCAL_DATE_TIME"  -> ISO_LOCAL_DATE_TIME,
     "ISO_OFFSET_DATE_TIME" -> ISO_OFFSET_DATE_TIME,
     "ISO_ZONED_DATE_TIME"  -> ISO_ZONED_DATE_TIME,
