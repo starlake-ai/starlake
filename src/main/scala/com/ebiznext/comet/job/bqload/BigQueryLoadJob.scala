@@ -31,7 +31,7 @@ class BigQueryLoadJob(
 
   val tableId = TableId.of(cliConfig.outputDataset, cliConfig.outputTable)
 
-  def getOrCreateDataset(): Dataset = {
+  private def getOrCreateDataset(): Dataset = {
     val datasetId = DatasetId.of(projectId, cliConfig.outputDataset)
     val dataset = scala.Option(bigquery.getDataset(datasetId))
     dataset.getOrElse {
@@ -52,10 +52,10 @@ class BigQueryLoadJob(
         maybeSchema match {
           case Some(schema) =>
             StandardTableDefinition.of(schema).toBuilder
-          case _ =>
+          case None =>
             cliConfig.outputPartition match {
               case Some(_) => StandardTableDefinition.of(df.to[BQSchema]).toBuilder
-              case None       => StandardTableDefinition.newBuilder()
+              case None    => StandardTableDefinition.newBuilder()
             }
         }
 
@@ -153,7 +153,7 @@ class BigQueryLoadJob(
       val stdTableDefinition =
         bigquery.getTable(table.getTableId).getDefinition.asInstanceOf[StandardTableDefinition]
       logger.info(
-        s"BigQuery Saving ${sourceDF.count()} rows to  ${table.getTableId} containing ${stdTableDefinition.getNumRows} rows"
+        s"BigQuery Saving to  ${table.getTableId} containing ${stdTableDefinition.getNumRows} rows"
       )
       sourceDF.write
         .mode(SaveMode.Append)
@@ -179,5 +179,4 @@ class BigQueryLoadJob(
     val res = runBQSparkConnector()
     Utils.logFailure(res, logger)
   }
-
 }

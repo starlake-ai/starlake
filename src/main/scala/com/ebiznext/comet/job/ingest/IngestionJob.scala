@@ -110,14 +110,15 @@ trait IngestionJob extends SparkJob {
           acceptedDF
       } getOrElse acceptedDF
 
-    saveRows(mergedDF, acceptedPath, writeMode, StorageArea.accepted, schema.merge.isDefined)
+    val savedDataset =
+      saveRows(mergedDF, acceptedPath, writeMode, StorageArea.accepted, schema.merge.isDefined)
 
     if (settings.comet.metrics.active) {
       new MetricsJob(this.domain, this.schema, Stage.GLOBAL, storageHandler, schemaHandler)
         .run()
         .get
     }
-    (mergedDF, acceptedPath)
+    (savedDataset, acceptedPath)
   }
 
   def index(mergedDF: DataFrame): Unit = {
@@ -262,7 +263,7 @@ trait IngestionJob extends SparkJob {
     writeMode: WriteMode,
     area: StorageArea,
     merge: Boolean
-  ): (DataFrameWriter[Row], String) = {
+  ): DataFrame = {
     if (dataset.columns.length > 0) {
       val saveMode = writeMode.toSaveMode
       val hiveDB = StorageArea.area(domain.name, area)
@@ -315,7 +316,7 @@ trait IngestionJob extends SparkJob {
       }
 
       // No need to apply partition on rejected dF
-      val partitionedDF =
+      val partitionedDFWriter =
         if (
           area == StorageArea.rejected && !metadata
             .getPartitionAttributes()
@@ -329,24 +330,31 @@ trait IngestionJob extends SparkJob {
           )
 
       val mergePath = s"${targetPath.toString}.merge"
-      val targetDataset = if (merge && area != StorageArea.rejected) {
-        partitionedDF
+      val (targetDatasetWriter, finalDataset) = if (merge && area != StorageArea.rejected) {
+        logger.info(s"Saving Dataset to merge location $mergePath")
+        partitionedDFWriter
           .mode(SaveMode.Overwrite)
           .format(settings.comet.writeFormat)
           .option("path", mergePath)
           .save()
-        partitionedDatasetWriter(
-          session.read.parquet(mergePath.toString),
-          metadata.getPartitionAttributes()
+        logger.info(s"reading Dataset from merge location $mergePath")
+        val mergedDataset = session.read.parquet(mergePath)
+        (
+          partitionedDatasetWriter(
+            mergedDataset,
+            metadata.getPartitionAttributes()
+          ),
+          mergedDataset
         )
       } else
-        partitionedDF
-      val targetDatasetWriter = targetDataset
+        (partitionedDFWriter, dataset)
+      val finalTargetDatasetWriter = targetDatasetWriter
         .mode(saveMode)
         .format(settings.comet.writeFormat)
         .option("path", targetPath.toString)
+      logger.info(s"Saving Dataset to final location $targetPath")
       if (settings.comet.hive) {
-        targetDatasetWriter.saveAsTable(fullTableName)
+        finalTargetDatasetWriter.saveAsTable(fullTableName)
         val tableComment = schema.comment.getOrElse("")
         session.sql(s"ALTER TABLE $fullTableName SET TBLPROPERTIES ('comment' = '$tableComment')")
         if (settings.comet.analyze) {
@@ -365,15 +373,15 @@ trait IngestionJob extends SparkJob {
             }
         }
       } else {
-        targetDatasetWriter.save()
+        finalTargetDatasetWriter.save()
       }
       storageHandler.delete(new Path(mergePath))
       if (merge && area != StorageArea.rejected)
         logger.info(s"deleted merge file $mergePath")
-      (targetDataset, mergePath)
+      finalDataset
     } else {
       logger.warn("Empty dataset with no columns won't be saved")
-      (null, null)
+      session.emptyDataFrame
     }
   }
 
@@ -385,7 +393,9 @@ trait IngestionJob extends SparkJob {
   def run(): Try[SparkSession] = {
     domain.checkValidity(schemaHandler) match {
       case Left(errors) =>
-        val errs = errors.reduce { (errs, err) => errs + "\n" + err }
+        val errs = errors.reduce { (errs, err) =>
+          errs + "\n" + err
+        }
         Failure(throw new Exception(errs))
       case Right(_) =>
         val start = Timestamp.from(Instant.now())
