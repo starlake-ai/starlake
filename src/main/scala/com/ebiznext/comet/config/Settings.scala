@@ -90,7 +90,7 @@ object Settings extends StrictLogging {
   final case class Elasticsearch(active: Boolean, options: juMap[String, String])
 
   /**
-    * Configuration for [[IndexSink]]
+    * Configuration for [[com.ebiznext.comet.schema.model.IndexSink]]
     *
     * This is used to define an auxiliary output for Audit or Metrics data, in addition to the Parquets
     * The default Index Sink is None, but additional types exists (such as BigQuery or Jdbc)
@@ -196,7 +196,7 @@ object Settings extends StrictLogging {
       * @param createSql the SQL Create Table statement with the database-specific type, constraints etc. tacked on.
       * @param pingSql a cheap SQL query whose results are irrelevant but guaranteed to trigger an error in case the table is absent
       *
-      * @note pingSql is optional, and will default to `select * from $name where 1=0` as Spark SQL does
+      * @note pingSql is optional, and will default to `select * from `name` where 1=0` as Spark SQL does
       */
     final case class TableDdl(name: String, createSql: String, pingSql: Option[String] = None) {
       def effectivePingSql: String = pingSql.getOrElse(s"select * from $name where 1=0")
@@ -230,6 +230,7 @@ object Settings extends StrictLogging {
     * @param airflow        : Airflow end point. Should be defined even if simple launccher is used instead of airflow.
     */
   final case class Comet(
+    tmpdir: String,
     jobId: String,
     datasets: String,
     metadata: String,
