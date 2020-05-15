@@ -23,39 +23,55 @@ class MetricsJobSpec extends TestHelper {
   /**
     * schema of metrics
     */
-  val expectedMetricsSchema = StructType(
+  val expectedDiscreteMetricsSchema = StructType(
     Array(
+      StructField("attribute", StringType, nullable = true),
+      StructField("countDistinct", LongType, nullable = true),
+      StructField("missingValuesDiscrete", LongType, nullable = true),
+      StructField("cometMetric", StringType, nullable = true),
+      StructField("jobId", StringType, nullable = true),
       StructField("domain", StringType, nullable = true),
       StructField("schema", StringType, nullable = true),
+      StructField("count", LongType, nullable = true),
+      StructField("cometTime", LongType, nullable = true),
+      StructField("cometStage", StringType, nullable = true)
+    )
+  )
+
+  val expectedContinuousMetricsSchema = StructType(
+    Array(
       StructField("attribute", StringType, nullable = true),
       StructField("min", DoubleType, nullable = true),
       StructField("max", DoubleType, nullable = true),
       StructField("mean", DoubleType, nullable = true),
       StructField("missingValues", LongType, nullable = true),
-      StructField("standardDev", DoubleType, nullable = true),
       StructField("variance", DoubleType, nullable = true),
+      StructField("standardDev", DoubleType, nullable = true),
       StructField("sum", DoubleType, nullable = true),
       StructField("skewness", DoubleType, nullable = true),
       StructField("kurtosis", DoubleType, nullable = true),
       StructField("percentile25", DoubleType, nullable = true),
       StructField("median", DoubleType, nullable = true),
       StructField("percentile75", DoubleType, nullable = true),
-      StructField("countDistinct", LongType, nullable = true),
-      StructField(
-        "catCountFreq",
-        ArrayType(
-          StructType(
-            Array(
-              StructField("category", StringType, nullable = true),
-              StructField("countDiscrete", LongType, nullable = true),
-              StructField("frequency", DoubleType, nullable = true)
-            )
-          )
-        ),
-        nullable = true
-      ),
-      StructField("missingValuesDiscrete", LongType, nullable = true),
+      StructField("cometMetric", StringType, nullable = true),
+      StructField("jobId", StringType, nullable = true),
+      StructField("domain", StringType, nullable = true),
+      StructField("schema", StringType, nullable = true),
       StructField("count", LongType, nullable = true),
+      StructField("cometTime", LongType, nullable = true),
+      StructField("cometStage", StringType, nullable = true)
+    )
+  )
+
+  val expectedFreqMetricsSchema = StructType(
+    Array(
+      StructField("attribute", StringType, nullable = true),
+      StructField("category", StringType, nullable = true),
+      StructField("count", LongType, nullable = true),
+      StructField("frequency", DoubleType, nullable = true),
+      StructField("jobId", StringType, nullable = true),
+      StructField("domain", StringType, nullable = true),
+      StructField("schema", StringType, nullable = true),
       StructField("cometTime", LongType, nullable = true),
       StructField("cometStage", StringType, nullable = true)
     )
@@ -97,7 +113,7 @@ class MetricsJobSpec extends TestHelper {
     */
   lazy val dimensionTable = {
     val dimensionTable =
-    (partialContinuousMetric.size + 1) * (listContnuousAttributes.size + 1)
+      (partialContinuousMetric.size + 1) * (listContnuousAttributes.size + 1)
     logger.info(s"-->$dimensionTable")
 
     dimensionTable
@@ -124,8 +140,8 @@ class MetricsJobSpec extends TestHelper {
     listContnuousAttributes.map(name => dataInitialUsed.select(avg(name)).first().getDouble(0))
 
   lazy val meanListTable: List[Double] = result0.map { result0 =>
-    result0.select(col("mean")).collect().map(_.getDouble(0)).toList
-  } getOrElse Nil
+      result0.select(col("mean")).collect().map(_.getDouble(0)).toList
+    } getOrElse Nil
 
   "All values of The Mean " should "be tested" in {
     assert(meanList.zip(meanListTable).map(x => x._1 - x._2).sum <= 0.00001)
@@ -138,8 +154,8 @@ class MetricsJobSpec extends TestHelper {
     listContnuousAttributes.map(name => dataInitialUsed.select(min(name)).first().getDouble(0))
 
   lazy val minListTable: List[Double] = result0.map { result0 =>
-    result0.select(col("min")).collect().map(_.getDouble(0)).toList
-  } getOrElse Nil
+      result0.select(col("min")).collect().map(_.getDouble(0)).toList
+    } getOrElse Nil
 
   "All values of The Min" should "be tested" in {
     assert(minList.zip(minListTable).map(x => x._1 - x._2).sum <= 0.00001)
@@ -152,8 +168,8 @@ class MetricsJobSpec extends TestHelper {
     listContnuousAttributes.map(name => dataInitialUsed.select(max(name)).first().getDouble(0))
 
   lazy val maxListTable: List[Double] = result0.map { result0 =>
-    result0.select(col("max")).collect().map(_.getDouble(0)).toList
-  } getOrElse Nil
+      result0.select(col("max")).collect().map(_.getDouble(0)).toList
+    } getOrElse Nil
 
   "All values of The Max" should "be tested" in {
     assert(maxList.zip(maxListTable).map(x => x._1 - x._2).sum <= 0.00001)
@@ -166,8 +182,8 @@ class MetricsJobSpec extends TestHelper {
     listContnuousAttributes.map(name => dataInitialUsed.select(stddev(name)).first().getDouble(0))
 
   lazy val stddevListTable: List[Double] = result0.map { result0 =>
-    result0.select(col("standardDev")).collect().map(_.getDouble(0)).toList
-  } getOrElse Nil
+      result0.select(col("standardDev")).collect().map(_.getDouble(0)).toList
+    } getOrElse Nil
 
   "All values of The standardDev" should "be tested" in {
     assert(stddevList.zip(stddevListTable).map(x => x._1 - x._2).sum <= 0.001)
@@ -180,8 +196,8 @@ class MetricsJobSpec extends TestHelper {
     listContnuousAttributes.map(name => dataInitialUsed.select(skewness(name)).first().getDouble(0))
 
   lazy val skewnessListTable: List[Double] = result0.map { result0 =>
-    result0.select(col("skewness")).collect().map(_.getDouble(0)).toList
-  } getOrElse Nil
+      result0.select(col("skewness")).collect().map(_.getDouble(0)).toList
+    } getOrElse Nil
 
   "All values of The Skewness" should "be tested" in {
     assert(skewnessList.zip(skewnessListTable).map(x => x._1 - x._2).sum <= 0.001)
@@ -194,8 +210,8 @@ class MetricsJobSpec extends TestHelper {
     listContnuousAttributes.map(name => dataInitialUsed.select(kurtosis(name)).first().getDouble(0))
 
   lazy val kurtosisListTable: List[Double] = result0.map { result0 =>
-    result0.select(col("kurtosis")).collect().map(_.getDouble(0)).toList
-  } getOrElse Nil
+      result0.select(col("kurtosis")).collect().map(_.getDouble(0)).toList
+    } getOrElse Nil
 
   "All values of The Kurtosis" should "be tested" in {
     assert(kurtosisList.zip(kurtosisListTable).map(x => x._1 - x._2).sum <= 0.001)
@@ -212,27 +228,54 @@ class MetricsJobSpec extends TestHelper {
         cleanMetadata
         cleanDatasets
         loadPending
-        val countAccepted: Long = sparkSession.read
-          .parquet(cometDatasetsPath + s"/accepted/$datasetDomainName/business")
-          .count()
 
-        val path: Path = DatasetArea.metrics("yelp", "business")
-        val metricsDf: DataFrame = sparkSession.read.parquet(path.toString)
-        metricsDf.schema shouldBe expectedMetricsSchema
+        val discretePath: Path = DatasetArea.discreteMetrics("yelp", "business")
+        val discreteMetricsDf: DataFrame = sparkSession.read.parquet(discretePath.toString)
+        discreteMetricsDf.show(false)
+        discreteMetricsDf.schema shouldBe expectedDiscreteMetricsSchema
         import sparkSession.implicits._
-        val metricsSelectedColumns =
-          metricsDf
+        val discreteMetricsSelectedColumns =
+          discreteMetricsDf
             .select("domain", "schema", "attribute")
             .map(r => (r.getString(0), r.getString(1), r.getString(2)))
             .take(7)
-        metricsSelectedColumns should contain allElementsOf Array(
+        discreteMetricsSelectedColumns should contain allElementsOf Array(
           ("yelp", "business", "city"),
           ("yelp", "business", "is_open"),
           ("yelp", "business", "postal_code"),
           ("yelp", "business", "state"),
-          ("yelp", "business", "review_count"),
-          ("yelp", "business", "stars"),
           ("yelp", "business", "is_open")
+        )
+
+        val continuousPath: Path = DatasetArea.continuousMetrics("yelp", "business")
+        val continuousMetricsDf: DataFrame = sparkSession.read.parquet(continuousPath.toString)
+        continuousMetricsDf.show(false)
+        continuousMetricsDf.schema shouldBe expectedContinuousMetricsSchema
+        import sparkSession.implicits._
+        val continuousMetricsSelectedColumns =
+          continuousMetricsDf
+            .select("domain", "schema", "attribute")
+            .map(r => (r.getString(0), r.getString(1), r.getString(2)))
+            .take(7)
+
+        continuousMetricsSelectedColumns should contain allElementsOf Array(
+          ("yelp", "business", "review_count"),
+          ("yelp", "business", "stars")
+        )
+
+        val freqPath: Path = DatasetArea.frequenciesMetrics("yelp", "business")
+        val freqMetricsDf: DataFrame = sparkSession.read.parquet(freqPath.toString)
+        freqMetricsDf.show(false)
+        freqMetricsDf.schema shouldBe expectedFreqMetricsSchema
+        import sparkSession.implicits._
+        val freqMetricsSelectedColumns =
+          freqMetricsDf
+            .select("domain", "schema", "attribute")
+            .map(r => (r.getString(0), r.getString(1), r.getString(2)))
+            .take(7)
+
+        freqMetricsSelectedColumns should contain allElementsOf Array(
+          ("yelp", "business", "city")
         )
       }
     }
