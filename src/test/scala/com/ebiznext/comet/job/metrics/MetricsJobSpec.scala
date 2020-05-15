@@ -97,7 +97,7 @@ class MetricsJobSpec extends TestHelper {
     */
   lazy val dimensionTable = {
     val dimensionTable =
-    (partialContinuousMetric.size + 1) * (listContnuousAttributes.size + 1)
+      (partialContinuousMetric.size + 1) * (listContnuousAttributes.size + 1)
     logger.info(s"-->$dimensionTable")
 
     dimensionTable
@@ -124,8 +124,8 @@ class MetricsJobSpec extends TestHelper {
     listContnuousAttributes.map(name => dataInitialUsed.select(avg(name)).first().getDouble(0))
 
   lazy val meanListTable: List[Double] = result0.map { result0 =>
-    result0.select(col("mean")).collect().map(_.getDouble(0)).toList
-  } getOrElse Nil
+      result0.select(col("mean")).collect().map(_.getDouble(0)).toList
+    } getOrElse Nil
 
   "All values of The Mean " should "be tested" in {
     assert(meanList.zip(meanListTable).map(x => x._1 - x._2).sum <= 0.00001)
@@ -138,8 +138,8 @@ class MetricsJobSpec extends TestHelper {
     listContnuousAttributes.map(name => dataInitialUsed.select(min(name)).first().getDouble(0))
 
   lazy val minListTable: List[Double] = result0.map { result0 =>
-    result0.select(col("min")).collect().map(_.getDouble(0)).toList
-  } getOrElse Nil
+      result0.select(col("min")).collect().map(_.getDouble(0)).toList
+    } getOrElse Nil
 
   "All values of The Min" should "be tested" in {
     assert(minList.zip(minListTable).map(x => x._1 - x._2).sum <= 0.00001)
@@ -152,8 +152,8 @@ class MetricsJobSpec extends TestHelper {
     listContnuousAttributes.map(name => dataInitialUsed.select(max(name)).first().getDouble(0))
 
   lazy val maxListTable: List[Double] = result0.map { result0 =>
-    result0.select(col("max")).collect().map(_.getDouble(0)).toList
-  } getOrElse Nil
+      result0.select(col("max")).collect().map(_.getDouble(0)).toList
+    } getOrElse Nil
 
   "All values of The Max" should "be tested" in {
     assert(maxList.zip(maxListTable).map(x => x._1 - x._2).sum <= 0.00001)
@@ -166,8 +166,8 @@ class MetricsJobSpec extends TestHelper {
     listContnuousAttributes.map(name => dataInitialUsed.select(stddev(name)).first().getDouble(0))
 
   lazy val stddevListTable: List[Double] = result0.map { result0 =>
-    result0.select(col("standardDev")).collect().map(_.getDouble(0)).toList
-  } getOrElse Nil
+      result0.select(col("standardDev")).collect().map(_.getDouble(0)).toList
+    } getOrElse Nil
 
   "All values of The standardDev" should "be tested" in {
     assert(stddevList.zip(stddevListTable).map(x => x._1 - x._2).sum <= 0.001)
@@ -180,8 +180,8 @@ class MetricsJobSpec extends TestHelper {
     listContnuousAttributes.map(name => dataInitialUsed.select(skewness(name)).first().getDouble(0))
 
   lazy val skewnessListTable: List[Double] = result0.map { result0 =>
-    result0.select(col("skewness")).collect().map(_.getDouble(0)).toList
-  } getOrElse Nil
+      result0.select(col("skewness")).collect().map(_.getDouble(0)).toList
+    } getOrElse Nil
 
   "All values of The Skewness" should "be tested" in {
     assert(skewnessList.zip(skewnessListTable).map(x => x._1 - x._2).sum <= 0.001)
@@ -194,8 +194,8 @@ class MetricsJobSpec extends TestHelper {
     listContnuousAttributes.map(name => dataInitialUsed.select(kurtosis(name)).first().getDouble(0))
 
   lazy val kurtosisListTable: List[Double] = result0.map { result0 =>
-    result0.select(col("kurtosis")).collect().map(_.getDouble(0)).toList
-  } getOrElse Nil
+      result0.select(col("kurtosis")).collect().map(_.getDouble(0)).toList
+    } getOrElse Nil
 
   "All values of The Kurtosis" should "be tested" in {
     assert(kurtosisList.zip(kurtosisListTable).map(x => x._1 - x._2).sum <= 0.001)
