@@ -42,7 +42,7 @@ object CometJacksonModule extends CometJacksonModule {
     * To avoid this, we define this trait, which registers the canonical instance within a special table, and
     * provide a helpful exception
     *
-    * One should also define a Builder inheriting from [[ProtectedSingletonBuilder[_]]], and decorate the case object
+    * One should also define a Builder inheriting from [[com.ebiznext.comet.utils.CometJacksonModule.ProtectedSingletonBuilder]], and decorate the case object
     * with @JsonDeserialize(builder = classOf[MyObjectBuilder]).
     *
     * The goal of that builder is to "lie" to Jackson by 'building' an instance, which is actually *the* instance
@@ -70,7 +70,7 @@ object CometJacksonModule extends CometJacksonModule {
   /** a base class for fake 'builders' whose purpose is to drive Jackson off attempting to build new instances
     * of case objects upon deserialization.
     *
-    * This class will work to recover *the* canonical instance of the [[T]] class, and return that whenever
+    * This class will work to recover *the* canonical instance of the `T` class, and return that whenever
     * Jackson requests a 'new' instance
     *
     * @see https://github.com/FasterXML/jackson-module-scala/issues/211

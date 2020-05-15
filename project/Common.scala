@@ -86,12 +86,12 @@ object Common {
           "-Xfatal-warnings"
         ),
       testOptions in Test ++= Seq(
-          // show full stack traces and test case durations
-          Tests.Argument("-oDF"),
-          // -v Log "test run started" / "test started" / "test run finished" events on log level "info" instead of "debug".
-          // -a Show stack traces a nd exception class name for AssertionErrors.
-          Tests.Argument(TestFrameworks.JUnit, "-v", "-a")
-        ),
+        // show full stack traces and test case durations
+        Tests.Argument("-oDF"),
+        // -v Log "test run started" / "test started" / "test run finished" events on log level "info" instead of "debug".
+        // -a Show stack traces a nd exception class name for AssertionErrors.
+        Tests.Argument(TestFrameworks.JUnit, "-v", "-a")
+      ),
       parallelExecution in Test := false,
       scalafmtOnCompile := true
     ) ++ gitSettings ++ assemlySettings ++ docsSettings

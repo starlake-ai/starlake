@@ -11,7 +11,7 @@ import org.apache.spark.sql.types._
 object BigQueryUtils {
 
   implicit val sparkToBq: Convertible[DataFrame, BQSchema] = new Convertible[DataFrame, BQSchema] {
-    override def apply(v1: DataFrame): BQSchema = bqSchema(v1)
+    override def apply(v1: DataFrame): BQSchema = bqSchema(v1.schema)
   }
 
   def convert(sparkType: DataType): StandardSQLTypeName = {
@@ -24,7 +24,7 @@ object BigQueryUtils {
     sparkType match {
       case BooleanType                                     => StandardSQLTypeName.BOOL
       case ByteType | LongType | IntegerType               => StandardSQLTypeName.INT64
-      case DoubleType | FloatType                          => StandardSQLTypeName.NUMERIC
+      case DoubleType | FloatType                          => StandardSQLTypeName.FLOAT64
       case StringType                                      => StandardSQLTypeName.STRING
       case BinaryType                                      => StandardSQLTypeName.BYTES
       case DateType                                        => StandardSQLTypeName.DATE
@@ -36,13 +36,15 @@ object BigQueryUtils {
 
   /**
     *
-    * @param df Spark DataFrame
+    * Compute BigQuery Schema from Spark or PArquet Schema while Schema.bqSchema compute it from YMl File
+    * @param schema Spark DataType
     * @return
     */
-  private[conversion] def bqSchema(df: DataFrame): BQSchema = {
+
+  def bqSchema(schema: DataType): BQSchema = {
 
     import scala.collection.JavaConverters._
-    def inferBqSchema(field: String, dataType: DataType) = {
+    def inferBqSchema(field: String, dataType: DataType): Field = {
       (field, dataType) match {
         case (field: String, dataType: ArrayType) =>
           val elementTypes: Seq[(String, DataType)] = fieldsSchemaAsMap(dataType.elementType)
@@ -78,7 +80,7 @@ object BigQueryUtils {
       }
     }
 
-    val fields = fieldsSchemaAsMap(df.schema)
+    val fields = fieldsSchemaAsMap(schema)
       .map {
         case (field, dataType) => inferBqSchema(field, dataType)
 

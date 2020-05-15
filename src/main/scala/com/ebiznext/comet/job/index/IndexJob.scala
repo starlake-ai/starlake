@@ -127,7 +127,9 @@ class IndexJob(
     val ok = (200 to 299) contains responsePut.code
     if (ok) {
       val allConf = esOptions.toList ++ esCliConf.toList
-      logger.info(s"sending ${df.count()} documents to Elasticsearch using $allConf")
+      logger.whenDebugEnabled {
+        logger.debug(s"sending ${df.count()} documents to Elasticsearch using $allConf")
+      }
       allConf
         .foldLeft(df.write)((w, kv) => w.option(kv._1, kv._2))
         .format("org.elasticsearch.spark.sql")
