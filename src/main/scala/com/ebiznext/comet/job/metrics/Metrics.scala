@@ -8,6 +8,12 @@ import org.apache.spark.sql.{Column, DataFrame}
 
 object Metrics extends StrictLogging {
 
+  case class MetricsDatasets(
+    continuousDF: Option[DataFrame],
+    discreteDF: Option[DataFrame],
+    frequenciesDF: Option[DataFrame]
+  )
+
   /** Case class ContinuousMetric with all corresponding Metrics
     *
     * @param name     : the name of the variable

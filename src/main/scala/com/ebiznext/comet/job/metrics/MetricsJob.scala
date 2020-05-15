@@ -4,7 +4,7 @@ import com.ebiznext.comet.config.{DatasetArea, Settings}
 import com.ebiznext.comet.job.bqload.{BigQueryLoadConfig, BigQueryLoadJob}
 import com.ebiznext.comet.job.ingest.MetricRecord
 import com.ebiznext.comet.job.jdbcload.JdbcLoadConfig
-import com.ebiznext.comet.job.metrics.Metrics.{ContinuousMetric, DiscreteMetric}
+import com.ebiznext.comet.job.metrics.Metrics.{ContinuousMetric, DiscreteMetric, MetricsDatasets}
 import com.ebiznext.comet.schema.handlers.{SchemaHandler, StorageHandler}
 import com.ebiznext.comet.schema.model.{Domain, Schema, Stage}
 import com.ebiznext.comet.utils.{FileLock, SparkJob, Utils}
@@ -13,7 +13,6 @@ import org.apache.hadoop.fs.Path
 import org.apache.spark.sql._
 import org.apache.spark.sql.execution.streaming.FileStreamSource.Timestamp
 import org.apache.spark.sql.functions.{col, lit}
-import org.apache.spark.sql.types._
 import scala.util.{Success, Try}
 
 /** To record statistics with other information during ingestion.
@@ -98,27 +97,6 @@ class MetricsJob(
     }
   }
 
-  /** Function that retrieves full metrics dataframe with both set discrete and continuous metrics
-    *
-    * @param dataMetric    : dataframe obtain from computeDiscretMetric( ) or computeContinuiousMetric( )
-    * @param listAttibutes : list of all variables
-    * @param colName       : list of column
-    * @return Dataframe : that contain the full metrics  with all variables and all metrics
-    */
-
-  def generateFullMetric(
-    dataMetric: DataFrame,
-    listAttibutes: List[String],
-    colName: List[Column]
-  ): DataFrame = {
-    listAttibutes
-      .foldLeft(dataMetric) { (data, nameCol) =>
-        data.withColumn(nameCol, lit(null))
-      }
-      .select(colName: _*)
-
-  }
-
   /** Function Function that unifies discrete and continuous metrics dataframe, then write save the result to parquet
     *
     * @param discreteDataset   : dataframe that contains all the discrete metrics
@@ -138,172 +116,70 @@ class MetricsJob(
     count: Long,
     ingestionTime: Timestamp,
     stageState: Stage
-  ): Option[DataFrame] = {
-
-    val listContAttrName: List[String] = List(
-      "min",
-      "max",
-      "mean",
-      "variance",
-      "standardDev",
-      "sum",
-      "skewness",
-      "kurtosis",
-      "percentile25",
-      "median",
-      "percentile75",
-      "missingValues"
-    )
-    /*
-root
- |-- attribute: string (nullable = false)
- |-- min: long (nullable = true)
- |-- max: long (nullable = true)
- |-- mean: double (nullable = true)
- |-- count: long (nullable = true)
- |-- missingValues: long (nullable = true)
- |-- variance: double (nullable = true)
- |-- standardDev: double (nullable = true)
- |-- sum: long (nullable = true)
- |-- skewness: double (nullable = true)
- |-- kurtosis: double (nullable = true)
- |-- percentile25: long (nullable = true)
- |-- median: long (nullable = true)
- |-- percentile75: long (nullable = true)
- |-- cometMetric: string (nullable = false)
-
-     */
-    val continuousSchema = StructType(
-      Array(
-        StructField("attribute", StringType),
-        StructField("min", DoubleType),
-        StructField("max", DoubleType),
-        StructField("mean", DoubleType),
-        StructField("missingValues", LongType),
-        StructField("variance", DoubleType),
-        StructField("standardDev", DoubleType),
-        StructField("sum", DoubleType),
-        StructField("skewness", DoubleType),
-        StructField("kurtosis", DoubleType),
-        StructField("percentile25", DoubleType),
-        StructField("median", DoubleType),
-        StructField("percentile75", DoubleType),
-        StructField("cometMetric", StringType)
-      )
-    )
-
-    val listDiscAttrName: List[String] =
-      List("countDistinct", "catCountFreq", "missingValuesDiscrete")
-    val discreteSchema = StructType(
-      Array(
-        StructField("attribute", StringType),
-        StructField("countDistinct", LongType),
-        StructField(
-          "catCountFreq",
-          ArrayType(
-            StructType(
-              Array(
-                StructField("category", StringType),
-                StructField("countDiscrete", LongType),
-                StructField("frequency", DoubleType)
-              )
-            )
-          )
-        ),
-        StructField("missingValuesDiscrete", LongType),
-        StructField("cometMetric", StringType)
-      )
-    )
-
-    val listtotal: List[String] = List(
-      "attribute",
-      "min",
-      "max",
-      "mean",
-      "variance",
-      "standardDev",
-      "sum",
-      "skewness",
-      "kurtosis",
-      "percentile25",
-      "median",
-      "percentile75",
-      "missingValues",
-      "countDistinct",
-      "catCountFreq",
-      "missingValuesDiscrete"
-    )
-    val sortSelectCol: List[String] = List(
-      "domain",
-      "schema",
-      "attribute",
-      "min",
-      "max",
-      "mean",
-      "missingValues",
-      "standardDev",
-      "variance",
-      "sum",
-      "skewness",
-      "kurtosis",
-      "percentile25",
-      "median",
-      "percentile75",
-      "countDistinct",
-      "catCountFreq",
-      "missingValuesDiscrete",
-      "count",
-      "cometTime",
-      "cometStage"
-    )
-
-    val neededColList: List[Column] = listtotal.map(x => col(x))
-
-    logger.info(
-      "The list of Columns: " + neededColList
-    )
-    /*
-    val x = (discreteDataset, continuousDataset) match {
-
-      case (Some(discreteDataset), Some(continuousDataset)) =>
-        (discreteDataset, continuousDataset)
-      case (Some(discreteDataset), None) =>
-        (discreteDataset, )
-      case (None, Some(continuousDataset)) =>
-        Some(continuousDataset)
-      case (None, None) =>
-        None
-    }
-     */
-    val emptyContinuousDataset =
-      session.createDataFrame(new java.util.ArrayList[Row](), continuousSchema)
-    val emptyDiscreteDataset =
-      session.createDataFrame(new java.util.ArrayList[Row](), discreteSchema)
-
-    val coupleDataMetrics =
+  ): MetricsDatasets = {
+    val (continuousDF, discreteDF, frequenciesDF) =
       (discreteDataset, continuousDataset) match {
         case (Some(discreteDataset), Some(continuousDataset)) =>
-          List((discreteDataset, listContAttrName), (continuousDataset, listDiscAttrName))
+          (
+            Some(continuousDataset),
+            Some(discreteDataset.drop("catCountFreq")),
+            Some(
+              discreteDataset
+                .select("attribute", "catCountFreq")
+                .withColumn("exploded", org.apache.spark.sql.functions.explode(col("catCountFreq")))
+                .withColumn("category", col("exploded.category"))
+                .withColumn("count", col("exploded.countDiscrete"))
+                .withColumn("frequency", col("exploded.frequency"))
+                .drop("catCountFreq")
+                .drop("exploded")
+            )
+          )
         case (None, Some(continuousDataset)) =>
-          List((emptyDiscreteDataset, listContAttrName), (continuousDataset, listDiscAttrName))
+          (
+            Some(continuousDataset),
+            None,
+            None
+          )
         case (Some(discreteDataset), None) =>
-          List((discreteDataset, listContAttrName), (emptyContinuousDataset, listDiscAttrName))
+          (
+            None,
+            Some(discreteDataset.drop("catCountFreq")),
+            Some(
+              discreteDataset
+                .select("catCountFreq")
+                .withColumn("exploded", org.apache.spark.sql.functions.explode(col("catCountFreq")))
+                .withColumn("category", col("exploded.category"))
+                .withColumn("count", col("exploded.countDiscrete"))
+                .withColumn("frequency", col("exploded.frequency"))
+                .drop("catCountFreq")
+                .drop("exploded")
+            )
+          )
         case (None, None) =>
-          List((emptyDiscreteDataset, listContAttrName), (emptyContinuousDataset, listDiscAttrName))
+          (
+            None,
+            None,
+            None
+          )
       }
 
-    val result = coupleDataMetrics
-      .map(
-        tupleDataMetric => generateFullMetric(tupleDataMetric._1, tupleDataMetric._2, neededColList)
-      )
-      .reduce(_ union _)
-      .withColumn("domain", lit(domain.name))
-      .withColumn("schema", lit(schema.name))
-      .withColumn("count", lit(count))
-      .withColumn("cometTime", lit(ingestionTime))
-      .withColumn("cometStage", lit(stageState.toString))
-      .select(sortSelectCol.head, sortSelectCol.tail: _*)
-    Some(result)
+    val allDF = List(continuousDF, discreteDF, frequenciesDF).map {
+      case Some(dataset) =>
+        val res = dataset
+          .withColumn("jobId", lit(settings.comet.jobId))
+          .withColumn("domain", lit(domain.name))
+          .withColumn("schema", lit(schema.name))
+          .withColumn("count", lit(count))
+          .withColumn("cometTime", lit(ingestionTime))
+          .withColumn("cometStage", lit(stageState.toString))
+        logger.whenDebugEnabled {
+          res.show()
+        }
+
+        Some(res)
+      case None => None
+    }
+    MetricsDatasets(allDF(0), allDF(1), allDF(2))
   }
 
   /**
@@ -328,7 +204,7 @@ root
     val count = dataUse.count()
     val discreteDataset = Metrics.computeDiscretMetric(dataUse, discAttrs, discreteOps)
     val continuousDataset = Metrics.computeContinuousMetric(dataUse, continAttrs, continuousOps)
-    val allMetricsDfMaybe =
+    val metricsDatasets =
       unionDisContMetric(
         discreteDataset,
         continuousDataset,
@@ -339,33 +215,41 @@ root
         stage
       )
 
-    val combinedResult = allMetricsDfMaybe match {
-      case Some(allMetricsDf) =>
-        settings.comet.internal.foreach(in => allMetricsDf.persist(in.cacheStorageLevel))
-        val lockedPath = lockPath(settings.comet.metrics.path)
-        val waitTimeMillis = settings.comet.lock.metricsTimeout
-        val locker = new FileLock(lockedPath, storageHandler)
+    val metricsToSave = List(
+      (metricsDatasets.continuousDF, "continuous"),
+      (metricsDatasets.discreteDF, "discrete"),
+      (metricsDatasets.frequenciesDF, "frequencies")
+    )
+    val combinedResult = metricsToSave.map {
+      case (df, name) =>
+        df match {
+          case Some(df) =>
+            settings.comet.internal.foreach(in => df.persist(in.cacheStorageLevel))
+            val lockedPath = lockPath(settings.comet.metrics.path)
+            val waitTimeMillis = settings.comet.lock.metricsTimeout
+            val locker = new FileLock(lockedPath, storageHandler)
 
-        val metricsResult = locker.tryExclusively(waitTimeMillis) {
-          save(allMetricsDf, savePath)
+            val metricsResult = locker.tryExclusively(waitTimeMillis) {
+              save(df, new Path(savePath, name))
+            }
+
+            val metricsSinkResult = sinkMetrics(df, name)
+
+            for {
+              _ <- metricsResult
+              _ <- metricsSinkResult
+            } yield {
+              session
+            }
+
+          case None =>
+            Success(session)
         }
-
-        val metricsSinkResult = sinkMetrics(allMetricsDf)
-
-        for {
-          _ <- metricsResult
-          _ <- metricsSinkResult
-        } yield {
-          session
-        }
-
-      case None =>
-        Success(())
     }
-    combinedResult.map(_ => session)
+    combinedResult.find(_.isFailure).getOrElse(Success(session))
   }
 
-  private def sinkMetrics(metricsDf: DataFrame): Try[Unit] = {
+  private def sinkMetrics(metricsDf: DataFrame, name: String): Try[Unit] = {
     if (settings.comet.metrics.active) {
       settings.comet.metrics.index match {
         case Settings.IndexSinkSettings.None =>
@@ -382,7 +266,7 @@ root
               jdbcConnection,
               settings.comet,
               Right(metricsDf),
-              "metrics",
+              name,
               partitions = partitions,
               batchSize = batchSize
             )
