@@ -33,7 +33,7 @@ import scopt.OParser
 case class SchemaGenConfig(
   files: Seq[String] = Nil,
   encryption: Boolean = true,
-  delimiter: String = "µ",
+  delimiter: Option[String] = None,
   privacy: Seq[String] = Nil,
   outputPath: Option[String] = None
 )
@@ -55,7 +55,7 @@ object SchemaGenConfig extends CliConfig[SchemaGenConfig] {
         .required()
         .text("If true generate pre and post encryption YML"),
       opt[String]("delimiter")
-        .action((x, c) => c.copy(delimiter = x))
+        .action((x, c) => c.copy(delimiter = Some(x)))
         .optional()
         .text("CSV delimiter to use in post-encrypt YML."),
       opt[Seq[String]]("privacy")
