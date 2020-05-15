@@ -293,8 +293,8 @@ root
       }
 
     val result = coupleDataMetrics
-      .map(
-        tupleDataMetric => generateFullMetric(tupleDataMetric._1, tupleDataMetric._2, neededColList)
+      .map(tupleDataMetric =>
+        generateFullMetric(tupleDataMetric._1, tupleDataMetric._2, neededColList)
       )
       .reduce(_ union _)
       .withColumn("domain", lit(domain.name))
