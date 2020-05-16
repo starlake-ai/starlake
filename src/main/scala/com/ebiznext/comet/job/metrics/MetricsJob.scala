@@ -249,7 +249,7 @@ class MetricsJob(
     combinedResult.find(_.isFailure).getOrElse(Success(session))
   }
 
-  private def sinkMetrics(metricsDf: DataFrame, name: String): Try[Unit] = {
+  private def sinkMetrics(metricsDf: DataFrame, table: String): Try[Unit] = {
     if (settings.comet.metrics.active) {
       settings.comet.metrics.index match {
         case Settings.IndexSinkSettings.None =>
@@ -257,7 +257,7 @@ class MetricsJob(
 
         case Settings.IndexSinkSettings.BigQuery(bqDataset) =>
           Try {
-            sinkMetricsToBigQuery(metricsDf, bqDataset)
+            sinkMetricsToBigQuery(metricsDf, bqDataset, table)
           }
 
         case Settings.IndexSinkSettings.Jdbc(jdbcConnection, partitions, batchSize) =>
@@ -278,12 +278,16 @@ class MetricsJob(
     }
   }
 
-  private def sinkMetricsToBigQuery(metricsDf: DataFrame, bqDataset: String): Unit = {
+  private def sinkMetricsToBigQuery(
+    metricsDf: DataFrame,
+    bqDataset: String,
+    bqTable: String
+  ): Unit = {
     if (metricsDf.count() > 0) {
       val config = BigQueryLoadConfig(
         Right(metricsDf),
         outputDataset = bqDataset,
-        outputTable = "metrics",
+        outputTable = bqTable,
         None,
         "parquet",
         "CREATE_IF_NEEDED",
