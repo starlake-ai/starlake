@@ -134,6 +134,8 @@ trait IngestionJob extends SparkJob {
           schema = schema.name
         )
         new IndexJob(config, storageHandler, schemaHandler).run()
+      case Some(IndexSink.ES) if !settings.comet.elasticsearch.active =>
+        logger.warn("Indexing to ES requested but elasticsearch not active in conf file")
       case Some(IndexSink.BQ) =>
         val (createDisposition: String, writeDisposition: String) = Utils.getDBDisposition(
           meta.getWriteMode()
