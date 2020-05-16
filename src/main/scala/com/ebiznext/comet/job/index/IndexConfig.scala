@@ -45,9 +45,7 @@ case class IndexConfig(
     }
   }
 
-  def getIndexName(): String = s"${domain}_$schema"
-
-  def getTypeName(): String = s"${domain}_$schema"
+  def getIndexName(): String = s"${domain.toLowerCase}_${schema.toLowerCase}"
 
   private val pattern = Pattern.compile("\\{(.*)\\|(.*)\\}")
 
