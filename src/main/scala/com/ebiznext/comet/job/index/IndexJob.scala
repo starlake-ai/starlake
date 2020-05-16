@@ -93,7 +93,9 @@ class IndexJob(
       }
     }
 
-    logger.info(s"Registering template ${cliConfig.domain}_${cliConfig.schema} -> $content")
+    logger.info(
+      s"Registering template ${cliConfig.domain.toLowerCase}_${cliConfig.schema.toLowerCase} -> $content"
+    )
     import scala.collection.JavaConverters._
     val esOptions = settings.comet.elasticsearch.options.asScala.toMap
     val host: String = esOptions.getOrElse("es.nodes", "localhost")
@@ -111,16 +113,18 @@ class IndexJob(
       sttp.auth.basic(u, p)
     }
 
+    val templateUri =
+      uri"$protocol://$host:$port/_template/${cliConfig.getIndexName()}"
     val requestDel = authSttp
       .getOrElse(sttp)
-      .delete(uri"$protocol://$host:$port/_template/${cliConfig.domain}_${cliConfig.schema}")
+      .delete(templateUri)
       .contentType("application/json")
     val responseDel = requestDel.send()
 
     val requestPut = authSttp
       .getOrElse(sttp)
       .body(content)
-      .put(uri"$protocol://$host:$port/_template/${cliConfig.domain}_${cliConfig.schema}")
+      .put(templateUri)
       .contentType("application/json")
 
     val responsePut = requestPut.send()
