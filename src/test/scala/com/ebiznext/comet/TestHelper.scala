@@ -241,14 +241,11 @@ trait TestHelper extends AnyFlatSpec with Matchers with BeforeAndAfterAll with S
 
   override protected def beforeAll(): Unit = {
     super.beforeAll()
-    es.start()
-
   }
 
   override protected def afterAll(): Unit = {
     super.afterAll()
     sparkSessionInterest.close()
-    es.stop()
   }
 
   abstract class SpecTrait(

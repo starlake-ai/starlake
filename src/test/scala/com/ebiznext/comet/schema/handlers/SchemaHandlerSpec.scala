@@ -32,6 +32,18 @@ import scala.util.Try
 
 class SchemaHandlerSpec extends TestHelper {
 
+  override protected def beforeAll(): Unit = {
+    super.beforeAll()
+    es.start()
+
+  }
+
+  override protected def afterAll(): Unit = {
+    super.afterAll()
+    es.stop()
+  }
+
+
   new WithSettings() {
     // TODO Helper (to delete)
     "Ingest CSV" should "produce file in accepted" in {
