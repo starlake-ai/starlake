@@ -134,11 +134,12 @@ class IndexJob(
       logger.whenDebugEnabled {
         logger.debug(s"sending ${df.count()} documents to Elasticsearch using $allConf")
       }
-      allConf
+      val writer = allConf
         .foldLeft(df.write)((w, kv) => w.option(kv._1, kv._2))
         .format("org.elasticsearch.spark.sql")
         .mode(SaveMode.Overwrite)
-        .save(cliConfig.getResource())
+      if (settings.comet.isElasticsearchSupported())
+        writer.save(cliConfig.getResource())
       Success(session)
     } else {
       Failure(throw new Exception("Failed to create template"))
