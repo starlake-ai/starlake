@@ -43,7 +43,6 @@ class SchemaHandlerSpec extends TestHelper {
     es.stop()
   }
 
-
   new WithSettings() {
     // TODO Helper (to delete)
     "Ingest CSV" should "produce file in accepted" in {
