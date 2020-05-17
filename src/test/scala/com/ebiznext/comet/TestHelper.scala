@@ -237,7 +237,7 @@ trait TestHelper extends AnyFlatSpec with Matchers with BeforeAndAfterAll with S
 
   lazy val sparkSession = sparkSessionInterest.get
 
-  val es = new EmbeddedElasticsearchServer("/tmp/es")
+  val es = new EmbeddedElasticsearchServer(Files.createTempDirectory(null).toString)
 
   override protected def beforeAll(): Unit = {
     super.beforeAll()
