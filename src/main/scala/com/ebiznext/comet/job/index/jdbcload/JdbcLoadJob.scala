@@ -1,4 +1,4 @@
-package com.ebiznext.comet.job.jdbcload
+package com.ebiznext.comet.job.index.jdbcload
 
 import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.utils.{SparkJob, Utils}

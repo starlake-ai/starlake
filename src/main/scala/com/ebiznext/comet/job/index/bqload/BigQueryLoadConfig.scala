@@ -1,4 +1,4 @@
-package com.ebiznext.comet.job.bqload
+package com.ebiznext.comet.job.index.bqload
 
 import buildinfo.BuildInfo
 import com.ebiznext.comet.utils.CliConfig
