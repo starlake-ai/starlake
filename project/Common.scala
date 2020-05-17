@@ -127,7 +127,7 @@ object Versions {
   val hadoop = "3.2.0"
   val h2 = "1.4.200" // Test only
   val poi = "4.1.2"
-  val scalate = "1.9.5"
+  val scalate = "1.9.6"
 }
 
 object Resolvers {
