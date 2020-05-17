@@ -18,7 +18,7 @@
  *
  */
 
-package com.ebiznext.comet.job.index
+package com.ebiznext.comet.job.index.esload
 
 import java.util.regex.Pattern
 
@@ -28,7 +28,7 @@ import com.ebiznext.comet.utils.CliConfig
 import org.apache.hadoop.fs.Path
 import scopt.OParser
 
-case class IndexConfig(
+case class ESLoadConfig(
   timestamp: Option[String] = None,
   id: Option[String] = None,
   mapping: Option[Path] = None,
@@ -69,10 +69,10 @@ case class IndexConfig(
   }
 }
 
-object IndexConfig extends CliConfig[IndexConfig] {
+object ESLoadConfig extends CliConfig[ESLoadConfig] {
 
-  val parser: OParser[Unit, IndexConfig] = {
-    val builder = OParser.builder[IndexConfig]
+  val parser: OParser[Unit, ESLoadConfig] = {
+    val builder = OParser.builder[ESLoadConfig]
     import builder._
     OParser.sequence(
       programName("comet"),
@@ -115,5 +115,5 @@ object IndexConfig extends CliConfig[IndexConfig] {
     )
   }
 
-  def parse(args: Seq[String]): Option[IndexConfig] = OParser.parse(parser, args, IndexConfig())
+  def parse(args: Seq[String]): Option[ESLoadConfig] = OParser.parse(parser, args, ESLoadConfig())
 }

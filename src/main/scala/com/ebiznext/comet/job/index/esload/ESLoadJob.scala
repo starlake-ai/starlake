@@ -18,7 +18,7 @@
  *
  */
 
-package com.ebiznext.comet.job.index
+package com.ebiznext.comet.job.index.esload
 
 import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.schema.handlers.{SchemaHandler, StorageHandler}
@@ -30,8 +30,8 @@ import org.apache.spark.sql.{SaveMode, SparkSession}
 
 import scala.util.{Failure, Success, Try}
 
-class IndexJob(
-  cliConfig: IndexConfig,
+class ESLoadJob(
+  cliConfig: ESLoadConfig,
   storageHandler: StorageHandler,
   schemaHandler: SchemaHandler
 )(implicit val settings: Settings)
