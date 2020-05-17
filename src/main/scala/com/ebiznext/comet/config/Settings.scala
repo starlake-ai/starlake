@@ -32,8 +32,8 @@ import com.ebiznext.comet.schema.handlers.{
   SimpleLauncher
 }
 import com.ebiznext.comet.schema.model.IndexSink
-import com.ebiznext.comet.utils.{CometJacksonModule, CometObjectMapper}
-import com.fasterxml.jackson.annotation.JsonTypeInfo
+import com.ebiznext.comet.utils.{CometJacksonModule, CometObjectMapper, Version}
+import com.fasterxml.jackson.annotation.{JsonIgnore, JsonTypeInfo}
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize
 import com.typesafe.config.{Config, ConfigValueFactory}
@@ -256,6 +256,19 @@ object Settings extends StrictLogging {
     fileSystem: Option[String],
     internal: Option[Internal]
   ) extends Serializable {
+
+    @JsonIgnore
+    def isElasticsearchSupported(): Boolean = {
+      if (
+        Version(util.Properties.versionNumberString).compareTo(Version("2.12")) >= 0
+        && elasticsearch.active
+      ) {
+        logger.warn("""Elasticsearch inserts won't be effective bedore es-hadoop support scala 2.12
+            |See https://github.com/elastic/elasticsearch-hadoop/pull/1308 and
+            |""".stripMargin)
+        false
+      } else true
+    }
 
     val cacheStorageLevel = internal.map(_.cacheStorageLevel).getOrElse(StorageLevel.MEMORY_ONLY)
 
