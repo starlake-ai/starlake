@@ -23,11 +23,11 @@ package com.ebiznext.comet.workflow
 import better.files.File
 import com.ebiznext.comet.config.{DatasetArea, Settings}
 import com.ebiznext.comet.job.atlas.{AtlasConfig, AtlasJob}
-import com.ebiznext.comet.job.bqload.{BigQueryLoadConfig, BigQueryLoadJob}
-import com.ebiznext.comet.job.index.{IndexConfig, IndexJob}
+import com.ebiznext.comet.job.index.bqload.{BigQueryLoadConfig, BigQueryLoadJob}
+import com.ebiznext.comet.job.index.esload.{ESLoadConfig, ESLoadJob}
 import com.ebiznext.comet.job.infer.{InferSchema, InferSchemaConfig}
 import com.ebiznext.comet.job.ingest._
-import com.ebiznext.comet.job.jdbcload.{JdbcLoadConfig, JdbcLoadJob}
+import com.ebiznext.comet.job.index.jdbcload.{JdbcLoadConfig, JdbcLoadJob}
 import com.ebiznext.comet.job.metrics.{MetricsConfig, MetricsJob}
 import com.ebiznext.comet.job.transform.AutoTask
 import com.ebiznext.comet.schema.handlers.{LaunchHandler, SchemaHandler, StorageHandler}
@@ -332,7 +332,7 @@ class IngestionWorkflow(
     val properties = task.properties
     launchHandler.index(
       this,
-      IndexConfig(
+      ESLoadConfig(
         timestamp = properties.flatMap(_.get("timestamp")),
         id = properties.flatMap(_.get("id")),
         format = "parquet",
@@ -422,8 +422,8 @@ class IngestionWorkflow(
     }
   }
 
-  def index(config: IndexConfig): Try[SparkSession] = {
-    new IndexJob(config, storageHandler, schemaHandler).run()
+  def index(config: ESLoadConfig): Try[SparkSession] = {
+    new ESLoadJob(config, storageHandler, schemaHandler).run()
   }
 
   def bqload(
