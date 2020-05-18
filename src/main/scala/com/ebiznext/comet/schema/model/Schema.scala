@@ -196,7 +196,7 @@ case class Schema(
     tse.apply(template.getOrElse {
       s"""
          |{
-         |  "index_patterns": ["${domainName}_$name", "${domainName}_$name-*"],
+         |  "index_patterns": ["${domainName.toLowerCase}_${name.toLowerCase}", "${domainName.toLowerCase}_${name.toLowerCase}-*"],
          |  "settings": {
          |    "number_of_shards": "1",
          |    "number_of_replicas": "0"
