@@ -1,4 +1,4 @@
-package com.ebiznext.comet.job.bqload
+package com.ebiznext.comet.job.index.bqload
 
 import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.utils.conversion.BigQueryUtils._
