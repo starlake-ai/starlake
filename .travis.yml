@@ -1,3 +1,4 @@
+dist: trusty
 language: scala
 jdk:
   #- oraclejdk8
@@ -11,6 +12,7 @@ scala:
 
 
 script:
+  - jdk_switcher use openjdk8
   - sbt ++$TRAVIS_SCALA_VERSION clean coverage test coverageReport
 
 after_success:
