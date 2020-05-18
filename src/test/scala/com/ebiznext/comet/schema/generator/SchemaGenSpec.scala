@@ -62,7 +62,7 @@ class SchemaGenSpec extends TestHelper {
     }
     "No privacy policies" should "be applied in the post-encrypt step " in {
       domainOpt shouldBe defined
-      val preEncrypt = SchemaGen.genPostEncryptionDomain(domainOpt.get, "µ", Nil)
+      val preEncrypt = SchemaGen.genPostEncryptionDomain(domainOpt.get, Some("µ"), Nil)
       validCount(preEncrypt, "HIDE", 0)
       validCount(preEncrypt, "MD5", 0)
       validCount(preEncrypt, "SHA1", 0)
@@ -79,7 +79,8 @@ class SchemaGenSpec extends TestHelper {
       domainOpt.get.schemas
         .flatMap(_.metadata)
         .count(_.format.contains(Format.POSITION)) shouldBe 1
-      val postEncrypt = SchemaGen.genPostEncryptionDomain(domainOpt.get, "µ", List("HIDE", "SHA1"))
+      val postEncrypt =
+        SchemaGen.genPostEncryptionDomain(domainOpt.get, Some("µ"), List("HIDE", "SHA1"))
       postEncrypt.schemas
         .flatMap(_.metadata)
         .filter(_.format.contains(Format.POSITION)) shouldBe empty
@@ -92,7 +93,7 @@ class SchemaGenSpec extends TestHelper {
       domainOpt.get.schemas
         .flatMap(_.metadata)
         .count(_.format.contains(Format.POSITION)) shouldBe 1
-      val postEncrypt = SchemaGen.genPostEncryptionDomain(domainOpt.get, ",", Nil)
+      val postEncrypt = SchemaGen.genPostEncryptionDomain(domainOpt.get, Some(","), Nil)
       postEncrypt.schemas
         .flatMap(_.metadata)
         .filterNot(_.separator.contains(",")) shouldBe empty

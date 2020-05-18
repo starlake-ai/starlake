@@ -43,7 +43,11 @@ object SchemaGen extends LazyLogging {
     *     - Separator : µ  //TODO perhaps read this from reference.conf
     * @param domain
     */
-  def genPostEncryptionDomain(domain: Domain, delimiter: String, privacy: Seq[String]): Domain = {
+  def genPostEncryptionDomain(
+    domain: Domain,
+    delimiter: Option[String],
+    privacy: Seq[String]
+  ): Domain = {
     val postEncryptSchemas: List[Schema] = domain.schemas.map { schema =>
       val metadata = for {
         metadata <- schema.metadata
@@ -53,9 +57,8 @@ object SchemaGen extends LazyLogging {
           throw new Exception("Not Implemented")
         metadata.copy(
           format = Some(Format.DSV),
-          separator = Some(delimiter),
-          withHeader =
-            Some(false) //TODO set to true, and make sure files are written with a header ?
+          separator = delimiter.orElse(schema.metadata.flatMap(_.separator)).orElse(Some("µ")),
+          withHeader = schema.metadata.flatMap(_.withHeader)
         )
       }
       val attributes = schema.attributes.map { attr =>
