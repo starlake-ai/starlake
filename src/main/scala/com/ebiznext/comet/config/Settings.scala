@@ -263,8 +263,8 @@ object Settings extends StrictLogging {
         Version(util.Properties.versionNumberString).compareTo(Version("2.12")) >= 0
         && elasticsearch.active
       ) {
-        logger.warn("""Elasticsearch inserts won't be effective bedore es-hadoop support scala 2.12
-            |See https://github.com/elastic/elasticsearch-hadoop/pull/1308 and
+        logger.warn("""Elasticsearch inserts won't be effective before es-hadoop support scala 2.12
+            |See https://github.com/elastic/elasticsearch-hadoop/pull/1308
             |""".stripMargin)
         false
       } else true
