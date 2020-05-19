@@ -21,10 +21,10 @@
 package com.ebiznext.comet.schema.handlers
 
 import com.ebiznext.comet.config.Settings
-import com.ebiznext.comet.job.bqload.BigQueryLoadConfig
-import com.ebiznext.comet.job.index.IndexConfig
+import com.ebiznext.comet.job.index.bqload.BigQueryLoadConfig
+import com.ebiznext.comet.job.index.esload.ESLoadConfig
 import com.ebiznext.comet.job.ingest.IngestConfig
-import com.ebiznext.comet.job.jdbcload.JdbcLoadConfig
+import com.ebiznext.comet.job.index.jdbcload.JdbcLoadConfig
 import com.ebiznext.comet.schema.model.{Domain, Schema}
 import com.ebiznext.comet.workflow.IngestionWorkflow
 import com.typesafe.scalalogging.StrictLogging
@@ -75,7 +75,7 @@ trait LaunchHandler {
     *
     * @param config
     */
-  def index(workflow: IngestionWorkflow, config: IndexConfig)(implicit
+  def index(workflow: IngestionWorkflow, config: ESLoadConfig)(implicit
     settings: Settings
   ): Boolean
 
@@ -128,7 +128,7 @@ class SimpleLauncher extends LaunchHandler with StrictLogging {
     *
     * @param config
     */
-  override def index(workflow: IngestionWorkflow, config: IndexConfig)(implicit
+  override def index(workflow: IngestionWorkflow, config: ESLoadConfig)(implicit
     settings: Settings
   ): Boolean = {
     logger.info(s"Launch index: ${config}")
@@ -228,7 +228,7 @@ class AirflowLauncher extends LaunchHandler with StrictLogging {
     *
     * @param config
     */
-  override def index(workflow: IngestionWorkflow, config: IndexConfig)(implicit
+  override def index(workflow: IngestionWorkflow, config: ESLoadConfig)(implicit
     settings: Settings
   ): Boolean = {
     val endpoint = settings.comet.airflow.endpoint

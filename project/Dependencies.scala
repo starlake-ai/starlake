@@ -99,7 +99,8 @@ object Dependencies {
   )
 
   val esHadoop = Seq(
-    "org.elasticsearch" % "elasticsearch-hadoop" % Versions.esHadoop exclude ("com.google.guava", "guava")
+    "org.elasticsearch" % "elasticsearch-hadoop" % Versions.esHadoop exclude ("com.google.guava", "guava"),
+    "pl.allegro.tech" % "embedded-elasticsearch" % "2.10.0" % "test"
   )
 
   val scopt = Seq(
@@ -146,6 +147,6 @@ object Dependencies {
   )
 
   val dependencies =
-  scalate ++ logging ++ typedConfigs ++ betterfiles ++ scalaTest ++ scopt ++ hadoop ++ esHadoop ++
-  sttp ++ gcp ++ azure ++ h2 ++ excelClientApi // ++ atlas
+    scalate ++ logging ++ typedConfigs ++ betterfiles ++ scalaTest ++ scopt ++ hadoop ++ esHadoop ++
+    sttp ++ gcp ++ azure ++ h2 ++ excelClientApi // ++ atlas
 }

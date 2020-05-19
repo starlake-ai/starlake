@@ -23,12 +23,12 @@ package com.ebiznext.comet.job
 import buildinfo.BuildInfo
 import com.ebiznext.comet.config.{DatasetArea, Settings}
 import com.ebiznext.comet.job.atlas.AtlasConfig
-import com.ebiznext.comet.job.bqload.BigQueryLoadConfig
+import com.ebiznext.comet.job.index.bqload.BigQueryLoadConfig
 import com.ebiznext.comet.job.convert.{Parquet2CSV, Parquet2CSVConfig}
-import com.ebiznext.comet.job.index.IndexConfig
+import com.ebiznext.comet.job.index.esload.ESLoadConfig
 import com.ebiznext.comet.job.infer.InferSchemaConfig
 import com.ebiznext.comet.job.ingest.IngestConfig
-import com.ebiznext.comet.job.jdbcload.JdbcLoadConfig
+import com.ebiznext.comet.job.index.jdbcload.JdbcLoadConfig
 import com.ebiznext.comet.job.metrics.MetricsConfig
 import com.ebiznext.comet.schema.handlers.SchemaHandler
 import com.ebiznext.comet.utils.{CometObjectMapper, FileLock}
@@ -62,7 +62,7 @@ object Main extends StrictLogging {
         |comet watch [+/-DOMAIN1,DOMAIN2,...]
         |comet import
         |${IngestConfig.usage()}
-        |${IndexConfig.usage()}
+        |${ESLoadConfig.usage()}
         |${BigQueryLoadConfig.usage()}
         |${InferSchemaConfig.usage()}
         |${MetricsConfig.usage()}
@@ -143,12 +143,12 @@ object Main extends StrictLogging {
 
         }
       case "index" =>
-        IndexConfig.parse(args.drop(1)) match {
+        ESLoadConfig.parse(args.drop(1)) match {
           case Some(config) =>
             // do something
             workflow.index(config)
           case _ =>
-            println(IndexConfig.usage())
+            println(ESLoadConfig.usage())
         }
 
       case "atlas" =>
