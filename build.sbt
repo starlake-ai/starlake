@@ -167,4 +167,5 @@ developers := List(
   Developer(id="hayssams", name="Hayssam Saleh", email="hayssam.saleh@ebiznext.com", url=url("https://www.ebiznext.com"))
 )
 
+
 //logLevel in assembly := Level.Debug
