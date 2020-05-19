@@ -5,9 +5,9 @@ import java.time.Instant
 
 import com.ebiznext.comet.config.Settings.IndexSinkSettings
 import com.ebiznext.comet.config.{DatasetArea, Settings, StorageArea}
-import com.ebiznext.comet.job.bqload.{BigQueryLoadConfig, BigQueryLoadJob}
-import com.ebiznext.comet.job.index.{IndexConfig, IndexJob}
-import com.ebiznext.comet.job.jdbcload.{JdbcLoadConfig, JdbcLoadJob}
+import com.ebiznext.comet.job.index.bqload.{BigQueryLoadConfig, BigQueryLoadJob}
+import com.ebiznext.comet.job.index.esload.{ESLoadConfig, ESLoadJob}
+import com.ebiznext.comet.job.index.jdbcload.{JdbcLoadConfig, JdbcLoadJob}
 import com.ebiznext.comet.job.metrics.MetricsJob
 import com.ebiznext.comet.schema.handlers.{SchemaHandler, StorageHandler}
 import com.ebiznext.comet.schema.model.Rejection.{ColInfo, ColResult}
@@ -126,14 +126,16 @@ trait IngestionJob extends SparkJob {
     meta.getIndexSink() match {
       case Some(IndexSink.ES) if settings.comet.elasticsearch.active =>
         val properties = meta.properties
-        val config = IndexConfig(
+        val config = ESLoadConfig(
           timestamp = properties.flatMap(_.get("timestamp")),
           id = properties.flatMap(_.get("id")),
           format = "parquet",
           domain = domain.name,
           schema = schema.name
         )
-        new IndexJob(config, storageHandler, schemaHandler).run()
+        new ESLoadJob(config, storageHandler, schemaHandler).run()
+      case Some(IndexSink.ES) if !settings.comet.elasticsearch.active =>
+        logger.warn("Indexing to ES requested but elasticsearch not active in conf file")
       case Some(IndexSink.BQ) =>
         val (createDisposition: String, writeDisposition: String) = Utils.getDBDisposition(
           meta.getWriteMode()

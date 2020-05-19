@@ -18,7 +18,7 @@
  *
  */
 
-package com.ebiznext.comet.job.index
+package com.ebiznext.comet.job.index.esload
 
 import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.schema.handlers.{SchemaHandler, StorageHandler}
@@ -30,8 +30,8 @@ import org.apache.spark.sql.{SaveMode, SparkSession}
 
 import scala.util.{Failure, Success, Try}
 
-class IndexJob(
-  cliConfig: IndexConfig,
+class ESLoadJob(
+  cliConfig: ESLoadConfig,
   storageHandler: StorageHandler,
   schemaHandler: SchemaHandler
 )(implicit val settings: Settings)
@@ -93,7 +93,9 @@ class IndexJob(
       }
     }
 
-    logger.info(s"Registering template ${cliConfig.domain}_${cliConfig.schema} -> $content")
+    logger.info(
+      s"Registering template ${cliConfig.domain.toLowerCase}_${cliConfig.schema.toLowerCase} -> $content"
+    )
     import scala.collection.JavaConverters._
     val esOptions = settings.comet.elasticsearch.options.asScala.toMap
     val host: String = esOptions.getOrElse("es.nodes", "localhost")
@@ -111,16 +113,18 @@ class IndexJob(
       sttp.auth.basic(u, p)
     }
 
+    val templateUri =
+      uri"$protocol://$host:$port/_template/${cliConfig.getIndexName()}"
     val requestDel = authSttp
       .getOrElse(sttp)
-      .delete(uri"$protocol://$host:$port/_template/${cliConfig.domain}_${cliConfig.schema}")
+      .delete(templateUri)
       .contentType("application/json")
     val responseDel = requestDel.send()
 
     val requestPut = authSttp
       .getOrElse(sttp)
       .body(content)
-      .put(uri"$protocol://$host:$port/_template/${cliConfig.domain}_${cliConfig.schema}")
+      .put(templateUri)
       .contentType("application/json")
 
     val responsePut = requestPut.send()
@@ -130,11 +134,12 @@ class IndexJob(
       logger.whenDebugEnabled {
         logger.debug(s"sending ${df.count()} documents to Elasticsearch using $allConf")
       }
-      allConf
+      val writer = allConf
         .foldLeft(df.write)((w, kv) => w.option(kv._1, kv._2))
         .format("org.elasticsearch.spark.sql")
         .mode(SaveMode.Overwrite)
-        .save(cliConfig.getResource())
+      if (settings.comet.isElasticsearchSupported())
+        writer.save(cliConfig.getResource())
       Success(session)
     } else {
       Failure(throw new Exception("Failed to create template"))
