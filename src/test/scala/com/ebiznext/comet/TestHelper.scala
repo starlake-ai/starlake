@@ -28,7 +28,11 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 import com.ebiznext.comet.config.{DatasetArea, Settings}
 import com.ebiznext.comet.schema.handlers.{SchemaHandler, SimpleLauncher, StorageHandler}
-import com.ebiznext.comet.utils.{CometObjectMapper, TextSubstitutionEngine}
+import com.ebiznext.comet.utils.{
+  CometObjectMapper,
+  EmbeddedElasticsearchServer,
+  TextSubstitutionEngine
+}
 import com.ebiznext.comet.workflow.IngestionWorkflow
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
@@ -233,9 +237,10 @@ trait TestHelper extends AnyFlatSpec with Matchers with BeforeAndAfterAll with S
 
   lazy val sparkSession = sparkSessionInterest.get
 
+  val es = new EmbeddedElasticsearchServer(Files.createTempDirectory(null).toString)
+
   override protected def beforeAll(): Unit = {
     super.beforeAll()
-
   }
 
   override protected def afterAll(): Unit = {
