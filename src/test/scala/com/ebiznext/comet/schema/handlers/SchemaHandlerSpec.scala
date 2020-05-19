@@ -25,12 +25,25 @@ import java.net.URL
 import com.ebiznext.comet.TestHelper
 import com.ebiznext.comet.config.DatasetArea
 import com.ebiznext.comet.schema.model.{Metadata, Schema}
+import com.softwaremill.sttp.HttpURLConnectionBackend
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.types.StructField
+import com.softwaremill.sttp._
 
 import scala.util.Try
 
 class SchemaHandlerSpec extends TestHelper {
+
+  override protected def beforeAll(): Unit = {
+    super.beforeAll()
+    es.start()
+
+  }
+
+  override protected def afterAll(): Unit = {
+    super.afterAll()
+    es.stop()
+  }
 
   new WithSettings() {
     // TODO Helper (to delete)
@@ -84,6 +97,15 @@ class SchemaHandlerSpec extends TestHelper {
           .except(expectedAccepted.select("firstname"))
           .count() shouldBe 0
 
+        if(settings.comet.isElasticsearchSupported()){
+          implicit val backend = HttpURLConnectionBackend()
+          val countUri = uri"http://127.0.0.1:9200/domain_user/_count"
+          val response = sttp.get(countUri).send()
+          response.code should be <= 299
+          response.code should be >= 200
+          assert(response.body.isRight)
+          response.body.right.toString() contains "\"count\":2"
+        }
       }
     }
 
