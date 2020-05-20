@@ -22,7 +22,7 @@ package com.ebiznext.comet.job.transform
 
 import java.time.LocalDateTime
 
-import com.ebiznext.comet.config.{Settings, StorageArea, UdfRegistration}
+import com.ebiznext.comet.config.{DatasetArea, Settings, StorageArea, UdfRegistration}
 import com.ebiznext.comet.schema.handlers.StorageHandler
 import com.ebiznext.comet.schema.model.AutoTaskDesc
 import com.ebiznext.comet.utils.Formatter._
@@ -68,8 +68,24 @@ class AutoTask(
     }
     views.getOrElse(Map()).foreach {
       case (key, value) =>
-        val fullPath = if (value.startsWith("/")) value else s"${settings.comet.datasets}/$value"
-        val df = session.read.parquet(fullPath)
+        val sepIndex = value.indexOf(":")
+        val (format, path) =
+          if (sepIndex > 0)
+            (value.substring(0, sepIndex), value.substring(sepIndex + 1))
+          else // parquet is the default
+            ("parquet", value)
+        val df = format match {
+          case "parquet" =>
+            val fullPath =
+              if (path.startsWith("/")) path else s"${settings.comet.datasets}/$path"
+            session.read.parquet(fullPath)
+          case "bigquery" =>
+            session.read
+              .format("com.google.cloud.spark.bigquery")
+              .option("table", path)
+              .load()
+              .cache()
+        }
         df.createOrReplaceTempView(key)
     }
 
@@ -82,55 +98,66 @@ class AutoTask(
         session.sql(task.sql)
 
     }
-    val targetPath = task.getTargetPath(defaultArea)
-    val mergePath = s"${targetPath.toString}.merge"
-    val partitionedDF =
-      partitionedDatasetWriter(
-        if (coalesce) dataframe.coalesce(1) else dataframe,
-        task.getPartitions()
-      )
-    partitionedDF
-      .mode(SaveMode.Overwrite)
-      .format(settings.comet.writeFormat)
-      .option("path", mergePath)
-      .save()
 
-    val finalDataset = partitionedDF
-      .mode(task.write.toSaveMode)
-      .format(format.getOrElse(settings.comet.writeFormat))
-      .option("path", targetPath.toString)
+    val taskArea = task.area.getOrElse(defaultArea)
+    taskArea.storageType match {
+      case "bigquery" =>
+        (taskArea.storageType, taskArea.storageValue)
+        dataframe.write
+          .format("com.google.cloud.spark.bigquery")
+          .option("table", taskArea.storageValue)
+          .save()
+      case "parquet" =>
+        val targetPath = task.getTargetPath(defaultArea)
+        val mergePath = s"${targetPath.toString}.merge"
+        val partitionedDF =
+          partitionedDatasetWriter(
+            if (coalesce) dataframe.coalesce(1) else dataframe,
+            task.getPartitions()
+          )
+        partitionedDF
+          .mode(SaveMode.Overwrite)
+          .format(settings.comet.writeFormat)
+          .option("path", mergePath)
+          .save()
 
-    val _ = storageHandler.delete(new Path(mergePath))
-    if (settings.comet.hive) {
-      val tableName = task.dataset
-      val hiveDB = task.getHiveDB(defaultArea)
-      val fullTableName = s"$hiveDB.$tableName"
-      session.sql(s"create database if not exists $hiveDB")
-      session.sql(s"use $hiveDB")
-      session.sql(s"drop table if exists $tableName")
-      finalDataset.saveAsTable(fullTableName)
-      if (settings.comet.analyze) {
-        val allCols = session.table(fullTableName).columns.mkString(",")
-        val analyzeTable =
-          s"ANALYZE TABLE $fullTableName COMPUTE STATISTICS FOR COLUMNS $allCols"
-        if (session.version.substring(0, 3).toDouble >= 2.4)
-          try {
-            session.sql(analyzeTable)
-          } catch {
-            case e: Throwable =>
-              logger.warn(
-                s"Failed to compute statistics for table $fullTableName on columns $allCols"
-              )
-              e.printStackTrace()
+        val finalDataset = partitionedDF
+          .mode(task.write.toSaveMode)
+          .format(format.getOrElse(settings.comet.writeFormat))
+          .option("path", targetPath.toString)
+
+        val _ = storageHandler.delete(new Path(mergePath))
+        if (settings.comet.hive) {
+          val tableName = task.dataset
+          val hiveDB = task.getHiveDB(defaultArea)
+          val fullTableName = s"$hiveDB.$tableName"
+          session.sql(s"create database if not exists $hiveDB")
+          session.sql(s"use $hiveDB")
+          session.sql(s"drop table if exists $tableName")
+          finalDataset.saveAsTable(fullTableName)
+          if (settings.comet.analyze) {
+            val allCols = session.table(fullTableName).columns.mkString(",")
+            val analyzeTable =
+              s"ANALYZE TABLE $fullTableName COMPUTE STATISTICS FOR COLUMNS $allCols"
+            if (session.version.substring(0, 3).toDouble >= 2.4)
+              try {
+                session.sql(analyzeTable)
+              } catch {
+                case e: Throwable =>
+                  logger.warn(
+                    s"Failed to compute statistics for table $fullTableName on columns $allCols"
+                  )
+                  e.printStackTrace()
+              }
           }
-      }
-    } else {
-      finalDataset.save()
-      if (coalesce) {
-        val csvPath = storageHandler.list(targetPath, ".csv", LocalDateTime.MIN).head
-        val finalCsvPath = new Path(targetPath, targetPath.getName() + ".csv")
-        storageHandler.move(csvPath, finalCsvPath)
-      }
+        } else {
+          finalDataset.save()
+          if (coalesce) {
+            val csvPath = storageHandler.list(targetPath, ".csv", LocalDateTime.MIN).head
+            val finalCsvPath = new Path(targetPath, targetPath.getName() + ".csv")
+            storageHandler.move(csvPath, finalCsvPath)
+          }
+        }
     }
     task.postsql.getOrElse(Nil).foreach(session.sql)
     Success(session)
