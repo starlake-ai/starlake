@@ -22,7 +22,7 @@ package com.ebiznext.comet.job.transform
 
 import java.time.LocalDateTime
 
-import com.ebiznext.comet.config.{DatasetArea, Settings, StorageArea, UdfRegistration}
+import com.ebiznext.comet.config.{Settings, StorageArea, UdfRegistration}
 import com.ebiznext.comet.schema.handlers.StorageHandler
 import com.ebiznext.comet.schema.model.AutoTaskDesc
 import com.ebiznext.comet.utils.Formatter._
