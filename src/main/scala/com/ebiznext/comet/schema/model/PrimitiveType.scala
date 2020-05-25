@@ -25,7 +25,7 @@ import java.text.{DecimalFormat, NumberFormat}
 import java.time._
 import java.time.format.DateTimeFormatter
 import java.time.temporal.TemporalAccessor
-import java.util.Locale
+import java.util.{Locale, TimeZone}
 import java.util.regex.Pattern
 
 import com.fasterxml.jackson.core.JsonParser
@@ -191,8 +191,7 @@ object PrimitiveType {
 
     val zoneId = Option(zone) match {
       case Some(z) => ZoneId.of(z)
-//      case None    => ZoneId.systemDefault()
-      case None => ZoneId.of("UTC")
+      case None    => ZoneId.of("UTC")
     }
 
     pattern match {
@@ -208,33 +207,64 @@ object PrimitiveType {
         } match {
           case Success(dateTime: TemporalAccessor) =>
             Try(Instant.from(dateTime)) match {
-              case Success(instant) => instant
+              case Success(instant) =>
+                Try {
+                  ZoneId.from(dateTime)
+                } match {
+                  case Success(zone) =>
+                    val dateTimeRawOffset = TimeZone.getTimeZone(zone.normalized).getRawOffset
+                    val zoneIdRawOffset = TimeZone.getTimeZone(zoneId.normalized).getRawOffset
+
+                    if (zoneId.getId == "UTC" || dateTimeRawOffset == zoneIdRawOffset)
+                      instant
+                    else
+                      throw new IllegalArgumentException(
+                        s"Incompatible timezones found in (pattern zone = $zone, configuration zone = $zoneId)"
+                      )
+                  case Failure(_) =>
+                    if (zoneId.getId == "UTC")
+                      instant
+                    else
+                      throw new IllegalArgumentException(
+                        s"Incompatible timezones found in (pattern zone = UTC, configuration zone = $zoneId)"
+                      )
+                }
+
               case Failure(_) =>
+                // Try to parse it as a date without time and still make it a timestamp.
                 Try {
                   val localDateTime = LocalDateTime.from(dateTime)
                   ZonedDateTime.of(localDateTime, zoneId).toInstant
                 } match {
                   case Success(instant) => instant
-                  case Failure(_)       =>
-                    // Try to parse it as a date without time and still make it a timestamp.
-                    import java.util.Date
-                    println(s"DataTime = $dateTime")
-                    val localDate = LocalDate.from(dateTime)
-                    println(s"localDate = $localDate")
-                    val date =
-                      Date.from(
-                        localDate.atStartOfDay().atZone(zoneId).toInstant
-                      )
-                    println(s"date = $date")
-                    println(s"instant = ${Instant.ofEpochMilli(date.getTime)}")
-                    Instant.ofEpochMilli(date.getTime)
+                  case Failure(_) =>
+                    val date = LocalDate.from(dateTime)
+
+                    val zone = Try {
+                      ZoneId.from(dateTime)
+                    } match {
+                      case Success(z)
+                          if zoneId.getId == "UTC" | z.normalized.getId == zoneId.normalized.getId =>
+                        z
+                      case Success(z) =>
+                        throw new IllegalArgumentException(
+                          s"Incompatible timezones found in (pattern zone = $z, configuration zone = $zoneId)"
+                        )
+                      case Failure(_) => zoneId
+                    }
+                    date.atStartOfDay(zone).toInstant
                 }
             }
           case Failure(_) =>
             // Try to parse it as a date without time and still make it a timestamp.
             // Cloudera 5.X with Hive 1.1 workaround
             import java.text.SimpleDateFormat
+            if (zoneId.getId != "UTC")
+              throw new IllegalArgumentException(
+                s"Explicit zoneId $zoneId not supported for pattern $pattern"
+              )
             val df = new SimpleDateFormat(pattern)
+            df.setTimeZone(TimeZone.getTimeZone("UTC"))
             val date = df.parse(str)
             Instant.ofEpochMilli(date.getTime)
         }
@@ -251,7 +281,6 @@ object PrimitiveType {
         val df = new SimpleDateFormat(pattern)
         val date = df.parse(str)
         new java.sql.Date(date.getTime)
-
       }
     }
 
@@ -265,8 +294,6 @@ object PrimitiveType {
         null
       else {
         val instant = instantFromString(str, timeFormat, zone)
-        println(s"instant = $instant")
-        println(s"Actual result = ${Timestamp.from(instant)}")
         Timestamp.from(instant)
       }
     }
@@ -281,10 +308,7 @@ object PrimitiveType {
 
   val dateFormatters: Map[String, DateTimeFormatter] = Map(
     // ISO_LOCAL_TIME, ISO_OFFSET_TIME and ISO_TIME patterns are specific to time handling, without a date
-    // TODO keep default date set to Epoch ? Remove these patterns ?
-//    "ISO_LOCAL_TIME"       -> ISO_LOCAL_TIME,
-//    "ISO_OFFSET_TIME"      -> ISO_OFFSET_TIME,
-//    "ISO_TIME"             -> ISO_TIME,
+    // We choose not to handle them
     "BASIC_ISO_DATE"       -> BASIC_ISO_DATE,
     "ISO_LOCAL_DATE"       -> ISO_LOCAL_DATE,
     "ISO_OFFSET_DATE"      -> ISO_OFFSET_DATE,
