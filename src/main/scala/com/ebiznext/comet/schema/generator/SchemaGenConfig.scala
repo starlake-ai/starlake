@@ -59,15 +59,15 @@ object SchemaGenConfig extends CliConfig[SchemaGenConfig] {
         .optional()
         .text("CSV delimiter to use in post-encrypt YML."),
       opt[Seq[String]]("privacy")
-        .action((x, c) => c.copy(privacy = x))
+        .action((x, c) => c.copy(privacy = x map (_.toUpperCase)))
         .optional()
-        .text("""What privacy policies should be applied in the pre-encryption phase ? 
-                | All privacy policies are applied by default.""".stripMargin),
+        .text("""What privacy policies should be applied in the pre-encryption phase ?
+            | All privacy policies are applied by default.""".stripMargin),
       opt[Option[String]]("outputPath")
         .action((x, c) => c.copy(outputPath = x))
         .optional()
         .text("""Path for saving the resulting YAML file(s).
-                | COMET domains path is used by default.""".stripMargin)
+            | COMET domains path is used by default.""".stripMargin)
     )
   }
 
