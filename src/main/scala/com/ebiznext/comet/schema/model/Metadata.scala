@@ -102,7 +102,7 @@ case class Metadata(
 
   def getWriteMode(): WriteMode = write.getOrElse(APPEND)
 
-  def getPartitionAttributes(): List[String] = partition.map(_.getAtrributes()).getOrElse(Nil)
+  def getPartitionAttributes(): List[String] = partition.map(_.getAttributes()).getOrElse(Nil)
 
   def getSamplingStrategy(): Double = partition.map(_.getSampling()).getOrElse(0.0)
 

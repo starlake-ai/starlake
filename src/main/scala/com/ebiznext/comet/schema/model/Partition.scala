@@ -35,7 +35,7 @@ case class Partition(
   sampling: Option[Double],
   attributes: Option[List[String]]
 ) {
-  def getAtrributes(): List[String] = attributes.getOrElse(Nil)
+  def getAttributes(): List[String] = attributes.getOrElse(Nil)
 
   def getSampling() = sampling.getOrElse(0.0)
 
