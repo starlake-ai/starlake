@@ -8,26 +8,50 @@ import com.ebiznext.comet.schema.model.{Domain, Format, PrivacyLevel}
 
 class SchemaGenSpec extends TestHelper {
   new WithSettings() {
+
+    SchemaGen.generateSchema(getClass.getResource("/sample/SomeDomainTemplate.xls").getPath)
+    val outputFile = new File(DatasetArea.domains.toString + "/someDomain.yml")
+    val result: Domain = YamlSerializer.mapper.readValue(outputFile, classOf[Domain])
+
     "Parsing a sample xlsx file" should "generate a yml file" in {
-      SchemaGen.generateSchema(getClass().getResource("/sample/SomeDomainTemplate.xls").getPath)
-      val outputFile = new File(DatasetArea.domains.toString + "/someDomain.yml")
       outputFile.exists() shouldBe true
-      val result = YamlSerializer.mapper.readValue(outputFile, classOf[Domain])
       result.name shouldBe "someDomain"
       result.schemas.size shouldBe 2
+    }
+
+    "All configured schemas" should "have all declared attributes correctly set" in {
       val schema1 = result.schemas.filter(_.name == "SCHEMA1").head
       schema1.metadata.flatMap(_.format) shouldBe Some(Format.POSITION)
+      schema1.metadata.flatMap(_.encoding) shouldBe Some("UTF-8")
       schema1.attributes.size shouldBe 19
       schema1.merge.flatMap(_.timestamp) shouldBe Some("ATTRIBUTE_1")
       schema1.merge.map(_.key) shouldBe Some(List("ID1", "ID2"))
-      schema1.metadata.flatMap(_.encoding) shouldBe Some("UTF-8")
+
+      val s1MaybePartitions = schema1.metadata.flatMap(_.partition)
+      s1MaybePartitions
+        .flatMap(_.attributes)
+        .get
+        .sorted shouldEqual List("comet_day", "comet_hour", "comet_month", "comet_year")
+      s1MaybePartitions
+        .flatMap(_.sampling)
+        .get shouldEqual 10.0
+
       val schema2 = result.schemas.filter(_.name == "SCHEMA2").head
       schema2.metadata.flatMap(_.format) shouldBe Some(Format.DSV)
       schema2.metadata.flatMap(_.encoding) shouldBe Some("ISO-8859-1")
       schema2.attributes.size shouldBe 19
+
+      val s2MaybePartitions = schema2.metadata.flatMap(_.partition)
+      s2MaybePartitions
+        .flatMap(_.attributes)
+        .get
+        .sorted shouldEqual List("RENAME_ATTRIBUTE_8", "RENAME_ATTRIBUTE_9")
+      s2MaybePartitions
+        .flatMap(_.sampling)
+        .get shouldEqual 0.0
     }
 
-    val reader = new XlsReader(getClass().getResource("/sample/SomeDomainTemplate.xls").getPath)
+    val reader = new XlsReader(getClass.getResource("/sample/SomeDomainTemplate.xls").getPath)
     val domainOpt = reader.getDomain()
 
     "a preEncryption domain" should "have only string types" in {
