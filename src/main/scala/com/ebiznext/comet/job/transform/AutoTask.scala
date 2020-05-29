@@ -26,9 +26,9 @@ import com.ebiznext.comet.config.{Settings, StorageArea, UdfRegistration}
 import com.ebiznext.comet.schema.handlers.StorageHandler
 import com.ebiznext.comet.schema.model.AutoTaskDesc
 import com.ebiznext.comet.utils.Formatter._
-import com.ebiznext.comet.utils.SparkJob
+import com.ebiznext.comet.utils.{SparkJob, SparkJobResult}
 import org.apache.hadoop.fs.Path
-import org.apache.spark.sql.{SaveMode, SparkSession}
+import org.apache.spark.sql.SaveMode
 
 import scala.language.reflectiveCalls
 import scala.util.{Success, Try}
@@ -45,7 +45,7 @@ import scala.util.{Success, Try}
   */
 class AutoTask(
   override val name: String,
-  defaultArea: StorageArea,
+  defaultArea: Option[StorageArea],
   format: Option[String],
   coalesce: Boolean,
   udf: Option[String],
@@ -56,7 +56,7 @@ class AutoTask(
 )(implicit val settings: Settings)
     extends SparkJob {
 
-  def run(): Try[SparkSession] = {
+  def run(): Try[SparkJobResult] = {
     udf.foreach { udf =>
       val udfInstance: UdfRegistration =
         Class
@@ -96,40 +96,31 @@ class AutoTask(
       case _ =>
         task.presql.getOrElse(Nil).foreach(session.sql)
         session.sql(task.sql)
-
     }
+    val targetPath = task.getTargetPath(defaultArea)
+    targetPath.map { targetPath =>
+      val mergePath = s"${targetPath.toString}.merge"
+      val partitionedDF =
+        partitionedDatasetWriter(
+          if (coalesce) dataframe.coalesce(1) else dataframe,
+          task.getPartitions()
+        )
+      partitionedDF
+        .mode(SaveMode.Overwrite)
+        .format(settings.comet.writeFormat)
+        .option("path", mergePath)
+        .save()
 
-    val taskArea = task.area.getOrElse(defaultArea)
-    taskArea.storageType match {
-      case "bigquery" =>
-        (taskArea.storageType, taskArea.storageValue)
-        dataframe.write
-          .format("com.google.cloud.spark.bigquery")
-          .option("table", taskArea.storageValue)
-          .save()
-      case "parquet" =>
-        val targetPath = task.getTargetPath(defaultArea)
-        val mergePath = s"${targetPath.toString}.merge"
-        val partitionedDF =
-          partitionedDatasetWriter(
-            if (coalesce) dataframe.coalesce(1) else dataframe,
-            task.getPartitions()
-          )
-        partitionedDF
-          .mode(SaveMode.Overwrite)
-          .format(settings.comet.writeFormat)
-          .option("path", mergePath)
-          .save()
+      val finalDataset = partitionedDF
+        .mode(task.write.toSaveMode)
+        .format(format.getOrElse(settings.comet.writeFormat))
+        .option("path", targetPath.toString)
 
-        val finalDataset = partitionedDF
-          .mode(task.write.toSaveMode)
-          .format(format.getOrElse(settings.comet.writeFormat))
-          .option("path", targetPath.toString)
-
-        val _ = storageHandler.delete(new Path(mergePath))
-        if (settings.comet.hive) {
-          val tableName = task.dataset
-          val hiveDB = task.getHiveDB(defaultArea)
+      val _ = storageHandler.delete(new Path(mergePath))
+      if (settings.comet.hive) {
+        val tableName = task.dataset
+        val hiveDB = task.getHiveDB(defaultArea)
+        hiveDB.map { hiveDB =>
           val fullTableName = s"$hiveDB.$tableName"
           session.sql(s"create database if not exists $hiveDB")
           session.sql(s"use $hiveDB")
@@ -150,16 +141,18 @@ class AutoTask(
                   e.printStackTrace()
               }
           }
-        } else {
-          finalDataset.save()
-          if (coalesce) {
-            val csvPath = storageHandler.list(targetPath, ".csv", LocalDateTime.MIN).head
-            val finalCsvPath = new Path(targetPath, targetPath.getName() + ".csv")
-            storageHandler.move(csvPath, finalCsvPath)
-          }
         }
+      } else {
+        finalDataset.save()
+        if (coalesce) {
+          val csvPath = storageHandler.list(targetPath, ".csv", LocalDateTime.MIN).head
+          val finalCsvPath = new Path(targetPath, targetPath.getName() + ".csv")
+          storageHandler.move(csvPath, finalCsvPath)
+        }
+      }
     }
+
     task.postsql.getOrElse(Nil).foreach(session.sql)
-    Success(session)
+    Success(SparkJobResult(session, Some(dataframe)))
   }
 }
