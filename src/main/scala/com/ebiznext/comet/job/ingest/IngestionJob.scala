@@ -378,7 +378,7 @@ trait IngestionJob extends SparkJob {
         // However, we keep the merged DF schema so we don't lose any metadata from reloading the final parquet (especially the nullables)
         val df = session.createDataFrame(
           session.read.parquet(targetPath.toString).rdd,
-          finalDataset.schema
+          dataset.schema
         )
         storageHandler.delete(new Path(mergePath))
         logger.info(s"deleted merge file $mergePath")
