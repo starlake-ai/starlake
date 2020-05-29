@@ -52,16 +52,17 @@ case class AutoTaskDesc(
   @JsonIgnore
   def getIndexSink(): Option[IndexSink] = index
 
-  def getTargetPath(defaultArea: StorageArea)(implicit settings: Settings): Path = {
-    val targetArea = area.getOrElse(defaultArea)
-    new Path(DatasetArea.path(domain, targetArea.value), dataset)
+  def getTargetPath(defaultArea: Option[StorageArea])(implicit settings: Settings): Option[Path] = {
+    area.orElse(defaultArea).map { targetArea =>
+      new Path(DatasetArea.path(domain, targetArea.value), dataset)
+    }
   }
 
-  def getHiveDB(defaultArea: StorageArea): String = {
-    val targetArea = area.getOrElse(defaultArea)
-    StorageArea.area(domain, targetArea)
+  def getHiveDB(defaultArea: Option[StorageArea]): Option[String] = {
+    area.orElse(defaultArea).map { targetArea =>
+      StorageArea.area(domain, targetArea)
+    }
   }
-
 }
 
 /**
@@ -78,5 +79,5 @@ case class AutoJobDesc(
   udf: Option[String] = None,
   views: Option[Map[String, String]] = None
 ) {
-  def getArea() = area.getOrElse(StorageArea.business)
+  def getArea(): StorageArea = area.getOrElse(StorageArea.business)
 }
