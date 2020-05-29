@@ -3,12 +3,12 @@ package com.ebiznext.comet.job.index.bqload
 import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.utils.conversion.BigQueryUtils._
 import com.ebiznext.comet.utils.conversion.syntax._
-import com.ebiznext.comet.utils.{SparkJob, Utils}
+import com.ebiznext.comet.utils.{SparkJob, SparkJobResult, Utils}
 import com.google.cloud.bigquery.testing.RemoteBigQueryHelper
 import com.google.cloud.bigquery.{Schema => BQSchema, _}
 import com.google.cloud.hadoop.io.bigquery.BigQueryConfiguration
 import com.google.cloud.hadoop.io.bigquery.output.BigQueryTimePartitioning
-import org.apache.spark.sql.{DataFrame, SaveMode, SparkSession}
+import org.apache.spark.sql.{DataFrame, SaveMode}
 
 import scala.util.Try
 
@@ -91,7 +91,7 @@ class BigQueryLoadJob(
     }
   }
 
-  def runBQSparkConnector(): Try[SparkSession] = {
+  def runBQSparkConnector(): Try[SparkJobResult] = {
     val conf = session.sparkContext.hadoopConfiguration
     logger.info(s"BigQuery Config $cliConfig")
 
@@ -171,7 +171,7 @@ class BigQueryLoadJob(
       logger.info(
         s"BigQuery Saved to ${table.getTableId} now contains ${stdTableDefinitionAfter.getNumRows} rows"
       )
-      session
+      SparkJobResult(session)
     }
   }
 
@@ -180,7 +180,7 @@ class BigQueryLoadJob(
     *
     * @return : Spark Session used for the job
     */
-  override def run(): Try[SparkSession] = {
+  override def run(): Try[SparkJobResult] = {
     val res = runBQSparkConnector()
     Utils.logFailure(res, logger)
   }
