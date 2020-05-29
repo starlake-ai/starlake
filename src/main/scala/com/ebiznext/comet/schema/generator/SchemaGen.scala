@@ -1,5 +1,7 @@
 package com.ebiznext.comet.schema.generator
 
+import java.util.regex.Pattern
+
 import com.ebiznext.comet.config.{DatasetArea, Settings}
 import com.ebiznext.comet.schema.model._
 import com.typesafe.config.ConfigFactory
@@ -40,7 +42,7 @@ object SchemaGen extends LazyLogging {
     * build post encryption Domain => for each Position schema update its Metadata as follows
     *     - Format : DSV
     *     - With Header : False
-    *     - Separator : µ  //TODO perhaps read this from reference.conf
+    *     - Separator : µ
     * @param domain
     */
   def genPostEncryptionDomain(
@@ -71,7 +73,11 @@ object SchemaGen extends LazyLogging {
         else
           attr
       }
-      schema.copy(metadata = metadata, attributes = attributes)
+      schema.copy(
+        metadata = metadata,
+        attributes = attributes,
+        pattern = Pattern.compile(s"${schema.name}.csv")
+      )
     }
     val postEncryptDomain = domain.copy(schemas = postEncryptSchemas)
     postEncryptDomain
