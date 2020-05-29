@@ -51,11 +51,16 @@ class BigQueryLoadJob(
       val tableDefinitionBuilder =
         maybeSchema match {
           case Some(schema) =>
+            // Generating schema from YML to get the descriptions in BQ
             StandardTableDefinition.of(schema).toBuilder
           case None =>
+            // We would have loved to let BQ do the whole job (StandardTableDefinition.newBuilder())
+            // But however seems like it does not work when there is an output partition
             cliConfig.outputPartition match {
               case Some(_) => StandardTableDefinition.of(df.to[BQSchema]).toBuilder
-              case None    => StandardTableDefinition.newBuilder()
+              case None    =>
+                // In case of complex types, our inferred schema does not work, BQ introduces a list subfield, let him do the dirty job
+                StandardTableDefinition.newBuilder()
             }
         }
 
