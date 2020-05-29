@@ -2,17 +2,18 @@ package com.ebiznext.comet.job.metrics
 
 import com.ebiznext.comet.config.{DatasetArea, Settings}
 import com.ebiznext.comet.job.index.bqload.{BigQueryLoadConfig, BigQueryLoadJob}
-import com.ebiznext.comet.job.ingest.MetricRecord
 import com.ebiznext.comet.job.index.jdbcload.JdbcLoadConfig
+import com.ebiznext.comet.job.ingest.MetricRecord
 import com.ebiznext.comet.job.metrics.Metrics.{ContinuousMetric, DiscreteMetric, MetricsDatasets}
 import com.ebiznext.comet.schema.handlers.{SchemaHandler, StorageHandler}
 import com.ebiznext.comet.schema.model.{Domain, Schema, Stage}
-import com.ebiznext.comet.utils.{FileLock, SparkJob, Utils}
+import com.ebiznext.comet.utils.{FileLock, SparkJob, SparkJobResult, Utils}
 import com.google.cloud.bigquery.JobInfo.WriteDisposition
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql._
 import org.apache.spark.sql.execution.streaming.FileStreamSource.Timestamp
 import org.apache.spark.sql.functions.{col, lit}
+
 import scala.util.{Success, Try}
 
 /** To record statistics with other information during ingestion.
@@ -187,13 +188,13 @@ class MetricsJob(
     *
     * @return : Spark Session used for the job
     */
-  override def run(): Try[SparkSession] = {
+  override def run(): Try[SparkJobResult] = {
     val datasetPath = new Path(DatasetArea.accepted(domain.name), schema.name)
     val dataUse: DataFrame = session.read.parquet(datasetPath.toString)
     run(dataUse, storageHandler.lastModified(datasetPath))
   }
 
-  def run(dataUse: DataFrame, timestamp: Timestamp): Try[SparkSession] = {
+  def run(dataUse: DataFrame, timestamp: Timestamp): Try[SparkJobResult] = {
     val discAttrs: List[String] = schema.discreteAttrs(schemaHandler).map(_.getFinalName())
     val continAttrs: List[String] = schema.continuousAttrs(schemaHandler).map(_.getFinalName())
     logger.info("Discrete Attributes -> " + discAttrs.mkString(","))
@@ -239,14 +240,14 @@ class MetricsJob(
               _ <- metricsResult
               _ <- metricsSinkResult
             } yield {
-              session
+              SparkJobResult(session)
             }
 
           case None =>
-            Success(session)
+            Success(SparkJobResult(session))
         }
     }
-    combinedResult.find(_.isFailure).getOrElse(Success(session))
+    combinedResult.find(_.isFailure).getOrElse(Success(SparkJobResult(session)))
   }
 
   private def sinkMetrics(metricsDf: DataFrame, table: String): Try[Unit] = {
