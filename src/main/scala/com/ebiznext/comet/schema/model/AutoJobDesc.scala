@@ -52,6 +52,12 @@ case class AutoTaskDesc(
   @JsonIgnore
   def getIndexSink(): Option[IndexSink] = index
 
+  /**
+    * Return a Path only if a storage area s defined
+    * @param defaultArea
+    * @param settings
+    * @return
+    */
   def getTargetPath(defaultArea: Option[StorageArea])(implicit settings: Settings): Option[Path] = {
     area.orElse(defaultArea).map { targetArea =>
       new Path(DatasetArea.path(domain, targetArea.value), dataset)
