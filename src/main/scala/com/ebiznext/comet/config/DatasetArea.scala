@@ -23,7 +23,6 @@ package com.ebiznext.comet.config
 import java.util.Locale
 
 import com.ebiznext.comet.schema.handlers.StorageHandler
-import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.core.{JsonGenerator, JsonParser}
 import com.fasterxml.jackson.databind.annotation.{JsonDeserialize, JsonSerialize}
 import com.fasterxml.jackson.databind.{
@@ -250,22 +249,4 @@ final class StorageAreaDeserializer extends JsonDeserializer[StorageArea] {
 sealed abstract class StorageArea {
   def value: String
   override def toString: String = value
-
-  @JsonIgnore
-  val storageValue: String = {
-    val index = value.indexOf(':')
-    if (index > 0)
-      value.substring(index + 1)
-    else
-      value
-  }
-
-  @JsonIgnore
-  val storageType: String = {
-    val index = value.indexOf(':')
-    if (index > 0)
-      value.substring(0, index)
-    else
-      "parquet"
-  }
 }
