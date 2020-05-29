@@ -373,10 +373,16 @@ trait IngestionJob extends SparkJob {
       } else {
         finalTargetDatasetWriter.save()
       }
-      storageHandler.delete(new Path(mergePath))
       if (merge && area != StorageArea.rejected) {
+        // Here we read the df from the targetPath and not the merged one since that on is gonna be removed
+        // However, we keep the merged DF schema so we don't lose any metadata from reloading the final parquet (especially the nullables)
+        val df = session.createDataFrame(
+          session.read.parquet(targetPath.toString).rdd,
+          finalDataset.schema
+        )
+        storageHandler.delete(new Path(mergePath))
         logger.info(s"deleted merge file $mergePath")
-        session.read.parquet(targetPath.toString)
+        df
       } else
         finalDataset
     } else {
