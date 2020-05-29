@@ -24,7 +24,8 @@ import java.time.LocalDateTime
 
 import com.ebiznext.comet.config.{Settings, StorageArea, UdfRegistration}
 import com.ebiznext.comet.schema.handlers.StorageHandler
-import com.ebiznext.comet.schema.model.AutoTaskDesc
+import com.ebiznext.comet.schema.model.IndexSink._
+import com.ebiznext.comet.schema.model.{AutoTaskDesc, IndexSink}
 import com.ebiznext.comet.utils.Formatter._
 import com.ebiznext.comet.utils.{SparkJob, SparkJobResult}
 import org.apache.hadoop.fs.Path
@@ -74,17 +75,20 @@ class AutoTask(
             (value.substring(0, sepIndex), value.substring(sepIndex + 1))
           else // parquet is the default
             ("parquet", value)
-        val df = format match {
-          case "parquet" =>
+
+        val df = IndexSink.fromString(format) match {
+          case FS =>
             val fullPath =
               if (path.startsWith("/")) path else s"${settings.comet.datasets}/$path"
             session.read.parquet(fullPath)
-          case "bigquery" =>
+          case BQ =>
             session.read
               .format("com.google.cloud.spark.bigquery")
               .option("table", path)
               .load()
               .cache()
+          case _ =>
+            ???
         }
         df.createOrReplaceTempView(key)
     }
@@ -98,6 +102,7 @@ class AutoTask(
         session.sql(task.sql)
     }
     val targetPath = task.getTargetPath(defaultArea)
+    // Target Path exist only if a storage area has been defined at task or job level
     targetPath.map { targetPath =>
       val mergePath = s"${targetPath.toString}.merge"
       val partitionedDF =
@@ -153,6 +158,7 @@ class AutoTask(
     }
 
     task.postsql.getOrElse(Nil).foreach(session.sql)
+    // Lets retturn the Dataframe soo that it can be piped to another sink
     Success(SparkJobResult(session, Some(dataframe)))
   }
 }
