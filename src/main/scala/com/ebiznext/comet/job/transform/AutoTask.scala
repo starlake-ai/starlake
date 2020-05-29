@@ -72,11 +72,11 @@ class AutoTask(
         val sepIndex = value.indexOf(":")
         val (format, path) =
           if (sepIndex > 0)
-            (value.substring(0, sepIndex), value.substring(sepIndex + 1))
+            (IndexSink.fromString(value.substring(0, sepIndex)), value.substring(sepIndex + 1))
           else // parquet is the default
-            ("parquet", value)
+            (IndexSink.FS, value)
 
-        val df = IndexSink.fromString(format) match {
+        val df = format match {
           case FS =>
             val fullPath =
               if (path.startsWith("/")) path else s"${settings.comet.datasets}/$path"
