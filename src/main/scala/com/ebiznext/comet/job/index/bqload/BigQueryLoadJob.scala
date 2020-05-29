@@ -3,12 +3,12 @@ package com.ebiznext.comet.job.index.bqload
 import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.utils.conversion.BigQueryUtils._
 import com.ebiznext.comet.utils.conversion.syntax._
-import com.ebiznext.comet.utils.{SparkJob, SparkJobResult, Utils}
+import com.ebiznext.comet.utils.{SparkJob, Utils}
 import com.google.cloud.bigquery.testing.RemoteBigQueryHelper
 import com.google.cloud.bigquery.{Schema => BQSchema, _}
 import com.google.cloud.hadoop.io.bigquery.BigQueryConfiguration
 import com.google.cloud.hadoop.io.bigquery.output.BigQueryTimePartitioning
-import org.apache.spark.sql.{DataFrame, SaveMode}
+import org.apache.spark.sql.{DataFrame, SaveMode, SparkSession}
 
 import scala.util.Try
 
@@ -51,12 +51,16 @@ class BigQueryLoadJob(
       val tableDefinitionBuilder =
         maybeSchema match {
           case Some(schema) =>
-            // We have the YML Schema let's infer the BQ Schema with the description
+            // Generating schema from YML to get the descriptions in BQ
             StandardTableDefinition.of(schema).toBuilder
           case None =>
+            // We would have loved to let BQ do the whole job (StandardTableDefinition.newBuilder())
+            // But however seems like it does not work when there is an output partition
             cliConfig.outputPartition match {
               case Some(_) => StandardTableDefinition.of(df.to[BQSchema]).toBuilder
-              case None    => StandardTableDefinition.newBuilder()
+              case None    =>
+                // In case of complex types, our inferred schema does not work, BQ introduces a list subfield, let him do the dirty job
+                StandardTableDefinition.newBuilder()
             }
         }
 
@@ -87,7 +91,7 @@ class BigQueryLoadJob(
     }
   }
 
-  def runBQSparkConnector(): Try[SparkJobResult] = {
+  def runBQSparkConnector(): Try[SparkSession] = {
     val conf = session.sparkContext.hadoopConfiguration
     logger.info(s"BigQuery Config $cliConfig")
 
@@ -167,7 +171,7 @@ class BigQueryLoadJob(
       logger.info(
         s"BigQuery Saved to ${table.getTableId} now contains ${stdTableDefinitionAfter.getNumRows} rows"
       )
-      SparkJobResult(session)
+      session
     }
   }
 
@@ -176,7 +180,7 @@ class BigQueryLoadJob(
     *
     * @return : Spark Session used for the job
     */
-  override def run(): Try[SparkJobResult] = {
+  override def run(): Try[SparkSession] = {
     val res = runBQSparkConnector()
     Utils.logFailure(res, logger)
   }

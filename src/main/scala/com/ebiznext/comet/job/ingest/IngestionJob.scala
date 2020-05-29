@@ -103,12 +103,12 @@ trait IngestionJob extends SparkJob {
     val writeMode = getWriteMode()
     val acceptedPath = new Path(DatasetArea.accepted(domain.name), schema.name)
     val mergedDF = schema.merge.map { mergeOptions =>
-        if (storageHandler.exists(new Path(acceptedPath, "_SUCCESS"))) {
-          val existingDF = session.read.parquet(acceptedPath.toString)
-          merge(acceptedDF, existingDF, mergeOptions)
-        } else
-          acceptedDF
-      } getOrElse acceptedDF
+      if (storageHandler.exists(new Path(acceptedPath, "_SUCCESS"))) {
+        val existingDF = session.read.parquet(acceptedPath.toString)
+        merge(acceptedDF, existingDF, mergeOptions)
+      } else
+        acceptedDF
+    } getOrElse acceptedDF
 
     val savedDataset =
       saveRows(mergedDF, acceptedPath, writeMode, StorageArea.accepted, schema.merge.isDefined)
@@ -229,13 +229,13 @@ trait IngestionJob extends SparkJob {
         .select(partitionedInputDF.columns.map((col(_))): _*)
 
     val toDeleteDF = merge.timestamp.map { timestamp =>
-        val w = Window.partitionBy(merge.key.head, merge.key.tail: _*).orderBy(col(timestamp).desc)
-        import org.apache.spark.sql.functions.row_number
-        commonDF
-          .withColumn("rownum", row_number.over(w))
-          .where(col("rownum") =!= 1)
-          .drop("rownum")
-      } getOrElse commonDF
+      val w = Window.partitionBy(merge.key.head, merge.key.tail: _*).orderBy(col(timestamp).desc)
+      import org.apache.spark.sql.functions.row_number
+      commonDF
+        .withColumn("rownum", row_number.over(w))
+        .where(col("rownum") =!= 1)
+        .drop("rownum")
+    } getOrElse commonDF
 
     val updatesDF = merge.delete
       .map(condition => partitionedInputDF.filter(s"not ($condition)"))
@@ -296,9 +296,7 @@ trait IngestionJob extends SparkJob {
           val minFraction =
             if (fraction * count >= 1) // Make sure we get at least on item in teh dataset
               fraction
-            else if (
-              count > 0
-            ) // We make sure we get at least 1 item which is 2 because of double imprecision for huge numbers.
+            else if (count > 0) // We make sure we get at least 1 item which is 2 because of double imprecision for huge numbers.
               2 / count
             else
               0
@@ -319,11 +317,9 @@ trait IngestionJob extends SparkJob {
 
       // No need to apply partition on rejected dF
       val partitionedDFWriter =
-        if (
-          area == StorageArea.rejected && !metadata
-            .getPartitionAttributes()
-            .forall(Metadata.CometPartitionColumns.contains(_))
-        )
+        if (area == StorageArea.rejected && !metadata
+              .getPartitionAttributes()
+              .forall(Metadata.CometPartitionColumns.contains(_)))
           partitionedDatasetWriter(dataset.coalesce(nbPartitions), Nil)
         else
           partitionedDatasetWriter(
@@ -377,10 +373,18 @@ trait IngestionJob extends SparkJob {
       } else {
         finalTargetDatasetWriter.save()
       }
-      storageHandler.delete(new Path(mergePath))
-      if (merge && area != StorageArea.rejected)
+      if (merge && area != StorageArea.rejected) {
+        // Here we read the df from the targetPath and not the merged one since that on is gonna be removed
+        // However, we keep the merged DF schema so we don't lose any metadata from reloading the final parquet (especially the nullables)
+        val df = session.createDataFrame(
+          session.read.parquet(targetPath.toString).rdd,
+          dataset.schema
+        )
+        storageHandler.delete(new Path(mergePath))
         logger.info(s"deleted merge file $mergePath")
-      finalDataset
+        df
+      } else
+        finalDataset
     } else {
       logger.warn("Empty dataset with no columns won't be saved")
       session.emptyDataFrame
