@@ -85,5 +85,24 @@ class Parquet2CSVSpec extends TestHelper {
       csvFile.delete()
       rootDir.delete()
     }
+
+    "All config" should "nbe known and take  into account" in {
+      val rendered = Parquet2CSVConfig.usage()
+      val expected =
+        """
+        |Usage: comet [options]
+        |
+        |example => --input_dir /tmp/datasets/accepted/ --output_dir /tmp/datasets/csv/ --domain sales --schema orders --option header=true  --option separator=,  --partitions 1 --write_mode overwrite
+        |  --input_dir <value>   Full Path to input directory
+        |  --output_dir <value>  Full Path to output directory, input_dir is used if not present
+        |  --domain <value>      Domain Name
+        |  --schema <value>      Schema Name
+        |  --delete_source       delete source parquet file ?
+        |  --write_mode <value>  One of Set(OVERWRITE, APPEND, ERROR_IF_EXISTS, IGNORE)
+        |  --option <value>      option to use (sep, delimiter, quote, quoteAll, escape, header ...)
+        |  --partitions <value>  How many output partitions
+        |""".stripMargin
+      rendered.substring(rendered.indexOf("Usage:")) == expected
+    }
   }
 }
