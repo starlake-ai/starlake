@@ -67,6 +67,13 @@ class AutoTask(
           .asInstanceOf[UdfRegistration]
       udfInstance.register(session)
     }
+    task.properties.foreach { properties =>
+      properties.map {
+        case (k, v) if k.startsWith("spark.") =>
+          session.conf.set(k.substring("spark.".length), v)
+        case _ => // do nothing
+      }
+    }
     views.getOrElse(Map()).foreach {
       case (key, value) =>
         val sepIndex = value.indexOf(":")
@@ -93,13 +100,6 @@ class AutoTask(
         df.createOrReplaceTempView(key)
     }
 
-    task.properties.foreach { properties =>
-      properties.map {
-        case (k, v) if k.startsWith("spark.") =>
-          session.conf.set(k.substring("spark.".length), v)
-        case _ => // do nothing
-      }
-    }
     val dataframe = sqlParameters match {
       case Some(mapParams) =>
         task.presql.getOrElse(Nil).foreach(req => session.sql(req.richFormat(mapParams)))
