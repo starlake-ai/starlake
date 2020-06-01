@@ -26,7 +26,7 @@ object MetricsConfig extends CliConfig[MetricsConfig] {
       opt[String]("stage")
         .action((x, c) => c.copy(stage = Some(Stage.fromString(x))))
         .optional()
-        .text("Stage (UNIT or GLOBAL")
+        .text("Stage (UNIT or GLOBAL)")
     )
   }
 
