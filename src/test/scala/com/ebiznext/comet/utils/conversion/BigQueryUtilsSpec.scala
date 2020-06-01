@@ -15,7 +15,7 @@ class BigQueryUtilsSpec extends TestHelper {
     val session: SparkSession = sparkEnv.session
     import session.implicits._
 
-    "Exceptions" should "be returned as string" in {
+    "Spark Types" should "be converted to corresponding BQ Types" in {
       val res: BQSchema = List(
         (
           1,
