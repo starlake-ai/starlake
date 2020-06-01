@@ -57,7 +57,7 @@ class JsonIngestionUtilSpec extends TestHelper {
         )
         JsonIngestionUtil.compareTypes(Nil, schemaType, datasetType) should be('empty)
       }
-      "field is in the message but not in the schema" should "produce an error" in {
+      "field at the beginning of the message but not in the schema" should "produce an error" in {
         val datasetType = (
           "root",
           StructType(
@@ -86,7 +86,7 @@ class JsonIngestionUtilSpec extends TestHelper {
         val errs = JsonIngestionUtil.compareTypes(Nil, schemaType, datasetType)
         errs.length should be > 0
       }
-      "field is in the message but not in the schema" should "produce an error" in {
+      "field at the end of the message but not in the schema" should "produce an error" in {
         val datasetType = (
           "root",
           StructType(
