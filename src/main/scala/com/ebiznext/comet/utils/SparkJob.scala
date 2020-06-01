@@ -68,7 +68,7 @@ trait SparkJob extends StrictLogging {
     partition: List[String]
   ): DataFrameWriter[Row] = {
     partition match {
-      case Nil                                                          => dataset.write
+      case Nil => dataset.write
       case cols if cols.forall(Metadata.CometPartitionColumns.contains) =>
         val strippedCols = cols.map(_.substring("comet_".length))
         val partitionedDF = buildPartitionedDF(dataset, cols)
