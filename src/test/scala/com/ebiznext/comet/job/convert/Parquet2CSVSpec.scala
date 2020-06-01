@@ -86,7 +86,7 @@ class Parquet2CSVSpec extends TestHelper {
       rootDir.delete()
     }
 
-    "All config" should "nbe known and take  into account" in {
+    "All Parquet Config" should "be known and taken  into account" in {
       val rendered = Parquet2CSVConfig.usage()
       val expected =
         """
@@ -102,7 +102,8 @@ class Parquet2CSVSpec extends TestHelper {
         |  --option <value>      option to use (sep, delimiter, quote, quoteAll, escape, header ...)
         |  --partitions <value>  How many output partitions
         |""".stripMargin
-      rendered.substring(rendered.indexOf("Usage:")) == expected
+      rendered.substring(rendered.indexOf("Usage:")).replaceAll("\\s", "") shouldEqual expected
+        .replaceAll("\\s", "")
     }
   }
 }
