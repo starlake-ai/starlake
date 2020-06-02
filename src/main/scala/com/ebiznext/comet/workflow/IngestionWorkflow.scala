@@ -403,7 +403,7 @@ class IngestionWorkflow(
                 .getOrElse(Left(task.getTargetPath(Some(job.getArea())).toString))
               bqload(
                 BigQueryLoadConfig(
-                  sourceFile = source,
+                  source = source,
                   outputTable = task.dataset,
                   outputDataset = task.domain,
                   sourceFormat = "parquet",

@@ -6,7 +6,7 @@ import org.apache.spark.sql.DataFrame
 import scopt.OParser
 
 case class BigQueryLoadConfig(
-  sourceFile: Either[String, DataFrame] = Left(""),
+  source: Either[String, DataFrame] = Left(""),
   outputDataset: String = "",
   outputTable: String = "",
   outputPartition: Option[String] = None,
@@ -28,7 +28,7 @@ object BigQueryLoadConfig extends CliConfig[BigQueryLoadConfig] {
       programName("comet"),
       head("comet", BuildInfo.version),
       opt[String]("source_file")
-        .action((x, c) => c.copy(sourceFile = Left(x)))
+        .action((x, c) => c.copy(source = Left(x)))
         .text("Full Path to source file")
         .required(),
       opt[String]("output_dataset")
