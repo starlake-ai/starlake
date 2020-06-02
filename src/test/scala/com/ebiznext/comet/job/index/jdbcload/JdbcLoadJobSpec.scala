@@ -18,6 +18,10 @@ class JdbcLoadJobSpec extends TestHelper {
           |  --user <value>           JDBC user
           |  --password <value>       JDBC password
           |  --url <value>            Database JDBC URL
+          |  --create_disposition <value>
+          |                           Big Query Create disposition https://cloud.google.com/bigquery/docs/reference/auditlogs/rest/Shared.Types/CreateDisposition
+          |  --write_disposition <value>
+          |                           Big Query Write disposition https://cloud.google.com/bigquery/docs/reference/auditlogs/rest/Shared.Types/WriteDisposition
           |""".stripMargin
       rendered.substring(rendered.indexOf("Usage:")).replaceAll("\\s", "") shouldEqual expected
         .replaceAll("\\s", "")
