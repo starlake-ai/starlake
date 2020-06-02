@@ -141,7 +141,7 @@ trait IngestionJob extends SparkJob {
           meta.getWriteMode()
         )
         val config = BigQueryLoadConfig(
-          sourceFile = Right(mergedDF),
+          source = Right(mergedDF),
           outputTable = schema.name,
           outputDataset = domain.name,
           sourceFormat = "parquet",

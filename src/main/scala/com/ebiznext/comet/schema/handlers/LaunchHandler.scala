@@ -261,7 +261,7 @@ class AirflowLauncher extends LaunchHandler with StrictLogging {
     val endpoint = settings.comet.airflow.endpoint
     val url = s"$endpoint/dags/comet_bqload/dag_runs"
     val params = List(
-      s"--source_file ${config.sourceFile}",
+      s"--source_file ${config.source}",
       s"--output_dataset ${config.outputDataset}",
       s"--output_table ${config.outputTable}",
       s"--source_format ${config.sourceFormat}",
