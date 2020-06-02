@@ -29,7 +29,6 @@ import com.ebiznext.comet.schema.model.{AutoTaskDesc, IndexSink}
 import com.ebiznext.comet.utils.Formatter._
 import com.ebiznext.comet.utils.{SparkJob, SparkJobResult}
 import org.apache.hadoop.fs.Path
-import org.apache.spark.sql.SaveMode
 
 import scala.language.reflectiveCalls
 import scala.util.{Success, Try}
