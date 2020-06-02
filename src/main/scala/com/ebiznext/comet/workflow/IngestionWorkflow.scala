@@ -398,12 +398,12 @@ class IngestionWorkflow(
               index(job, task)
             case Some(IndexSink.BQ) =>
               val (createDisposition, writeDisposition) = Utils.getDBDisposition(task.write)
-              val sourceFile = maybeDataFrame
+              val source = maybeDataFrame
                 .map(Right(_))
                 .getOrElse(Left(task.getTargetPath(Some(job.getArea())).toString))
               bqload(
                 BigQueryLoadConfig(
-                  sourceFile = sourceFile,
+                  sourceFile = source,
                   outputTable = task.dataset,
                   outputDataset = task.domain,
                   sourceFormat = "parquet",
