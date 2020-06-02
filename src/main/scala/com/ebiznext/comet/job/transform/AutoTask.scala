@@ -111,24 +111,17 @@ class AutoTask(
     val targetPath = task.getTargetPath(defaultArea)
     // Target Path exist only if a storage area has been defined at task or job level
     targetPath.map { targetPath =>
-      val mergePath = s"${targetPath.toString}.merge"
       val partitionedDF =
         partitionedDatasetWriter(
           if (coalesce) dataframe.coalesce(1) else dataframe,
           task.getPartitions()
         )
-      partitionedDF
-        .mode(SaveMode.Overwrite)
-        .format(settings.comet.writeFormat)
-        .option("path", mergePath)
-        .save()
 
       val finalDataset = partitionedDF
         .mode(task.write.toSaveMode)
         .format(format.getOrElse(settings.comet.writeFormat))
         .option("path", targetPath.toString)
 
-      val _ = storageHandler.delete(new Path(mergePath))
       if (settings.comet.hive) {
         val tableName = task.dataset
         val hiveDB = task.getHiveDB(defaultArea)
@@ -165,7 +158,7 @@ class AutoTask(
     }
 
     task.postsql.getOrElse(Nil).foreach(session.sql)
-    // Lets retturn the Dataframe soo that it can be piped to another sink
+    // Let us return the Dataframe so that it can be piped to another sink
     Success(SparkJobResult(session, Some(dataframe)))
   }
 }
