@@ -97,7 +97,7 @@ class BigQueryLoadJob(
 
     val bucket = conf.get("fs.gs.system.bucket")
 
-    val inputPath = cliConfig.sourceFile
+    val inputPath = cliConfig.source
     logger.info(s"Input path $inputPath")
 
     logger.info(s"Temporary GCS path $bucket")
