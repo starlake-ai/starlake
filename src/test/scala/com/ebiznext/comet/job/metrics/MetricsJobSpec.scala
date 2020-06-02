@@ -279,5 +279,19 @@ class MetricsJobSpec extends TestHelper {
         )
       }
     }
+    "All Metrics Config" should "be known and taken  into account" in {
+      val rendered = MetricsConfig.usage()
+      val expected =
+        """
+          |Usage: comet [options]
+          |
+          |  --domain <value>  Domain Name
+          |  --schema <value>  Schema Name
+          |  --stage <value>   Stage (UNIT or GLOBAL)
+          |""".stripMargin
+      rendered.substring(rendered.indexOf("Usage:")).replaceAll("\\s", "") shouldEqual expected
+        .replaceAll("\\s", "")
+
+    }
   }
 }
