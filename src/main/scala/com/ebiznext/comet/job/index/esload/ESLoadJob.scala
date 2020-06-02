@@ -23,10 +23,10 @@ package com.ebiznext.comet.job.index.esload
 import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.schema.handlers.{SchemaHandler, StorageHandler}
 import com.ebiznext.comet.schema.model.Schema
-import com.ebiznext.comet.utils.SparkJob
+import com.ebiznext.comet.utils.{SparkJob, SparkJobResult}
 import com.softwaremill.sttp._
+import org.apache.spark.sql.SaveMode
 import org.apache.spark.sql.types.StructField
-import org.apache.spark.sql.{SaveMode, SparkSession}
 
 import scala.util.{Failure, Success, Try}
 
@@ -50,7 +50,7 @@ class ESLoadJob(
     *
     * @return : Spark Session used for the job
     */
-  override def run(): Try[SparkSession] = {
+  override def run(): Try[SparkJobResult] = {
     logger.info(s"Indexing resource ${cliConfig.getResource()} with $cliConfig")
     val inputDF = format match {
       case "json" =>
@@ -119,7 +119,7 @@ class ESLoadJob(
       .getOrElse(sttp)
       .delete(templateUri)
       .contentType("application/json")
-    val responseDel = requestDel.send()
+    val _ = requestDel.send()
 
     val requestPut = authSttp
       .getOrElse(sttp)
@@ -140,7 +140,7 @@ class ESLoadJob(
         .mode(SaveMode.Overwrite)
       if (settings.comet.isElasticsearchSupported())
         writer.save(cliConfig.getResource())
-      Success(session)
+      Success(SparkJobResult(session))
     } else {
       Failure(throw new Exception("Failed to create template"))
     }
