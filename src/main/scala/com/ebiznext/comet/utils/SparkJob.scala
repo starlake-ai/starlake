@@ -8,6 +8,8 @@ import org.apache.spark.sql.{DataFrame, DataFrameWriter, Row, SparkSession}
 
 import scala.util.Try
 
+case class SparkJobResult(session: SparkSession, df: Option[DataFrame] = None)
+
 /**
   * All Spark Job extend this trait.
   * Build Spark session using spark variables from applciation.conf.
@@ -24,7 +26,7 @@ trait SparkJob extends StrictLogging {
     *
     * @return : Spark Session used for the job
     */
-  def run(): Try[SparkSession]
+  def run(): Try[SparkJobResult]
 
   // TODO Should we issue a warning if used with Overwrite mode ????
   // TODO Check that the year / month / day / hour / minute do not already exist
