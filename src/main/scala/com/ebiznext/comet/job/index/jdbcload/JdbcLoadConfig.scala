@@ -118,7 +118,17 @@ object JdbcLoadConfig extends CliConfig[JdbcLoadConfig] {
         .text("JDBC password"),
       opt[String]("url")
         .action((x, c) => c.copy(url = x))
-        .text("Database JDBC URL")
+        .text("Database JDBC URL"),
+      opt[String]("create_disposition")
+        .action((x, c) => c.copy(createDisposition = CreateDisposition.valueOf(x)))
+        .text(
+          "Big Query Create disposition https://cloud.google.com/bigquery/docs/reference/auditlogs/rest/Shared.Types/CreateDisposition"
+        ),
+      opt[String]("write_disposition")
+        .action((x, c) => c.copy(writeDisposition = WriteDisposition.valueOf(x)))
+        .text(
+          "Big Query Write disposition https://cloud.google.com/bigquery/docs/reference/auditlogs/rest/Shared.Types/WriteDisposition"
+        )
     )
   }
 
