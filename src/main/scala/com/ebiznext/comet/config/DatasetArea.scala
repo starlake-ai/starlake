@@ -182,10 +182,6 @@ object StorageArea {
 
   def fromString(value: String)(implicit settings: Settings): StorageArea = {
 
-    val rejected = settings.comet.area.rejected.toLowerCase(Locale.ROOT)
-    val accepted = settings.comet.area.accepted.toLowerCase(Locale.ROOT)
-    val business = settings.comet.area.business.toLowerCase(Locale.ROOT)
-
     val lcValue = value.toLowerCase(Locale.ROOT)
 
     lcValue match {
