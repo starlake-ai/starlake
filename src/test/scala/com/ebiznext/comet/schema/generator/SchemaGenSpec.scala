@@ -122,6 +122,24 @@ class SchemaGenSpec extends TestHelper {
         .flatMap(_.metadata)
         .filterNot(_.separator.contains(",")) shouldBe empty
     }
+    "All SchemaGen Config" should "be known and taken  into account" in {
+      val rendered = SchemaGenConfig.usage()
+      val expected =
+        """
+          |Usage: comet [options]
+          |
+          |  --files <value>       List of Excel files describing Domains & Schemas
+          |  --encryption <value>  If true generate pre and post encryption YML
+          |  --delimiter <value>   CSV delimiter to use in post-encrypt YML.
+          |  --privacy <value>     What privacy policies should be applied in the pre-encryption phase ?
+          | All privacy policies are applied by default.
+          |  --outputPath <value>  Path for saving the resulting YAML file(s).
+          | COMET domains path is used by default.
+          |""".stripMargin
+      rendered.substring(rendered.indexOf("Usage:")).replaceAll("\\s", "") shouldEqual expected
+        .replaceAll("\\s", "")
+
+    }
   }
 
 }
