@@ -21,11 +21,6 @@ organizationName := "Ebiznext"
 
 scalaVersion := scala211
 
-scalacOptions ++= Seq(
-  "-deprecation",
-  "-feature"
-)
-
 organizationHomepage := Some(url("http://www.ebiznext.com"))
 
 libraryDependencies ++= {
@@ -171,5 +166,6 @@ sonatypeProjectHosting := Some(GitHubHosting("ebiznext", "comet-data-pipeline", 
 developers := List(
   Developer(id="hayssams", name="Hayssam Saleh", email="hayssam.saleh@ebiznext.com", url=url("https://www.ebiznext.com"))
 )
+
 
 //logLevel in assembly := Level.Debug

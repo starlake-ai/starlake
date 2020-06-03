@@ -3,10 +3,9 @@ package com.ebiznext.comet.job.convert
 import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.schema.handlers.StorageHandler
 import com.ebiznext.comet.schema.model.WriteMode
-import com.ebiznext.comet.utils.SparkJob
+import com.ebiznext.comet.utils.{SparkJob, SparkJobResult}
 import com.typesafe.config.ConfigFactory
 import org.apache.hadoop.fs.Path
-import org.apache.spark.sql.SparkSession
 
 import scala.util.{Success, Try}
 
@@ -15,19 +14,19 @@ import scala.util.{Success, Try}
   * The folder hierarchy should be in the form /input_folder/domain/schema/part*.parquet
   * Once converted the csv files is put in the folder /output_folder/domain/schema.csv file
   * When the specified number of parittions is 1 then /output_folder/domain/schema.csv is the file containing the data
-  * otherwise, it is a folder containng the part*.csv files.
+  * otherwise, it is a folder containing the part*.csv files.
   * When output_folder is not specified, then the input_folder is used a the base output folder.
   * @param config
   * @param storageHandler
   * @param settings
   */
-class Parquet2CSV(config: Parquet2CSVConfig, val storageHandler: StorageHandler)(
-  implicit val settings: Settings
+class Parquet2CSV(config: Parquet2CSVConfig, val storageHandler: StorageHandler)(implicit
+  val settings: Settings
 ) extends SparkJob {
 
   override def name: String = s"parquet-2-csv"
 
-  override def run(): Try[SparkSession] = {
+  override def run(): Try[SparkJobResult] = {
     val allPaths = (config.domainName, config.schemaName) match {
       case (Some(domainName), Some(schemaName)) =>
         List(new Path(new Path(config.inputFolder, domainName), schemaName))
@@ -37,6 +36,7 @@ class Parquet2CSV(config: Parquet2CSVConfig, val storageHandler: StorageHandler)
         storageHandler
           .listDirectories(config.inputFolder)
           .flatMap(domainPath => storageHandler.listDirectories(domainPath))
+      case (None, Some(_)) => throw new Exception("Should never happen!")
     }
     val outputPath = config.outputFolder match {
       case None         => config.inputFolder
@@ -73,7 +73,7 @@ class Parquet2CSV(config: Parquet2CSVConfig, val storageHandler: StorageHandler)
           None
       }
     }
-    Success(session)
+    Success(SparkJobResult(session))
   }
 }
 

@@ -9,6 +9,7 @@ import com.fasterxml.jackson.databind.annotation.JsonPOJOBuilder
 import com.fasterxml.jackson.databind.deser.Deserializers
 import com.fasterxml.jackson.databind.ser.Serializers
 import com.fasterxml.jackson.module.scala.JacksonModule
+import org.apache.spark.storage.StorageLevel
 
 import scala.concurrent.duration.FiniteDuration
 import scala.reflect.ClassTag
@@ -41,7 +42,7 @@ object CometJacksonModule extends CometJacksonModule {
     * To avoid this, we define this trait, which registers the canonical instance within a special table, and
     * provide a helpful exception
     *
-    * One should also define a Builder inheriting from [[ProtectedSingletonBuilder[_]]], and decorate the case object
+    * One should also define a Builder inheriting from [[com.ebiznext.comet.utils.CometJacksonModule.ProtectedSingletonBuilder]], and decorate the case object
     * with @JsonDeserialize(builder = classOf[MyObjectBuilder]).
     *
     * The goal of that builder is to "lie" to Jackson by 'building' an instance, which is actually *the* instance
@@ -69,7 +70,7 @@ object CometJacksonModule extends CometJacksonModule {
   /** a base class for fake 'builders' whose purpose is to drive Jackson off attempting to build new instances
     * of case objects upon deserialization.
     *
-    * This class will work to recover *the* canonical instance of the [[T]] class, and return that whenever
+    * This class will work to recover *the* canonical instance of the `T` class, and return that whenever
     * Jackson requests a 'new' instance
     *
     * @see https://github.com/FasterXML/jackson-module-scala/issues/211
@@ -111,6 +112,42 @@ private object CometJacksonModuleContents {
   @JsonIgnoreType
   class MixinsForObjectMapper
 
+  object StorageLevelSerializer extends JsonSerializer[StorageLevel] {
+    override def handledType(): Class[StorageLevel] = classOf[StorageLevel]
+
+    override def serialize(
+      value: StorageLevel,
+      gen: JsonGenerator,
+      serializers: SerializerProvider
+    ): Unit = {
+      import StorageLevel._
+      val svalue = value match {
+        case NONE                  => "NONE"
+        case DISK_ONLY             => "DISK_ONLY"
+        case DISK_ONLY_2           => "DISK_ONLY_2"
+        case MEMORY_ONLY           => "MEMORY_ONLY"
+        case MEMORY_ONLY_2         => "MEMORY_ONLY_2"
+        case MEMORY_ONLY_SER       => "MEMORY_ONLY_SER"
+        case MEMORY_ONLY_SER_2     => "MEMORY_ONLY_SER_2"
+        case MEMORY_AND_DISK       => "MEMORY_AND_DISK"
+        case MEMORY_AND_DISK_2     => "MEMORY_AND_DISK_2"
+        case MEMORY_AND_DISK_SER   => "MEMORY_AND_DISK_SER"
+        case MEMORY_AND_DISK_SER_2 => "MEMORY_AND_DISK_SER_2"
+        case OFF_HEAP              => "OFF_HEAP"
+      }
+      gen.writeString(svalue)
+    }
+  }
+
+  object StorageLevelDeserializer extends JsonDeserializer[StorageLevel] {
+    override def handledType(): Class[StorageLevel] = classOf[StorageLevel]
+
+    override def deserialize(p: JsonParser, ctxt: DeserializationContext): StorageLevel = {
+      val storageLevel = ctxt.readValue(p, classOf[String])
+      StorageLevel.fromString(storageLevel)
+    }
+  }
+
   object FiniteDurationSerializer extends JsonSerializer[FiniteDuration] {
 
     override def handledType(): Class[FiniteDuration] = classOf[FiniteDuration]
@@ -136,7 +173,9 @@ private object CometJacksonModuleContents {
   object CometSerializers extends Serializers.Base {
 
     private val serializers: Map[Class[_], JsonSerializer[_]] =
-      (FiniteDurationSerializer :: Nil).map(ser => ser.handledType() -> ser).toMap
+      (FiniteDurationSerializer :: StorageLevelSerializer :: Nil)
+        .map(ser => ser.handledType() -> ser)
+        .toMap
 
     override def findSerializer(
       config: SerializationConfig,
@@ -152,7 +191,9 @@ private object CometJacksonModuleContents {
   object CometDeserializers extends Deserializers.Base {
 
     private val deserializers: Map[Class[_], JsonDeserializer[_]] =
-      (FiniteDurationDeserializer :: Nil).map(ser => ser.handledType() -> ser).toMap
+      (FiniteDurationDeserializer :: StorageLevelDeserializer :: Nil)
+        .map(ser => ser.handledType() -> ser)
+        .toMap
 
     override def findBeanDeserializer(
       tpe: JavaType,

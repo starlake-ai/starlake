@@ -64,6 +64,9 @@ case class Type(
 ) {
 
   @JsonIgnore
+  val isString: Boolean = name == "string"
+
+  @JsonIgnore
   def getIndexMapping(): IndexMapping = {
     require(PrimitiveType.primitiveTypes.contains(primitiveType))
     IndexMapping.fromType(primitiveType)
@@ -108,22 +111,22 @@ case class Type(
   }
 
   def matches(value: String): Boolean = {
-    name match {
-      case "string" => true
-      case _ =>
-        primitiveType match {
-          case PrimitiveType.struct => true
-          case PrimitiveType.date =>
-            Try(date.fromString(value, pattern)).isSuccess
-          case PrimitiveType.timestamp =>
-            Try(timestamp.fromString(value, pattern, zone.orNull)).isSuccess
-          case PrimitiveType.boolean =>
-            // We can get the pattern safely since checkValidity has been called by now
-            boolean.matches(value, booleanPattern.get._1, booleanPattern.get._2)
-          case _ =>
-            // We can get the pattern safely since checkValidity has been called by now
-            textPattern.get.matcher(value).matches()
-        }
+    if (isString)
+      true
+    else {
+      primitiveType match {
+        case PrimitiveType.struct => true
+        case PrimitiveType.date =>
+          Try(date.fromString(value, pattern)).isSuccess
+        case PrimitiveType.timestamp =>
+          Try(timestamp.fromString(value, pattern, zone.orNull)).isSuccess
+        case PrimitiveType.boolean =>
+          // We can get the pattern safely since checkValidity has been called by now
+          boolean.matches(value, booleanPattern.get._1, booleanPattern.get._2)
+        case _ =>
+          // We can get the pattern safely since checkValidity has been called by now
+          textPattern.get.matcher(value).matches()
+      }
     }
   }
 
