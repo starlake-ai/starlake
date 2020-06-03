@@ -28,7 +28,11 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 import com.ebiznext.comet.config.{DatasetArea, Settings}
 import com.ebiznext.comet.schema.handlers.{SchemaHandler, SimpleLauncher, StorageHandler}
-import com.ebiznext.comet.utils.{CometObjectMapper, TextSubstitutionEngine}
+import com.ebiznext.comet.utils.{
+  CometObjectMapper,
+  EmbeddedElasticsearchServer,
+  TextSubstitutionEngine
+}
 import com.ebiznext.comet.workflow.IngestionWorkflow
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
@@ -107,9 +111,18 @@ trait TestHelper extends AnyFlatSpec with Matchers with BeforeAndAfterAll with S
     source.getLines().mkString("\n")
   }
 
-  def loadFile(filename: String)(implicit codec: Codec): String = {
+  def loadTextFile(filename: String)(implicit codec: Codec): String = {
     val stream: InputStream = getClass.getResourceAsStream(filename)
     using(Source.fromInputStream(stream))(readSourceContentAsString)
+  }
+
+  def loadBinaryFile(filename: String)(implicit codec: Codec): Array[Char] = {
+    val stream: InputStream = getClass.getResourceAsStream(filename)
+    Iterator
+      .continually(stream.read())
+      .takeWhile(_ != -1)
+      .toArray
+      .map(_.toChar)
   }
 
   def readFileContent(path: String): String =
@@ -163,7 +176,7 @@ trait TestHelper extends AnyFlatSpec with Matchers with BeforeAndAfterAll with S
     }
 
     def deliverTestFile(importPath: String, targetPath: Path)(implicit codec: Codec): Unit = {
-      val content = loadFile(importPath)
+      val content = loadTextFile(importPath)
       val testContent = applyTestFileSubstitutions(content)
 
       storageHandler.write(testContent, targetPath)
@@ -177,20 +190,26 @@ trait TestHelper extends AnyFlatSpec with Matchers with BeforeAndAfterAll with S
       }
     }
 
-    def cleanMetadata = Try {
-      val allMetadataFiles = FileUtils
-        .listFiles(
-          new File(cometMetadataPath),
-          TrueFileFilter.INSTANCE,
-          TrueFileFilter.INSTANCE
-        )
-        .asScala
-
-      allMetadataFiles
-        .foreach(_.delete())
-
-      deliverTypesFiles()
+    def deliverBinaryFile(importPath: String, targetPath: Path)(implicit codec: Codec): Unit = {
+      val content: Array[Char] = loadBinaryFile(importPath)
+      storageHandler.writeBinary(content.map(_.toByte), targetPath)
     }
+
+    def cleanMetadata =
+      Try {
+        val allMetadataFiles = FileUtils
+          .listFiles(
+            new File(cometMetadataPath),
+            TrueFileFilter.INSTANCE,
+            TrueFileFilter.INSTANCE
+          )
+          .asScala
+
+        allMetadataFiles
+          .foreach(_.delete())
+
+        deliverTypesFiles()
+      }
 
     def deliverTypesFiles() = {
       allTypes.foreach { typeToImport =>
@@ -218,9 +237,10 @@ trait TestHelper extends AnyFlatSpec with Matchers with BeforeAndAfterAll with S
 
   lazy val sparkSession = sparkSessionInterest.get
 
+  val es = new EmbeddedElasticsearchServer(Files.createTempDirectory(null).toString)
+
   override protected def beforeAll(): Unit = {
     super.beforeAll()
-
   }
 
   override protected def afterAll(): Unit = {
@@ -280,6 +300,33 @@ trait TestHelper extends AnyFlatSpec with Matchers with BeforeAndAfterAll with S
       validator.loadPending()
     }
 
+    def landingPath: String =
+      new SchemaHandler(settings.storageHandler)
+        .getDomain(datasetDomainName)
+        .map(_.directory)
+        .getOrElse(throw new Exception("Incoming directory must be specified in domain descriptor"))
+
+    def loadLanding(implicit codec: Codec): Unit = {
+
+      val schemaHandler = new SchemaHandler(settings.storageHandler)
+
+      DatasetArea.initDomains(storageHandler, schemaHandler.domains.map(_.name))
+
+      // Get incoming directory from Domain descriptor
+      val incomingDirectory = schemaHandler.getDomain(datasetDomainName).map(_.directory)
+      assert(incomingDirectory.isDefined)
+
+      // Deliver file to incoming folder
+      val targetPath = new Path(incomingDirectory.get, new Path(sourceDatasetPathName).getName)
+      withSettings.deliverBinaryFile(sourceDatasetPathName, targetPath)
+      storageHandler.touchz(
+        new Path(targetPath.toString.substring(0, targetPath.toString.lastIndexOf('.')) + ".ack")
+      )
+
+      // Load landing file
+      val validator = new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
+      validator.loadLanding()
+    }
   }
 
   def printDF(df: DataFrame, marker: String) = {
@@ -407,24 +454,27 @@ object TestHelper {
 
     private var state: State = State.Empty
 
-    def get: SparkSession = this.synchronized {
-      val (session, nstate) = state.get
-      state = nstate
-      logger.trace(s"handing out SparkSession instance, now state=${nstate}")
-      session
-    }
+    def get: SparkSession =
+      this.synchronized {
+        val (session, nstate) = state.get
+        state = nstate
+        logger.trace(s"handing out SparkSession instance, now state=${nstate}")
+        session
+      }
 
-    def acquire(): Unit = this.synchronized {
-      val nstate = state.acquire
-      logger.trace(s"acquired new interest into SparkSession instance, now state=${nstate}")
-      state = nstate
-    }
+    def acquire(): Unit =
+      this.synchronized {
+        val nstate = state.acquire
+        logger.trace(s"acquired new interest into SparkSession instance, now state=${nstate}")
+        state = nstate
+      }
 
-    def release(): Unit = this.synchronized {
-      val nstate = state.release
-      logger.trace(s"released interest from SparkSession instances, now state=${nstate}")
-      state = nstate
-    }
+    def release(): Unit =
+      this.synchronized {
+        val nstate = state.release
+        logger.trace(s"released interest from SparkSession instances, now state=${nstate}")
+        state = nstate
+      }
   }
 
   private val runtimeId: String = UUID.randomUUID().toString

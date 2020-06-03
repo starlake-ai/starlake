@@ -130,8 +130,8 @@ trait JdbcChecks {
     }
   }
 
-  protected def expectingRejections(jdbcName: String, values: RejectedRecord*)(
-    implicit settings: Settings
+  protected def expectingRejections(jdbcName: String, values: RejectedRecord*)(implicit
+    settings: Settings
   ): Assertion = {
     val testEnd: Timestamp = Timestamp.from(Instant.now)
 
@@ -158,8 +158,8 @@ trait JdbcChecks {
 
   }
 
-  protected def expectingAudit(jdbcName: String, values: AuditLog*)(
-    implicit settings: Settings
+  protected def expectingAudit(jdbcName: String, values: AuditLog*)(implicit
+    settings: Settings
   ): Assertion = {
     val testEnd: Timestamp = Timestamp.from(Instant.now)
 
@@ -192,8 +192,8 @@ trait JdbcChecks {
     }
   }
 
-  protected def expectingMetrics(jdbcName: String, values: MetricRecord*)(
-    implicit settings: Settings
+  protected def expectingMetrics(jdbcName: String, values: MetricRecord*)(implicit
+    settings: Settings
   ): Assertion = {
     val testEnd: Timestamp = Timestamp.from(Instant.now)
 
@@ -213,18 +213,18 @@ trait JdbcChecks {
         rs.getString("domain"),
         rs.getString("schema"),
         rs.getString("attribute"),
-        rs.getLongOption("min"),
-        rs.getLongOption("max"),
+        rs.getDoubleOption("min"),
+        rs.getDoubleOption("max"),
         rs.getDoubleOption("mean"),
         rs.getLongOption("missingValues"),
         rs.getDoubleOption("standardDev"),
         rs.getDoubleOption("variance"),
-        rs.getLongOption("sum"),
+        rs.getDoubleOption("sum"),
         rs.getDoubleOption("skewness"),
-        rs.getLongOption("kurtosis"),
-        rs.getLongOption("percentile25"),
-        rs.getLongOption("median"),
-        rs.getLongOption("percentile75"),
+        rs.getDoubleOption("kurtosis"),
+        rs.getDoubleOption("percentile25"),
+        rs.getDoubleOption("median"),
+        rs.getDoubleOption("percentile75"),
         rs.getLongOption("countDistinct"),
         rs.getStringOption("catCountFreq"),
         rs.getLongOption("missingValuesDiscrete"),

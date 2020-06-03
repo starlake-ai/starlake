@@ -25,13 +25,26 @@ import java.net.URL
 import com.ebiznext.comet.TestHelper
 import com.ebiznext.comet.config.DatasetArea
 import com.ebiznext.comet.schema.model.{Metadata, Schema}
+import com.softwaremill.sttp.HttpURLConnectionBackend
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.types.StructField
+import com.softwaremill.sttp._
 
 import scala.util.Try
 import com.databricks.spark.xml._
 
 class SchemaHandlerSpec extends TestHelper {
+
+  override protected def beforeAll(): Unit = {
+    super.beforeAll()
+    es.start()
+
+  }
+
+  override protected def afterAll(): Unit = {
+    super.afterAll()
+    es.stop()
+  }
 
   new WithSettings() {
     // TODO Helper (to delete)
@@ -50,7 +63,9 @@ class SchemaHandlerSpec extends TestHelper {
         loadPending
 
         // Check Archived
-        readFileContent(cometDatasetsPath + s"/archive/$datasetDomainName/SCHEMA-VALID.dsv") shouldBe loadFile(
+        readFileContent(
+          cometDatasetsPath + s"/archive/$datasetDomainName/SCHEMA-VALID.dsv"
+        ) shouldBe loadTextFile(
           sourceDatasetPathName
         )
 
@@ -83,6 +98,61 @@ class SchemaHandlerSpec extends TestHelper {
           .except(expectedAccepted.select("firstname"))
           .count() shouldBe 0
 
+        if (settings.comet.isElasticsearchSupported()) {
+          implicit val backend = HttpURLConnectionBackend()
+          val countUri = uri"http://127.0.0.1:9200/domain_user/_count"
+          val response = sttp.get(countUri).send()
+          response.code should be <= 299
+          response.code should be >= 200
+          assert(response.body.isRight)
+          response.body.right.toString() contains "\"count\":2"
+        }
+      }
+    }
+
+    "Ingest schema with partition" should "produce partitioned output in accepted" in {
+      new SpecTrait(
+        domainFilename = "DOMAIN.yml",
+        sourceDomainPathname = s"/sample/DOMAIN.yml",
+        datasetDomainName = "DOMAIN",
+        sourceDatasetPathName = "/sample/Players.csv"
+      ) {
+        cleanMetadata
+        cleanDatasets
+        loadPending
+        private val firstLevel: List[Path] = storageHandler.listDirectories(
+          new Path(cometDatasetsPath + s"/accepted/$datasetDomainName/Players")
+        )
+        firstLevel.size shouldBe 2
+        firstLevel.foreach(storageHandler.listDirectories(_).size shouldBe 2)
+      }
+    }
+
+    "Ingest schema with merge" should "produce merged results accepted" in {
+      new SpecTrait(
+        domainFilename = "DOMAIN.yml",
+        sourceDomainPathname = s"/sample/DOMAIN.yml",
+        datasetDomainName = "DOMAIN",
+        sourceDatasetPathName = "/sample/Players.csv"
+      ) {
+        cleanMetadata
+        cleanDatasets
+        loadPending
+      }
+
+      new SpecTrait(
+        domainFilename = "DOMAIN.yml",
+        sourceDomainPathname = s"/sample/DOMAIN.yml",
+        datasetDomainName = "DOMAIN",
+        sourceDatasetPathName = "/sample/Players-merge.csv"
+      ) {
+        loadPending
+        val acceptedDf = sparkSession.read
+          .parquet(cometDatasetsPath + s"/accepted/$datasetDomainName/Players")
+        acceptedDf.count() shouldBe 6
+        acceptedDf.where("firstName == 'leo' and DOB == '1987-07-24'").count() shouldBe 1
+        acceptedDf.where("lastname == 'salah'").count() shouldBe 1
+
       }
     }
 
@@ -95,12 +165,11 @@ class SchemaHandlerSpec extends TestHelper {
       ) {
         cleanMetadata
         cleanDatasets
-
         loadPending
 
         readFileContent(
           cometDatasetsPath + s"/archive/$datasetDomainName/OneClient_Contact_20190101_090800_008.psv"
-        ) shouldBe loadFile(
+        ) shouldBe loadTextFile(
           sourceDatasetPathName
         )
 
@@ -147,7 +216,7 @@ class SchemaHandlerSpec extends TestHelper {
 
         readFileContent(
           cometDatasetsPath + s"/archive/$datasetDomainName/OneClient_Segmentation_20190101_090800_008.psv"
-        ) shouldBe loadFile(
+        ) shouldBe loadTextFile(
           sourceDatasetPathName
         )
 
@@ -183,7 +252,7 @@ class SchemaHandlerSpec extends TestHelper {
 
         readFileContent(
           cometDatasetsPath + s"/${settings.comet.area.archive}/$datasetDomainName/locations.json"
-        ) shouldBe loadFile(
+        ) shouldBe loadTextFile(
           sourceDatasetPathName
         )
 
@@ -219,7 +288,7 @@ class SchemaHandlerSpec extends TestHelper {
 
         readFileContent(
           cometDatasetsPath + s"/${settings.comet.area.archive}/$datasetDomainName/locations.xml"
-        ) shouldBe loadFile(
+        ) shouldBe loadTextFile(
           sourceDatasetPathName
         )
 
@@ -257,7 +326,7 @@ class SchemaHandlerSpec extends TestHelper {
 
       deliverTestFile("/sample/types.yml", typesPath)
 
-      readFileContent(typesPath) shouldBe loadFile("/sample/types.yml")
+      readFileContent(typesPath) shouldBe loadTextFile("/sample/types.yml")
     }
 
     "Mapping Schema" should "produce valid template" in {

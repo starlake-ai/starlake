@@ -44,7 +44,9 @@ class PositionIngestionJobSpec extends TestHelper {
 
         // Check archive
 
-        readFileContent(cometDatasetsPath + s"/archive/${datasetDomainName}/XPOSTBL") shouldBe loadFile(
+        readFileContent(
+          cometDatasetsPath + s"/archive/${datasetDomainName}/XPOSTBL"
+        ) shouldBe loadTextFile(
           "/sample/position/XPOSTBL"
         )
 
