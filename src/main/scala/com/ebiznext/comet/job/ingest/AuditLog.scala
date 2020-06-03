@@ -24,8 +24,8 @@ import java.sql.Timestamp
 
 import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.config.Settings.IndexSinkSettings
-import com.ebiznext.comet.job.bqload.{BigQueryLoadConfig, BigQueryLoadJob}
-import com.ebiznext.comet.job.jdbcload.{JdbcLoadConfig, JdbcLoadJob}
+import com.ebiznext.comet.job.index.bqload.{BigQueryLoadConfig, BigQueryLoadJob}
+import com.ebiznext.comet.job.index.jdbcload.{JdbcLoadConfig, JdbcLoadJob}
 import com.ebiznext.comet.utils.FileLock
 import com.google.cloud.bigquery.{Field, LegacySQLTypeName}
 import org.apache.hadoop.fs.Path
@@ -93,8 +93,8 @@ object SparkAuditLogWriter {
     BQSchema.of(fields: _*)
   }
 
-  def append(session: SparkSession, log: AuditLog)(
-    implicit settings: Settings
+  def append(session: SparkSession, log: AuditLog)(implicit
+    settings: Settings
   ) = {
 
     import session.implicits._

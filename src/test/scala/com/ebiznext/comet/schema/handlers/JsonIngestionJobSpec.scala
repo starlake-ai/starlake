@@ -33,7 +33,7 @@ abstract class JsonIngestionJobSpecBase(variant: String) extends TestHelper with
 
   def configuration: Config
 
-  ("Ingest Complex JSON " + variant) should ("should be ingested from pending to accepted, and archived ") in {
+  ("Ingest Complex JSON " + variant) should "should be ingested from pending to accepted, and archived " in {
     new WithSettings(configuration) {
 
       new SpecTrait(
@@ -49,7 +49,9 @@ abstract class JsonIngestionJobSpecBase(variant: String) extends TestHelper with
         loadPending
 
         // Check archive
-        readFileContent(cometDatasetsPath + s"/archive/${datasetDomainName}/complex.json") shouldBe loadFile(
+        readFileContent(
+          cometDatasetsPath + s"/archive/${datasetDomainName}/complex.json"
+        ) shouldBe loadTextFile(
           "/sample/json/complex.json"
         )
 

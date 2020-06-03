@@ -104,7 +104,7 @@ case class Metadata(
 
   def getWriteMode(): WriteMode = write.getOrElse(APPEND)
 
-  def getPartitionAttributes(): List[String] = partition.map(_.getAtrributes()).getOrElse(Nil)
+  def getPartitionAttributes(): List[String] = partition.map(_.getAttributes()).getOrElse(Nil)
 
   def getSamplingStrategy(): Double = partition.map(_.getSampling()).getOrElse(0.0)
 
@@ -164,20 +164,21 @@ object Metadata {
     quote: Option[String],
     escape: Option[String],
     write: Option[WriteMode]
-  ) = new Metadata(
-    Some(Mode.FILE),
-    Some(Format.DSV),
-    None,
-    Some(false),
-    Some(false),
-    Some(true),
-    separator,
-    quote,
-    escape,
-    write,
-    None,
-    None
-  )
+  ) =
+    new Metadata(
+      Some(Mode.FILE),
+      Some(Format.DSV),
+      None,
+      Some(false),
+      Some(false),
+      Some(true),
+      separator,
+      quote,
+      escape,
+      write,
+      None,
+      None
+    )
 }
 
 class MetadataDeserializer extends JsonDeserializer[Metadata] {

@@ -22,9 +22,10 @@ package com.ebiznext.comet.schema.model
 
 import java.util.regex.Pattern
 
+import com.ebiznext.comet.utils.conversion.BigQueryUtils._
 import com.ebiznext.comet.schema.handlers.SchemaHandler
 import com.ebiznext.comet.utils.TextSubstitutionEngine
-import com.google.cloud.bigquery.{Field, LegacySQLTypeName}
+import com.google.cloud.bigquery.Field
 import org.apache.spark.sql.types._
 
 import scala.collection.mutable
@@ -94,25 +95,6 @@ case class Schema(
   import com.google.cloud.bigquery.{Schema => BQSchema}
 
   def bqSchema(schemaHandler: SchemaHandler): BQSchema = {
-    def convert(sparkType: DataType): LegacySQLTypeName = {
-
-      val BQ_NUMERIC_PRECISION = 38
-      val BQ_NUMERIC_SCALE = 9
-      lazy val NUMERIC_SPARK_TYPE =
-        DataTypes.createDecimalType(BQ_NUMERIC_PRECISION, BQ_NUMERIC_SCALE)
-
-      sparkType match {
-        case BooleanType                                     => LegacySQLTypeName.BOOLEAN
-        case ByteType | LongType | IntegerType               => LegacySQLTypeName.INTEGER
-        case DoubleType | FloatType                          => LegacySQLTypeName.FLOAT
-        case StringType                                      => LegacySQLTypeName.STRING
-        case BinaryType                                      => LegacySQLTypeName.BYTES
-        case DateType                                        => LegacySQLTypeName.DATE
-        case TimestampType                                   => LegacySQLTypeName.TIMESTAMP
-        case DecimalType.SYSTEM_DEFAULT | NUMERIC_SPARK_TYPE => LegacySQLTypeName.NUMERIC
-        case _                                               => throw new IllegalArgumentException(s"Unsupported type:$sparkType")
-      }
-    }
     val fields = attributes map { attribute =>
       Field
         .newBuilder(
@@ -213,7 +195,7 @@ case class Schema(
     tse.apply(template.getOrElse {
       s"""
          |{
-         |  "index_patterns": ["${domainName}_$name", "${domainName}_$name-*"],
+         |  "index_patterns": ["${domainName.toLowerCase}_${name.toLowerCase}", "${domainName.toLowerCase}_${name.toLowerCase}-*"],
          |  "settings": {
          |    "number_of_shards": "1",
          |    "number_of_replicas": "0"

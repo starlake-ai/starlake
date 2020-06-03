@@ -69,13 +69,13 @@ object Utils {
   }
 
   /**
-    * If the provided [[attempt]] is a [[Success[T]]], do nothing.
-    * If it is a [[Failure]], then log the contained exception as a side effect and carry on
+    * If the provided `attempt` is a `Success[T]`, do nothing.
+    * If it is a `Failure`, then log the contained exception as a side effect and carry on
     *
     * @param attempt
     * @param logger the logger onto which to log results
     * @tparam T
-    * @return the original [[attempt]] with no alteration (everything happens as a side effect)
+    * @return the original `attempt` with no alteration (everything happens as a side effect)
     */
   def logFailure[T](attempt: Try[T], logger: Logger): Try[T] =
     attempt match {
@@ -116,8 +116,9 @@ object Utils {
   /**
     * @return true if the value provided by x is an object
     **/
-  def isObject[T](x: T)(implicit tag: TypeTag[T]): Boolean = PartialFunction.cond(tag.tpe) {
-    case SingleType(_, _) => true
-  }
+  def isObject[T](x: T)(implicit tag: TypeTag[T]): Boolean =
+    PartialFunction.cond(tag.tpe) {
+      case SingleType => true
+    }
 
 }
