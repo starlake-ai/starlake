@@ -22,9 +22,10 @@ import sbt.{ExclusionRule, _}
 
 object Dependencies {
 
-  def scalaReflection(scalaVersion: String) = Seq(
-    "org.scala-lang" % "scala-reflect" % scalaVersion
-  )
+  def scalaReflection(scalaVersion: String) =
+    Seq(
+      "org.scala-lang" % "scala-reflect" % scalaVersion
+    )
 
   val jacksonExclusions = Seq(
     ExclusionRule(organization = "com.fasterxml.jackson.core"),
@@ -46,8 +47,6 @@ object Dependencies {
 
   val typedConfigs = Seq("com.github.kxbmap" %% "configs" % Versions.configs)
 
-  val okhttp = Seq("com.squareup.okhttp3" % "okhttp" % Versions.okhttp)
-
   val jackson211 = Seq(
     "com.fasterxml.jackson.core" % "jackson-core" % Versions.jackson211,
     "com.fasterxml.jackson.core" % "jackson-annotations" % Versions.jackson211,
@@ -65,27 +64,26 @@ object Dependencies {
   )
 
   val spark211 = Seq(
-    "org.apache.spark" %% "spark-core" % Versions.spark211 % "provided",
-    "org.apache.spark" %% "spark-sql" % Versions.spark211 % "provided",
-    "org.apache.spark" %% "spark-hive" % Versions.spark211 % "provided",
-    "org.apache.spark" %% "spark-mllib" % Versions.spark211 % "provided",
-    "com.databricks" %% "spark-xml" % Versions.sparXML211,
-    "com.google.cloud.spark" %% "spark-bigquery-with-dependencies" % "0.12.0-beta"
+    "org.apache.spark" %% "spark-core" % Versions.spark211 % "provided" exclude ("com.google.guava", "guava"),
+    "org.apache.spark" %% "spark-sql" % Versions.spark211 % "provided" exclude ("com.google.guava", "guava"),
+    "org.apache.spark" %% "spark-hive" % Versions.spark211 % "provided" exclude ("com.google.guava", "guava"),
+    "org.apache.spark" %% "spark-mllib" % Versions.spark211 % "provided" exclude ("com.google.guava", "guava"),
+    "com.databricks" %% "spark-xml" % Versions.sparXML211_240
   )
 
   val spark211_240 = Seq(
-    "org.apache.spark" %% "spark-core" % Versions.spark211_240 % "provided" excludeAll (jacksonExclusions: _*),
-    "org.apache.spark" %% "spark-sql" % Versions.spark211_240 % "provided" excludeAll (jacksonExclusions: _*),
-    "org.apache.spark" %% "spark-hive" % Versions.spark211_240 % "provided" excludeAll (jacksonExclusions: _*),
-    "org.apache.spark" %% "spark-mllib" % Versions.spark211_240 % "provided" excludeAll (jacksonExclusions: _*),
+    "org.apache.spark" %% "spark-core" % Versions.spark211_240 % "provided" excludeAll (jacksonExclusions: _*) exclude ("com.google.guava", "guava"),
+    "org.apache.spark" %% "spark-sql" % Versions.spark211_240 % "provided" excludeAll (jacksonExclusions: _*) exclude ("com.google.guava", "guava"),
+    "org.apache.spark" %% "spark-hive" % Versions.spark211_240 % "provided" excludeAll (jacksonExclusions: _*) exclude ("com.google.guava", "guava"),
+    "org.apache.spark" %% "spark-mllib" % Versions.spark211_240 % "provided" excludeAll (jacksonExclusions: _*) exclude ("com.google.guava", "guava"),
     "com.databricks" %% "spark-xml" % Versions.sparXML211_240
   )
 
   val spark212 = Seq(
-    "org.apache.spark" %% "spark-core" % Versions.spark212 % "provided",
-    "org.apache.spark" %% "spark-sql" % Versions.spark212 % "provided",
-    "org.apache.spark" %% "spark-hive" % Versions.spark212 % "provided",
-    "org.apache.spark" %% "spark-mllib" % Versions.spark212 % "provided",
+    "org.apache.spark" %% "spark-core" % Versions.spark212 % "provided" exclude ("com.google.guava", "guava"),
+    "org.apache.spark" %% "spark-sql" % Versions.spark212 % "provided" exclude ("com.google.guava", "guava"),
+    "org.apache.spark" %% "spark-hive" % Versions.spark212 % "provided" exclude ("com.google.guava", "guava"),
+    "org.apache.spark" %% "spark-mllib" % Versions.spark212 % "provided" exclude ("com.google.guava", "guava"),
     "com.databricks" %% "spark-xml" % Versions.sparXML212
   )
 
@@ -96,14 +94,18 @@ object Dependencies {
     s"${Resolvers.googleCloudBigDataMavenRepo}/bigquery-connector/${Versions.hadoopbq}/bigquery-connector-${Versions.hadoopbq}-shaded.jar"
 
   val gcp = Seq(
-    "com.google.cloud.bigdataoss" % "gcs-connector-shaded" % s"${Versions.gcs}-shaded" from gcsConnectorShadedJar exclude ("javax.jms", "jms") exclude ("com.sun.jdmk", "jmxtools") exclude ("com.sun.jmx", "jmxri") excludeAll (jacksonExclusions: _*),
-    "com.google.cloud.bigdataoss" % "bigquery-connector-shaded" % s"${Versions.hadoopbq}-shaded" from gcpBigQueryConnectorShadedJar exclude ("javax.jms", "jms") exclude ("com.sun.jdmk", "jmxtools") exclude ("com.sun.jmx", "jmxri") excludeAll (jacksonExclusions: _*),
+    "com.google.cloud.bigdataoss" % "gcs-connector" % Versions.gcs from gcsConnectorShadedJar exclude ("javax.jms", "jms") exclude ("com.sun.jdmk", "jmxtools") exclude ("com.sun.jmx", "jmxri") excludeAll (jacksonExclusions: _*) classifier ("shaded"),
+    "com.google.cloud.bigdataoss" % "bigquery-connector" % Versions.hadoopbq from gcpBigQueryConnectorShadedJar exclude ("javax.jms", "jms") exclude ("com.sun.jdmk", "jmxtools") exclude ("com.sun.jmx", "jmxri") excludeAll (jacksonExclusions: _*) classifier ("shaded"),
     "com.google.cloud" % "google-cloud-bigquery" % Versions.bq exclude ("javax.jms", "jms") exclude ("com.sun.jdmk", "jmxtools") exclude ("com.sun.jmx", "jmxri") excludeAll (jacksonExclusions: _*),
-    "com.google.cloud.spark" %% "spark-bigquery-with-dependencies" % "0.12.0-beta"
+    // see https://github.com/GoogleCloudDataproc/spark-bigquery-connector/issues/36
+    // Add the jar file to spark dependencies
+    "com.google.cloud.spark" %% "spark-bigquery-with-dependencies" % "0.15.1-beta" % "provided"
+
   )
 
   val esHadoop = Seq(
-    "org.elasticsearch" % "elasticsearch-hadoop" % Versions.esHadoop
+    "org.elasticsearch" % "elasticsearch-hadoop" % Versions.esHadoop exclude ("com.google.guava", "guava"),
+    "pl.allegro.tech" % "embedded-elasticsearch" % "2.10.0" % "test"
   )
 
   val scopt = Seq(
@@ -117,24 +119,24 @@ object Dependencies {
   // We need here to remove any reference to hadoop 3
   val atlas = Seq(
     //"org.apache.atlas" % "apache-atlas" % "2.0.0" pomOnly(),
-    "org.apache.atlas" % "atlas-intg" % "2.0.0" excludeAll (jacksonExclusions: _*) exclude ("asm", "asm"),
-    "org.apache.atlas" % "atlas-client-common" % "2.0.0" excludeAll (jacksonExclusions: _*) exclude ("asm", "asm"),
+    "org.apache.atlas" % "atlas-intg" % "2.0.0" excludeAll (jacksonExclusions: _*) exclude ("asm", "asm") exclude ("com.google.guava", "guava"),
+    "org.apache.atlas" % "atlas-client-common" % "2.0.0" excludeAll (jacksonExclusions: _*) exclude ("asm", "asm") exclude ("com.google.guava", "guava"),
     //"org.apache.atlas" % "atlas-client" % "2.0.0" pomOnly(),
-    "org.apache.atlas" % "atlas-common" % "2.0.0" excludeAll (jacksonExclusions: _*) exclude ("asm", "asm"),
-    "org.apache.atlas" % "atlas-client-v2" % "2.0.0" excludeAll (jacksonExclusions: _*) exclude ("asm", "asm")
+    "org.apache.atlas" % "atlas-common" % "2.0.0" excludeAll (jacksonExclusions: _*) exclude ("asm", "asm") exclude ("com.google.guava", "guava"),
+    "org.apache.atlas" % "atlas-client-v2" % "2.0.0" excludeAll (jacksonExclusions: _*) exclude ("asm", "asm") exclude ("com.google.guava", "guava")
   )
 
   val azure = Seq(
-    "org.apache.hadoop" % "hadoop-azure" % "3.2.1" % "provided" excludeAll (jacksonExclusions: _*),
-    "com.microsoft.azure" % "azure-storage" % "8.6.3" % "provided" excludeAll (jacksonExclusions: _*)
+    "org.apache.hadoop" % "hadoop-azure" % "3.2.1" % "provided" excludeAll (jacksonExclusions: _*) exclude ("com.google.guava", "guava"),
+    "com.microsoft.azure" % "azure-storage" % "8.6.4" % "provided" excludeAll (jacksonExclusions: _*) exclude ("com.google.guava", "guava")
   )
 
   val hadoop = Seq(
-    "org.apache.hadoop" % "hadoop-common" % Versions.hadoop % "provided" excludeAll (jacksonExclusions: _*),
-    "org.apache.hadoop" % "hadoop-hdfs" % Versions.hadoop % "provided" excludeAll (jacksonExclusions: _*),
-    "org.apache.hadoop" % "hadoop-yarn-client" % Versions.hadoop % "provided" excludeAll (jacksonExclusions: _*),
-    "org.apache.hadoop" % "hadoop-mapreduce-client-app" % Versions.hadoop % "provided" excludeAll (jacksonExclusions: _*),
-    "org.apache.hadoop" % "hadoop-client" % Versions.hadoop % "provided" excludeAll (jacksonExclusions: _*)
+    "org.apache.hadoop" % "hadoop-common" % Versions.hadoop % "provided" excludeAll (jacksonExclusions: _*) exclude ("com.google.guava", "guava"),
+    "org.apache.hadoop" % "hadoop-hdfs" % Versions.hadoop % "provided" excludeAll (jacksonExclusions: _*) exclude ("com.google.guava", "guava"),
+    "org.apache.hadoop" % "hadoop-yarn-client" % Versions.hadoop % "provided" excludeAll (jacksonExclusions: _*) exclude ("com.google.guava", "guava"),
+    "org.apache.hadoop" % "hadoop-mapreduce-client-app" % Versions.hadoop % "provided" excludeAll (jacksonExclusions: _*) exclude ("com.google.guava", "guava"),
+    "org.apache.hadoop" % "hadoop-client" % Versions.hadoop % "provided" excludeAll (jacksonExclusions: _*) exclude ("com.google.guava", "guava")
   )
 
   val excelClientApi = Seq(
@@ -150,6 +152,6 @@ object Dependencies {
   )
 
   val dependencies =
-    scalate ++ logging ++ typedConfigs ++ okhttp ++ betterfiles ++ scalaTest ++ scopt ++ hadoop ++ esHadoop ++
+    scalate ++ logging ++ typedConfigs ++ betterfiles ++ scalaTest ++ scopt ++ hadoop ++ esHadoop ++
     sttp ++ gcp ++ azure ++ h2 ++ excelClientApi // ++ atlas
 }

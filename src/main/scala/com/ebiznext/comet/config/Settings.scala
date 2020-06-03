@@ -32,14 +32,15 @@ import com.ebiznext.comet.schema.handlers.{
   SimpleLauncher
 }
 import com.ebiznext.comet.schema.model.IndexSink
-import com.ebiznext.comet.utils.{CometJacksonModule, CometObjectMapper}
-import com.fasterxml.jackson.annotation.JsonTypeInfo
+import com.ebiznext.comet.utils.{CometJacksonModule, CometObjectMapper, Version}
+import com.fasterxml.jackson.annotation.{JsonIgnore, JsonTypeInfo}
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize
 import com.typesafe.config.{Config, ConfigValueFactory}
 import com.typesafe.scalalogging.{Logger, StrictLogging}
 import configs.Configs
 import configs.syntax._
+import org.apache.spark.storage.StorageLevel
 import org.slf4j.MDC
 
 import scala.concurrent.duration.FiniteDuration
@@ -80,12 +81,16 @@ object Settings extends StrictLogging {
     val businessFinal: String = business.toLowerCase(Locale.ROOT)
   }
 
+  /**
+    *
+    * @param options : Map of privacy algorightms name -> PrivacyEngine
+    */
   final case class Privacy(options: juMap[String, String])
 
   final case class Elasticsearch(active: Boolean, options: juMap[String, String])
 
   /**
-    * Configuration for [[IndexSink]]
+    * Configuration for [[com.ebiznext.comet.schema.model.IndexSink]]
     *
     * This is used to define an auxiliary output for Audit or Metrics data, in addition to the Parquets
     * The default Index Sink is None, but additional types exists (such as BigQuery or Jdbc)
@@ -191,7 +196,7 @@ object Settings extends StrictLogging {
       * @param createSql the SQL Create Table statement with the database-specific type, constraints etc. tacked on.
       * @param pingSql a cheap SQL query whose results are irrelevant but guaranteed to trigger an error in case the table is absent
       *
-      * @note pingSql is optional, and will default to `select * from $name where 1=0` as Spark SQL does
+      * @note pingSql is optional, and will default to `select * from `name` where 1=0` as Spark SQL does
       */
     final case class TableDdl(name: String, createSql: String, pingSql: Option[String] = None) {
       def effectivePingSql: String = pingSql.getOrElse(s"select * from $name where 1=0")
@@ -208,6 +213,8 @@ object Settings extends StrictLogging {
 
   final case class Atlas(uri: String, user: String, password: String, owner: String)
 
+  final case class Internal(cacheStorageLevel: StorageLevel) {}
+
   /**
     *
     * @param datasets       : Absolute path, datasets root folder beneath which each area is defined.
@@ -221,9 +228,9 @@ object Settings extends StrictLogging {
     * @param hive           : Should we create a Hive Table ? true by default
     * @param area           : see Area above
     * @param airflow        : Airflow end point. Should be defined even if simple launccher is used instead of airflow.
-    * @param disablePrivacy : Disable privacy
     */
   final case class Comet(
+    tmpdir: String,
     jobId: String,
     datasets: String,
     metadata: String,
@@ -247,8 +254,23 @@ object Settings extends StrictLogging {
     atlas: Atlas,
     privacy: Privacy,
     fileSystem: Option[String],
-    disablePrivacy: Boolean
+    internal: Option[Internal]
   ) extends Serializable {
+
+    @JsonIgnore
+    def isElasticsearchSupported(): Boolean = {
+      if (
+        Version(util.Properties.versionNumberString).compareTo(Version("2.12")) >= 0
+        && elasticsearch.active
+      ) {
+        logger.warn("""Elasticsearch inserts won't be effective before es-hadoop support scala 2.12
+            |See https://github.com/elastic/elasticsearch-hadoop/pull/1308
+            |""".stripMargin)
+        false
+      } else true
+    }
+
+    val cacheStorageLevel = internal.map(_.cacheStorageLevel).getOrElse(StorageLevel.MEMORY_ONLY)
 
     @throws(classOf[ObjectStreamException])
     protected def writeReplace: AnyRef = {
@@ -282,6 +304,9 @@ object Settings extends StrictLogging {
     Configs.derive[IndexSinkSettings]
   private implicit val jdbcEngineConfigs: Configs[JdbcEngine] = Configs.derive[JdbcEngine]
 
+  private implicit val storageLevelConfigs: Configs[StorageLevel] =
+    Configs[String].map(StorageLevel.fromString).map(_.asInstanceOf[StorageLevel])
+
   def apply(config: Config): Settings = {
     val jobId = UUID.randomUUID().toString
     val effectiveConfig = config
@@ -307,8 +332,8 @@ final case class Settings(comet: Settings.Comet, sparkConfig: Config) {
 
   @transient
   lazy val storageHandler: HdfsStorageHandler = {
-    implicit val self
-      : Settings = this /* TODO: remove this once HdfsStorageHandler explicitly takes Settings or Settings.Comet in */
+    implicit val self: Settings =
+      this /* TODO: remove this once HdfsStorageHandler explicitly takes Settings or Settings.Comet in */
     new HdfsStorageHandler(comet.fileSystem)
   }
 

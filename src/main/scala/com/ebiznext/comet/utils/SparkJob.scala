@@ -8,6 +8,8 @@ import org.apache.spark.sql.{DataFrame, DataFrameWriter, Row, SparkSession}
 
 import scala.util.Try
 
+case class SparkJobResult(session: SparkSession, df: Option[DataFrame] = None)
+
 /**
   * All Spark Job extend this trait.
   * Build Spark session using spark variables from applciation.conf.
@@ -24,7 +26,29 @@ trait SparkJob extends StrictLogging {
     *
     * @return : Spark Session used for the job
     */
-  def run(): Try[SparkSession]
+  def run(): Try[SparkJobResult]
+
+  // TODO Should we issue a warning if used with Overwrite mode ????
+  // TODO Check that the year / month / day / hour / minute do not already exist
+  private def buildPartitionedDF(dataset: DataFrame, cols: List[String]): DataFrame = {
+    var partitionedDF = dataset.withColumn("comet_date", current_timestamp())
+    val dataSetsCols = dataset.columns.toList
+    cols.foreach {
+      case "comet_year" if !dataSetsCols.contains("year") =>
+        partitionedDF = partitionedDF.withColumn("year", year(col("comet_date")))
+      case "comet_month" if !dataSetsCols.contains("month") =>
+        partitionedDF = partitionedDF.withColumn("month", month(col("comet_date")))
+      case "comet_day" if !dataSetsCols.contains("day") =>
+        partitionedDF = partitionedDF.withColumn("day", dayofmonth(col("comet_date")))
+      case "comet_hour" if !dataSetsCols.contains("hour") =>
+        partitionedDF = partitionedDF.withColumn("hour", hour(col("comet_date")))
+      case "comet_minute" if !dataSetsCols.contains("minute") =>
+        partitionedDF = partitionedDF.withColumn("minute", minute(col("comet_date")))
+      case _ =>
+        partitionedDF
+    }
+    partitionedDF.drop("comet_date")
+  }
 
   /**
     * Partition a dataset using dataset columns.
@@ -46,29 +70,12 @@ trait SparkJob extends StrictLogging {
     partition: List[String]
   ): DataFrameWriter[Row] = {
     partition match {
-      case Nil                                                          => dataset.write
+      case Nil => dataset.write
       case cols if cols.forall(Metadata.CometPartitionColumns.contains) =>
-        // TODO Should we issue a warning if used with Overwrite mode ????
-        // TODO Check that the year / month / day / hour / minute do not already exist
-        var partitionedDF = dataset.withColumn("comet_date", current_date())
-        val dataSetsCols = dataset.columns.toList
-        cols.foreach {
-          case "comet_year" if !dataSetsCols.contains("year") =>
-            partitionedDF = partitionedDF.withColumn("year", year(col("comet_date")))
-          case "comet_month" if !dataSetsCols.contains("month") =>
-            partitionedDF = partitionedDF.withColumn("month", month(col("comet_date")))
-          case "comet_day" if !dataSetsCols.contains("day") =>
-            partitionedDF = partitionedDF.withColumn("day", dayofmonth(col("comet_date")))
-          case "comet_hour" if !dataSetsCols.contains("hour") =>
-            partitionedDF = partitionedDF.withColumn("hour", hour(col("comet_date")))
-          case "comet_minute" if !dataSetsCols.contains("minute") =>
-            partitionedDF = partitionedDF.withColumn("minute", minute(col("comet_date")))
-          case _ =>
-            partitionedDF
-        }
         val strippedCols = cols.map(_.substring("comet_".length))
+        val partitionedDF = buildPartitionedDF(dataset, cols)
         // does not work on nested fields -> https://issues.apache.org/jira/browse/SPARK-18084
-        partitionedDF.drop("comet_date").write.partitionBy(strippedCols: _*)
+        partitionedDF.write.partitionBy(strippedCols: _*)
       case cols if !cols.exists(Metadata.CometPartitionColumns.contains) =>
         dataset.write.partitionBy(cols: _*)
       case _ =>
@@ -82,27 +89,9 @@ trait SparkJob extends StrictLogging {
   def partitionDataset(dataset: DataFrame, partition: List[String]): DataFrame = {
     logger.info(s"""Partitioning on ${partition.mkString(",")}""")
     partition match {
-      case Nil                                                          => dataset
+      case Nil => dataset
       case cols if cols.forall(Metadata.CometPartitionColumns.contains) =>
-        // TODO Should we issue a warning if used with Overwrite mode ????
-        // TODO Check that the year / month / day / hour / minute do not already exist
-        var partitionedDF = dataset.withColumn("comet_date", current_date())
-        val dataSetsCols = dataset.columns.toList
-        cols.foreach {
-          case "comet_year" if !dataSetsCols.contains("year") =>
-            partitionedDF = partitionedDF.withColumn("year", year(col("comet_date")))
-          case "comet_month" if !dataSetsCols.contains("month") =>
-            partitionedDF = partitionedDF.withColumn("month", month(col("comet_date")))
-          case "comet_day" if !dataSetsCols.contains("day") =>
-            partitionedDF = partitionedDF.withColumn("day", dayofmonth(col("comet_date")))
-          case "comet_hour" if !dataSetsCols.contains("hour") =>
-            partitionedDF = partitionedDF.withColumn("hour", hour(col("comet_date")))
-          case "comet_minute" if !dataSetsCols.contains("minute") =>
-            partitionedDF = partitionedDF.withColumn("minute", minute(col("comet_date")))
-          case _ =>
-            partitionedDF
-        }
-        partitionedDF.drop("comet_date")
+        buildPartitionedDF(dataset, cols)
       case cols if !cols.exists(Metadata.CometPartitionColumns.contains) =>
         dataset
       case _ =>

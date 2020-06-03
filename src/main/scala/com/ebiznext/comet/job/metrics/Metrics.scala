@@ -8,6 +8,12 @@ import org.apache.spark.sql.{Column, DataFrame}
 
 object Metrics extends StrictLogging {
 
+  case class MetricsDatasets(
+    continuousDF: Option[DataFrame],
+    discreteDF: Option[DataFrame],
+    frequenciesDF: Option[DataFrame]
+  )
+
   /** Case class ContinuousMetric with all corresponding Metrics
     *
     * @param name     : the name of the variable
@@ -292,7 +298,7 @@ object Metrics extends StrictLogging {
         "cat_count_freq",
         struct(
           col("Category").cast(StringType).as("category"),
-          col("CountDiscrete").cast(LongType).as("count"),
+          col("CountDiscrete").cast(LongType).as("countDiscrete"),
           col("Frequencies").cast(DoubleType).as("frequency")
         )
       )

@@ -82,8 +82,8 @@ trait StorageHandler extends StrictLogging {
 /**
   * HDFS Filesystem Handler
   */
-class HdfsStorageHandler(fileSystem: Option[String])(
-  implicit settings: Settings
+class HdfsStorageHandler(fileSystem: Option[String])(implicit
+  settings: Settings
 ) extends StorageHandler {
 
   val conf = new Configuration()
@@ -150,6 +150,18 @@ class HdfsStorageHandler(fileSystem: Option[String])(
   def write(data: String, path: Path): Unit = {
     val os: FSDataOutputStream = getOutputStream(path)
     os.writeBytes(data)
+    os.close()
+  }
+
+  /**
+    * Write bytes to binary file. Used for zip / gzip input test files.
+    *
+    * @param data file content as a string
+    * @param path : Absolute file path
+    */
+  def writeBinary(data: Array[Byte], path: Path): Unit = {
+    val os: FSDataOutputStream = getOutputStream(path)
+    os.write(data, 0, data.length)
     os.close()
   }
 

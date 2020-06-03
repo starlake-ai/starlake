@@ -4,7 +4,7 @@ import scala.annotation.tailrec
 
 /**
   * This class provides a basic text substitution engine, suitable for performing basic variable
-  * substitution in a way that is more reliable and faster than applying a sequence of [[String#replace]]
+  * substitution in a way that is more reliable and faster than applying a sequence of `String#replace`
   * operations.
   *
   * The default start and end variable separators are \_\_ and \_\_, respectively, but can be configured to be

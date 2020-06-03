@@ -12,16 +12,16 @@ import scala.util.{Failure, Success, Try}
 /**
   * HDFS does not have a file locking mechanism.
   * We implement it here in the following way
-  * - A file is locked when it's modification time is less than 5000ms tahn the current time
+  * - A file is locked when it's modification time is less than 5000ms than the current time
   * - If the modification time is older tahn the current time of more than 5000ms, it is considered unlocked.
   * - The owner of a lock spawn a thread that update the modification every 5s to keep the lock
   * - The process willing to get the lock check every 5s second for the modification time of the file to gain the lock.
   * - When a process gain the lock, it deletes the file first and tries to create a new one, this make sure that of
   * two process gaining the lock, only one will be able to recreate it after deletion.
   *
-  * To gain the lock, call [[tryLock()]], to release it, call [[release()]].
+  * To gain the lock, call [[tryLock]], to release it, call `release()`.
   * If you are going to use the lock and release it within the same call stack frame, please consider
-  * calling [[tryExclusively()]] (as in `exclusive(delay) { action }`) instead.
+  * calling `tryExclusively()` (as in exclusive(delay) { action }`) instead.
   *
   * @param path Lock File path
   * @param storageHandler Filesystem Handler
@@ -48,7 +48,7 @@ class FileLock(path: Path, storageHandler: StorageHandler) extends StrictLogging
     * @param timeoutInMillis number of milliseconds during which the calling process will try to get the lock before it
     *                        times out. -1 means no timeout
     * @return the result of the operation (if successful) when locked is acquired
-    * @throws TimeoutException if the lock could not be acquired within timeoutInMillis, or any exception thrown by op
+    * throws TimeoutException if the lock could not be acquired within timeoutInMillis, or any exception thrown by op
     *                          if the lock was acquired but the operation failed
     *
     * the lock is guaranteed freed upon normal or exceptional exit from this function.
@@ -71,7 +71,7 @@ class FileLock(path: Path, storageHandler: StorageHandler) extends StrictLogging
     * Try to gain the lock during timeoutInMillis millis
     *
     * @param timeoutInMillis number of milliseconds during which the calling process will try to get the lock before it time out. -1 means no timeout
-    * @return true when locked is acquired (caller is responsible for calling [[release()]], false otherwise
+    * @return true when locked is acquired (caller is responsible for calling `release()`, false otherwise
     */
   def tryLock(timeoutInMillis: Long = -1): Boolean = {
     fileWatcher.checkPristine()

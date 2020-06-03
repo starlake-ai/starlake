@@ -111,6 +111,18 @@ object DatasetArea {
     )
   }
 
+  def discreteMetrics(domain: String, schema: String)(implicit settings: Settings): Path = {
+    new Path(metrics(domain, schema), "discrete")
+  }
+
+  def continuousMetrics(domain: String, schema: String)(implicit settings: Settings): Path = {
+    new Path(metrics(domain, schema), "continuous")
+  }
+
+  def frequenciesMetrics(domain: String, schema: String)(implicit settings: Settings): Path = {
+    new Path(metrics(domain, schema), "frequencies")
+  }
+
   /**
     * Default target folder for autojobs applied to datasets in this domain
     *
@@ -145,8 +157,8 @@ object DatasetArea {
     List(metadata, types, domains).foreach(storage.mkdirs)
   }
 
-  def initDomains(storage: StorageHandler, domains: Iterable[String])(
-    implicit settings: Settings
+  def initDomains(storage: StorageHandler, domains: Iterable[String])(implicit
+    settings: Settings
   ): Unit = {
     init(storage)
     domains.foreach { domain =>
@@ -169,10 +181,6 @@ object DatasetArea {
 object StorageArea {
 
   def fromString(value: String)(implicit settings: Settings): StorageArea = {
-
-    val rejected = settings.comet.area.rejected.toLowerCase(Locale.ROOT)
-    val accepted = settings.comet.area.accepted.toLowerCase(Locale.ROOT)
-    val business = settings.comet.area.business.toLowerCase(Locale.ROOT)
 
     val lcValue = value.toLowerCase(Locale.ROOT)
 

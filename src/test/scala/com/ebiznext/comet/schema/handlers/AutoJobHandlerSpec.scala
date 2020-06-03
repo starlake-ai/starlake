@@ -13,7 +13,9 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
 
   lazy val pathGraduateProgramBusiness = new Path(cometMetadataPath + "/jobs/graduateProgram.yml")
 
-  lazy val pathGraduateDatasetProgramBusiness = new Path(cometDatasetsPath + "/business/graduateProgram/output")
+  lazy val pathGraduateDatasetProgramBusiness = new Path(
+    cometDatasetsPath + "/business/graduateProgram/output"
+  )
 
   lazy val pathUserDatasetBusiness = new Path(cometDatasetsPath + "/business/user/user")
 
@@ -76,7 +78,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         .select("firstname", "lastname", "age")
         .take(2)
 
-      result.length shouldBe (2)
+      result.length shouldBe 2
 
       result
         .map(r => (r.getString(0), r.getString(1), r.getLong(2)))
@@ -122,7 +124,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         .select("firstname", "lastname", "age")
         .take(2)
 
-      result.length shouldBe (1)
+      result.length shouldBe 1
       result
         .map(r => (r.getString(0), r.getString(1), r.getLong(2)))
         .toList should contain allElementsOf List(
@@ -212,9 +214,9 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         .take(7)
         .map(r => r.getString(0))
         .toList should contain allElementsOf List(
-        ("John Doe"),
-        ("fred abruzzi"),
-        ("test3 test4")
+        "John Doe",
+        "fred abruzzi",
+        "test3 test4"
       )
     }
 
@@ -260,7 +262,8 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         .load(pathGraduateDatasetProgramBusiness.toString)
         .select("*")
 
-      result.take(7)
+      result
+        .take(7)
         .map(r => (r.getString(0), r.getString(1), r.getString(2)))
         .toList should contain allElementsOf List(
         ("Masters", "School_of_Information", "UC_Berkeley"),

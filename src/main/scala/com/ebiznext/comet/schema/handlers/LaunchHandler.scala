@@ -21,16 +21,18 @@
 package com.ebiznext.comet.schema.handlers
 
 import com.ebiznext.comet.config.Settings
-import com.ebiznext.comet.job.bqload.BigQueryLoadConfig
-import com.ebiznext.comet.job.index.IndexConfig
+import com.ebiznext.comet.job.index.bqload.BigQueryLoadConfig
+import com.ebiznext.comet.job.index.esload.ESLoadConfig
 import com.ebiznext.comet.job.ingest.IngestConfig
-import com.ebiznext.comet.job.jdbcload.JdbcLoadConfig
+import com.ebiznext.comet.job.index.jdbcload.JdbcLoadConfig
 import com.ebiznext.comet.schema.model.{Domain, Schema}
 import com.ebiznext.comet.workflow.IngestionWorkflow
 import com.typesafe.scalalogging.StrictLogging
-import okhttp3._
-import okio.Buffer
 import org.apache.hadoop.fs.Path
+import org.apache.http.client.methods.HttpPost
+import org.apache.http.entity.{ContentType, StringEntity}
+import org.apache.http.impl.client.HttpClients
+import org.apache.http.util.EntityUtils
 
 import scala.util.{Failure, Success, Try}
 
@@ -47,8 +49,8 @@ trait LaunchHandler {
     * @param path   : absolute path where the source dataset  (JSON / CSV / ...) is located
     * @return success / failure
     */
-  def ingest(workflow: IngestionWorkflow, domain: Domain, schema: Schema, path: Path)(
-    implicit settings: Settings
+  def ingest(workflow: IngestionWorkflow, domain: Domain, schema: Schema, path: Path)(implicit
+    settings: Settings
   ): Boolean =
     ingest(workflow, domain, schema, path :: Nil)
 
@@ -73,8 +75,8 @@ trait LaunchHandler {
     *
     * @param config
     */
-  def index(workflow: IngestionWorkflow, config: IndexConfig)(
-    implicit settings: Settings
+  def index(workflow: IngestionWorkflow, config: ESLoadConfig)(implicit
+    settings: Settings
   ): Boolean
 
   /**
@@ -82,8 +84,8 @@ trait LaunchHandler {
     *
     * @param config
     */
-  def bqload(workflow: IngestionWorkflow, config: BigQueryLoadConfig)(
-    implicit settings: Settings
+  def bqload(workflow: IngestionWorkflow, config: BigQueryLoadConfig)(implicit
+    settings: Settings
   ): Boolean
 
   /**
@@ -91,8 +93,8 @@ trait LaunchHandler {
     *
     * @param config
     */
-  def jdbcload(workflow: IngestionWorkflow, config: JdbcLoadConfig)(
-    implicit settings: Settings
+  def jdbcload(workflow: IngestionWorkflow, config: JdbcLoadConfig)(implicit
+    settings: Settings
   ): Boolean
 }
 
@@ -126,8 +128,8 @@ class SimpleLauncher extends LaunchHandler with StrictLogging {
     *
     * @param config
     */
-  override def index(workflow: IngestionWorkflow, config: IndexConfig)(
-    implicit settings: Settings
+  override def index(workflow: IngestionWorkflow, config: ESLoadConfig)(implicit
+    settings: Settings
   ): Boolean = {
     logger.info(s"Launch index: ${config}")
     workflow.index(config)
@@ -139,8 +141,8 @@ class SimpleLauncher extends LaunchHandler with StrictLogging {
     *
     * @param config
     */
-  override def bqload(workflow: IngestionWorkflow, config: BigQueryLoadConfig)(
-    implicit settings: Settings
+  override def bqload(workflow: IngestionWorkflow, config: BigQueryLoadConfig)(implicit
+    settings: Settings
   ): Boolean = {
     logger.info(s"Launch bq: ${config}")
     workflow.bqload(config)
@@ -153,8 +155,8 @@ class SimpleLauncher extends LaunchHandler with StrictLogging {
     *
     * @param config
     */
-  override def jdbcload(workflow: IngestionWorkflow, config: JdbcLoadConfig)(
-    implicit settings: Settings
+  override def jdbcload(workflow: IngestionWorkflow, config: JdbcLoadConfig)(implicit
+    settings: Settings
   ): Boolean = {
     logger.info(s"Launch JDBC: ${config}")
     workflow.jdbcload(config)
@@ -172,17 +174,19 @@ class AirflowLauncher extends LaunchHandler with StrictLogging {
   protected def post(url: String, command: String): Boolean = {
     Try {
       val json = s"""{"conf":"{\\"command\\":\\"$command\\"}"}"""
-      logger.info(s"Post to Airflow: $json")
-      val JSON: MediaType = MediaType.parse("application/json; charset=utf-8")
-      val client: OkHttpClient = new OkHttpClient
-      val body: RequestBody = RequestBody.create(JSON, json)
-      val request: Request = new Request.Builder().url(url).post(body).build
-      val buffer = new Buffer()
-      request.body().writeTo(buffer)
-      logger.debug("Post to Airflow: " + request.toString + "\n" + buffer.readUtf8())
-      val response: Response = client.newCall(request).execute
-      val responseBody = response.body.string
+      logger.info(s"JSON to post to Airflow: $json")
+      val client = HttpClients.createDefault
+      val requestEntity = new StringEntity(json, ContentType.APPLICATION_JSON);
+      val httpPost = new HttpPost(url)
+      httpPost.setEntity(requestEntity)
+      logger.debug(
+        "Posting to Airflow: " + httpPost.getURI.toString + "\n" + EntityUtils
+          .toString(httpPost.getEntity, "UTF-8")
+      )
+      val response = client.execute(httpPost)
+      val responseBody = EntityUtils.toString(response.getEntity, "UTF-8")
       logger.debug("Post result from Airflow: " + responseBody)
+      client.close();
       responseBody
     } match {
       case Success(_) =>
@@ -224,8 +228,8 @@ class AirflowLauncher extends LaunchHandler with StrictLogging {
     *
     * @param config
     */
-  override def index(workflow: IngestionWorkflow, config: IndexConfig)(
-    implicit settings: Settings
+  override def index(workflow: IngestionWorkflow, config: ESLoadConfig)(implicit
+    settings: Settings
   ): Boolean = {
     val endpoint = settings.comet.airflow.endpoint
     val url = s"$endpoint/dags/comet_index/dag_runs"
@@ -251,13 +255,13 @@ class AirflowLauncher extends LaunchHandler with StrictLogging {
     *
     * @param config
     */
-  override def bqload(workflow: IngestionWorkflow, config: BigQueryLoadConfig)(
-    implicit settings: Settings
+  override def bqload(workflow: IngestionWorkflow, config: BigQueryLoadConfig)(implicit
+    settings: Settings
   ): Boolean = {
     val endpoint = settings.comet.airflow.endpoint
     val url = s"$endpoint/dags/comet_bqload/dag_runs"
     val params = List(
-      s"--source_file ${config.sourceFile}",
+      s"--source_file ${config.source}",
       s"--output_dataset ${config.outputDataset}",
       s"--output_table ${config.outputTable}",
       s"--source_format ${config.sourceFormat}",
@@ -274,8 +278,8 @@ class AirflowLauncher extends LaunchHandler with StrictLogging {
     *
     * @param config
     */
-  override def jdbcload(workflow: IngestionWorkflow, config: JdbcLoadConfig)(
-    implicit settings: Settings
+  override def jdbcload(workflow: IngestionWorkflow, config: JdbcLoadConfig)(implicit
+    settings: Settings
   ): Boolean = {
     val endpoint = settings.comet.airflow.endpoint
     val url = s"$endpoint/dags/comet_jdbcload/dag_runs"
