@@ -1,6 +1,7 @@
 package com.ebiznext.comet.job.index.bqload
 
 import buildinfo.BuildInfo
+import com.ebiznext.comet.schema.model.RowLevelSecurity
 import com.ebiznext.comet.utils.CliConfig
 import org.apache.spark.sql.DataFrame
 import scopt.OParser
@@ -14,7 +15,8 @@ case class BigQueryLoadConfig(
   createDisposition: String = "",
   writeDisposition: String = "",
   location: Option[String] = None,
-  days: Option[Int] = None
+  days: Option[Int] = None,
+  rls: Option[RowLevelSecurity] = None
 ) {
   def getLocation(): String = this.location.getOrElse("EU")
 }
@@ -55,6 +57,11 @@ object BigQueryLoadConfig extends CliConfig[BigQueryLoadConfig] {
         .action((x, c) => c.copy(writeDisposition = x))
         .text(
           "Big Query Write disposition https://cloud.google.com/bigquery/docs/reference/auditlogs/rest/Shared.Types/WriteDisposition"
+        ),
+      opt[String]("row_level_security")
+        .action((x, c) => c.copy(rls = Some(RowLevelSecurity.parse(x))))
+        .text(
+          "Row Level Security in the --row_level_security name,filter,sa:sa@mail.com,user:user@mail.com,group:group@mail.com "
         )
     )
   }
