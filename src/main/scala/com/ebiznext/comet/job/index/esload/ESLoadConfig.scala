@@ -24,6 +24,7 @@ import java.util.regex.Pattern
 
 import buildinfo.BuildInfo
 import com.ebiznext.comet.config.Settings
+import com.ebiznext.comet.schema.model.RowLevelSecurity
 import com.ebiznext.comet.utils.CliConfig
 import org.apache.hadoop.fs.Path
 import scopt.OParser
@@ -36,7 +37,8 @@ case class ESLoadConfig(
   schema: String = "",
   format: String = "",
   dataset: Option[Path] = None,
-  conf: Map[String, String] = Map()
+  conf: Map[String, String] = Map(),
+  rls: Option[List[RowLevelSecurity]] = None
 ) {
 
   def getDataset()(implicit settings: Settings): Path = {
