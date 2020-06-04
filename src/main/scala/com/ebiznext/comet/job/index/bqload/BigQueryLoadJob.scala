@@ -1,6 +1,7 @@
 package com.ebiznext.comet.job.index.bqload
 
 import com.ebiznext.comet.config.Settings
+import com.ebiznext.comet.schema.model.UserType
 import com.ebiznext.comet.utils.conversion.BigQueryUtils._
 import com.ebiznext.comet.utils.conversion.syntax._
 import com.ebiznext.comet.utils.{SparkJob, SparkJobResult, Utils}
@@ -171,8 +172,69 @@ class BigQueryLoadJob(
       logger.info(
         s"BigQuery Saved to ${table.getTableId} now contains ${stdTableDefinitionAfter.getNumRows} rows"
       )
+      cliConfig.rls.foreach { rls =>
+        logger.info(s"Applying security $rls")
+        val rlsDelStatement = toBQDelGrant()
+        bqJobRun(rlsDelStatement)
+        logger.info(s"All access policies deleted using $rlsDelStatement")
+        val rlsCreateStatement = toBQGrant()
+        bqJobRun(rlsCreateStatement)
+        logger.info(s"All access policies created using $rlsCreateStatement")
+
+      }
       SparkJobResult(session)
     }
+  }
+
+  private def bqJobRun(statement: String) = {
+    import java.util.UUID
+
+    import scala.collection.JavaConverters._
+    val jobId = JobId.of(UUID.randomUUID.toString)
+    val config =
+      QueryJobConfiguration
+        .newBuilder(statement)
+        .setUseLegacySql(false)
+        .build()
+    // Use standard SQL syntax for queries.
+    // See: https://cloud.google.com/bigquery/sql-reference/
+    val job = bigquery.create(JobInfo.newBuilder(config).setJobId(jobId).build)
+    scala.Option(job.waitFor()) match {
+      case None =>
+        throw new RuntimeException("Job no longer exists")
+      case Some(job) if job.getStatus.getExecutionErrors() != null =>
+        throw new RuntimeException(job.getStatus.getExecutionErrors().asScala.reverse.mkString(","))
+      case Some(_) =>
+      // everything went well !
+    }
+  }
+
+  private def toBQDelGrant(): String = {
+      "DROP ALL ROW ACCESS POLICIES ON $outputDataset.$outputTable"
+  }
+
+  private def toBQGrant(): String = {
+    import cliConfig._
+    val rlsGet = rls.getOrElse(throw new Exception("Should never happen"))
+    val grants = rlsGet.grants.map {
+      case (UserType.SA, u) =>
+        s"serviceAccount:$u"
+      case (t, u) =>
+        s"${t.toString.toLowerCase}:$u"
+    }
+
+    val name = rlsGet.name
+    val filter = rlsGet.predicate
+    s"""
+      | CREATE ROW ACCESS POLICY
+      |  $name
+      | ON
+      |  $outputDataset.$outputTable
+      | GRANT TO
+      |  (${grants.mkString(",")})
+      | FILTER USING
+      |  ($filter)
+      |""".stripMargin
   }
 
   /**

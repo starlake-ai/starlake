@@ -149,7 +149,8 @@ trait IngestionJob extends SparkJob {
           writeDisposition = writeDisposition,
           location = meta.getProperties().get("location"),
           outputPartition = meta.getProperties().get("timestamp"),
-          days = meta.getProperties().get("days").map(_.toInt)
+          days = meta.getProperties().get("days").map(_.toInt),
+          rls = schema.rls
         )
         val res = new BigQueryLoadJob(config, Some(schema.bqSchema(schemaHandler))).run()
         res match {

@@ -411,7 +411,8 @@ class IngestionWorkflow(
                   writeDisposition = writeDisposition,
                   location = task.properties.flatMap(_.get("location")),
                   outputPartition = task.properties.flatMap(_.get("timestamp")),
-                  days = task.properties.flatMap(_.get("days").map(_.toInt))
+                  days = task.properties.flatMap(_.get("days").map(_.toInt)),
+                  rls = task.rls
                 )
               )
             case _ =>
