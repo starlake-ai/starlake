@@ -63,7 +63,8 @@ case class Schema(
   comment: Option[String],
   presql: Option[List[String]],
   postsql: Option[List[String]],
-  tags: Option[Set[String]] = None
+  tags: Option[Set[String]] = None,
+  rls: Option[RowLevelSecurity] = None
 ) {
 
   /**
