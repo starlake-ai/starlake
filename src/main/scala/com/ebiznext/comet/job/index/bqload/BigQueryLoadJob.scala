@@ -9,6 +9,7 @@ import com.google.cloud.bigquery.testing.RemoteBigQueryHelper
 import com.google.cloud.bigquery.{Schema => BQSchema, _}
 import com.google.cloud.hadoop.io.bigquery.BigQueryConfiguration
 import com.google.cloud.hadoop.io.bigquery.output.BigQueryTimePartitioning
+import org.apache.hadoop.conf.Configuration
 import org.apache.spark.sql.{DataFrame, SaveMode}
 
 import scala.util.Try
@@ -31,6 +32,7 @@ class BigQueryLoadJob(
   val bucket = conf.get("fs.defaultFS")
 
   val tableId = TableId.of(cliConfig.outputDataset, cliConfig.outputTable)
+  val bqTable = s"${cliConfig.outputDataset}.${cliConfig.outputTable}"
 
   private def getOrCreateDataset(): Dataset = {
     val datasetId = DatasetId.of(projectId, cliConfig.outputDataset)
@@ -92,69 +94,81 @@ class BigQueryLoadJob(
     }
   }
 
-  def runBQSparkConnector(): Try[SparkJobResult] = {
+  def prepareConf(): Configuration = {
     val conf = session.sparkContext.hadoopConfiguration
     logger.info(s"BigQuery Config $cliConfig")
-
-    val bucket = conf.get("fs.gs.system.bucket")
-
-    val inputPath = cliConfig.source
-    logger.info(s"Input path $inputPath")
-
-    logger.info(s"Temporary GCS path $bucket")
-    session.conf.set("temporaryGcsBucket", bucket)
+    val bucket = scala.Option(conf.get("fs.gs.system.bucket"))
+    bucket.foreach { bucket =>
+      logger.info(s"Temporary GCS path $bucket")
+      session.conf.set("temporaryGcsBucket", bucket)
+    }
 
     val writeDisposition = JobInfo.WriteDisposition.valueOf(cliConfig.writeDisposition)
-    val tableId = TableId.of(cliConfig.outputDataset, cliConfig.outputTable)
     val finalWriteDisposition = writeDisposition match {
       case JobInfo.WriteDisposition.WRITE_TRUNCATE =>
         logger.info(s"Deleting table $tableId")
-        bigquery.delete(tableId)
+        try {
+          bigquery.delete(tableId)
+        } catch {
+          case e: BigQueryException =>
+            // Log error and continue  (may be table does not exist)
+            Utils.logException(logger, e)
+        }
+
         logger.info(s"Setting Write mode to Append")
         JobInfo.WriteDisposition.WRITE_APPEND
       case _ =>
         writeDisposition
     }
+
+    conf.set(
+      BigQueryConfiguration.OUTPUT_TABLE_WRITE_DISPOSITION_KEY,
+      finalWriteDisposition.toString
+    )
+    conf.set(
+      BigQueryConfiguration.OUTPUT_TABLE_CREATE_DISPOSITION_KEY,
+      cliConfig.createDisposition
+    )
+    cliConfig.outputPartition.foreach { outputPartition =>
+      import com.google.cloud.hadoop.repackaged.bigquery.com.google.api.services.bigquery.model.TimePartitioning
+      val timeField =
+        if (List("_PARTITIONDATE", "_PARTITIONTIME").contains(outputPartition))
+          new TimePartitioning().setType("DAY").setRequirePartitionFilter(true)
+        else
+          new TimePartitioning()
+            .setType("DAY")
+            .setRequirePartitionFilter(true)
+            .setField(outputPartition)
+      val timePartitioning =
+        new BigQueryTimePartitioning(
+          timeField
+        )
+      conf.set(BigQueryConfiguration.OUTPUT_TABLE_PARTITIONING_KEY, timePartitioning.getAsJson)
+    }
+    conf
+  }
+
+  def prepareRLS(): List[String] = {
+    cliConfig.rls.toList.flatMap { rls =>
+      logger.info(s"Applying security $rls")
+      val rlsDelStatement = toBQDelGrant()
+      logger.info(s"All access policies will be deleted using $rlsDelStatement")
+      val rlsCreateStatement = toBQGrant()
+      logger.info(s"All access policies will be created using $rlsCreateStatement")
+      List(rlsDelStatement, rlsCreateStatement)
+    }
+  }
+
+  def runBQSparkConnector(): Try[SparkJobResult] = {
+    prepareConf()
     Try {
       val sourceDF =
-        inputPath match {
+        cliConfig.source match {
           case Left(path) => session.read.parquet(path)
           case Right(df)  => df
         }
 
       val table = getOrCreateTable(sourceDF)
-
-      def bqPartition(): Unit = {
-        conf.set(
-          BigQueryConfiguration.OUTPUT_TABLE_WRITE_DISPOSITION_KEY,
-          finalWriteDisposition.toString
-        )
-        conf.set(
-          BigQueryConfiguration.OUTPUT_TABLE_CREATE_DISPOSITION_KEY,
-          cliConfig.createDisposition
-        )
-        cliConfig.outputPartition.foreach { outputPartition =>
-          import com.google.cloud.hadoop.repackaged.bigquery.com.google.api.services.bigquery.model.TimePartitioning
-          val timeField =
-            if (List("_PARTITIONDATE", "_PARTITIONTIME").contains(outputPartition))
-              new TimePartitioning().setType("DAY").setRequirePartitionFilter(true)
-            else
-              new TimePartitioning()
-                .setType("DAY")
-                .setRequirePartitionFilter(true)
-                .setField(outputPartition)
-          val timePartitioning =
-            new BigQueryTimePartitioning(
-              timeField
-            )
-
-          conf.set(BigQueryConfiguration.OUTPUT_TABLE_PARTITIONING_KEY, timePartitioning.getAsJson)
-        }
-      }
-
-      bqPartition()
-
-      val bqTable = s"${cliConfig.outputDataset}.${cliConfig.outputTable}"
 
       val stdTableDefinition =
         bigquery.getTable(table.getTableId).getDefinition.asInstanceOf[StandardTableDefinition]
@@ -172,15 +186,10 @@ class BigQueryLoadJob(
       logger.info(
         s"BigQuery Saved to ${table.getTableId} now contains ${stdTableDefinitionAfter.getNumRows} rows"
       )
-      cliConfig.rls.foreach { rls =>
-        logger.info(s"Applying security $rls")
-        val rlsDelStatement = toBQDelGrant()
-        bqJobRun(rlsDelStatement)
-        logger.info(s"All access policies deleted using $rlsDelStatement")
-        val rlsCreateStatement = toBQGrant()
-        bqJobRun(rlsCreateStatement)
-        logger.info(s"All access policies created using $rlsCreateStatement")
 
+      prepareRLS().foreach { rlsStatement =>
+        logger.info(s"Applying security $rlsStatement")
+        bqJobRun(rlsStatement)
       }
       SparkJobResult(session)
     }
@@ -210,13 +219,14 @@ class BigQueryLoadJob(
   }
 
   private def toBQDelGrant(): String = {
-      "DROP ALL ROW ACCESS POLICIES ON $outputDataset.$outputTable"
+    import cliConfig._
+    s"DROP ALL ROW ACCESS POLICIES ON $outputDataset.$outputTable"
   }
 
   private def toBQGrant(): String = {
     import cliConfig._
     val rlsGet = rls.getOrElse(throw new Exception("Should never happen"))
-    val grants = rlsGet.grants.map {
+    val grants = rlsGet.grantees().map {
       case (UserType.SA, u) =>
         s"serviceAccount:$u"
       case (t, u) =>
@@ -231,7 +241,7 @@ class BigQueryLoadJob(
       | ON
       |  $outputDataset.$outputTable
       | GRANT TO
-      |  (${grants.mkString(",")})
+      |  (${grants.mkString("\"", "\",\"", "\"")})
       | FILTER USING
       |  ($filter)
       |""".stripMargin
