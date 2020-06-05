@@ -61,7 +61,7 @@ object BigQueryLoadConfig extends CliConfig[BigQueryLoadConfig] {
       opt[String]("row_level_security")
         .action((x, c) => c.copy(rls = Some(RowLevelSecurity.parse(x))))
         .text(
-          "Row Level Security in the --row_level_security name,filter,sa:sa@mail.com,user:user@mail.com,group:group@mail.com "
+          "value is in the form name,filter,sa:sa@mail.com,user:user@mail.com,group:group@mail.com "
         )
     )
   }

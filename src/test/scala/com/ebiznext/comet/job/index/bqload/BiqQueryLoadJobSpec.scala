@@ -21,6 +21,8 @@ class BiqQueryLoadJobSpec extends TestHelper {
           |                           Big Query Create disposition https://cloud.google.com/bigquery/docs/reference/auditlogs/rest/Shared.Types/CreateDisposition
           |  --write_disposition <value>
           |                           Big Query Write disposition https://cloud.google.com/bigquery/docs/reference/auditlogs/rest/Shared.Types/WriteDisposition
+          |  --row_level_security <value>
+          |                           value is in the form name,filter,sa:sa@mail.com,user:user@mail.com,group:group@mail.com
           |""".stripMargin
       rendered.substring(rendered.indexOf("Usage:")).replaceAll("\\s", "") shouldEqual expected
         .replaceAll("\\s", "")
