@@ -189,7 +189,12 @@ class BigQueryLoadJob(
 
       prepareRLS().foreach { rlsStatement =>
         logger.info(s"Applying security $rlsStatement")
-        bqJobRun(rlsStatement)
+        try {
+          bqJobRun(rlsStatement)
+        } catch {
+          case e: Exception =>
+            e.printStackTrace()
+        }
       }
       SparkJobResult(session)
     }
