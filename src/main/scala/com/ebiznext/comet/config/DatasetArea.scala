@@ -151,7 +151,7 @@ object DatasetArea {
     *
     * @param storage
     */
-  def init(
+  def initMetadata(
     storage: StorageHandler
   )(implicit settings: Settings): Unit = {
     List(metadata, types, domains).foreach(storage.mkdirs)
@@ -160,7 +160,6 @@ object DatasetArea {
   def initDomains(storage: StorageHandler, domains: Iterable[String])(implicit
     settings: Settings
   ): Unit = {
-    init(storage)
     domains.foreach { domain =>
       List(pending _, unresolved _, archive _, accepted _, rejected _, business _)
         .map(_(domain))
