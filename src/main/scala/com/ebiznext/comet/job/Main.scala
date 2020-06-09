@@ -94,9 +94,9 @@ object Main extends StrictLogging {
     implicit val settings: Settings = Settings(ConfigFactory.load())
     settings.publishMDCData()
     logger.info(s"Comet Version ${BuildInfo.version}")
-    import settings.{launcherService, storageHandler}
-    DatasetArea.init(storageHandler)
-    val schemaHandler = new SchemaHandler(storageHandler)
+    import settings.{launcherService, metadataStorageHandler, storageHandler}
+    DatasetArea.initMetadata(metadataStorageHandler)
+    val schemaHandler = new SchemaHandler(metadataStorageHandler)
 
     DatasetArea.initDomains(storageHandler, schemaHandler.domains.map(_.name))
 
