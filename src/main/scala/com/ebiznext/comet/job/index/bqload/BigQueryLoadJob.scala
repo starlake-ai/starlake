@@ -204,7 +204,11 @@ class BigQueryLoadJob(
     import java.util.UUID
 
     import scala.collection.JavaConverters._
-    val jobId = JobId.of(UUID.randomUUID.toString)
+    val jobId = JobId
+      .newBuilder()
+      .setJob(UUID.randomUUID.toString)
+      .setLocation(cliConfig.getLocation())
+      .build()
     val config =
       QueryJobConfiguration
         .newBuilder(statement)
@@ -212,7 +216,7 @@ class BigQueryLoadJob(
         .build()
     // Use standard SQL syntax for queries.
     // See: https://cloud.google.com/bigquery/sql-reference/
-    val job = bigquery.create(JobInfo.newBuilder(config).setJobId(jobId).build)
+    val job: Job = bigquery.create(JobInfo.newBuilder(config).setJobId(jobId).build)
     scala.Option(job.waitFor()) match {
       case None =>
         throw new RuntimeException("Job no longer exists")
@@ -253,7 +257,7 @@ class BigQueryLoadJob(
   }
 
   /**
-    * Just to force any spark job to implement its entry point using within the "run" method
+    * Just to force any spark job to implement its entry point within the "run" method
     *
     * @return : Spark Session used for the job
     */
