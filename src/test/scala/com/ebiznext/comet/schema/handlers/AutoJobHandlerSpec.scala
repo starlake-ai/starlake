@@ -60,7 +60,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
           Some(false),
           views = Some(Map("user_View" -> "accepted/user"))
         )
-      val schemaHandler = new SchemaHandler(metadatatorageHandler)
+      val schemaHandler = new SchemaHandler(metadataStorageHandler)
 
       val businessJobDef = mapper
         .writer()
