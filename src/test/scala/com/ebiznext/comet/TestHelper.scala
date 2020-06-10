@@ -168,7 +168,7 @@ trait TestHelper extends AnyFlatSpec with Matchers with BeforeAndAfterAll with S
 
     implicit def withSettings: WithSettings = this
 
-    def metadatatorageHandler = settings.storageHandler
+    def metadataStorageHandler = settings.storageHandler
     def storageHandler = settings.storageHandler
 
     lazy val mapper: ObjectMapper with ScalaObjectMapper = {
