@@ -68,7 +68,7 @@ object Dependencies {
     "org.apache.spark" %% "spark-sql" % Versions.spark211 % "provided" exclude ("com.google.guava", "guava"),
     "org.apache.spark" %% "spark-hive" % Versions.spark211 % "provided" exclude ("com.google.guava", "guava"),
     "org.apache.spark" %% "spark-mllib" % Versions.spark211 % "provided" exclude ("com.google.guava", "guava"),
-    "com.google.cloud.spark" %% "spark-bigquery-with-dependencies" % "0.16.0" exclude ("com.google.guava", "guava")
+    "com.google.cloud.spark" %% "spark-bigquery-with-dependencies" % "0.16.1" exclude ("com.google.guava", "guava")
   )
 
   val spark211_240 = Seq(
@@ -97,7 +97,7 @@ object Dependencies {
     "com.google.cloud" % "google-cloud-bigquery" % Versions.bq exclude ("javax.jms", "jms") exclude ("com.sun.jdmk", "jmxtools") exclude ("com.sun.jmx", "jmxri") excludeAll (jacksonExclusions: _*),
     // see https://github.com/GoogleCloudDataproc/spark-bigquery-connector/issues/36
     // Add the jar file to spark dependencies
-    "com.google.cloud.spark" %% "spark-bigquery-with-dependencies" % "0.16.0" % "provided"
+    "com.google.cloud.spark" %% "spark-bigquery-with-dependencies" % "0.16.1" % "provided"
 
   )
 
