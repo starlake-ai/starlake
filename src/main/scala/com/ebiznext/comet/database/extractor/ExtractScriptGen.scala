@@ -87,9 +87,9 @@ object ScriptGen extends StrictLogging {
 object Main extends App with StrictLogging {
 
   import ScriptGen._
-  import settings.storageHandler
-  DatasetArea.init(storageHandler)
-  val schemaHandler = new SchemaHandler(storageHandler)
+  import settings.metadataStorageHandler
+  DatasetArea.initMetadata(metadataStorageHandler)
+  val schemaHandler = new SchemaHandler(metadataStorageHandler)
   val domains: List[Domain] = schemaHandler.domains
 
   val arglist = args.toList
