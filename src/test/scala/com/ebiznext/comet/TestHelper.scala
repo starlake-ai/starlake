@@ -168,6 +168,7 @@ trait TestHelper extends AnyFlatSpec with Matchers with BeforeAndAfterAll with S
 
     implicit def withSettings: WithSettings = this
 
+    def metadataStorageHandler = settings.storageHandler
     def storageHandler = settings.storageHandler
 
     lazy val mapper: ObjectMapper with ScalaObjectMapper = {
@@ -228,7 +229,7 @@ trait TestHelper extends AnyFlatSpec with Matchers with BeforeAndAfterAll with S
     new File(cometTestRoot + "/json").mkdir()
     new File(cometTestRoot + "/position").mkdir()
 
-    DatasetArea.init(storageHandler)
+    DatasetArea.initMetadata(storageHandler)
     deliverTypesFiles()
 
   }
@@ -257,7 +258,7 @@ trait TestHelper extends AnyFlatSpec with Matchers with BeforeAndAfterAll with S
     implicit def settings: Settings = withSettings.settings
 
     def storageHandler: StorageHandler = settings.storageHandler
-
+    def metadataStorageHandler: StorageHandler = settings.metadataStorageHandler
     val domainMetadataRootPath: Path = DatasetArea.domains
 
     val domainPath = new Path(domainMetadataRootPath, domainFilename)
@@ -293,6 +294,7 @@ trait TestHelper extends AnyFlatSpec with Matchers with BeforeAndAfterAll with S
 
       val schemaHandler = new SchemaHandler(settings.storageHandler)
 
+      DatasetArea.initMetadata(metadataStorageHandler)
       DatasetArea.initDomains(storageHandler, schemaHandler.domains.map(_.name))
 
       val validator = new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
@@ -310,6 +312,7 @@ trait TestHelper extends AnyFlatSpec with Matchers with BeforeAndAfterAll with S
 
       val schemaHandler = new SchemaHandler(settings.storageHandler)
 
+      DatasetArea.initMetadata(metadataStorageHandler)
       DatasetArea.initDomains(storageHandler, schemaHandler.domains.map(_.name))
 
       // Get incoming directory from Domain descriptor

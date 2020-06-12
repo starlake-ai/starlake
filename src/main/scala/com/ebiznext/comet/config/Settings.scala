@@ -254,6 +254,7 @@ object Settings extends StrictLogging {
     atlas: Atlas,
     privacy: Privacy,
     fileSystem: Option[String],
+    metadataFileSystem: Option[String],
     internal: Option[Internal]
   ) extends Serializable {
 
@@ -335,6 +336,13 @@ final case class Settings(comet: Settings.Comet, sparkConfig: Config) {
     implicit val self: Settings =
       this /* TODO: remove this once HdfsStorageHandler explicitly takes Settings or Settings.Comet in */
     new HdfsStorageHandler(comet.fileSystem)
+  }
+
+  @transient
+  lazy val metadataStorageHandler: HdfsStorageHandler = {
+    implicit val self: Settings =
+      this /* TODO: remove this once HdfsStorageHandler explicitly takes Settings or Settings.Comet in */
+    new HdfsStorageHandler(comet.metadataFileSystem)
   }
 
   @transient
