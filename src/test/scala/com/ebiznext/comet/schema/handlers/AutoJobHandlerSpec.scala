@@ -2,8 +2,10 @@ package com.ebiznext.comet.schema.handlers
 
 import com.ebiznext.comet.TestHelper
 import com.ebiznext.comet.config.{Settings, StorageArea}
-import com.ebiznext.comet.schema.model.{AutoJobDesc, AutoTaskDesc, WriteMode}
+import com.ebiznext.comet.job.index.bqload.{BigQueryLoadConfig, BigQueryLoadJob}
+import com.ebiznext.comet.schema.model.{AutoJobDesc, AutoTaskDesc, RowLevelSecurity, WriteMode}
 import com.ebiznext.comet.workflow.IngestionWorkflow
+import com.google.cloud.hadoop.io.bigquery.BigQueryConfiguration
 import org.apache.hadoop.fs.Path
 import org.scalatest.BeforeAndAfterAll
 
@@ -271,6 +273,54 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         ("Ph.D.", "EECS", "UC_Berkeley")
       )
 
+    }
+
+    "BQ Business Job Definition" should "Prepare correctly against BQ" in {
+      val businessTask1 = AutoTaskDesc(
+        "select * from domain",
+        "DOMAIN",
+        "TABLE",
+        WriteMode.OVERWRITE,
+        Some(List("comet_year", "comet_month")),
+        rls = Some(
+          RowLevelSecurity("myrls", "TRUE", List("user:hayssam.saleh@ebiznext.com"))
+        )
+      )
+      val businessJob =
+        AutoJobDesc("business1", List(businessTask1), None, Some("parquet"), Some(true))
+
+      val config = BigQueryLoadConfig(
+        outputTable = businessTask1.dataset,
+        outputDataset = businessTask1.domain,
+        sourceFormat = "parquet",
+        createDisposition = "CREATE_IF_NEEDED",
+        writeDisposition = "WRITE_TRUNCATE",
+        location = businessTask1.properties.flatMap(_.get("location")),
+        outputPartition = businessTask1.properties.flatMap(_.get("timestamp")),
+        days = businessTask1.properties.flatMap(_.get("days").map(_.toInt)),
+        rls = businessTask1.rls
+      )
+      val job = new BigQueryLoadJob(config)
+      val conf = job.prepareConf()
+
+      conf.get(BigQueryConfiguration.OUTPUT_TABLE_WRITE_DISPOSITION_KEY) shouldEqual "WRITE_APPEND"
+      conf.get(
+        BigQueryConfiguration.OUTPUT_TABLE_CREATE_DISPOSITION_KEY
+      ) shouldEqual "CREATE_IF_NEEDED"
+
+      val delStatement = "DROP ALL ROW ACCESS POLICIES ON DOMAIN.TABLE"
+      val createStatement =
+        """
+          | CREATE ROW ACCESS POLICY
+          |  myrls
+          | ON
+          |  DOMAIN.TABLE
+          | GRANT TO
+          |  ("user:hayssam.saleh@ebiznext.com")
+          | FILTER USING
+          |  (TRUE)
+          |""".stripMargin
+      job.prepareRLS() should contain theSameElementsInOrderAs List(delStatement, createStatement)
     }
   }
 }
