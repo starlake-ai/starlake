@@ -145,7 +145,10 @@ class StorageHandlerSpec extends TestHelper {
         "DOMAIN",
         "ANALYSE",
         WriteMode.OVERWRITE,
-        Some(List("comet_year", "comet_month"))
+        Some(List("comet_year", "comet_month")),
+        rls = Some(
+          RowLevelSecurity("myrls", "TRUE", List("user:hayssam.saleh@ebiznext.com"))
+        )
       )
       val businessJob =
         AutoJobDesc("business1", List(businessTask1), None, Some("parquet"), Some(true))
