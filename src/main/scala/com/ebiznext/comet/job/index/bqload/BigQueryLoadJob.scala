@@ -234,7 +234,7 @@ class BigQueryLoadJob(
 
   private def grantPrivileges(): String = {
     import cliConfig._
-    val rlsGet = rls.getOrElse(throw new Exception("Should never happen"))
+    val rlsRetrieved = rls.getOrElse(throw new Exception("Should never happen"))
     val grants = rlsGet.grantees().map {
       case (UserType.SA, u) =>
         s"serviceAccount:$u"
