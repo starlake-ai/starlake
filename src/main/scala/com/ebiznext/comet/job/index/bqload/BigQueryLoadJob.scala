@@ -227,7 +227,7 @@ class BigQueryLoadJob(
     }
   }
 
-  private def toBQDelGrant(): String = {
+  revokeAllPrivileges
     import cliConfig._
     s"DROP ALL ROW ACCESS POLICIES ON $outputDataset.$outputTable"
   }
