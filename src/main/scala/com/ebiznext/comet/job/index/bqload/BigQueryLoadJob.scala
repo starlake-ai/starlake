@@ -151,9 +151,9 @@ class BigQueryLoadJob(
   def prepareRLS(): List[String] = {
     cliConfig.rls.toList.flatMap { rls =>
       logger.info(s"Applying security $rls")
-      val rlsDelStatement = toBQDelGrant()
+      val rlsDelStatement = revokeAllPrivileges()
       logger.info(s"All access policies will be deleted using $rlsDelStatement")
-      val rlsCreateStatement = toBQGrant()
+      val rlsCreateStatement = grantPrivileges()
       logger.info(s"All access policies will be created using $rlsCreateStatement")
       List(rlsDelStatement, rlsCreateStatement)
     }
@@ -223,11 +223,11 @@ class BigQueryLoadJob(
       case Some(job) if job.getStatus.getExecutionErrors() != null =>
         throw new RuntimeException(job.getStatus.getExecutionErrors().asScala.reverse.mkString(","))
       case Some(_) =>
-      // everything went well !
+        logger.info(s"Job with id ${jobId.getJob()} on Statement $statement succeeded")
     }
   }
 
-  revokeAllPrivileges
+  private def revokeAllPrivileges(): String = {
     import cliConfig._
     s"DROP ALL ROW ACCESS POLICIES ON $outputDataset.$outputTable"
   }
@@ -235,15 +235,15 @@ class BigQueryLoadJob(
   private def grantPrivileges(): String = {
     import cliConfig._
     val rlsRetrieved = rls.getOrElse(throw new Exception("Should never happen"))
-    val grants = rlsGet.grantees().map {
+    val grants = rlsRetrieved.grantees().map {
       case (UserType.SA, u) =>
         s"serviceAccount:$u"
-      case (t, u) =>
-        s"${t.toString.toLowerCase}:$u"
+      case (userOrGroupType, userOrGroupName) =>
+        s"${userOrGroupType.toString.toLowerCase}:$userOrGroupName"
     }
 
-    val name = rlsGet.name
-    val filter = rlsGet.predicate
+    val name = rlsRetrieved.name
+    val filter = rlsRetrieved.predicate
     s"""
       | CREATE ROW ACCESS POLICY
       |  $name
