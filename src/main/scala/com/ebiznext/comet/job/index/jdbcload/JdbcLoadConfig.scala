@@ -4,6 +4,7 @@ import java.sql.{DriverManager, SQLException}
 
 import buildinfo.BuildInfo
 import com.ebiznext.comet.config.Settings
+import com.ebiznext.comet.schema.model.RowLevelSecurity
 import com.ebiznext.comet.utils.CliConfig
 import com.google.cloud.bigquery.JobInfo.{CreateDisposition, WriteDisposition}
 import org.apache.spark.sql.DataFrame
@@ -19,7 +20,8 @@ case class JdbcLoadConfig(
   user: String = "",
   password: String = "",
   partitions: Int = 1,
-  batchSize: Int = 1000
+  batchSize: Int = 1000,
+  rls: Option[List[RowLevelSecurity]] = None
 )
 
 object JdbcLoadConfig extends CliConfig[JdbcLoadConfig] {
