@@ -232,7 +232,7 @@ class BigQueryLoadJob(
     s"DROP ALL ROW ACCESS POLICIES ON $outputDataset.$outputTable"
   }
 
-  private def toBQGrant(): String = {
+  private def grantPrivileges(): String = {
     import cliConfig._
     val rlsGet = rls.getOrElse(throw new Exception("Should never happen"))
     val grants = rlsGet.grantees().map {
