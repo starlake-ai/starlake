@@ -44,19 +44,29 @@ object BigQueryUtils {
   def bqSchema(schema: DataType): BQSchema = {
 
     import scala.collection.JavaConverters._
-    def inferBqSchema(field: String, dataType: DataType): Field = {
-      (field, dataType) match {
-        case (field: String, dataType: ArrayType) =>
-          val elementTypes: Seq[(String, DataType)] = fieldsSchemaAsMap(dataType.elementType)
+    def inferBqSchema(
+      field: String,
+      dataType: DataType,
+      nullable: Boolean,
+      metadata: Metadata
+    ): Field = {
+      (field, dataType, nullable, metadata) match {
+        case (field: String, dataType: ArrayType, _, _) =>
+          val elementTypes: Seq[(String, DataType, Boolean, Metadata)] = fieldsSchemaAsMap(
+            dataType.elementType
+          )
           val arrayFields = elementTypes.map {
-            case (name, dataType) =>
+            case (name, dataType, nullable, metadata) =>
               Field
                 .newBuilder(
                   name,
                   convert(dataType)
                 )
-                .setMode(Field.Mode.NULLABLE)
-                .setDescription("")
+                .setMode(if (nullable) {
+                  Field.Mode.NULLABLE
+                } else {
+                  Field.Mode.REQUIRED
+                })
                 .build()
           }.asJava
           Field
@@ -66,23 +76,26 @@ object BigQueryUtils {
               FieldList.of(arrayFields)
             )
             .setMode(Field.Mode.REPEATED)
-            .setDescription("")
             .build()
-        case (field: String, dataType: DataType) =>
+        case (field: String, dataType: DataType, nullable: Boolean, metadata: Metadata) =>
           Field
             .newBuilder(
               field,
               convert(dataType)
             )
-            .setMode(Field.Mode.NULLABLE)
-            .setDescription("")
+            .setMode(if (nullable) {
+              Field.Mode.NULLABLE
+            } else {
+              Field.Mode.REQUIRED
+            })
             .build()
       }
     }
 
     val fields = fieldsSchemaAsMap(schema)
       .map {
-        case (field, dataType) => inferBqSchema(field, dataType)
+        case (field, dataType, nullable, metadata) =>
+          inferBqSchema(field, dataType, nullable, metadata)
 
       }
     BQSchema.of(fields: _*)
@@ -95,19 +108,19 @@ object BigQueryUtils {
     * @param schema Spark Schema
     * @return List of Spark Columns with their Type
     */
-  private def fieldsSchemaAsMap(schema: DataType): List[(String, DataType)] = {
+  private def fieldsSchemaAsMap(schema: DataType): List[(String, DataType, Boolean, Metadata)] = {
     val fullName: String => String = name => name
     schema match {
       case StructType(fields) =>
         fields.toList.flatMap {
-          case StructField(name, inner: StructType, _, _) =>
-            (fullName(name), inner) +: fieldsSchemaAsMap(inner)
-          case StructField(name, inner: ArrayType, _, _) =>
-            (fullName(name), inner) +: fieldsSchemaAsMap(inner.elementType)
-          case StructField(name, inner: DataType, _, _) =>
-            List[(String, DataType)]((fullName(name), inner))
+          case StructField(name, inner: StructType, nullable, metadata) =>
+            (fullName(name), inner, nullable, metadata) +: fieldsSchemaAsMap(inner)
+          case StructField(name, inner: ArrayType, nullable, metadata) =>
+            (fullName(name), inner, nullable, metadata) +: fieldsSchemaAsMap(inner.elementType)
+          case StructField(name, inner: DataType, nullable, metadata) =>
+            List[(String, DataType, Boolean, Metadata)]((fullName(name), inner, nullable, metadata))
         }
-      case _ => List.empty[(String, DataType)]
+      case _ => List.empty[(String, DataType, Boolean, Metadata)]
     }
   }
 
