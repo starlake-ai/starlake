@@ -47,6 +47,7 @@ enablePlugins(Common.cometPlugins: _*)
 Common.customSettings
 
 Test / fork := true
+envVars in Test := Map("GOOGLE_CLOUD_PROJECT" -> "some-gcp-project")
 
 artifact in (Compile, assembly) := {
   val art: Artifact = (artifact in (Compile, assembly)).value
