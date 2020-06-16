@@ -28,9 +28,9 @@ object SchemaGen extends LazyLogging {
               attr.privacy.getOrElse(PrivacyLevel.None).toString
             )
           )
-            attr.copy(`type` = "string", required = false, rename = None)
+            attr.copy(`type` = "string", required = false)
           else
-            attr.copy(`type` = "string", required = false, rename = None, privacy = None)
+            attr.copy(`type` = "string", required = false, privacy = None)
         }
       s.copy(attributes = newAtt)
     }
@@ -64,14 +64,20 @@ object SchemaGen extends LazyLogging {
         )
       }
       val attributes = schema.attributes.map { attr =>
-        if (
-          privacy == Nil || privacy.contains(
-            attr.privacy.getOrElse(PrivacyLevel.None).toString
+        val noPrivacyAttr =
+          if (
+            privacy == Nil || privacy.contains(
+              attr.privacy.getOrElse(PrivacyLevel.None).toString
+            )
           )
-        )
-          attr.copy(privacy = None)
-        else
-          attr
+            attr.copy(privacy = None)
+          else
+            attr
+        
+        noPrivacyAttr.rename match {
+          case Some(newName) => noPrivacyAttr.copy(name = newName, rename = None)
+          case None          => noPrivacyAttr
+        }
       }
       schema.copy(
         metadata = metadata,
