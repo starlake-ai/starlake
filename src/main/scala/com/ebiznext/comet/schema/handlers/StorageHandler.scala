@@ -206,10 +206,11 @@ class HdfsStorageHandler(fileSystem: Option[String])(implicit
     * @return
     */
   override def move(path: Path, dest: Path): Boolean = {
-    val fileFromPath : Path => File = p => p.toString.startsWith("/") match {
-      case true  => new File(path.toString)
-      case false => new File(path.toUri)
-    }
+    val fileFromPath: Path => File = p =>
+      p.toString.startsWith("/") match {
+        case true  => new File(p.toString)
+        case false => new File(p.toUri)
+      }
     try {
       mkdirs(dest.getParent)
       FileUtil.replaceFile(fileFromPath(path), fileFromPath(dest))
