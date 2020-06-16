@@ -84,12 +84,32 @@ class SchemaGenSpec extends TestHelper {
       validCount(preEncrypt, "MD5", 2)
       validCount(preEncrypt, "SHA1", 1)
     }
+    "In prestep Attributes" should "keep renaming strategy" in {
+      domainOpt shouldBe defined
+      val preEncrypt = SchemaGen.genPreEncryptionDomain(domainOpt.get, Nil)
+      val schemaOpt = preEncrypt.schemas.find(_.name == "SCHEMA1")
+      schemaOpt shouldBe defined
+      val attrOpt = schemaOpt.get.attributes.find(_.name == "ATTRIBUTE_6")
+      attrOpt shouldBe defined
+      attrOpt.get.rename shouldBe defined
+    }
+
+    "In poststep Attributes" should "be already renamed" in {
+      domainOpt shouldBe defined
+      val postEncrypt = SchemaGen.genPostEncryptionDomain(domainOpt.get, Some("µ"), Nil)
+      val schemaOpt = postEncrypt.schemas.find(_.name == "SCHEMA1")
+      schemaOpt shouldBe defined
+      val attrOpt = schemaOpt.get.attributes.find(_.name == "RENAME_ATTRIBUTE_6")
+      attrOpt shouldBe defined
+      attrOpt.get.rename shouldBe None
+
+    }
     "No privacy policies" should "be applied in the post-encrypt step " in {
       domainOpt shouldBe defined
-      val preEncrypt = SchemaGen.genPostEncryptionDomain(domainOpt.get, Some("µ"), Nil)
-      validCount(preEncrypt, "HIDE", 0)
-      validCount(preEncrypt, "MD5", 0)
-      validCount(preEncrypt, "SHA1", 0)
+      val postEncrypt = SchemaGen.genPostEncryptionDomain(domainOpt.get, Some("µ"), Nil)
+      validCount(postEncrypt, "HIDE", 0)
+      validCount(postEncrypt, "MD5", 0)
+      validCount(postEncrypt, "SHA1", 0)
     }
 
     "a preEncryption domain" should " not have required attributes" in {
