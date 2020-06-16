@@ -73,7 +73,7 @@ object SchemaGen extends LazyLogging {
             attr.copy(privacy = None)
           else
             attr
-        
+
         noPrivacyAttr.rename match {
           case Some(newName) => noPrivacyAttr.copy(name = newName, rename = None)
           case None          => noPrivacyAttr
