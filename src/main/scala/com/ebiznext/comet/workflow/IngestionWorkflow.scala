@@ -399,12 +399,7 @@ class IngestionWorkflow(
             case Some(IndexSink.ES) if settings.comet.elasticsearch.active =>
               index(job, task)
             case Some(IndexSink.BQ) =>
-              val (createDisposition, writeDisposition) =
-                task.properties
-                  .flatMap(_.get("timestamp"))
-                  .fold(Utils.getDBDisposition(task.write))(_ =>
-                    Utils.getDBDisposition(WriteMode.APPEND)
-                  )
+              val (createDisposition, writeDisposition) = Utils.getDBDisposition(task.write)
               val source = maybeDataFrame
                 .map(df => Right(setNullableStateOfColumn(df, nullable = true)))
                 .getOrElse(Left(task.getTargetPath(Some(job.getArea())).toString))
