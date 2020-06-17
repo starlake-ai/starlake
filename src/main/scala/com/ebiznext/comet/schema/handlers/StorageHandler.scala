@@ -20,7 +20,7 @@
 
 package com.ebiznext.comet.schema.handlers
 
-import java.io.{ByteArrayOutputStream, File}
+import java.io.ByteArrayOutputStream
 import java.time.{Instant, LocalDateTime, ZoneId}
 
 import com.ebiznext.comet.config.Settings
@@ -206,20 +206,8 @@ class HdfsStorageHandler(fileSystem: Option[String])(implicit
     * @return
     */
   override def move(path: Path, dest: Path): Boolean = {
-    val fileFromPath: Path => File = p =>
-      p.toString.startsWith("/") match {
-        case true  => new File(p.toString)
-        case false => new File(p.toUri)
-      }
-    try {
-      mkdirs(dest.getParent)
-      FileUtil.replaceFile(fileFromPath(path), fileFromPath(dest))
-      true
-    } catch {
-      case e: Exception =>
-        e.printStackTrace()
-        false
-    }
+    delete(dest)
+    fs.rename(path, dest)
   }
 
   /**
