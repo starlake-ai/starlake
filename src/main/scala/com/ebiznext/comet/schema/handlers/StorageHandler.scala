@@ -206,8 +206,8 @@ class HdfsStorageHandler(fileSystem: Option[String])(implicit
     * @return
     */
   override def move(path: Path, dest: Path): Boolean = {
-
-    FileUtil.copy(fs, path, fs, dest, true, true, conf)
+    delete(dest)
+    fs.rename(path, dest)
   }
 
   /**
