@@ -137,12 +137,9 @@ trait IngestionJob extends SparkJob {
       case Some(IndexSink.ES) if !settings.comet.elasticsearch.active =>
         logger.warn("Indexing to ES requested but elasticsearch not active in conf file")
       case Some(IndexSink.BQ) =>
-        val (createDisposition: String, writeDisposition: String) =
-          meta.properties
-            .flatMap(_.get("timestamp"))
-            .fold(Utils.getDBDisposition(meta.getWriteMode()))(_ =>
-              Utils.getDBDisposition(WriteMode.APPEND)
-            )
+        val (createDisposition: String, writeDisposition: String) = Utils.getDBDisposition(
+          meta.getWriteMode()
+        )
         val config = BigQueryLoadConfig(
           source = Right(mergedDF),
           outputTable = schema.name,
