@@ -97,9 +97,12 @@ class BigQueryLoadJob(
     }
 
     val writeDisposition = JobInfo.WriteDisposition.valueOf(cliConfig.writeDisposition)
-    val finalWriteDisposition = writeDisposition match {
-      case JobInfo.WriteDisposition.WRITE_TRUNCATE =>
-        logger.info(s"Deleting table $tableId")
+    val finalWriteDisposition = (writeDisposition, cliConfig.outputPartition) match {
+      case (JobInfo.WriteDisposition.WRITE_TRUNCATE, Some(partition)) =>
+        logger.info(s"Overwriting partition $partition of Table $tableId")
+        logger.info(s"Setting Write mode to Overwrite")
+        JobInfo.WriteDisposition.WRITE_TRUNCATE
+      case (JobInfo.WriteDisposition.WRITE_TRUNCATE, _) =>
         try {
           bigquery.delete(tableId)
         } catch {
@@ -147,17 +150,44 @@ class BigQueryLoadJob(
 
       val table = getOrCreateTable(sourceDF)
 
+      import org.apache.spark.sql.functions._
+
       val stdTableDefinition =
         bigquery.getTable(table.getTableId).getDefinition.asInstanceOf[StandardTableDefinition]
       logger.info(
         s"BigQuery Saving to  ${table.getTableId} containing ${stdTableDefinition.getNumRows} rows"
       )
 
-      sourceDF.write
-        .mode(SaveMode.Append)
-        .format("com.google.cloud.spark.bigquery")
-        .option("table", bqTable)
-        .save()
+      (cliConfig.writeDisposition, cliConfig.outputPartition) match {
+        case ("WRITE_TRUNCATE", Some(partition)) =>
+          // BigQuery supports only this date format 'yyyyMMdd', so we have to use it
+          // in order to overwrite only one partition
+          val dateFormat = "yyyyMMdd"
+          logger.info(s"overwriting partition ${partition} in The BQ Table $bqTable")
+          sourceDF.write
+            .mode(SaveMode.Overwrite)
+            .format("com.google.cloud.spark.bigquery")
+            .option(
+              "table",
+              bqTable
+                .concat("$")
+                .concat(
+                  sourceDF
+                    .select(date_format(col(partition), dateFormat).cast("string"))
+                    .where(col(partition).isNotNull)
+                    .head
+                    .getString(0)
+                )
+            )
+            .save()
+        case _ =>
+          logger.info(s"Saving BQ Table $bqTable")
+          sourceDF.write
+            .mode(SaveMode.Append)
+            .format("com.google.cloud.spark.bigquery")
+            .option("table", bqTable)
+            .save()
+      }
 
       val stdTableDefinitionAfter =
         bigquery.getTable(table.getTableId).getDefinition.asInstanceOf[StandardTableDefinition]
