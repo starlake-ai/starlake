@@ -5,7 +5,7 @@ import java.util.regex.Pattern
 
 import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.schema.model._
-import org.apache.poi.ss.usermodel.{DataFormatter, Row, Workbook, WorkbookFactory}
+import org.apache.poi.ss.usermodel.{Cell, DataFormatter, Row, Workbook, WorkbookFactory}
 
 import scala.collection.JavaConverters._
 import scala.util.{Success, Try}
@@ -17,7 +17,11 @@ import scala.util.{Success, Try}
 class XlsReader(path: String) {
 
   private val workbook: Workbook = WorkbookFactory.create(new File(path))
-  private val formatter = new DataFormatter
+
+  class DataFormatterAndTrimer extends DataFormatter {
+    override def formatCellValue(cell: Cell): String = super.formatCellValue(cell).trim
+  }
+  private val formatter = new DataFormatterAndTrimer()
 
   private lazy val domain: Option[Domain] = {
     workbook.getSheet("domain").asScala.drop(1).headOption.flatMap { row =>
