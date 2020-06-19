@@ -19,6 +19,12 @@ class SchemaGenSpec extends TestHelper {
       result.schemas.size shouldBe 2
     }
 
+    it should "trim leading of trailing spaces in cells contents" in {
+      result.schemas.map(_.name) should contain(
+        "SCHEMA1"
+      ) // while it is "SCHEMA1 " in the excel file
+    }
+
     "All configured schemas" should "have all declared attributes correctly set" in {
       val schema1 = result.schemas.filter(_.name == "SCHEMA1").head
       schema1.metadata.flatMap(_.format) shouldBe Some(Format.POSITION)
