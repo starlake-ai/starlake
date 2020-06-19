@@ -134,7 +134,6 @@ case class Attribute(
   }
 
   /**
-    *
     * Spark Type if this attribute is a primitive type of array of primitive type
     *
     * @return Primitive type if attribute is a leaf node or array of primitive type, None otherwise
@@ -198,11 +197,11 @@ case class Attribute(
               val format = tpe.pattern match {
                 case "epoch_milli"                                         => Some("epoch_millis")
                 case "epoch_second"                                        => Some("epoch_second")
-                case x if PrimitiveType.dateFormatters.keys.exists(_ == x) => None
-                case y                                                     => Some(y)
+                case x if PrimitiveType.dateFormatters.keys.exists(_ == x) => Some("date") // ISO formatters are now supported by ES
+                case y                                                     => None // unknown to ES
               }
               format match {
-                case Some(fmt) =>
+                case Some(_) =>
                   //"format" : "$fmt"
                   s"""
                      |"$name": {

@@ -35,8 +35,6 @@ import scala.util.{Failure, Success, Try}
 
 /**
   * Code here comes from org.apache.spark.sql.execution.datasources.json.InferSchema
-  *
-  *
   */
 object JsonIngestionUtil {
 

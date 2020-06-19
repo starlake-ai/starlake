@@ -24,7 +24,6 @@ import com.ebiznext.comet.utils.CliConfig
 import scopt.OParser
 
 /**
-  *
   * @param files List of Excel files
   * @param encryption Should pre & post encryption YAML be generated ?
   * @param delimiter : Delimiter to use on generated CSV file after pre-encryption.
@@ -72,7 +71,6 @@ object SchemaGenConfig extends CliConfig[SchemaGenConfig] {
   }
 
   /**
-    *
     * @param args args list passed from command line
     * @return Option of case class SchemaGenConfig.
     */
