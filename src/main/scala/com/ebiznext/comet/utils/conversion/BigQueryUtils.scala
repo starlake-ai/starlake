@@ -35,7 +35,6 @@ object BigQueryUtils {
   }
 
   /**
-    *
     * Compute BigQuery Schema from Spark or PArquet Schema while Schema.bqSchema compute it from YMl File
     * @param schema Spark DataType
     * @return
@@ -89,7 +88,6 @@ object BigQueryUtils {
   }
 
   /**
-    *
     * The aim of this function is to retrieve columns and nested columns
     * with their types from a spark schema
     * @param schema Spark Schema

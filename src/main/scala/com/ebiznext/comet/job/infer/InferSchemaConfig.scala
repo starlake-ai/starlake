@@ -63,7 +63,6 @@ object InferSchemaConfig extends CliConfig[InferSchemaConfig] {
   }
 
   /**
-    *
     * @param args args list passed from command line
     * @return Option of case class InferSchemaConfig.
     */

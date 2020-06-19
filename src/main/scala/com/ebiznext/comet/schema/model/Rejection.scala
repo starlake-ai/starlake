@@ -79,7 +79,6 @@ object Rejection {
   }
 
   /**
-    *
     * @param colResults
     */
   case class RowResult(colResults: List[ColResult]) {
