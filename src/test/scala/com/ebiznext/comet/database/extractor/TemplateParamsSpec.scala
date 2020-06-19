@@ -37,7 +37,7 @@ class TemplateParamsSpec extends AnyFlatSpec with Matchers {
   it should "generate the correct TemplateParams for an other Schema" in {
     val schema: Schema = Schema(
       name = "table1",
-      pattern = Pattern.compile("output_file_*.csv"),
+      pattern = Pattern.compile("output_file.*.csv"),
       List(Attribute(name = "col1"), Attribute(name = "col2")),
       metadata = Option(Metadata(write = Some(WriteMode.OVERWRITE), separator = Some("|"))),
       merge = Some(MergeOptions(List("col1", "col2"), None, timestamp = Some("updateCol"))),
