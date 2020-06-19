@@ -55,7 +55,6 @@ class DsvIngestionJob(
     extends IngestionJob {
 
   /**
-    *
     * @return Spark Job name
     */
   override def name: String =
@@ -76,7 +75,6 @@ class DsvIngestionJob(
     header.replaceAll("\"", "").replaceAll("\uFEFF", "")
 
   /**
-    *
     * @param datasetHeaders : Headers found in the dataset
     * @param schemaHeaders  : Headers defined in the schema
     * @return success  if all headers in the schema exist in the dataset
@@ -86,7 +84,6 @@ class DsvIngestionJob(
   }
 
   /**
-    *
     * @param datasetHeaders : Headers found in the dataset
     * @param schemaHeaders  : Headers defined in the schema
     * @return two lists : One with thecolumns present in the schema and the dataset and onther with the headers present in the dataset only
@@ -207,12 +204,10 @@ class DsvIngestionJob(
       }
     }
     val acceptedDF = session.createDataFrame(acceptedRDD, orderedSparkTypes)
-    val cols = acceptedDF.columns.map { column =>
-      org.apache.spark.sql.functions
-        .col(column)
-        .as(renamedAttributes.getOrElse(column, column))
-    }
-    val finalDF = acceptedDF.select(cols: _*)
+
+    val finalDF =
+      renamedAttributes.foldLeft(acceptedDF)((acc, ca) => acc.withColumnRenamed(ca._1, ca._2))
+
     super.saveAccepted(finalDF)
   }
 

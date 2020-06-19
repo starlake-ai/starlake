@@ -13,7 +13,7 @@ import com.ebiznext.comet.schema.handlers.{SchemaHandler, StorageHandler}
 import com.ebiznext.comet.schema.model.Rejection.{ColInfo, ColResult}
 import com.ebiznext.comet.schema.model.Trim.{BOTH, LEFT, RIGHT}
 import com.ebiznext.comet.schema.model._
-import com.ebiznext.comet.utils.{SparkJob, Utils}
+import com.ebiznext.comet.utils.{SparkJob, SparkJobResult, Utils}
 import com.google.cloud.bigquery.JobInfo.{CreateDisposition, WriteDisposition}
 import com.google.cloud.bigquery.{Field, LegacySQLTypeName}
 import org.apache.hadoop.fs.Path
@@ -27,7 +27,6 @@ import scala.language.existentials
 import scala.util.{Failure, Success, Try}
 
 /**
-  *
   */
 trait IngestionJob extends SparkJob {
   def domain: Domain
@@ -141,7 +140,7 @@ trait IngestionJob extends SparkJob {
           meta.getWriteMode()
         )
         val config = BigQueryLoadConfig(
-          sourceFile = Right(mergedDF),
+          source = Right(mergedDF),
           outputTable = schema.name,
           outputDataset = domain.name,
           sourceFormat = "parquet",
@@ -149,7 +148,8 @@ trait IngestionJob extends SparkJob {
           writeDisposition = writeDisposition,
           location = meta.getProperties().get("location"),
           outputPartition = meta.getProperties().get("timestamp"),
-          days = meta.getProperties().get("days").map(_.toInt)
+          days = meta.getProperties().get("days").map(_.toInt),
+          rls = schema.rls
         )
         val res = new BigQueryLoadJob(config, Some(schema.bqSchema(schemaHandler))).run()
         res match {
@@ -377,10 +377,18 @@ trait IngestionJob extends SparkJob {
       } else {
         finalTargetDatasetWriter.save()
       }
-      storageHandler.delete(new Path(mergePath))
-      if (merge && area != StorageArea.rejected)
+      if (merge && area != StorageArea.rejected) {
+        // Here we read the df from the targetPath and not the merged one since that on is gonna be removed
+        // However, we keep the merged DF schema so we don't lose any metadata from reloading the final parquet (especially the nullables)
+        val df = session.createDataFrame(
+          session.read.parquet(targetPath.toString).rdd,
+          dataset.schema
+        )
+        storageHandler.delete(new Path(mergePath))
         logger.info(s"deleted merge file $mergePath")
-      finalDataset
+        df
+      } else
+        finalDataset
     } else {
       logger.warn("Empty dataset with no columns won't be saved")
       session.emptyDataFrame
@@ -392,7 +400,7 @@ trait IngestionJob extends SparkJob {
     *
     * @return : Spark Session used for the job
     */
-  def run(): Try[SparkSession] = {
+  def run(): Try[SparkJobResult] = {
     domain.checkValidity(schemaHandler) match {
       case Left(errors) =>
         val errs = errors.reduce { (errs, err) =>
@@ -430,7 +438,7 @@ trait IngestionJob extends SparkJob {
               )
               SparkAuditLogWriter.append(session, log)
               schema.postsql.getOrElse(Nil).foreach(session.sql)
-              session
+              SparkJobResult(session)
             }
           case Failure(exception) =>
             val end = Timestamp.from(Instant.now())

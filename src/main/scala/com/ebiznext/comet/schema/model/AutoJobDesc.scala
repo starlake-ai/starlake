@@ -43,7 +43,8 @@ case class AutoTaskDesc(
   postsql: Option[List[String]] = None,
   area: Option[StorageArea] = None,
   index: Option[IndexSink] = None,
-  properties: Option[Map[String, String]] = None
+  properties: Option[Map[String, String]] = None,
+  rls: Option[RowLevelSecurity] = None
 ) {
 
   @JsonIgnore
@@ -52,20 +53,26 @@ case class AutoTaskDesc(
   @JsonIgnore
   def getIndexSink(): Option[IndexSink] = index
 
-  def getTargetPath(defaultArea: StorageArea)(implicit settings: Settings): Path = {
-    val targetArea = area.getOrElse(defaultArea)
-    new Path(DatasetArea.path(domain, targetArea.value), dataset)
+  /**
+    * Return a Path only if a storage area s defined
+    * @param defaultArea
+    * @param settings
+    * @return
+    */
+  def getTargetPath(defaultArea: Option[StorageArea])(implicit settings: Settings): Option[Path] = {
+    area.orElse(defaultArea).map { targetArea =>
+      new Path(DatasetArea.path(domain, targetArea.value), dataset)
+    }
   }
 
-  def getHiveDB(defaultArea: StorageArea): String = {
-    val targetArea = area.getOrElse(defaultArea)
-    StorageArea.area(domain, targetArea)
+  def getHiveDB(defaultArea: Option[StorageArea]): Option[String] = {
+    area.orElse(defaultArea).map { targetArea =>
+      StorageArea.area(domain, targetArea)
+    }
   }
-
 }
 
 /**
-  *
   * @param name  Job logical name
   * @param tasks List of business tasks to execute
   */
@@ -78,5 +85,5 @@ case class AutoJobDesc(
   udf: Option[String] = None,
   views: Option[Map[String, String]] = None
 ) {
-  def getArea() = area.getOrElse(StorageArea.business)
+  def getArea(): StorageArea = area.getOrElse(StorageArea.business)
 }

@@ -74,7 +74,7 @@ object CometJacksonModule extends CometJacksonModule {
     * Jackson requests a 'new' instance
     *
     * @see https://github.com/FasterXML/jackson-module-scala/issues/211
-    * */
+    */
   @JsonPOJOBuilder()
   abstract class ProtectedSingletonBuilder[T <: JacksonProtectedSingleton: ClassTag]
       extends Serializable {
