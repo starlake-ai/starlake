@@ -8,7 +8,6 @@ import com.ebiznext.comet.utils.{SparkJob, SparkJobResult, Utils}
 import com.google.cloud.bigquery.testing.RemoteBigQueryHelper
 import com.google.cloud.bigquery.{Schema => BQSchema, _}
 import com.google.cloud.hadoop.io.bigquery.BigQueryConfiguration
-import com.google.cloud.hadoop.io.bigquery.output.BigQueryTimePartitioning
 import org.apache.hadoop.conf.Configuration
 import org.apache.spark.sql.{DataFrame, SaveMode}
 
@@ -48,47 +47,41 @@ class BigQueryLoadJob(
 
   def getOrCreateTable(df: DataFrame): Table = {
     getOrCreateDataset()
-    import com.google.cloud.bigquery.{StandardTableDefinition, TableInfo}
     scala.Option(bigquery.getTable(tableId)) getOrElse {
 
-      val tableDefinitionBuilder =
-        maybeSchema match {
-          case Some(schema) =>
+      val tableDefinition =
+        (maybeSchema, cliConfig.outputPartition) match {
+          case (Some(schema), Some(partitionField)) =>
             // Generating schema from YML to get the descriptions in BQ
-            StandardTableDefinition.of(schema).toBuilder
-          case None =>
+            val partitioning = timePartitioning(partitionField, cliConfig.days)
+              .build()
+            StandardTableDefinition
+              .newBuilder()
+              .setSchema(schema)
+              .setTimePartitioning(partitioning)
+              .build()
+          case (Some(schema), _) =>
+            // Generating schema from YML to get the descriptions in BQ
+            StandardTableDefinition
+              .newBuilder()
+              .setSchema(schema)
+              .build()
+          case (_, Some(partitionField)) =>
             // We would have loved to let BQ do the whole job (StandardTableDefinition.newBuilder())
             // But however seems like it does not work when there is an output partition
-            cliConfig.outputPartition match {
-              case Some(_) => StandardTableDefinition.of(df.to[BQSchema]).toBuilder
-              case None    =>
-                // In case of complex types, our inferred schema does not work, BQ introduces a list subfield, let him do the dirty job
-                StandardTableDefinition.newBuilder()
-            }
+            val partitioning = timePartitioning(partitionField, cliConfig.days)
+              .build()
+            StandardTableDefinition
+              .newBuilder()
+              .setSchema(df.to[BQSchema])
+              .setTimePartitioning(partitioning)
+              .build()
+          case (_, _) =>
+            // In case of complex types, our inferred schema does not work, BQ introduces a list subfield, let him do the dirty job
+            StandardTableDefinition
+              .newBuilder()
+              .build()
         }
-
-      cliConfig.outputPartition.foreach { outputPartition =>
-        import com.google.cloud.bigquery.TimePartitioning
-        val timeField =
-          if (List("_PARTITIONDATE", "_PARTITIONTIME").contains(outputPartition))
-            TimePartitioning
-              .newBuilder(TimePartitioning.Type.DAY)
-              .setRequirePartitionFilter(true)
-          else
-            TimePartitioning
-              .newBuilder(TimePartitioning.Type.DAY)
-              .setRequirePartitionFilter(true)
-              .setField(outputPartition)
-
-        val timeFieldWithExpiration = cliConfig.days
-          .map(_ * 3600 * 24 * 1000L)
-          .map(ms => timeField.setExpirationMs(ms))
-          .getOrElse(timeField)
-          .build()
-        tableDefinitionBuilder.setTimePartitioning(timeFieldWithExpiration)
-      }
-
-      val tableDefinition = tableDefinitionBuilder.build()
       val tableInfo = TableInfo.newBuilder(tableId, tableDefinition).build
       bigquery.create(tableInfo)
     }
@@ -104,9 +97,12 @@ class BigQueryLoadJob(
     }
 
     val writeDisposition = JobInfo.WriteDisposition.valueOf(cliConfig.writeDisposition)
-    val finalWriteDisposition = writeDisposition match {
-      case JobInfo.WriteDisposition.WRITE_TRUNCATE =>
-        logger.info(s"Deleting table $tableId")
+    val finalWriteDisposition = (writeDisposition, cliConfig.outputPartition) match {
+      case (JobInfo.WriteDisposition.WRITE_TRUNCATE, Some(partition)) =>
+        logger.info(s"Overwriting partition $partition of Table $tableId")
+        logger.info(s"Setting Write mode to Overwrite")
+        JobInfo.WriteDisposition.WRITE_TRUNCATE
+      case (JobInfo.WriteDisposition.WRITE_TRUNCATE, _) =>
         try {
           bigquery.delete(tableId)
         } catch {
@@ -114,7 +110,6 @@ class BigQueryLoadJob(
             // Log error and continue  (may be table does not exist)
             Utils.logException(logger, e)
         }
-
         logger.info(s"Setting Write mode to Append")
         JobInfo.WriteDisposition.WRITE_APPEND
       case _ =>
@@ -129,22 +124,6 @@ class BigQueryLoadJob(
       BigQueryConfiguration.OUTPUT_TABLE_CREATE_DISPOSITION_KEY,
       cliConfig.createDisposition
     )
-    cliConfig.outputPartition.foreach { outputPartition =>
-      import com.google.cloud.hadoop.repackaged.bigquery.com.google.api.services.bigquery.model.TimePartitioning
-      val timeField =
-        if (List("_PARTITIONDATE", "_PARTITIONTIME").contains(outputPartition))
-          new TimePartitioning().setType("DAY").setRequirePartitionFilter(true)
-        else
-          new TimePartitioning()
-            .setType("DAY")
-            .setRequirePartitionFilter(true)
-            .setField(outputPartition)
-      val timePartitioning =
-        new BigQueryTimePartitioning(
-          timeField
-        )
-      conf.set(BigQueryConfiguration.OUTPUT_TABLE_PARTITIONING_KEY, timePartitioning.getAsJson)
-    }
     conf
   }
 
@@ -160,6 +139,7 @@ class BigQueryLoadJob(
   }
 
   def runBQSparkConnector(): Try[SparkJobResult] = {
+
     prepareConf()
     Try {
       val sourceDF =
@@ -170,16 +150,44 @@ class BigQueryLoadJob(
 
       val table = getOrCreateTable(sourceDF)
 
+      import org.apache.spark.sql.functions._
+
       val stdTableDefinition =
         bigquery.getTable(table.getTableId).getDefinition.asInstanceOf[StandardTableDefinition]
       logger.info(
         s"BigQuery Saving to  ${table.getTableId} containing ${stdTableDefinition.getNumRows} rows"
       )
-      sourceDF.write
-        .mode(SaveMode.Append)
-        .format("com.google.cloud.spark.bigquery")
-        .option("table", bqTable)
-        .save()
+
+      (cliConfig.writeDisposition, cliConfig.outputPartition) match {
+        case ("WRITE_TRUNCATE", Some(partition)) =>
+          // BigQuery supports only this date format 'yyyyMMdd', so we have to use it
+          // in order to overwrite only one partition
+          val dateFormat = "yyyyMMdd"
+          logger.info(s"overwriting partition ${partition} in The BQ Table $bqTable")
+          sourceDF.write
+            .mode(SaveMode.Overwrite)
+            .format("com.google.cloud.spark.bigquery")
+            .option(
+              "table",
+              bqTable
+                .concat("$")
+                .concat(
+                  sourceDF
+                    .select(date_format(col(partition), dateFormat).cast("string"))
+                    .where(col(partition).isNotNull)
+                    .head
+                    .getString(0)
+                )
+            )
+            .save()
+        case _ =>
+          logger.info(s"Saving BQ Table $bqTable")
+          sourceDF.write
+            .mode(SaveMode.Append)
+            .format("com.google.cloud.spark.bigquery")
+            .option("table", bqTable)
+            .save()
+      }
 
       val stdTableDefinitionAfter =
         bigquery.getTable(table.getTableId).getDefinition.asInstanceOf[StandardTableDefinition]
@@ -265,4 +273,22 @@ class BigQueryLoadJob(
     val res = runBQSparkConnector()
     Utils.logFailure(res, logger)
   }
+
+  def timePartitioning(
+    partitionField: String,
+    days: scala.Option[Int] = None
+  ): TimePartitioning.Builder =
+    days match {
+      case Some(d) =>
+        TimePartitioning
+          .newBuilder(TimePartitioning.Type.DAY)
+          .setRequirePartitionFilter(true)
+          .setField(partitionField)
+          .setExpirationMs(d * 3600 * 24 * 1000L)
+      case _ =>
+        TimePartitioning
+          .newBuilder(TimePartitioning.Type.DAY)
+          .setRequirePartitionFilter(true)
+          .setField(partitionField)
+    }
 }
