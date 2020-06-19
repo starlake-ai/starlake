@@ -73,7 +73,6 @@ case class AutoTaskDesc(
 }
 
 /**
-  *
   * @param name  Job logical name
   * @param tasks List of business tasks to execute
   */

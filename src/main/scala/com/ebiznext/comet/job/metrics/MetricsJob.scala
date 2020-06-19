@@ -17,11 +17,9 @@ import org.apache.spark.sql.functions.{col, lit}
 import scala.util.{Success, Try}
 
 /** To record statistics with other information during ingestion.
-  *
   */
 
 /**
-  *
   * @param domain         : Domain name
   * @param schema         : Schema
   * @param stage          : stage
@@ -65,8 +63,6 @@ class MetricsJob(
     *
     * @param dataToSave :   dataset to be saved
     * @param path       :   Path to save the file at
-    *
-    *
     */
   def save(dataToSave: DataFrame, path: Path): Unit = {
     if (storageHandler.exists(path)) {

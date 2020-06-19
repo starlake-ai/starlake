@@ -131,7 +131,6 @@ trait TestHelper extends AnyFlatSpec with Matchers with BeforeAndAfterAll with S
   def readFileContent(path: Path): String = readFileContent(path.toUri.getPath)
 
   /** substitution patterns for test sample file resources.
-    *
     */
   private val testResourceSubstitutionEngine = TextSubstitutionEngine(
     "COMET_TEST_ROOT" -> cometTestRoot
