@@ -49,7 +49,6 @@ object Settings extends StrictLogging {
   private def loggerForCompanionInstances: Logger = logger
 
   /**
-    *
     * @param endpoint : Airflow REST API endpoint, aka. http://127.0.0.1:8080/api/experimental
     */
   final case class Airflow(endpoint: String, ingest: String)
@@ -82,7 +81,6 @@ object Settings extends StrictLogging {
   }
 
   /**
-    *
     * @param options : Map of privacy algorightms name -> PrivacyEngine
     */
   final case class Privacy(options: juMap[String, String])
@@ -94,7 +92,6 @@ object Settings extends StrictLogging {
     *
     * This is used to define an auxiliary output for Audit or Metrics data, in addition to the Parquets
     * The default Index Sink is None, but additional types exists (such as BigQuery or Jdbc)
-    *
     */
   @JsonTypeInfo(use = JsonTypeInfo.Id.MINIMAL_CLASS)
   sealed abstract class IndexSinkSettings(val `type`: String) {
@@ -135,9 +132,7 @@ object Settings extends StrictLogging {
   }
 
   /**
-    *
     * @param discreteMaxCardinality : Max number of unique values allowed in cardinality compute
-    *
     */
   final case class Metrics(
     path: String,
@@ -216,7 +211,6 @@ object Settings extends StrictLogging {
   final case class Internal(cacheStorageLevel: StorageLevel) {}
 
   /**
-    *
     * @param datasets       : Absolute path, datasets root folder beneath which each area is defined.
     * @param metadata       : Absolute path, location where all types / domains and auto jobs are defined
     * @param metrics        : Absolute path, location where all computed metrics are stored
@@ -254,6 +248,7 @@ object Settings extends StrictLogging {
     atlas: Atlas,
     privacy: Privacy,
     fileSystem: Option[String],
+    metadataFileSystem: Option[String],
     internal: Option[Internal]
   ) extends Serializable {
 
@@ -335,6 +330,13 @@ final case class Settings(comet: Settings.Comet, sparkConfig: Config) {
     implicit val self: Settings =
       this /* TODO: remove this once HdfsStorageHandler explicitly takes Settings or Settings.Comet in */
     new HdfsStorageHandler(comet.fileSystem)
+  }
+
+  @transient
+  lazy val metadataStorageHandler: HdfsStorageHandler = {
+    implicit val self: Settings =
+      this /* TODO: remove this once HdfsStorageHandler explicitly takes Settings or Settings.Comet in */
+    new HdfsStorageHandler(comet.metadataFileSystem)
   }
 
   @transient

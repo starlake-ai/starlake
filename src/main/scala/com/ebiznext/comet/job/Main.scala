@@ -47,7 +47,6 @@ import org.apache.hadoop.fs.Path
   *  - running an auto job
   * All these things ared laaunched from here.
   * See printUsage below to understand the CLI syntax.
-  *
   */
 object Main extends StrictLogging {
   // uses Jackson YAML to parsing, relies on SnakeYAML for low level handling
@@ -94,9 +93,9 @@ object Main extends StrictLogging {
     implicit val settings: Settings = Settings(ConfigFactory.load())
     settings.publishMDCData()
     logger.info(s"Comet Version ${BuildInfo.version}")
-    import settings.{launcherService, storageHandler}
-    DatasetArea.init(storageHandler)
-    val schemaHandler = new SchemaHandler(storageHandler)
+    import settings.{launcherService, metadataStorageHandler, storageHandler}
+    DatasetArea.initMetadata(metadataStorageHandler)
+    val schemaHandler = new SchemaHandler(metadataStorageHandler)
 
     DatasetArea.initDomains(storageHandler, schemaHandler.domains.map(_.name))
 

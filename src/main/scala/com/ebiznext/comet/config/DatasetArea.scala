@@ -148,10 +148,9 @@ object DatasetArea {
     new Path(metadata, "jobs")
 
   /**
-    *
     * @param storage
     */
-  def init(
+  def initMetadata(
     storage: StorageHandler
   )(implicit settings: Settings): Unit = {
     List(metadata, types, domains).foreach(storage.mkdirs)
@@ -160,7 +159,6 @@ object DatasetArea {
   def initDomains(storage: StorageHandler, domains: Iterable[String])(implicit
     settings: Settings
   ): Unit = {
-    init(storage)
     domains.foreach { domain =>
       List(pending _, unresolved _, archive _, accepted _, rejected _, business _)
         .map(_(domain))
@@ -181,10 +179,6 @@ object DatasetArea {
 object StorageArea {
 
   def fromString(value: String)(implicit settings: Settings): StorageArea = {
-
-    val rejected = settings.comet.area.rejected.toLowerCase(Locale.ROOT)
-    val accepted = settings.comet.area.accepted.toLowerCase(Locale.ROOT)
-    val business = settings.comet.area.business.toLowerCase(Locale.ROOT)
 
     val lcValue = value.toLowerCase(Locale.ROOT)
 

@@ -25,19 +25,20 @@ import com.ebiznext.comet.config.{DatasetArea, Settings}
 import com.ebiznext.comet.job.atlas.{AtlasConfig, AtlasJob}
 import com.ebiznext.comet.job.index.bqload.{BigQueryLoadConfig, BigQueryLoadJob}
 import com.ebiznext.comet.job.index.esload.{ESLoadConfig, ESLoadJob}
+import com.ebiznext.comet.job.index.jdbcload.{JdbcLoadConfig, JdbcLoadJob}
 import com.ebiznext.comet.job.infer.{InferSchema, InferSchemaConfig}
 import com.ebiznext.comet.job.ingest._
-import com.ebiznext.comet.job.index.jdbcload.{JdbcLoadConfig, JdbcLoadJob}
 import com.ebiznext.comet.job.metrics.{MetricsConfig, MetricsJob}
 import com.ebiznext.comet.job.transform.AutoTask
 import com.ebiznext.comet.schema.handlers.{LaunchHandler, SchemaHandler, StorageHandler}
 import com.ebiznext.comet.schema.model.Format._
 import com.ebiznext.comet.schema.model._
-import com.ebiznext.comet.utils.{Unpacker, Utils}
+import com.ebiznext.comet.utils.{SparkJobResult, Unpacker, Utils}
 import com.google.cloud.bigquery.{Schema => BQSchema}
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
-import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.types.{StructField, StructType}
 
 import scala.util.{Failure, Success, Try}
 
@@ -204,7 +205,6 @@ class IngestionWorkflow(
   }
 
   /**
-    *
     * @param domainName : Domaine name
     * @return resolved && unresolved schemas / path
     */
@@ -233,7 +233,6 @@ class IngestionWorkflow(
 
   /**
     * Ingest the file (called by the cron manager at ingestion time for a specific dataset
-    *
     */
   def ingest(config: IngestConfig): Unit = {
     val domainName = config.domain
@@ -256,7 +255,7 @@ class IngestionWorkflow(
     logger.info(
       s"Ingesting domain: ${domain.name} with schema: ${schema.name} on file: $ingestingPath with metadata $metadata"
     )
-    val ingestionResult: Try[SparkSession] = Try(metadata.getFormat() match {
+    val ingestionResult: Try[SparkJobResult] = Try(metadata.getFormat() match {
       case DSV =>
         new DsvIngestionJob(
           domain,
@@ -383,7 +382,7 @@ class IngestionWorkflow(
     job.tasks.foreach { task =>
       val action = new AutoTask(
         job.name,
-        job.getArea(),
+        job.area,
         job.format,
         job.coalesce.getOrElse(false),
         job.udf,
@@ -393,15 +392,18 @@ class IngestionWorkflow(
         sqlParameters
       )
       action.run() match {
-        case Success(_) =>
+        case Success(SparkJobResult(session, maybeDataFrame)) =>
           task.getIndexSink() match {
             case Some(IndexSink.ES) if settings.comet.elasticsearch.active =>
               index(job, task)
             case Some(IndexSink.BQ) =>
               val (createDisposition, writeDisposition) = Utils.getDBDisposition(task.write)
+              val source = maybeDataFrame
+                .map(df => Right(setNullableStateOfColumn(df, nullable = true)))
+                .getOrElse(Left(task.getTargetPath(Some(job.getArea())).toString))
               bqload(
                 BigQueryLoadConfig(
-                  sourceFile = Left(task.getTargetPath(job.getArea()).toString),
+                  source = source,
                   outputTable = task.dataset,
                   outputDataset = task.domain,
                   sourceFormat = "parquet",
@@ -409,7 +411,8 @@ class IngestionWorkflow(
                   writeDisposition = writeDisposition,
                   location = task.properties.flatMap(_.get("location")),
                   outputPartition = task.properties.flatMap(_.get("timestamp")),
-                  days = task.properties.flatMap(_.get("days").map(_.toInt))
+                  days = task.properties.flatMap(_.get("days").map(_.toInt)),
+                  rls = task.rls
                 )
               )
             case _ =>
@@ -422,18 +425,18 @@ class IngestionWorkflow(
     }
   }
 
-  def index(config: ESLoadConfig): Try[SparkSession] = {
+  def index(config: ESLoadConfig): Try[SparkJobResult] = {
     new ESLoadJob(config, storageHandler, schemaHandler).run()
   }
 
   def bqload(
     config: BigQueryLoadConfig,
     maybeSchema: Option[BQSchema] = None
-  ): Try[SparkSession] = {
+  ): Try[SparkJobResult] = {
     new BigQueryLoadJob(config, maybeSchema).run()
   }
 
-  def jdbcload(config: JdbcLoadConfig): Try[SparkSession] = {
+  def jdbcload(config: JdbcLoadConfig): Try[SparkJobResult] = {
     val loadJob = new JdbcLoadJob(config)
     loadJob.run()
   }
@@ -467,5 +470,21 @@ class IngestionWorkflow(
       }
       case None => logger.error("The domain or schema you specified doesn't exist! ")
     }
+  }
+
+  /**
+    * Set nullable property of column.
+    * @param df source DataFrame
+    * @param nullable is the flag to set, such that the column is  either nullable or not
+    */
+  def setNullableStateOfColumn(df: DataFrame, nullable: Boolean): DataFrame = {
+
+    // get schema
+    val schema = df.schema
+    val newSchema = StructType(schema.map {
+      case StructField(c, t, _, m) => StructField(c, t, nullable = nullable, m)
+    })
+    // apply new schema
+    df.sqlContext.createDataFrame(df.rdd, newSchema)
   }
 }

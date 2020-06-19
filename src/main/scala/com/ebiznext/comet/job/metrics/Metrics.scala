@@ -48,7 +48,6 @@ object Metrics extends StrictLogging {
   object CountMissValues extends ContinuousMetric("missingValues", customCountMissValues)
 
   /** List of all available metrics
-    *
     */
 
   val continuousMetrics: List[ContinuousMetric] = List(
@@ -271,7 +270,6 @@ object Metrics extends StrictLogging {
       extends DiscreteMetric("missingValuesDiscrete", customCountMissValuesDiscrete)
 
   /** List of all available metrics.
-    *
     */
 
   val discreteMetrics: List[DiscreteMetric] =
