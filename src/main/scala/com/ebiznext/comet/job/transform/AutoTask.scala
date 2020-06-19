@@ -34,7 +34,6 @@ import scala.language.reflectiveCalls
 import scala.util.{Success, Try}
 
 /**
-  *
   * Execute the SQL Task and store it in parquet/orc/.... If Hive support is enabled, also store it as a Hive Table.
   * If analyze support is active, also compute basic statistics for the dataset.
   *
