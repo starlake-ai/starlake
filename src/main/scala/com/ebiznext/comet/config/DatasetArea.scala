@@ -148,7 +148,6 @@ object DatasetArea {
     new Path(metadata, "jobs")
 
   /**
-    *
     * @param storage
     */
   def initMetadata(

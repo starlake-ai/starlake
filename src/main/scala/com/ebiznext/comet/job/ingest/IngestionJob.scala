@@ -27,7 +27,6 @@ import scala.language.existentials
 import scala.util.{Failure, Success, Try}
 
 /**
-  *
   */
 trait IngestionJob extends SparkJob {
   def domain: Domain

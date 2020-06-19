@@ -47,7 +47,6 @@ import org.apache.hadoop.fs.Path
   *  - running an auto job
   * All these things ared laaunched from here.
   * See printUsage below to understand the CLI syntax.
-  *
   */
 object Main extends StrictLogging {
   // uses Jackson YAML to parsing, relies on SnakeYAML for low level handling
