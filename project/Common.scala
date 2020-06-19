@@ -79,12 +79,12 @@ object Common {
   def customSettings: Seq[Def.Setting[_]] =
     Seq(
       scalacOptions ++= Seq(
-          "-deprecation",
-          "-feature",
-          "-Xmacro-settings:materialize-derivations",
-          "-Ywarn-unused-import",
-          "-Xfatal-warnings"
-        ),
+        "-deprecation",
+        "-feature",
+        "-Xmacro-settings:materialize-derivations",
+        "-Ywarn-unused-import",
+        "-Xfatal-warnings"
+      ),
       testOptions in Test ++= Seq(
         // show full stack traces and test case durations
         Tests.Argument("-oDF"),
@@ -123,7 +123,7 @@ object Versions {
   val sttp = "1.7.2"
   val gcs = "hadoop3-2.1.3"
   val hadoopbq = "hadoop3-1.0.0"
-  val bq = "1.114.0"
+  val bq = "1.116.2"
   val hadoop = "3.2.0"
   val h2 = "1.4.200" // Test only
   val poi = "4.1.2"

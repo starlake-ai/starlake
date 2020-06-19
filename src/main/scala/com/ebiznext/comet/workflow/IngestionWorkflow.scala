@@ -37,6 +37,8 @@ import com.ebiznext.comet.utils.{SparkJobResult, Unpacker, Utils}
 import com.google.cloud.bigquery.{Schema => BQSchema}
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
+import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.types.{StructField, StructType}
 
 import scala.util.{Failure, Success, Try}
 
@@ -399,7 +401,7 @@ class IngestionWorkflow(
             case Some(IndexSink.BQ) =>
               val (createDisposition, writeDisposition) = Utils.getDBDisposition(task.write)
               val source = maybeDataFrame
-                .map(Right(_))
+                .map(df => Right(setNullableStateOfColumn(df, nullable = true)))
                 .getOrElse(Left(task.getTargetPath(Some(job.getArea())).toString))
               bqload(
                 BigQueryLoadConfig(
@@ -470,5 +472,21 @@ class IngestionWorkflow(
       }
       case None => logger.error("The domain or schema you specified doesn't exist! ")
     }
+  }
+
+  /**
+    * Set nullable property of column.
+    * @param df source DataFrame
+    * @param nullable is the flag to set, such that the column is  either nullable or not
+    */
+  def setNullableStateOfColumn(df: DataFrame, nullable: Boolean): DataFrame = {
+
+    // get schema
+    val schema = df.schema
+    val newSchema = StructType(schema.map {
+      case StructField(c, t, _, m) => StructField(c, t, nullable = nullable, m)
+    })
+    // apply new schema
+    df.sqlContext.createDataFrame(df.rdd, newSchema)
   }
 }

@@ -207,12 +207,10 @@ class DsvIngestionJob(
       }
     }
     val acceptedDF = session.createDataFrame(acceptedRDD, orderedSparkTypes)
-    val cols = acceptedDF.columns.map { column =>
-      org.apache.spark.sql.functions
-        .col(column)
-        .as(renamedAttributes.getOrElse(column, column))
-    }
-    val finalDF = acceptedDF.select(cols: _*)
+
+    val finalDF =
+      renamedAttributes.foldLeft(acceptedDF)((acc, ca) => acc.withColumnRenamed(ca._1, ca._2))
+
     super.saveAccepted(finalDF)
   }
 
