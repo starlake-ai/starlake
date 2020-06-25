@@ -160,7 +160,7 @@ object DatasetArea {
     settings: Settings
   ): Unit = {
     domains.foreach { domain =>
-      List(pending _, ingesting _, unresolved _, archive _, accepted _, rejected _, business _)
+      List(pending _, unresolved _, archive _, accepted _, rejected _, business _)
         .map(_(domain))
         .foreach(storage.mkdirs)
     }
