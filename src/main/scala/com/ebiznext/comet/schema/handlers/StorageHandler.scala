@@ -207,6 +207,7 @@ class HdfsStorageHandler(fileSystem: Option[String])(implicit
     */
   override def move(path: Path, dest: Path): Boolean = {
     delete(dest)
+    mkdirs(dest.getParent)
     fs.rename(path, dest)
   }
 
