@@ -83,6 +83,9 @@ class XlsReader(path: String) {
             .map(formatter.formatCellValue)
             .map(_.split(",") map (_.trim))
             .map(_.toList)
+        val indexColumnsOpt =
+          Option(row.getCell(13, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
+            .map(formatter.formatCellValue)
         (nameOpt, patternOpt) match {
           case (Some(name), Some(pattern)) => {
             val metaData = Metadata(
@@ -100,7 +103,7 @@ class XlsReader(path: String) {
                   attributes = partitionColumnsOpt
                 )
               ),
-              index = None,
+              index = indexColumnsOpt.map(IndexSink.fromString),
               properties = None
             )
             val mergeOptions: Option[MergeOptions] = (deltaColOpt, identityKeysOpt) match {
