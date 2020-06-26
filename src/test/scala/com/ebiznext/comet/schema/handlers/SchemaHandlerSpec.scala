@@ -25,10 +25,10 @@ import java.net.URL
 import com.ebiznext.comet.TestHelper
 import com.ebiznext.comet.config.DatasetArea
 import com.ebiznext.comet.schema.model.{Metadata, Schema}
-import com.softwaremill.sttp.HttpURLConnectionBackend
+//import com.softwaremill.sttp.HttpURLConnectionBackend
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.types.StructField
-import com.softwaremill.sttp._
+//import com.softwaremill.sttp._
 
 import scala.util.Try
 
@@ -47,67 +47,67 @@ class SchemaHandlerSpec extends TestHelper {
 
   new WithSettings() {
     // TODO Helper (to delete)
-    "Ingest CSV" should "produce file in accepted" in {
-
-      new SpecTrait(
-        domainFilename = "DOMAIN.yml",
-        sourceDomainPathname = s"/sample/DOMAIN.yml",
-        datasetDomainName = "DOMAIN",
-        sourceDatasetPathName = "/sample/SCHEMA-VALID.dsv"
-      ) {
-
-        cleanMetadata
-        cleanDatasets
-
-        loadPending
-
-        // Check Archived
-        readFileContent(
-          cometDatasetsPath + s"/archive/$datasetDomainName/SCHEMA-VALID.dsv"
-        ) shouldBe loadTextFile(
-          sourceDatasetPathName
-        )
-
-        // Check rejected
-
-        val rejectedDf = sparkSession.read
-          .parquet(cometDatasetsPath + s"/rejected/$datasetDomainName/User")
-
-        val expectedRejectedF = prepareDateColumns(
-          sparkSession.read
-            .schema(prepareSchema(rejectedDf.schema))
-            .json(getResPath("/expected/datasets/rejected/DOMAIN.json"))
-        )
-
-        expectedRejectedF.except(rejectedDf).count() shouldBe 1
-
-        // Accepted should have the same data as input
-        val acceptedDf = sparkSession.read
-          .parquet(cometDatasetsPath + s"/accepted/$datasetDomainName/User/$getTodayPartitionPath")
-
-        printDF(acceptedDf, "acceptedDf")
-        val expectedAccepted =
-          sparkSession.read
-            .schema(acceptedDf.schema)
-            .json(getResPath("/expected/datasets/accepted/DOMAIN/User.json"))
-
-        printDF(expectedAccepted, "expectedAccepted")
-        acceptedDf
-          .select("firstname")
-          .except(expectedAccepted.select("firstname"))
-          .count() shouldBe 0
-
-        if (settings.comet.isElasticsearchSupported()) {
-          implicit val backend = HttpURLConnectionBackend()
-          val countUri = uri"http://127.0.0.1:9200/domain_user/_count"
-          val response = sttp.get(countUri).send()
-          response.code should be <= 299
-          response.code should be >= 200
-          assert(response.body.isRight)
-          response.body.right.toString() contains "\"count\":2"
-        }
-      }
-    }
+//    "Ingest CSV" should "produce file in accepted" in {
+//
+//      new SpecTrait(
+//        domainFilename = "DOMAIN.yml",
+//        sourceDomainPathname = s"/sample/DOMAIN.yml",
+//        datasetDomainName = "DOMAIN",
+//        sourceDatasetPathName = "/sample/SCHEMA-VALID.dsv"
+//      ) {
+//
+//        cleanMetadata
+//        cleanDatasets
+//
+//        loadPending
+//
+//        // Check Archived
+//        readFileContent(
+//          cometDatasetsPath + s"/archive/$datasetDomainName/SCHEMA-VALID.dsv"
+//        ) shouldBe loadTextFile(
+//          sourceDatasetPathName
+//        )
+//
+//        // Check rejected
+//
+//        val rejectedDf = sparkSession.read
+//          .parquet(cometDatasetsPath + s"/rejected/$datasetDomainName/User")
+//
+//        val expectedRejectedF = prepareDateColumns(
+//          sparkSession.read
+//            .schema(prepareSchema(rejectedDf.schema))
+//            .json(getResPath("/expected/datasets/rejected/DOMAIN.json"))
+//        )
+//
+//        expectedRejectedF.except(rejectedDf).count() shouldBe 1
+//
+//        // Accepted should have the same data as input
+//        val acceptedDf = sparkSession.read
+//          .parquet(cometDatasetsPath + s"/accepted/$datasetDomainName/User/$getTodayPartitionPath")
+//
+//        printDF(acceptedDf, "acceptedDf")
+//        val expectedAccepted =
+//          sparkSession.read
+//            .schema(acceptedDf.schema)
+//            .json(getResPath("/expected/datasets/accepted/DOMAIN/User.json"))
+//
+//        printDF(expectedAccepted, "expectedAccepted")
+//        acceptedDf
+//          .select("firstname")
+//          .except(expectedAccepted.select("firstname"))
+//          .count() shouldBe 0
+//
+//        if (settings.comet.isElasticsearchSupported()) {
+//          implicit val backend = HttpURLConnectionBackend()
+//          val countUri = uri"http://127.0.0.1:9200/domain_user/_count"
+//          val response = sttp.get(countUri).send()
+//          response.code should be <= 299
+//          response.code should be >= 200
+//          assert(response.body.isRight)
+//          response.body.right.toString() contains "\"count\":2"
+//        }
+//      }
+//    }
 
     "Ingest schema with partition" should "produce partitioned output in accepted" in {
       new SpecTrait(
