@@ -63,7 +63,14 @@ class JsonIngestionJob(
         .option("inferSchema", value = false)
         .option("encoding", metadata.getEncoding())
         .text(path.map(_.toString): _*)
+        .select(
+          org.apache.spark.sql.functions.input_file_name(),
+          org.apache.spark.sql.functions.col("value")
+        )
+
       df.printSchema()
+
+      df.show(false)
       Success(df)
     } catch {
       case e: Exception =>
@@ -80,28 +87,55 @@ class JsonIngestionJob(
     */
   def ingest(dataset: DataFrame): (RDD[_], RDD[_]) = {
     val rdd = dataset.rdd
+
     dataset.printSchema()
+
     val checkedRDD = JsonIngestionUtil
       .parseRDD(rdd, schemaSparkType)
       .persist(settings.comet.cacheStorageLevel)
-    val acceptedRDD: RDD[String] = checkedRDD.filter(_.isRight).map(_.right.get)
+
+    val acceptedRDD: RDD[String] = checkedRDD.filter(_.isRight).map(_.right.get).map {
+      case (row, inputFileName) =>
+        val (left, _) = row.splitAt(row.lastIndexOf("}"))
+        s"""$left, "comet_input_file_name" : "$inputFileName" }"""
+    }
+
     val rejectedRDD: RDD[String] =
       checkedRDD.filter(_.isLeft).map(_.left.get.mkString("\n"))
+
     val acceptedDF = session.read.json(session.createDataset(acceptedRDD)(Encoders.STRING))
 
     import com.ebiznext.comet.job.ingest.ImprovedDataFrameContext._
-    val acceptedDfWithScriptedFields = if (schema.attributes.exists(_.scripted.isDefined)) {
 
-      schema.attributes.foldRight(acceptedDF) {
-        case (Attribute(name, _, _, _, _, _, _, _, _, _, _, _, _, Some(scripted)), df) =>
-          df.T(
-            s"SELECT *, $scripted as $name FROM __THIS__"
-          )
-        case (_, df) => df
-      }
+    val acceptedDfWithScriptedFields = (if (schema.attributes.exists(_.scripted.isDefined)) {
 
-    } else acceptedDF
+                                          schema.attributes.foldRight(acceptedDF) {
+                                            case (
+                                                  Attribute(
+                                                    name,
+                                                    _,
+                                                    _,
+                                                    _,
+                                                    _,
+                                                    _,
+                                                    _,
+                                                    _,
+                                                    _,
+                                                    _,
+                                                    _,
+                                                    _,
+                                                    _,
+                                                    Some(scripted)
+                                                  ),
+                                                  df
+                                                ) =>
+                                              df.T(
+                                                s"SELECT *, $scripted as $name FROM __THIS__"
+                                              )
+                                            case (_, df) => df
+                                          }
 
+                                        } else acceptedDF).drop("comet_input_file_name")
     saveRejected(rejectedRDD)
     val (df, path) =
       saveAccepted(acceptedDfWithScriptedFields) // prefer to let Spark compute the final schema
