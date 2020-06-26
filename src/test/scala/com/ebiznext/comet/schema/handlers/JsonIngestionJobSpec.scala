@@ -55,6 +55,8 @@ abstract class JsonIngestionJobSpecBase(variant: String) extends TestHelper with
           "/sample/json/complex.json"
         )
 
+        import org.apache.spark.sql.functions._
+
         // Accepted should have the same data as input
         sparkSession.read
           .parquet(
@@ -65,6 +67,7 @@ abstract class JsonIngestionJobSpecBase(variant: String) extends TestHelper with
               .json(
                 getClass.getResource(s"/sample/${datasetDomainName}/complex.json").toURI.getPath
               )
+              .withColumn("email_domain", regexp_extract(col("email"), ".+@(.+)", 1))
           )
           .count() shouldBe 0
       }
