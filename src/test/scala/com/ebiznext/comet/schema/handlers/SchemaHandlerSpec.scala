@@ -25,7 +25,9 @@ import java.net.URL
 import com.ebiznext.comet.TestHelper
 import com.ebiznext.comet.config.DatasetArea
 import com.ebiznext.comet.schema.model.{Metadata, Schema}
+import org.apache.spark.sql.{DataFrame}
 import org.apache.spark.sql.types.{DateType, IntegerType, StringType, StructType}
+import org.apache.spark.sql.functions.col
 //import com.softwaremill.sttp.HttpURLConnectionBackend
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.types.StructField
@@ -45,6 +47,17 @@ class SchemaHandlerSpec extends TestHelper {
     super.afterAll()
     es.stop()
   }
+
+  val playerSchema: StructType = StructType(
+    Seq(
+      StructField("PK", StringType),
+      StructField("firstName", StringType),
+      StructField("lastName", StringType),
+      StructField("DOB", DateType),
+      StructField("YEAR", IntegerType),
+      StructField("MONTH", IntegerType)
+    )
+  )
 
   new WithSettings() {
     // TODO Helper (to delete)
@@ -133,20 +146,10 @@ class SchemaHandlerSpec extends TestHelper {
           .except(
             sparkSession.read
               .option("header", "false")
-              .schema(
-                StructType(
-                  Seq(
-                    StructField("PK", StringType),
-                    StructField("firstName", StringType),
-                    StructField("lastName", StringType),
-                    StructField("DOB", DateType),
-                    StructField("YEAR", IntegerType),
-                    StructField("MONTH", IntegerType)
-                  )
-                )
-              )
+              .schema(playerSchema)
               .csv(getResPath("/sample/Players.csv"))
           )
+          .count() shouldBe 0
 
       }
     }
@@ -169,12 +172,39 @@ class SchemaHandlerSpec extends TestHelper {
         datasetDomainName = "DOMAIN",
         sourceDatasetPathName = "/sample/Players-merge.csv"
       ) {
+
         loadPending
-        val acceptedDf = sparkSession.read
+
+        val acceptedDf: DataFrame = sparkSession.read
           .parquet(cometDatasetsPath + s"/accepted/$datasetDomainName/Players")
+
         acceptedDf.count() shouldBe 6
         acceptedDf.where("firstName == 'leo' and DOB == '1987-07-24'").count() shouldBe 1
         acceptedDf.where("lastname == 'salah'").count() shouldBe 1
+
+        val players: DataFrame = sparkSession.read
+          .option("header", "false")
+          .option("encoding", "UTF-8")
+          .schema(playerSchema)
+          .csv(getResPath("/sample/Players.csv"))
+
+        val playersMerge: DataFrame = sparkSession.read
+          .option("header", "false")
+          .option("encoding", "UTF-8")
+          .schema(playerSchema)
+          .csv(getResPath("/sample/Players-merge.csv"))
+
+        val playersPk: Array[String] = players.select("PK").collect().map(_.getString(0))
+
+        val expected: DataFrame = playersMerge
+          .union(players.join(playersMerge, Seq("PK"), "left_anti"))
+          .union(players.filter(!col("PK").isin(playersPk: _*)))
+
+        sparkSession.read
+          .option("encoding", "UTF-8")
+          .parquet(cometDatasetsPath + s"/accepted/$datasetDomainName/Players")
+          .except(expected)
+          .count() shouldBe 0
 
       }
     }
@@ -186,8 +216,11 @@ class SchemaHandlerSpec extends TestHelper {
         datasetDomainName = "dream",
         sourceDatasetPathName = "/sample/dream/OneClient_Contact_20190101_090800_008.psv"
       ) {
+
         cleanMetadata
+
         cleanDatasets
+
         loadPending
 
         readFileContent(
