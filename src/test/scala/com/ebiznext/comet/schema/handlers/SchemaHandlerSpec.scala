@@ -24,8 +24,8 @@ import java.net.URL
 
 import com.ebiznext.comet.TestHelper
 import com.ebiznext.comet.config.DatasetArea
-import com.ebiznext.comet.schema.model.{Metadata, Schema}
-import org.apache.spark.sql.{DataFrame}
+import com.ebiznext.comet.schema.model.{IndexSink, Metadata, Mode, Schema, WriteMode}
+import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.types.{DateType, IntegerType, StringType, StructType}
 import org.apache.spark.sql.functions._
 //import com.softwaremill.sttp.HttpURLConnectionBackend
@@ -439,7 +439,15 @@ class SchemaHandlerSpec extends TestHelper {
           |  timestamp: _PARTITIONTIME
           |""".stripMargin
       val metadata = sch.mapper.readValue(content, classOf[Metadata])
-      println(metadata)
+
+      metadata shouldBe Metadata(
+        mode = Some(Mode.FILE),
+        format = Some(com.ebiznext.comet.schema.model.Format.POSITION),
+        encoding = Some("ISO-8859-1"),
+        withHeader = Some(false),
+        index = Some(IndexSink.BQ),
+        write = Some(WriteMode.OVERWRITE)
+      )
     }
   }
 }
