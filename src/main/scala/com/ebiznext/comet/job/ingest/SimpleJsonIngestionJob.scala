@@ -24,6 +24,7 @@ import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.schema.handlers.{SchemaHandler, StorageHandler}
 import com.ebiznext.comet.schema.model._
 import org.apache.hadoop.fs.Path
+import org.apache.spark.sql.functions.lit
 import org.apache.spark.sql.{DataFrame, Encoders}
 
 import scala.util.{Failure, Success, Try}
@@ -55,14 +56,27 @@ class SimpleJsonIngestionJob(
       val df =
         if (metadata.isArray()) {
           val jsonRDD =
-            session.sparkContext.wholeTextFiles(path.map(_.toString).mkString(",")).map(x => x._2)
-          session.read.json(session.createDataset(jsonRDD)(Encoders.STRING))
+            session.sparkContext.wholeTextFiles(path.map(_.toString).mkString(",")).map(_._2)
+
+          session.read
+            .json(session.createDataset(jsonRDD)(Encoders.STRING))
+            .withColumn(
+              Settings.cometInputFileNameColumn,
+              if (settings.comet.grouped) lit(path.map(_.toString).mkString(","))
+              else lit(path.head.toString)
+            )
+
         } else {
           session.read
             .option("encoding", metadata.getEncoding())
             .option("multiline", metadata.getMultiline())
             .json(path.map(_.toString): _*)
+            .withColumn(
+              Settings.cometInputFileNameColumn,
+              org.apache.spark.sql.functions.input_file_name()
+            )
         }
+
       df.printSchema()
       import session.implicits._
       val resDF = if (df.columns.contains("_corrupt_record")) {
@@ -78,7 +92,9 @@ class SimpleJsonIngestionJob(
       } else {
         df
       }
-      Success(resDF)
+      Success(
+        resDF
+      )
     } catch {
       case e: Exception =>
         Failure(e)
