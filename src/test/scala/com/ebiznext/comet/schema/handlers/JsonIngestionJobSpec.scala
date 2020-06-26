@@ -24,6 +24,7 @@ import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.job.ingest.{AuditLog, MetricRecord, RejectedRecord}
 import com.ebiznext.comet.{JdbcChecks, TestHelper}
 import com.typesafe.config.{Config, ConfigFactory}
+import org.apache.spark.sql.functions.{col, input_file_name, regexp_extract}
 
 abstract class JsonIngestionJobSpecBase(variant: String) extends TestHelper with JdbcChecks {
 
@@ -55,19 +56,22 @@ abstract class JsonIngestionJobSpecBase(variant: String) extends TestHelper with
           "/sample/json/complex.json"
         )
 
-        import org.apache.spark.sql.functions._
-
         // Accepted should have the same data as input
-        sparkSession.read
+        val resultDf = sparkSession.read
           .parquet(
             cometDatasetsPath + s"/accepted/${datasetDomainName}/sample_json/${getTodayPartitionPath}"
           )
+
+        val expectedDf = sparkSession.read
+          .json(
+            getClass.getResource(s"/sample/${datasetDomainName}/complex.json").toURI.getPath
+          )
+          .withColumn("source_file_name", regexp_extract(input_file_name, ".+\\/(.+)$", 1))
+          .withColumn("email_domain", regexp_extract(col("email"), ".+@(.+)", 1))
+
+        resultDf
           .except(
-            sparkSession.read
-              .json(
-                getClass.getResource(s"/sample/${datasetDomainName}/complex.json").toURI.getPath
-              )
-              .withColumn("email_domain", regexp_extract(col("email"), ".+@(.+)", 1))
+            expectedDf
           )
           .count() shouldBe 0
       }
