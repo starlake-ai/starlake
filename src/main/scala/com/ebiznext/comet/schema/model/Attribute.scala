@@ -57,7 +57,8 @@ case class Attribute(
   position: Option[Position] = None,
   default: Option[String] = None,
   tags: Option[Set[String]] = None,
-  trim: Option[Trim] = None
+  trim: Option[Trim] = None,
+  scripted: Option[String] = None
 ) extends LazyLogging {
 
   override def toString: String =
