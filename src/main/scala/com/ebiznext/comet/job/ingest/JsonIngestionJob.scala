@@ -60,7 +60,6 @@ class JsonIngestionJob(
 
     try {
       val df = session.read
-        .format("com.databricks.spark.csv")
         .option("inferSchema", value = false)
         .option("encoding", metadata.getEncoding())
         .text(path.map(_.toString): _*)
@@ -89,10 +88,25 @@ class JsonIngestionJob(
     val rejectedRDD: RDD[String] =
       checkedRDD.filter(_.isLeft).map(_.left.get.mkString("\n"))
     val acceptedDF = session.read.json(session.createDataset(acceptedRDD)(Encoders.STRING))
+
+    import com.ebiznext.comet.job.ingest.ImprovedDataFrameContext._
+    val acceptedDfWithScriptedFields = if (schema.attributes.exists(_.scripted.isDefined)) {
+
+      schema.attributes.foldRight(acceptedDF) {
+        case (Attribute(name, _, _, _, _, _, _, _, _, _, _, _, _, Some(scripted)), df) =>
+          df.T(
+            s"SELECT *, $scripted as $name FROM __THIS__"
+          )
+        case (_, df) => df
+      }
+
+    } else acceptedDF
+
     saveRejected(rejectedRDD)
-    val (df, path) = saveAccepted(acceptedDF) // prefer to let Spark compute the final schema
+    val (df, path) =
+      saveAccepted(acceptedDfWithScriptedFields) // prefer to let Spark compute the final schema
     index(df)
-    (rejectedRDD, acceptedRDD)
+    (rejectedRDD, acceptedDfWithScriptedFields.rdd)
   }
 
   /**
@@ -115,4 +129,15 @@ class JsonIngestionJob(
   }
 
   override def name: String = "JsonJob"
+}
+
+object ImprovedDataFrameContext {
+  import org.apache.spark.ml.feature.SQLTransformer
+
+  implicit class ImprovedDataFrame(df: org.apache.spark.sql.DataFrame) {
+
+    def T(query: String): org.apache.spark.sql.DataFrame = {
+      new SQLTransformer().setStatement(query).transform(df)
+    }
+  }
 }

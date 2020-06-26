@@ -54,3 +54,8 @@ schemas:
             array: true
             required: false
             privacy: "NONE"
+      - name: "email_domain"
+        type: "string"
+        scripted: "regexp_extract(email,'.+@(.+)', 1)"
+        required: false
+        privacy: "NONE"
