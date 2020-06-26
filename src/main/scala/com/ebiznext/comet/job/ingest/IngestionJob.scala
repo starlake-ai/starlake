@@ -22,6 +22,7 @@ import org.apache.spark.sql._
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types.{StringType, StructField, StructType, TimestampType}
+import com.ebiznext.comet.job.ingest.ImprovedDataFrameContext._
 
 import scala.language.existentials
 import scala.util.{Failure, Success, Try}
@@ -101,13 +102,44 @@ trait IngestionJob extends SparkJob {
     }
     val writeMode = getWriteMode()
     val acceptedPath = new Path(DatasetArea.accepted(domain.name), schema.name)
+
+    val acceptedDfWithScriptedFields = (if (schema.attributes.exists(_.scripted.isDefined)) {
+
+                                          schema.attributes.foldRight(acceptedDF) {
+                                            case (
+                                                  Attribute(
+                                                    name,
+                                                    _,
+                                                    _,
+                                                    _,
+                                                    _,
+                                                    _,
+                                                    _,
+                                                    _,
+                                                    _,
+                                                    _,
+                                                    _,
+                                                    _,
+                                                    _,
+                                                    Some(scripted)
+                                                  ),
+                                                  df
+                                                ) =>
+                                              df.T(
+                                                s"SELECT *, $scripted as $name FROM __THIS__"
+                                              )
+                                            case (_, df) => df
+                                          }
+
+                                        } else acceptedDF).drop(Settings.cometInputFileNameColumn)
+
     val mergedDF = schema.merge.map { mergeOptions =>
         if (storageHandler.exists(new Path(acceptedPath, "_SUCCESS"))) {
           val existingDF = session.read.parquet(acceptedPath.toString)
-          merge(acceptedDF, existingDF, mergeOptions)
+          merge(acceptedDfWithScriptedFields, existingDF, mergeOptions)
         } else
-          acceptedDF
-      } getOrElse acceptedDF
+          acceptedDfWithScriptedFields
+      } getOrElse acceptedDfWithScriptedFields
 
     val savedDataset =
       saveRows(mergedDF, acceptedPath, writeMode, StorageArea.accepted, schema.merge.isDefined)
@@ -413,6 +445,9 @@ trait IngestionJob extends SparkJob {
         val dataset = loadDataSet()
         dataset match {
           case Success(dataset) =>
+            dataset.printSchema()
+
+            dataset.show(false)
             Try {
               val (rejectedRDD, acceptedRDD) = ingest(dataset)
               val inputCount = dataset.count()
@@ -597,5 +632,16 @@ object IngestionUtil {
       ),
       sparkValue
     )
+  }
+}
+
+object ImprovedDataFrameContext {
+  import org.apache.spark.ml.feature.SQLTransformer
+
+  implicit class ImprovedDataFrame(df: org.apache.spark.sql.DataFrame) {
+
+    def T(query: String): org.apache.spark.sql.DataFrame = {
+      new SQLTransformer().setStatement(query).transform(df)
+    }
   }
 }

@@ -48,7 +48,7 @@ class SchemaHandlerSpec extends TestHelper {
     es.stop()
   }
 
-  val playerSchema: StructType = StructType(
+  private val playerSchema: StructType = StructType(
     Seq(
       StructField("PK", StringType),
       StructField("firstName", StringType),
@@ -178,10 +178,6 @@ class SchemaHandlerSpec extends TestHelper {
         val acceptedDf: DataFrame = sparkSession.read
           .parquet(cometDatasetsPath + s"/accepted/$datasetDomainName/Players")
 
-        acceptedDf.count() shouldBe 6
-        acceptedDf.where("firstName == 'leo' and DOB == '1987-07-24'").count() shouldBe 1
-        acceptedDf.where("lastname == 'salah'").count() shouldBe 1
-
         val players: DataFrame = sparkSession.read
           .option("header", "false")
           .option("encoding", "UTF-8")
@@ -200,9 +196,7 @@ class SchemaHandlerSpec extends TestHelper {
           .union(players.join(playersMerge, Seq("PK"), "left_anti"))
           .union(players.filter(!col("PK").isin(playersPk: _*)))
 
-        sparkSession.read
-          .option("encoding", "UTF-8")
-          .parquet(cometDatasetsPath + s"/accepted/$datasetDomainName/Players")
+        acceptedDf
           .except(expected)
           .count() shouldBe 0
 
@@ -253,6 +247,8 @@ class SchemaHandlerSpec extends TestHelper {
             .json(getResPath("/expected/datasets/accepted/dream/client.json"))
             // Timezone Problem
             .drop("customer_creation_date")
+            .withColumn("truncated_zip_code", substring(col("zip_code"), 0, 3))
+            .withColumn("source_file_name", lit("OneClient_Contact_20190101_090800_008.psv"))
 
         acceptedDf.except(expectedAccepted).count() shouldBe 0
       }
@@ -325,8 +321,12 @@ class SchemaHandlerSpec extends TestHelper {
             .json(
               getResPath("/expected/datasets/accepted/locations/locations.json")
             )
+            .withColumn("name_upper_case", upper(col("name")))
+            .withColumn("source_file_name", lit("locations.json"))
 
-        acceptedDf.except(expectedAccepted).count() shouldBe 0
+        acceptedDf
+          .except(expectedAccepted.select(acceptedDf.columns.map(col): _*))
+          .count() shouldBe 0
 
       }
 
@@ -385,6 +385,12 @@ class SchemaHandlerSpec extends TestHelper {
             |  "type": "keyword"
             |},
             |"name": {
+            |  "type": "keyword"
+            |},
+            |"name_upper_case": {
+            |  "type": "keyword"
+            |},
+            |"source_file_name": {
             |  "type": "keyword"
             |}
             |}

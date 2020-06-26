@@ -88,8 +88,6 @@ class JsonIngestionJob(
   def ingest(dataset: DataFrame): (RDD[_], RDD[_]) = {
     val rdd = dataset.rdd
 
-    dataset.printSchema()
-
     val checkedRDD = JsonIngestionUtil
       .parseRDD(rdd, schemaSparkType)
       .persist(settings.comet.cacheStorageLevel)
@@ -97,7 +95,8 @@ class JsonIngestionJob(
     val acceptedRDD: RDD[String] = checkedRDD.filter(_.isRight).map(_.right.get).map {
       case (row, inputFileName) =>
         val (left, _) = row.splitAt(row.lastIndexOf("}"))
-        s"""$left, "comet_input_file_name" : "$inputFileName" }"""
+
+        s"""$left, "${Settings.cometInputFileNameColumn}" : "$inputFileName" }"""
     }
 
     val rejectedRDD: RDD[String] =
@@ -105,42 +104,10 @@ class JsonIngestionJob(
 
     val acceptedDF = session.read.json(session.createDataset(acceptedRDD)(Encoders.STRING))
 
-    import com.ebiznext.comet.job.ingest.ImprovedDataFrameContext._
-
-    val acceptedDfWithScriptedFields = (if (schema.attributes.exists(_.scripted.isDefined)) {
-
-                                          schema.attributes.foldRight(acceptedDF) {
-                                            case (
-                                                  Attribute(
-                                                    name,
-                                                    _,
-                                                    _,
-                                                    _,
-                                                    _,
-                                                    _,
-                                                    _,
-                                                    _,
-                                                    _,
-                                                    _,
-                                                    _,
-                                                    _,
-                                                    _,
-                                                    Some(scripted)
-                                                  ),
-                                                  df
-                                                ) =>
-                                              df.T(
-                                                s"SELECT *, $scripted as $name FROM __THIS__"
-                                              )
-                                            case (_, df) => df
-                                          }
-
-                                        } else acceptedDF).drop("comet_input_file_name")
     saveRejected(rejectedRDD)
-    val (df, path) =
-      saveAccepted(acceptedDfWithScriptedFields) // prefer to let Spark compute the final schema
+    val (df, _) = saveAccepted(acceptedDF) // prefer to let Spark compute the final schema
     index(df)
-    (rejectedRDD, acceptedDfWithScriptedFields.rdd)
+    (rejectedRDD, acceptedDF.rdd)
   }
 
   /**
@@ -163,15 +130,4 @@ class JsonIngestionJob(
   }
 
   override def name: String = "JsonJob"
-}
-
-object ImprovedDataFrameContext {
-  import org.apache.spark.ml.feature.SQLTransformer
-
-  implicit class ImprovedDataFrame(df: org.apache.spark.sql.DataFrame) {
-
-    def T(query: String): org.apache.spark.sql.DataFrame = {
-      new SQLTransformer().setStatement(query).transform(df)
-    }
-  }
 }
