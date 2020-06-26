@@ -25,6 +25,7 @@ import java.net.URL
 import com.ebiznext.comet.TestHelper
 import com.ebiznext.comet.config.DatasetArea
 import com.ebiznext.comet.schema.model.{Metadata, Schema}
+import org.apache.spark.sql.types.{DateType, IntegerType, StringType, StructType}
 //import com.softwaremill.sttp.HttpURLConnectionBackend
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.types.StructField
@@ -119,11 +120,34 @@ class SchemaHandlerSpec extends TestHelper {
         cleanMetadata
         cleanDatasets
         loadPending
+
         private val firstLevel: List[Path] = storageHandler.listDirectories(
           new Path(cometDatasetsPath + s"/accepted/$datasetDomainName/Players")
         )
+
         firstLevel.size shouldBe 2
         firstLevel.foreach(storageHandler.listDirectories(_).size shouldBe 2)
+
+        sparkSession.read
+          .parquet(cometDatasetsPath + s"/accepted/$datasetDomainName/Players")
+          .except(
+            sparkSession.read
+              .option("header", "false")
+              .schema(
+                StructType(
+                  Seq(
+                    StructField("PK", StringType),
+                    StructField("firstName", StringType),
+                    StructField("lastName", StringType),
+                    StructField("DOB", DateType),
+                    StructField("YEAR", IntegerType),
+                    StructField("MONTH", IntegerType)
+                  )
+                )
+              )
+              .csv(getResPath("/sample/Players.csv"))
+          )
+
       }
     }
 
