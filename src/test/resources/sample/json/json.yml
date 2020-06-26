@@ -59,3 +59,8 @@ schemas:
         scripted: "regexp_extract(email,'.+@(.+)', 1)"
         required: false
         privacy: "NONE"
+      - name: "source_file_name"
+        type: "string"
+        scripted: regexp_extract(comet_input_file_name, '.+\/(.+)$' , 1)
+        required: false
+        privacy: "NONE"
