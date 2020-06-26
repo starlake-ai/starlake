@@ -195,10 +195,11 @@ case class Attribute(
                  |}""".stripMargin
             case PrimitiveType.timestamp =>
               val format = tpe.pattern match {
-                case "epoch_milli"                                         => Some("epoch_millis")
-                case "epoch_second"                                        => Some("epoch_second")
-                case x if PrimitiveType.dateFormatters.keys.exists(_ == x) => Some("date") // ISO formatters are now supported by ES
-                case y                                                     => None // unknown to ES
+                case "epoch_milli"  => Some("epoch_millis")
+                case "epoch_second" => Some("epoch_second")
+                case x if PrimitiveType.dateFormatters.keys.exists(_ == x) =>
+                  Some("date") // ISO formatters are now supported by ES
+                case y => None // unknown to ES
               }
               format match {
                 case Some(_) =>
