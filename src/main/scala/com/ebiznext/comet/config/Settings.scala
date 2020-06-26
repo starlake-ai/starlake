@@ -314,6 +314,9 @@ object Settings extends StrictLogging {
     logger.info(s"Using Config $loaded")
     Settings(loaded, effectiveConfig.getConfig("spark"))
   }
+
+  val cometInputFileNameColumn: String = "comet_input_file_name"
+
 }
 
 /**
