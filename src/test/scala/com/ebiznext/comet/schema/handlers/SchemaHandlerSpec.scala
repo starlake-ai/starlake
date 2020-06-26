@@ -27,7 +27,7 @@ import com.ebiznext.comet.config.DatasetArea
 import com.ebiznext.comet.schema.model.{Metadata, Schema}
 import org.apache.spark.sql.{DataFrame}
 import org.apache.spark.sql.types.{DateType, IntegerType, StringType, StructType}
-import org.apache.spark.sql.functions.col
+import org.apache.spark.sql.functions._
 //import com.softwaremill.sttp.HttpURLConnectionBackend
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.types.StructField
@@ -244,15 +244,17 @@ class SchemaHandlerSpec extends TestHelper {
           .parquet(
             cometDatasetsPath + s"/accepted/$datasetDomainName/client/${getTodayPartitionPath}"
           )
+          // Timezone Problem
+          .drop("customer_creation_date")
 
         val expectedAccepted =
           sparkSession.read
             .schema(acceptedDf.schema)
             .json(getResPath("/expected/datasets/accepted/dream/client.json"))
+            // Timezone Problem
+            .drop("customer_creation_date")
 
-        expectedAccepted.show(false)
-        acceptedDf.show(false)
-        acceptedDf.select("dream_id").except(expectedAccepted.select("dream_id")).count() shouldBe 0
+        acceptedDf.except(expectedAccepted).count() shouldBe 0
       }
 
     }
