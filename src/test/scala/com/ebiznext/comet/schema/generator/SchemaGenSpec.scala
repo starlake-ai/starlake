@@ -4,6 +4,7 @@ import java.io.File
 
 import com.ebiznext.comet.TestHelper
 import com.ebiznext.comet.config.DatasetArea
+import com.ebiznext.comet.schema.model.IndexSink.BQ
 import com.ebiznext.comet.schema.model.{Domain, Format, PrivacyLevel}
 
 class SchemaGenSpec extends TestHelper {
@@ -23,6 +24,16 @@ class SchemaGenSpec extends TestHelper {
       result.schemas.map(_.name) should contain(
         "SCHEMA1"
       ) // while it is "SCHEMA1 " in the excel file
+    }
+
+    it should "take into account the index col of a schema" in {
+      val index = for {
+        schema   <- result.schemas.find(_.name == "SCHEMA1")
+        metadata <- schema.metadata
+        index    <- metadata.index
+      } yield index
+
+      index shouldBe Some(BQ)
     }
 
     "All configured schemas" should "have all declared attributes correctly set" in {
