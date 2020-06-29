@@ -88,9 +88,8 @@ class AutoTask(
             session.read.parquet(fullPath)
           case BQ =>
             session.read
-              .format("com.google.cloud.spark.bigquery")
-              .option("table", path)
-              .load()
+              .format("bigquery")
+              .load(path)
               .cache()
           case _ =>
             ???
