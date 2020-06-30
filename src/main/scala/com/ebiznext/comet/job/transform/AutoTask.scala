@@ -65,13 +65,6 @@ class AutoTask(
           .asInstanceOf[UdfRegistration]
       udfInstance.register(session)
     }
-    task.properties.foreach { properties =>
-      properties.map {
-        case (k, v) if k.startsWith("spark.") =>
-          session.conf.set(k.substring("spark.".length), v)
-        case _ => // do nothing
-      }
-    }
     views.getOrElse(Map()).foreach {
       case (key, value) =>
         val sepIndex = value.indexOf(":")
@@ -89,8 +82,7 @@ class AutoTask(
           case BQ =>
             session.read
               .format("com.google.cloud.spark.bigquery")
-              .option("table", path)
-              .load()
+              .load(path)
               .cache()
           case _ =>
             ???
