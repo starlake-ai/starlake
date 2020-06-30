@@ -68,9 +68,8 @@ class JsonIngestionJob(
           org.apache.spark.sql.functions.col("value")
         )
 
-      df.printSchema()
+      logger.debug(df.schema.treeString)
 
-      df.show(false)
       Success(df)
     } catch {
       case e: Exception =>
@@ -86,15 +85,18 @@ class JsonIngestionJob(
     * @param dataset input dataset as a RDD of string
     */
   def ingest(dataset: DataFrame): (RDD[_], RDD[_]) = {
-    val rdd = dataset.rdd
+    val rdd: RDD[Row] = dataset.rdd
 
-    val checkedRDD = JsonIngestionUtil
+    val checkedRDD: RDD[Either[List[String], (String, String)]] = JsonIngestionUtil
       .parseRDD(rdd, schemaSparkType)
       .persist(settings.comet.cacheStorageLevel)
 
     val acceptedRDD: RDD[String] = checkedRDD.filter(_.isRight).map(_.right.get).map {
       case (row, inputFileName) =>
         val (left, _) = row.splitAt(row.lastIndexOf("}"))
+
+        // Because Spark cannot detect the input files when session.read.json(session.createDataset(acceptedRDD)(Encoders.STRING)),
+        // We should add it as a normal field in the RDD before converting to a dataframe using session.read.json
 
         s"""$left, "${Settings.cometInputFileNameColumn}" : "$inputFileName" }"""
     }
