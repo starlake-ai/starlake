@@ -61,6 +61,7 @@ class SimpleJsonIngestionJob(
           session.read
             .json(session.createDataset(jsonRDD)(Encoders.STRING))
             .withColumn(
+              //  Spark cannot detect the input file automatically, so we should add it explicitly
               Settings.cometInputFileNameColumn,
               if (settings.comet.grouped) lit(path.map(_.toString).mkString(","))
               else lit(path.head.toString)
@@ -72,12 +73,12 @@ class SimpleJsonIngestionJob(
             .option("multiline", metadata.getMultiline())
             .json(path.map(_.toString): _*)
             .withColumn(
+              //  Spark here can detect the input file automatically, so we're just using the input_file_name spark function
               Settings.cometInputFileNameColumn,
               org.apache.spark.sql.functions.input_file_name()
             )
         }
 
-      df.printSchema()
       import session.implicits._
       val resDF = if (df.columns.contains("_corrupt_record")) {
         //TODO send rejected records to rejected area

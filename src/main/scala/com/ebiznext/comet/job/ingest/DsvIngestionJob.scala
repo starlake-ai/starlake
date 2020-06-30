@@ -114,7 +114,7 @@ class DsvIngestionJob(
         .option("encoding", metadata.getEncoding())
         .csv(path.map(_.toString): _*)
 
-      df.printSchema()
+      logger.debug(df.schema.treeString)
 
       val resDF = metadata.withHeader match {
         case Some(true) =>
@@ -132,29 +132,30 @@ class DsvIngestionJob(
              if there are more in the CSV file
            */
 
-          val attributesWithoutScripted = schema.attributes.filter(!_.scripted.isDefined)
+          val attributesWithoutscript = schema.attributes.filter(!_.script.isDefined)
           val compare =
-            attributesWithoutScripted.length.compareTo(df.columns.length)
+            attributesWithoutscript.length.compareTo(df.columns.length)
           if (compare == 0) {
             df.toDF(
-              attributesWithoutScripted
+              attributesWithoutscript
                 .map(_.name)
-                .take(attributesWithoutScripted.length): _*
+                .take(attributesWithoutscript.length): _*
             )
           } else if (compare > 0) {
-            val countMissing = attributesWithoutScripted.length - df.columns.length
+            val countMissing = attributesWithoutscript.length - df.columns.length
             throw new Exception(s"$countMissing columns in the input DataFrame ")
           } else { // compare < 0
             val cols = df.columns
             df.select(
               cols.head,
               cols.tail
-                .take(attributesWithoutScripted.length - 1) :+ Settings.cometInputFileNameColumn: _*
-            ).toDF(attributesWithoutScripted.map(_.name): _*)
+                .take(attributesWithoutscript.length - 1) :+ Settings.cometInputFileNameColumn: _*
+            ).toDF(attributesWithoutscript.map(_.name): _*)
           }
       }
       Success(
         resDF.withColumn(
+          //  Spark here can detect the input file automatically, so we're just using the input_file_name spark function
           Settings.cometInputFileNameColumn,
           org.apache.spark.sql.functions.input_file_name()
         )
@@ -174,17 +175,13 @@ class DsvIngestionJob(
     */
   def ingest(dataset: DataFrame): (RDD[_], RDD[_]) = {
 
-    dataset.printSchema()
-
-    dataset.show(false)
-
-    val attributesWithoutScripted: Seq[Attribute] =
-      schema.attributes.filter(!_.scripted.isDefined) :+ Attribute(
+    val attributesWithoutscript: Seq[Attribute] =
+      schema.attributes.filter(!_.script.isDefined) :+ Attribute(
         name = Settings.cometInputFileNameColumn
       )
 
     def reorderAttributes(): List[Attribute] = {
-      val attributesMap = attributesWithoutScripted.map(attr => (attr.name, attr)).toMap
+      val attributesMap = attributesWithoutscript.map(attr => (attr.name, attr)).toMap
       val cols = dataset.columns
       cols.map(colName => attributesMap(colName)).toList
     }
