@@ -235,6 +235,7 @@ object Settings extends StrictLogging {
     writeFormat: String,
     launcher: String,
     chewerPrefix: String,
+    rowValidatorClass: String,
     analyze: Boolean,
     hive: Boolean,
     grouped: Boolean,
