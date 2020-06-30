@@ -33,6 +33,7 @@ import org.apache.spark.sql._
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
 import org.apache.spark.sql.types.StructType
 
+import scala.reflect.runtime.universe
 import scala.util.{Failure, Success, Try}
 
 /**
@@ -154,6 +155,13 @@ class DsvIngestionJob(
 
   }
 
+  def rowValidator(): DsvValidator = {
+    val runtimeMirror = universe.runtimeMirror(getClass.getClassLoader)
+    val module = runtimeMirror.staticModule(settings.comet.rowValidatorClass)
+    val obj: universe.ModuleMirror = runtimeMirror.reflectModule(module)
+    obj.instance.asInstanceOf[DsvValidator]
+  }
+
   /**
     * Apply the schema to the dataset. This is where all the magic happen
     * Valid records are stored in the accepted path / table and invalid records in the rejected path / table
@@ -181,7 +189,7 @@ class DsvIngestionJob(
 
     val (orderedTypes, orderedSparkTypes) = reorderTypes()
 
-    val (rejectedRDD, acceptedRDD) = DsvIngestionUtil.validate(
+    val (rejectedRDD, acceptedRDD) = rowValidator().validate(
       session,
       dataset,
       orderedAttributes,
@@ -213,10 +221,7 @@ class DsvIngestionJob(
 
 }
 
-/**
-  * The Spark task that run on each worker
-  */
-object DsvIngestionUtil {
+trait DsvValidator {
 
   /**
     * For each col of each row
@@ -234,6 +239,20 @@ object DsvIngestionUtil {
     * @return Two RDDs : One RDD for rejected rows and one RDD for accepted rows
     */
   def validate(
+    session: SparkSession,
+    dataset: DataFrame,
+    attributes: List[Attribute],
+    types: List[Type],
+    sparkType: StructType
+  )(implicit settings: Settings): (RDD[String], RDD[Row])
+}
+
+/**
+  * The Spark task that run on each worker
+  */
+object DsvIngestionUtil extends DsvValidator {
+
+  override def validate(
     session: SparkSession,
     dataset: DataFrame,
     attributes: List[Attribute],
@@ -287,6 +306,21 @@ object DsvIngestionUtil {
       val sparkValues: List[Any] = rowResult.colResults.map(_.sparkValue)
       new GenericRowWithSchema(Row(sparkValues: _*).toSeq.toArray, sparkType)
     }
+    (rejectedRDD, acceptedRDD)
+  }
+}
+
+object AcceptAllValidator extends DsvValidator {
+
+  override def validate(
+    session: SparkSession,
+    dataset: DataFrame,
+    attributes: List[Attribute],
+    types: List[Type],
+    sparkType: StructType
+  )(implicit settings: Settings): (RDD[String], RDD[Row]) = {
+    val rejectedRDD: RDD[String] = session.emptyDataFrame.rdd.map(_.mkString)
+    val acceptedRDD: RDD[Row] = dataset.rdd
     (rejectedRDD, acceptedRDD)
   }
 }
