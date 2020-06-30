@@ -101,7 +101,7 @@ class PositionIngestionJob(
 
     val (orderedTypes, orderedSparkTypes) = reorderTypes()
 
-    val (rejectedRDD, acceptedRDD) = DsvIngestionUtil.validate(
+    val (rejectedRDD, acceptedRDD) = rowValidator().validate(
       session,
       dataset,
       orderedAttributes,
