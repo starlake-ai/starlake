@@ -189,6 +189,18 @@ object PrimitiveType {
   private def instantFromString(str: String, pattern: String, zone: String): Instant = {
     import java.time.format.DateTimeFormatter
 
+    def simpleDateFormat(str: String, pattern: String, zoneId: ZoneId): Instant = {
+      import java.text.SimpleDateFormat
+      if (zoneId.getId != "UTC")
+        throw new IllegalArgumentException(
+          s"Explicit zoneId $zoneId not supported for pattern $pattern"
+        )
+      val df = new SimpleDateFormat(pattern)
+      df.setTimeZone(TimeZone.getTimeZone("UTC"))
+      val date = df.parse(str)
+      Instant.ofEpochMilli(date.getTime)
+    }
+
     val zoneId = Option(zone) match {
       case Some(z) => ZoneId.of(z)
       case None    => ZoneId.of("UTC")
@@ -238,35 +250,30 @@ object PrimitiveType {
                 } match {
                   case Success(instant) => instant
                   case Failure(_) =>
-                    val date = LocalDate.from(dateTime)
-
-                    val zone = Try {
-                      ZoneId.from(dateTime)
-                    } match {
-                      case Success(z)
-                          if zoneId.getId == "UTC" | z.normalized.getId == zoneId.normalized.getId =>
-                        z
-                      case Success(z) =>
-                        throw new IllegalArgumentException(
-                          s"Incompatible timezones found in (pattern zone = $z, configuration zone = $zoneId)"
-                        )
-                      case Failure(_) => zoneId
+                    Try(LocalDate.from(dateTime)) match {
+                      case Success(date) =>
+                        val zone = Try {
+                          ZoneId.from(dateTime)
+                        } match {
+                          case Success(z)
+                              if zoneId.getId == "UTC" | z.normalized.getId == zoneId.normalized.getId =>
+                            z
+                          case Success(z) =>
+                            throw new IllegalArgumentException(
+                              s"Incompatible timezones found in (pattern zone = $z, configuration zone = $zoneId)"
+                            )
+                          case Failure(_) => zoneId
+                        }
+                        date.atStartOfDay(zone).toInstant
+                      case Failure(_) => simpleDateFormat(str, pattern, zoneId)
                     }
-                    date.atStartOfDay(zone).toInstant
                 }
             }
           case Failure(_) =>
             // Try to parse it as a date without time and still make it a timestamp.
             // Cloudera 5.X with Hive 1.1 workaround
-            import java.text.SimpleDateFormat
-            if (zoneId.getId != "UTC")
-              throw new IllegalArgumentException(
-                s"Explicit zoneId $zoneId not supported for pattern $pattern"
-              )
-            val df = new SimpleDateFormat(pattern)
-            df.setTimeZone(TimeZone.getTimeZone("UTC"))
-            val date = df.parse(str)
-            Instant.ofEpochMilli(date.getTime)
+            // Compatible with time without date
+            simpleDateFormat(str, pattern, zoneId)
         }
     }
   }
