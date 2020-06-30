@@ -103,43 +103,43 @@ trait IngestionJob extends SparkJob {
     val writeMode = getWriteMode()
     val acceptedPath = new Path(DatasetArea.accepted(domain.name), schema.name)
 
-    val acceptedDfWithScriptedFields = (if (schema.attributes.exists(_.scripted.isDefined)) {
+    val acceptedDfWithscriptFields = (if (schema.attributes.exists(_.script.isDefined)) {
 
-                                          schema.attributes.foldRight(acceptedDF) {
-                                            case (
-                                                  Attribute(
-                                                    name,
-                                                    _,
-                                                    _,
-                                                    _,
-                                                    _,
-                                                    _,
-                                                    _,
-                                                    _,
-                                                    _,
-                                                    _,
-                                                    _,
-                                                    _,
-                                                    _,
-                                                    Some(scripted)
-                                                  ),
-                                                  df
-                                                ) =>
-                                              df.T(
-                                                s"SELECT *, $scripted as $name FROM __THIS__"
-                                              )
-                                            case (_, df) => df
-                                          }
+                                        schema.attributes.foldRight(acceptedDF) {
+                                          case (
+                                                Attribute(
+                                                  name,
+                                                  _,
+                                                  _,
+                                                  _,
+                                                  _,
+                                                  _,
+                                                  _,
+                                                  _,
+                                                  _,
+                                                  _,
+                                                  _,
+                                                  _,
+                                                  _,
+                                                  Some(script)
+                                                ),
+                                                df
+                                              ) =>
+                                            df.T(
+                                              s"SELECT *, $script as $name FROM __THIS__"
+                                            )
+                                          case (_, df) => df
+                                        }
 
-                                        } else acceptedDF).drop(Settings.cometInputFileNameColumn)
+                                      } else acceptedDF).drop(Settings.cometInputFileNameColumn)
 
     val mergedDF = schema.merge.map { mergeOptions =>
         if (storageHandler.exists(new Path(acceptedPath, "_SUCCESS"))) {
           val existingDF = session.read.parquet(acceptedPath.toString)
-          merge(acceptedDfWithScriptedFields, existingDF, mergeOptions)
+          merge(acceptedDfWithscriptFields, existingDF, mergeOptions)
         } else
-          acceptedDfWithScriptedFields
-      } getOrElse acceptedDfWithScriptedFields
+          acceptedDfWithscriptFields
+      } getOrElse acceptedDfWithscriptFields
 
     val savedDataset =
       saveRows(mergedDF, acceptedPath, writeMode, StorageArea.accepted, schema.merge.isDefined)
@@ -445,9 +445,6 @@ trait IngestionJob extends SparkJob {
         val dataset = loadDataSet()
         dataset match {
           case Success(dataset) =>
-            dataset.printSchema()
-
-            dataset.show(false)
             Try {
               val (rejectedRDD, acceptedRDD) = ingest(dataset)
               val inputCount = dataset.count()

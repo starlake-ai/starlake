@@ -14,4 +14,4 @@ position:
 default: null
 tags: null
 trim: null
-scripted: null
+script: null
