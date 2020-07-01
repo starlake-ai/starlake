@@ -351,15 +351,18 @@ object JsonIngestionUtil {
     }
   }
 
-  def parseRDD(inputRDD: RDD[Row], schemaSparkType: DataType): RDD[Either[List[String], String]] = {
+  def parseRDD(
+    inputRDD: RDD[Row],
+    schemaSparkType: DataType
+  ): RDD[Either[List[String], (String, String)]] = {
     inputRDD.mapPartitions { partition =>
       partition.map { row =>
-        val rowAsString = row.getAs[String](0)
+        val rowAsString = row.getAs[String]("value")
         parseString(rowAsString) match {
           case Success(datasetType) =>
             val errorList = compareTypes(schemaSparkType, datasetType)
             if (errorList.isEmpty)
-              Right(rowAsString)
+              Right((rowAsString, row.getAs[String]("input_file_name()")))
             else
               Left(errorList)
 
