@@ -31,7 +31,11 @@ class TemplateParamsSpec extends AnyFlatSpec with Matchers {
       exportOutputFileBase = "output_file",
       scriptOutputFile = scriptOutputFolder / "EXTRACT_table1.sql"
     )
-    TemplateParams.fromSchema(schema, scriptOutputFolder) shouldBe expectedTemplateParams
+    TemplateParams.fromSchema(
+      schema,
+      scriptOutputFolder,
+      Some("updateCol")
+    ) shouldBe expectedTemplateParams
   }
 
   it should "generate the correct TemplateParams for an other Schema" in {
@@ -55,6 +59,6 @@ class TemplateParamsSpec extends AnyFlatSpec with Matchers {
       exportOutputFileBase = "output_file",
       scriptOutputFile = scriptOutputFolder / "EXTRACT_table1.sql"
     )
-    TemplateParams.fromSchema(schema, scriptOutputFolder) shouldBe expectedTemplateParams
+    TemplateParams.fromSchema(schema, scriptOutputFolder, None) shouldBe expectedTemplateParams
   }
 }
