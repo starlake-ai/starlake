@@ -66,9 +66,10 @@ object TemplateParams {
     */
   def fromDomain(
     domain: Domain,
-    scriptsOutputFolder: File
+    scriptsOutputFolder: File,
+    deltaColumn: Option[String]
   ): List[TemplateParams] =
-    domain.schemas.map(fromSchema(_, scriptsOutputFolder))
+    domain.schemas.map(fromSchema(_, scriptsOutputFolder, deltaColumn))
 
   /**
     * Generate scripts template parameters, extracting the tables and the columns described in the schema
@@ -77,7 +78,8 @@ object TemplateParams {
     */
   def fromSchema(
     schema: Schema,
-    scriptsOutputFolder: File
+    scriptsOutputFolder: File,
+    deltaColumn: Option[String]
   ): TemplateParams = {
     val scriptOutputFileName = s"EXTRACT_${schema.name}.sql"
     // exportFileBase is the csv file name base such as EXPORT_L58MA_CLIENT_DELTA_...
@@ -89,7 +91,7 @@ object TemplateParams {
       tableToExport = schema.name,
       columnsToExport = schema.attributes.map(_.name),
       fullExport = isFullExport,
-      deltaColumn = if (!isFullExport) schema.merge.flatMap(_.timestamp) else None,
+      deltaColumn = if (!isFullExport) deltaColumn else None,
       dsvDelimiter = schema.metadata.flatMap(_.separator).getOrElse(","),
       exportOutputFileBase = exportFileBase,
       scriptOutputFile = scriptsOutputFolder / scriptOutputFileName

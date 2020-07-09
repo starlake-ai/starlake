@@ -6,7 +6,8 @@ import scopt.{OParser, RenderingMode}
 case class ExtractScriptGenConfig(
   domain: String = "",
   scriptTemplateFile: File = File("."),
-  scriptOutputDir: File = File(".")
+  scriptOutputDir: File = File("."),
+  deltaColumn: Option[String] = None
 )
 
 object ExtractScriptGenConfig {
@@ -66,7 +67,11 @@ object ExtractScriptGenConfig {
         .validate(exists("Script output folder"))
         .action((x, c) => c.copy(scriptOutputDir = File(x)))
         .required()
-        .text("Scripts output folder")
+        .text("Scripts output folder"),
+      opt[String]("deltaColumn")
+        .action((x, c) => c.copy(deltaColumn = Some(x)))
+        .optional()
+        .text("The date column used to determine new rows to export")
     )
   }
   val usage: String = OParser.usage(parser, RenderingMode.TwoColumns)
