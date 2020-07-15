@@ -29,7 +29,7 @@ object ExtractScriptGenConfig {
           |     - a table name (schemas.name)
           |     - a file pattern (schemas.pattern) which is used as the export file base name
           |     - a write mode (schemas.metadata.write): APPEND or OVERWRITE
-          |     - a delta column (schemas.merge.timestamp) if in APPEND mode : the column which is used to determine new rows for each exports
+          |     - a delta column (schemas.merge.timestamp) if in APPEND mode : the default column which is used to determine new rows for each exports
           |     - the columns to extract (schemas.attributes.name*)
           |
           |You also have to provide a Mustache (http://mustache.github.io/mustache.5.html) template file.
@@ -71,7 +71,9 @@ object ExtractScriptGenConfig {
       opt[String]("deltaColumn")
         .action((x, c) => c.copy(deltaColumn = Some(x)))
         .optional()
-        .text("The date column used to determine new rows to export")
+        .text(
+          """The default date column used to determine new rows to export.
+            |Overrides config database-extractor.default-column value.""".stripMargin)
     )
   }
   val usage: String = OParser.usage(parser, RenderingMode.TwoColumns)
