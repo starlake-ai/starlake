@@ -60,20 +60,29 @@ object TemplateParams {
 
   /**
     * Generating all the TemplateParams, corresponding to all the schema's tables of the domain
-    * @param domain The domain
-    * @param scriptsOutputFolder where the scripts are produced
+    *
+    * @param domain               The domain
+    * @param scriptsOutputFolder  Where the scripts are produced
+    * @param defaultDeltaColumn   The default delta column to use
+    * @param deltaColumns         A table name -> delta column to use mapping (if needing a special delta column for a given table).
+    *                             Has precedence over `defaultDeltaColumn`.
     * @return
     */
   def fromDomain(
     domain: Domain,
     scriptsOutputFolder: File,
-    deltaColumn: Option[String]
+    defaultDeltaColumn: Option[String],
+    deltaColumns: Map[String, String]
   ): List[TemplateParams] =
-    domain.schemas.map(fromSchema(_, scriptsOutputFolder, deltaColumn))
+    domain.schemas.map(
+      s => fromSchema(s, scriptsOutputFolder, deltaColumns.get(s.name).orElse(defaultDeltaColumn))
+    )
 
   /**
     * Generate scripts template parameters, extracting the tables and the columns described in the schema
     * @param schema The schema used to generate the scripts parameters
+    * @param scriptsOutputFolder  Where the scripts are produced
+    * @param deltaColumn   The delta column to use for that table
     * @return The corresponding TemplateParams
     */
   def fromSchema(
