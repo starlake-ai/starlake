@@ -1,4 +1,4 @@
-package com.ebiznext.comet.database.extractor
+package com.ebiznext.comet.extractor
 
 import java.time.format.DateTimeFormatter
 
@@ -74,8 +74,8 @@ object TemplateParams {
     defaultDeltaColumn: Option[String],
     deltaColumns: Map[String, String]
   ): List[TemplateParams] =
-    domain.schemas.map(
-      s => fromSchema(s, scriptsOutputFolder, deltaColumns.get(s.name).orElse(defaultDeltaColumn))
+    domain.schemas.map(s =>
+      fromSchema(s, scriptsOutputFolder, deltaColumns.get(s.name).orElse(defaultDeltaColumn))
     )
 
   /**
