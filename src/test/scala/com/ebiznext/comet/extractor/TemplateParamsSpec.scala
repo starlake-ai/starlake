@@ -1,4 +1,4 @@
-package com.ebiznext.comet.database.extractor
+package com.ebiznext.comet.extractor
 
 import java.util.regex.Pattern
 
