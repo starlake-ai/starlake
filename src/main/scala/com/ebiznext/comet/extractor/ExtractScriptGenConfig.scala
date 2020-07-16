@@ -1,4 +1,4 @@
-package com.ebiznext.comet.database.extractor
+package com.ebiznext.comet.extractor
 
 import better.files.File
 import scopt.{OParser, RenderingMode}
@@ -71,8 +71,7 @@ object ExtractScriptGenConfig {
       opt[String]("deltaColumn")
         .action((x, c) => c.copy(deltaColumn = Some(x)))
         .optional()
-        .text(
-          """The default date column used to determine new rows to export.
+        .text("""The default date column used to determine new rows to export.
             |Overrides config database-extractor.default-column value.""".stripMargin)
     )
   }
