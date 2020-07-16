@@ -1,8 +1,8 @@
-package com.ebiznext.comet.database.extractor
+package com.ebiznext.comet.extractor
 
 import better.files.File
 import com.ebiznext.comet.config.{DatasetArea, Settings}
-import com.ebiznext.comet.database.extractor.config.{Settings => ExtractorSettings}
+import com.ebiznext.comet.extractor.config.{Settings => ExtractorSettings}
 import com.ebiznext.comet.schema.handlers.SchemaHandler
 import com.ebiznext.comet.schema.model.Domain
 import com.typesafe.config.ConfigFactory
@@ -42,7 +42,8 @@ object ScriptGen extends StrictLogging {
     defaultDeltaColumn: Option[String],
     deltaColumns: Map[String, String]
   ): List[File] = {
-    val templateSettings = TemplateParams.fromDomain(domain, scriptsOutputPath, defaultDeltaColumn, deltaColumns)
+    val templateSettings =
+      TemplateParams.fromDomain(domain, scriptsOutputPath, defaultDeltaColumn, deltaColumns)
     templateSettings.map { ts =>
       val scriptPayload = templatize(scriptTemplateFile, ts)
       val scriptFile =
@@ -57,7 +58,9 @@ object ScriptGen extends StrictLogging {
 }
 
 /**
-  * Generate extraction scripts based on a given domain
+  * Fills a Mustache templated file based on a given domain.
+  * The following documentation considers that we use the script to generate SQL export files.
+  *
   * The schemas should at least, specify :
   *    - a table name (schemas.name)
   *    - a file pattern (schemas.pattern) which is used as the export file base name
