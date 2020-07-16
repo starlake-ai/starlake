@@ -1,4 +1,4 @@
-package com.ebiznext.comet.database.extractor
+package com.ebiznext.comet.extractor
 
 import better.files.File
 import org.scalatest.flatspec.AnyFlatSpec
