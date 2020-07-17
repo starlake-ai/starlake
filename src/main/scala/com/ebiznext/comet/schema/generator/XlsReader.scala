@@ -5,10 +5,9 @@ import java.util.regex.Pattern
 
 import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.schema.model._
-import org.apache.poi.ss.usermodel.{Cell, DataFormatter, Row, Workbook, WorkbookFactory}
+import org.apache.poi.ss.usermodel._
 
 import scala.collection.JavaConverters._
-import scala.util.{Success, Try}
 
 /**
   * Reads the spreadsheet found at the specified {@param path} and builds the corresponding Domain object
@@ -18,21 +17,27 @@ class XlsReader(path: String) {
 
   private val workbook: Workbook = WorkbookFactory.create(new File(path))
 
-  class DataFormatterAndTrimer extends DataFormatter {
-    override def formatCellValue(cell: Cell): String = super.formatCellValue(cell).trim
+  object formatter {
+    private val f = new DataFormatter()
+
+    def formatCellValue(cell: Cell): Option[String] = {
+      f.formatCellValue(cell).trim match {
+        case v if v.isEmpty => None
+        case v              => Some(v)
+      }
+    }
   }
-  private val formatter = new DataFormatterAndTrimer()
 
   private lazy val domain: Option[Domain] = {
     workbook.getSheet("domain").asScala.drop(1).headOption.flatMap { row =>
       val nameOpt = Option(row.getCell(0, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
-        .map(formatter.formatCellValue)
+        .flatMap(formatter.formatCellValue)
       val directoryOpt = Option(row.getCell(1, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
-        .map(formatter.formatCellValue)
+        .flatMap(formatter.formatCellValue)
       val ack = Option(row.getCell(2, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK))
-        .map(formatter.formatCellValue)
+        .flatMap(formatter.formatCellValue)
       val comment = Option(row.getCell(3, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
-        .map(formatter.formatCellValue)
+        .flatMap(formatter.formatCellValue)
       (nameOpt, directoryOpt) match {
         case (Some(name), Some(directory)) =>
           Some(Domain(name, directory, ack = ack, comment = comment))
@@ -48,44 +53,44 @@ class XlsReader(path: String) {
       .drop(1)
       .flatMap { row =>
         val nameOpt = Option(row.getCell(0, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
-          .map(formatter.formatCellValue)
+          .flatMap(formatter.formatCellValue)
         val patternOpt = Option(row.getCell(1, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
-          .map(formatter.formatCellValue)
+          .flatMap(formatter.formatCellValue)
           .map(Pattern.compile)
         val mode: Option[Mode] = Option(row.getCell(2, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
-          .map(formatter.formatCellValue)
+          .flatMap(formatter.formatCellValue)
           .map(Mode.fromString)
         val write = Option(row.getCell(3, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
-          .map(formatter.formatCellValue)
+          .flatMap(formatter.formatCellValue)
           .map(WriteMode.fromString)
         val format = Option(row.getCell(4, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
-          .map(formatter.formatCellValue)
+          .flatMap(formatter.formatCellValue)
           .map(Format.fromString)
         val withHeader = Option(row.getCell(5, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
-          .map(formatter.formatCellValue)
+          .flatMap(formatter.formatCellValue)
           .map(_.toBoolean)
         val separator = Option(row.getCell(6, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
-          .map(formatter.formatCellValue)
+          .flatMap(formatter.formatCellValue)
         val deltaColOpt = Option(row.getCell(7, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
-          .map(formatter.formatCellValue)
+          .flatMap(formatter.formatCellValue)
         val identityKeysOpt = Option(row.getCell(8, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
-          .map(formatter.formatCellValue)
+          .flatMap(formatter.formatCellValue)
         val comment = Option(row.getCell(9, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
-          .map(formatter.formatCellValue)
+          .flatMap(formatter.formatCellValue)
         val encodingOpt = Option(row.getCell(10, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
-          .map(formatter.formatCellValue)
+          .flatMap(formatter.formatCellValue)
         val partitionSamplingOpt =
           Option(row.getCell(11, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
-            .map(formatter.formatCellValue)
+            .flatMap(formatter.formatCellValue)
             .map(_.toDouble)
         val partitionColumnsOpt =
           Option(row.getCell(12, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
-            .map(formatter.formatCellValue)
+            .flatMap(formatter.formatCellValue)
             .map(_.split(",") map (_.trim))
             .map(_.toList)
         val indexColumnsOpt =
           Option(row.getCell(13, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
-            .map(formatter.formatCellValue)
+            .flatMap(formatter.formatCellValue)
         (nameOpt, patternOpt) match {
           case (Some(name), Some(pattern)) => {
             val metaData = Metadata(
@@ -150,47 +155,48 @@ class XlsReader(path: String) {
             .drop(1)
             .flatMap { row =>
               val nameOpt = Option(row.getCell(0, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
-                .map(formatter.formatCellValue)
+                .flatMap(formatter.formatCellValue)
               val renameOpt = Option(row.getCell(1, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
-                .map(formatter.formatCellValue)
+                .flatMap(formatter.formatCellValue)
               val semTypeOpt = Option(row.getCell(2, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
-                .map(formatter.formatCellValue)
+                .flatMap(formatter.formatCellValue)
               val required = Option(row.getCell(3, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
-                .map(formatter.formatCellValue)
+                .flatMap(formatter.formatCellValue)
                 .forall(_.toBoolean)
               val privacy = Option(row.getCell(4, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
-                .map(formatter.formatCellValue)
+                .flatMap(formatter.formatCellValue)
                 .map(PrivacyLevel.ForSettings(settings).fromString)
               val metricType = Option(row.getCell(5, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
-                .map(formatter.formatCellValue)
+                .flatMap(formatter.formatCellValue)
                 .map(MetricType.fromString)
               val defaultOpt = Option(row.getCell(6, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
-                .map(formatter.formatCellValue)
+                .flatMap(formatter.formatCellValue)
               val commentOpt = Option(row.getCell(8, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
-                .map(formatter.formatCellValue)
+                .flatMap(formatter.formatCellValue)
 
               val positionOpt = schema.metadata.flatMap(_.format) match {
                 case Some(Format.POSITION) => {
                   val positionStart =
-                    Try(row.getCell(9, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
-                      .map(formatter.formatCellValue)
+                    Option(row.getCell(9, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
+                      .flatMap(formatter.formatCellValue)
                       .map(_.toInt) match {
-                      case Success(v) => v - 1
-                      case _          => 0
+                      case Some(v) => v - 1
+                      case _       => 0
                     }
-                  val positionEnd = Try(row.getCell(10, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
-                    .map(formatter.formatCellValue)
-                    .map(_.toInt) match {
-                    case Success(v) => v - 1
-                    case _          => 0
-                  }
+                  val positionEnd =
+                    Option(row.getCell(10, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
+                      .flatMap(formatter.formatCellValue)
+                      .map(_.toInt) match {
+                      case Some(v) => v - 1
+                      case _       => 0
+                    }
                   Some(Position(positionStart, positionEnd))
                 }
                 case _ => None
               }
               val attributeTrim =
                 Option(row.getCell(11, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
-                  .map(formatter.formatCellValue)
+                  .flatMap(formatter.formatCellValue)
                   .map(Trim.fromString)
 
               (nameOpt, semTypeOpt) match {
