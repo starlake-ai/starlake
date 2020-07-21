@@ -85,7 +85,7 @@ trait IngestionJob extends SparkJob {
       .map(_ => WriteMode.OVERWRITE)
       .getOrElse(metadata.getWriteMode())
 
-  private def timestamedCsv(): Boolean =
+  private def timestampedCsv(): Boolean =
     settings.comet.timestampedCsv && !settings.comet.grouped && metadata.partition.isEmpty
 
   /**
@@ -148,7 +148,7 @@ trait IngestionJob extends SparkJob {
     val savedDataset =
       saveRows(mergedDF, acceptedPath, writeMode, StorageArea.accepted, schema.merge.isDefined)
 
-    if (timestamedCsv()) {
+    if (timestampedCsv()) {
       val formatter = DateTimeFormatter.ofPattern("yyyyMMddHHmmss")
       val now = LocalDateTime.now().format(formatter)
       val csvPath = storageHandler.list(acceptedPath, ".csv", LocalDateTime.MIN).head
@@ -336,7 +336,7 @@ trait IngestionJob extends SparkJob {
 
       val nbPartitions = metadata.getSamplingStrategy() match {
         case 0.0 => // default partitioning
-          if (timestamedCsv())
+          if (timestampedCsv())
             1
           else
             dataset.rdd.getNumPartitions
@@ -401,7 +401,7 @@ trait IngestionJob extends SparkJob {
       } else
         (partitionedDFWriter, dataset)
       val finalTargetDatasetWriter =
-        if (timestamedCsv())
+        if (timestampedCsv())
           targetDatasetWriter
             .mode(saveMode)
             .format("csv")
