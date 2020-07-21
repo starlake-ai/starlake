@@ -46,6 +46,7 @@ import org.slf4j.MDC
 import scala.concurrent.duration.FiniteDuration
 
 object Settings extends StrictLogging {
+
   private def loggerForCompanionInstances: Logger = logger
 
   /**
@@ -216,7 +217,7 @@ object Settings extends StrictLogging {
     * @param metrics        : Absolute path, location where all computed metrics are stored
     * @param audit          : Absolute path, location where all log are stored
     * @param archive        : Should we backup the ingested datasets ? true by default
-    * @param writeFormat    : Choose between parquet, orc ... Default is parquet
+    * @param defaultWriteFormat    : Choose between parquet, orc ... Default is parquet
     * @param launcher       : Cron Job Manager : simple (useful for testing) or airflow ? simple by default
     * @param analyze        : Should we create basics Hive statistics on the generated dataset ? true by default
     * @param hive           : Should we create a Hive Table ? true by default
@@ -232,7 +233,8 @@ object Settings extends StrictLogging {
     audit: Audit,
     archive: Boolean,
     lock: Lock,
-    writeFormat: String,
+    defaultWriteFormat: String,
+    timestampedCsv: Boolean,
     launcher: String,
     chewerPrefix: String,
     rowValidatorClass: String,
