@@ -109,7 +109,7 @@ class AutoTask(
 
       val finalDataset = partitionedDF
         .mode(task.write.toSaveMode)
-        .format(format.getOrElse(settings.comet.writeFormat))
+        .format(format.getOrElse(settings.comet.defaultWriteFormat))
         .option("path", targetPath.toString)
 
       if (settings.comet.hive) {

@@ -1,13 +1,15 @@
 package com.ebiznext.comet.job.ingest
 
 import java.sql.Timestamp
-import java.time.Instant
+import java.time.format.DateTimeFormatter
+import java.time.{Instant, LocalDateTime}
 
 import com.ebiznext.comet.config.Settings.IndexSinkSettings
 import com.ebiznext.comet.config.{DatasetArea, Settings, StorageArea}
 import com.ebiznext.comet.job.index.bqload.{BigQueryLoadConfig, BigQueryLoadJob}
 import com.ebiznext.comet.job.index.esload.{ESLoadConfig, ESLoadJob}
 import com.ebiznext.comet.job.index.jdbcload.{JdbcLoadConfig, JdbcLoadJob}
+import com.ebiznext.comet.job.ingest.ImprovedDataFrameContext._
 import com.ebiznext.comet.job.metrics.MetricsJob
 import com.ebiznext.comet.schema.handlers.{SchemaHandler, StorageHandler}
 import com.ebiznext.comet.schema.model.Rejection.{ColInfo, ColResult}
@@ -22,7 +24,6 @@ import org.apache.spark.sql._
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types.{StringType, StructField, StructType, TimestampType}
-import com.ebiznext.comet.job.ingest.ImprovedDataFrameContext._
 
 import scala.language.existentials
 import scala.util.{Failure, Success, Try}
@@ -84,6 +85,9 @@ trait IngestionJob extends SparkJob {
       .map(_ => WriteMode.OVERWRITE)
       .getOrElse(metadata.getWriteMode())
 
+  private def timestampedCsv(): Boolean =
+    settings.comet.timestampedCsv && !settings.comet.grouped && metadata.partition.isEmpty
+
   /**
     * Merge new and existing dataset if required
     * Save using overwrite / Append mode
@@ -143,6 +147,17 @@ trait IngestionJob extends SparkJob {
 
     val savedDataset =
       saveRows(mergedDF, acceptedPath, writeMode, StorageArea.accepted, schema.merge.isDefined)
+
+    if (timestampedCsv()) {
+      val formatter = DateTimeFormatter.ofPattern("yyyyMMddHHmmss")
+      val now = LocalDateTime.now().format(formatter)
+      val csvPath = storageHandler.list(acceptedPath, ".csv", LocalDateTime.MIN).head
+      val finalCsvPath = new Path(
+        acceptedPath,
+        s"${acceptedPath.getName()}-${now}.csv"
+      )
+      storageHandler.move(csvPath, finalCsvPath)
+    }
 
     if (settings.comet.metrics.active) {
       new MetricsJob(this.domain, this.schema, Stage.GLOBAL, storageHandler, schemaHandler)
@@ -321,7 +336,10 @@ trait IngestionJob extends SparkJob {
 
       val nbPartitions = metadata.getSamplingStrategy() match {
         case 0.0 => // default partitioning
-          dataset.rdd.getNumPartitions
+          if (timestampedCsv())
+            1
+          else
+            dataset.rdd.getNumPartitions
         case fraction if fraction > 0.0 && fraction < 1.0 =>
           // Use sample to determine partitioning
           val count = dataset.count()
@@ -338,7 +356,7 @@ trait IngestionJob extends SparkJob {
           val sampledDataset = dataset.sample(false, minFraction)
           partitionedDatasetWriter(sampledDataset, metadata.getPartitionAttributes())
             .mode(SaveMode.ErrorIfExists)
-            .format(settings.comet.writeFormat)
+            .format(settings.comet.defaultWriteFormat)
             .option("path", tmpPath.toString)
             .save()
           val consumed = storageHandler.spaceConsumed(tmpPath) / fraction
@@ -368,7 +386,7 @@ trait IngestionJob extends SparkJob {
         logger.info(s"Saving Dataset to merge location $mergePath")
         partitionedDFWriter
           .mode(SaveMode.Overwrite)
-          .format(settings.comet.writeFormat)
+          .format(settings.comet.defaultWriteFormat)
           .option("path", mergePath)
           .save()
         logger.info(s"reading Dataset from merge location $mergePath")
@@ -382,10 +400,20 @@ trait IngestionJob extends SparkJob {
         )
       } else
         (partitionedDFWriter, dataset)
-      val finalTargetDatasetWriter = targetDatasetWriter
-        .mode(saveMode)
-        .format(settings.comet.writeFormat)
-        .option("path", targetPath.toString)
+      val finalTargetDatasetWriter =
+        if (timestampedCsv())
+          targetDatasetWriter
+            .mode(saveMode)
+            .format("csv")
+            .option("header", metadata.withHeader.getOrElse(false))
+            .option("delimiter", metadata.separator.getOrElse("µ"))
+            .option("path", targetPath.toString)
+        else
+          targetDatasetWriter
+            .mode(saveMode)
+            .format(settings.comet.defaultWriteFormat)
+            .option("path", targetPath.toString)
+
       logger.info(s"Saving Dataset to final location $targetPath")
       if (settings.comet.hive) {
         finalTargetDatasetWriter.saveAsTable(fullTableName)
