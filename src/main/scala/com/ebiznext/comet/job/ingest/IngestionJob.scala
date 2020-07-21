@@ -405,6 +405,8 @@ trait IngestionJob extends SparkJob {
           targetDatasetWriter
             .mode(saveMode)
             .format("csv")
+            .option("header", metadata.withHeader.getOrElse(false))
+            .option("delimiter", metadata.separator.getOrElse("µ"))
             .option("path", targetPath.toString)
         else
           targetDatasetWriter
