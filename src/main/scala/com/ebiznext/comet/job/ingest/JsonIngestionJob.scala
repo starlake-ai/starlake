@@ -60,11 +60,16 @@ class JsonIngestionJob(
 
     try {
       val df = session.read
-        .format("com.databricks.spark.csv")
         .option("inferSchema", value = false)
         .option("encoding", metadata.getEncoding())
         .text(path.map(_.toString): _*)
-      df.printSchema()
+        .select(
+          org.apache.spark.sql.functions.input_file_name(),
+          org.apache.spark.sql.functions.col("value")
+        )
+
+      logger.debug(df.schema.treeString)
+
       Success(df)
     } catch {
       case e: Exception =>
@@ -80,19 +85,31 @@ class JsonIngestionJob(
     * @param dataset input dataset as a RDD of string
     */
   def ingest(dataset: DataFrame): (RDD[_], RDD[_]) = {
-    val rdd = dataset.rdd
-    dataset.printSchema()
-    val checkedRDD = JsonIngestionUtil
+    val rdd: RDD[Row] = dataset.rdd
+
+    val checkedRDD: RDD[Either[List[String], (String, String)]] = JsonIngestionUtil
       .parseRDD(rdd, schemaSparkType)
       .persist(settings.comet.cacheStorageLevel)
-    val acceptedRDD: RDD[String] = checkedRDD.filter(_.isRight).map(_.right.get)
+
+    val acceptedRDD: RDD[String] = checkedRDD.filter(_.isRight).map(_.right.get).map {
+      case (row, inputFileName) =>
+        val (left, _) = row.splitAt(row.lastIndexOf("}"))
+
+        // Because Spark cannot detect the input files when session.read.json(session.createDataset(acceptedRDD)(Encoders.STRING)),
+        // We should add it as a normal field in the RDD before converting to a dataframe using session.read.json
+
+        s"""$left, "${Settings.cometInputFileNameColumn}" : "$inputFileName" }"""
+    }
+
     val rejectedRDD: RDD[String] =
       checkedRDD.filter(_.isLeft).map(_.left.get.mkString("\n"))
+
     val acceptedDF = session.read.json(session.createDataset(acceptedRDD)(Encoders.STRING))
+
     saveRejected(rejectedRDD)
-    val (df, path) = saveAccepted(acceptedDF) // prefer to let Spark compute the final schema
+    val (df, _) = saveAccepted(acceptedDF) // prefer to let Spark compute the final schema
     index(df)
-    (rejectedRDD, acceptedRDD)
+    (rejectedRDD, acceptedDF.rdd)
   }
 
   /**

@@ -1,7 +1,8 @@
-package com.ebiznext.comet.database.extractor
+package com.ebiznext.comet.extractor
 
 import better.files.File
 import com.ebiznext.comet.config.{DatasetArea, Settings}
+import com.ebiznext.comet.extractor.config.{Settings => ExtractorSettings}
 import com.ebiznext.comet.schema.handlers.SchemaHandler
 import com.ebiznext.comet.schema.model.Domain
 import com.typesafe.config.ConfigFactory
@@ -30,10 +31,19 @@ object ScriptGen extends StrictLogging {
     * @param domain The domain extracted from the Excel referential file
     * @param scriptTemplateFile The script template
     * @param scriptsOutputPath Where the scripts are produced
+    * @param defaultDeltaColumn Defaut delta column
+    * @param deltaColumns Mapping table name -> delta column, has precedence over `defaultDeltaColumn`
     * @return The list of produced files
     */
-  def generate(domain: Domain, scriptTemplateFile: File, scriptsOutputPath: File): List[File] = {
-    val templateSettings = TemplateParams.fromDomain(domain, scriptsOutputPath)
+  def generate(
+    domain: Domain,
+    scriptTemplateFile: File,
+    scriptsOutputPath: File,
+    defaultDeltaColumn: Option[String],
+    deltaColumns: Map[String, String]
+  ): List[File] = {
+    val templateSettings =
+      TemplateParams.fromDomain(domain, scriptsOutputPath, defaultDeltaColumn, deltaColumns)
     templateSettings.map { ts =>
       val scriptPayload = templatize(scriptTemplateFile, ts)
       val scriptFile =
@@ -48,12 +58,13 @@ object ScriptGen extends StrictLogging {
 }
 
 /**
-  * Generate extraction scripts based on a given domain
+  * Fills a Mustache templated file based on a given domain.
+  * The following documentation considers that we use the script to generate SQL export files.
+  *
   * The schemas should at least, specify :
   *    - a table name (schemas.name)
   *    - a file pattern (schemas.pattern) which is used as the export file base name
   *    - a write mode (schemas.metadata.write): APPEND or OVERWRITE
-  *    - a delta column (schemas.merge.timestamp) if in APPEND mode : the column which is used to determine new rows for each exports
   *    - the columns to extract (schemas.attributes.name*)
   *
   * You also have to provide a Mustache (http://mustache.github.io/mustache.5.html) template file.
@@ -75,6 +86,7 @@ object ScriptGen extends StrictLogging {
   *                            FROM
   *                            {{table_name}};
   * export_file -> the export file name
+  * delta_column -> a delta date column (passed as a Main arg or as a config element), the column which is used to determine new rows for each exports in APPEND mode
   * full_export -> if the export is a full or delta export (the logic is to be implemented in your script)
   *
   * Usage: comet [script-gen] [options]
@@ -83,6 +95,7 @@ object ScriptGen extends StrictLogging {
   *   --domain <value>            The domain for which to generate extract scripts
   *   --templateFile <value>      Script template file
   *   --scriptsOutputDir <value>  Scripts output folder
+  *   --deltaColumn <value>       The date column which is used to determine new rows for each exports (can be passed table by table as config element)
   */
 object Main extends App with StrictLogging {
 
@@ -100,7 +113,13 @@ object Main extends App with StrictLogging {
       // Extracting the domain from the Excel referential file
       domains.find(_.name == config.domain) match {
         case Some(domain) =>
-          ScriptGen.generate(domain, config.scriptTemplateFile, config.scriptOutputDir)
+          ScriptGen.generate(
+            domain,
+            config.scriptTemplateFile,
+            config.scriptOutputDir,
+            config.deltaColumn.orElse(ExtractorSettings.deltaColumns.defaultColumn),
+            ExtractorSettings.deltaColumns.deltaColumns
+          )
           System.exit(0)
         case None =>
           logger.error(s"No domain found for domain name ${config.domain}")

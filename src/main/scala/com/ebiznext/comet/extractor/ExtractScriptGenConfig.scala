@@ -1,4 +1,4 @@
-package com.ebiznext.comet.database.extractor
+package com.ebiznext.comet.extractor
 
 import better.files.File
 import scopt.{OParser, RenderingMode}
@@ -6,7 +6,8 @@ import scopt.{OParser, RenderingMode}
 case class ExtractScriptGenConfig(
   domain: String = "",
   scriptTemplateFile: File = File("."),
-  scriptOutputDir: File = File(".")
+  scriptOutputDir: File = File("."),
+  deltaColumn: Option[String] = None
 )
 
 object ExtractScriptGenConfig {
@@ -28,7 +29,7 @@ object ExtractScriptGenConfig {
           |     - a table name (schemas.name)
           |     - a file pattern (schemas.pattern) which is used as the export file base name
           |     - a write mode (schemas.metadata.write): APPEND or OVERWRITE
-          |     - a delta column (schemas.merge.timestamp) if in APPEND mode : the column which is used to determine new rows for each exports
+          |     - a delta column (schemas.merge.timestamp) if in APPEND mode : the default column which is used to determine new rows for each exports
           |     - the columns to extract (schemas.attributes.name*)
           |
           |You also have to provide a Mustache (http://mustache.github.io/mustache.5.html) template file.
@@ -66,7 +67,12 @@ object ExtractScriptGenConfig {
         .validate(exists("Script output folder"))
         .action((x, c) => c.copy(scriptOutputDir = File(x)))
         .required()
-        .text("Scripts output folder")
+        .text("Scripts output folder"),
+      opt[String]("deltaColumn")
+        .action((x, c) => c.copy(deltaColumn = Some(x)))
+        .optional()
+        .text("""The default date column used to determine new rows to export.
+            |Overrides config database-extractor.default-column value.""".stripMargin)
     )
   }
   val usage: String = OParser.usage(parser, RenderingMode.TwoColumns)
