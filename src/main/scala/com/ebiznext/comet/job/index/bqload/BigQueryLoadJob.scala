@@ -9,6 +9,7 @@ import com.google.cloud.bigquery.testing.RemoteBigQueryHelper
 import com.google.cloud.bigquery.{Schema => BQSchema, _}
 import com.google.cloud.hadoop.io.bigquery.BigQueryConfiguration
 import org.apache.hadoop.conf.Configuration
+import org.apache.spark.sql.functions.{col, date_format}
 import org.apache.spark.sql.{DataFrame, SaveMode}
 
 import scala.util.Try
@@ -150,8 +151,6 @@ class BigQueryLoadJob(
 
       val table = getOrCreateTable(sourceDF)
 
-      import org.apache.spark.sql.functions._
-
       val stdTableDefinition =
         bigquery.getTable(table.getTableId).getDefinition.asInstanceOf[StandardTableDefinition]
       logger.info(
@@ -160,25 +159,23 @@ class BigQueryLoadJob(
 
       (cliConfig.writeDisposition, cliConfig.outputPartition) match {
         case ("WRITE_TRUNCATE", Some(partition)) =>
+          logger.info(s"overwriting partition ${partition} in The BQ Table $bqTable")
           // BigQuery supports only this date format 'yyyyMMdd', so we have to use it
           // in order to overwrite only one partition
           val dateFormat = "yyyyMMdd"
-          logger.info(s"overwriting partition ${partition} in The BQ Table $bqTable")
+          val partitionStr = sourceDF
+            .select(date_format(col(partition), dateFormat).cast("string"))
+            .where(col(partition).isNotNull)
+            .head
+            .getString(0)
           sourceDF.write
             .mode(SaveMode.Overwrite)
             .format("com.google.cloud.spark.bigquery")
             .option(
               "table",
               bqTable
-                .concat("$")
-                .concat(
-                  sourceDF
-                    .select(date_format(col(partition), dateFormat).cast("string"))
-                    .where(col(partition).isNotNull)
-                    .head
-                    .getString(0)
-                )
             )
+            .option("datePartition", partitionStr)
             .save()
         case _ =>
           logger.info(s"Saving BQ Table $bqTable")
