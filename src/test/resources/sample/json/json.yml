@@ -54,3 +54,13 @@ schemas:
             array: true
             required: false
             privacy: "NONE"
+      - name: "email_domain"
+        type: "string"
+        script: "regexp_extract(email,'.+@(.+)', 1)"
+        required: false
+        privacy: "NONE"
+      - name: "source_file_name"
+        type: "string"
+        script: regexp_extract(comet_input_file_name, '.+\/(.+)$' , 1)
+        required: false
+        privacy: "NONE"
