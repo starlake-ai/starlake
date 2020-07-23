@@ -163,20 +163,27 @@ class BigQueryLoadJob(
           // BigQuery supports only this date format 'yyyyMMdd', so we have to use it
           // in order to overwrite only one partition
           val dateFormat = "yyyyMMdd"
-          val partitionStr = sourceDF
+          val partitions = sourceDF
             .select(date_format(col(partition), dateFormat).cast("string"))
             .where(col(partition).isNotNull)
-            .head
-            .getString(0)
-          sourceDF.write
-            .mode(SaveMode.Overwrite)
-            .format("com.google.cloud.spark.bigquery")
-            .option(
-              "table",
-              bqTable
-            )
-            .option("datePartition", partitionStr)
-            .save()
+            .distinct()
+            .rdd
+            .map(r => r.getString(0))
+            .collect()
+
+          partitions.foreach(partitionStr =>
+            sourceDF
+              .where(date_format(col(partition), dateFormat).cast("string") === partitionStr)
+              .write
+              .mode(SaveMode.Overwrite)
+              .format("com.google.cloud.spark.bigquery")
+              .option(
+                "table",
+                bqTable
+              )
+              .option("datePartition", partitionStr)
+              .save()
+          )
         case _ =>
           logger.info(s"Saving BQ Table $bqTable")
           sourceDF.write
