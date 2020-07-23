@@ -151,7 +151,10 @@ trait IngestionJob extends SparkJob {
     if (timestampedCsv()) {
       val formatter = DateTimeFormatter.ofPattern("yyyyMMddHHmmss")
       val now = LocalDateTime.now().format(formatter)
-      val csvPath = storageHandler.list(acceptedPath, ".csv", LocalDateTime.MIN).head
+      val csvPath = storageHandler
+        .list(acceptedPath, ".csv", LocalDateTime.MIN)
+        .filter(!_.getName.startsWith(acceptedPath.getName()))
+        .head
       val finalCsvPath = new Path(
         acceptedPath,
         s"${acceptedPath.getName()}-${now}.csv"
