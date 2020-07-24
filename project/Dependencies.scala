@@ -63,6 +63,13 @@ object Dependencies {
     "com.fasterxml.jackson.dataformat" % "jackson-dataformat-yaml" % Versions.jackson212
   )
 
+  val jackson312 = Seq(
+    "com.fasterxml.jackson.core" % "jackson-core" % Versions.jackson312,
+    "com.fasterxml.jackson.core" % "jackson-annotations" % Versions.jackson312,
+    "com.fasterxml.jackson.core" % "jackson-databind" % Versions.jackson312,
+    "com.fasterxml.jackson.module" %% "jackson-module-scala" % Versions.jackson312,
+    "com.fasterxml.jackson.dataformat" % "jackson-dataformat-yaml" % Versions.jackson312
+  )
   val spark211 = Seq(
     "org.apache.spark" %% "spark-core" % Versions.spark211 % "provided" exclude ("com.google.guava", "guava"),
     "org.apache.spark" %% "spark-sql" % Versions.spark211 % "provided" exclude ("com.google.guava", "guava"),
@@ -83,6 +90,13 @@ object Dependencies {
     "org.apache.spark" %% "spark-sql" % Versions.spark212 % "provided" exclude ("com.google.guava", "guava"),
     "org.apache.spark" %% "spark-hive" % Versions.spark212 % "provided" exclude ("com.google.guava", "guava"),
     "org.apache.spark" %% "spark-mllib" % Versions.spark212 % "provided" exclude ("com.google.guava", "guava")
+  )
+
+  val spark312 = Seq(
+    "org.apache.spark" %% "spark-core" % Versions.spark312 % "provided" exclude ("com.google.guava", "guava"),
+    "org.apache.spark" %% "spark-sql" % Versions.spark312 % "provided" exclude ("com.google.guava", "guava"),
+    "org.apache.spark" %% "spark-hive" % Versions.spark312 % "provided" exclude ("com.google.guava", "guava"),
+    "org.apache.spark" %% "spark-mllib" % Versions.spark312 % "provided" exclude ("com.google.guava", "guava")
   )
 
   val gcsConnectorShadedJar =
