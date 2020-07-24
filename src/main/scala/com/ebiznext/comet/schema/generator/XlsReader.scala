@@ -36,7 +36,8 @@ class XlsReader(path: String) {
         .flatMap(formatter.formatCellValue)
       // Here for ack, we do not want to get None returned for an empty cell since None would give us a ".ack" as default later on
       val ack = Option(row.getCell(2, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK))
-        .flatMap(formatter.formatCellValue).orElse(Some(""))
+        .flatMap(formatter.formatCellValue)
+        .orElse(Some(""))
       val comment = Option(row.getCell(3, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
         .flatMap(formatter.formatCellValue)
       (nameOpt, directoryOpt) match {
