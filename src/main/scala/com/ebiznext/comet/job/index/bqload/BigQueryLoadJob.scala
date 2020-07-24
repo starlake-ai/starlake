@@ -145,8 +145,8 @@ class BigQueryLoadJob(
     Try {
       val sourceDF =
         cliConfig.source match {
-          case Left(path) => session.read.parquet(path)
-          case Right(df)  => df
+          case Left(path) => session.read.parquet(path).cache()
+          case Right(df)  => df.cache()
         }
 
       val table = getOrCreateTable(sourceDF)
