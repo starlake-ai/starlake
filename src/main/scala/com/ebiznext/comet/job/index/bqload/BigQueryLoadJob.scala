@@ -10,7 +10,7 @@ import com.google.cloud.bigquery.{Schema => BQSchema, _}
 import com.google.cloud.hadoop.io.bigquery.BigQueryConfiguration
 import org.apache.hadoop.conf.Configuration
 import org.apache.spark.sql.functions.{col, date_format}
-import org.apache.spark.sql.{DataFrame, SaveMode}
+import org.apache.spark.sql.{DataFrame, SaveMode, SparkSession}
 
 import scala.util.Try
 
@@ -295,4 +295,23 @@ class BigQueryLoadJob(
           .setRequirePartitionFilter(true)
           .setField(partitionField)
     }
+}
+
+object BigQueryLoadJob {
+
+  def getTable(
+    session: SparkSession,
+    datasetName: String,
+    tableName: String
+  ): scala.Option[Table] = {
+    val conf = session.sparkContext.hadoopConfiguration
+    val projectId = conf.get("fs.gs.project.id")
+    val bigqueryHelper = RemoteBigQueryHelper.create
+    val bigquery = bigqueryHelper.getOptions.getService
+    val datasetId: DatasetId = DatasetId.of(projectId, datasetName)
+    scala.Option(bigquery.getDataset(datasetId)).flatMap { dataset =>
+      val tableId = TableId.of(datasetName, tableName)
+      scala.Option(bigquery.getTable(tableId))
+    }
+  }
 }

@@ -150,7 +150,7 @@ class DsvIngestionJob(
             df.select(
               cols.head,
               cols.tail
-                .take(attributesWithoutscript.length - 1) :+ Settings.cometInputFileNameColumn: _*
+                .take(attributesWithoutscript.length - 1): _*
             ).toDF(attributesWithoutscript.map(_.name): _*)
           }
       }
