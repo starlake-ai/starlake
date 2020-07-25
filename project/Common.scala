@@ -101,10 +101,9 @@ object Common {
 object Versions {
   val sparkAvro = "4.0.0"
   val curator = "2.6.0"
-  val spark211 = "2.1.0"
-  val spark211_240 = "2.4.6"
-  val spark212 = "2.4.6"
-  val spark312 = "3.0.0"
+  val spark2d1 = "2.1.0"
+  val spark2d4 = "2.4.6"
+  val spark3d0 = "3.0.0"
   val scalatest = "3.2.0"
   val springBoot = "2.0.6.RELEASE"
   val typesafeConfig = "1.2.1"
