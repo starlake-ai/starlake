@@ -59,9 +59,14 @@ class PositionIngestionJob(
     */
   override def loadDataSet(): Try[DataFrame] = {
     try {
-      val rdd = PositionIngestionUtil.loadDfWithEncoding(session, path, metadata.getEncoding())
-      val schema: StructType = StructType(Array(StructField("value", StringType)))
-      val df = session.createDataFrame(rdd.map(line => Row.fromSeq(Seq(line))), schema)
+      val df = metadata.getEncoding().toUpperCase match {
+        case "UTF-8" => session.read.text(path.map(_.toString): _*)
+        case _ => {
+          val rdd = PositionIngestionUtil.loadDfWithEncoding(session, path, metadata.getEncoding())
+          val schema: StructType = StructType(Array(StructField("value", StringType)))
+          session.createDataFrame(rdd.map(line => Row.fromSeq(Seq(line))), schema)
+        }
+      }
       metadata.withHeader match {
         case Some(true) =>
           Failure(new Exception("No Header allowed for Position File Format "))
