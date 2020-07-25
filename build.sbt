@@ -40,14 +40,14 @@ libraryDependencies ++= {
   val (spark, jackson) = {
     sparkMajor match {
       case "3" =>
-        (spark312, jackson312)
+        (spark_3d0_forScala_2d12, jackson312)
       case "2" =>
         CrossVersion.partialVersion(scalaVersion.value) match {
-          case Some((2, scalaMinor)) if scalaMinor == 12 => (spark212, jackson212)
+          case Some((2, scalaMinor)) if scalaMinor == 12 => (spark_2d4_forScala_2d12, jackson212)
           case Some((2, scalaMinor)) if scalaMinor == 11 =>
             sparkMinor match {
-              case "1" => (spark211, jackson211)
-              case _ => (spark211_240, jackson211)
+              case "1" => (spark_2d1_forScala_2d11, jackson211)
+              case _ => (spark_2d4_forScala_2d11, jackson211)
             }
         }
     }
