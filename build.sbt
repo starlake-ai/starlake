@@ -28,12 +28,11 @@ scalaVersion := scala212
 organizationHomepage := Some(url("http://www.ebiznext.com"))
 
 val sparkVersionPattern: Regex = "(\\d+).(\\d+).(\\d+)".r
-val (sparkMajor, sparkMinor) = sparkVersion match {
-  case sparkVersionPattern(maj, min) => 
-    (maj, min)
-  case _ =>
-      throw new IllegalArgumentException(s"Unexpected Spark Version $sparkVersion")
-}
+val sparkPatternMatch = sparkVersionPattern
+  .findFirstMatchIn(sparkVersion)
+  .getOrElse(throw new Exception(s"Invalid Spark Version $sparkVersion"))
+val sparkMajor = sparkPatternMatch.group(1)
+val sparkMinor = sparkPatternMatch.group(2)
 
 
 libraryDependencies ++= {
