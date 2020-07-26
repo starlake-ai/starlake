@@ -1,18 +1,27 @@
-dist: trusty
+dist: bionic
 language: scala
 jdk:
-  #- oraclejdk8
-  #- oraclejdk9
   - openjdk8
-  # Note: as of 2020-02-11, JDK11 doesn't work (ASM6 can't support bytecode version 55)
+  - openjdk11
 
 scala:
   - 2.11.12
-  - 2.12.10
+  - 2.12.12
 
+env:
+  - COMET_SPARK_VERSION=2.1.0
+  - COMET_SPARK_VERSION=2.4.6
+  - COMET_SPARK_VERSION=3.0.0
+
+jobs:
+  exclude:
+    - scala: 2.11.12
+      COMET_SPARK_VERSION=3.0.0 # Has dropped scala 2.11 support
+    - jdk: openjdk11
+      COMET_SPARK_VERSION=2.1.0 # uses ASM6 which doesn't know bytecode beyond jdk8 
 
 script:
-  - jdk_switcher use openjdk8
+  - jdk_switcher use $TRAVIS_JDK_VERSION # FIXME: possibly redundant line?
   - sbt ++$TRAVIS_SCALA_VERSION clean coverage test coverageReport
 
 after_success:
