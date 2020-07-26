@@ -24,8 +24,8 @@ import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.schema.handlers.{SchemaHandler, StorageHandler}
 import com.ebiznext.comet.schema.model._
 import org.apache.hadoop.fs.Path
-import org.apache.spark.sql.functions.lit
 import org.apache.spark.sql.{DataFrame, Encoders}
+import org.apache.spark.sql.functions.lit
 
 import scala.util.{Failure, Success, Try}
 
