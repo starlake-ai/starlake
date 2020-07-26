@@ -28,7 +28,7 @@ jobs:
       env: COMET_SPARK_VERSION=2.1.0 
   allow_failures:  
     # we test, but since support of jdk>8 by spark 2.4.6 isn't official, it's okay to fail
-    - jdk: opendjk11
+    - jdk: openjdk11
       env: COMET_SPARK_VERSION=2.4.6 
       
     
