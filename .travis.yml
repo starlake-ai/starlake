@@ -1,3 +1,8 @@
+arch:
+  - amd64
+  - arm64
+os: linux 
+
 dist: bionic
 language: scala
 jdk:
@@ -22,9 +27,9 @@ jobs:
   allow_failures:  
     - env: COMET_SPARK_VERSION=2.4.6 # we test, but since support of jdk>8 by spark 2.4.6 isn't official, it's okay to fail
     - jdk: opendjk11
+    - arch: arm64 
     
 script:
-  - jdk_switcher use $TRAVIS_JDK_VERSION # FIXME: possibly redundant line?
   - sbt ++$TRAVIS_SCALA_VERSION clean coverage test coverageReport
 
 after_success:
