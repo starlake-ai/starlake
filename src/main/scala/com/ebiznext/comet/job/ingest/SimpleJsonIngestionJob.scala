@@ -59,7 +59,7 @@ class SimpleJsonIngestionJob(
             session.sparkContext.wholeTextFiles(path.map(_.toString).mkString(",")).map(_._2)
 
           session.read
-            .json(session.createDataset(jsonRDD)(Encoders.STRING))
+            .json(jsonRDD)
             .withColumn(
               //  Spark cannot detect the input file automatically, so we should add it explicitly
               Settings.cometInputFileNameColumn,
