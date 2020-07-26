@@ -1,0 +1,22 @@
+name: "positionWithEncoding"
+directory: "__COMET_TEST_ROOT__/position"
+ack: ""
+metadata:
+  mode: "FILE"
+  format: "POSITION"
+  withHeader: false
+  quote: "\""
+  escape: "\\"
+  write: "OVERWRITE"
+  encoding: "ISO-8859-1"
+schemas:
+  - name: "DATA"
+    pattern: "data.*.dat"
+    attributes:
+      - name: "someData"
+        type: "string"
+        required: true
+        privacy: "NONE"
+        position:
+          first: 0
+          last: 49
