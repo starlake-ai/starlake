@@ -15,8 +15,6 @@ lazy val scala211 = "2.11.12"
 
 lazy val sparkVersion = sys.env.getOrElse("COMET_SPARK_VERSION", "3.0.0")
 
-val nothing = println("DEBUG: spark version COMET_SPARK_VERSION received from env vars (Travis) = " + sparkVersion)
-
 lazy val supportedScalaVersions = List(scala212, scala211)
 
 crossScalaVersions := supportedScalaVersions
