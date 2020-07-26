@@ -1,18 +1,31 @@
-dist: trusty
+os: linux 
+  
+dist: bionic
 language: scala
 jdk:
-  #- oraclejdk8
-  #- oraclejdk9
   - openjdk8
-  # Note: as of 2020-02-11, JDK11 doesn't work (ASM6 can't support bytecode version 55)
+  - openjdk11
 
 scala:
   - 2.11.12
-  - 2.12.10
+  - 2.12.12
 
+env:
+  - COMET_SPARK_VERSION=2.4.6
+  - COMET_SPARK_VERSION=3.0.0
 
+jobs:
+  exclude:
+    # Spark 3 Has dropped scala 2.11 support
+    - scala: 2.11.12
+      env: COMET_SPARK_VERSION=3.0.0
+  allow_failures:
+    # we test, but since support of jdk>8 by spark 2.4.6 isn't official, it's okay to fail
+    - jdk: openjdk11
+      env: COMET_SPARK_VERSION=2.4.6 
+      
+    
 script:
-  - jdk_switcher use openjdk8
   - sbt ++$TRAVIS_SCALA_VERSION clean coverage test coverageReport
 
 after_success:
