@@ -11,22 +11,15 @@ scala:
   - 2.12.12
 
 env:
-  - COMET_SPARK_VERSION=2.1.0
   - COMET_SPARK_VERSION=2.4.6
   - COMET_SPARK_VERSION=3.0.0
 
 jobs:
   exclude:
-    # Spark 2.1 didn't yet have scala 2.12 support
-    - scala: 2.12.12
-      env: COMET_SPARK_VERSION=2.1.0
     # Spark 3 Has dropped scala 2.11 support
     - scala: 2.11.12
       env: COMET_SPARK_VERSION=3.0.0
-    # spark 2.1.0 uses ASM6 which doesn't know bytecode beyond jdk8 - it can't work built on openjdk11
-    - jdk: openjdk11
-      env: COMET_SPARK_VERSION=2.1.0 
-  allow_failures:  
+  allow_failures:
     # we test, but since support of jdk>8 by spark 2.4.6 isn't official, it's okay to fail
     - jdk: openjdk11
       env: COMET_SPARK_VERSION=2.4.6 

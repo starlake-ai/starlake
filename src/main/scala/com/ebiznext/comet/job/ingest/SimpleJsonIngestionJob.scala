@@ -24,7 +24,7 @@ import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.schema.handlers.{SchemaHandler, StorageHandler}
 import com.ebiznext.comet.schema.model._
 import org.apache.hadoop.fs.Path
-import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.{DataFrame, Encoders}
 import org.apache.spark.sql.functions.lit
 
 import scala.util.{Failure, Success, Try}
@@ -59,7 +59,7 @@ class SimpleJsonIngestionJob(
             session.sparkContext.wholeTextFiles(path.map(_.toString).mkString(",")).map(_._2)
 
           session.read
-            .json(jsonRDD)
+            .json(session.createDataset(jsonRDD)(Encoders.STRING))
             .withColumn(
               //  Spark cannot detect the input file automatically, so we should add it explicitly
               Settings.cometInputFileNameColumn,
