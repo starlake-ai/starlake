@@ -16,10 +16,13 @@ env:
 jobs:
   exclude:
     - scala: 2.11.12
-      COMET_SPARK_VERSION=3.0.0 # Has dropped scala 2.11 support
+      env: COMET_SPARK_VERSION=3.0.0 # Has dropped scala 2.11 support
     - jdk: openjdk11
-      COMET_SPARK_VERSION=2.1.0 # uses ASM6 which doesn't know bytecode beyond jdk8 
-
+      env: COMET_SPARK_VERSION=2.1.0 # uses ASM6 which doesn't know bytecode beyond jdk8 
+  allow_failures:  
+    - env: COMET_SPARK_VERSION=2.4.6 # we test, but since support of jdk>8 by spark 2.4.6 isn't official, it's okay to fail
+    - jdk: opendjk11
+    
 script:
   - jdk_switcher use $TRAVIS_JDK_VERSION # FIXME: possibly redundant line?
   - sbt ++$TRAVIS_SCALA_VERSION clean coverage test coverageReport
