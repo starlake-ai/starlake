@@ -20,7 +20,11 @@
 
 package com.ebiznext.comet.schema.handlers
 
+import java.nio.charset.Charset
+
 import com.ebiznext.comet.TestHelper
+
+import scala.io.Codec
 
 class PositionIngestionJobSpec extends TestHelper {
   "Ingest Position File" should "should be ingested from pending to accepted, and archived" in {
@@ -62,6 +66,26 @@ class PositionIngestionJobSpec extends TestHelper {
           .count()
       }
 
+    }
+  }
+  "Ingest Position File" should "use encoding when loading files" in {
+    new WithSettings() {
+      new SpecTrait(
+        domainFilename = "positionWithEncoding.yml",
+        sourceDomainPathname = "/sample/positionWithEncoding/positionWithEncoding.yml",
+        datasetDomainName = "positionWithEncoding",
+        sourceDatasetPathName = "/sample/positionWithEncoding/data-iso88591.dat"
+      ){
+        cleanMetadata
+        cleanDatasets
+        loadPending(new Codec(Charset forName "ISO-8859-1"))
+        // Accepted should contain data formatted correctly
+        val acceptedDf = sparkSession.read
+          .parquet(
+            cometDatasetsPath + s"/accepted/${datasetDomainName}/DATA"
+          )
+        acceptedDf.filter(acceptedDf("someData").contains("spécifié")).count() shouldBe 1
+      }
     }
   }
 }
