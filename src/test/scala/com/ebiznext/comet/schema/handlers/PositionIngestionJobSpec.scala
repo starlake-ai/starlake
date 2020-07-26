@@ -75,7 +75,7 @@ class PositionIngestionJobSpec extends TestHelper {
         sourceDomainPathname = "/sample/positionWithEncoding/positionWithEncoding.yml",
         datasetDomainName = "positionWithEncoding",
         sourceDatasetPathName = "/sample/positionWithEncoding/data-iso88591.dat"
-      ){
+      ) {
         cleanMetadata
         cleanDatasets
         loadPending(new Codec(Charset forName "ISO-8859-1"))
