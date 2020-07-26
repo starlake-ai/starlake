@@ -60,7 +60,7 @@ class ESLoadJob(
 
       case "json-array" =>
         val jsonDS = session.read.textFile(path.toString)
-        session.read.json(jsonDS.rdd)
+        session.read.json(jsonDS)
 
       case "parquet" =>
         session.read.parquet(path.toString)
