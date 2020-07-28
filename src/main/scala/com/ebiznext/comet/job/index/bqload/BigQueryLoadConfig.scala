@@ -11,6 +11,7 @@ case class BigQueryLoadConfig(
   outputDataset: String = "",
   outputTable: String = "",
   outputPartition: Option[String] = None,
+  outputClustering: Seq[String] = Nil,
   sourceFormat: String = "",
   createDisposition: String = "",
   writeDisposition: String = "",
@@ -43,7 +44,12 @@ object BigQueryLoadConfig extends CliConfig[BigQueryLoadConfig] {
         .required(),
       opt[String]("output_partition")
         .action((x, c) => c.copy(outputPartition = Some(x)))
-        .text("BigQuery Partition Field ")
+        .text("BigQuery Partition Field")
+        .optional(),
+      opt[Seq[String]]("output_clustering")
+        .valueName("col1,col2...")
+        .action((x, c) => c.copy(outputClustering = x))
+        .text("BigQuery Clustering Fields")
         .optional(),
       opt[String]("source_format")
         .action((x, c) => c.copy(sourceFormat = x))
