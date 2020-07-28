@@ -137,17 +137,34 @@ trait IngestionJob extends SparkJob {
 
                                       } else acceptedDF).drop(Settings.cometInputFileNameColumn)
 
-    val mergedDF = schema.merge.map { mergeOptions =>
-        if (storageHandler.exists(new Path(acceptedPath, "_SUCCESS"))) {
+    val mergedDF = schema.merge
+      .map { mergeOptions =>
+        if (metadata.getIndexSink().getOrElse(IndexSink.None) == IndexSink.BQ) {
+          // When merging to BigQuery, load existing DF from BigQuery
+          val table = BigQueryLoadJob.getTable(session, domain.name, schema.name)
+          table
+            .map { table =>
+              val bqTable = s"${domain.name}.${schema.name}"
+              val existingBigQueryDF = session.read
+                .format("com.google.cloud.spark.bigquery")
+                .load(bqTable)
+              merge(acceptedDfWithscriptFields, existingBigQueryDF, mergeOptions)
+            }
+            .getOrElse(acceptedDfWithscriptFields)
+        } else if (storageHandler.exists(new Path(acceptedPath, "_SUCCESS"))) {
+          // Otherwise load from accepted area
           val existingDF = session.read.parquet(acceptedPath.toString)
           merge(acceptedDfWithscriptFields, existingDF, mergeOptions)
         } else
           acceptedDfWithscriptFields
-      } getOrElse acceptedDfWithscriptFields
-
+      }
+      .getOrElse(acceptedDfWithscriptFields)
+    logger.info("Merged Dataframe Schema")
+    mergedDF.printSchema()
     val savedDataset =
       saveRows(mergedDF, acceptedPath, writeMode, StorageArea.accepted, schema.merge.isDefined)
-
+    logger.info("Saved Dataset Schema")
+    savedDataset.printSchema()
     if (timestampedCsv()) {
       val formatter = DateTimeFormatter.ofPattern("yyyyMMddHHmmss")
       val now = LocalDateTime.now().format(formatter)
@@ -171,10 +188,9 @@ trait IngestionJob extends SparkJob {
   }
 
   def index(mergedDF: DataFrame): Unit = {
-    val meta = schema.mergedMetadata(domain.metadata)
-    meta.getIndexSink() match {
+    metadata.getIndexSink() match {
       case Some(IndexSink.ES) if settings.comet.elasticsearch.active =>
-        val properties = meta.properties
+        val properties = metadata.properties
         val config = ESLoadConfig(
           timestamp = properties.flatMap(_.get("timestamp")),
           id = properties.flatMap(_.get("id")),
@@ -187,7 +203,7 @@ trait IngestionJob extends SparkJob {
         logger.warn("Indexing to ES requested but elasticsearch not active in conf file")
       case Some(IndexSink.BQ) =>
         val (createDisposition: String, writeDisposition: String) = Utils.getDBDisposition(
-          meta.getWriteMode()
+          metadata.getWriteMode()
         )
         val config = BigQueryLoadConfig(
           source = Right(mergedDF),
@@ -196,9 +212,9 @@ trait IngestionJob extends SparkJob {
           sourceFormat = "parquet",
           createDisposition = createDisposition,
           writeDisposition = writeDisposition,
-          location = meta.getProperties().get("location"),
-          outputPartition = meta.getProperties().get("timestamp"),
-          days = meta.getProperties().get("days").map(_.toInt),
+          location = metadata.getProperties().get("location"),
+          outputPartition = metadata.getProperties().get("timestamp"),
+          days = metadata.getProperties().get("days").map(_.toInt),
           rls = schema.rls
         )
         val res = new BigQueryLoadJob(config, Some(schema.bqSchema(schemaHandler))).run()
@@ -211,13 +227,13 @@ trait IngestionJob extends SparkJob {
         val (createDisposition: CreateDisposition, writeDisposition: WriteDisposition) = {
 
           val (cd, wd) = Utils.getDBDisposition(
-            meta.getWriteMode()
+            metadata.getWriteMode()
           )
           (CreateDisposition.valueOf(cd), WriteDisposition.valueOf(wd))
         }
-        meta.getProperties().get("jdbc").foreach { jdbcName =>
-          val partitions = meta.getProperties().getOrElse("partitions", "1").toInt
-          val batchSize = meta.getProperties().getOrElse("batchsize", "1000").toInt
+        metadata.getProperties().get("jdbc").foreach { jdbcName =>
+          val partitions = metadata.getProperties().getOrElse("partitions", "1").toInt
+          val batchSize = metadata.getProperties().getOrElse("batchsize", "1000").toInt
 
           val jdbcConfig = JdbcLoadConfig.fromComet(
             jdbcName,
