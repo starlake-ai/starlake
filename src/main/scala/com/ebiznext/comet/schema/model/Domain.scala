@@ -115,7 +115,7 @@ case class Domain(
     // Check Domain name validity
     val dbNamePattern = Pattern.compile("[a-zA-Z][a-zA-Z0-9_]{1,100}")
     if (!dbNamePattern.matcher(name).matches())
-      errorList += s"Schema with name $name should respect the pattern ${dbNamePattern.pattern()}"
+      errorList += s"Domain with name $name should respect the pattern ${dbNamePattern.pattern()}"
 
     // Check Schema validity
     schemas.foreach { schema =>

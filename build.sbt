@@ -4,13 +4,17 @@ import sbtrelease.ReleasePlugin.autoImport.ReleaseTransformations._
 import sbtrelease.Version
 import sbtrelease.Version.Bump.Next
 
-name := "comet"
+import scala.util.matching.Regex
 
 //val mavenLocal = "Local Maven" at Path.userHome.asFile.toURI.toURL + ".m2/repository"
 //resolvers += Resolver.mavenLocal
 
-lazy val scala212 = "2.12.10"
+lazy val scala212 = "2.12.12"
+
 lazy val scala211 = "2.11.12"
+
+lazy val sparkVersion = sys.env.getOrElse("COMET_SPARK_VERSION", "3.0.0")
+
 lazy val supportedScalaVersions = List(scala212, scala211)
 
 crossScalaVersions := supportedScalaVersions
@@ -19,26 +23,47 @@ organization := "com.ebiznext"
 
 organizationName := "Ebiznext"
 
-scalaVersion := scala211
+scalaVersion := scala212
 
 organizationHomepage := Some(url("http://www.ebiznext.com"))
 
-libraryDependencies ++= {
-  val spark = {
-    CrossVersion.partialVersion(scalaVersion.value) match {
-      case Some((2, scalaMajor)) if scalaMajor == 12 => spark212
-      case Some((2, scalaMajor)) if scalaMajor == 11 => spark211_240
-    }
-  }
-  val jackson = {
-    CrossVersion.partialVersion(scalaVersion.value) match {
-      case Some((2, scalaMajor)) if scalaMajor == 12 => jackson212
-      case Some((2, scalaMajor)) if scalaMajor == 11 => jackson211
-    }
-  }
+val sparkVersionPattern: Regex = "(\\d+).(\\d+).(\\d+)".r
+val sparkPatternMatch = sparkVersionPattern
+  .findFirstMatchIn(sparkVersion)
+  .getOrElse(throw new Exception(s"Invalid Spark Version $sparkVersion"))
+val sparkMajor = sparkPatternMatch.group(1)
+val sparkMinor = sparkPatternMatch.group(2)
 
+
+libraryDependencies ++= {
+  val (spark, jackson) = {
+    sparkMajor match {
+      case "3" =>
+        (spark_3d0_forScala_2d12, jackson312)
+      case "2" =>
+        CrossVersion.partialVersion(scalaVersion.value) match {
+          case Some((2, scalaMinor)) if scalaMinor == 12 => (spark_2d4_forScala_2d12, jackson212)
+          case Some((2, scalaMinor)) if scalaMinor == 11 =>
+            sparkMinor match {
+              case "1" => (spark_2d1_forScala_2d11, jackson211)
+              case _ => (spark_2d4_forScala_2d11, jackson211)
+            }
+        }
+    }
+  }
   dependencies ++ spark ++ jackson ++ scalaReflection(scalaVersion.value)
 }
+
+name := s"comet-spark${sparkMajor}"
+
+assemblyJarName in assembly := s"${name.value}_${scalaBinaryVersion.value}-${version.value}-assembly.jar"
+
+/*
+artifactName := { (sv: ScalaVersion, module: ModuleID, artifact: Artifact) =>
+  artifact.name + "-spark" + sparkMajor +   + "_" + sv.binary "-" + module.revision + "." + artifact.extension
+}
+ */
+// assemblyJarName in assembly := s"comet-spark-${sparkVersion}_${scalaVersion.value}-assembly.jar"
 
 Common.enableCometAliases
 

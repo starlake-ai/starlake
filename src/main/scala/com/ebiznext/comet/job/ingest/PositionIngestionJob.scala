@@ -24,6 +24,8 @@ import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.schema.handlers.{SchemaHandler, StorageHandler}
 import com.ebiznext.comet.schema.model._
 import org.apache.hadoop.fs.Path
+import org.apache.hadoop.io.{LongWritable, Text}
+import org.apache.hadoop.mapred.TextInputFormat
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql._
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
@@ -57,8 +59,14 @@ class PositionIngestionJob(
     */
   override def loadDataSet(): Try[DataFrame] = {
     try {
-      val df =
-        session.read.option("encoding", metadata.getEncoding()).text(path.map(_.toString): _*)
+      val df = metadata.getEncoding().toUpperCase match {
+        case "UTF-8" => session.read.text(path.map(_.toString): _*)
+        case _ => {
+          val rdd = PositionIngestionUtil.loadDfWithEncoding(session, path, metadata.getEncoding())
+          val schema: StructType = StructType(Array(StructField("value", StringType)))
+          session.createDataFrame(rdd.map(line => Row.fromSeq(Seq(line))), schema)
+        }
+      }
       metadata.withHeader match {
         case Some(true) =>
           Failure(new Exception("No Header allowed for Position File Format "))
@@ -120,6 +128,17 @@ class PositionIngestionJob(
   * The Spark task that run on each worker
   */
 object PositionIngestionUtil {
+
+  def loadDfWithEncoding(session: SparkSession, path: List[Path], encoding: String) = {
+    path
+      .map(_.toString)
+      .map(
+        session.sparkContext
+          .hadoopFile[LongWritable, Text, TextInputFormat](_)
+          .map(pair => new String(pair._2.getBytes, 0, pair._2.getLength, encoding))
+      )
+      .fold(session.sparkContext.emptyRDD)((r1, r2) => r1.union(r2))
+  }
 
   def prepare(session: SparkSession, input: DataFrame, attributes: List[Attribute]) = {
     def getRow(inputLine: String, positions: List[Position]): Row = {
