@@ -136,6 +136,7 @@ object SparkAuditLogWriter {
           outputDataset = dataset,
           outputTable = "audit",
           None,
+          Nil,
           "parquet",
           "CREATE_IF_NEEDED",
           "WRITE_APPEND",

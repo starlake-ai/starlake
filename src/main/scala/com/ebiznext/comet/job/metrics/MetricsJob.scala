@@ -286,6 +286,7 @@ class MetricsJob(
         outputDataset = bqDataset,
         outputTable = bqTable,
         None,
+        Nil,
         "parquet",
         "CREATE_IF_NEEDED",
         "WRITE_APPEND",

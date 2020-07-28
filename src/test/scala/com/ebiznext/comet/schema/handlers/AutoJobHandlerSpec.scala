@@ -297,6 +297,10 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         writeDisposition = "WRITE_TRUNCATE",
         location = businessTask1.properties.flatMap(_.get("location")),
         outputPartition = businessTask1.properties.flatMap(_.get("timestamp")),
+        outputClustering = businessTask1.properties
+          .flatMap(_.get("clustering"))
+          .map(_.split(",").toSeq)
+          .getOrElse(Nil),
         days = businessTask1.properties.flatMap(_.get("days").map(_.toInt)),
         rls = businessTask1.rls
       )
