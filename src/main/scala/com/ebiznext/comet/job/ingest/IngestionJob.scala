@@ -214,6 +214,8 @@ trait IngestionJob extends SparkJob {
           writeDisposition = writeDisposition,
           location = metadata.getProperties().get("location"),
           outputPartition = metadata.getProperties().get("timestamp"),
+          outputClustering =
+            metadata.getProperties().get("clustering").map(_.split(",").toSeq).getOrElse(Nil),
           days = metadata.getProperties().get("days").map(_.toInt),
           rls = schema.rls
         )
@@ -598,6 +600,7 @@ object IngestionUtil {
             outputDataset = dataset,
             outputTable = "rejected",
             None,
+            Nil,
             "parquet",
             "CREATE_IF_NEEDED",
             "WRITE_APPEND",
