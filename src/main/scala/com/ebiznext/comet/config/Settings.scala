@@ -268,7 +268,8 @@ object Settings extends StrictLogging {
       } else true
     }
 
-    val cacheStorageLevel = internal.map(_.cacheStorageLevel).getOrElse(StorageLevel.MEMORY_AND_DISK)
+    val cacheStorageLevel =
+      internal.map(_.cacheStorageLevel).getOrElse(StorageLevel.MEMORY_AND_DISK)
 
     @throws(classOf[ObjectStreamException])
     protected def writeReplace: AnyRef = {
