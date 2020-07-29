@@ -4,7 +4,7 @@ import java.sql.Timestamp
 import java.time.format.DateTimeFormatter
 import java.time.{Instant, LocalDateTime}
 
-import com.ebiznext.comet.config.Settings.IndexSinkSettings
+import com.ebiznext.comet.config.Settings.SinkSettings
 import com.ebiznext.comet.config.{DatasetArea, Settings, StorageArea}
 import com.ebiznext.comet.job.index.bqload.{BigQueryLoadConfig, BigQueryLoadJob}
 import com.ebiznext.comet.job.index.esload.{ESLoadConfig, ESLoadJob}
@@ -139,7 +139,7 @@ trait IngestionJob extends SparkJob {
 
     val mergedDF = schema.merge
       .map { mergeOptions =>
-        if (metadata.getIndexSink().getOrElse(IndexSink.None) == IndexSink.BQ) {
+        if (metadata.getSink().getOrElse(SinkType.None) == SinkType.BQ) {
           // When merging to BigQuery, load existing DF from BigQuery
           val table = BigQueryLoadJob.getTable(session, domain.name, schema.name)
           table
@@ -188,9 +188,10 @@ trait IngestionJob extends SparkJob {
   }
 
   def index(mergedDF: DataFrame): Unit = {
-    metadata.getIndexSink() match {
-      case Some(IndexSink.ES) if settings.comet.elasticsearch.active =>
-        val properties = metadata.properties
+    val sinkType = metadata.getSink().map(_.`type`)
+    sinkType match {
+      case Some(SinkType.ES) if settings.comet.elasticsearch.active =>
+        val properties = metadata.sink.flatMap(_.properties)
         val config = ESLoadConfig(
           timestamp = properties.flatMap(_.get("timestamp")),
           id = properties.flatMap(_.get("id")),
@@ -199,9 +200,9 @@ trait IngestionJob extends SparkJob {
           schema = schema.name
         )
         new ESLoadJob(config, storageHandler, schemaHandler).run()
-      case Some(IndexSink.ES) if !settings.comet.elasticsearch.active =>
+      case Some(SinkType.ES) if !settings.comet.elasticsearch.active =>
         logger.warn("Indexing to ES requested but elasticsearch not active in conf file")
-      case Some(IndexSink.BQ) =>
+      case Some(SinkType.BQ) =>
         val (createDisposition: String, writeDisposition: String) = Utils.getDBDisposition(
           metadata.getWriteMode()
         )
@@ -212,11 +213,10 @@ trait IngestionJob extends SparkJob {
           sourceFormat = "parquet",
           createDisposition = createDisposition,
           writeDisposition = writeDisposition,
-          location = metadata.getProperties().get("location"),
-          outputPartition = metadata.getProperties().get("timestamp"),
-          outputClustering =
-            metadata.getProperties().get("clustering").map(_.split(",").toSeq).getOrElse(Nil),
-          days = metadata.getProperties().get("days").map(_.toInt),
+          location = BigQueryLoadConfig.getLocation(metadata.getSink()),
+          outputPartition = BigQueryLoadConfig.getTimestamp(metadata.getSink()),
+          outputClustering = BigQueryLoadConfig.getClustering(metadata.getSink()),
+          days = BigQueryLoadConfig.getDays(metadata.getSink()),
           rls = schema.rls
         )
         val res = new BigQueryLoadJob(config, Some(schema.bqSchema(schemaHandler))).run()
@@ -225,7 +225,7 @@ trait IngestionJob extends SparkJob {
           case Failure(e) => logger.error("BQLoad Failed", e)
         }
 
-      case Some(IndexSink.JDBC) =>
+      case Some(SinkType.JDBC) =>
         val (createDisposition: CreateDisposition, writeDisposition: WriteDisposition) = {
 
           val (cd, wd) = Utils.getDBDisposition(
@@ -233,9 +233,9 @@ trait IngestionJob extends SparkJob {
           )
           (CreateDisposition.valueOf(cd), WriteDisposition.valueOf(wd))
         }
-        metadata.getProperties().get("jdbc").foreach { jdbcName =>
-          val partitions = metadata.getProperties().getOrElse("partitions", "1").toInt
-          val batchSize = metadata.getProperties().getOrElse("batchsize", "1000").toInt
+        metadata.getSinkProperties().get("jdbc").foreach { jdbcName =>
+          val partitions = metadata.getSinkProperties().getOrElse("partitions", "1").toInt
+          val batchSize = metadata.getSinkProperties().getOrElse("batchsize", "1000").toInt
 
           val jdbcConfig = JdbcLoadConfig.fromComet(
             jdbcName,
@@ -255,7 +255,7 @@ trait IngestionJob extends SparkJob {
           }
         }
 
-      case Some(IndexSink.None) | None =>
+      case Some(SinkType.None) | None =>
         // ignore
         logger.trace("not producing an index, as requested (no sink or sink at None explicitly)")
     }
@@ -594,7 +594,7 @@ object IngestionUtil {
 
     val res =
       settings.comet.audit.index match {
-        case IndexSinkSettings.BigQuery(dataset) =>
+        case SinkSettings.BigQuery(dataset) =>
           val bqConfig = BigQueryLoadConfig(
             Right(rejectedDF),
             outputDataset = dataset,
@@ -609,7 +609,7 @@ object IngestionUtil {
           )
           new BigQueryLoadJob(bqConfig, Some(bigqueryRejectedSchema())).run()
 
-        case IndexSinkSettings.Jdbc(jdbcName, partitions, batchSize) =>
+        case SinkSettings.Jdbc(jdbcName, partitions, batchSize) =>
           val jdbcConfig = JdbcLoadConfig.fromComet(
             jdbcName,
             settings.comet,
@@ -621,7 +621,7 @@ object IngestionUtil {
 
           new JdbcLoadJob(jdbcConfig).run()
 
-        case IndexSinkSettings.None =>
+        case SinkSettings.None =>
           Success(())
       }
     res match {

@@ -288,20 +288,20 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       )
       val businessJob =
         AutoJobDesc("business1", List(businessTask1), None, Some("parquet"), Some(true))
-
+      val properties = businessTask1.getSink().flatMap(_.properties)
       val config = BigQueryLoadConfig(
         outputTable = businessTask1.dataset,
         outputDataset = businessTask1.domain,
         sourceFormat = "parquet",
         createDisposition = "CREATE_IF_NEEDED",
         writeDisposition = "WRITE_TRUNCATE",
-        location = businessTask1.properties.flatMap(_.get("location")),
-        outputPartition = businessTask1.properties.flatMap(_.get("timestamp")),
-        outputClustering = businessTask1.properties
+        location = properties.flatMap(_.get("location")),
+        outputPartition = properties.flatMap(_.get("timestamp")),
+        outputClustering = properties
           .flatMap(_.get("clustering"))
           .map(_.split(",").toSeq)
           .getOrElse(Nil),
-        days = businessTask1.properties.flatMap(_.get("days").map(_.toInt)),
+        days = properties.flatMap(_.get("days").map(_.toInt)),
         rls = businessTask1.rls
       )
       val job = new BigQueryLoadJob(config)

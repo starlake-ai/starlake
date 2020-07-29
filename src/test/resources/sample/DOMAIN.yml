@@ -16,7 +16,8 @@ metadata:
       - comet_day
   dateFormat: "yyyy-MM-dd"
   timestampFormat: "yyyy-MM-dd HH:mm:ss"
-  index: ES
+  sink:
+    type: ES
 schemas:
   - name: "User"
     pattern: "SCHEMA-.*.dsv"
