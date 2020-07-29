@@ -28,7 +28,7 @@ class ConfigSpec extends TestHelper {
   val internalConfig =
     new WithSettings() {
       "Custom Storage Level" should "be derived correctly" in {
-        settings.comet.internal.map(_.cacheStorageLevel) shouldEqual Some(StorageLevel.MEMORY_ONLY)
+        settings.comet.internal.map(_.cacheStorageLevel) shouldEqual Some(StorageLevel.MEMORY_AND_DISK)
       }
     }
 }
