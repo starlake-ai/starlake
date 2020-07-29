@@ -24,8 +24,8 @@ import java.time.LocalDateTime
 
 import com.ebiznext.comet.config.{Settings, StorageArea, UdfRegistration}
 import com.ebiznext.comet.schema.handlers.StorageHandler
-import com.ebiznext.comet.schema.model.IndexSink._
-import com.ebiznext.comet.schema.model.{AutoTaskDesc, IndexSink}
+import com.ebiznext.comet.schema.model.SinkType._
+import com.ebiznext.comet.schema.model.{AutoTaskDesc, SinkType}
 import com.ebiznext.comet.utils.Formatter._
 import com.ebiznext.comet.utils.{SparkJob, SparkJobResult}
 import org.apache.hadoop.fs.Path
@@ -70,9 +70,9 @@ class AutoTask(
         val sepIndex = value.indexOf(":")
         val (format, path) =
           if (sepIndex > 0)
-            (IndexSink.fromString(value.substring(0, sepIndex)), value.substring(sepIndex + 1))
+            (SinkType.fromString(value.substring(0, sepIndex)), value.substring(sepIndex + 1))
           else // parquet is the default
-            (IndexSink.FS, value)
+            (SinkType.FS, value)
 
         val df = format match {
           case FS =>

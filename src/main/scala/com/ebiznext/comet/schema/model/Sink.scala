@@ -32,40 +32,42 @@ import com.fasterxml.jackson.databind.{DeserializationContext, JsonDeserializer}
   *              Simple Json is made of a single level attributes of simple types (no arrray or map or sub objects)
   */
 @JsonSerialize(using = classOf[ToStringSerializer])
-@JsonDeserialize(using = classOf[IndexSinkDeserializer])
-sealed case class IndexSink(value: String) {
+@JsonDeserialize(using = classOf[SinkTypeDeserializer])
+sealed case class SinkType(value: String) {
   override def toString: String = value
 }
 
-object IndexSink {
+object SinkType {
 
-  def fromString(value: String): IndexSink = {
+  def fromString(value: String): SinkType = {
     value.toUpperCase match {
-      case "NONE" => IndexSink.None
-      case "FS"   => IndexSink.FS
-      case "JDBC" => IndexSink.JDBC
-      case "BQ"   => IndexSink.BQ
-      case "ES"   => IndexSink.ES
+      case "NONE" => SinkType.None
+      case "FS"   => SinkType.FS
+      case "JDBC" => SinkType.JDBC
+      case "BQ"   => SinkType.BQ
+      case "ES"   => SinkType.ES
     }
   }
 
-  object None extends IndexSink("None")
+  object None extends SinkType("None")
 
-  object FS extends IndexSink("FS")
+  object FS extends SinkType("FS")
 
-  object BQ extends IndexSink("BQ")
+  object BQ extends SinkType("BQ")
 
-  object ES extends IndexSink("ES")
+  object ES extends SinkType("ES")
 
-  object JDBC extends IndexSink("JDBC")
+  object JDBC extends SinkType("JDBC")
 
-  val sinks: Set[IndexSink] = Set(None, FS, BQ, ES, JDBC)
+  val sinks: Set[SinkType] = Set(None, FS, BQ, ES, JDBC)
 }
 
-class IndexSinkDeserializer extends JsonDeserializer[IndexSink] {
+class SinkTypeDeserializer extends JsonDeserializer[SinkType] {
 
-  override def deserialize(jp: JsonParser, ctx: DeserializationContext): IndexSink = {
+  override def deserialize(jp: JsonParser, ctx: DeserializationContext): SinkType = {
     val value = jp.readValueAs[String](classOf[String])
-    IndexSink.fromString(value)
+    SinkType.fromString(value)
   }
 }
+
+case class Sink(`type`: SinkType, properties: Option[Map[String, String]] = None)

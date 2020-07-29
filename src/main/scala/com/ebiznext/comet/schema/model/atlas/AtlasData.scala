@@ -13,7 +13,8 @@ object AtlasData {
       |  withHeader: false
       |  encoding: ISO-8859-1
       |  format: POSITION
-      |  index: ES
+      |  sink:
+      |    type: ES
       |  write: OVERWRITE
       |  partition:
       |    sampling: 0.5

@@ -46,7 +46,7 @@ import scala.language.postfixOps
   * @param escape     : escaping char '\' by default
   * @param write      : Write mode, APPEND by default
   * @param partition  : Partition columns, no partitioning by default
-  * @param index      : should the dataset be indexed in elasticsearch after ingestion ?
+  * @param sink      : should the dataset be indexed in elasticsearch after ingestion ?
   */
 @JsonDeserialize(using = classOf[MetadataDeserializer])
 case class Metadata(
@@ -61,8 +61,7 @@ case class Metadata(
   escape: Option[String] = None,
   write: Option[WriteMode] = None,
   partition: Option[Partition] = None,
-  index: Option[IndexSink] = None,
-  properties: Option[Map[String, String]] = None
+  sink: Option[Sink] = None
 ) {
 
   override def toString: String =
@@ -78,8 +77,7 @@ case class Metadata(
        |escape:${getEscape()}
        |write:${getWriteMode()}
        |partition:${getPartitionAttributes()}
-       |index:${getIndexSink()}
-       |properties:${properties}
+       |sink:${getSink()}
        """.stripMargin
 
   def getIngestMode(): Mode = mode.getOrElse(FILE)
@@ -106,9 +104,9 @@ case class Metadata(
 
   def getSamplingStrategy(): Double = partition.map(_.getSampling()).getOrElse(0.0)
 
-  def getIndexSink(): Option[IndexSink] = index
+  def getSink(): Option[Sink] = sink
 
-  def getProperties(): Map[String, String] = properties.getOrElse(Map.empty)
+  def getSinkProperties(): Map[String, String] = sink.flatMap(_.properties).getOrElse(Map.empty)
 
   /**
     * Merge a single attribute
@@ -142,8 +140,7 @@ case class Metadata(
       escape = merge(this.escape, child.escape),
       write = merge(this.write, child.write),
       partition = merge(this.partition, child.partition),
-      index = merge(this.index, child.index),
-      properties = merge(this.properties, child.properties)
+      sink = merge(this.sink, child.sink)
     )
   }
 }
@@ -215,21 +212,27 @@ class MetadataDeserializer extends JsonDeserializer[Metadata] {
         Some(
           new PartitionDeserializer().deserialize(node.get("partition"))
         )
-    val index =
-      if (isNull(node, "index")) None else Some(IndexSink.fromString(node.get("index").asText))
-    val mapping: Option[Map[String, String]] =
-      if (isNull(node, "properties"))
-        None
+    val sink =
+      if (isNull(node, "sink")) None
       else {
-        val mappingField = node.get("properties")
-        import scala.collection.JavaConverters._
-        val fields = mappingField
-          .fieldNames()
-          .asScala
-          .map { fieldName => (fieldName, mappingField.get(fieldName).asText()) } toMap
+        val sinkNode = node.get("sink")
+        val sinkType = SinkType.fromString(sinkNode.get("type").asText())
+        val properties: Option[Map[String, String]] =
+          if (isNull(sinkNode, "properties"))
+            None
+          else {
+            val mappingField = sinkNode.get("properties")
+            import scala.collection.JavaConverters._
+            val fields = mappingField
+              .fieldNames()
+              .asScala
+              .map { fieldName => (fieldName, mappingField.get(fieldName).asText()) } toMap
 
-        Some(fields)
+            Some(fields)
+          }
+        Some(Sink(sinkType, properties))
       }
+
     Metadata(
       mode,
       format,
@@ -242,8 +245,7 @@ class MetadataDeserializer extends JsonDeserializer[Metadata] {
       escape,
       write,
       partition,
-      index,
-      mapping
+      sink
     )
   }
 }
