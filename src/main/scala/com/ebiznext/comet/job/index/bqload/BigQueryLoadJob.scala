@@ -10,6 +10,7 @@ import com.google.cloud.bigquery.{Schema => BQSchema, _}
 import com.google.cloud.hadoop.io.bigquery.BigQueryConfiguration
 import org.apache.hadoop.conf.Configuration
 import org.apache.spark.sql.functions.{col, date_format}
+import org.apache.spark.storage.StorageLevel
 import org.apache.spark.sql.{DataFrame, SaveMode, SparkSession}
 
 import scala.util.Try
@@ -143,10 +144,17 @@ class BigQueryLoadJob(
 
     prepareConf()
     Try {
+      val cacheStorageLevel =
+        settings.comet.internal.map(_.cacheStorageLevel).getOrElse(StorageLevel.MEMORY_AND_DISK)
       val sourceDF =
         cliConfig.source match {
-          case Left(path) => session.read.parquet(path)
-          case Right(df)  => df
+          case Left(path) =>
+            session.read
+              .parquet(path)
+              .persist(
+                cacheStorageLevel
+              )
+          case Right(df) => df.persist(cacheStorageLevel)
         }
 
       val table = getOrCreateTable(sourceDF)
