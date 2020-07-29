@@ -249,15 +249,15 @@ class MetricsJob(
   private def sinkMetrics(metricsDf: DataFrame, table: String): Try[Unit] = {
     if (settings.comet.metrics.active) {
       settings.comet.metrics.index match {
-        case Settings.IndexSinkSettings.None =>
+        case Settings.SinkSettings.None =>
           Success(())
 
-        case Settings.IndexSinkSettings.BigQuery(bqDataset) =>
+        case Settings.SinkSettings.BigQuery(bqDataset) =>
           Try {
             sinkMetricsToBigQuery(metricsDf, bqDataset, table)
           }
 
-        case Settings.IndexSinkSettings.Jdbc(jdbcConnection, partitions, batchSize) =>
+        case Settings.SinkSettings.Jdbc(jdbcConnection, partitions, batchSize) =>
           Try {
             val jdbcConfig = JdbcLoadConfig.fromComet(
               jdbcConnection,

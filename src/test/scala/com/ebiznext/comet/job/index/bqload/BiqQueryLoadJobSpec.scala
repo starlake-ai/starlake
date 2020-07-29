@@ -16,6 +16,8 @@ class BiqQueryLoadJobSpec extends TestHelper {
           |  --output_table <value>   BigQuery Output Table
           |  --output_partition <value>
           |                           BigQuery Partition Field
+          |  --output_clustering col1,col2...
+          |                           BigQuery Clustering Fields
           |  --source_format <value>  Source Format eq. parquet
           |  --create_disposition <value>
           |                           Big Query Create disposition https://cloud.google.com/bigquery/docs/reference/auditlogs/rest/Shared.Types/CreateDisposition

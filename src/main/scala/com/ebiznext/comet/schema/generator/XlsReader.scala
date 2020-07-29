@@ -110,8 +110,7 @@ class XlsReader(path: String) {
                   attributes = partitionColumnsOpt
                 )
               ),
-              index = indexColumnsOpt.map(IndexSink.fromString),
-              properties = None
+              sink = indexColumnsOpt.map(sinkType => Sink(SinkType.fromString(sinkType), None))
             )
             val mergeOptions: Option[MergeOptions] = (deltaColOpt, identityKeysOpt) match {
               case (Some(deltaCol), Some(identityKeys)) =>
