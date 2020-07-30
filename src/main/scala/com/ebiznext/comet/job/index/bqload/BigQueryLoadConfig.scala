@@ -17,7 +17,8 @@ case class BigQueryLoadConfig(
   writeDisposition: String = "",
   location: Option[String] = None,
   days: Option[Int] = None,
-  rls: Option[RowLevelSecurity] = None
+  rls: Option[RowLevelSecurity] = None,
+  requirePartitionFilter: Boolean = false
 ) {
   def getLocation(): String = this.location.getOrElse("EU")
 }
@@ -45,6 +46,10 @@ object BigQueryLoadConfig extends CliConfig[BigQueryLoadConfig] {
       opt[String]("output_partition")
         .action((x, c) => c.copy(outputPartition = Some(x)))
         .text("BigQuery Partition Field")
+        .optional(),
+      opt[Boolean]("require_partition_filter")
+        .action((x, c) => c.copy(requirePartitionFilter = x))
+        .text("Require Partition Filter")
         .optional(),
       opt[Seq[String]]("output_clustering")
         .valueName("col1,col2...")
