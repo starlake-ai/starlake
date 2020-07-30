@@ -328,12 +328,12 @@ class IngestionWorkflow(
   def esload(job: AutoJobDesc, task: AutoTaskDesc): Unit = {
     val targetArea = task.area.getOrElse(job.getArea())
     val targetPath = new Path(DatasetArea.path(task.domain, targetArea.value), task.dataset)
-    val properties = task.getSink().flatMap(_.properties)
-    launchHandler.index(
+    val sink = task.getSink().asInstanceOf[EsSink]
+    launchHandler.esload(
       this,
       ESLoadConfig(
-        timestamp = properties.flatMap(_.get("timestamp")),
-        id = properties.flatMap(_.get("id")),
+        timestamp = sink.timestamp,
+        id = sink.id,
         format = "parquet",
         domain = task.domain,
         schema = task.dataset,
@@ -399,7 +399,7 @@ class IngestionWorkflow(
               esload(job, task)
             case Some(SinkType.BQ) =>
               val (createDisposition, writeDisposition) = Utils.getDBDisposition(task.write)
-              val properties = task.getSink().flatMap(_.properties)
+              val sink = task.getSink().asInstanceOf[BigQuerySink]
               val source = maybeDataFrame
                 .map(df => Right(setNullableStateOfColumn(df, nullable = true)))
                 .getOrElse(Left(task.getTargetPath(Some(job.getArea())).toString))
@@ -411,10 +411,10 @@ class IngestionWorkflow(
                   sourceFormat = "parquet",
                   createDisposition = createDisposition,
                   writeDisposition = writeDisposition,
-                  location = BigQueryLoadConfig.getLocation(task.getSink()),
-                  outputPartition = BigQueryLoadConfig.getTimestamp(task.getSink()),
-                  outputClustering = BigQueryLoadConfig.getClustering(task.getSink()),
-                  days = BigQueryLoadConfig.getDays(task.getSink()),
+                  location = sink.location,
+                  outputPartition = sink.timestamp,
+                  outputClustering = sink.clustering.getOrElse(Nil),
+                  days = sink.days,
                   rls = task.rls
                 )
               )

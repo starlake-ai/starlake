@@ -14,8 +14,6 @@ metadata:
       - comet_year
       - comet_month
       - comet_day
-  dateFormat: "yyyy-MM-dd"
-  timestampFormat: "yyyy-MM-dd HH:mm:ss"
   sink:
     type: ES
 schemas:
@@ -50,8 +48,6 @@ schemas:
       quote: "\""
       escape: "\\"
       write: "APPEND"
-      dateFormat: null
-      timestampFormat: null
   - name: "Players"
     pattern: "Players.*.csv"
     attributes:
@@ -98,7 +94,6 @@ schemas:
       quote: "\""
       escape: "\\"
       write: "OVERWRITE"
-      ingestMode: "FILE"
       partition:
         attributes:
           - "YEAR"

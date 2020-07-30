@@ -118,7 +118,7 @@ class PositionIngestionJob(
     )
     saveRejected(rejectedRDD)
     val (df, path) = saveAccepted(acceptedRDD, orderedSparkTypes)
-    index(df)
+    sink(df)
     (rejectedRDD, acceptedRDD)
   }
 

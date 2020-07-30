@@ -118,7 +118,7 @@ object SparkAuditLogWriter {
       )
       .toDF(auditCols.map(_._1): _*)
 
-    settings.comet.audit.index match {
+    settings.comet.audit.sink match {
       case SinkSettings.Jdbc(name, partitions, batchSize) =>
         val jdbcConfig = JdbcLoadConfig.fromComet(
           name,

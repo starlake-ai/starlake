@@ -4,8 +4,7 @@ import java.io.File
 
 import com.ebiznext.comet.TestHelper
 import com.ebiznext.comet.config.DatasetArea
-import com.ebiznext.comet.schema.model.SinkType.BQ
-import com.ebiznext.comet.schema.model.{Domain, Format, PrivacyLevel, Sink}
+import com.ebiznext.comet.schema.model.{BigQuerySink, Domain, Format, PrivacyLevel}
 
 class SchemaGenSpec extends TestHelper {
   new WithSettings() {
@@ -33,7 +32,7 @@ class SchemaGenSpec extends TestHelper {
         sink     <- metadata.sink
       } yield sink
 
-      sink shouldBe Some(Sink(BQ, None))
+      sink shouldBe Some(BigQuerySink())
     }
 
     "All configured schemas" should "have all declared attributes correctly set" in {
