@@ -248,7 +248,7 @@ class MetricsJob(
 
   private def sinkMetrics(metricsDf: DataFrame, table: String): Try[Unit] = {
     if (settings.comet.metrics.active) {
-      settings.comet.metrics.index match {
+      settings.comet.metrics.sink match {
         case Settings.SinkSettings.None =>
           Success(())
 

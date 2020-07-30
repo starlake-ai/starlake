@@ -24,14 +24,12 @@ import java.net.URL
 
 import com.ebiznext.comet.TestHelper
 import com.ebiznext.comet.config.DatasetArea
-import com.ebiznext.comet.schema.model.{Metadata, Mode, Schema, Sink, SinkType, WriteMode}
-import org.apache.spark.sql.DataFrame
-import org.apache.spark.sql.types.{DateType, IntegerType, StringType, StructType}
-import org.apache.spark.sql.functions._
-import com.softwaremill.sttp.HttpURLConnectionBackend
+import com.ebiznext.comet.schema.model._
+import com.softwaremill.sttp.{HttpURLConnectionBackend, _}
 import org.apache.hadoop.fs.Path
-import org.apache.spark.sql.types.StructField
-import com.softwaremill.sttp._
+import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.functions._
+import org.apache.spark.sql.types.{Metadata => _, _}
 
 import scala.util.Try
 
@@ -441,8 +439,7 @@ class SchemaHandlerSpec extends TestHelper {
           |format: POSITION
           |sink:
           |  type: BQ
-          |  properties:
-          |    timestamp: _PARTITIONTIME
+          |  timestamp: _PARTITIONTIME
           |write: OVERWRITE
           |""".stripMargin
       val metadata = sch.mapper.readValue(content, classOf[Metadata])
@@ -452,7 +449,7 @@ class SchemaHandlerSpec extends TestHelper {
         format = Some(com.ebiznext.comet.schema.model.Format.POSITION),
         encoding = Some("ISO-8859-1"),
         withHeader = Some(false),
-        sink = Some(Sink(SinkType.BQ, Some(Map("timestamp" -> "_PARTITIONTIME")))),
+        sink = Some(BigQuerySink(timestamp = Some("_PARTITIONTIME"))),
         write = Some(WriteMode.OVERWRITE)
       )
     }

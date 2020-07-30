@@ -108,7 +108,7 @@ class JsonIngestionJob(
 
     saveRejected(rejectedRDD)
     val (df, _) = saveAccepted(acceptedDF) // prefer to let Spark compute the final schema
-    index(df)
+    sink(df)
     (rejectedRDD, acceptedDF.rdd)
   }
 
@@ -119,7 +119,7 @@ class JsonIngestionJob(
     */
   @deprecated("We let Spark compute the final schema", "")
   def saveAccepted(acceptedRDD: RDD[Row]): Path = {
-    val writeMode = metadata.getWriteMode()
+    val writeMode = metadata.getWrite()
     val acceptedPath = new Path(DatasetArea.accepted(domain.name), schema.name)
     saveRows(
       session.createDataFrame(acceptedRDD, schemaSparkType),

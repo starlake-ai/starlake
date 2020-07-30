@@ -3,7 +3,13 @@ package com.ebiznext.comet.schema.handlers
 import com.ebiznext.comet.TestHelper
 import com.ebiznext.comet.config.{Settings, StorageArea}
 import com.ebiznext.comet.job.index.bqload.{BigQueryLoadConfig, BigQueryLoadJob}
-import com.ebiznext.comet.schema.model.{AutoJobDesc, AutoTaskDesc, RowLevelSecurity, WriteMode}
+import com.ebiznext.comet.schema.model.{
+  AutoJobDesc,
+  AutoTaskDesc,
+  BigQuerySink,
+  RowLevelSecurity,
+  WriteMode
+}
 import com.ebiznext.comet.workflow.IngestionWorkflow
 import com.google.cloud.hadoop.io.bigquery.BigQueryConfiguration
 import org.apache.hadoop.fs.Path
@@ -288,20 +294,17 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       )
       val businessJob =
         AutoJobDesc("business1", List(businessTask1), None, Some("parquet"), Some(true))
-      val properties = businessTask1.getSink().flatMap(_.properties)
+      val sink = businessTask1.getSink().map(_.asInstanceOf[BigQuerySink])
       val config = BigQueryLoadConfig(
         outputTable = businessTask1.dataset,
         outputDataset = businessTask1.domain,
         sourceFormat = "parquet",
         createDisposition = "CREATE_IF_NEEDED",
         writeDisposition = "WRITE_TRUNCATE",
-        location = properties.flatMap(_.get("location")),
-        outputPartition = properties.flatMap(_.get("timestamp")),
-        outputClustering = properties
-          .flatMap(_.get("clustering"))
-          .map(_.split(",").toSeq)
-          .getOrElse(Nil),
-        days = properties.flatMap(_.get("days").map(_.toInt)),
+        location = sink.flatMap(_.location),
+        outputPartition = sink.flatMap(_.timestamp),
+        outputClustering = sink.flatMap(_.clustering).getOrElse(Nil),
+        days = sink.flatMap(_.days),
         rls = businessTask1.rls
       )
       val job = new BigQueryLoadJob(config)

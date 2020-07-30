@@ -83,7 +83,7 @@ trait IngestionJob extends SparkJob {
   def getWriteMode(): WriteMode =
     schema.merge
       .map(_ => WriteMode.OVERWRITE)
-      .getOrElse(metadata.getWriteMode())
+      .getOrElse(metadata.getWrite())
 
   private def timestampedCsv(): Boolean =
     settings.comet.timestampedCsv && !settings.comet.grouped && metadata.partition.isEmpty
@@ -187,14 +187,14 @@ trait IngestionJob extends SparkJob {
     (savedDataset, acceptedPath)
   }
 
-  def index(mergedDF: DataFrame): Unit = {
+  def sink(mergedDF: DataFrame): Unit = {
     val sinkType = metadata.getSink().map(_.`type`)
     sinkType match {
       case Some(SinkType.ES) if settings.comet.elasticsearch.active =>
-        val properties = metadata.sink.flatMap(_.properties)
+        val sink = metadata.getSink().map(_.asInstanceOf[EsSink])
         val config = ESLoadConfig(
-          timestamp = properties.flatMap(_.get("timestamp")),
-          id = properties.flatMap(_.get("id")),
+          timestamp = sink.flatMap(_.timestamp),
+          id = sink.flatMap(_.id),
           format = "parquet",
           domain = domain.name,
           schema = schema.name
@@ -203,8 +203,9 @@ trait IngestionJob extends SparkJob {
       case Some(SinkType.ES) if !settings.comet.elasticsearch.active =>
         logger.warn("Indexing to ES requested but elasticsearch not active in conf file")
       case Some(SinkType.BQ) =>
+        val sink = metadata.getSink().map(_.asInstanceOf[BigQuerySink])
         val (createDisposition: String, writeDisposition: String) = Utils.getDBDisposition(
-          metadata.getWriteMode()
+          metadata.getWrite()
         )
         val config = BigQueryLoadConfig(
           source = Right(mergedDF),
@@ -213,10 +214,10 @@ trait IngestionJob extends SparkJob {
           sourceFormat = "parquet",
           createDisposition = createDisposition,
           writeDisposition = writeDisposition,
-          location = BigQueryLoadConfig.getLocation(metadata.getSink()),
-          outputPartition = BigQueryLoadConfig.getTimestamp(metadata.getSink()),
-          outputClustering = BigQueryLoadConfig.getClustering(metadata.getSink()),
-          days = BigQueryLoadConfig.getDays(metadata.getSink()),
+          location = sink.flatMap(_.location),
+          outputPartition = sink.flatMap(_.timestamp),
+          outputClustering = sink.flatMap(_.clustering).getOrElse(Nil),
+          days = sink.flatMap(_.days),
           rls = schema.rls
         )
         val res = new BigQueryLoadJob(config, Some(schema.bqSchema(schemaHandler))).run()
@@ -229,13 +230,15 @@ trait IngestionJob extends SparkJob {
         val (createDisposition: CreateDisposition, writeDisposition: WriteDisposition) = {
 
           val (cd, wd) = Utils.getDBDisposition(
-            metadata.getWriteMode()
+            metadata.getWrite()
           )
           (CreateDisposition.valueOf(cd), WriteDisposition.valueOf(wd))
         }
-        metadata.getSinkProperties().get("jdbc").foreach { jdbcName =>
-          val partitions = metadata.getSinkProperties().getOrElse("partitions", "1").toInt
-          val batchSize = metadata.getSinkProperties().getOrElse("batchsize", "1000").toInt
+        val sink = metadata.getSink().map(_.asInstanceOf[JdbcSink])
+        sink.foreach { sink =>
+          val partitions = sink.partitions.getOrElse(1)
+          val batchSize = sink.batchsize.getOrElse(1000)
+          val jdbcName = sink.connection
 
           val jdbcConfig = JdbcLoadConfig.fromComet(
             jdbcName,
@@ -254,7 +257,6 @@ trait IngestionJob extends SparkJob {
             case Failure(e) => logger.error("JDBCLoad Failed", e)
           }
         }
-
       case Some(SinkType.None) | None =>
         // ignore
         logger.trace("not producing an index, as requested (no sink or sink at None explicitly)")
@@ -593,7 +595,7 @@ object IngestionUtil {
       .limit(settings.comet.audit.maxErrors)
 
     val res =
-      settings.comet.audit.index match {
+      settings.comet.audit.sink match {
         case SinkSettings.BigQuery(dataset) =>
           val bqConfig = BigQueryLoadConfig(
             Right(rejectedDF),
