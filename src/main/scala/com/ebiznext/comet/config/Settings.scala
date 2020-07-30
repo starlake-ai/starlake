@@ -139,12 +139,12 @@ object Settings extends StrictLogging {
     path: String,
     discreteMaxCardinality: Int,
     active: Boolean,
-    index: SinkSettings
+    sink: SinkSettings
   )
 
   final case class Audit(
     path: String,
-    index: SinkSettings,
+    sink: SinkSettings,
     maxErrors: Int
   )
 

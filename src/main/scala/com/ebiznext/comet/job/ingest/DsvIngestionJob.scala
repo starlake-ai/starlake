@@ -218,7 +218,7 @@ class DsvIngestionJob(
     saveRejected(rejectedRDD)
 
     val (df, _) = saveAccepted(acceptedRDD, orderedSparkTypes)
-    index(df)
+    sink(df)
     (rejectedRDD, acceptedRDD)
   }
 

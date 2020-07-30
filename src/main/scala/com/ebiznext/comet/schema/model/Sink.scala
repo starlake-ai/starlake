@@ -20,6 +20,7 @@
 
 package com.ebiznext.comet.schema.model
 
+import com.fasterxml.jackson.annotation.{JsonSubTypes, JsonTypeInfo, JsonTypeName}
 import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.databind.annotation.{JsonDeserialize, JsonSerialize}
 import com.fasterxml.jackson.databind.ser.std.ToStringSerializer
@@ -31,6 +32,7 @@ import com.fasterxml.jackson.databind.{DeserializationContext, JsonDeserializer}
   * @param value : SIMPLE_JSON, JSON of DSV
   *              Simple Json is made of a single level attributes of simple types (no arrray or map or sub objects)
   */
+
 @JsonSerialize(using = classOf[ToStringSerializer])
 @JsonDeserialize(using = classOf[SinkTypeDeserializer])
 sealed case class SinkType(value: String) {
@@ -70,4 +72,43 @@ class SinkTypeDeserializer extends JsonDeserializer[SinkType] {
   }
 }
 
-case class Sink(`type`: SinkType, properties: Option[Map[String, String]] = None)
+@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "type")
+@JsonSubTypes(
+  Array(
+    new JsonSubTypes.Type(value = classOf[BigQuerySink], name = "BQ"),
+    new JsonSubTypes.Type(value = classOf[EsSink], name = "ES"),
+    new JsonSubTypes.Type(value = classOf[JdbcSink], name = "JDBC")
+  )
+)
+sealed abstract class Sink(val `type`: SinkType)
+
+@JsonTypeName("BQ")
+final case class BigQuerySink(
+  location: Option[String] = None,
+  timestamp: Option[String] = None,
+  clustering: Option[Seq[String]] = None,
+  days: Option[Int] = None
+) extends Sink(SinkType.BQ)
+
+@JsonTypeName("ES")
+final case class EsSink(id: Option[String] = None, timestamp: Option[String] = None)
+    extends Sink(SinkType.ES)
+
+@JsonTypeName("JDBC")
+final case class JdbcSink(
+  connection: String,
+  partitions: Option[Int] = None,
+  batchsize: Option[Int] = None
+) extends Sink(SinkType.JDBC)
+
+object Sink {
+
+  def fromString(sinkTypeStr: String): Sink = {
+    val sinkType = SinkType.fromString(sinkTypeStr)
+    sinkType match {
+      case SinkType.BQ => BigQuerySink()
+      case SinkType.ES => EsSink()
+      case _           => throw new Exception(s"Unsupported creation of SinkType from $sinkType")
+    }
+  }
+}
