@@ -1,7 +1,7 @@
 package com.ebiznext.comet.job.index.bqload
 
 import buildinfo.BuildInfo
-import com.ebiznext.comet.schema.model.{RowLevelSecurity, Sink}
+import com.ebiznext.comet.schema.model.RowLevelSecurity
 import com.ebiznext.comet.utils.CliConfig
 import org.apache.spark.sql.DataFrame
 import scopt.OParser
@@ -23,29 +23,6 @@ case class BigQueryLoadConfig(
 }
 
 object BigQueryLoadConfig extends CliConfig[BigQueryLoadConfig] {
-
-  def getLocation(sink: Option[Sink]): Option[String] =
-    sink
-      .flatMap(_.properties)
-      .flatMap(_.get("location"))
-
-  def getTimestamp(sink: Option[Sink]): Option[String] =
-    sink
-      .flatMap(_.properties)
-      .flatMap(_.get("timestamp"))
-
-  def getClustering(sink: Option[Sink]): Seq[String] =
-    sink
-      .flatMap(_.properties)
-      .flatMap(_.get("clustering"))
-      .map(_.split(",").toSeq)
-      .getOrElse(Nil)
-
-  def getDays(sink: Option[Sink]): Option[Int] =
-    sink
-      .flatMap(_.properties)
-      .flatMap(_.get("days"))
-      .map(_.toInt)
 
   val parser: OParser[Unit, BigQueryLoadConfig] = {
     val builder = OParser.builder[BigQueryLoadConfig]

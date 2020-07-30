@@ -107,7 +107,7 @@ class JsonIngestionJobSpecNoIndexJdbcMetricsJdbcAuditSpec
       .parseString("""
                      |metrics {
                      |  active = true
-                     |  index {
+                     |  sink {
                      |    type = "Jdbc"
                      |    jdbc-connection = "test-h2"
                      |  }
@@ -115,7 +115,7 @@ class JsonIngestionJobSpecNoIndexJdbcMetricsJdbcAuditSpec
                      |
                      |audit {
                      |  active = true
-                     |  index {
+                     |  sink {
                      |    type = "Jdbc"
                      |    jdbc-connection = "test-h2"
                      |  }
