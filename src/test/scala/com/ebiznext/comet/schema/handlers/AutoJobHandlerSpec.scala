@@ -288,13 +288,17 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         "TABLE",
         WriteMode.OVERWRITE,
         Some(List("comet_year", "comet_month")),
-        rls = Some(
+        None,
+        None,
+        None,
+        None,
+        Some(
           RowLevelSecurity("myrls", "TRUE", List("user:hayssam.saleh@ebiznext.com"))
         )
       )
-      val businessJob =
-        AutoJobDesc("business1", List(businessTask1), None, Some("parquet"), Some(true))
+
       val sink = businessTask1.getSink().map(_.asInstanceOf[BigQuerySink])
+
       val config = BigQueryLoadConfig(
         outputTable = businessTask1.dataset,
         outputDataset = businessTask1.domain,
