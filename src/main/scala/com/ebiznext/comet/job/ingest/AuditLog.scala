@@ -23,9 +23,9 @@ package com.ebiznext.comet.job.ingest
 import java.sql.Timestamp
 
 import com.ebiznext.comet.config.Settings
-import com.ebiznext.comet.config.Settings.SinkSettings
 import com.ebiznext.comet.job.index.bqload.{BigQueryLoadConfig, BigQueryLoadJob}
 import com.ebiznext.comet.job.index.jdbcload.{JdbcLoadConfig, JdbcLoadJob}
+import com.ebiznext.comet.schema.model.{BigQuerySink, EsSink, JdbcSink, NoneSink}
 import com.ebiznext.comet.utils.FileLock
 import com.google.cloud.bigquery.{Field, LegacySQLTypeName}
 import org.apache.hadoop.fs.Path
@@ -119,21 +119,21 @@ object SparkAuditLogWriter {
       .toDF(auditCols.map(_._1): _*)
 
     settings.comet.audit.sink match {
-      case SinkSettings.Jdbc(name, partitions, batchSize) =>
+      case JdbcSink(connectionName, partitions, batchSize) =>
         val jdbcConfig = JdbcLoadConfig.fromComet(
-          name,
+          connectionName,
           settings.comet,
           Right(auditDF),
           "audit",
-          partitions = partitions,
-          batchSize = batchSize
+          partitions = partitions.getOrElse(1),
+          batchSize = batchSize.getOrElse(1000)
         )
         new JdbcLoadJob(jdbcConfig).run()
 
-      case SinkSettings.BigQuery(dataset) =>
+      case sink: BigQuerySink =>
         val bqConfig = BigQueryLoadConfig(
           Right(auditDF),
-          outputDataset = dataset,
+          outputDataset = sink.name.getOrElse("audit"),
           outputTable = "audit",
           None,
           Nil,
@@ -145,7 +145,9 @@ object SparkAuditLogWriter {
         )
         new BigQueryLoadJob(bqConfig, Some(bigqueryAuditSchema())).run()
 
-      case SinkSettings.None =>
+      case EsSink(id, timestamp) =>
+        ???
+      case NoneSink() =>
       // this is a NOP
     }
   }
