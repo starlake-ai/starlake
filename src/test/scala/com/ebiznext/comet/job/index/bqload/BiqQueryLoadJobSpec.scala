@@ -16,6 +16,8 @@ class BiqQueryLoadJobSpec extends TestHelper {
           |  --output_table <value>   BigQuery Output Table
           |  --output_partition <value>
           |                           BigQuery Partition Field
+          |  -- require_partition_filter <value>
+          |                           Require Partition Filter
           |  --output_clustering col1,col2...
           |                           BigQuery Clustering Fields
           |  --source_format <value>  Source Format eq. parquet
