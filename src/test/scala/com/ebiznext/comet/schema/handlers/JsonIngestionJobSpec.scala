@@ -89,7 +89,7 @@ class JsonIngestionJobNoIndexNoMetricsNoAuditSpec
     ConfigFactory
       .parseString("""
           |audit.index.type = "None"
-          |audit.index.jdbc-connection = "test-h2"
+          |audit.index.connection = "test-h2"
           |""".stripMargin)
       .withFallback(super.testConfiguration)
 
@@ -108,16 +108,16 @@ class JsonIngestionJobSpecNoIndexJdbcMetricsJdbcAuditSpec
                      |metrics {
                      |  active = true
                      |  sink {
-                     |    type = "Jdbc"
-                     |    jdbc-connection = "test-h2"
+                     |    type = "JdbcSink"
+                     |    connection = "test-h2"
                      |  }
                      |}
                      |
                      |audit {
                      |  active = true
                      |  sink {
-                     |    type = "Jdbc"
-                     |    jdbc-connection = "test-h2"
+                     |    type = "JdbcSink"
+                     |    connection = "test-h2"
                      |  }
                      |}
                      |""".stripMargin)

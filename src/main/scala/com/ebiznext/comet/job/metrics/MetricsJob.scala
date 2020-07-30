@@ -6,7 +6,15 @@ import com.ebiznext.comet.job.index.jdbcload.JdbcLoadConfig
 import com.ebiznext.comet.job.ingest.MetricRecord
 import com.ebiznext.comet.job.metrics.Metrics.{ContinuousMetric, DiscreteMetric, MetricsDatasets}
 import com.ebiznext.comet.schema.handlers.{SchemaHandler, StorageHandler}
-import com.ebiznext.comet.schema.model.{Domain, Schema, Stage}
+import com.ebiznext.comet.schema.model.{
+  BigQuerySink,
+  Domain,
+  EsSink,
+  JdbcSink,
+  NoneSink,
+  Schema,
+  Stage
+}
 import com.ebiznext.comet.utils.{FileLock, SparkJob, SparkJobResult, Utils}
 import com.google.cloud.bigquery.JobInfo.WriteDisposition
 import org.apache.hadoop.fs.Path
@@ -249,26 +257,28 @@ class MetricsJob(
   private def sinkMetrics(metricsDf: DataFrame, table: String): Try[Unit] = {
     if (settings.comet.metrics.active) {
       settings.comet.metrics.sink match {
-        case Settings.SinkSettings.None =>
+        case NoneSink() =>
           Success(())
 
-        case Settings.SinkSettings.BigQuery(bqDataset) =>
+        case sink: BigQuerySink =>
           Try {
-            sinkMetricsToBigQuery(metricsDf, bqDataset, table)
+            sinkMetricsToBigQuery(metricsDf, sink.name.getOrElse("metric"), table)
           }
 
-        case Settings.SinkSettings.Jdbc(jdbcConnection, partitions, batchSize) =>
+        case JdbcSink(jdbcConnection, partitions, batchSize) =>
           Try {
             val jdbcConfig = JdbcLoadConfig.fromComet(
               jdbcConnection,
               settings.comet,
               Right(metricsDf),
               name,
-              partitions = partitions,
-              batchSize = batchSize
+              partitions = partitions.getOrElse(1),
+              batchSize = batchSize.getOrElse(1000)
             )
             sinkMetricsToJdbc(jdbcConfig)
           }
+        case EsSink(id, timestamp) =>
+          ???
       }
     } else {
       Success(())
