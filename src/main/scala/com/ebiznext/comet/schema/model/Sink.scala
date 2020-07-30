@@ -43,11 +43,11 @@ object SinkType {
 
   def fromString(value: String): SinkType = {
     value.toUpperCase match {
-      case "NONE" => SinkType.None
-      case "FS"   => SinkType.FS
-      case "JDBC" => SinkType.JDBC
-      case "BQ"   => SinkType.BQ
-      case "ES"   => SinkType.ES
+      case "NONE" | "NONESINK"   => SinkType.None
+      case "FS" | "FSSINK"       => SinkType.FS
+      case "JDBC" | "JDBCSINK"   => SinkType.JDBC
+      case "BQ" | "BIGQUERYSINK" => SinkType.BQ
+      case "ES" | "ESSINK"       => SinkType.ES
     }
   }
 
@@ -75,12 +75,13 @@ class SinkTypeDeserializer extends JsonDeserializer[SinkType] {
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "type")
 @JsonSubTypes(
   Array(
+    new JsonSubTypes.Type(value = classOf[NoneSink], name = "None"),
     new JsonSubTypes.Type(value = classOf[BigQuerySink], name = "BQ"),
     new JsonSubTypes.Type(value = classOf[EsSink], name = "ES"),
     new JsonSubTypes.Type(value = classOf[JdbcSink], name = "JDBC")
   )
 )
-sealed abstract class Sink(val `type`: SinkType)
+sealed abstract class Sink(val `type`: SinkType, val name: Option[String] = None)
 
 @JsonTypeName("BQ")
 final case class BigQuerySink(
@@ -95,6 +96,9 @@ final case class BigQuerySink(
 final case class EsSink(id: Option[String] = None, timestamp: Option[String] = None)
     extends Sink(SinkType.ES)
 
+@JsonTypeName("None")
+final case class NoneSink() extends Sink(SinkType.None)
+
 @JsonTypeName("JDBC")
 final case class JdbcSink(
   connection: String,
@@ -107,9 +111,10 @@ object Sink {
   def fromString(sinkTypeStr: String): Sink = {
     val sinkType = SinkType.fromString(sinkTypeStr)
     sinkType match {
-      case SinkType.BQ => BigQuerySink()
-      case SinkType.ES => EsSink()
-      case _           => throw new Exception(s"Unsupported creation of SinkType from $sinkType")
+      case SinkType.None => NoneSink()
+      case SinkType.BQ   => BigQuerySink()
+      case SinkType.ES   => EsSink()
+      case _             => throw new Exception(s"Unsupported creation of SinkType from $sinkType")
     }
   }
 }
