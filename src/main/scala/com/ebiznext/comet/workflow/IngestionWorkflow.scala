@@ -415,6 +415,7 @@ class IngestionWorkflow(
                   outputPartition = sink.timestamp,
                   outputClustering = sink.clustering.getOrElse(Nil),
                   days = sink.days,
+                  requirePartitionFilter = sink.requirePartitionFilter.getOrElse(false),
                   rls = task.rls
                 )
               )

@@ -218,6 +218,7 @@ trait IngestionJob extends SparkJob {
           outputPartition = sink.flatMap(_.timestamp),
           outputClustering = sink.flatMap(_.clustering).getOrElse(Nil),
           days = sink.flatMap(_.days),
+          requirePartitionFilter = sink.flatMap(_.requirePartitionFilter).getOrElse(false),
           rls = schema.rls
         )
         val res = new BigQueryLoadJob(config, Some(schema.bqSchema(schemaHandler))).run()

@@ -87,7 +87,8 @@ final case class BigQuerySink(
   location: Option[String] = None,
   timestamp: Option[String] = None,
   clustering: Option[Seq[String]] = None,
-  days: Option[Int] = None
+  days: Option[Int] = None,
+  requirePartitionFilter: Option[Boolean] = None
 ) extends Sink(SinkType.BQ)
 
 @JsonTypeName("ES")
