@@ -4,7 +4,6 @@ import java.sql.Timestamp
 import java.time.format.DateTimeFormatter
 import java.time.{Instant, LocalDateTime}
 
-import com.ebiznext.comet.config.Settings.SinkSettings
 import com.ebiznext.comet.config.{DatasetArea, Settings, StorageArea}
 import com.ebiznext.comet.job.index.bqload.{BigQueryLoadConfig, BigQueryLoadJob}
 import com.ebiznext.comet.job.index.esload.{ESLoadConfig, ESLoadJob}
@@ -597,10 +596,10 @@ object IngestionUtil {
 
     val res =
       settings.comet.audit.sink match {
-        case SinkSettings.BigQuery(dataset) =>
+        case sink: BigQuerySink =>
           val bqConfig = BigQueryLoadConfig(
             Right(rejectedDF),
-            outputDataset = dataset,
+            outputDataset = sink.name.getOrElse("audit"),
             outputTable = "rejected",
             None,
             Nil,
@@ -612,19 +611,21 @@ object IngestionUtil {
           )
           new BigQueryLoadJob(bqConfig, Some(bigqueryRejectedSchema())).run()
 
-        case SinkSettings.Jdbc(jdbcName, partitions, batchSize) =>
+        case JdbcSink(jdbcName, partitions, batchSize) =>
           val jdbcConfig = JdbcLoadConfig.fromComet(
             jdbcName,
             settings.comet,
             Right(rejectedDF),
             "rejected",
-            partitions = partitions,
-            batchSize = batchSize
+            partitions = partitions.getOrElse(1),
+            batchSize = batchSize.getOrElse(1000)
           )
 
           new JdbcLoadJob(jdbcConfig).run()
 
-        case SinkSettings.None =>
+        case EsSink(id, timestamp) =>
+          ???
+        case NoneSink() =>
           Success(())
       }
     res match {
