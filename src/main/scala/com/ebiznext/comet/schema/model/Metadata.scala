@@ -147,15 +147,19 @@ case class Metadata(
   }
 
   def checkValidity(
-                     schemaHandler: SchemaHandler
-                   )(implicit settings: Settings): Either[List[String], Boolean] = {
+    schemaHandler: SchemaHandler
+  )(implicit settings: Settings): Either[List[String], Boolean] = {
     def isIgnoreUDF = ignore.map(_.startsWith("udf:")).getOrElse(false)
     val errorList: mutable.MutableList[String] = mutable.MutableList.empty
 
     if (!isIgnoreUDF && getFormat() == Format.DSV)
       errorList += "When input format is DSV, ignore metadata attribute cannot be a regex, it must be an UDF"
 
-    if (ignore.isDefined && !List(Format.DSV, Format.SIMPLE_JSON, Format.POSITION).contains(getFormat()))
+    if (
+      ignore.isDefined && !List(Format.DSV, Format.SIMPLE_JSON, Format.POSITION).contains(
+        getFormat()
+      )
+    )
       errorList += s"ignore not yet supported for format ${getFormat()}"
 
     if (errorList.nonEmpty)
