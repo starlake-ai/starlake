@@ -62,6 +62,18 @@ trait IngestionJob extends SparkJob {
     */
   def ingest(dataset: DataFrame): (RDD[_], RDD[_])
 
+  def applyIgnore(dfIn: DataFrame): Dataset[Row] = {
+    import org.apache.spark.sql.functions._
+    import session.implicits._
+    metadata.ignore.map { ignore =>
+      if (ignore.startsWith("udf:")) {
+        dfIn.filter(callUDF(ignore.substring("udf:".length), struct(dfIn.columns.map(dfIn(_)): _*)))
+      } else {
+        dfIn.filter(!($"value" rlike ignore))
+      }
+    } getOrElse dfIn
+  }
+
   def saveRejected(rejectedRDD: RDD[String]): Try[Path] = {
     logger.whenDebugEnabled {
       logger.debug(s"rejectedRDD SIZE ${rejectedRDD.count()}")
@@ -69,7 +81,7 @@ trait IngestionJob extends SparkJob {
     }
     val domainName = domain.name
     val schemaName = schema.name
-    IngestionUtil.indexRejected(session, rejectedRDD, domainName, schemaName.toString, now) match {
+    IngestionUtil.sinkRejected(session, rejectedRDD, domainName, schemaName.toString, now) match {
       case Success((rejectedDF, rejectedPath)) =>
         saveRows(rejectedDF, rejectedPath, WriteMode.APPEND, StorageArea.rejected, false)
         Success(rejectedPath)
@@ -570,7 +582,7 @@ object IngestionUtil {
     BQSchema.of(fields: _*)
   }
 
-  def indexRejected(
+  def sinkRejected(
     session: SparkSession,
     rejectedRDD: RDD[String],
     domainName: String,

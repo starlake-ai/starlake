@@ -76,6 +76,7 @@ trait TestHelper extends AnyFlatSpec with Matchers with BeforeAndAfterAll with S
         |COMET_LOCK_PATH="${cometTestRoot}/locks"
         |COMET_METRICS_PATH="${cometTestRoot}/metrics/{domain}/{schema}"
         |COMET_AUDIT_PATH="${cometTestRoot}/audit"
+        |COMET_UDFS="com.ebiznext.comet.udf.TestUdf"
         |
         |include required("application-test.conf")
         |""".stripMargin,

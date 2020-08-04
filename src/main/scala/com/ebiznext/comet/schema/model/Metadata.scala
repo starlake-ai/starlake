@@ -20,10 +20,14 @@
 
 package com.ebiznext.comet.schema.model
 
+import com.ebiznext.comet.config.Settings
+import com.ebiznext.comet.schema.handlers.SchemaHandler
 import com.ebiznext.comet.schema.model.Format.DSV
 import com.ebiznext.comet.schema.model.Mode.FILE
 import com.ebiznext.comet.schema.model.WriteMode.APPEND
 import com.fasterxml.jackson.annotation.JsonIgnore
+
+import scala.collection.mutable
 
 /**
   * Specify Schema properties.
@@ -42,7 +46,8 @@ import com.fasterxml.jackson.annotation.JsonIgnore
   * @param escape     : escaping char '\' by default
   * @param write      : Write mode, APPEND by default
   * @param partition  : Partition columns, no partitioning by default
-  * @param sink      : should the dataset be indexed in elasticsearch after ingestion ?
+  * @param sink       : should the dataset be indexed in elasticsearch after ingestion ?
+  * @param ignore     : Pattern to ignore org UDF to apply to ignore some lines
   */
 case class Metadata(
   mode: Option[Mode] = None,
@@ -56,7 +61,8 @@ case class Metadata(
   escape: Option[String] = None,
   write: Option[WriteMode] = None,
   partition: Option[Partition] = None,
-  sink: Option[Sink] = None
+  sink: Option[Sink] = None,
+  ignore: Option[String] = None
 ) {
 
   override def toString: String =
@@ -135,8 +141,27 @@ case class Metadata(
       escape = merge(this.escape, child.escape),
       write = merge(this.write, child.write),
       partition = merge(this.partition, child.partition),
-      sink = merge(this.sink, child.sink)
+      sink = merge(this.sink, child.sink),
+      ignore = merge(this.ignore, child.ignore)
     )
+  }
+
+  def checkValidity(
+                     schemaHandler: SchemaHandler
+                   )(implicit settings: Settings): Either[List[String], Boolean] = {
+    def isIgnoreUDF = ignore.map(_.startsWith("udf:")).getOrElse(false)
+    val errorList: mutable.MutableList[String] = mutable.MutableList.empty
+
+    if (!isIgnoreUDF && getFormat() == Format.DSV)
+      errorList += "When input format is DSV, ignore metadata attribute cannot be a regex, it must be an UDF"
+
+    if (ignore.isDefined && !List(Format.DSV, Format.SIMPLE_JSON, Format.POSITION).contains(getFormat()))
+      errorList += s"ignore not yet supported for format ${getFormat()}"
+
+    if (errorList.nonEmpty)
+      Left(errorList.toList)
+    else
+      Right(true)
   }
 }
 
@@ -165,6 +190,7 @@ object Metadata {
       quote,
       escape,
       write,
+      None,
       None,
       None
     )
