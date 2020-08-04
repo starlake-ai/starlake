@@ -132,7 +132,7 @@ class SimpleLauncher extends LaunchHandler with StrictLogging {
     settings: Settings
   ): Boolean = {
     logger.info(s"Launch index: ${config}")
-    workflow.index(config)
+    workflow.esLoad(config)
     true
   }
 
