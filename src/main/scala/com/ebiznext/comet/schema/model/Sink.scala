@@ -108,7 +108,7 @@ final case class JdbcSink(
 
 object Sink {
 
-  def fromString(sinkTypeStr: String): Sink = {
+  def fromType(sinkTypeStr: String): Sink = {
     val sinkType = SinkType.fromString(sinkTypeStr)
     sinkType match {
       case SinkType.None => NoneSink()
