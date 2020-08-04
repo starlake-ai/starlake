@@ -1,6 +1,6 @@
 package com.ebiznext.comet.utils
 
-import com.ebiznext.comet.config.{Settings, SparkEnv}
+import com.ebiznext.comet.config.{Settings, SparkEnv, UdfRegistration}
 import com.ebiznext.comet.schema.model.Metadata
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.sql.functions._
@@ -19,7 +19,23 @@ trait SparkJob extends StrictLogging {
   implicit def settings: Settings
 
   lazy val sparkEnv: SparkEnv = new SparkEnv(name)
-  lazy val session: SparkSession = sparkEnv.session
+
+  lazy val session: SparkSession = {
+    val udfs = settings.comet.udfs.map { udfs =>
+        udfs.split(',').toList
+      } getOrElse Nil
+
+    udfs.foreach { udf =>
+      val udfInstance: UdfRegistration =
+        Class
+          .forName(udf)
+          .getDeclaredConstructor()
+          .newInstance()
+          .asInstanceOf[UdfRegistration]
+      udfInstance.register(sparkEnv.session)
+    }
+    sparkEnv.session
+  }
 
   /**
     * Just to force any spark job to implement its entry point using within the "run" method
