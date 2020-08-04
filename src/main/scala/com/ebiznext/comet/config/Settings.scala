@@ -207,7 +207,8 @@ object Settings extends StrictLogging {
     privacy: Privacy,
     fileSystem: Option[String],
     metadataFileSystem: Option[String],
-    internal: Option[Internal]
+    internal: Option[Internal],
+    udfs: Option[String]
   ) extends Serializable {
 
     @JsonIgnore
