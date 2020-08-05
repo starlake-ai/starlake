@@ -3,7 +3,13 @@ package com.ebiznext.comet.schema.handlers
 import com.ebiznext.comet.TestHelper
 import com.ebiznext.comet.config.{Settings, StorageArea}
 import com.ebiznext.comet.job.index.bqload.{BigQueryLoadConfig, BigQueryLoadJob}
-import com.ebiznext.comet.schema.model.{AutoJobDesc, AutoTaskDesc, RowLevelSecurity, WriteMode}
+import com.ebiznext.comet.schema.model.{
+  AutoJobDesc,
+  AutoTaskDesc,
+  BigQuerySink,
+  RowLevelSecurity,
+  WriteMode
+}
 import com.ebiznext.comet.workflow.IngestionWorkflow
 import com.google.cloud.hadoop.io.bigquery.BigQueryConfiguration
 import org.apache.hadoop.fs.Path
@@ -282,12 +288,16 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         "TABLE",
         WriteMode.OVERWRITE,
         Some(List("comet_year", "comet_month")),
-        rls = Some(
+        None,
+        None,
+        None,
+        None,
+        Some(
           RowLevelSecurity("myrls", "TRUE", List("user:hayssam.saleh@ebiznext.com"))
         )
       )
-      val businessJob =
-        AutoJobDesc("business1", List(businessTask1), None, Some("parquet"), Some(true))
+
+      val sink = businessTask1.getSink().map(_.asInstanceOf[BigQuerySink])
 
       val config = BigQueryLoadConfig(
         outputTable = businessTask1.dataset,
@@ -295,9 +305,11 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         sourceFormat = "parquet",
         createDisposition = "CREATE_IF_NEEDED",
         writeDisposition = "WRITE_TRUNCATE",
-        location = businessTask1.properties.flatMap(_.get("location")),
-        outputPartition = businessTask1.properties.flatMap(_.get("timestamp")),
-        days = businessTask1.properties.flatMap(_.get("days").map(_.toInt)),
+        location = sink.flatMap(_.location),
+        outputPartition = sink.flatMap(_.timestamp),
+        outputClustering = sink.flatMap(_.clustering).getOrElse(Nil),
+        days = sink.flatMap(_.days),
+        requirePartitionFilter = sink.flatMap(_.requirePartitionFilter).getOrElse(false),
         rls = businessTask1.rls
       )
       val job = new BigQueryLoadJob(config)
