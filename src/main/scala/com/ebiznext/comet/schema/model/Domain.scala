@@ -131,7 +131,6 @@ case class Domain(
       }
     }
 
-
     val duplicatesErrorMessage =
       "%s is defined %d times. A schema can only be defined once."
     for (errors <- duplicates(schemas.map(_.name), duplicatesErrorMessage).left) {
