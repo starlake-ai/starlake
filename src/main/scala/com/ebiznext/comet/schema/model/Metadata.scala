@@ -176,26 +176,4 @@ object Metadata {
     */
   val CometPartitionColumns =
     List("comet_year", "comet_month", "comet_day", "comet_hour", "comet_minute")
-
-  def Dsv(
-    separator: Option[String],
-    quote: Option[String],
-    escape: Option[String],
-    write: Option[WriteMode]
-  ) =
-    new Metadata(
-      Some(Mode.FILE),
-      Some(Format.DSV),
-      None,
-      Some(false),
-      Some(false),
-      Some(true),
-      separator,
-      quote,
-      escape,
-      write,
-      None,
-      None,
-      None
-    )
 }
