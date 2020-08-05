@@ -4,8 +4,7 @@ import java.io.File
 
 import com.ebiznext.comet.TestHelper
 import com.ebiznext.comet.config.DatasetArea
-import com.ebiznext.comet.schema.model.IndexSink.BQ
-import com.ebiznext.comet.schema.model.{Domain, Format, PrivacyLevel}
+import com.ebiznext.comet.schema.model.{BigQuerySink, Domain, Format, PrivacyLevel}
 
 class SchemaGenSpec extends TestHelper {
   new WithSettings() {
@@ -27,13 +26,13 @@ class SchemaGenSpec extends TestHelper {
     }
 
     it should "take into account the index col of a schema" in {
-      val index = for {
+      val sink = for {
         schema   <- result.schemas.find(_.name == "SCHEMA1")
         metadata <- schema.metadata
-        index    <- metadata.index
-      } yield index
+        sink     <- metadata.sink
+      } yield sink
 
-      index shouldBe Some(BQ)
+      sink shouldBe Some(BigQuerySink())
     }
 
     "All configured schemas" should "have all declared attributes correctly set" in {
