@@ -117,12 +117,20 @@ case class Domain(
     if (!dbNamePattern.matcher(name).matches())
       errorList += s"Domain with name $name should respect the pattern ${dbNamePattern.pattern()}"
 
-    // Check Schema validity
+    // Check Schemas validity
     schemas.foreach { schema =>
       for (errors <- schema.checkValidity(this.metadata, schemaHandler).left) {
         errorList ++= errors
       }
     }
+
+    // Check Metadata validity
+    metadata.foreach { metadata =>
+      for (errors <- metadata.checkValidity(schemaHandler).left) {
+        errorList ++= errors
+      }
+    }
+
 
     val duplicatesErrorMessage =
       "%s is defined %d times. A schema can only be defined once."
