@@ -429,7 +429,7 @@ class IngestionWorkflow(
     }
   }
 
-  def index(config: ESLoadConfig): Try[SparkJobResult] = {
+  def esLoad(config: ESLoadConfig): Try[SparkJobResult] = {
     new ESLoadJob(config, storageHandler, schemaHandler).run()
   }
 
