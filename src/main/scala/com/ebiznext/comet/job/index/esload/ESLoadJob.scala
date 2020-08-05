@@ -46,7 +46,7 @@ class ESLoadJob(
   override def name: String = s"Index $path"
 
   /**
-    * Just to force any spark job to implement its entry point using within the "run" method
+    * Just to force any spark job to implement its entry point within the "run" method
     *
     * @return : Spark Session used for the job
     */
@@ -92,7 +92,6 @@ class ESLoadJob(
         )
       }
     }
-
     logger.info(
       s"Registering template ${cliConfig.domain.toLowerCase}_${cliConfig.schema.toLowerCase} -> $content"
     )
