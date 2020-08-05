@@ -53,7 +53,7 @@ class SimpleJsonIngestionJob(
   override def loadDataSet(): Try[DataFrame] = {
     try {
 
-      val df =
+      val dfIn =
         if (metadata.isArray()) {
           val jsonRDD =
             session.sparkContext.wholeTextFiles(path.map(_.toString).mkString(",")).map(_._2)
@@ -78,6 +78,10 @@ class SimpleJsonIngestionJob(
               org.apache.spark.sql.functions.input_file_name()
             )
         }
+
+      logger.debug(dfIn.schema.treeString)
+
+      val df = applyIgnore(dfIn)
 
       import session.implicits._
       val resDF = if (df.columns.contains("_corrupt_record")) {

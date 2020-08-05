@@ -145,7 +145,7 @@ object Main extends StrictLogging {
         ESLoadConfig.parse(args.drop(1)) match {
           case Some(config) =>
             // do something
-            workflow.index(config)
+            workflow.esLoad(config)
           case _ =>
             println(ESLoadConfig.usage())
         }

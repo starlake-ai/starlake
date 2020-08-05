@@ -59,7 +59,7 @@ class JsonIngestionJob(
   def loadDataSet(): Try[DataFrame] = {
 
     try {
-      val df = session.read
+      val dfIn = session.read
         .option("inferSchema", value = false)
         .option("encoding", metadata.getEncoding())
         .text(path.map(_.toString): _*)
@@ -68,7 +68,9 @@ class JsonIngestionJob(
           org.apache.spark.sql.functions.col("value")
         )
 
-      logger.debug(df.schema.treeString)
+      logger.debug(dfIn.schema.treeString)
+
+      val df = applyIgnore(dfIn)
 
       Success(df)
     } catch {
