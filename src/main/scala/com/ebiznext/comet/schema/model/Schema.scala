@@ -137,6 +137,12 @@ case class Schema(
     if (!tableNamePattern.matcher(name).matches())
       errorList += s"Schema with name $name should respect the pattern ${tableNamePattern.pattern()}"
 
+    metadata.foreach { metadata =>
+      for (errors <- metadata.checkValidity(schemaHandler).left) {
+        errorList ++= errors
+      }
+    }
+
     attributes.foreach { attribute =>
       for (errors <- attribute.checkValidity(schemaHandler).left) {
         errorList ++= errors
