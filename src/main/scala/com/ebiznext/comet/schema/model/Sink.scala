@@ -29,8 +29,8 @@ import com.fasterxml.jackson.databind.{DeserializationContext, JsonDeserializer}
 /**
   * Recognized file type format. This will select  the correct parser
   *
-  * @param value : SIMPLE_JSON, JSON of DSV
-  *              Simple Json is made of a single level attributes of simple types (no arrray or map or sub objects)
+  * @param value : NONE, FS, JDBC, BQ, ES
+  *              One of the possible supported sinks
   */
 
 @JsonSerialize(using = classOf[ToStringSerializer])
@@ -108,7 +108,7 @@ final case class JdbcSink(
 
 object Sink {
 
-  def fromString(sinkTypeStr: String): Sink = {
+  def fromType(sinkTypeStr: String): Sink = {
     val sinkType = SinkType.fromString(sinkTypeStr)
     sinkType match {
       case SinkType.None => NoneSink()
