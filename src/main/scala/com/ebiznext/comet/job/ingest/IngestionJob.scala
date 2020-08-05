@@ -67,7 +67,9 @@ trait IngestionJob extends SparkJob {
     import session.implicits._
     metadata.ignore.map { ignore =>
       if (ignore.startsWith("udf:")) {
-        dfIn.filter(!callUDF(ignore.substring("udf:".length), struct(dfIn.columns.map(dfIn(_)): _*)))
+        dfIn.filter(
+          !callUDF(ignore.substring("udf:".length), struct(dfIn.columns.map(dfIn(_)): _*))
+        )
       } else {
         dfIn.filter(!($"value" rlike ignore))
       }
