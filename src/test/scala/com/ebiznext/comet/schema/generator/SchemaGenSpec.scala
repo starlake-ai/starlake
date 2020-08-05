@@ -76,6 +76,19 @@ class SchemaGenSpec extends TestHelper {
       preEncrypt.schemas.flatMap(_.attributes).filter(_.`type` != "string") shouldBe empty
     }
 
+    "Merge and Partition elements" should "only be present in Post-Encryption domain" in {
+      domainOpt shouldBe defined
+      val preEncrypt = SchemaGen.genPreEncryptionDomain(domainOpt.get, Nil)
+      preEncrypt.schemas.flatMap(_.metadata.map(_.partition)).forall(p => p.isEmpty) shouldBe true
+      preEncrypt.schemas.map(_.merge).forall(m => m.isEmpty) shouldBe true
+      val postEncrypt = SchemaGen.genPostEncryptionDomain(domainOpt.get, None, Nil)
+      postEncrypt.schemas
+        .flatMap(_.metadata.map(_.partition))
+        .forall(p => p.isDefined) shouldBe true
+      postEncrypt.schemas.map(_.merge).forall(m => m.isDefined) shouldBe true
+
+    }
+
     "Column Description in schema" should "be present" in {
       domainOpt shouldBe defined
       domainOpt.get.schemas.flatMap(_.comment) should have length 1
