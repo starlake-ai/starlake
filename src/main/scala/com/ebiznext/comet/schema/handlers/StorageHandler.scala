@@ -189,8 +189,8 @@ class HdfsStorageHandler(fileSystem: Option[String])(implicit
           )
           time.isAfter(since) && status.getPath().getName().endsWith(extension)
         }
-        .map(status => status.getPath())
-        .toList
+        .toList.sortBy(_.getModificationTime)
+        .map((status: LocatedFileStatus) => status.getPath())
     } catch {
       case e: Throwable =>
         logger.warn(s"Ignoring folder $path", e)
