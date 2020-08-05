@@ -20,7 +20,6 @@
 
 package com.ebiznext.comet.schema.model
 
-import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.schema.handlers.SchemaHandler
 import com.ebiznext.comet.schema.model.Format.DSV
 import com.ebiznext.comet.schema.model.Mode.FILE
