@@ -189,7 +189,8 @@ class HdfsStorageHandler(fileSystem: Option[String])(implicit
           )
           time.isAfter(since) && status.getPath().getName().endsWith(extension)
         }
-        .toList.sortBy(_.getModificationTime)
+        .toList
+        .sortBy(r => (r.getModificationTime, r.getPath.getName))
         .map((status: LocatedFileStatus) => status.getPath())
     } catch {
       case e: Throwable =>
