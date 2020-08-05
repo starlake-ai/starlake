@@ -32,7 +32,10 @@ object SchemaGen extends LazyLogging {
           else
             attr.copy(`type` = "string", required = false, privacy = None)
         }
+      val newMetaData: Option[Metadata] = s.metadata.map { m => m.copy(partition = None) }
       s.copy(attributes = newAtt)
+        .copy(metadata = newMetaData)
+        .copy(merge = None)
     }
     val preEncryptDomain = domain.copy(schemas = preEncryptSchemas)
     preEncryptDomain
