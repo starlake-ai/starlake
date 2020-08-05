@@ -51,40 +51,48 @@ class BigQueryLoadJob(
     getOrCreateDataset()
     scala.Option(bigquery.getTable(tableId)) getOrElse {
 
-      val tableDefinition =
+      val withPartitionDefinition =
         (maybeSchema, cliConfig.outputPartition) match {
           case (Some(schema), Some(partitionField)) =>
             // Generating schema from YML to get the descriptions in BQ
-            val partitioning = timePartitioning(partitionField, cliConfig.days)
-              .build()
+            val partitioning =
+              timePartitioning(partitionField, cliConfig.days, cliConfig.requirePartitionFilter)
+                .build()
             StandardTableDefinition
               .newBuilder()
               .setSchema(schema)
               .setTimePartitioning(partitioning)
-              .build()
           case (Some(schema), _) =>
             // Generating schema from YML to get the descriptions in BQ
             StandardTableDefinition
               .newBuilder()
               .setSchema(schema)
-              .build()
           case (_, Some(partitionField)) =>
             // We would have loved to let BQ do the whole job (StandardTableDefinition.newBuilder())
             // But however seems like it does not work when there is an output partition
-            val partitioning = timePartitioning(partitionField, cliConfig.days)
-              .build()
+            val partitioning =
+              timePartitioning(partitionField, cliConfig.days, cliConfig.requirePartitionFilter)
+                .build()
             StandardTableDefinition
               .newBuilder()
               .setSchema(df.to[BQSchema])
               .setTimePartitioning(partitioning)
-              .build()
           case (_, _) =>
             // In case of complex types, our inferred schema does not work, BQ introduces a list subfield, let him do the dirty job
             StandardTableDefinition
               .newBuilder()
-              .build()
         }
-      val tableInfo = TableInfo.newBuilder(tableId, tableDefinition).build
+
+      val withClusteringDefinition =
+        cliConfig.outputClustering match {
+          case Nil =>
+            withPartitionDefinition
+          case fields =>
+            import scala.collection.JavaConverters._
+            val clustering = Clustering.newBuilder().setFields(fields.asJava).build()
+            withPartitionDefinition.setClustering(clustering)
+        }
+      val tableInfo = TableInfo.newBuilder(tableId, withClusteringDefinition.build()).build
       bigquery.create(tableInfo)
     }
   }
@@ -288,7 +296,8 @@ class BigQueryLoadJob(
 
   def timePartitioning(
     partitionField: String,
-    days: scala.Option[Int] = None
+    days: scala.Option[Int] = None,
+    requirePartitionFilter: Boolean
   ): TimePartitioning.Builder =
     days match {
       case Some(d) =>
@@ -297,11 +306,13 @@ class BigQueryLoadJob(
           .setRequirePartitionFilter(true)
           .setField(partitionField)
           .setExpirationMs(d * 3600 * 24 * 1000L)
+          .setRequirePartitionFilter(requirePartitionFilter)
       case _ =>
         TimePartitioning
           .newBuilder(TimePartitioning.Type.DAY)
           .setRequirePartitionFilter(true)
           .setField(partitionField)
+          .setRequirePartitionFilter(requirePartitionFilter)
     }
 }
 

@@ -325,15 +325,15 @@ class IngestionWorkflow(
     }
   }
 
-  def index(job: AutoJobDesc, task: AutoTaskDesc): Unit = {
+  def esload(job: AutoJobDesc, task: AutoTaskDesc): Unit = {
     val targetArea = task.area.getOrElse(job.getArea())
     val targetPath = new Path(DatasetArea.path(task.domain, targetArea.value), task.dataset)
-    val properties = task.properties
-    launchHandler.index(
+    val sink = task.getSink().asInstanceOf[EsSink]
+    launchHandler.esload(
       this,
       ESLoadConfig(
-        timestamp = properties.flatMap(_.get("timestamp")),
-        id = properties.flatMap(_.get("id")),
+        timestamp = sink.timestamp,
+        id = sink.id,
         format = "parquet",
         domain = task.domain,
         schema = task.dataset,
@@ -393,11 +393,13 @@ class IngestionWorkflow(
       )
       action.run() match {
         case Success(SparkJobResult(session, maybeDataFrame)) =>
-          task.getIndexSink() match {
-            case Some(IndexSink.ES) if settings.comet.elasticsearch.active =>
-              index(job, task)
-            case Some(IndexSink.BQ) =>
+          val sinkType = task.getSink().map(_.`type`)
+          sinkType match {
+            case Some(SinkType.ES) if settings.comet.elasticsearch.active =>
+              esload(job, task)
+            case Some(SinkType.BQ) =>
               val (createDisposition, writeDisposition) = Utils.getDBDisposition(task.write)
+              val sink = task.getSink().asInstanceOf[BigQuerySink]
               val source = maybeDataFrame
                 .map(df => Right(setNullableStateOfColumn(df, nullable = true)))
                 .getOrElse(Left(task.getTargetPath(Some(job.getArea())).toString))
@@ -409,9 +411,11 @@ class IngestionWorkflow(
                   sourceFormat = "parquet",
                   createDisposition = createDisposition,
                   writeDisposition = writeDisposition,
-                  location = task.properties.flatMap(_.get("location")),
-                  outputPartition = task.properties.flatMap(_.get("timestamp")),
-                  days = task.properties.flatMap(_.get("days").map(_.toInt)),
+                  location = sink.location,
+                  outputPartition = sink.timestamp,
+                  outputClustering = sink.clustering.getOrElse(Nil),
+                  days = sink.days,
+                  requirePartitionFilter = sink.requirePartitionFilter.getOrElse(false),
                   rls = task.rls
                 )
               )

@@ -42,8 +42,7 @@ case class AutoTaskDesc(
   presql: Option[List[String]] = None,
   postsql: Option[List[String]] = None,
   area: Option[StorageArea] = None,
-  index: Option[IndexSink] = None,
-  properties: Option[Map[String, String]] = None,
+  sink: Option[Sink] = None,
   rls: Option[RowLevelSecurity] = None
 ) {
 
@@ -51,7 +50,7 @@ case class AutoTaskDesc(
   def getPartitions(): List[String] = partition.getOrElse(Nil)
 
   @JsonIgnore
-  def getIndexSink(): Option[IndexSink] = index
+  def getSink(): Option[Sink] = sink
 
   /**
     * Return a Path only if a storage area s defined

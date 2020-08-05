@@ -90,7 +90,7 @@ class XlsReader(path: String) {
             .flatMap(formatter.formatCellValue)
             .map(_.split(",") map (_.trim))
             .map(_.toList)
-        val indexColumnsOpt =
+        val sinkColumnsOpt =
           Option(row.getCell(13, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
             .flatMap(formatter.formatCellValue)
         (nameOpt, patternOpt) match {
@@ -110,8 +110,7 @@ class XlsReader(path: String) {
                   attributes = partitionColumnsOpt
                 )
               ),
-              index = indexColumnsOpt.map(IndexSink.fromString),
-              properties = None
+              sink = sinkColumnsOpt.map(Sink.fromType)
             )
             val mergeOptions: Option[MergeOptions] = (deltaColOpt, identityKeysOpt) match {
               case (Some(deltaCol), Some(identityKeys)) =>
