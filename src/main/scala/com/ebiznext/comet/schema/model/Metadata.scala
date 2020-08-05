@@ -148,7 +148,7 @@ case class Metadata(
 
   def checkValidity(
     schemaHandler: SchemaHandler
-  )(implicit settings: Settings): Either[List[String], Boolean] = {
+  ): Either[List[String], Boolean] = {
     def isIgnoreUDF = ignore.map(_.startsWith("udf:")).getOrElse(false)
     val errorList: mutable.MutableList[String] = mutable.MutableList.empty
 
