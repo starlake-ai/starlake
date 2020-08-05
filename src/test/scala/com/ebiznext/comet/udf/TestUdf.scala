@@ -1,7 +1,7 @@
 package com.ebiznext.comet.udf
 
 import com.ebiznext.comet.config.UdfRegistration
-import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.{Row, SparkSession}
 
 class TestUdf extends UdfRegistration {
 
@@ -10,5 +10,8 @@ class TestUdf extends UdfRegistration {
 
   override def register(session: SparkSession): Unit = {
     session.udf.register("concatWithSpace", concatWithSpace)
+    session.udf.register("isIgnore", isIgnore)
   }
+
+  val isIgnore = (r: Row) => { r.getAs[String]("value").startsWith("IGNORE") }
 }

@@ -104,7 +104,7 @@ class DsvIngestionJob(
     */
   def loadDataSet(): Try[DataFrame] = {
     try {
-      val df = session.read
+      val dfIn = session.read
         .option("header", metadata.isWithHeader().toString)
         .option("inferSchema", value = false)
         .option("delimiter", metadata.getSeparator())
@@ -115,7 +115,9 @@ class DsvIngestionJob(
         .option("encoding", metadata.getEncoding())
         .csv(path.map(_.toString): _*)
 
-      logger.debug(df.schema.treeString)
+      logger.debug(dfIn.schema.treeString)
+
+      val df = applyIgnore(dfIn)
 
       val resDF = metadata.withHeader match {
         case Some(true) =>
@@ -332,7 +334,7 @@ object DsvIngestionUtil extends DsvValidator {
   }
 }
 
-object AcceptAllValidator extends DsvValidator {
+object DsvAcceptAllValidator extends DsvValidator {
 
   override def validate(
     session: SparkSession,
