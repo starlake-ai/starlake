@@ -174,5 +174,5 @@ object Metadata {
     * Predefined partition columns.
     */
   val CometPartitionColumns =
-    List("comet_year", "comet_month", "comet_day", "comet_hour", "comet_minute")
+    List("comet_date","comet_year", "comet_month", "comet_day", "comet_hour", "comet_minute")
 }
