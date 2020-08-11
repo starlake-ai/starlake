@@ -172,6 +172,8 @@ class XlsReader(path: String) {
                 .map(MetricType.fromString)
               val defaultOpt = Option(row.getCell(6, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
                 .flatMap(formatter.formatCellValue)
+              val scriptOpt = Option(row.getCell(7, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
+                .flatMap(formatter.formatCellValue)
               val commentOpt = Option(row.getCell(8, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
                 .flatMap(formatter.formatCellValue)
 
@@ -215,6 +217,7 @@ class XlsReader(path: String) {
                       trim = attributeTrim,
                       position = positionOpt,
                       default = defaultOpt,
+                      script = scriptOpt,
                       tags = None,
                       attributes = None
                     )
