@@ -393,13 +393,12 @@ class IngestionWorkflow(
       )
       action.run() match {
         case Success(SparkJobResult(session, maybeDataFrame)) =>
-          val sinkType = task.getSink().map(_.`type`)
-          sinkType match {
-            case Some(SinkType.ES) if settings.comet.elasticsearch.active =>
+          task.getSink() match {
+            case Some(sink) if settings.comet.elasticsearch.active && sink.`type` == SinkType.ES =>
               esload(job, task)
-            case Some(SinkType.BQ) =>
+            case Some(sink) if sink.`type` == SinkType.BQ =>
               val (createDisposition, writeDisposition) = Utils.getDBDisposition(task.write)
-              val sink = task.getSink().asInstanceOf[BigQuerySink]
+              val bqSink = sink.asInstanceOf[BigQuerySink]
               val source = maybeDataFrame
                 .map(df => Right(setNullableStateOfColumn(df, nullable = true)))
                 .getOrElse(Left(task.getTargetPath(Some(job.getArea())).toString))
@@ -411,11 +410,11 @@ class IngestionWorkflow(
                   sourceFormat = "parquet",
                   createDisposition = createDisposition,
                   writeDisposition = writeDisposition,
-                  location = sink.location,
-                  outputPartition = sink.timestamp,
-                  outputClustering = sink.clustering.getOrElse(Nil),
-                  days = sink.days,
-                  requirePartitionFilter = sink.requirePartitionFilter.getOrElse(false),
+                  location = bqSink.location,
+                  outputPartition = bqSink.timestamp,
+                  outputClustering = bqSink.clustering.getOrElse(Nil),
+                  days = bqSink.days,
+                  requirePartitionFilter = bqSink.requirePartitionFilter.getOrElse(false),
                   rls = task.rls
                 )
               )
