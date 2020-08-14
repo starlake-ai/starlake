@@ -166,7 +166,9 @@ trait IngestionJob extends SparkJob {
             .getOrElse(acceptedDfWithscriptFields)
         } else if (storageHandler.exists(new Path(acceptedPath, "_SUCCESS"))) {
           // Otherwise load from accepted area
-          val existingDF = session.read.parquet(acceptedPath.toString)
+          // We provide the accepted DF schema since partition columns types are infered when parquet is loaded and might not match with the DF being ingested
+          val existingDF =
+            session.read.schema(acceptedDfWithscriptFields.schema).parquet(acceptedPath.toString)
           merge(acceptedDfWithscriptFields, existingDF, mergeOptions)
         } else
           acceptedDfWithscriptFields
@@ -303,12 +305,8 @@ trait IngestionJob extends SparkJob {
       )
     }
 
-    // Force ordering of columns to be the same AND using the ingested DF schema since the retrieving of the existing one messes up with nullable attributes
-    // Which is blocking for BQ.
-    val orderedExisting = session.createDataFrame(
-      existingDF.select(partitionedInputDF.columns.map(col): _*).rdd,
-      partitionedInputDF.schema
-    )
+    // Force ordering of columns to be the same
+    val orderedExisting = existingDF.select(partitionedInputDF.columns.map(col): _*)
 
     // Force ordering again of columns to be the same since join operation change it otherwise except below won"'t work.
     val commonDF =
