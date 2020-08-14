@@ -171,6 +171,16 @@ class SchemaGenSpec extends TestHelper {
         .flatMap(_.metadata)
         .filterNot(_.separator.contains(",")) shouldBe empty
     }
+
+    "a scripted attribute" should "be generated" in {
+      domainOpt shouldBe defined
+      domainOpt
+        .flatMap(_.schemas.find(_.name == "SCHEMA1"))
+        .flatMap(_.attributes.find(_.name == "ATTRIBUTE_1").flatMap(_.script)) shouldBe Some(
+        "current_date()"
+      )
+    }
+    
     "All SchemaGen Config" should "be known and taken  into account" in {
       val rendered = SchemaGenConfig.usage()
       val expected =
