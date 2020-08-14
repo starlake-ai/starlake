@@ -98,7 +98,7 @@ object TemplateParams {
     val isFullExport = schema.metadata.flatMap(_.write).contains(WriteMode.OVERWRITE)
     new TemplateParams(
       tableToExport = schema.name,
-      columnsToExport = schema.attributes.map(_.name),
+      columnsToExport = schema.attributes.filter(_.script.isEmpty).map(_.name),
       fullExport = isFullExport,
       deltaColumn = if (!isFullExport) deltaColumn else None,
       dsvDelimiter = schema.metadata.flatMap(_.separator).getOrElse(","),
