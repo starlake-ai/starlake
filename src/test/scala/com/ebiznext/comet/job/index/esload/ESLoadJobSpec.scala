@@ -17,7 +17,7 @@ class ESLoadJobSpec extends TestHelper {
           |  --schema <value>         Schema Name
           |  --format <value>         Dataset input file : parquet, json or json-array
           |  --dataset <value>        Input dataset path
-          |  --conf es.batch.size.entries=1000,es.batch.size.bytes=1mb... (see https://www.elastic.co/guide/en/elasticsearch/hadoop/current/configuration.html)
+          |  --conf es.batch.size.entries=1000,es.batch.size.bytes=1mb... see https://www.elastic.co/guide/en/elasticsearch/hadoop/current/configuration.html
           |                           eshadoop configuration options
           |""".stripMargin
       rendered.substring(rendered.indexOf("Usage:")).replaceAll("\\s", "") shouldEqual expected
