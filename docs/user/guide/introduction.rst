@@ -33,7 +33,7 @@ How it works
 ############
 
 Comet Data Pipeline automates the loading and parsing of files and
-their ingestion into a Datalake where datasets become
+their ingestion into a Data Factorys where datasets become
 available as strongly typed records.
 
 
@@ -42,12 +42,44 @@ available as strongly typed records.
 
     Complete Comet Data pipeline Workflow
 
+The figure above describes how Comet implements the Extract Load Transform (ELT) Data Pipeline steps.
+Comet may be used indistinctly for all or any of these steps.
 
-1. Landing Area : Files are first stored in the local file system
-2. Staging Area : Files associated with a schema are imported into the datalake
-3. Working Area : Staged Files are parsed against their schema and records are rejected or accepted and made available in parquet/orc/... files as Hive Tables.
-4. Business Area : Tables in the working area may be joined to provide a hoslictic view of the data through the definition of AutoJob.
-5. Data visualization : parquet/orc/... tables may be exposed in datawarehouses or elasticsearch indexes
+* The "extract" step allows to export selective data from an existing SQL database to a set of CSV / JSON / XML files.
+* The "load" step allows to load text files, to ingest them as strong typed records stored as parquet files or DWH tables (eq. Google BigQuery)
+* The "transform" step allows to join loaded data and save them as parquet files, DWH tables or Elasticsearch indices
+
+The Load Transform steps support multiple configurations for inputs and outputs as illustrated in the
+examples below. They all follow the same process :
+
+#. Landing Area : In this optional step, files with predefined pattern filenames are stored on a local filesystem in a predefined folder hierarchy
+#. Pending Area : Files associated with a schema are imported into the data factory.
+#. Working Area : Pending files are parsed against their schema and records are rejected or accepted and made available in parquet files as Hive Tables or Big Query tables or parquet files in a cloud bucket.
+#. Business Area : Tables (Hive / BigQuery / Parquet files) in the working area may be joined to provide a hoslictic view of the data through the definition of transformation.
+#. Data visualization : parquet files / tables may be exposed in datawarehouses or elasticsearch indexes through an indexing definition
+
+Input file schemas, ingestion rules, transformation and indexing definitions used in the steps above are all defined in YAML files.
+
+On Premise Data Pipeline
+--------------------------
+.. figure:: /user/assets/elt-onpremise.png
+    :figclass: align-center
+
+Azure Databricks Data Pipeline
+----------------------------------
+.. figure:: /user/assets/elt-azure-databricks.png
+    :figclass: align-center
+
+Data Pipeline on Google Cloud Storage
+-----------------------------------------------------
+.. figure:: /user/assets/elt-gcp-gcs.png
+    :figclass: align-center
+
+
+Data Pipeline on BigQuery
+-----------------------------------------------------
+.. figure:: /user/assets/elt-gcp-bq.png
+    :figclass: align-center
 
 
 
