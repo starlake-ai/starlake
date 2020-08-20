@@ -58,7 +58,7 @@ object BigQueryLoadConfig extends CliConfig[BigQueryLoadConfig] {
         .optional(),
       opt[String]("source_format")
         .action((x, c) => c.copy(sourceFormat = x))
-        .text("Source Format eq. parquet"),
+        .text("Source Format eq. parquet. This option is ignored, Only parquet source format is supported at this time"),
       opt[String]("create_disposition")
         .action((x, c) => c.copy(createDisposition = x))
         .text(
