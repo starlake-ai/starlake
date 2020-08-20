@@ -12,20 +12,20 @@ ingestion purely declarative.
 
 The workflow below is a typical use case :
 
-* Export your data as a set of DSV (Delimiter-separated values) or JSON files
-* Define each DSV/JSON file with a schema using YAML syntax
+* Export your data as a set of DSV (Delimiter-separated values) or JSON or XML files
+* Define each DSV/JSON/XML file with a schema using YAML syntax
 * Configure the ingestion process
-* Start watching your data being available as Hive Tables in your  datalake
+* Start watching your data being available as Tables in your Data Factory
 
 
-The main advantages of the Comet Data Pipeline project are :
+The main advantages of Comet Data Pipeline are :
 
 * Eliminates manual coding for data ingestion
 * Assign metadata to each dataset
 * Expose data ingestion metrics and history
-* Transform text files to strongly typed records
+* Transform text files to strongly typed records without coding
 * Support semantic types
-* Force privacy on specific fields (RGPD)
+* Apply privacy to specific fields
 * very, very simple piece of software to administer
 
 
@@ -33,14 +33,14 @@ How it works
 ############
 
 Comet Data Pipeline automates the loading and parsing of files and
-their ingestion into a Hadoop Datalake where datasets become
-available as Hive tables.
+their ingestion into a Datalake where datasets become
+available as strongly typed records.
 
 
-.. figure:: assets/cdp-howitworks.png
+.. figure:: /user/assets/elt.png
     :figclass: align-center
 
-    Complete Comet Data pipeline
+    Complete Comet Data pipeline Workflow
 
 
 1. Landing Area : Files are first stored in the local file system

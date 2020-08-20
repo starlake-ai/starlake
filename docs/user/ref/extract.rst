@@ -1,9 +1,9 @@
 *********
-Ingestion
+Extract
 *********
 
-Ingestion Rules
-###############
+Extract Rules
+#############
 
 Ingestion rules are stored in the HDFS folder referenced by the COMET_METADATA
 environment variable (/tmp/metadata by default).
@@ -20,8 +20,8 @@ Schema files decribe how the input files are parsed using a set of rules :
 * Schema Rules: Rules that describe field format using pattern matching
 
 
-Type Rules
-**********
+Extract Rules
+*************
 
 Types are defined in the HDFS file $COMET_METADATA/types/types.yml.
 

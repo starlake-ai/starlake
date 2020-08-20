@@ -110,39 +110,40 @@ object SchemaGen extends LazyLogging {
     serializeToFile(new File(outputPath, s"${fileName}.yml"), domain)
   }
 
+
+  def main(args: Array[String]): Unit = {
+    implicit val settings: Settings = Settings(ConfigFactory.load())
+    val defaultOutputPath = DatasetArea.domains.toString
+    SchemaGenConfig.parse(args) match {
+      case Some(config) =>
+        if (config.encryption) {
+          for {
+            file   <- config.files
+            domain <- new XlsReader(file).getDomain()
+          } yield {
+            val preEncrypt = genPreEncryptionDomain(domain, config.privacy)
+            writeDomainYaml(
+              preEncrypt,
+              config.outputPath.getOrElse(defaultOutputPath),
+              "pre-encrypt-" + preEncrypt.name
+            )
+            val postEncrypt = genPostEncryptionDomain(domain, config.delimiter, config.privacy)
+            writeDomainYaml(
+              postEncrypt,
+              config.outputPath.getOrElse(defaultOutputPath),
+              "post-encrypt-" + domain.name
+            )
+          }
+        } else {
+          config.files.foreach(generateSchema(_, config.outputPath))
+        }
+      case _ =>
+        println(SchemaGenConfig.usage())
+    }
+  }
 }
 
-/**
-  * Générat the YAML files from the excel sheets s
-  */
+@deprecated("The delayedInit mechanism should not be used anymore", "0.13")
 object Main extends App {
-  import SchemaGen._
-  implicit val settings: Settings = Settings(ConfigFactory.load())
-  val defaultOutputPath = DatasetArea.domains.toString
-  SchemaGenConfig.parse(args) match {
-    case Some(config) =>
-      if (config.encryption) {
-        for {
-          file   <- config.files
-          domain <- new XlsReader(file).getDomain()
-        } yield {
-          val preEncrypt = genPreEncryptionDomain(domain, config.privacy)
-          writeDomainYaml(
-            preEncrypt,
-            config.outputPath.getOrElse(defaultOutputPath),
-            "pre-encrypt-" + preEncrypt.name
-          )
-          val postEncrypt = genPostEncryptionDomain(domain, config.delimiter, config.privacy)
-          writeDomainYaml(
-            postEncrypt,
-            config.outputPath.getOrElse(defaultOutputPath),
-            "post-encrypt-" + domain.name
-          )
-        }
-      } else {
-        config.files.foreach(generateSchema(_, config.outputPath))
-      }
-    case _ =>
-      println(SchemaGenConfig.usage())
-  }
+  SchemaGen.main(args)
 }
