@@ -53,8 +53,10 @@ Options
     *Optional*. Input dataset path
 
 
-.. option:: --conf: es.batch.size.entries=1000,es.batch.size.bytes=1mb... (see https://www.elastic.co/guide/en/elasticsearch/hadoop/current/configuration.html)
+.. option:: --conf: es.batch.size.entries=1000,es.batch.size.bytes=1mb...
 
     *Optional*. eshadoop configuration options
+    see https://www.elastic.co/guide/en/elasticsearch/hadoop/current/configuration.html
+    
 
 
