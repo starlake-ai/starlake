@@ -1,52 +1,30 @@
-package com.ebiznext.comet.job.atlas
+package com.ebiznext.comet.workflow
 
 import com.ebiznext.comet.utils.CliConfig
 import scopt.OParser
 
-case class AtlasConfig(
-  delete: Boolean = false,
-  folder: Option[String] = None,
-  uris: Option[List[String]] = None,
-  user: Option[String] = None,
-  password: Option[String] = None,
-  files: List[String] = Nil
-)
+case class TransformConfig(name: String = "", options: Map[String, String] = Map.empty)
 
-object AtlasConfig extends CliConfig[AtlasConfig] {
-
-  val parser: OParser[Unit, AtlasConfig] = {
-    val builder = OParser.builder[AtlasConfig]
+object TransformConfig extends CliConfig[TransformConfig] {
+  val parser: OParser[Unit, TransformConfig] = {
+    val builder = OParser.builder[TransformConfig]
     import builder._
     OParser.sequence(
-      programName("comet"),
-      head("comet", "atlas", "[options]"),
+      programName("comet transform | job"),
+      head("comet", "transform | job", "[options]"),
       note(""),
-      opt[Unit]("delete")
-        .action((_, c) => c.copy(delete = true))
-        .optional()
-        .text("Should we delete the previous schemas ?"),
-      opt[String]("folder")
-        .action((x, c) => c.copy(folder = Some(x)))
-        .optional()
-        .text("Folder with yaml schema files"),
-      opt[String]("uris")
-        .action((x, c) => c.copy(uris = Some(x.split(",").toList.map(_.trim))))
-        .optional()
-        .text("Atlas URI"),
-      opt[String]("user")
-        .action((x, c) => c.copy(user = Some(x)))
-        .optional()
-        .text("Atlas User"),
-      opt[String]("password")
-        .action((x, c) => c.copy(password = Some(x)))
-        .optional()
-        .text("Atlas password"),
-      opt[String]("files")
-        .action((x, c) => c.copy(files = x.split(",").toList.map(_.trim)))
-        .optional()
-        .text("List of YML files")
+      opt[String]("name")
+        .action((x, c) => c.copy(name = x))
+        .required()
+        .text("Job Name"),
+      opt[Map[String, String]]("options")
+        .valueName("k1=v1,k2=v2...")
+        .action((x, c) => c.copy(options = x))
+        .text("Job arguments to be used as substitutions")
     )
   }
-  // comet atlas  --delete --files file1,file2 --folder uri
-  def parse(args: Seq[String]): Option[AtlasConfig] = OParser.parse(parser, args, AtlasConfig())
+
+
+  def parse(args: Seq[String]): Option[TransformConfig] =
+    OParser.parse(parser, args, TransformConfig())
 }
