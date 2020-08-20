@@ -19,7 +19,6 @@
  */
 package com.ebiznext.comet.schema.generator
 
-import buildinfo.BuildInfo
 import com.ebiznext.comet.utils.CliConfig
 import scopt.OParser
 
@@ -44,7 +43,8 @@ object SchemaGenConfig extends CliConfig[SchemaGenConfig] {
     import builder._
     OParser.sequence(
       programName("comet"),
-      head("comet", BuildInfo.version),
+      head("comet", "xls2yml", "[options]"),
+      note(""),
       opt[Seq[String]]("files")
         .action((x, c) => c.copy(files = x))
         .required()
