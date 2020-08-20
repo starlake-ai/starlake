@@ -1,52 +1,33 @@
-package com.ebiznext.comet.job.atlas
+package com.ebiznext.comet.workflow
 
 import com.ebiznext.comet.utils.CliConfig
 import scopt.OParser
 
-case class AtlasConfig(
-  delete: Boolean = false,
-  folder: Option[String] = None,
-  uris: Option[List[String]] = None,
-  user: Option[String] = None,
-  password: Option[String] = None,
-  files: List[String] = Nil
-)
+case class ImportConfig()
 
-object AtlasConfig extends CliConfig[AtlasConfig] {
+object ImportConfig extends CliConfig[ImportConfig] {
 
-  val parser: OParser[Unit, AtlasConfig] = {
-    val builder = OParser.builder[AtlasConfig]
+  val parser: OParser[Unit, ImportConfig] = {
+    val builder = OParser.builder[ImportConfig]
     import builder._
     OParser.sequence(
-      programName("comet"),
-      head("comet", "atlas", "[options]"),
-      note(""),
-      opt[Unit]("delete")
-        .action((_, c) => c.copy(delete = true))
-        .optional()
-        .text("Should we delete the previous schemas ?"),
-      opt[String]("folder")
-        .action((x, c) => c.copy(folder = Some(x)))
-        .optional()
-        .text("Folder with yaml schema files"),
-      opt[String]("uris")
-        .action((x, c) => c.copy(uris = Some(x.split(",").toList.map(_.trim))))
-        .optional()
-        .text("Atlas URI"),
-      opt[String]("user")
-        .action((x, c) => c.copy(user = Some(x)))
-        .optional()
-        .text("Atlas User"),
-      opt[String]("password")
-        .action((x, c) => c.copy(password = Some(x)))
-        .optional()
-        .text("Atlas password"),
-      opt[String]("files")
-        .action((x, c) => c.copy(files = x.split(",").toList.map(_.trim)))
-        .optional()
-        .text("List of YML files")
+      programName("comet import"),
+      head("comet", "import"),
+      note(
+        """
+          |Move the files from the landing area to the pending area.
+          |files are loaded one domain at a time
+          |each domain has its own directory and is specified in the "directory" key of Domain YML file
+          |compressed files are uncompressed if a corresponding ack file exist.
+          |Compressed files are recognized by their extension which should be one of .tgz, .zip, .gz.
+          |raw file should also have a corresponding ack file
+          |before moving the files to the pending area, the ack files are deleted
+          |To import files without ack specify an empty "ack" key (aka ack:"") in the domain YML file.
+          |"ack" is the default ack extension searched for but you may specify a different one in the domain YML file.
+          |example: comet import
+          |""".stripMargin)
     )
   }
-  // comet atlas  --delete --files file1,file2 --folder uri
-  def parse(args: Seq[String]): Option[AtlasConfig] = OParser.parse(parser, args, AtlasConfig())
+
+  def parse(args: Seq[String]): Option[ImportConfig] = OParser.parse(parser, args, ImportConfig())
 }
