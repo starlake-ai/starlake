@@ -8,7 +8,7 @@ class ESLoadJobSpec extends TestHelper {
       val rendered = ESLoadConfig.usage()
       val expected =
         """
-          |Usage: comet [options]
+          |Usage: comet esload | index [options]
           |
           |  --timestamp <value>      Elasticsearch index timestamp suffix as in {@timestamp|yyyy.MM.dd}
           |  --id <value>             Elasticsearch Document Id

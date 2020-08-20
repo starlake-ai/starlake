@@ -283,7 +283,7 @@ class MetricsJobSpec extends TestHelper {
       val rendered = MetricsConfig.usage()
       val expected =
         """
-          |Usage: comet [options]
+          |Usage: comet metrics [options]
           |
           |  --domain <value>  Domain Name
           |  --schema <value>  Schema Name
