@@ -51,7 +51,7 @@ class AutoTask(
   views: Option[Map[String, String]],
   task: AutoTaskDesc,
   storageHandler: StorageHandler,
-  sqlParameters: Option[Map[String, String]]
+  sqlParameters: Map[String, String]
 )(implicit val settings: Settings)
     extends SparkJob {
 
@@ -90,14 +90,9 @@ class AutoTask(
         df.createOrReplaceTempView(key)
     }
 
-    val dataframe = sqlParameters match {
-      case Some(mapParams) =>
-        task.presql.getOrElse(Nil).foreach(req => session.sql(req.richFormat(mapParams)))
-        session.sql(task.sql.richFormat(mapParams))
-      case _ =>
-        task.presql.getOrElse(Nil).foreach(session.sql)
-        session.sql(task.sql)
-    }
+    task.presql.getOrElse(Nil).foreach(req => session.sql(req.richFormat(sqlParameters)))
+    val dataframe = session.sql(task.sql.richFormat(sqlParameters))
+
     val targetPath = task.getTargetPath(defaultArea)
     // Target Path exist only if a storage area has been defined at task or job level
     targetPath.map { targetPath =>
