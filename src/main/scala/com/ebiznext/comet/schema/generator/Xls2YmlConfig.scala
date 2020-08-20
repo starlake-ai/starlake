@@ -28,7 +28,7 @@ import scopt.OParser
   * @param delimiter : Delimiter to use on generated CSV file after pre-encryption.
   * @param privacy What privacy policies are to be applied at the pre-encrypt step ? All by default.
   */
-case class SchemaGenConfig(
+case class Xls2YmlConfig(
   files: Seq[String] = Nil,
   encryption: Boolean = true,
   delimiter: Option[String] = None,
@@ -36,13 +36,13 @@ case class SchemaGenConfig(
   outputPath: Option[String] = None
 )
 
-object SchemaGenConfig extends CliConfig[SchemaGenConfig] {
+object Xls2YmlConfig extends CliConfig[Xls2YmlConfig] {
 
-  val parser: OParser[Unit, SchemaGenConfig] = {
-    val builder = OParser.builder[SchemaGenConfig]
+  val parser: OParser[Unit, Xls2YmlConfig] = {
+    val builder = OParser.builder[Xls2YmlConfig]
     import builder._
     OParser.sequence(
-      programName("comet"),
+      programName("comet xls2yml"),
       head("comet", "xls2yml", "[options]"),
       note(""),
       opt[Seq[String]]("files")
@@ -60,13 +60,16 @@ object SchemaGenConfig extends CliConfig[SchemaGenConfig] {
       opt[Seq[String]]("privacy")
         .action((x, c) => c.copy(privacy = x map (_.toUpperCase)))
         .optional()
-        .text("""What privacy policies should be applied in the pre-encryption phase ?
-            | All privacy policies are applied by default.""".stripMargin),
+        .text(
+          """What privacy policies should be applied in the pre-encryption phase ?
+            |All privacy policies are applied by default.""".stripMargin
+        ),
       opt[Option[String]]("outputPath")
         .action((x, c) => c.copy(outputPath = x))
         .optional()
-        .text("""Path for saving the resulting YAML file(s).
-            | COMET domains path is used by default.""".stripMargin)
+        .text(
+          """Path for saving the resulting YAML file(s).
+            |Comet domains path is used by default.""".stripMargin)
     )
   }
 
@@ -74,6 +77,6 @@ object SchemaGenConfig extends CliConfig[SchemaGenConfig] {
     * @param args args list passed from command line
     * @return Option of case class SchemaGenConfig.
     */
-  def parse(args: Seq[String]): Option[SchemaGenConfig] =
-    OParser.parse(parser, args, SchemaGenConfig())
+  def parse(args: Seq[String]): Option[Xls2YmlConfig] =
+    OParser.parse(parser, args, Xls2YmlConfig())
 }

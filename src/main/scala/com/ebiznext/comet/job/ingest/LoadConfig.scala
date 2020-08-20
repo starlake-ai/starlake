@@ -29,20 +29,20 @@ import scopt.OParser
   * @param schema     schema name of the dataset
   * @param paths      Absolute path of the file to ingest (present in the ingesting area of the domain)
   */
-case class IngestConfig(
+case class LoadConfig(
   domain: String = "",
   schema: String = "",
   paths: List[Path] = Nil
 )
 
-object IngestConfig extends CliConfig[IngestConfig] {
+object LoadConfig extends CliConfig[LoadConfig] {
 
-  val parser: OParser[Unit, IngestConfig] = {
-    val builder = OParser.builder[IngestConfig]
+  val parser: OParser[Unit, LoadConfig] = {
+    val builder = OParser.builder[LoadConfig]
     import builder._
     OParser.sequence(
-      programName("comet"),
-      head("comet", "ingest|load", "[options]"),
+      programName("comet load | ingest"),
+      head("comet", "load | ingest", "[options]"),
       note(""),
       arg[String]("domain")
         .required()
@@ -59,11 +59,11 @@ object IngestConfig extends CliConfig[IngestConfig] {
     )
   }
 
-  def parse(args: Seq[String]): Option[IngestConfig] = {
-    OParser.parse(parser, args, IngestConfig())
+  def parse(args: Seq[String]): Option[LoadConfig] = {
+    OParser.parse(parser, args, LoadConfig())
   }
 
   def main(args: Array[String]): Unit = {
-    println(IngestConfig.usage())
+    println(LoadConfig.usage())
   }
 }

@@ -1,6 +1,5 @@
 package com.ebiznext.comet.job.index.bqload
 
-import buildinfo.BuildInfo
 import com.ebiznext.comet.schema.model.RowLevelSecurity
 import com.ebiznext.comet.utils.CliConfig
 import org.apache.spark.sql.DataFrame
@@ -29,8 +28,9 @@ object BigQueryLoadConfig extends CliConfig[BigQueryLoadConfig] {
     val builder = OParser.builder[BigQueryLoadConfig]
     import builder._
     OParser.sequence(
-      programName("comet"),
-      head("comet", BuildInfo.version),
+      programName("comet bqload"),
+      head("comet", "bqload", "[options]"),
+      note(""),
       opt[String]("source_file")
         .action((x, c) => c.copy(source = Left(x)))
         .text("Full Path to source file")
