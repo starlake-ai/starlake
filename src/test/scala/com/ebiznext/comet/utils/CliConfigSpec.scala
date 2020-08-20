@@ -1,28 +1,41 @@
 package com.ebiznext.comet.utils
 
 import com.ebiznext.comet.TestHelper
-import com.ebiznext.comet.schema.model.WriteMode
+import com.ebiznext.comet.extractor.ExtractScriptGenConfig
+import com.ebiznext.comet.job.convert.Parquet2CSVConfig
+import com.ebiznext.comet.job.index.bqload.BigQueryLoadConfig
+import com.ebiznext.comet.job.index.esload.ESLoadConfig
+import com.ebiznext.comet.job.index.jdbcload.JdbcLoadConfig
+import com.ebiznext.comet.job.infer.InferSchemaConfig
+import com.ebiznext.comet.job.ingest.LoadConfig
+import com.ebiznext.comet.job.metrics.MetricsConfig
+import com.ebiznext.comet.schema.generator.Xls2YmlConfig
+import com.ebiznext.comet.workflow.{ImportConfig, TransformConfig, WatchConfig}
 
-class UtilsSpec extends TestHelper {
+class CliConfigSpec extends TestHelper {
   new WithSettings() {
-    "Exceptions" should "be returned as string" in {
-      val expected = "java.lang.Exception: test"
-      Utils.exceptionAsString(new Exception("test")) should startWith(expected)
-    }
-    "BigQuery Table Creation / Write Mapping" should "Map to correct BQ Mappings" in {
-      Utils.getDBDisposition(WriteMode.OVERWRITE) should equal(
-        ("CREATE_IF_NEEDED", "WRITE_TRUNCATE")
+    "Generate Documentation" should "succeed" in {
+      val rstMap = Map(
+        "import" -> ImportConfig.sphinx(),
+        "bqload" -> BigQueryLoadConfig.sphinx(),
+        "esload" -> ESLoadConfig.sphinx(),
+        "infer-schema" -> InferSchemaConfig.sphinx(),
+        "load" -> LoadConfig.sphinx(),
+        "metrics" -> MetricsConfig.sphinx(),
+        "parquet2csv" -> Parquet2CSVConfig.sphinx(),
+        "sqlload" -> JdbcLoadConfig.sphinx(),
+        "xls2yml" -> Xls2YmlConfig.sphinx(),
+        "extract" -> ExtractScriptGenConfig.sphinx(),
+        "transform" -> TransformConfig.sphinx(),
+        "watch" -> WatchConfig.sphinx()
       )
-      Utils.getDBDisposition(WriteMode.APPEND) should equal(
-        ("CREATE_IF_NEEDED", "WRITE_APPEND")
-      )
-      Utils.getDBDisposition(WriteMode.ERROR_IF_EXISTS) should equal(
-        ("CREATE_IF_NEEDED", "WRITE_EMPTY")
-      )
-      Utils.getDBDisposition(WriteMode.IGNORE) should equal(
-        ("CREATE_NEVER", "WRITE_EMPTY")
-      )
+      if (System.getenv("COMET_GEN_RST") != null) {
+        val rstPath = getClass.getResource("/").getPath + "../../../docs/user/cli"
+        rstMap.foreach {
+          case (k, v) =>
+            reflect.io.File(s"$rstPath/$k.rst").writeAll(v)
+        }
+      }
     }
   }
-
 }
