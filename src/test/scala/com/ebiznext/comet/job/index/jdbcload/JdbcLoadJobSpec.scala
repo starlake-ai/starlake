@@ -8,7 +8,7 @@ class JdbcLoadJobSpec extends TestHelper {
       val rendered = JdbcLoadConfig.usage()
       val expected =
         """
-          |Usage: comet [options]
+          |Usage: comet sqlload [options]
           |
           |  --source_file <value>    Full Path to source file
           |  --output_table <value>   JDBC Output Table
