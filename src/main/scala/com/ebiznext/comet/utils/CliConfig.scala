@@ -71,7 +71,12 @@ trait CliConfig[T] {
         "options"     -> options.map(opt => option(opt).toMap())
       )
 
-    val template = Source.fromResource("scalate/sphinx-cli.mustache").mkString
+    //TODO keep the lines below until we depreciate Scala 2.11
+    //     We'll replace it by --> val template = Source.fromResource("scalate/sphinx-cli.mustache").mkString
+
+    val stream = getClass.getResourceAsStream("scalate/sphinx-cli.mustache")
+    val template = scala.io.Source.fromInputStream(stream).mkString
+
 
     engine.layout(
       "sphinx-cli.mustache",
