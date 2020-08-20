@@ -3,8 +3,6 @@ package com.ebiznext.comet.utils
 import org.fusesource.scalate.TemplateEngine
 import scopt.{OParser, OptionDef}
 
-import scala.io.Source
-
 trait CliConfig[T] {
   def parser: OParser[Unit, T]
   def usage(): String = OParser.usage(parser)
