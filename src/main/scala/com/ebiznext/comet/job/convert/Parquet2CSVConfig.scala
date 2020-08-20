@@ -25,7 +25,6 @@ object Parquet2CSVConfig extends CliConfig[Parquet2CSVConfig] {
     OParser.sequence(
       programName("comet"),
       note(
-        "example => --input_dir /tmp/datasets/accepted/ --output_dir /tmp/datasets/csv/ --domain sales --schema orders --option header=true  --option separator=,  --partitions 1 --write_mode overwrite"
       ),
       head("comet", BuildInfo.version),
       opt[String]("input_dir")
