@@ -16,25 +16,23 @@ class CliConfigSpec extends TestHelper {
   new WithSettings() {
     "Generate Documentation" should "succeed" in {
       val rstMap = Map(
-        "import" -> ImportConfig.sphinx(),
-        "bqload" -> BigQueryLoadConfig.sphinx(),
-        "esload" -> ESLoadConfig.sphinx(),
+        "import"       -> ImportConfig.sphinx(),
+        "bqload"       -> BigQueryLoadConfig.sphinx(),
+        "esload"       -> ESLoadConfig.sphinx(),
         "infer-schema" -> InferSchemaConfig.sphinx(),
-        "load" -> LoadConfig.sphinx(),
-        "metrics" -> MetricsConfig.sphinx(),
-        "parquet2csv" -> Parquet2CSVConfig.sphinx(),
-        "sqlload" -> JdbcLoadConfig.sphinx(),
-        "xls2yml" -> Xls2YmlConfig.sphinx(),
-        "extract" -> ExtractScriptGenConfig.sphinx(),
-        "transform" -> TransformConfig.sphinx(),
-        "watch" -> WatchConfig.sphinx()
+        "load"         -> LoadConfig.sphinx(),
+        "metrics"      -> MetricsConfig.sphinx(),
+        "parquet2csv"  -> Parquet2CSVConfig.sphinx(),
+        "sqlload"      -> JdbcLoadConfig.sphinx(),
+        "xls2yml"      -> Xls2YmlConfig.sphinx(),
+        "extract"      -> ExtractScriptGenConfig.sphinx(),
+        "transform"    -> TransformConfig.sphinx(),
+        "watch"        -> WatchConfig.sphinx()
       )
-      if (System.getenv("COMET_GEN_RST") != null) {
-        val rstPath = getClass.getResource("/").getPath + "../../../docs/user/cli"
-        rstMap.foreach {
-          case (k, v) =>
-            reflect.io.File(s"$rstPath/$k.rst").writeAll(v)
-        }
+      val rstPath = getClass.getResource("/").getPath + "../../../docs/user/cli"
+      rstMap.foreach {
+        case (k, v) =>
+          reflect.io.File(s"$rstPath/$k.rst").writeAll(v)
       }
     }
   }
