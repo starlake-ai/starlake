@@ -55,8 +55,8 @@ Options
 
 .. option:: --conf: es.batch.size.entries=1000,es.batch.size.bytes=1mb...
 
-    *Optional*. eshadoop configuration options
-    see https://www.elastic.co/guide/en/elasticsearch/hadoop/current/configuration.html
+    *Optional*. eshadoop configuration options.
+    See https://www.elastic.co/guide/en/elasticsearch/hadoop/current/configuration.html
     
 
 
