@@ -50,7 +50,7 @@ Options
 
 .. option:: --source_format: <value>
 
-    *Optional*. Source Format eq. parquet
+    *Optional*. Source Format eq. parquet. This option is ignored, Only parquet source format is supported at this time
 
 
 .. option:: --create_disposition: <value>
