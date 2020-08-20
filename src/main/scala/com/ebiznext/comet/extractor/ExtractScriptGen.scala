@@ -53,8 +53,6 @@ object ScriptGen extends StrictLogging {
     }
   }
 
-  def printUsage(): Unit = println(ExtractScriptGenConfig.usage)
-
   /**
     * Fills a Mustache templated file based on a given domain.
     * The following documentation considers that we use the script to generate SQL export files.
