@@ -2,7 +2,6 @@ package com.ebiznext.comet.job.index.jdbcload
 
 import java.sql.{DriverManager, SQLException}
 
-import buildinfo.BuildInfo
 import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.schema.model.RowLevelSecurity
 import com.ebiznext.comet.utils.CliConfig
@@ -93,8 +92,9 @@ object JdbcLoadConfig extends CliConfig[JdbcLoadConfig] {
     val builder = OParser.builder[JdbcLoadConfig]
     import builder._
     OParser.sequence(
-      programName("comet"),
-      head("comet", BuildInfo.version),
+      programName("comet sqlload"),
+      head("comet", "sqlload", "[options]"),
+      note(""),
       opt[String]("source_file")
         .action((x, c) => c.copy(sourceFile = Left(x)))
         .text("Full Path to source file")
