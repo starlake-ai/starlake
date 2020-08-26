@@ -169,6 +169,13 @@ trait IngestionJob extends SparkJob {
           // We provide the accepted DF schema since partition columns types are infered when parquet is loaded and might not match with the DF being ingested
           val existingDF =
             session.read.schema(acceptedDfWithscriptFields.schema).parquet(acceptedPath.toString)
+
+          if (existingDF.schema.fields.length != session.read.parquet(acceptedPath.toString).schema.fields.length) {
+            throw new RuntimeException(
+              "Input Dataset and existing HDFS dataset do not have the same number of columns. Check for changes in the dataset schema ?"
+            )
+          }
+
           merge(acceptedDfWithscriptFields, existingDF, mergeOptions)
         } else
           acceptedDfWithscriptFields
@@ -298,12 +305,6 @@ trait IngestionJob extends SparkJob {
     logger.info(s"""partitionedInputDF field list=${partitionedInputDF.schema.fields
       .map(_.name)
       .mkString(",")}""")
-
-    if (existingDF.schema.fields.length != partitionedInputDF.schema.fields.length) {
-      throw new RuntimeException(
-        "Input Dataset and existing HDFS dataset do not have the same number of columns. Check for changes in the dataset schema ?"
-      )
-    }
 
     // Force ordering of columns to be the same
     val orderedExisting = existingDF.select(partitionedInputDF.columns.map(col): _*)
