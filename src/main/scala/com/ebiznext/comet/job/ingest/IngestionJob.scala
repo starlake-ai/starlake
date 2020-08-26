@@ -124,23 +124,23 @@ trait IngestionJob extends SparkJob {
 
                                         schema.attributes.foldRight(acceptedDF) {
                                           case (
-                                                Attribute(
-                                                  name,
-                                                  _,
-                                                  _,
-                                                  _,
-                                                  _,
-                                                  _,
-                                                  _,
-                                                  _,
-                                                  _,
-                                                  _,
-                                                  _,
-                                                  _,
-                                                  _,
-                                                  Some(script)
-                                                ),
-                                                df
+                                              Attribute(
+                                                name,
+                                                _,
+                                                _,
+                                                _,
+                                                _,
+                                                _,
+                                                _,
+                                                _,
+                                                _,
+                                                _,
+                                                _,
+                                                _,
+                                                _,
+                                                Some(script)
+                                              ),
+                                              df
                                               ) =>
                                             df.T(
                                               s"SELECT *, $script as $name FROM __THIS__"
@@ -166,7 +166,16 @@ trait IngestionJob extends SparkJob {
             .getOrElse(acceptedDfWithscriptFields)
         } else if (storageHandler.exists(new Path(acceptedPath, "_SUCCESS"))) {
           // Otherwise load from accepted area
-          val existingDF = session.read.parquet(acceptedPath.toString)
+          // We provide the accepted DF schema since partition columns types are infered when parquet is loaded and might not match with the DF being ingested
+          val existingDF =
+            session.read.schema(acceptedDfWithscriptFields.schema).parquet(acceptedPath.toString)
+
+          if (existingDF.schema.fields.length != session.read.parquet(acceptedPath.toString).schema.fields.length) {
+            throw new RuntimeException(
+              "Input Dataset and existing HDFS dataset do not have the same number of columns. Check for changes in the dataset schema ?"
+            )
+          }
+
           merge(acceptedDfWithscriptFields, existingDF, mergeOptions)
         } else
           acceptedDfWithscriptFields
@@ -297,29 +306,23 @@ trait IngestionJob extends SparkJob {
       .map(_.name)
       .mkString(",")}""")
 
-    if (existingDF.schema.fields.length != partitionedInputDF.schema.fields.length) {
-      throw new RuntimeException(
-        "Input Dataset and existing HDFS dataset do not have the same number of columns. Check for changes in the dataset schema ?"
-      )
-    }
-
     // Force ordering of columns to be the same
-    val orderedExisting = existingDF.select(partitionedInputDF.columns.map((col(_))): _*)
+    val orderedExisting = existingDF.select(partitionedInputDF.columns.map(col): _*)
 
     // Force ordering again of columns to be the same since join operation change it otherwise except below won"'t work.
     val commonDF =
       orderedExisting
         .join(partitionedInputDF.select(merge.key.head, merge.key.tail: _*), merge.key)
-        .select(partitionedInputDF.columns.map((col(_))): _*)
+        .select(partitionedInputDF.columns.map(col): _*)
 
     val toDeleteDF = merge.timestamp.map { timestamp =>
-        val w = Window.partitionBy(merge.key.head, merge.key.tail: _*).orderBy(col(timestamp).desc)
-        import org.apache.spark.sql.functions.row_number
-        commonDF
-          .withColumn("rownum", row_number.over(w))
-          .where(col("rownum") =!= 1)
-          .drop("rownum")
-      } getOrElse commonDF
+      val w = Window.partitionBy(merge.key.head, merge.key.tail: _*).orderBy(col(timestamp).desc)
+      import org.apache.spark.sql.functions.row_number
+      commonDF
+        .withColumn("rownum", row_number.over(w))
+        .where(col("rownum") =!= 1)
+        .drop("rownum")
+    } getOrElse commonDF
 
     val updatesDF = merge.delete
       .map(condition => partitionedInputDF.filter(s"not ($condition)"))
@@ -383,9 +386,7 @@ trait IngestionJob extends SparkJob {
           val minFraction =
             if (fraction * count >= 1) // Make sure we get at least on item in teh dataset
               fraction
-            else if (
-              count > 0
-            ) // We make sure we get at least 1 item which is 2 because of double imprecision for huge numbers.
+            else if (count > 0) // We make sure we get at least 1 item which is 2 because of double imprecision for huge numbers.
               2 / count
             else
               0
@@ -406,11 +407,9 @@ trait IngestionJob extends SparkJob {
 
       // No need to apply partition on rejected dF
       val partitionedDFWriter =
-        if (
-          area == StorageArea.rejected && !metadata
-            .getPartitionAttributes()
-            .forall(Metadata.CometPartitionColumns.contains(_))
-        )
+        if (area == StorageArea.rejected && !metadata
+              .getPartitionAttributes()
+              .forall(Metadata.CometPartitionColumns.contains(_)))
           partitionedDatasetWriter(dataset.coalesce(nbPartitions), Nil)
         else
           partitionedDatasetWriter(
