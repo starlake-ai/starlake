@@ -23,7 +23,7 @@ package com.ebiznext.comet.schema.handlers
 import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.job.index.bqload.BigQueryLoadConfig
 import com.ebiznext.comet.job.index.esload.ESLoadConfig
-import com.ebiznext.comet.job.ingest.IngestConfig
+import com.ebiznext.comet.job.ingest.LoadConfig
 import com.ebiznext.comet.job.index.jdbcload.JdbcLoadConfig
 import com.ebiznext.comet.schema.model.{Domain, Schema}
 import com.ebiznext.comet.workflow.IngestionWorkflow
@@ -119,7 +119,7 @@ class SimpleLauncher extends LaunchHandler with StrictLogging {
     paths: List[Path]
   )(implicit settings: Settings): Boolean = {
     logger.info(s"Launch Ingestion: ${domain.name} ${schema.name} $paths ")
-    workflow.ingest(IngestConfig(domain.name, schema.name, paths))
+    workflow.ingest(LoadConfig(domain.name, schema.name, paths))
     true
   }
 
