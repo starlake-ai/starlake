@@ -20,6 +20,20 @@ Getting started with Comet Data Pipeline:
    user/guide/quickstart
 
 .. toctree::
+   :caption: Concepts
+   :maxdepth: 3
+
+   user/concepts/domain
+   user/concepts/schema
+   user/concepts/metadata
+   user/concepts/attribute
+   user/concepts/partition
+   user/concepts/cluster
+   user/concepts/sink
+   user/concepts/view
+   user/concepts/tag
+
+.. toctree::
    :caption: Reference Manual
    :maxdepth: 3
 
