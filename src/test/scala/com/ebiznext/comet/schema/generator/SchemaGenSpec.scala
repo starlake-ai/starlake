@@ -9,7 +9,7 @@ import com.ebiznext.comet.schema.model.{BigQuerySink, Domain, Format, PrivacyLev
 class SchemaGenSpec extends TestHelper {
   new WithSettings() {
 
-    SchemaGen.generateSchema(getClass.getResource("/sample/SomeDomainTemplate.xls").getPath)
+    Xls2Yml.generateSchema(getClass.getResource("/sample/SomeDomainTemplate.xls").getPath)
     val outputFile = new File(DatasetArea.domains.toString + "/someDomain.yml")
     val result: Domain = YamlSerializer.mapper.readValue(outputFile, classOf[Domain])
 
@@ -72,16 +72,16 @@ class SchemaGenSpec extends TestHelper {
 
     "a preEncryption domain" should "have only string types" in {
       domainOpt shouldBe defined
-      val preEncrypt = SchemaGen.genPreEncryptionDomain(domainOpt.get, Nil)
+      val preEncrypt = Xls2Yml.genPreEncryptionDomain(domainOpt.get, Nil)
       preEncrypt.schemas.flatMap(_.attributes).filter(_.`type` != "string") shouldBe empty
     }
 
     "Merge and Partition elements" should "only be present in Post-Encryption domain" in {
       domainOpt shouldBe defined
-      val preEncrypt = SchemaGen.genPreEncryptionDomain(domainOpt.get, Nil)
+      val preEncrypt = Xls2Yml.genPreEncryptionDomain(domainOpt.get, Nil)
       preEncrypt.schemas.flatMap(_.metadata.map(_.partition)).forall(p => p.isEmpty) shouldBe true
       preEncrypt.schemas.map(_.merge).forall(m => m.isEmpty) shouldBe true
-      val postEncrypt = SchemaGen.genPostEncryptionDomain(domainOpt.get, None, Nil)
+      val postEncrypt = Xls2Yml.genPostEncryptionDomain(domainOpt.get, None, Nil)
       postEncrypt.schemas
         .flatMap(_.metadata.map(_.partition))
         .forall(p => p.isDefined) shouldBe true
@@ -101,21 +101,21 @@ class SchemaGenSpec extends TestHelper {
 
     "SHA1 & HIDE privacy policies" should "be applied in the pre-encrypt step " in {
       domainOpt shouldBe defined
-      val preEncrypt = SchemaGen.genPreEncryptionDomain(domainOpt.get, List("HIDE", "SHA1"))
+      val preEncrypt = Xls2Yml.genPreEncryptionDomain(domainOpt.get, List("HIDE", "SHA1"))
       validCount(preEncrypt, "HIDE", 2)
       validCount(preEncrypt, "MD5", 0)
       validCount(preEncrypt, "SHA1", 1)
     }
     "All privacy policies" should "be applied in the pre-encrypt step " in {
       domainOpt shouldBe defined
-      val preEncrypt = SchemaGen.genPreEncryptionDomain(domainOpt.get, Nil)
+      val preEncrypt = Xls2Yml.genPreEncryptionDomain(domainOpt.get, Nil)
       validCount(preEncrypt, "HIDE", 2)
       validCount(preEncrypt, "MD5", 2)
       validCount(preEncrypt, "SHA1", 1)
     }
     "In prestep Attributes" should "keep renaming strategy" in {
       domainOpt shouldBe defined
-      val preEncrypt = SchemaGen.genPreEncryptionDomain(domainOpt.get, Nil)
+      val preEncrypt = Xls2Yml.genPreEncryptionDomain(domainOpt.get, Nil)
       val schemaOpt = preEncrypt.schemas.find(_.name == "SCHEMA1")
       schemaOpt shouldBe defined
       val attrOpt = schemaOpt.get.attributes.find(_.name == "ATTRIBUTE_6")
@@ -125,7 +125,7 @@ class SchemaGenSpec extends TestHelper {
 
     "In poststep Attributes" should "be already renamed" in {
       domainOpt shouldBe defined
-      val postEncrypt = SchemaGen.genPostEncryptionDomain(domainOpt.get, Some("µ"), Nil)
+      val postEncrypt = Xls2Yml.genPostEncryptionDomain(domainOpt.get, Some("µ"), Nil)
       val schemaOpt = postEncrypt.schemas.find(_.name == "SCHEMA1")
       schemaOpt shouldBe defined
       val attrOpt = schemaOpt.get.attributes.find(_.name == "RENAME_ATTRIBUTE_6")
@@ -135,7 +135,7 @@ class SchemaGenSpec extends TestHelper {
     }
     "No privacy policies" should "be applied in the post-encrypt step " in {
       domainOpt shouldBe defined
-      val postEncrypt = SchemaGen.genPostEncryptionDomain(domainOpt.get, Some("µ"), Nil)
+      val postEncrypt = Xls2Yml.genPostEncryptionDomain(domainOpt.get, Some("µ"), Nil)
       validCount(postEncrypt, "HIDE", 0)
       validCount(postEncrypt, "MD5", 0)
       validCount(postEncrypt, "SHA1", 0)
@@ -143,7 +143,7 @@ class SchemaGenSpec extends TestHelper {
 
     "a preEncryption domain" should " not have required attributes" in {
       domainOpt shouldBe defined
-      val preEncrypt = SchemaGen.genPreEncryptionDomain(domainOpt.get, Nil)
+      val preEncrypt = Xls2Yml.genPreEncryptionDomain(domainOpt.get, Nil)
       preEncrypt.schemas.flatMap(_.attributes).filter(_.required) shouldBe empty
     }
 
@@ -153,7 +153,7 @@ class SchemaGenSpec extends TestHelper {
         .flatMap(_.metadata)
         .count(_.format.contains(Format.POSITION)) shouldBe 1
       val postEncrypt =
-        SchemaGen.genPostEncryptionDomain(domainOpt.get, Some("µ"), List("HIDE", "SHA1"))
+        Xls2Yml.genPostEncryptionDomain(domainOpt.get, Some("µ"), List("HIDE", "SHA1"))
       postEncrypt.schemas
         .flatMap(_.metadata)
         .filter(_.format.contains(Format.POSITION)) shouldBe empty
@@ -166,7 +166,7 @@ class SchemaGenSpec extends TestHelper {
       domainOpt.get.schemas
         .flatMap(_.metadata)
         .count(_.format.contains(Format.POSITION)) shouldBe 1
-      val postEncrypt = SchemaGen.genPostEncryptionDomain(domainOpt.get, Some(","), Nil)
+      val postEncrypt = Xls2Yml.genPostEncryptionDomain(domainOpt.get, Some(","), Nil)
       postEncrypt.schemas
         .flatMap(_.metadata)
         .filterNot(_.separator.contains(",")) shouldBe empty
@@ -182,10 +182,10 @@ class SchemaGenSpec extends TestHelper {
     }
     
     "All SchemaGen Config" should "be known and taken  into account" in {
-      val rendered = SchemaGenConfig.usage()
+      val rendered = Xls2YmlConfig.usage()
       val expected =
         """
-          |Usage: comet [options]
+          |Usage: comet xls2yml [options]
           |
           |  --files <value>       List of Excel files describing Domains & Schemas
           |  --encryption <value>  If true generate pre and post encryption YML
@@ -193,7 +193,7 @@ class SchemaGenSpec extends TestHelper {
           |  --privacy <value>     What privacy policies should be applied in the pre-encryption phase ?
           | All privacy policies are applied by default.
           |  --outputPath <value>  Path for saving the resulting YAML file(s).
-          | COMET domains path is used by default.
+          | Comet domains path is used by default.
           |""".stripMargin
       rendered.substring(rendered.indexOf("Usage:")).replaceAll("\\s", "") shouldEqual expected
         .replaceAll("\\s", "")

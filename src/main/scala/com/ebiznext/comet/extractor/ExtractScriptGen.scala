@@ -53,80 +53,79 @@ object ScriptGen extends StrictLogging {
     }
   }
 
-  def printUsage(): Unit = println(ExtractScriptGenConfig.usage)
+  /**
+    * Fills a Mustache templated file based on a given domain.
+    * The following documentation considers that we use the script to generate SQL export files.
+    *
+    * The schemas should at least, specify :
+    *    - a table name (schemas.name)
+    *    - a file pattern (schemas.pattern) which is used as the export file base name
+    *    - a write mode (schemas.metadata.write): APPEND or OVERWRITE
+    *    - the columns to extract (schemas.attributes.name*)
+    *
+    * You also have to provide a Mustache (http://mustache.github.io/mustache.5.html) template file.
+    *
+    * Here you'll write your extraction export process (sqlplus for Oracle, pgsql for PostgreSQL as an example).
+    * In that template you can use the following parameters:
+    *
+    * table_name  -> the table to export
+    * delimiter   -> the resulting dsv file delimiter
+    * columns     -> the columns to export
+    * columns is a Mustache map, it gives you access, for each column, to:
+    *  - name               -> the column name
+    *  - trailing_col_char  -> the separator to append to the column (, if there are more columns to come, "" otherwise)
+    *                          Here is an example how to use it in a template:
+    *                            SELECT
+    *                            {{#columns}}
+    *                            TO_CHAR({{name}}){{trailing_col_char}}
+    *                            {{/columns}}
+    *                            FROM
+    *                            {{table_name}};
+    * export_file -> the export file name
+    * delta_column -> a delta date column (passed as a Main arg or as a config element), the column which is used to determine new rows for each exports in APPEND mode
+    * full_export -> if the export is a full or delta export (the logic is to be implemented in your script)
+    *
+    * Usage: comet [script-gen] [options]
+    *
+    * Command: script-gen
+    *   --domain <value>            The domain for which to generate extract scripts
+    *   --templateFile <value>      Script template file
+    *   --scriptsOutputDir <value>  Scripts output folder
+    *   --deltaColumn <value>       The date column which is used to determine new rows for each exports (can be passed table by table as config element)
+    */
+  def main(args: Array[String]): Unit = {
+    import settings.metadataStorageHandler
+    DatasetArea.initMetadata(metadataStorageHandler)
+    val schemaHandler = new SchemaHandler(metadataStorageHandler)
+    val domains: List[Domain] = schemaHandler.domains
 
+    val arglist = args.toList
+    logger.info(s"Running Comet $arglist")
+
+    ExtractScriptGenConfig.parse(args) match {
+      case Some(config) =>
+        // Extracting the domain from the Excel referential file
+        domains.find(_.name == config.domain) match {
+          case Some(domain) =>
+            ScriptGen.generate(
+              domain,
+              config.scriptTemplateFile,
+              config.scriptOutputDir,
+              config.deltaColumn.orElse(ExtractorSettings.deltaColumns.defaultColumn),
+              ExtractorSettings.deltaColumns.deltaColumns
+            )
+            System.exit(0)
+          case None =>
+            logger.error(s"No domain found for domain name ${config.domain}")
+            System.exit(1)
+        }
+      case _ =>
+        logger.error("Program execution or parameters are wrong, please check usage")
+        System.exit(1)
+    }
+  }
 }
 
-/**
-  * Fills a Mustache templated file based on a given domain.
-  * The following documentation considers that we use the script to generate SQL export files.
-  *
-  * The schemas should at least, specify :
-  *    - a table name (schemas.name)
-  *    - a file pattern (schemas.pattern) which is used as the export file base name
-  *    - a write mode (schemas.metadata.write): APPEND or OVERWRITE
-  *    - the columns to extract (schemas.attributes.name*)
-  *
-  * You also have to provide a Mustache (http://mustache.github.io/mustache.5.html) template file.
-  *
-  * Here you'll write your extraction export process (sqlplus for Oracle, pgsql for PostgreSQL as an example).
-  * In that template you can use the following parameters:
-  *
-  * table_name  -> the table to export
-  * delimiter   -> the resulting dsv file delimiter
-  * columns     -> the columns to export
-  * columns is a Mustache map, it gives you access, for each column, to:
-  *  - name               -> the column name
-  *  - trailing_col_char  -> the separator to append to the column (, if there are more columns to come, "" otherwise)
-  *                          Here is an example how to use it in a template:
-  *                            SELECT
-  *                            {{#columns}}
-  *                            TO_CHAR({{name}}){{trailing_col_char}}
-  *                            {{/columns}}
-  *                            FROM
-  *                            {{table_name}};
-  * export_file -> the export file name
-  * delta_column -> a delta date column (passed as a Main arg or as a config element), the column which is used to determine new rows for each exports in APPEND mode
-  * full_export -> if the export is a full or delta export (the logic is to be implemented in your script)
-  *
-  * Usage: comet [script-gen] [options]
-  *
-  * Command: script-gen
-  *   --domain <value>            The domain for which to generate extract scripts
-  *   --templateFile <value>      Script template file
-  *   --scriptsOutputDir <value>  Scripts output folder
-  *   --deltaColumn <value>       The date column which is used to determine new rows for each exports (can be passed table by table as config element)
-  */
-object Main extends App with StrictLogging {
-
-  import ScriptGen._
-  import settings.metadataStorageHandler
-  DatasetArea.initMetadata(metadataStorageHandler)
-  val schemaHandler = new SchemaHandler(metadataStorageHandler)
-  val domains: List[Domain] = schemaHandler.domains
-
-  val arglist = args.toList
-  logger.info(s"Running Comet $arglist")
-
-  ExtractScriptGenConfig.parse(args) match {
-    case Some(config) =>
-      // Extracting the domain from the Excel referential file
-      domains.find(_.name == config.domain) match {
-        case Some(domain) =>
-          ScriptGen.generate(
-            domain,
-            config.scriptTemplateFile,
-            config.scriptOutputDir,
-            config.deltaColumn.orElse(ExtractorSettings.deltaColumns.defaultColumn),
-            ExtractorSettings.deltaColumns.deltaColumns
-          )
-          System.exit(0)
-        case None =>
-          logger.error(s"No domain found for domain name ${config.domain}")
-          System.exit(1)
-      }
-    case _ =>
-      logger.error("Program execution or parameters are wrong, please check usage")
-      System.exit(1)
-  }
+object Main {
+  def main(args: Array[String]): Unit = ScriptGen.main(args)
 }

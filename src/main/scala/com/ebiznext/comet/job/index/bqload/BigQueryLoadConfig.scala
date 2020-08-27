@@ -1,6 +1,5 @@
 package com.ebiznext.comet.job.index.bqload
 
-import buildinfo.BuildInfo
 import com.ebiznext.comet.schema.model.RowLevelSecurity
 import com.ebiznext.comet.utils.CliConfig
 import org.apache.spark.sql.DataFrame
@@ -29,8 +28,9 @@ object BigQueryLoadConfig extends CliConfig[BigQueryLoadConfig] {
     val builder = OParser.builder[BigQueryLoadConfig]
     import builder._
     OParser.sequence(
-      programName("comet"),
-      head("comet", BuildInfo.version),
+      programName("comet bqload"),
+      head("comet", "bqload", "[options]"),
+      note(""),
       opt[String]("source_file")
         .action((x, c) => c.copy(source = Left(x)))
         .text("Full Path to source file")
@@ -58,7 +58,7 @@ object BigQueryLoadConfig extends CliConfig[BigQueryLoadConfig] {
         .optional(),
       opt[String]("source_format")
         .action((x, c) => c.copy(sourceFormat = x))
-        .text("Source Format eq. parquet"),
+        .text("Source Format eq. parquet. This option is ignored, Only parquet source format is supported at this time"),
       opt[String]("create_disposition")
         .action((x, c) => c.copy(createDisposition = x))
         .text(
