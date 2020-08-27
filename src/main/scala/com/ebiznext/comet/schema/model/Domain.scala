@@ -27,13 +27,20 @@ import com.ebiznext.comet.schema.handlers.SchemaHandler
 import org.apache.hadoop.fs.Path
 
 import scala.collection.mutable
+import scala.tools.nsc.doc.doclet.Generator
 
 /**
-  * Let's say you are wiling to import from you Sales system customers and orders.
-  * Sales is therefore the domain and cusomer & order are syour datasets.
+  * Let's say you are willing to import customers and orders from your Sales system.
+  * Sales is therefore the domain and customer & order are your datasets.
+  * In a DBMS, A Domain would be implemented by a DBMS  schema and a dataset by a DBMS table.
+  * In BigQuery, The domain name would be the Big Query dataset name and the dataset would be implemented by a Big Query table.
   *
-  * @param name       : Domain name
-  * @param directory  : Folder on the local filesystem where incomping files are stored.
+  * @param name       Domain name. Make sure you use a name that may be used as a folder name on the target storage.
+  *                   - When using HDFS or Cloud Storage,  files once ingested are stored in a sub-directory named after the domain name.
+  *                   - When used with BigQuery, files are ingested and sorted in tables under a dataset named after the domain name.
+  *
+  *
+  * @param directory  : Folder on the local filesystem where incoming files are stored.
   *                   This folder will be scanned regurlaly to move the dataset to the cluster
   * @param metadata   : Default Schema meta data.
   * @param schemas    : List of schema for each dataset in this domain
