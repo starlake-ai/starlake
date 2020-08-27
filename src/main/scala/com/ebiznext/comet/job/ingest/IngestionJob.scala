@@ -319,7 +319,10 @@ trait IngestionJob extends SparkJob {
       .mkString(",")}""")
 
     // Force ordering of columns to be the same
-    val orderedExisting = existingDF.select(partitionedInputDF.columns.map(col): _*)
+    val orderedExisting = session.createDataFrame(
+      existingDF.select(partitionedInputDF.columns.map(col): _*).rdd,
+      partitionedInputDF.schema
+    )
 
     // Force ordering again of columns to be the same since join operation change it otherwise except below won"'t work.
     val commonDF =
