@@ -150,6 +150,13 @@ trait IngestionJob extends SparkJob {
 
                                       } else acceptedDF).drop(Settings.cometInputFileNameColumn)
 
+    def checkSchemasFields(existingDF: DataFrame, acceptedDF: DataFrame) =
+      if (existingDF.schema.fields.length != acceptedDF.schema.fields.length) {
+        throw new RuntimeException(
+          "Input Dataset and existing HDFS dataset do not have the same number of columns. Check for changes in the dataset schema ?"
+        )
+      }
+
     val mergedDF = schema.merge
       .map { mergeOptions =>
         if (metadata.getSink().getOrElse(SinkType.None) == SinkType.BQ) {
@@ -159,8 +166,15 @@ trait IngestionJob extends SparkJob {
             .map { table =>
               val bqTable = s"${domain.name}.${schema.name}"
               val existingBigQueryDF = session.read
+              // We provided the acceptedDF schema here since BQ lose the required / nullable information of the schema
+                .schema(acceptedDfWithscriptFields.schema)
                 .format("com.google.cloud.spark.bigquery")
                 .load(bqTable)
+              checkSchemasFields(
+                existingBigQueryDF,
+                session.read
+                  .parquet(acceptedPath.toString)
+              )
               merge(acceptedDfWithscriptFields, existingBigQueryDF, mergeOptions)
             }
             .getOrElse(acceptedDfWithscriptFields)
@@ -169,13 +183,11 @@ trait IngestionJob extends SparkJob {
           // We provide the accepted DF schema since partition columns types are infered when parquet is loaded and might not match with the DF being ingested
           val existingDF =
             session.read.schema(acceptedDfWithscriptFields.schema).parquet(acceptedPath.toString)
-
-          if (existingDF.schema.fields.length != session.read.parquet(acceptedPath.toString).schema.fields.length) {
-            throw new RuntimeException(
-              "Input Dataset and existing HDFS dataset do not have the same number of columns. Check for changes in the dataset schema ?"
-            )
-          }
-
+          checkSchemasFields(
+            existingDF,
+            session.read
+              .parquet(acceptedPath.toString)
+          )
           merge(acceptedDfWithscriptFields, existingDF, mergeOptions)
         } else
           acceptedDfWithscriptFields
