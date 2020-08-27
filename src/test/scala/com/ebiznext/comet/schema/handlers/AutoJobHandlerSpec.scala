@@ -3,14 +3,8 @@ package com.ebiznext.comet.schema.handlers
 import com.ebiznext.comet.TestHelper
 import com.ebiznext.comet.config.{Settings, StorageArea}
 import com.ebiznext.comet.job.index.bqload.{BigQueryLoadConfig, BigQueryLoadJob}
-import com.ebiznext.comet.schema.model.{
-  AutoJobDesc,
-  AutoTaskDesc,
-  BigQuerySink,
-  RowLevelSecurity,
-  WriteMode
-}
-import com.ebiznext.comet.workflow.IngestionWorkflow
+import com.ebiznext.comet.schema.model._
+import com.ebiznext.comet.workflow.{IngestionWorkflow, TransformConfig}
 import com.google.cloud.hadoop.io.bigquery.BigQueryConfiguration
 import org.apache.hadoop.fs.Path
 import org.scalatest.BeforeAndAfterAll
@@ -79,7 +73,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
       storageHandler.write(businessJobDef, pathBusiness)
 
-      workflow.autoJobRun("user", Some("age=40"))
+      workflow.autoJob(TransformConfig("user", Map("age" -> "40")))
 
       val result = sparkSession.read
         .load(pathUserDatasetBusiness.toString)
@@ -125,7 +119,9 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
       storageHandler.write(businessJobDef, pathBusiness)
 
-      workflow.autoJobRun("user", Some("age=25, lastname='Doe', firstname='John'"))
+      workflow.autoJob(
+        TransformConfig("user", Map("age" -> "25", "lastname" -> "'Doe'", "firstname" -> "'John'"))
+      )
 
       val result = sparkSession.read
         .load(pathUserDatasetBusiness.toString)
@@ -169,7 +165,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
       storageHandler.write(businessJobDef, pathBusiness)
 
-      workflow.autoJobRun("user")
+      workflow.autoJob(TransformConfig("user"))
 
       sparkSession.read
         .load(pathUserDatasetBusiness.toString)
@@ -214,7 +210,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       val workflow =
         new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
 
-      workflow.autoJobRun("fullName")
+      workflow.autoJob(TransformConfig("fullName"))
 
       sparkSession.read
         .load(pathUserDatasetBusiness.toString)
@@ -264,7 +260,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
       storageHandler.write(businessJobDef, pathGraduateProgramBusiness)
 
-      workflow.autoJobRun("graduateProgram", Some("school='UC_Berkeley'"))
+      workflow.autoJob(TransformConfig("graduateProgram", Map("school" -> "'UC_Berkeley'")))
 
       val result = sparkSession.read
         .load(pathGraduateDatasetProgramBusiness.toString)

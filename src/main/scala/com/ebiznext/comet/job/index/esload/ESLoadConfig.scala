@@ -22,7 +22,6 @@ package com.ebiznext.comet.job.index.esload
 
 import java.util.regex.Pattern
 
-import buildinfo.BuildInfo
 import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.schema.model.RowLevelSecurity
 import com.ebiznext.comet.utils.CliConfig
@@ -77,8 +76,9 @@ object ESLoadConfig extends CliConfig[ESLoadConfig] {
     val builder = OParser.builder[ESLoadConfig]
     import builder._
     OParser.sequence(
-      programName("comet"),
-      head("comet", BuildInfo.version),
+      programName("comet esload | index"),
+      head("comet", "index | esload", "[options]"),
+      note(""),
       opt[String]("timestamp")
         .action((x, c) => c.copy(timestamp = Some(x)))
         .optional()
@@ -110,10 +110,12 @@ object ESLoadConfig extends CliConfig[ESLoadConfig] {
       opt[Map[String, String]]("conf")
         .action((x, c) => c.copy(conf = x))
         .optional()
-        .valueName(
-          "es.batch.size.entries=1000,es.batch.size.bytes=1mb... (see https://www.elastic.co/guide/en/elasticsearch/hadoop/current/configuration.html)"
+        .valueName("es.batch.size.entries=1000,es.batch.size.bytes=1mb..."
         )
-        .text("eshadoop configuration options")
+        .text(
+          """eshadoop configuration options.
+            |See https://www.elastic.co/guide/en/elasticsearch/hadoop/current/configuration.html
+            |""".stripMargin)
     )
   }
 

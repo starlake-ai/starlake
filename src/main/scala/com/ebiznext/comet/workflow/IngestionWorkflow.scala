@@ -63,12 +63,15 @@ class IngestionWorkflow(
   val domains: List[Domain] = schemaHandler.domains
 
   /**
-    * Load file from the landing area
+    * Move the files from the landing area to the pending area.
     * files are loaded one domain at a time
-    * each domain has its own directory
+    * each domain has its own directory and is specified in the "directory" key of Domain YML file
     * compressed files are uncompressed if a corresponding ack file exist.
+    * Compressed files are recognized by their extension which should be one of .tgz, .zip, .gz.
     * raw file should also have a corresponding ack file
     * before moving the files to the pending area, the ack files are deleted
+    * To import files without ack specify an empty "ack" key (aka ack:"") in the domain YML file.
+    * "ack" is the default ack extension searched for but you may specify a different one in the domain YML file.
     */
   def loadLanding(): Unit = {
     logger.info("LoadLanding")
@@ -98,7 +101,7 @@ class IngestionWorkflow(
             val tmpFile = new Path(tmpDir, file.getName)
             storageHandler.move(file, tmpFile)
           }
-        } else if (storageHandler.fs.getScheme() == "file") {
+        } else if (storageHandler.fs.getScheme == "file") {
           storageHandler.mkdirs(tmpDir)
           val tgz = new Path(prefixStr + ".tgz")
           val gz = new Path(prefixStr + ".gz")
@@ -145,18 +148,18 @@ class IngestionWorkflow(
     * if a corresponding schema is not found.
     * Schema matching is based on the dataset filename pattern
     *
-    * @param includes Load pending dataset of these domain only
-    * @param excludes : Do not load datasets of these domains
+    * @param config : includes Load pending dataset of these domain only
+    *                 excludes : Do not load datasets of these domains
     *                 if both lists are empty, all domains are included
     */
-  def loadPending(includes: List[String] = Nil, excludes: List[String] = Nil): Unit = {
-    val includedDomains = (includes, excludes) match {
+  def loadPending(config: WatchConfig = WatchConfig()): Unit = {
+    val includedDomains = (config.includes, config.excludes) match {
       case (Nil, Nil) =>
         domains
       case (_, Nil) =>
-        domains.filter(domain => includes.contains(domain.name))
+        domains.filter(domain => config.includes.contains(domain.name))
       case (Nil, _) =>
-        domains.filter(domain => !excludes.contains(domain.name))
+        domains.filter(domain => !config.excludes.contains(domain.name))
       case (_, _) => throw new Exception("Should never happen ")
     }
     logger.info(s"Domains that will be watched: ${domains.map(_.name).mkString(",")}")
@@ -234,7 +237,7 @@ class IngestionWorkflow(
   /**
     * Ingest the file (called by the cron manager at ingestion time for a specific dataset
     */
-  def ingest(config: IngestConfig): Unit = {
+  def ingest(config: LoadConfig): Unit = {
     val domainName = config.domain
     val schemaName = config.schema
     val ingestingPaths = config.paths
@@ -342,7 +345,7 @@ class IngestionWorkflow(
     )
   }
 
-  def infer(config: InferSchemaConfig) = {
+  def infer(config: InferSchemaConfig): InferSchema = {
     new InferSchema(
       config.domainName,
       config.schemaName,
@@ -355,30 +358,10 @@ class IngestionWorkflow(
   /**
     * Successively run each task of a job
     *
-    * @param jobname : job name as defined in the YML file.
-    * @param argParams : sql parameters to pass to SQL statements.
+    * @param config : job name as defined in the YML file and sql parameters to pass to SQL statements.
     */
-  def autoJobRun(jobname: String, argParams: Option[String] = None): Unit = {
-    val job = schemaHandler.jobs(jobname)
-    val parameters: Option[Map[String, String]] = argParams
-      .map {
-        _.replaceAll("\\s", "")
-          .split(Array(',', '='))
-          .grouped(2)
-          .map {
-            case Array(k, v) => k -> v
-          }
-          .toMap
-      }
-    autoJob(job, parameters)
-  }
-
-  /**
-    * Successively run each task of a job
-    *
-    * @param job : job as defined in the YML file.
-    */
-  def autoJob(job: AutoJobDesc, sqlParameters: Option[Map[String, String]]): Unit = {
+  def autoJob(config: TransformConfig): Unit = {
+    val job = schemaHandler.jobs(config.name)
     job.tasks.foreach { task =>
       val action = new AutoTask(
         job.name,
@@ -389,10 +372,10 @@ class IngestionWorkflow(
         job.views,
         task,
         storageHandler,
-        sqlParameters
+        config.options
       )
       action.run() match {
-        case Success(SparkJobResult(session, maybeDataFrame)) =>
+        case Success(SparkJobResult(_, maybeDataFrame)) =>
           task.getSink() match {
             case Some(sink) if settings.comet.elasticsearch.active && sink.`type` == SinkType.ES =>
               esload(job, task)
@@ -461,7 +444,7 @@ class IngestionWorkflow(
     } yield (domain, schema)
 
     cmdArgs match {
-      case Some((domain: Domain, schema: Schema)) => {
+      case Some((domain: Domain, schema: Schema)) =>
         val stage: Stage = cliConfig.stage.getOrElse(Stage.UNIT)
         new MetricsJob(
           domain,
@@ -470,7 +453,6 @@ class IngestionWorkflow(
           storageHandler,
           schemaHandler
         ).run()
-      }
       case None => logger.error("The domain or schema you specified doesn't exist! ")
     }
   }
