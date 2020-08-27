@@ -227,7 +227,8 @@ trait IngestionJob extends SparkJob {
       case Some(SinkType.BQ) =>
         val sink = metadata.getSink().map(_.asInstanceOf[BigQuerySink])
         val (createDisposition: String, writeDisposition: String) = Utils.getDBDisposition(
-          metadata.getWrite()
+          metadata.getWrite(),
+          schema.merge.exists(_.key.nonEmpty)
         )
         val config = BigQueryLoadConfig(
           source = Right(mergedDF),
@@ -253,7 +254,8 @@ trait IngestionJob extends SparkJob {
         val (createDisposition: CreateDisposition, writeDisposition: WriteDisposition) = {
 
           val (cd, wd) = Utils.getDBDisposition(
-            metadata.getWrite()
+            metadata.getWrite(),
+            schema.merge.exists(_.key.nonEmpty)
           )
           (CreateDisposition.valueOf(cd), WriteDisposition.valueOf(wd))
         }
