@@ -97,15 +97,17 @@ object Utils {
     sw.toString
   }
 
-  def getDBDisposition(writeMode: WriteMode): (String, String) = {
-    val (createDisposition, writeDisposition) = writeMode match {
-      case WriteMode.OVERWRITE =>
+  def getDBDisposition(writeMode: WriteMode, hasMergeKeyDefined: Boolean): (String, String) = {
+    val (createDisposition, writeDisposition) = (hasMergeKeyDefined, writeMode) match {
+      case (true, wm) if wm == WriteMode.OVERWRITE || wm == WriteMode.APPEND =>
         ("CREATE_IF_NEEDED", "WRITE_TRUNCATE")
-      case WriteMode.APPEND =>
+      case (_, WriteMode.OVERWRITE) =>
+        ("CREATE_IF_NEEDED", "WRITE_TRUNCATE")
+      case (_, WriteMode.APPEND) =>
         ("CREATE_IF_NEEDED", "WRITE_APPEND")
-      case WriteMode.ERROR_IF_EXISTS =>
+      case (_, WriteMode.ERROR_IF_EXISTS) =>
         ("CREATE_IF_NEEDED", "WRITE_EMPTY")
-      case WriteMode.IGNORE =>
+      case (_, WriteMode.IGNORE) =>
         ("CREATE_NEVER", "WRITE_EMPTY")
       case _ =>
         ("CREATE_IF_NEEDED", "WRITE_TRUNCATE")
