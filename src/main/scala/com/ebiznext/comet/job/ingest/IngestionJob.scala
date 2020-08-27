@@ -159,7 +159,7 @@ trait IngestionJob extends SparkJob {
 
     val mergedDF = schema.merge
       .map { mergeOptions =>
-        if (metadata.getSink().getOrElse(SinkType.None) == SinkType.BQ) {
+        if (metadata.getSink().map(_.`type`).getOrElse(SinkType.None) == SinkType.BQ) {
           // When merging to BigQuery, load existing DF from BigQuery
           val table = BigQueryLoadJob.getTable(session, domain.name, schema.name)
           table
@@ -319,10 +319,8 @@ trait IngestionJob extends SparkJob {
       .mkString(",")}""")
 
     // Force ordering of columns to be the same
-    val orderedExisting = session.createDataFrame(
-      existingDF.select(partitionedInputDF.columns.map(col): _*).rdd,
-      partitionedInputDF.schema
-    )
+    val orderedExisting =
+      existingDF.select(partitionedInputDF.columns.map(col): _*)
 
     // Force ordering again of columns to be the same since join operation change it otherwise except below won"'t work.
     val commonDF =
