@@ -149,7 +149,6 @@ class BigQueryLoadJob(
   }
 
   def runBQSparkConnector(): Try[SparkJobResult] = {
-
     prepareConf()
     Try {
       val cacheStorageLevel =

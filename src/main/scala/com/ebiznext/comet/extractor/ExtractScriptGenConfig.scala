@@ -1,7 +1,8 @@
 package com.ebiznext.comet.extractor
 
 import better.files.File
-import scopt.{OParser, RenderingMode}
+import com.ebiznext.comet.utils.CliConfig
+import scopt.OParser
 
 case class ExtractScriptGenConfig(
   domain: String = "",
@@ -10,19 +11,17 @@ case class ExtractScriptGenConfig(
   deltaColumn: Option[String] = None
 )
 
-object ExtractScriptGenConfig {
-
-  val builder = OParser.builder[ExtractScriptGenConfig]
-
+object ExtractScriptGenConfig  extends CliConfig[ExtractScriptGenConfig]{
   def exists(name: String)(path: String): Either[String, Unit] =
     if (File(path).exists) Right(())
     else Left(s"$name at path $path does not exist")
 
   val parser: OParser[Unit, ExtractScriptGenConfig] = {
+    val builder = OParser.builder[ExtractScriptGenConfig]
     import builder._
     OParser.sequence(
-      programName("comet"),
-      head("comet", "1.x"),
+      programName("comet extract"),
+      head("comet", "extract", "[options]"),
       note(
         """
           |The schemas should at least, specify :
@@ -75,7 +74,6 @@ object ExtractScriptGenConfig {
             |Overrides config database-extractor.default-column value.""".stripMargin)
     )
   }
-  val usage: String = OParser.usage(parser, RenderingMode.TwoColumns)
 
   /** Function to parse command line arguments (domain and schema).
     *
@@ -83,5 +81,5 @@ object ExtractScriptGenConfig {
     * @return : an Option of MetricConfing with the parsed domain and schema names.
     */
   def parse(args: Seq[String]): Option[ExtractScriptGenConfig] =
-    OParser.parse(parser, args, ExtractScriptGenConfig.apply())
+    OParser.parse(parser, args, ExtractScriptGenConfig())
 }
