@@ -163,7 +163,7 @@ trait IngestionJob extends SparkJob {
                 .schema(acceptedDfWithscriptFields.schema)
                 .format("com.google.cloud.spark.bigquery")
                 .load(bqTable)
-              if (existingBigQueryDF.schema.fields.length != session.read
+              if (existingBigQueryDF.schema.fields.length == session.read
                     .parquet(acceptedPath.toString)
                     .schema
                     .fields
@@ -180,7 +180,7 @@ trait IngestionJob extends SparkJob {
           // We provide the accepted DF schema since partition columns types are infered when parquet is loaded and might not match with the DF being ingested
           val existingDF =
             session.read.schema(acceptedDfWithscriptFields.schema).parquet(acceptedPath.toString)
-          if (existingDF.schema.fields.length != session.read
+          if (existingDF.schema.fields.length == session.read
                 .parquet(acceptedPath.toString)
                 .schema
                 .fields
