@@ -152,16 +152,27 @@ trait IngestionJob extends SparkJob {
 
     val mergedDF = schema.merge
       .map { mergeOptions =>
-        if (metadata.getSink().getOrElse(SinkType.None) == SinkType.BQ) {
+        if (metadata.getSink().map(_.`type`).getOrElse(SinkType.None) == SinkType.BQ) {
           // When merging to BigQuery, load existing DF from BigQuery
           val table = BigQueryLoadJob.getTable(session, domain.name, schema.name)
           table
             .map { table =>
               val bqTable = s"${domain.name}.${schema.name}"
               val existingBigQueryDF = session.read
+              // We provided the acceptedDF schema here since BQ lose the required / nullable information of the schema
+                .schema(acceptedDfWithscriptFields.schema)
                 .format("com.google.cloud.spark.bigquery")
                 .load(bqTable)
-              merge(acceptedDfWithscriptFields, existingBigQueryDF, mergeOptions)
+              if (existingBigQueryDF.schema.fields.length == session.read
+                    .parquet(acceptedPath.toString)
+                    .schema
+                    .fields
+                    .length)
+                merge(acceptedDfWithscriptFields, existingBigQueryDF, mergeOptions)
+              else
+                throw new RuntimeException(
+                  "Input Dataset and existing HDFS dataset do not have the same number of columns. Check for changes in the dataset schema ?"
+                )
             }
             .getOrElse(acceptedDfWithscriptFields)
         } else if (storageHandler.exists(new Path(acceptedPath, "_SUCCESS"))) {
@@ -169,13 +180,16 @@ trait IngestionJob extends SparkJob {
           // We provide the accepted DF schema since partition columns types are infered when parquet is loaded and might not match with the DF being ingested
           val existingDF =
             session.read.schema(acceptedDfWithscriptFields.schema).parquet(acceptedPath.toString)
-
-          if (existingDF.schema.fields.length != session.read.parquet(acceptedPath.toString).schema.fields.length) {
+          if (existingDF.schema.fields.length == session.read
+                .parquet(acceptedPath.toString)
+                .schema
+                .fields
+                .length)
+            merge(acceptedDfWithscriptFields, existingDF, mergeOptions)
+          else
             throw new RuntimeException(
               "Input Dataset and existing HDFS dataset do not have the same number of columns. Check for changes in the dataset schema ?"
             )
-          }
-
           merge(acceptedDfWithscriptFields, existingDF, mergeOptions)
         } else
           acceptedDfWithscriptFields
@@ -309,7 +323,8 @@ trait IngestionJob extends SparkJob {
       .mkString(",")}""")
 
     // Force ordering of columns to be the same
-    val orderedExisting = existingDF.select(partitionedInputDF.columns.map(col): _*)
+    val orderedExisting =
+      existingDF.select(partitionedInputDF.columns.map(col): _*)
 
     // Force ordering again of columns to be the same since join operation change it otherwise except below won"'t work.
     val commonDF =
