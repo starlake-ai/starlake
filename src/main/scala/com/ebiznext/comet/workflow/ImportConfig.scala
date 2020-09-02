@@ -13,8 +13,7 @@ object ImportConfig extends CliConfig[ImportConfig] {
     OParser.sequence(
       programName("comet import"),
       head("comet", "import"),
-      note(
-        """
+      note("""
           |Move the files from the landing area to the pending area.
           |files are loaded one domain at a time
           |each domain has its own directory and is specified in the "directory" key of Domain YML file
