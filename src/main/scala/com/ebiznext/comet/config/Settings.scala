@@ -189,7 +189,7 @@ object Settings extends StrictLogging {
     archive: Boolean,
     lock: Lock,
     defaultWriteFormat: String,
-    timestampedCsv: Boolean,
+    csvOutput: Boolean,
     launcher: String,
     chewerPrefix: String,
     rowValidatorClass: String,
