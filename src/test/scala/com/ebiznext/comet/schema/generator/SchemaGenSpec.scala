@@ -176,7 +176,7 @@ class SchemaGenSpec extends TestHelper {
       domainOpt shouldBe defined
       domainOpt
         .flatMap(_.schemas.find(_.name == "SCHEMA1"))
-        .flatMap(_.attributes.find(_.name == "ATTRIBUTE_1").flatMap(_.script)) shouldBe Some(
+        .flatMap(_.attributes.find(_.name == "ATTRIBUTE_4").flatMap(_.script)) shouldBe Some(
         "current_date()"
       )
     }
