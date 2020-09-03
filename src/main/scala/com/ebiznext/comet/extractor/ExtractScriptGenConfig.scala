@@ -11,7 +11,8 @@ case class ExtractScriptGenConfig(
   deltaColumn: Option[String] = None
 )
 
-object ExtractScriptGenConfig  extends CliConfig[ExtractScriptGenConfig]{
+object ExtractScriptGenConfig extends CliConfig[ExtractScriptGenConfig] {
+
   def exists(name: String)(path: String): Either[String, Unit] =
     if (File(path).exists) Right(())
     else Left(s"$name at path $path does not exist")
