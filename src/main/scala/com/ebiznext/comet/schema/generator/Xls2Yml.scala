@@ -28,9 +28,9 @@ object Xls2Yml extends LazyLogging {
                 attr.privacy.getOrElse(PrivacyLevel.None).toString
               )
             )
-              attr.copy(`type` = "string", required = false)
+              attr.copy(`type` = "string", required = false, rename = None)
             else
-              attr.copy(`type` = "string", required = false, privacy = None)
+              attr.copy(`type` = "string", required = false, privacy = None, rename = None)
           }
       val newMetaData: Option[Metadata] = s.metadata.map { m =>
         m.copy(partition = None, sink = None)
@@ -70,20 +70,14 @@ object Xls2Yml extends LazyLogging {
         )
       }
       val attributes = schema.attributes.map { attr =>
-        val noPrivacyAttr =
-          if (
-            privacy == Nil || privacy.contains(
-              attr.privacy.getOrElse(PrivacyLevel.None).toString
-            )
+        if (
+          privacy == Nil || privacy.contains(
+            attr.privacy.getOrElse(PrivacyLevel.None).toString
           )
-            attr.copy(privacy = None)
-          else
-            attr
-
-        noPrivacyAttr.rename match {
-          case Some(newName) => noPrivacyAttr.copy(name = newName, rename = None)
-          case None          => noPrivacyAttr
-        }
+        )
+          attr.copy(privacy = None)
+        else
+          attr
       }
       schema.copy(
         metadata = metadata,
