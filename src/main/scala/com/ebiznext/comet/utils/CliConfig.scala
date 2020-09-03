@@ -75,7 +75,6 @@ trait CliConfig[T] {
     val stream = getClass.getResourceAsStream("/scalate/sphinx-cli.mustache")
     val template = scala.io.Source.fromInputStream(stream).mkString
 
-
     engine.layout(
       "sphinx-cli.mustache",
       engine.compileMoustache(template),

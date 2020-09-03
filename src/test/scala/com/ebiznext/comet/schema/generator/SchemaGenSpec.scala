@@ -113,24 +113,25 @@ class SchemaGenSpec extends TestHelper {
       validCount(preEncrypt, "MD5", 2)
       validCount(preEncrypt, "SHA1", 1)
     }
-    "In prestep Attributes" should "keep renaming strategy" in {
+    "In prestep Attributes" should "not be renamed" in {
       domainOpt shouldBe defined
       val preEncrypt = Xls2Yml.genPreEncryptionDomain(domainOpt.get, Nil)
       val schemaOpt = preEncrypt.schemas.find(_.name == "SCHEMA1")
       schemaOpt shouldBe defined
       val attrOpt = schemaOpt.get.attributes.find(_.name == "ATTRIBUTE_6")
       attrOpt shouldBe defined
-      attrOpt.get.rename shouldBe defined
+      attrOpt.get.rename shouldBe None
     }
 
-    "In poststep Attributes" should "be already renamed" in {
+    "In poststep Attributes" should "keep renaming strategy" in {
       domainOpt shouldBe defined
       val postEncrypt = Xls2Yml.genPostEncryptionDomain(domainOpt.get, Some("µ"), Nil)
       val schemaOpt = postEncrypt.schemas.find(_.name == "SCHEMA1")
       schemaOpt shouldBe defined
-      val attrOpt = schemaOpt.get.attributes.find(_.name == "RENAME_ATTRIBUTE_6")
+      val attrOpt = schemaOpt.get.attributes.find(_.name == "ATTRIBUTE_6")
       attrOpt shouldBe defined
-      attrOpt.get.rename shouldBe None
+      attrOpt.get.rename shouldBe defined
+      attrOpt.get.rename.get shouldBe "RENAME_ATTRIBUTE_6"
 
     }
     "No privacy policies" should "be applied in the post-encrypt step " in {
@@ -180,7 +181,7 @@ class SchemaGenSpec extends TestHelper {
         "current_date()"
       )
     }
-    
+
     "All SchemaGen Config" should "be known and taken  into account" in {
       val rendered = Xls2YmlConfig.usage()
       val expected =
