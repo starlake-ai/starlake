@@ -76,7 +76,7 @@ trait LaunchHandler {
     * @param config
     */
   def esLoad(workflow: IngestionWorkflow, config: ESLoadConfig)(implicit
-                                                                settings: Settings
+    settings: Settings
   ): Boolean
 
   /**
@@ -129,7 +129,7 @@ class SimpleLauncher extends LaunchHandler with StrictLogging {
     * @param config
     */
   override def esLoad(workflow: IngestionWorkflow, config: ESLoadConfig)(implicit
-                                                                         settings: Settings
+    settings: Settings
   ): Boolean = {
     logger.info(s"Launch index: ${config}")
     workflow.esLoad(config)
@@ -229,7 +229,7 @@ class AirflowLauncher extends LaunchHandler with StrictLogging {
     * @param config
     */
   override def esLoad(workflow: IngestionWorkflow, config: ESLoadConfig)(implicit
-                                                                         settings: Settings
+    settings: Settings
   ): Boolean = {
     val endpoint = settings.comet.airflow.endpoint
     val url = s"$endpoint/dags/comet_index/dag_runs"

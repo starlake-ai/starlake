@@ -10,9 +10,10 @@ trait Formatter {
     * @return
     */
   implicit class RichFormatter(str: String) {
-      def richFormat(replacement: Map[String, String]): String =
-        replacement.foldLeft(str) { (res, entry) =>
-          res.replaceAll("\\{\\{%s\\}\\}".format(entry._1), entry._2)
-        }
-    }
+
+    def richFormat(replacement: Map[String, String]): String =
+      replacement.foldLeft(str) { (res, entry) =>
+        res.replaceAll("\\{\\{%s\\}\\}".format(entry._1), entry._2)
+      }
+  }
 }

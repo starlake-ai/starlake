@@ -3,7 +3,18 @@ package com.ebiznext.comet.job.index.bqload
 import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.utils.{SparkJob, Utils}
 import com.google.cloud.ServiceOptions
-import com.google.cloud.bigquery.{BigQuery, BigQueryException, BigQueryOptions, Clustering, JobInfo, StandardTableDefinition, Table, TableId, TableInfo, Schema => BQSchema}
+import com.google.cloud.bigquery.{
+  BigQuery,
+  BigQueryException,
+  BigQueryOptions,
+  Clustering,
+  JobInfo,
+  StandardTableDefinition,
+  Table,
+  TableId,
+  TableInfo,
+  Schema => BQSchema
+}
 import com.google.cloud.hadoop.io.bigquery.BigQueryConfiguration
 import org.apache.hadoop.conf.Configuration
 import org.apache.spark.sql.functions.{col, date_format}
@@ -19,7 +30,8 @@ class BigQuerySparkJob(
   override val cliConfig: BigQueryLoadConfig,
   maybeSchema: Option[BQSchema] = None
 )(implicit val settings: Settings)
-    extends SparkJob with BigQueryJobBase {
+    extends SparkJob
+    with BigQueryJobBase {
 
   override def name: String = s"bqload-${cliConfig.outputDataset}-${cliConfig.outputTable}"
 
@@ -29,7 +41,6 @@ class BigQuerySparkJob(
   override val projectId: String = conf.get("fs.gs.project.id")
 
   val bucket: String = conf.get("fs.defaultFS")
-
 
   def prepareConf(): Configuration = {
     val conf = session.sparkContext.hadoopConfiguration
@@ -70,6 +81,7 @@ class BigQuerySparkJob(
     )
     conf
   }
+
   def getOrCreateTable(dataFrame: Option[DataFrame], maybeSchema: Option[BQSchema]): TableInfo = {
     getOrCreateDataset()
     Option(bigquery.getTable(tableId)) getOrElse {
@@ -225,11 +237,12 @@ class BigQuerySparkJob(
 }
 
 object BigQuerySparkJob {
+
   def getTable(
-                session: SparkSession,
-                datasetName: String,
-                tableName: String
-              ): Option[Table] = {
+    session: SparkSession,
+    datasetName: String,
+    tableName: String
+  ): Option[Table] = {
     val conf = session.sparkContext.hadoopConfiguration
     val projectId: String =
       Option(conf.get("fs.gs.project.id")).getOrElse(ServiceOptions.getDefaultProjectId)
