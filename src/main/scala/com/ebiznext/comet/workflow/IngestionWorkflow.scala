@@ -23,17 +23,17 @@ package com.ebiznext.comet.workflow
 import better.files.File
 import com.ebiznext.comet.config.{DatasetArea, Settings}
 import com.ebiznext.comet.job.atlas.{AtlasConfig, AtlasJob}
-import com.ebiznext.comet.job.index.bqload.{BigQueryLoadConfig, BigQueryLoadJob}
+import com.ebiznext.comet.job.index.bqload.{BigQueryLoadConfig, BigQuerySparkJob}
 import com.ebiznext.comet.job.index.esload.{ESLoadConfig, ESLoadJob}
 import com.ebiznext.comet.job.index.jdbcload.{JdbcLoadConfig, JdbcLoadJob}
 import com.ebiznext.comet.job.infer.{InferSchema, InferSchemaConfig}
 import com.ebiznext.comet.job.ingest._
 import com.ebiznext.comet.job.metrics.{MetricsConfig, MetricsJob}
-import com.ebiznext.comet.job.transform.AutoTask
+import com.ebiznext.comet.job.transform.AutoTaskJob
 import com.ebiznext.comet.schema.handlers.{LaunchHandler, SchemaHandler, StorageHandler}
 import com.ebiznext.comet.schema.model.Format._
 import com.ebiznext.comet.schema.model._
-import com.ebiznext.comet.utils.{SparkJobResult, Unpacker, Utils}
+import com.ebiznext.comet.utils.{Unpacker, Utils}
 import com.google.cloud.bigquery.{Schema => BQSchema}
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
@@ -258,7 +258,7 @@ class IngestionWorkflow(
     logger.info(
       s"Ingesting domain: ${domain.name} with schema: ${schema.name} on file: $ingestingPath with metadata $metadata"
     )
-    val ingestionResult: Try[SparkJobResult] = Try(metadata.getFormat() match {
+    val ingestionResult: Try[Unit] = Try(metadata.getFormat() match {
       case DSV =>
         new DsvIngestionJob(
           domain,
@@ -332,7 +332,7 @@ class IngestionWorkflow(
     val targetArea = task.area.getOrElse(job.getArea())
     val targetPath = new Path(DatasetArea.path(task.domain, targetArea.value), task.dataset)
     val sink = task.getSink().asInstanceOf[EsSink]
-    launchHandler.esload(
+    launchHandler.esLoad(
       this,
       ESLoadConfig(
         timestamp = sink.timestamp,
@@ -363,66 +363,94 @@ class IngestionWorkflow(
   def autoJob(config: TransformConfig): Unit = {
     val job = schemaHandler.jobs(config.name)
     job.tasks.foreach { task =>
-      val action = new AutoTask(
+      val action = new AutoTaskJob(
         job.name,
         job.area,
         job.format,
         job.coalesce.getOrElse(false),
         job.udf,
         job.views,
+        job.getEngine(),
         task,
         storageHandler,
         config.options
       )
-      action.run() match {
-        case Success(SparkJobResult(_, maybeDataFrame)) =>
-          task.getSink() match {
-            case Some(sink) if settings.comet.elasticsearch.active && sink.`type` == SinkType.ES =>
-              esload(job, task)
-            case Some(sink) if sink.`type` == SinkType.BQ =>
-              val (createDisposition, writeDisposition) = Utils.getDBDisposition(task.write, hasMergeKeyDefined = false)
-              val bqSink = sink.asInstanceOf[BigQuerySink]
-              val source = maybeDataFrame
-                .map(df => Right(setNullableStateOfColumn(df, nullable = true)))
-                .getOrElse(Left(task.getTargetPath(Some(job.getArea())).toString))
-              bqload(
-                BigQueryLoadConfig(
-                  source = source,
-                  outputTable = task.dataset,
-                  outputDataset = task.domain,
-                  sourceFormat = "parquet",
-                  createDisposition = createDisposition,
-                  writeDisposition = writeDisposition,
-                  location = bqSink.location,
-                  outputPartition = bqSink.timestamp,
-                  outputClustering = bqSink.clustering.getOrElse(Nil),
-                  days = bqSink.days,
-                  requirePartitionFilter = bqSink.requirePartitionFilter.getOrElse(false),
-                  rls = task.rls
-                )
-              )
-            case _ =>
-            // ignore
+      val (createDisposition, writeDisposition) =
+        Utils.getDBDisposition(task.write, hasMergeKeyDefined = false)
 
+      job.getEngine() match {
+        case Engine.BQ =>
+          action.runBQ()
+                task.sink.map(sink => sink.asInstanceOf[BigQuerySink]).foreach { bqSink =>
+                  bqload(
+                    BigQueryLoadConfig(
+                      outputTable = task.dataset,
+                      outputDataset = task.domain,
+                      createDisposition = createDisposition,
+                      writeDisposition = writeDisposition,
+                      location = bqSink.location,
+                      outputPartition = bqSink.timestamp,
+                      outputClustering = bqSink.clustering.getOrElse(Nil),
+                      days = bqSink.days,
+                      requirePartitionFilter = bqSink.requirePartitionFilter.getOrElse(false),
+                      rls = task.rls,
+                      engine = Engine.BQ
+                    )
+                  )
           }
-        case Failure(exception) =>
-          exception.printStackTrace()
+
+        case Engine.SPARK =>
+          action.runSpark() match {
+            case Success(maybeDataFrame) =>
+              task.getSink() match {
+                case Some(sink)
+                  if settings.comet.elasticsearch.active && sink.`type` == SinkType.ES =>
+                  esload(job, task)
+                case Some(sink) if sink.`type` == SinkType.BQ =>
+                  val bqSink = sink.asInstanceOf[BigQuerySink]
+                  val source = maybeDataFrame
+                    .map(df => Right(setNullableStateOfColumn(df, nullable = true)))
+                    .getOrElse(Left(task.getTargetPath(Some(job.getArea())).toString))
+                  val config =
+                    BigQueryLoadConfig(
+                      source = source,
+                      outputTable = task.dataset,
+                      outputDataset = task.domain,
+                      sourceFormat = "parquet",
+                      createDisposition = createDisposition,
+                      writeDisposition = writeDisposition,
+                      location = bqSink.location,
+                      outputPartition = bqSink.timestamp,
+                      outputClustering = bqSink.clustering.getOrElse(Nil),
+                      days = bqSink.days,
+                      requirePartitionFilter = bqSink.requirePartitionFilter.getOrElse(false),
+                      rls = task.rls
+                    )
+                  new BigQuerySparkJob(config, None).run()
+                case _ =>
+                // ignore
+
+              }
+            case Failure(exception) =>
+              exception.printStackTrace()
+          }
+        case _ => Failure(new Exception("Should never happen"))
       }
     }
   }
 
-  def esLoad(config: ESLoadConfig): Try[SparkJobResult] = {
+  def esLoad(config: ESLoadConfig): Try[Option[DataFrame]] = {
     new ESLoadJob(config, storageHandler, schemaHandler).run()
   }
 
   def bqload(
     config: BigQueryLoadConfig,
     maybeSchema: Option[BQSchema] = None
-  ): Try[SparkJobResult] = {
-    new BigQueryLoadJob(config, maybeSchema).run()
+  ): Try[Unit] = {
+    new BigQuerySparkJob(config, maybeSchema).run().map(_ => ())
   }
 
-  def jdbcload(config: JdbcLoadConfig): Try[SparkJobResult] = {
+  def jdbcload(config: JdbcLoadConfig): Try[Option[DataFrame]] = {
     val loadJob = new JdbcLoadJob(config)
     loadJob.run()
   }

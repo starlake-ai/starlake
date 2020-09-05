@@ -5,7 +5,7 @@ import java.time.format.DateTimeFormatter
 import java.time.{Instant, LocalDateTime}
 
 import com.ebiznext.comet.config.{DatasetArea, Settings, StorageArea}
-import com.ebiznext.comet.job.index.bqload.{BigQueryLoadConfig, BigQueryLoadJob}
+import com.ebiznext.comet.job.index.bqload.{BigQueryLoadConfig, BigQuerySparkJob}
 import com.ebiznext.comet.job.index.esload.{ESLoadConfig, ESLoadJob}
 import com.ebiznext.comet.job.index.jdbcload.{JdbcLoadConfig, JdbcLoadJob}
 import com.ebiznext.comet.job.ingest.ImprovedDataFrameContext._
@@ -14,7 +14,7 @@ import com.ebiznext.comet.schema.handlers.{SchemaHandler, StorageHandler}
 import com.ebiznext.comet.schema.model.Rejection.{ColInfo, ColResult}
 import com.ebiznext.comet.schema.model.Trim.{BOTH, LEFT, RIGHT}
 import com.ebiznext.comet.schema.model._
-import com.ebiznext.comet.utils.{SparkJob, SparkJobResult, Utils}
+import com.ebiznext.comet.utils.{SparkJob, Utils}
 import com.google.cloud.bigquery.JobInfo.{CreateDisposition, WriteDisposition}
 import com.google.cloud.bigquery.{Field, LegacySQLTypeName}
 import org.apache.hadoop.fs.Path
@@ -83,9 +83,9 @@ trait IngestionJob extends SparkJob {
     }
     val domainName = domain.name
     val schemaName = schema.name
-    IngestionUtil.sinkRejected(session, rejectedRDD, domainName, schemaName.toString, now) match {
+    IngestionUtil.sinkRejected(session, rejectedRDD, domainName, schemaName, now) match {
       case Success((rejectedDF, rejectedPath)) =>
-        saveRows(rejectedDF, rejectedPath, WriteMode.APPEND, StorageArea.rejected, false)
+        saveRows(rejectedDF, rejectedPath, WriteMode.APPEND, StorageArea.rejected, merge = false)
         Success(rejectedPath)
       case Failure(exception) =>
         logger.error("Failed to save Rejected", exception)
@@ -154,7 +154,7 @@ trait IngestionJob extends SparkJob {
       .map { mergeOptions =>
         if (metadata.getSink().map(_.`type`).getOrElse(SinkType.None) == SinkType.BQ) {
           // When merging to BigQuery, load existing DF from BigQuery
-          val table = BigQueryLoadJob.getTable(session, domain.name, schema.name)
+          val table = BigQuerySparkJob.getTable(session, domain.name, schema.name)
           table
             .map { table =>
               val bqTable = s"${domain.name}.${schema.name}"
@@ -210,7 +210,7 @@ trait IngestionJob extends SparkJob {
         .head
       val finalCsvPath = new Path(
         acceptedPath,
-        s"${acceptedPath.getName()}-${now}.csv"
+        s"${acceptedPath.getName()}-$now.csv"
       )
       storageHandler.move(csvPath, finalCsvPath)
     }
@@ -258,7 +258,7 @@ trait IngestionJob extends SparkJob {
           requirePartitionFilter = sink.flatMap(_.requirePartitionFilter).getOrElse(false),
           rls = schema.rls
         )
-        val res = new BigQueryLoadJob(config, Some(schema.bqSchema(schemaHandler))).run()
+        val res = new BigQuerySparkJob(config, Some(schema.bqSchema(schemaHandler))).run()
         res match {
           case Success(_) => ;
           case Failure(e) => logger.error("BQLoad Failed", e)
@@ -408,7 +408,7 @@ trait IngestionJob extends SparkJob {
             else
               0
 
-          val sampledDataset = dataset.sample(false, minFraction)
+          val sampledDataset = dataset.sample(withReplacement = false, minFraction)
           partitionedDatasetWriter(sampledDataset, metadata.getPartitionAttributes())
             .mode(SaveMode.ErrorIfExists)
             .format(settings.comet.defaultWriteFormat)
@@ -458,8 +458,8 @@ trait IngestionJob extends SparkJob {
           targetDatasetWriter
             .mode(saveMode)
             .format("csv")
-            .option("ignoreLeadingWhiteSpace", false)
-            .option("ignoreTrailingWhiteSpace", false)
+            .option("ignoreLeadingWhiteSpace", value = false)
+            .option("ignoreTrailingWhiteSpace", value = false)
             .option("header", metadata.withHeader.getOrElse(false))
             .option("delimiter", metadata.separator.getOrElse("µ"))
             .option("path", targetPath.toString)
@@ -474,21 +474,7 @@ trait IngestionJob extends SparkJob {
         finalTargetDatasetWriter.saveAsTable(fullTableName)
         val tableComment = schema.comment.getOrElse("")
         session.sql(s"ALTER TABLE $fullTableName SET TBLPROPERTIES ('comment' = '$tableComment')")
-        if (settings.comet.analyze) {
-          val allCols = session.table(fullTableName).columns.mkString(",")
-          val analyzeTable =
-            s"ANALYZE TABLE $fullTableName COMPUTE STATISTICS FOR COLUMNS $allCols"
-          if (session.version.substring(0, 3).toDouble >= 2.4)
-            try {
-              session.sql(analyzeTable)
-            } catch {
-              case e: Throwable =>
-                logger.warn(
-                  s"Failed to compute statistics for table $fullTableName on columns $allCols"
-                )
-                e.printStackTrace()
-            }
-        }
+        analyze(fullTableName)
       } else {
         finalTargetDatasetWriter.save()
       }
@@ -515,8 +501,8 @@ trait IngestionJob extends SparkJob {
     *
     * @return : Spark Session used for the job
     */
-  def run(): Try[SparkJobResult] = {
-    domain.checkValidity(schemaHandler) match {
+  def run(): Try[Option[DataFrame]] = {
+    val jobResult = domain.checkValidity(schemaHandler) match {
       case Left(errors) =>
         val errs = errors.reduce { (errs, err) =>
           errs + "\n" + err
@@ -553,7 +539,7 @@ trait IngestionJob extends SparkJob {
               )
               SparkAuditLogWriter.append(session, log)
               schema.postsql.getOrElse(Nil).foreach(session.sql)
-              SparkJobResult(session)
+              None
             }
           case Failure(exception) =>
             val end = Timestamp.from(Instant.now())
@@ -575,8 +561,10 @@ trait IngestionJob extends SparkJob {
             Failure(throw exception)
         }
     }
+    // After each ingestionjob we explicitely clear the spark cache
+    session.catalog.clearCache()
+    jobResult
   }
-
 }
 
 object IngestionUtil {
@@ -641,7 +629,7 @@ object IngestionUtil {
             None,
             None
           )
-          new BigQueryLoadJob(bqConfig, Some(bigqueryRejectedSchema())).run()
+          new BigQuerySparkJob(bqConfig, Some(bigqueryRejectedSchema())).run()
 
         case JdbcSink(jdbcName, partitions, batchSize) =>
           val jdbcConfig = JdbcLoadConfig.fromComet(
@@ -655,7 +643,7 @@ object IngestionUtil {
 
           new JdbcLoadJob(jdbcConfig).run()
 
-        case EsSink(id, timestamp) =>
+        case EsSink(_, _) =>
           ???
         case NoneSink() =>
           Success(())

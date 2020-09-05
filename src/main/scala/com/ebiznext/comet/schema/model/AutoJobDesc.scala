@@ -82,7 +82,12 @@ case class AutoJobDesc(
   format: Option[String],
   coalesce: Option[Boolean],
   udf: Option[String] = None,
-  views: Option[Map[String, String]] = None
+  views: Option[Map[String, String]] = None,
+  engine: Option[Engine] = None
 ) {
+  @JsonIgnore
   def getArea(): StorageArea = area.getOrElse(StorageArea.business)
+
+  @JsonIgnore
+  def getEngine(): Engine = engine.getOrElse(Engine.SPARK)
 }
