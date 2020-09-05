@@ -205,7 +205,7 @@ class Parquet2CSVSpec extends TestHelper {
           |
           |
           |""".stripMargin
-          println(Parquet2CSVConfig.sphinx())
+      println(Parquet2CSVConfig.sphinx())
       Parquet2CSVConfig.sphinx().replaceAll("\\s", "") shouldEqual expected.replaceAll("\\s", "")
     }
   }

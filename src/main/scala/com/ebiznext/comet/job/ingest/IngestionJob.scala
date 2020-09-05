@@ -1,14 +1,12 @@
 package com.ebiznext.comet.job.ingest
 
 import java.sql.Timestamp
-import java.time.format.DateTimeFormatter
 import java.time.{Instant, LocalDateTime}
 
 import com.ebiznext.comet.config.{DatasetArea, Settings, StorageArea}
 import com.ebiznext.comet.job.index.bqload.{BigQueryLoadConfig, BigQuerySparkJob}
 import com.ebiznext.comet.job.index.esload.{ESLoadConfig, ESLoadJob}
 import com.ebiznext.comet.job.index.jdbcload.{JdbcLoadConfig, JdbcLoadJob}
-import com.ebiznext.comet.job.ingest.ImprovedDataFrameContext._
 import com.ebiznext.comet.job.metrics.MetricsJob
 import com.ebiznext.comet.schema.handlers.{SchemaHandler, StorageHandler}
 import com.ebiznext.comet.schema.model.Rejection.{ColInfo, ColResult}
@@ -23,6 +21,7 @@ import org.apache.spark.sql._
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types.{StringType, StructField, StructType, TimestampType}
+import com.ebiznext.comet.job.ingest.ImprovedDataFrameContext._
 
 import scala.language.existentials
 import scala.util.{Failure, Success, Try}
@@ -98,8 +97,8 @@ trait IngestionJob extends SparkJob {
       .map(_ => WriteMode.OVERWRITE)
       .getOrElse(metadata.getWrite())
 
-  private def timestampedCsv(): Boolean =
-    settings.comet.timestampedCsv && !settings.comet.grouped && metadata.partition.isEmpty
+  private def csvOutput(): Boolean =
+    settings.comet.csvOutput && !settings.comet.grouped && metadata.partition.isEmpty && path.nonEmpty
 
   /**
     * Merge new and existing dataset if required
@@ -124,23 +123,23 @@ trait IngestionJob extends SparkJob {
 
                                         schema.attributes.foldRight(acceptedDF) {
                                           case (
-                                              Attribute(
-                                                name,
-                                                _,
-                                                _,
-                                                _,
-                                                _,
-                                                _,
-                                                _,
-                                                _,
-                                                _,
-                                                _,
-                                                _,
-                                                _,
-                                                _,
-                                                Some(script)
-                                              ),
-                                              df
+                                                Attribute(
+                                                  name,
+                                                  _,
+                                                  _,
+                                                  _,
+                                                  _,
+                                                  _,
+                                                  _,
+                                                  _,
+                                                  _,
+                                                  _,
+                                                  _,
+                                                  _,
+                                                  _,
+                                                  Some(script)
+                                                ),
+                                                df
                                               ) =>
                                             df.T(
                                               s"SELECT *, $script as $name FROM __THIS__"
@@ -159,15 +158,17 @@ trait IngestionJob extends SparkJob {
             .map { table =>
               val bqTable = s"${domain.name}.${schema.name}"
               val existingBigQueryDF = session.read
-              // We provided the acceptedDF schema here since BQ lose the required / nullable information of the schema
+                // We provided the acceptedDF schema here since BQ lose the required / nullable information of the schema
                 .schema(acceptedDfWithscriptFields.schema)
                 .format("com.google.cloud.spark.bigquery")
                 .load(bqTable)
-              if (existingBigQueryDF.schema.fields.length == session.read
-                    .parquet(acceptedPath.toString)
-                    .schema
-                    .fields
-                    .length)
+              if (
+                existingBigQueryDF.schema.fields.length == session.read
+                  .parquet(acceptedPath.toString)
+                  .schema
+                  .fields
+                  .length
+              )
                 merge(acceptedDfWithscriptFields, existingBigQueryDF, mergeOptions)
               else
                 throw new RuntimeException(
@@ -180,11 +181,13 @@ trait IngestionJob extends SparkJob {
           // We provide the accepted DF schema since partition columns types are infered when parquet is loaded and might not match with the DF being ingested
           val existingDF =
             session.read.schema(acceptedDfWithscriptFields.schema).parquet(acceptedPath.toString)
-          if (existingDF.schema.fields.length == session.read
-                .parquet(acceptedPath.toString)
-                .schema
-                .fields
-                .length)
+          if (
+            existingDF.schema.fields.length == session.read
+              .parquet(acceptedPath.toString)
+              .schema
+              .fields
+              .length
+          )
             merge(acceptedDfWithscriptFields, existingDF, mergeOptions)
           else
             throw new RuntimeException(
@@ -201,16 +204,14 @@ trait IngestionJob extends SparkJob {
       saveRows(mergedDF, acceptedPath, writeMode, StorageArea.accepted, schema.merge.isDefined)
     logger.info("Saved Dataset Schema")
     savedDataset.printSchema()
-    if (timestampedCsv()) {
-      val formatter = DateTimeFormatter.ofPattern("yyyyMMddHHmmss")
-      val now = LocalDateTime.now().format(formatter)
+    if (csvOutput()) {
       val csvPath = storageHandler
         .list(acceptedPath, ".csv", LocalDateTime.MIN)
-        .filter(!_.getName.startsWith(acceptedPath.getName()))
+        .filterNot(path => schema.pattern.matcher(path.getName).matches())
         .head
       val finalCsvPath = new Path(
         acceptedPath,
-        s"${acceptedPath.getName()}-$now.csv"
+        path.head.getName
       )
       storageHandler.move(csvPath, finalCsvPath)
     }
@@ -333,13 +334,13 @@ trait IngestionJob extends SparkJob {
         .select(partitionedInputDF.columns.map(col): _*)
 
     val toDeleteDF = merge.timestamp.map { timestamp =>
-      val w = Window.partitionBy(merge.key.head, merge.key.tail: _*).orderBy(col(timestamp).desc)
-      import org.apache.spark.sql.functions.row_number
-      commonDF
-        .withColumn("rownum", row_number.over(w))
-        .where(col("rownum") =!= 1)
-        .drop("rownum")
-    } getOrElse commonDF
+        val w = Window.partitionBy(merge.key.head, merge.key.tail: _*).orderBy(col(timestamp).desc)
+        import org.apache.spark.sql.functions.row_number
+        commonDF
+          .withColumn("rownum", row_number.over(w))
+          .where(col("rownum") =!= 1)
+          .drop("rownum")
+      } getOrElse commonDF
 
     val updatesDF = merge.delete
       .map(condition => partitionedInputDF.filter(s"not ($condition)"))
@@ -393,7 +394,7 @@ trait IngestionJob extends SparkJob {
 
       val nbPartitions = metadata.getSamplingStrategy() match {
         case 0.0 => // default partitioning
-          if (timestampedCsv())
+          if (csvOutput())
             1
           else
             dataset.rdd.getNumPartitions
@@ -403,7 +404,9 @@ trait IngestionJob extends SparkJob {
           val minFraction =
             if (fraction * count >= 1) // Make sure we get at least on item in teh dataset
               fraction
-            else if (count > 0) // We make sure we get at least 1 item which is 2 because of double imprecision for huge numbers.
+            else if (
+              count > 0
+            ) // We make sure we get at least 1 item which is 2 because of double imprecision for huge numbers.
               2 / count
             else
               0
@@ -424,9 +427,11 @@ trait IngestionJob extends SparkJob {
 
       // No need to apply partition on rejected dF
       val partitionedDFWriter =
-        if (area == StorageArea.rejected && !metadata
-              .getPartitionAttributes()
-              .forall(Metadata.CometPartitionColumns.contains(_)))
+        if (
+          area == StorageArea.rejected && !metadata
+            .getPartitionAttributes()
+            .forall(Metadata.CometPartitionColumns.contains(_))
+        )
           partitionedDatasetWriter(dataset.coalesce(nbPartitions), Nil)
         else
           partitionedDatasetWriter(
@@ -454,7 +459,7 @@ trait IngestionJob extends SparkJob {
       } else
         (partitionedDFWriter, dataset)
       val finalTargetDatasetWriter =
-        if (timestampedCsv())
+        if (csvOutput())
           targetDatasetWriter
             .mode(saveMode)
             .format("csv")

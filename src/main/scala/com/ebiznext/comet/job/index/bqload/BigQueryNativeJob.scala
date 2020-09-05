@@ -4,7 +4,15 @@ import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.schema.model.UserType
 import com.ebiznext.comet.utils.{SparkJob, Utils}
 import com.google.cloud.ServiceOptions
-import com.google.cloud.bigquery.{BigQuery, BigQueryOptions, Clustering, QueryJobConfiguration, TableInfo, UserDefinedFunction, ViewDefinition}
+import com.google.cloud.bigquery.{
+  BigQuery,
+  BigQueryOptions,
+  Clustering,
+  QueryJobConfiguration,
+  TableInfo,
+  UserDefinedFunction,
+  ViewDefinition
+}
 import org.apache.hadoop.conf.Configuration
 import org.apache.spark.sql.DataFrame
 
@@ -14,8 +22,10 @@ import scala.util.Try
 class BigQueryNativeJob(
   override val cliConfig: BigQueryLoadConfig,
   sql: String,
-  udf: Option[String])(implicit val settings: Settings)
-    extends SparkJob with BigQueryJobBase {
+  udf: Option[String]
+)(implicit val settings: Settings)
+    extends SparkJob
+    with BigQueryJobBase {
 
   override def name: String = s"bqload-${cliConfig.outputDataset}-${cliConfig.outputTable}"
 
@@ -61,8 +71,8 @@ class BigQueryNativeJob(
   }
 
   def runSQL(
-              sql: String
-            ): Unit = {
+    sql: String
+  ): Unit = {
     val queryConfig: QueryJobConfiguration.Builder =
       QueryJobConfiguration
         .newBuilder(sql)
@@ -123,6 +133,7 @@ class BigQueryNativeJob(
 }
 
 object BigQueryNativeJob {
+
   def createViews(views: Map[String, String], udf: Option[String]) = {
     val bigquery: BigQuery = BigQueryOptions.getDefaultInstance.getService
 

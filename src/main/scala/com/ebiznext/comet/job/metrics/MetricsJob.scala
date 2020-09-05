@@ -6,7 +6,15 @@ import com.ebiznext.comet.job.index.jdbcload.JdbcLoadConfig
 import com.ebiznext.comet.job.ingest.MetricRecord
 import com.ebiznext.comet.job.metrics.Metrics.{ContinuousMetric, DiscreteMetric, MetricsDatasets}
 import com.ebiznext.comet.schema.handlers.{SchemaHandler, StorageHandler}
-import com.ebiznext.comet.schema.model.{BigQuerySink, Domain, EsSink, JdbcSink, NoneSink, Schema, Stage}
+import com.ebiznext.comet.schema.model.{
+  BigQuerySink,
+  Domain,
+  EsSink,
+  JdbcSink,
+  NoneSink,
+  Schema,
+  Stage
+}
 import com.ebiznext.comet.utils.{FileLock, SparkJob, Utils}
 import com.google.cloud.bigquery.JobInfo.WriteDisposition
 import org.apache.hadoop.fs.Path
