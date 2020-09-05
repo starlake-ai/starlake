@@ -1,7 +1,19 @@
 package com.ebiznext.comet.job.index.bqload
 
 import com.ebiznext.comet.schema.model.UserType
-import com.google.cloud.bigquery.{BigQuery, BigQueryOptions, Dataset, DatasetId, DatasetInfo, Job, JobId, JobInfo, QueryJobConfiguration, TableId, TimePartitioning}
+import com.google.cloud.bigquery.{
+  BigQuery,
+  BigQueryOptions,
+  Dataset,
+  DatasetId,
+  DatasetInfo,
+  Job,
+  JobId,
+  JobInfo,
+  QueryJobConfiguration,
+  TableId,
+  TimePartitioning
+}
 import com.typesafe.scalalogging.StrictLogging
 
 trait BigQueryJobBase extends StrictLogging {
@@ -74,8 +86,6 @@ trait BigQueryJobBase extends StrictLogging {
     }
   }
 
-
-
   def timePartitioning(
     partitionField: String,
     days: Option[Int] = None,
@@ -97,8 +107,6 @@ trait BigQueryJobBase extends StrictLogging {
           .setRequirePartitionFilter(requirePartitionFilter)
     }
   }
-
-
 
   def runJob(statement: String, location: String): Job = {
     import java.util.UUID
@@ -122,6 +130,7 @@ trait BigQueryJobBase extends StrictLogging {
 }
 
 object BigQueryJobBase {
+
   def extractProjectDatasetAndTable(value: String): TableId = {
     def extractDatasetAndTable(str: String): (String, String) = {
       val sepIndex = str.indexOf('.')

@@ -85,6 +85,7 @@ case class AutoJobDesc(
   views: Option[Map[String, String]] = None,
   engine: Option[Engine] = None
 ) {
+
   @JsonIgnore
   def getArea(): StorageArea = area.getOrElse(StorageArea.business)
 

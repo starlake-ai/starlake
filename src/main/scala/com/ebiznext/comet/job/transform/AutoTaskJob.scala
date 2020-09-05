@@ -104,7 +104,7 @@ class AutoTaskJob(
       }
       jobResult match {
         case Failure(exception) => throw exception
-        case Success(_) => None
+        case Success(_)         => None
       }
     }
   }

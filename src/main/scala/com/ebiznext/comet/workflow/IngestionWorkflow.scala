@@ -377,26 +377,25 @@ class IngestionWorkflow(
       )
       val (createDisposition, writeDisposition) =
         Utils.getDBDisposition(task.write, hasMergeKeyDefined = false)
-
       job.getEngine() match {
         case Engine.BQ =>
           action.runBQ()
-                task.sink.map(sink => sink.asInstanceOf[BigQuerySink]).foreach { bqSink =>
-                  bqload(
-                    BigQueryLoadConfig(
-                      outputTable = task.dataset,
-                      outputDataset = task.domain,
-                      createDisposition = createDisposition,
-                      writeDisposition = writeDisposition,
-                      location = bqSink.location,
-                      outputPartition = bqSink.timestamp,
-                      outputClustering = bqSink.clustering.getOrElse(Nil),
-                      days = bqSink.days,
-                      requirePartitionFilter = bqSink.requirePartitionFilter.getOrElse(false),
-                      rls = task.rls,
-                      engine = Engine.BQ
-                    )
-                  )
+          task.sink.map(sink => sink.asInstanceOf[BigQuerySink]).foreach { bqSink =>
+            bqload(
+              BigQueryLoadConfig(
+                outputTable = task.dataset,
+                outputDataset = task.domain,
+                createDisposition = createDisposition,
+                writeDisposition = writeDisposition,
+                location = bqSink.location,
+                outputPartition = bqSink.timestamp,
+                outputClustering = bqSink.clustering.getOrElse(Nil),
+                days = bqSink.days,
+                requirePartitionFilter = bqSink.requirePartitionFilter.getOrElse(false),
+                rls = task.rls,
+                engine = Engine.BQ
+              )
+            )
           }
 
         case Engine.SPARK =>
@@ -404,7 +403,7 @@ class IngestionWorkflow(
             case Success(maybeDataFrame) =>
               task.getSink() match {
                 case Some(sink)
-                  if settings.comet.elasticsearch.active && sink.`type` == SinkType.ES =>
+                    if settings.comet.elasticsearch.active && sink.`type` == SinkType.ES =>
                   esload(job, task)
                 case Some(sink) if sink.`type` == SinkType.BQ =>
                   val bqSink = sink.asInstanceOf[BigQuerySink]
