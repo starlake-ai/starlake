@@ -23,7 +23,7 @@ package com.ebiznext.comet.job.ingest
 import java.sql.Timestamp
 
 import com.ebiznext.comet.config.Settings
-import com.ebiznext.comet.job.index.bqload.{BigQueryLoadConfig, BigQueryLoadJob}
+import com.ebiznext.comet.job.index.bqload.{BigQueryLoadConfig, BigQuerySparkJob}
 import com.ebiznext.comet.job.index.jdbcload.{JdbcLoadConfig, JdbcLoadJob}
 import com.ebiznext.comet.schema.model.{BigQuerySink, EsSink, JdbcSink, NoneSink}
 import com.ebiznext.comet.utils.FileLock
@@ -143,7 +143,7 @@ object SparkAuditLogWriter {
           None,
           None
         )
-        new BigQueryLoadJob(bqConfig, Some(bigqueryAuditSchema())).run()
+        new BigQuerySparkJob(bqConfig, Some(bigqueryAuditSchema())).run()
 
       case EsSink(id, timestamp) =>
         ???

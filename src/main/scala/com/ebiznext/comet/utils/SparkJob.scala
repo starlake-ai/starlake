@@ -9,12 +9,11 @@ import org.apache.spark.sql.{DataFrame, DataFrameWriter, Row, SparkSession}
 
 import scala.util.Try
 
-case class SparkJobResult(session: SparkSession, df: Option[DataFrame] = None)
-
 /**
   * All Spark Job extend this trait.
   * Build Spark session using spark variables from applciation.conf.
   */
+
 trait SparkJob extends StrictLogging {
   def name: String
   implicit def settings: Settings
@@ -43,7 +42,7 @@ trait SparkJob extends StrictLogging {
     *
     * @return : Spark Session used for the job
     */
-  def run(): Try[SparkJobResult]
+  def run(): Try[Option[DataFrame]]
 
   // TODO Should we issue a warning if used with Overwrite mode ????
   // TODO Check that the year / month / day / hour / minute do not already exist
@@ -123,4 +122,22 @@ trait SparkJob extends StrictLogging {
     }
   }
 
+  def analyze(fullTableName: String) = {
+    if (settings.comet.analyze) {
+      val allCols = session.table(fullTableName).columns.mkString(",")
+      val analyzeTable =
+        s"ANALYZE TABLE $fullTableName COMPUTE STATISTICS FOR COLUMNS $allCols"
+      if (session.version.substring(0, 3).toDouble >= 2.4)
+        try {
+          session.sql(analyzeTable)
+        } catch {
+          case e: Throwable =>
+            logger.warn(
+              s"Failed to compute statistics for table $fullTableName on columns $allCols"
+            )
+            e.printStackTrace()
+        }
+    }
+
+  }
 }
