@@ -23,15 +23,16 @@ package com.ebiznext.comet.job.transform
 import java.time.LocalDateTime
 
 import com.ebiznext.comet.config.{Settings, StorageArea, UdfRegistration}
+import com.ebiznext.comet.job.index.bqload.{BigQueryLoadConfig, BigQueryNativeJob}
 import com.ebiznext.comet.schema.handlers.StorageHandler
-import com.ebiznext.comet.schema.model.SinkType._
-import com.ebiznext.comet.schema.model.{AutoTaskDesc, SinkType}
+import com.ebiznext.comet.schema.model.SinkType.{BQ, FS}
+import com.ebiznext.comet.schema.model.{AutoTaskDesc, BigQuerySink, Engine, SinkType}
 import com.ebiznext.comet.utils.Formatter._
-import com.ebiznext.comet.utils.{SparkJob, SparkJobResult}
+import com.ebiznext.comet.utils.{SparkJob, Utils}
 import org.apache.hadoop.fs.Path
+import org.apache.spark.sql.DataFrame
 
-import scala.language.reflectiveCalls
-import scala.util.{Success, Try}
+import scala.util.{Failure, Success, Try}
 
 /**
   * Execute the SQL Task and store it in parquet/orc/.... If Hive support is enabled, also store it as a Hive Table.
@@ -42,20 +43,73 @@ import scala.util.{Success, Try}
   * @param task        : Task to run
   * @param sqlParameters : Sql Parameters to pass to SQL statements
   */
-class AutoTask(
+class AutoTaskJob(
   override val name: String,
   defaultArea: Option[StorageArea],
-  format: Option[String],
+  format: scala.Option[String],
   coalesce: Boolean,
-  udf: Option[String],
-  views: Option[Map[String, String]],
+  udf: scala.Option[String],
+  views: scala.Option[Map[String, String]],
+  engine: Engine,
   task: AutoTaskDesc,
   storageHandler: StorageHandler,
   sqlParameters: Map[String, String]
 )(implicit val settings: Settings)
     extends SparkJob {
 
-  def run(): Try[SparkJobResult] = {
+  override def run(): Try[Option[DataFrame]] = {
+    engine match {
+      case Engine.BQ =>
+        runBQ()
+      case Engine.SPARK =>
+        runSpark()
+      case _ =>
+        throw new Exception("Should never happen !!!s")
+    }
+  }
+
+  def runBQ(): Try[Option[DataFrame]] = {
+    views.foreach(views => BigQueryNativeJob.createViews(views, udf))
+
+    val (createDisposition, writeDisposition) =
+      Utils.getDBDisposition(task.write, hasMergeKeyDefined = false)
+    val bqSink = task.sink.map(sink => sink.asInstanceOf[BigQuerySink]).getOrElse(BigQuerySink())
+
+    val config = BigQueryLoadConfig(
+      outputTable = task.dataset,
+      outputDataset = task.domain,
+      createDisposition = createDisposition,
+      writeDisposition = writeDisposition,
+      location = bqSink.location,
+      outputPartition = bqSink.timestamp,
+      outputClustering = bqSink.clustering.getOrElse(Nil),
+      days = bqSink.days,
+      requirePartitionFilter = bqSink.requirePartitionFilter.getOrElse(false),
+      rls = task.rls,
+      engine = Engine.BQ
+    )
+    val bqNativeJob = new BigQueryNativeJob(config, task.sql.richFormat(sqlParameters), udf)
+
+    Try {
+      task.presql.getOrElse(Nil).foreach { sql =>
+        bqNativeJob.runSQL(sql.richFormat(sqlParameters))
+      }
+
+      val jobResult = bqNativeJob.run()
+
+      // We execute the post statements even if the main statement failed
+      // They may be doing some cleanup
+      task.postsql.getOrElse(Nil).foreach { sql =>
+        bqNativeJob.runSQL(sql.richFormat(sqlParameters))
+      }
+      jobResult match {
+        case Failure(exception) => throw exception
+        case Success(_) => None
+      }
+    }
+  }
+
+  def runSpark(): Try[Option[DataFrame]] = {
     udf.foreach { udf =>
       val udfInstance: UdfRegistration =
         Class
@@ -85,7 +139,7 @@ class AutoTask(
               .load(path)
               .cache()
           case _ =>
-            ???
+            throw new Exception("Should never happen")
         }
         df.createOrReplaceTempView(key)
     }
@@ -116,27 +170,13 @@ class AutoTask(
           session.sql(s"use $hiveDB")
           session.sql(s"drop table if exists $tableName")
           finalDataset.saveAsTable(fullTableName)
-          if (settings.comet.analyze) {
-            val allCols = session.table(fullTableName).columns.mkString(",")
-            val analyzeTable =
-              s"ANALYZE TABLE $fullTableName COMPUTE STATISTICS FOR COLUMNS $allCols"
-            if (session.version.substring(0, 3).toDouble >= 2.4)
-              try {
-                session.sql(analyzeTable)
-              } catch {
-                case e: Throwable =>
-                  logger.warn(
-                    s"Failed to compute statistics for table $fullTableName on columns $allCols"
-                  )
-                  e.printStackTrace()
-              }
-          }
+          analyze(fullTableName)
         }
       } else {
         finalDataset.save()
         if (coalesce) {
           val csvPath = storageHandler.list(targetPath, ".csv", LocalDateTime.MIN).head
-          val finalCsvPath = new Path(targetPath, targetPath.getName() + ".csv")
+          val finalCsvPath = new Path(targetPath, targetPath.getName + ".csv")
           storageHandler.move(csvPath, finalCsvPath)
         }
       }
@@ -144,6 +184,6 @@ class AutoTask(
 
     task.postsql.getOrElse(Nil).foreach(session.sql)
     // Let us return the Dataframe so that it can be piped to another sink
-    Success(SparkJobResult(session, Some(dataframe)))
+    Success(Some(dataframe))
   }
 }
