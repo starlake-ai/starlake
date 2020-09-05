@@ -2,7 +2,7 @@ package com.ebiznext.comet.schema.handlers
 
 import com.ebiznext.comet.TestHelper
 import com.ebiznext.comet.config.{Settings, StorageArea}
-import com.ebiznext.comet.job.index.bqload.{BigQueryLoadConfig, BigQueryLoadJob}
+import com.ebiznext.comet.job.index.bqload.{BigQueryLoadConfig, BigQuerySparkJob}
 import com.ebiznext.comet.schema.model._
 import com.ebiznext.comet.workflow.{IngestionWorkflow, TransformConfig}
 import com.google.cloud.hadoop.io.bigquery.BigQueryConfiguration
@@ -308,7 +308,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         requirePartitionFilter = sink.flatMap(_.requirePartitionFilter).getOrElse(false),
         rls = businessTask1.rls
       )
-      val job = new BigQueryLoadJob(config)
+      val job = new BigQuerySparkJob(config)
       val conf = job.prepareConf()
 
       conf.get(BigQueryConfiguration.OUTPUT_TABLE_WRITE_DISPOSITION_KEY) shouldEqual "WRITE_APPEND"
