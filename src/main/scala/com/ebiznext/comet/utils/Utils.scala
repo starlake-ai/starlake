@@ -88,8 +88,8 @@ object Utils {
         failure
     }
 
-  def logException(logger: Logger, exception: Throwable) = {
-    logger.error(exceptionAsString(exception).toString)
+  def logException(logger: Logger, exception: Throwable): Unit = {
+    logger.error(exceptionAsString(exception))
   }
 
   def exceptionAsString(exception: Throwable): String = {
