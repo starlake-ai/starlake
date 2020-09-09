@@ -331,7 +331,11 @@ class IngestionWorkflow(
   def esload(job: AutoJobDesc, task: AutoTaskDesc): Unit = {
     val targetArea = task.area.getOrElse(job.getArea())
     val targetPath = new Path(DatasetArea.path(task.domain, targetArea.value), task.dataset)
-    val sink = task.getSink().asInstanceOf[EsSink]
+    val sink: EsSink = task.sink
+      .map(_.asInstanceOf[EsSink])
+      .getOrElse(
+        throw new Exception("Sink of type ES must be specified when loading data to ES !!!")
+      )
     launchHandler.esLoad(
       this,
       ESLoadConfig(
@@ -362,6 +366,7 @@ class IngestionWorkflow(
     */
   def autoJob(config: TransformConfig): Unit = {
     val job = schemaHandler.jobs(config.name)
+    logger.info(job.toString)
     job.tasks.foreach { task =>
       val action = new AutoTaskJob(
         job.name,
@@ -375,33 +380,27 @@ class IngestionWorkflow(
         storageHandler,
         config.options
       )
-      val (createDisposition, writeDisposition) =
-        Utils.getDBDisposition(task.write, hasMergeKeyDefined = false)
-      job.getEngine() match {
+      val engine = job.getEngine()
+      logger.info(s"running with $engine engine")
+      engine match {
         case Engine.BQ =>
           action.runBQ()
-          task.sink.map(sink => sink.asInstanceOf[BigQuerySink]).foreach { bqSink =>
-            bqload(
-              BigQueryLoadConfig(
-                outputTable = task.dataset,
-                outputDataset = task.domain,
-                createDisposition = createDisposition,
-                writeDisposition = writeDisposition,
-                location = bqSink.location,
-                outputPartition = bqSink.timestamp,
-                outputClustering = bqSink.clustering.getOrElse(Nil),
-                days = bqSink.days,
-                requirePartitionFilter = bqSink.requirePartitionFilter.getOrElse(false),
-                rls = task.rls,
-                engine = Engine.BQ
-              )
-            )
+          val sink = task.sink
+          logger.info(s"BQ Job succeeded. sinking data to $sink")
+          sink match {
+            case Some(sink) if sink.`type` == SinkType.BQ =>
+              logger.info("Sinking to BQ done")
+            case _ =>
+              // TODO Sinking not supported
+              logger.error(s"Sinking from BQ to $sink not yet supported.")
           }
 
         case Engine.SPARK =>
           action.runSpark() match {
             case Success(maybeDataFrame) =>
-              task.getSink() match {
+              val sink = task.sink
+              logger.info(s"Spark Job succeeded. sinking data to $sink")
+              sink match {
                 case Some(sink)
                     if settings.comet.elasticsearch.active && sink.`type` == SinkType.ES =>
                   esload(job, task)
@@ -410,6 +409,9 @@ class IngestionWorkflow(
                   val source = maybeDataFrame
                     .map(df => Right(setNullableStateOfColumn(df, nullable = true)))
                     .getOrElse(Left(task.getTargetPath(Some(job.getArea())).toString))
+                  val (createDisposition, writeDisposition) = {
+                    Utils.getDBDisposition(task.write, hasMergeKeyDefined = false)
+                  }
                   val config =
                     BigQueryLoadConfig(
                       source = source,
@@ -427,7 +429,8 @@ class IngestionWorkflow(
                     )
                   new BigQuerySparkJob(config, None).run()
                 case _ =>
-                // ignore
+                  // TODO Sinking not supported
+                  logger.error(s"Sinking from Spark to $sink not yet supported.")
 
               }
             case Failure(exception) =>
