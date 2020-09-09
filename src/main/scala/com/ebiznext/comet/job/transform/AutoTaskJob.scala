@@ -32,6 +32,7 @@ import com.ebiznext.comet.utils.{SparkJob, Utils}
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.DataFrame
 
+import scala.collection.immutable
 import scala.util.{Failure, Success, Try}
 
 /**
@@ -90,22 +91,37 @@ class AutoTaskJob(
     )
     val bqNativeJob = new BigQueryNativeJob(config, task.sql.richFormat(sqlParameters), udf)
 
-    Try {
+    val presqlResult = Try {
       task.presql.getOrElse(Nil).foreach { sql =>
         bqNativeJob.runSQL(sql.richFormat(sqlParameters))
       }
+    }
+    Utils.logFailure(presqlResult, logger)
 
-      val jobResult = bqNativeJob.run()
+    val jobResult = presqlResult match {
+      case Success(_) =>
+        bqNativeJob.run()
+      case Failure(e) =>
+        Success(None)
+    }
+    Utils.logFailure(jobResult, logger)
 
-      // We execute the post statements even if the main statement failed
-      // They may be doing some cleanup
+    // We execute the post statements even if the presql & the main statement failed
+    // We may be doing some cleanup here.
+    val postsqlResult = Try {
       task.postsql.getOrElse(Nil).foreach { sql =>
         bqNativeJob.runSQL(sql.richFormat(sqlParameters))
       }
-      jobResult match {
-        case Failure(exception) => throw exception
-        case Success(_)         => None
-      }
+    }
+    Utils.logFailure(postsqlResult, logger)
+
+    val errors: immutable.Seq[Throwable] =
+      List(presqlResult, jobResult, postsqlResult).filter(_.isFailure).map(_.failed).map(_.get)
+    errors match {
+      case Nil =>
+        Success(None)
+      case _ =>
+        Failure(errors.reduce(_.initCause(_)))
     }
   }
 
@@ -127,7 +143,7 @@ class AutoTaskJob(
             (SinkType.fromString(value.substring(0, sepIndex)), value.substring(sepIndex + 1))
           else // parquet is the default
             (SinkType.FS, value)
-
+        logger.info(s"Loading view $path from $format")
         val df = format match {
           case FS =>
             val fullPath =
@@ -142,12 +158,16 @@ class AutoTaskJob(
             throw new Exception("Should never happen")
         }
         df.createOrReplaceTempView(key)
+        logger.info(s"Created view $key")
     }
 
     task.presql.getOrElse(Nil).foreach(req => session.sql(req.richFormat(sqlParameters)))
-    val dataframe = session.sql(task.sql.richFormat(sqlParameters))
+    val sqlWithParameters = task.sql.richFormat(sqlParameters)
+    logger.info(s"running sql request $sqlWithParameters")
+    val dataframe = session.sql(sqlWithParameters)
 
     val targetPath = task.getTargetPath(defaultArea)
+    logger.info(s"About to write resulting dataset to $targetPath")
     // Target Path exist only if a storage area has been defined at task or job level
     targetPath.map { targetPath =>
       val partitionedDF =
