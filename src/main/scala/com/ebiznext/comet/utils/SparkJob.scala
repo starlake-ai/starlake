@@ -11,14 +11,27 @@ import scala.util.Try
 
 /**
   * All Spark Job extend this trait.
-  * Build Spark session using spark variables from applciation.conf.
+  * Build Spark session using spark variables from application.conf.
   */
 
-trait SparkJob extends StrictLogging {
+trait JobBase extends StrictLogging {
   def name: String
   implicit def settings: Settings
 
-  lazy val sparkEnv: SparkEnv = new SparkEnv(name)
+  /**
+    * Just to force any job to implement its entry point using within the "run" method
+    *
+    * @return : Spark Dataframe for Spark Jobs None otherwise
+    */
+  def run(): Try[Option[DataFrame]]
+
+}
+
+trait SparkJob extends JobBase {
+
+  lazy val sparkEnv: SparkEnv = {
+    new SparkEnv(name)
+  }
 
   lazy val session: SparkSession = {
     val udfs = settings.comet.udfs.map { udfs =>
@@ -36,13 +49,6 @@ trait SparkJob extends StrictLogging {
     }
     sparkEnv.session
   }
-
-  /**
-    * Just to force any spark job to implement its entry point using within the "run" method
-    *
-    * @return : Spark Session used for the job
-    */
-  def run(): Try[Option[DataFrame]]
 
   // TODO Should we issue a warning if used with Overwrite mode ????
   // TODO Check that the year / month / day / hour / minute do not already exist
