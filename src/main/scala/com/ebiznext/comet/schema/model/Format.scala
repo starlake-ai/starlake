@@ -41,11 +41,11 @@ object Format {
 
   def fromString(value: String): Format = {
     value.toUpperCase match {
-      case "DSV"                 => Format.DSV
-      case "POSITION"            => Format.POSITION
-      case "SIMPLE_JSON"         => Format.SIMPLE_JSON
-      case "JSON" | "ARRAY_JSON" => Format.JSON
-      case "CHEW"                => Format.CHEW
+      case "DSV"         => Format.DSV
+      case "POSITION"    => Format.POSITION
+      case "SIMPLE_JSON" => Format.SIMPLE_JSON
+      case "JSON"        => Format.JSON
+      case "CHEW"        => Format.CHEW
     }
   }
 
