@@ -49,9 +49,6 @@ case class AutoTaskDesc(
   @JsonIgnore
   def getPartitions(): List[String] = partition.getOrElse(Nil)
 
-  @JsonIgnore
-  def getSink(): Option[Sink] = sink
-
   /**
     * Return a Path only if a storage area s defined
     * @param defaultArea
@@ -86,9 +83,7 @@ case class AutoJobDesc(
   engine: Option[Engine] = None
 ) {
 
-  @JsonIgnore
   def getArea(): StorageArea = area.getOrElse(StorageArea.business)
 
-  @JsonIgnore
   def getEngine(): Engine = engine.getOrElse(Engine.SPARK)
 }
