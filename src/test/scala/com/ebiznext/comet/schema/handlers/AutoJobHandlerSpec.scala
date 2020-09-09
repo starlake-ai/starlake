@@ -293,7 +293,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         )
       )
 
-      val sink = businessTask1.getSink().map(_.asInstanceOf[BigQuerySink])
+      val sink = businessTask1.sink.map(_.asInstanceOf[BigQuerySink])
 
       val config = BigQueryLoadConfig(
         outputTable = businessTask1.dataset,
