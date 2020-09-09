@@ -2,8 +2,9 @@ package com.ebiznext.comet.job.index.bqload
 
 import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.schema.model.UserType
-import com.ebiznext.comet.utils.{SparkJob, Utils}
+import com.ebiznext.comet.utils.{JobBase, Utils}
 import com.google.cloud.ServiceOptions
+import com.google.cloud.bigquery.JobInfo.{CreateDisposition, WriteDisposition}
 import com.google.cloud.bigquery.{
   BigQuery,
   BigQueryOptions,
@@ -13,7 +14,7 @@ import com.google.cloud.bigquery.{
   UserDefinedFunction,
   ViewDefinition
 }
-import org.apache.hadoop.conf.Configuration
+import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.sql.DataFrame
 
 import scala.collection.JavaConverters._
@@ -24,14 +25,13 @@ class BigQueryNativeJob(
   sql: String,
   udf: Option[String]
 )(implicit val settings: Settings)
-    extends SparkJob
+    extends JobBase
     with BigQueryJobBase {
 
   override def name: String = s"bqload-${cliConfig.outputDataset}-${cliConfig.outputTable}"
 
   override val projectId: String = ServiceOptions.getDefaultProjectId
 
-  val conf: Configuration = session.sparkContext.hadoopConfiguration
   logger.info(s"BigQuery Config $cliConfig")
 
   def runNativeConnector(): Try[Option[DataFrame]] = {
@@ -39,7 +39,11 @@ class BigQueryNativeJob(
       val queryConfig: QueryJobConfiguration.Builder =
         QueryJobConfiguration
           .newBuilder(sql)
+          .setCreateDisposition(CreateDisposition.valueOf(cliConfig.createDisposition))
+          .setWriteDisposition(WriteDisposition.valueOf(cliConfig.writeDisposition))
+          .setDefaultDataset(datasetId)
           .setAllowLargeResults(true)
+
       val queryConfigWithPartition = (cliConfig.outputPartition) match {
         case Some(partitionField) =>
           // Generating schema from YML to get the descriptions in BQ
@@ -66,6 +70,9 @@ class BigQueryNativeJob(
         }
         .getOrElse(queryConfigWithClustering)
       val results = bigquery.query(queryConfigWithUDF.setDestinationTable(tableId).build())
+      logger.info(
+        s"Query large results performed successfully: ${results.getTotalRows} rows inserted."
+      )
       None
     }
   }
@@ -132,17 +139,10 @@ class BigQueryNativeJob(
 
 }
 
-object BigQueryNativeJob {
+object BigQueryNativeJob extends StrictLogging {
 
   def createViews(views: Map[String, String], udf: Option[String]) = {
     val bigquery: BigQuery = BigQueryOptions.getDefaultInstance.getService
-
-    def execute(queryConfig: QueryJobConfiguration.Builder) = {
-      val results = bigquery.query(queryConfig.build())
-      System.out.println(
-        s"Query large results performed successfully: ${results.getTotalRows} rows inserted."
-      )
-    }
     views.foreach {
       case (key, value) =>
         val viewQuery: ViewDefinition.Builder =
@@ -154,7 +154,14 @@ object BigQueryNativeJob {
           }
           .getOrElse(viewQuery)
         val tableId = BigQueryJobBase.extractProjectDatasetAndTable(key)
+        val deleted = bigquery.delete(tableId)
+        if (deleted) {
+          logger.info(s"View $tableId deleted")
+        } else {
+          logger.info(s"View $tableId does not exist, creating it")
+        }
         bigquery.create(TableInfo.of(tableId, viewDefinition.build()))
+        logger.info(s"View $tableId created")
     }
   }
 }
