@@ -141,6 +141,7 @@ object Xls2Yml extends LazyLogging {
 }
 
 object Main {
+
   def main(args: Array[String]): Unit = {
     val result = Xls2Yml.run(args)
     System.exit(if (result) 0 else 1)
