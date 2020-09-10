@@ -67,8 +67,7 @@ object Xls2YmlConfig extends CliConfig[Xls2YmlConfig] {
       opt[Option[String]]("outputPath")
         .action((x, c) => c.copy(outputPath = x))
         .optional()
-        .text(
-          """Path for saving the resulting YAML file(s).
+        .text("""Path for saving the resulting YAML file(s).
             |Comet domains path is used by default.""".stripMargin)
     )
   }

@@ -9,17 +9,33 @@ import org.apache.spark.sql.{DataFrame, DataFrameWriter, Row, SparkSession}
 
 import scala.util.Try
 
-case class SparkJobResult(session: SparkSession, df: Option[DataFrame] = None)
+trait JobResult
+
+case class SparkJobResult(dataframe: Option[DataFrame]) extends JobResult
 
 /**
   * All Spark Job extend this trait.
-  * Build Spark session using spark variables from applciation.conf.
+  * Build Spark session using spark variables from application.conf.
   */
-trait SparkJob extends StrictLogging {
+
+trait JobBase extends StrictLogging {
   def name: String
   implicit def settings: Settings
 
-  lazy val sparkEnv: SparkEnv = new SparkEnv(name)
+  /**
+    * Just to force any job to implement its entry point using within the "run" method
+    *
+    * @return : Spark Dataframe for Spark Jobs None otherwise
+    */
+  def run(): Try[JobResult]
+
+}
+
+trait SparkJob extends JobBase {
+
+  lazy val sparkEnv: SparkEnv = {
+    new SparkEnv(name)
+  }
 
   lazy val session: SparkSession = {
     val udfs = settings.comet.udfs.map { udfs =>
@@ -37,13 +53,6 @@ trait SparkJob extends StrictLogging {
     }
     sparkEnv.session
   }
-
-  /**
-    * Just to force any spark job to implement its entry point using within the "run" method
-    *
-    * @return : Spark Session used for the job
-    */
-  def run(): Try[SparkJobResult]
 
   // TODO Should we issue a warning if used with Overwrite mode ????
   // TODO Check that the year / month / day / hour / minute do not already exist
@@ -123,4 +132,22 @@ trait SparkJob extends StrictLogging {
     }
   }
 
+  def analyze(fullTableName: String) = {
+    if (settings.comet.analyze) {
+      val allCols = session.table(fullTableName).columns.mkString(",")
+      val analyzeTable =
+        s"ANALYZE TABLE $fullTableName COMPUTE STATISTICS FOR COLUMNS $allCols"
+      if (session.version.substring(0, 3).toDouble >= 2.4)
+        try {
+          session.sql(analyzeTable)
+        } catch {
+          case e: Throwable =>
+            logger.warn(
+              s"Failed to compute statistics for table $fullTableName on columns $allCols"
+            )
+            e.printStackTrace()
+        }
+    }
+
+  }
 }

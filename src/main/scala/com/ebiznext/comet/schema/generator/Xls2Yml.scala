@@ -1,7 +1,5 @@
 package com.ebiznext.comet.schema.generator
 
-import java.util.regex.Pattern
-
 import com.ebiznext.comet.config.{DatasetArea, Settings}
 import com.ebiznext.comet.schema.model._
 import com.typesafe.config.ConfigFactory
@@ -21,19 +19,23 @@ object Xls2Yml extends LazyLogging {
     */
   def genPreEncryptionDomain(domain: Domain, privacy: Seq[String]): Domain = {
     val preEncryptSchemas: List[Schema] = domain.schemas.map { s =>
-      val newAtt =
-        s.attributes.map { attr =>
-          if (
-            privacy == Nil || privacy.contains(
-              attr.privacy.getOrElse(PrivacyLevel.None).toString
+      val newAttributes =
+        s.attributes
+          .filter(_.script.isEmpty)
+          .map { attr =>
+            if (
+              privacy == Nil || privacy.contains(
+                attr.privacy.getOrElse(PrivacyLevel.None).toString
+              )
             )
-          )
-            attr.copy(`type` = "string", required = false)
-          else
-            attr.copy(`type` = "string", required = false, privacy = None)
-        }
-      val newMetaData: Option[Metadata] = s.metadata.map { m => m.copy(partition = None) }
-      s.copy(attributes = newAtt)
+              attr.copy(`type` = "string", required = false, rename = None)
+            else
+              attr.copy(`type` = "string", required = false, privacy = None, rename = None)
+          }
+      val newMetaData: Option[Metadata] = s.metadata.map { m =>
+        m.copy(partition = None, sink = None)
+      }
+      s.copy(attributes = newAttributes)
         .copy(metadata = newMetaData)
         .copy(merge = None)
     }
@@ -63,29 +65,23 @@ object Xls2Yml extends LazyLogging {
         metadata.copy(
           format = Some(Format.DSV),
           separator = delimiter.orElse(schema.metadata.flatMap(_.separator)).orElse(Some("µ")),
-          withHeader = schema.metadata.flatMap(_.withHeader)
+          withHeader = schema.metadata.flatMap(_.withHeader),
+          encoding = Some("UTF-8")
         )
       }
       val attributes = schema.attributes.map { attr =>
-        val noPrivacyAttr =
-          if (
-            privacy == Nil || privacy.contains(
-              attr.privacy.getOrElse(PrivacyLevel.None).toString
-            )
+        if (
+          privacy == Nil || privacy.contains(
+            attr.privacy.getOrElse(PrivacyLevel.None).toString
           )
-            attr.copy(privacy = None)
-          else
-            attr
-
-        noPrivacyAttr.rename match {
-          case Some(newName) => noPrivacyAttr.copy(name = newName, rename = None)
-          case None          => noPrivacyAttr
-        }
+        )
+          attr.copy(privacy = None)
+        else
+          attr
       }
       schema.copy(
         metadata = metadata,
-        attributes = attributes,
-        pattern = Pattern.compile(s"${schema.name}.csv")
+        attributes = attributes
       )
     }
     val postEncryptDomain = domain.copy(schemas = postEncryptSchemas)
@@ -110,7 +106,7 @@ object Xls2Yml extends LazyLogging {
     serializeToFile(new File(outputPath, s"${fileName}.yml"), domain)
   }
 
-  def main(args: Array[String]): Unit = {
+  def run(args: Array[String]): Boolean = {
     implicit val settings: Settings = Settings(ConfigFactory.load())
     val defaultOutputPath = DatasetArea.domains.toString
     Xls2YmlConfig.parse(args) match {
@@ -136,12 +132,18 @@ object Xls2Yml extends LazyLogging {
         } else {
           config.files.foreach(generateSchema(_, config.outputPath))
         }
+        true
       case _ =>
         println(Xls2YmlConfig.usage())
+        false
     }
   }
 }
 
 object Main {
-  def main(args: Array[String]): Unit = Xls2Yml.main(args)
+
+  def main(args: Array[String]): Unit = {
+    val result = Xls2Yml.run(args)
+    System.exit(if (result) 0 else 1)
+  }
 }
