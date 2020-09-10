@@ -31,9 +31,9 @@ import com.ebiznext.comet.job.ingest._
 import com.ebiznext.comet.job.metrics.{MetricsConfig, MetricsJob}
 import com.ebiznext.comet.job.transform.AutoTaskJob
 import com.ebiznext.comet.schema.handlers.{LaunchHandler, SchemaHandler, StorageHandler}
-import com.ebiznext.comet.schema.model.Format._
+import com.ebiznext.comet.schema.model.Format.{DSV, JSON, POSITION, SIMPLE_JSON}
 import com.ebiznext.comet.schema.model._
-import com.ebiznext.comet.utils.{Unpacker, Utils}
+import com.ebiznext.comet.utils.{JobResult, SparkJobResult, Unpacker, Utils}
 import com.google.cloud.bigquery.{Schema => BQSchema}
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
@@ -152,7 +152,7 @@ class IngestionWorkflow(
     *                 excludes : Do not load datasets of these domains
     *                 if both lists are empty, all domains are included
     */
-  def loadPending(config: WatchConfig = WatchConfig()): Unit = {
+  def loadPending(config: WatchConfig = WatchConfig()): Boolean = {
     val includedDomains = (config.includes, config.excludes) match {
       case (Nil, Nil) =>
         domains
@@ -164,7 +164,7 @@ class IngestionWorkflow(
     }
     logger.info(s"Domains that will be watched: ${domains.map(_.name).mkString(",")}")
 
-    includedDomains.foreach { domain =>
+    val result = includedDomains.flatMap { domain =>
       logger.info(s"Watch Domain: ${domain.name}")
       val (resolved, unresolved) = pending(domain.name)
       unresolved.foreach {
@@ -181,7 +181,7 @@ class IngestionWorkflow(
           case (None, _)            => throw new Exception("Should never happen")
         } groupBy (_._1) mapValues (it => it.map(_._2))
 
-      groupedResolved.foreach {
+      groupedResolved.map {
         case (schema, pendingPaths) =>
           logger.info(s"""Ingest resolved file : ${pendingPaths
             .map(_.getName)
@@ -196,15 +196,20 @@ class IngestionWorkflow(
           try {
             if (settings.comet.grouped)
               launchHandler.ingest(this, domain, schema, ingestingPaths.toList)
-            else
-              ingestingPaths.foreach(launchHandler.ingest(this, domain, schema, _))
+            else {
+              // We ingest all the files but return false if one them fails.
+              ingestingPaths
+                .map(launchHandler.ingest(this, domain, schema, _))
+                .forall(_ == true)
+            }
           } catch {
             case t: Throwable =>
               t.printStackTrace()
-            // Continue to next pending file
+              false
           }
       }
     }
+    result.forall(_ == true)
   }
 
   /**
@@ -237,18 +242,18 @@ class IngestionWorkflow(
   /**
     * Ingest the file (called by the cron manager at ingestion time for a specific dataset
     */
-  def ingest(config: LoadConfig): Unit = {
+  def ingest(config: LoadConfig): Boolean = {
     val domainName = config.domain
     val schemaName = config.schema
     val ingestingPaths = config.paths
-    for {
+    val result = for {
       domain <- domains.find(_.name == domainName)
       schema <- domain.schemas.find(_.name == schemaName)
     } yield ingesting(domain, schema, ingestingPaths)
-    ()
+    result.getOrElse(true)
   }
 
-  private def ingesting(domain: Domain, schema: Schema, ingestingPath: List[Path]): Unit = {
+  private def ingesting(domain: Domain, schema: Schema, ingestingPath: List[Path]): Boolean = {
     logger.info(
       s"Start Ingestion on domain: ${domain.name} with schema: ${schema.name} on file: $ingestingPath"
     )
@@ -258,7 +263,7 @@ class IngestionWorkflow(
     logger.info(
       s"Ingesting domain: ${domain.name} with schema: ${schema.name} on file: $ingestingPath with metadata $metadata"
     )
-    val ingestionResult: Try[Unit] = Try(metadata.getFormat() match {
+    val ingestionResult: Try[JobResult] = Try(metadata.getFormat() match {
       case DSV =>
         new DsvIngestionJob(
           domain,
@@ -295,18 +300,6 @@ class IngestionWorkflow(
           storageHandler,
           schemaHandler
         ).run().get
-      case CHEW =>
-        ChewerJob
-          .run(
-            s"${settings.comet.chewerPrefix}.${domain.name}.${schema.name}",
-            domain,
-            schema,
-            schemaHandler.types,
-            ingestingPath,
-            storageHandler
-          )
-          .get
-
       case _ =>
         throw new Exception("Should never happen")
     })
@@ -326,9 +319,10 @@ class IngestionWorkflow(
       case Failure(exception) =>
         Utils.logException(logger, exception)
     }
+    ingestionResult.isSuccess
   }
 
-  def esload(job: AutoJobDesc, task: AutoTaskDesc): Unit = {
+  def esload(job: AutoJobDesc, task: AutoTaskDesc): Boolean = {
     val targetArea = task.area.getOrElse(job.getArea())
     val targetPath = new Path(DatasetArea.path(task.domain, targetArea.value), task.dataset)
     val sink: EsSink = task.sink
@@ -349,14 +343,15 @@ class IngestionWorkflow(
     )
   }
 
-  def infer(config: InferSchemaConfig): InferSchema = {
-    new InferSchema(
+  def infer(config: InferSchemaConfig): Try[Unit] = {
+    val result = new InferSchema(
       config.domainName,
       config.schemaName,
       config.inputPath,
       config.outputPath,
       config.header
-    )
+    ).run()
+    Utils.logFailure(result, logger)
   }
 
   /**
@@ -364,10 +359,10 @@ class IngestionWorkflow(
     *
     * @param config : job name as defined in the YML file and sql parameters to pass to SQL statements.
     */
-  def autoJob(config: TransformConfig): Unit = {
+  def autoJob(config: TransformConfig): Boolean = {
     val job = schemaHandler.jobs(config.name)
     logger.info(job.toString)
-    job.tasks.foreach { task =>
+    val result = job.tasks.map { task =>
       val action = new AutoTaskJob(
         job.name,
         job.area,
@@ -384,7 +379,7 @@ class IngestionWorkflow(
       logger.info(s"running with $engine engine")
       engine match {
         case Engine.BQ =>
-          action.runBQ()
+          val result = action.runBQ()
           val sink = task.sink
           logger.info(s"BQ Job succeeded. sinking data to $sink")
           sink match {
@@ -394,10 +389,10 @@ class IngestionWorkflow(
               // TODO Sinking not supported
               logger.error(s"Sinking from BQ to $sink not yet supported.")
           }
-
+          result.isSuccess
         case Engine.SPARK =>
           action.runSpark() match {
-            case Success(maybeDataFrame) =>
+            case Success(SparkJobResult(maybeDataFrame)) =>
               val sink = task.sink
               logger.info(s"Spark Job succeeded. sinking data to $sink")
               sink match {
@@ -427,37 +422,45 @@ class IngestionWorkflow(
                       requirePartitionFilter = bqSink.requirePartitionFilter.getOrElse(false),
                       rls = task.rls
                     )
-                  new BigQuerySparkJob(config, None).run()
+                  val result = new BigQuerySparkJob(config, None).run()
+                  result.isSuccess
                 case _ =>
                   // TODO Sinking not supported
                   logger.error(s"Sinking from Spark to $sink not yet supported.")
-
+                  false
               }
             case Failure(exception) =>
               exception.printStackTrace()
+              false
           }
-        case _ => Failure(new Exception("Should never happen"))
+        case _ =>
+          logger.error("Should never happen")
+          false
       }
     }
+    result.forall(_ == true)
   }
 
-  def esLoad(config: ESLoadConfig): Try[Option[DataFrame]] = {
-    new ESLoadJob(config, storageHandler, schemaHandler).run()
+  def esLoad(config: ESLoadConfig): Try[JobResult] = {
+    val res = new ESLoadJob(config, storageHandler, schemaHandler).run()
+    Utils.logFailure(res, logger)
   }
 
   def bqload(
     config: BigQueryLoadConfig,
     maybeSchema: Option[BQSchema] = None
-  ): Try[Unit] = {
-    new BigQuerySparkJob(config, maybeSchema).run().map(_ => ())
+  ): Try[JobResult] = {
+    val res = new BigQuerySparkJob(config, maybeSchema).run()
+    Utils.logFailure(res, logger)
   }
 
-  def jdbcload(config: JdbcLoadConfig): Try[Option[DataFrame]] = {
+  def jdbcload(config: JdbcLoadConfig): Try[JobResult] = {
     val loadJob = new JdbcLoadJob(config)
-    loadJob.run()
+    val res = loadJob.run()
+    Utils.logFailure(res, logger)
   }
 
-  def atlas(config: AtlasConfig): Unit = {
+  def atlas(config: AtlasConfig): Boolean = {
     new AtlasJob(config, storageHandler).run()
   }
 
@@ -466,7 +469,7 @@ class IngestionWorkflow(
     *
     * @param cliConfig : Client's configuration for metrics computing
     */
-  def metric(cliConfig: MetricsConfig): Unit = {
+  def metric(cliConfig: MetricsConfig): Try[JobResult] = {
     //Lookup for the domain given as prompt arguments, if is found then find the given schema in this domain
     val cmdArgs = for {
       domain <- schemaHandler.getDomain(cliConfig.domain)
@@ -476,14 +479,17 @@ class IngestionWorkflow(
     cmdArgs match {
       case Some((domain: Domain, schema: Schema)) =>
         val stage: Stage = cliConfig.stage.getOrElse(Stage.UNIT)
-        new MetricsJob(
+        val result = new MetricsJob(
           domain,
           schema,
           stage,
           storageHandler,
           schemaHandler
         ).run()
-      case None => logger.error("The domain or schema you specified doesn't exist! ")
+        Utils.logFailure(result, logger)
+      case None =>
+        logger.error("The domain or schema you specified doesn't exist! ")
+        Failure(new Exception("The domain or schema you specified doesn't exist! "))
     }
   }
 

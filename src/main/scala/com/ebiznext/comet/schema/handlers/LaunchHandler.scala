@@ -26,6 +26,7 @@ import com.ebiznext.comet.job.index.esload.ESLoadConfig
 import com.ebiznext.comet.job.ingest.LoadConfig
 import com.ebiznext.comet.job.index.jdbcload.JdbcLoadConfig
 import com.ebiznext.comet.schema.model.{Domain, Schema}
+import com.ebiznext.comet.utils.Utils
 import com.ebiznext.comet.workflow.IngestionWorkflow
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
@@ -132,8 +133,9 @@ class SimpleLauncher extends LaunchHandler with StrictLogging {
     settings: Settings
   ): Boolean = {
     logger.info(s"Launch index: ${config}")
-    workflow.esLoad(config)
-    true
+    val result = workflow.esLoad(config)
+    Utils.logFailure(result, logger)
+    result.isSuccess
   }
 
   /**

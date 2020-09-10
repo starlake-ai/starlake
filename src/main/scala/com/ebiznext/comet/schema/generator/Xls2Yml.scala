@@ -106,7 +106,7 @@ object Xls2Yml extends LazyLogging {
     serializeToFile(new File(outputPath, s"${fileName}.yml"), domain)
   }
 
-  def main(args: Array[String]): Unit = {
+  def run(args: Array[String]): Boolean = {
     implicit val settings: Settings = Settings(ConfigFactory.load())
     val defaultOutputPath = DatasetArea.domains.toString
     Xls2YmlConfig.parse(args) match {
@@ -132,12 +132,17 @@ object Xls2Yml extends LazyLogging {
         } else {
           config.files.foreach(generateSchema(_, config.outputPath))
         }
+        true
       case _ =>
         println(Xls2YmlConfig.usage())
+        false
     }
   }
 }
 
 object Main {
-  def main(args: Array[String]): Unit = Xls2Yml.main(args)
+  def main(args: Array[String]): Unit = {
+    val result = Xls2Yml.run(args)
+    System.exit(if (result) 0 else 1)
+  }
 }
