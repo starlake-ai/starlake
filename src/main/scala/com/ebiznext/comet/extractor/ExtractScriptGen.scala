@@ -93,7 +93,7 @@ object ScriptGen extends StrictLogging {
     *   --scriptsOutputDir <value>  Scripts output folder
     *   --deltaColumn <value>       The date column which is used to determine new rows for each exports (can be passed table by table as config element)
     */
-  def main(args: Array[String]): Unit = {
+  def run(args: Array[String]): Boolean = {
     import settings.metadataStorageHandler
     DatasetArea.initMetadata(metadataStorageHandler)
     val schemaHandler = new SchemaHandler(metadataStorageHandler)
@@ -114,18 +114,22 @@ object ScriptGen extends StrictLogging {
               config.deltaColumn.orElse(ExtractorSettings.deltaColumns.defaultColumn),
               ExtractorSettings.deltaColumns.deltaColumns
             )
-            System.exit(0)
+            true
           case None =>
             logger.error(s"No domain found for domain name ${config.domain}")
-            System.exit(1)
+            false
         }
       case _ =>
         logger.error("Program execution or parameters are wrong, please check usage")
-        System.exit(1)
+        false
     }
   }
 }
 
 object Main {
-  def main(args: Array[String]): Unit = ScriptGen.main(args)
+
+  def main(args: Array[String]): Unit = {
+    val result = ScriptGen.run(args)
+    System.exit(if (result) 0 else 1)
+  }
 }

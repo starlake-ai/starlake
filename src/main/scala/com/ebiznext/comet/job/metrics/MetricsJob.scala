@@ -1,7 +1,7 @@
 package com.ebiznext.comet.job.metrics
 
 import com.ebiznext.comet.config.{DatasetArea, Settings}
-import com.ebiznext.comet.job.index.bqload.{BigQueryLoadConfig, BigQueryLoadJob}
+import com.ebiznext.comet.job.index.bqload.{BigQueryLoadConfig, BigQuerySparkJob}
 import com.ebiznext.comet.job.index.jdbcload.JdbcLoadConfig
 import com.ebiznext.comet.job.ingest.MetricRecord
 import com.ebiznext.comet.job.metrics.Metrics.{ContinuousMetric, DiscreteMetric, MetricsDatasets}
@@ -15,7 +15,7 @@ import com.ebiznext.comet.schema.model.{
   Schema,
   Stage
 }
-import com.ebiznext.comet.utils.{FileLock, SparkJob, SparkJobResult, Utils}
+import com.ebiznext.comet.utils.{FileLock, JobResult, SparkJob, SparkJobResult, Utils}
 import com.google.cloud.bigquery.JobInfo.WriteDisposition
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql._
@@ -192,7 +192,7 @@ class MetricsJob(
     *
     * @return : Spark Session used for the job
     */
-  override def run(): Try[SparkJobResult] = {
+  override def run(): Try[JobResult] = {
     val datasetPath = new Path(DatasetArea.accepted(domain.name), schema.name)
     val dataUse: DataFrame = session.read.parquet(datasetPath.toString)
     run(dataUse, storageHandler.lastModified(datasetPath))
@@ -244,14 +244,14 @@ class MetricsJob(
               _ <- metricsResult
               _ <- metricsSinkResult
             } yield {
-              SparkJobResult(session)
+              None
             }
 
           case None =>
-            Success(SparkJobResult(session))
+            Success(None)
         }
     }
-    combinedResult.find(_.isFailure).getOrElse(Success(SparkJobResult(session)))
+    combinedResult.find(_.isFailure).getOrElse(Success(None)).map(SparkJobResult(_))
   }
 
   private def sinkMetrics(metricsDf: DataFrame, table: String): Try[Unit] = {
@@ -307,7 +307,7 @@ class MetricsJob(
       // But since we are having a record of repeated field BQ does not like
       // the way we pass the schema. BQ needs an extra "list" subfield for repeated fields
       // So let him determine teh schema by himself or risk tonot to be able to append the metrics
-      val res = new BigQueryLoadJob(config).run()
+      val res = new BigQuerySparkJob(config).run()
       Utils.logFailure(res, logger)
     }
   }
