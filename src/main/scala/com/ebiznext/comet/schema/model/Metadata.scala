@@ -31,16 +31,25 @@ import scala.collection.mutable
 /**
   * Specify Schema properties.
   * These properties may be specified at the schema or domain level
-  * Any property non specified at the schema level is taken from the
+  * Any property not specified at the schema level is taken from the
   * one specified at the domain level or else the default value is returned.
   *
-  * @param mode       : FILE mode by default
-  * @param format     : DSV by default
-  * @param encoding   : UTF-8 by default
+  * @param mode       : FILE mode by default.
+  *                     FILE and STREAM are the two accepted values.
+  *                     FILE is currently the only supported mode.
+  * @param format     : DSV by default. Supported file formats are :
+  *                   - DSV : Delimiter-separated values file. Delimiter value iss specified in the "separator" field.
+  *                   - POSITION : FIXED format file where values are located at an exact position in each line.
+  *                   - SIMPLE_JSON : For optimisation purpose, we differentiate JSON with top level values from JSON
+  *                     with deep level fields. SIMPLE_JSON are JSON files with top level fields only.
+  *                   - JSON :  Deep JSON file. Use only when your json documents contain subdocuments, otherwise prefer to
+  *                     use SIMPLE_JSON since it is much faster.
+  *                   - XML : XML files
+  * @param encoding   : UTF-8 if not specified.
   * @param multiline  : are json objects on a single line or multiple line ? Single by default.  false means single. false also means faster
-  * @param array      : Is a json stored as a single object array ? false by default
+  * @param array      : Is the json stored as a single object array ? false by default. This means that by default we have on json document per line.
   * @param withHeader : does the dataset has a header ? true bu default
-  * @param separator  : the column separator,  ';' by default
+  * @param separator  : the values delimiter,  ';' by default value may be a multichar string starting from Spark3
   * @param quote      : The String quote char, '"' by default
   * @param escape     : escaping char '\' by default
   * @param write      : Write mode, APPEND by default
