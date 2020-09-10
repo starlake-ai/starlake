@@ -187,7 +187,7 @@ object Main extends StrictLogging {
         InferSchemaConfig.parse(args.drop(1)) match {
           case Some(config) =>
             workflow.infer(config).isSuccess
-          case _            =>
+          case _ =>
             println(InferSchemaConfig.usage())
             false
         }
@@ -215,7 +215,8 @@ object Main extends StrictLogging {
 
       case "extract" =>
         ScriptGen.run(args.drop(1))
-      case _ => printUsage()
+      case _ =>
+        printUsage()
         false
     }
     System.exit(if (result) 0 else 1)

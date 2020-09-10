@@ -23,7 +23,11 @@ package com.ebiznext.comet.job.transform
 import java.time.LocalDateTime
 
 import com.ebiznext.comet.config.{Settings, StorageArea, UdfRegistration}
-import com.ebiznext.comet.job.index.bqload.{BigQueryJobResult, BigQueryLoadConfig, BigQueryNativeJob}
+import com.ebiznext.comet.job.index.bqload.{
+  BigQueryJobResult,
+  BigQueryLoadConfig,
+  BigQueryNativeJob
+}
 import com.ebiznext.comet.schema.handlers.StorageHandler
 import com.ebiznext.comet.schema.model.SinkType.{BQ, FS}
 import com.ebiznext.comet.schema.model.{AutoTaskDesc, BigQuerySink, Engine, SinkType}

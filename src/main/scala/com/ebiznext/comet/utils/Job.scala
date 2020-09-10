@@ -9,7 +9,6 @@ import org.apache.spark.sql.{DataFrame, DataFrameWriter, Row, SparkSession}
 
 import scala.util.Try
 
-
 trait JobResult
 
 case class SparkJobResult(dataframe: Option[DataFrame]) extends JobResult
