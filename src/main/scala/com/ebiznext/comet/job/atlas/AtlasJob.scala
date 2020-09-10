@@ -31,7 +31,7 @@ class AtlasJob(
 )(implicit settings: Settings)
     extends StrictLogging {
 
-  def run(): Unit = {
+  def run(): Boolean = {
     logger.info(s"")
     val uris = cliConfig.uris.map(_.toArray).getOrElse(Array(settings.comet.atlas.uri))
     val userPassword = (cliConfig.user, cliConfig.password) match {

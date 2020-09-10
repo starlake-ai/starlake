@@ -53,7 +53,9 @@ object Parquet2CSVConfig extends CliConfig[Parquet2CSVConfig] {
         .optional(),
       opt[String]("domain")
         .action((x, c) => c.copy(domainName = Some(x)))
-        .text("Domain name to convert. All schemas in this domain are converted. If not specified, all schemas of all domains are converted")
+        .text(
+          "Domain name to convert. All schemas in this domain are converted. If not specified, all schemas of all domains are converted"
+        )
         .optional(),
       opt[String]("schema")
         .action((x, c) => c.copy(schemaName = Some(x)))

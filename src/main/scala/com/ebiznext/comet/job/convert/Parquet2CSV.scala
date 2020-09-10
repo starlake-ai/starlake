@@ -3,7 +3,7 @@ package com.ebiznext.comet.job.convert
 import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.schema.handlers.StorageHandler
 import com.ebiznext.comet.schema.model.WriteMode
-import com.ebiznext.comet.utils.{SparkJob, SparkJobResult}
+import com.ebiznext.comet.utils.{JobResult, SparkJob, SparkJobResult}
 import com.typesafe.config.ConfigFactory
 import org.apache.hadoop.fs.Path
 
@@ -26,7 +26,7 @@ class Parquet2CSV(config: Parquet2CSVConfig, val storageHandler: StorageHandler)
 
   override def name: String = s"parquet-2-csv"
 
-  override def run(): Try[SparkJobResult] = {
+  override def run(): Try[JobResult] = {
     val allPaths = (config.domainName, config.schemaName) match {
       case (Some(domainName), Some(schemaName)) =>
         List(new Path(new Path(config.inputFolder, domainName), schemaName))
@@ -75,7 +75,7 @@ class Parquet2CSV(config: Parquet2CSVConfig, val storageHandler: StorageHandler)
           None
       }
     }
-    Success(SparkJobResult(session))
+    Success(SparkJobResult(None))
   }
 }
 
