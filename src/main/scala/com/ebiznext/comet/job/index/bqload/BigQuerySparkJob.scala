@@ -1,20 +1,9 @@
 package com.ebiznext.comet.job.index.bqload
 
 import com.ebiznext.comet.config.Settings
-import com.ebiznext.comet.utils.{SparkJob, Utils}
+import com.ebiznext.comet.utils.{JobResult, SparkJob, SparkJobResult, Utils}
 import com.google.cloud.ServiceOptions
-import com.google.cloud.bigquery.{
-  BigQuery,
-  BigQueryException,
-  BigQueryOptions,
-  Clustering,
-  JobInfo,
-  StandardTableDefinition,
-  Table,
-  TableId,
-  TableInfo,
-  Schema => BQSchema
-}
+import com.google.cloud.bigquery.{BigQuery, BigQueryException, BigQueryOptions, Clustering, JobInfo, StandardTableDefinition, Table, TableId, TableInfo, Schema => BQSchema}
 import com.google.cloud.hadoop.io.bigquery.BigQueryConfiguration
 import org.apache.hadoop.conf.Configuration
 import org.apache.spark.sql.functions.{col, date_format}
@@ -134,7 +123,7 @@ class BigQuerySparkJob(
     }
   }
 
-  def runSparkConnector(): Try[Option[DataFrame]] = {
+  def runSparkConnector(): Try[SparkJobResult] = {
     prepareConf()
     Try {
       val cacheStorageLevel =
@@ -220,7 +209,7 @@ class BigQuerySparkJob(
             e.printStackTrace()
         }
       }
-      None
+      SparkJobResult(None)
     }
   }
 
@@ -229,7 +218,7 @@ class BigQuerySparkJob(
     *
     * @return : Spark Session used for the job
     */
-  override def run(): Try[Option[DataFrame]] = {
+  override def run(): Try[JobResult] = {
     val res = runSparkConnector()
     Utils.logFailure(res, logger)
   }

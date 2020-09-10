@@ -6,16 +6,8 @@ import com.ebiznext.comet.job.index.jdbcload.JdbcLoadConfig
 import com.ebiznext.comet.job.ingest.MetricRecord
 import com.ebiznext.comet.job.metrics.Metrics.{ContinuousMetric, DiscreteMetric, MetricsDatasets}
 import com.ebiznext.comet.schema.handlers.{SchemaHandler, StorageHandler}
-import com.ebiznext.comet.schema.model.{
-  BigQuerySink,
-  Domain,
-  EsSink,
-  JdbcSink,
-  NoneSink,
-  Schema,
-  Stage
-}
-import com.ebiznext.comet.utils.{FileLock, SparkJob, Utils}
+import com.ebiznext.comet.schema.model.{BigQuerySink, Domain, EsSink, JdbcSink, NoneSink, Schema, Stage}
+import com.ebiznext.comet.utils.{FileLock, JobResult, SparkJob, SparkJobResult, Utils}
 import com.google.cloud.bigquery.JobInfo.WriteDisposition
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql._
@@ -192,13 +184,13 @@ class MetricsJob(
     *
     * @return : Spark Session used for the job
     */
-  override def run(): Try[Option[DataFrame]] = {
+  override def run(): Try[JobResult] = {
     val datasetPath = new Path(DatasetArea.accepted(domain.name), schema.name)
     val dataUse: DataFrame = session.read.parquet(datasetPath.toString)
     run(dataUse, storageHandler.lastModified(datasetPath))
   }
 
-  def run(dataUse: DataFrame, timestamp: Timestamp): Try[Option[DataFrame]] = {
+  def run(dataUse: DataFrame, timestamp: Timestamp): Try[SparkJobResult] = {
     val discAttrs: List[String] = schema.discreteAttrs(schemaHandler).map(_.getFinalName())
     val continAttrs: List[String] = schema.continuousAttrs(schemaHandler).map(_.getFinalName())
     logger.info("Discrete Attributes -> " + discAttrs.mkString(","))
@@ -251,7 +243,7 @@ class MetricsJob(
             Success(None)
         }
     }
-    combinedResult.find(_.isFailure).getOrElse(Success(None))
+    combinedResult.find(_.isFailure).getOrElse(Success(None)).map(SparkJobResult(_))
   }
 
   private def sinkMetrics(metricsDf: DataFrame, table: String): Try[Unit] = {

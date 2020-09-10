@@ -2,23 +2,16 @@ package com.ebiznext.comet.job.index.bqload
 
 import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.schema.model.UserType
-import com.ebiznext.comet.utils.{JobBase, Utils}
+import com.ebiznext.comet.utils.{JobBase, JobResult, Utils}
 import com.google.cloud.ServiceOptions
 import com.google.cloud.bigquery.JobInfo.{CreateDisposition, WriteDisposition}
-import com.google.cloud.bigquery.{
-  BigQuery,
-  BigQueryOptions,
-  Clustering,
-  QueryJobConfiguration,
-  TableInfo,
-  UserDefinedFunction,
-  ViewDefinition
-}
+import com.google.cloud.bigquery.{BigQuery, BigQueryOptions, Clustering, QueryJobConfiguration, TableInfo, TableResult, UserDefinedFunction, ViewDefinition}
 import com.typesafe.scalalogging.StrictLogging
-import org.apache.spark.sql.DataFrame
 
 import scala.collection.JavaConverters._
 import scala.util.Try
+
+case class BigQueryJobResult(tableResult: Option[TableResult]) extends JobResult
 
 class BigQueryNativeJob(
   override val cliConfig: BigQueryLoadConfig,
@@ -34,7 +27,7 @@ class BigQueryNativeJob(
 
   logger.info(s"BigQuery Config $cliConfig")
 
-  def runNativeConnector(): Try[Option[DataFrame]] = {
+  def runNativeConnector(): Try[BigQueryJobResult] = {
     Try {
       val queryConfig: QueryJobConfiguration.Builder =
         QueryJobConfiguration
@@ -73,13 +66,13 @@ class BigQueryNativeJob(
       logger.info(
         s"Query large results performed successfully: ${results.getTotalRows} rows inserted."
       )
-      None
+      BigQueryJobResult(Some(results))
     }
   }
 
   def runSQL(
     sql: String
-  ): Unit = {
+  ): BigQueryJobResult = {
     val queryConfig: QueryJobConfiguration.Builder =
       QueryJobConfiguration
         .newBuilder(sql)
@@ -95,7 +88,7 @@ class BigQueryNativeJob(
     System.out.println(
       s"Query large results performed successfully: ${results.getTotalRows} rows inserted."
     )
-
+    BigQueryJobResult(Some(results))
   }
 
   protected def revokeAllPrivileges(): String = {
@@ -132,7 +125,7 @@ class BigQueryNativeJob(
     *
     * @return : Spark Session used for the job
     */
-  override def run(): Try[Option[DataFrame]] = {
+  override def run(): Try[JobResult] = {
     val res = runNativeConnector()
     Utils.logFailure(res, logger)
   }

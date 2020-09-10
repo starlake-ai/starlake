@@ -45,7 +45,6 @@ object Format {
       case "POSITION"    => Format.POSITION
       case "SIMPLE_JSON" => Format.SIMPLE_JSON
       case "JSON"        => Format.JSON
-      case "CHEW"        => Format.CHEW
     }
   }
 
@@ -57,9 +56,7 @@ object Format {
 
   object JSON extends Format("JSON")
 
-  object CHEW extends Format("CHEW")
-
-  val formats: Set[Format] = Set(DSV, POSITION, SIMPLE_JSON, JSON, CHEW)
+  val formats: Set[Format] = Set(DSV, POSITION, SIMPLE_JSON, JSON)
 }
 
 class FormatDeserializer extends JsonDeserializer[Format] {
