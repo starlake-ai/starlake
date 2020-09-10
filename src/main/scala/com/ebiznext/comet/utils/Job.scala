@@ -9,6 +9,11 @@ import org.apache.spark.sql.{DataFrame, DataFrameWriter, Row, SparkSession}
 
 import scala.util.Try
 
+
+trait JobResult
+
+case class SparkJobResult(dataframe: Option[DataFrame]) extends JobResult
+
 /**
   * All Spark Job extend this trait.
   * Build Spark session using spark variables from application.conf.
@@ -23,7 +28,7 @@ trait JobBase extends StrictLogging {
     *
     * @return : Spark Dataframe for Spark Jobs None otherwise
     */
-  def run(): Try[Option[DataFrame]]
+  def run(): Try[JobResult]
 
 }
 

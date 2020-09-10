@@ -1,9 +1,9 @@
 package com.ebiznext.comet.job.index.jdbcload
 
 import com.ebiznext.comet.config.Settings
-import com.ebiznext.comet.utils.{SparkJob, Utils}
+import com.ebiznext.comet.utils.{JobResult, SparkJob, SparkJobResult, Utils}
 import com.google.cloud.bigquery.JobInfo.WriteDisposition
-import org.apache.spark.sql.{DataFrame, SaveMode}
+import org.apache.spark.sql.SaveMode
 
 import scala.util.Try
 
@@ -22,7 +22,7 @@ class JdbcLoadJob(
   val password = cliConfig.password
   Class.forName(driver)
 
-  def runJDBC(): Try[Option[DataFrame]] = {
+  def runJDBC(): Try[SparkJobResult] = {
     val inputPath = cliConfig.sourceFile
     logger.info(s"Input path $inputPath")
     Try {
@@ -43,7 +43,7 @@ class JdbcLoadJob(
         .option("password", password)
         .mode(SaveMode.Append)
         .save()
-      None
+      SparkJobResult(None)
     }
   }
 
@@ -52,7 +52,7 @@ class JdbcLoadJob(
     *
     * @return : Spark Session used for the job
     */
-  override def run(): Try[Option[DataFrame]] = {
+  override def run(): Try[JobResult] = {
     val res = runJDBC()
     Utils.logFailure(res, logger)
   }
