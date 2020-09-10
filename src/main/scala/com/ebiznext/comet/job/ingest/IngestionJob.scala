@@ -12,7 +12,7 @@ import com.ebiznext.comet.schema.handlers.{SchemaHandler, StorageHandler}
 import com.ebiznext.comet.schema.model.Rejection.{ColInfo, ColResult}
 import com.ebiznext.comet.schema.model.Trim.{BOTH, LEFT, RIGHT}
 import com.ebiznext.comet.schema.model._
-import com.ebiznext.comet.utils.{SparkJob, Utils}
+import com.ebiznext.comet.utils.{JobResult, SparkJob, SparkJobResult, Utils}
 import com.google.cloud.bigquery.JobInfo.{CreateDisposition, WriteDisposition}
 import com.google.cloud.bigquery.{Field, LegacySQLTypeName}
 import org.apache.hadoop.fs.Path
@@ -506,7 +506,7 @@ trait IngestionJob extends SparkJob {
     *
     * @return : Spark Session used for the job
     */
-  def run(): Try[Option[DataFrame]] = {
+  def run(): Try[JobResult] = {
     val jobResult = domain.checkValidity(schemaHandler) match {
       case Left(errors) =>
         val errs = errors.reduce { (errs, err) =>
@@ -544,7 +544,7 @@ trait IngestionJob extends SparkJob {
               )
               SparkAuditLogWriter.append(session, log)
               schema.postsql.getOrElse(Nil).foreach(session.sql)
-              None
+              SparkJobResult(None)
             }
           case Failure(exception) =>
             val end = Timestamp.from(Instant.now())

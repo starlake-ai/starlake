@@ -108,7 +108,7 @@ object Main extends StrictLogging {
 
     val arglist = args.toList
     logger.info(s"Running Comet $arglist")
-    arglist.head match {
+    val result = arglist.head match {
       case "job" | "transform" =>
         TransformConfig.parse(args.drop(1)) match {
           case Some(config) =>
@@ -116,14 +116,18 @@ object Main extends StrictLogging {
             workflow.autoJob(config)
           case _ =>
             println(TransformConfig.usage())
+            false
         }
-      case "import" => workflow.loadLanding()
+      case "import" =>
+        workflow.loadLanding()
+        true
       case "watch" =>
         WatchConfig.parse(args.drop(1)) match {
           case Some(config) =>
             workflow.loadPending(config)
           case _ =>
             println(WatchConfig.usage())
+            false
         }
       case "ingest" | "load" =>
         LoadConfig.parse(args.drop(1)) match {
@@ -139,15 +143,16 @@ object Main extends StrictLogging {
 
           case _ =>
             println(LoadConfig.usage())
-
+            false
         }
       case "index" | "esload" =>
         ESLoadConfig.parse(args.drop(1)) match {
           case Some(config) =>
             // do something
-            workflow.esLoad(config)
+            workflow.esLoad(config).isSuccess
           case _ =>
             println(ESLoadConfig.usage())
+            false
         }
 
       case "atlas" =>
@@ -157,52 +162,62 @@ object Main extends StrictLogging {
             workflow.atlas(config)
           case _ =>
             println(AtlasConfig.usage())
+            false
         }
 
       case "bqload" =>
         BigQueryLoadConfig.parse(args.drop(1)) match {
           case Some(config) =>
-            workflow.bqload(config)
+            workflow.bqload(config).isSuccess
           case _ =>
             println(BigQueryLoadConfig.usage())
+            false
         }
 
       case "sqlload" =>
         JdbcLoadConfig.parse(args.drop(1)) match {
           case Some(config) =>
-            workflow.jdbcload(config)
+            workflow.jdbcload(config).isSuccess
           case _ =>
             println(JdbcLoadConfig.usage())
+            false
         }
 
       case "infer-schema" => {
         InferSchemaConfig.parse(args.drop(1)) match {
-          case Some(config) => workflow.infer(config)
-          case _            => println(InferSchemaConfig.usage())
+          case Some(config) =>
+            workflow.infer(config).isSuccess
+          case _            =>
+            println(InferSchemaConfig.usage())
+            false
         }
       }
       case "metrics" =>
         MetricsConfig.parse(args.drop(1)) match {
           case Some(config) =>
-            workflow.metric(config)
+            workflow.metric(config).isSuccess
           case _ =>
             println(MetricsConfig.usage())
+            false
         }
 
       case "parquet2csv" =>
         Parquet2CSVConfig.parse(args.drop(1)) match {
           case Some(config) =>
-            new Parquet2CSV(config, storageHandler).run()
+            new Parquet2CSV(config, storageHandler).run().isSuccess
           case _ =>
             println(Parquet2CSVConfig.usage())
+            false
         }
 
       case "xls2yml" =>
-        Xls2Yml.main(args.drop(1))
+        Xls2Yml.run(args.drop(1))
 
       case "extract" =>
-        ScriptGen.main(args.drop(1))
+        ScriptGen.run(args.drop(1))
       case _ => printUsage()
+        false
     }
+    System.exit(if (result) 0 else 1)
   }
 }

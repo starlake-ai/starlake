@@ -23,16 +23,13 @@ package com.ebiznext.comet.job.transform
 import java.time.LocalDateTime
 
 import com.ebiznext.comet.config.{Settings, StorageArea, UdfRegistration}
-import com.ebiznext.comet.job.index.bqload.{BigQueryLoadConfig, BigQueryNativeJob}
+import com.ebiznext.comet.job.index.bqload.{BigQueryJobResult, BigQueryLoadConfig, BigQueryNativeJob}
 import com.ebiznext.comet.schema.handlers.StorageHandler
 import com.ebiznext.comet.schema.model.SinkType.{BQ, FS}
 import com.ebiznext.comet.schema.model.{AutoTaskDesc, BigQuerySink, Engine, SinkType}
 import com.ebiznext.comet.utils.Formatter._
-import com.ebiznext.comet.utils.{SparkJob, Utils}
+import com.ebiznext.comet.utils.{JobResult, SparkJob, SparkJobResult, Utils}
 import org.apache.hadoop.fs.Path
-import org.apache.spark.sql.DataFrame
-
-import scala.collection.immutable
 import scala.util.{Failure, Success, Try}
 
 /**
@@ -58,7 +55,7 @@ class AutoTaskJob(
 )(implicit val settings: Settings)
     extends SparkJob {
 
-  override def run(): Try[Option[DataFrame]] = {
+  override def run(): Try[JobResult] = {
     engine match {
       case Engine.BQ =>
         runBQ()
@@ -69,7 +66,7 @@ class AutoTaskJob(
     }
   }
 
-  def runBQ(): Try[Option[DataFrame]] = {
+  def runBQ(): Try[JobResult] = {
     views.foreach(views => BigQueryNativeJob.createViews(views, udf))
 
     val (createDisposition, writeDisposition) =
@@ -92,40 +89,40 @@ class AutoTaskJob(
     val bqNativeJob = new BigQueryNativeJob(config, task.sql.richFormat(sqlParameters), udf)
 
     val presqlResult = Try {
-      task.presql.getOrElse(Nil).foreach { sql =>
+      task.presql.getOrElse(Nil).map { sql =>
         bqNativeJob.runSQL(sql.richFormat(sqlParameters))
       }
     }
     Utils.logFailure(presqlResult, logger)
 
-    val jobResult = presqlResult match {
+    val jobResult: Try[JobResult] = presqlResult match {
       case Success(_) =>
         bqNativeJob.run()
       case Failure(e) =>
-        Success(None)
+        Success(BigQueryJobResult(None))
     }
     Utils.logFailure(jobResult, logger)
 
     // We execute the post statements even if the presql & the main statement failed
     // We may be doing some cleanup here.
-    val postsqlResult = Try {
-      task.postsql.getOrElse(Nil).foreach { sql =>
+    val postsqlResult: Try[List[BigQueryJobResult]] = Try {
+      task.postsql.getOrElse(Nil).map { sql =>
         bqNativeJob.runSQL(sql.richFormat(sqlParameters))
       }
     }
     Utils.logFailure(postsqlResult, logger)
 
-    val errors: immutable.Seq[Throwable] =
+    val errors =
       List(presqlResult, jobResult, postsqlResult).filter(_.isFailure).map(_.failed).map(_.get)
     errors match {
       case Nil =>
-        Success(None)
+        Success(BigQueryJobResult(None))
       case _ =>
         Failure(errors.reduce(_.initCause(_)))
     }
   }
 
-  def runSpark(): Try[Option[DataFrame]] = {
+  def runSpark(): Try[SparkJobResult] = {
     udf.foreach { udf =>
       val udfInstance: UdfRegistration =
         Class
@@ -204,6 +201,6 @@ class AutoTaskJob(
 
     task.postsql.getOrElse(Nil).foreach(session.sql)
     // Let us return the Dataframe so that it can be piped to another sink
-    Success(Some(dataframe))
+    Success(SparkJobResult(Some(dataframe)))
   }
 }
