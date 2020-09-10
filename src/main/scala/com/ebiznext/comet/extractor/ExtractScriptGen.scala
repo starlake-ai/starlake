@@ -127,6 +127,7 @@ object ScriptGen extends StrictLogging {
 }
 
 object Main {
+
   def main(args: Array[String]): Unit = {
     val result = ScriptGen.run(args)
     System.exit(if (result) 0 else 1)

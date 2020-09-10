@@ -1,19 +1,7 @@
 package com.ebiznext.comet.job.index.bqload
 
 import com.ebiznext.comet.schema.model.UserType
-import com.google.cloud.bigquery.{
-  BigQuery,
-  BigQueryOptions,
-  Dataset,
-  DatasetId,
-  DatasetInfo,
-  Job,
-  JobId,
-  JobInfo,
-  QueryJobConfiguration,
-  TableId,
-  TimePartitioning
-}
+import com.google.cloud.bigquery._
 import com.typesafe.scalalogging.StrictLogging
 
 trait BigQueryJobBase extends StrictLogging {
@@ -65,7 +53,7 @@ trait BigQueryJobBase extends StrictLogging {
   )
 
   val datasetId: DatasetId = {
-    Option(tableId.getProject) match {
+    scala.Option(tableId.getProject) match {
       case None =>
         DatasetId.of(projectId, cliConfig.outputDataset)
       case Some(project) =>
@@ -76,7 +64,7 @@ trait BigQueryJobBase extends StrictLogging {
   val bqTable = s"${cliConfig.outputDataset}.${cliConfig.outputTable}"
 
   def getOrCreateDataset(): Dataset = {
-    val dataset = Option(bigquery.getDataset(datasetId))
+    val dataset = scala.Option(bigquery.getDataset(datasetId))
     dataset.getOrElse {
       val datasetInfo = DatasetInfo
         .newBuilder(cliConfig.outputDataset)
@@ -88,7 +76,7 @@ trait BigQueryJobBase extends StrictLogging {
 
   def timePartitioning(
     partitionField: String,
-    days: Option[Int] = None,
+    days: scala.Option[Int] = None,
     requirePartitionFilter: Boolean
   ): TimePartitioning.Builder = {
     days match {
