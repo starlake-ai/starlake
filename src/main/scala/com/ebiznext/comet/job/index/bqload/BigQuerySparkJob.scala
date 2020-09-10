@@ -3,7 +3,18 @@ package com.ebiznext.comet.job.index.bqload
 import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.utils.{JobResult, SparkJob, SparkJobResult, Utils}
 import com.google.cloud.ServiceOptions
-import com.google.cloud.bigquery.{BigQuery, BigQueryException, BigQueryOptions, Clustering, JobInfo, StandardTableDefinition, Table, TableId, TableInfo, Schema => BQSchema}
+import com.google.cloud.bigquery.{
+  BigQuery,
+  BigQueryException,
+  BigQueryOptions,
+  Clustering,
+  JobInfo,
+  StandardTableDefinition,
+  Table,
+  TableId,
+  TableInfo,
+  Schema => BQSchema
+}
 import com.google.cloud.hadoop.io.bigquery.BigQueryConfiguration
 import org.apache.hadoop.conf.Configuration
 import org.apache.spark.sql.functions.{col, date_format}
@@ -71,10 +82,9 @@ class BigQuerySparkJob(
     conf
   }
 
-  def getOrCreateTable(dataFrame: Option[DataFrame], maybeSchema: Option[BQSchema]): TableInfo = {
+  def getOrCreateTable(dataFrame: Option[DataFrame], maybeSchema: Option[BQSchema]): Table = {
     getOrCreateDataset()
     Option(bigquery.getTable(tableId)) getOrElse {
-
       val withPartitionDefinition =
         (maybeSchema, cliConfig.outputPartition) match {
           case (Some(schema), Some(partitionField)) =>
@@ -119,7 +129,7 @@ class BigQuerySparkJob(
             val clustering = Clustering.newBuilder().setFields(fields.asJava).build()
             withPartitionDefinition.setClustering(clustering)
         }
-      TableInfo.newBuilder(tableId, withClusteringDefinition.build()).build
+      bigquery.create(TableInfo.newBuilder(tableId, withClusteringDefinition.build()).build)
     }
   }
 
@@ -139,8 +149,7 @@ class BigQuerySparkJob(
           case Right(df) => df.persist(cacheStorageLevel)
         }
 
-      val tableInfo = getOrCreateTable(Some(sourceDF), maybeSchema)
-      val table = bigquery.create(tableInfo)
+      val table = getOrCreateTable(Some(sourceDF), maybeSchema)
 
       val stdTableDefinition =
         bigquery.getTable(table.getTableId).getDefinition.asInstanceOf[StandardTableDefinition]

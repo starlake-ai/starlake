@@ -5,7 +5,16 @@ import com.ebiznext.comet.schema.model.UserType
 import com.ebiznext.comet.utils.{JobBase, JobResult, Utils}
 import com.google.cloud.ServiceOptions
 import com.google.cloud.bigquery.JobInfo.{CreateDisposition, WriteDisposition}
-import com.google.cloud.bigquery.{BigQuery, BigQueryOptions, Clustering, QueryJobConfiguration, TableInfo, TableResult, UserDefinedFunction, ViewDefinition}
+import com.google.cloud.bigquery.{
+  BigQuery,
+  BigQueryOptions,
+  Clustering,
+  QueryJobConfiguration,
+  TableInfo,
+  TableResult,
+  UserDefinedFunction,
+  ViewDefinition
+}
 import com.typesafe.scalalogging.StrictLogging
 
 import scala.collection.JavaConverters._
