@@ -14,7 +14,7 @@ class IngestJobSpec extends TestHelper {
           |  schema  Schema name
           |  paths   list of comma separated paths
           |""".stripMargin
-          println(rendered)
+      println(rendered)
       rendered.substring(rendered.indexOf("Usage:")).replaceAll("\\s", "") shouldEqual expected
         .replaceAll("\\s", "")
     }

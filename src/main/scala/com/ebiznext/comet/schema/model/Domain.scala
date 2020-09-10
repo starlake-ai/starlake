@@ -38,15 +38,21 @@ import scala.tools.nsc.doc.doclet.Generator
   * @param name       Domain name. Make sure you use a name that may be used as a folder name on the target storage.
   *                   - When using HDFS or Cloud Storage,  files once ingested are stored in a sub-directory named after the domain name.
   *                   - When used with BigQuery, files are ingested and sorted in tables under a dataset named after the domain name.
-  *
-  *
   * @param directory  : Folder on the local filesystem where incoming files are stored.
-  *                   This folder will be scanned regurlaly to move the dataset to the cluster
-  * @param metadata   : Default Schema meta data.
+  *                     Typically, this folder will be scanned periodically to move the dataset to the cluster for ingestion.
+  *                     Files located in this folder are moved to the pending folder for ingestion by the "import" command.
+  * @param metadata   : Default Schema metadata.
+  *                     This metadata is applied to the schemas defined in this domain.
+  *                     Metadata properties may be redefined at the schema level.
+  *                     See Metadata Entity for more details.
   * @param schemas    : List of schema for each dataset in this domain
   * @param comment    : Free text
   * @param extensions : recognized filename extensions (json, csv, dsv, psv) are recognized by default
-  * @param ack        : Ack extension used for each file
+  *                     Only files with these extensions will be moved to the pending folder.
+  * @param ack        : Ack extension used for each file. ".ack" if not specified.
+  *                     Files are moved to the mending folder only once a file with the same name as the source file and with this extension
+  *                     is present.
+  *                     To move a file without requiring an ack file to be present, set this property to the empty string value "".
   */
 case class Domain(
   name: String,
@@ -61,7 +67,7 @@ case class Domain(
   /**
     * Get schema from filename
     * Schema are matched against filenames using filename patterns.
-    * The schema pattern thats matches the filename is returned
+    * The schema pattern that matches the filename is returned
     *
     * @param filename : dataset filename
     * @return
@@ -74,7 +80,7 @@ case class Domain(
     * Load Elasticsearch template file if it exist
     *
     * @param schema : Schema name to map to an elasticsearch index
-    * @return ES template with optinnaly the __PROPERTIES__ string
+    * @return ES template with optionally the __PROPERTIES__ string
     *         that will be replaced by the schema attributes dynamically
     *         computed mappings
     */

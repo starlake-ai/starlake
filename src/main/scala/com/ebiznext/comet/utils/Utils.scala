@@ -21,6 +21,7 @@
 package com.ebiznext.comet.utils
 
 import java.io.{PrintWriter, StringWriter}
+import java.lang.ref.WeakReference
 
 import com.ebiznext.comet.schema.model.WriteMode
 import com.typesafe.scalalogging.Logger
@@ -87,8 +88,8 @@ object Utils {
         failure
     }
 
-  def logException(logger: Logger, exception: Throwable) = {
-    logger.error(exceptionAsString(exception).toString)
+  def logException(logger: Logger, exception: Throwable): Unit = {
+    logger.error(exceptionAsString(exception))
   }
 
   def exceptionAsString(exception: Throwable): String = {
@@ -123,4 +124,14 @@ object Utils {
       case SingleType => true
     }
 
+  /**
+    * Force a full GC
+    */
+  def gc() = {
+    var obj = new Object();
+    val ref = new WeakReference[Object](obj);
+    obj = null;
+    while (ref.get() != null)
+      System.gc()
+  }
 }

@@ -6,6 +6,7 @@ import scopt.OParser
 case class TransformConfig(name: String = "", options: Map[String, String] = Map.empty)
 
 object TransformConfig extends CliConfig[TransformConfig] {
+
   val parser: OParser[Unit, TransformConfig] = {
     val builder = OParser.builder[TransformConfig]
     import builder._
@@ -23,7 +24,6 @@ object TransformConfig extends CliConfig[TransformConfig] {
         .text("Job arguments to be used as substitutions")
     )
   }
-
 
   def parse(args: Seq[String]): Option[TransformConfig] =
     OParser.parse(parser, args, TransformConfig())
