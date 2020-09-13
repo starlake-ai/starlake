@@ -167,46 +167,44 @@ class IngestionWorkflow(
     val result = includedDomains.flatMap { domain =>
       logger.info(s"Watch Domain: ${domain.name}")
       val (resolved, unresolved) = pending(domain.name)
-      unresolved.foreach {
-        case (_, path) =>
-          val targetPath =
-            new Path(DatasetArea.unresolved(domain.name), path.getName)
-          logger.info(s"Unresolved file : ${path.getName}")
-          storageHandler.move(path, targetPath)
+      unresolved.foreach { case (_, path) =>
+        val targetPath =
+          new Path(DatasetArea.unresolved(domain.name), path.getName)
+        logger.info(s"Unresolved file : ${path.getName}")
+        storageHandler.move(path, targetPath)
       }
 
       // We group files with the same schema to ingest them together in a single step.
       val groupedResolved: Map[Schema, Iterable[Path]] = resolved.map {
-          case (Some(schema), path) => (schema, path)
-          case (None, _)            => throw new Exception("Should never happen")
-        } groupBy (_._1) mapValues (it => it.map(_._2))
+        case (Some(schema), path) => (schema, path)
+        case (None, _)            => throw new Exception("Should never happen")
+      } groupBy (_._1) mapValues (it => it.map(_._2))
 
-      groupedResolved.map {
-        case (schema, pendingPaths) =>
-          logger.info(s"""Ingest resolved file : ${pendingPaths
-            .map(_.getName)
-            .mkString(",")} with schema ${schema.name}""")
-          val ingestingPaths = pendingPaths.map { pendingPath =>
-            val ingestingPath = new Path(DatasetArea.ingesting(domain.name), pendingPath.getName)
-            if (!storageHandler.move(pendingPath, ingestingPath)) {
-              logger.error(s"Could not move $pendingPath to $ingestingPath")
-            }
-            ingestingPath
+      groupedResolved.map { case (schema, pendingPaths) =>
+        logger.info(s"""Ingest resolved file : ${pendingPaths
+          .map(_.getName)
+          .mkString(",")} with schema ${schema.name}""")
+        val ingestingPaths = pendingPaths.map { pendingPath =>
+          val ingestingPath = new Path(DatasetArea.ingesting(domain.name), pendingPath.getName)
+          if (!storageHandler.move(pendingPath, ingestingPath)) {
+            logger.error(s"Could not move $pendingPath to $ingestingPath")
           }
-          try {
-            if (settings.comet.grouped)
-              launchHandler.ingest(this, domain, schema, ingestingPaths.toList)
-            else {
-              // We ingest all the files but return false if one them fails.
-              ingestingPaths
-                .map(launchHandler.ingest(this, domain, schema, _))
-                .forall(_ == true)
-            }
-          } catch {
-            case t: Throwable =>
-              t.printStackTrace()
-              false
+          ingestingPath
+        }
+        try {
+          if (settings.comet.grouped)
+            launchHandler.ingest(this, domain, schema, ingestingPaths.toList)
+          else {
+            // We ingest all the files but return false if one them fails.
+            ingestingPaths
+              .map(launchHandler.ingest(this, domain, schema, _))
+              .forall(_ == true)
           }
+        } catch {
+          case t: Throwable =>
+            t.printStackTrace()
+            false
+        }
       }
     }
     result.forall(_ == true)
@@ -379,16 +377,43 @@ class IngestionWorkflow(
       logger.info(s"running with $engine engine")
       engine match {
         case Engine.BQ =>
-          val result = action.runBQ()
-          val sink = task.sink
-          logger.info(s"BQ Job succeeded. sinking data to $sink")
-          sink match {
-            case Some(sink) if sink.`type` == SinkType.BQ =>
-              logger.info("Sinking to BQ done")
-            case _ =>
-              // TODO Sinking not supported
-              logger.error(s"Sinking from BQ to $sink not yet supported.")
+          val result = config.views match {
+            case Nil =>
+              val result = action.runBQ()
+              val sink = task.sink
+              logger.info(s"BQ Job succeeded. sinking data to $sink")
+              sink match {
+                case Some(sink) if sink.`type` == SinkType.BQ =>
+                  logger.info("Sinking to BQ done")
+                case _ =>
+                  // TODO Sinking not supported
+                  logger.error(s"Sinking from BQ to $sink not yet supported.")
+              }
+              result
+            case queryNames =>
+              val queries =
+                if (queryNames.contains("_") || queryNames.contains("*"))
+                  job.views.map(_.keys).getOrElse(Nil)
+                else
+                  queryNames
+              val result = queries.map(queryName =>
+                action.runView(queryName, config.viewsDir, config.viewsCount)
+              )
+              result.filter(_.isFailure) match {
+                case Nil =>
+                  result.headOption.getOrElse(
+                    Failure(
+                      new Exception(
+                        s"No view with the provided view names '$queryNames' has been found"
+                      )
+                    )
+                  )
+                case errors =>
+                  // We return all failures
+                  Failure(errors.map(_.failed).map(_.get).reduce(_.initCause(_)))
+              }
           }
+          Utils.logFailure(result, logger)
           result.isSuccess
         case Engine.SPARK =>
           action.runSpark() match {
@@ -502,8 +527,8 @@ class IngestionWorkflow(
 
     // get schema
     val schema = df.schema
-    val newSchema = StructType(schema.map {
-      case StructField(c, t, _, m) => StructField(c, t, nullable = nullable, m)
+    val newSchema = StructType(schema.map { case StructField(c, t, _, m) =>
+      StructField(c, t, nullable = nullable, m)
     })
     // apply new schema
     df.sqlContext.createDataFrame(df.rdd, newSchema)
