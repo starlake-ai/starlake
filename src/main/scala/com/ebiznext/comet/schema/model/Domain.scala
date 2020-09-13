@@ -27,7 +27,6 @@ import com.ebiznext.comet.schema.handlers.SchemaHandler
 import org.apache.hadoop.fs.Path
 
 import scala.collection.mutable
-import scala.tools.nsc.doc.doclet.Generator
 
 /**
   * Let's say you are willing to import customers and orders from your Sales system.
