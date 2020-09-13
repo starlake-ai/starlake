@@ -20,18 +20,31 @@ Getting started with Comet Data Pipeline:
    user/guide/quickstart
 
 .. toctree::
-   :caption: Concepts
+   :caption: Extract Process
    :maxdepth: 3
 
-   user/concepts/domain
-   user/concepts/schema
-   user/concepts/metadata
-   user/concepts/attribute
-   user/concepts/partition
-   user/concepts/cluster
-   user/concepts/sink
-   user/concepts/view
-   user/concepts/tag
+   user/concepts/extract/index
+
+.. toctree::
+   :caption: Load Process
+   :maxdepth: 3
+
+   user/concepts/load/domain
+   user/concepts/load/schema
+   user/concepts/load/metadata
+   user/concepts/load/attribute
+   user/concepts/load/sink
+   user/concepts/load/rls
+
+.. toctree::
+   :caption: Transform Process
+   :maxdepth: 3
+
+   user/concepts/transform/job
+   user/concepts/transform/task
+   user/concepts/transform/partition
+   user/concepts/transform/cluster
+   user/concepts/transform/view
 
 .. toctree::
    :caption: Reference Manual
