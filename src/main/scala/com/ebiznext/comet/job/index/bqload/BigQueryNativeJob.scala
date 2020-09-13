@@ -145,25 +145,24 @@ object BigQueryNativeJob extends StrictLogging {
 
   def createViews(views: Map[String, String], udf: Option[String]) = {
     val bigquery: BigQuery = BigQueryOptions.getDefaultInstance.getService
-    views.foreach {
-      case (key, value) =>
-        val viewQuery: ViewDefinition.Builder =
-          ViewDefinition.newBuilder(value).setUseLegacySql(false)
-        val viewDefinition = udf
-          .map { udf =>
-            viewQuery
-              .setUserDefinedFunctions(List(UserDefinedFunction.fromUri(udf)).asJava)
-          }
-          .getOrElse(viewQuery)
-        val tableId = BigQueryJobBase.extractProjectDatasetAndTable(key)
-        val deleted = bigquery.delete(tableId)
-        if (deleted) {
-          logger.info(s"View $tableId deleted")
-        } else {
-          logger.info(s"View $tableId does not exist, creating it")
+    views.foreach { case (key, value) =>
+      val viewQuery: ViewDefinition.Builder =
+        ViewDefinition.newBuilder(value).setUseLegacySql(false)
+      val viewDefinition = udf
+        .map { udf =>
+          viewQuery
+            .setUserDefinedFunctions(List(UserDefinedFunction.fromUri(udf)).asJava)
         }
+        .getOrElse(viewQuery)
+      val tableId = BigQueryJobBase.extractProjectDatasetAndTable(key)
+      val viewRef = Option(bigquery.getTable(tableId))
+      if (viewRef.isEmpty) {
+        logger.info(s"View $tableId does not exist, creating it!")
         bigquery.create(TableInfo.of(tableId, viewDefinition.build()))
         logger.info(s"View $tableId created")
+      } else {
+        logger.info(s"View $tableId already exist")
+      }
     }
   }
 }

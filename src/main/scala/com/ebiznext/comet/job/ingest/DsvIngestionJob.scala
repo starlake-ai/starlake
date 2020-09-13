@@ -227,9 +227,8 @@ class DsvIngestionJob(
   def saveAccepted(acceptedRDD: RDD[Row], orderedSparkTypes: StructType): (DataFrame, Path) = {
     val renamedAttributes = schema.renamedAttributes().toMap
     logger.whenInfoEnabled {
-      renamedAttributes.foreach {
-        case (name, rename) =>
-          logger.info(s"renaming column $name to $rename")
+      renamedAttributes.foreach { case (name, rename) =>
+        logger.info(s"renaming column $name to $rename")
       }
     }
     val acceptedDF = session.createDataFrame(acceptedRDD, orderedSparkTypes)
@@ -283,43 +282,40 @@ object DsvIngestionUtil extends DsvValidator {
 
     val now = Timestamp.from(Instant.now)
     val checkedRDD: RDD[RowResult] = dataset.rdd
-        .mapPartitions { partition =>
-          partition.map { row: Row =>
-            val rowValues: Seq[(String, Attribute)] = row.toSeq
-              .zip(attributes)
-              .map {
-                case (colValue, colAttribute) =>
-                  (Option(colValue).getOrElse("").toString, colAttribute)
-              }
-            val rowCols = rowValues.zip(types)
-            val colMap = rowValues.map(__ => (__._2.name, __._1)).toMap
-            val validNumberOfColumns = attributes.length <= rowCols.length
-            if (!validNumberOfColumns) {
-              RowResult(
-                rowCols.map {
-                  case ((colRawValue, colAttribute), tpe) =>
-                    ColResult(
-                      ColInfo(
-                        colRawValue,
-                        colAttribute.name,
-                        tpe.name,
-                        tpe.pattern,
-                        false
-                      ),
-                      null
-                    )
-                }.toList
-              )
-            } else {
-              RowResult(
-                rowCols.map {
-                  case ((colRawValue, colAttribute), tpe) =>
-                    IngestionUtil.validateCol(colRawValue, colAttribute, tpe, colMap)
-                }.toList
-              )
+      .mapPartitions { partition =>
+        partition.map { row: Row =>
+          val rowValues: Seq[(String, Attribute)] = row.toSeq
+            .zip(attributes)
+            .map { case (colValue, colAttribute) =>
+              (Option(colValue).getOrElse("").toString, colAttribute)
             }
+          val rowCols = rowValues.zip(types)
+          val colMap = rowValues.map(__ => (__._2.name, __._1)).toMap
+          val validNumberOfColumns = attributes.length <= rowCols.length
+          if (!validNumberOfColumns) {
+            RowResult(
+              rowCols.map { case ((colRawValue, colAttribute), tpe) =>
+                ColResult(
+                  ColInfo(
+                    colRawValue,
+                    colAttribute.name,
+                    tpe.name,
+                    tpe.pattern,
+                    false
+                  ),
+                  null
+                )
+              }.toList
+            )
+          } else {
+            RowResult(
+              rowCols.map { case ((colRawValue, colAttribute), tpe) =>
+                IngestionUtil.validateCol(colRawValue, colAttribute, tpe, colMap)
+              }.toList
+            )
           }
-        } persist (settings.comet.cacheStorageLevel)
+        }
+      } persist (settings.comet.cacheStorageLevel)
 
     val rejectedRDD: RDD[String] = checkedRDD
       .filter(_.isRejected)

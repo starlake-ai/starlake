@@ -225,31 +225,30 @@ class MetricsJob(
       (metricsDatasets.discreteDF, "discrete"),
       (metricsDatasets.frequenciesDF, "frequencies")
     )
-    val combinedResult = metricsToSave.map {
-      case (df, name) =>
-        df match {
-          case Some(df) =>
-            settings.comet.internal.foreach(in => df.persist(in.cacheStorageLevel))
-            val lockedPath = lockPath(settings.comet.metrics.path)
-            val waitTimeMillis = settings.comet.lock.metricsTimeout
-            val locker = new FileLock(lockedPath, storageHandler)
+    val combinedResult = metricsToSave.map { case (df, name) =>
+      df match {
+        case Some(df) =>
+          settings.comet.internal.foreach(in => df.persist(in.cacheStorageLevel))
+          val lockedPath = lockPath(settings.comet.metrics.path)
+          val waitTimeMillis = settings.comet.lock.metricsTimeout
+          val locker = new FileLock(lockedPath, storageHandler)
 
-            val metricsResult = locker.tryExclusively(waitTimeMillis) {
-              save(df, new Path(savePath, name))
-            }
+          val metricsResult = locker.tryExclusively(waitTimeMillis) {
+            save(df, new Path(savePath, name))
+          }
 
-            val metricsSinkResult = sinkMetrics(df, name)
+          val metricsSinkResult = sinkMetrics(df, name)
 
-            for {
-              _ <- metricsResult
-              _ <- metricsSinkResult
-            } yield {
-              None
-            }
+          for {
+            _ <- metricsResult
+            _ <- metricsSinkResult
+          } yield {
+            None
+          }
 
-          case None =>
-            Success(None)
-        }
+        case None =>
+          Success(None)
+      }
     }
     combinedResult.find(_.isFailure).getOrElse(Success(None)).map(SparkJobResult(_))
   }
