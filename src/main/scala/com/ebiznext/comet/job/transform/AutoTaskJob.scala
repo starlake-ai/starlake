@@ -104,7 +104,7 @@ class AutoTaskJob(
         udf
       )
 
-      val jsonQuery = s"SELECT TO_JSON_STRING(t,false) FROM ($queryExpr) AS t"
+      val jsonQuery = s"SELECT TO_JSON_STRING(t,false) FROM (${queryExpr.richFormat(sqlParameters)}) AS t"
       val result = bqNativeJob.runSQL(jsonQuery.richFormat(sqlParameters))
       import scala.collection.JavaConverters._
       result.tableResult.foreach { tableResult =>
