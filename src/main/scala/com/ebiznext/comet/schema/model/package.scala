@@ -33,12 +33,11 @@ package object model {
     */
   def duplicates(values: List[String], errorMessage: String): Either[List[String], Boolean] = {
     val errorList: mutable.MutableList[String] = mutable.MutableList.empty
-    val duplicates = values.groupBy(identity).mapValues(_.size).filter {
-      case (key, size) => size > 1
+    val duplicates = values.groupBy(identity).mapValues(_.size).filter { case (key, size) =>
+      size > 1
     }
-    duplicates.foreach {
-      case (key, size) =>
-        errorList += errorMessage.format(key, size)
+    duplicates.foreach { case (key, size) =>
+      errorList += errorMessage.format(key, size)
     }
     if (errorList.nonEmpty)
       Left(errorList.toList)
@@ -51,8 +50,8 @@ package object model {
     errors2: Either[List[String], Boolean]*
   ): Either[List[String], Boolean] = {
     val allErrors = errors1 :: List(errors2: _*)
-    val errors = allErrors.collect {
-      case Left(err) => err
+    val errors = allErrors.collect { case Left(err) =>
+      err
     }.flatten
     if (errors.isEmpty) Right(true) else Left(errors)
   }
