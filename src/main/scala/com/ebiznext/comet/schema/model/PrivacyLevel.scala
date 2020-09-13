@@ -67,11 +67,10 @@ object PrivacyLevel {
       make(schemeName, encryptionObject)
     }
 
-    lazy val all = settings.comet.privacy.options.asScala.map {
-      case (k, objName) =>
-        val encryption = make(k, objName)
-        val key = k.toUpperCase(Locale.ROOT)
-        (key, (encryption, new PrivacyLevel(key)))
+    lazy val all = settings.comet.privacy.options.asScala.map { case (k, objName) =>
+      val encryption = make(k, objName)
+      val key = k.toUpperCase(Locale.ROOT)
+      (key, (encryption, new PrivacyLevel(key)))
     }
 
     // Improve Scan performance
