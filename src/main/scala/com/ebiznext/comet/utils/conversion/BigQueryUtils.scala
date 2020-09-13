@@ -47,16 +47,15 @@ object BigQueryUtils {
       (field, dataType) match {
         case (field: String, dataType: ArrayType) =>
           val elementTypes: Seq[(String, DataType)] = fieldsSchemaAsMap(dataType.elementType)
-          val arrayFields = elementTypes.map {
-            case (name, dataType) =>
-              Field
-                .newBuilder(
-                  name,
-                  convert(dataType)
-                )
-                .setMode(Field.Mode.NULLABLE)
-                .setDescription("")
-                .build()
+          val arrayFields = elementTypes.map { case (name, dataType) =>
+            Field
+              .newBuilder(
+                name,
+                convert(dataType)
+              )
+              .setMode(Field.Mode.NULLABLE)
+              .setDescription("")
+              .build()
           }.asJava
           Field
             .newBuilder(
@@ -80,8 +79,8 @@ object BigQueryUtils {
     }
 
     val fields = fieldsSchemaAsMap(schema)
-      .map {
-        case (field, dataType) => inferBqSchema(field, dataType)
+      .map { case (field, dataType) =>
+        inferBqSchema(field, dataType)
 
       }
     BQSchema.of(fields: _*)
