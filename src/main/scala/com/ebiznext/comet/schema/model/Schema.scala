@@ -46,13 +46,20 @@ case class MergeOptions(
 /**
   * Dataset Schema
   *
-  * @param name       : Schema name, must be unique in the domain. Will become the hive table name
-  * @param pattern    : filename pattern to which this schema must be applied
-  * @param attributes : datasets columns
+  * @param name       : Schema name, must be unique among all the schemas belonging to the same domain.
+  *                     Will become the hive table name On Premise or BigQuery Table name on GCP.
+  * @param pattern    : filename pattern to which this schema must be applied.
+  *                     This instructs the framework to use this schema to parse any file with a filename that match this pattern.
+  * @param attributes : Attributes parsing rules.
+  *                     See :ref:`attribute_concept`
   * @param metadata   : Dataset metadata
+  *                     See :ref:`metadata_concept`
   * @param comment    : free text
-  * @param presql     :  SQL code executed before the file is ingested
-  * @param postsql    : SQL code executed right after the file has been ingested
+  * @param presql     : Reserved for future use.
+  * @param postsql    : Reserved for future use.
+  * @param tags       : Set of string to attach to this Schema
+  * @param rls        : Experrimental. Row level security to this to this schema.
+  *                     See :ref:`rowlevelsecurity_concept`
   */
 case class Schema(
   name: String,
