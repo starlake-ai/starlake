@@ -33,16 +33,20 @@ import scala.util.{Failure, Success, Try}
 /**
   * A field in the schema. For struct fields, the field "attributes" contains all sub attributes
   *
-  * @param name       : Attribute name as defined in the source dataset
-  * @param `type`     : semantic type of the attribute
+  * @param name       : Attribute name as defined in the source dataset and as received in the file
+  * @param `type`     : semantic type of the attribute.
   * @param array      : Is it an array ?
   * @param required   : Should this attribute always be present in the source
-  * @param privacy    : Should this attribute be applied a privacy transformaiton at ingestion time
+  * @param privacy    : Should this attribute be applied a privacy transformation at ingestion time
   * @param comment    : free text for attribute description
   * @param rename     : If present, the attribute is renamed with this name
-  * @param metricType       : If present, what kind of stat should be computed for this field
-  * @param attributes : List of sub-attributes
-  * @param position   : Valid only where file format is POSITION
+  * @param metricType : If present, what kind of stat should be computed for this field
+  * @param attributes : List of sub-attributes (valid for JSON and XML files only)
+  * @param position   : Valid only when file format is POSITION
+  * @param default    : Default value for this attribute when it is not present.
+  * @param tags       : Tags associated with this attribute
+  * @param trim       : Should we trim the attribute value ?
+  * @param script     : Scripted field : SQL request on renamed column
   */
 case class Attribute(
   name: String,

@@ -39,8 +39,8 @@ trait SparkJob extends JobBase {
 
   lazy val session: SparkSession = {
     val udfs = settings.comet.udfs.map { udfs =>
-        udfs.split(',').toList
-      } getOrElse Nil
+      udfs.split(',').toList
+    } getOrElse Nil
 
     udfs.foreach { udf =>
       val udfInstance: UdfRegistration =
