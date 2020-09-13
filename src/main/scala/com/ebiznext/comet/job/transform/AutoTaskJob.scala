@@ -20,6 +20,7 @@
 
 package com.ebiznext.comet.job.transform
 
+import java.io.{File, PrintStream}
 import java.time.LocalDateTime
 
 import com.ebiznext.comet.config.{Settings, StorageArea, UdfRegistration}
@@ -34,6 +35,7 @@ import com.ebiznext.comet.schema.model.{AutoTaskDesc, BigQuerySink, Engine, Sink
 import com.ebiznext.comet.utils.Formatter._
 import com.ebiznext.comet.utils.{JobResult, SparkJob, SparkJobResult, Utils}
 import org.apache.hadoop.fs.Path
+
 import scala.util.{Failure, Success, Try}
 
 /**
@@ -70,14 +72,12 @@ class AutoTaskJob(
     }
   }
 
-  def runBQ(): Try[JobResult] = {
-    views.foreach(views => BigQueryNativeJob.createViews(views, udf))
-
+  private def createConfig(): BigQueryLoadConfig = {
     val (createDisposition, writeDisposition) =
       Utils.getDBDisposition(task.write, hasMergeKeyDefined = false)
     val bqSink = task.sink.map(sink => sink.asInstanceOf[BigQuerySink]).getOrElse(BigQuerySink())
 
-    val config = BigQueryLoadConfig(
+    BigQueryLoadConfig(
       outputTable = task.dataset,
       outputDataset = task.domain,
       createDisposition = createDisposition,
@@ -90,26 +90,70 @@ class AutoTaskJob(
       rls = task.rls,
       engine = Engine.BQ
     )
-    val bqNativeJob = new BigQueryNativeJob(config, task.sql.richFormat(sqlParameters), udf)
+  }
 
-    val presqlResult = Try {
+  def runView(viewName: String, viewDir: Option[String], viewCount: Int): Try[JobResult] = {
+    Try {
+      val config = createConfig()
+      val queryExpr = views
+        .getOrElse(Map.empty)
+        .getOrElse(viewName, throw new Exception(s"View with name $viewName not found"))
+      val bqNativeJob = new BigQueryNativeJob(
+        config,
+        "DUMMY - NOT EXECUTED",
+        udf
+      )
+
+      val jsonQuery = s"SELECT TO_JSON_STRING(t,false) FROM ($queryExpr) AS t"
+      val result = bqNativeJob.runSQL(jsonQuery.richFormat(sqlParameters))
+      import scala.collection.JavaConverters._
+      result.tableResult.foreach { tableResult =>
+        var count = 0
+        val it = tableResult.iterateAll().iterator().asScala
+        val file = viewDir
+          .map { dir =>
+            new File(dir).mkdirs()
+            new PrintStream(new File(dir, s"$viewName.json"), "UTF-8")
+          }
+          .getOrElse(System.out)
+        while (it.hasNext && count < viewCount) {
+          val item = it.next().get(0).getStringValue
+          file.println(item)
+          count = count + 1
+        }
+        file.close()
+      }
+      result
+    }
+  }
+
+  def runBQ(): Try[JobResult] = {
+    val subSelects: String = views.getOrElse(Map.empty).map { case (queryName, queryExpr) =>
+      queryName + " AS (" + queryExpr.richFormat(sqlParameters) + ")"
+    } mkString ("WITH ", ",", " ")
+
+    val config = createConfig()
+
+    val bqNativeJob = new BigQueryNativeJob(
+      config,
+      task.sql.richFormat(sqlParameters + ("views" -> subSelects)),
+      udf
+    )
+
+    val presqlResult: Try[Iterable[BigQueryJobResult]] = Try {
       task.presql.getOrElse(Nil).map { sql =>
         bqNativeJob.runSQL(sql.richFormat(sqlParameters))
       }
     }
     Utils.logFailure(presqlResult, logger)
 
-    val jobResult: Try[JobResult] = presqlResult match {
-      case Success(_) =>
-        bqNativeJob.run()
-      case Failure(e) =>
-        Success(BigQueryJobResult(None))
-    }
+    val jobResult: Try[JobResult] =
+      bqNativeJob.run()
     Utils.logFailure(jobResult, logger)
 
-    // We execute the post statements even if the presql & the main statement failed
+    // We execute the post statements even if the main statement failed
     // We may be doing some cleanup here.
-    val postsqlResult: Try[List[BigQueryJobResult]] = Try {
+    val postsqlResult: Try[Iterable[BigQueryJobResult]] = Try {
       task.postsql.getOrElse(Nil).map { sql =>
         bqNativeJob.runSQL(sql.richFormat(sqlParameters))
       }
@@ -117,7 +161,7 @@ class AutoTaskJob(
     Utils.logFailure(postsqlResult, logger)
 
     val errors =
-      List(presqlResult, jobResult, postsqlResult).filter(_.isFailure).map(_.failed).map(_.get)
+      Iterable(presqlResult, jobResult, postsqlResult).filter(_.isFailure).map(_.failed).map(_.get)
     errors match {
       case Nil =>
         Success(BigQueryJobResult(None))
@@ -136,33 +180,34 @@ class AutoTaskJob(
           .asInstanceOf[UdfRegistration]
       udfInstance.register(session)
     }
-    views.getOrElse(Map()).foreach {
-      case (key, value) =>
-        val sepIndex = value.indexOf(":")
-        val (format, path) =
-          if (sepIndex > 0)
-            (SinkType.fromString(value.substring(0, sepIndex)), value.substring(sepIndex + 1))
-          else // parquet is the default
-            (SinkType.FS, value)
-        logger.info(s"Loading view $path from $format")
-        val df = format match {
-          case FS =>
-            val fullPath =
-              if (path.startsWith("/")) path else s"${settings.comet.datasets}/$path"
-            session.read.parquet(fullPath)
-          case BQ =>
-            session.read
-              .format("com.google.cloud.spark.bigquery")
-              .load(path)
-              .cache()
-          case _ =>
-            throw new Exception("Should never happen")
-        }
-        df.createOrReplaceTempView(key)
-        logger.info(s"Created view $key")
+    views.getOrElse(Map()).foreach { case (key, value) =>
+      val sepIndex = value.indexOf(":")
+      val (format, path) =
+        if (sepIndex > 0)
+          (SinkType.fromString(value.substring(0, sepIndex)), value.substring(sepIndex + 1))
+        else // parquet is the default
+          (SinkType.FS, value)
+      logger.info(s"Loading view $path from $format")
+      val df = format match {
+        case FS =>
+          val fullPath =
+            if (path.startsWith("/")) path else s"${settings.comet.datasets}/$path"
+          session.read.parquet(fullPath)
+        case BQ =>
+          session.read
+            .format("com.google.cloud.spark.bigquery")
+            .load(path)
+            .cache()
+        case _ =>
+          throw new Exception("Should never happen")
+      }
+      df.createOrReplaceTempView(key)
+      logger.info(s"Created view $key")
     }
 
-    task.presql.getOrElse(Nil).foreach(req => session.sql(req.richFormat(sqlParameters)))
+    task.presql
+      .getOrElse(Nil)
+      .foreach(req => session.sql(req.richFormat(sqlParameters)))
     val sqlWithParameters = task.sql.richFormat(sqlParameters)
     logger.info(s"running sql request $sqlWithParameters")
     val dataframe = session.sql(sqlWithParameters)
