@@ -2,9 +2,9 @@ package com.ebiznext.comet.schema.handlers
 
 import com.ebiznext.comet.TestHelper
 import com.ebiznext.comet.config.{Settings, StorageArea}
-import com.ebiznext.comet.job.index.bqload.{BigQueryLoadConfig, BigQueryLoadJob}
-import com.ebiznext.comet.schema.model.{AutoJobDesc, AutoTaskDesc, RowLevelSecurity, WriteMode}
-import com.ebiznext.comet.workflow.IngestionWorkflow
+import com.ebiznext.comet.job.index.bqload.{BigQueryLoadConfig, BigQuerySparkJob}
+import com.ebiznext.comet.schema.model._
+import com.ebiznext.comet.workflow.{IngestionWorkflow, TransformConfig}
 import com.google.cloud.hadoop.io.bigquery.BigQueryConfiguration
 import org.apache.hadoop.fs.Path
 import org.scalatest.BeforeAndAfterAll
@@ -73,7 +73,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
       storageHandler.write(businessJobDef, pathBusiness)
 
-      workflow.autoJobRun("user", Some("age=40"))
+      workflow.autoJob(TransformConfig("user", Map("age" -> "40")))
 
       val result = sparkSession.read
         .load(pathUserDatasetBusiness.toString)
@@ -119,7 +119,9 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
       storageHandler.write(businessJobDef, pathBusiness)
 
-      workflow.autoJobRun("user", Some("age=25, lastname='Doe', firstname='John'"))
+      workflow.autoJob(
+        TransformConfig("user", Map("age" -> "25", "lastname" -> "'Doe'", "firstname" -> "'John'"))
+      )
 
       val result = sparkSession.read
         .load(pathUserDatasetBusiness.toString)
@@ -163,7 +165,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
       storageHandler.write(businessJobDef, pathBusiness)
 
-      workflow.autoJobRun("user")
+      workflow.autoJob(TransformConfig("user"))
 
       sparkSession.read
         .load(pathUserDatasetBusiness.toString)
@@ -208,7 +210,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       val workflow =
         new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
 
-      workflow.autoJobRun("fullName")
+      workflow.autoJob(TransformConfig("fullName"))
 
       sparkSession.read
         .load(pathUserDatasetBusiness.toString)
@@ -258,7 +260,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
       storageHandler.write(businessJobDef, pathGraduateProgramBusiness)
 
-      workflow.autoJobRun("graduateProgram", Some("school='UC_Berkeley'"))
+      workflow.autoJob(TransformConfig("graduateProgram", Map("school" -> "'UC_Berkeley'")))
 
       val result = sparkSession.read
         .load(pathGraduateDatasetProgramBusiness.toString)
@@ -282,12 +284,16 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         "TABLE",
         WriteMode.OVERWRITE,
         Some(List("comet_year", "comet_month")),
-        rls = Some(
+        None,
+        None,
+        None,
+        None,
+        Some(
           RowLevelSecurity("myrls", "TRUE", List("user:hayssam.saleh@ebiznext.com"))
         )
       )
-      val businessJob =
-        AutoJobDesc("business1", List(businessTask1), None, Some("parquet"), Some(true))
+
+      val sink = businessTask1.sink.map(_.asInstanceOf[BigQuerySink])
 
       val config = BigQueryLoadConfig(
         outputTable = businessTask1.dataset,
@@ -295,12 +301,14 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         sourceFormat = "parquet",
         createDisposition = "CREATE_IF_NEEDED",
         writeDisposition = "WRITE_TRUNCATE",
-        location = businessTask1.properties.flatMap(_.get("location")),
-        outputPartition = businessTask1.properties.flatMap(_.get("timestamp")),
-        days = businessTask1.properties.flatMap(_.get("days").map(_.toInt)),
+        location = sink.flatMap(_.location),
+        outputPartition = sink.flatMap(_.timestamp),
+        outputClustering = sink.flatMap(_.clustering).getOrElse(Nil),
+        days = sink.flatMap(_.days),
+        requirePartitionFilter = sink.flatMap(_.requirePartitionFilter).getOrElse(false),
         rls = businessTask1.rls
       )
-      val job = new BigQueryLoadJob(config)
+      val job = new BigQuerySparkJob(config)
       val conf = job.prepareConf()
 
       conf.get(BigQueryConfiguration.OUTPUT_TABLE_WRITE_DISPOSITION_KEY) shouldEqual "WRITE_APPEND"

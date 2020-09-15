@@ -59,7 +59,7 @@ class JsonIngestionJob(
   def loadDataSet(): Try[DataFrame] = {
 
     try {
-      val df = session.read
+      val dfIn = session.read
         .option("inferSchema", value = false)
         .option("encoding", metadata.getEncoding())
         .text(path.map(_.toString): _*)
@@ -68,7 +68,9 @@ class JsonIngestionJob(
           org.apache.spark.sql.functions.col("value")
         )
 
-      logger.debug(df.schema.treeString)
+      logger.debug(dfIn.schema.treeString)
+
+      val df = applyIgnore(dfIn)
 
       Success(df)
     } catch {
@@ -91,15 +93,15 @@ class JsonIngestionJob(
       .parseRDD(rdd, schemaSparkType)
       .persist(settings.comet.cacheStorageLevel)
 
-    val acceptedRDD: RDD[String] = checkedRDD.filter(_.isRight).map(_.right.get).map {
-      case (row, inputFileName) =>
+    val acceptedRDD: RDD[String] =
+      checkedRDD.filter(_.isRight).map(_.right.get).map { case (row, inputFileName) =>
         val (left, _) = row.splitAt(row.lastIndexOf("}"))
 
         // Because Spark cannot detect the input files when session.read.json(session.createDataset(acceptedRDD)(Encoders.STRING)),
         // We should add it as a normal field in the RDD before converting to a dataframe using session.read.json
 
         s"""$left, "${Settings.cometInputFileNameColumn}" : "$inputFileName" }"""
-    }
+      }
 
     val rejectedRDD: RDD[String] =
       checkedRDD.filter(_.isLeft).map(_.left.get.mkString("\n"))
@@ -108,7 +110,7 @@ class JsonIngestionJob(
 
     saveRejected(rejectedRDD)
     val (df, _) = saveAccepted(acceptedDF) // prefer to let Spark compute the final schema
-    index(df)
+    sink(df)
     (rejectedRDD, acceptedDF.rdd)
   }
 
@@ -119,7 +121,7 @@ class JsonIngestionJob(
     */
   @deprecated("We let Spark compute the final schema", "")
   def saveAccepted(acceptedRDD: RDD[Row]): Path = {
-    val writeMode = metadata.getWriteMode()
+    val writeMode = metadata.getWrite()
     val acceptedPath = new Path(DatasetArea.accepted(domain.name), schema.name)
     saveRows(
       session.createDataFrame(acceptedRDD, schemaSparkType),

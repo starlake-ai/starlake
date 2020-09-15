@@ -1,21 +1,18 @@
 package com.ebiznext.comet.job.ingest
 
 import java.sql.Timestamp
-import java.time.format.DateTimeFormatter
 import java.time.{Instant, LocalDateTime}
 
-import com.ebiznext.comet.config.Settings.IndexSinkSettings
 import com.ebiznext.comet.config.{DatasetArea, Settings, StorageArea}
-import com.ebiznext.comet.job.index.bqload.{BigQueryLoadConfig, BigQueryLoadJob}
+import com.ebiznext.comet.job.index.bqload.{BigQueryLoadConfig, BigQuerySparkJob}
 import com.ebiznext.comet.job.index.esload.{ESLoadConfig, ESLoadJob}
 import com.ebiznext.comet.job.index.jdbcload.{JdbcLoadConfig, JdbcLoadJob}
-import com.ebiznext.comet.job.ingest.ImprovedDataFrameContext._
 import com.ebiznext.comet.job.metrics.MetricsJob
 import com.ebiznext.comet.schema.handlers.{SchemaHandler, StorageHandler}
 import com.ebiznext.comet.schema.model.Rejection.{ColInfo, ColResult}
 import com.ebiznext.comet.schema.model.Trim.{BOTH, LEFT, RIGHT}
 import com.ebiznext.comet.schema.model._
-import com.ebiznext.comet.utils.{SparkJob, SparkJobResult, Utils}
+import com.ebiznext.comet.utils.{JobResult, SparkJob, SparkJobResult, Utils}
 import com.google.cloud.bigquery.JobInfo.{CreateDisposition, WriteDisposition}
 import com.google.cloud.bigquery.{Field, LegacySQLTypeName}
 import org.apache.hadoop.fs.Path
@@ -24,6 +21,7 @@ import org.apache.spark.sql._
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types.{StringType, StructField, StructType, TimestampType}
+import com.ebiznext.comet.job.ingest.ImprovedDataFrameContext._
 
 import scala.language.existentials
 import scala.util.{Failure, Success, Try}
@@ -63,6 +61,20 @@ trait IngestionJob extends SparkJob {
     */
   def ingest(dataset: DataFrame): (RDD[_], RDD[_])
 
+  def applyIgnore(dfIn: DataFrame): Dataset[Row] = {
+    import org.apache.spark.sql.functions._
+    import session.implicits._
+    metadata.ignore.map { ignore =>
+      if (ignore.startsWith("udf:")) {
+        dfIn.filter(
+          !callUDF(ignore.substring("udf:".length), struct(dfIn.columns.map(dfIn(_)): _*))
+        )
+      } else {
+        dfIn.filter(!($"value" rlike ignore))
+      }
+    } getOrElse dfIn
+  }
+
   def saveRejected(rejectedRDD: RDD[String]): Try[Path] = {
     logger.whenDebugEnabled {
       logger.debug(s"rejectedRDD SIZE ${rejectedRDD.count()}")
@@ -70,9 +82,9 @@ trait IngestionJob extends SparkJob {
     }
     val domainName = domain.name
     val schemaName = schema.name
-    IngestionUtil.indexRejected(session, rejectedRDD, domainName, schemaName.toString, now) match {
+    IngestionUtil.sinkRejected(session, rejectedRDD, domainName, schemaName, now) match {
       case Success((rejectedDF, rejectedPath)) =>
-        saveRows(rejectedDF, rejectedPath, WriteMode.APPEND, StorageArea.rejected, false)
+        saveRows(rejectedDF, rejectedPath, WriteMode.APPEND, StorageArea.rejected, merge = false)
         Success(rejectedPath)
       case Failure(exception) =>
         logger.error("Failed to save Rejected", exception)
@@ -83,10 +95,10 @@ trait IngestionJob extends SparkJob {
   def getWriteMode(): WriteMode =
     schema.merge
       .map(_ => WriteMode.OVERWRITE)
-      .getOrElse(metadata.getWriteMode())
+      .getOrElse(metadata.getWrite())
 
-  private def timestampedCsv(): Boolean =
-    settings.comet.timestampedCsv && !settings.comet.grouped && metadata.partition.isEmpty
+  private def csvOutput(): Boolean =
+    settings.comet.csvOutput && !settings.comet.grouped && metadata.partition.isEmpty && path.nonEmpty
 
   /**
     * Merge new and existing dataset if required
@@ -139,21 +151,48 @@ trait IngestionJob extends SparkJob {
 
     val mergedDF = schema.merge
       .map { mergeOptions =>
-        if (metadata.getIndexSink().getOrElse(IndexSink.None) == IndexSink.BQ) {
+        if (metadata.getSink().map(_.`type`).getOrElse(SinkType.None) == SinkType.BQ) {
           // When merging to BigQuery, load existing DF from BigQuery
-          val table = BigQueryLoadJob.getTable(session, domain.name, schema.name)
+          val table = BigQuerySparkJob.getTable(session, domain.name, schema.name)
           table
             .map { table =>
               val bqTable = s"${domain.name}.${schema.name}"
               val existingBigQueryDF = session.read
+                // We provided the acceptedDF schema here since BQ lose the required / nullable information of the schema
+                .schema(acceptedDfWithscriptFields.schema)
                 .format("com.google.cloud.spark.bigquery")
                 .load(bqTable)
-              merge(acceptedDfWithscriptFields, existingBigQueryDF, mergeOptions)
+              if (
+                existingBigQueryDF.schema.fields.length == session.read
+                  .parquet(acceptedPath.toString)
+                  .schema
+                  .fields
+                  .length
+              )
+                merge(acceptedDfWithscriptFields, existingBigQueryDF, mergeOptions)
+              else
+                throw new RuntimeException(
+                  "Input Dataset and existing HDFS dataset do not have the same number of columns. Check for changes in the dataset schema ?"
+                )
             }
             .getOrElse(acceptedDfWithscriptFields)
         } else if (storageHandler.exists(new Path(acceptedPath, "_SUCCESS"))) {
           // Otherwise load from accepted area
-          val existingDF = session.read.parquet(acceptedPath.toString)
+          // We provide the accepted DF schema since partition columns types are infered when parquet is loaded and might not match with the DF being ingested
+          val existingDF =
+            session.read.schema(acceptedDfWithscriptFields.schema).parquet(acceptedPath.toString)
+          if (
+            existingDF.schema.fields.length == session.read
+              .parquet(acceptedPath.toString)
+              .schema
+              .fields
+              .length
+          )
+            merge(acceptedDfWithscriptFields, existingDF, mergeOptions)
+          else
+            throw new RuntimeException(
+              "Input Dataset and existing HDFS dataset do not have the same number of columns. Check for changes in the dataset schema ?"
+            )
           merge(acceptedDfWithscriptFields, existingDF, mergeOptions)
         } else
           acceptedDfWithscriptFields
@@ -165,16 +204,14 @@ trait IngestionJob extends SparkJob {
       saveRows(mergedDF, acceptedPath, writeMode, StorageArea.accepted, schema.merge.isDefined)
     logger.info("Saved Dataset Schema")
     savedDataset.printSchema()
-    if (timestampedCsv()) {
-      val formatter = DateTimeFormatter.ofPattern("yyyyMMddHHmmss")
-      val now = LocalDateTime.now().format(formatter)
+    if (csvOutput()) {
       val csvPath = storageHandler
         .list(acceptedPath, ".csv", LocalDateTime.MIN)
-        .filter(!_.getName.startsWith(acceptedPath.getName()))
+        .filterNot(path => schema.pattern.matcher(path.getName).matches())
         .head
       val finalCsvPath = new Path(
         acceptedPath,
-        s"${acceptedPath.getName()}-${now}.csv"
+        path.head.getName
       )
       storageHandler.move(csvPath, finalCsvPath)
     }
@@ -187,23 +224,26 @@ trait IngestionJob extends SparkJob {
     (savedDataset, acceptedPath)
   }
 
-  def index(mergedDF: DataFrame): Unit = {
-    metadata.getIndexSink() match {
-      case Some(IndexSink.ES) if settings.comet.elasticsearch.active =>
-        val properties = metadata.properties
+  def sink(mergedDF: DataFrame): Unit = {
+    val sinkType = metadata.getSink().map(_.`type`)
+    sinkType match {
+      case Some(SinkType.ES) if settings.comet.elasticsearch.active =>
+        val sink = metadata.getSink().map(_.asInstanceOf[EsSink])
         val config = ESLoadConfig(
-          timestamp = properties.flatMap(_.get("timestamp")),
-          id = properties.flatMap(_.get("id")),
+          timestamp = sink.flatMap(_.timestamp),
+          id = sink.flatMap(_.id),
           format = "parquet",
           domain = domain.name,
           schema = schema.name
         )
         new ESLoadJob(config, storageHandler, schemaHandler).run()
-      case Some(IndexSink.ES) if !settings.comet.elasticsearch.active =>
+      case Some(SinkType.ES) if !settings.comet.elasticsearch.active =>
         logger.warn("Indexing to ES requested but elasticsearch not active in conf file")
-      case Some(IndexSink.BQ) =>
+      case Some(SinkType.BQ) =>
+        val sink = metadata.getSink().map(_.asInstanceOf[BigQuerySink])
         val (createDisposition: String, writeDisposition: String) = Utils.getDBDisposition(
-          metadata.getWriteMode()
+          metadata.getWrite(),
+          schema.merge.exists(_.key.nonEmpty)
         )
         val config = BigQueryLoadConfig(
           source = Right(mergedDF),
@@ -212,28 +252,33 @@ trait IngestionJob extends SparkJob {
           sourceFormat = "parquet",
           createDisposition = createDisposition,
           writeDisposition = writeDisposition,
-          location = metadata.getProperties().get("location"),
-          outputPartition = metadata.getProperties().get("timestamp"),
-          days = metadata.getProperties().get("days").map(_.toInt),
+          location = sink.flatMap(_.location),
+          outputPartition = sink.flatMap(_.timestamp),
+          outputClustering = sink.flatMap(_.clustering).getOrElse(Nil),
+          days = sink.flatMap(_.days),
+          requirePartitionFilter = sink.flatMap(_.requirePartitionFilter).getOrElse(false),
           rls = schema.rls
         )
-        val res = new BigQueryLoadJob(config, Some(schema.bqSchema(schemaHandler))).run()
+        val res = new BigQuerySparkJob(config, Some(schema.bqSchema(schemaHandler))).run()
         res match {
           case Success(_) => ;
           case Failure(e) => logger.error("BQLoad Failed", e)
         }
 
-      case Some(IndexSink.JDBC) =>
+      case Some(SinkType.JDBC) =>
         val (createDisposition: CreateDisposition, writeDisposition: WriteDisposition) = {
 
           val (cd, wd) = Utils.getDBDisposition(
-            metadata.getWriteMode()
+            metadata.getWrite(),
+            schema.merge.exists(_.key.nonEmpty)
           )
           (CreateDisposition.valueOf(cd), WriteDisposition.valueOf(wd))
         }
-        metadata.getProperties().get("jdbc").foreach { jdbcName =>
-          val partitions = metadata.getProperties().getOrElse("partitions", "1").toInt
-          val batchSize = metadata.getProperties().getOrElse("batchsize", "1000").toInt
+        val sink = metadata.getSink().map(_.asInstanceOf[JdbcSink])
+        sink.foreach { sink =>
+          val partitions = sink.partitions.getOrElse(1)
+          val batchSize = sink.batchsize.getOrElse(1000)
+          val jdbcName = sink.connection
 
           val jdbcConfig = JdbcLoadConfig.fromComet(
             jdbcName,
@@ -252,8 +297,7 @@ trait IngestionJob extends SparkJob {
             case Failure(e) => logger.error("JDBCLoad Failed", e)
           }
         }
-
-      case Some(IndexSink.None) | None =>
+      case Some(SinkType.None) | None =>
         // ignore
         logger.trace("not producing an index, as requested (no sink or sink at None explicitly)")
     }
@@ -279,29 +323,24 @@ trait IngestionJob extends SparkJob {
       .map(_.name)
       .mkString(",")}""")
 
-    if (existingDF.schema.fields.length != partitionedInputDF.schema.fields.length) {
-      throw new RuntimeException(
-        "Input Dataset and existing HDFS dataset do not have the same number of columns. Check for changes in the dataset schema ?"
-      )
-    }
-
     // Force ordering of columns to be the same
-    val orderedExisting = existingDF.select(partitionedInputDF.columns.map((col(_))): _*)
+    val orderedExisting =
+      existingDF.select(partitionedInputDF.columns.map(col): _*)
 
     // Force ordering again of columns to be the same since join operation change it otherwise except below won"'t work.
     val commonDF =
       orderedExisting
         .join(partitionedInputDF.select(merge.key.head, merge.key.tail: _*), merge.key)
-        .select(partitionedInputDF.columns.map((col(_))): _*)
+        .select(partitionedInputDF.columns.map(col): _*)
 
     val toDeleteDF = merge.timestamp.map { timestamp =>
-        val w = Window.partitionBy(merge.key.head, merge.key.tail: _*).orderBy(col(timestamp).desc)
-        import org.apache.spark.sql.functions.row_number
-        commonDF
-          .withColumn("rownum", row_number.over(w))
-          .where(col("rownum") =!= 1)
-          .drop("rownum")
-      } getOrElse commonDF
+      val w = Window.partitionBy(merge.key.head, merge.key.tail: _*).orderBy(col(timestamp).desc)
+      import org.apache.spark.sql.functions.row_number
+      commonDF
+        .withColumn("rownum", row_number.over(w))
+        .where(col("rownum") =!= 1)
+        .drop("rownum")
+    } getOrElse commonDF
 
     val updatesDF = merge.delete
       .map(condition => partitionedInputDF.filter(s"not ($condition)"))
@@ -355,7 +394,7 @@ trait IngestionJob extends SparkJob {
 
       val nbPartitions = metadata.getSamplingStrategy() match {
         case 0.0 => // default partitioning
-          if (timestampedCsv())
+          if (csvOutput())
             1
           else
             dataset.rdd.getNumPartitions
@@ -372,7 +411,7 @@ trait IngestionJob extends SparkJob {
             else
               0
 
-          val sampledDataset = dataset.sample(false, minFraction)
+          val sampledDataset = dataset.sample(withReplacement = false, minFraction)
           partitionedDatasetWriter(sampledDataset, metadata.getPartitionAttributes())
             .mode(SaveMode.ErrorIfExists)
             .format(settings.comet.defaultWriteFormat)
@@ -420,10 +459,12 @@ trait IngestionJob extends SparkJob {
       } else
         (partitionedDFWriter, dataset)
       val finalTargetDatasetWriter =
-        if (timestampedCsv())
+        if (csvOutput())
           targetDatasetWriter
             .mode(saveMode)
             .format("csv")
+            .option("ignoreLeadingWhiteSpace", value = false)
+            .option("ignoreTrailingWhiteSpace", value = false)
             .option("header", metadata.withHeader.getOrElse(false))
             .option("delimiter", metadata.separator.getOrElse("µ"))
             .option("path", targetPath.toString)
@@ -438,21 +479,7 @@ trait IngestionJob extends SparkJob {
         finalTargetDatasetWriter.saveAsTable(fullTableName)
         val tableComment = schema.comment.getOrElse("")
         session.sql(s"ALTER TABLE $fullTableName SET TBLPROPERTIES ('comment' = '$tableComment')")
-        if (settings.comet.analyze) {
-          val allCols = session.table(fullTableName).columns.mkString(",")
-          val analyzeTable =
-            s"ANALYZE TABLE $fullTableName COMPUTE STATISTICS FOR COLUMNS $allCols"
-          if (session.version.substring(0, 3).toDouble >= 2.4)
-            try {
-              session.sql(analyzeTable)
-            } catch {
-              case e: Throwable =>
-                logger.warn(
-                  s"Failed to compute statistics for table $fullTableName on columns $allCols"
-                )
-                e.printStackTrace()
-            }
-        }
+        analyze(fullTableName)
       } else {
         finalTargetDatasetWriter.save()
       }
@@ -479,8 +506,8 @@ trait IngestionJob extends SparkJob {
     *
     * @return : Spark Session used for the job
     */
-  def run(): Try[SparkJobResult] = {
-    domain.checkValidity(schemaHandler) match {
+  def run(): Try[JobResult] = {
+    val jobResult = domain.checkValidity(schemaHandler) match {
       case Left(errors) =>
         val errs = errors.reduce { (errs, err) =>
           errs + "\n" + err
@@ -517,7 +544,7 @@ trait IngestionJob extends SparkJob {
               )
               SparkAuditLogWriter.append(session, log)
               schema.postsql.getOrElse(Nil).foreach(session.sql)
-              SparkJobResult(session)
+              SparkJobResult(None)
             }
           case Failure(exception) =>
             val end = Timestamp.from(Instant.now())
@@ -539,8 +566,10 @@ trait IngestionJob extends SparkJob {
             Failure(throw exception)
         }
     }
+    // After each ingestionjob we explicitely clear the spark cache
+    session.catalog.clearCache()
+    jobResult
   }
-
 }
 
 object IngestionUtil {
@@ -566,7 +595,7 @@ object IngestionUtil {
     BQSchema.of(fields: _*)
   }
 
-  def indexRejected(
+  def sinkRejected(
     session: SparkSession,
     rejectedRDD: RDD[String],
     domainName: String,
@@ -591,34 +620,37 @@ object IngestionUtil {
       .limit(settings.comet.audit.maxErrors)
 
     val res =
-      settings.comet.audit.index match {
-        case IndexSinkSettings.BigQuery(dataset) =>
+      settings.comet.audit.sink match {
+        case sink: BigQuerySink =>
           val bqConfig = BigQueryLoadConfig(
             Right(rejectedDF),
-            outputDataset = dataset,
+            outputDataset = sink.name.getOrElse("audit"),
             outputTable = "rejected",
             None,
+            Nil,
             "parquet",
             "CREATE_IF_NEEDED",
             "WRITE_APPEND",
             None,
             None
           )
-          new BigQueryLoadJob(bqConfig, Some(bigqueryRejectedSchema())).run()
+          new BigQuerySparkJob(bqConfig, Some(bigqueryRejectedSchema())).run()
 
-        case IndexSinkSettings.Jdbc(jdbcName, partitions, batchSize) =>
+        case JdbcSink(jdbcName, partitions, batchSize) =>
           val jdbcConfig = JdbcLoadConfig.fromComet(
             jdbcName,
             settings.comet,
             Right(rejectedDF),
             "rejected",
-            partitions = partitions,
-            batchSize = batchSize
+            partitions = partitions.getOrElse(1),
+            batchSize = batchSize.getOrElse(1000)
           )
 
           new JdbcLoadJob(jdbcConfig).run()
 
-        case IndexSinkSettings.None =>
+        case EsSink(_, _) =>
+          ???
+        case NoneSink() =>
           Success(())
       }
     res match {

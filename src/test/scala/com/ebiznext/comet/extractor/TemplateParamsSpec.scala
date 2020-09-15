@@ -14,7 +14,11 @@ class TemplateParamsSpec extends AnyFlatSpec with Matchers {
     val schema: Schema = Schema(
       name = "table1",
       pattern = Pattern.compile("output_file.*.csv"),
-      List(Attribute(name = "col1"), Attribute(name = "col2")),
+      List(
+        Attribute(name = "col1"),
+        Attribute(name = "col2"),
+        Attribute(name = "col3", script = Some("script"))
+      ),
       metadata = Option(Metadata(write = Some(WriteMode.APPEND))),
       merge = Some(MergeOptions(List("col1", "col2"), None, timestamp = Some("updateCol"))),
       comment = None,

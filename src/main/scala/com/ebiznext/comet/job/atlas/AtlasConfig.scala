@@ -1,6 +1,5 @@
 package com.ebiznext.comet.job.atlas
 
-import buildinfo.BuildInfo
 import com.ebiznext.comet.utils.CliConfig
 import scopt.OParser
 
@@ -19,8 +18,9 @@ object AtlasConfig extends CliConfig[AtlasConfig] {
     val builder = OParser.builder[AtlasConfig]
     import builder._
     OParser.sequence(
-      programName("comet"),
-      head("comet", BuildInfo.version),
+      programName("comet atlas"),
+      head("comet", "atlas", "[options]"),
+      note(""),
       opt[Unit]("delete")
         .action((_, c) => c.copy(delete = true))
         .optional()
