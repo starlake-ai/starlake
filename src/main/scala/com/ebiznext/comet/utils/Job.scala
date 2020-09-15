@@ -1,32 +1,58 @@
 package com.ebiznext.comet.utils
 
-import com.ebiznext.comet.config.{Settings, SparkEnv}
+import com.ebiznext.comet.config.{Settings, SparkEnv, UdfRegistration}
 import com.ebiznext.comet.schema.model.Metadata
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.sql.functions._
+import org.apache.spark.sql.types.IntegerType
 import org.apache.spark.sql.{DataFrame, DataFrameWriter, Row, SparkSession}
 
 import scala.util.Try
 
-case class SparkJobResult(session: SparkSession, df: Option[DataFrame] = None)
+trait JobResult
+
+case class SparkJobResult(dataframe: Option[DataFrame]) extends JobResult
 
 /**
   * All Spark Job extend this trait.
-  * Build Spark session using spark variables from applciation.conf.
+  * Build Spark session using spark variables from application.conf.
   */
-trait SparkJob extends StrictLogging {
+
+trait JobBase extends StrictLogging {
   def name: String
   implicit def settings: Settings
 
-  lazy val sparkEnv: SparkEnv = new SparkEnv(name)
-  lazy val session: SparkSession = sparkEnv.session
-
   /**
-    * Just to force any spark job to implement its entry point using within the "run" method
+    * Just to force any job to implement its entry point using within the "run" method
     *
-    * @return : Spark Session used for the job
+    * @return : Spark Dataframe for Spark Jobs None otherwise
     */
-  def run(): Try[SparkJobResult]
+  def run(): Try[JobResult]
+
+}
+
+trait SparkJob extends JobBase {
+
+  lazy val sparkEnv: SparkEnv = {
+    new SparkEnv(name)
+  }
+
+  lazy val session: SparkSession = {
+    val udfs = settings.comet.udfs.map { udfs =>
+      udfs.split(',').toList
+    } getOrElse Nil
+
+    udfs.foreach { udf =>
+      val udfInstance: UdfRegistration =
+        Class
+          .forName(udf)
+          .getDeclaredConstructor()
+          .newInstance()
+          .asInstanceOf[UdfRegistration]
+      udfInstance.register(sparkEnv.session)
+    }
+    sparkEnv.session
+  }
 
   // TODO Should we issue a warning if used with Overwrite mode ????
   // TODO Check that the year / month / day / hour / minute do not already exist
@@ -34,6 +60,11 @@ trait SparkJob extends StrictLogging {
     var partitionedDF = dataset.withColumn("comet_date", current_timestamp())
     val dataSetsCols = dataset.columns.toList
     cols.foreach {
+      case "comet_date" if !dataSetsCols.contains("date") =>
+        partitionedDF = partitionedDF.withColumn(
+          "date",
+          date_format(col("comet_date"), "yyyyMMdd").cast(IntegerType)
+        )
       case "comet_year" if !dataSetsCols.contains("year") =>
         partitionedDF = partitionedDF.withColumn("year", year(col("comet_date")))
       case "comet_month" if !dataSetsCols.contains("month") =>
@@ -52,13 +83,14 @@ trait SparkJob extends StrictLogging {
 
   /**
     * Partition a dataset using dataset columns.
-    * To partition the dataset using the igestion time, use the reserved column names :
+    * To partition the dataset using the ingestion time, use the reserved column names :
+    *   - comet_date
     *   - comet_year
     *   - comet_month
     *   - comet_day
     *   - comet_hour
     *   - comet_minute
-    * These columsn are renamed to "year", "month", "day", "hour", "minute" in the dataset and
+    * These columns are renamed to "date", "year", "month", "day", "hour", "minute" in the dataset and
     * their values is set to the current date/time.
     *
     * @param dataset   : Input dataset
@@ -100,4 +132,22 @@ trait SparkJob extends StrictLogging {
     }
   }
 
+  def analyze(fullTableName: String) = {
+    if (settings.comet.analyze) {
+      val allCols = session.table(fullTableName).columns.mkString(",")
+      val analyzeTable =
+        s"ANALYZE TABLE $fullTableName COMPUTE STATISTICS FOR COLUMNS $allCols"
+      if (session.version.substring(0, 3).toDouble >= 2.4)
+        try {
+          session.sql(analyzeTable)
+        } catch {
+          case e: Throwable =>
+            logger.warn(
+              s"Failed to compute statistics for table $fullTableName on columns $allCols"
+            )
+            e.printStackTrace()
+        }
+    }
+
+  }
 }

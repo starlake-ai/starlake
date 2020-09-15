@@ -12,13 +12,37 @@ Getting started with Comet Data Pipeline:
 
 .. toctree::
    :caption: User Guide
-   :maxdepth: 2
+   :maxdepth: 3
 
-   user/introduction
-   user/sample
-   user/configure
-   user/quickstart
-   user/complete
+   user/guide/introduction
+   user/guide/sample
+   user/guide/configuration/configure
+   user/guide/quickstart
+
+.. toctree::
+   :caption: Reference Manual
+   :maxdepth: 3
+
+   user/ref/extract
+   user/ref/load
+   user/ref/transform
+
+.. toctree::
+   :caption: CLI
+   :maxdepth: 3
+
+   user/cli/bqload
+   user/cli/esload
+   user/cli/extract
+   user/cli/import
+   user/cli/infer-schema
+   user/cli/load
+   user/cli/metrics
+   user/cli/parquet2csv
+   user/cli/sqlload
+   user/cli/transform
+   user/cli/watch
+   user/cli/xls2yml
 
 .. toctree::
    :caption: Developer Guide

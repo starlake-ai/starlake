@@ -27,6 +27,7 @@ import com.ebiznext.comet.schema.handlers.InferSchemaHandler
 import com.ebiznext.comet.schema.model.{Attribute, Domain}
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
+import scala.util.Try
 
 /** *
   *
@@ -44,7 +45,8 @@ class InferSchema(
   header: Option[Boolean] = Some(false)
 )(implicit settings: Settings) {
 
-  (new InferSchemaJob).infer(domainName, schemaName, dataPath, savePath, header.getOrElse(false))
+  def run(): Try[Unit] =
+    (new InferSchemaJob).infer(domainName, schemaName, dataPath, savePath, header.getOrElse(false))
 
 }
 
@@ -189,46 +191,48 @@ class InferSchemaJob(implicit settings: Settings) {
     dataPath: String,
     savePath: String,
     header: Boolean
-  ): Unit = {
-    val path = new Path(dataPath)
+  ): Try[Unit] = {
+    Try {
+      val path = new Path(dataPath)
 
-    val datasetWithoutFormat = readFile(path)
+      val datasetWithoutFormat = readFile(path)
 
-    val dataframeWithFormat = createDataFrameWithFormat(datasetWithoutFormat, path, header)
+      val dataframeWithFormat = createDataFrameWithFormat(datasetWithoutFormat, path, header)
 
-    val format = Option(getFormatFile(datasetWithoutFormat))
+      val format = Option(getFormatFile(datasetWithoutFormat))
 
-    val array = if (format.getOrElse("") == "ARRAY_JSON") true else false
+      val array = if (format.getOrElse("") == "ARRAY_JSON") true else false
 
-    val withHeader = header
+      val withHeader = header
 
-    val separator = getSeparator(datasetWithoutFormat)
+      val separator = getSeparator(datasetWithoutFormat)
 
-    val inferSchema = InferSchemaHandler
+      val inferSchema = InferSchemaHandler
 
-    val attributes: List[Attribute] = inferSchema.createAttributes(dataframeWithFormat.schema)
+      val attributes: List[Attribute] = inferSchema.createAttributes(dataframeWithFormat.schema)
 
-    val metadata = inferSchema.createMetaData(
-      format,
-      Option(array),
-      Option(withHeader),
-      Option(separator)
-    )
-
-    val schema = inferSchema.createSchema(
-      schemaName,
-      Pattern.compile(getSchemaPattern(path)),
-      attributes,
-      Some(metadata)
-    )
-
-    val domain: Domain =
-      inferSchema.createDomain(
-        domainName,
-        getDomainDirectoryName(path),
-        schemas = List(schema)
+      val metadata = inferSchema.createMetaData(
+        format,
+        Option(array),
+        Option(withHeader),
+        Option(separator)
       )
 
-    inferSchema.generateYaml(domain, savePath)
+      val schema = inferSchema.createSchema(
+        schemaName,
+        Pattern.compile(getSchemaPattern(path)),
+        attributes,
+        Some(metadata)
+      )
+
+      val domain: Domain =
+        inferSchema.createDomain(
+          domainName,
+          getDomainDirectoryName(path),
+          schemas = List(schema)
+        )
+
+      inferSchema.generateYaml(domain, savePath)
+    }
   }
 }

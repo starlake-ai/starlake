@@ -1,5 +1,11 @@
 package com.ebiznext.comet.schema.model
 
+/**
+  * User / Group and Service accounts rights on a subset of the table.
+  * @param name
+  * @param predicate
+  * @param grants
+  */
 case class RowLevelSecurity(
   name: String,
   predicate: String,

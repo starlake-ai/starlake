@@ -23,9 +23,10 @@ package com.ebiznext.comet.schema.handlers
 import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.job.index.bqload.BigQueryLoadConfig
 import com.ebiznext.comet.job.index.esload.ESLoadConfig
-import com.ebiznext.comet.job.ingest.IngestConfig
+import com.ebiznext.comet.job.ingest.LoadConfig
 import com.ebiznext.comet.job.index.jdbcload.JdbcLoadConfig
 import com.ebiznext.comet.schema.model.{Domain, Schema}
+import com.ebiznext.comet.utils.Utils
 import com.ebiznext.comet.workflow.IngestionWorkflow
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
@@ -75,7 +76,7 @@ trait LaunchHandler {
     *
     * @param config
     */
-  def index(workflow: IngestionWorkflow, config: ESLoadConfig)(implicit
+  def esLoad(workflow: IngestionWorkflow, config: ESLoadConfig)(implicit
     settings: Settings
   ): Boolean
 
@@ -119,7 +120,7 @@ class SimpleLauncher extends LaunchHandler with StrictLogging {
     paths: List[Path]
   )(implicit settings: Settings): Boolean = {
     logger.info(s"Launch Ingestion: ${domain.name} ${schema.name} $paths ")
-    workflow.ingest(IngestConfig(domain.name, schema.name, paths))
+    workflow.ingest(LoadConfig(domain.name, schema.name, paths))
     true
   }
 
@@ -128,12 +129,13 @@ class SimpleLauncher extends LaunchHandler with StrictLogging {
     *
     * @param config
     */
-  override def index(workflow: IngestionWorkflow, config: ESLoadConfig)(implicit
+  override def esLoad(workflow: IngestionWorkflow, config: ESLoadConfig)(implicit
     settings: Settings
   ): Boolean = {
     logger.info(s"Launch index: ${config}")
-    workflow.index(config)
-    true
+    val result = workflow.esLoad(config)
+    Utils.logFailure(result, logger)
+    result.isSuccess
   }
 
   /**
@@ -228,7 +230,7 @@ class AirflowLauncher extends LaunchHandler with StrictLogging {
     *
     * @param config
     */
-  override def index(workflow: IngestionWorkflow, config: ESLoadConfig)(implicit
+  override def esLoad(workflow: IngestionWorkflow, config: ESLoadConfig)(implicit
     settings: Settings
   ): Boolean = {
     val endpoint = settings.comet.airflow.endpoint

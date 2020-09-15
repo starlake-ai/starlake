@@ -6,8 +6,6 @@ metadata:
   format: "JSON"
   separator: "|"
   write: "APPEND"
-  dateFormat: "yyyy-MM-dd"
-  timestampFormat: "yyyy-MM-dd HH:mm:ss"
   partition:
     attributes:
       - comet_year
