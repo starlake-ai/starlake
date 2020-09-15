@@ -30,5 +30,4 @@ class ExtractScriptGenSpec extends AnyFlatSpec with Matchers {
       getClass.getResource("/sample/database/expected_script_payload.txt").getPath
     ).lines.mkString("\n")
   }
-
 }

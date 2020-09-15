@@ -88,4 +88,46 @@ class PositionIngestionJobSpec extends TestHelper {
       }
     }
   }
+  "Ingest Position Regex File with ignore string" should "ignore first line" in {
+    new WithSettings() {
+      new SpecTrait(
+        domainFilename = "positionWithIgnore.yml",
+        sourceDomainPathname = "/sample/positionWithIgnore/positionWithIgnore.yml",
+        datasetDomainName = "positionWithIgnore",
+        sourceDatasetPathName = "/sample/positionWithIgnore/dataregex-ignore.dat"
+      ) {
+        cleanMetadata
+        cleanDatasets
+        loadPending
+        // Accepted should contain data formatted correctly
+        val acceptedDf = sparkSession.read
+          .parquet(
+            cometDatasetsPath + s"/accepted/${datasetDomainName}/DATAREGEX"
+          )
+        acceptedDf.count() shouldBe 1
+      }
+    }
+  }
+
+  "Ingest Position UDF File with ignore string" should "ignore first line" in {
+    new WithSettings() {
+      new SpecTrait(
+        domainFilename = "positionWithIgnore.yml",
+        sourceDomainPathname = "/sample/positionWithIgnore/positionWithIgnore.yml",
+        datasetDomainName = "positionWithIgnore",
+        sourceDatasetPathName = "/sample/positionWithIgnore/dataudf-ignore.dat"
+      ) {
+        cleanMetadata
+        cleanDatasets
+        loadPending
+        // Accepted should contain data formatted correctly
+        val acceptedDf = sparkSession.read
+          .parquet(
+            cometDatasetsPath + s"/accepted/${datasetDomainName}/DATAUDF"
+          )
+        acceptedDf.count() shouldBe 1
+      }
+    }
+  }
+
 }

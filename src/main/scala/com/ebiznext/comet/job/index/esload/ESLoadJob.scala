@@ -23,7 +23,7 @@ package com.ebiznext.comet.job.index.esload
 import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.schema.handlers.{SchemaHandler, StorageHandler}
 import com.ebiznext.comet.schema.model.Schema
-import com.ebiznext.comet.utils.{SparkJob, SparkJobResult}
+import com.ebiznext.comet.utils.{JobResult, SparkJob, SparkJobResult}
 import com.softwaremill.sttp._
 import org.apache.spark.sql.SaveMode
 import org.apache.spark.sql.types.StructField
@@ -46,11 +46,11 @@ class ESLoadJob(
   override def name: String = s"Index $path"
 
   /**
-    * Just to force any spark job to implement its entry point using within the "run" method
+    * Just to force any spark job to implement its entry point within the "run" method
     *
     * @return : Spark Session used for the job
     */
-  override def run(): Try[SparkJobResult] = {
+  override def run(): Try[JobResult] = {
     logger.info(s"Indexing resource ${cliConfig.getResource()} with $cliConfig")
     val inputDF = format match {
       case "json" =>
@@ -68,12 +68,12 @@ class ESLoadJob(
 
     // Convert timestamp field to ISO8601 date time, so that ES Hadoop can handle it correctly.
     val df = cliConfig.getTimestampCol().map { tsCol =>
-        import org.apache.spark.sql.functions._
-        inputDF
-          .withColumn("comet_es_tmp", date_format(col(tsCol), "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"))
-          .drop(tsCol)
-          .withColumnRenamed("comet_es_tmp", tsCol)
-      } getOrElse inputDF
+      import org.apache.spark.sql.functions._
+      inputDF
+        .withColumn("comet_es_tmp", date_format(col(tsCol), "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"))
+        .drop(tsCol)
+        .withColumnRenamed("comet_es_tmp", tsCol)
+    } getOrElse inputDF
 
     val content = cliConfig.mapping.map(storageHandler.read).getOrElse {
       val dynamicTemplate = for {
@@ -92,7 +92,6 @@ class ESLoadJob(
         )
       }
     }
-
     logger.info(
       s"Registering template ${cliConfig.domain.toLowerCase}_${cliConfig.schema.toLowerCase} -> $content"
     )
@@ -140,7 +139,7 @@ class ESLoadJob(
         .mode(SaveMode.Overwrite)
       if (settings.comet.isElasticsearchSupported())
         writer.save(cliConfig.getResource())
-      Success(SparkJobResult(session))
+      Success(SparkJobResult(None))
     } else {
       Failure(throw new Exception("Failed to create template"))
     }

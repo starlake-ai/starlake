@@ -19,7 +19,6 @@
  */
 package com.ebiznext.comet.job.infer
 
-import buildinfo.BuildInfo
 import com.ebiznext.comet.utils.CliConfig
 import scopt.OParser
 
@@ -37,8 +36,9 @@ object InferSchemaConfig extends CliConfig[InferSchemaConfig] {
     val builder = OParser.builder[InferSchemaConfig]
     import builder._
     OParser.sequence(
-      programName("comet"),
-      head("comet", BuildInfo.version),
+      programName("comet infer-schema"),
+      head("comet", "infer-schema", "[options]"),
+      note(""),
       opt[String]("domain")
         .action((x, c) => c.copy(domainName = x))
         .required()

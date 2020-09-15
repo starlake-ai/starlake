@@ -22,17 +22,19 @@ package com.ebiznext.comet.job
 
 import buildinfo.BuildInfo
 import com.ebiznext.comet.config.{DatasetArea, Settings}
+import com.ebiznext.comet.extractor.ScriptGen
 import com.ebiznext.comet.job.atlas.AtlasConfig
-import com.ebiznext.comet.job.index.bqload.BigQueryLoadConfig
 import com.ebiznext.comet.job.convert.{Parquet2CSV, Parquet2CSVConfig}
+import com.ebiznext.comet.job.index.bqload.BigQueryLoadConfig
 import com.ebiznext.comet.job.index.esload.ESLoadConfig
-import com.ebiznext.comet.job.infer.InferSchemaConfig
-import com.ebiznext.comet.job.ingest.IngestConfig
 import com.ebiznext.comet.job.index.jdbcload.JdbcLoadConfig
+import com.ebiznext.comet.job.infer.InferSchemaConfig
+import com.ebiznext.comet.job.ingest.LoadConfig
 import com.ebiznext.comet.job.metrics.MetricsConfig
+import com.ebiznext.comet.schema.generator.Xls2Yml
 import com.ebiznext.comet.schema.handlers.SchemaHandler
 import com.ebiznext.comet.utils.{CometObjectMapper, FileLock}
-import com.ebiznext.comet.workflow.IngestionWorkflow
+import com.ebiznext.comet.workflow.{IngestionWorkflow, TransformConfig, WatchConfig}
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.typesafe.config.ConfigFactory
@@ -60,7 +62,7 @@ object Main extends StrictLogging {
         |comet job jobname
         |comet watch [+/-DOMAIN1,DOMAIN2,...]
         |comet import
-        |${IngestConfig.usage()}
+        |${LoadConfig.usage()}
         |${ESLoadConfig.usage()}
         |${BigQueryLoadConfig.usage()}
         |${InferSchemaConfig.usage()}
@@ -106,27 +108,29 @@ object Main extends StrictLogging {
 
     val arglist = args.toList
     logger.info(s"Running Comet $arglist")
-    arglist.head match {
-      case "job" =>
-        if (arglist.length == 2)
-          workflow.autoJobRun(arglist(1))
-        else if (arglist.length == 3)
-          workflow.autoJobRun(arglist(1), Some(arglist(2)))
-        else logger.error(s"Number of arguments not respected: Please check your input: $arglist")
-      case "import" => workflow.loadLanding()
+    val result = arglist.head match {
+      case "job" | "transform" =>
+        TransformConfig.parse(args.drop(1)) match {
+          case Some(config) =>
+            // do something
+            workflow.autoJob(config)
+          case _ =>
+            println(TransformConfig.usage())
+            false
+        }
+      case "import" =>
+        workflow.loadLanding()
+        true
       case "watch" =>
-        if (arglist.length == 2) {
-          val param = arglist(1)
-          if (param.startsWith("-"))
-            workflow.loadPending(Nil, param.substring(1).split(',').toList)
-          else if (param.startsWith("+"))
-            workflow.loadPending(param.substring(1).split(',').toList, Nil)
-          else
-            workflow.loadPending(param.split(',').toList, Nil)
-        } else
-          workflow.loadPending()
-      case "ingest" =>
-        IngestConfig.parse(args.drop(1)) match {
+        WatchConfig.parse(args.drop(1)) match {
+          case Some(config) =>
+            workflow.loadPending(config)
+          case _ =>
+            println(WatchConfig.usage())
+            false
+        }
+      case "ingest" | "load" =>
+        LoadConfig.parse(args.drop(1)) match {
           case Some(config) =>
             val lockPath =
               new Path(settings.comet.lock.path, s"${config.domain}_${config.schema}.lock")
@@ -138,16 +142,17 @@ object Main extends StrictLogging {
             }
 
           case _ =>
-            println(IngestConfig.usage())
-
+            println(LoadConfig.usage())
+            false
         }
-      case "index" =>
+      case "index" | "esload" =>
         ESLoadConfig.parse(args.drop(1)) match {
           case Some(config) =>
             // do something
-            workflow.index(config)
+            workflow.esLoad(config).isSuccess
           case _ =>
             println(ESLoadConfig.usage())
+            false
         }
 
       case "atlas" =>
@@ -157,47 +162,63 @@ object Main extends StrictLogging {
             workflow.atlas(config)
           case _ =>
             println(AtlasConfig.usage())
+            false
         }
 
       case "bqload" =>
         BigQueryLoadConfig.parse(args.drop(1)) match {
           case Some(config) =>
-            workflow.bqload(config)
+            workflow.bqload(config).isSuccess
           case _ =>
             println(BigQueryLoadConfig.usage())
+            false
         }
 
       case "sqlload" =>
         JdbcLoadConfig.parse(args.drop(1)) match {
           case Some(config) =>
-            workflow.jdbcload(config)
+            workflow.jdbcload(config).isSuccess
           case _ =>
             println(JdbcLoadConfig.usage())
+            false
         }
 
       case "infer-schema" => {
         InferSchemaConfig.parse(args.drop(1)) match {
-          case Some(config) => workflow.infer(config)
-          case _            => println(InferSchemaConfig.usage())
+          case Some(config) =>
+            workflow.infer(config).isSuccess
+          case _ =>
+            println(InferSchemaConfig.usage())
+            false
         }
       }
       case "metrics" =>
         MetricsConfig.parse(args.drop(1)) match {
           case Some(config) =>
-            workflow.metric(config)
+            workflow.metric(config).isSuccess
           case _ =>
             println(MetricsConfig.usage())
+            false
         }
 
       case "parquet2csv" =>
         Parquet2CSVConfig.parse(args.drop(1)) match {
           case Some(config) =>
-            new Parquet2CSV(config, storageHandler).run()
+            new Parquet2CSV(config, storageHandler).run().isSuccess
           case _ =>
             println(Parquet2CSVConfig.usage())
+            false
         }
 
-      case _ => printUsage()
+      case "xls2yml" =>
+        Xls2Yml.run(args.drop(1))
+
+      case "extract" =>
+        ScriptGen.run(args.drop(1))
+      case _ =>
+        printUsage()
+        false
     }
+    System.exit(if (result) 0 else 1)
   }
 }

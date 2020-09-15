@@ -42,16 +42,12 @@ case class AutoTaskDesc(
   presql: Option[List[String]] = None,
   postsql: Option[List[String]] = None,
   area: Option[StorageArea] = None,
-  index: Option[IndexSink] = None,
-  properties: Option[Map[String, String]] = None,
+  sink: Option[Sink] = None,
   rls: Option[RowLevelSecurity] = None
 ) {
 
   @JsonIgnore
   def getPartitions(): List[String] = partition.getOrElse(Nil)
-
-  @JsonIgnore
-  def getIndexSink(): Option[IndexSink] = index
 
   /**
     * Return a Path only if a storage area s defined
@@ -83,7 +79,11 @@ case class AutoJobDesc(
   format: Option[String],
   coalesce: Option[Boolean],
   udf: Option[String] = None,
-  views: Option[Map[String, String]] = None
+  views: Option[Map[String, String]] = None,
+  engine: Option[Engine] = None
 ) {
+
   def getArea(): StorageArea = area.getOrElse(StorageArea.business)
+
+  def getEngine(): Engine = engine.getOrElse(Engine.SPARK)
 }

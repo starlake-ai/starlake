@@ -106,9 +106,8 @@ class HdfsStorageHandler(fileSystem: Option[String])(implicit
 
   normalizedFileSystem.foreach(fs => conf.set("fs.defaultFS", fs))
   import scala.collection.JavaConverters._
-  settings.comet.hadoop.asScala.toMap.foreach {
-    case (k, v) =>
-      conf.set(k, v)
+  settings.comet.hadoop.asScala.toMap.foreach { case (k, v) =>
+    conf.set(k, v)
   }
 
   val fs: FileSystem = FileSystem.get(conf)
@@ -189,8 +188,9 @@ class HdfsStorageHandler(fileSystem: Option[String])(implicit
           )
           time.isAfter(since) && status.getPath().getName().endsWith(extension)
         }
-        .map(status => status.getPath())
         .toList
+        .sortBy(r => (r.getModificationTime, r.getPath.getName))
+        .map((status: LocatedFileStatus) => status.getPath())
     } catch {
       case e: Throwable =>
         logger.warn(s"Ignoring folder $path", e)

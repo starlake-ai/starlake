@@ -20,35 +20,43 @@
 
 package com.ebiznext.comet.schema.model
 
+import com.ebiznext.comet.schema.handlers.SchemaHandler
 import com.ebiznext.comet.schema.model.Format.DSV
 import com.ebiznext.comet.schema.model.Mode.FILE
 import com.ebiznext.comet.schema.model.WriteMode.APPEND
-import com.fasterxml.jackson.core.JsonParser
-import com.fasterxml.jackson.databind.annotation.JsonDeserialize
-import com.fasterxml.jackson.databind.{DeserializationContext, JsonDeserializer, JsonNode}
+import com.fasterxml.jackson.annotation.JsonIgnore
 
-import scala.language.postfixOps
+import scala.collection.mutable
 
 /**
   * Specify Schema properties.
   * These properties may be specified at the schema or domain level
-  * Any property non specified at the schema level is taken from the
+  * Any property not specified at the schema level is taken from the
   * one specified at the domain level or else the default value is returned.
   *
-  * @param mode       : FILE mode by default
-  * @param format     : DSV by default
-  * @param encoding   : UTF-8 by default
+  * @param mode       : FILE mode by default.
+  *                     FILE and STREAM are the two accepted values.
+  *                     FILE is currently the only supported mode.
+  * @param format     : DSV by default. Supported file formats are :
+  *                   - DSV : Delimiter-separated values file. Delimiter value iss specified in the "separator" field.
+  *                   - POSITION : FIXED format file where values are located at an exact position in each line.
+  *                   - SIMPLE_JSON : For optimisation purpose, we differentiate JSON with top level values from JSON
+  *                     with deep level fields. SIMPLE_JSON are JSON files with top level fields only.
+  *                   - JSON :  Deep JSON file. Use only when your json documents contain subdocuments, otherwise prefer to
+  *                     use SIMPLE_JSON since it is much faster.
+  *                   - XML : XML files
+  * @param encoding   : UTF-8 if not specified.
   * @param multiline  : are json objects on a single line or multiple line ? Single by default.  false means single. false also means faster
-  * @param array      : Is a json stored as a single object array ? false by default
+  * @param array      : Is the json stored as a single object array ? false by default. This means that by default we have on json document per line.
   * @param withHeader : does the dataset has a header ? true bu default
-  * @param separator  : the column separator,  ';' by default
+  * @param separator  : the values delimiter,  ';' by default value may be a multichar string starting from Spark3
   * @param quote      : The String quote char, '"' by default
   * @param escape     : escaping char '\' by default
   * @param write      : Write mode, APPEND by default
   * @param partition  : Partition columns, no partitioning by default
-  * @param index      : should the dataset be indexed in elasticsearch after ingestion ?
+  * @param sink       : should the dataset be indexed in elasticsearch after ingestion ?
+  * @param ignore     : Pattern to ignore org UDF to apply to ignore some lines
   */
-@JsonDeserialize(using = classOf[MetadataDeserializer])
 case class Metadata(
   mode: Option[Mode] = None,
   format: Option[Format] = None,
@@ -61,13 +69,13 @@ case class Metadata(
   escape: Option[String] = None,
   write: Option[WriteMode] = None,
   partition: Option[Partition] = None,
-  index: Option[IndexSink] = None,
-  properties: Option[Map[String, String]] = None
+  sink: Option[Sink] = None,
+  ignore: Option[String] = None
 ) {
 
   override def toString: String =
     s"""
-       |mode:${getIngestMode()}
+       |mode:${getMode()}
        |format:${getFormat()}
        |encoding:${getEncoding()}
        |multiline:${getMultiline()}
@@ -76,13 +84,12 @@ case class Metadata(
        |separator:${getSeparator()}
        |quote:${getQuote()}
        |escape:${getEscape()}
-       |write:${getWriteMode()}
+       |write:${getWrite()}
        |partition:${getPartitionAttributes()}
-       |index:${getIndexSink()}
-       |properties:${properties}
+       |sink:${getSink()}
        """.stripMargin
 
-  def getIngestMode(): Mode = mode.getOrElse(FILE)
+  def getMode(): Mode = mode.getOrElse(FILE)
 
   def getFormat(): Format = format.getOrElse(DSV)
 
@@ -100,15 +107,15 @@ case class Metadata(
 
   def getEscape(): String = escape.getOrElse("\\")
 
-  def getWriteMode(): WriteMode = write.getOrElse(APPEND)
+  def getWrite(): WriteMode = write.getOrElse(APPEND)
 
+  @JsonIgnore
   def getPartitionAttributes(): List[String] = partition.map(_.getAttributes()).getOrElse(Nil)
 
+  @JsonIgnore
   def getSamplingStrategy(): Double = partition.map(_.getSampling()).getOrElse(0.0)
 
-  def getIndexSink(): Option[IndexSink] = index
-
-  def getProperties(): Map[String, String] = properties.getOrElse(Map.empty)
+  def getSink(): Option[Sink] = sink
 
   /**
     * Merge a single attribute
@@ -142,9 +149,31 @@ case class Metadata(
       escape = merge(this.escape, child.escape),
       write = merge(this.write, child.write),
       partition = merge(this.partition, child.partition),
-      index = merge(this.index, child.index),
-      properties = merge(this.properties, child.properties)
+      sink = merge(this.sink, child.sink),
+      ignore = merge(this.ignore, child.ignore)
     )
+  }
+
+  def checkValidity(
+    schemaHandler: SchemaHandler
+  ): Either[List[String], Boolean] = {
+    def isIgnoreUDF = ignore.map(_.startsWith("udf:")).getOrElse(true)
+    val errorList: mutable.MutableList[String] = mutable.MutableList.empty
+
+    if (!isIgnoreUDF && getFormat() == Format.DSV)
+      errorList += "When input format is DSV, ignore metadata attribute cannot be a regex, it must be an UDF"
+
+    if (
+      ignore.isDefined && !List(Format.DSV, Format.SIMPLE_JSON, Format.POSITION).contains(
+        getFormat()
+      )
+    )
+      errorList += s"ignore not yet supported for format ${getFormat()}"
+
+    if (errorList.nonEmpty)
+      Left(errorList.toList)
+    else
+      Right(true)
   }
 }
 
@@ -154,96 +183,5 @@ object Metadata {
     * Predefined partition columns.
     */
   val CometPartitionColumns =
-    List("comet_year", "comet_month", "comet_day", "comet_hour", "comet_minute")
-
-  def Dsv(
-    separator: Option[String],
-    quote: Option[String],
-    escape: Option[String],
-    write: Option[WriteMode]
-  ) =
-    new Metadata(
-      Some(Mode.FILE),
-      Some(Format.DSV),
-      None,
-      Some(false),
-      Some(false),
-      Some(true),
-      separator,
-      quote,
-      escape,
-      write,
-      None,
-      None
-    )
-}
-
-class MetadataDeserializer extends JsonDeserializer[Metadata] {
-
-  override def deserialize(jp: JsonParser, ctx: DeserializationContext): Metadata = {
-    val node: JsonNode = jp.getCodec().readTree[JsonNode](jp)
-
-    def isNull(node: JsonNode, field: String): Boolean =
-      node.get(field) == null || node.get(field).isNull
-
-    val mode =
-      if (isNull(node, "mode")) None
-      else Some(Mode.fromString(node.get("mode").asText))
-    val format =
-      if (isNull(node, "format")) None
-      else Some(Format.fromString(node.get("format").asText))
-    val encoding =
-      if (isNull(node, "encoding")) None
-      else Some(node.get("encoding").asText)
-    val multiline =
-      if (isNull(node, "multiline")) None else Some(node.get("multiline").asBoolean())
-    val array =
-      if (isNull(node, "array")) None else Some(node.get("array").asBoolean())
-    val withHeader =
-      if (isNull(node, "withHeader")) None
-      else Some(node.get("withHeader").asBoolean())
-    val separator =
-      if (isNull(node, "separator")) None else Some(node.get("separator").asText)
-    val quote = if (isNull(node, "quote")) None else Some(node.get("quote").asText)
-    val escape = if (isNull(node, "escape")) None else Some(node.get("escape").asText)
-    val write =
-      if (isNull(node, "write")) None
-      else Some(WriteMode.fromString(node.get("write").asText))
-    val partition =
-      if (isNull(node, "partition")) None
-      else
-        Some(
-          new PartitionDeserializer().deserialize(node.get("partition"))
-        )
-    val index =
-      if (isNull(node, "index")) None else Some(IndexSink.fromString(node.get("index").asText))
-    val mapping: Option[Map[String, String]] =
-      if (isNull(node, "properties"))
-        None
-      else {
-        val mappingField = node.get("properties")
-        import scala.collection.JavaConverters._
-        val fields = mappingField
-          .fieldNames()
-          .asScala
-          .map { fieldName => (fieldName, mappingField.get(fieldName).asText()) } toMap
-
-        Some(fields)
-      }
-    Metadata(
-      mode,
-      format,
-      encoding,
-      multiline,
-      array,
-      withHeader,
-      separator,
-      quote,
-      escape,
-      write,
-      partition,
-      index,
-      mapping
-    )
-  }
+    List("comet_date", "comet_year", "comet_month", "comet_day", "comet_hour", "comet_minute")
 }
