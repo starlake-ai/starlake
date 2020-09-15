@@ -59,7 +59,7 @@ class DsvIngestionJob(
     * @return Spark Job name
     */
   override def name: String =
-    s"""${domain.name}-${schema.name}-${path.map(_.getName).mkString(",")}"""
+    s"""${domain.name}-${schema.name}-${path.headOption.map(_.getName).mkString(",")}"""
 
   /**
     * dataset Header names as defined by the schema
@@ -104,7 +104,7 @@ class DsvIngestionJob(
     */
   def loadDataSet(): Try[DataFrame] = {
     try {
-      val df = session.read
+      val dfIn = session.read
         .option("header", metadata.isWithHeader().toString)
         .option("inferSchema", value = false)
         .option("delimiter", metadata.getSeparator())
@@ -115,7 +115,9 @@ class DsvIngestionJob(
         .option("encoding", metadata.getEncoding())
         .csv(path.map(_.toString): _*)
 
-      logger.debug(df.schema.treeString)
+      logger.debug(dfIn.schema.treeString)
+
+      val df = applyIgnore(dfIn)
 
       val resDF = metadata.withHeader match {
         case Some(true) =>
@@ -144,7 +146,7 @@ class DsvIngestionJob(
             )
           } else if (compare > 0) {
             val countMissing = attributesWithoutscript.length - df.columns.length
-            throw new Exception(s"$countMissing columns in the input DataFrame ")
+            throw new Exception(s"$countMissing MISSING columns in the input DataFrame ")
           } else { // compare < 0
             val cols = df.columns
             df.select(
@@ -218,16 +220,15 @@ class DsvIngestionJob(
     saveRejected(rejectedRDD)
 
     val (df, _) = saveAccepted(acceptedRDD, orderedSparkTypes)
-    index(df)
+    sink(df)
     (rejectedRDD, acceptedRDD)
   }
 
   def saveAccepted(acceptedRDD: RDD[Row], orderedSparkTypes: StructType): (DataFrame, Path) = {
     val renamedAttributes = schema.renamedAttributes().toMap
     logger.whenInfoEnabled {
-      renamedAttributes.foreach {
-        case (name, rename) =>
-          logger.info(s"renaming column $name to $rename")
+      renamedAttributes.foreach { case (name, rename) =>
+        logger.info(s"renaming column $name to $rename")
       }
     }
     val acceptedDF = session.createDataFrame(acceptedRDD, orderedSparkTypes)
@@ -281,43 +282,40 @@ object DsvIngestionUtil extends DsvValidator {
 
     val now = Timestamp.from(Instant.now)
     val checkedRDD: RDD[RowResult] = dataset.rdd
-        .mapPartitions { partition =>
-          partition.map { row: Row =>
-            val rowValues: Seq[(String, Attribute)] = row.toSeq
-              .zip(attributes)
-              .map {
-                case (colValue, colAttribute) =>
-                  (Option(colValue).getOrElse("").toString, colAttribute)
-              }
-            val rowCols = rowValues.zip(types)
-            val colMap = rowValues.map(__ => (__._2.name, __._1)).toMap
-            val validNumberOfColumns = attributes.length <= rowCols.length
-            if (!validNumberOfColumns) {
-              RowResult(
-                rowCols.map {
-                  case ((colRawValue, colAttribute), tpe) =>
-                    ColResult(
-                      ColInfo(
-                        colRawValue,
-                        colAttribute.name,
-                        tpe.name,
-                        tpe.pattern,
-                        false
-                      ),
-                      null
-                    )
-                }.toList
-              )
-            } else {
-              RowResult(
-                rowCols.map {
-                  case ((colRawValue, colAttribute), tpe) =>
-                    IngestionUtil.validateCol(colRawValue, colAttribute, tpe, colMap)
-                }.toList
-              )
+      .mapPartitions { partition =>
+        partition.map { row: Row =>
+          val rowValues: Seq[(String, Attribute)] = row.toSeq
+            .zip(attributes)
+            .map { case (colValue, colAttribute) =>
+              (Option(colValue).getOrElse("").toString, colAttribute)
             }
+          val rowCols = rowValues.zip(types)
+          val colMap = rowValues.map(__ => (__._2.name, __._1)).toMap
+          val validNumberOfColumns = attributes.length <= rowCols.length
+          if (!validNumberOfColumns) {
+            RowResult(
+              rowCols.map { case ((colRawValue, colAttribute), tpe) =>
+                ColResult(
+                  ColInfo(
+                    colRawValue,
+                    colAttribute.name,
+                    tpe.name,
+                    tpe.pattern,
+                    false
+                  ),
+                  null
+                )
+              }.toList
+            )
+          } else {
+            RowResult(
+              rowCols.map { case ((colRawValue, colAttribute), tpe) =>
+                IngestionUtil.validateCol(colRawValue, colAttribute, tpe, colMap)
+              }.toList
+            )
           }
-        } persist (settings.comet.cacheStorageLevel)
+        }
+      } persist (settings.comet.cacheStorageLevel)
 
     val rejectedRDD: RDD[String] = checkedRDD
       .filter(_.isRejected)
@@ -332,7 +330,7 @@ object DsvIngestionUtil extends DsvValidator {
   }
 }
 
-object AcceptAllValidator extends DsvValidator {
+object DsvAcceptAllValidator extends DsvValidator {
 
   override def validate(
     session: SparkSession,

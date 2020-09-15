@@ -31,11 +31,10 @@ import com.ebiznext.comet.schema.handlers.{
   LaunchHandler,
   SimpleLauncher
 }
-import com.ebiznext.comet.schema.model.IndexSink
-import com.ebiznext.comet.utils.{CometJacksonModule, CometObjectMapper, Version}
-import com.fasterxml.jackson.annotation.{JsonIgnore, JsonTypeInfo}
+import com.ebiznext.comet.schema.model.Sink
+import com.ebiznext.comet.utils.{CometObjectMapper, Version}
+import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.databind.annotation.JsonDeserialize
 import com.typesafe.config.{Config, ConfigValueFactory}
 import com.typesafe.scalalogging.{Logger, StrictLogging}
 import configs.Configs
@@ -89,62 +88,18 @@ object Settings extends StrictLogging {
   final case class Elasticsearch(active: Boolean, options: juMap[String, String])
 
   /**
-    * Configuration for [[com.ebiznext.comet.schema.model.IndexSink]]
-    *
-    * This is used to define an auxiliary output for Audit or Metrics data, in addition to the Parquets
-    * The default Index Sink is None, but additional types exists (such as BigQuery or Jdbc)
-    */
-  @JsonTypeInfo(use = JsonTypeInfo.Id.MINIMAL_CLASS)
-  sealed abstract class IndexSinkSettings(val `type`: String) {
-    def indexSinkType: IndexSink
-  }
-
-  object IndexSinkSettings {
-
-    /**
-      * A no-operation Index Output (disabling external output beyond the business area parquets)
-      */
-    @JsonTypeInfo(use = JsonTypeInfo.Id.MINIMAL_CLASS)
-    @JsonDeserialize(builder = classOf[None.NoneBuilder])
-    case object None
-        extends IndexSinkSettings("None")
-        with CometJacksonModule.JacksonProtectedSingleton {
-      override def indexSinkType: IndexSink.None.type = IndexSink.None
-
-      class NoneBuilder extends CometJacksonModule.ProtectedSingletonBuilder[None.type]
-    }
-
-    /**
-      * Describes an Index Output delivering values into a BigQuery dataset
-      */
-    final case class BigQuery(bqDataset: String) extends IndexSinkSettings("BigQuery") {
-      override def indexSinkType: IndexSink.BQ.type = IndexSink.BQ
-    }
-
-    /**
-      * Describes an Index Output delivering values into a JDBC-accessible SQL database
-      */
-    final case class Jdbc(jdbcConnection: String, partitions: Int = 1, batchSize: Int = 1000)
-        extends IndexSinkSettings("Jdbc") {
-      override def indexSinkType: IndexSink.JDBC.type = IndexSink.JDBC
-    }
-    // TODO: IndexSink has ES, too. Is there a use case for this?
-    // Maybe later; additional sink types (e.g. Kafka/Pulsar)?
-  }
-
-  /**
     * @param discreteMaxCardinality : Max number of unique values allowed in cardinality compute
     */
   final case class Metrics(
     path: String,
     discreteMaxCardinality: Int,
     active: Boolean,
-    index: IndexSinkSettings
+    sink: Sink
   )
 
   final case class Audit(
     path: String,
-    index: IndexSinkSettings,
+    sink: Sink,
     maxErrors: Int
   )
 
@@ -234,7 +189,7 @@ object Settings extends StrictLogging {
     archive: Boolean,
     lock: Lock,
     defaultWriteFormat: String,
-    timestampedCsv: Boolean,
+    csvOutput: Boolean,
     launcher: String,
     chewerPrefix: String,
     rowValidatorClass: String,
@@ -252,7 +207,8 @@ object Settings extends StrictLogging {
     privacy: Privacy,
     fileSystem: Option[String],
     metadataFileSystem: Option[String],
-    internal: Option[Internal]
+    internal: Option[Internal],
+    udfs: Option[String]
   ) extends Serializable {
 
     @JsonIgnore
@@ -299,12 +255,11 @@ object Settings extends StrictLogging {
     }
   }
 
-  private implicit val indexSinkSettinsConfigs: Configs[IndexSinkSettings] =
-    Configs.derive[IndexSinkSettings]
+  private implicit val sinkConfigs: Configs[Sink] = Configs.derive[Sink]
   private implicit val jdbcEngineConfigs: Configs[JdbcEngine] = Configs.derive[JdbcEngine]
 
   private implicit val storageLevelConfigs: Configs[StorageLevel] =
-    Configs[String].map(StorageLevel.fromString).map(_.asInstanceOf[StorageLevel])
+    Configs[String].map(StorageLevel.fromString)
 
   def apply(config: Config): Settings = {
     val jobId = UUID.randomUUID().toString

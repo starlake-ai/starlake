@@ -23,7 +23,7 @@ package com.ebiznext.comet.schema.handlers
 import java.util.regex.Pattern
 
 import com.ebiznext.comet.TestHelper
-import com.ebiznext.comet.config.Settings
+import com.ebiznext.comet.config.{Settings, StorageArea}
 import com.ebiznext.comet.schema.model._
 import org.apache.hadoop.fs.Path
 
@@ -146,21 +146,35 @@ class StorageHandlerSpec extends TestHelper {
         "ANALYSE",
         WriteMode.OVERWRITE,
         Some(List("comet_year", "comet_month")),
-        rls = Some(
+        None,
+        None,
+        None,
+        None,
+        Some(
           RowLevelSecurity("myrls", "TRUE", List("user:hayssam.saleh@ebiznext.com"))
         )
       )
       val businessJob =
-        AutoJobDesc("business1", List(businessTask1), None, Some("parquet"), Some(true))
+        AutoJobDesc(
+          "business1",
+          List(businessTask1),
+          Some(StorageArea.business),
+          Some("parquet"),
+          Some(true)
+        )
 
       val businessJobDef = mapper
         .writer()
         .withAttribute(classOf[Settings], settings)
         .writeValueAsString(businessJob)
 
+      val expected = mapper
+        .readValue(loadTextFile("/expected/yml/business.yml"), classOf[AutoJobDesc])
       storageHandler.write(businessJobDef, pathBusiness)
       logger.info(readFileContent(pathBusiness))
-      readFileContent(pathBusiness) shouldBe loadTextFile("/expected/yml/business.yml")
+      val actual = mapper
+        .readValue(readFileContent(pathBusiness), classOf[AutoJobDesc])
+      actual shouldEqual expected
     }
   }
 
