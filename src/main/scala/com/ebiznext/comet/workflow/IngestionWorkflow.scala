@@ -336,7 +336,7 @@ class IngestionWorkflow(
         format = "parquet",
         domain = task.domain,
         schema = task.dataset,
-        dataset = Some(targetPath)
+        dataset = Some(Left(targetPath))
       )
     )
   }
