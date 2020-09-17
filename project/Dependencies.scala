@@ -42,6 +42,7 @@ object Dependencies {
   val betterfiles = Seq("com.github.pathikrit" %% "better-files" % Versions.betterFiles)
 
   val logging = Seq(
+    "com.typesafe" % "config" % Versions.typesafeConfig,
     "com.typesafe.scala-logging" %% "scala-logging" % Versions.scalaLogging
   )
 
