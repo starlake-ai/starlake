@@ -42,6 +42,7 @@ class ESLoadJob(
   val esCliConf = cliConfig.conf ++ List(esresource, esId).flatten.toMap
   val path = cliConfig.getDataset()
   val format = cliConfig.format
+  val dataset = cliConfig.dataset
 
   override def name: String = s"Index $path"
 
@@ -52,19 +53,25 @@ class ESLoadJob(
     */
   override def run(): Try[JobResult] = {
     logger.info(s"Indexing resource ${cliConfig.getResource()} with $cliConfig")
-    val inputDF = format match {
-      case "json" =>
-        session.read
-          .option("multiline", true)
-          .json(path.toString)
+    val inputDF =
+      path match {
+        case Left(path) =>
+          format match {
+            case "json" =>
+              session.read
+                .option("multiline", true)
+                .json(path.toString)
 
-      case "json-array" =>
-        val jsonDS = session.read.textFile(path.toString)
-        session.read.json(jsonDS)
+            case "json-array" =>
+              val jsonDS = session.read.textFile(path.toString)
+              session.read.json(jsonDS)
 
-      case "parquet" =>
-        session.read.parquet(path.toString)
-    }
+            case "parquet" =>
+              session.read.parquet(path.toString)
+          }
+        case Right(df) =>
+          df
+      }
 
     // Convert timestamp field to ISO8601 date time, so that ES Hadoop can handle it correctly.
     val df = cliConfig.getTimestampCol().map { tsCol =>
