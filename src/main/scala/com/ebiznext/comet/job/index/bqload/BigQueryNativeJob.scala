@@ -1,7 +1,6 @@
 package com.ebiznext.comet.job.index.bqload
 
 import com.ebiznext.comet.config.Settings
-import com.ebiznext.comet.schema.model.UserType
 import com.ebiznext.comet.utils.{JobBase, JobResult, Utils}
 import com.google.cloud.ServiceOptions
 import com.google.cloud.bigquery.JobInfo.{CreateDisposition, WriteDisposition}
@@ -98,35 +97,6 @@ class BigQueryNativeJob(
       s"Query large results performed successfully: ${results.getTotalRows} rows inserted."
     )
     BigQueryJobResult(Some(results))
-  }
-
-  protected def revokeAllPrivileges(): String = {
-    import cliConfig._
-    s"DROP ALL ROW ACCESS POLICIES ON $outputDataset.$outputTable"
-  }
-
-  protected def grantPrivileges(): String = {
-    import cliConfig._
-    val rlsRetrieved = rls.getOrElse(throw new Exception("Should never happen"))
-    val grants = rlsRetrieved.grantees().map {
-      case (UserType.SA, u) =>
-        s"serviceAccount:$u"
-      case (userOrGroupType, userOrGroupName) =>
-        s"${userOrGroupType.toString.toLowerCase}:$userOrGroupName"
-    }
-
-    val name = rlsRetrieved.name
-    val filter = rlsRetrieved.predicate
-    s"""
-      | CREATE ROW ACCESS POLICY
-      |  $name
-      | ON
-      |  $outputDataset.$outputTable
-      | GRANT TO
-      |  (${grants.mkString("\"", "\",\"", "\"")})
-      | FILTER USING
-      |  ($filter)
-      |""".stripMargin
   }
 
   /**

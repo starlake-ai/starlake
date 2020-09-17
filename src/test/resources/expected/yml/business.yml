@@ -13,10 +13,10 @@ tasks:
   postsql: null
   area: null
   rls:
-    name: "myrls"
-    predicate: "TRUE"
-    grants:
-    - "user:hayssam.saleh@ebiznext.com"
+    - name: "myrls"
+      predicate: "TRUE"
+      grants:
+      - "user:hayssam.saleh@ebiznext.com"
 area: "business"
 format: "parquet"
 coalesce: true

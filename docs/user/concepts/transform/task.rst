@@ -42,6 +42,6 @@ List of SQL requests to executed after the main SQL request is run
 
 Where to sink the data
 
-.. option:: rls:RowLevelSecurity
+.. option:: rls: List[RowLevelSecurity]
 
 Row level security policy to apply too the output data.
