@@ -58,7 +58,7 @@ case class MergeOptions(
   * @param presql     : Reserved for future use.
   * @param postsql    : Reserved for future use.
   * @param tags       : Set of string to attach to this Schema
-  * @param rls        : Experrimental. Row level security to this to this schema.
+  * @param rls        : Experimental. Row level security to this to this schema.
   *                     See :ref:`rowlevelsecurity_concept`
   */
 case class Schema(
@@ -71,7 +71,7 @@ case class Schema(
   presql: Option[List[String]],
   postsql: Option[List[String]],
   tags: Option[Set[String]] = None,
-  rls: Option[RowLevelSecurity] = None
+  rls: Option[List[RowLevelSecurity]] = None
 ) {
 
   /**
