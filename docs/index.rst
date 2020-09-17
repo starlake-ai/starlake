@@ -64,6 +64,32 @@ Getting started with Comet Data Pipeline:
    user/cli/xls2yml
 
 .. toctree::
+   :caption: Cloud Specific
+   :maxdepth: 3
+
+   user/cloud/azure
+   user/cloud/gcp
+   user/cloud/aws
+
+.. toctree::
+   :caption: Examples
+   :maxdepth: 3
+
+   user/examples/index
+   user/examples/csv2parquet
+   user/examples/parquet2bq
+   user/examples/bq2parquet
+   user/examples/bq2csv
+   user/examples/parquet2csv
+   user/examples/parquet2es
+   user/examples/json2es
+   user/examples/bq2es
+   user/examples/bq2jdbc
+   user/examples/parquet2jdbc
+   user/examples/jdbc2jdbc
+   user/examples/csv2jdbc
+
+.. toctree::
    :caption: Developer Guide
    :maxdepth: 2
 
