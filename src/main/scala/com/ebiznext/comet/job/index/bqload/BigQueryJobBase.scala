@@ -1,6 +1,6 @@
 package com.ebiznext.comet.job.index.bqload
 
-import com.ebiznext.comet.schema.model.UserType
+import com.ebiznext.comet.schema.model.{RowLevelSecurity, UserType}
 import com.google.cloud.bigquery._
 import com.typesafe.scalalogging.StrictLogging
 
@@ -14,8 +14,7 @@ trait BigQueryJobBase extends StrictLogging {
       s"DROP ALL ROW ACCESS POLICIES ON ${cliConfig.outputDataset}.${cliConfig.outputTable}"
     }
 
-    def grantPrivileges(): String = {
-      val rlsRetrieved = cliConfig.rls.getOrElse(throw new Exception("Should never happen"))
+    def grantPrivileges(rlsRetrieved : RowLevelSecurity): String = {
       val grants = rlsRetrieved.grantees().map {
         case (UserType.SA, u) =>
           s"serviceAccount:$u"
@@ -36,14 +35,16 @@ trait BigQueryJobBase extends StrictLogging {
          |  ($filter)
          |""".stripMargin
     }
-    cliConfig.rls.toList.flatMap { rls =>
-      logger.info(s"Applying security $rls")
-      val rlsDelStatement = revokeAllPrivileges()
-      logger.info(s"All access policies will be deleted using $rlsDelStatement")
-      val rlsCreateStatement = grantPrivileges()
-      logger.info(s"All access policies will be created using $rlsCreateStatement")
-      List(rlsDelStatement, rlsCreateStatement)
+    val rlsCreateStatements = cliConfig.rls.getOrElse(Nil).map { rlsRetrieved =>
+      logger.info(s"Building security statement $rlsRetrieved")
+      val rlsCreateStatement = grantPrivileges(rlsRetrieved)
+      logger.info(s"An access policy will be created using $rlsCreateStatement")
+      rlsCreateStatement
     }
+
+    val rlsDeleteStatement = cliConfig.rls.map(_ => revokeAllPrivileges()).toList
+
+    rlsDeleteStatement ++ rlsCreateStatements
   }
 
   val bigquery: BigQuery = BigQueryOptions.getDefaultInstance.getService
