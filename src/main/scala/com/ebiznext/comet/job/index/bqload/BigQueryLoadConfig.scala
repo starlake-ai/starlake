@@ -16,7 +16,7 @@ case class BigQueryLoadConfig(
   writeDisposition: String = "",
   location: Option[String] = None,
   days: Option[Int] = None,
-  rls: Option[RowLevelSecurity] = None,
+  rls: Option[List[RowLevelSecurity]] = None,
   requirePartitionFilter: Boolean = false,
   engine: Engine = Engine.SPARK
 ) {
@@ -72,8 +72,8 @@ object BigQueryLoadConfig extends CliConfig[BigQueryLoadConfig] {
         .text(
           "Big Query Write disposition https://cloud.google.com/bigquery/docs/reference/auditlogs/rest/Shared.Types/WriteDisposition"
         ),
-      opt[String]("row_level_security")
-        .action((x, c) => c.copy(rls = Some(RowLevelSecurity.parse(x))))
+      opt[Seq[String]]("row_level_security")
+        .action((x, c) => c.copy(rls = Some(x.map(RowLevelSecurity.parse).toList)))
         .text(
           "value is in the form name,filter,sa:sa@mail.com,user:user@mail.com,group:group@mail.com "
         )

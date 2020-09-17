@@ -26,7 +26,7 @@ case class RowLevelSecurity(
 object RowLevelSecurity {
 
   def parse(input: String): RowLevelSecurity = {
-    val components = input.split(',')
+    val components = input.split('/')
     assert(components.length >= 3)
     val name = components(0)
     val filter = components(1)
