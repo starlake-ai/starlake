@@ -41,7 +41,7 @@ Import the datasets into the cluster using spark-submit :
    $SPARK_HOME/bin/spark-submit target/scala-2.11/comet-assembly-VERSION.jar import
 
 
-This will put the datasets in the ``/tmp/datasets/pending/`` folder. In real life, this will be a HDFS folder.
+This will put the datasets in the ``/tmp/datasets/pending/`` folder. In real life, this will be a folder.
 
 Run the ingestion process as follows :
 
