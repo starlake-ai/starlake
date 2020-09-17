@@ -47,14 +47,6 @@ Getting started with Comet Data Pipeline:
    user/concepts/transform/view
 
 .. toctree::
-   :caption: Reference Manual
-   :maxdepth: 3
-
-   user/ref/extract
-   user/ref/load
-   user/ref/transform
-
-.. toctree::
    :caption: CLI
    :maxdepth: 3
 

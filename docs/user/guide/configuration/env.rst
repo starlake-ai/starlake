@@ -2,7 +2,7 @@ Environment variables
 #####################
 
 By default, Comet expect metadata in the /tmp/metadata folder and will store ingested datasets in the /tmp/datasets folder.
-Below is how the HDFS folders look like by default for the provided quickstart sample.
+Below is how the folders look like by default for the provided quickstart sample.
 
 .. code::
 
@@ -67,9 +67,9 @@ By setting the env vars below, you may change default settings.
 
    Env. Var, Description, Default value
    COMET_TMPDIR,"When compacting data and estimating number of partitions, Comet stores intermediates files in this folder",hdfs:///tmp/comet_tmp
-   COMET_DATASETS,Once imported where the datasets are stored in HDFS,hdfs:///tmp/datasets
-   COMET_METADATA,HDFS root fodler where domains and types metadata are stored,/tmp/metadata
-   COMET_ARCHIVE,Should we archive on HDFS the incoming files once they are ingested,true
+   COMET_DATASETS,Once imported where the datasets are stored, eq. hdfs:///tmp/datasets
+   COMET_METADATA, root fodler where domains and types metadata are stored,/tmp/metadata
+   COMET_ARCHIVE,Should we archive the incoming files once they are ingested,true
    COMET_LAUNCHER,Valid values are airflow or simple,simple
    COMET_HIVE,Should be create external tables for ingested files?,true
    COMET_ANALYZE,Should we computed basic statistics (required COMET_HIVE to be set to true) ?,true
