@@ -3,3 +3,18 @@
 *********************************************
 RowLevelSecurity
 *********************************************
+
+User / Group and Service accounts rights on a subset of the table.
+
+.. option:: name: String
+
+*Required*. This Row Level Security unique name.
+
+.. option:: predicate: String
+
+*Required*. The condition that goes to the WHERE clause and limitt the visible rows.
+
+.. option:: grants: List[String]
+
+*Required*. user / groups / service accounts to which this security level is applied.
+For example: user:me@mycompany.com,group:group@mycompany.com,serviceAccount:mysa@google-accounts.com
