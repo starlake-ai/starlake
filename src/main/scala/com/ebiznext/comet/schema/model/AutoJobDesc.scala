@@ -48,7 +48,7 @@ case class AutoTaskDesc(
   postsql: Option[List[String]] = None,
   area: Option[StorageArea] = None,
   sink: Option[Sink] = None,
-  rls: Option[RowLevelSecurity] = None
+  rls: Option[List[RowLevelSecurity]] = None
 ) {
 
   @JsonIgnore

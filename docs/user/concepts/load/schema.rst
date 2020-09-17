@@ -41,7 +41,7 @@ See :ref:`metadata_concept` for more details.
 
 *Optional*. Set of string to attach to this Schema
 
-.. option:: rls: RowLevelSecurity
+.. option:: rls: List[RowLevelSecurity]
 
 *Optional*. Experimental. Row level security to apply to this schema once it is ingested.
             This usually execute a set on grants by applying a predicate filter to restrict
