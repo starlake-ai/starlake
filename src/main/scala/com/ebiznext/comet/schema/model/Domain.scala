@@ -152,12 +152,6 @@ case class Domain(
     }
 
     // TODO Check partition columns
-
-    // TODO Validate directory
-    val inputDir = new Path(this.directory)
-    if (!settings.storageHandler.exists(inputDir)) {
-      errorList += s"$directory not found"
-    }
     if (errorList.nonEmpty)
       Left(errorList.toList)
     else
