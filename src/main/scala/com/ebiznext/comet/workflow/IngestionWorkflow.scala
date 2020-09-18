@@ -162,7 +162,7 @@ class IngestionWorkflow(
         domains.filter(domain => !config.excludes.contains(domain.name))
       case (_, _) => throw new Exception("Should never happen ")
     }
-    logger.info(s"Domains that will be watched: ${domains.map(_.name).mkString(",")}")
+    logger.info(s"Domains that will be watched: ${includedDomains.map(_.name).mkString(",")}")
 
     val result = includedDomains.flatMap { domain =>
       logger.info(s"Watch Domain: ${domain.name}")
