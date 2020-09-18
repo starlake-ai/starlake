@@ -1,8 +1,7 @@
 .. _domain_concept:
 
-*********************************************
 Domain
-*********************************************
+##########################################
 
 Let's say you are willing to import customers and orders from your Sales system.
 Sales is therefore the domain and customer & order are your datasets.

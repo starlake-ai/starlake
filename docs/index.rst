@@ -16,35 +16,33 @@ Getting started with Comet Data Pipeline:
 
    user/guide/introduction
    user/guide/sample
-   user/guide/configuration/configure
+   user/guide/configuration/index
    user/guide/quickstart
 
 .. toctree::
-   :caption: Extract Process
+   :caption: Concepts
    :maxdepth: 3
 
    user/concepts/extract/index
+   user/concepts/load/index
+   user/concepts/transform/index
 
 .. toctree::
-   :caption: Load Process
+   :caption: Examples
    :maxdepth: 3
 
-   user/concepts/load/domain
-   user/concepts/load/schema
-   user/concepts/load/metadata
-   user/concepts/load/attribute
-   user/concepts/load/sink
-   user/concepts/load/rls
+   user/examples/index
+   user/examples/extract/index
+   user/examples/load/index
+   user/examples/transform/index
 
 .. toctree::
-   :caption: Transform Process
+   :caption: Cloud Specific
    :maxdepth: 3
 
-   user/concepts/transform/job
-   user/concepts/transform/task
-   user/concepts/transform/partition
-   user/concepts/transform/cluster
-   user/concepts/transform/view
+   user/cloud/azure
+   user/cloud/gcp
+   user/cloud/aws
 
 .. toctree::
    :caption: CLI
@@ -62,32 +60,6 @@ Getting started with Comet Data Pipeline:
    user/cli/transform
    user/cli/watch
    user/cli/xls2yml
-
-.. toctree::
-   :caption: Cloud Specific
-   :maxdepth: 3
-
-   user/cloud/azure
-   user/cloud/gcp
-   user/cloud/aws
-
-.. toctree::
-   :caption: Examples
-   :maxdepth: 3
-
-   user/examples/index
-   user/examples/csv2parquet
-   user/examples/parquet2bq
-   user/examples/bq2parquet
-   user/examples/bq2csv
-   user/examples/parquet2csv
-   user/examples/parquet2es
-   user/examples/json2es
-   user/examples/bq2es
-   user/examples/bq2jdbc
-   user/examples/parquet2jdbc
-   user/examples/jdbc2jdbc
-   user/examples/csv2jdbc
 
 .. toctree::
    :caption: Developer Guide

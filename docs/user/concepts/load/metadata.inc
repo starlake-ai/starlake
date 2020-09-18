@@ -1,8 +1,8 @@
 .. _metadata_concept:
 
-*********************************************
+
 Metadata
-*********************************************
+##########################################
 
 Specify Schema properties.
 These properties may be specified at the schema or domain level

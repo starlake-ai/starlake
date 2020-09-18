@@ -1,8 +1,7 @@
 .. _job_concept:
 
-*********************************************
 Job
-*********************************************
+##########################################
 
 A job is a set of transform tasks executed using the specified engine.
 

@@ -1,8 +1,7 @@
 .. _rls_concept:
 
-*********************************************
 RowLevelSecurity
-*********************************************
+##########################################
 
 User / Group and Service accounts rights on a subset of the table.
 
