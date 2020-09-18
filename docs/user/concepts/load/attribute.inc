@@ -1,8 +1,7 @@
 .. _attribute_concept:
 
-*********************************************
 Attribute
-*********************************************
+##########
 
 A field in the schema. For struct fields, the field "attributes" contains all sub attributes
 

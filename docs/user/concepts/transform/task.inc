@@ -1,8 +1,7 @@
 .. _task_concept:
 
-*********************************************
 Task
-*********************************************
+##########################################
 
 Task executed in the context of a job. Each task is executed in its own session.
 

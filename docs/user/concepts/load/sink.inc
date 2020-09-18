@@ -1,8 +1,7 @@
 .. _sink_concept:
 
-*********************************************
 Sink
-*********************************************
+##########################################
 
 Once ingested, files may be sinked to BigQuery, Elasticsearch or any JDBC compliant Database.
 
