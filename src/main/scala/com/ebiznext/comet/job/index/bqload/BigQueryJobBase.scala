@@ -14,7 +14,7 @@ trait BigQueryJobBase extends StrictLogging {
       s"DROP ALL ROW ACCESS POLICIES ON ${cliConfig.outputDataset}.${cliConfig.outputTable}"
     }
 
-    def grantPrivileges(rlsRetrieved : RowLevelSecurity): String = {
+    def grantPrivileges(rlsRetrieved: RowLevelSecurity): String = {
       val grants = rlsRetrieved.grantees().map {
         case (UserType.SA, u) =>
           s"serviceAccount:$u"

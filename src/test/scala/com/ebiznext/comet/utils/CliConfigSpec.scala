@@ -30,9 +30,8 @@ class CliConfigSpec extends TestHelper {
         "watch"        -> WatchConfig.sphinx()
       )
       val rstPath = getClass.getResource("/").getPath + "../../../docs/user/cli"
-      rstMap.foreach {
-        case (k, v) =>
-          reflect.io.File(s"$rstPath/$k.rst").writeAll(v)
+      rstMap.foreach { case (k, v) =>
+        reflect.io.File(s"$rstPath/$k.rst").writeAll(v)
       }
     }
   }
