@@ -4,7 +4,7 @@ Domain
 ##########################################
 
 Let's say you are willing to import customers and orders from your Sales system.
-Sales is therefore the domain and customer & order are your datasets.
+Sales is therefore the domain and customers & orders are your datasets.
 - In a DBMS, a Domain would be implemented by a DBMS  schema and a dataset by a DBMS table.
 - In BigQuery, the domain name would be the Big Query dataset name and the dataset would be implemented by a Big Query table.
 
