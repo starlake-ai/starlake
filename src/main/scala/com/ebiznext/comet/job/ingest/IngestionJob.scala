@@ -221,6 +221,7 @@ trait IngestionJob extends SparkJob {
         .run()
         .get
     }
+    sink(savedDataset)
     (savedDataset, acceptedPath)
   }
 
@@ -234,7 +235,8 @@ trait IngestionJob extends SparkJob {
           id = sink.flatMap(_.id),
           format = "parquet",
           domain = domain.name,
-          schema = schema.name
+          schema = schema.name,
+          dataset = Some(Right(mergedDF))
         )
         new ESLoadJob(config, storageHandler, schemaHandler).run()
       case Some(SinkType.ES) if !settings.comet.elasticsearch.active =>
