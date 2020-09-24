@@ -70,7 +70,8 @@ case class Metadata(
   write: Option[WriteMode] = None,
   partition: Option[Partition] = None,
   sink: Option[Sink] = None,
-  ignore: Option[String] = None
+  ignore: Option[String] = None,
+  clustering: Option[Seq[String]] = None,
 ) {
 
   override def toString: String =
