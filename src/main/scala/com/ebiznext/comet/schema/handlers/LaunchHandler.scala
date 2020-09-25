@@ -121,7 +121,6 @@ class SimpleLauncher extends LaunchHandler with StrictLogging {
   )(implicit settings: Settings): Boolean = {
     logger.info(s"Launch Ingestion: ${domain.name} ${schema.name} $paths ")
     workflow.ingest(LoadConfig(domain.name, schema.name, paths))
-    true
   }
 
   /**

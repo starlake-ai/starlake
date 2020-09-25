@@ -109,8 +109,7 @@ class JsonIngestionJob(
     val acceptedDF = session.read.json(session.createDataset(acceptedRDD)(Encoders.STRING))
 
     saveRejected(rejectedRDD)
-    val (df, _) = saveAccepted(acceptedDF) // prefer to let Spark compute the final schema
-    sink(df)
+    saveAccepted(acceptedDF) // prefer to let Spark compute the final schema
     (rejectedRDD, acceptedDF.rdd)
   }
 
