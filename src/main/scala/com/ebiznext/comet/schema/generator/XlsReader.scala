@@ -104,12 +104,16 @@ class XlsReader(path: String) {
               withHeader,
               separator,
               write = write,
-              partition = Some(
-                Partition(
-                  sampling = partitionSamplingOpt,
-                  attributes = partitionColumnsOpt
-                )
-              ),
+              partition = (partitionSamplingOpt, partitionColumnsOpt) match {
+                case (None, None) => None
+                case _ =>
+                  Some(
+                    Partition(
+                      sampling = partitionSamplingOpt,
+                      attributes = partitionColumnsOpt
+                    )
+                  )
+              },
               sink = sinkColumnsOpt.map(Sink.fromType)
             )
             val mergeOptions: Option[MergeOptions] = (deltaColOpt, identityKeysOpt) match {

@@ -61,7 +61,7 @@ class SparkEnv(name: String)(implicit settings: Settings) extends StrictLogging 
   }
 
   /**
-    * Creates a Spark Session with the spark.* keys defined the applciation conf file.
+    * Creates a Spark Session with the spark.* keys defined the application conf file.
     */
   lazy val session: SparkSession = {
     val session =

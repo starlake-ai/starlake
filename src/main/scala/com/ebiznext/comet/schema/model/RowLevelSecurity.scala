@@ -2,9 +2,10 @@ package com.ebiznext.comet.schema.model
 
 /**
   * User / Group and Service accounts rights on a subset of the table.
-  * @param name
-  * @param predicate
-  * @param grants
+  * @param name : This Row Level Security unique name
+  * @param predicate : The condition that goes to the WHERE clause and limitt the visible rows.
+  * @param grants : user / groups / service accounts to which this security level is applied.
+  *               ex : user:me@mycompany.com,group:group@mycompany.com,serviceAccount:mysa@google-accounts.com
   */
 case class RowLevelSecurity(
   name: String,
@@ -25,7 +26,7 @@ case class RowLevelSecurity(
 object RowLevelSecurity {
 
   def parse(input: String): RowLevelSecurity = {
-    val components = input.split(',')
+    val components = input.split('/')
     assert(components.length >= 3)
     val name = components(0)
     val filter = components(1)

@@ -151,7 +151,7 @@ class StorageHandlerSpec extends TestHelper {
         None,
         None,
         Some(
-          RowLevelSecurity("myrls", "TRUE", List("user:hayssam.saleh@ebiznext.com"))
+          List(RowLevelSecurity("myrls", "TRUE", List("user:hayssam.saleh@ebiznext.com")))
         )
       )
       val businessJob =
@@ -181,8 +181,8 @@ class StorageHandlerSpec extends TestHelper {
   "Check fs google storage uri" should "be gs" in {
     assert(
       "/user/comet" == Path
-          .getPathWithoutSchemeAndAuthority(new Path("file:///user/comet"))
-          .toString
+        .getPathWithoutSchemeAndAuthority(new Path("file:///user/comet"))
+        .toString
     )
   }
 }
