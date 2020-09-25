@@ -71,7 +71,7 @@ case class Metadata(
   partition: Option[Partition] = None,
   sink: Option[Sink] = None,
   ignore: Option[String] = None,
-  clustering: Option[Seq[String]] = None,
+  clustering: Option[Seq[String]] = None
 ) {
 
   override def toString: String =
