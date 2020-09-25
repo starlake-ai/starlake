@@ -28,18 +28,30 @@ class XlsReader(path: String) {
     }
   }
 
+  private val allDomainHeaders = List(
+    "_name",
+    "_path",
+    "_ack",
+    "_description"
+  )
+
   private lazy val domain: Option[Domain] = {
-    workbook.getSheet("domain").asScala.drop(1).headOption.flatMap { row =>
-      val nameOpt = Option(row.getCell(0, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
-        .flatMap(formatter.formatCellValue)
-      val directoryOpt = Option(row.getCell(1, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
-        .flatMap(formatter.formatCellValue)
+    val sheet = workbook.getSheet("domain")
+    val (rows, headerMap) = getColsOrder(sheet, allDomainHeaders)
+    rows.headOption.flatMap { row =>
+      val nameOpt =
+        Option(row.getCell(headerMap("_name"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
+          .flatMap(formatter.formatCellValue)
+      val directoryOpt =
+        Option(row.getCell(headerMap("_path"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
+          .flatMap(formatter.formatCellValue)
       // Here for ack, we do not want to get None returned for an empty cell since None would give us a ".ack" as default later on
-      val ack = Option(row.getCell(2, Row.MissingCellPolicy.CREATE_NULL_AS_BLANK))
+      val ack = Option(row.getCell(headerMap("_ack"), Row.MissingCellPolicy.CREATE_NULL_AS_BLANK))
         .flatMap(formatter.formatCellValue)
         .orElse(Some(""))
-      val comment = Option(row.getCell(3, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
-        .flatMap(formatter.formatCellValue)
+      val comment =
+        Option(row.getCell(headerMap("_description"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
+          .flatMap(formatter.formatCellValue)
       (nameOpt, directoryOpt) match {
         case (Some(name), Some(directory)) =>
           Some(Domain(name, directory, ack = ack, comment = comment))
@@ -66,7 +78,10 @@ class XlsReader(path: String) {
     "_clustering"
   )
 
-  private def getSchemaColOrder(sheet: Sheet): (Iterable[Row], Map[String, Int]) = {
+  private def getColsOrder(
+    sheet: Sheet,
+    allHeaders: List[String]
+  ): (Iterable[Row], Map[String, Int]) = {
     val scalaSheet = sheet.asScala
     val hasSchema = scalaSheet.head
       .getCell(0, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
@@ -85,13 +100,13 @@ class XlsReader(path: String) {
         .toMap
       (scalaSheet.drop(2), headerMap)
     } else {
-      (scalaSheet.drop(1), allSchemaHeaders.zipWithIndex.toMap)
+      (scalaSheet.drop(1), allHeaders.zipWithIndex.toMap)
     }
   }
 
   private lazy val schemas: List[Schema] = {
     val sheet = workbook.getSheet("schemas")
-    val (rows, headerMap) = getSchemaColOrder(sheet)
+    val (rows, headerMap) = getColsOrder(sheet, allSchemaHeaders)
     rows.flatMap { row =>
       val nameOpt =
         Option(row.getCell(headerMap("_name"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
@@ -145,7 +160,8 @@ class XlsReader(path: String) {
           .flatMap(formatter.formatCellValue)
       val clusteringOpt =
         Option(row.getCell(headerMap("_clustering"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
-          .flatMap(formatter.formatCellValue).map(_.split(","))
+          .flatMap(formatter.formatCellValue)
+          .map(_.split(","))
 
       (nameOpt, patternOpt) match {
         case (Some(name), Some(pattern)) => {
@@ -169,23 +185,23 @@ class XlsReader(path: String) {
                 )
             },
             sink = sinkColumnsOpt.map(Sink.fromType).map {
-                case bqSink: BigQuerySink =>
-                  val partitionBqSink = partitionColumnsOpt match {
-                    case Some(ts :: Nil) => bqSink.copy(timestamp = Some(ts))
-                    case _               => bqSink
-                  }
-                  val clusteredBqSink = clusteringOpt match {
-                    case Some(cluster) =>
-                      partitionBqSink.copy(clustering = Some(cluster))
-                    case _ => partitionBqSink
-                  }
-                  clusteredBqSink
-                case sink =>
-                  sink
-              },
+              case bqSink: BigQuerySink =>
+                val partitionBqSink = partitionColumnsOpt match {
+                  case Some(ts :: Nil) => bqSink.copy(timestamp = Some(ts))
+                  case _               => bqSink
+                }
+                val clusteredBqSink = clusteringOpt match {
+                  case Some(cluster) =>
+                    partitionBqSink.copy(clustering = Some(cluster))
+                  case _ => partitionBqSink
+                }
+                clusteredBqSink
+              case sink =>
+                sink
+            },
             clustering = clusteringOpt match {
               case Some(cluster) => Some(cluster)
-              case None => None
+              case None          => None
             }
           )
 
@@ -221,6 +237,21 @@ class XlsReader(path: String) {
     }.toList
   }
 
+  private val allAttributeHeaders = List(
+    "_name",
+    "_rename",
+    "_type",
+    "_required",
+    "_privacy",
+    "_metric",
+    "_default",
+    "_script",
+    "_description",
+    "_position_start",
+    "_position_end",
+    "_trim"
+  )
+
   private def buildSchemas(settings: Settings): List[Schema] = {
     schemas.map { schema =>
       val schemaName = schema.name
@@ -228,81 +259,100 @@ class XlsReader(path: String) {
       val attributes = sheetOpt match {
         case None => List.empty
         case Some(sheet) =>
+          val (rows, headerMap) = getColsOrder(sheet, allAttributeHeaders)
           val scalaSheet = sheet.asScala
-          scalaSheet
-            .drop(1)
-            .flatMap { row =>
-              val nameOpt = Option(row.getCell(0, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
+          rows.flatMap { row =>
+            val nameOpt =
+              Option(row.getCell(headerMap("_name"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
                 .flatMap(formatter.formatCellValue)
-              val renameOpt = Option(row.getCell(1, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
+            val renameOpt =
+              Option(row.getCell(headerMap("_rename"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
                 .flatMap(formatter.formatCellValue)
-              val semTypeOpt = Option(row.getCell(2, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
+            val semTypeOpt =
+              Option(row.getCell(headerMap("_type"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
                 .flatMap(formatter.formatCellValue)
-              val required = Option(row.getCell(3, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
-                .flatMap(formatter.formatCellValue)
-                .forall(_.toBoolean)
-              val privacy = Option(row.getCell(4, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
+            val required = Option(
+              row.getCell(headerMap("_required"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
+            )
+              .flatMap(formatter.formatCellValue)
+              .forall(_.toBoolean)
+            val privacy =
+              Option(row.getCell(headerMap("_privacy"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
                 .flatMap(formatter.formatCellValue)
                 .map(PrivacyLevel.ForSettings(settings).fromString)
-              val metricType = Option(row.getCell(5, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
+            val metricType =
+              Option(row.getCell(headerMap("_metric"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
                 .flatMap(formatter.formatCellValue)
                 .map(MetricType.fromString)
-              val defaultOpt = Option(row.getCell(6, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
+            val defaultOpt =
+              Option(row.getCell(headerMap("_default"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
                 .flatMap(formatter.formatCellValue)
-              val scriptOpt = Option(row.getCell(7, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
+            val scriptOpt =
+              Option(row.getCell(headerMap("_script"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
                 .flatMap(formatter.formatCellValue)
-              val commentOpt = Option(row.getCell(8, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
-                .flatMap(formatter.formatCellValue)
+            val commentOpt = Option(
+              row.getCell(headerMap("_description"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
+            )
+              .flatMap(formatter.formatCellValue)
 
-              val positionOpt = schema.metadata.flatMap(_.format) match {
-                case Some(Format.POSITION) => {
-                  val positionStart =
-                    Option(row.getCell(9, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
-                      .flatMap(formatter.formatCellValue)
-                      .map(_.toInt) match {
-                      case Some(v) => v - 1
-                      case _       => 0
-                    }
-                  val positionEnd =
-                    Option(row.getCell(10, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
-                      .flatMap(formatter.formatCellValue)
-                      .map(_.toInt) match {
-                      case Some(v) => v - 1
-                      case _       => 0
-                    }
-                  Some(Position(positionStart, positionEnd))
-                }
-                case _ => None
-              }
-              val attributeTrim =
-                Option(row.getCell(11, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
-                  .flatMap(formatter.formatCellValue)
-                  .map(Trim.fromString)
-
-              (nameOpt, semTypeOpt) match {
-                case (Some(name), Some(semType)) =>
-                  Some(
-                    Attribute(
-                      name,
-                      semType,
-                      array = None,
-                      required,
-                      privacy,
-                      comment = commentOpt,
-                      rename = renameOpt,
-                      metricType = metricType,
-                      trim = attributeTrim,
-                      position = positionOpt,
-                      default = defaultOpt,
-                      script = scriptOpt,
-                      tags = None,
-                      attributes = None
+            val positionOpt = schema.metadata.flatMap(_.format) match {
+              case Some(Format.POSITION) => {
+                val positionStart =
+                  Option(
+                    row.getCell(
+                      headerMap("_position_start"),
+                      Row.MissingCellPolicy.RETURN_BLANK_AS_NULL
                     )
                   )
-                case _ => None
+                    .flatMap(formatter.formatCellValue)
+                    .map(_.toInt) match {
+                    case Some(v) => v - 1
+                    case _       => 0
+                  }
+                val positionEnd =
+                  Option(
+                    row.getCell(
+                      headerMap("_position_end"),
+                      Row.MissingCellPolicy.RETURN_BLANK_AS_NULL
+                    )
+                  )
+                    .flatMap(formatter.formatCellValue)
+                    .map(_.toInt) match {
+                    case Some(v) => v - 1
+                    case _       => 0
+                  }
+                Some(Position(positionStart, positionEnd))
               }
+              case _ => None
             }
-            .toList
+            val attributeTrim =
+              Option(row.getCell(headerMap("_trim"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
+                .flatMap(formatter.formatCellValue)
+                .map(Trim.fromString)
+
+            (nameOpt, semTypeOpt) match {
+              case (Some(name), Some(semType)) =>
+                Some(
+                  Attribute(
+                    name,
+                    semType,
+                    array = None,
+                    required,
+                    privacy,
+                    comment = commentOpt,
+                    rename = renameOpt,
+                    metricType = metricType,
+                    trim = attributeTrim,
+                    position = positionOpt,
+                    default = defaultOpt,
+                    script = scriptOpt,
+                    tags = None,
+                    attributes = None
+                  )
+                )
+              case _ => None
+            }
+          }.toList
       }
       schema.copy(attributes = attributes)
     }
