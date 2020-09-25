@@ -84,14 +84,12 @@ trait BigQueryJobBase extends StrictLogging {
       case Some(d) =>
         TimePartitioning
           .newBuilder(TimePartitioning.Type.DAY)
-          .setRequirePartitionFilter(true)
           .setField(partitionField)
           .setExpirationMs(d * 3600 * 24 * 1000L)
           .setRequirePartitionFilter(requirePartitionFilter)
       case _ =>
         TimePartitioning
           .newBuilder(TimePartitioning.Type.DAY)
-          .setRequirePartitionFilter(true)
           .setField(partitionField)
           .setRequirePartitionFilter(requirePartitionFilter)
     }
