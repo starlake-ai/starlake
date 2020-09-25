@@ -29,12 +29,16 @@ import org.apache.hadoop.fs.Path
 import scala.collection.mutable
 
 /**
-  * Let's say you are wiling to import from you Sales system customers and orders.
-  * Sales is therefore the domain and Customer & order are your datasets.
+  * Let's say you are willing to import customers and orders from your Sales system.
+  * Sales is therefore the domain and customer & order are your datasets.
+  * In a DBMS, A Domain would be implemented by a DBMS  schema and a dataset by a DBMS table.
+  * In BigQuery, The domain name would be the Big Query dataset name and the dataset would be implemented by a Big Query table.
   *
-  * @param name       : Domain name
-  * @param directory  : Folder on the local filesystem where incomping files are stored.
-  *                     Typically, this folder will be scanned regurlaly to move the dataset to the cluster for ingestion.
+  * @param name       Domain name. Make sure you use a name that may be used as a folder name on the target storage.
+  *                   - When using HDFS or Cloud Storage,  files once ingested are stored in a sub-directory named after the domain name.
+  *                   - When used with BigQuery, files are ingested and sorted in tables under a dataset named after the domain name.
+  * @param directory  : Folder on the local filesystem where incoming files are stored.
+  *                     Typically, this folder will be scanned periodically to move the dataset to the cluster for ingestion.
   *                     Files located in this folder are moved to the pending folder for ingestion by the "import" command.
   * @param metadata   : Default Schema metadata.
   *                     This metadata is applied to the schemas defined in this domain.
@@ -64,7 +68,7 @@ case class Domain(
   /**
     * Get schema from filename
     * Schema are matched against filenames using filename patterns.
-    * The schema pattern thats matches the filename is returned
+    * The schema pattern that matches the filename is returned
     *
     * @param filename : dataset filename
     * @return
@@ -77,7 +81,7 @@ case class Domain(
     * Load Elasticsearch template file if it exist
     *
     * @param schema : Schema name to map to an elasticsearch index
-    * @return ES template with optinnaly the __PROPERTIES__ string
+    * @return ES template with optionally the __PROPERTIES__ string
     *         that will be replaced by the schema attributes dynamically
     *         computed mappings
     */
@@ -148,12 +152,6 @@ case class Domain(
     }
 
     // TODO Check partition columns
-
-    // TODO Validate directory
-    val inputDir = new Path(this.directory)
-    if (!settings.storageHandler.exists(inputDir)) {
-      errorList += s"$directory not found"
-    }
     if (errorList.nonEmpty)
       Left(errorList.toList)
     else

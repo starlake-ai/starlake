@@ -26,6 +26,7 @@ import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.schema.model.RowLevelSecurity
 import com.ebiznext.comet.utils.CliConfig
 import org.apache.hadoop.fs.Path
+import org.apache.spark.sql.DataFrame
 import scopt.OParser
 
 case class ESLoadConfig(
@@ -35,14 +36,19 @@ case class ESLoadConfig(
   domain: String = "",
   schema: String = "",
   format: String = "",
-  dataset: Option[Path] = None,
+  dataset: Option[Either[Path, DataFrame]] = None,
   conf: Map[String, String] = Map(),
   rls: Option[List[RowLevelSecurity]] = None
 ) {
 
-  def getDataset()(implicit settings: Settings): Path = {
-    dataset.getOrElse {
-      new Path(s"${settings.comet.datasets}/${settings.comet.area.accepted}/$domain/$schema")
+  def getDataset()(implicit settings: Settings): Either[Path, DataFrame] = {
+    dataset match {
+      case None =>
+        Left(
+          new Path(s"${settings.comet.datasets}/${settings.comet.area.accepted}/$domain/$schema")
+        )
+      case Some(pathOrDF) =>
+        pathOrDF
     }
   }
 
@@ -104,7 +110,7 @@ object ESLoadConfig extends CliConfig[ESLoadConfig] {
         .required()
         .text("Dataset input file : parquet, json or json-array"),
       opt[String]("dataset")
-        .action((x, c) => c.copy(dataset = Some(new Path(x))))
+        .action((x, c) => c.copy(dataset = Some(Left(new Path(x)))))
         .optional()
         .text("Input dataset path"),
       opt[Map[String, String]]("conf")

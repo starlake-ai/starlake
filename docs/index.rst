@@ -16,16 +16,33 @@ Getting started with Comet Data Pipeline:
 
    user/guide/introduction
    user/guide/sample
-   user/guide/configuration/configure
+   user/guide/configuration/index
    user/guide/quickstart
 
 .. toctree::
-   :caption: Reference Manual
+   :caption: Concepts
    :maxdepth: 3
 
-   user/ref/extract
-   user/ref/load
-   user/ref/transform
+   user/concepts/extract/index
+   user/concepts/load/index
+   user/concepts/transform/index
+
+.. toctree::
+   :caption: Examples
+   :maxdepth: 3
+
+   user/examples/index
+   user/examples/extract/index
+   user/examples/load/index
+   user/examples/transform/index
+
+.. toctree::
+   :caption: Cloud Specific
+   :maxdepth: 3
+
+   user/cloud/azure
+   user/cloud/gcp
+   user/cloud/aws
 
 .. toctree::
    :caption: CLI
