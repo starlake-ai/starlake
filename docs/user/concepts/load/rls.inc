@@ -11,7 +11,8 @@ User / Group and Service accounts rights on a subset of the table.
 
 .. option:: predicate: String
 
-*Required*. The condition that goes to the WHERE clause and limitt the visible rows.
+*Required*. The condition that goes to the WHERE clause and limit the visible rows. 
+To make all the rows visible, this predicate should be equal to TRUE
 
 .. option:: grants: List[String]
 

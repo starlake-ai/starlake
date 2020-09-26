@@ -7,7 +7,7 @@ A field in the schema. For struct fields, the field "attributes" contains all su
 
 .. option:: name: String
 
-Attribute name as defined in the source dataset and as received in the file
+Attribute name as defined in the source header
 
 .. option:: type: String
 
@@ -15,7 +15,7 @@ Semantic type of the attribute.
 
 .. option:: array: Boolean
 
-Is it an array ?
+Is this attribute an array of values (used for JSON/XML files only) ?
 
 .. option:: required: Boolean
 
