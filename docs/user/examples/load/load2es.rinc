@@ -1,0 +1,79 @@
+Load to Elasticsearch
+#####################
+
+
+Based on the example :ref:`load_to_parquet` example, we add is the /metadata/sink section to both schemas.
+
+For the sake of the example, we added a field to the location schema to highlight how timestamped indexes may be handled.
+Indexes will be named after the domain and schema names suffixed by the timestamp if present.
+
+The `orders` index will be named `sales_orders` and the `customers` index will have a name similar to `sales_customers-2020.01.31`
+
+.. code-block:: yaml
+
+    name: "sales"
+    directory: "__COMET_TEST_ROOT__/incoming/sales"
+    metadata:
+      mode: "FILE"
+      format: "DSV"
+      withHeader: true
+      quote: "\""
+      escape: "\\"
+      write: "APPEND"
+      sink:
+        type: BQ
+    schemas:
+      - name: "customers"
+        pattern: "customers-.*.psv"
+        metadata:
+          separator: "|"
+          sink:
+            type: ES
+            timestamp: "{signup|yyyy.MM.dd}"
+        attributes:
+          - name: "id"
+            type: "customerid"
+            required: true
+          - name: "signup"
+            type: "datetime"
+            required: false
+          - name: "contact"
+            type: "email"
+            required: false
+          - name: "birthdate"
+            type: "date"
+            required: false
+          - name: "name1"
+            type: "string"
+            required: false
+            rename: "firstname"
+          - name: "name2"
+            type: "string"
+            required: false
+            rename: "lastname"
+      - name: "orders"
+        pattern: "orders-.*.csv"
+        merge:
+          key:
+            - "id"
+          delete: "customer_id is null"
+        metadata:
+          separator: ","
+          sink:
+            type: ES
+        attributes:
+          - name: "order_id"
+            type: "string"
+            required: true
+            rename: "id"
+          - name: "customer_id"
+            type: "customerid"
+            required: false
+          - name: "amount"
+            type: "decimal"
+            required: false
+          - name: "seller_id"
+            type: "string"
+            required: false
+
+
