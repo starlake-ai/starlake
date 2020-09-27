@@ -161,7 +161,8 @@ trait IngestionJob extends SparkJob {
                 // We provided the acceptedDF schema here since BQ lose the required / nullable information of the schema
                 .schema(acceptedDfWithscriptFields.schema)
                 .format("com.google.cloud.spark.bigquery")
-                .load(bqTable)
+                .option("table", bqTable)
+                .load()
               if (
                 existingBigQueryDF.schema.fields.length == session.read
                   .parquet(acceptedPath.toString)
@@ -314,6 +315,8 @@ trait IngestionJob extends SparkJob {
     * @return merged dataframe
     */
   def merge(inputDF: DataFrame, existingDF: DataFrame, merge: MergeOptions): DataFrame = {
+    logger.info(s"inputDF Schema before merge -> ${inputDF.schema}")
+    logger.info(s"existingDF Schema before merge -> ${existingDF.schema}")
     logger.info(s"existingDF field count=${existingDF.schema.fields.length}")
     logger.info(s"""existingDF field list=${existingDF.schema.fields.map(_.name).mkString(",")}""")
     logger.info(s"inputDF field count=${inputDF.schema.fields.length}")
