@@ -1,3 +1,0 @@
-JSON to Elasticsearch
-#####################
-

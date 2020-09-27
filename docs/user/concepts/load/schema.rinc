@@ -38,7 +38,7 @@ See :ref:`metadata_concept` for more details.
 
 .. option:: tags: Set[String]
 
-*Optional*. Set of labels to attach to this Schema. If the label is in the form key=value, it is store as a valued label in the Catalog
+*Optional*. Set of string to attach to this Schema
 
 .. option:: rls: List[RowLevelSecurity]
 

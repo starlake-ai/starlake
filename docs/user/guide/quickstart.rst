@@ -4,13 +4,13 @@ Quick Start
 
 The example in the folder ``src/test/resources/quickstart`` import into the cluster the following files :
 
-From the sales departement, customers and orders datasets in delimiter separated files :
+From the sales departement, customers and orders in delimiter separated files :
  - customers and orders are appended to the previous imported data
  - new orders are added
  - updated orders replace existing ones
- - and some orders may even be deleted when marked as such in the input dataset
+ - and some orders may even be delted whenmarked as such in the input dataset
 
-From the HR departement, sellers and locations datasets in json files :
+From the HR departement, sellers and locations in json files :
  - sellers are imported in a cumulative way while locations are imported as full content and overwrite the existing locations dataset
  - sellers are loaded as an array of json objects
  - locations are received in JSONL format
@@ -20,7 +20,7 @@ From the HR departement, sellers and locations datasets in json files :
 Build it
 ########
 
-Clone the project, install sbt 1.3+ and run ``sbt clean assembly makeSite``. This will create :
+Clone the project, install sbt 1.0+ and run ``sbt clean assembly makeSite``. This will create :
 
 - the assembly in the ``target/scala-2.11`` directory
 - This site documentation in ``/target/sphinx/html``
@@ -41,7 +41,7 @@ Import the datasets into the cluster using spark-submit :
    $SPARK_HOME/bin/spark-submit target/scala-2.11/comet-assembly-VERSION.jar import
 
 
-This will put the datasets in the ``/tmp/datasets/pending/`` folder. In real life, this will be a Object Storage or HDFS folder.
+This will put the datasets in the ``/tmp/datasets/pending/`` folder. In real life, this will be a HDFS or CLoud Srorage folder.
 
 Run the ingestion process as follows :
 
@@ -56,6 +56,6 @@ This will ingest the four datasets of the two domains (hr & sales) and store the
  - /tmp/datasets/unresolved for unrecognized files
 
 
-When run on top of HDFS with Hive enabled, these datasets are also available as Hive tables.
+When run on top of HDFS, these datasets are also available as Hive tables.
 
 
