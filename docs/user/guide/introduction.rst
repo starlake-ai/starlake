@@ -13,12 +13,12 @@ ingestion purely declarative.
 The workflow below is a typical use case :
 
 * Export your data as a set of DSV (Delimiter-separated values) or JSON or XML files
-* Define each DSV/JSON/XML file with a schema using YAML syntax
+* Define the structure of each DSV/JSON/XML file with a schema using YAML syntax
 * Configure the ingestion process
 * Start watching your data being available as Tables in your Data Factory
 
 
-The main advantages of Comet Data Pipeline are :
+The main advantages of Comet Data Pipeline are that it:
 
 * Eliminates manual coding for data ingestion
 * Assign metadata to each dataset
@@ -33,7 +33,7 @@ How it works
 ############
 
 Comet Data Pipeline automates the loading and parsing of files and
-their ingestion into a Data Factorys where datasets become
+their ingestion into a Data Factory where datasets become
 available as strongly typed records.
 
 
@@ -56,7 +56,7 @@ examples below. They all follow the same process :
 #. Pending Area : Files associated with a schema are imported into the data factory.
 #. Working Area : Pending files are parsed against their schema and records are rejected or accepted and made available in parquet files as Hive Tables or Big Query tables or parquet files in a cloud bucket.
 #. Business Area : Tables (Hive / BigQuery / Parquet files) in the working area may be joined to provide a hoslictic view of the data through the definition of transformation.
-#. Data visualization : parquet files / tables may be exposed in datawarehouses or elasticsearch indexes through an indexing definition
+#. Data visualization : parquet files / tables may be exposed in datawarehouses or elasticsearch indices through an indexing definition
 
 Input file schemas, ingestion rules, transformation and indexing definitions used in the steps above are all defined in YAML files.
 
