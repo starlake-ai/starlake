@@ -197,7 +197,8 @@ class AutoTaskJob(
         case BQ =>
           session.read
             .format("com.google.cloud.spark.bigquery")
-            .load(path)
+            .option("table", path)
+            .load()
             .cache()
         case _ =>
           throw new Exception("Should never happen")
@@ -242,9 +243,10 @@ class AutoTaskJob(
       } else {
         finalDataset.save()
         if (coalesce) {
-          val csvPath = storageHandler.list(targetPath, ".csv", LocalDateTime.MIN).head
-          val finalCsvPath = new Path(targetPath, targetPath.getName + ".csv")
-          storageHandler.move(csvPath, finalCsvPath)
+          val extension = format.getOrElse(settings.comet.defaultWriteFormat)
+          val csvPath = storageHandler.list(targetPath, s".$extension", LocalDateTime.MIN).head
+          val finalPath = new Path(targetPath, targetPath.getName + s".$extension")
+          storageHandler.move(csvPath, finalPath)
         }
       }
     }
