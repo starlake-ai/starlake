@@ -1,0 +1,78 @@
+Load to SQL Database
+#####################
+
+.. note::
+  Not yet implemented
+
+Based on the :ref:`load_to_parquet` example, we need to
+
+1. Add  the /metadata/sink section
+
+.. code-block:: yaml
+
+    name: "hr"
+    directory: "/incoming/hr"
+    metadata:
+      mode: "FILE"
+      format: "JSON"
+      sink:
+        type: JDBC
+        connection: my_connection
+        partitions: 10
+        batchSize: 1000
+    schemas:
+      - name: "sellers"
+        pattern: "sellers-.*.json"
+        metadata:
+          array: true
+          format: "SIMPLE_JSON"
+          write: "APPEND"
+        attributes:
+          - name: "id"
+            type: "string"
+            required: true
+          - name: "seller_email"
+            type: "email"
+            required: true
+          - name: "location_id"
+            type: "long"
+            required: true
+      - name: "locations"
+        pattern: "locations-.*.json"
+        metadata:
+          format: "JSON"
+          write: "OVERWRITE"
+        attributes:
+          - name: "id"
+            type: "string"
+            required: true
+          - name: "address"
+            type: "struct"
+            required: true
+            attributes:
+              - name: "city"
+                type: "string"
+                required: true
+                metricType: "discrete"
+              - name: "stores"
+                type: "string"
+                array: true
+                required: false
+              - name: "country"
+                type: "string"
+                required: true
+                metricType: "discrete"
+
+2. Add to the jdbc section a connection with the name specified in the /medata/sink/connection property
+
+.. code-block::
+
+    jdbc = {
+      "my_connection": {
+        uri = "jdbc:postgresql://127.0.0.1:5403/mydb?user=postgres&password=XXXX-XXXX-XXXX",
+        user = "postgres",
+        password = "XXXX-XXXX-XXXX",
+        driver = "org.postgresql.Driver"
+      }
+    }
+

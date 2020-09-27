@@ -2,10 +2,12 @@
 Load
 ****************************
 
-.. include:: dsv2bq.inc
+This section describes how to import text files (eq. json / CSV) files into your Data Factory.
 
-.. include:: dsv2parquet.inc
+.. include:: load2parquet.rinc
 
-.. include:: dsv2jdbc.inc
+.. include:: load2bq.rinc
 
-.. include:: json2es.inc
+.. include:: load2jdbc.rinc
+
+.. include:: load2es.rinc
