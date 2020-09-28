@@ -57,6 +57,8 @@ Below is how the folders look like by default for the provided quickstart sample
         `-- types (All semantic types are defined here)
             |-- default.yml (Default semantic types)
             `-- types.yml (User defined semantic types, overwrite default ones)
+        `-- jobs (All transform jobs go here)
+            `-- sales-by-name.yml (Compute sales by )
 
 
 

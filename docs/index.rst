@@ -18,6 +18,7 @@ Getting started with Comet Data Pipeline:
    user/guide/sample
    user/guide/configuration/index
    user/guide/quickstart
+   user/guide/load
 
 .. toctree::
    :caption: Concepts
