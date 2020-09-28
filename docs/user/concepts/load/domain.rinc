@@ -11,7 +11,7 @@ Sales is therefore the domain and customer & order are your datasets.
 .. option:: name: String
 
 *Required*. Domain name. Make sure you use a name that may be used as a folder name on the target storage.
-                   - When using HDFS or Cloud Storage,  files once ingested are stored in a sub-directory named after the domain name.
+                   - When using HDFS or Cloud Storage,  files once ingested are stored in a sub-directory oof a directory named after the domain name.
                    - When used with BigQuery, files are ingested and sorted in tables under a dataset named after the domain name.
 
 .. option:: directory: String

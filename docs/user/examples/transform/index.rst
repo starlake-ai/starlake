@@ -3,25 +3,25 @@ Transform
 *********************
 
 
-.. include:: parquet2parquet.inc
+.. include:: parquet2parquet.rinc
 
-.. include:: parquet2bq.inc
+.. include:: parquet2csv.rinc
 
-.. include:: bq2bq.inc
+.. include:: parquet2bq.rinc
 
-.. include:: bq2parquet.inc
+.. include:: bq2bq.rinc
 
-.. include:: bq2csv.inc
+.. include:: bq2csv.rinc
 
-.. include:: parquet2csv.inc
+.. include:: bq2parquet.rinc
 
-.. include:: parquet2es.v
+.. include:: parquet2es.rinc
 
-.. include:: bq2es.inc
+.. include:: bq2es.rinc
 
-.. include:: bq2jdbc.inc
+.. include:: bq2jdbc.rinc
 
-.. include:: parquet2jdbc.inc
+.. include:: parquet2jdbc.rinc
 
-.. include:: jdbc2jdbc.inc
+.. include:: jdbc2jdbc.rinc
 

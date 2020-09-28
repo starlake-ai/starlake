@@ -5,13 +5,13 @@ Transform
 *********************************************
 
 
-.. include:: job.inc
+.. include:: job.rinc
 
-.. include:: task.inc
+.. include:: task.rinc
 
-.. include:: partition.inc
+.. include:: partition.rinc
 
-.. include:: cluster.inc
+.. include:: cluster.rinc
 
-.. include:: view.inc
+.. include:: view.rinc
 
