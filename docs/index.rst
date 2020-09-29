@@ -20,6 +20,14 @@ Getting started with Comet Data Pipeline:
    user/guide/quickstart
 
 .. toctree::
+   :caption: Howto
+   :maxdepth: 3
+
+   user/howto/extract
+   user/howto/load
+   user/howto/transform
+
+.. toctree::
    :caption: Concepts
    :maxdepth: 3
 
@@ -31,7 +39,6 @@ Getting started with Comet Data Pipeline:
    :caption: Examples
    :maxdepth: 3
 
-   user/examples/index
    user/examples/extract/index
    user/examples/load/index
    user/examples/transform/index

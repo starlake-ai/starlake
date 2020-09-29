@@ -195,10 +195,24 @@ class AutoTaskJob(
             if (path.startsWith("/")) path else s"${settings.comet.datasets}/$path"
           session.read.parquet(fullPath)
         case BQ =>
-          session.read
-            .format("com.google.cloud.spark.bigquery")
-            .load(path)
-            .cache()
+          val TablePathWithFilter = "(.*)\\.comet_filter(.*)".r
+          path match {
+            case TablePathWithFilter(tablePath, filter) =>
+              val filterFormat = filter.richFormat(sqlParameters)
+              logger.info(s"We are loading the Table with filters pushdown: $filterFormat")
+              session.read
+                .format("com.google.cloud.spark.bigquery")
+                .option("table", tablePath)
+                .option("filter", filterFormat)
+                .load()
+                .cache()
+            case _ =>
+              session.read
+                .format("com.google.cloud.spark.bigquery")
+                .option("table", path)
+                .load()
+                .cache()
+          }
         case _ =>
           throw new Exception("Should never happen")
       }
@@ -242,9 +256,10 @@ class AutoTaskJob(
       } else {
         finalDataset.save()
         if (coalesce) {
-          val csvPath = storageHandler.list(targetPath, ".csv", LocalDateTime.MIN).head
-          val finalCsvPath = new Path(targetPath, targetPath.getName + ".csv")
-          storageHandler.move(csvPath, finalCsvPath)
+          val extension = format.getOrElse(settings.comet.defaultWriteFormat)
+          val csvPath = storageHandler.list(targetPath, s".$extension", LocalDateTime.MIN).head
+          val finalPath = new Path(targetPath, targetPath.getName + s".$extension")
+          storageHandler.move(csvPath, finalPath)
         }
       }
     }
