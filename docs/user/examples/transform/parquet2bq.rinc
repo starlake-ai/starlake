@@ -1,0 +1,35 @@
+Transform Parquet to BigQuery
+#############################
+
+Based ont the :ref:`parquet_to_parquet` example, we add the sink section to force the task to store the SQL result in BigQuery
+
+The result will store in the current project under the `business` BigQuery dataset in the `output` table.
+
+You may also specify the target project in the `/tasks/dataset` property using the syntax `PROJECT_ID:business`
+
+
+
+.. code-block:: yaml
+
+    ---
+    name: "graduateProgram"
+    views:
+      graduate_View: "fs:accepted/graduateProgram"
+    tasks:
+      - domain: "graduateProgram"
+        area: "business"
+        dataset: "output"
+        write: "OVERWRITE"
+        sink:
+            type: BQ
+            location: EU
+        presql: |
+          create or replace view graduate_agg_view
+          select degree,
+            department,
+            school
+          from graduate_View
+          where school={{school}}
+
+        sql: SELECT * FROM graduate_agg_view
+

@@ -1,0 +1,69 @@
+Load to BigQuery
+#####################
+
+Based on the :ref:`load_to_parquet` example, the only thing we add is the /metadata/sink section
+Files will be stored in the `customers` and `orders` BigQuery tables under the `sales` BigQuery dataset
+
+.. code-block:: yaml
+
+    name: "sales"
+    directory: "/incoming/sales"
+    metadata:
+      mode: "FILE"
+      format: "DSV"
+      withHeader: true
+      quote: "\""
+      escape: "\\"
+      write: "APPEND"
+      sink:
+        type: BQ
+    schemas:
+      - name: "customers"
+        pattern: "customers-.*.psv"
+        metadata:
+          separator: "|"
+        attributes:
+          - name: "id"
+            type: "customerid"
+            required: true
+          - name: "signup"
+            type: "datetime"
+            required: false
+          - name: "contact"
+            type: "email"
+            required: false
+          - name: "birthdate"
+            type: "date"
+            required: false
+          - name: "name1"
+            type: "string"
+            required: false
+            rename: "firstname"
+          - name: "name2"
+            type: "string"
+            required: false
+            rename: "lastname"
+      - name: "orders"
+        pattern: "orders-.*.csv"
+        merge:
+          key:
+            - "id"
+          delete: "customer_id is null"
+        metadata:
+          separator: ","
+        attributes:
+          - name: "order_id"
+            type: "string"
+            required: true
+            rename: "id"
+          - name: "customer_id"
+            type: "customerid"
+            required: false
+          - name: "amount"
+            type: "decimal"
+            required: false
+          - name: "seller_id"
+            type: "string"
+            required: false
+
+

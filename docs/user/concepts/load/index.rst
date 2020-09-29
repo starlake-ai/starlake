@@ -5,15 +5,15 @@ Load
 *********************************************
 
 
-.. include:: domain.inc
+.. include:: domain.rinc
 
-.. include:: schema.inc
+.. include:: schema.rinc
 
-.. include:: metadata.inc
+.. include:: metadata.rinc
 
-.. include:: attribute.inc
+.. include:: attribute.rinc
 
-.. include:: sink.inc
+.. include:: sink.rinc
 
-.. include:: rls.inc
+.. include:: rls.rinc
 
