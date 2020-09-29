@@ -7,7 +7,7 @@ Load
 Load Rules
 ###############
 
-Ingestion rules are stored in the HDFS folder referenced by the COMET_METADATA
+Load rules are stored in the HDFS folder referenced by the COMET_METADATA
 environment variable (/tmp/metadata by default).
 
 .. note::
