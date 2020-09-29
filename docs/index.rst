@@ -39,7 +39,6 @@ Getting started with Comet Data Pipeline:
    :caption: Examples
    :maxdepth: 3
 
-   user/examples/index
    user/examples/extract/index
    user/examples/load/index
    user/examples/transform/index
