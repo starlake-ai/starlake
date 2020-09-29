@@ -11,14 +11,14 @@ Load rules are stored in the HDFS folder referenced by the COMET_METADATA
 environment variable (/tmp/metadata by default).
 
 .. note::
- You need to export this variable before executing any comet ingestion step.
+ You need to export this variable before executing any comet load step.
  ``export COMET_METADATA=hdfs:///my/metadata``
 
 Dataset validation is based on a set of rules we define in schema files.
 Schema files decribe how the input files are parsed using a set of rules :
 
 * Type Rules: Rules that describe the recognized fields formats.
-* Domain Rules: Rules that describe the file format and ingestion strategy
+* Domain Rules: Rules that describe the file format and load strategy
 * Schema Rules: Rules that describe field format using pattern matching
 
 
@@ -133,7 +133,7 @@ $COMET_METADATA/domains. They defined :
 * The ack extension for ack files. "ack" by default.
 * Raw file extensions to recognize.  "json", "csv", "dsv", "psv" by default.
 
-The ingestion pipeline also automatically recognize compressed files with
+The load pipeline also automatically recognize compressed files with
 the extension "tgz", "gz" and "zip". These files are uncompressed in a
 temporary location and each raw file in the archive is ingested
 if the filename matches a file pattern in one of the schema in the domain,
@@ -535,7 +535,7 @@ Below an example of compaction based on a sampling of 20%
 
 With the types catalog, file schemas and save strategy defined we are ready to ingest
 
-Ingestion Workflow
+Load Workflow
 ##################
 The ingestion process follows the steps below :
 
