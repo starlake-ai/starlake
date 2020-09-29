@@ -195,11 +195,24 @@ class AutoTaskJob(
             if (path.startsWith("/")) path else s"${settings.comet.datasets}/$path"
           session.read.parquet(fullPath)
         case BQ =>
-          session.read
-            .format("com.google.cloud.spark.bigquery")
-            .option("table", path)
-            .load()
-            .cache()
+          val TablePathWithFilter = "(.*)\\.comet_filter(.*)".r
+          path match {
+            case TablePathWithFilter(tablePath, filter) =>
+              val filterFormat = filter.richFormat(sqlParameters)
+              logger.info(s"We are loading the Table with filters pushdown: $filterFormat")
+              session.read
+                .format("com.google.cloud.spark.bigquery")
+                .option("table", tablePath)
+                .option("filter", filterFormat)
+                .load()
+                .cache()
+            case _ =>
+              session.read
+                .format("com.google.cloud.spark.bigquery")
+                .option("table", path)
+                .load()
+                .cache()
+          }
         case _ =>
           throw new Exception("Should never happen")
       }
