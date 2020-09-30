@@ -1,8 +1,13 @@
 package com.ebiznext.comet.job.index.bqload
 
+import java.util
+
 import com.ebiznext.comet.schema.model.{RowLevelSecurity, UserType}
 import com.google.cloud.bigquery._
+import com.google.cloud.{Identity, Policy, Role}
 import com.typesafe.scalalogging.StrictLogging
+
+import scala.collection.JavaConverters._
 
 trait BigQueryJobBase extends StrictLogging {
   def cliConfig: BigQueryLoadConfig
@@ -72,6 +77,40 @@ trait BigQueryJobBase extends StrictLogging {
         .setLocation(cliConfig.getLocation())
         .build
       bigquery.create(datasetInfo)
+    }
+  }
+
+  /**
+    * To set access control on a table or view, we can use Identity and Access Management (IAM) policy
+    * After you create a table or view, you can set its policy with a set-iam-policy call
+    * For each call, we compare if the existing policy is equal to the defined one (in the Yaml file)
+    * If it's the case, we do nothing, otherwise we update the Table policy
+    * @param tableId
+    * @param rls
+    * @return
+    */
+  def applyTableIamPolicy(tableId: TableId, rls: RowLevelSecurity): Policy = {
+    val Big_QUERY_VIEWER_ROLE = "roles/bigquery.dataViewer"
+    val existingPolicy: Policy = bigquery.getIamPolicy(tableId)
+    val existingPolicyBindings: util.Map[Role, util.Set[Identity]] = existingPolicy.getBindings
+
+    val bindings = Map(
+      Role.of(Big_QUERY_VIEWER_ROLE) -> rls.grants.map(Identity.valueOf).asJava
+    ).asJava
+    if (!existingPolicyBindings.equals(bindings)) {
+      logger.info(
+        s"We are updating the IAM Policy on this Table: $tableId with new Policies"
+      )
+      val editedPolicy: Policy = existingPolicy.toBuilder
+        .setBindings(
+          bindings
+        )
+        .build()
+      bigquery.setIamPolicy(tableId, editedPolicy)
+      editedPolicy
+    } else {
+      logger.info(s"Iam Policy is the same as before on this Table: $tableId")
+      existingPolicy
     }
   }
 

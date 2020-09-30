@@ -1,6 +1,8 @@
 package com.ebiznext.comet.job.index.bqload
 
 import com.ebiznext.comet.config.Settings
+import com.ebiznext.comet.utils.conversion.BigQueryUtils._
+import com.ebiznext.comet.utils.conversion.syntax._
 import com.ebiznext.comet.utils.{JobResult, SparkJob, SparkJobResult, Utils}
 import com.google.cloud.ServiceOptions
 import com.google.cloud.bigquery.{
@@ -20,10 +22,7 @@ import org.apache.hadoop.conf.Configuration
 import org.apache.spark.sql.functions.{col, date_format}
 import org.apache.spark.sql.{DataFrame, SaveMode, SparkSession}
 import org.apache.spark.storage.StorageLevel
-import com.ebiznext.comet.utils.conversion.BigQueryUtils._
-import com.ebiznext.comet.utils.conversion.syntax._
 
-import scala.collection.JavaConverters._
 import scala.util.Try
 
 class BigQuerySparkJob(
@@ -84,6 +83,7 @@ class BigQuerySparkJob(
 
   def getOrCreateTable(dataFrame: Option[DataFrame], maybeSchema: Option[BQSchema]): Table = {
     getOrCreateDataset()
+
     Option(bigquery.getTable(tableId)) getOrElse {
       val withPartitionDefinition =
         (maybeSchema, cliConfig.outputPartition) match {
@@ -151,6 +151,8 @@ class BigQuerySparkJob(
 
       val table = getOrCreateTable(Some(sourceDF), maybeSchema)
 
+      tablePolicy(table)
+
       val stdTableDefinition =
         bigquery.getTable(table.getTableId).getDefinition.asInstanceOf[StandardTableDefinition]
       logger.info(
@@ -199,26 +201,33 @@ class BigQuerySparkJob(
         s"BigQuery Saved to ${table.getTableId} now contains ${stdTableDefinitionAfter.getNumRows} rows"
       )
 
-      prepareRLS().foreach { rlsStatement =>
-        logger.info(s"Applying security $rlsStatement")
-        try {
-          Option(runJob(rlsStatement, cliConfig.getLocation())) match {
-            case None =>
-              throw new RuntimeException("Job no longer exists")
-            case Some(job) if job.getStatus.getExecutionErrors() != null =>
-              throw new RuntimeException(
-                job.getStatus.getExecutionErrors().asScala.reverse.mkString(",")
-              )
-            case Some(job) =>
-              logger.info(s"Job with id ${job} on Statement $rlsStatement succeeded")
-          }
-
-        } catch {
-          case e: Exception =>
-            e.printStackTrace()
-        }
-      }
+//      prepareRLS().foreach { rlsStatement =>
+//        logger.info(s"Applying security $rlsStatement")
+//        try {
+//          Option(runJob(rlsStatement, cliConfig.getLocation())) match {
+//            case None =>
+//              throw new RuntimeException("Job no longer exists")
+//            case Some(job) if job.getStatus.getExecutionErrors() != null =>
+//              throw new RuntimeException(
+//                job.getStatus.getExecutionErrors().asScala.reverse.mkString(",")
+//              )
+//            case Some(job) =>
+//              logger.info(s"Job with id ${job} on Statement $rlsStatement succeeded")
+//          }
+//
+//        } catch {
+//          case e: Exception =>
+//            e.printStackTrace()
+//        }
+//      }
       SparkJobResult(None)
+    }
+  }
+
+  private def tablePolicy(table: Table) = {
+    cliConfig.rls match {
+      case Some(h :: _) => applyTableIamPolicy(table.getTableId, h)
+      case _            => logger.info(s"Table ACL is not set in this Table: $tableId")
     }
   }
 
