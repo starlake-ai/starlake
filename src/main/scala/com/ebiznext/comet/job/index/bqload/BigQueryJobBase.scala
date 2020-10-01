@@ -90,12 +90,12 @@ trait BigQueryJobBase extends StrictLogging {
     * @return
     */
   def applyTableIamPolicy(tableId: TableId, rls: RowLevelSecurity): Policy = {
-    val Big_QUERY_VIEWER_ROLE = "roles/bigquery.dataViewer"
+    val BIG_QUERY_VIEWER_ROLE = "roles/bigquery.dataViewer"
     val existingPolicy: Policy = bigquery.getIamPolicy(tableId)
     val existingPolicyBindings: util.Map[Role, util.Set[Identity]] = existingPolicy.getBindings
 
     val bindings = Map(
-      Role.of(Big_QUERY_VIEWER_ROLE) -> rls.grants.map(Identity.valueOf).asJava
+      Role.of(BIG_QUERY_VIEWER_ROLE) -> rls.grants.map(Identity.valueOf).asJava
     ).asJava
     if (!existingPolicyBindings.equals(bindings)) {
       logger.info(

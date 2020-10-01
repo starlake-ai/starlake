@@ -151,7 +151,7 @@ class BigQuerySparkJob(
 
       val table = getOrCreateTable(Some(sourceDF), maybeSchema)
 
-      tablePolicy(table)
+      setTablePolicy(table)
 
       val stdTableDefinition =
         bigquery.getTable(table.getTableId).getDefinition.asInstanceOf[StandardTableDefinition]
@@ -224,10 +224,10 @@ class BigQuerySparkJob(
     }
   }
 
-  private def tablePolicy(table: Table) = {
+  private def setTablePolicy(table: Table) = {
     cliConfig.rls match {
       case Some(h :: _) => applyTableIamPolicy(table.getTableId, h)
-      case _            => logger.info(s"Table ACL is not set in this Table: $tableId")
+      case _            => logger.info(s"Table ACL is not set on this Table: $tableId")
     }
   }
 
