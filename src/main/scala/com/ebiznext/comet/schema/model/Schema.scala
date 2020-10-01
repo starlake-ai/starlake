@@ -205,12 +205,17 @@ case class Schema(
          |$attrs
          |}""".stripMargin
 
-    val tse = TextSubstitutionEngine("PROPERTIES" -> properties, "ATTRIBUTES" -> attrs)
+    val tse = TextSubstitutionEngine(
+      "PROPERTIES" -> properties,
+      "ATTRIBUTES" -> attrs,
+      "DOMAIN" -> domainName.toLowerCase,
+      "SCHEMA" -> name.toLowerCase
+    )
 
     tse.apply(template.getOrElse {
       s"""
          |{
-         |  "index_patterns": ["${domainName.toLowerCase}_${name.toLowerCase}", "${domainName.toLowerCase}_${name.toLowerCase}-*"],
+         |  "index_patterns": ["__DOMAIN__.__SCHEMA__", "__DOMAIN__.__SCHEMA__-*"],
          |  "settings": {
          |    "number_of_shards": "1",
          |    "number_of_replicas": "0"
