@@ -29,6 +29,29 @@ class UtilsSpec extends TestHelper {
         ("CREATE_NEVER", "WRITE_EMPTY")
       )
     }
+
+    "extracts parts of a String" should "match patterns" in {
+      // Given
+      val TablePathWithFilter = "(.*)\\.comet_filter(.*)".r
+      val standardView = "BQ:project.dataset.table3"
+      val customView =
+        "BQ:project.dataset.table3.comet_filter(partition = '2020-02-11' AND name = 'test')"
+      val filter = "(partition = '2020-02-11' AND name = 'test')"
+      // When
+      val standardResult = standardView match {
+        case TablePathWithFilter(tablePath, filter) => (tablePath, filter)
+        case _                                      => standardView
+      }
+
+      val customResult = customView match {
+        case TablePathWithFilter(tablePath, filter) => (tablePath, filter)
+        case _                                      => customView
+      }
+
+      // Then
+      standardResult shouldEqual standardView
+      customResult shouldEqual (standardView, filter)
+    }
   }
 
 }
