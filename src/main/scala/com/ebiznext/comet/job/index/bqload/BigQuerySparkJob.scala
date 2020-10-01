@@ -201,7 +201,12 @@ class BigQuerySparkJob(
         s"BigQuery Saved to ${table.getTableId} now contains ${stdTableDefinitionAfter.getNumRows} rows"
       )
 
-//      prepareRLS().foreach { rlsStatement =>
+      /**
+        * !!! We will use TABLE ACCESS CONTROLS as workaround, until RLS option is released !!!
+        *
+        */
+
+      //      prepareRLS().foreach { rlsStatement =>
 //        logger.info(s"Applying security $rlsStatement")
 //        try {
 //          Option(runJob(rlsStatement, cliConfig.getLocation())) match {
