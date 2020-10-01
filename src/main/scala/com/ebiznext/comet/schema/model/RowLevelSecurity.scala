@@ -9,7 +9,7 @@ package com.ebiznext.comet.schema.model
   */
 case class RowLevelSecurity(
   name: String,
-  predicate: String,
+  predicate: String = "TRUE",
   grants: Set[String]
 ) {
 
