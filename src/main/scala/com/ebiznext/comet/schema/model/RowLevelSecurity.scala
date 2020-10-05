@@ -9,11 +9,11 @@ package com.ebiznext.comet.schema.model
   */
 case class RowLevelSecurity(
   name: String,
-  predicate: String,
-  grants: List[String]
+  predicate: String = "TRUE",
+  grants: Set[String]
 ) {
 
-  def grantees(): List[(UserType, String)] = {
+  def grantees(): Set[(UserType, String)] = {
     grants.map { user =>
       val res = user.split(':')
       assert(res.length == 2)
@@ -31,6 +31,6 @@ object RowLevelSecurity {
     val name = components(0)
     val filter = components(1)
     val users = components.drop(2)
-    RowLevelSecurity(name, filter, users.toList)
+    RowLevelSecurity(name, filter, users.toSet)
   }
 }
