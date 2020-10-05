@@ -366,7 +366,7 @@ class SchemaHandlerSpec extends TestHelper {
         val expected: String =
           """
             |{
-            |  "index_patterns": ["locations_locations", "locations_locations-*"],
+            |  "index_patterns": ["locations.locations", "locations.locations-*"],
             |  "settings": {
             |    "number_of_shards": "1",
             |    "number_of_replicas": "0"
