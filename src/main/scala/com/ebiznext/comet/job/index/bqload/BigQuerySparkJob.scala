@@ -231,7 +231,7 @@ class BigQuerySparkJob(
 
   private def setTablePolicy(table: Table) = {
     cliConfig.rls match {
-      case Some(h :: _) => applyTableIamPolicy(table.getTableId, h)
+      case Some(h :: Nil) => applyTableIamPolicy(table.getTableId, h)
       case _            => logger.info(s"Table ACL is not set on this Table: $tableId")
     }
   }
