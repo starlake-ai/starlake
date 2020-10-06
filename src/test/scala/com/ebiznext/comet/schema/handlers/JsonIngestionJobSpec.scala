@@ -66,8 +66,8 @@ abstract class JsonIngestionJobSpecBase(variant: String) extends TestHelper with
           .json(
             getClass.getResource(s"/sample/${datasetDomainName}/complex.json").toURI.getPath
           )
-          .withColumn("source_file_name", regexp_extract(input_file_name, ".+\\/(.+)$", 1))
           .withColumn("email_domain", regexp_extract(col("email"), ".+@(.+)", 1))
+          .withColumn("source_file_name", regexp_extract(input_file_name, ".+\\/(.+)$", 1))
 
         resultDf
           .except(

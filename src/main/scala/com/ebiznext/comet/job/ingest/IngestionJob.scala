@@ -119,35 +119,42 @@ trait IngestionJob extends SparkJob {
     val writeMode = getWriteMode()
     val acceptedPath = new Path(DatasetArea.accepted(domain.name), schema.name)
 
-    val acceptedDfWithscriptFields = (if (schema.attributes.exists(_.script.isDefined)) {
-
-                                        schema.attributes.foldRight(acceptedDF) {
+    val acceptedDfWithScriptFields = (if (schema.attributes.exists(_.script.isDefined)) {
+                                        schema.attributes.foldLeft(acceptedDF) {
                                           case (
-                                              Attribute(
-                                                name,
-                                                _,
-                                                _,
-                                                _,
-                                                _,
-                                                _,
-                                                _,
-                                                _,
-                                                _,
-                                                _,
-                                                _,
-                                                _,
-                                                _,
-                                                Some(script)
-                                              ),
-                                              df
+                                                df,
+                                                Attribute(
+                                                  name,
+                                                  _,
+                                                  _,
+                                                  _,
+                                                  _,
+                                                  _,
+                                                  _,
+                                                  _,
+                                                  _,
+                                                  _,
+                                                  _,
+                                                  _,
+                                                  _,
+                                                  Some(script)
+                                                )
                                               ) =>
-                                            df.T(
-                                              s"SELECT *, $script as $name FROM __THIS__"
-                                            )
-                                          case (_, df) => df
+                                            df.T(s"SELECT *, $script as $name FROM __THIS__")
+                                          case (df, _) => df
                                         }
-
                                       } else acceptedDF).drop(Settings.cometInputFileNameColumn)
+
+    logger.info("Accepted Dataframe schema right after adding computed columns")
+    acceptedDfWithScriptFields.printSchema()
+
+    val withScriptFieldsDF =
+      session.createDataFrame(
+        acceptedDfWithScriptFields.rdd,
+        schema.sparkTypeRenamed(schemaHandler)
+      )
+    logger.info("Accepted Dataframe schema before optional merge")
+    withScriptFieldsDF.printSchema()
 
     val mergedDF = schema.merge
       .map { mergeOptions =>
@@ -160,41 +167,41 @@ trait IngestionJob extends SparkJob {
                     .asInstanceOf[StandardTableDefinition]
                     .getSchema
                     .getFields
-                    .size() == acceptedDfWithscriptFields.schema.fields.length) {
+                    .size() == withScriptFieldsDF.schema.fields.length) {
                 val bqTable = s"${domain.name}.${schema.name}"
                 val existingBigQueryDF = session.read
                 // We provided the acceptedDF schema here since BQ lose the required / nullable information of the schema
-                  .schema(acceptedDfWithscriptFields.schema)
+                  .schema(withScriptFieldsDF.schema)
                   .format("com.google.cloud.spark.bigquery")
                   .option("table", bqTable)
                   .load()
-                merge(acceptedDfWithscriptFields, existingBigQueryDF, mergeOptions)
+                merge(withScriptFieldsDF, existingBigQueryDF, mergeOptions)
               } else
                 throw new RuntimeException(
                   "Input Dataset and existing HDFS dataset do not have the same number of columns. Check for changes in the dataset schema ?"
                 )
             }
-            .getOrElse(acceptedDfWithscriptFields)
+            .getOrElse(withScriptFieldsDF)
         } else if (storageHandler.exists(new Path(acceptedPath, "_SUCCESS"))) {
           // Otherwise load from accepted area
           // We provide the accepted DF schema since partition columns types are infered when parquet is loaded and might not match with the DF being ingested
           val existingDF =
-            session.read.schema(acceptedDfWithscriptFields.schema).parquet(acceptedPath.toString)
+            session.read.schema(withScriptFieldsDF.schema).parquet(acceptedPath.toString)
           if (existingDF.schema.fields.length == session.read
                 .parquet(acceptedPath.toString)
                 .schema
                 .fields
                 .length)
-            merge(acceptedDfWithscriptFields, existingDF, mergeOptions)
+            merge(withScriptFieldsDF, existingDF, mergeOptions)
           else
             throw new RuntimeException(
               "Input Dataset and existing HDFS dataset do not have the same number of columns. Check for changes in the dataset schema ?"
             )
-          merge(acceptedDfWithscriptFields, existingDF, mergeOptions)
+          merge(withScriptFieldsDF, existingDF, mergeOptions)
         } else
-          acceptedDfWithscriptFields
+          withScriptFieldsDF
       }
-      .getOrElse(acceptedDfWithscriptFields)
+      .getOrElse(withScriptFieldsDF)
     logger.info("Merged Dataframe Schema")
     mergedDF.printSchema()
     val savedDataset =
