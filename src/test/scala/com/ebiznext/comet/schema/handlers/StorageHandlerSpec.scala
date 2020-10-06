@@ -151,7 +151,7 @@ class StorageHandlerSpec extends TestHelper {
         None,
         None,
         Some(
-          List(RowLevelSecurity("myrls", "TRUE", List("user:hayssam.saleh@ebiznext.com")))
+          List(RowLevelSecurity("myrls", "TRUE", Set("user:hayssam.saleh@ebiznext.com")))
         )
       )
       val businessJob =
