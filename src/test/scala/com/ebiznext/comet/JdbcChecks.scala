@@ -201,7 +201,7 @@ trait JdbcChecks {
 
     expectingJdbcDataset(
       jdbcName,
-      "metrics",
+      "continuous",
       "domain" :: "schema" ::
       "min" :: "max" :: "mean" :: "missingValues" :: "standardDev" :: "variance" :: "sum" ::
       "skewness" :: "kurtosis" :: "percentile25" :: "median" :: "percentile75" ::
