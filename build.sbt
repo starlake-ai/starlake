@@ -1,7 +1,5 @@
 import Dependencies._
-import sbt.internal.util.complete.DefaultParsers
 import sbtrelease.ReleasePlugin.autoImport.ReleaseTransformations._
-import sbtrelease.Version
 import sbtrelease.Version.Bump.Next
 
 import scala.util.matching.Regex
@@ -15,7 +13,19 @@ lazy val scala211 = "2.11.12"
 
 lazy val sparkVersion = sys.env.getOrElse("COMET_SPARK_VERSION", "3.0.0")
 
-lazy val supportedScalaVersions = List(scala212, scala211)
+val sparkVersionPattern: Regex = "(\\d+).(\\d+).(\\d+)".r
+
+val sparkPatternMatch = sparkVersionPattern
+  .findFirstMatchIn(sparkVersion)
+  .getOrElse(throw new Exception(s"Invalid Spark Version $sparkVersion"))
+val sparkMajor = sparkPatternMatch.group(1)
+val sparkMinor = sparkPatternMatch.group(2)
+
+lazy val supportedScalaVersions = sparkMajor match {
+  case "3" => List(scala212)
+  case "2" => List(scala212, scala211)
+  case _   => throw new Exception(s"Invalid Spark Major Version $sparkMajor")
+}
 
 crossScalaVersions := supportedScalaVersions
 
@@ -27,16 +37,9 @@ scalaVersion := scala212
 
 organizationHomepage := Some(url("http://www.ebiznext.com"))
 
-val sparkVersionPattern: Regex = "(\\d+).(\\d+).(\\d+)".r
-val sparkPatternMatch = sparkVersionPattern
-  .findFirstMatchIn(sparkVersion)
-  .getOrElse(throw new Exception(s"Invalid Spark Version $sparkVersion"))
-val sparkMajor = sparkPatternMatch.group(1)
-val sparkMinor = sparkPatternMatch.group(2)
-
-
 libraryDependencies ++= {
   val (spark, jackson) = {
+    System.out.println(s"sparkMajor=$sparkMajor")
     sparkMajor match {
       case "3" =>
         (spark_3d0_forScala_2d12, jackson312)
@@ -46,7 +49,7 @@ libraryDependencies ++= {
           case Some((2, scalaMinor)) if scalaMinor == 11 =>
             sparkMinor match {
               case "1" => (spark_2d1_forScala_2d11, jackson211)
-              case _ => (spark_2d4_forScala_2d11, jackson211)
+              case _   => (spark_2d4_forScala_2d11, jackson211)
             }
         }
     }
@@ -96,17 +99,7 @@ publishTo in ThisBuild := {
 
 // Release
 
-releaseCrossBuild := true
-
-releaseNextVersion := { ver =>
-  Version(ver) match {
-    case Some(v @ Version(_, Seq(_, 0), _)) =>
-      v.bump(sbtrelease.Version.Bump.Minor).asSnapshot.string
-    case Some(v @ Version(_, Seq(_, _), _)) =>
-      v.bump(sbtrelease.Version.Bump.Bugfix).asSnapshot.string
-    case None => sys.error("No version detected")
-  }
-}
+releaseCrossBuild := false
 
 releaseIgnoreUntrackedFiles := true
 
@@ -116,7 +109,7 @@ releaseProcess := Seq[ReleaseStep](
   runClean,
   releaseStepCommand("+test"),
   setReleaseVersion,
-  commitReleaseVersion,
+  commitReleaseVersion, // forces to push dirty files
   tagRelease,
   // releaseStepCommand("+publish"),
   // releaseStepCommand("universal:publish"), // publish jars and tgz archives in the snapshot or release repository
@@ -127,47 +120,21 @@ releaseProcess := Seq[ReleaseStep](
   pushChanges
 )
 
-releaseCommitMessage := s"Add CLoud Build ${ReleasePlugin.runtimeVersion.value}"
+releaseCommitMessage := s"Add Cloud Build ${ReleasePlugin.runtimeVersion.value}"
 
 releaseVersionBump := Next
 
-val writeNextVersion =
-  Command("writeNextVersion")(_ => DefaultParsers.SpaceClass ~> DefaultParsers.NotQuoted)(
-    (st, str) => {
-      Version(str) match {
-        case Some(ver) =>
-          val verStr = ver.string
-          val versionFile = Project.extract(st).get(releaseVersionFile)
-          val useGlobal = Project.extract(st).get(releaseUseGlobalVersion)
-          val formattedVer = (if (useGlobal) globalVersionString else versionString) format verStr
-          IO.writeLines(versionFile, Seq(formattedVer))
-          val refreshedSt = reapply(
-            Seq(
-              if (useGlobal) version in ThisBuild := verStr
-              else version := verStr
-            ),
-            st
-          )
-
-          commitNextVersion.action(refreshedSt)
-
-        case _ => sys.error("Input version does not follow semver")
-      }
-    }
-  )
-
 assemblyMergeStrategy in assembly := {
   case PathList("META-INF", xs @ _*) => MergeStrategy.discard
-  case x => MergeStrategy.first
+  case x                             => MergeStrategy.first
 }
 
 assemblyExcludedJars in assembly := {
   val cp: Classpath = (fullClasspath in assembly).value
-  cp.foreach(x => println("->"+x.data.getName))
+  cp.foreach(x => println("->" + x.data.getName))
   //cp filter {_.data.getName.matches("hadoop-.*-2.6.5.jar")}
   Nil
 }
-
 
 assemblyShadeRules in assembly := Seq(
   // Databricks still uses an old version of typesafe.config. s
@@ -190,11 +157,17 @@ licenses := Seq("APL2" -> url("http://www.apache.org/licenses/LICENSE-2.0.txt"))
 
 // Where is the source code hosted: GitHub or GitLab?
 import xerial.sbt.Sonatype._
-sonatypeProjectHosting := Some(GitHubHosting("ebiznext", "comet-data-pipeline", "hayssam.saleh@ebiznext.com"))
-
-developers := List(
-  Developer(id="hayssams", name="Hayssam Saleh", email="hayssam.saleh@ebiznext.com", url=url("https://www.ebiznext.com"))
+sonatypeProjectHosting := Some(
+  GitHubHosting("ebiznext", "comet-data-pipeline", "hayssam.saleh@ebiznext.com")
 )
 
+developers := List(
+  Developer(
+    id = "hayssams",
+    name = "Hayssam Saleh",
+    email = "hayssam.saleh@ebiznext.com",
+    url = url("https://www.ebiznext.com")
+  )
+)
 
 //logLevel in assembly := Level.Debug
