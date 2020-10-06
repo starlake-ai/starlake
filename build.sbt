@@ -96,7 +96,7 @@ publishTo in ThisBuild := {
 
 // Release
 
-releaseCrossBuild := true
+releaseCrossBuild := false
 
 releaseNextVersion := { ver =>
   Version(ver) match {
@@ -127,34 +127,9 @@ releaseProcess := Seq[ReleaseStep](
   pushChanges
 )
 
-releaseCommitMessage := s"Add CLoud Build ${ReleasePlugin.runtimeVersion.value}"
+releaseCommitMessage := s"Add Cloud Build ${ReleasePlugin.runtimeVersion.value}"
 
 releaseVersionBump := Next
-
-val writeNextVersion =
-  Command("writeNextVersion")(_ => DefaultParsers.SpaceClass ~> DefaultParsers.NotQuoted)(
-    (st, str) => {
-      Version(str) match {
-        case Some(ver) =>
-          val verStr = ver.string
-          val versionFile = Project.extract(st).get(releaseVersionFile)
-          val useGlobal = Project.extract(st).get(releaseUseGlobalVersion)
-          val formattedVer = (if (useGlobal) globalVersionString else versionString) format verStr
-          IO.writeLines(versionFile, Seq(formattedVer))
-          val refreshedSt = reapply(
-            Seq(
-              if (useGlobal) version in ThisBuild := verStr
-              else version := verStr
-            ),
-            st
-          )
-
-          commitNextVersion.action(refreshedSt)
-
-        case _ => sys.error("Input version does not follow semver")
-      }
-    }
-  )
 
 assemblyMergeStrategy in assembly := {
   case PathList("META-INF", xs @ _*) => MergeStrategy.discard
