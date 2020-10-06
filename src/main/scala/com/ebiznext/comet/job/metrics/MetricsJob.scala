@@ -68,6 +68,10 @@ class MetricsJob(
     if (storageHandler.exists(path)) {
       val pathIntermediate = new Path(path.getParent, ".metrics")
 
+      session.read
+        .parquet(path.toString).show(false)
+      println(path.toString)
+      dataToSave.show(false)
       val dataByVariableStored: DataFrame = session.read
         .parquet(path.toString)
         .union(dataToSave)
@@ -213,11 +217,11 @@ class MetricsJob(
       )
 
     val metricsToSave = List(
-      (metricsDatasets.continuousDF, "continuous"),
-      (metricsDatasets.discreteDF, "discrete"),
-      (metricsDatasets.frequenciesDF, "frequencies")
+      (metricsDatasets.continuousDF, MetricsTable.CONTINUOUS),
+      (metricsDatasets.discreteDF, MetricsTable.DISCRETE),
+      (metricsDatasets.frequenciesDF, MetricsTable.FREQUENCIES)
     )
-    val combinedResult = metricsToSave.map { case (df, name) =>
+    val combinedResult = metricsToSave.map { case (df, table) =>
       df match {
         case Some(df) =>
           settings.comet.internal.foreach(in => df.persist(in.cacheStorageLevel))
@@ -226,10 +230,10 @@ class MetricsJob(
           val locker = new FileLock(lockedPath, storageHandler)
 
           val metricsResult = locker.tryExclusively(waitTimeMillis) {
-            save(df, new Path(savePath, name))
+            save(df, new Path(savePath, table.toString))
           }
 
-          val metricsSinkResult = sinkMetrics(df, name)
+          val metricsSinkResult = sinkMetrics(df, table)
 
           for {
             _ <- metricsResult
@@ -245,7 +249,7 @@ class MetricsJob(
     combinedResult.find(_.isFailure).getOrElse(Success(None)).map(SparkJobResult(_))
   }
 
-  private def sinkMetrics(metricsDf: DataFrame, table: String): Try[Unit] = {
+  private def sinkMetrics(metricsDf: DataFrame, table: MetricsTable): Try[Unit] = {
     if (settings.comet.metrics.active) {
       settings.comet.metrics.sink match {
         case NoneSink() =>
@@ -253,7 +257,7 @@ class MetricsJob(
 
         case sink: BigQuerySink =>
           Try {
-            sinkMetricsToBigQuery(metricsDf, sink.name.getOrElse("metric"), table)
+            sinkMetricsToBigQuery(metricsDf, sink.name.getOrElse("metrics"), table.toString)
           }
 
         case JdbcSink(jdbcConnection, partitions, batchSize) =>
@@ -262,7 +266,7 @@ class MetricsJob(
               jdbcConnection,
               settings.comet,
               Right(metricsDf),
-              name,
+              table.toString,
               partitions = partitions.getOrElse(1),
               batchSize = batchSize.getOrElse(1000)
             )
@@ -321,11 +325,7 @@ class MetricsJob(
           s"unsupported write disposition ${cliConfig.writeDisposition}, only WRITE_APPEND is supported"
         )
 
-        val converter = MetricRecord.MetricRecordConverter()
-
-        val sqlableMetricsDf = metricsDf.as[MetricRecord].map(converter.toSqlCompatible)
-
-        sqlableMetricsDf.write
+        metricsDf.write
           .format("jdbc")
           .option("numPartitions", cliConfig.partitions)
           .option("batchsize", cliConfig.batchSize)
