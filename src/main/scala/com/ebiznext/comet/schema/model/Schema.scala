@@ -100,6 +100,18 @@ case class Schema(
     StructType(fields)
   }
 
+  /**
+    * This Schema as a Spark Catalyst Schema, with renamed attributes
+    *
+    * @return Spark Catalyst Schema
+    */
+  def sparkTypeRenamed(schemaHandler: SchemaHandler): StructType = {
+    val fields = attributes.map { attr =>
+      StructField(attr.rename.getOrElse(attr.name), attr.sparkType(schemaHandler), !attr.required)
+    }
+    StructType(fields)
+  }
+
   import com.google.cloud.bigquery.{Schema => BQSchema}
 
   def bqSchema(schemaHandler: SchemaHandler): BQSchema = {
