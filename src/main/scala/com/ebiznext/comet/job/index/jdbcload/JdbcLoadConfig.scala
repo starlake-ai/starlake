@@ -44,7 +44,7 @@ object JdbcLoadConfig extends CliConfig[JdbcLoadConfig] {
         rs.close() // we don't need to fetch the result, it should be empty anyway.
       } catch {
         case _: SQLException =>
-          table.createSql.split(';').foreach(stmt.executeUpdate)
+          stmt.executeUpdate(table.createSql)
           conn.commit() // some databases are transactional wrt schema updates 🥰
       } finally {
         stmt.close()
