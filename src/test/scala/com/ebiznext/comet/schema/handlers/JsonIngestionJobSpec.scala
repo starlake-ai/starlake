@@ -21,7 +21,7 @@
 package com.ebiznext.comet.schema.handlers
 
 import com.ebiznext.comet.config.Settings
-import com.ebiznext.comet.job.ingest.{AuditLog, MetricRecord, RejectedRecord}
+import com.ebiznext.comet.job.ingest._
 import com.ebiznext.comet.{JdbcChecks, TestHelper}
 import com.typesafe.config.{Config, ConfigFactory}
 import org.apache.spark.sql.functions.{col, input_file_name, regexp_extract}
@@ -30,7 +30,10 @@ abstract class JsonIngestionJobSpecBase(variant: String) extends TestHelper with
 
   def expectedAuditLogs(implicit settings: Settings): List[AuditLog]
   def expectedRejectRecords(implicit settings: Settings): List[RejectedRecord]
-  def expectedMetricRecords(implicit settings: Settings): List[MetricRecord]
+
+  def expectedMetricRecords(implicit
+    settings: Settings
+  ): (List[ContinuousMetricRecord], List[DiscreteMetricRecord], List[FrequencyMetricRecord])
 
   def configuration: Config
 
@@ -77,7 +80,8 @@ abstract class JsonIngestionJobSpecBase(variant: String) extends TestHelper with
       }
       expectingAudit("test-h2", expectedAuditLogs(settings): _*)
       expectingRejections("test-h2", expectedRejectRecords(settings): _*)
-      expectingMetrics("test-h2", expectedMetricRecords(settings): _*)
+      val (continuous, discrete, frequencies) = expectedMetricRecords(settings)
+      expectingMetrics("test-h2", continuous, discrete, frequencies)
     }
   }
 }
@@ -96,7 +100,11 @@ class JsonIngestionJobNoIndexNoMetricsNoAuditSpec
   override def expectedAuditLogs(implicit settings: Settings): List[AuditLog] = Nil
 
   override def expectedRejectRecords(implicit settings: Settings): List[RejectedRecord] = Nil
-  override def expectedMetricRecords(implicit settings: Settings): List[MetricRecord] = Nil
+
+  override def expectedMetricRecords(implicit
+    settings: Settings
+  ): (List[ContinuousMetricRecord], List[DiscreteMetricRecord], List[FrequencyMetricRecord]) =
+    (Nil, Nil, Nil)
 }
 
 class JsonIngestionJobSpecNoIndexJdbcMetricsJdbcAuditSpec
@@ -141,6 +149,12 @@ class JsonIngestionJobSpecNoIndexJdbcMetricsJdbcAuditSpec
   override def expectedRejectRecords(implicit settings: Settings): List[RejectedRecord] =
     Nil
 
-  override def expectedMetricRecords(implicit settings: Settings): List[MetricRecord] =
-    Nil /* TODO: should we not get some here? At least we go to JDBC fine, as far as the schema is concerned. */
+  override def expectedMetricRecords(implicit
+    settings: Settings
+  ): (List[ContinuousMetricRecord], List[DiscreteMetricRecord], List[FrequencyMetricRecord]) =
+    (
+      Nil,
+      Nil,
+      Nil
+    )
 }
