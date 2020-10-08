@@ -3,8 +3,9 @@ package com.ebiznext.comet
 import java.sql.{DriverManager, ResultSet, SQLException, Timestamp}
 import java.time.Instant
 
+import com.ebiznext.comet.ResultSetScala.toResultSetExtra
 import com.ebiznext.comet.config.Settings
-import com.ebiznext.comet.job.ingest.{AuditLog, MetricRecord, RejectedRecord}
+import com.ebiznext.comet.job.ingest._
 import org.scalatest.Assertion
 
 import scala.annotation.tailrec
@@ -47,7 +48,6 @@ object ResultSetScala {
 
 trait JdbcChecks {
   this: TestHelper =>
-  import ResultSetScala._
 
   val TestStart: Timestamp = Timestamp.from(Instant.now)
 
@@ -102,11 +102,39 @@ trait JdbcChecks {
 
       val standardize = implicitly[ItemStandardizer[T]].standardize _
 
-      fetched.map(standardize) should contain theSameElementsInOrderAs (expectedValues.map(
-        standardize
-      ))
+      fetched
+        .map(standardize.andThen(_.toString))
+        .asInstanceOf[Seq[T]] should contain allElementsOf (expectedValues
+        .map(
+          standardize.andThen(_.toString)
+        ))
     } finally {
       conn.close()
+    }
+  }
+
+  implicit object ContinuousMetricRecordStandardizer
+      extends ItemStandardizer[ContinuousMetricRecord] {
+
+    override def standardize(item: ContinuousMetricRecord): ContinuousMetricRecord = {
+      item.copy(cometTime = 0L, jobId = "")
+    }
+  }
+
+  implicit object DiscreteMetricRecordStandardizer extends ItemStandardizer[DiscreteMetricRecord] {
+
+    override def standardize(item: DiscreteMetricRecord): DiscreteMetricRecord = {
+      item.copy(cometTime = 0L, jobId = "")
+    }
+  }
+
+  implicit object FrequencyMetricRecordStandardizer
+      extends ItemStandardizer[FrequencyMetricRecord] {
+    private val FakeDuration = Random.nextInt(5000)
+
+    override def standardize(item: FrequencyMetricRecord): FrequencyMetricRecord = {
+      item.copy(cometTime = 0L, jobId = "")
+      // We pretend the AuditLog entry has been generated exactly at TestStart.
     }
   }
 
@@ -192,52 +220,92 @@ trait JdbcChecks {
     }
   }
 
-  protected def expectingMetrics(jdbcName: String, values: MetricRecord*)(implicit
+  protected def expectingMetrics(
+    jdbcName: String,
+    continuous: Seq[ContinuousMetricRecord],
+    discrete: Seq[DiscreteMetricRecord],
+    frequencies: Seq[FrequencyMetricRecord]
+  )(implicit
     settings: Settings
   ): Assertion = {
     val testEnd: Timestamp = Timestamp.from(Instant.now)
 
-    val converter = MetricRecord.MetricRecordConverter()
-
     expectingJdbcDataset(
       jdbcName,
       "continuous",
-      "domain" :: "schema" ::
+      "domain" :: "schema" :: "attribute" ::
       "min" :: "max" :: "mean" :: "missingValues" :: "standardDev" :: "variance" :: "sum" ::
       "skewness" :: "kurtosis" :: "percentile25" :: "median" :: "percentile75" ::
-      "countDistinct" :: "catCountFreq" :: "missingValuesDiscrete" :: "count" ::
-      "cometTime" :: "cometStage" :: Nil,
-      values.to[Vector]
+      "count" :: "cometTime" :: "cometStage" :: "cometMetric" :: "jobId" :: Nil,
+      continuous.to[Vector]
     ) { rs =>
-      val itemAsSql = MetricRecord.AsSql(
-        rs.getString("domain"),
-        rs.getString("schema"),
-        rs.getString("attribute"),
-        rs.getDoubleOption("min"),
-        rs.getDoubleOption("max"),
-        rs.getDoubleOption("mean"),
-        rs.getLongOption("missingValues"),
-        rs.getDoubleOption("standardDev"),
-        rs.getDoubleOption("variance"),
-        rs.getDoubleOption("sum"),
-        rs.getDoubleOption("skewness"),
-        rs.getDoubleOption("kurtosis"),
-        rs.getDoubleOption("percentile25"),
-        rs.getDoubleOption("median"),
-        rs.getDoubleOption("percentile75"),
-        rs.getLongOption("countDistinct"),
-        rs.getStringOption("catCountFreq"),
-        rs.getLongOption("missingValuesDiscrete"),
-        rs.getLong("count"),
-        rs.getLong("cometTime"),
-        rs.getString("cometStage")
+      ContinuousMetricRecord(
+        domain = rs.getString("domain"),
+        schema = rs.getString("schema"),
+        attribute = rs.getString("attribute"),
+        min = rs.getDoubleOption("min"),
+        max = rs.getDoubleOption("max"),
+        mean = rs.getDoubleOption("mean"),
+        missingValues = rs.getLongOption("missingValues"),
+        standardDev = rs.getDoubleOption("standardDev"),
+        variance = rs.getDoubleOption("variance"),
+        sum = rs.getDoubleOption("sum"),
+        skewness = rs.getDoubleOption("skewness"),
+        kurtosis = rs.getDoubleOption("kurtosis"),
+        percentile25 = rs.getDoubleOption("percentile25"),
+        median = rs.getDoubleOption("median"),
+        percentile75 = rs.getDoubleOption("percentile75"),
+        count = rs.getLong("count"),
+        cometTime = 0L, // Do not include time since iwe are in test mode
+        cometStage = rs.getString("cometStage"),
+        cometMetric = rs.getString("cometMetric"),
+        jobId = "" // Do not include jobId in test mode
       )
+    }
 
-      val item = converter.fromSqlCompatible(itemAsSql)
-      item
+    expectingJdbcDataset(
+      jdbcName,
+      "discrete",
+      "domain" :: "schema" :: "attribute" ::
+      "missingValuesDiscrete" :: "countDistinct" :: "count" ::
+      "cometTime" :: "cometStage" :: "cometMetric" :: "jobId" :: Nil,
+      discrete.to[Vector]
+    ) { rs =>
+      DiscreteMetricRecord(
+        domain = rs.getString("domain"),
+        schema = rs.getString("schema"),
+        attribute = rs.getString("attribute"),
+        missingValuesDiscrete = rs.getLong("missingValuesDiscrete"),
+        countDistinct = rs.getLong("countDistinct"),
+        count = rs.getLong("count"),
+        cometTime = rs.getLong("cometTime"),
+        cometStage = rs.getString("cometStage"),
+        cometMetric = rs.getString("cometMetric"),
+        jobId = rs.getString("jobId")
+      )
+    }
+
+    expectingJdbcDataset(
+      jdbcName,
+      "frequencies",
+      "domain" :: "schema" :: "attribute" ::
+      "category" :: "frequency" :: "count" ::
+      "cometTime" :: "cometStage" :: "jobId" :: Nil,
+      frequencies.to[Vector]
+    ) { rs =>
+      FrequencyMetricRecord(
+        domain = rs.getString("domain"),
+        schema = rs.getString("schema"),
+        attribute = rs.getString("attribute"),
+        category = rs.getString("category"),
+        frequency = rs.getLong("frequency"),
+        count = rs.getLong("count"),
+        cometTime = rs.getLong("cometTime"),
+        cometStage = rs.getString("cometStage"),
+        jobId = rs.getString("jobId")
+      )
     }
   }
-
 }
 
 trait ItemStandardizer[T] {

@@ -3,7 +3,6 @@ package com.ebiznext.comet.job.metrics
 import com.ebiznext.comet.config.{DatasetArea, Settings}
 import com.ebiznext.comet.job.index.bqload.{BigQueryLoadConfig, BigQuerySparkJob}
 import com.ebiznext.comet.job.index.jdbcload.JdbcLoadConfig
-import com.ebiznext.comet.job.ingest.MetricRecord
 import com.ebiznext.comet.job.metrics.Metrics.{ContinuousMetric, DiscreteMetric, MetricsDatasets}
 import com.ebiznext.comet.schema.handlers.{SchemaHandler, StorageHandler}
 import com.ebiznext.comet.schema.model.{BigQuerySink, Domain, EsSink, JdbcSink, NoneSink, Schema, Stage}
@@ -306,11 +305,6 @@ class MetricsJob(
       Utils.logFailure(res, logger)
     }
   }
-
-  private implicit val memsideEncoder: Encoder[MetricRecord] = Encoders.product[MetricRecord]
-
-  private implicit val sqlableEncoder: Encoder[MetricRecord.AsSql] =
-    Encoders.product[MetricRecord.AsSql]
 
   private def sinkMetricsToJdbc(
     cliConfig: JdbcLoadConfig
