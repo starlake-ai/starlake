@@ -69,8 +69,6 @@ class MetricsJob(
 
       session.read
         .parquet(path.toString).show(false)
-      println(path.toString)
-      dataToSave.show(false)
       val dataByVariableStored: DataFrame = session.read
         .parquet(path.toString)
         .union(dataToSave)
