@@ -164,11 +164,7 @@ trait IngestionJob extends SparkJob {
                 .option("table", bqTable)
                 .load()
               if (
-                existingBigQueryDF.schema.fields.length == session.read
-                  .parquet(acceptedPath.toString)
-                  .schema
-                  .fields
-                  .length
+                existingBigQueryDF.schema.fields.length == acceptedDfWithscriptFields.schema.fields.length
               )
                 merge(acceptedDfWithscriptFields, existingBigQueryDF, mergeOptions)
               else
