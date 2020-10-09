@@ -31,8 +31,9 @@ class JdbcLoadJob(
           case Left(path) => session.read.parquet(path)
           case Right(df)  => df
         }
-      sourceDF.write
-        .format("jdbc")
+
+      val dfw = sourceDF.write
+        .format(cliConfig.format.getOrElse("jdbc"))
         .option("numPartitions", cliConfig.partitions)
         .option("batchsize", cliConfig.batchSize)
         .option("truncate", cliConfig.writeDisposition == WriteDisposition.WRITE_TRUNCATE)
@@ -42,13 +43,13 @@ class JdbcLoadJob(
         .option("user", user)
         .option("password", password)
         .mode(SaveMode.Append)
-        .save()
+      
+      cliConfig.options.foldLeft(dfw)((w, kv) => w.option(kv._1, kv._2)).save()
       SparkJobResult(None)
     }
   }
 
-  /**
-    * Just to force any spark job to implement its entry point using within the "run" method
+  /** Just to force any spark job to implement its entry point using within the "run" method
     *
     * @return : Spark Session used for the job
     */
