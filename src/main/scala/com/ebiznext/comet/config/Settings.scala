@@ -120,6 +120,8 @@ object Settings extends StrictLogging {
     uri: String,
     user: String = "",
     password: String = "",
+    format: Option[String] = None,
+    options:Map[String, String] = Map.empty,
     engineOverride: Option[String] = None
   ) {
     def engine: String = engineOverride.getOrElse(uri.split(':')(1))
