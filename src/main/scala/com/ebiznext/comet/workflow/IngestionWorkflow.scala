@@ -34,6 +34,7 @@ import com.ebiznext.comet.schema.handlers.{LaunchHandler, SchemaHandler, Storage
 import com.ebiznext.comet.schema.model.Format.{DSV, JSON, POSITION, SIMPLE_JSON}
 import com.ebiznext.comet.schema.model._
 import com.ebiznext.comet.utils.{JobResult, SparkJobResult, Unpacker, Utils}
+import com.google.cloud.bigquery.JobInfo.{CreateDisposition, WriteDisposition}
 import com.google.cloud.bigquery.{Schema => BQSchema}
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
@@ -453,6 +454,36 @@ class IngestionWorkflow(
                     )
                   val result = new BigQuerySparkJob(config, None).run()
                   result.isSuccess
+
+
+                case Some(sink) if sink.`type` == SinkType.JDBC =>
+                  val jdbcSink = sink.asInstanceOf[JdbcSink]
+                  val partitions = jdbcSink.partitions.getOrElse(1)
+                  val batchSize = jdbcSink.batchsize.getOrElse(1000)
+                  val jdbcName = jdbcSink.connection
+                  val source = maybeDataFrame
+                    .map(df => Right(df))
+                    .getOrElse(Left(task.getTargetPath(Some(job.getArea())).toString))
+                  val (createDisposition, writeDisposition) = {
+                    Utils.getDBDisposition(task.write, hasMergeKeyDefined = false)
+                  }
+
+                    val jdbcConfig = JdbcLoadConfig.fromComet(
+                      jdbcName,
+                      settings.comet,
+                      source,
+                      outputTable = task.dataset,
+                      createDisposition = CreateDisposition.valueOf(createDisposition),
+                      writeDisposition = WriteDisposition.valueOf(writeDisposition),
+                      partitions = partitions,
+                      batchSize = batchSize
+                    )
+
+                    val res = new JdbcLoadJob(jdbcConfig).run()
+                    res match {
+                      case Success(_) => ;
+                      case Failure(e) => logger.error("JDBCLoad Failed", e)
+                    }
                 case _ =>
                   // TODO Sinking not supported
                   logger.error(s"Sinking from Spark to $sink not yet supported.")
