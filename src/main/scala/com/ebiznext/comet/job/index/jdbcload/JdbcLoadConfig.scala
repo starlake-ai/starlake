@@ -18,6 +18,8 @@ case class JdbcLoadConfig(
   url: String = "",
   user: String = "",
   password: String = "",
+  format: Option[String] = None,
+  options: Map[String, String] = Map.empty,
   partitions: Int = 1,
   batchSize: Int = 1000,
   rls: Option[List[RowLevelSecurity]] = None
@@ -84,7 +86,9 @@ object JdbcLoadConfig extends CliConfig[JdbcLoadConfig] {
       jdbcEngine.driver,
       jdbcOptions.uri,
       jdbcOptions.user,
-      jdbcOptions.password
+      jdbcOptions.password,
+      jdbcOptions.format,
+      jdbcOptions.options
     )
   }
 
