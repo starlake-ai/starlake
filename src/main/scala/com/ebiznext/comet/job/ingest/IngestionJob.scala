@@ -27,6 +27,7 @@ import scala.language.existentials
 import scala.util.{Failure, Success, Try}
 
 /**
+  *
   */
 trait IngestionJob extends SparkJob {
   def domain: Domain
@@ -147,14 +148,16 @@ trait IngestionJob extends SparkJob {
 
     logger.info("Accepted Dataframe schema right after adding computed columns")
     acceptedDfWithScriptFields.printSchema()
+    acceptedDfWithScriptFields.show(10)
 
     val withScriptFieldsDF =
       session.createDataFrame(
         acceptedDfWithScriptFields.rdd,
-        schema.sparkTypeRenamed(schemaHandler)
+        schema.sparkTypeWithRenamedFields(schemaHandler)
       )
     logger.info("Accepted Dataframe schema before optional merge")
     withScriptFieldsDF.printSchema()
+    withScriptFieldsDF.show(10)
 
     val mergedDF = schema.merge
       .map { mergeOptions =>
@@ -163,14 +166,16 @@ trait IngestionJob extends SparkJob {
           val table = BigQuerySparkJob.getTable(session, domain.name, schema.name)
           table
             .map { table =>
-              if (table.getDefinition
-                    .asInstanceOf[StandardTableDefinition]
-                    .getSchema
-                    .getFields
-                    .size() == withScriptFieldsDF.schema.fields.length) {
+              if (
+                table.getDefinition
+                  .asInstanceOf[StandardTableDefinition]
+                  .getSchema
+                  .getFields
+                  .size() == withScriptFieldsDF.schema.fields.length
+              ) {
                 val bqTable = s"${domain.name}.${schema.name}"
                 val existingBigQueryDF = session.read
-                // We provided the acceptedDF schema here since BQ lose the required / nullable information of the schema
+                  // We provided the acceptedDF schema here since BQ lose the required / nullable information of the schema
                   .schema(withScriptFieldsDF.schema)
                   .format("com.google.cloud.spark.bigquery")
                   .option("table", bqTable)
@@ -187,11 +192,13 @@ trait IngestionJob extends SparkJob {
           // We provide the accepted DF schema since partition columns types are infered when parquet is loaded and might not match with the DF being ingested
           val existingDF =
             session.read.schema(withScriptFieldsDF.schema).parquet(acceptedPath.toString)
-          if (existingDF.schema.fields.length == session.read
-                .parquet(acceptedPath.toString)
-                .schema
-                .fields
-                .length)
+          if (
+            existingDF.schema.fields.length == session.read
+              .parquet(acceptedPath.toString)
+              .schema
+              .fields
+              .length
+          )
             merge(withScriptFieldsDF, existingDF, mergeOptions)
           else
             throw new RuntimeException(
@@ -412,7 +419,9 @@ trait IngestionJob extends SparkJob {
           val minFraction =
             if (fraction * count >= 1) // Make sure we get at least on item in teh dataset
               fraction
-            else if (count > 0) // We make sure we get at least 1 item which is 2 because of double imprecision for huge numbers.
+            else if (
+              count > 0
+            ) // We make sure we get at least 1 item which is 2 because of double imprecision for huge numbers.
               2 / count
             else
               0
@@ -433,9 +442,11 @@ trait IngestionJob extends SparkJob {
 
       // No need to apply partition on rejected dF
       val partitionedDFWriter =
-        if (area == StorageArea.rejected && !metadata
-              .getPartitionAttributes()
-              .forall(Metadata.CometPartitionColumns.contains(_)))
+        if (
+          area == StorageArea.rejected && !metadata
+            .getPartitionAttributes()
+            .forall(Metadata.CometPartitionColumns.contains(_))
+        )
           partitionedDatasetWriter(dataset.coalesce(nbPartitions), Nil)
         else
           partitionedDatasetWriter(
@@ -505,8 +516,7 @@ trait IngestionJob extends SparkJob {
     }
   }
 
-  /**
-    * Main entry point as required by the Spark Job interface
+  /** Main entry point as required by the Spark Job interface
     *
     * @return : Spark Session used for the job
     */
