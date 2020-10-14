@@ -27,6 +27,7 @@ import scala.language.existentials
 import scala.util.{Failure, Success, Try}
 
 /**
+  *
   */
 trait IngestionJob extends SparkJob {
   def domain: Domain
@@ -119,35 +120,47 @@ trait IngestionJob extends SparkJob {
     val writeMode = getWriteMode()
     val acceptedPath = new Path(DatasetArea.accepted(domain.name), schema.name)
 
-    val acceptedDfWithscriptFields = (if (schema.attributes.exists(_.script.isDefined)) {
-
-                                        schema.attributes.foldRight(acceptedDF) {
+    val acceptedDfWithScriptFields = (if (schema.attributes.exists(_.script.isDefined)) {
+                                        schema.attributes.foldLeft(acceptedDF) {
                                           case (
-                                              Attribute(
-                                                name,
-                                                _,
-                                                _,
-                                                _,
-                                                _,
-                                                _,
-                                                _,
-                                                _,
-                                                _,
-                                                _,
-                                                _,
-                                                _,
-                                                _,
-                                                Some(script)
-                                              ),
-                                              df
+                                                df,
+                                                Attribute(
+                                                  name,
+                                                  _,
+                                                  _,
+                                                  _,
+                                                  _,
+                                                  _,
+                                                  _,
+                                                  _,
+                                                  _,
+                                                  _,
+                                                  _,
+                                                  _,
+                                                  _,
+                                                  Some(script)
+                                                )
                                               ) =>
-                                            df.T(
-                                              s"SELECT *, $script as $name FROM __THIS__"
-                                            )
-                                          case (_, df) => df
+                                            df.T(s"SELECT *, $script as $name FROM __THIS__")
+                                          case (df, _) => df
                                         }
-
                                       } else acceptedDF).drop(Settings.cometInputFileNameColumn)
+
+    logger.whenDebugEnabled {
+      logger.debug("Accepted Dataframe schema right after adding computed columns")
+      acceptedDfWithScriptFields.printSchema()
+    }
+
+    val withScriptFieldsDF =
+      session.createDataFrame(
+        acceptedDfWithScriptFields.rdd,
+        schema.sparkTypeWithRenamedFields(schemaHandler)
+      )
+
+    logger.whenDebugEnabled {
+      logger.debug("Accepted Dataframe schema before optional merge")
+      withScriptFieldsDF.printSchema()
+    }
 
     val mergedDF = schema.merge
       .map { mergeOptions =>
@@ -156,45 +169,49 @@ trait IngestionJob extends SparkJob {
           val table = BigQuerySparkJob.getTable(session, domain.name, schema.name)
           table
             .map { table =>
-              if (table.getDefinition
-                    .asInstanceOf[StandardTableDefinition]
-                    .getSchema
-                    .getFields
-                    .size() == acceptedDfWithscriptFields.schema.fields.length) {
+              if (
+                table.getDefinition
+                  .asInstanceOf[StandardTableDefinition]
+                  .getSchema
+                  .getFields
+                  .size() == withScriptFieldsDF.schema.fields.length
+              ) {
                 val bqTable = s"${domain.name}.${schema.name}"
                 val existingBigQueryDF = session.read
-                // We provided the acceptedDF schema here since BQ lose the required / nullable information of the schema
-                  .schema(acceptedDfWithscriptFields.schema)
+                  // We provided the acceptedDF schema here since BQ lose the required / nullable information of the schema
+                  .schema(withScriptFieldsDF.schema)
                   .format("com.google.cloud.spark.bigquery")
                   .option("table", bqTable)
                   .load()
-                merge(acceptedDfWithscriptFields, existingBigQueryDF, mergeOptions)
+                merge(withScriptFieldsDF, existingBigQueryDF, mergeOptions)
               } else
                 throw new RuntimeException(
                   "Input Dataset and existing HDFS dataset do not have the same number of columns. Check for changes in the dataset schema ?"
                 )
             }
-            .getOrElse(acceptedDfWithscriptFields)
+            .getOrElse(withScriptFieldsDF)
         } else if (storageHandler.exists(new Path(acceptedPath, "_SUCCESS"))) {
           // Otherwise load from accepted area
           // We provide the accepted DF schema since partition columns types are infered when parquet is loaded and might not match with the DF being ingested
           val existingDF =
-            session.read.schema(acceptedDfWithscriptFields.schema).parquet(acceptedPath.toString)
-          if (existingDF.schema.fields.length == session.read
-                .parquet(acceptedPath.toString)
-                .schema
-                .fields
-                .length)
-            merge(acceptedDfWithscriptFields, existingDF, mergeOptions)
+            session.read.schema(withScriptFieldsDF.schema).parquet(acceptedPath.toString)
+          if (
+            existingDF.schema.fields.length == session.read
+              .parquet(acceptedPath.toString)
+              .schema
+              .fields
+              .length
+          )
+            merge(withScriptFieldsDF, existingDF, mergeOptions)
           else
             throw new RuntimeException(
               "Input Dataset and existing HDFS dataset do not have the same number of columns. Check for changes in the dataset schema ?"
             )
-          merge(acceptedDfWithscriptFields, existingDF, mergeOptions)
+          merge(withScriptFieldsDF, existingDF, mergeOptions)
         } else
-          acceptedDfWithscriptFields
+          withScriptFieldsDF
       }
-      .getOrElse(acceptedDfWithscriptFields)
+      .getOrElse(withScriptFieldsDF)
     logger.info("Merged Dataframe Schema")
     mergedDF.printSchema()
     val savedDataset =
@@ -405,7 +422,9 @@ trait IngestionJob extends SparkJob {
           val minFraction =
             if (fraction * count >= 1) // Make sure we get at least on item in teh dataset
               fraction
-            else if (count > 0) // We make sure we get at least 1 item which is 2 because of double imprecision for huge numbers.
+            else if (
+              count > 0
+            ) // We make sure we get at least 1 item which is 2 because of double imprecision for huge numbers.
               2 / count
             else
               0
@@ -426,9 +445,11 @@ trait IngestionJob extends SparkJob {
 
       // No need to apply partition on rejected dF
       val partitionedDFWriter =
-        if (area == StorageArea.rejected && !metadata
-              .getPartitionAttributes()
-              .forall(Metadata.CometPartitionColumns.contains(_)))
+        if (
+          area == StorageArea.rejected && !metadata
+            .getPartitionAttributes()
+            .forall(Metadata.CometPartitionColumns.contains(_))
+        )
           partitionedDatasetWriter(dataset.coalesce(nbPartitions), Nil)
         else
           partitionedDatasetWriter(
@@ -498,8 +519,7 @@ trait IngestionJob extends SparkJob {
     }
   }
 
-  /**
-    * Main entry point as required by the Spark Job interface
+  /** Main entry point as required by the Spark Job interface
     *
     * @return : Spark Session used for the job
     */
