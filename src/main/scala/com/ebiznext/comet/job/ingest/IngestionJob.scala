@@ -27,7 +27,6 @@ import scala.language.existentials
 import scala.util.{Failure, Success, Try}
 
 /**
-  *
   */
 trait IngestionJob extends SparkJob {
   def domain: Domain
@@ -43,20 +42,17 @@ trait IngestionJob extends SparkJob {
 
   val now: Timestamp = java.sql.Timestamp.from(Instant.now)
 
-  /**
-    * Merged metadata
+  /** Merged metadata
     */
   lazy val metadata: Metadata = schema.mergedMetadata(domain.metadata)
 
-  /**
-    * Dataset loading strategy (JSON / CSV / ...)
+  /** Dataset loading strategy (JSON / CSV / ...)
     *
     * @return Spark Dataframe loaded using metadata options
     */
   def loadDataSet(): Try[DataFrame]
 
-  /**
-    * ingestion algorithm
+  /** ingestion algorithm
     *
     * @param dataset
     */
@@ -101,8 +97,7 @@ trait IngestionJob extends SparkJob {
   private def csvOutput(): Boolean =
     settings.comet.csvOutput && !settings.comet.grouped && metadata.partition.isEmpty && path.nonEmpty
 
-  /**
-    * Merge new and existing dataset if required
+  /** Merge new and existing dataset if required
     * Save using overwrite / Append mode
     *
     * @param acceptedDF
@@ -319,8 +314,7 @@ trait IngestionJob extends SparkJob {
     }
   }
 
-  /**
-    * Merge incoming and existing dataframes using merge options
+  /** Merge incoming and existing dataframes using merge options
     *
     * @param inputDF
     * @param existingDF
@@ -374,8 +368,7 @@ trait IngestionJob extends SparkJob {
       orderedExisting.except(toDeleteDF).union(updatesDF)
   }
 
-  /**
-    * Save typed dataset in parquet. If hive support is active, also register it as a Hive Table and if analyze is active, also compute basic statistics
+  /** Save typed dataset in parquet. If hive support is active, also register it as a Hive Table and if analyze is active, also compute basic statistics
     *
     * @param dataset    : dataset to save
     * @param targetPath : absolute path

@@ -201,9 +201,7 @@ class BigQuerySparkJob(
         s"BigQuery Saved to ${table.getTableId} now contains ${stdTableDefinitionAfter.getNumRows} rows"
       )
 
-      /**
-        * !!! We will use TABLE ACCESS CONTROLS as workaround, until RLS option is released !!!
-        *
+      /** !!! We will use TABLE ACCESS CONTROLS as workaround, until RLS option is released !!!
         */
 
       //      prepareRLS().foreach { rlsStatement =>
@@ -232,12 +230,11 @@ class BigQuerySparkJob(
   private def setTablePolicy(table: Table) = {
     cliConfig.rls match {
       case Some(h :: Nil) => applyTableIamPolicy(table.getTableId, h)
-      case _            => logger.info(s"Table ACL is not set on this Table: $tableId")
+      case _              => logger.info(s"Table ACL is not set on this Table: $tableId")
     }
   }
 
-  /**
-    * Just to force any spark job to implement its entry point within the "run" method
+  /** Just to force any spark job to implement its entry point within the "run" method
     *
     * @return : Spark Session used for the job
     */
