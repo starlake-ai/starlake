@@ -16,8 +16,7 @@ import org.apache.spark.sql.types._
 
 class MetricsJobSpec extends TestHelper with JdbcChecks {
 
-  /**
-    * Inputs for the test :  Header (list of the variable) and Metrics (Metrics to use)
+  /** Inputs for the test :  Header (list of the variable) and Metrics (Metrics to use)
     */
 
   val listContnuousAttributes: List[String] =
@@ -26,8 +25,7 @@ class MetricsJobSpec extends TestHelper with JdbcChecks {
 
   val partialContinuousMetric: List[ContinuousMetric] = List(Min, Max)
 
-  /**
-    * schema of metrics
+  /** schema of metrics
     */
   val expectedDiscreteMetricsSchema = StructType(
     Array(
@@ -83,8 +81,7 @@ class MetricsJobSpec extends TestHelper with JdbcChecks {
     )
   )
 
-  /**
-    * Read the data .csv
+  /** Read the data .csv
     */
   lazy val dataInitialUsed = {
 
@@ -95,8 +92,7 @@ class MetricsJobSpec extends TestHelper with JdbcChecks {
       .option("inferSchema", "true")
       .load("./src/test/resources/iris.csv")
 
-    /**
-      * Descriptive statistics of the dataframe for Quantitative variable:
+    /** Descriptive statistics of the dataframe for Quantitative variable:
       */
     value.printSchema()
     value
@@ -114,8 +110,7 @@ class MetricsJobSpec extends TestHelper with JdbcChecks {
     partialContinuousMetric
   )
 
-  /**
-    * 1- test : Test on the mean of the dimension
+  /** 1- test : Test on the mean of the dimension
     */
   lazy val dimensionTable = {
     val dimensionTable =
@@ -139,8 +134,7 @@ class MetricsJobSpec extends TestHelper with JdbcChecks {
     assert(dimensionTable - dimensionDataframe.getOrElse(0) == 0)
   }
 
-  /**
-    * 2- test : Test for all values of the Mean
+  /** 2- test : Test for all values of the Mean
     */
   lazy val meanList: List[Double] =
     listContnuousAttributes.map(name => dataInitialUsed.select(avg(name)).first().getDouble(0))
@@ -153,8 +147,7 @@ class MetricsJobSpec extends TestHelper with JdbcChecks {
     assert(meanList.zip(meanListTable).map(x => x._1 - x._2).sum <= 0.00001)
   }
 
-  /**
-    * 3- test : Test for all values of the Min
+  /** 3- test : Test for all values of the Min
     */
   lazy val minList: List[Double] =
     listContnuousAttributes.map(name => dataInitialUsed.select(min(name)).first().getDouble(0))
@@ -167,8 +160,7 @@ class MetricsJobSpec extends TestHelper with JdbcChecks {
     assert(minList.zip(minListTable).map(x => x._1 - x._2).sum <= 0.00001)
   }
 
-  /**
-    * 4- test : Test for all values of the Max
+  /** 4- test : Test for all values of the Max
     */
   lazy val maxList: List[Double] =
     listContnuousAttributes.map(name => dataInitialUsed.select(max(name)).first().getDouble(0))
@@ -181,8 +173,7 @@ class MetricsJobSpec extends TestHelper with JdbcChecks {
     assert(maxList.zip(maxListTable).map(x => x._1 - x._2).sum <= 0.00001)
   }
 
-  /**
-    * 5- test : Test for all values of the standardDev
+  /** 5- test : Test for all values of the standardDev
     */
   lazy val stddevList: List[Double] =
     listContnuousAttributes.map(name => dataInitialUsed.select(stddev(name)).first().getDouble(0))
@@ -195,8 +186,7 @@ class MetricsJobSpec extends TestHelper with JdbcChecks {
     assert(stddevList.zip(stddevListTable).map(x => x._1 - x._2).sum <= 0.001)
   }
 
-  /**
-    * 6- test : Test for all values of the Skewness
+  /** 6- test : Test for all values of the Skewness
     */
   lazy val skewnessList: List[Double] =
     listContnuousAttributes.map(name => dataInitialUsed.select(skewness(name)).first().getDouble(0))
@@ -209,8 +199,7 @@ class MetricsJobSpec extends TestHelper with JdbcChecks {
     assert(skewnessList.zip(skewnessListTable).map(x => x._1 - x._2).sum <= 0.001)
   }
 
-  /**
-    * 7- test : Test for all values of the kurtosis
+  /** 7- test : Test for all values of the kurtosis
     */
   lazy val kurtosisList: List[Double] =
     listContnuousAttributes.map(name => dataInitialUsed.select(kurtosis(name)).first().getDouble(0))

@@ -30,8 +30,7 @@ import org.apache.spark.sql.types._
 import scala.collection.mutable
 import scala.util.{Failure, Success, Try}
 
-/**
-  * A field in the schema. For struct fields, the field "attributes" contains all sub attributes
+/** A field in the schema. For struct fields, the field "attributes" contains all sub attributes
   *
   * @param name       : Attribute name as defined in the source dataset and as received in the file
   * @param `type`     : semantic type of the attribute.
@@ -69,8 +68,7 @@ case class Attribute(
     // we pretend the "settings" field does not exist
     s"Attribute(${name},${`type`},${array},${required},${privacy},${comment},${rename},${metricType},${attributes},${position},${default},${tags})"
 
-  /**
-    * Check attribute validity
+  /** Check attribute validity
     * An attribute is valid if :
     *     - Its name is a valid identifier
     *     - its type is defined
@@ -138,8 +136,7 @@ case class Attribute(
       .find(_.name == `type`)
   }
 
-  /**
-    * Spark Type if this attribute is a primitive type of array of primitive type
+  /** Spark Type if this attribute is a primitive type of array of primitive type
     *
     * @return Primitive type if attribute is a leaf node or array of primitive type, None otherwise
     */
@@ -155,8 +152,7 @@ case class Attribute(
       .getOrElse(PrimitiveType.struct.sparkType)
   }
 
-  /**
-    * Go get recursively the Spark tree type of this object
+  /** Go get recursively the Spark tree type of this object
     *
     * @return Spark type of this attribute
     */
@@ -230,8 +226,7 @@ case class Attribute(
     }
   }
 
-  /**
-    * @return renamed column if defined, source name otherwise
+  /** @return renamed column if defined, source name otherwise
     */
   @JsonIgnore
   def getFinalName(): String = rename.getOrElse(name)
