@@ -146,18 +146,21 @@ trait IngestionJob extends SparkJob {
                                         }
                                       } else acceptedDF).drop(Settings.cometInputFileNameColumn)
 
-    logger.info("Accepted Dataframe schema right after adding computed columns")
-    acceptedDfWithScriptFields.printSchema()
-    acceptedDfWithScriptFields.show(10)
+    logger.whenDebugEnabled {
+      logger.debug("Accepted Dataframe schema right after adding computed columns")
+      acceptedDfWithScriptFields.printSchema()
+    }
 
     val withScriptFieldsDF =
       session.createDataFrame(
         acceptedDfWithScriptFields.rdd,
         schema.sparkTypeWithRenamedFields(schemaHandler)
       )
-    logger.info("Accepted Dataframe schema before optional merge")
-    withScriptFieldsDF.printSchema()
-    withScriptFieldsDF.show(10)
+
+    logger.whenDebugEnabled {
+      logger.debug("Accepted Dataframe schema before optional merge")
+      withScriptFieldsDF.printSchema()
+    }
 
     val mergedDF = schema.merge
       .map { mergeOptions =>
