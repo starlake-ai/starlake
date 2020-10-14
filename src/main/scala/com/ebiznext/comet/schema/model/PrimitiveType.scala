@@ -36,8 +36,7 @@ import org.apache.spark.sql.types._
 
 import scala.util.{Failure, Success, Try}
 
-/**
-  * Spark supported primitive types. These are the only valid raw types.
+/** Spark supported primitive types. These are the only valid raw types.
   * Dataframes columns are converted to these types before the dataset is ingested
   *
   * @param value : string, long, double, boolean, byte, date, timestamp, decimal with (precision=30, scale=15)

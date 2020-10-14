@@ -32,8 +32,7 @@ import org.apache.spark.sql.types.{StringType, StructField, StructType}
 
 import scala.util.{Failure, Success, Try}
 
-/**
-  * Main class to ingest delimiter separated values file
+/** Main class to ingest delimiter separated values file
   *
   * @param domain         : Input Dataset Domain
   * @param schema         : Input Dataset Schema
@@ -51,8 +50,7 @@ class PositionIngestionJob(
 )(implicit settings: Settings)
     extends DsvIngestionJob(domain, schema, types, path, storageHandler, schemaHandler) {
 
-  /**
-    * Load dataset using spark csv reader and all metadata. Does not infer schema.
+  /** Load dataset using spark csv reader and all metadata. Does not infer schema.
     * columns not defined in the schema are dropped fro the dataset (require datsets with a header)
     *
     * @return Spark DataFrame where each row holds a single string
@@ -85,8 +83,7 @@ class PositionIngestionJob(
 
   }
 
-  /**
-    * Apply the schema to the dataset. This is where all the magic happen
+  /** Apply the schema to the dataset. This is where all the magic happen
     * Valid records are stored in the accepted path / table and invalid records in the rejected path / table
     *
     * @param input : Spark Dataset
@@ -128,8 +125,7 @@ class PositionIngestionJob(
 
 }
 
-/**
-  * The Spark task that run on each worker
+/** The Spark task that run on each worker
   */
 object PositionIngestionUtil {
 
