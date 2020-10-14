@@ -37,13 +37,11 @@ import org.apache.http.util.EntityUtils
 
 import scala.util.{Failure, Success, Try}
 
-/**
-  * Interface required for any cron job launcher
+/** Interface required for any cron job launcher
   */
 trait LaunchHandler {
 
-  /**
-    * Submit to the cron manager a single file for ingestion
+  /** Submit to the cron manager a single file for ingestion
     *
     * @param domain : Domain to which belong this dataset
     * @param schema : Schema of the dataset
@@ -55,8 +53,7 @@ trait LaunchHandler {
   ): Boolean =
     ingest(workflow, domain, schema, path :: Nil)
 
-  /**
-    * Submit to the cron manager multiple files for ingestion.
+  /** Submit to the cron manager multiple files for ingestion.
     * All the files should have the schema schema and belong to the same domain.
     *
     * @param domain : Domain to which belong this dataset
@@ -71,8 +68,7 @@ trait LaunchHandler {
     paths: List[Path]
   )(implicit settings: Settings): Boolean
 
-  /**
-    * Index into elasticsearch
+  /** Index into elasticsearch
     *
     * @param config
     */
@@ -80,8 +76,7 @@ trait LaunchHandler {
     settings: Settings
   ): Boolean
 
-  /**
-    * Load to BigQuery
+  /** Load to BigQuery
     *
     * @param config
     */
@@ -89,8 +84,7 @@ trait LaunchHandler {
     settings: Settings
   ): Boolean
 
-  /**
-    * Load to JDBC Database
+  /** Load to JDBC Database
     *
     * @param config
     */
@@ -99,14 +93,12 @@ trait LaunchHandler {
   ): Boolean
 }
 
-/**
-  * Simple Launcher will directly invoke the ingestion method wityhout using a cron manager.
+/** Simple Launcher will directly invoke the ingestion method wityhout using a cron manager.
   * This is userfull for testing purpose
   */
 class SimpleLauncher extends LaunchHandler with StrictLogging {
 
-  /**
-    * call directly the main assembly with the "ingest" parameter
+  /** call directly the main assembly with the "ingest" parameter
     *
     * @param domain : Domain to which belong this dataset
     * @param schema : Schema of the dataset
@@ -123,8 +115,7 @@ class SimpleLauncher extends LaunchHandler with StrictLogging {
     workflow.ingest(LoadConfig(domain.name, schema.name, paths))
   }
 
-  /**
-    * Index into elasticsearch
+  /** Index into elasticsearch
     *
     * @param config
     */
@@ -137,8 +128,7 @@ class SimpleLauncher extends LaunchHandler with StrictLogging {
     result.isSuccess
   }
 
-  /**
-    * Load to BigQuery
+  /** Load to BigQuery
     *
     * @param config
     */
@@ -151,8 +141,7 @@ class SimpleLauncher extends LaunchHandler with StrictLogging {
 
   }
 
-  /**
-    * Load to JDBC
+  /** Load to JDBC
     *
     * @param config
     */
@@ -166,8 +155,7 @@ class SimpleLauncher extends LaunchHandler with StrictLogging {
   }
 }
 
-/**
-  * Airflow Launcher will submit a request for ingestion to Airflow
+/** Airflow Launcher will submit a request for ingestion to Airflow
   * using the REST API. The requested DAG must exist in Airflow first.
   */
 class AirflowLauncher extends LaunchHandler with StrictLogging {
@@ -199,8 +187,7 @@ class AirflowLauncher extends LaunchHandler with StrictLogging {
 
   }
 
-  /**
-    * Request the execution of the "comet-ingest" DAG in Airflow
+  /** Request the execution of the "comet-ingest" DAG in Airflow
     *
     * @param domain : Domain to which belong this dataset
     * @param schema : Schema of the dataset
@@ -224,8 +211,7 @@ class AirflowLauncher extends LaunchHandler with StrictLogging {
     post(url, command)
   }
 
-  /**
-    * Index into elasticsearch
+  /** Index into elasticsearch
     *
     * @param config
     */
@@ -251,8 +237,7 @@ class AirflowLauncher extends LaunchHandler with StrictLogging {
     post(url, command)
   }
 
-  /**
-    * Load to BigQuery
+  /** Load to BigQuery
     *
     * @param config
     */
@@ -274,8 +259,7 @@ class AirflowLauncher extends LaunchHandler with StrictLogging {
     post(url, command)
   }
 
-  /**
-    * Load to JDBC sink
+  /** Load to JDBC sink
     *
     * @param config
     */

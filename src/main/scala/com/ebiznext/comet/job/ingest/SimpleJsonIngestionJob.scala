@@ -29,8 +29,7 @@ import org.apache.spark.sql.functions.lit
 
 import scala.util.{Failure, Success, Try}
 
-/**
-  * Parse a simple one level json file. Complex types such as arrays & maps are not supported.
+/** Parse a simple one level json file. Complex types such as arrays & maps are not supported.
   * Use JsonIngestionJob instead.
   * This class is for simple json only that makes it way faster.
   *

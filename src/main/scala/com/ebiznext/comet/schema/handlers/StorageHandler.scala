@@ -33,8 +33,7 @@ import org.apache.spark.sql.execution.streaming.FileStreamSource.Timestamp
 import scala.concurrent.duration.FiniteDuration
 import scala.util.Try
 
-/**
-  * Interface required by any filesystem manager
+/** Interface required by any filesystem manager
   */
 trait StorageHandler extends StrictLogging {
 
@@ -79,8 +78,7 @@ trait StorageHandler extends StrictLogging {
 
 }
 
-/**
-  * HDFS Filesystem Handler
+/** HDFS Filesystem Handler
   */
 class HdfsStorageHandler(fileSystem: Option[String])(implicit
   settings: Settings
@@ -115,8 +113,7 @@ class HdfsStorageHandler(fileSystem: Option[String])(implicit
   logger.info("fs.getHomeDirectory=" + fs.getHomeDirectory)
   logger.info("fs.getUri=" + fs.getUri)
 
-  /**
-    * Gets the outputstream given a path
+  /** Gets the outputstream given a path
     *
     * @param path : path
     * @return FSDataOutputStream
@@ -127,8 +124,7 @@ class HdfsStorageHandler(fileSystem: Option[String])(implicit
     outputStream
   }
 
-  /**
-    * Read a UTF-8 text file into a string used to load yml configuration files
+  /** Read a UTF-8 text file into a string used to load yml configuration files
     *
     * @param path : Absolute file path
     * @return file content as a string
@@ -140,8 +136,7 @@ class HdfsStorageHandler(fileSystem: Option[String])(implicit
     content
   }
 
-  /**
-    * Write a string to a UTF-8 text file. Used for yml configuration files.
+  /** Write a string to a UTF-8 text file. Used for yml configuration files.
     *
     * @param data file content as a string
     * @param path : Absolute file path
@@ -152,8 +147,7 @@ class HdfsStorageHandler(fileSystem: Option[String])(implicit
     os.close()
   }
 
-  /**
-    * Write bytes to binary file. Used for zip / gzip input test files.
+  /** Write bytes to binary file. Used for zip / gzip input test files.
     *
     * @param data file content as a string
     * @param path : Absolute file path
@@ -167,8 +161,7 @@ class HdfsStorageHandler(fileSystem: Option[String])(implicit
   def listDirectories(path: Path): List[Path] =
     fs.listStatus(path).filter(_.isDirectory).map(_.getPath).toList
 
-  /**
-    * List all files in folder
+  /** List all files in folder
     *
     * @param path      Absolute folder path
     * @param extension : Files should end with this string. To list all files, simply provide an empty string
@@ -198,8 +191,7 @@ class HdfsStorageHandler(fileSystem: Option[String])(implicit
     }
   }
 
-  /**
-    * Move file
+  /** Move file
     *
     * @param path source path (file or folder)
     * @param dest destination path (file or folder)
@@ -211,8 +203,7 @@ class HdfsStorageHandler(fileSystem: Option[String])(implicit
     fs.rename(path, dest)
   }
 
-  /**
-    * delete file (skip trash)
+  /** delete file (skip trash)
     *
     * @param path : Absolute path of file to delete
     */
@@ -221,8 +212,7 @@ class HdfsStorageHandler(fileSystem: Option[String])(implicit
     fs.delete(path, true)
   }
 
-  /**
-    * Create folder if it does not exsit including any intermediary non existent folder
+  /** Create folder if it does not exsit including any intermediary non existent folder
     *
     * @param path Absolute path of folder to create
     */
@@ -231,8 +221,7 @@ class HdfsStorageHandler(fileSystem: Option[String])(implicit
     fs.mkdirs(path)
   }
 
-  /**
-    * Copy file from local filesystem to target file system
+  /** Copy file from local filesystem to target file system
     *
     * @param source Local file path
     * @param dest   destination file path
@@ -242,8 +231,7 @@ class HdfsStorageHandler(fileSystem: Option[String])(implicit
     fs.copyFromLocalFile(source, dest)
   }
 
-  /**
-    * Move file from local filesystem to target file system
+  /** Move file from local filesystem to target file system
     * If source FS Scheme is not "file" then issue a regular move
     * @param source Local file path
     * @param dest   destination file path

@@ -41,8 +41,7 @@ import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
 
-/**
-  * The root of all things.
+/** The root of all things.
   *  - importing from landing
   *  - submitting requests to the cron manager
   *  - ingesting the datasets
@@ -73,8 +72,7 @@ object Main extends StrictLogging {
     // scalastyle:on println
   }
 
-  /**
-    * @param args depends on the action required
+  /** @param args depends on the action required
     *             to run a job:
     *   - call "comet job jobname" where jobname is the name of the job
     *             as defined in one of the definition files present in the metadata/jobs folder.
