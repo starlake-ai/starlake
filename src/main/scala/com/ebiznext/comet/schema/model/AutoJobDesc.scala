@@ -24,8 +24,7 @@ import com.ebiznext.comet.config.{DatasetArea, Settings, StorageArea}
 import com.fasterxml.jackson.annotation.JsonIgnore
 import org.apache.hadoop.fs.Path
 
-/**
-  * Task executed in the context of a job. Each task is executed in its own session.
+/** Task executed in the context of a job. Each task is executed in its own session.
   *
   * @param sql     Main SQL request to exexute (do not forget to prefix table names with the database name to avoid conflicts)
   * @param domain  Output domain in output Area (Will be the Database name in Hive or Dataset in BigQuery)
@@ -54,8 +53,7 @@ case class AutoTaskDesc(
   @JsonIgnore
   def getPartitions(): List[String] = partition.getOrElse(Nil)
 
-  /**
-    * Return a Path only if a storage area s defined
+  /** Return a Path only if a storage area s defined
     * @param defaultArea
     * @param settings
     * @return
@@ -73,8 +71,7 @@ case class AutoTaskDesc(
   }
 }
 
-/**
-  * A job is a set of transform tasks executed using the specified engine.
+/** A job is a set of transform tasks executed using the specified engine.
   *
   * @param name: Job logical name
   * @param tasks List of transform tasks to execute

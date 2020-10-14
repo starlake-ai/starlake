@@ -28,8 +28,7 @@ import org.apache.hadoop.fs.Path
 
 import scala.collection.mutable
 
-/**
-  * Let's say you are willing to import customers and orders from your Sales system.
+/** Let's say you are willing to import customers and orders from your Sales system.
   * Sales is therefore the domain and customer & order are your datasets.
   * In a DBMS, A Domain would be implemented by a DBMS  schema and a dataset by a DBMS table.
   * In BigQuery, The domain name would be the Big Query dataset name and the dataset would be implemented by a Big Query table.
@@ -65,8 +64,7 @@ case class Domain(
   ack: Option[String] = None
 ) {
 
-  /**
-    * Get schema from filename
+  /** Get schema from filename
     * Schema are matched against filenames using filename patterns.
     * The schema pattern that matches the filename is returned
     *
@@ -77,8 +75,7 @@ case class Domain(
     schemas.find(_.pattern.matcher(filename).matches())
   }
 
-  /**
-    * Load Elasticsearch template file if it exist
+  /** Load Elasticsearch template file if it exist
     *
     * @param schema : Schema name to map to an elasticsearch index
     * @return ES template with optionally the __PROPERTIES__ string
@@ -95,8 +92,7 @@ case class Domain(
       None
   }
 
-  /**
-    * List of file extensions to scan for in the domain directory
+  /** List of file extensions to scan for in the domain directory
     *
     * @return the list of extensions of teh default ones : ".json", ".csv", ".dsv", ".psv"
     */
@@ -104,15 +100,13 @@ case class Domain(
     extensions.getOrElse(List("json", "csv", "dsv", "psv")).map("." + _)
   }
 
-  /**
-    * Ack file should be present for each file to ingest.
+  /** Ack file should be present for each file to ingest.
     *
     * @return the ack attribute or ".ack" by default
     */
   def getAck(): String = ack.map(ack => if (ack.nonEmpty) "." + ack else ack).getOrElse(".ack")
 
-  /**
-    * Is this Domain valid ? A domain is valid if :
+  /** Is this Domain valid ? A domain is valid if :
     *   - The domain name is a valid attribute
     *   - all the schemas defined in this domain are valid
     *   - No schema is defined twice

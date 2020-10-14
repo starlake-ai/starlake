@@ -26,8 +26,7 @@ import scala.language.implicitConversions
 
 package object handlers {
 
-  /**
-    * Make us able to use a java Hadoop Iterator as a scala Iterator
+  /** Make us able to use a java Hadoop Iterator as a scala Iterator
     * Making us able to use filter, map ...
     * @param underlying the java Hadoop Iterator
     * @tparam T

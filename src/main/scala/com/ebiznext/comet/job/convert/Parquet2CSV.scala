@@ -9,8 +9,7 @@ import org.apache.hadoop.fs.Path
 
 import scala.util.{Success, Try}
 
-/**
-  * Convert parquet files to CSV.
+/** Convert parquet files to CSV.
   * The folder hierarchy should be in the form /input_folder/domain/schema/part*.parquet
   * Once converted the csv files is put in the folder /output_folder/domain/schema.csv file
   * When the specified number of parittions is 1 then /output_folder/domain/schema.csv is the file containing the data

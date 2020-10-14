@@ -99,8 +99,7 @@ class BigQueryNativeJob(
     BigQueryJobResult(Some(results))
   }
 
-  /**
-    * Just to force any spark job to implement its entry point within the "run" method
+  /** Just to force any spark job to implement its entry point within the "run" method
     *
     * @return : Spark Session used for the job
     */

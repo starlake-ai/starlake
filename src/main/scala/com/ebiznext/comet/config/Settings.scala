@@ -48,13 +48,11 @@ object Settings extends StrictLogging {
 
   private def loggerForCompanionInstances: Logger = logger
 
-  /**
-    * @param endpoint : Airflow REST API endpoint, aka. http://127.0.0.1:8080/api/experimental
+  /** @param endpoint : Airflow REST API endpoint, aka. http://127.0.0.1:8080/api/experimental
     */
   final case class Airflow(endpoint: String, ingest: String)
 
-  /**
-    * datasets in the data pipeline go through several stages and
+  /** datasets in the data pipeline go through several stages and
     * are stored on disk at each of these stages.
     * This setting allow to customize the folder names of each of these stages.
     *
@@ -80,15 +78,13 @@ object Settings extends StrictLogging {
     val businessFinal: String = business.toLowerCase(Locale.ROOT)
   }
 
-  /**
-    * @param options : Map of privacy algorightms name -> PrivacyEngine
+  /** @param options : Map of privacy algorightms name -> PrivacyEngine
     */
   final case class Privacy(options: juMap[String, String])
 
   final case class Elasticsearch(active: Boolean, options: juMap[String, String])
 
-  /**
-    * @param discreteMaxCardinality : Max number of unique values allowed in cardinality compute
+  /** @param discreteMaxCardinality : Max number of unique values allowed in cardinality compute
     */
   final case class Metrics(
     path: String,
@@ -103,8 +99,7 @@ object Settings extends StrictLogging {
     maxErrors: Int
   )
 
-  /**
-    * Describes a connection to a JDBC-accessible database engine
+  /** Describes a connection to a JDBC-accessible database engine
     *
     * @param uri the URI of the database engine. It must start with "jdbc:"
     * @param user the username under which to connect to the database engine
@@ -125,8 +120,7 @@ object Settings extends StrictLogging {
     def engine: String = engineOverride.getOrElse(uri.split(':')(1))
   }
 
-  /**
-    * Describes how to use a specific type of JDBC-accessible database engine
+  /** Describes how to use a specific type of JDBC-accessible database engine
     *
     * @param driver the qualified class name of the JDBC Driver to use for the specific engine
     * @param tables for each of the Standard Table Names used by Comet, the specific SQL DDL statements as expected
@@ -139,8 +133,7 @@ object Settings extends StrictLogging {
 
   object JdbcEngine {
 
-    /**
-      * A descriptor of the specific SQL DDL statements required to manage a specific Comet table in a JDBC-accessible
+    /** A descriptor of the specific SQL DDL statements required to manage a specific Comet table in a JDBC-accessible
       * database engine
       *
       * @param name the name of the table as it is known on the database engine
@@ -166,8 +159,7 @@ object Settings extends StrictLogging {
 
   final case class Internal(cacheStorageLevel: StorageLevel) {}
 
-  /**
-    * @param datasets       : Absolute path, datasets root folder beneath which each area is defined.
+  /** @param datasets       : Absolute path, datasets root folder beneath which each area is defined.
     * @param metadata       : Absolute path, location where all types / domains and auto jobs are defined
     * @param metrics        : Absolute path, location where all computed metrics are stored
     * @param audit          : Absolute path, location where all log are stored
@@ -278,8 +270,7 @@ object Settings extends StrictLogging {
 
 }
 
-/**
-  * This class holds the current Comet settings and an assembly of reference instances for core, shared services
+/** This class holds the current Comet settings and an assembly of reference instances for core, shared services
   *
   * SMELL: this may be the start of a Dependency Injection root (but at 2-3 objects, is DI justified? probably not
   * quite yet) — cchepelov
