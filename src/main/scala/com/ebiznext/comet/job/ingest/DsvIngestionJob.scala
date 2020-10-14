@@ -36,8 +36,7 @@ import org.apache.spark.sql.types.StructType
 import scala.reflect.runtime.universe
 import scala.util.{Failure, Success, Try}
 
-/**
-  * Main class to ingest delimiter separated values file
+/** Main class to ingest delimiter separated values file
   *
   * @param domain         : Input Dataset Domain
   * @param schema         : Input Dataset Schema
@@ -55,19 +54,16 @@ class DsvIngestionJob(
 )(implicit val settings: Settings)
     extends IngestionJob {
 
-  /**
-    * @return Spark Job name
+  /** @return Spark Job name
     */
   override def name: String =
     s"""${domain.name}-${schema.name}-${path.headOption.map(_.getName).mkString(",")}"""
 
-  /**
-    * dataset Header names as defined by the schema
+  /** dataset Header names as defined by the schema
     */
   val schemaHeaders: List[String] = schema.attributes.map(_.name)
 
-  /**
-    * remove any extra quote / BOM in the header
+  /** remove any extra quote / BOM in the header
     *
     * @param header : Header column name
     * @return
@@ -75,8 +71,7 @@ class DsvIngestionJob(
   def cleanHeaderCol(header: String): String =
     header.replaceAll("\"", "").replaceAll("\uFEFF", "")
 
-  /**
-    * @param datasetHeaders : Headers found in the dataset
+  /** @param datasetHeaders : Headers found in the dataset
     * @param schemaHeaders  : Headers defined in the schema
     * @return success  if all headers in the schema exist in the dataset
     */
@@ -84,8 +79,7 @@ class DsvIngestionJob(
     schemaHeaders.forall(schemaHeader => datasetHeaders.contains(schemaHeader))
   }
 
-  /**
-    * @param datasetHeaders : Headers found in the dataset
+  /** @param datasetHeaders : Headers found in the dataset
     * @param schemaHeaders  : Headers defined in the schema
     * @return two lists : One with thecolumns present in the schema and the dataset and onther with the headers present in the dataset only
     */
@@ -96,8 +90,7 @@ class DsvIngestionJob(
     datasetHeaders.partition(schemaHeaders.contains)
   }
 
-  /**
-    * Load dataset using spark csv reader and all metadata. Does not infer schema.
+  /** Load dataset using spark csv reader and all metadata. Does not infer schema.
     * columns not defined in the schema are dropped fro the dataset (require datsets with a header)
     *
     * @return Spark Dataset
@@ -177,8 +170,7 @@ class DsvIngestionJob(
     obj.instance.asInstanceOf[DsvValidator]
   }
 
-  /**
-    * Apply the schema to the dataset. This is where all the magic happen
+  /** Apply the schema to the dataset. This is where all the magic happen
     * Valid records are stored in the accepted path / table and invalid records in the rejected path / table
     *
     * @param dataset : Spark Dataset
@@ -242,8 +234,7 @@ class DsvIngestionJob(
 
 trait DsvValidator {
 
-  /**
-    * For each col of each row
+  /** For each col of each row
     *   - we extract the col value / the col constraints / col type
     *   - we check that the constraints are verified
     *   - we apply any required privacy transformation
@@ -266,8 +257,7 @@ trait DsvValidator {
   )(implicit settings: Settings): (RDD[String], RDD[Row])
 }
 
-/**
-  * The Spark task that run on each worker
+/** The Spark task that run on each worker
   */
 object DsvIngestionUtil extends DsvValidator {
 

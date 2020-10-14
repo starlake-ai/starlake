@@ -33,8 +33,7 @@ import org.apache.spark.sql.types._
 import scala.collection.mutable
 import scala.util.{Failure, Success, Try}
 
-/**
-  * Code here comes from org.apache.spark.sql.execution.datasources.json.InferSchema
+/** Code here comes from org.apache.spark.sql.execution.datasources.json.InferSchema
   */
 object JsonIngestionUtil {
 
@@ -49,8 +48,7 @@ object JsonIngestionUtil {
     compareTypes(Nil, ("root", schemaType, true), ("root", datasetType, true))
   }
 
-  /**
-    * similar to compatibleType(...) but instead of creating a new datatype, simply check the compatibility
+  /** similar to compatibleType(...) but instead of creating a new datatype, simply check the compatibility
     *
     * @param context : full path to attribute, makes error messages more understandable
     * @param schemaType : (attributeName, attributeType, isRequired) coming from the schema
@@ -222,8 +220,7 @@ object JsonIngestionUtil {
     }
   }
 
-  /**
-    * Convert NullType to StringType and remove StructTypes with no fields
+  /** Convert NullType to StringType and remove StructTypes with no fields
     */
   private def canonicalizeType(tpe: DataType): Option[DataType] =
     tpe match {
@@ -272,8 +269,7 @@ object JsonIngestionUtil {
     }
   }
 
-  /**
-    * Remove top-level ArrayType wrappers and merge the remaining schemas
+  /** Remove top-level ArrayType wrappers and merge the remaining schemas
     */
   private def compatibleRootType(
     columnNameOfCorruptRecords: String,
