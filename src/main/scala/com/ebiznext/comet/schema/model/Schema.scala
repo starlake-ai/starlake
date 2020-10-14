@@ -31,7 +31,7 @@ import org.apache.spark.sql.types._
 import scala.collection.mutable
 
 /**
-  * How dataset are merge
+  * How dataset are merged
   *
   * @param key    list of attributes to join existing with incoming dataset. Use renamed columns here.
   * @param delete Optional valid sql condition on the incoming dataset. Use renamed column here.
@@ -96,6 +96,32 @@ case class Schema(
   def sparkType(schemaHandler: SchemaHandler): StructType = {
     val fields = attributes.map { attr =>
       StructField(attr.name, attr.sparkType(schemaHandler), !attr.required)
+    }
+    StructType(fields)
+  }
+
+  /**
+    * This Schema as a Spark Catalyst Schema, with renamed attributes
+    *
+    * @return Spark Catalyst Schema
+    */
+  def sparkTypeWithRenamedFields(schemaHandler: SchemaHandler): StructType =
+    sparkSchemaWithCondition(schemaHandler, _ => true)
+
+  /**
+    * This Schema as a Spark Catalyst Schema, without scripted fields
+    *
+    * @return Spark Catalyst Schema
+    */
+  def sparkSchemaWithoutScriptedFields(schemaHandler: SchemaHandler): StructType =
+    sparkSchemaWithCondition(schemaHandler, _.script.isEmpty)
+
+  private def sparkSchemaWithCondition(
+    schemaHandler: SchemaHandler,
+    p: Attribute => Boolean
+  ): StructType = {
+    val fields = attributes filter p map { attr =>
+      StructField(attr.rename.getOrElse(attr.name), attr.sparkType(schemaHandler), !attr.required)
     }
     StructType(fields)
   }
@@ -208,8 +234,8 @@ case class Schema(
     val tse = TextSubstitutionEngine(
       "PROPERTIES" -> properties,
       "ATTRIBUTES" -> attrs,
-      "DOMAIN" -> domainName.toLowerCase,
-      "SCHEMA" -> name.toLowerCase
+      "DOMAIN"     -> domainName.toLowerCase,
+      "SCHEMA"     -> name.toLowerCase
     )
 
     tse.apply(template.getOrElse {
