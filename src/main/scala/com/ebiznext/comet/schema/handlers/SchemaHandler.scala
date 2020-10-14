@@ -28,8 +28,7 @@ import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.scala.experimental.ScalaObjectMapper
 import org.apache.hadoop.fs.Path
 
-/**
-  * Handles access to datasets metadata,  eq. domains / types / schemas.
+/** Handles access to datasets metadata,  eq. domains / types / schemas.
   *
   * @param storage : Underlying filesystem manager
   */
@@ -43,8 +42,7 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) {
     mapper
   }
 
-  /**
-    * All defined types.
+  /** All defined types.
     * Load all default types defined in the file default.yml
     * Types are located in the only file "types.yml"
     * Types redefined in the file "types.yml" supersede the ones in "default.yml"
@@ -67,8 +65,7 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) {
     defaultTypes.filter(defaultType => !redefinedTypeNames.contains(defaultType.name)) ++ types
   }
 
-  /**
-    * Fnd type by name
+  /** Fnd type by name
     *
     * @param tpe : Type name
     * @return Unique type referenced by this name.
@@ -77,8 +74,7 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) {
     types.find(_.name == tpe)
   }
 
-  /**
-    * All defined domains
+  /** All defined domains
     * Domains are defined under the "domains" folder in the metadata folder
     */
   lazy val domains: List[Domain] = {
@@ -88,8 +84,7 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) {
 
   }
 
-  /**
-    * All defined jobs
+  /** All defined jobs
     * Jobs are defined under the "jobs" folder in the metadata folder
     */
   lazy val jobs: Map[String, AutoJobDesc] = {
@@ -100,8 +95,7 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) {
       .toMap
   }
 
-  /**
-    * Find domain by name
+  /** Find domain by name
     *
     * @param name : Domain name
     * @return Unique Domain referenced by this name.
@@ -110,8 +104,7 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) {
     domains.find(_.name == name)
   }
 
-  /**
-    * Return all schemas for a domain
+  /** Return all schemas for a domain
     *
     * @param domain : Domain name
     * @return List of schemas for a domain, empty list if no schema or domain is found
@@ -120,8 +113,7 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) {
     getDomain(domain).map(_.schemas).getOrElse(Nil)
   }
 
-  /**
-    * Get schema by name for a domain
+  /** Get schema by name for a domain
     *
     * @param domainName : Domain name
     * @param schemaName : Sceham name

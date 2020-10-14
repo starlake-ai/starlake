@@ -60,8 +60,7 @@ class InferSchemaJob(implicit settings: Settings) {
   private val sparkEnv: SparkEnv = new SparkEnv(name)
   private val session: SparkSession = sparkEnv.session
 
-  /**
-    * Read file without specifying the format
+  /** Read file without specifying the format
     *
     * @param path : file path
     * @return a dataset of string that contains data file
@@ -71,8 +70,7 @@ class InferSchemaJob(implicit settings: Settings) {
       .textFile(path.toString)
   }
 
-  /**
-    * Get format file by using the first and the last line of the dataset
+  /** Get format file by using the first and the last line of the dataset
     * We use mapPartitionsWithIndex to retrieve these informations to make sure that the first line really corresponds to the first line (same for the last)
     *
     * @param datasetInit : created dataset without specifying format
@@ -110,8 +108,7 @@ class InferSchemaJob(implicit settings: Settings) {
 
   }
 
-  /**
-    * Get separator file by taking the character that appears the most in 10 lines of the dataset
+  /** Get separator file by taking the character that appears the most in 10 lines of the dataset
     *
     * @param datasetInit : created dataset without specifying format
     * @return the file separator
@@ -128,8 +125,7 @@ class InferSchemaJob(implicit settings: Settings) {
       .toString
   }
 
-  /**
-    * Get domain directory name
+  /** Get domain directory name
     *
     * @param path : file path
     * @return the domain directory name
@@ -138,8 +134,7 @@ class InferSchemaJob(implicit settings: Settings) {
     path.toString.replace(path.getName, "")
   }
 
-  /**
-    * Get schema pattern
+  /** Get schema pattern
     *
     * @param path : file path
     * @return the schema pattern
@@ -148,8 +143,7 @@ class InferSchemaJob(implicit settings: Settings) {
     path.getName
   }
 
-  /**
-    * Create the dataframe with its associated format
+  /** Create the dataframe with its associated format
     *
     * @param datasetInit : created dataset without specifying format
     * @param path        : file path
@@ -180,8 +174,7 @@ class InferSchemaJob(implicit settings: Settings) {
     }
   }
 
-  /**
-    * Just to force any spark job to implement its entry point using within the "run" method
+  /** Just to force any spark job to implement its entry point using within the "run" method
     *
     * @return : Spark Session used for the job
     */

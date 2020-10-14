@@ -9,8 +9,7 @@ import org.apache.poi.ss.usermodel._
 
 import scala.collection.JavaConverters._
 
-/**
-  * Reads the spreadsheet found at the specified {@param path} and builds the corresponding Domain object
+/** Reads the spreadsheet found at the specified {@param path} and builds the corresponding Domain object
   * @param path
   */
 class XlsReader(path: String) {
@@ -358,8 +357,7 @@ class XlsReader(path: String) {
     }
   }
 
-  /**
-    * Returns the Domain corresponding to the parsed spreadsheet
+  /** Returns the Domain corresponding to the parsed spreadsheet
     * @param settings
     * @return an Option of Domain
     */

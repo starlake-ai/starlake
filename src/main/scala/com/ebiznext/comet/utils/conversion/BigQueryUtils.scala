@@ -4,8 +4,7 @@ import com.google.cloud.bigquery.{Field, FieldList, StandardSQLTypeName, Schema 
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.types._
 
-/**
-  * [X] whatever
+/** [X] whatever
   * Conversion between [X] Schema and BigQuery Schema
   */
 object BigQueryUtils {
@@ -34,8 +33,7 @@ object BigQueryUtils {
     }
   }
 
-  /**
-    * Compute BigQuery Schema from Spark or PArquet Schema while Schema.bqSchema compute it from YMl File
+  /** Compute BigQuery Schema from Spark or PArquet Schema while Schema.bqSchema compute it from YMl File
     * @param schema Spark DataType
     * @return
     */
@@ -86,8 +84,7 @@ object BigQueryUtils {
     BQSchema.of(fields: _*)
   }
 
-  /**
-    * The aim of this function is to retrieve columns and nested columns
+  /** The aim of this function is to retrieve columns and nested columns
     * with their types from a spark schema
     * @param schema Spark Schema
     * @return List of Spark Columns with their Type

@@ -28,8 +28,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore
 
 import scala.collection.mutable
 
-/**
-  * Specify Schema properties.
+/** Specify Schema properties.
   * These properties may be specified at the schema or domain level
   * Any property not specified at the schema level is taken from the
   * one specified at the domain level or else the default value is returned.
@@ -118,8 +117,7 @@ case class Metadata(
 
   def getSink(): Option[Sink] = sink
 
-  /**
-    * Merge a single attribute
+  /** Merge a single attribute
     *
     * @param parent : Domain level metadata attribute
     * @param child  : Schema level metadata attribute
@@ -128,8 +126,7 @@ case class Metadata(
   protected def merge[T](parent: Option[T], child: Option[T]): Option[T] =
     if (child.isDefined) child else parent
 
-  /**
-    * Merge this metadata with its child.
+  /** Merge this metadata with its child.
     * Any property defined at the child level overrides the one defined at this level
     * This allow a schema to override the domain metadata attribute
     * Applied to a Domain level metadata
@@ -180,8 +177,7 @@ case class Metadata(
 
 object Metadata {
 
-  /**
-    * Predefined partition columns.
+  /** Predefined partition columns.
     */
   val CometPartitionColumns =
     List("comet_date", "comet_year", "comet_month", "comet_day", "comet_hour", "comet_minute")

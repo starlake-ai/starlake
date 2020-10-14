@@ -30,8 +30,7 @@ import org.apache.spark.sql.types._
 
 import scala.collection.mutable
 
-/**
-  * How dataset are merge
+/** How dataset are merged
   *
   * @param key    list of attributes to join existing with incoming dataset. Use renamed columns here.
   * @param delete Optional valid sql condition on the incoming dataset. Use renamed column here.
@@ -43,8 +42,7 @@ case class MergeOptions(
   timestamp: Option[String] = None
 )
 
-/**
-  * Dataset Schema
+/** Dataset Schema
   *
   * @param name       : Schema name, must be unique among all the schemas belonging to the same domain.
   *                     Will become the hive table name On Premise or BigQuery Table name on GCP.
@@ -74,8 +72,7 @@ case class Schema(
   rls: Option[List[RowLevelSecurity]] = None
 ) {
 
-  /**
-    * @return Are the parittions columns defined in the metadata valid column names
+  /** @return Are the parittions columns defined in the metadata valid column names
     */
   def validatePartitionColumns(): Boolean = {
     metadata.forall(
@@ -88,14 +85,37 @@ case class Schema(
     )
   }
 
-  /**
-    * This Schema as a Spark Catalyst Schema
+  /** This Schema as a Spark Catalyst Schema
     *
     * @return Spark Catalyst Schema
     */
   def sparkType(schemaHandler: SchemaHandler): StructType = {
     val fields = attributes.map { attr =>
       StructField(attr.name, attr.sparkType(schemaHandler), !attr.required)
+    }
+    StructType(fields)
+  }
+
+  /** This Schema as a Spark Catalyst Schema, with renamed attributes
+    *
+    * @return Spark Catalyst Schema
+    */
+  def sparkTypeWithRenamedFields(schemaHandler: SchemaHandler): StructType =
+    sparkSchemaWithCondition(schemaHandler, _ => true)
+
+  /** This Schema as a Spark Catalyst Schema, without scripted fields
+    *
+    * @return Spark Catalyst Schema
+    */
+  def sparkSchemaWithoutScriptedFields(schemaHandler: SchemaHandler): StructType =
+    sparkSchemaWithCondition(schemaHandler, _.script.isEmpty)
+
+  private def sparkSchemaWithCondition(
+    schemaHandler: SchemaHandler,
+    p: Attribute => Boolean
+  ): StructType = {
+    val fields = attributes filter p map { attr =>
+      StructField(attr.rename.getOrElse(attr.name), attr.sparkType(schemaHandler), !attr.required)
     }
     StructType(fields)
   }
@@ -116,8 +136,7 @@ case class Schema(
     BQSchema.of(fields: _*)
   }
 
-  /**
-    * return the list of renamed attributes
+  /** return the list of renamed attributes
     *
     * @return list of tuples (oldname, newname)
     */
@@ -127,8 +146,7 @@ case class Schema(
     }
   }
 
-  /**
-    * Check attribute definition correctness :
+  /** Check attribute definition correctness :
     *   - schema name should be a valid table identifier
     *   - attribute name should be a valid Hive column identifier
     *   - attribute name can occur only once in the schema
@@ -208,8 +226,8 @@ case class Schema(
     val tse = TextSubstitutionEngine(
       "PROPERTIES" -> properties,
       "ATTRIBUTES" -> attrs,
-      "DOMAIN" -> domainName.toLowerCase,
-      "SCHEMA" -> name.toLowerCase
+      "DOMAIN"     -> domainName.toLowerCase,
+      "SCHEMA"     -> name.toLowerCase
     )
 
     tse.apply(template.getOrElse {
