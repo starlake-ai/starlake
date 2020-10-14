@@ -204,13 +204,11 @@ class AutoTaskJob(
             if (path.startsWith("/")) path else s"${settings.comet.datasets}/$path"
           session.read.parquet(fullPath)
         case JDBC =>
-          val jdbcConfig = settings.comet.jdbc(configName.getOrElse((throw new Exception(""))))
-          val engine = settings.comet.jdbcEngines(jdbcConfig.engine)
+          val jdbcConfig = settings.comet.connections(configName.getOrElse((throw new Exception(""))))
           jdbcConfig.options
             .foldLeft(session.read)((w, kv) => w.option(kv._1, kv._2))
-            .format(jdbcConfig.format.getOrElse("jdbc"))
+            .format(jdbcConfig.format)
             .option("query", path)
-            .option("driver", engine.driver)
             .load()
             .cache()
         case BQ =>
