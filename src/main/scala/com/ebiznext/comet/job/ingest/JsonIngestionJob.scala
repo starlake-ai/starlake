@@ -26,7 +26,7 @@ import com.ebiznext.comet.schema.model._
 import org.apache.hadoop.fs.Path
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.execution.datasources.json.JsonIngestionUtil
-import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.types.{StringType, StructField, StructType}
 import org.apache.spark.sql.{DataFrame, Encoders, Row}
 
 import scala.util.{Failure, Success, Try}
@@ -106,7 +106,13 @@ class JsonIngestionJob(
     val rejectedRDD: RDD[String] =
       checkedRDD.filter(_.isLeft).map(_.left.get.mkString("\n"))
 
-    val acceptedDF = session.read.json(session.createDataset(acceptedRDD)(Encoders.STRING))
+    val appliedSchema = schema
+      .sparkSchemaWithoutScriptedFields(schemaHandler)
+      .add(StructField(Settings.cometInputFileNameColumn, StringType))
+
+    val acceptedDF = session.read
+      .schema(appliedSchema)
+      .json(session.createDataset(acceptedRDD)(Encoders.STRING))
 
     saveRejected(rejectedRDD)
     saveAccepted(acceptedDF) // prefer to let Spark compute the final schema
