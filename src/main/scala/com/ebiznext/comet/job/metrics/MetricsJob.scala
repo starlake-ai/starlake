@@ -2,7 +2,7 @@ package com.ebiznext.comet.job.metrics
 
 import com.ebiznext.comet.config.{DatasetArea, Settings}
 import com.ebiznext.comet.job.index.bqload.{BigQueryLoadConfig, BigQuerySparkJob}
-import com.ebiznext.comet.job.index.jdbcload.JdbcLoadConfig
+import com.ebiznext.comet.job.index.connectionload.ConnectionLoadConfig
 import com.ebiznext.comet.job.metrics.Metrics.{ContinuousMetric, DiscreteMetric, MetricsDatasets}
 import com.ebiznext.comet.schema.handlers.{SchemaHandler, StorageHandler}
 import com.ebiznext.comet.schema.model._
@@ -257,7 +257,7 @@ class MetricsJob(
 
         case JdbcSink(jdbcConnection, partitions, batchSize) =>
           Try {
-            val jdbcConfig = JdbcLoadConfig.fromComet(
+            val jdbcConfig = ConnectionLoadConfig.fromComet(
               jdbcConnection,
               settings.comet,
               Right(metricsDf),
@@ -303,7 +303,7 @@ class MetricsJob(
   }
 
   private def sinkMetricsToJdbc(
-    cliConfig: JdbcLoadConfig
+    cliConfig: ConnectionLoadConfig
   ): Unit = {
     cliConfig.sourceFile match {
       case Left(_) =>
@@ -315,16 +315,13 @@ class MetricsJob(
           s"unsupported write disposition ${cliConfig.writeDisposition}, only WRITE_APPEND is supported"
         )
 
-        metricsDf.write
+        val dfw = metricsDf.write
           .format("jdbc")
-          .option("numPartitions", cliConfig.partitions)
-          .option("batchsize", cliConfig.batchSize)
           .option("truncate", cliConfig.writeDisposition == WriteDisposition.WRITE_TRUNCATE)
-          .option("driver", cliConfig.driver)
-          .option("url", cliConfig.url)
           .option("dbtable", cliConfig.outputTable)
-          .option("user", cliConfig.user)
-          .option("password", cliConfig.password)
+
+        cliConfig.options
+          .foldLeft(dfw)((w, kv) => w.option(kv._1, kv._2))
           .mode(SaveMode.Append)
           .save()
     }

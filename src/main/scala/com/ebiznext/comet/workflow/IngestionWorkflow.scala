@@ -25,7 +25,7 @@ import com.ebiznext.comet.config.{DatasetArea, Settings}
 import com.ebiznext.comet.job.atlas.{AtlasConfig, AtlasJob}
 import com.ebiznext.comet.job.index.bqload.{BigQueryLoadConfig, BigQuerySparkJob}
 import com.ebiznext.comet.job.index.esload.{ESLoadConfig, ESLoadJob}
-import com.ebiznext.comet.job.index.jdbcload.{JdbcLoadConfig, JdbcLoadJob}
+import com.ebiznext.comet.job.index.connectionload.{ConnectionLoadConfig, ConnectionLoadJob}
 import com.ebiznext.comet.job.infer.{InferSchema, InferSchemaConfig}
 import com.ebiznext.comet.job.ingest._
 import com.ebiznext.comet.job.metrics.{MetricsConfig, MetricsJob}
@@ -468,7 +468,7 @@ class IngestionWorkflow(
                     Utils.getDBDisposition(task.write, hasMergeKeyDefined = false)
                   }
 
-                    val jdbcConfig = JdbcLoadConfig.fromComet(
+                    val jdbcConfig = ConnectionLoadConfig.fromComet(
                       jdbcName,
                       settings.comet,
                       source,
@@ -479,7 +479,7 @@ class IngestionWorkflow(
                       batchSize = batchSize
                     )
 
-                    val res = new JdbcLoadJob(jdbcConfig).run()
+                    val res = new ConnectionLoadJob(jdbcConfig).run()
                     res match {
                       case Success(_) => ;
                       case Failure(e) => logger.error("JDBCLoad Failed", e)
@@ -514,8 +514,8 @@ class IngestionWorkflow(
     Utils.logFailure(res, logger)
   }
 
-  def jdbcload(config: JdbcLoadConfig): Try[JobResult] = {
-    val loadJob = new JdbcLoadJob(config)
+  def jdbcload(config: ConnectionLoadConfig): Try[JobResult] = {
+    val loadJob = new ConnectionLoadJob(config)
     val res = loadJob.run()
     Utils.logFailure(res, logger)
   }

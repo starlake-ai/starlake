@@ -58,18 +58,16 @@ trait JdbcChecks {
     expectedValues: immutable.Seq[T]
   )(rowToEntity: ResultSet => T)(implicit settings: Settings): Assertion = {
 
-    val jdbcOptions = settings.comet.jdbc(jdbcName)
+    val jdbcOptions = settings.comet.connections(jdbcName)
     val engine = settings.comet.jdbcEngines(jdbcOptions.engine)
 
-    val conn = DriverManager.getConnection(jdbcOptions.uri, jdbcOptions.user, jdbcOptions.password)
+    val conn = DriverManager.getConnection(jdbcOptions.options("url"), jdbcOptions.options("user"), jdbcOptions.options("password"))
     try {
-      val tableName = engine.tables(referenceDatasetName).name
-
       val lacksTheTable =
         /* lacks the table, and not https://www.ikea.com/us/en/p/lack-side-table-white-30449908/ */
         try {
           val canary = conn.createStatement()
-          canary.executeQuery(s"select * from ${tableName} where 1=0").close()
+          canary.executeQuery(s"select * from ${referenceDatasetName} where 1=0").close()
           None
         } catch {
           case ex: SQLException =>
@@ -83,7 +81,7 @@ trait JdbcChecks {
 
         val fetched: Vector[T] = {
           val rs =
-            stmt.executeQuery(s"select ${columns.mkString(", ")} from ${tableName}".stripMargin)
+            stmt.executeQuery(s"select ${columns.mkString(", ")} from ${referenceDatasetName}".stripMargin)
 
           @tailrec
           def pull(base: Vector[T]): Vector[T] = {

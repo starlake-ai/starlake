@@ -116,15 +116,12 @@ object Settings extends StrictLogging {
     *       (e.g. non-standard table names) alongside with the regular schema definition, on the same
     *       underlying engine.
     */
-  final case class Jdbc(
-    uri: String,
-    user: String = "",
-    password: String = "",
-    format: Option[String] = None,
+  final case class Connection(
+    format: String = "jdbc",
     options:Map[String, String] = Map.empty,
     engineOverride: Option[String] = None
   ) {
-    def engine: String = engineOverride.getOrElse(uri.split(':')(1))
+    def engine: String = engineOverride.getOrElse(options("url").split(':')(1))
   }
 
   /**
@@ -145,14 +142,13 @@ object Settings extends StrictLogging {
       * A descriptor of the specific SQL DDL statements required to manage a specific Comet table in a JDBC-accessible
       * database engine
       *
-      * @param name the name of the table as it is known on the database engine
       * @param createSql the SQL Create Table statement with the database-specific type, constraints etc. tacked on.
       * @param pingSql a cheap SQL query whose results are irrelevant but guaranteed to trigger an error in case the table is absent
       *
       * @note pingSql is optional, and will default to `select * from `name` where 1=0` as Spark SQL does
       */
-    final case class TableDdl(name: String, createSql: String, pingSql: Option[String] = None) {
-      def effectivePingSql: String = pingSql.getOrElse(s"select * from $name where 1=0")
+    final case class TableDdl(createSql: String, pingSql: Option[String] = None) {
+      def effectivePingSql(tableName: String): String = pingSql.getOrElse(s"select * from $tableName where 1=0")
     }
   }
 
@@ -182,35 +178,35 @@ object Settings extends StrictLogging {
     * @param airflow        : Airflow end point. Should be defined even if simple launccher is used instead of airflow.
     */
   final case class Comet(
-    tmpdir: String,
-    jobId: String,
-    datasets: String,
-    metadata: String,
-    metrics: Metrics,
-    audit: Audit,
-    archive: Boolean,
-    lock: Lock,
-    defaultWriteFormat: String,
-    csvOutput: Boolean,
-    launcher: String,
-    chewerPrefix: String,
-    rowValidatorClass: String,
-    analyze: Boolean,
-    hive: Boolean,
-    grouped: Boolean,
-    mergeForceDistinct: Boolean,
-    area: Area,
-    airflow: Airflow,
-    elasticsearch: Elasticsearch,
-    hadoop: juMap[String, String],
-    jdbc: Map[String, Jdbc],
-    jdbcEngines: Map[String, JdbcEngine],
-    atlas: Atlas,
-    privacy: Privacy,
-    fileSystem: Option[String],
-    metadataFileSystem: Option[String],
-    internal: Option[Internal],
-    udfs: Option[String]
+                          tmpdir: String,
+                          jobId: String,
+                          datasets: String,
+                          metadata: String,
+                          metrics: Metrics,
+                          audit: Audit,
+                          archive: Boolean,
+                          lock: Lock,
+                          defaultWriteFormat: String,
+                          csvOutput: Boolean,
+                          launcher: String,
+                          chewerPrefix: String,
+                          rowValidatorClass: String,
+                          analyze: Boolean,
+                          hive: Boolean,
+                          grouped: Boolean,
+                          mergeForceDistinct: Boolean,
+                          area: Area,
+                          airflow: Airflow,
+                          elasticsearch: Elasticsearch,
+                          hadoop: juMap[String, String],
+                          connections: Map[String, Connection],
+                          jdbcEngines: Map[String, JdbcEngine],
+                          atlas: Atlas,
+                          privacy: Privacy,
+                          fileSystem: Option[String],
+                          metadataFileSystem: Option[String],
+                          internal: Option[Internal],
+                          udfs: Option[String]
   ) extends Serializable {
 
     @JsonIgnore
