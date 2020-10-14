@@ -7,8 +7,7 @@ import com.typesafe.scalalogging.LazyLogging
 
 object Xls2Yml extends LazyLogging {
 
-  /**
-    * Encryption of a data source is done by running a specific ingestion job that aims only to apply Privacy rules on the
+  /** Encryption of a data source is done by running a specific ingestion job that aims only to apply Privacy rules on the
     * concerned attributes.
     * To apply the Encryption process on the data sources of a given Domain, we need a corresponding "PreEncryption Domain".
     * The PreEncryption domain contains the same Schemas as the initial Domain but with less constraints on the attributes,
@@ -43,8 +42,7 @@ object Xls2Yml extends LazyLogging {
     preEncryptDomain
   }
 
-  /**
-    * build post encryption Domain => for each Position schema update its Metadata as follows
+  /** build post encryption Domain => for each Position schema update its Metadata as follows
     *     - Format : DSV
     *     - With Header : False
     *     - Separator : µ

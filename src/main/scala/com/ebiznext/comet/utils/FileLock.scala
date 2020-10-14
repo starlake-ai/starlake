@@ -9,8 +9,7 @@ import org.apache.hadoop.fs.Path
 
 import scala.util.{Failure, Success, Try}
 
-/**
-  * HDFS does not have a file locking mechanism.
+/** HDFS does not have a file locking mechanism.
   * We implement it here in the following way
   * - A file is locked when it's modification time is less than 5000ms than the current time
   * - If the modification time is older tahn the current time of more than 5000ms, it is considered unlocked.
@@ -32,8 +31,7 @@ class FileLock(path: Path, storageHandler: StorageHandler) extends StrictLogging
 
   private val fileWatcher = new FileLock.LockWatcher(path, storageHandler, refreshPeriod)
 
-  /**
-    * Try to perform an operation while holding a lock exclusively
+  /** Try to perform an operation while holding a lock exclusively
     * @param timeoutInMillis number of milliseconds during which the calling process will try to get the lock before it time out. -1 means no timeout
     * @return the result of the operation (if successful) when locked is acquired, Failure otherwise
     *
@@ -43,8 +41,7 @@ class FileLock(path: Path, storageHandler: StorageHandler) extends StrictLogging
     Try(doExclusively(timeoutInMillis)(op))
   }
 
-  /**
-    * Try to perform an operation while holding a lock exclusively
+  /** Try to perform an operation while holding a lock exclusively
     * @param timeoutInMillis number of milliseconds during which the calling process will try to get the lock before it
     *                        times out. -1 means no timeout
     * @return the result of the operation (if successful) when locked is acquired
@@ -67,8 +64,7 @@ class FileLock(path: Path, storageHandler: StorageHandler) extends StrictLogging
     }
   }
 
-  /**
-    * Try to gain the lock during timeoutInMillis millis
+  /** Try to gain the lock during timeoutInMillis millis
     *
     * @param timeoutInMillis number of milliseconds during which the calling process will try to get the lock before it time out. -1 means no timeout
     * @return true when locked is acquired (caller is responsible for calling `release()`, false otherwise
@@ -111,8 +107,7 @@ class FileLock(path: Path, storageHandler: StorageHandler) extends StrictLogging
     ok
   }
 
-  /**
-    * Release the lock and delete the lock file.
+  /** Release the lock and delete the lock file.
     */
   def release(): Unit = fileWatcher.release()
 

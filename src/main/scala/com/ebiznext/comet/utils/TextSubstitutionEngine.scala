@@ -2,8 +2,7 @@ package com.ebiznext.comet.utils
 
 import scala.annotation.tailrec
 
-/**
-  * This class provides a basic text substitution engine, suitable for performing basic variable
+/** This class provides a basic text substitution engine, suitable for performing basic variable
   * substitution in a way that is more reliable and faster than applying a sequence of `String#replace`
   * operations.
   *
@@ -16,8 +15,7 @@ final class TextSubstitutionEngine private (
   patternEnd: String
 ) {
 
-  /**
-    * perform variable substitutions on a piece of text content
+  /** perform variable substitutions on a piece of text content
     * @param sourceContent
     * @return sourceContent after performing substitutions
     */
@@ -84,8 +82,7 @@ object TextSubstitutionEngine {
   ): TextSubstitutionEngine =
     new TextSubstitutionEngine(variables.toMap + ("" -> ""), patternStart, patternEnd)
 
-  /**
-    * This is the default constructor, where one supplies variable substitutions
+  /** This is the default constructor, where one supplies variable substitutions
     * @param variables any number of variable substitutions to be performed.
     * @return a [[TextSubstitutionEngine]] configured with default substitution pattern start and ends.
     *
