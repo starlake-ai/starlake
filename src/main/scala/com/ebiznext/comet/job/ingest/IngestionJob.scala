@@ -14,7 +14,7 @@ import com.ebiznext.comet.schema.model.Trim.{BOTH, LEFT, RIGHT}
 import com.ebiznext.comet.schema.model._
 import com.ebiznext.comet.utils.{JobResult, SparkJob, SparkJobResult, Utils}
 import com.google.cloud.bigquery.JobInfo.{CreateDisposition, WriteDisposition}
-import com.google.cloud.bigquery.{Field, LegacySQLTypeName}
+import com.google.cloud.bigquery.{Field, LegacySQLTypeName, StandardTableDefinition}
 import org.apache.hadoop.fs.Path
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql._
@@ -42,20 +42,17 @@ trait IngestionJob extends SparkJob {
 
   val now: Timestamp = java.sql.Timestamp.from(Instant.now)
 
-  /**
-    * Merged metadata
+  /** Merged metadata
     */
   lazy val metadata: Metadata = schema.mergedMetadata(domain.metadata)
 
-  /**
-    * Dataset loading strategy (JSON / CSV / ...)
+  /** Dataset loading strategy (JSON / CSV / ...)
     *
     * @return Spark Dataframe loaded using metadata options
     */
   def loadDataSet(): Try[DataFrame]
 
-  /**
-    * ingestion algorithm
+  /** ingestion algorithm
     *
     * @param dataset
     */
@@ -100,8 +97,7 @@ trait IngestionJob extends SparkJob {
   private def csvOutput(): Boolean =
     settings.comet.csvOutput && !settings.comet.grouped && metadata.partition.isEmpty && path.nonEmpty
 
-  /**
-    * Merge new and existing dataset if required
+  /** Merge new and existing dataset if required
     * Save using overwrite / Append mode
     *
     * @param acceptedDF
@@ -119,10 +115,10 @@ trait IngestionJob extends SparkJob {
     val writeMode = getWriteMode()
     val acceptedPath = new Path(DatasetArea.accepted(domain.name), schema.name)
 
-    val acceptedDfWithscriptFields = (if (schema.attributes.exists(_.script.isDefined)) {
-
-                                        schema.attributes.foldRight(acceptedDF) {
+    val acceptedDfWithScriptFields = (if (schema.attributes.exists(_.script.isDefined)) {
+                                        schema.attributes.foldLeft(acceptedDF) {
                                           case (
+                                                df,
                                                 Attribute(
                                                   name,
                                                   _,
@@ -138,16 +134,28 @@ trait IngestionJob extends SparkJob {
                                                   _,
                                                   _,
                                                   Some(script)
-                                                ),
-                                                df
+                                                )
                                               ) =>
-                                            df.T(
-                                              s"SELECT *, $script as $name FROM __THIS__"
-                                            )
-                                          case (_, df) => df
+                                            df.T(s"SELECT *, $script as $name FROM __THIS__")
+                                          case (df, _) => df
                                         }
-
                                       } else acceptedDF).drop(Settings.cometInputFileNameColumn)
+
+    logger.whenDebugEnabled {
+      logger.debug("Accepted Dataframe schema right after adding computed columns")
+      acceptedDfWithScriptFields.printSchema()
+    }
+
+    val withScriptFieldsDF =
+      session.createDataFrame(
+        acceptedDfWithScriptFields.rdd,
+        schema.sparkTypeWithRenamedFields(schemaHandler)
+      )
+
+    logger.whenDebugEnabled {
+      logger.debug("Accepted Dataframe schema before optional merge")
+      withScriptFieldsDF.printSchema()
+    }
 
     val mergedDF = schema.merge
       .map { mergeOptions =>
@@ -156,32 +164,32 @@ trait IngestionJob extends SparkJob {
           val table = BigQuerySparkJob.getTable(session, domain.name, schema.name)
           table
             .map { table =>
-              val bqTable = s"${domain.name}.${schema.name}"
-              val existingBigQueryDF = session.read
-                // We provided the acceptedDF schema here since BQ lose the required / nullable information of the schema
-                .schema(acceptedDfWithscriptFields.schema)
-                .format("com.google.cloud.spark.bigquery")
-                .option("table", bqTable)
-                .load()
               if (
-                existingBigQueryDF.schema.fields.length == session.read
-                  .parquet(acceptedPath.toString)
-                  .schema
-                  .fields
-                  .length
-              )
-                merge(acceptedDfWithscriptFields, existingBigQueryDF, mergeOptions)
-              else
+                table.getDefinition
+                  .asInstanceOf[StandardTableDefinition]
+                  .getSchema
+                  .getFields
+                  .size() == withScriptFieldsDF.schema.fields.length
+              ) {
+                val bqTable = s"${domain.name}.${schema.name}"
+                val existingBigQueryDF = session.read
+                  // We provided the acceptedDF schema here since BQ lose the required / nullable information of the schema
+                  .schema(withScriptFieldsDF.schema)
+                  .format("com.google.cloud.spark.bigquery")
+                  .option("table", bqTable)
+                  .load()
+                merge(withScriptFieldsDF, existingBigQueryDF, mergeOptions)
+              } else
                 throw new RuntimeException(
                   "Input Dataset and existing HDFS dataset do not have the same number of columns. Check for changes in the dataset schema ?"
                 )
             }
-            .getOrElse(acceptedDfWithscriptFields)
+            .getOrElse(withScriptFieldsDF)
         } else if (storageHandler.exists(new Path(acceptedPath, "_SUCCESS"))) {
           // Otherwise load from accepted area
           // We provide the accepted DF schema since partition columns types are infered when parquet is loaded and might not match with the DF being ingested
           val existingDF =
-            session.read.schema(acceptedDfWithscriptFields.schema).parquet(acceptedPath.toString)
+            session.read.schema(withScriptFieldsDF.schema).parquet(acceptedPath.toString)
           if (
             existingDF.schema.fields.length == session.read
               .parquet(acceptedPath.toString)
@@ -189,16 +197,16 @@ trait IngestionJob extends SparkJob {
               .fields
               .length
           )
-            merge(acceptedDfWithscriptFields, existingDF, mergeOptions)
+            merge(withScriptFieldsDF, existingDF, mergeOptions)
           else
             throw new RuntimeException(
               "Input Dataset and existing HDFS dataset do not have the same number of columns. Check for changes in the dataset schema ?"
             )
-          merge(acceptedDfWithscriptFields, existingDF, mergeOptions)
+          merge(withScriptFieldsDF, existingDF, mergeOptions)
         } else
-          acceptedDfWithscriptFields
+          withScriptFieldsDF
       }
-      .getOrElse(acceptedDfWithscriptFields)
+      .getOrElse(withScriptFieldsDF)
     logger.info("Merged Dataframe Schema")
     mergedDF.printSchema()
     val savedDataset =
@@ -306,8 +314,7 @@ trait IngestionJob extends SparkJob {
     }
   }
 
-  /**
-    * Merge incoming and existing dataframes using merge options
+  /** Merge incoming and existing dataframes using merge options
     *
     * @param inputDF
     * @param existingDF
@@ -361,8 +368,7 @@ trait IngestionJob extends SparkJob {
       orderedExisting.except(toDeleteDF).union(updatesDF)
   }
 
-  /**
-    * Save typed dataset in parquet. If hive support is active, also register it as a Hive Table and if analyze is active, also compute basic statistics
+  /** Save typed dataset in parquet. If hive support is active, also register it as a Hive Table and if analyze is active, also compute basic statistics
     *
     * @param dataset    : dataset to save
     * @param targetPath : absolute path
@@ -506,8 +512,7 @@ trait IngestionJob extends SparkJob {
     }
   }
 
-  /**
-    * Main entry point as required by the Spark Job interface
+  /** Main entry point as required by the Spark Job interface
     *
     * @return : Spark Session used for the job
     */

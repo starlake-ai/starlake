@@ -24,8 +24,7 @@ import com.ebiznext.comet.utils.CliConfig
 import org.apache.hadoop.fs.Path
 import scopt.OParser
 
-/**
-  * @param domain     domain name of the dataset
+/** @param domain     domain name of the dataset
   * @param schema     schema name of the dataset
   * @param paths      Absolute path of the file to ingest (present in the ingesting area of the domain)
   */

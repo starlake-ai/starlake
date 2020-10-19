@@ -14,8 +14,7 @@ object ScriptGen extends StrictLogging {
   implicit val settings: Settings = Settings(ConfigFactory.load())
   val engine: TemplateEngine = new TemplateEngine
 
-  /**
-    * Generate an extraction script payload based on a template and its params
+  /** Generate an extraction script payload based on a template and its params
     * @param template The extraction script template
     * @param templateParams Its params
     * @return The produced script payload
@@ -26,8 +25,7 @@ object ScriptGen extends StrictLogging {
       templateParams.paramMap
     )
 
-  /**
-    * Generate all extraction scripts based on the given domain
+  /** Generate all extraction scripts based on the given domain
     * @param domain The domain extracted from the Excel referential file
     * @param scriptTemplateFile The script template
     * @param scriptsOutputPath Where the scripts are produced
@@ -53,8 +51,7 @@ object ScriptGen extends StrictLogging {
     }
   }
 
-  /**
-    * Fills a Mustache templated file based on a given domain.
+  /** Fills a Mustache templated file based on a given domain.
     * The following documentation considers that we use the script to generate SQL export files.
     *
     * The schemas should at least, specify :
