@@ -14,7 +14,7 @@ object MetricsTable {
 
   def fromString(value: String): MetricsTable = {
     value.toUpperCase match {
-      case "continuous"         => MetricsTable.CONTINUOUS
+      case "continuous"  => MetricsTable.CONTINUOUS
       case "discrete"    => MetricsTable.DISCRETE
       case "frequencies" => MetricsTable.FREQUENCIES
     }
@@ -26,10 +26,8 @@ object MetricsTable {
 
   object FREQUENCIES extends MetricsTable("frequencies")
 
-
   val metrics: Set[MetricsTable] = Set(CONTINUOUS, DISCRETE, FREQUENCIES)
 }
-
 
 object Metrics extends StrictLogging {
 

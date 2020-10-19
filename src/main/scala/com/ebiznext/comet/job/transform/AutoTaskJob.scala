@@ -186,12 +186,12 @@ class AutoTaskJob(
       val (format, configName, path) =
         if (sepIndex > 0) {
           val key = value.substring(0, sepIndex)
-          val sepConfigIndex = key.indexOf('.')
+          val sepConfigIndex = value.indexOf(':', sepIndex+1)
           if (sepConfigIndex > 0) {
             (
-              SinkType.fromString(key.substring(0, sepConfigIndex)),
-              Some(value.substring(sepConfigIndex + 1)),
-              value.substring(sepIndex + 1)
+              SinkType.fromString(value.substring(0, sepIndex)),
+              Some(value.substring(sepIndex+1, sepConfigIndex)),
+              value.substring(sepConfigIndex+1)
             )
           } else
             (SinkType.fromString(key), None, value.substring(sepIndex + 1))
