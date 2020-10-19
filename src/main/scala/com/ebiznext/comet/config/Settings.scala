@@ -113,7 +113,7 @@ object Settings extends StrictLogging {
     */
   final case class Connection(
     format: String = "jdbc",
-    options:Map[String, String] = Map.empty,
+    options: Map[String, String] = Map.empty,
     engineOverride: Option[String] = None
   ) {
     def engine: String = engineOverride.getOrElse(options("url").split(':')(1))
@@ -141,7 +141,9 @@ object Settings extends StrictLogging {
       * @note pingSql is optional, and will default to `select * from `name` where 1=0` as Spark SQL does
       */
     final case class TableDdl(createSql: String, pingSql: Option[String] = None) {
-      def effectivePingSql(tableName: String): String = pingSql.getOrElse(s"select * from $tableName where 1=0")
+
+      def effectivePingSql(tableName: String): String =
+        pingSql.getOrElse(s"select * from $tableName where 1=0")
     }
   }
 
@@ -170,35 +172,35 @@ object Settings extends StrictLogging {
     * @param airflow        : Airflow end point. Should be defined even if simple launccher is used instead of airflow.
     */
   final case class Comet(
-                          tmpdir: String,
-                          jobId: String,
-                          datasets: String,
-                          metadata: String,
-                          metrics: Metrics,
-                          audit: Audit,
-                          archive: Boolean,
-                          lock: Lock,
-                          defaultWriteFormat: String,
-                          csvOutput: Boolean,
-                          launcher: String,
-                          chewerPrefix: String,
-                          rowValidatorClass: String,
-                          analyze: Boolean,
-                          hive: Boolean,
-                          grouped: Boolean,
-                          mergeForceDistinct: Boolean,
-                          area: Area,
-                          airflow: Airflow,
-                          elasticsearch: Elasticsearch,
-                          hadoop: juMap[String, String],
-                          connections: Map[String, Connection],
-                          jdbcEngines: Map[String, JdbcEngine],
-                          atlas: Atlas,
-                          privacy: Privacy,
-                          fileSystem: Option[String],
-                          metadataFileSystem: Option[String],
-                          internal: Option[Internal],
-                          udfs: Option[String]
+    tmpdir: String,
+    jobId: String,
+    datasets: String,
+    metadata: String,
+    metrics: Metrics,
+    audit: Audit,
+    archive: Boolean,
+    lock: Lock,
+    defaultWriteFormat: String,
+    csvOutput: Boolean,
+    launcher: String,
+    chewerPrefix: String,
+    rowValidatorClass: String,
+    analyze: Boolean,
+    hive: Boolean,
+    grouped: Boolean,
+    mergeForceDistinct: Boolean,
+    area: Area,
+    airflow: Airflow,
+    elasticsearch: Elasticsearch,
+    hadoop: juMap[String, String],
+    connections: Map[String, Connection],
+    jdbcEngines: Map[String, JdbcEngine],
+    atlas: Atlas,
+    privacy: Privacy,
+    fileSystem: Option[String],
+    metadataFileSystem: Option[String],
+    internal: Option[Internal],
+    udfs: Option[String]
   ) extends Serializable {
 
     @JsonIgnore
