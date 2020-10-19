@@ -449,7 +449,6 @@ class IngestionWorkflow(
                   val result = new BigQuerySparkJob(config, None).run()
                   result.isSuccess
 
-
                 case Some(sink) if sink.`type` == SinkType.JDBC =>
                   val jdbcSink = sink.asInstanceOf[JdbcSink]
                   val partitions = jdbcSink.partitions.getOrElse(1)
@@ -462,22 +461,23 @@ class IngestionWorkflow(
                     Utils.getDBDisposition(task.write, hasMergeKeyDefined = false)
                   }
 
-                    val jdbcConfig = ConnectionLoadConfig.fromComet(
-                      jdbcName,
-                      settings.comet,
-                      source,
-                      outputTable = task.dataset,
-                      createDisposition = CreateDisposition.valueOf(createDisposition),
-                      writeDisposition = WriteDisposition.valueOf(writeDisposition),
-                      partitions = partitions,
-                      batchSize = batchSize
-                    )
+                  val jdbcConfig = ConnectionLoadConfig.fromComet(
+                    jdbcName,
+                    settings.comet,
+                    source,
+                    outputTable = task.dataset,
+                    createDisposition = CreateDisposition.valueOf(createDisposition),
+                    writeDisposition = WriteDisposition.valueOf(writeDisposition),
+                    partitions = partitions,
+                    batchSize = batchSize,
+                    createTableIfAbsent = false
+                  )
 
-                    val res = new ConnectionLoadJob(jdbcConfig).run()
-                    res match {
-                      case Success(_) => ;
-                      case Failure(e) => logger.error("JDBCLoad Failed", e)
-                    }
+                  val res = new ConnectionLoadJob(jdbcConfig).run()
+                  res match {
+                    case Success(_) => ;
+                    case Failure(e) => logger.error("JDBCLoad Failed", e)
+                  }
                 case _ =>
                   // TODO Sinking not supported
                   logger.error(s"Sinking from Spark to $sink not yet supported.")
