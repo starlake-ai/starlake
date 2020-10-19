@@ -55,10 +55,25 @@ object Xls2Yml extends LazyLogging {
     delimiter: Option[String],
     privacy: Seq[String]
   ): Domain = {
+
+    /**
+      * Identify if a schema is not concerned by the encryption phase
+      * either because none of its attributes has a defined Privacy Level
+      * or because all the defined Privacy Levels are not applied during the encrption phase
+      * @param s
+      * @return true if the schema is not concerned by the encryption phase
+      */
+    def noPreEncryptPrivacy(s:Schema): Boolean = {
+      s.attributes.forall(_.privacy.isEmpty) ||
+        (privacy.nonEmpty && s.attributes.flatMap(_.privacy).distinct.forall{p => !privacy.contains(p.toString)})
+    }
     val postEncryptSchemas: List[Schema] = domain.schemas.map { schema =>
-      val metadata = for {
-        metadata <- schema.metadata
-        format   <- metadata.format
+      if (noPreEncryptPrivacy(schema))
+        schema
+      else {
+        val metadata = for {
+          metadata <- schema.metadata
+          format   <- metadata.format
       } yield {
         if (!List(Format.SIMPLE_JSON, Format.DSV, Format.POSITION).contains(format))
           throw new Exception("Not Implemented")
@@ -81,8 +96,9 @@ object Xls2Yml extends LazyLogging {
       }
       schema.copy(
         metadata = metadata,
-        attributes = attributes
-      )
+          attributes = attributes
+        )
+      }
     }
     val postEncryptDomain = domain.copy(schemas = postEncryptSchemas)
     postEncryptDomain
