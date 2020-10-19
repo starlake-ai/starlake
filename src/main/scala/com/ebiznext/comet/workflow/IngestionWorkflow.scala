@@ -42,8 +42,7 @@ import org.apache.spark.sql.types.{StructField, StructType}
 
 import scala.util.{Failure, Success, Try}
 
-/**
-  * The whole worklfow works as follow :
+/** The whole worklfow works as follow :
   *   - loadLanding : Zipped files are uncompressed or raw files extracted from the local filesystem.
   * -loadPending :
   * files recognized with filename patterns are stored in the ingesting area and submitted for ingestion
@@ -62,8 +61,7 @@ class IngestionWorkflow(
     extends StrictLogging {
   val domains: List[Domain] = schemaHandler.domains
 
-  /**
-    * Move the files from the landing area to the pending area.
+  /** Move the files from the landing area to the pending area.
     * files are loaded one domain at a time
     * each domain has its own directory and is specified in the "directory" key of Domain YML file
     * compressed files are uncompressed if a corresponding ack file exist.
@@ -147,8 +145,7 @@ class IngestionWorkflow(
     }
   }
 
-  /**
-    * Split files into resolved and unresolved datasets. A file is unresolved
+  /** Split files into resolved and unresolved datasets. A file is unresolved
     * if a corresponding schema is not found.
     * Schema matching is based on the dataset filename pattern
     *
@@ -214,8 +211,7 @@ class IngestionWorkflow(
     result.forall(_ == true)
   }
 
-  /**
-    * @param domainName : Domaine name
+  /** @param domainName : Domaine name
     * @return resolved && unresolved schemas / path
     */
   private def pending(
@@ -241,8 +237,7 @@ class IngestionWorkflow(
     schemas.partition(_._1.isDefined)
   }
 
-  /**
-    * Ingest the file (called by the cron manager at ingestion time for a specific dataset
+  /** Ingest the file (called by the cron manager at ingestion time for a specific dataset
     */
   def ingest(config: LoadConfig): Boolean = {
     val domainName = config.domain
@@ -356,8 +351,7 @@ class IngestionWorkflow(
     Utils.logFailure(result, logger)
   }
 
-  /**
-    * Successively run each task of a job
+  /** Successively run each task of a job
     *
     * @param config : job name as defined in the YML file and sql parameters to pass to SQL statements.
     */
@@ -493,8 +487,7 @@ class IngestionWorkflow(
     new AtlasJob(config, storageHandler).run()
   }
 
-  /**
-    * Runs the metrics job
+  /** Runs the metrics job
     *
     * @param cliConfig : Client's configuration for metrics computing
     */
@@ -522,8 +515,7 @@ class IngestionWorkflow(
     }
   }
 
-  /**
-    * Set nullable property of column.
+  /** Set nullable property of column.
     * @param df source DataFrame
     * @param nullable is the flag to set, such that the column is  either nullable or not
     */

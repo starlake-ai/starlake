@@ -29,8 +29,7 @@ import com.fasterxml.jackson.databind.{
   SerializerProvider
 }
 
-/**
-  * Big versus Fast data ingestion. Are we ingesting a file or a message stream ?
+/** Big versus Fast data ingestion. Are we ingesting a file or a message stream ?
   * @param value : FILE or STREAM
   */
 @JsonSerialize(using = classOf[ModeSerializer])

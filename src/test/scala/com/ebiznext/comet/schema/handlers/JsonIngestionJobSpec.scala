@@ -56,6 +56,10 @@ abstract class JsonIngestionJobSpecBase(variant: String) extends TestHelper with
           "/sample/json/complex.json"
         )
 
+        val schemaHandler = new SchemaHandler(settings.storageHandler)
+        val schema = schemaHandler.getSchema("json", "sample_json").get
+        val sparkSchema = schema.sparkSchemaWithoutScriptedFields(schemaHandler)
+
         // Accepted should have the same data as input
         val resultDf = sparkSession.read
           .parquet(
@@ -63,11 +67,12 @@ abstract class JsonIngestionJobSpecBase(variant: String) extends TestHelper with
           )
 
         val expectedDf = sparkSession.read
+          .schema(sparkSchema)
           .json(
             getClass.getResource(s"/sample/${datasetDomainName}/complex.json").toURI.getPath
           )
-          .withColumn("source_file_name", regexp_extract(input_file_name, ".+\\/(.+)$", 1))
           .withColumn("email_domain", regexp_extract(col("email"), ".+@(.+)", 1))
+          .withColumn("source_file_name", regexp_extract(input_file_name, ".+\\/(.+)$", 1))
 
         resultDf
           .except(

@@ -32,8 +32,7 @@ import scala.util.{Failure, Success, Try}
 
 object Utils {
 
-  /**
-    * Handle tansparently autocloseable resources and correctly chain exceptions
+  /** Handle tansparently autocloseable resources and correctly chain exceptions
     *
     * @param r : the resource
     * @param f : the try bloc
@@ -69,8 +68,7 @@ object Utils {
     }
   }
 
-  /**
-    * If the provided `attempt` is a `Success[T]`, do nothing.
+  /** If the provided `attempt` is a `Success[T]`, do nothing.
     * If it is a `Failure`, then log the contained exception as a side effect and carry on
     *
     * @param attempt
@@ -116,16 +114,14 @@ object Utils {
     (createDisposition, writeDisposition)
   }
 
-  /**
-    * @return true if the value provided by x is an object
+  /** @return true if the value provided by x is an object
     */
   def isObject[T](x: T)(implicit tag: TypeTag[T]): Boolean =
     PartialFunction.cond(tag.tpe) { case SingleType =>
       true
     }
 
-  /**
-    * Force a full GC
+  /** Force a full GC
     */
   def gc() = {
     var obj = new Object();
