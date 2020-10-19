@@ -6,7 +6,15 @@ import com.ebiznext.comet.job.index.jdbcload.JdbcLoadConfig
 import com.ebiznext.comet.job.ingest.MetricRecord
 import com.ebiznext.comet.job.metrics.Metrics.{ContinuousMetric, DiscreteMetric, MetricsDatasets}
 import com.ebiznext.comet.schema.handlers.{SchemaHandler, StorageHandler}
-import com.ebiznext.comet.schema.model.{BigQuerySink, Domain, EsSink, JdbcSink, NoneSink, Schema, Stage}
+import com.ebiznext.comet.schema.model.{
+  BigQuerySink,
+  Domain,
+  EsSink,
+  JdbcSink,
+  NoneSink,
+  Schema,
+  Stage
+}
 import com.ebiznext.comet.utils.{FileLock, JobResult, SparkJob, SparkJobResult, Utils}
 import com.google.cloud.bigquery.JobInfo.WriteDisposition
 import org.apache.hadoop.fs.Path
@@ -19,8 +27,7 @@ import scala.util.{Success, Try}
 /** To record statistics with other information during ingestion.
   */
 
-/**
-  * @param domain         : Domain name
+/** @param domain         : Domain name
   * @param schema         : Schema
   * @param stage          : stage
   * @param storageHandler : Storage Handler
@@ -55,8 +62,7 @@ class MetricsJob(
     )
   }
 
-  /**
-    * Saves a dataset. If the path is empty (the first time we call metrics on the schema) then we can write.
+  /** Saves a dataset. If the path is empty (the first time we call metrics on the schema) then we can write.
     *
     * If there's already parquet files stored in it, then create a temporary directory to compute on, and flush
     * the path to move updated metrics in it
@@ -179,8 +185,7 @@ class MetricsJob(
     MetricsDatasets(allDF(0), allDF(1), allDF(2))
   }
 
-  /**
-    * Just to force any spark job to implement its entry point using within the "run" method
+  /** Just to force any spark job to implement its entry point using within the "run" method
     *
     * @return : Spark Session used for the job
     */

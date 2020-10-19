@@ -26,13 +26,12 @@ import com.ebiznext.comet.schema.model._
 import org.apache.hadoop.fs.Path
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.execution.datasources.json.JsonIngestionUtil
-import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.types.{StringType, StructField, StructType}
 import org.apache.spark.sql.{DataFrame, Encoders, Row}
 
 import scala.util.{Failure, Success, Try}
 
-/**
-  * Main class to complex json delimiter separated values file
+/** Main class to complex json delimiter separated values file
   * If your json contains only one level simple attribute aka. kind of dsv but in json format please use SIMPLE_JSON instead. It's way faster
   *
   * @param domain         : Input Dataset Domain
@@ -51,8 +50,7 @@ class JsonIngestionJob(
 )(implicit val settings: Settings)
     extends IngestionJob {
 
-  /**
-    * load the json as an RDD of String
+  /** load the json as an RDD of String
     *
     * @return Spark Dataframe loaded using metadata options
     */
@@ -81,8 +79,7 @@ class JsonIngestionJob(
 
   lazy val schemaSparkType: StructType = schema.sparkType(schemaHandler)
 
-  /**
-    * Where the magic happen
+  /** Where the magic happen
     *
     * @param dataset input dataset as a RDD of string
     */
@@ -106,15 +103,20 @@ class JsonIngestionJob(
     val rejectedRDD: RDD[String] =
       checkedRDD.filter(_.isLeft).map(_.left.get.mkString("\n"))
 
-    val acceptedDF = session.read.json(session.createDataset(acceptedRDD)(Encoders.STRING))
+    val appliedSchema = schema
+      .sparkSchemaWithoutScriptedFields(schemaHandler)
+      .add(StructField(Settings.cometInputFileNameColumn, StringType))
+
+    val acceptedDF = session.read
+      .schema(appliedSchema)
+      .json(session.createDataset(acceptedRDD)(Encoders.STRING))
 
     saveRejected(rejectedRDD)
     saveAccepted(acceptedDF) // prefer to let Spark compute the final schema
     (rejectedRDD, acceptedDF.rdd)
   }
 
-  /**
-    * Use the schema we used for validation when saving
+  /** Use the schema we used for validation when saving
     *
     * @param acceptedRDD
     */

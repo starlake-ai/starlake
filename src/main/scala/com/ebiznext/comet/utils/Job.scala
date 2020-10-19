@@ -13,8 +13,7 @@ trait JobResult
 
 case class SparkJobResult(dataframe: Option[DataFrame]) extends JobResult
 
-/**
-  * All Spark Job extend this trait.
+/** All Spark Job extend this trait.
   * Build Spark session using spark variables from application.conf.
   */
 
@@ -22,8 +21,7 @@ trait JobBase extends StrictLogging {
   def name: String
   implicit def settings: Settings
 
-  /**
-    * Just to force any job to implement its entry point using within the "run" method
+  /** Just to force any job to implement its entry point using within the "run" method
     *
     * @return : Spark Dataframe for Spark Jobs None otherwise
     */
@@ -81,8 +79,7 @@ trait SparkJob extends JobBase {
     partitionedDF.drop("comet_date")
   }
 
-  /**
-    * Partition a dataset using dataset columns.
+  /** Partition a dataset using dataset columns.
     * To partition the dataset using the ingestion time, use the reserved column names :
     *   - comet_date
     *   - comet_year
