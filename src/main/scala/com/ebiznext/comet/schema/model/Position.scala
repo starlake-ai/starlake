@@ -20,8 +20,7 @@
 
 package com.ebiznext.comet.schema.model
 
-/**
-  * How (the attribute should be transformed at ingestion time ?
+/** How (the attribute should be transformed at ingestion time ?
   *
   * @param first : First char position
   * @param last   : last char position

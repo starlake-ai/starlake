@@ -80,8 +80,7 @@ trait BigQueryJobBase extends StrictLogging {
     }
   }
 
-  /**
-    * To set access control on a table or view, we can use Identity and Access Management (IAM) policy
+  /** To set access control on a table or view, we can use Identity and Access Management (IAM) policy
     * After you create a table or view, you can set its policy with a set-iam-policy call
     * For each call, we compare if the existing policy is equal to the defined one (in the Yaml file)
     * If it's the case, we do nothing, otherwise we update the Table policy

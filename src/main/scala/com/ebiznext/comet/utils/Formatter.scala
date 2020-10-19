@@ -4,8 +4,7 @@ object Formatter extends Formatter
 
 trait Formatter {
 
-  /**
-    * Split a String into a Map
+  /** Split a String into a Map
     * @param str : the string to be splitted
     * @return
     */

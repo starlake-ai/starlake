@@ -22,8 +22,7 @@ package com.ebiznext.comet.schema.generator
 import com.ebiznext.comet.utils.CliConfig
 import scopt.OParser
 
-/**
-  * @param files List of Excel files
+/** @param files List of Excel files
   * @param encryption Should pre & post encryption YAML be generated ?
   * @param delimiter : Delimiter to use on generated CSV file after pre-encryption.
   * @param privacy What privacy policies are to be applied at the pre-encrypt step ? All by default.
@@ -72,8 +71,7 @@ object Xls2YmlConfig extends CliConfig[Xls2YmlConfig] {
     )
   }
 
-  /**
-    * @param args args list passed from command line
+  /** @param args args list passed from command line
     * @return Option of case class SchemaGenConfig.
     */
   def parse(args: Seq[String]): Option[Xls2YmlConfig] =

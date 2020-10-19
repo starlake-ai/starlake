@@ -33,8 +33,7 @@ import com.fasterxml.jackson.databind.{
 }
 import org.apache.hadoop.fs.Path
 
-/**
-  * Utilities methods to reference datasets paths
+/** Utilities methods to reference datasets paths
   * Datasets paths are constructed as follows :
   *   - root path defined by the COMET_DATASETS env var or datasets applciation property
   *   - followed by the area name
@@ -47,8 +46,7 @@ object DatasetArea {
 
   def path(domainPath: Path, schema: String) = new Path(domainPath, schema)
 
-  /**
-    * datasets waiting to be ingested are stored here
+  /** datasets waiting to be ingested are stored here
     *
     * @param domain : Domain Name
     * @return Absolute path to the pending folder of domain
@@ -56,8 +54,7 @@ object DatasetArea {
   def pending(domain: String)(implicit settings: Settings): Path =
     path(domain, settings.comet.area.pending)
 
-  /**
-    * datasets with a file name that could not match any schema file name pattern in the specified domain
+  /** datasets with a file name that could not match any schema file name pattern in the specified domain
     * are marked unresolved by being stored in this folder.
     *
     * @param domain : Domain name
@@ -66,8 +63,7 @@ object DatasetArea {
   def unresolved(domain: String)(implicit settings: Settings): Path =
     path(domain, settings.comet.area.unresolved)
 
-  /**
-    * Once ingested datasets are archived in this folder.
+  /** Once ingested datasets are archived in this folder.
     *
     * @param domain : Domain name
     * @return Absolute path to the archive folder of domain
@@ -75,8 +71,7 @@ object DatasetArea {
   def archive(domain: String)(implicit settings: Settings): Path =
     path(domain, settings.comet.area.archive)
 
-  /**
-    * Datasets of the specified domain currently being ingested are located in this folder
+  /** Datasets of the specified domain currently being ingested are located in this folder
     *
     * @param domain : Domain name
     * @return Absolute path to the ingesting folder of domain
@@ -84,8 +79,7 @@ object DatasetArea {
   def ingesting(domain: String)(implicit settings: Settings): Path =
     path(domain, settings.comet.area.ingesting)
 
-  /**
-    * Valid records for datasets the specified domain are stored in this folder.
+  /** Valid records for datasets the specified domain are stored in this folder.
     *
     * @param domain : Domain name
     * @return Absolute path to the ingesting folder of domain
@@ -93,8 +87,7 @@ object DatasetArea {
   def accepted(domain: String)(implicit settings: Settings): Path =
     path(domain, settings.comet.area.accepted)
 
-  /**
-    * Invalid records and the reason why they have been rejected for the datasets of the specified domain are stored in this folder.
+  /** Invalid records and the reason why they have been rejected for the datasets of the specified domain are stored in this folder.
     *
     * @param domain : Domain name
     * @return Absolute path to the rejected folder of domain
@@ -123,8 +116,7 @@ object DatasetArea {
     new Path(metrics(domain, schema), "frequencies")
   }
 
-  /**
-    * Default target folder for autojobs applied to datasets in this domain
+  /** Default target folder for autojobs applied to datasets in this domain
     *
     * @param domain : Domain name
     * @return Absolute path to the business folder of domain
@@ -147,8 +139,7 @@ object DatasetArea {
   def jobs(implicit settings: Settings): Path =
     new Path(metadata, "jobs")
 
-  /**
-    * @param storage
+  /** @param storage
     */
   def initMetadata(
     storage: StorageHandler
@@ -167,8 +158,7 @@ object DatasetArea {
   }
 }
 
-/**
-  * After going through the data pipeline
+/** After going through the data pipeline
   * a dataset may be referenced through a Hive table in a Hive Database.
   * For each input domain, 3 Hive databases may be created :
   *     - The rejected database : contains tables referencing rejected records for each schema in the domain

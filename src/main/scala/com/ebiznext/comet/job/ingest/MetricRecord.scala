@@ -74,8 +74,7 @@ object MetricRecord {
 
   import shapeless._
 
-  /**
-    * An SQL-side "avatar" for [[MetricRecord]]
+  /** An SQL-side "avatar" for [[MetricRecord]]
     *
     * [[MetricRecord]] uses field types that are not directly representable in typical SQL files from Spark
     * (no Spark-compatible SQL dialect has maps, and only Postgres has at least some arrays but not quite enough

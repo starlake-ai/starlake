@@ -5,8 +5,7 @@ import java.time.format.DateTimeFormatter
 import better.files.File
 import com.ebiznext.comet.schema.model.{Domain, Schema, WriteMode}
 
-/**
-  * Params for the script's mustache template
+/** Params for the script's mustache template
   * @param tableToExport table to export
   * @param columnsToExport cols to export
   * @param fullExport if table is going to be fully or delta exported
@@ -58,8 +57,7 @@ object TemplateParams {
 
   val dateFormater: DateTimeFormatter = DateTimeFormatter.ISO_DATE
 
-  /**
-    * Generating all the TemplateParams, corresponding to all the schema's tables of the domain
+  /** Generating all the TemplateParams, corresponding to all the schema's tables of the domain
     *
     * @param domain               The domain
     * @param scriptsOutputFolder  Where the scripts are produced
@@ -78,8 +76,7 @@ object TemplateParams {
       fromSchema(s, scriptsOutputFolder, deltaColumns.get(s.name).orElse(defaultDeltaColumn))
     )
 
-  /**
-    * Generate scripts template parameters, extracting the tables and the columns described in the schema
+  /** Generate scripts template parameters, extracting the tables and the columns described in the schema
     * @param schema The schema used to generate the scripts parameters
     * @param scriptsOutputFolder  Where the scripts are produced
     * @param deltaColumn   The delta column to use for that table

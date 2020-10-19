@@ -14,8 +14,7 @@ import org.apache.spark.storage.StorageLevel
 import scala.concurrent.duration.FiniteDuration
 import scala.reflect.ClassTag
 
-/**
-  * This module handles some specific type serializers in a central way (so we don't need to pepper the model code
+/** This module handles some specific type serializers in a central way (so we don't need to pepper the model code
   * with annotations)
   */
 trait CometJacksonModule extends JacksonModule {
@@ -32,8 +31,7 @@ object CometJacksonModule extends CometJacksonModule {
   private val jacksonProtectedSingletons =
     scala.collection.concurrent.TrieMap[Class[_], (AnyRef, Array[StackTraceElement])]()
 
-  /**
-    * A trait to identify case objects are requiring special protection from Jackson's deserializer
+  /** A trait to identify case objects are requiring special protection from Jackson's deserializer
     *
     * Jackson doesn't know a class is actually an object type, and will happily make new instances of things
     * supposed to be objects (singletons). These 'clone' instances are toxic as they will **not** patmat correctly,
@@ -80,8 +78,7 @@ object CometJacksonModule extends CometJacksonModule {
       extends Serializable {
     private val ourType = implicitly[ClassTag[T]].runtimeClass
 
-    /**
-      * A method called by Jackson to "deserialize" all fields of our singleton object.
+    /** A method called by Jackson to "deserialize" all fields of our singleton object.
       *
       * Here our behaviour is to simply ignore anything passed here as we never intend to actually construct
       * a new object.
