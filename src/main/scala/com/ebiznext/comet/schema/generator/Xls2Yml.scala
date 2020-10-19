@@ -53,19 +53,20 @@ object Xls2Yml extends LazyLogging {
   def genPostEncryptionDomain(
     domain: Domain,
     delimiter: Option[String],
-    privacy: Seq[String]
+    encryptionPrivacyList: Seq[String]
   ): Domain = {
 
-    /**
-      * Identify if a schema is not concerned by the encryption phase
+    /** Identify if a schema is not concerned by the encryption phase
       * either because none of its attributes has a defined Privacy Level
       * or because all the defined Privacy Levels are not applied during the encrption phase
       * @param s
       * @return true if the schema is not concerned by the encryption phase
       */
-    def noPreEncryptPrivacy(s:Schema): Boolean = {
+    def noPreEncryptPrivacy(s: Schema): Boolean = {
       s.attributes.forall(_.privacy.isEmpty) ||
-        (privacy.nonEmpty && s.attributes.flatMap(_.privacy).distinct.forall{p => !privacy.contains(p.toString)})
+      (encryptionPrivacyList.nonEmpty && s.attributes.flatMap(_.privacy).distinct.forall { p =>
+        !encryptionPrivacyList.contains(p.toString)
+      })
     }
     val postEncryptSchemas: List[Schema] = domain.schemas.map { schema =>
       if (noPreEncryptPrivacy(schema))
@@ -74,28 +75,28 @@ object Xls2Yml extends LazyLogging {
         val metadata = for {
           metadata <- schema.metadata
           format   <- metadata.format
-      } yield {
-        if (!List(Format.SIMPLE_JSON, Format.DSV, Format.POSITION).contains(format))
-          throw new Exception("Not Implemented")
-        metadata.copy(
-          format = Some(Format.DSV),
-          separator = delimiter.orElse(schema.metadata.flatMap(_.separator)).orElse(Some("µ")),
-          withHeader = schema.metadata.flatMap(_.withHeader),
-          encoding = Some("UTF-8")
-        )
-      }
-      val attributes = schema.attributes.map { attr =>
-        if (
-          privacy == Nil || privacy.contains(
-            attr.privacy.getOrElse(PrivacyLevel.None).toString
+        } yield {
+          if (!List(Format.SIMPLE_JSON, Format.DSV, Format.POSITION).contains(format))
+            throw new Exception("Not Implemented")
+          metadata.copy(
+            format = Some(Format.DSV),
+            separator = delimiter.orElse(schema.metadata.flatMap(_.separator)).orElse(Some("µ")),
+            withHeader = schema.metadata.flatMap(_.withHeader),
+            encoding = Some("UTF-8")
           )
-        )
-          attr.copy(privacy = None)
-        else
-          attr
-      }
-      schema.copy(
-        metadata = metadata,
+        }
+        val attributes = schema.attributes.map { attr =>
+          if (
+            encryptionPrivacyList == Nil || encryptionPrivacyList.contains(
+              attr.privacy.getOrElse(PrivacyLevel.None).toString
+            )
+          )
+            attr.copy(privacy = None)
+          else
+            attr
+        }
+        schema.copy(
+          metadata = metadata,
           attributes = attributes
         )
       }
