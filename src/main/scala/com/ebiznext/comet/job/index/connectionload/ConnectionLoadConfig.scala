@@ -14,7 +14,7 @@ case class ConnectionLoadConfig(
   outputTable: String = "",
   createDisposition: CreateDisposition = CreateDisposition.CREATE_IF_NEEDED,
   writeDisposition: WriteDisposition = WriteDisposition.WRITE_APPEND,
-  format: String ="jdbc",
+  format: String = "jdbc",
   options: Map[String, String] = Map.empty,
   rls: Option[List[RowLevelSecurity]] = None
 )
@@ -26,7 +26,7 @@ object ConnectionLoadConfig extends CliConfig[ConnectionLoadConfig] {
     jdbcEngine: Settings.JdbcEngine,
     outputTable: String
   ): Unit = {
-    assert(jdbcOptions.format =="jdbc")
+    assert(jdbcOptions.format == "jdbc")
     val table = jdbcEngine.tables(outputTable)
 
     val conn = DriverManager.getConnection(
@@ -102,7 +102,9 @@ object ConnectionLoadConfig extends CliConfig[ConnectionLoadConfig] {
         .required(),
       opt[Map[String, String]]("options")
         .action((x, c) => c.copy(options = x))
-        .text("Connection options eq for jdbc : driver, user, password, url, partitions, batchSize"),
+        .text(
+          "Connection options eq for jdbc : driver, user, password, url, partitions, batchSize"
+        ),
       opt[String]("create_disposition")
         .action((x, c) => c.copy(createDisposition = CreateDisposition.valueOf(x)))
         .text(
