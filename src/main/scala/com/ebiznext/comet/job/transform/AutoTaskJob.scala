@@ -47,18 +47,18 @@ import scala.util.{Failure, Success, Try}
   * @param sqlParameters : Sql Parameters to pass to SQL statements
   */
 class AutoTaskJob(
-  override val name: String,
-  defaultArea: Option[StorageArea],
-  format: scala.Option[String],
-  coalesce: Boolean,
-  udf: scala.Option[String],
-  views: scala.Option[Map[String, String]],
-  engine: Engine,
-  task: AutoTaskDesc,
-  storageHandler: StorageHandler,
-  sqlParameters: Map[String, String]
-)(implicit val settings: Settings)
-    extends SparkJob {
+                   override val name: String,
+                   defaultArea: Option[StorageArea],
+                   format: scala.Option[String],
+                   coalesce: Boolean,
+                   udf: scala.Option[String],
+                   views: scala.Option[Map[String, String]],
+                   engine: Engine,
+                   task: AutoTaskDesc,
+                   storageHandler: StorageHandler,
+                   sqlParameters: Map[String, String]
+                 )(implicit val settings: Settings)
+  extends SparkJob {
 
   override def run(): Try[JobResult] = {
     engine match {
@@ -212,16 +212,37 @@ class AutoTaskJob(
             .load()
             .cache()
         case BQ =>
-          val TablePathWithFilter = "(.*)\\.comet_filter(.*)".r
+          val TablePathWithFilter = "(.*)\\.comet_filter\\((.*)\\)".r
+          val TablePathWithSelect = "(.*)\\.comet_select\\((.*)\\)".r
+          val TablePathWithFilterAndSelect = "(.*)\\.comet_select\\((.*)\\)\\.comet_filter\\((.*)\\)".r
           path match {
-            case TablePathWithFilter(tablePath, filter) =>
+            case TablePathWithFilterAndSelect(tablePath, select, filter) =>
               val filterFormat = filter.richFormat(sqlParameters)
-              logger.info(s"We are loading the Table with filters pushdown: $filterFormat")
+              logger
+                .info(s"We are loading the Table with columns: $select and filters: $filterFormat")
               session.read
                 .format("com.google.cloud.spark.bigquery")
                 .option("table", tablePath)
                 .option("filter", filterFormat)
                 .load()
+                .selectExpr(select.replaceAll("\\s", "").split(","): _*)
+                .cache()
+            case TablePathWithFilter(tablePath, filter) =>
+              val filterFormat = filter.richFormat(sqlParameters)
+              logger.info(s"We are loading the Table with filters: $filterFormat")
+              session.read
+                .format("com.google.cloud.spark.bigquery")
+                .option("table", tablePath)
+                .option("filter", filterFormat)
+                .load()
+                .cache()
+            case TablePathWithSelect(tablePath, select) =>
+              logger.info(s"We are loading the Table with columns: $select")
+              session.read
+                .format("com.google.cloud.spark.bigquery")
+                .option("table", tablePath)
+                .load()
+                .selectExpr(select.replaceAll("\\s", "").split(","): _*)
                 .cache()
             case _ =>
               session.read
