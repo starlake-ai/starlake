@@ -72,6 +72,8 @@ case class Schema(
   rls: Option[List[RowLevelSecurity]] = None
 ) {
 
+  lazy val attributesWithoutScript: List[Attribute] = attributes.filter(_.script.isEmpty)
+
   /** @return Are the parittions columns defined in the metadata valid column names
     */
   def validatePartitionColumns(): Boolean = {
@@ -182,7 +184,7 @@ case class Schema(
     val format = this.mergedMetadata(domainMetaData).format
     format match {
       case Some(Format.POSITION) =>
-        val attrsAsArray = attributes.toArray
+        val attrsAsArray = attributesWithoutScript.toArray
         for (i <- 0 until attrsAsArray.length - 1) {
           val pos1 = attrsAsArray(i).position
           val pos2 = attrsAsArray(i + 1).position
