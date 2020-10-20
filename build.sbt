@@ -9,7 +9,7 @@ import scala.util.matching.Regex
 
 lazy val scala212 = "2.12.12"
 
-lazy val scala211 = "2.11.12"
+// lazy val scala211 = "2.11.12"
 
 lazy val sparkVersion = sys.env.getOrElse("COMET_SPARK_VERSION", "3.0.1")
 
@@ -23,7 +23,7 @@ val sparkMinor = sparkPatternMatch.group(2)
 
 lazy val supportedScalaVersions = sparkMajor match {
   case "3" => List(scala212)
-  case "2" => List(scala212, scala211)
+  case "2" => List(scala212) // scala211
   case _   => throw new Exception(s"Invalid Spark Major Version $sparkMajor")
 }
 
