@@ -31,8 +31,10 @@ object Xls2Yml extends LazyLogging {
             else
               attr.copy(`type` = "string", required = false, privacy = None, rename = None)
           }
+      // pre-encryption YML should not contain any partition or sink elements.
+      // Write mode is forced to APPEND since encryption output must not overwrite previous results
       val newMetaData: Option[Metadata] = s.metadata.map { m =>
-        m.copy(partition = None, sink = None)
+        m.copy(partition = None, sink = None, write = Some(WriteMode.APPEND))
       }
       s.copy(attributes = newAttributes)
         .copy(metadata = newMetaData)
