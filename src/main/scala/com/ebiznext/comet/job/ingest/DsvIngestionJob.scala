@@ -128,7 +128,7 @@ class DsvIngestionJob(
              if there are more in the CSV file
            */
 
-          val attributesWithoutscript = schema.attributes.filter(!_.script.isDefined)
+          val attributesWithoutscript = schema.attributesWithoutScript
           val compare =
             attributesWithoutscript.length.compareTo(df.columns.length)
           if (compare == 0) {
@@ -178,7 +178,7 @@ class DsvIngestionJob(
   def ingest(dataset: DataFrame): (RDD[_], RDD[_]) = {
 
     val attributesWithoutscript: Seq[Attribute] =
-      schema.attributes.filter(!_.script.isDefined) :+ Attribute(
+      schema.attributesWithoutScript :+ Attribute(
         name = Settings.cometInputFileNameColumn
       )
 

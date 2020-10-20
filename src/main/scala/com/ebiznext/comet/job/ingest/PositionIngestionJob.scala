@@ -90,12 +90,12 @@ class PositionIngestionJob(
     */
   override def ingest(input: DataFrame): (RDD[_], RDD[_]) = {
 
-    val attributesWithoutScript = schema.attributes.filter(_.script.isEmpty)
-    val dataset: DataFrame = PositionIngestionUtil.prepare(session, input, attributesWithoutScript)
+    val dataset: DataFrame =
+      PositionIngestionUtil.prepare(session, input, schema.attributesWithoutScript)
 
     def reorderAttributes(): List[Attribute] = {
       val attributesMap =
-        attributesWithoutScript.map(attr => (attr.name, attr)).toMap
+        schema.attributesWithoutScript.map(attr => (attr.name, attr)).toMap
       dataset.columns.map(colName => attributesMap(colName)).toList
     }
 
