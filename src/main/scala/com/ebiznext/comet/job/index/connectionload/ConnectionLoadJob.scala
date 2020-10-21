@@ -37,7 +37,7 @@ class ConnectionLoadJob(
         .format(cliConfig.format)
         .option("truncate", cliConfig.writeDisposition == WriteDisposition.WRITE_TRUNCATE)
         .option("dbtable", cliConfig.outputTable)
-        .mode(writeMode)
+        .mode(cliConfig.mode.getOrElse(writeMode.toString))
 
       cliConfig.options.foldLeft(dfw)((w, kv) => w.option(kv._1, kv._2)).save()
       SparkJobResult(None)

@@ -113,6 +113,7 @@ object Settings extends StrictLogging {
     */
   final case class Connection(
     format: String = "jdbc",
+    mode: Option[String] = None,
     options: Map[String, String] = Map.empty,
     engineOverride: Option[String] = None
   ) {

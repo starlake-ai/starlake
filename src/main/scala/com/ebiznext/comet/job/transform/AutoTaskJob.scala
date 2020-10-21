@@ -47,18 +47,18 @@ import scala.util.{Failure, Success, Try}
   * @param sqlParameters : Sql Parameters to pass to SQL statements
   */
 class AutoTaskJob(
-                   override val name: String,
-                   defaultArea: Option[StorageArea],
-                   format: scala.Option[String],
-                   coalesce: Boolean,
-                   udf: scala.Option[String],
-                   views: scala.Option[Map[String, String]],
-                   engine: Engine,
-                   task: AutoTaskDesc,
-                   storageHandler: StorageHandler,
-                   sqlParameters: Map[String, String]
-                 )(implicit val settings: Settings)
-  extends SparkJob {
+  override val name: String,
+  defaultArea: Option[StorageArea],
+  format: scala.Option[String],
+  coalesce: Boolean,
+  udf: scala.Option[String],
+  views: scala.Option[Map[String, String]],
+  engine: Engine,
+  task: AutoTaskDesc,
+  storageHandler: StorageHandler,
+  sqlParameters: Map[String, String]
+)(implicit val settings: Settings)
+    extends SparkJob {
 
   override def run(): Try[JobResult] = {
     engine match {
@@ -186,12 +186,12 @@ class AutoTaskJob(
       val (format, configName, path) =
         if (sepIndex > 0) {
           val key = value.substring(0, sepIndex)
-          val sepConfigIndex = value.indexOf(':', sepIndex+1)
+          val sepConfigIndex = value.indexOf(':', sepIndex + 1)
           if (sepConfigIndex > 0) {
             (
               SinkType.fromString(value.substring(0, sepIndex)),
-              Some(value.substring(sepIndex+1, sepConfigIndex)),
-              value.substring(sepConfigIndex+1)
+              Some(value.substring(sepIndex + 1, sepConfigIndex)),
+              value.substring(sepConfigIndex + 1)
             )
           } else
             (SinkType.fromString(key), None, value.substring(sepIndex + 1))
@@ -204,17 +204,19 @@ class AutoTaskJob(
             if (path.startsWith("/")) path else s"${settings.comet.datasets}/$path"
           session.read.parquet(fullPath)
         case JDBC =>
-          val jdbcConfig = settings.comet.connections(configName.getOrElse((throw new Exception(""))))
+          val jdbcConfig =
+            settings.comet.connections(configName.getOrElse((throw new Exception(""))))
           jdbcConfig.options
             .foldLeft(session.read)((w, kv) => w.option(kv._1, kv._2))
             .format(jdbcConfig.format)
-            .option("query", path)
+            .option("query", path.richFormat(sqlParameters))
             .load()
             .cache()
         case BQ =>
           val TablePathWithFilter = "(.*)\\.comet_filter\\((.*)\\)".r
           val TablePathWithSelect = "(.*)\\.comet_select\\((.*)\\)".r
-          val TablePathWithFilterAndSelect = "(.*)\\.comet_select\\((.*)\\)\\.comet_filter\\((.*)\\)".r
+          val TablePathWithFilterAndSelect =
+            "(.*)\\.comet_select\\((.*)\\)\\.comet_filter\\((.*)\\)".r
           path match {
             case TablePathWithFilterAndSelect(tablePath, select, filter) =>
               val filterFormat = filter.richFormat(sqlParameters)
