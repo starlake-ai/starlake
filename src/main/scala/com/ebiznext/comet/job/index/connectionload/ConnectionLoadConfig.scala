@@ -15,6 +15,7 @@ case class ConnectionLoadConfig(
   createDisposition: CreateDisposition = CreateDisposition.CREATE_IF_NEEDED,
   writeDisposition: WriteDisposition = WriteDisposition.WRITE_APPEND,
   format: String = "jdbc",
+  mode: Option[String] = None,
   options: Map[String, String] = Map.empty,
   rls: Option[List[RowLevelSecurity]] = None
 )
@@ -81,6 +82,7 @@ object ConnectionLoadConfig extends CliConfig[ConnectionLoadConfig] {
       createDisposition = createDisposition,
       writeDisposition = writeDisposition,
       jdbcOptions.format,
+      jdbcOptions.mode,
       jdbcOptions.options
     )
   }
