@@ -47,18 +47,18 @@ import scala.util.{Failure, Success, Try}
   * @param sqlParameters : Sql Parameters to pass to SQL statements
   */
 class AutoTaskJob(
-                   override val name: String,
-                   defaultArea: Option[StorageArea],
-                   format: scala.Option[String],
-                   coalesce: Boolean,
-                   udf: scala.Option[String],
-                   views: scala.Option[Map[String, String]],
-                   engine: Engine,
-                   task: AutoTaskDesc,
-                   storageHandler: StorageHandler,
-                   sqlParameters: Map[String, String]
-                 )(implicit val settings: Settings)
-  extends SparkJob {
+  override val name: String,
+  defaultArea: Option[StorageArea],
+  format: scala.Option[String],
+  coalesce: Boolean,
+  udf: scala.Option[String],
+  views: scala.Option[Map[String, String]],
+  engine: Engine,
+  task: AutoTaskDesc,
+  storageHandler: StorageHandler,
+  sqlParameters: Map[String, String]
+)(implicit val settings: Settings)
+    extends SparkJob {
 
   override def run(): Try[JobResult] = {
     engine match {
@@ -196,7 +196,8 @@ class AutoTaskJob(
         case BQ =>
           val TablePathWithFilter = "(.*)\\.comet_filter\\((.*)\\)".r
           val TablePathWithSelect = "(.*)\\.comet_select\\((.*)\\)".r
-          val TablePathWithFilterAndSelect = "(.*)\\.comet_select\\((.*)\\)\\.comet_filter\\((.*)\\)".r
+          val TablePathWithFilterAndSelect =
+            "(.*)\\.comet_select\\((.*)\\)\\.comet_filter\\((.*)\\)".r
           path match {
             case TablePathWithFilterAndSelect(tablePath, select, filter) =>
               val filterFormat = filter.richFormat(sqlParameters)

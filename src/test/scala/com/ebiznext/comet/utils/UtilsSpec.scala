@@ -77,7 +77,7 @@ class UtilsSpec extends TestHelper {
       standardResult shouldEqual standardView
       customResult shouldEqual (standardView, filter)
       filterSelectResult shouldEqual (standardView, select, filter)
-      selectResult shouldEqual(standardView, select)
+      selectResult shouldEqual (standardView, select)
     }
   }
 
