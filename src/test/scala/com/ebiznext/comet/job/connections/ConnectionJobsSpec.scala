@@ -1,0 +1,62 @@
+package com.ebiznext.comet.job.connections
+
+import com.ebiznext.comet.TestHelper
+import com.ebiznext.comet.config.{Settings, StorageArea}
+import com.ebiznext.comet.schema.handlers.{SchemaHandler, SimpleLauncher}
+import com.ebiznext.comet.schema.model.{AutoJobDesc, AutoTaskDesc, JdbcSink, WriteMode}
+import com.ebiznext.comet.workflow.{IngestionWorkflow, TransformConfig}
+import org.apache.hadoop.fs.Path
+import org.apache.spark.sql.SaveMode
+
+class ConnectionJobsSpec extends TestHelper {
+  lazy val pathBusiness = new Path(cometMetadataPath + "/jobs/user.yml")
+  new WithSettings() {
+    "JDBC 2 JDBC Connection" should "succeed" in {
+      val connection = "test-h2"
+
+      import sparkSession.implicits._
+      val usersDF = Seq(
+        ("John", "Doe", 10),
+        ("Sam", "Hal", 20),
+        ("Martin", "Odersky", 30)
+      ).toDF("firstname", "lastname", "age")
+      val usersOptions = settings.comet.connections(connection).options  + ("dbtable" -> "users")
+      usersDF.write.format("jdbc").options(usersOptions).mode(SaveMode.Overwrite).save()
+
+      val businessTask1 = AutoTaskDesc(
+        "select firstname, lastname from user_View where age = {{age}}",
+        "user",
+        "userout",
+        WriteMode.OVERWRITE,
+        area = Some(StorageArea.fromString("business")),
+        sink = Some(JdbcSink(connection = connection))
+      )
+      val businessJob =
+        AutoJobDesc(
+          "user",
+          List(businessTask1),
+          None,
+          Some("parquet"),
+          Some(false),
+          views = Some(Map("user_View" -> s"jdbc:$connection:select * from users"))
+        )
+
+
+      val schemaHandler = new SchemaHandler(metadataStorageHandler)
+
+      val businessJobDef = mapper
+        .writer()
+        .withAttribute(classOf[Settings], settings)
+        .writeValueAsString(businessJob)
+
+      val workflow =
+        new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
+      storageHandler.write(businessJobDef, pathBusiness)
+
+      workflow.autoJob(TransformConfig("user", Map("age" -> "10")))
+
+      val userOutOptions = settings.comet.connections(connection).options  + ("dbtable" -> "userout")
+      sparkSession.read.format("jdbc").options(userOutOptions).load.collect() should have size 1
+    }
+  }
+}
