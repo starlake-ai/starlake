@@ -125,12 +125,10 @@ object Settings extends StrictLogging {
 
   /** Describes how to use a specific type of JDBC-accessible database engine
     *
-    * @param driver the qualified class name of the JDBC Driver to use for the specific engine
     * @param tables for each of the Standard Table Names used by Comet, the specific SQL DDL statements as expected
     *               in the engine's own dialect.
     */
   final case class JdbcEngine(
-    driver: String,
     tables: scala.collection.Map[String, JdbcEngine.TableDdl]
   )
 
