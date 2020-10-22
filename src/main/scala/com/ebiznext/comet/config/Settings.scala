@@ -101,9 +101,12 @@ object Settings extends StrictLogging {
 
   /** Describes a connection to a JDBC-accessible database engine
     *
-    * @param uri the URI of the database engine. It must start with "jdbc:"
-    * @param user the username under which to connect to the database engine
-    * @param password the password to use in order to connect to the database engine
+    * @param format source / sink format (jdbc by default). Cf spark.format possible values
+    * @param mode Spark SaveMode to use. If not present, the save mode will be computed from the write disposition set in the YAM file
+    * @param options any option required by the format used to ingest / tranform / compute the data. Eg for JDBC uri, user and password are required
+    *             uri the URI of the database engine. It must start with "jdbc:"
+    *             user the username under which to connect to the database engine
+    *             password the password to use in order to connect to the database engine
     * @param engineOverride the index into the [[Comet.jdbcEngines]] map of the underlying database engine, in case
     *                       one cannot use the engine name from the uri
     *
