@@ -184,6 +184,7 @@ object Settings extends StrictLogging {
     lock: Lock,
     defaultWriteFormat: String,
     csvOutput: Boolean,
+    privacyOnly: Boolean,
     launcher: String,
     chewerPrefix: String,
     rowValidatorClass: String,
