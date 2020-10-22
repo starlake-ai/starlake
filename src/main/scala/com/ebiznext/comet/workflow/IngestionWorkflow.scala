@@ -176,7 +176,7 @@ class IngestionWorkflow(
         storageHandler.move(path, targetPath)
       }
 
-      val filteredResolved = if (settings.comet.onlyPrivacy) {
+      val filteredResolved = if (settings.comet.privacyOnly) {
         val (withPrivacy, noPrivacy) =
           resolved.partition(
             _._1.exists(_.attributes.forall(_.privacy.exists(!PrivacyLevel.None.equals(_))))
