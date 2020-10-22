@@ -27,7 +27,7 @@ class ConnectionLoadJob(
           case Right(df)  => df
         }
 
-      // Some database do not suport truncate wuring save
+      // Some database do not suport truncate during save
       // Truncate should be done manually in pre-sql
       // https://stackoverflow.com/questions/59451275/how-to-generate-a-spark-sql-truncate-query-without-only
       val writeMode =
