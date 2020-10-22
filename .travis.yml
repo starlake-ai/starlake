@@ -7,22 +7,17 @@ jdk:
   - openjdk11
 
 scala:
-  - 2.11.12
   - 2.12.12
 
 env:
-  - COMET_SPARK_VERSION=2.4.6
+  - COMET_SPARK_VERSION=2.4.7
   - COMET_SPARK_VERSION=3.0.1
 
 jobs:
-  exclude:
-    # Spark 3 Has dropped scala 2.11 support
-    - scala: 2.11.12
-      env: COMET_SPARK_VERSION=3.0.1
   allow_failures:
-    # we test, but since support of jdk>8 by spark 2.4.6 isn't official, it's okay to fail
+    # we test, but since support of jdk>8 by spark 2.4.7 isn't official, it's okay to fail
     - jdk: openjdk11
-      env: COMET_SPARK_VERSION=2.4.6 
+      env: COMET_SPARK_VERSION=2.4.7
       
     
 script:

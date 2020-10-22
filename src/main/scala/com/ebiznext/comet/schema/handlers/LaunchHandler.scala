@@ -24,7 +24,7 @@ import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.job.index.bqload.BigQueryLoadConfig
 import com.ebiznext.comet.job.index.esload.ESLoadConfig
 import com.ebiznext.comet.job.ingest.LoadConfig
-import com.ebiznext.comet.job.index.jdbcload.JdbcLoadConfig
+import com.ebiznext.comet.job.index.connectionload.ConnectionLoadConfig
 import com.ebiznext.comet.schema.model.{Domain, Schema}
 import com.ebiznext.comet.utils.Utils
 import com.ebiznext.comet.workflow.IngestionWorkflow
@@ -88,7 +88,7 @@ trait LaunchHandler {
     *
     * @param config
     */
-  def jdbcload(workflow: IngestionWorkflow, config: JdbcLoadConfig)(implicit
+  def jdbcload(workflow: IngestionWorkflow, config: ConnectionLoadConfig)(implicit
     settings: Settings
   ): Boolean
 }
@@ -145,7 +145,7 @@ class SimpleLauncher extends LaunchHandler with StrictLogging {
     *
     * @param config
     */
-  override def jdbcload(workflow: IngestionWorkflow, config: JdbcLoadConfig)(implicit
+  override def jdbcload(workflow: IngestionWorkflow, config: ConnectionLoadConfig)(implicit
     settings: Settings
   ): Boolean = {
     logger.info(s"Launch JDBC: ${config}")
@@ -263,19 +263,15 @@ class AirflowLauncher extends LaunchHandler with StrictLogging {
     *
     * @param config
     */
-  override def jdbcload(workflow: IngestionWorkflow, config: JdbcLoadConfig)(implicit
+  override def jdbcload(workflow: IngestionWorkflow, config: ConnectionLoadConfig)(implicit
     settings: Settings
   ): Boolean = {
     val endpoint = settings.comet.airflow.endpoint
     val url = s"$endpoint/dags/comet_jdbcload/dag_runs"
     val params = List(
       s"--source_file ${config.sourceFile}",
-      s"--partitions ${config.partitions}",
-      s"--password ${config.password}",
-      s"--user ${config.user}",
-      s"--batch_size ${config.batchSize}",
-      s"--driver ${config.driver}",
-      s"--url ${config.url}",
+      s"--options partitions=1000,user=sa,password=sa,batch_size=1,driver=org.postgresqlDriver,url=jdbc:postgresql:...",
+      s"--format=jdbc",
       s"--create_disposition ${config.createDisposition}",
       s"--write_disposition ${config.writeDisposition}"
     ).mkString(" ")
