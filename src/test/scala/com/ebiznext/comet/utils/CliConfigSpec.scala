@@ -5,7 +5,7 @@ import com.ebiznext.comet.extractor.ExtractScriptGenConfig
 import com.ebiznext.comet.job.convert.Parquet2CSVConfig
 import com.ebiznext.comet.job.index.bqload.BigQueryLoadConfig
 import com.ebiznext.comet.job.index.esload.ESLoadConfig
-import com.ebiznext.comet.job.index.jdbcload.JdbcLoadConfig
+import com.ebiznext.comet.job.index.connectionload.ConnectionLoadConfig
 import com.ebiznext.comet.job.infer.InferSchemaConfig
 import com.ebiznext.comet.job.ingest.LoadConfig
 import com.ebiznext.comet.job.metrics.MetricsConfig
@@ -23,7 +23,7 @@ class CliConfigSpec extends TestHelper {
         "load"         -> LoadConfig.sphinx(),
         "metrics"      -> MetricsConfig.sphinx(),
         "parquet2csv"  -> Parquet2CSVConfig.sphinx(),
-        "sqlload"      -> JdbcLoadConfig.sphinx(),
+        "cnxload"      -> ConnectionLoadConfig.sphinx(),
         "xls2yml"      -> Xls2YmlConfig.sphinx(),
         "extract"      -> ExtractScriptGenConfig.sphinx(),
         "transform"    -> TransformConfig.sphinx(),

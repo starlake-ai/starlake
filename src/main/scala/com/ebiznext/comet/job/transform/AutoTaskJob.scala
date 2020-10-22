@@ -30,7 +30,7 @@ import com.ebiznext.comet.job.index.bqload.{
   BigQueryNativeJob
 }
 import com.ebiznext.comet.schema.handlers.StorageHandler
-import com.ebiznext.comet.schema.model.SinkType.{BQ, FS}
+import com.ebiznext.comet.schema.model.SinkType.{BQ, FS, JDBC}
 import com.ebiznext.comet.schema.model.{AutoTaskDesc, BigQuerySink, Engine, SinkType}
 import com.ebiznext.comet.utils.Formatter._
 import com.ebiznext.comet.utils.{JobResult, SparkJob, SparkJobResult, Utils}
@@ -39,7 +39,7 @@ import org.apache.hadoop.fs.Path
 import scala.util.{Failure, Success, Try}
 
 /** Execute the SQL Task and store it in parquet/orc/.... If Hive support is enabled, also store it as a Hive Table.
-  * If analyze support is active, also compute basic statistics for the dataset.
+  * If analyze support is active, also compute basic statistics for twhe dataset.
   *
   * @param name        : Job Name as defined in the YML job description file
   * @param defaultArea : Where the resulting dataset is stored by default if not specified in the task
@@ -47,18 +47,18 @@ import scala.util.{Failure, Success, Try}
   * @param sqlParameters : Sql Parameters to pass to SQL statements
   */
 class AutoTaskJob(
-                   override val name: String,
-                   defaultArea: Option[StorageArea],
-                   format: scala.Option[String],
-                   coalesce: Boolean,
-                   udf: scala.Option[String],
-                   views: scala.Option[Map[String, String]],
-                   engine: Engine,
-                   task: AutoTaskDesc,
-                   storageHandler: StorageHandler,
-                   sqlParameters: Map[String, String]
-                 )(implicit val settings: Settings)
-  extends SparkJob {
+  override val name: String,
+  defaultArea: Option[StorageArea],
+  format: scala.Option[String],
+  coalesce: Boolean,
+  udf: scala.Option[String],
+  views: scala.Option[Map[String, String]],
+  engine: Engine,
+  task: AutoTaskDesc,
+  storageHandler: StorageHandler,
+  sqlParameters: Map[String, String]
+)(implicit val settings: Settings)
+    extends SparkJob {
 
   override def run(): Try[JobResult] = {
     engine match {
@@ -71,9 +71,10 @@ class AutoTaskJob(
     }
   }
 
+  val (createDisposition, writeDisposition) =
+    Utils.getDBDisposition(task.write, hasMergeKeyDefined = false)
+
   private def createConfig(): BigQueryLoadConfig = {
-    val (createDisposition, writeDisposition) =
-      Utils.getDBDisposition(task.write, hasMergeKeyDefined = false)
     val bqSink = task.sink.map(sink => sink.asInstanceOf[BigQuerySink]).getOrElse(BigQuerySink())
 
     BigQueryLoadConfig(
@@ -182,21 +183,40 @@ class AutoTaskJob(
     }
     views.getOrElse(Map()).foreach { case (key, value) =>
       val sepIndex = value.indexOf(":")
-      val (format, path) =
-        if (sepIndex > 0)
-          (SinkType.fromString(value.substring(0, sepIndex)), value.substring(sepIndex + 1))
-        else // parquet is the default
-          (SinkType.FS, value)
+      val (format, configName, path) =
+        if (sepIndex > 0) {
+          val key = value.substring(0, sepIndex)
+          val sepConfigIndex = value.indexOf(':', sepIndex + 1)
+          if (sepConfigIndex > 0) {
+            (
+              SinkType.fromString(value.substring(0, sepIndex)),
+              Some(value.substring(sepIndex + 1, sepConfigIndex)),
+              value.substring(sepConfigIndex + 1)
+            )
+          } else
+            (SinkType.fromString(key), None, value.substring(sepIndex + 1))
+        } else // parquet is the default
+          (SinkType.FS, None, value)
       logger.info(s"Loading view $path from $format")
       val df = format match {
         case FS =>
           val fullPath =
             if (path.startsWith("/")) path else s"${settings.comet.datasets}/$path"
           session.read.parquet(fullPath)
+        case JDBC =>
+          val jdbcConfig =
+            settings.comet.connections(configName.getOrElse((throw new Exception(""))))
+          jdbcConfig.options
+            .foldLeft(session.read)((w, kv) => w.option(kv._1, kv._2))
+            .format(jdbcConfig.format)
+            .option("query", path.richFormat(sqlParameters))
+            .load()
+            .cache()
         case BQ =>
           val TablePathWithFilter = "(.*)\\.comet_filter\\((.*)\\)".r
           val TablePathWithSelect = "(.*)\\.comet_select\\((.*)\\)".r
-          val TablePathWithFilterAndSelect = "(.*)\\.comet_select\\((.*)\\)\\.comet_filter\\((.*)\\)".r
+          val TablePathWithFilterAndSelect =
+            "(.*)\\.comet_select\\((.*)\\)\\.comet_filter\\((.*)\\)".r
           path match {
             case TablePathWithFilterAndSelect(tablePath, select, filter) =>
               val filterFormat = filter.richFormat(sqlParameters)
