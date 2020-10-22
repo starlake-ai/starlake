@@ -101,9 +101,12 @@ object Settings extends StrictLogging {
 
   /** Describes a connection to a JDBC-accessible database engine
     *
-    * @param uri the URI of the database engine. It must start with "jdbc:"
-    * @param user the username under which to connect to the database engine
-    * @param password the password to use in order to connect to the database engine
+    * @param format source / sink format (jdbc by default). Cf spark.format possible values
+    * @param mode Spark SaveMode to use. If not present, the save mode will be computed from the write disposition set in the YAM file
+    * @param options any option required by the format used to ingest / tranform / compute the data. Eg for JDBC uri, user and password are required
+    *             uri the URI of the database engine. It must start with "jdbc:"
+    *             user the username under which to connect to the database engine
+    *             password the password to use in order to connect to the database engine
     * @param engineOverride the index into the [[Comet.jdbcEngines]] map of the underlying database engine, in case
     *                       one cannot use the engine name from the uri
     *
@@ -111,23 +114,21 @@ object Settings extends StrictLogging {
     *       (e.g. non-standard table names) alongside with the regular schema definition, on the same
     *       underlying engine.
     */
-  final case class Jdbc(
-    uri: String,
-    user: String = "",
-    password: String = "",
+  final case class Connection(
+    format: String = "jdbc",
+    mode: Option[String] = None,
+    options: Map[String, String] = Map.empty,
     engineOverride: Option[String] = None
   ) {
-    def engine: String = engineOverride.getOrElse(uri.split(':')(1))
+    def engine: String = engineOverride.getOrElse(options("url").split(':')(1))
   }
 
   /** Describes how to use a specific type of JDBC-accessible database engine
     *
-    * @param driver the qualified class name of the JDBC Driver to use for the specific engine
     * @param tables for each of the Standard Table Names used by Comet, the specific SQL DDL statements as expected
     *               in the engine's own dialect.
     */
   final case class JdbcEngine(
-    driver: String,
     tables: scala.collection.Map[String, JdbcEngine.TableDdl]
   )
 
@@ -136,14 +137,15 @@ object Settings extends StrictLogging {
     /** A descriptor of the specific SQL DDL statements required to manage a specific Comet table in a JDBC-accessible
       * database engine
       *
-      * @param name the name of the table as it is known on the database engine
       * @param createSql the SQL Create Table statement with the database-specific type, constraints etc. tacked on.
       * @param pingSql a cheap SQL query whose results are irrelevant but guaranteed to trigger an error in case the table is absent
       *
       * @note pingSql is optional, and will default to `select * from `name` where 1=0` as Spark SQL does
       */
-    final case class TableDdl(name: String, createSql: String, pingSql: Option[String] = None) {
-      def effectivePingSql: String = pingSql.getOrElse(s"select * from $name where 1=0")
+    final case class TableDdl(createSql: String, pingSql: Option[String] = None) {
+
+      def effectivePingSql(tableName: String): String =
+        pingSql.getOrElse(s"select * from $tableName where 1=0")
     }
   }
 
@@ -193,7 +195,7 @@ object Settings extends StrictLogging {
     airflow: Airflow,
     elasticsearch: Elasticsearch,
     hadoop: juMap[String, String],
-    jdbc: Map[String, Jdbc],
+    connections: Map[String, Connection],
     jdbcEngines: Map[String, JdbcEngine],
     atlas: Atlas,
     privacy: Privacy,

@@ -6,7 +6,7 @@ import java.time.{Instant, LocalDateTime}
 import com.ebiznext.comet.config.{DatasetArea, Settings, StorageArea}
 import com.ebiznext.comet.job.index.bqload.{BigQueryLoadConfig, BigQuerySparkJob}
 import com.ebiznext.comet.job.index.esload.{ESLoadConfig, ESLoadJob}
-import com.ebiznext.comet.job.index.jdbcload.{JdbcLoadConfig, JdbcLoadJob}
+import com.ebiznext.comet.job.index.connectionload.{ConnectionLoadConfig, ConnectionLoadJob}
 import com.ebiznext.comet.job.metrics.MetricsJob
 import com.ebiznext.comet.schema.handlers.{SchemaHandler, StorageHandler}
 import com.ebiznext.comet.schema.model.Rejection.{ColInfo, ColResult}
@@ -291,7 +291,7 @@ trait IngestionJob extends SparkJob {
           val batchSize = sink.batchsize.getOrElse(1000)
           val jdbcName = sink.connection
 
-          val jdbcConfig = JdbcLoadConfig.fromComet(
+          val jdbcConfig = ConnectionLoadConfig.fromComet(
             jdbcName,
             settings.comet,
             Right(mergedDF),
@@ -302,7 +302,7 @@ trait IngestionJob extends SparkJob {
             batchSize = batchSize
           )
 
-          val res = new JdbcLoadJob(jdbcConfig).run()
+          val res = new ConnectionLoadJob(jdbcConfig).run()
           res match {
             case Success(_) => ;
             case Failure(e) => logger.error("JDBCLoad Failed", e)
@@ -647,7 +647,7 @@ object IngestionUtil {
           new BigQuerySparkJob(bqConfig, Some(bigqueryRejectedSchema())).run()
 
         case JdbcSink(jdbcName, partitions, batchSize) =>
-          val jdbcConfig = JdbcLoadConfig.fromComet(
+          val jdbcConfig = ConnectionLoadConfig.fromComet(
             jdbcName,
             settings.comet,
             Right(rejectedDF),
@@ -656,7 +656,7 @@ object IngestionUtil {
             batchSize = batchSize.getOrElse(1000)
           )
 
-          new JdbcLoadJob(jdbcConfig).run()
+          new ConnectionLoadJob(jdbcConfig).run()
 
         case EsSink(_, _) =>
           ???
