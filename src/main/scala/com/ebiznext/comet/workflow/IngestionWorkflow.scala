@@ -176,8 +176,27 @@ class IngestionWorkflow(
         storageHandler.move(path, targetPath)
       }
 
+      val filteredResolved = if (settings.comet.privacyOnly) {
+        val (withPrivacy, noPrivacy) =
+          resolved.partition(
+            _._1.exists(_.attributes.forall(_.privacy.exists(!PrivacyLevel.None.equals(_))))
+          )
+        // files for schemas without any privacy attributes are moved directly to accepted area
+        noPrivacy.foreach {
+          case (Some(schema), path) =>
+            storageHandler.move(
+              path,
+              new Path(new Path(DatasetArea.accepted(domain.name), schema.name), path.getName)
+            )
+          case (None, _) => throw new Exception("Should never happen")
+        }
+        withPrivacy
+      } else {
+        resolved
+      }
+
       // We group files with the same schema to ingest them together in a single step.
-      val groupedResolved: Map[Schema, Iterable[Path]] = resolved.map {
+      val groupedResolved: Map[Schema, Iterable[Path]] = filteredResolved.map {
         case (Some(schema), path) => (schema, path)
         case (None, _)            => throw new Exception("Should never happen")
       } groupBy (_._1) mapValues (it => it.map(_._2))
