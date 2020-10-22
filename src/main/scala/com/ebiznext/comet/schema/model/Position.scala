@@ -24,6 +24,5 @@ package com.ebiznext.comet.schema.model
   *
   * @param first : First char position
   * @param last   : last char position
-  * @param trim : trim left / right / both / none
   */
 case class Position(first: Int, last: Int)
