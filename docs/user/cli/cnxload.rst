@@ -1,12 +1,12 @@
 ***************************************************************************************************
-sqlload
+cnxload
 ***************************************************************************************************
 
 
 Synopsis
 --------
 
-**comet sqlload [options]**
+**comet cnxload [options]**
 
 
 Description
@@ -28,34 +28,9 @@ Options
     *Required*. JDBC Output Table
 
 
-.. option:: --driver: <value>
+.. option:: --options: <value>
 
-    *Optional*. JDBC Driver to use
-
-
-.. option:: --partitions: <value>
-
-    *Optional*. Number of Spark Partitions
-
-
-.. option:: --batch_size: <value>
-
-    *Optional*. JDBC Batch Size
-
-
-.. option:: --user: <value>
-
-    *Optional*. JDBC user
-
-
-.. option:: --password: <value>
-
-    *Optional*. JDBC password
-
-
-.. option:: --url: <value>
-
-    *Optional*. Database JDBC URL
+    *Optional*. Connection options eq for jdbc : driver, user, password, url, partitions, batchSize
 
 
 .. option:: --create_disposition: <value>
