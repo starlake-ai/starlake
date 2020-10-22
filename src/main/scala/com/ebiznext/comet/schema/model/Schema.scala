@@ -181,25 +181,6 @@ case class Schema(
     for (errors <- duplicates(attributes.map(_.name), duplicateErrorMessage).left) {
       errorList ++= errors
     }
-    val format = this.mergedMetadata(domainMetaData).format
-    format match {
-      case Some(Format.POSITION) =>
-        val attrsAsArray = attributesWithoutScript.toArray
-        for (i <- 0 until attrsAsArray.length - 1) {
-          val pos1 = attrsAsArray(i).position
-          val pos2 = attrsAsArray(i + 1).position
-          (pos1, pos2) match {
-            case (Some(pos1), Some(pos2)) =>
-              if (pos1.last >= pos2.first) {
-                errorList += s"Positions should be ordered : ${pos1.last} > ${pos2.first}"
-              }
-            case (_, _) =>
-              errorList += s"All attributes should have their position defined"
-
-          }
-        }
-      case _ =>
-    }
 
     if (errorList.nonEmpty)
       Left(errorList.toList)
