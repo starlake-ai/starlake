@@ -44,8 +44,7 @@ object Xls2Yml extends LazyLogging {
     preEncryptDomain
   }
 
-  /**
-    * build post encryption Domain => for each Position schema update its Metadata as follows
+  /** build post encryption Domain => for each Position schema update its Metadata as follows
     *     - Format : DSV
     *     - With Header : False
     *     - Separator : µ
@@ -57,13 +56,12 @@ object Xls2Yml extends LazyLogging {
     encryptionPrivacyList: Seq[String]
   ): Domain = {
 
-    /**
-      * Identify if a schema is not concerned by the encryption phase
-      * either because none of its attributes has a defined Privacy Level
-      * or because all the defined Privacy Levels are not applied during the encrption phase
-      * @param s
-      * @return true if the schema is not concerned by the encryption phase
-      */
+    /* Identify if a schema is not concerned by the encryption phase
+     * either because none of its attributes has a defined Privacy Level
+     * or because all the defined Privacy Levels are not applied during the encrption phase
+     * @param s
+     * @return true if the schema is not concerned by the encryption phase
+     */
     def noPreEncryptPrivacy(s: Schema): Boolean = {
       s.attributes.forall(_.privacy.isEmpty) ||
       (encryptionPrivacyList.nonEmpty && s.attributes.flatMap(_.privacy).distinct.forall { p =>
