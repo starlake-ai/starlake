@@ -111,7 +111,7 @@ class SchemaHandlerSpec extends TestHelper {
 
         if (settings.comet.isElasticsearchSupported()) {
           implicit val backend = HttpURLConnectionBackend()
-          val countUri = uri"http://127.0.0.1:9200/domain_user/_count"
+          val countUri = uri"http://127.0.0.1:9200/domain.user/_count"
           val response = sttp.get(countUri).send()
           response.code should be <= 299
           response.code should be >= 200

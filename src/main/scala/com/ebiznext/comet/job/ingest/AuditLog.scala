@@ -24,7 +24,7 @@ import java.sql.Timestamp
 
 import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.job.index.bqload.{BigQueryLoadConfig, BigQuerySparkJob}
-import com.ebiznext.comet.job.index.jdbcload.{JdbcLoadConfig, JdbcLoadJob}
+import com.ebiznext.comet.job.index.connectionload.{ConnectionLoadConfig, ConnectionLoadJob}
 import com.ebiznext.comet.schema.model.{BigQuerySink, EsSink, JdbcSink, NoneSink}
 import com.ebiznext.comet.utils.FileLock
 import com.google.cloud.bigquery.{Field, LegacySQLTypeName}
@@ -120,7 +120,7 @@ object SparkAuditLogWriter {
 
     settings.comet.audit.sink match {
       case JdbcSink(connectionName, partitions, batchSize) =>
-        val jdbcConfig = JdbcLoadConfig.fromComet(
+        val jdbcConfig = ConnectionLoadConfig.fromComet(
           connectionName,
           settings.comet,
           Right(auditDF),
@@ -128,7 +128,7 @@ object SparkAuditLogWriter {
           partitions = partitions.getOrElse(1),
           batchSize = batchSize.getOrElse(1000)
         )
-        new JdbcLoadJob(jdbcConfig).run()
+        new ConnectionLoadJob(jdbcConfig).run()
 
       case sink: BigQuerySink =>
         val bqConfig = BigQueryLoadConfig(
