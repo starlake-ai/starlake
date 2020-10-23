@@ -337,7 +337,7 @@ class XlsReader(path: String) {
                     semType,
                     array = None,
                     required,
-                    privacy,
+                    privacy.getOrElse(PrivacyLevel.None),
                     comment = commentOpt,
                     rename = renameOpt,
                     metricType = metricType,
