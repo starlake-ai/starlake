@@ -24,12 +24,17 @@ object Xls2Yml extends LazyLogging {
           .map { attr =>
             if (
               privacy == Nil || privacy.contains(
-                attr.privacy.getOrElse(PrivacyLevel.None).toString
+                attr.privacy.toString
               )
             )
               attr.copy(`type` = "string", required = false, rename = None)
             else
-              attr.copy(`type` = "string", required = false, privacy = None, rename = None)
+              attr.copy(
+                `type` = "string",
+                required = false,
+                privacy = PrivacyLevel.None,
+                rename = None
+              )
           }
       // pre-encryption YML should not contain any partition or sink elements.
       // Write mode is forced to APPEND since encryption output must not overwrite previous results
@@ -63,8 +68,8 @@ object Xls2Yml extends LazyLogging {
      * @return true if the schema is not concerned by the encryption phase
      */
     def noPreEncryptPrivacy(s: Schema): Boolean = {
-      s.attributes.forall(_.privacy.isEmpty) ||
-      (encryptionPrivacyList.nonEmpty && s.attributes.flatMap(_.privacy).distinct.forall { p =>
+      s.attributes.forall(_.privacy.equals(PrivacyLevel.None)) ||
+      (encryptionPrivacyList.nonEmpty && s.attributes.map(_.privacy).distinct.forall { p =>
         !encryptionPrivacyList.contains(p.toString)
       })
     }
@@ -88,10 +93,10 @@ object Xls2Yml extends LazyLogging {
         val attributes = schema.attributes.map { attr =>
           if (
             encryptionPrivacyList == Nil || encryptionPrivacyList.contains(
-              attr.privacy.getOrElse(PrivacyLevel.None).toString
+              attr.privacy.toString
             )
           )
-            attr.copy(privacy = None)
+            attr.copy(privacy = PrivacyLevel.None)
           else
             attr
         }

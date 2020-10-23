@@ -61,7 +61,11 @@ trait JdbcChecks {
     val jdbcOptions = settings.comet.connections(jdbcName)
     val engine = settings.comet.jdbcEngines(jdbcOptions.engine)
 
-    val conn = DriverManager.getConnection(jdbcOptions.options("url"), jdbcOptions.options("user"), jdbcOptions.options("password"))
+    val conn = DriverManager.getConnection(
+      jdbcOptions.options("url"),
+      jdbcOptions.options("user"),
+      jdbcOptions.options("password")
+    )
     try {
       val lacksTheTable =
         /* lacks the table, and not https://www.ikea.com/us/en/p/lack-side-table-white-30449908/ */
@@ -81,7 +85,9 @@ trait JdbcChecks {
 
         val fetched: Vector[T] = {
           val rs =
-            stmt.executeQuery(s"select ${columns.mkString(", ")} from ${referenceDatasetName}".stripMargin)
+            stmt.executeQuery(
+              s"select ${columns.mkString(", ")} from ${referenceDatasetName}".stripMargin
+            )
 
           @tailrec
           def pull(base: Vector[T]): Vector[T] = {
