@@ -41,8 +41,8 @@ class SchemaSpec extends TestHelper {
         "invalid-type", // should raise error non existent type
         Some(true),
         true,
-        Some(
-          PrivacyLevel("MD5")
+        PrivacyLevel(
+          "MD5"
         ) // Should raise an error. Privacy cannot be applied on types other than string
       )
 
@@ -55,8 +55,8 @@ class SchemaSpec extends TestHelper {
         "long",
         Some(true),
         true,
-        Some(
-          PrivacyLevel("ApproxLong(20)")
+        PrivacyLevel(
+          "ApproxLong(20)"
         ) // Should raise an error. Privacy cannot be applied on types other than stringsettings = settings
       )
       attr.checkValidity(schemaHandler) shouldBe Right(true)
@@ -68,14 +68,14 @@ class SchemaSpec extends TestHelper {
         "long",
         Some(true),
         true,
-        Some(
-          PrivacyLevel("ApproxLong(20)")
+        PrivacyLevel(
+          "ApproxLong(20)"
         ), // Should raise an error. Privacy cannot be applied on types other than string
         attributes = Some(List[Attribute]())
       )
       val expectedErrors = List(
-        "Attribute Attribute(attr,long,Some(true),true,Some(ApproxLong(20)),None,None,None,Some(List()),None,None,None) : Simple attributes cannot have sub-attributes",
-        "Attribute Attribute(attr,long,Some(true),true,Some(ApproxLong(20)),None,None,None,Some(List()),None,None,None) : when present, attributes list cannot be empty."
+        "Attribute Attribute(attr,long,Some(true),true,ApproxLong(20),None,None,None,Some(List()),None,None,None) : Simple attributes cannot have sub-attributes",
+        "Attribute Attribute(attr,long,Some(true),true,ApproxLong(20),None,None,None,Some(List()),None,None,None) : when present, attributes list cannot be empty."
       )
 
       attr.checkValidity(schemaHandler) shouldBe Left(expectedErrors)
