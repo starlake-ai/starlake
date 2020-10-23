@@ -52,7 +52,7 @@ case class Attribute(
   `type`: String = "string",
   array: Option[Boolean] = None,
   required: Boolean = true,
-  privacy: Option[PrivacyLevel] = None,
+  privacy: PrivacyLevel = PrivacyLevel.None,
   comment: Option[String] = None,
   rename: Option[String] = None,
   metricType: Option[MetricType] = None,
@@ -231,7 +231,7 @@ case class Attribute(
   @JsonIgnore
   def getFinalName(): String = rename.getOrElse(name)
 
-  def getPrivacy(): PrivacyLevel = this.privacy.getOrElse(PrivacyLevel.None)
+  def getPrivacy(): PrivacyLevel = this.privacy
 
   def isArray(): Boolean = this.array.getOrElse(false)
 

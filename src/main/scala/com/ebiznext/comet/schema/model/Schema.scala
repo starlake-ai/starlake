@@ -26,6 +26,7 @@ import com.ebiznext.comet.utils.conversion.BigQueryUtils._
 import com.ebiznext.comet.schema.handlers.SchemaHandler
 import com.ebiznext.comet.utils.TextSubstitutionEngine
 import com.google.cloud.bigquery.Field
+import net.minidev.json.annotate.JsonIgnore
 import org.apache.spark.sql.types._
 
 import scala.collection.mutable
@@ -72,6 +73,7 @@ case class Schema(
   rls: Option[List[RowLevelSecurity]] = None
 ) {
 
+  @JsonIgnore
   lazy val attributesWithoutScript: List[Attribute] = attributes.filter(_.script.isEmpty)
 
   /** @return Are the parittions columns defined in the metadata valid column names
