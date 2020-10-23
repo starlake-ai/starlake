@@ -137,9 +137,6 @@ assemblyExcludedJars in assembly := {
 }
 
 assemblyShadeRules in assembly := Seq(
-  // Databricks still uses an old version of typesafe.config. s
-  // See https://github.com/ebiznext/comet-data-pipeline/issues/339
-  ShadeRule.rename("com.typesafe.config.**" -> "shade.com.typesafe.config.@1").inAll,
   // poi needs a newer version of commons-compress (> 1.17) than the one shipped with spark (1.4)
   ShadeRule.rename("org.apache.commons.compress.**" -> "poiShade.commons.compress.@1").inAll,
   //shade it or else writing to bigquery wont work because spark comes with an older version of google common.
