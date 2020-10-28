@@ -24,15 +24,22 @@ object Xls2Yml extends LazyLogging {
           .map { attr =>
             if (
               privacy == Nil || privacy.contains(
-                attr.privacy.getOrElse(PrivacyLevel.None).toString
+                attr.privacy.toString
               )
             )
               attr.copy(`type` = "string", required = false, rename = None)
             else
-              attr.copy(`type` = "string", required = false, privacy = None, rename = None)
+              attr.copy(
+                `type` = "string",
+                required = false,
+                privacy = PrivacyLevel.None,
+                rename = None
+              )
           }
+      // pre-encryption YML should not contain any partition or sink elements.
+      // Write mode is forced to APPEND since encryption output must not overwrite previous results
       val newMetaData: Option[Metadata] = s.metadata.map { m =>
-        m.copy(partition = None, sink = None)
+        m.copy(partition = None, sink = None, write = Some(WriteMode.APPEND))
       }
       s.copy(attributes = newAttributes)
         .copy(metadata = newMetaData)
@@ -51,36 +58,53 @@ object Xls2Yml extends LazyLogging {
   def genPostEncryptionDomain(
     domain: Domain,
     delimiter: Option[String],
-    privacy: Seq[String]
+    encryptionPrivacyList: Seq[String]
   ): Domain = {
+
+    /* Identify if a schema is not concerned by the encryption phase
+     * either because none of its attributes has a defined Privacy Level
+     * or because all the defined Privacy Levels are not applied during the encrption phase
+     * @param s
+     * @return true if the schema is not concerned by the encryption phase
+     */
+    def noPreEncryptPrivacy(s: Schema): Boolean = {
+      s.attributes.forall(_.privacy.equals(PrivacyLevel.None)) ||
+      (encryptionPrivacyList.nonEmpty && s.attributes.map(_.privacy).distinct.forall { p =>
+        !encryptionPrivacyList.contains(p.toString)
+      })
+    }
     val postEncryptSchemas: List[Schema] = domain.schemas.map { schema =>
-      val metadata = for {
-        metadata <- schema.metadata
-        format   <- metadata.format
-      } yield {
-        if (!List(Format.SIMPLE_JSON, Format.DSV, Format.POSITION).contains(format))
-          throw new Exception("Not Implemented")
-        metadata.copy(
-          format = Some(Format.DSV),
-          separator = delimiter.orElse(schema.metadata.flatMap(_.separator)).orElse(Some("µ")),
-          withHeader = schema.metadata.flatMap(_.withHeader),
-          encoding = Some("UTF-8")
-        )
-      }
-      val attributes = schema.attributes.map { attr =>
-        if (
-          privacy == Nil || privacy.contains(
-            attr.privacy.getOrElse(PrivacyLevel.None).toString
+      if (noPreEncryptPrivacy(schema))
+        schema
+      else {
+        val metadata = for {
+          metadata <- schema.metadata
+          format   <- metadata.format
+        } yield {
+          if (!List(Format.SIMPLE_JSON, Format.DSV, Format.POSITION).contains(format))
+            throw new Exception("Not Implemented")
+          metadata.copy(
+            format = Some(Format.DSV),
+            separator = delimiter.orElse(schema.metadata.flatMap(_.separator)).orElse(Some("µ")),
+            withHeader = schema.metadata.flatMap(_.withHeader),
+            encoding = Some("UTF-8")
           )
+        }
+        val attributes = schema.attributes.map { attr =>
+          if (
+            encryptionPrivacyList == Nil || encryptionPrivacyList.contains(
+              attr.privacy.toString
+            )
+          )
+            attr.copy(privacy = PrivacyLevel.None)
+          else
+            attr
+        }
+        schema.copy(
+          metadata = metadata,
+          attributes = attributes
         )
-          attr.copy(privacy = None)
-        else
-          attr
       }
-      schema.copy(
-        metadata = metadata,
-        attributes = attributes
-      )
     }
     val postEncryptDomain = domain.copy(schemas = postEncryptSchemas)
     postEncryptDomain

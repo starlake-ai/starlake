@@ -65,21 +65,21 @@ class StorageHandlerSpec extends TestHelper {
                 "string",
                 Some(false),
                 false,
-                Some(PrivacyLevel.None)
+                PrivacyLevel.None
               ),
               Attribute(
                 "lastname",
                 "string",
                 Some(false),
                 false,
-                Some(PrivacyLevel("SHA1"))
+                PrivacyLevel("SHA1")
               ),
               Attribute(
                 "age",
                 "age",
                 Some(false),
                 false,
-                Some(PrivacyLevel("HIDE"))
+                PrivacyLevel("HIDE")
               )
             ),
             Some(Metadata(withHeader = Some(true))),
