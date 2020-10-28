@@ -63,7 +63,7 @@ Getting started with Comet Data Pipeline:
    user/cli/load
    user/cli/metrics
    user/cli/parquet2csv
-   user/cli/sqlload
+   user/cli/cnxload
    user/cli/transform
    user/cli/watch
    user/cli/xls2yml

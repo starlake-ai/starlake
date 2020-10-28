@@ -2,20 +2,11 @@ package com.ebiznext.comet.job.metrics
 
 import com.ebiznext.comet.config.{DatasetArea, Settings}
 import com.ebiznext.comet.job.index.bqload.{BigQueryLoadConfig, BigQuerySparkJob}
-import com.ebiznext.comet.job.index.jdbcload.JdbcLoadConfig
-import com.ebiznext.comet.job.ingest.MetricRecord
+import com.ebiznext.comet.job.index.connectionload.ConnectionLoadConfig
 import com.ebiznext.comet.job.metrics.Metrics.{ContinuousMetric, DiscreteMetric, MetricsDatasets}
 import com.ebiznext.comet.schema.handlers.{SchemaHandler, StorageHandler}
-import com.ebiznext.comet.schema.model.{
-  BigQuerySink,
-  Domain,
-  EsSink,
-  JdbcSink,
-  NoneSink,
-  Schema,
-  Stage
-}
-import com.ebiznext.comet.utils.{FileLock, JobResult, SparkJob, SparkJobResult, Utils}
+import com.ebiznext.comet.schema.model._
+import com.ebiznext.comet.utils._
 import com.google.cloud.bigquery.JobInfo.WriteDisposition
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql._
@@ -74,6 +65,9 @@ class MetricsJob(
     if (storageHandler.exists(path)) {
       val pathIntermediate = new Path(path.getParent, ".metrics")
 
+      logger.whenDebugEnabled {
+        session.read.parquet(path.toString).show(false)
+      }
       val dataByVariableStored: DataFrame = session.read
         .parquet(path.toString)
         .union(dataToSave)
@@ -218,11 +212,11 @@ class MetricsJob(
       )
 
     val metricsToSave = List(
-      (metricsDatasets.continuousDF, "continuous"),
-      (metricsDatasets.discreteDF, "discrete"),
-      (metricsDatasets.frequenciesDF, "frequencies")
+      (metricsDatasets.continuousDF, MetricsTable.CONTINUOUS),
+      (metricsDatasets.discreteDF, MetricsTable.DISCRETE),
+      (metricsDatasets.frequenciesDF, MetricsTable.FREQUENCIES)
     )
-    val combinedResult = metricsToSave.map { case (df, name) =>
+    val combinedResult = metricsToSave.map { case (df, table) =>
       df match {
         case Some(df) =>
           settings.comet.internal.foreach(in => df.persist(in.cacheStorageLevel))
@@ -231,10 +225,10 @@ class MetricsJob(
           val locker = new FileLock(lockedPath, storageHandler)
 
           val metricsResult = locker.tryExclusively(waitTimeMillis) {
-            save(df, new Path(savePath, name))
+            save(df, new Path(savePath, table.toString))
           }
 
-          val metricsSinkResult = sinkMetrics(df, name)
+          val metricsSinkResult = sinkMetrics(df, table)
 
           for {
             _ <- metricsResult
@@ -250,7 +244,7 @@ class MetricsJob(
     combinedResult.find(_.isFailure).getOrElse(Success(None)).map(SparkJobResult(_))
   }
 
-  private def sinkMetrics(metricsDf: DataFrame, table: String): Try[Unit] = {
+  private def sinkMetrics(metricsDf: DataFrame, table: MetricsTable): Try[Unit] = {
     if (settings.comet.metrics.active) {
       settings.comet.metrics.sink match {
         case NoneSink() =>
@@ -258,16 +252,16 @@ class MetricsJob(
 
         case sink: BigQuerySink =>
           Try {
-            sinkMetricsToBigQuery(metricsDf, sink.name.getOrElse("metric"), table)
+            sinkMetricsToBigQuery(metricsDf, sink.name.getOrElse("metrics"), table.toString)
           }
 
         case JdbcSink(jdbcConnection, partitions, batchSize) =>
           Try {
-            val jdbcConfig = JdbcLoadConfig.fromComet(
+            val jdbcConfig = ConnectionLoadConfig.fromComet(
               jdbcConnection,
               settings.comet,
               Right(metricsDf),
-              name,
+              table.toString,
               partitions = partitions.getOrElse(1),
               batchSize = batchSize.getOrElse(1000)
             )
@@ -308,13 +302,8 @@ class MetricsJob(
     }
   }
 
-  private implicit val memsideEncoder: Encoder[MetricRecord] = Encoders.product[MetricRecord]
-
-  private implicit val sqlableEncoder: Encoder[MetricRecord.AsSql] =
-    Encoders.product[MetricRecord.AsSql]
-
   private def sinkMetricsToJdbc(
-    cliConfig: JdbcLoadConfig
+    cliConfig: ConnectionLoadConfig
   ): Unit = {
     cliConfig.sourceFile match {
       case Left(_) =>
@@ -326,20 +315,13 @@ class MetricsJob(
           s"unsupported write disposition ${cliConfig.writeDisposition}, only WRITE_APPEND is supported"
         )
 
-        val converter = MetricRecord.MetricRecordConverter()
-
-        val sqlableMetricsDf = metricsDf.as[MetricRecord].map(converter.toSqlCompatible)
-
-        sqlableMetricsDf.write
+        val dfw = metricsDf.write
           .format("jdbc")
-          .option("numPartitions", cliConfig.partitions)
-          .option("batchsize", cliConfig.batchSize)
           .option("truncate", cliConfig.writeDisposition == WriteDisposition.WRITE_TRUNCATE)
-          .option("driver", cliConfig.driver)
-          .option("url", cliConfig.url)
           .option("dbtable", cliConfig.outputTable)
-          .option("user", cliConfig.user)
-          .option("password", cliConfig.password)
+
+        cliConfig.options
+          .foldLeft(dfw)((w, kv) => w.option(kv._1, kv._2))
           .mode(SaveMode.Append)
           .save()
     }

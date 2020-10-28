@@ -1,14 +1,20 @@
 package com.ebiznext.comet.job.metrics
 
-import com.ebiznext.comet.TestHelper
-import com.ebiznext.comet.config.DatasetArea
+import com.ebiznext.comet.config.{DatasetArea, Settings}
+import com.ebiznext.comet.job.ingest.{
+  ContinuousMetricRecord,
+  DiscreteMetricRecord,
+  FrequencyMetricRecord
+}
 import com.ebiznext.comet.job.metrics.Metrics._
+import com.ebiznext.comet.{JdbcChecks, TestHelper}
+import com.typesafe.config.{Config, ConfigFactory}
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 
-class MetricsJobSpec extends TestHelper {
+class MetricsJobSpec extends TestHelper with JdbcChecks {
 
   /** Inputs for the test :  Header (list of the variable) and Metrics (Metrics to use)
     */
@@ -207,7 +213,7 @@ class MetricsJobSpec extends TestHelper {
   }
 
   new WithSettings() {
-    "Yelp Business Metrics" should "produce correct metrics" in {
+    "Yelp Business Metrics" should "produce correct metrics in parquet file" in {
       new SpecTrait(
         domainFilename = "yelp.yml",
         sourceDomainPathname = s"/sample/yelp/yelp.yml",
@@ -281,6 +287,283 @@ class MetricsJobSpec extends TestHelper {
       rendered.substring(rendered.indexOf("Usage:")).replaceAll("\\s", "") shouldEqual expected
         .replaceAll("\\s", "")
 
+    }
+  }
+
+  val jdbcConfiguration: Config =
+    ConfigFactory
+      .parseString("""
+                     |metrics {
+                     |  active = true
+                     |  sink {
+                     |    type = "JdbcSink"
+                     |    connection = "test-h2"
+                     |  }
+                     |}
+                     |
+                     |audit {
+                     |  active = true
+                     |  sink {
+                     |    type = "JdbcSink"
+                     |    connection = "test-h2"
+                     |  }
+                     |}
+                     |""".stripMargin)
+      .withFallback(super.testConfiguration)
+
+  private def expectedMetricRecords(implicit
+    settings: Settings
+  ): (List[ContinuousMetricRecord], List[DiscreteMetricRecord], List[FrequencyMetricRecord]) =
+    (
+      List(
+        ContinuousMetricRecord(
+          domain = "yelp",
+          schema = "business",
+          attribute = "review_count",
+          min = Some(3.0),
+          max = Some(664.0),
+          mean = Some(38.675),
+          missingValues = Some(0),
+          standardDev = Some(89.303),
+          variance = Some(7974.944),
+          sum = Some(7735.0),
+          skewness = Some(4.359),
+          kurtosis = Some(21.423),
+          percentile25 = Some(4.359),
+          median = Some(9.0),
+          percentile75 = Some(25.0),
+          count = 200,
+          cometTime = 1602103587981L,
+          cometStage = "UNIT",
+          cometMetric = "Continuous",
+          jobId = "296e668b-5748-4ad1-801e-6ce2aa3bd5d6"
+        ),
+        ContinuousMetricRecord(
+          domain = "yelp",
+          schema = "business",
+          attribute = "stars",
+          min = Some(1.0),
+          max = Some(5.0),
+          mean = Some(3.692),
+          missingValues = Some(0),
+          standardDev = Some(1.006),
+          variance = Some(1.012),
+          sum = Some(738.5),
+          skewness = Some(-0.613),
+          kurtosis = Some(-0.145),
+          percentile25 = Some(-0.613),
+          median = Some(4.0),
+          percentile75 = Some(4.5),
+          count = 200,
+          cometTime = 1602103587981L,
+          cometStage = "UNIT",
+          cometMetric = "Continuous",
+          jobId = "296e668b-5748-4ad1-801e-6ce2aa3bd5d6"
+        ),
+        ContinuousMetricRecord(
+          domain = "yelp",
+          schema = "business",
+          attribute = "review_count",
+          min = Some(3.0),
+          max = Some(664.0),
+          mean = Some(38.675),
+          missingValues = Some(0),
+          standardDev = Some(89.303),
+          variance = Some(7974.944),
+          sum = Some(7735.0),
+          skewness = Some(4.359),
+          kurtosis = Some(21.423),
+          percentile25 = Some(4.359),
+          median = Some(9.0),
+          percentile75 = Some(25.0),
+          count = 200,
+          cometTime = 1602103595000L,
+          cometStage = "GLOBAL",
+          cometMetric = "Continuous",
+          jobId = "296e668b-5748-4ad1-801e-6ce2aa3bd5d6"
+        ),
+        ContinuousMetricRecord(
+          domain = "yelp",
+          schema = "business",
+          attribute = "stars",
+          min = Some(1.0),
+          max = Some(5.0),
+          mean = Some(3.692),
+          missingValues = Some(0),
+          standardDev = Some(1.006),
+          variance = Some(1.012),
+          sum = Some(738.5),
+          skewness = Some(-0.613),
+          kurtosis = Some(-0.145),
+          percentile25 = Some(-0.613),
+          median = Some(4.0),
+          percentile75 = Some(4.5),
+          count = 200,
+          cometTime = 1602103595000L,
+          cometStage = "GLOBAL",
+          cometMetric = "Continuous",
+          jobId = "296e668b-5748-4ad1-801e-6ce2aa3bd5d6"
+        )
+      ).map(x => x.copy(cometTime = 0L, jobId = "")),
+      List(
+        DiscreteMetricRecord(
+          domain = "yelp",
+          schema = "business",
+          countDistinct = 53,
+          attribute = "city",
+          missingValuesDiscrete = 0,
+          count = 200,
+          cometTime = 1602157742857L,
+          cometStage = "UNIT",
+          cometMetric = "Discrete",
+          jobId = "2f811367-0d9f-4481-b9a2-fd4d87fe795f"
+        ),
+        DiscreteMetricRecord(
+          domain = "yelp",
+          schema = "business",
+          countDistinct = 2,
+          attribute = "is_open",
+          missingValuesDiscrete = 0,
+          count = 200,
+          cometTime = 1602157742857L,
+          cometStage = "UNIT",
+          cometMetric = "Discrete",
+          jobId = "2f811367-0d9f-4481-b9a2-fd4d87fe795f"
+        ),
+        DiscreteMetricRecord(
+          domain = "yelp",
+          schema = "business",
+          countDistinct = 158,
+          attribute = "postal_code",
+          missingValuesDiscrete = 0,
+          count = 200,
+          cometTime = 1602157742857L,
+          cometStage = "UNIT",
+          cometMetric = "Discrete",
+          jobId = "2f811367-0d9f-4481-b9a2-fd4d87fe795f"
+        ),
+        DiscreteMetricRecord(
+          domain = "yelp",
+          schema = "business",
+          countDistinct = 9,
+          attribute = "state",
+          missingValuesDiscrete = 0,
+          count = 200,
+          cometTime = 1602157742857L,
+          cometStage = "UNIT",
+          cometMetric = "Discrete",
+          jobId = "2f811367-0d9f-4481-b9a2-fd4d87fe795f"
+        ),
+        DiscreteMetricRecord(
+          domain = "yelp",
+          schema = "business",
+          countDistinct = 53,
+          attribute = "city",
+          missingValuesDiscrete = 0,
+          count = 200,
+          cometTime = 1602157750000L,
+          cometStage = "GLOBAL",
+          cometMetric = "Discrete",
+          jobId = "2f811367-0d9f-4481-b9a2-fd4d87fe795f"
+        ),
+        DiscreteMetricRecord(
+          domain = "yelp",
+          schema = "business",
+          countDistinct = 2,
+          attribute = "is_open",
+          missingValuesDiscrete = 0,
+          count = 200,
+          cometTime = 1602157750000L,
+          cometStage = "GLOBAL",
+          cometMetric = "Discrete",
+          jobId = "2f811367-0d9f-4481-b9a2-fd4d87fe795f"
+        ),
+        DiscreteMetricRecord(
+          domain = "yelp",
+          schema = "business",
+          countDistinct = 158,
+          attribute = "postal_code",
+          missingValuesDiscrete = 0,
+          count = 200,
+          cometTime = 1602157750000L,
+          cometStage = "GLOBAL",
+          cometMetric = "Discrete",
+          jobId = "2f811367-0d9f-4481-b9a2-fd4d87fe795f"
+        ),
+        DiscreteMetricRecord(
+          domain = "yelp",
+          schema = "business",
+          countDistinct = 9,
+          attribute = "state",
+          missingValuesDiscrete = 0,
+          count = 200,
+          cometTime = 1602157750000L,
+          cometStage = "GLOBAL",
+          cometMetric = "Discrete",
+          jobId = "2f811367-0d9f-4481-b9a2-fd4d87fe795f"
+        )
+      ),
+      List(
+        FrequencyMetricRecord(
+          domain = "yelp",
+          schema = "business",
+          attribute = "city",
+          category = "Tempe",
+          frequency = 0,
+          count = 200,
+          cometTime = 1602157958121L,
+          cometStage = "UNIT",
+          jobId = "43bd4c3f-43c9-417b-bc1d-4aaf72415736"
+        ),
+        FrequencyMetricRecord(
+          domain = "yelp",
+          schema = "business",
+          attribute = "city",
+          category = "North Las Vegas",
+          frequency = 0,
+          count = 200,
+          cometTime = 1602157958121L,
+          cometStage = "UNIT",
+          jobId = "43bd4c3f-43c9-417b-bc1d-4aaf72415736"
+        )
+      )
+    )
+
+  new WithSettings(jdbcConfiguration) {
+    "Yelp Business Metrics" should "produce correct metrics in JDBC database" in {
+      new SpecTrait(
+        domainFilename = "yelp.yml",
+        sourceDomainPathname = s"/sample/yelp/yelp.yml",
+        datasetDomainName = "yelp",
+        sourceDatasetPathName = "/sample/yelp/business.json"
+      ) {
+        cleanMetadata
+        cleanDatasets
+        loadPending
+
+        val discretePath: Path = DatasetArea.discreteMetrics("yelp", "business")
+        val discreteMetricsDf: DataFrame = sparkSession.read.parquet(discretePath.toString)
+        discreteMetricsDf.show(false)
+        discreteMetricsDf.schema shouldBe expectedDiscreteMetricsSchema
+
+        import sparkSession.implicits._
+
+        val discreteMetricsSelectedColumns =
+          discreteMetricsDf
+            .select("domain", "schema", "attribute")
+            .map(r => (r.getString(0), r.getString(1), r.getString(2)))
+            .take(7)
+        discreteMetricsSelectedColumns should contain allElementsOf Array(
+          ("yelp", "business", "city"),
+          ("yelp", "business", "is_open"),
+          ("yelp", "business", "postal_code"),
+          ("yelp", "business", "state"),
+          ("yelp", "business", "is_open")
+        )
+
+        val (continuous, discrete, frequencies) = expectedMetricRecords(settings)
+        expectingMetrics("test-h2", continuous, discrete, frequencies)
+      }
     }
   }
 }
