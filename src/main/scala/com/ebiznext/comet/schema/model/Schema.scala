@@ -26,6 +26,7 @@ import com.ebiznext.comet.utils.conversion.BigQueryUtils._
 import com.ebiznext.comet.schema.handlers.SchemaHandler
 import com.ebiznext.comet.utils.TextSubstitutionEngine
 import com.google.cloud.bigquery.Field
+import net.minidev.json.annotate.JsonIgnore
 import org.apache.spark.sql.types._
 
 import scala.collection.mutable
@@ -71,6 +72,9 @@ case class Schema(
   tags: Option[Set[String]] = None,
   rls: Option[List[RowLevelSecurity]] = None
 ) {
+
+  @JsonIgnore
+  lazy val attributesWithoutScript: List[Attribute] = attributes.filter(_.script.isEmpty)
 
   /** @return Are the parittions columns defined in the metadata valid column names
     */
@@ -178,25 +182,6 @@ case class Schema(
       "%s is defined %d times. An attribute can only be defined once."
     for (errors <- duplicates(attributes.map(_.name), duplicateErrorMessage).left) {
       errorList ++= errors
-    }
-    val format = this.mergedMetadata(domainMetaData).format
-    format match {
-      case Some(Format.POSITION) =>
-        val attrsAsArray = attributes.toArray
-        for (i <- 0 until attrsAsArray.length - 1) {
-          val pos1 = attrsAsArray(i).position
-          val pos2 = attrsAsArray(i + 1).position
-          (pos1, pos2) match {
-            case (Some(pos1), Some(pos2)) =>
-              if (pos1.last >= pos2.first) {
-                errorList += s"Positions should be ordered : ${pos1.last} > ${pos2.first}"
-              }
-            case (_, _) =>
-              errorList += s"All attributes should have their position defined"
-
-          }
-        }
-      case _ =>
     }
 
     if (errorList.nonEmpty)

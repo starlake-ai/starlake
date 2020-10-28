@@ -52,7 +52,7 @@ case class ESLoadConfig(
     }
   }
 
-  def getIndexName(): String = s"${domain.toLowerCase}_${schema.toLowerCase}"
+  def getIndexName(): String = s"${domain.toLowerCase}.${schema.toLowerCase}"
 
   private val pattern = Pattern.compile("\\{(.*)\\|(.*)\\}")
 
