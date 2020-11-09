@@ -4,12 +4,12 @@ import java.io.File
 
 import com.ebiznext.comet.TestHelper
 import com.ebiznext.comet.config.DatasetArea
-import com.ebiznext.comet.schema.model.{Domain, Format, PrivacyLevel}
+import com.ebiznext.comet.schema.model.{BigQuerySink, Domain, Format}
 
 class SchemaGenSpec extends TestHelper {
   new WithSettings() {
 
-    SchemaGen.generateSchema(getClass.getResource("/sample/SomeDomainTemplate.xls").getPath)
+    Xls2Yml.generateSchema(getClass.getResource("/sample/SomeDomainTemplate.xls").getPath)
     val outputFile = new File(DatasetArea.domains.toString + "/someDomain.yml")
     val result: Domain = YamlSerializer.mapper.readValue(outputFile, classOf[Domain])
 
@@ -17,6 +17,22 @@ class SchemaGenSpec extends TestHelper {
       outputFile.exists() shouldBe true
       result.name shouldBe "someDomain"
       result.schemas.size shouldBe 2
+    }
+
+    it should "trim leading of trailing spaces in cells contents" in {
+      result.schemas.map(_.name) should contain(
+        "SCHEMA1"
+      ) // while it is "SCHEMA1 " in the excel file
+    }
+
+    it should "take into account the index col of a schema" in {
+      val sink = for {
+        schema   <- result.schemas.find(_.name == "SCHEMA1")
+        metadata <- schema.metadata
+        sink     <- metadata.sink
+      } yield sink
+
+      sink shouldBe Some(BigQuerySink())
     }
 
     "All configured schemas" should "have all declared attributes correctly set" in {
@@ -56,8 +72,21 @@ class SchemaGenSpec extends TestHelper {
 
     "a preEncryption domain" should "have only string types" in {
       domainOpt shouldBe defined
-      val preEncrypt = SchemaGen.genPreEncryptionDomain(domainOpt.get, Nil)
+      val preEncrypt = Xls2Yml.genPreEncryptionDomain(domainOpt.get, Nil)
       preEncrypt.schemas.flatMap(_.attributes).filter(_.`type` != "string") shouldBe empty
+    }
+
+    "Merge and Partition elements" should "only be present in Post-Encryption domain" in {
+      domainOpt shouldBe defined
+      val preEncrypt = Xls2Yml.genPreEncryptionDomain(domainOpt.get, Nil)
+      preEncrypt.schemas.flatMap(_.metadata.map(_.partition)).forall(p => p.isEmpty) shouldBe true
+      preEncrypt.schemas.map(_.merge).forall(m => m.isEmpty) shouldBe true
+      val postEncrypt = Xls2Yml.genPostEncryptionDomain(domainOpt.get, None, Nil)
+      postEncrypt.schemas
+        .flatMap(_.metadata.map(_.partition))
+        .forall(p => p.isDefined) shouldBe true
+      postEncrypt.schemas.map(_.merge).forall(m => m.isDefined) shouldBe true
+
     }
 
     "Column Description in schema" should "be present" in {
@@ -68,33 +97,54 @@ class SchemaGenSpec extends TestHelper {
     private def validCount(domain: Domain, algo: String, count: Int) =
       domain.schemas
         .flatMap(_.attributes)
-        .filter(_.privacy.getOrElse(PrivacyLevel.None).toString == algo) should have length count
+        .filter(_.privacy.toString == algo) should have length count
 
     "SHA1 & HIDE privacy policies" should "be applied in the pre-encrypt step " in {
       domainOpt shouldBe defined
-      val preEncrypt = SchemaGen.genPreEncryptionDomain(domainOpt.get, List("HIDE", "SHA1"))
+      val preEncrypt = Xls2Yml.genPreEncryptionDomain(domainOpt.get, List("HIDE", "SHA1"))
       validCount(preEncrypt, "HIDE", 2)
       validCount(preEncrypt, "MD5", 0)
       validCount(preEncrypt, "SHA1", 1)
     }
     "All privacy policies" should "be applied in the pre-encrypt step " in {
       domainOpt shouldBe defined
-      val preEncrypt = SchemaGen.genPreEncryptionDomain(domainOpt.get, Nil)
+      val preEncrypt = Xls2Yml.genPreEncryptionDomain(domainOpt.get, Nil)
       validCount(preEncrypt, "HIDE", 2)
       validCount(preEncrypt, "MD5", 2)
       validCount(preEncrypt, "SHA1", 1)
     }
+    "In prestep Attributes" should "not be renamed" in {
+      domainOpt shouldBe defined
+      val preEncrypt = Xls2Yml.genPreEncryptionDomain(domainOpt.get, Nil)
+      val schemaOpt = preEncrypt.schemas.find(_.name == "SCHEMA1")
+      schemaOpt shouldBe defined
+      val attrOpt = schemaOpt.get.attributes.find(_.name == "ATTRIBUTE_6")
+      attrOpt shouldBe defined
+      attrOpt.get.rename shouldBe None
+    }
+
+    "In poststep Attributes" should "keep renaming strategy" in {
+      domainOpt shouldBe defined
+      val postEncrypt = Xls2Yml.genPostEncryptionDomain(domainOpt.get, Some("µ"), Nil)
+      val schemaOpt = postEncrypt.schemas.find(_.name == "SCHEMA1")
+      schemaOpt shouldBe defined
+      val attrOpt = schemaOpt.get.attributes.find(_.name == "ATTRIBUTE_6")
+      attrOpt shouldBe defined
+      attrOpt.get.rename shouldBe defined
+      attrOpt.get.rename.get shouldBe "RENAME_ATTRIBUTE_6"
+
+    }
     "No privacy policies" should "be applied in the post-encrypt step " in {
       domainOpt shouldBe defined
-      val preEncrypt = SchemaGen.genPostEncryptionDomain(domainOpt.get, Some("µ"), Nil)
-      validCount(preEncrypt, "HIDE", 0)
-      validCount(preEncrypt, "MD5", 0)
-      validCount(preEncrypt, "SHA1", 0)
+      val postEncrypt = Xls2Yml.genPostEncryptionDomain(domainOpt.get, Some("µ"), Nil)
+      validCount(postEncrypt, "HIDE", 0)
+      validCount(postEncrypt, "MD5", 0)
+      validCount(postEncrypt, "SHA1", 0)
     }
 
     "a preEncryption domain" should " not have required attributes" in {
       domainOpt shouldBe defined
-      val preEncrypt = SchemaGen.genPreEncryptionDomain(domainOpt.get, Nil)
+      val preEncrypt = Xls2Yml.genPreEncryptionDomain(domainOpt.get, Nil)
       preEncrypt.schemas.flatMap(_.attributes).filter(_.required) shouldBe empty
     }
 
@@ -104,7 +154,7 @@ class SchemaGenSpec extends TestHelper {
         .flatMap(_.metadata)
         .count(_.format.contains(Format.POSITION)) shouldBe 1
       val postEncrypt =
-        SchemaGen.genPostEncryptionDomain(domainOpt.get, Some("µ"), List("HIDE", "SHA1"))
+        Xls2Yml.genPostEncryptionDomain(domainOpt.get, Some("µ"), List("HIDE", "SHA1"))
       postEncrypt.schemas
         .flatMap(_.metadata)
         .filter(_.format.contains(Format.POSITION)) shouldBe empty
@@ -117,16 +167,26 @@ class SchemaGenSpec extends TestHelper {
       domainOpt.get.schemas
         .flatMap(_.metadata)
         .count(_.format.contains(Format.POSITION)) shouldBe 1
-      val postEncrypt = SchemaGen.genPostEncryptionDomain(domainOpt.get, Some(","), Nil)
+      val postEncrypt = Xls2Yml.genPostEncryptionDomain(domainOpt.get, Some(","), Nil)
       postEncrypt.schemas
         .flatMap(_.metadata)
         .filterNot(_.separator.contains(",")) shouldBe empty
     }
+
+    "a scripted attribute" should "be generated" in {
+      domainOpt shouldBe defined
+      domainOpt
+        .flatMap(_.schemas.find(_.name == "SCHEMA1"))
+        .flatMap(_.attributes.find(_.name == "ATTRIBUTE_4").flatMap(_.script)) shouldBe Some(
+        "current_date()"
+      )
+    }
+
     "All SchemaGen Config" should "be known and taken  into account" in {
-      val rendered = SchemaGenConfig.usage()
+      val rendered = Xls2YmlConfig.usage()
       val expected =
         """
-          |Usage: comet [options]
+          |Usage: comet xls2yml [options]
           |
           |  --files <value>       List of Excel files describing Domains & Schemas
           |  --encryption <value>  If true generate pre and post encryption YML
@@ -134,7 +194,7 @@ class SchemaGenSpec extends TestHelper {
           |  --privacy <value>     What privacy policies should be applied in the pre-encryption phase ?
           | All privacy policies are applied by default.
           |  --outputPath <value>  Path for saving the resulting YAML file(s).
-          | COMET domains path is used by default.
+          | Comet domains path is used by default.
           |""".stripMargin
       rendered.substring(rendered.indexOf("Usage:")).replaceAll("\\s", "") shouldEqual expected
         .replaceAll("\\s", "")

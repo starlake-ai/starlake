@@ -20,13 +20,13 @@
 # -- Project information -----------------------------------------------------
 
 project = u'Comet data pipeline'
-copyright = u'2019, Ebiznext'
+copyright = u'2019-2020, Ebiznext'
 author = u'Ebiznext'
 
 # The short X.Y version
-version = u''
+version = u'0.13.0'
 # The full version, including alpha/beta/rc tags
-release = u''
+release = u'0.13.0'
 
 
 # -- General configuration ---------------------------------------------------
@@ -39,12 +39,10 @@ release = u''
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
-    'sphinxcontrib.plantuml',
     'sphinx.ext.todo',
+    'sphinx_rtd_theme',
     'sphinx.ext.githubpages',
 ]
-
-plantuml = 'plantuml'
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -71,7 +69,7 @@ language = None
 exclude_patterns = [u'_build', 'Thumbs.db', '.DS_Store']
 
 # The name of the Pygments (syntax highlighting) style to use.
-pygments_style = None
+pygments_style = 'sphinx'
 
 
 # -- Options for HTML output -------------------------------------------------

@@ -8,7 +8,8 @@ class BiqQueryLoadJobSpec extends TestHelper {
       val rendered = BigQueryLoadConfig.usage()
       val expected =
         """
-          |Usage: comet [options]
+          |Usage: comet bqload [options]
+          |
           |
           |  --source_file <value>    Full Path to source file
           |  --output_dataset <value>
@@ -16,11 +17,18 @@ class BiqQueryLoadJobSpec extends TestHelper {
           |  --output_table <value>   BigQuery Output Table
           |  --output_partition <value>
           |                           BigQuery Partition Field
-          |  --source_format <value>  Source Format eq. parquet
+          |  --require_partition_filter <value>
+          |                           Require Partition Filter
+          |  --output_clustering col1,col2...
+          |                           BigQuery Clustering Fields
+          |  --source_format <value>  Source Format eq. parquet. This option is ignored, Only parquet source format is supported at this time
           |  --create_disposition <value>
           |                           Big Query Create disposition https://cloud.google.com/bigquery/docs/reference/auditlogs/rest/Shared.Types/CreateDisposition
           |  --write_disposition <value>
           |                           Big Query Write disposition https://cloud.google.com/bigquery/docs/reference/auditlogs/rest/Shared.Types/WriteDisposition
+          |  --row_level_security <value>
+          |                           value is in the form name,filter,sa:sa@mail.com,user:user@mail.com,group:group@mail.com
+          |
           |""".stripMargin
       rendered.substring(rendered.indexOf("Usage:")).replaceAll("\\s", "") shouldEqual expected
         .replaceAll("\\s", "")

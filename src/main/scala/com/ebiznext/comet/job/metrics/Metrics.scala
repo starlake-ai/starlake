@@ -6,6 +6,29 @@ import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.{DoubleType, LongType, StringType}
 import org.apache.spark.sql.{Column, DataFrame}
 
+sealed case class MetricsTable(value: String) {
+  override def toString: String = value
+}
+
+object MetricsTable {
+
+  def fromString(value: String): MetricsTable = {
+    value.toUpperCase match {
+      case "continuous"  => MetricsTable.CONTINUOUS
+      case "discrete"    => MetricsTable.DISCRETE
+      case "frequencies" => MetricsTable.FREQUENCIES
+    }
+  }
+
+  object CONTINUOUS extends MetricsTable("continuous")
+
+  object DISCRETE extends MetricsTable("discrete")
+
+  object FREQUENCIES extends MetricsTable("frequencies")
+
+  val metrics: Set[MetricsTable] = Set(CONTINUOUS, DISCRETE, FREQUENCIES)
+}
+
 object Metrics extends StrictLogging {
 
   case class MetricsDatasets(
@@ -48,7 +71,6 @@ object Metrics extends StrictLogging {
   object CountMissValues extends ContinuousMetric("missingValues", customCountMissValues)
 
   /** List of all available metrics
-    *
     */
 
   val continuousMetrics: List[ContinuousMetric] = List(
@@ -271,7 +293,6 @@ object Metrics extends StrictLogging {
       extends DiscreteMetric("missingValuesDiscrete", customCountMissValuesDiscrete)
 
   /** List of all available metrics.
-    *
     */
 
   val discreteMetrics: List[DiscreteMetric] =

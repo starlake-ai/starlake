@@ -1,5 +1,6 @@
 ---
 name: "business1"
+engine: "SPARK"
 tasks:
 - sql: "select * from domain"
   domain: "DOMAIN"
@@ -11,8 +12,11 @@ tasks:
   presql: null
   postsql: null
   area: null
-  index: null
-  properties: null
+  rls:
+    - name: "myrls"
+      predicate: "TRUE"
+      grants:
+      - "user:hayssam.saleh@ebiznext.com"
 area: "business"
 format: "parquet"
 coalesce: true

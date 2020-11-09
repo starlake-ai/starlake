@@ -26,13 +26,12 @@ import com.ebiznext.comet.schema.model._
 import org.apache.hadoop.fs.Path
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.execution.datasources.json.JsonIngestionUtil
-import org.apache.spark.sql.types.StructType
-import org.apache.spark.sql.{DataFrame, Encoders}
+import org.apache.spark.sql.types.{StringType, StructField, StructType}
+import org.apache.spark.sql.{DataFrame, Encoders, Row}
 
 import scala.util.{Failure, Success, Try}
 
-/**
-  * Main class to complex json delimiter separated values file
+/** Main class to complex json delimiter separated values file
   * If your json contains only one level simple attribute aka. kind of dsv but in json format please use SIMPLE_JSON instead. It's way faster
   *
   * @param domain         : Input Dataset Domain
@@ -51,20 +50,26 @@ class JsonIngestionJob(
 )(implicit val settings: Settings)
     extends IngestionJob {
 
-  /**
-    * load the json as an RDD of String
+  /** load the json as an RDD of String
     *
     * @return Spark Dataframe loaded using metadata options
     */
   def loadDataSet(): Try[DataFrame] = {
 
     try {
-      val df = session.read
-        .format("com.databricks.spark.csv")
+      val dfIn = session.read
         .option("inferSchema", value = false)
         .option("encoding", metadata.getEncoding())
         .text(path.map(_.toString): _*)
-      df.printSchema()
+        .select(
+          org.apache.spark.sql.functions.input_file_name(),
+          org.apache.spark.sql.functions.col("value")
+        )
+
+      logger.debug(dfIn.schema.treeString)
+
+      val df = applyIgnore(dfIn)
+
       Success(df)
     } catch {
       case e: Exception =>
@@ -74,25 +79,59 @@ class JsonIngestionJob(
 
   lazy val schemaSparkType: StructType = schema.sparkType(schemaHandler)
 
-  /**
-    * Where the magic happen
+  /** Where the magic happen
     *
     * @param dataset input dataset as a RDD of string
     */
   def ingest(dataset: DataFrame): (RDD[_], RDD[_]) = {
-    val rdd = dataset.rdd
-    dataset.printSchema()
-    val checkedRDD = JsonIngestionUtil
+    val rdd: RDD[Row] = dataset.rdd
+
+    val checkedRDD: RDD[Either[List[String], (String, String)]] = JsonIngestionUtil
       .parseRDD(rdd, schemaSparkType)
       .persist(settings.comet.cacheStorageLevel)
-    val acceptedRDD: RDD[String] = checkedRDD.filter(_.isRight).map(_.right.get)
+
+    val acceptedRDD: RDD[String] =
+      checkedRDD.filter(_.isRight).map(_.right.get).map { case (row, inputFileName) =>
+        val (left, _) = row.splitAt(row.lastIndexOf("}"))
+
+        // Because Spark cannot detect the input files when session.read.json(session.createDataset(acceptedRDD)(Encoders.STRING)),
+        // We should add it as a normal field in the RDD before converting to a dataframe using session.read.json
+
+        s"""$left, "${Settings.cometInputFileNameColumn}" : "$inputFileName" }"""
+      }
+
     val rejectedRDD: RDD[String] =
       checkedRDD.filter(_.isLeft).map(_.left.get.mkString("\n"))
-    val acceptedDF = session.read.json(session.createDataset(acceptedRDD)(Encoders.STRING))
+
+    val appliedSchema = schema
+      .sparkSchemaWithoutScriptedFields(schemaHandler)
+      .add(StructField(Settings.cometInputFileNameColumn, StringType))
+
+    val acceptedDF = session.read
+      .schema(appliedSchema)
+      .json(session.createDataset(acceptedRDD)(Encoders.STRING))
+
     saveRejected(rejectedRDD)
-    val (df, path) = saveAccepted(acceptedDF) // prefer to let Spark compute the final schema
-    index(df)
-    (rejectedRDD, acceptedRDD)
+    saveAccepted(acceptedDF) // prefer to let Spark compute the final schema
+    (rejectedRDD, acceptedDF.rdd)
+  }
+
+  /** Use the schema we used for validation when saving
+    *
+    * @param acceptedRDD
+    */
+  @deprecated("We let Spark compute the final schema", "")
+  def saveAccepted(acceptedRDD: RDD[Row]): Path = {
+    val writeMode = metadata.getWrite()
+    val acceptedPath = new Path(DatasetArea.accepted(domain.name), schema.name)
+    saveRows(
+      session.createDataFrame(acceptedRDD, schemaSparkType),
+      acceptedPath,
+      writeMode,
+      StorageArea.accepted,
+      schema.merge.isDefined
+    )
+    acceptedPath
   }
 
   override def name: String = "JsonJob"
