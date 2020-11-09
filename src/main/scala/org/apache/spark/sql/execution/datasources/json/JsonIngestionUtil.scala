@@ -33,10 +33,7 @@ import org.apache.spark.sql.types._
 import scala.collection.mutable
 import scala.util.{Failure, Success, Try}
 
-/**
-  * Code here comes from org.apache.spark.sql.execution.datasources.json.InferSchema
-  *
-  *
+/** Code here comes from org.apache.spark.sql.execution.datasources.json.InferSchema
   */
 object JsonIngestionUtil {
 
@@ -51,8 +48,7 @@ object JsonIngestionUtil {
     compareTypes(Nil, ("root", schemaType, true), ("root", datasetType, true))
   }
 
-  /**
-    * similar to compatibleType(...) but instead of creating a new datatype, simply check the compatibility
+  /** similar to compatibleType(...) but instead of creating a new datatype, simply check the compatibility
     *
     * @param context : full path to attribute, makes error messages more understandable
     * @param schemaType : (attributeName, attributeType, isRequired) coming from the schema
@@ -224,8 +220,7 @@ object JsonIngestionUtil {
     }
   }
 
-  /**
-    * Convert NullType to StringType and remove StructTypes with no fields
+  /** Convert NullType to StringType and remove StructTypes with no fields
     */
   private def canonicalizeType(tpe: DataType): Option[DataType] =
     tpe match {
@@ -274,8 +269,7 @@ object JsonIngestionUtil {
     }
   }
 
-  /**
-    * Remove top-level ArrayType wrappers and merge the remaining schemas
+  /** Remove top-level ArrayType wrappers and merge the remaining schemas
     */
   private def compatibleRootType(
     columnNameOfCorruptRecords: String,
@@ -353,15 +347,18 @@ object JsonIngestionUtil {
     }
   }
 
-  def parseRDD(inputRDD: RDD[Row], schemaSparkType: DataType): RDD[Either[List[String], String]] = {
+  def parseRDD(
+    inputRDD: RDD[Row],
+    schemaSparkType: DataType
+  ): RDD[Either[List[String], (String, String)]] = {
     inputRDD.mapPartitions { partition =>
       partition.map { row =>
-        val rowAsString = row.getAs[String](0)
+        val rowAsString = row.getAs[String]("value")
         parseString(rowAsString) match {
           case Success(datasetType) =>
             val errorList = compareTypes(schemaSparkType, datasetType)
             if (errorList.isEmpty)
-              Right(rowAsString)
+              Right((rowAsString, row.getAs[String]("input_file_name()")))
             else
               Left(errorList)
 

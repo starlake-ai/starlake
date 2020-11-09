@@ -47,7 +47,6 @@ object Unpacker {
     *   - An ArchiveEntry instance, with information like name, size and whether
     *     the entry is a file or directory
     *   - An InputStream of all the bytes in this particular entry
-    *
     */
   def open(inputStream: InputStream): Try[Iterator[(ArchiveEntry, InputStream)]] =
     for {

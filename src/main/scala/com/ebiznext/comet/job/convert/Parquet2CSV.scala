@@ -3,14 +3,13 @@ package com.ebiznext.comet.job.convert
 import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.schema.handlers.StorageHandler
 import com.ebiznext.comet.schema.model.WriteMode
-import com.ebiznext.comet.utils.{SparkJob, SparkJobResult}
+import com.ebiznext.comet.utils.{JobResult, SparkJob, SparkJobResult}
 import com.typesafe.config.ConfigFactory
 import org.apache.hadoop.fs.Path
 
 import scala.util.{Success, Try}
 
-/**
-  * Convert parquet files to CSV.
+/** Convert parquet files to CSV.
   * The folder hierarchy should be in the form /input_folder/domain/schema/part*.parquet
   * Once converted the csv files is put in the folder /output_folder/domain/schema.csv file
   * When the specified number of parittions is 1 then /output_folder/domain/schema.csv is the file containing the data
@@ -26,7 +25,7 @@ class Parquet2CSV(config: Parquet2CSVConfig, val storageHandler: StorageHandler)
 
   override def name: String = s"parquet-2-csv"
 
-  override def run(): Try[SparkJobResult] = {
+  override def run(): Try[JobResult] = {
     val allPaths = (config.domainName, config.schemaName) match {
       case (Some(domainName), Some(schemaName)) =>
         List(new Path(new Path(config.inputFolder, domainName), schemaName))
@@ -55,6 +54,8 @@ class Parquet2CSV(config: Parquet2CSVConfig, val storageHandler: StorageHandler)
             .mode(config.writeMode.getOrElse(WriteMode.ERROR_IF_EXISTS).toSaveMode)
           config.options
             .foldLeft(writer)((w, kv) => w.option(kv._1, kv._2))
+            .option("ignoreLeadingWhiteSpace", false)
+            .option("ignoreTrailingWhiteSpace", false)
             .csv(csvPath.toString)
           if (config.partitions == 1) {
             val files = storageHandler.list(csvPath, "csv")
@@ -73,7 +74,7 @@ class Parquet2CSV(config: Parquet2CSVConfig, val storageHandler: StorageHandler)
           None
       }
     }
-    Success(SparkJobResult(session))
+    Success(SparkJobResult(None))
   }
 }
 

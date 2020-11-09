@@ -1,0 +1,50 @@
+.. _domain_concept:
+
+Domain
+##########################################
+
+Let's say you are willing to import customers and orders from your Sales system.
+Sales is therefore the domain and customer & order are your datasets.
+- In a DBMS, a Domain would be implemented by a DBMS  schema and a dataset by a DBMS table.
+- In BigQuery, the domain name would be the Big Query dataset name and the dataset would be implemented by a Big Query table.
+
+.. option:: name: String
+
+*Required*. Domain name. Make sure you use a name that may be used as a folder name on the target storage.
+                   - When using HDFS or Cloud Storage,  files once ingested are stored in a sub-directory oof a directory named after the domain name.
+                   - When used with BigQuery, files are ingested and sorted in tables under a dataset named after the domain name.
+
+.. option:: directory: String
+
+*Required*. Folder on the local filesystem where incoming files are stored.
+                     Typically, this folder will be scanned periodically to move the dataset to the cluster for ingestion.
+                     Files located in this folder are moved to the pending folder for ingestion by the "import" command.
+
+.. option:: metadata: Metadata
+
+*Optional*. Default Schema metadata.
+                     This metadata is applied to the schemas defined in this domain.
+                     Metadata properties may be redefined at the schema level.
+                     See Metadata Entity for more details.
+
+.. option:: schemas: List[Schema]
+
+*Required*. List of schemas for each dataset in this domain
+                     A domain ususally contains multiple schemas. Each schema defining how the contents of the input file should be parsed.
+                     See :ref:`schema_concept` for more details.
+
+.. option:: comment: String
+
+*Optional*. Domain Description (free text)
+
+.. option:: extensions: List[String]
+
+*Optional*. Recognized filename extensions. json, csv, dsv, psv are recognized by default
+                     Only files with these extensions will be moved to the pending folder.
+
+.. option:: ack: String
+
+*Optional*.
+Ack extension used for each file. ".ack" if not specified.
+Files are moved to the pending folder only once a file with the same name as the source file and with this extension is present.
+To move a file without requiring an ack file to be present, set explicitly this property to the empty string value "".

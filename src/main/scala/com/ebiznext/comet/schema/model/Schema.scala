@@ -26,12 +26,12 @@ import com.ebiznext.comet.utils.conversion.BigQueryUtils._
 import com.ebiznext.comet.schema.handlers.SchemaHandler
 import com.ebiznext.comet.utils.TextSubstitutionEngine
 import com.google.cloud.bigquery.Field
+import net.minidev.json.annotate.JsonIgnore
 import org.apache.spark.sql.types._
 
 import scala.collection.mutable
 
-/**
-  * How dataset are merge
+/** How dataset are merged
   *
   * @param key    list of attributes to join existing with incoming dataset. Use renamed columns here.
   * @param delete Optional valid sql condition on the incoming dataset. Use renamed column here.
@@ -43,16 +43,22 @@ case class MergeOptions(
   timestamp: Option[String] = None
 )
 
-/**
-  * Dataset Schema
+/** Dataset Schema
   *
-  * @param name       : Schema name, must be unique in the domain. Will become the hive table name
-  * @param pattern    : filename pattern to which this schema must be applied
-  * @param attributes : datasets columns
+  * @param name       : Schema name, must be unique among all the schemas belonging to the same domain.
+  *                     Will become the hive table name On Premise or BigQuery Table name on GCP.
+  * @param pattern    : filename pattern to which this schema must be applied.
+  *                     This instructs the framework to use this schema to parse any file with a filename that match this pattern.
+  * @param attributes : Attributes parsing rules.
+  *                     See :ref:`attribute_concept`
   * @param metadata   : Dataset metadata
+  *                     See :ref:`metadata_concept`
   * @param comment    : free text
-  * @param presql     :  SQL code executed before the file is ingested
-  * @param postsql    : SQL code executed right after the file has been ingested
+  * @param presql     : Reserved for future use.
+  * @param postsql    : Reserved for future use.
+  * @param tags       : Set of string to attach to this Schema
+  * @param rls        : Experimental. Row level security to this to this schema.
+  *                     See :ref:`rowlevelsecurity_concept`
   */
 case class Schema(
   name: String,
@@ -63,11 +69,14 @@ case class Schema(
   comment: Option[String],
   presql: Option[List[String]],
   postsql: Option[List[String]],
-  tags: Option[Set[String]] = None
+  tags: Option[Set[String]] = None,
+  rls: Option[List[RowLevelSecurity]] = None
 ) {
 
-  /**
-    * @return Are the parittions columns defined in the metadata valid column names
+  @JsonIgnore
+  lazy val attributesWithoutScript: List[Attribute] = attributes.filter(_.script.isEmpty)
+
+  /** @return Are the parittions columns defined in the metadata valid column names
     */
   def validatePartitionColumns(): Boolean = {
     metadata.forall(
@@ -80,14 +89,37 @@ case class Schema(
     )
   }
 
-  /**
-    * This Schema as a Spark Catalyst Schema
+  /** This Schema as a Spark Catalyst Schema
     *
     * @return Spark Catalyst Schema
     */
   def sparkType(schemaHandler: SchemaHandler): StructType = {
     val fields = attributes.map { attr =>
       StructField(attr.name, attr.sparkType(schemaHandler), !attr.required)
+    }
+    StructType(fields)
+  }
+
+  /** This Schema as a Spark Catalyst Schema, with renamed attributes
+    *
+    * @return Spark Catalyst Schema
+    */
+  def sparkTypeWithRenamedFields(schemaHandler: SchemaHandler): StructType =
+    sparkSchemaWithCondition(schemaHandler, _ => true)
+
+  /** This Schema as a Spark Catalyst Schema, without scripted fields
+    *
+    * @return Spark Catalyst Schema
+    */
+  def sparkSchemaWithoutScriptedFields(schemaHandler: SchemaHandler): StructType =
+    sparkSchemaWithCondition(schemaHandler, _.script.isEmpty)
+
+  private def sparkSchemaWithCondition(
+    schemaHandler: SchemaHandler,
+    p: Attribute => Boolean
+  ): StructType = {
+    val fields = attributes filter p map { attr =>
+      StructField(attr.rename.getOrElse(attr.name), attr.sparkType(schemaHandler), !attr.required)
     }
     StructType(fields)
   }
@@ -108,8 +140,7 @@ case class Schema(
     BQSchema.of(fields: _*)
   }
 
-  /**
-    * return the list of renamed attributes
+  /** return the list of renamed attributes
     *
     * @return list of tuples (oldname, newname)
     */
@@ -119,8 +150,7 @@ case class Schema(
     }
   }
 
-  /**
-    * Check attribute definition correctness :
+  /** Check attribute definition correctness :
     *   - schema name should be a valid table identifier
     *   - attribute name should be a valid Hive column identifier
     *   - attribute name can occur only once in the schema
@@ -136,6 +166,12 @@ case class Schema(
     if (!tableNamePattern.matcher(name).matches())
       errorList += s"Schema with name $name should respect the pattern ${tableNamePattern.pattern()}"
 
+    metadata.foreach { metadata =>
+      for (errors <- metadata.checkValidity(schemaHandler).left) {
+        errorList ++= errors
+      }
+    }
+
     attributes.foreach { attribute =>
       for (errors <- attribute.checkValidity(schemaHandler).left) {
         errorList ++= errors
@@ -147,25 +183,7 @@ case class Schema(
     for (errors <- duplicates(attributes.map(_.name), duplicateErrorMessage).left) {
       errorList ++= errors
     }
-    val format = this.mergedMetadata(domainMetaData).format
-    format match {
-      case Some(Format.POSITION) =>
-        val attrsAsArray = attributes.toArray
-        for (i <- 0 until attrsAsArray.length - 1) {
-          val pos1 = attrsAsArray(i).position
-          val pos2 = attrsAsArray(i + 1).position
-          (pos1, pos2) match {
-            case (Some(pos1), Some(pos2)) =>
-              if (pos1.last >= pos2.first) {
-                errorList += s"Positions should be ordered : ${pos1.last} > ${pos2.first}"
-              }
-            case (_, _) =>
-              errorList += s"All attributes should have their position defined"
 
-          }
-        }
-      case _ =>
-    }
     if (errorList.nonEmpty)
       Left(errorList.toList)
     else
@@ -190,12 +208,17 @@ case class Schema(
          |$attrs
          |}""".stripMargin
 
-    val tse = TextSubstitutionEngine("PROPERTIES" -> properties, "ATTRIBUTES" -> attrs)
+    val tse = TextSubstitutionEngine(
+      "PROPERTIES" -> properties,
+      "ATTRIBUTES" -> attrs,
+      "DOMAIN"     -> domainName.toLowerCase,
+      "SCHEMA"     -> name.toLowerCase
+    )
 
     tse.apply(template.getOrElse {
       s"""
          |{
-         |  "index_patterns": ["${domainName.toLowerCase}_${name.toLowerCase}", "${domainName.toLowerCase}_${name.toLowerCase}-*"],
+         |  "index_patterns": ["__DOMAIN__.__SCHEMA__", "__DOMAIN__.__SCHEMA__-*"],
          |  "settings": {
          |    "number_of_shards": "1",
          |    "number_of_replicas": "0"

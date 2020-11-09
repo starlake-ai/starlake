@@ -31,8 +31,7 @@ import org.apache.spark.sql.types.StructField
 import scala.collection.mutable
 import scala.util.Try
 
-/**
-  * List of globally defined types
+/** List of globally defined types
   *
   * @param types : Type list
   */
@@ -46,8 +45,7 @@ case class Types(types: List[Type]) {
   }
 }
 
-/**
-  * Semantic Type
+/** Semantic Type
   *
   * @param name          : Type name
   * @param pattern       : Pattern use to check that the input data matches the pattern

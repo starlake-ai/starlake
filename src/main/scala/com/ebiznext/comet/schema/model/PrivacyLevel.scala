@@ -32,8 +32,7 @@ import com.fasterxml.jackson.databind.{DeserializationContext, JsonDeserializer}
 import scala.collection.JavaConverters._
 import scala.reflect.runtime.universe
 
-/**
-  * How (the attribute should be transformed at ingestion time ?
+/** How (the attribute should be transformed at ingestion time ?
   *
   * @param value algorithm to use : NONE, HIDE, MD5, SHA1, SHA256, SHA512, AES
   */
@@ -67,11 +66,10 @@ object PrivacyLevel {
       make(schemeName, encryptionObject)
     }
 
-    lazy val all = settings.comet.privacy.options.asScala.map {
-      case (k, objName) =>
-        val encryption = make(k, objName)
-        val key = k.toUpperCase(Locale.ROOT)
-        (key, (encryption, new PrivacyLevel(key)))
+    lazy val all = settings.comet.privacy.options.asScala.map { case (k, objName) =>
+      val encryption = make(k, objName)
+      val key = k.toUpperCase(Locale.ROOT)
+      (key, (encryption, new PrivacyLevel(key)))
     }
 
     // Improve Scan performance

@@ -22,8 +22,7 @@ package com.ebiznext.comet.schema.model
 
 import java.sql.Timestamp
 
-/**
-  * Contains classes used to describe rejected records.
+/** Contains classes used to describe rejected records.
   * Recjected records are stored in parquet file in teh rejected area.
   * A reject row contains
   *   - the list of columns and for each column wether it has been accepted or not.
@@ -54,8 +53,7 @@ object Rejection {
     }
   }
 
-  /**
-    * Rejected Row information
+  /** Rejected Row information
     *
     * @param timestamp : time of parsing for this row
     * @param colInfos  : column parsing results for this row
@@ -68,8 +66,7 @@ object Rejection {
     }
   }
 
-  /**
-    * ColResult after parsing
+  /** ColResult after parsing
     *
     * @param colInfo    : Col info
     * @param sparkValue : Spark Type as recognized by catalyst
@@ -78,9 +75,7 @@ object Rejection {
     override def toString: String = colInfo.toString
   }
 
-  /**
-    *
-    * @param colResults
+  /** @param colResults
     */
   case class RowResult(colResults: List[ColResult]) {
     def isRejected: Boolean = colResults.exists(!_.colInfo.success)

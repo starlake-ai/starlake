@@ -2,8 +2,7 @@ package com.ebiznext.comet.privacy
 
 import scala.util.Random
 
-/**
-  * Several encryption methods used in privacy management
+/** Several encryption methods used in privacy management
   */
 object PrivacyEngine {
 

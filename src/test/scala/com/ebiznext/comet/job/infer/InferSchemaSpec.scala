@@ -8,7 +8,7 @@ class InferSchemaSpec extends TestHelper {
       val rendered = InferSchemaConfig.usage()
       val expected =
         """
-          |Usage: comet [options]
+          |Usage: comet infer-schema [options]
           |
           |  --domain <value>       Domain Name
           |  --schema <value>       Domain Name

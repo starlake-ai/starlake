@@ -21,15 +21,19 @@
 package com.ebiznext.comet.schema.handlers
 
 import com.ebiznext.comet.config.Settings
-import com.ebiznext.comet.job.ingest.{AuditLog, MetricRecord, RejectedRecord}
+import com.ebiznext.comet.job.ingest._
 import com.ebiznext.comet.{JdbcChecks, TestHelper}
 import com.typesafe.config.{Config, ConfigFactory}
+import org.apache.spark.sql.functions.{col, input_file_name, regexp_extract}
 
 abstract class JsonIngestionJobSpecBase(variant: String) extends TestHelper with JdbcChecks {
 
   def expectedAuditLogs(implicit settings: Settings): List[AuditLog]
   def expectedRejectRecords(implicit settings: Settings): List[RejectedRecord]
-  def expectedMetricRecords(implicit settings: Settings): List[MetricRecord]
+
+  def expectedMetricRecords(implicit
+    settings: Settings
+  ): (List[ContinuousMetricRecord], List[DiscreteMetricRecord], List[FrequencyMetricRecord])
 
   def configuration: Config
 
@@ -55,22 +59,34 @@ abstract class JsonIngestionJobSpecBase(variant: String) extends TestHelper with
           "/sample/json/complex.json"
         )
 
+        val schemaHandler = new SchemaHandler(settings.storageHandler)
+        val schema = schemaHandler.getSchema("json", "sample_json").get
+        val sparkSchema = schema.sparkSchemaWithoutScriptedFields(schemaHandler)
+
         // Accepted should have the same data as input
-        sparkSession.read
+        val resultDf = sparkSession.read
           .parquet(
             cometDatasetsPath + s"/accepted/${datasetDomainName}/sample_json/${getTodayPartitionPath}"
           )
+
+        val expectedDf = sparkSession.read
+          .schema(sparkSchema)
+          .json(
+            getClass.getResource(s"/sample/${datasetDomainName}/complex.json").toURI.getPath
+          )
+          .withColumn("email_domain", regexp_extract(col("email"), ".+@(.+)", 1))
+          .withColumn("source_file_name", regexp_extract(input_file_name, ".+\\/(.+)$", 1))
+
+        resultDf
           .except(
-            sparkSession.read
-              .json(
-                getClass.getResource(s"/sample/${datasetDomainName}/complex.json").toURI.getPath
-              )
+            expectedDf
           )
           .count() shouldBe 0
       }
       expectingAudit("test-h2", expectedAuditLogs(settings): _*)
       expectingRejections("test-h2", expectedRejectRecords(settings): _*)
-      expectingMetrics("test-h2", expectedMetricRecords(settings): _*)
+      val (continuous, discrete, frequencies) = expectedMetricRecords(settings)
+      expectingMetrics("test-h2", continuous, discrete, frequencies)
     }
   }
 }
@@ -82,14 +98,18 @@ class JsonIngestionJobNoIndexNoMetricsNoAuditSpec
     ConfigFactory
       .parseString("""
           |audit.index.type = "None"
-          |audit.index.jdbc-connection = "test-h2"
+          |audit.index.connection = "test-h2"
           |""".stripMargin)
       .withFallback(super.testConfiguration)
 
   override def expectedAuditLogs(implicit settings: Settings): List[AuditLog] = Nil
 
   override def expectedRejectRecords(implicit settings: Settings): List[RejectedRecord] = Nil
-  override def expectedMetricRecords(implicit settings: Settings): List[MetricRecord] = Nil
+
+  override def expectedMetricRecords(implicit
+    settings: Settings
+  ): (List[ContinuousMetricRecord], List[DiscreteMetricRecord], List[FrequencyMetricRecord]) =
+    (Nil, Nil, Nil)
 }
 
 class JsonIngestionJobSpecNoIndexJdbcMetricsJdbcAuditSpec
@@ -100,17 +120,17 @@ class JsonIngestionJobSpecNoIndexJdbcMetricsJdbcAuditSpec
       .parseString("""
                      |metrics {
                      |  active = true
-                     |  index {
-                     |    type = "Jdbc"
-                     |    jdbc-connection = "test-h2"
+                     |  sink {
+                     |    type = "JdbcSink"
+                     |    connection = "test-h2"
                      |  }
                      |}
                      |
                      |audit {
                      |  active = true
-                     |  index {
-                     |    type = "Jdbc"
-                     |    jdbc-connection = "test-h2"
+                     |  sink {
+                     |    type = "JdbcSink"
+                     |    connection = "test-h2"
                      |  }
                      |}
                      |""".stripMargin)
@@ -134,6 +154,12 @@ class JsonIngestionJobSpecNoIndexJdbcMetricsJdbcAuditSpec
   override def expectedRejectRecords(implicit settings: Settings): List[RejectedRecord] =
     Nil
 
-  override def expectedMetricRecords(implicit settings: Settings): List[MetricRecord] =
-    Nil /* TODO: should we not get some here? At least we go to JDBC fine, as far as the schema is concerned. */
+  override def expectedMetricRecords(implicit
+    settings: Settings
+  ): (List[ContinuousMetricRecord], List[DiscreteMetricRecord], List[FrequencyMetricRecord]) =
+    (
+      Nil,
+      Nil,
+      Nil
+    )
 }
