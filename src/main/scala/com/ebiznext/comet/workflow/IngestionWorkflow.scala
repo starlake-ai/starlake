@@ -31,7 +31,7 @@ import com.ebiznext.comet.job.ingest._
 import com.ebiznext.comet.job.metrics.{MetricsConfig, MetricsJob}
 import com.ebiznext.comet.job.transform.AutoTaskJob
 import com.ebiznext.comet.schema.handlers.{LaunchHandler, SchemaHandler, StorageHandler}
-import com.ebiznext.comet.schema.model.Format.{DSV, JSON, POSITION, SIMPLE_JSON}
+import com.ebiznext.comet.schema.model.Format.{DSV, JSON, POSITION, SIMPLE_JSON, XML}
 import com.ebiznext.comet.schema.model._
 import com.ebiznext.comet.utils.{JobResult, SparkJobResult, Unpacker, Utils}
 import com.google.cloud.bigquery.JobInfo.{CreateDisposition, WriteDisposition}
