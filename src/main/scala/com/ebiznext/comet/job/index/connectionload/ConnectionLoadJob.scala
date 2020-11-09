@@ -1,14 +1,14 @@
-package com.ebiznext.comet.job.index.jdbcload
+package com.ebiznext.comet.job.index.connectionload
 
 import com.ebiznext.comet.config.Settings
-import com.ebiznext.comet.utils.{SparkJob, SparkJobResult, Utils}
+import com.ebiznext.comet.utils.{JobResult, SparkJob, SparkJobResult, Utils}
 import com.google.cloud.bigquery.JobInfo.WriteDisposition
 import org.apache.spark.sql.SaveMode
 
 import scala.util.Try
 
-class JdbcLoadJob(
-  cliConfig: JdbcLoadConfig
+class ConnectionLoadJob(
+  cliConfig: ConnectionLoadConfig
 )(implicit val settings: Settings)
     extends SparkJob {
 
@@ -16,11 +16,6 @@ class JdbcLoadJob(
 
   val conf = session.sparkContext.hadoopConfiguration
   logger.info(s"JDBC Config $cliConfig")
-  val driver = cliConfig.driver
-  val url = cliConfig.url
-  val user = cliConfig.user
-  val password = cliConfig.password
-  Class.forName(driver)
 
   def runJDBC(): Try[SparkJobResult] = {
     val inputPath = cliConfig.sourceFile
@@ -31,28 +26,29 @@ class JdbcLoadJob(
           case Left(path) => session.read.parquet(path)
           case Right(df)  => df
         }
-      sourceDF.write
-        .format("jdbc")
-        .option("numPartitions", cliConfig.partitions)
-        .option("batchsize", cliConfig.batchSize)
+
+      // Some database do not suport truncate during save
+      // Truncate should be done manually in pre-sql
+      // https://stackoverflow.com/questions/59451275/how-to-generate-a-spark-sql-truncate-query-without-only
+      val writeMode =
+        if (cliConfig.writeDisposition == WriteDisposition.WRITE_TRUNCATE) SaveMode.Overwrite
+        else SaveMode.Append
+      val dfw = sourceDF.write
+        .format(cliConfig.format)
         .option("truncate", cliConfig.writeDisposition == WriteDisposition.WRITE_TRUNCATE)
-        .option("driver", driver)
-        .option("url", url)
         .option("dbtable", cliConfig.outputTable)
-        .option("user", user)
-        .option("password", password)
-        .mode(SaveMode.Append)
-        .save()
-      SparkJobResult(session)
+        .mode(cliConfig.mode.getOrElse(writeMode.toString))
+
+      cliConfig.options.foldLeft(dfw)((w, kv) => w.option(kv._1, kv._2)).save()
+      SparkJobResult(None)
     }
   }
 
-  /**
-    * Just to force any spark job to implement its entry point using within the "run" method
+  /** Just to force any spark job to implement its entry point using within the "run" method
     *
     * @return : Spark Session used for the job
     */
-  override def run(): Try[SparkJobResult] = {
+  override def run(): Try[JobResult] = {
     val res = runJDBC()
     Utils.logFailure(res, logger)
   }

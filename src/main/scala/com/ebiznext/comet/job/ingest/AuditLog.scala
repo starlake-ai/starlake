@@ -23,9 +23,9 @@ package com.ebiznext.comet.job.ingest
 import java.sql.Timestamp
 
 import com.ebiznext.comet.config.Settings
-import com.ebiznext.comet.config.Settings.IndexSinkSettings
-import com.ebiznext.comet.job.index.bqload.{BigQueryLoadConfig, BigQueryLoadJob}
-import com.ebiznext.comet.job.index.jdbcload.{JdbcLoadConfig, JdbcLoadJob}
+import com.ebiznext.comet.job.index.bqload.{BigQueryLoadConfig, BigQuerySparkJob}
+import com.ebiznext.comet.job.index.connectionload.{ConnectionLoadConfig, ConnectionLoadJob}
+import com.ebiznext.comet.schema.model.{BigQuerySink, EsSink, JdbcSink, NoneSink}
 import com.ebiznext.comet.utils.FileLock
 import com.google.cloud.bigquery.{Field, LegacySQLTypeName}
 import org.apache.hadoop.fs.Path
@@ -104,7 +104,7 @@ object SparkAuditLogWriter {
       val auditPath = new Path(settings.comet.audit.path, s"ingestion-log")
       Seq(log).toDF.write
         .mode(SaveMode.Append)
-        .format(settings.comet.writeFormat)
+        .format(settings.comet.defaultWriteFormat)
         .option("path", auditPath.toString)
         .save()
     }
@@ -118,33 +118,36 @@ object SparkAuditLogWriter {
       )
       .toDF(auditCols.map(_._1): _*)
 
-    settings.comet.audit.index match {
-      case IndexSinkSettings.Jdbc(name, partitions, batchSize) =>
-        val jdbcConfig = JdbcLoadConfig.fromComet(
-          name,
+    settings.comet.audit.sink match {
+      case JdbcSink(connectionName, partitions, batchSize) =>
+        val jdbcConfig = ConnectionLoadConfig.fromComet(
+          connectionName,
           settings.comet,
           Right(auditDF),
           "audit",
-          partitions = partitions,
-          batchSize = batchSize
+          partitions = partitions.getOrElse(1),
+          batchSize = batchSize.getOrElse(1000)
         )
-        new JdbcLoadJob(jdbcConfig).run()
+        new ConnectionLoadJob(jdbcConfig).run()
 
-      case IndexSinkSettings.BigQuery(dataset) =>
+      case sink: BigQuerySink =>
         val bqConfig = BigQueryLoadConfig(
           Right(auditDF),
-          outputDataset = dataset,
+          outputDataset = sink.name.getOrElse("audit"),
           outputTable = "audit",
           None,
+          Nil,
           "parquet",
           "CREATE_IF_NEEDED",
           "WRITE_APPEND",
           None,
           None
         )
-        new BigQueryLoadJob(bqConfig, Some(bigqueryAuditSchema())).run()
+        new BigQuerySparkJob(bqConfig, Some(bigqueryAuditSchema())).run()
 
-      case IndexSinkSettings.None =>
+      case EsSink(id, timestamp) =>
+        ???
+      case NoneSink() =>
       // this is a NOP
     }
   }

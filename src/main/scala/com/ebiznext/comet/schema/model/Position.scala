@@ -20,12 +20,9 @@
 
 package com.ebiznext.comet.schema.model
 
-/**
-  * How (the attribute should be transformed at ingestion time ?
+/** How (the attribute should be transformed at ingestion time ?
   *
   * @param first : First char position
   * @param last   : last char position
-  * @param trim : trim left / right / both / none
-  *
   */
 case class Position(first: Int, last: Int)

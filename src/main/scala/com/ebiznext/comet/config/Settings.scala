@@ -31,11 +31,10 @@ import com.ebiznext.comet.schema.handlers.{
   LaunchHandler,
   SimpleLauncher
 }
-import com.ebiznext.comet.schema.model.IndexSink
-import com.ebiznext.comet.utils.{CometJacksonModule, CometObjectMapper, Version}
-import com.fasterxml.jackson.annotation.{JsonIgnore, JsonTypeInfo}
+import com.ebiznext.comet.schema.model.Sink
+import com.ebiznext.comet.utils.{CometObjectMapper, Version}
+import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.databind.annotation.JsonDeserialize
 import com.typesafe.config.{Config, ConfigValueFactory}
 import com.typesafe.scalalogging.{Logger, StrictLogging}
 import configs.Configs
@@ -46,16 +45,14 @@ import org.slf4j.MDC
 import scala.concurrent.duration.FiniteDuration
 
 object Settings extends StrictLogging {
+
   private def loggerForCompanionInstances: Logger = logger
 
-  /**
-    *
-    * @param endpoint : Airflow REST API endpoint, aka. http://127.0.0.1:8080/api/experimental
+  /** @param endpoint : Airflow REST API endpoint, aka. http://127.0.0.1:8080/api/experimental
     */
   final case class Airflow(endpoint: String, ingest: String)
 
-  /**
-    * datasets in the data pipeline go through several stages and
+  /** datasets in the data pipeline go through several stages and
     * are stored on disk at each of these stages.
     * This setting allow to customize the folder names of each of these stages.
     *
@@ -81,83 +78,35 @@ object Settings extends StrictLogging {
     val businessFinal: String = business.toLowerCase(Locale.ROOT)
   }
 
-  /**
-    *
-    * @param options : Map of privacy algorightms name -> PrivacyEngine
+  /** @param options : Map of privacy algorightms name -> PrivacyEngine
     */
   final case class Privacy(options: juMap[String, String])
 
   final case class Elasticsearch(active: Boolean, options: juMap[String, String])
 
-  /**
-    * Configuration for [[com.ebiznext.comet.schema.model.IndexSink]]
-    *
-    * This is used to define an auxiliary output for Audit or Metrics data, in addition to the Parquets
-    * The default Index Sink is None, but additional types exists (such as BigQuery or Jdbc)
-    *
-    */
-  @JsonTypeInfo(use = JsonTypeInfo.Id.MINIMAL_CLASS)
-  sealed abstract class IndexSinkSettings(val `type`: String) {
-    def indexSinkType: IndexSink
-  }
-
-  object IndexSinkSettings {
-
-    /**
-      * A no-operation Index Output (disabling external output beyond the business area parquets)
-      */
-    @JsonTypeInfo(use = JsonTypeInfo.Id.MINIMAL_CLASS)
-    @JsonDeserialize(builder = classOf[None.NoneBuilder])
-    case object None
-        extends IndexSinkSettings("None")
-        with CometJacksonModule.JacksonProtectedSingleton {
-      override def indexSinkType: IndexSink.None.type = IndexSink.None
-
-      class NoneBuilder extends CometJacksonModule.ProtectedSingletonBuilder[None.type]
-    }
-
-    /**
-      * Describes an Index Output delivering values into a BigQuery dataset
-      */
-    final case class BigQuery(bqDataset: String) extends IndexSinkSettings("BigQuery") {
-      override def indexSinkType: IndexSink.BQ.type = IndexSink.BQ
-    }
-
-    /**
-      * Describes an Index Output delivering values into a JDBC-accessible SQL database
-      */
-    final case class Jdbc(jdbcConnection: String, partitions: Int = 1, batchSize: Int = 1000)
-        extends IndexSinkSettings("Jdbc") {
-      override def indexSinkType: IndexSink.JDBC.type = IndexSink.JDBC
-    }
-    // TODO: IndexSink has ES, too. Is there a use case for this?
-    // Maybe later; additional sink types (e.g. Kafka/Pulsar)?
-  }
-
-  /**
-    *
-    * @param discreteMaxCardinality : Max number of unique values allowed in cardinality compute
-    *
+  /** @param discreteMaxCardinality : Max number of unique values allowed in cardinality compute
     */
   final case class Metrics(
     path: String,
     discreteMaxCardinality: Int,
     active: Boolean,
-    index: IndexSinkSettings
+    sink: Sink
   )
 
   final case class Audit(
     path: String,
-    index: IndexSinkSettings,
+    sink: Sink,
     maxErrors: Int
   )
 
-  /**
-    * Describes a connection to a JDBC-accessible database engine
+  /** Describes a connection to a JDBC-accessible database engine
     *
-    * @param uri the URI of the database engine. It must start with "jdbc:"
-    * @param user the username under which to connect to the database engine
-    * @param password the password to use in order to connect to the database engine
+    * @param format source / sink format (jdbc by default). Cf spark.format possible values
+    * @param mode Spark SaveMode to use. If not present, the save mode will be computed from the write disposition set in the YAM file
+    * @param options any option required by the format used to ingest / tranform / compute the data. Eg for JDBC uri, user and password are required
+    *             uri the URI of the database engine. It must start with "jdbc:"
+    *             user the username under which to connect to the database engine
+    *             password the password to use in order to connect to the database engine
     * @param engineOverride the index into the [[Comet.jdbcEngines]] map of the underlying database engine, in case
     *                       one cannot use the engine name from the uri
     *
@@ -165,41 +114,38 @@ object Settings extends StrictLogging {
     *       (e.g. non-standard table names) alongside with the regular schema definition, on the same
     *       underlying engine.
     */
-  final case class Jdbc(
-    uri: String,
-    user: String = "",
-    password: String = "",
+  final case class Connection(
+    format: String = "jdbc",
+    mode: Option[String] = None,
+    options: Map[String, String] = Map.empty,
     engineOverride: Option[String] = None
   ) {
-    def engine: String = engineOverride.getOrElse(uri.split(':')(1))
+    def engine: String = engineOverride.getOrElse(options("url").split(':')(1))
   }
 
-  /**
-    * Describes how to use a specific type of JDBC-accessible database engine
+  /** Describes how to use a specific type of JDBC-accessible database engine
     *
-    * @param driver the qualified class name of the JDBC Driver to use for the specific engine
     * @param tables for each of the Standard Table Names used by Comet, the specific SQL DDL statements as expected
     *               in the engine's own dialect.
     */
   final case class JdbcEngine(
-    driver: String,
     tables: scala.collection.Map[String, JdbcEngine.TableDdl]
   )
 
   object JdbcEngine {
 
-    /**
-      * A descriptor of the specific SQL DDL statements required to manage a specific Comet table in a JDBC-accessible
+    /** A descriptor of the specific SQL DDL statements required to manage a specific Comet table in a JDBC-accessible
       * database engine
       *
-      * @param name the name of the table as it is known on the database engine
       * @param createSql the SQL Create Table statement with the database-specific type, constraints etc. tacked on.
       * @param pingSql a cheap SQL query whose results are irrelevant but guaranteed to trigger an error in case the table is absent
       *
       * @note pingSql is optional, and will default to `select * from `name` where 1=0` as Spark SQL does
       */
-    final case class TableDdl(name: String, createSql: String, pingSql: Option[String] = None) {
-      def effectivePingSql: String = pingSql.getOrElse(s"select * from $name where 1=0")
+    final case class TableDdl(createSql: String, pingSql: Option[String] = None) {
+
+      def effectivePingSql(tableName: String): String =
+        pingSql.getOrElse(s"select * from $tableName where 1=0")
     }
   }
 
@@ -215,14 +161,12 @@ object Settings extends StrictLogging {
 
   final case class Internal(cacheStorageLevel: StorageLevel) {}
 
-  /**
-    *
-    * @param datasets       : Absolute path, datasets root folder beneath which each area is defined.
+  /** @param datasets       : Absolute path, datasets root folder beneath which each area is defined.
     * @param metadata       : Absolute path, location where all types / domains and auto jobs are defined
     * @param metrics        : Absolute path, location where all computed metrics are stored
     * @param audit          : Absolute path, location where all log are stored
     * @param archive        : Should we backup the ingested datasets ? true by default
-    * @param writeFormat    : Choose between parquet, orc ... Default is parquet
+    * @param defaultWriteFormat    : Choose between parquet, orc ... Default is parquet
     * @param launcher       : Cron Job Manager : simple (useful for testing) or airflow ? simple by default
     * @param analyze        : Should we create basics Hive statistics on the generated dataset ? true by default
     * @param hive           : Should we create a Hive Table ? true by default
@@ -238,9 +182,12 @@ object Settings extends StrictLogging {
     audit: Audit,
     archive: Boolean,
     lock: Lock,
-    writeFormat: String,
+    defaultWriteFormat: String,
+    csvOutput: Boolean,
+    privacyOnly: Boolean,
     launcher: String,
     chewerPrefix: String,
+    rowValidatorClass: String,
     analyze: Boolean,
     hive: Boolean,
     grouped: Boolean,
@@ -249,13 +196,14 @@ object Settings extends StrictLogging {
     airflow: Airflow,
     elasticsearch: Elasticsearch,
     hadoop: juMap[String, String],
-    jdbc: Map[String, Jdbc],
+    connections: Map[String, Connection],
     jdbcEngines: Map[String, JdbcEngine],
     atlas: Atlas,
     privacy: Privacy,
     fileSystem: Option[String],
     metadataFileSystem: Option[String],
-    internal: Option[Internal]
+    internal: Option[Internal],
+    udfs: Option[String]
   ) extends Serializable {
 
     @JsonIgnore
@@ -271,7 +219,8 @@ object Settings extends StrictLogging {
       } else true
     }
 
-    val cacheStorageLevel = internal.map(_.cacheStorageLevel).getOrElse(StorageLevel.MEMORY_ONLY)
+    val cacheStorageLevel =
+      internal.map(_.cacheStorageLevel).getOrElse(StorageLevel.MEMORY_AND_DISK)
 
     @throws(classOf[ObjectStreamException])
     protected def writeReplace: AnyRef = {
@@ -301,12 +250,11 @@ object Settings extends StrictLogging {
     }
   }
 
-  private implicit val indexSinkSettinsConfigs: Configs[IndexSinkSettings] =
-    Configs.derive[IndexSinkSettings]
+  private implicit val sinkConfigs: Configs[Sink] = Configs.derive[Sink]
   private implicit val jdbcEngineConfigs: Configs[JdbcEngine] = Configs.derive[JdbcEngine]
 
   private implicit val storageLevelConfigs: Configs[StorageLevel] =
-    Configs[String].map(StorageLevel.fromString).map(_.asInstanceOf[StorageLevel])
+    Configs[String].map(StorageLevel.fromString)
 
   def apply(config: Config): Settings = {
     val jobId = UUID.randomUUID().toString
@@ -320,10 +268,12 @@ object Settings extends StrictLogging {
     logger.info(s"Using Config $loaded")
     Settings(loaded, effectiveConfig.getConfig("spark"))
   }
+
+  val cometInputFileNameColumn: String = "comet_input_file_name"
+
 }
 
-/**
-  * This class holds the current Comet settings and an assembly of reference instances for core, shared services
+/** This class holds the current Comet settings and an assembly of reference instances for core, shared services
   *
   * SMELL: this may be the start of a Dependency Injection root (but at 2-3 objects, is DI justified? probably not
   * quite yet) — cchepelov

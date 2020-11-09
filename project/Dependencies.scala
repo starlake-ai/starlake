@@ -42,6 +42,7 @@ object Dependencies {
   val betterfiles = Seq("com.github.pathikrit" %% "better-files" % Versions.betterFiles)
 
   val logging = Seq(
+    "com.typesafe" % "config" % Versions.typesafeConfig,
     "com.typesafe.scala-logging" %% "scala-logging" % Versions.scalaLogging
   )
 
@@ -63,27 +64,42 @@ object Dependencies {
     "com.fasterxml.jackson.dataformat" % "jackson-dataformat-yaml" % Versions.jackson212
   )
 
-  val spark211 = Seq(
-    "org.apache.spark" %% "spark-core" % Versions.spark211 % "provided" exclude ("com.google.guava", "guava"),
-    "org.apache.spark" %% "spark-sql" % Versions.spark211 % "provided" exclude ("com.google.guava", "guava"),
-    "org.apache.spark" %% "spark-hive" % Versions.spark211 % "provided" exclude ("com.google.guava", "guava"),
-    "org.apache.spark" %% "spark-mllib" % Versions.spark211 % "provided" exclude ("com.google.guava", "guava"),
-    "com.databricks" %% "spark-xml" % Versions.sparXML211_240
+  val jackson312 = Seq(
+    "com.fasterxml.jackson.core" % "jackson-core" % Versions.jackson312,
+    "com.fasterxml.jackson.core" % "jackson-annotations" % Versions.jackson312,
+    "com.fasterxml.jackson.core" % "jackson-databind" % Versions.jackson312,
+    "com.fasterxml.jackson.module" %% "jackson-module-scala" % Versions.jackson312,
+    "com.fasterxml.jackson.dataformat" % "jackson-dataformat-yaml" % Versions.jackson312
+  )
+  val spark_2d1_forScala_2d11 = Seq(
+    "org.apache.spark" %% "spark-core" % Versions.spark2d1 % "provided" exclude ("com.google.guava", "guava"),
+    "org.apache.spark" %% "spark-sql" % Versions.spark2d1 % "provided" exclude ("com.google.guava", "guava"),
+    "org.apache.spark" %% "spark-hive" % Versions.spark2d1 % "provided" exclude ("com.google.guava", "guava"),
+    "org.apache.spark" %% "spark-mllib" % Versions.spark2d1 % "provided" exclude ("com.google.guava", "guava"),
+    "com.databricks" %% "spark-xml" % Versions.sparXML211
   )
 
-  val spark211_240 = Seq(
-    "org.apache.spark" %% "spark-core" % Versions.spark211_240 % "provided" excludeAll (jacksonExclusions: _*) exclude ("com.google.guava", "guava"),
-    "org.apache.spark" %% "spark-sql" % Versions.spark211_240 % "provided" excludeAll (jacksonExclusions: _*) exclude ("com.google.guava", "guava"),
-    "org.apache.spark" %% "spark-hive" % Versions.spark211_240 % "provided" excludeAll (jacksonExclusions: _*) exclude ("com.google.guava", "guava"),
-    "org.apache.spark" %% "spark-mllib" % Versions.spark211_240 % "provided" excludeAll (jacksonExclusions: _*) exclude ("com.google.guava", "guava"),
-    "com.databricks" %% "spark-xml" % Versions.sparXML211_240
+  val spark_2d4_forScala_2d11 = Seq(
+    "org.apache.spark" %% "spark-core" % Versions.spark2d4 % "provided" excludeAll (jacksonExclusions: _*) exclude ("com.google.guava", "guava"),
+    "org.apache.spark" %% "spark-sql" % Versions.spark2d4 % "provided" excludeAll (jacksonExclusions: _*) exclude ("com.google.guava", "guava"),
+    "org.apache.spark" %% "spark-hive" % Versions.spark2d4 % "provided" excludeAll (jacksonExclusions: _*) exclude ("com.google.guava", "guava"),
+    "org.apache.spark" %% "spark-mllib" % Versions.spark2d4 % "provided" excludeAll (jacksonExclusions: _*) exclude ("com.google.guava", "guava")
+    "com.databricks" %% "spark-xml" % Versions.sparXML211
   )
 
-  val spark212 = Seq(
-    "org.apache.spark" %% "spark-core" % Versions.spark212 % "provided" exclude ("com.google.guava", "guava"),
-    "org.apache.spark" %% "spark-sql" % Versions.spark212 % "provided" exclude ("com.google.guava", "guava"),
-    "org.apache.spark" %% "spark-hive" % Versions.spark212 % "provided" exclude ("com.google.guava", "guava"),
-    "org.apache.spark" %% "spark-mllib" % Versions.spark212 % "provided" exclude ("com.google.guava", "guava"),
+  val spark_2d4_forScala_2d12 = Seq(
+    "org.apache.spark" %% "spark-core" % Versions.spark2d4 % "provided" exclude ("com.google.guava", "guava"),
+    "org.apache.spark" %% "spark-sql" % Versions.spark2d4 % "provided" exclude ("com.google.guava", "guava"),
+    "org.apache.spark" %% "spark-hive" % Versions.spark2d4 % "provided" exclude ("com.google.guava", "guava"),
+    "org.apache.spark" %% "spark-mllib" % Versions.spark2d4 % "provided" exclude ("com.google.guava", "guava")
+    "com.databricks" %% "spark-xml" % Versions.sparXML212
+  )
+
+  val spark_3d0_forScala_2d12 = Seq(
+    "org.apache.spark" %% "spark-core" % Versions.spark3d0 % "provided" exclude ("com.google.guava", "guava"),
+    "org.apache.spark" %% "spark-sql" % Versions.spark3d0 % "provided" exclude ("com.google.guava", "guava"),
+    "org.apache.spark" %% "spark-hive" % Versions.spark3d0 % "provided" exclude ("com.google.guava", "guava"),
+    "org.apache.spark" %% "spark-mllib" % Versions.spark3d0 % "provided" exclude ("com.google.guava", "guava")
     "com.databricks" %% "spark-xml" % Versions.sparXML212
   )
 
@@ -99,7 +115,7 @@ object Dependencies {
     "com.google.cloud" % "google-cloud-bigquery" % Versions.bq exclude ("javax.jms", "jms") exclude ("com.sun.jdmk", "jmxtools") exclude ("com.sun.jmx", "jmxri") excludeAll (jacksonExclusions: _*),
     // see https://github.com/GoogleCloudDataproc/spark-bigquery-connector/issues/36
     // Add the jar file to spark dependencies
-    "com.google.cloud.spark" %% "spark-bigquery-with-dependencies" % "0.16.1" % "provided"
+    "com.google.cloud.spark" %% "spark-bigquery-with-dependencies" % "0.17.3" % "provided"
 
   )
 
@@ -127,8 +143,8 @@ object Dependencies {
   )
 
   val azure = Seq(
-    "org.apache.hadoop" % "hadoop-azure" % "3.2.1" % "provided" excludeAll (jacksonExclusions: _*) exclude ("com.google.guava", "guava"),
-    "com.microsoft.azure" % "azure-storage" % "8.6.4" % "provided" excludeAll (jacksonExclusions: _*) exclude ("com.google.guava", "guava")
+    "org.apache.hadoop" % "hadoop-azure" % "3.3.0" % "provided" excludeAll (jacksonExclusions: _*) exclude ("com.google.guava", "guava"),
+    "com.microsoft.azure" % "azure-storage" % "8.6.5" % "provided" excludeAll (jacksonExclusions: _*) exclude ("com.google.guava", "guava")
   )
 
   val hadoop = Seq(

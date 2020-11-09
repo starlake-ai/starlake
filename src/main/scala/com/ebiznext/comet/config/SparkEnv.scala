@@ -27,16 +27,14 @@ import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.SparkSession
 
-/**
-  * Any Spark Job will inherit from this class.
+/** Any Spark Job will inherit from this class.
   * All properties defined in application conf file and prefixed by the "spark" key will be loaded into the Spark Job
   *
   * @param name : Cusom spark application name prefix. The current datetime is appended this the Spark Job name
   */
 class SparkEnv(name: String)(implicit settings: Settings) extends StrictLogging {
 
-  /**
-    * Load spark.* properties from the loaded application conf file
+  /** Load spark.* properties from the loaded application conf file
     */
   val config: SparkConf = {
     val now = LocalDateTime
@@ -60,8 +58,7 @@ class SparkEnv(name: String)(implicit settings: Settings) extends StrictLogging 
     thisConf
   }
 
-  /**
-    * Creates a Spark Session with the spark.* keys defined the applciation conf file.
+  /** Creates a Spark Session with the spark.* keys defined the application conf file.
     */
   lazy val session: SparkSession = {
     val session =

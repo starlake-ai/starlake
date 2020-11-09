@@ -24,14 +24,15 @@ import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.schema.handlers.{SchemaHandler, StorageHandler}
 import com.ebiznext.comet.schema.model._
 import org.apache.hadoop.fs.Path
+import org.apache.hadoop.io.{LongWritable, Text}
+import org.apache.hadoop.mapred.TextInputFormat
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql._
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
 
 import scala.util.{Failure, Success, Try}
 
-/**
-  * Main class to ingest delimiter separated values file
+/** Main class to ingest delimiter separated values file
   *
   * @param domain         : Input Dataset Domain
   * @param schema         : Input Dataset Schema
@@ -49,16 +50,26 @@ class PositionIngestionJob(
 )(implicit settings: Settings)
     extends DsvIngestionJob(domain, schema, types, path, storageHandler, schemaHandler) {
 
-  /**
-    * Load dataset using spark csv reader and all metadata. Does not infer schema.
+  /** Load dataset using spark csv reader and all metadata. Does not infer schema.
     * columns not defined in the schema are dropped fro the dataset (require datsets with a header)
     *
     * @return Spark DataFrame where each row holds a single string
     */
   override def loadDataSet(): Try[DataFrame] = {
     try {
-      val df =
-        session.read.option("encoding", metadata.getEncoding()).text(path.map(_.toString): _*)
+      val dfIn = metadata.getEncoding().toUpperCase match {
+        case "UTF-8" => session.read.text(path.map(_.toString): _*)
+        case _ => {
+          val rdd = PositionIngestionUtil.loadDfWithEncoding(session, path, metadata.getEncoding())
+          val schema: StructType = StructType(Array(StructField("value", StringType)))
+          session.createDataFrame(rdd.map(line => Row.fromSeq(Seq(line))), schema)
+        }
+      }
+
+      logger.debug(dfIn.schema.treeString)
+
+      val df = applyIgnore(dfIn)
+
       metadata.withHeader match {
         case Some(true) =>
           Failure(new Exception("No Header allowed for Position File Format "))
@@ -72,19 +83,19 @@ class PositionIngestionJob(
 
   }
 
-  /**
-    * Apply the schema to the dataset. This is where all the magic happen
+  /** Apply the schema to the dataset. This is where all the magic happen
     * Valid records are stored in the accepted path / table and invalid records in the rejected path / table
     *
     * @param input : Spark Dataset
     */
   override def ingest(input: DataFrame): (RDD[_], RDD[_]) = {
 
-    val dataset: DataFrame = PositionIngestionUtil.prepare(session, input, schema.attributes)
+    val dataset: DataFrame =
+      PositionIngestionUtil.prepare(session, input, schema.attributesWithoutScript)
 
     def reorderAttributes(): List[Attribute] = {
       val attributesMap =
-        this.schema.attributes.map(attr => (attr.name, attr)).toMap
+        schema.attributesWithoutScript.map(attr => (attr.name, attr)).toMap
       dataset.columns.map(colName => attributesMap(colName)).toList
     }
 
@@ -101,7 +112,7 @@ class PositionIngestionJob(
 
     val (orderedTypes, orderedSparkTypes) = reorderTypes()
 
-    val (rejectedRDD, acceptedRDD) = DsvIngestionUtil.validate(
+    val (rejectedRDD, acceptedRDD) = rowValidator().validate(
       session,
       dataset,
       orderedAttributes,
@@ -109,17 +120,26 @@ class PositionIngestionJob(
       orderedSparkTypes
     )
     saveRejected(rejectedRDD)
-    val (df, path) = saveAccepted(acceptedRDD, orderedSparkTypes)
-    index(df)
+    saveAccepted(acceptedRDD, orderedSparkTypes)
     (rejectedRDD, acceptedRDD)
   }
 
 }
 
-/**
-  * The Spark task that run on each worker
+/** The Spark task that run on each worker
   */
 object PositionIngestionUtil {
+
+  def loadDfWithEncoding(session: SparkSession, path: List[Path], encoding: String) = {
+    path
+      .map(_.toString)
+      .map(
+        session.sparkContext
+          .hadoopFile[LongWritable, Text, TextInputFormat](_)
+          .map(pair => new String(pair._2.getBytes, 0, pair._2.getLength, encoding))
+      )
+      .fold(session.sparkContext.emptyRDD)((r1, r2) => r1.union(r2))
+  }
 
   def prepare(session: SparkSession, input: DataFrame, attributes: List[Attribute]) = {
     def getRow(inputLine: String, positions: List[Position]): Row = {

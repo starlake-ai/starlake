@@ -1,6 +1,6 @@
 package com.ebiznext.comet.job.index.bqload
 
-import buildinfo.BuildInfo
+import com.ebiznext.comet.schema.model.{Engine, RowLevelSecurity}
 import com.ebiznext.comet.utils.CliConfig
 import org.apache.spark.sql.DataFrame
 import scopt.OParser
@@ -10,11 +10,15 @@ case class BigQueryLoadConfig(
   outputDataset: String = "",
   outputTable: String = "",
   outputPartition: Option[String] = None,
+  outputClustering: Seq[String] = Nil,
   sourceFormat: String = "",
   createDisposition: String = "",
   writeDisposition: String = "",
   location: Option[String] = None,
-  days: Option[Int] = None
+  days: Option[Int] = None,
+  rls: Option[List[RowLevelSecurity]] = None,
+  requirePartitionFilter: Boolean = false,
+  engine: Engine = Engine.SPARK
 ) {
   def getLocation(): String = this.location.getOrElse("EU")
 }
@@ -25,8 +29,9 @@ object BigQueryLoadConfig extends CliConfig[BigQueryLoadConfig] {
     val builder = OParser.builder[BigQueryLoadConfig]
     import builder._
     OParser.sequence(
-      programName("comet"),
-      head("comet", BuildInfo.version),
+      programName("comet bqload"),
+      head("comet", "bqload", "[options]"),
+      note(""),
       opt[String]("source_file")
         .action((x, c) => c.copy(source = Left(x)))
         .text("Full Path to source file")
@@ -41,11 +46,22 @@ object BigQueryLoadConfig extends CliConfig[BigQueryLoadConfig] {
         .required(),
       opt[String]("output_partition")
         .action((x, c) => c.copy(outputPartition = Some(x)))
-        .text("BigQuery Partition Field ")
+        .text("BigQuery Partition Field")
+        .optional(),
+      opt[Boolean]("require_partition_filter")
+        .action((x, c) => c.copy(requirePartitionFilter = x))
+        .text("Require Partition Filter")
+        .optional(),
+      opt[Seq[String]]("output_clustering")
+        .valueName("col1,col2...")
+        .action((x, c) => c.copy(outputClustering = x))
+        .text("BigQuery Clustering Fields")
         .optional(),
       opt[String]("source_format")
         .action((x, c) => c.copy(sourceFormat = x))
-        .text("Source Format eq. parquet"),
+        .text(
+          "Source Format eq. parquet. This option is ignored, Only parquet source format is supported at this time"
+        ),
       opt[String]("create_disposition")
         .action((x, c) => c.copy(createDisposition = x))
         .text(
@@ -55,6 +71,11 @@ object BigQueryLoadConfig extends CliConfig[BigQueryLoadConfig] {
         .action((x, c) => c.copy(writeDisposition = x))
         .text(
           "Big Query Write disposition https://cloud.google.com/bigquery/docs/reference/auditlogs/rest/Shared.Types/WriteDisposition"
+        ),
+      opt[Seq[String]]("row_level_security")
+        .action((x, c) => c.copy(rls = Some(x.map(RowLevelSecurity.parse).toList)))
+        .text(
+          "value is in the form name,filter,sa:sa@mail.com,user:user@mail.com,group:group@mail.com "
         )
     )
   }

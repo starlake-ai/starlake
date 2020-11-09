@@ -25,47 +25,40 @@ import com.fasterxml.jackson.databind.annotation.{JsonDeserialize, JsonSerialize
 import com.fasterxml.jackson.databind.ser.std.ToStringSerializer
 import com.fasterxml.jackson.databind.{DeserializationContext, JsonDeserializer}
 
-/**
-  * Recognized file type format. This will select  the correct parser
+/** Recognized file type format. This will select  the correct parser
   *
   * @param value : SIMPLE_JSON, JSON of DSV
   *              Simple Json is made of a single level attributes of simple types (no arrray or map or sub objects)
   */
 @JsonSerialize(using = classOf[ToStringSerializer])
-@JsonDeserialize(using = classOf[IndexSinkDeserializer])
-sealed case class IndexSink(value: String) {
+@JsonDeserialize(using = classOf[UserTypeDeserializer])
+sealed case class UserType(value: String) {
   override def toString: String = value
 }
 
-object IndexSink {
+object UserType {
 
-  def fromString(value: String): IndexSink = {
+  def fromString(value: String): UserType = {
     value.toUpperCase match {
-      case "NONE" => IndexSink.None
-      case "FS"   => IndexSink.FS
-      case "JDBC" => IndexSink.JDBC
-      case "BQ"   => IndexSink.BQ
-      case "ES"   => IndexSink.ES
+      case "SA"    => UserType.SA
+      case "USER"  => UserType.USER
+      case "GROUP" => UserType.GROUP
     }
   }
 
-  object None extends IndexSink("None")
+  object SA extends UserType("SA")
 
-  object FS extends IndexSink("FS")
+  object USER extends UserType("USER")
 
-  object BQ extends IndexSink("BQ")
+  object GROUP extends UserType("GROUP")
 
-  object ES extends IndexSink("ES")
-
-  object JDBC extends IndexSink("JDBC")
-
-  val sinks: Set[IndexSink] = Set(None, FS, BQ, ES, JDBC)
+  val formats: Set[UserType] = Set(SA, USER, GROUP)
 }
 
-class IndexSinkDeserializer extends JsonDeserializer[IndexSink] {
+class UserTypeDeserializer extends JsonDeserializer[UserType] {
 
-  override def deserialize(jp: JsonParser, ctx: DeserializationContext): IndexSink = {
+  override def deserialize(jp: JsonParser, ctx: DeserializationContext): UserType = {
     val value = jp.readValueAs[String](classOf[String])
-    IndexSink.fromString(value)
+    UserType.fromString(value)
   }
 }

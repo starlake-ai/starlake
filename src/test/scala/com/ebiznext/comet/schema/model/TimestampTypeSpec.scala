@@ -288,5 +288,12 @@ class TimestampTypeSpec extends TestHelper {
         timestamp.fromString("2017-SEP-04", "yyyy-MMM-dd", "UTC+2")
       }
     }
+
+    "Time only pattern at UTC timezone with zone arg set to UTC" should "return a valid timestamp" in {
+      val input = "220157"
+      val expected = Timestamp.from(Instant.parse("1970-01-01T22:01:57.00Z"))
+      val actual = timestamp.fromString(input, "HHmmss", "UTC")
+      expected shouldEqual actual
+    }
   }
 }

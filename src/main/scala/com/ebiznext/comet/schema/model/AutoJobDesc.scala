@@ -24,14 +24,18 @@ import com.ebiznext.comet.config.{DatasetArea, Settings, StorageArea}
 import com.fasterxml.jackson.annotation.JsonIgnore
 import org.apache.hadoop.fs.Path
 
-/**
-  * Task executed in teh context of a job
+/** Task executed in the context of a job. Each task is executed in its own session.
   *
-  * @param sql     SQL request to exexute (do not forget to prefix table names with the database name
-  * @param domain  Output domain in Business Area (Will be the Database name in Hive or Dataset in BigQuery)
-  * @param dataset Dataset Name in Business Area (Will be the Table name in Hive & BigQuery)
-  * @param write   Append to or overwrite existing dataset
-  * @param area   Target Area where domain / dataset will be stored
+  * @param sql     Main SQL request to exexute (do not forget to prefix table names with the database name to avoid conflicts)
+  * @param domain  Output domain in output Area (Will be the Database name in Hive or Dataset in BigQuery)
+  * @param dataset Dataset Name in output Area (Will be the Table name in Hive & BigQuery)
+  * @param write   Append to or overwrite existing data
+  * @param area   Target Area where domain / dataset will be stored.
+  * @param partition List of columns used for partitioning the outtput.
+  * @param presql List of SQL requests to executed before the main SQL request is run
+  * @param postsql List of SQL requests to executed after the main SQL request is run
+  * @param sink Where to sink the data
+  * @param rls Row level security policy to apply too the output data.
   */
 case class AutoTaskDesc(
   sql: String,
@@ -42,18 +46,14 @@ case class AutoTaskDesc(
   presql: Option[List[String]] = None,
   postsql: Option[List[String]] = None,
   area: Option[StorageArea] = None,
-  index: Option[IndexSink] = None,
-  properties: Option[Map[String, String]] = None
+  sink: Option[Sink] = None,
+  rls: Option[List[RowLevelSecurity]] = None
 ) {
 
   @JsonIgnore
   def getPartitions(): List[String] = partition.getOrElse(Nil)
 
-  @JsonIgnore
-  def getIndexSink(): Option[IndexSink] = index
-
-  /**
-    * Return a Path only if a storage area s defined
+  /** Return a Path only if a storage area s defined
     * @param defaultArea
     * @param settings
     * @return
@@ -71,10 +71,19 @@ case class AutoTaskDesc(
   }
 }
 
-/**
+/** A job is a set of transform tasks executed using the specified engine.
   *
-  * @param name  Job logical name
-  * @param tasks List of business tasks to execute
+  * @param name: Job logical name
+  * @param tasks List of transform tasks to execute
+  * @param area Area where the data is located.
+  *             When using the BigQuery engine, teh area corresponds to the dataset name we will be working on in this job.
+  *             When using the Spark engine, this is folder where the data should be store. Default value is "business"
+  * @param format output file format when using Spark engine. Ingored for BigQuery. Default value is "parquet"
+  * @param coalesce When outputting files, should we coalesce it to a single file. Useful when CSV is the output format.
+  * @param udf : Register UDFs written in this JVM class when using Spark engine
+  *            Register UDFs stored at this location when using BigQuery engine
+  * @param views : Create temporary views using where the key is the view name and the map the SQL request corresponding to this view using the SQL engine supported syntax.
+  * @param engine : SPARK or BQ. Default value is SPARK.
   */
 case class AutoJobDesc(
   name: String,
@@ -83,7 +92,11 @@ case class AutoJobDesc(
   format: Option[String],
   coalesce: Option[Boolean],
   udf: Option[String] = None,
-  views: Option[Map[String, String]] = None
+  views: Option[Map[String, String]] = None,
+  engine: Option[Engine] = None
 ) {
+
   def getArea(): StorageArea = area.getOrElse(StorageArea.business)
+
+  def getEngine(): Engine = engine.getOrElse(Engine.SPARK)
 }
