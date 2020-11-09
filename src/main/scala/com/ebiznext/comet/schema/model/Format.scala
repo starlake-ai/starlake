@@ -57,7 +57,7 @@ object Format {
   object JSON extends Format("JSON")
 
   object XML extends Format("XML")
-  val formats: Set[Format] = Set(DSV, POSITION, SIMPLE_JSON, JSON, XML, CHEW)
+  val formats: Set[Format] = Set(DSV, POSITION, SIMPLE_JSON, JSON, XML)
 }
 
 class FormatDeserializer extends JsonDeserializer[Format] {
