@@ -88,18 +88,18 @@ object Dependencies {
   )
 
   val spark_2d4_forScala_2d12 = Seq(
-    "org.apache.spark" %% "spark-core" % Versions.spark2d4 % "provided" exclude ("com.google.guava", "guava"),
-    "org.apache.spark" %% "spark-sql" % Versions.spark2d4 % "provided" exclude ("com.google.guava", "guava"),
-    "org.apache.spark" %% "spark-hive" % Versions.spark2d4 % "provided" exclude ("com.google.guava", "guava"),
-    "org.apache.spark" %% "spark-mllib" % Versions.spark2d4 % "provided" exclude ("com.google.guava", "guava"),
+    "org.apache.spark" %% "spark-core" % Versions.spark2d4 % "provided" exclude ("com.google.guava", "guava") excludeAll (jacksonExclusions: _*),
+    "org.apache.spark" %% "spark-sql" % Versions.spark2d4 % "provided" exclude ("com.google.guava", "guava") excludeAll (jacksonExclusions: _*),
+    "org.apache.spark" %% "spark-hive" % Versions.spark2d4 % "provided" exclude ("com.google.guava", "guava") excludeAll (jacksonExclusions: _*),
+    "org.apache.spark" %% "spark-mllib" % Versions.spark2d4 % "provided" exclude ("com.google.guava", "guava") excludeAll (jacksonExclusions: _*),
     "com.databricks" %% "spark-xml" % Versions.sparXML212
   )
 
   val spark_3d0_forScala_2d12 = Seq(
-    "org.apache.spark" %% "spark-core" % Versions.spark3d0 % "provided" exclude ("com.google.guava", "guava"),
-    "org.apache.spark" %% "spark-sql" % Versions.spark3d0 % "provided" exclude ("com.google.guava", "guava"),
-    "org.apache.spark" %% "spark-hive" % Versions.spark3d0 % "provided" exclude ("com.google.guava", "guava"),
-    "org.apache.spark" %% "spark-mllib" % Versions.spark3d0 % "provided" exclude ("com.google.guava", "guava"),
+    "org.apache.spark" %% "spark-core" % Versions.spark3d0 % "provided" exclude ("com.google.guava", "guava") excludeAll (jacksonExclusions: _*),
+    "org.apache.spark" %% "spark-sql" % Versions.spark3d0 % "provided" exclude ("com.google.guava", "guava") excludeAll (jacksonExclusions: _*),
+    "org.apache.spark" %% "spark-hive" % Versions.spark3d0 % "provided" exclude ("com.google.guava", "guava") excludeAll (jacksonExclusions: _*),
+    "org.apache.spark" %% "spark-mllib" % Versions.spark3d0 % "provided" exclude ("com.google.guava", "guava") excludeAll (jacksonExclusions: _*),
     "com.databricks" %% "spark-xml" % Versions.sparXML212
   )
 
@@ -115,12 +115,12 @@ object Dependencies {
     "com.google.cloud" % "google-cloud-bigquery" % Versions.bq exclude ("javax.jms", "jms") exclude ("com.sun.jdmk", "jmxtools") exclude ("com.sun.jmx", "jmxri") excludeAll (jacksonExclusions: _*),
     // see https://github.com/GoogleCloudDataproc/spark-bigquery-connector/issues/36
     // Add the jar file to spark dependencies
-    "com.google.cloud.spark" %% "spark-bigquery-with-dependencies" % "0.17.3" % "provided"
+    "com.google.cloud.spark" %% "spark-bigquery-with-dependencies" % "0.17.3" % "provided" excludeAll (jacksonExclusions: _*)
 
   )
 
   val esHadoop = Seq(
-    "org.elasticsearch" % "elasticsearch-hadoop" % Versions.esHadoop exclude ("com.google.guava", "guava"),
+    "org.elasticsearch" % "elasticsearch-hadoop" % Versions.esHadoop exclude ("com.google.guava", "guava") excludeAll (jacksonExclusions: _*),
     "pl.allegro.tech" % "embedded-elasticsearch" % "2.10.0" % "test"
   )
 
