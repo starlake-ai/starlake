@@ -1,34 +1,35 @@
-package com.ebiznext.comet.database.extractor
+package com.ebiznext.comet.extractor
 
 import better.files.File
-import scopt.{OParser, RenderingMode}
+import com.ebiznext.comet.utils.CliConfig
+import scopt.OParser
 
 case class ExtractScriptGenConfig(
   domain: String = "",
   scriptTemplateFile: File = File("."),
-  scriptOutputDir: File = File(".")
+  scriptOutputDir: File = File("."),
+  deltaColumn: Option[String] = None
 )
 
-object ExtractScriptGenConfig {
-
-  val builder = OParser.builder[ExtractScriptGenConfig]
+object ExtractScriptGenConfig extends CliConfig[ExtractScriptGenConfig] {
 
   def exists(name: String)(path: String): Either[String, Unit] =
     if (File(path).exists) Right(())
     else Left(s"$name at path $path does not exist")
 
   val parser: OParser[Unit, ExtractScriptGenConfig] = {
+    val builder = OParser.builder[ExtractScriptGenConfig]
     import builder._
     OParser.sequence(
-      programName("comet"),
-      head("comet", "1.x"),
+      programName("comet extract"),
+      head("comet", "extract", "[options]"),
       note(
         """
           |The schemas should at least, specify :
           |     - a table name (schemas.name)
           |     - a file pattern (schemas.pattern) which is used as the export file base name
           |     - a write mode (schemas.metadata.write): APPEND or OVERWRITE
-          |     - a delta column (schemas.merge.timestamp) if in APPEND mode : the column which is used to determine new rows for each exports
+          |     - a delta column (schemas.merge.timestamp) if in APPEND mode : the default column which is used to determine new rows for each exports
           |     - the columns to extract (schemas.attributes.name*)
           |
           |You also have to provide a Mustache (http://mustache.github.io/mustache.5.html) template file.
@@ -66,10 +67,14 @@ object ExtractScriptGenConfig {
         .validate(exists("Script output folder"))
         .action((x, c) => c.copy(scriptOutputDir = File(x)))
         .required()
-        .text("Scripts output folder")
+        .text("Scripts output folder"),
+      opt[String]("deltaColumn")
+        .action((x, c) => c.copy(deltaColumn = Some(x)))
+        .optional()
+        .text("""The default date column used to determine new rows to export.
+            |Overrides config database-extractor.default-column value.""".stripMargin)
     )
   }
-  val usage: String = OParser.usage(parser, RenderingMode.TwoColumns)
 
   /** Function to parse command line arguments (domain and schema).
     *
@@ -77,5 +82,5 @@ object ExtractScriptGenConfig {
     * @return : an Option of MetricConfing with the parsed domain and schema names.
     */
   def parse(args: Seq[String]): Option[ExtractScriptGenConfig] =
-    OParser.parse(parser, args, ExtractScriptGenConfig.apply())
+    OParser.parse(parser, args, ExtractScriptGenConfig())
 }

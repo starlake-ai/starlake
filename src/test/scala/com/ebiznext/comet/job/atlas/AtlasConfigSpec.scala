@@ -9,7 +9,7 @@ class AtlasConfigSpec extends TestHelper {
       println(rendered)
       val expected =
         """
-          |Usage: comet [options]
+          |Usage: comet atlas [options]
           |
           |  --delete            Should we delete the previous schemas ?
           |  --folder <value>    Folder with yaml schema files

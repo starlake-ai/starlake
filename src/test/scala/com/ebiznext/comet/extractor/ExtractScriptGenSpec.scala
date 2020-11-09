@@ -1,4 +1,4 @@
-package com.ebiznext.comet.database.extractor
+package com.ebiznext.comet.extractor
 
 import better.files.File
 import org.scalatest.flatspec.AnyFlatSpec
@@ -30,5 +30,4 @@ class ExtractScriptGenSpec extends AnyFlatSpec with Matchers {
       getClass.getResource("/sample/database/expected_script_payload.txt").getPath
     ).lines.mkString("\n")
   }
-
 }

@@ -30,26 +30,29 @@ import org.apache.spark.sql.types._
 import scala.collection.mutable
 import scala.util.{Failure, Success, Try}
 
-/**
-  * A field in the schema. For struct fields, the field "attributes" contains all sub attributes
+/** A field in the schema. For struct fields, the field "attributes" contains all sub attributes
   *
-  * @param name       : Attribute name as defined in the source dataset
-  * @param `type`     : semantic type of the attribute
+  * @param name       : Attribute name as defined in the source dataset and as received in the file
+  * @param `type`     : semantic type of the attribute.
   * @param array      : Is it an array ?
   * @param required   : Should this attribute always be present in the source
-  * @param privacy    : Should this attribute be applied a privacy transformaiton at ingestion time
+  * @param privacy    : Should this attribute be applied a privacy transformation at ingestion time
   * @param comment    : free text for attribute description
   * @param rename     : If present, the attribute is renamed with this name
-  * @param metricType       : If present, what kind of stat should be computed for this field
-  * @param attributes : List of sub-attributes
-  * @param position   : Valid only where file format is POSITION
+  * @param metricType : If present, what kind of stat should be computed for this field
+  * @param attributes : List of sub-attributes (valid for JSON and XML files only)
+  * @param position   : Valid only when file format is POSITION
+  * @param default    : Default value for this attribute when it is not present.
+  * @param tags       : Tags associated with this attribute
+  * @param trim       : Should we trim the attribute value ?
+  * @param script     : Scripted field : SQL request on renamed column
   */
 case class Attribute(
   name: String,
   `type`: String = "string",
   array: Option[Boolean] = None,
   required: Boolean = true,
-  privacy: Option[PrivacyLevel] = None,
+  privacy: PrivacyLevel = PrivacyLevel.None,
   comment: Option[String] = None,
   rename: Option[String] = None,
   metricType: Option[MetricType] = None,
@@ -57,15 +60,15 @@ case class Attribute(
   position: Option[Position] = None,
   default: Option[String] = None,
   tags: Option[Set[String]] = None,
-  trim: Option[Trim] = None
+  trim: Option[Trim] = None,
+  script: Option[String] = None
 ) extends LazyLogging {
 
   override def toString: String =
     // we pretend the "settings" field does not exist
     s"Attribute(${name},${`type`},${array},${required},${privacy},${comment},${rename},${metricType},${attributes},${position},${default},${tags})"
 
-  /**
-    * Check attribute validity
+  /** Check attribute validity
     * An attribute is valid if :
     *     - Its name is a valid identifier
     *     - its type is defined
@@ -133,9 +136,7 @@ case class Attribute(
       .find(_.name == `type`)
   }
 
-  /**
-    *
-    * Spark Type if this attribute is a primitive type of array of primitive type
+  /** Spark Type if this attribute is a primitive type of array of primitive type
     *
     * @return Primitive type if attribute is a leaf node or array of primitive type, None otherwise
     */
@@ -151,8 +152,7 @@ case class Attribute(
       .getOrElse(PrimitiveType.struct.sparkType)
   }
 
-  /**
-    * Go get recursively the Spark tree type of this object
+  /** Go get recursively the Spark tree type of this object
     *
     * @return Spark type of this attribute
     */
@@ -196,13 +196,14 @@ case class Attribute(
                  |}""".stripMargin
             case PrimitiveType.timestamp =>
               val format = tpe.pattern match {
-                case "epoch_milli"                                         => Some("epoch_millis")
-                case "epoch_second"                                        => Some("epoch_second")
-                case x if PrimitiveType.dateFormatters.keys.exists(_ == x) => None
-                case y                                                     => Some(y)
+                case "epoch_milli"  => Some("epoch_millis")
+                case "epoch_second" => Some("epoch_second")
+                case x if PrimitiveType.dateFormatters.keys.exists(_ == x) =>
+                  Some("date") // ISO formatters are now supported by ES
+                case y => None // unknown to ES
               }
               format match {
-                case Some(fmt) =>
+                case Some(_) =>
                   //"format" : "$fmt"
                   s"""
                      |"$name": {
@@ -225,13 +226,12 @@ case class Attribute(
     }
   }
 
-  /**
-    * @return renamed column if defined, source name otherwise
+  /** @return renamed column if defined, source name otherwise
     */
   @JsonIgnore
   def getFinalName(): String = rename.getOrElse(name)
 
-  def getPrivacy(): PrivacyLevel = this.privacy.getOrElse(PrivacyLevel.None)
+  def getPrivacy(): PrivacyLevel = this.privacy
 
   def isArray(): Boolean = this.array.getOrElse(false)
 

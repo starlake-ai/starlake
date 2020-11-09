@@ -76,6 +76,7 @@ trait TestHelper extends AnyFlatSpec with Matchers with BeforeAndAfterAll with S
         |COMET_LOCK_PATH="${cometTestRoot}/locks"
         |COMET_METRICS_PATH="${cometTestRoot}/metrics/{domain}/{schema}"
         |COMET_AUDIT_PATH="${cometTestRoot}/audit"
+        |COMET_UDFS="com.ebiznext.comet.udf.TestUdf"
         |
         |include required("application-test.conf")
         |""".stripMargin,
@@ -131,7 +132,6 @@ trait TestHelper extends AnyFlatSpec with Matchers with BeforeAndAfterAll with S
   def readFileContent(path: Path): String = readFileContent(path.toUri.getPath)
 
   /** substitution patterns for test sample file resources.
-    *
     */
   private val testResourceSubstitutionEngine = TextSubstitutionEngine(
     "COMET_TEST_ROOT" -> cometTestRoot
@@ -344,8 +344,7 @@ trait TestHelper extends AnyFlatSpec with Matchers with BeforeAndAfterAll with S
 
 object TestHelper {
 
-  /**
-    * This class manages an interest into having an access to the (effectively global) Test SparkSession
+  /** This class manages an interest into having an access to the (effectively global) Test SparkSession
     */
   private case class TestSparkSessionInterest() extends AutoCloseable {
     private val closed = new AtomicBoolean(false)
@@ -358,8 +357,7 @@ object TestHelper {
       if (!closed.getAndSet(true)) TestSparkSession.release()
   }
 
-  /**
-    * This class manages the lifetime of the SparkSession that is shared among various Suites (instances of TestHelper)
+  /** This class manages the lifetime of the SparkSession that is shared among various Suites (instances of TestHelper)
     * that may be running concurrently.
     *
     * @note certain scenarios (such as single-core test execution) can create a window where no TestSparkSessionInterest()
@@ -367,8 +365,7 @@ object TestHelper {
     */
   private object TestSparkSession extends StrictLogging {
 
-    /**
-      * This state machine manages the lifetime of the (effectively global) [[SparkSession]] instance shared between
+    /** This state machine manages the lifetime of the (effectively global) [[SparkSession]] instance shared between
       * the Suites that inherit from [[TestHelper]].
       *
       * The allowed transitions allow for:

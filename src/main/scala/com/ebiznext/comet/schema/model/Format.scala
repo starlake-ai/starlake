@@ -25,8 +25,7 @@ import com.fasterxml.jackson.databind.annotation.{JsonDeserialize, JsonSerialize
 import com.fasterxml.jackson.databind.ser.std.ToStringSerializer
 import com.fasterxml.jackson.databind.{DeserializationContext, JsonDeserializer}
 
-/**
-  * Recognized file type format. This will select  the correct parser
+/** Recognized file type format. This will select  the correct parser
   *
   * @param value : SIMPLE_JSON, JSON of DSV
   *              Simple Json is made of a single level attributes of simple types (no arrray or map or sub objects)
@@ -43,10 +42,9 @@ object Format {
     value.toUpperCase match {
       case "DSV"                 => Format.DSV
       case "POSITION"            => Format.POSITION
-      case "SIMPLE_JSON"         => Format.SIMPLE_JSON
       case "JSON" | "ARRAY_JSON" => Format.JSON
+      case "SIMPLE_JSON"         => Format.SIMPLE_JSON
       case "XML"                 => Format.XML
-      case "CHEW"                => Format.CHEW
     }
   }
 
@@ -59,9 +57,6 @@ object Format {
   object JSON extends Format("JSON")
 
   object XML extends Format("XML")
-
-  object CHEW extends Format("CHEW")
-
   val formats: Set[Format] = Set(DSV, POSITION, SIMPLE_JSON, JSON, XML, CHEW)
 }
 

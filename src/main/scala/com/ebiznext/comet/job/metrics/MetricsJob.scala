@@ -1,13 +1,12 @@
 package com.ebiznext.comet.job.metrics
 
 import com.ebiznext.comet.config.{DatasetArea, Settings}
-import com.ebiznext.comet.job.index.bqload.{BigQueryLoadConfig, BigQueryLoadJob}
-import com.ebiznext.comet.job.index.jdbcload.JdbcLoadConfig
-import com.ebiznext.comet.job.ingest.MetricRecord
+import com.ebiznext.comet.job.index.bqload.{BigQueryLoadConfig, BigQuerySparkJob}
+import com.ebiznext.comet.job.index.connectionload.ConnectionLoadConfig
 import com.ebiznext.comet.job.metrics.Metrics.{ContinuousMetric, DiscreteMetric, MetricsDatasets}
 import com.ebiznext.comet.schema.handlers.{SchemaHandler, StorageHandler}
-import com.ebiznext.comet.schema.model.{Domain, Schema, Stage}
-import com.ebiznext.comet.utils.{FileLock, SparkJob, SparkJobResult, Utils}
+import com.ebiznext.comet.schema.model._
+import com.ebiznext.comet.utils._
 import com.google.cloud.bigquery.JobInfo.WriteDisposition
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql._
@@ -17,12 +16,9 @@ import org.apache.spark.sql.functions.{col, lit}
 import scala.util.{Success, Try}
 
 /** To record statistics with other information during ingestion.
-  *
   */
 
-/**
-  *
-  * @param domain         : Domain name
+/** @param domain         : Domain name
   * @param schema         : Schema
   * @param stage          : stage
   * @param storageHandler : Storage Handler
@@ -57,21 +53,21 @@ class MetricsJob(
     )
   }
 
-  /**
-    * Saves a dataset. If the path is empty (the first time we call metrics on the schema) then we can write.
+  /** Saves a dataset. If the path is empty (the first time we call metrics on the schema) then we can write.
     *
     * If there's already parquet files stored in it, then create a temporary directory to compute on, and flush
     * the path to move updated metrics in it
     *
     * @param dataToSave :   dataset to be saved
     * @param path       :   Path to save the file at
-    *
-    *
     */
   def save(dataToSave: DataFrame, path: Path): Unit = {
     if (storageHandler.exists(path)) {
       val pathIntermediate = new Path(path.getParent, ".metrics")
 
+      logger.whenDebugEnabled {
+        session.read.parquet(path.toString).show(false)
+      }
       val dataByVariableStored: DataFrame = session.read
         .parquet(path.toString)
         .union(dataToSave)
@@ -183,12 +179,11 @@ class MetricsJob(
     MetricsDatasets(allDF(0), allDF(1), allDF(2))
   }
 
-  /**
-    * Just to force any spark job to implement its entry point using within the "run" method
+  /** Just to force any spark job to implement its entry point using within the "run" method
     *
     * @return : Spark Session used for the job
     */
-  override def run(): Try[SparkJobResult] = {
+  override def run(): Try[JobResult] = {
     val datasetPath = new Path(DatasetArea.accepted(domain.name), schema.name)
     val dataUse: DataFrame = session.read.parquet(datasetPath.toString)
     run(dataUse, storageHandler.lastModified(datasetPath))
@@ -217,62 +212,63 @@ class MetricsJob(
       )
 
     val metricsToSave = List(
-      (metricsDatasets.continuousDF, "continuous"),
-      (metricsDatasets.discreteDF, "discrete"),
-      (metricsDatasets.frequenciesDF, "frequencies")
+      (metricsDatasets.continuousDF, MetricsTable.CONTINUOUS),
+      (metricsDatasets.discreteDF, MetricsTable.DISCRETE),
+      (metricsDatasets.frequenciesDF, MetricsTable.FREQUENCIES)
     )
-    val combinedResult = metricsToSave.map {
-      case (df, name) =>
-        df match {
-          case Some(df) =>
-            settings.comet.internal.foreach(in => df.persist(in.cacheStorageLevel))
-            val lockedPath = lockPath(settings.comet.metrics.path)
-            val waitTimeMillis = settings.comet.lock.metricsTimeout
-            val locker = new FileLock(lockedPath, storageHandler)
+    val combinedResult = metricsToSave.map { case (df, table) =>
+      df match {
+        case Some(df) =>
+          settings.comet.internal.foreach(in => df.persist(in.cacheStorageLevel))
+          val lockedPath = lockPath(settings.comet.metrics.path)
+          val waitTimeMillis = settings.comet.lock.metricsTimeout
+          val locker = new FileLock(lockedPath, storageHandler)
 
-            val metricsResult = locker.tryExclusively(waitTimeMillis) {
-              save(df, new Path(savePath, name))
-            }
-
-            val metricsSinkResult = sinkMetrics(df, name)
-
-            for {
-              _ <- metricsResult
-              _ <- metricsSinkResult
-            } yield {
-              SparkJobResult(session)
-            }
-
-          case None =>
-            Success(SparkJobResult(session))
-        }
-    }
-    combinedResult.find(_.isFailure).getOrElse(Success(SparkJobResult(session)))
-  }
-
-  private def sinkMetrics(metricsDf: DataFrame, table: String): Try[Unit] = {
-    if (settings.comet.metrics.active) {
-      settings.comet.metrics.index match {
-        case Settings.IndexSinkSettings.None =>
-          Success(())
-
-        case Settings.IndexSinkSettings.BigQuery(bqDataset) =>
-          Try {
-            sinkMetricsToBigQuery(metricsDf, bqDataset, table)
+          val metricsResult = locker.tryExclusively(waitTimeMillis) {
+            save(df, new Path(savePath, table.toString))
           }
 
-        case Settings.IndexSinkSettings.Jdbc(jdbcConnection, partitions, batchSize) =>
+          val metricsSinkResult = sinkMetrics(df, table)
+
+          for {
+            _ <- metricsResult
+            _ <- metricsSinkResult
+          } yield {
+            None
+          }
+
+        case None =>
+          Success(None)
+      }
+    }
+    combinedResult.find(_.isFailure).getOrElse(Success(None)).map(SparkJobResult(_))
+  }
+
+  private def sinkMetrics(metricsDf: DataFrame, table: MetricsTable): Try[Unit] = {
+    if (settings.comet.metrics.active) {
+      settings.comet.metrics.sink match {
+        case NoneSink() =>
+          Success(())
+
+        case sink: BigQuerySink =>
           Try {
-            val jdbcConfig = JdbcLoadConfig.fromComet(
+            sinkMetricsToBigQuery(metricsDf, sink.name.getOrElse("metrics"), table.toString)
+          }
+
+        case JdbcSink(jdbcConnection, partitions, batchSize) =>
+          Try {
+            val jdbcConfig = ConnectionLoadConfig.fromComet(
               jdbcConnection,
               settings.comet,
               Right(metricsDf),
-              name,
-              partitions = partitions,
-              batchSize = batchSize
+              table.toString,
+              partitions = partitions.getOrElse(1),
+              batchSize = batchSize.getOrElse(1000)
             )
             sinkMetricsToJdbc(jdbcConfig)
           }
+        case EsSink(id, timestamp) =>
+          ???
       }
     } else {
       Success(())
@@ -290,6 +286,7 @@ class MetricsJob(
         outputDataset = bqDataset,
         outputTable = bqTable,
         None,
+        Nil,
         "parquet",
         "CREATE_IF_NEEDED",
         "WRITE_APPEND",
@@ -300,18 +297,13 @@ class MetricsJob(
       // But since we are having a record of repeated field BQ does not like
       // the way we pass the schema. BQ needs an extra "list" subfield for repeated fields
       // So let him determine teh schema by himself or risk tonot to be able to append the metrics
-      val res = new BigQueryLoadJob(config).run()
+      val res = new BigQuerySparkJob(config).run()
       Utils.logFailure(res, logger)
     }
   }
 
-  private implicit val memsideEncoder: Encoder[MetricRecord] = Encoders.product[MetricRecord]
-
-  private implicit val sqlableEncoder: Encoder[MetricRecord.AsSql] =
-    Encoders.product[MetricRecord.AsSql]
-
   private def sinkMetricsToJdbc(
-    cliConfig: JdbcLoadConfig
+    cliConfig: ConnectionLoadConfig
   ): Unit = {
     cliConfig.sourceFile match {
       case Left(_) =>
@@ -323,20 +315,13 @@ class MetricsJob(
           s"unsupported write disposition ${cliConfig.writeDisposition}, only WRITE_APPEND is supported"
         )
 
-        val converter = MetricRecord.MetricRecordConverter()
-
-        val sqlableMetricsDf = metricsDf.as[MetricRecord].map(converter.toSqlCompatible)
-
-        sqlableMetricsDf.write
+        val dfw = metricsDf.write
           .format("jdbc")
-          .option("numPartitions", cliConfig.partitions)
-          .option("batchsize", cliConfig.batchSize)
           .option("truncate", cliConfig.writeDisposition == WriteDisposition.WRITE_TRUNCATE)
-          .option("driver", cliConfig.driver)
-          .option("url", cliConfig.url)
           .option("dbtable", cliConfig.outputTable)
-          .option("user", cliConfig.user)
-          .option("password", cliConfig.password)
+
+        cliConfig.options
+          .foldLeft(dfw)((w, kv) => w.option(kv._1, kv._2))
           .mode(SaveMode.Append)
           .save()
     }

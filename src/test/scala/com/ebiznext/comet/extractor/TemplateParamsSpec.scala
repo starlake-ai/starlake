@@ -1,4 +1,4 @@
-package com.ebiznext.comet.database.extractor
+package com.ebiznext.comet.extractor
 
 import java.util.regex.Pattern
 
@@ -13,8 +13,12 @@ class TemplateParamsSpec extends AnyFlatSpec with Matchers {
   "fromSchema" should "generate the correct TemplateParams for a given Schema" in {
     val schema: Schema = Schema(
       name = "table1",
-      pattern = Pattern.compile("output_file_*.csv"),
-      List(Attribute(name = "col1"), Attribute(name = "col2")),
+      pattern = Pattern.compile("output_file.*.csv"),
+      List(
+        Attribute(name = "col1"),
+        Attribute(name = "col2"),
+        Attribute(name = "col3", script = Some("script"))
+      ),
       metadata = Option(Metadata(write = Some(WriteMode.APPEND))),
       merge = Some(MergeOptions(List("col1", "col2"), None, timestamp = Some("updateCol"))),
       comment = None,
@@ -31,13 +35,17 @@ class TemplateParamsSpec extends AnyFlatSpec with Matchers {
       exportOutputFileBase = "output_file",
       scriptOutputFile = scriptOutputFolder / "EXTRACT_table1.sql"
     )
-    TemplateParams.fromSchema(schema, scriptOutputFolder) shouldBe expectedTemplateParams
+    TemplateParams.fromSchema(
+      schema,
+      scriptOutputFolder,
+      Some("updateCol")
+    ) shouldBe expectedTemplateParams
   }
 
   it should "generate the correct TemplateParams for an other Schema" in {
     val schema: Schema = Schema(
       name = "table1",
-      pattern = Pattern.compile("output_file_*.csv"),
+      pattern = Pattern.compile("output_file.*.csv"),
       List(Attribute(name = "col1"), Attribute(name = "col2")),
       metadata = Option(Metadata(write = Some(WriteMode.OVERWRITE), separator = Some("|"))),
       merge = Some(MergeOptions(List("col1", "col2"), None, timestamp = Some("updateCol"))),
@@ -55,6 +63,6 @@ class TemplateParamsSpec extends AnyFlatSpec with Matchers {
       exportOutputFileBase = "output_file",
       scriptOutputFile = scriptOutputFolder / "EXTRACT_table1.sql"
     )
-    TemplateParams.fromSchema(schema, scriptOutputFolder) shouldBe expectedTemplateParams
+    TemplateParams.fromSchema(schema, scriptOutputFolder, None) shouldBe expectedTemplateParams
   }
 }

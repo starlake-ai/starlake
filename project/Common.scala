@@ -79,12 +79,12 @@ object Common {
   def customSettings: Seq[Def.Setting[_]] =
     Seq(
       scalacOptions ++= Seq(
-          "-deprecation",
-          "-feature",
-          "-Xmacro-settings:materialize-derivations",
-          "-Ywarn-unused-import",
-          "-Xfatal-warnings"
-        ),
+        "-deprecation",
+        "-feature",
+        "-Xmacro-settings:materialize-derivations",
+        "-Ywarn-unused-import",
+        "-Xfatal-warnings"
+      ),
       testOptions in Test ++= Seq(
         // show full stack traces and test case durations
         Tests.Argument("-oDF"),
@@ -101,17 +101,15 @@ object Common {
 object Versions {
   val sparkAvro = "4.0.0"
   val curator = "2.6.0"
-  val spark211 = "2.1.0"
-  val spark211_240 = "2.4.6"
-  val sparXML211_240 = "0.9.0"
-  val spark212 = "2.4.6"
+  val spark2d1 = "2.1.0"
+  val spark2d4 = "2.4.7"
+  val spark3d0 = "3.0.1"
+  val scalatest = "3.2.3"
+  val sparXML211 = "0.9.0"
   val sparXML212 = "0.9.0"
-  val scalatest = "3.1.2"
   val springBoot = "2.0.6.RELEASE"
-  val typesafeConfig = "1.2.1"
+  val typesafeConfig = "1.4.1"
   val scalaLogging = "3.9.2"
-  val logback = "1.2.3"
-  val slf4j = "1.7.21"
   val zookeeper = "3.4.6"
   val jets3t = "0.9.3"
   val hive = "3.1.0"
@@ -119,13 +117,14 @@ object Versions {
   val betterFiles = "3.9.1"
   val jackson211 = "2.7.9"
   val jackson212 = "2.9.10"
+  val jackson312 = "2.10.0"
   val configs = "0.4.4"
-  val esHadoop = "7.7.1"
+  val esHadoop = "7.8.1"
   val scopt = "4.0.0-RC2"
   val sttp = "1.7.2"
-  val gcs = "hadoop3-2.1.3"
+  val gcs = "hadoop3-2.1.6"
   val hadoopbq = "hadoop3-1.0.0"
-  val bq = "1.114.0"
+  val bq = "1.120.0"
   val hadoop = "3.2.0"
   val h2 = "1.4.200" // Test only
   val poi = "4.1.2"

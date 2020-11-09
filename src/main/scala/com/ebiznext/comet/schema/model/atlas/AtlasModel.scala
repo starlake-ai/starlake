@@ -6,7 +6,7 @@ import com.typesafe.scalalogging.StrictLogging
 
 class AtlasModel(urls: Array[String], basicAuthUsernamePassword: Array[String])
     extends StrictLogging {
-  def run(config: AtlasConfig, storage: StorageHandler): Unit = ???
+  def run(config: AtlasConfig, storage: StorageHandler): Boolean = ???
 
   /*
       val PROJECT_TYPE = "Project"

@@ -12,7 +12,6 @@ metadata:
   escape: "\\"
   write: "APPEND"
   partition: []
-  ingestMode: "FILE"
   writeMode: "APPEND"
 schemas:
 - name: "User"
@@ -53,7 +52,6 @@ schemas:
     escape: "\\"
     write: null
     partition: []
-    ingestMode: "FILE"
     writeMode: "APPEND"
   merge: null
   comment: "Schema Comment"

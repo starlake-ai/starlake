@@ -88,22 +88,125 @@ class Parquet2CSVSpec extends TestHelper {
 
     "All Parquet Config" should "be known and taken  into account" in {
       val rendered = Parquet2CSVConfig.usage()
-      val expected =
+      val expected = {
         """
-        |Usage: comet [options]
-        |
-        |example => --input_dir /tmp/datasets/accepted/ --output_dir /tmp/datasets/csv/ --domain sales --schema orders --option header=true  --option separator=,  --partitions 1 --write_mode overwrite
-        |  --input_dir <value>   Full Path to input directory
-        |  --output_dir <value>  Full Path to output directory, input_dir is used if not present
-        |  --domain <value>      Domain Name
-        |  --schema <value>      Schema Name
-        |  --delete_source       delete source parquet file ?
-        |  --write_mode <value>  One of Set(OVERWRITE, APPEND, ERROR_IF_EXISTS, IGNORE)
-        |  --option <value>      option to use (sep, delimiter, quote, quoteAll, escape, header ...)
-        |  --partitions <value>  How many output partitions
-        |""".stripMargin
+          |Usage: comet parquet2csv [options]
+          |
+          |
+          |Convert parquet files to CSV.
+          |The folder hierarchy should be in the form /input_folder/domain/schema/part*.parquet
+          |Once converted the csv files are put in the folder /output_folder/domain/schema.csv file
+          |When the specified number of output partitions is 1 then /output_folder/domain/schema.csv is the file containing the data
+          |otherwise, it is a folder containing the part*.csv files.
+          |When output_folder is not specified, then the input_folder is used a the base output folder.
+          |
+          |example: comet parquet2csv
+          |         --input_dir /tmp/datasets/accepted/
+          |         --output_dir /tmp/datasets/csv/
+          |         --domain sales
+          |         --schema orders
+          |         --option header=true
+          |         --option separator=,
+          |         --partitions 1
+          |         --write_mode overwrite
+          |  --input_dir <value>      Full Path to input directory
+          |  --output_dir <value>     Full Path to output directory, if not specified, input_dir is used as output dir
+          |  --domain <value>         Domain name to convert. All schemas in this domain are converted. If not specified, all schemas of all domains are converted
+          |  --schema <value>         Schema name to convert. If not specified, all schemas are converted.
+          |  --delete_source          Should we delete source parquet files after conversion ?
+          |  --write_mode <value>     One of Set(OVERWRITE, APPEND, ERROR_IF_EXISTS, IGNORE)
+          |  --option spark-option=value
+          |                           Any Spark option to use (sep, delimiter, quote, quoteAll, escape, header ...)
+          |  --partitions <value>     How many output partitions
+          |""".stripMargin
+      }
       rendered.substring(rendered.indexOf("Usage:")).replaceAll("\\s", "") shouldEqual expected
         .replaceAll("\\s", "")
+    }
+    "Parquet Scalate" should "be generated correctly" in {
+      val expected =
+        """***************************************************************************************************
+          |parquet2csv
+          |***************************************************************************************************
+          |
+          |
+          |Synopsis
+          |--------
+          |
+          |**comet parquet2csv [options]**
+          |
+          |
+          |Description
+          |-----------
+          |
+          |
+          || Convert parquet files to CSV.
+          || The folder hierarchy should be in the form /input_folder/domain/schema/part*.parquet
+          || Once converted the csv files are put in the folder /output_folder/domain/schema.csv file
+          || When the specified number of output partitions is 1 then /output_folder/domain/schema.csv is the file containing the data
+          || otherwise, it is a folder containing the part*.csv files.
+          || When output_folder is not specified, then the input_folder is used a the base output folder.
+          ||
+          ||
+          |
+          |.. code-block:: console
+          |
+          |   comet parquet2csv
+          |         --input_dir /tmp/datasets/accepted/
+          |         --output_dir /tmp/datasets/csv/
+          |         --domain sales
+          |         --schema orders
+          |         --option header=true
+          |         --option separator=,
+          |         --partitions 1
+          |         --write_mode overwrite
+          |
+          |Options
+          |-------
+          |
+          |.. option:: --input_dir: <value>
+          |
+          |    *Required*. Full Path to input directory
+          |
+          |
+          |.. option:: --output_dir: <value>
+          |
+          |    *Optional*. Full Path to output directory, if not specified, input_dir is used as output dir
+          |
+          |
+          |.. option:: --domain: <value>
+          |
+          |    *Optional*. Domain name to convert. All schemas in this domain are converted. If not specified, all schemas of all domains are converted
+          |
+          |
+          |.. option:: --schema: <value>
+          |
+          |    *Optional*. Schema name to convert. If not specified, all schemas are converted.
+          |
+          |
+          |.. option:: --delete_source: <value>
+          |
+          |    *Optional*. Should we delete source parquet files after conversion ?
+          |
+          |
+          |.. option:: --write_mode: <value>
+          |
+          |    *Optional*. One of Set(OVERWRITE, APPEND, ERROR_IF_EXISTS, IGNORE)
+          |
+          |
+          |.. option:: --option: spark-option=value
+          |
+          |    *Optional, Unbounded*. Any Spark option to use (sep, delimiter, quote, quoteAll, escape, header ...)
+          |
+          |
+          |.. option:: --partitions: <value>
+          |
+          |    *Optional*. How many output partitions
+          |
+          |
+          |""".stripMargin
+      println(Parquet2CSVConfig.sphinx())
+      Parquet2CSVConfig.sphinx().replaceAll("\\s", "") shouldEqual expected.replaceAll("\\s", "")
     }
   }
 }

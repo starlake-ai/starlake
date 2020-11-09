@@ -23,9 +23,10 @@ package com.ebiznext.comet.schema.handlers
 import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.job.index.bqload.BigQueryLoadConfig
 import com.ebiznext.comet.job.index.esload.ESLoadConfig
-import com.ebiznext.comet.job.ingest.IngestConfig
-import com.ebiznext.comet.job.index.jdbcload.JdbcLoadConfig
+import com.ebiznext.comet.job.ingest.LoadConfig
+import com.ebiznext.comet.job.index.connectionload.ConnectionLoadConfig
 import com.ebiznext.comet.schema.model.{Domain, Schema}
+import com.ebiznext.comet.utils.Utils
 import com.ebiznext.comet.workflow.IngestionWorkflow
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
@@ -36,13 +37,11 @@ import org.apache.http.util.EntityUtils
 
 import scala.util.{Failure, Success, Try}
 
-/**
-  * Interface required for any cron job launcher
+/** Interface required for any cron job launcher
   */
 trait LaunchHandler {
 
-  /**
-    * Submit to the cron manager a single file for ingestion
+  /** Submit to the cron manager a single file for ingestion
     *
     * @param domain : Domain to which belong this dataset
     * @param schema : Schema of the dataset
@@ -54,8 +53,7 @@ trait LaunchHandler {
   ): Boolean =
     ingest(workflow, domain, schema, path :: Nil)
 
-  /**
-    * Submit to the cron manager multiple files for ingestion.
+  /** Submit to the cron manager multiple files for ingestion.
     * All the files should have the schema schema and belong to the same domain.
     *
     * @param domain : Domain to which belong this dataset
@@ -70,17 +68,15 @@ trait LaunchHandler {
     paths: List[Path]
   )(implicit settings: Settings): Boolean
 
-  /**
-    * Index into elasticsearch
+  /** Index into elasticsearch
     *
     * @param config
     */
-  def index(workflow: IngestionWorkflow, config: ESLoadConfig)(implicit
+  def esLoad(workflow: IngestionWorkflow, config: ESLoadConfig)(implicit
     settings: Settings
   ): Boolean
 
-  /**
-    * Load to BigQuery
+  /** Load to BigQuery
     *
     * @param config
     */
@@ -88,24 +84,21 @@ trait LaunchHandler {
     settings: Settings
   ): Boolean
 
-  /**
-    * Load to JDBC Database
+  /** Load to JDBC Database
     *
     * @param config
     */
-  def jdbcload(workflow: IngestionWorkflow, config: JdbcLoadConfig)(implicit
+  def jdbcload(workflow: IngestionWorkflow, config: ConnectionLoadConfig)(implicit
     settings: Settings
   ): Boolean
 }
 
-/**
-  * Simple Launcher will directly invoke the ingestion method wityhout using a cron manager.
+/** Simple Launcher will directly invoke the ingestion method wityhout using a cron manager.
   * This is userfull for testing purpose
   */
 class SimpleLauncher extends LaunchHandler with StrictLogging {
 
-  /**
-    * call directly the main assembly with the "ingest" parameter
+  /** call directly the main assembly with the "ingest" parameter
     *
     * @param domain : Domain to which belong this dataset
     * @param schema : Schema of the dataset
@@ -119,25 +112,23 @@ class SimpleLauncher extends LaunchHandler with StrictLogging {
     paths: List[Path]
   )(implicit settings: Settings): Boolean = {
     logger.info(s"Launch Ingestion: ${domain.name} ${schema.name} $paths ")
-    workflow.ingest(IngestConfig(domain.name, schema.name, paths))
-    true
+    workflow.ingest(LoadConfig(domain.name, schema.name, paths))
   }
 
-  /**
-    * Index into elasticsearch
+  /** Index into elasticsearch
     *
     * @param config
     */
-  override def index(workflow: IngestionWorkflow, config: ESLoadConfig)(implicit
+  override def esLoad(workflow: IngestionWorkflow, config: ESLoadConfig)(implicit
     settings: Settings
   ): Boolean = {
     logger.info(s"Launch index: ${config}")
-    workflow.index(config)
-    true
+    val result = workflow.esLoad(config)
+    Utils.logFailure(result, logger)
+    result.isSuccess
   }
 
-  /**
-    * Load to BigQuery
+  /** Load to BigQuery
     *
     * @param config
     */
@@ -150,12 +141,11 @@ class SimpleLauncher extends LaunchHandler with StrictLogging {
 
   }
 
-  /**
-    * Load to JDBC
+  /** Load to JDBC
     *
     * @param config
     */
-  override def jdbcload(workflow: IngestionWorkflow, config: JdbcLoadConfig)(implicit
+  override def jdbcload(workflow: IngestionWorkflow, config: ConnectionLoadConfig)(implicit
     settings: Settings
   ): Boolean = {
     logger.info(s"Launch JDBC: ${config}")
@@ -165,8 +155,7 @@ class SimpleLauncher extends LaunchHandler with StrictLogging {
   }
 }
 
-/**
-  * Airflow Launcher will submit a request for ingestion to Airflow
+/** Airflow Launcher will submit a request for ingestion to Airflow
   * using the REST API. The requested DAG must exist in Airflow first.
   */
 class AirflowLauncher extends LaunchHandler with StrictLogging {
@@ -198,8 +187,7 @@ class AirflowLauncher extends LaunchHandler with StrictLogging {
 
   }
 
-  /**
-    * Request the execution of the "comet-ingest" DAG in Airflow
+  /** Request the execution of the "comet-ingest" DAG in Airflow
     *
     * @param domain : Domain to which belong this dataset
     * @param schema : Schema of the dataset
@@ -223,12 +211,11 @@ class AirflowLauncher extends LaunchHandler with StrictLogging {
     post(url, command)
   }
 
-  /**
-    * Index into elasticsearch
+  /** Index into elasticsearch
     *
     * @param config
     */
-  override def index(workflow: IngestionWorkflow, config: ESLoadConfig)(implicit
+  override def esLoad(workflow: IngestionWorkflow, config: ESLoadConfig)(implicit
     settings: Settings
   ): Boolean = {
     val endpoint = settings.comet.airflow.endpoint
@@ -250,8 +237,7 @@ class AirflowLauncher extends LaunchHandler with StrictLogging {
     post(url, command)
   }
 
-  /**
-    * Load to BigQuery
+  /** Load to BigQuery
     *
     * @param config
     */
@@ -273,24 +259,19 @@ class AirflowLauncher extends LaunchHandler with StrictLogging {
     post(url, command)
   }
 
-  /**
-    * Load to JDBC sink
+  /** Load to JDBC sink
     *
     * @param config
     */
-  override def jdbcload(workflow: IngestionWorkflow, config: JdbcLoadConfig)(implicit
+  override def jdbcload(workflow: IngestionWorkflow, config: ConnectionLoadConfig)(implicit
     settings: Settings
   ): Boolean = {
     val endpoint = settings.comet.airflow.endpoint
     val url = s"$endpoint/dags/comet_jdbcload/dag_runs"
     val params = List(
       s"--source_file ${config.sourceFile}",
-      s"--partitions ${config.partitions}",
-      s"--password ${config.password}",
-      s"--user ${config.user}",
-      s"--batch_size ${config.batchSize}",
-      s"--driver ${config.driver}",
-      s"--url ${config.url}",
+      s"--options partitions=1000,user=sa,password=sa,batch_size=1,driver=org.postgresqlDriver,url=jdbc:postgresql:...",
+      s"--format=jdbc",
       s"--create_disposition ${config.createDisposition}",
       s"--write_disposition ${config.writeDisposition}"
     ).mkString(" ")

@@ -85,3 +85,13 @@ schemas:
         position:
           first: 48
           last: 57
+      - name: "calculatedCode"
+        type: "string"
+        script: concat(code0,'-',code1,'-',bancode,'-')
+        array: false
+        required: true
+        privacy: "NONE"
+        metricType: "NONE"
+        position:
+          first: 0
+          last: 0
