@@ -11,8 +11,6 @@ metadata:
   quote: "\""
   escape: "\\"
   write: "APPEND"
-  dateFormat: "yyyy-MM-dd"
-  timestampFormat: "yyyy-MM-dd HH:mm:ss"
   xml:
     rowTag: element
   partition:

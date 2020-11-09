@@ -116,23 +116,5 @@ class JsonIngestionJob(
     (rejectedRDD, acceptedDF.rdd)
   }
 
-  /** Use the schema we used for validation when saving
-    *
-    * @param acceptedRDD
-    */
-  @deprecated("We let Spark compute the final schema", "")
-  def saveAccepted(acceptedRDD: RDD[Row]): Path = {
-    val writeMode = metadata.getWrite()
-    val acceptedPath = new Path(DatasetArea.accepted(domain.name), schema.name)
-    saveRows(
-      session.createDataFrame(acceptedRDD, schemaSparkType),
-      acceptedPath,
-      writeMode,
-      StorageArea.accepted,
-      schema.merge.isDefined
-    )
-    acceptedPath
-  }
-
   override def name: String = "JsonJob"
 }

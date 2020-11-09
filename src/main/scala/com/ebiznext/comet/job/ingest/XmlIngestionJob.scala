@@ -31,8 +31,7 @@ import org.apache.spark.sql.{DataFrame, Row}
 
 import scala.util.{Failure, Success, Try}
 
-/**
-  * Main class to complex json delimiter separated values file
+/** Main class to complex json delimiter separated values file
   * If your json contains only one level simple attribute aka. kind of dsv but in json format please use SIMPLE_JSON instead. It's way faster
   *
   * @param domain         : Input Dataset Domain
@@ -51,8 +50,7 @@ class XmlIngestionJob(
 )(implicit val settings: Settings)
     extends IngestionJob {
 
-  /**
-    * load the json as an RDD of String
+  /** load the json as an RDD of String
     *
     * @return Spark Dataframe loaded using metadata options
     */
@@ -83,8 +81,7 @@ class XmlIngestionJob(
 
   lazy val schemaSparkType: StructType = schema.sparkType(schemaHandler)
 
-  /**
-    * Where the magic happen
+  /** Where the magic happen
     *
     * @param dataset input dataset as a RDD of string
     */
@@ -95,7 +92,6 @@ class XmlIngestionJob(
     val rejectedRDD = session.sparkContext.parallelize(errorList)
     saveRejected(rejectedRDD)
     val (df, path) = saveAccepted(dataset) // prefer to let Spark compute the final schema
-    index(df)
     (rejectedRDD, dataset.rdd)
   }
 
