@@ -70,7 +70,8 @@ case class Metadata(
   partition: Option[Partition] = None,
   sink: Option[Sink] = None,
   ignore: Option[String] = None,
-  clustering: Option[Seq[String]] = None
+  clustering: Option[Seq[String]] = None,
+  xml: Option[Map[String, String]] = None
 ) {
 
   override def toString: String =
@@ -87,6 +88,7 @@ case class Metadata(
        |write:${getWrite()}
        |partition:${getPartitionAttributes()}
        |sink:${getSink()}
+       |xml:${xml}
        """.stripMargin
 
   def getMode(): Mode = mode.getOrElse(FILE)
@@ -148,7 +150,8 @@ case class Metadata(
       write = merge(this.write, child.write),
       partition = merge(this.partition, child.partition),
       sink = merge(this.sink, child.sink),
-      ignore = merge(this.ignore, child.ignore)
+      ignore = merge(this.ignore, child.ignore),
+      xml = merge(this.xml, child.xml)
     )
   }
 
