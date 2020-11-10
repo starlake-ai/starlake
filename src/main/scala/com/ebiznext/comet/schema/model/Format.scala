@@ -40,10 +40,11 @@ object Format {
 
   def fromString(value: String): Format = {
     value.toUpperCase match {
-      case "DSV"         => Format.DSV
-      case "POSITION"    => Format.POSITION
-      case "SIMPLE_JSON" => Format.SIMPLE_JSON
-      case "JSON"        => Format.JSON
+      case "DSV"                 => Format.DSV
+      case "POSITION"            => Format.POSITION
+      case "JSON" | "ARRAY_JSON" => Format.JSON
+      case "SIMPLE_JSON"         => Format.SIMPLE_JSON
+      case "XML"                 => Format.XML
     }
   }
 
@@ -55,7 +56,8 @@ object Format {
 
   object JSON extends Format("JSON")
 
-  val formats: Set[Format] = Set(DSV, POSITION, SIMPLE_JSON, JSON)
+  object XML extends Format("XML")
+  val formats: Set[Format] = Set(DSV, POSITION, SIMPLE_JSON, JSON, XML)
 }
 
 class FormatDeserializer extends JsonDeserializer[Format] {
