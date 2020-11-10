@@ -25,9 +25,9 @@ import com.ebiznext.comet.schema.handlers.{SchemaHandler, StorageHandler}
 import com.ebiznext.comet.schema.model._
 import org.apache.hadoop.fs.Path
 import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.execution.datasources.json.JsonIngestionUtil
-import org.apache.spark.sql.types.{StringType, StructField, StructType}
-import org.apache.spark.sql.{DataFrame, Encoders, Row}
+import org.apache.spark.sql.execution.datasources.json.JsonIngestionUtil.compareTypes
+import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.{DataFrame, Row}
 
 import scala.util.{Failure, Success, Try}
 
@@ -40,7 +40,7 @@ import scala.util.{Failure, Success, Try}
   * @param path           : Input dataset path
   * @param storageHandler : Storage Handler
   */
-class JsonIngestionJob(
+class XmlIngestionJob(
   val domain: Domain,
   val schema: Schema,
   val types: List[Type],
@@ -55,22 +55,24 @@ class JsonIngestionJob(
     * @return Spark Dataframe loaded using metadata options
     */
   def loadDataSet(): Try[DataFrame] = {
-
     try {
-      val dfIn = session.read
-        .option("inferSchema", value = false)
-        .option("encoding", metadata.getEncoding())
-        .text(path.map(_.toString): _*)
-        .select(
-          org.apache.spark.sql.functions.input_file_name(),
-          org.apache.spark.sql.functions.col("value")
-        )
-
-      logger.debug(dfIn.schema.treeString)
-
-      val df = applyIgnore(dfIn)
-
-      Success(df)
+      val rowTag = metadata.xml.flatMap(_.get("rowTag"))
+      rowTag.map { rowTag =>
+        val df = path
+          .map { singlePath =>
+            session.read
+              .format("com.databricks.spark.xml")
+              .option("rowTag", rowTag)
+              .option("inferSchema", value = false)
+              .option("encoding", metadata.getEncoding())
+              .load(singlePath.toString)
+          }
+          .reduce((acc, df) => acc union df)
+        df.printSchema()
+        Success(df)
+      } getOrElse (Failure(
+        throw new Exception(s"rowTag not found for schema ${domain.name}.${schema.name}")
+      ))
     } catch {
       case e: Exception =>
         Failure(e)
@@ -84,37 +86,33 @@ class JsonIngestionJob(
     * @param dataset input dataset as a RDD of string
     */
   def ingest(dataset: DataFrame): (RDD[_], RDD[_]) = {
-    val rdd: RDD[Row] = dataset.rdd
-
-    val checkedRDD: RDD[Either[List[String], (String, String)]] = JsonIngestionUtil
-      .parseRDD(rdd, schemaSparkType)
-      .persist(settings.comet.cacheStorageLevel)
-
-    val acceptedRDD: RDD[String] =
-      checkedRDD.filter(_.isRight).map(_.right.get).map { case (row, inputFileName) =>
-        val (left, _) = row.splitAt(row.lastIndexOf("}"))
-
-        // Because Spark cannot detect the input files when session.read.json(session.createDataset(acceptedRDD)(Encoders.STRING)),
-        // We should add it as a normal field in the RDD before converting to a dataframe using session.read.json
-
-        s"""$left, "${Settings.cometInputFileNameColumn}" : "$inputFileName" }"""
-      }
-
-    val rejectedRDD: RDD[String] =
-      checkedRDD.filter(_.isLeft).map(_.left.get.mkString("\n"))
-
-    val appliedSchema = schema
-      .sparkSchemaWithoutScriptedFields(schemaHandler)
-      .add(StructField(Settings.cometInputFileNameColumn, StringType))
-
-    val acceptedDF = session.read
-      .schema(appliedSchema)
-      .json(session.createDataset(acceptedRDD)(Encoders.STRING))
-
+    dataset.printSchema()
+    val datasetSchema = dataset.schema
+    val errorList = compareTypes(schemaSparkType, datasetSchema)
+    val rejectedRDD = session.sparkContext.parallelize(errorList)
     saveRejected(rejectedRDD)
-    saveAccepted(acceptedDF) // prefer to let Spark compute the final schema
-    (rejectedRDD, acceptedDF.rdd)
+    val (df, path) = saveAccepted(dataset) // prefer to let Spark compute the final schema
+    (rejectedRDD, dataset.rdd)
   }
 
   override def name: String = "JsonJob"
+}
+
+object XmlIngestionJob {
+
+  def parseRDD(
+    inputRDD: RDD[Row],
+    schemaSparkType: StructType
+  ): RDD[Either[List[String], Row]] = {
+    inputRDD.mapPartitions { partition =>
+      partition.map { row =>
+        val rowSchema = row.schema
+        val errorList = compareTypes(schemaSparkType, rowSchema)
+        if (errorList.isEmpty)
+          Right(row)
+        else
+          Left(errorList)
+      }
+    }
+  }
 }

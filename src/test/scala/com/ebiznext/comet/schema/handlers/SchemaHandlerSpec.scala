@@ -32,6 +32,7 @@ import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.{Metadata => _, _}
 
 import scala.util.Try
+import com.databricks.spark.xml._
 
 class SchemaHandlerSpec extends TestHelper {
 
@@ -289,7 +290,7 @@ class SchemaHandlerSpec extends TestHelper {
 
     }
 
-    "Ingest Dream Locations JSON" should "produce file in accepted" in {
+    "Ingest Locations JSON" should "produce file in accepted" in {
 
       new SpecTrait(
         domainFilename = "locations.yml",
@@ -325,6 +326,43 @@ class SchemaHandlerSpec extends TestHelper {
         acceptedDf
           .except(expectedAccepted.select(acceptedDf.columns.map(col): _*))
           .count() shouldBe 0
+
+      }
+
+    }
+    "Ingest Locations XML" should "produce file in accepted" in {
+
+      new SpecTrait(
+        domainFilename = "locations.yml",
+        sourceDomainPathname = s"/sample/xml/locations.yml",
+        datasetDomainName = "locations",
+        sourceDatasetPathName = "/sample/xml/locations.xml"
+      ) {
+        cleanMetadata
+        cleanDatasets
+
+        loadPending
+
+        readFileContent(
+          cometDatasetsPath + s"/${settings.comet.area.archive}/$datasetDomainName/locations.xml"
+        ) shouldBe loadTextFile(
+          sourceDatasetPathName
+        )
+
+        // Accepted should have the same data as input
+        val acceptedDf = sparkSession.read
+          .parquet(
+            cometDatasetsPath + s"/accepted/$datasetDomainName/locations/$getTodayPartitionPath"
+          )
+
+        val expectedAccepted =
+          sparkSession.read
+            .option("rowTag", "element")
+            .xml(
+              getResPath("/expected/datasets/accepted/locations/locations.xml")
+            )
+
+        acceptedDf.except(expectedAccepted).count() shouldBe 0
 
       }
 
