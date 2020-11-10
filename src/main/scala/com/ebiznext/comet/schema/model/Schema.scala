@@ -25,8 +25,8 @@ import java.util.regex.Pattern
 import com.ebiznext.comet.utils.conversion.BigQueryUtils._
 import com.ebiznext.comet.schema.handlers.SchemaHandler
 import com.ebiznext.comet.utils.TextSubstitutionEngine
+import com.fasterxml.jackson.annotation.JsonIgnore
 import com.google.cloud.bigquery.Field
-import net.minidev.json.annotate.JsonIgnore
 import org.apache.spark.sql.types._
 
 import scala.collection.mutable
