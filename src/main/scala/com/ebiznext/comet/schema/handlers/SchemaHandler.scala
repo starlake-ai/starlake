@@ -26,13 +26,16 @@ import com.ebiznext.comet.utils.CometObjectMapper
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.scala.experimental.ScalaObjectMapper
+import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
+
+import scala.util.Try
 
 /** Handles access to datasets metadata,  eq. domains / types / schemas.
   *
   * @param storage : Underlying filesystem manager
   */
-class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) {
+class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extends StrictLogging {
 
   // uses Jackson YAML for parsing, relies on SnakeYAML for low level handling
   val mapper: ObjectMapper with ScalaObjectMapper = {
@@ -78,9 +81,16 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) {
     * Domains are defined under the "domains" folder in the metadata folder
     */
   lazy val domains: List[Domain] = {
-    storage
+    val (validDomainsFile, invalidDomainsFiles) = storage
       .list(DatasetArea.domains, ".yml")
-      .map(path => mapper.readValue(storage.read(path), classOf[Domain]))
+      .map(path => Try(mapper.readValue(storage.read(path), classOf[Domain])))
+      .partition(_.isSuccess)
+    invalidDomainsFiles.map(_.failed.get).foreach { err =>
+      logger.warn(
+        s"There is one or more invalid Yaml files in your domains folder:${err.getMessage}"
+      )
+    }
+    validDomainsFile.map(_.get)
 
   }
 
@@ -88,9 +98,15 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) {
     * Jobs are defined under the "jobs" folder in the metadata folder
     */
   lazy val jobs: Map[String, AutoJobDesc] = {
-    storage
+    val (validJobsFile, invalidJobsFile) = storage
       .list(DatasetArea.jobs, ".yml")
-      .map(path => mapper.readValue(storage.read(path), classOf[AutoJobDesc]))
+      .map(path => Try(mapper.readValue(storage.read(path), classOf[AutoJobDesc])))
+      .partition(_.isSuccess)
+    invalidJobsFile.map(_.failed.get).foreach { err =>
+      logger.warn(s"There is one or more invalid Yaml files in your jobs folder:${err.getMessage}")
+    }
+    validJobsFile
+      .map(_.get)
       .map(job => job.name -> job)
       .toMap
   }
