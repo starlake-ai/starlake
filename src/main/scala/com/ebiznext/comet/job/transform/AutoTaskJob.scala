@@ -223,6 +223,7 @@ class AutoTaskJob(
               logger
                 .info(s"We are loading the Table with columns: $select and filters: $filterFormat")
               session.read
+                .option("readDataFormat", "AVRO")
                 .format("com.google.cloud.spark.bigquery")
                 .option("table", tablePath)
                 .option("filter", filterFormat)
@@ -233,6 +234,7 @@ class AutoTaskJob(
               val filterFormat = filter.richFormat(sqlParameters)
               logger.info(s"We are loading the Table with filters: $filterFormat")
               session.read
+                .option("readDataFormat", "AVRO")
                 .format("com.google.cloud.spark.bigquery")
                 .option("table", tablePath)
                 .option("filter", filterFormat)
@@ -241,6 +243,7 @@ class AutoTaskJob(
             case TablePathWithSelect(tablePath, select) =>
               logger.info(s"We are loading the Table with columns: $select")
               session.read
+                .option("readDataFormat", "AVRO")
                 .format("com.google.cloud.spark.bigquery")
                 .option("table", tablePath)
                 .load()
@@ -248,6 +251,7 @@ class AutoTaskJob(
                 .cache()
             case _ =>
               session.read
+                .option("readDataFormat", "AVRO")
                 .format("com.google.cloud.spark.bigquery")
                 .option("table", path)
                 .load()
