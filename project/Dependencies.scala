@@ -115,7 +115,7 @@ object Dependencies {
     "com.google.cloud" % "google-cloud-bigquery" % Versions.bq exclude ("javax.jms", "jms") exclude ("com.sun.jdmk", "jmxtools") exclude ("com.sun.jmx", "jmxri") excludeAll (jacksonExclusions: _*),
     // see https://github.com/GoogleCloudDataproc/spark-bigquery-connector/issues/36
     // Add the jar file to spark dependencies
-    "com.google.cloud.spark" %% "spark-bigquery-with-dependencies" % "0.17.3" % "provided" excludeAll (jacksonExclusions: _*)
+    "com.google.cloud.spark" %% "spark-bigquery-with-dependencies" % "0.18.0" % "provided" excludeAll (jacksonExclusions: _*)
 
   )
 
