@@ -27,6 +27,7 @@ import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.schema.handlers.{SchemaHandler, StorageHandler}
 import com.ebiznext.comet.schema.model.Rejection.{ColInfo, ColResult, RowInfo, RowResult}
 import com.ebiznext.comet.schema.model._
+import com.ebiznext.comet.utils.SparkUtils
 import org.apache.hadoop.fs.Path
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql._
@@ -304,7 +305,7 @@ object DsvIngestionUtil extends DsvValidator {
             )
           }
         }
-      } persist (settings.comet.cacheStorageLevel)
+      } persist (SparkUtils.storageLevel(settings.comet.cacheStorageLevel))
 
     val rejectedRDD: RDD[String] = checkedRDD
       .filter(_.isRejected)

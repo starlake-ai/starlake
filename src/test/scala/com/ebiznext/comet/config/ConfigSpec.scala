@@ -21,6 +21,7 @@
 package com.ebiznext.comet.config
 
 import com.ebiznext.comet.TestHelper
+import com.ebiznext.comet.utils.SparkUtils
 import org.apache.spark.storage.StorageLevel
 
 class ConfigSpec extends TestHelper {
@@ -28,7 +29,9 @@ class ConfigSpec extends TestHelper {
   val internalConfig =
     new WithSettings() {
       "Custom Storage Level" should "be derived correctly" in {
-        settings.comet.internal.map(_.cacheStorageLevel) shouldEqual Some(
+        SparkUtils.storageLevel(
+          settings.comet.internal.map(_.cacheStorageLevel).getOrElse("MEMORY_AND_DISK")
+        ) shouldEqual Some(
           StorageLevel.MEMORY_AND_DISK
         )
       }
