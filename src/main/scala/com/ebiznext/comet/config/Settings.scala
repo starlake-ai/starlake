@@ -39,7 +39,6 @@ import com.typesafe.config.{Config, ConfigValueFactory}
 import com.typesafe.scalalogging.{Logger, StrictLogging}
 import configs.Configs
 import configs.syntax._
-import org.apache.spark.storage.StorageLevel
 import org.slf4j.MDC
 
 import scala.concurrent.duration.FiniteDuration
@@ -159,7 +158,7 @@ object Settings extends StrictLogging {
 
   final case class Atlas(uri: String, user: String, password: String, owner: String)
 
-  final case class Internal(cacheStorageLevel: StorageLevel) {}
+  final case class Internal(cacheStorageLevel: String)
 
   /** @param datasets       : Absolute path, datasets root folder beneath which each area is defined.
     * @param metadata       : Absolute path, location where all types / domains and auto jobs are defined
@@ -220,7 +219,7 @@ object Settings extends StrictLogging {
     }
 
     val cacheStorageLevel =
-      internal.map(_.cacheStorageLevel).getOrElse(StorageLevel.MEMORY_AND_DISK)
+      internal.map(_.cacheStorageLevel).getOrElse("MEMORY_AND_DISK")
 
     @throws(classOf[ObjectStreamException])
     protected def writeReplace: AnyRef = {
@@ -252,9 +251,6 @@ object Settings extends StrictLogging {
 
   private implicit val sinkConfigs: Configs[Sink] = Configs.derive[Sink]
   private implicit val jdbcEngineConfigs: Configs[JdbcEngine] = Configs.derive[JdbcEngine]
-
-  private implicit val storageLevelConfigs: Configs[StorageLevel] =
-    Configs[String].map(StorageLevel.fromString)
 
   def apply(config: Config): Settings = {
     val jobId = UUID.randomUUID().toString

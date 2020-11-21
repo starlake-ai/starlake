@@ -10,11 +10,21 @@ import org.apache.poi.ss.usermodel._
 import scala.collection.JavaConverters._
 
 /** Reads the spreadsheet found at the specified {@param path} and builds the corresponding Domain object
-  * @param path
+  * @param Input
   */
-class XlsReader(path: String) {
 
-  private val workbook: Workbook = WorkbookFactory.create(new File(path))
+sealed trait Input
+
+case class Path(path: String) extends Input
+
+case class FileInput(file: File) extends Input
+
+class XlsReader(input: Input) {
+
+  private val workbook: Workbook = input match {
+    case Path(s)       => WorkbookFactory.create(new File(s))
+    case FileInput(in) => WorkbookFactory.create(in)
+  }
 
   object formatter {
     private val f = new DataFormatter()

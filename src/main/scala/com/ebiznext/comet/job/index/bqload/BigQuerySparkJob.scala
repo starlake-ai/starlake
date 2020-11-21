@@ -3,7 +3,7 @@ package com.ebiznext.comet.job.index.bqload
 import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.utils.conversion.BigQueryUtils._
 import com.ebiznext.comet.utils.conversion.syntax._
-import com.ebiznext.comet.utils.{JobResult, SparkJob, SparkJobResult, Utils}
+import com.ebiznext.comet.utils.{JobResult, SparkJob, SparkJobResult, SparkUtils, Utils}
 import com.google.cloud.ServiceOptions
 import com.google.cloud.bigquery.{
   BigQuery,
@@ -21,7 +21,6 @@ import com.google.cloud.hadoop.io.bigquery.BigQueryConfiguration
 import org.apache.hadoop.conf.Configuration
 import org.apache.spark.sql.functions.{col, date_format}
 import org.apache.spark.sql.{DataFrame, SaveMode, SparkSession}
-import org.apache.spark.storage.StorageLevel
 
 import scala.util.Try
 
@@ -137,7 +136,9 @@ class BigQuerySparkJob(
     prepareConf()
     Try {
       val cacheStorageLevel =
-        settings.comet.internal.map(_.cacheStorageLevel).getOrElse(StorageLevel.MEMORY_AND_DISK)
+        SparkUtils.storageLevel(
+          settings.comet.internal.map(_.cacheStorageLevel).getOrElse("MEMORY_AND_DISK")
+        )
       val sourceDF =
         cliConfig.source match {
           case Left(path) =>

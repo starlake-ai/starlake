@@ -23,6 +23,7 @@ package com.ebiznext.comet.job.ingest
 import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.schema.handlers.{SchemaHandler, StorageHandler}
 import com.ebiznext.comet.schema.model._
+import com.ebiznext.comet.utils.SparkUtils
 import org.apache.hadoop.fs.Path
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.execution.datasources.json.JsonIngestionUtil
@@ -88,7 +89,7 @@ class JsonIngestionJob(
 
     val checkedRDD: RDD[Either[List[String], (String, String)]] = JsonIngestionUtil
       .parseRDD(rdd, schemaSparkType)
-      .persist(settings.comet.cacheStorageLevel)
+      .persist(SparkUtils.storageLevel(settings.comet.cacheStorageLevel))
 
     val acceptedRDD: RDD[String] =
       checkedRDD.filter(_.isRight).map(_.right.get).map { case (row, inputFileName) =>
