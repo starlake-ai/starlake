@@ -67,7 +67,7 @@ class SchemaGenSpec extends TestHelper {
         .get shouldEqual 0.0
     }
 
-    val reader = new XlsReader(getClass.getResource("/sample/SomeDomainTemplate.xls").getPath)
+    val reader = new XlsReader(Path(getClass.getResource("/sample/SomeDomainTemplate.xls").getPath))
     val domainOpt = reader.getDomain()
 
     "a preEncryption domain" should "have only string types" in {
