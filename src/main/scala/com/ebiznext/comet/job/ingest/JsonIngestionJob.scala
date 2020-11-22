@@ -23,7 +23,6 @@ package com.ebiznext.comet.job.ingest
 import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.schema.handlers.{SchemaHandler, StorageHandler}
 import com.ebiznext.comet.schema.model._
-import com.ebiznext.comet.utils.SparkUtils
 import org.apache.hadoop.fs.Path
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.execution.datasources.json.JsonIngestionUtil
@@ -42,14 +41,14 @@ import scala.util.{Failure, Success, Try}
   * @param storageHandler : Storage Handler
   */
 class JsonIngestionJob(
-  val domain: Domain,
-  val schema: Schema,
-  val types: List[Type],
-  val path: List[Path],
-  val storageHandler: StorageHandler,
-  val schemaHandler: SchemaHandler
-)(implicit val settings: Settings)
-    extends IngestionJob {
+                        val domain: Domain,
+                        val schema: Schema,
+                        val types: List[Type],
+                        val path: List[Path],
+                        val storageHandler: StorageHandler,
+                        val schemaHandler: SchemaHandler
+                      )(implicit val settings: Settings)
+  extends IngestionJob {
 
   /** load the json as an RDD of String
     *
@@ -89,7 +88,7 @@ class JsonIngestionJob(
 
     val checkedRDD: RDD[Either[List[String], (String, String)]] = JsonIngestionUtil
       .parseRDD(rdd, schemaSparkType)
-      .persist(SparkUtils.storageLevel(settings.comet.cacheStorageLevel))
+      .persist(settings.comet.cacheStorageLevel)
 
     val acceptedRDD: RDD[String] =
       checkedRDD.filter(_.isRight).map(_.right.get).map { case (row, inputFileName) =>
