@@ -9,7 +9,7 @@ COPY src ./src
 COPY .scalafmt.conf .
 
 # Build a release artifact.
-RUN sbt assembly -Dsbt.rootdir=true;
+RUN sbt -DLAUNCH_SERVICE="true" assembly -Dsbt.rootdir=true;
 
 # Use the Official OpenJDK image for a lean production stage of our multi-stage build.
 # https://hub.docker.com/_/openjdk

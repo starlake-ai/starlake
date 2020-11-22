@@ -26,10 +26,10 @@ import org.apache.spark.storage.StorageLevel
 import scala.util.Try
 
 class BigQuerySparkJob(
-                        override val cliConfig: BigQueryLoadConfig,
-                        maybeSchema: Option[BQSchema] = None
-                      )(implicit val settings: Settings)
-  extends SparkJob
+  override val cliConfig: BigQueryLoadConfig,
+  maybeSchema: Option[BQSchema] = None
+)(implicit val settings: Settings)
+    extends SparkJob
     with BigQueryJobBase {
 
   override def name: String = s"bqload-${cliConfig.outputDataset}-${cliConfig.outputTable}"
@@ -248,10 +248,10 @@ class BigQuerySparkJob(
 object BigQuerySparkJob {
 
   def getTable(
-                session: SparkSession,
-                datasetName: String,
-                tableName: String
-              ): Option[Table] = {
+    session: SparkSession,
+    datasetName: String,
+    tableName: String
+  ): Option[Table] = {
     val conf = session.sparkContext.hadoopConfiguration
     val projectId: String =
       Option(conf.get("fs.gs.project.id")).getOrElse(ServiceOptions.getDefaultProjectId)
