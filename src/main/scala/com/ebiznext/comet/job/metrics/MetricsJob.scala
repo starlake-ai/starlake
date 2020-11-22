@@ -219,9 +219,7 @@ class MetricsJob(
     val combinedResult = metricsToSave.map { case (df, table) =>
       df match {
         case Some(df) =>
-          settings.comet.internal.foreach(in =>
-            df.persist(SparkUtils.storageLevel(in.cacheStorageLevel))
-          )
+          settings.comet.internal.foreach(in => df.persist(in.cacheStorageLevel))
           val lockedPath = lockPath(settings.comet.metrics.path)
           val waitTimeMillis = settings.comet.lock.metricsTimeout
           val locker = new FileLock(lockedPath, storageHandler)
