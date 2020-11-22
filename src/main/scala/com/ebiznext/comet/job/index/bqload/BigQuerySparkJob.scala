@@ -3,7 +3,7 @@ package com.ebiznext.comet.job.index.bqload
 import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.utils.conversion.BigQueryUtils._
 import com.ebiznext.comet.utils.conversion.syntax._
-import com.ebiznext.comet.utils.{JobResult, SparkJob, SparkJobResult, SparkUtils, Utils}
+import com.ebiznext.comet.utils.{JobResult, SparkJob, SparkJobResult, Utils}
 import com.google.cloud.ServiceOptions
 import com.google.cloud.bigquery.{
   BigQuery,
@@ -21,14 +21,15 @@ import com.google.cloud.hadoop.io.bigquery.BigQueryConfiguration
 import org.apache.hadoop.conf.Configuration
 import org.apache.spark.sql.functions.{col, date_format}
 import org.apache.spark.sql.{DataFrame, SaveMode, SparkSession}
+import org.apache.spark.storage.StorageLevel
 
 import scala.util.Try
 
 class BigQuerySparkJob(
-  override val cliConfig: BigQueryLoadConfig,
-  maybeSchema: Option[BQSchema] = None
-)(implicit val settings: Settings)
-    extends SparkJob
+                        override val cliConfig: BigQueryLoadConfig,
+                        maybeSchema: Option[BQSchema] = None
+                      )(implicit val settings: Settings)
+  extends SparkJob
     with BigQueryJobBase {
 
   override def name: String = s"bqload-${cliConfig.outputDataset}-${cliConfig.outputTable}"
@@ -136,9 +137,7 @@ class BigQuerySparkJob(
     prepareConf()
     Try {
       val cacheStorageLevel =
-        SparkUtils.storageLevel(
-          settings.comet.internal.map(_.cacheStorageLevel).getOrElse("MEMORY_AND_DISK")
-        )
+        settings.comet.internal.map(_.cacheStorageLevel).getOrElse(StorageLevel.MEMORY_AND_DISK)
       val sourceDF =
         cliConfig.source match {
           case Left(path) =>
@@ -206,24 +205,24 @@ class BigQuerySparkJob(
         */
 
       //      prepareRLS().foreach { rlsStatement =>
-//        logger.info(s"Applying security $rlsStatement")
-//        try {
-//          Option(runJob(rlsStatement, cliConfig.getLocation())) match {
-//            case None =>
-//              throw new RuntimeException("Job no longer exists")
-//            case Some(job) if job.getStatus.getExecutionErrors() != null =>
-//              throw new RuntimeException(
-//                job.getStatus.getExecutionErrors().asScala.reverse.mkString(",")
-//              )
-//            case Some(job) =>
-//              logger.info(s"Job with id ${job} on Statement $rlsStatement succeeded")
-//          }
-//
-//        } catch {
-//          case e: Exception =>
-//            e.printStackTrace()
-//        }
-//      }
+      //        logger.info(s"Applying security $rlsStatement")
+      //        try {
+      //          Option(runJob(rlsStatement, cliConfig.getLocation())) match {
+      //            case None =>
+      //              throw new RuntimeException("Job no longer exists")
+      //            case Some(job) if job.getStatus.getExecutionErrors() != null =>
+      //              throw new RuntimeException(
+      //                job.getStatus.getExecutionErrors().asScala.reverse.mkString(",")
+      //              )
+      //            case Some(job) =>
+      //              logger.info(s"Job with id ${job} on Statement $rlsStatement succeeded")
+      //          }
+      //
+      //        } catch {
+      //          case e: Exception =>
+      //            e.printStackTrace()
+      //        }
+      //      }
       SparkJobResult(None)
     }
   }
@@ -249,10 +248,10 @@ class BigQuerySparkJob(
 object BigQuerySparkJob {
 
   def getTable(
-    session: SparkSession,
-    datasetName: String,
-    tableName: String
-  ): Option[Table] = {
+                session: SparkSession,
+                datasetName: String,
+                tableName: String
+              ): Option[Table] = {
     val conf = session.sparkContext.hadoopConfiguration
     val projectId: String =
       Option(conf.get("fs.gs.project.id")).getOrElse(ServiceOptions.getDefaultProjectId)
