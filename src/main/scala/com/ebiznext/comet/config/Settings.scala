@@ -45,20 +45,6 @@ import org.slf4j.MDC
 import scala.concurrent.duration.FiniteDuration
 
 object Settings extends StrictLogging {
-  val cometInputFileNameColumn: String = "comet_input_file_name"
-
-  def apply(config: Config): Settings = {
-    val jobId = UUID.randomUUID().toString
-    val effectiveConfig = config
-      .withValue("job-id", ConfigValueFactory.fromAnyRef(jobId, "per JVM instance"))
-
-    val loaded = effectiveConfig.extract[Comet].valueOrThrow { error =>
-      error.messages.foreach(err => logger.error(err))
-      throw new Exception(s"Failed to load config: $error")
-    }
-    logger.info(s"Using Config $loaded")
-    Settings(loaded, effectiveConfig.getConfig("spark"))
-  }
 
   private def loggerForCompanionInstances: Logger = logger
 
@@ -79,14 +65,14 @@ object Settings extends StrictLogging {
     * @param business   : Name of the business area
     */
   final case class Area(
-    pending: String,
-    unresolved: String,
-    archive: String,
-    ingesting: String,
-    accepted: String,
-    rejected: String,
-    business: String
-  ) {
+                         pending: String,
+                         unresolved: String,
+                         archive: String,
+                         ingesting: String,
+                         accepted: String,
+                         rejected: String,
+                         business: String
+                       ) {
     val acceptedFinal: String = accepted.toLowerCase(Locale.ROOT)
     val rejectedFinal: String = rejected.toLowerCase(Locale.ROOT)
     val businessFinal: String = business.toLowerCase(Locale.ROOT)
@@ -101,17 +87,17 @@ object Settings extends StrictLogging {
   /** @param discreteMaxCardinality : Max number of unique values allowed in cardinality compute
     */
   final case class Metrics(
-    path: String,
-    discreteMaxCardinality: Int,
-    active: Boolean,
-    sink: Sink
-  )
+                            path: String,
+                            discreteMaxCardinality: Int,
+                            active: Boolean,
+                            sink: Sink
+                          )
 
   final case class Audit(
-    path: String,
-    sink: Sink,
-    maxErrors: Int
-  )
+                          path: String,
+                          sink: Sink,
+                          maxErrors: Int
+                        )
 
   /** Describes a connection to a JDBC-accessible database engine
     *
@@ -129,11 +115,11 @@ object Settings extends StrictLogging {
     *       underlying engine.
     */
   final case class Connection(
-    format: String = "jdbc",
-    mode: Option[String] = None,
-    options: Map[String, String] = Map.empty,
-    engineOverride: Option[String] = None
-  ) {
+                               format: String = "jdbc",
+                               mode: Option[String] = None,
+                               options: Map[String, String] = Map.empty,
+                               engineOverride: Option[String] = None
+                             ) {
     def engine: String = engineOverride.getOrElse(options("url").split(':')(1))
   }
 
@@ -143,93 +129,8 @@ object Settings extends StrictLogging {
     *               in the engine's own dialect.
     */
   final case class JdbcEngine(
-    tables: scala.collection.Map[String, JdbcEngine.TableDdl]
-  )
-
-  final case class Lock(
-    path: String,
-    metricsTimeout: Long,
-    ingestionTimeout: Long,
-    pollTime: FiniteDuration = FiniteDuration(5000L, TimeUnit.MILLISECONDS),
-    refreshTime: FiniteDuration = FiniteDuration(5000L, TimeUnit.MILLISECONDS)
-  )
-
-  final case class Atlas(uri: String, user: String, password: String, owner: String)
-
-  final case class Internal(cacheStorageLevel: StorageLevel) {}
-
-  /** @param datasets       : Absolute path, datasets root folder beneath which each area is defined.
-    * @param metadata       : Absolute path, location where all types / domains and auto jobs are defined
-    * @param metrics        : Absolute path, location where all computed metrics are stored
-    * @param audit          : Absolute path, location where all log are stored
-    * @param archive        : Should we backup the ingested datasets ? true by default
-    * @param defaultWriteFormat    : Choose between parquet, orc ... Default is parquet
-    * @param launcher       : Cron Job Manager : simple (useful for testing) or airflow ? simple by default
-    * @param analyze        : Should we create basics Hive statistics on the generated dataset ? true by default
-    * @param hive           : Should we create a Hive Table ? true by default
-    * @param area           : see Area above
-    * @param airflow        : Airflow end point. Should be defined even if simple launccher is used instead of airflow.
-    */
-  final case class Comet(
-    tmpdir: String,
-    jobId: String,
-    datasets: String,
-    metadata: String,
-    metrics: Metrics,
-    audit: Audit,
-    archive: Boolean,
-    lock: Lock,
-    defaultWriteFormat: String,
-    csvOutput: Boolean,
-    privacyOnly: Boolean,
-    launcher: String,
-    chewerPrefix: String,
-    rowValidatorClass: String,
-    analyze: Boolean,
-    hive: Boolean,
-    grouped: Boolean,
-    mergeForceDistinct: Boolean,
-    area: Area,
-    airflow: Airflow,
-    elasticsearch: Elasticsearch,
-    hadoop: juMap[String, String],
-    connections: Map[String, Connection],
-    jdbcEngines: Map[String, JdbcEngine],
-    atlas: Atlas,
-    privacy: Privacy,
-    fileSystem: Option[String],
-    metadataFileSystem: Option[String],
-    internal: Option[Internal],
-    udfs: Option[String]
-  ) extends Serializable {
-
-    val cacheStorageLevel =
-      internal.map(_.cacheStorageLevel).getOrElse(StorageLevel.MEMORY_AND_DISK)
-
-    @JsonIgnore
-    def isElasticsearchSupported(): Boolean = {
-      if (
-        Version(util.Properties.versionNumberString).compareTo(Version("2.12")) >= 0
-        && elasticsearch.active
-      ) {
-        logger.warn("""Elasticsearch inserts won't be effective before es-hadoop support scala 2.12
-                      |See https://github.com/elastic/elasticsearch-hadoop/pull/1308
-                      |""".stripMargin)
-        false
-      } else true
-    }
-
-    @throws(classOf[ObjectStreamException])
-    protected def writeReplace: AnyRef = {
-      Comet.JsonWrapped(this)
-    }
-  }
-
-  private implicit val sinkConfigs: Configs[Sink] = Configs.derive[Sink]
-  private implicit val jdbcEngineConfigs: Configs[JdbcEngine] = Configs.derive[JdbcEngine]
-
-  private implicit val storageLevelConfigs: Configs[StorageLevel] =
-    Configs[String].map(StorageLevel.fromString)
+                               tables: scala.collection.Map[String, JdbcEngine.TableDdl]
+                             )
 
   object JdbcEngine {
 
@@ -248,6 +149,85 @@ object Settings extends StrictLogging {
     }
   }
 
+  final case class Lock(
+                         path: String,
+                         metricsTimeout: Long,
+                         ingestionTimeout: Long,
+                         pollTime: FiniteDuration = FiniteDuration(5000L, TimeUnit.MILLISECONDS),
+                         refreshTime: FiniteDuration = FiniteDuration(5000L, TimeUnit.MILLISECONDS)
+                       )
+
+  final case class Atlas(uri: String, user: String, password: String, owner: String)
+
+  final case class Internal(cacheStorageLevel: StorageLevel) {}
+
+  /** @param datasets       : Absolute path, datasets root folder beneath which each area is defined.
+    * @param metadata       : Absolute path, location where all types / domains and auto jobs are defined
+    * @param metrics        : Absolute path, location where all computed metrics are stored
+    * @param audit          : Absolute path, location where all log are stored
+    * @param archive        : Should we backup the ingested datasets ? true by default
+    * @param defaultWriteFormat    : Choose between parquet, orc ... Default is parquet
+    * @param launcher       : Cron Job Manager : simple (useful for testing) or airflow ? simple by default
+    * @param analyze        : Should we create basics Hive statistics on the generated dataset ? true by default
+    * @param hive           : Should we create a Hive Table ? true by default
+    * @param area           : see Area above
+    * @param airflow        : Airflow end point. Should be defined even if simple launccher is used instead of airflow.
+    */
+  final case class Comet(
+                          tmpdir: String,
+                          jobId: String,
+                          datasets: String,
+                          metadata: String,
+                          metrics: Metrics,
+                          audit: Audit,
+                          archive: Boolean,
+                          lock: Lock,
+                          defaultWriteFormat: String,
+                          csvOutput: Boolean,
+                          privacyOnly: Boolean,
+                          launcher: String,
+                          chewerPrefix: String,
+                          rowValidatorClass: String,
+                          analyze: Boolean,
+                          hive: Boolean,
+                          grouped: Boolean,
+                          mergeForceDistinct: Boolean,
+                          area: Area,
+                          airflow: Airflow,
+                          elasticsearch: Elasticsearch,
+                          hadoop: juMap[String, String],
+                          connections: Map[String, Connection],
+                          jdbcEngines: Map[String, JdbcEngine],
+                          atlas: Atlas,
+                          privacy: Privacy,
+                          fileSystem: Option[String],
+                          metadataFileSystem: Option[String],
+                          internal: Option[Internal],
+                          udfs: Option[String]
+                        ) extends Serializable {
+
+    @JsonIgnore
+    def isElasticsearchSupported(): Boolean = {
+      if (
+        Version(util.Properties.versionNumberString).compareTo(Version("2.12")) >= 0
+          && elasticsearch.active
+      ) {
+        logger.warn("""Elasticsearch inserts won't be effective before es-hadoop support scala 2.12
+                      |See https://github.com/elastic/elasticsearch-hadoop/pull/1308
+                      |""".stripMargin)
+        false
+      } else true
+    }
+
+    val cacheStorageLevel =
+      internal.map(_.cacheStorageLevel).getOrElse(StorageLevel.MEMORY_AND_DISK)
+
+    @throws(classOf[ObjectStreamException])
+    protected def writeReplace: AnyRef = {
+      Comet.JsonWrapped(this)
+    }
+  }
+
   object Comet {
 
     private case class JsonWrapped(jsonValue: String) {
@@ -260,15 +240,36 @@ object Settings extends StrictLogging {
     }
 
     private object JsonWrapped {
+      private def jsonMapper: ObjectMapper = new CometObjectMapper()
+
       def apply(comet: Comet): JsonWrapped = {
         val writer = jsonMapper.writerFor(classOf[Comet])
         val asJson = writer.writeValueAsString(comet)
         JsonWrapped(asJson)
       }
-
-      private def jsonMapper: ObjectMapper = new CometObjectMapper()
     }
   }
+
+  private implicit val sinkConfigs: Configs[Sink] = Configs.derive[Sink]
+  private implicit val jdbcEngineConfigs: Configs[JdbcEngine] = Configs.derive[JdbcEngine]
+
+  private implicit val storageLevelConfigs: Configs[StorageLevel] =
+    Configs[String].map(StorageLevel.fromString)
+
+  def apply(config: Config): Settings = {
+    val jobId = UUID.randomUUID().toString
+    val effectiveConfig = config
+      .withValue("job-id", ConfigValueFactory.fromAnyRef(jobId, "per JVM instance"))
+
+    val loaded = effectiveConfig.extract[Comet].valueOrThrow { error =>
+      error.messages.foreach(err => logger.error(err))
+      throw new Exception(s"Failed to load config: $error")
+    }
+    logger.info(s"Using Config $loaded")
+    Settings(loaded, effectiveConfig.getConfig("spark"))
+  }
+
+  val cometInputFileNameColumn: String = "comet_input_file_name"
 
 }
 
@@ -278,25 +279,27 @@ object Settings extends StrictLogging {
   * quite yet) — cchepelov
   */
 final case class Settings(comet: Settings.Comet, sparkConfig: Config) {
+  def logger: Logger = Settings.loggerForCompanionInstances
+
   @transient
   lazy val storageHandler: HdfsStorageHandler = {
     implicit val self: Settings =
       this /* TODO: remove this once HdfsStorageHandler explicitly takes Settings or Settings.Comet in */
     new HdfsStorageHandler(comet.fileSystem)
   }
+
   @transient
   lazy val metadataStorageHandler: HdfsStorageHandler = {
     implicit val self: Settings =
       this /* TODO: remove this once HdfsStorageHandler explicitly takes Settings or Settings.Comet in */
     new HdfsStorageHandler(comet.metadataFileSystem)
   }
+
   @transient
   lazy val launcherService: LaunchHandler = comet.launcher match {
     case "simple"  => new SimpleLauncher()
     case "airflow" => new AirflowLauncher()
   }
-
-  def logger: Logger = Settings.loggerForCompanionInstances
 
   /** Publish MDC information into the logging stack.
     *
@@ -310,7 +313,7 @@ final case class Settings(comet: Settings.Comet, sparkConfig: Config) {
     require(
       oldJobId == comet.jobId,
       s"cannot publish different MDC data; a previous jobId ${oldJobId} had been published," +
-      s" attempting to reset to ${comet.jobId}"
+        s" attempting to reset to ${comet.jobId}"
     )
     MDC.put("JID", comet.jobId)
   }
