@@ -26,111 +26,26 @@ import org.apache.spark.storage.StorageLevel
 import scala.util.Try
 
 class BigQuerySparkJob(
-                        override val cliConfig: BigQueryLoadConfig,
-                        maybeSchema: Option[BQSchema] = None
-                      )(implicit val settings: Settings)
-  extends SparkJob
+  override val cliConfig: BigQueryLoadConfig,
+  maybeSchema: Option[BQSchema] = None
+)(implicit val settings: Settings)
+    extends SparkJob
     with BigQueryJobBase {
+
+  override val projectId: String = conf.get("fs.gs.project.id")
+  val conf: Configuration = session.sparkContext.hadoopConfiguration
+  logger.info(s"BigQuery Config $cliConfig")
+  val bucket: String = conf.get("fs.defaultFS")
 
   override def name: String = s"bqload-${cliConfig.outputDataset}-${cliConfig.outputTable}"
 
-  val conf: Configuration = session.sparkContext.hadoopConfiguration
-  logger.info(s"BigQuery Config $cliConfig")
-
-  override val projectId: String = conf.get("fs.gs.project.id")
-
-  val bucket: String = conf.get("fs.defaultFS")
-
-  def prepareConf(): Configuration = {
-    val conf = session.sparkContext.hadoopConfiguration
-    logger.info(s"BigQuery Config $cliConfig")
-    val bucket = Option(conf.get("fs.gs.system.bucket"))
-    bucket.foreach { bucket =>
-      logger.info(s"Temporary GCS path $bucket")
-      session.conf.set("temporaryGcsBucket", bucket)
-    }
-
-    val writeDisposition = JobInfo.WriteDisposition.valueOf(cliConfig.writeDisposition)
-    val finalWriteDisposition = (writeDisposition, cliConfig.outputPartition) match {
-      case (JobInfo.WriteDisposition.WRITE_TRUNCATE, Some(partition)) =>
-        logger.info(s"Overwriting partition $partition of Table $tableId")
-        logger.info(s"Setting Write mode to Overwrite")
-        JobInfo.WriteDisposition.WRITE_TRUNCATE
-      case (JobInfo.WriteDisposition.WRITE_TRUNCATE, _) =>
-        try {
-          bigquery.delete(tableId)
-        } catch {
-          case e: BigQueryException =>
-            // Log error and continue  (may be table does not exist)
-            Utils.logException(logger, e)
-        }
-        logger.info(s"Setting Write mode to Append")
-        JobInfo.WriteDisposition.WRITE_APPEND
-      case _ =>
-        writeDisposition
-    }
-
-    conf.set(
-      BigQueryConfiguration.OUTPUT_TABLE_WRITE_DISPOSITION_KEY,
-      finalWriteDisposition.toString
-    )
-    conf.set(
-      BigQueryConfiguration.OUTPUT_TABLE_CREATE_DISPOSITION_KEY,
-      cliConfig.createDisposition
-    )
-    conf
-  }
-
-  def getOrCreateTable(dataFrame: Option[DataFrame], maybeSchema: Option[BQSchema]): Table = {
-    getOrCreateDataset()
-
-    Option(bigquery.getTable(tableId)) getOrElse {
-      val withPartitionDefinition =
-        (maybeSchema, cliConfig.outputPartition) match {
-          case (Some(schema), Some(partitionField)) =>
-            // Generating schema from YML to get the descriptions in BQ
-            val partitioning =
-              timePartitioning(partitionField, cliConfig.days, cliConfig.requirePartitionFilter)
-                .build()
-            StandardTableDefinition
-              .newBuilder()
-              .setSchema(schema)
-              .setTimePartitioning(partitioning)
-          case (Some(schema), None) =>
-            // Generating schema from YML to get the descriptions in BQ
-            StandardTableDefinition
-              .newBuilder()
-              .setSchema(schema)
-          case (None, Some(partitionField)) =>
-            // We would have loved to let BQ do the whole job (StandardTableDefinition.newBuilder())
-            // But however seems like it does not work when there is an output partition
-            val partitioning =
-              timePartitioning(partitionField, cliConfig.days, cliConfig.requirePartitionFilter)
-                .build()
-            val tableDefinition =
-              StandardTableDefinition
-                .newBuilder()
-                .setTimePartitioning(partitioning)
-            dataFrame
-              .map(dataFrame => tableDefinition.setSchema(dataFrame.to[BQSchema]))
-              .getOrElse(tableDefinition)
-          case (None, None) =>
-            // In case of complex types, our inferred schema does not work, BQ introduces a list subfield, let him do the dirty job
-            StandardTableDefinition
-              .newBuilder()
-        }
-
-      val withClusteringDefinition =
-        cliConfig.outputClustering match {
-          case Nil =>
-            withPartitionDefinition
-          case fields =>
-            import scala.collection.JavaConverters._
-            val clustering = Clustering.newBuilder().setFields(fields.asJava).build()
-            withPartitionDefinition.setClustering(clustering)
-        }
-      bigquery.create(TableInfo.newBuilder(tableId, withClusteringDefinition.build()).build)
-    }
+  /** Just to force any spark job to implement its entry point within the "run" method
+    *
+    * @return : Spark Session used for the job
+    */
+  override def run(): Try[JobResult] = {
+    val res = runSparkConnector()
+    Utils.logFailure(res, logger)
   }
 
   def runSparkConnector(): Try[SparkJobResult] = {
@@ -227,6 +142,98 @@ class BigQuerySparkJob(
     }
   }
 
+  def prepareConf(): Configuration = {
+    val conf = session.sparkContext.hadoopConfiguration
+    logger.info(s"BigQuery Config $cliConfig")
+    val bucket = Option(conf.get("fs.gs.system.bucket"))
+    bucket.foreach { bucket =>
+      logger.info(s"Temporary GCS path $bucket")
+      session.conf.set("temporaryGcsBucket", bucket)
+    }
+
+    val writeDisposition = JobInfo.WriteDisposition.valueOf(cliConfig.writeDisposition)
+    val finalWriteDisposition = (writeDisposition, cliConfig.outputPartition) match {
+      case (JobInfo.WriteDisposition.WRITE_TRUNCATE, Some(partition)) =>
+        logger.info(s"Overwriting partition $partition of Table $tableId")
+        logger.info(s"Setting Write mode to Overwrite")
+        JobInfo.WriteDisposition.WRITE_TRUNCATE
+      case (JobInfo.WriteDisposition.WRITE_TRUNCATE, _) =>
+        try {
+          bigquery.delete(tableId)
+        } catch {
+          case e: BigQueryException =>
+            // Log error and continue  (may be table does not exist)
+            Utils.logException(logger, e)
+        }
+        logger.info(s"Setting Write mode to Append")
+        JobInfo.WriteDisposition.WRITE_APPEND
+      case _ =>
+        writeDisposition
+    }
+
+    conf.set(
+      BigQueryConfiguration.OUTPUT_TABLE_WRITE_DISPOSITION_KEY,
+      finalWriteDisposition.toString
+    )
+    conf.set(
+      BigQueryConfiguration.OUTPUT_TABLE_CREATE_DISPOSITION_KEY,
+      cliConfig.createDisposition
+    )
+    conf
+  }
+
+  def getOrCreateTable(dataFrame: Option[DataFrame], maybeSchema: Option[BQSchema]): Table = {
+    getOrCreateDataset()
+
+    Option(bigquery.getTable(tableId)) getOrElse {
+      val withPartitionDefinition =
+        (maybeSchema, cliConfig.outputPartition) match {
+          case (Some(schema), Some(partitionField)) =>
+            // Generating schema from YML to get the descriptions in BQ
+            val partitioning =
+              timePartitioning(partitionField, cliConfig.days, cliConfig.requirePartitionFilter)
+                .build()
+            StandardTableDefinition
+              .newBuilder()
+              .setSchema(schema)
+              .setTimePartitioning(partitioning)
+          case (Some(schema), None) =>
+            // Generating schema from YML to get the descriptions in BQ
+            StandardTableDefinition
+              .newBuilder()
+              .setSchema(schema)
+          case (None, Some(partitionField)) =>
+            // We would have loved to let BQ do the whole job (StandardTableDefinition.newBuilder())
+            // But however seems like it does not work when there is an output partition
+            val partitioning =
+              timePartitioning(partitionField, cliConfig.days, cliConfig.requirePartitionFilter)
+                .build()
+            val tableDefinition =
+              StandardTableDefinition
+                .newBuilder()
+                .setTimePartitioning(partitioning)
+            dataFrame
+              .map(dataFrame => tableDefinition.setSchema(dataFrame.to[BQSchema]))
+              .getOrElse(tableDefinition)
+          case (None, None) =>
+            // In case of complex types, our inferred schema does not work, BQ introduces a list subfield, let him do the dirty job
+            StandardTableDefinition
+              .newBuilder()
+        }
+
+      val withClusteringDefinition =
+        cliConfig.outputClustering match {
+          case Nil =>
+            withPartitionDefinition
+          case fields =>
+            import scala.collection.JavaConverters._
+            val clustering = Clustering.newBuilder().setFields(fields.asJava).build()
+            withPartitionDefinition.setClustering(clustering)
+        }
+      bigquery.create(TableInfo.newBuilder(tableId, withClusteringDefinition.build()).build)
+    }
+  }
+
   private def setTablePolicy(table: Table) = {
     cliConfig.rls match {
       case Some(h :: Nil) => applyTableIamPolicy(table.getTableId, h)
@@ -234,24 +241,15 @@ class BigQuerySparkJob(
     }
   }
 
-  /** Just to force any spark job to implement its entry point within the "run" method
-    *
-    * @return : Spark Session used for the job
-    */
-  override def run(): Try[JobResult] = {
-    val res = runSparkConnector()
-    Utils.logFailure(res, logger)
-  }
-
 }
 
 object BigQuerySparkJob {
 
   def getTable(
-                session: SparkSession,
-                datasetName: String,
-                tableName: String
-              ): Option[Table] = {
+    session: SparkSession,
+    datasetName: String,
+    tableName: String
+  ): Option[Table] = {
     val conf = session.sparkContext.hadoopConfiguration
     val projectId: String =
       Option(conf.get("fs.gs.project.id")).getOrElse(ServiceOptions.getDefaultProjectId)

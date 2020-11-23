@@ -45,31 +45,23 @@ import scala.util.{Failure, Success, Try}
   * @param storageHandler : Storage Handler
   */
 class DsvIngestionJob(
-                       val domain: Domain,
-                       val schema: Schema,
-                       val types: List[Type],
-                       val path: List[Path],
-                       val storageHandler: StorageHandler,
-                       val schemaHandler: SchemaHandler
-                     )(implicit val settings: Settings)
-  extends IngestionJob {
-
-  /** @return Spark Job name
-    */
-  override def name: String =
-    s"""${domain.name}-${schema.name}-${path.headOption.map(_.getName).mkString(",")}"""
+  val domain: Domain,
+  val schema: Schema,
+  val types: List[Type],
+  val path: List[Path],
+  val storageHandler: StorageHandler,
+  val schemaHandler: SchemaHandler
+)(implicit val settings: Settings)
+    extends IngestionJob {
 
   /** dataset Header names as defined by the schema
     */
   val schemaHeaders: List[String] = schema.attributes.map(_.name)
 
-  /** remove any extra quote / BOM in the header
-    *
-    * @param header : Header column name
-    * @return
+  /** @return Spark Job name
     */
-  def cleanHeaderCol(header: String): String =
-    header.replaceAll("\"", "").replaceAll("\uFEFF", "")
+  override def name: String =
+    s"""${domain.name}-${schema.name}-${path.headOption.map(_.getName).mkString(",")}"""
 
   /** @param datasetHeaders : Headers found in the dataset
     * @param schemaHeaders  : Headers defined in the schema
@@ -77,17 +69,6 @@ class DsvIngestionJob(
     */
   def validateHeader(datasetHeaders: List[String], schemaHeaders: List[String]): Boolean = {
     schemaHeaders.forall(schemaHeader => datasetHeaders.contains(schemaHeader))
-  }
-
-  /** @param datasetHeaders : Headers found in the dataset
-    * @param schemaHeaders  : Headers defined in the schema
-    * @return two lists : One with thecolumns present in the schema and the dataset and onther with the headers present in the dataset only
-    */
-  def intersectHeaders(
-                        datasetHeaders: List[String],
-                        schemaHeaders: List[String]
-                      ): (List[String], List[String]) = {
-    datasetHeaders.partition(schemaHeaders.contains)
   }
 
   /** Load dataset using spark csv reader and all metadata. Does not infer schema.
@@ -163,11 +144,23 @@ class DsvIngestionJob(
 
   }
 
-  def rowValidator(): DsvValidator = {
-    val runtimeMirror = universe.runtimeMirror(getClass.getClassLoader)
-    val module = runtimeMirror.staticModule(settings.comet.rowValidatorClass)
-    val obj: universe.ModuleMirror = runtimeMirror.reflectModule(module)
-    obj.instance.asInstanceOf[DsvValidator]
+  /** remove any extra quote / BOM in the header
+    *
+    * @param header : Header column name
+    * @return
+    */
+  def cleanHeaderCol(header: String): String =
+    header.replaceAll("\"", "").replaceAll("\uFEFF", "")
+
+  /** @param datasetHeaders : Headers found in the dataset
+    * @param schemaHeaders  : Headers defined in the schema
+    * @return two lists : One with thecolumns present in the schema and the dataset and onther with the headers present in the dataset only
+    */
+  def intersectHeaders(
+    datasetHeaders: List[String],
+    schemaHeaders: List[String]
+  ): (List[String], List[String]) = {
+    datasetHeaders.partition(schemaHeaders.contains)
   }
 
   /** Apply the schema to the dataset. This is where all the magic happen
@@ -215,6 +208,13 @@ class DsvIngestionJob(
     (rejectedRDD, acceptedRDD)
   }
 
+  def rowValidator(): DsvValidator = {
+    val runtimeMirror = universe.runtimeMirror(getClass.getClassLoader)
+    val module = runtimeMirror.staticModule(settings.comet.rowValidatorClass)
+    val obj: universe.ModuleMirror = runtimeMirror.reflectModule(module)
+    obj.instance.asInstanceOf[DsvValidator]
+  }
+
   def saveAccepted(acceptedRDD: RDD[Row], orderedSparkTypes: StructType): (DataFrame, Path) = {
     val renamedAttributes = schema.renamedAttributes().toMap
     logger.whenInfoEnabled {
@@ -249,12 +249,12 @@ trait DsvValidator {
     * @return Two RDDs : One RDD for rejected rows and one RDD for accepted rows
     */
   def validate(
-                session: SparkSession,
-                dataset: DataFrame,
-                attributes: List[Attribute],
-                types: List[Type],
-                sparkType: StructType
-              )(implicit settings: Settings): (RDD[String], RDD[Row])
+    session: SparkSession,
+    dataset: DataFrame,
+    attributes: List[Attribute],
+    types: List[Type],
+    sparkType: StructType
+  )(implicit settings: Settings): (RDD[String], RDD[Row])
 }
 
 /** The Spark task that run on each worker
@@ -262,12 +262,12 @@ trait DsvValidator {
 object DsvIngestionUtil extends DsvValidator {
 
   override def validate(
-                         session: SparkSession,
-                         dataset: DataFrame,
-                         attributes: List[Attribute],
-                         types: List[Type],
-                         sparkType: StructType
-                       )(implicit settings: Settings): (RDD[String], RDD[Row]) = {
+    session: SparkSession,
+    dataset: DataFrame,
+    attributes: List[Attribute],
+    types: List[Type],
+    sparkType: StructType
+  )(implicit settings: Settings): (RDD[String], RDD[Row]) = {
 
     val now = Timestamp.from(Instant.now)
     val checkedRDD: RDD[RowResult] = dataset.rdd
@@ -322,12 +322,12 @@ object DsvIngestionUtil extends DsvValidator {
 object DsvAcceptAllValidator extends DsvValidator {
 
   override def validate(
-                         session: SparkSession,
-                         dataset: DataFrame,
-                         attributes: List[Attribute],
-                         types: List[Type],
-                         sparkType: StructType
-                       )(implicit settings: Settings): (RDD[String], RDD[Row]) = {
+    session: SparkSession,
+    dataset: DataFrame,
+    attributes: List[Attribute],
+    types: List[Type],
+    sparkType: StructType
+  )(implicit settings: Settings): (RDD[String], RDD[Row]) = {
     val rejectedRDD: RDD[String] = session.emptyDataFrame.rdd.map(_.mkString)
     val acceptedRDD: RDD[Row] = dataset.rdd
     (rejectedRDD, acceptedRDD)
