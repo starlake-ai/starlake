@@ -45,14 +45,14 @@ import scala.util.{Failure, Success, Try}
   * @param storageHandler : Storage Handler
   */
 class DsvIngestionJob(
-  val domain: Domain,
-  val schema: Schema,
-  val types: List[Type],
-  val path: List[Path],
-  val storageHandler: StorageHandler,
-  val schemaHandler: SchemaHandler
-)(implicit val settings: Settings)
-    extends IngestionJob {
+                       val domain: Domain,
+                       val schema: Schema,
+                       val types: List[Type],
+                       val path: List[Path],
+                       val storageHandler: StorageHandler,
+                       val schemaHandler: SchemaHandler
+                     )(implicit val settings: Settings)
+  extends IngestionJob {
 
   /** @return Spark Job name
     */
@@ -84,9 +84,9 @@ class DsvIngestionJob(
     * @return two lists : One with thecolumns present in the schema and the dataset and onther with the headers present in the dataset only
     */
   def intersectHeaders(
-    datasetHeaders: List[String],
-    schemaHeaders: List[String]
-  ): (List[String], List[String]) = {
+                        datasetHeaders: List[String],
+                        schemaHeaders: List[String]
+                      ): (List[String], List[String]) = {
     datasetHeaders.partition(schemaHeaders.contains)
   }
 
@@ -249,12 +249,12 @@ trait DsvValidator {
     * @return Two RDDs : One RDD for rejected rows and one RDD for accepted rows
     */
   def validate(
-    session: SparkSession,
-    dataset: DataFrame,
-    attributes: List[Attribute],
-    types: List[Type],
-    sparkType: StructType
-  )(implicit settings: Settings): (RDD[String], RDD[Row])
+                session: SparkSession,
+                dataset: DataFrame,
+                attributes: List[Attribute],
+                types: List[Type],
+                sparkType: StructType
+              )(implicit settings: Settings): (RDD[String], RDD[Row])
 }
 
 /** The Spark task that run on each worker
@@ -262,12 +262,12 @@ trait DsvValidator {
 object DsvIngestionUtil extends DsvValidator {
 
   override def validate(
-    session: SparkSession,
-    dataset: DataFrame,
-    attributes: List[Attribute],
-    types: List[Type],
-    sparkType: StructType
-  )(implicit settings: Settings): (RDD[String], RDD[Row]) = {
+                         session: SparkSession,
+                         dataset: DataFrame,
+                         attributes: List[Attribute],
+                         types: List[Type],
+                         sparkType: StructType
+                       )(implicit settings: Settings): (RDD[String], RDD[Row]) = {
 
     val now = Timestamp.from(Instant.now)
     val checkedRDD: RDD[RowResult] = dataset.rdd
@@ -322,12 +322,12 @@ object DsvIngestionUtil extends DsvValidator {
 object DsvAcceptAllValidator extends DsvValidator {
 
   override def validate(
-    session: SparkSession,
-    dataset: DataFrame,
-    attributes: List[Attribute],
-    types: List[Type],
-    sparkType: StructType
-  )(implicit settings: Settings): (RDD[String], RDD[Row]) = {
+                         session: SparkSession,
+                         dataset: DataFrame,
+                         attributes: List[Attribute],
+                         types: List[Type],
+                         sparkType: StructType
+                       )(implicit settings: Settings): (RDD[String], RDD[Row]) = {
     val rejectedRDD: RDD[String] = session.emptyDataFrame.rdd.map(_.mkString)
     val acceptedRDD: RDD[Row] = dataset.rdd
     (rejectedRDD, acceptedRDD)

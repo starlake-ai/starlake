@@ -65,14 +65,14 @@ object Settings extends StrictLogging {
     * @param business   : Name of the business area
     */
   final case class Area(
-    pending: String,
-    unresolved: String,
-    archive: String,
-    ingesting: String,
-    accepted: String,
-    rejected: String,
-    business: String
-  ) {
+                         pending: String,
+                         unresolved: String,
+                         archive: String,
+                         ingesting: String,
+                         accepted: String,
+                         rejected: String,
+                         business: String
+                       ) {
     val acceptedFinal: String = accepted.toLowerCase(Locale.ROOT)
     val rejectedFinal: String = rejected.toLowerCase(Locale.ROOT)
     val businessFinal: String = business.toLowerCase(Locale.ROOT)
@@ -87,17 +87,17 @@ object Settings extends StrictLogging {
   /** @param discreteMaxCardinality : Max number of unique values allowed in cardinality compute
     */
   final case class Metrics(
-    path: String,
-    discreteMaxCardinality: Int,
-    active: Boolean,
-    sink: Sink
-  )
+                            path: String,
+                            discreteMaxCardinality: Int,
+                            active: Boolean,
+                            sink: Sink
+                          )
 
   final case class Audit(
-    path: String,
-    sink: Sink,
-    maxErrors: Int
-  )
+                          path: String,
+                          sink: Sink,
+                          maxErrors: Int
+                        )
 
   /** Describes a connection to a JDBC-accessible database engine
     *
@@ -115,11 +115,11 @@ object Settings extends StrictLogging {
     *       underlying engine.
     */
   final case class Connection(
-    format: String = "jdbc",
-    mode: Option[String] = None,
-    options: Map[String, String] = Map.empty,
-    engineOverride: Option[String] = None
-  ) {
+                               format: String = "jdbc",
+                               mode: Option[String] = None,
+                               options: Map[String, String] = Map.empty,
+                               engineOverride: Option[String] = None
+                             ) {
     def engine: String = engineOverride.getOrElse(options("url").split(':')(1))
   }
 
@@ -129,8 +129,8 @@ object Settings extends StrictLogging {
     *               in the engine's own dialect.
     */
   final case class JdbcEngine(
-    tables: scala.collection.Map[String, JdbcEngine.TableDdl]
-  )
+                               tables: scala.collection.Map[String, JdbcEngine.TableDdl]
+                             )
 
   object JdbcEngine {
 
@@ -150,12 +150,12 @@ object Settings extends StrictLogging {
   }
 
   final case class Lock(
-    path: String,
-    metricsTimeout: Long,
-    ingestionTimeout: Long,
-    pollTime: FiniteDuration = FiniteDuration(5000L, TimeUnit.MILLISECONDS),
-    refreshTime: FiniteDuration = FiniteDuration(5000L, TimeUnit.MILLISECONDS)
-  )
+                         path: String,
+                         metricsTimeout: Long,
+                         ingestionTimeout: Long,
+                         pollTime: FiniteDuration = FiniteDuration(5000L, TimeUnit.MILLISECONDS),
+                         refreshTime: FiniteDuration = FiniteDuration(5000L, TimeUnit.MILLISECONDS)
+                       )
 
   final case class Atlas(uri: String, user: String, password: String, owner: String)
 
@@ -174,43 +174,43 @@ object Settings extends StrictLogging {
     * @param airflow        : Airflow end point. Should be defined even if simple launccher is used instead of airflow.
     */
   final case class Comet(
-    tmpdir: String,
-    jobId: String,
-    datasets: String,
-    metadata: String,
-    metrics: Metrics,
-    audit: Audit,
-    archive: Boolean,
-    lock: Lock,
-    defaultWriteFormat: String,
-    csvOutput: Boolean,
-    privacyOnly: Boolean,
-    launcher: String,
-    chewerPrefix: String,
-    rowValidatorClass: String,
-    analyze: Boolean,
-    hive: Boolean,
-    grouped: Boolean,
-    mergeForceDistinct: Boolean,
-    area: Area,
-    airflow: Airflow,
-    elasticsearch: Elasticsearch,
-    hadoop: juMap[String, String],
-    connections: Map[String, Connection],
-    jdbcEngines: Map[String, JdbcEngine],
-    atlas: Atlas,
-    privacy: Privacy,
-    fileSystem: Option[String],
-    metadataFileSystem: Option[String],
-    internal: Option[Internal],
-    udfs: Option[String]
-  ) extends Serializable {
+                          tmpdir: String,
+                          jobId: String,
+                          datasets: String,
+                          metadata: String,
+                          metrics: Metrics,
+                          audit: Audit,
+                          archive: Boolean,
+                          lock: Lock,
+                          defaultWriteFormat: String,
+                          csvOutput: Boolean,
+                          privacyOnly: Boolean,
+                          launcher: String,
+                          chewerPrefix: String,
+                          rowValidatorClass: String,
+                          analyze: Boolean,
+                          hive: Boolean,
+                          grouped: Boolean,
+                          mergeForceDistinct: Boolean,
+                          area: Area,
+                          airflow: Airflow,
+                          elasticsearch: Elasticsearch,
+                          hadoop: juMap[String, String],
+                          connections: Map[String, Connection],
+                          jdbcEngines: Map[String, JdbcEngine],
+                          atlas: Atlas,
+                          privacy: Privacy,
+                          fileSystem: Option[String],
+                          metadataFileSystem: Option[String],
+                          internal: Option[Internal],
+                          udfs: Option[String]
+                        ) extends Serializable {
 
     @JsonIgnore
     def isElasticsearchSupported(): Boolean = {
       if (
         Version(util.Properties.versionNumberString).compareTo(Version("2.12")) >= 0
-        && elasticsearch.active
+          && elasticsearch.active
       ) {
         logger.warn("""Elasticsearch inserts won't be effective before es-hadoop support scala 2.12
                       |See https://github.com/elastic/elasticsearch-hadoop/pull/1308
@@ -313,7 +313,7 @@ final case class Settings(comet: Settings.Comet, sparkConfig: Config) {
     require(
       oldJobId == comet.jobId,
       s"cannot publish different MDC data; a previous jobId ${oldJobId} had been published," +
-      s" attempting to reset to ${comet.jobId}"
+        s" attempting to reset to ${comet.jobId}"
     )
     MDC.put("JID", comet.jobId)
   }
