@@ -16,7 +16,7 @@ class MainRoutes(
     logRequestResult("RestAll") {
       pathPrefix("api" / "comet-service") {
         pathEnd {
-          complete(StatusCodes.OK, "this is the root of all things")
+          complete(StatusCodes.OK, "this is the main root")
         } ~ apiRoutes
       }
     }
