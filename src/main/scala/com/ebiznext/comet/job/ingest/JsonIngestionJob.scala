@@ -50,6 +50,8 @@ class JsonIngestionJob(
 )(implicit val settings: Settings)
     extends IngestionJob {
 
+  lazy val schemaSparkType: StructType = schema.sparkType(schemaHandler)
+
   /** load the json as an RDD of String
     *
     * @return Spark Dataframe loaded using metadata options
@@ -76,8 +78,6 @@ class JsonIngestionJob(
         Failure(e)
     }
   }
-
-  lazy val schemaSparkType: StructType = schema.sparkType(schemaHandler)
 
   /** Where the magic happen
     *
