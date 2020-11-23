@@ -41,16 +41,14 @@ import scala.util.{Failure, Success, Try}
   * @param storageHandler : Storage Handler
   */
 class JsonIngestionJob(
-  val domain: Domain,
-  val schema: Schema,
-  val types: List[Type],
-  val path: List[Path],
-  val storageHandler: StorageHandler,
-  val schemaHandler: SchemaHandler
-)(implicit val settings: Settings)
-    extends IngestionJob {
-
-  lazy val schemaSparkType: StructType = schema.sparkType(schemaHandler)
+                        val domain: Domain,
+                        val schema: Schema,
+                        val types: List[Type],
+                        val path: List[Path],
+                        val storageHandler: StorageHandler,
+                        val schemaHandler: SchemaHandler
+                      )(implicit val settings: Settings)
+  extends IngestionJob {
 
   /** load the json as an RDD of String
     *
@@ -78,6 +76,8 @@ class JsonIngestionJob(
         Failure(e)
     }
   }
+
+  lazy val schemaSparkType: StructType = schema.sparkType(schemaHandler)
 
   /** Where the magic happen
     *
