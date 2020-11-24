@@ -9,16 +9,16 @@ import org.apache.poi.ss.usermodel._
 
 import scala.collection.JavaConverters._
 
-/** Reads the spreadsheet found at the specified {@param path} and builds the corresponding Domain object
-  * @param Input
-  */
-
 sealed trait Input
 
 case class Path(path: String) extends Input
 
 case class FileInput(file: File) extends Input
 
+/** Reads the spreadsheet found at the specified {@param input} and builds the corresponding Domain object
+  *
+  * @param input
+  */
 class XlsReader(input: Input) {
 
   private val workbook: Workbook = input match {

@@ -4,8 +4,8 @@ import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.{Directives, Route}
 import com.typesafe.scalalogging.StrictLogging
 
-/** @author Amine Sagaama
-  */
+
+
 class MainRoutes(
   generatorService: GeneratorService
 ) extends Directives
