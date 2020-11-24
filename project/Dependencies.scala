@@ -185,5 +185,5 @@ object Dependencies {
 
   val dependencies =
     scalate ++ logging ++ typedConfigs ++ betterfiles ++ scalaTest ++ scopt ++ hadoop ++ esHadoop ++
-    sttp ++ gcp ++ azure ++ h2 ++ excelClientApi // ++ atlas
+    sttp ++ gcp ++ azure ++ h2 ++ excelClientApi ++ akkaHttp ++ akkaStream // ++ atlas
 }

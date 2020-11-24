@@ -41,14 +41,14 @@ import scala.util.{Failure, Success, Try}
   * @param storageHandler : Storage Handler
   */
 class JsonIngestionJob(
-                        val domain: Domain,
-                        val schema: Schema,
-                        val types: List[Type],
-                        val path: List[Path],
-                        val storageHandler: StorageHandler,
-                        val schemaHandler: SchemaHandler
-                      )(implicit val settings: Settings)
-  extends IngestionJob {
+  val domain: Domain,
+  val schema: Schema,
+  val types: List[Type],
+  val path: List[Path],
+  val storageHandler: StorageHandler,
+  val schemaHandler: SchemaHandler
+)(implicit val settings: Settings)
+    extends IngestionJob {
 
   /** load the json as an RDD of String
     *

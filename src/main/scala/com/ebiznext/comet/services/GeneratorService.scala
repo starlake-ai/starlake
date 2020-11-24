@@ -2,14 +2,14 @@ package com.ebiznext.comet.services
 
 import java.io.File
 
-import akka.http.scaladsl.model.{HttpEntity, HttpResponse, StatusCodes}
 import akka.http.scaladsl.model.headers.RawHeader
+import akka.http.scaladsl.model.{HttpEntity, HttpResponse, StatusCodes}
 import akka.http.scaladsl.server.directives.FileInfo
 import akka.http.scaladsl.server.{Directives, Route}
 import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.schema.generator.Xls2Yml.{genPostEncryptionDomain, genPreEncryptionDomain}
-import com.ebiznext.comet.schema.generator.{FileInput, XlsReader}
 import com.ebiznext.comet.schema.generator.YamlSerializer._
+import com.ebiznext.comet.schema.generator.{FileInput, XlsReader}
 
 class GeneratorService(implicit
   settings: Settings
