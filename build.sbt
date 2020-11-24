@@ -50,7 +50,7 @@ libraryDependencies ++= {
           }
         else
         {
-          (spark_3d0_forScala_2d12_service ++ akkaHttp ++ akkaStream, jackson312)
+          (spark_3d0_forScala_2d12_service, jackson312)
         }
       case "2" =>
         CrossVersion.partialVersion(scalaVersion.value) match {
