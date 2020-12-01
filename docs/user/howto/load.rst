@@ -304,12 +304,15 @@ strategies:
 
     privacy {
       options = {
-        "none":"com.ebiznext.comet.utils.No",
-        "hide":"com.ebiznext.comet.utils.Hide",
-        "md5":"com.ebiznext.comet.utils.Md5",
-        "sha1":"com.ebiznext.comet.utils.Sha1",
-        "sha256":"com.ebiznext.comet.utils.Sha256",
-        "sha512":"com.ebiznext.comet.utils.Sha512"
+        "none": "com.ebiznext.comet.privacy.No",
+        "hide": "com.ebiznext.comet.privacy.Hide",
+        "hide10X": "com.ebiznext.comet.privacy.Hide(\"X\",10)",
+        "approxLong20": "com.ebiznext.comet.privacy.ApproxLong(20)",
+        "md5": "com.ebiznext.comet.privacy.Md5",
+        "sha1": "com.ebiznext.comet.privacy.Sha1",
+        "sha256": "com.ebiznext.comet.privacy.Sha256",
+        "sha512": "com.ebiznext.comet.privacy.Sha512",
+        "initials": "com.ebiznext.comet.privacy.Initials"
       }
     }
 
