@@ -1,7 +1,7 @@
 package com.ebiznext.comet.utils.conversion
 
+import com.ebiznext.comet.utils.repackaged.BigQuerySchemaConverters
 import com.google.cloud.bigquery.{StandardSQLTypeName, Schema => BQSchema}
-import com.google.cloud.spark.bigquery.SchemaConverters
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.types._
 
@@ -40,7 +40,6 @@ object BigQueryUtils {
     */
 
   def bqSchema(schema: DataType): BQSchema = {
-    SchemaConverters.toBigQuerySchema(schema.asInstanceOf[StructType])
+    BigQuerySchemaConverters.toBigQuerySchema(schema.asInstanceOf[StructType])
   }
-
 }
