@@ -46,9 +46,10 @@ class PositionIngestionJob(
   types: List[Type],
   path: List[Path],
   storageHandler: StorageHandler,
-  schemaHandler: SchemaHandler
+  schemaHandler: SchemaHandler,
+  options: Map[String, String]
 )(implicit settings: Settings)
-    extends DsvIngestionJob(domain, schema, types, path, storageHandler, schemaHandler) {
+    extends DsvIngestionJob(domain, schema, types, path, storageHandler, schemaHandler, options) {
 
   /** Load dataset using spark csv reader and all metadata. Does not infer schema.
     * columns not defined in the schema are dropped fro the dataset (require datsets with a header)

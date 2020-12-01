@@ -48,10 +48,16 @@ trait LaunchHandler {
     * @param path   : absolute path where the source dataset  (JSON / CSV / ...) is located
     * @return success / failure
     */
-  def ingest(workflow: IngestionWorkflow, domain: Domain, schema: Schema, path: Path)(implicit
+  def ingest(
+    workflow: IngestionWorkflow,
+    domain: Domain,
+    schema: Schema,
+    path: Path,
+    options: Map[String, String]
+  )(implicit
     settings: Settings
   ): Boolean =
-    ingest(workflow, domain, schema, path :: Nil)
+    ingest(workflow, domain, schema, path :: Nil, options)
 
   /** Submit to the cron manager multiple files for ingestion.
     * All the files should have the schema schema and belong to the same domain.
@@ -65,7 +71,8 @@ trait LaunchHandler {
     workflow: IngestionWorkflow,
     domain: Domain,
     schema: Schema,
-    paths: List[Path]
+    paths: List[Path],
+    options: Map[String, String]
   )(implicit settings: Settings): Boolean
 
   /** Index into elasticsearch
@@ -109,10 +116,11 @@ class SimpleLauncher extends LaunchHandler with StrictLogging {
     workflow: IngestionWorkflow,
     domain: Domain,
     schema: Schema,
-    paths: List[Path]
+    paths: List[Path],
+    options: Map[String, String]
   )(implicit settings: Settings): Boolean = {
     logger.info(s"Launch Ingestion: ${domain.name} ${schema.name} $paths ")
-    workflow.ingest(LoadConfig(domain.name, schema.name, paths))
+    workflow.ingest(LoadConfig(domain.name, schema.name, paths, options))
   }
 
   /** Index into elasticsearch
@@ -198,7 +206,8 @@ class AirflowLauncher extends LaunchHandler with StrictLogging {
     workflow: IngestionWorkflow,
     domain: Domain,
     schema: Schema,
-    paths: List[Path]
+    paths: List[Path],
+    options: Map[String, String]
   )(implicit settings: Settings): Boolean = {
     val endpoint = settings.comet.airflow.endpoint
     val ingest = settings.comet.airflow.ingest

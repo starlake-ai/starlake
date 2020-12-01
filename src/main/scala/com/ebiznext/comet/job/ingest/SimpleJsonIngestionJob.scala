@@ -45,9 +45,10 @@ class SimpleJsonIngestionJob(
   types: List[Type],
   path: List[Path],
   storageHandler: StorageHandler,
-  schemaHandler: SchemaHandler
+  schemaHandler: SchemaHandler,
+  options: Map[String, String]
 )(implicit settings: Settings)
-    extends DsvIngestionJob(domain, schema, types, path, storageHandler, schemaHandler) {
+    extends DsvIngestionJob(domain, schema, types, path, storageHandler, schemaHandler, options) {
 
   override def loadDataSet(): Try[DataFrame] = {
     try {
