@@ -35,7 +35,7 @@
     </property>
     <property>
         <name>google.cloud.auth.service.account.json.keyfile</name>
-        <value>/Users/hayssams/.gcloud/keys/ebiz-europe-west1-582591071c46.json</value>
+        <value>/Users/hayssams/.gcloud/keys/ebiz-europe-west1-282b905c8163.json</value>
     </property>
     <property>
         <name>fs.default.name</name>
