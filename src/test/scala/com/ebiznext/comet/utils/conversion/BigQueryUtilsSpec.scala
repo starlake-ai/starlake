@@ -2,6 +2,7 @@ package com.ebiznext.comet.utils.conversion
 
 import com.ebiznext.comet.TestHelper
 import com.ebiznext.comet.config.SparkEnv
+import com.google.cloud.bigquery.{Field, StandardSQLTypeName, Schema => BQSchema}
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.types._
 
@@ -10,109 +11,102 @@ class BigQueryUtilsSpec extends TestHelper {
     val sparkEnv: SparkEnv = new SparkEnv("test")
     val session: SparkSession = sparkEnv.session
 
-    "category" should "work" in {
-
-      val schema = StructType(
+    "Spark Types" should "be converted to corresponding BQ Types" in {
+      val sparkSchema = StructType(
         Seq(
           StructField("categoryId", StringType, true),
           StructField("categorySynonyms", ArrayType(StringType, true), true),
-          StructField("categoryUrl", StringType, true),
-          StructField("exclusiveOfferCode", StringType, true),
+          StructField("isNew", BooleanType, true),
+          StructField("exclusiveOfferCode", IntegerType, true),
           StructField(
             "filters",
             ArrayType(
               StructType(
                 Seq(
-                  StructField("dimension", StringType, true)
-//                  StructField(
-//                    "dimensionValues",
-//                    ArrayType(
-//                      StructType(
-//                        Seq(
-//                          StructField("identifier", StringType, true),
-//                          StructField("label", StringType, true),
-//                          StructField("mediaUrl", StringType, true),
-//                          StructField("previewUrl", StringType, true)
-//                        )
-//                      ),
-//                      true
-//                    ),
-//                    true
-//                  ),
-//                  StructField("name", StringType, true)
+                  StructField("dimension", StringType, false),
+                  StructField(
+                    "dimensionValues",
+                    ArrayType(
+                      StructType(
+                        Seq(
+                          StructField("identifier", StringType, true),
+                          StructField("label", StringType, false)
+                        )
+                      ),
+                      true
+                    ),
+                    true
+                  ),
+                  StructField("name", StringType, true)
                 )
               ),
               true
             ),
             true
           ),
-          StructField("name", StringType, true),
-          StructField("products", ArrayType(StringType, true), true),
-          StructField("subCategories", ArrayType(StringType, true), true)
+          StructField("name", StringType, false),
+          StructField("subCategories", ArrayType(BinaryType, true), true)
         )
       )
-      val bqSchema = BigQueryUtils.bqSchema(
-        sparkSession.read
-          .json("/Users/elarib/Downloads/ingesting_digital_fr_CA_20201111.json")
-          .schema
+      //Schema{fields=[Field{name=value, type=INTEGER, mode=NULLABLE, description=, policyTags=null}]}
+      val bqSchemaExpected = BQSchema.of(
+        Field
+          .newBuilder("categoryId", StandardSQLTypeName.STRING)
+          .setMode(Field.Mode.NULLABLE)
+          .build(),
+        Field
+          .newBuilder("categorySynonyms", StandardSQLTypeName.STRING)
+          .setMode(Field.Mode.REPEATED)
+          .build(),
+        Field
+          .newBuilder("isNew", StandardSQLTypeName.BOOL)
+          .setMode(Field.Mode.NULLABLE)
+          .build(),
+        Field
+          .newBuilder("exclusiveOfferCode", StandardSQLTypeName.INT64)
+          .setMode(Field.Mode.NULLABLE)
+          .build(),
+        Field
+          .newBuilder(
+            "filters",
+            StandardSQLTypeName.STRUCT,
+            Field
+              .newBuilder("dimension", StandardSQLTypeName.STRING)
+              .setMode(Field.Mode.REQUIRED)
+              .build(),
+            Field
+              .newBuilder(
+                "dimensionValues",
+                StandardSQLTypeName.STRUCT,
+                Field
+                  .newBuilder("identifier", StandardSQLTypeName.STRING)
+                  .setMode(Field.Mode.NULLABLE)
+                  .build(),
+                Field
+                  .newBuilder("label", StandardSQLTypeName.STRING)
+                  .setMode(Field.Mode.REQUIRED)
+                  .build()
+              )
+              .setMode(Field.Mode.REPEATED)
+              .build(),
+            Field
+              .newBuilder("name", StandardSQLTypeName.STRING)
+              .setMode(Field.Mode.NULLABLE)
+              .build()
+          )
+          .setMode(Field.Mode.REPEATED)
+          .build(),
+        Field
+          .newBuilder("name", StandardSQLTypeName.STRING)
+          .setMode(Field.Mode.REQUIRED)
+          .build(),
+        Field
+          .newBuilder("subCategories", StandardSQLTypeName.BYTES)
+          .setMode(Field.Mode.REPEATED)
+          .build()
       )
 
-      println(bqSchema)
-
+      BigQueryUtils.bqSchema(sparkSchema) shouldBe bqSchemaExpected
     }
-
-//    "Spark Types" should "be converted to corresponding BQ Types" in {
-//      val res: BQSchema = List(
-//        (
-//          1,
-//          true,
-//          2.5,
-//          "hello",
-//          'x'.asInstanceOf[Byte],
-//          new Date(System.currentTimeMillis()),
-//          new Timestamp(System.currentTimeMillis())
-//        )
-//      ).toDF().to[BQSchema]
-//      //Schema{fields=[Field{name=value, type=INTEGER, mode=NULLABLE, description=, policyTags=null}]}
-//      val fields =
-//        List(
-//          Field
-//            .newBuilder("_1", StandardSQLTypeName.INT64)
-//            .setDescription("")
-//            .setMode(Field.Mode.NULLABLE)
-//            .build(),
-//          Field
-//            .newBuilder("_2", StandardSQLTypeName.BOOL)
-//            .setDescription("")
-//            .setMode(Field.Mode.NULLABLE)
-//            .build(),
-//          Field
-//            .newBuilder("_3", StandardSQLTypeName.FLOAT64)
-//            .setDescription("")
-//            .setMode(Field.Mode.NULLABLE)
-//            .build(),
-//          Field
-//            .newBuilder("_4", StandardSQLTypeName.STRING)
-//            .setDescription("")
-//            .setMode(Field.Mode.NULLABLE)
-//            .build(),
-//          Field
-//            .newBuilder("_5", StandardSQLTypeName.INT64)
-//            .setDescription("")
-//            .setMode(Field.Mode.NULLABLE)
-//            .build(),
-//          Field
-//            .newBuilder("_6", StandardSQLTypeName.DATE)
-//            .setDescription("")
-//            .setMode(Field.Mode.NULLABLE)
-//            .build(),
-//          Field
-//            .newBuilder("_7", StandardSQLTypeName.TIMESTAMP)
-//            .setDescription("")
-//            .setMode(Field.Mode.NULLABLE)
-//            .build()
-//        )
-//      res.getFields should contain theSameElementsInOrderAs fields
-//    }
   }
 }
