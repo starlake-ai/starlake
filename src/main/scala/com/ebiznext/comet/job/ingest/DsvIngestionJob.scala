@@ -43,6 +43,7 @@ import scala.util.{Failure, Success, Try}
   * @param types          : List of globally defined types
   * @param path           : Input dataset path
   * @param storageHandler : Storage Handler
+  * @param options : Parameters to pass as input (k1=v1,k2=v2,k3=v3)
   */
 class DsvIngestionJob(
   val domain: Domain,
@@ -50,7 +51,8 @@ class DsvIngestionJob(
   val types: List[Type],
   val path: List[Path],
   val storageHandler: StorageHandler,
-  val schemaHandler: SchemaHandler
+  val schemaHandler: SchemaHandler,
+  val options: Map[String, String]
 )(implicit val settings: Settings)
     extends IngestionJob {
 
