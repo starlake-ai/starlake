@@ -14,7 +14,13 @@ import com.ebiznext.comet.schema.model.Trim.{BOTH, LEFT, RIGHT}
 import com.ebiznext.comet.schema.model._
 import com.ebiznext.comet.utils.{JobResult, SparkJob, SparkJobResult, Utils}
 import com.google.cloud.bigquery.JobInfo.{CreateDisposition, WriteDisposition}
-import com.google.cloud.bigquery.{Field, LegacySQLTypeName, StandardTableDefinition}
+import com.google.cloud.bigquery.{
+  BigQuery,
+  BigQueryOptions,
+  Field,
+  LegacySQLTypeName,
+  StandardTableDefinition
+}
 import org.apache.hadoop.fs.Path
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql._
@@ -22,23 +28,28 @@ import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types.{StringType, StructField, StructType, TimestampType}
 import com.ebiznext.comet.job.ingest.ImprovedDataFrameContext._
-
+import scala.collection.JavaConverters._
 import scala.language.existentials
 import scala.util.{Failure, Success, Try}
+import com.ebiznext.comet.utils.Formatter._
 
 /**
   */
 trait IngestionJob extends SparkJob {
+
   def domain: Domain
 
   def schema: Schema
 
   def storageHandler: StorageHandler
+
   def schemaHandler: SchemaHandler
 
   def types: List[Type]
 
   def path: List[Path]
+
+  def options: Map[String, String]
 
   val now: Timestamp = java.sql.Timestamp.from(Instant.now)
 
@@ -172,13 +183,41 @@ trait IngestionJob extends SparkJob {
                   .size() == withScriptFieldsDF.schema.fields.length
               ) {
                 val bqTable = s"${domain.name}.${schema.name}"
-                val existingBigQueryDF = session.read
-                  // We provided the acceptedDF schema here since BQ lose the required / nullable information of the schema
-                  .schema(withScriptFieldsDF.schema)
-                  .format("com.google.cloud.spark.bigquery")
-                  .option("table", bqTable)
-                  .load()
-                merge(withScriptFieldsDF, existingBigQueryDF, mergeOptions)
+                mergeOptions.queryFilter match {
+                  case Some(query) =>
+                    if (query.contains("latest")) {
+                      val bigquery: BigQuery = BigQueryOptions.getDefaultInstance().getService()
+                      val partitions = bigquery.listPartitions(table.getTableId).asScala.toList
+                      val latestPartition = partitions.last
+                      val existingBigQueryDF = session.read
+                        // We provided the acceptedDF schema here since BQ lose the required / nullable information of the schema
+                        .schema(withScriptFieldsDF.schema)
+                        .format("com.google.cloud.spark.bigquery")
+                        .option("table", bqTable)
+                        .option("filter", query.replace("latest", latestPartition))
+                        .load()
+                      merge(withScriptFieldsDF, existingBigQueryDF, mergeOptions)
+
+                    } else {
+                      val existingBigQueryDF = session.read
+                        // We provided the acceptedDF schema here since BQ lose the required / nullable information of the schema
+                        .schema(withScriptFieldsDF.schema)
+                        .format("com.google.cloud.spark.bigquery")
+                        .option("table", bqTable)
+                        .option("filter", query.richFormat(options))
+                        .load()
+                      merge(withScriptFieldsDF, existingBigQueryDF, mergeOptions)
+                    }
+                  case _ =>
+                    val existingBigQueryDF = session.read
+                      // We provided the acceptedDF schema here since BQ lose the required / nullable information of the schema
+                      .schema(withScriptFieldsDF.schema)
+                      .format("com.google.cloud.spark.bigquery")
+                      .option("table", bqTable)
+                      .load()
+                    merge(withScriptFieldsDF, existingBigQueryDF, mergeOptions)
+                }
+
               } else
                 throw new RuntimeException(
                   "Input Dataset and existing HDFS dataset do not have the same number of columns. Check for changes in the dataset schema ?"

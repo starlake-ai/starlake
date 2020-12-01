@@ -8,13 +8,13 @@ class IngestJobSpec extends TestHelper {
       val rendered = LoadConfig.usage()
       val expected =
         """
-          |Usage: comet load | ingest domain schema paths
+          |Usage: comet load | ingest domain schema paths [options]
           |
           |  domain  Domain name
           |  schema  Schema name
           |  paths   list of comma separated paths
+          |  options arguments to be used as substitutions
           |""".stripMargin
-      println(rendered)
       rendered.substring(rendered.indexOf("Usage:")).replaceAll("\\s", "") shouldEqual expected
         .replaceAll("\\s", "")
     }
