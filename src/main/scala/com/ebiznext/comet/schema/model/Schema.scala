@@ -22,11 +22,10 @@ package com.ebiznext.comet.schema.model
 
 import java.util.regex.Pattern
 
-import com.ebiznext.comet.utils.conversion.BigQueryUtils._
 import com.ebiznext.comet.schema.handlers.SchemaHandler
 import com.ebiznext.comet.utils.TextSubstitutionEngine
+import com.ebiznext.comet.utils.conversion.BigQueryUtils
 import com.fasterxml.jackson.annotation.JsonIgnore
-import com.google.cloud.bigquery.Field
 import org.apache.spark.sql.types._
 
 import scala.collection.mutable
@@ -127,17 +126,7 @@ case class Schema(
   import com.google.cloud.bigquery.{Schema => BQSchema}
 
   def bqSchema(schemaHandler: SchemaHandler): BQSchema = {
-    val fields = attributes map { attribute =>
-      Field
-        .newBuilder(
-          attribute.rename.getOrElse(attribute.name),
-          convert(attribute.sparkType(schemaHandler))
-        )
-        .setMode(if (attribute.required) Field.Mode.REQUIRED else Field.Mode.NULLABLE)
-        .setDescription(attribute.comment.getOrElse(""))
-        .build()
-    }
-    BQSchema.of(fields: _*)
+    BigQueryUtils.bqSchema(sparkType(schemaHandler))
   }
 
   /** return the list of renamed attributes
