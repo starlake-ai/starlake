@@ -26,24 +26,6 @@ class XlsReader(input: Input) {
     case FileInput(in) => WorkbookFactory.create(in)
   }
 
-  object formatter {
-    private val f = new DataFormatter()
-
-    def formatCellValue(cell: Cell): Option[String] = {
-      f.formatCellValue(cell).trim match {
-        case v if v.isEmpty => None
-        case v              => Some(v)
-      }
-    }
-  }
-
-  private val allDomainHeaders = List(
-    "_name",
-    "_path",
-    "_ack",
-    "_description"
-  )
-
   private lazy val domain: Option[Domain] = {
     val sheet = workbook.getSheet("domain")
     val (rows, headerMap) = getColsOrder(sheet, allDomainHeaders)
@@ -66,50 +48,6 @@ class XlsReader(input: Input) {
           Some(Domain(name, directory, ack = ack, comment = comment))
         case _ => None
       }
-    }
-  }
-
-  private val allSchemaHeaders = List(
-    "_name",
-    "_pattern",
-    "_mode",
-    "_write",
-    "_format",
-    "_header",
-    "_delimiter",
-    "_delta_column",
-    "_merge_keys",
-    "_description",
-    "_encoding",
-    "_sampling",
-    "_partitioning",
-    "_sink",
-    "_clustering"
-  )
-
-  private def getColsOrder(
-    sheet: Sheet,
-    allHeaders: List[String]
-  ): (Iterable[Row], Map[String, Int]) = {
-    val scalaSheet = sheet.asScala
-    val hasSchema = scalaSheet.head
-      .getCell(0, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
-      .getStringCellValue
-      .startsWith("_")
-    if (hasSchema) {
-      val headersRow = scalaSheet.head
-      val headerMap = headersRow
-        .cellIterator()
-        .asScala
-        .zipWithIndex
-        .map { case (headerCell, index) =>
-          val header = headerCell.getStringCellValue
-          (header, index)
-        }
-        .toMap
-      (scalaSheet.drop(2), headerMap)
-    } else {
-      (scalaSheet.drop(1), allHeaders.zipWithIndex.toMap)
     }
   }
 
@@ -171,6 +109,11 @@ class XlsReader(input: Input) {
         Option(row.getCell(headerMap("_clustering"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
           .flatMap(formatter.formatCellValue)
           .map(_.split(","))
+      val mergeQueryFilter =
+        Option(
+          row.getCell(headerMap("_merge_query_filter"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
+        )
+          .flatMap(formatter.formatCellValue)
 
       (nameOpt, patternOpt) match {
         case (Some(name), Some(pattern)) => {
@@ -214,20 +157,36 @@ class XlsReader(input: Input) {
             }
           )
 
-          val mergeOptions: Option[MergeOptions] = (deltaColOpt, identityKeysOpt) match {
-            case (Some(deltaCol), Some(identityKeys)) =>
-              Some(
-                MergeOptions(
-                  key = identityKeys.split(",").toList.map(_.trim),
-                  timestamp = Some(deltaCol)
+          val mergeOptions: Option[MergeOptions] =
+            (deltaColOpt, identityKeysOpt, mergeQueryFilter) match {
+              case (Some(deltaCol), Some(identityKeys), Some(filter)) =>
+                Some(
+                  MergeOptions(
+                    key = identityKeys.split(",").toList.map(_.trim),
+                    timestamp = Some(deltaCol),
+                    queryFilter = Some(filter)
+                  )
                 )
-              )
-            case (None, Some(identityKeys)) =>
-              Some(
-                MergeOptions(key = identityKeys.split(",").toList.map(_.trim))
-              )
-            case _ => None
-          }
+              case (Some(deltaCol), Some(identityKeys), _) =>
+                Some(
+                  MergeOptions(
+                    key = identityKeys.split(",").toList.map(_.trim),
+                    timestamp = Some(deltaCol)
+                  )
+                )
+              case (None, Some(identityKeys), Some(filter)) =>
+                Some(
+                  MergeOptions(
+                    key = identityKeys.split(",").toList.map(_.trim),
+                    queryFilter = Some(filter)
+                  )
+                )
+              case (None, Some(identityKeys), _) =>
+                Some(
+                  MergeOptions(key = identityKeys.split(",").toList.map(_.trim))
+                )
+              case _ => None
+            }
           Some(
             Schema(
               name,
@@ -246,6 +205,32 @@ class XlsReader(input: Input) {
     }.toList
   }
 
+  private val allDomainHeaders = List(
+    "_name",
+    "_path",
+    "_ack",
+    "_description"
+  )
+
+  private val allSchemaHeaders = List(
+    "_name",
+    "_pattern",
+    "_mode",
+    "_write",
+    "_format",
+    "_header",
+    "_delimiter",
+    "_delta_column",
+    "_merge_keys",
+    "_description",
+    "_encoding",
+    "_sampling",
+    "_partitioning",
+    "_sink",
+    "_clustering",
+    "_merge_query_filter"
+  )
+
   private val allAttributeHeaders = List(
     "_name",
     "_rename",
@@ -260,6 +245,15 @@ class XlsReader(input: Input) {
     "_position_end",
     "_trim"
   )
+
+  /** Returns the Domain corresponding to the parsed spreadsheet
+    * @param settings
+    * @return an Option of Domain
+    */
+  def getDomain()(implicit settings: Settings): Option[Domain] = {
+    val completeSchemas = buildSchemas(settings).filter(_.attributes.nonEmpty)
+    domain.map(_.copy(schemas = completeSchemas))
+  }
 
   private def buildSchemas(settings: Settings): List[Schema] = {
     schemas.map { schema =>
@@ -367,12 +361,40 @@ class XlsReader(input: Input) {
     }
   }
 
-  /** Returns the Domain corresponding to the parsed spreadsheet
-    * @param settings
-    * @return an Option of Domain
-    */
-  def getDomain()(implicit settings: Settings): Option[Domain] = {
-    val completeSchemas = buildSchemas(settings).filter(_.attributes.nonEmpty)
-    domain.map(_.copy(schemas = completeSchemas))
+  private def getColsOrder(
+    sheet: Sheet,
+    allHeaders: List[String]
+  ): (Iterable[Row], Map[String, Int]) = {
+    val scalaSheet = sheet.asScala
+    val hasSchema = scalaSheet.head
+      .getCell(0, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
+      .getStringCellValue
+      .startsWith("_")
+    if (hasSchema) {
+      val headersRow = scalaSheet.head
+      val headerMap = headersRow
+        .cellIterator()
+        .asScala
+        .zipWithIndex
+        .map { case (headerCell, index) =>
+          val header = headerCell.getStringCellValue
+          (header, index)
+        }
+        .toMap
+      (scalaSheet.drop(2), headerMap)
+    } else {
+      (scalaSheet.drop(1), allHeaders.zipWithIndex.toMap)
+    }
+  }
+
+  object formatter {
+    private val f = new DataFormatter()
+
+    def formatCellValue(cell: Cell): Option[String] = {
+      f.formatCellValue(cell).trim match {
+        case v if v.isEmpty => None
+        case v              => Some(v)
+      }
+    }
   }
 }
