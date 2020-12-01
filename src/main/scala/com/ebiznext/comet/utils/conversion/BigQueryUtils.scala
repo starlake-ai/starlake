@@ -64,6 +64,19 @@ object BigQueryUtils {
             .setMode(Field.Mode.REPEATED)
             .setDescription("")
             .build()
+        case (field: String, dataType: StructType) =>
+          val converted = dataType.fields.map { attr =>
+            inferBqSchema(attr.name, attr.dataType)
+          }
+          Field
+            .newBuilder(
+              field,
+              StandardSQLTypeName.STRUCT,
+              FieldList.of(converted.toList.asJava)
+            )
+            .setMode(Field.Mode.NULLABLE)
+            .setDescription("")
+            .build()
         case (field: String, dataType: DataType) =>
           Field
             .newBuilder(
@@ -90,16 +103,15 @@ object BigQueryUtils {
     * @return List of Spark Columns with their Type
     */
   private def fieldsSchemaAsMap(schema: DataType): List[(String, DataType)] = {
-    val fullName: String => String = name => name
     schema match {
       case StructType(fields) =>
         fields.toList.flatMap {
           case StructField(name, inner: StructType, _, _) =>
-            (fullName(name), inner) +: fieldsSchemaAsMap(inner)
+            (name, inner) +: fieldsSchemaAsMap(inner)
           case StructField(name, inner: ArrayType, _, _) =>
-            (fullName(name), inner) +: fieldsSchemaAsMap(inner.elementType)
+            (name, inner) +: fieldsSchemaAsMap(inner.elementType)
           case StructField(name, inner: DataType, _, _) =>
-            List[(String, DataType)]((fullName(name), inner))
+            List[(String, DataType)]((name, inner))
         }
       case _ => List.empty[(String, DataType)]
     }
