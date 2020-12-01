@@ -54,20 +54,6 @@ class JsonIngestionJob(
     *
     * @return Spark Dataframe loaded using metadata options
     */
-
-  /**    [
-    *    {
-    *    "ss":"zz"
-    *    },
-    *    {
-    *    "ss":"zz"
-    *    },
-    *    {
-    *    "ss":"zz"
-    *    }
-    *    ]
-    *  @return Spark Dataframe loaded using metadata options
-    */
   def loadDataSet(): Try[DataFrame] = {
 
     try {
