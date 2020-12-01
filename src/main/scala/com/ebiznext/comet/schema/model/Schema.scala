@@ -40,7 +40,8 @@ import scala.collection.mutable
 case class MergeOptions(
   key: List[String],
   delete: Option[String] = None,
-  timestamp: Option[String] = None
+  timestamp: Option[String] = None,
+  queryFilter: Option[String] = None
 )
 
 /** Dataset Schema
