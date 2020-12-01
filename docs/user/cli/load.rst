@@ -33,3 +33,8 @@ Options
     *Required*. list of comma separated paths
 
 
+.. option:: --options: <value>
+
+    *Optional*. arguments to be used as substitutions
+
+
