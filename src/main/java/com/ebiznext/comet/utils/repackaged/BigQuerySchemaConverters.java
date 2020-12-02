@@ -19,7 +19,7 @@ package com.ebiznext.comet.utils.repackaged;
  * Included here only to avoid repackaged conflict
  */
 
-import avro.shaded.com.google.common.base.Preconditions;
+import com.google.common.base.Preconditions;
 import com.google.cloud.bigquery.Field;
 import com.google.cloud.bigquery.FieldList;
 import com.google.cloud.bigquery.LegacySQLTypeName;
