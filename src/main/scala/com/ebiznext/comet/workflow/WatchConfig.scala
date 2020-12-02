@@ -3,7 +3,11 @@ package com.ebiznext.comet.workflow
 import com.ebiznext.comet.utils.CliConfig
 import scopt.OParser
 
-case class WatchConfig(includes: Seq[String] = Seq.empty, excludes: Seq[String] = Seq.empty)
+case class WatchConfig(
+  includes: Seq[String] = Seq.empty,
+  excludes: Seq[String] = Seq.empty,
+  options: Map[String, String] = Map.empty
+)
 
 object WatchConfig extends CliConfig[WatchConfig] {
 
@@ -23,7 +27,12 @@ object WatchConfig extends CliConfig[WatchConfig] {
         .valueName("domain1,domain2...")
         .optional()
         .action((x, c) => c.copy(excludes = x))
-        .text("Domains not to watch")
+        .text("Domains not to watch"),
+      opt[Map[String, String]]("options")
+        .valueName("k1=v1,k2=v2...")
+        .optional()
+        .action((x, c) => c.copy(options = x))
+        .text("Watch arguments to be used as substitutions")
     )
   }
 
