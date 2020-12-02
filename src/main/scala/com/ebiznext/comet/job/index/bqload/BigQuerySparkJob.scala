@@ -26,10 +26,10 @@ import org.apache.spark.storage.StorageLevel
 import scala.util.Try
 
 class BigQuerySparkJob(
-  override val cliConfig: BigQueryLoadConfig,
-  maybeSchema: Option[BQSchema] = None
-)(implicit val settings: Settings)
-    extends SparkJob
+                        override val cliConfig: BigQueryLoadConfig,
+                        maybeSchema: Option[BQSchema] = None
+                      )(implicit val settings: Settings)
+  extends SparkJob
     with BigQueryJobBase {
 
   override def name: String = s"bqload-${cliConfig.outputDataset}-${cliConfig.outputTable}"
@@ -205,24 +205,24 @@ class BigQuerySparkJob(
         */
 
       //      prepareRLS().foreach { rlsStatement =>
-//        logger.info(s"Applying security $rlsStatement")
-//        try {
-//          Option(runJob(rlsStatement, cliConfig.getLocation())) match {
-//            case None =>
-//              throw new RuntimeException("Job no longer exists")
-//            case Some(job) if job.getStatus.getExecutionErrors() != null =>
-//              throw new RuntimeException(
-//                job.getStatus.getExecutionErrors().asScala.reverse.mkString(",")
-//              )
-//            case Some(job) =>
-//              logger.info(s"Job with id ${job} on Statement $rlsStatement succeeded")
-//          }
-//
-//        } catch {
-//          case e: Exception =>
-//            e.printStackTrace()
-//        }
-//      }
+      //        logger.info(s"Applying security $rlsStatement")
+      //        try {
+      //          Option(runJob(rlsStatement, cliConfig.getLocation())) match {
+      //            case None =>
+      //              throw new RuntimeException("Job no longer exists")
+      //            case Some(job) if job.getStatus.getExecutionErrors() != null =>
+      //              throw new RuntimeException(
+      //                job.getStatus.getExecutionErrors().asScala.reverse.mkString(",")
+      //              )
+      //            case Some(job) =>
+      //              logger.info(s"Job with id ${job} on Statement $rlsStatement succeeded")
+      //          }
+      //
+      //        } catch {
+      //          case e: Exception =>
+      //            e.printStackTrace()
+      //        }
+      //      }
       SparkJobResult(None)
     }
   }
@@ -245,18 +245,20 @@ class BigQuerySparkJob(
 
 }
 
+case class TableMetadata(table: Option[Table], biqueryClient: BigQuery)
+
 object BigQuerySparkJob {
 
   def getTable(
-    session: SparkSession,
-    datasetName: String,
-    tableName: String
-  ): Option[Table] = {
+                session: SparkSession,
+                datasetName: String,
+                tableName: String
+              ): TableMetadata = {
     val conf = session.sparkContext.hadoopConfiguration
     val projectId: String =
       Option(conf.get("fs.gs.project.id")).getOrElse(ServiceOptions.getDefaultProjectId)
     val bigquery: BigQuery = BigQueryOptions.getDefaultInstance().getService()
     val tableId = TableId.of(projectId, datasetName, tableName)
-    Option(bigquery.getTable(tableId))
+    TableMetadata(Option(bigquery.getTable(tableId)), bigquery)
   }
 }
