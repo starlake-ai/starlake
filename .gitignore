@@ -127,3 +127,5 @@ src/main/resources/application.conf
 
 #Python
 venv
+
+.bsp
