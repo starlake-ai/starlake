@@ -199,6 +199,10 @@ trait IngestionJob extends SparkJob {
         .run()
         .get
     }
+   /*
+    * Avoid to sink to bq since it is already done above during the merge with BigQuery
+   */
+   //TODO Improve code structure
     if (metadata.getSink().map(_.`type`).getOrElse(SinkType.None) != SinkType.BQ) {
       sink(savedDataset)
     }
