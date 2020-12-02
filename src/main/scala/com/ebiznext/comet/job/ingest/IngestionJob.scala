@@ -352,7 +352,7 @@ trait IngestionJob extends SparkJob {
     * @param merge
     * @return merged dataframe
     */
-  def merge(inputDF: DataFrame, existingDF: DataFrame, merge: MergeOptions): DataFrame = {
+  def mergeParquet(inputDF: DataFrame, existingDF: DataFrame, merge: MergeOptions): DataFrame = {
     logger.info(s"inputDF Schema before merge -> ${inputDF.schema}")
     logger.info(s"existingDF Schema before merge -> ${existingDF.schema}")
     logger.info(s"existingDF field count=${existingDF.schema.fields.length}")
@@ -370,33 +370,8 @@ trait IngestionJob extends SparkJob {
     val orderedExisting =
       existingDF.select(partitionedInputDF.columns.map(col): _*)
 
-    // Force ordering again of columns to be the same since join operation change it otherwise except below won"'t work.
-    val commonDF =
-      orderedExisting
-        .join(partitionedInputDF.select(merge.key.head, merge.key.tail: _*), merge.key)
-        .select(partitionedInputDF.columns.map(col): _*)
+    processMerge(partitionedInputDF, orderedExisting, merge)
 
-    val toDeleteDF = merge.timestamp.map { timestamp =>
-      val w = Window.partitionBy(merge.key.head, merge.key.tail: _*).orderBy(col(timestamp).desc)
-      import org.apache.spark.sql.functions.row_number
-      commonDF
-        .withColumn("rownum", row_number.over(w))
-        .where(col("rownum") =!= 1)
-        .drop("rownum")
-    } getOrElse commonDF
-
-    val updatesDF = merge.delete
-      .map(condition => partitionedInputDF.filter(s"not ($condition)"))
-      .getOrElse(partitionedInputDF)
-    logger.whenDebugEnabled {
-      logger.debug(s"Merge detected ${toDeleteDF.count()} items to update/delete")
-      logger.debug(s"Merge detected ${updatesDF.count()} items to update/insert")
-      orderedExisting.except(toDeleteDF).union(updatesDF).show(false)
-    }
-    if (settings.comet.mergeForceDistinct)
-      orderedExisting.except(toDeleteDF).union(updatesDF).distinct()
-    else
-      orderedExisting.except(toDeleteDF).union(updatesDF)
   }
 
   /** Save typed dataset in parquet. If hive support is active, also register it as a Hive Table and if analyze is active, also compute basic statistics
@@ -628,12 +603,12 @@ trait IngestionJob extends SparkJob {
         .fields
         .length
     )
-      merge(withScriptFieldsDF, existingDF, mergeOptions)
+      mergeParquet(withScriptFieldsDF, existingDF, mergeOptions)
     else
       throw new RuntimeException(
         "Input Dataset and existing HDFS dataset do not have the same number of columns. Check for changes in the dataset schema ?"
       )
-    merge(withScriptFieldsDF, existingDF, mergeOptions)
+    mergeParquet(withScriptFieldsDF, existingDF, mergeOptions)
   }
 
   private[this] def mergeFromBQ(withScriptFieldsDF: DataFrame, mergeOptions: MergeOptions) = {
