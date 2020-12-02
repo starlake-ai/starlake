@@ -214,11 +214,11 @@ class IngestionWorkflow(
         }
         try {
           if (settings.comet.grouped)
-            launchHandler.ingest(this, domain, schema, ingestingPaths.toList)
+            launchHandler.ingest(this, domain, schema, ingestingPaths.toList, config.options)
           else {
             // We ingest all the files but return false if one them fails.
             ingestingPaths
-              .map(launchHandler.ingest(this, domain, schema, _))
+              .map(launchHandler.ingest(this, domain, schema, _, config.options))
               .forall(_ == true)
           }
         } catch {
@@ -266,11 +266,16 @@ class IngestionWorkflow(
     val result = for {
       domain <- domains.find(_.name == domainName)
       schema <- domain.schemas.find(_.name == schemaName)
-    } yield ingesting(domain, schema, ingestingPaths)
+    } yield ingesting(domain, schema, ingestingPaths, config.options)
     result.getOrElse(true)
   }
 
-  private def ingesting(domain: Domain, schema: Schema, ingestingPath: List[Path]): Boolean = {
+  private def ingesting(
+    domain: Domain,
+    schema: Schema,
+    ingestingPath: List[Path],
+    options: Map[String, String]
+  ): Boolean = {
     logger.info(
       s"Start Ingestion on domain: ${domain.name} with schema: ${schema.name} on file: $ingestingPath"
     )
@@ -288,7 +293,8 @@ class IngestionWorkflow(
           schemaHandler.types,
           ingestingPath,
           storageHandler,
-          schemaHandler
+          schemaHandler,
+          options
         ).run().get
       case SIMPLE_JSON =>
         new SimpleJsonIngestionJob(
@@ -297,7 +303,8 @@ class IngestionWorkflow(
           schemaHandler.types,
           ingestingPath,
           storageHandler,
-          schemaHandler
+          schemaHandler,
+          options
         ).run().get
       case JSON =>
         new JsonIngestionJob(
@@ -306,7 +313,8 @@ class IngestionWorkflow(
           schemaHandler.types,
           ingestingPath,
           storageHandler,
-          schemaHandler
+          schemaHandler,
+          options
         ).run().get
       case XML =>
         new XmlIngestionJob(
@@ -315,7 +323,8 @@ class IngestionWorkflow(
           schemaHandler.types,
           ingestingPath,
           storageHandler,
-          schemaHandler
+          schemaHandler,
+          options
         ).run().get
       case POSITION =>
         new PositionIngestionJob(
@@ -324,7 +333,8 @@ class IngestionWorkflow(
           schemaHandler.types,
           ingestingPath,
           storageHandler,
-          schemaHandler
+          schemaHandler,
+          options
         ).run().get
       case _ =>
         throw new Exception("Should never happen")
@@ -346,27 +356,6 @@ class IngestionWorkflow(
         Utils.logException(logger, exception)
     }
     ingestionResult.isSuccess
-  }
-
-  def esload(job: AutoJobDesc, task: AutoTaskDesc): Boolean = {
-    val targetArea = task.area.getOrElse(job.getArea())
-    val targetPath = new Path(DatasetArea.path(task.domain, targetArea.value), task.dataset)
-    val sink: EsSink = task.sink
-      .map(_.asInstanceOf[EsSink])
-      .getOrElse(
-        throw new Exception("Sink of type ES must be specified when loading data to ES !!!")
-      )
-    launchHandler.esLoad(
-      this,
-      ESLoadConfig(
-        timestamp = sink.timestamp,
-        id = sink.id,
-        format = "parquet",
-        domain = task.domain,
-        schema = task.dataset,
-        dataset = Some(Left(targetPath))
-      )
-    )
   }
 
   def infer(config: InferSchemaConfig): Try[Unit] = {
@@ -523,6 +512,42 @@ class IngestionWorkflow(
     result.forall(_ == true)
   }
 
+  def esload(job: AutoJobDesc, task: AutoTaskDesc): Boolean = {
+    val targetArea = task.area.getOrElse(job.getArea())
+    val targetPath = new Path(DatasetArea.path(task.domain, targetArea.value), task.dataset)
+    val sink: EsSink = task.sink
+      .map(_.asInstanceOf[EsSink])
+      .getOrElse(
+        throw new Exception("Sink of type ES must be specified when loading data to ES !!!")
+      )
+    launchHandler.esLoad(
+      this,
+      ESLoadConfig(
+        timestamp = sink.timestamp,
+        id = sink.id,
+        format = "parquet",
+        domain = task.domain,
+        schema = task.dataset,
+        dataset = Some(Left(targetPath))
+      )
+    )
+  }
+
+  /** Set nullable property of column.
+    * @param df source DataFrame
+    * @param nullable is the flag to set, such that the column is  either nullable or not
+    */
+  def setNullableStateOfColumn(df: DataFrame, nullable: Boolean): DataFrame = {
+
+    // get schema
+    val schema = df.schema
+    val newSchema = StructType(schema.map { case StructField(c, t, _, m) =>
+      StructField(c, t, nullable = nullable, m)
+    })
+    // apply new schema
+    df.sqlContext.createDataFrame(df.rdd, newSchema)
+  }
+
   def esLoad(config: ESLoadConfig): Try[JobResult] = {
     val res = new ESLoadJob(config, storageHandler, schemaHandler).run()
     Utils.logFailure(res, logger)
@@ -572,20 +597,5 @@ class IngestionWorkflow(
         logger.error("The domain or schema you specified doesn't exist! ")
         Failure(new Exception("The domain or schema you specified doesn't exist! "))
     }
-  }
-
-  /** Set nullable property of column.
-    * @param df source DataFrame
-    * @param nullable is the flag to set, such that the column is  either nullable or not
-    */
-  def setNullableStateOfColumn(df: DataFrame, nullable: Boolean): DataFrame = {
-
-    // get schema
-    val schema = df.schema
-    val newSchema = StructType(schema.map { case StructField(c, t, _, m) =>
-      StructField(c, t, nullable = nullable, m)
-    })
-    // apply new schema
-    df.sqlContext.createDataFrame(df.rdd, newSchema)
   }
 }

@@ -31,7 +31,8 @@ import scopt.OParser
 case class LoadConfig(
   domain: String = "",
   schema: String = "",
-  paths: List[Path] = Nil
+  paths: List[Path] = Nil,
+  options: Map[String, String] = Map.empty
 )
 
 object LoadConfig extends CliConfig[LoadConfig] {
@@ -54,7 +55,11 @@ object LoadConfig extends CliConfig[LoadConfig] {
       arg[String]("paths")
         .required()
         .action((x, c) => c.copy(paths = x.split(',').map(new Path(_)).toList))
-        .text("list of comma separated paths")
+        .text("list of comma separated paths"),
+      arg[Map[String, String]]("options")
+        .optional()
+        .action((x, c) => c.copy(options = x))
+        .text("arguments to be used as substitutions")
     )
   }
 
