@@ -245,18 +245,20 @@ class BigQuerySparkJob(
 
 }
 
+case class TableMetadata(table: Option[Table], biqueryClient: BigQuery)
+
 object BigQuerySparkJob {
 
   def getTable(
     session: SparkSession,
     datasetName: String,
     tableName: String
-  ): Option[Table] = {
+  ): TableMetadata = {
     val conf = session.sparkContext.hadoopConfiguration
     val projectId: String =
       Option(conf.get("fs.gs.project.id")).getOrElse(ServiceOptions.getDefaultProjectId)
     val bigquery: BigQuery = BigQueryOptions.getDefaultInstance().getService()
     val tableId = TableId.of(projectId, datasetName, tableName)
-    Option(bigquery.getTable(tableId))
+    TableMetadata(Option(bigquery.getTable(tableId)), bigquery)
   }
 }
