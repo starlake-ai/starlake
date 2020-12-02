@@ -20,7 +20,6 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.sql._
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions.col
-import org.apache.spark.sql.functions.lit
 import org.apache.spark.sql.types.{StringType, StructField, StructType, TimestampType}
 import com.ebiznext.comet.job.ingest.ImprovedDataFrameContext._
 import scala.collection.JavaConverters._
@@ -200,13 +199,17 @@ trait IngestionJob extends SparkJob {
         .run()
         .get
     }
+   /*
+    * Avoid to sink to bq since it is already done above during the merge with BigQuery
+   */
+   //TODO Improve code structure
     if (metadata.getSink().map(_.`type`).getOrElse(SinkType.None) != SinkType.BQ) {
       sink(savedDataset)
     }
     (savedDataset, acceptedPath)
   }
 
-  def sink(mergedDF: DataFrame): Unit = {
+  private[this] def sink(mergedDF: DataFrame): Unit = {
     val sinkType = metadata.getSink().map(_.`type`)
     sinkType match {
       case Some(SinkType.ES) if settings.comet.elasticsearch.active =>
@@ -286,119 +289,6 @@ trait IngestionJob extends SparkJob {
     }
   }
 
-  def mergeBq(
-    inputDF: DataFrame,
-    existingDF: DataFrame,
-    merge: MergeOptions,
-    partition: Option[String] = None
-  ): DataFrame = {
-
-    val df = partition match {
-      case Some(partBq) =>
-        val in = inputDF.drop(partBq)
-        val existing = existingDF.drop(partBq)
-        val partitionValue = inputDF
-          .select(partBq)
-          .where(col(partBq).isNotNull)
-          .rdd
-          .map(r => r.getDate(0))
-          .first()
-        processMerge(in, existing, merge).withColumn(partBq, lit(partitionValue))
-      case _ =>
-        processMerge(inputDF, existingDF, merge)
-    }
-    df
-  }
-
-  def processMerge(in: DataFrame, existing: DataFrame, merge: MergeOptions) = {
-    // Force ordering again of columns to be the same since join operation change it otherwise except below won"'t work.
-    val commonDF =
-      existing
-        .join(in.select(merge.key.head, merge.key.tail: _*), merge.key)
-        .select(in.columns.map(col): _*)
-
-    val toDeleteDF = merge.timestamp.map { timestamp =>
-      val w =
-        Window.partitionBy(merge.key.head, merge.key.tail: _*).orderBy(col(timestamp).desc)
-      import org.apache.spark.sql.functions.row_number
-      commonDF
-        .withColumn("rownum", row_number.over(w))
-        .where(col("rownum") =!= 1)
-        .drop("rownum")
-    } getOrElse commonDF
-
-    val updatesDF = merge.delete
-      .map(condition => in.filter(s"not ($condition)"))
-      .getOrElse(in)
-    logger.whenDebugEnabled {
-      logger.debug(s"Merge detected ${toDeleteDF.count()} items to update/delete")
-      logger.debug(s"Merge detected ${updatesDF.count()} items to update/insert")
-      existing.except(toDeleteDF).union(updatesDF).show(false)
-    }
-    if (settings.comet.mergeForceDistinct) {
-      existing
-        .except(toDeleteDF)
-        .union(updatesDF)
-        .distinct()
-    } else {
-      existing.except(toDeleteDF).union(updatesDF)
-    }
-  }
-
-  /** Merge incoming and existing dataframes using merge options
-    *
-    * @param inputDF
-    * @param existingDF
-    * @param merge
-    * @return merged dataframe
-    */
-  def merge(inputDF: DataFrame, existingDF: DataFrame, merge: MergeOptions): DataFrame = {
-    logger.info(s"inputDF Schema before merge -> ${inputDF.schema}")
-    logger.info(s"existingDF Schema before merge -> ${existingDF.schema}")
-    logger.info(s"existingDF field count=${existingDF.schema.fields.length}")
-    logger.info(s"""existingDF field list=${existingDF.schema.fields.map(_.name).mkString(",")}""")
-    logger.info(s"inputDF field count=${inputDF.schema.fields.length}")
-    logger.info(s"""inputDF field list=${inputDF.schema.fields.map(_.name).mkString(",")}""")
-
-    val partitionedInputDF = partitionDataset(inputDF, metadata.getPartitionAttributes())
-    logger.info(s"partitionedInputDF field count=${partitionedInputDF.schema.fields.length}")
-    logger.info(s"""partitionedInputDF field list=${partitionedInputDF.schema.fields
-      .map(_.name)
-      .mkString(",")}""")
-
-    // Force ordering of columns to be the same
-    val orderedExisting =
-      existingDF.select(partitionedInputDF.columns.map(col): _*)
-
-    // Force ordering again of columns to be the same since join operation change it otherwise except below won"'t work.
-    val commonDF =
-      orderedExisting
-        .join(partitionedInputDF.select(merge.key.head, merge.key.tail: _*), merge.key)
-        .select(partitionedInputDF.columns.map(col): _*)
-
-    val toDeleteDF = merge.timestamp.map { timestamp =>
-      val w = Window.partitionBy(merge.key.head, merge.key.tail: _*).orderBy(col(timestamp).desc)
-      import org.apache.spark.sql.functions.row_number
-      commonDF
-        .withColumn("rownum", row_number.over(w))
-        .where(col("rownum") =!= 1)
-        .drop("rownum")
-    } getOrElse commonDF
-
-    val updatesDF = merge.delete
-      .map(condition => partitionedInputDF.filter(s"not ($condition)"))
-      .getOrElse(partitionedInputDF)
-    logger.whenDebugEnabled {
-      logger.debug(s"Merge detected ${toDeleteDF.count()} items to update/delete")
-      logger.debug(s"Merge detected ${updatesDF.count()} items to update/insert")
-      orderedExisting.except(toDeleteDF).union(updatesDF).show(false)
-    }
-    if (settings.comet.mergeForceDistinct)
-      orderedExisting.except(toDeleteDF).union(updatesDF).distinct()
-    else
-      orderedExisting.except(toDeleteDF).union(updatesDF)
-  }
-
   /** Save typed dataset in parquet. If hive support is active, also register it as a Hive Table and if analyze is active, also compute basic statistics
     *
     * @param dataset    : dataset to save
@@ -406,7 +296,7 @@ trait IngestionJob extends SparkJob {
     * @param writeMode  : Append or overwrite
     * @param area       : accepted or rejected area
     */
-  def saveRows(
+  private[this] def saveRows(
     dataset: DataFrame,
     targetPath: Path,
     writeMode: WriteMode,
@@ -612,6 +502,56 @@ trait IngestionJob extends SparkJob {
     jobResult
   }
 
+  ///////////////////////////////////////////////////////////////////////////
+  // Merge between the target and the source Dataframe
+  ///////////////////////////////////////////////////////////////////////////
+
+  private[this] def processMerge(in: DataFrame, existing: DataFrame, merge: MergeOptions) = {
+    logger.info(s"inputDF Schema before merge -> ${in.schema}")
+    logger.info(s"existingDF Schema before merge -> ${existing.schema}")
+    logger.info(s"existingDF field count=${existing.schema.fields.length}")
+    logger.info(s"""existingDF field list=${existing.schema.fields.map(_.name).mkString(",")}""")
+    logger.info(s"inputDF field count=${in.schema.fields.length}")
+    logger.info(s"""inputDF field list=${in.schema.fields.map(_.name).mkString(",")}""")
+
+    // Force ordering again of columns to be the same since join operation change it otherwise except below won"'t work.
+    val commonDF =
+      existing
+        .join(in.select(merge.key.head, merge.key.tail: _*), merge.key)
+        .select(in.columns.map(col): _*)
+
+    val toDeleteDF = merge.timestamp.map { timestamp =>
+      val w =
+        Window.partitionBy(merge.key.head, merge.key.tail: _*).orderBy(col(timestamp).desc)
+      import org.apache.spark.sql.functions.row_number
+      commonDF
+        .withColumn("rownum", row_number.over(w))
+        .where(col("rownum") =!= 1)
+        .drop("rownum")
+    } getOrElse commonDF
+
+    val updatesDF = merge.delete
+      .map(condition => in.filter(s"not ($condition)"))
+      .getOrElse(in)
+    logger.whenDebugEnabled {
+      logger.debug(s"Merge detected ${toDeleteDF.count()} items to update/delete")
+      logger.debug(s"Merge detected ${updatesDF.count()} items to update/insert")
+      existing.except(toDeleteDF).union(updatesDF).show(false)
+    }
+    if (settings.comet.mergeForceDistinct) {
+      existing
+        .except(toDeleteDF)
+        .union(updatesDF)
+        .distinct()
+    } else {
+      existing.except(toDeleteDF).union(updatesDF)
+    }
+  }
+
+  ///////////////////////////////////////////////////////////////////////////
+  // Merge From Parquets Data Source
+  ///////////////////////////////////////////////////////////////////////////
+
   private[this] def mergeFromParquet(
     acceptedPath: Path,
     withScriptFieldsDF: DataFrame,
@@ -628,13 +568,44 @@ trait IngestionJob extends SparkJob {
         .fields
         .length
     )
-      merge(withScriptFieldsDF, existingDF, mergeOptions)
+      mergeParquet(withScriptFieldsDF, existingDF, mergeOptions)
     else
       throw new RuntimeException(
         "Input Dataset and existing HDFS dataset do not have the same number of columns. Check for changes in the dataset schema ?"
       )
-    merge(withScriptFieldsDF, existingDF, mergeOptions)
+    mergeParquet(withScriptFieldsDF, existingDF, mergeOptions)
   }
+
+  /** Merge incoming and existing dataframes using merge options
+    *
+    * @param inputDF
+    * @param existingDF
+    * @param merge
+    * @return merged dataframe
+    */
+  private[this] def mergeParquet(
+    inputDF: DataFrame,
+    existingDF: DataFrame,
+    merge: MergeOptions
+  ): DataFrame = {
+
+    val partitionedInputDF = partitionDataset(inputDF, metadata.getPartitionAttributes())
+    logger.info(s"partitionedInputDF field count=${partitionedInputDF.schema.fields.length}")
+    logger.info(s"""partitionedInputDF field list=${partitionedInputDF.schema.fields
+      .map(_.name)
+      .mkString(",")}""")
+
+    // Force ordering of columns to be the same
+    val orderedExisting =
+      existingDF.select(partitionedInputDF.columns.map(col): _*)
+
+    processMerge(partitionedInputDF, orderedExisting, merge)
+
+  }
+
+  ///////////////////////////////////////////////////////////////////////////
+  // Merge From BigQuery Data Source
+  ///////////////////////////////////////////////////////////////////////////
 
   private[this] def mergeFromBQ(withScriptFieldsDF: DataFrame, mergeOptions: MergeOptions) = {
     // When merging to BigQuery, load existing DF from BigQuery
@@ -665,7 +636,7 @@ trait IngestionJob extends SparkJob {
                     query.replace("latest", s"PARSE_DATE('%Y%m%d','$latestPartition')")
                   )
                   .load()
-                mergeBq(withScriptFieldsDF, existingBigQueryDF, mergeOptions, partitionBq)
+                processMerge(withScriptFieldsDF, existingBigQueryDF, mergeOptions)
 
               } else {
                 val existingBigQueryDF = session.read
@@ -675,7 +646,7 @@ trait IngestionJob extends SparkJob {
                   .option("table", bqTable)
                   .option("filter", query.richFormat(options))
                   .load()
-                mergeBq(withScriptFieldsDF, existingBigQueryDF, mergeOptions, partitionBq)
+                processMerge(withScriptFieldsDF, existingBigQueryDF, mergeOptions)
               }
             case _ =>
               val existingBigQueryDF = session.read
@@ -684,7 +655,7 @@ trait IngestionJob extends SparkJob {
                 .format("com.google.cloud.spark.bigquery")
                 .option("table", bqTable)
                 .load()
-              mergeBq(withScriptFieldsDF, existingBigQueryDF, mergeOptions)
+              processMerge(withScriptFieldsDF, existingBigQueryDF, mergeOptions)
           }
 
         } else

@@ -58,18 +58,27 @@ class JsonIngestionJob(
   def loadDataSet(): Try[DataFrame] = {
 
     try {
-      val dfIn = session.read
-        .option("inferSchema", value = false)
-        .option("encoding", metadata.getEncoding())
-        .text(path.map(_.toString): _*)
-        .select(
-          org.apache.spark.sql.functions.input_file_name(),
-          org.apache.spark.sql.functions.col("value")
-        )
+      val dfIn =
+        if (metadata.isArray()) {
+          val jsonRDD =
+            session.sparkContext.wholeTextFiles(path.map(_.toString).mkString(",")).map(_._2)
+          import org.apache.spark.sql._
+          session.read.json(session.createDataset(jsonRDD)(Encoders.STRING)).toJSON
+
+        } else {
+          session.read
+            .option("inferSchema", value = false)
+            .option("encoding", metadata.getEncoding())
+            .text(path.map(_.toString): _*)
+        }
+      val dfInWithInputFilename = dfIn.select(
+        org.apache.spark.sql.functions.input_file_name(),
+        org.apache.spark.sql.functions.col("value")
+      )
 
       logger.debug(dfIn.schema.treeString)
 
-      val df = applyIgnore(dfIn)
+      val df = applyIgnore(dfInWithInputFilename)
 
       Success(df)
     } catch {
