@@ -20,7 +20,6 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.sql._
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions.col
-import org.apache.spark.sql.functions.lit
 import org.apache.spark.sql.types.{StringType, StructField, StructType, TimestampType}
 import com.ebiznext.comet.job.ingest.ImprovedDataFrameContext._
 import scala.collection.JavaConverters._
@@ -122,32 +121,32 @@ trait IngestionJob extends SparkJob {
     val acceptedPath = new Path(DatasetArea.accepted(domain.name), schema.name)
 
     val acceptedDfWithScriptFields = (if (schema.attributes.exists(_.script.isDefined)) {
-      schema.attributes.foldLeft(acceptedDF) {
-        case (
-          df,
-          Attribute(
-          name,
-          _,
-          _,
-          _,
-          _,
-          _,
-          _,
-          _,
-          _,
-          _,
-          _,
-          _,
-          _,
-          Some(script)
-          )
-          ) =>
-          df.T(
-            s"SELECT *, ${script.richFormat(options)} as $name FROM __THIS__"
-          )
-        case (df, _) => df
-      }
-    } else acceptedDF).drop(Settings.cometInputFileNameColumn)
+                                        schema.attributes.foldLeft(acceptedDF) {
+                                          case (
+                                                df,
+                                                Attribute(
+                                                  name,
+                                                  _,
+                                                  _,
+                                                  _,
+                                                  _,
+                                                  _,
+                                                  _,
+                                                  _,
+                                                  _,
+                                                  _,
+                                                  _,
+                                                  _,
+                                                  _,
+                                                  Some(script)
+                                                )
+                                              ) =>
+                                            df.T(
+                                              s"SELECT *, ${script.richFormat(options)} as $name FROM __THIS__"
+                                            )
+                                          case (df, _) => df
+                                        }
+                                      } else acceptedDF).drop(Settings.cometInputFileNameColumn)
 
     logger.whenDebugEnabled {
       logger.debug("Accepted Dataframe schema right after adding computed columns")
@@ -286,30 +285,6 @@ trait IngestionJob extends SparkJob {
     }
   }
 
-  def mergeBq(
-               inputDF: DataFrame,
-               existingDF: DataFrame,
-               merge: MergeOptions,
-               partition: Option[String] = None
-             ): DataFrame = {
-
-    val df = partition match {
-      case Some(partBq) =>
-        val in = inputDF.drop(partBq)
-        val existing = existingDF.drop(partBq)
-        val partitionValue = inputDF
-          .select(partBq)
-          .where(col(partBq).isNotNull)
-          .rdd
-          .map(r => r.getDate(0))
-          .first()
-        processMerge(in, existing, merge).withColumn(partBq, lit(partitionValue))
-      case _ =>
-        processMerge(inputDF, existingDF, merge)
-    }
-    df
-  }
-
   def processMerge(in: DataFrame, existing: DataFrame, merge: MergeOptions) = {
     // Force ordering again of columns to be the same since join operation change it otherwise except below won"'t work.
     val commonDF =
@@ -382,12 +357,12 @@ trait IngestionJob extends SparkJob {
     * @param area       : accepted or rejected area
     */
   def saveRows(
-                dataset: DataFrame,
-                targetPath: Path,
-                writeMode: WriteMode,
-                area: StorageArea,
-                merge: Boolean
-              ): DataFrame = {
+    dataset: DataFrame,
+    targetPath: Path,
+    writeMode: WriteMode,
+    area: StorageArea,
+    merge: Boolean
+  ): DataFrame = {
     if (dataset.columns.length > 0) {
       val saveMode = writeMode.toSaveMode
       val hiveDB = StorageArea.area(domain.name, area)
@@ -420,13 +395,13 @@ trait IngestionJob extends SparkJob {
           val count = dataset.count()
           val minFraction =
             if (fraction * count >= 1) // Make sure we get at least on item in teh dataset
-            fraction
+              fraction
             else if (
               count > 0
             ) // We make sure we get at least 1 item which is 2 because of double imprecision for huge numbers.
-            2 / count
+              2 / count
             else
-            0
+              0
 
           val sampledDataset = dataset.sample(withReplacement = false, minFraction)
           partitionedDatasetWriter(sampledDataset, metadata.getPartitionAttributes())
@@ -588,14 +563,14 @@ trait IngestionJob extends SparkJob {
   }
 
   private[this] def mergeFromParquet(
-                                      acceptedPath: Path,
-                                      withScriptFieldsDF: DataFrame,
-                                      mergeOptions: MergeOptions
-                                    ) = {
+    acceptedPath: Path,
+    withScriptFieldsDF: DataFrame,
+    mergeOptions: MergeOptions
+  ) = {
     // Otherwise load from accepted area
     // We provide the accepted DF schema since partition columns types are infered when parquet is loaded and might not match with the DF being ingested
     val existingDF =
-    session.read.schema(withScriptFieldsDF.schema).parquet(acceptedPath.toString)
+      session.read.schema(withScriptFieldsDF.schema).parquet(acceptedPath.toString)
     if (
       existingDF.schema.fields.length == session.read
         .parquet(acceptedPath.toString)
@@ -640,7 +615,7 @@ trait IngestionJob extends SparkJob {
                     query.replace("latest", s"PARSE_DATE('%Y%m%d','$latestPartition')")
                   )
                   .load()
-                mergeBq(withScriptFieldsDF, existingBigQueryDF, mergeOptions, partitionBq)
+                processMerge(withScriptFieldsDF, existingBigQueryDF, mergeOptions)
 
               } else {
                 val existingBigQueryDF = session.read
@@ -650,7 +625,7 @@ trait IngestionJob extends SparkJob {
                   .option("table", bqTable)
                   .option("filter", query.richFormat(options))
                   .load()
-                mergeBq(withScriptFieldsDF, existingBigQueryDF, mergeOptions, partitionBq)
+                processMerge(withScriptFieldsDF, existingBigQueryDF, mergeOptions)
               }
             case _ =>
               val existingBigQueryDF = session.read
@@ -659,7 +634,7 @@ trait IngestionJob extends SparkJob {
                 .format("com.google.cloud.spark.bigquery")
                 .option("table", bqTable)
                 .load()
-              mergeBq(withScriptFieldsDF, existingBigQueryDF, mergeOptions)
+              processMerge(withScriptFieldsDF, existingBigQueryDF, mergeOptions)
           }
 
         } else
@@ -695,12 +670,12 @@ object IngestionUtil {
   }
 
   def sinkRejected(
-                    session: SparkSession,
-                    rejectedRDD: RDD[String],
-                    domainName: String,
-                    schemaName: String,
-                    now: Timestamp
-                  )(implicit settings: Settings): Try[(Dataset[Row], Path)] = {
+    session: SparkSession,
+    rejectedRDD: RDD[String],
+    domainName: String,
+    schemaName: String,
+    now: Timestamp
+  )(implicit settings: Settings): Try[(Dataset[Row], Path)] = {
     import session.implicits._
     val rejectedPath = new Path(DatasetArea.rejected(domainName), schemaName)
     val rejectedPathName = rejectedPath.toString
@@ -759,13 +734,13 @@ object IngestionUtil {
   }
 
   def validateCol(
-                   colRawValue: String,
-                   colAttribute: Attribute,
-                   tpe: Type,
-                   colMap: Map[String, String]
-                 )(
-                   implicit /* TODO: make me explicit. Avoid rebuilding the PrivacyLevel(settings) at each invocation? */ settings: Settings
-                 ): ColResult = {
+    colRawValue: String,
+    colAttribute: Attribute,
+    tpe: Type,
+    colMap: Map[String, String]
+  )(
+    implicit /* TODO: make me explicit. Avoid rebuilding the PrivacyLevel(settings) at each invocation? */ settings: Settings
+  ): ColResult = {
     def ltrim(s: String) = s.replaceAll("^\\s+", "")
     def rtrim(s: String) = s.replaceAll("\\s+$", "")
 
