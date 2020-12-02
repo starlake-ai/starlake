@@ -173,18 +173,20 @@ class BigQuerySparkJob(
             .map(r => r.getString(0))
             .collect()
 
-          partitions.foreach(partitionStr =>
-            sourceDF
-              .where(date_format(col(partition), dateFormat).cast("string") === partitionStr)
-              .write
-              .mode(SaveMode.Overwrite)
-              .format("com.google.cloud.spark.bigquery")
-              .option(
-                "table",
-                bqTable
-              )
-              .option("datePartition", partitionStr)
-              .save()
+          partitions.foreach(
+            partitionStr =>
+              sourceDF
+                .where(date_format(col(partition), dateFormat).cast("string") === partitionStr)
+                .write
+                .mode(SaveMode.Overwrite)
+                .format("com.google.cloud.spark.bigquery")
+                .option(
+                  "table",
+                  bqTable
+                )
+                .option("intermediateFormat", "orc")
+                .option("datePartition", partitionStr)
+                .save()
           )
         case _ =>
           logger.info(s"Saving BQ Table $bqTable")
@@ -192,6 +194,7 @@ class BigQuerySparkJob(
             .mode(SaveMode.Append)
             .format("com.google.cloud.spark.bigquery")
             .option("table", bqTable)
+            .option("intermediateFormat", "orc")
             .save()
       }
 
@@ -203,7 +206,6 @@ class BigQuerySparkJob(
 
       /** !!! We will use TABLE ACCESS CONTROLS as workaround, until RLS option is released !!!
         */
-
       //      prepareRLS().foreach { rlsStatement =>
       //        logger.info(s"Applying security $rlsStatement")
       //        try {
