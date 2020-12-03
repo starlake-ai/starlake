@@ -103,14 +103,6 @@ object Dependencies {
     "com.databricks" %% "spark-xml" % Versions.sparXML212
   )
 
-  val spark_3d0_forScala_2d12_service = Seq(
-    "org.apache.spark" %% "spark-core" % Versions.spark3d0 exclude ("com.google.guava", "guava") excludeAll (jacksonExclusions: _*),
-    "org.apache.spark" %% "spark-sql" % Versions.spark3d0 exclude ("com.google.guava", "guava") excludeAll (jacksonExclusions: _*),
-    "org.apache.spark" %% "spark-hive" % Versions.spark3d0 exclude ("com.google.guava", "guava") excludeAll (jacksonExclusions: _*),
-    "org.apache.spark" %% "spark-mllib" % Versions.spark3d0 exclude ("com.google.guava", "guava") excludeAll (jacksonExclusions: _*),
-    "com.databricks" %% "spark-xml" % Versions.sparXML212
-  )
-
   val gcsConnectorShadedJar =
     s"${Resolvers.googleCloudBigDataMavenRepo}/gcs-connector/${Versions.gcs}/gcs-connector-${Versions.gcs}-shaded.jar"
 
