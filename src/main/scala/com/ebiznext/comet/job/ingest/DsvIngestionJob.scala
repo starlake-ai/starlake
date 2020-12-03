@@ -120,8 +120,8 @@ class DsvIngestionJob(
           val (_, drop) = intersectHeaders(datasetHeaders, schemaHeaders)
           if (datasetHeaders.length == drop.length) {
             throw new Exception(s"""No attribute found in input dataset ${path.toString}
-                 | SchemaHeaders : ${schemaHeaders.mkString(",")}
-                 | Dataset Headers : ${datasetHeaders.mkString(",")}
+                                   | SchemaHeaders : ${schemaHeaders.mkString(",")}
+                                   | Dataset Headers : ${datasetHeaders.mkString(",")}
              """.stripMargin)
           }
           df.drop(drop: _*)

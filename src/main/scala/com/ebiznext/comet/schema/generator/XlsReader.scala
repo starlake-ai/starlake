@@ -9,10 +9,22 @@ import org.apache.poi.ss.usermodel._
 
 import scala.collection.JavaConverters._
 
-/** Reads the spreadsheet found at the specified {@param path} and builds the corresponding Domain object
-  * @param path
+sealed trait Input
+
+case class Path(path: String) extends Input
+
+case class FileInput(file: File) extends Input
+
+/** Reads the spreadsheet found at the specified {@param input} and builds the corresponding Domain object
+  *
+  * @param input
   */
-class XlsReader(path: String) {
+class XlsReader(input: Input) {
+
+  private val workbook: Workbook = input match {
+    case Path(s)       => WorkbookFactory.create(new File(s))
+    case FileInput(in) => WorkbookFactory.create(in)
+  }
 
   private lazy val domain: Option[Domain] = {
     val sheet = workbook.getSheet("domain")
@@ -192,7 +204,6 @@ class XlsReader(path: String) {
       }
     }.toList
   }
-  private val workbook: Workbook = WorkbookFactory.create(new File(path))
 
   private val allDomainHeaders = List(
     "_name",

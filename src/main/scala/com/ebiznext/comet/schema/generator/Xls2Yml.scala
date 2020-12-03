@@ -113,7 +113,7 @@ object Xls2Yml extends LazyLogging {
   def generateSchema(inputPath: String, outputPath: Option[String] = None)(implicit
     settings: Settings
   ): Unit = {
-    val reader = new XlsReader(inputPath)
+    val reader = new XlsReader(Path(inputPath))
     reader.getDomain.foreach { domain =>
       writeDomainYaml(domain, outputPath.getOrElse(DatasetArea.domains.toString), domain.name)
     }
@@ -136,7 +136,7 @@ object Xls2Yml extends LazyLogging {
         if (config.encryption) {
           for {
             file   <- config.files
-            domain <- new XlsReader(file).getDomain()
+            domain <- new XlsReader(Path(file)).getDomain()
           } yield {
             val preEncrypt = genPreEncryptionDomain(domain, config.privacy)
             writeDomainYaml(
