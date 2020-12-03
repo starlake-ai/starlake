@@ -13,8 +13,6 @@ lazy val scala212 = "2.12.12"
 
 lazy val sparkVersion = sys.env.getOrElse("COMET_SPARK_VERSION", "3.0.1")
 
-lazy val launchService = sys.props.getOrElse("LAUNCH_SERVICE", "false")
-
 val sparkVersionPattern: Regex = "(\\d+).(\\d+).(\\d+)".r
 
 val sparkPatternMatch = sparkVersionPattern
@@ -44,14 +42,7 @@ libraryDependencies ++= {
     System.out.println(s"sparkMajor=$sparkMajor")
     sparkMajor match {
       case "3" =>
-        if (launchService.equals("false"))
-          {
             (spark_3d0_forScala_2d12, jackson312)
-          }
-        else
-        {
-          (spark_3d0_forScala_2d12_service, jackson312)
-        }
       case "2" =>
         CrossVersion.partialVersion(scalaVersion.value) match {
           case Some((2, scalaMinor)) if scalaMinor == 12 => (spark_2d4_forScala_2d12, jackson212)
