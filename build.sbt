@@ -42,7 +42,7 @@ libraryDependencies ++= {
     System.out.println(s"sparkMajor=$sparkMajor")
     sparkMajor match {
       case "3" =>
-        (spark_3d0_forScala_2d12, jackson312)
+            (spark_3d0_forScala_2d12, jackson312)
       case "2" =>
         CrossVersion.partialVersion(scalaVersion.value) match {
           case Some((2, scalaMinor)) if scalaMinor == 12 => (spark_2d4_forScala_2d12, jackson212)
@@ -126,6 +126,7 @@ releaseVersionBump := Next
 
 assemblyMergeStrategy in assembly := {
   case PathList("META-INF", xs @ _*) => MergeStrategy.discard
+  case "reference.conf" => MergeStrategy.concat
   case x                             => MergeStrategy.first
 }
 
