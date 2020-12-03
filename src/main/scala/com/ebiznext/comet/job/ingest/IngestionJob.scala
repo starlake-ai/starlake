@@ -1,17 +1,16 @@
 package com.ebiznext.comet.job.ingest
 
-import java.sql.Timestamp
-import java.time.{Instant, LocalDateTime}
-
 import com.ebiznext.comet.config.{DatasetArea, Settings, StorageArea}
 import com.ebiznext.comet.job.index.bqload.{BigQueryLoadConfig, BigQuerySparkJob}
-import com.ebiznext.comet.job.index.esload.{ESLoadConfig, ESLoadJob}
 import com.ebiznext.comet.job.index.connectionload.{ConnectionLoadConfig, ConnectionLoadJob}
+import com.ebiznext.comet.job.index.esload.{ESLoadConfig, ESLoadJob}
+import com.ebiznext.comet.job.ingest.ImprovedDataFrameContext._
 import com.ebiznext.comet.job.metrics.MetricsJob
 import com.ebiznext.comet.schema.handlers.{SchemaHandler, StorageHandler}
 import com.ebiznext.comet.schema.model.Rejection.{ColInfo, ColResult}
 import com.ebiznext.comet.schema.model.Trim.{BOTH, LEFT, RIGHT}
 import com.ebiznext.comet.schema.model._
+import com.ebiznext.comet.utils.Formatter._
 import com.ebiznext.comet.utils.{JobResult, SparkJob, SparkJobResult, Utils}
 import com.google.cloud.bigquery.JobInfo.{CreateDisposition, WriteDisposition}
 import com.google.cloud.bigquery.{Field, LegacySQLTypeName, StandardTableDefinition}
@@ -21,11 +20,12 @@ import org.apache.spark.sql._
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types.{StringType, StructField, StructType, TimestampType}
-import com.ebiznext.comet.job.ingest.ImprovedDataFrameContext._
+
+import java.sql.Timestamp
+import java.time.{Instant, LocalDateTime}
 import scala.collection.JavaConverters._
 import scala.language.existentials
 import scala.util.{Failure, Success, Try}
-import com.ebiznext.comet.utils.Formatter._
 
 /**
   */
@@ -86,7 +86,7 @@ trait IngestionJob extends SparkJob {
     val schemaName = schema.name
     IngestionUtil.sinkRejected(session, rejectedRDD, domainName, schemaName, now) match {
       case Success((rejectedDF, rejectedPath)) =>
-        saveRows(rejectedDF, rejectedPath, WriteMode.APPEND, StorageArea.rejected, merge = false)
+        sinkToFile(rejectedDF, rejectedPath, WriteMode.APPEND, StorageArea.rejected, merge = false)
         Success(rejectedPath)
       case Failure(exception) =>
         logger.error("Failed to save Rejected", exception)
@@ -168,7 +168,6 @@ trait IngestionJob extends SparkJob {
       .map { mergeOptions =>
         if (metadata.getSink().map(_.`type`).getOrElse(SinkType.None) == SinkType.BQ) {
           val mergedDfBq = mergeFromBQ(withScriptFieldsDF, mergeOptions)
-          sink(mergedDfBq)
           mergedDfBq
         } else if (storageHandler.exists(new Path(acceptedPath, "_SUCCESS"))) {
           mergeFromParquet(acceptedPath, withScriptFieldsDF, mergeOptions)
@@ -179,32 +178,15 @@ trait IngestionJob extends SparkJob {
     logger.info("Merged Dataframe Schema")
     mergedDF.printSchema()
     val savedDataset =
-      saveRows(mergedDF, acceptedPath, writeMode, StorageArea.accepted, schema.merge.isDefined)
+      sinkToFile(mergedDF, acceptedPath, writeMode, StorageArea.accepted, schema.merge.isDefined)
     logger.info("Saved Dataset Schema")
     savedDataset.printSchema()
-    if (csvOutput()) {
-      val csvPath = storageHandler
-        .list(acceptedPath, ".csv", LocalDateTime.MIN)
-        .filterNot(path => schema.pattern.matcher(path.getName).matches())
-        .head
-      val finalCsvPath = new Path(
-        acceptedPath,
-        path.head.getName
-      )
-      storageHandler.move(csvPath, finalCsvPath)
-    }
+    sink(mergedDF)
 
     if (settings.comet.metrics.active) {
       new MetricsJob(this.domain, this.schema, Stage.GLOBAL, storageHandler, schemaHandler)
         .run()
         .get
-    }
-   /*
-    * Avoid to sink to bq since it is already done above during the merge with BigQuery
-   */
-   //TODO Improve code structure
-    if (metadata.getSink().map(_.`type`).getOrElse(SinkType.None) != SinkType.BQ) {
-      sink(savedDataset)
     }
     (savedDataset, acceptedPath)
   }
@@ -296,14 +278,14 @@ trait IngestionJob extends SparkJob {
     * @param writeMode  : Append or overwrite
     * @param area       : accepted or rejected area
     */
-  private[this] def saveRows(
+  private[this] def sinkToFile(
     dataset: DataFrame,
     targetPath: Path,
     writeMode: WriteMode,
     area: StorageArea,
     merge: Boolean
   ): DataFrame = {
-    if (dataset.columns.length > 0) {
+    val resultDataFrame = if (dataset.columns.length > 0) {
       val saveMode = writeMode.toSaveMode
       val hiveDB = StorageArea.area(domain.name, area)
       val tableName = schema.name
@@ -391,7 +373,7 @@ trait IngestionJob extends SparkJob {
       } else
         (partitionedDFWriter, dataset)
       val finalTargetDatasetWriter =
-        if (csvOutput())
+        if (csvOutput() && area == StorageArea.accepted)
           targetDatasetWriter
             .mode(saveMode)
             .format("csv")
@@ -431,6 +413,18 @@ trait IngestionJob extends SparkJob {
       logger.warn("Empty dataset with no columns won't be saved")
       session.emptyDataFrame
     }
+    if (csvOutput()) {
+      val csvPath = storageHandler
+        .list(targetPath, ".csv", LocalDateTime.MIN)
+        .filterNot(path => schema.pattern.matcher(path.getName).matches())
+        .head
+      val finalCsvPath = new Path(
+        targetPath,
+        path.head.getName
+      )
+      storageHandler.move(csvPath, finalCsvPath)
+    }
+    resultDataFrame
   }
 
   /** Main entry point as required by the Spark Job interface
@@ -677,6 +671,7 @@ object IngestionUtil {
     ("error", LegacySQLTypeName.STRING, StringType),
     ("path", LegacySQLTypeName.STRING, StringType)
   )
+
   import com.google.cloud.bigquery.{Schema => BQSchema}
 
   private def bigqueryRejectedSchema(): BQSchema = {
@@ -763,6 +758,7 @@ object IngestionUtil {
     implicit /* TODO: make me explicit. Avoid rebuilding the PrivacyLevel(settings) at each invocation? */ settings: Settings
   ): ColResult = {
     def ltrim(s: String) = s.replaceAll("^\\s+", "")
+
     def rtrim(s: String) = s.replaceAll("\\s+$", "")
 
     val trimmedColValue = colAttribute.trim match {
@@ -777,7 +773,9 @@ object IngestionUtil {
       else trimmedColValue
 
     def optionalColIsEmpty = !colAttribute.required && colValue.isEmpty
+
     def colPatternIsValid = tpe.matches(colValue)
+
     val privacyLevel = colAttribute.getPrivacy()
     val privacy =
       if (privacyLevel == PrivacyLevel.None)
@@ -807,6 +805,7 @@ object IngestionUtil {
 }
 
 object ImprovedDataFrameContext {
+
   import org.apache.spark.ml.feature.SQLTransformer
 
   implicit class ImprovedDataFrame(df: org.apache.spark.sql.DataFrame) {
@@ -815,4 +814,5 @@ object ImprovedDataFrameContext {
       new SQLTransformer().setStatement(query).transform(df)
     }
   }
+
 }
