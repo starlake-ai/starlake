@@ -159,6 +159,7 @@ class BigQuerySparkJob(
         s"BigQuery Saving to  ${table.getTableId} containing ${stdTableDefinition.getNumRows} rows"
       )
 
+      val intermediateFormat = settings.comet.internal.map(_.intermediateBigqueryFormat).getOrElse("orc")
       (cliConfig.writeDisposition, cliConfig.outputPartition) match {
         case ("WRITE_TRUNCATE", Some(partition)) =>
           logger.info(s"overwriting partition ${partition} in The BQ Table $bqTable")
@@ -179,11 +180,9 @@ class BigQuerySparkJob(
               .write
               .mode(SaveMode.Overwrite)
               .format("com.google.cloud.spark.bigquery")
-              .option(
-                "table",
-                bqTable
-              )
               .option("datePartition", partitionStr)
+              .option("table", bqTable)
+              .option("intermediateFormat", intermediateFormat)
               .save()
           )
         case _ =>
@@ -192,6 +191,7 @@ class BigQuerySparkJob(
             .mode(SaveMode.Append)
             .format("com.google.cloud.spark.bigquery")
             .option("table", bqTable)
+            .option("intermediateFormat", intermediateFormat)
             .save()
       }
 
@@ -203,7 +203,6 @@ class BigQuerySparkJob(
 
       /** !!! We will use TABLE ACCESS CONTROLS as workaround, until RLS option is released !!!
         */
-
       //      prepareRLS().foreach { rlsStatement =>
       //        logger.info(s"Applying security $rlsStatement")
       //        try {
