@@ -159,7 +159,10 @@ object Settings extends StrictLogging {
 
   final case class Atlas(uri: String, user: String, password: String, owner: String)
 
-  final case class Internal(cacheStorageLevel: StorageLevel) {}
+  final case class Internal(
+    cacheStorageLevel: StorageLevel,
+    intermediateBigqueryFormat: String = "orc"
+  ) {}
 
   /** @param datasets       : Absolute path, datasets root folder beneath which each area is defined.
     * @param metadata       : Absolute path, location where all types / domains and auto jobs are defined
