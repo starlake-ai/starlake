@@ -6,6 +6,7 @@ import scopt.OParser
 case class WatchConfig(
   includes: Seq[String] = Seq.empty,
   excludes: Seq[String] = Seq.empty,
+  schemas: Seq[String] = Seq.empty,
   options: Map[String, String] = Map.empty
 )
 
@@ -28,6 +29,11 @@ object WatchConfig extends CliConfig[WatchConfig] {
         .optional()
         .action((x, c) => c.copy(excludes = x))
         .text("Domains not to watch"),
+      opt[Seq[String]]("schemas")
+        .valueName("schema1,schema2,schema3...")
+        .optional()
+        .action((x, c) => c.copy(schemas = x))
+        .text("Schemas to watch"),
       opt[Map[String, String]]("options")
         .valueName("k1=v1,k2=v2...")
         .optional()
