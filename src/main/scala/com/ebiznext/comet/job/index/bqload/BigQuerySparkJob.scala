@@ -159,7 +159,8 @@ class BigQuerySparkJob(
         s"BigQuery Saving to  ${table.getTableId} containing ${stdTableDefinition.getNumRows} rows"
       )
 
-      val intermediateFormat = settings.comet.internal.map(_.intermediateBigqueryFormat).getOrElse("orc")
+      val intermediateFormat =
+        settings.comet.internal.map(_.intermediateBigqueryFormat).getOrElse("orc")
       (cliConfig.writeDisposition, cliConfig.outputPartition) match {
         case ("WRITE_TRUNCATE", Some(partition)) =>
           logger.info(s"overwriting partition ${partition} in The BQ Table $bqTable")
