@@ -127,7 +127,7 @@ case class Schema(
   import com.google.cloud.bigquery.{Schema => BQSchema}
 
   def bqSchema(schemaHandler: SchemaHandler): BQSchema = {
-    BigQueryUtils.bqSchema(sparkType(schemaHandler))
+    BigQueryUtils.bqSchema(sparkTypeWithRenamedFields(schemaHandler))
   }
 
   /** return the list of renamed attributes
