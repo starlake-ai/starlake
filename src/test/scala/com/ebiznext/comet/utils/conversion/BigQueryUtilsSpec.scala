@@ -2,6 +2,7 @@ package com.ebiznext.comet.utils.conversion
 
 import com.ebiznext.comet.TestHelper
 import com.ebiznext.comet.config.SparkEnv
+import com.ebiznext.comet.schema.handlers.SchemaHandler
 import com.google.cloud.bigquery.{Field, StandardSQLTypeName, Schema => BQSchema}
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.types._
@@ -108,5 +109,50 @@ class BigQueryUtilsSpec extends TestHelper {
 
       BigQueryUtils.bqSchema(sparkSchema) shouldBe bqSchemaExpected
     }
+
+    "Schema" should "return the right bq schema" in {
+
+      new SpecTrait(
+        domainFilename = "DOMAIN.yml",
+        sourceDomainPathname = s"/sample/DOMAIN.yml",
+        datasetDomainName = "DOMAIN",
+        sourceDatasetPathName = "/sample/SCHEMA-VALID.dsv"
+      ) {
+
+        cleanMetadata
+        cleanDatasets
+
+        val schemaHandler = new SchemaHandler(settings.storageHandler)
+
+        val schema = schemaHandler.domains
+          .flatMap(_.schemas)
+          .find(_.name == "User")
+          .map(_.bqSchema(schemaHandler))
+
+        val bqSchemaExpected = BQSchema.of(
+          Field
+            .newBuilder("firstname", StandardSQLTypeName.STRING)
+            .setMode(Field.Mode.NULLABLE)
+            .build(),
+          Field
+            .newBuilder("lastname", StandardSQLTypeName.STRING)
+            .setMode(Field.Mode.NULLABLE)
+            .build(),
+          Field
+            .newBuilder("age", StandardSQLTypeName.INT64)
+            .setMode(Field.Mode.NULLABLE)
+            .build(),
+          Field
+            .newBuilder("ok", StandardSQLTypeName.BOOL)
+            .setMode(Field.Mode.NULLABLE)
+            .build()
+        )
+
+        schema shouldBe Some(bqSchemaExpected)
+
+      }
+
+    }
+
   }
 }
