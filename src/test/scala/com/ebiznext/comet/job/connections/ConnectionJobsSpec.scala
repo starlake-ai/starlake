@@ -9,7 +9,7 @@ import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.SaveMode
 
 class ConnectionJobsSpec extends TestHelper {
-  lazy val pathBusiness = new Path(cometMetadataPath + "/jobs/user.yml")
+  lazy val pathBusiness = new Path(cometMetadataPath + "/jobs/user.comet.yml")
   new WithSettings() {
     "JDBC 2 JDBC Connection" should "succeed" in {
       val connection = "test-h2"

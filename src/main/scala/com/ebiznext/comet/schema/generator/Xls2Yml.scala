@@ -125,7 +125,7 @@ object Xls2Yml extends LazyLogging {
     import YamlSerializer._
     logger.info(s"""Generated schemas:
                    |${serialize(domain)}""".stripMargin)
-    serializeToFile(new File(outputPath, s"${fileName}.yml"), domain)
+    serializeToFile(new File(outputPath, s"${fileName}.comet.yml"), domain)
   }
 
   def run(args: Array[String]): Boolean = {
