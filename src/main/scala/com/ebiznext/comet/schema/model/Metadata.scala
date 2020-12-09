@@ -54,7 +54,9 @@ import scala.collection.mutable
   * @param write      : Write mode, APPEND by default
   * @param partition  : Partition columns, no partitioning by default
   * @param sink       : should the dataset be indexed in elasticsearch after ingestion ?
-  * @param ignore     : Pattern to ignore org UDF to apply to ignore some lines
+  * @param ignore     : Pattern to ignore or UDF to apply to ignore some lines
+  * @param clustering : List of attributes to use for clustering
+  * @param xml        : com.databricks.spark.xml options to use (eq. rowTag)
   */
 case class Metadata(
   mode: Option[Mode] = None,
