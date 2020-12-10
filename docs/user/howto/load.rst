@@ -25,7 +25,7 @@ Schema files decribe how the input files are parsed using a set of rules :
 Type Rules
 *************
 
-Types are defined in the HDFS file $COMET_METADATA/types/types.yml.
+Types are defined in the HDFS file $COMET_METADATA/types/types.comet.yml.
 
 A type is defined by:
 
@@ -44,10 +44,10 @@ A type is defined by:
    * for types of primitive type "date" or date time, "epoch_milli", "epoch_second" or any predefined or custom date pattern as defined in the DateTimeFormatter_ Specification.
 
 For each primitive type, a type is defined by default. These default types are
-located in the file $COMET_METADATA/types/default.yml and they may be redefined
-in the file $COMET_METADATA/types/types.yml
+located in the file $COMET_METADATA/types/default.comet.yml and they may be redefined
+in the file $COMET_METADATA/types/types.comet.yml
 
-File ``$COMET_METADATA/types/default.yml``
+File ``$COMET_METADATA/types/default.comet.yml``
 
 .. code-block:: yaml
 
@@ -92,7 +92,7 @@ We may add new types that map to these primitive types.
 For our example above, we will add the following
 semantic types to allow better validation on the input fields
 
-File ``$COMET_METADATA/types/types.yml``
+File ``$COMET_METADATA/types/types.comet.yml``
 
 .. code-block:: yaml
 

@@ -20,8 +20,6 @@
 
 package com.ebiznext.comet.config
 
-import java.util.Locale
-
 import com.ebiznext.comet.schema.handlers.StorageHandler
 import com.fasterxml.jackson.core.{JsonGenerator, JsonParser}
 import com.fasterxml.jackson.databind.annotation.{JsonDeserialize, JsonSerialize}
@@ -32,6 +30,8 @@ import com.fasterxml.jackson.databind.{
   SerializerProvider
 }
 import org.apache.hadoop.fs.Path
+
+import java.util.Locale
 
 /** Utilities methods to reference datasets paths
   * Datasets paths are constructed as follows :
@@ -130,6 +130,9 @@ object DatasetArea {
   def types(implicit settings: Settings): Path =
     new Path(metadata, "types")
 
+  def assertions(implicit settings: Settings): Path =
+    new Path(metadata, "assertions")
+
   def mapping(implicit settings: Settings): Path =
     new Path(metadata, "mapping")
 
@@ -138,6 +141,16 @@ object DatasetArea {
 
   def jobs(implicit settings: Settings): Path =
     new Path(metadata, "jobs")
+
+  def includes(implicit settings: Settings): Path =
+    new Path(metadata, "includes")
+
+  def include(includePath: String)(implicit settings: Settings): Path = {
+    if (includePath.startsWith("/"))
+      new Path(includes, includePath.drop(1))
+    else
+      new Path(includes, includePath)
+  }
 
   /** @param storage
     */
