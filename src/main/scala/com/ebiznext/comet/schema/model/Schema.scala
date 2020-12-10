@@ -70,7 +70,8 @@ case class Schema(
   presql: Option[List[String]],
   postsql: Option[List[String]],
   tags: Option[Set[String]] = None,
-  rls: Option[List[RowLevelSecurity]] = None
+  rls: Option[List[RowLevelSecurity]] = None,
+  conditions: Map[String, String] = Map.empty
 ) {
 
   @JsonIgnore

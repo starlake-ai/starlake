@@ -52,7 +52,7 @@ class AutoTaskJob(
   format: scala.Option[String],
   coalesce: Boolean,
   udf: scala.Option[String],
-  views: scala.Option[Map[String, String]],
+  views: Map[String, String],
   engine: Engine,
   task: AutoTaskDesc,
   storageHandler: StorageHandler,
@@ -96,7 +96,6 @@ class AutoTaskJob(
     Try {
       val config = createConfig()
       val queryExpr = views
-        .getOrElse(Map.empty)
         .getOrElse(viewName, throw new Exception(s"View with name $viewName not found"))
       val bqNativeJob = new BigQueryNativeJob(
         config,
@@ -129,7 +128,7 @@ class AutoTaskJob(
   }
 
   def runBQ(): Try[JobResult] = {
-    val subSelects: String = views.getOrElse(Map.empty).map { case (queryName, queryExpr) =>
+    val subSelects: String = views.map { case (queryName, queryExpr) =>
       queryName + " AS (" + queryExpr.richFormat(sqlParameters) + ")"
     } mkString ("WITH ", ",", " ")
 
@@ -181,7 +180,12 @@ class AutoTaskJob(
           .asInstanceOf[UdfRegistration]
       udfInstance.register(session)
     }
-    views.getOrElse(Map()).foreach { case (key, value) =>
+    // We parse the following strings
+    //ex  BQ:[[ProjectID.]Monetique_acq.]ACOMP_DWH"
+    //or  BQ:[[ProjectID.]Monetique_acq.]ACOMP_DWH.[comet_filter(col1 > 10 and col2 < 20)].[comet_select(col1, col2)]"
+    //or  FS:/bucket/parquetfolder
+    //or  JDBC:postgres:select *
+    views.foreach { case (key, value) =>
       val sepIndex = value.indexOf(":")
       val (format, configName, path) =
         if (sepIndex > 0) {

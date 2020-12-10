@@ -379,11 +379,11 @@ class SchemaHandlerSpec extends TestHelper {
 
     "Writing types" should "work" in {
 
-      val typesPath = new Path(DatasetArea.types, "types.yml")
+      val typesPath = new Path(DatasetArea.types, "types.comet.yml")
 
-      deliverTestFile("/sample/types.yml", typesPath)
+      deliverTestFile("/sample/types.comet.yml", typesPath)
 
-      readFileContent(typesPath) shouldBe loadTextFile("/sample/types.yml")
+      readFileContent(typesPath) shouldBe loadTextFile("/sample/types.comet.yml")
     }
 
     "Mapping Schema" should "produce valid template" in {

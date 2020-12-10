@@ -46,9 +46,9 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
   }
 
   /** All defined types.
-    * Load all default types defined in the file default.yml
-    * Types are located in the only file "types.yml"
-    * Types redefined in the file "types.yml" supersede the ones in "default.yml"
+    * Load all default types defined in the file default.comet.yml
+    * Types are located in the only file "types.comet.yml"
+    * Types redefined in the file "types.comet.yml" supersede the ones in "default.comet.yml"
     */
   lazy val types: List[Type] = {
     def loadTypes(filename: String): List[Type] = {
@@ -59,13 +59,50 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
         List.empty[Type]
     }
 
-    val defaultTypes = loadTypes("default.yml")
-    val types = loadTypes("types.yml")
+    val defaultTypes = loadTypes("default.comet.yml")
+    val types = loadTypes("types.comet.yml")
 
     val redefinedTypeNames =
       defaultTypes.map(_.name).intersect(types.map(_.name))
 
     defaultTypes.filter(defaultType => !redefinedTypeNames.contains(defaultType.name)) ++ types
+  }
+
+  lazy val assertions: Map[String, AssertionDefinition] = {
+    def loadAssertions(filename: String): Map[String, AssertionDefinition] = {
+      val conditionsPath = new Path(DatasetArea.assertions, filename)
+      if (storage.exists(conditionsPath))
+        mapper
+          .readValue(storage.read(conditionsPath), classOf[AssertionDefinitions])
+          .assertionDefinitions
+      else
+        Map.empty[String, AssertionDefinition]
+    }
+
+    val defaultAssertions = loadAssertions("default.comet.yml")
+    val assertions = loadAssertions("assertions.comet.yml")
+
+    defaultAssertions ++ assertions
+  }
+
+  def include(files: List[String]): Include = {
+    def loadInclude(path: String): Include = {
+      val includePath = DatasetArea.include(path)
+      if (storage.exists(includePath)) {
+        val rootNode = mapper.readTree(storage.read(includePath))
+        val includeNode =
+          if (rootNode.path("include").isMissingNode)
+            throw new Exception(s"Root node include missing in file $path")
+          else
+            rootNode.path("include")
+        mapper.treeToValue(includeNode, classOf[Include])
+      } else {
+        throw new Exception(s"Invalid include path $includePath inferred from $path")
+      }
+    }
+    val defaultIncludes = loadInclude("default.comet.yml")
+    val includes = loadInclude("includes.comet.yml")
+    Include.merge(("default.comet.yml" +: "includes.comet.yml" +: files).map(loadInclude))
   }
 
   /** Fnd type by name

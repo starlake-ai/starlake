@@ -32,7 +32,7 @@ class SchemaSpec extends TestHelper {
 
     "Attribute type" should "be valid" in {
       val stream: InputStream =
-        getClass.getResourceAsStream("/sample/default.yml")
+        getClass.getResourceAsStream("/sample/default.comet.yml")
       val lines =
         scala.io.Source.fromInputStream(stream).getLines().mkString("\n")
       val types = mapper.readValue(lines, classOf[Types])
