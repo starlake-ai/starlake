@@ -52,15 +52,18 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     */
   lazy val types: List[Type] = {
     def loadTypes(filename: String): List[Type] = {
-      val typesPath = new Path(DatasetArea.types, filename)
-      if (storage.exists(typesPath))
-        mapper.readValue(storage.read(typesPath), classOf[Types]).types
+      val deprecatedTypesPath = new Path(DatasetArea.types, filename + ".yml")
+      val typesCometPath = new Path(DatasetArea.types, filename + ".comet.yml")
+      if (storage.exists(typesCometPath))
+        mapper.readValue(storage.read(typesCometPath), classOf[Types]).types
+      else if (storage.exists(deprecatedTypesPath))
+        mapper.readValue(storage.read(deprecatedTypesPath), classOf[Types]).types
       else
         List.empty[Type]
     }
 
-    val defaultTypes = loadTypes("default.comet.yml")
-    val types = loadTypes("types.comet.yml")
+    val defaultTypes = loadTypes("default")
+    val types = loadTypes("types")
 
     val redefinedTypeNames =
       defaultTypes.map(_.name).intersect(types.map(_.name))
@@ -100,8 +103,6 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
         throw new Exception(s"Invalid include path $includePath inferred from $path")
       }
     }
-    val defaultIncludes = loadInclude("default.comet.yml")
-    val includes = loadInclude("includes.comet.yml")
     Include.merge(("default.comet.yml" +: "includes.comet.yml" +: files).map(loadInclude))
   }
 
@@ -131,13 +132,26 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
 
   }
 
+  def loadJobFromFile(path: Path): Try[AutoJobDesc] = {
+    Try {
+      val rootNode = mapper.readTree(storage.read(path))
+      val autojobNode =
+        if (rootNode.path("transform").isMissingNode)
+          rootNode
+        else
+          rootNode.path("transform")
+      mapper.treeToValue(autojobNode, classOf[AutoJobDesc])
+    }
+
+  }
+
   /** All defined jobs
     * Jobs are defined under the "jobs" folder in the metadata folder
     */
   lazy val jobs: Map[String, AutoJobDesc] = {
     val (validJobsFile, invalidJobsFile) = storage
       .list(DatasetArea.jobs, ".yml")
-      .map(path => Try(mapper.readValue(storage.read(path), classOf[AutoJobDesc])))
+      .map(loadJobFromFile)
       .partition(_.isSuccess)
     invalidJobsFile.map(_.failed.get).foreach { err =>
       logger.warn(s"There is one or more invalid Yaml files in your jobs folder:${err.getMessage}")
