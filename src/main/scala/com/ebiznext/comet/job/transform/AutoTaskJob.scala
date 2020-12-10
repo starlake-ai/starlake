@@ -181,8 +181,8 @@ class AutoTaskJob(
       udfInstance.register(session)
     }
     // We parse the following strings
-    //ex  BQ:[[ProjectID.]Monetique_acq.]ACOMP_DWH"
-    //or  BQ:[[ProjectID.]Monetique_acq.]ACOMP_DWH.[comet_filter(col1 > 10 and col2 < 20)].[comet_select(col1, col2)]"
+    //ex  BQ:[[ProjectID.]DATASET_ID.]TABLE_NAME"
+    //or  BQ:[[ProjectID.]DATASET_ID.]TABLE_NAME.[comet_filter(col1 > 10 and col2 < 20)].[comet_select(col1, col2)]"
     //or  FS:/bucket/parquetfolder
     //or  JDBC:postgres:select *
     views.foreach { case (key, value) =>
