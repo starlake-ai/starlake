@@ -10,7 +10,7 @@ class SchemaGenSpec extends TestHelper {
   new WithSettings() {
 
     Xls2Yml.generateSchema(getClass.getResource("/sample/SomeDomainTemplate.xls").getPath)
-    val outputFile = new File(DatasetArea.domains.toString + "/someDomain.yml")
+    val outputFile = new File(DatasetArea.domains.toString + "/someDomain.comet.yml")
     val result: Domain = YamlSerializer.mapper.readValue(outputFile, classOf[Domain])
 
     "Parsing a sample xlsx file" should "generate a yml file" in {

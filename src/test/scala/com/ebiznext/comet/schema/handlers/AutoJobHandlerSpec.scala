@@ -11,9 +11,11 @@ import org.scalatest.BeforeAndAfterAll
 
 class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
 
-  lazy val pathBusiness = new Path(cometMetadataPath + "/jobs/user.yml")
+  lazy val pathBusiness = new Path(cometMetadataPath + "/jobs/user.comet.yml")
 
-  lazy val pathGraduateProgramBusiness = new Path(cometMetadataPath + "/jobs/graduateProgram.yml")
+  lazy val pathGraduateProgramBusiness = new Path(
+    cometMetadataPath + "/jobs/graduateProgram.comet.yml"
+  )
 
   lazy val pathGraduateDatasetProgramBusiness = new Path(
     cometDatasetsPath + "/business/graduateProgram/output"

@@ -9,8 +9,8 @@ class IngestionWorkflowSpec extends TestHelper {
 
     private def loadLandingFile(landingFile: String, pendingFile: String) = {
       new SpecTrait(
-        domainFilename = "DOMAIN.yml",
-        sourceDomainPathname = s"/sample/DOMAIN.yml",
+        domainFilename = "DOMAIN.comet.yml",
+        sourceDomainPathname = s"/sample/DOMAIN.comet.yml",
         datasetDomainName = "DOMAIN",
         sourceDatasetPathName = landingFile
       ) {
