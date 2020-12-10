@@ -41,8 +41,8 @@ abstract class JsonIngestionJobSpecBase(variant: String) extends TestHelper with
     new WithSettings(configuration) {
 
       new SpecTrait(
-        domainFilename = "json.yml",
-        sourceDomainPathname = "/sample/json/json.yml",
+        domainFilename = "json.comet.yml",
+        sourceDomainPathname = "/sample/json/json.comet.yml",
         datasetDomainName = "json",
         sourceDatasetPathName = "/sample/json/complex.json"
       ) {
