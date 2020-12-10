@@ -31,7 +31,7 @@ class StorageHandlerSpec extends TestHelper {
 
   lazy val pathDomain = new Path(cometTestRoot + "/domain.yml")
 
-  lazy val pathType = new Path(cometTestRoot + "/types.yml")
+  lazy val pathType = new Path(cometTestRoot + "/types.comet.yml")
 
   lazy val pathBusiness = new Path(cometTestRoot + "/business.yml")
 
