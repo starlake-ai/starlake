@@ -97,12 +97,12 @@ trait TestHelper extends AnyFlatSpec with Matchers with BeforeAndAfterAll with S
 
   val allTypes: List[TypeToImport] = List(
     TypeToImport(
-      "default.yml",
-      "/sample/default.yml"
+      "default.comet.yml",
+      "/sample/default.comet.yml"
     ),
     TypeToImport(
-      "types.yml",
-      "/sample/types.yml"
+      "types.comet.yml",
+      "/sample/types.comet.yml"
     )
   )
 
