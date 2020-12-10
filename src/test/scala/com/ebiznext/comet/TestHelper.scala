@@ -20,14 +20,9 @@
 
 package com.ebiznext.comet
 
-import java.io.{File, InputStream}
-import java.nio.file.Files
-import java.time.LocalDate
-import java.util.UUID
-import java.util.concurrent.atomic.AtomicBoolean
-
 import com.ebiznext.comet.config.{DatasetArea, Settings}
 import com.ebiznext.comet.schema.handlers.{SchemaHandler, SimpleLauncher, StorageHandler}
+import com.ebiznext.comet.schema.model.AutoJobDesc
 import com.ebiznext.comet.utils.{
   CometObjectMapper,
   EmbeddedElasticsearchServer,
@@ -49,6 +44,11 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{Assertion, BeforeAndAfterAll}
 
+import java.io.{File, InputStream}
+import java.nio.file.Files
+import java.time.LocalDate
+import java.util.UUID
+import java.util.concurrent.atomic.AtomicBoolean
 import scala.collection.JavaConverters._
 import scala.io.{Codec, Source}
 import scala.util.Try
@@ -260,10 +260,11 @@ trait TestHelper extends AnyFlatSpec with Matchers with BeforeAndAfterAll with S
     def storageHandler: StorageHandler = settings.storageHandler
     def metadataStorageHandler: StorageHandler = settings.metadataStorageHandler
     val domainMetadataRootPath: Path = DatasetArea.domains
+    val jobMetadataRootPath: Path = DatasetArea.jobs
 
     val domainPath = new Path(domainMetadataRootPath, domainFilename)
 
-    def cleanDatasets =
+    def cleanDatasets: Try[Unit] =
       Try {
         val deletedFiles = FileUtils
           .listFiles(
@@ -279,7 +280,7 @@ trait TestHelper extends AnyFlatSpec with Matchers with BeforeAndAfterAll with S
         deliverSourceDomain()
       }
 
-    def deliverSourceDomain() = {
+    def deliverSourceDomain(): Unit = {
       withSettings.deliverTestFile(sourceDomainPathname, domainPath)
     }
 
@@ -300,6 +301,10 @@ trait TestHelper extends AnyFlatSpec with Matchers with BeforeAndAfterAll with S
       val validator = new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
 
       validator.loadPending()
+    }
+
+    def getJobs(): Map[String, AutoJobDesc] = {
+      new SchemaHandler(settings.storageHandler).jobs
     }
 
     def landingPath: String =
