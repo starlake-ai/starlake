@@ -21,7 +21,6 @@
 package com.ebiznext.comet.schema.handlers
 
 import java.net.URL
-
 import com.ebiznext.comet.TestHelper
 import com.ebiznext.comet.config.DatasetArea
 import com.ebiznext.comet.schema.model._
@@ -63,8 +62,8 @@ class SchemaHandlerSpec extends TestHelper {
     "Ingest CSV" should "produce file in accepted" in {
 
       new SpecTrait(
-        domainFilename = "DOMAIN.yml",
-        sourceDomainPathname = s"/sample/DOMAIN.yml",
+        domainFilename = "DOMAIN.comet.yml",
+        sourceDomainPathname = s"/sample/DOMAIN.comet.yml",
         datasetDomainName = "DOMAIN",
         sourceDatasetPathName = "/sample/SCHEMA-VALID.dsv"
       ) {
@@ -124,8 +123,8 @@ class SchemaHandlerSpec extends TestHelper {
 
     "Ingest schema with partition" should "produce partitioned output in accepted" in {
       new SpecTrait(
-        domainFilename = "DOMAIN.yml",
-        sourceDomainPathname = s"/sample/DOMAIN.yml",
+        domainFilename = "DOMAIN.comet.yml",
+        sourceDomainPathname = s"/sample/DOMAIN.comet.yml",
         datasetDomainName = "DOMAIN",
         sourceDatasetPathName = "/sample/Players.csv"
       ) {
@@ -155,8 +154,8 @@ class SchemaHandlerSpec extends TestHelper {
 
     "Ingest schema with merge" should "produce merged results accepted" in {
       new SpecTrait(
-        domainFilename = "DOMAIN.yml",
-        sourceDomainPathname = s"/sample/DOMAIN.yml",
+        domainFilename = "DOMAIN.comet.yml",
+        sourceDomainPathname = s"/sample/DOMAIN.comet.yml",
         datasetDomainName = "DOMAIN",
         sourceDatasetPathName = "/sample/Players.csv"
       ) {
@@ -166,8 +165,8 @@ class SchemaHandlerSpec extends TestHelper {
       }
 
       new SpecTrait(
-        domainFilename = "DOMAIN.yml",
-        sourceDomainPathname = s"/sample/DOMAIN.yml",
+        domainFilename = "DOMAIN.comet.yml",
+        sourceDomainPathname = s"/sample/DOMAIN.comet.yml",
         datasetDomainName = "DOMAIN",
         sourceDatasetPathName = "/sample/Players-merge.csv"
       ) {
@@ -204,8 +203,8 @@ class SchemaHandlerSpec extends TestHelper {
 
     "Ingest Dream Contact CSV" should "produce file in accepted" in {
       new SpecTrait(
-        domainFilename = "dream.yml",
-        sourceDomainPathname = s"/sample/dream/dream.yml",
+        domainFilename = "dream.comet.yml",
+        sourceDomainPathname = s"/sample/dream/dream.comet.yml",
         datasetDomainName = "dream",
         sourceDatasetPathName = "/sample/dream/OneClient_Contact_20190101_090800_008.psv"
       ) {
@@ -257,8 +256,8 @@ class SchemaHandlerSpec extends TestHelper {
     "Ingest Dream Segment CSV" should "produce file in accepted" in {
 
       new SpecTrait(
-        domainFilename = "dream.yml",
-        sourceDomainPathname = "/sample/dream/dream.yml",
+        domainFilename = "dream.comet.yml",
+        sourceDomainPathname = "/sample/dream/dream.comet.yml",
         datasetDomainName = "dream",
         sourceDatasetPathName = "/sample/dream/OneClient_Segmentation_20190101_090800_008.psv"
       ) {
@@ -293,8 +292,8 @@ class SchemaHandlerSpec extends TestHelper {
     "Ingest Locations JSON" should "produce file in accepted" in {
 
       new SpecTrait(
-        domainFilename = "locations.yml",
-        sourceDomainPathname = s"/sample/simple-json-locations/locations.yml",
+        domainFilename = "locations.comet.yml",
+        sourceDomainPathname = s"/sample/simple-json-locations/locations.comet.yml",
         datasetDomainName = "locations",
         sourceDatasetPathName = "/sample/simple-json-locations/locations.json"
       ) {
@@ -333,8 +332,8 @@ class SchemaHandlerSpec extends TestHelper {
     "Ingest Locations XML" should "produce file in accepted" in {
 
       new SpecTrait(
-        domainFilename = "locations.yml",
-        sourceDomainPathname = s"/sample/xml/locations.yml",
+        domainFilename = "locations.comet.yml",
+        sourceDomainPathname = s"/sample/xml/locations.comet.yml",
         datasetDomainName = "locations",
         sourceDatasetPathName = "/sample/xml/locations.xml"
       ) {
@@ -367,11 +366,29 @@ class SchemaHandlerSpec extends TestHelper {
       }
 
     }
+    "Load Business with Transform Tag" should "load an AutoDesc" in {
+      new SpecTrait(
+        domainFilename = "locations.comet.yml",
+        sourceDomainPathname = "/sample/simple-json-locations/locations.comet.yml",
+        datasetDomainName = "locations",
+        sourceDatasetPathName = "/sample/simple-json-locations/locations.json"
+      ) {
+        import org.scalatest.TryValues._
+        cleanMetadata
+        cleanDatasets
+        val schemaHandler = new SchemaHandler(storageHandler)
+        val filename = "/sample/metadata/business/business.comet.yml"
+        val jobPath = new Path(getClass.getResource(filename).toURI)
+        val job = schemaHandler.loadJobFromFile(jobPath)
+        job.success.value.name shouldBe "business1"
+      }
+    }
+
     //TODO TOFIX
     //  "Load Business Definition" should "produce business dataset" in {
     //    val sh = new HdfsStorageHandler
-    //    val jobsPath = new Path(DatasetArea.jobs, "sample/metadata/business/business.yml")
-    //    sh.write(loadFile("/sample/metadata/business/business.yml"), jobsPath)
+    //    val jobsPath = new Path(DatasetArea.jobs, "sample/metadata/business/business.comet.yml")
+    //    sh.write(loadFile("/sample/metadata/business/business.comet.yml"), jobsPath)
     //    DatasetArea.initDomains(storageHandler, schemaHandler.domains.map(_.name))
     //    val validator = new DatasetWorkflow(storageHandler, schemaHandler, new SimpleLauncher)
     //    validator.autoJob("business1")
@@ -388,8 +405,8 @@ class SchemaHandlerSpec extends TestHelper {
 
     "Mapping Schema" should "produce valid template" in {
       new SpecTrait(
-        domainFilename = "locations.yml",
-        sourceDomainPathname = "/sample/simple-json-locations/locations.yml",
+        domainFilename = "locations.comet.yml",
+        sourceDomainPathname = "/sample/simple-json-locations/locations.comet.yml",
         datasetDomainName = "locations",
         sourceDatasetPathName = "/sample/simple-json-locations/locations.json"
       ) {
@@ -443,8 +460,8 @@ class SchemaHandlerSpec extends TestHelper {
     }
     "JSON Schema" should "produce valid template" in {
       new SpecTrait(
-        domainFilename = "locations.yml",
-        sourceDomainPathname = s"/sample/simple-json-locations/locations.yml",
+        domainFilename = "locations.comet.yml",
+        sourceDomainPathname = s"/sample/simple-json-locations/locations.comet.yml",
         datasetDomainName = "locations",
         sourceDatasetPathName = "/sample/simple-json-locations/locations.json"
       ) {

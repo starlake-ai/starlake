@@ -35,8 +35,8 @@ class PositionIngestionJobSpec extends TestHelper {
 
     new WithSettings() {
       new SpecTrait(
-        domainFilename = "position.yml",
-        sourceDomainPathname = "/sample/position/position.yml",
+        domainFilename = "position.comet.yml",
+        sourceDomainPathname = "/sample/position/position.comet.yml",
         datasetDomainName = "position",
         sourceDatasetPathName = "/sample/position/XPOSTBL"
       ) {
@@ -72,8 +72,8 @@ class PositionIngestionJobSpec extends TestHelper {
   "Ingest Position File" should "use encoding when loading files" in {
     new WithSettings() {
       new SpecTrait(
-        domainFilename = "positionWithEncoding.yml",
-        sourceDomainPathname = "/sample/positionWithEncoding/positionWithEncoding.yml",
+        domainFilename = "positionWithEncoding.comet.yml",
+        sourceDomainPathname = "/sample/positionWithEncoding/positionWithEncoding.comet.yml",
         datasetDomainName = "positionWithEncoding",
         sourceDatasetPathName = "/sample/positionWithEncoding/data-iso88591.dat"
       ) {
@@ -92,8 +92,8 @@ class PositionIngestionJobSpec extends TestHelper {
   "Ingest Position Regex File with ignore string" should "ignore first line" in {
     new WithSettings() {
       new SpecTrait(
-        domainFilename = "positionWithIgnore.yml",
-        sourceDomainPathname = "/sample/positionWithIgnore/positionWithIgnore.yml",
+        domainFilename = "positionWithIgnore.comet.yml",
+        sourceDomainPathname = "/sample/positionWithIgnore/positionWithIgnore.comet.yml",
         datasetDomainName = "positionWithIgnore",
         sourceDatasetPathName = "/sample/positionWithIgnore/dataregex-ignore.dat"
       ) {
@@ -113,8 +113,8 @@ class PositionIngestionJobSpec extends TestHelper {
   "Ingest Position UDF File with ignore string" should "ignore first line" in {
     new WithSettings() {
       new SpecTrait(
-        domainFilename = "positionWithIgnore.yml",
-        sourceDomainPathname = "/sample/positionWithIgnore/positionWithIgnore.yml",
+        domainFilename = "positionWithIgnore.comet.yml",
+        sourceDomainPathname = "/sample/positionWithIgnore/positionWithIgnore.comet.yml",
         datasetDomainName = "positionWithIgnore",
         sourceDatasetPathName = "/sample/positionWithIgnore/dataudf-ignore.dat"
       ) {
