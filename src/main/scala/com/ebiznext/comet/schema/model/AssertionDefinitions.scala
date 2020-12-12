@@ -12,6 +12,10 @@ case class AssertionDefinitions(assertions: Map[String, String]) {
 
 case class AssertionDefinition(fullName: String, name: String, params: List[String], sql: String) {
 
+  def subst(values: List[String]): String = {
+    subst(values, "comet_table")
+  }
+
   def subst(values: List[String], table: String): String = {
     assert(values.length == params.length)
     (params :+ "comet_table").zip(values :+ table).foldLeft(sql) { case (acc, (p, v)) =>
