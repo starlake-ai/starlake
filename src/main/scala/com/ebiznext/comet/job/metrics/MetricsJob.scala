@@ -1,13 +1,10 @@
 package com.ebiznext.comet.job.metrics
 
 import com.ebiznext.comet.config.{DatasetArea, Settings}
-import com.ebiznext.comet.job.index.bqload.{BigQueryLoadConfig, BigQuerySparkJob}
-import com.ebiznext.comet.job.index.connectionload.ConnectionLoadConfig
 import com.ebiznext.comet.job.metrics.Metrics.{ContinuousMetric, DiscreteMetric, MetricsDatasets}
 import com.ebiznext.comet.schema.handlers.{SchemaHandler, StorageHandler}
 import com.ebiznext.comet.schema.model._
 import com.ebiznext.comet.utils._
-import com.google.cloud.bigquery.JobInfo.WriteDisposition
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql._
 import org.apache.spark.sql.execution.streaming.FileStreamSource.Timestamp
@@ -227,104 +224,18 @@ class MetricsJob(
           val metricsResult = locker.tryExclusively(waitTimeMillis) {
             save(df, new Path(savePath, table.toString))
           }
-
-          val metricsSinkResult = sinkMetrics(df, table)
-
+          val metricsSinkResult =
+            new SinkUtils().sinkMetrics(settings.comet.metrics.sink, df, table.toString)
           for {
             _ <- metricsResult
             _ <- metricsSinkResult
           } yield {
             None
           }
-
         case None =>
           Success(None)
       }
     }
     combinedResult.find(_.isFailure).getOrElse(Success(None)).map(SparkJobResult(_))
   }
-
-  private def sinkMetrics(metricsDf: DataFrame, table: MetricsTable): Try[Unit] = {
-    if (settings.comet.metrics.active) {
-      settings.comet.metrics.sink match {
-        case NoneSink() =>
-          Success(())
-
-        case sink: BigQuerySink =>
-          Try {
-            sinkMetricsToBigQuery(metricsDf, sink.name.getOrElse("metrics"), table.toString)
-          }
-
-        case JdbcSink(jdbcConnection, partitions, batchSize) =>
-          Try {
-            val jdbcConfig = ConnectionLoadConfig.fromComet(
-              jdbcConnection,
-              settings.comet,
-              Right(metricsDf),
-              table.toString,
-              partitions = partitions.getOrElse(1),
-              batchSize = batchSize.getOrElse(1000)
-            )
-            sinkMetricsToJdbc(jdbcConfig)
-          }
-        case EsSink(id, timestamp) =>
-          ???
-      }
-    } else {
-      Success(())
-    }
-  }
-
-  private def sinkMetricsToBigQuery(
-    metricsDf: DataFrame,
-    bqDataset: String,
-    bqTable: String
-  ): Unit = {
-    if (metricsDf.count() > 0) {
-      val config = BigQueryLoadConfig(
-        Right(metricsDf),
-        outputDataset = bqDataset,
-        outputTable = bqTable,
-        None,
-        Nil,
-        "parquet",
-        "CREATE_IF_NEEDED",
-        "WRITE_APPEND",
-        None,
-        None
-      )
-      // Do not pass the schema here. Not that we do not compute the schema correctly
-      // But since we are having a record of repeated field BQ does not like
-      // the way we pass the schema. BQ needs an extra "list" subfield for repeated fields
-      // So let him determine teh schema by himself or risk tonot to be able to append the metrics
-      val res = new BigQuerySparkJob(config).run()
-      Utils.logFailure(res, logger)
-    }
-  }
-
-  private def sinkMetricsToJdbc(
-    cliConfig: ConnectionLoadConfig
-  ): Unit = {
-    cliConfig.sourceFile match {
-      case Left(_) =>
-        throw new IllegalArgumentException("unsupported case with named source")
-      case Right(metricsDf) =>
-        // TODO: SMELL: Refused Bequest
-        require(
-          cliConfig.writeDisposition == WriteDisposition.WRITE_APPEND,
-          s"unsupported write disposition ${cliConfig.writeDisposition}, only WRITE_APPEND is supported"
-        )
-
-        val dfw = metricsDf.write
-          .format("jdbc")
-          .option("truncate", cliConfig.writeDisposition == WriteDisposition.WRITE_TRUNCATE)
-          .option("dbtable", cliConfig.outputTable)
-
-        cliConfig.options
-          .foldLeft(dfw)((w, kv) => w.option(kv._1, kv._2))
-          .mode(SaveMode.Append)
-          .save()
-    }
-  }
-
 }

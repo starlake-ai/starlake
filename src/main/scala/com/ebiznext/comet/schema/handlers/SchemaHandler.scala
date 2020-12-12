@@ -100,7 +100,8 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
             rootNode.path("include")
         mapper.treeToValue(includeNode, classOf[Include])
       } else {
-        throw new Exception(s"Invalid include path $includePath inferred from $path")
+        logger.warn(s" include path $includePath inferred from $path not found")
+        Include()
       }
     }
     Include.merge(("default.comet.yml" +: "includes.comet.yml" +: files).map(loadInclude))
