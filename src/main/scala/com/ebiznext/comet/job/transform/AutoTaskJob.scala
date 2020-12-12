@@ -22,7 +22,6 @@ package com.ebiznext.comet.job.transform
 
 import java.io.{File, PrintStream}
 import java.time.LocalDateTime
-
 import com.ebiznext.comet.config.{Settings, StorageArea, UdfRegistration}
 import com.ebiznext.comet.job.index.bqload.{
   BigQueryJobResult,
@@ -30,8 +29,7 @@ import com.ebiznext.comet.job.index.bqload.{
   BigQueryNativeJob
 }
 import com.ebiznext.comet.schema.handlers.StorageHandler
-import com.ebiznext.comet.schema.model.SinkType.{BQ, FS, JDBC}
-import com.ebiznext.comet.schema.model.{AutoTaskDesc, BigQuerySink, Engine, SinkType}
+import com.ebiznext.comet.schema.model.{AutoTaskDesc, BigQuerySink, Engine, Views}
 import com.ebiznext.comet.utils.Formatter._
 import com.ebiznext.comet.utils.{JobResult, SparkJob, SparkJobResult, Utils}
 import org.apache.hadoop.fs.Path
@@ -52,7 +50,7 @@ class AutoTaskJob(
   format: scala.Option[String],
   coalesce: Boolean,
   udf: scala.Option[String],
-  views: Map[String, String],
+  views: Views,
   engine: Engine,
   task: AutoTaskDesc,
   storageHandler: StorageHandler,
@@ -95,7 +93,7 @@ class AutoTaskJob(
   def runView(viewName: String, viewDir: Option[String], viewCount: Int): Try[JobResult] = {
     Try {
       val config = createConfig()
-      val queryExpr = views
+      val queryExpr = views.views
         .getOrElse(viewName, throw new Exception(s"View with name $viewName not found"))
       val bqNativeJob = new BigQueryNativeJob(
         config,
@@ -128,7 +126,7 @@ class AutoTaskJob(
   }
 
   def runBQ(): Try[JobResult] = {
-    val subSelects: String = views.map { case (queryName, queryExpr) =>
+    val subSelects: String = views.views.map { case (queryName, queryExpr) =>
       queryName + " AS (" + queryExpr.richFormat(sqlParameters) + ")"
     } mkString ("WITH ", ",", " ")
 
@@ -180,93 +178,8 @@ class AutoTaskJob(
           .asInstanceOf[UdfRegistration]
       udfInstance.register(session)
     }
-    // We parse the following strings
-    //ex  BQ:[[ProjectID.]DATASET_ID.]TABLE_NAME"
-    //or  BQ:[[ProjectID.]DATASET_ID.]TABLE_NAME.[comet_filter(col1 > 10 and col2 < 20)].[comet_select(col1, col2)]"
-    //or  FS:/bucket/parquetfolder
-    //or  JDBC:postgres:select *
-    views.foreach { case (key, value) =>
-      val sepIndex = value.indexOf(":")
-      val (format, configName, path) =
-        if (sepIndex > 0) {
-          val key = value.substring(0, sepIndex)
-          val sepConfigIndex = value.indexOf(':', sepIndex + 1)
-          if (sepConfigIndex > 0) {
-            (
-              SinkType.fromString(value.substring(0, sepIndex)),
-              Some(value.substring(sepIndex + 1, sepConfigIndex)),
-              value.substring(sepConfigIndex + 1)
-            )
-          } else
-            (SinkType.fromString(key), None, value.substring(sepIndex + 1))
-        } else // parquet is the default
-          (SinkType.FS, None, value)
-      logger.info(s"Loading view $path from $format")
-      val df = format match {
-        case FS =>
-          val fullPath =
-            if (path.startsWith("/")) path else s"${settings.comet.datasets}/$path"
-          session.read.parquet(fullPath)
-        case JDBC =>
-          val jdbcConfig =
-            settings.comet.connections(configName.getOrElse((throw new Exception(""))))
-          jdbcConfig.options
-            .foldLeft(session.read)((w, kv) => w.option(kv._1, kv._2))
-            .format(jdbcConfig.format)
-            .option("query", path.richFormat(sqlParameters))
-            .load()
-            .cache()
-        case BQ =>
-          val TablePathWithFilter = "(.*)\\.comet_filter\\((.*)\\)".r
-          val TablePathWithSelect = "(.*)\\.comet_select\\((.*)\\)".r
-          val TablePathWithFilterAndSelect =
-            "(.*)\\.comet_select\\((.*)\\)\\.comet_filter\\((.*)\\)".r
-          path match {
-            case TablePathWithFilterAndSelect(tablePath, select, filter) =>
-              val filterFormat = filter.richFormat(sqlParameters)
-              logger
-                .info(s"We are loading the Table with columns: $select and filters: $filterFormat")
-              session.read
-                .option("readDataFormat", "AVRO")
-                .format("com.google.cloud.spark.bigquery")
-                .option("table", tablePath)
-                .option("filter", filterFormat)
-                .load()
-                .selectExpr(select.replaceAll("\\s", "").split(","): _*)
-                .cache()
-            case TablePathWithFilter(tablePath, filter) =>
-              val filterFormat = filter.richFormat(sqlParameters)
-              logger.info(s"We are loading the Table with filters: $filterFormat")
-              session.read
-                .option("readDataFormat", "AVRO")
-                .format("com.google.cloud.spark.bigquery")
-                .option("table", tablePath)
-                .option("filter", filterFormat)
-                .load()
-                .cache()
-            case TablePathWithSelect(tablePath, select) =>
-              logger.info(s"We are loading the Table with columns: $select")
-              session.read
-                .option("readDataFormat", "AVRO")
-                .format("com.google.cloud.spark.bigquery")
-                .option("table", tablePath)
-                .load()
-                .selectExpr(select.replaceAll("\\s", "").split(","): _*)
-                .cache()
-            case _ =>
-              session.read
-                .option("readDataFormat", "AVRO")
-                .format("com.google.cloud.spark.bigquery")
-                .option("table", path)
-                .load()
-                .cache()
-          }
-        case _ =>
-          throw new Exception("Should never happen")
-      }
-      df.createOrReplaceTempView(key)
-      logger.info(s"Created view $key")
-    }
+
+    createViews(views, sqlParameters)
 
     task.presql
       .getOrElse(Nil)
@@ -316,4 +229,5 @@ class AutoTaskJob(
     // Let us return the Dataframe so that it can be piped to another sink
     Success(SparkJobResult(Some(dataframe)))
   }
+
 }

@@ -88,23 +88,23 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     defaultAssertions ++ assertions
   }
 
-  def include(files: List[String]): Include = {
-    def loadInclude(path: String): Include = {
-      val includePath = DatasetArea.include(path)
-      if (storage.exists(includePath)) {
-        val rootNode = mapper.readTree(storage.read(includePath))
+  def views(files: List[String]): Views = {
+    def loadViews(path: String): Views = {
+      val viewsPath = DatasetArea.views(path)
+      if (storage.exists(viewsPath)) {
+        val rootNode = mapper.readTree(storage.read(viewsPath))
         val includeNode =
-          if (rootNode.path("include").isMissingNode)
-            throw new Exception(s"Root node include missing in file $path")
+          if (rootNode.path("views").isMissingNode)
+            throw new Exception(s"Root node views missing in file $path")
           else
-            rootNode.path("include")
-        mapper.treeToValue(includeNode, classOf[Include])
+            rootNode.path("views")
+        mapper.treeToValue(includeNode, classOf[Views])
       } else {
-        logger.warn(s" include path $includePath inferred from $path not found")
-        Include()
+        logger.warn(s" views path $viewsPath inferred from $path not found")
+        Views()
       }
     }
-    Include.merge(("default.comet.yml" +: "includes.comet.yml" +: files).map(loadInclude))
+    Views.merge(("default.comet.yml" +: "views.comet.yml" +: files).map(loadViews))
   }
 
   /** Fnd type by name
@@ -141,7 +141,14 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
           rootNode
         else
           rootNode.path("transform")
-      mapper.treeToValue(autojobNode, classOf[AutoJobDesc])
+      val includeNode =
+        if (rootNode.path("include").isMissingNode)
+          rootNode
+        else
+          rootNode.path("include")
+      val includes = mapper.treeToValue(includeNode, classOf[List[String]])
+      val autoJob = mapper.treeToValue(autojobNode, classOf[AutoJobDesc])
+      autoJob.copy(include = if (includes.isEmpty) None else Some(includes))
     }
 
   }
