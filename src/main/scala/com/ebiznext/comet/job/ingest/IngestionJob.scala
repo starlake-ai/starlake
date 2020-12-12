@@ -455,6 +455,8 @@ trait IngestionJob extends SparkJob {
         dataset match {
           case Success(dataset) =>
             Try {
+              val views = domain.include.map(schemaHandler.views).getOrElse(Views())
+              createViews(views, options)
               val (rejectedRDD, acceptedRDD) = ingest(dataset)
               val inputCount = dataset.count()
               val acceptedCount = acceptedRDD.count()

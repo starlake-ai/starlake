@@ -717,13 +717,6 @@
         },
         "rls": {
           "$ref": "#/definitions/RowLevelSecurity"
-        },
-        "include": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "description": "YML file containing views / assertions definitions to include"
-          }
         }
       },
       "required": [
@@ -741,6 +734,13 @@
     },
     "transform": {
       "$ref": "#/definitions/AutoJobDesc"
+    },
+    "include": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "description": "YML file containing views definitions to include"
+      }
     },
     "name": {
       "type": "string",
