@@ -104,6 +104,15 @@ object DatasetArea {
     )
   }
 
+  def assertions(domain: String, schema: String)(implicit settings: Settings): Path = {
+    val path = settings.comet.assertions.path
+    new Path(
+      path
+        .replace("{domain}", domain)
+        .replace("{schema}", schema)
+    )
+  }
+
   def discreteMetrics(domain: String, schema: String)(implicit settings: Settings): Path = {
     new Path(metrics(domain, schema), "discrete")
   }

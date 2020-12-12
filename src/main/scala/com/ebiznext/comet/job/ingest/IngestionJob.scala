@@ -5,7 +5,7 @@ import com.ebiznext.comet.job.index.bqload.{BigQueryLoadConfig, BigQuerySparkJob
 import com.ebiznext.comet.job.index.connectionload.{ConnectionLoadConfig, ConnectionLoadJob}
 import com.ebiznext.comet.job.index.esload.{ESLoadConfig, ESLoadJob}
 import com.ebiznext.comet.job.ingest.ImprovedDataFrameContext._
-import com.ebiznext.comet.job.metrics.MetricsJob
+import com.ebiznext.comet.job.metrics.{AssertionJob, MetricsJob}
 import com.ebiznext.comet.schema.handlers.{SchemaHandler, StorageHandler}
 import com.ebiznext.comet.schema.model.Rejection.{ColInfo, ColResult}
 import com.ebiznext.comet.schema.model.Trim.{BOTH, LEFT, RIGHT}
@@ -112,11 +112,26 @@ trait IngestionJob extends SparkJob {
       logger.debug(s"acceptedRDD SIZE ${acceptedDF.count()}")
       acceptedDF.show(1000)
     }
+
+    if (settings.comet.assertions.active) {
+      new AssertionJob(
+        this.domain,
+        this.schema,
+        Stage.UNIT,
+        storageHandler,
+        schemaHandler,
+        acceptedDF
+      )
+        .run()
+        .get
+    }
+
     if (settings.comet.metrics.active) {
       new MetricsJob(this.domain, this.schema, Stage.UNIT, this.storageHandler, this.schemaHandler)
         .run(acceptedDF, System.currentTimeMillis())
         .get
     }
+
     val writeMode = getWriteMode()
     val acceptedPath = new Path(DatasetArea.accepted(domain.name), schema.name)
 
@@ -175,6 +190,7 @@ trait IngestionJob extends SparkJob {
           withScriptFieldsDF
       }
       .getOrElse(withScriptFieldsDF)
+
     logger.info("Merged Dataframe Schema")
     mergedDF.printSchema()
     val savedDataset =
@@ -182,12 +198,6 @@ trait IngestionJob extends SparkJob {
     logger.info("Saved Dataset Schema")
     savedDataset.printSchema()
     sink(mergedDF)
-
-    if (settings.comet.metrics.active) {
-      new MetricsJob(this.domain, this.schema, Stage.GLOBAL, storageHandler, schemaHandler)
-        .run()
-        .get
-    }
     (savedDataset, acceptedPath)
   }
 

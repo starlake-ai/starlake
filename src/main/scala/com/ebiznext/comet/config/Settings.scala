@@ -20,11 +20,6 @@
 
 package com.ebiznext.comet.config
 
-import java.io.ObjectStreamException
-import java.lang.management.{ManagementFactory, RuntimeMXBean}
-import java.util.concurrent.TimeUnit
-import java.util.{Locale, UUID, Map => juMap}
-
 import com.ebiznext.comet.schema.handlers.{
   AirflowLauncher,
   HdfsStorageHandler,
@@ -42,6 +37,10 @@ import configs.syntax._
 import org.apache.spark.storage.StorageLevel
 import org.slf4j.MDC
 
+import java.io.ObjectStreamException
+import java.lang.management.{ManagementFactory, RuntimeMXBean}
+import java.util.concurrent.TimeUnit
+import java.util.{Locale, UUID, Map => juMap}
 import scala.concurrent.duration.FiniteDuration
 
 object Settings extends StrictLogging {
@@ -89,6 +88,12 @@ object Settings extends StrictLogging {
   final case class Metrics(
     path: String,
     discreteMaxCardinality: Int,
+    active: Boolean,
+    sink: Sink
+  )
+
+  final case class Assertions(
+    path: String,
     active: Boolean,
     sink: Sink
   )
@@ -206,7 +211,8 @@ object Settings extends StrictLogging {
     fileSystem: Option[String],
     metadataFileSystem: Option[String],
     internal: Option[Internal],
-    udfs: Option[String]
+    udfs: Option[String],
+    assertions: Assertions
   ) extends Serializable {
 
     @JsonIgnore

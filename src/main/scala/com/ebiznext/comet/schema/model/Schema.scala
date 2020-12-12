@@ -20,14 +20,13 @@
 
 package com.ebiznext.comet.schema.model
 
-import java.util.regex.Pattern
-
 import com.ebiznext.comet.schema.handlers.SchemaHandler
 import com.ebiznext.comet.utils.TextSubstitutionEngine
 import com.ebiznext.comet.utils.conversion.BigQueryUtils
 import com.fasterxml.jackson.annotation.JsonIgnore
 import org.apache.spark.sql.types._
 
+import java.util.regex.Pattern
 import scala.collection.mutable
 
 /** How dataset are merged
@@ -71,7 +70,7 @@ case class Schema(
   postsql: Option[List[String]],
   tags: Option[Set[String]] = None,
   rls: Option[List[RowLevelSecurity]] = None,
-  conditions: Map[String, String] = Map.empty
+  assertions: Option[Map[String, String]] = None
 ) {
 
   @JsonIgnore

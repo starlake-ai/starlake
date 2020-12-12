@@ -541,6 +541,10 @@
           "items": {
             "$ref": "#/definitions/RowLevelSecurity"
           }
+        },
+        "assertions": {
+          "$ref": "#/definitions/MapString",
+          "description": "Assertion Map"
         }
       }
     },
@@ -658,6 +662,10 @@
           "items": {
             "$ref": "#/definitions/RowLevelSecurity"
           }
+        },
+        "assertions": {
+          "$ref": "#/definitions/MapString",
+          "description": "Assertion Map"
         }
       },
       "required": [
@@ -709,6 +717,13 @@
         },
         "rls": {
           "$ref": "#/definitions/RowLevelSecurity"
+        },
+        "include": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "description": "YML file containing views / assertions definitions to include"
+          }
         }
       },
       "required": [
