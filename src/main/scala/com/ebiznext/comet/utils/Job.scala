@@ -1,11 +1,13 @@
 package com.ebiznext.comet.utils
 
 import com.ebiznext.comet.config.{Settings, SparkEnv, UdfRegistration}
-import com.ebiznext.comet.schema.model.Metadata
+import com.ebiznext.comet.schema.model.{Metadata, SinkType, Views}
+import com.ebiznext.comet.schema.model.SinkType.{BQ, FS, JDBC}
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.IntegerType
 import org.apache.spark.sql.{DataFrame, DataFrameWriter, Row, SparkSession}
+import com.ebiznext.comet.utils.Formatter._
 
 import scala.util.Try
 
@@ -145,6 +147,96 @@ trait SparkJob extends JobBase {
             e.printStackTrace()
         }
     }
-
   }
+
+  def createViews(views: Views, sqlParameters: Map[String, String]) = {
+    // We parse the following strings
+    //ex  BQ:[[ProjectID.]DATASET_ID.]TABLE_NAME"
+    //or  BQ:[[ProjectID.]DATASET_ID.]TABLE_NAME.[comet_filter(col1 > 10 and col2 < 20)].[comet_select(col1, col2)]"
+    //or  FS:/bucket/parquetfolder
+    //or  JDBC:postgres:select *
+    views.views.foreach { case (key, value) =>
+      val sepIndex = value.indexOf(":")
+      val (format, configName, path) =
+        if (sepIndex > 0) {
+          val key = value.substring(0, sepIndex)
+          val sepConfigIndex = value.indexOf(':', sepIndex + 1)
+          if (sepConfigIndex > 0) {
+            (
+              SinkType.fromString(value.substring(0, sepIndex)),
+              Some(value.substring(sepIndex + 1, sepConfigIndex)),
+              value.substring(sepConfigIndex + 1)
+            )
+          } else
+            (SinkType.fromString(key), None, value.substring(sepIndex + 1))
+        } else // parquet is the default
+          (SinkType.FS, None, value)
+      logger.info(s"Loading view $path from $format")
+      val df = format match {
+        case FS =>
+          val fullPath =
+            if (path.startsWith("/")) path else s"${settings.comet.datasets}/$path"
+          session.read.parquet(fullPath)
+        case JDBC =>
+          val jdbcConfig =
+            settings.comet.connections(configName.getOrElse((throw new Exception(""))))
+          jdbcConfig.options
+            .foldLeft(session.read)((w, kv) => w.option(kv._1, kv._2))
+            .format(jdbcConfig.format)
+            .option("query", path.richFormat(sqlParameters))
+            .load()
+            .cache()
+        case BQ =>
+          val TablePathWithFilter = "(.*)\\.comet_filter\\((.*)\\)".r
+          val TablePathWithSelect = "(.*)\\.comet_select\\((.*)\\)".r
+          val TablePathWithFilterAndSelect =
+            "(.*)\\.comet_select\\((.*)\\)\\.comet_filter\\((.*)\\)".r
+          path match {
+            case TablePathWithFilterAndSelect(tablePath, select, filter) =>
+              val filterFormat = filter.richFormat(sqlParameters)
+              logger
+                .info(s"We are loading the Table with columns: $select and filters: $filterFormat")
+              session.read
+                .option("readDataFormat", "AVRO")
+                .format("com.google.cloud.spark.bigquery")
+                .option("table", tablePath)
+                .option("filter", filterFormat)
+                .load()
+                .selectExpr(select.replaceAll("\\s", "").split(","): _*)
+                .cache()
+            case TablePathWithFilter(tablePath, filter) =>
+              val filterFormat = filter.richFormat(sqlParameters)
+              logger.info(s"We are loading the Table with filters: $filterFormat")
+              session.read
+                .option("readDataFormat", "AVRO")
+                .format("com.google.cloud.spark.bigquery")
+                .option("table", tablePath)
+                .option("filter", filterFormat)
+                .load()
+                .cache()
+            case TablePathWithSelect(tablePath, select) =>
+              logger.info(s"We are loading the Table with columns: $select")
+              session.read
+                .option("readDataFormat", "AVRO")
+                .format("com.google.cloud.spark.bigquery")
+                .option("table", tablePath)
+                .load()
+                .selectExpr(select.replaceAll("\\s", "").split(","): _*)
+                .cache()
+            case _ =>
+              session.read
+                .option("readDataFormat", "AVRO")
+                .format("com.google.cloud.spark.bigquery")
+                .option("table", path)
+                .load()
+                .cache()
+          }
+        case _ =>
+          throw new Exception("Should never happen")
+      }
+      df.createOrReplaceTempView(key)
+      logger.info(s"Created view $key")
+    }
+  }
+
 }

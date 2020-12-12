@@ -399,7 +399,7 @@ class IngestionWorkflow(
   def autoJob(config: TransformConfig): Boolean = {
     val job = schemaHandler.jobs(config.name)
     logger.info(job.toString)
-    val includes = schemaHandler.include(job.include.getOrElse(Nil))
+    val includes = schemaHandler.views(job.include.getOrElse(Nil))
     val result = job.tasks.map { task =>
       val action = new AutoTaskJob(
         job.name,
@@ -407,7 +407,7 @@ class IngestionWorkflow(
         job.format,
         job.coalesce.getOrElse(false),
         job.udf,
-        job.views.getOrElse(Map.empty) ++ includes.views,
+        Views(job.views.getOrElse(Map.empty) ++ includes.views),
         job.getEngine(),
         task,
         storageHandler,

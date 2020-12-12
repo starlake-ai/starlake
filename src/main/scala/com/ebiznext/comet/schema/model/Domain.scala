@@ -61,7 +61,8 @@ case class Domain(
   schemas: List[Schema] = Nil,
   comment: Option[String] = None,
   extensions: Option[List[String]] = None,
-  ack: Option[String] = None
+  ack: Option[String] = None,
+  include: Option[List[String]] = None
 ) {
 
   /** Get schema from filename

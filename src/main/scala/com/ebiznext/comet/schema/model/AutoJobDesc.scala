@@ -101,8 +101,4 @@ case class AutoJobDesc(
   def getArea(): StorageArea = area.getOrElse(StorageArea.business)
 
   def getEngine(): Engine = engine.getOrElse(Engine.SPARK)
-
-  def allViews(): Option[Map[String, String]] = {
-    views
-  }
 }
