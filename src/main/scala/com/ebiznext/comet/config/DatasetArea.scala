@@ -151,14 +151,14 @@ object DatasetArea {
   def jobs(implicit settings: Settings): Path =
     new Path(metadata, "jobs")
 
-  def includes(implicit settings: Settings): Path =
-    new Path(metadata, "includes")
+  def views(implicit settings: Settings): Path =
+    new Path(metadata, "views")
 
-  def include(includePath: String)(implicit settings: Settings): Path = {
-    if (includePath.startsWith("/"))
-      new Path(includes, includePath.drop(1))
+  def views(viewsPath: String)(implicit settings: Settings): Path = {
+    if (viewsPath.startsWith("/"))
+      new Path(views, viewsPath.drop(1))
     else
-      new Path(includes, includePath)
+      new Path(views, viewsPath)
   }
 
   /** @param storage
