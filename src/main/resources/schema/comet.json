@@ -699,10 +699,6 @@
           "items": {
             "$ref": "#/definitions/AutoTaskDesc",
             "description": "List of transform tasks to execute"
-          },
-          "assertions": {
-            "$ref": "#/definitions/MapString",
-            "description": "Assertions to check after Load / Transform has succeeded"
           }
         },
         "udf": {
@@ -778,6 +774,11 @@
     }
   },
   "oneOf": [
+    {
+      "required": [
+        "assertions"
+      ]
+    },
     {
       "required": [
         "types"
