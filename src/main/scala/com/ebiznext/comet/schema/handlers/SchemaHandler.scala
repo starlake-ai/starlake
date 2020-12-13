@@ -73,10 +73,10 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
 
   lazy val assertions: Map[String, AssertionDefinition] = {
     def loadAssertions(filename: String): Map[String, AssertionDefinition] = {
-      val conditionsPath = new Path(DatasetArea.assertions, filename)
-      if (storage.exists(conditionsPath))
+      val assertionsPath = new Path(DatasetArea.assertions, filename)
+      if (storage.exists(assertionsPath))
         mapper
-          .readValue(storage.read(conditionsPath), classOf[AssertionDefinitions])
+          .readValue(storage.read(assertionsPath), classOf[AssertionDefinitions])
           .assertionDefinitions
       else
         Map.empty[String, AssertionDefinition]
@@ -122,7 +122,7 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
   lazy val domains: List[Domain] = {
     val (validDomainsFile, invalidDomainsFiles) = storage
       .list(DatasetArea.domains, ".yml")
-      .map(path => Try(mapper.readValue(storage.read(path), classOf[Domain])))
+      .map(path => { println(path); Try(mapper.readValue(storage.read(path), classOf[Domain])) })
       .partition(_.isSuccess)
     invalidDomainsFiles.map(_.failed.get).foreach { err =>
       logger.warn(
@@ -136,21 +136,22 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
   def loadJobFromFile(path: Path): Try[AutoJobDesc] = {
     Try {
       val rootNode = mapper.readTree(storage.read(path))
+      val tranformNode = rootNode.path("transform")
       val autojobNode =
-        if (rootNode.path("transform").isMissingNode)
+        if (tranformNode.isNull() || tranformNode.isMissingNode)
           rootNode
         else
-          rootNode.path("transform")
-      val includeNode =
-        if (rootNode.path("include").isMissingNode)
-          rootNode
+          tranformNode
+      val includeNode = rootNode.path("include")
+      val includes =
+        if (includeNode.isNull() || includeNode.isMissingNode)
+          None
         else
-          rootNode.path("include")
-      val includes = mapper.treeToValue(includeNode, classOf[List[String]])
-      val autoJob = mapper.treeToValue(autojobNode, classOf[AutoJobDesc])
-      autoJob.copy(include = if (includes.isEmpty) None else Some(includes))
-    }
+          Some(mapper.treeToValue(includeNode, classOf[List[String]]))
 
+      val autoJob = mapper.treeToValue(autojobNode, classOf[AutoJobDesc])
+      autoJob.copy(include = includes)
+    }
   }
 
   /** All defined jobs

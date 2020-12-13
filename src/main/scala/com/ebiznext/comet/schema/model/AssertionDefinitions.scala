@@ -26,10 +26,15 @@ case class AssertionDefinition(fullName: String, name: String, params: List[Stri
 
 object AssertionDefinition {
 
-  def extractNameAndParams(fullName: String): (String, List[String]) = fullName.split('(') match {
-    case Array(n, p) if p.length >= 2 =>
-      (n, p.trim.drop(1).dropRight(1).split(',').map(_.trim).toList)
-    case _ => throw new Exception(s"Invalid Condition syntax $fullName")
+  def extractNameAndParams(fullName: String): (String, List[String]) = {
+    fullName
+      .split('(') match {
+      case Array(n, p) if p.length >= 1 =>
+        (n.trim, p.dropRight(1).split(',').map(_.trim).filter(_.nonEmpty).toList)
+      case Array(n) =>
+        (n, Nil)
+      case _ => throw new Exception(s"Invalid Assertion Definition syntax $fullName")
+    }
   }
 
   def fromDefinition(fullName: String, sql: String): AssertionDefinition = {
