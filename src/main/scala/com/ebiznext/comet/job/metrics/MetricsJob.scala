@@ -50,47 +50,6 @@ class MetricsJob(
     )
   }
 
-  /** Saves a dataset. If the path is empty (the first time we call metrics on the schema) then we can write.
-    *
-    * If there's already parquet files stored in it, then create a temporary directory to compute on, and flush
-    * the path to move updated metrics in it
-    *
-    * @param dataToSave :   dataset to be saved
-    * @param path       :   Path to save the file at
-    */
-  def save(dataToSave: DataFrame, path: Path): Unit = {
-    if (storageHandler.exists(path)) {
-      val pathIntermediate = new Path(path.getParent, ".metrics")
-
-      logger.whenDebugEnabled {
-        session.read.parquet(path.toString).show(false)
-      }
-      val dataByVariableStored: DataFrame = session.read
-        .parquet(path.toString)
-        .union(dataToSave)
-
-      dataByVariableStored
-        .coalesce(1)
-        .write
-        .mode("append")
-        .parquet(pathIntermediate.toString)
-
-      storageHandler.delete(path)
-      storageHandler.move(pathIntermediate, path)
-      logger.whenDebugEnabled {
-        session.read.parquet(path.toString).show(1000, truncate = false)
-      }
-    } else {
-      storageHandler.mkdirs(path)
-      dataToSave
-        .coalesce(1)
-        .write
-        .mode("append")
-        .parquet(path.toString)
-
-    }
-  }
-
   /** Function Function that unifies discrete and continuous metrics dataframe, then write save the result to parquet
     *
     * @param discreteDataset   : dataframe that contains all the discrete metrics
@@ -193,7 +152,7 @@ class MetricsJob(
     logger.info("Continuous Attributes -> " + continAttrs.mkString(","))
     val discreteOps: List[DiscreteMetric] = Metrics.discreteMetrics
     val continuousOps: List[ContinuousMetric] = Metrics.continuousMetrics
-    val savePath: Path = metricsPath(settings.comet.metrics.path)
+    val savePath: Path = DatasetArea.metrics(domain.name, schema.name)
     val count = dataUse.count()
     val discreteDataset = Metrics.computeDiscretMetric(dataUse, discAttrs, discreteOps)
     val continuousDataset = Metrics.computeContinuousMetric(dataUse, continAttrs, continuousOps)
@@ -220,9 +179,8 @@ class MetricsJob(
           val lockedPath = lockPath(settings.comet.metrics.path)
           val waitTimeMillis = settings.comet.lock.metricsTimeout
           val locker = new FileLock(lockedPath, storageHandler)
-
           val metricsResult = locker.tryExclusively(waitTimeMillis) {
-            save(df, new Path(savePath, table.toString))
+            appendToFile(storageHandler, df, new Path(savePath, table.toString))
           }
           val metricsSinkResult =
             new SinkUtils().sinkMetrics(settings.comet.metrics.sink, df, table.toString)
