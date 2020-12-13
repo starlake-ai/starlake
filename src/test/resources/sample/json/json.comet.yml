@@ -62,3 +62,5 @@ schemas:
         script: regexp_extract(comet_input_file_name, '.+\/(.+)$' , 1)
         required: false
         privacy: "NONE"
+    assertions:
+        noInvalidEmail: select * from comet_table where email like 'INAVLIDEMAIL'

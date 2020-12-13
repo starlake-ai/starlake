@@ -71,7 +71,7 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     defaultTypes.filter(defaultType => !redefinedTypeNames.contains(defaultType.name)) ++ types
   }
 
-  lazy val assertions: Map[String, AssertionDefinition] = {
+  def assertions(name: String): Map[String, AssertionDefinition] = {
     def loadAssertions(filename: String): Map[String, AssertionDefinition] = {
       val assertionsPath = new Path(DatasetArea.assertions, filename)
       if (storage.exists(assertionsPath))
@@ -84,11 +84,12 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
 
     val defaultAssertions = loadAssertions("default.comet.yml")
     val assertions = loadAssertions("assertions.comet.yml")
+    val resAssertions = loadAssertions(name + ".comet.yml")
 
-    defaultAssertions ++ assertions
+    defaultAssertions ++ assertions ++ resAssertions
   }
 
-  def views(files: List[String]): Views = {
+  def views(name: String): Views = {
     def loadViews(path: String): Views = {
       val viewsPath = DatasetArea.views(path)
       if (storage.exists(viewsPath)) {
@@ -100,11 +101,12 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
             rootNode.path("views")
         mapper.treeToValue(includeNode, classOf[Views])
       } else {
-        logger.warn(s" views path $viewsPath inferred from $path not found")
         Views()
       }
     }
-    Views.merge(("default.comet.yml" +: "views.comet.yml" +: files).map(loadViews))
+    Views.merge(
+      ("default.comet.yml" :: "views.comet.yml" :: (name + ".comet.yml") :: Nil).map(loadViews)
+    )
   }
 
   /** Fnd type by name
