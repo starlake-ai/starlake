@@ -95,14 +95,25 @@ trait TestHelper extends AnyFlatSpec with Matchers with BeforeAndAfterAll with S
 
   def versionSuffix: String = TestHelperAux.versionSuffix
 
-  val allTypes: List[TypeToImport] = List(
-    TypeToImport(
+  val allTypes: List[FileToImport] = List(
+    FileToImport(
       "default.comet.yml",
       "/sample/default.comet.yml"
     ),
-    TypeToImport(
+    FileToImport(
       "types.comet.yml",
       "/sample/types.comet.yml"
+    )
+  )
+
+  val allAssertions: List[FileToImport] = List(
+    FileToImport(
+      "default.comet.yml",
+      "/sample/assertions/default.comet.yml"
+    ),
+    FileToImport(
+      "types.comet.yml",
+      "/sample/assertions/assertions.comet.yml"
     )
   )
 
@@ -216,6 +227,10 @@ trait TestHelper extends AnyFlatSpec with Matchers with BeforeAndAfterAll with S
       allTypes.foreach { typeToImport =>
         val typesPath = new Path(DatasetArea.types, typeToImport.name)
         deliverTestFile(typeToImport.path, typesPath)
+      }
+      allAssertions.foreach { assertionToImport =>
+        val assertionPath = new Path(DatasetArea.assertions, assertionToImport.name)
+        deliverTestFile(assertionToImport.path, assertionPath)
       }
     }
 
@@ -485,4 +500,4 @@ object TestHelper {
   private val runtimeId: String = UUID.randomUUID().toString
 }
 
-case class TypeToImport(name: String, path: String)
+case class FileToImport(name: String, path: String)
