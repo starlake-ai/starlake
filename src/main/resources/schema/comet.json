@@ -739,12 +739,9 @@
     "transform": {
       "$ref": "#/definitions/AutoJobDesc"
     },
-    "include": {
-      "type": "array",
-      "items": {
-        "type": "string",
-        "description": "YML file containing views definitions to include"
-      }
+    "assertions": {
+      "$ref": "#/definitions/MapString",
+      "description": "Assertions library defined as a map name(params) -> sql request that should return 0 record"
     },
     "name": {
       "type": "string",
