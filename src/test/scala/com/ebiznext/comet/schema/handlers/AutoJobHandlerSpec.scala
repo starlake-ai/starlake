@@ -62,7 +62,8 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
           None,
           Some("parquet"),
           Some(false),
-          views = Some(Map("user_View" -> "accepted/user"))
+          views = Some(Map("user_View" -> "accepted/user")),
+          include = Some(Nil)
         )
       val schemaHandler = new SchemaHandler(metadataStorageHandler)
 
@@ -99,7 +100,8 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         "user",
         "user",
         WriteMode.OVERWRITE,
-        area = Some(StorageArea.fromString("business"))
+        area = Some(StorageArea.fromString("business")),
+        assertions = Some(Map("uniqFirstname" -> "isUnique(firstname)"))
       )
       val businessJob =
         AutoJobDesc(

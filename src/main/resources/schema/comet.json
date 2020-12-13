@@ -544,7 +544,7 @@
         },
         "assertions": {
           "$ref": "#/definitions/MapString",
-          "description": "Assertion Map"
+          "description": "Assertions to check after Load / Transform has succeeded"
         }
       }
     },
@@ -665,7 +665,7 @@
         },
         "assertions": {
           "$ref": "#/definitions/MapString",
-          "description": "Assertion Map"
+          "description": "Assertions to check after Load / Transform has succeeded"
         }
       },
       "required": [
@@ -699,6 +699,10 @@
           "items": {
             "$ref": "#/definitions/AutoTaskDesc",
             "description": "List of transform tasks to execute"
+          },
+          "assertions": {
+            "$ref": "#/definitions/MapString",
+            "description": "Assertions to check after Load / Transform has succeeded"
           }
         },
         "udf": {

@@ -1,6 +1,7 @@
 package com.ebiznext.comet.utils
 
 import com.ebiznext.comet.config.{Settings, SparkEnv, UdfRegistration}
+import com.ebiznext.comet.schema.handlers.StorageHandler
 import com.ebiznext.comet.schema.model.{Metadata, SinkType, Views}
 import com.ebiznext.comet.schema.model.SinkType.{BQ, FS, JDBC}
 import com.typesafe.scalalogging.StrictLogging
@@ -8,6 +9,7 @@ import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.IntegerType
 import org.apache.spark.sql.{DataFrame, DataFrameWriter, Row, SparkSession}
 import com.ebiznext.comet.utils.Formatter._
+import org.apache.hadoop.fs.Path
 
 import scala.util.Try
 
@@ -236,6 +238,47 @@ trait SparkJob extends JobBase {
       }
       df.createOrReplaceTempView(key)
       logger.info(s"Created view $key")
+    }
+  }
+
+  /** Saves a dataset. If the path is empty (the first time we call metrics on the schema) then we can write.
+    *
+    * If there's already parquet files stored in it, then create a temporary directory to compute on, and flush
+    * the path to move updated metrics in it
+    *
+    * @param dataToSave :   dataset to be saved
+    * @param path       :   Path to save the file at
+    */
+  def appendToFile(storageHandler: StorageHandler, dataToSave: DataFrame, path: Path): Unit = {
+    if (storageHandler.exists(path)) {
+      val pathIntermediate = new Path(path.getParent, ".tmp")
+
+      logger.whenDebugEnabled {
+        session.read.parquet(path.toString).show(false)
+      }
+      val dataByVariableStored: DataFrame = session.read
+        .parquet(path.toString)
+        .union(dataToSave)
+
+      dataByVariableStored
+        .coalesce(1)
+        .write
+        .mode("append")
+        .parquet(pathIntermediate.toString)
+
+      storageHandler.delete(path)
+      storageHandler.move(pathIntermediate, path)
+      logger.whenDebugEnabled {
+        session.read.parquet(path.toString).show(1000, truncate = false)
+      }
+    } else {
+      storageHandler.mkdirs(path)
+      dataToSave
+        .coalesce(1)
+        .write
+        .mode("append")
+        .parquet(path.toString)
+
     }
   }
 
