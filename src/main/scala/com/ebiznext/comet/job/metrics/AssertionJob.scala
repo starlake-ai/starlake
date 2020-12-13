@@ -60,7 +60,7 @@ class AssertionJob(
     val count = dataset.count()
     schema.assertions.foreach { assertions =>
       dataset.createOrReplaceTempView("comet_table")
-      val assertionLibrary = schemaHandler.assertions
+      val assertionLibrary = schemaHandler.assertions(domain.name)
       val calls = AssertionCalls(assertions).assertionCalls
       val assertionReports = calls.map { case (_, assertion) =>
         val sql = assertionLibrary
@@ -118,11 +118,18 @@ class AssertionJob(
         appendToFile(storageHandler, assertionsDF, new Path(savePath, savePath))
       }
 
-      val result = new SinkUtils().sinkMetrics(
+      val assertionSinkResult = new SinkUtils().sinkMetrics(
         settings.comet.assertions.sink,
         assertionsDF,
         settings.comet.assertions.sink.name.getOrElse("assertions")
       )
+      for {
+        _ <- assertionsResult
+        _ <- assertionSinkResult
+      } yield {
+        None
+      }
+
     }
     Success(SparkJobResult(None))
   }

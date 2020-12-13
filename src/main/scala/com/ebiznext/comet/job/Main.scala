@@ -120,7 +120,6 @@ object Main extends StrictLogging {
         workflow.loadLanding()
         true
       case "watch" =>
-        
         WatchConfig.parse(args.drop(1)) match {
           case Some(config) =>
             workflow.loadPending(config)
