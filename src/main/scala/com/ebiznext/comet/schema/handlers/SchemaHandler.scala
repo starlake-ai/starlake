@@ -94,12 +94,12 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
       val viewsPath = DatasetArea.views(path)
       if (storage.exists(viewsPath)) {
         val rootNode = mapper.readTree(storage.read(viewsPath))
-        val includeNode =
+        val viewsNode =
           if (rootNode.path("views").isMissingNode)
             throw new Exception(s"Root node views missing in file $path")
           else
             rootNode.path("views")
-        mapper.treeToValue(includeNode, classOf[Views])
+        mapper.treeToValue(viewsNode, classOf[Views])
       } else {
         Views()
       }
@@ -107,6 +107,14 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     Views.merge(
       ("default.comet.yml" :: "views.comet.yml" :: (name + ".comet.yml") :: Nil).map(loadViews)
     )
+  }
+
+  lazy val activeEnv: Map[String, String] = {
+    val envsCometPath = new Path(DatasetArea.metadata, s"env.${settings.comet.env}.comet.yml")
+    if (storage.exists(envsCometPath))
+      mapper.readValue(storage.read(envsCometPath), classOf[Env]).env
+    else
+      Map.empty[String, String]
   }
 
   /** Fnd type by name

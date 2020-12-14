@@ -65,13 +65,13 @@ class AssertionJob(
       val assertionReports = calls.map { case (_, assertion) =>
         val sql = assertionLibrary
           .get(assertion.name)
-          .map(_.subst(assertion.params))
+          .map(ad => Utils.subst(ad.sql, ad.params, assertion.paramValues, schemaHandler.activeEnv))
           .getOrElse(assertion.sql)
         try {
           val count = session.sql(sql).count()
           AssertionReport(
             assertion.name,
-            assertion.params.toString(),
+            assertion.paramValues.toString(),
             Some(sql),
             Some(count),
             None,
@@ -81,7 +81,7 @@ class AssertionJob(
           case e: IllegalArgumentException =>
             AssertionReport(
               assertion.name,
-              assertion.params.toString(),
+              assertion.paramValues.toString(),
               None,
               None,
               Some(Utils.exceptionAsString(e)),
@@ -90,7 +90,7 @@ class AssertionJob(
           case e: Exception =>
             AssertionReport(
               assertion.name,
-              assertion.params.toString(),
+              assertion.paramValues.toString(),
               Some(sql),
               None,
               Some(Utils.exceptionAsString(e)),
@@ -103,7 +103,7 @@ class AssertionJob(
 
       val assertionsDF = session
         .createDataFrame(assertionReports)
-        .withColumn("jobId", lit(settings.comet.jobId))
+        .withColumn("jobId", lit(session.sparkContext.applicationId))
         .withColumn("domain", lit(domain.name))
         .withColumn("schema", lit(schema.name))
         .withColumn("count", lit(count))

@@ -20,13 +20,10 @@
 
 package com.ebiznext.comet.utils
 
-import java.io.{PrintWriter, StringWriter}
-import java.lang.ref.WeakReference
-
 import com.ebiznext.comet.schema.model.WriteMode
 import com.typesafe.scalalogging.Logger
 
-import scala.reflect.runtime.universe.{SingleType, TypeTag}
+import java.io.{PrintWriter, StringWriter}
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try}
 
@@ -114,20 +111,27 @@ object Utils {
     (createDisposition, writeDisposition)
   }
 
-  /** @return true if the value provided by x is an object
-    */
-  def isObject[T](x: T)(implicit tag: TypeTag[T]): Boolean =
-    PartialFunction.cond(tag.tpe) { case SingleType =>
-      true
-    }
-
-  /** Force a full GC
-    */
-  def gc() = {
-    var obj = new Object();
-    val ref = new WeakReference[Object](obj);
-    obj = null;
-    while (ref.get() != null)
-      System.gc()
+  def subst(
+    value: String,
+    paramNames: List[String],
+    paramValues: List[String],
+    env: Map[String, String]
+  ): String = {
+    subst(value, paramNames, paramValues, "comet_table", env)
   }
+
+  def subst(
+    value: String,
+    paramNames: List[String],
+    paramValues: List[String],
+    table: String,
+    env: Map[String, String]
+  ): String = {
+    assert(paramValues.length == paramNames.length)
+    val AllParams = (paramNames :+ "comet_table").zip(paramValues :+ table) ++ env.toList
+    AllParams.foldLeft(value) { case (acc, (p, v)) =>
+      s"\\b($p)\\b".r.replaceAllIn(acc, v)
+    }
+  }
+
 }
