@@ -456,7 +456,7 @@ trait IngestionJob extends SparkJob {
           case Success(dataset) =>
             Try {
               val views = schemaHandler.views(domain.name)
-              createViews(views, options)
+              createViews(views, options, schemaHandler.activeEnv)
               val (rejectedRDD, acceptedRDD) = ingest(dataset)
               val inputCount = dataset.count()
               val acceptedCount = acceptedRDD.count()
@@ -467,7 +467,7 @@ trait IngestionJob extends SparkJob {
               )
               val end = Timestamp.from(Instant.now())
               val log = AuditLog(
-                s"${settings.comet.jobId}",
+                session.sparkContext.applicationId,
                 inputFiles,
                 domain.name,
                 schema.name,
@@ -487,7 +487,7 @@ trait IngestionJob extends SparkJob {
             val end = Timestamp.from(Instant.now())
             val err = Utils.exceptionAsString(exception)
             AuditLog(
-              s"${settings.comet.jobId}",
+              session.sparkContext.applicationId,
               path.map(_.toString).mkString(","),
               domain.name,
               schema.name,
@@ -707,9 +707,15 @@ object IngestionUtil {
     import session.implicits._
     val rejectedPath = new Path(DatasetArea.rejected(domainName), schemaName)
     val rejectedPathName = rejectedPath.toString
-    val jobid = s"${settings.comet.jobId}"
     val rejectedTypedRDD = rejectedRDD.map { err =>
-      RejectedRecord(jobid, now, domainName, schemaName, err, rejectedPathName)
+      RejectedRecord(
+        session.sparkContext.applicationId,
+        now,
+        domainName,
+        schemaName,
+        err,
+        rejectedPathName
+      )
     }
     val rejectedDF = session
       .createDataFrame(

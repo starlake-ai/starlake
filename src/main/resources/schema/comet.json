@@ -732,6 +732,9 @@
         "$ref": "#/definitions/Type"
       }
     },
+    "env": {
+      "$ref": "#/definitions/MapString"
+    },
     "transform": {
       "$ref": "#/definitions/AutoJobDesc"
     },
@@ -745,6 +748,10 @@
     },
     "directory": {
       "description": "Folder on the local filesystem where incoming files are stored.\n                     Typically, this folder will be scanned periodically to move the dataset to the cluster for ingestion.\n                     Files located in this folder are moved to the pending folder for ingestion by the \"import\" command.",
+      "type": "string"
+    },
+    "udf": {
+      "description": "Scala class name used to register UDFs.",
       "type": "string"
     },
     "metadata": {
@@ -777,6 +784,11 @@
     {
       "required": [
         "assertions"
+      ]
+    },
+    {
+      "required": [
+        "env"
       ]
     },
     {
