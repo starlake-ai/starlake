@@ -20,20 +20,20 @@
 
 package com.ebiznext.comet.job.transform
 
-import java.io.{File, PrintStream}
-import java.time.LocalDateTime
-import com.ebiznext.comet.config.{Settings, StorageArea, UdfRegistration}
+import com.ebiznext.comet.config.{Settings, StorageArea}
 import com.ebiznext.comet.job.index.bqload.{
   BigQueryJobResult,
   BigQueryLoadConfig,
   BigQueryNativeJob
 }
-import com.ebiznext.comet.schema.handlers.StorageHandler
+import com.ebiznext.comet.schema.handlers.{SchemaHandler, StorageHandler}
 import com.ebiznext.comet.schema.model.{AutoTaskDesc, BigQuerySink, Engine, Views}
 import com.ebiznext.comet.utils.Formatter._
 import com.ebiznext.comet.utils.{JobResult, SparkJob, SparkJobResult, Utils}
 import org.apache.hadoop.fs.Path
 
+import java.io.{File, PrintStream}
+import java.time.LocalDateTime
 import scala.util.{Failure, Success, Try}
 
 /** Execute the SQL Task and store it in parquet/orc/.... If Hive support is enabled, also store it as a Hive Table.
@@ -54,7 +54,8 @@ class AutoTaskJob(
   engine: Engine,
   task: AutoTaskDesc,
   storageHandler: StorageHandler,
-  sqlParameters: Map[String, String]
+  sqlParameters: Map[String, String],
+  schemaHandler: SchemaHandler
 )(implicit val settings: Settings)
     extends SparkJob {
 
@@ -170,16 +171,9 @@ class AutoTaskJob(
 
   def runSpark(): Try[SparkJobResult] = {
     udf.foreach { udf =>
-      val udfInstance: UdfRegistration =
-        Class
-          .forName(udf)
-          .getDeclaredConstructor()
-          .newInstance()
-          .asInstanceOf[UdfRegistration]
-      udfInstance.register(session)
+      registerUdf(udf)
     }
-
-    createViews(views, sqlParameters)
+    createViews(views, sqlParameters, schemaHandler.activeEnv)
 
     task.presql
       .getOrElse(Nil)
@@ -229,5 +223,4 @@ class AutoTaskJob(
     // Let us return the Dataframe so that it can be piped to another sink
     Success(SparkJobResult(Some(dataframe)))
   }
-
 }

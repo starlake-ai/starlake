@@ -43,16 +43,7 @@ trait SparkJob extends JobBase {
     val udfs = settings.comet.udfs.map { udfs =>
       udfs.split(',').toList
     } getOrElse Nil
-
-    udfs.foreach { udf =>
-      val udfInstance: UdfRegistration =
-        Class
-          .forName(udf)
-          .getDeclaredConstructor()
-          .newInstance()
-          .asInstanceOf[UdfRegistration]
-      udfInstance.register(sparkEnv.session)
-    }
+    udfs.foreach(registerUdf)
     sparkEnv.session
   }
 
@@ -151,28 +142,33 @@ trait SparkJob extends JobBase {
     }
   }
 
-  def createViews(views: Views, sqlParameters: Map[String, String]) = {
+  def createViews(
+    views: Views,
+    sqlParameters: Map[String, String],
+    activeEnv: Map[String, String]
+  ) = {
     // We parse the following strings
     //ex  BQ:[[ProjectID.]DATASET_ID.]TABLE_NAME"
     //or  BQ:[[ProjectID.]DATASET_ID.]TABLE_NAME.[comet_filter(col1 > 10 and col2 < 20)].[comet_select(col1, col2)]"
     //or  FS:/bucket/parquetfolder
     //or  JDBC:postgres:select *
     views.views.foreach { case (key, value) =>
-      val sepIndex = value.indexOf(":")
+      val valueWithEnv = Utils.subst(value, Nil, Nil, "comet_table", activeEnv)
+      val sepIndex = valueWithEnv.indexOf(":")
       val (format, configName, path) =
         if (sepIndex > 0) {
-          val key = value.substring(0, sepIndex)
-          val sepConfigIndex = value.indexOf(':', sepIndex + 1)
+          val key = valueWithEnv.substring(0, sepIndex)
+          val sepConfigIndex = valueWithEnv.indexOf(':', sepIndex + 1)
           if (sepConfigIndex > 0) {
             (
-              SinkType.fromString(value.substring(0, sepIndex)),
-              Some(value.substring(sepIndex + 1, sepConfigIndex)),
-              value.substring(sepConfigIndex + 1)
+              SinkType.fromString(valueWithEnv.substring(0, sepIndex)),
+              Some(valueWithEnv.substring(sepIndex + 1, sepConfigIndex)),
+              valueWithEnv.substring(sepConfigIndex + 1)
             )
           } else
-            (SinkType.fromString(key), None, value.substring(sepIndex + 1))
+            (SinkType.fromString(key), None, valueWithEnv.substring(sepIndex + 1))
         } else // parquet is the default
-          (SinkType.FS, None, value)
+          (SinkType.FS, None, valueWithEnv)
       logger.info(s"Loading view $path from $format")
       val df = format match {
         case FS =>
@@ -280,6 +276,16 @@ trait SparkJob extends JobBase {
         .parquet(path.toString)
 
     }
+  }
+
+  def registerUdf(udf: String): Unit = {
+    val udfInstance: UdfRegistration =
+      Class
+        .forName(udf)
+        .getDeclaredConstructor()
+        .newInstance()
+        .asInstanceOf[UdfRegistration]
+    udfInstance.register(session)
   }
 
 }

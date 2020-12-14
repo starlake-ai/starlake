@@ -10,7 +10,7 @@ case class AssertionCalls(assertions: Map[String, String]) {
   }
 }
 
-case class AssertionCall(comment: String, name: String, params: List[String], sql: String)
+case class AssertionCall(comment: String, name: String, paramValues: List[String], sql: String)
 
 object AssertionCall {
 
