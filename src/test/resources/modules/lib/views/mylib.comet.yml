@@ -1,0 +1,16 @@
+include:
+  views:
+    - view1: select * from ...
+  assertions:
+    - interval(col1, min, max): select * from comet_table where col1 < min and col1 > max
+    - unique(col):  |
+                    | with
+                    |   cnts as (select count(distinct col) from comet_table as cnt from table)
+                    |   select cnt from cnts where cnt > 1
+    - nonNull(col1): as nulls (select count(*) as cnt from comet_table where col1 is null)
+                     | select cnt from nulls where cnt > 0
+  env:
+    - prod:
+      - table1: tableDeProd
+      - projectid: myprodproject-1245435621
+    - dev:

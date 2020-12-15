@@ -71,6 +71,49 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     defaultTypes.filter(defaultType => !redefinedTypeNames.contains(defaultType.name)) ++ types
   }
 
+  def assertions(name: String): Map[String, AssertionDefinition] = {
+    def loadAssertions(filename: String): Map[String, AssertionDefinition] = {
+      val assertionsPath = new Path(DatasetArea.assertions, filename)
+      if (storage.exists(assertionsPath))
+        mapper
+          .readValue(storage.read(assertionsPath), classOf[AssertionDefinitions])
+          .assertionDefinitions
+      else
+        Map.empty[String, AssertionDefinition]
+    }
+
+    val defaultAssertions = loadAssertions("default.comet.yml")
+    val assertions = loadAssertions("assertions.comet.yml")
+    val resAssertions = loadAssertions(name + ".comet.yml")
+
+    defaultAssertions ++ assertions ++ resAssertions
+  }
+
+  def views(name: String): Views = {
+    def loadViews(path: String): Views = {
+      val viewsPath = DatasetArea.views(path)
+      if (storage.exists(viewsPath)) {
+        val rootNode = mapper.readTree(storage.read(viewsPath))
+        if (rootNode.path("views").isMissingNode)
+          throw new Exception(s"Root node views missing in file $path")
+        mapper.treeToValue(rootNode, classOf[Views])
+      } else {
+        Views()
+      }
+    }
+    Views.merge(
+      ("default.comet.yml" :: "views.comet.yml" :: (name + ".comet.yml") :: Nil).map(loadViews)
+    )
+  }
+
+  lazy val activeEnv: Map[String, String] = {
+    val envsCometPath = new Path(DatasetArea.metadata, s"env.${settings.comet.env}.comet.yml")
+    if (storage.exists(envsCometPath))
+      mapper.readValue(storage.read(envsCometPath), classOf[Env]).env
+    else
+      Map.empty[String, String]
+  }
+
   /** Fnd type by name
     *
     * @param tpe : Type name
@@ -86,8 +129,23 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
   lazy val domains: List[Domain] = {
     val (validDomainsFile, invalidDomainsFiles) = storage
       .list(DatasetArea.domains, ".yml")
-      .map(path => Try(mapper.readValue(storage.read(path), classOf[Domain])))
+      .map { path =>
+        Try {
+          val rootNode = mapper.readTree(storage.read(path))
+          val loadNode = rootNode.path("load")
+          val domainNode =
+            if (loadNode.isNull() || loadNode.isMissingNode) {
+              logger.warn(
+                s"Defining a domain outsiide a load node is now deprecated. Please updaet definition $path"
+              )
+              rootNode
+            } else
+              loadNode
+          mapper.treeToValue(domainNode, classOf[Domain])
+        }
+      }
       .partition(_.isSuccess)
+
     invalidDomainsFiles.map(_.failed.get).foreach { err =>
       logger.warn(
         s"There is one or more invalid Yaml files in your domains folder:${err.getMessage}"
@@ -100,14 +158,17 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
   def loadJobFromFile(path: Path): Try[AutoJobDesc] = {
     Try {
       val rootNode = mapper.readTree(storage.read(path))
+      val tranformNode = rootNode.path("transform")
       val autojobNode =
-        if (rootNode.path("transform").isMissingNode)
+        if (tranformNode.isNull() || tranformNode.isMissingNode) {
+          logger.warn(
+            s"Defining aa autojob outside a transform node is now deprecated. Please update definition $path"
+          )
           rootNode
-        else
-          rootNode.path("transform")
+        } else
+          tranformNode
       mapper.treeToValue(autojobNode, classOf[AutoJobDesc])
     }
-
   }
 
   /** All defined jobs

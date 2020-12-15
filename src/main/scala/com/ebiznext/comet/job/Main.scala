@@ -91,7 +91,6 @@ object Main extends StrictLogging {
     */
   def main(args: Array[String]): Unit = {
     implicit val settings: Settings = Settings(ConfigFactory.load())
-    settings.publishMDCData()
     logger.info(s"Comet Version ${BuildInfo.version}")
     import settings.{launcherService, metadataStorageHandler, storageHandler}
     DatasetArea.initMetadata(metadataStorageHandler)

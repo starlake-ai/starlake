@@ -82,7 +82,6 @@ object Parquet2CSV {
 
   def main(args: Array[String]): Unit = {
     implicit val settings: Settings = Settings(ConfigFactory.load())
-    settings.publishMDCData()
 
     import settings.storageHandler
     Parquet2CSVConfig.parse(args) match {
