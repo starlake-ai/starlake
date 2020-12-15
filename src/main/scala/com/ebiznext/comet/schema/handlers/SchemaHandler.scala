@@ -94,12 +94,9 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
       val viewsPath = DatasetArea.views(path)
       if (storage.exists(viewsPath)) {
         val rootNode = mapper.readTree(storage.read(viewsPath))
-        val viewsNode =
-          if (rootNode.path("views").isMissingNode)
-            throw new Exception(s"Root node views missing in file $path")
-          else
-            rootNode.path("views")
-        mapper.treeToValue(viewsNode, classOf[Views])
+        if (rootNode.path("views").isMissingNode)
+          throw new Exception(s"Root node views missing in file $path")
+        mapper.treeToValue(rootNode, classOf[Views])
       } else {
         Views()
       }
