@@ -129,8 +129,23 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
   lazy val domains: List[Domain] = {
     val (validDomainsFile, invalidDomainsFiles) = storage
       .list(DatasetArea.domains, ".yml")
-      .map(path => { println(path); Try(mapper.readValue(storage.read(path), classOf[Domain])) })
+      .map { path =>
+        Try {
+          val rootNode = mapper.readTree(storage.read(path))
+          val loadNode = rootNode.path("load")
+          val domainNode =
+            if (loadNode.isNull() || loadNode.isMissingNode) {
+              logger.warn(
+                s"Defining a domain outsiide a load node is now deprecated. Please updaet definition $path"
+              )
+              rootNode
+            } else
+              loadNode
+          mapper.treeToValue(domainNode, classOf[Domain])
+        }
+      }
       .partition(_.isSuccess)
+
     invalidDomainsFiles.map(_.failed.get).foreach { err =>
       logger.warn(
         s"There is one or more invalid Yaml files in your domains folder:${err.getMessage}"
@@ -145,19 +160,14 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
       val rootNode = mapper.readTree(storage.read(path))
       val tranformNode = rootNode.path("transform")
       val autojobNode =
-        if (tranformNode.isNull() || tranformNode.isMissingNode)
+        if (tranformNode.isNull() || tranformNode.isMissingNode) {
+          logger.warn(
+            s"Defining aa autojob outside a transform node is now deprecated. Please update definition $path"
+          )
           rootNode
-        else
+        } else
           tranformNode
-      val includeNode = rootNode.path("include")
-      val includes =
-        if (includeNode.isNull() || includeNode.isMissingNode)
-          None
-        else
-          Some(mapper.treeToValue(includeNode, classOf[List[String]]))
-
-      val autoJob = mapper.treeToValue(autojobNode, classOf[AutoJobDesc])
-      autoJob.copy(include = includes)
+      mapper.treeToValue(autojobNode, classOf[AutoJobDesc])
     }
   }
 
