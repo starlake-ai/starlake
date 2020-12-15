@@ -165,6 +165,42 @@ developers := List(
     name = "Hayssam Saleh",
     email = "hayssam.saleh@ebiznext.com",
     url = url("https://www.ebiznext.com")
+  ),
+  Developer(
+    id = "elarib",
+    name = "Abdelhamide Elarib",
+    email = "elarib.abdelhamide@gmal.com",
+    url = url("https://www.ebiznext.com")
+  ),
+  Developer(
+    id = "cchepelov",
+    name = "Cyrille Chepelov",
+    email = "cyrille@chepelov.org",
+    url = url("https://www.ebiznext.com")
+  ),
+  Developer(
+    id = "AmineSagaama",
+    name = "Amine Sagaama",
+    email = "amine.sagaama@gmail.com",
+    url = url("https://www.ebiznext.com")
+  ),
+  Developer(
+    id = "mhdqassir",
+    name = "Mohamad Kassir",
+    email = "mahamad.kassir@gmail.com",
+    url = url("https://www.ebiznext.com")
+  ),
+  Developer(
+    id = "mmenestret",
+    name = "Martin Menestret",
+    email = "martinmenestret@gmail.com",
+    url = url("https://www.ebiznext.com")
+  ),
+  Developer(
+    id = "zedach",
+    name = "Mourad Dachraoui",
+    email = "hayssam.saleh@ebiznext.com",
+    url = url("https://www.ebiznext.com")
   )
 )
 
