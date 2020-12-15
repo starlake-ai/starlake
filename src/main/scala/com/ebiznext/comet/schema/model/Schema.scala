@@ -96,6 +96,7 @@ case class Schema(
   def sparkType(schemaHandler: SchemaHandler): StructType = {
     val fields = attributes.map { attr =>
       StructField(attr.name, attr.sparkType(schemaHandler), !attr.required)
+        .withComment(attr.comment.getOrElse(""))
     }
     StructType(fields)
   }
@@ -120,6 +121,7 @@ case class Schema(
   ): StructType = {
     val fields = attributes filter p map { attr =>
       StructField(attr.rename.getOrElse(attr.name), attr.sparkType(schemaHandler), !attr.required)
+        .withComment(attr.comment.getOrElse(""))
     }
     StructType(fields)
   }
