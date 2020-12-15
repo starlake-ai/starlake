@@ -627,8 +627,9 @@ trait IngestionJob extends SparkJob {
         ) {
           val bqTable = s"${domain.name}.${schema.name}"
           (mergeOptions.queryFilter, metadata.sink) match {
-            case (Some(query), Some(BigQuerySink(_, partitionBq, _, _, _))) =>
-              if (query.contains("latest")) {
+            case (Some(query), Some(BigQuerySink(_, Some(_), _, _, _))) =>
+              val queryArgs = query.richFormat(options)
+              if (queryArgs.contains("latest")) {
                 val partitions =
                   tableMetadata.biqueryClient.listPartitions(table.getTableId).asScala.toList
                 val latestPartition = partitions.last
@@ -650,7 +651,7 @@ trait IngestionJob extends SparkJob {
                   .schema(withScriptFieldsDF.schema)
                   .format("com.google.cloud.spark.bigquery")
                   .option("table", bqTable)
-                  .option("filter", query.richFormat(options))
+                  .option("filter", queryArgs)
                   .load()
                 processMerge(withScriptFieldsDF, existingBigQueryDF, mergeOptions)
               }
