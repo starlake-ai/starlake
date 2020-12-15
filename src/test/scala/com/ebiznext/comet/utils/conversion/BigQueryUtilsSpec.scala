@@ -133,18 +133,22 @@ class BigQueryUtilsSpec extends TestHelper {
           Field
             .newBuilder("firstname", StandardSQLTypeName.STRING)
             .setMode(Field.Mode.NULLABLE)
+            .setDescription("")
             .build(),
           Field
             .newBuilder("lastname", StandardSQLTypeName.STRING)
             .setMode(Field.Mode.NULLABLE)
+            .setDescription("")
             .build(),
           Field
             .newBuilder("age", StandardSQLTypeName.INT64)
             .setMode(Field.Mode.NULLABLE)
+            .setDescription("")
             .build(),
           Field
             .newBuilder("ok", StandardSQLTypeName.BOOL)
             .setMode(Field.Mode.NULLABLE)
+            .setDescription("")
             .build()
         )
 
