@@ -187,7 +187,7 @@ developers := List(
   Developer(
     id = "mhdqassir",
     name = "Mohamad Kassir",
-    email = "mahamad.kassir@gmail.com",
+    email = "mbkassir@gmail.com",
     url = url("https://www.ebiznext.com")
   ),
   Developer(
@@ -197,9 +197,15 @@ developers := List(
     url = url("https://www.ebiznext.com")
   ),
   Developer(
+    id = "pchalcol",
+    name = "Patice Chalcol",
+    email = "pchalcol@gmail.com",
+    url = url("https://www.ebiznext.com")
+  ),
+  Developer(
     id = "zedach",
     name = "Mourad Dachraoui",
-    email = "hayssam.saleh@ebiznext.com",
+    email = "morad.dachraoui@gmaiil.com",
     url = url("https://www.ebiznext.com")
   )
 )
