@@ -1,8 +1,12 @@
 package com.ebiznext.comet.utils
 
 import com.ebiznext.comet.config.{Settings, SparkEnv, UdfRegistration}
-import com.ebiznext.comet.schema.model.Metadata
+import com.ebiznext.comet.schema.handlers.StorageHandler
+import com.ebiznext.comet.schema.model.SinkType.{BQ, FS, JDBC}
+import com.ebiznext.comet.schema.model.{Metadata, SinkType, Views}
+import com.ebiznext.comet.utils.Formatter._
 import com.typesafe.scalalogging.StrictLogging
+import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.IntegerType
 import org.apache.spark.sql.{DataFrame, DataFrameWriter, Row, SparkSession}
@@ -35,20 +39,21 @@ trait SparkJob extends JobBase {
     new SparkEnv(name)
   }
 
+  def registerUdf(udf: String): Unit = {
+    val udfInstance: UdfRegistration =
+      Class
+        .forName(udf)
+        .getDeclaredConstructor()
+        .newInstance()
+        .asInstanceOf[UdfRegistration]
+    udfInstance.register(sparkEnv.session)
+  }
+
   lazy val session: SparkSession = {
     val udfs = settings.comet.udfs.map { udfs =>
       udfs.split(',').toList
     } getOrElse Nil
-
-    udfs.foreach { udf =>
-      val udfInstance: UdfRegistration =
-        Class
-          .forName(udf)
-          .getDeclaredConstructor()
-          .newInstance()
-          .asInstanceOf[UdfRegistration]
-      udfInstance.register(sparkEnv.session)
-    }
+    udfs.foreach(registerUdf)
     sparkEnv.session
   }
 
@@ -145,6 +150,144 @@ trait SparkJob extends JobBase {
             e.printStackTrace()
         }
     }
+  }
 
+  def createViews(
+    views: Views,
+    sqlParameters: Map[String, String],
+    activeEnv: Map[String, String]
+  ) = {
+    // We parse the following strings
+    //ex  BQ:[[ProjectID.]DATASET_ID.]TABLE_NAME"
+    //or  BQ:[[ProjectID.]DATASET_ID.]TABLE_NAME.[comet_filter(col1 > 10 and col2 < 20)].[comet_select(col1, col2)]"
+    //or  FS:/bucket/parquetfolder
+    //or  JDBC:postgres:select *
+    views.views.foreach { case (key, value) =>
+      val valueWithEnv = Utils.subst(value, Nil, Nil, "comet_table", activeEnv)
+      val sepIndex = valueWithEnv.indexOf(":")
+      val (format, configName, path) =
+        if (sepIndex > 0) {
+          val key = valueWithEnv.substring(0, sepIndex)
+          val sepConfigIndex = valueWithEnv.indexOf(':', sepIndex + 1)
+          if (sepConfigIndex > 0) {
+            (
+              SinkType.fromString(valueWithEnv.substring(0, sepIndex)),
+              Some(valueWithEnv.substring(sepIndex + 1, sepConfigIndex)),
+              valueWithEnv.substring(sepConfigIndex + 1)
+            )
+          } else
+            (SinkType.fromString(key), None, valueWithEnv.substring(sepIndex + 1))
+        } else // parquet is the default
+          (SinkType.FS, None, valueWithEnv)
+      logger.info(s"Loading view $path from $format")
+      val df = format match {
+        case FS =>
+          if (path.startsWith("/"))
+            session.read.parquet(path)
+          else if (path.trim.toLowerCase.startsWith("select "))
+            session.sql(path)
+          else
+            session.read.parquet(s"${settings.comet.datasets}/$path")
+        case JDBC =>
+          val jdbcConfig =
+            settings.comet.connections(configName.getOrElse((throw new Exception(""))))
+          jdbcConfig.options
+            .foldLeft(session.read)((w, kv) => w.option(kv._1, kv._2))
+            .format(jdbcConfig.format)
+            .option("query", path.richFormat(sqlParameters))
+            .load()
+            .cache()
+        case BQ =>
+          val TablePathWithFilter = "(.*)\\.comet_filter\\((.*)\\)".r
+          val TablePathWithSelect = "(.*)\\.comet_select\\((.*)\\)".r
+          val TablePathWithFilterAndSelect =
+            "(.*)\\.comet_select\\((.*)\\)\\.comet_filter\\((.*)\\)".r
+          path match {
+            case TablePathWithFilterAndSelect(tablePath, select, filter) =>
+              val filterFormat = filter.richFormat(sqlParameters)
+              logger
+                .info(s"We are loading the Table with columns: $select and filters: $filterFormat")
+              session.read
+                .option("readDataFormat", "AVRO")
+                .format("com.google.cloud.spark.bigquery")
+                .option("table", tablePath)
+                .option("filter", filterFormat)
+                .load()
+                .selectExpr(select.replaceAll("\\s", "").split(","): _*)
+                .cache()
+            case TablePathWithFilter(tablePath, filter) =>
+              val filterFormat = filter.richFormat(sqlParameters)
+              logger.info(s"We are loading the Table with filters: $filterFormat")
+              session.read
+                .option("readDataFormat", "AVRO")
+                .format("com.google.cloud.spark.bigquery")
+                .option("table", tablePath)
+                .option("filter", filterFormat)
+                .load()
+                .cache()
+            case TablePathWithSelect(tablePath, select) =>
+              logger.info(s"We are loading the Table with columns: $select")
+              session.read
+                .option("readDataFormat", "AVRO")
+                .format("com.google.cloud.spark.bigquery")
+                .option("table", tablePath)
+                .load()
+                .selectExpr(select.replaceAll("\\s", "").split(","): _*)
+                .cache()
+            case _ =>
+              session.read
+                .option("readDataFormat", "AVRO")
+                .format("com.google.cloud.spark.bigquery")
+                .option("table", path)
+                .load()
+                .cache()
+          }
+        case _ =>
+          throw new Exception("Should never happen")
+      }
+      df.createOrReplaceTempView(key)
+      logger.info(s"Created view $key")
+    }
+  }
+
+  /** Saves a dataset. If the path is empty (the first time we call metrics on the schema) then we can write.
+    *
+    * If there's already parquet files stored in it, then create a temporary directory to compute on, and flush
+    * the path to move updated metrics in it
+    *
+    * @param dataToSave :   dataset to be saved
+    * @param path       :   Path to save the file at
+    */
+  def appendToFile(storageHandler: StorageHandler, dataToSave: DataFrame, path: Path): Unit = {
+    if (storageHandler.exists(path)) {
+      val pathIntermediate = new Path(path.getParent, ".tmp")
+
+      logger.whenDebugEnabled {
+        session.read.parquet(path.toString).show(false)
+      }
+      val dataByVariableStored: DataFrame = session.read
+        .parquet(path.toString)
+        .union(dataToSave)
+
+      dataByVariableStored
+        .coalesce(1)
+        .write
+        .mode("append")
+        .parquet(pathIntermediate.toString)
+
+      storageHandler.delete(path)
+      storageHandler.move(pathIntermediate, path)
+      logger.whenDebugEnabled {
+        session.read.parquet(path.toString).show(1000, truncate = false)
+      }
+    } else {
+      storageHandler.mkdirs(path)
+      dataToSave
+        .coalesce(1)
+        .write
+        .mode("append")
+        .parquet(path.toString)
+
+    }
   }
 }

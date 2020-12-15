@@ -20,8 +20,6 @@
 
 package com.ebiznext.comet.config
 
-import java.util.Locale
-
 import com.ebiznext.comet.schema.handlers.StorageHandler
 import com.fasterxml.jackson.core.{JsonGenerator, JsonParser}
 import com.fasterxml.jackson.databind.annotation.{JsonDeserialize, JsonSerialize}
@@ -32,6 +30,8 @@ import com.fasterxml.jackson.databind.{
   SerializerProvider
 }
 import org.apache.hadoop.fs.Path
+
+import java.util.Locale
 
 /** Utilities methods to reference datasets paths
   * Datasets paths are constructed as follows :
@@ -104,6 +104,15 @@ object DatasetArea {
     )
   }
 
+  def assertions(domain: String, schema: String)(implicit settings: Settings): Path = {
+    val path = settings.comet.assertions.path
+    new Path(
+      path
+        .replace("{domain}", domain)
+        .replace("{schema}", schema)
+    )
+  }
+
   def discreteMetrics(domain: String, schema: String)(implicit settings: Settings): Path = {
     new Path(metrics(domain, schema), "discrete")
   }
@@ -130,6 +139,9 @@ object DatasetArea {
   def types(implicit settings: Settings): Path =
     new Path(metadata, "types")
 
+  def assertions(implicit settings: Settings): Path =
+    new Path(metadata, "assertions")
+
   def mapping(implicit settings: Settings): Path =
     new Path(metadata, "mapping")
 
@@ -138,6 +150,16 @@ object DatasetArea {
 
   def jobs(implicit settings: Settings): Path =
     new Path(metadata, "jobs")
+
+  def views(implicit settings: Settings): Path =
+    new Path(metadata, "views")
+
+  def views(viewsPath: String)(implicit settings: Settings): Path = {
+    if (viewsPath.startsWith("/"))
+      new Path(views, viewsPath.drop(1))
+    else
+      new Path(views, viewsPath)
+  }
 
   /** @param storage
     */

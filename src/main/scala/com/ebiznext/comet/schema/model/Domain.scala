@@ -53,6 +53,7 @@ import scala.collection.mutable
   *                     Files are moved to the pending folder only once a file with the same name as the source file and with this extension
   *                     is present.
   *                     To move a file without requiring an ack file to be present, set explicitly this property to the empty string value "".
+  * @param include    : Include views / assertions
   */
 case class Domain(
   name: String,
