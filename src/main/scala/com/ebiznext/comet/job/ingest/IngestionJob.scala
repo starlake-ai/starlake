@@ -5,7 +5,7 @@ import com.ebiznext.comet.job.index.bqload.{BigQueryLoadConfig, BigQuerySparkJob
 import com.ebiznext.comet.job.index.connectionload.{ConnectionLoadConfig, ConnectionLoadJob}
 import com.ebiznext.comet.job.index.esload.{ESLoadConfig, ESLoadJob}
 import com.ebiznext.comet.job.ingest.ImprovedDataFrameContext._
-import com.ebiznext.comet.job.metrics.MetricsJob
+import com.ebiznext.comet.job.metrics.{AssertionJob, MetricsJob}
 import com.ebiznext.comet.schema.handlers.{SchemaHandler, StorageHandler}
 import com.ebiznext.comet.schema.model.Rejection.{ColInfo, ColResult}
 import com.ebiznext.comet.schema.model.Trim.{BOTH, LEFT, RIGHT}
@@ -112,11 +112,26 @@ trait IngestionJob extends SparkJob {
       logger.debug(s"acceptedRDD SIZE ${acceptedDF.count()}")
       acceptedDF.show(1000)
     }
+
+    if (settings.comet.assertions.active) {
+      new AssertionJob(
+        this.domain,
+        this.schema,
+        Stage.UNIT,
+        storageHandler,
+        schemaHandler,
+        acceptedDF
+      )
+        .run()
+        .get
+    }
+
     if (settings.comet.metrics.active) {
       new MetricsJob(this.domain, this.schema, Stage.UNIT, this.storageHandler, this.schemaHandler)
         .run(acceptedDF, System.currentTimeMillis())
         .get
     }
+
     val writeMode = getWriteMode()
     val acceptedPath = new Path(DatasetArea.accepted(domain.name), schema.name)
 
@@ -175,6 +190,7 @@ trait IngestionJob extends SparkJob {
           withScriptFieldsDF
       }
       .getOrElse(withScriptFieldsDF)
+
     logger.info("Merged Dataframe Schema")
     mergedDF.printSchema()
     val savedDataset =
@@ -182,12 +198,6 @@ trait IngestionJob extends SparkJob {
     logger.info("Saved Dataset Schema")
     savedDataset.printSchema()
     sink(mergedDF)
-
-    if (settings.comet.metrics.active) {
-      new MetricsJob(this.domain, this.schema, Stage.GLOBAL, storageHandler, schemaHandler)
-        .run()
-        .get
-    }
     (savedDataset, acceptedPath)
   }
 
@@ -445,6 +455,8 @@ trait IngestionJob extends SparkJob {
         dataset match {
           case Success(dataset) =>
             Try {
+              val views = schemaHandler.views(domain.name)
+              createViews(views, options, schemaHandler.activeEnv)
               val (rejectedRDD, acceptedRDD) = ingest(dataset)
               val inputCount = dataset.count()
               val acceptedCount = acceptedRDD.count()
@@ -455,7 +467,7 @@ trait IngestionJob extends SparkJob {
               )
               val end = Timestamp.from(Instant.now())
               val log = AuditLog(
-                s"${settings.comet.jobId}",
+                session.sparkContext.applicationId,
                 inputFiles,
                 domain.name,
                 schema.name,
@@ -475,7 +487,7 @@ trait IngestionJob extends SparkJob {
             val end = Timestamp.from(Instant.now())
             val err = Utils.exceptionAsString(exception)
             AuditLog(
-              s"${settings.comet.jobId}",
+              session.sparkContext.applicationId,
               path.map(_.toString).mkString(","),
               domain.name,
               schema.name,
@@ -696,9 +708,18 @@ object IngestionUtil {
     import session.implicits._
     val rejectedPath = new Path(DatasetArea.rejected(domainName), schemaName)
     val rejectedPathName = rejectedPath.toString
-    val jobid = s"${settings.comet.jobId}"
+    // We need to save first the application ID
+    // refrencing it inside the worker (rdd.map) below would fail.
+    val applicationId = session.sparkContext.applicationId
     val rejectedTypedRDD = rejectedRDD.map { err =>
-      RejectedRecord(jobid, now, domainName, schemaName, err, rejectedPathName)
+      RejectedRecord(
+        applicationId,
+        now,
+        domainName,
+        schemaName,
+        err,
+        rejectedPathName
+      )
     }
     val rejectedDF = session
       .createDataFrame(

@@ -1,68 +1,69 @@
 ---
-name: "DOMAIN"
-directory: "__COMET_TEST_ROOT__/incoming/DOMAIN"
-metadata:
-  mode: "FILE"
-  format: "DSV"
-  multiline: false
-  array: false
-  withHeader: false
-  separator: ";"
-  quote: "\""
-  escape: "\\"
-  write: "APPEND"
-  partition: []
-  writeMode: "APPEND"
-schemas:
-- name: "User"
-  pattern: "SCHEMA-.*.dsv"
-  attributes:
-  - name: "firstname"
-    type: "string"
-    array: false
-    required: false
-    privacy: "NONE"
-    comment: null
-    rename: null
-    attributes: null
-  - name: "lastname"
-    type: "string"
-    array: false
-    required: false
-    privacy: "SHA1"
-    comment: null
-    rename: null
-    attributes: null
-  - name: "age"
-    type: "age"
-    array: false
-    required: false
-    privacy: "HIDE"
-    comment: null
-    rename: null
-    attributes: null
+load:
+  name: "DOMAIN"
+  directory: "__COMET_TEST_ROOT__/incoming/DOMAIN"
   metadata:
-    mode: null
+    mode: "FILE"
     format: "DSV"
     multiline: false
     array: false
-    withHeader: true
+    withHeader: false
     separator: ";"
     quote: "\""
     escape: "\\"
-    write: null
+    write: "APPEND"
     partition: []
     writeMode: "APPEND"
-  merge: null
-  comment: "Schema Comment"
-  presql:
-  - "SQL1"
-  - "SQL2"
-  postsql: null
-comment: "Domain Comment"
-extensions:
-- ".json"
-- ".csv"
-- ".dsv"
-- ".psv"
-ack: ".ack"
+  schemas:
+  - name: "User"
+    pattern: "SCHEMA-.*.dsv"
+    attributes:
+    - name: "firstname"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: null
+      rename: null
+      attributes: null
+    - name: "lastname"
+      type: "string"
+      array: false
+      required: false
+      privacy: "SHA1"
+      comment: null
+      rename: null
+      attributes: null
+    - name: "age"
+      type: "age"
+      array: false
+      required: false
+      privacy: "HIDE"
+      comment: null
+      rename: null
+      attributes: null
+    metadata:
+      mode: null
+      format: "DSV"
+      multiline: false
+      array: false
+      withHeader: true
+      separator: ";"
+      quote: "\""
+      escape: "\\"
+      write: null
+      partition: []
+      writeMode: "APPEND"
+    merge: null
+    comment: "Schema Comment"
+    presql:
+    - "SQL1"
+    - "SQL2"
+    postsql: null
+  comment: "Domain Comment"
+  extensions:
+  - ".json"
+  - ".csv"
+  - ".dsv"
+  - ".psv"
+  ack: ".ack"
