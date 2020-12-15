@@ -117,6 +117,17 @@ trait TestHelper extends AnyFlatSpec with Matchers with BeforeAndAfterAll with S
     )
   )
 
+  val allViews: List[FileToImport] = List(
+    FileToImport(
+      "default.comet.yml",
+      "/sample/views/default.comet.yml"
+    ),
+    FileToImport(
+      "types.comet.yml",
+      "/sample/views/views.comet.yml"
+    )
+  )
+
   import TestHelperAux.using
 
   private def readSourceContentAsString(source: Source): String = {
@@ -231,6 +242,10 @@ trait TestHelper extends AnyFlatSpec with Matchers with BeforeAndAfterAll with S
       allAssertions.foreach { assertionToImport =>
         val assertionPath = new Path(DatasetArea.assertions, assertionToImport.name)
         deliverTestFile(assertionToImport.path, assertionPath)
+      }
+      allViews.foreach { viewToImport =>
+        val assertionPath = new Path(DatasetArea.views, viewToImport.name)
+        deliverTestFile(viewToImport.path, assertionPath)
       }
     }
 
