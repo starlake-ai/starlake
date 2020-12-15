@@ -281,7 +281,7 @@ public class BigQuerySchemaConverters {
         }
 
         try {
-            description = sparkField.metadata().getString("description");
+            description = sparkField.metadata().getString("comment");
         } catch (NoSuchElementException e) {
             return createBigQueryFieldBuilder(fieldName, fieldType, fieldMode, subFields).build();
         }
