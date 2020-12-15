@@ -2,14 +2,14 @@ package com.ebiznext.comet.utils
 
 import com.ebiznext.comet.config.{Settings, SparkEnv, UdfRegistration}
 import com.ebiznext.comet.schema.handlers.StorageHandler
-import com.ebiznext.comet.schema.model.{Metadata, SinkType, Views}
 import com.ebiznext.comet.schema.model.SinkType.{BQ, FS, JDBC}
+import com.ebiznext.comet.schema.model.{Metadata, SinkType, Views}
+import com.ebiznext.comet.utils.Formatter._
 import com.typesafe.scalalogging.StrictLogging
+import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.IntegerType
 import org.apache.spark.sql.{DataFrame, DataFrameWriter, Row, SparkSession}
-import com.ebiznext.comet.utils.Formatter._
-import org.apache.hadoop.fs.Path
 
 import scala.util.Try
 
@@ -37,6 +37,16 @@ trait SparkJob extends JobBase {
 
   lazy val sparkEnv: SparkEnv = {
     new SparkEnv(name)
+  }
+
+  def registerUdf(udf: String): Unit = {
+    val udfInstance: UdfRegistration =
+      Class
+        .forName(udf)
+        .getDeclaredConstructor()
+        .newInstance()
+        .asInstanceOf[UdfRegistration]
+    udfInstance.register(sparkEnv.session)
   }
 
   lazy val session: SparkSession = {
@@ -172,9 +182,12 @@ trait SparkJob extends JobBase {
       logger.info(s"Loading view $path from $format")
       val df = format match {
         case FS =>
-          val fullPath =
-            if (path.startsWith("/")) path else s"${settings.comet.datasets}/$path"
-          session.read.parquet(fullPath)
+          if (path.startsWith("/"))
+            session.read.parquet(path)
+          else if (path.trim.toLowerCase.startsWith("select "))
+            session.sql(path)
+          else
+            session.read.parquet(s"${settings.comet.datasets}/$path")
         case JDBC =>
           val jdbcConfig =
             settings.comet.connections(configName.getOrElse((throw new Exception(""))))
@@ -277,15 +290,4 @@ trait SparkJob extends JobBase {
 
     }
   }
-
-  def registerUdf(udf: String): Unit = {
-    val udfInstance: UdfRegistration =
-      Class
-        .forName(udf)
-        .getDeclaredConstructor()
-        .newInstance()
-        .asInstanceOf[UdfRegistration]
-    udfInstance.register(session)
-  }
-
 }
