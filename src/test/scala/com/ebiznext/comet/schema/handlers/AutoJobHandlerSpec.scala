@@ -62,8 +62,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
           None,
           Some("parquet"),
           Some(false),
-          views = Some(Map("user_View" -> "accepted/user")),
-          include = Some(Nil)
+          views = Some(Map("user_View" -> "accepted/user"))
         )
       val schemaHandler = new SchemaHandler(metadataStorageHandler)
 
