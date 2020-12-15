@@ -94,8 +94,7 @@ case class AutoJobDesc(
   coalesce: Option[Boolean],
   udf: Option[String] = None,
   views: Option[Map[String, String]] = None,
-  engine: Option[Engine] = None,
-  include: Option[List[String]] = None
+  engine: Option[Engine] = None
 ) {
 
   def getArea(): StorageArea = area.getOrElse(StorageArea.business)
