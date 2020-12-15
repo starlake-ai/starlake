@@ -9,6 +9,8 @@ __New feature__:
 - Shared Assertions UDF may be defined and stored in COMET_ROOT/metadata/assertions
 - Views mays also be defined and shared in COMET_ROOT/metadata/views.
 - Views are accessible in the load and transform processes.
+- Domain may be now prefixed by the "load" tag. Defining a domain without the "load" tag is now deprecated
+- AutoJob may be now prefixed by the "transform" tag. Defining a autojob without the "transform" tag is now deprecated
 
 __Breaking Changes__:
 - N.A.
