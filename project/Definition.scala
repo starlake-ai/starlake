@@ -18,7 +18,7 @@
  *
  */
 
-import sbt.{File, IntegrationTest, Project, file}
+import sbt.{file, File, IntegrationTest, Project}
 
 trait Definition {
 
@@ -28,16 +28,14 @@ trait Definition {
     sbt
       .Project(id = name, base = src)
 
-  /**
-    * Creates a library module
+  /** Creates a library module
     *
     * @param name the name of the module, will be used as the module's root folder name
     * @return the module's `Project`
     */
   def library(name: String): Project = library(name, file(name))
 
-  /**
-    * Creates a library sub project
+  /** Creates a library sub project
     *
     * @param name the name of the project
     * @param src  the module's root folder
