@@ -9,17 +9,19 @@ jobs:
         uses: actions/setup-java@v1
         with:
           java-version: 1.8
-      - name: Run tests
-        run: sbt coverage test
-      - name: Coverage Report
-        run: sbt coverageReport
+      - name: Run tests & Coverage Report
+        run: sbt coverage test coverageReport
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v1
         with:
+          file: target/scala-2.12/scoverage-report/scoverage.xml
+          flags: unittests
           fail_ci_if_error: true
+          verbose: true
   lint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
       - name: Formatting
         run: sbt scalafmtSbtCheck scalafmtCheck test:scalafmtCheck
+

@@ -20,11 +20,6 @@
 
 package com.ebiznext.comet.config
 
-import java.io.ObjectStreamException
-import java.lang.management.{ManagementFactory, RuntimeMXBean}
-import java.util.concurrent.TimeUnit
-import java.util.{Locale, UUID, Map => juMap}
-
 import com.ebiznext.comet.schema.handlers.{
   AirflowLauncher,
   HdfsStorageHandler,
@@ -40,8 +35,10 @@ import com.typesafe.scalalogging.{Logger, StrictLogging}
 import configs.Configs
 import configs.syntax._
 import org.apache.spark.storage.StorageLevel
-import org.slf4j.MDC
 
+import java.io.ObjectStreamException
+import java.util.concurrent.TimeUnit
+import java.util.{Locale, UUID, Map => juMap}
 import scala.concurrent.duration.FiniteDuration
 
 object Settings extends StrictLogging {
@@ -89,6 +86,12 @@ object Settings extends StrictLogging {
   final case class Metrics(
     path: String,
     discreteMaxCardinality: Int,
+    active: Boolean,
+    sink: Sink
+  )
+
+  final case class Assertions(
+    path: String,
     active: Boolean,
     sink: Sink
   )
@@ -177,8 +180,8 @@ object Settings extends StrictLogging {
     * @param airflow        : Airflow end point. Should be defined even if simple launccher is used instead of airflow.
     */
   final case class Comet(
+    env: String,
     tmpdir: String,
-    jobId: String,
     datasets: String,
     metadata: String,
     metrics: Metrics,
@@ -206,7 +209,8 @@ object Settings extends StrictLogging {
     fileSystem: Option[String],
     metadataFileSystem: Option[String],
     internal: Option[Internal],
-    udfs: Option[String]
+    udfs: Option[String],
+    assertions: Assertions
   ) extends Serializable {
 
     @JsonIgnore
@@ -304,20 +308,4 @@ final case class Settings(comet: Settings.Comet, sparkConfig: Config) {
     case "airflow" => new AirflowLauncher()
   }
 
-  /** Publish MDC information into the logging stack.
-    *
-    * @note this is inherently an effectful operation, which effects global shared mutable state.
-    *       It should make little sense to run this code in tests.
-    */
-  def publishMDCData(): Unit = {
-    val rt: RuntimeMXBean = ManagementFactory.getRuntimeMXBean
-    MDC.put("PID", rt.getName)
-    val oldJobId = Option(MDC.get("JID")).getOrElse(comet.jobId)
-    require(
-      oldJobId == comet.jobId,
-      s"cannot publish different MDC data; a previous jobId ${oldJobId} had been published," +
-      s" attempting to reset to ${comet.jobId}"
-    )
-    MDC.put("JID", comet.jobId)
-  }
 }

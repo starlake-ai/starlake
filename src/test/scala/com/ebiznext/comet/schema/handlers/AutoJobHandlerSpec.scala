@@ -99,7 +99,8 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         "user",
         "user",
         WriteMode.OVERWRITE,
-        area = Some(StorageArea.fromString("business"))
+        area = Some(StorageArea.fromString("business")),
+        assertions = Some(Map("uniqFirstname" -> "isUnique(firstname)"))
       )
       val businessJob =
         AutoJobDesc(
