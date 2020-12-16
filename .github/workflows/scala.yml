@@ -1,5 +1,8 @@
 name: Scala CI
 on: [push, pull_request]
+env:
+  SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
+  SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -18,6 +21,8 @@ jobs:
           flags: unittests
           fail_ci_if_error: true
           verbose: true
+      - name: Publish Snapshot
+        run: sbt publish
   lint:
     runs-on: ubuntu-latest
     steps:
