@@ -103,23 +103,50 @@ releaseCrossBuild := false
 
 releaseIgnoreUntrackedFiles := true
 
-val nextVersionActions =
-  if (version.value.endsWith("SNAPSHOT"))
-    Seq[ReleaseStep](setNextVersion, commitNextVersion, pushChanges)
-  else
-    Nil
+/*
+    Seq[ReleaseStep](
+      checkSnapshotDependencies,
+      inquireVersions,
+      runClean,
+      releaseStepCommand("+test"),
+      setReleaseVersion,
+      commitReleaseVersion, // forces to push dirty files
+      tagRelease,
+      releaseStepCommandAndRemaining("+publishSigned"),
+      releaseStepCommand("sonatypeBundleRelease"),
+      setNextVersion,
+      commitNextVersion,
+      pushChanges
+    )
 
-releaseProcess := Seq[ReleaseStep](
-  checkSnapshotDependencies,
-  inquireVersions,
-  runClean,
-  releaseStepCommand("+test"),
-  setReleaseVersion,
-  commitReleaseVersion, // forces to push dirty files
-  tagRelease,
-  releaseStepCommandAndRemaining("+publishSigned"),
-  releaseStepCommand("sonatypeBundleRelease")
-) ++ nextVersionActions
+ */
+releaseProcess :=
+  Seq[Seq[ReleaseStep]](
+    if (!version.value.endsWith("SNAPSHOT"))
+    Seq[ReleaseStep](
+      checkSnapshotDependencies,
+      inquireVersions,
+      runClean,
+      releaseStepCommand("+test"),
+      setReleaseVersion,
+      commitReleaseVersion, // forces to push dirty files
+      tagRelease,
+      releaseStepCommandAndRemaining("+publishSigned"),
+      releaseStepCommand("sonatypeBundleRelease")
+    )
+    else
+      Seq[ReleaseStep](
+        checkSnapshotDependencies,
+        inquireVersions,
+        runClean,
+        releaseStepCommand("+test"),
+        releaseStepCommandAndRemaining("+publishSigned"),
+        releaseStepCommand("sonatypeBundleRelease"),
+        setNextVersion,
+        commitNextVersion,
+        pushChanges
+      )
+  ).flatten
 
 releaseCommitMessage := s"Release ${ReleasePlugin.runtimeVersion.value}"
 
