@@ -1,5 +1,15 @@
-name: Build Status
-on: [push, pull_request]
+name: Build
+on:
+  push:
+    branches:
+      - '!master'
+#      - '*'         # matches every branch that doesn't contain a '/'
+#      - '*/*'       # matches every branch containing a single '/'
+#      - '**'        # matches every branch
+#      - '!master'   # excludes master
+  pull_request:
+    branches:
+      - '**'
 jobs:
   test:
     runs-on: ubuntu-latest

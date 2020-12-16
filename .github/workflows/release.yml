@@ -2,7 +2,7 @@ name: Release
 # Run workflow on commits to the `master` branch
 on:
   pull_request:
-    types: closed
+    types: [closed]
     branches:
       - master
 env:
@@ -17,5 +17,7 @@ jobs:
         uses: actions/setup-java@v1
         with:
           java-version: 1.8
-      - name: Publish Snapshot
-        run: sbt publish
+      - name: Publish Snapshot Spark 2
+        run: COMET_SPARK_VERSION=2.4.7 sbt ++2.12.12 publish
+      - name: Publish Snapshot Spark 3
+        run: COMET_SPARK_VERSION=3.0.1 sbt ++2.12.12 publish
