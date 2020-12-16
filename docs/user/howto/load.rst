@@ -15,11 +15,12 @@ environment variable (/tmp/metadata by default).
  ``export COMET_METADATA=hdfs:///my/metadata``
 
 Dataset validation is based on a set of rules we define in schema files.
-Schema files decribe how the input files are parsed using a set of rules :
+Schema files describe how the input files are parsed using a set of rules :
 
 * Type Rules: Rules that describe the recognized fields formats.
 * Domain Rules: Rules that describe the file format and load strategy
 * Schema Rules: Rules that describe field format using pattern matching
+* Assertions:  Rules that must be respected by the whole input file. These rules are executed once the file has been ingested.Man
 
 
 Type Rules
@@ -79,7 +80,7 @@ File ``$COMET_METADATA/types/default.comet.yml``
         comment: "any positive or negative number"
     - name: "boolean"
         primitiveType: "boolean"
-        pattern: "(?i)true|false|yes|no|[yn01]"
+        pattern: "(?i)true|yes|[y1]<-TF->(?i)false|no|[n0]"
         sample: "TruE"
     - name: "timestamp"
         primitiveType: "timestamp"
@@ -87,6 +88,10 @@ File ``$COMET_METADATA/types/default.comet.yml``
         sample: "1548165436433"
         comment: "date/time in epoch millis"
 
+
+Any semantic type that maps to the boolean primitive type must match against a special regex.
+This regex is made of two parts separated by the string "<-TF->". values matching the left side will
+be interpreted as the boolean value "true" and values matching the right side will be interpreted as the boolean value "false".
 
 We may add new types that map to these primitive types.
 For our example above, we will add the following
@@ -288,15 +293,17 @@ The attributes section in the YAML above should be read as follows :
    name, "Field name as specified in the header. If no header is present, this willthe field name in the ingested dataset."
    type, Type as defined in the Type Rules section above.
    required, Can this field be empty ?
-   privacy, "How should this field be altered during parsing."
+   privacy, "How should this field be altered during parsing. May be used to transform the output value."
    rename, "When header is present in DSV files, this is the new field name in the ingested dataset"
-   metricType, "When statistics generation is requested, should this field be treated as continous, discrete or text value ? Valid values are CONTINUOUS, DISCRETE, TEXT, NONE"
+   metricType, "When statistics generation is requested, should this field be treated as continuous, discrete or text value ? Valid values are CONTINUOUS, DISCRETE, TEXT, NONE"
    array, "true when this attribute is an array, false by default"
+   script, "Allows you to add a new field computed from a UDF or a Spark SQL built-in standard function"
+
 
 Privacy Strategy
 ~~~~~~~~~~~~~~~~
 
-Default valid values are NONE, HIDE, MD5, SHA1, SHA256, SHA512, AES(not impemented).
+Default valid values are NONE, HIDE, MD5, SHA1, SHA256, SHA512, AES(not implemented).
 Custom values may also be defined by adding a new privacy option in the application.conf. The default reference.conf file defines the following valid privacy
 strategies:
 

@@ -29,6 +29,10 @@ Below is how the folders look like by default for the provided quickstart sample
     |   |-- business
     |   |   |-- hr
     |   |   `-- sales
+    |   |-- metrics
+    |   |   |-- discrete
+    |   |   |-- continuous
+    |   |   `-- frequencies
     |   |-- ingesting (Temporary folder used during ingestion by Comet)
     |   |   |-- hr (One temporary subfolder / domain)
     |   |   `-- sales
@@ -54,15 +58,23 @@ Below is how the folders look like by default for the provided quickstart sample
         |-- domains (all domain definition files are located in this folder)
         |   |-- hr.yml (One definition file / domain)
         |   `-- sales.yml
+        `-- assertions (All assertion definitions go here)
+        |   |-- default.comet.yml (Predefined assertion definitions)
+        |   `-- assertions.comet.yml (assertion definitions defined here are accessible throughout the project)
+        `-- views (All views definitions go here)
+        |   |-- default.comet.yml (Predefined view definitions)
+        |   `-- views.comet.yml (view definitions defined here are accessible throughout the project)
         `-- types (All semantic types are defined here)
-            |-- default.comet.yml (Default semantic types)
-            `-- types.comet.yml (User defined semantic types, overwrite default ones)
+        |   |-- default.comet.yml (Default semantic types)
+        |   `-- types.comet.yml (User defined semantic types, overwrite default ones)
         `-- jobs (All transform jobs go here)
             `-- sales-by-name.yml (Compute sales by )
 
 
 
-By setting the env vars below, you may change default settings.
+Almost all options are customizable through environnement vairables.
+The main env vars are described below, you may change default settings. The exhaustive list of predefined env vars are
+presnet in the reference.conf file.
 
 .. csv-table::
    :widths: 25 50 25
