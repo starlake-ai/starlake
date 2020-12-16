@@ -1,7 +1,10 @@
-name: Release
+name: Snapshot
 # Run workflow on commits to the `master` branch
 on:
-  workflow_dispatch:
+  pull_request:
+    types: [closed]
+    branches:
+      - master
 env:
   SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
   SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
@@ -14,7 +17,7 @@ jobs:
         uses: actions/setup-java@v1
         with:
           java-version: 1.8
-      - name: Release Spark 2
-        run: COMET_SPARK_VERSION=2.4.7 sbt ++2.12.12 release with-defaults
-      - name: Release Spark 3
-        run: COMET_SPARK_VERSION=3.0.1 sbt ++2.12.12 release with-defaults
+      - name: Publish Snapshot Spark 2
+        run: COMET_SPARK_VERSION=2.4.7 sbt ++2.12.12 publish
+      - name: Publish Snapshot Spark 3
+        run: COMET_SPARK_VERSION=3.0.1 sbt ++2.12.12 publish
