@@ -42,7 +42,7 @@ libraryDependencies ++= {
     System.out.println(s"sparkMajor=$sparkMajor")
     sparkMajor match {
       case "3" =>
-            (spark_3d0_forScala_2d12, jackson312)
+        (spark_3d0_forScala_2d12, jackson312)
       case "2" =>
         CrossVersion.partialVersion(scalaVersion.value) match {
           case Some((2, scalaMinor)) if scalaMinor == 12 => (spark_2d4_forScala_2d12, jackson212)
@@ -103,6 +103,12 @@ releaseCrossBuild := false
 
 releaseIgnoreUntrackedFiles := true
 
+val nextVersionActions =
+  if (version.value.endsWith("SNAPSHOT"))
+    Seq[ReleaseStep](setNextVersion, commitNextVersion, pushChanges)
+  else
+    Nil
+
 releaseProcess := Seq[ReleaseStep](
   checkSnapshotDependencies,
   inquireVersions,
@@ -111,22 +117,17 @@ releaseProcess := Seq[ReleaseStep](
   setReleaseVersion,
   commitReleaseVersion, // forces to push dirty files
   tagRelease,
-  // releaseStepCommand("+publish"),
-  // releaseStepCommand("universal:publish"), // publish jars and tgz archives in the snapshot or release repository
   releaseStepCommandAndRemaining("+publishSigned"),
-  releaseStepCommand("sonatypeBundleRelease"),
-  setNextVersion,
-  commitNextVersion,
-  pushChanges
-)
+  releaseStepCommand("sonatypeBundleRelease")
+) ++ nextVersionActions
 
-releaseCommitMessage := s"Add Cloud Build ${ReleasePlugin.runtimeVersion.value}"
+releaseCommitMessage := s"Release ${ReleasePlugin.runtimeVersion.value}"
 
 releaseVersionBump := Next
 
 assemblyMergeStrategy in assembly := {
   case PathList("META-INF", xs @ _*) => MergeStrategy.discard
-  case "reference.conf" => MergeStrategy.concat
+  case "reference.conf"              => MergeStrategy.concat
   case x                             => MergeStrategy.first
 }
 
