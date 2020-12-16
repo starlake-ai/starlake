@@ -103,12 +103,6 @@ releaseCrossBuild := false
 
 releaseIgnoreUntrackedFiles := true
 
-val nextVersionActions =
-  if (version.value.endsWith("SNAPSHOT"))
-    Seq[ReleaseStep](setNextVersion, commitNextVersion, pushChanges)
-  else
-    Nil
-
 releaseProcess := Seq[ReleaseStep](
   checkSnapshotDependencies,
   inquireVersions,
@@ -118,8 +112,11 @@ releaseProcess := Seq[ReleaseStep](
   commitReleaseVersion, // forces to push dirty files
   tagRelease,
   releaseStepCommandAndRemaining("+publishSigned"),
-  releaseStepCommand("sonatypeBundleRelease")
-) ++ nextVersionActions
+  releaseStepCommand("sonatypeBundleRelease"),
+  setNextVersion,
+  commitNextVersion,
+  pushChanges
+)
 
 releaseCommitMessage := s"Release ${ReleasePlugin.runtimeVersion.value}"
 
