@@ -3,8 +3,8 @@
 [![Scala Steward badge](https://img.shields.io/badge/Scala_Steward-helping-blue.svg?style=flat&logo=data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAQCAMAAAARSr4IAAAAVFBMVEUAAACHjojlOy5NWlrKzcYRKjGFjIbp293YycuLa3pYY2LSqql4f3pCUFTgSjNodYRmcXUsPD/NTTbjRS+2jomhgnzNc223cGvZS0HaSD0XLjbaSjElhIr+AAAAAXRSTlMAQObYZgAAAHlJREFUCNdNyosOwyAIhWHAQS1Vt7a77/3fcxxdmv0xwmckutAR1nkm4ggbyEcg/wWmlGLDAA3oL50xi6fk5ffZ3E2E3QfZDCcCN2YtbEWZt+Drc6u6rlqv7Uk0LdKqqr5rk2UCRXOk0vmQKGfc94nOJyQjouF9H/wCc9gECEYfONoAAAAASUVORK5CYII=)](https://scala-steward.org)
 [![codecov](https://codecov.io/gh/ebiznext/comet-data-pipeline/branch/master/graph/badge.svg)](https://codecov.io/gh/ebiznext/comet-data-pipeline)
 [![Documentation](https://readthedocs.org/projects/comet-app/badge/?version=latest)](https://comet-app.readthedocs.io/)
-[![Maven Central](https://maven-badges.herokuapp.com/maven-central/com.ebiznext/comet-spark2_2.12/badge.svg)](https://mvnrepository.com/artifact/com.ebiznext/comet-spark3_2.12)
-[![Maven Central](https://maven-badges.herokuapp.com/maven-central/com.ebiznext/comet-spark2_2.12/badge.svg)](https://mvnrepository.com/artifact/com.ebiznext/comet-spark3_2.12)
+[![Maven Central Comet Spark 2](https://maven-badges.herokuapp.com/maven-central/com.ebiznext/comet-spark2_2.12/badge.svg)](https://mvnrepository.com/artifact/com.ebiznext/comet-spark3_2.12)
+[![Maven Central Comet Spark 3](https://maven-badges.herokuapp.com/maven-central/com.ebiznext/comet-spark2_2.12/badge.svg)](https://mvnrepository.com/artifact/com.ebiznext/comet-spark3_2.12)
 
 # About Comet Data Pipeline
 
