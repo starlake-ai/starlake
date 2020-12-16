@@ -17,4 +17,4 @@ jobs:
 #      - name: Release Spark 2
 #        run: COMET_SPARK_VERSION=2.4.7 sbt ++2.12.12 release with-defaults
       - name: Release Spark 3
-        run: COMET_SPARK_VERSION=3.0.1 sbt ++2.12.12 release with-defaults
+        run: COMET_SPARK_VERSION=3.0.1 sbt ++2.12.12 'release with-defaults'
