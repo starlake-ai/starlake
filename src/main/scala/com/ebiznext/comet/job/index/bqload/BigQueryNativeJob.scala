@@ -112,7 +112,7 @@ class BigQueryNativeJob(
 
 object BigQueryNativeJob extends StrictLogging {
 
-  @deprecated("Views are now created using the syntax WTH ... AS ...")
+  @deprecated("Views are now created using the syntax WTH ... AS ...", "0.1.25")
   def createViews(views: Map[String, String], udf: Option[String]) = {
     val bigquery: BigQuery = BigQueryOptions.getDefaultInstance.getService
     views.foreach { case (key, value) =>

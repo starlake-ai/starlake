@@ -115,7 +115,7 @@ class AssertionJob(
       val waitTimeMillis = settings.comet.lock.metricsTimeout
       val locker = new FileLock(lockedPath, storageHandler)
       val assertionsResult = locker.tryExclusively(waitTimeMillis) {
-        appendToFile(storageHandler, assertionsDF, new Path(savePath, savePath))
+        appendToFile(storageHandler, assertionsDF, savePath)
       }
 
       val assertionSinkResult = new SinkUtils().sinkMetrics(
