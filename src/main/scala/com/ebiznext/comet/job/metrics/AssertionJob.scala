@@ -63,7 +63,8 @@ class AssertionJob(
     val count = dataset.map { dataset =>
       dataset.createOrReplaceTempView("comet_table")
       dataset.count()
-    }
+    } getOrElse 0
+
     val assertionLibrary = schemaHandler.assertions(domainName)
     val calls = AssertionCalls(assertions).assertionCalls
     val assertionReports = calls.map { case (_, assertion) =>
