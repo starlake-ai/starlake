@@ -35,12 +35,15 @@ case class AssertionReport(
   * @param storageHandler : Storage Handler
   */
 class AssertionJob(
-  domain: Domain,
-  schema: Schema,
+  domainName: String,
+  schemaName: String,
+  assertions: Map[String, String],
   stage: Stage,
   storageHandler: StorageHandler,
   schemaHandler: SchemaHandler,
-  dataset: DataFrame
+  dataset: Option[DataFrame],
+  engine: Engine,
+  sqlRunner: String => Long
 )(implicit val settings: Settings)
     extends SparkJob {
 
@@ -50,75 +53,80 @@ class AssertionJob(
     new Path(
       settings.comet.lock.path,
       "assertions" + path
-        .replace("{domain}", domain.name)
-        .replace("{schema}", schema.name)
+        .replace("{domain}", domainName)
+        .replace("{schema}", schemaName)
         .replace('/', '_') + ".lock"
     )
   }
 
   override def run(): Try[JobResult] = {
-    val count = dataset.count()
-    schema.assertions.foreach { assertions =>
+    val count = dataset.map { dataset =>
       dataset.createOrReplaceTempView("comet_table")
-      val assertionLibrary = schemaHandler.assertions(domain.name)
-      val calls = AssertionCalls(assertions).assertionCalls
-      val assertionReports = calls.map { case (_, assertion) =>
-        val sql = assertionLibrary
-          .get(assertion.name)
-          .map(ad => Utils.subst(ad.sql, ad.params, assertion.paramValues, schemaHandler.activeEnv))
-          .getOrElse(assertion.sql)
-        try {
-          val count = session.sql(sql).count()
+      dataset.count()
+    }
+    val assertionLibrary = schemaHandler.assertions(domainName)
+    val calls = AssertionCalls(assertions).assertionCalls
+    val assertionReports = calls.map { case (_, assertion) =>
+      val sql = assertionLibrary
+        .get(assertion.name)
+        .map(ad => Utils.subst(ad.sql, ad.params, assertion.paramValues, schemaHandler.activeEnv))
+        .getOrElse(assertion.sql)
+      try {
+        val assertionCount = sqlRunner(sql)
+        AssertionReport(
+          assertion.name,
+          assertion.paramValues.toString(),
+          Some(sql),
+          Some(assertionCount),
+          None,
+          true
+        )
+      } catch {
+        case e: IllegalArgumentException =>
+          AssertionReport(
+            assertion.name,
+            assertion.paramValues.toString(),
+            None,
+            None,
+            Some(Utils.exceptionAsString(e)),
+            false
+          )
+        case e: Exception =>
           AssertionReport(
             assertion.name,
             assertion.paramValues.toString(),
             Some(sql),
-            Some(count),
             None,
-            true
+            Some(Utils.exceptionAsString(e)),
+            false
           )
-        } catch {
-          case e: IllegalArgumentException =>
-            AssertionReport(
-              assertion.name,
-              assertion.paramValues.toString(),
-              None,
-              None,
-              Some(Utils.exceptionAsString(e)),
-              false
-            )
-          case e: Exception =>
-            AssertionReport(
-              assertion.name,
-              assertion.paramValues.toString(),
-              Some(sql),
-              None,
-              Some(Utils.exceptionAsString(e)),
-              false
-            )
-        }
-      }.toList
-
+      }
+    }.toList
+    if (assertionReports.nonEmpty) {
       assertionReports.foreach(r => logger.info(r.toString))
 
       val assertionsDF = session
         .createDataFrame(assertionReports)
         .withColumn("jobId", lit(session.sparkContext.applicationId))
-        .withColumn("domain", lit(domain.name))
-        .withColumn("schema", lit(schema.name))
+        .withColumn("domain", lit(domainName))
+        .withColumn("schema", lit(schemaName))
         .withColumn("count", lit(count))
         .withColumn("cometTime", lit(System.currentTimeMillis()))
         .withColumn("cometStage", lit(Stage.UNIT.value))
 
-      val savePath: Path = DatasetArea.assertions(domain.name, schema.name)
-      val lockedPath = lockPath(settings.comet.assertions.path)
-      val waitTimeMillis = settings.comet.lock.metricsTimeout
-      val locker = new FileLock(lockedPath, storageHandler)
-      val assertionsResult = locker.tryExclusively(waitTimeMillis) {
-        appendToFile(storageHandler, assertionsDF, savePath)
-      }
+      val assertionsResult =
+        if (engine == Engine.SPARK) {
+          val savePath: Path = DatasetArea.assertions(domainName, schemaName)
+          val lockedPath = lockPath(settings.comet.assertions.path)
+          val waitTimeMillis = settings.comet.lock.metricsTimeout
+          val locker = new FileLock(lockedPath, storageHandler)
+          locker.tryExclusively(waitTimeMillis) {
+            appendToFile(storageHandler, assertionsDF, savePath)
+          }
+        } else
+          Success(None)
 
-      val assertionSinkResult = new SinkUtils().sinkMetrics(
+      val assertionSinkResult = new SinkUtils().sink(
         settings.comet.assertions.sink,
         assertionsDF,
         settings.comet.assertions.sink.name.getOrElse("assertions")
@@ -129,9 +137,7 @@ class AssertionJob(
       } yield {
         None
       }
-
     }
     Success(SparkJobResult(None))
   }
-
 }

@@ -115,12 +115,15 @@ trait IngestionJob extends SparkJob {
 
     if (settings.comet.assertions.active) {
       new AssertionJob(
-        this.domain,
-        this.schema,
+        this.domain.name,
+        this.schema.name,
+        this.schema.assertions.getOrElse(Map.empty),
         Stage.UNIT,
         storageHandler,
         schemaHandler,
-        acceptedDF
+        Some(acceptedDF),
+        Engine.SPARK,
+        sql => session.sql(sql).count()
       )
         .run()
         .get
