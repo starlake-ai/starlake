@@ -12,14 +12,14 @@ import scala.util.{Success, Try}
 
 class SinkUtils(implicit settings: Settings) extends StrictLogging {
 
-  def sinkMetrics(sinkType: Sink, metricsDf: DataFrame, table: String): Try[Unit] = {
+  def sink(sinkType: Sink, dataframe: DataFrame, table: String): Try[Unit] = {
     sinkType match {
       case NoneSink() =>
         Success(())
 
       case sink: BigQuerySink =>
         Try {
-          sinkToBigQuery(metricsDf, sink.name.getOrElse(table), table)
+          sinkToBigQuery(dataframe, sink.name.getOrElse(table), table)
         }
 
       case JdbcSink(jdbcConnection, partitions, batchSize) =>
@@ -27,7 +27,7 @@ class SinkUtils(implicit settings: Settings) extends StrictLogging {
           val jdbcConfig = ConnectionLoadConfig.fromComet(
             jdbcConnection,
             settings.comet,
-            Right(metricsDf),
+            Right(dataframe),
             table,
             partitions = partitions.getOrElse(1),
             batchSize = batchSize.getOrElse(1000)

@@ -26,8 +26,9 @@ import com.ebiznext.comet.job.index.bqload.{
   BigQueryLoadConfig,
   BigQueryNativeJob
 }
+import com.ebiznext.comet.job.metrics.AssertionJob
 import com.ebiznext.comet.schema.handlers.{SchemaHandler, StorageHandler}
-import com.ebiznext.comet.schema.model.{AutoTaskDesc, BigQuerySink, Engine, Views}
+import com.ebiznext.comet.schema.model._
 import com.ebiznext.comet.utils.Formatter._
 import com.ebiznext.comet.utils.{JobResult, SparkJob, SparkJobResult, Utils}
 import org.apache.hadoop.fs.Path
@@ -163,6 +164,25 @@ class AutoTaskJob(
       Iterable(presqlResult, jobResult, postsqlResult).filter(_.isFailure).map(_.failed).map(_.get)
     errors match {
       case Nil =>
+        // We execute assertions only on success
+        task.area.orElse(defaultArea).foreach { area =>
+          new AssertionJob(
+            task.domain,
+            area.value,
+            task.assertions.getOrElse(Map.empty),
+            Stage.UNIT,
+            storageHandler,
+            schemaHandler,
+            None,
+            engine,
+            sql =>
+              bqNativeJob
+                .runSQL(sql.richFormat(sqlParameters))
+                .tableResult
+                .map(_.getTotalRows)
+                .getOrElse(0)
+          ).run()
+        }
         Success(BigQueryJobResult(None))
       case _ =>
         Failure(errors.reduce(_.initCause(_)))
@@ -185,7 +205,8 @@ class AutoTaskJob(
     val targetPath = task.getTargetPath(defaultArea)
     logger.info(s"About to write resulting dataset to $targetPath")
     // Target Path exist only if a storage area has been defined at task or job level
-    targetPath.map { targetPath =>
+    // To execute a task without writing to disk simply avoid the area at the job and task level
+    targetPath.foreach { targetPath =>
       val partitionedDF =
         partitionedDatasetWriter(
           if (coalesce) dataframe.coalesce(1) else dataframe,
@@ -216,6 +237,20 @@ class AutoTaskJob(
           val finalPath = new Path(targetPath, targetPath.getName + s".$extension")
           storageHandler.move(csvPath, finalPath)
         }
+      }
+
+      task.area.orElse(defaultArea).foreach { area =>
+        new AssertionJob(
+          task.domain,
+          area.value,
+          task.assertions.getOrElse(Map.empty),
+          Stage.UNIT,
+          storageHandler,
+          schemaHandler,
+          Some(dataframe),
+          engine,
+          sql => session.sql(sql).count()
+        ).run()
       }
     }
 
