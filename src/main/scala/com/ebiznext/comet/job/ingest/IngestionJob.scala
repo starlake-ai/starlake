@@ -640,7 +640,7 @@ trait IngestionJob extends SparkJob {
                   .option("table", bqTable)
                   .option(
                     "filter",
-                    query.replace("latest", s"PARSE_DATE('%Y%m%d','$latestPartition')")
+                    queryArgs.replace("latest", s"PARSE_DATE('%Y%m%d','$latestPartition')")
                   )
                   .load()
                 processMerge(withScriptFieldsDF, existingBigQueryDF, mergeOptions)
