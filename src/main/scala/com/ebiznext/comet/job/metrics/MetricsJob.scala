@@ -183,7 +183,7 @@ class MetricsJob(
             appendToFile(storageHandler, df, new Path(savePath, table.toString))
           }
           val metricsSinkResult =
-            new SinkUtils().sinkMetrics(settings.comet.metrics.sink, df, table.toString)
+            new SinkUtils().sink(settings.comet.metrics.sink, df, table.toString)
           for {
             _ <- metricsResult
             _ <- metricsSinkResult
