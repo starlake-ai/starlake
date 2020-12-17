@@ -20,7 +20,7 @@ Schema files describe how the input files are parsed using a set of rules :
 * Type Rules: Rules that describe the recognized fields formats.
 * Domain Rules: Rules that describe the file format and load strategy
 * Schema Rules: Rules that describe field format using pattern matching
-* Assertions:  Rules that must be respected by the whole input file. These rules are executed once the file has been ingested.Man
+* Assertions:  Rules that must be respected by the whole input file. These rules are executed once the file has been ingested.
 
 
 Type Rules
