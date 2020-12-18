@@ -165,23 +165,25 @@ class AutoTaskJob(
     errors match {
       case Nil =>
         // We execute assertions only on success
-        task.area.orElse(defaultArea).foreach { area =>
-          new AssertionJob(
-            task.domain,
-            area.value,
-            task.assertions.getOrElse(Map.empty),
-            Stage.UNIT,
-            storageHandler,
-            schemaHandler,
-            None,
-            engine,
-            sql =>
-              bqNativeJob
-                .runSQL(sql.richFormat(sqlParameters))
-                .tableResult
-                .map(_.getTotalRows)
-                .getOrElse(0)
-          ).run()
+        if (settings.comet.assertions.active) {
+          task.area.orElse(defaultArea).foreach { area =>
+            new AssertionJob(
+              task.domain,
+              area.value,
+              task.assertions.getOrElse(Map.empty),
+              Stage.UNIT,
+              storageHandler,
+              schemaHandler,
+              None,
+              engine,
+              sql =>
+                bqNativeJob
+                  .runSQL(sql.richFormat(sqlParameters))
+                  .tableResult
+                  .map(_.getTotalRows)
+                  .getOrElse(0)
+            ).run()
+          }
         }
         Success(BigQueryJobResult(None))
       case _ =>
@@ -238,19 +240,20 @@ class AutoTaskJob(
           storageHandler.move(csvPath, finalPath)
         }
       }
-
-      task.area.orElse(defaultArea).foreach { area =>
-        new AssertionJob(
-          task.domain,
-          area.value,
-          task.assertions.getOrElse(Map.empty),
-          Stage.UNIT,
-          storageHandler,
-          schemaHandler,
-          Some(dataframe),
-          engine,
-          sql => session.sql(sql).count()
-        ).run()
+      if (settings.comet.assertions.active) {
+        task.area.orElse(defaultArea).foreach { area =>
+          new AssertionJob(
+            task.domain,
+            area.value,
+            task.assertions.getOrElse(Map.empty),
+            Stage.UNIT,
+            storageHandler,
+            schemaHandler,
+            Some(dataframe),
+            engine,
+            sql => session.sql(sql).count()
+          ).run()
+        }
       }
     }
 
