@@ -21,13 +21,13 @@ import scala.util.{Success, Try}
   * @param storageHandler : Storage Handler
   */
 class MetricsJob(
-  domain: Domain,
-  schema: Schema,
-  stage: Stage,
-  storageHandler: StorageHandler,
-  schemaHandler: SchemaHandler
-)(implicit val settings: Settings)
-    extends SparkJob {
+                  domain: Domain,
+                  schema: Schema,
+                  stage: Stage,
+                  storageHandler: StorageHandler,
+                  schemaHandler: SchemaHandler
+                )(implicit val settings: Settings)
+  extends SparkJob {
 
   override def name: String = "Compute metrics job"
 
@@ -62,30 +62,34 @@ class MetricsJob(
     */
 
   def unionDisContMetric(
-    discreteDataset: Option[DataFrame],
-    continuousDataset: Option[DataFrame],
-    domain: Domain,
-    schema: Schema,
-    count: Long,
-    ingestionTime: Timestamp,
-    stageState: Stage
-  ): MetricsDatasets = {
+                          discreteDataset: Option[DataFrame],
+                          continuousDataset: Option[DataFrame],
+                          domain: Domain,
+                          schema: Schema,
+                          count: Long,
+                          ingestionTime: Timestamp,
+                          stageState: Stage
+                        ): MetricsDatasets = {
+    def computeFrequenciesDF(discreteDataset: DataFrame) = {
+      Some(
+        discreteDataset
+          .select("attribute", "catCountFreq")
+          .withColumn("exploded", org.apache.spark.sql.functions.explode(col("catCountFreq")))
+          .withColumn("category", col("exploded.category"))
+          .withColumn("count", col("exploded.countDiscrete"))
+          .withColumn("frequency", col("exploded.frequency"))
+          .drop("catCountFreq")
+          .drop("exploded")
+      )
+    }
+
     val (continuousDF, discreteDF, frequenciesDF) =
       (discreteDataset, continuousDataset) match {
         case (Some(discreteDataset), Some(continuousDataset)) =>
           (
             Some(continuousDataset),
             Some(discreteDataset.drop("catCountFreq")),
-            Some(
-              discreteDataset
-                .select("attribute", "catCountFreq")
-                .withColumn("exploded", org.apache.spark.sql.functions.explode(col("catCountFreq")))
-                .withColumn("category", col("exploded.category"))
-                .withColumn("count", col("exploded.countDiscrete"))
-                .withColumn("frequency", col("exploded.frequency"))
-                .drop("catCountFreq")
-                .drop("exploded")
-            )
+            computeFrequenciesDF(discreteDataset)
           )
         case (None, Some(continuousDataset)) =>
           (
@@ -97,16 +101,7 @@ class MetricsJob(
           (
             None,
             Some(discreteDataset.drop("catCountFreq")),
-            Some(
-              discreteDataset
-                .select("catCountFreq")
-                .withColumn("exploded", org.apache.spark.sql.functions.explode(col("catCountFreq")))
-                .withColumn("category", col("exploded.category"))
-                .withColumn("count", col("exploded.countDiscrete"))
-                .withColumn("frequency", col("exploded.frequency"))
-                .drop("catCountFreq")
-                .drop("exploded")
-            )
+            computeFrequenciesDF(discreteDataset)
           )
         case (None, None) =>
           (
