@@ -187,6 +187,7 @@ object Settings extends StrictLogging {
     metrics: Metrics,
     audit: Audit,
     archive: Boolean,
+    sinkToFile: Boolean,
     lock: Lock,
     defaultWriteFormat: String,
     csvOutput: Boolean,

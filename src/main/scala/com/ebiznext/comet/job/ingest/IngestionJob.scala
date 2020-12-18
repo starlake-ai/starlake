@@ -86,7 +86,14 @@ trait IngestionJob extends SparkJob {
     val schemaName = schema.name
     IngestionUtil.sinkRejected(session, rejectedRDD, domainName, schemaName, now) match {
       case Success((rejectedDF, rejectedPath)) =>
-        sinkToFile(rejectedDF, rejectedPath, WriteMode.APPEND, StorageArea.rejected, merge = false)
+        if (settings.comet.sinkToFile)
+          sinkToFile(
+            rejectedDF,
+            rejectedPath,
+            WriteMode.APPEND,
+            StorageArea.rejected,
+            merge = false
+          )
         Success(rejectedPath)
       case Failure(exception) =>
         logger.error("Failed to save Rejected", exception)
@@ -196,7 +203,10 @@ trait IngestionJob extends SparkJob {
     logger.info("Merged Dataframe Schema")
     mergedDF.printSchema()
     val savedDataset =
-      sinkToFile(mergedDF, acceptedPath, writeMode, StorageArea.accepted, schema.merge.isDefined)
+      if (settings.comet.sinkToFile)
+        sinkToFile(mergedDF, acceptedPath, writeMode, StorageArea.accepted, schema.merge.isDefined)
+      else
+        mergedDF
     logger.info("Saved Dataset Schema")
     savedDataset.printSchema()
     sink(mergedDF)
