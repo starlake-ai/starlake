@@ -187,10 +187,9 @@ trait IngestionJob extends SparkJob {
         if (metadata.getSink().map(_.`type`).getOrElse(SinkType.None) == SinkType.BQ) {
           val mergedDfBq = mergeFromBQ(withScriptFieldsDF, mergeOptions)
           mergedDfBq
-        } else if (storageHandler.exists(new Path(acceptedPath, "_SUCCESS"))) {
+        } else {
           mergeFromParquet(acceptedPath, withScriptFieldsDF, mergeOptions)
-        } else
-          withScriptFieldsDF
+        }
       }
       .getOrElse(withScriptFieldsDF)
 
@@ -566,23 +565,28 @@ trait IngestionJob extends SparkJob {
     withScriptFieldsDF: DataFrame,
     mergeOptions: MergeOptions
   ) = {
-    // Otherwise load from accepted area
-    // We provide the accepted DF schema since partition columns types are infered when parquet is loaded and might not match with the DF being ingested
-    val existingDF =
-      session.read.schema(withScriptFieldsDF.schema).parquet(acceptedPath.toString)
-    if (
-      existingDF.schema.fields.length == session.read
-        .parquet(acceptedPath.toString)
-        .schema
-        .fields
-        .length
-    )
-      mergeParquet(withScriptFieldsDF, existingDF, mergeOptions)
-    else
-      throw new RuntimeException(
-        "Input Dataset and existing HDFS dataset do not have the same number of columns. Check for changes in the dataset schema ?"
+    if (storageHandler.exists(new Path(acceptedPath, "_SUCCESS"))) {
+      // Otherwise load from accepted area
+      // We provide the accepted DF schema since partition columns types are infered when parquet is loaded and might not match with the DF being ingested
+      val existingDF =
+        session.read.schema(withScriptFieldsDF.schema).parquet(acceptedPath.toString)
+      if (
+        existingDF.schema.fields.length == session.read
+          .parquet(acceptedPath.toString)
+          .schema
+          .fields
+          .length
       )
-    mergeParquet(withScriptFieldsDF, existingDF, mergeOptions)
+        mergeParquet(withScriptFieldsDF, existingDF, mergeOptions)
+      else
+        throw new RuntimeException(
+          "Input Dataset and existing HDFS dataset do not have the same number of columns. Check for changes in the dataset schema ?"
+        )
+      mergeParquet(withScriptFieldsDF, existingDF, mergeOptions)
+    } else {
+      withScriptFieldsDF
+    }
+
   }
 
   /** Merge incoming and existing dataframes using merge options
