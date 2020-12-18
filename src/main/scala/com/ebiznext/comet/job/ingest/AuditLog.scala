@@ -125,7 +125,7 @@ object SparkAuditLogWriter {
       .toDF(auditCols.map(_._1): _*)
 
     settings.comet.audit.sink match {
-      case JdbcSink(connectionName, partitions, batchSize) =>
+      case JdbcSink(_, connectionName, partitions, batchSize) =>
         val jdbcConfig = ConnectionLoadConfig.fromComet(
           connectionName,
           settings.comet,
@@ -151,9 +151,9 @@ object SparkAuditLogWriter {
         )
         new BigQuerySparkJob(bqConfig, Some(bigqueryAuditSchema())).run()
 
-      case EsSink(id, timestamp) =>
+      case _: EsSink =>
         ???
-      case NoneSink() =>
+      case _: NoneSink =>
       // this is a NOP
     }
   }

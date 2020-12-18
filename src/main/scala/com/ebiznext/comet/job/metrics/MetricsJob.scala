@@ -21,13 +21,13 @@ import scala.util.{Success, Try}
   * @param storageHandler : Storage Handler
   */
 class MetricsJob(
-                  domain: Domain,
-                  schema: Schema,
-                  stage: Stage,
-                  storageHandler: StorageHandler,
-                  schemaHandler: SchemaHandler
-                )(implicit val settings: Settings)
-  extends SparkJob {
+  domain: Domain,
+  schema: Schema,
+  stage: Stage,
+  storageHandler: StorageHandler,
+  schemaHandler: SchemaHandler
+)(implicit val settings: Settings)
+    extends SparkJob {
 
   override def name: String = "Compute metrics job"
 
@@ -62,14 +62,14 @@ class MetricsJob(
     */
 
   def unionDisContMetric(
-                          discreteDataset: Option[DataFrame],
-                          continuousDataset: Option[DataFrame],
-                          domain: Domain,
-                          schema: Schema,
-                          count: Long,
-                          ingestionTime: Timestamp,
-                          stageState: Stage
-                        ): MetricsDatasets = {
+    discreteDataset: Option[DataFrame],
+    continuousDataset: Option[DataFrame],
+    domain: Domain,
+    schema: Schema,
+    count: Long,
+    ingestionTime: Timestamp,
+    stageState: Stage
+  ): MetricsDatasets = {
     def computeFrequenciesDF(discreteDataset: DataFrame) = {
       Some(
         discreteDataset
@@ -171,11 +171,15 @@ class MetricsJob(
       df match {
         case Some(df) =>
           settings.comet.internal.foreach(in => df.persist(in.cacheStorageLevel))
-          val lockedPath = lockPath(settings.comet.metrics.path)
-          val waitTimeMillis = settings.comet.lock.metricsTimeout
-          val locker = new FileLock(lockedPath, storageHandler)
-          val metricsResult = locker.tryExclusively(waitTimeMillis) {
-            appendToFile(storageHandler, df, new Path(savePath, table.toString))
+          val metricsResult = if (settings.comet.sinkToFile) {
+            val lockedPath = lockPath(settings.comet.metrics.path)
+            val waitTimeMillis = settings.comet.lock.metricsTimeout
+            val locker = new FileLock(lockedPath, storageHandler)
+            locker.tryExclusively(waitTimeMillis) {
+              appendToFile(storageHandler, df, new Path(savePath, table.toString))
+            }
+          } else {
+            Success(None)
           }
           val metricsSinkResult =
             new SinkUtils().sink(settings.comet.metrics.sink, df, table.toString)
