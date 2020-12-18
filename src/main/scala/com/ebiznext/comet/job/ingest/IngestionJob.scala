@@ -644,7 +644,7 @@ trait IngestionJob extends SparkJob {
         ) {
           val bqTable = s"${domain.name}.${schema.name}"
           (mergeOptions.queryFilter, metadata.sink) match {
-            case (Some(query), Some(BigQuerySink(_, Some(_), _, _, _))) =>
+            case (Some(query), Some(BigQuerySink(_, _, Some(_), _, _, _))) =>
               val queryArgs = query.richFormat(options)
               if (queryArgs.contains("latest")) {
                 val partitions =
@@ -765,7 +765,7 @@ object IngestionUtil {
           )
           new BigQuerySparkJob(bqConfig, Some(bigqueryRejectedSchema())).run()
 
-        case JdbcSink(jdbcName, partitions, batchSize) =>
+        case JdbcSink(_, jdbcName, partitions, batchSize) =>
           val jdbcConfig = ConnectionLoadConfig.fromComet(
             jdbcName,
             settings.comet,
@@ -777,9 +777,9 @@ object IngestionUtil {
 
           new ConnectionLoadJob(jdbcConfig).run()
 
-        case EsSink(_, _) =>
+        case _: EsSink =>
           ???
-        case NoneSink() =>
+        case _: NoneSink =>
           Success(())
       }
     res match {
