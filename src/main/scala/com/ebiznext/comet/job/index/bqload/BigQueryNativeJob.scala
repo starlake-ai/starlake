@@ -4,27 +4,18 @@ import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.utils.{JobBase, JobResult, Utils}
 import com.google.cloud.ServiceOptions
 import com.google.cloud.bigquery.JobInfo.{CreateDisposition, WriteDisposition}
-import com.google.cloud.bigquery.{
-  BigQuery,
-  BigQueryOptions,
-  Clustering,
-  QueryJobConfiguration,
-  TableInfo,
-  TableResult,
-  UserDefinedFunction,
-  ViewDefinition
-}
+import com.google.cloud.bigquery._
 import com.typesafe.scalalogging.StrictLogging
 
 import scala.collection.JavaConverters._
 import scala.util.Try
 
-case class BigQueryJobResult(tableResult: Option[TableResult]) extends JobResult
+case class BigQueryJobResult(tableResult: scala.Option[TableResult]) extends JobResult
 
 class BigQueryNativeJob(
   override val cliConfig: BigQueryLoadConfig,
   sql: String,
-  udf: Option[String]
+  udf: scala.Option[String]
 )(implicit val settings: Settings)
     extends JobBase
     with BigQueryJobBase {
@@ -113,7 +104,7 @@ class BigQueryNativeJob(
 object BigQueryNativeJob extends StrictLogging {
 
   @deprecated("Views are now created using the syntax WTH ... AS ...", "0.1.25")
-  def createViews(views: Map[String, String], udf: Option[String]) = {
+  def createViews(views: Map[String, String], udf: scala.Option[String]) = {
     val bigquery: BigQuery = BigQueryOptions.getDefaultInstance.getService
     views.foreach { case (key, value) =>
       val viewQuery: ViewDefinition.Builder =
@@ -125,7 +116,7 @@ object BigQueryNativeJob extends StrictLogging {
         }
         .getOrElse(viewQuery)
       val tableId = BigQueryJobBase.extractProjectDatasetAndTable(key)
-      val viewRef = Option(bigquery.getTable(tableId))
+      val viewRef = scala.Option(bigquery.getTable(tableId))
       if (viewRef.isEmpty) {
         logger.info(s"View $tableId does not exist, creating it!")
         bigquery.create(TableInfo.of(tableId, viewDefinition.build()))
