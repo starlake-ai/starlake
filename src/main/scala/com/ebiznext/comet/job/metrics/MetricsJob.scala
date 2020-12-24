@@ -70,22 +70,26 @@ class MetricsJob(
     ingestionTime: Timestamp,
     stageState: Stage
   ): MetricsDatasets = {
+    def computeFrequenciesDF(discreteDataset: DataFrame) = {
+      Some(
+        discreteDataset
+          .select("attribute", "catCountFreq")
+          .withColumn("exploded", org.apache.spark.sql.functions.explode(col("catCountFreq")))
+          .withColumn("category", col("exploded.category"))
+          .withColumn("count", col("exploded.countDiscrete"))
+          .withColumn("frequency", col("exploded.frequency"))
+          .drop("catCountFreq")
+          .drop("exploded")
+      )
+    }
+
     val (continuousDF, discreteDF, frequenciesDF) =
       (discreteDataset, continuousDataset) match {
         case (Some(discreteDataset), Some(continuousDataset)) =>
           (
             Some(continuousDataset),
             Some(discreteDataset.drop("catCountFreq")),
-            Some(
-              discreteDataset
-                .select("attribute", "catCountFreq")
-                .withColumn("exploded", org.apache.spark.sql.functions.explode(col("catCountFreq")))
-                .withColumn("category", col("exploded.category"))
-                .withColumn("count", col("exploded.countDiscrete"))
-                .withColumn("frequency", col("exploded.frequency"))
-                .drop("catCountFreq")
-                .drop("exploded")
-            )
+            computeFrequenciesDF(discreteDataset)
           )
         case (None, Some(continuousDataset)) =>
           (
@@ -97,16 +101,7 @@ class MetricsJob(
           (
             None,
             Some(discreteDataset.drop("catCountFreq")),
-            Some(
-              discreteDataset
-                .select("catCountFreq")
-                .withColumn("exploded", org.apache.spark.sql.functions.explode(col("catCountFreq")))
-                .withColumn("category", col("exploded.category"))
-                .withColumn("count", col("exploded.countDiscrete"))
-                .withColumn("frequency", col("exploded.frequency"))
-                .drop("catCountFreq")
-                .drop("exploded")
-            )
+            computeFrequenciesDF(discreteDataset)
           )
         case (None, None) =>
           (
@@ -176,11 +171,15 @@ class MetricsJob(
       df match {
         case Some(df) =>
           settings.comet.internal.foreach(in => df.persist(in.cacheStorageLevel))
-          val lockedPath = lockPath(settings.comet.metrics.path)
-          val waitTimeMillis = settings.comet.lock.metricsTimeout
-          val locker = new FileLock(lockedPath, storageHandler)
-          val metricsResult = locker.tryExclusively(waitTimeMillis) {
-            appendToFile(storageHandler, df, new Path(savePath, table.toString))
+          val metricsResult = if (settings.comet.sinkToFile) {
+            val lockedPath = lockPath(settings.comet.metrics.path)
+            val waitTimeMillis = settings.comet.lock.metricsTimeout
+            val locker = new FileLock(lockedPath, storageHandler)
+            locker.tryExclusively(waitTimeMillis) {
+              appendToFile(storageHandler, df, new Path(savePath, table.toString))
+            }
+          } else {
+            Success(None)
           }
           val metricsSinkResult =
             new SinkUtils().sink(settings.comet.metrics.sink, df, table.toString)
