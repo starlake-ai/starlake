@@ -14,7 +14,7 @@ class SinkUtils(implicit settings: Settings) extends StrictLogging {
 
   def sink(sinkType: Sink, dataframe: DataFrame, table: String): Try[Unit] = {
     sinkType match {
-      case NoneSink() =>
+      case _: NoneSink =>
         Success(())
 
       case sink: BigQuerySink =>
@@ -22,7 +22,7 @@ class SinkUtils(implicit settings: Settings) extends StrictLogging {
           sinkToBigQuery(dataframe, sink.name.getOrElse(table), table)
         }
 
-      case JdbcSink(jdbcConnection, partitions, batchSize) =>
+      case JdbcSink(_, jdbcConnection, partitions, batchSize) =>
         Try {
           val jdbcConfig = ConnectionLoadConfig.fromComet(
             jdbcConnection,
@@ -34,7 +34,7 @@ class SinkUtils(implicit settings: Settings) extends StrictLogging {
           )
           sinkToJdbc(jdbcConfig)
         }
-      case EsSink(id, timestamp) =>
+      case _: EsSink =>
         ???
     }
   }

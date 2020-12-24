@@ -1,5 +1,11 @@
 # Release notes
 
+## 0.1.26
+__New feature__:
+- Optionally sink to file using property sink-to-file = ${?COMET_SINK_TO_FILE}
+
+__Bugfix__:
+- Sink name was ignored and always considered as None
 ## 0.1.23
 
 __New feature__:

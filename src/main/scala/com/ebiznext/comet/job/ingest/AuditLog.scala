@@ -96,18 +96,24 @@ object SparkAuditLogWriter {
   def append(session: SparkSession, log: AuditLog)(implicit
     settings: Settings
   ) = {
-
     import session.implicits._
-    val lockPath = new Path(settings.comet.audit.path, s"audit.lock")
-    val locker = new FileLock(lockPath, settings.storageHandler)
-    locker.doExclusively() {
-      val auditPath = new Path(settings.comet.audit.path, s"ingestion-log")
-      Seq(log).toDF.write
-        .mode(SaveMode.Append)
-        .format(settings.comet.defaultWriteFormat)
-        .option("path", auditPath.toString)
-        .save()
+
+    def sinkToFile(log: AuditLog, settings: Settings) = {
+      val lockPath = new Path(settings.comet.audit.path, s"audit.lock")
+      val locker = new FileLock(lockPath, settings.storageHandler)
+      locker.doExclusively() {
+        val auditPath = new Path(settings.comet.audit.path, s"ingestion-log")
+        Seq(log).toDF.write
+          .mode(SaveMode.Append)
+          .format(settings.comet.defaultWriteFormat)
+          .option("path", auditPath.toString)
+          .save()
+      }
     }
+
+    if (settings.comet.sinkToFile)
+      sinkToFile(log, settings)
+
     val auditTypedRDD: RDD[AuditLog] = session.sparkContext.parallelize(Seq(log))
     val auditDF = session
       .createDataFrame(
@@ -119,7 +125,7 @@ object SparkAuditLogWriter {
       .toDF(auditCols.map(_._1): _*)
 
     settings.comet.audit.sink match {
-      case JdbcSink(connectionName, partitions, batchSize) =>
+      case JdbcSink(_, connectionName, partitions, batchSize) =>
         val jdbcConfig = ConnectionLoadConfig.fromComet(
           connectionName,
           settings.comet,
@@ -145,9 +151,9 @@ object SparkAuditLogWriter {
         )
         new BigQuerySparkJob(bqConfig, Some(bigqueryAuditSchema())).run()
 
-      case EsSink(id, timestamp) =>
+      case _: EsSink =>
         ???
-      case NoneSink() =>
+      case _: NoneSink =>
       // this is a NOP
     }
   }
