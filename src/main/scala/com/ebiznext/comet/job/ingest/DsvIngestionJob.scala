@@ -70,14 +70,14 @@ class DsvIngestionJob(
     * @param header : Header column name
     * @return
     */
-  def cleanHeaderCol(header: String): String =
+  private def cleanHeaderCol(header: String): String =
     header.replaceAll("\"", "").replaceAll("\uFEFF", "")
 
   /** @param datasetHeaders : Headers found in the dataset
     * @param schemaHeaders  : Headers defined in the schema
     * @return success  if all headers in the schema exist in the dataset
     */
-  def validateHeader(datasetHeaders: List[String], schemaHeaders: List[String]): Boolean = {
+  private def validateHeader(datasetHeaders: List[String], schemaHeaders: List[String]): Boolean = {
     schemaHeaders.forall(schemaHeader => datasetHeaders.contains(schemaHeader))
   }
 
@@ -85,7 +85,7 @@ class DsvIngestionJob(
     * @param schemaHeaders  : Headers defined in the schema
     * @return two lists : One with thecolumns present in the schema and the dataset and onther with the headers present in the dataset only
     */
-  def intersectHeaders(
+  private def intersectHeaders(
     datasetHeaders: List[String],
     schemaHeaders: List[String]
   ): (List[String], List[String]) = {
@@ -97,7 +97,7 @@ class DsvIngestionJob(
     *
     * @return Spark Dataset
     */
-  def loadDataSet(): Try[DataFrame] = {
+  protected def loadDataSet(): Try[DataFrame] = {
     try {
       val dfIn = session.read
         .option("header", metadata.isWithHeader().toString)
@@ -165,7 +165,7 @@ class DsvIngestionJob(
 
   }
 
-  def rowValidator(): DsvValidator = {
+  protected def rowValidator(): DsvValidator = {
     val runtimeMirror = universe.runtimeMirror(getClass.getClassLoader)
     val module = runtimeMirror.staticModule(settings.comet.rowValidatorClass)
     val obj: universe.ModuleMirror = runtimeMirror.reflectModule(module)
@@ -177,7 +177,7 @@ class DsvIngestionJob(
     *
     * @param dataset : Spark Dataset
     */
-  def ingest(dataset: DataFrame): (RDD[_], RDD[_]) = {
+  protected def ingest(dataset: DataFrame): (RDD[_], RDD[_]) = {
 
     val attributesWithoutscript: Seq[Attribute] =
       schema.attributesWithoutScript :+ Attribute(
@@ -217,7 +217,10 @@ class DsvIngestionJob(
     (rejectedRDD, acceptedRDD)
   }
 
-  def saveAccepted(acceptedRDD: RDD[Row], orderedSparkTypes: StructType): (DataFrame, Path) = {
+  protected def saveAccepted(
+    acceptedRDD: RDD[Row],
+    orderedSparkTypes: StructType
+  ): (DataFrame, Path) = {
     val renamedAttributes = schema.renamedAttributes().toMap
     logger.whenInfoEnabled {
       renamedAttributes.foreach { case (name, rename) =>
