@@ -116,7 +116,7 @@ class AssertionJob(
         .withColumn("cometStage", lit(Stage.UNIT.value))
 
       val assertionsResult =
-        if (engine == Engine.SPARK) {
+        if (engine == Engine.SPARK && settings.comet.sinkToFile) {
           val savePath: Path = DatasetArea.assertions(domainName, schemaName)
           val lockedPath = lockPath(settings.comet.assertions.path)
           val waitTimeMillis = settings.comet.lock.metricsTimeout

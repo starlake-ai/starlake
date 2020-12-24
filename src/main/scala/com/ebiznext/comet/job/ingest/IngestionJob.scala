@@ -86,7 +86,14 @@ trait IngestionJob extends SparkJob {
     val schemaName = schema.name
     IngestionUtil.sinkRejected(session, rejectedRDD, domainName, schemaName, now) match {
       case Success((rejectedDF, rejectedPath)) =>
-        sinkToFile(rejectedDF, rejectedPath, WriteMode.APPEND, StorageArea.rejected, merge = false)
+        if (settings.comet.sinkToFile)
+          sinkToFile(
+            rejectedDF,
+            rejectedPath,
+            WriteMode.APPEND,
+            StorageArea.rejected,
+            merge = false
+          )
         Success(rejectedPath)
       case Failure(exception) =>
         logger.error("Failed to save Rejected", exception)
@@ -187,17 +194,19 @@ trait IngestionJob extends SparkJob {
         if (metadata.getSink().map(_.`type`).getOrElse(SinkType.None) == SinkType.BQ) {
           val mergedDfBq = mergeFromBQ(withScriptFieldsDF, mergeOptions)
           mergedDfBq
-        } else if (storageHandler.exists(new Path(acceptedPath, "_SUCCESS"))) {
+        } else {
           mergeFromParquet(acceptedPath, withScriptFieldsDF, mergeOptions)
-        } else
-          withScriptFieldsDF
+        }
       }
       .getOrElse(withScriptFieldsDF)
 
     logger.info("Merged Dataframe Schema")
     mergedDF.printSchema()
     val savedDataset =
-      sinkToFile(mergedDF, acceptedPath, writeMode, StorageArea.accepted, schema.merge.isDefined)
+      if (settings.comet.sinkToFile)
+        sinkToFile(mergedDF, acceptedPath, writeMode, StorageArea.accepted, schema.merge.isDefined)
+      else
+        mergedDF
     logger.info("Saved Dataset Schema")
     savedDataset.printSchema()
     sink(mergedDF)
@@ -566,23 +575,28 @@ trait IngestionJob extends SparkJob {
     withScriptFieldsDF: DataFrame,
     mergeOptions: MergeOptions
   ) = {
-    // Otherwise load from accepted area
-    // We provide the accepted DF schema since partition columns types are infered when parquet is loaded and might not match with the DF being ingested
-    val existingDF =
-      session.read.schema(withScriptFieldsDF.schema).parquet(acceptedPath.toString)
-    if (
-      existingDF.schema.fields.length == session.read
-        .parquet(acceptedPath.toString)
-        .schema
-        .fields
-        .length
-    )
-      mergeParquet(withScriptFieldsDF, existingDF, mergeOptions)
-    else
-      throw new RuntimeException(
-        "Input Dataset and existing HDFS dataset do not have the same number of columns. Check for changes in the dataset schema ?"
+    if (storageHandler.exists(new Path(acceptedPath, "_SUCCESS"))) {
+      // Otherwise load from accepted area
+      // We provide the accepted DF schema since partition columns types are infered when parquet is loaded and might not match with the DF being ingested
+      val existingDF =
+        session.read.schema(withScriptFieldsDF.schema).parquet(acceptedPath.toString)
+      if (
+        existingDF.schema.fields.length == session.read
+          .parquet(acceptedPath.toString)
+          .schema
+          .fields
+          .length
       )
-    mergeParquet(withScriptFieldsDF, existingDF, mergeOptions)
+        mergeParquet(withScriptFieldsDF, existingDF, mergeOptions)
+      else
+        throw new RuntimeException(
+          "Input Dataset and existing HDFS dataset do not have the same number of columns. Check for changes in the dataset schema ?"
+        )
+      mergeParquet(withScriptFieldsDF, existingDF, mergeOptions)
+    } else {
+      withScriptFieldsDF
+    }
+
   }
 
   /** Merge incoming and existing dataframes using merge options
@@ -630,7 +644,7 @@ trait IngestionJob extends SparkJob {
         ) {
           val bqTable = s"${domain.name}.${schema.name}"
           (mergeOptions.queryFilter, metadata.sink) match {
-            case (Some(query), Some(BigQuerySink(_, Some(_), _, _, _))) =>
+            case (Some(query), Some(BigQuerySink(_, _, Some(_), _, _, _))) =>
               val queryArgs = query.richFormat(options)
               if (queryArgs.contains("latest")) {
                 val partitions =
@@ -751,7 +765,7 @@ object IngestionUtil {
           )
           new BigQuerySparkJob(bqConfig, Some(bigqueryRejectedSchema())).run()
 
-        case JdbcSink(jdbcName, partitions, batchSize) =>
+        case JdbcSink(_, jdbcName, partitions, batchSize) =>
           val jdbcConfig = ConnectionLoadConfig.fromComet(
             jdbcName,
             settings.comet,
@@ -763,9 +777,9 @@ object IngestionUtil {
 
           new ConnectionLoadJob(jdbcConfig).run()
 
-        case EsSink(_, _) =>
+        case _: EsSink =>
           ???
-        case NoneSink() =>
+        case _: NoneSink =>
           Success(())
       }
     res match {

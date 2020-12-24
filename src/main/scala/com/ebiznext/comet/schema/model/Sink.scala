@@ -90,7 +90,9 @@ class SinkTypeDeserializer extends JsonDeserializer[SinkType] {
     new JsonSubTypes.Type(value = classOf[JdbcSink], name = "JDBC")
   )
 )
-sealed abstract class Sink(val `type`: SinkType, val name: Option[String] = None)
+sealed abstract class Sink(val `type`: SinkType) {
+  def name: Option[String]
+}
 
 /** When the sink *type* field is set to BQ, the options below should be provided.
   * @param location : Database location (EU, US, ...)
@@ -101,6 +103,7 @@ sealed abstract class Sink(val `type`: SinkType, val name: Option[String] = None
   */
 @JsonTypeName("BQ")
 final case class BigQuerySink(
+  override val name: Option[String] = None,
   location: Option[String] = None,
   timestamp: Option[String] = None,
   clustering: Option[Seq[String]] = None,
@@ -114,11 +117,14 @@ final case class BigQuerySink(
   * @param timestamp: Timestamp field format as expeted by Elasticsearch ("{beginTs|yyyy.MM.dd}" for example).
   */
 @JsonTypeName("ES")
-final case class EsSink(id: Option[String] = None, timestamp: Option[String] = None)
-    extends Sink(SinkType.ES)
+final case class EsSink(
+  override val name: Option[String] = None,
+  id: Option[String] = None,
+  timestamp: Option[String] = None
+) extends Sink(SinkType.ES)
 
 @JsonTypeName("None")
-final case class NoneSink() extends Sink(SinkType.None)
+final case class NoneSink(override val name: Option[String] = None) extends Sink(SinkType.None)
 
 /** When the sink *type* field is set to JDBC, the options below should be provided.
   * @param connection: Connection String
@@ -127,6 +133,7 @@ final case class NoneSink() extends Sink(SinkType.None)
   */
 @JsonTypeName("JDBC")
 final case class JdbcSink(
+  override val name: Option[String] = None,
   connection: String,
   partitions: Option[Int] = None,
   batchsize: Option[Int] = None
