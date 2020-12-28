@@ -55,7 +55,7 @@ class JsonIngestionJob(
     *
     * @return Spark Dataframe loaded using metadata options
     */
-  def loadDataSet(): Try[DataFrame] = {
+  protected def loadDataSet(): Try[DataFrame] = {
 
     try {
       val dfIn =
@@ -93,7 +93,7 @@ class JsonIngestionJob(
     *
     * @param dataset input dataset as a RDD of string
     */
-  def ingest(dataset: DataFrame): (RDD[_], RDD[_]) = {
+  protected def ingest(dataset: DataFrame): (RDD[_], RDD[_]) = {
     val rdd: RDD[Row] = dataset.rdd
 
     val checkedRDD: RDD[Either[List[String], (String, String)]] = JsonIngestionUtil

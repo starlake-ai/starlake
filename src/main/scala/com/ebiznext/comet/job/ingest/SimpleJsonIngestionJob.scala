@@ -50,7 +50,7 @@ class SimpleJsonIngestionJob(
 )(implicit settings: Settings)
     extends DsvIngestionJob(domain, schema, types, path, storageHandler, schemaHandler, options) {
 
-  override def loadDataSet(): Try[DataFrame] = {
+  override protected def loadDataSet(): Try[DataFrame] = {
     try {
 
       val dfIn =
