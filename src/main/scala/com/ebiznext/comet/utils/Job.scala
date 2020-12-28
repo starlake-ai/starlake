@@ -39,7 +39,7 @@ trait SparkJob extends JobBase {
     new SparkEnv(name)
   }
 
-  def registerUdf(udf: String): Unit = {
+  protected def registerUdf(udf: String): Unit = {
     val udfInstance: UdfRegistration =
       Class
         .forName(udf)
@@ -99,7 +99,7 @@ trait SparkJob extends JobBase {
     * @param partition : list of columns to use for partitioning.
     * @return The Spark session used to run this job
     */
-  def partitionedDatasetWriter(
+  protected def partitionedDatasetWriter(
     dataset: DataFrame,
     partition: List[String]
   ): DataFrameWriter[Row] = {
@@ -120,7 +120,7 @@ trait SparkJob extends JobBase {
     }
   }
 
-  def partitionDataset(dataset: DataFrame, partition: List[String]): DataFrame = {
+  protected def partitionDataset(dataset: DataFrame, partition: List[String]): DataFrame = {
     logger.info(s"""Partitioning on ${partition.mkString(",")}""")
     partition match {
       case Nil => dataset
@@ -134,7 +134,7 @@ trait SparkJob extends JobBase {
     }
   }
 
-  def analyze(fullTableName: String) = {
+  protected def analyze(fullTableName: String) = {
     if (settings.comet.analyze) {
       val allCols = session.table(fullTableName).columns.mkString(",")
       val analyzeTable =
@@ -152,7 +152,7 @@ trait SparkJob extends JobBase {
     }
   }
 
-  def createViews(
+  protected def createViews(
     views: Views,
     sqlParameters: Map[String, String],
     activeEnv: Map[String, String]
@@ -258,7 +258,11 @@ trait SparkJob extends JobBase {
     * @param dataToSave :   dataset to be saved
     * @param path       :   Path to save the file at
     */
-  def appendToFile(storageHandler: StorageHandler, dataToSave: DataFrame, path: Path): Unit = {
+  protected def appendToFile(
+    storageHandler: StorageHandler,
+    dataToSave: DataFrame,
+    path: Path
+  ): Unit = {
     if (storageHandler.exists(path)) {
       val pathIntermediate = new Path(path.getParent, ".tmp")
 

@@ -55,7 +55,7 @@ class XmlIngestionJob(
     *
     * @return Spark Dataframe loaded using metadata options
     */
-  def loadDataSet(): Try[DataFrame] = {
+  protected def loadDataSet(): Try[DataFrame] = {
     try {
       val rowTag = metadata.xml.flatMap(_.get("rowTag"))
       rowTag.map { rowTag =>
@@ -86,7 +86,7 @@ class XmlIngestionJob(
     *
     * @param dataset input dataset as a RDD of string
     */
-  def ingest(dataset: DataFrame): (RDD[_], RDD[_]) = {
+  protected def ingest(dataset: DataFrame): (RDD[_], RDD[_]) = {
     dataset.printSchema()
     val datasetSchema = dataset.schema
     val errorList = compareTypes(schemaSparkType, datasetSchema)
