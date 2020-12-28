@@ -56,7 +56,7 @@ class PositionIngestionJob(
     *
     * @return Spark DataFrame where each row holds a single string
     */
-  override def loadDataSet(): Try[DataFrame] = {
+  override protected def loadDataSet(): Try[DataFrame] = {
     try {
       val dfIn = metadata.getEncoding().toUpperCase match {
         case "UTF-8" => session.read.text(path.map(_.toString): _*)
@@ -89,7 +89,7 @@ class PositionIngestionJob(
     *
     * @param input : Spark Dataset
     */
-  override def ingest(input: DataFrame): (RDD[_], RDD[_]) = {
+  override protected def ingest(input: DataFrame): (RDD[_], RDD[_]) = {
 
     val dataset: DataFrame =
       PositionIngestionUtil.prepare(session, input, schema.attributesWithoutScript)

@@ -55,15 +55,15 @@ trait IngestionJob extends SparkJob {
     *
     * @return Spark Dataframe loaded using metadata options
     */
-  def loadDataSet(): Try[DataFrame]
+  protected def loadDataSet(): Try[DataFrame]
 
   /** ingestion algorithm
     *
     * @param dataset
     */
-  def ingest(dataset: DataFrame): (RDD[_], RDD[_])
+  protected def ingest(dataset: DataFrame): (RDD[_], RDD[_])
 
-  def applyIgnore(dfIn: DataFrame): Dataset[Row] = {
+  protected def applyIgnore(dfIn: DataFrame): Dataset[Row] = {
     import org.apache.spark.sql.functions._
     import session.implicits._
     metadata.ignore.map { ignore =>
@@ -77,7 +77,7 @@ trait IngestionJob extends SparkJob {
     } getOrElse dfIn
   }
 
-  def saveRejected(rejectedRDD: RDD[String]): Try[Path] = {
+  protected def saveRejected(rejectedRDD: RDD[String]): Try[Path] = {
     logger.whenDebugEnabled {
       logger.debug(s"rejectedRDD SIZE ${rejectedRDD.count()}")
       rejectedRDD.take(100).foreach(rejected => logger.debug(rejected.replaceAll("\n", "|")))
@@ -114,7 +114,7 @@ trait IngestionJob extends SparkJob {
     *
     * @param acceptedDF
     */
-  def saveAccepted(acceptedDF: DataFrame): (DataFrame, Path) = {
+  protected def saveAccepted(acceptedDF: DataFrame): (DataFrame, Path) = {
     logger.whenDebugEnabled {
       logger.debug(s"acceptedRDD SIZE ${acceptedDF.count()}")
       acceptedDF.show(1000)
