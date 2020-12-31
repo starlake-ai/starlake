@@ -129,7 +129,7 @@ object Versions {
   val h2 = "1.4.200" // Test only
   val poi = "4.1.2"
   val scalate = "1.9.6"
-  val akkaHttp = "10.2.1"
+  val akkaHttp = "10.2.2"
   val akkaStream = "2.6.10"
 
 }
