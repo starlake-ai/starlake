@@ -11,7 +11,7 @@ lazy val scala212 = "2.12.12"
 
 // lazy val scala211 = "2.11.12"
 
-lazy val sparkVersion = sys.env.getOrElse("COMET_SPARK_VERSION", "3.0.1")
+lazy val sparkVersion = sys.env.getOrElse("COMET_SPARK_VERSION", "3.1.0")
 
 val sparkVersionPattern: Regex = "(\\d+).(\\d+).(\\d+)".r
 
