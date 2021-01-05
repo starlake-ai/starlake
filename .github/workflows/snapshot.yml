@@ -9,7 +9,7 @@ env:
   SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
   SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
 jobs:
-  release:
+  snapshot:
     runs-on: ubuntu-18.04
     steps:
       - uses: actions/checkout@v2
