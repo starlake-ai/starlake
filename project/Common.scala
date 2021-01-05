@@ -103,7 +103,7 @@ object Versions {
   val curator = "2.6.0"
   val spark2d1 = "2.1.0"
   val spark2d4 = "2.4.7"
-  val spark3d0 = "3.0.1"
+  val spark3d0 = "3.1.0"
   val scalatest = "3.2.3"
   val sparXML211 = "0.11.0"
   val sparXML212 = "0.11.0"
