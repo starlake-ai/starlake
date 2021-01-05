@@ -1,6 +1,7 @@
 name: Snapshot
 # Run workflow on commits to the `master` branch
 on:
+  workflow_dispatch:
   pull_request:
     types: [closed]
     branches:
