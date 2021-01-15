@@ -130,7 +130,7 @@ object Versions {
   val poi = "4.1.2"
   val scalate = "1.9.6"
   val akkaHttp = "10.2.2"
-  val akkaStream = "2.6.10"
+  val akkaStream = "2.6.11"
 
 }
 
