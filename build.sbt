@@ -132,6 +132,9 @@ assemblyMergeStrategy in assembly := {
   case x                             => MergeStrategy.first
 }
 
+// Required by the Test container framework
+Test / fork := true
+
 assemblyExcludedJars in assembly := {
   val cp: Classpath = (fullClasspath in assembly).value
   cp.foreach(x => println("->" + x.data.getName))

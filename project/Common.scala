@@ -131,6 +131,7 @@ object Versions {
   val scalate = "1.9.6"
   val akkaHttp = "10.2.2"
   val akkaStream = "2.6.10"
+  val testContainers = "0.38.8"
 
 }
 
