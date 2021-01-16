@@ -27,7 +27,7 @@ class KafkaJob(
         .getOrElse {
           topicAdmin.topicPartitions(topic).map(p => (p.partition(), EARLIEST_OFFSET))
         }
-    val endOffsets = topicAdmin.topicEndOffsets(topic)
+    val endOffsets = topicAdmin.topicEndOffsets(topic, topicOptions)
 
     val withOffsetsTopicOptions = topicOptions ++ Seq(
       "startingOffsets" -> offsetsAsJson(topic, startOffsets),
