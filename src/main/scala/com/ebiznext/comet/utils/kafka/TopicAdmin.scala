@@ -19,10 +19,10 @@ final case class Topic(
   topicConfig: Properties = new Properties
 )
 
-class TopicAdmin(serverOptions: Map[String, String]) {
+class TopicAdmin(serverOptions: Map[String, Object]) {
   val props = new Properties()
   serverOptions.foreach { option =>
-    props.setProperty(option._1, option._2)
+    props.put(option._1, option._2)
   }
   val client = AdminClient.create(props)
 
@@ -47,8 +47,11 @@ class TopicAdmin(serverOptions: Map[String, String]) {
       .toList
   }
 
-  def topicEndOffsets(topicName: String): List[(Int, Long)] = {
+  def topicEndOffsets(topicName: String, conf: Map[String, Object]): List[(Int, Long)] = {
     val props = new Properties()
+    conf.foreach { option =>
+      props.put(option._1, option._2)
+    }
     val consumer = new KafkaConsumer[String, String](props)
     val partitions =
       topicPartitions(topicName).map(info => new TopicPartition(topicName, info.partition()))
