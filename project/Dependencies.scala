@@ -121,7 +121,7 @@ object Dependencies {
 
   val esHadoop = Seq(
     "org.elasticsearch" % "elasticsearch-hadoop" % Versions.esHadoop exclude ("com.google.guava", "guava") excludeAll (jacksonExclusions: _*),
-    "pl.allegro.tech" % "embedded-elasticsearch" % "2.10.0" % "test"
+    "com.dimafeng" %% "testcontainers-scala-elasticsearch" % Versions.testContainers % Test
   )
 
   val scopt = Seq(
