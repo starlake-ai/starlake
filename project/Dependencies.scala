@@ -175,7 +175,14 @@ object Dependencies {
     "com.typesafe.akka" %% "akka-stream" % Versions.akkaStream
   )
 
+  val kafkaClients = Seq(
+    "org.apache.kafka" % "kafka-clients" % Versions.kafkaClients,
+    "com.dimafeng" %% "testcontainers-scala-scalatest" % Versions.testContainers % Test,
+    "com.dimafeng" %% "testcontainers-scala-kafka" % Versions.testContainers % Test
+
+  )
+
   val dependencies =
     scalate ++ logging ++ typedConfigs ++ betterfiles ++ scalaTest ++ scopt ++ hadoop ++ esHadoop ++
-    sttp ++ gcp ++ azure ++ h2 ++ excelClientApi ++ akkaHttp ++ akkaStream // ++ atlas
+    sttp ++ gcp ++ azure ++ h2 ++ excelClientApi ++ akkaHttp ++ akkaStream ++ kafkaClients // ++ atlas
 }
