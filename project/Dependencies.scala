@@ -183,7 +183,6 @@ object Dependencies {
     "org.apache.kafka" % "kafka-clients" % Versions.kafkaClients,
     "com.dimafeng" %% "testcontainers-scala-scalatest" % Versions.testContainers % Test,
     "com.dimafeng" %% "testcontainers-scala-kafka" % Versions.testContainers % Test
-
   )
 
   val dependencies =
