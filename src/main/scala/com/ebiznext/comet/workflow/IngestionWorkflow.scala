@@ -241,7 +241,10 @@ class IngestionWorkflow(
     val pendingArea = DatasetArea.pending(domainName)
     logger.info(s"List files in $pendingArea")
     val files = storageHandler.list(pendingArea)
-    logger.info(s"Found ${files.mkString(",")}")
+    if(files.nonEmpty)
+      logger.info(s"Found ${files.mkString(",")}")
+    else
+      logger.info(s"No Files Found.")
     val domain = schemaHandler.getDomain(domainName)
 
     val filteredFiles = (dom: Domain) =>
