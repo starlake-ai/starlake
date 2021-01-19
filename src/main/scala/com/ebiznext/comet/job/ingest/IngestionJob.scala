@@ -395,7 +395,7 @@ trait IngestionJob extends SparkJob {
       } else
         (partitionedDFWriter, dataset)
       val finalTargetDatasetWriter =
-        if (csvOutput())
+        if (csvOutput() && area != StorageArea.rejected)
           targetDatasetWriter
             .mode(saveMode)
             .format("csv")
@@ -435,7 +435,7 @@ trait IngestionJob extends SparkJob {
       logger.warn("Empty dataset with no columns won't be saved")
       session.emptyDataFrame
     }
-    if (csvOutput()) {
+    if (csvOutput() && area != StorageArea.rejected) {
       val csvPath = storageHandler
         .list(targetPath, ".csv", LocalDateTime.MIN)
         .filterNot(path => schema.pattern.matcher(path.getName).matches())
