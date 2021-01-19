@@ -77,7 +77,8 @@ object Dependencies {
     "org.apache.spark" %% "spark-sql" % Versions.spark2d1 % "provided" exclude ("com.google.guava", "guava"),
     "org.apache.spark" %% "spark-hive" % Versions.spark2d1 % "provided" exclude ("com.google.guava", "guava"),
     "org.apache.spark" %% "spark-mllib" % Versions.spark2d1 % "provided" exclude ("com.google.guava", "guava"),
-    "com.databricks" %% "spark-xml" % Versions.sparXML211
+    "com.databricks" %% "spark-xml" % Versions.sparXML211,
+    "org.apache.spark" %% "spark-sql-kafka-0-10" % Versions.spark2d1
   )
 
   val spark_2d4_forScala_2d11 = Seq(
@@ -85,7 +86,8 @@ object Dependencies {
     "org.apache.spark" %% "spark-sql" % Versions.spark2d4 % "provided" excludeAll (jacksonExclusions: _*) exclude ("com.google.guava", "guava"),
     "org.apache.spark" %% "spark-hive" % Versions.spark2d4 % "provided" excludeAll (jacksonExclusions: _*) exclude ("com.google.guava", "guava"),
     "org.apache.spark" %% "spark-mllib" % Versions.spark2d4 % "provided" excludeAll (jacksonExclusions: _*) exclude ("com.google.guava", "guava"),
-    "com.databricks" %% "spark-xml" % Versions.sparXML211
+    "com.databricks" %% "spark-xml" % Versions.sparXML211,
+    "org.apache.spark" %% "spark-sql-kafka-0-10" % Versions.spark2d4
   )
 
   val spark_2d4_forScala_2d12 = Seq(
@@ -93,7 +95,8 @@ object Dependencies {
     "org.apache.spark" %% "spark-sql" % Versions.spark2d4 % "provided" exclude ("com.google.guava", "guava") excludeAll (jacksonExclusions: _*),
     "org.apache.spark" %% "spark-hive" % Versions.spark2d4 % "provided" exclude ("com.google.guava", "guava") excludeAll (jacksonExclusions: _*),
     "org.apache.spark" %% "spark-mllib" % Versions.spark2d4 % "provided" exclude ("com.google.guava", "guava") excludeAll (jacksonExclusions: _*),
-    "com.databricks" %% "spark-xml" % Versions.sparXML212
+    "com.databricks" %% "spark-xml" % Versions.sparXML212,
+    "org.apache.spark" %% "spark-sql-kafka-0-10" % Versions.spark2d4
   )
 
   val spark_3d0_forScala_2d12 = Seq(
@@ -101,7 +104,8 @@ object Dependencies {
     "org.apache.spark" %% "spark-sql" % Versions.spark3d0 % "provided" exclude ("com.google.guava", "guava") excludeAll (jacksonExclusions: _*),
     "org.apache.spark" %% "spark-hive" % Versions.spark3d0 % "provided" exclude ("com.google.guava", "guava") excludeAll (jacksonExclusions: _*),
     "org.apache.spark" %% "spark-mllib" % Versions.spark3d0 % "provided" exclude ("com.google.guava", "guava") excludeAll (jacksonExclusions: _*),
-    "com.databricks" %% "spark-xml" % Versions.sparXML212
+    "com.databricks" %% "spark-xml" % Versions.sparXML212,
+    "org.apache.spark" %% "spark-sql-kafka-0-10" % Versions.spark3d0
   )
 
   val gcsConnectorShadedJar =
