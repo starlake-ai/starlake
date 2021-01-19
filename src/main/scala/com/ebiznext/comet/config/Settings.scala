@@ -168,15 +168,18 @@ object Settings extends StrictLogging {
   )
 
   final case class KafkaTopicOptions(
+    name: Option[String] = None,
     maxRead: Long = -1,
+    fields: List[String] = List("key as STRING", "value as STRING"),
     partitions: Int = 1,
     replicationFactor: Short = 1,
-    server: String,
-    options: Map[String, String] = Map.empty
+    writeFormat: String = "parquet",
+    createOptions: Map[String, String] = Map.empty,
+    accessOptions: Map[String, String] = Map.empty
   )
 
   final case class KafkaConfig(
-    servers: Map[String, Map[String, String]],
+    serverOptions: Map[String, String],
     topics: Map[String, KafkaTopicOptions]
   )
 
