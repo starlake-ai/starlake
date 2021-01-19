@@ -241,7 +241,7 @@ class IngestionWorkflow(
     val pendingArea = DatasetArea.pending(domainName)
     logger.info(s"List files in $pendingArea")
     val files = storageHandler.list(pendingArea)
-    if(files.nonEmpty)
+    if (files.nonEmpty)
       logger.info(s"Found ${files.mkString(",")}")
     else
       logger.info(s"No Files Found.")
