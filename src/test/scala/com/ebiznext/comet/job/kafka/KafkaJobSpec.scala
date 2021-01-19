@@ -2,7 +2,7 @@ package com.ebiznext.comet.job.kafka
 
 import com.dimafeng.testcontainers.{ForAllTestContainer, KafkaContainer}
 import com.ebiznext.comet.TestHelper
-import com.ebiznext.comet.utils.kafka.TopicAdmin
+import com.ebiznext.comet.utils.kafka.KafkaTopicUtils
 import org.apache.kafka.clients.admin.NewTopic
 import org.apache.kafka.clients.consumer.KafkaConsumer
 import org.apache.kafka.common.serialization.StringDeserializer
@@ -24,14 +24,14 @@ class KafkaJobSpec extends TestHelper with ForAllTestContainer {
     }
     "Create topic comet_offets topic" should "succeed" in {
       val properties = Map("bootstrap.servers" -> container.bootstrapServers)
-      val client = new TopicAdmin(properties)
+      val client = new KafkaTopicUtils(properties)
       val topicProperties = Map("cleanup.policy" -> "compact")
       client.createTopicIfNotPresent(new NewTopic("comet_offsets", 1, 1.toShort), topicProperties)
     }
 
     "Get comet_offets partitions " should "return 1" in {
       val properties = Map("bootstrap.servers" -> container.bootstrapServers)
-      val client = new TopicAdmin(properties)
+      val client = new KafkaTopicUtils(properties)
       val topicProperties = Map("cleanup.policy" -> "compact")
       client.createTopicIfNotPresent(new NewTopic("comet_offsets", 1, 1.toShort), topicProperties)
       val partitions = client.topicPartitions("comet_offsets")
@@ -39,7 +39,7 @@ class KafkaJobSpec extends TestHelper with ForAllTestContainer {
     }
 
     "Access comet_offets end offsets " should "work" in {
-      val client = new TopicAdmin(Map("bootstrap.servers" -> container.bootstrapServers))
+      val client = new KafkaTopicUtils(Map("bootstrap.servers" -> container.bootstrapServers))
       val topicProperties = Map("cleanup.policy" -> "compact")
       client.createTopicIfNotPresent(new NewTopic("comet_offsets", 1, 1.toShort), topicProperties)
       val properties = Map(
