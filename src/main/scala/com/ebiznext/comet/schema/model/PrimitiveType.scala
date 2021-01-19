@@ -25,8 +25,8 @@ import java.text.{DecimalFormat, NumberFormat}
 import java.time._
 import java.time.format.DateTimeFormatter
 import java.time.temporal.TemporalAccessor
-import java.util.{Locale, TimeZone}
 import java.util.regex.Pattern
+import java.util.{Locale, TimeZone}
 
 import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.databind.annotation.{JsonDeserialize, JsonSerialize}
@@ -283,10 +283,10 @@ object PrimitiveType {
       if (str == null || str.isEmpty)
         null
       else {
-        import java.text.SimpleDateFormat
-        val df = new SimpleDateFormat(pattern)
-        val date = df.parse(str)
-        new java.sql.Date(date.getTime)
+        val formatter = DateTimeFormatter.ofPattern(pattern)
+        val date = LocalDate.parse(str, formatter)
+        java.sql.Date.valueOf(date)
+
       }
     }
 
