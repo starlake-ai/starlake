@@ -395,7 +395,7 @@ trait IngestionJob extends SparkJob {
       } else
         (partitionedDFWriter, dataset)
       val finalTargetDatasetWriter =
-        if (csvOutput() && area == StorageArea.accepted)
+        if (csvOutput())
           targetDatasetWriter
             .mode(saveMode)
             .format("csv")
