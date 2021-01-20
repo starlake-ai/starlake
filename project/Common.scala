@@ -125,7 +125,7 @@ object Versions {
   val gcs = "hadoop3-2.2.0"
   val hadoopbq = "hadoop3-1.0.0"
   val bq = "1.120.0"
-  val hadoop = "3.2.2"
+  val hadoop = "3.3.0"
   val h2 = "1.4.200" // Test only
   val poi = "5.0.0"
   val scalate = "1.9.6"
