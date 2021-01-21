@@ -3,6 +3,7 @@ package com.ebiznext.comet.job.kafka
 import com.dimafeng.testcontainers.{ForAllTestContainer, KafkaContainer}
 import com.ebiznext.comet.TestHelper
 import com.ebiznext.comet.job.index.kafkaload.{KafkaJob, KafkaJobConfig}
+import com.ebiznext.comet.utils.SparkJobResult
 import com.ebiznext.comet.utils.kafka.KafkaTopicUtils
 import com.typesafe.config.ConfigFactory
 import org.apache.kafka.clients.admin.NewTopic
@@ -107,12 +108,12 @@ class KafkaJobSpec extends TestHelper with ForAllTestContainer {
             offload = false
           )
         )
-      kafkaJob.load()
+      kafkaJob.run()
       val kafkaJob2 =
         new KafkaJob(
           KafkaJobConfig("test_offload", "json", SaveMode.Overwrite, None)
         )
-      kafkaJob2.offload().get.dataframe.get.count() shouldBe 5000
+      kafkaJob2.run().get.asInstanceOf[SparkJobResult].dataframe.get.count() shouldBe 5000
     }
   }
 }
