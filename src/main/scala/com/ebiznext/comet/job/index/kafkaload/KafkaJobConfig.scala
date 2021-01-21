@@ -1,14 +1,15 @@
 package com.ebiznext.comet.job.index.kafkaload
 
 import com.ebiznext.comet.utils.CliConfig
+import org.apache.spark.sql.{DataFrame, SaveMode}
 import scopt.OParser
 
 case class KafkaJobConfig(
   topic: String = "",
   format: String = "parquet",
-  path: String = "",
-  offload: Boolean = true,
-  store: Boolean = false
+  mode: SaveMode = SaveMode.Append,
+  input: Option[Either[String, DataFrame]] = None,
+  offload: Boolean = true
 )
 
 object KafkaJobConfig extends CliConfig[KafkaJobConfig] {
@@ -29,7 +30,11 @@ object KafkaJobConfig extends CliConfig[KafkaJobConfig] {
         .text("Read/Write format eq : parquet, json, csv ... Default to parquet.")
         .optional(),
       opt[String]("path")
-        .action((x, c) => c.copy(path = x))
+        .action((x, c) => c.copy(input = Some(Left(x))))
+        .text("Source file for load and target file for store")
+        .required(),
+      opt[String]("mode")
+        .action((x, c) => c.copy(mode = SaveMode.valueOf(x)))
         .text("Source file for load and target file for store")
         .required(),
       opt[Boolean]("offload")

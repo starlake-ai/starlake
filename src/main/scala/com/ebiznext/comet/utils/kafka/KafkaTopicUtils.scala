@@ -17,6 +17,7 @@ class KafkaTopicUtils(serverOptions: Map[String, String]) extends StrictLogging 
   serverOptions.foreach { option =>
     props.put(option._1, option._2)
   }
+
   val client = AdminClient.create(props)
 
   def teardown(): Unit = client.close()
@@ -29,7 +30,10 @@ class KafkaTopicUtils(serverOptions: Map[String, String]) extends StrictLogging 
     }
   }
 
-  def topicPartitions(topicName: String): List[TopicPartitionInfo] = {
+  def topicPartitions(
+    topicName: String,
+    accessOptions: Map[String, String]
+  ): List[TopicPartitionInfo] = {
     client
       .describeTopics(java.util.Collections.singleton(topicName))
       .all()
@@ -46,8 +50,11 @@ class KafkaTopicUtils(serverOptions: Map[String, String]) extends StrictLogging 
       props.put(option._1, option._2)
     }
     val consumer = new KafkaConsumer[String, String](props)
-    val partitions =
-      topicPartitions(topicName).map(info => new TopicPartition(topicName, info.partition()))
+    val partitions = consumer
+      .partitionsFor(topicName)
+      .asScala
+      .map(info => new TopicPartition(topicName, info.partition()))
+      .toList
     consumer.assign(partitions.asJava)
     consumer.seekToEnd(partitions.asJava)
     partitions.map(p => (p.partition(), consumer.position(p)))
@@ -63,7 +70,9 @@ class KafkaTopicUtils(serverOptions: Map[String, String]) extends StrictLogging 
     }
     val consumer = new KafkaConsumer[String, String](props)
     val partitions =
-      topicPartitions(topicName).map(info => new TopicPartition(topicName, info.partition()))
+      topicPartitions(topicName, accessOptions).map(info =>
+        new TopicPartition(topicName, info.partition())
+      )
     consumer.assign(partitions.asJava)
     consumer.seekToBeginning(partitions.asJava)
     val offsets = mutable.Map.empty[String, String]
@@ -103,7 +112,7 @@ class KafkaTopicUtils(serverOptions: Map[String, String]) extends StrictLogging 
     val startOffsets =
       topicCurrentOffsets(config.name.getOrElse(topicConfigName), config.accessOptions)
         .getOrElse {
-          topicPartitions(config.name.getOrElse(topicConfigName)).map(p =>
+          topicPartitions(config.name.getOrElse(topicConfigName), config.accessOptions).map(p =>
             (p.partition(), EARLIEST_OFFSET)
           )
         }
@@ -137,7 +146,7 @@ class KafkaTopicUtils(serverOptions: Map[String, String]) extends StrictLogging 
     val writer = df.selectExpr(config.fields.map(x => s"CAST($x)"): _*).write.format("kafka")
 
     config.accessOptions
-      .foldLeft(writer)((reader, option) => reader.option(option._1, option._2))
+      .foldLeft(writer)((writer, option) => writer.option(option._1, option._2))
       .option("topic", config.name.getOrElse(topicConfigName))
       .save()
   }
