@@ -8,28 +8,74 @@ import org.apache.spark.sql.SaveMode
 import scala.util.Try
 
 class KafkaJob(
-  val loadConfig: KafkaJobConfig
+  val kafkaJobConfig: KafkaJobConfig
 )(implicit val settings: Settings)
     extends SparkJob {
 
-  override def run(): Try[JobResult] = {
+  def offload(): Try[SparkJobResult] = {
     Try {
       val kafkaUtils = new KafkaTopicUtils(settings.comet.kafka.serverOptions)
-      if (loadConfig.offload) {
-        val df = kafkaUtils
-          .consumeTopic(loadConfig.topic, session, settings.comet.kafka.topics(loadConfig.topic))
-        df.write
-          .mode(SaveMode.Overwrite)
-          .format(loadConfig.format)
-          .save("/tmp/json")
-        SparkJobResult(Some(df))
-      } else {
-        val df = session.read.format(loadConfig.format).load(loadConfig.path.split(','): _*)
-        kafkaUtils.sinkToTopic(loadConfig.topic, settings.comet.kafka.topics(loadConfig.topic), df)
-        SparkJobResult(Some(df))
+      val df = kafkaUtils
+        .consumeTopic(
+          kafkaJobConfig.topic,
+          session,
+          settings.comet.kafka.topics(kafkaJobConfig.topic)
+        )
+      val res = kafkaJobConfig.input match {
+        case Some(Left(path)) =>
+          df.write
+            .mode(kafkaJobConfig.mode)
+            .format(kafkaJobConfig.format)
+            .save(path)
+          df
+        case Some(Right(outDF)) =>
+          kafkaJobConfig.mode match {
+            case SaveMode.Overwrite =>
+              df
+            case SaveMode.Append =>
+              df union outDF
+            case SaveMode.Ignore =>
+              outDF
+            case SaveMode.ErrorIfExists =>
+              throw new Exception("Option ErorIfExists not applicable here")
+          }
+        case None =>
+          df
+      }
+      SparkJobResult(Some(res))
+    }
+  }
+
+  def load(): Try[SparkJobResult] = {
+    val kafkaUtils = new KafkaTopicUtils(settings.comet.kafka.serverOptions)
+    Try {
+      kafkaJobConfig.input match {
+        case Some(input) =>
+          val df = input match {
+            case Left(path) =>
+              session.read.format(kafkaJobConfig.format).load(path.split(','): _*)
+            case Right(inputDF) =>
+              inputDF
+          }
+          kafkaUtils.sinkToTopic(
+            kafkaJobConfig.topic,
+            settings.comet.kafka.topics(kafkaJobConfig.topic),
+            df
+          )
+          SparkJobResult(Some(df))
+        case None =>
+          throw new Exception("No input provided !")
       }
     }
   }
 
-  override def name: String = s"${loadConfig.topic}"
+  override def run(): Try[JobResult] = {
+    if (kafkaJobConfig.offload) {
+      offload()
+    } else {
+      load()
+    }
+  }
+
+  override def name: String = s"${kafkaJobConfig.topic}"
 }
