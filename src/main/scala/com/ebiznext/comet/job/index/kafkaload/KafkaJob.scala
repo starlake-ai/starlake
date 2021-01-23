@@ -3,7 +3,7 @@ package com.ebiznext.comet.job.index.kafkaload
 import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.utils.kafka.KafkaTopicUtils
 import com.ebiznext.comet.utils.{JobResult, SparkJob, SparkJobResult}
-import org.apache.spark.sql.SaveMode
+import org.apache.spark.sql.DataFrame
 
 import scala.util.Try
 
@@ -12,61 +12,69 @@ class KafkaJob(
 )(implicit val settings: Settings)
     extends SparkJob {
 
+  private val topicConfig: Settings.KafkaTopicOptions =
+    settings.comet.kafka.topics(kafkaJobConfig.topic)
+
   def offload(): Try[SparkJobResult] = {
     Try {
-      val kafkaUtils = new KafkaTopicUtils(settings.comet.kafka.serverOptions)
-      val df = kafkaUtils
+      val kafkaUtils = new KafkaTopicUtils(settings.comet.kafka)
+      val (df, offsets) = kafkaUtils
         .consumeTopic(
           kafkaJobConfig.topic,
           session,
-          settings.comet.kafka.topics(kafkaJobConfig.topic)
+          topicConfig
         )
-      val res = kafkaJobConfig.input match {
-        case Some(Left(path)) =>
-          df.write
+
+      val transformedDF = transfom(df)
+
+      val res = kafkaJobConfig.path match {
+        case Some(path) =>
+          transformedDF.write
             .mode(kafkaJobConfig.mode)
             .format(kafkaJobConfig.format)
             .save(path)
-          df
-        case Some(Right(outDF)) =>
-          kafkaJobConfig.mode match {
-            case SaveMode.Overwrite =>
-              df
-            case SaveMode.Append =>
-              df union outDF
-            case SaveMode.Ignore =>
-              outDF
-            case SaveMode.ErrorIfExists =>
-              throw new Exception("Option ErorIfExists not applicable here")
-          }
+          kafkaUtils.topicSaveOffsets(
+            kafkaJobConfig.topic,
+            topicConfig.accessOptions,
+            offsets
+          )
+          transformedDF
         case None =>
-          df
+          logger.warn("Offsets not updated when no sink provided")
+          transformedDF
       }
       SparkJobResult(Some(res))
     }
   }
 
   def load(): Try[SparkJobResult] = {
-    val kafkaUtils = new KafkaTopicUtils(settings.comet.kafka.serverOptions)
     Try {
-      kafkaJobConfig.input match {
-        case Some(input) =>
-          val df = input match {
-            case Left(path) =>
-              session.read.format(kafkaJobConfig.format).load(path.split(','): _*)
-            case Right(inputDF) =>
-              inputDF
-          }
+      val kafkaUtils = new KafkaTopicUtils(settings.comet.kafka)
+      kafkaJobConfig.path match {
+        case Some(path) =>
+          val df = session.read.format(kafkaJobConfig.format).load(path.split(','): _*)
+          val transformedDF = transfom(df)
+
           kafkaUtils.sinkToTopic(
             kafkaJobConfig.topic,
-            settings.comet.kafka.topics(kafkaJobConfig.topic),
-            df
+            topicConfig,
+            transformedDF
           )
-          SparkJobResult(Some(df))
+          SparkJobResult(Some(transformedDF))
         case None =>
-          throw new Exception("No input provided !")
+          throw new Exception("No path provided !")
       }
     }
+  }
+
+  private def transfom(df: DataFrame) = {
+    val transformedDF = kafkaJobConfig.transformInstance match {
+      case Some(transformer) =>
+        transformer.transform(df)
+      case None =>
+        df
+    }
+    transformedDF
   }
 
   override def run(): Try[JobResult] = {

@@ -1,9 +1,10 @@
 package com.ebiznext.comet.utils.kafka
 
-import com.ebiznext.comet.config.Settings.KafkaTopicOptions
+import com.ebiznext.comet.config.Settings.{KafkaConfig, KafkaTopicOptions}
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.kafka.clients.admin.{AdminClient, NewTopic}
 import org.apache.kafka.clients.consumer.KafkaConsumer
+import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
 import org.apache.kafka.common.{TopicPartition, TopicPartitionInfo}
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
@@ -12,13 +13,26 @@ import java.util.Properties
 import scala.collection.mutable
 import scala.jdk.CollectionConverters._
 
-class KafkaTopicUtils(serverOptions: Map[String, String]) extends StrictLogging {
+class KafkaTopicUtils(kafkaConfig: KafkaConfig) extends StrictLogging {
+
+  val serverOptions: Map[String, String] = kafkaConfig.serverOptions
+  val cometOffsetsConfig: KafkaTopicOptions = kafkaConfig.topics("comet_offsets")
+
   val props = new Properties()
   serverOptions.foreach { option =>
     props.put(option._1, option._2)
   }
 
-  val client = AdminClient.create(props)
+  val client: AdminClient = AdminClient.create(props)
+
+  createTopicIfNotPresent(
+    new NewTopic(
+      "comet_offsets",
+      cometOffsetsConfig.partitions,
+      cometOffsetsConfig.replicationFactor
+    ),
+    Map("cleanup.policy" -> "compact")
+  )
 
   def teardown(): Unit = client.close()
 
@@ -30,10 +44,7 @@ class KafkaTopicUtils(serverOptions: Map[String, String]) extends StrictLogging 
     }
   }
 
-  def topicPartitions(
-    topicName: String,
-    accessOptions: Map[String, String]
-  ): List[TopicPartitionInfo] = {
+  def topicPartitions(topicName: String): List[TopicPartitionInfo] = {
     client
       .describeTopics(java.util.Collections.singleton(topicName))
       .all()
@@ -60,27 +71,44 @@ class KafkaTopicUtils(serverOptions: Map[String, String]) extends StrictLogging 
     partitions.map(p => (p.partition(), consumer.position(p)))
   }
 
-  def topicCurrentOffsets(
+  def topicSaveOffsets(
     topicName: String,
-    accessOptions: Map[String, String]
-  ): Option[List[(Int, Long)]] = {
+    accessOptions: Map[String, String],
+    offsets: List[(Int, Long)]
+  ): Unit = {
     val props = new Properties()
     accessOptions.foreach { option =>
       props.put(option._1, option._2)
     }
+    val producer = new KafkaProducer[String, String](props)
+    offsets.foreach { case (partition, offset) =>
+      producer.send(
+        new ProducerRecord[String, String]("comet_offsets", s"$topicName/$partition", s"$offset")
+      )
+    }
+    producer.close()
+  }
+
+  def topicCurrentOffsets(topicName: String): Option[List[(Int, Long)]] = {
+    val props = new Properties()
+    cometOffsetsConfig.accessOptions.foreach { option =>
+      props.put(option._1, option._2)
+    }
     val consumer = new KafkaConsumer[String, String](props)
     val partitions =
-      topicPartitions(topicName, accessOptions).map(info =>
-        new TopicPartition(topicName, info.partition())
+      topicPartitions("comet_offsets").map(info =>
+        new TopicPartition("comet_offsets", info.partition())
       )
     consumer.assign(partitions.asJava)
     consumer.seekToBeginning(partitions.asJava)
     val offsets = mutable.Map.empty[String, String]
-    var records = consumer.poll(Duration.ofMillis(1))
+    var records = consumer.poll(Duration.ofMillis(100))
     while (records != null && !records.isEmpty) {
-      records.records(topicName).asScala.foreach(r => offsets += r.key() -> r.value())
-      records = consumer.poll(Duration.ofMillis(1))
+      records.records("comet_offsets").asScala.foreach(r => offsets += r.key() -> r.value())
+      records = consumer.poll(Duration.ofMillis(100))
     }
+
+    // (topic/partition, offset)
     val res = offsets.keys.map { k =>
       val tab = k.split('/')
       (tab(0), tab(1), offsets(k))
@@ -105,14 +133,14 @@ class KafkaTopicUtils(serverOptions: Map[String, String]) extends StrictLogging 
     topicConfigName: String,
     session: SparkSession,
     config: KafkaTopicOptions
-  ): DataFrame = {
+  ): (DataFrame, List[(Int, Long)]) = {
     val EARLIEST_OFFSET = -2L
     val reader = session.read
       .format("kafka")
     val startOffsets =
-      topicCurrentOffsets(config.name.getOrElse(topicConfigName), config.accessOptions)
+      topicCurrentOffsets(config.name.getOrElse(topicConfigName))
         .getOrElse {
-          topicPartitions(config.name.getOrElse(topicConfigName), config.accessOptions).map(p =>
+          topicPartitions(config.name.getOrElse(topicConfigName)).map(p =>
             (p.partition(), EARLIEST_OFFSET)
           )
         }
@@ -135,7 +163,7 @@ class KafkaTopicUtils(serverOptions: Map[String, String]) extends StrictLogging 
     logger.whenDebugEnabled {
       df.collect().foreach(r => logger.debug(r.toString()))
     }
-    df
+    (df, endOffsets)
   }
 
   def sinkToTopic(

@@ -21,16 +21,15 @@
 package com.ebiznext.comet.schema.model
 
 import java.util.Locale
-
 import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.privacy.PrivacyEngine
+import com.ebiznext.comet.utils.Utils
 import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.databind.annotation.{JsonDeserialize, JsonSerialize}
 import com.fasterxml.jackson.databind.ser.std.ToStringSerializer
 import com.fasterxml.jackson.databind.{DeserializationContext, JsonDeserializer}
 
 import scala.collection.JavaConverters._
-import scala.reflect.runtime.universe
 
 /** How (the attribute should be transformed at ingestion time ?
   *
@@ -54,10 +53,7 @@ object PrivacyLevel {
 
     private def make(schemeName: String, encryptionAlgo: String): (PrivacyEngine, List[Any]) = {
       val (privacyObject, typedParams) = PrivacyEngine.parse(encryptionAlgo)
-      val runtimeMirror = universe.runtimeMirror(getClass.getClassLoader)
-      val module = runtimeMirror.staticModule(privacyObject)
-      val obj: universe.ModuleMirror = runtimeMirror.reflectModule(module)
-      val encryption = obj.instance.asInstanceOf[PrivacyEngine]
+      val encryption = Utils.loadInstance[PrivacyEngine](privacyObject)
       (encryption, typedParams)
     }
 
