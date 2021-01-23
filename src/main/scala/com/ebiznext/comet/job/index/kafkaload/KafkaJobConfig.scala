@@ -1,6 +1,6 @@
 package com.ebiznext.comet.job.index.kafkaload
 
-import com.ebiznext.comet.utils.CliConfig
+import com.ebiznext.comet.utils.{CliConfig, Utils}
 import org.apache.spark.sql.{DataFrame, SaveMode}
 import scopt.OParser
 
@@ -8,9 +8,19 @@ case class KafkaJobConfig(
   topic: String = "",
   format: String = "parquet",
   mode: SaveMode = SaveMode.Append,
-  input: Option[Either[String, DataFrame]] = None,
+  path: Option[String] = None,
+  transform: Option[String] = None,
   offload: Boolean = true
-)
+) {
+
+  val transformInstance: Option[DataFrameTransform] = {
+    transform.map(Utils.loadInstance[DataFrameTransform])
+  }
+}
+
+trait DataFrameTransform {
+  def transform(dataFrame: DataFrame): DataFrame
+}
 
 object KafkaJobConfig extends CliConfig[KafkaJobConfig] {
 
@@ -30,13 +40,16 @@ object KafkaJobConfig extends CliConfig[KafkaJobConfig] {
         .text("Read/Write format eq : parquet, json, csv ... Default to parquet.")
         .optional(),
       opt[String]("path")
-        .action((x, c) => c.copy(input = Some(Left(x))))
+        .action((x, c) => c.copy(path = Some(x)))
         .text("Source file for load and target file for store")
         .required(),
       opt[String]("mode")
         .action((x, c) => c.copy(mode = SaveMode.valueOf(x)))
         .text("Source file for load and target file for store")
         .required(),
+      opt[String]("transform")
+        .action((x, c) => c.copy(transform = Some(x)))
+        .text("Any transformation to apply to message before load / offloading it"),
       opt[Boolean]("offload")
         .action((x, c) => c.copy(offload = x))
         .text(
