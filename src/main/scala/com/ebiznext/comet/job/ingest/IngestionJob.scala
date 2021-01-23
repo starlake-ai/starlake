@@ -257,7 +257,7 @@ trait IngestionJob extends SparkJob {
         }
 
       case SinkType.KAFKA =>
-        val client = new KafkaTopicUtils(settings.comet.kafka.serverOptions)
+        val client = new KafkaTopicUtils(settings.comet.kafka)
         client.sinkToTopic(schema.name, settings.comet.kafka.topics(schema.name), mergedDF)
 
       case SinkType.JDBC =>

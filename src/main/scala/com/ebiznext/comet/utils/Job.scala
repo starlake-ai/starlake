@@ -200,8 +200,8 @@ trait SparkJob extends JobBase {
             .cache()
 
         case KAFKA =>
-          val kafkaJob = new KafkaTopicUtils(settings.comet.kafka.serverOptions)
-          kafkaJob.consumeTopic(path, session, settings.comet.kafka.topics(path))
+          val kafkaJob = new KafkaTopicUtils(settings.comet.kafka)
+          kafkaJob.consumeTopic(path, session, settings.comet.kafka.topics(path))._1
 
         case BQ =>
           val TablePathWithFilter = "(.*)\\.comet_filter\\((.*)\\)".r
