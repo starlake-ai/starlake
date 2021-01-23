@@ -23,9 +23,12 @@ package com.ebiznext.comet.job.ingest
 import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.schema.handlers.{SchemaHandler, StorageHandler}
 import com.ebiznext.comet.schema.model._
+import com.ebiznext.comet.utils.JobResult
 import com.ebiznext.comet.utils.kafka.KafkaTopicUtils
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql._
+
+import scala.util.Try
 
 /** Main class to ingest delimiter separated values file
   *
@@ -46,21 +49,37 @@ class KafkaIngestionJob(
 )(implicit settings: Settings)
     extends JsonIngestionJob(domain, schema, types, path, storageHandler, schemaHandler, options) {
 
+  var offsets: List[(Int, Long)] = null
+
+  val kafkaTopicUtils = new KafkaTopicUtils(settings.comet.kafka)
+
+  private val topicConfig: Settings.KafkaTopicOptions = settings.comet.kafka.topics(schema.name)
+
   /** Load dataset using spark csv reader and all metadata. Does not infer schema.
     * columns not defined in the schema are dropped fro the dataset (require datsets with a header)
     *
     * @return Spark DataFrame where each row holds a single string
     */
   override protected def loadJsonData(): Dataset[String] = {
-    val dfIn = new KafkaTopicUtils(settings.comet.kafka.serverOptions)
-      .consumeTopic(schema.name, session, settings.comet.kafka.topics(schema.name))
-
+    val (dfIn, offsets) =
+      kafkaTopicUtils.consumeTopic(schema.name, session, topicConfig)
+    this.offsets = offsets
     val rddIn = dfIn.rdd.map { row =>
-      row.getString(1)
+      row.getAs[String]("value")
     }
 
     logger.debug(dfIn.schema.treeString)
     import org.apache.spark.sql._
     session.read.json(session.createDataset(rddIn)(Encoders.STRING)).toJSON
+  }
+
+  override def run(): Try[JobResult] = {
+    val res = super.run()
+    kafkaTopicUtils.topicSaveOffsets(
+      schema.name,
+      topicConfig.accessOptions,
+      offsets
+    )
+    res
   }
 }
