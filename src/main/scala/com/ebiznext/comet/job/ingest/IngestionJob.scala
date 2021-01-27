@@ -813,7 +813,7 @@ object IngestionUtil {
 
     def optionalColIsEmpty = !colAttribute.required && colValue.isEmpty
 
-    def requiredColIsNotEmpty = colAttribute.required && !colValue.isEmpty
+    def requiredColIsEmpty = colAttribute.required && colValue.isEmpty
 
     def colPatternIsValid = tpe.matches(colValue)
 
@@ -823,15 +823,19 @@ object IngestionUtil {
         colValue
       else
         privacyLevel.crypt(colValue, colMap)
-    val colPatternOK = optionalColIsEmpty || requiredColIsNotEmpty || colPatternIsValid
-    val (sparkValue, colParseOK) =
-      if (colPatternOK) {
+    val colPatternOK = optionalColIsEmpty || colPatternIsValid
+    val (sparkValue, colParseOK) = {
+      if (requiredColIsEmpty) {
+        (null, false)
+      }
+      else if (colPatternOK) {
         Try(tpe.sparkValue(privacy)) match {
           case Success(res) => (res, true)
           case Failure(_)   => (null, false)
         }
       } else
         (null, false)
+    }
     ColResult(
       ColInfo(
         colValue,
