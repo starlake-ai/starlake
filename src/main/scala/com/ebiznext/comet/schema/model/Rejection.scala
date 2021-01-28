@@ -39,7 +39,7 @@ object Rejection {
     * @param success  : true if column is valid, false otherwise
     */
   case class ColInfo(
-    colData: String,
+    colData: Option[String],
     colName: String,
     typeName: String,
     pattern: String,

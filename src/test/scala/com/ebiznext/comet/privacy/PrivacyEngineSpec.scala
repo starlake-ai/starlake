@@ -24,23 +24,23 @@ class PrivacyEngineSpec extends TestHelper {
     }
 
     "Initials Masking Firstname" should "succeed" in {
-      val result = Initials.crypt("John", Map.empty[String, String], Nil)
+      val result = Initials.crypt("John", Map.empty, Nil)
       result shouldBe "J."
     }
 
     "Initials Masking Composite name" should "succeed" in {
-      val result = Initials.crypt("John Doe", Map.empty[String, String], Nil)
+      val result = Initials.crypt("John Doe", Map.empty, Nil)
       result shouldBe "J.D."
     }
 
     "Email Masking" should "succeed" in {
-      val result = Email.crypt("john@doe.com", Map.empty[String, String], List("MD5"))
+      val result = Email.crypt("john@doe.com", Map.empty, List("MD5"))
       result should have length "527bd5b5d689e2c32ae974c6229ff785@doe.com".length
       result should endWith("@doe.com")
     }
 
     "IPv4 Masking" should "succeed" in {
-      val result = IPv4.crypt("192.168.2.1", Map.empty[String, String], List(1))
+      val result = IPv4.crypt("192.168.2.1", Map.empty, List(1))
       result shouldBe "192.168.2.0"
     }
 
@@ -50,7 +50,7 @@ class PrivacyEngineSpec extends TestHelper {
     }
 
     "IPv6 Masking" should "succeed" in {
-      val result = IPv6.crypt("2001:db8:0:85a3::ac1f:8001", Map.empty[String, String], List(1))
+      val result = IPv6.crypt("2001:db8:0:85a3::ac1f:8001", Map.empty, List(1))
       result shouldBe "2001:db8:0:85a3::ac1f:0"
     }
 
@@ -65,50 +65,50 @@ class PrivacyEngineSpec extends TestHelper {
     }
 
     "ApproxDouble" should "succeed" in {
-      val result = ApproxDouble.crypt("2.5", Map.empty[String, String], List(20))
+      val result = ApproxDouble.crypt("2.5", Map.empty, List(20))
       result.toDouble shouldEqual 2.5 +- 0.5
     }
 
     "ApproxLong" should "succeed" in {
-      val result = ApproxLong.crypt("4", Map.empty[String, String], List(25))
+      val result = ApproxLong.crypt("4", Map.empty, List(25))
       result.toLong.toDouble shouldEqual 4.0 +- 1
 
     }
 
     "RandomDouble" should "succeed" in {
-      val resultWithoutBounds = RandomDouble.crypt("", Map.empty[String, String], List())
-      val resultWithBounds = RandomDouble.crypt("", Map.empty[String, String], List(10, 20))
+      val resultWithoutBounds = RandomDouble.crypt("", Map.empty, List())
+      val resultWithBounds = RandomDouble.crypt("", Map.empty, List(10, 20))
       resultWithoutBounds.toDouble shouldBe 0.5 +- 1
       resultWithBounds.toDouble shouldBe 15.0 +- 5
     }
 
     "RandomLong" should "succeed" in {
-      val resultWithoutBounds = RandomLong.crypt("", Map.empty[String, String], List())
-      val resultWithBounds = RandomLong.crypt("", Map.empty[String, String], List(10, 20))
+      val resultWithoutBounds = RandomLong.crypt("", Map.empty, List())
+      val resultWithBounds = RandomLong.crypt("", Map.empty, List(10, 20))
       resultWithoutBounds.toLong shouldBe 0L +- Long.MaxValue
       resultWithBounds.toLong shouldBe 15L +- 5
     }
 
     "RandomInt" should "succeed" in {
-      val resultWithoutBounds = RandomInt.crypt("", Map.empty[String, String], List())
-      val resultWithBounds = RandomInt.crypt("", Map.empty[String, String], List(10, 20))
+      val resultWithoutBounds = RandomInt.crypt("", Map.empty, List())
+      val resultWithBounds = RandomInt.crypt("", Map.empty, List(10, 20))
       resultWithoutBounds.toInt shouldBe 0 +- Int.MaxValue
       resultWithBounds.toInt shouldBe 15 +- 5
     }
 
     "Hide" should "succeed" in {
-      val result = Hide.crypt("Hello", Map.empty[String, String], List("X", 5))
+      val result = Hide.crypt("Hello", Map.empty, List("X", 5))
       result shouldBe "XXXXX"
 
     }
     "Context based crypting" should "succeed" in {
       object ConditionalHide extends PrivacyEngine {
-        override def crypt(s: String, colMap: Map[String, String], params: List[Any]): String = {
+        override def crypt(s: String, colMap: Map[String, Option[String]], params: List[Any]): String = {
           if (colMap.isDefinedAt("col1")) s else ""
         }
       }
       val colMap =
-        Map("col1" -> "value1", "col2" -> "value2", "col3" -> "value3", "col4" -> "value4")
+        Map("col1" -> Some("value1"), "col2" -> Some("value2"), "col3" -> Some("value3"), "col4" -> Some("value4"))
       val result1 = ConditionalHide.crypt("value2", colMap, Nil)
       result1 shouldBe "value2"
 
