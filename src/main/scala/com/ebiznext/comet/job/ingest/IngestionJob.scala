@@ -794,10 +794,10 @@ object IngestionUtil {
   }
 
   def validateCol(
-    colRawValue: String,
+    colRawValue: Option[String],
     colAttribute: Attribute,
     tpe: Type,
-    colMap: Map[String, String]
+    colMap: Map[String, Option[String]]
   )(
     implicit /* TODO: make me explicit. Avoid rebuilding the PrivacyLevel(settings) at each invocation? */ settings: Settings
   ): ColResult = {
@@ -805,36 +805,54 @@ object IngestionUtil {
 
     def rtrim(s: String) = s.replaceAll("\\s+$", "")
 
-    val trimmedColValue = colAttribute.trim match {
-      case Some(LEFT)  => ltrim(colRawValue)
-      case Some(RIGHT) => rtrim(colRawValue)
-      case Some(BOTH)  => colRawValue.trim()
-      case _           => colRawValue
+    val trimmedColValue = colRawValue.map { colRawValue =>
+      colAttribute.trim match {
+        case Some(LEFT)  => ltrim(colRawValue)
+        case Some(RIGHT) => rtrim(colRawValue)
+        case Some(BOTH)  => colRawValue.trim()
+        case _           => colRawValue
+      }
     }
 
-    val colValue =
-      if (trimmedColValue.length == 0) colAttribute.default.getOrElse("")
+    val colValue = trimmedColValue.map { trimmedColValue =>
+      if (trimmedColValue.isEmpty) colAttribute.default.getOrElse("")
       else trimmedColValue
+    }
 
-    def optionalColIsEmpty = !colAttribute.required && colValue.isEmpty
+    def colValueIsNullOrEmpty = colValue match {
+      case None           => true
+      case Some(colValue) => colValue.isEmpty
+    }
 
-    def colPatternIsValid = tpe.matches(colValue)
+    def optionalColIsEmpty = !colAttribute.required && colValueIsNullOrEmpty
+
+    def requiredColIsEmpty = colAttribute.required && colValueIsNullOrEmpty
+
+    def colPatternIsValid = colValue.exists(tpe.matches)
 
     val privacyLevel = colAttribute.getPrivacy()
-    val privacy =
+    val privacy = colValue.map { colValue =>
       if (privacyLevel == PrivacyLevel.None)
         colValue
       else
         privacyLevel.crypt(colValue, colMap)
-    val colPatternOK = optionalColIsEmpty || colPatternIsValid
-    val (sparkValue, colParseOK) =
-      if (colPatternOK) {
-        Try(tpe.sparkValue(privacy)) match {
-          case Success(res) => (res, true)
-          case Failure(_)   => (null, false)
-        }
-      } else
-        (null, false)
+    }
+
+    val colPatternOK = !requiredColIsEmpty && (optionalColIsEmpty || colPatternIsValid)
+
+    val (sparkValue, colParseOK) = {
+      (colPatternOK, privacy) match {
+        case (false, _) =>
+          (None, false)
+        case (true, None) =>
+          (None, true)
+        case (true, Some(privacy)) =>
+          Try(tpe.sparkValue(privacy)) match {
+            case Success(res) => (Some(res), true)
+            case Failure(_)   => (None, false)
+          }
+      }
+    }
     ColResult(
       ColInfo(
         colValue,
@@ -843,7 +861,7 @@ object IngestionUtil {
         tpe.pattern,
         colPatternOK && colParseOK
       ),
-      sparkValue
+      sparkValue.orNull
     )
   }
 }
