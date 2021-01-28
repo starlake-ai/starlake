@@ -239,8 +239,6 @@ class SchemaHandlerSpec extends TestHelper {
           // Timezone Problem
           .drop("customer_creation_date")
 
-        acceptedDf.show()
-
         val expectedAccepted =
           sparkSession.read
             .schema(acceptedDf.schema)
@@ -250,7 +248,6 @@ class SchemaHandlerSpec extends TestHelper {
             .withColumn("truncated_zip_code", substring(col("zip_code"), 0, 3))
             .withColumn("source_file_name", lit("OneClient_Contact_20190101_090800_008.psv"))
 
-        expectedAccepted.show()
         acceptedDf.except(expectedAccepted).count() shouldBe 0
       }
 
