@@ -278,10 +278,10 @@ object DsvIngestionUtil extends DsvValidator {
     val checkedRDD: RDD[RowResult] = dataset.rdd
       .mapPartitions { partition =>
         partition.map { row: Row =>
-          val rowValues: Seq[(String, Attribute)] = row.toSeq
+          val rowValues: Seq[(Option[String], Attribute)] = row.toSeq
             .zip(attributes)
             .map { case (colValue, colAttribute) =>
-              (Option(colValue).getOrElse("").toString, colAttribute)
+              (Option(colValue).map(_.toString), colAttribute)
             }
           val rowCols = rowValues.zip(types)
           val colMap = rowValues.map(__ => (__._2.name, __._1)).toMap
