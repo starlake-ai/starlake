@@ -40,7 +40,7 @@ import scala.collection.JavaConverters._
 sealed case class PrivacyLevel(value: String) {
   override def toString: String = value
 
-  def crypt(s: String, colMap: Map[String, String])(implicit settings: Settings): String = {
+  def crypt(s: String, colMap: Map[String, Option[String]])(implicit settings: Settings): String = {
     val (privacyAlgo, privacyParams) = PrivacyLevel.ForSettings(settings).all(value)._1
     privacyAlgo.crypt(s, colMap, privacyParams)
   }
