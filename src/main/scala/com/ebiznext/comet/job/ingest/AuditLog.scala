@@ -20,8 +20,6 @@
 
 package com.ebiznext.comet.job.ingest
 
-import java.sql.Timestamp
-
 import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.job.index.bqload.{BigQueryLoadConfig, BigQuerySparkJob}
 import com.ebiznext.comet.job.index.connectionload.{ConnectionLoadConfig, ConnectionLoadJob}
@@ -32,6 +30,34 @@ import org.apache.hadoop.fs.Path
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{SaveMode, SparkSession}
+
+import java.sql.Timestamp
+
+sealed case class Step(value: String) {
+  override def toString: String = value
+}
+
+object Step {
+
+  def fromString(value: String): Step = {
+    value.toUpperCase() match {
+      case "LOAD"      => Step.LOAD
+      case "SINK_ACCEPTED"      => Step.SINK_ACCEPTED
+      case "SINK_REJECTED"      => Step.SINK_REJECTED
+      case "TRANSFORM" => Step.TRANSFORM
+    }
+  }
+
+  object LOAD extends Step("LOAD")
+
+  object SINK_ACCEPTED extends Step("SINK_ACCEPTED")
+
+  object SINK_REJECTED extends Step("SINK_REJECTED")
+
+  object TRANSFORM extends Step("TRANSFORM")
+
+  val steps: Set[Step] = Set(LOAD, SINK_ACCEPTED, SINK_REJECTED, TRANSFORM)
+}
 
 case class AuditLog(
   jobid: String,
@@ -44,7 +70,8 @@ case class AuditLog(
   countRejected: Long,
   timestamp: Timestamp,
   duration: Long,
-  message: String
+  message: String,
+  step: String
 ) {
 
   override def toString(): String = {
@@ -60,7 +87,8 @@ case class AuditLog(
        |timestamp=$timestamp
        |duration=$duration
        |message=$message
-       |       |""".stripMargin.split('\n').mkString(",")
+       |step=$step
+       |""".stripMargin.split('\n').mkString(",")
   }
 }
 
@@ -77,7 +105,8 @@ object SparkAuditLogWriter {
     ("countRejected", LegacySQLTypeName.INTEGER, LongType),
     ("timestamp", LegacySQLTypeName.TIMESTAMP, TimestampType),
     ("duration", LegacySQLTypeName.INTEGER, LongType),
-    ("message", LegacySQLTypeName.STRING, StringType)
+    ("message", LegacySQLTypeName.STRING, StringType),
+    ("step", LegacySQLTypeName.STRING, StringType)
   )
 
   import com.google.cloud.bigquery.{Schema => BQSchema}
