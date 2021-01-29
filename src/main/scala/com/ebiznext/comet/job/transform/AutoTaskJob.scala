@@ -21,11 +21,8 @@
 package com.ebiznext.comet.job.transform
 
 import com.ebiznext.comet.config.{Settings, StorageArea}
-import com.ebiznext.comet.job.index.bqload.{
-  BigQueryJobResult,
-  BigQueryLoadConfig,
-  BigQueryNativeJob
-}
+import com.ebiznext.comet.job.index.bqload.{BigQueryJobResult, BigQueryLoadConfig, BigQueryNativeJob}
+import com.ebiznext.comet.job.ingest.{AuditLog, SparkAuditLogWriter, Step}
 import com.ebiznext.comet.job.metrics.AssertionJob
 import com.ebiznext.comet.schema.handlers.{SchemaHandler, StorageHandler}
 import com.ebiznext.comet.schema.model._
@@ -34,7 +31,8 @@ import com.ebiznext.comet.utils.{JobResult, SparkJob, SparkJobResult, Utils}
 import org.apache.hadoop.fs.Path
 
 import java.io.{File, PrintStream}
-import java.time.LocalDateTime
+import java.sql.Timestamp
+import java.time.{Instant, LocalDateTime}
 import scala.util.{Failure, Success, Try}
 
 /** Execute the SQL Task and store it in parquet/orc/.... If Hive support is enabled, also store it as a Hive Table.
@@ -128,6 +126,7 @@ class AutoTaskJob(
   }
 
   def runBQ(): Try[JobResult] = {
+    val start = Timestamp.from(Instant.now())
     val subSelects: String = views.views.map { case (queryName, queryExpr) =>
       queryName + " AS (" + queryExpr.richFormat(sqlParameters) + ")"
     } mkString ("WITH ", ",", " ")
@@ -147,8 +146,7 @@ class AutoTaskJob(
     }
     Utils.logFailure(presqlResult, logger)
 
-    val jobResult: Try[JobResult] =
-      bqNativeJob.run()
+    val jobResult: Try[JobResult] = bqNativeJob.run()
     Utils.logFailure(jobResult, logger)
 
     // We execute the post statements even if the main statement failed
@@ -164,7 +162,93 @@ class AutoTaskJob(
       Iterable(presqlResult, jobResult, postsqlResult).filter(_.isFailure).map(_.failed).map(_.get)
     errors match {
       case Nil =>
-        // We execute assertions only on success
+        jobResult map { jobResult =>
+          val end = Timestamp.from(Instant.now())
+          val jobResultCount =
+            jobResult.asInstanceOf[BigQueryJobResult].tableResult.get.getTotalRows
+          logAuditSuccess(start, end, jobResultCount)
+          // We execute assertions only on success
+          if (settings.comet.assertions.active) {
+            task.area.orElse(defaultArea).foreach { area =>
+              new AssertionJob(
+                task.domain,
+                area.value,
+                task.assertions.getOrElse(Map.empty),
+                Stage.UNIT,
+                storageHandler,
+                schemaHandler,
+                None,
+                engine,
+                sql =>
+                  bqNativeJob
+                    .runSQL(sql.richFormat(sqlParameters))
+                    .tableResult
+                    .map(_.getTotalRows)
+                    .getOrElse(0)
+              ).run()
+            }
+          }
+        }
+        Success(BigQueryJobResult(None))
+      case _ =>
+        val err = errors.reduce(_.initCause(_))
+        val end = Timestamp.from(Instant.now())
+        logAuditFailure(start, end, err)
+        Failure(err)
+    }
+  }
+
+  def runSpark(): Try[SparkJobResult] = {
+    val start = Timestamp.from(Instant.now())
+    val res = Try {
+      udf.foreach { udf =>
+        registerUdf(udf)
+      }
+      createViews(views, sqlParameters, schemaHandler.activeEnv)
+
+      task.presql
+        .getOrElse(Nil)
+        .foreach(req => session.sql(req.richFormat(sqlParameters)))
+      val sqlWithParameters = task.sql.richFormat(sqlParameters)
+      logger.info(s"running sql request $sqlWithParameters")
+      val dataframe = session.sql(sqlWithParameters)
+
+      val targetPath = task.getTargetPath(defaultArea)
+      logger.info(s"About to write resulting dataset to $targetPath")
+      // Target Path exist only if a storage area has been defined at task or job level
+      // To execute a task without writing to disk simply avoid the area at the job and task level
+      targetPath.foreach { targetPath =>
+        val partitionedDF =
+          partitionedDatasetWriter(
+            if (coalesce) dataframe.coalesce(1) else dataframe,
+            task.getPartitions()
+          )
+
+        val finalDataset = partitionedDF
+          .mode(task.write.toSaveMode)
+          .format(format.getOrElse(settings.comet.defaultWriteFormat))
+          .option("path", targetPath.toString)
+
+        if (settings.comet.hive) {
+          val tableName = task.dataset
+          val hiveDB = task.getHiveDB(defaultArea)
+          hiveDB.map { hiveDB =>
+            val fullTableName = s"$hiveDB.$tableName"
+            session.sql(s"create database if not exists $hiveDB")
+            session.sql(s"use $hiveDB")
+            session.sql(s"drop table if exists $tableName")
+            finalDataset.saveAsTable(fullTableName)
+            analyze(fullTableName)
+          }
+        } else {
+          finalDataset.save()
+          if (coalesce) {
+            val extension = format.getOrElse(settings.comet.defaultWriteFormat)
+            val csvPath = storageHandler.list(targetPath, s".$extension", LocalDateTime.MIN).head
+            val finalPath = new Path(targetPath, targetPath.getName + s".$extension")
+            storageHandler.move(csvPath, finalPath)
+          }
+        }
         if (settings.comet.assertions.active) {
           task.area.orElse(defaultArea).foreach { area =>
             new AssertionJob(
@@ -174,91 +258,57 @@ class AutoTaskJob(
               Stage.UNIT,
               storageHandler,
               schemaHandler,
-              None,
+              Some(dataframe),
               engine,
-              sql =>
-                bqNativeJob
-                  .runSQL(sql.richFormat(sqlParameters))
-                  .tableResult
-                  .map(_.getTotalRows)
-                  .getOrElse(0)
+              sql => session.sql(sql).count()
             ).run()
           }
         }
-        Success(BigQueryJobResult(None))
-      case _ =>
-        Failure(errors.reduce(_.initCause(_)))
+      }
+
+      task.postsql.getOrElse(Nil).foreach(session.sql)
+      // Let us return the Dataframe so that it can be piped to another sink
+      SparkJobResult(Some(dataframe))
     }
+    val end = Timestamp.from(Instant.now())
+    res match {
+      case Success(jobResult) =>
+        val end = Timestamp.from(Instant.now())
+        val jobResultCount = jobResult.asInstanceOf[SparkJobResult].dataframe.get.count()
+        logAuditSuccess(start, end, jobResultCount)
+      case Failure(e) =>
+        logAuditFailure(start, end, e)
+    }
+    res
   }
 
-  def runSpark(): Try[SparkJobResult] = {
-    udf.foreach { udf =>
-      registerUdf(udf)
-    }
-    createViews(views, sqlParameters, schemaHandler.activeEnv)
-
-    task.presql
-      .getOrElse(Nil)
-      .foreach(req => session.sql(req.richFormat(sqlParameters)))
-    val sqlWithParameters = task.sql.richFormat(sqlParameters)
-    logger.info(s"running sql request $sqlWithParameters")
-    val dataframe = session.sql(sqlWithParameters)
-
-    val targetPath = task.getTargetPath(defaultArea)
-    logger.info(s"About to write resulting dataset to $targetPath")
-    // Target Path exist only if a storage area has been defined at task or job level
-    // To execute a task without writing to disk simply avoid the area at the job and task level
-    targetPath.foreach { targetPath =>
-      val partitionedDF =
-        partitionedDatasetWriter(
-          if (coalesce) dataframe.coalesce(1) else dataframe,
-          task.getPartitions()
-        )
-
-      val finalDataset = partitionedDF
-        .mode(task.write.toSaveMode)
-        .format(format.getOrElse(settings.comet.defaultWriteFormat))
-        .option("path", targetPath.toString)
-
-      if (settings.comet.hive) {
-        val tableName = task.dataset
-        val hiveDB = task.getHiveDB(defaultArea)
-        hiveDB.map { hiveDB =>
-          val fullTableName = s"$hiveDB.$tableName"
-          session.sql(s"create database if not exists $hiveDB")
-          session.sql(s"use $hiveDB")
-          session.sql(s"drop table if exists $tableName")
-          finalDataset.saveAsTable(fullTableName)
-          analyze(fullTableName)
-        }
-      } else {
-        finalDataset.save()
-        if (coalesce) {
-          val extension = format.getOrElse(settings.comet.defaultWriteFormat)
-          val csvPath = storageHandler.list(targetPath, s".$extension", LocalDateTime.MIN).head
-          val finalPath = new Path(targetPath, targetPath.getName + s".$extension")
-          storageHandler.move(csvPath, finalPath)
-        }
-      }
-      if (settings.comet.assertions.active) {
-        task.area.orElse(defaultArea).foreach { area =>
-          new AssertionJob(
-            task.domain,
-            area.value,
-            task.assertions.getOrElse(Map.empty),
-            Stage.UNIT,
-            storageHandler,
-            schemaHandler,
-            Some(dataframe),
-            engine,
-            sql => session.sql(sql).count()
-          ).run()
-        }
-      }
-    }
-
-    task.postsql.getOrElse(Nil).foreach(session.sql)
-    // Let us return the Dataframe so that it can be piped to another sink
-    Success(SparkJobResult(Some(dataframe)))
+  private def logAudit(
+    start: Timestamp,
+    end: Timestamp,
+    jobResultCount: Long,
+    success: Boolean,
+    message: String
+  ): Unit = {
+    val log = AuditLog(
+      session.sparkContext.applicationId,
+      this.name,
+      this.task.domain,
+      this.task.dataset,
+      success,
+      -1,
+      -1,
+      jobResultCount,
+      start,
+      end.getTime - start.getTime,
+      message,
+      Step.TRANSFORM.toString
+    )
+    SparkAuditLogWriter.append(session, log)
   }
+
+  private def logAuditSuccess(start: Timestamp, end: Timestamp, jobResultCount: Long) =
+    logAudit(start, end, jobResultCount, true, "success")
+
+  private def logAuditFailure(start: Timestamp, end: Timestamp, e: Throwable) =
+    logAudit(start, end, -1, true, Utils.exceptionAsString(e))
 }
