@@ -103,12 +103,21 @@ class PrivacyEngineSpec extends TestHelper {
     }
     "Context based crypting" should "succeed" in {
       object ConditionalHide extends PrivacyEngine {
-        override def crypt(s: String, colMap: Map[String, Option[String]], params: List[Any]): String = {
+        override def crypt(
+          s: String,
+          colMap: Map[String, Option[String]],
+          params: List[Any]
+        ): String = {
           if (colMap.isDefinedAt("col1")) s else ""
         }
       }
       val colMap =
-        Map("col1" -> Some("value1"), "col2" -> Some("value2"), "col3" -> Some("value3"), "col4" -> Some("value4"))
+        Map(
+          "col1" -> Some("value1"),
+          "col2" -> Some("value2"),
+          "col3" -> Some("value3"),
+          "col4" -> Some("value4")
+        )
       val result1 = ConditionalHide.crypt("value2", colMap, Nil)
       result1 shouldBe "value2"
 
