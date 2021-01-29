@@ -85,6 +85,7 @@ trait IngestionJob extends SparkJob {
     }
     val domainName = domain.name
     val schemaName = schema.name
+    val start = Timestamp.from(Instant.now())
     IngestionUtil.sinkRejected(session, rejectedRDD, domainName, schemaName, now) match {
       case Success((rejectedDF, rejectedPath)) =>
         if (settings.comet.sinkToFile)
@@ -95,9 +96,41 @@ trait IngestionJob extends SparkJob {
             StorageArea.rejected,
             merge = false
           )
+        val end = Timestamp.from(Instant.now())
+        val log = AuditLog(
+          session.sparkContext.applicationId,
+          rejectedPath.toString,
+          domainName,
+          schemaName,
+          success = true,
+          -1,
+          -1,
+          rejectedRDD.count(),
+          start,
+          end.getTime - start.getTime,
+          "success",
+          Step.SINK_REJECTED.toString
+        )
+        SparkAuditLogWriter.append(session, log)
         Success(rejectedPath)
       case Failure(exception) =>
         logger.error("Failed to save Rejected", exception)
+        val end = Timestamp.from(Instant.now())
+        val log = AuditLog(
+          session.sparkContext.applicationId,
+          new Path(DatasetArea.rejected(domainName), schemaName).toString,
+          domainName,
+          schemaName,
+          success = false,
+          -1,
+          -1,
+          rejectedRDD.count(),
+          start,
+          end.getTime - start.getTime,
+          Utils.exceptionAsString(exception),
+          Step.LOAD.toString
+        )
+        SparkAuditLogWriter.append(session, log)
         Failure(exception)
     }
   }
@@ -116,6 +149,7 @@ trait IngestionJob extends SparkJob {
     * @param acceptedDF
     */
   protected def saveAccepted(acceptedDF: DataFrame): (DataFrame, Path) = {
+    val start = Timestamp.from(Instant.now())
     logger.whenDebugEnabled {
       logger.debug(s"acceptedRDD SIZE ${acceptedDF.count()}")
       acceptedDF.show(1000)
@@ -210,91 +244,128 @@ trait IngestionJob extends SparkJob {
         mergedDF
     logger.info("Saved Dataset Schema")
     savedDataset.printSchema()
-    sink(mergedDF)
+    sink(mergedDF) match {
+      case Success(_) =>
+        val end = Timestamp.from(Instant.now())
+        val log = AuditLog(
+          session.sparkContext.applicationId,
+          acceptedPath.toString,
+          domain.name,
+          schema.name,
+          success = true,
+          -1,
+          -1,
+          mergedDF.count(),
+          start,
+          end.getTime - start.getTime,
+          "success",
+          Step.SINK_ACCEPTED.toString
+        )
+        SparkAuditLogWriter.append(session, log)
+      case Failure(exception) =>
+        val end = Timestamp.from(Instant.now())
+        val log = AuditLog(
+          session.sparkContext.applicationId,
+          acceptedPath.toString,
+          domain.name,
+          schema.name,
+          success = false,
+          -1,
+          -1,
+          mergedDF.count(),
+          start,
+          end.getTime - start.getTime,
+          Utils.exceptionAsString(exception),
+          Step.SINK_ACCEPTED.toString
+        )
+        SparkAuditLogWriter.append(session, log)
+    }
     (savedDataset, acceptedPath)
   }
 
-  private[this] def sink(mergedDF: DataFrame): Unit = {
-    val sinkType = metadata.getSink().map(_.`type`)
-    sinkType.getOrElse(SinkType.None) match {
-      case SinkType.ES if settings.comet.elasticsearch.active =>
-        val sink = metadata.getSink().map(_.asInstanceOf[EsSink])
-        val config = ESLoadConfig(
-          timestamp = sink.flatMap(_.timestamp),
-          id = sink.flatMap(_.id),
-          format = "parquet",
-          domain = domain.name,
-          schema = schema.name,
-          dataset = Some(Right(mergedDF))
-        )
-        new ESLoadJob(config, storageHandler, schemaHandler).run()
-      case SinkType.ES if !settings.comet.elasticsearch.active =>
-        logger.warn("Indexing to ES requested but elasticsearch not active in conf file")
-      case SinkType.BQ =>
-        val sink = metadata.getSink().map(_.asInstanceOf[BigQuerySink])
-        val (createDisposition: String, writeDisposition: String) = Utils.getDBDisposition(
-          metadata.getWrite(),
-          schema.merge.exists(_.key.nonEmpty)
-        )
-        val config = BigQueryLoadConfig(
-          source = Right(mergedDF),
-          outputTable = schema.name,
-          outputDataset = domain.name,
-          sourceFormat = "parquet",
-          createDisposition = createDisposition,
-          writeDisposition = writeDisposition,
-          location = sink.flatMap(_.location),
-          outputPartition = sink.flatMap(_.timestamp),
-          outputClustering = sink.flatMap(_.clustering).getOrElse(Nil),
-          days = sink.flatMap(_.days),
-          requirePartitionFilter = sink.flatMap(_.requirePartitionFilter).getOrElse(false),
-          rls = schema.rls
-        )
-        val res = new BigQuerySparkJob(config, Some(schema.bqSchema(schemaHandler))).run()
-        res match {
-          case Success(_) => ;
-          case Failure(e) => logger.error("BQLoad Failed", e)
-        }
-
-      case SinkType.KAFKA =>
-        val client = new KafkaTopicUtils(settings.comet.kafka)
-        client.sinkToTopic(schema.name, settings.comet.kafka.topics(schema.name), mergedDF)
-
-      case SinkType.JDBC =>
-        val (createDisposition: CreateDisposition, writeDisposition: WriteDisposition) = {
-
-          val (cd, wd) = Utils.getDBDisposition(
+  private[this] def sink(mergedDF: DataFrame): Try[Unit] = {
+    Try {
+      val sinkType = metadata.getSink().map(_.`type`)
+      sinkType.getOrElse(SinkType.None) match {
+        case SinkType.ES if settings.comet.elasticsearch.active =>
+          val sink = metadata.getSink().map(_.asInstanceOf[EsSink])
+          val config = ESLoadConfig(
+            timestamp = sink.flatMap(_.timestamp),
+            id = sink.flatMap(_.id),
+            format = "parquet",
+            domain = domain.name,
+            schema = schema.name,
+            dataset = Some(Right(mergedDF))
+          )
+          new ESLoadJob(config, storageHandler, schemaHandler).run()
+        case SinkType.ES if !settings.comet.elasticsearch.active =>
+          logger.warn("Indexing to ES requested but elasticsearch not active in conf file")
+        case SinkType.BQ =>
+          val sink = metadata.getSink().map(_.asInstanceOf[BigQuerySink])
+          val (createDisposition: String, writeDisposition: String) = Utils.getDBDisposition(
             metadata.getWrite(),
             schema.merge.exists(_.key.nonEmpty)
           )
-          (CreateDisposition.valueOf(cd), WriteDisposition.valueOf(wd))
-        }
-        val sink = metadata.getSink().map(_.asInstanceOf[JdbcSink])
-        sink.foreach { sink =>
-          val partitions = sink.partitions.getOrElse(1)
-          val batchSize = sink.batchsize.getOrElse(1000)
-          val jdbcName = sink.connection
-
-          val jdbcConfig = ConnectionLoadConfig.fromComet(
-            jdbcName,
-            settings.comet,
-            Right(mergedDF),
+          val config = BigQueryLoadConfig(
+            source = Right(mergedDF),
             outputTable = schema.name,
+            outputDataset = domain.name,
+            sourceFormat = "parquet",
             createDisposition = createDisposition,
             writeDisposition = writeDisposition,
-            partitions = partitions,
-            batchSize = batchSize
+            location = sink.flatMap(_.location),
+            outputPartition = sink.flatMap(_.timestamp),
+            outputClustering = sink.flatMap(_.clustering).getOrElse(Nil),
+            days = sink.flatMap(_.days),
+            requirePartitionFilter = sink.flatMap(_.requirePartitionFilter).getOrElse(false),
+            rls = schema.rls
           )
-
-          val res = new ConnectionLoadJob(jdbcConfig).run()
+          val res = new BigQuerySparkJob(config, Some(schema.bqSchema(schemaHandler))).run()
           res match {
             case Success(_) => ;
-            case Failure(e) => logger.error("JDBCLoad Failed", e)
+            case Failure(e) => logger.error("BQLoad Failed", e)
           }
-        }
-      case SinkType.None =>
-        // ignore
-        logger.trace("not producing an index, as requested (no sink or sink at None explicitly)")
+
+        case SinkType.KAFKA =>
+          val client = new KafkaTopicUtils(settings.comet.kafka)
+          client.sinkToTopic(schema.name, settings.comet.kafka.topics(schema.name), mergedDF)
+
+        case SinkType.JDBC =>
+          val (createDisposition: CreateDisposition, writeDisposition: WriteDisposition) = {
+
+            val (cd, wd) = Utils.getDBDisposition(
+              metadata.getWrite(),
+              schema.merge.exists(_.key.nonEmpty)
+            )
+            (CreateDisposition.valueOf(cd), WriteDisposition.valueOf(wd))
+          }
+          val sink = metadata.getSink().map(_.asInstanceOf[JdbcSink])
+          sink.foreach { sink =>
+            val partitions = sink.partitions.getOrElse(1)
+            val batchSize = sink.batchsize.getOrElse(1000)
+            val jdbcName = sink.connection
+
+            val jdbcConfig = ConnectionLoadConfig.fromComet(
+              jdbcName,
+              settings.comet,
+              Right(mergedDF),
+              outputTable = schema.name,
+              createDisposition = createDisposition,
+              writeDisposition = writeDisposition,
+              partitions = partitions,
+              batchSize = batchSize
+            )
+
+            val res = new ConnectionLoadJob(jdbcConfig).run()
+            res match {
+              case Success(_) => ;
+              case Failure(e) => logger.error("JDBCLoad Failed", e)
+            }
+          }
+        case SinkType.None =>
+          // ignore
+          logger.trace("not producing an index, as requested (no sink or sink at None explicitly)")
+      }
     }
   }
 
@@ -494,7 +565,8 @@ trait IngestionJob extends SparkJob {
                 rejectedCount,
                 start,
                 end.getTime - start.getTime,
-                "success"
+                "success",
+                Step.LOAD.toString
               )
               SparkAuditLogWriter.append(session, log)
               schema.postsql.getOrElse(Nil).foreach(session.sql)
@@ -514,7 +586,8 @@ trait IngestionJob extends SparkJob {
               0,
               start,
               end.getTime - start.getTime,
-              err
+              err,
+              Step.LOAD.toString
             )
             logger.error(err)
             Failure(throw exception)
