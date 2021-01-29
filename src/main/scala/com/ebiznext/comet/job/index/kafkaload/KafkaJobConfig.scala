@@ -45,7 +45,7 @@ object KafkaJobConfig extends CliConfig[KafkaJobConfig] {
         .required(),
       opt[String]("mode")
         .action((x, c) => c.copy(mode = SaveMode.valueOf(x)))
-        .text("Source file for load and target file for store")
+        .text("When offload is true, describes who data should be stored on disk. Ignored if offload is false.")
         .required(),
       opt[String]("transform")
         .action((x, c) => c.copy(transform = Some(x)))
