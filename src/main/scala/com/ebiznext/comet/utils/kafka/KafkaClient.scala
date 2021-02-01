@@ -11,7 +11,7 @@ import org.apache.spark.sql.{DataFrame, SparkSession}
 import java.time.Duration
 import java.util.Properties
 import scala.collection.mutable
-import scala.jdk.CollectionConverters._
+import collection.JavaConverters._
 
 class KafkaClient(kafkaConfig: KafkaConfig) extends StrictLogging with AutoCloseable {
 
