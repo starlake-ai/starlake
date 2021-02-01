@@ -23,19 +23,19 @@ package com.ebiznext.comet.job.ingest
 import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.schema.handlers.{SchemaHandler, StorageHandler}
 import com.ebiznext.comet.schema.model._
-import com.ebiznext.comet.utils.JobResult
-import com.ebiznext.comet.utils.kafka.KafkaTopicUtils
+import com.ebiznext.comet.utils.kafka.KafkaClient
+import com.ebiznext.comet.utils.{JobResult, Utils}
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql._
 
 import scala.util.Try
 
-/** Main class to ingest delimiter separated values file
+/** Main class to ingest JSON messages from Kafka
   *
-  * @param domain         : Input Dataset Domain
-  * @param schema         : Input Dataset Schema
+  * @param domain         : Output Dataset Domain
+  * @param schema         : Topic Name
   * @param types          : List of globally defined types
-  * @param path           : Input dataset path
+  * @param path           : Unused
   * @param storageHandler : Storage Handler
   */
 class KafkaIngestionJob(
@@ -51,8 +51,6 @@ class KafkaIngestionJob(
 
   var offsets: List[(Int, Long)] = null
 
-  val kafkaTopicUtils = new KafkaTopicUtils(settings.comet.kafka)
-
   private val topicConfig: Settings.KafkaTopicOptions = settings.comet.kafka.topics(schema.name)
 
   /** Load dataset using spark csv reader and all metadata. Does not infer schema.
@@ -61,25 +59,29 @@ class KafkaIngestionJob(
     * @return Spark DataFrame where each row holds a single string
     */
   override protected def loadJsonData(): Dataset[String] = {
-    val (dfIn, offsets) =
-      kafkaTopicUtils.consumeTopic(schema.name, session, topicConfig)
-    this.offsets = offsets
-    val rddIn = dfIn.rdd.map { row =>
-      row.getAs[String]("value")
-    }
+    Utils.withResources(new KafkaClient(settings.comet.kafka)) { kafkaTopicUtils =>
+      val (dfIn, offsets) =
+        kafkaTopicUtils.consumeTopic(schema.name, session, topicConfig)
+      this.offsets = offsets
+      val rddIn = dfIn.rdd.map { row =>
+        row.getAs[String]("value")
+      }
 
-    logger.debug(dfIn.schema.treeString)
-    import org.apache.spark.sql._
-    session.read.json(session.createDataset(rddIn)(Encoders.STRING)).toJSON
+      logger.debug(dfIn.schema.treeString)
+      import org.apache.spark.sql._
+      session.read.json(session.createDataset(rddIn)(Encoders.STRING)).toJSON
+    }
   }
 
   override def run(): Try[JobResult] = {
     val res = super.run()
-    kafkaTopicUtils.topicSaveOffsets(
-      schema.name,
-      topicConfig.accessOptions,
-      offsets
-    )
-    res
+    Utils.withResources(new KafkaClient(settings.comet.kafka)) { kafkaTopicUtils =>
+      kafkaTopicUtils.topicSaveOffsets(
+        schema.name,
+        topicConfig.accessOptions,
+        offsets
+      )
+      res
+    }
   }
 }
