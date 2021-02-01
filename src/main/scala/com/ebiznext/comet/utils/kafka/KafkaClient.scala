@@ -13,7 +13,7 @@ import java.util.Properties
 import scala.collection.mutable
 import scala.jdk.CollectionConverters._
 
-class KafkaTopicUtils(kafkaConfig: KafkaConfig) extends StrictLogging {
+class KafkaClient(kafkaConfig: KafkaConfig) extends StrictLogging with AutoCloseable {
 
   val serverOptions: Map[String, String] = kafkaConfig.serverOptions
   val cometOffsetsConfig: KafkaTopicOptions = kafkaConfig.topics("comet_offsets")
@@ -34,7 +34,7 @@ class KafkaTopicUtils(kafkaConfig: KafkaConfig) extends StrictLogging {
     Map("cleanup.policy" -> "compact")
   )
 
-  def teardown(): Unit = client.close()
+  def close(): Unit = client.close()
 
   def createTopicIfNotPresent(topic: NewTopic, conf: Map[String, String]): Any = {
     val found = client.listTopics().names().get().contains(topic.name)
