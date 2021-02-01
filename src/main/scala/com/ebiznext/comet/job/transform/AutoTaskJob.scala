@@ -21,7 +21,11 @@
 package com.ebiznext.comet.job.transform
 
 import com.ebiznext.comet.config.{Settings, StorageArea}
-import com.ebiznext.comet.job.index.bqload.{BigQueryJobResult, BigQueryLoadConfig, BigQueryNativeJob}
+import com.ebiznext.comet.job.index.bqload.{
+  BigQueryJobResult,
+  BigQueryLoadConfig,
+  BigQueryNativeJob
+}
 import com.ebiznext.comet.job.ingest.{AuditLog, SparkAuditLogWriter, Step}
 import com.ebiznext.comet.job.metrics.AssertionJob
 import com.ebiznext.comet.schema.handlers.{SchemaHandler, StorageHandler}
