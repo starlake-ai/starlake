@@ -45,6 +45,7 @@ object Format {
       case "JSON" | "ARRAY_JSON" => Format.JSON
       case "SIMPLE_JSON"         => Format.SIMPLE_JSON
       case "XML"                 => Format.XML
+      case "KAFKA"               => Format.KAFKA
     }
   }
 
@@ -52,12 +53,14 @@ object Format {
 
   object POSITION extends Format("POSITION")
 
+  object KAFKA extends Format("KAFKA")
+
   object SIMPLE_JSON extends Format("SIMPLE_JSON")
 
   object JSON extends Format("JSON")
 
   object XML extends Format("XML")
-  val formats: Set[Format] = Set(DSV, POSITION, SIMPLE_JSON, JSON, XML)
+  val formats: Set[Format] = Set(DSV, POSITION, SIMPLE_JSON, JSON, XML, KAFKA)
 }
 
 class FormatDeserializer extends JsonDeserializer[Format] {

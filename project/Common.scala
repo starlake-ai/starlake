@@ -131,7 +131,8 @@ object Versions {
   val scalate = "1.9.6"
   val akkaHttp = "10.2.3"
   val akkaStream = "2.6.12"
-
+  val kafkaClients = "2.7.0"
+  val testContainers = "0.38.8"
 }
 
 object Resolvers {

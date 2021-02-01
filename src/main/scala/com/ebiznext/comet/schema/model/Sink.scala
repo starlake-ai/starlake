@@ -47,6 +47,7 @@ object SinkType {
       case "JDBC" | "JDBCSINK"   => SinkType.JDBC
       case "BQ" | "BIGQUERYSINK" => SinkType.BQ
       case "ES" | "ESSINK"       => SinkType.ES
+      case "KAFKA" | "KAFKASINK" => SinkType.KAFKA
     }
   }
 
@@ -57,6 +58,8 @@ object SinkType {
   object BQ extends SinkType("BQ")
 
   object ES extends SinkType("ES")
+
+  object KAFKA extends SinkType("KAFKA")
 
   object JDBC extends SinkType("JDBC")
 
