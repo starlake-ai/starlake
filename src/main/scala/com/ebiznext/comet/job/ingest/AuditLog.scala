@@ -41,10 +41,10 @@ object Step {
 
   def fromString(value: String): Step = {
     value.toUpperCase() match {
-      case "LOAD"      => Step.LOAD
-      case "SINK_ACCEPTED"      => Step.SINK_ACCEPTED
-      case "SINK_REJECTED"      => Step.SINK_REJECTED
-      case "TRANSFORM" => Step.TRANSFORM
+      case "LOAD"          => Step.LOAD
+      case "SINK_ACCEPTED" => Step.SINK_ACCEPTED
+      case "SINK_REJECTED" => Step.SINK_REJECTED
+      case "TRANSFORM"     => Step.TRANSFORM
     }
   }
 
