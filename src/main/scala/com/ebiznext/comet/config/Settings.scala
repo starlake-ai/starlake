@@ -165,7 +165,23 @@ object Settings extends StrictLogging {
   final case class Internal(
     cacheStorageLevel: StorageLevel,
     intermediateBigqueryFormat: String = "orc"
-  ) {}
+  )
+
+  final case class KafkaTopicOptions(
+    name: Option[String] = None,
+    maxRead: Long = -1,
+    fields: List[String] = List("key as STRING", "value as STRING"),
+    partitions: Int = 1,
+    replicationFactor: Short = 1,
+    writeFormat: String = "parquet",
+    createOptions: Map[String, String] = Map.empty,
+    accessOptions: Map[String, String] = Map.empty
+  )
+
+  final case class KafkaConfig(
+    serverOptions: Map[String, String],
+    topics: Map[String, KafkaTopicOptions]
+  )
 
   /** @param datasets       : Absolute path, datasets root folder beneath which each area is defined.
     * @param metadata       : Absolute path, location where all types / domains and auto jobs are defined
@@ -211,7 +227,8 @@ object Settings extends StrictLogging {
     metadataFileSystem: Option[String],
     internal: Option[Internal],
     udfs: Option[String],
-    assertions: Assertions
+    assertions: Assertions,
+    kafka: KafkaConfig
   ) extends Serializable {
 
     @JsonIgnore

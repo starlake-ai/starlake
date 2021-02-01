@@ -32,19 +32,14 @@ import org.apache.spark.sql.types.{Metadata => _, _}
 
 import scala.util.Try
 import com.databricks.spark.xml._
+import com.dimafeng.testcontainers.{ElasticsearchContainer, ForAllTestContainer}
+import com.typesafe.config.{Config, ConfigFactory}
 
-class SchemaHandlerSpec extends TestHelper {
-
-  override protected def beforeAll(): Unit = {
-    super.beforeAll()
-    es.start()
-
-  }
-
-  override protected def afterAll(): Unit = {
-    super.afterAll()
-    es.stop()
-  }
+class SchemaHandlerSpec extends TestHelper with ForAllTestContainer {
+  override val container = ElasticsearchContainer()
+  // We need to start iit manually because we need to access the HTTP mapped poorrt
+  // in the configuration below before any test get executed.
+  container.start()
 
   private val playerSchema: StructType = StructType(
     Seq(
@@ -57,7 +52,33 @@ class SchemaHandlerSpec extends TestHelper {
     )
   )
 
-  new WithSettings() {
+  val configuration: Config =
+    ConfigFactory
+      .parseString(s"""
+                     |elasticsearch {
+                     |  active = true
+                     |  options = {
+                     |    "es.nodes": "localhost",
+                     |    "es.port": "${container.httpHostAddress.substring(
+        container.httpHostAddress.lastIndexOf(':') + 1
+      )}",
+                     |
+                     |    #  net.http.auth.user = ""
+                     |    #  net.http.auth.pass = ""
+                     |
+                     |    "es.net.ssl": "false",
+                     |    "es.net.ssl.cert.allow.self.signed": "false",
+                     |
+                     |    "es.batch.size.entries": "1000",
+                     |    "es.batch.size.bytes": "1mb",
+                     |    "es.batch.write.retry.count": "3",
+                     |    "es.batch.write.retry.wait": "10s"
+                     |  }
+                     |}
+                     |""".stripMargin)
+      .withFallback(super.testConfiguration)
+
+  new WithSettings(configuration) {
     // TODO Helper (to delete)
     "Ingest CSV" should "produce file in accepted" in {
 
@@ -111,7 +132,7 @@ class SchemaHandlerSpec extends TestHelper {
 
         if (settings.comet.isElasticsearchSupported()) {
           implicit val backend = HttpURLConnectionBackend()
-          val countUri = uri"http://127.0.0.1:9200/domain.user/_count"
+          val countUri = uri"http://${container.httpHostAddress}/domain.user/_count"
           val response = sttp.get(countUri).send()
           response.code should be <= 299
           response.code should be >= 200
