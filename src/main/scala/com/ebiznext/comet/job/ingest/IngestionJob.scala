@@ -11,6 +11,7 @@ import com.ebiznext.comet.schema.model.Rejection.{ColInfo, ColResult}
 import com.ebiznext.comet.schema.model.Trim.{BOTH, LEFT, RIGHT}
 import com.ebiznext.comet.schema.model._
 import com.ebiznext.comet.utils.Formatter._
+import com.ebiznext.comet.utils.kafka.KafkaClient
 import com.ebiznext.comet.utils.{JobResult, SparkJob, SparkJobResult, Utils}
 import com.google.cloud.bigquery.JobInfo.{CreateDisposition, WriteDisposition}
 import com.google.cloud.bigquery.{Field, LegacySQLTypeName, StandardTableDefinition}
@@ -215,8 +216,8 @@ trait IngestionJob extends SparkJob {
 
   private[this] def sink(mergedDF: DataFrame): Unit = {
     val sinkType = metadata.getSink().map(_.`type`)
-    sinkType match {
-      case Some(SinkType.ES) if settings.comet.elasticsearch.active =>
+    sinkType.getOrElse(SinkType.None) match {
+      case SinkType.ES if settings.comet.elasticsearch.active =>
         val sink = metadata.getSink().map(_.asInstanceOf[EsSink])
         val config = ESLoadConfig(
           timestamp = sink.flatMap(_.timestamp),
@@ -227,9 +228,9 @@ trait IngestionJob extends SparkJob {
           dataset = Some(Right(mergedDF))
         )
         new ESLoadJob(config, storageHandler, schemaHandler).run()
-      case Some(SinkType.ES) if !settings.comet.elasticsearch.active =>
+      case SinkType.ES if !settings.comet.elasticsearch.active =>
         logger.warn("Indexing to ES requested but elasticsearch not active in conf file")
-      case Some(SinkType.BQ) =>
+      case SinkType.BQ =>
         val sink = metadata.getSink().map(_.asInstanceOf[BigQuerySink])
         val (createDisposition: String, writeDisposition: String) = Utils.getDBDisposition(
           metadata.getWrite(),
@@ -255,7 +256,11 @@ trait IngestionJob extends SparkJob {
           case Failure(e) => logger.error("BQLoad Failed", e)
         }
 
-      case Some(SinkType.JDBC) =>
+      case SinkType.KAFKA =>
+        Utils.withResources(new KafkaClient(settings.comet.kafka)) { client =>
+          client.sinkToTopic(schema.name, settings.comet.kafka.topics(schema.name), mergedDF)
+        }
+      case SinkType.JDBC =>
         val (createDisposition: CreateDisposition, writeDisposition: WriteDisposition) = {
 
           val (cd, wd) = Utils.getDBDisposition(
@@ -287,7 +292,7 @@ trait IngestionJob extends SparkJob {
             case Failure(e) => logger.error("JDBCLoad Failed", e)
           }
         }
-      case Some(SinkType.None) | None =>
+      case SinkType.None =>
         // ignore
         logger.trace("not producing an index, as requested (no sink or sink at None explicitly)")
     }

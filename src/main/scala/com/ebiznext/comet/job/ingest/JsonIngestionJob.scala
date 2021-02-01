@@ -27,7 +27,7 @@ import org.apache.hadoop.fs.Path
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.execution.datasources.json.JsonIngestionUtil
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
-import org.apache.spark.sql.{DataFrame, Encoders, Row}
+import org.apache.spark.sql.{DataFrame, Dataset, Encoders, Row}
 
 import scala.util.{Failure, Success, Try}
 
@@ -51,6 +51,22 @@ class JsonIngestionJob(
 )(implicit val settings: Settings)
     extends IngestionJob {
 
+  protected def loadJsonData(): Dataset[String] = {
+    if (metadata.isArray()) {
+      val jsonRDD =
+        session.sparkContext.wholeTextFiles(path.map(_.toString).mkString(",")).map(_._2)
+      import org.apache.spark.sql._
+      session.read.json(session.createDataset(jsonRDD)(Encoders.STRING)).toJSON
+
+    } else {
+      session.read
+        .option("inferSchema", value = false)
+        .option("encoding", metadata.getEncoding())
+        .textFile(path.map(_.toString): _*)
+    }
+
+  }
+
   /** load the json as an RDD of String
     *
     * @return Spark Dataframe loaded using metadata options
@@ -58,19 +74,7 @@ class JsonIngestionJob(
   protected def loadDataSet(): Try[DataFrame] = {
 
     try {
-      val dfIn =
-        if (metadata.isArray()) {
-          val jsonRDD =
-            session.sparkContext.wholeTextFiles(path.map(_.toString).mkString(",")).map(_._2)
-          import org.apache.spark.sql._
-          session.read.json(session.createDataset(jsonRDD)(Encoders.STRING)).toJSON
-
-        } else {
-          session.read
-            .option("inferSchema", value = false)
-            .option("encoding", metadata.getEncoding())
-            .text(path.map(_.toString): _*)
-        }
+      val dfIn = loadJsonData()
       val dfInWithInputFilename = dfIn.select(
         org.apache.spark.sql.functions.input_file_name(),
         org.apache.spark.sql.functions.col("value")
