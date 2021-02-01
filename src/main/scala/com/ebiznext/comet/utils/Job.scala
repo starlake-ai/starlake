@@ -5,7 +5,7 @@ import com.ebiznext.comet.schema.handlers.StorageHandler
 import com.ebiznext.comet.schema.model.SinkType.{BQ, FS, JDBC, KAFKA}
 import com.ebiznext.comet.schema.model.{Metadata, SinkType, Views}
 import com.ebiznext.comet.utils.Formatter._
-import com.ebiznext.comet.utils.kafka.KafkaTopicUtils
+import com.ebiznext.comet.utils.kafka.KafkaClient
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.functions._
@@ -200,9 +200,9 @@ trait SparkJob extends JobBase {
             .cache()
 
         case KAFKA =>
-          val kafkaJob = new KafkaTopicUtils(settings.comet.kafka)
-          kafkaJob.consumeTopic(path, session, settings.comet.kafka.topics(path))._1
-
+          Utils.withResources(new KafkaClient(settings.comet.kafka)) { kafkaJob =>
+            kafkaJob.consumeTopic(path, session, settings.comet.kafka.topics(path))._1
+          }
         case BQ =>
           val TablePathWithFilter = "(.*)\\.comet_filter\\((.*)\\)".r
           val TablePathWithSelect = "(.*)\\.comet_select\\((.*)\\)".r
