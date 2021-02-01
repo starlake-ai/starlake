@@ -283,7 +283,6 @@ trait IngestionJob extends SparkJob {
     (savedDataset, acceptedPath)
   }
 
-
   private[this] def sink(mergedDF: DataFrame): Try[Unit] = {
     Try {
       val sinkType = metadata.getSink().map(_.`type`)
