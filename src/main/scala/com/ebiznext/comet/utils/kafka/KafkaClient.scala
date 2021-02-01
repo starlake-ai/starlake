@@ -11,9 +11,9 @@ import org.apache.spark.sql.{DataFrame, SparkSession}
 import java.time.Duration
 import java.util.Properties
 import scala.collection.mutable
-import scala.jdk.CollectionConverters._
+import collection.JavaConverters._
 
-class KafkaTopicUtils(kafkaConfig: KafkaConfig) extends StrictLogging {
+class KafkaClient(kafkaConfig: KafkaConfig) extends StrictLogging with AutoCloseable {
 
   val serverOptions: Map[String, String] = kafkaConfig.serverOptions
   val cometOffsetsConfig: KafkaTopicOptions = kafkaConfig.topics("comet_offsets")
@@ -34,7 +34,7 @@ class KafkaTopicUtils(kafkaConfig: KafkaConfig) extends StrictLogging {
     Map("cleanup.policy" -> "compact")
   )
 
-  def teardown(): Unit = client.close()
+  def close(): Unit = client.close()
 
   def createTopicIfNotPresent(topic: NewTopic, conf: Map[String, String]): Any = {
     val found = client.listTopics().names().get().contains(topic.name)
@@ -56,10 +56,7 @@ class KafkaTopicUtils(kafkaConfig: KafkaConfig) extends StrictLogging {
   }
 
   def topicEndOffsets(topicName: String, accessOptions: Map[String, String]): List[(Int, Long)] = {
-    val props = new Properties()
-    accessOptions.foreach { option =>
-      props.put(option._1, option._2)
-    }
+    val props: Properties = buildProps(accessOptions)
     val consumer = new KafkaConsumer[String, String](props)
     val partitions = consumer
       .partitionsFor(topicName)
@@ -71,15 +68,20 @@ class KafkaTopicUtils(kafkaConfig: KafkaConfig) extends StrictLogging {
     partitions.map(p => (p.partition(), consumer.position(p)))
   }
 
+  private def buildProps(accessOptions: Map[String, String]) = {
+    val props = new Properties()
+    accessOptions.foreach { option =>
+      props.put(option._1, option._2)
+    }
+    props
+  }
+
   def topicSaveOffsets(
     topicName: String,
     accessOptions: Map[String, String],
     offsets: List[(Int, Long)]
   ): Unit = {
-    val props = new Properties()
-    accessOptions.foreach { option =>
-      props.put(option._1, option._2)
-    }
+    val props: Properties = buildProps(accessOptions)
     val producer = new KafkaProducer[String, String](props)
     offsets.foreach { case (partition, offset) =>
       producer.send(
