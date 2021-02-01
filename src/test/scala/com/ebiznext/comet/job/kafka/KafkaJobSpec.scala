@@ -3,7 +3,7 @@ package com.ebiznext.comet.job.kafka
 import com.dimafeng.testcontainers.{ForAllTestContainer, KafkaContainer}
 import com.ebiznext.comet.TestHelper
 import com.ebiznext.comet.job.index.kafkaload.{KafkaJob, KafkaJobConfig}
-import com.ebiznext.comet.utils.kafka.KafkaTopicUtils
+import com.ebiznext.comet.utils.kafka.KafkaClient
 import com.typesafe.config.ConfigFactory
 import org.apache.kafka.clients.admin.NewTopic
 import org.apache.kafka.clients.consumer.KafkaConsumer
@@ -79,13 +79,13 @@ class KafkaJobSpec extends TestHelper with ForAllTestContainer {
     }
 
     "Create topic comet_offets topic" should "succeed" in {
-      val client = new KafkaTopicUtils(settings.comet.kafka)
+      val client = new KafkaClient(settings.comet.kafka)
       val topicProperties = Map("cleanup.policy" -> "compact")
       client.createTopicIfNotPresent(new NewTopic("comet_offsets", 1, 1.toShort), topicProperties)
     }
 
     "Get comet_offets partitions " should "return 1" in {
-      val client = new KafkaTopicUtils(settings.comet.kafka)
+      val client = new KafkaClient(settings.comet.kafka)
       val topicProperties = Map("cleanup.policy" -> "compact")
       client.createTopicIfNotPresent(new NewTopic("comet_offsets", 1, 1.toShort), topicProperties)
       val partitions = client.topicPartitions("comet_offsets")
@@ -93,7 +93,7 @@ class KafkaJobSpec extends TestHelper with ForAllTestContainer {
     }
 
     "Access comet_offets end offsets" should "work" in {
-      val client = new KafkaTopicUtils(settings.comet.kafka)
+      val client = new KafkaClient(settings.comet.kafka)
       val topicProperties = Map("cleanup.policy" -> "compact")
       client.createTopicIfNotPresent(new NewTopic("comet_offsets", 1, 1.toShort), topicProperties)
       val properties = Map(
@@ -106,7 +106,7 @@ class KafkaJobSpec extends TestHelper with ForAllTestContainer {
     }
 
     "Offload messages from Kafka" should "work" in {
-      val client = new KafkaTopicUtils(settings.comet.kafka)
+      val client = new KafkaClient(settings.comet.kafka)
       client.createTopicIfNotPresent(new NewTopic("test_offload", 1, 1.toShort), Map.empty)
       val elems = ListBuffer[String]()
       for (i <- 1 to 5000) {
