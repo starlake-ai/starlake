@@ -11,7 +11,7 @@ import com.ebiznext.comet.schema.model.Rejection.{ColInfo, ColResult}
 import com.ebiznext.comet.schema.model.Trim.{BOTH, LEFT, RIGHT}
 import com.ebiznext.comet.schema.model._
 import com.ebiznext.comet.utils.Formatter._
-import com.ebiznext.comet.utils.kafka.KafkaTopicUtils
+import com.ebiznext.comet.utils.kafka.KafkaClient
 import com.ebiznext.comet.utils.{JobResult, SparkJob, SparkJobResult, Utils}
 import com.google.cloud.bigquery.JobInfo.{CreateDisposition, WriteDisposition}
 import com.google.cloud.bigquery.{Field, LegacySQLTypeName, StandardTableDefinition}
@@ -257,9 +257,9 @@ trait IngestionJob extends SparkJob {
         }
 
       case SinkType.KAFKA =>
-        val client = new KafkaTopicUtils(settings.comet.kafka)
-        client.sinkToTopic(schema.name, settings.comet.kafka.topics(schema.name), mergedDF)
-
+        Utils.withResources(new KafkaClient(settings.comet.kafka)) { client =>
+          client.sinkToTopic(schema.name, settings.comet.kafka.topics(schema.name), mergedDF)
+        }
       case SinkType.JDBC =>
         val (createDisposition: CreateDisposition, writeDisposition: WriteDisposition) = {
 
