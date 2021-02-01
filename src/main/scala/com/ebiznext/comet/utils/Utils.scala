@@ -24,6 +24,7 @@ import com.ebiznext.comet.schema.model.WriteMode
 import com.typesafe.scalalogging.Logger
 
 import java.io.{PrintWriter, StringWriter}
+import scala.reflect.runtime.universe
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try}
 
@@ -50,6 +51,13 @@ object Utils {
     } finally {
       closeAndAddSuppressed(exception, resource)
     }
+  }
+
+  def loadInstance[T](objectName: String): T = {
+    val runtimeMirror = universe.runtimeMirror(getClass.getClassLoader)
+    val module = runtimeMirror.staticModule(objectName)
+    val obj: universe.ModuleMirror = runtimeMirror.reflectModule(module)
+    obj.instance.asInstanceOf[T]
   }
 
   private def closeAndAddSuppressed(e: Throwable, resource: AutoCloseable): Unit = {
