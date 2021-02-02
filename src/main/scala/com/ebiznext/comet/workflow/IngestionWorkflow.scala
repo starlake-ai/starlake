@@ -535,9 +535,8 @@ class IngestionWorkflow(
                     case Failure(e) => logger.error("JDBCLoad Failed", e)
                   }
                 case _ =>
-                  // TODO Sinking not supported
-                  logger.error(s"Sinking from Spark to $sink not yet supported.")
-                  false
+                  logger.warn("Sink is not activated for this job")
+                  true
               }
             case Failure(exception) =>
               exception.printStackTrace()
