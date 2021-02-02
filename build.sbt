@@ -9,7 +9,7 @@ import scala.util.matching.Regex
 
 lazy val scala212 = "2.12.12"
 
-// lazy val scala211 = "2.11.12"
+lazy val scala211 = "2.11.12"
 
 lazy val sparkVersion = sys.env.getOrElse("COMET_SPARK_VERSION", "3.1.0")
 
@@ -21,9 +21,9 @@ val sparkPatternMatch = sparkVersionPattern
 val sparkMajor = sparkPatternMatch.group(1)
 val sparkMinor = sparkPatternMatch.group(2)
 
-lazy val supportedScalaVersions = sparkMajor match {
-  case "3" => List(scala212)
-  case "2" => List(scala212) // scala211
+lazy val supportedScalaVersions = (sparkMajor, sparkMinor) match {
+  case ("3", _) => List(scala212)
+  case ("2", _) => List(scala212, scala211)
   case _   => throw new Exception(s"Invalid Spark Major Version $sparkMajor")
 }
 
@@ -45,13 +45,10 @@ libraryDependencies ++= {
         (spark_3d0_forScala_2d12, jackson312)
       case "2" =>
         CrossVersion.partialVersion(scalaVersion.value) match {
-          case Some((2, scalaMinor)) if scalaMinor == 12 => (spark_2d4_forScala_2d12, jackson212)
-          case Some((2, scalaMinor)) if scalaMinor == 11 =>
-            sparkMinor match {
-              case "1" => (spark_2d1_forScala_2d11, jackson211)
-              case _   => (spark_2d4_forScala_2d11, jackson211)
-            }
+          case Some((2, 12)) => (spark_2d4_forScala_2d12, jackson212)
+          case Some((2, 11)) => (spark_2d4_forScala_2d11, jackson211)
         }
+      case _   => throw new Exception(s"Invalid Spark Major Version $sparkMajor")
     }
   }
   dependencies ++ spark ++ jackson ++ scalaReflection(scalaVersion.value)
