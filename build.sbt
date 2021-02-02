@@ -4,9 +4,6 @@ import sbtrelease.Version.Bump.Next
 
 import scala.util.matching.Regex
 
-//val mavenLocal = "Local Maven" at Path.userHome.asFile.toURI.toURL + ".m2/repository"
-//resolvers += Resolver.mavenLocal
-
 lazy val scala212 = "2.12.12"
 
 lazy val scala211 = "2.11.12"
