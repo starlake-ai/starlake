@@ -21,4 +21,4 @@ jobs:
       - name: Publish Snapshot Spark 3
         run: COMET_SPARK_VERSION=3.1.0 sbt ++2.12.12 publish
       - name: Publish Snapshot Spark 2
-        run: COMET_SPARK_VERSION=2.4.7 sbt ++2.12.12 publish
+        run: COMET_SPARK_VERSION=2.4.7 sbt +publish
