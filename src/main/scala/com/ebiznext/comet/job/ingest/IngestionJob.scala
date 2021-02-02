@@ -263,6 +263,7 @@ trait IngestionJob extends SparkJob {
         )
         SparkAuditLogWriter.append(session, log)
       case Failure(exception) =>
+        Utils.logException(logger, exception)
         val end = Timestamp.from(Instant.now())
         val log = AuditLog(
           session.sparkContext.applicationId,
@@ -323,7 +324,8 @@ trait IngestionJob extends SparkJob {
           val res = new BigQuerySparkJob(config, Some(schema.bqSchema(schemaHandler))).run()
           res match {
             case Success(_) => ;
-            case Failure(e) => logger.error("BQLoad Failed", e)
+            case Failure(e) =>
+              throw e
           }
 
         case SinkType.KAFKA =>
@@ -359,7 +361,8 @@ trait IngestionJob extends SparkJob {
             val res = new ConnectionLoadJob(jdbcConfig).run()
             res match {
               case Success(_) => ;
-              case Failure(e) => logger.error("JDBCLoad Failed", e)
+              case Failure(e) =>
+                throw e
             }
           }
         case SinkType.None =>
