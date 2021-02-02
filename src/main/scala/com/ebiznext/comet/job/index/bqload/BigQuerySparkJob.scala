@@ -2,7 +2,6 @@ package com.ebiznext.comet.job.index.bqload
 
 import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.utils.conversion.BigQueryUtils._
-import com.ebiznext.comet.utils.conversion.syntax._
 import com.ebiznext.comet.utils.{JobResult, SparkJob, SparkJobResult, Utils}
 import com.google.cloud.ServiceOptions
 import com.google.cloud.bigquery.{
@@ -112,7 +111,7 @@ class BigQuerySparkJob(
                 .newBuilder()
                 .setTimePartitioning(partitioning)
             dataFrame
-              .map(dataFrame => tableDefinition.setSchema(dataFrame.to[BQSchema]))
+              .map(dataFrame => tableDefinition.setSchema(sparkToBq(dataFrame)))
               .getOrElse(tableDefinition)
           case (None, None) =>
             // In case of complex types, our inferred schema does not work, BQ introduces a list subfield, let him do the dirty job
