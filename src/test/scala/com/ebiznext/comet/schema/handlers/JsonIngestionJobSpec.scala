@@ -148,7 +148,8 @@ class JsonIngestionJobSpecNoIndexJdbcMetricsJdbcAuditSpec
       countRejected = 0,
       timestamp = TestStart,
       duration = 1 /* fake */,
-      message = "success"
+      message = "success",
+      Step.LOAD.toString
     ) :: Nil
 
   override def expectedRejectRecords(implicit settings: Settings): List[RejectedRecord] =
