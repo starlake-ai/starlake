@@ -101,7 +101,6 @@ object Common {
 object Versions {
   val sparkAvro = "4.0.0"
   val curator = "2.6.0"
-  val spark2d1 = "2.1.0"
   val spark2d4 = "2.4.7"
   val spark3d0 = "3.1.0"
   val scalatest = "3.2.3"
@@ -129,8 +128,9 @@ object Versions {
   val h2 = "1.4.200" // Test only
   val poi = "5.0.0"
   val scalate = "1.9.6"
-  val akkaHttp = "10.2.3"
-  val akkaStream = "2.6.12"
+  val akkaHttp = "10.1.9"
+//  val akkaStream = "2.6.12"
+  val akkaStream = "2.5.9"
   val kafkaClients = "2.7.0"
   val testContainers = "0.38.8"
 }
