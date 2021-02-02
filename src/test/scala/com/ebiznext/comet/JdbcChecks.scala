@@ -200,7 +200,7 @@ trait JdbcChecks {
       "audit",
       "jobid" :: "paths" :: "domain" :: "schema" :: "success" ::
       "count" :: "countAccepted" :: "countRejected" :: "timestamp" ::
-      "duration" :: "message" :: Nil,
+      "duration" :: "message" :: "step" :: Nil,
       values.to[Vector]
     ) { rs =>
       val item = AuditLog(
@@ -214,7 +214,8 @@ trait JdbcChecks {
         rs.getInt("countRejected"),
         rs.getTimestamp("timestamp"),
         rs.getInt("duration"),
-        rs.getString("message")
+        rs.getString("message"),
+        rs.getString("step")
       )
 
       item.timestamp.after(TestStart) should be(true)
