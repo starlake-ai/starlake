@@ -56,10 +56,7 @@ class KafkaClient(kafkaConfig: KafkaConfig) extends StrictLogging with AutoClose
   }
 
   def topicEndOffsets(topicName: String, accessOptions: Map[String, String]): List[(Int, Long)] = {
-    val props = new Properties()
-    accessOptions.foreach { option =>
-      props.put(option._1, option._2)
-    }
+    val props: Properties = buildProps(accessOptions)
     val consumer = new KafkaConsumer[String, String](props)
     val partitions = consumer
       .partitionsFor(topicName)
@@ -71,15 +68,20 @@ class KafkaClient(kafkaConfig: KafkaConfig) extends StrictLogging with AutoClose
     partitions.map(p => (p.partition(), consumer.position(p)))
   }
 
+  private def buildProps(accessOptions: Map[String, String]) = {
+    val props = new Properties()
+    accessOptions.foreach { option =>
+      props.put(option._1, option._2)
+    }
+    props
+  }
+
   def topicSaveOffsets(
     topicName: String,
     accessOptions: Map[String, String],
     offsets: List[(Int, Long)]
   ): Unit = {
-    val props = new Properties()
-    accessOptions.foreach { option =>
-      props.put(option._1, option._2)
-    }
+    val props: Properties = buildProps(accessOptions)
     val producer = new KafkaProducer[String, String](props)
     offsets.foreach { case (partition, offset) =>
       producer.send(
