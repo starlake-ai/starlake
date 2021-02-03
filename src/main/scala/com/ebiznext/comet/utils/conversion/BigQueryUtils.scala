@@ -10,7 +10,7 @@ import org.apache.spark.sql.types._
   */
 object BigQueryUtils {
 
-  implicit val sparkToBq: Convertible[DataFrame, BQSchema] = (df: DataFrame) => bqSchema(df.schema)
+  val sparkToBq: DataFrame => BQSchema = (df: DataFrame) => bqSchema(df.schema)
 
   /** Compute BigQuery Schema from Spark or PArquet Schema while Schema.bqSchema compute it from YMl File
     * @param schema Spark DataType
