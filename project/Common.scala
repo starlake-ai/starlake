@@ -128,9 +128,9 @@ object Versions {
   val h2 = "1.4.200" // Test only
   val poi = "5.0.0"
   val scalate = "1.9.6"
-  val akkaHttp = "10.1.9"
+  val akkaHttp = "10.1.13"
 //  val akkaStream = "2.6.12"
-  val akkaStream = "2.5.9"
+  val akkaStream = "2.5.32"
   val kafkaClients = "2.7.0"
   val testContainers = "0.38.8"
 }
