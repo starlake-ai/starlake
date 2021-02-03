@@ -53,7 +53,7 @@ class GeneratorService(implicit
     } ~
     path("encrypt-schema") {
       post {
-        formFields('privacy.optional, 'delimiter.optional) { (privacy, delimiter) =>
+        formFields('privacy.?, 'delimiter.?) { (privacy, delimiter) =>
           storeUploadedFile(fieldName = "schema", destFn = tempFile) { case (fileInfo, tmpFile) =>
             val result = new XlsReader(FileInput(tmpFile)).getDomain().map { domain =>
               val privacies = privacy match {

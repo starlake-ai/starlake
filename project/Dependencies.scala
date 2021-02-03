@@ -72,15 +72,6 @@ object Dependencies {
     "com.fasterxml.jackson.dataformat" % "jackson-dataformat-yaml" % Versions.jackson312
   )
 
-  val spark_2d1_forScala_2d11 = Seq(
-    "org.apache.spark" %% "spark-core" % Versions.spark2d1 % "provided" exclude ("com.google.guava", "guava"),
-    "org.apache.spark" %% "spark-sql" % Versions.spark2d1 % "provided" exclude ("com.google.guava", "guava"),
-    "org.apache.spark" %% "spark-hive" % Versions.spark2d1 % "provided" exclude ("com.google.guava", "guava"),
-    "org.apache.spark" %% "spark-mllib" % Versions.spark2d1 % "provided" exclude ("com.google.guava", "guava"),
-    "com.databricks" %% "spark-xml" % Versions.sparXML211,
-    "org.apache.spark" %% "spark-sql-kafka-0-10" % Versions.spark2d1
-  )
-
   val spark_2d4_forScala_2d11 = Seq(
     "org.apache.spark" %% "spark-core" % Versions.spark2d4 % "provided" excludeAll (jacksonExclusions: _*) exclude ("com.google.guava", "guava"),
     "org.apache.spark" %% "spark-sql" % Versions.spark2d4 % "provided" excludeAll (jacksonExclusions: _*) exclude ("com.google.guava", "guava"),
