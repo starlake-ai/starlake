@@ -111,53 +111,61 @@ class DsvIngestionJob(
         .csv(path.map(_.toString): _*)
 
       logger.debug(dfIn.schema.treeString)
+      if (dfIn.isEmpty)
+        Success(
+          dfIn.withColumn(
+            Settings.cometInputFileNameColumn,
+            org.apache.spark.sql.functions.input_file_name()
+          )
+        )
+      else {
+        val df = applyIgnore(dfIn)
 
-      val df = applyIgnore(dfIn)
-
-      val resDF = metadata.withHeader match {
-        case Some(true) =>
-          val datasetHeaders: List[String] = df.columns.toList.map(cleanHeaderCol)
-          val (_, drop) = intersectHeaders(datasetHeaders, schemaHeaders)
-          if (datasetHeaders.length == drop.length) {
-            throw new Exception(s"""No attribute found in input dataset ${path.toString}
+        val resDF = metadata.withHeader match {
+          case Some(true) =>
+            val datasetHeaders: List[String] = df.columns.toList.map(cleanHeaderCol)
+            val (_, drop) = intersectHeaders(datasetHeaders, schemaHeaders)
+            if (datasetHeaders.length == drop.length) {
+              throw new Exception(s"""No attribute found in input dataset ${path.toString}
                                    | SchemaHeaders : ${schemaHeaders.mkString(",")}
                                    | Dataset Headers : ${datasetHeaders.mkString(",")}
              """.stripMargin)
-          }
-          df.drop(drop: _*)
-        case Some(false) | None =>
-          /* No header, let's make sure we take the first attributes
+            }
+            df.drop(drop: _*)
+          case Some(false) | None =>
+            /* No header, let's make sure we take the first attributes
              if there are more in the CSV file
-           */
+             */
 
-          val attributesWithoutscript = schema.attributesWithoutScript
-          val compare =
-            attributesWithoutscript.length.compareTo(df.columns.length)
-          if (compare == 0) {
-            df.toDF(
-              attributesWithoutscript
-                .map(_.name)
-                .take(attributesWithoutscript.length): _*
-            )
-          } else if (compare > 0) {
-            val countMissing = attributesWithoutscript.length - df.columns.length
-            throw new Exception(s"$countMissing MISSING columns in the input DataFrame ")
-          } else { // compare < 0
-            val cols = df.columns
-            df.select(
-              cols.head,
-              cols.tail
-                .take(attributesWithoutscript.length - 1): _*
-            ).toDF(attributesWithoutscript.map(_.name): _*)
-          }
-      }
-      Success(
-        resDF.withColumn(
-          //  Spark here can detect the input file automatically, so we're just using the input_file_name spark function
-          Settings.cometInputFileNameColumn,
-          org.apache.spark.sql.functions.input_file_name()
+            val attributesWithoutscript = schema.attributesWithoutScript
+            val compare =
+              attributesWithoutscript.length.compareTo(df.columns.length)
+            if (compare == 0) {
+              df.toDF(
+                attributesWithoutscript
+                  .map(_.name)
+                  .take(attributesWithoutscript.length): _*
+              )
+            } else if (compare > 0) {
+              val countMissing = attributesWithoutscript.length - df.columns.length
+              throw new Exception(s"$countMissing MISSING columns in the input DataFrame ")
+            } else { // compare < 0
+              val cols = df.columns
+              df.select(
+                cols.head,
+                cols.tail
+                  .take(attributesWithoutscript.length - 1): _*
+              ).toDF(attributesWithoutscript.map(_.name): _*)
+            }
+        }
+        Success(
+          resDF.withColumn(
+            //  Spark here can detect the input file automatically, so we're just using the input_file_name spark function
+            Settings.cometInputFileNameColumn,
+            org.apache.spark.sql.functions.input_file_name()
+          )
         )
-      )
+      }
     } catch {
       case e: Exception =>
         Failure(e)
