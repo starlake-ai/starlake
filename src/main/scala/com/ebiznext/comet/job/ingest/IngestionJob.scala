@@ -208,32 +208,37 @@ trait IngestionJob extends SparkJob {
                                         }
                                       } else acceptedDF).drop(Settings.cometInputFileNameColumn)
 
-    logger.whenDebugEnabled {
-      logger.debug("Accepted Dataframe schema right after adding computed columns")
-      acceptedDfWithScriptFields.printSchema()
-    }
-
-    val withScriptFieldsDF =
-      session.createDataFrame(
-        acceptedDfWithScriptFields.rdd,
-        schema.sparkTypeWithRenamedFields(schemaHandler)
-      )
-
-    logger.whenDebugEnabled {
-      logger.debug("Accepted Dataframe schema before optional merge")
-      withScriptFieldsDF.printSchema()
+    val finalAcceptedDF: DataFrame = schema.attributes.exists(_.script.isDefined) match {
+      case true => {
+        logger.whenDebugEnabled {
+          logger.debug("Accepted Dataframe schema right after adding computed columns")
+          acceptedDfWithScriptFields.printSchema()
+        }
+        // adding computed columns can change the order of columns, we must force the order defined in the schema
+        val orderedWithScriptFieldsDF =
+          session.createDataFrame(
+            acceptedDfWithScriptFields.rdd,
+            schema.sparkTypeWithRenamedFields(schemaHandler)
+          )
+        logger.whenDebugEnabled {
+          logger.debug("Accepted Dataframe schema after applying the defined schema")
+          orderedWithScriptFieldsDF.printSchema()
+        }
+        orderedWithScriptFieldsDF
+      }
+      case false => acceptedDfWithScriptFields
     }
 
     val mergedDF = schema.merge
       .map { mergeOptions =>
         if (metadata.getSink().map(_.`type`).getOrElse(SinkType.None) == SinkType.BQ) {
-          val mergedDfBq = mergeFromBQ(withScriptFieldsDF, mergeOptions)
+          val mergedDfBq = mergeFromBQ(finalAcceptedDF, mergeOptions)
           mergedDfBq
         } else {
-          mergeFromParquet(acceptedPath, withScriptFieldsDF, mergeOptions)
+          mergeFromParquet(acceptedPath, finalAcceptedDF, mergeOptions)
         }
       }
-      .getOrElse(withScriptFieldsDF)
+      .getOrElse(finalAcceptedDF)
 
     logger.info("Merged Dataframe Schema")
     mergedDF.printSchema()
@@ -307,6 +312,10 @@ trait IngestionJob extends SparkJob {
             metadata.getWrite(),
             schema.merge.exists(_.key.nonEmpty)
           )
+          val tableSchema = schema.mergedMetadata(domain.metadata).getFormat() match {
+            case Format.XML => None
+            case _          => Some(schema.bqSchema(schemaHandler))
+          }
           val config = BigQueryLoadConfig(
             source = Right(mergedDF),
             outputTable = schema.name,
@@ -321,7 +330,7 @@ trait IngestionJob extends SparkJob {
             requirePartitionFilter = sink.flatMap(_.requirePartitionFilter).getOrElse(false),
             rls = schema.rls
           )
-          val res = new BigQuerySparkJob(config, Some(schema.bqSchema(schemaHandler))).run()
+          val res = new BigQuerySparkJob(config, tableSchema).run()
           res match {
             case Success(_) => ;
             case Failure(e) =>
