@@ -24,14 +24,14 @@ import better.files.File
 import com.ebiznext.comet.config.{DatasetArea, Settings}
 import com.ebiznext.comet.job.atlas.{AtlasConfig, AtlasJob}
 import com.ebiznext.comet.job.index.bqload.{BigQueryLoadConfig, BigQuerySparkJob}
-import com.ebiznext.comet.job.index.esload.{ESLoadConfig, ESLoadJob}
 import com.ebiznext.comet.job.index.connectionload.{ConnectionLoadConfig, ConnectionLoadJob}
+import com.ebiznext.comet.job.index.esload.{ESLoadConfig, ESLoadJob}
 import com.ebiznext.comet.job.infer.{InferSchema, InferSchemaConfig}
 import com.ebiznext.comet.job.ingest._
 import com.ebiznext.comet.job.metrics.{MetricsConfig, MetricsJob}
 import com.ebiznext.comet.job.transform.AutoTaskJob
 import com.ebiznext.comet.schema.handlers.{LaunchHandler, SchemaHandler, StorageHandler}
-import com.ebiznext.comet.schema.model.Format.{DSV, JSON, KAFKA, POSITION, SIMPLE_JSON, XML}
+import com.ebiznext.comet.schema.model.Format._
 import com.ebiznext.comet.schema.model._
 import com.ebiznext.comet.utils.{JobResult, SparkJobResult, Unpacker, Utils}
 import com.google.cloud.bigquery.JobInfo.{CreateDisposition, WriteDisposition}
@@ -370,7 +370,20 @@ class IngestionWorkflow(
           ingestingPath,
           storageHandler,
           schemaHandler,
-          options
+          options,
+          Mode.FILE
+        ).run().get
+
+      case KAFKASTREAM =>
+        new KafkaIngestionJob(
+          domain,
+          schema,
+          schemaHandler.types,
+          ingestingPath,
+          storageHandler,
+          schemaHandler,
+          options,
+          Mode.STREAM
         ).run().get
       case _ =>
         throw new Exception("Should never happen")

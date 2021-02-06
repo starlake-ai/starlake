@@ -28,7 +28,7 @@ import com.ebiznext.comet.utils.{JobResult, Utils}
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql._
 
-import scala.util.Try
+import scala.util.{Failure, Try}
 
 /** Main class to ingest JSON messages from Kafka
   *
@@ -45,7 +45,8 @@ class KafkaIngestionJob(
   path: List[Path],
   storageHandler: StorageHandler,
   schemaHandler: SchemaHandler,
-  options: Map[String, String]
+  options: Map[String, String],
+  mode: Mode
 )(implicit settings: Settings)
     extends JsonIngestionJob(domain, schema, types, path, storageHandler, schemaHandler, options) {
 
@@ -59,29 +60,46 @@ class KafkaIngestionJob(
     * @return Spark DataFrame where each row holds a single string
     */
   override protected def loadJsonData(): Dataset[String] = {
-    Utils.withResources(new KafkaClient(settings.comet.kafka)) { kafkaTopicUtils =>
-      val (dfIn, offsets) =
-        kafkaTopicUtils.consumeTopic(schema.name, session, topicConfig)
-      this.offsets = offsets
-      val rddIn = dfIn.rdd.map { row =>
-        row.getAs[String]("value")
-      }
-
-      logger.debug(dfIn.schema.treeString)
-      import org.apache.spark.sql._
-      session.read.json(session.createDataset(rddIn)(Encoders.STRING)).toJSON
+    val dfIn = metadata.mode match {
+      case None | Some(Mode.FILE) =>
+        Utils.withResources(new KafkaClient(settings.comet.kafka)) { kafkaTopicUtils =>
+          val (dfIn, offsets) =
+            kafkaTopicUtils.consumeTopicBatch(schema.name, session, topicConfig)
+          this.offsets = offsets
+          dfIn
+        }
+      case Some(Mode.STREAM) =>
+        Utils.withResources(new KafkaClient(settings.comet.kafka)) { kafkaTopicUtils =>
+          kafkaTopicUtils.consumeTopicStreaming(schema.name, session, topicConfig)
+        }
+      case _ =>
+        throw new Exception("Should never happen")
     }
+    logger.debug(dfIn.schema.treeString)
+    val rddIn = dfIn.rdd.map { row =>
+      row.getAs[String]("value")
+    }
+    logger.debug(dfIn.schema.treeString)
+    import org.apache.spark.sql._
+    session.createDataset(rddIn)(Encoders.STRING)
   }
 
   override def run(): Try[JobResult] = {
     val res = super.run()
-    Utils.withResources(new KafkaClient(settings.comet.kafka)) { kafkaTopicUtils =>
-      kafkaTopicUtils.topicSaveOffsets(
-        schema.name,
-        topicConfig.accessOptions,
-        offsets
-      )
-      res
+    mode match {
+      case Mode.FILE =>
+        Utils.withResources(new KafkaClient(settings.comet.kafka)) { kafkaTopicUtils =>
+          kafkaTopicUtils.topicSaveOffsets(
+            schema.name,
+            topicConfig.accessOptions,
+            offsets
+          )
+          res
+        }
+      case Mode.STREAM =>
+        res
+      case _ =>
+        Failure(throw new Exception("Should never happen"))
     }
   }
 }
