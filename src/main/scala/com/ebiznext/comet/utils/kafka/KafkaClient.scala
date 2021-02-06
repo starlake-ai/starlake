@@ -36,6 +36,14 @@ class KafkaClient(kafkaConfig: KafkaConfig) extends StrictLogging with AutoClose
 
   def close(): Unit = client.close()
 
+  def deleteTopic(topicName: String): Unit = {
+    val found = client.listTopics().names().get().contains(topicName)
+    client.listTopics().names().get().asScala.toSet.foreach(println)
+    if (found) {
+      client.deleteTopics(List(topicName).asJavaCollection)
+    }
+  }
+
   def createTopicIfNotPresent(topic: NewTopic, conf: Map[String, String]): Any = {
     val found = client.listTopics().names().get().contains(topic.name)
     if (!found) {
@@ -131,7 +139,7 @@ class KafkaClient(kafkaConfig: KafkaConfig) extends StrictLogging with AutoClose
 
   }
 
-  def consumeTopic(
+  def consumeTopicBatch(
     topicConfigName: String,
     session: SparkSession,
     config: KafkaTopicOptions
@@ -166,6 +174,21 @@ class KafkaClient(kafkaConfig: KafkaConfig) extends StrictLogging with AutoClose
       df.collect().foreach(r => logger.debug(r.toString()))
     }
     (df, endOffsets)
+  }
+
+  def consumeTopicStreaming(
+    topicConfigName: String,
+    session: SparkSession,
+    config: KafkaTopicOptions
+  ): DataFrame = {
+    val reader = session.readStream
+      .format("kafka")
+    val df =
+      config.accessOptions
+        .foldLeft(reader)((reader, option) => reader.option(option._1, option._2))
+        .load()
+        .selectExpr(config.fields.map(x => s"CAST($x)"): _*)
+    df
   }
 
   def sinkToTopic(

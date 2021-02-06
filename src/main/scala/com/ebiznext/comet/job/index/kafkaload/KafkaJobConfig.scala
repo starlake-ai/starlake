@@ -8,9 +8,17 @@ case class KafkaJobConfig(
   topic: String = "",
   format: String = "parquet",
   mode: SaveMode = SaveMode.Append,
-  path: Option[String] = None,
+  path: String = "",
   transform: Option[String] = None,
-  offload: Boolean = true
+  offload: Boolean = true,
+  streaming: Boolean = false,
+  streamingFormat: String = "console",
+  streamingOutputMode: String = "append",
+  writeOptions: Map[String, String] = Map.empty,
+  streamingTrigger: String = "Once",
+  streamingTriggerOption: String = "",
+  streamingPartitionBy: Seq[String] = Nil,
+  streamingToTable: Boolean = false
 ) {
 
   val transformInstance: Option[DataFrameTransform] = {
@@ -40,7 +48,7 @@ object KafkaJobConfig extends CliConfig[KafkaJobConfig] {
         .text("Read/Write format eq : parquet, json, csv ... Default to parquet.")
         .optional(),
       opt[String]("path")
-        .action((x, c) => c.copy(path = Some(x)))
+        .action((x, c) => c.copy(path = x))
         .text("Source file for load and target file for store")
         .required(),
       opt[String]("mode")
@@ -49,15 +57,59 @@ object KafkaJobConfig extends CliConfig[KafkaJobConfig] {
           "When offload is true, describes who data should be stored on disk. Ignored if offload is false."
         )
         .required(),
+      opt[Map[String, String]]("write-options")
+        .action((x, c) => c.copy(writeOptions = x))
+        .text(
+          "Options to pass to Spark Writer"
+        )
+        .optional(),
       opt[String]("transform")
         .action((x, c) => c.copy(transform = Some(x)))
-        .text("Any transformation to apply to message before load / offloading it"),
+        .text("Any transformation to apply to message before loading / offloading it"),
       opt[Boolean]("offload")
         .action((x, c) => c.copy(offload = x))
         .text(
           "If true, kafka topic is offloaded to path, else data contained in path is stored in the kafka topic"
         )
         .optional()
+        .children(
+          opt[Unit]("stream")
+            .action((_, c) => c.copy(streaming = true))
+            .text(
+              "If true, kafka topic is offloaded to path, else data contained in path is stored in the kafka topic"
+            )
+            .optional()
+            .children(
+              opt[String]("streaming-format")
+                .action((x, c) => c.copy(streamingFormat = x))
+                .text(
+                  "If true, kafka topic is offloaded to path, else data contained in path is stored in the kafka topic"
+                )
+                .required(),
+              opt[String]("streaming-output-mode")
+                .action((x, c) => c.copy(streamingOutputMode = x))
+                .text(
+                  "If true, kafka topic is offloaded to path, else data contained in path is stored in the kafka topic"
+                )
+                .required(),
+              opt[String]("streaming-trigger")
+                .action((x, c) => c.copy(streamingTrigger = x))
+                .text("Once / Continuous / ProcessingTime")
+                .required(),
+              opt[String]("streaming-trigger-option")
+                .action((x, c) => c.copy(streamingTriggerOption = x))
+                .text("10 seconds / ")
+                .required(),
+              opt[Boolean]("streaming-to-table")
+                .action((x, c) => c.copy(streamingToTable = x))
+                .text("10 seconds / ")
+                .required(),
+              opt[Seq[String]]("streaming-partition-by")
+                .action((x, c) => c.copy(streamingPartitionBy = x))
+                .text("10 seconds / ")
+                .required()
+            )
+        )
     )
   }
 

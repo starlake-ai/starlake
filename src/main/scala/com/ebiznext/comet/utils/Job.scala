@@ -8,6 +8,7 @@ import com.ebiznext.comet.utils.Formatter._
 import com.ebiznext.comet.utils.kafka.KafkaClient
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
+import org.apache.spark.sql.execution.datasources.jdbc.JDBCOptions
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.IntegerType
 import org.apache.spark.sql.{DataFrame, DataFrameWriter, Row, SparkSession}
@@ -163,6 +164,8 @@ trait SparkJob extends JobBase {
     //or  BQ:[[ProjectID.]DATASET_ID.]TABLE_NAME.[comet_filter(col1 > 10 and col2 < 20)].[comet_select(col1, col2)]"
     //or  FS:/bucket/parquetfolder
     //or  JDBC:postgres:select *
+    //or  KAFKA:topicConfigName
+    //or  KAFKA:stream:topicConfigName
     views.views.foreach { case (key, value) =>
       val valueWithEnv = Utils.subst(value, Nil, Nil, "comet_table", activeEnv)
       val sepIndex = valueWithEnv.indexOf(":")
@@ -195,13 +198,21 @@ trait SparkJob extends JobBase {
           jdbcConfig.options
             .foldLeft(session.read)((w, kv) => w.option(kv._1, kv._2))
             .format(jdbcConfig.format)
-            .option("query", path.richFormat(sqlParameters))
+            .option(JDBCOptions.JDBC_QUERY_STRING, path.richFormat(sqlParameters))
             .load()
             .cache()
 
         case KAFKA =>
-          Utils.withResources(new KafkaClient(settings.comet.kafka)) { kafkaJob =>
-            kafkaJob.consumeTopic(path, session, settings.comet.kafka.topics(path))._1
+          configName match {
+            case Some(x) if x.toLowerCase() == "stream" =>
+              Utils.withResources(new KafkaClient(settings.comet.kafka)) { kafkaJob =>
+                kafkaJob.consumeTopicStreaming(path, session, settings.comet.kafka.topics(path))
+              }
+            case _ =>
+              Utils.withResources(new KafkaClient(settings.comet.kafka)) { kafkaJob =>
+                kafkaJob.consumeTopicBatch(path, session, settings.comet.kafka.topics(path))._1
+              }
+
           }
         case BQ =>
           val TablePathWithFilter = "(.*)\\.comet_filter\\((.*)\\)".r
