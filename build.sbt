@@ -44,6 +44,7 @@ libraryDependencies ++= {
         CrossVersion.partialVersion(scalaVersion.value) match {
           case Some((2, 12)) => (spark_2d4_forScala_2d12, jackson212)
           case Some((2, 11)) => (spark_2d4_forScala_2d11, jackson211)
+          case _ => throw new Exception(s"Invalid Scala Version ${scalaVersion.value}")
         }
       case _   => throw new Exception(s"Invalid Spark Major Version $sparkMajor")
     }

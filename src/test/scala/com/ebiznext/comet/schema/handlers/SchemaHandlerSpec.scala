@@ -37,6 +37,7 @@ import scala.util.Try
 
 class SchemaHandlerSpec extends TestHelper {
   val esContainer: ElasticsearchContainer = ElasticsearchContainer.Def().start()
+
   override def afterAll(): Unit = {
     // We need to start it manually because we need to access the HTTP mapped port
     // in the configuration below before any test get executed.
