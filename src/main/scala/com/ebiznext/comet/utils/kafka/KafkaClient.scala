@@ -145,8 +145,6 @@ class KafkaClient(kafkaConfig: KafkaConfig) extends StrictLogging with AutoClose
     config: KafkaTopicOptions
   ): (DataFrame, List[(Int, Long)]) = {
     val EARLIEST_OFFSET = -2L
-    val reader = session.read
-      .format("kafka")
     val startOffsets =
       topicCurrentOffsets(config.name.getOrElse(topicConfigName))
         .getOrElse {
@@ -164,15 +162,13 @@ class KafkaClient(kafkaConfig: KafkaConfig) extends StrictLogging with AutoClose
     )
     // TODO Loop based on maxRead need to be implemented here
 
+    val reader = session.read.format("kafka")
     val df =
       withOffsetsTopicOptions
         .foldLeft(reader)((reader, option) => reader.option(option._1, option._2))
         .load()
         .selectExpr(config.fields.map(x => s"CAST($x)"): _*)
     df.printSchema()
-    logger.whenDebugEnabled {
-      df.collect().foreach(r => logger.debug(r.toString()))
-    }
     (df, endOffsets)
   }
 
@@ -181,8 +177,7 @@ class KafkaClient(kafkaConfig: KafkaConfig) extends StrictLogging with AutoClose
     session: SparkSession,
     config: KafkaTopicOptions
   ): DataFrame = {
-    val reader = session.readStream
-      .format("kafka")
+    val reader = session.readStream.format("kafka")
     val df =
       config.accessOptions
         .foldLeft(reader)((reader, option) => reader.option(option._1, option._2))

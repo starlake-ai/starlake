@@ -56,7 +56,7 @@ class JsonIngestionJob(
       val jsonRDD =
         session.sparkContext.wholeTextFiles(path.map(_.toString).mkString(",")).map(_._2)
       import org.apache.spark.sql._
-      session.createDataset(jsonRDD)(Encoders.STRING)
+      session.read.json(session.createDataset(jsonRDD)(Encoders.STRING)).toJSON
 
     } else {
       session.read
