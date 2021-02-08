@@ -82,7 +82,7 @@ class SchemaSpec extends TestHelper {
     }
 
     "Position serialization" should "output all fields" in {
-      val yml = loadTextFile(s"/expected/yml/position_serialization_${versionSuffix}.comet.yml")
+      val yml = loadTextFile(s"/expected/yml/position_serialization.comet.yml")
 
       val attr =
         Attribute("hello", position = Some(Position(1, 2)))

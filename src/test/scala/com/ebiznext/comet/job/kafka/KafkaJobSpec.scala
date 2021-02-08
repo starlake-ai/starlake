@@ -31,84 +31,143 @@ class KafkaJobSpec extends TestHelper {
     esContainer.stop()
     super.afterAll()
   }
-  val esPort = s"${esContainer.httpHostAddress.substring(esContainer.httpHostAddress.lastIndexOf(':') + 1)}"
+
+  val esPort =
+    s"${esContainer.httpHostAddress.substring(esContainer.httpHostAddress.lastIndexOf(':') + 1)}"
 
   val kafkaConfig = ConfigFactory
-    .parseString(s"""
-           |kafka {
-           |  server-options = {
-           |      "bootstrap.servers": "${kafkaContainer.bootstrapServers}"
-           |  }
-           |  topics {
-           |    "test_offload": {
-           |      max-read = 0
-           |      fields = ["key as STRING", "value as STRING"]
-           |      write-format = "parquet"
-           |      access-options = {
-           |        "kafka.bootstrap.servers": "${kafkaContainer.bootstrapServers}"
-           |        "bootstrap.servers": "${kafkaContainer.bootstrapServers}"
-           |        "key.deserializer": "org.apache.kafka.common.serialization.StringDeserializer"
-           |        "value.deserializer": "org.apache.kafka.common.serialization.StringDeserializer"
-           |        "key.serializer": "org.apache.kafka.common.serialization.StringSerializer"
-           |        "value.serializer": "org.apache.kafka.common.serialization.StringSerializer"
-           |        "subscribe": "test_offload"
-           |      }
-           |    },
-           |    "test_load": {
-           |      max-read = 0
-           |      fields = ["key as STRING", "value as STRING"]
-           |      write-format = "parquet"
-           |      access-options = {
-           |        "kafka.bootstrap.servers": "${kafkaContainer.bootstrapServers}"
-           |        "bootstrap.servers": "${kafkaContainer.bootstrapServers}"
-           |        "key.deserializer": "org.apache.kafka.common.serialization.StringDeserializer"
-           |        "value.deserializer": "org.apache.kafka.common.serialization.StringDeserializer"
-           |        "key.serializer": "org.apache.kafka.common.serialization.StringSerializer"
-           |        "value.serializer": "org.apache.kafka.common.serialization.StringSerializer"
-           |        "subscribe": "test_load"
-           |      }
-           |    },
-           |    "comet_offsets": {
-           |      max-read = 0
-           |      partitions = 1
-           |      replication-factor = 1
-           |      write-format = "parquet"
-           |      create-potions {
-           |        "cleanup.policy": "compact"
-           |      }
-           |      access-options = {
-           |        "kafka.bootstrap.servers": "${kafkaContainer.bootstrapServers}"
-           |        "auto.offset.reset": "earliest"
-           |        "auto.commit.enable": "false"
-           |        "consumer.timeout.ms": "10"
-           |        "bootstrap.servers": "${kafkaContainer.bootstrapServers}"
-           |        "key.deserializer": "org.apache.kafka.common.serialization.StringDeserializer",
-           |        "value.deserializer": "org.apache.kafka.common.serialization.StringDeserializer"
-           |        "subscribe": "comet_offsets"
-           |      }
-           |    }
-           |  }
-           |}
-           |elasticsearch {
-           |  active = true
-           |  options = {
-           |    "es.nodes.wan.only": "true"
-           |    "es.index.auto.create": "true"
-           |    "es.nodes": "localhost"
-           |    "es.port": "$esPort"
-           |    #  net.http.auth.user = ""
-           |    #  net.http.auth.pass = ""
-           |
-           |    "es.net.ssl": "false",
-           |    "es.net.ssl.cert.allow.self.signed": "false"
-           |
-           |    "es.batch.size.entries": "1000"
-           |    "es.batch.size.bytes": "1mb"
-           |    "es.batch.write.retry.count": "3"
-           |    "es.batch.write.retry.wait": "10s"
-           |  }
-           |}
-           |""".stripMargin)
+    .parseString(
+      s"""
+         |kafka {
+         |  server-options = {
+         |      "bootstrap.servers": "${kafkaContainer.bootstrapServers}"
+         |  }
+         |  topics {
+         |    "test_offload": {
+         |      max-read = 0
+         |      fields = ["key as STRING", "value as STRING"]
+         |      write-format = "parquet"
+         |      access-options = {
+         |        "kafka.bootstrap.servers": "${kafkaContainer.bootstrapServers}"
+         |        "bootstrap.servers": "${kafkaContainer.bootstrapServers}"
+         |        "key.deserializer": "org.apache.kafka.common.serialization.StringDeserializer"
+         |        "value.deserializer": "org.apache.kafka.common.serialization.StringDeserializer"
+         |        "key.serializer": "org.apache.kafka.common.serialization.StringSerializer"
+         |        "value.serializer": "org.apache.kafka.common.serialization.StringSerializer"
+         |        "subscribe": "test_offload"
+         |      }
+         |    },
+         |    "test_load": {
+         |      max-read = 0
+         |      fields = ["key as STRING", "value as STRING"]
+         |      write-format = "parquet"
+         |      access-options = {
+         |        "kafka.bootstrap.servers": "${kafkaContainer.bootstrapServers}"
+         |        "bootstrap.servers": "${kafkaContainer.bootstrapServers}"
+         |        "key.deserializer": "org.apache.kafka.common.serialization.StringDeserializer"
+         |        "value.deserializer": "org.apache.kafka.common.serialization.StringDeserializer"
+         |        "key.serializer": "org.apache.kafka.common.serialization.StringSerializer"
+         |        "value.serializer": "org.apache.kafka.common.serialization.StringSerializer"
+         |        "subscribe": "test_load"
+         |      }
+         |    },
+         |    "kafka_to_es": {
+         |      max-read = 0
+         |      fields = ["key as STRING", "value as STRING"]
+         |      write-format = "parquet"
+         |      access-options = {
+         |        "kafka.bootstrap.servers": "${kafkaContainer.bootstrapServers}"
+         |        "bootstrap.servers": "${kafkaContainer.bootstrapServers}"
+         |        "key.deserializer": "org.apache.kafka.common.serialization.StringDeserializer"
+         |        "value.deserializer": "org.apache.kafka.common.serialization.StringDeserializer"
+         |        "key.serializer": "org.apache.kafka.common.serialization.StringSerializer"
+         |        "value.serializer": "org.apache.kafka.common.serialization.StringSerializer"
+         |        "subscribe": "test_load"
+         |      }
+         |    },
+         |    "stream_kafka_to_kafka": {
+         |      max-read = 0
+         |      fields = ["key as STRING", "value as STRING"]
+         |      write-format = "parquet"
+         |      access-options = {
+         |        "kafka.bootstrap.servers": "${kafkaContainer.bootstrapServers}"
+         |        "bootstrap.servers": "${kafkaContainer.bootstrapServers}"
+         |        "key.deserializer": "org.apache.kafka.common.serialization.StringDeserializer"
+         |        "value.deserializer": "org.apache.kafka.common.serialization.StringDeserializer"
+         |        "key.serializer": "org.apache.kafka.common.serialization.StringSerializer"
+         |        "value.serializer": "org.apache.kafka.common.serialization.StringSerializer"
+         |        "subscribe": "test_load"
+         |      }
+         |    },
+         |    "stream_kafka_to_es": {
+         |      max-read = 0
+         |      fields = ["key as STRING", "value as STRING"]
+         |      write-format = "parquet"
+         |      access-options = {
+         |        "kafka.bootstrap.servers": "${kafkaContainer.bootstrapServers}"
+         |        "bootstrap.servers": "${kafkaContainer.bootstrapServers}"
+         |        "key.deserializer": "org.apache.kafka.common.serialization.StringDeserializer"
+         |        "value.deserializer": "org.apache.kafka.common.serialization.StringDeserializer"
+         |        "key.serializer": "org.apache.kafka.common.serialization.StringSerializer"
+         |        "value.serializer": "org.apache.kafka.common.serialization.StringSerializer"
+         |        "subscribe": "test_load"
+         |      }
+         |    },
+         |    "stream_kafka_to_table": {
+         |      max-read = 0
+         |      fields = ["key as STRING", "value as STRING"]
+         |      write-format = "parquet"
+         |      access-options = {
+         |        "kafka.bootstrap.servers": "${kafkaContainer.bootstrapServers}"
+         |        "bootstrap.servers": "${kafkaContainer.bootstrapServers}"
+         |        "key.deserializer": "org.apache.kafka.common.serialization.StringDeserializer"
+         |        "value.deserializer": "org.apache.kafka.common.serialization.StringDeserializer"
+         |        "key.serializer": "org.apache.kafka.common.serialization.StringSerializer"
+         |        "value.serializer": "org.apache.kafka.common.serialization.StringSerializer"
+         |        "subscribe": "test_load"
+         |      }
+         |    },
+         |    "comet_offsets": {
+         |      max-read = 0
+         |      partitions = 1
+         |      replication-factor = 1
+         |      write-format = "parquet"
+         |      create-potions {
+         |        "cleanup.policy": "compact"
+         |      }
+         |      access-options = {
+         |        "kafka.bootstrap.servers": "${kafkaContainer.bootstrapServers}"
+         |        "auto.offset.reset": "earliest"
+         |        "auto.commit.enable": "false"
+         |        "consumer.timeout.ms": "10"
+         |        "bootstrap.servers": "${kafkaContainer.bootstrapServers}"
+         |        "key.deserializer": "org.apache.kafka.common.serialization.StringDeserializer",
+         |        "value.deserializer": "org.apache.kafka.common.serialization.StringDeserializer"
+         |        "subscribe": "comet_offsets"
+         |      }
+         |    }
+         |  }
+         |}
+         |elasticsearch {
+         |  active = true
+         |  options = {
+         |    "es.nodes.wan.only": "true"
+         |    "es.index.auto.create": "true"
+         |    "es.nodes": "localhost"
+         |    "es.port": "$esPort"
+         |    #  net.http.auth.user = ""
+         |    #  net.http.auth.pass = ""
+         |
+         |    "es.net.ssl": "false",
+         |    "es.net.ssl.cert.allow.self.signed": "false"
+         |
+         |    "es.batch.size.entries": "1000"
+         |    "es.batch.size.bytes": "1mb"
+         |    "es.batch.write.retry.count": "3"
+         |    "es.batch.write.retry.wait": "10s"
+         |  }
+         |}
+         |""".stripMargin)
     .withFallback(super.testConfiguration)
 
   new WithSettings(kafkaConfig) {
@@ -142,8 +201,8 @@ class KafkaJobSpec extends TestHelper {
       val topicProperties = Map("cleanup.policy" -> "compact")
       client.createTopicIfNotPresent(new NewTopic("comet_offsets", 1, 1.toShort), topicProperties)
       val properties = Map(
-        "bootstrap.servers"  -> kafkaContainer.bootstrapServers,
-        "key.deserializer"   -> "org.apache.kafka.common.serialization.StringDeserializer",
+        "bootstrap.servers" -> kafkaContainer.bootstrapServers,
+        "key.deserializer" -> "org.apache.kafka.common.serialization.StringDeserializer",
         "value.deserializer" -> "org.apache.kafka.common.serialization.StringDeserializer"
       )
       val offsets = client.topicEndOffsets("comet_offsets", properties)
@@ -162,9 +221,9 @@ class KafkaJobSpec extends TestHelper {
       writer.close()
       file
     }
+
     "Offload messages from Kafka" should "work" in {
       val client = new KafkaClient(settings.comet.kafka)
-      client.deleteTopic("test_offload")
       client.createTopicIfNotPresent(new NewTopic("test_offload", 1, 1.toShort), Map.empty)
       val file = createTempJsonDataFile(5000)
       val kafkaJob =
@@ -211,38 +270,38 @@ class KafkaJobSpec extends TestHelper {
     }
 
     "Offload from Kafka to Elasticsearch" should "work" in {
-      val file = createTempJsonDataFile(100)
-      val client = new KafkaClient(settings.comet.kafka)
-      client.deleteTopic("test_load")
-      client.createTopicIfNotPresent(new NewTopic("test_load", 1, 1.toShort), Map.empty)
-      val kafkaJob =
-        new KafkaJob(
-          KafkaJobConfig(
-            "test_load",
-            "json",
-            SaveMode.Overwrite,
-            file.getAbsolutePath,
-            offload = false
-          )
-        )
-      kafkaJob.run()
-      val offsets =
-        client.topicEndOffsets("test_load", settings.comet.kafka.topics("test_load").accessOptions)
-      offsets should contain theSameElementsAs List((0, 100))
-      import scala.collection.JavaConverters._
-
-      val kafkaJobToEs =
-        new KafkaJob(
-          KafkaJobConfig(
-            "test_load",
-            "org.elasticsearch.spark.sql",
-            SaveMode.Overwrite,
-            "test/_doc",
-            writeOptions = settings.comet.elasticsearch.options.asScala.toMap
-          )
-        )
-      kafkaJobToEs.run()
       if (settings.comet.isElasticsearchSupported()) {
+        val file = createTempJsonDataFile(100)
+        val client = new KafkaClient(settings.comet.kafka)
+        client.deleteTopic("kafka_to_es")
+        client.createTopicIfNotPresent(new NewTopic("kafka_to_es", 1, 1.toShort), Map.empty)
+        val kafkaJob =
+          new KafkaJob(
+            KafkaJobConfig(
+              "kafka_to_es",
+              "json",
+              SaveMode.Overwrite,
+              file.getAbsolutePath,
+              offload = false
+            )
+          )
+        kafkaJob.run()
+        val offsets =
+          client.topicEndOffsets("kafka_to_es", settings.comet.kafka.topics("kafka_to_es").accessOptions)
+        offsets should contain theSameElementsAs List((0, 100))
+        import scala.collection.JavaConverters._
+
+        val kafkaJobToEs =
+          new KafkaJob(
+            KafkaJobConfig(
+              "kafka_to_es",
+              "org.elasticsearch.spark.sql",
+              SaveMode.Overwrite,
+              "test/_doc",
+              writeOptions = settings.comet.elasticsearch.options.asScala.toMap
+            )
+          )
+        kafkaJobToEs.run()
         implicit val backend = HttpURLConnectionBackend()
         val countUri = uri"http://${esContainer.httpHostAddress}/test/_count"
         val response = sttp.get(countUri).send()
@@ -251,43 +310,43 @@ class KafkaJobSpec extends TestHelper {
         assert(response.body.isRight)
         response.body.right.toString() contains "\"count\":100"
       }
-      kafkaJobToEs.run()
-
     }
 
     "Stream from Kafka to Kafka" should "work" in {
-      val file = createTempJsonDataFile(100)
-      val client = new KafkaClient(settings.comet.kafka)
-      client.deleteTopic("test_load")
-      client.createTopicIfNotPresent(new NewTopic("test_load", 1, 1.toShort), Map.empty)
-      val kafkaJob =
-        new KafkaJob(
-          KafkaJobConfig(
-            "test_load",
-            "json",
-            SaveMode.Overwrite,
-            file.getAbsolutePath,
-            offload = false
-          )
-        )
-      kafkaJob.run()
-      val offsets =
-        client.topicEndOffsets("test_load", settings.comet.kafka.topics("test_load").accessOptions)
-      offsets should contain theSameElementsAs List((0, 100))
-      import scala.collection.JavaConverters._
+      ???
+    }
 
-      val kafkaJobToKafka =
-        new KafkaJob(
-          KafkaJobConfig(
-            "test_load",
-            "org.elasticsearch.spark.sql",
-            SaveMode.Overwrite,
-            "test/_doc",
-            writeOptions = settings.comet.elasticsearch.options.asScala.toMap
-          )
-        )
-      kafkaJobToEs.run()
+    "Stream from Kafka to Elasticsearch" should "work" in {
       if (settings.comet.isElasticsearchSupported()) {
+        val file = createTempJsonDataFile(100)
+        val client = new KafkaClient(settings.comet.kafka)
+        client.deleteTopic("stream_kafka_to_es")
+        client.createTopicIfNotPresent(new NewTopic("stream_kafka_to_es", 1, 1.toShort), Map.empty)
+        val kafkaJob =
+          new KafkaJob(
+            KafkaJobConfig(
+              "stream_kafka_to_es",
+              "json",
+              SaveMode.Overwrite,
+              file.getAbsolutePath,
+              offload = false
+            )
+          )
+        kafkaJob.run()
+        import scala.collection.JavaConverters._
+
+        val kafkaJobToEs =
+          new KafkaJob(
+            KafkaJobConfig(
+              "stream_kafka_to_es",
+              "org.elasticsearch.spark.sql",
+              SaveMode.Overwrite,
+              "test/_doc",
+              writeOptions = settings.comet.elasticsearch.options.asScala.toMap,
+              streaming = true
+            )
+          )
+        kafkaJobToEs.run()
         implicit val backend = HttpURLConnectionBackend()
         val countUri = uri"http://${esContainer.httpHostAddress}/test/_count"
         val response = sttp.get(countUri).send()
@@ -296,11 +355,6 @@ class KafkaJobSpec extends TestHelper {
         assert(response.body.isRight)
         response.body.right.toString() contains "\"count\":100"
       }
-      kafkaJobToEs.run()
-    }
-
-    "Stream from Kafka to Elasticsearch" should "work" in {
-      ???
     }
 
     "Stream from Kafka to Table" should "work" in {
