@@ -115,7 +115,7 @@ object SparkAuditLogWriter {
     val fields = auditCols.map { attribute =>
       Field
         .newBuilder(attribute._1, attribute._2)
-        .setMode(Field.Mode.REQUIRED)
+        .setMode(Field.Mode.NULLABLE)
         .setDescription("")
         .build()
     }
@@ -148,20 +148,21 @@ object SparkAuditLogWriter {
       .createDataFrame(
         auditTypedRDD.toDF().rdd,
         StructType(
-          auditCols.map(col => StructField(col._1, col._3, nullable = false))
+          auditCols.map(col => StructField(col._1, col._3, nullable = true))
         )
       )
       .toDF(auditCols.map(_._1): _*)
 
     settings.comet.audit.sink match {
-      case JdbcSink(_, connectionName, partitions, batchSize) =>
+      case sink: JdbcSink =>
         val jdbcConfig = ConnectionLoadConfig.fromComet(
-          connectionName,
+          sink.connection,
           settings.comet,
           Right(auditDF),
           "audit",
-          partitions = partitions.getOrElse(1),
-          batchSize = batchSize.getOrElse(1000)
+          partitions = sink.partitions.getOrElse(1),
+          batchSize = sink.batchsize.getOrElse(1000),
+          options = sink.options
         )
         new ConnectionLoadJob(jdbcConfig).run()
 
@@ -176,7 +177,8 @@ object SparkAuditLogWriter {
           "CREATE_IF_NEEDED",
           "WRITE_APPEND",
           None,
-          None
+          None,
+          options = Map("allowFieldAddition" -> "true")
         )
         new BigQuerySparkJob(bqConfig, Some(bigqueryAuditSchema())).run()
 
