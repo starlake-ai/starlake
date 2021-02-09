@@ -6,7 +6,6 @@ import com.ebiznext.comet.utils.{JobResult, SparkJob, SparkJobResult, Utils}
 import com.google.cloud.ServiceOptions
 import com.google.cloud.bigquery.{
   BigQuery,
-  BigQueryException,
   BigQueryOptions,
   Clustering,
   JobInfo,
@@ -50,28 +49,10 @@ class BigQuerySparkJob(
     }
 
     val writeDisposition = JobInfo.WriteDisposition.valueOf(cliConfig.writeDisposition)
-    val finalWriteDisposition = (writeDisposition, cliConfig.outputPartition) match {
-      case (JobInfo.WriteDisposition.WRITE_TRUNCATE, Some(partition)) =>
-        logger.info(s"Overwriting partition $partition of Table $tableId")
-        logger.info(s"Setting Write mode to Overwrite")
-        JobInfo.WriteDisposition.WRITE_TRUNCATE
-      case (JobInfo.WriteDisposition.WRITE_TRUNCATE, _) =>
-        try {
-          bigquery.delete(tableId)
-        } catch {
-          case e: BigQueryException =>
-            // Log error and continue  (may be table does not exist)
-            Utils.logException(logger, e)
-        }
-        logger.info(s"Setting Write mode to Append")
-        JobInfo.WriteDisposition.WRITE_APPEND
-      case _ =>
-        writeDisposition
-    }
 
     conf.set(
       BigQueryConfiguration.OUTPUT_TABLE_WRITE_DISPOSITION_KEY,
-      finalWriteDisposition.toString
+      writeDisposition.toString
     )
     conf.set(
       BigQueryConfiguration.OUTPUT_TABLE_CREATE_DISPOSITION_KEY,
@@ -185,10 +166,12 @@ class BigQuerySparkJob(
               .option("intermediateFormat", intermediateFormat)
               .save()
           )
-        case _ =>
+        case (writeDisposition, _) =>
+          val saveMode =
+            if (writeDisposition == "WRITE_TRUNCATE") SaveMode.Overwrite else SaveMode.Append
           logger.info(s"Saving BQ Table $bqTable")
           sourceDF.write
-            .mode(SaveMode.Append)
+            .mode(saveMode)
             .format("com.google.cloud.spark.bigquery")
             .option("table", bqTable)
             .option("intermediateFormat", intermediateFormat)
