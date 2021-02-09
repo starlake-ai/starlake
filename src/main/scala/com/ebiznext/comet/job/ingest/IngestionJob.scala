@@ -105,7 +105,7 @@ trait IngestionJob extends SparkJob {
           success = true,
           -1,
           -1,
-          rejectedRDD.count(),
+          -1,
           start,
           end.getTime - start.getTime,
           "success",
@@ -124,7 +124,7 @@ trait IngestionJob extends SparkJob {
           success = false,
           -1,
           -1,
-          rejectedRDD.count(),
+          -1,
           start,
           end.getTime - start.getTime,
           Utils.exceptionAsString(exception),
@@ -260,7 +260,7 @@ trait IngestionJob extends SparkJob {
           success = true,
           -1,
           -1,
-          mergedDF.count(),
+          -1,
           start,
           end.getTime - start.getTime,
           "success",
@@ -278,7 +278,7 @@ trait IngestionJob extends SparkJob {
           success = false,
           -1,
           -1,
-          mergedDF.count(),
+          -1,
           start,
           end.getTime - start.getTime,
           Utils.exceptionAsString(exception),
@@ -301,7 +301,8 @@ trait IngestionJob extends SparkJob {
             format = "parquet",
             domain = domain.name,
             schema = schema.name,
-            dataset = Some(Right(mergedDF))
+            dataset = Some(Right(mergedDF)),
+            options = sink.map(_.options).getOrElse(Map.empty)
           )
           new ESLoadJob(config, storageHandler, schemaHandler).run()
         case SinkType.ES if !settings.comet.elasticsearch.active =>
@@ -328,7 +329,8 @@ trait IngestionJob extends SparkJob {
             outputClustering = sink.flatMap(_.clustering).getOrElse(Nil),
             days = sink.flatMap(_.days),
             requirePartitionFilter = sink.flatMap(_.requirePartitionFilter).getOrElse(false),
-            rls = schema.rls
+            rls = schema.rls,
+            options = sink.map(_.options).getOrElse(Map.empty)
           )
           val res = new BigQuerySparkJob(config, tableSchema).run()
           res match {
@@ -364,7 +366,8 @@ trait IngestionJob extends SparkJob {
               createDisposition = createDisposition,
               writeDisposition = writeDisposition,
               partitions = partitions,
-              batchSize = batchSize
+              batchSize = batchSize,
+              options = sink.options
             )
 
             val res = new ConnectionLoadJob(jdbcConfig).run()
@@ -851,18 +854,20 @@ object IngestionUtil {
             "CREATE_IF_NEEDED",
             "WRITE_APPEND",
             None,
-            None
+            None,
+            options = Map("allowFieldAddition" -> "true")
           )
           new BigQuerySparkJob(bqConfig, Some(bigqueryRejectedSchema())).run()
 
-        case JdbcSink(_, jdbcName, partitions, batchSize) =>
+        case sink: JdbcSink =>
           val jdbcConfig = ConnectionLoadConfig.fromComet(
-            jdbcName,
+            sink.connection,
             settings.comet,
             Right(rejectedDF),
             "rejected",
-            partitions = partitions.getOrElse(1),
-            batchSize = batchSize.getOrElse(1000)
+            partitions = sink.partitions.getOrElse(1),
+            batchSize = sink.batchsize.getOrElse(1000),
+            options = sink.options
           )
 
           new ConnectionLoadJob(jdbcConfig).run()
