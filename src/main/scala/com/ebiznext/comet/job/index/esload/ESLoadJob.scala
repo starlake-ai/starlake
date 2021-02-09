@@ -39,7 +39,7 @@ class ESLoadJob(
 
   val esresource = Some(("es.resource.write", s"${cliConfig.getResource()}"))
   val esId = cliConfig.id.map("es.mapping.id" -> _)
-  val esCliConf = cliConfig.conf ++ List(esresource, esId).flatten.toMap
+  val esCliConf = cliConfig.options ++ List(esresource, esId).flatten.toMap
   val path = cliConfig.getDataset()
   val format = cliConfig.format
   val dataset = cliConfig.dataset
