@@ -513,7 +513,8 @@ class IngestionWorkflow(
                       outputClustering = bqSink.clustering.getOrElse(Nil),
                       days = bqSink.days,
                       requirePartitionFilter = bqSink.requirePartitionFilter.getOrElse(false),
-                      rls = task.rls
+                      rls = task.rls,
+                      options = bqSink.options
                     )
                   val result = new BigQuerySparkJob(config, None).run()
                   result.isSuccess
@@ -539,7 +540,8 @@ class IngestionWorkflow(
                     writeDisposition = WriteDisposition.valueOf(writeDisposition),
                     partitions = partitions,
                     batchSize = batchSize,
-                    createTableIfAbsent = false
+                    createTableIfAbsent = false,
+                    options = jdbcSink.options
                   )
 
                   val res = new ConnectionLoadJob(jdbcConfig).run()
@@ -579,7 +581,8 @@ class IngestionWorkflow(
         format = "parquet",
         domain = task.domain,
         schema = task.dataset,
-        dataset = Some(Left(targetPath))
+        dataset = Some(Left(targetPath)),
+        options = sink.options
       )
     )
   }

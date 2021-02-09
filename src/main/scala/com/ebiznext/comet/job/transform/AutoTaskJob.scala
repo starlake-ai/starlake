@@ -90,7 +90,8 @@ class AutoTaskJob(
       days = bqSink.days,
       requirePartitionFilter = bqSink.requirePartitionFilter.getOrElse(false),
       rls = task.rls,
-      engine = Engine.BQ
+      engine = Engine.BQ,
+      options = bqSink.options
     )
   }
 
@@ -301,7 +302,7 @@ class AutoTaskJob(
       success,
       -1,
       -1,
-      jobResultCount,
+      -1,
       start,
       end.getTime - start.getTime,
       message,
