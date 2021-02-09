@@ -314,7 +314,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       val job = new BigQuerySparkJob(config)
       val conf = job.prepareConf()
 
-      conf.get(BigQueryConfiguration.OUTPUT_TABLE_WRITE_DISPOSITION_KEY) shouldEqual "WRITE_APPEND"
+      conf.get(BigQueryConfiguration.OUTPUT_TABLE_WRITE_DISPOSITION_KEY) shouldEqual "WRITE_TRUNCATE"
       conf.get(
         BigQueryConfiguration.OUTPUT_TABLE_CREATE_DISPOSITION_KEY
       ) shouldEqual "CREATE_IF_NEEDED"
