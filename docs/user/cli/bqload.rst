@@ -48,9 +48,9 @@ Options
     *Optional*. BigQuery Clustering Fields
 
 
-.. option:: --output_clustering: k1=v1,k2=v2...
+.. option:: --options: k1=v1,k2=v2...
 
-    *Optional*. BigQuery Clustering Fields
+    *Optional*. BigQuery Sink Options
 
 
 .. option:: --source_format: <value>
