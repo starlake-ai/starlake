@@ -20,14 +20,14 @@
 
 package com.ebiznext.comet.job.index.esload
 
-import java.util.regex.Pattern
-
 import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.schema.model.RowLevelSecurity
 import com.ebiznext.comet.utils.CliConfig
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.DataFrame
 import scopt.OParser
+
+import java.util.regex.Pattern
 
 case class ESLoadConfig(
   timestamp: Option[String] = None,
@@ -37,7 +37,7 @@ case class ESLoadConfig(
   schema: String = "",
   format: String = "",
   dataset: Option[Either[Path, DataFrame]] = None,
-  conf: Map[String, String] = Map(),
+  options: Map[String, String] = Map.empty,
   rls: Option[List[RowLevelSecurity]] = None
 ) {
 
@@ -114,7 +114,7 @@ object ESLoadConfig extends CliConfig[ESLoadConfig] {
         .optional()
         .text("Input dataset path"),
       opt[Map[String, String]]("conf")
-        .action((x, c) => c.copy(conf = x))
+        .action((x, c) => c.copy(options = x))
         .optional()
         .valueName("es.batch.size.entries=1000,es.batch.size.bytes=1mb...")
         .text("""eshadoop configuration options.
