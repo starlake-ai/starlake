@@ -48,6 +48,11 @@ Options
     *Optional*. BigQuery Clustering Fields
 
 
+.. option:: --options: k1=v1,k2=v2...
+
+    *Optional*. BigQuery Sink Options
+
+
 .. option:: --source_format: <value>
 
     *Optional*. Source Format eq. parquet. This option is ignored, Only parquet source format is supported at this time
