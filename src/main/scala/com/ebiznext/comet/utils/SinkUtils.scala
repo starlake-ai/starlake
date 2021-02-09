@@ -19,18 +19,19 @@ class SinkUtils(implicit settings: Settings) extends StrictLogging {
 
       case sink: BigQuerySink =>
         Try {
-          sinkToBigQuery(dataframe, sink.name.getOrElse(table), table)
+          sinkToBigQuery(dataframe, sink.name.getOrElse(table), table, sink.options)
         }
 
-      case JdbcSink(_, jdbcConnection, partitions, batchSize) =>
+      case sink: JdbcSink =>
         Try {
           val jdbcConfig = ConnectionLoadConfig.fromComet(
-            jdbcConnection,
+            sink.connection,
             settings.comet,
             Right(dataframe),
             table,
-            partitions = partitions.getOrElse(1),
-            batchSize = batchSize.getOrElse(1000)
+            partitions = sink.partitions.getOrElse(1),
+            batchSize = sink.batchsize.getOrElse(1000),
+            options = sink.options
           )
           sinkToJdbc(jdbcConfig)
         }
@@ -42,7 +43,8 @@ class SinkUtils(implicit settings: Settings) extends StrictLogging {
   private def sinkToBigQuery(
     dataframe: DataFrame,
     bqDataset: String,
-    bqTable: String
+    bqTable: String,
+    options: Map[String, String]
   ): Unit = {
     if (dataframe.count() > 0) {
       val config = BigQueryLoadConfig(
@@ -55,7 +57,8 @@ class SinkUtils(implicit settings: Settings) extends StrictLogging {
         "CREATE_IF_NEEDED",
         "WRITE_APPEND",
         None,
-        None
+        None,
+        options = options
       )
       // Do not pass the schema here. Not that we do not compute the schema correctly
       // But since we are having a record of repeated field BQ does not like

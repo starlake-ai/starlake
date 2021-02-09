@@ -64,6 +64,7 @@ object ConnectionLoadConfig extends CliConfig[ConnectionLoadConfig] {
     writeDisposition: WriteDisposition = WriteDisposition.WRITE_APPEND,
     partitions: Int = 1,
     batchSize: Int = 1000,
+    options: Map[String, String],
     createTableIfAbsent: Boolean = true
   ): ConnectionLoadConfig = {
     // TODO: wanted to just call this "apply" but I'd need to get rid of the defaults in the ctor above
@@ -83,7 +84,7 @@ object ConnectionLoadConfig extends CliConfig[ConnectionLoadConfig] {
       writeDisposition = writeDisposition,
       jdbcOptions.format,
       jdbcOptions.mode,
-      jdbcOptions.options
+      jdbcOptions.options ++ options
     )
   }
 

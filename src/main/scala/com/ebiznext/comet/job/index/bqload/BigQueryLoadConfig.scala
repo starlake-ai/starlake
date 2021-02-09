@@ -18,7 +18,8 @@ case class BigQueryLoadConfig(
   days: Option[Int] = None,
   rls: Option[List[RowLevelSecurity]] = None,
   requirePartitionFilter: Boolean = false,
-  engine: Engine = Engine.SPARK
+  engine: Engine = Engine.SPARK,
+  options: Map[String, String] = Map.empty
 ) {
   def getLocation(): String = this.location.getOrElse("EU")
 }
@@ -56,6 +57,11 @@ object BigQueryLoadConfig extends CliConfig[BigQueryLoadConfig] {
         .valueName("col1,col2...")
         .action((x, c) => c.copy(outputClustering = x))
         .text("BigQuery Clustering Fields")
+        .optional(),
+      opt[Map[String, String]]("options")
+        .valueName("k1=v1,k2=v2...")
+        .action((x, c) => c.copy(options = x))
+        .text("BigQuery Sink Options")
         .optional(),
       opt[String]("source_format")
         .action((x, c) => c.copy(sourceFormat = x))
