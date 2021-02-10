@@ -178,7 +178,7 @@ object SparkAuditLogWriter {
           "WRITE_APPEND",
           None,
           None,
-          options = Map("allowFieldAddition" -> "true")
+          options = sink.options
         )
         new BigQuerySparkJob(bqConfig, Some(bigqueryAuditSchema())).run()
 
