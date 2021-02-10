@@ -22,7 +22,6 @@ package com.ebiznext.comet.config
 
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
-
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.SparkSession
@@ -64,8 +63,9 @@ class SparkEnv(name: String)(implicit settings: Settings) extends StrictLogging 
     val session =
       if (settings.comet.hive)
         SparkSession.builder.config(config).enableHiveSupport().getOrCreate()
-      else
+      else {
         SparkSession.builder.config(config).getOrCreate()
+      }
     logger.info("Spark Version -> " + session.version)
     logger.info(session.conf.getAll.mkString("\n"))
     session
