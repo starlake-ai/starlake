@@ -1,5 +1,17 @@
 # Release notes
 
+## 0.1.34
+__New feature__:
+- Allow sink options to be defined in YML instead of Spark Submit
+
+## 0.1.29
+__Bugfix__:
+- Support correctly merge mode in BQ
+
+## 0.1.27
+__New feature__:
+- Kafka Support improved
+
 ## 0.1.26
 __New feature__:
 - Optionally sink to file using property sink-to-file = ${?COMET_SINK_TO_FILE}
