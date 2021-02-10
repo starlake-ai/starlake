@@ -155,18 +155,17 @@ class BigQuerySparkJob(
             .map(r => r.getString(0))
             .collect()
 
-          partitions.foreach {
-            partitionStr =>
-              val finalDF =
-                sourceDF
-                  .where(date_format(col(partition), dateFormat).cast("string") === partitionStr)
-                  .write
-                  .mode(SaveMode.Overwrite)
-                  .format("com.google.cloud.spark.bigquery")
-                  .option("datePartition", partitionStr)
-                  .option("table", bqTable)
-                  .option("intermediateFormat", intermediateFormat)
-              cliConfig.options.foldLeft(finalDF)((w, kv) => w.option(kv._1, kv._2)).save()
+          partitions.foreach { partitionStr =>
+            val finalDF =
+              sourceDF
+                .where(date_format(col(partition), dateFormat).cast("string") === partitionStr)
+                .write
+                .mode(SaveMode.Overwrite)
+                .format("com.google.cloud.spark.bigquery")
+                .option("datePartition", partitionStr)
+                .option("table", bqTable)
+                .option("intermediateFormat", intermediateFormat)
+            cliConfig.options.foldLeft(finalDF)((w, kv) => w.option(kv._1, kv._2)).save()
           }
 
         case (writeDisposition, _) =>
