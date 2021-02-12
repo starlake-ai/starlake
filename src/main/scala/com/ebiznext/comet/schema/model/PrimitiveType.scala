@@ -284,9 +284,13 @@ object PrimitiveType {
         null
       else {
         val formatter = DateTimeFormatter.ofPattern(pattern)
-        val date = LocalDate.parse(str, formatter)
-        java.sql.Date.valueOf(date)
-
+        Try {
+          val date = LocalDate.parse(str, formatter)
+          java.sql.Date.valueOf(date)
+        } match {
+          case Success(value) => value
+          case Failure(_)     => java.sql.Date.valueOf(YearMonth.parse(str, formatter).atDay(1))
+        }
       }
     }
 
