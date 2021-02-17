@@ -80,9 +80,8 @@ class SinkTypeDeserializer extends JsonDeserializer[SinkType] {
   *               - ES : dataset is indexed into Elasticsearch. See EsSink below
   *               - BQ : Dataset is sinked to BigQuery. See BigQuerySink below
   *               - None: Don't sink. This is the default.
-  * @param name: String.
-  *             This optional name is used when the configuration is specified in the application.conf file instead of inline in the YAML file.
-  *             This is useful when the same sink parameters are used for different datasets.
+  * @param options: Map[String, String]
+  *             key,value options that are applied when running the sink
   */
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "type")
 @JsonSubTypes(
