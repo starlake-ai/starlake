@@ -19,7 +19,7 @@ class SinkUtils(implicit settings: Settings) extends StrictLogging {
 
       case sink: BigQuerySink =>
         Try {
-          sinkToBigQuery(dataframe, sink.name.getOrElse(table), table, sink.options)
+          sinkToBigQuery(dataframe, sink.name.getOrElse(table), table, sink.getOptions)
         }
 
       case sink: JdbcSink =>
@@ -31,7 +31,7 @@ class SinkUtils(implicit settings: Settings) extends StrictLogging {
             table,
             partitions = sink.partitions.getOrElse(1),
             batchSize = sink.batchsize.getOrElse(1000),
-            options = sink.options
+            options = sink.getOptions
           )
           sinkToJdbc(jdbcConfig)
         }
