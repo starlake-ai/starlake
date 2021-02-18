@@ -302,7 +302,7 @@ trait IngestionJob extends SparkJob {
             domain = domain.name,
             schema = schema.name,
             dataset = Some(Right(mergedDF)),
-            options = sink.map(_.options).getOrElse(Map.empty)
+            options = sink.map(_.getOptions).getOrElse(Map.empty)
           )
           new ESLoadJob(config, storageHandler, schemaHandler).run()
         case SinkType.ES if !settings.comet.elasticsearch.active =>
@@ -330,7 +330,7 @@ trait IngestionJob extends SparkJob {
             days = sink.flatMap(_.days),
             requirePartitionFilter = sink.flatMap(_.requirePartitionFilter).getOrElse(false),
             rls = schema.rls,
-            options = sink.map(_.options).getOrElse(Map.empty)
+            options = sink.map(_.getOptions).getOrElse(Map.empty)
           )
           val res = new BigQuerySparkJob(config, tableSchema).run()
           res match {
@@ -367,7 +367,7 @@ trait IngestionJob extends SparkJob {
               writeDisposition = writeDisposition,
               partitions = partitions,
               batchSize = batchSize,
-              options = sink.options
+              options = sink.getOptions
             )
 
             val res = new ConnectionLoadJob(jdbcConfig).run()
@@ -739,7 +739,7 @@ trait IngestionJob extends SparkJob {
         ) {
           val bqTable = s"${domain.name}.${schema.name}"
           (mergeOptions.queryFilter, metadata.sink) match {
-            case (Some(query), Some(BigQuerySink(_, _, Some(_), _, _, _))) =>
+            case (Some(query), Some(BigQuerySink(_, _, Some(_), _, _, _, _))) =>
               val queryArgs = query.richFormat(options)
               if (queryArgs.contains("latest")) {
                 val partitions =
@@ -857,7 +857,7 @@ object IngestionUtil {
             "WRITE_APPEND",
             None,
             None,
-            options = sink.options
+            options = sink.getOptions
           )
           new BigQuerySparkJob(bqConfig, Some(bigqueryRejectedSchema())).run()
 
@@ -869,7 +869,7 @@ object IngestionUtil {
             "rejected",
             partitions = sink.partitions.getOrElse(1),
             batchSize = sink.batchsize.getOrElse(1000),
-            options = sink.options
+            options = sink.getOptions
           )
 
           new ConnectionLoadJob(jdbcConfig).run()
