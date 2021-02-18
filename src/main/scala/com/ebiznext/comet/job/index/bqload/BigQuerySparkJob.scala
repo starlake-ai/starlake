@@ -6,7 +6,6 @@ import com.ebiznext.comet.utils.{JobResult, SparkJob, SparkJobResult, Utils}
 import com.google.cloud.ServiceOptions
 import com.google.cloud.bigquery.{
   BigQuery,
-  BigQueryException,
   BigQueryOptions,
   Clustering,
   JobInfo,
@@ -50,28 +49,10 @@ class BigQuerySparkJob(
     }
 
     val writeDisposition = JobInfo.WriteDisposition.valueOf(cliConfig.writeDisposition)
-    val finalWriteDisposition = (writeDisposition, cliConfig.outputPartition) match {
-      case (JobInfo.WriteDisposition.WRITE_TRUNCATE, Some(partition)) =>
-        logger.info(s"Overwriting partition $partition of Table $tableId")
-        logger.info(s"Setting Write mode to Overwrite")
-        JobInfo.WriteDisposition.WRITE_TRUNCATE
-      case (JobInfo.WriteDisposition.WRITE_TRUNCATE, _) =>
-        try {
-          bigquery.delete(tableId)
-        } catch {
-          case e: BigQueryException =>
-            // Log error and continue  (may be table does not exist)
-            Utils.logException(logger, e)
-        }
-        logger.info(s"Setting Write mode to Append")
-        JobInfo.WriteDisposition.WRITE_APPEND
-      case _ =>
-        writeDisposition
-    }
 
     conf.set(
       BigQueryConfiguration.OUTPUT_TABLE_WRITE_DISPOSITION_KEY,
-      finalWriteDisposition.toString
+      writeDisposition.toString
     )
     conf.set(
       BigQueryConfiguration.OUTPUT_TABLE_CREATE_DISPOSITION_KEY,
@@ -80,10 +61,13 @@ class BigQuerySparkJob(
     conf
   }
 
-  def getOrCreateTable(dataFrame: Option[DataFrame], maybeSchema: Option[BQSchema]): Table = {
+  def getOrCreateTable(
+    dataFrame: Option[DataFrame],
+    maybeSchema: Option[BQSchema]
+  ): (Table, StandardTableDefinition) = {
     getOrCreateDataset()
 
-    Option(bigquery.getTable(tableId)) getOrElse {
+    val table = Option(bigquery.getTable(tableId)) getOrElse {
       val withPartitionDefinition =
         (maybeSchema, cliConfig.outputPartition) match {
           case (Some(schema), Some(partitionField)) =>
@@ -130,6 +114,8 @@ class BigQuerySparkJob(
         }
       bigquery.create(TableInfo.newBuilder(tableId, withClusteringDefinition.build()).build)
     }
+    (table, table.getDefinition.asInstanceOf[StandardTableDefinition])
+
   }
 
   def runSparkConnector(): Try[SparkJobResult] = {
@@ -148,7 +134,7 @@ class BigQuerySparkJob(
           case Right(df) => df.persist(cacheStorageLevel)
         }
 
-      val table = getOrCreateTable(Some(sourceDF), maybeSchema)
+      val (table, tableDefinition) = getOrCreateTable(Some(sourceDF), maybeSchema)
 
       setTablePolicy(table)
 
@@ -174,25 +160,33 @@ class BigQuerySparkJob(
             .map(r => r.getString(0))
             .collect()
 
-          partitions.foreach(partitionStr =>
-            sourceDF
-              .where(date_format(col(partition), dateFormat).cast("string") === partitionStr)
-              .write
-              .mode(SaveMode.Overwrite)
-              .format("com.google.cloud.spark.bigquery")
-              .option("datePartition", partitionStr)
-              .option("table", bqTable)
-              .option("intermediateFormat", intermediateFormat)
-              .save()
-          )
-        case _ =>
+          partitions.foreach { partitionStr =>
+            val finalDF =
+              sourceDF
+                .where(date_format(col(partition), dateFormat).cast("string") === partitionStr)
+                .write
+                .mode(SaveMode.Overwrite)
+                .format("com.google.cloud.spark.bigquery")
+                .option("datePartition", partitionStr)
+                .option("table", bqTable)
+                .option("intermediateFormat", intermediateFormat)
+            cliConfig.options.foldLeft(finalDF)((w, kv) => w.option(kv._1, kv._2)).save()
+          }
+
+        case (writeDisposition, _) =>
+          val saveMode =
+            if (writeDisposition == "WRITE_TRUNCATE") SaveMode.Overwrite else SaveMode.Append
           logger.info(s"Saving BQ Table $bqTable")
-          sourceDF.write
-            .mode(SaveMode.Append)
+          val finalDF = sourceDF.write
+            .mode(saveMode)
             .format("com.google.cloud.spark.bigquery")
             .option("table", bqTable)
             .option("intermediateFormat", intermediateFormat)
-            .save()
+          cliConfig.options.foldLeft(finalDF)((w, kv) => w.option(kv._1, kv._2)).save()
+          if (writeDisposition == "WRITE_TRUNCATE") {
+            logger.info(s"updating BQ schema with ${tableDefinition.getSchema.getFields.toString}")
+            table.toBuilder.setDefinition(tableDefinition).build().update()
+          }
       }
 
       val stdTableDefinitionAfter =

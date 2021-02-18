@@ -34,5 +34,24 @@ class DateTypeSpec extends TestHelper {
       )
       result shouldBe expected
     }
+    "Parsing a valid Year-Month pattern" should "return a date with the first day of the month" in {
+      val expected = java.sql.Date.valueOf("2009-12-01")
+      date.fromString(
+        "2009.12",
+        "yyyy.MM"
+      ) shouldBe expected
+
+      date.fromString(
+        "12-2009",
+        "MM-yyyy"
+      ) shouldBe expected
+
+      assertThrows[DateTimeParseException] {
+        date.fromString(
+          "12-20090",
+          "MM-yyyy"
+        )
+      }
+    }
   }
 }
