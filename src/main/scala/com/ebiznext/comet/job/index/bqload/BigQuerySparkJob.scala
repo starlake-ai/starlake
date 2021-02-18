@@ -61,10 +61,13 @@ class BigQuerySparkJob(
     conf
   }
 
-  def getOrCreateTable(dataFrame: Option[DataFrame], maybeSchema: Option[BQSchema]): Table = {
+  def getOrCreateTable(
+    dataFrame: Option[DataFrame],
+    maybeSchema: Option[BQSchema]
+  ): (Table, StandardTableDefinition) = {
     getOrCreateDataset()
 
-    Option(bigquery.getTable(tableId)) getOrElse {
+    val table = Option(bigquery.getTable(tableId)) getOrElse {
       val withPartitionDefinition =
         (maybeSchema, cliConfig.outputPartition) match {
           case (Some(schema), Some(partitionField)) =>
@@ -111,6 +114,8 @@ class BigQuerySparkJob(
         }
       bigquery.create(TableInfo.newBuilder(tableId, withClusteringDefinition.build()).build)
     }
+    (table, table.getDefinition.asInstanceOf[StandardTableDefinition])
+
   }
 
   def runSparkConnector(): Try[SparkJobResult] = {
@@ -129,7 +134,7 @@ class BigQuerySparkJob(
           case Right(df) => df.persist(cacheStorageLevel)
         }
 
-      val table = getOrCreateTable(Some(sourceDF), maybeSchema)
+      val (table, tableDefinition) = getOrCreateTable(Some(sourceDF), maybeSchema)
 
       setTablePolicy(table)
 
@@ -178,6 +183,10 @@ class BigQuerySparkJob(
             .option("table", bqTable)
             .option("intermediateFormat", intermediateFormat)
           cliConfig.options.foldLeft(finalDF)((w, kv) => w.option(kv._1, kv._2)).save()
+          if (writeDisposition == "WRITE_TRUNCATE") {
+            logger.info(s"updating BQ schema with ${tableDefinition.getSchema.getFields.toString}")
+            table.toBuilder.setDefinition(tableDefinition).build().update()
+          }
       }
 
       val stdTableDefinitionAfter =
