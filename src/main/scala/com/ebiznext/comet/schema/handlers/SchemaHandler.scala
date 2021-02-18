@@ -136,7 +136,7 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
           val domainNode =
             if (loadNode.isNull() || loadNode.isMissingNode) {
               logger.warn(
-                s"Defining a domain outsiide a load node is now deprecated. Please updaet definition $path"
+                s"Defining a domain outside a load node is now deprecated. Please update definition $path"
               )
               rootNode
             } else
