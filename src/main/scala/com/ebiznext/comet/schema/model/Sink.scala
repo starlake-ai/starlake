@@ -20,7 +20,7 @@
 
 package com.ebiznext.comet.schema.model
 
-import com.fasterxml.jackson.annotation.{JsonSubTypes, JsonTypeInfo, JsonTypeName}
+import com.fasterxml.jackson.annotation.{JsonIgnore, JsonSubTypes, JsonTypeInfo, JsonTypeName}
 import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.databind.annotation.{JsonDeserialize, JsonSerialize}
 import com.fasterxml.jackson.databind.ser.std.ToStringSerializer
@@ -80,9 +80,6 @@ class SinkTypeDeserializer extends JsonDeserializer[SinkType] {
   *               - ES : dataset is indexed into Elasticsearch. See EsSink below
   *               - BQ : Dataset is sinked to BigQuery. See BigQuerySink below
   *               - None: Don't sink. This is the default.
-  * @param name: String.
-  *             This optional name is used when the configuration is specified in the application.conf file instead of inline in the YAML file.
-  *             This is useful when the same sink parameters are used for different datasets.
   */
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "type")
 @JsonSubTypes(
@@ -93,10 +90,19 @@ class SinkTypeDeserializer extends JsonDeserializer[SinkType] {
     new JsonSubTypes.Type(value = classOf[JdbcSink], name = "JDBC")
   )
 )
-sealed abstract class Sink(val `type`: SinkType, val options: Map[String, String] = Map.empty) {
+sealed abstract class Sink(val `type`: SinkType) {
   def name: Option[String]
+  def options: Option[Map[String, String]]
+
+  // work around for Jackson deserialization issue (https://github.com/FasterXML/jackson-module-scala/issues/87)
+  @JsonIgnore
+  def getOptions: Map[String, String] = options.getOrElse(Map.empty)
 }
 
+/*trait SinkTrait extends Sink{
+  @JsonIgnore
+  def getOptions:Map[String, String] = if(options==null) Map.empty else options
+}*/
 /** When the sink *type* field is set to BQ, the options below should be provided.
   * @param location : Database location (EU, US, ...)
   * @param timestamp:  The timestamp column to use for table partitioning if any. No partitioning by default
@@ -111,7 +117,8 @@ final case class BigQuerySink(
   timestamp: Option[String] = None,
   clustering: Option[Seq[String]] = None,
   days: Option[Int] = None,
-  requirePartitionFilter: Option[Boolean] = None
+  requirePartitionFilter: Option[Boolean] = None,
+  options: Option[Map[String, String]] = None
 ) extends Sink(SinkType.BQ)
 
 /** When the sink *type* field is set to ES, the options below should be provided.
@@ -123,11 +130,15 @@ final case class BigQuerySink(
 final case class EsSink(
   override val name: Option[String] = None,
   id: Option[String] = None,
-  timestamp: Option[String] = None
+  timestamp: Option[String] = None,
+  options: Option[Map[String, String]] = None
 ) extends Sink(SinkType.ES)
 
 @JsonTypeName("None")
-final case class NoneSink(override val name: Option[String] = None) extends Sink(SinkType.None)
+final case class NoneSink(
+  override val name: Option[String] = None,
+  options: Option[Map[String, String]] = None
+) extends Sink(SinkType.None)
 
 /** When the sink *type* field is set to JDBC, the options below should be provided.
   * @param connection: Connection String
@@ -139,7 +150,8 @@ final case class JdbcSink(
   override val name: Option[String] = None,
   connection: String,
   partitions: Option[Int] = None,
-  batchsize: Option[Int] = None
+  batchsize: Option[Int] = None,
+  options: Option[Map[String, String]] = None
 ) extends Sink(SinkType.JDBC)
 
 object Sink {

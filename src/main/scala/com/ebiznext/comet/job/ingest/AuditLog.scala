@@ -162,7 +162,7 @@ object SparkAuditLogWriter {
           "audit",
           partitions = sink.partitions.getOrElse(1),
           batchSize = sink.batchsize.getOrElse(1000),
-          options = sink.options
+          options = sink.getOptions
         )
         new ConnectionLoadJob(jdbcConfig).run()
 
@@ -178,7 +178,7 @@ object SparkAuditLogWriter {
           "WRITE_APPEND",
           None,
           None,
-          options = Map("allowFieldAddition" -> "true")
+          options = sink.getOptions
         )
         new BigQuerySparkJob(bqConfig, Some(bigqueryAuditSchema())).run()
 
