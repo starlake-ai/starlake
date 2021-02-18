@@ -91,7 +91,7 @@ class AutoTaskJob(
       requirePartitionFilter = bqSink.requirePartitionFilter.getOrElse(false),
       rls = task.rls,
       engine = Engine.BQ,
-      options = bqSink.options
+      options = bqSink.getOptions
     )
   }
 
