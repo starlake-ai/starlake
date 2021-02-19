@@ -2,11 +2,17 @@
 
 ## 0.1.34
 __New feature__:
-- Allow sink options to be defined in YML instead of Spark Submit
+- Allow sink options to be defined in YML instead of Spark Submit. [#450] [#454]
+
+__Bug Fix__:
+- Parse dates with yyyyMM format correctly [#451]
+- Fix error when saving a csv with an empty DataFrame [#451]
+- Keep column description in BQ tables when using Overwrite mode [#453]
 
 ## 0.1.29
-__Bugfix__:
-- Support correctly merge mode in BQ
+__Bug Fix__:
+- Support correctly merge mode in BQ [#449]
+- Fix for sinking XML to BQ [#448]
 
 ## 0.1.27
 __New feature__:
@@ -16,10 +22,10 @@ __New feature__:
 __New feature__:
 - Optionally sink to file using property sink-to-file = ${?COMET_SINK_TO_FILE}
 
-__Bugfix__:
+__Bug Fix__:
 - Sink name was ignored and always considered as None
-## 0.1.23
 
+## 0.1.23
 __New feature__:
 - YML files are now renamed with the suffix .comet.yml
 - Comet Schema is now published on SchemaStore. This allows Intellisense in VSCode & Intellij
@@ -33,6 +39,19 @@ __New feature__:
 __Breaking Changes__:
 - N.A.
 
-__Bugfix__:
+__Bug Fix__:
 - Use Spark Application Id for JobID information to make auditing easier
 
+## 0.1.22
+__New feature__:
+- Expose a REST API to generate a Yaml Schema from an Excel file. [#387]
+- Support ingesting multiline complex JSON. [#391]
+- Support nested fields when generating schema for BigQuery tables. [#391]
+- Enhancements on Spark to BigQuery schema. [#395]
+- Support merging a part of a BigQuery Table, rather than all the Table. [#397]
+- Enable setting BigQuery intermediate format when sinking using ${?COMET_INTERMEDIATE_BQ_FORMAT}. [#398] [#400]
+- Enhancement on Merging mode: do not depend on parquet files when using BigQuery tables.
+
+__Dependencies__:
+- Update sbt to 1.4.4 [#385]
+- Update scopt to 4.0.0 [#390]
