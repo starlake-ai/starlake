@@ -2,7 +2,7 @@
 
 ## 0.1.34
 __New feature__:
-- Allow sink options to be defined in YML instead of Spark Submit. [#450] [#454]
+- Allow sink options to be defined in YML instead of Spark Submit. #450 #454
 
 __Bug Fix__:
 - Parse dates with yyyyMM format correctly [#451]
