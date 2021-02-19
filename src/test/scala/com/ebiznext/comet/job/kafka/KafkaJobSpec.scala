@@ -312,10 +312,6 @@ class KafkaJobSpec extends TestHelper {
       }
     }
 
-    "Stream from Kafka to Kafka" should "work" in {
-      ???
-    }
-
     "Stream from Kafka to Elasticsearch" should "work" in {
       if (settings.comet.isElasticsearchSupported()) {
         val file = createTempJsonDataFile(100)
@@ -355,6 +351,10 @@ class KafkaJobSpec extends TestHelper {
         assert(response.body.isRight)
         response.body.right.toString() contains "\"count\":100"
       }
+    }
+
+    "Stream from Kafka to Kafka" should "work" in {
+      ???
     }
 
     "Stream from Kafka to Table" should "work" in {
