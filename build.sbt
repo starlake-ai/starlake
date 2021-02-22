@@ -13,8 +13,6 @@ initialize := {
 }
 
 
-import scala.util.matching.Regex
-
 lazy val scala212 = "2.12.12"
 
 lazy val scala211 = "2.11.12"
@@ -40,9 +38,7 @@ libraryDependencies ++= {
   dependencies ++ spark ++ jackson ++ scalaReflection(scalaVersion.value)
 }
 
-name := s"comet-spark"
-
-assemblyJarName in assembly := {
+name := {
   val sparkNameSuffix = {
     CrossVersion.partialVersion(scalaVersion.value) match {
       case Some((2, 12)) => "3"
@@ -50,8 +46,11 @@ assemblyJarName in assembly := {
       case _   => throw new Exception(s"Invalid Scala Version")
     }
   }
-  s"${name.value}${sparkNameSuffix}_${scalaBinaryVersion.value}-${version.value}-assembly.jar"
+  s"comet-spark${sparkNameSuffix}"
 }
+
+assemblyJarName in assembly := s"${name.value}_${scalaBinaryVersion.value}-${version.value}-assembly.jar"
+
 
 /*
 artifactName := { (sv: ScalaVersion, module: ModuleID, artifact: Artifact) =>
