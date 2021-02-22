@@ -18,7 +18,5 @@ jobs:
         uses: actions/setup-java@v1
         with:
           java-version: 1.8
-      - name: Publish Snapshot Spark 3
-        run: COMET_SPARK_VERSION=3.1.0 sbt ++2.12.12 publish
-      - name: Publish Snapshot Spark 2
-        run: COMET_SPARK_VERSION=2.4.7 sbt +publish
+      - name: Publish Snapshot Spark 2/3
+        run: sbt +publish
