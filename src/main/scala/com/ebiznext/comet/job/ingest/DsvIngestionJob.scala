@@ -111,7 +111,7 @@ class DsvIngestionJob(
         .csv(path.map(_.toString): _*)
 
       logger.debug(dfIn.schema.treeString)
-      if (dfIn.isEmpty)
+      if (dfIn.limit(1).count() == 0)
         Success(
           dfIn.withColumn(
             Settings.cometInputFileNameColumn,
