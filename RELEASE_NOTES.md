@@ -1,5 +1,14 @@
 # Release notes
 
+
+## 0.1.35
+__New feature__:
+- Auto compile with scala 2.11 for Spark 2 and with scala 2.12 for Spark 3. [#457]
+
+__Bug Fix__:
+- Make Jackson lib provided. [#457]
+- Support Spark 2.3. by not using Dataframe.isEmpty [#457]
+
 ## 0.1.34
 __New feature__:
 - Allow sink options to be defined in YML instead of Spark Submit. [#450] [#454]
