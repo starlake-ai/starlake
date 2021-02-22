@@ -7,6 +7,7 @@ __New feature__:
 
 __Bug Fix__:
 - Make Jackson lib provided. [#457]
+- Support Spark 2.3. by not using Dataframe.isEmpty [#457]
 
 ## 0.1.34
 __New feature__:
