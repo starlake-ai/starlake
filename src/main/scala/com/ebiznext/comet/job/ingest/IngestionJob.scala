@@ -527,11 +527,11 @@ trait IngestionJob extends SparkJob {
       session.emptyDataFrame
     }
     if (csvOutput() && area != StorageArea.rejected) {
-      val paths = storageHandler
+      val outputList = storageHandler
         .list(targetPath, ".csv", LocalDateTime.MIN)
         .filterNot(path => schema.pattern.matcher(path.getName).matches())
-      if (path.nonEmpty) {
-        val csvPath = path.head
+      if (outputList.nonEmpty) {
+        val csvPath = outputList.head
         val finalCsvPath = new Path(
           targetPath,
           path.head.getName
