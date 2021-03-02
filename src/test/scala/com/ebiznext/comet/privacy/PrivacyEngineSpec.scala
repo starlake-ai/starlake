@@ -105,7 +105,7 @@ class PrivacyEngineSpec extends TestHelper {
       object ConditionalHide extends PrivacyEngine {
         override def crypt(
           s: String,
-          colMap: Map[String, Option[String]],
+          colMap: => Map[String, Option[String]],
           params: List[Any]
         ): String = {
           if (colMap.isDefinedAt("col1")) s else ""
