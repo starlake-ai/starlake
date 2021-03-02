@@ -3,7 +3,7 @@ package com.ebiznext.comet.privacy
 import scala.util.Random
 
 /** Several encryption methods used in privacy management
- */
+  */
 object PrivacyEngine {
 
   def algo(alg: String, data: String): String = {
@@ -158,7 +158,11 @@ object RandomDouble extends NumericRandomPrivacy {
 
   def genUnbounded(): Double = rnd.nextDouble()
 
-  override def crypt(s: String, colMap: => Map[String, Option[String]], params: List[Any]): String = {
+  override def crypt(
+    s: String,
+    colMap: => Map[String, Option[String]],
+    params: List[Any]
+  ): String = {
     crypt(params).toString
   }
 }
@@ -203,7 +207,11 @@ object ApproxDouble extends ApproxDouble {}
 
 object ApproxLong extends ApproxDouble {
 
-  override def crypt(s: String, colMap: => Map[String, Option[String]], params: List[Any]): String = {
+  override def crypt(
+    s: String,
+    colMap: => Map[String, Option[String]],
+    params: List[Any]
+  ): String = {
     assert(params.length == 1)
     crypt(s.toDouble, params.head.asInstanceOf[Int]).toLong.toString
   }
@@ -222,12 +230,12 @@ object Mask extends PrivacyEngine {
   }
 
   def crypt(
-             s: String,
-             maskingChar: Char,
-             numberOfChars: Int,
-             leftSide: Int,
-             rightSide: Int
-           ): String = {
+    s: String,
+    maskingChar: Char,
+    numberOfChars: Int,
+    leftSide: Int,
+    rightSide: Int
+  ): String = {
     s match {
       case input if input.length <= leftSide =>
         "%s%s".format(input, maskingChar.toString * numberOfChars)
