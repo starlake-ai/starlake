@@ -26,8 +26,8 @@ import com.ebiznext.comet.schema.handlers.{
   LaunchHandler,
   SimpleLauncher
 }
-import com.ebiznext.comet.schema.model.Sink
-import com.ebiznext.comet.utils.{CometObjectMapper, Version}
+import com.ebiznext.comet.schema.model.{PrivacyLevel, Sink}
+import com.ebiznext.comet.utils.{CometObjectMapper, Utils, Version}
 import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.typesafe.config.{Config, ConfigValueFactory}
@@ -35,10 +35,12 @@ import com.typesafe.scalalogging.{Logger, StrictLogging}
 import configs.Configs
 import configs.syntax._
 import org.apache.spark.storage.StorageLevel
-
 import java.io.ObjectStreamException
 import java.util.concurrent.TimeUnit
 import java.util.{Locale, UUID, Map => juMap}
+import scala.collection.JavaConverters._
+import com.ebiznext.comet.privacy.PrivacyEngine
+
 import scala.concurrent.duration.FiniteDuration
 
 object Settings extends StrictLogging {
@@ -296,6 +298,11 @@ object Settings extends StrictLogging {
 
   val cometInputFileNameColumn: String = "comet_input_file_name"
 
+  private def make(schemeName: String, encryptionAlgo: String): (PrivacyEngine, List[Any]) = {
+    val (privacyObject, typedParams) = PrivacyEngine.parse(encryptionAlgo)
+    val encryption = Utils.loadInstance[PrivacyEngine](privacyObject)
+    (encryption, typedParams)
+  }
 }
 
 /** This class holds the current Comet settings and an assembly of reference instances for core, shared services
@@ -326,4 +333,10 @@ final case class Settings(comet: Settings.Comet, sparkConfig: Config) {
     case "airflow" => new AirflowLauncher()
   }
 
+  @transient
+  lazy val allPrivacyLevels = comet.privacy.options.asScala.map { case (k, objName) =>
+    val encryption = Settings.make(k, objName)
+    val key = k.toUpperCase(Locale.ROOT)
+    (key, (encryption, new PrivacyLevel(key)))
+  }
 }
