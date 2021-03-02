@@ -4,6 +4,7 @@
 ## 0.1.35
 __New feature__:
 - Auto compile with scala 2.11 for Spark 2 and with scala 2.12 for Spark 3. [#457]
+- Performance optimization when using Privacy Rules. 
 
 __Bug Fix__:
 - Make Jackson lib provided. [#457]
