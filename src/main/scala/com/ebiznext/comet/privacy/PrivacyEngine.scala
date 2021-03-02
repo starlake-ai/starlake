@@ -3,7 +3,7 @@ package com.ebiznext.comet.privacy
 import scala.util.Random
 
 /** Several encryption methods used in privacy management
-  */
+ */
 object PrivacyEngine {
 
   def algo(alg: String, data: String): String = {
@@ -32,6 +32,7 @@ object PrivacyEngine {
         else
           param.toInt
       }
+
     val hasParam = maskingAlgo.indexOf('(')
     if (hasParam > 0) {
       assert(maskingAlgo.indexOf(')') > hasParam)
@@ -133,7 +134,9 @@ object IPv6 extends IP {
 
 trait NumericRandomPrivacy extends PrivacyEngine {
   val rnd: Random
+
   final def gen(low: Double, up: Double): Double = low + (up - low) * rnd.nextDouble()
+
   def genUnbounded(): Double
 
   final def crypt(params: List[Any]): Double = {
@@ -152,6 +155,7 @@ trait NumericRandomPrivacy extends PrivacyEngine {
 
 object RandomDouble extends NumericRandomPrivacy {
   val rnd = new Random()
+
   def genUnbounded(): Double = rnd.nextDouble()
 
   override def crypt(s: String, colMap: => Map[String, Option[String]], params: List[Any]): String = {
@@ -161,6 +165,7 @@ object RandomDouble extends NumericRandomPrivacy {
 
 object RandomLong extends NumericRandomPrivacy {
   val rnd = new Random()
+
   override def genUnbounded(): Double = rnd.nextLong().toDouble
 
   override def crypt(s: String, colMap: => Map[String, Option[String]], params: List[Any]): String =
@@ -169,6 +174,7 @@ object RandomLong extends NumericRandomPrivacy {
 
 object RandomInt extends NumericRandomPrivacy {
   val rnd = new Random()
+
   override def genUnbounded(): Double = rnd.nextInt().toDouble
 
   override def crypt(s: String, colMap: => Map[String, Option[String]], params: List[Any]): String =
@@ -216,12 +222,12 @@ object Mask extends PrivacyEngine {
   }
 
   def crypt(
-    s: String,
-    maskingChar: Char,
-    numberOfChars: Int,
-    leftSide: Int,
-    rightSide: Int
-  ): String = {
+             s: String,
+             maskingChar: Char,
+             numberOfChars: Int,
+             leftSide: Int,
+             rightSide: Int
+           ): String = {
     s match {
       case input if input.length <= leftSide =>
         "%s%s".format(input, maskingChar.toString * numberOfChars)
