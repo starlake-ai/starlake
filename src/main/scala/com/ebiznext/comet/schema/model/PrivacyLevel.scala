@@ -21,15 +21,12 @@
 package com.ebiznext.comet.schema.model
 
 import java.util.Locale
+
 import com.ebiznext.comet.config.Settings
-import com.ebiznext.comet.privacy.PrivacyEngine
-import com.ebiznext.comet.utils.Utils
 import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.databind.annotation.{JsonDeserialize, JsonSerialize}
 import com.fasterxml.jackson.databind.ser.std.ToStringSerializer
 import com.fasterxml.jackson.databind.{DeserializationContext, JsonDeserializer}
-
-import scala.collection.JavaConverters._
 
 /** How (the attribute should be transformed at ingestion time ?
   *
@@ -41,37 +38,13 @@ sealed case class PrivacyLevel(value: String) {
   override def toString: String = value
 
   def crypt(s: String, colMap: Map[String, Option[String]])(implicit settings: Settings): String = {
-    val (privacyAlgo, privacyParams) = PrivacyLevel.ForSettings(settings).all(value)._1
+    val (privacyAlgo, privacyParams) = settings.allPrivacyLevels(value)._1
     privacyAlgo.crypt(s, colMap, privacyParams)
   }
 
 }
 
 object PrivacyLevel {
-
-  case class ForSettings(settings: Settings) {
-
-    private def make(schemeName: String, encryptionAlgo: String): (PrivacyEngine, List[Any]) = {
-      val (privacyObject, typedParams) = PrivacyEngine.parse(encryptionAlgo)
-      val encryption = Utils.loadInstance[PrivacyEngine](privacyObject)
-      (encryption, typedParams)
-    }
-
-    def get(schemeName: String): (PrivacyEngine, List[Any]) = {
-      val encryptionObject = settings.comet.privacy.options.asScala(schemeName)
-      make(schemeName, encryptionObject)
-    }
-
-    lazy val all = settings.comet.privacy.options.asScala.map { case (k, objName) =>
-      val encryption = make(k, objName)
-      val key = k.toUpperCase(Locale.ROOT)
-      (key, (encryption, new PrivacyLevel(key)))
-    }
-
-    // Improve Scan performance
-    def fromString(value: String): PrivacyLevel = all(value.toUpperCase())._2
-
-  }
 
   val None: PrivacyLevel = PrivacyLevel("NONE")
 }

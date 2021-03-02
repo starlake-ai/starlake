@@ -282,7 +282,7 @@ class XlsReader(input: Input) {
             val privacy =
               Option(row.getCell(headerMap("_privacy"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
                 .flatMap(formatter.formatCellValue)
-                .map(PrivacyLevel.ForSettings(settings).fromString)
+                .map(value => settings.allPrivacyLevels(value.toUpperCase())._2)
             val metricType =
               Option(row.getCell(headerMap("_metric"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
                 .flatMap(formatter.formatCellValue)
