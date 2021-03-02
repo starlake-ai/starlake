@@ -889,7 +889,7 @@ object IngestionUtil {
     colRawValue: Option[String],
     colAttribute: Attribute,
     tpe: Type,
-    colMap: Map[String, Option[String]]
+    colMap: => Map[String, Option[String]]
   )(
     implicit /* TODO: make me explicit. Avoid rebuilding the PrivacyLevel(settings) at each invocation? */ settings: Settings
   ): ColResult = {
