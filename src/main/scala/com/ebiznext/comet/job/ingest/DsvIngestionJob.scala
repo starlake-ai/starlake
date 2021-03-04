@@ -111,7 +111,7 @@ class DsvIngestionJob(
         .csv(path.map(_.toString): _*)
 
       logger.debug(dfIn.schema.treeString)
-      if (dfIn.isEmpty)
+      if (dfIn.limit(1).count() == 0)
         Success(
           dfIn.withColumn(
             Settings.cometInputFileNameColumn,
@@ -292,7 +292,7 @@ object DsvIngestionUtil extends DsvValidator {
               (Option(colValue).map(_.toString), colAttribute)
             }
           val rowCols = rowValues.zip(types)
-          val colMap = rowValues.map(__ => (__._2.name, __._1)).toMap
+          lazy val colMap = rowValues.map(__ => (__._2.name, __._1)).toMap
           val validNumberOfColumns = attributes.length <= rowCols.length
           if (!validNumberOfColumns) {
             RowResult(
