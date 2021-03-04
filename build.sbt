@@ -13,29 +13,11 @@ initialize := {
 }
 
 
-import scala.util.matching.Regex
-
 lazy val scala212 = "2.12.12"
 
 lazy val scala211 = "2.11.12"
 
-lazy val sparkVersion = sys.env.getOrElse("COMET_SPARK_VERSION", "3.1.0")
-
-val sparkVersionPattern: Regex = "(\\d+).(\\d+).(\\d+)".r
-
-val sparkPatternMatch = sparkVersionPattern
-  .findFirstMatchIn(sparkVersion)
-  .getOrElse(throw new Exception(s"Invalid Spark Version $sparkVersion"))
-val sparkMajor = sparkPatternMatch.group(1)
-val sparkMinor = sparkPatternMatch.group(2)
-
-lazy val supportedScalaVersions = (sparkMajor, sparkMinor) match {
-  case ("3", _) => List(scala212)
-  case ("2", _) => List(scala212, scala211)
-  case _   => throw new Exception(s"Invalid Spark Major Version $sparkMajor")
-}
-
-crossScalaVersions := supportedScalaVersions
+crossScalaVersions :=  List(scala211, scala212)
 
 organization := "com.ebiznext"
 
@@ -47,25 +29,28 @@ organizationHomepage := Some(url("http://www.ebiznext.com"))
 
 libraryDependencies ++= {
   val (spark, jackson) = {
-    System.out.println(s"sparkMajor=$sparkMajor")
-    sparkMajor match {
-      case "3" =>
-        (spark_3d0_forScala_2d12, jackson312)
-      case "2" =>
-        CrossVersion.partialVersion(scalaVersion.value) match {
-          case Some((2, 12)) => (spark_2d4_forScala_2d12, jackson212)
-          case Some((2, 11)) => (spark_2d4_forScala_2d11, jackson211)
-          case _ => throw new Exception(s"Invalid Scala Version ${scalaVersion.value}")
-        }
-      case _   => throw new Exception(s"Invalid Spark Major Version $sparkMajor")
+    CrossVersion.partialVersion(scalaVersion.value) match {
+      case Some((2, 12)) => (spark_3d0_forScala_2d12, jackson212ForSpark3)
+      case Some((2, 11)) => (spark_2d4_forScala_2d11, jackson211ForSpark2)
+      case _   => throw new Exception(s"Invalid Scala Version")
     }
   }
   dependencies ++ spark ++ jackson ++ scalaReflection(scalaVersion.value)
 }
 
-name := s"comet-spark${sparkMajor}"
+name := {
+  val sparkNameSuffix = {
+    CrossVersion.partialVersion(scalaVersion.value) match {
+      case Some((2, 12)) => "3"
+      case Some((2, 11)) => "2"
+      case _   => throw new Exception(s"Invalid Scala Version")
+    }
+  }
+  s"comet-spark${sparkNameSuffix}"
+}
 
 assemblyJarName in assembly := s"${name.value}_${scalaBinaryVersion.value}-${version.value}-assembly.jar"
+
 
 /*
 artifactName := { (sv: ScalaVersion, module: ModuleID, artifact: Artifact) =>
