@@ -527,11 +527,11 @@ trait IngestionJob extends SparkJob {
       session.emptyDataFrame
     }
     if (csvOutput() && area != StorageArea.rejected) {
-      val paths = storageHandler
+      val outputList = storageHandler
         .list(targetPath, ".csv", LocalDateTime.MIN)
         .filterNot(path => schema.pattern.matcher(path.getName).matches())
-      if (path.nonEmpty) {
-        val csvPath = path.head
+      if (outputList.nonEmpty) {
+        val csvPath = outputList.head
         val finalCsvPath = new Path(
           targetPath,
           path.head.getName
@@ -889,7 +889,7 @@ object IngestionUtil {
     colRawValue: Option[String],
     colAttribute: Attribute,
     tpe: Type,
-    colMap: Map[String, Option[String]]
+    colMap: => Map[String, Option[String]]
   )(
     implicit /* TODO: make me explicit. Avoid rebuilding the PrivacyLevel(settings) at each invocation? */ settings: Settings
   ): ColResult = {
