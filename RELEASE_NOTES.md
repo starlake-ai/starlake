@@ -1,5 +1,9 @@
 # Release notes
 
+## this PR
+__New feature__:
+- Split reference.conf into multiple files.
+- Support kafka Source & Sink through Spark Streaming
 
 ## 0.1.35
 __New feature__:
