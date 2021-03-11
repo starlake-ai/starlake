@@ -20,9 +20,6 @@
 
 package com.ebiznext.comet.job.ingest
 
-import java.sql.Timestamp
-import java.time.Instant
-
 import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.schema.handlers.{SchemaHandler, StorageHandler}
 import com.ebiznext.comet.schema.model.Rejection.{ColInfo, ColResult, RowInfo, RowResult}
@@ -31,8 +28,10 @@ import org.apache.hadoop.fs.Path
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql._
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
-import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.types.{StructField, StructType}
 
+import java.sql.Timestamp
+import java.time.Instant
 import scala.reflect.runtime.universe
 import scala.util.{Failure, Success, Try}
 
@@ -272,9 +271,19 @@ trait DsvValidator {
 
 /** The Spark task that run on each worker
   */
-object DsvIngestionUtil extends DsvValidator {
+object TreeIngestionUtil {
 
-  override def validate(
+  def buildTree(row:GenericRowWithSchema, attributes: List[Attribute]) = {
+    val fields: Array[StructField] = row.schema.fields
+    val typedRows: Seq[(Any, StructField)] = row.toSeq.zip(fields)
+    typedRows.map {
+      case (any, field) if field.dataType.isInstanceOf[StructType] =>
+
+    }
+  }
+
+
+  def validate(
     session: SparkSession,
     dataset: DataFrame,
     attributes: List[Attribute],
@@ -343,6 +352,66 @@ object DsvAcceptAllValidator extends DsvValidator {
   )(implicit settings: Settings): (RDD[String], RDD[Row]) = {
     val rejectedRDD: RDD[String] = session.emptyDataFrame.rdd.map(_.mkString)
     val acceptedRDD: RDD[Row] = dataset.rdd
+    (rejectedRDD, acceptedRDD)
+  }
+}
+
+object DsvIngestionUtil extends DsvValidator {
+
+  override def validate(
+                         session: SparkSession,
+                         dataset: DataFrame,
+                         attributes: List[Attribute],
+                         types: List[Type],
+                         sparkType: StructType
+                       )(implicit settings: Settings): (RDD[String], RDD[Row]) = {
+
+    val now = Timestamp.from(Instant.now)
+    val checkedRDD: RDD[RowResult] = dataset.rdd
+      .mapPartitions { partition =>
+        partition.map { row =>
+          val rowValues: Seq[(Option[String], Attribute)] = row.toSeq
+            .zip(attributes)
+            .map { case (colValue, colAttribute) =>
+              (Option(colValue).map(_.toString), colAttribute)
+            }
+          val rowCols = rowValues.zip(types)
+          lazy val colMap = rowValues.map(__ => (__._2.name, __._1)).toMap
+          val validNumberOfColumns = attributes.length <= rowCols.length
+          if (!validNumberOfColumns) {
+            RowResult(
+              rowCols.map { case ((colRawValue, colAttribute), tpe) =>
+                ColResult(
+                  ColInfo(
+                    colRawValue,
+                    colAttribute.name,
+                    tpe.name,
+                    tpe.pattern,
+                    false
+                  ),
+                  null
+                )
+              }.toList
+            )
+          } else {
+            RowResult(
+              rowCols.map { case ((colRawValue, colAttribute), tpe) =>
+                IngestionUtil.validateCol(colRawValue, colAttribute, tpe, colMap)
+              }.toList
+            )
+          }
+        }
+      } persist (settings.comet.cacheStorageLevel)
+
+    val rejectedRDD: RDD[String] = checkedRDD
+      .filter(_.isRejected)
+      .map(rr => RowInfo(now, rr.colResults.filter(!_.colInfo.success).map(_.colInfo)).toString)
+
+    val acceptedRDD: RDD[Row] = checkedRDD.filter(_.isAccepted).map { rowResult =>
+      val sparkValues: List[Any] = rowResult.colResults.map(_.sparkValue)
+      new GenericRowWithSchema(Row(sparkValues: _*).toSeq.toArray, sparkType)
+    }
+
     (rejectedRDD, acceptedRDD)
   }
 }
