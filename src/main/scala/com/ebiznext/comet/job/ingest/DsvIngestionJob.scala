@@ -272,12 +272,12 @@ trait DsvValidator {
 object DsvIngestionUtil extends DsvValidator {
 
   override def validate(
-                         session: SparkSession,
-                         dataset: DataFrame,
-                         attributes: List[Attribute],
-                         types: List[Type],
-                         sparkType: StructType
-                       )(implicit settings: Settings): (RDD[String], RDD[Row]) = {
+    session: SparkSession,
+    dataset: DataFrame,
+    attributes: List[Attribute],
+    types: List[Type],
+    sparkType: StructType
+  )(implicit settings: Settings): (RDD[String], RDD[Row]) = {
 
     val now = Timestamp.from(Instant.now)
     val checkedRDD: RDD[RowResult] = dataset.rdd
@@ -332,12 +332,12 @@ object DsvIngestionUtil extends DsvValidator {
 object DsvAcceptAllValidator extends DsvValidator {
 
   override def validate(
-                         session: SparkSession,
-                         dataset: DataFrame,
-                         attributes: List[Attribute],
-                         types: List[Type],
-                         sparkType: StructType
-                       )(implicit settings: Settings): (RDD[String], RDD[Row]) = {
+    session: SparkSession,
+    dataset: DataFrame,
+    attributes: List[Attribute],
+    types: List[Type],
+    sparkType: StructType
+  )(implicit settings: Settings): (RDD[String], RDD[Row]) = {
     val rejectedRDD: RDD[String] = session.emptyDataFrame.rdd.map(_.mkString)
     val acceptedRDD: RDD[Row] = dataset.rdd
     (rejectedRDD, acceptedRDD)
