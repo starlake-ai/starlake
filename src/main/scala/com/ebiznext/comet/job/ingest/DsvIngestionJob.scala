@@ -269,22 +269,6 @@ trait DsvValidator {
   )(implicit settings: Settings): (RDD[String], RDD[Row])
 }
 
-
-object DsvAcceptAllValidator extends DsvValidator {
-
-  override def validate(
-    session: SparkSession,
-    dataset: DataFrame,
-    attributes: List[Attribute],
-    types: List[Type],
-    sparkType: StructType
-  )(implicit settings: Settings): (RDD[String], RDD[Row]) = {
-    val rejectedRDD: RDD[String] = session.emptyDataFrame.rdd.map(_.mkString)
-    val acceptedRDD: RDD[Row] = dataset.rdd
-    (rejectedRDD, acceptedRDD)
-  }
-}
-
 object DsvIngestionUtil extends DsvValidator {
 
   override def validate(
@@ -341,6 +325,21 @@ object DsvIngestionUtil extends DsvValidator {
       new GenericRowWithSchema(Row(sparkValues: _*).toSeq.toArray, sparkType)
     }
 
+    (rejectedRDD, acceptedRDD)
+  }
+}
+
+object DsvAcceptAllValidator extends DsvValidator {
+
+  override def validate(
+                         session: SparkSession,
+                         dataset: DataFrame,
+                         attributes: List[Attribute],
+                         types: List[Type],
+                         sparkType: StructType
+                       )(implicit settings: Settings): (RDD[String], RDD[Row]) = {
+    val rejectedRDD: RDD[String] = session.emptyDataFrame.rdd.map(_.mkString)
+    val acceptedRDD: RDD[Row] = dataset.rdd
     (rejectedRDD, acceptedRDD)
   }
 }
