@@ -21,16 +21,15 @@
 package com.ebiznext.comet.job.ingest
 
 import com.ebiznext.comet.config.Settings
+import com.ebiznext.comet.job.validator.TreeRowValidator
 import com.ebiznext.comet.schema.handlers.{SchemaHandler, StorageHandler}
 import com.ebiznext.comet.schema.model._
 import org.apache.hadoop.fs.Path
 import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
+import org.apache.spark.sql._
 import org.apache.spark.sql.execution.datasources.json.JsonIngestionUtil
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
-import org.apache.spark.sql.{DataFrame, Dataset, Encoders, Row}
 
-import scala.collection.mutable
 import scala.util.{Failure, Success, Try}
 
 /** Main class to complex json delimiter separated values file
@@ -127,63 +126,12 @@ class JsonIngestionJob(
       .schema(appliedSchema)
       .json(session.createDataset(acceptedRDD)(Encoders.STRING))
 
-    val typesMap = types.map(tpe => tpe.name -> tpe).toMap
-    val transformedAcceptedDF = TempUtil.run(acceptedDF, schema, typesMap)
-    transformedAcceptedDF.show(false)
-    saveRejected(rejectedRDD)
-    saveAccepted(acceptedDF) // prefer to let Spark compute the final schema
+    val (koRDD, okRDD) = TreeRowValidator.validate(session, acceptedDF, schema.attributes, types, appliedSchema)
+    saveRejected(rejectedRDD.union(koRDD))
+    val transformedAcceptedDF = session.createDataFrame(okRDD, appliedSchema)
+    saveAccepted(transformedAcceptedDF) // prefer to let Spark compute the final schema
     (rejectedRDD, acceptedDF.rdd)
   }
 
   override def name: String = "JsonJob"
-}
-
-object TempUtil {
-
-  def run(acceptedDF: DataFrame, schema: Schema, types: Map[String, Type])(implicit
-    settings: Settings
-  ): DataFrame = {
-    implicit val encoder = acceptedDF.encoder
-    acceptedDF.map { row =>
-      val rowWithSchema = row.asInstanceOf[GenericRowWithSchema]
-      traverseRow(rowWithSchema, schema.attributesWithoutScriptedFields(), types)
-    }
-  }
-
-  def traverseRow(row: GenericRowWithSchema, attributes: List[Attribute], types: Map[String, Type])(
-    implicit settings: Settings
-  ): Row = {
-    def validateCol(attribute: Attribute, item: Any) = {
-      val colResult = IngestionUtil.validateCol(
-        Option(item).map(_.toString),
-        attribute,
-        types(attribute.`type`),
-        Map.empty[String, Option[String]]
-      )
-      colResult.colInfo.success match {
-        case true => colResult.sparkValue
-        case false => null
-      }
-    }
-
-    val updatedRow: Seq[Any] = attributes.map { attribute =>
-      Try(row.fieldIndex(attribute.name)) map { index =>
-        row.get(index) match {
-          case cell: GenericRowWithSchema => // nested field
-            traverseRow(cell, attribute.attributes.getOrElse(Nil), types)
-          case item: mutable.WrappedArray[_] => // repeated field
-            item.map {
-              case subitem: GenericRowWithSchema =>
-                traverseRow(subitem, attribute.attributes.getOrElse(Nil), types)
-              case subitem =>
-                validateCol(attribute, subitem)
-            }
-          case item =>
-            validateCol(attribute, item)
-        }
-      } getOrElse(null)
-    }
-    new GenericRowWithSchema(updatedRow.toArray, row.schema)
-  }
-
 }
