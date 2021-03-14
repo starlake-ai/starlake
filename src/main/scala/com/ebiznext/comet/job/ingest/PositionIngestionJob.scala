@@ -115,13 +115,15 @@ class PositionIngestionJob(
 
     val (orderedTypes, orderedSparkTypes) = reorderTypes()
 
-    val (rejectedRDD, acceptedRDD) = Utils.loadInstance[GenericRowValidator](settings.comet.rowValidatorClass).validate(
-      session,
-      dataset,
-      orderedAttributes,
-      orderedTypes,
-      orderedSparkTypes
-    )
+    val (rejectedRDD, acceptedRDD) = Utils
+      .loadInstance[GenericRowValidator](settings.comet.rowValidatorClass)
+      .validate(
+        session,
+        dataset,
+        orderedAttributes,
+        orderedTypes,
+        orderedSparkTypes
+      )
     saveRejected(rejectedRDD)
     saveAccepted(acceptedRDD, orderedSparkTypes)
     (rejectedRDD, acceptedRDD)
