@@ -21,18 +21,15 @@
 package com.ebiznext.comet.job.ingest
 
 import com.ebiznext.comet.config.Settings
+import com.ebiznext.comet.job.validator.GenericRowValidator
 import com.ebiznext.comet.schema.handlers.{SchemaHandler, StorageHandler}
-import com.ebiznext.comet.schema.model.Rejection.{ColInfo, ColResult, RowInfo, RowResult}
 import com.ebiznext.comet.schema.model._
+import com.ebiznext.comet.utils.Utils
 import org.apache.hadoop.fs.Path
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql._
-import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
 import org.apache.spark.sql.types.StructType
 
-import java.sql.Timestamp
-import java.time.Instant
-import scala.reflect.runtime.universe
 import scala.util.{Failure, Success, Try}
 
 /** Main class to ingest delimiter separated values file
@@ -172,12 +169,6 @@ class DsvIngestionJob(
 
   }
 
-  protected def rowValidator(): DsvValidator = {
-    val runtimeMirror = universe.runtimeMirror(getClass.getClassLoader)
-    val module = runtimeMirror.staticModule(settings.comet.rowValidatorClass)
-    val obj: universe.ModuleMirror = runtimeMirror.reflectModule(module)
-    obj.instance.asInstanceOf[DsvValidator]
-  }
 
   /** Apply the schema to the dataset. This is where all the magic happen
     * Valid records are stored in the accepted path / table and invalid records in the rejected path / table
@@ -210,7 +201,7 @@ class DsvIngestionJob(
 
     val (orderedTypes, orderedSparkTypes) = reorderTypes()
 
-    val (rejectedRDD, acceptedRDD) = rowValidator().validate(
+    val (rejectedRDD, acceptedRDD) = Utils.loadInstance[GenericRowValidator](settings.comet.rowValidatorClass).validate(
       session,
       dataset,
       orderedAttributes,
@@ -244,102 +235,4 @@ class DsvIngestionJob(
 
 }
 
-trait DsvValidator {
 
-  /** For each col of each row
-    *   - we extract the col value / the col constraints / col type
-    *   - we check that the constraints are verified
-    *   - we apply any required privacy transformation
-    *   - parse the column into the target primitive Spark Type
-    * We end up using catalyst to create a Spark Row
-    *
-    * @param session    : The Spark session
-    * @param dataset    : The dataset
-    * @param attributes : the col attributes
-    * @param types      : List of globally defined types
-    * @param sparkType  : The expected Spark Type for valid rows
-    * @return Two RDDs : One RDD for rejected rows and one RDD for accepted rows
-    */
-  def validate(
-    session: SparkSession,
-    dataset: DataFrame,
-    attributes: List[Attribute],
-    types: List[Type],
-    sparkType: StructType
-  )(implicit settings: Settings): (RDD[String], RDD[Row])
-}
-
-object DsvIngestionUtil extends DsvValidator {
-
-  override def validate(
-    session: SparkSession,
-    dataset: DataFrame,
-    attributes: List[Attribute],
-    types: List[Type],
-    sparkType: StructType
-  )(implicit settings: Settings): (RDD[String], RDD[Row]) = {
-
-    val now = Timestamp.from(Instant.now)
-    val checkedRDD: RDD[RowResult] = dataset.rdd
-      .mapPartitions { partition =>
-        partition.map { row =>
-          val rowValues: Seq[(Option[String], Attribute)] = row.toSeq
-            .zip(attributes)
-            .map { case (colValue, colAttribute) =>
-              (Option(colValue).map(_.toString), colAttribute)
-            }
-          val rowCols = rowValues.zip(types)
-          lazy val colMap = rowValues.map(__ => (__._2.name, __._1)).toMap
-          val validNumberOfColumns = attributes.length <= rowCols.length
-          if (!validNumberOfColumns) {
-            RowResult(
-              rowCols.map { case ((colRawValue, colAttribute), tpe) =>
-                ColResult(
-                  ColInfo(
-                    colRawValue,
-                    colAttribute.name,
-                    tpe.name,
-                    tpe.pattern,
-                    false
-                  ),
-                  null
-                )
-              }.toList
-            )
-          } else {
-            RowResult(
-              rowCols.map { case ((colRawValue, colAttribute), tpe) =>
-                IngestionUtil.validateCol(colRawValue, colAttribute, tpe, colMap)
-              }.toList
-            )
-          }
-        }
-      } persist (settings.comet.cacheStorageLevel)
-
-    val rejectedRDD: RDD[String] = checkedRDD
-      .filter(_.isRejected)
-      .map(rr => RowInfo(now, rr.colResults.filter(!_.colInfo.success).map(_.colInfo)).toString)
-
-    val acceptedRDD: RDD[Row] = checkedRDD.filter(_.isAccepted).map { rowResult =>
-      val sparkValues: List[Any] = rowResult.colResults.map(_.sparkValue)
-      new GenericRowWithSchema(Row(sparkValues: _*).toSeq.toArray, sparkType)
-    }
-
-    (rejectedRDD, acceptedRDD)
-  }
-}
-
-object DsvAcceptAllValidator extends DsvValidator {
-
-  override def validate(
-    session: SparkSession,
-    dataset: DataFrame,
-    attributes: List[Attribute],
-    types: List[Type],
-    sparkType: StructType
-  )(implicit settings: Settings): (RDD[String], RDD[Row]) = {
-    val rejectedRDD: RDD[String] = session.emptyDataFrame.rdd.map(_.mkString)
-    val acceptedRDD: RDD[Row] = dataset.rdd
-    (rejectedRDD, acceptedRDD)
-  }
-}
