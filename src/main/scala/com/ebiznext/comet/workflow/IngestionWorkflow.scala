@@ -179,7 +179,7 @@ class IngestionWorkflow(
       val filteredResolved = if (settings.comet.privacyOnly) {
         val (withPrivacy, noPrivacy) =
           resolved.partition(
-            _._1.exists(_.attributes.map(_.privacy).exists(!PrivacyLevel.None.equals(_)))
+            _._1.exists(_.attributes.map(_.getPrivacy()).exists(!PrivacyLevel.None.equals(_)))
           )
         // files for schemas without any privacy attributes are moved directly to accepted area
         noPrivacy.foreach {

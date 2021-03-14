@@ -231,7 +231,7 @@ case class Attribute(
   @JsonIgnore
   def getFinalName(): String = rename.getOrElse(name)
 
-  def getPrivacy(): PrivacyLevel = this.privacy
+  def getPrivacy(): PrivacyLevel = Option(this.privacy).getOrElse(PrivacyLevel.None)
 
   def isArray(): Boolean = this.array.getOrElse(false)
 
