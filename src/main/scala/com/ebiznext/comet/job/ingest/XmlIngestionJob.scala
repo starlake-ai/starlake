@@ -94,13 +94,20 @@ class XmlIngestionJob(
     val errorList = compareTypes(schemaSparkType, datasetSchema)
     val rejectedRDD = session.sparkContext.parallelize(errorList)
 
-    val withInputFileNameDS = dataset.withColumn(Settings.cometInputFileNameColumn, input_file_name())
+    val withInputFileNameDS =
+      dataset.withColumn(Settings.cometInputFileNameColumn, input_file_name())
 
     val appliedSchema = schema
       .sparkSchemaWithoutScriptedFields(schemaHandler)
       .add(StructField(Settings.cometInputFileNameColumn, StringType))
     val (koRDD, okRDD) =
-      TreeRowValidator.validate(session, withInputFileNameDS, schema.attributes, types, appliedSchema)
+      TreeRowValidator.validate(
+        session,
+        withInputFileNameDS,
+        schema.attributes,
+        types,
+        appliedSchema
+      )
 
     val allRejected = rejectedRDD.union(koRDD)
     saveRejected(allRejected)
