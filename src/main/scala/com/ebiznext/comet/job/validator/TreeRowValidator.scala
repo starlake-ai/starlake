@@ -6,6 +6,7 @@ import com.ebiznext.comet.schema.model.{Attribute, Type}
 import com.ebiznext.comet.utils.Utils
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
+import org.apache.spark.sql.execution.datasources.json.JsonIngestionUtil
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 
@@ -53,17 +54,18 @@ object TreeRowValidator extends GenericRowValidator {
   }
 
   def run(
-    acceptedDF: DataFrame,
-    attributes: List[Attribute],
-    sparkType: StructType,
-    typesMap: Map[String, Type]
+           acceptedDF: DataFrame,
+           attributes: List[Attribute],
+           schemaSparkType: StructType,
+           typesMap: Map[String, Type]
   )(implicit
     settings: Settings
   ): DataFrame = {
     implicit val encoder = acceptedDF.encoder
     acceptedDF.map { row =>
       val rowWithSchema = row.asInstanceOf[GenericRowWithSchema]
-      traverseRowBis(rowWithSchema, Utils.toMap(attributes), sparkType, typesMap)
+      JsonIngestionUtil.compareTypes(schemaSparkType, rowWithSchema.schema)
+      traverseRowBis(rowWithSchema, Utils.toMap(attributes), schemaSparkType, typesMap)
     }
   }
 
@@ -145,10 +147,10 @@ object TreeRowValidator extends GenericRowValidator {
 //  }
 
   def traverseRowBis(
-    row: GenericRowWithSchema,
-    attributes: Map[String, Any],
-    sparkType: StructType,
-    types: Map[String, Type]
+                      row: GenericRowWithSchema,
+                      attributes: Map[String, Any],
+                      schemaSparkType: StructType,
+                      types: Map[String, Type]
   )(implicit
     settings: Settings
   ): GenericRowWithSchema = {
@@ -173,7 +175,7 @@ object TreeRowValidator extends GenericRowValidator {
         traverseRowBis(
           cell,
           attributes(name).asInstanceOf[Map[String, Any]],
-          sparkType,
+          schemaSparkType,
           types
         )
       case (cell: mutable.WrappedArray[_], name) =>
@@ -182,7 +184,7 @@ object TreeRowValidator extends GenericRowValidator {
             traverseRowBis(
               subcell,
               attributes(name).asInstanceOf[Map[String, Any]],
-              sparkType,
+              schemaSparkType,
               types
             )
           case subcell =>
@@ -196,10 +198,10 @@ object TreeRowValidator extends GenericRowValidator {
         validateCol(attributes(name).asInstanceOf[Attribute], cell)
     }
     if (errorList.isEmpty) {
-      new GenericRowWithSchema(updatedRow.toArray, sparkType)
+      new GenericRowWithSchema(updatedRow.toArray, schemaSparkType)
     } else {
       //TODO: We should return an error here
-      new GenericRowWithSchema(updatedRow.toArray, sparkType)
+      new GenericRowWithSchema(updatedRow.toArray, schemaSparkType)
     }
   }
 }
