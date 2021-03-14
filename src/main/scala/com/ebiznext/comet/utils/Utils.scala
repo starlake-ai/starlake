@@ -148,6 +148,6 @@ object Utils {
         case Some(attributes) => attribute.name -> toMap(attributes)
         case None             => attribute.name -> attribute
       }
-    } toMap
+    }.toMap
   }
 }
