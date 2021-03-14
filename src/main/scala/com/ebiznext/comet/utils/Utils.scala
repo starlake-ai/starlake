@@ -145,8 +145,8 @@ object Utils {
   def toMap(attributes: List[Attribute]): Map[String, Any] = {
     attributes.map { attribute =>
       attribute.attributes match {
-        case Some(attributes) =>attribute.name -> toMap(attributes)
-        case None => attribute.name -> attribute
+        case Some(attributes) => attribute.name -> toMap(attributes)
+        case None             => attribute.name -> attribute
       }
     } toMap
   }
