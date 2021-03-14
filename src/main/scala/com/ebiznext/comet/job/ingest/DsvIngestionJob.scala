@@ -169,7 +169,6 @@ class DsvIngestionJob(
 
   }
 
-
   /** Apply the schema to the dataset. This is where all the magic happen
     * Valid records are stored in the accepted path / table and invalid records in the rejected path / table
     *
@@ -201,13 +200,15 @@ class DsvIngestionJob(
 
     val (orderedTypes, orderedSparkTypes) = reorderTypes()
 
-    val (rejectedRDD, acceptedRDD) = Utils.loadInstance[GenericRowValidator](settings.comet.rowValidatorClass).validate(
-      session,
-      dataset,
-      orderedAttributes,
-      orderedTypes,
-      orderedSparkTypes
-    )
+    val (rejectedRDD, acceptedRDD) = Utils
+      .loadInstance[GenericRowValidator](settings.comet.rowValidatorClass)
+      .validate(
+        session,
+        dataset,
+        orderedAttributes,
+        orderedTypes,
+        orderedSparkTypes
+      )
 
     saveRejected(rejectedRDD)
 
@@ -234,5 +235,3 @@ class DsvIngestionJob(
   }
 
 }
-
-
