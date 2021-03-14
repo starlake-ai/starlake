@@ -6,8 +6,7 @@ import com.ebiznext.comet.schema.model.{Attribute, Type}
 import com.ebiznext.comet.utils.Utils
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
-import org.apache.spark.sql.execution.datasources.json.JsonIngestionUtil
-import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.types.{BooleanType, StringType, StructField, StructType}
 import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 
 import scala.collection.mutable
@@ -25,7 +24,7 @@ object TreeRowValidator extends GenericRowValidator {
     * @param dataset    : The dataset
     * @param attributes : the col attributes
     * @param types      : List of globally defined types
-    * @param sparkType  : The expected Spark Type for valid rows
+    * @param schemaSparkType  : The expected Spark Type for valid rows
     * @return Two RDDs : One RDD for rejected rows and one RDD for accepted rows
     */
   override def validate(
@@ -33,127 +32,56 @@ object TreeRowValidator extends GenericRowValidator {
     dataset: DataFrame,
     attributes: List[Attribute],
     types: List[Type],
-    sparkType: StructType
+    schemaSparkType: StructType
   )(implicit settings: Settings): (RDD[String], RDD[Row]) = {
     val typesMap = types.map(tpe => tpe.name -> tpe).toMap
-    /*
+    val successErrorRDD = validateDataset(session, dataset, attributes, schemaSparkType, typesMap)
+    val successRDD: RDD[Row] =
+      successErrorRDD
+        .filter(row => row.getAs[Boolean](Settings.cometSuccessColumn))
+        .map(row => new GenericRowWithSchema(row.toSeq.dropRight(2).toArray, schemaSparkType))
 
-    val resulRDD = dataset.rdd.flatMap { row =>
-      val rowWithSchema = row.asInstanceOf[GenericRowWithSchema]
-      traverseRow(rowWithSchema, Utils.toMap(attributes), sparkType, typesMap)
-    }
-//    val rejectedRDD = resulRDD.filter(!_._2).map(_._1.toSeq.head.toString)
-//    val acceptedRDD = resulRDD.filter(_._2).map(_._1.asInstanceOf[Row])
-    val rejectedRDD = session.sparkContext.parallelize(Seq(""))
-    val acceptedRDD = resulRDD
-    (rejectedRDD, acceptedRDD)
-     */
-    val withPrivacyDF = run(dataset, attributes, sparkType, typesMap)
-    val errRDD = session.sparkContext.parallelize(List.empty[String])
-    (errRDD, withPrivacyDF.rdd)
+    val errorRDD: RDD[String] =
+      successErrorRDD
+        .filter(row => !row.getAs[Boolean](Settings.cometSuccessColumn))
+        .map(row => row.getAs[String](Settings.cometErrorMessageColumn))
+    (errorRDD, successRDD)
   }
 
-  def run(
-           acceptedDF: DataFrame,
-           attributes: List[Attribute],
-           schemaSparkType: StructType,
-           typesMap: Map[String, Type]
+  private def validateDataset(
+    session: SparkSession,
+    dataset: DataFrame,
+    attributes: List[Attribute],
+    schemaSparkType: StructType,
+    typesMap: Map[String, Type]
   )(implicit
     settings: Settings
-  ): DataFrame = {
-    implicit val encoder = acceptedDF.encoder
-    acceptedDF.map { row =>
+  ): RDD[Row] = {
+
+    val schemaSparkTypeWithSuccessErrorMessage =
+      StructType(
+        schemaSparkType.fields ++ Array(
+          StructField(Settings.cometSuccessColumn, BooleanType, false),
+          StructField(Settings.cometErrorMessageColumn, StringType, false)
+        )
+      )
+    //  implicit val encoder2 = RowEncoder(schemaSparkType)
+    dataset.rdd.map { row =>
       val rowWithSchema = row.asInstanceOf[GenericRowWithSchema]
-      JsonIngestionUtil.compareTypes(schemaSparkType, rowWithSchema.schema)
-      traverseRowBis(rowWithSchema, Utils.toMap(attributes), schemaSparkType, typesMap)
+      validateRow(rowWithSchema, Utils.toMap(attributes), schemaSparkType, typesMap)
     }
+
   }
 
-//  def traverseRow(
-//    row: GenericRowWithSchema,
-//    attributes: Map[String, Any],
-//    sparkType: StructType,
-//    types: Map[String, Type]
-//  )(implicit
-//    settings: Settings
-//  ): Option[Row] = {
-//    val errorList: mutable.MutableList[String] = mutable.MutableList.empty
-//    var ok = true
-//    def lift[T](res: Option[T]) = res match {
-//      case Some(x) =>
-//        x
-//      case None =>
-//        ok = false
-//        null
-//    }
-//    def lift[T](res: Either[String, Any]) = res match {
-//      case Right(x) =>
-//        x
-//      case Left(err) =>
-//        ok = false
-//        errorList += err
-//        null
-//    }
-//    def validateCol(attribute: Attribute, item: Any): Either[String, Any] = {
-//      val colResult = IngestionUtil.validateCol(
-//        Option(item).map(_.toString),
-//        attribute,
-//        types(attribute.`type`),
-//        Map.empty[String, Option[String]]
-//      )
-//      colResult.colInfo.success match {
-//        case true  => Right(colResult.sparkValue)
-//        case false => Left(colResult.colInfo.toString)
-//      }
-//    }
-//
-//    val cells = row.toSeq.zip(row.schema.fields.map(_.name))
-//
-//    val updatedRow: Seq[Any] = cells.map {
-//      case (cell: GenericRowWithSchema, name) =>
-//        lift(traverseRow(cell, attributes(name).asInstanceOf[Map[String, Any]], sparkType, types))
-//      case (cell: mutable.WrappedArray[_], name) =>
-//        cell.map {
-//          case subcell: GenericRowWithSchema =>
-//            lift(
-//              traverseRow(
-//                subcell,
-//                attributes(name).asInstanceOf[Map[String, Any]],
-//                sparkType,
-//                types
-//              )
-//            )
-//          case subcell =>
-//            lift(validateCol(attributes(name).asInstanceOf[Attribute], subcell))
-//        }
-//      case (cell, "comet_input_file_name") =>
-//        cell
-//      case (cell, name) =>
-//        lift(validateCol(attributes(name).asInstanceOf[Attribute], cell))
-//    }
-//    if (errorList.isEmpty) {
-//      val created = new GenericRowWithSchema(
-//        updatedRow.toArray,
-//        StructType(row.schema.fields :+ StructField("comet_err", StringType, nullable = true))
-//      )
-//      created
-//    } else {
-//      val updatedRowWithErr = updatedRow :+ errorList.mkString(",")
-//      val created = new GenericRowWithSchema(
-//        updatedRowWithErr.toArray,
-//        StructType(row.schema.fields :+ StructField("comet_err", StringType, nullable = true))
-//      )
-//    }
-//  }
-
-  def traverseRowBis(
-                      row: GenericRowWithSchema,
-                      attributes: Map[String, Any],
-                      schemaSparkType: StructType,
-                      types: Map[String, Type]
+  private def validateRow(
+    row: GenericRowWithSchema,
+    attributes: Map[String, Any],
+    schemaSparkType: StructType,
+    types: Map[String, Type]
   )(implicit
     settings: Settings
   ): GenericRowWithSchema = {
+    val errorList: mutable.MutableList[String] = mutable.MutableList.empty
     def validateCol(attribute: Attribute, item: Any): Any = {
       val colResult = IngestionUtil.validateCol(
         Option(item).map(_.toString),
@@ -161,18 +89,19 @@ object TreeRowValidator extends GenericRowValidator {
         types(attribute.`type`),
         Map.empty[String, Option[String]]
       )
-      colResult.colInfo.success match {
-        case true  => colResult.sparkValue
-        case false => null //TODO Should raise an error here.
+      if (colResult.colInfo.success) {
+        colResult.sparkValue
+      } else {
+        errorList += colResult.colInfo.toString
+        null
       }
     }
 
     val cells = row.toSeq.zip(row.schema.fields.map(_.name))
-    val errorList: mutable.MutableList[String] = mutable.MutableList.empty
 
     val updatedRow: Seq[Any] = cells.map {
       case (cell: GenericRowWithSchema, name) =>
-        traverseRowBis(
+        validateRow(
           cell,
           attributes(name).asInstanceOf[Map[String, Any]],
           schemaSparkType,
@@ -181,7 +110,7 @@ object TreeRowValidator extends GenericRowValidator {
       case (cell: mutable.WrappedArray[_], name) =>
         cell.map {
           case subcell: GenericRowWithSchema =>
-            traverseRowBis(
+            validateRow(
               subcell,
               attributes(name).asInstanceOf[Map[String, Any]],
               schemaSparkType,
@@ -197,11 +126,19 @@ object TreeRowValidator extends GenericRowValidator {
       case (cell, name) =>
         validateCol(attributes(name).asInstanceOf[Attribute], cell)
     }
-    if (errorList.isEmpty) {
-      new GenericRowWithSchema(updatedRow.toArray, schemaSparkType)
-    } else {
-      //TODO: We should return an error here
-      new GenericRowWithSchema(updatedRow.toArray, schemaSparkType)
-    }
+
+    val schemaSparkTypeWithSuccessErrorMessage =
+      StructType(
+        schemaSparkType.fields ++ Array(
+          StructField(Settings.cometSuccessColumn, BooleanType, false),
+          StructField(Settings.cometErrorMessageColumn, StringType, false)
+        )
+      )
+    val updatedRowWithMessage =
+      if (errorList.isEmpty)
+        updatedRow.toArray ++ Array(true, "")
+      else
+        updatedRow.toArray ++ Array(false, errorList.mkString("\n"))
+    new GenericRowWithSchema(updatedRowWithMessage, schemaSparkTypeWithSuccessErrorMessage)
   }
 }

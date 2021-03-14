@@ -20,6 +20,7 @@
 
 package com.ebiznext.comet.config
 
+import com.ebiznext.comet.privacy.PrivacyEngine
 import com.ebiznext.comet.schema.handlers.{
   AirflowLauncher,
   HdfsStorageHandler,
@@ -35,12 +36,11 @@ import com.typesafe.scalalogging.{Logger, StrictLogging}
 import configs.Configs
 import configs.syntax._
 import org.apache.spark.storage.StorageLevel
+
 import java.io.ObjectStreamException
 import java.util.concurrent.TimeUnit
 import java.util.{Locale, UUID, Map => juMap}
 import scala.collection.JavaConverters._
-import com.ebiznext.comet.privacy.PrivacyEngine
-
 import scala.concurrent.duration.FiniteDuration
 
 object Settings extends StrictLogging {
@@ -297,6 +297,8 @@ object Settings extends StrictLogging {
   }
 
   val cometInputFileNameColumn: String = "comet_input_file_name"
+  val cometSuccessColumn: String = "comet_success"
+  val cometErrorMessageColumn: String = "comet_error_message"
 
   private def make(schemeName: String, encryptionAlgo: String): (PrivacyEngine, List[Any]) = {
     val (privacyObject, typedParams) = PrivacyEngine.parse(encryptionAlgo)
