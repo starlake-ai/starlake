@@ -507,7 +507,7 @@ trait IngestionJob extends SparkJob {
         else
           targetDatasetWriter
             .mode(saveMode)
-            .format(settings.comet.defaultWriteFormat)
+            .format(writeFormat)
             .option("path", targetPath.toString)
 
       logger.info(s"Saving Dataset to final location $targetPath")
