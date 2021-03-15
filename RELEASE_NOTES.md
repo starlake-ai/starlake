@@ -4,7 +4,10 @@
 ## 0.1.35
 __New feature__:
 - Auto compile with scala 2.11 for Spark 2 and with scala 2.12 for Spark 3. [#457]
-- Performance optimization when using Privacy Rules. 
+- Performance optimization when using Privacy Rules.
+- Rejected area supports its own write format (default-rejected-write-format property)
+- Deep JSON & XML files are now validated against the schema
+- Privacy is applied on deep JSON & XML inputs
 
 __Bug Fix__:
 - Make Jackson lib provided. [#457]
