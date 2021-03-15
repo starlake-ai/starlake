@@ -208,6 +208,7 @@ object Settings extends StrictLogging {
     sinkToFile: Boolean,
     lock: Lock,
     defaultWriteFormat: String,
+    defaultRejectedWriteFormat: String,
     csvOutput: Boolean,
     privacyOnly: Boolean,
     launcher: String,

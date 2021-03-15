@@ -94,7 +94,8 @@ trait IngestionJob extends SparkJob {
             rejectedPath,
             WriteMode.APPEND,
             StorageArea.rejected,
-            merge = false
+            merge = false,
+            settings.comet.defaultRejectedWriteFormat
           )
         val end = Timestamp.from(Instant.now())
         val log = AuditLog(
@@ -244,7 +245,14 @@ trait IngestionJob extends SparkJob {
     mergedDF.printSchema()
     val savedDataset =
       if (settings.comet.sinkToFile)
-        sinkToFile(mergedDF, acceptedPath, writeMode, StorageArea.accepted, schema.merge.isDefined)
+        sinkToFile(
+          mergedDF,
+          acceptedPath,
+          writeMode,
+          StorageArea.accepted,
+          schema.merge.isDefined,
+          settings.comet.defaultWriteFormat
+        )
       else
         mergedDF
     logger.info("Saved Dataset Schema")
@@ -396,7 +404,8 @@ trait IngestionJob extends SparkJob {
     targetPath: Path,
     writeMode: WriteMode,
     area: StorageArea,
-    merge: Boolean
+    merge: Boolean,
+    writeFormat: String
   ): DataFrame = {
     val resultDataFrame = if (dataset.columns.length > 0) {
       val saveMode = writeMode.toSaveMode
@@ -441,7 +450,7 @@ trait IngestionJob extends SparkJob {
           val sampledDataset = dataset.sample(withReplacement = false, minFraction)
           partitionedDatasetWriter(sampledDataset, metadata.getPartitionAttributes())
             .mode(SaveMode.ErrorIfExists)
-            .format(settings.comet.defaultWriteFormat)
+            .format(writeFormat)
             .option("path", tmpPath.toString)
             .save()
           val consumed = storageHandler.spaceConsumed(tmpPath) / fraction
