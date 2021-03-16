@@ -10,6 +10,7 @@ import org.apache.spark.sql.types.{BooleanType, StringType, StructField, StructT
 import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 
 import scala.collection.mutable
+import scala.util.{Failure, Success, Try}
 
 object TreeRowValidator extends GenericRowValidator {
 
@@ -98,35 +99,6 @@ object TreeRowValidator extends GenericRowValidator {
     }
 
     val cells = row.toSeq.zip(row.schema.fields.map(_.name))
-
-    val updatedRow: Seq[Any] = cells.map {
-      case (cell: GenericRowWithSchema, name) =>
-        validateRow(
-          cell,
-          attributes(name).asInstanceOf[Map[String, Any]],
-          schemaSparkType,
-          types
-        )
-      case (cell: mutable.WrappedArray[_], name) =>
-        cell.map {
-          case subcell: GenericRowWithSchema =>
-            validateRow(
-              subcell,
-              attributes(name).asInstanceOf[Map[String, Any]],
-              schemaSparkType,
-              types
-            )
-          case subcell =>
-            validateCol(attributes(name).asInstanceOf[Attribute], subcell)
-        }
-      case (cell, "comet_input_file_name") =>
-        cell
-      case (null, name) =>
-        null
-      case (cell, name) =>
-        validateCol(attributes(name).asInstanceOf[Attribute], cell)
-    }
-
     val schemaSparkTypeWithSuccessErrorMessage =
       StructType(
         schemaSparkType.fields ++ Array(
@@ -134,11 +106,48 @@ object TreeRowValidator extends GenericRowValidator {
           StructField(Settings.cometErrorMessageColumn, StringType, false)
         )
       )
+    val updatedRow: Array[Any] =
+      Try {
+        cells.map {
+          case (cell: GenericRowWithSchema, name) =>
+            validateRow(
+              cell,
+              attributes(name).asInstanceOf[Map[String, Any]],
+              schemaSparkType,
+              types
+            )
+          case (cell: mutable.WrappedArray[_], name) =>
+            cell.map {
+              case subcell: GenericRowWithSchema =>
+                validateRow(
+                  subcell,
+                  attributes(name).asInstanceOf[Map[String, Any]],
+                  schemaSparkType,
+                  types
+                )
+              case subcell =>
+                validateCol(attributes(name).asInstanceOf[Attribute], subcell)
+            }
+          case (cell, "comet_input_file_name") =>
+            cell
+          case (null, name) =>
+            null
+          case (cell, name) =>
+            validateCol(attributes(name).asInstanceOf[Attribute], cell)
+        }
+      }
+        .map(_.toArray) match {
+        case Success(res) => res
+        case Failure(exception) =>
+          errorList += s"Invalid Node ${Utils.exceptionAsString(exception)}"
+          Array.empty[Any]
+      }
+
     val updatedRowWithMessage =
       if (errorList.isEmpty)
-        updatedRow.toArray ++ Array(true, "")
+        updatedRow ++ Array(true, "")
       else
-        updatedRow.toArray ++ Array(false, errorList.mkString("\n"))
+        updatedRow ++ Array(false, errorList.mkString("\n"))
     new GenericRowWithSchema(updatedRowWithMessage, schemaSparkTypeWithSuccessErrorMessage)
   }
 }
