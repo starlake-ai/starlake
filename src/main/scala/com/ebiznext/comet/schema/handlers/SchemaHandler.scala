@@ -128,7 +128,7 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     */
   lazy val domains: List[Domain] = {
     val (validDomainsFile, invalidDomainsFiles) = storage
-      .list(DatasetArea.domains, ".yml")
+      .list(DatasetArea.domains, ".yml", recursive = true)
       .map { path =>
         Try {
           val rootNode = mapper.readTree(storage.read(path))
@@ -176,7 +176,7 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     */
   lazy val jobs: Map[String, AutoJobDesc] = {
     val (validJobsFile, invalidJobsFile) = storage
-      .list(DatasetArea.jobs, ".yml")
+      .list(DatasetArea.jobs, ".yml", recursive = true)
       .map(loadJobFromFile)
       .partition(_.isSuccess)
     invalidJobsFile.map(_.failed.get).foreach { err =>
