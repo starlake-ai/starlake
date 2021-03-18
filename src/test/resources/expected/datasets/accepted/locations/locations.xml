@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <root>
-    <element continent = "America">
+    <element continent = "088f003833d523d9dccc529e929afdc7">
         <id>1</id>
         <name>New York</name>
     </element>
-    <element continent = "Europe">
+    <element continent = "912d59cdf1d3f551fae21f6f0062258f">
         <id>2</id>
         <name>Paris</name>
     </element>
