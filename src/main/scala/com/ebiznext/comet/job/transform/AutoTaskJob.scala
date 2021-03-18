@@ -249,7 +249,9 @@ class AutoTaskJob(
           finalDataset.save()
           if (coalesce) {
             val extension = format.getOrElse(settings.comet.defaultWriteFormat)
-            val csvPath = storageHandler.list(targetPath, s".$extension", LocalDateTime.MIN).head
+            val csvPath = storageHandler
+              .list(targetPath, s".$extension", LocalDateTime.MIN, recursive = false)
+              .head
             val finalPath = new Path(targetPath, targetPath.getName + s".$extension")
             storageHandler.move(csvPath, finalPath)
           }
