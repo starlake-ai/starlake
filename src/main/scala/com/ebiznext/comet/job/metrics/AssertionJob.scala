@@ -74,7 +74,11 @@ class AssertionJob(
           .map(
             ad =>
               Utils
-                .subst(ad.sql, ad.params.zip(assertion.paramValues).toMap, schemaHandler.activeEnv)
+                .subst(
+                  ad.sql,
+                  // Apply substitution defined with {{ }} and overload options in env by option in command line
+                  schemaHandler.activeEnv ++ ad.params.zip(assertion.paramValues).toMap
+              )
           )
           .getOrElse(assertion.sql)
         try {
