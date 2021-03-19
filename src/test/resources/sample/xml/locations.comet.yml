@@ -25,7 +25,7 @@ schemas:
       - name: "_continent"
         type: "string"
         required: false
-        privacy: "NONE"
+        privacy: "MD5"
       - name: "id"
         type: "string"
         required: false
