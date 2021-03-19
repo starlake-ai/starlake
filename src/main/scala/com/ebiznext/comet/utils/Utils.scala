@@ -128,9 +128,8 @@ object Utils {
     val paramValues = paramsList.map(_._2)
 
     val allParams = paramKeys.zip(paramValues)
-    allParams.foldLeft(value) {
-      case (acc, (p, v)) =>
-        s"\\b($p)\\b".r.replaceAllIn(acc, v)
+    allParams.foldLeft(value) { case (acc, (p, v)) =>
+      s"\\b($p)\\b".r.replaceAllIn(acc, v)
     }
   }
 
