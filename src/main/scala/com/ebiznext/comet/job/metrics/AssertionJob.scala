@@ -21,8 +21,8 @@ case class AssertionReport(
 
   override def toString: String = {
     s"""name: $name, params:$params, countFailed:${countFailed.getOrElse(
-      0
-    )}, success:$success, message: ${message.getOrElse("")}, sql:$sql""".stripMargin
+         0
+       )}, success:$success, message: ${message.getOrElse("")}, sql:$sql""".stripMargin
   }
 }
 
@@ -67,41 +67,46 @@ class AssertionJob(
 
     val assertionLibrary = schemaHandler.assertions(domainName)
     val calls = AssertionCalls(assertions).assertionCalls
-    val assertionReports = calls.map { case (_, assertion) =>
-      val sql = assertionLibrary
-        .get(assertion.name)
-        .map(ad => Utils.subst(ad.sql, ad.params, assertion.paramValues, schemaHandler.activeEnv))
-        .getOrElse(assertion.sql)
-      try {
-        val assertionCount = sqlRunner(sql)
-        AssertionReport(
-          assertion.name,
-          assertion.paramValues.toString(),
-          Some(sql),
-          Some(assertionCount),
-          None,
-          true
-        )
-      } catch {
-        case e: IllegalArgumentException =>
-          AssertionReport(
-            assertion.name,
-            assertion.paramValues.toString(),
-            None,
-            None,
-            Some(Utils.exceptionAsString(e)),
-            false
+    val assertionReports = calls.map {
+      case (_, assertion) =>
+        val sql = assertionLibrary
+          .get(assertion.name)
+          .map(
+            ad =>
+              Utils
+                .subst(ad.sql, ad.params.zip(assertion.paramValues).toMap, schemaHandler.activeEnv)
           )
-        case e: Exception =>
+          .getOrElse(assertion.sql)
+        try {
+          val assertionCount = sqlRunner(sql)
           AssertionReport(
             assertion.name,
             assertion.paramValues.toString(),
             Some(sql),
+            Some(assertionCount),
             None,
-            Some(Utils.exceptionAsString(e)),
-            false
+            true
           )
-      }
+        } catch {
+          case e: IllegalArgumentException =>
+            AssertionReport(
+              assertion.name,
+              assertion.paramValues.toString(),
+              None,
+              None,
+              Some(Utils.exceptionAsString(e)),
+              false
+            )
+          case e: Exception =>
+            AssertionReport(
+              assertion.name,
+              assertion.paramValues.toString(),
+              Some(sql),
+              None,
+              Some(Utils.exceptionAsString(e)),
+              false
+            )
+        }
     }.toList
     if (assertionReports.nonEmpty) {
       assertionReports.foreach(r => logger.info(r.toString))
