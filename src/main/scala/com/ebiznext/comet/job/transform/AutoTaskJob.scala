@@ -209,7 +209,7 @@ class AutoTaskJob(
       udf.foreach { udf =>
         registerUdf(udf)
       }
-      createViews(views, sqlParameters, schemaHandler.activeEnv)
+      createViews(views, schemaHandler.activeEnv ++ sqlParameters)
 
       task.presql
         .getOrElse(Nil)
@@ -273,7 +273,7 @@ class AutoTaskJob(
         }
       }
 
-      task.postsql.getOrElse(Nil).foreach(session.sql)
+      task.postsql.getOrElse(Nil).foreach(sql => session.sql(sql.richFormat(sqlParameters)))
       // Let us return the Dataframe so that it can be piped to another sink
       SparkJobResult(Some(dataframe))
     }
