@@ -155,8 +155,7 @@ trait SparkJob extends JobBase {
 
   protected def createViews(
     views: Views,
-    sqlParameters: Map[String, String],
-    activeEnv: Map[String, String]
+    sqlParameters: Map[String, String]
   ): Unit = {
     // We parse the following strings
     //ex  BQ:[[ProjectID.]DATASET_ID.]TABLE_NAME"
@@ -165,7 +164,7 @@ trait SparkJob extends JobBase {
     //or  JDBC:postgres:select *
     views.views.foreach { case (key, value) =>
       // Apply substitution defined with {{ }} and overload options in env by option in command line
-      val valueWithEnv = value.richFormat(activeEnv ++ sqlParameters)
+      val valueWithEnv = value.richFormat(sqlParameters)
       val sepIndex = valueWithEnv.indexOf(":")
       val (format, configName, path) =
         if (sepIndex > 0) {
