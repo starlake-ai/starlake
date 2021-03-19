@@ -135,7 +135,7 @@ trait SparkJob extends JobBase {
     }
   }
 
-  protected def analyze(fullTableName: String) = {
+  protected def analyze(fullTableName: String): Any = {
     if (settings.comet.analyze) {
       val allCols = session.table(fullTableName).columns.mkString(",")
       val analyzeTable =
@@ -157,7 +157,7 @@ trait SparkJob extends JobBase {
     views: Views,
     sqlParameters: Map[String, String],
     activeEnv: Map[String, String]
-  ) = {
+  ): Unit = {
     // We parse the following strings
     //ex  BQ:[[ProjectID.]DATASET_ID.]TABLE_NAME"
     //or  BQ:[[ProjectID.]DATASET_ID.]TABLE_NAME.[comet_filter(col1 > 10 and col2 < 20)].[comet_select(col1, col2)]"
@@ -165,12 +165,8 @@ trait SparkJob extends JobBase {
     //or  JDBC:postgres:select *
     views.views.foreach {
       case (key, value) =>
-        val valueWithEnv = Utils.subst(
-          value.richFormat(activeEnv ++ sqlParameters),
-          Map.empty[String, String],
-          "comet_table",
-          activeEnv
-        )
+        // Apply substitution defined with {{ }} and overload options in env by option in command line
+        val valueWithEnv = value.richFormat(activeEnv ++ sqlParameters)
         val sepIndex = valueWithEnv.indexOf(":")
         val (format, configName, path) =
           if (sepIndex > 0) {
