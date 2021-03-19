@@ -167,9 +167,7 @@ trait IngestionJob extends SparkJob {
         Some(acceptedDF),
         Engine.SPARK,
         sql => session.sql(sql).count()
-      )
-        .run()
-        .get
+      ).run().get
     }
 
     if (settings.comet.metrics.active) {
@@ -570,7 +568,7 @@ trait IngestionJob extends SparkJob {
           case Success(dataset) =>
             Try {
               val views = schemaHandler.views(domain.name)
-              createViews(views, options, schemaHandler.activeEnv)
+              createViews(views, schemaHandler.activeEnv ++ options)
               val (rejectedRDD, acceptedRDD) = ingest(dataset)
               val inputCount = dataset.count()
               val acceptedCount = acceptedRDD.count()
