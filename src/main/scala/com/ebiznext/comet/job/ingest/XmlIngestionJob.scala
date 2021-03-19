@@ -21,12 +21,14 @@
 package com.ebiznext.comet.job.ingest
 
 import com.ebiznext.comet.config.Settings
+import com.ebiznext.comet.job.validator.TreeRowValidator
 import com.ebiznext.comet.schema.handlers.{SchemaHandler, StorageHandler}
 import com.ebiznext.comet.schema.model._
 import org.apache.hadoop.fs.Path
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.execution.datasources.json.JsonIngestionUtil.compareTypes
-import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.functions.input_file_name
+import org.apache.spark.sql.types.{StringType, StructField, StructType}
 import org.apache.spark.sql.{DataFrame, Row}
 
 import scala.util.{Failure, Success, Try}
@@ -91,9 +93,27 @@ class XmlIngestionJob(
     val datasetSchema = dataset.schema
     val errorList = compareTypes(schemaSparkType, datasetSchema)
     val rejectedRDD = session.sparkContext.parallelize(errorList)
-    saveRejected(rejectedRDD)
-    val (df, path) = saveAccepted(dataset) // prefer to let Spark compute the final schema
-    (rejectedRDD, dataset.rdd)
+
+    val withInputFileNameDS =
+      dataset.withColumn(Settings.cometInputFileNameColumn, input_file_name())
+
+    val appliedSchema = schema
+      .sparkSchemaWithoutScriptedFields(schemaHandler)
+      .add(StructField(Settings.cometInputFileNameColumn, StringType))
+    val (koRDD, okRDD) =
+      TreeRowValidator.validate(
+        session,
+        withInputFileNameDS,
+        schema.attributes,
+        types,
+        appliedSchema
+      )
+
+    val allRejected = rejectedRDD.union(koRDD)
+    saveRejected(allRejected)
+    val transformedAcceptedDF = session.createDataFrame(okRDD, appliedSchema)
+    saveAccepted(transformedAcceptedDF) // prefer to let Spark compute the final schema
+    (allRejected, okRDD)
   }
 
   override def name: String = "JsonJob"

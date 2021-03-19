@@ -115,6 +115,8 @@ case class Schema(
   def sparkSchemaWithoutScriptedFields(schemaHandler: SchemaHandler): StructType =
     sparkSchemaWithCondition(schemaHandler, _.script.isEmpty)
 
+  def attributesWithoutScriptedFields(): List[Attribute] = attributes filter (_.script.isEmpty)
+
   private def sparkSchemaWithCondition(
     schemaHandler: SchemaHandler,
     p: Attribute => Boolean
