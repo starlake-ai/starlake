@@ -60,6 +60,7 @@ class AssertionJob(
   }
 
   override def run(): Try[JobResult] = {
+    import com.ebiznext.comet.utils.Formatter._
     val count = dataset.map { dataset =>
       dataset.createOrReplaceTempView("comet_table")
       dataset.count()
@@ -70,14 +71,12 @@ class AssertionJob(
     val assertionReports = calls.map { case (_, assertion) =>
       val sql = assertionLibrary
         .get(assertion.name)
-        .map(ad =>
+        .map { ad =>
+          val paramsMap = schemaHandler.activeEnv ++ ad.params.zip(assertion.paramValues).toMap
+          // Apply substitution defined with {{ }} and overload options in env by option in command line
           Utils
-            .subst(
-              ad.sql,
-              // Apply substitution defined with {{ }} and overload options in env by option in command line
-              schemaHandler.activeEnv ++ ad.params.zip(assertion.paramValues).toMap
-            )
-        )
+            .subst(ad.sql.richFormat(paramsMap), paramsMap)
+        }
         .getOrElse(assertion.sql)
       try {
         val assertionCount = sqlRunner(sql)

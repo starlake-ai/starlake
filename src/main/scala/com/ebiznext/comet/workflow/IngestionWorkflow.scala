@@ -411,7 +411,6 @@ class IngestionWorkflow(
     */
   def autoJob(config: TransformConfig): Boolean = {
     val job = schemaHandler.jobs(config.name)
-    val activeEnv = schemaHandler.activeEnv
     logger.info(job.toString)
     val includes = schemaHandler.views(job.name)
     val result = job.tasks.map { task =>
@@ -425,7 +424,7 @@ class IngestionWorkflow(
         job.getEngine(),
         task,
         storageHandler,
-        config.options,
+        schemaHandler.activeEnv ++ config.options,
         schemaHandler
       )
       val engine = job.getEngine()
