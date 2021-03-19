@@ -145,7 +145,5 @@ class JsonIngestionParsingSpec extends TestHelper {
       """.stripMargin
 
     JsonIngestionUtil.parseString(json1).isSuccess shouldBe false
-
   }
-
 }
