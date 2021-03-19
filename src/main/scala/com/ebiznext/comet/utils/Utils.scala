@@ -121,24 +121,26 @@ object Utils {
 
   def subst(
     value: String,
-    paramNames: List[String],
-    paramValues: List[String],
+    params: Map[String, String],
     env: Map[String, String]
   ): String = {
-    subst(value, paramNames, paramValues, "comet_table", env)
+    subst(value, params, "comet_table", env)
   }
 
   def subst(
     value: String,
-    paramNames: List[String],
-    paramValues: List[String],
+    params: Map[String, String],
     table: String,
     env: Map[String, String]
   ): String = {
-    assert(paramValues.length == paramNames.length)
-    val AllParams = (paramNames :+ "comet_table").zip(paramValues :+ table) ++ env.toList
-    AllParams.foldLeft(value) { case (acc, (p, v)) =>
-      s"\\b($p)\\b".r.replaceAllIn(acc, v)
+    val paramsList = params.toList
+    val paramKeys = paramsList.map(_._1)
+    val paramValues = paramsList.map(_._2)
+
+    val allParams = (paramKeys :+ "comet_table").zip(paramValues :+ table) ++ env.toList
+    allParams.foldLeft(value) {
+      case (acc, (p, v)) =>
+        s"\\b($p)\\b".r.replaceAllIn(acc, v)
     }
   }
 
