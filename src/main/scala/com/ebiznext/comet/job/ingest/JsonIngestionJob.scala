@@ -21,13 +21,14 @@
 package com.ebiznext.comet.job.ingest
 
 import com.ebiznext.comet.config.Settings
+import com.ebiznext.comet.job.validator.TreeRowValidator
 import com.ebiznext.comet.schema.handlers.{SchemaHandler, StorageHandler}
 import com.ebiznext.comet.schema.model._
 import org.apache.hadoop.fs.Path
 import org.apache.spark.rdd.RDD
+import org.apache.spark.sql._
 import org.apache.spark.sql.execution.datasources.json.JsonIngestionUtil
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
-import org.apache.spark.sql.{DataFrame, Dataset, Encoders, Row}
 
 import scala.util.{Failure, Success, Try}
 
@@ -125,8 +126,11 @@ class JsonIngestionJob(
       .schema(appliedSchema)
       .json(session.createDataset(acceptedRDD)(Encoders.STRING))
 
-    saveRejected(rejectedRDD)
-    saveAccepted(acceptedDF) // prefer to let Spark compute the final schema
+    val (koRDD, okRDD) =
+      TreeRowValidator.validate(session, acceptedDF, schema.attributes, types, appliedSchema)
+    saveRejected(rejectedRDD.union(koRDD))
+    val transformedAcceptedDF = session.createDataFrame(okRDD, appliedSchema)
+    saveAccepted(transformedAcceptedDF) // prefer to let Spark compute the final schema
     (rejectedRDD, acceptedDF.rdd)
   }
 
