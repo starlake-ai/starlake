@@ -9,9 +9,9 @@ import org.apache.spark.sql.streaming.Trigger
 import scala.util.Try
 
 class KafkaJob(
-                val kafkaJobConfig: KafkaJobConfig
-              )(implicit val settings: Settings)
-  extends SparkJob {
+  val kafkaJobConfig: KafkaJobConfig
+)(implicit val settings: Settings)
+    extends SparkJob {
 
   private val topicConfig: Settings.KafkaTopicOptions =
     settings.comet.kafka.topics(kafkaJobConfig.topic)
@@ -51,9 +51,9 @@ class KafkaJob(
             )
           val transformedDF = transfom(df)
           val trigger = kafkaJobConfig.streamingTrigger.toLowerCase match {
-            case "once" => Trigger.Once()
+            case "once"           => Trigger.Once()
             case "processingtime" => Trigger.ProcessingTime(kafkaJobConfig.streamingTriggerOption)
-            case "continuous" => Trigger.Continuous(kafkaJobConfig.streamingTriggerOption)
+            case "continuous"     => Trigger.Continuous(kafkaJobConfig.streamingTriggerOption)
           }
 
           val writer = transformedDF.writeStream
