@@ -379,7 +379,7 @@ class SchemaHandlerSpec extends TestHelper {
           .parquet(
             cometDatasetsPath + s"/accepted/$datasetDomainName/locations/$getTodayPartitionPath"
           )
-
+        acceptedDf.show(false)
         val expectedAccepted =
           sparkSession.read
             .option("rowTag", "element")
