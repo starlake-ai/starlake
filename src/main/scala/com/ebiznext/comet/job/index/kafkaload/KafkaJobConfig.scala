@@ -5,21 +5,21 @@ import org.apache.spark.sql.{DataFrame, SaveMode}
 import scopt.OParser
 
 case class KafkaJobConfig(
-                           topic: String = "",
-                           format: String = "parquet",
-                           mode: SaveMode = SaveMode.Append,
-                           path: String = "",
-                           transform: Option[String] = None,
-                           offload: Boolean = true,
-                           streaming: Boolean = false,
-                           streamingFormat: String = "console",
-                           streamingOutputMode: String = "append",
-                           writeOptions: Map[String, String] = Map.empty,
-                           streamingTrigger: String = "Once",
-                           streamingTriggerOption: String = "",
-                           streamingPartitionBy: Seq[String] = Nil,
-                           streamingToTable: Boolean = false
-                         ) {
+  topic: String = "",
+  format: String = "parquet",
+  mode: SaveMode = SaveMode.Append,
+  path: String = "",
+  transform: Option[String] = None,
+  offload: Boolean = true,
+  streaming: Boolean = false,
+  streamingFormat: String = "console",
+  streamingOutputMode: String = "append",
+  writeOptions: Map[String, String] = Map.empty,
+  streamingTrigger: String = "Once",
+  streamingTriggerOption: String = "",
+  streamingPartitionBy: Seq[String] = Nil,
+  streamingToTable: Boolean = false
+) {
 
   val transformInstance: Option[DataFrameTransform] = {
     transform.map(Utils.loadInstance[DataFrameTransform])
@@ -98,7 +98,9 @@ object KafkaJobConfig extends CliConfig[KafkaJobConfig] {
                 .required(),
               opt[String]("streaming-trigger-option")
                 .action((x, c) => c.copy(streamingTriggerOption = x))
-                .text("10 seconds for example. see https://spark.apache.org/docs/latest/api/java/org/apache/spark/sql/streaming/Trigger.html#ProcessingTime-java.lang.String-")
+                .text(
+                  "10 seconds for example. see https://spark.apache.org/docs/latest/api/java/org/apache/spark/sql/streaming/Trigger.html#ProcessingTime-java.lang.String-"
+                )
                 .required(),
               opt[Boolean]("streaming-to-table")
                 .action((x, c) => c.copy(streamingToTable = x))
