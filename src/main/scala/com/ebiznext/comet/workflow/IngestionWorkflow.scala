@@ -79,7 +79,7 @@ class IngestionWorkflow(
       val inputDir = new Path(domain.directory)
       if (storageHandler.exists(inputDir)) {
         logger.info(s"Scanning $inputDir")
-        storageHandler.list(inputDir, domain.getAck()).foreach { path =>
+        storageHandler.list(inputDir, domain.getAck(), recursive = false).foreach { path =>
           val ackFile = path
           val fileStr = ackFile.toString
           val prefixStr =
@@ -131,7 +131,7 @@ class IngestionWorkflow(
           }
           if (storageHandler.exists(tmpDir)) {
             val destFolder = DatasetArea.pending(domain.name)
-            storageHandler.list(tmpDir).foreach { file =>
+            storageHandler.list(tmpDir, recursive = false).foreach { file =>
               val source = new Path(file.toString)
               logger.info(s"Importing ${file.toString}")
               val destFile = new Path(destFolder, file.getName)
@@ -240,7 +240,7 @@ class IngestionWorkflow(
   ): (Iterable[(Option[Schema], Path)], Iterable[(Option[Schema], Path)]) = {
     val pendingArea = DatasetArea.pending(domainName)
     logger.info(s"List files in $pendingArea")
-    val files = storageHandler.list(pendingArea)
+    val files = storageHandler.list(pendingArea, recursive = false)
     if (files.nonEmpty)
       logger.info(s"Found ${files.mkString(",")}")
     else
@@ -424,7 +424,6 @@ class IngestionWorkflow(
     */
   def autoJob(config: TransformConfig): Boolean = {
     val job = schemaHandler.jobs(config.name)
-    val activeEnv = schemaHandler.activeEnv
     logger.info(job.toString)
     val includes = schemaHandler.views(job.name)
     val result = job.tasks.map { task =>
@@ -438,7 +437,7 @@ class IngestionWorkflow(
         job.getEngine(),
         task,
         storageHandler,
-        config.options,
+        schemaHandler.activeEnv ++ config.options,
         schemaHandler
       )
       val engine = job.getEngine()
