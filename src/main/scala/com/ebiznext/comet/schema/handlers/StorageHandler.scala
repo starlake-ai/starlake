@@ -20,9 +20,6 @@
 
 package com.ebiznext.comet.schema.handlers
 
-import java.io.ByteArrayOutputStream
-import java.time.{Instant, LocalDateTime, ZoneId}
-
 import com.ebiznext.comet.config.Settings
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.commons.io.IOUtils
@@ -30,6 +27,8 @@ import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs._
 import org.apache.spark.sql.execution.streaming.FileStreamSource.Timestamp
 
+import java.io.ByteArrayOutputStream
+import java.time.{Instant, LocalDateTime, ZoneId}
 import scala.concurrent.duration.FiniteDuration
 import scala.util.Try
 
@@ -55,7 +54,12 @@ trait StorageHandler extends StrictLogging {
 
   def listDirectories(path: Path): List[Path]
 
-  def list(path: Path, extension: String = "", since: LocalDateTime = LocalDateTime.MIN): List[Path]
+  def list(
+    path: Path,
+    extension: String = "",
+    since: LocalDateTime = LocalDateTime.MIN,
+    recursive: Boolean
+  ): List[Path]
 
   def blockSize(path: Path): Long
 
@@ -166,12 +170,13 @@ class HdfsStorageHandler(fileSystem: Option[String])(implicit
     * @param path      Absolute folder path
     * @param extension : Files should end with this string. To list all files, simply provide an empty string
     * @param since     Minimum modification time of liste files. To list all files, simply provide the beginning of all times
+    * @param recursive: List all files recursively ?
     * @return List of Path
     */
-  def list(path: Path, extension: String, since: LocalDateTime): List[Path] = {
+  def list(path: Path, extension: String, since: LocalDateTime, recursive: Boolean): List[Path] = {
     logger.info(s"list($path, $extension, $since)")
     try {
-      val iterator: RemoteIterator[LocatedFileStatus] = fs.listFiles(path, false)
+      val iterator: RemoteIterator[LocatedFileStatus] = fs.listFiles(path, recursive)
       iterator
         .filter { status =>
           logger.info(s"found file=$status")

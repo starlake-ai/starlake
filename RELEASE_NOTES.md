@@ -12,6 +12,8 @@ __New feature__:
 - Rejected area supports its own write format (default-rejected-write-format property)
 - Deep JSON & XML files are now validated against the schema
 - Privacy is applied on deep JSON & XML inputs
+- Domains & Jobs may be defined in subdirectories allowing better metatdate files organization
+- Substitute variables through CLI & env files in views, assertions, presql, main sql, post sql requests
 
 __Bug Fix__:
 - Make Jackson lib provided. [#457]
