@@ -135,7 +135,7 @@ trait SparkJob extends JobBase {
     }
   }
 
-  protected def analyze(fullTableName: String) = {
+  protected def analyze(fullTableName: String): Any = {
     if (settings.comet.analyze) {
       val allCols = session.table(fullTableName).columns.mkString(",")
       val analyzeTable =
@@ -155,16 +155,16 @@ trait SparkJob extends JobBase {
 
   protected def createViews(
     views: Views,
-    sqlParameters: Map[String, String],
-    activeEnv: Map[String, String]
-  ) = {
+    sqlParameters: Map[String, String]
+  ): Unit = {
     // We parse the following strings
     //ex  BQ:[[ProjectID.]DATASET_ID.]TABLE_NAME"
     //or  BQ:[[ProjectID.]DATASET_ID.]TABLE_NAME.[comet_filter(col1 > 10 and col2 < 20)].[comet_select(col1, col2)]"
     //or  FS:/bucket/parquetfolder
     //or  JDBC:postgres:select *
     views.views.foreach { case (key, value) =>
-      val valueWithEnv = Utils.subst(value, Nil, Nil, "comet_table", activeEnv)
+      // Apply substitution defined with {{ }} and overload options in env by option in command line
+      val valueWithEnv = value.richFormat(sqlParameters)
       val sepIndex = valueWithEnv.indexOf(":")
       val (format, configName, path) =
         if (sepIndex > 0) {
@@ -195,7 +195,7 @@ trait SparkJob extends JobBase {
           jdbcConfig.options
             .foldLeft(session.read)((w, kv) => w.option(kv._1, kv._2))
             .format(jdbcConfig.format)
-            .option("query", path.richFormat(sqlParameters))
+            .option("query", path)
             .load()
             .cache()
 
@@ -210,25 +210,25 @@ trait SparkJob extends JobBase {
             "(.*)\\.comet_select\\((.*)\\)\\.comet_filter\\((.*)\\)".r
           path match {
             case TablePathWithFilterAndSelect(tablePath, select, filter) =>
-              val filterFormat = filter.richFormat(sqlParameters)
               logger
-                .info(s"We are loading the Table with columns: $select and filters: $filterFormat")
+                .info(
+                  s"We are loading the Table with columns: $select and filters: $filter"
+                )
               session.read
                 .option("readDataFormat", "AVRO")
                 .format("com.google.cloud.spark.bigquery")
                 .option("table", tablePath)
-                .option("filter", filterFormat)
+                .option("filter", filter)
                 .load()
                 .selectExpr(select.replaceAll("\\s", "").split(","): _*)
                 .cache()
             case TablePathWithFilter(tablePath, filter) =>
-              val filterFormat = filter.richFormat(sqlParameters)
-              logger.info(s"We are loading the Table with filters: $filterFormat")
+              logger.info(s"We are loading the Table with filters: $filter")
               session.read
                 .option("readDataFormat", "AVRO")
                 .format("com.google.cloud.spark.bigquery")
                 .option("table", tablePath)
-                .option("filter", filterFormat)
+                .option("filter", filter)
                 .load()
                 .cache()
             case TablePathWithSelect(tablePath, select) =>
