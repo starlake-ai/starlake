@@ -209,7 +209,7 @@ class AutoTaskJob(
       udf.foreach { udf =>
         registerUdf(udf)
       }
-      createViews(views, sqlParameters, schemaHandler.activeEnv)
+      createViews(views, schemaHandler.activeEnv ++ sqlParameters)
 
       task.presql
         .getOrElse(Nil)
@@ -249,7 +249,9 @@ class AutoTaskJob(
           finalDataset.save()
           if (coalesce) {
             val extension = format.getOrElse(settings.comet.defaultWriteFormat)
-            val csvPath = storageHandler.list(targetPath, s".$extension", LocalDateTime.MIN).head
+            val csvPath = storageHandler
+              .list(targetPath, s".$extension", LocalDateTime.MIN, recursive = false)
+              .head
             val finalPath = new Path(targetPath, targetPath.getName + s".$extension")
             storageHandler.move(csvPath, finalPath)
           }
@@ -271,7 +273,7 @@ class AutoTaskJob(
         }
       }
 
-      task.postsql.getOrElse(Nil).foreach(session.sql)
+      task.postsql.getOrElse(Nil).foreach(sql => session.sql(sql.richFormat(sqlParameters)))
       // Let us return the Dataframe so that it can be piped to another sink
       SparkJobResult(Some(dataframe))
     }
