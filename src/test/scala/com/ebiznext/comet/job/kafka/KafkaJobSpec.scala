@@ -36,8 +36,7 @@ class KafkaJobSpec extends TestHelper {
     s"${esContainer.httpHostAddress.substring(esContainer.httpHostAddress.lastIndexOf(':') + 1)}"
 
   val kafkaConfig = ConfigFactory
-    .parseString(
-      s"""
+    .parseString(s"""
          |kafka {
          |  server-options = {
          |      "bootstrap.servers": "${kafkaContainer.bootstrapServers}"
@@ -201,8 +200,8 @@ class KafkaJobSpec extends TestHelper {
       val topicProperties = Map("cleanup.policy" -> "compact")
       client.createTopicIfNotPresent(new NewTopic("comet_offsets", 1, 1.toShort), topicProperties)
       val properties = Map(
-        "bootstrap.servers" -> kafkaContainer.bootstrapServers,
-        "key.deserializer" -> "org.apache.kafka.common.serialization.StringDeserializer",
+        "bootstrap.servers"  -> kafkaContainer.bootstrapServers,
+        "key.deserializer"   -> "org.apache.kafka.common.serialization.StringDeserializer",
         "value.deserializer" -> "org.apache.kafka.common.serialization.StringDeserializer"
       )
       val offsets = client.topicEndOffsets("comet_offsets", properties)
@@ -287,7 +286,10 @@ class KafkaJobSpec extends TestHelper {
           )
         kafkaJob.run()
         val offsets =
-          client.topicEndOffsets("kafka_to_es", settings.comet.kafka.topics("kafka_to_es").accessOptions)
+          client.topicEndOffsets(
+            "kafka_to_es",
+            settings.comet.kafka.topics("kafka_to_es").accessOptions
+          )
         offsets should contain theSameElementsAs List((0, 100))
         import scala.collection.JavaConverters._
 
