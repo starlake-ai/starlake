@@ -10,6 +10,7 @@ __New feature__:
 - Privacy is applied on deep JSON & XML inputs
 - Domains & Jobs may be defined in subdirectories allowing better metatdate files organization
 - Substitute variables through CLI & env files in views, assertions, presql, main sql, post sql requests
+- Semantic type Date supports dates with _MMM_ month representation [#463]
 
 __Bug Fix__:
 - Make Jackson lib provided. [#457]
