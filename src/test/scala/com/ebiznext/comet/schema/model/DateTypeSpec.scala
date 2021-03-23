@@ -34,6 +34,24 @@ class DateTypeSpec extends TestHelper {
       )
       result shouldBe expected
     }
+
+    "Parsing a valid string with format MMMyyyy" should "return a valid date" in {
+      val expected = java.sql.Date.valueOf("2018-12-01")
+      val result = date.fromString(
+        "DEC2018",
+        "MMMyyyy",
+        "en_EN"
+      )
+      result shouldBe expected
+
+      assertThrows[DateTimeParseException] {
+        date.fromString(
+          "DEC20888",
+          "MMMyyyy",
+          "en_EN"
+        )
+      }
+    }
     "Parsing a valid Year-Month pattern" should "return a date with the first day of the month" in {
       val expected = java.sql.Date.valueOf("2009-12-01")
       date.fromString(
