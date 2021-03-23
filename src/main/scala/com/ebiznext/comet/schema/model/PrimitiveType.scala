@@ -23,10 +23,11 @@ package com.ebiznext.comet.schema.model
 import java.sql.Timestamp
 import java.text.{DecimalFormat, NumberFormat}
 import java.time._
-import java.time.format.DateTimeFormatter
 import java.time.temporal.TemporalAccessor
 import java.util.regex.Pattern
 import java.util.{Locale, TimeZone}
+import java.time.format.DateTimeFormatter
+import java.time.format.DateTimeFormatterBuilder
 
 import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.databind.annotation.{JsonDeserialize, JsonSerialize}
@@ -283,7 +284,17 @@ object PrimitiveType {
       if (str == null || str.isEmpty)
         null
       else {
-        val formatter = DateTimeFormatter.ofPattern(pattern)
+        val formatter = Option(zone) match {
+          case None => DateTimeFormatter.ofPattern(pattern)
+          case Some(zone) =>
+            val locale = zone.split('_')
+            val currentLocale: Locale = new Locale(locale(0), locale(1))
+            new DateTimeFormatterBuilder()
+              .parseCaseInsensitive()
+              .appendPattern(pattern)
+              .toFormatter
+              .withLocale(currentLocale)
+        }
         Try {
           val date = LocalDate.parse(str, formatter)
           java.sql.Date.valueOf(date)
@@ -293,7 +304,6 @@ object PrimitiveType {
         }
       }
     }
-
     def sparkType: DataType = DateType
   }
 
