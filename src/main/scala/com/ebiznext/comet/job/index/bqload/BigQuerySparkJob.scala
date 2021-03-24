@@ -159,7 +159,11 @@ class BigQuerySparkJob(
             .rdd
             .map(r => r.getString(0))
             .collect()
+            .toList
 
+          logger.info(
+            s"Overwriting the following partitions: [${partitions.mkString(" , ")}] ..."
+          )
           partitions.foreach { partitionStr =>
             val finalDF =
               sourceDF
