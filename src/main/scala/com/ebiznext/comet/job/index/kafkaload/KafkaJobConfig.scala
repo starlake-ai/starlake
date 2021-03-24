@@ -103,12 +103,19 @@ object KafkaJobConfig extends CliConfig[KafkaJobConfig] {
                 )
                 .required(),
               opt[Boolean]("streaming-to-table")
-                .action((x, c) => c.copy(streamingWriteToTable = x))
-                .text("10 seconds / ")
+                .action { (x, c) =>
+                  if (x) {
+                    throw new Exception(
+                      "Streaming to a table is still unsupported, reserved for future use"
+                    )
+                  }
+                  c.copy(streamingWriteToTable = x)
+                }
+                .text("Table name to sink to")
                 .required(),
               opt[Seq[String]]("streaming-partition-by")
                 .action((x, c) => c.copy(streamingWritePartitionBy = x))
-                .text("10 seconds / ")
+                .text("List of columns to use for partitioning")
                 .required()
             )
         )
