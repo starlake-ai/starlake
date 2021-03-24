@@ -64,6 +64,7 @@ trait TestHelper extends AnyFlatSpec with Matchers with BeforeAndAfterAll with S
   def testConfiguration: Config = {
     val rootConfig = ConfigFactory.parseString(
       s"""
+        |COMET_ASSERTIONS_ACTIVE=true
         |COMET_ROOT="${cometTestRoot}"
         |COMET_TEST_ID="${cometTestId}"
         |COMET_DATASETS="${cometDatasetsPath}"
