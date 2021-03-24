@@ -115,7 +115,7 @@ case class Type(
       primitiveType match {
         case PrimitiveType.struct => true
         case PrimitiveType.date =>
-          Try(date.fromString(value, pattern)).isSuccess
+          Try(date.fromString(value, pattern, zone.orNull)).isSuccess
         case PrimitiveType.timestamp =>
           Try(timestamp.fromString(value, pattern, zone.orNull)).isSuccess
         case PrimitiveType.boolean =>
