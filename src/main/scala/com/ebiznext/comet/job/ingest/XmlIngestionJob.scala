@@ -68,6 +68,7 @@ class XmlIngestionJob(
               .option("rowTag", rowTag)
               .option("inferSchema", value = false)
               .option("encoding", metadata.getEncoding())
+              .schema(schema.sparkSchemaWithoutScriptedFields(schemaHandler))
               .load(singlePath.toString)
           }
           .reduce((acc, df) => acc union df)
@@ -89,7 +90,6 @@ class XmlIngestionJob(
     * @param dataset input dataset as a RDD of string
     */
   protected def ingest(dataset: DataFrame): (RDD[_], RDD[_]) = {
-    dataset.printSchema()
     val datasetSchema = dataset.schema
     val errorList = compareTypes(schemaSparkType, datasetSchema)
     val rejectedRDD = session.sparkContext.parallelize(errorList)
