@@ -9,6 +9,7 @@ __New feature__:
 - Privacy is applied on deep JSON & XML inputs
 - Domains & Jobs may be defined in subdirectories allowing better metatdata files organization
 - Substitute variables through CLI & env files in views, assertions, presql, main sql and post sql requests
+- Semantic type Date supports dates with _MMM_ month representation [#463]
 - Split reference.conf into multiple files.
 - Support kafka Source & Sink through Spark Streaming
 
