@@ -32,10 +32,10 @@ import com.ebiznext.comet.job.index.kafkaload.{KafkaJob, KafkaJobConfig}
 import com.ebiznext.comet.job.infer.InferSchemaConfig
 import com.ebiznext.comet.job.ingest.LoadConfig
 import com.ebiznext.comet.job.metrics.MetricsConfig
-import com.ebiznext.comet.schema.generator.Xls2Yml
+import com.ebiznext.comet.schema.generator.{Xls2Yml, Xls2YmlConfig, Yml2XlsWriter}
 import com.ebiznext.comet.schema.handlers.SchemaHandler
 import com.ebiznext.comet.utils.{CometObjectMapper, FileLock}
-import com.ebiznext.comet.workflow.{IngestionWorkflow, TransformConfig, WatchConfig}
+import com.ebiznext.comet.workflow.{ImportConfig, IngestionWorkflow, TransformConfig, WatchConfig}
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.typesafe.config.ConfigFactory
@@ -59,16 +59,19 @@ object Main extends StrictLogging {
     println(
       s"""
         |Usage : One of
-        |comet job jobname
-        |comet watch [+/-DOMAIN1,DOMAIN2,...]
-        |comet import
         |${LoadConfig.usage()}
+        |${ImportConfig.usage()}
+        |${TransformConfig.usage()}
+        |${WatchConfig.usage()}
         |${ESLoadConfig.usage()}
         |${BigQueryLoadConfig.usage()}
         |${InferSchemaConfig.usage()}
         |${MetricsConfig.usage()}
         |${Parquet2CSVConfig.usage()}
-        |      """.stripMargin
+        |${Xls2YmlConfig.usage()}
+        |${Xls2YmlConfig.usage()}
+        |${KafkaJobConfig.usage()}
+        |""".stripMargin
     )
     // scalastyle:on println
   }
@@ -220,6 +223,10 @@ object Main extends StrictLogging {
 
       case "xls2yml" =>
         Xls2Yml.run(args.drop(1))
+
+      case "yml2xls" =>
+        new Yml2XlsWriter(schemaHandler).run(args.drop(1))
+        true
 
       case "extract" =>
         ScriptGen.run(args.drop(1))
