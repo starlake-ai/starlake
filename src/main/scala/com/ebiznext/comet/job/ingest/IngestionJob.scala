@@ -1,5 +1,8 @@
 package com.ebiznext.comet.job.ingest
 
+import java.sql.Timestamp
+import java.time.{Instant, LocalDateTime}
+
 import com.ebiznext.comet.config.{DatasetArea, Settings, StorageArea}
 import com.ebiznext.comet.job.index.bqload.{BigQueryLoadConfig, BigQuerySparkJob}
 import com.ebiznext.comet.job.index.connectionload.{ConnectionLoadConfig, ConnectionLoadJob}
@@ -11,6 +14,7 @@ import com.ebiznext.comet.schema.model.Rejection.{ColInfo, ColResult}
 import com.ebiznext.comet.schema.model.Trim.{BOTH, LEFT, RIGHT}
 import com.ebiznext.comet.schema.model._
 import com.ebiznext.comet.utils.Formatter._
+import com.ebiznext.comet.utils.conversion.BigQueryUtils
 import com.ebiznext.comet.utils.kafka.KafkaClient
 import com.ebiznext.comet.utils.{JobResult, SparkJob, SparkJobResult, Utils}
 import com.google.cloud.bigquery.JobInfo.{CreateDisposition, WriteDisposition}
@@ -22,8 +26,6 @@ import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types.{StringType, StructField, StructType, TimestampType}
 
-import java.sql.Timestamp
-import java.time.{Instant, LocalDateTime}
 import scala.collection.JavaConverters._
 import scala.language.existentials
 import scala.util.{Failure, Success, Try}
@@ -240,11 +242,17 @@ trait IngestionJob extends SparkJob {
       .getOrElse(finalAcceptedDF)
 
     logger.info("Merged Dataframe Schema")
-    mergedDF.printSchema()
+    val finalMergedDf = schema.postsql match {
+      case Some(req) =>
+        mergedDF.createOrReplaceTempView(s"${schema.name}_tbl")
+        mergedDF.sparkSession.sql(req)
+      case _ => mergedDF
+    }
+    finalMergedDf.printSchema()
     val savedDataset =
       if (settings.comet.sinkToFile)
         sinkToFile(
-          mergedDF,
+          finalMergedDf,
           acceptedPath,
           writeMode,
           StorageArea.accepted,
@@ -252,10 +260,10 @@ trait IngestionJob extends SparkJob {
           settings.comet.defaultWriteFormat
         )
       else
-        mergedDF
+        finalMergedDf
     logger.info("Saved Dataset Schema")
     savedDataset.printSchema()
-    sink(mergedDF) match {
+    sink(finalMergedDf) match {
       case Success(_) =>
         val end = Timestamp.from(Instant.now())
         val log = AuditLog(
@@ -319,9 +327,9 @@ trait IngestionJob extends SparkJob {
             metadata.getWrite(),
             schema.merge.exists(_.key.nonEmpty)
           )
-          val tableSchema = schema.mergedMetadata(domain.metadata).getFormat() match {
-            case Format.XML => None
-            case _          => Some(schema.bqSchema(schemaHandler))
+          val tableSchema = schema.postsql match {
+            case Some(_) => Some(BigQueryUtils.bqSchema(mergedDF.schema))
+            case _       => Some(schema.bqSchema(schemaHandler))
           }
           val config = BigQueryLoadConfig(
             source = Right(mergedDF),
@@ -593,7 +601,6 @@ trait IngestionJob extends SparkJob {
                 Step.LOAD.toString
               )
               SparkAuditLogWriter.append(session, log)
-              schema.postsql.getOrElse(Nil).foreach(session.sql)
               SparkJobResult(None)
             }
           case Failure(exception) =>
