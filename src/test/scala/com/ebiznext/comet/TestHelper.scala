@@ -23,7 +23,7 @@ package com.ebiznext.comet
 import com.ebiznext.comet.config.{DatasetArea, Settings}
 import com.ebiznext.comet.schema.handlers.{SchemaHandler, SimpleLauncher, StorageHandler}
 import com.ebiznext.comet.schema.model.AutoJobDesc
-import com.ebiznext.comet.utils.{CometObjectMapper, TextSubstitutionEngine}
+import com.ebiznext.comet.utils.{CometObjectMapper, TextSubstitutionEngine, Utils}
 import com.ebiznext.comet.workflow.IngestionWorkflow
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
@@ -70,6 +70,7 @@ trait TestHelper extends AnyFlatSpec with Matchers with BeforeAndAfterAll with S
   def testConfiguration: Config = {
     val rootConfig = ConfigFactory.parseString(
       s"""
+        |COMET_ASSERTIONS_ACTIVE=true
         |COMET_ROOT="${cometTestRoot}"
         |COMET_TEST_ID="${cometTestId}"
         |COMET_DATASETS="${cometDatasetsPath}"
@@ -94,8 +95,6 @@ trait TestHelper extends AnyFlatSpec with Matchers with BeforeAndAfterAll with S
 
     testConfig
   }
-
-  def versionSuffix: String = TestHelperAux.versionSuffix
 
   val allTypes: List[FileToImport] = List(
     FileToImport(
@@ -130,15 +129,13 @@ trait TestHelper extends AnyFlatSpec with Matchers with BeforeAndAfterAll with S
     )
   )
 
-  import TestHelperAux.using
-
   private def readSourceContentAsString(source: Source): String = {
     source.getLines().mkString("\n")
   }
 
   def loadTextFile(filename: String)(implicit codec: Codec): String = {
     val stream: InputStream = getClass.getResourceAsStream(filename)
-    using(Source.fromInputStream(stream))(readSourceContentAsString)
+    Utils.withResources(Source.fromInputStream(stream))(readSourceContentAsString)
   }
 
   def loadBinaryFile(filename: String)(implicit codec: Codec): Array[Char] = {
@@ -151,7 +148,7 @@ trait TestHelper extends AnyFlatSpec with Matchers with BeforeAndAfterAll with S
   }
 
   def readFileContent(path: String): String =
-    using(Source.fromFile(path))(readSourceContentAsString)
+    Utils.withResources(Source.fromFile(path))(readSourceContentAsString)
 
   def readFileContent(path: Path): String = readFileContent(path.toUri.getPath)
 

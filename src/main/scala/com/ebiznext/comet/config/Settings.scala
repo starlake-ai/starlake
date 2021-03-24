@@ -169,8 +169,8 @@ object Settings extends StrictLogging {
     intermediateBigqueryFormat: String = "orc"
   )
 
-  final case class KafkaTopicOptions(
-    name: Option[String] = None,
+  final case class KafkaTopicConfig(
+    topicName: String,
     maxRead: Long = -1,
     fields: List[String] = List("key as STRING", "value as STRING"),
     partitions: Int = 1,
@@ -182,7 +182,7 @@ object Settings extends StrictLogging {
 
   final case class KafkaConfig(
     serverOptions: Map[String, String],
-    topics: Map[String, KafkaTopicOptions]
+    topics: Map[String, KafkaTopicConfig]
   )
 
   /** @param datasets       : Absolute path, datasets root folder beneath which each area is defined.

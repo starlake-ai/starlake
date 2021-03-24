@@ -129,3 +129,4 @@ src/main/resources/application.conf
 venv
 
 .bsp
+tfm/azure/databricks-tfm/.terraform

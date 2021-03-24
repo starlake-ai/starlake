@@ -42,9 +42,8 @@ object Mode {
 
   def fromString(value: String): Mode = {
     value.toUpperCase() match {
-      case "FILE"            => Mode.FILE
-      case "STREAM"          => Mode.STREAM
-      case "FILE_AND_STREAM" => Mode.FILE_AND_STREAM
+      case "FILE"   => Mode.FILE
+      case "STREAM" => Mode.STREAM
     }
   }
 
@@ -52,9 +51,7 @@ object Mode {
 
   object STREAM extends Mode("STREAM")
 
-  object FILE_AND_STREAM extends Mode("FILE_AND_STREAM")
-
-  val modes: Set[Mode] = Set(FILE, STREAM, FILE_AND_STREAM)
+  val modes: Set[Mode] = Set(FILE, STREAM)
 }
 
 class ModeDeserializer extends JsonDeserializer[Mode] {
