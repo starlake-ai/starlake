@@ -20,26 +20,30 @@
 
 package com.ebiznext.comet.schema.handlers
 
-import java.net.URL
+import com.databricks.spark.xml._
+import com.dimafeng.testcontainers.ElasticsearchContainer
 import com.ebiznext.comet.TestHelper
 import com.ebiznext.comet.config.DatasetArea
 import com.ebiznext.comet.schema.model._
 import com.softwaremill.sttp.{HttpURLConnectionBackend, _}
+import com.typesafe.config.{Config, ConfigFactory}
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.{Metadata => _, _}
 
+import java.net.URL
 import scala.util.Try
-import com.databricks.spark.xml._
-import com.dimafeng.testcontainers.{ElasticsearchContainer, ForAllTestContainer}
-import com.typesafe.config.{Config, ConfigFactory}
 
-class SchemaHandlerSpec extends TestHelper with ForAllTestContainer {
-  override val container = ElasticsearchContainer()
-  // We need to start iit manually because we need to access the HTTP mapped poorrt
-  // in the configuration below before any test get executed.
-  container.start()
+class SchemaHandlerSpec extends TestHelper {
+  val esContainer: ElasticsearchContainer = ElasticsearchContainer.Def().start()
+
+  override def afterAll(): Unit = {
+    // We need to start it manually because we need to access the HTTP mapped port
+    // in the configuration below before any test get executed.
+    esContainer.stop()
+    super.afterAll()
+  }
 
   private val playerSchema: StructType = StructType(
     Seq(
@@ -58,20 +62,21 @@ class SchemaHandlerSpec extends TestHelper with ForAllTestContainer {
                      |elasticsearch {
                      |  active = true
                      |  options = {
-                     |    "es.nodes": "localhost",
-                     |    "es.port": "${container.httpHostAddress.substring(
-        container.httpHostAddress.lastIndexOf(':') + 1
+                     |    "es.nodes.wan.only": "true"
+                     |    "es.nodes": "localhost"
+                     |    "es.port": "${esContainer.httpHostAddress.substring(
+        esContainer.httpHostAddress.lastIndexOf(':') + 1
       )}",
                      |
                      |    #  net.http.auth.user = ""
                      |    #  net.http.auth.pass = ""
                      |
-                     |    "es.net.ssl": "false",
-                     |    "es.net.ssl.cert.allow.self.signed": "false",
+                     |    "es.net.ssl": "false"
+                     |    "es.net.ssl.cert.allow.self.signed": "false"
                      |
-                     |    "es.batch.size.entries": "1000",
-                     |    "es.batch.size.bytes": "1mb",
-                     |    "es.batch.write.retry.count": "3",
+                     |    "es.batch.size.entries": "1000"
+                     |    "es.batch.size.bytes": "1mb"
+                     |    "es.batch.write.retry.count": "3"
                      |    "es.batch.write.retry.wait": "10s"
                      |  }
                      |}
@@ -132,7 +137,7 @@ class SchemaHandlerSpec extends TestHelper with ForAllTestContainer {
 
         if (settings.comet.isElasticsearchSupported()) {
           implicit val backend = HttpURLConnectionBackend()
-          val countUri = uri"http://${container.httpHostAddress}/domain.user/_count"
+          val countUri = uri"http://${esContainer.httpHostAddress}/domain.user/_count"
           val response = sttp.get(countUri).send()
           response.code should be <= 299
           response.code should be >= 200
