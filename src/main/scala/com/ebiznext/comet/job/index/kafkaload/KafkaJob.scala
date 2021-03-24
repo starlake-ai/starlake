@@ -13,8 +13,8 @@ class KafkaJob(
 )(implicit val settings: Settings)
     extends SparkJob {
 
-  private val topicConfig: Settings.KafkaTopicOptions =
-    settings.comet.kafka.topics(kafkaJobConfig.topic)
+  private val topicConfig: Settings.KafkaTopicConfig =
+    settings.comet.kafka.topics(kafkaJobConfig.topicConfigName)
 
   def offload(): Try[SparkJobResult] = {
     Try {
@@ -22,7 +22,7 @@ class KafkaJob(
         Utils.withResources(new KafkaClient(settings.comet.kafka)) { kafkaUtils =>
           val (df, offsets) = kafkaUtils
             .consumeTopicBatch(
-              kafkaJobConfig.topic,
+              kafkaJobConfig.topicConfigName,
               session,
               topicConfig
             )
@@ -35,7 +35,7 @@ class KafkaJob(
             .options(kafkaJobConfig.writeOptions)
             .save(kafkaJobConfig.path)
           kafkaUtils.topicSaveOffsets(
-            kafkaJobConfig.topic,
+            kafkaJobConfig.topicConfigName,
             topicConfig.accessOptions,
             offsets
           )
@@ -45,7 +45,6 @@ class KafkaJob(
         Utils.withResources(new KafkaClient(settings.comet.kafka)) { kafkaUtils =>
           val df = kafkaUtils
             .consumeTopicStreaming(
-              kafkaJobConfig.topic,
               session,
               topicConfig
             )
@@ -57,18 +56,18 @@ class KafkaJob(
           }
 
           val writer = transformedDF.writeStream
-            .outputMode(kafkaJobConfig.streamingOutputMode)
-            .format(kafkaJobConfig.streamingOutputMode)
+            .outputMode(kafkaJobConfig.streamingWriteMode)
+            .format(kafkaJobConfig.streamingWriteFormat)
             .options(kafkaJobConfig.writeOptions)
             .trigger(trigger)
-          val partitionedWriter = kafkaJobConfig.streamingPartitionBy match {
+          val partitionedWriter = kafkaJobConfig.streamingWritePartitionBy match {
             case Nil =>
               writer
             case list =>
               writer.partitionBy(list: _*)
           }
           val streamingQuery =
-            if (kafkaJobConfig.streamingToTable)
+            if (kafkaJobConfig.streamingWriteToTable)
               partitionedWriter.toTable(kafkaJobConfig.path)
             else
               partitionedWriter
@@ -89,7 +88,6 @@ class KafkaJob(
         val transformedDF = transfom(df)
 
         kafkaUtils.sinkToTopic(
-          kafkaJobConfig.topic,
           topicConfig,
           transformedDF
         )
@@ -116,5 +114,5 @@ class KafkaJob(
     }
   }
 
-  override def name: String = s"${kafkaJobConfig.topic}"
+  override def name: String = s"${kafkaJobConfig.topicConfigName}"
 }

@@ -169,8 +169,8 @@ object Settings extends StrictLogging {
     intermediateBigqueryFormat: String = "orc"
   )
 
-  final case class KafkaTopicOptions(
-    name: Option[String] = None,
+  final case class KafkaTopicConfig(
+    topicName: String,
     maxRead: Long = -1,
     fields: List[String] = List("key as STRING", "value as STRING"),
     partitions: Int = 1,
@@ -182,7 +182,7 @@ object Settings extends StrictLogging {
 
   final case class KafkaConfig(
     serverOptions: Map[String, String],
-    topics: Map[String, KafkaTopicOptions]
+    topics: Map[String, KafkaTopicConfig]
   )
 
   /** @param datasets       : Absolute path, datasets root folder beneath which each area is defined.
@@ -236,10 +236,8 @@ object Settings extends StrictLogging {
 
     @JsonIgnore
     def isElasticsearchSupported(): Boolean = {
-      if (
-        Version(util.Properties.versionNumberString).compareTo(Version("2.12")) >= 0
-        && elasticsearch.active
-      ) {
+      if (Version(util.Properties.versionNumberString).compareTo(Version("2.12")) >= 0
+          && elasticsearch.active) {
         logger.warn("""Elasticsearch inserts won't be effective before es-hadoop support scala 2.12
                       |See https://github.com/elastic/elasticsearch-hadoop/pull/1308
                       |""".stripMargin)
@@ -337,9 +335,10 @@ final case class Settings(comet: Settings.Comet, sparkConfig: Config) {
   }
 
   @transient
-  lazy val allPrivacyLevels = comet.privacy.options.asScala.map { case (k, objName) =>
-    val encryption = Settings.make(k, objName)
-    val key = k.toUpperCase(Locale.ROOT)
-    (key, (encryption, new PrivacyLevel(key)))
+  lazy val allPrivacyLevels = comet.privacy.options.asScala.map {
+    case (k, objName) =>
+      val encryption = Settings.make(k, objName)
+      val key = k.toUpperCase(Locale.ROOT)
+      (key, (encryption, new PrivacyLevel(key)))
   }
 }

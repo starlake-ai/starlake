@@ -5,20 +5,20 @@ import org.apache.spark.sql.{DataFrame, SaveMode}
 import scopt.OParser
 
 case class KafkaJobConfig(
-  topic: String = "",
+  topicConfigName: String = "",
   format: String = "parquet",
   mode: SaveMode = SaveMode.Append,
   path: String = "",
   transform: Option[String] = None,
   offload: Boolean = true,
   streaming: Boolean = false,
-  streamingFormat: String = "console",
-  streamingOutputMode: String = "append",
+  streamingWriteFormat: String = "console",
+  streamingWriteMode: String = "append",
   writeOptions: Map[String, String] = Map.empty,
   streamingTrigger: String = "Once",
   streamingTriggerOption: String = "",
-  streamingPartitionBy: Seq[String] = Nil,
-  streamingToTable: Boolean = false
+  streamingWritePartitionBy: Seq[String] = Nil,
+  streamingWriteToTable: Boolean = false
 ) {
 
   val transformInstance: Option[DataFrameTransform] = {
@@ -40,11 +40,11 @@ object KafkaJobConfig extends CliConfig[KafkaJobConfig] {
       head("comet", "kafkaload", "[options]"),
       note(""),
       opt[String]("topic")
-        .action((x, c) => c.copy(topic = x))
+        .action((x, c) => c.copy(topicConfigName = x))
         .text("Topic Name declared in reference.conf file")
         .required(),
       opt[String]("format")
-        .action((x, c) => c.copy(topic = x))
+        .action((x, c) => c.copy(topicConfigName = x))
         .text("Read/Write format eq : parquet, json, csv ... Default to parquet.")
         .optional(),
       opt[String]("path")
@@ -81,13 +81,13 @@ object KafkaJobConfig extends CliConfig[KafkaJobConfig] {
             .optional()
             .children(
               opt[String]("streaming-format")
-                .action((x, c) => c.copy(streamingFormat = x))
+                .action((x, c) => c.copy(streamingWriteFormat = x))
                 .text(
                   "If true, kafka topic is offloaded to path, else data contained in path is stored in the kafka topic"
                 )
                 .required(),
               opt[String]("streaming-output-mode")
-                .action((x, c) => c.copy(streamingOutputMode = x))
+                .action((x, c) => c.copy(streamingWriteMode = x))
                 .text(
                   "If true, kafka topic is offloaded to path, else data contained in path is stored in the kafka topic"
                 )
@@ -103,11 +103,11 @@ object KafkaJobConfig extends CliConfig[KafkaJobConfig] {
                 )
                 .required(),
               opt[Boolean]("streaming-to-table")
-                .action((x, c) => c.copy(streamingToTable = x))
+                .action((x, c) => c.copy(streamingWriteToTable = x))
                 .text("10 seconds / ")
                 .required(),
               opt[Seq[String]]("streaming-partition-by")
-                .action((x, c) => c.copy(streamingPartitionBy = x))
+                .action((x, c) => c.copy(streamingWritePartitionBy = x))
                 .text("10 seconds / ")
                 .required()
             )

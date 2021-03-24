@@ -52,7 +52,7 @@ class KafkaIngestionJob(
 
   var offsets: List[(Int, Long)] = null
 
-  private val topicConfig: Settings.KafkaTopicOptions = settings.comet.kafka.topics(schema.name)
+  private val topicConfig: Settings.KafkaTopicConfig = settings.comet.kafka.topics(schema.name)
 
   /** Load dataset using spark csv reader and all metadata. Does not infer schema.
     * columns not defined in the schema are dropped fro the dataset (require datsets with a header)
@@ -70,7 +70,7 @@ class KafkaIngestionJob(
         }
       case Some(Mode.STREAM) =>
         Utils.withResources(new KafkaClient(settings.comet.kafka)) { kafkaTopicUtils =>
-          kafkaTopicUtils.consumeTopicStreaming(schema.name, session, topicConfig)
+          kafkaTopicUtils.consumeTopicStreaming(session, topicConfig)
         }
       case _ =>
         throw new Exception("Should never happen")
