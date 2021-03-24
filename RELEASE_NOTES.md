@@ -1,6 +1,5 @@
 # Release notes
 
-
 ## 0.1.35
 __New feature__:
 - Auto compile with scala 2.11 for Spark 2 and with scala 2.12 for Spark 3. [#457]
@@ -8,9 +7,11 @@ __New feature__:
 - Rejected area supports its own write format (default-rejected-write-format property)
 - Deep JSON & XML files are now validated against the schema
 - Privacy is applied on deep JSON & XML inputs
-- Domains & Jobs may be defined in subdirectories allowing better metatdate files organization
-- Substitute variables through CLI & env files in views, assertions, presql, main sql, post sql requests
+- Domains & Jobs may be defined in subdirectories allowing better metatdata files organization
+- Substitute variables through CLI & env files in views, assertions, presql, main sql and post sql requests
 - Semantic type Date supports dates with _MMM_ month representation [#463]
+- Split reference.conf into multiple files.
+- Support kafka Source & Sink through Spark Streaming
 
 __Bug Fix__:
 - Make Jackson lib provided. [#457]

@@ -1,6 +1,6 @@
 package com.ebiznext.comet.utils.kafka
 
-import com.ebiznext.comet.config.Settings.{KafkaConfig, KafkaTopicOptions}
+import com.ebiznext.comet.config.Settings.{KafkaConfig, KafkaTopicConfig}
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.kafka.clients.admin.{AdminClient, NewTopic}
 import org.apache.kafka.clients.consumer.KafkaConsumer
@@ -16,7 +16,7 @@ import collection.JavaConverters._
 class KafkaClient(kafkaConfig: KafkaConfig) extends StrictLogging with AutoCloseable {
 
   val serverOptions: Map[String, String] = kafkaConfig.serverOptions
-  val cometOffsetsConfig: KafkaTopicOptions = kafkaConfig.topics("comet_offsets")
+  val cometOffsetsConfig: KafkaTopicConfig = kafkaConfig.topics("comet_offsets")
 
   val props = new Properties()
   serverOptions.foreach { option =>
@@ -35,6 +35,14 @@ class KafkaClient(kafkaConfig: KafkaConfig) extends StrictLogging with AutoClose
   )
 
   def close(): Unit = client.close()
+
+  def deleteTopic(topicName: String): Unit = {
+    val found = client.listTopics().names().get().contains(topicName)
+    client.listTopics().names().get().asScala.toSet.foreach(println)
+    if (found) {
+      client.deleteTopics(List(topicName).asJavaCollection)
+    }
+  }
 
   def createTopicIfNotPresent(topic: NewTopic, conf: Map[String, String]): Any = {
     val found = client.listTopics().names().get().contains(topic.name)
@@ -77,7 +85,7 @@ class KafkaClient(kafkaConfig: KafkaConfig) extends StrictLogging with AutoClose
   }
 
   def topicSaveOffsets(
-    topicName: String,
+    topicConfigName: String,
     accessOptions: Map[String, String],
     offsets: List[(Int, Long)]
   ): Unit = {
@@ -85,13 +93,17 @@ class KafkaClient(kafkaConfig: KafkaConfig) extends StrictLogging with AutoClose
     val producer = new KafkaProducer[String, String](props)
     offsets.foreach { case (partition, offset) =>
       producer.send(
-        new ProducerRecord[String, String]("comet_offsets", s"$topicName/$partition", s"$offset")
+        new ProducerRecord[String, String](
+          "comet_offsets",
+          s"$topicConfigName/$partition",
+          s"$offset"
+        )
       )
     }
     producer.close()
   }
 
-  def topicCurrentOffsets(topicName: String): Option[List[(Int, Long)]] = {
+  def topicCurrentOffsets(topicConfigName: String): Option[List[(Int, Long)]] = {
     val props = new Properties()
     cometOffsetsConfig.accessOptions.foreach { option =>
       props.put(option._1, option._2)
@@ -114,11 +126,11 @@ class KafkaClient(kafkaConfig: KafkaConfig) extends StrictLogging with AutoClose
     val res = offsets.keys.map { k =>
       val tab = k.split('/')
       (tab(0), tab(1), offsets(k))
-    } groupBy (_._1) mapValues (_.map(it => (it._2.toInt, it._3.toLong)).toList) get topicName
+    } groupBy (_._1) mapValues (_.map(it => (it._2.toInt, it._3.toLong)).toList) get topicConfigName
     res
   }
 
-  def offsetsAsJson(topicConfigName: String, offsets: List[(Int, Long)]): Option[String] = {
+  def offsetsAsJson(topicName: String, offsets: List[(Int, Long)]): Option[String] = {
     if (offsets.isEmpty)
       None
     else {
@@ -126,58 +138,66 @@ class KafkaClient(kafkaConfig: KafkaConfig) extends StrictLogging with AutoClose
       val offsetsAsString = offsets.map { offset =>
         s""""${offset._1}": ${offset._2}"""
       } mkString ","
-      Some(s"""{"$topicConfigName":{$offsetsAsString}}""")
+      Some(s"""{"$topicName":{$offsetsAsString}}""")
     }
 
   }
 
-  def consumeTopic(
+  def consumeTopicBatch(
     topicConfigName: String,
     session: SparkSession,
-    config: KafkaTopicOptions
+    config: KafkaTopicConfig
   ): (DataFrame, List[(Int, Long)]) = {
     val EARLIEST_OFFSET = -2L
-    val reader = session.read
-      .format("kafka")
     val startOffsets =
-      topicCurrentOffsets(config.name.getOrElse(topicConfigName))
+      topicCurrentOffsets(topicConfigName)
         .getOrElse {
-          topicPartitions(config.name.getOrElse(topicConfigName)).map(p =>
-            (p.partition(), EARLIEST_OFFSET)
-          )
+          topicPartitions(config.topicName)
+            .map(p => (p.partition(), EARLIEST_OFFSET))
         }
-    val endOffsets = topicEndOffsets(config.name.getOrElse(topicConfigName), config.accessOptions)
+    val endOffsets =
+      topicEndOffsets(config.topicName, config.accessOptions)
 
     // We do not use the topic Name but the config name to allow us to
     // consume differently the same topic
     val withOffsetsTopicOptions = config.accessOptions ++ Seq(
-      "startingOffsets" -> offsetsAsJson(topicConfigName, startOffsets).getOrElse("earliest"),
-      "endingOffsets"   -> offsetsAsJson(topicConfigName, endOffsets).getOrElse("latest")
+      "startingOffsets" -> offsetsAsJson(config.topicName, startOffsets).getOrElse("earliest"),
+      "endingOffsets"   -> offsetsAsJson(config.topicName, endOffsets).getOrElse("latest")
     )
     // TODO Loop based on maxRead need to be implemented here
 
+    val reader = session.read.format("kafka")
     val df =
       withOffsetsTopicOptions
         .foldLeft(reader)((reader, option) => reader.option(option._1, option._2))
         .load()
         .selectExpr(config.fields.map(x => s"CAST($x)"): _*)
     df.printSchema()
-    logger.whenDebugEnabled {
-      df.collect().foreach(r => logger.debug(r.toString()))
-    }
     (df, endOffsets)
   }
 
+  def consumeTopicStreaming(
+    session: SparkSession,
+    config: KafkaTopicConfig
+  ): DataFrame = {
+    val reader = session.readStream.format("kafka")
+    val df =
+      config.accessOptions
+        .foldLeft(reader)((reader, option) => reader.option(option._1, option._2))
+        .load()
+        .selectExpr(config.fields.map(x => s"CAST($x)"): _*)
+    df
+  }
+
   def sinkToTopic(
-    topicConfigName: String,
-    config: KafkaTopicOptions,
+    config: KafkaTopicConfig,
     df: DataFrame
   ): Unit = {
     val writer = df.selectExpr(config.fields.map(x => s"CAST($x)"): _*).write.format("kafka")
 
     config.accessOptions
       .foldLeft(writer)((writer, option) => writer.option(option._1, option._2))
-      .option("topic", config.name.getOrElse(topicConfigName))
+      .option("topic", config.topicName)
       .save()
   }
 }
