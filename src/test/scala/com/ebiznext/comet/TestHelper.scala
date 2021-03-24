@@ -57,7 +57,13 @@ trait TestHelper extends AnyFlatSpec with Matchers with BeforeAndAfterAll with S
     s"${this.getClass.getSimpleName}-${java.util.UUID.randomUUID()}"
 
   lazy val cometTestId: String = s"${cometTestPrefix}-${cometTestInstanceId}"
-  lazy val cometTestRoot: String = Files.createTempDirectory(cometTestId).toAbsolutePath.toString
+
+  lazy val cometTestRoot: String =
+    Option(System.getProperty("os.name")).map(_.toLowerCase contains "windows") match {
+      case Some(true) =>
+        Files.createTempDirectory(cometTestId).toAbsolutePath.toString.replace("\\", "/")
+      case _ => Files.createTempDirectory(cometTestId).toAbsolutePath.toString
+    }
   lazy val cometDatasetsPath: String = cometTestRoot + "/datasets"
   lazy val cometMetadataPath: String = cometTestRoot + "/metadata"
 
