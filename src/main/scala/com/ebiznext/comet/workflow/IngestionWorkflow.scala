@@ -370,7 +370,20 @@ class IngestionWorkflow(
           ingestingPath,
           storageHandler,
           schemaHandler,
-          options
+          options,
+          Mode.FILE
+        ).run().get
+
+      case KAFKASTREAM =>
+        new KafkaIngestionJob(
+          domain,
+          schema,
+          schemaHandler.types,
+          ingestingPath,
+          storageHandler,
+          schemaHandler,
+          options,
+          Mode.STREAM
         ).run().get
       case _ =>
         throw new Exception("Should never happen")
