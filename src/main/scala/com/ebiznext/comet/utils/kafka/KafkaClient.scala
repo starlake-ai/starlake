@@ -91,15 +91,14 @@ class KafkaClient(kafkaConfig: KafkaConfig) extends StrictLogging with AutoClose
   ): Unit = {
     val props: Properties = buildProps(accessOptions)
     val producer = new KafkaProducer[String, String](props)
-    offsets.foreach {
-      case (partition, offset) =>
-        producer.send(
-          new ProducerRecord[String, String](
-            "comet_offsets",
-            s"$topicConfigName/$partition",
-            s"$offset"
-          )
+    offsets.foreach { case (partition, offset) =>
+      producer.send(
+        new ProducerRecord[String, String](
+          "comet_offsets",
+          s"$topicConfigName/$partition",
+          s"$offset"
         )
+      )
     }
     producer.close()
   }
@@ -111,8 +110,8 @@ class KafkaClient(kafkaConfig: KafkaConfig) extends StrictLogging with AutoClose
     }
     val consumer = new KafkaConsumer[String, String](props)
     val partitions =
-      topicPartitions("comet_offsets").map(
-        info => new TopicPartition("comet_offsets", info.partition())
+      topicPartitions("comet_offsets").map(info =>
+        new TopicPartition("comet_offsets", info.partition())
       )
     consumer.assign(partitions.asJava)
     consumer.seekToBeginning(partitions.asJava)
