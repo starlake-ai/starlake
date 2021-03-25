@@ -1,5 +1,6 @@
 package com.ebiznext.comet.schema.generator
 
+import better.files.File
 import com.ebiznext.comet.config.{DatasetArea, Settings}
 import com.ebiznext.comet.schema.model._
 import com.typesafe.config.ConfigFactory
@@ -120,12 +121,10 @@ object Xls2Yml extends LazyLogging {
   }
 
   def writeDomainYaml(domain: Domain, outputPath: String, fileName: String): Unit = {
-    import java.io.File
-
     import YamlSerializer._
     logger.info(s"""Generated schemas:
                    |${serialize(domain)}""".stripMargin)
-    serializeToFile(new File(outputPath, s"${fileName}.comet.yml"), domain)
+    serializeToFile(File(outputPath, s"${fileName}.comet.yml"), domain)
   }
 
   def run(args: Array[String]): Boolean = {
