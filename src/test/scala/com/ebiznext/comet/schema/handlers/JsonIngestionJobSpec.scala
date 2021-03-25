@@ -29,9 +29,11 @@ import org.apache.spark.sql.functions.{col, input_file_name, regexp_extract}
 abstract class JsonIngestionJobSpecBase(variant: String) extends TestHelper with JdbcChecks {
 
   def expectedAuditLogs(implicit settings: Settings): List[AuditLog]
+
   def expectedRejectRecords(implicit settings: Settings): List[RejectedRecord]
 
-  def expectedMetricRecords(implicit
+  def expectedMetricRecords(
+    implicit
     settings: Settings
   ): (List[ContinuousMetricRecord], List[DiscreteMetricRecord], List[FrequencyMetricRecord])
 
@@ -89,6 +91,22 @@ abstract class JsonIngestionJobSpecBase(variant: String) extends TestHelper with
       expectingMetrics("test-h2", continuous, discrete, frequencies)
     }
   }
+  ("Ingest JSON with unordered scripted fields " + variant) should "fail" in {
+    new WithSettings(configuration) {
+
+      new SpecTrait(
+        domainFilename = "json.comet.yml",
+        sourceDomainPathname = "/sample/json/json-invalid-script.comet.yml",
+        datasetDomainName = "json",
+        sourceDatasetPathName = "/sample/json/complex.json"
+      ) {
+
+        cleanMetadata
+        cleanDatasets
+        loadPending shouldBe false
+      }
+    }
+  }
 }
 
 class JsonIngestionJobNoIndexNoMetricsNoAuditSpec
@@ -106,7 +124,8 @@ class JsonIngestionJobNoIndexNoMetricsNoAuditSpec
 
   override def expectedRejectRecords(implicit settings: Settings): List[RejectedRecord] = Nil
 
-  override def expectedMetricRecords(implicit
+  override def expectedMetricRecords(
+    implicit
     settings: Settings
   ): (List[ContinuousMetricRecord], List[DiscreteMetricRecord], List[FrequencyMetricRecord]) =
     (Nil, Nil, Nil)
@@ -155,7 +174,8 @@ class JsonIngestionJobSpecNoIndexJdbcMetricsJdbcAuditSpec
   override def expectedRejectRecords(implicit settings: Settings): List[RejectedRecord] =
     Nil
 
-  override def expectedMetricRecords(implicit
+  override def expectedMetricRecords(
+    implicit
     settings: Settings
   ): (List[ContinuousMetricRecord], List[DiscreteMetricRecord], List[FrequencyMetricRecord]) =
     (
