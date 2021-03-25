@@ -22,11 +22,11 @@ package com.ebiznext.comet.schema.handlers
 
 import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.job.index.bqload.BigQueryLoadConfig
+import com.ebiznext.comet.job.index.connectionload.ConnectionLoadConfig
 import com.ebiznext.comet.job.index.esload.ESLoadConfig
 import com.ebiznext.comet.job.ingest.LoadConfig
-import com.ebiznext.comet.job.index.connectionload.ConnectionLoadConfig
 import com.ebiznext.comet.schema.model.{Domain, Schema}
-import com.ebiznext.comet.utils.Utils
+import com.ebiznext.comet.utils.{AirflowJobResult, JobResult, Utils}
 import com.ebiznext.comet.workflow.IngestionWorkflow
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
@@ -35,7 +35,7 @@ import org.apache.http.entity.{ContentType, StringEntity}
 import org.apache.http.impl.client.HttpClients
 import org.apache.http.util.EntityUtils
 
-import scala.util.{Failure, Success, Try}
+import scala.util.Try
 
 /** Interface required for any cron job launcher
   */
@@ -54,9 +54,10 @@ trait LaunchHandler {
     schema: Schema,
     path: Path,
     options: Map[String, String]
-  )(implicit
+  )(
+    implicit
     settings: Settings
-  ): Boolean =
+  ): Option[Try[JobResult]] =
     ingest(workflow, domain, schema, path :: Nil, options)
 
   /** Submit to the cron manager multiple files for ingestion.
@@ -73,13 +74,14 @@ trait LaunchHandler {
     schema: Schema,
     paths: List[Path],
     options: Map[String, String]
-  )(implicit settings: Settings): Boolean
+  )(implicit settings: Settings): Option[Try[JobResult]]
 
   /** Index into elasticsearch
     *
     * @param config
     */
-  def esLoad(workflow: IngestionWorkflow, config: ESLoadConfig)(implicit
+  def esLoad(workflow: IngestionWorkflow, config: ESLoadConfig)(
+    implicit
     settings: Settings
   ): Boolean
 
@@ -87,7 +89,8 @@ trait LaunchHandler {
     *
     * @param config
     */
-  def bqload(workflow: IngestionWorkflow, config: BigQueryLoadConfig)(implicit
+  def bqload(workflow: IngestionWorkflow, config: BigQueryLoadConfig)(
+    implicit
     settings: Settings
   ): Boolean
 
@@ -95,7 +98,8 @@ trait LaunchHandler {
     *
     * @param config
     */
-  def jdbcload(workflow: IngestionWorkflow, config: ConnectionLoadConfig)(implicit
+  def jdbcload(workflow: IngestionWorkflow, config: ConnectionLoadConfig)(
+    implicit
     settings: Settings
   ): Boolean
 }
@@ -118,7 +122,7 @@ class SimpleLauncher extends LaunchHandler with StrictLogging {
     schema: Schema,
     paths: List[Path],
     options: Map[String, String]
-  )(implicit settings: Settings): Boolean = {
+  )(implicit settings: Settings): Option[Try[JobResult]] = {
     logger.info(s"Launch Ingestion: ${domain.name} ${schema.name} $paths ")
     workflow.ingest(LoadConfig(domain.name, schema.name, paths, options))
   }
@@ -127,7 +131,8 @@ class SimpleLauncher extends LaunchHandler with StrictLogging {
     *
     * @param config
     */
-  override def esLoad(workflow: IngestionWorkflow, config: ESLoadConfig)(implicit
+  override def esLoad(workflow: IngestionWorkflow, config: ESLoadConfig)(
+    implicit
     settings: Settings
   ): Boolean = {
     logger.info(s"Launch index: ${config}")
@@ -140,7 +145,8 @@ class SimpleLauncher extends LaunchHandler with StrictLogging {
     *
     * @param config
     */
-  override def bqload(workflow: IngestionWorkflow, config: BigQueryLoadConfig)(implicit
+  override def bqload(workflow: IngestionWorkflow, config: BigQueryLoadConfig)(
+    implicit
     settings: Settings
   ): Boolean = {
     logger.info(s"Launch bq: ${config}")
@@ -153,7 +159,8 @@ class SimpleLauncher extends LaunchHandler with StrictLogging {
     *
     * @param config
     */
-  override def jdbcload(workflow: IngestionWorkflow, config: ConnectionLoadConfig)(implicit
+  override def jdbcload(workflow: IngestionWorkflow, config: ConnectionLoadConfig)(
+    implicit
     settings: Settings
   ): Boolean = {
     logger.info(s"Launch JDBC: ${config}")
@@ -168,7 +175,7 @@ class SimpleLauncher extends LaunchHandler with StrictLogging {
   */
 class AirflowLauncher extends LaunchHandler with StrictLogging {
 
-  protected def post(url: String, command: String): Boolean = {
+  protected def post(url: String, command: String): Try[AirflowJobResult] = {
     Try {
       val json = s"""{"conf":"{\\"command\\":\\"$command\\"}"}"""
       logger.info(s"JSON to post to Airflow: $json")
@@ -184,15 +191,8 @@ class AirflowLauncher extends LaunchHandler with StrictLogging {
       val responseBody = EntityUtils.toString(response.getEntity, "UTF-8")
       logger.debug("Post result from Airflow: " + responseBody)
       client.close();
-      responseBody
-    } match {
-      case Success(_) =>
-        true
-      case Failure(exception) =>
-        logger.error("Failed to post request to Airflow", exception)
-        false
+      AirflowJobResult(responseBody)
     }
-
   }
 
   /** Request the execution of the "comet-ingest" DAG in Airflow
@@ -208,7 +208,7 @@ class AirflowLauncher extends LaunchHandler with StrictLogging {
     schema: Schema,
     paths: List[Path],
     options: Map[String, String]
-  )(implicit settings: Settings): Boolean = {
+  )(implicit settings: Settings): Option[Try[JobResult]] = {
     val endpoint = settings.comet.airflow.endpoint
     val ingest = settings.comet.airflow.ingest
     val url = s"$endpoint/dags/$ingest/dag_runs"
@@ -217,14 +217,15 @@ class AirflowLauncher extends LaunchHandler with StrictLogging {
 
     // We make sure two successive calls to the same dag id do not occur in the same second, otherwise Airflow will produce an error.
     Thread.sleep(1000)
-    post(url, command)
+    Some(post(url, command))
   }
 
   /** Index into elasticsearch
     *
     * @param config
     */
-  override def esLoad(workflow: IngestionWorkflow, config: ESLoadConfig)(implicit
+  override def esLoad(workflow: IngestionWorkflow, config: ESLoadConfig)(
+    implicit
     settings: Settings
   ): Boolean = {
     val endpoint = settings.comet.airflow.endpoint
@@ -243,14 +244,15 @@ class AirflowLauncher extends LaunchHandler with StrictLogging {
     val mapping = config.mapping.map(path => s"--mapping ${path.toString}")
     val params = List(Some(resource), id, mapping).flatten.mkString(" ")
     val command = s"""index $params """
-    post(url, command)
+    post(url, command).isSuccess
   }
 
   /** Load to BigQuery
     *
     * @param config
     */
-  override def bqload(workflow: IngestionWorkflow, config: BigQueryLoadConfig)(implicit
+  override def bqload(workflow: IngestionWorkflow, config: BigQueryLoadConfig)(
+    implicit
     settings: Settings
   ): Boolean = {
     val endpoint = settings.comet.airflow.endpoint
@@ -265,14 +267,15 @@ class AirflowLauncher extends LaunchHandler with StrictLogging {
       config.outputPartition.map(partition => s"--output_partition $partition").getOrElse("")
     ).mkString(" ")
     val command = s"""bqload $params """
-    post(url, command)
+    post(url, command).isSuccess
   }
 
   /** Load to JDBC sink
     *
     * @param config
     */
-  override def jdbcload(workflow: IngestionWorkflow, config: ConnectionLoadConfig)(implicit
+  override def jdbcload(workflow: IngestionWorkflow, config: ConnectionLoadConfig)(
+    implicit
     settings: Settings
   ): Boolean = {
     val endpoint = settings.comet.airflow.endpoint
@@ -285,7 +288,7 @@ class AirflowLauncher extends LaunchHandler with StrictLogging {
       s"--write_disposition ${config.writeDisposition}"
     ).mkString(" ")
     val command = s"""jdbcload $params """
-    post(url, command)
+    post(url, command).isSuccess
   }
 
 }

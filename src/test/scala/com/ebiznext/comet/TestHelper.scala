@@ -311,7 +311,7 @@ trait TestHelper extends AnyFlatSpec with Matchers with BeforeAndAfterAll with S
       withSettings.deliverTestFile(sourceDomainPathname, domainPath)
     }
 
-    def loadPending(implicit codec: Codec): Unit = {
+    def loadPending(implicit codec: Codec): Boolean = {
 
       val targetPath = DatasetArea.path(
         DatasetArea.pending(datasetDomainName),

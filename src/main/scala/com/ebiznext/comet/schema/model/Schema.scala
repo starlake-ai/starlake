@@ -172,6 +172,13 @@ case class Schema(
       }
     }
 
+    val firstScriptedFiedlIndex = attributes.indexWhere(_.script.isDefined)
+    val lastNonScriptedFiedlIndex = attributes.lastIndexWhere(!_.script.isDefined)
+    if (firstScriptedFiedlIndex < lastNonScriptedFiedlIndex) {
+      errorList +=
+        s"""Scripted fields cannot only appear at the end of the schema. Found scripted field at position $firstScriptedFiedlIndex and non scripted field at position $lastNonScriptedFiedlIndex""".stripMargin
+    }
+
     val duplicateErrorMessage =
       "%s is defined %d times. An attribute can only be defined once."
     for (errors <- duplicates(attributes.map(_.name), duplicateErrorMessage).left) {
