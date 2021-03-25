@@ -32,7 +32,7 @@ import com.ebiznext.comet.job.index.kafkaload.{KafkaJob, KafkaJobConfig}
 import com.ebiznext.comet.job.infer.InferSchemaConfig
 import com.ebiznext.comet.job.ingest.LoadConfig
 import com.ebiznext.comet.job.metrics.MetricsConfig
-import com.ebiznext.comet.schema.generator.{Xls2Yml, Xls2YmlConfig, Yml2XlsWriter}
+import com.ebiznext.comet.schema.generator.{Xls2Yml, Xls2YmlConfig, Yml2XlsConfig, Yml2XlsWriter}
 import com.ebiznext.comet.schema.handlers.SchemaHandler
 import com.ebiznext.comet.utils.{CometObjectMapper, FileLock}
 import com.ebiznext.comet.workflow.{ImportConfig, IngestionWorkflow, TransformConfig, WatchConfig}
@@ -69,7 +69,7 @@ object Main extends StrictLogging {
         |${MetricsConfig.usage()}
         |${Parquet2CSVConfig.usage()}
         |${Xls2YmlConfig.usage()}
-        |${Xls2YmlConfig.usage()}
+        |${Yml2XlsConfig.usage()}
         |${KafkaJobConfig.usage()}
         |""".stripMargin
     )
