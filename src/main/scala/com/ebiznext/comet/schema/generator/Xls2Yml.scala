@@ -23,9 +23,11 @@ object Xls2Yml extends LazyLogging {
         s.attributes
           .filter(_.script.isEmpty)
           .map { attr =>
-            if (privacy == Nil || privacy.contains(
-                  attr.privacy.toString
-                ))
+            if (
+              privacy == Nil || privacy.contains(
+                attr.privacy.toString
+              )
+            )
               attr.copy(`type` = "string", required = false, rename = None)
             else
               attr.copy(
@@ -90,9 +92,11 @@ object Xls2Yml extends LazyLogging {
           )
         }
         val attributes = schema.attributes.map { attr =>
-          if (encryptionPrivacyList == Nil || encryptionPrivacyList.contains(
-                attr.privacy.toString
-              ))
+          if (
+            encryptionPrivacyList == Nil || encryptionPrivacyList.contains(
+              attr.privacy.toString
+            )
+          )
             attr.copy(privacy = PrivacyLevel.None)
           else
             attr
@@ -107,8 +111,7 @@ object Xls2Yml extends LazyLogging {
     postEncryptDomain
   }
 
-  def generateSchema(inputPath: String, outputPath: Option[String] = None)(
-    implicit
+  def generateSchema(inputPath: String, outputPath: Option[String] = None)(implicit
     settings: Settings
   ): Unit = {
     val reader = new XlsReader(Path(inputPath))
