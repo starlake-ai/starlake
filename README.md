@@ -13,7 +13,7 @@ Complete documentation available [here](https://comet-app.readthedocs.io/)
 
 The purpose of this project is to efficiently ingest various data
 sources in different formats and make them available for analytics.
-Usualluy, ingestion is done by writing hand made custom parsers that
+Usually, ingestion is done by writing hand made custom parsers that
 transform input files into datasets of records.
 
 This project aims at automating this parsing task by making data
