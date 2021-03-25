@@ -19,7 +19,7 @@ case class FileInput(file: File) extends Input
   *
   * @param input
   */
-class XlsReader(input: Input) {
+class XlsReader(input: Input) extends XlsModel {
 
   private val workbook: Workbook = input match {
     case Path(s)       => WorkbookFactory.create(new File(s))
@@ -28,7 +28,7 @@ class XlsReader(input: Input) {
 
   private lazy val domain: Option[Domain] = {
     val sheet = workbook.getSheet("domain")
-    val (rows, headerMap) = getColsOrder(sheet, allDomainHeaders)
+    val (rows, headerMap) = getColsOrder(sheet, allDomainHeaders.map(_._1))
     rows.headOption.flatMap { row =>
       val nameOpt =
         Option(row.getCell(headerMap("_name"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
@@ -53,7 +53,7 @@ class XlsReader(input: Input) {
 
   private lazy val schemas: List[Schema] = {
     val sheet = workbook.getSheet("schemas")
-    val (rows, headerMap) = getColsOrder(sheet, allSchemaHeaders)
+    val (rows, headerMap) = getColsOrder(sheet, allSchemaHeaders.map(_._1))
     rows.flatMap { row =>
       val nameOpt =
         Option(row.getCell(headerMap("_name"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
@@ -112,8 +112,7 @@ class XlsReader(input: Input) {
       val mergeQueryFilter =
         Option(
           row.getCell(headerMap("_merge_query_filter"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
-        )
-          .flatMap(formatter.formatCellValue)
+        ).flatMap(formatter.formatCellValue)
 
       (nameOpt, patternOpt) match {
         case (Some(name), Some(pattern)) => {
@@ -205,47 +204,6 @@ class XlsReader(input: Input) {
     }.toList
   }
 
-  private val allDomainHeaders = List(
-    "_name",
-    "_path",
-    "_ack",
-    "_description"
-  )
-
-  private val allSchemaHeaders = List(
-    "_name",
-    "_pattern",
-    "_mode",
-    "_write",
-    "_format",
-    "_header",
-    "_delimiter",
-    "_delta_column",
-    "_merge_keys",
-    "_description",
-    "_encoding",
-    "_sampling",
-    "_partitioning",
-    "_sink",
-    "_clustering",
-    "_merge_query_filter"
-  )
-
-  private val allAttributeHeaders = List(
-    "_name",
-    "_rename",
-    "_type",
-    "_required",
-    "_privacy",
-    "_metric",
-    "_default",
-    "_script",
-    "_description",
-    "_position_start",
-    "_position_end",
-    "_trim"
-  )
-
   /** Returns the Domain corresponding to the parsed spreadsheet
     * @param settings
     * @return an Option of Domain
@@ -262,7 +220,7 @@ class XlsReader(input: Input) {
       val attributes = sheetOpt match {
         case None => List.empty
         case Some(sheet) =>
-          val (rows, headerMap) = getColsOrder(sheet, allAttributeHeaders)
+          val (rows, headerMap) = getColsOrder(sheet, allAttributeHeaders.map(_._1))
           val scalaSheet = sheet.asScala
           rows.flatMap { row =>
             val nameOpt =
@@ -276,8 +234,7 @@ class XlsReader(input: Input) {
                 .flatMap(formatter.formatCellValue)
             val required = Option(
               row.getCell(headerMap("_required"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
-            )
-              .flatMap(formatter.formatCellValue)
+            ).flatMap(formatter.formatCellValue)
               .forall(_.toBoolean)
             val privacy =
               Option(row.getCell(headerMap("_privacy"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
@@ -295,8 +252,7 @@ class XlsReader(input: Input) {
                 .flatMap(formatter.formatCellValue)
             val commentOpt = Option(
               row.getCell(headerMap("_description"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
-            )
-              .flatMap(formatter.formatCellValue)
+            ).flatMap(formatter.formatCellValue)
 
             val positionOpt = schema.metadata.flatMap(_.format) match {
               case Some(Format.POSITION) => {
@@ -306,8 +262,7 @@ class XlsReader(input: Input) {
                       headerMap("_position_start"),
                       Row.MissingCellPolicy.RETURN_BLANK_AS_NULL
                     )
-                  )
-                    .flatMap(formatter.formatCellValue)
+                  ).flatMap(formatter.formatCellValue)
                     .map(_.toInt) match {
                     case Some(v) => v - 1
                     case _       => 0
@@ -318,8 +273,7 @@ class XlsReader(input: Input) {
                       headerMap("_position_end"),
                       Row.MissingCellPolicy.RETURN_BLANK_AS_NULL
                     )
-                  )
-                    .flatMap(formatter.formatCellValue)
+                  ).flatMap(formatter.formatCellValue)
                     .map(_.toInt) match {
                     case Some(v) => v - 1
                     case _       => 0

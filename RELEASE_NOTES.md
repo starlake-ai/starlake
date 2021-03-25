@@ -12,6 +12,7 @@ __New feature__:
 - Semantic type Date supports dates with _MMM_ month representation [#463]
 - Split reference.conf into multiple files.
 - Support kafka Source & Sink through Spark Streaming
+- Generate Excel files from YML files
 
 __Bug Fix__:
 - Make Jackson lib provided. [#457]
