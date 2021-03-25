@@ -176,7 +176,7 @@ case class Schema(
     val lastNonScriptedFiedlIndex = attributes.lastIndexWhere(!_.script.isDefined)
     if (firstScriptedFiedlIndex >= 0 && firstScriptedFiedlIndex < lastNonScriptedFiedlIndex) {
       errorList +=
-        s"""Scripted fields cannot only appear at the end of the schema. Found scripted field at position $firstScriptedFiedlIndex and non scripted field at position $lastNonScriptedFiedlIndex""".stripMargin
+        s"""Scripted fields can only appear at the end of the schema. Found scripted field at position $firstScriptedFiedlIndex and non scripted field at position $lastNonScriptedFiedlIndex""".stripMargin
     }
 
     val duplicateErrorMessage =
