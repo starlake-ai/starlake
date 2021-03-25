@@ -218,8 +218,13 @@ class IngestionWorkflow(
           else {
             // We ingest all the files but return false if one them fails.
             ingestingPaths
-              .map(launchHandler.ingest(this, domain, schema, _, config.options))
-              .forall(_ == true)
+              .map {
+                launchHandler.ingest(this, domain, schema, _, config.options) match {
+                  case None | Some(Success(_)) => true
+                  case Some(Failure(_))        => false
+                }
+              }
+              .forall(_)
           }
         } catch {
           case t: Throwable =>
@@ -285,7 +290,7 @@ class IngestionWorkflow(
 
   /** Ingest the file (called by the cron manager at ingestion time for a specific dataset
     */
-  def ingest(config: LoadConfig): Boolean = {
+  def ingest(config: LoadConfig): Option[Try[JobResult]] = {
     val domainName = config.domain
     val schemaName = config.schema
     val ingestingPaths = config.paths
@@ -293,7 +298,7 @@ class IngestionWorkflow(
       domain <- domains.find(_.name == domainName)
       schema <- domain.schemas.find(_.name == schemaName)
     } yield ingesting(domain, schema, ingestingPaths, config.options)
-    result.getOrElse(true)
+    result
   }
 
   private def ingesting(
@@ -301,7 +306,7 @@ class IngestionWorkflow(
     schema: Schema,
     ingestingPath: List[Path],
     options: Map[String, String]
-  ): Boolean = {
+  ): Try[JobResult] = {
     logger.info(
       s"Start Ingestion on domain: ${domain.name} with schema: ${schema.name} on file: $ingestingPath"
     )
@@ -404,7 +409,7 @@ class IngestionWorkflow(
       case Failure(exception) =>
         Utils.logException(logger, exception)
     }
-    ingestionResult.isSuccess
+    ingestionResult
   }
 
   def infer(config: InferSchemaConfig): Try[Unit] = {
