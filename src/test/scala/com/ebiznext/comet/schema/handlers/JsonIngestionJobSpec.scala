@@ -32,8 +32,7 @@ abstract class JsonIngestionJobSpecBase(variant: String) extends TestHelper with
 
   def expectedRejectRecords(implicit settings: Settings): List[RejectedRecord]
 
-  def expectedMetricRecords(
-    implicit
+  def expectedMetricRecords(implicit
     settings: Settings
   ): (List[ContinuousMetricRecord], List[DiscreteMetricRecord], List[FrequencyMetricRecord])
 
@@ -124,8 +123,7 @@ class JsonIngestionJobNoIndexNoMetricsNoAuditSpec
 
   override def expectedRejectRecords(implicit settings: Settings): List[RejectedRecord] = Nil
 
-  override def expectedMetricRecords(
-    implicit
+  override def expectedMetricRecords(implicit
     settings: Settings
   ): (List[ContinuousMetricRecord], List[DiscreteMetricRecord], List[FrequencyMetricRecord]) =
     (Nil, Nil, Nil)
@@ -174,8 +172,7 @@ class JsonIngestionJobSpecNoIndexJdbcMetricsJdbcAuditSpec
   override def expectedRejectRecords(implicit settings: Settings): List[RejectedRecord] =
     Nil
 
-  override def expectedMetricRecords(
-    implicit
+  override def expectedMetricRecords(implicit
     settings: Settings
   ): (List[ContinuousMetricRecord], List[DiscreteMetricRecord], List[FrequencyMetricRecord]) =
     (
