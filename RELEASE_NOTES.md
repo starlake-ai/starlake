@@ -13,10 +13,12 @@ __New feature__:
 - Split reference.conf into multiple files.
 - Support kafka Source & Sink through Spark Streaming
 - Generate Excel files from YML files
+- Generate YML file from Database Schema
 
 __Bug Fix__:
 - Make Jackson lib provided. [#457]
 - Support Spark 2.3. by not using Dataframe.isEmpty [#457]
+- Check that scripted fields are defined at the end of the schema in the YML file [#384]
 
 ## 0.1.34
 __New feature__:
