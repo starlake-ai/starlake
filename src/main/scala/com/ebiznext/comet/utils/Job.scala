@@ -17,6 +17,8 @@ import scala.util.Try
 
 trait JobResult
 
+case class AirflowJobResult(response: String) extends JobResult
+
 case class SparkJobResult(dataframe: Option[DataFrame]) extends JobResult
 
 /** All Spark Job extend this trait.
