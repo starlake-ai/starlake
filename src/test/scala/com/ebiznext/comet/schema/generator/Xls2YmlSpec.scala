@@ -6,9 +6,8 @@ import com.ebiznext.comet.TestHelper
 import com.ebiznext.comet.config.DatasetArea
 import com.ebiznext.comet.schema.model.{BigQuerySink, Domain, Format}
 
-class SchemaGenSpec extends TestHelper {
+class Xls2YmlSpec extends TestHelper {
   new WithSettings() {
-
     Xls2Yml.generateSchema(getClass.getResource("/sample/SomeDomainTemplate.xls").getPath)
     val outputFile = new File(DatasetArea.domains.toString + "/someDomain.comet.yml")
     val result: Domain = YamlSerializer.mapper.readValue(outputFile, classOf[Domain])
