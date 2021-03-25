@@ -1,5 +1,6 @@
 package com.ebiznext.comet.schema.generator
 
+import better.files.File
 import com.ebiznext.comet.config.{DatasetArea, Settings}
 import com.ebiznext.comet.schema.model._
 import com.typesafe.config.ConfigFactory
@@ -22,11 +23,9 @@ object Xls2Yml extends LazyLogging {
         s.attributes
           .filter(_.script.isEmpty)
           .map { attr =>
-            if (
-              privacy == Nil || privacy.contains(
-                attr.privacy.toString
-              )
-            )
+            if (privacy == Nil || privacy.contains(
+                  attr.privacy.toString
+                ))
               attr.copy(`type` = "string", required = false, rename = None)
             else
               attr.copy(
@@ -91,11 +90,9 @@ object Xls2Yml extends LazyLogging {
           )
         }
         val attributes = schema.attributes.map { attr =>
-          if (
-            encryptionPrivacyList == Nil || encryptionPrivacyList.contains(
-              attr.privacy.toString
-            )
-          )
+          if (encryptionPrivacyList == Nil || encryptionPrivacyList.contains(
+                attr.privacy.toString
+              ))
             attr.copy(privacy = PrivacyLevel.None)
           else
             attr
@@ -110,7 +107,8 @@ object Xls2Yml extends LazyLogging {
     postEncryptDomain
   }
 
-  def generateSchema(inputPath: String, outputPath: Option[String] = None)(implicit
+  def generateSchema(inputPath: String, outputPath: Option[String] = None)(
+    implicit
     settings: Settings
   ): Unit = {
     val reader = new XlsReader(Path(inputPath))
@@ -120,12 +118,10 @@ object Xls2Yml extends LazyLogging {
   }
 
   def writeDomainYaml(domain: Domain, outputPath: String, fileName: String): Unit = {
-    import java.io.File
-
     import YamlSerializer._
     logger.info(s"""Generated schemas:
                    |${serialize(domain)}""".stripMargin)
-    serializeToFile(new File(outputPath, s"${fileName}.comet.yml"), domain)
+    serializeToFile(File(outputPath, s"${fileName}.comet.yml"), domain)
   }
 
   def run(args: Array[String]): Boolean = {
