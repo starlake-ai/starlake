@@ -19,9 +19,7 @@
  */
 package com.ebiznext.comet.schema.generator
 
-/**
-  *
-  * @param config : JDBC Configuration to use as defined in the connection section in the application.conf
+/** @param config : JDBC Configuration to use as defined in the connection section in the application.conf
   * @param catalog : Database catalog name, optional.
   * @param schema : Database schema to use, required.
   * @param tables : Tables to extract. Nil if all tables should be extracted
@@ -43,9 +41,7 @@ case class JDBCSchema(
   )
 )
 
-/**
-  *
-  * @param table : Table name (case insensitive)
+/** @param table : Table name (case insensitive)
   * @param columns : List of columns (case insensitive). Nil  if all columns should be extracted
   */
 case class JDBCTable(table: String, columns: List[String] = Nil)
