@@ -54,8 +54,7 @@ trait LaunchHandler {
     schema: Schema,
     path: Path,
     options: Map[String, String]
-  )(
-    implicit
+  )(implicit
     settings: Settings
   ): Option[Try[JobResult]] =
     ingest(workflow, domain, schema, path :: Nil, options)
@@ -80,8 +79,7 @@ trait LaunchHandler {
     *
     * @param config
     */
-  def esLoad(workflow: IngestionWorkflow, config: ESLoadConfig)(
-    implicit
+  def esLoad(workflow: IngestionWorkflow, config: ESLoadConfig)(implicit
     settings: Settings
   ): Boolean
 
@@ -89,8 +87,7 @@ trait LaunchHandler {
     *
     * @param config
     */
-  def bqload(workflow: IngestionWorkflow, config: BigQueryLoadConfig)(
-    implicit
+  def bqload(workflow: IngestionWorkflow, config: BigQueryLoadConfig)(implicit
     settings: Settings
   ): Boolean
 
@@ -98,8 +95,7 @@ trait LaunchHandler {
     *
     * @param config
     */
-  def jdbcload(workflow: IngestionWorkflow, config: ConnectionLoadConfig)(
-    implicit
+  def jdbcload(workflow: IngestionWorkflow, config: ConnectionLoadConfig)(implicit
     settings: Settings
   ): Boolean
 }
@@ -131,8 +127,7 @@ class SimpleLauncher extends LaunchHandler with StrictLogging {
     *
     * @param config
     */
-  override def esLoad(workflow: IngestionWorkflow, config: ESLoadConfig)(
-    implicit
+  override def esLoad(workflow: IngestionWorkflow, config: ESLoadConfig)(implicit
     settings: Settings
   ): Boolean = {
     logger.info(s"Launch index: ${config}")
@@ -145,8 +140,7 @@ class SimpleLauncher extends LaunchHandler with StrictLogging {
     *
     * @param config
     */
-  override def bqload(workflow: IngestionWorkflow, config: BigQueryLoadConfig)(
-    implicit
+  override def bqload(workflow: IngestionWorkflow, config: BigQueryLoadConfig)(implicit
     settings: Settings
   ): Boolean = {
     logger.info(s"Launch bq: ${config}")
@@ -159,8 +153,7 @@ class SimpleLauncher extends LaunchHandler with StrictLogging {
     *
     * @param config
     */
-  override def jdbcload(workflow: IngestionWorkflow, config: ConnectionLoadConfig)(
-    implicit
+  override def jdbcload(workflow: IngestionWorkflow, config: ConnectionLoadConfig)(implicit
     settings: Settings
   ): Boolean = {
     logger.info(s"Launch JDBC: ${config}")
@@ -224,8 +217,7 @@ class AirflowLauncher extends LaunchHandler with StrictLogging {
     *
     * @param config
     */
-  override def esLoad(workflow: IngestionWorkflow, config: ESLoadConfig)(
-    implicit
+  override def esLoad(workflow: IngestionWorkflow, config: ESLoadConfig)(implicit
     settings: Settings
   ): Boolean = {
     val endpoint = settings.comet.airflow.endpoint
@@ -251,8 +243,7 @@ class AirflowLauncher extends LaunchHandler with StrictLogging {
     *
     * @param config
     */
-  override def bqload(workflow: IngestionWorkflow, config: BigQueryLoadConfig)(
-    implicit
+  override def bqload(workflow: IngestionWorkflow, config: BigQueryLoadConfig)(implicit
     settings: Settings
   ): Boolean = {
     val endpoint = settings.comet.airflow.endpoint
@@ -274,8 +265,7 @@ class AirflowLauncher extends LaunchHandler with StrictLogging {
     *
     * @param config
     */
-  override def jdbcload(workflow: IngestionWorkflow, config: ConnectionLoadConfig)(
-    implicit
+  override def jdbcload(workflow: IngestionWorkflow, config: ConnectionLoadConfig)(implicit
     settings: Settings
   ): Boolean = {
     val endpoint = settings.comet.airflow.endpoint
