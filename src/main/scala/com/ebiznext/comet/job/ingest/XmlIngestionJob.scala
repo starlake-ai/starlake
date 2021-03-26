@@ -58,7 +58,7 @@ class XmlIngestionJob(
     * @return Spark Dataframe loaded using metadata options
     */
   protected def loadDataSet(): Try[DataFrame] = {
-    try {
+    Try {
       val rowTag = metadata.xml.flatMap(_.get("rowTag"))
       rowTag.map { rowTag =>
         val df = path
@@ -72,13 +72,10 @@ class XmlIngestionJob(
           }
           .reduce((acc, df) => acc union df)
         df.printSchema()
-        Success(df)
-      } getOrElse (Failure(
+        df
+      } getOrElse (
         throw new Exception(s"rowTag not found for schema ${domain.name}.${schema.name}")
-      ))
-    } catch {
-      case e: Exception =>
-        Failure(e)
+      )
     }
   }
 

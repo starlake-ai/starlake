@@ -167,7 +167,7 @@ trait IngestionJob extends SparkJob {
         Some(acceptedDF),
         Engine.SPARK,
         sql => session.sql(sql).count()
-      ).run().get
+      ).run().getOrElse(throw new Exception("Should never happen"))
     }
 
     if (settings.comet.metrics.active) {
