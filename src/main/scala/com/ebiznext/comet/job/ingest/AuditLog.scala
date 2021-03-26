@@ -122,8 +122,7 @@ object SparkAuditLogWriter {
     BQSchema.of(fields: _*)
   }
 
-  def append(session: SparkSession, log: AuditLog)(
-    implicit
+  def append(session: SparkSession, log: AuditLog)(implicit
     settings: Settings
   ) = {
     import session.implicits._
