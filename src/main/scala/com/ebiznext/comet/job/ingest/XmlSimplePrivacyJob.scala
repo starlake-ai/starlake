@@ -4,12 +4,12 @@ import java.util.regex.Pattern
 
 import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.schema.handlers.{SchemaHandler, StorageHandler}
-import com.ebiznext.comet.schema.model.{Attribute, Domain, PrivacyLevel, Schema, Type}
+import com.ebiznext.comet.schema.model._
 import org.apache.hadoop.fs.Path
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{DataFrame, Row}
 
-import scala.util.{Failure, Success, Try}
+import scala.util.Try
 
 class XmlSimplePrivacyJob(
   val domain: Domain,
@@ -27,12 +27,9 @@ class XmlSimplePrivacyJob(
     * @return Spark Dataframe loaded using metadata options
     */
   override protected def loadDataSet(): Try[DataFrame] = {
-    try {
+    Try {
       val df = session.read.text(path.map(_.toString): _*)
-      Success(df)
-    } catch {
-      case e: Exception =>
-        Failure(e)
+      df
     }
   }
 
@@ -73,7 +70,7 @@ object XmlSimplePrivacyJob {
             val prefix = line.substring(0, openIndex)
             val suffix = line.substring(closeIndex)
             val privacyInput = line.substring(openIndex, closeIndex)
-            prefix + attribute.privacy.crypt(privacyInput, null) + suffix
+            prefix + attribute.privacy.crypt(privacyInput, Map.empty) + suffix
           }
         }
         Row(privacy)
