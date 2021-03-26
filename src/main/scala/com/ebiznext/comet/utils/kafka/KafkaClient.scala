@@ -134,9 +134,10 @@ class KafkaClient(kafkaConfig: KafkaConfig) extends StrictLogging with AutoClose
     if (offsets.isEmpty)
       None
     else {
-
       val offsetsAsString = offsets.map { offset =>
-        s""""${offset._1}": ${offset._2}"""
+        val partition = offset._1
+        val partitionOffset = offset._2
+        s""""$partition": $partitionOffset"""
       } mkString ","
       Some(s"""{"$topicName":{$offsetsAsString}}""")
     }
@@ -196,7 +197,7 @@ class KafkaClient(kafkaConfig: KafkaConfig) extends StrictLogging with AutoClose
     val writer = df.selectExpr(config.fields.map(x => s"CAST($x)"): _*).write.format("kafka")
 
     config.accessOptions
-      .foldLeft(writer)((writer, option) => writer.option(option._1, option._2))
+      .foldLeft(writer)((writer, option) => writer.option(key = option._1, value = option._2))
       .option("topic", config.topicName)
       .save()
   }

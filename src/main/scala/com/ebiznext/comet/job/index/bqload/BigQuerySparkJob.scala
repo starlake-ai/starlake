@@ -22,6 +22,7 @@ import org.apache.spark.sql.{DataFrame, SaveMode, SparkSession}
 import org.apache.spark.storage.StorageLevel
 
 import scala.util.Try
+import scala.collection.JavaConverters._
 
 class BigQuerySparkJob(
   override val cliConfig: BigQueryLoadConfig,
@@ -108,7 +109,6 @@ class BigQuerySparkJob(
           case Nil =>
             withPartitionDefinition
           case fields =>
-            import scala.collection.JavaConverters._
             val clustering = Clustering.newBuilder().setFields(fields.asJava).build()
             withPartitionDefinition.setClustering(clustering)
         }

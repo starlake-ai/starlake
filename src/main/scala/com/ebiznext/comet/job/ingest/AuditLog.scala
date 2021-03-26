@@ -148,7 +148,7 @@ object SparkAuditLogWriter {
       .createDataFrame(
         auditTypedRDD.toDF().rdd,
         StructType(
-          auditCols.map(col => StructField(col._1, col._3, nullable = true))
+          auditCols.map(col => StructField(name = col._1, dataType = col._3, nullable = true))
         )
       )
       .toDF(auditCols.map(_._1): _*)

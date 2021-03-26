@@ -321,7 +321,7 @@ trait IngestionJob extends SparkJob {
           )
           val tableSchema = schema.mergedMetadata(domain.metadata).getFormat() match {
             case Format.XML => None
-            case _          => Some(schema.bqSchema(schemaHandler))
+            case _          => Some(schema.bigQuerySchema(schemaHandler))
           }
           val config = BigQueryLoadConfig(
             source = Right(mergedDF),
