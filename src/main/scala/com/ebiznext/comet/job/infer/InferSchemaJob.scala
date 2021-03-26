@@ -194,7 +194,7 @@ class InferSchemaJob(implicit settings: Settings) {
 
       val format = Option(getFormatFile(datasetWithoutFormat))
 
-      val array = if (format.getOrElse("") == "ARRAY_JSON") true else false
+      val array = format.contains("ARRAY_JSON")
 
       val withHeader = header
 
