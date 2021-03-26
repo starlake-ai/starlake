@@ -33,7 +33,7 @@ import org.apache.spark.sql.{DataFrame, Row}
 
 import scala.util.{Failure, Success, Try}
 
-/** Main class to complex json delimiter separated values file
+/** Main class to XML file
   * If your json contains only one level simple attribute aka. kind of dsv but in json format please use SIMPLE_JSON instead. It's way faster
   *
   * @param domain         : Input Dataset Domain
@@ -93,47 +93,35 @@ class XmlIngestionJob(
     val datasetSchema = dataset.schema
     val errorList = compareTypes(schemaSparkType, datasetSchema)
     val rejectedRDD = session.sparkContext.parallelize(errorList)
+    metadata.xml.flatMap(_.get("skipValidation")) match {
+      case Some(_) =>
+        val rejectedRDD = session.sparkContext.parallelize(errorList)
+        saveRejected(rejectedRDD)
+        saveAccepted(dataset)
+        (rejectedRDD, dataset.rdd)
+      case _ =>
+        val withInputFileNameDS =
+          dataset.withColumn(Settings.cometInputFileNameColumn, input_file_name())
 
-    val withInputFileNameDS =
-      dataset.withColumn(Settings.cometInputFileNameColumn, input_file_name())
+        val appliedSchema = schema
+          .sparkSchemaWithoutScriptedFields(schemaHandler)
+          .add(StructField(Settings.cometInputFileNameColumn, StringType))
+        val (koRDD, okRDD) =
+          TreeRowValidator.validate(
+            session,
+            withInputFileNameDS,
+            schema.attributes,
+            types,
+            appliedSchema
+          )
 
-    val appliedSchema = schema
-      .sparkSchemaWithoutScriptedFields(schemaHandler)
-      .add(StructField(Settings.cometInputFileNameColumn, StringType))
-    val (koRDD, okRDD) =
-      TreeRowValidator.validate(
-        session,
-        withInputFileNameDS,
-        schema.attributes,
-        types,
-        appliedSchema
-      )
-
-    val allRejected = rejectedRDD.union(koRDD)
-    saveRejected(allRejected)
-    val transformedAcceptedDF = session.createDataFrame(okRDD, appliedSchema)
-    saveAccepted(transformedAcceptedDF) // prefer to let Spark compute the final schema
-    (allRejected, okRDD)
-  }
-
-  override def name: String = "JsonJob"
-}
-
-object XmlIngestionJob {
-
-  def parseRDD(
-    inputRDD: RDD[Row],
-    schemaSparkType: StructType
-  ): RDD[Either[List[String], Row]] = {
-    inputRDD.mapPartitions { partition =>
-      partition.map { row =>
-        val rowSchema = row.schema
-        val errorList = compareTypes(schemaSparkType, rowSchema)
-        if (errorList.isEmpty)
-          Right(row)
-        else
-          Left(errorList)
-      }
+        val allRejected = rejectedRDD.union(koRDD)
+        saveRejected(allRejected)
+        val transformedAcceptedDF = session.createDataFrame(okRDD, appliedSchema)
+        saveAccepted(transformedAcceptedDF)
+        (allRejected, okRDD)
     }
   }
+
+  override def name: String = "XMLJob"
 }
