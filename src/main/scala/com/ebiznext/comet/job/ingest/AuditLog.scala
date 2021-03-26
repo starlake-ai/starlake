@@ -122,7 +122,8 @@ object SparkAuditLogWriter {
     BQSchema.of(fields: _*)
   }
 
-  def append(session: SparkSession, log: AuditLog)(implicit
+  def append(session: SparkSession, log: AuditLog)(
+    implicit
     settings: Settings
   ) = {
     import session.implicits._
@@ -183,7 +184,8 @@ object SparkAuditLogWriter {
         new BigQuerySparkJob(bqConfig, Some(bigqueryAuditSchema())).run()
 
       case _: EsSink =>
-        ???
+        // TODO Sink Audit Log to ES
+        throw new Exception("Sinking Audit log to Elasticsearch not yet supported")
       case _: NoneSink =>
       // this is a NOP
     }

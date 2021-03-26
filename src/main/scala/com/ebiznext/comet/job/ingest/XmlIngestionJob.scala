@@ -31,7 +31,7 @@ import org.apache.spark.sql.functions.input_file_name
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
 import org.apache.spark.sql.{DataFrame, Row}
 
-import scala.util.{Failure, Success, Try}
+import scala.util.Try
 
 /** Main class to complex json delimiter separated values file
   * If your json contains only one level simple attribute aka. kind of dsv but in json format please use SIMPLE_JSON instead. It's way faster
