@@ -65,6 +65,7 @@ class PositionIngestionJobSpec extends TestHelper {
           .text(getClass.getResource(s"/sample/${datasetDomainName}/XPOSTBL").toURI.getPath)
           .count()
         acceptedDf.schema.fields.map(_.name).contains("calculatedCode") shouldBe true
+        acceptedDf.schema.fields.map(_.name).contains("fileName") shouldBe true
       }
 
     }

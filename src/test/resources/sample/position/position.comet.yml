@@ -95,3 +95,11 @@ schemas:
         position:
           first: 0
           last: 0
+      - name: "fileName"
+        type: "string"
+        script: "comet_input_file_name"
+        privacy: None
+        required: true
+        position:
+          first: 0
+          last: 0
