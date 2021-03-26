@@ -13,7 +13,7 @@ import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.IntegerType
 import org.apache.spark.sql.{DataFrame, DataFrameWriter, Row, SparkSession}
 
-import scala.util.Try
+import scala.util.{Failure, Success, Try}
 
 trait JobResult
 
@@ -144,10 +144,11 @@ trait SparkJob extends JobBase {
       val analyzeTable =
         s"ANALYZE TABLE $fullTableName COMPUTE STATISTICS FOR COLUMNS $allCols"
       if (session.version.substring(0, 3).toDouble >= 2.4)
-        try {
+        Try {
           session.sql(analyzeTable)
-        } catch {
-          case e: Throwable =>
+        } match {
+          case Success(df) => df
+          case Failure(e) =>
             logger.warn(
               s"Failed to compute statistics for table $fullTableName on columns $allCols"
             )

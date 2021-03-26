@@ -102,8 +102,8 @@ class InferSchemaJob(implicit settings: Settings) {
     val firstLine = partitionWithIndex.first
     val lastLine = partitionWithIndex.collect().last
 
-    if (firstLine.startsWith("{") & firstLine.endsWith("}")) "JSON"
-    else if (firstLine.startsWith("[") & lastLine.endsWith("]")) "ARRAY_JSON"
+    if (firstLine.startsWith("{") && firstLine.endsWith("}")) "JSON"
+    else if (firstLine.startsWith("[") && lastLine.endsWith("]")) "ARRAY_JSON"
     else "DSV"
 
   }

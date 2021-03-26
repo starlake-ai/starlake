@@ -29,6 +29,8 @@ import org.apache.spark.sql.SaveMode
 import org.apache.spark.sql.types.StructField
 
 import scala.util.{Failure, Success, Try}
+import org.apache.spark.sql.functions._
+import scala.collection.JavaConverters._
 
 class ESLoadJob(
   cliConfig: ESLoadConfig,
@@ -74,7 +76,6 @@ class ESLoadJob(
 
     // Convert timestamp field to ISO8601 date time, so that ES Hadoop can handle it correctly.
     val df = cliConfig.getTimestampCol().map { tsCol =>
-      import org.apache.spark.sql.functions._
       inputDF
         .withColumn("comet_es_tmp", date_format(col(tsCol), "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"))
         .drop(tsCol)
@@ -101,7 +102,6 @@ class ESLoadJob(
     logger.info(
       s"Registering template ${cliConfig.domain.toLowerCase}_${cliConfig.schema.toLowerCase} -> $content"
     )
-    import scala.collection.JavaConverters._
     val esOptions = settings.comet.elasticsearch.options.asScala.toMap
     val host: String = esOptions.getOrElse("es.nodes", "localhost")
     val port = esOptions.getOrElse("es.port", "9200").toInt
