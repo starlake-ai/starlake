@@ -26,10 +26,10 @@ import com.ebiznext.comet.schema.handlers.{SchemaHandler, StorageHandler}
 import com.ebiznext.comet.schema.model._
 import org.apache.hadoop.fs.Path
 import org.apache.spark.rdd.RDD
+import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.execution.datasources.json.JsonIngestionUtil.compareTypes
 import org.apache.spark.sql.functions.input_file_name
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
-import org.apache.spark.sql.{DataFrame, Row}
 
 import scala.util.{Failure, Success, Try}
 

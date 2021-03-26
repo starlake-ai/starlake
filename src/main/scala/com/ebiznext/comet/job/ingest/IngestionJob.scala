@@ -241,13 +241,15 @@ trait IngestionJob extends SparkJob {
       }
       .getOrElse(finalAcceptedDF)
 
-    logger.info("Merged Dataframe Schema")
     val finalMergedDf = schema.postsql match {
-      case Some(req) =>
-        mergedDF.createOrReplaceTempView(s"${schema.name}_tbl")
-        mergedDF.sparkSession.sql(req)
+      case Some(queryList) =>
+        queryList.foldLeft(mergedDF) { (df, query) =>
+          df.createOrReplaceTempView("COMET_TABLE")
+          df.sparkSession.sql(query)
+        }
       case _ => mergedDF
     }
+    logger.info("Final Dataframe Schema")
     finalMergedDf.printSchema()
     val savedDataset =
       if (settings.comet.sinkToFile)
