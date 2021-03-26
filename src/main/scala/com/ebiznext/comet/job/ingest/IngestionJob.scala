@@ -486,7 +486,7 @@ trait IngestionJob extends SparkJob {
         logger.info(s"Saving Dataset to merge location $mergePath")
         partitionedDFWriter
           .mode(SaveMode.Overwrite)
-          .format(settings.comet.defaultWriteFormat)
+          .format(writeFormat)
           .option("path", mergePath)
           .save()
         logger.info(s"reading Dataset from merge location $mergePath")
