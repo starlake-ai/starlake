@@ -209,6 +209,7 @@ object Settings extends StrictLogging {
     lock: Lock,
     defaultWriteFormat: String,
     defaultRejectedWriteFormat: String,
+    defaultAuditWriteFormat: String,
     csvOutput: Boolean,
     privacyOnly: Boolean,
     launcher: String,
