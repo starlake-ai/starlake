@@ -707,7 +707,6 @@ trait IngestionJob extends SparkJob {
     } else {
       withScriptFieldsDF
     }
-
   }
 
   /** Merge incoming and existing dataframes using merge options
@@ -799,6 +798,15 @@ trait IngestionJob extends SparkJob {
           )
       }
       .getOrElse(withScriptFieldsDF)
+  }
+
+  def reorderAttributes(dataFrame: DataFrame): List[Attribute] = {
+    val finalSchema = schema.attributesWithoutScript :+ Attribute(
+      name = Settings.cometInputFileNameColumn
+    )
+    val attributesMap =
+      finalSchema.map(attr => (attr.name, attr)).toMap
+    dataFrame.columns.map(colName => attributesMap(colName)).toList
   }
 }
 
