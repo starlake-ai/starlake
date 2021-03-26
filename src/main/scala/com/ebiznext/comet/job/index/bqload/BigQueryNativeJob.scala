@@ -53,14 +53,7 @@ class BigQueryNativeJob(
           val clustering = Clustering.newBuilder().setFields(fields.asJava).build()
           queryConfigWithPartition.setClustering(clustering)
       }
-      val queryConfigWithUDF = udf
-        .map { udf =>
-          import scala.collection.JavaConverters._
-          queryConfigWithClustering.setUserDefinedFunctions(
-            List(UserDefinedFunction.fromUri(udf)).asJava
-          )
-        }
-        .getOrElse(queryConfigWithClustering)
+      val queryConfigWithUDF = addUDFToQueryConfig(queryConfigWithClustering)
       val results = bigquery.query(queryConfigWithUDF.setDestinationTable(tableId).build())
       logger.info(
         s"Query large results performed successfully: ${results.getTotalRows} rows inserted."
@@ -77,17 +70,24 @@ class BigQueryNativeJob(
         .newBuilder(sql)
         .setAllowLargeResults(true)
 
+    val queryConfigWithUDF = addUDFToQueryConfig(queryConfig)
+    val results = bigquery.query(queryConfigWithUDF.build())
+    System.out.println(
+      s"Query large results performed successfully: ${results.getTotalRows} rows inserted."
+    )
+    BigQueryJobResult(Some(results))
+  }
+
+  private def addUDFToQueryConfig(
+    queryConfig: QueryJobConfiguration.Builder
+  ): QueryJobConfiguration.Builder = {
     val queryConfigWithUDF = udf
       .map { udf =>
         import scala.collection.JavaConverters._
         queryConfig.setUserDefinedFunctions(List(UserDefinedFunction.fromUri(udf)).asJava)
       }
       .getOrElse(queryConfig)
-    val results = bigquery.query(queryConfigWithUDF.build())
-    System.out.println(
-      s"Query large results performed successfully: ${results.getTotalRows} rows inserted."
-    )
-    BigQueryJobResult(Some(results))
+    queryConfigWithUDF
   }
 
   /** Just to force any spark job to implement its entry point within the "run" method
