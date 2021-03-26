@@ -212,7 +212,7 @@ class IngestionWorkflow(
           }
           ingestingPath
         }
-        try {
+        Try {
           if (settings.comet.grouped)
             launchHandler.ingest(this, domain, schema, ingestingPaths.toList, config.options)
           else {
@@ -226,10 +226,11 @@ class IngestionWorkflow(
               }
               .forall(_)
           }
-        } catch {
-          case t: Throwable =>
-            t.printStackTrace()
+        } match {
+          case Failure(e) =>
+            e.printStackTrace()
             false
+          case Success(r) => r
         }
       }
     }

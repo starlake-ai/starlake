@@ -31,6 +31,7 @@ import java.io.ByteArrayOutputStream
 import java.time.{Instant, LocalDateTime, ZoneId}
 import scala.concurrent.duration.FiniteDuration
 import scala.util.{Failure, Success, Try}
+import scala.collection.JavaConverters._
 
 /** Interface required by any filesystem manager
   */
@@ -107,7 +108,6 @@ class HdfsStorageHandler(fileSystem: Option[String])(implicit
   override def lockRefreshPollTime: FiniteDuration = settings.comet.lock.refreshTime
 
   normalizedFileSystem.foreach(fs => conf.set("fs.defaultFS", fs))
-  import scala.collection.JavaConverters._
   settings.comet.hadoop.asScala.toMap.foreach { case (k, v) =>
     conf.set(k, v)
   }

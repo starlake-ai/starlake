@@ -130,7 +130,7 @@ case class Schema(
 
   import com.google.cloud.bigquery.{Schema => BQSchema}
 
-  def bqSchema(schemaHandler: SchemaHandler): BQSchema = {
+  def bigQuerySchema(schemaHandler: SchemaHandler): BQSchema = {
     BigQueryUtils.bqSchema(sparkTypeWithRenamedFields(schemaHandler))
   }
 
