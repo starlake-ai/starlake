@@ -1,7 +1,6 @@
 package com.ebiznext.comet.privacy
 
 import scala.util.Random
-import org.apache.commons.codec.binary.Hex
 
 import java.security.SecureRandom
 
