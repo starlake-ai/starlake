@@ -145,14 +145,14 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
         }
       }
       .partition(_.isSuccess)
-    invalidDomainsFiles.foreach { case Failure(err) =>
-      logger.warn(
-        s"There is one or more invalid Yaml files in your domains folder:${err.getMessage}"
-      )
+    invalidDomainsFiles.foreach {
+      case Failure(err) =>
+        logger.warn(
+          s"There is one or more invalid Yaml files in your domains folder:${err.getMessage}"
+        )
+      case Success(_) => // ignore
     }
-    validDomainsFile.map { case Success(domain) =>
-      domain
-    }
+    validDomainsFile.collect { case Success(domain) => domain }
   }
 
   def loadJobFromFile(path: Path): Try[AutoJobDesc] = {
