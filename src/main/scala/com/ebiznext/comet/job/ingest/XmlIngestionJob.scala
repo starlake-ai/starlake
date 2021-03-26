@@ -123,5 +123,6 @@ class XmlIngestionJob(
     }
   }
 
-  override def name: String = "XMLJob"
+  override def name: String =
+    s"""XML-${domain.name}-${schema.name}-${path.headOption.map(_.getName).mkString(",")}"""
 }
