@@ -29,7 +29,7 @@ import com.fasterxml.jackson.module.scala.experimental.ScalaObjectMapper
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
 
-import scala.util.Try
+import scala.util.{Failure, Success, Try}
 
 /** Handles access to datasets metadata,  eq. domains / types / schemas.
   *
@@ -145,14 +145,14 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
         }
       }
       .partition(_.isSuccess)
-
-    invalidDomainsFiles.map(_.failed.get).foreach { err =>
+    invalidDomainsFiles.foreach { case Failure(err) =>
       logger.warn(
         s"There is one or more invalid Yaml files in your domains folder:${err.getMessage}"
       )
     }
-    validDomainsFile.map(_.get)
-
+    validDomainsFile.map { case Success(domain) =>
+      domain
+    }
   }
 
   def loadJobFromFile(path: Path): Try[AutoJobDesc] = {

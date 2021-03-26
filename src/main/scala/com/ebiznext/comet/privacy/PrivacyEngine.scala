@@ -1,6 +1,9 @@
 package com.ebiznext.comet.privacy
 
 import scala.util.Random
+import org.apache.commons.codec.binary.Hex
+
+import java.security.SecureRandom
 
 /** Several encryption methods used in privacy management
   */
@@ -135,6 +138,8 @@ object IPv6 extends IP {
 trait NumericRandomPrivacy extends PrivacyEngine {
   val rnd: Random
 
+  import com.google.cloud.spark.bigquery.repackaged.org.apache.commons.codec.binary.Hex
+
   final def gen(low: Double, up: Double): Double = low + (up - low) * rnd.nextDouble()
 
   def genUnbounded(): Double
@@ -154,7 +159,7 @@ trait NumericRandomPrivacy extends PrivacyEngine {
 }
 
 object RandomDouble extends NumericRandomPrivacy {
-  val rnd = new Random()
+  val rnd = new SecureRandom()
 
   def genUnbounded(): Double = rnd.nextDouble()
 
@@ -168,7 +173,7 @@ object RandomDouble extends NumericRandomPrivacy {
 }
 
 object RandomLong extends NumericRandomPrivacy {
-  val rnd = new Random()
+  val rnd = new SecureRandom()
 
   override def genUnbounded(): Double = rnd.nextLong().toDouble
 
@@ -177,7 +182,7 @@ object RandomLong extends NumericRandomPrivacy {
 }
 
 object RandomInt extends NumericRandomPrivacy {
-  val rnd = new Random()
+  val rnd = new SecureRandom()
 
   override def genUnbounded(): Double = rnd.nextInt().toDouble
 
@@ -186,7 +191,7 @@ object RandomInt extends NumericRandomPrivacy {
 }
 
 class ApproxDouble extends PrivacyEngine {
-  val rnd = new Random()
+  val rnd = new SecureRandom()
 
   def crypt(s: String, colMap: => Map[String, Option[String]], params: List[Any]): String = {
     assert(params.length == 1)

@@ -30,7 +30,7 @@ import org.apache.spark.sql.execution.streaming.FileStreamSource.Timestamp
 import java.io.ByteArrayOutputStream
 import java.time.{Instant, LocalDateTime, ZoneId}
 import scala.concurrent.duration.FiniteDuration
-import scala.util.Try
+import scala.util.{Failure, Success, Try}
 
 /** Interface required by any filesystem manager
   */
@@ -175,7 +175,7 @@ class HdfsStorageHandler(fileSystem: Option[String])(implicit
     */
   def list(path: Path, extension: String, since: LocalDateTime, recursive: Boolean): List[Path] = {
     logger.info(s"list($path, $extension, $since)")
-    try {
+    Try {
       val iterator: RemoteIterator[LocatedFileStatus] = fs.listFiles(path, recursive)
       iterator
         .filter { status =>
@@ -189,8 +189,9 @@ class HdfsStorageHandler(fileSystem: Option[String])(implicit
         .toList
         .sortBy(r => (r.getModificationTime, r.getPath.getName))
         .map((status: LocatedFileStatus) => status.getPath())
-    } catch {
-      case e: Throwable =>
+    } match {
+      case Success(list) => list
+      case Failure(e) =>
         logger.warn(s"Ignoring folder $path", e)
         Nil
     }
