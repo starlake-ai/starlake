@@ -50,7 +50,7 @@ class KafkaIngestionJob(
 )(implicit settings: Settings)
     extends JsonIngestionJob(domain, schema, types, path, storageHandler, schemaHandler, options) {
 
-  var offsets: List[(Int, Long)] = null
+  var offsets: List[(Int, Long)] = Nil
 
   private val topicConfig: Settings.KafkaTopicConfig = settings.comet.kafka.topics(schema.name)
 
