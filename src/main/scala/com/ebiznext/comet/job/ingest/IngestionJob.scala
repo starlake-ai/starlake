@@ -556,6 +556,22 @@ trait IngestionJob extends SparkJob {
         storageHandler.move(csvPath, finalCsvPath)
       }
     }
+    // output file should have the same name as input file when applying privacy
+    if (
+      settings.comet.defaultWriteFormat == "text" && settings.comet.privacyOnly && area != StorageArea.rejected
+    ) {
+      val pathsOutput = storageHandler
+        .list(targetPath, ".txt", LocalDateTime.MIN, recursive = false)
+        .filterNot(path => schema.pattern.matcher(path.getName).matches())
+      if (pathsOutput.nonEmpty) {
+        val txtPath = pathsOutput.head
+        val finalTxtPath = new Path(
+          targetPath,
+          path.head.getName
+        )
+        storageHandler.move(txtPath, finalTxtPath)
+      }
+    }
     resultDataFrame
   }
 

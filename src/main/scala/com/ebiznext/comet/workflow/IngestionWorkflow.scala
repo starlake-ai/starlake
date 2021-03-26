@@ -357,6 +357,16 @@ class IngestionWorkflow(
           schemaHandler,
           options
         ).run().get
+      case TEXT_XML =>
+        new XmlSimplePrivacyJob(
+          domain,
+          schema,
+          schemaHandler.types,
+          ingestingPath,
+          storageHandler,
+          schemaHandler,
+          options
+        ).run().get
       case POSITION =>
         new PositionIngestionJob(
           domain,
