@@ -30,7 +30,7 @@ import org.apache.spark.sql._
 import org.apache.spark.sql.execution.datasources.json.JsonIngestionUtil
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
 
-import scala.util.{Failure, Success, Try}
+import scala.util.Try
 
 /** Main class to complex json delimiter separated values file
   * If your json contains only one level simple attribute aka. kind of dsv but in json format please use SIMPLE_JSON instead. It's way faster
@@ -74,21 +74,15 @@ class JsonIngestionJob(
     */
   protected def loadDataSet(): Try[DataFrame] = {
 
-    try {
+    Try {
       val dfIn = loadJsonData()
       val dfInWithInputFilename = dfIn.select(
         org.apache.spark.sql.functions.input_file_name(),
         org.apache.spark.sql.functions.col("value")
       )
-
       logger.debug(dfIn.schema.treeString)
-
       val df = applyIgnore(dfInWithInputFilename)
-
-      Success(df)
-    } catch {
-      case e: Exception =>
-        Failure(e)
+      df
     }
   }
 
