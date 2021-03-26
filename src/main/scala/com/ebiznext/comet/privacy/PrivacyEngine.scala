@@ -137,8 +137,6 @@ object IPv6 extends IP {
 trait NumericRandomPrivacy extends PrivacyEngine {
   val rnd: Random
 
-  import com.google.cloud.spark.bigquery.repackaged.org.apache.commons.codec.binary.Hex
-
   final def gen(low: Double, up: Double): Double = low + (up - low) * rnd.nextDouble()
 
   def genUnbounded(): Double
