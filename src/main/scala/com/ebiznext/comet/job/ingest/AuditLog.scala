@@ -32,6 +32,7 @@ import org.apache.spark.sql.types._
 import org.apache.spark.sql.{SaveMode, SparkSession}
 
 import java.sql.Timestamp
+import com.google.cloud.bigquery.{Schema => BQSchema}
 
 sealed case class Step(value: String) {
   override def toString: String = value
@@ -109,8 +110,6 @@ object SparkAuditLogWriter {
     ("step", LegacySQLTypeName.STRING, StringType)
   )
 
-  import com.google.cloud.bigquery.{Schema => BQSchema}
-
   private def bigqueryAuditSchema(): BQSchema = {
     val fields = auditCols.map { attribute =>
       Field
@@ -148,7 +147,7 @@ object SparkAuditLogWriter {
       .createDataFrame(
         auditTypedRDD.toDF().rdd,
         StructType(
-          auditCols.map(col => StructField(col._1, col._3, nullable = true))
+          auditCols.map(col => StructField(name = col._1, dataType = col._3, nullable = true))
         )
       )
       .toDF(auditCols.map(_._1): _*)
@@ -183,7 +182,8 @@ object SparkAuditLogWriter {
         new BigQuerySparkJob(bqConfig, Some(bigqueryAuditSchema())).run()
 
       case _: EsSink =>
-        ???
+        // TODO Sink Audit Log to ES
+        throw new Exception("Sinking Audit log to Elasticsearch not yet supported")
       case _: NoneSink =>
       // this is a NOP
     }

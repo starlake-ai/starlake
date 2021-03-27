@@ -30,7 +30,7 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.sql._
 import org.apache.spark.sql.types.StructType
 
-import scala.util.{Failure, Success, Try}
+import scala.util.Try
 
 /** Main class to ingest delimiter separated values file
   *
@@ -94,7 +94,7 @@ class DsvIngestionJob(
     * @return Spark Dataset
     */
   protected def loadDataSet(): Try[DataFrame] = {
-    try {
+    Try {
       val dfIn = session.read
         .option("header", metadata.isWithHeader().toString)
         .option("inferSchema", value = false)
@@ -108,11 +108,9 @@ class DsvIngestionJob(
 
       logger.debug(dfIn.schema.treeString)
       if (dfIn.limit(1).count() == 0)
-        Success(
-          dfIn.withColumn(
-            Settings.cometInputFileNameColumn,
-            org.apache.spark.sql.functions.input_file_name()
-          )
+        dfIn.withColumn(
+          Settings.cometInputFileNameColumn,
+          org.apache.spark.sql.functions.input_file_name()
         )
       else {
         val df = applyIgnore(dfIn)
@@ -136,37 +134,27 @@ class DsvIngestionJob(
             val attributesWithoutscript = schema.attributesWithoutScript
             val compare =
               attributesWithoutscript.length.compareTo(df.columns.length)
-            if (compare == 0) {
-              df.toDF(
-                attributesWithoutscript
-                  .map(_.name)
-                  .take(attributesWithoutscript.length): _*
-              )
-            } else if (compare > 0) {
-              val countMissing = attributesWithoutscript.length - df.columns.length
-              throw new Exception(s"$countMissing MISSING columns in the input DataFrame ")
-            } else { // compare < 0
-              val cols = df.columns
-              df.select(
-                cols.head,
-                cols.tail
-                  .take(attributesWithoutscript.length - 1): _*
-              ).toDF(attributesWithoutscript.map(_.name): _*)
+            compare match {
+              case 0 =>
+                df.toDF(
+                  attributesWithoutscript.map(_.name).take(attributesWithoutscript.length): _*
+                )
+              case c if c > 0 =>
+                val countMissing = attributesWithoutscript.length - df.columns.length
+                throw new Exception(s"$countMissing MISSING columns in the input DataFrame ")
+              case _ => // compare < 0
+                val cols = df.columns
+                df.select(cols.head, cols.tail.take(attributesWithoutscript.length - 1): _*)
+                  .toDF(attributesWithoutscript.map(_.name): _*)
             }
         }
-        Success(
-          resDF.withColumn(
-            //  Spark here can detect the input file automatically, so we're just using the input_file_name spark function
-            Settings.cometInputFileNameColumn,
-            org.apache.spark.sql.functions.input_file_name()
-          )
+        resDF.withColumn(
+          //  Spark here can detect the input file automatically, so we're just using the input_file_name spark function
+          Settings.cometInputFileNameColumn,
+          org.apache.spark.sql.functions.input_file_name()
         )
       }
-    } catch {
-      case e: Exception =>
-        Failure(e)
     }
-
   }
 
   /** Apply the schema to the dataset. This is where all the magic happen
@@ -218,7 +206,9 @@ class DsvIngestionJob(
     val acceptedDF = session.createDataFrame(acceptedRDD, orderedSparkTypes)
 
     val finalDF =
-      renamedAttributes.foldLeft(acceptedDF)((acc, ca) => acc.withColumnRenamed(ca._1, ca._2))
+      renamedAttributes.foldLeft(acceptedDF)((acc, ca) =>
+        acc.withColumnRenamed(existingName = ca._1, newName = ca._2)
+      )
 
     super.saveAccepted(finalDF)
   }

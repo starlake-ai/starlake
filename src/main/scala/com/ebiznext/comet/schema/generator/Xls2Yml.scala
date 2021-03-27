@@ -5,6 +5,7 @@ import com.ebiznext.comet.config.{DatasetArea, Settings}
 import com.ebiznext.comet.schema.model._
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.LazyLogging
+import YamlSerializer._
 
 object Xls2Yml extends LazyLogging {
 
@@ -121,7 +122,6 @@ object Xls2Yml extends LazyLogging {
   }
 
   def writeDomainYaml(domain: Domain, outputPath: String, fileName: String): Unit = {
-    import YamlSerializer._
     logger.info(s"""Generated schemas:
                    |${serialize(domain)}""".stripMargin)
     serializeToFile(File(outputPath, s"${fileName}.comet.yml"), domain)

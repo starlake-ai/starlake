@@ -1,15 +1,15 @@
 package com.ebiznext.comet.services
 
-import java.io.File
-
 import akka.http.scaladsl.model.headers.RawHeader
 import akka.http.scaladsl.model.{HttpEntity, HttpResponse, StatusCodes}
 import akka.http.scaladsl.server.directives.FileInfo
-import akka.http.scaladsl.server.{Directives, Route}
+import akka.http.scaladsl.server.{Directives, Route, StandardRoute}
 import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.schema.generator.Xls2Yml.{genPostEncryptionDomain, genPreEncryptionDomain}
 import com.ebiznext.comet.schema.generator.YamlSerializer._
 import com.ebiznext.comet.schema.generator.{FileInput, XlsReader}
+
+import java.io.File
 
 class GeneratorService(implicit
   settings: Settings
@@ -27,27 +27,7 @@ class GeneratorService(implicit
           val result = reader.getDomain().map { domain =>
             serialize(domain)
           }
-          result match {
-            case Some(success) =>
-              complete {
-                HttpResponse(
-                  StatusCodes.OK,
-                  headers = List(
-                    RawHeader("fileName", fileInfo.fileName.toLowerCase)
-                  ),
-                  entity = HttpEntity(success).withoutSizeLimit()
-                )
-              }
-            case _ =>
-              complete {
-                HttpResponse(
-                  StatusCodes.BadRequest,
-                  entity =
-                    HttpEntity("Please check your Yaml configuration file").withoutSizeLimit()
-                )
-              }
-          }
-
+          handleResult(fileInfo, result)
         }
       }
     } ~
@@ -69,30 +49,35 @@ class GeneratorService(implicit
                   | $postEncrypt
                   |""".stripMargin
             }
-            result match {
-              case Some(success) =>
-                complete {
-                  HttpResponse(
-                    StatusCodes.OK,
-                    headers = List(
-                      RawHeader("fileName", fileInfo.fileName.toLowerCase)
-                    ),
-                    entity = HttpEntity(success).withoutSizeLimit()
-                  )
-                }
-              case _ =>
-                complete {
-                  HttpResponse(
-                    StatusCodes.BadRequest,
-                    entity =
-                      HttpEntity("Please check your Yaml configuration file").withoutSizeLimit()
-                  )
-                }
-            }
+            handleResult(fileInfo, result)
           }
         }
       }
     }
   }
 
+  private def handleResult(
+    fileInfo: FileInfo,
+    result: Option[String]
+  ): StandardRoute = {
+    result match {
+      case Some(success) =>
+        complete {
+          HttpResponse(
+            StatusCodes.OK,
+            headers = List(
+              RawHeader("fileName", fileInfo.fileName.toLowerCase)
+            ),
+            entity = HttpEntity(success).withoutSizeLimit()
+          )
+        }
+      case _ =>
+        complete {
+          HttpResponse(
+            StatusCodes.BadRequest,
+            entity = HttpEntity("Please check your Yaml configuration file").withoutSizeLimit()
+          )
+        }
+    }
+  }
 }

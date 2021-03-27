@@ -150,7 +150,7 @@ object Settings extends StrictLogging {
     final case class TableDdl(createSql: String, pingSql: Option[String] = None) {
 
       def effectivePingSql(tableName: String): String =
-        pingSql.getOrElse(s"select * from $tableName where 1=0")
+        pingSql.getOrElse(s"select count(*) from $tableName where 1=0")
     }
   }
 

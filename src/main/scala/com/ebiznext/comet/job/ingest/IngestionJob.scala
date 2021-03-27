@@ -18,16 +18,23 @@ import com.ebiznext.comet.utils.conversion.BigQueryUtils
 import com.ebiznext.comet.utils.kafka.KafkaClient
 import com.ebiznext.comet.utils.{JobResult, SparkJob, SparkJobResult, Utils}
 import com.google.cloud.bigquery.JobInfo.{CreateDisposition, WriteDisposition}
-import com.google.cloud.bigquery.{Field, LegacySQLTypeName, StandardTableDefinition}
+import com.google.cloud.bigquery.{
+  Field,
+  LegacySQLTypeName,
+  StandardTableDefinition,
+  Schema => BQSchema
+}
 import org.apache.hadoop.fs.Path
+import org.apache.spark.ml.feature.SQLTransformer
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql._
 import org.apache.spark.sql.expressions.Window
-import org.apache.spark.sql.functions.col
+import org.apache.spark.sql.functions.{col, _}
 import org.apache.spark.sql.types.{StringType, StructField, StructType, TimestampType}
 
 import scala.collection.JavaConverters._
 import scala.language.existentials
+import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try}
 
 /**
@@ -67,7 +74,6 @@ trait IngestionJob extends SparkJob {
   protected def ingest(dataset: DataFrame): (RDD[_], RDD[_])
 
   protected def applyIgnore(dfIn: DataFrame): Dataset[Row] = {
-    import org.apache.spark.sql.functions._
     import session.implicits._
     metadata.ignore.map { ignore =>
       if (ignore.startsWith("udf:")) {
@@ -169,13 +175,12 @@ trait IngestionJob extends SparkJob {
         Some(acceptedDF),
         Engine.SPARK,
         sql => session.sql(sql).count()
-      ).run().get
+      ).run().getOrElse(throw new Exception("Should never happen"))
     }
 
     if (settings.comet.metrics.active) {
       new MetricsJob(this.domain, this.schema, Stage.UNIT, this.storageHandler, this.schemaHandler)
         .run(acceptedDF, System.currentTimeMillis())
-        .get
     }
 
     val writeMode = getWriteMode()
@@ -184,23 +189,23 @@ trait IngestionJob extends SparkJob {
     val acceptedDfWithScriptFields = (if (schema.attributes.exists(_.script.isDefined)) {
                                         schema.attributes.foldLeft(acceptedDF) {
                                           case (
-                                                df,
-                                                Attribute(
-                                                  name,
-                                                  _,
-                                                  _,
-                                                  _,
-                                                  _,
-                                                  _,
-                                                  _,
-                                                  _,
-                                                  _,
-                                                  _,
-                                                  _,
-                                                  _,
-                                                  _,
-                                                  Some(script)
-                                                )
+                                              df,
+                                              Attribute(
+                                                name,
+                                                _,
+                                                _,
+                                                _,
+                                                _,
+                                                _,
+                                                _,
+                                                _,
+                                                _,
+                                                _,
+                                                _,
+                                                _,
+                                                _,
+                                                Some(script)
+                                              )
                                               ) =>
                                             df.T(
                                               s"SELECT *, ${script.richFormat(options)} as $name FROM __THIS__"
@@ -331,7 +336,7 @@ trait IngestionJob extends SparkJob {
           )
           val tableSchema = schema.postsql match {
             case Some(_) => Some(BigQueryUtils.bqSchema(mergedDF.schema))
-            case _       => Some(schema.bqSchema(schemaHandler))
+            case _       => Some(schema.bigQuerySchema(schemaHandler))
           }
           val config = BigQueryLoadConfig(
             source = Right(mergedDF),
@@ -427,7 +432,7 @@ trait IngestionJob extends SparkJob {
         try {
           session.sql(s"drop table if exists $hiveDB.$tableName")
         } catch {
-          case e: Exception =>
+          case NonFatal(e) =>
             logger.warn("Ignore error when hdfs files not found")
             Utils.logException(logger, e)
 
@@ -448,9 +453,7 @@ trait IngestionJob extends SparkJob {
           val minFraction =
             if (fraction * count >= 1) // Make sure we get at least on item in teh dataset
               fraction
-            else if (
-              count > 0
-            ) // We make sure we get at least 1 item which is 2 because of double imprecision for huge numbers.
+            else if (count > 0) // We make sure we get at least 1 item which is 2 because of double imprecision for huge numbers.
               2 / count
             else
               0
@@ -471,11 +474,9 @@ trait IngestionJob extends SparkJob {
 
       // No need to apply partition on rejected dF
       val partitionedDFWriter =
-        if (
-          area == StorageArea.rejected && !metadata
-            .getPartitionAttributes()
-            .forall(Metadata.CometPartitionColumns.contains(_))
-        )
+        if (area == StorageArea.rejected && !metadata
+              .getPartitionAttributes()
+              .forall(Metadata.CometPartitionColumns.contains(_)))
           partitionedDatasetWriter(dataset.coalesce(nbPartitions), Nil)
         else
           partitionedDatasetWriter(
@@ -557,9 +558,7 @@ trait IngestionJob extends SparkJob {
       }
     }
     // output file should have the same name as input file when applying privacy
-    if (
-      settings.comet.defaultWriteFormat == "text" && settings.comet.privacyOnly && area != StorageArea.rejected
-    ) {
+    if (settings.comet.defaultWriteFormat == "text" && settings.comet.privacyOnly && area != StorageArea.rejected) {
       val pathsOutput = storageHandler
         .list(targetPath, ".txt", LocalDateTime.MIN, recursive = false)
         .filterNot(path => schema.pattern.matcher(path.getName).matches())
@@ -668,7 +667,6 @@ trait IngestionJob extends SparkJob {
     val toDeleteDF = merge.timestamp.map { timestamp =>
       val w =
         Window.partitionBy(merge.key.head, merge.key.tail: _*).orderBy(col(timestamp).desc)
-      import org.apache.spark.sql.functions.row_number
       commonDF
         .withColumn("rownum", row_number.over(w))
         .where(col("rownum") =!= 1)
@@ -707,13 +705,11 @@ trait IngestionJob extends SparkJob {
       // We provide the accepted DF schema since partition columns types are infered when parquet is loaded and might not match with the DF being ingested
       val existingDF =
         session.read.schema(withScriptFieldsDF.schema).parquet(acceptedPath.toString)
-      if (
-        existingDF.schema.fields.length == session.read
-          .parquet(acceptedPath.toString)
-          .schema
-          .fields
-          .length
-      )
+      if (existingDF.schema.fields.length == session.read
+            .parquet(acceptedPath.toString)
+            .schema
+            .fields
+            .length)
         mergeParquet(withScriptFieldsDF, existingDF, mergeOptions)
       else
         throw new RuntimeException(
@@ -761,13 +757,11 @@ trait IngestionJob extends SparkJob {
     val tableMetadata = BigQuerySparkJob.getTable(session, domain.name, schema.name)
     tableMetadata.table
       .map { table =>
-        if (
-          table.getDefinition
-            .asInstanceOf[StandardTableDefinition]
-            .getSchema
-            .getFields
-            .size() == withScriptFieldsDF.schema.fields.length
-        ) {
+        if (table.getDefinition
+              .asInstanceOf[StandardTableDefinition]
+              .getSchema
+              .getFields
+              .size() == withScriptFieldsDF.schema.fields.length) {
           val bqTable = s"${domain.name}.${schema.name}"
           (mergeOptions.queryFilter, metadata.sink) match {
             case (Some(query), Some(BigQuerySink(_, _, Some(_), _, _, _, _))) =>
@@ -777,7 +771,7 @@ trait IngestionJob extends SparkJob {
                   tableMetadata.biqueryClient.listPartitions(table.getTableId).asScala.toList
                 val latestPartition = partitions.last
                 val existingBigQueryDF = session.read
-                  // We provided the acceptedDF schema here since BQ lose the required / nullable information of the schema
+                // We provided the acceptedDF schema here since BQ lose the required / nullable information of the schema
                   .schema(withScriptFieldsDF.schema)
                   .format("com.google.cloud.spark.bigquery")
                   .option("table", bqTable)
@@ -790,7 +784,7 @@ trait IngestionJob extends SparkJob {
 
               } else {
                 val existingBigQueryDF = session.read
-                  // We provided the acceptedDF schema here since BQ lose the required / nullable information of the schema
+                // We provided the acceptedDF schema here since BQ lose the required / nullable information of the schema
                   .schema(withScriptFieldsDF.schema)
                   .format("com.google.cloud.spark.bigquery")
                   .option("table", bqTable)
@@ -800,7 +794,7 @@ trait IngestionJob extends SparkJob {
               }
             case _ =>
               val existingBigQueryDF = session.read
-                // We provided the acceptedDF schema here since BQ lose the required / nullable information of the schema
+              // We provided the acceptedDF schema here since BQ lose the required / nullable information of the schema
                 .schema(withScriptFieldsDF.schema)
                 .format("com.google.cloud.spark.bigquery")
                 .option("table", bqTable)
@@ -836,8 +830,6 @@ object IngestionUtil {
     ("error", LegacySQLTypeName.STRING, StringType),
     ("path", LegacySQLTypeName.STRING, StringType)
   )
-
-  import com.google.cloud.bigquery.{Schema => BQSchema}
 
   private def bigqueryRejectedSchema(): BQSchema = {
     val fields = rejectedCols map { attribute =>
@@ -915,7 +907,8 @@ object IngestionUtil {
           new ConnectionLoadJob(jdbcConfig).run()
 
         case _: EsSink =>
-          ???
+          // TODO Sink Rejected Log to ES
+          throw new Exception("Sinking Audit log to Elasticsearch not yet supported")
         case _: NoneSink =>
           Success(())
       }
@@ -999,8 +992,6 @@ object IngestionUtil {
 }
 
 object ImprovedDataFrameContext {
-
-  import org.apache.spark.ml.feature.SQLTransformer
 
   implicit class ImprovedDataFrame(df: org.apache.spark.sql.DataFrame) {
 

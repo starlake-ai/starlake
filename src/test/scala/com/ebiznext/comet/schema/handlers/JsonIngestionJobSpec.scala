@@ -135,6 +135,8 @@ class JsonIngestionJobSpecNoIndexJdbcMetricsJdbcAuditSpec
   override def configuration: Config =
     ConfigFactory
       .parseString("""
+                     |grouped = false
+                     |
                      |metrics {
                      |  active = true
                      |  sink {

@@ -29,7 +29,7 @@ import com.fasterxml.jackson.module.scala.experimental.ScalaObjectMapper
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
 
-import scala.util.Try
+import scala.util.{Failure, Success, Try}
 
 /** Handles access to datasets metadata,  eq. domains / types / schemas.
   *
@@ -145,14 +145,14 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
         }
       }
       .partition(_.isSuccess)
-
-    invalidDomainsFiles.map(_.failed.get).foreach { err =>
-      logger.warn(
-        s"There is one or more invalid Yaml files in your domains folder:${err.getMessage}"
-      )
+    invalidDomainsFiles.foreach {
+      case Failure(err) =>
+        logger.warn(
+          s"There is one or more invalid Yaml files in your domains folder:${err.getMessage}"
+        )
+      case Success(_) => // ignore
     }
-    validDomainsFile.map(_.get)
-
+    validDomainsFile.collect { case Success(domain) => domain }
   }
 
   def loadJobFromFile(path: Path): Try[AutoJobDesc] = {
@@ -179,11 +179,17 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
       .list(DatasetArea.jobs, ".yml", recursive = true)
       .map(loadJobFromFile)
       .partition(_.isSuccess)
-    invalidJobsFile.map(_.failed.get).foreach { err =>
-      logger.warn(s"There is one or more invalid Yaml files in your jobs folder:${err.getMessage}")
+
+    invalidJobsFile.foreach {
+      case Failure(err) =>
+        logger.warn(
+          s"There is one or more invalid Yaml files in your jobs folder:${err.getMessage}"
+        )
+      case Success(_) => // do nothing
     }
+
     validJobsFile
-      .map(_.get)
+      .collect { case Success(job) => job }
       .map(job => job.name -> job)
       .toMap
   }

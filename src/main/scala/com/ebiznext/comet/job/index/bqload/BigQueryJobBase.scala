@@ -8,6 +8,7 @@ import com.google.cloud.{Identity, Policy, Role}
 import com.typesafe.scalalogging.StrictLogging
 
 import scala.collection.JavaConverters._
+import java.util.UUID
 
 trait BigQueryJobBase extends StrictLogging {
   def cliConfig: BigQueryLoadConfig
@@ -134,7 +135,6 @@ trait BigQueryJobBase extends StrictLogging {
   }
 
   def runJob(statement: String, location: String): Job = {
-    import java.util.UUID
     val bigquery: BigQuery = BigQueryOptions.getDefaultInstance.getService
     val jobId = JobId
       .newBuilder()

@@ -30,7 +30,9 @@ import org.apache.spark.sql.execution.streaming.FileStreamSource.Timestamp
 import java.io.ByteArrayOutputStream
 import java.time.{Instant, LocalDateTime, ZoneId}
 import scala.concurrent.duration.FiniteDuration
-import scala.util.Try
+import scala.util.{Failure, Success, Try}
+import scala.collection.JavaConverters._
+import java.util.zip.ZipInputStream
 
 /** Interface required by any filesystem manager
   */
@@ -107,7 +109,6 @@ class HdfsStorageHandler(fileSystem: Option[String])(implicit
   override def lockRefreshPollTime: FiniteDuration = settings.comet.lock.refreshTime
 
   normalizedFileSystem.foreach(fs => conf.set("fs.defaultFS", fs))
-  import scala.collection.JavaConverters._
   settings.comet.hadoop.asScala.toMap.foreach { case (k, v) =>
     conf.set(k, v)
   }
@@ -175,7 +176,7 @@ class HdfsStorageHandler(fileSystem: Option[String])(implicit
     */
   def list(path: Path, extension: String, since: LocalDateTime, recursive: Boolean): List[Path] = {
     logger.info(s"list($path, $extension, $since)")
-    try {
+    Try {
       val iterator: RemoteIterator[LocatedFileStatus] = fs.listFiles(path, recursive)
       iterator
         .filter { status =>
@@ -189,8 +190,9 @@ class HdfsStorageHandler(fileSystem: Option[String])(implicit
         .toList
         .sortBy(r => (r.getModificationTime, r.getPath.getName))
         .map((status: LocatedFileStatus) => status.getPath())
-    } catch {
-      case e: Throwable =>
+    } match {
+      case Success(list) => list
+      case Failure(e) =>
         logger.warn(s"Ignoring folder $path", e)
         Nil
     }
@@ -284,7 +286,6 @@ class HdfsStorageHandler(fileSystem: Option[String])(implicit
   }
 
   override def unzip(sourceFile: Path, targetDir: Path): Try[Unit] = {
-    import java.util.zip.ZipInputStream
     Try {
       if (!fs.exists(sourceFile)) throw new Exception(sourceFile.toString + " does not exist")
       val fsInputStream = fs.open(sourceFile)
