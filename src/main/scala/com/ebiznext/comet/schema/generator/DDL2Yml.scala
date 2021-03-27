@@ -80,9 +80,7 @@ object DDL2Yml extends LazyLogging {
       jdbcSchema.tables.map(tblSchema => tblSchema.table.toUpperCase -> tblSchema).toMap
     val tableNames = jdbcTableMap.keys.toList
 
-    /** Extract all tables from the database
-      * @return Map of tablename -> tableDescription
-      */
+    /* Extract all tables from the database and return Map of tablename -> tableDescription */
     def extractTables(): Map[String, String] = {
       val tableNames = mutable.Map.empty[String, String]
       val resultSet = databaseMetaData.getTables(
