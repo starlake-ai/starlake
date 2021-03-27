@@ -179,11 +179,17 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
       .list(DatasetArea.jobs, ".yml", recursive = true)
       .map(loadJobFromFile)
       .partition(_.isSuccess)
-    invalidJobsFile.map(_.failed.get).foreach { err =>
-      logger.warn(s"There is one or more invalid Yaml files in your jobs folder:${err.getMessage}")
+
+    invalidJobsFile.foreach {
+      case Failure(err) =>
+        logger.warn(
+          s"There is one or more invalid Yaml files in your jobs folder:${err.getMessage}"
+        )
+      case Success(_) => // do nothing
     }
+
     validJobsFile
-      .map(_.get)
+      .collect { case Success(job) => job }
       .map(job => job.name -> job)
       .toMap
   }
