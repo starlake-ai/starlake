@@ -169,11 +169,12 @@ class IngestionWorkflow(
     val result = includedDomains.flatMap { domain =>
       logger.info(s"Watch Domain: ${domain.name}")
       val (resolved, unresolved) = pending(domain.name, config.schemas.toList)
-      unresolved.foreach { case (_, path) =>
-        val targetPath =
-          new Path(DatasetArea.unresolved(domain.name), path.getName)
-        logger.info(s"Unresolved file : ${path.getName}")
-        storageHandler.move(path, targetPath)
+      unresolved.foreach {
+        case (_, path) =>
+          val targetPath =
+            new Path(DatasetArea.unresolved(domain.name), path.getName)
+          logger.info(s"Unresolved file : ${path.getName}")
+          storageHandler.move(path, targetPath)
       }
 
       val filteredResolved = if (settings.comet.privacyOnly) {
@@ -201,37 +202,38 @@ class IngestionWorkflow(
         case (None, _)            => throw new Exception("Should never happen")
       } groupBy (_._1) mapValues (it => it.map(_._2))
 
-      groupedResolved.map { case (schema, pendingPaths) =>
-        logger.info(s"""Ingest resolved file : ${pendingPaths
-          .map(_.getName)
-          .mkString(",")} with schema ${schema.name}""")
-        val ingestingPaths = pendingPaths.map { pendingPath =>
-          val ingestingPath = new Path(DatasetArea.ingesting(domain.name), pendingPath.getName)
-          if (!storageHandler.move(pendingPath, ingestingPath)) {
-            logger.error(s"Could not move $pendingPath to $ingestingPath")
+      groupedResolved.map {
+        case (schema, pendingPaths) =>
+          logger.info(s"""Ingest resolved file : ${pendingPaths
+            .map(_.getName)
+            .mkString(",")} with schema ${schema.name}""")
+          val ingestingPaths = pendingPaths.map { pendingPath =>
+            val ingestingPath = new Path(DatasetArea.ingesting(domain.name), pendingPath.getName)
+            if (!storageHandler.move(pendingPath, ingestingPath)) {
+              logger.error(s"Could not move $pendingPath to $ingestingPath")
+            }
+            ingestingPath
           }
-          ingestingPath
-        }
-        Try {
-          if (settings.comet.grouped)
-            launchHandler.ingest(this, domain, schema, ingestingPaths.toList, config.options)
-          else {
-            // We ingest all the files but return false if one them fails.
-            ingestingPaths
-              .map {
-                launchHandler.ingest(this, domain, schema, _, config.options) match {
-                  case None | Some(Success(_)) => true
-                  case Some(Failure(_))        => false
+          Try {
+            if (settings.comet.grouped)
+              launchHandler.ingest(this, domain, schema, ingestingPaths.toList, config.options)
+            else {
+              // We ingest all the files but return false if one them fails.
+              ingestingPaths
+                .map {
+                  launchHandler.ingest(this, domain, schema, _, config.options) match {
+                    case None | Some(Success(_)) => true
+                    case Some(Failure(_))        => false
+                  }
                 }
-              }
-              .forall(_)
+                .forall(_)
+            }
+          } match {
+            case Failure(e) =>
+              e.printStackTrace()
+              false
+            case Success(r) => r
           }
-        } match {
-          case Failure(e) =>
-            e.printStackTrace()
-            false
-          case Success(r) => r
-        }
       }
     }
     result.forall(_ == true)
@@ -266,7 +268,7 @@ class IngestionWorkflow(
           s" ${dom.name}"
         )
         files
-      }
+    }
 
     val schemas = for {
       dom <- domain.toList
@@ -317,7 +319,7 @@ class IngestionWorkflow(
     logger.info(
       s"Ingesting domain: ${domain.name} with schema: ${schema.name} on file: $ingestingPath with metadata $metadata"
     )
-    val ingestionResult: Try[JobResult] = Try(metadata.getFormat() match {
+    val ingestionResult = Try(metadata.getFormat() match {
       case DSV =>
         new DsvIngestionJob(
           domain,
@@ -327,7 +329,7 @@ class IngestionWorkflow(
           storageHandler,
           schemaHandler,
           options
-        ).run().get
+        ).run()
       case SIMPLE_JSON =>
         new SimpleJsonIngestionJob(
           domain,
@@ -337,7 +339,7 @@ class IngestionWorkflow(
           storageHandler,
           schemaHandler,
           options
-        ).run().get
+        ).run()
       case JSON =>
         new JsonIngestionJob(
           domain,
@@ -347,7 +349,7 @@ class IngestionWorkflow(
           storageHandler,
           schemaHandler,
           options
-        ).run().get
+        ).run()
       case XML =>
         new XmlIngestionJob(
           domain,
@@ -357,7 +359,7 @@ class IngestionWorkflow(
           storageHandler,
           schemaHandler,
           options
-        ).run().get
+        ).run()
       case POSITION =>
         new PositionIngestionJob(
           domain,
@@ -367,7 +369,7 @@ class IngestionWorkflow(
           storageHandler,
           schemaHandler,
           options
-        ).run().get
+        ).run()
       case KAFKA =>
         new KafkaIngestionJob(
           domain,
@@ -378,7 +380,7 @@ class IngestionWorkflow(
           schemaHandler,
           options,
           Mode.FILE
-        ).run().get
+        ).run()
 
       case KAFKASTREAM =>
         new KafkaIngestionJob(
@@ -390,12 +392,12 @@ class IngestionWorkflow(
           schemaHandler,
           options,
           Mode.STREAM
-        ).run().get
+        ).run()
       case _ =>
         throw new Exception("Should never happen")
     })
     ingestionResult match {
-      case Success(_) =>
+      case Success(Success(jobResult)) =>
         if (settings.comet.archive) {
           ingestingPath.foreach { ingestingPath =>
             val archivePath =
@@ -407,10 +409,14 @@ class IngestionWorkflow(
           logger.info(s"Deleting file $ingestingPath")
           ingestingPath.foreach(storageHandler.delete)
         }
+        Success(jobResult)
+      case Success(Failure(exception)) =>
+        Utils.logException(logger, exception)
+        Failure(exception)
       case Failure(exception) =>
         Utils.logException(logger, exception)
+        Failure(exception)
     }
-    ingestionResult
   }
 
   def infer(config: InferSchemaConfig): Try[Unit] = {
@@ -469,8 +475,8 @@ class IngestionWorkflow(
                   job.views.map(_.keys).getOrElse(Nil)
                 else
                   queryNames
-              val result = queries.map(queryName =>
-                action.runView(queryName, config.viewsDir, config.viewsCount)
+              val result = queries.map(
+                queryName => action.runView(queryName, config.viewsDir, config.viewsCount)
               )
               result.filter(_.isFailure) match {
                 case Nil =>
@@ -483,7 +489,7 @@ class IngestionWorkflow(
                   )
                 case errors =>
                   // We return all failures
-                  Failure(errors.map(_.failed).map(_.get).reduce(_.initCause(_)))
+                  Failure(errors.collect { case Failure(e) => e }.reduce(_.initCause(_)))
               }
           }
           Utils.logFailure(result, logger)
@@ -600,8 +606,9 @@ class IngestionWorkflow(
 
     // get schema
     val schema = df.schema
-    val newSchema = StructType(schema.map { case StructField(c, t, _, m) =>
-      StructField(c, t, nullable = nullable, m)
+    val newSchema = StructType(schema.map {
+      case StructField(c, t, _, m) =>
+        StructField(c, t, nullable = nullable, m)
     })
     // apply new schema
     df.sqlContext.createDataFrame(df.rdd, newSchema)
