@@ -96,13 +96,7 @@ class PositionIngestionJob(
     val dataset: DataFrame =
       PositionIngestionUtil.prepare(session, input, schema.attributesWithoutScript)
 
-    def reorderAttributes(): List[Attribute] = {
-      val attributesMap =
-        schema.attributesWithoutScript.map(attr => (attr.name, attr)).toMap
-      dataset.columns.map(colName => attributesMap(colName)).toList
-    }
-
-    val orderedAttributes = reorderAttributes()
+    val orderedAttributes = reorderAttributes(dataset)
 
     def reorderTypes(): (List[Type], StructType) = {
       val mapTypes: Map[String, Type] = types.map(tpe => tpe.name -> tpe).toMap
@@ -167,7 +161,10 @@ object PositionIngestionUtil {
 
     val dataset =
       session.createDataFrame(rdd, StructType(fieldTypeArray)).toDF(attributes.map(_.name): _*)
-    dataset
+    dataset withColumn (
+      Settings.cometInputFileNameColumn,
+      org.apache.spark.sql.functions.input_file_name()
+    )
   }
 
 }
