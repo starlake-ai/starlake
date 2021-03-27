@@ -55,7 +55,7 @@ case class MergeOptions(
   *                     See :ref:`metadata_concept`
   * @param comment    : free text
   * @param presql     : Reserved for future use.
-  * @param postsql    : Reserved for future use.
+  * @param postsql    : We use this attribute to execute sql queries before writing the final dataFrame after ingestion
   * @param tags       : Set of string to attach to this Schema
   * @param rls        : Experimental. Row level security to this to this schema.
   *                     See :ref:`rowlevelsecurity_concept`
@@ -68,7 +68,7 @@ case class Schema(
   merge: Option[MergeOptions],
   comment: Option[String],
   presql: Option[List[String]],
-  postsql: Option[List[String]],
+  postsql: Option[List[String]] = None,
   tags: Option[Set[String]] = None,
   rls: Option[List[RowLevelSecurity]] = None,
   assertions: Option[Map[String, String]] = None
