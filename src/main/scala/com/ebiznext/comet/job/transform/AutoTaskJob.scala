@@ -38,6 +38,7 @@ import java.io.{File, PrintStream}
 import java.sql.Timestamp
 import java.time.{Instant, LocalDateTime}
 import scala.util.{Failure, Success, Try}
+import scala.collection.JavaConverters._
 
 /** Execute the SQL Task and store it in parquet/orc/.... If Hive support is enabled, also store it as a Hive Table.
   * If analyze support is active, also compute basic statistics for twhe dataset.
@@ -109,7 +110,6 @@ class AutoTaskJob(
       val jsonQuery =
         s"SELECT TO_JSON_STRING(t,false) FROM (${queryExpr.richFormat(sqlParameters)}) AS t"
       val result = bqNativeJob.runSQL(jsonQuery.richFormat(sqlParameters))
-      import scala.collection.JavaConverters._
       result.tableResult.foreach { tableResult =>
         var count = 0
         val it = tableResult.iterateAll().iterator().asScala

@@ -31,6 +31,7 @@ import org.apache.spark.sql.execution.datasources.json.JsonIngestionUtil
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
 
 import scala.util.Try
+import org.apache.spark.sql._
 
 /** Main class to complex json delimiter separated values file
   * If your json contains only one level simple attribute aka. kind of dsv but in json format please use SIMPLE_JSON instead. It's way faster
@@ -56,7 +57,6 @@ class JsonIngestionJob(
     if (metadata.isArray()) {
       val jsonRDD =
         session.sparkContext.wholeTextFiles(path.map(_.toString).mkString(",")).map(_._2)
-      import org.apache.spark.sql._
       session.read.json(session.createDataset(jsonRDD)(Encoders.STRING)).toJSON
 
     } else {

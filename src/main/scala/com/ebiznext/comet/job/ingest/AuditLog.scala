@@ -32,6 +32,7 @@ import org.apache.spark.sql.types._
 import org.apache.spark.sql.{SaveMode, SparkSession}
 
 import java.sql.Timestamp
+import com.google.cloud.bigquery.{Schema => BQSchema}
 
 sealed case class Step(value: String) {
   override def toString: String = value
@@ -108,8 +109,6 @@ object SparkAuditLogWriter {
     ("message", LegacySQLTypeName.STRING, StringType),
     ("step", LegacySQLTypeName.STRING, StringType)
   )
-
-  import com.google.cloud.bigquery.{Schema => BQSchema}
 
   private def bigqueryAuditSchema(): BQSchema = {
     val fields = auditCols.map { attribute =>

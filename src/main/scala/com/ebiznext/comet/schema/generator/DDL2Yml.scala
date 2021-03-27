@@ -9,6 +9,8 @@ import java.util.Properties
 import java.util.regex.Pattern
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
+import java.sql.Types._
+import java.sql.DriverManager
 
 object DDL2Yml extends LazyLogging {
 
@@ -68,7 +70,6 @@ object DDL2Yml extends LazyLogging {
     // Only JDBC connections are supported
     assert(jdbcOptions.format == "jdbc")
     val url = jdbcOptions.options("url")
-    import java.sql.DriverManager
     val properties = new Properties()
     (jdbcOptions.options - "url").foreach { case (key, value) =>
       properties.setProperty(key, value)
@@ -158,7 +159,6 @@ object DDL2Yml extends LazyLogging {
   }
 
   private def sparkType(jdbcType: Int): String = {
-    import java.sql.Types._
     jdbcType match {
       case VARCHAR | CHAR | LONGVARCHAR          => "string"
       case BIT | BOOLEAN                         => "boolean"

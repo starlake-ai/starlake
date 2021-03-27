@@ -9,6 +9,7 @@ import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions.lit
 
 import scala.util.{Success, Try}
+import com.ebiznext.comet.utils.Formatter._
 
 case class AssertionReport(
   name: String,
@@ -60,7 +61,6 @@ class AssertionJob(
   }
 
   override def run(): Try[JobResult] = {
-    import com.ebiznext.comet.utils.Formatter._
     val count = dataset.map { dataset =>
       dataset.createOrReplaceTempView("comet_table")
       dataset.count()

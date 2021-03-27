@@ -134,22 +134,18 @@ class DsvIngestionJob(
             val attributesWithoutscript = schema.attributesWithoutScript
             val compare =
               attributesWithoutscript.length.compareTo(df.columns.length)
-            if (compare == 0) {
-              df.toDF(
-                attributesWithoutscript
-                  .map(_.name)
-                  .take(attributesWithoutscript.length): _*
-              )
-            } else if (compare > 0) {
-              val countMissing = attributesWithoutscript.length - df.columns.length
-              throw new Exception(s"$countMissing MISSING columns in the input DataFrame ")
-            } else { // compare < 0
-              val cols = df.columns
-              df.select(
-                cols.head,
-                cols.tail
-                  .take(attributesWithoutscript.length - 1): _*
-              ).toDF(attributesWithoutscript.map(_.name): _*)
+            compare match {
+              case 0 =>
+                df.toDF(
+                  attributesWithoutscript.map(_.name).take(attributesWithoutscript.length): _*
+                )
+              case c if c > 0 =>
+                val countMissing = attributesWithoutscript.length - df.columns.length
+                throw new Exception(s"$countMissing MISSING columns in the input DataFrame ")
+              case _ => // compare < 0
+                val cols = df.columns
+                df.select(cols.head, cols.tail.take(attributesWithoutscript.length - 1): _*)
+                  .toDF(attributesWithoutscript.map(_.name): _*)
             }
         }
         resDF.withColumn(
