@@ -1,7 +1,5 @@
 package com.ebiznext.comet.privacy
 
-import scala.util.Random
-
 import java.security.SecureRandom
 
 /** Several encryption methods used in privacy management
@@ -135,7 +133,7 @@ object IPv6 extends IP {
 }
 
 trait NumericRandomPrivacy extends PrivacyEngine {
-  val rnd: Random
+  val rnd: SecureRandom
 
   final def gen(low: Double, up: Double): Double = low + (up - low) * rnd.nextDouble()
 
