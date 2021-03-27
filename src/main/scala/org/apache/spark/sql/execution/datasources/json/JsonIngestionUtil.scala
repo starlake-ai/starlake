@@ -31,6 +31,7 @@ import org.apache.spark.sql.types._
 import java.util.Comparator
 import scala.collection.mutable
 import scala.util.{Failure, Success, Try}
+import JsonParser.NumberType._
 
 /** Code here comes from org.apache.spark.sql.execution.datasources.json.InferSchema
   */
@@ -320,7 +321,6 @@ object JsonIngestionUtil {
       case VALUE_STRING =>
         StringType
       case VALUE_NUMBER_INT | VALUE_NUMBER_FLOAT =>
-        import JsonParser.NumberType._
         parser.getNumberType match {
           case INT | LONG =>
             LongType

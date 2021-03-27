@@ -80,7 +80,6 @@ class KafkaIngestionJob(
       row.getAs[String]("value")
     }
     logger.debug(dfIn.schema.treeString)
-    import org.apache.spark.sql._
     session.createDataset(rddIn)(Encoders.STRING)
   }
 

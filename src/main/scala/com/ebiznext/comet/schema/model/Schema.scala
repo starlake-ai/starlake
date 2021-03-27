@@ -28,6 +28,7 @@ import org.apache.spark.sql.types._
 
 import java.util.regex.Pattern
 import scala.collection.mutable
+import com.google.cloud.bigquery.{Schema => BQSchema}
 
 /** How dataset are merged
   *
@@ -127,8 +128,6 @@ case class Schema(
     }
     StructType(fields)
   }
-
-  import com.google.cloud.bigquery.{Schema => BQSchema}
 
   def bigQuerySchema(schemaHandler: SchemaHandler): BQSchema = {
     BigQueryUtils.bqSchema(sparkTypeWithRenamedFields(schemaHandler))
