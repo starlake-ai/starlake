@@ -101,3 +101,23 @@ schemas:
     merge:
       key:
         - "PK"
+  - name: "employee"
+    pattern: "employee.*.csv"
+    attributes:
+      - name: "name"
+        type: "string"
+        privacy: "None"
+        required: false
+      - name: "age"
+        type: "int"
+        privacy: "None"
+        required: false
+    postsql:
+      - "Select name from COMET_TABLE"
+    metadata:
+      mode: "FILE"
+      format: "DSV"
+      withHeader: false
+      separator: ","
+      partition:
+        attributes: []
