@@ -101,23 +101,22 @@ class JsonIngestionJob(
 
     val acceptedRDD: RDD[String] =
       checkedRDD
-        .collect {
-          case Right(value) => value
+        .collect { case Right(value) =>
+          value
         }
-        .map {
-          case (row, inputFileName) =>
-            val (left, _) = row.splitAt(row.lastIndexOf("}"))
+        .map { case (row, inputFileName) =>
+          val (left, _) = row.splitAt(row.lastIndexOf("}"))
 
-            // Because Spark cannot detect the input files when session.read.json(session.createDataset(acceptedRDD)(Encoders.STRING)),
-            // We should add it as a normal field in the RDD before converting to a dataframe using session.read.json
+          // Because Spark cannot detect the input files when session.read.json(session.createDataset(acceptedRDD)(Encoders.STRING)),
+          // We should add it as a normal field in the RDD before converting to a dataframe using session.read.json
 
-            s"""$left, "${Settings.cometInputFileNameColumn}" : "$inputFileName" }"""
+          s"""$left, "${Settings.cometInputFileNameColumn}" : "$inputFileName" }"""
         }
 
     val rejectedRDD: RDD[String] =
       checkedRDD
-        .collect {
-          case Left(value) => value
+        .collect { case Left(value) =>
+          value
         }
         .map(_.mkString("\n"))
 
