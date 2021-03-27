@@ -11,6 +11,24 @@ import org.apache.spark.sql.{DataFrame, Row}
 
 import scala.util.Try
 
+/** Used only to apply data masking rules (privacy) on one or more simple elements in XML data.
+  * The input XML file is read as a text file. Privacy rules are applied on the resulting DataFrame and the result is
+  * saved accepted area.
+  * In the definition of the XML Schema:
+  * - schema.metadata.format should be set to TEXT_XML
+  * - schema.attributes should only contain the attributes on which privacy should be applied
+  * Comet.defaultWriteFormat should be set text in order to have an XML formatted output file
+  * Comet.privacyOnly should be set to true to save the result in one file (coalesce 1)
+  *
+  * @param domain
+  * @param schema
+  * @param types
+  * @param path
+  * @param storageHandler
+  * @param schemaHandler
+  * @param options
+  * @param settings
+  */
 class XmlSimplePrivacyJob(
   val domain: Domain,
   val schema: Schema,
@@ -28,6 +46,10 @@ class XmlSimplePrivacyJob(
     */
   override protected def loadDataSet(): Try[DataFrame] = {
     Try {
+      require(
+        settings.comet.defaultWriteFormat == "text",
+        "default-write-format should be set to text"
+      )
       val df = session.read.text(path.map(_.toString): _*)
       df
     }
