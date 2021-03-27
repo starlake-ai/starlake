@@ -1,13 +1,13 @@
 package com.ebiznext.comet.job.ingest
 
 import java.util.regex.Pattern
-
 import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.schema.handlers.{SchemaHandler, StorageHandler}
 import com.ebiznext.comet.schema.model._
 import org.apache.hadoop.fs.Path
 import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.{DataFrame, Row}
+import org.apache.spark.sql.types.{StringType, StructField, StructType}
+import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 
 import scala.util.Try
 
@@ -62,7 +62,7 @@ class XmlSimplePrivacyJob(
   override protected def ingest(dataset: DataFrame): (RDD[_], RDD[_]) = {
     val privacyAttributes = schema.attributes.filter(_.getPrivacy() != PrivacyLevel.None)
     val acceptedPrivacyDF: DataFrame = privacyAttributes.foldLeft(dataset) { case (ds, attribute) =>
-      XmlSimplePrivacyJob.applyPrivacy(ds, attribute)
+      XmlSimplePrivacyJob.applyPrivacy(ds, attribute, session)
     }
     saveAccepted(acceptedPrivacyDF)
     (session.sparkContext.emptyRDD[Row], acceptedPrivacyDF.rdd)
@@ -75,13 +75,13 @@ object XmlSimplePrivacyJob {
 
   def applyPrivacy(
     inputDF: DataFrame,
-    attribute: Attribute
+    attribute: Attribute,
+    session: SparkSession
   )(implicit settings: Settings): DataFrame = {
-    implicit val encoder = inputDF.encoder
     val openTag = "<" + attribute.name + ">"
     val closeTag = "</" + attribute.name + ">"
     val pattern = Pattern.compile(s".*$openTag.*$closeTag.*")
-    inputDF.mapPartitions { partition =>
+    val resultRDD: RDD[Row] = inputDF.rdd.mapPartitions { partition =>
       partition.map { row =>
         val line = row.getString(0)
         val privacy: String = pattern.matcher(line).matches() match {
@@ -98,5 +98,7 @@ object XmlSimplePrivacyJob {
         Row(privacy)
       }
     }
+    val schema: StructType = StructType(Array(StructField("value", StringType)))
+    session.createDataFrame(resultRDD, schema)
   }
 }
