@@ -36,6 +36,9 @@ import com.fasterxml.jackson.databind.{DeserializationContext, JsonDeserializer}
 import org.apache.spark.sql.types._
 
 import scala.util.{Failure, Success, Try}
+import java.time.format.DateTimeFormatter
+import java.text.SimpleDateFormat
+import DateTimeFormatter._
 
 /** Spark supported primitive types. These are the only valid raw types.
   * Dataframes columns are converted to these types before the dataset is ingested
@@ -187,10 +190,8 @@ object PrimitiveType {
   }
 
   private def instantFromString(str: String, pattern: String, zone: String): Instant = {
-    import java.time.format.DateTimeFormatter
 
     def simpleDateFormat(str: String, pattern: String, zoneId: ZoneId): Instant = {
-      import java.text.SimpleDateFormat
       if (zoneId.getId != "UTC")
         throw new IllegalArgumentException(
           s"Explicit zoneId $zoneId not supported for pattern $pattern"
@@ -323,8 +324,6 @@ object PrimitiveType {
 
   val primitiveTypes: Set[PrimitiveType] =
     Set(string, long, int, double, decimal, boolean, byte, date, timestamp, struct)
-
-  import DateTimeFormatter._
 
   val dateFormatters: Map[String, DateTimeFormatter] = Map(
     // ISO_LOCAL_TIME, ISO_OFFSET_TIME and ISO_TIME patterns are specific to time handling, without a date

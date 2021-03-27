@@ -205,7 +205,7 @@ class ApproxDouble extends PrivacyEngine {
   }
 }
 
-object ApproxDouble extends ApproxDouble {}
+object ApproxDouble extends ApproxDouble
 
 object ApproxLong extends ApproxDouble {
 

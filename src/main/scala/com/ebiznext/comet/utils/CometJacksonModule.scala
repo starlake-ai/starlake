@@ -13,6 +13,7 @@ import org.apache.spark.storage.StorageLevel
 
 import scala.concurrent.duration.FiniteDuration
 import scala.reflect.ClassTag
+import StorageLevel._
 
 /** This module handles some specific type serializers in a central way (so we don't need to pepper the model code
   * with annotations)
@@ -117,7 +118,6 @@ private object CometJacksonModuleContents {
       gen: JsonGenerator,
       serializers: SerializerProvider
     ): Unit = {
-      import StorageLevel._
       val svalue = value match {
         case NONE                  => "NONE"
         case DISK_ONLY             => "DISK_ONLY"
