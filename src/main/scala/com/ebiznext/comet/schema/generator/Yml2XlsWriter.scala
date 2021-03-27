@@ -8,6 +8,7 @@ import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.poi.ss.usermodel.CellType
 import org.apache.poi.xssf.usermodel.XSSFSheet
+import org.apache.poi.xssf.usermodel.XSSFWorkbook
 
 class Yml2XlsWriter(schemaHandler: SchemaHandler) extends LazyLogging with XlsModel {
 
@@ -48,7 +49,6 @@ class Yml2XlsWriter(schemaHandler: SchemaHandler) extends LazyLogging with XlsMo
       }
     }
     val xlsOut = File(folder, domain.name + ".xlsx")
-    import org.apache.poi.xssf.usermodel.XSSFWorkbook
     val workbook = new XSSFWorkbook()
     val domainSheet = workbook.createSheet("domain")
     fillHeaders(allDomainHeaders, domainSheet)

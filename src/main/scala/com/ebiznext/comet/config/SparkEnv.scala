@@ -25,6 +25,7 @@ import java.time.format.DateTimeFormatter
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.SparkSession
+import scala.collection.JavaConverters._
 
 /** Any Spark Job will inherit from this class.
   * All properties defined in application conf file and prefixed by the "spark" key will be loaded into the Spark Job
@@ -41,7 +42,6 @@ class SparkEnv(name: String)(implicit settings: Settings) extends StrictLogging 
       .format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss.SSS"))
     val appName = s"$name-$now"
 
-    import scala.collection.JavaConverters._
     val thisConf = settings.sparkConfig
       .entrySet()
       .asScala

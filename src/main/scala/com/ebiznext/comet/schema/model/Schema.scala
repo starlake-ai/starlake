@@ -28,6 +28,7 @@ import org.apache.spark.sql.types._
 
 import java.util.regex.Pattern
 import scala.collection.mutable
+import com.google.cloud.bigquery.{Schema => BQSchema}
 
 /** How dataset are merged
   *
@@ -128,9 +129,7 @@ case class Schema(
     StructType(fields)
   }
 
-  import com.google.cloud.bigquery.{Schema => BQSchema}
-
-  def bqSchema(schemaHandler: SchemaHandler): BQSchema = {
+  def bigQuerySchema(schemaHandler: SchemaHandler): BQSchema = {
     BigQueryUtils.bqSchema(sparkTypeWithRenamedFields(schemaHandler))
   }
 
@@ -173,7 +172,7 @@ case class Schema(
     }
 
     val firstScriptedFiedlIndex = attributes.indexWhere(_.script.isDefined)
-    val lastNonScriptedFiedlIndex = attributes.lastIndexWhere(!_.script.isDefined)
+    val lastNonScriptedFiedlIndex = attributes.lastIndexWhere(_.script.isEmpty)
     if (firstScriptedFiedlIndex >= 0 && firstScriptedFiedlIndex < lastNonScriptedFiedlIndex) {
       errorList +=
         s"""Scripted fields can only appear at the end of the schema. Found scripted field at position $firstScriptedFiedlIndex and non scripted field at position $lastNonScriptedFiedlIndex""".stripMargin

@@ -29,6 +29,7 @@ import org.apache.spark.sql.types._
 
 import scala.collection.mutable
 import scala.util.{Failure, Success, Try}
+import com.ebiznext.comet.utils.DataTypeEx._
 
 /** A field in the schema. For struct fields, the field "attributes" contains all sub attributes
   *
@@ -239,7 +240,6 @@ case class Attribute(
 
   @JsonIgnore
   def getMetricType(schemaHandler: SchemaHandler): MetricType = {
-    import com.ebiznext.comet.utils.DataTypeEx._
     val sparkType = tpe(schemaHandler).map(_.primitiveType.sparkType)
     logger.info(s"Attribute Metric ==> $name, $metricType, $sparkType")
     (sparkType, metricType) match {

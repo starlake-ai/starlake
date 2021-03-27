@@ -164,7 +164,7 @@ object FileLock {
         storageHandler.delete(path)
       } catch {
         case e: InterruptedException =>
-          e.printStackTrace();
+          e.printStackTrace()
       }
     }
 

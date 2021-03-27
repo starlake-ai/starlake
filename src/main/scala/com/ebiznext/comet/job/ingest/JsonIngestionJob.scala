@@ -30,7 +30,8 @@ import org.apache.spark.sql._
 import org.apache.spark.sql.execution.datasources.json.JsonIngestionUtil
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
 
-import scala.util.{Failure, Success, Try}
+import scala.util.Try
+import org.apache.spark.sql._
 
 /** Main class to complex json delimiter separated values file
   * If your json contains only one level simple attribute aka. kind of dsv but in json format please use SIMPLE_JSON instead. It's way faster
@@ -56,7 +57,6 @@ class JsonIngestionJob(
     if (metadata.isArray()) {
       val jsonRDD =
         session.sparkContext.wholeTextFiles(path.map(_.toString).mkString(",")).map(_._2)
-      import org.apache.spark.sql._
       session.read.json(session.createDataset(jsonRDD)(Encoders.STRING)).toJSON
 
     } else {
@@ -74,21 +74,15 @@ class JsonIngestionJob(
     */
   protected def loadDataSet(): Try[DataFrame] = {
 
-    try {
+    Try {
       val dfIn = loadJsonData()
       val dfInWithInputFilename = dfIn.select(
         org.apache.spark.sql.functions.input_file_name(),
         org.apache.spark.sql.functions.col("value")
       )
-
       logger.debug(dfIn.schema.treeString)
-
       val df = applyIgnore(dfInWithInputFilename)
-
-      Success(df)
-    } catch {
-      case e: Exception =>
-        Failure(e)
+      df
     }
   }
 
@@ -106,17 +100,25 @@ class JsonIngestionJob(
       .persist(settings.comet.cacheStorageLevel)
 
     val acceptedRDD: RDD[String] =
-      checkedRDD.filter(_.isRight).map(_.right.get).map { case (row, inputFileName) =>
-        val (left, _) = row.splitAt(row.lastIndexOf("}"))
+      checkedRDD
+        .collect { case Right(value) =>
+          value
+        }
+        .map { case (row, inputFileName) =>
+          val (left, _) = row.splitAt(row.lastIndexOf("}"))
 
-        // Because Spark cannot detect the input files when session.read.json(session.createDataset(acceptedRDD)(Encoders.STRING)),
-        // We should add it as a normal field in the RDD before converting to a dataframe using session.read.json
+          // Because Spark cannot detect the input files when session.read.json(session.createDataset(acceptedRDD)(Encoders.STRING)),
+          // We should add it as a normal field in the RDD before converting to a dataframe using session.read.json
 
-        s"""$left, "${Settings.cometInputFileNameColumn}" : "$inputFileName" }"""
-      }
+          s"""$left, "${Settings.cometInputFileNameColumn}" : "$inputFileName" }"""
+        }
 
     val rejectedRDD: RDD[String] =
-      checkedRDD.filter(_.isLeft).map(_.left.get.mkString("\n"))
+      checkedRDD
+        .collect { case Left(value) =>
+          value
+        }
+        .map(_.mkString("\n"))
 
     val appliedSchema = schema
       .sparkSchemaWithoutScriptedFields(schemaHandler)

@@ -37,6 +37,7 @@ import org.apache.hadoop.fs.Path
 import java.io.{File, PrintStream}
 import java.sql.Timestamp
 import java.time.{Instant, LocalDateTime}
+import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try}
 
 /** Execute the SQL Task and store it in parquet/orc/.... If Hive support is enabled, also store it as a Hive Table.
@@ -109,7 +110,6 @@ class AutoTaskJob(
       val jsonQuery =
         s"SELECT TO_JSON_STRING(t,false) FROM (${queryExpr.richFormat(sqlParameters)}) AS t"
       val result = bqNativeJob.runSQL(jsonQuery.richFormat(sqlParameters))
-      import scala.collection.JavaConverters._
       result.tableResult.foreach { tableResult =>
         var count = 0
         val it = tableResult.iterateAll().iterator().asScala
@@ -164,14 +164,16 @@ class AutoTaskJob(
     Utils.logFailure(postsqlResult, logger)
 
     val errors =
-      Iterable(presqlResult, jobResult, postsqlResult).filter(_.isFailure).map(_.failed).map(_.get)
+      Iterable(presqlResult, jobResult, postsqlResult).map(_.failed).collect { case Success(e) =>
+        e
+      }
     errors match {
       case Nil =>
         jobResult map { jobResult =>
           val end = Timestamp.from(Instant.now())
           val jobResultCount =
-            jobResult.asInstanceOf[BigQueryJobResult].tableResult.get.getTotalRows
-          logAuditSuccess(start, end, jobResultCount)
+            jobResult.asInstanceOf[BigQueryJobResult].tableResult.map(_.getTotalRows)
+          jobResultCount.foreach(logAuditSuccess(start, end, _))
           // We execute assertions only on success
           if (settings.comet.assertions.active) {
             task.area.orElse(defaultArea).foreach { area =>
@@ -281,8 +283,8 @@ class AutoTaskJob(
     res match {
       case Success(jobResult) =>
         val end = Timestamp.from(Instant.now())
-        val jobResultCount = jobResult.asInstanceOf[SparkJobResult].dataframe.get.count()
-        logAuditSuccess(start, end, jobResultCount)
+        val jobResultCount = jobResult.asInstanceOf[SparkJobResult].dataframe.map(_.count())
+        jobResultCount.foreach(logAuditSuccess(start, end, _))
       case Failure(e) =>
         logAuditFailure(start, end, e)
     }
