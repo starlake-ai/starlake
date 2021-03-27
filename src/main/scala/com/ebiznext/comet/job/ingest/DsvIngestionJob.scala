@@ -164,18 +164,7 @@ class DsvIngestionJob(
     */
   protected def ingest(dataset: DataFrame): (RDD[_], RDD[_]) = {
 
-    val attributesWithoutscript: Seq[Attribute] =
-      schema.attributesWithoutScript :+ Attribute(
-        name = Settings.cometInputFileNameColumn
-      )
-
-    def reorderAttributes(): List[Attribute] = {
-      val attributesMap = attributesWithoutscript.map(attr => (attr.name, attr)).toMap
-      val cols = dataset.columns
-      cols.map(colName => attributesMap(colName)).toList
-    }
-
-    val orderedAttributes = reorderAttributes()
+    val orderedAttributes = reorderAttributes(dataset)
 
     def reorderTypes(): (List[Type], StructType) = {
       val typeMap: Map[String, Type] = types.map(tpe => tpe.name -> tpe).toMap
