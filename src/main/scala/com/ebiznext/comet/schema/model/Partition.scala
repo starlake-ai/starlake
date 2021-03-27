@@ -24,6 +24,7 @@ import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize
 import com.fasterxml.jackson.databind.node.ArrayNode
 import com.fasterxml.jackson.databind.{DeserializationContext, JsonDeserializer, JsonNode}
+import scala.collection.JavaConverters._
 
 /** @param sampling : 0.0 means no sampling, > 0  && < 1 means sample dataset, >=1 absolute number of partitions.
   * @param attributes : Attributes used to partition de dataset.
@@ -55,7 +56,6 @@ class PartitionDeserializer extends JsonDeserializer[Partition] {
       else
         node.get("sampling").asDouble()
 
-    import scala.collection.JavaConverters._
     val attributes =
       if (isNull("attributes")) None
       else

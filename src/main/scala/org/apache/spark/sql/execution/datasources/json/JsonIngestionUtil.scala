@@ -19,8 +19,6 @@
  */
 package org.apache.spark.sql.execution.datasources.json
 
-import java.util.Comparator
-
 import com.ebiznext.comet.utils.Utils
 import com.fasterxml.jackson.core.JsonToken._
 import com.fasterxml.jackson.core.{JsonFactory, JsonParser}
@@ -30,8 +28,10 @@ import org.apache.spark.sql.catalyst.analysis.TypeCoercion.numericPrecedence
 import org.apache.spark.sql.catalyst.json.JacksonUtils
 import org.apache.spark.sql.types._
 
+import java.util.Comparator
 import scala.collection.mutable
 import scala.util.{Failure, Success, Try}
+import JsonParser.NumberType._
 
 /** Code here comes from org.apache.spark.sql.execution.datasources.json.InferSchema
   */
@@ -99,19 +99,13 @@ object JsonIngestionUtil {
             typeComp = typeComp && errorList.isEmpty
           } else {
             // Field is present in the message but not in the schema.
-            errorList += s"""${f2.name}, ${f2.dataType.typeName}, ${context.mkString(
-              "."
-            )}, unknown field ${f2.name} : ${f2.dataType.typeName} in context ${context
-              .mkString(".")}"""
+            addError(context, errorList, f2)
             typeComp = false
           }
         }
         while (f2Idx < fields2.length) {
           val f2 = fields2(f2Idx)
-          errorList += s"""${f2.name}, ${f2.dataType.typeName}, ${context.mkString(
-            "."
-          )}, unknown field ${f2.name} : ${f2.dataType.typeName} in context ${context
-            .mkString(".")}"""
+          addError(context, errorList, f2)
           f2Idx += 1
         }
 
@@ -131,7 +125,18 @@ object JsonIngestionUtil {
     }
   }
 
-  // From Spark TypeCoercion
+  private def addError(
+    context: List[String],
+    errorList: mutable.MutableList[String],
+    f2: StructField
+  ): Unit = {
+    errorList += s"""${f2.name}, ${f2.dataType.typeName}, ${context.mkString(
+      "."
+    )}, unknown field ${f2.name} : ${f2.dataType.typeName} in context ${context
+      .mkString(".")}"""
+  }
+
+// From Spark TypeCoercion
   val findTightestCommonTypeOfTwo: (DataType, DataType) => Option[DataType] = {
     case (t1, t2) if t1 == t2 => Some(t1)
     case (NullType, t1)       => Some(t1)
@@ -316,7 +321,6 @@ object JsonIngestionUtil {
       case VALUE_STRING =>
         StringType
       case VALUE_NUMBER_INT | VALUE_NUMBER_FLOAT =>
-        import JsonParser.NumberType._
         parser.getNumberType match {
           case INT | LONG =>
             LongType

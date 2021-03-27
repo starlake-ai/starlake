@@ -31,7 +31,7 @@ import org.apache.spark.sql.execution.datasources.json.JsonIngestionUtil.compare
 import org.apache.spark.sql.functions.input_file_name
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
 
-import scala.util.{Failure, Success, Try}
+import scala.util.Try
 
 /** Main class to XML file
   * If your json contains only one level simple attribute aka. kind of dsv but in json format please use SIMPLE_JSON instead. It's way faster
@@ -58,7 +58,7 @@ class XmlIngestionJob(
     * @return Spark Dataframe loaded using metadata options
     */
   protected def loadDataSet(): Try[DataFrame] = {
-    try {
+    Try {
       val rowTag = metadata.xml.flatMap(_.get("rowTag"))
       rowTag.map { rowTag =>
         val df = path
@@ -73,13 +73,10 @@ class XmlIngestionJob(
           }
           .reduce((acc, df) => acc union df)
         df.printSchema()
-        Success(df)
-      } getOrElse (Failure(
+        df
+      } getOrElse (
         throw new Exception(s"rowTag not found for schema ${domain.name}.${schema.name}")
-      ))
-    } catch {
-      case e: Exception =>
-        Failure(e)
+      )
     }
   }
 
