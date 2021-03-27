@@ -37,8 +37,8 @@ import org.apache.hadoop.fs.Path
 import java.io.{File, PrintStream}
 import java.sql.Timestamp
 import java.time.{Instant, LocalDateTime}
-import scala.util.{Failure, Success, Try}
 import scala.collection.JavaConverters._
+import scala.util.{Failure, Success, Try}
 
 /** Execute the SQL Task and store it in parquet/orc/.... If Hive support is enabled, also store it as a Hive Table.
   * If analyze support is active, also compute basic statistics for twhe dataset.
@@ -132,8 +132,9 @@ class AutoTaskJob(
 
   def runBQ(): Try[JobResult] = {
     val start = Timestamp.from(Instant.now())
-    val subSelects: String = views.views.map { case (queryName, queryExpr) =>
-      queryName + " AS (" + queryExpr.richFormat(sqlParameters) + ")"
+    val subSelects: String = views.views.map {
+      case (queryName, queryExpr) =>
+        queryName + " AS (" + queryExpr.richFormat(sqlParameters) + ")"
     } mkString ("WITH ", ",", " ")
 
     val config = createConfig()
@@ -164,14 +165,17 @@ class AutoTaskJob(
     Utils.logFailure(postsqlResult, logger)
 
     val errors =
-      Iterable(presqlResult, jobResult, postsqlResult).filter(_.isFailure).map(_.failed).map(_.get)
+      Iterable(presqlResult, jobResult, postsqlResult).map(_.failed).collect {
+        case Success(e) =>
+          e
+      }
     errors match {
       case Nil =>
         jobResult map { jobResult =>
           val end = Timestamp.from(Instant.now())
           val jobResultCount =
-            jobResult.asInstanceOf[BigQueryJobResult].tableResult.get.getTotalRows
-          logAuditSuccess(start, end, jobResultCount)
+            jobResult.asInstanceOf[BigQueryJobResult].tableResult.map(_.getTotalRows)
+          jobResultCount.foreach(logAuditSuccess(start, end, _))
           // We execute assertions only on success
           if (settings.comet.assertions.active) {
             task.area.orElse(defaultArea).foreach { area =>
