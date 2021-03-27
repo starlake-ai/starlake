@@ -51,6 +51,11 @@ import scala.util.Try
 
 trait TestHelper extends AnyFlatSpec with Matchers with BeforeAndAfterAll with StrictLogging {
 
+  override protected def afterAll(): Unit = {
+    sparkSessionInterest.close()
+    super.afterAll()
+  }
+
   private lazy val cometTestPrefix: String = s"comet-test-${TestHelper.runtimeId}"
 
   private lazy val cometTestInstanceId: String =
@@ -269,11 +274,6 @@ trait TestHelper extends AnyFlatSpec with Matchers with BeforeAndAfterAll with S
 
   override protected def beforeAll(): Unit = {
     super.beforeAll()
-  }
-
-  override protected def afterAll(): Unit = {
-    super.afterAll()
-    sparkSessionInterest.close()
   }
 
   abstract class SpecTrait(
