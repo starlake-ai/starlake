@@ -132,9 +132,8 @@ class AutoTaskJob(
 
   def runBQ(): Try[JobResult] = {
     val start = Timestamp.from(Instant.now())
-    val subSelects: String = views.views.map {
-      case (queryName, queryExpr) =>
-        queryName + " AS (" + queryExpr.richFormat(sqlParameters) + ")"
+    val subSelects: String = views.views.map { case (queryName, queryExpr) =>
+      queryName + " AS (" + queryExpr.richFormat(sqlParameters) + ")"
     } mkString ("WITH ", ",", " ")
 
     val config = createConfig()
@@ -165,9 +164,8 @@ class AutoTaskJob(
     Utils.logFailure(postsqlResult, logger)
 
     val errors =
-      Iterable(presqlResult, jobResult, postsqlResult).map(_.failed).collect {
-        case Success(e) =>
-          e
+      Iterable(presqlResult, jobResult, postsqlResult).map(_.failed).collect { case Success(e) =>
+        e
       }
     errors match {
       case Nil =>
