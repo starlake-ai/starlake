@@ -14,22 +14,26 @@ import com.ebiznext.comet.utils.Formatter._
 import com.ebiznext.comet.utils.kafka.KafkaClient
 import com.ebiznext.comet.utils.{JobResult, SparkJob, SparkJobResult, Utils}
 import com.google.cloud.bigquery.JobInfo.{CreateDisposition, WriteDisposition}
-import com.google.cloud.bigquery.{Field, LegacySQLTypeName, StandardTableDefinition}
+import com.google.cloud.bigquery.{
+  Field,
+  LegacySQLTypeName,
+  StandardTableDefinition,
+  Schema => BQSchema
+}
 import org.apache.hadoop.fs.Path
+import org.apache.spark.ml.feature.SQLTransformer
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql._
 import org.apache.spark.sql.expressions.Window
-import org.apache.spark.sql.functions.col
+import org.apache.spark.sql.functions.{col, _}
 import org.apache.spark.sql.types.{StringType, StructField, StructType, TimestampType}
 
 import java.sql.Timestamp
 import java.time.{Instant, LocalDateTime}
 import scala.collection.JavaConverters._
 import scala.language.existentials
+import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try}
-import com.google.cloud.bigquery.{Schema => BQSchema}
-import org.apache.spark.sql.functions._
-import org.apache.spark.ml.feature.SQLTransformer
 
 /**
   */
@@ -418,7 +422,7 @@ trait IngestionJob extends SparkJob {
         try {
           session.sql(s"drop table if exists $hiveDB.$tableName")
         } catch {
-          case e: Exception =>
+          case NonFatal(e) =>
             logger.warn("Ignore error when hdfs files not found")
             Utils.logException(logger, e)
 
