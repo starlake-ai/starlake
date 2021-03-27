@@ -27,6 +27,9 @@ import java.time.{Instant, LocalDateTime}
 import scala.collection.JavaConverters._
 import scala.language.existentials
 import scala.util.{Failure, Success, Try}
+import com.google.cloud.bigquery.{Schema => BQSchema}
+import org.apache.spark.sql.functions._
+import org.apache.spark.ml.feature.SQLTransformer
 
 /**
   */
@@ -65,7 +68,6 @@ trait IngestionJob extends SparkJob {
   protected def ingest(dataset: DataFrame): (RDD[_], RDD[_])
 
   protected def applyIgnore(dfIn: DataFrame): Dataset[Row] = {
-    import org.apache.spark.sql.functions._
     import session.implicits._
     metadata.ignore.map { ignore =>
       if (ignore.startsWith("udf:")) {
@@ -643,7 +645,6 @@ trait IngestionJob extends SparkJob {
     val toDeleteDF = merge.timestamp.map { timestamp =>
       val w =
         Window.partitionBy(merge.key.head, merge.key.tail: _*).orderBy(col(timestamp).desc)
-      import org.apache.spark.sql.functions.row_number
       commonDF
         .withColumn("rownum", row_number.over(w))
         .where(col("rownum") =!= 1)
@@ -803,8 +804,6 @@ object IngestionUtil {
     ("error", LegacySQLTypeName.STRING, StringType),
     ("path", LegacySQLTypeName.STRING, StringType)
   )
-
-  import com.google.cloud.bigquery.{Schema => BQSchema}
 
   private def bigqueryRejectedSchema(): BQSchema = {
     val fields = rejectedCols map { attribute =>
@@ -967,8 +966,6 @@ object IngestionUtil {
 }
 
 object ImprovedDataFrameContext {
-
-  import org.apache.spark.ml.feature.SQLTransformer
 
   implicit class ImprovedDataFrame(df: org.apache.spark.sql.DataFrame) {
 

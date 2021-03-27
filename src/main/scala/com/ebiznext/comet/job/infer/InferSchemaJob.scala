@@ -20,13 +20,13 @@
 
 package com.ebiznext.comet.job.infer
 
-import java.util.regex.Pattern
-
 import com.ebiznext.comet.config.{Settings, SparkEnv}
 import com.ebiznext.comet.schema.handlers.InferSchemaHandler
 import com.ebiznext.comet.schema.model.{Attribute, Domain}
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
+
+import java.util.regex.Pattern
 import scala.util.Try
 
 /** *
@@ -86,16 +86,13 @@ class InferSchemaJob(implicit settings: Settings) {
         val iteratorList = iterator.toList
         //The first line is stored into the 0th partition
         //Check if data is stored on the same partition (if true return directly the first and the last line)
-        if (index == 0 & lastPartitionNo == 0) {
-          Iterator(iteratorList.take(1).head, iteratorList.reverse.take(1).last)
-        } else if (index == 0 & lastPartitionNo != 0) {
-          iteratorList.take(1).iterator
+        (index, lastPartitionNo) match {
+          case (0, 0) => Iterator(iteratorList.take(1).head, iteratorList.reverse.take(1).last)
+          case (0, _) => iteratorList.take(1).iterator
+          //The last line is stored into the last partition
+          case (i, l) if i == l => iteratorList.reverse.take(1).iterator
+          case (_, _)           => Iterator()
         }
-        //The last line is stored into the last partition
-        else if (index == lastPartitionNo) {
-          iteratorList.reverse.take(1).iterator
-        } else
-          Iterator()
       }
     }
 

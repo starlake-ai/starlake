@@ -32,6 +32,7 @@ import java.time.{Instant, LocalDateTime, ZoneId}
 import scala.concurrent.duration.FiniteDuration
 import scala.util.{Failure, Success, Try}
 import scala.collection.JavaConverters._
+import java.util.zip.ZipInputStream
 
 /** Interface required by any filesystem manager
   */
@@ -285,7 +286,6 @@ class HdfsStorageHandler(fileSystem: Option[String])(implicit
   }
 
   override def unzip(sourceFile: Path, targetDir: Path): Try[Unit] = {
-    import java.util.zip.ZipInputStream
     Try {
       if (!fs.exists(sourceFile)) throw new Exception(sourceFile.toString + " does not exist")
       val fsInputStream = fs.open(sourceFile)
