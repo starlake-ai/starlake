@@ -316,7 +316,7 @@ class IngestionWorkflow(
     logger.info(
       s"Ingesting domain: ${domain.name} with schema: ${schema.name} on file: $ingestingPath with metadata $metadata"
     )
-    val ingestionResult: Try[JobResult] = Try(metadata.getFormat() match {
+    val ingestionResult: Try[JobResult] = metadata.getFormat() match {
       case DSV =>
         new DsvIngestionJob(
           domain,
@@ -326,7 +326,7 @@ class IngestionWorkflow(
           storageHandler,
           schemaHandler,
           options
-        ).run().get
+        ).run()
       case SIMPLE_JSON =>
         new SimpleJsonIngestionJob(
           domain,
@@ -336,7 +336,7 @@ class IngestionWorkflow(
           storageHandler,
           schemaHandler,
           options
-        ).run().get
+        ).run()
       case JSON =>
         new JsonIngestionJob(
           domain,
@@ -346,7 +346,7 @@ class IngestionWorkflow(
           storageHandler,
           schemaHandler,
           options
-        ).run().get
+        ).run()
       case XML =>
         new XmlIngestionJob(
           domain,
@@ -356,7 +356,17 @@ class IngestionWorkflow(
           storageHandler,
           schemaHandler,
           options
-        ).run().get
+        ).run()
+      case TEXT_XML =>
+        new XmlSimplePrivacyJob(
+          domain,
+          schema,
+          schemaHandler.types,
+          ingestingPath,
+          storageHandler,
+          schemaHandler,
+          options
+        ).run()
       case POSITION =>
         new PositionIngestionJob(
           domain,
@@ -366,7 +376,7 @@ class IngestionWorkflow(
           storageHandler,
           schemaHandler,
           options
-        ).run().get
+        ).run()
       case KAFKA =>
         new KafkaIngestionJob(
           domain,
@@ -377,7 +387,7 @@ class IngestionWorkflow(
           schemaHandler,
           options,
           Mode.FILE
-        ).run().get
+        ).run()
 
       case KAFKASTREAM =>
         new KafkaIngestionJob(
@@ -389,10 +399,10 @@ class IngestionWorkflow(
           schemaHandler,
           options,
           Mode.STREAM
-        ).run().get
+        ).run()
       case _ =>
         throw new Exception("Should never happen")
-    })
+    }
     ingestionResult match {
       case Success(_) =>
         if (settings.comet.archive) {

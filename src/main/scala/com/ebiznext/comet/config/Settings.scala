@@ -191,6 +191,8 @@ object Settings extends StrictLogging {
     * @param audit          : Absolute path, location where all log are stored
     * @param archive        : Should we backup the ingested datasets ? true by default
     * @param defaultWriteFormat    : Choose between parquet, orc ... Default is parquet
+    * @param defaultRejectedWriteFormat    : Writing format for rejected datasets, choose between parquet, orc ... Default is parquet
+    * @param defaultAuditWriteFormat    : Writing format for audit datasets, choose between parquet, orc ... Default is parquet
     * @param launcher       : Cron Job Manager : simple (useful for testing) or airflow ? simple by default
     * @param analyze        : Should we create basics Hive statistics on the generated dataset ? true by default
     * @param hive           : Should we create a Hive Table ? true by default
@@ -209,6 +211,7 @@ object Settings extends StrictLogging {
     lock: Lock,
     defaultWriteFormat: String,
     defaultRejectedWriteFormat: String,
+    defaultAuditWriteFormat: String,
     csvOutput: Boolean,
     privacyOnly: Boolean,
     launcher: String,
