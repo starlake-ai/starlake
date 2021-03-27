@@ -212,13 +212,10 @@ class IngestionWorkflow(
           }
           ingestingPath
         }
-        println("hello")
         val resTry = Try {
           if (settings.comet.grouped) {
-            println("in if")
             launchHandler.ingest(this, domain, schema, ingestingPaths.toList, config.options)
           } else {
-            println("out if")
             // We ingest all the files but return false if one them fails.
             val res = ingestingPaths
               .map { path =>
