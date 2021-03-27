@@ -2,6 +2,8 @@ package com.ebiznext.comet.privacy
 
 import scala.util.Random
 
+import java.security.SecureRandom
+
 /** Several encryption methods used in privacy management
   */
 object PrivacyEngine {
@@ -154,7 +156,7 @@ trait NumericRandomPrivacy extends PrivacyEngine {
 }
 
 object RandomDouble extends NumericRandomPrivacy {
-  val rnd = new Random()
+  val rnd = new SecureRandom()
 
   def genUnbounded(): Double = rnd.nextDouble()
 
@@ -168,7 +170,7 @@ object RandomDouble extends NumericRandomPrivacy {
 }
 
 object RandomLong extends NumericRandomPrivacy {
-  val rnd = new Random()
+  val rnd = new SecureRandom()
 
   override def genUnbounded(): Double = rnd.nextLong().toDouble
 
@@ -177,7 +179,7 @@ object RandomLong extends NumericRandomPrivacy {
 }
 
 object RandomInt extends NumericRandomPrivacy {
-  val rnd = new Random()
+  val rnd = new SecureRandom()
 
   override def genUnbounded(): Double = rnd.nextInt().toDouble
 
@@ -186,7 +188,7 @@ object RandomInt extends NumericRandomPrivacy {
 }
 
 class ApproxDouble extends PrivacyEngine {
-  val rnd = new Random()
+  val rnd = new SecureRandom()
 
   def crypt(s: String, colMap: => Map[String, Option[String]], params: List[Any]): String = {
     assert(params.length == 1)
@@ -203,7 +205,7 @@ class ApproxDouble extends PrivacyEngine {
   }
 }
 
-object ApproxDouble extends ApproxDouble {}
+object ApproxDouble extends ApproxDouble
 
 object ApproxLong extends ApproxDouble {
 

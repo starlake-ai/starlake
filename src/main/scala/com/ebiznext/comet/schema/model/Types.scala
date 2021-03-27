@@ -20,14 +20,13 @@
 
 package com.ebiznext.comet.schema.model
 
-import java.text.SimpleDateFormat
-import java.time.format.DateTimeFormatter
-import java.util.regex.Pattern
-
 import com.ebiznext.comet.schema.model.PrimitiveType.{boolean, date, timestamp}
 import com.fasterxml.jackson.annotation.JsonIgnore
 import org.apache.spark.sql.types.StructField
 
+import java.text.SimpleDateFormat
+import java.time.format.DateTimeFormatter
+import java.util.regex.Pattern
 import scala.collection.mutable
 import scala.util.Try
 
@@ -109,7 +108,7 @@ case class Type(
   }
 
   def matches(value: String): Boolean = {
-    if (isString)
+    if (isString) // optimization for strings
       true
     else {
       primitiveType match {
@@ -120,10 +119,18 @@ case class Type(
           Try(timestamp.fromString(value, pattern, zone.orNull)).isSuccess
         case PrimitiveType.boolean =>
           // We can get the pattern safely since checkValidity has been called by now
-          boolean.matches(value, booleanPattern.get._1, booleanPattern.get._2)
+          booleanPattern match {
+            case Some((truePattern, falsePattern)) =>
+              boolean.matches(value, truePattern, falsePattern)
+            case _ => false
+          }
         case _ =>
           // We can get the pattern safely since checkValidity has been called by now
-          textPattern.get.matcher(value).matches()
+          textPattern match {
+            case Some(textPattern) =>
+              textPattern.matcher(value).matches()
+            case _ => false
+          }
       }
     }
   }
@@ -163,7 +170,9 @@ case class Type(
     }
     if (patternIsValid.isFailure)
       errorList += s"Invalid Pattern $pattern in type $name"
-    val ok = sample.forall { sample => this.matches(sample) }
+    val ok = sample.forall { sample =>
+      this.matches(sample)
+    }
     if (!ok)
       errorList += s"Sample $sample does not match pattern $pattern in type $name"
     if (errorList.nonEmpty)
