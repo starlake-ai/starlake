@@ -169,12 +169,11 @@ class IngestionWorkflow(
     val result = includedDomains.flatMap { domain =>
       logger.info(s"Watch Domain: ${domain.name}")
       val (resolved, unresolved) = pending(domain.name, config.schemas.toList)
-      unresolved.foreach {
-        case (_, path) =>
-          val targetPath =
-            new Path(DatasetArea.unresolved(domain.name), path.getName)
-          logger.info(s"Unresolved file : ${path.getName}")
-          storageHandler.move(path, targetPath)
+      unresolved.foreach { case (_, path) =>
+        val targetPath =
+          new Path(DatasetArea.unresolved(domain.name), path.getName)
+        logger.info(s"Unresolved file : ${path.getName}")
+        storageHandler.move(path, targetPath)
       }
 
       val filteredResolved = if (settings.comet.privacyOnly) {
@@ -202,44 +201,43 @@ class IngestionWorkflow(
         case (None, _)            => throw new Exception("Should never happen")
       } groupBy (_._1) mapValues (it => it.map(_._2))
 
-      groupedResolved.map {
-        case (schema, pendingPaths) =>
-          logger.info(s"""Ingest resolved file : ${pendingPaths
-            .map(_.getName)
-            .mkString(",")} with schema ${schema.name}""")
-          val ingestingPaths = pendingPaths.map { pendingPath =>
-            val ingestingPath = new Path(DatasetArea.ingesting(domain.name), pendingPath.getName)
-            if (!storageHandler.move(pendingPath, ingestingPath)) {
-              logger.error(s"Could not move $pendingPath to $ingestingPath")
-            }
-            ingestingPath
+      groupedResolved.map { case (schema, pendingPaths) =>
+        logger.info(s"""Ingest resolved file : ${pendingPaths
+          .map(_.getName)
+          .mkString(",")} with schema ${schema.name}""")
+        val ingestingPaths = pendingPaths.map { pendingPath =>
+          val ingestingPath = new Path(DatasetArea.ingesting(domain.name), pendingPath.getName)
+          if (!storageHandler.move(pendingPath, ingestingPath)) {
+            logger.error(s"Could not move $pendingPath to $ingestingPath")
           }
-          println("hello")
-          val resTry = Try {
-            if (settings.comet.grouped) {
-              println("in if")
-              launchHandler.ingest(this, domain, schema, ingestingPaths.toList, config.options)
-            } else {
-              println("out if")
-              // We ingest all the files but return false if one them fails.
-              val res = ingestingPaths
-                .map { path =>
-                  val ingestionResult =
-                    launchHandler.ingest(this, domain, schema, path, config.options)
-                  ingestionResult match {
-                    case None | Some(Success(_)) => true
-                    case Some(Failure(_))        => false
-                  }
+          ingestingPath
+        }
+        println("hello")
+        val resTry = Try {
+          if (settings.comet.grouped) {
+            println("in if")
+            launchHandler.ingest(this, domain, schema, ingestingPaths.toList, config.options)
+          } else {
+            println("out if")
+            // We ingest all the files but return false if one them fails.
+            val res = ingestingPaths
+              .map { path =>
+                val ingestionResult =
+                  launchHandler.ingest(this, domain, schema, path, config.options)
+                ingestionResult match {
+                  case None | Some(Success(_)) => true
+                  case Some(Failure(_))        => false
                 }
-              res.forall(_ == true)
-            }
+              }
+            res.forall(_ == true)
           }
-          resTry match {
-            case Failure(e) =>
-              e.printStackTrace()
-              false
-            case Success(r) => r
-          }
+        }
+        resTry match {
+          case Failure(e) =>
+            e.printStackTrace()
+            false
+          case Success(r) => r
+        }
       }
     }
     result.forall(_ == true)
@@ -274,7 +272,7 @@ class IngestionWorkflow(
           s" ${dom.name}"
         )
         files
-    }
+      }
 
     val schemas = for {
       dom <- domain.toList
@@ -492,8 +490,8 @@ class IngestionWorkflow(
                   job.views.map(_.keys).getOrElse(Nil)
                 else
                   queryNames
-              val result = queries.map(
-                queryName => action.runView(queryName, config.viewsDir, config.viewsCount)
+              val result = queries.map(queryName =>
+                action.runView(queryName, config.viewsDir, config.viewsCount)
               )
               result.filter(_.isFailure) match {
                 case Nil =>
@@ -623,9 +621,8 @@ class IngestionWorkflow(
 
     // get schema
     val schema = df.schema
-    val newSchema = StructType(schema.map {
-      case StructField(c, t, _, m) =>
-        StructField(c, t, nullable = nullable, m)
+    val newSchema = StructType(schema.map { case StructField(c, t, _, m) =>
+      StructField(c, t, nullable = nullable, m)
     })
     // apply new schema
     df.sqlContext.createDataFrame(df.rdd, newSchema)
