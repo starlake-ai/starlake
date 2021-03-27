@@ -133,7 +133,7 @@ object SparkAuditLogWriter {
         val auditPath = new Path(settings.comet.audit.path, s"ingestion-log")
         Seq(log).toDF.write
           .mode(SaveMode.Append)
-          .format(settings.comet.defaultWriteFormat)
+          .format(settings.comet.defaultAuditWriteFormat)
           .option("path", auditPath.toString)
           .save()
       }

@@ -227,6 +227,23 @@ class SchemaHandlerSpec extends TestHelper {
       }
     }
 
+    "A postsql query" should "update the resulting schema" in {
+      new SpecTrait(
+        domainFilename = "DOMAIN.comet.yml",
+        sourceDomainPathname = s"/sample/DOMAIN.comet.yml",
+        datasetDomainName = "DOMAIN",
+        sourceDatasetPathName = "/sample/employee.csv"
+      ) {
+        cleanMetadata
+        cleanDatasets
+        loadPending
+        val acceptedDf: DataFrame = sparkSession.read
+          .parquet(cometDatasetsPath + s"/accepted/$datasetDomainName/employee")
+        acceptedDf.schema.fields.size shouldBe 1
+        acceptedDf.schema.fields.map(_.name).count("name".equals) shouldBe 1
+
+      }
+    }
     "Ingest Dream Contact CSV" should "produce file in accepted" in {
       new SpecTrait(
         domainFilename = "dream.comet.yml",

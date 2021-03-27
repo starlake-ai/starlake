@@ -159,7 +159,11 @@ class BigQuerySparkJob(
             .rdd
             .map(r => r.getString(0))
             .collect()
+            .toList
 
+          logger.info(
+            s"Overwriting the following partitions: [${partitions.mkString(" , ")}] ..."
+          )
           partitions.foreach { partitionStr =>
             val finalDF =
               sourceDF
@@ -183,7 +187,9 @@ class BigQuerySparkJob(
             .option("table", bqTable)
             .option("intermediateFormat", intermediateFormat)
           cliConfig.options.foldLeft(finalDF)((w, kv) => w.option(kv._1, kv._2)).save()
-          if (writeDisposition == "WRITE_TRUNCATE") {
+          if (
+            writeDisposition == "WRITE_TRUNCATE" && !tableDefinition.getSchema.getFields.isEmpty
+          ) {
             logger.info(s"updating BQ schema with ${tableDefinition.getSchema.getFields.toString}")
             table.toBuilder.setDefinition(tableDefinition).build().update()
           }
