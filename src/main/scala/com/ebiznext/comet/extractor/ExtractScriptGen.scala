@@ -91,33 +91,37 @@ object ScriptGen extends StrictLogging {
     *   --deltaColumn <value>       The date column which is used to determine new rows for each exports (can be passed table by table as config element)
     */
   def run(args: Array[String]): Boolean = {
-    import settings.metadataStorageHandler
-    DatasetArea.initMetadata(metadataStorageHandler)
-    val schemaHandler = new SchemaHandler(metadataStorageHandler)
-    val domains: List[Domain] = schemaHandler.domains
 
     val arglist = args.toList
     logger.info(s"Running Comet $arglist")
 
     ExtractScriptGenConfig.parse(args) match {
       case Some(config) =>
-        // Extracting the domain from the Excel referential file
-        domains.find(_.name == config.domain) match {
-          case Some(domain) =>
-            ScriptGen.generate(
-              domain,
-              config.scriptTemplateFile,
-              config.scriptOutputDir,
-              config.deltaColumn.orElse(ExtractorSettings.deltaColumns.defaultColumn),
-              ExtractorSettings.deltaColumns.deltaColumns
-            )
-            true
-          case None =>
-            logger.error(s"No domain found for domain name ${config.domain}")
-            false
-        }
+        run(config)
       case _ =>
         logger.error("Program execution or parameters are wrong, please check usage")
+        false
+    }
+  }
+
+  def run(config: ExtractScriptGenConfig): Boolean = {
+    import settings.metadataStorageHandler
+    DatasetArea.initMetadata(metadataStorageHandler)
+    val schemaHandler = new SchemaHandler(metadataStorageHandler)
+    val domains: List[Domain] = schemaHandler.domains
+    // Extracting the domain from the Excel referential file
+    domains.find(_.name == config.domain) match {
+      case Some(domain) =>
+        ScriptGen.generate(
+          domain,
+          config.scriptTemplateFile,
+          config.scriptOutputDir,
+          config.deltaColumn.orElse(ExtractorSettings.deltaColumns.defaultColumn),
+          ExtractorSettings.deltaColumns.deltaColumns
+        )
+        true
+      case None =>
+        logger.error(s"No domain found for domain name ${config.domain}")
         false
     }
   }
