@@ -24,7 +24,6 @@ import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.job.index.bqload.BigQueryLoadConfig
 import com.ebiznext.comet.job.index.connectionload.ConnectionLoadConfig
 import com.ebiznext.comet.job.index.esload.ESLoadConfig
-import com.ebiznext.comet.job.ingest.LoadConfig
 import com.ebiznext.comet.schema.model.{Domain, Schema}
 import com.ebiznext.comet.utils.{AirflowJobResult, JobResult, Utils}
 import com.ebiznext.comet.workflow.IngestionWorkflow
@@ -56,7 +55,7 @@ trait LaunchHandler {
     options: Map[String, String]
   )(implicit
     settings: Settings
-  ): Option[Try[JobResult]] =
+  ): Try[JobResult] =
     ingest(workflow, domain, schema, path :: Nil, options)
 
   /** Submit to the cron manager multiple files for ingestion.
@@ -73,7 +72,7 @@ trait LaunchHandler {
     schema: Schema,
     paths: List[Path],
     options: Map[String, String]
-  )(implicit settings: Settings): Option[Try[JobResult]]
+  )(implicit settings: Settings): Try[JobResult]
 
   /** Index into elasticsearch
     *
@@ -118,9 +117,9 @@ class SimpleLauncher extends LaunchHandler with StrictLogging {
     schema: Schema,
     paths: List[Path],
     options: Map[String, String]
-  )(implicit settings: Settings): Option[Try[JobResult]] = {
+  )(implicit settings: Settings): Try[JobResult] = {
     logger.info(s"Launch Ingestion: ${domain.name} ${schema.name} $paths ")
-    workflow.ingest(LoadConfig(domain.name, schema.name, paths, options))
+    workflow.ingest(domain, schema, paths, options)
   }
 
   /** Index into elasticsearch
@@ -201,7 +200,7 @@ class AirflowLauncher extends LaunchHandler with StrictLogging {
     schema: Schema,
     paths: List[Path],
     options: Map[String, String]
-  )(implicit settings: Settings): Option[Try[JobResult]] = {
+  )(implicit settings: Settings): Try[JobResult] = {
     val endpoint = settings.comet.airflow.endpoint
     val ingest = settings.comet.airflow.ingest
     val url = s"$endpoint/dags/$ingest/dag_runs"
@@ -210,7 +209,7 @@ class AirflowLauncher extends LaunchHandler with StrictLogging {
 
     // We make sure two successive calls to the same dag id do not occur in the same second, otherwise Airflow will produce an error.
     Thread.sleep(1000)
-    Some(post(url, command))
+    post(url, command)
   }
 
   /** Index into elasticsearch
