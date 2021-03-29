@@ -166,7 +166,7 @@ class IngestionWorkflow(
     }
     logger.info(s"Domains that will be watched: ${includedDomains.map(_.name).mkString(",")}")
 
-    val result = includedDomains.flatMap { domain =>
+    val result: List[Boolean] = includedDomains.flatMap { domain =>
       logger.info(s"Watch Domain: ${domain.name}")
       val (resolved, unresolved) = pending(domain.name, config.schemas.toList)
       unresolved.foreach { case (_, path) =>
@@ -214,7 +214,9 @@ class IngestionWorkflow(
         }
         val resTry = Try {
           if (settings.comet.grouped) {
-            launchHandler.ingest(this, domain, schema, ingestingPaths.toList, config.options)
+            val res =
+              launchHandler.ingest(this, domain, schema, ingestingPaths.toList, config.options)
+            res.isSuccess
           } else {
             // We ingest all the files but return false if one them fails.
             val res = ingestingPaths.map { path =>
