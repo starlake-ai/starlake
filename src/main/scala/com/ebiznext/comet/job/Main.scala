@@ -141,7 +141,7 @@ object Main extends StrictLogging {
             val waitTimeMillis = settings.comet.lock.ingestionTimeout
 
             locker.doExclusively(waitTimeMillis) {
-              workflow.ingest(config) match {
+              workflow.load(config) match {
                 case None | Some(Success(_)) => true
                 case Some(Failure(exception)) =>
                   Utils.logException(logger, exception)
