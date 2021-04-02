@@ -1,7 +1,5 @@
 package com.ebiznext.comet.job.index.connectionload
 
-import java.sql.{DriverManager, SQLException}
-
 import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.schema.model.RowLevelSecurity
 import com.ebiznext.comet.utils.CliConfig
@@ -9,24 +7,27 @@ import com.google.cloud.bigquery.JobInfo.{CreateDisposition, WriteDisposition}
 import org.apache.spark.sql.DataFrame
 import scopt.OParser
 
+import java.sql.{DriverManager, SQLException}
+import scala.util.{Failure, Success, Try}
+
 case class ConnectionLoadConfig(
-  sourceFile: Either[String, DataFrame] = Left(""),
-  outputTable: String = "",
-  createDisposition: CreateDisposition = CreateDisposition.CREATE_IF_NEEDED,
-  writeDisposition: WriteDisposition = WriteDisposition.WRITE_APPEND,
-  format: String = "jdbc",
-  mode: Option[String] = None,
-  options: Map[String, String] = Map.empty,
-  rls: Option[List[RowLevelSecurity]] = None
-)
+                                 sourceFile: Either[String, DataFrame] = Left(""),
+                                 outputTable: String = "",
+                                 createDisposition: CreateDisposition = CreateDisposition.CREATE_IF_NEEDED,
+                                 writeDisposition: WriteDisposition = WriteDisposition.WRITE_APPEND,
+                                 format: String = "jdbc",
+                                 mode: Option[String] = None,
+                                 options: Map[String, String] = Map.empty,
+                                 rls: Option[List[RowLevelSecurity]] = None
+                               )
 
 object ConnectionLoadConfig extends CliConfig[ConnectionLoadConfig] {
 
   def checkTablePresent(
-    jdbcOptions: Settings.Connection,
-    jdbcEngine: Settings.JdbcEngine,
-    outputTable: String
-  ): Unit = {
+                         jdbcOptions: Settings.Connection,
+                         jdbcEngine: Settings.JdbcEngine,
+                         outputTable: String
+                       ): Unit = {
     assert(jdbcOptions.format == "jdbc")
     val table = jdbcEngine.tables(outputTable)
 
@@ -36,37 +37,35 @@ object ConnectionLoadConfig extends CliConfig[ConnectionLoadConfig] {
       jdbcOptions.options("password")
     )
 
-    try {
+    Try {
       val stmt = conn.createStatement
-      try {
+      Try {
         val pingSql = table.effectivePingSql(outputTable)
         val rs = stmt.executeQuery(pingSql)
         rs.close() // we don't need to fetch the result, it should be empty anyway.
-      } catch {
-        case _: SQLException =>
+      } match {
+        case Failure(e) if e.isInstanceOf[SQLException] =>
           stmt.executeUpdate(table.createSql)
           conn.commit() // some databases are transactional wrt schema updates 🥰
-      } finally {
-        stmt.close()
+        case Success(_) => ;
       }
-    } finally {
-      conn.close()
+      stmt.close()
     }
-
+    conn.close()
   }
 
   def fromComet(
-    jdbcName: String,
-    comet: Settings.Comet,
-    sourceFile: Either[String, DataFrame],
-    outputTable: String,
-    createDisposition: CreateDisposition = CreateDisposition.CREATE_IF_NEEDED,
-    writeDisposition: WriteDisposition = WriteDisposition.WRITE_APPEND,
-    partitions: Int = 1,
-    batchSize: Int = 1000,
-    options: Map[String, String],
-    createTableIfAbsent: Boolean = true
-  ): ConnectionLoadConfig = {
+                 jdbcName: String,
+                 comet: Settings.Comet,
+                 sourceFile: Either[String, DataFrame],
+                 outputTable: String,
+                 createDisposition: CreateDisposition = CreateDisposition.CREATE_IF_NEEDED,
+                 writeDisposition: WriteDisposition = WriteDisposition.WRITE_APPEND,
+                 partitions: Int = 1,
+                 batchSize: Int = 1000,
+                 options: Map[String, String],
+                 createTableIfAbsent: Boolean = true
+               ): ConnectionLoadConfig = {
     // TODO: wanted to just call this "apply" but I'd need to get rid of the defaults in the ctor above
 
     val jdbcOptions = comet.connections(jdbcName)

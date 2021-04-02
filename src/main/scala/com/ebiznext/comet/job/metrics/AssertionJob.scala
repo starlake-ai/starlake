@@ -3,52 +3,52 @@ package com.ebiznext.comet.job.metrics
 import com.ebiznext.comet.config.{DatasetArea, Settings}
 import com.ebiznext.comet.schema.handlers.{SchemaHandler, StorageHandler}
 import com.ebiznext.comet.schema.model._
+import com.ebiznext.comet.utils.Formatter._
 import com.ebiznext.comet.utils._
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions.lit
 
-import scala.util.{Success, Try}
-import com.ebiznext.comet.utils.Formatter._
-
-import scala.util.control.NonFatal
+import scala.util.{Failure, Success, Try}
 
 case class AssertionReport(
-  name: String,
-  params: String,
-  sql: Option[String],
-  countFailed: Option[Long],
-  message: Option[String],
-  success: Boolean
-) {
+                            name: String,
+                            params: String,
+                            sql: Option[String],
+                            countFailed: Option[Long],
+                            message: Option[String],
+                            success: Boolean
+                          ) {
 
   override def toString: String = {
-    s"""name: $name, params:$params, countFailed:${countFailed.getOrElse(
-      0
-    )}, success:$success, message: ${message.getOrElse("")}, sql:$sql""".stripMargin
+    s"""name: $name, params:$params, countFailed:${
+      countFailed.getOrElse(
+        0
+      )
+    }, success:$success, message: ${message.getOrElse("")}, sql:$sql""".stripMargin
   }
 }
 
 /** Record assertion execution
-  */
+ */
 
-/** @param domain         : Domain name
-  * @param schema         : Schema
-  * @param stage          : stage
-  * @param storageHandler : Storage Handler
-  */
+/** @param domain        : Domain name
+ * @param schema         : Schema
+ * @param stage          : stage
+ * @param storageHandler : Storage Handler
+ */
 class AssertionJob(
-  domainName: String,
-  schemaName: String,
-  assertions: Map[String, String],
-  stage: Stage,
-  storageHandler: StorageHandler,
-  schemaHandler: SchemaHandler,
-  dataset: Option[DataFrame],
-  engine: Engine,
-  sqlRunner: String => Long
-)(implicit val settings: Settings)
-    extends SparkJob {
+                    domainName: String,
+                    schemaName: String,
+                    assertions: Map[String, String],
+                    stage: Stage,
+                    storageHandler: StorageHandler,
+                    schemaHandler: SchemaHandler,
+                    dataset: Option[DataFrame],
+                    engine: Engine,
+                    sqlRunner: String => Long
+                  )(implicit val settings: Settings)
+  extends SparkJob {
 
   override def name: String = "Check Assertions"
 
@@ -80,7 +80,7 @@ class AssertionJob(
             .subst(ad.sql.richFormat(paramsMap), paramsMap)
         }
         .getOrElse(assertion.sql)
-      try {
+      Try {
         val assertionCount = sqlRunner(sql)
         AssertionReport(
           assertion.name,
@@ -90,8 +90,8 @@ class AssertionJob(
           None,
           true
         )
-      } catch {
-        case e: IllegalArgumentException =>
+      } match {
+        case Failure(e: IllegalArgumentException) =>
           AssertionReport(
             assertion.name,
             assertion.paramValues.toString(),
@@ -100,7 +100,7 @@ class AssertionJob(
             Some(Utils.exceptionAsString(e)),
             false
           )
-        case NonFatal(e) =>
+        case Failure(e) =>
           AssertionReport(
             assertion.name,
             assertion.paramValues.toString(),
@@ -109,6 +109,7 @@ class AssertionJob(
             Some(Utils.exceptionAsString(e)),
             false
           )
+        case Success(value) => value
       }
     }.toList
     if (assertionReports.nonEmpty) {
