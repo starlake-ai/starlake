@@ -1,16 +1,18 @@
 package com.ebiznext.comet.schema.generator
 
 import better.files.File
-import com.ebiznext.comet.config.Settings
+import com.ebiznext.comet.config.{DatasetArea, Settings}
 import com.ebiznext.comet.schema.model.{Attribute, Domain, Schema}
+import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.LazyLogging
 
+import java.sql.DriverManager
+import java.sql.Types._
 import java.util.Properties
 import java.util.regex.Pattern
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
-import java.sql.Types._
-import java.sql.DriverManager
+import scala.util.{Failure, Success}
 
 object DDL2Yml extends LazyLogging {
 
@@ -48,24 +50,43 @@ object DDL2Yml extends LazyLogging {
   // The other part of the biMap
   val reverseSqlTypes = sqlTypes map (_.swap)
 
+  def run(args: Array[String]): Unit = {
+    implicit val settings: Settings = Settings(ConfigFactory.load())
+    DDL2YmlConfig.parse(args) match {
+      case Some(config) =>
+        run(config)
+      case None => throw new Exception(s"Could not parse arguments ${args.mkString("")}")
+    }
+  }
+
   /** Generate YML file from JDBC Schema stoerd in a YML file
-    * @param jdbcMapFile : Yaml File containing the JDBC Schema to extract
+    *
+    * @param jdbcMapFile  : Yaml File containing the JDBC Schema to extract
     * @param ymlOutputDir : Where to output the YML file. The generated filename
     *                     will be in the for TABLE_SCHEMA_NAME.yml
-    * @param settings : Application configuration file
+    * @param settings     : Application configuration file
     */
-  def run(jdbcMapFile: File, ymlOutputDir: File)(implicit settings: Settings): Unit = {
-    val jdbcSchema = YamlSerializer.deserializeJDBCSchema(jdbcMapFile)
-    run(jdbcSchema: JDBCSchema, ymlOutputDir)
+  def run(config: DDL2YmlConfig)(implicit settings: Settings): Unit = {
+    val jdbcSchema = YamlSerializer.deserializeJDBCSchema(File(config.jdbcMapping))
+    val domainTemplate = config.ymlTemplate.map { ymlTemplate =>
+      YamlSerializer.deserializeDomain(ymlTemplate) match {
+        case Success(domain) => domain
+        case Failure(e)      => throw e
+      }
+    }
+    run(jdbcSchema, File(config.outputDir), domainTemplate)
   }
 
   /** Generate YML file from the JDBCSchema
-    * @param jdbcSchema : the JDBC Schema to extract
+    *
+    * @param jdbcSchema   : the JDBC Schema to extract
     * @param ymlOutputDir : Where to output the YML file. The generated filename
     *                     will be in the for TABLE_SCHEMA_NAME.yml
-    * @param settings : Application configuration file
+    * @param settings     : Application configuration file
     */
-  def run(jdbcSchema: JDBCSchema, ymlOutputDir: File)(implicit settings: Settings): Unit = {
+  def run(jdbcSchema: JDBCSchema, ymlOutputDir: File, domainTemplate: Option[Domain])(implicit
+    settings: Settings
+  ): Unit = {
     val jdbcOptions = settings.comet.connections(jdbcSchema.config)
     // Only JDBC connections are supported
     assert(jdbcOptions.format == "jdbc")
@@ -107,6 +128,7 @@ object DDL2Yml extends LazyLogging {
         allExtractedTables.filter { case (table, _) => list.contains(table.toUpperCase) }
     }
 
+    val schemaMetadata = domainTemplate.flatMap(_.schemas.headOption.flatMap(_.metadata))
     // Extract the Comet Schema
     val cometSchema = selectedTables.map { case (tableName, tableRemarks) =>
       val resultSet = databaseMetaData.getColumns(
@@ -142,7 +164,7 @@ object DDL2Yml extends LazyLogging {
         tableName,
         Pattern.compile(s"$tableName.*"),
         selectedColumns,
-        None,
+        schemaMetadata,
         None,
         Option(tableRemarks),
         None,
@@ -150,8 +172,14 @@ object DDL2Yml extends LazyLogging {
       )
     }
     // Generate the domain with a dummy watch directory
+    val incomingDir = domainTemplate
+      .map { dom =>
+        DatasetArea.substituteDomainAndSchemaInPath(jdbcSchema.schema, "", dom.directory).toString
+      }
+      .getOrElse(s"/${jdbcSchema.schema}")
+
     val domain =
-      Domain(jdbcSchema.schema, s"/${jdbcSchema.schema}", None, cometSchema.toList)
+      Domain(jdbcSchema.schema, incomingDir, domainTemplate.flatMap(_.metadata), cometSchema.toList)
     YamlSerializer.serializeToFile(File(ymlOutputDir, jdbcSchema.schema + ".yml"), domain)
     connection.close()
   }
@@ -172,5 +200,9 @@ object DDL2Yml extends LazyLogging {
         )
         reverseSqlTypes.getOrElse(jdbcType, s"UNKNOWN JDBC TYPE => $jdbcType")
     }
+  }
+
+  def main(args: Array[String]): Unit = {
+    val result = DDL2Yml.run(args)
   }
 }
