@@ -6,8 +6,11 @@ import com.fasterxml.jackson.annotation.JsonInclude.Include
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
+import com.typesafe.scalalogging.LazyLogging
 
-object YamlSerializer {
+import scala.util.Try
+
+object YamlSerializer extends LazyLogging {
   val mapper: ObjectMapper = new ObjectMapper(new YAMLFactory())
   mapper.registerModule(DefaultScalaModule)
   mapper.setSerializationInclusion(Include.NON_ABSENT)
@@ -18,9 +21,30 @@ object YamlSerializer {
   def deserializeJDBCSchema(file: File): JDBCSchema =
     mapper.readValue(file.newInputStream, classOf[JDBCSchema])
 
-  def deserializeDomain(file: File): Domain =
+  def deserializeDomain(file: File): Domain = {
+    scala.io.Source.fromFile(file.pathAsString)
     mapper.readValue(file.newInputStream, classOf[Domain])
+  }
 
   def serializeToFile(targetFile: File, domain: Domain): Unit =
     mapper.writeValue(targetFile.toJava, domain)
+
+  def deserializeDomain(content: String): Try[Domain] = {
+    Try {
+      val rootNode = mapper.readTree(content)
+      val loadNode = rootNode.path("load")
+      val domainNode =
+        if (loadNode.isNull() || loadNode.isMissingNode) {
+          rootNode
+        } else
+          loadNode
+      val domain = mapper.treeToValue(domainNode, classOf[Domain])
+      if (domainNode == rootNode)
+        logger.warn(
+          s"Defining a domain outside a load node is now deprecated. Please update definition fo domain ${domain.name}"
+        )
+
+      domain
+    }
+  }
 }

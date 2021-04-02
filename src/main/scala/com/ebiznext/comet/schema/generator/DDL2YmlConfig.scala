@@ -19,6 +19,10 @@
  */
 package com.ebiznext.comet.schema.generator
 
+import better.files.File
+import com.ebiznext.comet.utils.CliConfig
+import scopt.OParser
+
 /** @param config : JDBC Configuration to use as defined in the connection section in the application.conf
   * @param catalog : Database catalog name, optional.
   * @param schema : Database schema to use, required.
@@ -38,10 +42,48 @@ case class JDBCSchema(
     "LOCAL TEMPORARY",
     "ALIAS",
     "SYNONYM"
-  )
+  ),
+  templateFile: Option[File] = None
 )
 
 /** @param table : Table name (case insensitive)
   * @param columns : List of columns (case insensitive). Nil  if all columns should be extracted
   */
 case class JDBCTable(table: String, columns: List[String] = Nil)
+
+case class DDL2YmlConfig(
+  jdbcMapping: String = "",
+  outputDir: String = "",
+  ymlTemplate: Option[String] = None
+)
+
+object DDL2YmlConfig extends CliConfig[DDL2YmlConfig] {
+
+  val parser: OParser[Unit, DDL2YmlConfig] = {
+    val builder = OParser.builder[DDL2YmlConfig]
+    import builder._
+    OParser.sequence(
+      programName("comet ddl2yml"),
+      head("comet", "ddl2yml", "[options]"),
+      note(""),
+      opt[String]("jdbc-mapping")
+        .action((x, c) => c.copy(jdbcMapping = x))
+        .required()
+        .text("Database tables & connection info"),
+      opt[String]("output-dir")
+        .action((x, c) => c.copy(outputDir = x))
+        .required()
+        .text("Where to output YML files"),
+      opt[String]("yml-template")
+        .action((x, c) => c.copy(ymlTemplate = Some(x)))
+        .optional()
+        .text("YML template to use YML metadata")
+    )
+  }
+
+  /** @param args args list passed from command line
+    * @return Option of case class DDL2YmlConfig.
+    */
+  def parse(args: Seq[String]): Option[DDL2YmlConfig] =
+    OParser.parse(parser, args, DDL2YmlConfig())
+}

@@ -22,9 +22,9 @@ Build it
 
 Clone the project, install sbt 1.0+ and run ``sbt clean assembly makeSite``. This will create :
 
-- the assembly in the ``target/scala-2.11`` directory
+- the assembly in the ``target/scala-2.12`` directory
 - This site documentation in ``/target/sphinx/html``
-- The Scala source code documentation in ``target/scala-2.11/api``
+- The Scala source code documentation in ``target/scala-2.12/api``
 
 
 
@@ -38,7 +38,7 @@ Import the datasets into the cluster using spark-submit :
 
 .. code-block:: console
 
-   $SPARK_HOME/bin/spark-submit target/scala-2.11/comet-assembly-VERSION.jar import
+   $SPARK_HOME/bin/spark-submit target/scala-2.12/comet-assembly-VERSION.jar import
 
 
 This will put the datasets in the ``/tmp/datasets/pending/`` folder. In real life, this will be a HDFS or CLoud Srorage folder.
@@ -47,7 +47,7 @@ Run the ingestion process as follows :
 
 .. code-block:: console
 
-   $SPARK_HOME/bin/spark-submit target/scala-2.11/comet-assembly-VERSION.jar watch
+   $SPARK_HOME/bin/spark-submit target/scala-2.12/comet-assembly-VERSION.jar watch
 
 
 This will ingest the four datasets of the two domains (hr & sales) and store them as parquet files into the folders:
