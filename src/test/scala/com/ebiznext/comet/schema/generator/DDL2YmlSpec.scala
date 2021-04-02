@@ -2,6 +2,7 @@ package com.ebiznext.comet.schema.generator
 
 import better.files.File
 import com.ebiznext.comet.TestHelper
+import com.ebiznext.comet.schema.model.{Domain, Metadata, Mode}
 
 import java.sql.DriverManager
 
@@ -27,10 +28,14 @@ class DDL2YmlSpec extends TestHelper {
       val row1InsertionCheck = (1 == rs.getInt("ID")) && ("A" == rs.getString("NAME"))
       assert(row1InsertionCheck, "Data not inserted")
 
-      DDL2Yml.run(JDBCSchema("test-h2", None, "PUBLIC", Nil), File("/tmp"))
+      val metadata = Metadata(mode = Some(Mode.STREAM), quote = Some("::"))
+      val domainTemplate = Domain("CUSTOM_NAME", "/{domain}/{schema}", metadata = Some(metadata))
+      DDL2Yml.run(JDBCSchema("test-h2", None, "PUBLIC", Nil), File("/tmp"), Some(domainTemplate))
       val domain = YamlSerializer.deserializeDomain(File("/tmp", "PUBLIC.yml"))
       assert(domain.name == "PUBLIC")
       assert(domain.schemas.size == 2)
+      assert(domain.metadata.flatMap(_.quote).getOrElse("") == "::")
+      assert(domain.metadata.flatMap(_.mode).getOrElse(Mode.FILE) == Mode.STREAM)
       domain.schemas.map(_.name) should contain theSameElementsAs Set("TEST_TABLE1", "TEST_VIEW1")
       domain.schemas
         .find(_.name == "TEST_TABLE1")
@@ -71,7 +76,8 @@ class DDL2YmlSpec extends TestHelper {
 
       DDL2Yml.run(
         JDBCSchema("test-h2", None, "PUBLIC", List(JDBCTable("TEST_TABLE1", List("ID")))),
-        File("/tmp")
+        File("/tmp"),
+        None
       )
       val domain = YamlSerializer.deserializeDomain(File("/tmp", "PUBLIC.yml"))
       assert(domain.name == "PUBLIC")
@@ -84,17 +90,17 @@ class DDL2YmlSpec extends TestHelper {
   }
 
   "All SchemaGen Config" should "be known and taken  into account" in {
-    val rendered = Yml2XlsConfig.usage()
+    val rendered = DDL2YmlConfig.usage()
     val expected =
       """
-        |Usage: comet yml2xls [options]
+        |Usage: comet ddl2yml [options]
         |
-        |  --domain <value>  domains to convert to XLS
-        |  --xls <value>     directory where XLS files are generated
+        |  --jdbc-mapping <value>  Database tables & connection info
+        |  --output-dir <value>    Where to output YML files
+        |  --yml-template <value>  YML template to use YML metadata
+        |
         |""".stripMargin
     rendered.substring(rendered.indexOf("Usage:")).replaceAll("\\s", "") shouldEqual expected
       .replaceAll("\\s", "")
-
   }
-
 }
