@@ -15,9 +15,9 @@ Getting started with Comet Data Pipeline:
    :maxdepth: 3
 
    user/guide/introduction
+   user/guide/quickstart
    user/guide/sample
    user/guide/configuration/index
-   user/guide/quickstart
 
 .. toctree::
    :caption: Howto
