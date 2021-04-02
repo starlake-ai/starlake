@@ -1,5 +1,10 @@
 # Release notes
 
+## 0.1.36
+__New feature__:
+- Parameterize with Domain & Schema metadata in DDL2YML generation 
+__Bug Fix__:
+
 ## 0.1.35
 __New feature__:
 - Auto compile with scala 2.11 for Spark 2 and with scala 2.12 for Spark 3. [[457]](https://github.com/ebiznext/comet-data-pipeline/pull/457)
