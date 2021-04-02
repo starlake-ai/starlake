@@ -27,32 +27,32 @@ import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.functions.lit
 import org.apache.spark.sql.{DataFrame, Encoders}
 
-import scala.util.control.NonFatal
-import scala.util.{Failure, Success, Try}
+import scala.util.Try
+
 
 /** Parse a simple one level json file. Complex types such as arrays & maps are not supported.
-  * Use JsonIngestionJob instead.
-  * This class is for simple json only that makes it way faster.
-  *
-  * @param domain         : Input Dataset Domain
-  * @param schema         : Input Dataset Schema
-  * @param types          : List of globally defined types
-  * @param path           : Input dataset path
-  * @param storageHandler : Storage Handler
-  */
+ * Use JsonIngestionJob instead.
+ * This class is for simple json only that makes it way faster.
+ *
+ * @param domain         : Input Dataset Domain
+ * @param schema         : Input Dataset Schema
+ * @param types          : List of globally defined types
+ * @param path           : Input dataset path
+ * @param storageHandler : Storage Handler
+ */
 class SimpleJsonIngestionJob(
-  domain: Domain,
-  schema: Schema,
-  types: List[Type],
-  path: List[Path],
-  storageHandler: StorageHandler,
-  schemaHandler: SchemaHandler,
-  options: Map[String, String]
-)(implicit settings: Settings)
-    extends DsvIngestionJob(domain, schema, types, path, storageHandler, schemaHandler, options) {
+                              domain: Domain,
+                              schema: Schema,
+                              types: List[Type],
+                              path: List[Path],
+                              storageHandler: StorageHandler,
+                              schemaHandler: SchemaHandler,
+                              options: Map[String, String]
+                            )(implicit settings: Settings)
+  extends DsvIngestionJob(domain, schema, types, path, storageHandler, schemaHandler, options) {
 
   override protected def loadDataSet(): Try[DataFrame] = {
-    try {
+    Try {
 
       val dfIn =
         if (metadata.isArray()) {
@@ -85,25 +85,21 @@ class SimpleJsonIngestionJob(
       val df = applyIgnore(dfIn)
 
       import session.implicits._
-      val resDF = if (df.columns.contains("_corrupt_record")) {
+      if (df.columns.contains("_corrupt_record")) {
         //TODO send rejected records to rejected area
         logger.whenDebugEnabled {
           df.filter($"_corrupt_record".isNotNull).show(1000, false)
         }
         throw new Exception(
-          s"""Invalid JSON File: ${path
-            .map(_.toString)
-            .mkString(",")}. SIMPLE_JSON require a valid json file """
+          s"""Invalid JSON File: ${
+            path
+              .map(_.toString)
+              .mkString(",")
+          }. SIMPLE_JSON require a valid json file """
         )
       } else {
         df
       }
-      Success(
-        resDF
-      )
-    } catch {
-      case NonFatal(e) =>
-        Failure(e)
     }
   }
 }

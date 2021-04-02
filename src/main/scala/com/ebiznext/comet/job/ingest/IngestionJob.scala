@@ -34,7 +34,6 @@ import org.apache.spark.sql.types.{StringType, StructField, StructType, Timestam
 
 import scala.collection.JavaConverters._
 import scala.language.existentials
-import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try}
 
 /**
@@ -429,13 +428,13 @@ trait IngestionJob extends SparkJob {
         val dbComment = domain.comment.getOrElse("")
         session.sql(s"create database if not exists $hiveDB comment '$dbComment'")
         session.sql(s"use $hiveDB")
-        try {
+        Try {
           session.sql(s"drop table if exists $hiveDB.$tableName")
-        } catch {
-          case NonFatal(e) =>
+        } match {
+          case Success(dataframe) => dataframe
+          case Failure(e) =>
             logger.warn("Ignore error when hdfs files not found")
             Utils.logException(logger, e)
-
         }
       }
 
