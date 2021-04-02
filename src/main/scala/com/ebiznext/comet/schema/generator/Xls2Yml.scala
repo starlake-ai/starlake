@@ -159,12 +159,19 @@ object Xls2Yml extends LazyLogging {
         false
     }
   }
+
+  def main(args: Array[String]): Unit = {
+    val result = Xls2Yml.run(args)
+    System.exit(if (result) 0 else 1)
+  }
 }
 
 object Main {
 
   def main(args: Array[String]): Unit = {
-    val result = Xls2Yml.run(args)
-    System.exit(if (result) 0 else 1)
+    println(
+      "[deprecated]: Please use com.ebiznext.comet.schema.generator.Xls2Yml instead of com.ebiznext.comet.schema.generator.Main"
+    )
+    Xls2Yml.main(args)
   }
 }

@@ -97,15 +97,15 @@ object DatasetArea {
 
   def metrics(domain: String, schema: String)(implicit settings: Settings): Path = {
     val path = settings.comet.metrics.path
-    new Path(
-      path
-        .replace("{domain}", domain)
-        .replace("{schema}", schema)
-    )
+    substituteDomainAndSchemaInPath(domain, schema, path)
   }
 
   def assertions(domain: String, schema: String)(implicit settings: Settings): Path = {
     val path = settings.comet.assertions.path
+    substituteDomainAndSchemaInPath(domain, schema, path)
+  }
+
+  def substituteDomainAndSchemaInPath(domain: String, schema: String, path: String) = {
     new Path(
       path
         .replace("{domain}", domain)

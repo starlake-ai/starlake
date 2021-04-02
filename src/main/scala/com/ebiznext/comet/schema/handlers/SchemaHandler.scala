@@ -21,6 +21,7 @@
 package com.ebiznext.comet.schema.handlers
 
 import com.ebiznext.comet.config.{DatasetArea, Settings}
+import com.ebiznext.comet.schema.generator.YamlSerializer
 import com.ebiznext.comet.schema.model._
 import com.ebiznext.comet.utils.CometObjectMapper
 import com.fasterxml.jackson.databind.ObjectMapper
@@ -101,6 +102,7 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
         Views()
       }
     }
+
     Views.merge(
       ("default.comet.yml" :: "views.comet.yml" :: (name + ".comet.yml") :: Nil).map(loadViews)
     )
@@ -130,19 +132,7 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     val (validDomainsFile, invalidDomainsFiles) = storage
       .list(DatasetArea.domains, ".yml", recursive = true)
       .map { path =>
-        Try {
-          val rootNode = mapper.readTree(storage.read(path))
-          val loadNode = rootNode.path("load")
-          val domainNode =
-            if (loadNode.isNull() || loadNode.isMissingNode) {
-              logger.warn(
-                s"Defining a domain outside a load node is now deprecated. Please update definition $path"
-              )
-              rootNode
-            } else
-              loadNode
-          mapper.treeToValue(domainNode, classOf[Domain])
-        }
+        YamlSerializer.deserializeDomain(storage.read(path))
       }
       .partition(_.isSuccess)
     invalidDomainsFiles.foreach {
