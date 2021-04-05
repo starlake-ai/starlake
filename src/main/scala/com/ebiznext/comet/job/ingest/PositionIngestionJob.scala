@@ -35,29 +35,29 @@ import org.apache.spark.sql.types.{StringType, StructField, StructType}
 import scala.util.Try
 
 /** Main class to ingest delimiter separated values file
- *
- * @param domain         : Input Dataset Domain
- * @param schema         : Input Dataset Schema
- * @param types          : List of globally defined types
- * @param path           : Input dataset path
- * @param storageHandler : Storage Handler
- */
+  *
+  * @param domain         : Input Dataset Domain
+  * @param schema         : Input Dataset Schema
+  * @param types          : List of globally defined types
+  * @param path           : Input dataset path
+  * @param storageHandler : Storage Handler
+  */
 class PositionIngestionJob(
-                            domain: Domain,
-                            schema: Schema,
-                            types: List[Type],
-                            path: List[Path],
-                            storageHandler: StorageHandler,
-                            schemaHandler: SchemaHandler,
-                            options: Map[String, String]
-                          )(implicit settings: Settings)
-  extends DsvIngestionJob(domain, schema, types, path, storageHandler, schemaHandler, options) {
+  domain: Domain,
+  schema: Schema,
+  types: List[Type],
+  path: List[Path],
+  storageHandler: StorageHandler,
+  schemaHandler: SchemaHandler,
+  options: Map[String, String]
+)(implicit settings: Settings)
+    extends DsvIngestionJob(domain, schema, types, path, storageHandler, schemaHandler, options) {
 
   /** Load dataset using spark csv reader and all metadata. Does not infer schema.
-   * columns not defined in the schema are dropped fro the dataset (require datsets with a header)
-   *
-   * @return Spark DataFrame where each row holds a single string
-   */
+    * columns not defined in the schema are dropped fro the dataset (require datsets with a header)
+    *
+    * @return Spark DataFrame where each row holds a single string
+    */
   override protected def loadDataSet(): Try[DataFrame] = {
     Try {
       val dfIn = metadata.getEncoding().toUpperCase match {
@@ -82,10 +82,10 @@ class PositionIngestionJob(
   }
 
   /** Apply the schema to the dataset. This is where all the magic happen
-   * Valid records are stored in the accepted path / table and invalid records in the rejected path / table
-   *
-   * @param input : Spark Dataset
-   */
+    * Valid records are stored in the accepted path / table and invalid records in the rejected path / table
+    *
+    * @param input : Spark Dataset
+    */
   override protected def ingest(input: DataFrame): (RDD[_], RDD[_]) = {
 
     val dataset: DataFrame =
@@ -121,7 +121,7 @@ class PositionIngestionJob(
 }
 
 /** The Spark task that run on each worker
- */
+  */
 object PositionIngestionUtil {
 
   def loadDfWithEncoding(session: SparkSession, path: List[Path], encoding: String) = {
@@ -158,7 +158,7 @@ object PositionIngestionUtil {
 
     val dataset =
       session.createDataFrame(rdd, StructType(fieldTypeArray)).toDF(attributes.map(_.name): _*)
-    dataset withColumn(
+    dataset withColumn (
       Settings.cometInputFileNameColumn,
       org.apache.spark.sql.functions.input_file_name()
     )
