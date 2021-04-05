@@ -87,7 +87,7 @@ object DDL2Yml extends LazyLogging {
   def run(jdbcSchema: JDBCSchema, ymlOutputDir: File, domainTemplate: Option[Domain])(implicit
     settings: Settings
   ): Unit = {
-    val jdbcOptions = settings.comet.connections(jdbcSchema.config)
+    val jdbcOptions = settings.comet.connections(jdbcSchema.connection)
     // Only JDBC connections are supported
     assert(jdbcOptions.format == "jdbc")
     val url = jdbcOptions.options("url")
@@ -98,7 +98,7 @@ object DDL2Yml extends LazyLogging {
     val connection = DriverManager.getConnection(url, properties)
     val databaseMetaData = connection.getMetaData()
     val jdbcTableMap =
-      jdbcSchema.tables.map(tblSchema => tblSchema.table.toUpperCase -> tblSchema).toMap
+      jdbcSchema.tables.map(tblSchema => tblSchema.name.toUpperCase -> tblSchema).toMap
     val tableNames = jdbcTableMap.keys.toList
 
     /* Extract all tables from the database and return Map of tablename -> tableDescription */
