@@ -37,7 +37,7 @@ The following parameters are available :
 * delimiter : delimiter to use in the export file
 * columns : Column map with the single name attribute
 
-.. code-block:: sql
+.. code-block::
 
     -- How the data should be exported
     SET ECHO OFF
