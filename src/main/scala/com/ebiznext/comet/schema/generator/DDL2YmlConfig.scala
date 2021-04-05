@@ -23,39 +23,39 @@ import better.files.File
 import com.ebiznext.comet.utils.CliConfig
 import scopt.OParser
 
-/** @param config : JDBC Configuration to use as defined in the connection section in the application.conf
-  * @param catalog : Database catalog name, optional.
-  * @param schema : Database schema to use, required.
-  * @param tables : Tables to extract. Nil if all tables should be extracted
-  * @param tableTypes : Table types to extract
-  */
+/** @param connection : JDBC Configuration to use as defined in the connection section in the application.conf
+ * @param catalog     : Database catalog name, optional.
+ * @param schema      : Database schema to use, required.
+ * @param tables      : Tables to extract. Nil if all tables should be extracted
+ * @param tableTypes  : Table types to extract
+ */
 case class JDBCSchema(
-  config: String,
-  catalog: Option[String] = None,
-  schema: String = "",
-  tables: List[JDBCTable] = Nil,
-  tableTypes: List[String] = List(
-    "TABLE",
-    "VIEW",
-    "SYSTEM TABLE",
-    "GLOBAL TEMPORARY",
-    "LOCAL TEMPORARY",
-    "ALIAS",
-    "SYNONYM"
-  ),
-  templateFile: Option[File] = None
-)
+                       connection: String,
+                       catalog: Option[String] = None,
+                       schema: String = "",
+                       tables: List[JDBCTable] = Nil,
+                       tableTypes: List[String] = List(
+                         "TABLE",
+                         "VIEW",
+                         "SYSTEM TABLE",
+                         "GLOBAL TEMPORARY",
+                         "LOCAL TEMPORARY",
+                         "ALIAS",
+                         "SYNONYM"
+                       ),
+                       templateFile: Option[File] = None
+                     )
 
-/** @param table : Table name (case insensitive)
-  * @param columns : List of columns (case insensitive). Nil  if all columns should be extracted
-  */
-case class JDBCTable(table: String, columns: List[String] = Nil)
+/** @param name  : Table name (case insensitive)
+ * @param columns : List of columns (case insensitive). Nil  if all columns should be extracted
+ */
+case class JDBCTable(name: String, columns: List[String] = Nil)
 
 case class DDL2YmlConfig(
-  jdbcMapping: String = "",
-  outputDir: String = "",
-  ymlTemplate: Option[String] = None
-)
+                          jdbcMapping: String = "",
+                          outputDir: String = "",
+                          ymlTemplate: Option[String] = None
+                        )
 
 object DDL2YmlConfig extends CliConfig[DDL2YmlConfig] {
 
@@ -82,8 +82,8 @@ object DDL2YmlConfig extends CliConfig[DDL2YmlConfig] {
   }
 
   /** @param args args list passed from command line
-    * @return Option of case class DDL2YmlConfig.
-    */
+   * @return Option of case class DDL2YmlConfig.
+   */
   def parse(args: Seq[String]): Option[DDL2YmlConfig] =
     OParser.parse(parser, args, DDL2YmlConfig())
 }
