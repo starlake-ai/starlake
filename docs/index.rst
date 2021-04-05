@@ -67,6 +67,8 @@ Getting started with Comet Data Pipeline:
    user/cli/transform
    user/cli/watch
    user/cli/xls2yml
+   user/cli/yml2xls
+   user/cli/kafkaload
 
 .. toctree::
    :caption: Developer Guide
