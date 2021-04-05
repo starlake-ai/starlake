@@ -11,23 +11,23 @@ import java.sql.{DriverManager, SQLException}
 import scala.util.{Failure, Success, Try}
 
 case class ConnectionLoadConfig(
-                                 sourceFile: Either[String, DataFrame] = Left(""),
-                                 outputTable: String = "",
-                                 createDisposition: CreateDisposition = CreateDisposition.CREATE_IF_NEEDED,
-                                 writeDisposition: WriteDisposition = WriteDisposition.WRITE_APPEND,
-                                 format: String = "jdbc",
-                                 mode: Option[String] = None,
-                                 options: Map[String, String] = Map.empty,
-                                 rls: Option[List[RowLevelSecurity]] = None
-                               )
+  sourceFile: Either[String, DataFrame] = Left(""),
+  outputTable: String = "",
+  createDisposition: CreateDisposition = CreateDisposition.CREATE_IF_NEEDED,
+  writeDisposition: WriteDisposition = WriteDisposition.WRITE_APPEND,
+  format: String = "jdbc",
+  mode: Option[String] = None,
+  options: Map[String, String] = Map.empty,
+  rls: Option[List[RowLevelSecurity]] = None
+)
 
 object ConnectionLoadConfig extends CliConfig[ConnectionLoadConfig] {
 
   def checkTablePresent(
-                         jdbcOptions: Settings.Connection,
-                         jdbcEngine: Settings.JdbcEngine,
-                         outputTable: String
-                       ): Unit = {
+    jdbcOptions: Settings.Connection,
+    jdbcEngine: Settings.JdbcEngine,
+    outputTable: String
+  ): Unit = {
     assert(jdbcOptions.format == "jdbc")
     val table = jdbcEngine.tables(outputTable)
 
@@ -55,17 +55,17 @@ object ConnectionLoadConfig extends CliConfig[ConnectionLoadConfig] {
   }
 
   def fromComet(
-                 jdbcName: String,
-                 comet: Settings.Comet,
-                 sourceFile: Either[String, DataFrame],
-                 outputTable: String,
-                 createDisposition: CreateDisposition = CreateDisposition.CREATE_IF_NEEDED,
-                 writeDisposition: WriteDisposition = WriteDisposition.WRITE_APPEND,
-                 partitions: Int = 1,
-                 batchSize: Int = 1000,
-                 options: Map[String, String],
-                 createTableIfAbsent: Boolean = true
-               ): ConnectionLoadConfig = {
+    jdbcName: String,
+    comet: Settings.Comet,
+    sourceFile: Either[String, DataFrame],
+    outputTable: String,
+    createDisposition: CreateDisposition = CreateDisposition.CREATE_IF_NEEDED,
+    writeDisposition: WriteDisposition = WriteDisposition.WRITE_APPEND,
+    partitions: Int = 1,
+    batchSize: Int = 1000,
+    options: Map[String, String],
+    createTableIfAbsent: Boolean = true
+  ): ConnectionLoadConfig = {
     // TODO: wanted to just call this "apply" but I'd need to get rid of the defaults in the ctor above
 
     val jdbcOptions = comet.connections(jdbcName)
