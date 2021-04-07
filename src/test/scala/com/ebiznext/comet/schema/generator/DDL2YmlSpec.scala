@@ -5,6 +5,7 @@ import com.ebiznext.comet.TestHelper
 import com.ebiznext.comet.schema.model.{Domain, Metadata, Mode}
 
 import java.sql.DriverManager
+import scala.util.{Failure, Success}
 
 class DDL2YmlSpec extends TestHelper {
   "DDL2Yml of all tables" should "should generated all the table schemas in a YML file" in {
@@ -31,7 +32,10 @@ class DDL2YmlSpec extends TestHelper {
       val metadata = Metadata(mode = Some(Mode.STREAM), quote = Some("::"))
       val domainTemplate = Domain("CUSTOM_NAME", "/{domain}/{schema}", metadata = Some(metadata))
       DDL2Yml.run(JDBCSchema("test-h2", None, "PUBLIC", Nil), File("/tmp"), Some(domainTemplate))
-      val domain = YamlSerializer.deserializeDomain(File("/tmp", "PUBLIC.yml"))
+      val domain = YamlSerializer.deserializeDomain(File("/tmp", "PUBLIC.yml")) match {
+        case Success(domain) => domain
+        case Failure(e)      => throw e
+      }
       assert(domain.name == "PUBLIC")
       assert(domain.schemas.size == 2)
       assert(domain.metadata.flatMap(_.quote).getOrElse("") == "::")
@@ -79,7 +83,10 @@ class DDL2YmlSpec extends TestHelper {
         File("/tmp"),
         None
       )
-      val domain = YamlSerializer.deserializeDomain(File("/tmp", "PUBLIC.yml"))
+      val domain = YamlSerializer.deserializeDomain(File("/tmp", "PUBLIC.yml")) match {
+        case Success(domain) => domain
+        case Failure(e)      => throw e
+      }
       assert(domain.name == "PUBLIC")
       assert(domain.schemas.size == 1)
       assert(domain.schemas.head.name == "TEST_TABLE1")
