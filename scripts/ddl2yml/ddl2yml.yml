@@ -1,0 +1,14 @@
+jdbc-schema:
+  connection: "airflow-pg-db" # Connection name as defined in the connections section of the application.conf file
+  schema: "public" # Database schema where tables are located
+  tables:
+    - name: "*" # Takes all tables
+  tableTypes: # One or many of the types below
+    - "TABLE"
+    - "VIEW"
+    - "SYSTEM TABLE"
+    - "GLOBAL TEMPORARY"
+    - "LOCAL TEMPORARY"
+    - "ALIAS"
+    - "SYNONYM"
+#  templateFile: "domain-template.yml" # Metadata to use for the generated YML file.
