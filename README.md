@@ -5,6 +5,7 @@
 [![Codacy Badge](https://app.codacy.com/project/badge/Grade/f79729e67cce45aba81e1950b91ef8eb)](https://www.codacy.com/gh/ebiznext/comet-data-pipeline/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=ebiznext/comet-data-pipeline&amp;utm_campaign=Badge_Grade)
 [![Documentation](https://readthedocs.org/projects/comet-app/badge/?version=latest)](https://comet-app.readthedocs.io/)
 [![Maven Central Comet Spark 3](https://maven-badges.herokuapp.com/maven-central/com.ebiznext/comet-spark3_2.12/badge.svg)](https://mvnrepository.com/artifact/com.ebiznext/comet-spark3_2.12)
+[![Gitter](https://badges.gitter.im/comet-data-pipeline/community.svg)](https://gitter.im/comet-data-pipeline/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
 
 # About Comet Data Pipeline
 
