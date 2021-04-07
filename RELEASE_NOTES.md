@@ -1,5 +1,11 @@
 # Release notes
 
+## 0.1.37
+__New feature__:
+- Export all tables in DDL2YML generation
+__Bug Fix__:
+
+
 ## 0.1.36
 __New feature__:
 - Parameterize with Domain & Schema metadata in DDL2YML generation 
