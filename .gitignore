@@ -130,3 +130,4 @@ venv
 
 .bsp
 tfm/azure/databricks-tfm/.terraform
+postgresql-42.2.19.jar
