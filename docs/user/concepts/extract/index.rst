@@ -16,11 +16,12 @@ that describe the tables and columns you are willing to extract using the follow
       catalog: "business" # Optional catalog name in the target database
       schema: "public" # Database schema where tables are located
       tables:
-        - name: "user:
+        - name: "user"
           columns: # optional list of columns, if not present all columns should be exported.
             - id
             - email
-        - name: product
+        - name: product # All columns should be exported
+        - name: "*" # Ignore any other table spec. Just export all tables
       table-types: # One or many of the types below
         - "TABLE"
         - "VIEW"
