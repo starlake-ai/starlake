@@ -55,11 +55,11 @@ object DDL2Yml extends LazyLogging {
     DDL2YmlConfig.parse(args) match {
       case Some(config) =>
         run(config)
-      case None => throw new Exception(s"Could not parse arguments ${args.mkString("")}")
+      case None => throw new Exception(s"Could not parse arguments ${args.mkString(" ")}")
     }
   }
 
-  /** Generate YML file from JDBC Schema stoerd in a YML file
+  /** Generate YML file from JDBC Schema stored in a YML file
     *
     * @param jdbcMapFile  : Yaml File containing the JDBC Schema to extract
     * @param ymlOutputDir : Where to output the YML file. The generated filename
@@ -69,7 +69,7 @@ object DDL2Yml extends LazyLogging {
   def run(config: DDL2YmlConfig)(implicit settings: Settings): Unit = {
     val jdbcSchema = YamlSerializer.deserializeJDBCSchema(File(config.jdbcMapping))
     val domainTemplate = config.ymlTemplate.map { ymlTemplate =>
-      YamlSerializer.deserializeDomain(ymlTemplate) match {
+      YamlSerializer.deserializeDomain(File(ymlTemplate)) match {
         case Success(domain) => domain
         case Failure(e)      => throw e
       }
@@ -120,12 +120,19 @@ object DDL2Yml extends LazyLogging {
     }
 
     val allExtractedTables = extractTables()
-    // If the user specified a list of table to extract we limit the table sot extract to those ones
+    logger.whenDebugEnabled {
+      extractTables.keys.foreach(table => logger.info(s"Found: $table"))
+    } // If the user specified a list of table to extract we limit the table sot extract to those ones
     val selectedTables = tableNames match {
       case Nil =>
         allExtractedTables
       case list =>
-        allExtractedTables.filter { case (table, _) => list.contains(table.toUpperCase) }
+        allExtractedTables.filter { case (table, _) =>
+          list.contains(table.toUpperCase) || list.contains("*")
+        }
+    }
+    logger.whenInfoEnabled {
+      selectedTables.keys.foreach(table => logger.info(s"Selected: $table"))
     }
 
     val schemaMetadata = domainTemplate.flatMap(_.schemas.headOption.flatMap(_.metadata))
@@ -179,7 +186,15 @@ object DDL2Yml extends LazyLogging {
       .getOrElse(s"/${jdbcSchema.schema}")
 
     val domain =
-      Domain(jdbcSchema.schema, incomingDir, domainTemplate.flatMap(_.metadata), cometSchema.toList)
+      Domain(
+        jdbcSchema.schema,
+        incomingDir,
+        domainTemplate.flatMap(_.metadata),
+        cometSchema.toList,
+        None,
+        domainTemplate.flatMap(_.extensions),
+        domainTemplate.flatMap(_.ack)
+      )
     YamlSerializer.serializeToFile(File(ymlOutputDir, jdbcSchema.schema + ".yml"), domain)
     connection.close()
   }
@@ -203,6 +218,6 @@ object DDL2Yml extends LazyLogging {
   }
 
   def main(args: Array[String]): Unit = {
-    val result = DDL2Yml.run(args)
+    DDL2Yml.run(args)
   }
 }

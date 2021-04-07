@@ -1,0 +1,32 @@
+load:
+  name: "DOMAIN"
+  directory: "{domain}/{schema}/DOMAIN"
+  metadata:
+    mode: "FILE"
+    format: "DSV"
+    multiline: false
+    array: false
+    withHeader: false
+    separator: "/"
+    quote: "\""
+    escape: "\\"
+    write: "APPEND"
+  schemas:
+    - name: "User"
+      metadata:
+        mode: "FILE"
+        format: "DSV"
+        multiline: false
+        array: false
+        withHeader: false
+        separator: ";"
+        quote: "\""
+        escape: "\\"
+        write: "APPEND"
+      pattern: "SCHEMA-.*.dsv"
+      attributes:
+      - name: "id"
+        type: "long"
+        array: false
+        required: true
+        privacy: "NONE"
