@@ -33,9 +33,8 @@ object YamlSerializer extends LazyLogging {
     mapper.treeToValue(jdbcNode, classOf[JDBCSchema])
   }
 
-  def deserializeDomain(file: File): Domain = {
-    scala.io.Source.fromFile(file.pathAsString)
-    mapper.readValue(file.newInputStream, classOf[Domain])
+  def deserializeDomain(file: File): Try[Domain] = {
+    deserializeDomain(scala.io.Source.fromFile(file.pathAsString).getLines.mkString("\n"))
   }
 
   def serializeToFile(targetFile: File, domain: Domain): Unit =
