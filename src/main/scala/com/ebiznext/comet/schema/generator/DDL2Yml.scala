@@ -86,7 +86,8 @@ object DDL2Yml extends LazyLogging {
     *                     will be in the for TABLE_SCHEMA_NAME.yml
     * @param settings     : Application configuration file
     */
-  def run(jdbcSchema: JDBCSchema, ymlOutputDir: File, domainTemplate: Option[Domain])(implicit
+  def run(jdbcSchema: JDBCSchema, ymlOutputDir: File, domainTemplate: Option[Domain])(
+    implicit
     settings: Settings
   ): Unit = {
     val jdbcOptions = settings.comet.connections(jdbcSchema.connection)
@@ -94,8 +95,9 @@ object DDL2Yml extends LazyLogging {
     assert(jdbcOptions.format == "jdbc")
     val url = jdbcOptions.options("url")
     val properties = new Properties()
-    (jdbcOptions.options - "url").foreach { case (key, value) =>
-      properties.setProperty(key, value)
+    (jdbcOptions.options - "url").foreach {
+      case (key, value) =>
+        properties.setProperty(key, value)
     }
     val connection = DriverManager.getConnection(url, properties)
     val databaseMetaData = connection.getMetaData()
@@ -131,8 +133,9 @@ object DDL2Yml extends LazyLogging {
       case Nil =>
         allExtractedTables
       case list =>
-        allExtractedTables.filter { case (table, _) =>
-          list.contains(table.toUpperCase) || list.contains("*")
+        allExtractedTables.filter {
+          case (table, _) =>
+            list.contains(table.toUpperCase) || list.contains("*")
         }
     }
     logger.whenInfoEnabled {
@@ -142,50 +145,51 @@ object DDL2Yml extends LazyLogging {
     val schemaMetadata =
       domainTemplate.flatMap(_.schemas.headOption.flatMap(_.metadata))
     // Extract the Comet Schema
-    val cometSchema = selectedTables.map { case (tableName, tableRemarks) =>
-      val resultSet = databaseMetaData.getColumns(
-        jdbcSchema.catalog.orNull,
-        jdbcSchema.schema,
-        tableName,
-        null
-      )
-      val columns = ListBuffer.empty[Attribute]
-      while (resultSet.next()) {
-        val colName = resultSet.getString("COLUMN_NAME")
-        val colType = resultSet.getInt("DATA_TYPE")
-        val colRemarks = resultSet.getString("REMARKS")
-        val colRequired = resultSet.getString("IS_NULLABLE").equals("NO")
-
-        columns += Attribute(
-          name = colName,
-          `type` = sparkType(colType, tableName, colName),
-          required = colRequired,
-          comment = Option(colRemarks)
+    val cometSchema = selectedTables.map {
+      case (tableName, tableRemarks) =>
+        val resultSet = databaseMetaData.getColumns(
+          jdbcSchema.catalog.orNull,
+          jdbcSchema.schema,
+          tableName,
+          null
         )
-      }
-      // Limit to the columns specified by the user if any
-      val currentTableRequestedColumns =
-        jdbcTableMap
-          .get(tableName)
-          .map(_.columns.map(_.toUpperCase))
-          .getOrElse(Nil)
-      val selectedColumns =
-        if (currentTableRequestedColumns.isEmpty)
-          columns.toList
-        else
-          columns.toList.filter(col =>
-            currentTableRequestedColumns.contains(col.name.toUpperCase())
+        val columns = ListBuffer.empty[Attribute]
+        while (resultSet.next()) {
+          val colName = resultSet.getString("COLUMN_NAME")
+          val colType = resultSet.getInt("DATA_TYPE")
+          val colRemarks = resultSet.getString("REMARKS")
+          val colRequired = resultSet.getString("IS_NULLABLE").equals("NO")
+
+          columns += Attribute(
+            name = colName,
+            `type` = sparkType(colType, tableName, colName),
+            required = colRequired,
+            comment = Option(colRemarks)
           )
-      Schema(
-        tableName,
-        Pattern.compile(s"$tableName.*"),
-        selectedColumns,
-        schemaMetadata,
-        None,
-        Option(tableRemarks),
-        None,
-        None
-      )
+        }
+        // Limit to the columns specified by the user if any
+        val currentTableRequestedColumns =
+          jdbcTableMap
+            .get(tableName)
+            .map(_.columns.map(_.toUpperCase))
+            .getOrElse(Nil)
+        val selectedColumns =
+          if (currentTableRequestedColumns.isEmpty)
+            columns.toList
+          else
+            columns.toList.filter(
+              col => currentTableRequestedColumns.contains(col.name.toUpperCase())
+            )
+        Schema(
+          tableName,
+          Pattern.compile(s"$tableName.*"),
+          selectedColumns,
+          schemaMetadata,
+          None,
+          Option(tableRemarks),
+          None,
+          None
+        )
     }
     // Generate the domain with a dummy watch directory
     val incomingDir = domainTemplate
@@ -211,6 +215,7 @@ object DDL2Yml extends LazyLogging {
   }
 
   private def sparkType(jdbcType: Int, tableName: String, colName: String): String = {
+    val sqlType = reverseSqlTypes.getOrElse(jdbcType, s"UNKNOWN JDBC TYPE => $jdbcType")
     jdbcType match {
       case VARCHAR | CHAR | LONGVARCHAR => "string"
       case BIT | BOOLEAN                => "boolean"
@@ -225,15 +230,20 @@ object DDL2Yml extends LazyLogging {
       case BIGINT                       => "long"
       case DATE                         => "date"
       case TIMESTAMP                    => "timestamp"
-      case TIMESTAMP_WITH_TIMEZONE      => "timestamp"
-      case VARBINARY                    => "string"
-      case BINARY                       => "string"
+      case TIMESTAMP_WITH_TIMEZONE =>
+        logger.warn(s"forced conversion for $tableName.$colName from $sqlType to timestamp")
+        "timestamp"
+      case VARBINARY =>
+        logger.warn(s"forced conversion for $tableName.$colName from $sqlType to string")
+        "string"
+      case BINARY =>
+        logger.warn(s"forced conversion for $tableName.$colName from $sqlType to string")
+        "string"
       case _ =>
         logger.error(
-          s"""unsupported column type for $tableName.$colName  -> ${reverseSqlTypes
-            .getOrElse(jdbcType, "UNKNOWN JDBC TYPE")}($jdbcType)"""
+          s"""unsupported column type for $tableName.$colName  -> $sqlType ($jdbcType)"""
         )
-        reverseSqlTypes.getOrElse(jdbcType, s"UNKNOWN JDBC TYPE => $jdbcType")
+        sqlType
     }
   }
 
