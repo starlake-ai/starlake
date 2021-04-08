@@ -55,7 +55,8 @@ object DDL2Yml extends LazyLogging {
     DDL2YmlConfig.parse(args) match {
       case Some(config) =>
         run(config)
-      case None => throw new Exception(s"Could not parse arguments ${args.mkString(" ")}")
+      case None =>
+        throw new Exception(s"Could not parse arguments ${args.mkString(" ")}")
     }
   }
 
@@ -67,7 +68,8 @@ object DDL2Yml extends LazyLogging {
     * @param settings     : Application configuration file
     */
   def run(config: DDL2YmlConfig)(implicit settings: Settings): Unit = {
-    val jdbcSchema = YamlSerializer.deserializeJDBCSchema(File(config.jdbcMapping))
+    val jdbcSchema =
+      YamlSerializer.deserializeJDBCSchema(File(config.jdbcMapping))
     val domainTemplate = config.ymlTemplate.map { ymlTemplate =>
       YamlSerializer.deserializeDomain(File(ymlTemplate)) match {
         case Success(domain) => domain
@@ -98,7 +100,9 @@ object DDL2Yml extends LazyLogging {
     val connection = DriverManager.getConnection(url, properties)
     val databaseMetaData = connection.getMetaData()
     val jdbcTableMap =
-      jdbcSchema.tables.map(tblSchema => tblSchema.name.toUpperCase -> tblSchema).toMap
+      jdbcSchema.tables
+        .map(tblSchema => tblSchema.name.toUpperCase -> tblSchema)
+        .toMap
     val tableNames = jdbcTableMap.keys.toList
 
     /* Extract all tables from the database and return Map of tablename -> tableDescription */
@@ -135,7 +139,8 @@ object DDL2Yml extends LazyLogging {
       selectedTables.keys.foreach(table => logger.info(s"Selected: $table"))
     }
 
-    val schemaMetadata = domainTemplate.flatMap(_.schemas.headOption.flatMap(_.metadata))
+    val schemaMetadata =
+      domainTemplate.flatMap(_.schemas.headOption.flatMap(_.metadata))
     // Extract the Comet Schema
     val cometSchema = selectedTables.map { case (tableName, tableRemarks) =>
       val resultSet = databaseMetaData.getColumns(
@@ -150,16 +155,20 @@ object DDL2Yml extends LazyLogging {
         val colType = resultSet.getInt("DATA_TYPE")
         val colRemarks = resultSet.getString("REMARKS")
         val colRequired = resultSet.getString("IS_NULLABLE").equals("NO")
+
         columns += Attribute(
           name = colName,
-          `type` = sparkType(colType),
+          `type` = sparkType(colType, tableName, colName),
           required = colRequired,
           comment = Option(colRemarks)
         )
       }
       // Limit to the columns specified by the user if any
       val currentTableRequestedColumns =
-        jdbcTableMap.get(tableName).map(_.columns.map(_.toUpperCase)).getOrElse(Nil)
+        jdbcTableMap
+          .get(tableName)
+          .map(_.columns.map(_.toUpperCase))
+          .getOrElse(Nil)
       val selectedColumns =
         if (currentTableRequestedColumns.isEmpty)
           columns.toList
@@ -181,7 +190,9 @@ object DDL2Yml extends LazyLogging {
     // Generate the domain with a dummy watch directory
     val incomingDir = domainTemplate
       .map { dom =>
-        DatasetArea.substituteDomainAndSchemaInPath(jdbcSchema.schema, "", dom.directory).toString
+        DatasetArea
+          .substituteDomainAndSchemaInPath(jdbcSchema.schema, "", dom.directory)
+          .toString
       }
       .getOrElse(s"/${jdbcSchema.schema}")
 
@@ -199,21 +210,36 @@ object DDL2Yml extends LazyLogging {
     connection.close()
   }
 
-  private def sparkType(jdbcType: Int): String = {
+  private def sparkType(jdbcType: Int, tableName: String, colName: String): String = {
+    val sqlType = reverseSqlTypes.getOrElse(jdbcType, s"UNKNOWN JDBC TYPE => $jdbcType")
     jdbcType match {
-      case VARCHAR | CHAR | LONGVARCHAR          => "string"
-      case BIT | BOOLEAN                         => "boolean"
-      case FLOAT | REAL | DOUBLE                 => "double"
-      case NUMERIC                               => "decimal"
-      case TINYINT | SMALLINT | INTEGER | BIGINT => "long"
-      case DATE                                  => "date"
-      case TIMESTAMP | TIMESTAMP_WITH_TIMEZONE   => "timestamp"
+      case VARCHAR | CHAR | LONGVARCHAR => "string"
+      case BIT | BOOLEAN                => "boolean"
+      case DOUBLE                       => "double"
+      case FLOAT                        => "double"
+      case REAL                         => "double"
+      case DECIMAL                      => "decimal"
+      case NUMERIC                      => "decimal"
+      case TINYINT                      => "long"
+      case SMALLINT                     => "long"
+      case INTEGER                      => "long"
+      case BIGINT                       => "long"
+      case DATE                         => "date"
+      case TIMESTAMP                    => "timestamp"
+      case TIMESTAMP_WITH_TIMEZONE =>
+        logger.warn(s"forced conversion for $tableName.$colName from $sqlType to timestamp")
+        "timestamp"
+      case VARBINARY =>
+        logger.warn(s"forced conversion for $tableName.$colName from $sqlType to string")
+        "string"
+      case BINARY =>
+        logger.warn(s"forced conversion for $tableName.$colName from $sqlType to string")
+        "string"
       case _ =>
         logger.error(
-          s"""unsupported COLUMN TYPE -> ${reverseSqlTypes
-            .getOrElse(jdbcType, "UNKNOWN JDBC TYPE")}($jdbcType)"""
+          s"""unsupported column type for $tableName.$colName  -> $sqlType ($jdbcType)"""
         )
-        reverseSqlTypes.getOrElse(jdbcType, s"UNKNOWN JDBC TYPE => $jdbcType")
+        sqlType
     }
   }
 
