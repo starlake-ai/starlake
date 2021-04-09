@@ -34,15 +34,12 @@ import com.ebiznext.comet.job.ingest.LoadConfig
 import com.ebiznext.comet.job.metrics.MetricsConfig
 import com.ebiznext.comet.schema.generator.{Xls2Yml, Xls2YmlConfig, Yml2XlsConfig, Yml2XlsWriter}
 import com.ebiznext.comet.schema.handlers.SchemaHandler
-import com.ebiznext.comet.utils.{CometObjectMapper, FileLock, Utils}
+import com.ebiznext.comet.utils.CometObjectMapper
 import com.ebiznext.comet.workflow.{ImportConfig, IngestionWorkflow, TransformConfig, WatchConfig}
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.StrictLogging
-import org.apache.hadoop.fs.Path
-
-import scala.util.{Failure, Success}
 
 /** The root of all things.
   *  - importing from landing
@@ -135,24 +132,12 @@ object Main extends StrictLogging {
       case "ingest" | "load" =>
         LoadConfig.parse(args.drop(1)) match {
           case Some(config) =>
-            val lockPath =
-              new Path(settings.comet.lock.path, s"${config.domain}_${config.schema}.lock")
-            val locker = new FileLock(lockPath, storageHandler)
-            val waitTimeMillis = settings.comet.lock.ingestionTimeout
-
-            locker.doExclusively(waitTimeMillis) {
-              workflow.load(config) match {
-                case None | Some(Success(_)) => true
-                case Some(Failure(exception)) =>
-                  Utils.logException(logger, exception)
-                  false
-              }
-            }
-
+            workflow.load(config)
           case _ =>
             println(LoadConfig.usage())
             false
         }
+
       case "index" | "esload" =>
         ESLoadConfig.parse(args.drop(1)) match {
           case Some(config) =>
