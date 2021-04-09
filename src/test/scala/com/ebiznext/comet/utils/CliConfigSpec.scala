@@ -10,7 +10,7 @@ import com.ebiznext.comet.job.index.kafkaload.KafkaJobConfig
 import com.ebiznext.comet.job.infer.InferSchemaConfig
 import com.ebiznext.comet.job.ingest.LoadConfig
 import com.ebiznext.comet.job.metrics.MetricsConfig
-import com.ebiznext.comet.schema.generator.{Xls2YmlConfig, Yml2XlsConfig}
+import com.ebiznext.comet.schema.generator.{DDL2YmlConfig, Xls2YmlConfig, Yml2XlsConfig}
 import com.ebiznext.comet.workflow.{ImportConfig, TransformConfig, WatchConfig}
 
 class CliConfigSpec extends TestHelper {
@@ -26,6 +26,7 @@ class CliConfigSpec extends TestHelper {
         "parquet2csv"  -> Parquet2CSVConfig.sphinx(),
         "cnxload"      -> ConnectionLoadConfig.sphinx(),
         "xls2yml"      -> Xls2YmlConfig.sphinx(),
+        "ddl2yml"      -> DDL2YmlConfig.sphinx(),
         "extract"      -> ExtractScriptGenConfig.sphinx(),
         "transform"    -> TransformConfig.sphinx(),
         "watch"        -> WatchConfig.sphinx(),
