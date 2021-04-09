@@ -164,9 +164,12 @@ object DDL2Yml extends LazyLogging {
           comment = Option(colRemarks)
         )
       }
+      // remove duplicates
+      // see https://stackoverflow.com/questions/1601203/jdbc-databasemetadata-getcolumns-returns-duplicate-columns
       val columns = attrs.groupBy(_.name).map(_._2.head)
-      logger.whenInfoEnabled {
-        columns.foreach(column => logger.info(s"column: $tableName.${column.name}"))
+
+      logger.whenDebugEnabled {
+        columns.foreach(column => logger.debug(s"column: $tableName.${column.name}"))
       }
 
       // Limit to the columns specified by the user if any
@@ -182,8 +185,8 @@ object DDL2Yml extends LazyLogging {
           columns.toList.filter(col =>
             currentTableRequestedColumns.contains(col.name.toUpperCase())
           )
-      logger.whenInfoEnabled {
-        columns.foreach(column => logger.info(s"Final schema column: $tableName.${column.name}"))
+      logger.whenDebugEnabled {
+        columns.foreach(column => logger.debug(s"Final schema column: $tableName.${column.name}"))
       }
       Schema(
         tableName,
@@ -222,26 +225,17 @@ object DDL2Yml extends LazyLogging {
   private def sparkType(jdbcType: Int, tableName: String, colName: String): String = {
     val sqlType = reverseSqlTypes.getOrElse(jdbcType, s"UNKNOWN JDBC TYPE => $jdbcType")
     jdbcType match {
-      case VARCHAR | CHAR | LONGVARCHAR => "string"
-      case BIT | BOOLEAN                => "boolean"
-      case DOUBLE                       => "double"
-      case FLOAT                        => "double"
-      case REAL                         => "double"
-      case DECIMAL                      => "decimal"
-      case NUMERIC                      => "decimal"
-      case TINYINT                      => "long"
-      case SMALLINT                     => "long"
-      case INTEGER                      => "long"
-      case BIGINT                       => "long"
-      case DATE                         => "date"
-      case TIMESTAMP                    => "timestamp"
+      case VARCHAR | CHAR | LONGVARCHAR          => "string"
+      case BIT | BOOLEAN                         => "boolean"
+      case DOUBLE | FLOAT | REAL                 => "double"
+      case NUMERIC | DECIMAL                     => "decimal"
+      case TINYINT | SMALLINT | INTEGER | BIGINT => "long"
+      case DATE                                  => "date"
+      case TIMESTAMP                             => "timestamp"
       case TIMESTAMP_WITH_TIMEZONE =>
         logger.warn(s"forced conversion for $tableName.$colName from $sqlType to timestamp")
         "timestamp"
-      case VARBINARY =>
-        logger.warn(s"forced conversion for $tableName.$colName from $sqlType to string")
-        "string"
-      case BINARY =>
+      case VARBINARY | BINARY =>
         logger.warn(s"forced conversion for $tableName.$colName from $sqlType to string")
         "string"
       case _ =>
