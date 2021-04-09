@@ -2,18 +2,18 @@
 Quick Start
 ***********
 
-The example in the folder ``src/test/resources/quickstart`` import into the cluster the following files :
+The example in the folder ``src/test/resources/quickstart`` import into the cluster the following files:
 
-From the sales departement, customers and orders in delimiter separated files :
+From the sales department, customers and orders in delimiter separated files :
  - customers and orders are appended to the previous imported data
  - new orders are added
  - updated orders replace existing ones
- - and some orders may even be delted whenmarked as such in the input dataset
+ - and some orders may even be deleted when marked as such in the input dataset
 
-From the HR departement, sellers and locations in json files :
+From the HR department, sellers and locations in json files :
  - sellers are imported in a cumulative way while locations are imported as full content and overwrite the existing locations dataset
  - sellers are loaded as an array of json objects
- - locations are received in JSONL format
+ - locations are received in JSON format
 
 
 

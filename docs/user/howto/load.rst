@@ -7,7 +7,7 @@ Load
 Load Rules
 ###############
 
-Load rules are stored in the HDFS folder referenced by the COMET_METADATA
+Load rules are stored in the folder referenced by the COMET_METADATA
 environment variable (/tmp/metadata by default).
 
 .. note::
@@ -26,7 +26,7 @@ Schema files describe how the input files are parsed using a set of rules :
 Type Rules
 *************
 
-Types are defined in the HDFS file $COMET_METADATA/types/types.comet.yml.
+Types are defined in the file $COMET_METADATA/types/types.comet.yml.
 
 A type is defined by:
 
@@ -262,14 +262,14 @@ The schema section in the YAML above should be read as follows :
    :widths: 20, 60
 
    pattern,Filename pattern to match in the domain directory
-   name, Schema name: HDFS folder where the dataset is stored and Hive table prefix.
+   name, Schema name: folder where the dataset is stored and Hive table prefix.
    metadata.mode, always FILE. STREAM is reserved for future use.
    metadata.format, DSV for delimiter separated values file. SIMPLE_JSON and JSON are also supported.
    metadata.withHeader, Does the input file has a header
    metadata.separator, What is the field separator
    metadata.quote, How are string delimited
    metadata.escape, How are characters escaped
-   metadata.write, Should we APPEND or OVERWRITE existing data in the HDFS cluster
+   metadata.write, Should we APPEND or OVERWRITE existing data in the  cluster
    metadata.multiline, "Are JSON object on multiple line. Used when format is JSON or SIMPLE_JSON. This slow down parsing"
    metadata.array, "Should we treat the file as a single array of JSON objects. Used  when format is JSON or SIMPLE_JSON and the input data is in brackets [...]"
 
@@ -488,7 +488,7 @@ Below an example of how to partition by ingestion year, month and day.
 Compaction
 ~~~~~~~~~~
 When saving files as parquet or orc or whatever, the optimal number of partitions depend on the dataset size,
-number of records, the size of each record and the HDFS block size.
+number of records, the size of each record and the block size.
 
 The goal is to optimise the number of partitions during the write phase.
 
@@ -498,9 +498,9 @@ You have 3 choices available :
 Solution 1 : Naive Compaction
 """""""""""""""""""""""""""""
 1. Save the file in a temporary location
-2. Get the dataset size on HDFS.
-3. Divide the dataset size by the  HDFS block size to get the number of partitions
-4. Save the dataset to the target HDFS location with the computed number of partitions
+2. Get the dataset size.
+3. Divide the dataset size by the  block size to get the number of partitions
+4. Save the dataset to the target location with the computed number of partitions
 
 The main drawback of this approach is that we need to save the file twice.
 
@@ -508,9 +508,9 @@ Solution 2 : Sampling
 """""""""""""""""""""
 1. Get a percentage of the records in the dataframe before saving it.
 2. Save it to a temporary location
-3. Estimate the size of the final dataset on HDFS based on the size of the sample on HDFS
+3. Estimate the size of the final dataset on HDFS based on the size of the sample
 4. Compute the number of partitions based on this estimation
-5. Save the dataset to the target HDFS location with the computed number of partitions
+5. Save the dataset to the target location with the computed number of partitions
 
 The Naive solution is in fact identical to the Sampling one with a sampling percentage of 100%.
 
