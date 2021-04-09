@@ -2,7 +2,7 @@ Airflow DAGs
 ############
 
 Comet Data Pipeline comes with native  Airflow support.
-Below are DAG definitions for each of the three ingestion steps on an kerberized HDFS cluster.
+Below are DAG definitions for each of the three ingestion steps on an kerberized cluster.
 
 Import DAG
 ----------

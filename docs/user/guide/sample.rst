@@ -5,7 +5,7 @@ Example
 
 Say we have to ingest customers, orders and sellers into the datalake.
 The customers and orders are provided by the "sales" department while
-the sellers and locations datasets are provided by the HR departement.
+the sellers and locations datasets are provided by the HR department.
 
 The orders dataset contains new, updated and deleted orders.
 Once imported, we want the deleted orders to be removed from the dataset and
@@ -18,7 +18,7 @@ while all others datasets are just updates of the previous imported ones.
 The customers and orders dataset are sent by the "sales" department
 as CSV  files. Below is an extract of these files.
 
-``File customers-2018-05-10.psv from "sales" departement``
+``File customers-2018-05-10.psv from "sales" department``
 
 .. code-block:: text
 

@@ -10,7 +10,7 @@ To extract a table of view content, we need to :
 
 * Write a YAML file that describe the table schema
 * a mustache template that describe how the table data should be extracted as files. A generic mustache template is provided below
-* Run `comet extract` to export a data to a directory
+* Run `comet extract` to apply the templated script to your database
 
 The YAML File
 ################
@@ -37,7 +37,7 @@ The following parameters are available :
 * delimiter : delimiter to use in the export file
 * columns : Column map with the single name attribute
 
-.. code-block:: sql
+.. code-block:: none
 
     -- How the data should be exported
     SET ECHO OFF

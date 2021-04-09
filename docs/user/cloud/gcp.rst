@@ -8,7 +8,7 @@ Running Locally
 ----------------
 
 When debugging your application, you may need to run your job locally against the remote GCP Project hosting your BigQuery datasets.
-In that case, youo need a custom core-site.xml in your classpath as decribed below :
+In that case, you need to set the GOOGLE_CLOUD_PROJECT env var and create a custom core-site.xml in your classpath as described below :
 
 .. code-block:: xml
 
