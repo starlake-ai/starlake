@@ -73,8 +73,7 @@ Below is how the folders look like by default for the provided quickstart sample
 
 
 Almost all options are customizable through environnement vairables.
-The main env vars are described below, you may change default settings. The exhaustive list of predefined env vars are
-presnet in the reference.conf file.
+The main env vars are described below, you may change default settings. The exhaustive list of predefined env vars can be found in the reference.conf file.
 
 .. csv-table::
    :widths: 25 50 25
@@ -103,7 +102,11 @@ presnet in the reference.conf file.
 
 
 .. note::
-  When running Spark on YARN in cluster mode, environment variables need to be set using the spark.yarn.appMasterEnv.[EnvironmentVariableName]
+  When running Spark on YARN in cluster mode, environment variables need to be set using the syntax spark.yarn.appMasterEnv.[EnvironmentVariableName]
+
+.. note::
+  When running Dataproc on GCP, environment variables need to be set in the DataprocClusterCreateOperator in the properties attributes
+  using the syntax "spark-env:[EnvironmentVariableName]":"[Value]"
 
 
 .. _HIVE_6394: https://issues.apache.org/jira/browse/HIVE-6394
