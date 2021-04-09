@@ -125,7 +125,7 @@ object DDL2Yml extends LazyLogging {
 
     val allExtractedTables = extractTables()
     logger.whenDebugEnabled {
-      extractTables.keys.foreach(table => logger.info(s"Found: $table"))
+      extractTables.keys.foreach(table => logger.debug(s"Found: $table"))
     } // If the user specified a list of table to extract we limit the table sot extract to those ones
     val selectedTables = tableNames match {
       case Nil =>
@@ -149,20 +149,26 @@ object DDL2Yml extends LazyLogging {
         tableName,
         null
       )
-      val columns = ListBuffer.empty[Attribute]
+      val attrs = ListBuffer.empty[Attribute]
       while (resultSet.next()) {
         val colName = resultSet.getString("COLUMN_NAME")
+        println(s"COLUMN_NAME=$colName")
         val colType = resultSet.getInt("DATA_TYPE")
         val colRemarks = resultSet.getString("REMARKS")
         val colRequired = resultSet.getString("IS_NULLABLE").equals("NO")
 
-        columns += Attribute(
+        attrs += Attribute(
           name = colName,
           `type` = sparkType(colType, tableName, colName),
           required = colRequired,
           comment = Option(colRemarks)
         )
       }
+      val columns = attrs.groupBy(_.name).map(_._2.head)
+      logger.whenInfoEnabled {
+        columns.foreach(column => logger.info(s"column: $tableName.${column.name}"))
+      }
+
       // Limit to the columns specified by the user if any
       val currentTableRequestedColumns =
         jdbcTableMap
@@ -176,6 +182,9 @@ object DDL2Yml extends LazyLogging {
           columns.toList.filter(col =>
             currentTableRequestedColumns.contains(col.name.toUpperCase())
           )
+      logger.whenInfoEnabled {
+        columns.foreach(column => logger.info(s"Final schema column: $tableName.${column.name}"))
+      }
       Schema(
         tableName,
         Pattern.compile(s"$tableName.*"),
