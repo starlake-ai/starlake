@@ -9,7 +9,7 @@ Storage Accounts
 
 Comet need to access ADFS. You need to provide the credentials in one of the three ways below :
 
-* Through a core-site.xml file present in the classpath :
+* Through a core-site.xml file present in the classpath (you'll probably use this method when running the ingestion process from your laptop):
 
 .. code-block:: xml
 
@@ -28,6 +28,7 @@ Comet need to access ADFS. You need to provide the credentials in one of the thr
 
 
 * At cluster creation as specified `here <https://docs.microsoft.com/fr-fr/azure/databricks/data/data-sources/azure/azure-datalake-gen2#rdd-api>`_.
+(you'll probably use this method on a production cluster)
 
 
 * Through a specific application.conf file in the comet.jar classpath.
