@@ -33,7 +33,7 @@ import com.ebiznext.comet.job.transform.AutoTaskJob
 import com.ebiznext.comet.schema.handlers.{LaunchHandler, SchemaHandler, StorageHandler}
 import com.ebiznext.comet.schema.model.Format._
 import com.ebiznext.comet.schema.model._
-import com.ebiznext.comet.utils.{JobResult, SparkJobResult, Unpacker, Utils}
+import com.ebiznext.comet.utils._
 import com.google.cloud.bigquery.JobInfo.{CreateDisposition, WriteDisposition}
 import com.google.cloud.bigquery.{Schema => BQSchema}
 import com.typesafe.scalalogging.StrictLogging
@@ -290,15 +290,27 @@ class IngestionWorkflow(
 
   /** Ingest the file (called by the cron manager at ingestion time for a specific dataset
     */
-  def load(config: LoadConfig): Option[Try[JobResult]] = {
-    val domainName = config.domain
-    val schemaName = config.schema
-    val ingestingPaths = config.paths
-    val result = for {
-      domain <- domains.find(_.name == domainName)
-      schema <- domain.schemas.find(_.name == schemaName)
-    } yield ingest(domain, schema, ingestingPaths, config.options)
-    result
+  def load(config: LoadConfig): Boolean = {
+    val lockPath =
+      new Path(settings.comet.lock.path, s"${config.domain}_${config.schema}.lock")
+    val locker = new FileLock(lockPath, storageHandler)
+    val waitTimeMillis = settings.comet.lock.ingestionTimeout
+
+    locker.doExclusively(waitTimeMillis) {
+      val domainName = config.domain
+      val schemaName = config.schema
+      val ingestingPaths = config.paths
+      val result = for {
+        domain <- domains.find(_.name == domainName)
+        schema <- domain.schemas.find(_.name == schemaName)
+      } yield ingest(domain, schema, ingestingPaths, config.options)
+      result match {
+        case None | Some(Success(_)) => true
+        case Some(Failure(exception)) =>
+          Utils.logException(logger, exception)
+          false
+      }
+    }
   }
 
   def ingest(
