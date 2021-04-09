@@ -186,6 +186,7 @@ trait IngestionJob extends SparkJob {
     val acceptedPath = new Path(DatasetArea.accepted(domain.name), schema.name)
 
     val acceptedDfWithScriptFields = (if (schema.attributes.exists(_.script.isDefined)) {
+                                        val allColumns = "*"
                                         schema.attributes.foldLeft(acceptedDF) {
                                           case (
                                                 df,
@@ -207,7 +208,7 @@ trait IngestionJob extends SparkJob {
                                                 )
                                               ) =>
                                             df.T(
-                                              s"SELECT *, ${script.richFormat(options)} as $name FROM __THIS__"
+                                              s"SELECT $allColumns, ${script.richFormat(options)} as $name FROM __THIS__"
                                             )
                                           case (df, _) => df
                                         }
