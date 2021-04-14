@@ -25,7 +25,7 @@ organizationName := "Ebiznext"
 
 scalaVersion := scala212
 
-organizationHomepage := Some(url("http://www.ebiznext.com"))
+organizationHomepage := Some(url("https://github.com/ebiznext/comet-data-pipeline"))
 
 libraryDependencies ++= {
   val (spark, jackson) = {
@@ -46,7 +46,7 @@ name := {
       case _   => throw new Exception(s"Invalid Scala Version")
     }
   }
-  s"comet-spark${sparkNameSuffix}"
+  s"comet-spark$sparkNameSuffix"
 }
 
 assemblyJarName in assembly := s"${name.value}_${scalaBinaryVersion.value}-${version.value}-assembly.jar"
@@ -118,9 +118,10 @@ releaseCommitMessage := s"Release ${ReleasePlugin.runtimeVersion.value}"
 releaseVersionBump := Next
 
 assemblyMergeStrategy in assembly := {
-  case PathList("META-INF", xs @ _*) => MergeStrategy.discard
+  case PathList("META-INF", _ @ _*) => MergeStrategy.discard
   case "reference.conf"              => MergeStrategy.concat
-  case x                             => MergeStrategy.first
+  case _
+  => MergeStrategy.first
 }
 
 // Required by the Test container framework
@@ -147,7 +148,7 @@ sonatypeProfileName := "com.ebiznext"
 publishMavenStyle := true
 
 // Open-source license of your choice
-licenses := Seq("APL2" -> url("http://www.apache.org/licenses/LICENSE-2.0.txt"))
+licenses := Seq("APL2" -> url("https://www.apache.org/licenses/LICENSE-2.0.txt"))
 
 // Where is the source code hosted: GitHub or GitLab?
 import xerial.sbt.Sonatype._
