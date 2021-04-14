@@ -26,5 +26,6 @@ templated_command = COMET_SPARK_CMD + """ {{ dag_run.conf['command'] }}"""
 
 t1 = BashOperator(
     task_id='comet_index',
+    env={},
     bash_command=templated_command,
     dag=dag)
