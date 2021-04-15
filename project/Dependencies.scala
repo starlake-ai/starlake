@@ -167,7 +167,11 @@ object Dependencies {
     "com.dimafeng" %% "testcontainers-scala-kafka" % Versions.testContainers % Test
   )
 
+  val graphviz = Seq(
+    "com.github.jsqlparser" % "jsqlparser" % Versions.graphviz
+  )
+
   val dependencies =
     scalate ++ logging ++ typedConfigs ++ betterfiles ++ scalaTest ++ scopt ++ hadoop ++ esHadoop ++
-    sttp ++ gcp ++ azure ++ h2 ++ excelClientApi ++ akkaHttp ++ akkaStream ++ kafkaClients // ++ atlas
+    sttp ++ gcp ++ azure ++ h2 ++ excelClientApi ++ akkaHttp ++ akkaStream ++ kafkaClients ++ graphviz // ++ atlas
 }
