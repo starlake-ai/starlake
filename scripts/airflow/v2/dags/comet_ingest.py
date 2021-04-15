@@ -18,14 +18,13 @@ default_args = {
     # 'end_date': datetime(2016, 1, 1),
 }
 
-dag = DAG('comet_index', max_active_runs=1, catchup=False, default_args=default_args, schedule_interval=None)
+dag = DAG('comet_ingest', max_active_runs=1, catchup=False, default_args=default_args, schedule_interval=None)
 
 COMET_SPARK_CMD = os.environ.get('COMET_SPARK_CMD', '')
 
 templated_command = COMET_SPARK_CMD + """ {{ dag_run.conf['command'] }}"""
 
 t1 = BashOperator(
-    task_id='comet_index',
-    env={},
+    task_id='comet_ingest',
     bash_command=templated_command,
     dag=dag)
