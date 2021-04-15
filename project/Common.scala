@@ -131,6 +131,7 @@ object Versions {
   val akkaStream = "2.5.32"
   val kafkaClients = "2.7.0"
   val testContainers = "0.39.0"
+  val graphviz = "4.0"
 }
 
 object Resolvers {
