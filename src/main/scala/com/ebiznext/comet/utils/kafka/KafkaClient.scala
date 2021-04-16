@@ -19,8 +19,8 @@ class KafkaClient(kafkaConfig: KafkaConfig) extends StrictLogging with AutoClose
   val cometOffsetsConfig: KafkaTopicConfig = kafkaConfig.topics("comet_offsets")
 
   val props = new Properties()
-  serverOptions.foreach { option =>
-    props.put(option._1, option._2)
+  serverOptions.foreach { case (k, v) =>
+    props.put(k, v)
   }
 
   val client: AdminClient = AdminClient.create(props)
@@ -126,7 +126,9 @@ class KafkaClient(kafkaConfig: KafkaConfig) extends StrictLogging with AutoClose
     val res = offsets.keys.map { k =>
       val tab = k.split('/')
       (tab(0), tab(1), offsets(k))
-    } groupBy (_._1) mapValues (_.map(it => (it._2.toInt, it._3.toLong)).toList) get topicConfigName
+    } groupBy { case (topic, _, _) => topic } mapValues (_.map { case (topic, partition, offset) =>
+      (partition.toInt, offset.toLong)
+    }.toList) get topicConfigName
     res
   }
 
@@ -182,7 +184,7 @@ class KafkaClient(kafkaConfig: KafkaConfig) extends StrictLogging with AutoClose
     val reader = session.readStream.format("kafka")
     val df =
       config.accessOptions
-        .foldLeft(reader)((reader, option) => reader.option(option._1, option._2))
+        .foldLeft(reader) { case (reader, (k, v)) => reader.option(k, v) }
         .load()
         .selectExpr(config.fields.map(x => s"CAST($x)"): _*)
     df
@@ -195,7 +197,7 @@ class KafkaClient(kafkaConfig: KafkaConfig) extends StrictLogging with AutoClose
     val writer = df.selectExpr(config.fields.map(x => s"CAST($x)"): _*).write.format("kafka")
 
     config.accessOptions
-      .foldLeft(writer)((writer, option) => writer.option(key = option._1, value = option._2))
+      .foldLeft(writer) { case (writer, (k, v)) => writer.option(k, v) }
       .option("topic", config.topicName)
       .save()
   }

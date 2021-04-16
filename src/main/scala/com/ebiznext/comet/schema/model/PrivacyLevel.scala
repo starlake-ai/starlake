@@ -22,7 +22,6 @@ package com.ebiznext.comet.schema.model
 
 import java.util.Locale
 import com.ebiznext.comet.config.Settings
-import com.ebiznext.comet.privacy.PrivacyEngine
 import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.databind.annotation.{JsonDeserialize, JsonSerialize}
 import com.fasterxml.jackson.databind.ser.std.ToStringSerializer
