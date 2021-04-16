@@ -21,8 +21,8 @@ import org.apache.spark.sql.functions.{col, date_format}
 import org.apache.spark.sql.{DataFrame, SaveMode, SparkSession}
 import org.apache.spark.storage.StorageLevel
 
-import scala.util.Try
 import scala.collection.JavaConverters._
+import scala.util.Try
 
 class BigQuerySparkJob(
   override val cliConfig: BigQueryLoadConfig,
@@ -174,7 +174,9 @@ class BigQuerySparkJob(
                 .option("datePartition", partitionStr)
                 .option("table", bqTable)
                 .option("intermediateFormat", intermediateFormat)
-            cliConfig.options.foldLeft(finalDF)((w, kv) => w.option(kv._1, kv._2)).save()
+            cliConfig.options
+              .foldLeft(finalDF) { case (df, (k, v)) => df.option(k, v) }
+              .save()
           }
 
         case (writeDisposition, _) =>

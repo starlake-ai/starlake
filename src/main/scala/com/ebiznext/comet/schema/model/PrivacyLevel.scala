@@ -21,8 +21,8 @@
 package com.ebiznext.comet.schema.model
 
 import java.util.Locale
-
 import com.ebiznext.comet.config.Settings
+import com.ebiznext.comet.privacy.PrivacyEngine
 import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.databind.annotation.{JsonDeserialize, JsonSerialize}
 import com.fasterxml.jackson.databind.ser.std.ToStringSerializer
@@ -38,7 +38,7 @@ sealed case class PrivacyLevel(value: String) {
   override def toString: String = value
 
   def crypt(s: String, colMap: Map[String, Option[String]])(implicit settings: Settings): String = {
-    val (privacyAlgo, privacyParams) = settings.allPrivacyLevels(value)._1
+    val ((privacyAlgo, privacyParams), _) = settings.allPrivacyLevels(value)
     privacyAlgo.crypt(s, colMap, privacyParams)
   }
 

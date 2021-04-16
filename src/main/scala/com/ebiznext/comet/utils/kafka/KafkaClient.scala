@@ -10,8 +10,8 @@ import org.apache.spark.sql.{DataFrame, SparkSession}
 
 import java.time.Duration
 import java.util.Properties
+import scala.collection.JavaConverters._
 import scala.collection.mutable
-import collection.JavaConverters._
 
 class KafkaClient(kafkaConfig: KafkaConfig) extends StrictLogging with AutoCloseable {
 
@@ -134,9 +134,7 @@ class KafkaClient(kafkaConfig: KafkaConfig) extends StrictLogging with AutoClose
     if (offsets.isEmpty)
       None
     else {
-      val offsetsAsString = offsets.map { offset =>
-        val partition = offset._1
-        val partitionOffset = offset._2
+      val offsetsAsString = offsets.map { case (partition, partitionOffset) =>
         s""""$partition": $partitionOffset"""
       } mkString ","
       Some(s"""{"$topicName":{$offsetsAsString}}""")
@@ -170,7 +168,7 @@ class KafkaClient(kafkaConfig: KafkaConfig) extends StrictLogging with AutoClose
     val reader = session.read.format("kafka")
     val df =
       withOffsetsTopicOptions
-        .foldLeft(reader)((reader, option) => reader.option(option._1, option._2))
+        .foldLeft(reader) { case (reader, (k, v)) => reader.option(k, v) }
         .load()
         .selectExpr(config.fields.map(x => s"CAST($x)"): _*)
     df.printSchema()

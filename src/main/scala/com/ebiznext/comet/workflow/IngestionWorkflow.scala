@@ -178,9 +178,9 @@ class IngestionWorkflow(
 
       val filteredResolved = if (settings.comet.privacyOnly) {
         val (withPrivacy, noPrivacy) =
-          resolved.partition(
-            _._1.exists(_.attributes.map(_.getPrivacy()).exists(!PrivacyLevel.None.equals(_)))
-          )
+          resolved.partition { case (schema, _) =>
+            schema.exists(_.attributes.map(_.getPrivacy()).exists(!PrivacyLevel.None.equals(_)))
+          }
         // files for schemas without any privacy attributes are moved directly to accepted area
         noPrivacy.foreach {
           case (Some(schema), path) =>
@@ -199,7 +199,7 @@ class IngestionWorkflow(
       val groupedResolved: Map[Schema, Iterable[Path]] = filteredResolved.map {
         case (Some(schema), path) => (schema, path)
         case (None, _)            => throw new Exception("Should never happen")
-      } groupBy (_._1) mapValues (it => it.map(_._2))
+      } groupBy { case (schema, _) => schema } mapValues (it => it.map { case (_, path) => path })
 
       groupedResolved.map { case (schema, pendingPaths) =>
         logger.info(s"""Ingest resolved file : ${pendingPaths
