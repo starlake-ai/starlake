@@ -53,7 +53,7 @@ class Parquet2CSV(config: Parquet2CSVConfig, val storageHandler: StorageHandler)
             .write
             .mode(config.writeMode.getOrElse(WriteMode.ERROR_IF_EXISTS).toSaveMode)
           config.options
-            .foldLeft(writer)((w, kv) => w.option(kv._1, kv._2))
+            .foldLeft(writer) { case (w, (k, v)) => w.option(k, v) }
             .option("ignoreLeadingWhiteSpace", false)
             .option("ignoreTrailingWhiteSpace", false)
             .csv(csvPath.toString)

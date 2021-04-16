@@ -38,12 +38,12 @@ class Yml2XlsWriter(schemaHandler: SchemaHandler) extends LazyLogging with XlsMo
   def writeDomainXls(domain: Domain, folder: String): Unit = {
     def fillHeaders(headers: List[(String, String)], sheet: XSSFSheet): Unit = {
       val header = sheet.createRow(0)
-      headers.map(_._1).zipWithIndex.foreach { case (value, columnIndex) =>
+      headers.map { case (key, _) => key }.zipWithIndex.foreach { case (key, columnIndex) =>
         val cell = header.createCell(columnIndex)
-        cell.setCellValue(value)
+        cell.setCellValue(key)
       }
       val labelHeader = sheet.createRow(1)
-      headers.map(_._2).zipWithIndex.foreach { case (value, columnIndex) =>
+      headers.map { case (_, value) => value }.zipWithIndex.foreach { case (value, columnIndex) =>
         val cell = labelHeader.createCell(columnIndex)
         cell.setCellValue(value)
       }

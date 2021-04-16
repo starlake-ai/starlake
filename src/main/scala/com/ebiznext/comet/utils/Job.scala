@@ -213,7 +213,9 @@ trait SparkJob extends JobBase {
               }
             case _ =>
               Utils.withResources(new KafkaClient(settings.comet.kafka)) { kafkaJob =>
-                kafkaJob.consumeTopicBatch(path, session, settings.comet.kafka.topics(path))._1
+                val (dataframe, _) =
+                  kafkaJob.consumeTopicBatch(path, session, settings.comet.kafka.topics(path))
+                dataframe
               }
 
           }
