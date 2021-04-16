@@ -111,15 +111,14 @@ class InferSchemaJob(implicit settings: Settings) {
     * @return the file separator
     */
   def getSeparator(datasetInit: Dataset[String]): String = {
-    session.sparkContext
+    val (separator, _) = session.sparkContext
       .parallelize(datasetInit.take(10))
       .map(x => x.replaceAll("[A-Za-z0-9 \"'()@?!éèîàÀÉÈç+]", ""))
       .flatMap(_.toCharArray)
       .map(w => (w, 1))
       .reduceByKey(_ + _)
       .max
-      ._1
-      .toString
+    separator.toString
   }
 
   /** Get domain directory name

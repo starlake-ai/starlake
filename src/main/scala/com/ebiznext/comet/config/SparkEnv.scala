@@ -52,7 +52,7 @@ class SparkEnv(name: String)(implicit settings: Settings) extends StrictLogging 
       .set("spark.app.id", appName)
 
     logger.whenDebugEnabled {
-      thisConf.getAll.foreach(x => logger.debug(x._1 + "=" + x._2))
+      thisConf.getAll.foreach { case (k, v) => logger.debug(s"$k=$v") }
     }
     thisConf
   }

@@ -168,7 +168,7 @@ object Dependencies {
   )
 
   val graphviz = Seq(
-    "com.github.jsqlparser" % "jsqlparser" % Versions.graphviz
+    "com.github.jsqlparser" % "jsqlparser" % Versions.jsqlparser
   )
 
   val dependencies =

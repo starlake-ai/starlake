@@ -309,9 +309,8 @@ object Metrics extends StrictLogging {
     colNamDataCatCountFreq: (Column, DataFrame),
     operations: List[DiscreteMetric]
   ): DataFrame = {
-    val colVar: Column = colNamDataCatCountFreq._1
-    val dataCatCountFreq: DataFrame = colNamDataCatCountFreq._2
-    val listcol: List[Column] =
+    val (colVar, dataCatCountFreq) = colNamDataCatCountFreq
+    val listCol: List[Column] =
       operations.map(metric => metric.function((colVar, dataCatCountFreq)))
 
     dataCatCountFreq
@@ -323,7 +322,7 @@ object Metrics extends StrictLogging {
           col("Frequencies").cast(DoubleType).as("frequency")
         )
       )
-      .agg(listcol.head, listcol.tail: _*)
+      .agg(listCol.head, listCol.tail: _*)
       .withColumn("attribute", lit(colVar.toString()))
 
   }
@@ -452,9 +451,10 @@ object Metrics extends StrictLogging {
     */
 
   def customCountDistinct(colNameDataCatCount: (Column, DataFrame)): Column = {
+    val (colVar, dataCatCount) = colNameDataCatCount
     customMetricDiscret(
-      colNameDataCatCount._1,
-      colNameDataCatCount._2,
+      colVar,
+      dataCatCount,
       "countDistinct",
       metricCountDistinct
     )
@@ -481,9 +481,10 @@ object Metrics extends StrictLogging {
     */
 
   def customCountDiscrete(colNameDataCatCount: (Column, DataFrame)): Column = {
+    val (colVar, dataCatCount) = colNameDataCatCount
     customMetricDiscret(
-      colNameDataCatCount._1,
-      colNameDataCatCount._2,
+      colVar,
+      dataCatCount,
       "countByCategory",
       metricCountDiscret
     )
@@ -511,9 +512,10 @@ object Metrics extends StrictLogging {
     */
 
   def customCountMissValuesDiscrete(colNameDataCatCount: (Column, DataFrame)): Column = {
+    val (colVar, dataCatCount) = colNameDataCatCount
     customMetricDiscret(
-      colNameDataCatCount._1,
-      colNameDataCatCount._2,
+      colVar,
+      dataCatCount,
       "missingValuesDiscrete",
       metricMissingValues
     )
@@ -534,7 +536,7 @@ object Metrics extends StrictLogging {
   ): Option[DataFrame] = {
 
     val headerDataUse =
-      dataInit.schema.fields.filter(_.dataType.isOfValidDiscreteType).map(_.name).toList
+      dataInit.schema.fields.filter(_.dataType.isOfValidDiscreteType()).map(_.name).toList
     logger.info("Discrete Headers -> " + headerDataUse.mkString(","))
     val intersectionHeaderAttributes = headerDataUse.intersect(discreteAttrs)
     logger.info(

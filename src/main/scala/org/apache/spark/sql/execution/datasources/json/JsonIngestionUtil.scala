@@ -60,8 +60,10 @@ object JsonIngestionUtil {
     schemaType: (String, DataType, Boolean),
     datasetType: (String, DataType, Boolean)
   ): List[String] = {
-    val schemaTypeNullable: Boolean = schemaType._3
-    (schemaType._2, datasetType._2) match {
+    val (schemaAttrName, schemaAttrType, schemaAttrNullable) = schemaType
+    val (datasetAttrName, datasetAttrType, datasetAttrNullable) = datasetType
+    val schemaTypeNullable: Boolean = schemaAttrNullable
+    (schemaAttrType, datasetAttrType) match {
       case (t1, t2) if t1 == t2                   => Nil
       case (_, NullType) if schemaTypeNullable    => Nil
       case (_: IntegralType, _: IntegralType)     => Nil
@@ -90,7 +92,7 @@ object JsonIngestionUtil {
             val f1Type = f1.dataType
             val f2Type = f2.dataType
             errorList ++= compareTypes(
-              context :+ schemaType._1,
+              context :+ schemaAttrName,
               (f1.name, f1Type, f1.nullable),
               (f2.name, f2Type, f2.nullable)
             )
@@ -112,15 +114,15 @@ object JsonIngestionUtil {
         errorList.toList
       case (ArrayType(elementType1, containsNull1), ArrayType(elementType2, _)) =>
         compareTypes(
-          context :+ schemaType._1,
-          (schemaType._1, elementType1, containsNull1),
-          (schemaType._1, elementType2, containsNull1)
+          context :+ schemaAttrName,
+          (schemaAttrName, elementType1, containsNull1),
+          (schemaAttrName, elementType2, containsNull1)
         )
       case (_, _) =>
         List(
           s"Validation error in context: ${context
-            .mkString(".")}, ${datasetType._1}:${datasetType._2} isnullable:${datasetType._3} against " +
-          s"schema ${schemaType._1}:${schemaType._2} isnullable:${schemaType._3}"
+            .mkString(".")}, $datasetAttrName:$datasetAttrType isnullable:$datasetAttrNullable against " +
+          s"schema $schemaAttrName:$schemaAttrType isnullable:$schemaAttrNullable"
         )
     }
   }

@@ -111,9 +111,9 @@ object SparkAuditLogWriter {
   )
 
   private def bigqueryAuditSchema(): BQSchema = {
-    val fields = auditCols.map { attribute =>
+    val fields = auditCols.map { case (name, tpe, _) =>
       Field
-        .newBuilder(attribute._1, attribute._2)
+        .newBuilder(name, tpe)
         .setMode(Field.Mode.NULLABLE)
         .setDescription("")
         .build()
