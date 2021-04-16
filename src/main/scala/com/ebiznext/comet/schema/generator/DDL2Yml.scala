@@ -166,7 +166,7 @@ object DDL2Yml extends LazyLogging {
       }
       // remove duplicates
       // see https://stackoverflow.com/questions/1601203/jdbc-databasemetadata-getcolumns-returns-duplicate-columns
-      val columns = attrs.groupBy(_.name).map(_._2.head)
+      val columns = attrs.groupBy(_.name).map { case (_, uniqAttr) => uniqAttr.head }
 
       logger.whenDebugEnabled {
         columns.foreach(column => logger.debug(s"column: $tableName.${column.name}"))

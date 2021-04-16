@@ -147,10 +147,12 @@ object SparkAuditLogWriter {
       .createDataFrame(
         auditTypedRDD.toDF().rdd,
         StructType(
-          auditCols.map(col => StructField(name = col._1, dataType = col._3, nullable = true))
+          auditCols.map { case (name, _, sparkType) =>
+            StructField(name = name, dataType = sparkType, nullable = true)
+          }
         )
       )
-      .toDF(auditCols.map(_._1): _*)
+      .toDF(auditCols.map { case (name, _, _) => name }: _*)
 
     settings.comet.audit.sink match {
       case sink: JdbcSink =>

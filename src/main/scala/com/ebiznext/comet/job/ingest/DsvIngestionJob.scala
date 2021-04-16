@@ -206,9 +206,9 @@ class DsvIngestionJob(
     val acceptedDF = session.createDataFrame(acceptedRDD, orderedSparkTypes)
 
     val finalDF =
-      renamedAttributes.foldLeft(acceptedDF)((acc, ca) =>
-        acc.withColumnRenamed(existingName = ca._1, newName = ca._2)
-      )
+      renamedAttributes.foldLeft(acceptedDF) { case (acc, (name, rename)) =>
+        acc.withColumnRenamed(existingName = name, newName = rename)
+      }
 
     super.saveAccepted(finalDF)
   }

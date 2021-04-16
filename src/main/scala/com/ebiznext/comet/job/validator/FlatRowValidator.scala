@@ -32,7 +32,9 @@ object FlatRowValidator extends GenericRowValidator {
               (Option(colValue).map(_.toString), colAttribute)
             }
           val rowCols = rowValues.zip(types)
-          lazy val colMap = rowValues.map(__ => (__._2.name, __._1)).toMap
+          lazy val colMap = rowValues.map { case (colValue, colAttr) =>
+            (colAttr.name, colValue)
+          }.toMap
           val validNumberOfColumns = attributes.length <= rowCols.length
           if (!validNumberOfColumns) {
             RowResult(
