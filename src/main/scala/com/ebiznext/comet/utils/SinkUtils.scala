@@ -89,7 +89,7 @@ class SinkUtils(implicit settings: Settings) extends StrictLogging {
           .option("dbtable", cliConfig.outputTable)
 
         cliConfig.options
-          .foldLeft(dfw)((w, kv) => w.option(kv._1, kv._2))
+          .foldLeft(dfw) { case (w, (k, v)) => w.option(k, v) }
           .mode(SaveMode.Append)
           .save()
     }

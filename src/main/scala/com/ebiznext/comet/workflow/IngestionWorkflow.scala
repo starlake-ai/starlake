@@ -269,16 +269,16 @@ class IngestionWorkflow(
 
     val schemas = for {
       dom <- domain.toList
-      schema <- filteredFiles(dom).map { file =>
+      (schema, path) <- filteredFiles(dom).map { file =>
         (dom.findSchema(file.getName), file)
       }
     } yield {
       logger.info(
-        s"Found Schema ${schema._1.map(_.name).getOrElse("None")} for file ${schema._2}"
+        s"Found Schema ${schema.map(_.name).getOrElse("None")} for file $path"
       )
-      schema
+      (schema, path)
     }
-    schemas.partition(_._1.isDefined)
+    schemas.partition { case (schema, _) => schema.isDefined }
   }
 
   private[this] def predicate(domain: Domain, schemasName: List[String], file: Path): Boolean = {

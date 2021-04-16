@@ -129,7 +129,7 @@ case class Schema(
     StructType(fields)
   }
 
-  def bigQuerySchema(schemaHandler: SchemaHandler): BQSchema = {
+  def bqSchema(schemaHandler: SchemaHandler): BQSchema = {
     BigQueryUtils.bqSchema(sparkTypeWithRenamedFields(schemaHandler))
   }
 
