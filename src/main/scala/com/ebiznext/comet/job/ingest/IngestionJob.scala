@@ -336,7 +336,7 @@ trait IngestionJob extends SparkJob {
           )
           val tableSchema = schema.postsql match {
             case Some(_) => Some(BigQueryUtils.bqSchema(mergedDF.schema))
-            case _       => Some(schema.bigQuerySchema(schemaHandler))
+            case _       => Some(schema.bqSchema(schemaHandler))
           }
           val config = BigQueryLoadConfig(
             source = Right(mergedDF),
@@ -879,10 +879,12 @@ object IngestionUtil {
       .createDataFrame(
         rejectedTypedRDD.toDF().rdd,
         StructType(
-          rejectedCols.map(col => StructField(col._1, col._3, nullable = false))
+          rejectedCols.map { case (attrName, sqlType, sparkType) =>
+            StructField(attrName, sparkType, nullable = false)
+          }
         )
       )
-      .toDF(rejectedCols.map(_._1): _*)
+      .toDF(rejectedCols.map { case (attrName, _, _) => attrName }: _*)
       .limit(settings.comet.audit.maxErrors)
 
     val res =

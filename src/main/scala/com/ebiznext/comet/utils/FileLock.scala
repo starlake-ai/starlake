@@ -2,11 +2,11 @@ package com.ebiznext.comet.utils
 
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.{Semaphore, TimeUnit, TimeoutException}
-
 import com.ebiznext.comet.schema.handlers.StorageHandler
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
 
+import scala.annotation.tailrec
 import scala.util.{Failure, Success, Try}
 
 /** HDFS does not have a file locking mechanism.
@@ -73,38 +73,45 @@ class FileLock(path: Path, storageHandler: StorageHandler) extends StrictLogging
     fileWatcher.checkPristine()
 
     storageHandler.mkdirs(path.getParent)
-    val maxTries = if (timeoutInMillis == -1) Integer.MAX_VALUE else timeoutInMillis / checkinPeriod
-    var numberOfTries = 1
+    val maxTries =
+      if (timeoutInMillis == -1) Integer.MAX_VALUE else (timeoutInMillis / checkinPeriod).toInt
     logger.info(s"Trying to acquire lock for file ${path.toString} during $timeoutInMillis ms")
-    var ok = false
-    while (numberOfTries <= maxTries && !ok) {
-      ok = storageHandler.touchz(path) match {
-        case Success(_) =>
-          logger.info(
-            s"Succeeded to acquire lock for file ${path.toString} after $numberOfTries tries"
-          )
-          watch()
-          true
-        case Failure(_) =>
-          val lastModified = storageHandler.lastModified(path)
-          val currentTimeMillis = System.currentTimeMillis()
 
-          logger.info(s"""
-              |lastModified=$lastModified
+    @tailrec
+    def getLock(numberOfTries: Int): Boolean = {
+      if (numberOfTries == 0)
+        false
+      else {
+        storageHandler.touchz(path) match {
+          case Success(_) =>
+            logger.info(
+              s"Succeeded to acquire lock for file ${path.toString} after $numberOfTries tries"
+            )
+            watch()
+            true
+          case Failure(_) =>
+            val lastModified = storageHandler.lastModified(path)
+            val currentTimeMillis = System.currentTimeMillis()
+
+            logger.info(s"""
+               |lastModified=$lastModified
+               
               |System.currentTimeMillis()=${currentTimeMillis}
+               
               |checkinPeriod*4=${checkinPeriod * 4}
-              |refreshPeriod*4=${refreshPeriod * 4}
+      
+               hPeriod*4=${refreshPeriod * 4}
               |
           """)
-          if ((currentTimeMillis - lastModified) > (refreshPeriod * 4)) {
-            storageHandler.delete(path)
-          }
-          numberOfTries = numberOfTries + 1
-          Thread.sleep(checkinPeriod)
-          false
+            if ((currentTimeMillis - lastModified) > (refreshPeriod * 4)) {
+              storageHandler.delete(path)
+            }
+            Thread.sleep(checkinPeriod)
+            getLock(numberOfTries - 1)
+        }
       }
     }
-    ok
+    getLock(maxTries)
   }
 
   /** Release the lock and delete the lock file.

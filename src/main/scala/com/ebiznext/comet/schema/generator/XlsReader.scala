@@ -52,7 +52,7 @@ class XlsReader(input: Input) extends XlsModel {
 
   private lazy val schemas: List[Schema] = {
     val sheet = workbook.getSheet("schemas")
-    val (rows, headerMap) = getColsOrder(sheet, allSchemaHeaders.map(_._1))
+    val (rows, headerMap) = getColsOrder(sheet, allSchemaHeaders.map { case (name, _) => name })
     rows.flatMap { row =>
       val nameOpt =
         Option(row.getCell(headerMap("_name"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
@@ -219,8 +219,7 @@ class XlsReader(input: Input) extends XlsModel {
       val attributes = sheetOpt match {
         case None => List.empty
         case Some(sheet) =>
-          val (rows, headerMap) = getColsOrder(sheet, allAttributeHeaders.map(_._1))
-          val scalaSheet = sheet.asScala
+          val (rows, headerMap) = getColsOrder(sheet, allAttributeHeaders.map { case (k, _) => k })
           rows.flatMap { row =>
             val nameOpt =
               Option(row.getCell(headerMap("_name"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
