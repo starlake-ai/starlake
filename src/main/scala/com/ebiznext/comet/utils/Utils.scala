@@ -124,8 +124,8 @@ object Utils {
     params: Map[String, String]
   ): String = {
     val paramsList = params.toList
-    val paramKeys = paramsList.map(_._1)
-    val paramValues = paramsList.map(_._2)
+    val paramKeys = paramsList.map { case (name, _) => name }
+    val paramValues = paramsList.map { case (_, value) => value }
 
     val allParams = paramKeys.zip(paramValues)
     allParams.foldLeft(value) { case (acc, (p, v)) =>

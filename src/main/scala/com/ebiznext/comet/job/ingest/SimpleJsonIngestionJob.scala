@@ -56,7 +56,9 @@ class SimpleJsonIngestionJob(
       val dfIn =
         if (metadata.isArray()) {
           val jsonRDD =
-            session.sparkContext.wholeTextFiles(path.map(_.toString).mkString(",")).map(_._2)
+            session.sparkContext.wholeTextFiles(path.map(_.toString).mkString(",")).map {
+              case (_, content) => content
+            }
 
           session.read
             .json(session.createDataset(jsonRDD)(Encoders.STRING))

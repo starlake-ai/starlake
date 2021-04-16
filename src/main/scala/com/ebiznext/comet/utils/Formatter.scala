@@ -11,9 +11,7 @@ trait Formatter {
   implicit class RichFormatter(str: String) {
 
     def richFormat(replacement: Map[String, String]): String =
-      replacement.foldLeft(str) { (res, entry) =>
-        val key = entry._1
-        val value = entry._2
+      replacement.foldLeft(str) { case (res, (key, value)) =>
         res.replaceAll("\\{\\{%s\\}\\}".format(key), value)
       }
   }

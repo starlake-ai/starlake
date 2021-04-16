@@ -130,8 +130,8 @@ object PositionIngestionUtil {
       .map(
         session.sparkContext
           .hadoopFile[LongWritable, Text, TextInputFormat](_)
-          .map(pair => new String(pair._2.getBytes, 0, pair._2.getLength, encoding))
-      )
+          .map {case (_, content) => new String(content.getBytes, 0, content.getLength, encoding))
+          }
       .fold(session.sparkContext.emptyRDD)((r1, r2) => r1.union(r2))
   }
 

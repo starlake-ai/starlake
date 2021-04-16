@@ -1,12 +1,11 @@
 package com.ebiznext.comet.schema.generator
 
-import java.io.File
-import java.util.regex.Pattern
-
 import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.schema.model._
 import org.apache.poi.ss.usermodel._
 
+import java.io.File
+import java.util.regex.Pattern
 import scala.collection.JavaConverters._
 
 sealed trait Input
@@ -28,7 +27,7 @@ class XlsReader(input: Input) extends XlsModel {
 
   private lazy val domain: Option[Domain] = {
     val sheet = workbook.getSheet("domain")
-    val (rows, headerMap) = getColsOrder(sheet, allDomainHeaders.map(_._1))
+    val (rows, headerMap) = getColsOrder(sheet, allDomainHeaders.map { case (k, _) => k })
     rows.headOption.flatMap { row =>
       val nameOpt =
         Option(row.getCell(headerMap("_name"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
@@ -239,7 +238,10 @@ class XlsReader(input: Input) extends XlsModel {
             val privacy =
               Option(row.getCell(headerMap("_privacy"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
                 .flatMap(formatter.formatCellValue)
-                .map(value => settings.allPrivacyLevels(value.toUpperCase())._2)
+                .map { value =>
+                  val (_, level) = settings.allPrivacyLevels(value.toUpperCase())
+                  level
+                }
             val metricType =
               Option(row.getCell(headerMap("_metric"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
                 .flatMap(formatter.formatCellValue)

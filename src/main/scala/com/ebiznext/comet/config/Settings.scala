@@ -340,9 +340,10 @@ final case class Settings(comet: Settings.Comet, sparkConfig: Config) {
   }
 
   @transient
-  lazy val allPrivacyLevels = comet.privacy.options.asScala.map { case (k, objName) =>
-    val encryption = Settings.make(k, objName)
-    val key = k.toUpperCase(Locale.ROOT)
-    (key, (encryption, new PrivacyLevel(key)))
-  }
+  lazy val allPrivacyLevels: Map[String, ((PrivacyEngine, List[Any]), PrivacyLevel)] =
+    comet.privacy.options.asScala.map { case (k, objName) =>
+      val encryption = Settings.make(k, objName)
+      val key = k.toUpperCase(Locale.ROOT)
+      (key, (encryption, new PrivacyLevel(key)))
+    }.toMap
 }

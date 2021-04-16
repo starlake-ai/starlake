@@ -39,7 +39,7 @@ class ConnectionLoadJob(
         .option("dbtable", cliConfig.outputTable)
         .mode(cliConfig.mode.getOrElse(writeMode.toString))
 
-      cliConfig.options.foldLeft(dfw)((w, kv) => w.option(kv._1, kv._2)).save()
+      cliConfig.options.foldLeft(dfw) { case (w, (k, v)) => w.option(k, v) }.save()
       SparkJobResult(None)
     }
   }
