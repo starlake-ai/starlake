@@ -157,6 +157,7 @@ trait SparkJob extends JobBase {
         case Success(value) =>
           value
         case Failure(e) =>
+          // Ignore errors when trying to compute statistics on struct field columns
           Utils.logException(logger, e)
           None
       }
