@@ -142,25 +142,26 @@ trait SparkJob extends JobBase {
     if (settings.comet.analyze) {
       val allCols = session.table(fullTableName).columns.mkString(",")
       session.table(fullTableName)
-      val partitionedColsDF = session.sql(s"show partitions $fullTableName")
-      val partitionedCols = Try {
-        import session.implicits._
-        val partitionedCols = partitionedColsDF
-          .map(_.getAs[String](0))
-          .first
-          .split('/')
-          .map(_.split("=")(0))
-          .toList
-          .mkString(",")
-        Some(s"ANALYZE TABLE $fullTableName PARTITION ($partitionedCols) COMPUTE STATISTICS")
-      } match {
-        case Success(value) =>
-          value
-        case Failure(e) =>
-          // Ignore errors when trying to compute statistics on struct field columns
-          Utils.logException(logger, e)
-          None
-      }
+      val partitionedCols =
+        Try {
+          val partitionedColsDF = session.sql(s"show partitions $fullTableName")
+          import session.implicits._
+          val partitionedCols = partitionedColsDF
+            .map(_.getAs[String](0))
+            .first
+            .split('/')
+            .map(_.split("=")(0))
+            .toList
+            .mkString(",")
+          Some(s"ANALYZE TABLE $fullTableName PARTITION ($partitionedCols) COMPUTE STATISTICS")
+        } match {
+          case Success(value) =>
+            value
+          case Failure(e) =>
+            // Ignore errors when trying to compute statistics non partitioned table
+            Utils.logException(logger, e)
+            None
+        }
 
       if (session.version.substring(0, 3).toDouble >= 2.4) {
         val analyzeCommands =
