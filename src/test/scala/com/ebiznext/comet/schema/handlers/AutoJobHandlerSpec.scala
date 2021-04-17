@@ -49,7 +49,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
     "trigger AutoJob by passing parameters on SQL statement" should "generate a dataset in business" in {
 
       val businessTask1 = AutoTaskDesc(
-        "select firstname, lastname, age from user_View where age={{age}}",
+        "select firstname, lastname, age from user_View where age=${age}",
         "user",
         "user",
         WriteMode.OVERWRITE,
