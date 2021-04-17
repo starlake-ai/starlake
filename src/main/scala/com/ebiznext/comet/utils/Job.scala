@@ -140,6 +140,7 @@ trait SparkJob extends JobBase {
 
   protected def analyze(fullTableName: String): Any = {
     if (settings.comet.analyze) {
+      logger.info(s"computing statistics on table $fullTableName")
       val allCols = session.table(fullTableName).columns.mkString(",")
       session.table(fullTableName)
       val partitionedCols =
@@ -159,7 +160,7 @@ trait SparkJob extends JobBase {
             value
           case Failure(e) =>
             // Ignore errors when trying to compute statistics non partitioned table
-            Utils.logException(logger, e)
+            logger.info(Utils.exceptionAsString(e))
             None
         }
 
