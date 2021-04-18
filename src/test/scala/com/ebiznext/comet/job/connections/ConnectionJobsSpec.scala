@@ -24,6 +24,7 @@ class ConnectionJobsSpec extends TestHelper {
       usersDF.write.format("jdbc").options(usersOptions).mode(SaveMode.Overwrite).save()
 
       val businessTask1 = AutoTaskDesc(
+        None,
         "select firstname, lastname from user_View where age = {{age}}",
         "user",
         "userout",
