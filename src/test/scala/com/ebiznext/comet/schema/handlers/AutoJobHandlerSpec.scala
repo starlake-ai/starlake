@@ -49,7 +49,8 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
     "trigger AutoJob by passing parameters on SQL statement" should "generate a dataset in business" in {
 
       val businessTask1 = AutoTaskDesc(
-        "select firstname, lastname, age from user_View where age=${age}",
+        None,
+        "select firstname, lastname, age from {{view}} where age=${age}",
         "user",
         "user",
         WriteMode.OVERWRITE,
@@ -75,7 +76,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
       storageHandler.write(businessJobDef, pathBusiness)
 
-      workflow.autoJob(TransformConfig("user", Map("age" -> "40")))
+      workflow.autoJob(TransformConfig("user", Map("view" -> "user_View", "age" -> "40")))
 
       val result = sparkSession.read
         .load(pathUserDatasetBusiness.toString)
@@ -95,6 +96,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
     "trigger AutoJob by passing three parameters on SQL statement" should "generate a dataset in business" in {
 
       val businessTask1 = AutoTaskDesc(
+        None,
         "select firstname, lastname, age from user_View where age={{age}} and lastname={{lastname}} and firstname={{firstname}}",
         "user",
         "user",
@@ -142,6 +144,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
     "trigger AutoJob with no parameters on SQL statement" should "generate a dataset in business" in {
 
       val businessTask1 = AutoTaskDesc(
+        None,
         "select firstname, lastname, age from user_View",
         "user",
         "user",
@@ -185,6 +188,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
     "trigger AutoJob using an UDF" should "generate a dataset in business" in {
 
       val businessTask1 = AutoTaskDesc(
+        None,
         "select concatWithSpace(firstname, lastname) as fullName from user_View",
         "user",
         "user",
@@ -230,6 +234,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
     "trigger AutoJob by passing parameters to presql statement" should "generate a dataset in business" in {
 
       val businessTask1 = AutoTaskDesc(
+        None,
         "SELECT * FROM graduate_agg_view",
         "graduateProgram",
         "output",
@@ -282,6 +287,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
 
     "BQ Business Job Definition" should "Prepare correctly against BQ" in {
       val businessTask1 = AutoTaskDesc(
+        None,
         "select * from domain",
         "DOMAIN",
         "TABLE",
