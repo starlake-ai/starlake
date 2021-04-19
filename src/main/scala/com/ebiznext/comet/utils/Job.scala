@@ -140,20 +140,50 @@ trait SparkJob extends JobBase {
 
   protected def analyze(fullTableName: String): Any = {
     if (settings.comet.analyze) {
+      logger.info(s"computing statistics on table $fullTableName")
       val allCols = session.table(fullTableName).columns.mkString(",")
-      val analyzeTable =
-        s"ANALYZE TABLE $fullTableName COMPUTE STATISTICS FOR COLUMNS $allCols"
-      if (session.version.substring(0, 3).toDouble >= 2.4)
+      session.table(fullTableName)
+      val partitionedCols =
         Try {
-          session.sql(analyzeTable)
+          val partitionedColsDF = session.sql(s"show partitions $fullTableName")
+          import session.implicits._
+          val partitionedCols = partitionedColsDF
+            .map(_.getAs[String](0))
+            .first
+            .split('/')
+            .map(_.split("=")(0))
+            .toList
+            .mkString(",")
+          Some(s"ANALYZE TABLE $fullTableName PARTITION ($partitionedCols) COMPUTE STATISTICS")
         } match {
-          case Success(df) => df
+          case Success(value) =>
+            value
           case Failure(e) =>
-            logger.warn(
-              s"Failed to compute statistics for table $fullTableName on columns $allCols"
-            )
-            e.printStackTrace()
+            // Ignore errors when trying to compute statistics non partitioned table
+            logger.info(Utils.exceptionAsString(e))
+            None
         }
+
+      if (session.version.substring(0, 3).toDouble >= 2.4) {
+        val analyzeCommands =
+          List(
+            Some(s"ANALYZE TABLE $fullTableName COMPUTE STATISTICS NOSCAN"),
+            partitionedCols,
+            Some(s"ANALYZE TABLE $fullTableName COMPUTE STATISTICS FOR COLUMNS $allCols")
+          ).flatten
+        analyzeCommands.foreach { command =>
+          Try {
+            session.sql(command)
+          } match {
+            case Success(df) => df
+            case Failure(e) =>
+              logger.warn(
+                s"Failed to compute statistics for table $fullTableName on columns $allCols"
+              )
+              e.printStackTrace()
+          }
+        }
+      }
     }
   }
 

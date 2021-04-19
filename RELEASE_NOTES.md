@@ -2,6 +2,15 @@
 
 ## 0.1.37
 __New feature__:
+- Compute Hive Statistics on Table & Partitions
+- Prepare for DataGrip support and implement substitution for ${} in addition to {}
+
+__Bug Fix__:
+- Avoid computing statistics on struct fields 
+
+
+## 0.1.37
+__New feature__:
 - Export all tables in DDL2YML generation
 - Include table & column names when meeting unknown column type in JDBC source schema
 - Better logging on forced conversion in DDL2YML
