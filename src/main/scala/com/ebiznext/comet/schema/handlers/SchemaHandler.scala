@@ -157,7 +157,29 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
           rootNode
         } else
           tranformNode
-      mapper.treeToValue(autojobNode, classOf[AutoJobDesc])
+      // Now load any sql file related to this JOB
+      // for file job.comet.yml containing a single unnamed task, we search for job.sql
+      // for file job.comet.yml containing multiple named tasks (say task1, task2), we search for job.task1.sql & job.task2.sql
+      val jobDesc = mapper.treeToValue(autojobNode, classOf[AutoJobDesc])
+      val sqlFilePrefix = path.toString.substring(0, path.toString.length - ".comet.yml".length)
+      val tasks = jobDesc.tasks.map { taskDesc =>
+        val sqlTaskFile = taskDesc.name match {
+          case Some(taskName) => new Path(s"$sqlFilePrefix.${taskName}.sql")
+          case None           => new Path(s"$sqlFilePrefix.sql")
+        }
+        if (storage.exists(sqlTaskFile)) {
+          val sqlTask = SqlTask(sqlTaskFile)
+          taskDesc.copy(
+            presql = sqlTask.presql,
+            sql = taskDesc.sql,
+            postsql = sqlTask.postsql
+          )
+        } else {
+          taskDesc
+        }
+      }
+
+      jobDesc.copy(tasks = tasks)
     }
   }
 

@@ -12,7 +12,9 @@ trait Formatter {
 
     def richFormat(replacement: Map[String, String]): String =
       replacement.foldLeft(str) { case (res, (key, value)) =>
-        res.replaceAll("\\{\\{%s\\}\\}".format(key), value)
+        res
+          .replaceAll("\\$\\{\\s*%s\\s*\\}".format(key), value) // new syntax
+          .replaceAll("\\{\\{\\s*%s\\s*\\}\\}".format(key), value) // old syntax
       }
   }
 }

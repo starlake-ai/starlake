@@ -141,6 +141,7 @@ class StorageHandlerSpec extends TestHelper {
 
     "Business Job Definition" should "be valid json" in {
       val businessTask1 = AutoTaskDesc(
+        None,
         "select * from domain",
         "DOMAIN",
         "ANALYSE",
