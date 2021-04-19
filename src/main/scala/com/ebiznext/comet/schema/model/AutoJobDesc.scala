@@ -38,6 +38,7 @@ import org.apache.hadoop.fs.Path
   * @param rls Row level security policy to apply too the output data.
   */
 case class AutoTaskDesc(
+  name: Option[String],
   sql: String,
   domain: String,
   dataset: String,
