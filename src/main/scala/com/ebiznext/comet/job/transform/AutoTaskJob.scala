@@ -33,6 +33,7 @@ import com.ebiznext.comet.schema.model._
 import com.ebiznext.comet.utils.Formatter._
 import com.ebiznext.comet.utils.{JobResult, SparkJob, SparkJobResult, Utils}
 import org.apache.hadoop.fs.Path
+import org.apache.spark.sql.SaveMode
 
 import java.io.{File, PrintStream}
 import java.sql.Timestamp
@@ -243,7 +244,8 @@ class AutoTaskJob(
             val fullTableName = s"$hiveDB.$tableName"
             session.sql(s"create database if not exists $hiveDB")
             session.sql(s"use $hiveDB")
-            session.sql(s"drop table if exists $tableName")
+            if (task.write.toSaveMode == SaveMode.Overwrite)
+              session.sql(s"drop table if exists $tableName")
             finalDataset.saveAsTable(fullTableName)
             analyze(fullTableName)
           }
