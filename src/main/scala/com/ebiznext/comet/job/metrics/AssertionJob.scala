@@ -72,12 +72,14 @@ class AssertionJob(
       val sql = assertionLibrary
         .get(assertion.name)
         .map { ad =>
+          logger.info(s"Applying substitution ${ad.name} -> ${ad.sql}")
           val paramsMap = schemaHandler.activeEnv ++ ad.params.zip(assertion.paramValues).toMap
           // Apply substitution defined with {{ }} and overload options in env by option in command line
           Utils
             .subst(ad.sql.richFormat(paramsMap), paramsMap)
         }
         .getOrElse(assertion.sql)
+      logger.info(s"Applying assertion ${assertion.name} with request $sql")
       Try {
         val assertionCount = sqlRunner(sql)
         AssertionReport(
@@ -129,7 +131,13 @@ class AssertionJob(
           val waitTimeMillis = settings.comet.lock.metricsTimeout
           val locker = new FileLock(lockedPath, storageHandler)
           locker.tryExclusively(waitTimeMillis) {
-            appendToFile(storageHandler, assertionsDF, savePath)
+            appendToFile(
+              storageHandler,
+              assertionsDF,
+              savePath,
+              settings.comet.assertions.sink.name.getOrElse("assertions"),
+              "assertions"
+            )
           }
         } else
           Success(None)

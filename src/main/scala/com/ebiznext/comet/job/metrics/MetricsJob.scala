@@ -176,7 +176,13 @@ class MetricsJob(
             val waitTimeMillis = settings.comet.lock.metricsTimeout
             val locker = new FileLock(lockedPath, storageHandler)
             locker.tryExclusively(waitTimeMillis) {
-              appendToFile(storageHandler, df, new Path(savePath, table.toString))
+              appendToFile(
+                storageHandler,
+                df,
+                new Path(savePath, table.toString),
+                settings.comet.metrics.sink.name.getOrElse("metrics"),
+                table.toString
+              )
             }
           } else {
             Success(None)
