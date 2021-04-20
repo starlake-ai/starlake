@@ -46,7 +46,7 @@ import com.typesafe.scalalogging.StrictLogging
   *  - submitting requests to the cron manager
   *  - ingesting the datasets
   *  - running an auto job
-  * All these things ared laaunched from here.
+  * All these things are launched from here.
   * See printUsage below to understand the CLI syntax.
   */
 object Main extends StrictLogging {
@@ -186,7 +186,7 @@ object Main extends StrictLogging {
             false
         }
 
-      case "infer-schema" => {
+      case "infer-schema" =>
         InferSchemaConfig.parse(args.drop(1)) match {
           case Some(config) =>
             workflow.infer(config).isSuccess
@@ -194,7 +194,6 @@ object Main extends StrictLogging {
             println(InferSchemaConfig.usage())
             false
         }
-      }
       case "metrics" =>
         MetricsConfig.parse(args.drop(1)) match {
           case Some(config) =>

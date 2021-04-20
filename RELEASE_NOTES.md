@@ -3,10 +3,13 @@
 ## 0.1.37
 __New feature__:
 - Compute Hive Statistics on Table & Partitions
-- Prepare for DataGrip support and implement substitution for ${} in addition to {}
+- DataGrip support with implementation of substitution for ${} in addition to {{}}
+- Improve logging
+- Add column type during for database extraction
 
 __Bug Fix__:
-- Avoid computing statistics on struct fields 
+- Avoid computing statistics on struct fields
+
 
 
 ## 0.1.37
