@@ -16,7 +16,7 @@ import com.ebiznext.comet.schema.model.{Domain, Schema, WriteMode}
   */
 case class TemplateParams(
   tableToExport: String,
-  columnsToExport: List[String],
+  columnsToExport: List[(String, String)],
   fullExport: Boolean,
   deltaColumn: Option[String],
   dsvDelimiter: String,
@@ -27,15 +27,19 @@ case class TemplateParams(
   val paramMap: Map[String, Any] = {
 
     // This is how we deal with the last element not needing a trailing a comma in a Mustache template
-    val columnsParam: List[Map[String, Any]] = columnsToExport.map(_.toUpperCase) match {
-      case head :: Nil => List(Map("name" -> head, "trailing_col_char" -> ""))
-      case Nil         => Nil
+    val columnsParam: List[Map[String, Any]] = columnsToExport match {
+      case (name, tpe) :: Nil =>
+        List(Map("name" -> name.toUpperCase(), "type" -> tpe, "trailing_col_char" -> ""))
+      case Nil => Nil
       case atLeastTwoElemList =>
         val allButLast = atLeastTwoElemList.dropRight(1)
-        val last = atLeastTwoElemList.last
+        val (lastName, lastType) = atLeastTwoElemList.last
         allButLast
-          .map(c => Map("name" -> c, "trailing_col_char" -> ",")) :+ Map(
-          "name"              -> last,
+          .map { case (name, tpe) =>
+            Map("name" -> name.toUpperCase(), "type" -> tpe, "trailing_col_char" -> ",")
+          } :+ Map(
+          "name"              -> lastName.toUpperCase(),
+          "type"              -> lastType,
           "trailing_col_char" -> ""
         )
     }
@@ -95,7 +99,8 @@ object TemplateParams {
     val isFullExport = schema.metadata.flatMap(_.write).contains(WriteMode.OVERWRITE)
     new TemplateParams(
       tableToExport = schema.name,
-      columnsToExport = schema.attributes.filter(_.script.isEmpty).map(_.name),
+      columnsToExport =
+        schema.attributes.filter(_.script.isEmpty).map(col => col.name -> col.`type`),
       fullExport = isFullExport,
       deltaColumn = if (!isFullExport) deltaColumn else None,
       dsvDelimiter = schema.metadata.flatMap(_.separator).getOrElse(","),

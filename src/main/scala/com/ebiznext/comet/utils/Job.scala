@@ -8,10 +8,10 @@ import com.ebiznext.comet.utils.Formatter._
 import com.ebiznext.comet.utils.kafka.KafkaClient
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
+import org.apache.spark.sql._
 import org.apache.spark.sql.execution.datasources.jdbc.JDBCOptions
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.IntegerType
-import org.apache.spark.sql.{DataFrame, DataFrameWriter, Row, SparkSession}
 
 import scala.util.{Failure, Success, Try}
 
@@ -313,7 +313,9 @@ trait SparkJob extends JobBase {
   protected def appendToFile(
     storageHandler: StorageHandler,
     dataToSave: DataFrame,
-    path: Path
+    path: Path,
+    datasetName: String,
+    tableName: String
   ): Unit = {
     if (storageHandler.exists(path)) {
       val pathIntermediate = new Path(path.getParent, ".tmp")
@@ -325,11 +327,25 @@ trait SparkJob extends JobBase {
         .parquet(path.toString)
         .union(dataToSave)
 
-      dataByVariableStored
-        .coalesce(1)
-        .write
-        .mode("append")
-        .parquet(pathIntermediate.toString)
+      if (settings.comet.hive) {
+        val hiveDB = datasetName
+        val fullTableName = s"$hiveDB.$tableName"
+        session.sql(s"create database if not exists $hiveDB")
+        session.sql(s"use $hiveDB")
+        dataByVariableStored
+          .coalesce(1)
+          .write
+          .mode(SaveMode.Append)
+          .format("parquet")
+          .saveAsTable(fullTableName)
+      } else {
+        dataByVariableStored
+          .coalesce(1)
+          .write
+          .mode(SaveMode.Append)
+          .format("parquet")
+          .save(pathIntermediate.toString)
+      }
 
       storageHandler.delete(path)
       storageHandler.move(pathIntermediate, path)
@@ -341,7 +357,7 @@ trait SparkJob extends JobBase {
       dataToSave
         .coalesce(1)
         .write
-        .mode("append")
+        .mode(SaveMode.Append)
         .parquet(path.toString)
 
     }

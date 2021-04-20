@@ -16,7 +16,7 @@ class TemplateParamsSpec extends AnyFlatSpec with Matchers {
       pattern = Pattern.compile("output_file.*.csv"),
       List(
         Attribute(name = "col1"),
-        Attribute(name = "col2"),
+        Attribute(name = "col2", `type` = "long"),
         Attribute(name = "col3", script = Some("script"))
       ),
       metadata = Option(Metadata(write = Some(WriteMode.APPEND))),
@@ -28,7 +28,7 @@ class TemplateParamsSpec extends AnyFlatSpec with Matchers {
 
     val expectedTemplateParams = TemplateParams(
       tableToExport = "table1",
-      columnsToExport = List("col1", "col2"),
+      columnsToExport = List("col1" -> "string", "col2" -> "long"),
       fullExport = false,
       dsvDelimiter = ",",
       deltaColumn = Some("updateCol"),
@@ -46,7 +46,7 @@ class TemplateParamsSpec extends AnyFlatSpec with Matchers {
     val schema: Schema = Schema(
       name = "table1",
       pattern = Pattern.compile("output_file.*.csv"),
-      List(Attribute(name = "col1"), Attribute(name = "col2")),
+      List(Attribute(name = "col1"), Attribute(name = "col2", `type` = "long")),
       metadata = Option(Metadata(write = Some(WriteMode.OVERWRITE), separator = Some("|"))),
       merge = Some(MergeOptions(List("col1", "col2"), None, timestamp = Some("updateCol"))),
       comment = None,
@@ -56,7 +56,7 @@ class TemplateParamsSpec extends AnyFlatSpec with Matchers {
 
     val expectedTemplateParams = TemplateParams(
       tableToExport = "table1",
-      columnsToExport = List("col1", "col2"),
+      columnsToExport = List("col1" -> "string", "col2" -> "long"),
       fullExport = true,
       dsvDelimiter = "|",
       deltaColumn = None,

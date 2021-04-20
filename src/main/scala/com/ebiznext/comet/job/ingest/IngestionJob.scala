@@ -1,8 +1,5 @@
 package com.ebiznext.comet.job.ingest
 
-import java.sql.Timestamp
-import java.time.{Instant, LocalDateTime}
-
 import com.ebiznext.comet.config.{DatasetArea, Settings, StorageArea}
 import com.ebiznext.comet.job.index.bqload.{BigQueryLoadConfig, BigQuerySparkJob}
 import com.ebiznext.comet.job.index.connectionload.{ConnectionLoadConfig, ConnectionLoadJob}
@@ -32,6 +29,8 @@ import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions.{col, _}
 import org.apache.spark.sql.types.{StringType, StructField, StructType, TimestampType}
 
+import java.sql.Timestamp
+import java.time.{Instant, LocalDateTime}
 import scala.collection.JavaConverters._
 import scala.language.existentials
 import scala.util.{Failure, Success, Try}
@@ -430,9 +429,10 @@ trait IngestionJob extends SparkJob {
         session.sql(s"create database if not exists $hiveDB comment '$dbComment'")
         session.sql(s"use $hiveDB")
         Try {
-          session.sql(s"drop table if exists $hiveDB.$tableName")
+          if (writeMode.toSaveMode == SaveMode.Overwrite)
+            session.sql(s"drop table if exists $hiveDB.$tableName")
         } match {
-          case Success(dataframe) => dataframe
+          case Success(dataframe) => ;
           case Failure(e) =>
             logger.warn("Ignore error when hdfs files not found")
             Utils.logException(logger, e)
@@ -523,7 +523,8 @@ trait IngestionJob extends SparkJob {
             .format(writeFormat)
             .option("path", targetPath.toString)
 
-      logger.info(s"Saving Dataset to final location $targetPath")
+      logger.info(s"Saving Dataset to final location $targetPath in $saveMode mode")
+
       if (settings.comet.hive) {
         finalTargetDatasetWriter.saveAsTable(fullTableName)
         val tableComment = schema.comment.getOrElse("")
