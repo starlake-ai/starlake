@@ -75,11 +75,14 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
   def assertions(name: String): Map[String, AssertionDefinition] = {
     def loadAssertions(filename: String): Map[String, AssertionDefinition] = {
       val assertionsPath = new Path(DatasetArea.assertions, filename)
-      if (storage.exists(assertionsPath))
+      logger.info(s"Loading assertions $assertionsPath")
+      if (storage.exists(assertionsPath)) {
+        val content = storage.read(assertionsPath)
+        logger.info(s"reading content $content")
         mapper
-          .readValue(storage.read(assertionsPath), classOf[AssertionDefinitions])
+          .readValue(content, classOf[AssertionDefinitions])
           .assertionDefinitions
-      else
+      } else
         Map.empty[String, AssertionDefinition]
     }
 
@@ -152,7 +155,7 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
       val autojobNode =
         if (tranformNode.isNull() || tranformNode.isMissingNode) {
           logger.warn(
-            s"Defining aa autojob outside a transform node is now deprecated. Please update definition $path"
+            s"Defining a autojob outside a transform node is now deprecated. Please update definition $path"
           )
           rootNode
         } else
@@ -164,7 +167,7 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
       val sqlFilePrefix = path.toString.substring(0, path.toString.length - ".comet.yml".length)
       val tasks = jobDesc.tasks.map { taskDesc =>
         val sqlTaskFile = taskDesc.name match {
-          case Some(taskName) => new Path(s"$sqlFilePrefix.${taskName}.sql")
+          case Some(taskName) => new Path(s"$sqlFilePrefix.$taskName.sql")
           case None           => new Path(s"$sqlFilePrefix.sql")
         }
         if (storage.exists(sqlTaskFile)) {

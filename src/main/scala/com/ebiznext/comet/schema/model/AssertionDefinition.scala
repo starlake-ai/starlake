@@ -1,5 +1,7 @@
 package com.ebiznext.comet.schema.model
 
+import com.typesafe.scalalogging.StrictLogging
+
 case class AssertionDefinitions(assertions: Map[String, String]) {
 
   val assertionDefinitions: Map[String, AssertionDefinition] = {
@@ -12,7 +14,7 @@ case class AssertionDefinitions(assertions: Map[String, String]) {
 
 case class AssertionDefinition(fullName: String, name: String, params: List[String], sql: String)
 
-object AssertionDefinition {
+object AssertionDefinition extends StrictLogging {
 
   def extractNameAndParams(fullName: String): (String, List[String]) = {
     fullName
@@ -27,6 +29,9 @@ object AssertionDefinition {
 
   def fromDefinition(fullName: String, sql: String): AssertionDefinition = {
     val (name, params) = extractNameAndParams(fullName)
+    logger.info(
+      s"Found assertion definition $fullName -> $name(${params.mkString(",")} with SQl $sql"
+    )
     AssertionDefinition(fullName, name, params, sql)
   }
 

@@ -33,6 +33,7 @@ import org.apache.spark.sql.{SaveMode, SparkSession}
 
 import java.sql.Timestamp
 import com.google.cloud.bigquery.{Schema => BQSchema}
+import com.typesafe.scalalogging.StrictLogging
 
 sealed case class Step(value: String) {
   override def toString: String = value
@@ -93,7 +94,7 @@ case class AuditLog(
   }
 }
 
-object SparkAuditLogWriter {
+object SparkAuditLogWriter extends StrictLogging {
 
   val auditCols = List(
     ("jobid", LegacySQLTypeName.STRING, StringType),
@@ -131,14 +132,27 @@ object SparkAuditLogWriter {
       val locker = new FileLock(lockPath, settings.storageHandler)
       locker.doExclusively() {
         val auditPath = new Path(settings.comet.audit.path, s"ingestion-log")
-        Seq(log).toDF.write
-          .mode(SaveMode.Append)
-          .format(settings.comet.defaultAuditWriteFormat)
-          .option("path", auditPath.toString)
-          .save()
+        val dfWriter = Seq(log).toDF.write.mode(SaveMode.Append)
+        logger.info(s"Saving audit to path $auditPath")
+        if (settings.comet.hive) {
+          val hiveDB = settings.comet.audit.sink.name.getOrElse("audit")
+          val tableName = "audit"
+          val fullTableName = s"$hiveDB.$tableName"
+          session.sql(s"create database if not exists $hiveDB")
+          session.sql(s"use $hiveDB")
+          logger.info(s"Saving audit to table $fullTableName")
+          dfWriter
+            .format(settings.comet.defaultAuditWriteFormat)
+            .saveAsTable(fullTableName)
+        } else {
+          logger.info(s"Saving audit to file $auditPath")
+          dfWriter
+            .format(settings.comet.defaultAuditWriteFormat)
+            .option("path", auditPath.toString)
+            .save()
+        }
       }
     }
-
     if (settings.comet.sinkToFile)
       sinkToFile(log, settings)
 
