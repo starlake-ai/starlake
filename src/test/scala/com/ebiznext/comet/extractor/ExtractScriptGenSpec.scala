@@ -11,7 +11,7 @@ class ExtractScriptGenSpec extends AnyFlatSpec with Matchers {
   "templatize" should "generate an export script from a TemplateSettings" in {
     val templateParams: TemplateParams = TemplateParams(
       tableToExport = "table1",
-      columnsToExport = List("col1", "col2"),
+      columnsToExport = List("col1" -> "string", "col2" -> "long"),
       fullExport = false,
       dsvDelimiter = ",",
       deltaColumn = Some("updateCol"),
