@@ -85,7 +85,7 @@ object ScriptGen extends StrictLogging {
           )
         )
       )
-      .getOrElse(s"${job.name}.spy")
+      .getOrElse(s"${job.name}.py")
     val scriptOutputFile = scriptsOutputFolder / scriptOutputFileName
     val scriptFile =
       scriptOutputFile.createFileIfNotExists().overwrite(scriptPayload)
@@ -146,7 +146,7 @@ object ScriptGen extends StrictLogging {
     }
   }
 
-  def run(config: ExtractScriptGenConfig): Boolean = {
+  def run(config: ExtractScriptGenConfig)(implicit settings: Settings): Boolean = {
     import settings.metadataStorageHandler
     DatasetArea.initMetadata(metadataStorageHandler)
     val schemaHandler = new SchemaHandler(metadataStorageHandler)
@@ -169,7 +169,7 @@ object ScriptGen extends StrictLogging {
                 )
                 true
               case None =>
-                logger.error(s"No domain found for domain name ${config.domain}")
+                logger.error(s"No file found for domain name ${config.domain}")
                 false
             }
           }

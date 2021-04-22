@@ -28,8 +28,8 @@ class JsonMultilineIngestionJobSpec extends TestHelper with JdbcChecks {
     new WithSettings() {
 
       new SpecTrait(
-        domainFilename = "json-multiline.comet.yml",
-        sourceDomainPathname = "/sample/jsonmultiline/json-multiline.comet.yml",
+        domainOrJobFilename = "json-multiline.comet.yml",
+        sourceDomainOrJobPathname = "/sample/jsonmultiline/json-multiline.comet.yml",
         datasetDomainName = "jsonmultiline",
         sourceDatasetPathName = "/sample/jsonmultiline/complex-multiline.json"
       ) {

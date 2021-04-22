@@ -215,8 +215,8 @@ class MetricsJobSpec extends TestHelper with JdbcChecks {
   new WithSettings() {
     "Yelp Business Metrics" should "produce correct metrics in parquet file" in {
       new SpecTrait(
-        domainFilename = "yelp.comet.yml",
-        sourceDomainPathname = s"/sample/yelp/yelp.comet.yml",
+        domainOrJobFilename = "yelp.comet.yml",
+        sourceDomainOrJobPathname = s"/sample/yelp/yelp.comet.yml",
         datasetDomainName = "yelp",
         sourceDatasetPathName = "/sample/yelp/business.json"
       ) {
@@ -440,8 +440,8 @@ class MetricsJobSpec extends TestHelper with JdbcChecks {
   new WithSettings(jdbcConfiguration) {
     "Yelp Business Metrics" should "produce correct metrics in JDBC database" in {
       new SpecTrait(
-        domainFilename = "yelp.comet.yml",
-        sourceDomainPathname = s"/sample/yelp/yelp.comet.yml",
+        domainOrJobFilename = "yelp.comet.yml",
+        sourceDomainOrJobPathname = s"/sample/yelp/yelp.comet.yml",
         datasetDomainName = "yelp",
         sourceDatasetPathName = "/sample/yelp/business.json"
       ) {
