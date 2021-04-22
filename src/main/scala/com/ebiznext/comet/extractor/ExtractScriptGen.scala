@@ -155,52 +155,67 @@ object ScriptGen extends StrictLogging {
         logger.error(s"One of domain or jobs should be provided")
         false
       case (Nil, jobNames) =>
-        val jobs = schemaHandler.jobs
-        jobNames
-          .map { jobName =>
-            // Extracting the Job
-            jobs.get(jobName) match {
-              case Some(job) =>
-                ScriptGen.generateJob(
-                  job,
-                  config.scriptTemplateFile,
-                  config.scriptOutputDir,
-                  config.scriptOutputPattern
-                )
-                true
-              case None =>
-                logger.error(s"No file found for domain name ${config.domain}")
-                false
-            }
-          }
-          .forall(_ == true)
-        true
+        runOnJobs(config, schemaHandler, jobNames)
       case (domainNames, Nil) =>
-        val domains: List[Domain] = schemaHandler.domains
-        domainNames
-          .map { domainName =>
-            // Extracting the domain from the Excel referential file
-            domains.find(_.name == domainName) match {
-              case Some(domain) =>
-                ScriptGen.generateDomain(
-                  domain,
-                  config.scriptTemplateFile,
-                  config.scriptOutputDir,
-                  config.scriptOutputPattern,
-                  config.deltaColumn.orElse(ExtractorSettings.deltaColumns.defaultColumn),
-                  ExtractorSettings.deltaColumns.deltaColumns
-                )
-                true
-              case None =>
-                logger.error(s"No domain found for domain name ${config.domain}")
-                false
-            }
-          }
-          .forall(_ == true)
+        runOnDomains(config, schemaHandler, domainNames)
       case (_, _) =>
         logger.error(s"Only one of domain or job list should be passed as an argument")
         false
     }
+  }
+
+  private def runOnDomains(
+    config: ExtractScriptGenConfig,
+    schemaHandler: SchemaHandler,
+    domainNames: Seq[String]
+  ) = {
+    val domains: List[Domain] = schemaHandler.domains
+    domainNames
+      .map { domainName =>
+        // Extracting the domain from the Excel referential file
+        domains.find(_.name == domainName) match {
+          case Some(domain) =>
+            ScriptGen.generateDomain(
+              domain,
+              config.scriptTemplateFile,
+              config.scriptOutputDir,
+              config.scriptOutputPattern,
+              config.deltaColumn.orElse(ExtractorSettings.deltaColumns.defaultColumn),
+              ExtractorSettings.deltaColumns.deltaColumns
+            )
+            true
+          case None =>
+            logger.error(s"No domain found for domain name ${config.domain}")
+            false
+        }
+      }
+      .forall(_ == true)
+  }
+
+  private def runOnJobs(
+    config: ExtractScriptGenConfig,
+    schemaHandler: SchemaHandler,
+    jobNames: Seq[String]
+  ): Boolean = {
+    val jobs = schemaHandler.jobs
+    jobNames
+      .map { jobName =>
+        // Extracting the Job
+        jobs.get(jobName) match {
+          case Some(job) =>
+            ScriptGen.generateJob(
+              job,
+              config.scriptTemplateFile,
+              config.scriptOutputDir,
+              config.scriptOutputPattern
+            )
+            true
+          case None =>
+            logger.error(s"No file found for domain name ${config.domain}")
+            false
+        }
+      }
+      .forall(_ == true)
   }
 }
 
