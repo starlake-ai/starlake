@@ -5,10 +5,12 @@ import com.ebiznext.comet.utils.CliConfig
 import scopt.OParser
 
 case class ExtractScriptGenConfig(
-  domain: String = "",
+  domain: Seq[String] = Nil,
+  jobs: Seq[String] = Nil,
   scriptTemplateFile: File = File("."),
   scriptOutputDir: File = File("."),
-  deltaColumn: Option[String] = None
+  deltaColumn: Option[String] = None,
+  scriptOutputPattern: Option[String] = None
 )
 
 object ExtractScriptGenConfig extends CliConfig[ExtractScriptGenConfig] {
@@ -25,7 +27,7 @@ object ExtractScriptGenConfig extends CliConfig[ExtractScriptGenConfig] {
       head("comet", "extract", "[options]"),
       note(
         """
-          |The schemas should at least, specify :
+          |For domain extraction, the schemas should at least, specify :
           |     - a table name (schemas.name)
           |     - a file pattern (schemas.pattern) which is used as the export file base name
           |     - a write mode (schemas.metadata.write): APPEND or OVERWRITE
@@ -54,10 +56,16 @@ object ExtractScriptGenConfig extends CliConfig[ExtractScriptGenConfig] {
           |""".stripMargin
       ),
       cmd("script-gen"),
-      opt[String]("domain")
+      opt[Seq[String]]("domain")
         .action((x, c) => c.copy(domain = x))
-        .required()
-        .text("The domain for which to generate extract scripts"),
+        .valueName("domain1,domain2 ...")
+        .optional()
+        .text("The domain list for which to generate extract scripts"),
+      opt[Seq[String]]("job")
+        .action((x, c) => c.copy(jobs = x))
+        .valueName("job1,job2 ...")
+        .optional()
+        .text("The jobs you want to load. use '*' to load all jobs "),
       opt[String]("templateFile")
         .validate(exists("Script template file"))
         .action((x, c) => c.copy(scriptTemplateFile = File(x)))
@@ -72,7 +80,20 @@ object ExtractScriptGenConfig extends CliConfig[ExtractScriptGenConfig] {
         .action((x, c) => c.copy(deltaColumn = Some(x)))
         .optional()
         .text("""The default date column used to determine new rows to export.
-            |Overrides config database-extractor.default-column value.""".stripMargin)
+                |Overrides config database-extractor.default-column value.""".stripMargin),
+      opt[String]("scriptsOutputPattern")
+        .action((x, c) => c.copy(scriptOutputPattern = Some(x)))
+        .optional()
+        .text("""Default output file pattern name
+            |the following variables are allowed.
+            |When applied to a domain:
+            |  - {{domain}}: domain name
+            |  - {{schema}}: Schema name
+            |  By default : EXTRACT_{{schema}}.sql
+            |When applied to a job:
+            |  - {{job}}: job name
+            |  By default: {{job}}.py
+            |  """.stripMargin)
     )
   }
 

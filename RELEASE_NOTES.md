@@ -6,10 +6,12 @@ __New feature__:
 - DataGrip support with implementation of substitution for ${} in addition to {{}}
 - Improve logging
 - Add column type during for database extraction
+- The name attribute inside a job file should reflect the filename. This attribute will soon be deprecated
+- Allow Templating on jobs. Useful to generate Airflow / Oozie Dags from job.comet.yml/job.sql code
 
 __Bug Fix__:
 - Avoid computing statistics on struct fields
-
+- Make database-extractor optional in application.conf
 
 
 ## 0.1.37

@@ -15,7 +15,7 @@ Description
 -----------
 
 
-| The schemas should at least, specify :
+| For domain extraction, the schemas should at least, specify :
 |      - a table name (schemas.name)
 |      - a file pattern (schemas.pattern) which is used as the export file base name
 |      - a write mode (schemas.metadata.write): APPEND or OVERWRITE
@@ -52,9 +52,14 @@ Options
     *Optional*. 
 
 
-.. option:: --domain: <value>
+.. option:: --domain: domain1,domain2 ...
 
-    *Required*. The domain for which to generate extract scripts
+    *Optional*. The domain list for which to generate extract scripts
+
+
+.. option:: --job: job1,job2 ...
+
+    *Optional*. The jobs you want to load. use '*' to load all jobs 
 
 
 .. option:: --templateFile: <value>
@@ -71,5 +76,19 @@ Options
 
     *Optional*. The default date column used to determine new rows to export.
     Overrides config database-extractor.default-column value.
+
+
+.. option:: --scriptsOutputPattern: <value>
+
+    *Optional*. Default output file pattern name
+    the following variables are allowed.
+    When applied to a domain:
+      - {{domain}}: domain name
+      - {{schema}}: Schema name
+      By default : EXTRACT_{{schema}}.sql
+    When applied to a job:
+      - {{job}}: job name
+      By default: {{job}}.py
+      
 
 

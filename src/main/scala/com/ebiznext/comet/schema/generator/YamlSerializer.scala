@@ -1,7 +1,8 @@
 package com.ebiznext.comet.schema.generator
 
 import better.files.File
-import com.ebiznext.comet.schema.model.Domain
+import com.ebiznext.comet.config.Settings
+import com.ebiznext.comet.schema.model.{AutoJobDesc, Domain}
 import com.fasterxml.jackson.annotation.JsonInclude.Include
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
@@ -16,6 +17,15 @@ object YamlSerializer extends LazyLogging {
   mapper.setSerializationInclusion(Include.NON_ABSENT)
 
   def serialize(domain: Domain): String = mapper.writeValueAsString(domain)
+
+  def toMap(job: AutoJobDesc)(implicit settings: Settings): Map[String, Any] = {
+    val jobWriter = mapper
+      .writer()
+      .withAttribute(classOf[Settings], settings)
+    val jsonContent = jobWriter.writeValueAsString(job)
+    //val jobReader = mapper.reader().withAttribute(classOf[Settings], settings)
+    mapper.readValue(jsonContent, classOf[Map[String, Any]])
+  }
 
   def serialize(jdbcSchema: JDBCSchema): String = mapper.writeValueAsString(jdbcSchema)
 

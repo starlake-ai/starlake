@@ -4,6 +4,7 @@ import java.time.format.DateTimeFormatter
 
 import better.files.File
 import com.ebiznext.comet.schema.model.{Domain, Schema, WriteMode}
+import com.ebiznext.comet.utils.Formatter._
 
 /** Params for the script's mustache template
   * @param tableToExport table to export
@@ -15,6 +16,7 @@ import com.ebiznext.comet.schema.model.{Domain, Schema, WriteMode}
   * @param scriptOutputFile where the script is produced
   */
 case class TemplateParams(
+  domainToExport: String,
   tableToExport: String,
   columnsToExport: List[(String, String)],
   fullExport: Boolean,
@@ -46,11 +48,12 @@ case class TemplateParams(
     deltaColumn
       .foldLeft(
         List(
-          "table_name"  -> tableToExport.toUpperCase,
-          "delimiter"   -> dsvDelimiter,
-          "columns"     -> columnsParam,
-          "export_file" -> exportOutputFileBase,
-          "full_export" -> fullExport
+          "domain_table" -> domainToExport,
+          "table_name"   -> tableToExport.toUpperCase,
+          "delimiter"    -> dsvDelimiter,
+          "columns"      -> columnsParam,
+          "export_file"  -> exportOutputFileBase,
+          "full_export"  -> fullExport
         )
       ) { case (list, deltaCol) => list :+ ("delta_column" -> deltaCol.toUpperCase) }
       .toMap
@@ -73,11 +76,18 @@ object TemplateParams {
   def fromDomain(
     domain: Domain,
     scriptsOutputFolder: File,
+    scriptOutputPattern: Option[String],
     defaultDeltaColumn: Option[String],
     deltaColumns: Map[String, String]
   ): List[TemplateParams] =
     domain.schemas.map(s =>
-      fromSchema(s, scriptsOutputFolder, deltaColumns.get(s.name).orElse(defaultDeltaColumn))
+      fromSchema(
+        domain.name,
+        s,
+        scriptsOutputFolder,
+        scriptOutputPattern,
+        deltaColumns.get(s.name).orElse(defaultDeltaColumn)
+      )
     )
 
   /** Generate scripts template parameters, extracting the tables and the columns described in the schema
@@ -87,17 +97,30 @@ object TemplateParams {
     * @return The corresponding TemplateParams
     */
   def fromSchema(
+    domainName: String,
     schema: Schema,
     scriptsOutputFolder: File,
+    scriptOutputPattern: Option[String],
     deltaColumn: Option[String]
   ): TemplateParams = {
-    val scriptOutputFileName = s"EXTRACT_${schema.name}.sql"
+    val scriptOutputFileName =
+      scriptOutputPattern
+        .map(
+          _.richFormat(
+            Map(
+              "domain" -> domainName,
+              "schema" -> schema.name
+            )
+          )
+        )
+        .getOrElse(s"EXTRACT_${schema.name}.sql")
     // exportFileBase is the csv file name base such as EXPORT_L58MA_CLIENT_DELTA_...
     // Considering a pattern like EXPORT_L58MA_CLIENT.*.csv
     // The script which is generated will append the current date time to that base (EXPORT_L58MA_CLIENT_18032020173100).
     val exportFileBase = s"${schema.pattern.toString.split("\\.\\*").head}"
     val isFullExport = schema.metadata.flatMap(_.write).contains(WriteMode.OVERWRITE)
     new TemplateParams(
+      domainToExport = domainName,
       tableToExport = schema.name,
       columnsToExport =
         schema.attributes.filter(_.script.isEmpty).map(col => col.name -> col.`type`),
