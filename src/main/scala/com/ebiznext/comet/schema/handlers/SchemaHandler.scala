@@ -184,9 +184,11 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
           taskDesc
         }
       }
+      //TODO Make job name become the prefix of the yml
+      //filename
       if (path.getName != s"${jobDesc.name}.comet.yml") {
         logger.warn(
-          s"Please set the job name to ${path.getName} to reflect the filename. This feature will be deprecated soon"
+          s"Please set the job name of ${path.getName} to reflect the filename. This feature will be deprecated soon"
         )
       }
       jobDesc.copy(tasks = tasks)
