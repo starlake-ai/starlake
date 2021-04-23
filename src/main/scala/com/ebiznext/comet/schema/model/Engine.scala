@@ -43,6 +43,7 @@ object Engine {
   def fromString(value: String): Engine = {
     value.toUpperCase() match {
       case "BQ"    => Engine.BQ
+      case "JDBC"  => Engine.JDBC
       case "SPARK" => Engine.SPARK
     }
   }
@@ -51,7 +52,9 @@ object Engine {
 
   object SPARK extends Engine("SPARK")
 
-  val engines: Set[Engine] = Set(BQ, SPARK)
+  object JDBC extends Engine("JDBC")
+
+  val engines: Set[Engine] = Set(BQ, SPARK, JDBC)
 }
 
 class EngineDeserializer extends JsonDeserializer[Engine] {

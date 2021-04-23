@@ -166,7 +166,7 @@ object DatasetArea {
   def initMetadata(
     storage: StorageHandler
   )(implicit settings: Settings): Unit = {
-    List(metadata, types, domains).foreach(storage.mkdirs)
+    List(metadata, types, domains, jobs, assertions, views, mapping).foreach(storage.mkdirs)
   }
 
   def initDomains(storage: StorageHandler, domains: Iterable[String])(implicit

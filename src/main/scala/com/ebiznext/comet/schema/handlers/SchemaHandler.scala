@@ -112,11 +112,14 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
   }
 
   lazy val activeEnv: Map[String, String] = {
+    def loadEnv(path: Path) =
+      if (storage.exists(path))
+        mapper.readValue(storage.read(path), classOf[Env]).env
+      else
+        Map.empty[String, String]
+    val globalsCometPath = new Path(DatasetArea.metadata, s"env.comet.yml")
     val envsCometPath = new Path(DatasetArea.metadata, s"env.${settings.comet.env}.comet.yml")
-    if (storage.exists(envsCometPath))
-      mapper.readValue(storage.read(envsCometPath), classOf[Env]).env
-    else
-      Map.empty[String, String]
+    loadEnv(globalsCometPath) ++ loadEnv(envsCometPath)
   }
 
   /** Fnd type by name
@@ -181,7 +184,13 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
           taskDesc
         }
       }
-
+      //TODO Make job name become the prefix of the yml
+      //filename
+      if (path.getName != s"${jobDesc.name}.comet.yml") {
+        logger.warn(
+          s"Please set the job name of ${path.getName} to reflect the filename. This feature will be deprecated soon"
+        )
+      }
       jobDesc.copy(tasks = tasks)
     }
   }
