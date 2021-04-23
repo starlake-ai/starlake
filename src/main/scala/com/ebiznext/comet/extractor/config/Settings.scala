@@ -19,9 +19,7 @@ object Settings extends StrictLogging {
 
   private val config = ConfigFactory.load()
 
-  val deltaColumns = config.get[DeltaColumnsMapping]("database-extractor").valueOrThrow { error =>
-    error.messages.foreach(err => logger.error(err))
-    throw new Exception(s"Failed to load config: $error")
-  }
+  val deltaColumns =
+    config.get[DeltaColumnsMapping]("database-extractor").valueOrElse(DeltaColumnsMapping())
 
 }

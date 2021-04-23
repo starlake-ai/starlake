@@ -3,8 +3,10 @@ package com.ebiznext.comet.extractor
 import better.files.File
 import com.ebiznext.comet.config.{DatasetArea, Settings}
 import com.ebiznext.comet.extractor.config.{Settings => ExtractorSettings}
+import com.ebiznext.comet.schema.generator.YamlSerializer
 import com.ebiznext.comet.schema.handlers.SchemaHandler
-import com.ebiznext.comet.schema.model.Domain
+import com.ebiznext.comet.schema.model.{AutoJobDesc, Domain}
+import com.ebiznext.comet.utils.Formatter.RichFormatter
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.StrictLogging
 import org.fusesource.scalate._
@@ -33,15 +35,22 @@ object ScriptGen extends StrictLogging {
     * @param deltaColumns Mapping table name -> delta column, has precedence over `defaultDeltaColumn`
     * @return The list of produced files
     */
-  def generate(
+  def generateDomain(
     domain: Domain,
     scriptTemplateFile: File,
     scriptsOutputPath: File,
+    scriptOutputPattern: Option[String],
     defaultDeltaColumn: Option[String],
     deltaColumns: Map[String, String]
   ): List[File] = {
     val templateSettings =
-      TemplateParams.fromDomain(domain, scriptsOutputPath, defaultDeltaColumn, deltaColumns)
+      TemplateParams.fromDomain(
+        domain,
+        scriptsOutputPath,
+        scriptOutputPattern,
+        defaultDeltaColumn,
+        deltaColumns
+      )
     templateSettings.map { ts =>
       val scriptPayload = templatize(scriptTemplateFile, ts)
       val scriptFile =
@@ -49,6 +58,39 @@ object ScriptGen extends StrictLogging {
       logger.info(s"Successfully generated script $scriptFile")
       scriptFile
     }
+  }
+
+  /** Generate all extraction scripts based on the given domain
+    * @param job The job extracted from the yml file
+    * @param scriptTemplateFile The script template
+    * @param scriptsOutputFile Where the scripts are produced
+    * @return The list of produced files
+    */
+  def generateJob(
+    job: AutoJobDesc,
+    scriptTemplateFile: File,
+    scriptsOutputFolder: File,
+    scriptOutputPattern: Option[String]
+  ): File = {
+
+    val scriptPayload = engine.layout(
+      scriptTemplateFile.pathAsString,
+      YamlSerializer.toMap(job)
+    )
+    val scriptOutputFileName = scriptOutputPattern
+      .map(
+        _.richFormat(
+          Map(
+            "job" -> job.name
+          )
+        )
+      )
+      .getOrElse(s"${job.name}.py")
+    val scriptOutputFile = scriptsOutputFolder / scriptOutputFileName
+    val scriptFile =
+      scriptOutputFile.createFileIfNotExists().overwrite(scriptPayload)
+    logger.info(s"Successfully generated job script $scriptFile")
+    scriptFile
   }
 
   /** Fills a Mustache templated file based on a given domain.
@@ -104,26 +146,76 @@ object ScriptGen extends StrictLogging {
     }
   }
 
-  def run(config: ExtractScriptGenConfig): Boolean = {
+  def run(config: ExtractScriptGenConfig)(implicit settings: Settings): Boolean = {
     import settings.metadataStorageHandler
     DatasetArea.initMetadata(metadataStorageHandler)
     val schemaHandler = new SchemaHandler(metadataStorageHandler)
-    val domains: List[Domain] = schemaHandler.domains
-    // Extracting the domain from the Excel referential file
-    domains.find(_.name == config.domain) match {
-      case Some(domain) =>
-        ScriptGen.generate(
-          domain,
-          config.scriptTemplateFile,
-          config.scriptOutputDir,
-          config.deltaColumn.orElse(ExtractorSettings.deltaColumns.defaultColumn),
-          ExtractorSettings.deltaColumns.deltaColumns
-        )
-        true
-      case None =>
-        logger.error(s"No domain found for domain name ${config.domain}")
+    (config.domain, config.jobs) match {
+      case (Nil, Nil) =>
+        logger.error(s"One of domain or jobs should be provided")
+        false
+      case (Nil, jobNames) =>
+        runOnJobs(config, schemaHandler, jobNames)
+      case (domainNames, Nil) =>
+        runOnDomains(config, schemaHandler, domainNames)
+      case (_, _) =>
+        logger.error(s"Only one of domain or job list should be passed as an argument")
         false
     }
+  }
+
+  private def runOnDomains(
+    config: ExtractScriptGenConfig,
+    schemaHandler: SchemaHandler,
+    domainNames: Seq[String]
+  ) = {
+    val domains: List[Domain] = schemaHandler.domains
+    domainNames
+      .map { domainName =>
+        // Extracting the domain from the Excel referential file
+        domains.find(_.name == domainName) match {
+          case Some(domain) =>
+            ScriptGen.generateDomain(
+              domain,
+              config.scriptTemplateFile,
+              config.scriptOutputDir,
+              config.scriptOutputPattern,
+              config.deltaColumn.orElse(ExtractorSettings.deltaColumns.defaultColumn),
+              ExtractorSettings.deltaColumns.deltaColumns
+            )
+            true
+          case None =>
+            logger.error(s"No domain found for domain name ${config.domain}")
+            false
+        }
+      }
+      .forall(_ == true)
+  }
+
+  private def runOnJobs(
+    config: ExtractScriptGenConfig,
+    schemaHandler: SchemaHandler,
+    jobNames: Seq[String]
+  ): Boolean = {
+    val jobs = schemaHandler.jobs
+    jobNames
+      .map { jobName =>
+        // Extracting the Job
+        jobs.get(jobName) match {
+          case Some(job) =>
+            ScriptGen.generateJob(
+              job,
+              config.scriptTemplateFile,
+              config.scriptOutputDir,
+              config.scriptOutputPattern
+            )
+            true
+          case None =>
+            logger.error(s"No file found for domain name ${config.domain}")
+            false
+        }
+      }
+      .forall(_ == true)
   }
 }
 
