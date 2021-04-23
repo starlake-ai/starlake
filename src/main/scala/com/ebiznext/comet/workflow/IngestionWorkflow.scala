@@ -28,6 +28,7 @@ import com.ebiznext.comet.job.index.connectionload.{ConnectionLoadConfig, Connec
 import com.ebiznext.comet.job.index.esload.{ESLoadConfig, ESLoadJob}
 import com.ebiznext.comet.job.infer.{InferSchema, InferSchemaConfig}
 import com.ebiznext.comet.job.ingest._
+import com.ebiznext.comet.job.load.LoadStrategy
 import com.ebiznext.comet.job.metrics.{MetricsConfig, MetricsJob}
 import com.ebiznext.comet.job.transform.AutoTaskJob
 import com.ebiznext.comet.schema.handlers.{LaunchHandler, SchemaHandler, StorageHandler}
@@ -245,7 +246,9 @@ class IngestionWorkflow(
   ): (Iterable[(Option[Schema], Path)], Iterable[(Option[Schema], Path)]) = {
     val pendingArea = DatasetArea.pending(domainName)
     logger.info(s"List files in $pendingArea")
-    val files = storageHandler.list(pendingArea, recursive = false)
+    val files = Utils
+      .loadInstance[LoadStrategy](settings.comet.loadStrategyClass)
+      .list(settings.storageHandler.fs, pendingArea, recursive = false)
     if (files.nonEmpty)
       logger.info(s"Found ${files.mkString(",")}")
     else
