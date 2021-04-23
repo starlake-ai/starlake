@@ -17,25 +17,27 @@ class CliConfigSpec extends TestHelper {
   new WithSettings() {
     "Generate Documentation" should "succeed" in {
       val rstMap = Map(
-        "import"       -> ImportConfig.sphinx(),
-        "bqload"       -> BigQueryLoadConfig.sphinx(),
-        "esload"       -> ESLoadConfig.sphinx(),
-        "infer-schema" -> InferSchemaConfig.sphinx(),
-        "load"         -> LoadConfig.sphinx(),
-        "metrics"      -> MetricsConfig.sphinx(),
-        "parquet2csv"  -> Parquet2CSVConfig.sphinx(),
-        "cnxload"      -> ConnectionLoadConfig.sphinx(),
-        "xls2yml"      -> Xls2YmlConfig.sphinx(),
-        "ddl2yml"      -> DDL2YmlConfig.sphinx(),
-        "extract"      -> ExtractScriptGenConfig.sphinx(),
-        "transform"    -> TransformConfig.sphinx(),
-        "watch"        -> WatchConfig.sphinx(),
-        "kafkaload"    -> KafkaJobConfig.sphinx(),
-        "yml2xls"      -> Yml2XlsConfig.sphinx()
+        "import"       -> ImportConfig.sphinx(1),
+        "bqload"       -> BigQueryLoadConfig.sphinx(2),
+        "esload"       -> ESLoadConfig.sphinx(3),
+        "infer-schema" -> InferSchemaConfig.sphinx(4),
+        "load"         -> LoadConfig.sphinx(5),
+        "metrics"      -> MetricsConfig.sphinx(6),
+        "parquet2csv"  -> Parquet2CSVConfig.sphinx(7),
+        "cnxload"      -> ConnectionLoadConfig.sphinx(8),
+        "xls2yml"      -> Xls2YmlConfig.sphinx(9),
+        "ddl2yml"      -> DDL2YmlConfig.sphinx(10),
+        "extract"      -> ExtractScriptGenConfig.sphinx(11),
+        "transform"    -> TransformConfig.sphinx(12),
+        "watch"        -> WatchConfig.sphinx(13),
+        "kafkaload"    -> KafkaJobConfig.sphinx(14),
+        "yml2xls"      -> Yml2XlsConfig.sphinx(15)
       )
-      val rstPath = getClass.getResource("/").getPath + "../../../docs/user/cli"
+
+      val rstPath =
+        getClass.getResource("/").getPath + "../../../../comet-docs/docs/cli"
       rstMap.foreach { case (k, v) =>
-        reflect.io.File(s"$rstPath/$k.rst").writeAll(v)
+        reflect.io.File(s"$rstPath/$k.md").writeAll(v)
       }
     }
   }
