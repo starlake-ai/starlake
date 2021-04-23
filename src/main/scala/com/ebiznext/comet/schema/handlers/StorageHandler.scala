@@ -34,6 +34,8 @@ import scala.util.{Failure, Success, Try}
 import scala.collection.JavaConverters._
 import java.util.zip.ZipInputStream
 
+import com.ebiznext.comet.utils.conversion.Conversions.convertToScalaIterator
+
 /** Interface required by any filesystem manager
   */
 trait StorageHandler extends StrictLogging {
