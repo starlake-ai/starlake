@@ -116,10 +116,10 @@ object ESLoadConfig extends CliConfig[ESLoadConfig] {
       opt[Map[String, String]]("conf")
         .action((x, c) => c.copy(options = x))
         .optional()
-        .valueName("es.batch.size.entries=1000,es.batch.size.bytes=1mb...")
-        .text("""eshadoop configuration options.
-            |See https://www.elastic.co/guide/en/elasticsearch/hadoop/current/configuration.html
-            |""".stripMargin)
+        .valueName("es.batch.size.entries=1000, es.batch.size.bytes=1mb...")
+        .text(
+          """eshadoop configuration options. See https://www.elastic.co/guide/en/elasticsearch/hadoop/current/configuration.html""".stripMargin
+        )
     )
   }
 
