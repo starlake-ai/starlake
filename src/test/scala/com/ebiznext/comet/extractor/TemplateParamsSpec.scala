@@ -27,6 +27,7 @@ class TemplateParamsSpec extends AnyFlatSpec with Matchers {
     )
 
     val expectedTemplateParams = TemplateParams(
+      domainToExport = "AnyDomain",
       tableToExport = "table1",
       columnsToExport = List("col1" -> "string", "col2" -> "long"),
       fullExport = false,
@@ -36,8 +37,10 @@ class TemplateParamsSpec extends AnyFlatSpec with Matchers {
       scriptOutputFile = scriptOutputFolder / "EXTRACT_table1.sql"
     )
     TemplateParams.fromSchema(
+      "AnyDomain",
       schema,
       scriptOutputFolder,
+      None,
       Some("updateCol")
     ) shouldBe expectedTemplateParams
   }
@@ -55,6 +58,7 @@ class TemplateParamsSpec extends AnyFlatSpec with Matchers {
     )
 
     val expectedTemplateParams = TemplateParams(
+      domainToExport = "AnyDomain",
       tableToExport = "table1",
       columnsToExport = List("col1" -> "string", "col2" -> "long"),
       fullExport = true,
@@ -63,6 +67,12 @@ class TemplateParamsSpec extends AnyFlatSpec with Matchers {
       exportOutputFileBase = "output_file",
       scriptOutputFile = scriptOutputFolder / "EXTRACT_table1.sql"
     )
-    TemplateParams.fromSchema(schema, scriptOutputFolder, None) shouldBe expectedTemplateParams
+    TemplateParams.fromSchema(
+      "AnyDomain",
+      schema,
+      scriptOutputFolder,
+      None,
+      None
+    ) shouldBe expectedTemplateParams
   }
 }

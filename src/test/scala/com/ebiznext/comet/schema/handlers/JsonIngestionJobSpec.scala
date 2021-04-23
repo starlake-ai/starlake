@@ -42,8 +42,8 @@ abstract class JsonIngestionJobSpecBase(variant: String) extends TestHelper with
     new WithSettings(configuration) {
 
       new SpecTrait(
-        domainFilename = "json.comet.yml",
-        sourceDomainPathname = "/sample/json/json.comet.yml",
+        domainOrJobFilename = "json.comet.yml",
+        sourceDomainOrJobPathname = "/sample/json/json.comet.yml",
         datasetDomainName = "json",
         sourceDatasetPathName = "/sample/json/complex.json"
       ) {
@@ -94,8 +94,8 @@ abstract class JsonIngestionJobSpecBase(variant: String) extends TestHelper with
     new WithSettings(configuration) {
 
       new SpecTrait(
-        domainFilename = "json.comet.yml",
-        sourceDomainPathname = "/sample/json/json-invalid-script.comet.yml",
+        domainOrJobFilename = "json.comet.yml",
+        sourceDomainOrJobPathname = "/sample/json/json-invalid-script.comet.yml",
         datasetDomainName = "json",
         sourceDatasetPathName = "/sample/json/complex.json"
       ) {

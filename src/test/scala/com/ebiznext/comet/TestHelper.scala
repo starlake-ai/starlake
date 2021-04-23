@@ -277,10 +277,11 @@ trait TestHelper extends AnyFlatSpec with Matchers with BeforeAndAfterAll with S
   }
 
   abstract class SpecTrait(
-    val domainFilename: String,
-    val sourceDomainPathname: String,
+    val domainOrJobFilename: String,
+    val sourceDomainOrJobPathname: String,
     val datasetDomainName: String,
-    val sourceDatasetPathName: String
+    val sourceDatasetPathName: String,
+    isDomain: Boolean = true // TODO refactor. false if delivering a job
   )(implicit withSettings: WithSettings) {
     implicit def settings: Settings = withSettings.settings
 
@@ -288,8 +289,6 @@ trait TestHelper extends AnyFlatSpec with Matchers with BeforeAndAfterAll with S
     def metadataStorageHandler: StorageHandler = settings.metadataStorageHandler
     val domainMetadataRootPath: Path = DatasetArea.domains
     val jobMetadataRootPath: Path = DatasetArea.jobs
-
-    val domainPath = new Path(domainMetadataRootPath, domainFilename)
 
     def cleanDatasets: Try[Unit] =
       Try {
@@ -303,12 +302,21 @@ trait TestHelper extends AnyFlatSpec with Matchers with BeforeAndAfterAll with S
 
         deletedFiles
           .foreach(_.delete())
-
-        deliverSourceDomain()
+        if (isDomain)
+          deliverSourceDomain()
+        else
+          deliverSourceJob()
       }
 
     def deliverSourceDomain(): Unit = {
-      withSettings.deliverTestFile(sourceDomainPathname, domainPath)
+      val domainPath = new Path(domainMetadataRootPath, domainOrJobFilename)
+      withSettings.deliverTestFile(sourceDomainOrJobPathname, domainPath)
+    }
+
+    def deliverSourceJob(): Unit = {
+      val jobPath = new Path(jobMetadataRootPath, domainOrJobFilename)
+      withSettings.deliverTestFile(sourceDomainOrJobPathname, jobPath)
+
     }
 
     def loadPending(implicit codec: Codec): Boolean = {

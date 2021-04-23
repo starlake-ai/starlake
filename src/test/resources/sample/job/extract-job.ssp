@@ -1,0 +1,11 @@
+<%@ var name: String %>
+<%@ var tasks: List[Any] %>
+#{
+    val task = tasks(0).asInstanceOf[Map[String,Any]]
+}#
+${name}
+${task("sql").toString}
+${task("area").toString}
+${task("domain").toString}
+${task("partition").toString}
+
