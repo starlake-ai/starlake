@@ -60,14 +60,14 @@ object Xls2YmlConfig extends CliConfig[Xls2YmlConfig] {
         .action((x, c) => c.copy(privacy = x map (_.toUpperCase)))
         .optional()
         .text(
-          """What privacy policies should be applied in the pre-encryption phase ?
-            |All privacy policies are applied by default.""".stripMargin
+          """What privacy policies should be applied in the pre-encryption phase ? All privacy policies are applied by default.""".stripMargin
         ),
       opt[Option[String]]("outputPath")
         .action((x, c) => c.copy(outputPath = x))
         .optional()
-        .text("""Path for saving the resulting YAML file(s).
-            |Comet domains path is used by default.""".stripMargin)
+        .text(
+          """Path for saving the resulting YAML file(s). Comet domains path is used by default.""".stripMargin
+        )
     )
   }
 
