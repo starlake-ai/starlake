@@ -9,7 +9,7 @@ trait CliConfig[T] {
   def parse(args: Seq[String]): Option[T]
   val engine: TemplateEngine = new TemplateEngine
 
-  def sphinx(): String = {
+  def sphinx(pageIndex: Int): String = {
     val optionDefs = parser.toList
     val programNameOptionDef = optionDefs.headOption
     val synopsisOptionDef = programNameOptionDef.flatMap(_ => optionDefs.drop(1).headOption)
@@ -30,9 +30,12 @@ trait CliConfig[T] {
         } else {
           (rawDescription, "")
         }
-      val rstExample = example.replace("example:", "\n.. code-block:: console\n\n  ")
-      val rstDescription = rawText.replaceAll("\n", "\n| ") + "\n"
-      rstDescription + rstExample
+      val rstExample = example.replace("example:", "\n\n")
+      val rstDescription = rawText
+      if (rstExample.trim.length > 0)
+        rstDescription + "````shell\n" + rstExample.trim + "\n````\n"
+      else
+        rstDescription
     }
 
     case class SphinxOption(
@@ -55,7 +58,7 @@ trait CliConfig[T] {
       SphinxOption(
         opt.name,
         opt.valueName.getOrElse("<value>"),
-        opt.desc.replaceAll("\n", "\n    "),
+        opt.desc.replaceAll("\n", "<br />"),
         if (opt.getMinOccurs > 0) "Required" else "Optional",
         if (opt.getMaxOccurs == Int.MaxValue) ", Unbounded" else ""
       )
@@ -66,17 +69,18 @@ trait CliConfig[T] {
         "programName" -> programName,
         "synopsis"    -> synopsis,
         "description" -> description,
-        "options"     -> options.map(opt => option(opt).toMap())
+        "options"     -> options.map(opt => option(opt).toMap()),
+        "index"       -> pageIndex.toString
       )
 
     //TODO keep the lines below until we depreciate Scala 2.11
     //     We'll replace it by --> val template = Source.fromResource("scalate/sphinx-cli.mustache").mkString
 
-    val stream = getClass.getResourceAsStream("/scalate/sphinx-cli.mustache")
+    val stream = getClass.getResourceAsStream("/scalate/md-cli.mustache")
     val template = scala.io.Source.fromInputStream(stream).mkString
 
     engine.layout(
-      "sphinx-cli.mustache",
+      "md-cli.mustache",
       engine.compileMoustache(template),
       templateMap
     )
