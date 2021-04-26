@@ -1,7 +1,8 @@
 /** @type {import('@docusaurus/types').DocusaurusConfig} */
 module.exports = {
     title: 'Comet Data Pipeline',
-    tagline: 'Comet Data Pipeline is a Spark Based On Premise and Cloud Ingestion & Transformation Framework for Batch & Stream Processing Systems',
+//    tagline: 'Comet Data Pipeline is a Spark Based On Premise and Cloud Ingestion & Transformation Framework for Batch & Stream Processing Systems',
+    tagline: 'Your on-premise & cloud low code / no code framework for Big & Fast Data Integration',
     url: 'https://ebiznext.github.io',
     baseUrl: '/comet-data-pipeline/',
     onBrokenLinks: 'throw',
@@ -23,7 +24,7 @@ module.exports = {
                     position: 'left',
                     label: 'Getting Started',
                 },
-                {to: '/blog', label: 'Blog', position: 'left'},
+                /*{to: '/blog', label: 'Blog', position: 'left'},*/
                 {
                     href: 'https://github.com/ebiznext/comet-data-pipeline',
                     label: 'GitHub',
@@ -51,8 +52,8 @@ module.exports = {
                             href: 'https://stackoverflow.com/questions/tagged/comet-data-pipeline',
                         },
                         {
-                            label: 'Discord',
-                            href: 'https://discordapp.com/invite/comet-data-pipeline',
+                            label: 'Gitter',
+                            href: 'https://gitter.im/comet-data-pipeline/community',
                         },
                         {
                             label: 'Twitter',
@@ -85,13 +86,13 @@ module.exports = {
                     sidebarPath: require.resolve('./sidebars.js'),
                     // Please change this to your repo.
                     editUrl:
-                        'https://github.com/facebook/docusaurus/edit/master/website/',
+                        'https://github.com/ebiznext/comet-data-pipeline/master/website/',
                 },
                 blog: {
                     showReadingTime: true,
                     // Please change this to your repo.
                     editUrl:
-                        'https://github.com/facebook/docusaurus/edit/master/website/blog/',
+                        'https://github.com/ebiznext/comet-data-pipeline/website/blog/',
                 },
                 theme: {
                     customCss: require.resolve('./src/css/custom.css'),
