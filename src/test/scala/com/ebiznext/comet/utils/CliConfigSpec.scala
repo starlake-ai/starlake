@@ -17,21 +17,21 @@ class CliConfigSpec extends TestHelper {
   new WithSettings() {
     "Generate Documentation" should "succeed" in {
       val rstMap = Map(
-        "import"       -> ImportConfig.sphinx(1),
-        "bqload"       -> BigQueryLoadConfig.sphinx(2),
-        "esload"       -> ESLoadConfig.sphinx(3),
-        "infer-schema" -> InferSchemaConfig.sphinx(4),
-        "load"         -> LoadConfig.sphinx(5),
-        "metrics"      -> MetricsConfig.sphinx(6),
-        "parquet2csv"  -> Parquet2CSVConfig.sphinx(7),
-        "cnxload"      -> ConnectionLoadConfig.sphinx(8),
-        "xls2yml"      -> Xls2YmlConfig.sphinx(9),
-        "ddl2yml"      -> DDL2YmlConfig.sphinx(10),
-        "extract"      -> ExtractScriptGenConfig.sphinx(11),
-        "transform"    -> TransformConfig.sphinx(12),
-        "watch"        -> WatchConfig.sphinx(13),
-        "kafkaload"    -> KafkaJobConfig.sphinx(14),
-        "yml2xls"      -> Yml2XlsConfig.sphinx(15)
+        "import"       -> ImportConfig.markdown(1),
+        "bqload"       -> BigQueryLoadConfig.markdown(2),
+        "esload"       -> ESLoadConfig.markdown(3),
+        "infer-schema" -> InferSchemaConfig.markdown(4),
+        "load"         -> LoadConfig.markdown(5),
+        "metrics"      -> MetricsConfig.markdown(6),
+        "parquet2csv"  -> Parquet2CSVConfig.markdown(7),
+        "cnxload"      -> ConnectionLoadConfig.markdown(8),
+        "xls2yml"      -> Xls2YmlConfig.markdown(9),
+        "ddl2yml"      -> DDL2YmlConfig.markdown(10),
+        "extract"      -> ExtractScriptGenConfig.markdown(11),
+        "transform"    -> TransformConfig.markdown(12),
+        "watch"        -> WatchConfig.markdown(13),
+        "kafkaload"    -> KafkaJobConfig.markdown(14),
+        "yml2xls"      -> Yml2XlsConfig.markdown(15)
       )
 
       val rstPath =
