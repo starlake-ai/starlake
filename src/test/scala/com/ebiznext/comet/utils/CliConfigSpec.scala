@@ -35,7 +35,7 @@ class CliConfigSpec extends TestHelper {
       )
 
       val rstPath =
-        getClass.getResource("/").getPath + "../../../../comet-docs/docs/cli"
+        getClass.getResource("/").getPath + "../../../docs/docs/cli"
       rstMap.foreach { case (k, v) =>
         reflect.io.File(s"$rstPath/$k.md").writeAll(v)
       }
