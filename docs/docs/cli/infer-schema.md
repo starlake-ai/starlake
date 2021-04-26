@@ -1,5 +1,5 @@
 ---
-sidebar_position: 4
+sidebar_position: 70
 title: infer-schema
 ---
 
