@@ -1,9 +1,8 @@
 ---
 sidebar_position: 1
-title: Introduction
 ---
 
-## What is it ?
+# What is it ?
 The purpose of this project is to efficiently ingest various data
 sources in different formats and make them available for analytics.
 Usually, ingestion is done by writing hand made custom parsers that
