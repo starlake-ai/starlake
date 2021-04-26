@@ -8,7 +8,7 @@
 [![Join the chat at https://gitter.im/comet-data-pipeline/community](https://badges.gitter.im/comet-data-pipeline/community.svg)](https://gitter.im/comet-data-pipeline/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 # About Comet Data Pipeline
 
-Complete documentation available [here](https://comet-app.readthedocs.io/)
+Complete documentation available [here](https://ebiznext.github.io/comet-data-pipeline/)
 
 ## Introduction
 

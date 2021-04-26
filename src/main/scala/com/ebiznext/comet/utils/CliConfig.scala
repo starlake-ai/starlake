@@ -9,7 +9,7 @@ trait CliConfig[T] {
   def parse(args: Seq[String]): Option[T]
   val engine: TemplateEngine = new TemplateEngine
 
-  def sphinx(pageIndex: Int): String = {
+  def markdown(pageIndex: Int): String = {
     val optionDefs = parser.toList
     val programNameOptionDef = optionDefs.headOption
     val synopsisOptionDef = programNameOptionDef.flatMap(_ => optionDefs.drop(1).headOption)
@@ -38,7 +38,7 @@ trait CliConfig[T] {
         rstDescription
     }
 
-    case class SphinxOption(
+    case class MarkdownOption(
       name: String,
       value: String,
       description: String,
@@ -54,8 +54,8 @@ trait CliConfig[T] {
           "unbounded"   -> unbounded
         )
     }
-    def option(opt: OptionDef[_, T]): SphinxOption = {
-      SphinxOption(
+    def option(opt: OptionDef[_, T]): MarkdownOption = {
+      MarkdownOption(
         opt.name,
         opt.valueName.getOrElse("<value>"),
         opt.desc.replaceAll("\n", "<br />"),
