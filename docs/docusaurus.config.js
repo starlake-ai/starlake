@@ -1,7 +1,6 @@
 /** @type {import('@docusaurus/types').DocusaurusConfig} */
 module.exports = {
     title: 'Comet Data Pipeline',
-//    tagline: 'Comet Data Pipeline is a Spark Based On Premise and Cloud Ingestion & Transformation Framework for Batch & Stream Processing Systems',
     tagline: 'Your on-premise & cloud low code / no code framework for Big & Fast Data Integration',
     url: 'https://ebiznext.github.io',
     baseUrl: '/comet-data-pipeline/',
@@ -24,7 +23,7 @@ module.exports = {
                     position: 'left',
                     label: 'Getting Started',
                 },
-                /*{to: '/blog', label: 'Blog', position: 'left'},*/
+                {to: '/blog', label: 'Blog', position: 'left'},
                 {
                     href: 'https://github.com/ebiznext/comet-data-pipeline',
                     label: 'GitHub',
