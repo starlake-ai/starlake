@@ -174,10 +174,10 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
           case None           => new Path(s"$sqlFilePrefix.sql")
         }
         if (storage.exists(sqlTaskFile)) {
-          val sqlTask = SqlTask(sqlTaskFile)
+          val sqlTask = SqlTask(storage.read(sqlTaskFile))
           taskDesc.copy(
             presql = sqlTask.presql,
-            sql = taskDesc.sql,
+            sql = sqlTask.sql,
             postsql = sqlTask.postsql
           )
         } else {
@@ -199,10 +199,11 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     * Jobs are defined under the "jobs" folder in the metadata folder
     */
   lazy val jobs: Map[String, AutoJobDesc] = {
-    val (validJobsFile, invalidJobsFile) = storage
-      .list(DatasetArea.jobs, ".yml", recursive = true)
-      .map(loadJobFromFile)
-      .partition(_.isSuccess)
+    val jobs = storage.list(DatasetArea.jobs, ".yml", recursive = true)
+    val (validJobsFile, invalidJobsFile) =
+      jobs
+        .map(loadJobFromFile)
+        .partition(_.isSuccess)
 
     invalidJobsFile.foreach {
       case Failure(err) =>

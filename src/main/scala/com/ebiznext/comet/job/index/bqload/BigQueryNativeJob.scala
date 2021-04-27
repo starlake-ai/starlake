@@ -28,12 +28,13 @@ class BigQueryNativeJob(
 
   def runNativeConnector(): Try[BigQueryJobResult] = {
     Try {
+      val targetDataset = getOrCreateDataset()
       val queryConfig: QueryJobConfiguration.Builder =
         QueryJobConfiguration
           .newBuilder(sql)
           .setCreateDisposition(CreateDisposition.valueOf(cliConfig.createDisposition))
           .setWriteDisposition(WriteDisposition.valueOf(cliConfig.writeDisposition))
-          .setDefaultDataset(datasetId)
+          .setDefaultDataset(targetDataset.getDatasetId)
           .setAllowLargeResults(true)
 
       val queryConfigWithPartition = (cliConfig.outputPartition) match {
