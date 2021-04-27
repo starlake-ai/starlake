@@ -36,7 +36,7 @@ tasks:
 
 ## Transform Parquet to DSV
 
-Based ont the :ref:`parquet_to_parquet` example, we add the format property to request a csv output
+Based ont the [parquet to parquet](#parquet-to-parquet) example, we add the format property to request a csv output
 and set coalesce to `true` to output everything in a single CSV file.
 
 ````yaml
@@ -64,7 +64,7 @@ tasks:
 
 ## Transform Parquet to BigQuery
 
-Based ont the :ref:`parquet_to_parquet` example, we add the sink section to force the task to store the SQL result in BigQuery
+Based ont the [parquet to parquet](#parquet-to-parquet) example, we add the sink section to force the task to store the SQL result in BigQuery
 
 The result will store in the current project under the `business` BigQuery dataset in the `output` table.
 

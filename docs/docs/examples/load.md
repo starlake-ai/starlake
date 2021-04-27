@@ -69,7 +69,7 @@ schemas:
 ````
 
 ## Load to BigQuery
-Based on the :ref:`load_to_parquet` example, the only thing we add is the /metadata/sink section
+Based on the [Load to parquet](#load-to-parquet) example, the only thing we add is the /metadata/sink section
 Files will be stored in the `customers` and `orders` BigQuery tables under the `sales` BigQuery dataset
 
 ````yaml
@@ -136,7 +136,7 @@ schemas:
 
 ## Load to SQL Database
 
-Based on the :ref:`load_to_parquet` example, we need to
+Based on the [Load to parquet](#load-to-parquet) example, we need to
 
 1. Add  the /metadata/sink section
 
@@ -209,7 +209,7 @@ jdbc = {
 ````
 
 ## Load to Elasticsearch
-Based on the example :ref:`load_to_parquet` example, we add is the /metadata/sink section to both schemas.
+Based on the example [Load to parquet](#load-to-parquet) example, we add is the /metadata/sink section to both schemas.
 
 For the sake of the example, we added a field to the location schema to highlight how timestamped indexes may be handled.
 Indexes will be named after the domain and schema names suffixed by the timestamp if present.
