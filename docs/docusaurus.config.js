@@ -10,6 +10,22 @@ module.exports = {
     organizationName: 'ebiznext', // Usually your GitHub org/user name.
     projectName: 'comet-data-pipeline', // Usually your repo name.
     themeConfig: {
+        algolia: {
+            apiKey: 'ac0b111da6354964b01b7e634e6d73fe',
+            indexName: 'comet-website',
+
+            // Optional: see doc section below
+            contextualSearch: true,
+
+
+            // Optional: see doc section below
+            appId: 'IEP5P8HN5L',
+
+            // Optional: Algolia search parameters
+            searchParameters: {},
+
+            //... other Algolia params
+        },
         navbar: {
             title: 'Comet Data Pipeline',
             logo: {
@@ -85,13 +101,13 @@ module.exports = {
                     sidebarPath: require.resolve('./sidebars.js'),
                     // Please change this to your repo.
                     editUrl:
-                        'https://github.com/ebiznext/comet-data-pipeline/master/website/',
+                        'https://github.com/ebiznext/comet-data-pipeline/edit/master/docs/',
                 },
                 blog: {
                     showReadingTime: true,
                     // Please change this to your repo.
                     editUrl:
-                        'https://github.com/ebiznext/comet-data-pipeline/website/blog/',
+                        'https://github.com/ebiznext/comet-data-pipeline/edit/master/docs/blog/',
                 },
                 theme: {
                     customCss: require.resolve('./src/css/custom.css'),
