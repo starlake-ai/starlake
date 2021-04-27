@@ -8,14 +8,15 @@ This feature allows you to extract files from any JDBC compliant database to com
 
 To extract a table of view content, we need to :
 
-* Write a YAML file that describe the table schema
+* Write a YAML file that describe the table schema or generate this YAML file using the extraction script.
 * a mustache template that describe how the table data should be extracted as files. A generic mustache template is provided below
 * Run `comet extract` to apply the templated script to your database
 
 ## The YAML File
 
+
 The extract and load process are both based on the same YAML description file.
-Please check first how a schema is described in See :ref:`howto_load`
+Please check first how a schema is described in [How to load](../howto/load.md)
 
 The only difference is that the YAML file for the extraction process describe a table schema instead of a formatted file schema.
 In that case, the following YAML fields have a special meaning:

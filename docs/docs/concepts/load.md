@@ -42,7 +42,7 @@ schemas: List[Schema]
 
 *Required*. List of schemas for each dataset in this domain
 A domain ususally contains multiple schemas. Each schema defining how the contents of the input file should be parsed.
-See :ref:`schema_concept` for more details.
+See [Schema](#schema) for more details.
 
 ````scala
 comment: String
@@ -86,13 +86,13 @@ attributes: List[Attribute]
 ````
 
 *Required*. Attributes parsing rules.
-See :ref:`attribute_concept` for more details.
+See [Attributes](#attribute) for more details.
 
 ````scala
 metadata: Metadata
 ````
 *Optional*. Dataset metadata
-See :ref:`metadata_concept` for more details.
+See [Metadata](#metadata) for more details.
 
 ````scala
 comment: String
@@ -122,7 +122,7 @@ rls: List[RowLevelSecurity]
 *Optional*. Experimental. Row level security to apply to this schema once it is ingested.
 This usually execute a set on grants by applying a predicate filter to restrict
 access to a subset of the rows in the table.
-See :ref:`rls_concept` for more details
+See [Row Level Security](#rowlevelsecurity) for more details
 
 ## Metadata
 
@@ -195,7 +195,7 @@ partition: List[String]
 sink: Sink
 ````
 *Optional*. Should the dataset be indexed to this sink ?
-See :ref:`sink_concept` for more details.
+See [Sink](#sink) for more details.
 
 ````scala
 ignore: String

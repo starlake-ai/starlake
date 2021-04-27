@@ -33,7 +33,12 @@ jdbc-schema:
   template-file: "/my-templates/domain-template.yml" # Metadata to use for the generated YML file.
 ````
 
-This will generate a YML file with the metadata file
+To extract all the tables, simply set the "name" attribute to "*"
 
-Then you can :ref:`howto_extract` data.
-Once data are extracted you can proceed to the :ref:`load` step.
+To import all the columns of a table, do not define the columns attribute.
+
+This will generate a YML file with the metadata section.
+
+Then you can [extract the data](../howto/extract.md).
+
+Once data are extracted you can proceed to the [load step](../howto/load.md).
