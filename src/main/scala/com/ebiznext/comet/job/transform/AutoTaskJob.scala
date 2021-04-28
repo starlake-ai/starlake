@@ -142,8 +142,10 @@ class AutoTaskJob(
       val selectExpr =
         if (queryExpr.toLowerCase.startsWith("select "))
           queryExpr
-        else
-          s"SELECT * FROM $queryExpr"
+        else {
+          val allColumns = "*"
+          s"SELECT $allColumns FROM $queryExpr"
+        }
       queryName + " AS (" + selectExpr + ")"
     } mkString ("WITH ", ",", " ")
 
