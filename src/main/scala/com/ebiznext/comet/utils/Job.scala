@@ -35,6 +35,27 @@ trait JobBase extends StrictLogging {
     */
   def run(): Try[JobResult]
 
+  type JdbcConfigName = String
+
+  protected def parseViewDefinition(
+    valueWithEnv: String
+  ): (SinkType, Option[JdbcConfigName], String) = {
+    val sepIndex = valueWithEnv.indexOf(":")
+    if (sepIndex > 0) {
+      val key = valueWithEnv.substring(0, sepIndex)
+      val sepConfigIndex = valueWithEnv.indexOf(':', sepIndex + 1)
+      if (sepConfigIndex > 0) {
+        (
+          SinkType.fromString(valueWithEnv.substring(0, sepIndex)),
+          Some(valueWithEnv.substring(sepIndex + 1, sepConfigIndex)),
+          valueWithEnv.substring(sepConfigIndex + 1)
+        )
+      } else
+        (SinkType.fromString(key), None, valueWithEnv.substring(sepIndex + 1))
+    } else // parquet is the default
+      (SinkType.FS, None, valueWithEnv)
+  }
+
 }
 
 trait SparkJob extends JobBase {
@@ -187,7 +208,7 @@ trait SparkJob extends JobBase {
     }
   }
 
-  protected def createViews(
+  protected def createSparkViews(
     views: Views,
     sqlParameters: Map[String, String]
   ): Unit = {
@@ -201,21 +222,7 @@ trait SparkJob extends JobBase {
     views.views.foreach { case (key, value) =>
       // Apply substitution defined with {{ }} and overload options in env by option in command line
       val valueWithEnv = value.richFormat(sqlParameters)
-      val sepIndex = valueWithEnv.indexOf(":")
-      val (format, configName, path) =
-        if (sepIndex > 0) {
-          val key = valueWithEnv.substring(0, sepIndex)
-          val sepConfigIndex = valueWithEnv.indexOf(':', sepIndex + 1)
-          if (sepConfigIndex > 0) {
-            (
-              SinkType.fromString(valueWithEnv.substring(0, sepIndex)),
-              Some(valueWithEnv.substring(sepIndex + 1, sepConfigIndex)),
-              valueWithEnv.substring(sepConfigIndex + 1)
-            )
-          } else
-            (SinkType.fromString(key), None, valueWithEnv.substring(sepIndex + 1))
-        } else // parquet is the default
-          (SinkType.FS, None, valueWithEnv)
+      val (format, configName, path) = parseViewDefinition(valueWithEnv)
       logger.info(s"Loading view $path from $format")
       val df = format match {
         case FS =>
