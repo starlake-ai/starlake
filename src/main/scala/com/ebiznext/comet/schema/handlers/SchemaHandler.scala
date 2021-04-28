@@ -20,9 +20,10 @@
 
 package com.ebiznext.comet.schema.handlers
 
-import com.ebiznext.comet.config.{DatasetArea, Settings}
+import com.ebiznext.comet.config.{DatasetArea, Settings, StorageArea}
 import com.ebiznext.comet.schema.generator.YamlSerializer
 import com.ebiznext.comet.schema.model._
+import com.ebiznext.comet.utils.Formatter.RichFormatter
 import com.ebiznext.comet.utils.{CometObjectMapper, Utils}
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
@@ -148,12 +149,22 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
         )
       case Success(_) => // ignore
     }
-    validDomainsFile.collect { case Success(domain) =>
+    val domains = validDomainsFile.collect { case Success(domain) =>
       domain.copy(
-        name = Utils.subst(domain.name, activeEnv),
-        directory = Utils.subst(domain.directory, activeEnv)
+        name = domain.name.richFormat(activeEnv),
+        directory = domain.directory.richFormat(activeEnv)
       )
     }
+    Utils.duplicates(
+      domains.map(_.name),
+      s"%s is defined %d times. A domain can only be defined once."
+    ) match {
+      case Right(_) => domains
+      case Left(errors) =>
+        errors.foreach(logger.error(_))
+        throw new Exception("Duplicated domain name(s)")
+    }
+
   }
 
   def loadJobFromFile(path: Path): Try[AutoJobDesc] = {
@@ -183,20 +194,39 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
           taskDesc.copy(
             presql = sqlTask.presql,
             sql = sqlTask.sql,
-            postsql = sqlTask.postsql
+            postsql = sqlTask.postsql,
+            domain = taskDesc.domain.richFormat(activeEnv),
+            dataset = taskDesc.dataset.richFormat(activeEnv),
+            area =
+              taskDesc.area.map(area => StorageArea.fromString(area.value.richFormat(activeEnv)))
           )
         } else {
           taskDesc
         }
       }
-      //TODO Make job name become the prefix of the yml
-      //filename
-      if (path.getName != s"${jobDesc.name}.comet.yml") {
-        logger.warn(
-          s"Please set the job name of ${path.getName} to reflect the filename. This feature will be deprecated soon"
-        )
-      }
-      jobDesc.copy(tasks = tasks)
+      val jobName = finalDomainOrJobName(path, jobDesc.name)
+      jobDesc.copy(
+        name = jobName,
+        tasks = tasks,
+        area = jobDesc.area.map(area => StorageArea.fromString(area.value.richFormat(activeEnv)))
+      )
+    }
+  }
+
+  /** To be deprecated soon
+    * @param path : JOb path
+    * @param jobDesc : job desc
+    * @return
+    */
+  private def finalDomainOrJobName(path: Path, name: String) = {
+    if (path.getName != s"$name.comet.yml") {
+      val newJobName = path.getName.substring(0, path.getName.length - ".comet.yml".length)
+      logger.error(
+        s"deprecated: Please set the job name of ${path.getName} to reflect the filename. Job renamed to $newJobName. This feature will be removed soon"
+      )
+      newJobName
+    } else {
+      name
     }
   }
 
