@@ -204,9 +204,7 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
           taskDesc
         }
       }
-      //TODO Make job name become the prefix of the yml
-      //filename
-      val jobName = finalJobName(path, jobDesc)
+      val jobName = finalDomainOrJobName(path, jobDesc.name)
       jobDesc.copy(
         name = jobName,
         tasks = tasks,
@@ -220,15 +218,15 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     * @param jobDesc : job desc
     * @return
     */
-  private def finalJobName(path: Path, jobDesc: AutoJobDesc) = {
-    if (path.getName != s"${jobDesc.name}.comet.yml") {
+  private def finalDomainOrJobName(path: Path, name: String) = {
+    if (path.getName != s"$name.comet.yml") {
       val newJobName = path.getName.substring(0, path.getName.length - ".comet.yml".length)
       logger.error(
         s"deprecated: Please set the job name of ${path.getName} to reflect the filename. Job renamed to $newJobName. This feature will be removed soon"
       )
       newJobName
     } else {
-      jobDesc.name
+      name
     }
   }
 

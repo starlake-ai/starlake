@@ -197,7 +197,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       )
       val businessJob =
         AutoJobDesc(
-          "fullName",
+          "user",
           List(businessTask1),
           None,
           Some("parquet"),
@@ -217,7 +217,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       val workflow =
         new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
 
-      workflow.autoJob(TransformConfig("fullName"))
+      workflow.autoJob(TransformConfig("user"))
 
       sparkSession.read
         .load(pathUserDatasetBusiness.toString)

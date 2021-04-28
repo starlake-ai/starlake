@@ -423,7 +423,7 @@ class SchemaHandlerSpec extends TestHelper {
         val filename = "/sample/metadata/business/business.comet.yml"
         val jobPath = new Path(getClass.getResource(filename).toURI)
         val job = schemaHandler.loadJobFromFile(jobPath)
-        job.success.value.name shouldBe "business1"
+        job.success.value.name shouldBe "business" // Job renamed to filename and error is logged
       }
     }
 
