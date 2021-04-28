@@ -135,3 +135,4 @@ docs/node_modules
 docs/build
 /docs/.env
 /samples/bin/
+/samples/local/quickstart/
