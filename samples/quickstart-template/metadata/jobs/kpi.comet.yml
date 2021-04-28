@@ -1,0 +1,14 @@
+transform:
+  name: kpi
+  engine: Spark
+  views:
+    sellers: "FS:__COMET_TEST_ROOT__/datasets/accepted/hr/sellers"
+    orders: "FS:__COMET_TEST_ROOT__/datasets/accepted/sales/orders"
+  tasks:
+    - sql: ""
+      name: byseller
+      domain: sales_kpi
+      dataset: byseller_kpi
+      write: OVERWRITE
+  area: business
+

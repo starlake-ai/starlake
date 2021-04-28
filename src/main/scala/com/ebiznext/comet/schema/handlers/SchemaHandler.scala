@@ -23,7 +23,7 @@ package com.ebiznext.comet.schema.handlers
 import com.ebiznext.comet.config.{DatasetArea, Settings}
 import com.ebiznext.comet.schema.generator.YamlSerializer
 import com.ebiznext.comet.schema.model._
-import com.ebiznext.comet.utils.CometObjectMapper
+import com.ebiznext.comet.utils.{CometObjectMapper, Utils}
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.scala.experimental.ScalaObjectMapper
@@ -148,7 +148,12 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
         )
       case Success(_) => // ignore
     }
-    validDomainsFile.collect { case Success(domain) => domain }
+    validDomainsFile.collect { case Success(domain) =>
+      domain.copy(
+        name = Utils.subst(domain.name, activeEnv),
+        directory = Utils.subst(domain.directory, activeEnv)
+      )
+    }
   }
 
   def loadJobFromFile(path: Path): Try[AutoJobDesc] = {

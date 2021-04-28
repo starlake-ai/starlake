@@ -1,0 +1,908 @@
+{
+  "paragraphs": [
+    {
+      "text": "val acceptedLocationsDF \u003d spark.read.parquet(\"file:///zeppelin/files/local/quickstart/datasets/accepted/hr/locations\")\nacceptedLocationsDF.registerTempTable(\"locations\")\n\nval acceptedSellersDF \u003d spark.read.parquet(\"file:///zeppelin/files/local/quickstart/datasets/accepted/hr/sellers\")\nacceptedSellersDF.registerTempTable(\"sellers\")\n\nval acceptedCustomersDF \u003d spark.read.parquet(\"file:///zeppelin/files/local/quickstart/datasets/accepted/sales/customers\")\nacceptedCustomersDF.registerTempTable(\"customers\")\n\nval acceptedOrdersDF \u003d spark.read.parquet(\"file:///zeppelin/files/local/quickstart/datasets/accepted/sales/orders\")\nacceptedOrdersDF.registerTempTable(\"orders\")\n\nval auditDF \u003d spark.read.parquet(\"file:///zeppelin/files/local/quickstart/audit/ingestion-log\")\nauditDF.registerTempTable(\"audit\")\n\nval rejectedSellersDF \u003d spark.read.parquet(\"file:///zeppelin/files/local/quickstart/datasets/rejected/hr/sellers\")\nrejectedSellersDF.registerTempTable(\"rejected_sellers\")\n\n\n\n//val discrete \u003d spark.read.parquet(\"file:///zeppelin/files/local/quickstart/metrics/PRP/discrete/*.parquet\")\n//discrete.registerTempTable(\"discrete\")\n//val frequencies \u003d spark.read.parquet(\"file:///zeppelin/files/local/quickstart/metrics/PRP/frequencies/*.parquet\")\n//frequencies.registerTempTable(\"frequencies\")\n//val assertions \u003d spark.read.parquet(\"file:///zeppelin/files/local/quickstart/assertions/PRP/*.parquet\")\n//assertions.registerTempTable(\"assertions\")\n\n",
+      "user": "anonymous",
+      "dateUpdated": "2021-04-28 11:45:41.694",
+      "config": {
+        "colWidth": 12.0,
+        "fontSize": 9.0,
+        "enabled": true,
+        "results": {},
+        "editorSetting": {
+          "language": "scala",
+          "editOnDblClick": false,
+          "completionKey": "TAB",
+          "completionSupport": true
+        },
+        "editorMode": "ace/mode/scala"
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "results": {
+        "code": "SUCCESS",
+        "msg": [
+          {
+            "type": "TEXT",
+            "data": "\u001b[33mwarning: \u001b[0mthere were 6 deprecation warnings; re-run with -deprecation for details\n\u001b[1m\u001b[34macceptedLocationsDF\u001b[0m: \u001b[1m\u001b[32morg.apache.spark.sql.DataFrame\u001b[0m \u003d [id: string, address: struct\u003ccity: string, stores: array\u003cstring\u003e ... 1 more field\u003e]\n\u001b[1m\u001b[34macceptedSellersDF\u001b[0m: \u001b[1m\u001b[32morg.apache.spark.sql.DataFrame\u001b[0m \u003d [id: string, location_id: bigint ... 1 more field]\n\u001b[1m\u001b[34macceptedCustomersDF\u001b[0m: \u001b[1m\u001b[32morg.apache.spark.sql.DataFrame\u001b[0m \u003d [id: string, signup: timestamp ... 4 more fields]\n\u001b[1m\u001b[34macceptedOrdersDF\u001b[0m: \u001b[1m\u001b[32morg.apache.spark.sql.DataFrame\u001b[0m \u003d [id: string, customer_id: string ... 2 more fields]\n\u001b[1m\u001b[34mauditDF\u001b[0m: \u001b[1m\u001b[32morg.apache.spark.sql.DataFrame\u001b[0m \u003d [jobid: string, paths: string ... 10 more fields]\n\u001b[1m\u001b[34mrejectedSellersDF\u001b[0m: \u001b[1m\u001b[32morg.apache.spark.sql.DataFrame\u001b[0m \u003d [jobid: string, timestamp: timestamp ... 4 more f..."
+          }
+        ]
+      },
+      "apps": [],
+      "runtimeInfos": {
+        "jobUrl": {
+          "propertyName": "jobUrl",
+          "label": "SPARK JOB",
+          "tooltip": "View in Spark web UI",
+          "group": "spark",
+          "values": [
+            {
+              "jobUrl": "http://bd0797df9a93:4040/jobs/job?id\u003d129"
+            },
+            {
+              "jobUrl": "http://bd0797df9a93:4040/jobs/job?id\u003d130"
+            },
+            {
+              "jobUrl": "http://bd0797df9a93:4040/jobs/job?id\u003d131"
+            },
+            {
+              "jobUrl": "http://bd0797df9a93:4040/jobs/job?id\u003d132"
+            },
+            {
+              "jobUrl": "http://bd0797df9a93:4040/jobs/job?id\u003d133"
+            },
+            {
+              "jobUrl": "http://bd0797df9a93:4040/jobs/job?id\u003d134"
+            }
+          ],
+          "interpreterSettingId": "spark"
+        }
+      },
+      "progressUpdateIntervalMs": 500,
+      "jobName": "paragraph_1619607655820_1059041968",
+      "id": "paragraph_1619607655820_1059041968",
+      "dateCreated": "2021-04-28 11:00:55.820",
+      "dateStarted": "2021-04-28 11:45:41.736",
+      "dateFinished": "2021-04-28 11:45:42.524",
+      "status": "FINISHED"
+    },
+    {
+      "text": "%sql\nselect * from locations",
+      "user": "anonymous",
+      "dateUpdated": "2021-04-28 11:45:42.538",
+      "config": {
+        "colWidth": 12.0,
+        "fontSize": 9.0,
+        "enabled": true,
+        "results": {
+          "0": {
+            "graph": {
+              "mode": "table",
+              "height": 300.0,
+              "optionOpen": false,
+              "setting": {
+                "table": {
+                  "tableGridState": {},
+                  "tableColumnTypeState": {
+                    "names": {
+                      "id": "string",
+                      "address": "string"
+                    },
+                    "updated": false
+                  },
+                  "tableOptionSpecHash": "[{\"name\":\"useFilter\",\"valueType\":\"boolean\",\"defaultValue\":false,\"widget\":\"checkbox\",\"description\":\"Enable filter for columns\"},{\"name\":\"showPagination\",\"valueType\":\"boolean\",\"defaultValue\":false,\"widget\":\"checkbox\",\"description\":\"Enable pagination for better navigation\"},{\"name\":\"showAggregationFooter\",\"valueType\":\"boolean\",\"defaultValue\":false,\"widget\":\"checkbox\",\"description\":\"Enable a footer for displaying aggregated values\"}]",
+                  "tableOptionValue": {
+                    "useFilter": false,
+                    "showPagination": false,
+                    "showAggregationFooter": false
+                  },
+                  "updated": false,
+                  "initialized": false
+                }
+              },
+              "commonSetting": {}
+            }
+          }
+        },
+        "editorSetting": {
+          "language": "sql",
+          "editOnDblClick": false,
+          "completionKey": "TAB",
+          "completionSupport": true
+        },
+        "editorMode": "ace/mode/sql"
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "results": {
+        "code": "SUCCESS",
+        "msg": [
+          {
+            "type": "TABLE",
+            "data": "id\taddress\n1\t[Paris,WrappedArray(Store 1, Store 2, Store 3),France]\n2\t[Berlin,null,Germany]\n"
+          }
+        ]
+      },
+      "apps": [],
+      "runtimeInfos": {
+        "jobUrl": {
+          "propertyName": "jobUrl",
+          "label": "SPARK JOB",
+          "tooltip": "View in Spark web UI",
+          "group": "spark",
+          "values": [
+            {
+              "jobUrl": "http://bd0797df9a93:4040/jobs/job?id\u003d135"
+            }
+          ],
+          "interpreterSettingId": "spark"
+        }
+      },
+      "progressUpdateIntervalMs": 500,
+      "jobName": "paragraph_1619607777121_1747454077",
+      "id": "paragraph_1619607777121_1747454077",
+      "dateCreated": "2021-04-28 11:02:57.121",
+      "dateStarted": "2021-04-28 11:45:42.563",
+      "dateFinished": "2021-04-28 11:45:42.715",
+      "status": "FINISHED"
+    },
+    {
+      "text": "%sql\nselect * from sellers",
+      "user": "anonymous",
+      "dateUpdated": "2021-04-28 11:45:42.763",
+      "config": {
+        "colWidth": 12.0,
+        "fontSize": 9.0,
+        "enabled": true,
+        "results": {
+          "0": {
+            "graph": {
+              "mode": "table",
+              "height": 300.0,
+              "optionOpen": false,
+              "setting": {
+                "table": {
+                  "tableGridState": {},
+                  "tableColumnTypeState": {
+                    "names": {
+                      "id": "string",
+                      "location_id": "string",
+                      "seller_email": "string"
+                    },
+                    "updated": false
+                  },
+                  "tableOptionSpecHash": "[{\"name\":\"useFilter\",\"valueType\":\"boolean\",\"defaultValue\":false,\"widget\":\"checkbox\",\"description\":\"Enable filter for columns\"},{\"name\":\"showPagination\",\"valueType\":\"boolean\",\"defaultValue\":false,\"widget\":\"checkbox\",\"description\":\"Enable pagination for better navigation\"},{\"name\":\"showAggregationFooter\",\"valueType\":\"boolean\",\"defaultValue\":false,\"widget\":\"checkbox\",\"description\":\"Enable a footer for displaying aggregated values\"}]",
+                  "tableOptionValue": {
+                    "useFilter": false,
+                    "showPagination": false,
+                    "showAggregationFooter": false
+                  },
+                  "updated": false,
+                  "initialized": false
+                }
+              },
+              "commonSetting": {}
+            }
+          }
+        },
+        "editorSetting": {
+          "language": "sql",
+          "editOnDblClick": false,
+          "completionKey": "TAB",
+          "completionSupport": true
+        },
+        "editorMode": "ace/mode/sql"
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "results": {
+        "code": "SUCCESS",
+        "msg": [
+          {
+            "type": "TABLE",
+            "data": "id\tlocation_id\tseller_email\nAQZERD\t1\tme@acme.com\n"
+          }
+        ]
+      },
+      "apps": [],
+      "runtimeInfos": {
+        "jobUrl": {
+          "propertyName": "jobUrl",
+          "label": "SPARK JOB",
+          "tooltip": "View in Spark web UI",
+          "group": "spark",
+          "values": [
+            {
+              "jobUrl": "http://bd0797df9a93:4040/jobs/job?id\u003d136"
+            }
+          ],
+          "interpreterSettingId": "spark"
+        }
+      },
+      "progressUpdateIntervalMs": 500,
+      "jobName": "paragraph_1619608091258_749038383",
+      "id": "paragraph_1619608091258_749038383",
+      "dateCreated": "2021-04-28 11:08:11.258",
+      "dateStarted": "2021-04-28 11:45:42.784",
+      "dateFinished": "2021-04-28 11:45:42.870",
+      "status": "FINISHED"
+    },
+    {
+      "text": "%sql\nselect * from customers",
+      "user": "anonymous",
+      "dateUpdated": "2021-04-28 11:45:42.883",
+      "config": {
+        "colWidth": 12.0,
+        "fontSize": 9.0,
+        "enabled": true,
+        "results": {
+          "0": {
+            "graph": {
+              "mode": "table",
+              "height": 300.0,
+              "optionOpen": false,
+              "setting": {
+                "table": {
+                  "tableGridState": {},
+                  "tableColumnTypeState": {
+                    "names": {
+                      "id": "string",
+                      "signup": "string",
+                      "contact": "string",
+                      "birthdate": "string",
+                      "firstname": "string",
+                      "lastname": "string"
+                    },
+                    "updated": false
+                  },
+                  "tableOptionSpecHash": "[{\"name\":\"useFilter\",\"valueType\":\"boolean\",\"defaultValue\":false,\"widget\":\"checkbox\",\"description\":\"Enable filter for columns\"},{\"name\":\"showPagination\",\"valueType\":\"boolean\",\"defaultValue\":false,\"widget\":\"checkbox\",\"description\":\"Enable pagination for better navigation\"},{\"name\":\"showAggregationFooter\",\"valueType\":\"boolean\",\"defaultValue\":false,\"widget\":\"checkbox\",\"description\":\"Enable a footer for displaying aggregated values\"}]",
+                  "tableOptionValue": {
+                    "useFilter": false,
+                    "showPagination": false,
+                    "showAggregationFooter": false
+                  },
+                  "updated": false,
+                  "initialized": false
+                }
+              },
+              "commonSetting": {}
+            }
+          }
+        },
+        "editorSetting": {
+          "language": "sql",
+          "editOnDblClick": false,
+          "completionKey": "TAB",
+          "completionSupport": true
+        },
+        "editorMode": "ace/mode/sql"
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "results": {
+        "code": "SUCCESS",
+        "msg": [
+          {
+            "type": "TABLE",
+            "data": "id\tsignup\tcontact\tbirthdate\tfirstname\tlastname\nA009701\t2010-01-31 23:04:15.0\tme@home.com\t1980-10-14\tDonald\tObama\nB308629\t2016-12-01 09:56:02.0\tyou@land.com\t1980-10-14\tBarack\tTrump\n"
+          }
+        ]
+      },
+      "apps": [],
+      "runtimeInfos": {
+        "jobUrl": {
+          "propertyName": "jobUrl",
+          "label": "SPARK JOB",
+          "tooltip": "View in Spark web UI",
+          "group": "spark",
+          "values": [
+            {
+              "jobUrl": "http://bd0797df9a93:4040/jobs/job?id\u003d137"
+            }
+          ],
+          "interpreterSettingId": "spark"
+        }
+      },
+      "progressUpdateIntervalMs": 500,
+      "jobName": "paragraph_1619608030380_1945772737",
+      "id": "paragraph_1619608030380_1945772737",
+      "dateCreated": "2021-04-28 11:07:10.381",
+      "dateStarted": "2021-04-28 11:45:42.986",
+      "dateFinished": "2021-04-28 11:45:43.077",
+      "status": "FINISHED"
+    },
+    {
+      "text": "%sql\nselect * from orders",
+      "user": "anonymous",
+      "dateUpdated": "2021-04-28 11:45:43.109",
+      "config": {
+        "colWidth": 12.0,
+        "fontSize": 9.0,
+        "enabled": true,
+        "results": {
+          "0": {
+            "graph": {
+              "mode": "table",
+              "height": 300.0,
+              "optionOpen": false,
+              "setting": {
+                "table": {
+                  "tableGridState": {},
+                  "tableColumnTypeState": {
+                    "names": {
+                      "id": "string",
+                      "customer_id": "string",
+                      "amount": "string",
+                      "seller_id": "string"
+                    },
+                    "updated": false
+                  },
+                  "tableOptionSpecHash": "[{\"name\":\"useFilter\",\"valueType\":\"boolean\",\"defaultValue\":false,\"widget\":\"checkbox\",\"description\":\"Enable filter for columns\"},{\"name\":\"showPagination\",\"valueType\":\"boolean\",\"defaultValue\":false,\"widget\":\"checkbox\",\"description\":\"Enable pagination for better navigation\"},{\"name\":\"showAggregationFooter\",\"valueType\":\"boolean\",\"defaultValue\":false,\"widget\":\"checkbox\",\"description\":\"Enable a footer for displaying aggregated values\"}]",
+                  "tableOptionValue": {
+                    "useFilter": false,
+                    "showPagination": false,
+                    "showAggregationFooter": false
+                  },
+                  "updated": false,
+                  "initialized": false
+                }
+              },
+              "commonSetting": {}
+            }
+          }
+        },
+        "editorSetting": {
+          "language": "sql",
+          "editOnDblClick": false,
+          "completionKey": "TAB",
+          "completionSupport": true
+        },
+        "editorMode": "ace/mode/sql"
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "results": {
+        "code": "SUCCESS",
+        "msg": [
+          {
+            "type": "TABLE",
+            "data": "id\tcustomer_id\tamount\tseller_id\n12345\tA009701\t123.650000000000000\tAQZERD\n56432\tA009701\t23.800000000000000\tAQZERD\n10000\tB308629\t23.800000000000000\tAQZERD\n"
+          }
+        ]
+      },
+      "apps": [],
+      "runtimeInfos": {
+        "jobUrl": {
+          "propertyName": "jobUrl",
+          "label": "SPARK JOB",
+          "tooltip": "View in Spark web UI",
+          "group": "spark",
+          "values": [
+            {
+              "jobUrl": "http://bd0797df9a93:4040/jobs/job?id\u003d138"
+            }
+          ],
+          "interpreterSettingId": "spark"
+        }
+      },
+      "progressUpdateIntervalMs": 500,
+      "jobName": "paragraph_1619608046884_2079723870",
+      "id": "paragraph_1619608046884_2079723870",
+      "dateCreated": "2021-04-28 11:07:26.885",
+      "dateStarted": "2021-04-28 11:45:43.186",
+      "dateFinished": "2021-04-28 11:45:43.274",
+      "status": "FINISHED"
+    },
+    {
+      "text": "%sql\nselect * from audit",
+      "user": "anonymous",
+      "dateUpdated": "2021-04-28 11:45:43.333",
+      "config": {
+        "colWidth": 12.0,
+        "fontSize": 9.0,
+        "enabled": true,
+        "results": {
+          "0": {
+            "graph": {
+              "mode": "table",
+              "height": 532.0,
+              "optionOpen": false,
+              "setting": {
+                "table": {
+                  "tableGridState": {
+                    "columns": [
+                      {
+                        "name": "jobid0",
+                        "visible": true,
+                        "width": 181.0,
+                        "sort": {},
+                        "filters": [
+                          {}
+                        ],
+                        "pinned": ""
+                      },
+                      {
+                        "name": "paths1",
+                        "visible": true,
+                        "width": "*",
+                        "sort": {},
+                        "filters": [
+                          {}
+                        ],
+                        "pinned": ""
+                      },
+                      {
+                        "name": "domain2",
+                        "visible": true,
+                        "width": "*",
+                        "sort": {},
+                        "filters": [
+                          {}
+                        ],
+                        "pinned": ""
+                      },
+                      {
+                        "name": "step11",
+                        "visible": true,
+                        "width": "*",
+                        "sort": {},
+                        "filters": [
+                          {
+                            "term": "LOAD"
+                          }
+                        ],
+                        "pinned": ""
+                      },
+                      {
+                        "name": "schema3",
+                        "visible": true,
+                        "width": "*",
+                        "sort": {},
+                        "filters": [
+                          {}
+                        ],
+                        "pinned": ""
+                      },
+                      {
+                        "name": "success4",
+                        "visible": true,
+                        "width": "*",
+                        "sort": {},
+                        "filters": [
+                          {}
+                        ],
+                        "pinned": ""
+                      },
+                      {
+                        "name": "count5",
+                        "visible": true,
+                        "width": "*",
+                        "sort": {},
+                        "filters": [
+                          {}
+                        ],
+                        "pinned": ""
+                      },
+                      {
+                        "name": "countAccepted6",
+                        "visible": true,
+                        "width": "*",
+                        "sort": {},
+                        "filters": [
+                          {}
+                        ],
+                        "pinned": ""
+                      },
+                      {
+                        "name": "countRejected7",
+                        "visible": true,
+                        "width": "*",
+                        "sort": {
+                          "priority": 0.0,
+                          "direction": "desc"
+                        },
+                        "filters": [
+                          {}
+                        ],
+                        "pinned": ""
+                      },
+                      {
+                        "name": "timestamp8",
+                        "visible": true,
+                        "width": "*",
+                        "sort": {},
+                        "filters": [
+                          {}
+                        ],
+                        "pinned": ""
+                      },
+                      {
+                        "name": "duration9",
+                        "visible": true,
+                        "width": "*",
+                        "sort": {},
+                        "filters": [
+                          {}
+                        ],
+                        "pinned": ""
+                      },
+                      {
+                        "name": "message10",
+                        "visible": true,
+                        "width": "*",
+                        "sort": {},
+                        "filters": [
+                          {}
+                        ],
+                        "pinned": ""
+                      }
+                    ],
+                    "scrollFocus": {},
+                    "selection": [],
+                    "grouping": {
+                      "grouping": [],
+                      "aggregations": [],
+                      "rowExpandedStates": {}
+                    },
+                    "treeView": {},
+                    "pagination": {
+                      "paginationCurrentPage": 1.0,
+                      "paginationPageSize": 250.0
+                    }
+                  },
+                  "tableColumnTypeState": {
+                    "names": {
+                      "jobid": "string",
+                      "paths": "string",
+                      "domain": "string",
+                      "schema": "string",
+                      "success": "string",
+                      "count": "string",
+                      "countAccepted": "string",
+                      "countRejected": "string",
+                      "timestamp": "string",
+                      "duration": "string",
+                      "message": "string",
+                      "step": "string"
+                    },
+                    "updated": false
+                  },
+                  "tableOptionSpecHash": "[{\"name\":\"useFilter\",\"valueType\":\"boolean\",\"defaultValue\":false,\"widget\":\"checkbox\",\"description\":\"Enable filter for columns\"},{\"name\":\"showPagination\",\"valueType\":\"boolean\",\"defaultValue\":false,\"widget\":\"checkbox\",\"description\":\"Enable pagination for better navigation\"},{\"name\":\"showAggregationFooter\",\"valueType\":\"boolean\",\"defaultValue\":false,\"widget\":\"checkbox\",\"description\":\"Enable a footer for displaying aggregated values\"}]",
+                  "tableOptionValue": {
+                    "useFilter": true,
+                    "showPagination": true,
+                    "showAggregationFooter": true
+                  },
+                  "updated": false,
+                  "initialized": false
+                }
+              },
+              "commonSetting": {}
+            }
+          }
+        },
+        "editorSetting": {
+          "language": "sql",
+          "editOnDblClick": false,
+          "completionKey": "TAB",
+          "completionSupport": true
+        },
+        "editorMode": "ace/mode/sql"
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "results": {
+        "code": "SUCCESS",
+        "msg": [
+          {
+            "type": "TABLE",
+            "data": "jobid\tpaths\tdomain\tschema\tsuccess\tcount\tcountAccepted\tcountRejected\ttimestamp\tduration\tmessage\tstep\nlocal-1619610304570\tfile:///Users/hayssams/git/public/comet-app/samples/local/quickstart/datasets/ingesting/sales/customers-2018-01-01.psv\tsales\tcustomers\ttrue\t2\t2\t0\t2021-04-28 11:45:16.743\t1619\tsuccess\tLOAD\nlocal-1619610304570\tfile:///Users/hayssams/git/public/comet-app/samples/local/quickstart/datasets/ingesting/hr/locations-2018-01-01.json\thr\tlocations\ttrue\t2\t2\t0\t2021-04-28 11:45:03.812\t7820\tsuccess\tLOAD\nlocal-1619610304570\tfile:///Users/hayssams/git/public/comet-app/samples/local/quickstart/datasets/ingesting/sales/orders-2018-01-01.csv\tsales\torders\ttrue\t3\t3\t0\t2021-04-28 11:45:14.202\t2336\tsuccess\tLOAD\nlocal-1619610304570\t/Users/hayssams/git/public/comet-app/samples/local/quickstart/datasets/rejected/sales/customers\tsales\tcustomers\ttrue\t-1\t-1\t-1\t2021-04-28 11:45:16.958\t350\tsuccess\tSINK_REJECTED\nlocal-1619610304570\t/Users/hayssams/git/public/comet-app/samples/local/quickstart/datasets/accepted/sales/customers\tsales\tcustomers\ttrue\t-1\t-1\t-1\t2021-04-28 11:45:17.543\t423\tsuccess\tSINK_ACCEPTED\nlocal-1619610304570\t/Users/hayssams/git/public/comet-app/samples/local/quickstart/datasets/accepted/sales/orders\tsales\torders\ttrue\t-1\t-1\t-1\t2021-04-28 11:45:15.21\t953\tsuccess\tSINK_ACCEPTED\nlocal-1619610304570\t/Users/hayssams/git/public/comet-app/samples/local/quickstart/datasets/rejected/sales/orders\tsales\torders\ttrue\t-1\t-1\t-1\t2021-04-28 11:45:14.611\t347\tsuccess\tSINK_REJECTED\nlocal-1619610304570\t/Users/hayssams/git/public/comet-app/samples/local/quickstart/datasets/rejected/hr/locations\thr\tlocations\ttrue\t-1\t-1\t-1\t2021-04-28 11:45:07.378\t1980\tsuccess\tSINK_REJECTED\nlocal-1619610304570\t/Users/hayssams/git/public/comet-app/samples/local/quickstart/datasets/accepted/hr/locations\thr\tlocations\ttrue\t-1\t-1\t-1\t2021-04-28 11:45:10.169\t1030\tsuccess\tSINK_ACCEPTED\nlocal-1619610304570\t/Users/hayssams/git/public/comet-app/samples/local/quickstart/datasets/rejected/hr/sellers\thr\tsellers\ttrue\t-1\t-1\t-1\t2021-04-28 11:45:12.227\t424\tsuccess\tSINK_REJECTED\nlocal-1619610304570\t/Users/hayssams/git/public/comet-app/samples/local/quickstart/datasets/accepted/hr/sellers\thr\tsellers\ttrue\t-1\t-1\t-1\t2021-04-28 11:45:12.904\t498\tsuccess\tSINK_ACCEPTED\nlocal-1619610323953\tkpi\tsales_kpi\tbyseller_kpi\ttrue\t-1\t-1\t-1\t2021-04-28 11:45:23.043\t8410\tsuccess\tTRANSFORM\nlocal-1619610304570\t\thr\tsellers\ttrue\t2\t1\t1\t2021-04-28 11:45:11.947\t1939\tsuccess\tLOAD\n"
+          }
+        ]
+      },
+      "apps": [],
+      "runtimeInfos": {
+        "jobUrl": {
+          "propertyName": "jobUrl",
+          "label": "SPARK JOB",
+          "tooltip": "View in Spark web UI",
+          "group": "spark",
+          "values": [
+            {
+              "jobUrl": "http://bd0797df9a93:4040/jobs/job?id\u003d139"
+            },
+            {
+              "jobUrl": "http://bd0797df9a93:4040/jobs/job?id\u003d140"
+            }
+          ],
+          "interpreterSettingId": "spark"
+        }
+      },
+      "progressUpdateIntervalMs": 500,
+      "jobName": "paragraph_1619608053940_312355296",
+      "id": "paragraph_1619608053940_312355296",
+      "dateCreated": "2021-04-28 11:07:33.940",
+      "dateStarted": "2021-04-28 11:45:43.387",
+      "dateFinished": "2021-04-28 11:45:43.634",
+      "status": "FINISHED"
+    },
+    {
+      "text": "%sql\nselect * from rejected_sellers",
+      "user": "anonymous",
+      "dateUpdated": "2021-04-28 11:45:43.656",
+      "config": {
+        "colWidth": 12.0,
+        "fontSize": 9.0,
+        "enabled": true,
+        "results": {
+          "0": {
+            "graph": {
+              "mode": "table",
+              "height": 300.0,
+              "optionOpen": false,
+              "setting": {
+                "table": {
+                  "tableGridState": {},
+                  "tableColumnTypeState": {
+                    "names": {
+                      "jobid": "string",
+                      "timestamp": "string",
+                      "domain": "string",
+                      "schema": "string",
+                      "error": "string",
+                      "path": "string"
+                    },
+                    "updated": false
+                  },
+                  "tableOptionSpecHash": "[{\"name\":\"useFilter\",\"valueType\":\"boolean\",\"defaultValue\":false,\"widget\":\"checkbox\",\"description\":\"Enable filter for columns\"},{\"name\":\"showPagination\",\"valueType\":\"boolean\",\"defaultValue\":false,\"widget\":\"checkbox\",\"description\":\"Enable pagination for better navigation\"},{\"name\":\"showAggregationFooter\",\"valueType\":\"boolean\",\"defaultValue\":false,\"widget\":\"checkbox\",\"description\":\"Enable a footer for displaying aggregated values\"}]",
+                  "tableOptionValue": {
+                    "useFilter": false,
+                    "showPagination": false,
+                    "showAggregationFooter": false
+                  },
+                  "updated": false,
+                  "initialized": false
+                }
+              },
+              "commonSetting": {}
+            }
+          }
+        },
+        "editorSetting": {
+          "language": "sql",
+          "editOnDblClick": false,
+          "completionKey": "TAB",
+          "completionSupport": true
+        },
+        "editorMode": "ace/mode/sql"
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "results": {
+        "code": "SUCCESS",
+        "msg": [
+          {
+            "type": "TABLE",
+            "data": "jobid\ttimestamp\tdomain\tschema\terror\tpath\nlocal-1619610304570\t2021-04-28 11:45:11.947\thr\tsellers\tseller_email,email,\"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,6}\",\"Some(acme.com)\",failure\t/Users/hayssams/git/public/comet-app/samples/local/quickstart/datasets/rejected/hr/sellers\n"
+          }
+        ]
+      },
+      "apps": [],
+      "runtimeInfos": {
+        "jobUrl": {
+          "propertyName": "jobUrl",
+          "label": "SPARK JOB",
+          "tooltip": "View in Spark web UI",
+          "group": "spark",
+          "values": [
+            {
+              "jobUrl": "http://bd0797df9a93:4040/jobs/job?id\u003d141"
+            }
+          ],
+          "interpreterSettingId": "spark"
+        }
+      },
+      "progressUpdateIntervalMs": 500,
+      "jobName": "paragraph_1619608172467_1104919955",
+      "id": "paragraph_1619608172467_1104919955",
+      "dateCreated": "2021-04-28 11:09:32.467",
+      "dateStarted": "2021-04-28 11:45:43.672",
+      "dateFinished": "2021-04-28 11:45:43.772",
+      "status": "FINISHED"
+    },
+    {
+      "text": "val bysellerKpiDF \u003d spark.read.parquet(\"file:///zeppelin/files/local/quickstart/datasets/business/sales_kpi/byseller_kpi\")\nbysellerKpiDF.registerTempTable(\"byseller_kpi\")\n\n",
+      "user": "anonymous",
+      "dateUpdated": "2021-04-28 11:45:43.871",
+      "config": {
+        "colWidth": 12.0,
+        "fontSize": 9.0,
+        "enabled": true,
+        "results": {},
+        "editorSetting": {
+          "language": "scala",
+          "editOnDblClick": false,
+          "completionKey": "TAB",
+          "completionSupport": true
+        },
+        "editorMode": "ace/mode/scala"
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "results": {
+        "code": "SUCCESS",
+        "msg": [
+          {
+            "type": "TEXT",
+            "data": "\u001b[33mwarning: \u001b[0mthere was one deprecation warning; re-run with -deprecation for details\n\u001b[1m\u001b[34mbysellerKpiDF\u001b[0m: \u001b[1m\u001b[32morg.apache.spark.sql.DataFrame\u001b[0m \u003d [seller_email: string, sum: decimal(38,15)]\n"
+          }
+        ]
+      },
+      "apps": [],
+      "runtimeInfos": {
+        "jobUrl": {
+          "propertyName": "jobUrl",
+          "label": "SPARK JOB",
+          "tooltip": "View in Spark web UI",
+          "group": "spark",
+          "values": [
+            {
+              "jobUrl": "http://bd0797df9a93:4040/jobs/job?id\u003d142"
+            }
+          ],
+          "interpreterSettingId": "spark"
+        }
+      },
+      "progressUpdateIntervalMs": 500,
+      "jobName": "paragraph_1619608633808_1418098610",
+      "id": "paragraph_1619608633808_1418098610",
+      "dateCreated": "2021-04-28 11:17:13.809",
+      "dateStarted": "2021-04-28 11:45:43.893",
+      "dateFinished": "2021-04-28 11:45:44.164",
+      "status": "FINISHED"
+    },
+    {
+      "text": "%sql\nselect * from byseller_kpi",
+      "user": "anonymous",
+      "dateUpdated": "2021-04-28 11:45:44.194",
+      "config": {
+        "colWidth": 12.0,
+        "fontSize": 9.0,
+        "enabled": true,
+        "results": {
+          "0": {
+            "graph": {
+              "mode": "table",
+              "height": 300.0,
+              "optionOpen": false,
+              "setting": {
+                "table": {
+                  "tableGridState": {},
+                  "tableColumnTypeState": {
+                    "names": {
+                      "seller_email": "string",
+                      "sum": "string"
+                    },
+                    "updated": false
+                  },
+                  "tableOptionSpecHash": "[{\"name\":\"useFilter\",\"valueType\":\"boolean\",\"defaultValue\":false,\"widget\":\"checkbox\",\"description\":\"Enable filter for columns\"},{\"name\":\"showPagination\",\"valueType\":\"boolean\",\"defaultValue\":false,\"widget\":\"checkbox\",\"description\":\"Enable pagination for better navigation\"},{\"name\":\"showAggregationFooter\",\"valueType\":\"boolean\",\"defaultValue\":false,\"widget\":\"checkbox\",\"description\":\"Enable a footer for displaying aggregated values\"}]",
+                  "tableOptionValue": {
+                    "useFilter": false,
+                    "showPagination": false,
+                    "showAggregationFooter": false
+                  },
+                  "updated": false,
+                  "initialized": false
+                }
+              },
+              "commonSetting": {}
+            }
+          }
+        },
+        "editorSetting": {
+          "language": "sql",
+          "editOnDblClick": false,
+          "completionKey": "TAB",
+          "completionSupport": true
+        },
+        "editorMode": "ace/mode/sql"
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "results": {
+        "code": "SUCCESS",
+        "msg": [
+          {
+            "type": "TABLE",
+            "data": "seller_email\tsum\nme@acme.com\t171.250000000000000\n"
+          }
+        ]
+      },
+      "apps": [],
+      "runtimeInfos": {
+        "jobUrl": {
+          "propertyName": "jobUrl",
+          "label": "SPARK JOB",
+          "tooltip": "View in Spark web UI",
+          "group": "spark",
+          "values": [
+            {
+              "jobUrl": "http://bd0797df9a93:4040/jobs/job?id\u003d143"
+            },
+            {
+              "jobUrl": "http://bd0797df9a93:4040/jobs/job?id\u003d144"
+            }
+          ],
+          "interpreterSettingId": "spark"
+        }
+      },
+      "progressUpdateIntervalMs": 500,
+      "jobName": "paragraph_1619610173882_398302877",
+      "id": "paragraph_1619610173882_398302877",
+      "dateCreated": "2021-04-28 11:42:53.882",
+      "dateStarted": "2021-04-28 11:45:44.213",
+      "dateFinished": "2021-04-28 11:45:44.339",
+      "status": "FINISHED"
+    },
+    {
+      "text": "%sql\n",
+      "user": "anonymous",
+      "dateUpdated": "2021-04-28 11:45:44.414",
+      "config": {
+        "colWidth": 12.0,
+        "fontSize": 9.0,
+        "enabled": true,
+        "results": {},
+        "editorSetting": {
+          "language": "sql",
+          "editOnDblClick": false,
+          "completionKey": "TAB",
+          "completionSupport": true
+        },
+        "editorMode": "ace/mode/sql"
+      },
+      "settings": {
+        "params": {},
+        "forms": {}
+      },
+      "apps": [],
+      "runtimeInfos": {},
+      "progressUpdateIntervalMs": 500,
+      "jobName": "paragraph_1619610188952_1497004044",
+      "id": "paragraph_1619610188952_1497004044",
+      "dateCreated": "2021-04-28 11:43:08.952",
+      "status": "FINISHED"
+    }
+  ],
+  "name": "local",
+  "id": "2G5CUQAWB",
+  "defaultInterpreterGroup": "spark",
+  "version": "0.9.0-preview2",
+  "noteParams": {},
+  "noteForms": {},
+  "angularObjects": {},
+  "config": {
+    "isZeppelinNotebookCronEnable": false
+  },
+  "info": {
+    "isRunning": true
+  }
+}
