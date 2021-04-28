@@ -3,6 +3,7 @@ transform:
   name: "business1"
   tasks:
     - sql: "select * from dream_working.client"
+      name: "mytask"
       area: "business"
       domain: "dream2"
       dataset: "client2"

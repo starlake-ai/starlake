@@ -9,7 +9,7 @@ import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.typesafe.scalalogging.LazyLogging
 
-import scala.util.Try
+import scala.util.{Failure, Success, Try}
 
 object YamlSerializer extends LazyLogging {
   val mapper: ObjectMapper = new ObjectMapper(new YAMLFactory())
@@ -44,13 +44,16 @@ object YamlSerializer extends LazyLogging {
   }
 
   def deserializeDomain(file: File): Try[Domain] = {
-    deserializeDomain(scala.io.Source.fromFile(file.pathAsString).getLines.mkString("\n"))
+    deserializeDomain(
+      scala.io.Source.fromFile(file.pathAsString).getLines.mkString("\n"),
+      file.pathAsString
+    )
   }
 
   def serializeToFile(targetFile: File, domain: Domain): Unit =
     mapper.writeValue(targetFile.toJava, domain)
 
-  def deserializeDomain(content: String): Try[Domain] = {
+  def deserializeDomain(content: String, path: String): Try[Domain] = {
     Try {
       val rootNode = mapper.readTree(content)
       val loadNode = rootNode.path("load")
@@ -66,6 +69,10 @@ object YamlSerializer extends LazyLogging {
         )
 
       domain
+    } match {
+      case Success(value) => Success(value)
+      case Failure(exception) =>
+        Failure(new Exception(s"Invalid domain file: $path(${exception.getMessage})"))
     }
   }
 }
