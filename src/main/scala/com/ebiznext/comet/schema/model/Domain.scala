@@ -21,9 +21,9 @@
 package com.ebiznext.comet.schema.model
 
 import java.util.regex.Pattern
-
 import com.ebiznext.comet.config.{DatasetArea, Settings}
 import com.ebiznext.comet.schema.handlers.SchemaHandler
+import com.ebiznext.comet.utils.Utils
 import org.apache.hadoop.fs.Path
 
 import scala.collection.mutable
@@ -142,7 +142,7 @@ case class Domain(
 
     val duplicatesErrorMessage =
       "%s is defined %d times. A schema can only be defined once."
-    for (errors <- duplicates(schemas.map(_.name), duplicatesErrorMessage).left) {
+    for (errors <- Utils.duplicates(schemas.map(_.name), duplicatesErrorMessage).left) {
       errorList ++= errors
     }
 
