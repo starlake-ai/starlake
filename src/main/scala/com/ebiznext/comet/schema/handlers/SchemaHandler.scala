@@ -138,7 +138,7 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     val (validDomainsFile, invalidDomainsFiles) = storage
       .list(DatasetArea.domains, ".yml", recursive = true)
       .map { path =>
-        YamlSerializer.deserializeDomain(storage.read(path))
+        YamlSerializer.deserializeDomain(storage.read(path), path.toString)
       }
       .partition(_.isSuccess)
     invalidDomainsFiles.foreach {
