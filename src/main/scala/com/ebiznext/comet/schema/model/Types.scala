@@ -21,6 +21,7 @@
 package com.ebiznext.comet.schema.model
 
 import com.ebiznext.comet.schema.model.PrimitiveType.{boolean, date, timestamp}
+import com.ebiznext.comet.utils.Utils
 import com.fasterxml.jackson.annotation.JsonIgnore
 import org.apache.spark.sql.types.StructField
 
@@ -39,8 +40,8 @@ case class Types(types: List[Type]) {
   def checkValidity(): Either[List[String], Boolean] = {
     val typeNames = types.map(_.name)
     val dup: Either[List[String], Boolean] =
-      duplicates(typeNames, s"%s is defined %d times. A type can only be defined once.")
-    combine(dup, types.map(_.checkValidity()): _*)
+      Utils.duplicates(typeNames, s"%s is defined %d times. A type can only be defined once.")
+    Utils.combine(dup, types.map(_.checkValidity()): _*)
   }
 }
 
