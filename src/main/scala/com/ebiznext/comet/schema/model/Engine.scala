@@ -42,9 +42,9 @@ object Engine {
 
   def fromString(value: String): Engine = {
     value.toUpperCase() match {
-      case "BQ"    => Engine.BQ
-      case "JDBC"  => Engine.JDBC
-      case "SPARK" => Engine.SPARK
+      case "BQ" | "BigQuery" => Engine.BQ
+      case "JDBC"            => Engine.JDBC
+      case "SPARK"           => Engine.SPARK
     }
   }
 
