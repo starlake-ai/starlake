@@ -21,7 +21,7 @@
 package com.ebiznext.comet.schema.model
 
 import com.ebiznext.comet.schema.handlers.SchemaHandler
-import com.ebiznext.comet.utils.TextSubstitutionEngine
+import com.ebiznext.comet.utils.{TextSubstitutionEngine, Utils}
 import com.ebiznext.comet.utils.conversion.BigQueryUtils
 import com.fasterxml.jackson.annotation.JsonIgnore
 import org.apache.spark.sql.types._
@@ -180,7 +180,7 @@ case class Schema(
 
     val duplicateErrorMessage =
       "%s is defined %d times. An attribute can only be defined once."
-    for (errors <- duplicates(attributes.map(_.name), duplicateErrorMessage).left) {
+    for (errors <- Utils.duplicates(attributes.map(_.name), duplicateErrorMessage).left) {
       errorList ++= errors
     }
 
