@@ -1,17 +1,14 @@
 package com.ebiznext.comet.schema.model
 
-import better.files.File
-import org.apache.hadoop.fs.Path
-
 import scala.collection.mutable.ListBuffer
 
 case class SqlTask(presql: Option[List[String]], sql: String, postsql: Option[List[String]])
 
 object SqlTask {
 
-  def apply(path: Path): SqlTask = {
+  def apply(sqlContent: String): SqlTask = {
     val cometPattern = "^\\s*/\\*\\s*(SQL|PRESQL|POSTSQL)\\s*\\*/\\s*$".r
-    val sqlFile = File(path.toString)
+    val sqlFileLines = sqlContent.split("\n")
     val buffer = new StringBuffer()
     val presqlSection = ListBuffer.empty[String]
     val postsqlSection = ListBuffer.empty[String]
@@ -34,7 +31,7 @@ object SqlTask {
     }
 
     var section = "SQL"
-    sqlFile.lines.foreach {
+    sqlFileLines.foreach {
       case cometPattern("SQL") =>
         appendToStep(buffer, section)
         section = "SQL"

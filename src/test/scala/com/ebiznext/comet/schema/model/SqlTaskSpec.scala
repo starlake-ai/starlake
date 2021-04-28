@@ -1,8 +1,6 @@
 package com.ebiznext.comet.schema.model
 
-import better.files.File
 import com.typesafe.scalalogging.StrictLogging
-import org.apache.hadoop.fs.Path
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -19,9 +17,7 @@ class SqlTaskSpec extends AnyFlatSpec with Matchers with BeforeAndAfterAll with 
         |/* POSTSQL */
         |
         |""".stripMargin
-    val tempFile = File.newTemporaryFile()
-    tempFile.write(sqlContent)
-    val sqlTask = SqlTask(new Path(tempFile.pathAsString))
+    val sqlTask = SqlTask(sqlContent)
     sqlTask shouldBe SqlTask(
       Some(List("insert into table value('string', 2, 3)")),
       "select count(*) from table\nwhere x = '${value}'",
@@ -34,9 +30,7 @@ class SqlTaskSpec extends AnyFlatSpec with Matchers with BeforeAndAfterAll with 
         |select count(*) from table
         |where x = '${value}'
         |""".stripMargin
-    val tempFile = File.newTemporaryFile()
-    tempFile.write(sqlContent)
-    val sqlTask = SqlTask(new Path(tempFile.pathAsString))
+    val sqlTask = SqlTask(sqlContent)
     sqlTask shouldBe SqlTask(None, "select count(*) from table\nwhere x = '${value}'", None)
   }
   "SQL Task file with a single PRESQL Section" should "be interpreted correctly" in {
@@ -46,9 +40,7 @@ class SqlTaskSpec extends AnyFlatSpec with Matchers with BeforeAndAfterAll with 
         |insert into table value('string', 2, 3)
         |
     |""".stripMargin
-    val tempFile = File.newTemporaryFile()
-    tempFile.write(sqlContent)
-    val sqlTask = SqlTask(new Path(tempFile.pathAsString))
+    val sqlTask = SqlTask(sqlContent)
     sqlTask shouldBe SqlTask(Some(List("insert into table value('string', 2, 3)")), "", None)
   }
 }
