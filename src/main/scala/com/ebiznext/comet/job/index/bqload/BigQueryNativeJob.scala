@@ -55,6 +55,7 @@ class BigQueryNativeJob(
           queryConfigWithPartition.setClustering(clustering)
       }
       val queryConfigWithUDF = addUDFToQueryConfig(queryConfigWithClustering)
+      logger.info(s"Executing BQ Query $sql")
       val results = bigquery.query(queryConfigWithUDF.setDestinationTable(tableId).build())
       logger.info(
         s"Query large results performed successfully: ${results.getTotalRows} rows inserted."
@@ -70,10 +71,10 @@ class BigQueryNativeJob(
       QueryJobConfiguration
         .newBuilder(sql)
         .setAllowLargeResults(true)
-
+    logger.info(s"Running BQ Query $sql")
     val queryConfigWithUDF = addUDFToQueryConfig(queryConfig)
     val results = bigquery.query(queryConfigWithUDF.build())
-    System.out.println(
+    logger.info(
       s"Query large results performed successfully: ${results.getTotalRows} rows inserted."
     )
     BigQueryJobResult(Some(results))

@@ -160,7 +160,7 @@ developers := List(
   Developer(
     id = "hayssams",
     name = "Hayssam Saleh",
-    email = "hayssam.saleh@ebiznext.com",
+    email = "hayssam@saleh.fr",
     url = url("https://www.ebiznext.com")
   ),
   Developer(
@@ -202,7 +202,7 @@ developers := List(
   Developer(
     id = "zedach",
     name = "Mourad Dachraoui",
-    email = "morad.dachraoui@gmaiil.com",
+    email = "mourad.dachraoui@gmail.com",
     url = url("https://www.ebiznext.com")
   )
 )
