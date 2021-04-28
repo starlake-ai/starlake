@@ -133,15 +133,25 @@ class AutoTaskJob(
 
   def runBQ(): Try[JobResult] = {
     val start = Timestamp.from(Instant.now())
-    val subSelects: String = views.views.map { case (queryName, queryExpr) =>
-      queryName + " AS (" + queryExpr.richFormat(sqlParameters) + ")"
+    val withViews = views.views.map { case (queryName, queryExpr) =>
+      val (_, _, viewValue) = parseViewDefinition(queryExpr.richFormat(sqlParameters))
+      (queryName, viewValue)
+    }
+
+    val subSelects: String = withViews.map { case (queryName, queryExpr) =>
+      val selectExpr =
+        if (queryExpr.toLowerCase.startsWith("select "))
+          queryExpr
+        else
+          s"SELECT * FROM $queryExpr"
+      queryName + " AS (" + selectExpr + ")"
     } mkString ("WITH ", ",", " ")
 
     val config = createConfig()
 
     val bqNativeJob = new BigQueryNativeJob(
       config,
-      task.sql.richFormat(sqlParameters + ("views" -> subSelects)),
+      subSelects + task.sql.richFormat(sqlParameters),
       udf
     )
 
@@ -212,7 +222,7 @@ class AutoTaskJob(
       udf.foreach { udf =>
         registerUdf(udf)
       }
-      createViews(views, schemaHandler.activeEnv ++ sqlParameters)
+      createSparkViews(views, schemaHandler.activeEnv ++ sqlParameters)
 
       task.presql
         .getOrElse(Nil)
