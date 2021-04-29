@@ -1,5 +1,7 @@
 package com.ebiznext.comet.utils
 
+import com.ebiznext.comet.config.Settings
+
 object Formatter extends Formatter
 
 trait Formatter {
@@ -10,10 +12,10 @@ trait Formatter {
     */
   implicit class RichFormatter(str: String) {
 
-    def richFormat(replacement: Map[String, String]): String =
+    def richFormat(replacement: Map[String, String])(implicit settings: Settings): String =
       replacement.foldLeft(str) { case (res, (key, value)) =>
         res
-          .replaceAll("\\$\\{\\s*%s\\s*\\}".format(key), value) // new syntax
+          .replaceAll(settings.comet.sqlParameterPattern.format(key), value) // new syntax
           .replaceAll("\\{\\{\\s*%s\\s*\\}\\}".format(key), value) // old syntax
       }
   }
