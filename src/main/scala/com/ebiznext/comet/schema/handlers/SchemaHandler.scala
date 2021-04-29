@@ -23,7 +23,7 @@ package com.ebiznext.comet.schema.handlers
 import com.ebiznext.comet.config.{DatasetArea, Settings, StorageArea}
 import com.ebiznext.comet.schema.generator.YamlSerializer
 import com.ebiznext.comet.schema.model._
-import com.ebiznext.comet.utils.Formatter.RichFormatter
+import com.ebiznext.comet.utils.Formatter._
 import com.ebiznext.comet.utils.{CometObjectMapper, Utils}
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
@@ -139,9 +139,10 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     val (validDomainsFile, invalidDomainsFiles) = storage
       .list(DatasetArea.domains, ".yml", recursive = true)
       .map { path =>
-        YamlSerializer.deserializeDomain(storage.read(path), path.toString)
+        YamlSerializer.deserializeDomain(storage.read(path).richFormat(activeEnv), path.toString)
       }
       .partition(_.isSuccess)
+
     invalidDomainsFiles.foreach {
       case Failure(err) =>
         logger.warn(
@@ -149,12 +150,9 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
         )
       case Success(_) => // ignore
     }
-    val domains = validDomainsFile.collect { case Success(domain) =>
-      domain.copy(
-        name = domain.name.richFormat(activeEnv),
-        directory = domain.directory.richFormat(activeEnv)
-      )
-    }
+
+    val domains = validDomainsFile.collect { case Success(domain) => domain }
+
     Utils.duplicates(
       domains.map(_.name),
       s"%s is defined %d times. A domain can only be defined once."
@@ -164,12 +162,11 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
         errors.foreach(logger.error(_))
         throw new Exception("Duplicated domain name(s)")
     }
-
   }
 
   def loadJobFromFile(path: Path): Try[AutoJobDesc] = {
     Try {
-      val rootNode = mapper.readTree(storage.read(path))
+      val rootNode = mapper.readTree(storage.read(path).richFormat(activeEnv))
       val tranformNode = rootNode.path("transform")
       val autojobNode =
         if (tranformNode.isNull() || tranformNode.isMissingNode) {
@@ -207,8 +204,7 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
       val jobName = finalDomainOrJobName(path, jobDesc.name)
       jobDesc.copy(
         name = jobName,
-        tasks = tasks,
-        area = jobDesc.area.map(area => StorageArea.fromString(area.value.richFormat(activeEnv)))
+        tasks = tasks
       )
     }
   }
