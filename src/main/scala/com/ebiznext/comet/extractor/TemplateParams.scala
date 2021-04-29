@@ -1,8 +1,8 @@
 package com.ebiznext.comet.extractor
 
 import java.time.format.DateTimeFormatter
-
 import better.files.File
+import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.schema.model.{Domain, Schema, WriteMode}
 import com.ebiznext.comet.utils.Formatter._
 
@@ -79,7 +79,7 @@ object TemplateParams {
     scriptOutputPattern: Option[String],
     defaultDeltaColumn: Option[String],
     deltaColumns: Map[String, String]
-  ): List[TemplateParams] =
+  )(implicit settings: Settings): List[TemplateParams] =
     domain.schemas.map(s =>
       fromSchema(
         domain.name,
@@ -102,7 +102,7 @@ object TemplateParams {
     scriptsOutputFolder: File,
     scriptOutputPattern: Option[String],
     deltaColumn: Option[String]
-  ): TemplateParams = {
+  )(implicit settings: Settings): TemplateParams = {
     val scriptOutputFileName =
       scriptOutputPattern
         .map(

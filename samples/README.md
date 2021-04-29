@@ -1,6 +1,12 @@
 # Samples
 
-Each folder in the samples directory is based on a common quickstart example customized for a specific environment. Use :
+## Extract
+In the "extract" folder, you'll find a sample about how to:
+- extract your database schema
+- Generate the script to extract data from your database
+
+## Load & Transform 
+Each folder in the samples directory is based on a common quickstart example customized for a specific environment.
 - local: If you develop locally and work on parquet files stored on your disk.
 - local-bigquery: If you develop locally and publish your files in tables located in your currently active (gcloud config list 
   on your laptop will tell you which one  is active). Make sure your have sufficient rights on your Google CLoud project
