@@ -605,7 +605,7 @@ trait IngestionJob extends SparkJob {
               val inputCount = dataset.count()
               val acceptedCount = acceptedRDD.count()
               val rejectedCount = rejectedRDD.count()
-              val inputFiles = dataset.inputFiles.mkString(",")
+              val inputFiles = path.map(_.toString).mkString(",")
               logger.info(
                 s"ingestion-summary -> files: [$inputFiles], domain: ${domain.name}, schema: ${schema.name}, input: $inputCount, accepted: $acceptedCount, rejected:$rejectedCount"
               )
@@ -630,7 +630,7 @@ trait IngestionJob extends SparkJob {
           case Failure(exception) =>
             val end = Timestamp.from(Instant.now())
             val err = Utils.exceptionAsString(exception)
-            AuditLog(
+            val log = AuditLog(
               session.sparkContext.applicationId,
               path.map(_.toString).mkString(","),
               domain.name,
@@ -644,6 +644,7 @@ trait IngestionJob extends SparkJob {
               err,
               Step.LOAD.toString
             )
+            SparkAuditLogWriter.append(session, log)
             logger.error(err)
             Failure(throw exception)
         }
