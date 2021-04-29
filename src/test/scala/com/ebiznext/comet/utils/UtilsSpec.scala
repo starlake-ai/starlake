@@ -79,6 +79,10 @@ class UtilsSpec extends TestHelper {
       filterSelectResult shouldEqual (standardView, select, filter)
       selectResult shouldEqual (standardView, select)
     }
+    "Custom format should" should "match patterns" in {
+      import com.ebiznext.comet.utils.Formatter._
+      assert("${key}_and_${key}".richFormat(Map("key" -> "value")) == "value_and_value")
+    }
   }
 
 }

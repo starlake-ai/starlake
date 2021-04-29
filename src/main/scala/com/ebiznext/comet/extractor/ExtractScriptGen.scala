@@ -6,7 +6,7 @@ import com.ebiznext.comet.extractor.config.{Settings => ExtractorSettings}
 import com.ebiznext.comet.schema.generator.YamlSerializer
 import com.ebiznext.comet.schema.handlers.SchemaHandler
 import com.ebiznext.comet.schema.model.{AutoJobDesc, Domain}
-import com.ebiznext.comet.utils.Formatter.RichFormatter
+import com.ebiznext.comet.utils.Formatter._
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.StrictLogging
 import org.fusesource.scalate._
