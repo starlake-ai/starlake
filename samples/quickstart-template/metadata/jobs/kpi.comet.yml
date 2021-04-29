@@ -2,8 +2,8 @@ transform:
   name: kpi
   engine: Spark
   views:
-    sellers: "FS:__COMET_TEST_ROOT__/datasets/accepted/hr/sellers"
-    orders: "FS:__COMET_TEST_ROOT__/datasets/accepted/sales/orders"
+    sellers: "FS:${root_path}/datasets/accepted/hr/sellers"
+    orders: "FS:${root_path}/datasets/accepted/sales/orders"
   tasks:
     - sql: ""
       name: byseller
