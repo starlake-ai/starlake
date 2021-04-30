@@ -12,6 +12,8 @@ __New feature__:
 - The name attribute inside a job file should reflect the filename. This attribute will soon be deprecated
 - Allow Templating on jobs. Useful to generate Airflow / Oozie Dags from job.comet.yml/job.sql code
 - Switch from readthedocs to docusaurus
+- Add local and bigquery samples
+- Custom var pattern through sql-pattern-parameter in reference.conf
 
 __Bug Fix__:
 - Avoid computing statistics on struct fields
