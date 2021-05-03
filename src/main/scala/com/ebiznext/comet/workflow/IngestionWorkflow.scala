@@ -480,7 +480,7 @@ class IngestionWorkflow(
       engine match {
         case Engine.BQ =>
           val result = config.views match {
-            case Nil =>
+            case Nil => // User asked to executed the whole job
               val result = action.runBQ()
               val sink = task.sink
               logger.info(s"BQ Job succeeded. sinking data to $sink")
@@ -492,7 +492,7 @@ class IngestionWorkflow(
                   logger.error(s"Sinking from BQ to $sink not yet supported.")
               }
               result
-            case queryNames =>
+            case queryNames => // User asked to executed one or more views only (for debugging purpose probably)
               val queries =
                 if (queryNames.contains("_") || queryNames.contains("*"))
                   job.views.map(_.keys).getOrElse(Nil)
