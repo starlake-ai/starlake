@@ -32,6 +32,7 @@ import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
 
 import scala.util.{Failure, Success, Try}
+import com.ebiznext.comet.utils.Formatter._
 
 /** Handles access to datasets metadata,  eq. domains / types / schemas.
   *
@@ -121,7 +122,6 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     val globalsCometPath = new Path(DatasetArea.metadata, s"env.comet.yml")
     val envsCometPath = new Path(DatasetArea.metadata, s"env.${settings.comet.env}.comet.yml")
     val globalEnv = loadEnv(globalsCometPath)
-    import com.ebiznext.comet.utils.Formatter._
     val localEnv = loadEnv(envsCometPath).mapValues(_.richFormat(globalEnv))
     globalEnv ++ localEnv
   }
