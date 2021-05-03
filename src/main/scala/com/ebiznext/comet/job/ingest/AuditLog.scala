@@ -23,7 +23,7 @@ package com.ebiznext.comet.job.ingest
 import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.job.index.bqload.{BigQueryLoadConfig, BigQuerySparkJob}
 import com.ebiznext.comet.job.index.connectionload.{ConnectionLoadConfig, ConnectionLoadJob}
-import com.ebiznext.comet.schema.model.{BigQuerySink, EsSink, JdbcSink, NoneSink}
+import com.ebiznext.comet.schema.model.{BigQuerySink, EsSink, FsSink, JdbcSink, NoneSink}
 import com.ebiznext.comet.utils.FileLock
 import com.google.cloud.bigquery.{Field, LegacySQLTypeName}
 import org.apache.hadoop.fs.Path
@@ -200,7 +200,7 @@ object SparkAuditLogWriter extends StrictLogging {
       case _: EsSink =>
         // TODO Sink Audit Log to ES
         throw new Exception("Sinking Audit log to Elasticsearch not yet supported")
-      case _: NoneSink =>
+      case _: NoneSink | FsSink(_, _) =>
       // this is a NOP
     }
   }

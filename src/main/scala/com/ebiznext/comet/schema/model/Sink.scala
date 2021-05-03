@@ -84,6 +84,7 @@ class SinkTypeDeserializer extends JsonDeserializer[SinkType] {
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "type")
 @JsonSubTypes(
   Array(
+    new JsonSubTypes.Type(value = classOf[NoneSink], name = "FS"),
     new JsonSubTypes.Type(value = classOf[NoneSink], name = "None"),
     new JsonSubTypes.Type(value = classOf[BigQuerySink], name = "BQ"),
     new JsonSubTypes.Type(value = classOf[EsSink], name = "ES"),
@@ -139,6 +140,12 @@ final case class NoneSink(
   override val name: Option[String] = None,
   options: Option[Map[String, String]] = None
 ) extends Sink(SinkType.None)
+
+@JsonTypeName("FS")
+final case class FsSink(
+  override val name: Option[String] = None,
+  options: Option[Map[String, String]] = None
+) extends Sink(SinkType.None) // TODO Treat FS as first class citizen ???
 
 /** When the sink *type* field is set to JDBC, the options below should be provided.
   * @param connection: Connection String

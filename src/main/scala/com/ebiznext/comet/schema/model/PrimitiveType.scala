@@ -137,7 +137,7 @@ object PrimitiveType {
   }
 
   object decimal extends PrimitiveType("decimal") {
-    val defaultDecimalType = DataTypes.createDecimalType(30, 15)
+    val defaultDecimalType = DataTypes.createDecimalType(38, 9)
 
     def fromString(str: String, pattern: String, zone: String): Any =
       if (str == null || str.isEmpty) null else BigDecimal(str)

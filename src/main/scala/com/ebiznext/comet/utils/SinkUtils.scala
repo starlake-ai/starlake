@@ -14,7 +14,7 @@ class SinkUtils(implicit settings: Settings) extends StrictLogging {
 
   def sink(sinkType: Sink, dataframe: DataFrame, table: String): Try[Unit] = {
     sinkType match {
-      case _: NoneSink =>
+      case _: NoneSink | FsSink(_, _) =>
         Success(())
 
       case sink: BigQuerySink =>

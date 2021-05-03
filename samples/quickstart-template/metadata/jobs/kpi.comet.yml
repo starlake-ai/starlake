@@ -1,9 +1,9 @@
 transform:
   name: kpi
-  engine: Spark
+  engine: ${engine}
   views:
-    sellers: "FS:${root_path}/datasets/accepted/hr/sellers"
-    orders: "FS:${root_path}/datasets/accepted/sales/orders"
+    sellers: "${sellers_view}"
+    orders: "${orders_view}"
   tasks:
     - sql: ""
       name: byseller

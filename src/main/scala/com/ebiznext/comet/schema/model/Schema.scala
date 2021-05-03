@@ -20,8 +20,9 @@
 
 package com.ebiznext.comet.schema.model
 
+import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.schema.handlers.SchemaHandler
-import com.ebiznext.comet.utils.{TextSubstitutionEngine, Utils}
+import com.ebiznext.comet.utils.Utils
 import com.ebiznext.comet.utils.conversion.BigQueryUtils
 import com.fasterxml.jackson.annotation.JsonIgnore
 import org.apache.spark.sql.types._
@@ -200,7 +201,7 @@ case class Schema(
     template: Option[String],
     domainName: String,
     schemaHandler: SchemaHandler
-  ): String = {
+  )(implicit settings: Settings): String = {
     val attrs = attributes.map(_.mapping(schemaHandler)).mkString(",")
     val properties =
       s"""
@@ -208,17 +209,20 @@ case class Schema(
          |$attrs
          |}""".stripMargin
 
-    val tse = TextSubstitutionEngine(
-      "PROPERTIES" -> properties,
-      "ATTRIBUTES" -> attrs,
-      "DOMAIN"     -> domainName.toLowerCase,
-      "SCHEMA"     -> name.toLowerCase
+    val tse = Map(
+      "properties" -> properties,
+      "attributes" -> attrs,
+      "domain"     -> domainName.toLowerCase,
+      "schema"     -> name.toLowerCase
     )
 
-    tse.apply(template.getOrElse {
-      s"""
+    import com.ebiznext.comet.utils.Formatter._
+
+    template
+      .getOrElse {
+        """
          |{
-         |  "index_patterns": ["__DOMAIN__.__SCHEMA__", "__DOMAIN__.__SCHEMA__-*"],
+         |  "index_patterns": ["{{domain}}.{{schema}}", "{{domain}}.{{schema}}-*"],
          |  "settings": {
          |    "number_of_shards": "1",
          |    "number_of_replicas": "0"
@@ -229,13 +233,14 @@ case class Schema(
          |        "enabled": true
          |      },
          |
-         |"properties": {
-         |__ATTRIBUTES__
-         |}
+         |      "properties": {
+         |        {{attributes}}
+         |      }
          |    }
          |  }
          |}""".stripMargin
-    })
+      }
+      .richFormat(tse)
   }
 
   def mergedMetadata(domainMetadata: Option[Metadata]): Metadata = {
@@ -253,7 +258,7 @@ object Schema {
     schemaName: String,
     obj: StructField,
     schemaHandler: SchemaHandler
-  ): String = {
+  )(implicit settings: Settings): String = {
     def buildAttributeTree(obj: StructField): Attribute = {
       obj.dataType match {
         case StringType | LongType | IntegerType | ShortType | DoubleType | BooleanType | ByteType |
