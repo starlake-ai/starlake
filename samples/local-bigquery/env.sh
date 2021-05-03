@@ -1,8 +1,8 @@
 source ../env.sh
 
-GCP_BUCKET_NAME=comet-app
-GCP_PROJECT_ID=ebiz-europe-west2
-GCP_SA_JSON_PATH=/Users/hayssams/.gcloud/keys/ebiz-europe-west2-0392b4074acb.json
+GCP_BUCKET_NAME="${GCP_BUCKET_NAME:-comet-app}"
+GCP_PROJECT_ID="${GCP_PROJECT_ID:-ebiz-europe-west2}"
+GCP_SA_JSON_PATH="${GCP_SA_JSON_PATH:-/Users/hayssams/.gcloud/keys/ebiz-europe-west2-0392b4074acb.json}"
 
 if [[ -z "$GCP_BUCKET_NAME" ]]; then
     echo "Must provide GCP_BUCKET_NAME in environment" 1>&2
