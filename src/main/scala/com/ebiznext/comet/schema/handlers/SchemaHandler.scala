@@ -120,7 +120,10 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
         Map.empty[String, String]
     val globalsCometPath = new Path(DatasetArea.metadata, s"env.comet.yml")
     val envsCometPath = new Path(DatasetArea.metadata, s"env.${settings.comet.env}.comet.yml")
-    loadEnv(globalsCometPath) ++ loadEnv(envsCometPath)
+    val globalEnv = loadEnv(globalsCometPath)
+    import com.ebiznext.comet.utils.Formatter._
+    val localEnv = loadEnv(envsCometPath).mapValues(_.richFormat(globalEnv))
+    globalEnv ++ localEnv
   }
 
   /** Fnd type by name
@@ -238,6 +241,7 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
 
     invalidJobsFile.foreach {
       case Failure(err) =>
+        err.printStackTrace()
         logger.warn(
           s"There is one or more invalid Yaml files in your jobs folder:${err.getMessage}"
         )

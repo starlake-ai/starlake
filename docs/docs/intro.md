@@ -50,11 +50,11 @@ Comet may be used indistinctly for all or any of these steps.
 The Load Transform steps support multiple configurations for inputs and outputs as illustrated in the
 examples below. They all follow the same process :
 
-#. Landing Area : In this optional step, files with predefined pattern filenames are stored on a local filesystem in a predefined folder hierarchy
-#. Pending Area : Files associated with a schema are imported into the data factory.
-#. Working Area : Pending files are parsed against their schema and records are rejected or accepted and made available in parquet files as Hive Tables or Big Query tables or parquet files in a cloud bucket.
-#. Business Area : Tables (Hive / BigQuery / Parquet files) in the working area may be joined to provide a hoslictic view of the data through the definition of transformation.
-#. Data visualization : parquet files / tables may be exposed in datawarehouses or elasticsearch indices through an indexing definition
+. Landing Area : In this optional step, files with predefined pattern filenames are stored on a local filesystem in a predefined folder hierarchy
+. Pending Area : Files associated with a schema are imported into the data factory.
+. Working Area : Pending files are parsed against their schema and records are rejected or accepted and made available in parquet files as Hive Tables or Big Query tables or parquet files in a cloud bucket.
+. Business Area : Tables (Hive / BigQuery / Parquet files) in the working area may be joined to provide a hoslictic view of the data through the definition of transformation.
+. Data visualization : parquet files / tables may be exposed in datawarehouses or elasticsearch indices through an indexing definition
 
 Input file schemas, ingestion rules, transformation and indexing definitions used in the steps above are all defined in YAML files.
 
