@@ -8,6 +8,8 @@ load:
     quote: "\""
     escape: "\\"
     write: "APPEND"
+    sink:
+      type: ${sink_type}
   schemas:
     - name: "customers"
       pattern: "customers-.*.psv"

@@ -923,7 +923,7 @@ object IngestionUtil {
         case _: EsSink =>
           // TODO Sink Rejected Log to ES
           throw new Exception("Sinking Audit log to Elasticsearch not yet supported")
-        case _: NoneSink =>
+        case _: NoneSink | FsSink(_, _) =>
           Success(())
       }
     res match {
