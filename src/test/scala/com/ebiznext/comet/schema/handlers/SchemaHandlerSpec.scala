@@ -497,7 +497,7 @@ class SchemaHandlerSpec extends TestHelper {
         val mapping =
           schema.map(_.mapping(None, "locations", schemaHandler)).map(_.trim).getOrElse("")
         logger.info(mapping)
-        mapping shouldBe expected
+        mapping.replaceAll("\\s", "") shouldBe expected.replaceAll("\\s", "")
       }
 
     }

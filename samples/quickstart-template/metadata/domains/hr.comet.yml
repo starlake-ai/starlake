@@ -4,6 +4,8 @@ load:
   metadata:
     mode: "FILE"
     format: "JSON"
+    sink:
+      type: ${sink_type}
   schemas:
     - name: "sellers"
       pattern: "sellers-.*.json"

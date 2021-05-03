@@ -1,8 +1,8 @@
 source ../env.sh
 
-GCP_BUCKET_NAME=comet-app
-GCP_PROJECT_ID=ebiz-europe-west2
-GCP_SA_JSON_PATH=/Users/hayssams/.gcloud/keys/ebiz-europe-west2-0392b4074acb.json
+GCP_BUCKET_NAME="${GCP_BUCKET_NAME:-comet-app}"
+GCP_PROJECT_ID="${GCP_PROJECT_ID:-ebiz-europe-west2}"
+GCP_SA_JSON_PATH="${GCP_SA_JSON_PATH:-/Users/hayssams/.gcloud/keys/ebiz-europe-west2-0392b4074acb.json}"
 
 if [[ -z "$GCP_BUCKET_NAME" ]]; then
     echo "Must provide GCP_BUCKET_NAME in environment" 1>&2
@@ -19,6 +19,7 @@ if [[ -z "$GCP_SA_JSON_PATH" ]]; then
     exit 1
 fi
 
+export COMET_ENV=BQ
 export SPARK_DRIVER_MEMORY=4G
 export COMET_FS="gs://comet-app"
 export COMET_ROOT="/tmp/quickstart"
@@ -34,8 +35,6 @@ export SPARK_CONF_OPTIONS="--conf spark.executorEnv.GOOGLE_APPLICATION_CREDENTIA
                            --conf spark.yarn.appMasterEnv.GOOGLE_APPLICATION_CREDENTIALS=$GCP_SA_JSON_PATH \
                            --conf spark.driver.extraJavaOptions=-Dlog4j.configuration=file://$SPARK_DIR/conf/log4j.properties.template"
 #                           --conf spark.driver.extraJavaOptions=-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005"
-
-COMET_JAR_FULL_NAME="/Users/hayssams/git/public/comet-app/target/scala-2.12/comet-spark3_2.12-0.1.37-SNAPSHOT-assembly.jar"
 
 export COMET_SCRIPT="$SPARK_SUBMIT $SPARK_CONF_OPTIONS --class com.ebiznext.comet.job.Main $COMET_JAR_FULL_NAME"
 

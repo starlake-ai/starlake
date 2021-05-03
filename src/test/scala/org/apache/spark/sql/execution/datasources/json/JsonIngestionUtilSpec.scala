@@ -18,7 +18,7 @@ class JsonIngestionUtilSpec extends TestHelper {
               StructType(
                 Array(
                   StructField("intAttr", LongType, false),
-                  StructField("decimalAttr", DecimalType(30, 15), true),
+                  StructField("decimalAttr", DecimalType(38, 9), true),
                   StructField("doubleAttr", DoubleType, true),
                   StructField("arrayOfString", ArrayType(StringType, true), true),
                   StructField("arrayOfInt", ArrayType(LongType, true), true)
