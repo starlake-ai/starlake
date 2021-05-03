@@ -15,23 +15,24 @@ The resulting file will be stored in the `$COMET_DATASETS/business/graduateProgr
 
 ````yaml
 ---
-name: "graduateProgram"
-views:
-  graduate_View: "fs:accepted/graduateProgram"
-tasks:
-  - domain: "graduateProgram"
-    area: "business"
-    dataset: "output"
-    write: "OVERWRITE"
-    presql: |
-      create or replace view graduate_agg_view
-      select degree,
-        department,
-        school
-      from graduate_View
-      where school={{school}}
-
-    sql: SELECT * FROM graduate_agg_view
+transform:
+    name: "graduateProgram"
+    views:
+      graduate_View: "fs:accepted/graduateProgram"
+    tasks:
+      - domain: "graduateProgram"
+        area: "business"
+        dataset: "output"
+        write: "OVERWRITE"
+        presql: |
+          create or replace view graduate_agg_view
+          select degree,
+            department,
+            school
+          from graduate_View
+          where school={{school}}
+    
+        sql: SELECT * FROM graduate_agg_view
 ````
 
 ## Transform Parquet to DSV
@@ -41,25 +42,26 @@ and set coalesce to `true` to output everything in a single CSV file.
 
 ````yaml
 ---
-name: "graduateProgram"
-format: "csv"
-coalesce: true
-views:
-  graduate_View: "fs:accepted/graduateProgram"
-tasks:
-  - domain: "graduateProgram"
-    area: "business"
-    dataset: "output"
-    write: "OVERWRITE"
-    presql: |
-      create or replace view graduate_agg_view
-      select degree,
-        department,
-        school
-      from graduate_View
-      where school={{school}}
-
-    sql: SELECT * FROM graduate_agg_view
+transform:
+    name: "graduateProgram"
+    format: "csv"
+    coalesce: true
+    views:
+      graduate_View: "fs:accepted/graduateProgram"
+    tasks:
+      - domain: "graduateProgram"
+        area: "business"
+        dataset: "output"
+        write: "OVERWRITE"
+        presql: |
+          create or replace view graduate_agg_view
+          select degree,
+            department,
+            school
+          from graduate_View
+          where school={{school}}
+    
+        sql: SELECT * FROM graduate_agg_view
 ````
 
 ## Transform Parquet to BigQuery
@@ -74,26 +76,27 @@ You may also specify the target project in the `/tasks/dataset` property using t
 
 ````yaml
 ---
-name: "graduateProgram"
-views:
-  graduate_View: "fs:accepted/graduateProgram"
-tasks:
-  - domain: "graduateProgram"
-    area: "business"
-    dataset: "output"
-    write: "OVERWRITE"
-    sink:
-        type: BQ
-        location: EU
-    presql: |
-      create or replace view graduate_agg_view
-      select degree,
-        department,
-        school
-      from graduate_View
-      where school={{school}}
-
-    sql: SELECT * FROM graduate_agg_view
+transform:
+    name: "graduateProgram"
+    views:
+      graduate_View: "fs:accepted/graduateProgram"
+    tasks:
+      - domain: "graduateProgram"
+        area: "business"
+        dataset: "output"
+        write: "OVERWRITE"
+        sink:
+            type: BQ
+            location: EU
+        presql: |
+          create or replace view graduate_agg_view
+          select degree,
+            department,
+            school
+          from graduate_View
+          where school={{school}}
+    
+        sql: SELECT * FROM graduate_agg_view
 ````
 
 ## BigQuery to BigQuery
@@ -105,17 +108,18 @@ if you need your jobs to overwrite only the partitions present in the resulting 
 
 ````yaml
 ---
-name: "graduateProgram"
-views:
-  graduate_View: "bq:gcp_project_id:bqdataset/graduateProgram"
-tasks:
-  - domain: "graduateProgram"
-    sink:
-        type: BQ
-    area: "business"
-    dataset: "output"
-    write: "OVERWRITE"
-    sql: SELECT * FROM graduate_View
+transform:
+    name: "graduateProgram"
+    views:
+      graduate_View: "bq:gcp_project_id:bqdataset/graduateProgram"
+    tasks:
+      - domain: "graduateProgram"
+        sink:
+            type: BQ
+        area: "business"
+        dataset: "output"
+        write: "OVERWRITE"
+        sql: SELECT * FROM graduate_View
 ````
 
 ## BigQuery to CSV

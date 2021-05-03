@@ -23,7 +23,7 @@ package com.ebiznext.comet
 import com.ebiznext.comet.config.{DatasetArea, Settings}
 import com.ebiznext.comet.schema.handlers.{SchemaHandler, SimpleLauncher, StorageHandler}
 import com.ebiznext.comet.schema.model.AutoJobDesc
-import com.ebiznext.comet.utils.{CometObjectMapper, TextSubstitutionEngine, Utils}
+import com.ebiznext.comet.utils.{CometObjectMapper, Utils}
 import com.ebiznext.comet.workflow.IngestionWorkflow
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
@@ -157,14 +157,8 @@ trait TestHelper extends AnyFlatSpec with Matchers with BeforeAndAfterAll with S
 
   def readFileContent(path: Path): String = readFileContent(path.toUri.getPath)
 
-  /** substitution patterns for test sample file resources.
-    */
-  private val testResourceSubstitutionEngine = TextSubstitutionEngine(
-    "COMET_TEST_ROOT" -> cometTestRoot
-  )
-
   def applyTestFileSubstitutions(fileContent: String): String = {
-    testResourceSubstitutionEngine.apply(fileContent)
+    fileContent.replaceAll("COMET_TEST_ROOT", cometTestRoot)
   }
 
   def withSettings(configuration: Config)(op: Settings => Assertion): Assertion =
