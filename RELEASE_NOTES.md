@@ -1,6 +1,6 @@
 # Release notes
 
-## 0.1.37
+## 0.2.0
 __New feature__:
 - Export all tables in DDL2YML generation
 - Include table & column names when meeting unknown column type in JDBC source schema
