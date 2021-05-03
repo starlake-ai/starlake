@@ -26,6 +26,7 @@ import com.ebiznext.comet.utils.Utils
 import com.ebiznext.comet.utils.conversion.BigQueryUtils
 import com.fasterxml.jackson.annotation.JsonIgnore
 import org.apache.spark.sql.types._
+import com.ebiznext.comet.utils.Formatter._
 
 import java.util.regex.Pattern
 import scala.collection.mutable
@@ -215,8 +216,6 @@ case class Schema(
       "domain"     -> domainName.toLowerCase,
       "schema"     -> name.toLowerCase
     )
-
-    import com.ebiznext.comet.utils.Formatter._
 
     template
       .getOrElse {
