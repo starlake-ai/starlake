@@ -1,6 +1,6 @@
 /** @type {import('@docusaurus/types').DocusaurusConfig} */
 module.exports = {
-    title: "Build Optimized Big & Fast Data Pipelines",
+    title: "Quickly Build Optimized Big & Fast Data Pipelines",
     tagline: 'So your data just keep moving',
     url: 'https://ebiznext.github.io',
     baseUrl: '/comet-data-pipeline/',
