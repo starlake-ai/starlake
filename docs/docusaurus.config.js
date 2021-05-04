@@ -41,10 +41,18 @@ module.exports = {
                 },
                 {to: '/blog', label: 'Blog', position: 'left'},
                 {
-                    href: 'https://github.com/ebiznext/comet-data-pipeline',
-                    label: 'GitHub',
+                    href: 'https://github.com/ebiznext/comet-data-pipeline/releases/latest',
                     position: 'right',
+                    className: 'header-download-link header-icon-link',
+                    'aria-label': 'Download',
                 },
+                {
+                    href: 'https://github.com/ebiznext/comet-data-pipeline',
+                    position: 'right',
+                    className: 'header-github-link header-icon-link',
+                    'aria-label': 'GitHub repository',
+                },
+
             ],
         },
         footer: {

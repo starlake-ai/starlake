@@ -23,3 +23,25 @@
   align-items: center;
   justify-content: center;
 }
+
+@media (max-width: 480px) {
+  .buttons {
+    display: block;
+    border-radius: .5em;
+    margin: 0 0 1rem;
+    min-width: auto;
+    width: 100%;
+  }
+}
+
+.features {
+  display: flex;
+  align-items: center;
+  padding: 2rem 0;
+  width: 100%;
+}
+
+.featureImage {
+  height: 200px;
+  width: 200px;
+}
