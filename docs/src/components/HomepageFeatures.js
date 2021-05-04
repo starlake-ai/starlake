@@ -4,32 +4,32 @@ import styles from './HomepageFeatures.module.css';
 
 const FeatureList = [
   {
-    title: 'Easy to Use',
-    Svg: require('../../static/img/undraw_docusaurus_mountain.svg').default,
+    title: 'Low Code / No Code',
+    Svg: require('../../static/img/no-code2.svg').default,
     description: (
       <>
-        Docusaurus was designed from the ground up to be easily installed and
-        used to get your website up and running quickly.
+        Comet Data Pipeline was designed from the ground up to be easily installed and
+        used to ingest your data and expose your insights quickly.
       </>
     ),
   },
   {
-    title: 'Focus on What Matters',
-    Svg: require('../../static/img/undraw_docusaurus_tree.svg').default,
+    title: 'On Premise and Cloud Native',
+    Svg: require('../../static/img/cloud-native3.svg').default,
     description: (
       <>
-        Docusaurus lets you focus on your docs, and we&apos;ll do the chores. Go
-        ahead and move your docs into the <code>docs</code> directory.
+        Comet Data Pipeline support almost all On Premise and native cloud solutions,
+        including         Amazon S3 / Azure Storage / Google Storage / Apache HDFS, Snowflake / Google BigQuery / Amazon Redshift / Apache Hive.
       </>
     ),
   },
   {
-    title: 'Powered by React',
-    Svg: require('../../static/img/undraw_docusaurus_react.svg').default,
+    title: 'DevOps friendly',
+    Svg: require('../../static/img/devops.svg').default,
     description: (
       <>
-        Extend or customize your website layout by reusing React. Docusaurus can
-        be extended while reusing the same header and footer.
+          Comet Data Pipeline was designed to fully integrate into the DevOps ecosystem to take advantage of practices like
+          Git Merge Requests, incremental CI/CD, Text based configuration and BYO SQL environment.
       </>
     ),
   },

@@ -1,7 +1,7 @@
 /** @type {import('@docusaurus/types').DocusaurusConfig} */
 module.exports = {
     title: 'Comet Data Pipeline',
-    tagline: 'Your on-premise & cloud low code / no code framework for Big & Fast Data Integration',
+    tagline: 'So your data just keep moving',
     url: 'https://ebiznext.github.io',
     baseUrl: '/comet-data-pipeline/',
     onBrokenLinks: 'throw',
