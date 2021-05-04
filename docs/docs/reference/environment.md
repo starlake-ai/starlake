@@ -1,8 +1,8 @@
 ---
 sidebar_position: 10
-title: Environment
 ---
 
+# Environment
 ## Env specific variables
 
 Comet allows you to use variables almost everywhere in the domain and job files.
