@@ -37,7 +37,7 @@ Comet Data Pipeline automates the loading and parsing of files and
 their ingestion into a Data Factory where datasets become
 available as strongly typed records.
 
-![Complete Comet Data pipeline Workflow]( /img/guide/elt.png "Complete Comet Data pipeline Workflow")
+![Complete Comet Data pipeline Workflow]( /img/guide/workflow.png "Complete Comet Data pipeline Workflow")
 
 
 The figure above describes how Comet implements the Extract Load Transform (ELT) Data Pipeline steps.
@@ -48,7 +48,12 @@ Comet may be used indistinctly for all or any of these steps.
 * The "transform" step allows to join loaded data and save them as parquet files, DWH tables or Elasticsearch indices
 
 The Load Transform steps support multiple configurations for inputs and outputs as illustrated in the
-examples below. They all follow the same process :
+examples below. 
+
+![Anywhere]( /img/guide/anywhere.png "Anywhere")
+
+
+They all follow the same process :
 
 - Landing Area : In this optional step, files with predefined pattern filenames are stored on a local filesystem in a predefined folder hierarchy
 - Pending Area : Files associated with a schema are imported into the data factory.
