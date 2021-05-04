@@ -60,16 +60,12 @@ case class AutoTaskDesc(
     * @param settings
     * @return
     */
-  def getTargetPath(defaultArea: Option[StorageArea])(implicit settings: Settings): Option[Path] = {
-    area.orElse(defaultArea).map { targetArea =>
-      new Path(DatasetArea.path(domain, targetArea.value), dataset)
-    }
+  def getTargetPath(defaultArea: StorageArea)(implicit settings: Settings): Path = {
+    new Path(DatasetArea.path(domain, area.getOrElse(defaultArea).value), dataset)
   }
 
-  def getHiveDB(defaultArea: Option[StorageArea]): Option[String] = {
-    area.orElse(defaultArea).map { targetArea =>
-      StorageArea.area(domain, targetArea)
-    }
+  def getHiveDB(defaultArea: StorageArea): String = {
+    StorageArea.area(domain, area.getOrElse(defaultArea))
   }
 }
 

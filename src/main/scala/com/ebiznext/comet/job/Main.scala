@@ -220,7 +220,7 @@ object Main extends StrictLogging {
         true
 
       case "extract" =>
-        ScriptGen.run(args.drop(1))
+        new ScriptGen(storageHandler, schemaHandler, launcherService).run(args.drop(1))
       case _ =>
         printUsage()
         false
