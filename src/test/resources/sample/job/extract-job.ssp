@@ -1,7 +1,7 @@
 <%@ var job: com.ebiznext.comet.schema.model.AutoJobDesc %>
 <%@ var actions: List[com.ebiznext.comet.job.transform.AutoTaskJob] %>
 #{
-    val task = actions(0).task
+    val task = actions.head.task
 }#
 ${job.name}
 ${task.sql}
