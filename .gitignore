@@ -138,3 +138,6 @@ docs/build
 /samples/local/quickstart/
 /samples/local-bigquery/quickstart/
 /samples/hdfs/quickstart/
+samples/airflow/logs
+samples/airflow/.env
+samples/airflow/docker-compose.yaml
