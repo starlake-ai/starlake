@@ -3,17 +3,25 @@ package com.ebiznext.comet.extractor
 import better.files.File
 import com.ebiznext.comet.config.{DatasetArea, Settings}
 import com.ebiznext.comet.extractor.config.{Settings => ExtractorSettings}
-import com.ebiznext.comet.schema.generator.YamlSerializer
-import com.ebiznext.comet.schema.handlers.SchemaHandler
-import com.ebiznext.comet.schema.model.{AutoJobDesc, Domain}
+import com.ebiznext.comet.schema.handlers.{
+  LaunchHandler,
+  SchemaHandler,
+  SimpleLauncher,
+  StorageHandler
+}
+import com.ebiznext.comet.schema.model.{AutoJobDesc, Domain, Engine}
 import com.ebiznext.comet.utils.Formatter._
+import com.ebiznext.comet.workflow.IngestionWorkflow
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.StrictLogging
 import org.fusesource.scalate._
 
-object ScriptGen extends StrictLogging {
-
-  implicit val settings: Settings = Settings(ConfigFactory.load())
+class ScriptGen(
+  storageHandler: StorageHandler,
+  schemaHandler: SchemaHandler,
+  launchHandler: LaunchHandler
+)(implicit settings: Settings)
+    extends StrictLogging {
   val engine: TemplateEngine = new TemplateEngine
 
   /** Generate an extraction script payload based on a template and its params
@@ -72,10 +80,31 @@ object ScriptGen extends StrictLogging {
     scriptsOutputFolder: File,
     scriptOutputPattern: Option[String]
   ): File = {
+    import settings.metadataStorageHandler
+    val workflow =
+      new IngestionWorkflow(metadataStorageHandler, schemaHandler, new SimpleLauncher())
+    val actions = workflow.buildTasks(job.name, Map.empty[String, String])
+    actions.map { action =>
+      val (preSql, sql, postSql) = action.engine match {
+        case Engine.BQ =>
+          action.buildQueryBQ()
+        case Engine.SPARK =>
+          action.buildQuerySpark()
+        case _ =>
+          throw new Exception("not supported") // TODO
+      }
+      action.copy(task =
+        action.task.copy(presql = Some(preSql), sql = sql, postsql = Some(postSql))
+      )(settings, metadataStorageHandler, schemaHandler)
+    }
 
     val scriptPayload = engine.layout(
       scriptTemplateFile.pathAsString,
-      YamlSerializer.toMap(job)
+      Map(
+        "job"     -> job,
+        "actions" -> actions,
+        "env"     -> schemaHandler.activeEnv
+      )
     )
     val scriptOutputFileName = scriptOutputPattern
       .map(
@@ -175,7 +204,7 @@ object ScriptGen extends StrictLogging {
         // Extracting the domain from the Excel referential file
         domains.find(_.name == domainName) match {
           case Some(domain) =>
-            ScriptGen.generateDomain(
+            generateDomain(
               domain,
               config.scriptTemplateFile,
               config.scriptOutputDir,
@@ -203,7 +232,7 @@ object ScriptGen extends StrictLogging {
         // Extracting the Job
         jobs.get(jobName) match {
           case Some(job) =>
-            ScriptGen.generateJob(
+            generateJob(
               job,
               config.scriptTemplateFile,
               config.scriptOutputDir,
@@ -220,9 +249,13 @@ object ScriptGen extends StrictLogging {
 }
 
 object Main {
+  implicit val settings: Settings = Settings(ConfigFactory.load())
+  import settings.{launcherService, metadataStorageHandler, storageHandler}
+  DatasetArea.initMetadata(metadataStorageHandler)
+  val schemaHandler = new SchemaHandler(metadataStorageHandler)
 
   def main(args: Array[String]): Unit = {
-    val result = ScriptGen.run(args)
+    val result = new ScriptGen(storageHandler, schemaHandler, launcherService).run(args)
     System.exit(if (result) 0 else 1)
   }
 }
