@@ -3,7 +3,12 @@ package com.ebiznext.comet.extractor
 import better.files.File
 import com.ebiznext.comet.config.{DatasetArea, Settings}
 import com.ebiznext.comet.extractor.config.{Settings => ExtractorSettings}
-import com.ebiznext.comet.schema.handlers.{LaunchHandler, SchemaHandler, StorageHandler}
+import com.ebiznext.comet.schema.handlers.{
+  LaunchHandler,
+  SchemaHandler,
+  SimpleLauncher,
+  StorageHandler
+}
 import com.ebiznext.comet.schema.model.{AutoJobDesc, Domain, Engine}
 import com.ebiznext.comet.utils.Formatter._
 import com.ebiznext.comet.workflow.IngestionWorkflow
@@ -77,7 +82,7 @@ class ScriptGen(
   ): File = {
     import settings.metadataStorageHandler
     val workflow =
-      new IngestionWorkflow(metadataStorageHandler, schemaHandler, null)
+      new IngestionWorkflow(metadataStorageHandler, schemaHandler, new SimpleLauncher())
     val actions = workflow.buildTasks(job.name, Map.empty[String, String])
     actions.map { action =>
       val (preSql, sql, postSql) = action.engine match {
