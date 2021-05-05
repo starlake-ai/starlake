@@ -453,6 +453,25 @@ class IngestionWorkflow(
     Utils.logFailure(result, logger)
   }
 
+  def buildTasks(jobName: String, jobOptions: Map[String, String]): Seq[AutoTaskJob] = {
+    val job = schemaHandler.jobs(jobName)
+    logger.info(job.toString)
+    val includes = schemaHandler.views(job.name)
+    job.tasks.map { task =>
+      AutoTaskJob(
+        job.name,
+        job.getArea(),
+        job.format,
+        job.coalesce.getOrElse(false),
+        job.udf,
+        Views(job.views.getOrElse(Map.empty) ++ includes.views),
+        job.getEngine(),
+        task,
+        schemaHandler.activeEnv ++ jobOptions
+      )(settings, storageHandler, schemaHandler)
+    }
+  }
+
   /** Successively run each task of a job
     *
     * @param config : job name as defined in the YML file and sql parameters to pass to SQL statements.
@@ -461,28 +480,15 @@ class IngestionWorkflow(
     val job = schemaHandler.jobs(config.name)
     logger.info(job.toString)
     val includes = schemaHandler.views(job.name)
-    val result = job.tasks.map { task =>
-      val action = new AutoTaskJob(
-        job.name,
-        job.area,
-        job.format,
-        job.coalesce.getOrElse(false),
-        job.udf,
-        Views(job.views.getOrElse(Map.empty) ++ includes.views),
-        job.getEngine(),
-        task,
-        storageHandler,
-        schemaHandler.activeEnv ++ config.options,
-        schemaHandler
-      )
-      val engine = job.getEngine()
+    val result = buildTasks(config.name, config.options).map { action =>
+      val engine = action.engine
       logger.info(s"running with $engine engine")
       engine match {
         case Engine.BQ =>
           val result = config.views match {
             case Nil => // User asked to executed the whole job
               val result = action.runBQ()
-              val sink = task.sink
+              val sink = action.task.sink
               logger.info(s"BQ Job succeeded. sinking data to $sink")
               sink match {
                 case Some(sink) if sink.`type` == SinkType.BQ =>
@@ -520,25 +526,25 @@ class IngestionWorkflow(
         case Engine.SPARK =>
           action.runSpark() match {
             case Success(SparkJobResult(maybeDataFrame)) =>
-              val sink = task.sink
+              val sink = action.task.sink
               logger.info(s"Spark Job succeeded. sinking data to $sink")
               sink match {
                 case Some(sink)
                     if settings.comet.elasticsearch.active && sink.`type` == SinkType.ES =>
-                  esload(job, task)
+                  esload(action)
                 case Some(sink) if sink.`type` == SinkType.BQ =>
                   val bqSink = sink.asInstanceOf[BigQuerySink]
                   val source = maybeDataFrame
                     .map(df => Right(setNullableStateOfColumn(df, nullable = true)))
-                    .getOrElse(Left(task.getTargetPath(Some(job.getArea())).toString))
+                    .getOrElse(Left(action.task.getTargetPath(job.getArea()).toString))
                   val (createDisposition, writeDisposition) = {
-                    Utils.getDBDisposition(task.write, hasMergeKeyDefined = false)
+                    Utils.getDBDisposition(action.task.write, hasMergeKeyDefined = false)
                   }
                   val config =
                     BigQueryLoadConfig(
                       source = source,
-                      outputTable = task.dataset,
-                      outputDataset = task.domain,
+                      outputTable = action.task.dataset,
+                      outputDataset = action.task.domain,
                       sourceFormat = "parquet",
                       createDisposition = createDisposition,
                       writeDisposition = writeDisposition,
@@ -547,7 +553,7 @@ class IngestionWorkflow(
                       outputClustering = bqSink.clustering.getOrElse(Nil),
                       days = bqSink.days,
                       requirePartitionFilter = bqSink.requirePartitionFilter.getOrElse(false),
-                      rls = task.rls,
+                      rls = action.task.rls,
                       options = bqSink.getOptions
                     )
                   val result = new BigQuerySparkJob(config, None).run()
@@ -560,16 +566,16 @@ class IngestionWorkflow(
                   val jdbcName = jdbcSink.connection
                   val source = maybeDataFrame
                     .map(df => Right(df))
-                    .getOrElse(Left(task.getTargetPath(Some(job.getArea())).toString))
+                    .getOrElse(Left(action.task.getTargetPath(job.getArea()).toString))
                   val (createDisposition, writeDisposition) = {
-                    Utils.getDBDisposition(task.write, hasMergeKeyDefined = false)
+                    Utils.getDBDisposition(action.task.write, hasMergeKeyDefined = false)
                   }
 
                   val jdbcConfig = ConnectionLoadConfig.fromComet(
                     jdbcName,
                     settings.comet,
                     source,
-                    outputTable = task.dataset,
+                    outputTable = action.task.dataset,
                     createDisposition = CreateDisposition.valueOf(createDisposition),
                     writeDisposition = WriteDisposition.valueOf(writeDisposition),
                     partitions = partitions,
@@ -599,10 +605,11 @@ class IngestionWorkflow(
     result.forall(_ == true)
   }
 
-  def esload(job: AutoJobDesc, task: AutoTaskDesc): Boolean = {
-    val targetArea = task.area.getOrElse(job.getArea())
-    val targetPath = new Path(DatasetArea.path(task.domain, targetArea.value), task.dataset)
-    val sink: EsSink = task.sink
+  def esload(action: AutoTaskJob): Boolean = {
+    val targetArea = action.task.area.getOrElse(action.defaultArea)
+    val targetPath =
+      new Path(DatasetArea.path(action.task.domain, targetArea.value), action.task.dataset)
+    val sink: EsSink = action.task.sink
       .map(_.asInstanceOf[EsSink])
       .getOrElse(
         throw new Exception("Sink of type ES must be specified when loading data to ES !!!")
@@ -613,8 +620,8 @@ class IngestionWorkflow(
         timestamp = sink.timestamp,
         id = sink.id,
         format = "parquet",
-        domain = task.domain,
-        schema = task.dataset,
+        domain = action.task.domain,
+        schema = action.task.dataset,
         dataset = Some(Left(targetPath)),
         options = sink.getOptions
       )

@@ -1,11 +1,13 @@
-<%@ var name: String %>
-<%@ var tasks: List[Any] %>
+<%@ var job: com.ebiznext.comet.schema.model.AutoJobDesc %>
+<%@ var actions: List[com.ebiznext.comet.job.transform.AutoTaskJob] %>
+<%@ var env: Map[String, String] %>
+
 #{
-    val task = tasks(0).asInstanceOf[Map[String,Any]]
+    val task = actions.head.task
 }#
-${name}
-${task("sql").toString}
-${task("area").toString}
-${task("domain").toString}
-${task("partition").toString}
+${job.name}
+${task.sql}
+${task.area}
+${task.domain}
+${task.partition.mkString(",")}
 

@@ -2,36 +2,41 @@ package com.ebiznext.comet.extractor
 
 import better.files.File
 import com.ebiznext.comet.TestHelper
+import com.ebiznext.comet.schema.handlers.{SchemaHandler, SimpleLauncher}
 
 class ExtractScriptGenSpec extends TestHelper {
 
   val scriptOutputFolder: File = File("/tmp")
-
-  "templatize domain using mustache" should "generate an export script from a TemplateSettings" in {
-    val templateParams: TemplateParams = TemplateParams(
-      domainToExport = "domain1",
-      tableToExport = "table1",
-      columnsToExport = List("col1" -> "string", "col2" -> "long"),
-      fullExport = false,
-      dsvDelimiter = ",",
-      deltaColumn = Some("updateCol"),
-      exportOutputFileBase = "output_file",
-      scriptOutputFile = scriptOutputFolder / "EXTRACT_table1.sql"
-    )
-
-    val templatePayload: String = ScriptGen.templatize(
-      File(
-        getClass.getResource("/sample/database/EXTRACT_TABLE.sql.mustache").getPath
-      ),
-      templateParams
-    )
-
-    templatePayload shouldBe File(
-      getClass.getResource("/sample/database/expected_script_payload.txt").getPath
-    ).lines.mkString("\n")
-  }
-
   new WithSettings() {
+
+    "templatize domain using mustache" should "generate an export script from a TemplateSettings" in {
+      val templateParams: TemplateParams = TemplateParams(
+        domainToExport = "domain1",
+        tableToExport = "table1",
+        columnsToExport = List("col1" -> "string", "col2" -> "long"),
+        fullExport = false,
+        dsvDelimiter = ",",
+        deltaColumn = Some("updateCol"),
+        exportOutputFileBase = "output_file",
+        scriptOutputFile = scriptOutputFolder / "EXTRACT_table1.sql"
+      )
+
+      val templatePayload: String = new ScriptGen(
+        storageHandler,
+        new SchemaHandler(settings.storageHandler),
+        new SimpleLauncher()
+      ).templatize(
+        File(
+          getClass.getResource("/sample/database/EXTRACT_TABLE.sql.mustache").getPath
+        ),
+        templateParams
+      )
+
+      templatePayload shouldBe File(
+        getClass.getResource("/sample/database/expected_script_payload.txt").getPath
+      ).lines.mkString("\n")
+    }
+
     "templatize job using ssp" should "generate an export script from a TemplateSettings" in {
       new SpecTrait(
         domainOrJobFilename = "my-job.comet.yml",
@@ -49,10 +54,15 @@ class ExtractScriptGenSpec extends TestHelper {
           scriptOutputPattern = Some("comet-test-my-job.txt"),
           scriptTemplateFile = File(getClass.getResource("/sample/job/extract-job.ssp").getPath)
         )
-        val success = ScriptGen.run(config)(settings)
+        val success = new ScriptGen(
+          storageHandler,
+          new SchemaHandler(settings.storageHandler),
+          new SimpleLauncher()
+        ).run(config)(settings)
         assert(success)
 
         val resultFile = scriptOutputFolder / "comet-test-my-job.txt"
+        println(resultFile.contentAsString)
         resultFile.contentAsString.trim shouldBe File(
           getClass.getResource("/sample/job/expected-extract-job.txt").getPath
         ).contentAsString.trim
