@@ -1,5 +1,7 @@
 <%@ var job: com.ebiznext.comet.schema.model.AutoJobDesc %>
 <%@ var actions: List[com.ebiznext.comet.job.transform.AutoTaskJob] %>
+<%@ var env: Map[String, String] %>
+
 #{
     val task = actions.head.task
 }#

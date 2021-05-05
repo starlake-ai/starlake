@@ -97,7 +97,8 @@ class ScriptGen(
       scriptTemplateFile.pathAsString,
       Map(
         "job"     -> job,
-        "actions" -> actions
+        "actions" -> actions,
+        "env"     -> schemaHandler.activeEnv
       )
     )
     val scriptOutputFileName = scriptOutputPattern
