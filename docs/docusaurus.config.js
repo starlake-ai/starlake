@@ -105,6 +105,11 @@ module.exports = {
         [
             '@docusaurus/preset-classic',
             {
+                googleAnalytics: {
+                    trackingId: 'G-S0KK4KS0JD',
+                    // Optional fields.
+                    anonymizeIP: true // Should IPs be anonymized?
+                },
                 docs: {
                     sidebarPath: require.resolve('./sidebars.js'),
                     // Please change this to your repo.
