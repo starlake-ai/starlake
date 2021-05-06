@@ -189,12 +189,6 @@ class BigQuerySparkJob(
             .option("table", bqTable)
             .option("intermediateFormat", intermediateFormat)
           cliConfig.options.foldLeft(finalDF)((w, kv) => w.option(kv._1, kv._2)).save()
-          if (
-            writeDisposition == "WRITE_TRUNCATE" && !tableDefinition.getSchema.getFields.isEmpty
-          ) {
-            logger.info(s"updating BQ schema with ${tableDefinition.getSchema.getFields.toString}")
-            table.toBuilder.setDefinition(tableDefinition).build().update()
-          }
       }
 
       val stdTableDefinitionAfter =
