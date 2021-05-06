@@ -49,7 +49,7 @@ name := {
   s"comet-spark$sparkNameSuffix"
 }
 
-assemblyJarName in assembly := s"${name.value}_${scalaBinaryVersion.value}-${version.value}-assembly.jar"
+assembly / assemblyJarName := s"${name.value}_${scalaBinaryVersion.value}-${version.value}-assembly.jar"
 
 
 /*
@@ -57,7 +57,7 @@ artifactName := { (sv: ScalaVersion, module: ModuleID, artifact: Artifact) =>
   artifact.name + "-spark" + sparkMajor +   + "_" + sv.binary "-" + module.revision + "." + artifact.extension
 }
  */
-// assemblyJarName in assembly := s"comet-spark-${sparkVersion}_${scalaVersion.value}-assembly.jar"
+// assembly / assemblyJarName := s"comet-spark-${sparkVersion}_${scalaVersion.value}-assembly.jar"
 
 Common.enableCometAliases
 
@@ -66,7 +66,7 @@ enablePlugins(Common.cometPlugins: _*)
 Common.customSettings
 
 Test / fork := true
-envVars in Test := Map("GOOGLE_CLOUD_PROJECT" -> "some-gcp-project")
+Test / envVars := Map("GOOGLE_CLOUD_PROJECT" -> "some-gcp-project")
 
 artifact in (Compile, assembly) := {
   val art: Artifact = (artifact in (Compile, assembly)).value
@@ -81,7 +81,7 @@ commands += Command.command("assemblyWithSpark") { state =>
   """set assembly / fullClasspath := (Compile / fullClasspath).value""" :: "assembly" :: state
 }
 
-publishTo in ThisBuild := {
+ThisBuild / publishTo  := {
   sys.env.get("GCS_BUCKET_ARTEFACTS") match {
     case None        => sonatypePublishToBundle.value
     case Some(value) => Some(GCSPublisher.forBucket(value, AccessRights.InheritBucket))
@@ -90,7 +90,7 @@ publishTo in ThisBuild := {
 
 // Workaround for buggy http handler in SBT 1.x
 // https://github.com/sbt/sbt/issues/3570
-updateOptions := updateOptions.value.withGigahorse(false)
+// updateOptions := updateOptions.value.withGigahorse(false)
 
 // Release
 
@@ -117,7 +117,7 @@ releaseCommitMessage := s"Release ${ReleasePlugin.runtimeVersion.value}"
 
 releaseVersionBump := Next
 
-assemblyMergeStrategy in assembly := {
+assembly / assemblyMergeStrategy := {
   case PathList("META-INF", _ @ _*) => MergeStrategy.discard
   case "reference.conf"              => MergeStrategy.concat
   case _
@@ -127,14 +127,14 @@ assemblyMergeStrategy in assembly := {
 // Required by the Test container framework
 Test / fork := true
 
-assemblyExcludedJars in assembly := {
-  val cp: Classpath = (fullClasspath in assembly).value
+assembly / assemblyExcludedJars := {
+  val cp: Classpath = (assembly / fullClasspath).value
   cp.foreach(x => println("->" + x.data.getName))
   //cp filter {_.data.getName.matches("hadoop-.*-2.6.5.jar")}
   Nil
 }
 
-assemblyShadeRules in assembly := Seq(
+assembly / assemblyShadeRules := Seq(
   // poi needs a newer version of commons-compress (> 1.17) than the one shipped with spark (1.4)
   ShadeRule.rename("org.apache.commons.compress.**" -> "poiShade.commons.compress.@1").inAll,
   //shade it or else writing to bigquery wont work because spark comes with an older version of google common.
@@ -207,4 +207,4 @@ developers := List(
   )
 )
 
-//logLevel in assembly := Level.Debug
+//assembly / logLevel := Level.Debug
