@@ -68,12 +68,12 @@ Common.customSettings
 Test / fork := true
 Test / envVars := Map("GOOGLE_CLOUD_PROJECT" -> "some-gcp-project")
 
-artifact in (Compile, assembly) := {
-  val art: Artifact = (artifact in (Compile, assembly)).value
+Compile / assembly / artifact := {
+  val art: Artifact = (Compile / assembly / artifact).value
   art.withClassifier(Some("assembly"))
 }
 
-addArtifact(artifact in (Compile, assembly), assembly)
+addArtifact(Compile / assembly / artifact, assembly)
 
 // Builds a far JAR with embedded spark libraries and other provided libs.
 // Can be useful for running YAML generation without having a spark distribution
