@@ -68,12 +68,8 @@ object Common {
   )
 
   def assemlySettings = Seq(
-    test in assembly := {},
-    mainClass in Compile := Some("com.ebiznext.comet.job.Main")
-  )
-
-  def docsSettings = Seq(
-    sourceDirectory in Sphinx := baseDirectory.value / "docs"
+    assembly / test := {},
+    Compile / mainClass := Some("com.ebiznext.comet.job.Main")
   )
 
   def customSettings: Seq[Def.Setting[_]] =
@@ -85,16 +81,16 @@ object Common {
         "-Ywarn-unused-import",
         "-Xfatal-warnings"
       ),
-      testOptions in Test ++= Seq(
+      Test / testOptions ++= Seq(
         // show full stack traces and test case durations
         Tests.Argument("-oDF"),
         // -v Log "test run started" / "test started" / "test run finished" events on log level "info" instead of "debug".
         // -a Show stack traces a nd exception class name for AssertionErrors.
         Tests.Argument(TestFrameworks.JUnit, "-v", "-a")
       ),
-      parallelExecution in Test := false,
+      Test / parallelExecution := false,
       scalafmtOnCompile := true
-    ) ++ gitSettings ++ assemlySettings ++ docsSettings
+    ) ++ gitSettings ++ assemlySettings
 
 }
 
