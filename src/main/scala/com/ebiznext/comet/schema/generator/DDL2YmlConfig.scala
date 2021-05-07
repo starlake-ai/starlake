@@ -19,7 +19,6 @@
  */
 package com.ebiznext.comet.schema.generator
 
-import better.files.File
 import com.ebiznext.comet.utils.CliConfig
 import scopt.OParser
 
@@ -43,7 +42,7 @@ case class JDBCSchema(
     "ALIAS",
     "SYNONYM"
   ),
-  templateFile: Option[File] = None
+  template: Option[String] = None
 )
 
 /** @param name  : Table name (case insensitive)

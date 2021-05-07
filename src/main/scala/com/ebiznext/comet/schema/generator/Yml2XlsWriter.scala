@@ -3,7 +3,7 @@ package com.ebiznext.comet.schema.generator
 import better.files.File
 import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.schema.handlers.SchemaHandler
-import com.ebiznext.comet.schema.model.Domain
+import com.ebiznext.comet.schema.model.{Domain, Format}
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.poi.ss.usermodel.CellType
@@ -106,12 +106,15 @@ class Yml2XlsWriter(schemaHandler: SchemaHandler) extends LazyLogging with XlsMo
         attrRow.createCell(6).setCellValue(attr.default.getOrElse(""))
         attrRow.createCell(7).setCellValue(attr.script.getOrElse(""))
         attrRow.createCell(8).setCellValue(attr.comment.getOrElse(""))
-        attrRow.createCell(9).setCellValue(attr.position.map(_.first.toString).getOrElse(""))
+        attrRow.createCell(9).setCellValue("")
+        attrRow.createCell(10).setCellValue("")
         attrRow.getCell(9).setCellType(CellType.NUMERIC)
-        attrRow.createCell(10).setCellValue(attr.position.map(_.last.toString).getOrElse(""))
         attrRow.getCell(10).setCellType(CellType.NUMERIC)
+        if (metadata.format.getOrElse(Format.DSV) == Format.POSITION) {
+          attrRow.getCell(9).setCellValue(attr.position.map(_.first.toString).getOrElse(""))
+          attrRow.getCell(10).setCellValue(attr.position.map(_.last.toString).getOrElse(""))
+        }
         attrRow.createCell(11).setCellValue(attr.trim.map(_.toString).getOrElse(""))
-
       }
 
     }
