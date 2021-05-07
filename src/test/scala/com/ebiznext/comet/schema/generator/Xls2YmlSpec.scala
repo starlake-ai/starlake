@@ -1,7 +1,6 @@
 package com.ebiznext.comet.schema.generator
 
-import java.io.File
-
+import better.files.File
 import com.ebiznext.comet.TestHelper
 import com.ebiznext.comet.config.DatasetArea
 import com.ebiznext.comet.schema.model.{BigQuerySink, Domain, Format}
@@ -9,8 +8,11 @@ import com.ebiznext.comet.schema.model.{BigQuerySink, Domain, Format}
 class Xls2YmlSpec extends TestHelper {
   new WithSettings() {
     Xls2Yml.generateSchema(getClass.getResource("/sample/SomeDomainTemplate.xls").getPath)
-    val outputFile = new File(DatasetArea.domains.toString + "/someDomain.comet.yml")
-    val result: Domain = YamlSerializer.mapper.readValue(outputFile, classOf[Domain])
+    val outputFile = File(DatasetArea.domains.toString + "/someDomain.comet.yml")
+
+    val result: Domain = YamlSerializer
+      .deserializeDomain(outputFile)
+      .getOrElse(throw new Exception(s"Invalid file name $outputFile"))
 
     "Parsing a sample xlsx file" should "generate a yml file" in {
       outputFile.exists() shouldBe true

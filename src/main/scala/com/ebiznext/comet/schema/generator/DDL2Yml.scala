@@ -70,7 +70,7 @@ object DDL2Yml extends LazyLogging {
   def run(config: DDL2YmlConfig)(implicit settings: Settings): Unit = {
     val jdbcSchema =
       YamlSerializer.deserializeJDBCSchema(File(config.jdbcMapping))
-    val domainTemplate = config.ymlTemplate.map { ymlTemplate =>
+    val domainTemplate = config.ymlTemplate.orElse(jdbcSchema.template).map { ymlTemplate =>
       YamlSerializer.deserializeDomain(File(ymlTemplate)) match {
         case Success(domain) => domain
         case Failure(e)      => throw e
@@ -218,7 +218,7 @@ object DDL2Yml extends LazyLogging {
         domainTemplate.flatMap(_.extensions),
         domainTemplate.flatMap(_.ack)
       )
-    YamlSerializer.serializeToFile(File(ymlOutputDir, jdbcSchema.schema + ".yml"), domain)
+    YamlSerializer.serializeToFile(File(ymlOutputDir, jdbcSchema.schema + ".comet.yml"), domain)
     connection.close()
   }
 
