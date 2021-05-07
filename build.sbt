@@ -35,7 +35,7 @@ libraryDependencies ++= {
       case _   => throw new Exception(s"Invalid Scala Version")
     }
   }
-  dependencies ++ spark ++ jackson ++ scalaReflection(scalaVersion.value)
+  dependencies ++ spark ++ jackson ++ eshadoop ++ scalaReflection(scalaVersion.value)
 }
 
 name := {
