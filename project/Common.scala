@@ -120,7 +120,7 @@ object Versions {
   val bq = "1.120.0"
   val hadoop = "3.3.0"
   val h2 = "1.4.200" // Test only
-  val poi = "4.1.2"
+  val poi = "5.0.0"
   val scalate = "1.9.6"
   val akkaHttp = "10.1.14"
 //  val akkaStream = "2.6.12"
