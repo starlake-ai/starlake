@@ -103,7 +103,7 @@ object Versions {
   val sparkXML = "0.11.0"
   val springBoot = "2.0.6.RELEASE"
   val typesafeConfig = "1.4.1"
-  val scalaLogging = "3.9.2"
+  val scalaLogging = "3.9.3"
   val zookeeper = "3.4.6"
   val jets3t = "0.9.3"
   val hive = "3.1.0"
