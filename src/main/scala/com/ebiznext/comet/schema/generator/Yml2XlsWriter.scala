@@ -7,8 +7,7 @@ import com.ebiznext.comet.schema.model.{Domain, Format}
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.poi.ss.usermodel.CellType
-import org.apache.poi.xssf.usermodel.XSSFSheet
-import org.apache.poi.xssf.usermodel.XSSFWorkbook
+import org.apache.poi.xssf.usermodel.{XSSFSheet, XSSFWorkbook}
 
 class Yml2XlsWriter(schemaHandler: SchemaHandler) extends LazyLogging with XlsModel {
 
