@@ -50,8 +50,10 @@ object YamlSerializer extends LazyLogging {
     )
   }
 
-  def serializeToFile(targetFile: File, domain: Domain): Unit =
-    mapper.writeValue(targetFile.toJava, domain)
+  def serializeToFile(targetFile: File, domain: Domain): Unit = {
+    case class Load(load: Domain)
+    mapper.writeValue(targetFile.toJava, Load(domain))
+  }
 
   def deserializeDomain(content: String, path: String): Try[Domain] = {
     Try {
