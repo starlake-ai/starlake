@@ -83,7 +83,13 @@ commands += Command.command("assemblyWithSpark") { state =>
 
 ThisBuild / publishTo  := {
   sys.env.get("GCS_BUCKET_ARTEFACTS") match {
-    case None        => sonatypePublishToBundle.value
+    case None        =>
+      if (isSnapshot.value)
+        Some("Sonatype Snapshots Nexus" at "https://oss.sonatype.org/content/repositories/snapshots")
+      else
+        sonatypePublishToBundle.value
+
+
     case Some(value) => Some(GCSPublisher.forBucket(value, AccessRights.InheritBucket))
   }
 }
