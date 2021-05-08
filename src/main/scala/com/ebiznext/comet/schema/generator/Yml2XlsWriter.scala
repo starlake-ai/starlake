@@ -35,8 +35,17 @@ class Yml2XlsWriter(schemaHandler: SchemaHandler) extends LazyLogging with XlsMo
   }
 
   def writeDomainXls(domain: Domain, folder: String): Unit = {
+    val workbook = new XSSFWorkbook()
+    val font = workbook.createFont
+    font.setFontHeightInPoints(14.toShort)
+    font.setFontName("Calibri")
+    font.setBold(true)
+    val boldStyle = workbook.createCellStyle()
+    boldStyle.setFont(font)
+
     def fillHeaders(headers: List[(String, String)], sheet: XSSFSheet): Unit = {
       val header = sheet.createRow(0)
+      header.setHeight(0) // Hide header
       headers.map { case (key, _) => key }.zipWithIndex.foreach { case (key, columnIndex) =>
         val cell = header.createCell(columnIndex)
         cell.setCellValue(key)
@@ -45,10 +54,11 @@ class Yml2XlsWriter(schemaHandler: SchemaHandler) extends LazyLogging with XlsMo
       headers.map { case (_, value) => value }.zipWithIndex.foreach { case (value, columnIndex) =>
         val cell = labelHeader.createCell(columnIndex)
         cell.setCellValue(value)
+        cell.setCellStyle(boldStyle)
       }
     }
+
     val xlsOut = File(folder, domain.name + ".xlsx")
-    val workbook = new XSSFWorkbook()
     val domainSheet = workbook.createSheet("domain")
     fillHeaders(allDomainHeaders, domainSheet)
     val domainRow = domainSheet.createRow(2)
@@ -56,6 +66,8 @@ class Yml2XlsWriter(schemaHandler: SchemaHandler) extends LazyLogging with XlsMo
     domainRow.createCell(1).setCellValue(domain.directory)
     domainRow.createCell(2).setCellValue(domain.ack.getOrElse(""))
     domainRow.createCell(3).setCellValue(domain.comment.getOrElse(""))
+    for (i <- 0 to 3)
+      domainSheet.autoSizeColumn(i)
 
     val schemaSheet = workbook.createSheet("schemas")
     fillHeaders(allSchemaHeaders, schemaSheet)
@@ -90,6 +102,8 @@ class Yml2XlsWriter(schemaHandler: SchemaHandler) extends LazyLogging with XlsMo
       schemaRow
         .createCell(14)
         .setCellValue(metadata.clustering.map(_.mkString(",")).getOrElse(""))
+      for (i <- 0 to 14)
+        schemaSheet.autoSizeColumn(i)
 
       val attributesSheet = workbook.createSheet(schema.name)
       fillHeaders(allAttributeHeaders, attributesSheet)
@@ -107,14 +121,16 @@ class Yml2XlsWriter(schemaHandler: SchemaHandler) extends LazyLogging with XlsMo
         attrRow.createCell(8).setCellValue(attr.comment.getOrElse(""))
         attrRow.createCell(9).setCellValue("")
         attrRow.createCell(10).setCellValue("")
-        attrRow.getCell(9).setCellType(CellType.NUMERIC)
-        attrRow.getCell(10).setCellType(CellType.NUMERIC)
         if (metadata.format.getOrElse(Format.DSV) == Format.POSITION) {
+          attrRow.getCell(9).setCellType(CellType.NUMERIC)
+          attrRow.getCell(10).setCellType(CellType.NUMERIC)
           attrRow.getCell(9).setCellValue(attr.position.map(_.first.toString).getOrElse(""))
           attrRow.getCell(10).setCellValue(attr.position.map(_.last.toString).getOrElse(""))
         }
         attrRow.createCell(11).setCellValue(attr.trim.map(_.toString).getOrElse(""))
       }
+      for (i <- 0 to 11)
+        attributesSheet.autoSizeColumn(i)
 
     }
 
