@@ -34,6 +34,10 @@ object Dependencies {
     ExclusionRule(organization = "com.fasterxml.jackson.module")
   )
 
+  val sparkExclusions = Seq(
+    ExclusionRule(organization = "org.apache.spark")
+  )
+
   val scalaTest = Seq(
     "org.scalatest" %% "scalatest" % Versions.scalatest % "test"
   )
@@ -97,12 +101,12 @@ object Dependencies {
   )
 
   val esHadoop211 = Seq(
-    "org.elasticsearch" %% "elasticsearch-spark-20" % Versions.esHadoop211 exclude ("com.google.guava", "guava") excludeAll (jacksonExclusions: _*),
+    "org.elasticsearch" %% "elasticsearch-spark-20" % Versions.esHadoop211 exclude ("com.google.guava", "guava") excludeAll ((sparkExclusions ++ jacksonExclusions): _*),
     "com.dimafeng" %% "testcontainers-scala-elasticsearch" % Versions.testContainers % Test
   )
 
   val esHadoop212 = Seq(
-    "org.elasticsearch" %% "elasticsearch-spark-30" % Versions.esHadoop212 exclude ("com.google.guava", "guava") excludeAll (jacksonExclusions: _*),
+    "org.elasticsearch" %% "elasticsearch-spark-30" % Versions.esHadoop212 exclude ("com.google.guava", "guava") excludeAll ((sparkExclusions ++ jacksonExclusions): _*),
     "com.dimafeng" %% "testcontainers-scala-elasticsearch" % Versions.testContainers % Test
   )
 
