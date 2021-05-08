@@ -10,6 +10,11 @@ module.exports = {
     organizationName: 'ebiznext', // Usually your GitHub org/user name.
     projectName: 'comet-data-pipeline', // Usually your repo name.
     themeConfig: {
+        googleAnalytics: {
+            trackingID: 'UA-196399711-1',
+            // Optional fields.
+            anonymizeIP: true // Should IPs be anonymized?
+        },
         algolia: {
             apiKey: 'ac0b111da6354964b01b7e634e6d73fe',
             indexName: 'comet-website',
@@ -105,11 +110,6 @@ module.exports = {
         [
             '@docusaurus/preset-classic',
             {
-                googleAnalytics: {
-                    trackingId: 'G-S0KK4KS0JD',
-                    // Optional fields.
-                    anonymizeIP: true // Should IPs be anonymized?
-                },
                 docs: {
                     sidebarPath: require.resolve('./sidebars.js'),
                     // Please change this to your repo.
