@@ -28,14 +28,14 @@ scalaVersion := scala212
 organizationHomepage := Some(url("https://github.com/ebiznext/comet-data-pipeline"))
 
 libraryDependencies ++= {
-  val (spark, jackson) = {
+  val (spark, jackson, eshadoop) = {
     CrossVersion.partialVersion(scalaVersion.value) match {
-      case Some((2, 12)) => (spark_3d0_forScala_2d12, jackson212ForSpark3)
-      case Some((2, 11)) => (spark_2d4_forScala_2d11, jackson211ForSpark2)
+      case Some((2, 12)) => (spark_3d0_forScala_2d12, jackson212ForSpark3, esHadoop212)
+      case Some((2, 11)) => (spark_2d4_forScala_2d11, jackson211ForSpark2, esHadoop211)
       case _   => throw new Exception(s"Invalid Scala Version")
     }
   }
-  dependencies ++ spark ++ jackson ++ scalaReflection(scalaVersion.value)
+  dependencies ++ spark ++ jackson ++ eshadoop ++ scalaReflection(scalaVersion.value)
 }
 
 name := {
