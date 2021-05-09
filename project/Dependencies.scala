@@ -34,6 +34,10 @@ object Dependencies {
     ExclusionRule(organization = "com.fasterxml.jackson.module")
   )
 
+  val sparkExclusions = Seq(
+    ExclusionRule(organization = "org.apache.spark")
+  )
+
   val scalaTest = Seq(
     "org.scalatest" %% "scalatest" % Versions.scalatest % "test"
   )
@@ -72,15 +76,6 @@ object Dependencies {
     "org.apache.spark" %% "spark-sql-kafka-0-10" % Versions.spark2d4
   )
 
-  val spark_2d4_forScala_2d12 = Seq(
-    "org.apache.spark" %% "spark-core" % Versions.spark2d4 % "provided" exclude ("com.google.guava", "guava") excludeAll (jacksonExclusions: _*),
-    "org.apache.spark" %% "spark-sql" % Versions.spark2d4 % "provided" exclude ("com.google.guava", "guava") excludeAll (jacksonExclusions: _*),
-    "org.apache.spark" %% "spark-hive" % Versions.spark2d4 % "provided" exclude ("com.google.guava", "guava") excludeAll (jacksonExclusions: _*),
-    "org.apache.spark" %% "spark-mllib" % Versions.spark2d4 % "provided" exclude ("com.google.guava", "guava") excludeAll (jacksonExclusions: _*),
-    "com.databricks" %% "spark-xml" % Versions.sparkXML,
-    "org.apache.spark" %% "spark-sql-kafka-0-10" % Versions.spark2d4
-  )
-
   val spark_3d0_forScala_2d12 = Seq(
     "org.apache.spark" %% "spark-core" % Versions.spark3d0 % "provided" exclude ("com.google.guava", "guava") excludeAll (jacksonExclusions: _*),
     "org.apache.spark" %% "spark-sql" % Versions.spark3d0 % "provided" exclude ("com.google.guava", "guava") excludeAll (jacksonExclusions: _*),
@@ -105,8 +100,13 @@ object Dependencies {
     "com.google.cloud.spark" %% "spark-bigquery-with-dependencies" % "0.20.0" % "provided" excludeAll (jacksonExclusions: _*)
   )
 
-  val esHadoop = Seq(
-    "org.elasticsearch" % "elasticsearch-hadoop" % Versions.esHadoop exclude ("com.google.guava", "guava") excludeAll (jacksonExclusions: _*),
+  val esHadoop211 = Seq(
+    "org.elasticsearch" %% "elasticsearch-spark-20" % Versions.esHadoop211 exclude ("com.google.guava", "guava") excludeAll ((sparkExclusions ++ jacksonExclusions): _*),
+    "com.dimafeng" %% "testcontainers-scala-elasticsearch" % Versions.testContainers % Test
+  )
+
+  val esHadoop212 = Seq(
+    "org.elasticsearch" %% "elasticsearch-spark-30" % Versions.esHadoop212 exclude ("com.google.guava", "guava") excludeAll ((sparkExclusions ++ jacksonExclusions): _*),
     "com.dimafeng" %% "testcontainers-scala-elasticsearch" % Versions.testContainers % Test
   )
 
@@ -172,6 +172,6 @@ object Dependencies {
   )
 
   val dependencies =
-    scalate ++ logging ++ typedConfigs ++ betterfiles ++ scalaTest ++ scopt ++ hadoop ++ esHadoop ++
+    scalate ++ logging ++ typedConfigs ++ betterfiles ++ scalaTest ++ scopt ++ hadoop ++
     sttp ++ gcp ++ azure ++ h2 ++ excelClientApi ++ akkaHttp ++ akkaStream ++ kafkaClients ++ graphviz // ++ atlas
 }

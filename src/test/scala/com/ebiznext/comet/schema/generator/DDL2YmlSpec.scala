@@ -83,7 +83,7 @@ class DDL2YmlSpec extends TestHelper {
         File("/tmp"),
         None
       )
-      val domain = YamlSerializer.deserializeDomain(File("/tmp", "PUBLIC.yml")) match {
+      val domain = YamlSerializer.deserializeDomain(File("/tmp", "PUBLIC.comet.yml")) match {
         case Success(domain) => domain
         case Failure(e)      => throw e
       }
