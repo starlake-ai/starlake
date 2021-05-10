@@ -79,7 +79,7 @@ class DDL2YmlSpec extends TestHelper {
       assert(row1InsertionCheck, "Data not inserted")
 
       DDL2Yml.run(
-        JDBCSchema("test-h2", None, "PUBLIC", List(JDBCTable("TEST_TABLE1", List("ID")))),
+        JDBCSchema("test-h2", None, "PUBLIC", List(JDBCTable("TEST_TABLE1", Some(List("ID"))))),
         File("/tmp"),
         None
       )
