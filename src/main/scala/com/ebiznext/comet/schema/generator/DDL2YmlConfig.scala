@@ -48,7 +48,7 @@ case class JDBCSchema(
 /** @param name  : Table name (case insensitive)
   * @param columns : List of columns (case insensitive). Nil  if all columns should be extracted
   */
-case class JDBCTable(name: String, columns: List[String] = Nil)
+case class JDBCTable(name: String, columns: Option[List[String]])
 
 case class DDL2YmlConfig(
   jdbcMapping: String = "",
