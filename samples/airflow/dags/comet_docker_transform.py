@@ -22,7 +22,7 @@ cmd_ssh = f'cd {HOST_DIR} && ./3.transform.sh '
 
 task_1 = SSHOperator(
     ssh_conn_id='comet_host',
-    task_id='task_ssh',
+    task_id='transform',
     command=cmd_ssh,
     do_xcom_push=True,
     dag=dag
