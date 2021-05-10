@@ -100,13 +100,13 @@ object Dependencies {
     "com.google.cloud.spark" %% "spark-bigquery-with-dependencies" % "0.20.0" % "provided" excludeAll (jacksonExclusions: _*)
   )
 
-  val esHadoop211 = Seq(
-    "org.elasticsearch" %% "elasticsearch-spark-20" % Versions.esHadoop211 exclude ("com.google.guava", "guava") excludeAll ((sparkExclusions ++ jacksonExclusions): _*),
+  val esSpark211 = Seq(
+    "org.elasticsearch" %% "elasticsearch-spark-20" % Versions.esSpark211 exclude ("com.google.guava", "guava") excludeAll ((sparkExclusions ++ jacksonExclusions): _*),
     "com.dimafeng" %% "testcontainers-scala-elasticsearch" % Versions.testContainers % Test
   )
 
-  val esHadoop212 = Seq(
-    "org.elasticsearch" %% "elasticsearch-spark-30" % Versions.esHadoop212 exclude ("com.google.guava", "guava") excludeAll ((sparkExclusions ++ jacksonExclusions): _*),
+  val esSpark212 = Seq(
+    "org.elasticsearch" %% "elasticsearch-spark-30" % Versions.esSpark212 exclude ("com.google.guava", "guava") excludeAll ((sparkExclusions ++ jacksonExclusions): _*),
     "com.dimafeng" %% "testcontainers-scala-elasticsearch" % Versions.testContainers % Test
   )
 

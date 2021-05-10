@@ -118,7 +118,7 @@ object ESLoadConfig extends CliConfig[ESLoadConfig] {
         .optional()
         .valueName("es.batch.size.entries=1000, es.batch.size.bytes=1mb...")
         .text(
-          """eshadoop configuration options. See https://www.elastic.co/guide/en/elasticsearch/hadoop/current/configuration.html""".stripMargin
+          """esSpark configuration options. See https://www.elastic.co/guide/en/elasticsearch/hadoop/current/configuration.html""".stripMargin
         )
     )
   }
