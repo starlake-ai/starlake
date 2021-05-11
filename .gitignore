@@ -142,3 +142,4 @@ samples/airflow/logs
 samples/airflow/.env
 samples/airflow/docker-compose.yaml
 /customers/
+/samples/extract/quickstart/
