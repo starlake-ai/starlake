@@ -22,7 +22,7 @@ cmd_ssh = f'cd {HOST_DIR} && ./1.import.sh '
 
 task_1 = SSHOperator(
     ssh_conn_id='comet_host',
-    task_id='task_ssh',
+    task_id='import',
     command=cmd_ssh,
     do_xcom_push=True,
     dag=dag

@@ -152,7 +152,7 @@ object DDL2Yml extends LazyLogging {
       val attrs = ListBuffer.empty[Attribute]
       while (resultSet.next()) {
         val colName = resultSet.getString("COLUMN_NAME")
-        println(s"COLUMN_NAME=$colName")
+        println(s"COLUMN_NAME=$tableName.$colName")
         val colType = resultSet.getInt("DATA_TYPE")
         val colRemarks = resultSet.getString("REMARKS")
         val colRequired = resultSet.getString("IS_NULLABLE").equals("NO")
@@ -176,7 +176,7 @@ object DDL2Yml extends LazyLogging {
       val currentTableRequestedColumns =
         jdbcTableMap
           .get(tableName)
-          .map(_.columns.map(_.toUpperCase))
+          .map(_.columns.getOrElse(Nil).map(_.toUpperCase))
           .getOrElse(Nil)
       val selectedColumns =
         if (currentTableRequestedColumns.isEmpty)
