@@ -93,8 +93,7 @@ object ConnectionLoadConfig extends CliConfig[ConnectionLoadConfig] {
     OParser.sequence(
       programName("comet cnxload"),
       head("comet", "cnxload", "[options]"),
-      note(
-        """
+      note("""
           |Load parquet file into JDBC Table.
           |""".stripMargin),
       opt[String]("source_file")
