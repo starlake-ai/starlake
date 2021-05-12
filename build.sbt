@@ -1,6 +1,7 @@
 import Dependencies._
 import sbtrelease.ReleasePlugin.autoImport.ReleaseTransformations._
 import sbtrelease.Version.Bump.Next
+import xerial.sbt.Sonatype._
 
 // require Java 8 for Spark 2 support
 javacOptions ++= Seq("-source", "1.8", "-target", "1.8", "-Xlint")
@@ -21,21 +22,21 @@ crossScalaVersions :=  List(scala211, scala212)
 
 organization := "com.ebiznext"
 
-organizationName := "Ebiznext"
+organizationName := "ebiznext"
 
 scalaVersion := scala212
 
 organizationHomepage := Some(url("https://github.com/ebiznext/comet-data-pipeline"))
 
 libraryDependencies ++= {
-  val (spark, jackson, eshadoop) = {
+  val (spark, jackson, esSpark) = {
     CrossVersion.partialVersion(scalaVersion.value) match {
-      case Some((2, 12)) => (spark_3d0_forScala_2d12, jackson212ForSpark3, esHadoop212)
-      case Some((2, 11)) => (spark_2d4_forScala_2d11, jackson211ForSpark2, esHadoop211)
+      case Some((2, 12)) => (spark_3d0_forScala_2d12, jackson212ForSpark3, esSpark212)
+      case Some((2, 11)) => (spark_2d4_forScala_2d11, jackson211ForSpark2, esSpark211)
       case _   => throw new Exception(s"Invalid Scala Version")
     }
   }
-  dependencies ++ spark ++ jackson ++ eshadoop ++ scalaReflection(scalaVersion.value)
+  dependencies ++ spark ++ jackson ++ esSpark ++ scalaReflection(scalaVersion.value)
 }
 
 name := {
@@ -65,7 +66,15 @@ enablePlugins(Common.cometPlugins: _*)
 
 Common.customSettings
 
+// Builds a far JAR with embedded spark libraries and other provided libs.
+// Can be useful for running YAML generation without having a spark distribution
+commands += Command.command("assemblyWithSpark") { state =>
+  """set assembly / fullClasspath := (Compile / fullClasspath).value""" :: "assembly" :: state
+}
+
+// Assembly
 Test / fork := true
+
 Test / envVars := Map("GOOGLE_CLOUD_PROJECT" -> "some-gcp-project")
 
 Compile / assembly / artifact := {
@@ -74,54 +83,6 @@ Compile / assembly / artifact := {
 }
 
 addArtifact(Compile / assembly / artifact, assembly)
-
-// Builds a far JAR with embedded spark libraries and other provided libs.
-// Can be useful for running YAML generation without having a spark distribution
-commands += Command.command("assemblyWithSpark") { state =>
-  """set assembly / fullClasspath := (Compile / fullClasspath).value""" :: "assembly" :: state
-}
-
-ThisBuild / publishTo  := {
-  sys.env.get("GCS_BUCKET_ARTEFACTS") match {
-    case None        =>
-      if (isSnapshot.value)
-        Some("Sonatype Snapshots Nexus" at "https://oss.sonatype.org/content/repositories/snapshots")
-      else
-        sonatypePublishToBundle.value
-
-
-    case Some(value) => Some(GCSPublisher.forBucket(value, AccessRights.InheritBucket))
-  }
-}
-
-// Workaround for buggy http handler in SBT 1.x
-// https://github.com/sbt/sbt/issues/3570
-// updateOptions := updateOptions.value.withGigahorse(false)
-
-// Release
-
-releaseCrossBuild := false
-
-releaseIgnoreUntrackedFiles := true
-
-releaseProcess := Seq[ReleaseStep](
-  checkSnapshotDependencies,
-  inquireVersions,
-  runClean,
-  releaseStepCommand("+test"),
-  setReleaseVersion,
-  commitReleaseVersion, // forces to push dirty files
-  tagRelease,
-  releaseStepCommandAndRemaining("+publishSigned"),
-  releaseStepCommand("sonatypeBundleRelease"),
-  setNextVersion,
-  commitNextVersion,
-  pushChanges
-)
-
-releaseCommitMessage := s"Release ${ReleasePlugin.runtimeVersion.value}"
-
-releaseVersionBump := Next
 
 assembly / assemblyMergeStrategy := {
   case PathList("META-INF", _ @ _*) => MergeStrategy.discard
@@ -147,6 +108,19 @@ assembly / assemblyShadeRules := Seq(
   ShadeRule.rename("com.google.common.**" -> "shade.@0").inAll
 )
 
+// Publish
+publishTo  := {
+  sys.env.get("GCS_BUCKET_ARTEFACTS") match {
+    case None        =>
+      if (isSnapshot.value)
+        Some("Sonatype Snapshots Nexus" at "https://oss.sonatype.org/content/repositories/snapshots")
+      else
+        sonatypePublishToBundle.value
+
+
+    case Some(value) => Some(GCSPublisher.forBucket(value, AccessRights.InheritBucket))
+  }
+}
 // Your profile name of the sonatype account. The default is the same with the organization value
 sonatypeProfileName := "com.ebiznext"
 
@@ -154,13 +128,37 @@ sonatypeProfileName := "com.ebiznext"
 publishMavenStyle := true
 
 // Open-source license of your choice
-licenses := Seq("APL2" -> url("https://www.apache.org/licenses/LICENSE-2.0.txt"))
+licenses := Seq("Apache License, Version 2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0.html"))
 
-// Where is the source code hosted: GitHub or GitLab?
-import xerial.sbt.Sonatype._
 sonatypeProjectHosting := Some(
-  GitHubHosting("ebiznext", "comet-data-pipeline", "hayssam.saleh@ebiznext.com")
+  GitHubHosting("ebiznext", "comet-data-pipeline", "hayssam@saleh.fr")
 )
+
+
+// Release
+releaseCrossBuild := false
+
+releaseIgnoreUntrackedFiles := true
+
+releaseProcess := Seq(
+  checkSnapshotDependencies,
+  inquireVersions,
+  runClean,
+  releaseStepCommand("+test"),
+  setReleaseVersion,
+  commitReleaseVersion, // forces to push dirty files
+  tagRelease,
+  releaseStepCommandAndRemaining("+publishSigned"),
+  releaseStepCommand("sonatypeBundleRelease"),
+  setNextVersion,
+  commitNextVersion,
+  pushChanges
+)
+
+releaseCommitMessage := s"Release ${ReleasePlugin.runtimeVersion.value}"
+
+releaseVersionBump := Next
+
 
 developers := List(
   Developer(

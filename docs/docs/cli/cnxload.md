@@ -10,6 +10,8 @@ title: cnxload
 
 ## Description
 
+Load parquet file into JDBC Table.
+
 
 ## Parameters
 
