@@ -9,7 +9,7 @@ class ConnectionLoadJobSpec extends TestHelper {
       val expected =
         """
           |Usage: comet cnxload [options]
-          |
+          |Load parquet file into JDBC Table.
           |  --source_file <value>    Full Path to source file
           |  --output_table <value>   JDBC Output Table
           |  --options <value>        Connection options eq for jdbc:driver,user,password,url,partitions,batchSize
