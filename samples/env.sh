@@ -1,26 +1,26 @@
-_COMET_VERSION="${COMET_VERSION:-0.2.0}"
-_SPARK_VERSION="${SPARK_VERSION:-3.1.1}"
-_HADOOP_VERSION="${HADOOP_VERSION:-3.2}"
+COMET_VERSION="${COMET_VERSION:-0.2.0}"
+SPARK_VERSION="${SPARK_VERSION:-3.1.1}"
+HADOOP_VERSION="${HADOOP_VERSION:-3.2}"
 
-COMET_JAR_NAME=comet-spark3_2.12-$_COMET_VERSION-assembly.jar
+COMET_JAR_NAME=comet-spark3_2.12-$COMET_VERSION-assembly.jar
 COMET_JAR_FULL_NAME=../bin/$COMET_JAR_NAME
 
-echo "_COMET_VERSION=$_COMET_VERSION"
-echo "_SPARK_VERSION=$_SPARK_VERSION"
-echo "_HADOOP_VERSION=$__HADOOP_VERSION"
+echo "_COMET_VERSION=$COMET_VERSION"
+echo "_SPARK_VERSION=$SPARK_VERSION"
+echo "_HADOOP_VERSION=$HADOOP_VERSION"
 
-if [[ "$_COMET_VERSION" == *"SNAPSHOT"* ]]; then
-  COMET_JAR_URL=https://oss.sonatype.org/content/repositories/snapshots/com/ebiznext/comet-spark3_2.12/$_COMET_VERSION/$COMET_JAR_NAME
+if [[ "$COMET_VERSION" == *"SNAPSHOT"* ]]; then
+  COMET_JAR_URL=https://oss.sonatype.org/content/repositories/snapshots/com/ebiznext/comet-spark3_2.12/$COMET_VERSION/$COMET_JAR_NAME
 else
-  COMET_JAR_URL=https://repo1.maven.org/maven2/com/ebiznext/comet-spark3_2.12/$_COMET_VERSION/$COMET_JAR_NAME
+  COMET_JAR_URL=https://repo1.maven.org/maven2/com/ebiznext/comet-spark3_2.12/$COMET_VERSION/$COMET_JAR_NAME
 fi
 
 echo "COMET_JAR_URL=$COMET_JAR_URL"
-SPARK_DIR_NAME=spark-$_SPARK_VERSION-bin-hadoop$_HADOOP_VERSION
+SPARK_DIR_NAME=spark-$SPARK_VERSION-bin-hadoop$HADOOP_VERSION
 SPARK_TGZ_NAME=$SPARK_DIR_NAME.tgz
-SPARK_TGZ_URL=https://downloads.apache.org/spark/spark-$_SPARK_VERSION/$SPARK_TGZ_NAME
-SPARK_SUBMIT=../bin/spark-$_SPARK_VERSION-bin-hadoop$_HADOOP_VERSION/bin/spark-submit
-SPARK_DIR="$PWD/../bin/spark-$_SPARK_VERSION-bin-hadoop$_HADOOP_VERSION"
+SPARK_TGZ_URL=https://downloads.apache.org/spark/spark-$SPARK_VERSION/$SPARK_TGZ_NAME
+SPARK_SUBMIT=../bin/spark-$SPARK_VERSION-bin-hadoop$HADOOP_VERSION/bin/spark-submit
+SPARK_DIR="$PWD/../bin/spark-$SPARK_VERSION-bin-hadoop$HADOOP_VERSION"
 
 initEnv() {
   PROG_DIR=$(cd `dirname $0` && pwd)
