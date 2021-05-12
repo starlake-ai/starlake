@@ -18,7 +18,7 @@ class ESLoadJobSpec extends TestHelper {
           |  --format <value>         Dataset input file : parquet, json or json-array
           |  --dataset <value>        Input dataset path
           |  --conf es.batch.size.entries=1000,es.batch.size.bytes=1mb...
-          |   eshadoop configuration options.
+          |   esSpark configuration options.
           |   See https://www.elastic.co/guide/en/elasticsearch/hadoop/current/configuration.html
           |""".stripMargin
       rendered.substring(rendered.indexOf("Usage:")).replaceAll("\\s", "") shouldEqual expected
