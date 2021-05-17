@@ -173,7 +173,7 @@ class MetricsJob(
           settings.comet.internal.foreach(in => df.persist(in.cacheStorageLevel))
           val metricsResult = if (settings.comet.sinkToFile) {
             val lockedPath = lockPath(settings.comet.metrics.path)
-            val waitTimeMillis = settings.comet.lock.metricsTimeout
+            val waitTimeMillis = settings.comet.lock.timeout
             val locker = new FileLock(lockedPath, storageHandler)
             locker.tryExclusively(waitTimeMillis) {
               appendToFile(

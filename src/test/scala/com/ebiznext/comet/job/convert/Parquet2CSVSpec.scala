@@ -127,7 +127,7 @@ class Parquet2CSVSpec extends TestHelper {
     "Parquet Scalate" should "be generated correctly" in {
       val expected =
         """---
-          |sidebar_position: 1
+          |sidebar_position: 10
           |title: parquet2csv
           |---
           |
