@@ -5,9 +5,9 @@ HADOOP_VERSION="${HADOOP_VERSION:-3.2}"
 COMET_JAR_NAME=comet-spark3_2.12-$COMET_VERSION-assembly.jar
 COMET_JAR_FULL_NAME=../bin/$COMET_JAR_NAME
 
-echo "_COMET_VERSION=$COMET_VERSION"
-echo "_SPARK_VERSION=$SPARK_VERSION"
-echo "_HADOOP_VERSION=$HADOOP_VERSION"
+echo "COMET_VERSION=$COMET_VERSION"
+echo "SPARK_VERSION=$SPARK_VERSION"
+echo "HADOOP_VERSION=$HADOOP_VERSION"
 
 if [[ "$COMET_VERSION" == *"SNAPSHOT"* ]]; then
   COMET_JAR_URL=https://oss.sonatype.org/content/repositories/snapshots/com/ebiznext/comet-spark3_2.12/$COMET_VERSION/$COMET_JAR_NAME
@@ -72,6 +72,4 @@ initEnv() {
     echo "Failed to initialize environment"
     exit 2
   fi
-
-
 }

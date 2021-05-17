@@ -297,7 +297,7 @@ class IngestionWorkflow(
     val lockPath =
       new Path(settings.comet.lock.path, s"${config.domain}_${config.schema}.lock")
     val locker = new FileLock(lockPath, storageHandler)
-    val waitTimeMillis = settings.comet.lock.ingestionTimeout
+    val waitTimeMillis = settings.comet.lock.timeout
 
     locker.doExclusively(waitTimeMillis) {
       val domainName = config.domain

@@ -156,8 +156,7 @@ object Settings extends StrictLogging {
 
   final case class Lock(
     path: String,
-    metricsTimeout: Long,
-    ingestionTimeout: Long,
+    timeout: Long,
     pollTime: FiniteDuration = FiniteDuration(5000L, TimeUnit.MILLISECONDS),
     refreshTime: FiniteDuration = FiniteDuration(5000L, TimeUnit.MILLISECONDS)
   )

@@ -667,11 +667,14 @@ trait IngestionJob extends SparkJob {
     logger.info(s"""inputDF field list=${in.schema.fields.map(_.name).mkString(",")}""")
 
     // Force ordering again of columns to be the same since join operation change it otherwise except below won"'t work.
+
+    // commonDF contains records present in the exiting and incoming datatsets
     val commonDF =
       existing
         .join(in.select(merge.key.head, merge.key.tail: _*), merge.key)
         .select(in.columns.map(col): _*)
 
+    // For items present in the existing and incoming datasets. We keep only the last occurrence and delete the older ones.
     val toDeleteDF = merge.timestamp.map { timestamp =>
       val w =
         Window.partitionBy(merge.key.head, merge.key.tail: _*).orderBy(col(timestamp).desc)
@@ -681,6 +684,7 @@ trait IngestionJob extends SparkJob {
         .drop("rownum")
     } getOrElse commonDF
 
+    // We remove from the incoming data the records to delete
     val updatesDF = merge.delete
       .map(condition => in.filter(s"not ($condition)"))
       .getOrElse(in)

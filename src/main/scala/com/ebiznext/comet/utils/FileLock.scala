@@ -1,11 +1,11 @@
 package com.ebiznext.comet.utils
 
-import java.util.concurrent.atomic.AtomicBoolean
-import java.util.concurrent.{Semaphore, TimeUnit, TimeoutException}
 import com.ebiznext.comet.schema.handlers.StorageHandler
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
 
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.{Semaphore, TimeUnit, TimeoutException}
 import scala.annotation.tailrec
 import scala.util.{Failure, Success, Try}
 
@@ -89,22 +89,25 @@ class FileLock(path: Path, storageHandler: StorageHandler) extends StrictLogging
             )
             watch()
             true
-          case Failure(_) =>
-            val lastModified = storageHandler.lastModified(path)
-            val currentTimeMillis = System.currentTimeMillis()
+          case Failure(e) =>
+            e.printStackTrace()
+            if (storageHandler.exists(path)) {
+              val lastModified = storageHandler.lastModified(path)
+              val currentTimeMillis = System.currentTimeMillis()
 
-            logger.info(s"""
+              logger.info(s"""
                |lastModified=$lastModified
-               
+
               |System.currentTimeMillis()=${currentTimeMillis}
-               
+
               |checkinPeriod*4=${checkinPeriod * 4}
-      
+
                hPeriod*4=${refreshPeriod * 4}
               |
           """)
-            if ((currentTimeMillis - lastModified) > (refreshPeriod * 4)) {
-              storageHandler.delete(path)
+              if ((currentTimeMillis - lastModified) > (refreshPeriod * 4)) {
+                storageHandler.delete(path)
+              }
             }
             Thread.sleep(checkinPeriod)
             getLock(numberOfTries - 1)

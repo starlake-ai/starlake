@@ -128,7 +128,7 @@ class AssertionJob(
         if (engine == Engine.SPARK && settings.comet.sinkToFile) {
           val savePath: Path = DatasetArea.assertions(domainName, schemaName)
           val lockedPath = lockPath(settings.comet.assertions.path)
-          val waitTimeMillis = settings.comet.lock.metricsTimeout
+          val waitTimeMillis = settings.comet.lock.timeout
           val locker = new FileLock(lockedPath, storageHandler)
           locker.tryExclusively(waitTimeMillis) {
             appendToFile(

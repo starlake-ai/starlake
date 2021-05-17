@@ -3,8 +3,95 @@ sidebar_position: 4
 title: Configuration
 ---
 
-## Environment variables
+Comet Data Pipeline is written using Scala / Spark and is thus run using the spark-submit command.
 
+To run it with the default configuration, you simply launch it as follows :
+```shell
+SPARK_HOME/bin/spark-submit --class com.ebiznext.comet.job.Main ../bin/comet-spark3_2.12-VERSION-assembly.jar COMMAND [ARGS]
+```
+
+* SPARK_HOME: Spark home directory
+* COMMAND: Any of the command described in the CLI section followed by optional arguments
+* ARGS: Option list of command arguments
+
+## Configuration
+
+### application.conf
+You may also pass any Spark arguments as usual but also pass a custom `application.conf` file
+using the [HOCON](https://github.com/lightbend/config) syntax  that supersedes the default Comet Data Pipeline settings.
+default settings are found in the [reference.conf](https://github.com/ebiznext/comet-data-pipeline/blob/master/src/main/resources/reference.conf)
+and [reference-*.conf](https://github.com/ebiznext/comet-data-pipeline/blob/master/src/main/resources) files. In your `application.conf`file you only
+need to redefine the variables you want to customize.
+
+Some of those configurations may also be redefined through environment variables.
+* In client mode: To pass those env vars, simply export / set them before calling spark-submmit.
+* In cluster mode, you need to pass them as extra driver options.
+
+Passing the `application.conf` file to the spark job use the syntax below:
+
+```shell
+export CUSTOM_OPTIONS="--conf spark.driver.extraJavaOptions=-Dconfig.file=$PWD/application.conf"
+SPARK_HOME/bin/spark-submit $CUSTOM_OPTIONS --class com.ebiznext.comet.job.Main ../bin/comet-spark3_2.12-VERSION-assembly.jar COMMAND [ARGS]
+```
+### Environment variables
+
+* On Premise: To pass Comet Data Pipeline env vars in cluster mode, you'll have to put them in the spark-defaults.conf file or pass them as arguments to your
+  Spark job as described in this [article](https://stackoverflow.com/questions/37887168/how-to-pass-environment-variables-to-spark-driver-in-cluster-mode-with-spark-sub)
+
+* On Google Cloud: To make it available for all your jobs, you need to pass them in the `DataprocClusterCreateOperator` using the `spark-env:`prefix
+  as described in the example below:
+
+```python
+    create_cluster = DataprocClusterCreateOperator(
+        task_id='create_dataproc_cluster',
+        cluster_name=CLUSTER_NAME,
+        num_workers= '${dataproc_cluster_size}',
+        zone=ZONE,
+        region="${region}",
+        tags = ["dataproc"],
+        storage_bucket = "dataproc-${project_id}",
+        image_version='2.0.1-debian10',
+        master_machine_type=MASTER_MACHINE_TYPE,
+        worker_machine_type=WORKER_MACHINE_TYPE,
+        service_account = "${service_account}",
+        internal_ip_only = True,
+        subnetwork_uri = "projects/${project_id}/regions/${region}/subnetworks/${subnet}",
+        properties = {
+            "spark-env:COMET_FS": "gs://${my_bucket}",
+            "spark-env:COMET_HIVE": "false",
+            "spark-env:COMET_GROUPED": "false",
+            "spark-env:COMET_AUDIT_SINK_TYPE": "BigQuerySink"
+            }
+    )
+```
+
+In the example above, the variables are available in all the tasks that will be started on this cluster.
+
+To set variables for specific tasks only, use a syntax similar to this one:
+```python
+t1 = dataproc_operator.DataProcSparkOperator(
+  task_id ='my_task',
+  dataproc_spark_jars='gs://my-bucket/comet-spark3_2.12-VERSION-assembly.jar',
+  cluster_name='cluster',
+  main_class = 'com.ebiznext.comet.job.Main',
+  arguments=['import'],
+  project_id='my-project-id',
+  dataproc_spark_properties={'spark.driver.extraJavaOptions':'-DCOMET_FS=gs://${my_bucket} -DCOMET_HIVE=false -DCOMET_GROUPED=false'},
+  dag=dag)
+```
+
+## Configuration sections
+### Filesystem
+
+A filesystem is the location where datasets and Comet Data Pipeline metadata used for ingestion are stored.
+* On premise this reference the folder where datasets and metadata are stored, eq.
+  * On a local filesystem: file://
+  * On a HDFS: hdfs://localhost:9000
+* In the cloud:
+  * On Google Cloud Platform: gs://my-bucket
+  * On Microsoft Azure: abfs://my-bucket@comet.dfs.core.windows.net
+  * On Amazon Web Service: s3a://my_bucket
+  
 By default, Comet expect metadata in the /tmp/metadata folder and will store ingested datasets in the /tmp/datasets folder.
 Below is how the folders look like by default for the provided quickstart sample.
 
@@ -74,32 +161,201 @@ Below is how the folders look like by default for the provided quickstart sample
             `-- sales-by-name.yml (Compute sales by )
 ````
 
-
-Almost all options are customizable through environnement vairables.
+Comet Data Pipeline allows you to store datasets and metadata in two different filesystems. Thi is useful if you want to define a specific lifecycle
+for your datasets.
+Almost all options are customizable through environnement variables.
 The main env vars are described below, you may change default settings. The exhaustive list of predefined env vars can be found in the reference.conf file.
+
+|HOCON Variable|Env variable|Default Value|Description
+|:--------------|:------------|:-------|:-----------
+|file-system|COMET_FS|file://|File system where datasets will be located
+|metadata-file-system|COMET_METADATA_FS|${file-system}|File system where Comet metadata will be located
+|root|COMET_ROOT|/tmp|Root directory of the datasets and metadata files in the defined filesystem above
+|tmp-dir|COMET_TMPDIR|When compacting data and estimating number of partitions, Comet stores intermediates files in this folder|${root}"/comet_tmp"
+|datasets|COMET_DATASETS|${root}"/datasets"|Folder where datasets are located in the datasets `file-system`
+|metadata|COMET_METADATA|${root}"/metadata" otherwise|Folder where metadata are located in the metadata `metadata-file-system`
+|file-system|COMET_FS|file://|File system where datasets will be located
+|area.pending|COMET_AREA_PENDING|pending|Source files are copied here from the incoming folder before processing
+|area.unresolved|COMET_AREA_UNRESOLVED|unresolved|Files found in the incoming folder but do not match any schema
+|area.archive|COMET_AREA_ARCHIVE|archive|Source files as found in the incoming folder are saved here after processing
+|area.ingesting|COMET_AREA_INGESTING|ingesting|Temporary folder used during ingestion by Comet
+|area.accepted|COMET_AREA_ACCEPTED|accepted|root folder of all valid records
+|area.rejected|COMET_AREA_REJECTED|rejected|invalid records in processed datasets are stored here
+|area.business|COMET_AREA_BUSINESS|business|root folder for all datasets produced by autojobs
+|archive|COMET_ARCHIVE|true|Should we archive the incoming files once they are ingested
+|default-write-format|COMET_DEFAULT_WRITE_FORMAT|parquet|How accepted records are stored (parquet / orc / json / csv / avro)
+|default-rejected-write-format|COMET_DEFAULT_REJECTED_WRITE_FORMAT|parquet|How rejected records are stored (parquet / orc / json / csv / avro)
+|default-audit-write-format|COMET_DEFAULT_AUDIT_WRITE_FORMAT|parquet|How audit is stored (parquet / orc / json / csv / avro)
+|hive|COMET_HIVE|true|Should we create external Hive tables for ingested files ?
+|analyze|COMET_ANALYZE|true|Should we computed basic statistics ? (requires COMET_HIVE to be set to true)
+|launcher|COMET_LAUNCHER|simple|Which orchestrator to use ? Valid values are airflow or simple (direct call)
+
+Below is the default YAML file for filesystem options:
+```hocon
+file-system = "file://"
+file-system = ${?COMET_FS}
+
+metadata-file-system = ${file-system}
+metadata-file-system = ${?COMET_METADATA_FS}
+
+
+root = "/tmp"
+root = ${?COMET_ROOT}
+
+datasets = ${root}"/datasets"
+datasets = ${?COMET_DATASETS}
+
+metadata = ${root}"/metadata"
+metadata = ${?COMET_METADATA}
+
+area {
+  pending = "pending"
+  pending = ${?COMET_AREA_PENDING}
+  unresolved = "unresolved"
+  unresolved = ${?COMET_AREA_UNRESOLVED}
+  archive = "archive"
+  archive = ${?COMET_AREA_ARCHIVE}
+  ingesting = "ingesting"
+  ingesting = ${?COMET_AREA_INGESTING}
+  accepted = "accepted"
+  accepted = ${?COMET_AREA_ACCEPTED}
+  rejected = "rejected"
+  rejected = ${?COMET_AREA_REJECTED}
+  business = "business"
+  business = ${?COMET_AREA_BUSINESS}
+}
+
+tmpdir = ${root}"/comet_tmp"
+tmpdir = ${?COMET_TMPDIR}
+
+archive = true
+archive = ${?COMET_ARCHIVE}
+
+default-write-format = parquet
+default-write-format = ${?COMET_DEFAULT_WRITE_FORMAT}
+
+default-rejected-write-format = parquet
+default-rejected-write-format = ${?COMET_DEFAULT_REJECTED_WRITE_FORMAT}
+
+default-audit-write-format = parquet
+default-audit-write-format = ${?COMET_DEFAULT_AUDIT_WRITE_FORMAT}
+
+launcher = airflow
+launcher = simple
+launcher = ${?COMET_LAUNCHER}
+```
+
+
+To make sure, the same schema is not ingested by two concurrent Comet processes, Comet Data Pipeline uses a file lock when necessary.
+
+|HOCON Variable|Env variable|Default Value|Description
+|:--------------|:------------|:-------|:-----------
+|lock.path|COMET_LOCK_PATH|${root}"/locks"|Root folder where lock file is created
+|lock.timeout|COMET_LOCK_TIMEOUT|-1|How long to wait for the file lock to be available (in seconds)
+
+
+```hocon
+lock {
+  path = ${root}"/locks"
+  path = ${?COMET_LOCK_PATH}
+
+  timeout = -1
+  timeout = ${?COMET_LOCK_TIMEOUT}
+}
+```
+
+### Ingestion
+When many files that have the same pattern and thus belong to the same schema, it is possible to ingest them one after the other using an ingestion policy 
+or ingest all of them at once.
+
+When ingesting the files with the same schema one after the other, it is possible to use a custom ordering policy by settings the `COMET_LOAD_STRATEGY` environment variable. Currently, the following ordering policies are defined:
+
+* `com.ebiznext.comet.job.load.IngestionTimeStrategy` : Order the files by modification date
+* `com.ebiznext.comet.job.load.IngestionNameStrategy` : Order  the files by name
+
+If you want to use another custom strategy, you'll have to implement the trait below, make it available in the classpath and set the `COMET_LOAD_STRATEGY` environment variable
+
+````scala
+package com.ebiznext.comet.job.load
+
+import java.time.LocalDateTime
+
+import org.apache.hadoop.fs.{FileSystem, Path}
+
+trait LoadStrategy {
+
+  /** List all files in folder
+    *
+    * @param fs        FileSystem
+    * @param path      Absolute folder path
+    * @param extension Files should end with this string. To list all files, simply provide an empty string
+    * @param since     Minimum modification time of list files. To list all files, simply provide the beginning of all times
+    * @param recursive List files recursively
+    * @return List of Path
+    */
+  def list(
+    fs: FileSystem,
+    path: Path,
+    extension: String = "",
+    since: LocalDateTime = LocalDateTime.MIN,
+    recursive: Boolean
+  ): List[Path]
+}
+````
+
+To ingest all the files at once, set the `COMET_GROUPED` variable to true.
+
+|HOCON Variable|Env variable|Default Value|Description
+|:--------------|:------------|:-------|:-----------
+|grouped|COMET_GROUPED|false|Should files with the same schema be ingested all at once ?
+|load-strategy-class|COMET_LOAD_STRATEGY|com.ebiznext.comet.job.load.IngestionTimeStrategy|When `grouped` is false, which ingestion order strategy to use 
+
+
+Below is an example of HOCON file with the default values.
+
+```hocon
+load-strategy-class = "com.ebiznext.comet.job.load.IngestionTimeStrategy"
+load-strategy-class = ${?COMET_LOAD_STRATEGY}
+
+grouped = false
+grouped = ${?COMET_GROUPED}
+```
+
+The YAML file describing the schema and ingestion rules may also define a custom sink (JDBC / BigQuery / Redshift ...). 
+In that case, it may be useless to also sink the files to the filesystem. To disable sinking the resulting parquet file, simply
+set the `COMET_SINK_TO_FILE` environment variable to `false`.
+
+|HOCON Variable|Env variable|Default Value|Description
+|:--------------|:------------|:-------|:-----------
+|sink-to-file|COMET_SINK_TO_FILE|true|Should ingested files be stored on the filesystem on only in the sink defined in the YAML file ?
+
+```hocon
+sink-to-file = true
+sink-to-file = ${?COMET_SINK_TO_FILE}
+```
+
+When `sink to file` is requested, and you want to output the result in a single file in the csv file format, set the `COMET_CSV_OUTPUT` 
+environment variable to `true`.
+
+### Privacy
+
+
+
+### Sinks
+### Audit / Metrics / Assertions
+### Elasticsearch
+### Spark
+### Kafka
+### JDBC
+### µ-service
+### Airflow
+
+|HOCON Variable|Env variable|Default Value|Description
+|:--------------|:------------|:-------|:-----------
+||AIRFLOW_ENDPOINT|Airflow endpoint. Used when COMET_LAUNCHER is set to airflow|http://127.0.0.1:8080/api/experimental
 
 Env. Var|Description|Default value
 ---|---|---
-COMET_TMPDIR|When compacting data and estimating number of partitions, Comet stores intermediates files in this folder|hdfs:///tmp/comet_tmp
-COMET_DATASETS|Once imported where the datasets are stored|eq. hdfs:///tmp/datasets
-COMET_METADATA|Root folder where domains and types metadata are stored|/tmp/metadata
-COMET_ARCHIVE|Should we archive the incoming files once they are ingested|true
-COMET_LAUNCHER|Valid values are airflow or simple|simple
-COMET_HIVE|Should be create external tables for ingested files?|true
-COMET_ANALYZE|Should we computed basic statistics (required COMET_HIVE to be set to true) ?|true
-COMET_WRITE_FORMAT|How ingested files are stored (parquet / orc / json / csv / avro)|parquet
-COMET_AREA_PENDING|In $COMET_DATASET folder how the pending folder should be named|pending
-COMET_AREA_UNRESOLVED|In $COMET_DATASET folder how the unresolved folder should be named|unresolved
-COMET_AREA_ARCHIVE|In $COMET_DATASET folder how the archive folder should be named|archive
-COMET_AREA_INGESTING|In $COMET_DATASET folder how the ingesting folder should be named|ingesting
-COMET_AREA_ACCEPTED|In $COMET_DATASET folder how the accepted folder should be named|accepted
-COMET_AREA_REJECTED|In $COMET_DATASET folder how the rejected folder should be named|rejected
-COMET_AREA_BUSINESS|In $COMET_DATASET folder how the business folder should be named|business
-AIRFLOW_ENDPOINT|Airflow endpoint. Used when COMET_LAUNCHER is set to airflow|http://127.0.0.1:8080/api/experimental
-
-> :memo: **When running on Cloudera 5.X.X prefer ORC to Parquet for the COMET_WRITE_FORMAT since Cloudera comes with Hive 1.1 which does
-> not support date/timestamp fields or else simply treat dates / timestamps as strings. See [HIVE_6394](https://issues.apache.org/jira/browse/HIVE-6394)**
-
 
 > :memo: **When running Spark on YARN in cluster mode,
 > environment variables need to be set using the syntax spark.yarn.appMasterEnv.[EnvironmentVariableName]**
@@ -107,6 +363,7 @@ AIRFLOW_ENDPOINT|Airflow endpoint. Used when COMET_LAUNCHER is set to airflow|ht
 > :memo: **When running Dataproc on GCP, environment variables need to be set 
 > in the DataprocClusterCreateOperator in the properties attributes 
 > using the syntax "spark-env:[EnvironmentVariableName]":"[Value]"**
+
 
 ## Airflow DAGs
 Comet Data Pipeline comes with native  Airflow support.
