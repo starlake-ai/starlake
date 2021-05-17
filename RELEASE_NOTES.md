@@ -1,5 +1,10 @@
 # Release notes
 
+## 0.2.1
+__New feature__:
+- Use the same variable for Lock timeout
+- Improve logging when locking file fails
+
 ## 0.2.0
 __New feature__:
 - Export all tables in DDL2YML generation
