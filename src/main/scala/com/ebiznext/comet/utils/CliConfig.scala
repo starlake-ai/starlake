@@ -70,7 +70,7 @@ trait CliConfig[T] {
         "synopsis"    -> synopsis,
         "description" -> description,
         "options"     -> options.map(opt => option(opt).toMap()),
-        "index"       -> (pageIndex*10).toString
+        "index"       -> (pageIndex * 10).toString
       )
 
     //TODO keep the lines below until we depreciate Scala 2.11
