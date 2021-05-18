@@ -3,18 +3,63 @@ package com.ebiznext.comet.utils
 import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.job.index.bqload.{BigQueryLoadConfig, BigQuerySparkJob}
 import com.ebiznext.comet.job.index.connectionload.ConnectionLoadConfig
+import com.ebiznext.comet.schema.handlers.StorageHandler
 import com.ebiznext.comet.schema.model._
 import com.google.cloud.bigquery.JobInfo.WriteDisposition
 import com.typesafe.scalalogging.StrictLogging
-import org.apache.spark.sql.{DataFrame, SaveMode}
+import org.apache.hadoop.fs.Path
+import org.apache.spark.sql.{DataFrame, SaveMode, SparkSession}
 
 import scala.util.{Success, Try}
 
 class SinkUtils(implicit settings: Settings) extends StrictLogging {
 
-  def sink(sinkType: Sink, dataframe: DataFrame, table: String): Try[Unit] = {
+  def sink(
+    sinkType: Sink,
+    dataframe: DataFrame,
+    table: String,
+    /* arguments below used for filesink only */
+    savePath: Path,
+    lockPath: Path,
+    storageHandler: StorageHandler,
+    engine: Engine,
+    session: SparkSession
+  ): Try[Unit] = {
+    // We sink to a file when running unit tests
+    if (settings.comet.sinkToFile && engine == Engine.SPARK) {
+      val waitTimeMillis = settings.comet.lock.timeout
+      val locker = new FileLock(lockPath, storageHandler)
+      locker.tryExclusively(waitTimeMillis) {
+        appendToFile(
+          storageHandler,
+          session,
+          dataframe,
+          savePath,
+          sinkType.name.getOrElse(table),
+          table
+        )
+      }
+    }
     sinkType match {
-      case _: NoneSink | FsSink(_, _) =>
+      case _: NoneSink | FsSink(_, _) if !settings.comet.sinkToFile =>
+        if (engine == Engine.SPARK) {
+          val waitTimeMillis = settings.comet.lock.timeout
+          val locker = new FileLock(lockPath, storageHandler)
+          locker.tryExclusively(waitTimeMillis) {
+            appendToFile(
+              storageHandler,
+              session,
+              dataframe,
+              savePath,
+              sinkType.name.getOrElse(table),
+              table
+            )
+          }
+        } else
+          Success(())
+
+      case _: NoneSink | FsSink(_, _) if settings.comet.sinkToFile =>
+        // Do nothing dataset already sinked to file
         Success(())
 
       case sink: BigQuerySink =>
@@ -95,4 +140,65 @@ class SinkUtils(implicit settings: Settings) extends StrictLogging {
     }
   }
 
+  /** Saves a dataset. If the path is empty (the first time we call metrics on the schema) then we can write.
+    *
+    * If there's already parquet files stored in it, then create a temporary directory to compute on, and flush
+    * the path to move updated metrics in it
+    *
+    * @param dataToSave :   dataset to be saved
+    * @param path       :   Path to save the file at
+    */
+  protected def appendToFile(
+    storageHandler: StorageHandler,
+    session: SparkSession,
+    dataToSave: DataFrame,
+    path: Path,
+    datasetName: String,
+    tableName: String
+  ): Unit = {
+    if (storageHandler.exists(path)) {
+      val pathIntermediate = new Path(path.getParent, ".tmp")
+
+      logger.whenDebugEnabled {
+        session.read.parquet(path.toString).show(false)
+      }
+      val dataByVariableStored: DataFrame = session.read
+        .parquet(path.toString)
+        .union(dataToSave)
+
+      if (settings.comet.hive) {
+        val hiveDB = datasetName
+        val fullTableName = s"$hiveDB.$tableName"
+        session.sql(s"create database if not exists $hiveDB")
+        session.sql(s"use $hiveDB")
+        dataByVariableStored
+          .coalesce(1)
+          .write
+          .mode(SaveMode.Append)
+          .format("parquet")
+          .saveAsTable(fullTableName)
+      } else {
+        dataByVariableStored
+          .coalesce(1)
+          .write
+          .mode(SaveMode.Append)
+          .format("parquet")
+          .save(pathIntermediate.toString)
+      }
+
+      storageHandler.delete(path)
+      storageHandler.move(pathIntermediate, path)
+      logger.whenDebugEnabled {
+        session.read.parquet(path.toString).show(1000, truncate = false)
+      }
+    } else {
+      storageHandler.mkdirs(path)
+      dataToSave
+        .coalesce(1)
+        .write
+        .mode(SaveMode.Append)
+        .parquet(path.toString)
+
+    }
+  }
 }
