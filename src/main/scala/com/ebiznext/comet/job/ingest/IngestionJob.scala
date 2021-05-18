@@ -336,6 +336,7 @@ trait IngestionJob extends SparkJob {
           Step.SINK_ACCEPTED.toString
         )
         SparkAuditLogWriter.append(session, log)
+        throw exception
     }
     (savedDataset, acceptedPath)
   }
