@@ -171,34 +171,20 @@ class MetricsJob(
       df match {
         case Some(df) =>
           settings.comet.internal.foreach(in => df.persist(in.cacheStorageLevel))
-          val metricsResult = if (settings.comet.sinkToFile) {
-            val lockedPath = lockPath(settings.comet.metrics.path)
-            val waitTimeMillis = settings.comet.lock.timeout
-            val locker = new FileLock(lockedPath, storageHandler)
-            locker.tryExclusively(waitTimeMillis) {
-              appendToFile(
-                storageHandler,
-                df,
-                new Path(savePath, table.toString),
-                settings.comet.metrics.sink.name.getOrElse("metrics"),
-                table.toString
-              )
-            }
-          } else {
-            Success(None)
-          }
-          val metricsSinkResult =
-            new SinkUtils().sink(settings.comet.metrics.sink, df, table.toString)
-          for {
-            _ <- metricsResult
-            _ <- metricsSinkResult
-          } yield {
-            None
-          }
+          new SinkUtils().sink(
+            settings.comet.metrics.sink,
+            df,
+            table.toString,
+            new Path(savePath, table.toString),
+            lockPath(settings.comet.metrics.path),
+            storageHandler,
+            Engine.SPARK,
+            session
+          )
         case None =>
           Success(None)
       }
     }
-    combinedResult.find(_.isFailure).getOrElse(Success(None)).map(SparkJobResult(_))
+    combinedResult.find(_.isFailure).getOrElse(Success(None)).map(_ => SparkJobResult(None))
   }
 }
