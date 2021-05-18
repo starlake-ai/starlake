@@ -4,7 +4,7 @@
 __New feature__:
 - Use the same variable for Lock timeout
 - Improve logging when locking file fails
-
+- File sink while still the default is now controlled by the sink tag in the YAML file. The option sink-to-file is removed and used for testing purpose only.
 ## 0.2.0
 __New feature__:
 - Export all tables in DDL2YML generation
