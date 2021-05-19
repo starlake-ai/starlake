@@ -6,6 +6,7 @@ import com.ebiznext.comet.job.index.connectionload.{ConnectionLoadConfig, Connec
 import com.ebiznext.comet.job.index.esload.{ESLoadConfig, ESLoadJob}
 import com.ebiznext.comet.job.ingest.ImprovedDataFrameContext._
 import com.ebiznext.comet.job.metrics.{AssertionJob, MetricsJob}
+import com.ebiznext.comet.job.validator.GenericRowValidator
 import com.ebiznext.comet.schema.handlers.{SchemaHandler, StorageHandler}
 import com.ebiznext.comet.schema.model.Rejection.{ColInfo, ColResult}
 import com.ebiznext.comet.schema.model.Trim.{BOTH, LEFT, RIGHT}
@@ -38,6 +39,12 @@ import scala.util.{Failure, Success, Try}
 /**
   */
 trait IngestionJob extends SparkJob {
+
+  protected val treeRowValidator: GenericRowValidator = Utils
+    .loadInstance[GenericRowValidator](settings.comet.treeValidatorClass)
+
+  protected val flatRowValidator: GenericRowValidator = Utils
+    .loadInstance[GenericRowValidator](settings.comet.rowValidatorClass)
 
   def domain: Domain
 

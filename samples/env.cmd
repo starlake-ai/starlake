@@ -22,20 +22,12 @@ SET COMET_JAR_URL=https://repo1.maven.org/maven2/com/ebiznext/comet-spark3_2.12/
 if not x%COMET_VERSION:SNAPSHOT=%==x%COMET_VERSION% (
   SET COMET_JAR_URL=https://oss.sonatype.org/content/repositories/snapshots/com/ebiznext/comet-spark3_2.12/%COMET_VERSION%/%COMET_JAR_NAME%
 )
-echo COMET_JAR_URL=%COMET_JAR_URL%
+
 SET SPARK_DIR_NAME=spark-%SPARK_VERSION%-bin-hadoop%HADOOP_VERSION%
 SET SPARK_TGZ_NAME=%SPARK_DIR_NAME%.tgz
 SET SPARK_TGZ_URL=https://downloads.apache.org/spark/spark-%SPARK_VERSION%/%SPARK_TGZ_NAME%
 SET SPARK_SUBMIT=..\bin\spark-%SPARK_VERSION%-bin-hadoop%HADOOP_VERSION%\bin\spark-submit.cmd
 SET SPARK_DIR=%~dp0..\bin\spark-%SPARK_VERSION%-bin-hadoop%HADOOP_VERSION%
-
-
-echo SPARK_DIR_NAME=%SPARK_DIR_NAME%
-echo SPARK_TGZ_NAME=%SPARK_TGZ_NAME%
-echo SPARK_TGZ_URL=%SPARK_TGZ_URL%
-echo SPARK_SUBMIT=%SPARK_SUBMIT%
-echo SPARK_DIR=%SPARK_DIR%
-
 
 if "x%1" == "x" (
     GOTO :eof
@@ -58,25 +50,26 @@ IF exist ..\bin (
 setlocal EnableDelayedExpansion
 SET HADOOP_DLL=https://github.com/cdarlint/winutils/raw/master/hadoop-3.2.1/bin/hadoop.dll
 SET WINUTILS_EXE=https://github.com/cdarlint/winutils/raw/master/hadoop-3.2.1/bin/winutils.exe
-if "%HADOOP_HOME%"=="" (
+
+if "x%HADOOP_HOME%"=="x" (
     mkdir ..\hadoop
     mkdir ..\hadoop\bin
     echo ..\hadoop\bin created
-    echo downloading %HADOOP_DLL%
-    powershell -command "& { (New-Object Net.WebClient).DownloadFile('%HADOOP_DLL%', '../hadoop/bin/hadoop.dll') }"
-    echo downloading %WINUTILS_EXE%
-    powershell -command "& { (New-Object Net.WebClient).DownloadFile('%WINUTILS_EXE%', '../hadoop/bin/winutils.exe') }"
+    if not exist ../hadoop/bin/hadoop.dll (
+        echo downloading %HADOOP_DLL%
+        powershell -command "& { (New-Object Net.WebClient).DownloadFile('%HADOOP_DLL%', '../hadoop/bin/hadoop.dll') }"
+    )
+    if not exist ../hadoop/bin/winutils.exe (
+        echo downloading %WINUTILS_EXE%
+        powershell -command "& { (New-Object Net.WebClient).DownloadFile('%WINUTILS_EXE%', '../hadoop/bin/winutils.exe') }"
+    )
 ) else (
     GOTO SKIP_HADOOP_PATH
 )
-SET HADOOP_HOME=%~dp0..\..\hadoop
-SET PATH=%PATH%;%HADOOP_HOME%\bin
+
 
 :SKIP_HADOOP_PATH
-echo HADOOP_HOME=%HADOOP_HOME%
-echo PATH=%PATH%
 
-pause
 if exist %COMET_JAR_FULL_NAME% (
     echo %COMET_JAR_FULL_NAME%
     echo %COMET_JAR_NAME% found in ..\bin\

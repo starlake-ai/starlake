@@ -21,10 +21,8 @@
 package com.ebiznext.comet.job.ingest
 
 import com.ebiznext.comet.config.Settings
-import com.ebiznext.comet.job.validator.GenericRowValidator
 import com.ebiznext.comet.schema.handlers.{SchemaHandler, StorageHandler}
 import com.ebiznext.comet.schema.model._
-import com.ebiznext.comet.utils.Utils
 import org.apache.hadoop.fs.Path
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql._
@@ -177,15 +175,13 @@ class DsvIngestionJob(
 
     val (orderedTypes, orderedSparkTypes) = reorderTypes()
 
-    val (rejectedRDD, acceptedRDD) = Utils
-      .loadInstance[GenericRowValidator](settings.comet.rowValidatorClass)
-      .validate(
-        session,
-        dataset,
-        orderedAttributes,
-        orderedTypes,
-        orderedSparkTypes
-      )
+    val (rejectedRDD, acceptedRDD) = flatRowValidator.validate(
+      session,
+      dataset,
+      orderedAttributes,
+      orderedTypes,
+      orderedSparkTypes
+    )
 
     saveRejected(rejectedRDD)
 
