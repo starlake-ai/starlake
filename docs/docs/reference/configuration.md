@@ -394,9 +394,9 @@ com.ebiznext.comet.privacy.IPv6(8|Return the IPv6 address with the last 8 bytes 
 com.ebiznext.comet.privacy.RandomDouble|Return a random double number
 com.ebiznext.comet.privacy.RandomDouble(10,20)|Return a random double between 10.0 and 20.0
 com.ebiznext.comet.privacy.RandomLong|Return a random long number
-com.ebiznext.comet.privacy.RandomLong(0, 20)|Return a random long number between 10 and 20
+com.ebiznext.comet.privacy.RandomLong(10, 20)|Return a random long number between 10 and 20
 com.ebiznext.comet.privacy.RandomInt|Return a random int number
-com.ebiznext.comet.privacy.RandomInt|Return a random int number between 10 and 20
+com.ebiznext.comet.privacy.RandomInt(10, 20)|Return a random int number between 10 and 20
 com.ebiznext.comet.privacy.ApproxDouble(70)|Return a double value with a variation up to 70% applied to the input value  
 com.ebiznext.comet.privacy.ApproxLong(70)|Return a double long with a variation up to 70% applied to the input value
 com.ebiznext.comet.privacy.Mask(\"*\", 4, 1, 3)| Partially mask the input value with 4 occurrences of the '*' character, 1 on the left side and 3 on the right side. 
