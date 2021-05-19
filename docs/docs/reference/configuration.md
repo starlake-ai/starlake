@@ -1,5 +1,5 @@
 ---
-sidebar_position: 4
+sidebar_position: 1
 title: Configuration
 ---
 
@@ -321,24 +321,69 @@ grouped = false
 grouped = ${?COMET_GROUPED}
 ```
 
-The YAML file describing the schema and ingestion rules may also define a custom sink (JDBC / BigQuery / Redshift ...). 
-In that case, it may be useless to also sink the files to the filesystem. To disable sinking the resulting parquet file, simply
-set the `COMET_SINK_TO_FILE` environment variable to `false`.
+The YAML file describing the schema and ingestion rules may also define a custom sink (FS / JDBC / BigQuery / Redshift ...). 
+
+In test mode, we need to sink the files to the filesystem. To enable sinking the resulting parquet file, simply
+set the `COMET_SINK_TO_FILE` environment variable to `true`.
 
 |HOCON Variable|Env variable|Default Value|Description
 |:--------------|:------------|:-------|:-----------
-|sink-to-file|COMET_SINK_TO_FILE|true|Should ingested files be stored on the filesystem on only in the sink defined in the YAML file ?
+|sink-to-file|COMET_SINK_TO_FILE|false|Should ingested files be stored on the filesystem on only in the sink defined in the YAML file ?
 
 ```hocon
-sink-to-file = true
+sink-to-file = false
 sink-to-file = ${?COMET_SINK_TO_FILE}
 ```
 
-When `sink to file` is requested, and you want to output the result in a single file in the csv file format, set the `COMET_CSV_OUTPUT` 
+When `sink to file` or a filesystem sink (SinkType.FS) is requested, and you want to output the result in a single file in the csv file format, set the `COMET_CSV_OUTPUT` 
 environment variable to `true`.
 
 ### Privacy
+Default valid values are NONE, HIDE, MD5, SHA1, SHA256, SHA512, AES(not implemented). 
+Custom values may also be defined by adding a new privacy option in the application.conf. 
+The default reference.conf file defines the following valid privacy strategies:
+```hocon
+privacy {
+  options = {
+    "none": "com.ebiznext.comet.privacy.No",
+    "hide": "com.ebiznext.comet.privacy.Hide",
+    "hide10X": "com.ebiznext.comet.privacy.Hide(\"X\",10)",
+    "approxLong20": "com.ebiznext.comet.privacy.ApproxLong(20)",
+    "md5": "com.ebiznext.comet.privacy.Md5",
+    "sha1": "com.ebiznext.comet.privacy.Sha1",
+    "sha256": "com.ebiznext.comet.privacy.Sha256",
+    "sha512": "com.ebiznext.comet.privacy.Sha512",
+    "initials": "com.ebiznext.comet.privacy.Initials"
+  }
+}
+```
+In the YAML file, reference, you reference the option name. This will apply the function defined in the class referenced by the option value. 
 
+Any new privacy strategy should implement the following trait :
+
+```scala
+/** @param s: String  => Input string to encrypt
+  * @param colMap : Map[String, Option[String]] => Map of all the attributes and their corresponding values
+  * @param params: List[Any]  => Parameters passed to the algorithm as defined in the conf file.
+  *                               Parameter starting with '"' is converted to a string
+  *                               Parameter containing a '.' is converted to a double
+  *                               Parameter equals to true of false is converted a boolean
+  *                               Anything else is converted to an int
+  * @return The encrypted string
+  */
+```
+
+Below are present the predefined strategies:
+
+Privacy Strategy|Privacy class|Description
+:---|:---|:---
+none|com.ebiznext.comet.privacy.No|Return the input string itself
+hide|com.ebiznext.comet.privacy.Hide(\"X\", 10)|Without a parameter, return the empty string. Otherwise, replace with 10 occurrences of the character 'X'
+md5|com.ebiznext.comet.privacy.Md5|Return the md5 of the input string
+sha1|com.ebiznext.comet.privacy.Sha1|Return the sha1 of the input string
+sha256|com.ebiznext.comet.privacy.Sha256|Return the sha256 of the input string
+sha512|com.ebiznext.comet.privacy.Sha512|Return the sha256 of the input string
+initials|com.ebiznext.comet.privacy.Initials|Return the first char of each word (usually applied to user names)
 
 
 ### Sinks
