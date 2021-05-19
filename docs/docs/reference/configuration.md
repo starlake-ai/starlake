@@ -338,6 +338,20 @@ sink-to-file = ${?COMET_SINK_TO_FILE}
 When `sink to file` or a filesystem sink (SinkType.FS) is requested, and you want to output the result in a single file in the csv file format, set the `COMET_CSV_OUTPUT` 
 environment variable to `true`.
 
+### Validation
+During ingestion, the input file is validated up to the attribute level. Three default row validators are defined:
+
+- com.ebiznext.comet.job.validator.FlatRowValidator: to validate flat files, eq. DSV, Position and single level Json files.
+- com.ebiznext.comet.job.validator.TreeRowValidator:  used for tree like documents, eq. XML and JSON files
+- com.ebiznext.comet.job.validator.AcceptAllValidator: used for any document type (flat and tree like) and accept the input without any validation
+
+The validtor to use is configurable as follows:
+
+HOCON Variable|Env. variable|Default value
+:---|:---|:---
+row-validator-class|COMET_ROW_VALIDATOR_CLASS|com.ebiznext.comet.job.validator.FlatRowValidator
+tree-validator-class|COMET_TREE_VALIDATOR_CLASS|com.ebiznext.comet.job.validator.TreeRowValidator
+
 ### Privacy
 Default valid values are NONE, HIDE, MD5, SHA1, SHA256, SHA512, AES(not implemented). 
 Custom values may also be defined by adding a new privacy option in the application.conf. 
@@ -357,7 +371,36 @@ privacy {
   }
 }
 ```
-In the YAML file, reference, you reference the option name. This will apply the function defined in the class referenced by the option value. 
+In the YAML file, reference, you reference the option name. This will apply the function defined in the class referenced by the option value.
+
+Below the predefined strategies:
+
+Privacy Strategy|Privacy class|Description
+:---|:---|:---
+none|com.ebiznext.comet.privacy.No|Return the input string itself
+hide|com.ebiznext.comet.privacy.Hide(\"X\", 10)|Without a parameter, return the empty string. Otherwise, replace with 10 occurrences of the character 'X'
+md5|com.ebiznext.comet.privacy.Md5|Return the md5 of the input string
+sha1|com.ebiznext.comet.privacy.Sha1|Return the sha1 of the input string
+sha256|com.ebiznext.comet.privacy.Sha256|Return the sha256 of the input string
+sha512|com.ebiznext.comet.privacy.Sha512|Return the sha256 of the input string
+initials|com.ebiznext.comet.privacy.Initials|Return the first char of each word (usually applied to user names)
+
+The following startegies are also defined and may be declared in the custom configuration file.
+
+Privacy class|Description
+:---|:---
+com.ebiznext.comet.privacy.IPv4(8)|Return the IPv4 address with the last 8 bytes masked  
+com.ebiznext.comet.privacy.IPv6(8|Return the IPv6 address with the last 8 bytes masked
+com.ebiznext.comet.privacy.RandomDouble|Return a random double number
+com.ebiznext.comet.privacy.RandomDouble(10,20)|Return a random double between 10.0 and 20.0
+com.ebiznext.comet.privacy.RandomLong|Return a random long number
+com.ebiznext.comet.privacy.RandomLong(0, 20)|Return a random long number between 10 and 20
+com.ebiznext.comet.privacy.RandomInt|Return a random int number
+com.ebiznext.comet.privacy.RandomInt|Return a random int number between 10 and 20
+com.ebiznext.comet.privacy.ApproxDouble(70)|Return a double value with a variation up to 70% applied to the input value  
+com.ebiznext.comet.privacy.ApproxLong(70)|Return a double long with a variation up to 70% applied to the input value
+com.ebiznext.comet.privacy.Mask(\"*\", 4, 1, 3)| Partially mask the input value with 4 occurrences of the '*' character, 1 on the left side and 3 on the right side. 
+
 
 Any new privacy strategy should implement the following trait :
 
@@ -372,19 +415,6 @@ Any new privacy strategy should implement the following trait :
   * @return The encrypted string
   */
 ```
-
-Below are present the predefined strategies:
-
-Privacy Strategy|Privacy class|Description
-:---|:---|:---
-none|com.ebiznext.comet.privacy.No|Return the input string itself
-hide|com.ebiznext.comet.privacy.Hide(\"X\", 10)|Without a parameter, return the empty string. Otherwise, replace with 10 occurrences of the character 'X'
-md5|com.ebiznext.comet.privacy.Md5|Return the md5 of the input string
-sha1|com.ebiznext.comet.privacy.Sha1|Return the sha1 of the input string
-sha256|com.ebiznext.comet.privacy.Sha256|Return the sha256 of the input string
-sha512|com.ebiznext.comet.privacy.Sha512|Return the sha256 of the input string
-initials|com.ebiznext.comet.privacy.Initials|Return the first char of each word (usually applied to user names)
-
 
 ### Sinks
 ### Audit / Metrics / Assertions
