@@ -7,7 +7,7 @@ title: Load
 Let's say you are willing to import customers and orders from your Sales system.
 Sales is therefore the domain and customer & order are your datasets.
 - In a DBMS, a Domain would be implemented by a DBMS  schema and a dataset by a DBMS table.
-- In BigQuery, the domain name would be the Big Query dataset name and the dataset would be implemented by a Big Query table.
+- In BigQuery, the domain name would be the Big Query dataset name, and the dataset would be implemented by a Big Query table.
 
 ````scala
 name: String
@@ -41,7 +41,7 @@ schemas: List[Schema]
 ````
 
 *Required*. List of schemas for each dataset in this domain
-A domain ususally contains multiple schemas. Each schema defining how the contents of the input file should be parsed.
+A domain usually contains multiple schemas. Each schema defining how the contents of the input file should be parsed.
 See [Schema](#schema) for more details.
 
 ````scala
