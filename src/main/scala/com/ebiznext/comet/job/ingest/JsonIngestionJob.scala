@@ -21,7 +21,6 @@
 package com.ebiznext.comet.job.ingest
 
 import com.ebiznext.comet.config.Settings
-import com.ebiznext.comet.job.validator.TreeRowValidator
 import com.ebiznext.comet.schema.handlers.{SchemaHandler, StorageHandler}
 import com.ebiznext.comet.schema.model._
 import org.apache.hadoop.fs.Path
@@ -31,7 +30,6 @@ import org.apache.spark.sql.execution.datasources.json.JsonIngestionUtil
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
 
 import scala.util.Try
-import org.apache.spark.sql._
 
 /** Main class to complex json delimiter separated values file
   * If your json contains only one level simple attribute aka. kind of dsv but in json format please use SIMPLE_JSON instead. It's way faster
@@ -131,7 +129,7 @@ class JsonIngestionJob(
       .json(session.createDataset(acceptedRDD)(Encoders.STRING))
 
     val (koRDD, okRDD) =
-      TreeRowValidator.validate(session, acceptedDF, schema.attributes, types, appliedSchema)
+      treeRowValidator.validate(session, acceptedDF, schema.attributes, types, appliedSchema)
     saveRejected(rejectedRDD.union(koRDD))
     val transformedAcceptedDF = session.createDataFrame(okRDD, appliedSchema)
     saveAccepted(transformedAcceptedDF) // prefer to let Spark compute the final schema
