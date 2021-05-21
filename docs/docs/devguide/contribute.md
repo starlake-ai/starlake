@@ -44,10 +44,6 @@ This documentation can be rendered on your side by following these steps:
 The last command will allow you to open **docs/\_build/html/index.html** in your favorite browser to see how beautiful your contribution is!
 
 
-### Contribution for Ebiznext consultants
-
-In addition to this contribution guide, please refer to [this document](https://docs.google.com/document/d/1BXZ92PyEajNBXy1DTbsiKqWF52qJmH_U89WGaOCAeMk/edit?usp=sharing).
-
 ### Contributing Issue Reports
 
 Issue can be of many kinds:
@@ -63,7 +59,6 @@ The issue life cycle is:
 * an issue is created, following the appropriate template
 * if any clarification is needed, a technical exchange will follow in the issue comments
 * when the issue is considered to be clear enough by at least 2 animators of the project, the issue is flagged as "ready"
-* for Ebiznext consultant, after that point, please refer to [this document](https://docs.google.com/document/d/1BXZ92PyEajNBXy1DTbsiKqWF52qJmH_U89WGaOCAeMk/edit?usp=sharing).
 
 ### Contributing to architecture documentation
 
