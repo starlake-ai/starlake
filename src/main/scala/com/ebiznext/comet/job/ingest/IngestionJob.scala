@@ -94,7 +94,8 @@ trait IngestionJob extends SparkJob {
     val start = Timestamp.from(Instant.now())
     IngestionUtil.sinkRejected(session, rejectedRDD, domainName, schemaName, now) match {
       case Success((rejectedDF, rejectedPath)) =>
-        if (settings.comet.sinkToFile)
+        // We sink to a file when running unit tests
+        if (settings.comet.sinkToFile) {
           sinkToFile(
             rejectedDF,
             rejectedPath,
@@ -103,6 +104,20 @@ trait IngestionJob extends SparkJob {
             merge = false,
             settings.comet.defaultRejectedWriteFormat
           )
+        } else {
+          settings.comet.audit.sink match {
+            case _: NoneSink | FsSink(_, _) =>
+              sinkToFile(
+                rejectedDF,
+                rejectedPath,
+                WriteMode.APPEND,
+                StorageArea.rejected,
+                merge = false,
+                settings.comet.defaultRejectedWriteFormat
+              )
+            case _ => // do nothing
+          }
+        }
         val end = Timestamp.from(Instant.now())
         val log = AuditLog(
           session.sparkContext.applicationId,
@@ -255,7 +270,7 @@ trait IngestionJob extends SparkJob {
     }
     logger.info("Final Dataframe Schema")
     finalMergedDf.printSchema()
-    val savedDataset =
+    val savedInFileDataset =
       if (settings.comet.sinkToFile)
         sinkToFile(
           finalMergedDf,
@@ -267,6 +282,22 @@ trait IngestionJob extends SparkJob {
         )
       else
         finalMergedDf
+
+    val sinkType = metadata.getSink().map(_.`type`)
+    val savedDataset = sinkType.getOrElse(SinkType.None) match {
+      case SinkType.FS | SinkType.None if !settings.comet.sinkToFile =>
+        // TODO do this inside the sink function below
+        sinkToFile(
+          finalMergedDf,
+          acceptedPath,
+          writeMode,
+          StorageArea.accepted,
+          schema.merge.isDefined,
+          settings.comet.defaultWriteFormat
+        )
+      case _ =>
+        savedInFileDataset
+    }
     logger.info("Saved Dataset Schema")
     savedDataset.printSchema()
     sink(finalMergedDf) match {
@@ -305,6 +336,7 @@ trait IngestionJob extends SparkJob {
           Step.SINK_ACCEPTED.toString
         )
         SparkAuditLogWriter.append(session, log)
+        throw exception
     }
     (savedDataset, acceptedPath)
   }
@@ -397,8 +429,9 @@ trait IngestionJob extends SparkJob {
                 throw e
             }
           }
-        case SinkType.None =>
-          // ignore
+        case SinkType.None | SinkType.FS =>
+          // Done in the caller
+          // TODO do it here instead
           logger.trace("not producing an index, as requested (no sink or sink at None explicitly)")
       }
     }
@@ -432,7 +465,7 @@ trait IngestionJob extends SparkJob {
           if (writeMode.toSaveMode == SaveMode.Overwrite)
             session.sql(s"drop table if exists $hiveDB.$tableName")
         } match {
-          case Success(dataframe) => ;
+          case Success(_) => ;
           case Failure(e) =>
             logger.warn("Ignore error when hdfs files not found")
             Utils.logException(logger, e)
@@ -885,7 +918,7 @@ object IngestionUtil {
       .createDataFrame(
         rejectedTypedRDD.toDF().rdd,
         StructType(
-          rejectedCols.map { case (attrName, sqlType, sparkType) =>
+          rejectedCols.map { case (attrName, _, sparkType) =>
             StructField(attrName, sparkType, nullable = false)
           }
         )
@@ -928,6 +961,8 @@ object IngestionUtil {
           // TODO Sink Rejected Log to ES
           throw new Exception("Sinking Audit log to Elasticsearch not yet supported")
         case _: NoneSink | FsSink(_, _) =>
+          // We save in the caller
+          // TODO rewrite this one
           Success(())
       }
     res match {

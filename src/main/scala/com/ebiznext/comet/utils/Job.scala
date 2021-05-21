@@ -1,13 +1,11 @@
 package com.ebiznext.comet.utils
 
 import com.ebiznext.comet.config.{Settings, SparkEnv, UdfRegistration}
-import com.ebiznext.comet.schema.handlers.StorageHandler
 import com.ebiznext.comet.schema.model.SinkType.{BQ, FS, JDBC, KAFKA}
 import com.ebiznext.comet.schema.model.{Metadata, SinkType, Views}
 import com.ebiznext.comet.utils.Formatter._
 import com.ebiznext.comet.utils.kafka.KafkaClient
 import com.typesafe.scalalogging.StrictLogging
-import org.apache.hadoop.fs.Path
 import org.apache.spark.sql._
 import org.apache.spark.sql.execution.datasources.jdbc.JDBCOptions
 import org.apache.spark.sql.functions._
@@ -306,67 +304,6 @@ trait SparkJob extends JobBase {
       }
       df.createOrReplaceTempView(key)
       logger.info(s"Created view $key")
-    }
-  }
-
-  /** Saves a dataset. If the path is empty (the first time we call metrics on the schema) then we can write.
-    *
-    * If there's already parquet files stored in it, then create a temporary directory to compute on, and flush
-    * the path to move updated metrics in it
-    *
-    * @param dataToSave :   dataset to be saved
-    * @param path       :   Path to save the file at
-    */
-  protected def appendToFile(
-    storageHandler: StorageHandler,
-    dataToSave: DataFrame,
-    path: Path,
-    datasetName: String,
-    tableName: String
-  ): Unit = {
-    if (storageHandler.exists(path)) {
-      val pathIntermediate = new Path(path.getParent, ".tmp")
-
-      logger.whenDebugEnabled {
-        session.read.parquet(path.toString).show(false)
-      }
-      val dataByVariableStored: DataFrame = session.read
-        .parquet(path.toString)
-        .union(dataToSave)
-
-      if (settings.comet.hive) {
-        val hiveDB = datasetName
-        val fullTableName = s"$hiveDB.$tableName"
-        session.sql(s"create database if not exists $hiveDB")
-        session.sql(s"use $hiveDB")
-        dataByVariableStored
-          .coalesce(1)
-          .write
-          .mode(SaveMode.Append)
-          .format("parquet")
-          .saveAsTable(fullTableName)
-      } else {
-        dataByVariableStored
-          .coalesce(1)
-          .write
-          .mode(SaveMode.Append)
-          .format("parquet")
-          .save(pathIntermediate.toString)
-      }
-
-      storageHandler.delete(path)
-      storageHandler.move(pathIntermediate, path)
-      logger.whenDebugEnabled {
-        session.read.parquet(path.toString).show(1000, truncate = false)
-      }
-    } else {
-      storageHandler.mkdirs(path)
-      dataToSave
-        .coalesce(1)
-        .write
-        .mode(SaveMode.Append)
-        .parquet(path.toString)
-
     }
   }
 }
