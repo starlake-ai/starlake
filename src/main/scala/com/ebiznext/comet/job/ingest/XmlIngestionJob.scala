@@ -21,7 +21,6 @@
 package com.ebiznext.comet.job.ingest
 
 import com.ebiznext.comet.config.Settings
-import com.ebiznext.comet.job.validator.TreeRowValidator
 import com.ebiznext.comet.schema.handlers.{SchemaHandler, StorageHandler}
 import com.ebiznext.comet.schema.model._
 import org.apache.hadoop.fs.Path
@@ -104,7 +103,7 @@ class XmlIngestionJob(
           .sparkSchemaWithoutScriptedFields(schemaHandler)
           .add(StructField(Settings.cometInputFileNameColumn, StringType))
         val (koRDD, okRDD) =
-          TreeRowValidator.validate(
+          treeRowValidator.validate(
             session,
             withInputFileNameDS,
             schema.attributes,

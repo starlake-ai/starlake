@@ -12,5 +12,4 @@ SET COMET_HIVE=false
 SET COMET_GROUPED=false
 SET COMET_METRICS_PATH=/tmp/metrics/{domain}
 SET SPARK_CONF_OPTIONS=--conf spark.driver.extraJavaOptions=-Dlog4j.configuration=file://%SPARK_DIR%\conf\log4j.properties.template
-
 SET COMET_SCRIPT=%SPARK_SUBMIT% %SPARK_CONF_OPTIONS% --class com.ebiznext.comet.job.Main %COMET_JAR_FULL_NAME%
