@@ -124,35 +124,16 @@ class AssertionJob(
         .withColumn("cometTime", lit(System.currentTimeMillis()))
         .withColumn("cometStage", lit(Stage.UNIT.value))
 
-      val assertionsResult =
-        if (engine == Engine.SPARK && settings.comet.sinkToFile) {
-          val savePath: Path = DatasetArea.assertions(domainName, schemaName)
-          val lockedPath = lockPath(settings.comet.assertions.path)
-          val waitTimeMillis = settings.comet.lock.timeout
-          val locker = new FileLock(lockedPath, storageHandler)
-          locker.tryExclusively(waitTimeMillis) {
-            appendToFile(
-              storageHandler,
-              assertionsDF,
-              savePath,
-              settings.comet.assertions.sink.name.getOrElse("assertions"),
-              "assertions"
-            )
-          }
-        } else
-          Success(None)
-
-      val assertionSinkResult = new SinkUtils().sink(
+      new SinkUtils().sink(
         settings.comet.assertions.sink,
         assertionsDF,
-        settings.comet.assertions.sink.name.getOrElse("assertions")
+        settings.comet.assertions.sink.name.getOrElse("assertions"),
+        DatasetArea.assertions(domainName, schemaName),
+        lockPath(settings.comet.assertions.path),
+        storageHandler,
+        engine,
+        session
       )
-      for {
-        _ <- assertionsResult
-        _ <- assertionSinkResult
-      } yield {
-        None
-      }
     }
     Success(SparkJobResult(None))
   }
