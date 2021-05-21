@@ -54,7 +54,7 @@ object KafkaJobConfig extends CliConfig[KafkaJobConfig] {
       opt[String]("mode")
         .action((x, c) => c.copy(mode = SaveMode.valueOf(x)))
         .text(
-          "When offload is true, describes who data should be stored on disk. Ignored if offload is false."
+          "When offload is true, describes how data should be stored on disk. Ignored if offload is false."
         )
         .required(),
       opt[Map[String, String]]("write-options")
