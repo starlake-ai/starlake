@@ -1,5 +1,5 @@
 ---
-sidebar_position: 4
+sidebar_position: 1
 title: Configuration
 ---
 
@@ -321,27 +321,137 @@ grouped = false
 grouped = ${?COMET_GROUPED}
 ```
 
-The YAML file describing the schema and ingestion rules may also define a custom sink (JDBC / BigQuery / Redshift ...). 
-In that case, it may be useless to also sink the files to the filesystem. To disable sinking the resulting parquet file, simply
-set the `COMET_SINK_TO_FILE` environment variable to `false`.
+The YAML file describing the schema and ingestion rules may also define a custom sink (FS / JDBC / BigQuery / Redshift ...). 
+
+In test mode, we need to sink the files to the filesystem. To enable sinking the resulting parquet file even when another sink type is desired, simply
+set the `COMET_SINK_TO_FILE` environment variable to `true`.
 
 |HOCON Variable|Env variable|Default Value|Description
 |:--------------|:------------|:-------|:-----------
-|sink-to-file|COMET_SINK_TO_FILE|true|Should ingested files be stored on the filesystem on only in the sink defined in the YAML file ?
+|sink-to-file|COMET_SINK_TO_FILE|false|Should ingested files be stored on the filesystem on only in the sink defined in the YAML file ?
 
 ```hocon
-sink-to-file = true
+sink-to-file = false
 sink-to-file = ${?COMET_SINK_TO_FILE}
 ```
 
-When `sink to file` is requested, and you want to output the result in a single file in the csv file format, set the `COMET_CSV_OUTPUT` 
+When `sink to file` or a filesystem sink (SinkType.FS) is requested, and you want to output the result in a single file in the csv file format, set the `COMET_CSV_OUTPUT` 
 environment variable to `true`.
 
+### Validation
+During ingestion, the input file is validated up to the attribute level. Three default row validators are defined:
+
+- com.ebiznext.comet.job.validator.FlatRowValidator: to validate flat files, eq. DSV, Position and single level Json files.
+- com.ebiznext.comet.job.validator.TreeRowValidator:  used for tree like documents, eq. XML and JSON files
+- com.ebiznext.comet.job.validator.AcceptAllValidator: used for any document type (flat and tree like) and accept the input without any validation
+
+The validtor to use is configurable as follows:
+
+HOCON Variable|Env. variable|Default value
+:---|:---|:---
+row-validator-class|COMET_ROW_VALIDATOR_CLASS|com.ebiznext.comet.job.validator.FlatRowValidator
+tree-validator-class|COMET_TREE_VALIDATOR_CLASS|com.ebiznext.comet.job.validator.TreeRowValidator
+
 ### Privacy
+Default valid values are NONE, HIDE, MD5, SHA1, SHA256, SHA512, AES(not implemented). 
+Custom values may also be defined by adding a new privacy option in the application.conf. 
+The default reference.conf file defines the following valid privacy strategies:
+```hocon
+privacy {
+  options = {
+    "none": "com.ebiznext.comet.privacy.No",
+    "hide": "com.ebiznext.comet.privacy.Hide",
+    "hide10X": "com.ebiznext.comet.privacy.Hide(\"X\",10)",
+    "approxLong20": "com.ebiznext.comet.privacy.ApproxLong(20)",
+    "md5": "com.ebiznext.comet.privacy.Md5",
+    "sha1": "com.ebiznext.comet.privacy.Sha1",
+    "sha256": "com.ebiznext.comet.privacy.Sha256",
+    "sha512": "com.ebiznext.comet.privacy.Sha512",
+    "initials": "com.ebiznext.comet.privacy.Initials"
+  }
+}
+```
+In the YAML file, reference, you reference the option name. This will apply the function defined in the class referenced by the option value.
+
+Below the predefined strategies:
+
+Privacy Strategy|Privacy class|Description
+:---|:---|:---
+none|com.ebiznext.comet.privacy.No|Return the input string itself
+hide|com.ebiznext.comet.privacy.Hide(\"X\", 10)|Without a parameter, return the empty string. Otherwise, replace with 10 occurrences of the character 'X'
+md5|com.ebiznext.comet.privacy.Md5|Return the md5 of the input string
+sha1|com.ebiznext.comet.privacy.Sha1|Return the sha1 of the input string
+sha256|com.ebiznext.comet.privacy.Sha256|Return the sha256 of the input string
+sha512|com.ebiznext.comet.privacy.Sha512|Return the sha256 of the input string
+initials|com.ebiznext.comet.privacy.Initials|Return the first char of each word (usually applied to user names)
+
+The following startegies are also defined and may be declared in the custom configuration file.
+
+Privacy class|Description
+:---|:---
+com.ebiznext.comet.privacy.IPv4(8)|Return the IPv4 address with the last 8 bytes masked  
+com.ebiznext.comet.privacy.IPv6(8|Return the IPv6 address with the last 8 bytes masked
+com.ebiznext.comet.privacy.RandomDouble|Return a random double number
+com.ebiznext.comet.privacy.RandomDouble(10,20)|Return a random double between 10.0 and 20.0
+com.ebiznext.comet.privacy.RandomLong|Return a random long number
+com.ebiznext.comet.privacy.RandomLong(10, 20)|Return a random long number between 10 and 20
+com.ebiznext.comet.privacy.RandomInt|Return a random int number
+com.ebiznext.comet.privacy.RandomInt(10, 20)|Return a random int number between 10 and 20
+com.ebiznext.comet.privacy.ApproxDouble(70)|Return a double value with a variation up to 70% applied to the input value  
+com.ebiznext.comet.privacy.ApproxLong(70)|Return a double long with a variation up to 70% applied to the input value
+com.ebiznext.comet.privacy.Mask(\"*\", 4, 1, 3)| Partially mask the input value with 4 occurrences of the '*' character, 1 on the left side and 3 on the right side. 
 
 
+Any new privacy strategy should implement the following trait :
+
+```scala
+/** @param s: String  => Input string to encrypt
+  * @param colMap : Map[String, Option[String]] => Map of all the attributes and their corresponding values
+  * @param params: List[Any]  => Parameters passed to the algorithm as defined in the conf file.
+  *                               Parameter starting with '"' is converted to a string
+  *                               Parameter containing a '.' is converted to a double
+  *                               Parameter equals to true of false is converted a boolean
+  *                               Anything else is converted to an int
+  * @return The encrypted string
+  */
+```
 
 ### Sinks
+#### BigQuery Sink
+When type field is set to `BigQuerySink`
+
+Property|Type|Default Value|Description
+:---|:---|:---|:---
+name|Optional String|None|
+location|String|EU|Database location (EU, US, ...)
+timestamp|String|None|The timestamp column to use for table partitioning if any. No partitioning by default
+clustering|List|None|List of ordered columns to use for table clustering
+days|Int|None|Number of days before this table is set as expired and deleted. Never by default.
+requirePartitionFilter|Boolean|false|Should be require a partition filter on every request ? No by default.
+options|Map|None|Spark or BigQuery (depend on the selected engine) options to be set on the BigQuery connection
+
+#### Elasticsearch Sink
+When type field is set to `EsSink`
+
+Property|Type|Default Value|Description
+:---|:---|:---|:---
+name|Optional String|None|
+id|String|None|Attribute to use as id of the document. Generated by Elasticseach if not specified.
+timestamp|String|None|Timestamp field format as expected by Elasticsearch ("{beginTs&#124;yyyy.MM.dd}" for example).
+options|Map|None|Elasticsearch options to be set on the ES connection
+
+
+#### Filesystem Sink
+When type field is set to `FsSink`. FsSink est the default sink type when ingesting data.
+The file where data is saved is computed using the domain and schema name. See [Load](../howto/load.md) and [Transform](../howto/transform.md)
+
+Property|Type|Default Value|Description
+:---|:---|:---|:---
+name|Optional String|None|
+connection|String|None|JDBC Connection String
+options|Map|None|[JDBC Options](https://spark.apache.org/docs/latest/sql-data-sources-jdbc.html)
+
+
 ### Audit / Metrics / Assertions
 ### Elasticsearch
 ### Spark
