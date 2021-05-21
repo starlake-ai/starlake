@@ -49,7 +49,7 @@ export COMET_ENV=PROD
 ```
 
 ## Global Variables
-To define variables accross environment, simply declare them in thet `env.comet.yml` file in the `metadata` folder.
+To define variables across environment, simply declare them in the `env.comet.yml` file in the `metadata` folder.
 
-Global variables definition may be superseded by the env specific variables files.  
+Global variables definitions may be superseded by the env specific variables files.  
 

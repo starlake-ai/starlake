@@ -12,7 +12,7 @@ Once imported, we want the deleted orders to be removed from the dataset and
 we want to keep only the last update of each order.
 
 
-The locations dataset should replace the previous imported locations dataset
+The `locations` dataset should replace the previous imported `locations` dataset
 while all others datasets are just updates of the previous imported ones.
 
 The customers and orders dataset are sent by the "sales" department
@@ -35,7 +35,7 @@ order_id|customer_id|amount|seller_id
 > :memo: **Before sending the files, the "sales" department zip all its files 
 > into a single compressed files and put them in the folder /mnt/incoming/sales of the landing area.**
 
-The sellers dataset is sent as JSON array by the HR department.
+The `sellers` dataset is sent as JSON array by the HR department.
 
 ``File sellers-2018-05-10.json from the HR department``
 
