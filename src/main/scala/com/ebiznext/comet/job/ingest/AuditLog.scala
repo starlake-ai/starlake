@@ -153,8 +153,6 @@ object SparkAuditLogWriter extends StrictLogging {
         }
       }
     }
-    if (settings.comet.sinkToFile)
-      sinkToFile(log, settings)
 
     val auditTypedRDD: RDD[AuditLog] = session.sparkContext.parallelize(Seq(log))
     val auditDF = session
@@ -167,6 +165,11 @@ object SparkAuditLogWriter extends StrictLogging {
         )
       )
       .toDF(auditCols.map { case (name, _, _) => name }: _*)
+
+    // We sink to a file when running unit tests
+    if (settings.comet.sinkToFile) {
+      sinkToFile(log, settings)
+    }
 
     settings.comet.audit.sink match {
       case sink: JdbcSink =>
@@ -200,8 +203,10 @@ object SparkAuditLogWriter extends StrictLogging {
       case _: EsSink =>
         // TODO Sink Audit Log to ES
         throw new Exception("Sinking Audit log to Elasticsearch not yet supported")
-      case _: NoneSink | FsSink(_, _) =>
-      // this is a NOP
+      case _: NoneSink | FsSink(_, _) if !settings.comet.sinkToFile =>
+        sinkToFile(log, settings)
+      case _: NoneSink | FsSink(_, _) if settings.comet.sinkToFile =>
+      // Do nothing dataset already sinked to file
     }
   }
 }
