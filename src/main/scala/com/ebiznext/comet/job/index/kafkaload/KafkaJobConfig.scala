@@ -44,7 +44,7 @@ object KafkaJobConfig extends CliConfig[KafkaJobConfig] {
         .text("Topic Name declared in reference.conf file")
         .required(),
       opt[String]("format")
-        .action((x, c) => c.copy(topicConfigName = x))
+        .action((x, c) => c.copy(format = x))
         .text("Read/Write format eq : parquet, json, csv ... Default to parquet.")
         .optional(),
       opt[String]("path")
@@ -76,20 +76,20 @@ object KafkaJobConfig extends CliConfig[KafkaJobConfig] {
           opt[Unit]("stream")
             .action((_, c) => c.copy(streaming = true))
             .text(
-              "If true, kafka topic is offloaded to path, else data contained in path is stored in the kafka topic"
+              "Should we use streaming mode ?"
             )
             .optional()
             .children(
               opt[String]("streaming-format")
                 .action((x, c) => c.copy(streamingWriteFormat = x))
                 .text(
-                  "If true, kafka topic is offloaded to path, else data contained in path is stored in the kafka topic"
+                  "Streaming format eq. kafka, console ..."
                 )
                 .required(),
               opt[String]("streaming-output-mode")
                 .action((x, c) => c.copy(streamingWriteMode = x))
                 .text(
-                  "If true, kafka topic is offloaded to path, else data contained in path is stored in the kafka topic"
+                  "Output mode : eq. append ... "
                 )
                 .required(),
               opt[String]("streaming-trigger")
