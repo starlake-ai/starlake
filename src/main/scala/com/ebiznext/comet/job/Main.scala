@@ -98,6 +98,7 @@ object Main extends StrictLogging {
     import settings.{launcherService, metadataStorageHandler, storageHandler}
     DatasetArea.initMetadata(metadataStorageHandler)
     val schemaHandler = new SchemaHandler(metadataStorageHandler)
+    schemaHandler.checkValidity()
 
     DatasetArea.initDomains(storageHandler, schemaHandler.domains.map(_.name))
 

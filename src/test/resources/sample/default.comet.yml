@@ -57,7 +57,7 @@ types:
   - name: "basic_iso_date"
     primitiveType: "timestamp"
     pattern: "BASIC_ISO_DATE"
-    sample: "220111203"
+    sample: "20111203"
     comment: "Timestamp based on yyyMMdd pattern"
   - name: "iso_local_date"
     primitiveType: "timestamp"
