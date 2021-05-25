@@ -39,6 +39,7 @@ import com.ebiznext.comet.utils.Formatter._
   * @param storage : Underlying filesystem manager
   */
 class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extends StrictLogging {
+  this.checkValidity()
 
   // uses Jackson YAML for parsing, relies on SnakeYAML for low level handling
   val mapper: ObjectMapper with ScalaObjectMapper = {
@@ -48,11 +49,20 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     mapper
   }
 
+  @throws[Exception]
+  private def checkValidity(): Unit = {
+    this.types
+    this.domains
+    this.activeEnv
+    this.jobs
+  }
+
   /** All defined types.
     * Load all default types defined in the file default.comet.yml
     * Types are located in the only file "types.comet.yml"
     * Types redefined in the file "types.comet.yml" supersede the ones in "default.comet.yml"
     */
+  @throws[Exception]
   lazy val types: List[Type] = {
     def loadTypes(filename: String): List[Type] = {
       val deprecatedTypesPath = new Path(DatasetArea.types, filename + ".yml")
@@ -74,6 +84,7 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     defaultTypes.filter(defaultType => !redefinedTypeNames.contains(defaultType.name)) ++ types
   }
 
+  @throws[Exception]
   def assertions(name: String): Map[String, AssertionDefinition] = {
     def loadAssertions(filename: String): Map[String, AssertionDefinition] = {
       val assertionsPath = new Path(DatasetArea.assertions, filename)
@@ -113,6 +124,7 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     )
   }
 
+  @throws[Exception]
   lazy val activeEnv: Map[String, String] = {
     def loadEnv(path: Path) =
       if (storage.exists(path))
@@ -138,6 +150,7 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
   /** All defined domains
     * Domains are defined under the "domains" folder in the metadata folder
     */
+  @throws[Exception]
   lazy val domains: List[Domain] = {
     val (validDomainsFile, invalidDomainsFiles) = storage
       .list(DatasetArea.domains, ".yml", recursive = true)
@@ -148,9 +161,10 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
 
     invalidDomainsFiles.foreach {
       case Failure(err) =>
-        logger.warn(
+        logger.error(
           s"There is one or more invalid Yaml files in your domains folder:${err.getMessage}"
         )
+        throw err
       case Success(_) => // ignore
     }
 
@@ -232,6 +246,7 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
   /** All defined jobs
     * Jobs are defined under the "jobs" folder in the metadata folder
     */
+  @throws[Exception]
   lazy val jobs: Map[String, AutoJobDesc] = {
     val jobs = storage.list(DatasetArea.jobs, ".yml", recursive = true)
     val (validJobsFile, invalidJobsFile) =
@@ -242,9 +257,10 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     invalidJobsFile.foreach {
       case Failure(err) =>
         err.printStackTrace()
-        logger.warn(
+        logger.error(
           s"There is one or more invalid Yaml files in your jobs folder:${err.getMessage}"
         )
+        throw err
       case Success(_) => // do nothing
     }
 
