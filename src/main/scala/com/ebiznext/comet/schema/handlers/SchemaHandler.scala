@@ -39,7 +39,6 @@ import com.ebiznext.comet.utils.Formatter._
   * @param storage : Underlying filesystem manager
   */
 class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extends StrictLogging {
-  this.checkValidity()
 
   // uses Jackson YAML for parsing, relies on SnakeYAML for low level handling
   val mapper: ObjectMapper with ScalaObjectMapper = {
@@ -50,7 +49,7 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
   }
 
   @throws[Exception]
-  private def checkValidity(): Unit = {
+  def checkValidity(): Unit = {
     this.types
     this.domains
     this.activeEnv
