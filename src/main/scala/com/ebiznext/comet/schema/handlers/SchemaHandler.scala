@@ -50,10 +50,18 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
 
   @throws[Exception]
   def checkValidity(): Unit = {
-    this.types
-    this.domains
+    val typesValidity = this.types.map(_.checkValidity())
+    val domainsValidty = this.domains.map(_.checkValidity(this))
     this.activeEnv
     this.jobs
+    val allErrors = typesValidity ++ domainsValidty
+    val errs = allErrors.filter(_.isLeft).flatMap(_.left.get)
+    errs match {
+      case Nil =>
+      case _ =>
+        errs.foreach(err => logger.error(err))
+        throw new Exception("Invalid YML file(s) found. See errors above.")
+    }
   }
 
   /** All defined types.
