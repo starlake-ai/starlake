@@ -323,6 +323,7 @@ trait TestHelper extends AnyFlatSpec with Matchers with BeforeAndAfterAll with S
       withSettings.deliverTestFile(sourceDatasetPathName, targetPath)
 
       val schemaHandler = new SchemaHandler(settings.storageHandler)
+      schemaHandler.checkValidity()
 
       DatasetArea.initMetadata(metadataStorageHandler)
       DatasetArea.initDomains(storageHandler, schemaHandler.domains.map(_.name))
