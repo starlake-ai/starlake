@@ -20,10 +20,12 @@
 
 package com.ebiznext.comet.schema.handlers
 
+import better.files.File
 import com.databricks.spark.xml._
 import com.dimafeng.testcontainers.ElasticsearchContainer
 import com.ebiznext.comet.TestHelper
 import com.ebiznext.comet.config.DatasetArea
+import com.ebiznext.comet.schema.generator.Yml2GraphViz
 import com.ebiznext.comet.schema.model._
 import com.softwaremill.sttp.{HttpURLConnectionBackend, _}
 import com.typesafe.config.{Config, ConfigFactory}
@@ -561,6 +563,17 @@ class SchemaHandlerSpec extends TestHelper {
         cleanMetadata
         cleanDatasets
         val schemaHandler = new SchemaHandler(settings.storageHandler)
+
+        new Yml2GraphViz(schemaHandler).run(Array("--all", "false"))
+
+        val tempFile = File.newTemporaryFile().pathAsString
+        new Yml2GraphViz(schemaHandler).run(
+          Array("--all", "true", "--output", tempFile)
+        )
+        val fileContent = readFileContent(tempFile)
+        val expectedFileContent = loadTextFile("/expected/dot/output.dot")
+        fileContent shouldBe expectedFileContent
+
         val result = schemaHandler.domains.head.asDot(false)
         result.trim shouldBe """
                                |
