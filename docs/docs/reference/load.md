@@ -178,7 +178,7 @@ separator: String
 *Optional*. When the input file is in the DSV file format, yhiss field contains the values delimiter,  ';' by default value may be a multichar string starting from Spark 3
 
 ````scala
-uote: Char
+quote: Char
 ````
 *Optional*. The String quote char, '"' by default
 
