@@ -5,7 +5,8 @@ __New feature__:
 - Use the same variable for Lock timeout
 - Improve logging when locking file fails
 - File sink while still the default is now controlled by the sink tag in the YAML file. The option sink-to-file is removed and used for testing purpose only.
-
+- Allow custom topic name for comet_offsets
+- Add ability to coalesce(int) to kafka offloading feature
 __Bug Fix__:
 - Invalid YAML files produce now an error at startup instead of displaying a warning.
 
