@@ -205,13 +205,13 @@ class KafkaJobSpec extends TestHelper {
       val topics = kafkaConsumer.listTopics()
     }
 
-    "Create topic comet_offets topic" should "succeed" in {
+    "Create topic comet_offsets topic" should "succeed" in {
       val client = new KafkaClient(settings.comet.kafka)
       val topicProperties = Map("cleanup.policy" -> "compact")
       client.createTopicIfNotPresent(new NewTopic("comet_offsets", 1, 1.toShort), topicProperties)
     }
 
-    "Get comet_offets partitions " should "return 1" in {
+    "Get comet_offsets partitions " should "return 1" in {
       val client = new KafkaClient(settings.comet.kafka)
       val topicProperties = Map("cleanup.policy" -> "compact")
       client.createTopicIfNotPresent(new NewTopic("comet_offsets", 1, 1.toShort), topicProperties)
@@ -219,7 +219,7 @@ class KafkaJobSpec extends TestHelper {
       partitions should have size 1
     }
 
-    "Access comet_offets end offsets" should "work" in {
+    "Access comet_offsets end offsets" should "work" in {
       val client = new KafkaClient(settings.comet.kafka)
       val topicProperties = Map("cleanup.policy" -> "compact")
       client.createTopicIfNotPresent(new NewTopic("comet_offsets", 1, 1.toShort), topicProperties)
@@ -263,7 +263,13 @@ class KafkaJobSpec extends TestHelper {
       kafkaJob.run()
       val kafkaJob2 =
         new KafkaJob(
-          KafkaJobConfig("test_offload", "json", SaveMode.Overwrite, "/tmp/json2.json")
+          KafkaJobConfig(
+            "test_offload",
+            "json",
+            SaveMode.Overwrite,
+            "/tmp/json2.json",
+            coalesce = Some(1)
+          )
         )
       kafkaJob2.run() match {
         case Success(_) =>
