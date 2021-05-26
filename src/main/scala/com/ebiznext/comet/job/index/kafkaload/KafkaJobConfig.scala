@@ -18,7 +18,8 @@ case class KafkaJobConfig(
   streamingTrigger: String = "Once",
   streamingTriggerOption: String = "",
   streamingWritePartitionBy: Seq[String] = Nil,
-  streamingWriteToTable: Boolean = false
+  streamingWriteToTable: Boolean = false,
+  coalesce: Option[Int] = None
 ) {
 
   val transformInstance: Option[DataFrameTransform] = {
@@ -61,6 +62,12 @@ object KafkaJobConfig extends CliConfig[KafkaJobConfig] {
         .action((x, c) => c.copy(writeOptions = x))
         .text(
           "Options to pass to Spark Writer"
+        )
+        .optional(),
+      opt[Int]("coalesce")
+        .action((x, c) => c.copy(coalesce = Some(x)))
+        .text(
+          "Should we coalesce the resulting dataframe"
         )
         .optional(),
       opt[String]("transform")
