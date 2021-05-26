@@ -48,7 +48,7 @@ schemas:
     attributes:
       - name: "dream_id"
         type: "long"
-        references: "segment"
+        foreignKey: "segment"
         required: false
         privacy: "NONE"
       - name: "gender"
