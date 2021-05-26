@@ -102,7 +102,9 @@ abstract class JsonIngestionJobSpecBase(variant: String) extends TestHelper with
 
         cleanMetadata
         cleanDatasets
-        loadPending shouldBe false
+        assertThrows[Exception] {
+          loadPending
+        }
       }
     }
   }

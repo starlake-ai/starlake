@@ -6,6 +6,9 @@ __New feature__:
 - Improve logging when locking file fails
 - File sink while still the default is now controlled by the sink tag in the YAML file. The option sink-to-file is removed and used for testing purpose only.
 
+__Bug Fix__:
+- Invalid YAML files produce now an error at startup instead of displaying a warning.
+
 ## 0.2.0
 __New feature__:
 - Export all tables in DDL2YML generation
