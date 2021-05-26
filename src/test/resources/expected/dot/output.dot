@@ -1,0 +1,111 @@
+
+digraph {
+graph [pad="0.5", nodesep="0.5", ranksep="2"];
+node [shape=plain]
+rankdir=LR;
+
+
+
+dream_segment [label=<
+<table border="0" cellborder="1" cellspacing="0">
+<tr><td port="0" bgcolor="darkgreen"><B><FONT color="white"> segment </FONT></B></td></tr>
+<tr><td port="dream_id"><B> dreamkey:long </B></td></tr>
+<tr><td port="segmentation_label"> segmentation_label:string </td></tr>
+<tr><td port="segment_label"> segment_label:string </td></tr>
+<tr><td port="sub_segment_label"> sub_segment_label:string </td></tr>
+<tr><td port="client_profile_label"> client_profile_label:string </td></tr>
+</table>>];
+
+
+
+dream_client [label=<
+<table border="0" cellborder="1" cellspacing="0">
+<tr><td port="0" bgcolor="darkgreen"><B><FONT color="white"> client </FONT></B></td></tr>
+<tr><td port="dream_id"><I> dream_id:long </I></td></tr>
+<tr><td port="gender"> gender:string </td></tr>
+<tr><td port="birthdate_day"> birthdate_day:long </td></tr>
+<tr><td port="birthdate_month"> birthdate_month:long </td></tr>
+<tr><td port="birthdate_year"> birthdate_year:long </td></tr>
+<tr><td port="nationality"> nationality:string </td></tr>
+<tr><td port="customer_creation_date"> customer_creation_date:timestamp </td></tr>
+<tr><td port="zip_code"> zip_code:string </td></tr>
+<tr><td port="city"> city:string </td></tr>
+<tr><td port="state"> state:string </td></tr>
+<tr><td port="main_postal_country"> main_postal_country:string </td></tr>
+<tr><td port="email"> email:string </td></tr>
+<tr><td port="home_phone"> home_phone:string </td></tr>
+<tr><td port="mobile_phone"> mobile_phone:string </td></tr>
+<tr><td port="professional_phone"> professional_phone:string </td></tr>
+<tr><td port="stop_mailing_flag"> stop_mailing_flag:long </td></tr>
+<tr><td port="stop_emailing_flag"> stop_emailing_flag:long </td></tr>
+<tr><td port="stop_home_phone_flag"> stop_home_phone_flag:long </td></tr>
+<tr><td port="stop_mobile_phone_flag"> stop_mobile_phone_flag:long </td></tr>
+<tr><td port="stop_call_flag"> stop_call_flag:long </td></tr>
+<tr><td port="stop_sms_mms_flag"> stop_sms_mms_flag:long </td></tr>
+<tr><td port="can_email"> can_email:long </td></tr>
+<tr><td port="can_mail"> can_mail:long </td></tr>
+<tr><td port="can_call"> can_call:long </td></tr>
+<tr><td port="can_sms"> can_sms:long </td></tr>
+<tr><td port="attached_channel"> attached_channel:string </td></tr>
+<tr><td port="first_transaction_date_hist"> first_transaction_date_hist:date </td></tr>
+<tr><td port="last_transaction_date_hist"> last_transaction_date_hist:date </td></tr>
+<tr><td port="turnover_hist_euro"> turnover_hist_euro:decimal </td></tr>
+<tr><td port="turnover_hist_dollar"> turnover_hist_dollar:decimal </td></tr>
+<tr><td port="number_of_products_hist"> number_of_products_hist:long </td></tr>
+<tr><td port="number_of_transactions_hist"> number_of_transactions_hist:long </td></tr>
+<tr><td port="typology_code"> typology_code:long </td></tr>
+<tr><td port="typology"> typology:string </td></tr>
+<tr><td port="iaca_sf_code"> iaca_sf_code:string </td></tr>
+<tr><td port="iaca_name"> iaca_name:string </td></tr>
+<tr><td port="iaca_rms_code"> iaca_rms_code:string </td></tr>
+<tr><td port="iaca_store_name"> iaca_store_name:string </td></tr>
+<tr><td port="iaca_store_retail_code"> iaca_store_retail_code:string </td></tr>
+<tr><td port="preferred_language"> preferred_language:string </td></tr>
+<tr><td port="client_complaint"> client_complaint:string </td></tr>
+<tr><td port="complaint_last_closure_date"> complaint_last_closure_date:timestamp </td></tr>
+<tr><td port="segmentation"> segmentation:string </td></tr>
+<tr><td port="main_postal_country_label"> main_postal_country_label:string </td></tr>
+<tr><td port="nationality_label"> nationality_label:string </td></tr>
+<tr><td port="attached_channel_name"> attached_channel_name:string </td></tr>
+<tr><td port="gender_label"> gender_label:string </td></tr>
+<tr><td port="client_sf_id"> client_sf_id:string </td></tr>
+<tr><td port="turnover_histyuan"> turnover_histyuan:decimal </td></tr>
+<tr><td port="turnover_histyen"> turnover_histyen:decimal </td></tr>
+<tr><td port="turnover_histeuro_wo_tx"> turnover_histeuro_wo_tx:decimal </td></tr>
+<tr><td port="turnover_histdollar_wo_tx"> turnover_histdollar_wo_tx:decimal </td></tr>
+<tr><td port="turnover_histyuan_wo_tx"> turnover_histyuan_wo_tx:decimal </td></tr>
+<tr><td port="turnover_histyen_wo_tx"> turnover_histyen_wo_tx:decimal </td></tr>
+<tr><td port="title_id"> title_id:long </td></tr>
+<tr><td port="title_label"> title_label:string </td></tr>
+<tr><td port="civility_id"> civility_id:long </td></tr>
+<tr><td port="civility_label"> civility_label:string </td></tr>
+<tr><td port="channel_visited_id"> channel_visited_id:long </td></tr>
+<tr><td port="channel_visited_label"> channel_visited_label:string </td></tr>
+<tr><td port="email_domain"> email_domain:string </td></tr>
+<tr><td port="id_ww_vendeur"> id_ww_vendeur:string </td></tr>
+<tr><td port="isvalid_mainpostal_adr"> isvalid_mainpostal_adr:long </td></tr>
+<tr><td port="isvalid_email"> isvalid_email:long </td></tr>
+<tr><td port="isvalid_pmobile_phone"> isvalid_pmobile_phone:long </td></tr>
+<tr><td port="isvalid_phome_phone"> isvalid_phome_phone:long </td></tr>
+<tr><td port="isvalid_birthd"> isvalid_birthd:long </td></tr>
+<tr><td port="has_serial_number"> has_serial_number:long </td></tr>
+<tr><td port="has_lock_number"> has_lock_number:long </td></tr>
+<tr><td port="has_active_icon_lic"> has_active_icon_lic:long </td></tr>
+<tr><td port="cust_initiales"> cust_initiales:string </td></tr>
+<tr><td port="cust_arrival_date"> cust_arrival_date:date </td></tr>
+<tr><td port="cust_wedding_date"> cust_wedding_date:date </td></tr>
+<tr><td port="cust_segmentation_id"> cust_segmentation_id:long </td></tr>
+<tr><td port="id_10k"> id_10k:string </td></tr>
+<tr><td port="lib_10k"> lib_10k:string </td></tr>
+<tr><td port="id_10k_ytm"> id_10k_ytm:string </td></tr>
+<tr><td port="lib_10k_ytm"> lib_10k_ytm:string </td></tr>
+<tr><td port="sub_segment_label"> sub_segment_label:string </td></tr>
+<tr><td port="client_profile_label"> client_profile_label:string </td></tr>
+<tr><td port="id_subsegment"> id_subsegment:string </td></tr>
+<tr><td port="id_client_profile_label"> id_client_profile_label:string </td></tr>
+<tr><td port="truncated_zip_code"> truncated_zip_code:string </td></tr>
+<tr><td port="source_file_name"> source_file_name:string </td></tr>
+</table>>];
+
+dream_client:dream_id -> dream_segment:0
+}
