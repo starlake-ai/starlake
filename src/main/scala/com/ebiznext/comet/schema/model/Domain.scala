@@ -152,4 +152,23 @@ case class Domain(
     else
       Right(true)
   }
+
+  def asDot(includeAllAttrs: Boolean): String = {
+    """
+      |digraph {
+      |graph [pad="0.5", nodesep="0.5", ranksep="2"];
+      |node [shape=plain]
+      |rankdir=LR;
+      |
+      |
+      |""".stripMargin +
+    schemas
+      .map { schema =>
+        schema.asDot(name, includeAllAttrs)
+      }
+      .mkString("\n") +
+    """
+        |}
+        |""".stripMargin
+  }
 }
