@@ -280,9 +280,9 @@ case class Schema(
       case Some(ref) =>
         val tab = ref.split('.')
         val (refDomain, refSchema, refAttr) = tab.size match {
-          case 3 => (tab(0), tab(1), tab(2))
-          case 2 => (domain, tab(0), tab(1))
-          case 1 => (domain, tab(0), 0)
+          case 3 => (tab(0), tab(1), tab(2)) // reference to domain.table.column
+          case 2 => (domain, tab(0), tab(1)) // reference to table.column
+          case 1 => (domain, tab(0), 0) // reference to table
         }
         Some(s"$tableLabel:${attr.name} -> ${refDomain}_$refSchema:$refAttr")
     }
