@@ -15,3 +15,4 @@ default: null
 tags: null
 trim: null
 script: null
+references: null
