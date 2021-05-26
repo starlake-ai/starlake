@@ -27,7 +27,7 @@ class KafkaClient(kafkaConfig: KafkaConfig) extends StrictLogging with AutoClose
 
   createTopicIfNotPresent(
     new NewTopic(
-      "comet_offsets",
+      cometOffsetsConfig.topicName,
       cometOffsetsConfig.partitions,
       cometOffsetsConfig.replicationFactor
     ),
@@ -94,7 +94,7 @@ class KafkaClient(kafkaConfig: KafkaConfig) extends StrictLogging with AutoClose
     offsets.foreach { case (partition, offset) =>
       producer.send(
         new ProducerRecord[String, String](
-          "comet_offsets",
+          cometOffsetsConfig.topicName,
           s"$topicConfigName/$partition",
           s"$offset"
         )
@@ -110,15 +110,18 @@ class KafkaClient(kafkaConfig: KafkaConfig) extends StrictLogging with AutoClose
     }
     val consumer = new KafkaConsumer[String, String](props)
     val partitions =
-      topicPartitions("comet_offsets").map(info =>
-        new TopicPartition("comet_offsets", info.partition())
+      topicPartitions(cometOffsetsConfig.topicName).map(info =>
+        new TopicPartition(cometOffsetsConfig.topicName, info.partition())
       )
     consumer.assign(partitions.asJava)
     consumer.seekToBeginning(partitions.asJava)
     val offsets = mutable.Map.empty[String, String]
     var records = consumer.poll(Duration.ofMillis(100))
     while (records != null && !records.isEmpty) {
-      records.records("comet_offsets").asScala.foreach(r => offsets += r.key() -> r.value())
+      records
+        .records(cometOffsetsConfig.topicName)
+        .asScala
+        .foreach(r => offsets += r.key() -> r.value())
       records = consumer.poll(Duration.ofMillis(100))
     }
 
