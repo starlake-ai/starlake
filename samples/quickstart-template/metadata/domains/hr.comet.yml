@@ -9,6 +9,8 @@ load:
   schemas:
     - name: "sellers"
       pattern: "sellers-.*.json"
+      primaryKey:
+        - id
       metadata:
         array: true
         format: "SIMPLE_JSON"
@@ -25,6 +27,8 @@ load:
           required: true
     - name: "locations"
       pattern: "locations-.*.json"
+      primaryKey:
+        - id
       metadata:
         format: "JSON"
         write: "OVERWRITE"

@@ -250,6 +250,44 @@ case class Schema(
 
   }
 
+  private[this] def dotRow(
+    attr: Attribute,
+    isPK: Boolean,
+    isFK: Boolean,
+    includeAllAttrs: Boolean
+  ): Option[String] = {
+    val col = attr.default match {
+      case None    => s"""${attr.getFinalName()}:${attr.`type`}"""
+      case Some(x) => s"""${attr.getFinalName()}:${attr.`type`} = $x"""
+    }
+    (isPK, isFK, includeAllAttrs) match {
+      case (true, true, _) =>
+        Some(s"""<tr><td port="${attr.name}"><B><I> $col </I></B></td></tr>""")
+      case (true, false, _) =>
+        Some(s"""<tr><td port="${attr.name}"><B> $col </B></td></tr>""")
+      case (false, true, _) =>
+        Some(s"""<tr><td port="${attr.name}"><I> $col </I></td></tr>""")
+      case (false, false, true) =>
+        Some(s"""<tr><td port="${attr.name}"> $col </td></tr>""")
+      case (false, false, false) => None
+    }
+  }
+
+  private[this] def dotRelation(attr: Attribute, domain: String): Option[String] = {
+    val tableLabel = s"${domain}_$name"
+    attr.references match {
+      case None => None
+      case Some(ref) =>
+        val tab = ref.split('.')
+        val (refDomain, refSchema, refAttr) = tab.size match {
+          case 3 => (tab(0), tab(1), tab(2))
+          case 2 => (domain, tab(0), tab(1))
+          case 1 => (domain, tab(0), 0)
+        }
+        Some(s"$tableLabel:${attr.name} -> ${refDomain}_$refSchema:$refAttr")
+    }
+  }
+
   def asDot(domain: String, includeAllAttrs: Boolean): String = {
     val tableLabel = s"${domain}_$name"
     val header =
@@ -258,38 +296,11 @@ case class Schema(
       attributes.flatMap { attr =>
         val isPK = primaryKey.getOrElse(Nil).contains(attr.name)
         val isFK = attr.references.isDefined
-        val col = attr.default match {
-          case None    => s"""${attr.getFinalName()}:${attr.`type`}"""
-          case Some(x) => s"""${attr.getFinalName()}:${attr.`type`} = $x"""
-        }
-
-        (isPK, isFK, includeAllAttrs) match {
-          case (true, true, _) =>
-            Some(s"""<tr><td port="${attr.name}"><B><I> $col </I></B></td></tr>""")
-          case (true, false, _) =>
-            Some(s"""<tr><td port="${attr.name}"><B> $col </B></td></tr>""")
-          case (false, true, _) =>
-            Some(s"""<tr><td port="${attr.name}"><I> $col </I></td></tr>""")
-          case (false, false, true) =>
-            Some(s"""<tr><td port="${attr.name}"> $col </td></tr>""")
-          case (false, false, false) => None
-        }
+        dotRow(attr, isPK, isFK, includeAllAttrs)
       } mkString "\n"
 
     val relations = attributes
-      .flatMap { attr =>
-        attr.references match {
-          case None => None
-          case Some(ref) =>
-            val tab = ref.split('.')
-            val (refDomain, refSchema, refAttr) = tab.size match {
-              case 3 => (tab(0), tab(1), tab(2))
-              case 2 => (domain, tab(0), tab(1))
-              case 1 => (domain, tab(0), 0)
-            }
-            Some(s"$tableLabel:${attr.name} -> ${refDomain}_$refSchema:$refAttr")
-        }
-      }
+      .flatMap { attr => dotRelation(attr, domain) }
       .mkString("\n")
 
     s"""
@@ -303,7 +314,6 @@ case class Schema(
           |
           |""".stripMargin +
     relations
-
   }
 }
 
