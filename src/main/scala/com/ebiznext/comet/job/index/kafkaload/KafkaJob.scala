@@ -3,9 +3,11 @@ package com.ebiznext.comet.job.index.kafkaload
 import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.utils.kafka.KafkaClient
 import com.ebiznext.comet.utils.{JobResult, SparkJob, SparkJobResult, Utils}
+import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.streaming.Trigger
 
+import java.time.LocalDateTime
 import scala.util.Try
 
 class KafkaJob(
@@ -28,12 +30,37 @@ class KafkaJob(
             )
 
           val transformedDF = transfom(df)
-
-          transformedDF.write
+          val finalDF =
+            kafkaJobConfig.coalesce match {
+              case None    => transformedDF
+              case Some(x) => transformedDF.coalesce(x)
+            }
+          finalDF.write
             .mode(kafkaJobConfig.mode)
             .format(kafkaJobConfig.format)
             .options(kafkaJobConfig.writeOptions)
             .save(kafkaJobConfig.path)
+
+          kafkaJobConfig.coalesce match {
+            case Some(1) =>
+              val extension = kafkaJobConfig.format
+              val targetPath = new Path(kafkaJobConfig.path)
+              val singleFile = settings.storageHandler
+                .list(
+                  targetPath,
+                  s".$extension",
+                  LocalDateTime.MIN,
+                  recursive = false
+                )
+                .head
+              val tmpPath = new Path(targetPath.toString + ".tmp")
+              if (settings.storageHandler.move(singleFile, tmpPath)) {
+                settings.storageHandler.delete(targetPath)
+                settings.storageHandler.move(tmpPath, targetPath)
+              }
+            case _ =>
+          }
+
           kafkaUtils.topicSaveOffsets(
             kafkaJobConfig.topicConfigName,
             topicConfig.accessOptions,
