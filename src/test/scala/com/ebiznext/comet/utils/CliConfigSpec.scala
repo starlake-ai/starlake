@@ -10,7 +10,12 @@ import com.ebiznext.comet.job.index.kafkaload.KafkaJobConfig
 import com.ebiznext.comet.job.infer.InferSchemaConfig
 import com.ebiznext.comet.job.ingest.LoadConfig
 import com.ebiznext.comet.job.metrics.MetricsConfig
-import com.ebiznext.comet.schema.generator.{DDL2YmlConfig, Xls2YmlConfig, Yml2XlsConfig}
+import com.ebiznext.comet.schema.generator.{
+  DDL2YmlConfig,
+  Xls2YmlConfig,
+  Yml2GraphVizConfig,
+  Yml2XlsConfig
+}
 import com.ebiznext.comet.workflow.{ImportConfig, TransformConfig, WatchConfig}
 
 class CliConfigSpec extends TestHelper {
@@ -31,7 +36,8 @@ class CliConfigSpec extends TestHelper {
         "transform"    -> TransformConfig.markdown(12),
         "watch"        -> WatchConfig.markdown(13),
         "kafkaload"    -> KafkaJobConfig.markdown(14),
-        "yml2xls"      -> Yml2XlsConfig.markdown(15)
+        "yml2xls"      -> Yml2XlsConfig.markdown(15),
+        "yml2gv"       -> Yml2GraphVizConfig.markdown(16)
       )
 
       val rstPath =

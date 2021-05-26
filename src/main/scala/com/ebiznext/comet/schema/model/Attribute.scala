@@ -62,7 +62,8 @@ case class Attribute(
   default: Option[String] = None,
   tags: Option[Set[String]] = None,
   trim: Option[Trim] = None,
-  script: Option[String] = None
+  script: Option[String] = None,
+  references: Option[String] = None // [domain.]table.attribute
 ) extends LazyLogging {
 
   override def toString: String =
@@ -111,7 +112,7 @@ case class Attribute(
           Try(someTpe.sparkValue(default)) match {
             case Success(_) =>
             case Failure(e) =>
-              errorList += s"attribute with name $name: Invalid default value for tha attribute type ${e.getMessage()}"
+              errorList += s"attribute with name $name: Invalid default value for this attribute type ${e.getMessage()}"
           }
         }
       }
