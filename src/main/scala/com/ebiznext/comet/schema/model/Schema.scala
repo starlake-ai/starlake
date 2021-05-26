@@ -263,16 +263,17 @@ case class Schema(
           case Some(x) => s"""${attr.getFinalName()}:${attr.`type`} = $x"""
         }
 
-        if (isPK && isFK)
-          Some(s"""<tr><td port="${attr.name}"><B><I> $col </I></B></td></tr>""")
-        else if (isPK)
-          Some(s"""<tr><td port="${attr.name}"><B> $col </B></td></tr>""")
-        else if (isFK)
-          Some(s"""<tr><td port="${attr.name}"><I> $col </I></td></tr>""")
-        else if (includeAllAttrs)
-          Some(s"""<tr><td port="${attr.name}"> $col </td></tr>""")
-        else
-          None
+        (isPK, isFK, includeAllAttrs) match {
+          case (true, true, _) =>
+            Some(s"""<tr><td port="${attr.name}"><B><I> $col </I></B></td></tr>""")
+          case (true, false, _) =>
+            Some(s"""<tr><td port="${attr.name}"><B> $col </B></td></tr>""")
+          case (false, true, _) =>
+            Some(s"""<tr><td port="${attr.name}"><I> $col </I></td></tr>""")
+          case (false, false, true) =>
+            Some(s"""<tr><td port="${attr.name}"> $col </td></tr>""")
+          case (false, false, false) => None
+        }
       } mkString "\n"
 
     val relations = attributes
