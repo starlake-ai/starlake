@@ -18,7 +18,8 @@ case class KafkaJobConfig(
   streamingTrigger: String = "Once",
   streamingTriggerOption: String = "",
   streamingWritePartitionBy: Seq[String] = Nil,
-  streamingWriteToTable: Boolean = false
+  streamingWriteToTable: Boolean = false,
+  coalesce: Option[Int] = None
 ) {
 
   val transformInstance: Option[DataFrameTransform] = {
@@ -38,7 +39,27 @@ object KafkaJobConfig extends CliConfig[KafkaJobConfig] {
     OParser.sequence(
       programName("comet kafkaload"),
       head("comet", "kafkaload", "[options]"),
-      note(""),
+      note("""
+          |Two modes are available : The batch mode and the streaming mode.
+          |
+          |### Batch mode
+          |In batch mode, you start the kafka (off)loader regurarly and the last consumed offset 
+          |will be stored in the `comet_offsets` topic config 
+          |(see [reference-kafka.conf](https://github.com/ebiznext/comet-data-pipeline/blob/master/src/main/resources/reference-kafka.conf#L22) for an example).
+          |
+          |When offloading data from kafka to a file, you may ask to coalesce the result to a specific number of files / partitions.
+          |If you ask to coalesce to a single partition, the offloader will store the data in the exact filename you provided in the path
+          |argument.
+          |
+          |The figure below describes the batch offloading process
+          |![](/img/cli/kafka-offload.png)
+          |
+          |
+          |### Streaming mode
+          |
+          |In this mode, te program keep running and you the comet_offsets topic is not used. The (off)loader will use a consumer group id 
+          |you specify in the access options of the topic configuration you are dealing with.
+          |""".stripMargin),
       opt[String]("topic")
         .action((x, c) => c.copy(topicConfigName = x))
         .text("Topic Name declared in reference.conf file")
@@ -61,6 +82,12 @@ object KafkaJobConfig extends CliConfig[KafkaJobConfig] {
         .action((x, c) => c.copy(writeOptions = x))
         .text(
           "Options to pass to Spark Writer"
+        )
+        .optional(),
+      opt[Int]("coalesce")
+        .action((x, c) => c.copy(coalesce = Some(x)))
+        .text(
+          "Should we coalesce the resulting dataframe"
         )
         .optional(),
       opt[String]("transform")
