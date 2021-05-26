@@ -36,6 +36,7 @@ import com.ebiznext.comet.schema.generator.{
   Xls2Yml,
   Xls2YmlConfig,
   Yml2GraphViz,
+  Yml2GraphVizConfig,
   Yml2XlsConfig,
   Yml2XlsWriter
 }
@@ -76,6 +77,7 @@ object Main extends StrictLogging {
         |${Xls2YmlConfig.usage()}
         |${Yml2XlsConfig.usage()}
         |${KafkaJobConfig.usage()}
+        |${Yml2GraphVizConfig.usage()}
         |""".stripMargin
     )
     // scalastyle:on println
