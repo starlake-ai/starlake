@@ -275,7 +275,7 @@ case class Schema(
 
   private[this] def dotRelation(attr: Attribute, domain: String): Option[String] = {
     val tableLabel = s"${domain}_$name"
-    attr.references match {
+    attr.foreignKey match {
       case None => None
       case Some(ref) =>
         val tab = ref.split('.')
@@ -295,7 +295,7 @@ case class Schema(
     val rows =
       attributes.flatMap { attr =>
         val isPK = primaryKey.getOrElse(Nil).contains(attr.name)
-        val isFK = attr.references.isDefined
+        val isFK = attr.foreignKey.isDefined
         dotRow(attr, isPK, isFK, includeAllAttrs)
       } mkString "\n"
 

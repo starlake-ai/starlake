@@ -54,11 +54,11 @@ load:
         - name: "customer_id"
           type: "customerid"
           required: false
-          references: customers
+          foreignKey: customers
         - name: "amount"
           type: "decimal"
           required: false
         - name: "seller_id"
           type: "string"
           required: false
-          references: hr.sellers.id
+          foreignKey: hr.sellers.id
