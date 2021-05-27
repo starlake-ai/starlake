@@ -225,7 +225,8 @@ trait IngestionJob extends SparkJob {
                                                   _,
                                                   _,
                                                   _,
-                                                  Some(script)
+                                                  Some(script),
+                                                  _
                                                 )
                                               ) =>
                                             df.T(
