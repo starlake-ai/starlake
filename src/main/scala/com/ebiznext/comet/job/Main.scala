@@ -32,7 +32,14 @@ import com.ebiznext.comet.job.index.kafkaload.{KafkaJob, KafkaJobConfig}
 import com.ebiznext.comet.job.infer.InferSchemaConfig
 import com.ebiznext.comet.job.ingest.LoadConfig
 import com.ebiznext.comet.job.metrics.MetricsConfig
-import com.ebiznext.comet.schema.generator.{Xls2Yml, Xls2YmlConfig, Yml2XlsConfig, Yml2XlsWriter}
+import com.ebiznext.comet.schema.generator.{
+  Xls2Yml,
+  Xls2YmlConfig,
+  Yml2GraphViz,
+  Yml2GraphVizConfig,
+  Yml2XlsConfig,
+  Yml2XlsWriter
+}
 import com.ebiznext.comet.schema.handlers.SchemaHandler
 import com.ebiznext.comet.utils.CometObjectMapper
 import com.ebiznext.comet.workflow.{ImportConfig, IngestionWorkflow, TransformConfig, WatchConfig}
@@ -70,6 +77,7 @@ object Main extends StrictLogging {
         |${Xls2YmlConfig.usage()}
         |${Yml2XlsConfig.usage()}
         |${KafkaJobConfig.usage()}
+        |${Yml2GraphVizConfig.usage()}
         |""".stripMargin
     )
     // scalastyle:on println
@@ -218,6 +226,10 @@ object Main extends StrictLogging {
 
       case "yml2xls" =>
         new Yml2XlsWriter(schemaHandler).run(args.drop(1))
+        true
+
+      case "yml2gv" =>
+        new Yml2GraphViz(schemaHandler).run(args.drop(1))
         true
 
       case "extract" =>

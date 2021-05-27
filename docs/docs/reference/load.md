@@ -82,6 +82,12 @@ pattern: String
 This instructs the framework to use this schema to parse any file with a filename that match this pattern.
 
 ````scala
+primaryKey: List[String]
+````
+*Optional*. List of attributes that make up the primary key of this table. 
+This setting is just for documentation purpose and graphviz generation.
+
+````scala
 attributes: List[Attribute]
 ````
 
@@ -172,7 +178,7 @@ separator: String
 *Optional*. When the input file is in the DSV file format, yhiss field contains the values delimiter,  ';' by default value may be a multichar string starting from Spark 3
 
 ````scala
-uote: Char
+quote: Char
 ````
 *Optional*. The String quote char, '"' by default
 
@@ -260,6 +266,13 @@ Valid only when file format is POSITION
 default: String
 ````
 Default value for this attribute when it is not present.
+
+````scala
+foreignKey: String
+````
+*Optional*. reference to a column or a table in the format [domain.]table[.attribute].
+Used for documentation purpose and graphviz generation.
+
 
 ````scala
 tags:Set[String]
