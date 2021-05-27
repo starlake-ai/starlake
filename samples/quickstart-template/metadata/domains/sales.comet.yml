@@ -15,6 +15,8 @@ load:
       pattern: "customers-.*.psv"
       metadata:
         separator: "|"
+      primaryKey:
+        - id
       attributes:
         - name: "id"
           type: "customerid"
@@ -52,9 +54,11 @@ load:
         - name: "customer_id"
           type: "customerid"
           required: false
+          foreignKey: customers
         - name: "amount"
           type: "decimal"
           required: false
         - name: "seller_id"
           type: "string"
           required: false
+          foreignKey: hr.sellers.id

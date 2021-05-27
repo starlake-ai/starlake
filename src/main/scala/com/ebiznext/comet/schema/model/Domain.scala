@@ -152,4 +152,12 @@ case class Domain(
     else
       Right(true)
   }
+
+  def asDot(includeAllAttrs: Boolean): String = {
+    schemas
+      .map { schema =>
+        schema.asDot(name, includeAllAttrs)
+      }
+      .mkString("\n")
+  }
 }

@@ -20,10 +20,12 @@
 
 package com.ebiznext.comet.schema.handlers
 
+import better.files.File
 import com.databricks.spark.xml._
 import com.dimafeng.testcontainers.ElasticsearchContainer
 import com.ebiznext.comet.TestHelper
 import com.ebiznext.comet.config.DatasetArea
+import com.ebiznext.comet.schema.generator.Yml2GraphViz
 import com.ebiznext.comet.schema.model._
 import com.softwaremill.sttp.{HttpURLConnectionBackend, _}
 import com.typesafe.config.{Config, ConfigFactory}
@@ -550,6 +552,49 @@ class SchemaHandlerSpec extends TestHelper {
         sink = Some(BigQuerySink(timestamp = Some("_PARTITIONTIME"))),
         write = Some(WriteMode.OVERWRITE)
       )
+    }
+    "Exporting domain as Dot" should "create a valid dot file" in {
+      new SpecTrait(
+        domainOrJobFilename = "dream.comet.yml",
+        sourceDomainOrJobPathname = s"/sample/dream/dream.comet.yml",
+        datasetDomainName = "dream",
+        sourceDatasetPathName = "/sample/dream/OneClient_Segmentation_20190101_090800_008.psv"
+      ) {
+        cleanMetadata
+        cleanDatasets
+        val schemaHandler = new SchemaHandler(settings.storageHandler)
+
+        new Yml2GraphViz(schemaHandler).run(Array("--all", "false"))
+
+        val tempFile = File.newTemporaryFile().pathAsString
+        new Yml2GraphViz(schemaHandler).run(
+          Array("--all", "true", "--output", tempFile)
+        )
+        val fileContent = readFileContent(tempFile)
+        val expectedFileContent = loadTextFile("/expected/dot/output.dot")
+        fileContent shouldBe expectedFileContent
+
+        val result = schemaHandler.domains.head.asDot(false)
+        result.trim shouldBe """
+                               |
+                               |dream_segment [label=<
+                               |<table border="0" cellborder="1" cellspacing="0">
+                               |<tr><td port="0" bgcolor="darkgreen"><B><FONT color="white"> segment </FONT></B></td></tr>
+                               |<tr><td port="dream_id"><B> dreamkey:long </B></td></tr>
+                               |</table>>];
+                               |
+                               |
+                               |
+                               |dream_client [label=<
+                               |<table border="0" cellborder="1" cellspacing="0">
+                               |<tr><td port="0" bgcolor="darkgreen"><B><FONT color="white"> client </FONT></B></td></tr>
+                               |<tr><td port="dream_id"><I> dream_id:long </I></td></tr>
+                               |</table>>];
+                               |
+                               |dream_client:dream_id -> dream_segment:0
+                               |
+                               |""".stripMargin.trim
+      }
     }
   }
 }
