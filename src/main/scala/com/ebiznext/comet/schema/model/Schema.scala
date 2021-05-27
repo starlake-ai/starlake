@@ -73,7 +73,8 @@ case class Schema(
   postsql: Option[List[String]] = None,
   tags: Option[Set[String]] = None,
   rls: Option[List[RowLevelSecurity]] = None,
-  assertions: Option[Map[String, String]] = None
+  assertions: Option[Map[String, String]] = None,
+  primaryKey: Option[List[String]] = None
 ) {
 
   @JsonIgnore
@@ -248,6 +249,72 @@ case class Schema(
       .`import`(this.metadata.getOrElse(Metadata()))
 
   }
+
+  private[this] def dotRow(
+    attr: Attribute,
+    isPK: Boolean,
+    isFK: Boolean,
+    includeAllAttrs: Boolean
+  ): Option[String] = {
+    val col = attr.default match {
+      case None    => s"""${attr.getFinalName()}:${attr.`type`}"""
+      case Some(x) => s"""${attr.getFinalName()}:${attr.`type`} = $x"""
+    }
+    (isPK, isFK, includeAllAttrs) match {
+      case (true, true, _) =>
+        Some(s"""<tr><td port="${attr.name}"><B><I> $col </I></B></td></tr>""")
+      case (true, false, _) =>
+        Some(s"""<tr><td port="${attr.name}"><B> $col </B></td></tr>""")
+      case (false, true, _) =>
+        Some(s"""<tr><td port="${attr.name}"><I> $col </I></td></tr>""")
+      case (false, false, true) =>
+        Some(s"""<tr><td port="${attr.name}"> $col </td></tr>""")
+      case (false, false, false) => None
+    }
+  }
+
+  private[this] def dotRelation(attr: Attribute, domain: String): Option[String] = {
+    val tableLabel = s"${domain}_$name"
+    attr.foreignKey match {
+      case None => None
+      case Some(ref) =>
+        val tab = ref.split('.')
+        val (refDomain, refSchema, refAttr) = tab.size match {
+          case 3 => (tab(0), tab(1), tab(2)) // reference to domain.table.column
+          case 2 => (domain, tab(0), tab(1)) // reference to table.column
+          case 1 => (domain, tab(0), 0) // reference to table
+        }
+        Some(s"$tableLabel:${attr.name} -> ${refDomain}_$refSchema:$refAttr")
+    }
+  }
+
+  def asDot(domain: String, includeAllAttrs: Boolean): String = {
+    val tableLabel = s"${domain}_$name"
+    val header =
+      s"""<tr><td port="0" bgcolor="darkgreen"><B><FONT color="white"> $name </FONT></B></td></tr>\n"""
+    val rows =
+      attributes.flatMap { attr =>
+        val isPK = primaryKey.getOrElse(Nil).contains(attr.name)
+        val isFK = attr.foreignKey.isDefined
+        dotRow(attr, isPK, isFK, includeAllAttrs)
+      } mkString "\n"
+
+    val relations = attributes
+      .flatMap { attr => dotRelation(attr, domain) }
+      .mkString("\n")
+
+    s"""
+        |$tableLabel [label=<
+        |<table border="0" cellborder="1" cellspacing="0">
+        |""".stripMargin +
+    header +
+    rows +
+    """
+          |</table>>];
+          |
+          |""".stripMargin +
+    relations
+  }
 }
 
 object Schema {
@@ -288,4 +355,5 @@ object Schema {
       None
     ).mapping(None, domainName, schemaHandler)
   }
+
 }
