@@ -21,8 +21,8 @@ class KafkaJob(
   def offload(): Try[SparkJobResult] = {
     Try {
       if (!kafkaJobConfig.streaming) {
-        Utils.withResources(new KafkaClient(settings.comet.kafka)) { kafkaUtils =>
-          val (df, offsets) = kafkaUtils
+        Utils.withResources(new KafkaClient(settings.comet.kafka)) { kafkaClient =>
+          val (df, offsets) = kafkaClient
             .consumeTopicBatch(
               kafkaJobConfig.topicConfigName,
               session,
@@ -61,7 +61,7 @@ class KafkaJob(
             case _ =>
           }
 
-          kafkaUtils.topicSaveOffsets(
+          kafkaClient.topicSaveOffsets(
             kafkaJobConfig.topicConfigName,
             topicConfig.accessOptions,
             offsets
@@ -69,8 +69,8 @@ class KafkaJob(
           SparkJobResult(Some(transformedDF))
         }
       } else {
-        Utils.withResources(new KafkaClient(settings.comet.kafka)) { kafkaUtils =>
-          val df = kafkaUtils
+        Utils.withResources(new KafkaClient(settings.comet.kafka)) { kafkaClient =>
+          val df = kafkaClient
             .consumeTopicStreaming(
               session,
               topicConfig
@@ -111,11 +111,11 @@ class KafkaJob(
 
   def load(): Try[SparkJobResult] = {
     Try {
-      Utils.withResources(new KafkaClient(settings.comet.kafka)) { kafkaUtils =>
+      Utils.withResources(new KafkaClient(settings.comet.kafka)) { kafkaClient =>
         val df = session.read.format(kafkaJobConfig.format).load(kafkaJobConfig.path.split(','): _*)
         val transformedDF = transfom(df)
 
-        kafkaUtils.sinkToTopic(
+        kafkaClient.sinkToTopic(
           topicConfig,
           transformedDF
         )

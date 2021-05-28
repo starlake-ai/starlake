@@ -9,6 +9,7 @@ __New feature__:
 - Add ability to coalesce(int) to kafka offloading feature
 - Attributes may now be declared as primary and or foreign keys even though no check is made.  
 - Export schema and  relations(PK / FK) as dot (graphviz) files.
+- Support saving comet offsets to filesystem instead of kafka using the new setting comet-offsets-mode = "STREAM"
 
 __Bug Fix__:
 - Invalid YAML files produce now an error at startup instead of displaying a warning.

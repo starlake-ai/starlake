@@ -35,6 +35,9 @@ trait JobBase extends StrictLogging {
 
   type JdbcConfigName = String
 
+  /** @param valueWithEnv in the form [SinkType:[configName:]]viewName
+    * @return (SinkType, configName, viewName)
+    */
   protected def parseViewDefinition(
     valueWithEnv: String
   ): (SinkType, Option[JdbcConfigName], String) = {
@@ -220,19 +223,19 @@ trait SparkJob extends JobBase {
     views.views.foreach { case (key, value) =>
       // Apply substitution defined with {{ }} and overload options in env by option in command line
       val valueWithEnv = value.richFormat(sqlParameters)
-      val (format, configName, path) = parseViewDefinition(valueWithEnv)
-      logger.info(s"Loading view $path from $format")
-      val df = format match {
-        case FS =>
+      val (sinkType, sinkConfig, path) = parseViewDefinition(valueWithEnv)
+      logger.info(s"Loading view $path from $sinkType")
+      val df = sinkType match {
+        case FS => // (FS, _, absolute_path|relative_path|sql)
           if (path.startsWith("/"))
             session.read.parquet(path)
           else if (path.trim.toLowerCase.startsWith("select "))
             session.sql(path)
           else
             session.read.parquet(s"${settings.comet.datasets}/$path")
-        case JDBC =>
+        case JDBC => // (JDBC, connectionName, queryString)
           val jdbcConfig =
-            settings.comet.connections(configName.getOrElse((throw new Exception(""))))
+            settings.comet.connections(sinkConfig.getOrElse((throw new Exception(""))))
           jdbcConfig.options
             .foldLeft(session.read)((w, kv) => w.option(kv._1, kv._2))
             .format(jdbcConfig.format)
@@ -240,16 +243,16 @@ trait SparkJob extends JobBase {
             .load()
             .cache()
 
-        case KAFKA =>
-          configName match {
+        case KAFKA => // (KAFKA, STREAM|FILE, topic)
+          sinkConfig match {
             case Some(x) if x.toLowerCase() == "stream" =>
-              Utils.withResources(new KafkaClient(settings.comet.kafka)) { kafkaJob =>
-                kafkaJob.consumeTopicStreaming(session, settings.comet.kafka.topics(path))
+              Utils.withResources(new KafkaClient(settings.comet.kafka)) { kafkaClient =>
+                kafkaClient.consumeTopicStreaming(session, settings.comet.kafka.topics(path))
               }
             case _ =>
-              Utils.withResources(new KafkaClient(settings.comet.kafka)) { kafkaJob =>
+              Utils.withResources(new KafkaClient(settings.comet.kafka)) { kafkaClient =>
                 val (dataframe, _) =
-                  kafkaJob.consumeTopicBatch(path, session, settings.comet.kafka.topics(path))
+                  kafkaClient.consumeTopicBatch(path, session, settings.comet.kafka.topics(path))
                 dataframe
               }
 
