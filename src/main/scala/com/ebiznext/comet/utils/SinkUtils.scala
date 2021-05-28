@@ -59,7 +59,7 @@ class SinkUtils(implicit settings: Settings) extends StrictLogging {
           Success(())
 
       case _: NoneSink | FsSink(_, _) if settings.comet.sinkToFile =>
-        // Do nothing dataset already sinked to file
+        // Do nothing dataset already sinked to file. Forced at the reference.conf level
         Success(())
 
       case sink: BigQuerySink =>

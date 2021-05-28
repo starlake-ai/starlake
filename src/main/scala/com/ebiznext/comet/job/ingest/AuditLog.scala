@@ -206,7 +206,7 @@ object SparkAuditLogWriter extends StrictLogging {
       case _: NoneSink | FsSink(_, _) if !settings.comet.sinkToFile =>
         sinkToFile(log, settings)
       case _: NoneSink | FsSink(_, _) if settings.comet.sinkToFile =>
-      // Do nothing dataset already sinked to file
+      // Do nothing dataset already sinked to file. Forced at the reference.conf level
     }
   }
 }

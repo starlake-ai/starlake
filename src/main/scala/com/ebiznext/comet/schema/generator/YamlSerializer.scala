@@ -18,6 +18,8 @@ object YamlSerializer extends LazyLogging {
 
   def serialize(domain: Domain): String = mapper.writeValueAsString(domain)
 
+  def serializeObject(obj: Object): String = mapper.writeValueAsString(obj)
+
   def toMap(job: AutoJobDesc)(implicit settings: Settings): Map[String, Any] = {
     val jobWriter = mapper
       .writer()
