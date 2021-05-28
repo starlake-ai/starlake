@@ -124,7 +124,9 @@ class KafkaClient(kafkaConfig: KafkaConfig)(implicit settings: Settings)
           val cometOffsetsPath = new Path(cometOffsetsConfig.topicName, topicConfigName)
           logger.info(s"Saving comet offsets to path $cometOffsetsPath")
           settings.storageHandler.write(
-            YamlSerializer.serializeObject(offsets.map(x => x._1.toString + "," + x._2.toString)),
+            YamlSerializer.serializeObject(offsets.map { case (partition, offset) =>
+              partition.toString + "," + offset.toString
+            }),
             cometOffsetsPath
           )
         }
