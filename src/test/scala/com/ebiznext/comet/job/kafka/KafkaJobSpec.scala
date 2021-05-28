@@ -198,7 +198,7 @@ class KafkaJobSpec extends TestHelper {
     new WithSettings(kafkaConfig(cometOffsetsMode, cometOffsetTopicName)) {
       s"$cometOffsetsMode($cometOffsetTopicName) runs with embedded kafka" should "work" in {
         if (cometOffsetsMode == "FILE")
-          File("/tmp/comet_offsets").delete()
+          File("/tmp/comet_offsets").delete(true)
         val properties = new Properties()
         properties.put("bootstrap.servers", kafkaContainer.bootstrapServers)
         properties.put("group.id", "consumer-test")
@@ -212,7 +212,7 @@ class KafkaJobSpec extends TestHelper {
       s"$cometOffsetsMode($cometOffsetTopicName) Create topic comet_offsets topic" should "succeed" in {
         val kafkaClient = new KafkaClient(settings.comet.kafka)
         if (cometOffsetsMode == "FILE")
-          File("/tmp/comet_offsets").delete()
+          File("/tmp/comet_offsets").delete(true)
         kafkaClient.deleteTopic("test_offload")
         val topicProperties = Map("cleanup.policy" -> "compact")
         Thread.sleep(1000) // wait for topic to be deleted
@@ -225,7 +225,7 @@ class KafkaJobSpec extends TestHelper {
       s"$cometOffsetsMode($cometOffsetTopicName) Get comet_offsets partitions " should "return 1" in {
         val kafkaClient = new KafkaClient(settings.comet.kafka)
         if (cometOffsetsMode == "FILE")
-          File("/tmp/comet_offsets").delete()
+          File("/tmp/comet_offsets").delete(true)
         kafkaClient.deleteTopic("test_offload")
         val topicProperties = Map("cleanup.policy" -> "compact")
         Thread.sleep(1000) // wait for topic to be deleted
@@ -240,7 +240,7 @@ class KafkaJobSpec extends TestHelper {
       s"$cometOffsetsMode($cometOffsetTopicName) Access comet_offsets end offsets" should "work" in {
         val kafkaClient = new KafkaClient(settings.comet.kafka)
         if (cometOffsetsMode == "FILE")
-          File("/tmp/comet_offsets").delete()
+          File("/tmp/comet_offsets").delete(true)
         kafkaClient.deleteTopic("test_offload")
         val topicProperties = Map("cleanup.policy" -> "compact")
         Thread.sleep(1000) // wait for topic to be deleted
@@ -271,7 +271,7 @@ class KafkaJobSpec extends TestHelper {
       s"$cometOffsetsMode($cometOffsetTopicName) Offload messages from Kafka" should "work" in {
         val kafkaClient = new KafkaClient(settings.comet.kafka)
         if (cometOffsetsMode == "FILE")
-          File("/tmp/comet_offsets").delete()
+          File("/tmp/comet_offsets").delete(true)
         kafkaClient.deleteTopic("test_offload")
         Thread.sleep(1000) // wait for topic to be deleted
         kafkaClient.createTopicIfNotPresent(new NewTopic("test_offload", 1, 1.toShort), Map.empty)
@@ -307,7 +307,7 @@ class KafkaJobSpec extends TestHelper {
       s"$cometOffsetsMode($cometOffsetTopicName) Load data from file to Kafka" should "work" in {
         val kafkaClient = new KafkaClient(settings.comet.kafka)
         if (cometOffsetsMode == "FILE")
-          File("/tmp/comet_offsets").delete()
+          File("/tmp/comet_offsets").delete(true)
         kafkaClient.deleteTopic("test_offload")
         val file = createTempJsonDataFile(10000)
         kafkaClient.deleteTopic("test_load")
@@ -336,7 +336,7 @@ class KafkaJobSpec extends TestHelper {
         if (settings.comet.isElasticsearchSupported()) {
           val kafkaClient = new KafkaClient(settings.comet.kafka)
           if (cometOffsetsMode == "FILE")
-            File("/tmp/comet_offsets").delete()
+            File("/tmp/comet_offsets").delete(true)
           kafkaClient.deleteTopic("test_offload")
           val file = createTempJsonDataFile(100)
           kafkaClient.deleteTopic("kafka_to_es")
@@ -386,7 +386,7 @@ class KafkaJobSpec extends TestHelper {
         if (settings.comet.isElasticsearchSupported()) {
           val kafkaClient = new KafkaClient(settings.comet.kafka)
           if (cometOffsetsMode == "FILE")
-            File("/tmp/comet_offsets").delete()
+            File("/tmp/comet_offsets").delete(true)
           kafkaClient.deleteTopic("test_offload")
           val file = createTempJsonDataFile(100)
           kafkaClient.deleteTopic("stream_kafka_to_es")
@@ -433,7 +433,7 @@ class KafkaJobSpec extends TestHelper {
       s"$cometOffsetsMode($cometOffsetTopicName) Stream from Kafka to Kafka" should "succeed" in {
         val kafkaClient = new KafkaClient(settings.comet.kafka)
         if (cometOffsetsMode == "FILE")
-          File("/tmp/comet_offsets").delete()
+          File("/tmp/comet_offsets").delete(true)
         kafkaClient.deleteTopic("test_offload_kafka_to_kafka")
         kafkaClient.deleteTopic("topic_sink")
         Thread.sleep(1000) // wait for topic to be deleted
