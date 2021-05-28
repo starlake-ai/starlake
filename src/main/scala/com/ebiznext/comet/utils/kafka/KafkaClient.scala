@@ -1,7 +1,12 @@
 package com.ebiznext.comet.utils.kafka
 
+import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.config.Settings.{KafkaConfig, KafkaTopicConfig}
+import com.ebiznext.comet.schema.generator.YamlSerializer
+import com.ebiznext.comet.schema.model.Mode
+import com.ebiznext.comet.utils.FileLock
 import com.typesafe.scalalogging.StrictLogging
+import org.apache.hadoop.fs.Path
 import org.apache.kafka.clients.admin.{AdminClient, NewTopic}
 import org.apache.kafka.clients.consumer.KafkaConsumer
 import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
@@ -13,8 +18,12 @@ import java.util.Properties
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 
-class KafkaClient(kafkaConfig: KafkaConfig) extends StrictLogging with AutoCloseable {
+class KafkaClient(kafkaConfig: KafkaConfig)(implicit settings: Settings)
+    extends StrictLogging
+    with AutoCloseable {
 
+  val cometOffsetsMode: Mode =
+    settings.comet.kafka.cometOffsetsMode.map(Mode.fromString).getOrElse(Mode.STREAM)
   val serverOptions: Map[String, String] = kafkaConfig.serverOptions
   val cometOffsetsConfig: KafkaTopicConfig = kafkaConfig.topics("comet_offsets")
 
@@ -25,14 +34,22 @@ class KafkaClient(kafkaConfig: KafkaConfig) extends StrictLogging with AutoClose
 
   val client: AdminClient = AdminClient.create(props)
 
-  createTopicIfNotPresent(
-    new NewTopic(
-      cometOffsetsConfig.topicName,
-      cometOffsetsConfig.partitions,
-      cometOffsetsConfig.replicationFactor
-    ),
-    Map("cleanup.policy" -> "compact")
-  )
+  cometOffsetsMode match {
+    case Mode.STREAM =>
+      createTopicIfNotPresent(
+        new NewTopic(
+          cometOffsetsConfig.topicName,
+          cometOffsetsConfig.partitions,
+          cometOffsetsConfig.replicationFactor
+        ),
+        Map("cleanup.policy" -> "compact")
+      )
+    case Mode.FILE =>
+      if (!settings.storageHandler.exists(new Path(cometOffsetsConfig.topicName)))
+        settings.storageHandler.mkdirs(new Path(cometOffsetsConfig.topicName))
+    case _ =>
+      throw new Exception("Should never happen")
+  }
 
   def close(): Unit = client.close()
 
@@ -44,11 +61,10 @@ class KafkaClient(kafkaConfig: KafkaConfig) extends StrictLogging with AutoClose
     }
   }
 
-  def createTopicIfNotPresent(topic: NewTopic, conf: Map[String, String]): Any = {
+  def createTopicIfNotPresent(topic: NewTopic, conf: Map[String, String]): Unit = {
     val found = client.listTopics().names().get().contains(topic.name)
     if (!found) {
-      topic.configs(conf.asJava)
-      client.createTopics(java.util.Collections.singleton(topic)).all().get()
+      client.createTopics(java.util.Collections.singleton(topic.configs(conf.asJava))).all().get()
     }
   }
 
@@ -89,21 +105,35 @@ class KafkaClient(kafkaConfig: KafkaConfig) extends StrictLogging with AutoClose
     accessOptions: Map[String, String],
     offsets: List[(Int, Long)]
   ): Unit = {
-    val props: Properties = buildProps(accessOptions)
-    val producer = new KafkaProducer[String, String](props)
-    offsets.foreach { case (partition, offset) =>
-      producer.send(
-        new ProducerRecord[String, String](
-          cometOffsetsConfig.topicName,
-          s"$topicConfigName/$partition",
-          s"$offset"
-        )
-      )
+    cometOffsetsMode match {
+      case Mode.STREAM =>
+        val props: Properties = buildProps(accessOptions)
+        val producer = new KafkaProducer[String, String](props)
+        offsets.foreach { case (partition, offset) =>
+          producer.send(
+            new ProducerRecord[String, String](
+              cometOffsetsConfig.topicName,
+              s"$topicConfigName/$partition",
+              s"$offset"
+            )
+          )
+        }
+        producer.close()
+      case Mode.FILE =>
+        cometOffsetsLock(topicConfigName).doExclusively() {
+          val cometOffsetsPath = new Path(cometOffsetsConfig.topicName, topicConfigName)
+          logger.info(s"Saving comet offsets to path $cometOffsetsPath")
+          settings.storageHandler.write(
+            YamlSerializer.serializeObject(offsets.map(x => x._1.toString + "," + x._2.toString)),
+            cometOffsetsPath
+          )
+        }
+      case _ =>
+        throw new Exception("Should never happen")
     }
-    producer.close()
   }
 
-  def topicCurrentOffsets(topicConfigName: String): Option[List[(Int, Long)]] = {
+  private def topicCurrentOffsetsFromStream(topicConfigName: String): Option[List[(Int, Long)]] = {
     val props = new Properties()
     cometOffsetsConfig.accessOptions.foreach { option =>
       props.put(option._1, option._2)
@@ -133,6 +163,46 @@ class KafkaClient(kafkaConfig: KafkaConfig) extends StrictLogging with AutoClose
       (partition.toInt, offset.toLong)
     }.toList) get topicConfigName
     res
+
+  }
+
+  private def cometOffsetsLock(topicConfigName: String): FileLock = {
+    val lockPath = new Path(settings.comet.lock.path, s"comet_offsets_$topicConfigName.lock")
+    new FileLock(lockPath, settings.storageHandler)
+  }
+
+  private def topicCurrentOffsetsFromFile(topicConfigName: String): Option[List[(Int, Long)]] = {
+    cometOffsetsLock(topicConfigName).doExclusively() {
+      val cometOffsetsPath = new Path(cometOffsetsConfig.topicName, topicConfigName)
+      settings.storageHandler.exists(cometOffsetsPath) match {
+        case false =>
+          logger.info(s"Cannot load comet offsets: $cometOffsetsPath file does not exist")
+          None
+        case true =>
+          logger.info(s"Loading comet offsets to path $cometOffsetsPath")
+          val res = YamlSerializer.mapper
+            .readValue(
+              settings.storageHandler.read(cometOffsetsPath),
+              classOf[List[String]]
+            )
+            .map { str =>
+              val tab = str.split(',')
+              (tab(0).toInt, tab(1).toLong)
+            }
+          Some(res)
+      }
+    }
+  }
+
+  def topicCurrentOffsets(topicConfigName: String): Option[List[(Int, Long)]] = {
+    cometOffsetsMode match {
+      case Mode.STREAM =>
+        topicCurrentOffsetsFromStream(topicConfigName)
+      case Mode.FILE =>
+        topicCurrentOffsetsFromFile(topicConfigName)
+      case _ =>
+        throw new Exception("Should never happen")
+    }
   }
 
   def offsetsAsJson(topicName: String, offsets: List[(Int, Long)]): Option[String] = {
@@ -176,7 +246,8 @@ class KafkaClient(kafkaConfig: KafkaConfig) extends StrictLogging with AutoClose
         .foldLeft(reader) { case (reader, (k, v)) => reader.option(k, v) }
         .load()
         .selectExpr(config.fields.map(x => s"CAST($x)"): _*)
-    df.printSchema()
+
+    logger.whenInfoEnabled(df.printSchema())
     (df, endOffsets)
   }
 

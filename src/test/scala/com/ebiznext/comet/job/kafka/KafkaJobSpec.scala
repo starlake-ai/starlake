@@ -1,5 +1,6 @@
 package com.ebiznext.comet.job.kafka
 
+import better.files.File
 import com.dimafeng.testcontainers.lifecycle.and
 import com.dimafeng.testcontainers.{ElasticsearchContainer, KafkaContainer}
 import com.ebiznext.comet.TestHelper
@@ -12,7 +13,6 @@ import org.apache.kafka.clients.consumer.KafkaConsumer
 import org.apache.kafka.common.serialization.StringDeserializer
 import org.apache.spark.sql.SaveMode
 
-import java.io.{File, PrintWriter}
 import java.util.{Properties, UUID}
 import scala.collection.mutable.ListBuffer
 import scala.util.{Failure, Success}
@@ -35,12 +35,13 @@ class KafkaJobSpec extends TestHelper {
   val esPort =
     s"${esContainer.httpHostAddress.substring(esContainer.httpHostAddress.lastIndexOf(':') + 1)}"
 
-  val kafkaConfig = ConfigFactory
+  def kafkaConfig(cometOffsetsMode: String, cometOffsetTopicName: String) = ConfigFactory
     .parseString(s"""
          |kafka {
          |  server-options = {
          |      "bootstrap.servers": "${kafkaContainer.bootstrapServers}"
          |  }
+         |  comet-offsets-mode = "$cometOffsetsMode"
          |  topics {
          |    "test_offload": {
          |      topic-name: "test_offload"
@@ -150,7 +151,7 @@ class KafkaJobSpec extends TestHelper {
          |      }
          |    },
          |    "comet_offsets": {
-         |      topic-name: "comet_offsets"
+         |      topic-name: "$cometOffsetTopicName"
          |      max-read = 0
          |      partitions = 1
          |      replication-factor = 1
@@ -193,243 +194,293 @@ class KafkaJobSpec extends TestHelper {
          |""".stripMargin)
     .withFallback(super.testConfiguration)
 
-  new WithSettings(kafkaConfig) {
-    "runs with embedded kafka" should "work" in {
-      val properties = new Properties()
-      properties.put("bootstrap.servers", kafkaContainer.bootstrapServers)
-      properties.put("group.id", "consumer-test")
-      properties.put("key.deserializer", classOf[StringDeserializer])
-      properties.put("value.deserializer", classOf[StringDeserializer])
+  def kafkaTests(cometOffsetsMode: String, cometOffsetTopicName: String): WithSettings =
+    new WithSettings(kafkaConfig(cometOffsetsMode, cometOffsetTopicName)) {
+      s"$cometOffsetsMode($cometOffsetTopicName) runs with embedded kafka" should "work" in {
+        if (cometOffsetsMode == "FILE")
+          File("/tmp/comet_offsets").delete()
+        val properties = new Properties()
+        properties.put("bootstrap.servers", kafkaContainer.bootstrapServers)
+        properties.put("group.id", "consumer-test")
+        properties.put("key.deserializer", classOf[StringDeserializer])
+        properties.put("value.deserializer", classOf[StringDeserializer])
 
-      val kafkaConsumer = new KafkaConsumer[String, String](properties)
-      val topics = kafkaConsumer.listTopics()
-    }
-
-    "Create topic comet_offsets topic" should "succeed" in {
-      val client = new KafkaClient(settings.comet.kafka)
-      val topicProperties = Map("cleanup.policy" -> "compact")
-      client.createTopicIfNotPresent(new NewTopic("comet_offsets", 1, 1.toShort), topicProperties)
-    }
-
-    "Get comet_offsets partitions " should "return 1" in {
-      val client = new KafkaClient(settings.comet.kafka)
-      val topicProperties = Map("cleanup.policy" -> "compact")
-      client.createTopicIfNotPresent(new NewTopic("comet_offsets", 1, 1.toShort), topicProperties)
-      val partitions = client.topicPartitions("comet_offsets")
-      partitions should have size 1
-    }
-
-    "Access comet_offsets end offsets" should "work" in {
-      val client = new KafkaClient(settings.comet.kafka)
-      val topicProperties = Map("cleanup.policy" -> "compact")
-      client.createTopicIfNotPresent(new NewTopic("comet_offsets", 1, 1.toShort), topicProperties)
-      val properties = Map(
-        "bootstrap.servers"  -> kafkaContainer.bootstrapServers,
-        "key.deserializer"   -> "org.apache.kafka.common.serialization.StringDeserializer",
-        "value.deserializer" -> "org.apache.kafka.common.serialization.StringDeserializer"
-      )
-      val offsets = client.topicEndOffsets("comet_offsets", properties)
-      offsets should contain theSameElementsAs List((0, 0))
-    }
-
-    private def createTempJsonDataFile(count: Int): File = {
-      val elems = ListBuffer[String]()
-      for (i <- 1 to count) {
-        elems += s"""{"key": "key-$i","value": "${UUID.randomUUID().toString}-$i"}"""
+        val kafkaConsumer = new KafkaConsumer[String, String](properties)
+        kafkaConsumer.listTopics()
       }
-      val file = new File("/tmp/json.json")
-      file.delete()
-      val writer = new PrintWriter(file)
-      writer.write(elems.mkString("\n"))
-      writer.close()
-      file
-    }
 
-    "Offload messages from Kafka" should "work" in {
-      val client = new KafkaClient(settings.comet.kafka)
-      client.deleteTopic("test_offload")
-      client.createTopicIfNotPresent(new NewTopic("test_offload", 1, 1.toShort), Map.empty)
-      val file = createTempJsonDataFile(5000)
-      val kafkaJob =
-        new KafkaJob(
-          KafkaJobConfig(
-            "test_offload",
-            "json",
-            SaveMode.Overwrite,
-            file.getAbsolutePath,
-            offload = false
-          )
+      s"$cometOffsetsMode($cometOffsetTopicName) Create topic comet_offsets topic" should "succeed" in {
+        val kafkaClient = new KafkaClient(settings.comet.kafka)
+        if (cometOffsetsMode == "FILE")
+          File("/tmp/comet_offsets").delete()
+        kafkaClient.deleteTopic("test_offload")
+        val topicProperties = Map("cleanup.policy" -> "compact")
+        Thread.sleep(1000) // wait for topic to be deleted
+        kafkaClient.createTopicIfNotPresent(
+          new NewTopic("comet_offsets", 1, 1.toShort),
+          topicProperties
         )
-      kafkaJob.run()
-      val kafkaJob2 =
-        new KafkaJob(
-          KafkaJobConfig(
-            "test_offload",
-            "json",
-            SaveMode.Overwrite,
-            "/tmp/json2.json",
-            coalesce = Some(1)
-          )
-        )
-      kafkaJob2.run() match {
-        case Success(_) =>
-          sparkSession.read.json("/tmp/json2.json").count() shouldBe 5000
-        case Failure(e) => throw e
       }
-    }
 
-    "Load data from file to Kafka" should "work" in {
-      val file = createTempJsonDataFile(10000)
-      val client = new KafkaClient(settings.comet.kafka)
-      client.deleteTopic("test_load")
-      client.createTopicIfNotPresent(new NewTopic("test_load", 1, 1.toShort), Map.empty)
-      val kafkaJob =
-        new KafkaJob(
-          KafkaJobConfig(
-            "test_load",
-            "json",
-            SaveMode.Overwrite,
-            file.getAbsolutePath,
-            offload = false
-          )
+      s"$cometOffsetsMode($cometOffsetTopicName) Get comet_offsets partitions " should "return 1" in {
+        val kafkaClient = new KafkaClient(settings.comet.kafka)
+        if (cometOffsetsMode == "FILE")
+          File("/tmp/comet_offsets").delete()
+        kafkaClient.deleteTopic("test_offload")
+        val topicProperties = Map("cleanup.policy" -> "compact")
+        Thread.sleep(1000) // wait for topic to be deleted
+        kafkaClient.createTopicIfNotPresent(
+          new NewTopic("comet_offsets", 1, 1.toShort),
+          topicProperties
         )
-      kafkaJob.run()
-      val offsets =
-        client.topicEndOffsets("test_load", settings.comet.kafka.topics("test_load").accessOptions)
-      offsets should contain theSameElementsAs List((0, 10000))
-    }
+        val partitions = kafkaClient.topicPartitions("comet_offsets")
+        partitions should have size 1
+      }
 
-    "Offload from Kafka to Elasticsearch" should "work" in {
-      if (settings.comet.isElasticsearchSupported()) {
-        val file = createTempJsonDataFile(100)
-        val client = new KafkaClient(settings.comet.kafka)
-        client.deleteTopic("kafka_to_es")
-        client.createTopicIfNotPresent(new NewTopic("kafka_to_es", 1, 1.toShort), Map.empty)
+      s"$cometOffsetsMode($cometOffsetTopicName) Access comet_offsets end offsets" should "work" in {
+        val kafkaClient = new KafkaClient(settings.comet.kafka)
+        if (cometOffsetsMode == "FILE")
+          File("/tmp/comet_offsets").delete()
+        kafkaClient.deleteTopic("test_offload")
+        val topicProperties = Map("cleanup.policy" -> "compact")
+        Thread.sleep(1000) // wait for topic to be deleted
+        kafkaClient.createTopicIfNotPresent(
+          new NewTopic("comet_offsets", 1, 1.toShort),
+          topicProperties
+        )
+        val properties = Map(
+          "bootstrap.servers"  -> kafkaContainer.bootstrapServers,
+          "key.deserializer"   -> "org.apache.kafka.common.serialization.StringDeserializer",
+          "value.deserializer" -> "org.apache.kafka.common.serialization.StringDeserializer"
+        )
+        val offsets = kafkaClient.topicEndOffsets("comet_offsets", properties)
+        offsets should contain theSameElementsAs List((0, 0))
+      }
+
+      private def createTempJsonDataFile(count: Int): File = {
+        val elems = ListBuffer[String]()
+        for (i <- 1 to count) {
+          elems += s"""{"key": "key-$i","value": "${UUID.randomUUID().toString}-$i"}"""
+        }
+        val file = File("/tmp/json.json")
+        file.delete()
+        file.overwrite(elems.mkString("\n"))
+        file
+      }
+
+      s"$cometOffsetsMode($cometOffsetTopicName) Offload messages from Kafka" should "work" in {
+        val kafkaClient = new KafkaClient(settings.comet.kafka)
+        if (cometOffsetsMode == "FILE")
+          File("/tmp/comet_offsets").delete()
+        kafkaClient.deleteTopic("test_offload")
+        Thread.sleep(1000) // wait for topic to be deleted
+        kafkaClient.createTopicIfNotPresent(new NewTopic("test_offload", 1, 1.toShort), Map.empty)
+        val file = createTempJsonDataFile(5000)
         val kafkaJob =
           new KafkaJob(
             KafkaJobConfig(
-              "kafka_to_es",
+              "test_offload",
               "json",
               SaveMode.Overwrite,
-              file.getAbsolutePath,
+              file.pathAsString,
+              offload = false
+            )
+          )
+        kafkaJob.run()
+        val kafkaJob2 =
+          new KafkaJob(
+            KafkaJobConfig(
+              "test_offload",
+              "json",
+              SaveMode.Overwrite,
+              "/tmp/json2.json",
+              coalesce = Some(1)
+            )
+          )
+        kafkaJob2.run() match {
+          case Success(_) =>
+            sparkSession.read.json("/tmp/json2.json").count() shouldBe 5000
+          case Failure(e) => throw e
+        }
+      }
+
+      s"$cometOffsetsMode($cometOffsetTopicName) Load data from file to Kafka" should "work" in {
+        val kafkaClient = new KafkaClient(settings.comet.kafka)
+        if (cometOffsetsMode == "FILE")
+          File("/tmp/comet_offsets").delete()
+        kafkaClient.deleteTopic("test_offload")
+        val file = createTempJsonDataFile(10000)
+        kafkaClient.deleteTopic("test_load")
+        Thread.sleep(1000) // wait for topic to be deleted
+        kafkaClient.createTopicIfNotPresent(new NewTopic("test_load", 1, 1.toShort), Map.empty)
+        val kafkaJob =
+          new KafkaJob(
+            KafkaJobConfig(
+              "test_load",
+              "json",
+              SaveMode.Overwrite,
+              file.pathAsString,
               offload = false
             )
           )
         kafkaJob.run()
         val offsets =
-          client.topicEndOffsets(
-            "kafka_to_es",
-            settings.comet.kafka.topics("kafka_to_es").accessOptions
+          kafkaClient.topicEndOffsets(
+            "test_load",
+            settings.comet.kafka.topics("test_load").accessOptions
           )
-        offsets should contain theSameElementsAs List((0, 100))
-        import scala.collection.JavaConverters._
-
-        val kafkaJobToEs =
-          new KafkaJob(
-            KafkaJobConfig(
-              "kafka_to_es",
-              "org.elasticsearch.spark.sql",
-              SaveMode.Overwrite,
-              "test/_doc",
-              writeOptions = settings.comet.elasticsearch.options.asScala.toMap
-            )
-          )
-        kafkaJobToEs.run()
-        implicit val backend = HttpURLConnectionBackend()
-        val countUri = uri"http://${esContainer.httpHostAddress}/test/_count"
-        val response = sttp.get(countUri).send()
-        response.code should be <= 299
-        response.code should be >= 200
-        assert(response.body.isRight)
-        response.body.right.toString() contains "\"count\":100"
+        offsets should contain theSameElementsAs List((0, 10000))
       }
-    }
 
-    "Stream from Kafka to Elasticsearch" should "work" in {
-      if (settings.comet.isElasticsearchSupported()) {
-        val file = createTempJsonDataFile(100)
-        val client = new KafkaClient(settings.comet.kafka)
-        client.deleteTopic("stream_kafka_to_es")
-        client.createTopicIfNotPresent(new NewTopic("stream_kafka_to_es", 1, 1.toShort), Map.empty)
+      s"$cometOffsetsMode($cometOffsetTopicName) Offload from Kafka to Elasticsearch" should "work" in {
+        if (settings.comet.isElasticsearchSupported()) {
+          val kafkaClient = new KafkaClient(settings.comet.kafka)
+          if (cometOffsetsMode == "FILE")
+            File("/tmp/comet_offsets").delete()
+          kafkaClient.deleteTopic("test_offload")
+          val file = createTempJsonDataFile(100)
+          kafkaClient.deleteTopic("kafka_to_es")
+          Thread.sleep(1000) // wait for topic to be deleted
+          kafkaClient.createTopicIfNotPresent(new NewTopic("kafka_to_es", 1, 1.toShort), Map.empty)
+          val kafkaJob =
+            new KafkaJob(
+              KafkaJobConfig(
+                "kafka_to_es",
+                "json",
+                SaveMode.Overwrite,
+                file.pathAsString,
+                offload = false
+              )
+            )
+          kafkaJob.run()
+          val offsets =
+            kafkaClient.topicEndOffsets(
+              "kafka_to_es",
+              settings.comet.kafka.topics("kafka_to_es").accessOptions
+            )
+          offsets should contain theSameElementsAs List((0, 100))
+          import scala.collection.JavaConverters._
+
+          val kafkaJobToEs =
+            new KafkaJob(
+              KafkaJobConfig(
+                "kafka_to_es",
+                "org.elasticsearch.spark.sql",
+                SaveMode.Overwrite,
+                "test/_doc",
+                writeOptions = settings.comet.elasticsearch.options.asScala.toMap
+              )
+            )
+          kafkaJobToEs.run()
+          implicit val backend = HttpURLConnectionBackend()
+          val countUri = uri"http://${esContainer.httpHostAddress}/test/_count"
+          val response = sttp.get(countUri).send()
+          response.code should be <= 299
+          response.code should be >= 200
+          assert(response.body.isRight)
+          response.body.right.toString() contains "\"count\":100"
+        }
+      }
+
+      s"$cometOffsetsMode($cometOffsetTopicName) Stream from Kafka to Elasticsearch" should "work" in {
+        if (settings.comet.isElasticsearchSupported()) {
+          val kafkaClient = new KafkaClient(settings.comet.kafka)
+          if (cometOffsetsMode == "FILE")
+            File("/tmp/comet_offsets").delete()
+          kafkaClient.deleteTopic("test_offload")
+          val file = createTempJsonDataFile(100)
+          kafkaClient.deleteTopic("stream_kafka_to_es")
+          Thread.sleep(1000) // wait for topic to be deleted
+          kafkaClient.createTopicIfNotPresent(
+            new NewTopic("stream_kafka_to_es", 1, 1.toShort),
+            Map.empty
+          )
+          val kafkaJob =
+            new KafkaJob(
+              KafkaJobConfig(
+                "stream_kafka_to_es",
+                "json",
+                SaveMode.Overwrite,
+                file.pathAsString,
+                offload = false
+              )
+            )
+          kafkaJob.run()
+          import scala.collection.JavaConverters._
+
+          val kafkaJobToEs =
+            new KafkaJob(
+              KafkaJobConfig(
+                "stream_kafka_to_es",
+                "org.elasticsearch.spark.sql",
+                SaveMode.Overwrite,
+                "test/_doc",
+                writeOptions = settings.comet.elasticsearch.options.asScala.toMap,
+                streaming = true
+              )
+            )
+          kafkaJobToEs.run()
+          implicit val backend = HttpURLConnectionBackend()
+          val countUri = uri"http://${esContainer.httpHostAddress}/test/_count"
+          val response = sttp.get(countUri).send()
+          response.code should be <= 299
+          response.code should be >= 200
+          assert(response.body.isRight)
+          response.body.right.toString() contains "\"count\":100"
+        }
+      }
+
+      s"$cometOffsetsMode($cometOffsetTopicName) Stream from Kafka to Kafka" should "succeed" in {
+        val kafkaClient = new KafkaClient(settings.comet.kafka)
+        if (cometOffsetsMode == "FILE")
+          File("/tmp/comet_offsets").delete()
+        kafkaClient.deleteTopic("test_offload_kafka_to_kafka")
+        kafkaClient.deleteTopic("topic_sink")
+        Thread.sleep(1000) // wait for topic to be deleted
+        kafkaClient.createTopicIfNotPresent(
+          new NewTopic("test_offload_kafka_to_kafka", 1, 1.toShort),
+          Map.empty
+        )
+        val file = createTempJsonDataFile(5000)
         val kafkaJob =
           new KafkaJob(
             KafkaJobConfig(
-              "stream_kafka_to_es",
+              "test_offload_kafka_to_kafka",
               "json",
               SaveMode.Overwrite,
-              file.getAbsolutePath,
+              file.pathAsString,
               offload = false
             )
           )
         kafkaJob.run()
-        import scala.collection.JavaConverters._
-
-        val kafkaJobToEs =
+        val kafkaJob2 =
           new KafkaJob(
             KafkaJobConfig(
-              "stream_kafka_to_es",
-              "org.elasticsearch.spark.sql",
-              SaveMode.Overwrite,
-              "test/_doc",
-              writeOptions = settings.comet.elasticsearch.options.asScala.toMap,
-              streaming = true
+              topicConfigName = "test_offload_kafka_to_kafka",
+              format = "json",
+              SaveMode.Append,
+              path = "topic_sink",
+              streaming = true,
+              streamingWriteFormat = "kafka",
+              writeOptions = Map(
+                "topic"                   -> "topic_sink",
+                "kafka.bootstrap.servers" -> s"${kafkaContainer.bootstrapServers}"
+              )
             )
           )
-        kafkaJobToEs.run()
-        implicit val backend = HttpURLConnectionBackend()
-        val countUri = uri"http://${esContainer.httpHostAddress}/test/_count"
-        val response = sttp.get(countUri).send()
-        response.code should be <= 299
-        response.code should be >= 200
-        assert(response.body.isRight)
-        response.body.right.toString() contains "\"count\":100"
+        kafkaJob2.run() match {
+          case Success(_) =>
+            val offsets =
+              kafkaClient.topicEndOffsets(
+                "topic_sink",
+                settings.comet.kafka.topics("topic_sink_config").accessOptions
+              )
+            offsets should contain theSameElementsAs List((0, 5000))
+          case Failure(e) => throw e
+        }
       }
     }
 
-    "Stream from Kafka to Kafka" should "succeed" in {
-      val client = new KafkaClient(settings.comet.kafka)
-      client.deleteTopic("test_offload_kafka_to_kafka")
-      client.createTopicIfNotPresent(
-        new NewTopic("test_offload_kafka_to_kafka", 1, 1.toShort),
-        Map.empty
-      )
-      val file = createTempJsonDataFile(5000)
-      val kafkaJob =
-        new KafkaJob(
-          KafkaJobConfig(
-            "test_offload_kafka_to_kafka",
-            "json",
-            SaveMode.Overwrite,
-            file.getAbsolutePath,
-            offload = false
-          )
-        )
-      kafkaJob.run()
-      val kafkaJob2 =
-        new KafkaJob(
-          KafkaJobConfig(
-            topicConfigName = "test_offload_kafka_to_kafka",
-            format = "json",
-            SaveMode.Append,
-            path = "topic_sink",
-            streaming = true,
-            streamingWriteFormat = "kafka",
-            writeOptions = Map(
-              "topic"                   -> "topic_sink",
-              "kafka.bootstrap.servers" -> s"${kafkaContainer.bootstrapServers}"
-            )
-          )
-        )
-      kafkaJob2.run() match {
-        case Success(_) =>
-          val offsets =
-            client.topicEndOffsets(
-              "topic_sink",
-              settings.comet.kafka.topics("topic_sink_config").accessOptions
-            )
-          offsets should contain theSameElementsAs List((0, 5000))
-        case Failure(e) => throw e
-      }
-    }
-  }
+  kafkaTests("FILE", "/tmp/comet_offsets")
+  kafkaTests("STREAM", "comet_offsets")
 }

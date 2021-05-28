@@ -20,7 +20,8 @@ connections {
 
 Next create a file describing the schema you want to import. We provide below 2 examples.
 
-### Example 1: Extract all objects from the `PUBLIC` schema.
+### Example 1: 
+Extract all objects from the `PUBLIC` schema.
 ```yaml
 jdbc-schema:
   connection: "h2-sample-db" # Connection name as defined in the connections section of the application.conf file
@@ -39,7 +40,8 @@ jdbc-schema:
 
 ```
 
-### Example 2: Extract only the selected tables from the `PUBLIC`schema and onbly the selected columns from the `votes` table.
+### Example 2: 
+Extract only the selected tables from the `PUBLIC`schema and only the selected columns from the `votes` table.
 ```yaml
 jdbc-schema:
   connection: "h2-sample-db" # Connection name as defined in the connections section of the application.conf file
