@@ -263,7 +263,7 @@ class KafkaJobSpec extends TestHelper {
           elems += s"""{"key": "key-$i","value": "${UUID.randomUUID().toString}-$i"}"""
         }
         val file = File("/tmp/json.json")
-        file.delete()
+        file.delete(true)
         file.overwrite(elems.mkString("\n"))
         file
       }
