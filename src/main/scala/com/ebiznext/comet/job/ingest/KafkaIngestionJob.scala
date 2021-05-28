@@ -62,15 +62,15 @@ class KafkaIngestionJob(
   override protected def loadJsonData(): Dataset[String] = {
     val dfIn = metadata.mode match {
       case None | Some(Mode.FILE) =>
-        Utils.withResources(new KafkaClient(settings.comet.kafka)) { kafkaTopicUtils =>
+        Utils.withResources(new KafkaClient(settings.comet.kafka)) { kafkaClient =>
           val (dfIn, offsets) =
-            kafkaTopicUtils.consumeTopicBatch(schema.name, session, topicConfig)
+            kafkaClient.consumeTopicBatch(schema.name, session, topicConfig)
           this.offsets = offsets
           dfIn
         }
       case Some(Mode.STREAM) =>
-        Utils.withResources(new KafkaClient(settings.comet.kafka)) { kafkaTopicUtils =>
-          kafkaTopicUtils.consumeTopicStreaming(session, topicConfig)
+        Utils.withResources(new KafkaClient(settings.comet.kafka)) { kafkaClient =>
+          kafkaClient.consumeTopicStreaming(session, topicConfig)
         }
       case _ =>
         throw new Exception("Should never happen")
@@ -87,8 +87,8 @@ class KafkaIngestionJob(
     val res = super.run()
     mode match {
       case Mode.FILE =>
-        Utils.withResources(new KafkaClient(settings.comet.kafka)) { kafkaTopicUtils =>
-          kafkaTopicUtils.topicSaveOffsets(
+        Utils.withResources(new KafkaClient(settings.comet.kafka)) { kafkaClient =>
+          kafkaClient.topicSaveOffsets(
             schema.name,
             topicConfig.accessOptions,
             offsets
