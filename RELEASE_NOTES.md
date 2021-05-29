@@ -1,6 +1,6 @@
 # Release notes
 
-## 0.2.1
+## 0.2.2
 __New feature__:
 - Use the same variable for Lock timeout
 - Improve logging when locking file fails
@@ -14,6 +14,8 @@ __New feature__:
 __Bug Fix__:
 - Invalid YAML files produce now an error at startup instead of displaying a warning.
 
+## 0.2.1
+- Version skipped
 
 ## 0.2.0
 __New feature__:
