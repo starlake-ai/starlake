@@ -596,5 +596,59 @@ class SchemaHandlerSpec extends TestHelper {
                                |""".stripMargin.trim
       }
     }
+
+    "Ingest Dream Contact CSV with ignore" should "produce file in accepted" in {
+      new SpecTrait(
+        domainOrJobFilename = "dreamignore.comet.yml",
+        sourceDomainOrJobPathname = s"/sample/dream/dreamignore.comet.yml",
+        datasetDomainName = "dreamignore",
+        sourceDatasetPathName = "/sample/dream/OneClient_Contact_20190101_090800_008.psv"
+      ) {
+
+        cleanMetadata
+
+        cleanDatasets
+
+        loadPending
+
+        readFileContent(
+          cometDatasetsPath + s"/archive/$datasetDomainName/OneClient_Contact_20190101_090800_008.psv"
+        ) shouldBe loadTextFile(
+          sourceDatasetPathName
+        )
+
+        //If we run this test alone, we do not have rejected, else we have rejected but not accepted ...
+        Try {
+          printDF(
+            sparkSession.read.parquet(
+              cometDatasetsPath + "/rejected/dream/client"
+            ),
+            "dream/client"
+          )
+        }
+
+        // Accepted should have the same data as input
+        val acceptedDf = sparkSession.read
+          .parquet(
+            cometDatasetsPath + s"/accepted/$datasetDomainName/client/${getTodayPartitionPath}"
+          )
+          // Timezone Problem
+          .drop("customer_creation_date")
+
+        val expectedAccepted =
+          sparkSession.read
+            .schema(acceptedDf.schema)
+            .json(getResPath("/expected/datasets/accepted/dream/clientignore.json"))
+            // Timezone Problem
+            .drop("customer_creation_date")
+            .withColumn("truncated_zip_code", substring(col("zip_code"), 0, 3))
+            .withColumn("source_file_name", lit("OneClient_Contact_20190101_090800_008.psv"))
+
+        acceptedDf.columns.size shouldBe expectedAccepted.columns.size
+        acceptedDf.except(expectedAccepted).count() shouldBe 0
+      }
+
+    }
+
   }
 }
