@@ -86,7 +86,7 @@ class JsonIngestionJob(
     }
   }
 
-  lazy val schemaSparkType: StructType = schema.sparkType(schemaHandler)
+  lazy val schemaSparkType: StructType = schema.sparkSchema(schemaHandler)
 
   /** Where the magic happen
     *

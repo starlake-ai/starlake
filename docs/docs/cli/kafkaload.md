@@ -21,12 +21,9 @@ When offloading data from kafka to a file, you may ask to coalesce the result to
 If you ask to coalesce to a single partition, the offloader will store the data in the exact filename you provided in the path
 argument.
 
-The figure below describes the batch offloading process with `comet-offsets-mode = "STREAM"`
+The figure below describes the batch offloading process
 ![](/img/cli/kafka-offload.png)
 
-
-The figure below describes the batch offloading process with `comet-offsets-mode = "FILE"`
-![](/img/cli/kafka-offload-fs.png)
 
 ### Streaming mode
 
