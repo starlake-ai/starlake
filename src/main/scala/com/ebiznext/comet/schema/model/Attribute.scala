@@ -63,7 +63,8 @@ case class Attribute(
   tags: Option[Set[String]] = None,
   trim: Option[Trim] = None,
   script: Option[String] = None,
-  foreignKey: Option[String] = None // [domain.]table.attribute
+  foreignKey: Option[String] = None, // [domain.]table.attribute
+  ignore: Option[Boolean] = None
 ) extends LazyLogging {
 
   override def toString: String =
@@ -233,11 +234,13 @@ case class Attribute(
   @JsonIgnore
   def getFinalName(): String = rename.getOrElse(name)
 
-  def getPrivacy(): PrivacyLevel = Option(this.privacy).getOrElse(PrivacyLevel.None)
+  def isIgnore(): Boolean = ignore.getOrElse(false)
 
-  def isArray(): Boolean = this.array.getOrElse(false)
+  def getPrivacy(): PrivacyLevel = Option(privacy).getOrElse(PrivacyLevel.None)
 
-  def isRequired(): Boolean = Option(this.required).getOrElse(false)
+  def isArray(): Boolean = array.getOrElse(false)
+
+  def isRequired(): Boolean = Option(required).getOrElse(false)
 
   @JsonIgnore
   def getMetricType(schemaHandler: SchemaHandler): MetricType = {

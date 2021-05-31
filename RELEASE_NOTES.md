@@ -1,5 +1,8 @@
 # Release notes
 
+# 0.2.3
+- Add ability to ignore some fields (only top level fields supported)
+
 ## 0.2.2
 __New feature__:
 - Use the same variable for Lock timeout
