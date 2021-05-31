@@ -97,7 +97,7 @@ case class Schema(
     *
     * @return Spark Catalyst Schema
     */
-  def sparkType(schemaHandler: SchemaHandler): StructType = {
+  def sparkSchema(schemaHandler: SchemaHandler): StructType = {
     val fields = attributes.map { attr =>
       StructField(attr.name, attr.sparkType(schemaHandler), !attr.required)
         .withComment(attr.comment.getOrElse(""))
@@ -109,8 +109,8 @@ case class Schema(
     *
     * @return Spark Catalyst Schema
     */
-  def sparkTypeWithRenamedFields(schemaHandler: SchemaHandler): StructType =
-    sparkSchemaWithCondition(schemaHandler, _ => true)
+  def finalSparkSchema(schemaHandler: SchemaHandler): StructType =
+    sparkSchemaWithCondition(schemaHandler, !_.isIgnore())
 
   /** This Schema as a Spark Catalyst Schema, without scripted fields
     *
@@ -133,7 +133,7 @@ case class Schema(
   }
 
   def bqSchema(schemaHandler: SchemaHandler): BQSchema = {
-    BigQueryUtils.bqSchema(sparkTypeWithRenamedFields(schemaHandler))
+    BigQueryUtils.bqSchema(finalSparkSchema(schemaHandler))
   }
 
   /** return the list of renamed attributes
