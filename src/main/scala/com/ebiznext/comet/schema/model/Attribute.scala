@@ -234,7 +234,6 @@ case class Attribute(
   @JsonIgnore
   def getFinalName(): String = rename.getOrElse(name)
 
-  @JsonIgnore
   def isIgnore(): Boolean = ignore.getOrElse(false)
 
   def getPrivacy(): PrivacyLevel = Option(privacy).getOrElse(PrivacyLevel.None)
