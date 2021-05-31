@@ -1,5 +1,5 @@
 ---
-name: "dream"
+name: "dreamignore"
 directory: "__COMET_TEST_ROOT__/dream"
 metadata:
   mode: "FILE"
