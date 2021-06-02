@@ -69,7 +69,7 @@ case class Attribute(
 
   override def toString: String =
     // we pretend the "settings" field does not exist
-    s"Attribute(${name},${`type`},${array},${required},${privacy},${comment},${rename},${metricType},${attributes},${position},${default},${tags})"
+    s"Attribute(${name},${`type`},${array},${required},${getPrivacy()},${comment},${rename},${metricType},${attributes},${position},${default},${tags})"
 
   /** Check attribute validity
     * An attribute is valid if :

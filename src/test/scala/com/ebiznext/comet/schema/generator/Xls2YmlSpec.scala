@@ -98,7 +98,7 @@ class Xls2YmlSpec extends TestHelper {
     private def validCount(domain: Domain, algo: String, count: Int) =
       domain.schemas
         .flatMap(_.attributes)
-        .filter(_.privacy.toString == algo) should have length count
+        .filter(_.getPrivacy().toString == algo) should have length count
 
     "SHA1 & HIDE privacy policies" should "be applied in the pre-encrypt step " in {
       domainOpt shouldBe defined

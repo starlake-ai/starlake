@@ -40,7 +40,8 @@ trait XlsModel {
     "_description"    -> "Description",
     "_position_start" -> "Start Position",
     "_position_end"   -> "End Position",
-    "_trim"           -> "Trim (LEFT, RIGHT,BOTH)"
+    "_trim"           -> "Trim (LEFT, RIGHT,BOTH)",
+    "_ignore"         -> "Ignore ?"
   )
 
 }

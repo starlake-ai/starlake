@@ -92,7 +92,7 @@ object XmlSimplePrivacyJob {
             val prefix = line.substring(0, openIndex)
             val suffix = line.substring(closeIndex)
             val privacyInput = line.substring(openIndex, closeIndex)
-            prefix + attribute.privacy.crypt(privacyInput, Map.empty) + suffix
+            prefix + attribute.getPrivacy().crypt(privacyInput, Map.empty) + suffix
           }
         }
         Row(privacy)
