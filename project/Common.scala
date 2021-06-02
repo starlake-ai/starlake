@@ -98,7 +98,7 @@ object Versions {
   val sparkAvro = "4.0.0"
   val curator = "2.6.0"
   val spark2d4 = "2.4.8"
-  val spark3d0 = "3.1.1"
+  val spark3d0 = "3.1.2"
   val scalatest = "3.2.9"
   val sparkXML = "0.12.0"
   val springBoot = "2.0.6.RELEASE"
@@ -116,7 +116,7 @@ object Versions {
   val esSpark212 = "7.12.1"
   val scopt = "4.0.1"
   val sttp = "1.7.2"
-  val gcs = "hadoop3-2.2.0"
+  val gcs = "hadoop3-2.2.1"
   val hadoopbq = "hadoop3-1.0.0"
   val bq = "1.120.0"
   val hadoop = "3.3.0"
@@ -127,7 +127,7 @@ object Versions {
 //  val akkaStream = "2.6.12"
   val akkaStream = "2.5.32"
   val kafkaClients = "2.8.0"
-  val testContainers = "0.39.4"
+  val testContainers = "0.39.5"
   val jsqlparser = "4.0"
 }
 
