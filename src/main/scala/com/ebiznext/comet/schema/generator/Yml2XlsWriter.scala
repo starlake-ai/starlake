@@ -114,7 +114,7 @@ class Yml2XlsWriter(schemaHandler: SchemaHandler) extends LazyLogging with XlsMo
         attrRow.createCell(2).setCellValue(attr.`type`)
         attrRow.createCell(3).setCellValue(attr.required)
         attrRow.getCell(3).setCellType(CellType.BOOLEAN)
-        attrRow.createCell(4).setCellValue(attr.privacy.toString)
+        attrRow.createCell(4).setCellValue(attr.getPrivacy().toString)
         attrRow.createCell(5).setCellValue(attr.metricType.map(_.toString).getOrElse(""))
         attrRow.createCell(6).setCellValue(attr.default.getOrElse(""))
         attrRow.createCell(7).setCellValue(attr.script.getOrElse(""))
@@ -128,8 +128,9 @@ class Yml2XlsWriter(schemaHandler: SchemaHandler) extends LazyLogging with XlsMo
           attrRow.getCell(10).setCellValue(attr.position.map(_.last.toString).getOrElse(""))
         }
         attrRow.createCell(11).setCellValue(attr.trim.map(_.toString).getOrElse(""))
+        attrRow.createCell(12).setCellValue(attr.ignore.map(_.toString).getOrElse("false"))
       }
-      for (i <- 0 to 11)
+      for (i <- 0 to 12)
         attributesSheet.autoSizeColumn(i)
 
     }

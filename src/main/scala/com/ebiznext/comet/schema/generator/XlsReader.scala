@@ -288,6 +288,11 @@ class XlsReader(input: Input) extends XlsModel {
                 .flatMap(formatter.formatCellValue)
                 .map(Trim.fromString)
 
+            val attributeIgnore =
+              Option(row.getCell(headerMap("_ignore"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
+                .flatMap(formatter.formatCellValue)
+                .map(_.toBoolean)
+
             (nameOpt, semTypeOpt) match {
               case (Some(name), Some(semType)) =>
                 Some(
@@ -305,7 +310,8 @@ class XlsReader(input: Input) extends XlsModel {
                     default = defaultOpt,
                     script = scriptOpt,
                     tags = None,
-                    attributes = None
+                    attributes = None,
+                    ignore = attributeIgnore
                   )
                 )
               case _ => None
