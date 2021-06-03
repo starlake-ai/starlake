@@ -87,7 +87,7 @@ object DDL2Yml extends LazyLogging {
     * @param settings     : Application configuration file
     */
   def run(jdbcSchema: JDBCSchema, ymlOutputDir: File, domainTemplate: Option[Domain])(implicit
-                                                                                      settings: Settings
+    settings: Settings
   ): Unit = {
     val jdbcOptions = settings.comet.connections(jdbcSchema.connection)
     // Only JDBC connections are supported
@@ -174,7 +174,7 @@ object DDL2Yml extends LazyLogging {
       )
       val attrs = new Iterator[Attribute] {
         def hasNext: Boolean = columnsResultSet.next()
-        def next(): (Attribute) = {
+        def next(): Attribute = {
           val colName = columnsResultSet.getString("COLUMN_NAME")
           println(s"COLUMN_NAME=$tableName.$colName")
           val colType = columnsResultSet.getInt("DATA_TYPE")
