@@ -2,6 +2,7 @@
 
 # 0.2.3
 - Add ability to ignore some fields (only top level fields supported)
+- Include primary keys & foreign keys in DDL2Yml
 
 ## 0.2.2
 __New feature__:
