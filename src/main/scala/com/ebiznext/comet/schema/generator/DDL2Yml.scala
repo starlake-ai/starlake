@@ -143,25 +143,48 @@ object DDL2Yml extends LazyLogging {
       domainTemplate.flatMap(_.schemas.headOption.flatMap(_.metadata))
     // Extract the Comet Schema
     val cometSchema = selectedTables.map { case (tableName, tableRemarks) =>
-      val resultSet = databaseMetaData.getColumns(
+      // Find all foreign keys
+      val foreignKeysResultSet = databaseMetaData.getImportedKeys(
+        jdbcSchema.catalog.orNull,
+        jdbcSchema.schema,
+        tableName
+      )
+      val foreignKeys = scala.collection.mutable.Map[String, String]()
+      while (foreignKeysResultSet.next()) {
+        val pkSchemaName = foreignKeysResultSet.getString("PKTABLE_SCHEM")
+        val pkTableName = foreignKeysResultSet.getString("PKTABLE_NAME")
+        val pkColumnName = foreignKeysResultSet.getString("PKCOLUMN_NAME")
+        val fkColumnName = foreignKeysResultSet.getString("FKCOLUMN_NAME").toUpperCase
+
+        val pkCompositeName =
+          if (pkSchemaName == null) s"$pkTableName.$pkColumnName"
+          else s"$pkSchemaName.$pkTableName.$pkColumnName"
+
+        foreignKeys += (fkColumnName -> pkCompositeName)
+      }
+
+      // Extract all columns
+      val columnsResultSet = databaseMetaData.getColumns(
         jdbcSchema.catalog.orNull,
         jdbcSchema.schema,
         tableName,
         null
       )
       val attrs = ListBuffer.empty[Attribute]
-      while (resultSet.next()) {
-        val colName = resultSet.getString("COLUMN_NAME")
+      while (columnsResultSet.next()) {
+        val colName = columnsResultSet.getString("COLUMN_NAME")
         println(s"COLUMN_NAME=$tableName.$colName")
-        val colType = resultSet.getInt("DATA_TYPE")
-        val colRemarks = resultSet.getString("REMARKS")
-        val colRequired = resultSet.getString("IS_NULLABLE").equals("NO")
+        val colType = columnsResultSet.getInt("DATA_TYPE")
+        val colRemarks = columnsResultSet.getString("REMARKS")
+        val colRequired = columnsResultSet.getString("IS_NULLABLE").equals("NO")
+        val foreignKey = foreignKeys.get(colName.toUpperCase)
 
         attrs += Attribute(
           name = colName,
           `type` = sparkType(colType, tableName, colName),
           required = colRequired,
-          comment = Option(colRemarks)
+          comment = Option(colRemarks),
+          foreignKey = foreignKey
         )
       }
       // remove duplicates
@@ -188,15 +211,30 @@ object DDL2Yml extends LazyLogging {
       logger.whenDebugEnabled {
         columns.foreach(column => logger.debug(s"Final schema column: $tableName.${column.name}"))
       }
+
+//      // Find primary keys
+      val primaryKeysResultSet = databaseMetaData.getPrimaryKeys(
+        jdbcSchema.catalog.orNull,
+        jdbcSchema.schema,
+        tableName
+      )
+      val primaryKeys = ListBuffer.empty[String]
+      while (primaryKeysResultSet.next()) {
+        val colName = primaryKeysResultSet.getString("COLUMN_NAME")
+
+        primaryKeys += colName
+      }
+
       Schema(
-        tableName,
-        Pattern.compile(s"$tableName.*"),
-        selectedColumns,
-        schemaMetadata,
-        None,
-        Option(tableRemarks),
-        None,
-        None
+        name = tableName,
+        pattern = Pattern.compile(s"$tableName.*"),
+        attributes = selectedColumns,
+        metadata = schemaMetadata,
+        merge = None,
+        comment = Option(tableRemarks),
+        presql = None,
+        postsql = None,
+        primaryKey = if (primaryKeys.isEmpty) None else Some(primaryKeys.toList)
       )
     }
     // Generate the domain with a dummy watch directory
