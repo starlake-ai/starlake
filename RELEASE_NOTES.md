@@ -2,6 +2,7 @@
 
 # 0.2.3
 - Add ability to ignore some fields (only top level fields supported)
+- Handle multiple schemas during extraction
 - Improve InferSchmaJob
 - Include primary keys & foreign keys in DDL2Yml
 

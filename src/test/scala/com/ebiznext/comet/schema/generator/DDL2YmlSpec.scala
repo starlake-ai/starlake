@@ -62,6 +62,40 @@ class DDL2YmlSpec extends TestHelper {
     }
   }
 
+  "JDBCSchemas" should "deserialize corrected" in {
+    new WithSettings() {
+      val imput =
+        """
+          |extract:
+          |  jdbcSchemas:
+          |    - connection: "test-h2" # Connection name as defined in the connections section of the application.conf file
+          |      catalog: "business" # Optional catalog name in the target database
+          |      schema: "public" # Database schema where tables are located
+          |      tables:
+          |        - name: "user"
+          |          columns: # optional list of columns, if not present all columns should be exported.
+          |            - id
+          |            - email
+          |        - name: product # All columns should be exported
+          |        - name: "*" # Ignore any other table spec. Just export all tables
+          |      tableTypes: # One or many of the types below
+          |        - "TABLE"
+          |        - "VIEW"
+          |        - "SYSTEM TABLE"
+          |        - "GLOBAL TEMPORARY"
+          |        - "LOCAL TEMPORARY"
+          |        - "ALIAS"
+          |        - "SYNONYM"
+          |      template: "/my-templates/domain-template.yml" # Metadata to use for the generated YML file.
+          |""".stripMargin
+      val jdbcMapping = File.newTemporaryFile()
+      val outputDir = File.newTemporaryDirectory()
+      jdbcMapping.overwrite(imput)
+      val jdbcSchemas = YamlSerializer.deserializeJDBCSchemas(jdbcMapping)
+      assert(jdbcSchemas.jdbcSchemas.size > 0)
+    }
+  }
+
   "DDL2Yml of some columns" should "should generated only the tables and columns requested" in {
     new WithSettings() {
       val jdbcOptions = settings.comet.connections("test-h2")
