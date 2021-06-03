@@ -16,7 +16,7 @@ title: infer-schema
 Parameter|Cardinality|Description
 ---|---|---
 --domain:`<value>`|*Required*|Domain Name
---schema:`<value>`|*Required*|Domain Name
---input:`<value>`|*Required*|Input Path
---output:`<value>`|*Required*|Output Path
---with-header:`<value>`|*Optional*|Does the file contain a header
+--schema:`<value>`|*Required*|Schema Name
+--input:`<value>`|*Required*|Dataset Input Path
+--output:`<value>`|*Required*|Domain YAML Output Path
+--with-header:`<value>`|*Optional*|Does the file contain a header (For CSV files only)
