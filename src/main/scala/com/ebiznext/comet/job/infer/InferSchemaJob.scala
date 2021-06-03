@@ -84,8 +84,8 @@ class InferSchemaJob(implicit settings: Settings) {
     val jsonRegexStart = """\{.*""".r
     val jsonArrayRegexStart = """\[.*""".r
 
-    val jsonRegexEnd = """\}.*""".r
-    val jsonArrayRegexEnd = """\].*""".r
+    val jsonRegexEnd = """.*\}""".r
+    val jsonArrayRegexEnd = """.*\]""".r
 
     (firstLine, lastLine) match {
       case (jsonRegexStart(), jsonRegexEnd())           => "JSON"
