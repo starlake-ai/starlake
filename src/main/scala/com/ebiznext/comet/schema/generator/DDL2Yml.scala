@@ -68,15 +68,17 @@ object DDL2Yml extends LazyLogging {
     * @param settings     : Application configuration file
     */
   def run(config: DDL2YmlConfig)(implicit settings: Settings): Unit = {
-    val jdbcSchema =
-      YamlSerializer.deserializeJDBCSchema(File(config.jdbcMapping))
-    val domainTemplate = config.ymlTemplate.orElse(jdbcSchema.template).map { ymlTemplate =>
-      YamlSerializer.deserializeDomain(File(ymlTemplate)) match {
-        case Success(domain) => domain
-        case Failure(e)      => throw e
+    val jdbcSchemas =
+      YamlSerializer.deserializeJDBCSchemas(File(config.jdbcMapping))
+    jdbcSchemas.jdbcSchemas.foreach { jdbcSchema =>
+      val domainTemplate = config.ymlTemplate.orElse(jdbcSchema.template).map { ymlTemplate =>
+        YamlSerializer.deserializeDomain(File(ymlTemplate)) match {
+          case Success(domain) => domain
+          case Failure(e)      => throw e
+        }
       }
+      run(jdbcSchema, File(config.outputDir), domainTemplate)
     }
-    run(jdbcSchema, File(config.outputDir), domainTemplate)
   }
 
   /** Generate YML file from the JDBCSchema

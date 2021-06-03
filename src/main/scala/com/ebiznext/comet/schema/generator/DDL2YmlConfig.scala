@@ -22,12 +22,17 @@ package com.ebiznext.comet.schema.generator
 import com.ebiznext.comet.utils.CliConfig
 import scopt.OParser
 
+case class JDBCSchemas(
+  jdbcSchemas: List[JDBCSchema]
+)
+
 /** @param connection : JDBC Configuration to use as defined in the connection section in the application.conf
   * @param catalog     : Database catalog name, optional.
   * @param schema      : Database schema to use, required.
   * @param tables      : Tables to extract. Nil if all tables should be extracted
   * @param tableTypes  : Table types to extract
   */
+
 case class JDBCSchema(
   connection: String,
   catalog: Option[String] = None,
