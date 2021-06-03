@@ -24,7 +24,7 @@ import com.ebiznext.comet.config.{Settings, SparkEnv}
 import com.ebiznext.comet.schema.handlers.InferSchemaHandler
 import com.ebiznext.comet.schema.model.{Attribute, Domain}
 import org.apache.hadoop.fs.Path
-import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
+import org.apache.spark.sql.{DataFrame, Dataset, Encoders, SparkSession}
 
 import java.util.regex.Pattern
 import scala.io.Source
@@ -92,7 +92,6 @@ class InferSchemaJob(implicit settings: Settings) {
       case (jsonArrayRegexStart(), jsonArrayRegexEnd()) => "ARRAY_JSON"
       case _                                            => "DSV"
     }
-
   }
 
   /** Get separator file by taking the character that appears the most in 10 lines of the dataset
@@ -103,8 +102,10 @@ class InferSchemaJob(implicit settings: Settings) {
   def getSeparator(lines: List[String]): String = {
     val firstLine = lines.head
     val separator =
-      firstLine.toCharArray.map((_, 1)).groupBy(_._1).mapValues(_.size).toList.maxBy(_._2)
-    separator.toString
+      firstLine
+        .replaceAll("[A-Za-z0-9 \"'()@?!éèîàÀÉÈç+]", "")
+        .toCharArray.map((_, 1)).groupBy(_._1).mapValues(_.size).toList.maxBy(_._2)
+    separator._1.toString
   }
 
   /** Get domain directory name
@@ -133,17 +134,26 @@ class InferSchemaJob(implicit settings: Settings) {
     */
   def createDataFrameWithFormat(
     lines: List[String],
-    path: Path,
+    dataPath: String,
     header: Boolean
   ): DataFrame = {
     val formatFile = getFormatFile(lines)
-
     formatFile match {
-      case "JSON" | "ARRAY_JSON" =>
+      case "ARRAY_JSON" =>
+          val jsonRDD =
+            session.sparkContext.wholeTextFiles(dataPath).map {
+              case (_, content) => content
+            }
+          session
+            .read
+            .option("inferSchema", value = true)
+            .json(session.createDataset(jsonRDD)(Encoders.STRING))
+
+      case "JSON" =>
         session.read
           .format("json")
           .option("inferSchema", value = true)
-          .load(path.toString)
+          .load(dataPath)
 
       case "DSV" =>
         session.read
@@ -152,7 +162,7 @@ class InferSchemaJob(implicit settings: Settings) {
           .option("inferSchema", value = true)
           .option("delimiter", getSeparator(lines))
           .option("parserLib", "UNIVOCITY")
-          .load(path.toString)
+          .load(dataPath)
     }
   }
 
@@ -170,9 +180,9 @@ class InferSchemaJob(implicit settings: Settings) {
     Try {
       val path = new Path(dataPath)
 
-      val lines = Source.fromFile(path.toString).getLines().toList
+      val lines = Source.fromFile(path.toString).getLines().toList.map(_.trim).filter(_.nonEmpty)
 
-      val dataframeWithFormat = createDataFrameWithFormat(lines, path, header)
+      val dataframeWithFormat = createDataFrameWithFormat(lines, dataPath, header)
 
       val format = Option(getFormatFile(lines))
 
