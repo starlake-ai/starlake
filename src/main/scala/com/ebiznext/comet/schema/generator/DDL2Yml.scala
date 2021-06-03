@@ -149,19 +149,21 @@ object DDL2Yml extends LazyLogging {
         jdbcSchema.schema,
         tableName
       )
-      val foreignKeys = scala.collection.mutable.Map[String, String]()
-      while (foreignKeysResultSet.next()) {
-        val pkSchemaName = foreignKeysResultSet.getString("PKTABLE_SCHEM")
-        val pkTableName = foreignKeysResultSet.getString("PKTABLE_NAME")
-        val pkColumnName = foreignKeysResultSet.getString("PKCOLUMN_NAME")
-        val fkColumnName = foreignKeysResultSet.getString("FKCOLUMN_NAME").toUpperCase
+      val foreignKeys = new Iterator[(String, String)] {
+        def hasNext: Boolean = foreignKeysResultSet.next()
+        def next(): (String, String) = {
+          val pkSchemaName = foreignKeysResultSet.getString("PKTABLE_SCHEM")
+          val pkTableName = foreignKeysResultSet.getString("PKTABLE_NAME")
+          val pkColumnName = foreignKeysResultSet.getString("PKCOLUMN_NAME")
+          val fkColumnName = foreignKeysResultSet.getString("FKCOLUMN_NAME").toUpperCase
 
-        val pkCompositeName =
-          if (pkSchemaName == null) s"$pkTableName.$pkColumnName"
-          else s"$pkSchemaName.$pkTableName.$pkColumnName"
+          val pkCompositeName =
+            if (pkSchemaName == null) s"$pkTableName.$pkColumnName"
+            else s"$pkSchemaName.$pkTableName.$pkColumnName"
 
-        foreignKeys += (fkColumnName -> pkCompositeName)
-      }
+          fkColumnName -> pkCompositeName
+        }
+      }.toMap
 
       // Extract all columns
       val columnsResultSet = databaseMetaData.getColumns(
@@ -170,23 +172,25 @@ object DDL2Yml extends LazyLogging {
         tableName,
         null
       )
-      val attrs = ListBuffer.empty[Attribute]
-      while (columnsResultSet.next()) {
-        val colName = columnsResultSet.getString("COLUMN_NAME")
-        println(s"COLUMN_NAME=$tableName.$colName")
-        val colType = columnsResultSet.getInt("DATA_TYPE")
-        val colRemarks = columnsResultSet.getString("REMARKS")
-        val colRequired = columnsResultSet.getString("IS_NULLABLE").equals("NO")
-        val foreignKey = foreignKeys.get(colName.toUpperCase)
+      val attrs = new Iterator[Attribute] {
+        def hasNext: Boolean = columnsResultSet.next()
+        def next(): (Attribute) = {
+          val colName = columnsResultSet.getString("COLUMN_NAME")
+          println(s"COLUMN_NAME=$tableName.$colName")
+          val colType = columnsResultSet.getInt("DATA_TYPE")
+          val colRemarks = columnsResultSet.getString("REMARKS")
+          val colRequired = columnsResultSet.getString("IS_NULLABLE").equals("NO")
+          val foreignKey = foreignKeys.get(colName.toUpperCase)
 
-        attrs += Attribute(
-          name = colName,
-          `type` = sparkType(colType, tableName, colName),
-          required = colRequired,
-          comment = Option(colRemarks),
-          foreignKey = foreignKey
-        )
-      }
+          Attribute(
+            name = colName,
+            `type` = sparkType(colType, tableName, colName),
+            required = colRequired,
+            comment = Option(colRemarks),
+            foreignKey = foreignKey
+          )
+        }
+      }.to[ListBuffer]
       // remove duplicates
       // see https://stackoverflow.com/questions/1601203/jdbc-databasemetadata-getcolumns-returns-duplicate-columns
       val columns = attrs.groupBy(_.name).map { case (_, uniqAttr) => uniqAttr.head }
@@ -218,12 +222,10 @@ object DDL2Yml extends LazyLogging {
         jdbcSchema.schema,
         tableName
       )
-      val primaryKeys = ListBuffer.empty[String]
-      while (primaryKeysResultSet.next()) {
-        val colName = primaryKeysResultSet.getString("COLUMN_NAME")
-
-        primaryKeys += colName
-      }
+      val primaryKeys = new Iterator[String] {
+        def hasNext: Boolean = primaryKeysResultSet.next()
+        def next(): String = primaryKeysResultSet.getString("COLUMN_NAME")
+      }.toList
 
       Schema(
         name = tableName,
@@ -234,7 +236,7 @@ object DDL2Yml extends LazyLogging {
         comment = Option(tableRemarks),
         presql = None,
         postsql = None,
-        primaryKey = if (primaryKeys.isEmpty) None else Some(primaryKeys.toList)
+        primaryKey = if (primaryKeys.isEmpty) None else Some(primaryKeys)
       )
     }
     // Generate the domain with a dummy watch directory
