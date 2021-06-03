@@ -20,13 +20,13 @@
 
 package com.ebiznext.comet.schema.handlers
 
+import better.files.File
+
 import java.io.StringWriter
 import java.util.regex.Pattern
-
 import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.job.Main
 import com.ebiznext.comet.schema.model._
-import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.types.{ArrayType, StructType}
 
 object InferSchemaHandler {
@@ -155,10 +155,11 @@ object InferSchemaHandler {
   def generateYaml(domain: Domain, savePath: String)(implicit
     settings: Settings
   ): Unit = {
-    val obj = settings.metadataStorageHandler.read(new Path(savePath))
     val objw = new StringWriter()
-    objw.write(obj)
     Main.mapper.writeValue(objw, domain)
+    val output = File(savePath)
+    output.overwrite(objw.toString)
+
   }
 
 }

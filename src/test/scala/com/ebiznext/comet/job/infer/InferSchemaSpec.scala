@@ -11,10 +11,10 @@ class InferSchemaSpec extends TestHelper {
           |Usage: comet infer-schema [options]
           |
           |  --domain <value>       Domain Name
-          |  --schema <value>       Domain Name
-          |  --input <value>        Input Path
-          |  --output <value>       Output Path
-          |  --with-header <value>  Does the file contain a header
+          |  --schema <value>       Schema Name
+          |  --input <value>        Dataset Input Path
+          |  --output <value>       Domain YAML Output Path
+          |  --with-header <value>  Does the file contain a header (For CSV files only)
           |""".stripMargin
       rendered.substring(rendered.indexOf("Usage:")).replaceAll("\\s", "") shouldEqual expected
         .replaceAll("\\s", "")
