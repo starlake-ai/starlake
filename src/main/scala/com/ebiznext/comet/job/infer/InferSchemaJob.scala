@@ -27,6 +27,7 @@ import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 
 import java.util.regex.Pattern
+import scala.io.Source
 import scala.util.Try
 
 /** *
@@ -71,53 +72,38 @@ class InferSchemaJob(implicit settings: Settings) {
   }
 
   /** Get format file by using the first and the last line of the dataset
-    * We use mapPartitionsWithIndex to retrieve these informations to make sure that the first line really corresponds to the first line (same for the last)
+    * We use mapPartitionsWithIndex to retrieve these information to make sure that the first line really corresponds to the first line (same for the last)
     *
-    * @param datasetInit : created dataset without specifying format
+    * @param lines : list of lines read from file
     * @return
     */
-  def getFormatFile(datasetInit: Dataset[String]): String = {
-    val rddDatasetInit = datasetInit.rdd
-    val lastPartitionNo = rddDatasetInit.getNumPartitions - 1
+  def getFormatFile(lines: List[String]): String = {
+    val firstLine = lines.head
+    val lastLine = lines.last
 
-    //Retrieve the first and the last line of a dataset
-    val partitionWithIndex = rddDatasetInit.mapPartitionsWithIndex { (index, iterator) =>
-      {
-        val iteratorList = iterator.toList
-        //The first line is stored into the 0th partition
-        //Check if data is stored on the same partition (if true return directly the first and the last line)
-        (index, lastPartitionNo) match {
-          case (0, 0) => Iterator(iteratorList.take(1).head, iteratorList.reverse.take(1).last)
-          case (0, _) => iteratorList.take(1).iterator
-          //The last line is stored into the last partition
-          case (i, l) if i == l => iteratorList.reverse.take(1).iterator
-          case (_, _)           => Iterator()
-        }
-      }
+    val jsonRegexStart = """\{.*""".r
+    val jsonArrayRegexStart = """\[.*""".r
+
+    val jsonRegexEnd = """\}.*""".r
+    val jsonArrayRegexEnd = """\].*""".r
+
+    (firstLine, lastLine) match {
+      case (jsonRegexStart(), jsonRegexEnd())           => "JSON"
+      case (jsonArrayRegexStart(), jsonArrayRegexEnd()) => "ARRAY_JSON"
+      case _                                            => "DSV"
     }
-
-    val firstLine = partitionWithIndex.first
-    val lastLine = partitionWithIndex.collect().last
-
-    if (firstLine.startsWith("{") && firstLine.endsWith("}")) "JSON"
-    else if (firstLine.startsWith("[") && lastLine.endsWith("]")) "ARRAY_JSON"
-    else "DSV"
 
   }
 
   /** Get separator file by taking the character that appears the most in 10 lines of the dataset
     *
-    * @param datasetInit : created dataset without specifying format
+    * @param lines : list of lines read from file
     * @return the file separator
     */
-  def getSeparator(datasetInit: Dataset[String]): String = {
-    val (separator, _) = session.sparkContext
-      .parallelize(datasetInit.take(10))
-      .map(x => x.replaceAll("[A-Za-z0-9 \"'()@?!éèîàÀÉÈç+]", ""))
-      .flatMap(_.toCharArray)
-      .map(w => (w, 1))
-      .reduceByKey(_ + _)
-      .max
+  def getSeparator(lines: List[String]): String = {
+    val firstLine = lines.head
+    val separator =
+      firstLine.toCharArray.map((_, 1)).groupBy(_._1).mapValues(_.size).toList.maxBy(_._2)
     separator.toString
   }
 
@@ -141,16 +127,16 @@ class InferSchemaJob(implicit settings: Settings) {
 
   /** Create the dataframe with its associated format
     *
-    * @param datasetInit : created dataset without specifying format
+    * @param lines : list of lines read from file
     * @param path        : file path
     * @return
     */
   def createDataFrameWithFormat(
-    datasetInit: Dataset[String],
+    lines: List[String],
     path: Path,
     header: Boolean
   ): DataFrame = {
-    val formatFile = getFormatFile(datasetInit)
+    val formatFile = getFormatFile(lines)
 
     formatFile match {
       case "JSON" | "ARRAY_JSON" =>
@@ -164,7 +150,7 @@ class InferSchemaJob(implicit settings: Settings) {
           .format("com.databricks.spark.csv")
           .option("header", header)
           .option("inferSchema", value = true)
-          .option("delimiter", getSeparator(datasetInit))
+          .option("delimiter", getSeparator(lines))
           .option("parserLib", "UNIVOCITY")
           .load(path.toString)
     }
@@ -184,17 +170,17 @@ class InferSchemaJob(implicit settings: Settings) {
     Try {
       val path = new Path(dataPath)
 
-      val datasetWithoutFormat = readFile(path)
+      val lines = Source.fromFile(path.toString).getLines().toList
 
-      val dataframeWithFormat = createDataFrameWithFormat(datasetWithoutFormat, path, header)
+      val dataframeWithFormat = createDataFrameWithFormat(lines, path, header)
 
-      val format = Option(getFormatFile(datasetWithoutFormat))
+      val format = Option(getFormatFile(lines))
 
       val array = format.contains("ARRAY_JSON")
 
       val withHeader = header
 
-      val separator = getSeparator(datasetWithoutFormat)
+      val separator = getSeparator(lines)
 
       val inferSchema = InferSchemaHandler
 
