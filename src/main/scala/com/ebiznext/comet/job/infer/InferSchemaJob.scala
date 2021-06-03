@@ -104,7 +104,12 @@ class InferSchemaJob(implicit settings: Settings) {
     val separator =
       firstLine
         .replaceAll("[A-Za-z0-9 \"'()@?!éèîàÀÉÈç+]", "")
-        .toCharArray.map((_, 1)).groupBy(_._1).mapValues(_.size).toList.maxBy(_._2)
+        .toCharArray
+        .map((_, 1))
+        .groupBy(_._1)
+        .mapValues(_.size)
+        .toList
+        .maxBy(_._2)
     separator._1.toString
   }
 
@@ -140,14 +145,13 @@ class InferSchemaJob(implicit settings: Settings) {
     val formatFile = getFormatFile(lines)
     formatFile match {
       case "ARRAY_JSON" =>
-          val jsonRDD =
-            session.sparkContext.wholeTextFiles(dataPath).map {
-              case (_, content) => content
-            }
-          session
-            .read
-            .option("inferSchema", value = true)
-            .json(session.createDataset(jsonRDD)(Encoders.STRING))
+        val jsonRDD =
+          session.sparkContext.wholeTextFiles(dataPath).map { case (_, content) =>
+            content
+          }
+        session.read
+          .option("inferSchema", value = true)
+          .json(session.createDataset(jsonRDD)(Encoders.STRING))
 
       case "JSON" =>
         session.read
