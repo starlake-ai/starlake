@@ -87,7 +87,7 @@ object DDL2Yml extends LazyLogging {
     * @param settings     : Application configuration file
     */
   def run(jdbcSchema: JDBCSchema, ymlOutputDir: File, domainTemplate: Option[Domain])(implicit
-    settings: Settings
+                                                                                      settings: Settings
   ): Unit = {
     val jdbcOptions = settings.comet.connections(jdbcSchema.connection)
     // Only JDBC connections are supported
@@ -216,7 +216,7 @@ object DDL2Yml extends LazyLogging {
         columns.foreach(column => logger.debug(s"Final schema column: $tableName.${column.name}"))
       }
 
-//      // Find primary keys
+      //      // Find primary keys
       val primaryKeysResultSet = databaseMetaData.getPrimaryKeys(
         jdbcSchema.catalog.orNull,
         jdbcSchema.schema,
