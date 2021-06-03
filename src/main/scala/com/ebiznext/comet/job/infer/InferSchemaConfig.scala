@@ -46,19 +46,19 @@ object InferSchemaConfig extends CliConfig[InferSchemaConfig] {
       opt[String]("schema")
         .action((x, c) => c.copy(schemaName = x))
         .required()
-        .text("Domain Name"),
+        .text("Schema Name"),
       opt[String]("input")
         .action((x, c) => c.copy(inputPath = x))
         .required()
-        .text("Input Path"),
+        .text("Dataset Input Path"),
       opt[String]("output")
         .action((x, c) => c.copy(outputPath = x))
         .required()
-        .text("Output Path"),
+        .text("Domain YAML Output Path"),
       opt[Option[Boolean]]("with-header")
         .action((x, c) => c.copy(header = x))
         .optional()
-        .text("Does the file contain a header")
+        .text("Does the file contain a header (For CSV files only)")
     )
   }
 
