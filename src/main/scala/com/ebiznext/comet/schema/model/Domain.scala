@@ -105,7 +105,7 @@ case class Domain(
     *
     * @return the ack attribute or ".ack" by default
     */
-  def getAck(): String = ack.map(ack => if (ack.nonEmpty) "." + ack else ack).getOrElse(".ack")
+  def getAck(): String = ack.map(ack => if (ack.nonEmpty) "." + ack else ack).getOrElse("")
 
   /** Is this Domain valid ? A domain is valid if :
     *   - The domain name is a valid attribute

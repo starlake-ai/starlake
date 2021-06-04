@@ -93,9 +93,11 @@ class IngestionWorkflow(
               domain.getExtensions().map(ext => new Path(prefixStr + ext))
           val existRawFile = rawFormats.find(file => storageHandler.exists(file))
           logger.info(s"Found ack file $ackFile")
+          val zipExtensions = List(".tgz", ".gz", ".zip")
+          val isZip = zipExtensions.exists(ext => path.toString.endsWith(ext))
           if (domain.getAck().nonEmpty)
             storageHandler.delete(ackFile)
-          if (existRawFile.isDefined) {
+          if (!isZip && existRawFile.isDefined) {
             existRawFile.foreach { file =>
               logger.info(s"Found raw file $existRawFile")
               storageHandler.mkdirs(tmpDir)

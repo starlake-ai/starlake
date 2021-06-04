@@ -39,7 +39,7 @@ import org.apache.hadoop.fs.Path
   */
 case class AutoTaskDesc(
   name: Option[String],
-  sql: String,
+  sql: Option[String],
   domain: String,
   dataset: String,
   write: WriteMode,
@@ -55,6 +55,7 @@ case class AutoTaskDesc(
   @JsonIgnore
   def getPartitions(): List[String] = partition.getOrElse(Nil)
 
+  def getSql(): String = sql.getOrElse("")
   /** Return a Path only if a storage area s defined
     * @param defaultArea
     * @param settings
