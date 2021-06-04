@@ -188,9 +188,9 @@ class InferSchemaJob(implicit settings: Settings) {
 
       val dataframeWithFormat = createDataFrameWithFormat(lines, dataPath, header)
 
-      val format = Option(getFormatFile(lines))
+      val format = getFormatFile(lines)
 
-      val array = format.contains("ARRAY_JSON")
+      val array = format == "ARRAY_JSON"
 
       val withHeader = header
 

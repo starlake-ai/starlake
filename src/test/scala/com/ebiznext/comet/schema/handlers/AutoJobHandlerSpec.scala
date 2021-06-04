@@ -50,7 +50,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
 
       val businessTask1 = AutoTaskDesc(
         None,
-        "select firstname, lastname, age from {{view}} where age=${age}",
+        Some("select firstname, lastname, age from {{view}} where age=${age}"),
         "user",
         "user",
         WriteMode.OVERWRITE,
@@ -97,7 +97,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
 
       val businessTask1 = AutoTaskDesc(
         None,
-        "select firstname, lastname, age from user_View where age={{age}} and lastname={{lastname}} and firstname={{firstname}}",
+        Some("select firstname, lastname, age from user_View where age={{age}} and lastname={{lastname}} and firstname={{firstname}}"),
         "user",
         "user",
         WriteMode.OVERWRITE,
@@ -145,7 +145,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
 
       val businessTask1 = AutoTaskDesc(
         None,
-        "select firstname, lastname, age from user_View",
+        Some("select firstname, lastname, age from user_View"),
         "user",
         "user",
         WriteMode.OVERWRITE,
@@ -189,7 +189,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
 
       val businessTask1 = AutoTaskDesc(
         None,
-        "select concatWithSpace(firstname, lastname) as fullName from user_View",
+        Some("select concatWithSpace(firstname, lastname) as fullName from user_View"),
         "user",
         "user",
         WriteMode.OVERWRITE,
@@ -235,7 +235,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
 
       val businessTask1 = AutoTaskDesc(
         None,
-        "SELECT * FROM graduate_agg_view",
+        Some("SELECT * FROM graduate_agg_view"),
         "graduateProgram",
         "output",
         WriteMode.OVERWRITE,
@@ -288,7 +288,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
     "BQ Business Job Definition" should "Prepare correctly against BQ" in {
       val businessTask1 = AutoTaskDesc(
         None,
-        "select * from domain",
+        Some("select * from domain"),
         "DOMAIN",
         "TABLE",
         WriteMode.OVERWRITE,

@@ -94,7 +94,7 @@ class ScriptGen(
           throw new Exception("not supported") // TODO
       }
       action.copy(task =
-        action.task.copy(presql = Some(preSql), sql = sql, postsql = Some(postSql))
+        action.task.copy(presql = Some(preSql), sql = Option(sql), postsql = Some(postSql))
       )(settings, metadataStorageHandler, schemaHandler)
     }
 

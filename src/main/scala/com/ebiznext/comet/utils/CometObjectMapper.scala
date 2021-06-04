@@ -1,6 +1,7 @@
 package com.ebiznext.comet.utils
 
 import com.fasterxml.jackson.annotation.JsonIgnoreType
+import com.fasterxml.jackson.annotation.JsonInclude.Include
 import com.fasterxml.jackson.core.JsonFactory
 import com.fasterxml.jackson.databind.module.SimpleModule
 import com.fasterxml.jackson.databind.{InjectableValues, ObjectMapper}
@@ -20,6 +21,7 @@ class CometObjectMapper(
   injectables: scala.collection.immutable.Seq[(Class[_], AnyRef)] = Nil
 ) extends ObjectMapper(jf)
     with ScalaObjectMapper {
+  this.setSerializationInclusion(Include.NON_EMPTY)
 
   this.registerModule(DefaultScalaModule)
   this.registerModule(CometJacksonModule)
@@ -37,5 +39,4 @@ class CometObjectMapper(
     injectables.foreach { case (klass, value) => iv.addValue(klass, value) }
     this.setInjectableValues(iv: InjectableValues)
   }
-
 }
