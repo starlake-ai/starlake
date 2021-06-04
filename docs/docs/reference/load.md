@@ -61,7 +61,7 @@ Only files with these extensions will be moved to the pending folder.
 ack: String
 ````
 *Optional*.
-Ack extension used for each file. ".ack" if not specified.
+Ack extension used for each file.
 Files are moved to the pending folder only once a file with the same name as the source file and with this extension is present.
 To move a file without requiring an ack file to be present, set explicitly this property to the empty string value "".
 
