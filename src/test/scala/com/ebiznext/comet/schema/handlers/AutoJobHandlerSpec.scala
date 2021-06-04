@@ -97,7 +97,9 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
 
       val businessTask1 = AutoTaskDesc(
         None,
-        Some("select firstname, lastname, age from user_View where age={{age}} and lastname={{lastname}} and firstname={{firstname}}"),
+        Some(
+          "select firstname, lastname, age from user_View where age={{age}} and lastname={{lastname}} and firstname={{firstname}}"
+        ),
         "user",
         "user",
         WriteMode.OVERWRITE,
