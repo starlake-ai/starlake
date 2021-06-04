@@ -139,7 +139,7 @@ case class AutoTaskJob(
       queryName + " AS (" + selectExpr + ")"
     } mkString ("WITH ", ",", " ")
 
-    val sql = subSelects + task.sql.richFormat(sqlParameters)
+    val sql = subSelects + task.getSql().richFormat(sqlParameters)
     val preSql = task.presql.getOrElse(Nil).map { sql => sql.richFormat(sqlParameters) }
     val postSql = task.postsql.getOrElse(Nil).map { sql => sql.richFormat(sqlParameters) }
     (preSql, sql, postSql)
@@ -216,7 +216,7 @@ case class AutoTaskJob(
 
   def buildQuerySpark(): (List[String], String, List[String]) = {
     val preSql = task.presql.getOrElse(Nil).map { sql => sql.richFormat(sqlParameters) }
-    val sql = task.sql.richFormat(sqlParameters)
+    val sql = task.getSql().richFormat(sqlParameters)
     val postSql = task.postsql.getOrElse(Nil).map { sql => sql.richFormat(sqlParameters) }
     (preSql, sql, postSql)
   }

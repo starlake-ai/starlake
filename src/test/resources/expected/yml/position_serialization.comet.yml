@@ -4,16 +4,7 @@ type: "string"
 array: false
 required: true
 privacy: "NONE"
-comment: null
-rename: null
-metricType: null
-attributes: null
 position:
   first: 1
   last: 2
-default: null
-tags: null
-trim: null
-script: null
-foreignKey: null
 ignore: false
