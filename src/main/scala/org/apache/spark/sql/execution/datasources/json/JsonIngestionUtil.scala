@@ -64,12 +64,15 @@ object JsonIngestionUtil {
     val (datasetAttrName, datasetAttrType, datasetAttrNullable) = datasetType
     val schemaTypeNullable: Boolean = schemaAttrNullable
     (schemaAttrType, datasetAttrType) match {
-      case (t1, t2) if t1 == t2                   => Nil
-      case (_, NullType) if schemaTypeNullable    => Nil
-      case (_: IntegralType, _: IntegralType)     => Nil
-      case (_: FractionalType, _: IntegralType)   => Nil
-      case (_: FractionalType, _: FractionalType) => Nil
-      case (_: TimestampType, _: DateType) | (_: DateType, _: TimestampType) =>
+      case (t1, t2) if t1 == t2                                              => Nil
+      case (_, NullType) if schemaTypeNullable                               => Nil
+      case (_: IntegralType, _: IntegralType)                                => Nil
+      case (_: FractionalType, _: IntegralType)                              => Nil
+      case (_: FractionalType, _: FractionalType)                            => Nil
+      case (_: TimestampType, _: DateType) | (_: DateType, _: TimestampType) => Nil
+      case (_: TimestampType, _) | (_: DateType, _)                          =>
+        // timestamp and date are validated against stirng and long (epochmillis)
+        // We never reject the input here.
         Nil
       case (_: StringType, _: StringType) => Nil
       case (StructType(unsortedFields1), StructType(unsortedFields2)) =>
@@ -105,10 +108,13 @@ object JsonIngestionUtil {
             typeComp = false
           }
         }
-        while (f2Idx < fields2.length) {
-          val f2 = fields2(f2Idx)
-          addError(context, errorList, f2)
-          f2Idx += 1
+        if (f1Idx == fields1.length) {
+          // Field is present in the message but not in the schema.
+          while (f2Idx < fields2.length) {
+            val f2 = fields2(f2Idx)
+            addError(context, errorList, f2)
+            f2Idx += 1
+          }
         }
 
         errorList.toList
