@@ -89,14 +89,14 @@ object InferSchemaHandler {
     */
 
   def createMetaData(
-    format: Option[String] = None,
+    format: String,
     array: Option[Boolean],
     withHeader: Option[Boolean],
     separator: Option[String]
   ): Metadata = {
     Metadata(
       Some(Mode.fromString("FILE")),
-      Some(Format.fromString(format.getOrElse("DSV"))),
+      Some(Format.fromString(format)),
       None,
       multiline = None,
       array,

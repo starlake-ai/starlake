@@ -25,7 +25,7 @@ class ConnectionJobsSpec extends TestHelper {
 
       val businessTask1 = AutoTaskDesc(
         None,
-        "select firstname, lastname from user_View where age = {{age}}",
+        Some("select firstname, lastname from user_View where age = {{age}}"),
         "user",
         "userout",
         WriteMode.OVERWRITE,

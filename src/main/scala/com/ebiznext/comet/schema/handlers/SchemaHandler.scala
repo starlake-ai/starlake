@@ -214,7 +214,7 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
           val sqlTask = SqlTask(storage.read(sqlTaskFile))
           taskDesc.copy(
             presql = sqlTask.presql,
-            sql = sqlTask.sql,
+            sql = Option(sqlTask.sql),
             postsql = sqlTask.postsql,
             domain = taskDesc.domain.richFormat(activeEnv),
             dataset = taskDesc.dataset.richFormat(activeEnv),

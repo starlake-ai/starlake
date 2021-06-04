@@ -103,7 +103,7 @@ class StorageHandlerSpec extends TestHelper {
       resultDomain.directory shouldBe domain.directory
       //TODO TOFIX : domain written is not the domain expected, the test below just to make debug easy
       resultDomain.metadata.get equals domain.metadata.get
-      resultDomain.ack shouldBe Some(domain.getAck())
+      resultDomain.ack shouldBe None
       resultDomain.comment shouldBe domain.comment
       resultDomain.extensions shouldBe Some(domain.getExtensions())
     }
@@ -142,7 +142,7 @@ class StorageHandlerSpec extends TestHelper {
     "Business Job Definition" should "be valid json" in {
       val businessTask1 = AutoTaskDesc(
         None,
-        "select * from domain",
+        Some("select * from domain"),
         "DOMAIN",
         "ANALYSE",
         WriteMode.OVERWRITE,
