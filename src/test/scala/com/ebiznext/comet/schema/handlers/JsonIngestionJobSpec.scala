@@ -90,6 +90,8 @@ abstract class JsonIngestionJobSpecBase(variant: String) extends TestHelper with
       expectingMetrics("test-h2", continuous, discrete, frequencies)
     }
   }
+
+  "Ingestion JSn Scheam" should "succceed" in {}
   ("Ingest JSON with unordered scripted fields " + variant) should "fail" in {
     new WithSettings(configuration) {
 

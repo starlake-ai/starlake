@@ -56,6 +56,7 @@ case class AutoTaskDesc(
   def getPartitions(): List[String] = partition.getOrElse(Nil)
 
   def getSql(): String = sql.getOrElse("")
+
   /** Return a Path only if a storage area s defined
     * @param defaultArea
     * @param settings
