@@ -1,10 +1,17 @@
 # Release notes
 
 # 0.2.3
+__New feature__:
 - Add ability to ignore some fields (only top level fields supported)
-- Handle multiple schemas during extraction
-- Improve InferSchmaJob
+- **BREAKING CHANGE**: Handle multiple schemas during extraction. Update your `extract` configurations before migrating to this version.
+- Improve InferSchemaJob
 - Include primary keys & foreign keys in DDL2Yml
+
+__Bug Fix__:
+- Handle rename in JSON / XML files
+- Handle timestamp fields in JSON / XML files
+- Do not partition rejected files
+- Add COMET_CSV_OUTPUT_EXT env var to customize filename extension after ingestion when CSV is active.  
 
 ## 0.2.2
 __New feature__:

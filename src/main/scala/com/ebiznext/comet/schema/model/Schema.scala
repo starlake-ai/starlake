@@ -116,8 +116,13 @@ case class Schema(
     *
     * @return Spark Catalyst Schema
     */
-  def sparkSchemaWithoutScriptedFields(schemaHandler: SchemaHandler): StructType =
-    sparkSchemaWithCondition(schemaHandler, _.script.isEmpty)
+  def sparkSchemaWithoutScriptedFields(schemaHandler: SchemaHandler): StructType = {
+    val fields = attributes.filter(_.script.isEmpty).map { attr =>
+      StructField(attr.name, attr.sparkType(schemaHandler), !attr.required)
+        .withComment(attr.comment.getOrElse(""))
+    }
+    StructType(fields)
+  }
 
   def attributesWithoutScriptedFields(): List[Attribute] = attributes filter (_.script.isEmpty)
 
