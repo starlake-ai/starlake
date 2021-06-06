@@ -193,20 +193,8 @@ class DsvIngestionJob(
     acceptedRDD: RDD[Row],
     orderedSparkTypes: StructType
   ): (DataFrame, Path) = {
-    val renamedAttributes = schema.renamedAttributes().toMap
-    logger.whenInfoEnabled {
-      renamedAttributes.foreach { case (name, rename) =>
-        logger.info(s"renaming column $name to $rename")
-      }
-    }
     val acceptedDF = session.createDataFrame(acceptedRDD, orderedSparkTypes)
-
-    val finalDF =
-      renamedAttributes.foldLeft(acceptedDF) { case (acc, (name, rename)) =>
-        acc.withColumnRenamed(existingName = name, newName = rename)
-      }
-
-    super.saveAccepted(finalDF)
+    super.saveAccepted(acceptedDF)
   }
 
 }

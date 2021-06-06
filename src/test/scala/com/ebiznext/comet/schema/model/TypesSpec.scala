@@ -106,6 +106,11 @@ class TypesSpec extends TestHelper {
           |    pattern: "dd/MM/yyyy HH:mm:ss"
           |    zone: "UTC-06:00"
           |    sample: "12/02/2019 08:03:05"
+          |  - name: "instant"
+          |    primitiveType: "timestamp"
+          |    pattern: "ISO_INSTANT"
+          |    sample: "2021-05-20T09:30:39.000000Z"
+          |    comment: "Iso instant"
           |      """.stripMargin
       val types = mapper.readValue(lines, classOf[Types])
 
@@ -119,6 +124,8 @@ class TypesSpec extends TestHelper {
         sdf.setTimeZone(java.util.TimeZone.getDefault)
         sdf.format(calendar.getTime())
       }
+
+      val ok = types.types.find(_.name == "instant").get.matches("2012-04-23 20:25:43.511Z")
 
       localTime("2019-01-31 09:30:49.662") shouldBe types.types
         .find(_.name == "timeinmillis")
