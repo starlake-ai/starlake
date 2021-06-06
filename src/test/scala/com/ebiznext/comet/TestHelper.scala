@@ -25,6 +25,7 @@ import com.ebiznext.comet.schema.handlers.{SchemaHandler, SimpleLauncher, Storag
 import com.ebiznext.comet.schema.model.AutoJobDesc
 import com.ebiznext.comet.utils.{CometObjectMapper, Utils}
 import com.ebiznext.comet.workflow.IngestionWorkflow
+import com.fasterxml.jackson.annotation.JsonInclude.Include
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.scala.experimental.ScalaObjectMapper
@@ -186,6 +187,7 @@ trait TestHelper extends AnyFlatSpec with Matchers with BeforeAndAfterAll with S
       val mapper = new CometObjectMapper(new YAMLFactory(), (classOf[Settings], settings) :: Nil)
       mapper
     }
+    mapper.setSerializationInclusion(Include.NON_EMPTY)
 
     def deliverTestFile(importPath: String, targetPath: Path)(implicit codec: Codec): Unit = {
       val content = loadTextFile(importPath)
