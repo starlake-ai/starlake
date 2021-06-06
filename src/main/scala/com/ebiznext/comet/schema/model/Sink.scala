@@ -84,7 +84,7 @@ class SinkTypeDeserializer extends JsonDeserializer[SinkType] {
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "type")
 @JsonSubTypes(
   Array(
-    new JsonSubTypes.Type(value = classOf[NoneSink], name = "FS"),
+    new JsonSubTypes.Type(value = classOf[FsSink], name = "FS"),
     new JsonSubTypes.Type(value = classOf[NoneSink], name = "None"),
     new JsonSubTypes.Type(value = classOf[BigQuerySink], name = "BQ"),
     new JsonSubTypes.Type(value = classOf[EsSink], name = "ES"),
@@ -141,11 +141,15 @@ final case class NoneSink(
   options: Option[Map[String, String]] = None
 ) extends Sink(SinkType.None)
 
+// We had to set format and extension outside options because of the bug below
+// https://www.google.fr/url?sa=t&rct=j&q=&esrc=s&source=web&cd=&ved=2ahUKEwjo9qr3v4PxAhWNohQKHfh1CqoQFjAAegQIAhAD&url=https%3A%2F%2Fgithub.com%2FFasterXML%2Fjackson-module-scala%2Fissues%2F218&usg=AOvVaw02niMBgrqd-BWw7-e1YQfc
 @JsonTypeName("FS")
 final case class FsSink(
   override val name: Option[String] = None,
-  options: Option[Map[String, String]] = None
-) extends Sink(SinkType.None) // TODO Treat FS as first class citizen ???
+  override val options: Option[Map[String, String]] = None,
+  format: Option[String] = None,
+  extension: Option[String] = None
+) extends Sink(SinkType.FS)
 
 /** When the sink *type* field is set to JDBC, the options below should be provided.
   * @param connection: Connection String
@@ -167,6 +171,7 @@ object Sink {
     val sinkType = SinkType.fromString(sinkTypeStr)
     sinkType match {
       case SinkType.None => NoneSink()
+      case SinkType.FS   => FsSink()
       case SinkType.BQ   => BigQuerySink()
       case SinkType.ES   => EsSink()
       case _             => throw new Exception(s"Unsupported creation of SinkType from $sinkType")

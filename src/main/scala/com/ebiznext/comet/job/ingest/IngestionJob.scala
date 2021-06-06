@@ -114,7 +114,7 @@ trait IngestionJob extends SparkJob {
           )
         } else {
           settings.comet.audit.sink match {
-            case _: NoneSink | FsSink(_, _) =>
+            case _: NoneSink | FsSink(_, _, _, _) =>
               sinkToFile(
                 rejectedDF,
                 rejectedPath,
@@ -170,8 +170,25 @@ trait IngestionJob extends SparkJob {
       .map(_ => WriteMode.OVERWRITE)
       .getOrElse(metadata.getWrite())
 
+  lazy val (format, extension) = metadata.sink
+    .map {
+      case sink: FsSink =>
+        (sink.format.getOrElse(""), sink.extension.getOrElse(""))
+      case _ =>
+        ("", "")
+    }
+    .getOrElse(("", ""))
+
   private def csvOutput(): Boolean =
-    settings.comet.csvOutput && !settings.comet.grouped && metadata.partition.isEmpty && path.nonEmpty
+    (settings.comet.csvOutput || format == "csv") &&
+    !settings.comet.grouped &&
+    metadata.partition.isEmpty && path.nonEmpty
+
+  private def csvOutputExtension(): String =
+    if (settings.comet.csvOutputExt.nonEmpty)
+      settings.comet.csvOutputExt
+    else
+      extension
 
   private def runAssertions(acceptedDF: DataFrame) = {
     if (settings.comet.assertions.active) {
@@ -643,12 +660,12 @@ trait IngestionJob extends SparkJob {
       if (outputList.nonEmpty) {
         val csvPath = outputList.head
         val finalCsvPath =
-          if (settings.comet.csvOutputExt.nonEmpty) {
+          if (csvOutputExtension().nonEmpty) {
             // Explicitily set extension
             val targetName = path.head.getName
             val index = targetName.lastIndexOf('.')
             val finalName = (if (index > 0) targetName.substring(0, index)
-                             else targetName) + settings.comet.csvOutputExt
+                             else targetName) + csvOutputExtension()
             new Path(targetPath, finalName)
           } else
             new Path(
@@ -1023,7 +1040,7 @@ object IngestionUtil {
         case _: EsSink =>
           // TODO Sink Rejected Log to ES
           throw new Exception("Sinking Audit log to Elasticsearch not yet supported")
-        case _: NoneSink | FsSink(_, _) =>
+        case _: NoneSink | FsSink(_, _, _, _) =>
           // We save in the caller
           // TODO rewrite this one
           Success(())
