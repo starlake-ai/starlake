@@ -137,6 +137,7 @@ releaseProcess := Seq(
   checkSnapshotDependencies,
   inquireVersions,
   runClean,
+  releaseStepCommand("+test"),
   setReleaseVersion,
   commitReleaseVersion, // forces to push dirty files
   tagRelease,
