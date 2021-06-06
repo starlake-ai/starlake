@@ -1,5 +1,9 @@
 # Release notes
 
+# 0.2.4
+__Bug Fix__:
+- Handle [Jackson bug](https://www.google.fr/url?sa=t&rct=j&q=&esrc=s&source=web&cd=&ved=2ahUKEwjo9qr3v4PxAhWNohQKHfh1CqoQFjAAegQIAhAD&url=https%3A%2F%2Fgithub.com%2FFasterXML%2Fjackson-module-scala%2Fissues%2F218&usg=AOvVaw02niMBgrqd-BWw7-e1YQfc)
+
 # 0.2.3
 __New feature__:
 - Add ability to ignore some fields (only top level fields supported)
