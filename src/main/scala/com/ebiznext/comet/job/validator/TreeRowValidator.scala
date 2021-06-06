@@ -9,6 +9,8 @@ import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
 import org.apache.spark.sql.types.{BooleanType, StringType, StructField, StructType}
 import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 
+import java.sql.Timestamp
+import java.time.format.DateTimeFormatter
 import scala.collection.mutable
 import scala.util.{Failure, Success, Try}
 
@@ -106,6 +108,15 @@ object TreeRowValidator extends GenericRowValidator {
           StructField(Settings.cometErrorMessageColumn, StringType, false)
         )
       )
+
+    def cellHandleTimestamp(cell: Any) = {
+      cell match {
+        case timestamp: Timestamp =>
+          DateTimeFormatter.ISO_INSTANT.format(timestamp.toInstant)
+        case _ => cell
+      }
+    }
+
     val updatedRow: Array[Any] =
       Try {
         cells.map {
@@ -126,14 +137,14 @@ object TreeRowValidator extends GenericRowValidator {
                   types
                 )
               case subcell =>
-                validateCol(attributes(name).asInstanceOf[Attribute], subcell)
+                validateCol(attributes(name).asInstanceOf[Attribute], cellHandleTimestamp(subcell))
             }
           case (cell, "comet_input_file_name") =>
             cell
           case (null, name) =>
             null
           case (cell, name) =>
-            validateCol(attributes(name).asInstanceOf[Attribute], cell)
+            validateCol(attributes(name).asInstanceOf[Attribute], cellHandleTimestamp(cell))
         }
       }
         .map(_.toArray) match {
