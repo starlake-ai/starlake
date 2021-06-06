@@ -14,7 +14,7 @@ import scala.util.{Failure, Success, Try}
 object YamlSerializer extends LazyLogging {
   val mapper: ObjectMapper = new ObjectMapper(new YAMLFactory())
   mapper.registerModule(DefaultScalaModule)
-  mapper.setSerializationInclusion(Include.NON_ABSENT)
+  mapper.setSerializationInclusion(Include.NON_EMPTY)
 
   def serialize(domain: Domain): String = mapper.writeValueAsString(domain)
 

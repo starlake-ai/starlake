@@ -43,6 +43,7 @@ import com.ebiznext.comet.schema.generator.{
 import com.ebiznext.comet.schema.handlers.SchemaHandler
 import com.ebiznext.comet.utils.CometObjectMapper
 import com.ebiznext.comet.workflow.{ImportConfig, IngestionWorkflow, TransformConfig, WatchConfig}
+import com.fasterxml.jackson.annotation.JsonInclude.Include
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.typesafe.config.ConfigFactory
@@ -59,6 +60,7 @@ import com.typesafe.scalalogging.StrictLogging
 object Main extends StrictLogging {
   // uses Jackson YAML to parsing, relies on SnakeYAML for low level handling
   val mapper: ObjectMapper = new CometObjectMapper(new YAMLFactory())
+  mapper.setSerializationInclusion(Include.NON_EMPTY)
 
   private def printUsage() = {
     // scalastyle:off println
