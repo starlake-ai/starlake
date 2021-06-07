@@ -30,6 +30,7 @@ import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try}
 
 object Utils {
+  type Closeable = { def close(): Unit }
 
   /** Handle tansparently autocloseable resources and correctly chain exceptions
     *
@@ -39,7 +40,7 @@ object Utils {
     * @tparam V : Try bloc return type
     * @return : Try bloc return value
     */
-  def withResources[T <: { def close(): Unit }, V](r: => T)(f: T => V): V = {
+  def withResources[T <: Closeable, V](r: => T)(f: T => V): V = {
     val resource: T = r
     require(resource != null, "resource is null")
     var exception: Throwable = null
@@ -61,8 +62,8 @@ object Utils {
     obj.instance.asInstanceOf[T]
   }
 
-  private def closeAndAddSuppressed(e: Throwable, resource: { def close(): Unit }): Unit = {
-    import scala.language.reflectiveCalls
+  private def closeAndAddSuppressed(e: Throwable, resource: Closeable): Unit = {
+    import scala.language.reflectiveCalls // reflective access of structural type member
     if (e != null) {
       try {
         resource.close()
