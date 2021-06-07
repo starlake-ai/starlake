@@ -39,7 +39,7 @@ object Utils {
     * @tparam V : Try bloc return type
     * @return : Try bloc return value
     */
-  def withResources[T <: AutoCloseable, V](r: => T)(f: T => V): V = {
+  def withResources[T <: { def close(): Unit }, V](r: => T)(f: T => V): V = {
     val resource: T = r
     require(resource != null, "resource is null")
     var exception: Throwable = null
@@ -61,7 +61,8 @@ object Utils {
     obj.instance.asInstanceOf[T]
   }
 
-  private def closeAndAddSuppressed(e: Throwable, resource: AutoCloseable): Unit = {
+  private def closeAndAddSuppressed(e: Throwable, resource: { def close(): Unit }): Unit = {
+    import scala.language.reflectiveCalls
     if (e != null) {
       try {
         resource.close()
