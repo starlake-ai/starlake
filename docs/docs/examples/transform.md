@@ -9,7 +9,7 @@ Will load the dataset `accepted/graduateProgram` under `$COMET_DATASETS` directo
 An absolute path may also be specified.
 
 This example create two views : One temporary view in the `views` section, and another one in the `presql` section.
-Note that the sql request in the `presql` section uses the view defined in the `views` sectioon.
+Note that the sql request in the `presql` section uses the view defined in the `views` section.
 
 The resulting file will be stored in the `$COMET_DATASETS/business/graduateProgram/output` directory.
 
