@@ -1,4 +1,4 @@
-COMET_VERSION="${COMET_VERSION:-0.2.5-SNAPSHOT}"
+COMET_VERSION="${COMET_VERSION:-0.2.6-SNAPSHOT}"
 SPARK_VERSION="${SPARK_VERSION:-3.1.1}"
 HADOOP_VERSION="${HADOOP_VERSION:-3.2}"
 
@@ -66,10 +66,10 @@ initEnv() {
   fi
   if test -f $SPARK_SUBMIT; then
       echo "$SPARK_SUBMIT found in ../bin/"
-      echo "Local env initialized correctly"
+      echo "SUCCESS: Local env initialized correctly"
   else
     echo "$SPARK_SUBMIT not found !!!"
-    echo "Failed to initialize environment"
+    echo "FAILURE: Failed to initialize environment"
     exit 2
   fi
 }

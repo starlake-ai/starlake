@@ -87,9 +87,13 @@ class InferSchemaJob(implicit settings: Settings) {
     val jsonRegexEnd = """.*\}""".r
     val jsonArrayRegexEnd = """.*\]""".r
 
+    val xmlRegexStart = """<.*""".r
+    val xmlRegexEnd = """.*>""".r
+
     (firstLine, lastLine) match {
       case (jsonRegexStart(), jsonRegexEnd())           => "JSON"
       case (jsonArrayRegexStart(), jsonArrayRegexEnd()) => "ARRAY_JSON"
+      case (xmlRegexStart(), xmlRegexEnd())             => "XML"
       case _                                            => "DSV"
     }
   }
@@ -156,6 +160,12 @@ class InferSchemaJob(implicit settings: Settings) {
       case "JSON" =>
         session.read
           .format("json")
+          .option("inferSchema", value = true)
+          .load(dataPath)
+
+      case "XML" =>
+        session.read
+          .format("xml")
           .option("inferSchema", value = true)
           .load(dataPath)
 
