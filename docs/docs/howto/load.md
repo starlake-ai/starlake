@@ -243,20 +243,19 @@ File ``$COMET_METADATA/domains/sales.yml``
 
 The schema section in the YAML above should be read as follows :
 
-.. csv-table:: Schema definition
-   :widths: 20, 60
-
-   pattern,Filename pattern to match in the domain directory
-   name, Schema name: folder where the dataset is stored and Hive table prefix.
-   metadata.mode, always FILE. STREAM is reserved for future use.
-   metadata.format, DSV for delimiter separated values file. SIMPLE_JSON and JSON are also supported.
-   metadata.withHeader, Does the input file has a header
-   metadata.separator, What is the field separator
-   metadata.quote, How are string delimited
-   metadata.escape, How are characters escaped
-   metadata.write, Should we APPEND or OVERWRITE existing data in the  cluster
-   metadata.multiline, "Are JSON object on multiple line. Used when format is JSON or SIMPLE_JSON. This slow down parsing"
-   metadata.array, "Should we treat the file as a single array of JSON objects. Used  when format is JSON or SIMPLE_JSON and the input data is in brackets [...]"
+|Schema|Definition|
+|---|---|
+pattern|Filename pattern to match in the domain directory
+name|Schema name: folder where the dataset is stored and Hive table prefix.
+metadata.mode| always FILE. STREAM is reserved for future use.
+metadata.format| DSV for delimiter separated values file. SIMPLE_JSON and JSON are also supported.
+metadata.withHeader| Does the input file has a header
+metadata.separator|What is the field separator
+metadata.quote|How are string delimited
+metadata.escape|How are characters escaped
+metadata.write|Should we APPEND or OVERWRITE existing data in the  cluster
+metadata.multiline|"Are JSON object on multiple line. Used when format is JSON or SIMPLE_JSON. This slow down parsing"
+metadata.array|"Should we treat the file as a single array of JSON objects. Used  when format is JSON or SIMPLE_JSON and the input data is in brackets [...]"
 
 
 > :memo: **Simple JSON are JSON with top level attributes of basic types only. JSON may be used wherever 
@@ -271,7 +270,7 @@ When a header is present, fields do not need to be ordered, since Comet uses the
 The attributes section in the YAML above should be read as follows :
 
 
-|Attribute|definition|
+Attribute|definition|
 |---|---|
 name|Field name as specified in the header. If no header is present, this willthe field name in the ingested dataset.
 type|Type as defined in the Type Rules section above.
