@@ -31,36 +31,33 @@ class InferSchemaJobSpec extends TestHelper {
         .getLines()
         .toList
 
+    lazy val xmlLines =
+      Source.fromFile("src/test/resources/sample/xml/locations.xml").getLines().toList
+
     lazy val inferSchemaJob: InferSchemaJob = new InferSchemaJob()
 
     "GetSeparatorSemiColon" should "succeed" in {
-
       inferSchemaJob.getSeparator(csvLines) shouldBe ";"
-
     }
 
     "GetSeparatorPipe" should "succeed" in {
-
       inferSchemaJob.getSeparator(psvLines) shouldBe "|"
-
     }
 
     "GetFormatCSV" should "succeed" in {
-
       inferSchemaJob.getFormatFile(csvLines) shouldBe "DSV"
-
     }
 
     "GetFormatJson" should "succeed" in {
-
       inferSchemaJob.getFormatFile(jsonLines) shouldBe "JSON"
+    }
 
+    "GetFormatXML" should "succeed" in {
+      inferSchemaJob.getFormatFile(xmlLines) shouldBe "XML"
     }
 
     "GetFormatArrayJson" should "succeed" in {
-
       inferSchemaJob.getFormatFile(jsonArrayLines) shouldBe "ARRAY_JSON"
-
     }
 
     "GetFormatArrayJsonMultiline" should "succeed" in {
