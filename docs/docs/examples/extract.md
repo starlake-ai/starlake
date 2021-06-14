@@ -23,39 +23,39 @@ Next create a file describing the schema you want to import. We provide below 2 
 ### Example 1: 
 Extract all objects from the `PUBLIC` schema.
 ```yaml
-jdbc-schema:
-  connection: "h2-sample-db" # Connection name as defined in the connections section of the application.conf file
-  schema: "PUBLIC" # Database schema where tables are located
-  tables:
-    - name: "*" # Takes all tables
-  tableTypes: # One or many of the types below
-    - "TABLE"
-    - "VIEW"
-    - "SYSTEM TABLE"
-    - "GLOBAL TEMPORARY"
-    - "LOCAL TEMPORARY"
-    - "ALIAS"
-    - "SYNONYM"
-  templateFile: "domain-template.yml" # Metadata to use for the generated YML file.
+jdbcSchemas:
+  - connection: "h2-sample-db" # Connection name as defined in the connections section of the application.conf file
+    schema: "PUBLIC" # Database schema where tables are located
+    tables:
+      - name: "*" # Takes all tables
+    tableTypes: # One or many of the types below
+      - "TABLE"
+      - "VIEW"
+      - "SYSTEM TABLE"
+      - "GLOBAL TEMPORARY"
+      - "LOCAL TEMPORARY"
+      - "ALIAS"
+      - "SYNONYM"
+    template: "domain-template.yml" # Metadata to use for the generated YML file.
 
 ```
 
 ### Example 2: 
 Extract only the selected tables from the `PUBLIC`schema and only the selected columns from the `votes` table.
 ```yaml
-jdbc-schema:
-  connection: "h2-sample-db" # Connection name as defined in the connections section of the application.conf file
-  schema: "PUBLIC" # Database schema where tables are located
-  tables:
-    - name: "speakers"
-    - name: "votes"
-      columns:
-        - speaker_id
-        - id
-        - rating
-  tableTypes: # One or many of the types below
-    - "TABLE"
-  templateFile: "domain-template.yml" # Metadata to use for the generated YML file.
+jdbcSchemas:
+  - connection: "h2-sample-db" # Connection name as defined in the connections section of the application.conf file
+    schema: "PUBLIC" # Database schema where tables are located
+    tables:
+      - name: "speakers"
+      - name: "votes"
+        columns:
+          - speaker_id
+          - id
+          - rating
+    tableTypes: # One or many of the types below
+      - "TABLE"
+    templateFile: "domain-template.yml" # Metadata to use for the generated YML file.
 ```
 
 
