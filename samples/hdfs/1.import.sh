@@ -7,4 +7,4 @@ hdfs dfs -rm -r -f   $HDFS_URI/tmp/quickstart
 hdfs dfs -mkdir /tmp/quickstart
 hdfs dfs -put ./quickstart/* $HDFS_URI/tmp/quickstart/
 
-$COMET_SCRIPT import
+$SPARK_SUBMIT --driver-java-options "$SPARK_DRIVER_OPTIONS" $SPARK_CONF_OPTIONS --class $COMET_MAIN $COMET_JAR_FULL_NAME import
