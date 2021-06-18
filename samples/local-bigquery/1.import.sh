@@ -6,4 +6,4 @@ gsutil rm -r gs://$GCP_BUCKET_NAME/tmp/*
 gsutil cp -r quickstart/ gs://$GCP_BUCKET_NAME/tmp/
 
 
-$COMET_SCRIPT import
+$SPARK_SUBMIT --driver-java-options "$SPARK_DRIVER_OPTIONS" $SPARK_CONF_OPTIONS  --class $COMET_MAIN $COMET_JAR_FULL_NAME import
