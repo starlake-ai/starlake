@@ -18,3 +18,4 @@ echo HADOOP_HOME=%HADOOP_HOME%
 echo %PATH%
 pause
 call %COMET_SCRIPT% import
+
