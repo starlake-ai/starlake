@@ -30,13 +30,11 @@ export COMET_SINK_TO_FILE=false
 export COMET_ANALYZE=false
 export COMET_HIVE=false
 export COMET_GROUPED=false
+export COMET_MAIN=com.ebiznext.comet.job.Main
 export COMET_METRICS_PATH="/tmp/quickstart/metrics/{domain}"
+export SPARK_DRIVER_OPTIONS="-Dlog4j.configuration=file://$SPARK_DIR/conf/log4j.properties.template"
 export SPARK_CONF_OPTIONS="--conf spark.executorEnv.GOOGLE_APPLICATION_CREDENTIALS=$GCP_SA_JSON_PATH \
-                           --conf spark.yarn.appMasterEnv.GOOGLE_APPLICATION_CREDENTIALS=$GCP_SA_JSON_PATH \
-                           --conf spark.driver.extraJavaOptions=-Dlog4j.configuration=file://$SPARK_DIR/conf/log4j.properties.template"
-#                           --conf spark.driver.extraJavaOptions=-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005"
-
-export COMET_SCRIPT="$SPARK_SUBMIT $SPARK_CONF_OPTIONS --class com.ebiznext.comet.job.Main $COMET_JAR_FULL_NAME"
+                           --conf spark.yarn.appMasterEnv.GOOGLE_APPLICATION_CREDENTIALS=$GCP_SA_JSON_PATH"
 
 if test -f "../bin/$SPARK_DIR_NAME/jars/spark-bigquery-latest_2.12.jar"; then
   echo "spark-bigquery-latest.jar found"
