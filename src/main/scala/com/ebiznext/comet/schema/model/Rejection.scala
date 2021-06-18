@@ -48,8 +48,7 @@ object Rejection {
 
     override def toString: String = {
       val failMsg = if (success) "success" else "failure"
-      //s"$failMsg $colName:$typeName($pattern) = $colData"
-      s"""$colName,$typeName,"$pattern","$colData",$failMsg"""
+      s"""$colName: $typeName("$pattern") = "$colData" fails with $failMsg"""
     }
   }
 
@@ -58,10 +57,13 @@ object Rejection {
     * @param timestamp : time of parsing for this row
     * @param colInfos  : column parsing results for this row
     */
-  case class RowInfo(timestamp: Timestamp, colInfos: List[ColInfo]) {
+  case class RowInfo(timestamp: Timestamp, colInfos: List[ColInfo], inputFileName: String) {
 
     override def toString: String = {
-      colInfos.map(_.toString).mkString("\n")
+      val colErrors = colInfos.map(_.toString).mkString("\n")
+      s"""-> $inputFileName
+         |-> $colErrors
+         |""".stripMargin
 
     }
   }
@@ -77,7 +79,7 @@ object Rejection {
 
   /** @param colResults
     */
-  case class RowResult(colResults: List[ColResult]) {
+  case class RowResult(colResults: List[ColResult], inputFileName: String) {
     def isRejected: Boolean = colResults.exists(!_.colInfo.success)
     def isAccepted: Boolean = !isRejected
 
