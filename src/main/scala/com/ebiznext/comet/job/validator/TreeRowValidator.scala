@@ -158,7 +158,12 @@ object TreeRowValidator extends GenericRowValidator {
       if (errorList.isEmpty)
         updatedRow ++ Array(true, "")
       else
-        updatedRow ++ Array(false, errorList.mkString("\n"))
+        updatedRow ++ Array(
+          false,
+          s"""-> ${row.getAs[String](Settings.cometInputFileNameColumn)}
+             |${errorList.mkString("\n")}
+             |""".stripMargin
+        )
     new GenericRowWithSchema(updatedRowWithMessage, schemaSparkTypeWithSuccessErrorMessage)
   }
 }
