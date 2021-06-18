@@ -49,13 +49,15 @@ object FlatRowValidator extends GenericRowValidator {
                   ),
                   null
                 )
-              }.toList
+              }.toList,
+              row.getAs[String](Settings.cometInputFileNameColumn)
             )
           } else {
             RowResult(
               rowCols.map { case ((colRawValue, colAttribute), tpe) =>
                 IngestionUtil.validateCol(colRawValue, colAttribute, tpe, colMap)
-              }.toList
+              }.toList,
+              row.getAs[String](Settings.cometInputFileNameColumn)
             )
           }
         }
@@ -63,7 +65,13 @@ object FlatRowValidator extends GenericRowValidator {
 
     val rejectedRDD: RDD[String] = checkedRDD
       .filter(_.isRejected)
-      .map(rr => RowInfo(now, rr.colResults.filter(!_.colInfo.success).map(_.colInfo)).toString)
+      .map(rr =>
+        RowInfo(
+          now,
+          rr.colResults.filter(!_.colInfo.success).map(_.colInfo),
+          rr.inputFileName
+        ).toString
+      )
 
     val acceptedRDD: RDD[Row] = checkedRDD.filter(_.isAccepted).map { rowResult =>
       val sparkValues: List[Any] = rowResult.colResults.map(_.sparkValue)
