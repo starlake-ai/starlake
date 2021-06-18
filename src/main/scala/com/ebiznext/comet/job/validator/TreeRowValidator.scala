@@ -2,7 +2,7 @@ package com.ebiznext.comet.job.validator
 
 import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.job.ingest.IngestionUtil
-import com.ebiznext.comet.schema.model.{Attribute, Type}
+import com.ebiznext.comet.schema.model.{Attribute, Format, Type}
 import com.ebiznext.comet.utils.Utils
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
@@ -32,6 +32,8 @@ object TreeRowValidator extends GenericRowValidator {
     */
   override def validate(
     session: SparkSession,
+    format: Format,
+    separator: String,
     dataset: DataFrame,
     attributes: List[Attribute],
     types: List[Type],
@@ -160,8 +162,8 @@ object TreeRowValidator extends GenericRowValidator {
       else
         updatedRow ++ Array(
           false,
-          s"""-> ${row.getAs[String](Settings.cometInputFileNameColumn)}
-             |${errorList.mkString("\n")}
+          s"""ERR  -> ${errorList.mkString("\n")}
+             |FILE -> ${row.getAs[String](Settings.cometInputFileNameColumn)}
              |""".stripMargin
         )
     new GenericRowWithSchema(updatedRowWithMessage, schemaSparkTypeWithSuccessErrorMessage)

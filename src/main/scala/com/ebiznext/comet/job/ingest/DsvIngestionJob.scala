@@ -177,6 +177,8 @@ class DsvIngestionJob(
 
     val (rejectedRDD, acceptedRDD) = flatRowValidator.validate(
       session,
+      metadata.getFormat(),
+      metadata.getSeparator(),
       dataset,
       orderedAttributes,
       orderedTypes,

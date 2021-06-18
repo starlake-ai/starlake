@@ -105,6 +105,8 @@ class XmlIngestionJob(
         val (koRDD, okRDD) =
           treeRowValidator.validate(
             session,
+            metadata.getFormat(),
+            metadata.getSeparator(),
             withInputFileNameDS,
             schema.attributes,
             types,
