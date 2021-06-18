@@ -129,7 +129,15 @@ class JsonIngestionJob(
       .json(session.createDataset(acceptedRDD)(Encoders.STRING))
 
     val (koRDD, okRDD) =
-      treeRowValidator.validate(session, acceptedDF, schema.attributes, types, appliedSchema)
+      treeRowValidator.validate(
+        session,
+        metadata.getFormat(),
+        metadata.getSeparator(),
+        acceptedDF,
+        schema.attributes,
+        types,
+        appliedSchema
+      )
     saveRejected(rejectedRDD.union(koRDD))
     val transformedAcceptedDF = session.createDataFrame(okRDD, appliedSchema)
     saveAccepted(transformedAcceptedDF) // prefer to let Spark compute the final schema
