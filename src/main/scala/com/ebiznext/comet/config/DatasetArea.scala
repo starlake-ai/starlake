@@ -95,35 +95,30 @@ object DatasetArea {
   def rejected(domain: String)(implicit settings: Settings): Path =
     path(domain, settings.comet.area.rejected)
 
-  def metrics(domain: String, schema: String)(implicit settings: Settings): Path = {
-    val path = settings.comet.metrics.path
-    substituteDomainAndSchemaInPath(domain, schema, path)
-  }
+  def metrics(domain: String, schema: String)(implicit settings: Settings): Path =
+    substituteDomainAndSchemaInPath(domain, schema, settings.comet.metrics.path)
 
-  def assertions(domain: String, schema: String)(implicit settings: Settings): Path = {
-    val path = settings.comet.assertions.path
-    substituteDomainAndSchemaInPath(domain, schema, path)
-  }
+  def assertions(domain: String, schema: String)(implicit settings: Settings): Path =
+    substituteDomainAndSchemaInPath(domain, schema, settings.comet.assertions.path)
 
-  def substituteDomainAndSchemaInPath(domain: String, schema: String, path: String) = {
+  def replay(domain: String)(implicit settings: Settings): Path =
+    path(domain, settings.comet.area.replay)
+
+  def substituteDomainAndSchemaInPath(domain: String, schema: String, path: String): Path =
     new Path(
       path
         .replace("{domain}", domain)
         .replace("{schema}", schema)
     )
-  }
 
-  def discreteMetrics(domain: String, schema: String)(implicit settings: Settings): Path = {
+  def discreteMetrics(domain: String, schema: String)(implicit settings: Settings): Path =
     new Path(metrics(domain, schema), "discrete")
-  }
 
-  def continuousMetrics(domain: String, schema: String)(implicit settings: Settings): Path = {
+  def continuousMetrics(domain: String, schema: String)(implicit settings: Settings): Path =
     new Path(metrics(domain, schema), "continuous")
-  }
 
-  def frequenciesMetrics(domain: String, schema: String)(implicit settings: Settings): Path = {
+  def frequenciesMetrics(domain: String, schema: String)(implicit settings: Settings): Path =
     new Path(metrics(domain, schema), "frequencies")
-  }
 
   /** Default target folder for autojobs applied to datasets in this domain
     *
@@ -173,7 +168,7 @@ object DatasetArea {
     settings: Settings
   ): Unit = {
     domains.foreach { domain =>
-      List(pending _, unresolved _, archive _, accepted _, rejected _, business _)
+      List(pending _, unresolved _, archive _, accepted _, rejected _, business _, replay _)
         .map(_(domain))
         .foreach(storage.mkdirs)
     }
@@ -197,6 +192,7 @@ object StorageArea {
     lcValue match {
       case _ if lcValue == settings.comet.area.rejectedFinal => StorageArea.rejected
       case _ if lcValue == settings.comet.area.acceptedFinal => StorageArea.accepted
+      case _ if lcValue == settings.comet.area.replayFinal   => StorageArea.replay
       case _ if lcValue == settings.comet.area.businessFinal => StorageArea.business
       case custom                                            => StorageArea.Custom(custom)
     }
@@ -208,6 +204,10 @@ object StorageArea {
 
   case object accepted extends StorageArea {
     def value: String = "accepted"
+  }
+
+  case object replay extends StorageArea {
+    def value: String = "replay"
   }
 
   case object business extends StorageArea {
@@ -234,6 +234,7 @@ final class StorageAreaSerializer extends JsonSerializer[StorageArea] {
       case StorageArea.accepted            => settings.comet.area.accepted
       case StorageArea.rejected            => settings.comet.area.rejected
       case StorageArea.business            => settings.comet.area.business
+      case StorageArea.replay              => settings.comet.area.replay
       case StorageArea.Custom(customValue) => customValue
     }
 

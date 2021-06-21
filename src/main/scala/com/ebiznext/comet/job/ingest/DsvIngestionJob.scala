@@ -175,7 +175,7 @@ class DsvIngestionJob(
 
     val (orderedTypes, orderedSparkTypes) = reorderTypes()
 
-    val (rejectedRDD, acceptedRDD) = flatRowValidator.validate(
+    val validationResult = flatRowValidator.validate(
       session,
       metadata.getFormat(),
       metadata.getSeparator(),
@@ -185,10 +185,10 @@ class DsvIngestionJob(
       orderedSparkTypes
     )
 
-    saveRejected(rejectedRDD)
+    saveRejected(validationResult.errors, validationResult.rejected)
 
-    saveAccepted(acceptedRDD, orderedSparkTypes)
-    (rejectedRDD, acceptedRDD)
+    saveAccepted(validationResult.accepted, orderedSparkTypes)
+    (validationResult.errors, validationResult.accepted)
   }
 
   protected def saveAccepted(

@@ -18,7 +18,7 @@ object FlatRowValidator extends GenericRowValidator {
   private def toOriginalFormat(row: Row, format: Format, separator: String): String = {
     format match {
       case Format.DSV =>
-        row.toSeq.map(_.toString).mkString(separator)
+        row.toSeq.map(Option(_).getOrElse("").toString).mkString(separator)
       case Format.SIMPLE_JSON =>
         val rowAsMap = row.getValuesMap(row.schema.fieldNames)
         new Gson().toJson(rowAsMap)
@@ -38,7 +38,7 @@ object FlatRowValidator extends GenericRowValidator {
     attributes: List[Attribute],
     types: List[Type],
     sparkType: StructType
-  )(implicit settings: Settings): (RDD[String], RDD[Row]) = {
+  )(implicit settings: Settings): ValidationResult = {
     val now = Timestamp.from(Instant.now)
     val checkedRDD: RDD[RowResult] = dataset.rdd
       .mapPartitions { partition =>
@@ -93,11 +93,13 @@ object FlatRowValidator extends GenericRowValidator {
         ).toString
       )
 
+    val rejectedInputLinesRDD: RDD[String] = checkedRDD.filter(_.isRejected).map(_.inputLine)
+
     val acceptedRDD: RDD[Row] = checkedRDD.filter(_.isAccepted).map { rowResult =>
       val sparkValues: List[Any] = rowResult.colResults.map(_.sparkValue)
       new GenericRowWithSchema(Row(sparkValues: _*).toSeq.toArray, sparkType)
     }
 
-    (rejectedRDD, acceptedRDD)
+    ValidationResult(rejectedRDD, rejectedInputLinesRDD, acceptedRDD)
   }
 }

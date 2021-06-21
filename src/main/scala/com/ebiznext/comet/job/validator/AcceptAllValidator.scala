@@ -16,9 +16,10 @@ object AcceptAllValidator extends GenericRowValidator {
     attributes: List[Attribute],
     types: List[Type],
     sparkType: StructType
-  )(implicit settings: Settings): (RDD[String], RDD[Row]) = {
+  )(implicit settings: Settings): ValidationResult = {
     val rejectedRDD: RDD[String] = session.emptyDataFrame.rdd.map(_.mkString)
+    val rejectedInputRDD: RDD[String] = session.emptyDataFrame.rdd.map(_.mkString)
     val acceptedRDD: RDD[Row] = dataset.rdd
-    (rejectedRDD, acceptedRDD)
+    ValidationResult(rejectedRDD, rejectedInputRDD, acceptedRDD)
   }
 }
