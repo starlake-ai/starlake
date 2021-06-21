@@ -92,7 +92,7 @@ class XmlIngestionJob(
     metadata.xml.flatMap(_.get("skipValidation")) match {
       case Some(_) =>
         val rejectedRDD = session.sparkContext.parallelize(errorList)
-        saveRejected(rejectedRDD)
+        saveRejected(rejectedRDD, session.emptyDataFrame.rdd.map(_.mkString))
         saveAccepted(dataset)
         (rejectedRDD, dataset.rdd)
       case _ =>
@@ -102,7 +102,7 @@ class XmlIngestionJob(
         val appliedSchema = schema
           .sparkSchemaWithoutScriptedFields(schemaHandler)
           .add(StructField(Settings.cometInputFileNameColumn, StringType))
-        val (koRDD, okRDD) =
+        val validationResult =
           treeRowValidator.validate(
             session,
             metadata.getFormat(),
@@ -113,11 +113,12 @@ class XmlIngestionJob(
             appliedSchema
           )
 
-        val allRejected = rejectedRDD.union(koRDD)
-        saveRejected(allRejected)
-        val transformedAcceptedDF = session.createDataFrame(okRDD, appliedSchema)
+        val allRejected = rejectedRDD.union(validationResult.errors)
+        saveRejected(allRejected, validationResult.rejected)
+        val transformedAcceptedDF =
+          session.createDataFrame(validationResult.accepted, appliedSchema)
         saveAccepted(transformedAcceptedDF)
-        (allRejected, okRDD)
+        (allRejected, validationResult.accepted)
     }
   }
 
