@@ -67,7 +67,6 @@ object Rejection {
     override def toString: String = {
       val colErrors = colInfos.map(_.toString).mkString("\n")
       s"""ERR  -> $colErrors
-         |LINE -> $inputLine
          |FILE -> $inputFileName
          |""".stripMargin
 
