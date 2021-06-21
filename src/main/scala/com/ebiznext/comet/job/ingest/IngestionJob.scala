@@ -92,15 +92,28 @@ trait IngestionJob extends SparkJob {
     } getOrElse dfIn
   }
 
-  protected def saveRejected(rejectedRDD: RDD[String]): Try[Path] = {
+  protected def saveRejected(
+    errMessagesRDD: RDD[String],
+    rejectedLinesRDD: RDD[String]
+  ): Try[Path] = {
     logger.whenDebugEnabled {
-      logger.debug(s"rejectedRDD SIZE ${rejectedRDD.count()}")
-      rejectedRDD.take(100).foreach(rejected => logger.debug(rejected.replaceAll("\n", "|")))
+      logger.debug(s"rejectedRDD SIZE ${errMessagesRDD.count()}")
+      errMessagesRDD.take(100).foreach(rejected => logger.debug(rejected.replaceAll("\n", "|")))
     }
     val domainName = domain.name
     val schemaName = schema.name
+
     val start = Timestamp.from(Instant.now())
-    IngestionUtil.sinkRejected(session, rejectedRDD, domainName, schemaName, now) match {
+    val formattedDate = new java.text.SimpleDateFormat("yyyyMMddHHmmss").format(start)
+
+    if (settings.comet.sinkReplayToFile) {
+      val replayArea = DatasetArea.replay(domainName)
+      rejectedLinesRDD.saveAsTextFile(
+        new Path(replayArea, s"$domainName.$schemaName.$formattedDate.replay").toString
+      )
+    }
+
+    IngestionUtil.sinkRejected(session, errMessagesRDD, domainName, schemaName, now) match {
       case Success((rejectedDF, rejectedPath)) =>
         // We sink to a file when running unit tests
         if (settings.comet.sinkToFile) {

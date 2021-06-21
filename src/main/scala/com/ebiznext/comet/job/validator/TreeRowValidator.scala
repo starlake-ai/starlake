@@ -38,7 +38,7 @@ object TreeRowValidator extends GenericRowValidator {
     attributes: List[Attribute],
     types: List[Type],
     schemaSparkType: StructType
-  )(implicit settings: Settings): (RDD[String], RDD[Row]) = {
+  )(implicit settings: Settings): ValidationResult = {
     val typesMap = types.map(tpe => tpe.name -> tpe).toMap
     val successErrorRDD = validateDataset(session, dataset, attributes, schemaSparkType, typesMap)
     val successRDD: RDD[Row] =
@@ -50,7 +50,10 @@ object TreeRowValidator extends GenericRowValidator {
       successErrorRDD
         .filter(row => !row.getAs[Boolean](Settings.cometSuccessColumn))
         .map(row => row.getAs[String](Settings.cometErrorMessageColumn))
-    (errorRDD, successRDD)
+
+    // TODO add here input lines to be rejected
+    val rejectedInputRDD: RDD[String] = session.emptyDataFrame.rdd.map(_.mkString)
+    ValidationResult(errorRDD, rejectedInputRDD, successRDD)
   }
 
   private def validateDataset(

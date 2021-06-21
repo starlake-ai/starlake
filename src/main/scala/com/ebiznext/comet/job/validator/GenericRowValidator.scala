@@ -6,6 +6,12 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 import org.apache.spark.sql.types.StructType
 
+case class ValidationResult(
+  errors: RDD[String],
+  rejected: RDD[String],
+  accepted: RDD[Row]
+)
+
 trait GenericRowValidator {
 
   /** For each col of each row
@@ -30,5 +36,5 @@ trait GenericRowValidator {
     attributes: List[Attribute],
     types: List[Type],
     sparkType: StructType
-  )(implicit settings: Settings): (RDD[String], RDD[Row])
+  )(implicit settings: Settings): ValidationResult
 }
