@@ -112,7 +112,7 @@ class PositionIngestionJob(
       orderedSparkTypes
     )
     saveRejected(validationResult.errors, validationResult.rejected)
-    saveAccepted(validationResult.accepted, orderedSparkTypes)
+    saveAccepted(validationResult.accepted, orderedSparkTypes, validationResult)
     (validationResult.errors, validationResult.accepted)
   }
 
