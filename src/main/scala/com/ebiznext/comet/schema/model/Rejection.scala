@@ -65,6 +65,7 @@ object Rejection {
   ) {
 
     override def toString: String = {
+      // we intentionnaly do not return the input line.
       val colErrors = colInfos.map(_.toString).mkString("\n")
       s"""ERR  -> $colErrors
          |FILE -> $inputFileName

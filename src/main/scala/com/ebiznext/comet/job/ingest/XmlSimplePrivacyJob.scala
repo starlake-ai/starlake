@@ -66,41 +66,15 @@ class XmlSimplePrivacyJob(
     val acceptedPrivacyDF: DataFrame = privacyAttributes.foldLeft(dataset) { case (ds, attribute) =>
       XmlSimplePrivacyJob.applyPrivacy(ds, attribute, session)
     }
-    metadata.xml.flatMap(_.get("skipValidation")) match {
-      case Some(_) =>
-        saveAccepted(
-          dataset,
-          ValidationResult(
-            session.sparkContext.emptyRDD[String],
-            session.sparkContext.emptyRDD[String],
-            session.sparkContext.emptyRDD[Row]
-          )
-        )
-        (session.sparkContext.emptyRDD[Row], acceptedPrivacyDF.rdd)
-      case _ =>
-        val withInputFileNameDS =
-          dataset.withColumn(Settings.cometInputFileNameColumn, input_file_name())
-
-        val appliedSchema = schema
-          .sparkSchemaWithoutScriptedFields(schemaHandler)
-          .add(StructField(Settings.cometInputFileNameColumn, StringType))
-        val validationResult =
-          flatRowValidator.validate(
-            session,
-            metadata.getFormat(),
-            metadata.getSeparator(),
-            withInputFileNameDS,
-            schema.attributes,
-            types,
-            appliedSchema
-          )
-
-        saveRejected(validationResult.errors, validationResult.rejected)
-        val transformedAcceptedDF =
-          session.createDataFrame(validationResult.accepted, appliedSchema)
-        saveAccepted(transformedAcceptedDF, validationResult)
-        (validationResult.errors, validationResult.accepted)
-    }
+    saveAccepted(
+      acceptedPrivacyDF,
+      ValidationResult(
+        session.sparkContext.emptyRDD[String],
+        session.sparkContext.emptyRDD[String],
+        session.sparkContext.emptyRDD[Row]
+      )
+    )
+    (session.sparkContext.emptyRDD[Row], acceptedPrivacyDF.rdd)
   }
 
   override def name: String = "XML-SimplePrivacyJob"
