@@ -760,7 +760,7 @@ trait IngestionJob extends SparkJob {
               )
               SparkAuditLogWriter.append(session, log)
               if (success) SparkJobResult(None)
-              else Failure(throw new Exception("Fail on rejected count requested"))
+              else throw new Exception("Fail on rejected count requested")
             }
           case Failure(exception) =>
             val end = Timestamp.from(Instant.now())
