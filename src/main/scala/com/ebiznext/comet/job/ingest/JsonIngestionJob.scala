@@ -141,7 +141,10 @@ class JsonIngestionJob(
     saveRejected(withInvalidSchema.union(validationResult.errors), validationResult.rejected)
     val acceptedWithFinalSchema =
       session.createDataFrame(validationResult.accepted, appliedSchema)
-    saveAccepted(acceptedWithFinalSchema) // prefer to let Spark compute the final schema
+    saveAccepted(
+      acceptedWithFinalSchema,
+      validationResult
+    ) // prefer to let Spark compute the final schema
     (withInvalidSchema, toValidate.rdd)
   }
 
