@@ -743,22 +743,24 @@ trait IngestionJob extends SparkJob {
                 s"ingestion-summary -> files: [$inputFiles], domain: ${domain.name}, schema: ${schema.name}, input: $inputCount, accepted: $acceptedCount, rejected:$rejectedCount"
               )
               val end = Timestamp.from(Instant.now())
+              val success = !settings.comet.rejectAllOnError || rejectedCount == 0
               val log = AuditLog(
                 session.sparkContext.applicationId,
                 inputFiles,
                 domain.name,
                 schema.name,
-                success = true,
+                success = success,
                 inputCount,
                 acceptedCount,
                 rejectedCount,
                 start,
                 end.getTime - start.getTime,
-                "success",
+                if (success) "success" else s"$rejectedCount invalid records",
                 Step.LOAD.toString
               )
               SparkAuditLogWriter.append(session, log)
-              SparkJobResult(None)
+              if (success) SparkJobResult(None)
+              else Failure(throw new Exception("Fail on rejected count requested"))
             }
           case Failure(exception) =>
             val end = Timestamp.from(Instant.now())
