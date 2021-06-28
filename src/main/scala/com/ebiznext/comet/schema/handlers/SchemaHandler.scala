@@ -23,7 +23,6 @@ package com.ebiznext.comet.schema.handlers
 import com.ebiznext.comet.config.{DatasetArea, Settings, StorageArea}
 import com.ebiznext.comet.schema.generator.YamlSerializer
 import com.ebiznext.comet.schema.model._
-import com.ebiznext.comet.utils.Formatter._
 import com.ebiznext.comet.utils.{CometObjectMapper, Utils}
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
@@ -55,7 +54,9 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     this.activeEnv
     this.jobs
     val allErrors = typesValidity ++ domainsValidty
-    val errs = allErrors.filter(_.isLeft).flatMap(_.left.get)
+    val errs = allErrors
+      .filter(_.isLeft)
+      .flatMap(_.left.get)
     errs match {
       case Nil =>
       case _ =>
@@ -186,6 +187,17 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
         errors.foreach(logger.error(_))
         throw new Exception("Duplicated domain name(s)")
     }
+
+    Utils.duplicates(
+      domains.map(_.directory),
+      s"%s is defined %d times. A directory can only appear once in a domain definition file."
+    ) match {
+      case Right(_) => domains
+      case Left(errors) =>
+        errors.foreach(logger.error(_))
+        throw new Exception("Duplicated domain directory name")
+    }
+
   }
 
   def loadJobFromFile(path: Path): Try[AutoJobDesc] = {

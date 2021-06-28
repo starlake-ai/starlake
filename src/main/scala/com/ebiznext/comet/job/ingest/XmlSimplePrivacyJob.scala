@@ -2,10 +2,12 @@ package com.ebiznext.comet.job.ingest
 
 import java.util.regex.Pattern
 import com.ebiznext.comet.config.Settings
+import com.ebiznext.comet.job.validator.ValidationResult
 import com.ebiznext.comet.schema.handlers.{SchemaHandler, StorageHandler}
 import com.ebiznext.comet.schema.model._
 import org.apache.hadoop.fs.Path
 import org.apache.spark.rdd.RDD
+import org.apache.spark.sql.functions.input_file_name
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
 import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 
@@ -64,8 +66,41 @@ class XmlSimplePrivacyJob(
     val acceptedPrivacyDF: DataFrame = privacyAttributes.foldLeft(dataset) { case (ds, attribute) =>
       XmlSimplePrivacyJob.applyPrivacy(ds, attribute, session)
     }
-    saveAccepted(acceptedPrivacyDF)
-    (session.sparkContext.emptyRDD[Row], acceptedPrivacyDF.rdd)
+    metadata.xml.flatMap(_.get("skipValidation")) match {
+      case Some(_) =>
+        saveAccepted(
+          dataset,
+          ValidationResult(
+            session.sparkContext.emptyRDD[String],
+            session.sparkContext.emptyRDD[String],
+            session.sparkContext.emptyRDD[Row]
+          )
+        )
+        (session.sparkContext.emptyRDD[Row], acceptedPrivacyDF.rdd)
+      case _ =>
+        val withInputFileNameDS =
+          dataset.withColumn(Settings.cometInputFileNameColumn, input_file_name())
+
+        val appliedSchema = schema
+          .sparkSchemaWithoutScriptedFields(schemaHandler)
+          .add(StructField(Settings.cometInputFileNameColumn, StringType))
+        val validationResult =
+          flatRowValidator.validate(
+            session,
+            metadata.getFormat(),
+            metadata.getSeparator(),
+            withInputFileNameDS,
+            schema.attributes,
+            types,
+            appliedSchema
+          )
+
+        saveRejected(validationResult.errors, validationResult.rejected)
+        val transformedAcceptedDF =
+          session.createDataFrame(validationResult.accepted, appliedSchema)
+        saveAccepted(transformedAcceptedDF, validationResult)
+        (validationResult.errors, validationResult.accepted)
+    }
   }
 
   override def name: String = "XML-SimplePrivacyJob"

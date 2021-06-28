@@ -242,7 +242,8 @@ object Settings extends StrictLogging {
     udfs: Option[String],
     assertions: Assertions,
     kafka: KafkaConfig,
-    sqlParameterPattern: String
+    sqlParameterPattern: String,
+    rejectAllOnError: Boolean
   ) extends Serializable {
 
     @JsonIgnore
