@@ -60,8 +60,7 @@ object Rejection {
   case class RowInfo(
     timestamp: Timestamp,
     colInfos: List[ColInfo],
-    inputFileName: String,
-    inputLine: String
+    inputFileName: String
   ) {
 
     override def toString: String = {

@@ -88,8 +88,7 @@ object FlatRowValidator extends GenericRowValidator {
         RowInfo(
           now,
           rowResult.colResults.filter(!_.colInfo.success).map(_.colInfo),
-          rowResult.inputFileName,
-          rowResult.inputLine
+          rowResult.inputFileName
         ).toString
       )
 
