@@ -237,7 +237,6 @@ final class StorageAreaSerializer extends JsonSerializer[StorageArea] {
       case StorageArea.replay              => settings.comet.area.replay
       case StorageArea.Custom(customValue) => customValue
     }
-
     gen.writeString(strValue)
   }
 }

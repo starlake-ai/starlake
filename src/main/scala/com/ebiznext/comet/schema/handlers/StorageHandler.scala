@@ -52,6 +52,8 @@ trait StorageHandler extends StrictLogging {
 
   def moveFromLocal(source: Path, dest: Path): Unit
 
+  def moveSparkPartFile(sparkFolder: Path, extension: String): Option[Path]
+
   def read(path: Path): String
 
   def write(data: String, path: Path): Unit
@@ -250,6 +252,17 @@ class HdfsStorageHandler(fileSystem: Option[String])(implicit
       fs.moveFromLocalFile(source, dest)
     else
       move(source, dest)
+  }
+
+  def moveSparkPartFile(sparkFolder: Path, extension: String): Option[Path] = {
+    val files = list(sparkFolder, extension = extension, recursive = false).headOption
+    files.map { f =>
+      val tmpFile = new Path(sparkFolder.getParent, sparkFolder.getName + ".tmp")
+      move(f, tmpFile)
+      delete(sparkFolder)
+      move(tmpFile, sparkFolder)
+      sparkFolder
+    }
   }
 
   override def exists(path: Path): Boolean = {
