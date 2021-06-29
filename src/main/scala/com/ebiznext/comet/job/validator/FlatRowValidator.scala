@@ -16,14 +16,17 @@ import java.time.Instant
 object FlatRowValidator extends GenericRowValidator {
 
   private def toOriginalFormat(row: Row, format: Format, separator: String): String = {
+    val rowAsMap = row.getValuesMap(row.schema.fieldNames)
     format match {
       case Format.DSV =>
-        row.toSeq.map(Option(_).getOrElse("").toString).mkString(separator)
+        // dropRight removes CometInputFileName Column
+        row.toSeq.dropRight(1).map(Option(_).getOrElse("").toString).mkString(separator)
       case Format.SIMPLE_JSON =>
         val rowAsMap = row.getValuesMap(row.schema.fieldNames)
-        new Gson().toJson(rowAsMap)
+        new Gson().toJson(rowAsMap - Settings.cometInputFileNameColumn)
       case Format.POSITION =>
-        row.toSeq.map(_.toString).mkString("")
+        // dropRight removes CometInputFileName Column
+        row.toSeq.dropRight(1).map(_.toString).mkString("")
       case _ =>
         throw new Exception("Should never happen")
 
@@ -68,7 +71,7 @@ object FlatRowValidator extends GenericRowValidator {
                 )
               }.toList,
               row.getAs[String](Settings.cometInputFileNameColumn),
-              toOriginalFormat(row, format, separator)
+              Some(toOriginalFormat(row, format, separator))
             )
           } else {
             RowResult(
@@ -76,7 +79,7 @@ object FlatRowValidator extends GenericRowValidator {
                 IngestionUtil.validateCol(colRawValue, colAttribute, tpe, colMap)
               }.toList,
               row.getAs[String](Settings.cometInputFileNameColumn),
-              toOriginalFormat(row, format, separator)
+              None
             )
           }
         }
@@ -92,7 +95,7 @@ object FlatRowValidator extends GenericRowValidator {
         ).toString
       )
 
-    val rejectedInputLinesRDD: RDD[String] = checkedRDD.filter(_.isRejected).map(_.inputLine)
+    val rejectedInputLinesRDD: RDD[String] = checkedRDD.filter(_.isRejected).flatMap(_.inputLine)
 
     val acceptedRDD: RDD[Row] = checkedRDD.filter(_.isAccepted).map { rowResult =>
       val sparkValues: List[Any] = rowResult.colResults.map(_.sparkValue)
