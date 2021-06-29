@@ -83,8 +83,13 @@ object Rejection {
   }
 
   /** @param colResults
+    * @param inputLine Filled only for invalid lines (performance impect otherwise)
     */
-  case class RowResult(colResults: List[ColResult], inputFileName: String, inputLine: String) {
+  case class RowResult(
+    colResults: List[ColResult],
+    inputFileName: String,
+    inputLine: Option[String]
+  ) {
     def isRejected: Boolean = colResults.exists(!_.colInfo.success)
     def isAccepted: Boolean = !isRejected
 

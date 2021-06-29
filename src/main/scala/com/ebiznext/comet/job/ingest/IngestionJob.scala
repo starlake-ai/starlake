@@ -108,8 +108,14 @@ trait IngestionJob extends SparkJob {
 
     if (settings.comet.sinkReplayToFile) {
       val replayArea = DatasetArea.replay(domainName)
-      rejectedLinesRDD.saveAsTextFile(
-        new Path(replayArea, s"$domainName.$schemaName.$formattedDate.replay").toString
+      val targetPath =
+        new Path(replayArea, s"$domainName.$schemaName.$formattedDate.replay")
+      rejectedLinesRDD
+        .coalesce(1)
+        .saveAsTextFile(targetPath.toString)
+      storageHandler.moveSparkPartFile(
+        targetPath,
+        "0000" // When saving as text file, no extension is added.
       )
     }
 
