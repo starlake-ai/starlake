@@ -87,11 +87,11 @@ object Rejection {
     */
   case class RowResult(
     colResults: List[ColResult],
+    isAccepted: Boolean,
     inputFileName: String,
     inputLine: Option[String]
   ) {
-    def isRejected: Boolean = colResults.exists(!_.colInfo.success)
-    def isAccepted: Boolean = !isRejected
+    def isRejected: Boolean = !isAccepted
 
     override def toString: String = colResults.map(_.toString).mkString("\n")
   }
