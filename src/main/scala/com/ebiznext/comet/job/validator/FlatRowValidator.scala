@@ -16,7 +16,6 @@ import java.time.Instant
 object FlatRowValidator extends GenericRowValidator {
 
   private def toOriginalFormat(row: Row, format: Format, separator: String): String = {
-    val rowAsMap = row.getValuesMap(row.schema.fieldNames)
     format match {
       case Format.DSV =>
         // dropRight removes CometInputFileName Column
@@ -57,29 +56,33 @@ object FlatRowValidator extends GenericRowValidator {
           }.toMap
           val validNumberOfColumns = attributes.length <= rowCols.length
           if (!validNumberOfColumns) {
+            val colResults = rowCols.map { case ((colRawValue, colAttribute), tpe) =>
+              ColResult(
+                ColInfo(
+                  colRawValue,
+                  colAttribute.name,
+                  tpe.name,
+                  tpe.pattern,
+                  success = false
+                ),
+                null
+              )
+            }.toList
             RowResult(
-              rowCols.map { case ((colRawValue, colAttribute), tpe) =>
-                ColResult(
-                  ColInfo(
-                    colRawValue,
-                    colAttribute.name,
-                    tpe.name,
-                    tpe.pattern,
-                    success = false
-                  ),
-                  null
-                )
-              }.toList,
+              colResults,
+              colResults.forall(_.colInfo.success),
               row.getAs[String](Settings.cometInputFileNameColumn),
               Some(toOriginalFormat(row, format, separator))
             )
           } else {
+            val colResults = rowCols.map { case ((colRawValue, colAttribute), tpe) =>
+              IngestionUtil.validateCol(colRawValue, colAttribute, tpe, colMap)
+            }.toList
             RowResult(
-              rowCols.map { case ((colRawValue, colAttribute), tpe) =>
-                IngestionUtil.validateCol(colRawValue, colAttribute, tpe, colMap)
-              }.toList,
+              colResults,
+              colResults.forall(_.colInfo.success),
               row.getAs[String](Settings.cometInputFileNameColumn),
-              None
+              Some(toOriginalFormat(row, format, separator))
             )
           }
         }
