@@ -106,7 +106,7 @@ trait IngestionJob extends SparkJob {
     val start = Timestamp.from(Instant.now())
     val formattedDate = new java.text.SimpleDateFormat("yyyyMMddHHmmss").format(start)
 
-    if (settings.comet.sinkReplayToFile) {
+    if (settings.comet.sinkReplayToFile && !rejectedLinesRDD.isEmpty()) {
       val replayArea = DatasetArea.replay(domainName)
       val targetPath =
         new Path(replayArea, s"$domainName.$schemaName.$formattedDate.replay")
