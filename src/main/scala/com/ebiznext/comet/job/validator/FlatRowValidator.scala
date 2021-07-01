@@ -78,11 +78,13 @@ object FlatRowValidator extends GenericRowValidator {
             val colResults = rowCols.map { case ((colRawValue, colAttribute), tpe) =>
               IngestionUtil.validateCol(colRawValue, colAttribute, tpe, colMap)
             }.toList
+            val isRowAccepted = colResults.forall(_.colInfo.success)
             RowResult(
               colResults,
-              colResults.forall(_.colInfo.success),
+              isRowAccepted,
               row.getAs[String](Settings.cometInputFileNameColumn),
-              Some(toOriginalFormat(row, format, separator))
+              if (isRowAccepted && settings.comet.sinkReplayToFile) None
+              else Some(toOriginalFormat(row, format, separator))
             )
           }
         }
