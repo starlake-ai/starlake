@@ -197,7 +197,7 @@ class ScriptGen(
     config: ExtractScriptGenConfig,
     schemaHandler: SchemaHandler,
     domainNames: Seq[String]
-  ) = {
+  ): Boolean = {
     val domains: List[Domain] = schemaHandler.domains
     domainNames
       .map { domainName =>
