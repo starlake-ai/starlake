@@ -21,11 +21,12 @@
 package com.ebiznext.comet.job.ingest
 
 import com.ebiznext.comet.config.Settings
+import com.ebiznext.comet.job.validator.ValidationResult
 import com.ebiznext.comet.schema.handlers.{SchemaHandler, StorageHandler}
 import com.ebiznext.comet.schema.model._
 import org.apache.hadoop.fs.Path
 import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.{DataFrame, Row}
 import org.apache.spark.sql.execution.datasources.json.JsonIngestionUtil.compareTypes
 import org.apache.spark.sql.functions.input_file_name
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
@@ -92,8 +93,15 @@ class XmlIngestionJob(
     metadata.xml.flatMap(_.get("skipValidation")) match {
       case Some(_) =>
         val rejectedRDD = session.sparkContext.parallelize(errorList)
-        saveRejected(rejectedRDD)
-        saveAccepted(dataset)
+        saveRejected(rejectedRDD, session.emptyDataFrame.rdd.map(_.mkString))
+        saveAccepted(
+          dataset,
+          ValidationResult(
+            session.sparkContext.emptyRDD[String],
+            session.sparkContext.emptyRDD[String],
+            session.sparkContext.emptyRDD[Row]
+          )
+        )
         (rejectedRDD, dataset.rdd)
       case _ =>
         val withInputFileNameDS =
@@ -102,20 +110,23 @@ class XmlIngestionJob(
         val appliedSchema = schema
           .sparkSchemaWithoutScriptedFields(schemaHandler)
           .add(StructField(Settings.cometInputFileNameColumn, StringType))
-        val (koRDD, okRDD) =
+        val validationResult =
           treeRowValidator.validate(
             session,
+            metadata.getFormat(),
+            metadata.getSeparator(),
             withInputFileNameDS,
             schema.attributes,
             types,
             appliedSchema
           )
 
-        val allRejected = rejectedRDD.union(koRDD)
-        saveRejected(allRejected)
-        val transformedAcceptedDF = session.createDataFrame(okRDD, appliedSchema)
-        saveAccepted(transformedAcceptedDF)
-        (allRejected, okRDD)
+        val allRejected = rejectedRDD.union(validationResult.errors)
+        saveRejected(allRejected, validationResult.rejected)
+        val transformedAcceptedDF =
+          session.createDataFrame(validationResult.accepted, appliedSchema)
+        saveAccepted(transformedAcceptedDF, validationResult)
+        (allRejected, validationResult.accepted)
     }
   }
 

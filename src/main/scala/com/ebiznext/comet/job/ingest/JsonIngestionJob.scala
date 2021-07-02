@@ -95,26 +95,26 @@ class JsonIngestionJob(
   protected def ingest(dataset: DataFrame): (RDD[_], RDD[_]) = {
     val rdd: RDD[Row] = dataset.rdd
 
-    val checkedRDD: RDD[Either[List[String], (String, String)]] = JsonIngestionUtil
+    val parsed: RDD[Either[List[String], (String, String)]] = JsonIngestionUtil
       .parseRDD(rdd, schemaSparkType)
       .persist(settings.comet.cacheStorageLevel)
 
-    val acceptedRDD: RDD[String] =
-      checkedRDD
+    val withValidSchema: RDD[String] =
+      parsed
         .collect { case Right(value) =>
           value
         }
         .map { case (row, inputFileName) =>
           val (left, _) = row.splitAt(row.lastIndexOf("}"))
 
-          // Because Spark cannot detect the input files when session.read.json(session.createDataset(acceptedRDD)(Encoders.STRING)),
+          // Because Spark cannot detect the input files when session.read.json(session.createDataset(withValidSchema)(Encoders.STRING)),
           // We should add it as a normal field in the RDD before converting to a dataframe using session.read.json
 
           s"""$left, "${Settings.cometInputFileNameColumn}" : "$inputFileName" }"""
         }
 
-    val rejectedRDD: RDD[String] =
-      checkedRDD
+    val withInvalidSchema: RDD[String] =
+      parsed
         .collect { case Left(value) =>
           value
         }
@@ -124,16 +124,28 @@ class JsonIngestionJob(
       .sparkSchemaWithoutScriptedFields(schemaHandler)
       .add(StructField(Settings.cometInputFileNameColumn, StringType))
 
-    val acceptedDF = session.read
+    val toValidate = session.read
       .schema(appliedSchema)
-      .json(session.createDataset(acceptedRDD)(Encoders.STRING))
+      .json(session.createDataset(withValidSchema)(Encoders.STRING))
 
-    val (koRDD, okRDD) =
-      treeRowValidator.validate(session, acceptedDF, schema.attributes, types, appliedSchema)
-    saveRejected(rejectedRDD.union(koRDD))
-    val transformedAcceptedDF = session.createDataFrame(okRDD, appliedSchema)
-    saveAccepted(transformedAcceptedDF) // prefer to let Spark compute the final schema
-    (rejectedRDD, acceptedDF.rdd)
+    val validationResult =
+      treeRowValidator.validate(
+        session,
+        metadata.getFormat(),
+        metadata.getSeparator(),
+        toValidate,
+        schema.attributes,
+        types,
+        appliedSchema
+      )
+    saveRejected(withInvalidSchema.union(validationResult.errors), validationResult.rejected)
+    val acceptedWithFinalSchema =
+      session.createDataFrame(validationResult.accepted, appliedSchema)
+    saveAccepted(
+      acceptedWithFinalSchema,
+      validationResult
+    ) // prefer to let Spark compute the final schema
+    (withInvalidSchema, toValidate.rdd)
   }
 
   override def name: String = "JsonJob"
