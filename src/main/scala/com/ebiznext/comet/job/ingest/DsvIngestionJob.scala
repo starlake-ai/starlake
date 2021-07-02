@@ -21,6 +21,7 @@
 package com.ebiznext.comet.job.ingest
 
 import com.ebiznext.comet.config.Settings
+import com.ebiznext.comet.job.validator.ValidationResult
 import com.ebiznext.comet.schema.handlers.{SchemaHandler, StorageHandler}
 import com.ebiznext.comet.schema.model._
 import org.apache.hadoop.fs.Path
@@ -175,26 +176,28 @@ class DsvIngestionJob(
 
     val (orderedTypes, orderedSparkTypes) = reorderTypes()
 
-    val (rejectedRDD, acceptedRDD) = flatRowValidator.validate(
+    val validationResult = flatRowValidator.validate(
       session,
+      metadata.getFormat(),
+      metadata.getSeparator(),
       dataset,
       orderedAttributes,
       orderedTypes,
       orderedSparkTypes
     )
 
-    saveRejected(rejectedRDD)
-
-    saveAccepted(acceptedRDD, orderedSparkTypes)
-    (rejectedRDD, acceptedRDD)
+    saveRejected(validationResult.errors, validationResult.rejected)
+    saveAccepted(validationResult.accepted, orderedSparkTypes, validationResult)
+    (validationResult.errors, validationResult.accepted)
   }
 
   protected def saveAccepted(
     acceptedRDD: RDD[Row],
-    orderedSparkTypes: StructType
+    orderedSparkTypes: StructType,
+    validationResult: ValidationResult
   ): (DataFrame, Path) = {
     val acceptedDF = session.createDataFrame(acceptedRDD, orderedSparkTypes)
-    super.saveAccepted(acceptedDF)
+    super.saveAccepted(acceptedDF, validationResult)
   }
 
 }

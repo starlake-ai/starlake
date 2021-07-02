@@ -2,6 +2,7 @@ package com.ebiznext.comet.job.ingest
 
 import java.util.regex.Pattern
 import com.ebiznext.comet.config.Settings
+import com.ebiznext.comet.job.validator.ValidationResult
 import com.ebiznext.comet.schema.handlers.{SchemaHandler, StorageHandler}
 import com.ebiznext.comet.schema.model._
 import org.apache.hadoop.fs.Path
@@ -64,7 +65,14 @@ class XmlSimplePrivacyJob(
     val acceptedPrivacyDF: DataFrame = privacyAttributes.foldLeft(dataset) { case (ds, attribute) =>
       XmlSimplePrivacyJob.applyPrivacy(ds, attribute, session)
     }
-    saveAccepted(acceptedPrivacyDF)
+    saveAccepted(
+      acceptedPrivacyDF,
+      ValidationResult(
+        session.sparkContext.emptyRDD[String],
+        session.sparkContext.emptyRDD[String],
+        session.sparkContext.emptyRDD[Row]
+      )
+    )
     (session.sparkContext.emptyRDD[Row], acceptedPrivacyDF.rdd)
   }
 

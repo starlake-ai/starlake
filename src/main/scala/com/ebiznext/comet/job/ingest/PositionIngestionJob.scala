@@ -102,16 +102,18 @@ class PositionIngestionJob(
 
     val (orderedTypes, orderedSparkTypes) = reorderTypes()
 
-    val (rejectedRDD, acceptedRDD) = flatRowValidator.validate(
+    val validationResult = flatRowValidator.validate(
       session,
+      metadata.getFormat(),
+      metadata.getSeparator(),
       dataset,
       orderedAttributes,
       orderedTypes,
       orderedSparkTypes
     )
-    saveRejected(rejectedRDD)
-    saveAccepted(acceptedRDD, orderedSparkTypes)
-    (rejectedRDD, acceptedRDD)
+    saveRejected(validationResult.errors, validationResult.rejected)
+    saveAccepted(validationResult.accepted, orderedSparkTypes, validationResult)
+    (validationResult.errors, validationResult.accepted)
   }
 
 }
