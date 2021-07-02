@@ -27,7 +27,6 @@ The figure below describes the batch offloading process
 The figure below describes the batch offloading process with `comet-offsets-mode = "FILE"`
 ![](/img/cli/kafka-offload-fs.png)
 
-
 ### Streaming mode
 
 In this mode, te program keep running and you the comet_offsets topic is not used. The (off)loader will use a consumer group id 

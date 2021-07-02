@@ -6,7 +6,7 @@ import com.ebiznext.comet.job.index.connectionload.{ConnectionLoadConfig, Connec
 import com.ebiznext.comet.job.index.esload.{ESLoadConfig, ESLoadJob}
 import com.ebiznext.comet.job.ingest.ImprovedDataFrameContext._
 import com.ebiznext.comet.job.metrics.{AssertionJob, MetricsJob}
-import com.ebiznext.comet.job.validator.GenericRowValidator
+import com.ebiznext.comet.job.validator.{GenericRowValidator, ValidationResult}
 import com.ebiznext.comet.schema.handlers.{SchemaHandler, StorageHandler}
 import com.ebiznext.comet.schema.model.PrimitiveType.timestamp
 import com.ebiznext.comet.schema.model.Rejection.{ColInfo, ColResult}
@@ -92,15 +92,34 @@ trait IngestionJob extends SparkJob {
     } getOrElse dfIn
   }
 
-  protected def saveRejected(rejectedRDD: RDD[String]): Try[Path] = {
+  protected def saveRejected(
+    errMessagesRDD: RDD[String],
+    rejectedLinesRDD: RDD[String]
+  ): Try[Path] = {
     logger.whenDebugEnabled {
-      logger.debug(s"rejectedRDD SIZE ${rejectedRDD.count()}")
-      rejectedRDD.take(100).foreach(rejected => logger.debug(rejected.replaceAll("\n", "|")))
+      logger.debug(s"rejectedRDD SIZE ${errMessagesRDD.count()}")
+      errMessagesRDD.take(100).foreach(rejected => logger.debug(rejected.replaceAll("\n", "|")))
     }
     val domainName = domain.name
     val schemaName = schema.name
+
     val start = Timestamp.from(Instant.now())
-    IngestionUtil.sinkRejected(session, rejectedRDD, domainName, schemaName, now) match {
+    val formattedDate = new java.text.SimpleDateFormat("yyyyMMddHHmmss").format(start)
+
+    if (settings.comet.sinkReplayToFile && !rejectedLinesRDD.isEmpty()) {
+      val replayArea = DatasetArea.replay(domainName)
+      val targetPath =
+        new Path(replayArea, s"$domainName.$schemaName.$formattedDate.replay")
+      rejectedLinesRDD
+        .coalesce(1)
+        .saveAsTextFile(targetPath.toString)
+      storageHandler.moveSparkPartFile(
+        targetPath,
+        "0000" // When saving as text file, no extension is added.
+      )
+    }
+
+    IngestionUtil.sinkRejected(session, errMessagesRDD, domainName, schemaName, now) match {
       case Success((rejectedDF, rejectedPath)) =>
         // We sink to a file when running unit tests
         if (settings.comet.sinkToFile) {
@@ -232,98 +251,105 @@ trait IngestionJob extends SparkJob {
     *
     * @param acceptedDF
     */
-  protected def saveAccepted(dataframe: DataFrame): (DataFrame, Path) = {
-    val acceptedDF = dfWithAttributesRenamed(dataframe)
-    val start = Timestamp.from(Instant.now())
-    logger.whenDebugEnabled {
-      logger.debug(s"acceptedRDD SIZE ${acceptedDF.count()}")
-      acceptedDF.show(1000)
+  protected def saveAccepted(
+    dataframe: DataFrame,
+    validationResult: ValidationResult
+  ): (DataFrame, Path) = {
+    if (!settings.comet.rejectAllOnError || validationResult.rejected.isEmpty()) {
+      val acceptedDF = dfWithAttributesRenamed(dataframe)
+      val start = Timestamp.from(Instant.now())
+      logger.whenDebugEnabled {
+        logger.debug(s"acceptedRDD SIZE ${acceptedDF.count()}")
+        acceptedDF.show(1000)
+      }
+      runAssertions(acceptedDF)
+      runMetrics(acceptedDF)
+      val acceptedPath = new Path(DatasetArea.accepted(domain.name), schema.name)
+      val acceptedDfWithScriptFields: DataFrame = computeScriptedAttributes(acceptedDF)
+      val acceptedDfWithoutIgnoredFields: DataFrame = removeIgnoredAttributes(
+        acceptedDfWithScriptFields
+      )
+      val finalAcceptedDF: DataFrame = computeFinalSchema(acceptedDfWithoutIgnoredFields)
+      val mergedDF: DataFrame = applyMerge(acceptedPath, finalAcceptedDF)
+
+      val finalMergedDf: DataFrame = runPostSQL(mergedDF)
+
+      val writeMode = getWriteMode()
+
+      logger.info("Final Dataframe Schema")
+      finalMergedDf.printSchema()
+      val savedInFileDataset =
+        if (settings.comet.sinkToFile)
+          sinkToFile(
+            finalMergedDf,
+            acceptedPath,
+            writeMode,
+            StorageArea.accepted,
+            schema.merge.isDefined,
+            settings.comet.defaultWriteFormat
+          )
+        else
+          finalMergedDf
+
+      val sinkType = metadata.getSink().map(_.`type`)
+      val savedDataset = sinkType.getOrElse(SinkType.None) match {
+        case SinkType.FS | SinkType.None if !settings.comet.sinkToFile =>
+          // TODO do this inside the sink function below
+          sinkToFile(
+            finalMergedDf,
+            acceptedPath,
+            writeMode,
+            StorageArea.accepted,
+            schema.merge.isDefined,
+            settings.comet.defaultWriteFormat
+          )
+        case _ =>
+          savedInFileDataset
+      }
+      logger.info("Saved Dataset Schema")
+      savedDataset.printSchema()
+      sink(finalMergedDf) match {
+        case Success(_) =>
+          val end = Timestamp.from(Instant.now())
+          val log = AuditLog(
+            session.sparkContext.applicationId,
+            acceptedPath.toString,
+            domain.name,
+            schema.name,
+            success = true,
+            -1,
+            -1,
+            -1,
+            start,
+            end.getTime - start.getTime,
+            "success",
+            Step.SINK_ACCEPTED.toString
+          )
+          SparkAuditLogWriter.append(session, log)
+        case Failure(exception) =>
+          Utils.logException(logger, exception)
+          val end = Timestamp.from(Instant.now())
+          val log = AuditLog(
+            session.sparkContext.applicationId,
+            acceptedPath.toString,
+            domain.name,
+            schema.name,
+            success = false,
+            -1,
+            -1,
+            -1,
+            start,
+            end.getTime - start.getTime,
+            Utils.exceptionAsString(exception),
+            Step.SINK_ACCEPTED.toString
+          )
+          SparkAuditLogWriter.append(session, log)
+          throw exception
+      }
+      (savedDataset, acceptedPath)
+    } else {
+      (session.emptyDataFrame, new Path("invalid-path"))
     }
-    runAssertions(acceptedDF)
-    runMetrics(acceptedDF)
-    val acceptedPath = new Path(DatasetArea.accepted(domain.name), schema.name)
-    val acceptedDfWithScriptFields: DataFrame = computeScriptedAttributes(acceptedDF)
-    val acceptedDfWithoutIgnoredFields: DataFrame = removeIgnoredAttributes(
-      acceptedDfWithScriptFields
-    )
-    val finalAcceptedDF: DataFrame = computeFinalSchema(acceptedDfWithoutIgnoredFields)
-    val mergedDF: DataFrame = applyMerge(acceptedPath, finalAcceptedDF)
-
-    val finalMergedDf: DataFrame = runPostSQL(mergedDF)
-
-    val writeMode = getWriteMode()
-
-    logger.info("Final Dataframe Schema")
-    finalMergedDf.printSchema()
-    val savedInFileDataset =
-      if (settings.comet.sinkToFile)
-        sinkToFile(
-          finalMergedDf,
-          acceptedPath,
-          writeMode,
-          StorageArea.accepted,
-          schema.merge.isDefined,
-          settings.comet.defaultWriteFormat
-        )
-      else
-        finalMergedDf
-
-    val sinkType = metadata.getSink().map(_.`type`)
-    val savedDataset = sinkType.getOrElse(SinkType.None) match {
-      case SinkType.FS | SinkType.None if !settings.comet.sinkToFile =>
-        // TODO do this inside the sink function below
-        sinkToFile(
-          finalMergedDf,
-          acceptedPath,
-          writeMode,
-          StorageArea.accepted,
-          schema.merge.isDefined,
-          settings.comet.defaultWriteFormat
-        )
-      case _ =>
-        savedInFileDataset
-    }
-    logger.info("Saved Dataset Schema")
-    savedDataset.printSchema()
-    sink(finalMergedDf) match {
-      case Success(_) =>
-        val end = Timestamp.from(Instant.now())
-        val log = AuditLog(
-          session.sparkContext.applicationId,
-          acceptedPath.toString,
-          domain.name,
-          schema.name,
-          success = true,
-          -1,
-          -1,
-          -1,
-          start,
-          end.getTime - start.getTime,
-          "success",
-          Step.SINK_ACCEPTED.toString
-        )
-        SparkAuditLogWriter.append(session, log)
-      case Failure(exception) =>
-        Utils.logException(logger, exception)
-        val end = Timestamp.from(Instant.now())
-        val log = AuditLog(
-          session.sparkContext.applicationId,
-          acceptedPath.toString,
-          domain.name,
-          schema.name,
-          success = false,
-          -1,
-          -1,
-          -1,
-          start,
-          end.getTime - start.getTime,
-          Utils.exceptionAsString(exception),
-          Step.SINK_ACCEPTED.toString
-        )
-        SparkAuditLogWriter.append(session, log)
-        throw exception
-    }
-    (savedDataset, acceptedPath)
   }
 
   private def runPostSQL(mergedDF: DataFrame) = {
@@ -440,6 +466,8 @@ trait IngestionJob extends SparkJob {
             metadata.getWrite(),
             schema.merge.exists(_.key.nonEmpty)
           )
+
+          /* We load the schema from the postsql returned dataframe if any */
           val tableSchema = schema.postsql match {
             case Some(_) => Some(BigQueryUtils.bqSchema(mergedDF.schema))
             case _       => Some(schema.bqSchema(schemaHandler))
@@ -723,22 +751,24 @@ trait IngestionJob extends SparkJob {
                 s"ingestion-summary -> files: [$inputFiles], domain: ${domain.name}, schema: ${schema.name}, input: $inputCount, accepted: $acceptedCount, rejected:$rejectedCount"
               )
               val end = Timestamp.from(Instant.now())
+              val success = !settings.comet.rejectAllOnError || rejectedCount == 0
               val log = AuditLog(
                 session.sparkContext.applicationId,
                 inputFiles,
                 domain.name,
                 schema.name,
-                success = true,
+                success = success,
                 inputCount,
                 acceptedCount,
                 rejectedCount,
                 start,
                 end.getTime - start.getTime,
-                "success",
+                if (success) "success" else s"$rejectedCount invalid records",
                 Step.LOAD.toString
               )
               SparkAuditLogWriter.append(session, log)
-              SparkJobResult(None)
+              if (success) SparkJobResult(None)
+              else throw new Exception("Fail on rejected count requested")
             }
           case Failure(exception) =>
             val end = Timestamp.from(Instant.now())
