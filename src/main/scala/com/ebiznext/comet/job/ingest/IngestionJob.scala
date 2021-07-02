@@ -466,6 +466,8 @@ trait IngestionJob extends SparkJob {
             metadata.getWrite(),
             schema.merge.exists(_.key.nonEmpty)
           )
+
+          /* We load the schema from the postsql returned dataframe if any */
           val tableSchema = schema.postsql match {
             case Some(_) => Some(BigQueryUtils.bqSchema(mergedDF.schema))
             case _       => Some(schema.bqSchema(schemaHandler))
