@@ -58,14 +58,7 @@ class Parquet2CSV(config: Parquet2CSVConfig, val storageHandler: StorageHandler)
             .option("ignoreTrailingWhiteSpace", false)
             .csv(csvPath.toString)
           if (config.partitions == 1) {
-            val files = storageHandler.list(csvPath, "csv", recursive = false)
-            files.foreach { f =>
-              val tmpFile = new Path(csvPath.getParent, csvPath.getName + ".tmp")
-              storageHandler.move(f, tmpFile)
-              storageHandler.delete(f)
-              storageHandler.delete(csvPath)
-              storageHandler.move(tmpFile, csvPath)
-            }
+            storageHandler.moveSparkPartFile(csvPath, ".csv")
           }
           if (config.deleteSource)
             storageHandler.delete(path)

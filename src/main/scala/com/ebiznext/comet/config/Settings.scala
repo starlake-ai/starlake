@@ -70,11 +70,13 @@ object Settings extends StrictLogging {
     ingesting: String,
     accepted: String,
     rejected: String,
+    replay: String,
     business: String
   ) {
     val acceptedFinal: String = accepted.toLowerCase(Locale.ROOT)
     val rejectedFinal: String = rejected.toLowerCase(Locale.ROOT)
     val businessFinal: String = business.toLowerCase(Locale.ROOT)
+    val replayFinal: String = replay.toLowerCase(Locale.ROOT)
   }
 
   /** @param options : Map of privacy algorightms name -> PrivacyEngine
@@ -209,6 +211,7 @@ object Settings extends StrictLogging {
     audit: Audit,
     archive: Boolean,
     sinkToFile: Boolean,
+    sinkReplayToFile: Boolean,
     lock: Lock,
     defaultWriteFormat: String,
     defaultRejectedWriteFormat: String,
@@ -239,7 +242,8 @@ object Settings extends StrictLogging {
     udfs: Option[String],
     assertions: Assertions,
     kafka: KafkaConfig,
-    sqlParameterPattern: String
+    sqlParameterPattern: String,
+    rejectAllOnError: Boolean
   ) extends Serializable {
 
     @JsonIgnore

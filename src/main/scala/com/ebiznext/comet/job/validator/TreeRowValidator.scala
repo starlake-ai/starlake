@@ -2,7 +2,7 @@ package com.ebiznext.comet.job.validator
 
 import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.job.ingest.IngestionUtil
-import com.ebiznext.comet.schema.model.{Attribute, Type}
+import com.ebiznext.comet.schema.model.{Attribute, Format, Type}
 import com.ebiznext.comet.utils.Utils
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
@@ -32,11 +32,13 @@ object TreeRowValidator extends GenericRowValidator {
     */
   override def validate(
     session: SparkSession,
+    format: Format,
+    separator: String,
     dataset: DataFrame,
     attributes: List[Attribute],
     types: List[Type],
     schemaSparkType: StructType
-  )(implicit settings: Settings): (RDD[String], RDD[Row]) = {
+  )(implicit settings: Settings): ValidationResult = {
     val typesMap = types.map(tpe => tpe.name -> tpe).toMap
     val successErrorRDD = validateDataset(session, dataset, attributes, schemaSparkType, typesMap)
     val successRDD: RDD[Row] =
@@ -48,7 +50,10 @@ object TreeRowValidator extends GenericRowValidator {
       successErrorRDD
         .filter(row => !row.getAs[Boolean](Settings.cometSuccessColumn))
         .map(row => row.getAs[String](Settings.cometErrorMessageColumn))
-    (errorRDD, successRDD)
+
+    // TODO add here input lines to be rejected
+    val rejectedInputRDD: RDD[String] = session.emptyDataFrame.rdd.map(_.mkString)
+    ValidationResult(errorRDD, rejectedInputRDD, successRDD)
   }
 
   private def validateDataset(
@@ -158,7 +163,12 @@ object TreeRowValidator extends GenericRowValidator {
       if (errorList.isEmpty)
         updatedRow ++ Array(true, "")
       else
-        updatedRow ++ Array(false, errorList.mkString("\n"))
+        updatedRow ++ Array(
+          false,
+          s"""ERR  -> ${errorList.mkString("\n")}
+             |FILE -> ${row.getAs[String](Settings.cometInputFileNameColumn)}
+             |""".stripMargin
+        )
     new GenericRowWithSchema(updatedRowWithMessage, schemaSparkTypeWithSuccessErrorMessage)
   }
 }

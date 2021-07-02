@@ -3,6 +3,9 @@
 # 0.2.6
 __New feature__:
 - Support XML Schema inference
+- Support the ability to reject the whole file on error
+- Improve error reporting
+
 
 # 0.2.4 / 0.2.5
 __Bug Fix__:
