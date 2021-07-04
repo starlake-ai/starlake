@@ -115,7 +115,7 @@ object Versions {
   val esSpark212 = "7.13.2"
   val scopt = "4.0.1"
   val sttp = "1.7.2"
-  val gcs = "hadoop3-2.2.1"
+  val gcs = "hadoop3-2.2.2"
   val hadoopbq = "hadoop3-1.0.0"
   val bq = "1.120.0"
   val hadoop = "3.3.0"
