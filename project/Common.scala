@@ -127,7 +127,7 @@ object Versions {
   val akkaStream = "2.5.32"
   val kafkaClients = "2.8.0"
   val testContainers = "0.39.5"
-  val jsqlparser = "4.0"
+  val jsqlparser = "4.1"
 }
 
 object Resolvers {
