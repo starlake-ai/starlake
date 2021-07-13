@@ -255,6 +255,7 @@ object DDL2Yml extends LazyLogging {
         jdbcSchema.schema,
         incomingDir,
         domainTemplate.flatMap(_.metadata),
+        None,
         cometSchema.toList,
         None,
         domainTemplate.flatMap(_.extensions),
