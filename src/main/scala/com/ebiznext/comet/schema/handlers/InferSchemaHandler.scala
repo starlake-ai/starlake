@@ -143,7 +143,7 @@ object InferSchemaHandler {
     schemas: List[Schema] = Nil
   ): Domain = {
 
-    Domain(name, directory, metadata, schemas)
+    Domain(name, directory, metadata, None, schemas)
   }
 
   /** *
