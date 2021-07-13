@@ -59,6 +59,7 @@ case class Domain(
   name: String,
   directory: String,
   metadata: Option[Metadata] = None,
+  schemaRefs: Option[List[String]] = None,
   schemas: List[Schema] = Nil,
   comment: Option[String] = None,
   extensions: Option[List[String]] = None,
