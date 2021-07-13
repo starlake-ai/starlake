@@ -2,7 +2,7 @@ package com.ebiznext.comet.schema.generator
 
 import better.files.File
 import com.ebiznext.comet.config.Settings
-import com.ebiznext.comet.schema.model.{AutoJobDesc, Domain}
+import com.ebiznext.comet.schema.model.{AutoJobDesc, Domain, Schemas}
 import com.fasterxml.jackson.annotation.JsonInclude.Include
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
@@ -55,6 +55,16 @@ object YamlSerializer extends LazyLogging {
   def serializeToFile(targetFile: File, domain: Domain): Unit = {
     case class Load(load: Domain)
     mapper.writeValue(targetFile.toJava, Load(domain))
+  }
+
+  def deserializeSchemas(content: String, path: String): Schemas = {
+    Try {
+      mapper.readValue(content, classOf[Schemas])
+    } match {
+      case Success(value) => value
+      case Failure(exception) =>
+        throw new Exception(s"Invalid Schema file: $path(${exception.getMessage})")
+    }
   }
 
   def deserializeDomain(content: String, path: String): Try[Domain] = {

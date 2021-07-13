@@ -33,8 +33,9 @@ import scala.concurrent.duration.FiniteDuration
 import scala.util.{Failure, Success, Try}
 import scala.collection.JavaConverters._
 import java.util.zip.ZipInputStream
-
 import com.ebiznext.comet.utils.conversion.Conversions.convertToScalaIterator
+
+import java.util.regex.Pattern
 
 /** Interface required by any filesystem manager
   */
@@ -64,7 +65,8 @@ trait StorageHandler extends StrictLogging {
     path: Path,
     extension: String = "",
     since: LocalDateTime = LocalDateTime.MIN,
-    recursive: Boolean
+    recursive: Boolean,
+    exclude: Option[Pattern] = None
   ): List[Path]
 
   def blockSize(path: Path): Long
@@ -178,7 +180,13 @@ class HdfsStorageHandler(fileSystem: Option[String])(implicit
     * @param recursive: List all files recursively ?
     * @return List of Path
     */
-  def list(path: Path, extension: String, since: LocalDateTime, recursive: Boolean): List[Path] = {
+  def list(
+    path: Path,
+    extension: String,
+    since: LocalDateTime,
+    recursive: Boolean,
+    exclude: Option[Pattern]
+  ): List[Path] = {
     logger.info(s"list($path, $extension, $since)")
     Try {
       val iterator: RemoteIterator[LocatedFileStatus] = fs.listFiles(path, recursive)
@@ -189,7 +197,9 @@ class HdfsStorageHandler(fileSystem: Option[String])(implicit
             Instant.ofEpochMilli(status.getModificationTime),
             ZoneId.systemDefault
           )
-          time.isAfter(since) && status.getPath().getName().endsWith(extension)
+          val excludeFile =
+            exclude.exists(_.matcher(status.getPath().getName()).matches())
+          !excludeFile && time.isAfter(since) && status.getPath().getName().endsWith(extension)
         }
         .toList
         .sortBy(r => (r.getModificationTime, r.getPath.getName))
