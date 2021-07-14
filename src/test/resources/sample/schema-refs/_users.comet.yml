@@ -1,0 +1,33 @@
+schemas:
+  - name: "User"
+    pattern: "SCHEMA-.*.dsv"
+    attributes:
+      - name: "first name"
+        rename: "firstname"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "last name"
+        rename: "lastname"
+        type: "string"
+        required: false
+        privacy: "MD5"
+      - name: "age"
+        rename: "age"
+        type: "int"
+        metricType: "discrete"
+        required: false
+        privacy: "NONE"
+      - name: "ok"
+        type: "boolean"
+        required: false
+        privacy: "NONE"
+        default: true
+    metadata:
+      mode: "FILE"
+      format: "DSV"
+      withHeader: true
+      separator: ";"
+      quote: "\""
+      escape: "\\"
+      write: "APPEND"
