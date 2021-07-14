@@ -648,6 +648,36 @@ class SchemaHandlerSpec extends TestHelper {
       }
 
     }
+    "Schema with external refs" should "produce import external refs into domain" in {
+      new SpecTrait(
+        domainOrJobFilename = "DOMAIN.comet.yml",
+        sourceDomainOrJobPathname = s"/sample/schema-refs/WITH_REF.comet.yml",
+        datasetDomainName = "WITH_REF",
+        sourceDatasetPathName = "/sample/Players.csv"
+      ) {
+        cleanMetadata
+        cleanDatasets
+
+        withSettings.deliverTestFile(
+          "/sample/schema-refs/_players.comet.yml",
+          new Path(domainMetadataRootPath, "_players.comet.yml")
+        )
+
+        withSettings.deliverTestFile(
+          "/sample/schema-refs/_users.comet.yml",
+          new Path(domainMetadataRootPath, "_users.comet.yml")
+        )
+        val schemaHandler = new SchemaHandler(settings.storageHandler)
+        schemaHandler
+          .getDomain("WITH_REF")
+          .map(_.schemas.map(_.name))
+          .get should contain theSameElementsAs List(
+          "User",
+          "Players",
+          "employee"
+        )
+      }
+    }
 
   }
 }
