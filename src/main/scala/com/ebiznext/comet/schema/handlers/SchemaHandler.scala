@@ -182,7 +182,9 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
                   throw new Exception(
                     s"reference to a schema should start with '_' in domain ${domain.name} in $path for schema ref $ref"
                   )
-                val schemaPath = new Path(folder, ref)
+                val refFullName =
+                  if (ref.endsWith(".yml") || ref.endsWith(".yaml")) ref else ref + ".comet.yml"
+                val schemaPath = new Path(folder, refFullName)
                 YamlSerializer.deserializeSchemas(
                   storage.read(schemaPath).richFormat(activeEnv),
                   schemaPath.toString
