@@ -21,9 +21,10 @@ class Yml2XlsSpec extends TestHelper {
         assert(domain.isDefined)
         domain.foreach { domain =>
           assert(domain.name == "position")
-          assert(domain.schemas.size == 1)
-          assert(domain.schemas.head.name == "account")
-          domain.schemas.head.attributes.size == 10
+          assert(domain.schemas.size == 2)
+          val accountSchema = domain.schemas.filter(_.name == "account")
+          assert(accountSchema.size == 1)
+          accountSchema.head.attributes.size == 10
         }
       }
     }
