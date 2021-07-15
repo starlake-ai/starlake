@@ -147,7 +147,20 @@ class SchemaHandlerSpec extends TestHelper {
         }
       }
     }
-
+    "Ingest empty file with DSV schema" should "be ok " in {
+      new WithSettings() {
+        new SpecTrait(
+          domainFilename = "DOMAIN.comet.yml",
+          sourceDomainPathname = s"/sample/DOMAIN.comet.yml",
+          datasetDomainName = "DOMAIN",
+          sourceDatasetPathName = "/sample/employee-empty.csv"
+        ) {
+          cleanMetadata
+          cleanDatasets
+          loadPending shouldBe true
+        }
+      }
+    }
     "Ingest schema with partition" should "produce partitioned output in accepted" in {
       new SpecTrait(
         domainOrJobFilename = "DOMAIN.comet.yml",
