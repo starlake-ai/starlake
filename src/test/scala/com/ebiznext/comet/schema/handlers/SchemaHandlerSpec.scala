@@ -150,8 +150,8 @@ class SchemaHandlerSpec extends TestHelper {
     "Ingest empty file with DSV schema" should "be ok " in {
       new WithSettings() {
         new SpecTrait(
-          domainFilename = "DOMAIN.comet.yml",
-          sourceDomainPathname = s"/sample/DOMAIN.comet.yml",
+          domainOrJobFilename = "DOMAIN.comet.yml",
+          sourceDomainOrJobPathname = s"/sample/DOMAIN.comet.yml",
           datasetDomainName = "DOMAIN",
           sourceDatasetPathName = "/sample/employee-empty.csv"
         ) {

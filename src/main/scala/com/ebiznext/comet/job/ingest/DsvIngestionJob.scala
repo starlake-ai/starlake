@@ -27,7 +27,7 @@ import com.ebiznext.comet.schema.model._
 import org.apache.hadoop.fs.Path
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql._
-import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.types.{StructField, StructType}
 
 import scala.util.Try
 
@@ -106,12 +106,18 @@ class DsvIngestionJob(
         .csv(path.map(_.toString): _*)
 
       logger.debug(dfIn.schema.treeString)
-      if (dfIn.limit(1).count() == 0)
-        dfIn.withColumn(
-          Settings.cometInputFileNameColumn,
-          org.apache.spark.sql.functions.input_file_name()
-        )
-      else {
+      if (dfIn.limit(1).count() == 0) {
+        //empty dataframe with accepted schema
+        val sparkSchema = schema.attributesWithoutScriptedFields().map { attr =>
+          StructField(attr.name, attr.sparkType(schemaHandler), !attr.required)
+        }
+        session
+          .createDataFrame(session.sparkContext.emptyRDD[Row], StructType(sparkSchema))
+          .withColumn(
+            Settings.cometInputFileNameColumn,
+            org.apache.spark.sql.functions.input_file_name()
+          )
+      } else {
         val df = applyIgnore(dfIn)
 
         val resDF = metadata.withHeader match {

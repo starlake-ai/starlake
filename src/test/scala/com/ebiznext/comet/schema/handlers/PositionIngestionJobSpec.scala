@@ -73,8 +73,8 @@ class PositionIngestionJobSpec extends TestHelper {
   "Ingestion of empty Position file" should "run without errors" in {
     new WithSettings() {
       new SpecTrait(
-        domainFilename = "position.comet.yml",
-        sourceDomainPathname = "/sample/position/position.comet.yml",
+        domainOrJobFilename = "position.comet.yml",
+        sourceDomainOrJobPathname = "/sample/position/position.comet.yml",
         datasetDomainName = "position",
         sourceDatasetPathName = "/sample/position/empty_position"
       ) {
