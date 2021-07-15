@@ -113,6 +113,11 @@ schemas:
         type: "int"
         privacy: "None"
         required: false
+      - name: "fileName"
+        type: "string"
+        script: "comet_input_file_name"
+        privacy: None
+        required: false
     postsql:
       - "Select name from COMET_TABLE"
     metadata:
@@ -122,3 +127,5 @@ schemas:
       separator: ","
       partition:
         attributes: []
+      sink:
+        type: None
