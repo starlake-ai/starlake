@@ -1102,11 +1102,13 @@ object IngestionUtil {
       }
     }
 
-    val colValue = trimmedColValue.map { trimmedColValue =>
-      if (trimmedColValue.isEmpty) colAttribute.default.getOrElse("")
-      else
-        trimmedColValue
-    }
+    val colValue = trimmedColValue
+      .map { trimmedColValue =>
+        if (trimmedColValue.isEmpty) colAttribute.default.getOrElse("")
+        else
+          trimmedColValue
+      }
+      .orElse(colAttribute.default)
 
     def colValueIsNullOrEmpty = colValue match {
       case None           => true
