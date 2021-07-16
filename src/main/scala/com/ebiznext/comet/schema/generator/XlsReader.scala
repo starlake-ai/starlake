@@ -352,7 +352,8 @@ class XlsReader(input: Input) extends XlsModel {
     private val f = new DataFormatter()
 
     def formatCellValue(cell: Cell): Option[String] = {
-      f.formatCellValue(cell).trim match {
+      // remove all no-breaking spaces from cell to avoid parsing errors
+      f.formatCellValue(cell).trim.replaceAll("\\u00A0", "") match {
         case v if v.isEmpty => None
         case v              => Some(v)
       }
