@@ -33,6 +33,8 @@ import org.apache.hadoop.fs.Path
 import scala.util.{Failure, Success, Try}
 import com.ebiznext.comet.utils.Formatter._
 
+import java.util.regex.Pattern
+
 /** Handles access to datasets metadata,  eq. domains / types / schemas.
   *
   * @param storage : Underlying filesystem manager
@@ -161,9 +163,38 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
   @throws[Exception]
   lazy val domains: List[Domain] = {
     val (validDomainsFile, invalidDomainsFiles) = storage
-      .list(DatasetArea.domains, ".yml", recursive = true)
+      .list(
+        DatasetArea.domains,
+        extension = ".yml",
+        recursive = true,
+        exclude = Some(Pattern.compile("_.*"))
+      )
       .map { path =>
-        YamlSerializer.deserializeDomain(storage.read(path).richFormat(activeEnv), path.toString)
+        val domain =
+          YamlSerializer.deserializeDomain(storage.read(path).richFormat(activeEnv), path.toString)
+        domain match {
+          case Success(domain) =>
+            val folder = path.getParent()
+            val schemaRefs = domain.schemaRefs
+              .getOrElse(Nil)
+              .map { ref =>
+                if (!ref.startsWith("_"))
+                  throw new Exception(
+                    s"reference to a schema should start with '_' in domain ${domain.name} in $path for schema ref $ref"
+                  )
+                val refFullName =
+                  if (ref.endsWith(".yml") || ref.endsWith(".yaml")) ref else ref + ".comet.yml"
+                val schemaPath = new Path(folder, refFullName)
+                YamlSerializer.deserializeSchemas(
+                  storage.read(schemaPath).richFormat(activeEnv),
+                  schemaPath.toString
+                )
+              }
+              .flatMap(_.schemas)
+            Success(domain.copy(schemas = domain.schemas ::: schemaRefs))
+          case Failure(e) =>
+            Failure(e)
+        }
       }
       .partition(_.isSuccess)
 
