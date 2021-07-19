@@ -55,6 +55,7 @@ class StorageHandlerSpec extends TestHelper {
             None
           )
         ),
+        None,
         List(
           Schema(
             "User",
