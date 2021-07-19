@@ -362,3 +362,5 @@ object Schema {
   }
 
 }
+
+case class Schemas(schemas: List[Schema])
