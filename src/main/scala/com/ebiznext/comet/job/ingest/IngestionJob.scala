@@ -579,7 +579,7 @@ trait IngestionJob extends SparkJob {
 
       val nbPartitions = metadata.getSamplingStrategy() match {
         case 0.0 => // default partitioning
-          if (csvOutput())
+          if (csvOutput() || dataset.rdd.getNumPartitions == 0) // avoid error for an empty dataset
             1
           else
             dataset.rdd.getNumPartitions
@@ -1102,11 +1102,13 @@ object IngestionUtil {
       }
     }
 
-    val colValue = trimmedColValue.map { trimmedColValue =>
-      if (trimmedColValue.isEmpty) colAttribute.default.getOrElse("")
-      else
-        trimmedColValue
-    }
+    val colValue = trimmedColValue
+      .map { trimmedColValue =>
+        if (trimmedColValue.isEmpty) colAttribute.default.getOrElse("")
+        else
+          trimmedColValue
+      }
+      .orElse(colAttribute.default)
 
     def colValueIsNullOrEmpty = colValue match {
       case None           => true
