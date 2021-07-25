@@ -128,7 +128,7 @@ case class AutoTaskJob(
       (queryName, viewValue)
     }
 
-    val subSelects: String = withViews.map { case (queryName, queryExpr) =>
+    val subSelects = withViews.map { case (queryName, queryExpr) =>
       val selectExpr =
         if (queryExpr.toLowerCase.startsWith("select "))
           queryExpr
@@ -137,9 +137,9 @@ case class AutoTaskJob(
           s"SELECT $allColumns FROM $queryExpr"
         }
       queryName + " AS (" + selectExpr + ")"
-    } mkString ("WITH ", ",", " ")
-
-    val sql = subSelects + task.getSql().richFormat(sqlParameters)
+    }
+    val subSelectsString = if (subSelects.nonEmpty) subSelects.mkString("WITH ", ",", " ") else ""
+    val sql = subSelectsString + task.getSql().richFormat(sqlParameters)
     val preSql = task.presql.getOrElse(Nil).map { sql => sql.richFormat(sqlParameters) }
     val postSql = task.postsql.getOrElse(Nil).map { sql => sql.richFormat(sqlParameters) }
     (preSql, sql, postSql)

@@ -17,6 +17,27 @@ metadata:
       - comet_month
       - comet_day
 schemas:
+  - name: "TEST_EMTPY"
+    pattern: "empty_position"
+    attributes:
+      - name: "code0"
+        type: "byte"
+        required: true
+        privacy: "NONE"
+        position:
+          first: 0
+          last: 0
+      - name: "code1"
+        type: "byte"
+        required: true
+        privacy: "NONE"
+        position:
+          first: 1
+          last: 1
+    metadata:
+      partition:
+        sampling: 0
+        attributes: []
   - name: "account"
     pattern: ".*TBL"
     attributes:
