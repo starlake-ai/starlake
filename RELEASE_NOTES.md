@@ -6,6 +6,11 @@ __New feature__:
 - Support the ability to reject the whole file on error
 - Improve error reporting
 
+__Bug Fix__:
+- Loading empty files when the schema contains script fields
+- Applying default value for an attribute when value in the input data is null
+- Transformation job with BQ engine fails when no views block is defined
+- XLS2YML : remove non-breaking spaces from Excel file cells to avoid parsing errors
 
 # 0.2.4 / 0.2.5
 __Bug Fix__:
