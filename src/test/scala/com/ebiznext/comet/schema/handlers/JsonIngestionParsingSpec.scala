@@ -132,6 +132,39 @@ class JsonIngestionParsingSpec extends TestHelper {
       )
     )
 
+    val json3 =
+      """[
+        |  {
+        |    "st": "id1",
+        |    "meI": "value",
+        |    "meN": "value",
+        |    "ma": true
+        |  },
+        |  {
+        |    "st": "id2",
+        |    "a": "id3",
+        |    "se": "value",
+        |    "meI": "value",
+        |    "meN": "value"
+        |  }
+        |]""".stripMargin
+
+    JsonIngestionUtil.parseString(json3) shouldBe Success(
+      ArrayType(
+        StructType(
+          Seq(
+            StructField("a", StringType, nullable = true),
+            StructField("ma", BooleanType, nullable = true),
+            StructField("meI", StringType, nullable = true),
+            StructField("meN", StringType, nullable = true),
+            StructField("se", StringType, nullable = true),
+            StructField("st", StringType, nullable = true)
+          )
+        ),
+        containsNull = true
+      )
+    )
+
   }
 
   "Parse invalid json" should "fail" in {
