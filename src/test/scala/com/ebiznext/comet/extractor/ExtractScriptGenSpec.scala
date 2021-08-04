@@ -3,6 +3,7 @@ package com.ebiznext.comet.extractor
 import better.files.File
 import com.ebiznext.comet.TestHelper
 import com.ebiznext.comet.schema.handlers.{SchemaHandler, SimpleLauncher}
+import com.ebiznext.comet.schema.model.PrivacyLevel
 
 class ExtractScriptGenSpec extends TestHelper {
 
@@ -13,7 +14,10 @@ class ExtractScriptGenSpec extends TestHelper {
       val templateParams: TemplateParams = TemplateParams(
         domainToExport = "domain1",
         tableToExport = "table1",
-        columnsToExport = List("col1" -> "string", "col2" -> "long"),
+        columnsToExport = List(
+          ("col1", "string", false, PrivacyLevel.None),
+          ("col2", "long", false, PrivacyLevel.None)
+        ),
         fullExport = false,
         dsvDelimiter = ",",
         deltaColumn = Some("updateCol"),
@@ -34,6 +38,40 @@ class ExtractScriptGenSpec extends TestHelper {
 
       templatePayload shouldBe File(
         getClass.getResource("/sample/database/expected_script_payload.txt").getPath
+      ).lines.mkString("\n")
+    }
+
+    "templatize domain using ssp" should "generate an export script from a TemplateSettings" in {
+      val templateParams: TemplateParams = TemplateParams(
+        domainToExport = "domain1",
+        tableToExport = "table1",
+        columnsToExport = List(
+          ("col1", "string", false, PrivacyLevel.None),
+          ("col2", "long", false, PrivacyLevel.None),
+          ("col3", "string", true, PrivacyLevel.None),
+          ("col4", "string", false, PrivacyLevel.None)
+        ),
+        fullExport = false,
+        dsvDelimiter = ",",
+        deltaColumn = Some("updateCol"),
+        exportOutputFileBase = "output_file",
+        scriptOutputFile = scriptOutputFolder / "EXTRACT_TABLE.sql"
+      )
+
+      val templatePayload: String = new ScriptGen(
+        storageHandler,
+        new SchemaHandler(settings.storageHandler),
+        new SimpleLauncher()
+      ).templatize(
+        File(
+          getClass.getResource("/sample/database/EXTRACT_TABLE.sql.ssp").getPath
+        ),
+        templateParams
+      )
+
+      print(getClass.getResource("/sample/database/expected_script_payload2.txt").getPath)
+      templatePayload shouldBe File(
+        getClass.getResource("/sample/database/expected_script_payload2.txt").getPath
       ).lines.mkString("\n")
     }
 
