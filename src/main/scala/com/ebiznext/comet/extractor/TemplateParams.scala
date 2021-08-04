@@ -3,7 +3,7 @@ package com.ebiznext.comet.extractor
 import java.time.format.DateTimeFormatter
 import better.files.File
 import com.ebiznext.comet.config.Settings
-import com.ebiznext.comet.schema.model.{Domain, Schema, WriteMode}
+import com.ebiznext.comet.schema.model.{Domain, PrivacyLevel, Schema, WriteMode}
 import com.ebiznext.comet.utils.Formatter._
 
 /** Params for the script's mustache template
@@ -18,7 +18,7 @@ import com.ebiznext.comet.utils.Formatter._
 case class TemplateParams(
   domainToExport: String,
   tableToExport: String,
-  columnsToExport: List[(String, String)],
+  columnsToExport: List[(String, String, Boolean, PrivacyLevel)],
   fullExport: Boolean,
   deltaColumn: Option[String],
   dsvDelimiter: String,
@@ -30,18 +30,34 @@ case class TemplateParams(
 
     // This is how we deal with the last element not needing a trailing a comma in a Mustache template
     val columnsParam: List[Map[String, Any]] = columnsToExport match {
-      case (name, tpe) :: Nil =>
-        List(Map("name" -> name.toUpperCase(), "type" -> tpe, "trailing_col_char" -> ""))
+      case (name, tpe, ignore, privacyLevel) :: Nil =>
+        List(
+          Map(
+            "name"              -> name.toUpperCase(),
+            "type"              -> tpe,
+            "trailing_col_char" -> "",
+            "ignore"            -> ignore,
+            "privacyLevel"      -> privacyLevel.toString
+          )
+        )
       case Nil => Nil
       case atLeastTwoElemList =>
         val allButLast = atLeastTwoElemList.dropRight(1)
-        val (lastName, lastType) = atLeastTwoElemList.last
+        val (lastName, lastType, lastIgnore, lastPrivacyLevel) = atLeastTwoElemList.last
         allButLast
-          .map { case (name, tpe) =>
-            Map("name" -> name.toUpperCase(), "type" -> tpe, "trailing_col_char" -> ",")
+          .map { case (name, tpe, ignore, privacyLevel) =>
+            Map(
+              "name"              -> name.toUpperCase(),
+              "type"              -> tpe,
+              "ignore"            -> ignore,
+              "privacyLevel"      -> privacyLevel.toString,
+              "trailing_col_char" -> ","
+            )
           } :+ Map(
           "name"              -> lastName.toUpperCase(),
           "type"              -> lastType,
+          "ignore"            -> lastIgnore,
+          "privacyLevel"      -> lastPrivacyLevel,
           "trailing_col_char" -> ""
         )
     }
@@ -122,8 +138,9 @@ object TemplateParams {
     new TemplateParams(
       domainToExport = domainName,
       tableToExport = schema.name,
-      columnsToExport =
-        schema.attributes.filter(_.script.isEmpty).map(col => col.name -> col.`type`),
+      columnsToExport = schema.attributes
+        .filter(_.script.isEmpty)
+        .map(col => (col.name, col.`type`, col.isIgnore(), col.privacy)),
       fullExport = isFullExport,
       deltaColumn = if (!isFullExport) deltaColumn else None,
       dsvDelimiter = schema.metadata.flatMap(_.separator).getOrElse(","),

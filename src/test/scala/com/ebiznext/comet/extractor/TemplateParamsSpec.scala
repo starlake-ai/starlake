@@ -27,7 +27,10 @@ class TemplateParamsSpec extends TestHelper {
       val expectedTemplateParams = TemplateParams(
         domainToExport = "AnyDomain",
         tableToExport = "table1",
-        columnsToExport = List("col1" -> "string", "col2" -> "long"),
+        columnsToExport = List(
+          ("col1", "string", false, PrivacyLevel.None),
+          ("col2", "long", false, PrivacyLevel.None)
+        ),
         fullExport = false,
         dsvDelimiter = ",",
         deltaColumn = Some("updateCol"),
@@ -58,7 +61,10 @@ class TemplateParamsSpec extends TestHelper {
       val expectedTemplateParams = TemplateParams(
         domainToExport = "AnyDomain",
         tableToExport = "table1",
-        columnsToExport = List("col1" -> "string", "col2" -> "long"),
+        columnsToExport = List(
+          ("col1", "string", false, PrivacyLevel.None),
+          ("col2", "long", false, PrivacyLevel.None)
+        ),
         fullExport = true,
         dsvDelimiter = "|",
         deltaColumn = None,
