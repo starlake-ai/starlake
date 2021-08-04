@@ -1,0 +1,137 @@
+<%@ var domain_table: String %>
+<%@ var table_name: String %>
+<%@ var export_file: String %>
+<%@ var columns: List[Map[String, Any]] %>
+<%@ var customDelimiter: String = ";" %>
+<%@ var full_export: Boolean %>
+<%@ var delta_column: String = ""  %>
+<%
+    var suffix:String = if (full_export) {"FULL"} else {"DELTA"}
+    var outputCsvName:String = s"${domain_table}_${table_name}_${suffix}".toLowerCase()
+
+%>
+-- How the data should be exported
+set TERMOUT OFF
+SET ECHO OFF
+SET VERIFY OFF
+SET TRIMSPOOL ON
+SET TRIMOUT ON
+SET LINESIZE 9999
+SET PAGESIZE 0
+-- We decide to export without any header.
+-- Do not forget to value the withHeader property to false in the YAML file
+SET HEADING OFF
+SET FEEDBACK OFF
+SET TIMING OFF
+SET TIME OFF
+SET LONG 10000
+-- The separator here should be the one used in the YAML file
+SET COLSEP '"${customDelimiter}"'
+SET HEADSEP off
+SET ESCAPE ON
+
+-- Stop in case of failure
+WHENEVER SQLERROR exit 1;
+
+-- Data time pattern we want to use
+ALTER SESSION SET NLS_DATE_FORMAT = 'yyyymmddhh24miss';
+
+-- The output file directory
+DEFINE OUTPUT_DIR = &1;
+
+-- Get current date/time.
+COLUMN DT_VAL NEW_VALUE CURRENT_EXPORT_DATE_CHAR;
+SELECT TO_CHAR(SYSDATE) DT_VAL FROM DUAL;
+
+-- We store in a dedicated table, the last export date/time.
+-- Useful for incremental exports
+COLUMN LED NEW_VALUE LAST_EXPORT_DATE;
+SELECT
+    COALESCE(
+        (
+            SELECT
+                MAX(DA_LAST_EXPORT_DATE)
+            FROM
+                COMET_EXPORT_STATUS
+            WHERE
+                LI_SCHEMA_NAME = '${domain_table}' AND
+                LI_TABLE_NAME = '${table_name}'
+        ),
+        TO_DATE('19700101','yyyymmdd') -- If table has never been exported
+    ) LED
+FROM
+    DUAL;
+
+-- Start export
+
+PROMPT EXPORTING ${table_name} TO &OUTPUT_DIR/${outputCsvName}_&CURRENT_EXPORT_DATE_CHAR\.csv;
+SPOOL &OUTPUT_DIR/${outputCsvName}_&CURRENT_EXPORT_DATE_CHAR\.csv REPLACE
+
+ALTER SESSION SET NLS_DATE_FORMAT = 'yyyy-mm-dd hh24:mi:ss';
+
+-- SQL to execute if an incremental export is requested
+#if (!full_export)
+    SELECT
+'"' || #for (column <- columns)
+#if (column.get("ignore").get == false)
+            REPLACE(TO_CHAR(${column.get("name")}), '"','""') #if (column != columns.last ) || '"${customDelimiter}"' ||#end
+#end
+#end || '"'
+    FROM
+        ${table_name}
+    WHERE
+        ${delta_column} >= '&LAST_EXPORT_DATE' AND ${delta_column} IS NOT NULL;
+#end
+
+-- SQL to execute if a full export is requested
+#if (full_export)
+SELECT
+'"' ||#for(column <- columns)
+    #if (column.get("ignore").get == false)
+        REPLACE(TO_CHAR(${column.get("name")}), '"','""') #if (column != columns.last ) || '"${customDelimiter}"' ||#end
+    #end
+#end || '"'
+FROM
+    ${table_name};
+#end
+
+-- Export finished successfully
+SPOOL OFF
+
+-- Update report table containing the last expoort date
+-- This is useful for audit purpose and for incremental export since we store the last export date here.
+BEGIN
+    INSERT INTO
+        COMET_EXPORT_STATUS (LI_SCHEMA_NAME, LI_TABLE_NAME, DA_LAST_EXPORT_DATE, TYPE_LAST_EXPORT, NB_ROWS_LAST_EXPORT)
+    VALUES
+        (
+            '${domain_table}',
+            '${table_name}',
+            TO_DATE(&CURRENT_EXPORT_DATE_CHAR),
+#if (full_export)            'FULL',
+            (
+                SELECT
+                    COUNT(*)
+                FROM
+                    ${table_name}
+            )
+            #end
+            #if (!full_export)
+            'DELTA',
+            (
+                SELECT
+                    COUNT(*)
+                FROM
+                    ${table_name}
+                WHERE
+                    ${delta_column} >= '&LAST_EXPORT_DATE' AND ${delta_column} IS NOT NULL
+            )
+            #end
+        );
+END;
+/
+
+EXIT SUCCESS
+
+
+-- sqlplus ${domain_table}@${domain_table}/password EXTRACT_${table_name}.sql /opt/oracle/user-scripts/scripts/
