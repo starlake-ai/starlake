@@ -42,7 +42,7 @@ class KafkaJob(
             .save(kafkaJobConfig.path)
 
           kafkaJobConfig.coalesce match {
-            case Some(1) =>
+            case Some(1) if kafkaJobConfig.coalesceMerge =>
               val extension = kafkaJobConfig.format
               val targetPath = new Path(kafkaJobConfig.path)
               val singleFile = settings.storageHandler
