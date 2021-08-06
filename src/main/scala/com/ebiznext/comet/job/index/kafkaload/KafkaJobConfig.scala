@@ -19,7 +19,8 @@ case class KafkaJobConfig(
   streamingTriggerOption: String = "",
   streamingWritePartitionBy: Seq[String] = Nil,
   streamingWriteToTable: Boolean = false,
-  coalesce: Option[Int] = None
+  coalesce: Option[Int] = None,
+  coalesceMerge: Boolean = true
 ) {
 
   val transformInstance: Option[DataFrameTransform] = {
@@ -88,6 +89,12 @@ object KafkaJobConfig extends CliConfig[KafkaJobConfig] {
         .optional(),
       opt[Int]("coalesce")
         .action((x, c) => c.copy(coalesce = Some(x)))
+        .text(
+          "Should we coalesce the resulting dataframe"
+        )
+        .optional(),
+      opt[Boolean]("coalesce-merge")
+        .action((x, c) => c.copy(coalesceMerge = x))
         .text(
           "Should we coalesce the resulting dataframe"
         )
