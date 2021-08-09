@@ -47,7 +47,7 @@ object Utils {
     try {
       f(resource)
     } catch {
-      case NonFatal(e) =>
+      case e: Throwable =>
         exception = e
         throw e
     } finally {

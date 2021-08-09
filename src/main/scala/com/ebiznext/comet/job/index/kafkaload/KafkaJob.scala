@@ -35,11 +35,15 @@ class KafkaJob(
               case None    => transformedDF
               case Some(x) => transformedDF.coalesce(x)
             }
+
+          logger.info("Kafka number of messages to offload -> " + df.count())
+          logger.info(s"Saving to $kafkaJobConfig")
           finalDF.write
             .mode(kafkaJobConfig.mode)
             .format(kafkaJobConfig.format)
             .options(kafkaJobConfig.writeOptions)
             .save(kafkaJobConfig.path)
+          logger.info(s"Kafka saved messages to offload -> ${kafkaJobConfig.path}")
 
           kafkaJobConfig.coalesce match {
             case Some(1) if kafkaJobConfig.coalesceMerge =>
