@@ -239,6 +239,7 @@ object Main extends StrictLogging {
         printUsage()
         false
     }
-    System.exit(if (result) 0 else 1)
+    if (!result)
+      throw new Exception(s"""Comet failed to execute command with args ${args.mkString(",")}""")
   }
 }
