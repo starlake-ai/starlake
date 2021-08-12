@@ -73,7 +73,7 @@ object Dependencies {
     "org.apache.spark" %% "spark-hive" % Versions.spark2d4 % "provided" excludeAll (jacksonExclusions: _*) exclude ("com.google.guava", "guava"),
     "org.apache.spark" %% "spark-mllib" % Versions.spark2d4 % "provided" excludeAll (jacksonExclusions: _*) exclude ("com.google.guava", "guava"),
     "com.databricks" %% "spark-xml" % Versions.sparkXML,
-    "org.apache.spark" %% "spark-sql-kafka-0-10" % Versions.spark2d4
+    "org.apache.spark" %% "spark-sql-kafka-0-10" % Versions.spark2d4 % "provided"
   )
 
   val spark_3d0_forScala_2d12 = Seq(
@@ -82,7 +82,7 @@ object Dependencies {
     "org.apache.spark" %% "spark-hive" % Versions.spark3d0 % "provided" exclude ("com.google.guava", "guava") excludeAll (jacksonExclusions: _*),
     "org.apache.spark" %% "spark-mllib" % Versions.spark3d0 % "provided" exclude ("com.google.guava", "guava") excludeAll (jacksonExclusions: _*),
     "com.databricks" %% "spark-xml" % Versions.sparkXML,
-    "org.apache.spark" %% "spark-sql-kafka-0-10" % Versions.spark3d0
+    "org.apache.spark" %% "spark-sql-kafka-0-10" % Versions.spark3d0 % "provided"
   )
 
   val gcsConnectorShadedJar =
