@@ -11,6 +11,7 @@ __Bug Fix__:
 - Applying default value for an attribute when value in the input data is null
 - Transformation job with BQ engine fails when no views block is defined
 - XLS2YML : remove non-breaking spaces from Excel file cells to avoid parsing errors
+- Fix merge using timestamp option
 
 # 0.2.4 / 0.2.5
 __Bug Fix__:
