@@ -1,0 +1,73 @@
+---
+name: "DOMAIN"
+directory: "__COMET_TEST_ROOT__/DOMAIN"
+metadata:
+  mode: "FILE"
+  format: "DSV"
+  withHeader: false
+  separator: ";"
+  quote: "\""
+  escape: "\\"
+  write: "APPEND"
+  partition:
+    attributes:
+      - comet_year
+      - comet_month
+      - comet_day
+  sink:
+    type: ES
+schemas:
+  - name: "Players"
+    pattern: "Players.*.csv"
+    attributes:
+      - name: "PK"
+        type: "string"
+        array: false
+        required: true
+        privacy: "NONE"
+        metricType: "NONE"
+      - name: "firstName"
+        type: "string"
+        array: false
+        required: true
+        privacy: "NONE"
+        metricType: "NONE"
+      - name: "lastName"
+        type: "string"
+        array: false
+        required: true
+        privacy: "NONE"
+        metricType: "NONE"
+      - name: "DOB"
+        type: "date"
+        array: false
+        required: true
+        privacy: "NONE"
+      - name: "YEAR"
+        type: "string"
+        array: false
+        required: false
+        privacy: "NONE"
+      - name: "MONTH"
+        type: "string"
+        array: false
+        required: false
+        privacy: "NONE"
+    metadata:
+      mode: "FILE"
+      format: "DSV"
+      encoding: "UTF-8"
+      multiline: false
+      withHeader: false
+      separator: ","
+      quote: "\""
+      escape: "\\"
+      write: "OVERWRITE"
+      partition:
+        attributes:
+          - "YEAR"
+          - "MONTH"
+    merge:
+      key:
+        - "PK"
+      timestamp: DOB
