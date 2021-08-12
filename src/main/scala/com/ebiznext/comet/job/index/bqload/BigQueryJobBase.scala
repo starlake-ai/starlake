@@ -1,7 +1,8 @@
 package com.ebiznext.comet.job.index.bqload
 
-import java.util
+import com.ebiznext.comet.job.index.bqload.BigQueryJobBase.extractProjectDataset
 
+import java.util
 import com.ebiznext.comet.schema.model.{RowLevelSecurity, UserType}
 import com.google.cloud.bigquery._
 import com.google.cloud.{Identity, Policy, Role}
@@ -74,7 +75,7 @@ trait BigQueryJobBase extends StrictLogging {
     val dataset = scala.Option(bigquery.getDataset(datasetId))
     dataset.getOrElse {
       val datasetInfo = DatasetInfo
-        .newBuilder(cliConfig.outputDataset)
+        .newBuilder(extractProjectDataset(cliConfig.outputDataset))
         .setLocation(cliConfig.getLocation())
         .build
       bigquery.create(datasetInfo)
@@ -175,5 +176,18 @@ object BigQueryJobBase {
     project
       .map(project => TableId.of(project, dataset, table))
       .getOrElse(TableId.of(dataset, table))
+  }
+
+  def extractProjectDataset(value: String): DatasetId = {
+    val sepIndex = value.indexOf(":")
+    val (project, dataset) =
+      if (sepIndex > 0)
+        (Some(value.substring(0, sepIndex)), value.substring(sepIndex + 1))
+      else // parquet is the default
+        (None, value)
+
+    project
+      .map(project => DatasetId.of(project, dataset))
+      .getOrElse(DatasetId.of(dataset))
   }
 }
