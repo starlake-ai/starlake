@@ -7,7 +7,6 @@ import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.streaming.Trigger
 
-import java.time.LocalDateTime
 import scala.util.Try
 
 class KafkaJob(
@@ -36,7 +35,6 @@ class KafkaJob(
               case Some(x) => transformedDF.coalesce(x)
             }
 
-          logger.info("Kafka number of messages to offload -> " + df.count())
           logger.info(s"Saving to $kafkaJobConfig")
           finalDF.write
             .mode(kafkaJobConfig.mode)
@@ -52,10 +50,9 @@ class KafkaJob(
               val singleFile = settings.storageHandler
                 .list(
                   targetPath,
-                  s".$extension",
-                  LocalDateTime.MIN,
                   recursive = false
                 )
+                .filter(_.getName.startsWith("part-"))
                 .head
               val tmpPath = new Path(targetPath.toString + ".tmp")
               if (settings.storageHandler.move(singleFile, tmpPath)) {

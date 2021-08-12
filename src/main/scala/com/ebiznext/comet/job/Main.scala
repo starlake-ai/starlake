@@ -28,7 +28,7 @@ import com.ebiznext.comet.job.convert.{Parquet2CSV, Parquet2CSVConfig}
 import com.ebiznext.comet.job.index.bqload.BigQueryLoadConfig
 import com.ebiznext.comet.job.index.connectionload.ConnectionLoadConfig
 import com.ebiznext.comet.job.index.esload.ESLoadConfig
-import com.ebiznext.comet.job.index.kafkaload.{KafkaJob, KafkaJobConfig}
+import com.ebiznext.comet.job.index.kafkaload.KafkaJobConfig
 import com.ebiznext.comet.job.infer.InferSchemaConfig
 import com.ebiznext.comet.job.ingest.LoadConfig
 import com.ebiznext.comet.job.metrics.MetricsConfig
@@ -172,8 +172,7 @@ object Main extends StrictLogging {
       case "kafkaload" =>
         KafkaJobConfig.parse(args.drop(1)) match {
           case Some(config) =>
-            new KafkaJob(config).run().isSuccess
-
+            workflow.kafkaload(config).isSuccess
           case _ =>
             println(KafkaJobConfig.usage())
             false
