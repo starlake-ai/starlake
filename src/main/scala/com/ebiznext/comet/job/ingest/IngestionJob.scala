@@ -820,22 +820,20 @@ trait IngestionJob extends SparkJob {
           Window.partitionBy(merge.key.head, merge.key.tail: _*).orderBy(col(timestamp).desc)
 
         val allRowsDF = existing.union(updatesDF)
-        val keysWithDuplicatesDF = allRowsDF
-          .groupBy(merge.key.map(col): _*)
-          .count()
-          .where(col("count") >= 1)
-          .drop("count")
 
-        val rowsWithDuplicatesDF = allRowsDF
-          .join(keysWithDuplicatesDF, merge.key)
-          .select(allRowsDF.columns.map(col): _*)
+        // Deduplicate
+        val mergedDF = allRowsDF
+          .withColumn("rownum", row_number.over(orderingWindow))
+          .where(col("rownum") === 1)
+          .drop("rownum")
 
-        val duplicatedRowsDF = rowsWithDuplicatesDF
+        // Compute rows that will be deleted (for logging purposes)
+        val toDeleteDF = allRowsDF
           .withColumn("rownum", row_number.over(orderingWindow))
           .where(col("rownum") =!= 1)
           .drop("rownum")
 
-        (duplicatedRowsDF, allRowsDF.except(duplicatedRowsDF))
+        (toDeleteDF, mergedDF)
       }
       .getOrElse {
         // We directly remove from the existing dataset the row that are present in the incoming dataset
