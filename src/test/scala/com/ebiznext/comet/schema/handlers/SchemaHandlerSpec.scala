@@ -30,9 +30,9 @@ import com.ebiznext.comet.schema.model._
 import com.softwaremill.sttp.{HttpURLConnectionBackend, _}
 import com.typesafe.config.{Config, ConfigFactory}
 import org.apache.hadoop.fs.Path
-import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.{Metadata => _, _}
+import org.apache.spark.sql.{DataFrame, Row}
 
 import java.net.URL
 import scala.util.Try
@@ -194,8 +194,8 @@ class SchemaHandlerSpec extends TestHelper {
 
     "Ingest schema with merge" should "produce merged results accepted" in {
       new SpecTrait(
-        domainOrJobFilename = "DOMAIN.comet.yml",
-        sourceDomainOrJobPathname = s"/sample/DOMAIN.comet.yml",
+        domainOrJobFilename = "simple-merge.comet.yml",
+        sourceDomainOrJobPathname = s"/sample/merge/simple-merge.comet.yml",
         datasetDomainName = "DOMAIN",
         sourceDatasetPathName = "/sample/Players.csv"
       ) {
@@ -205,39 +205,61 @@ class SchemaHandlerSpec extends TestHelper {
       }
 
       new SpecTrait(
-        domainOrJobFilename = "DOMAIN.comet.yml",
-        sourceDomainOrJobPathname = s"/sample/DOMAIN.comet.yml",
+        domainOrJobFilename = "merge-with-timestamp.comet.yml",
+        sourceDomainOrJobPathname = s"/sample/merge/merge-with-timestamp.comet.yml",
         datasetDomainName = "DOMAIN",
         sourceDatasetPathName = "/sample/Players-merge.csv"
       ) {
 
+        cleanMetadata
+        deliverSourceDomain()
         loadPending
 
-        val acceptedDf: DataFrame = sparkSession.read
+        val accepted: Array[Row] = sparkSession.read
           .parquet(cometDatasetsPath + s"/accepted/$datasetDomainName/Players")
+          .collect()
 
-        val players: DataFrame = sparkSession.read
-          .option("header", "false")
-          .option("encoding", "UTF-8")
-          .schema(playerSchema)
-          .csv(getResPath("/sample/Players.csv"))
+        // Input contains a row with an older timestamp
+        // With MergeOptions.timestamp set, that row should be ignored (the rest should be updated)
 
-        val playersMerge: DataFrame = sparkSession.read
-          .option("header", "false")
-          .option("encoding", "UTF-8")
-          .schema(playerSchema)
-          .csv(getResPath("/sample/Players-merge.csv"))
+        val expected: Array[Row] =
+          sparkSession.read
+            .option("header", "false")
+            .option("encoding", "UTF-8")
+            .schema(playerSchema)
+            .csv(getResPath("/expected/datasets/accepted/DOMAIN/Players-merged-with-timestamp.csv"))
+            .collect()
 
-        val playersPk: Array[String] = players.select("PK").collect().map(_.getString(0))
+        accepted should contain theSameElementsAs expected
+      }
 
-        val expected: DataFrame = playersMerge
-          .union(players.join(playersMerge, Seq("PK"), "left_anti"))
-          .union(players.filter(!col("PK").isin(playersPk: _*)))
+      new SpecTrait(
+        domainOrJobFilename = "simple-merge.comet.yml",
+        sourceDomainOrJobPathname = s"/sample/merge/simple-merge.comet.yml",
+        datasetDomainName = "DOMAIN",
+        sourceDatasetPathName = "/sample/Players-merge.csv"
+      ) {
 
-        acceptedDf
-          .except(expected)
-          .count() shouldBe 0
+        cleanMetadata
+        deliverSourceDomain()
+        loadPending
 
+        val accepted: Array[Row] = sparkSession.read
+          .parquet(cometDatasetsPath + s"/accepted/$datasetDomainName/Players")
+          .collect()
+
+        // Input contains a row with an older timestamp
+        // Without MergeOptions.timestamp set, the existing data should be overridden anyway
+
+        val expected: Array[Row] =
+          sparkSession.read
+            .option("header", "false")
+            .option("encoding", "UTF-8")
+            .schema(playerSchema)
+            .csv(getResPath("/expected/datasets/accepted/DOMAIN/Players-always-override.csv"))
+            .collect()
+
+        accepted should contain theSameElementsAs expected
       }
     }
 
