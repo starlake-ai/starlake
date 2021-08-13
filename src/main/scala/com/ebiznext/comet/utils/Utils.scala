@@ -47,7 +47,7 @@ object Utils {
     try {
       f(resource)
     } catch {
-      case NonFatal(e) =>
+      case e: Throwable =>
         exception = e
         throw e
     } finally {
@@ -65,6 +65,7 @@ object Utils {
   private def closeAndAddSuppressed(e: Throwable, resource: Closeable): Unit = {
     import scala.language.reflectiveCalls // reflective access of structural type member
     if (e != null) {
+      e.printStackTrace()
       try {
         resource.close()
       } catch {
