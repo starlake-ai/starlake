@@ -26,6 +26,7 @@ import com.ebiznext.comet.job.atlas.{AtlasConfig, AtlasJob}
 import com.ebiznext.comet.job.index.bqload.{BigQueryLoadConfig, BigQuerySparkJob}
 import com.ebiznext.comet.job.index.connectionload.{ConnectionLoadConfig, ConnectionLoadJob}
 import com.ebiznext.comet.job.index.esload.{ESLoadConfig, ESLoadJob}
+import com.ebiznext.comet.job.index.kafkaload.{KafkaJob, KafkaJobConfig}
 import com.ebiznext.comet.job.infer.{InferSchema, InferSchemaConfig}
 import com.ebiznext.comet.job.ingest._
 import com.ebiznext.comet.job.load.LoadStrategy
@@ -655,6 +656,11 @@ class IngestionWorkflow(
     maybeSchema: Option[BQSchema] = None
   ): Try[JobResult] = {
     val res = new BigQuerySparkJob(config, maybeSchema).run()
+    Utils.logFailure(res, logger)
+  }
+
+  def kafkaload(config: KafkaJobConfig): Try[JobResult] = {
+    val res = new KafkaJob(config).run()
     Utils.logFailure(res, logger)
   }
 
