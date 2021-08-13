@@ -32,7 +32,7 @@ class KafkaClient(kafkaConfig: KafkaConfig)(implicit settings: Settings)
     props.put(k, v)
   }
 
-  val client: AdminClient = AdminClient.create(props)
+  lazy val client: AdminClient = AdminClient.create(props)
 
   cometOffsetsMode match {
     case Mode.STREAM =>
@@ -80,16 +80,29 @@ class KafkaClient(kafkaConfig: KafkaConfig)(implicit settings: Settings)
   }
 
   def topicEndOffsets(topicName: String, accessOptions: Map[String, String]): List[(Int, Long)] = {
-    val props: Properties = buildProps(accessOptions)
-    val consumer = new KafkaConsumer[String, String](props)
-    val partitions = consumer
-      .partitionsFor(topicName)
-      .asScala
-      .map(info => new TopicPartition(topicName, info.partition()))
-      .toList
-    consumer.assign(partitions.asJava)
-    consumer.seekToEnd(partitions.asJava)
-    partitions.map(p => (p.partition(), consumer.position(p)))
+    try {
+      val props: Properties = buildProps(accessOptions)
+      val consumer = new KafkaConsumer[String, String](props)
+      logger.whenInfoEnabled {
+        import scala.collection.JavaConverters._
+        logger.info(s"access options for topic $topicName ==>")
+        props.asScala.foreach { case (k, v) =>
+          logger.info(s"\t$k=$v")
+        }
+      }
+      val partitions = consumer
+        .partitionsFor(topicName)
+        .asScala
+        .map(info => new TopicPartition(topicName, info.partition()))
+        .toList
+      consumer.assign(partitions.asJava)
+      consumer.seekToEnd(partitions.asJava)
+      partitions.map(p => (p.partition(), consumer.position(p)))
+    } catch {
+      case e: Throwable =>
+        e.printStackTrace()
+        throw e
+    }
   }
 
   private def buildProps(accessOptions: Map[String, String]) = {
@@ -231,8 +244,20 @@ class KafkaClient(kafkaConfig: KafkaConfig)(implicit settings: Settings)
           topicPartitions(config.topicName)
             .map(p => (p.partition(), EARLIEST_OFFSET))
         }
+
+    logger.whenInfoEnabled {
+      startOffsets.foreach { case (partition, offsetStart) =>
+        logger.info(s"$topicConfigName start-offset -> $partition:$offsetStart")
+      }
+    }
+
     val endOffsets =
       topicEndOffsets(config.topicName, config.accessOptions)
+    logger.whenInfoEnabled {
+      endOffsets.foreach { case (partition, offsetEnd) =>
+        logger.info(s"$topicConfigName end-offset -> $partition:$offsetEnd")
+      }
+    }
 
     // We do not use the topic Name but the config name to allow us to
     // consume differently the same topic
