@@ -8,7 +8,6 @@ import com.ebiznext.comet.job.ingest.ImprovedDataFrameContext._
 import com.ebiznext.comet.job.metrics.{AssertionJob, MetricsJob}
 import com.ebiznext.comet.job.validator.{GenericRowValidator, ValidationResult}
 import com.ebiznext.comet.schema.handlers.{SchemaHandler, StorageHandler}
-import com.ebiznext.comet.schema.model.PrimitiveType.timestamp
 import com.ebiznext.comet.schema.model.Rejection.{ColInfo, ColResult}
 import com.ebiznext.comet.schema.model.Trim.{BOTH, LEFT, RIGHT}
 import com.ebiznext.comet.schema.model._
@@ -28,7 +27,7 @@ import org.apache.spark.ml.feature.SQLTransformer
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql._
 import org.apache.spark.sql.expressions.Window
-import org.apache.spark.sql.functions.{col, _}
+import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.{StringType, StructField, StructType, TimestampType}
 
 import java.sql.Timestamp
@@ -809,40 +808,52 @@ trait IngestionJob extends SparkJob {
     logger.info(s"inputDF field count=${in.schema.fields.length}")
     logger.info(s"""inputDF field list=${in.schema.fields.map(_.name).mkString(",")}""")
 
-    // Force ordering again of columns to be the same since join operation change it otherwise except below won"'t work.
-
-    // commonDF contains records present in the exiting and incoming datatsets
-    val commonDF =
-      existing
-        .join(in.select(merge.key.head, merge.key.tail: _*), merge.key)
-        .select(in.columns.map(col): _*)
-
-    // For items present in the existing and incoming datasets. We keep only the last occurrence and delete the older ones.
-    val toDeleteDF = merge.timestamp.map { timestamp =>
-      val w =
-        Window.partitionBy(merge.key.head, merge.key.tail: _*).orderBy(col(timestamp).desc)
-      commonDF
-        .withColumn("rownum", row_number.over(w))
-        .where(col("rownum") =!= 1)
-        .drop("rownum")
-    } getOrElse commonDF
-
     // We remove from the incoming data the records to delete
     val updatesDF = merge.delete
       .map(condition => in.filter(s"not ($condition)"))
       .getOrElse(in)
+
+    val (toDeleteDF, mergedDF) = merge.timestamp
+      .map { timestamp =>
+        // We only keep the first occurrence of each record, from both datasets
+        val orderingWindow =
+          Window.partitionBy(merge.key.head, merge.key.tail: _*).orderBy(col(timestamp).desc)
+
+        val allRowsDF = existing.union(updatesDF)
+
+        // Deduplicate
+        val mergedDF = allRowsDF
+          .withColumn("rownum", row_number.over(orderingWindow))
+          .where(col("rownum") === 1)
+          .drop("rownum")
+
+        // Compute rows that will be deleted (for logging purposes)
+        val toDeleteDF = allRowsDF
+          .withColumn("rownum", row_number.over(orderingWindow))
+          .where(col("rownum") =!= 1)
+          .drop("rownum")
+
+        (toDeleteDF, mergedDF)
+      }
+      .getOrElse {
+        // We directly remove from the existing dataset the row that are present in the incoming dataset
+        val commonDF = existing
+          .join(updatesDF.select(merge.key.map(col): _*), merge.key)
+          .select(updatesDF.columns.map(col): _*)
+
+        (commonDF, existing.except(commonDF).union(updatesDF))
+      }
+
     logger.whenDebugEnabled {
       logger.debug(s"Merge detected ${toDeleteDF.count()} items to update/delete")
       logger.debug(s"Merge detected ${updatesDF.count()} items to update/insert")
-      existing.except(toDeleteDF).union(updatesDF).show(false)
+      mergedDF.show(false)
     }
+
     if (settings.comet.mergeForceDistinct) {
-      existing
-        .except(toDeleteDF)
-        .union(updatesDF)
-        .distinct()
+      mergedDF.distinct()
     } else {
-      existing.except(toDeleteDF).union(updatesDF)
+      mergedDF
     }
   }
 
