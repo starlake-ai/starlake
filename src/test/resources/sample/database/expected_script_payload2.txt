@@ -1,0 +1,104 @@
+-- How the data should be exported
+set TERMOUT OFF
+SET ECHO OFF
+SET VERIFY OFF
+SET TRIMSPOOL ON
+SET TRIMOUT ON
+SET LINESIZE 9999
+SET PAGESIZE 0
+-- We decide to export without any header.
+-- Do not forget to value the withHeader property to false in the YAML file
+SET HEADING OFF
+SET FEEDBACK OFF
+SET TIMING OFF
+SET TIME OFF
+SET LONG 10000
+-- The separator here should be the one used in the YAML file
+SET COLSEP '";"'
+SET HEADSEP off
+SET ESCAPE ON
+
+-- Stop in case of failure
+WHENEVER SQLERROR exit 1;
+
+-- Data time pattern we want to use
+ALTER SESSION SET NLS_DATE_FORMAT = 'yyyymmddhh24miss';
+
+-- The output file directory
+DEFINE OUTPUT_DIR = &1;
+
+-- Get current date/time.
+COLUMN DT_VAL NEW_VALUE CURRENT_EXPORT_DATE_CHAR;
+SELECT TO_CHAR(SYSDATE) DT_VAL FROM DUAL;
+
+-- We store in a dedicated table, the last export date/time.
+-- Useful for incremental exports
+COLUMN LED NEW_VALUE LAST_EXPORT_DATE;
+SELECT
+    COALESCE(
+        (
+            SELECT
+                MAX(DA_LAST_EXPORT_DATE)
+            FROM
+                COMET_EXPORT_STATUS
+            WHERE
+                LI_SCHEMA_NAME = 'domain1' AND
+                LI_TABLE_NAME = 'TABLE1'
+        ),
+        TO_DATE('19700101','yyyymmdd') -- If table has never been exported
+    ) LED
+FROM
+    DUAL;
+
+-- Start export
+
+PROMPT EXPORTING TABLE1 TO &OUTPUT_DIR/domain1_table1_delta_&CURRENT_EXPORT_DATE_CHAR\.csv;
+SPOOL &OUTPUT_DIR/domain1_table1_delta_&CURRENT_EXPORT_DATE_CHAR\.csv REPLACE
+
+ALTER SESSION SET NLS_DATE_FORMAT = 'yyyy-mm-dd hh24:mi:ss';
+
+-- SQL to execute if an incremental export is requested
+
+    SELECT
+'"' || 
+            REPLACE(TO_CHAR(COL1), '"','""')  || '";"' ||
+            REPLACE(TO_CHAR(COL2), '"','""')  || '";"' ||
+            REPLACE(TO_CHAR(COL4), '"','""') || '"'
+    FROM
+        TABLE1
+    WHERE
+        UPDATECOL >= '&LAST_EXPORT_DATE' AND UPDATECOL IS NOT NULL;
+
+-- SQL to execute if a full export is requested
+
+-- Export finished successfully
+SPOOL OFF
+
+-- Update report table containing the last expoort date
+-- This is useful for audit purpose and for incremental export since we store the last export date here.
+BEGIN
+    INSERT INTO
+        COMET_EXPORT_STATUS (LI_SCHEMA_NAME, LI_TABLE_NAME, DA_LAST_EXPORT_DATE, TYPE_LAST_EXPORT, NB_ROWS_LAST_EXPORT)
+    VALUES
+        (
+            'domain1',
+            'TABLE1',
+            TO_DATE(&CURRENT_EXPORT_DATE_CHAR),
+            
+            'DELTA',
+            (
+                SELECT
+                    COUNT(*)
+                FROM
+                    TABLE1
+                WHERE
+                    UPDATECOL >= '&LAST_EXPORT_DATE' AND UPDATECOL IS NOT NULL
+            )
+                    );
+END;
+/
+
+EXIT SUCCESS
+
+
+-- sqlplus domain1@domain1/password EXTRACT_TABLE1.sql /opt/oracle/user-scripts/scripts/
