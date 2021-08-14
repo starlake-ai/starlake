@@ -12,6 +12,7 @@ __Bug Fix__:
 - Transformation job with BQ engine fails when no views block is defined
 - XLS2YML : remove non-breaking spaces from Excel file cells to avoid parsing errors
 - Fix merge using timestamp option
+- Json ingestion fails with complex array of objects
 
 # 0.2.4 / 0.2.5
 __Bug Fix__:
