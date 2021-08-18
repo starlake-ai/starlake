@@ -1,36 +1,44 @@
 package com.ebiznext.comet.services.launch
 
-import akka.actor.ActorSystem
+import akka.actor.typed.ActorSystem
+import akka.actor.typed.scaladsl.Behaviors
 import akka.http.scaladsl.Http
-import akka.stream.ActorMaterializer
+import akka.http.scaladsl.server.Route
 import com.ebiznext.comet.config.Settings
-import com.ebiznext.comet.services.{GeneratorService, MainRoutes}
+import com.ebiznext.comet.services.MainRoutes
 import com.typesafe.config.{Config, ConfigFactory}
 
-import scala.concurrent.Await
-import scala.concurrent.duration.Duration
+import scala.util.{Failure, Success}
 
-object Application extends App {
-
-  implicit val system = ActorSystem()
+object Application {
 
   lazy val config: Config = ConfigFactory.load()
-  implicit val settings: Settings = Settings(config)
 
-  lazy val Interface = config.getString("http.interface")
-  lazy val Port = config.getInt("http.port")
+  private def startHttpServer(routes: Route)(implicit system: ActorSystem[_]): Unit = {
 
-  val generatorService = new GeneratorService
-  val mainRoutes = new MainRoutes(generatorService)
+    val Interface = config.getString("http.interface")
+    val Port = config.getInt("http.port")
 
-//  Http().newServerAt(Interface, Port).bindFlow(mainRoutes.routes)
+    import system.executionContext
+    val futureBinding = Http().newServerAt(Interface, Port).bind(routes)
+    futureBinding.onComplete {
+      case Success(binding) =>
+        val address = binding.localAddress
+        system.log.info("Server online at http://{}:{}/", address.getHostString, address.getPort)
+      case Failure(ex) =>
+        system.log.error("Failed to bind HTTP endpoint, terminating system", ex)
+        system.terminate()
+    }
+  }
 
-  implicit val materializer: ActorMaterializer = ActorMaterializer()
+  def main(args: Array[String]): Unit = {
+    val rootBehavior = Behaviors.setup[Nothing] { context =>
+      implicit val settings: Settings = Settings(config)
+      val mainRoutes = new MainRoutes()
+      startHttpServer(mainRoutes.routes)(context.system)
 
-  Http().bindAndHandle(mainRoutes.routes, Interface, Port)
-
-  println(s"Server online at http://${Interface}:${Port}/")
-
-  Await.result(system.whenTerminated, Duration.Inf)
-
+      Behaviors.empty
+    }
+    val system = ActorSystem[Nothing](rootBehavior, "CometApplication")
+  }
 }
