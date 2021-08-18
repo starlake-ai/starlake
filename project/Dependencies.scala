@@ -154,11 +154,11 @@ object Dependencies {
   )
 
   val akkaHttp = Seq(
-    "com.typesafe.akka" %% "akka-actor-typed" % Versions.akkaStream,
-    "com.typesafe.akka" %% "akka-stream" % Versions.akkaStream,
-    "com.typesafe.akka" %% "akka-http" % Versions.akkaHttp,
-    "com.typesafe.akka" %% "akka-http-testkit" % Versions.akkaHttp % Test,
-    "com.typesafe.akka" %% "akka-actor-testkit-typed" % Versions.akkaStream % Test
+    "com.typesafe.akka" %% "akka-http" % Versions.akkaHttp
+  )
+
+  val akkaStream = Seq(
+    "com.typesafe.akka" %% "akka-stream" % Versions.akkaStream
   )
 
   val kafkaClients = Seq(
@@ -173,5 +173,5 @@ object Dependencies {
 
   val dependencies =
     scalate ++ logging ++ typedConfigs ++ betterfiles ++ scalaTest ++ scopt ++ hadoop ++
-    sttp ++ gcp ++ azure ++ h2 ++ excelClientApi ++ akkaHttp ++ kafkaClients ++ graphviz // ++ atlas
+    sttp ++ gcp ++ azure ++ h2 ++ excelClientApi ++ akkaHttp ++ akkaStream ++ kafkaClients ++ graphviz // ++ atlas
 }
