@@ -14,7 +14,8 @@ case class Path(path: String) extends Input
 
 case class FileInput(file: File) extends Input
 
-/** Reads the spreadsheet found at the specified {@param input} and builds the corresponding Domain object
+/** Reads the spreadsheet found at the specified {@param input} and builds the corresponding Domain
+  * object
   *
   * @param input
   */
@@ -205,7 +206,8 @@ class XlsReader(input: Input) extends XlsModel {
 
   /** Returns the Domain corresponding to the parsed spreadsheet
     * @param settings
-    * @return an Option of Domain
+    * @return
+    *   an Option of Domain
     */
   def getDomain()(implicit settings: Settings): Option[Domain] = {
     val completeSchemas = buildSchemas(settings).filter(_.attributes.nonEmpty)

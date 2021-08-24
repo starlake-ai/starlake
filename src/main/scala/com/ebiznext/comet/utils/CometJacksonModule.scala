@@ -15,8 +15,8 @@ import scala.concurrent.duration.FiniteDuration
 import scala.reflect.ClassTag
 import StorageLevel._
 
-/** This module handles some specific type serializers in a central way (so we don't need to pepper the model code
-  * with annotations)
+/** This module handles some specific type serializers in a central way (so we don't need to pepper
+  * the model code with annotations)
   */
 trait CometJacksonModule extends JacksonModule {
 
@@ -34,19 +34,23 @@ object CometJacksonModule extends CometJacksonModule {
 
   /** A trait to identify case objects are requiring special protection from Jackson's deserializer
     *
-    * Jackson doesn't know a class is actually an object type, and will happily make new instances of things
-    * supposed to be objects (singletons). These 'clone' instances are toxic as they will **not** patmat correctly,
-    * as Scala simply compares identityHashcodes in patterns involving a case object.
+    * Jackson doesn't know a class is actually an object type, and will happily make new instances
+    * of things supposed to be objects (singletons). These 'clone' instances are toxic as they will
+    * **not** patmat correctly, as Scala simply compares identityHashcodes in patterns involving a
+    * case object.
     *
-    * To avoid this, we define this trait, which registers the canonical instance within a special table, and
-    * provide a helpful exception
+    * To avoid this, we define this trait, which registers the canonical instance within a special
+    * table, and provide a helpful exception
     *
-    * One should also define a Builder inheriting from [[com.ebiznext.comet.utils.CometJacksonModule.ProtectedSingletonBuilder]], and decorate the case object
-    * with @JsonDeserialize(builder = classOf[MyObjectBuilder]).
+    * One should also define a Builder inheriting from
+    * [[com.ebiznext.comet.utils.CometJacksonModule.ProtectedSingletonBuilder]], and decorate the
+    * case object with @JsonDeserialize(builder = classOf[MyObjectBuilder]).
     *
-    * The goal of that builder is to "lie" to Jackson by 'building' an instance, which is actually *the* instance
+    * The goal of that builder is to "lie" to Jackson by 'building' an instance, which is actually
+    * *the* instance
     *
-    * @see https://github.com/FasterXML/jackson-module-scala/issues/211
+    * @see
+    *   https://github.com/FasterXML/jackson-module-scala/issues/211
     */
   trait JacksonProtectedSingleton {
 
@@ -66,13 +70,14 @@ object CometJacksonModule extends CometJacksonModule {
     }
   }
 
-  /** a base class for fake 'builders' whose purpose is to drive Jackson off attempting to build new instances
-    * of case objects upon deserialization.
+  /** a base class for fake 'builders' whose purpose is to drive Jackson off attempting to build new
+    * instances of case objects upon deserialization.
     *
-    * This class will work to recover *the* canonical instance of the `T` class, and return that whenever
-    * Jackson requests a 'new' instance
+    * This class will work to recover *the* canonical instance of the `T` class, and return that
+    * whenever Jackson requests a 'new' instance
     *
-    * @see https://github.com/FasterXML/jackson-module-scala/issues/211
+    * @see
+    *   https://github.com/FasterXML/jackson-module-scala/issues/211
     */
   @JsonPOJOBuilder()
   abstract class ProtectedSingletonBuilder[T <: JacksonProtectedSingleton: ClassTag]
@@ -81,8 +86,8 @@ object CometJacksonModule extends CometJacksonModule {
 
     /** A method called by Jackson to "deserialize" all fields of our singleton object.
       *
-      * Here our behaviour is to simply ignore anything passed here as we never intend to actually construct
-      * a new object.
+      * Here our behaviour is to simply ignore anything passed here as we never intend to actually
+      * construct a new object.
       */
     @JsonAnySetter
     def withAnything(name: String, value: AnyRef): Unit = {}

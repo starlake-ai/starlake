@@ -32,8 +32,10 @@ object MetricsConfig extends CliConfig[MetricsConfig] {
 
   /** Function to parse command line arguments (domain and schema).
     *
-    * @param args : Command line parameters
-    * @return : an Option of MetricConfing with the parsed domain and schema names.
+    * @param args
+    *   : Command line parameters
+    * @return
+    *   : an Option of MetricConfing with the parsed domain and schema names.
     */
   def parse(args: Seq[String]): Option[MetricsConfig] = {
     OParser.parse(parser, args, MetricsConfig())

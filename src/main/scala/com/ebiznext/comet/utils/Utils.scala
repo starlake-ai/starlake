@@ -34,11 +34,16 @@ object Utils {
 
   /** Handle tansparently autocloseable resources and correctly chain exceptions
     *
-    * @param r : the resource
-    * @param f : the try bloc
-    * @tparam T : resource Type
-    * @tparam V : Try bloc return type
-    * @return : Try bloc return value
+    * @param r
+    *   : the resource
+    * @param f
+    *   : the try bloc
+    * @tparam T
+    *   : resource Type
+    * @tparam V
+    *   : Try bloc return type
+    * @return
+    *   : Try bloc return value
     */
   def withResources[T <: Closeable, V](r: => T)(f: T => V): V = {
     val resource: T = r
@@ -77,13 +82,15 @@ object Utils {
     }
   }
 
-  /** If the provided `attempt` is a `Success[T]`, do nothing.
-    * If it is a `Failure`, then log the contained exception as a side effect and carry on
+  /** If the provided `attempt` is a `Success[T]`, do nothing. If it is a `Failure`, then log the
+    * contained exception as a side effect and carry on
     *
     * @param attempt
-    * @param logger the logger onto which to log results
+    * @param logger
+    *   the logger onto which to log results
     * @tparam T
-    * @return the original `attempt` with no alteration (everything happens as a side effect)
+    * @return
+    *   the original `attempt` with no alteration (everything happens as a side effect)
     */
   def logFailure[T](attempt: Try[T], logger: Logger): Try[T] =
     attempt match {
@@ -148,9 +155,13 @@ object Utils {
 
   /** Utility to extract duplicates and their number of occurrences
     *
-    * @param values       : Liste of strings
-    * @param errorMessage : Error Message that should contains placeholders for the value(%s) and number of occurrences (%d)
-    * @return List of tuples contains for ea  ch duplicate the number of occurrences
+    * @param values
+    *   : Liste of strings
+    * @param errorMessage
+    *   : Error Message that should contains placeholders for the value(%s) and number of
+    *   occurrences (%d)
+    * @return
+    *   List of tuples contains for ea ch duplicate the number of occurrences
     */
   def duplicates(values: List[String], errorMessage: String): Either[List[String], Boolean] = {
     val errorList: mutable.MutableList[String] = mutable.MutableList.empty

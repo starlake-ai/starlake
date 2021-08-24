@@ -7,7 +7,8 @@ object Formatter extends Formatter
 trait Formatter {
 
   /** Split a String into a Map
-    * @param str : the string to be splitted
+    * @param str
+    *   : the string to be splitted
     * @return
     */
   implicit class RichFormatter(str: String) {

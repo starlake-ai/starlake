@@ -39,7 +39,7 @@ import org.apache.spark.storage.StorageLevel
 
 import java.io.ObjectStreamException
 import java.util.concurrent.TimeUnit
-import java.util.{Locale, UUID, Map => juMap}
+import java.util.{Locale, Map => juMap, UUID}
 import scala.collection.JavaConverters._
 import scala.concurrent.duration.FiniteDuration
 
@@ -47,21 +47,28 @@ object Settings extends StrictLogging {
 
   private def loggerForCompanionInstances: Logger = logger
 
-  /** @param endpoint : Airflow REST API endpoint, aka. http://127.0.0.1:8080/api/experimental
+  /** @param endpoint
+    *   : Airflow REST API endpoint, aka. http://127.0.0.1:8080/api/experimental
     */
   final case class Airflow(endpoint: String, ingest: String)
 
-  /** datasets in the data pipeline go through several stages and
-    * are stored on disk at each of these stages.
-    * This setting allow to customize the folder names of each of these stages.
+  /** datasets in the data pipeline go through several stages and are stored on disk at each of
+    * these stages. This setting allow to customize the folder names of each of these stages.
     *
-    * @param pending    : Name of the pending area
-    * @param unresolved : Named of the unresolved area
-    * @param archive    : Name of the archive area
-    * @param ingesting  : Name of the ingesting area
-    * @param accepted   : Name of the accepted area
-    * @param rejected   : Name of the rejected area
-    * @param business   : Name of the business area
+    * @param pending
+    *   : Name of the pending area
+    * @param unresolved
+    *   : Named of the unresolved area
+    * @param archive
+    *   : Name of the archive area
+    * @param ingesting
+    *   : Name of the ingesting area
+    * @param accepted
+    *   : Name of the accepted area
+    * @param rejected
+    *   : Name of the rejected area
+    * @param business
+    *   : Name of the business area
     */
   final case class Area(
     pending: String,
@@ -79,13 +86,15 @@ object Settings extends StrictLogging {
     val replayFinal: String = replay.toLowerCase(Locale.ROOT)
   }
 
-  /** @param options : Map of privacy algorightms name -> PrivacyEngine
+  /** @param options
+    *   : Map of privacy algorightms name -> PrivacyEngine
     */
   final case class Privacy(options: juMap[String, String])
 
   final case class Elasticsearch(active: Boolean, options: juMap[String, String])
 
-  /** @param discreteMaxCardinality : Max number of unique values allowed in cardinality compute
+  /** @param discreteMaxCardinality
+    *   : Max number of unique values allowed in cardinality compute
     */
   final case class Metrics(
     path: String,
@@ -108,18 +117,24 @@ object Settings extends StrictLogging {
 
   /** Describes a connection to a JDBC-accessible database engine
     *
-    * @param format source / sink format (jdbc by default). Cf spark.format possible values
-    * @param mode Spark SaveMode to use. If not present, the save mode will be computed from the write disposition set in the YAM file
-    * @param options any option required by the format used to ingest / tranform / compute the data. Eg for JDBC uri, user and password are required
-    *             uri the URI of the database engine. It must start with "jdbc:"
-    *             user the username under which to connect to the database engine
-    *             password the password to use in order to connect to the database engine
-    * @param engineOverride the index into the [[Comet.jdbcEngines]] map of the underlying database engine, in case
-    *                       one cannot use the engine name from the uri
+    * @param format
+    *   source / sink format (jdbc by default). Cf spark.format possible values
+    * @param mode
+    *   Spark SaveMode to use. If not present, the save mode will be computed from the write
+    *   disposition set in the YAM file
+    * @param options
+    *   any option required by the format used to ingest / tranform / compute the data. Eg for JDBC
+    *   uri, user and password are required uri the URI of the database engine. It must start with
+    *   "jdbc:" user the username under which to connect to the database engine password the
+    *   password to use in order to connect to the database engine
+    * @param engineOverride
+    *   the index into the [[Comet.jdbcEngines]] map of the underlying database engine, in case one
+    *   cannot use the engine name from the uri
     *
-    * @note the use case for engineOverride is when you need to have an alternate schema definition
-    *       (e.g. non-standard table names) alongside with the regular schema definition, on the same
-    *       underlying engine.
+    * @note
+    *   the use case for engineOverride is when you need to have an alternate schema definition
+    *   (e.g. non-standard table names) alongside with the regular schema definition, on the same
+    *   underlying engine.
     */
   final case class Connection(
     format: String = "jdbc",
@@ -132,8 +147,9 @@ object Settings extends StrictLogging {
 
   /** Describes how to use a specific type of JDBC-accessible database engine
     *
-    * @param tables for each of the Standard Table Names used by Comet, the specific SQL DDL statements as expected
-    *               in the engine's own dialect.
+    * @param tables
+    *   for each of the Standard Table Names used by Comet, the specific SQL DDL statements as
+    *   expected in the engine's own dialect.
     */
   final case class JdbcEngine(
     tables: scala.collection.Map[String, JdbcEngine.TableDdl]
@@ -141,13 +157,19 @@ object Settings extends StrictLogging {
 
   object JdbcEngine {
 
-    /** A descriptor of the specific SQL DDL statements required to manage a specific Comet table in a JDBC-accessible
-      * database engine
+    /** A descriptor of the specific SQL DDL statements required to manage a specific Comet table in
+      * a JDBC-accessible database engine
       *
-      * @param createSql the SQL Create Table statement with the database-specific type, constraints etc. tacked on.
-      * @param pingSql a cheap SQL query whose results are irrelevant but guaranteed to trigger an error in case the table is absent
+      * @param createSql
+      *   the SQL Create Table statement with the database-specific type, constraints etc. tacked
+      *   on.
+      * @param pingSql
+      *   a cheap SQL query whose results are irrelevant but guaranteed to trigger an error in case
+      *   the table is absent
       *
-      * @note pingSql is optional, and will default to `select * from `name` where 1=0` as Spark SQL does
+      * @note
+      *   pingSql is optional, and will default to `select * from `name` where 1=0` as Spark SQL
+      *   does
       */
     final case class TableDdl(createSql: String, pingSql: Option[String] = None) {
 
@@ -188,19 +210,32 @@ object Settings extends StrictLogging {
     cometOffsetsMode: Option[String] = Some("STREAM")
   )
 
-  /** @param datasets       : Absolute path, datasets root folder beneath which each area is defined.
-    * @param metadata       : Absolute path, location where all types / domains and auto jobs are defined
-    * @param metrics        : Absolute path, location where all computed metrics are stored
-    * @param audit          : Absolute path, location where all log are stored
-    * @param archive        : Should we backup the ingested datasets ? true by default
-    * @param defaultWriteFormat    : Choose between parquet, orc ... Default is parquet
-    * @param defaultRejectedWriteFormat    : Writing format for rejected datasets, choose between parquet, orc ... Default is parquet
-    * @param defaultAuditWriteFormat    : Writing format for audit datasets, choose between parquet, orc ... Default is parquet
-    * @param launcher       : Cron Job Manager : simple (useful for testing) or airflow ? simple by default
-    * @param analyze        : Should we create basics Hive statistics on the generated dataset ? true by default
-    * @param hive           : Should we create a Hive Table ? true by default
-    * @param area           : see Area above
-    * @param airflow        : Airflow end point. Should be defined even if simple launccher is used instead of airflow.
+  /** @param datasets
+    *   : Absolute path, datasets root folder beneath which each area is defined.
+    * @param metadata
+    *   : Absolute path, location where all types / domains and auto jobs are defined
+    * @param metrics
+    *   : Absolute path, location where all computed metrics are stored
+    * @param audit
+    *   : Absolute path, location where all log are stored
+    * @param archive
+    *   : Should we backup the ingested datasets ? true by default
+    * @param defaultWriteFormat
+    *   : Choose between parquet, orc ... Default is parquet
+    * @param defaultRejectedWriteFormat
+    *   : Writing format for rejected datasets, choose between parquet, orc ... Default is parquet
+    * @param defaultAuditWriteFormat
+    *   : Writing format for audit datasets, choose between parquet, orc ... Default is parquet
+    * @param launcher
+    *   : Cron Job Manager : simple (useful for testing) or airflow ? simple by default
+    * @param analyze
+    *   : Should we create basics Hive statistics on the generated dataset ? true by default
+    * @param hive
+    *   : Should we create a Hive Table ? true by default
+    * @param area
+    *   : see Area above
+    * @param airflow
+    *   : Airflow end point. Should be defined even if simple launccher is used instead of airflow.
     */
   final case class Comet(
     env: String,
@@ -320,10 +355,11 @@ object Settings extends StrictLogging {
   }
 }
 
-/** This class holds the current Comet settings and an assembly of reference instances for core, shared services
+/** This class holds the current Comet settings and an assembly of reference instances for core,
+  * shared services
   *
-  * SMELL: this may be the start of a Dependency Injection root (but at 2-3 objects, is DI justified? probably not
-  * quite yet) — cchepelov
+  * SMELL: this may be the start of a Dependency Injection root (but at 2-3 objects, is DI
+  * justified? probably not quite yet) — cchepelov
   */
 final case class Settings(comet: Settings.Comet, sparkConfig: Config) {
   def logger: Logger = Settings.loggerForCompanionInstances

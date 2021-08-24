@@ -20,15 +20,21 @@ object TreeRowValidator extends GenericRowValidator {
     *   - we extract the col value / the col constraints / col type
     *   - we check that the constraints are verified
     *   - we apply any required privacy transformation
-    *   - parse the column into the target primitive Spark Type
-    *     We end up using catalyst to create a Spark Row
+    *   - parse the column into the target primitive Spark Type We end up using catalyst to create a
+    *     Spark Row
     *
-    * @param session    : The Spark session
-    * @param dataset    : The dataset
-    * @param attributes : the col attributes
-    * @param types      : List of globally defined types
-    * @param schemaSparkType  : The expected Spark Type for valid rows
-    * @return Two RDDs : One RDD for rejected rows and one RDD for accepted rows
+    * @param session
+    *   : The Spark session
+    * @param dataset
+    *   : The dataset
+    * @param attributes
+    *   : the col attributes
+    * @param types
+    *   : List of globally defined types
+    * @param schemaSparkType
+    *   : The expected Spark Type for valid rows
+    * @return
+    *   Two RDDs : One RDD for rejected rows and one RDD for accepted rows
     */
   override def validate(
     session: SparkSession,

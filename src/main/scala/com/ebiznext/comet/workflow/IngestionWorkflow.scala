@@ -46,15 +46,19 @@ import org.apache.spark.sql.types.{StructField, StructType}
 import scala.util.{Failure, Success, Try}
 
 /** The whole worklfow works as follow :
-  *   - loadLanding : Zipped files are uncompressed or raw files extracted from the local filesystem.
-  * -loadPending :
-  * files recognized with filename patterns are stored in the ingesting area and submitted for ingestion
-  * files with unrecognized filename patterns are stored in the unresolved area
+  *   - loadLanding : Zipped files are uncompressed or raw files extracted from the local
+  *     filesystem.
+  * -loadPending : files recognized with filename patterns are stored in the ingesting area and
+  * submitted for ingestion files with unrecognized filename patterns are stored in the unresolved
+  * area
   *   - ingest : files are finally ingested and saved as parquet/orc/... files and hive tables
   *
-  * @param storageHandler : Minimum set of features required for the underlying filesystem
-  * @param schemaHandler  : Schema interface
-  * @param launchHandler  : Cron Manager interface
+  * @param storageHandler
+  *   : Minimum set of features required for the underlying filesystem
+  * @param schemaHandler
+  *   : Schema interface
+  * @param launchHandler
+  *   : Cron Manager interface
   */
 class IngestionWorkflow(
   storageHandler: StorageHandler,
@@ -64,15 +68,14 @@ class IngestionWorkflow(
     extends StrictLogging {
   val domains: List[Domain] = schemaHandler.domains
 
-  /** Move the files from the landing area to the pending area.
-    * files are loaded one domain at a time
-    * each domain has its own directory and is specified in the "directory" key of Domain YML file
-    * compressed files are uncompressed if a corresponding ack file exist.
-    * Compressed files are recognized by their extension which should be one of .tgz, .zip, .gz.
-    * raw file should also have a corresponding ack file
-    * before moving the files to the pending area, the ack files are deleted
-    * To import files without ack specify an empty "ack" key (aka ack:"") in the domain YML file.
-    * "ack" is the default ack extension searched for but you may specify a different one in the domain YML file.
+  /** Move the files from the landing area to the pending area. files are loaded one domain at a
+    * time each domain has its own directory and is specified in the "directory" key of Domain YML
+    * file compressed files are uncompressed if a corresponding ack file exist. Compressed files are
+    * recognized by their extension which should be one of .tgz, .zip, .gz. raw file should also
+    * have a corresponding ack file before moving the files to the pending area, the ack files are
+    * deleted To import files without ack specify an empty "ack" key (aka ack:"") in the domain YML
+    * file. "ack" is the default ack extension searched for but you may specify a different one in
+    * the domain YML file.
     */
   def loadLanding(): Unit = {
     logger.info("LoadLanding")
@@ -150,13 +153,12 @@ class IngestionWorkflow(
     }
   }
 
-  /** Split files into resolved and unresolved datasets. A file is unresolved
-    * if a corresponding schema is not found.
-    * Schema matching is based on the dataset filename pattern
+  /** Split files into resolved and unresolved datasets. A file is unresolved if a corresponding
+    * schema is not found. Schema matching is based on the dataset filename pattern
     *
-    * @param config : includes Load pending dataset of these domain only
-    *                 excludes : Do not load datasets of these domains
-    *                 if both lists are empty, all domains are included
+    * @param config
+    *   : includes Load pending dataset of these domain only excludes : Do not load datasets of
+    *   these domains if both lists are empty, all domains are included
     */
   def loadPending(config: WatchConfig = WatchConfig()): Boolean = {
     val includedDomains = (config.includes, config.excludes) match {
@@ -240,8 +242,10 @@ class IngestionWorkflow(
     result.forall(_ == true)
   }
 
-  /** @param domainName : Domaine name
-    * @return resolved && unresolved schemas / path
+  /** @param domainName
+    *   : Domaine name
+    * @return
+    *   resolved && unresolved schemas / path
     */
   private def pending(
     domainName: String,
@@ -477,7 +481,8 @@ class IngestionWorkflow(
 
   /** Successively run each task of a job
     *
-    * @param config : job name as defined in the YML file and sql parameters to pass to SQL statements.
+    * @param config
+    *   : job name as defined in the YML file and sql parameters to pass to SQL statements.
     */
   def autoJob(config: TransformConfig): Boolean = {
     val job = schemaHandler.jobs(config.name)
@@ -632,8 +637,10 @@ class IngestionWorkflow(
   }
 
   /** Set nullable property of column.
-    * @param df source DataFrame
-    * @param nullable is the flag to set, such that the column is  either nullable or not
+    * @param df
+    *   source DataFrame
+    * @param nullable
+    *   is the flag to set, such that the column is either nullable or not
     */
   def setNullableStateOfColumn(df: DataFrame, nullable: Boolean): DataFrame = {
 
@@ -676,7 +683,8 @@ class IngestionWorkflow(
 
   /** Runs the metrics job
     *
-    * @param cliConfig : Client's configuration for metrics computing
+    * @param cliConfig
+    *   : Client's configuration for metrics computing
     */
   def metric(cliConfig: MetricsConfig): Try[JobResult] = {
     //Lookup for the domain given as prompt arguments, if is found then find the given schema in this domain

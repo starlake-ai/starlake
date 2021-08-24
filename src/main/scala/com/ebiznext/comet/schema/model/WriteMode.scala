@@ -27,10 +27,11 @@ import com.fasterxml.jackson.databind.ser.std.ToStringSerializer
 import com.fasterxml.jackson.databind.{DeserializationContext, JsonDeserializer}
 import org.apache.spark.sql.SaveMode
 
-/** During ingestion, should the data be appended to the previous ones or should it replace the existing ones ?
-  * see Spark SaveMode for more options.
+/** During ingestion, should the data be appended to the previous ones or should it replace the
+  * existing ones ? see Spark SaveMode for more options.
   *
-  * @param value : OVERWRITE / APPEND / ERROR_IF_EXISTS / IGNORE.
+  * @param value
+  *   : OVERWRITE / APPEND / ERROR_IF_EXISTS / IGNORE.
   */
 @JsonSerialize(using = classOf[ToStringSerializer])
 @JsonDeserialize(using = classOf[WriteDeserializer])

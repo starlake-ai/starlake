@@ -27,10 +27,12 @@ import org.apache.spark.SparkConf
 import org.apache.spark.sql.SparkSession
 import scala.collection.JavaConverters._
 
-/** Any Spark Job will inherit from this class.
-  * All properties defined in application conf file and prefixed by the "spark" key will be loaded into the Spark Job
+/** Any Spark Job will inherit from this class. All properties defined in application conf file and
+  * prefixed by the "spark" key will be loaded into the Spark Job
   *
-  * @param name : Cusom spark application name prefix. The current datetime is appended this the Spark Job name
+  * @param name
+  *   : Cusom spark application name prefix. The current datetime is appended this the Spark Job
+  *   name
   */
 class SparkEnv(name: String)(implicit settings: Settings) extends StrictLogging {
 

@@ -140,13 +140,16 @@ class SinkUtils(implicit settings: Settings) extends StrictLogging {
     }
   }
 
-  /** Saves a dataset. If the path is empty (the first time we call metrics on the schema) then we can write.
+  /** Saves a dataset. If the path is empty (the first time we call metrics on the schema) then we
+    * can write.
     *
-    * If there's already parquet files stored in it, then create a temporary directory to compute on, and flush
-    * the path to move updated metrics in it
+    * If there's already parquet files stored in it, then create a temporary directory to compute
+    * on, and flush the path to move updated metrics in it
     *
-    * @param dataToSave :   dataset to be saved
-    * @param path       :   Path to save the file at
+    * @param dataToSave
+    *   : dataset to be saved
+    * @param path
+    *   : Path to save the file at
     */
   protected def appendToFile(
     storageHandler: StorageHandler,
