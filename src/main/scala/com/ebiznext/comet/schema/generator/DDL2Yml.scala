@@ -62,10 +62,13 @@ object DDL2Yml extends LazyLogging {
 
   /** Generate YML file from JDBC Schema stored in a YML file
     *
-    * @param jdbcMapFile  : Yaml File containing the JDBC Schema to extract
-    * @param ymlOutputDir : Where to output the YML file. The generated filename
-    *                     will be in the for TABLE_SCHEMA_NAME.yml
-    * @param settings     : Application configuration file
+    * @param jdbcMapFile
+    *   : Yaml File containing the JDBC Schema to extract
+    * @param ymlOutputDir
+    *   : Where to output the YML file. The generated filename will be in the for
+    *   TABLE_SCHEMA_NAME.yml
+    * @param settings
+    *   : Application configuration file
     */
   def run(config: DDL2YmlConfig)(implicit settings: Settings): Unit = {
     val jdbcSchemas =
@@ -83,10 +86,13 @@ object DDL2Yml extends LazyLogging {
 
   /** Generate YML file from the JDBCSchema
     *
-    * @param jdbcSchema   : the JDBC Schema to extract
-    * @param ymlOutputDir : Where to output the YML file. The generated filename
-    *                     will be in the for TABLE_SCHEMA_NAME.yml
-    * @param settings     : Application configuration file
+    * @param jdbcSchema
+    *   : the JDBC Schema to extract
+    * @param ymlOutputDir
+    *   : Where to output the YML file. The generated filename will be in the for
+    *   TABLE_SCHEMA_NAME.yml
+    * @param settings
+    *   : Application configuration file
     */
   def run(jdbcSchema: JDBCSchema, ymlOutputDir: File, domainTemplate: Option[Domain])(implicit
     settings: Settings

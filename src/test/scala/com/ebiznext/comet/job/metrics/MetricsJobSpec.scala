@@ -16,7 +16,7 @@ import org.apache.spark.sql.types._
 
 class MetricsJobSpec extends TestHelper with JdbcChecks {
 
-  /** Inputs for the test :  Header (list of the variable) and Metrics (Metrics to use)
+  /** Inputs for the test : Header (list of the variable) and Metrics (Metrics to use)
     */
 
   val listContnuousAttributes: List[String] =

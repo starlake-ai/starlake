@@ -26,11 +26,16 @@ case class JDBCSchemas(
   jdbcSchemas: List[JDBCSchema]
 )
 
-/** @param connection : JDBC Configuration to use as defined in the connection section in the application.conf
-  * @param catalog     : Database catalog name, optional.
-  * @param schema      : Database schema to use, required.
-  * @param tables      : Tables to extract. Nil if all tables should be extracted
-  * @param tableTypes  : Table types to extract
+/** @param connection
+  *   : JDBC Configuration to use as defined in the connection section in the application.conf
+  * @param catalog
+  *   : Database catalog name, optional.
+  * @param schema
+  *   : Database schema to use, required.
+  * @param tables
+  *   : Tables to extract. Nil if all tables should be extracted
+  * @param tableTypes
+  *   : Table types to extract
   */
 
 case class JDBCSchema(
@@ -50,8 +55,10 @@ case class JDBCSchema(
   template: Option[String] = None
 )
 
-/** @param name  : Table name (case insensitive)
-  * @param columns : List of columns (case insensitive). Nil  if all columns should be extracted
+/** @param name
+  *   : Table name (case insensitive)
+  * @param columns
+  *   : List of columns (case insensitive). Nil if all columns should be extracted
   */
 case class JDBCTable(name: String, columns: Option[List[String]])
 
@@ -85,8 +92,10 @@ object DDL2YmlConfig extends CliConfig[DDL2YmlConfig] {
     )
   }
 
-  /** @param args args list passed from command line
-    * @return Option of case class DDL2YmlConfig.
+  /** @param args
+    *   args list passed from command line
+    * @return
+    *   Option of case class DDL2YmlConfig.
     */
   def parse(args: Seq[String]): Option[DDL2YmlConfig] =
     OParser.parse(parser, args, DDL2YmlConfig())

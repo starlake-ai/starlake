@@ -34,9 +34,13 @@ import com.google.cloud.bigquery.{Schema => BQSchema}
 
 /** How dataset are merged
   *
-  * @param key    list of attributes to join existing with incoming dataset. Use renamed columns here.
-  * @param delete Optional valid sql condition on the incoming dataset. Use renamed column here.
-  * @param timestamp Timestamp column used to identify last version, if not specified currently ingested row is considered the last
+  * @param key
+  *   list of attributes to join existing with incoming dataset. Use renamed columns here.
+  * @param delete
+  *   Optional valid sql condition on the incoming dataset. Use renamed column here.
+  * @param timestamp
+  *   Timestamp column used to identify last version, if not specified currently ingested row is
+  *   considered the last
   */
 case class MergeOptions(
   key: List[String],
@@ -47,20 +51,27 @@ case class MergeOptions(
 
 /** Dataset Schema
   *
-  * @param name       : Schema name, must be unique among all the schemas belonging to the same domain.
-  *                     Will become the hive table name On Premise or BigQuery Table name on GCP.
-  * @param pattern    : filename pattern to which this schema must be applied.
-  *                     This instructs the framework to use this schema to parse any file with a filename that match this pattern.
-  * @param attributes : Attributes parsing rules.
-  *                     See :ref:`attribute_concept`
-  * @param metadata   : Dataset metadata
-  *                     See :ref:`metadata_concept`
-  * @param comment    : free text
-  * @param presql     : Reserved for future use.
-  * @param postsql    : We use this attribute to execute sql queries before writing the final dataFrame after ingestion
-  * @param tags       : Set of string to attach to this Schema
-  * @param rls        : Experimental. Row level security to this to this schema.
-  *                     See :ref:`rowlevelsecurity_concept`
+  * @param name
+  *   : Schema name, must be unique among all the schemas belonging to the same domain. Will become
+  *   the hive table name On Premise or BigQuery Table name on GCP.
+  * @param pattern
+  *   : filename pattern to which this schema must be applied. This instructs the framework to use
+  *   this schema to parse any file with a filename that match this pattern.
+  * @param attributes
+  *   : Attributes parsing rules. See :ref:`attribute_concept`
+  * @param metadata
+  *   : Dataset metadata See :ref:`metadata_concept`
+  * @param comment
+  *   : free text
+  * @param presql
+  *   : Reserved for future use.
+  * @param postsql
+  *   : We use this attribute to execute sql queries before writing the final dataFrame after
+  *   ingestion
+  * @param tags
+  *   : Set of string to attach to this Schema
+  * @param rls
+  *   : Experimental. Row level security to this to this schema. See :ref:`rowlevelsecurity_concept`
   */
 case class Schema(
   name: String,
@@ -80,7 +91,8 @@ case class Schema(
   @JsonIgnore
   lazy val attributesWithoutScript: List[Attribute] = attributes.filter(_.script.isEmpty)
 
-  /** @return Are the parittions columns defined in the metadata valid column names
+  /** @return
+    *   Are the parittions columns defined in the metadata valid column names
     */
   def validatePartitionColumns(): Boolean = {
     metadata.forall(
@@ -95,7 +107,8 @@ case class Schema(
 
   /** This Schema as a Spark Catalyst Schema
     *
-    * @return Spark Catalyst Schema
+    * @return
+    *   Spark Catalyst Schema
     */
   def sparkSchema(schemaHandler: SchemaHandler): StructType = {
     val fields = attributes.map { attr =>
@@ -107,14 +120,16 @@ case class Schema(
 
   /** This Schema as a Spark Catalyst Schema, with renamed attributes
     *
-    * @return Spark Catalyst Schema
+    * @return
+    *   Spark Catalyst Schema
     */
   def finalSparkSchema(schemaHandler: SchemaHandler): StructType =
     sparkSchemaWithCondition(schemaHandler, !_.isIgnore())
 
   /** This Schema as a Spark Catalyst Schema, without scripted fields
     *
-    * @return Spark Catalyst Schema
+    * @return
+    *   Spark Catalyst Schema
     */
   def sparkSchemaWithoutScriptedFields(schemaHandler: SchemaHandler): StructType = {
     val fields = attributes.filter(_.script.isEmpty).map { attr =>
@@ -143,7 +158,8 @@ case class Schema(
 
   /** return the list of renamed attributes
     *
-    * @return list of tuples (oldname, newname)
+    * @return
+    *   list of tuples (oldname, newname)
     */
   def renamedAttributes(): List[(String, String)] = {
     attributes.filter(attr => attr.name != attr.getFinalName()).map { attr =>
@@ -156,7 +172,8 @@ case class Schema(
     *   - attribute name should be a valid Hive column identifier
     *   - attribute name can occur only once in the schema
     *
-    * @return error list or true
+    * @return
+    *   error list or true
     */
   def checkValidity(
     domainMetaData: Option[Metadata],

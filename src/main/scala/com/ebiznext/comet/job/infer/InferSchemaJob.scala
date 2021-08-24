@@ -32,11 +32,16 @@ import scala.util.Try
 
 /** *
   *
-  * @param domainName : name of the domain
-  * @param schemaName : name of the schema
-  * @param dataPath   : path to the dataset to infer schema from. format is /path/to/read
-  * @param savePath   : path to save the yaml file. format is /path/to/save
-  * @param header     : option of boolean to check if header should be included (false by default)
+  * @param domainName
+  *   : name of the domain
+  * @param schemaName
+  *   : name of the schema
+  * @param dataPath
+  *   : path to the dataset to infer schema from. format is /path/to/read
+  * @param savePath
+  *   : path to save the yaml file. format is /path/to/save
+  * @param header
+  *   : option of boolean to check if header should be included (false by default)
   */
 class InferSchema(
   domainName: String,
@@ -51,8 +56,7 @@ class InferSchema(
 
 }
 
-/** *
-  * Infers the schema of a given datapath, domain name, schema name.
+/** * Infers the schema of a given datapath, domain name, schema name.
   */
 class InferSchemaJob(implicit settings: Settings) {
 
@@ -63,18 +67,22 @@ class InferSchemaJob(implicit settings: Settings) {
 
   /** Read file without specifying the format
     *
-    * @param path : file path
-    * @return a dataset of string that contains data file
+    * @param path
+    *   : file path
+    * @return
+    *   a dataset of string that contains data file
     */
   def readFile(path: Path): Dataset[String] = {
     session.read
       .textFile(path.toString)
   }
 
-  /** Get format file by using the first and the last line of the dataset
-    * We use mapPartitionsWithIndex to retrieve these information to make sure that the first line really corresponds to the first line (same for the last)
+  /** Get format file by using the first and the last line of the dataset We use
+    * mapPartitionsWithIndex to retrieve these information to make sure that the first line really
+    * corresponds to the first line (same for the last)
     *
-    * @param lines : list of lines read from file
+    * @param lines
+    *   : list of lines read from file
     * @return
     */
   def getFormatFile(lines: List[String]): String = {
@@ -100,8 +108,10 @@ class InferSchemaJob(implicit settings: Settings) {
 
   /** Get separator file by taking the character that appears the most in 10 lines of the dataset
     *
-    * @param lines : list of lines read from file
-    * @return the file separator
+    * @param lines
+    *   : list of lines read from file
+    * @return
+    *   the file separator
     */
   def getSeparator(lines: List[String]): String = {
     val firstLine = lines.head
@@ -119,8 +129,10 @@ class InferSchemaJob(implicit settings: Settings) {
 
   /** Get domain directory name
     *
-    * @param path : file path
-    * @return the domain directory name
+    * @param path
+    *   : file path
+    * @return
+    *   the domain directory name
     */
   def getDomainDirectoryName(path: Path): String = {
     path.toString.replace(path.getName, "")
@@ -128,8 +140,10 @@ class InferSchemaJob(implicit settings: Settings) {
 
   /** Get schema pattern
     *
-    * @param path : file path
-    * @return the schema pattern
+    * @param path
+    *   : file path
+    * @return
+    *   the schema pattern
     */
   def getSchemaPattern(path: Path): String = {
     path.getName
@@ -137,8 +151,10 @@ class InferSchemaJob(implicit settings: Settings) {
 
   /** Create the dataframe with its associated format
     *
-    * @param lines : list of lines read from file
-    * @param path        : file path
+    * @param lines
+    *   : list of lines read from file
+    * @param path
+    *   : file path
     * @return
     */
   def createDataFrameWithFormat(
@@ -182,7 +198,8 @@ class InferSchemaJob(implicit settings: Settings) {
 
   /** Just to force any spark job to implement its entry point using within the "run" method
     *
-    * @return : Spark Session used for the job
+    * @return
+    *   : Spark Session used for the job
     */
   def infer(
     domainName: String,

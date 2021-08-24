@@ -9,12 +9,12 @@ import YamlSerializer._
 
 object Xls2Yml extends LazyLogging {
 
-  /** Encryption of a data source is done by running a specific ingestion job that aims only to apply Privacy rules on the
-    * concerned attributes.
-    * To apply the Encryption process on the data sources of a given Domain, we need a corresponding "PreEncryption Domain".
-    * The PreEncryption domain contains the same Schemas as the initial Domain but with less constraints on the attributes,
-    * which speeds up the encryption process by limiting it to applying the Encryption methods on columns with
-    * privacy attributes.
+  /** Encryption of a data source is done by running a specific ingestion job that aims only to
+    * apply Privacy rules on the concerned attributes. To apply the Encryption process on the data
+    * sources of a given Domain, we need a corresponding "PreEncryption Domain". The PreEncryption
+    * domain contains the same Schemas as the initial Domain but with less constraints on the
+    * attributes, which speeds up the encryption process by limiting it to applying the Encryption
+    * methods on columns with privacy attributes.
     *
     * @param domain
     */
@@ -52,9 +52,9 @@ object Xls2Yml extends LazyLogging {
   }
 
   /** build post encryption Domain => for each Position schema update its Metadata as follows
-    *     - Format : DSV
-    *     - With Header : False
-    *     - Separator : µ
+    *   - Format : DSV
+    *   - With Header : False
+    *   - Separator : µ
     * @param domain
     */
   def genPostEncryptionDomain(

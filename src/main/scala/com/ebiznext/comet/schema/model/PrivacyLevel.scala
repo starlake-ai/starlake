@@ -29,7 +29,8 @@ import com.fasterxml.jackson.databind.{DeserializationContext, JsonDeserializer}
 
 /** How (the attribute should be transformed at ingestion time ?
   *
-  * @param value algorithm to use : NONE, HIDE, MD5, SHA1, SHA256, SHA512, AES
+  * @param value
+  *   algorithm to use : NONE, HIDE, MD5, SHA1, SHA256, SHA512, AES
   */
 @JsonSerialize(using = classOf[ToStringSerializer])
 @JsonDeserialize(using = classOf[PrivacyLevelDeserializer])

@@ -40,10 +40,11 @@ import java.time.format.DateTimeFormatter
 import java.text.SimpleDateFormat
 import DateTimeFormatter._
 
-/** Spark supported primitive types. These are the only valid raw types.
-  * Dataframes columns are converted to these types before the dataset is ingested
+/** Spark supported primitive types. These are the only valid raw types. Dataframes columns are
+  * converted to these types before the dataset is ingested
   *
-  * @param value : string, long, double, boolean, byte, date, timestamp, decimal with (precision=30, scale=15)
+  * @param value
+  *   : string, long, double, boolean, byte, date, timestamp, decimal with (precision=30, scale=15)
   */
 @JsonSerialize(using = classOf[ToStringSerializer])
 @JsonDeserialize(using = classOf[PrimitiveTypeDeserializer])

@@ -50,7 +50,8 @@ class ESLoadJob(
 
   /** Just to force any spark job to implement its entry point within the "run" method
     *
-    * @return : Spark Session used for the job
+    * @return
+    *   : Spark Session used for the job
     */
   override def run(): Try[JobResult] = {
     logger.info(s"Indexing resource ${cliConfig.getResource()} with $cliConfig")

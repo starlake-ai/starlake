@@ -126,8 +126,10 @@ class HdfsStorageHandler(fileSystem: Option[String])(implicit
 
   /** Gets the outputstream given a path
     *
-    * @param path : path
-    * @return FSDataOutputStream
+    * @param path
+    *   : path
+    * @return
+    *   FSDataOutputStream
     */
   def getOutputStream(path: Path): FSDataOutputStream = {
     fs.delete(path, false)
@@ -137,8 +139,10 @@ class HdfsStorageHandler(fileSystem: Option[String])(implicit
 
   /** Read a UTF-8 text file into a string used to load yml configuration files
     *
-    * @param path : Absolute file path
-    * @return file content as a string
+    * @param path
+    *   : Absolute file path
+    * @return
+    *   file content as a string
     */
   def read(path: Path): String = {
 
@@ -149,8 +153,10 @@ class HdfsStorageHandler(fileSystem: Option[String])(implicit
 
   /** Write a string to a UTF-8 text file. Used for yml configuration files.
     *
-    * @param data file content as a string
-    * @param path : Absolute file path
+    * @param data
+    *   file content as a string
+    * @param path
+    *   : Absolute file path
     */
   def write(data: String, path: Path): Unit = {
     val os: FSDataOutputStream = getOutputStream(path)
@@ -160,8 +166,10 @@ class HdfsStorageHandler(fileSystem: Option[String])(implicit
 
   /** Write bytes to binary file. Used for zip / gzip input test files.
     *
-    * @param data file content as a string
-    * @param path : Absolute file path
+    * @param data
+    *   file content as a string
+    * @param path
+    *   : Absolute file path
     */
   def writeBinary(data: Array[Byte], path: Path): Unit = {
     val os: FSDataOutputStream = getOutputStream(path)
@@ -174,11 +182,17 @@ class HdfsStorageHandler(fileSystem: Option[String])(implicit
 
   /** List all files in folder
     *
-    * @param path      Absolute folder path
-    * @param extension : Files should end with this string. To list all files, simply provide an empty string
-    * @param since     Minimum modification time of liste files. To list all files, simply provide the beginning of all times
-    * @param recursive: List all files recursively ?
-    * @return List of Path
+    * @param path
+    *   Absolute folder path
+    * @param extension
+    *   : Files should end with this string. To list all files, simply provide an empty string
+    * @param since
+    *   Minimum modification time of liste files. To list all files, simply provide the beginning of
+    *   all times
+    * @param recursive:
+    *   List all files recursively ?
+    * @return
+    *   List of Path
     */
   def list(
     path: Path,
@@ -214,8 +228,10 @@ class HdfsStorageHandler(fileSystem: Option[String])(implicit
 
   /** Move file
     *
-    * @param path source path (file or folder)
-    * @param dest destination path (file or folder)
+    * @param path
+    *   source path (file or folder)
+    * @param dest
+    *   destination path (file or folder)
     * @return
     */
   override def move(path: Path, dest: Path): Boolean = {
@@ -226,7 +242,8 @@ class HdfsStorageHandler(fileSystem: Option[String])(implicit
 
   /** delete file (skip trash)
     *
-    * @param path : Absolute path of file to delete
+    * @param path
+    *   : Absolute path of file to delete
     */
   override def delete(path: Path): Boolean = {
 
@@ -235,7 +252,8 @@ class HdfsStorageHandler(fileSystem: Option[String])(implicit
 
   /** Create folder if it does not exsit including any intermediary non existent folder
     *
-    * @param path Absolute path of folder to create
+    * @param path
+    *   Absolute path of folder to create
     */
   override def mkdirs(path: Path): Boolean = {
 
@@ -244,18 +262,22 @@ class HdfsStorageHandler(fileSystem: Option[String])(implicit
 
   /** Copy file from local filesystem to target file system
     *
-    * @param source Local file path
-    * @param dest   destination file path
+    * @param source
+    *   Local file path
+    * @param dest
+    *   destination file path
     */
   override def copyFromLocal(source: Path, dest: Path): Unit = {
 
     fs.copyFromLocalFile(source, dest)
   }
 
-  /** Move file from local filesystem to target file system
-    * If source FS Scheme is not "file" then issue a regular move
-    * @param source Local file path
-    * @param dest   destination file path
+  /** Move file from local filesystem to target file system If source FS Scheme is not "file" then
+    * issue a regular move
+    * @param source
+    *   Local file path
+    * @param dest
+    *   destination file path
     */
   override def moveFromLocal(source: Path, dest: Path): Unit = {
     if (fs.getScheme() == "file")

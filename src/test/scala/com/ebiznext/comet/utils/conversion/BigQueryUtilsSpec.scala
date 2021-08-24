@@ -3,7 +3,7 @@ package com.ebiznext.comet.utils.conversion
 import com.ebiznext.comet.TestHelper
 import com.ebiznext.comet.config.SparkEnv
 import com.ebiznext.comet.schema.handlers.SchemaHandler
-import com.google.cloud.bigquery.{Field, StandardSQLTypeName, Schema => BQSchema}
+import com.google.cloud.bigquery.{Field, Schema => BQSchema, StandardSQLTypeName}
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.types._
 

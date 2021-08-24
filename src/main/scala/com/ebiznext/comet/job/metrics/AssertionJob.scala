@@ -30,10 +30,14 @@ case class AssertionReport(
 /** Record assertion execution
   */
 
-/** @param domain        : Domain name
-  * @param schema         : Schema
-  * @param stage          : stage
-  * @param storageHandler : Storage Handler
+/** @param domain
+  *   : Domain name
+  * @param schema
+  *   : Schema
+  * @param stage
+  *   : stage
+  * @param storageHandler
+  *   : Storage Handler
   */
 class AssertionJob(
   domainName: String,

@@ -33,7 +33,8 @@ import scala.util.Try
 
 /** List of globally defined types
   *
-  * @param types : Type list
+  * @param types
+  *   : Type list
   */
 case class Types(types: List[Type]) {
 
@@ -47,9 +48,12 @@ case class Types(types: List[Type]) {
 
 /** Semantic Type
   *
-  * @param name          : Type name
-  * @param pattern       : Pattern use to check that the input data matches the pattern
-  * @param primitiveType : Spark Column Type of the attribute
+  * @param name
+  *   : Type name
+  * @param pattern
+  *   : Pattern use to check that the input data matches the pattern
+  * @param primitiveType
+  *   : Spark Column Type of the attribute
   */
 case class Type(
   name: String,
