@@ -31,14 +31,20 @@ import org.apache.spark.sql.types.{StringType, StructField, StructType}
 
 import scala.util.Try
 
-/** Main class to complex json delimiter separated values file
-  * If your json contains only one level simple attribute aka. kind of dsv but in json format please use SIMPLE_JSON instead. It's way faster
+/** Main class to complex json delimiter separated values file If your json contains only one level
+  * simple attribute aka. kind of dsv but in json format please use SIMPLE_JSON instead. It's way
+  * faster
   *
-  * @param domain         : Input Dataset Domain
-  * @param schema         : Input Dataset Schema
-  * @param types          : List of globally defined types
-  * @param path           : Input dataset path
-  * @param storageHandler : Storage Handler
+  * @param domain
+  *   : Input Dataset Domain
+  * @param schema
+  *   : Input Dataset Schema
+  * @param types
+  *   : List of globally defined types
+  * @param path
+  *   : Input dataset path
+  * @param storageHandler
+  *   : Storage Handler
   */
 class JsonIngestionJob(
   val domain: Domain,
@@ -70,7 +76,8 @@ class JsonIngestionJob(
 
   /** load the json as an RDD of String
     *
-    * @return Spark Dataframe loaded using metadata options
+    * @return
+    *   Spark Dataframe loaded using metadata options
     */
   protected def loadDataSet(): Try[DataFrame] = {
 
@@ -90,7 +97,8 @@ class JsonIngestionJob(
 
   /** Where the magic happen
     *
-    * @param dataset input dataset as a RDD of string
+    * @param dataset
+    *   input dataset as a RDD of string
     */
   protected def ingest(dataset: DataFrame): (RDD[_], RDD[_]) = {
     val rdd: RDD[Row] = dataset.rdd

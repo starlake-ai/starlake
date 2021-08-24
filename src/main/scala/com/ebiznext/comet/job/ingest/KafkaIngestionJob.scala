@@ -32,11 +32,16 @@ import scala.util.{Failure, Try}
 
 /** Main class to ingest JSON messages from Kafka
   *
-  * @param domain         : Output Dataset Domain
-  * @param schema         : Topic Name
-  * @param types          : List of globally defined types
-  * @param path           : Unused
-  * @param storageHandler : Storage Handler
+  * @param domain
+  *   : Output Dataset Domain
+  * @param schema
+  *   : Topic Name
+  * @param types
+  *   : List of globally defined types
+  * @param path
+  *   : Unused
+  * @param storageHandler
+  *   : Storage Handler
   */
 class KafkaIngestionJob(
   domain: Domain,
@@ -54,10 +59,11 @@ class KafkaIngestionJob(
 
   private val topicConfig: Settings.KafkaTopicConfig = settings.comet.kafka.topics(schema.name)
 
-  /** Load dataset using spark csv reader and all metadata. Does not infer schema.
-    * columns not defined in the schema are dropped fro the dataset (require datsets with a header)
+  /** Load dataset using spark csv reader and all metadata. Does not infer schema. columns not
+    * defined in the schema are dropped fro the dataset (require datsets with a header)
     *
-    * @return Spark DataFrame where each row holds a single string
+    * @return
+    *   Spark DataFrame where each row holds a single string
     */
   override protected def loadJsonData(): Dataset[String] = {
     val dfIn = metadata.mode match {

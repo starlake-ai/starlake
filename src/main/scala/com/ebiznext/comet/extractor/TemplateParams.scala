@@ -7,13 +7,20 @@ import com.ebiznext.comet.schema.model.{Domain, PrivacyLevel, Schema, WriteMode}
 import com.ebiznext.comet.utils.Formatter._
 
 /** Params for the script's mustache template
-  * @param tableToExport table to export
-  * @param columnsToExport cols to export
-  * @param fullExport if table is going to be fully or delta exported
-  * @param deltaColumn if delta exported, which is the col holding the date of last update
-  * @param dsvDelimiter export result dsv delimiter
-  * @param exportOutputFileBase export dsv file base name (will be completed by current datetime when executed)
-  * @param scriptOutputFile where the script is produced
+  * @param tableToExport
+  *   table to export
+  * @param columnsToExport
+  *   cols to export
+  * @param fullExport
+  *   if table is going to be fully or delta exported
+  * @param deltaColumn
+  *   if delta exported, which is the col holding the date of last update
+  * @param dsvDelimiter
+  *   export result dsv delimiter
+  * @param exportOutputFileBase
+  *   export dsv file base name (will be completed by current datetime when executed)
+  * @param scriptOutputFile
+  *   where the script is produced
   */
 case class TemplateParams(
   domainToExport: String,
@@ -82,11 +89,15 @@ object TemplateParams {
 
   /** Generating all the TemplateParams, corresponding to all the schema's tables of the domain
     *
-    * @param domain               The domain
-    * @param scriptsOutputFolder  Where the scripts are produced
-    * @param defaultDeltaColumn   The default delta column to use
-    * @param deltaColumns         A table name -> delta column to use mapping (if needing a special delta column for a given table).
-    *                             Has precedence over `defaultDeltaColumn`.
+    * @param domain
+    *   The domain
+    * @param scriptsOutputFolder
+    *   Where the scripts are produced
+    * @param defaultDeltaColumn
+    *   The default delta column to use
+    * @param deltaColumns
+    *   A table name -> delta column to use mapping (if needing a special delta column for a given
+    *   table). Has precedence over `defaultDeltaColumn`.
     * @return
     */
   def fromDomain(
@@ -106,11 +117,16 @@ object TemplateParams {
       )
     )
 
-  /** Generate scripts template parameters, extracting the tables and the columns described in the schema
-    * @param schema The schema used to generate the scripts parameters
-    * @param scriptsOutputFolder  Where the scripts are produced
-    * @param deltaColumn   The delta column to use for that table
-    * @return The corresponding TemplateParams
+  /** Generate scripts template parameters, extracting the tables and the columns described in the
+    * schema
+    * @param schema
+    *   The schema used to generate the scripts parameters
+    * @param scriptsOutputFolder
+    *   Where the scripts are produced
+    * @param deltaColumn
+    *   The delta column to use for that table
+    * @return
+    *   The corresponding TemplateParams
     */
   def fromSchema(
     domainName: String,

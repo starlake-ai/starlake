@@ -27,7 +27,8 @@ import com.fasterxml.jackson.databind.{DeserializationContext, JsonDeserializer}
 
 /** Big versus Fast data ingestion. Are we ingesting a file or a message stream ?
   *
-  * @param value : FILE or STREAM
+  * @param value
+  *   : FILE or STREAM
   */
 @JsonSerialize(using = classOf[ToStringSerializer])
 @JsonDeserialize(using = classOf[StageDeserializer])

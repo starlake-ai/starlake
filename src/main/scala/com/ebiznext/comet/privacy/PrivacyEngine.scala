@@ -50,14 +50,17 @@ object PrivacyEngine {
 
 trait PrivacyEngine {
 
-  /** @param s: String  => Input string to encrypt
-    * @param colMap : Map[String, Option[String]] => Map of all the attributes and their corresponding values
-    * @param params: List[Any]  => Parameters passed to the algorithm as defined in the conf file.
-    *                               Parameter starting with '"' is converted to a string
-    *                               Parameter containing a '.' is converted to a double
-    *                               Parameter equals to true of false is converted a boolean
-    *                               Anything else is converted to an int
-    * @return The encrypted string
+  /** @param s:
+    *   String => Input string to encrypt
+    * @param colMap
+    *   : Map[String, Option[String]] => Map of all the attributes and their corresponding values
+    * @param params:
+    *   List[Any] => Parameters passed to the algorithm as defined in the conf file. Parameter
+    *   starting with '"' is converted to a string Parameter containing a '.' is converted to a
+    *   double Parameter equals to true of false is converted a boolean Anything else is converted
+    *   to an int
+    * @return
+    *   The encrypted string
     */
   def crypt(s: String, colMap: => Map[String, Option[String]], params: List[Any]): String
 }

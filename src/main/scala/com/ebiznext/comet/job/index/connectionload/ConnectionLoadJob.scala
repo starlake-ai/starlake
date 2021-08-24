@@ -46,7 +46,8 @@ class ConnectionLoadJob(
 
   /** Just to force any spark job to implement its entry point using within the "run" method
     *
-    * @return : Spark Session used for the job
+    * @return
+    *   : Spark Session used for the job
     */
   override def run(): Try[JobResult] = {
     val res = runJDBC()

@@ -30,7 +30,8 @@ import com.fasterxml.jackson.databind.{
 }
 
 /** Big versus Fast data ingestion. Are we ingesting a file or a message stream ?
-  * @param value : FILE or STREAM
+  * @param value
+  *   : FILE or STREAM
   */
 @JsonSerialize(using = classOf[ModeSerializer])
 @JsonDeserialize(using = classOf[ModeDeserializer])

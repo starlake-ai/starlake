@@ -25,9 +25,10 @@ import com.fasterxml.jackson.databind.annotation.{JsonDeserialize, JsonSerialize
 import com.fasterxml.jackson.databind.ser.std.ToStringSerializer
 import com.fasterxml.jackson.databind.{DeserializationContext, JsonDeserializer}
 
-/** This attribute property let us know what statistics should be computed for this field
-  * when analyze is active.
-  * @param value : DISCRETE or CONTINUOUS or TEXT or NONE
+/** This attribute property let us know what statistics should be computed for this field when
+  * analyze is active.
+  * @param value
+  *   : DISCRETE or CONTINUOUS or TEXT or NONE
   */
 @JsonSerialize(using = classOf[ToStringSerializer])
 @JsonDeserialize(using = classOf[MetricTypeDeserializer])

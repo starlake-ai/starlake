@@ -35,9 +35,10 @@ import com.ebiznext.comet.utils.Formatter._
 
 import java.util.regex.Pattern
 
-/** Handles access to datasets metadata,  eq. domains / types / schemas.
+/** Handles access to datasets metadata, eq. domains / types / schemas.
   *
-  * @param storage : Underlying filesystem manager
+  * @param storage
+  *   : Underlying filesystem manager
   */
 class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extends StrictLogging {
 
@@ -67,24 +68,23 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     }
   }
 
-  /** All defined types.
-    * Load all default types defined in the file default.comet.yml
-    * Types are located in the only file "types.comet.yml"
-    * Types redefined in the file "types.comet.yml" supersede the ones in "default.comet.yml"
+  def loadTypes(filename: String): List[Type] = {
+    val deprecatedTypesPath = new Path(DatasetArea.types, filename + ".yml")
+    val typesCometPath = new Path(DatasetArea.types, filename + ".comet.yml")
+    if (storage.exists(typesCometPath))
+      mapper.readValue(storage.read(typesCometPath), classOf[Types]).types
+    else if (storage.exists(deprecatedTypesPath))
+      mapper.readValue(storage.read(deprecatedTypesPath), classOf[Types]).types
+    else
+      List.empty[Type]
+  }
+
+  /** All defined types. Load all default types defined in the file default.comet.yml Types are
+    * located in the only file "types.comet.yml" Types redefined in the file "types.comet.yml"
+    * supersede the ones in "default.comet.yml"
     */
   @throws[Exception]
   lazy val types: List[Type] = {
-    def loadTypes(filename: String): List[Type] = {
-      val deprecatedTypesPath = new Path(DatasetArea.types, filename + ".yml")
-      val typesCometPath = new Path(DatasetArea.types, filename + ".comet.yml")
-      if (storage.exists(typesCometPath))
-        mapper.readValue(storage.read(typesCometPath), classOf[Types]).types
-      else if (storage.exists(deprecatedTypesPath))
-        mapper.readValue(storage.read(deprecatedTypesPath), classOf[Types]).types
-      else
-        List.empty[Type]
-    }
-
     val defaultTypes = loadTypes("default")
     val types = loadTypes("types")
 
@@ -94,20 +94,21 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     defaultTypes.filter(defaultType => !redefinedTypeNames.contains(defaultType.name)) ++ types
   }
 
+  def loadAssertions(filename: String): Map[String, AssertionDefinition] = {
+    val assertionsPath = new Path(DatasetArea.assertions, filename)
+    logger.info(s"Loading assertions $assertionsPath")
+    if (storage.exists(assertionsPath)) {
+      val content = storage.read(assertionsPath)
+      logger.info(s"reading content $content")
+      mapper
+        .readValue(content, classOf[AssertionDefinitions])
+        .assertionDefinitions
+    } else
+      Map.empty[String, AssertionDefinition]
+  }
+
   @throws[Exception]
   def assertions(name: String): Map[String, AssertionDefinition] = {
-    def loadAssertions(filename: String): Map[String, AssertionDefinition] = {
-      val assertionsPath = new Path(DatasetArea.assertions, filename)
-      logger.info(s"Loading assertions $assertionsPath")
-      if (storage.exists(assertionsPath)) {
-        val content = storage.read(assertionsPath)
-        logger.info(s"reading content $content")
-        mapper
-          .readValue(content, classOf[AssertionDefinitions])
-          .assertionDefinitions
-      } else
-        Map.empty[String, AssertionDefinition]
-    }
 
     val defaultAssertions = loadAssertions("default.comet.yml")
     val assertions = loadAssertions("assertions.comet.yml")
@@ -116,18 +117,19 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     defaultAssertions ++ assertions ++ resAssertions
   }
 
-  def views(name: String): Views = {
-    def loadViews(path: String): Views = {
-      val viewsPath = DatasetArea.views(path)
-      if (storage.exists(viewsPath)) {
-        val rootNode = mapper.readTree(storage.read(viewsPath))
-        if (rootNode.path("views").isMissingNode)
-          throw new Exception(s"Root node views missing in file $path")
-        mapper.treeToValue(rootNode, classOf[Views])
-      } else {
-        Views()
-      }
+  def loadViews(path: String): Views = {
+    val viewsPath = DatasetArea.views(path)
+    if (storage.exists(viewsPath)) {
+      val rootNode = mapper.readTree(storage.read(viewsPath))
+      if (rootNode.path("views").isMissingNode)
+        throw new Exception(s"Root node views missing in file $path")
+      mapper.treeToValue(rootNode, classOf[Views])
+    } else {
+      Views()
     }
+  }
+
+  def views(name: String): Views = {
 
     Views.merge(
       ("default.comet.yml" :: "views.comet.yml" :: (name + ".comet.yml") :: Nil).map(loadViews)
@@ -136,7 +138,7 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
 
   @throws[Exception]
   lazy val activeEnv: Map[String, String] = {
-    def loadEnv(path: Path) =
+    def loadEnv(path: Path): Map[String, String] =
       if (storage.exists(path))
         mapper.readValue(storage.read(path), classOf[Env]).env
       else
@@ -150,15 +152,16 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
 
   /** Fnd type by name
     *
-    * @param tpe : Type name
-    * @return Unique type referenced by this name.
+    * @param tpe
+    *   : Type name
+    * @return
+    *   Unique type referenced by this name.
     */
   def getType(tpe: String): Option[Type] = {
     types.find(_.name == tpe)
   }
 
-  /** All defined domains
-    * Domains are defined under the "domains" folder in the metadata folder
+  /** All defined domains Domains are defined under the "domains" folder in the metadata folder
     */
   @throws[Exception]
   lazy val domains: List[Domain] = {
@@ -191,7 +194,7 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
                 )
               }
               .flatMap(_.schemas)
-            Success(domain.copy(schemas = domain.schemas ::: schemaRefs))
+            Success(domain.copy(schemas = Option(domain.schemas).getOrElse(Nil) ::: schemaRefs))
           case Failure(e) =>
             Failure(e)
         }
@@ -277,8 +280,10 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
   }
 
   /** To be deprecated soon
-    * @param path : JOb path
-    * @param jobDesc : job desc
+    * @param path
+    *   : JOb path
+    * @param jobDesc
+    *   : job desc
     * @return
     */
   private def finalDomainOrJobName(path: Path, name: String) = {
@@ -293,8 +298,7 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     }
   }
 
-  /** All defined jobs
-    * Jobs are defined under the "jobs" folder in the metadata folder
+  /** All defined jobs Jobs are defined under the "jobs" folder in the metadata folder
     */
   @throws[Exception]
   lazy val jobs: Map[String, AutoJobDesc] = {
@@ -322,8 +326,10 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
 
   /** Find domain by name
     *
-    * @param name : Domain name
-    * @return Unique Domain referenced by this name.
+    * @param name
+    *   : Domain name
+    * @return
+    *   Unique Domain referenced by this name.
     */
   def getDomain(name: String): Option[Domain] = {
     domains.find(_.name == name)
@@ -331,8 +337,10 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
 
   /** Return all schemas for a domain
     *
-    * @param domain : Domain name
-    * @return List of schemas for a domain, empty list if no schema or domain is found
+    * @param domain
+    *   : Domain name
+    * @return
+    *   List of schemas for a domain, empty list if no schema or domain is found
     */
   def getSchemas(domain: String): List[Schema] = {
     getDomain(domain).map(_.schemas).getOrElse(Nil)
@@ -340,9 +348,12 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
 
   /** Get schema by name for a domain
     *
-    * @param domainName : Domain name
-    * @param schemaName : Sceham name
-    * @return Unique Schema with this name for a domain
+    * @param domainName
+    *   : Domain name
+    * @param schemaName
+    *   : Sceham name
+    * @return
+    *   Unique Schema with this name for a domain
     */
   def getSchema(domainName: String, schemaName: String): Option[Schema] = {
     for {

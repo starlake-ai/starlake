@@ -33,20 +33,34 @@ import com.ebiznext.comet.utils.DataTypeEx._
 
 /** A field in the schema. For struct fields, the field "attributes" contains all sub attributes
   *
-  * @param name       : Attribute name as defined in the source dataset and as received in the file
-  * @param `type`     : semantic type of the attribute.
-  * @param array      : Is it an array ?
-  * @param required   : Should this attribute always be present in the source
-  * @param privacy    : Should this attribute be applied a privacy transformation at ingestion time
-  * @param comment    : free text for attribute description
-  * @param rename     : If present, the attribute is renamed with this name
-  * @param metricType : If present, what kind of stat should be computed for this field
-  * @param attributes : List of sub-attributes (valid for JSON and XML files only)
-  * @param position   : Valid only when file format is POSITION
-  * @param default    : Default value for this attribute when it is not present.
-  * @param tags       : Tags associated with this attribute
-  * @param trim       : Should we trim the attribute value ?
-  * @param script     : Scripted field : SQL request on renamed column
+  * @param name
+  *   : Attribute name as defined in the source dataset and as received in the file
+  * @param `type`
+  *   : semantic type of the attribute.
+  * @param array
+  *   : Is it an array ?
+  * @param required
+  *   : Should this attribute always be present in the source
+  * @param privacy
+  *   : Should this attribute be applied a privacy transformation at ingestion time
+  * @param comment
+  *   : free text for attribute description
+  * @param rename
+  *   : If present, the attribute is renamed with this name
+  * @param metricType
+  *   : If present, what kind of stat should be computed for this field
+  * @param attributes
+  *   : List of sub-attributes (valid for JSON and XML files only)
+  * @param position
+  *   : Valid only when file format is POSITION
+  * @param default
+  *   : Default value for this attribute when it is not present.
+  * @param tags
+  *   : Tags associated with this attribute
+  * @param trim
+  *   : Should we trim the attribute value ?
+  * @param script
+  *   : Scripted field : SQL request on renamed column
   */
 case class Attribute(
   name: String,
@@ -71,13 +85,13 @@ case class Attribute(
     // we pretend the "settings" field does not exist
     s"Attribute(${name},${`type`},${array},${required},${getPrivacy()},${comment},${rename},${metricType},${attributes},${position},${default},${tags})"
 
-  /** Check attribute validity
-    * An attribute is valid if :
-    *     - Its name is a valid identifier
-    *     - its type is defined
-    *     - When a privacy function is defined its primitive type is a string
+  /** Check attribute validity An attribute is valid if :
+    *   - Its name is a valid identifier
+    *   - its type is defined
+    *   - When a privacy function is defined its primitive type is a string
     *
-    * @return true if attribute is valid
+    * @return
+    *   true if attribute is valid
     */
   def checkValidity(schemaHandler: SchemaHandler): Either[List[String], Boolean] = {
     val errorList: mutable.MutableList[String] = mutable.MutableList.empty
@@ -141,7 +155,8 @@ case class Attribute(
 
   /** Spark Type if this attribute is a primitive type of array of primitive type
     *
-    * @return Primitive type if attribute is a leaf node or array of primitive type, None otherwise
+    * @return
+    *   Primitive type if attribute is a leaf node or array of primitive type, None otherwise
     */
   def primitiveSparkType(schemaHandler: SchemaHandler): DataType = {
     tpe(schemaHandler)
@@ -157,7 +172,8 @@ case class Attribute(
 
   /** Go get recursively the Spark tree type of this object
     *
-    * @return Spark type of this attribute
+    * @return
+    *   Spark type of this attribute
     */
   def sparkType(schemaHandler: SchemaHandler): DataType = {
     val tpe = primitiveSparkType(schemaHandler)
@@ -229,7 +245,8 @@ case class Attribute(
     }
   }
 
-  /** @return renamed column if defined, source name otherwise
+  /** @return
+    *   renamed column if defined, source name otherwise
     */
   @JsonIgnore
   def getFinalName(): String = rename.getOrElse(name)

@@ -33,12 +33,18 @@ import scala.util.Try
 
 /** Main class to ingest delimiter separated values file
   *
-  * @param domain         : Input Dataset Domain
-  * @param schema         : Input Dataset Schema
-  * @param types          : List of globally defined types
-  * @param path           : Input dataset path
-  * @param storageHandler : Storage Handler
-  * @param options : Parameters to pass as input (k1=v1,k2=v2,k3=v3)
+  * @param domain
+  *   : Input Dataset Domain
+  * @param schema
+  *   : Input Dataset Schema
+  * @param types
+  *   : List of globally defined types
+  * @param path
+  *   : Input dataset path
+  * @param storageHandler
+  *   : Storage Handler
+  * @param options
+  *   : Parameters to pass as input (k1=v1,k2=v2,k3=v3)
   */
 class DsvIngestionJob(
   val domain: Domain,
@@ -51,7 +57,8 @@ class DsvIngestionJob(
 )(implicit val settings: Settings)
     extends IngestionJob {
 
-  /** @return Spark Job name
+  /** @return
+    *   Spark Job name
     */
   override def name: String =
     s"""${domain.name}-${schema.name}-${path.headOption.map(_.getName).mkString(",")}"""
@@ -62,23 +69,31 @@ class DsvIngestionJob(
 
   /** remove any extra quote / BOM in the header
     *
-    * @param header : Header column name
+    * @param header
+    *   : Header column name
     * @return
     */
   private def cleanHeaderCol(header: String): String =
     header.replaceAll("\"", "").replaceAll("\uFEFF", "")
 
-  /** @param datasetHeaders : Headers found in the dataset
-    * @param schemaHeaders  : Headers defined in the schema
-    * @return success  if all headers in the schema exist in the dataset
+  /** @param datasetHeaders
+    *   : Headers found in the dataset
+    * @param schemaHeaders
+    *   : Headers defined in the schema
+    * @return
+    *   success if all headers in the schema exist in the dataset
     */
   private def validateHeader(datasetHeaders: List[String], schemaHeaders: List[String]): Boolean = {
     schemaHeaders.forall(schemaHeader => datasetHeaders.contains(schemaHeader))
   }
 
-  /** @param datasetHeaders : Headers found in the dataset
-    * @param schemaHeaders  : Headers defined in the schema
-    * @return two lists : One with thecolumns present in the schema and the dataset and onther with the headers present in the dataset only
+  /** @param datasetHeaders
+    *   : Headers found in the dataset
+    * @param schemaHeaders
+    *   : Headers defined in the schema
+    * @return
+    *   two lists : One with thecolumns present in the schema and the dataset and onther with the
+    *   headers present in the dataset only
     */
   private def intersectHeaders(
     datasetHeaders: List[String],
@@ -87,10 +102,11 @@ class DsvIngestionJob(
     datasetHeaders.partition(schemaHeaders.contains)
   }
 
-  /** Load dataset using spark csv reader and all metadata. Does not infer schema.
-    * columns not defined in the schema are dropped fro the dataset (require datsets with a header)
+  /** Load dataset using spark csv reader and all metadata. Does not infer schema. columns not
+    * defined in the schema are dropped fro the dataset (require datsets with a header)
     *
-    * @return Spark Dataset
+    * @return
+    *   Spark Dataset
     */
   protected def loadDataSet(): Try[DataFrame] = {
     Try {
@@ -162,10 +178,11 @@ class DsvIngestionJob(
     }
   }
 
-  /** Apply the schema to the dataset. This is where all the magic happen
-    * Valid records are stored in the accepted path / table and invalid records in the rejected path / table
+  /** Apply the schema to the dataset. This is where all the magic happen Valid records are stored
+    * in the accepted path / table and invalid records in the rejected path / table
     *
-    * @param dataset : Spark Dataset
+    * @param dataset
+    *   : Spark Dataset
     */
   protected def ingest(dataset: DataFrame): (RDD[_], RDD[_]) = {
 

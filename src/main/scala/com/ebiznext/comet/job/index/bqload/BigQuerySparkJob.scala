@@ -9,11 +9,11 @@ import com.google.cloud.bigquery.{
   BigQueryOptions,
   Clustering,
   JobInfo,
+  Schema => BQSchema,
   StandardTableDefinition,
   Table,
   TableId,
-  TableInfo,
-  Schema => BQSchema
+  TableInfo
 }
 import com.google.cloud.hadoop.io.bigquery.BigQueryConfiguration
 import org.apache.hadoop.conf.Configuration
@@ -231,7 +231,8 @@ class BigQuerySparkJob(
 
   /** Just to force any spark job to implement its entry point within the "run" method
     *
-    * @return : Spark Session used for the job
+    * @return
+    *   : Spark Session used for the job
     */
   override def run(): Try[JobResult] = {
     val res = runSparkConnector()

@@ -50,12 +50,11 @@ import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.StrictLogging
 
 /** The root of all things.
-  *  - importing from landing
-  *  - submitting requests to the cron manager
-  *  - ingesting the datasets
-  *  - running an auto job
-  * All these things are launched from here.
-  * See printUsage below to understand the CLI syntax.
+  *   - importing from landing
+  *   - submitting requests to the cron manager
+  *   - ingesting the datasets
+  *   - running an auto job All these things are launched from here. See printUsage below to
+  *     understand the CLI syntax.
   */
 object Main extends StrictLogging {
   // uses Jackson YAML to parsing, relies on SnakeYAML for low level handling
@@ -85,22 +84,24 @@ object Main extends StrictLogging {
     // scalastyle:on println
   }
 
-  /** @param args depends on the action required
-    *             to run a job:
-    *   - call "comet job jobname" where jobname is the name of the job
-    *             as defined in one of the definition files present in the metadata/jobs folder.
-    *             to import files from a local file system
-    *   - call "comet import", this will move files in the landing area to the pending area
-    *             to watch for files wiating to be processed
-    *   - call"comet watch [{+|–}domain1,domain2,domain3]" with a optional domain list separated by a ','.
-    *             When called without any domain, will watch for all domain folders in the landing area
-    *             When called with a '+' sign, will look only for this domain folders in the landing area
-    *             When called with a '-' sign, will look for all domain folder in the landing area except the ones in the command lines.
-    *   - call "comet ingest domain schema hdfs://datasets/domain/pending/file.dsv"
-    *             to ingest a file defined by its schema in the specified domain
-    *   -call "comet infer-schema --domain domainName --schema schemaName --input datasetpath --output outputPath --with-header boolean
-    *   - call "comet metrics --domain domain-name --schema schema-name "
-    *             to compute all metrics on specific schema in a specific domain
+  /** @param args
+    *   depends on the action required to run a job:
+    *   - call "comet job jobname" where jobname is the name of the job as defined in one of the
+    *     definition files present in the metadata/jobs folder. to import files from a local file
+    *     system
+    *   - call "comet import", this will move files in the landing area to the pending area to watch
+    *     for files wiating to be processed
+    *   - call"comet watch [{+|–}domain1,domain2,domain3]" with a optional domain list separated by
+    *     a ','. When called without any domain, will watch for all domain folders in the landing
+    *     area When called with a '+' sign, will look only for this domain folders in the landing
+    *     area When called with a '-' sign, will look for all domain folder in the landing area
+    *     except the ones in the command lines.
+    *   - call "comet ingest domain schema hdfs://datasets/domain/pending/file.dsv" to ingest a file
+    *     defined by its schema in the specified domain
+    * -call "comet infer-schema --domain domainName --schema schemaName --input datasetpath --output
+    * outputPath --with-header boolean
+    *   - call "comet metrics --domain domain-name --schema schema-name " to compute all metrics on
+    *     specific schema in a specific domain
     */
   def main(args: Array[String]): Unit = {
     implicit val settings: Settings = Settings(ConfigFactory.load())

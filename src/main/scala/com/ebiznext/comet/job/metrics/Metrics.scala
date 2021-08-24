@@ -39,8 +39,10 @@ object Metrics extends StrictLogging {
 
   /** Case class ContinuousMetric with all corresponding Metrics
     *
-    * @param name     : the name of the variable
-    * @param function : the metric function
+    * @param name
+    *   : the name of the variable
+    * @param function
+    *   : the metric function
     */
   case class ContinuousMetric(name: String, function: Column => Column)
 
@@ -88,12 +90,16 @@ object Metrics extends StrictLogging {
     Percentile75
   )
 
-  /** Customize function metric in the case continuous variabes used for :  mean, variance and stddev
+  /** Customize function metric in the case continuous variabes used for : mean, variance and stddev
     *
-    * @param e              : the column
-    * @param metricName     : the name of the metric
-    * @param metricFunction : the metric function
-    * @return : the computed value of the function
+    * @param e
+    *   : the column
+    * @param metricName
+    *   : the name of the metric
+    * @param metricFunction
+    *   : the metric function
+    * @return
+    *   : the computed value of the function
     */
 
   def customMetric(e: Column, metricName: String, metricFunction: Column => Column): Column = {
@@ -103,8 +109,10 @@ object Metrics extends StrictLogging {
 
   /** Customize mean of the column e
     *
-    * @param e : the column
-    * @return Integer : the computed  value of the mean
+    * @param e
+    *   : the column
+    * @return
+    *   Integer : the computed value of the mean
     */
 
   def customMean(e: Column): Column = {
@@ -113,8 +121,10 @@ object Metrics extends StrictLogging {
 
   /** Customize variance of the column e
     *
-    * @param e : the name of the column
-    * @return Integer : the computed value of the variance
+    * @param e
+    *   : the name of the column
+    * @return
+    *   Integer : the computed value of the variance
     */
 
   def customVariance(e: Column): Column = {
@@ -123,21 +133,29 @@ object Metrics extends StrictLogging {
 
   /** Customize Stddev of the column e
     *
-    * @param e : the name of the column
-    * @return Integer : the computed value of the Stddev
+    * @param e
+    *   : the name of the column
+    * @return
+    *   Integer : the computed value of the Stddev
     */
 
   def customStddev(e: Column): Column = {
     customMetric(e: Column, "standardDev", stddev)
   }
 
-  /** Customize function metric in the case continuous variabes used for : percentile 25, median and percentile75
+  /** Customize function metric in the case continuous variabes used for : percentile 25, median and
+    * percentile75
     *
-    * @param e              : the column
-    * @param metricName     : the name of the metric
-    * @param metricFunction : the metric function
-    * @param approxMethod   : the approximation method
-    * @param approxValue    : the value to pass to stat_method
+    * @param e
+    *   : the column
+    * @param metricName
+    *   : the name of the metric
+    * @param metricFunction
+    *   : the metric function
+    * @param approxMethod
+    *   : the approximation method
+    * @param approxValue
+    *   : the value to pass to stat_method
     * @return
     */
   def customMetricUDF(
@@ -154,8 +172,10 @@ object Metrics extends StrictLogging {
 
   /** Customize percentile of order 0.25 of the column e
     *
-    * @param e : the column
-    * @return Integer : the computed value of the percentile of order 0.25
+    * @param e
+    *   : the column
+    * @return
+    *   Integer : the computed value of the percentile of order 0.25
     */
 
   def percentile25(e: Column): Column = {
@@ -164,8 +184,10 @@ object Metrics extends StrictLogging {
 
   /** Customize Median of the column e
     *
-    * @param e : the column
-    * @return Integer : the computed value of the Median
+    * @param e
+    *   : the column
+    * @return
+    *   Integer : the computed value of the Median
     */
 
   def customMedian(e: Column): Column = {
@@ -174,8 +196,10 @@ object Metrics extends StrictLogging {
 
   /** Customize percentile of order 0.75 of the column e
     *
-    * @param e : the column
-    * @return Integer : the computed value of the percentile of order 0.75
+    * @param e
+    *   : the column
+    * @return
+    *   Integer : the computed value of the percentile of order 0.75
     */
 
   def percentile75(e: Column): Column = {
@@ -184,8 +208,10 @@ object Metrics extends StrictLogging {
 
   /** Customize missing values
     *
-    * @param e : the column
-    * @return Integer : the number of missing values, NaN  values and null values
+    * @param e
+    *   : the column
+    * @return
+    *   Integer : the number of missing values, NaN values and null values
     */
   def customCountMissValues(e: Column): Column = {
     val nameCol = e.toString()
@@ -202,9 +228,12 @@ object Metrics extends StrictLogging {
 
   /** Function to regroup and reformat all metrics for a given variable
     *
-    * @param nameCol     : the name of the column.
-    * @param metricFrame : the DataFrame of all the computed metrics for each variable by columns.
-    * @return : the DataFrame metric  associated to the variable (namecol).
+    * @param nameCol
+    *   : the name of the column.
+    * @param metricFrame
+    *   : the DataFrame of all the computed metrics for each variable by columns.
+    * @return
+    *   : the DataFrame metric associated to the variable (namecol).
     */
 
   def regroupContinuousMetricsByVariable(nameCol: String, metricFrame: DataFrame): DataFrame = {
@@ -244,10 +273,14 @@ object Metrics extends StrictLogging {
 
   /** Function to compute the DataFrame metrics by row
     *
-    * @param dataset              : initial DataFrame.
-    * @param continuousAttributes : name list of all variables.
-    * @param operations           : list of metrics you want to calculate.
-    * @return DataFrame : DataFrame metric  of all variables by row.
+    * @param dataset
+    *   : initial DataFrame.
+    * @param continuousAttributes
+    *   : name list of all variables.
+    * @param operations
+    *   : list of metrics you want to calculate.
+    * @return
+    *   DataFrame : DataFrame metric of all variables by row.
     */
 
   def computeContinuousMetric(
@@ -300,9 +333,13 @@ object Metrics extends StrictLogging {
 
   /** Function to compute the Dataframe metric by variable
     *
-    * @param colNamDataCatCountFreq : tuple of column variable and the Dataframe with Category, Count and Frequencies obtain from  categoryCountFreqDataframe()
-    * @param operations             : list of metrics you want to calculate.
-    * @return Dataframe             : with all the values of discrete metrics
+    * @param colNamDataCatCountFreq
+    *   : tuple of column variable and the Dataframe with Category, Count and Frequencies obtain
+    *   from categoryCountFreqDataframe()
+    * @param operations
+    *   : list of metrics you want to calculate.
+    * @return
+    *   Dataframe : with all the values of discrete metrics
     */
 
   def dataToMetricData(
@@ -327,11 +364,15 @@ object Metrics extends StrictLogging {
 
   }
 
-  /** Function to compute the Dataframe with Category, Count and Frequencies obtain from the initial Dataframe
+  /** Function to compute the Dataframe with Category, Count and Frequencies obtain from the initial
+    * Dataframe
     *
-    * @param e        : column of the variable.
-    * @param dataInit : initial DataFrame.
-    * @return (Column, DataFrame) : tuple2 of the column of the variable and the initial Dataframe
+    * @param e
+    *   : column of the variable.
+    * @param dataInit
+    *   : initial DataFrame.
+    * @return
+    *   (Column, DataFrame) : tuple2 of the column of the variable and the initial Dataframe
     */
 
   def categoryCountFreqDataframe(e: Column, dataInit: DataFrame): (Column, DataFrame) = {
@@ -358,8 +399,10 @@ object Metrics extends StrictLogging {
 
   /** Function to extract the column that contains the list of category
     *
-    * @param dataCategoryCount : the data frame obtain from categoryCountFreqDataframe()
-    * @return Column : of that contain the list of category values
+    * @param dataCategoryCount
+    *   : the data frame obtain from categoryCountFreqDataframe()
+    * @return
+    *   Column : of that contain the list of category values
     */
 
   def metricCategory(dataCategoryCount: DataFrame): Column = {
@@ -368,8 +411,10 @@ object Metrics extends StrictLogging {
 
   /** Function to extract the column that contains the list of CountDiscret
     *
-    * @param dataCategoryCount : the data frame obtain from categoryCountFreqDataframe()
-    * @return Column : of that contain the list of CountDiscrete values
+    * @param dataCategoryCount
+    *   : the data frame obtain from categoryCountFreqDataframe()
+    * @return
+    *   Column : of that contain the list of CountDiscrete values
     */
 
   def metricCountDiscret(dataCategoryCount: DataFrame): Column = {
@@ -378,8 +423,10 @@ object Metrics extends StrictLogging {
 
   /** Function to extract the column that contains the list of frequencies
     *
-    * @param dataCategoryCount : the data frame obtain from categoryCountFreqDataframe()
-    * @return Column : of that contain the list of frequencies values
+    * @param dataCategoryCount
+    *   : the data frame obtain from categoryCountFreqDataframe()
+    * @return
+    *   Column : of that contain the list of frequencies values
     */
 
   def metricFrequency(dataCategoryCount: DataFrame): Column = {
@@ -388,8 +435,10 @@ object Metrics extends StrictLogging {
 
   /** Function to extract the column that contains the list of CountDistinct
     *
-    * @param dataCategoryCount : the data frame obtain from categoryCountFreqDataframe()
-    * @return Column : of that contain the list of CountDistinct values
+    * @param dataCategoryCount
+    *   : the data frame obtain from categoryCountFreqDataframe()
+    * @return
+    *   Column : of that contain the list of CountDistinct values
     */
 
   def metricCountDistinct(dataCategoryCount: DataFrame): Column = {
@@ -407,8 +456,10 @@ object Metrics extends StrictLogging {
 
   /** Function to extract the column that contains the list of number of Missing values
     *
-    * @param dataCategoryCount : the data frame obtain from categoryCountFreqDataframe()
-    * @return Column : of that contain the list of Missing Values values
+    * @param dataCategoryCount
+    *   : the data frame obtain from categoryCountFreqDataframe()
+    * @return
+    *   Column : of that contain the list of Missing Values values
     */
 
   def metricMissingValues(dataCategoryCount: DataFrame): Column = {
@@ -417,11 +468,16 @@ object Metrics extends StrictLogging {
 
   /** Customize Metric Discret for discrete variable
     *
-    * @param e                 : name of the column
-    * @param dataCategoryCount : the dataframe obtain from categoryCountFreqDataframe()
-    * @param metricName        : te metric name
-    * @param metricFunction    : the metric function
-    * @return Column : the computed value of the function
+    * @param e
+    *   : name of the column
+    * @param dataCategoryCount
+    *   : the dataframe obtain from categoryCountFreqDataframe()
+    * @param metricName
+    *   : te metric name
+    * @param metricFunction
+    *   : the metric function
+    * @return
+    *   Column : the computed value of the function
     */
 
   def customMetricDiscret(
@@ -436,8 +492,10 @@ object Metrics extends StrictLogging {
 
   /** Customize Category for discrete variable
     *
-    * @param colNameDataCatCount : couple of name of the variable and the dataframe obtain from categoryCountFreqDataframe()
-    * @return Column : the computed value of the function metricCategory
+    * @param colNameDataCatCount
+    *   : couple of name of the variable and the dataframe obtain from categoryCountFreqDataframe()
+    * @return
+    *   Column : the computed value of the function metricCategory
     */
 
   def customCategory(colNameDataCatCount: (Column, DataFrame)): Column = {
@@ -447,8 +505,10 @@ object Metrics extends StrictLogging {
 
   /** Customize CountDistinct for discrete variable
     *
-    * @param colNameDataCatCount : couple of name of the variable and the dataframe obtain from categoryCountFreqDataframe()
-    * @return Column : the computed value of the function metricCountDistinct
+    * @param colNameDataCatCount
+    *   : couple of name of the variable and the dataframe obtain from categoryCountFreqDataframe()
+    * @return
+    *   Column : the computed value of the function metricCountDistinct
     */
 
   def customCountDistinct(colNameDataCatCount: (Column, DataFrame)): Column = {
@@ -468,8 +528,10 @@ object Metrics extends StrictLogging {
 
   /** Customize Count Discrete for discrete variable
     *
-    * @param colNameDataCatCount : couple of name of the variable and the dataframe obtain from categoryCountFreqDataframe()
-    * @return Column : the computed value of the function metricCountDiscret
+    * @param colNameDataCatCount
+    *   : couple of name of the variable and the dataframe obtain from categoryCountFreqDataframe()
+    * @return
+    *   Column : the computed value of the function metricCountDiscret
     */
 
   def customCountDiscrete(colNameDataCatCount: (Column, DataFrame)): Column = {
@@ -479,8 +541,10 @@ object Metrics extends StrictLogging {
 
   /** Customize Count Distinct for discrete variable
     *
-    * @param colNameDataCatCount : couple of name of the variable and the dataframe obtain from categoryCountFreqDataframe()
-    * @return Column : the computed value of the function metricCountDistinct
+    * @param colNameDataCatCount
+    *   : couple of name of the variable and the dataframe obtain from categoryCountFreqDataframe()
+    * @return
+    *   Column : the computed value of the function metricCountDistinct
     */
 
   def customFrequencies(colNameDataCatCount: (Column, DataFrame)): Column = {
@@ -490,8 +554,10 @@ object Metrics extends StrictLogging {
 
   /** Customize number of Missing Values for discrete variable
     *
-    * @param colNameDataCatCount : couple of name of the variable and the dataframe obtain from categoryCountFreqDataframe()
-    * @return Column : the computed value of the function metricMissingValues
+    * @param colNameDataCatCount
+    *   : couple of name of the variable and the dataframe obtain from categoryCountFreqDataframe()
+    * @return
+    *   Column : the computed value of the function metricMissingValues
     */
 
   def customCountMissValuesDiscrete(colNameDataCatCount: (Column, DataFrame)): Column = {
@@ -499,12 +565,17 @@ object Metrics extends StrictLogging {
     customMetricDiscret(colVar, dataCatCount, "missingValuesDiscrete", metricMissingValues)
   }
 
-  /** Function to compute and to combine all the partial DataFrame metric by variable (to get one DataFrame by row).
+  /** Function to compute and to combine all the partial DataFrame metric by variable (to get one
+    * DataFrame by row).
     *
-    * @param dataInit   : initial DataFrame.
-    * @param discreteAttrs : name of the variable.
-    * @param operations : list of metrics you want to calculate.
-    * @return DataFrame : DataFrame with alle the metric by variable by row
+    * @param dataInit
+    *   : initial DataFrame.
+    * @param discreteAttrs
+    *   : name of the variable.
+    * @param operations
+    *   : list of metrics you want to calculate.
+    * @return
+    *   DataFrame : DataFrame with alle the metric by variable by row
     */
 
   def computeDiscretMetric(

@@ -34,11 +34,16 @@ import scala.util.Try
 
 /** Main class to ingest delimiter separated values file
   *
-  * @param domain         : Input Dataset Domain
-  * @param schema         : Input Dataset Schema
-  * @param types          : List of globally defined types
-  * @param path           : Input dataset path
-  * @param storageHandler : Storage Handler
+  * @param domain
+  *   : Input Dataset Domain
+  * @param schema
+  *   : Input Dataset Schema
+  * @param types
+  *   : List of globally defined types
+  * @param path
+  *   : Input dataset path
+  * @param storageHandler
+  *   : Storage Handler
   */
 class PositionIngestionJob(
   domain: Domain,
@@ -51,10 +56,11 @@ class PositionIngestionJob(
 )(implicit settings: Settings)
     extends DsvIngestionJob(domain, schema, types, path, storageHandler, schemaHandler, options) {
 
-  /** Load dataset using spark csv reader and all metadata. Does not infer schema.
-    * columns not defined in the schema are dropped fro the dataset (require datsets with a header)
+  /** Load dataset using spark csv reader and all metadata. Does not infer schema. columns not
+    * defined in the schema are dropped fro the dataset (require datsets with a header)
     *
-    * @return Spark DataFrame where each row holds a single string
+    * @return
+    *   Spark DataFrame where each row holds a single string
     */
   override protected def loadDataSet(): Try[DataFrame] = {
     Try {
@@ -79,10 +85,11 @@ class PositionIngestionJob(
     }
   }
 
-  /** Apply the schema to the dataset. This is where all the magic happen
-    * Valid records are stored in the accepted path / table and invalid records in the rejected path / table
+  /** Apply the schema to the dataset. This is where all the magic happen Valid records are stored
+    * in the accepted path / table and invalid records in the rejected path / table
     *
-    * @param input : Spark Dataset
+    * @param input
+    *   : Spark Dataset
     */
   override protected def ingest(input: DataFrame): (RDD[_], RDD[_]) = {
 

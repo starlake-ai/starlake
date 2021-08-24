@@ -372,7 +372,8 @@ trait TestHelper extends AnyFlatSpec with Matchers with BeforeAndAfterAll with S
 
 object TestHelper {
 
-  /** This class manages an interest into having an access to the (effectively global) Test SparkSession
+  /** This class manages an interest into having an access to the (effectively global) Test
+    * SparkSession
     */
   private case class TestSparkSessionInterest() extends AutoCloseable {
     private val closed = new AtomicBoolean(false)
@@ -385,22 +386,25 @@ object TestHelper {
       if (!closed.getAndSet(true)) TestSparkSession.release()
   }
 
-  /** This class manages the lifetime of the SparkSession that is shared among various Suites (instances of TestHelper)
-    * that may be running concurrently.
+  /** This class manages the lifetime of the SparkSession that is shared among various Suites
+    * (instances of TestHelper) that may be running concurrently.
     *
-    * @note certain scenarios (such as single-core test execution) can create a window where no TestSparkSessionInterest()
-    *       instances exist. In which case, SparkSessions will be closed, destroyed and rebuilt for each Suite.
+    * @note
+    *   certain scenarios (such as single-core test execution) can create a window where no
+    *   TestSparkSessionInterest() instances exist. In which case, SparkSessions will be closed,
+    *   destroyed and rebuilt for each Suite.
     */
   private object TestSparkSession extends StrictLogging {
 
-    /** This state machine manages the lifetime of the (effectively global) [[SparkSession]] instance shared between
-      * the Suites that inherit from [[TestHelper]].
+    /** This state machine manages the lifetime of the (effectively global) [[SparkSession]]
+      * instance shared between the Suites that inherit from [[TestHelper]].
       *
       * The allowed transitions allow for:
       *   - registration of interest into having access to the SparkSession
       *   - deferred creation of the SparkSession until there is an actual use
       *   - closure of the SparkSession when there is no longer any expressed interest
-      *   - re-start of a fresh SparkSession in case additional Suites spin up after closure of the SparkSession
+      *   - re-start of a fresh SparkSession in case additional Suites spin up after closure of the
+      *     SparkSession
       */
     sealed abstract class State {
       def references: Int
