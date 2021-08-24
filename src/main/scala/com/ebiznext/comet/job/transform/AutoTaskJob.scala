@@ -226,6 +226,15 @@ case class AutoTaskJob(
   }
 
   def runSpark(): Try[SparkJobResult] = {
+    def bqPushDown(sql: String): (Boolean, String) = {
+      val pushdownPat = "\\s*/\\*\\+\\s*BQ\\s*\\*/.*".r
+      val pushdown = pushdownPat.pattern.matcher(sql).matches()
+      if (pushdown)
+        (true, sql.substring(sql.indexOf("*/")))
+      else
+        (false, sql)
+
+    }
     val start = Timestamp.from(Instant.now())
     val res = Try {
       udf.foreach { udf =>
@@ -237,7 +246,16 @@ case class AutoTaskJob(
 
       preSql.foreach(req => session.sql(req))
       logger.info(s"running sql request $sqlWithParameters")
-      val dataframe = session.sql(sqlWithParameters)
+
+      val dataframe =
+        bqPushDown(sqlWithParameters) match {
+          case (true, sqlWithParameters) =>
+            session.read
+              .format("com.google.cloud.spark.bigquery")
+              .option("query", sqlWithParameters)
+              .load()
+          case (false, sqlWithParameters) => session.sql(sqlWithParameters)
+        }
 
       val targetPath = task.getTargetPath(defaultArea)
       logger.info(s"About to write resulting dataset to $targetPath")
