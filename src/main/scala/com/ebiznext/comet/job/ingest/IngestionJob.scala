@@ -402,7 +402,7 @@ trait IngestionJob extends SparkJob {
   }
 
   private def removeIgnoredAttributes(acceptedDfWithScriptFields: DataFrame) = {
-    val ignoredAttributes = schema.attributes.filter(_.isIgnore()).map(_.name)
+    val ignoredAttributes = schema.attributes.filter(_.isIgnore()).map(_.getFinalName())
     val acceptedDfWithoutIgnoredFields = acceptedDfWithScriptFields.drop(ignoredAttributes: _*)
     acceptedDfWithoutIgnoredFields
   }
