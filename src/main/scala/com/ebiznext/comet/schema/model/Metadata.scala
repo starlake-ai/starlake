@@ -28,35 +28,51 @@ import com.fasterxml.jackson.annotation.JsonIgnore
 
 import scala.collection.mutable
 
-/** Specify Schema properties.
-  * These properties may be specified at the schema or domain level
-  * Any property not specified at the schema level is taken from the
-  * one specified at the domain level or else the default value is returned.
+/** Specify Schema properties. These properties may be specified at the schema or domain level Any
+  * property not specified at the schema level is taken from the one specified at the domain level
+  * or else the default value is returned.
   *
-  * @param mode       : FILE mode by default.
-  *                     FILE and STREAM are the two accepted values.
-  *                     FILE is currently the only supported mode.
-  * @param format     : DSV by default. Supported file formats are :
-  *                   - DSV : Delimiter-separated values file. Delimiter value iss specified in the "separator" field.
-  *                   - POSITION : FIXED format file where values are located at an exact position in each line.
-  *                   - SIMPLE_JSON : For optimisation purpose, we differentiate JSON with top level values from JSON
-  *                     with deep level fields. SIMPLE_JSON are JSON files with top level fields only.
-  *                   - JSON :  Deep JSON file. Use only when your json documents contain subdocuments, otherwise prefer to
-  *                     use SIMPLE_JSON since it is much faster.
-  *                   - XML : XML files
-  * @param encoding   : UTF-8 if not specified.
-  * @param multiline  : are json objects on a single line or multiple line ? Single by default.  false means single. false also means faster
-  * @param array      : Is the json stored as a single object array ? false by default. This means that by default we have on json document per line.
-  * @param withHeader : does the dataset has a header ? true bu default
-  * @param separator  : the values delimiter,  ';' by default value may be a multichar string starting from Spark3
-  * @param quote      : The String quote char, '"' by default
-  * @param escape     : escaping char '\' by default
-  * @param write      : Write mode, APPEND by default
-  * @param partition  : Partition columns, no partitioning by default
-  * @param sink       : should the dataset be indexed in elasticsearch after ingestion ?
-  * @param ignore     : Pattern to ignore or UDF to apply to ignore some lines
-  * @param clustering : List of attributes to use for clustering
-  * @param xml        : com.databricks.spark.xml options to use (eq. rowTag)
+  * @param mode
+  *   : FILE mode by default. FILE and STREAM are the two accepted values. FILE is currently the
+  *   only supported mode.
+  * @param format
+  *   : DSV by default. Supported file formats are :
+  *   - DSV : Delimiter-separated values file. Delimiter value iss specified in the "separator"
+  *     field.
+  *   - POSITION : FIXED format file where values are located at an exact position in each line.
+  *   - SIMPLE_JSON : For optimisation purpose, we differentiate JSON with top level values from
+  *     JSON with deep level fields. SIMPLE_JSON are JSON files with top level fields only.
+  *   - JSON : Deep JSON file. Use only when your json documents contain subdocuments, otherwise
+  *     prefer to use SIMPLE_JSON since it is much faster.
+  *   - XML : XML files
+  * @param encoding
+  *   : UTF-8 if not specified.
+  * @param multiline
+  *   : are json objects on a single line or multiple line ? Single by default. false means single.
+  *   false also means faster
+  * @param array
+  *   : Is the json stored as a single object array ? false by default. This means that by default
+  *   we have on json document per line.
+  * @param withHeader
+  *   : does the dataset has a header ? true bu default
+  * @param separator
+  *   : the values delimiter, ';' by default value may be a multichar string starting from Spark3
+  * @param quote
+  *   : The String quote char, '"' by default
+  * @param escape
+  *   : escaping char '\' by default
+  * @param write
+  *   : Write mode, APPEND by default
+  * @param partition
+  *   : Partition columns, no partitioning by default
+  * @param sink
+  *   : should the dataset be indexed in elasticsearch after ingestion ?
+  * @param ignore
+  *   : Pattern to ignore or UDF to apply to ignore some lines
+  * @param clustering
+  *   : List of attributes to use for clustering
+  * @param xml
+  *   : com.databricks.spark.xml options to use (eq. rowTag)
   */
 case class Metadata(
   mode: Option[Mode] = None,
@@ -123,20 +139,24 @@ case class Metadata(
 
   /** Merge a single attribute
     *
-    * @param parent : Domain level metadata attribute
-    * @param child  : Schema level metadata attribute
-    * @return attribute if merge, the domain attribute otherwise.
+    * @param parent
+    *   : Domain level metadata attribute
+    * @param child
+    *   : Schema level metadata attribute
+    * @return
+    *   attribute if merge, the domain attribute otherwise.
     */
   protected def merge[T](parent: Option[T], child: Option[T]): Option[T] =
     if (child.isDefined) child else parent
 
-  /** Merge this metadata with its child.
-    * Any property defined at the child level overrides the one defined at this level
-    * This allow a schema to override the domain metadata attribute
-    * Applied to a Domain level metadata
+  /** Merge this metadata with its child. Any property defined at the child level overrides the one
+    * defined at this level This allow a schema to override the domain metadata attribute Applied to
+    * a Domain level metadata
     *
-    * @param child : Schema level metadata
-    * @return the metadata resulting of the merge of the schema and the domain metadata.
+    * @param child
+    *   : Schema level metadata
+    * @return
+    *   the metadata resulting of the merge of the schema and the domain metadata.
     */
   def `import`(child: Metadata): Metadata = {
     Metadata(

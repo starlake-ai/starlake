@@ -31,11 +31,12 @@ import org.apache.spark.sql.types.{ArrayType, StructType}
 
 object InferSchemaHandler {
 
-  /** *
-    * Traverses the schema and returns a list of attributes.
+  /** * Traverses the schema and returns a list of attributes.
     *
-    * @param schema Schema so that we find all Attributes
-    * @return List of Attributes
+    * @param schema
+    *   Schema so that we find all Attributes
+    * @return
+    *   List of Attributes
     */
   def createAttributes(
     schema: StructType
@@ -78,13 +79,16 @@ object InferSchemaHandler {
       .toList
   }
 
-  /** *
-    * builds the Metadata case class. check case class metadata for attribute definition
+  /** * builds the Metadata case class. check case class metadata for attribute definition
     *
-    * @param format     : DSV by default
-    * @param array      : Is a json stored as a single object array ? false by default
-    * @param withHeader : does the dataset has a header ? true bu default
-    * @param separator  : the column separator,  ';' by default
+    * @param format
+    *   : DSV by default
+    * @param array
+    *   : Is a json stored as a single object array ? false by default
+    * @param withHeader
+    *   : does the dataset has a header ? true bu default
+    * @param separator
+    *   : the column separator, ';' by default
     * @return
     */
 
@@ -105,13 +109,16 @@ object InferSchemaHandler {
     )
   }
 
-  /** *
-    * builds the Schema case class
+  /** * builds the Schema case class
     *
-    * @param name       : Schema name, must be unique in the domain. Will become the hive table name
-    * @param pattern    : filename pattern to which this schema must be applied
-    * @param attributes : datasets columns
-    * @param metadata   : Dataset metadata
+    * @param name
+    *   : Schema name, must be unique in the domain. Will become the hive table name
+    * @param pattern
+    *   : filename pattern to which this schema must be applied
+    * @param attributes
+    *   : datasets columns
+    * @param metadata
+    *   : Dataset metadata
     * @return
     */
 
@@ -125,14 +132,17 @@ object InferSchemaHandler {
     Schema(name, pattern, attributes, metadata, None, None, None, None)
   }
 
-  /** *
-    * Builds the Domain case class
+  /** * Builds the Domain case class
     *
-    * @param name      : Domain name
-    * @param directory : Folder on the local filesystem where incomping files are stored.
-    *                  This folder will be scanned regurlaly to move the dataset to the cluster
-    * @param metadata  : Default Schema meta data.
-    * @param schemas   : List of schema for each dataset in this domain
+    * @param name
+    *   : Domain name
+    * @param directory
+    *   : Folder on the local filesystem where incomping files are stored. This folder will be
+    *   scanned regurlaly to move the dataset to the cluster
+    * @param metadata
+    *   : Default Schema meta data.
+    * @param schemas
+    *   : List of schema for each dataset in this domain
     * @return
     */
 
@@ -146,11 +156,12 @@ object InferSchemaHandler {
     Domain(name, directory, metadata, None, schemas)
   }
 
-  /** *
-    * Generates the YAML file using the domain object and a savepath
+  /** * Generates the YAML file using the domain object and a savepath
     *
-    * @param domain   Domain case class
-    * @param savePath path to save files.
+    * @param domain
+    *   Domain case class
+    * @param savePath
+    *   path to save files.
     */
   def generateYaml(domain: Domain, savePath: String)(implicit
     settings: Settings

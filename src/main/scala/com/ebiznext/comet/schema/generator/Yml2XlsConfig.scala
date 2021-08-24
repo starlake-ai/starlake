@@ -22,8 +22,10 @@ package com.ebiznext.comet.schema.generator
 import com.ebiznext.comet.utils.CliConfig
 import scopt.OParser
 
-/** @param domains : YML Input to convert
-  * @param xls Excel file to produce
+/** @param domains
+  *   : YML Input to convert
+  * @param xls
+  *   Excel file to produce
   */
 case class Yml2XlsConfig(domains: Seq[String] = Nil, xlsDirectory: String = "")
 
@@ -47,8 +49,10 @@ object Yml2XlsConfig extends CliConfig[Yml2XlsConfig] {
     )
   }
 
-  /** @param args args list passed from command line
-    * @return Option of case class SchemaGenConfig.
+  /** @param args
+    *   args list passed from command line
+    * @return
+    *   Option of case class SchemaGenConfig.
     */
   def parse(args: Seq[String]): Option[Yml2XlsConfig] =
     OParser.parse(parser, args, Yml2XlsConfig())

@@ -42,10 +42,14 @@ trait LaunchHandler {
 
   /** Submit to the cron manager a single file for ingestion
     *
-    * @param domain : Domain to which belong this dataset
-    * @param schema : Schema of the dataset
-    * @param path   : absolute path where the source dataset  (JSON / CSV / ...) is located
-    * @return success / failure
+    * @param domain
+    *   : Domain to which belong this dataset
+    * @param schema
+    *   : Schema of the dataset
+    * @param path
+    *   : absolute path where the source dataset (JSON / CSV / ...) is located
+    * @return
+    *   success / failure
     */
   def ingest(
     workflow: IngestionWorkflow,
@@ -58,13 +62,17 @@ trait LaunchHandler {
   ): Try[JobResult] =
     ingest(workflow, domain, schema, path :: Nil, options)
 
-  /** Submit to the cron manager multiple files for ingestion.
-    * All the files should have the schema schema and belong to the same domain.
+  /** Submit to the cron manager multiple files for ingestion. All the files should have the schema
+    * schema and belong to the same domain.
     *
-    * @param domain : Domain to which belong this dataset
-    * @param schema : Schema of the dataset
-    * @param paths  : absolute paths where the source datasets  (JSON / CSV / ...) are located
-    * @return success / failure
+    * @param domain
+    *   : Domain to which belong this dataset
+    * @param schema
+    *   : Schema of the dataset
+    * @param paths
+    *   : absolute paths where the source datasets (JSON / CSV / ...) are located
+    * @return
+    *   success / failure
     */
   def ingest(
     workflow: IngestionWorkflow,
@@ -99,17 +107,21 @@ trait LaunchHandler {
   ): Boolean
 }
 
-/** Simple Launcher will directly invoke the ingestion method wityhout using a cron manager.
-  * This is userfull for testing purpose
+/** Simple Launcher will directly invoke the ingestion method wityhout using a cron manager. This is
+  * userfull for testing purpose
   */
 class SimpleLauncher extends LaunchHandler with StrictLogging {
 
   /** call directly the main assembly with the "ingest" parameter
     *
-    * @param domain : Domain to which belong this dataset
-    * @param schema : Schema of the dataset
-    * @param paths  : absolute paths where the source datasets  (JSON / CSV / ...) are located
-    * @return success / failure
+    * @param domain
+    *   : Domain to which belong this dataset
+    * @param schema
+    *   : Schema of the dataset
+    * @param paths
+    *   : absolute paths where the source datasets (JSON / CSV / ...) are located
+    * @return
+    *   success / failure
     */
   override def ingest(
     workflow: IngestionWorkflow,
@@ -162,8 +174,8 @@ class SimpleLauncher extends LaunchHandler with StrictLogging {
   }
 }
 
-/** Airflow Launcher will submit a request for ingestion to Airflow
-  * using the REST API. The requested DAG must exist in Airflow first.
+/** Airflow Launcher will submit a request for ingestion to Airflow using the REST API. The
+  * requested DAG must exist in Airflow first.
   */
 class AirflowLauncher extends LaunchHandler with StrictLogging {
 
@@ -189,10 +201,14 @@ class AirflowLauncher extends LaunchHandler with StrictLogging {
 
   /** Request the execution of the "comet-ingest" DAG in Airflow
     *
-    * @param domain : Domain to which belong this dataset
-    * @param schema : Schema of the dataset
-    * @param paths  : absolute paths where the source datasets  (JSON / CSV / ...) are located
-    * @return success if request accepted
+    * @param domain
+    *   : Domain to which belong this dataset
+    * @param schema
+    *   : Schema of the dataset
+    * @param paths
+    *   : absolute paths where the source datasets (JSON / CSV / ...) are located
+    * @return
+    *   success if request accepted
     */
   override def ingest(
     workflow: IngestionWorkflow,

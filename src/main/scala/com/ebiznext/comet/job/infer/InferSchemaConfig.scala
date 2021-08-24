@@ -62,8 +62,10 @@ object InferSchemaConfig extends CliConfig[InferSchemaConfig] {
     )
   }
 
-  /** @param args args list passed from command line
-    * @return Option of case class InferSchemaConfig.
+  /** @param args
+    *   args list passed from command line
+    * @return
+    *   Option of case class InferSchemaConfig.
     */
   def parse(args: Seq[String]): Option[InferSchemaConfig] =
     OParser.parse(parser, args, InferSchemaConfig())

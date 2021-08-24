@@ -48,12 +48,17 @@ object JsonIngestionUtil {
     compareTypes(Nil, ("root", schemaType, true), ("root", datasetType, true))
   }
 
-  /** similar to compatibleType(...) but instead of creating a new datatype, simply check the compatibility
+  /** similar to compatibleType(...) but instead of creating a new datatype, simply check the
+    * compatibility
     *
-    * @param context : full path to attribute, makes error messages more understandable
-    * @param schemaType : (attributeName, attributeType, isRequired) coming from the schema
-    * @param datasetType: (attributeName, attributeType, isRequired) coming from the dataset
-    * @return List of errors, Nil when datasetType is compatible with schemaType
+    * @param context
+    *   : full path to attribute, makes error messages more understandable
+    * @param schemaType
+    *   : (attributeName, attributeType, isRequired) coming from the schema
+    * @param datasetType:
+    *   (attributeName, attributeType, isRequired) coming from the dataset
+    * @return
+    *   List of errors, Nil when datasetType is compatible with schemaType
     */
   def compareTypes(
     context: List[String],

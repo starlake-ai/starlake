@@ -41,13 +41,17 @@ import java.time.{Instant, LocalDateTime}
 import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try}
 
-/** Execute the SQL Task and store it in parquet/orc/.... If Hive support is enabled, also store it as a Hive Table.
-  * If analyze support is active, also compute basic statistics for twhe dataset.
+/** Execute the SQL Task and store it in parquet/orc/.... If Hive support is enabled, also store it
+  * as a Hive Table. If analyze support is active, also compute basic statistics for twhe dataset.
   *
-  * @param name        : Job Name as defined in the YML job description file
-  * @param defaultArea : Where the resulting dataset is stored by default if not specified in the task
-  * @param task        : Task to run
-  * @param sqlParameters : Sql Parameters to pass to SQL statements
+  * @param name
+  *   : Job Name as defined in the YML job description file
+  * @param defaultArea
+  *   : Where the resulting dataset is stored by default if not specified in the task
+  * @param task
+  *   : Task to run
+  * @param sqlParameters
+  *   : Sql Parameters to pass to SQL statements
   */
 case class AutoTaskJob(
   override val name: String,

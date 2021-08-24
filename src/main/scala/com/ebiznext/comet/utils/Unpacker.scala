@@ -39,13 +39,13 @@ object Unpacker {
   }
 
   // https://alexwlchan.net/2019/09/unpacking-compressed-archives-in-scala/
-  /** Unpack a compressed archive from an input stream; for example, a stream of
-    * bytes from a tar.gz or tar.xz archive.
+  /** Unpack a compressed archive from an input stream; for example, a stream of bytes from a tar.gz
+    * or tar.xz archive.
     *
     * The result is an iterator of 2-tuples, one for each entry in the archive:
     *
-    *   - An ArchiveEntry instance, with information like name, size and whether
-    *     the entry is a file or directory
+    *   - An ArchiveEntry instance, with information like name, size and whether the entry is a file
+    *     or directory
     *   - An InputStream of all the bytes in this particular entry
     */
   def open(inputStream: InputStream): Try[Iterator[(ArchiveEntry, InputStream)]] =

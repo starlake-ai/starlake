@@ -19,8 +19,8 @@ import com.google.cloud.bigquery.JobInfo.{CreateDisposition, WriteDisposition}
 import com.google.cloud.bigquery.{
   Field,
   LegacySQLTypeName,
-  StandardTableDefinition,
-  Schema => BQSchema
+  Schema => BQSchema,
+  StandardTableDefinition
 }
 import org.apache.hadoop.fs.Path
 import org.apache.spark.ml.feature.SQLTransformer
@@ -36,8 +36,7 @@ import scala.collection.JavaConverters._
 import scala.language.existentials
 import scala.util.{Failure, Success, Try}
 
-/**
-  */
+/** */
 trait IngestionJob extends SparkJob {
 
   protected val treeRowValidator: GenericRowValidator = Utils
@@ -68,7 +67,8 @@ trait IngestionJob extends SparkJob {
 
   /** Dataset loading strategy (JSON / CSV / ...)
     *
-    * @return Spark Dataframe loaded using metadata options
+    * @return
+    *   Spark Dataframe loaded using metadata options
     */
   protected def loadDataSet(): Try[DataFrame]
 
@@ -245,8 +245,7 @@ trait IngestionJob extends SparkJob {
     finalDF
   }
 
-  /** Merge new and existing dataset if required
-    * Save using overwrite / Append mode
+  /** Merge new and existing dataset if required Save using overwrite / Append mode
     *
     * @param acceptedDF
     */
@@ -539,12 +538,17 @@ trait IngestionJob extends SparkJob {
     }
   }
 
-  /** Save typed dataset in parquet. If hive support is active, also register it as a Hive Table and if analyze is active, also compute basic statistics
+  /** Save typed dataset in parquet. If hive support is active, also register it as a Hive Table and
+    * if analyze is active, also compute basic statistics
     *
-    * @param dataset    : dataset to save
-    * @param targetPath : absolute path
-    * @param writeMode  : Append or overwrite
-    * @param area       : accepted or rejected area
+    * @param dataset
+    *   : dataset to save
+    * @param targetPath
+    *   : absolute path
+    * @param writeMode
+    *   : Append or overwrite
+    * @param area
+    *   : accepted or rejected area
     */
   private[this] def sinkToFile(
     dataset: DataFrame,
@@ -723,7 +727,8 @@ trait IngestionJob extends SparkJob {
 
   /** Main entry point as required by the Spark Job interface
     *
-    * @return : Spark Session used for the job
+    * @return
+    *   : Spark Session used for the job
     */
   def run(): Try[JobResult] = {
     val jobResult = domain.checkValidity(schemaHandler) match {
@@ -894,7 +899,8 @@ trait IngestionJob extends SparkJob {
     * @param inputDF
     * @param existingDF
     * @param merge
-    * @return merged dataframe
+    * @return
+    *   merged dataframe
     */
   private[this] def mergeParquet(
     inputDF: DataFrame,

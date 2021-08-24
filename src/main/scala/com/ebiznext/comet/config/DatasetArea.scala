@@ -33,8 +33,7 @@ import org.apache.hadoop.fs.Path
 
 import java.util.Locale
 
-/** Utilities methods to reference datasets paths
-  * Datasets paths are constructed as follows :
+/** Utilities methods to reference datasets paths Datasets paths are constructed as follows :
   *   - root path defined by the COMET_DATASETS env var or datasets applciation property
   *   - followed by the area name
   *   - followed by the the domain name
@@ -48,49 +47,62 @@ object DatasetArea {
 
   /** datasets waiting to be ingested are stored here
     *
-    * @param domain : Domain Name
-    * @return Absolute path to the pending folder of domain
+    * @param domain
+    *   : Domain Name
+    * @return
+    *   Absolute path to the pending folder of domain
     */
   def pending(domain: String)(implicit settings: Settings): Path =
     path(domain, settings.comet.area.pending)
 
-  /** datasets with a file name that could not match any schema file name pattern in the specified domain
-    * are marked unresolved by being stored in this folder.
+  /** datasets with a file name that could not match any schema file name pattern in the specified
+    * domain are marked unresolved by being stored in this folder.
     *
-    * @param domain : Domain name
-    * @return Absolute path to the pending unresolved folder of domain
+    * @param domain
+    *   : Domain name
+    * @return
+    *   Absolute path to the pending unresolved folder of domain
     */
   def unresolved(domain: String)(implicit settings: Settings): Path =
     path(domain, settings.comet.area.unresolved)
 
   /** Once ingested datasets are archived in this folder.
     *
-    * @param domain : Domain name
-    * @return Absolute path to the archive folder of domain
+    * @param domain
+    *   : Domain name
+    * @return
+    *   Absolute path to the archive folder of domain
     */
   def archive(domain: String)(implicit settings: Settings): Path =
     path(domain, settings.comet.area.archive)
 
   /** Datasets of the specified domain currently being ingested are located in this folder
     *
-    * @param domain : Domain name
-    * @return Absolute path to the ingesting folder of domain
+    * @param domain
+    *   : Domain name
+    * @return
+    *   Absolute path to the ingesting folder of domain
     */
   def ingesting(domain: String)(implicit settings: Settings): Path =
     path(domain, settings.comet.area.ingesting)
 
   /** Valid records for datasets the specified domain are stored in this folder.
     *
-    * @param domain : Domain name
-    * @return Absolute path to the ingesting folder of domain
+    * @param domain
+    *   : Domain name
+    * @return
+    *   Absolute path to the ingesting folder of domain
     */
   def accepted(domain: String)(implicit settings: Settings): Path =
     path(domain, settings.comet.area.accepted)
 
-  /** Invalid records and the reason why they have been rejected for the datasets of the specified domain are stored in this folder.
+  /** Invalid records and the reason why they have been rejected for the datasets of the specified
+    * domain are stored in this folder.
     *
-    * @param domain : Domain name
-    * @return Absolute path to the rejected folder of domain
+    * @param domain
+    *   : Domain name
+    * @return
+    *   Absolute path to the rejected folder of domain
     */
   def rejected(domain: String)(implicit settings: Settings): Path =
     path(domain, settings.comet.area.rejected)
@@ -122,8 +134,10 @@ object DatasetArea {
 
   /** Default target folder for autojobs applied to datasets in this domain
     *
-    * @param domain : Domain name
-    * @return Absolute path to the business folder of domain
+    * @param domain
+    *   : Domain name
+    * @return
+    *   Absolute path to the business folder of domain
     */
   def business(domain: String)(implicit settings: Settings): Path =
     path(domain, settings.comet.area.business)
@@ -175,13 +189,14 @@ object DatasetArea {
   }
 }
 
-/** After going through the data pipeline
-  * a dataset may be referenced through a Hive table in a Hive Database.
-  * For each input domain, 3 Hive databases may be created :
-  *     - The rejected database : contains tables referencing rejected records for each schema in the domain
-  *     - The accepted database : contains tables referencing
-  *     - The business database : contains tables where autjob tables are created by default
-  *     - The ciustom database : contains tables where autojob tables are created when a specific area is defined
+/** After going through the data pipeline a dataset may be referenced through a Hive table in a Hive
+  * Database. For each input domain, 3 Hive databases may be created :
+  *   - The rejected database : contains tables referencing rejected records for each schema in the
+  *     domain
+  *   - The accepted database : contains tables referencing
+  *   - The business database : contains tables where autjob tables are created by default
+  *   - The ciustom database : contains tables where autojob tables are created when a specific area
+  *     is defined
   */
 object StorageArea {
 

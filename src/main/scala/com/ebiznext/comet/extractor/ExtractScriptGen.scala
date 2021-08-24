@@ -25,9 +25,12 @@ class ScriptGen(
   val engine: TemplateEngine = new TemplateEngine
 
   /** Generate an extraction script payload based on a template and its params
-    * @param template The extraction script template
-    * @param templateParams Its params
-    * @return The produced script payload
+    * @param template
+    *   The extraction script template
+    * @param templateParams
+    *   Its params
+    * @return
+    *   The produced script payload
     */
   def templatize(template: File, templateParams: TemplateParams): String =
     engine.layout(
@@ -36,12 +39,18 @@ class ScriptGen(
     )
 
   /** Generate all extraction scripts based on the given domain
-    * @param domain The domain extracted from the Excel referential file
-    * @param scriptTemplateFile The script template
-    * @param scriptsOutputPath Where the scripts are produced
-    * @param defaultDeltaColumn Defaut delta column
-    * @param deltaColumns Mapping table name -> delta column, has precedence over `defaultDeltaColumn`
-    * @return The list of produced files
+    * @param domain
+    *   The domain extracted from the Excel referential file
+    * @param scriptTemplateFile
+    *   The script template
+    * @param scriptsOutputPath
+    *   Where the scripts are produced
+    * @param defaultDeltaColumn
+    *   Defaut delta column
+    * @param deltaColumns
+    *   Mapping table name -> delta column, has precedence over `defaultDeltaColumn`
+    * @return
+    *   The list of produced files
     */
   def generateDomain(
     domain: Domain,
@@ -69,10 +78,14 @@ class ScriptGen(
   }
 
   /** Generate all extraction scripts based on the given domain
-    * @param job The job extracted from the yml file
-    * @param scriptTemplateFile The script template
-    * @param scriptsOutputFile Where the scripts are produced
-    * @return The list of produced files
+    * @param job
+    *   The job extracted from the yml file
+    * @param scriptTemplateFile
+    *   The script template
+    * @param scriptsOutputFile
+    *   Where the scripts are produced
+    * @return
+    *   The list of produced files
     */
   def generateJob(
     job: AutoJobDesc,
@@ -122,44 +135,39 @@ class ScriptGen(
     scriptFile
   }
 
-  /** Fills a Mustache templated file based on a given domain.
-    * The following documentation considers that we use the script to generate SQL export files.
+  /** Fills a Mustache templated file based on a given domain. The following documentation considers
+    * that we use the script to generate SQL export files.
     *
     * The schemas should at least, specify :
-    *    - a table name (schemas.name)
-    *    - a file pattern (schemas.pattern) which is used as the export file base name
-    *    - a write mode (schemas.metadata.write): APPEND or OVERWRITE
-    *    - the columns to extract (schemas.attributes.name*)
+    *   - a table name (schemas.name)
+    *   - a file pattern (schemas.pattern) which is used as the export file base name
+    *   - a write mode (schemas.metadata.write): APPEND or OVERWRITE
+    *   - the columns to extract (schemas.attributes.name*)
     *
     * You also have to provide a Mustache (http://mustache.github.io/mustache.5.html) template file.
     *
-    * Here you'll write your extraction export process (sqlplus for Oracle, pgsql for PostgreSQL as an example).
-    * In that template you can use the following parameters:
+    * Here you'll write your extraction export process (sqlplus for Oracle, pgsql for PostgreSQL as
+    * an example). In that template you can use the following parameters:
     *
-    * table_name  -> the table to export
-    * delimiter   -> the resulting dsv file delimiter
-    * columns     -> the columns to export
-    * columns is a Mustache map, it gives you access, for each column, to:
-    *  - name               -> the column name
-    *  - trailing_col_char  -> the separator to append to the column (, if there are more columns to come, "" otherwise)
-    *                          Here is an example how to use it in a template:
-    *                            SELECT
-    *                            {{#columns}}
-    *                            TO_CHAR({{name}}){{trailing_col_char}}
-    *                            {{/columns}}
-    *                            FROM
-    *                            {{table_name}};
-    * export_file -> the export file name
-    * delta_column -> a delta date column (passed as a Main arg or as a config element), the column which is used to determine new rows for each exports in APPEND mode
-    * full_export -> if the export is a full or delta export (the logic is to be implemented in your script)
+    * table_name -> the table to export delimiter -> the resulting dsv file delimiter columns -> the
+    * columns to export columns is a Mustache map, it gives you access, for each column, to:
+    *   - name -> the column name
+    *   - trailing_col_char -> the separator to append to the column (, if there are more columns to
+    *     come, "" otherwise) Here is an example how to use it in a template: SELECT {{#columns}}
+    *     TO_CHAR({{name}}){{trailing_col_char}} {{/columns}} FROM {{table_name}}; export_file ->
+    *     the export file name delta_column -> a delta date column (passed as a Main arg or as a
+    *     config element), the column which is used to determine new rows for each exports in APPEND
+    *     mode full_export -> if the export is a full or delta export (the logic is to be
+    *     implemented in your script)
     *
     * Usage: comet [script-gen] [options]
     *
     * Command: script-gen
-    *   --domain <value>            The domain for which to generate extract scripts
-    *   --templateFile <value>      Script template file
-    *   --scriptsOutputDir <value>  Scripts output folder
-    *   --deltaColumn <value>       The date column which is used to determine new rows for each exports (can be passed table by table as config element)
+    * --domain <value> The domain for which to generate extract scripts
+    * --templateFile <value> Script template file
+    * --scriptsOutputDir <value> Scripts output folder
+    * --deltaColumn <value> The date column which is used to determine new rows for each exports
+    * (can be passed table by table as config element)
     */
   def run(args: Array[String]): Boolean = {
 

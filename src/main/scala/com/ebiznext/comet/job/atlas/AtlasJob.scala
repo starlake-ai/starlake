@@ -36,7 +36,7 @@ class AtlasJob(
     val uris = cliConfig.uris.map(_.toArray).getOrElse(Array(settings.comet.atlas.uri))
     val userPassword = (cliConfig.user, cliConfig.password) match {
       case (Some(user), Some(pwd)) => Array(user, pwd)
-      case _                       => Array(settings.comet.atlas.user, settings.comet.atlas.password)
+      case _ => Array(settings.comet.atlas.user, settings.comet.atlas.password)
     }
     new AtlasModel(uris, userPassword).run(cliConfig, storageHandler)
   }

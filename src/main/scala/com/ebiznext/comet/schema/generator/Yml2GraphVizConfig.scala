@@ -30,8 +30,10 @@ object Yml2GraphVizConfig extends CliConfig[Yml2GraphVizConfig] {
     )
   }
 
-  /** @param args args list passed from command line
-    * @return Option of case class SchemaGenConfig.
+  /** @param args
+    *   args list passed from command line
+    * @return
+    *   Option of case class SchemaGenConfig.
     */
   def parse(args: Seq[String]): Option[Yml2GraphVizConfig] =
     OParser.parse(parser, args, Yml2GraphVizConfig())

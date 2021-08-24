@@ -29,15 +29,19 @@ import org.apache.spark.sql.{DataFrame, Encoders}
 
 import scala.util.Try
 
-/** Parse a simple one level json file. Complex types such as arrays & maps are not supported.
-  * Use JsonIngestionJob instead.
-  * This class is for simple json only that makes it way faster.
+/** Parse a simple one level json file. Complex types such as arrays & maps are not supported. Use
+  * JsonIngestionJob instead. This class is for simple json only that makes it way faster.
   *
-  * @param domain         : Input Dataset Domain
-  * @param schema         : Input Dataset Schema
-  * @param types          : List of globally defined types
-  * @param path           : Input dataset path
-  * @param storageHandler : Storage Handler
+  * @param domain
+  *   : Input Dataset Domain
+  * @param schema
+  *   : Input Dataset Schema
+  * @param types
+  *   : List of globally defined types
+  * @param path
+  *   : Input dataset path
+  * @param storageHandler
+  *   : Storage Handler
   */
 class SimpleJsonIngestionJob(
   domain: Domain,

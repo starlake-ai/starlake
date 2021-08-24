@@ -19,8 +19,8 @@ case class AirflowJobResult(response: String) extends JobResult
 
 case class SparkJobResult(dataframe: Option[DataFrame]) extends JobResult
 
-/** All Spark Job extend this trait.
-  * Build Spark session using spark variables from application.conf.
+/** All Spark Job extend this trait. Build Spark session using spark variables from
+  * application.conf.
   */
 
 trait JobBase extends StrictLogging {
@@ -29,14 +29,17 @@ trait JobBase extends StrictLogging {
 
   /** Just to force any job to implement its entry point using within the "run" method
     *
-    * @return : Spark Dataframe for Spark Jobs None otherwise
+    * @return
+    *   : Spark Dataframe for Spark Jobs None otherwise
     */
   def run(): Try[JobResult]
 
   type JdbcConfigName = String
 
-  /** @param valueWithEnv in the form [SinkType:[configName:]]viewName
-    * @return (SinkType, configName, viewName)
+  /** @param valueWithEnv
+    *   in the form [SinkType:[configName:]]viewName
+    * @return
+    *   (SinkType, configName, viewName)
     */
   protected def parseViewDefinition(
     valueWithEnv: String
@@ -110,20 +113,22 @@ trait SparkJob extends JobBase {
     partitionedDF.drop("comet_date")
   }
 
-  /** Partition a dataset using dataset columns.
-    * To partition the dataset using the ingestion time, use the reserved column names :
+  /** Partition a dataset using dataset columns. To partition the dataset using the ingestion time,
+    * use the reserved column names :
     *   - comet_date
     *   - comet_year
     *   - comet_month
     *   - comet_day
     *   - comet_hour
-    *   - comet_minute
-    * These columns are renamed to "date", "year", "month", "day", "hour", "minute" in the dataset and
-    * their values is set to the current date/time.
+    *   - comet_minute These columns are renamed to "date", "year", "month", "day", "hour", "minute"
+    *     in the dataset and their values is set to the current date/time.
     *
-    * @param dataset   : Input dataset
-    * @param partition : list of columns to use for partitioning.
-    * @return The Spark session used to run this job
+    * @param dataset
+    *   : Input dataset
+    * @param partition
+    *   : list of columns to use for partitioning.
+    * @return
+    *   The Spark session used to run this job
     */
   protected def partitionedDatasetWriter(
     dataset: DataFrame,

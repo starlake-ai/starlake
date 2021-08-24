@@ -15,10 +15,14 @@ import scala.util.{Success, Try}
 /** To record statistics with other information during ingestion.
   */
 
-/** @param domain         : Domain name
-  * @param schema         : Schema
-  * @param stage          : stage
-  * @param storageHandler : Storage Handler
+/** @param domain
+  *   : Domain name
+  * @param schema
+  *   : Schema
+  * @param stage
+  *   : stage
+  * @param storageHandler
+  *   : Storage Handler
   */
 class MetricsJob(
   domain: Domain,
@@ -33,8 +37,10 @@ class MetricsJob(
 
   /** Function to build the metrics save path
     *
-    * @param path : path where metrics are stored
-    * @return : path where the metrics for the specified schema are stored
+    * @param path
+    *   : path where metrics are stored
+    * @return
+    *   : path where the metrics for the specified schema are stored
     */
   def metricsPath(path: String): Path = {
     DatasetArea.metrics(domain.name, schema.name)
@@ -50,14 +56,21 @@ class MetricsJob(
     )
   }
 
-  /** Function Function that unifies discrete and continuous metrics dataframe, then write save the result to parquet
+  /** Function Function that unifies discrete and continuous metrics dataframe, then write save the
+    * result to parquet
     *
-    * @param discreteDataset   : dataframe that contains all the discrete metrics
-    * @param continuousDataset : dataframe that contains all the continuous metrics
-    * @param domain            : name of the domain
-    * @param schema            : schema of the initial data
-    * @param ingestionTime     : time which correspond to the ingestion
-    * @param stageState        : stage (unit / global)
+    * @param discreteDataset
+    *   : dataframe that contains all the discrete metrics
+    * @param continuousDataset
+    *   : dataframe that contains all the continuous metrics
+    * @param domain
+    *   : name of the domain
+    * @param schema
+    *   : schema of the initial data
+    * @param ingestionTime
+    *   : time which correspond to the ingestion
+    * @param stageState
+    *   : stage (unit / global)
     * @return
     */
 
@@ -132,7 +145,8 @@ class MetricsJob(
 
   /** Just to force any spark job to implement its entry point using within the "run" method
     *
-    * @return : Spark Session used for the job
+    * @return
+    *   : Spark Session used for the job
     */
   override def run(): Try[JobResult] = {
     val datasetPath = new Path(DatasetArea.accepted(domain.name), schema.name)
