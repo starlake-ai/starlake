@@ -978,7 +978,7 @@ trait IngestionJob extends SparkJob {
         ) {
           val bqTable = s"${domain.name}.${schema.name}"
           (mergeOptions.queryFilter, metadata.sink) match {
-            case (Some(query), Some(BigQuerySink(_, _, Some(_), _, _, _, _))) =>
+            case (Some(_), Some(BigQuerySink(_, _, Some(_), _, _, _, _))) =>
               /*In the queryFIlter, the user may now write something like this :
                 `partitionField in last(3)`
                 this will be translated to partitionField between partitionStart and partitionEnd
@@ -988,46 +988,10 @@ trait IngestionJob extends SparkJob {
 
                 if partititionStart or partitionEnd does nos exist (aka empty dataset) they are replaced by 19700101
                */
-              val queryArgs = mergeOptions.formatQuery(options).getOrElse("")
               if (mergeOptions.queryFilterContainsLast) {
-                val nbPartition = mergeOptions.nbPartitionQueryFilter
-                assert(nbPartition > 0)
-                val lastStart = mergeOptions.lastStartQueryFilter
-                val lastEnd = mergeOptions.lastEndQueryFilter
                 val partitions =
                   tableMetadata.biqueryClient.listPartitions(table.getTableId).asScala.toList.sorted
-                val (oldestPartition, newestPartition) = if (partitions.length < nbPartition) {
-                  (
-                    partitions.headOption.getOrElse("19700101"),
-                    partitions.lastOption.getOrElse("19700101")
-                  )
-                } else {
-                  (
-                    partitions(partitions.length - nbPartition),
-                    partitions.last
-                  )
-
-                }
-                val finalQueryArgs =
-                  queryArgs
-                    .substring(
-                      0,
-                      lastStart
-                    ) + s"between PARSE_DATE('%Y%m%d','$oldestPartition') and PARSE_DATE('%Y%m%d','$newestPartition')" + queryArgs
-                    .substring(lastEnd)
-                val existingBigQueryDF = session.read
-                  // We provided the acceptedDF schema here since BQ lose the required / nullable information of the schema
-                  .schema(withScriptFieldsDF.schema)
-                  .format("com.google.cloud.spark.bigquery")
-                  .option("table", bqTable)
-                  .option("filter", finalQueryArgs)
-                  .load()
-                processMerge(withScriptFieldsDF, existingBigQueryDF, mergeOptions)
-
-              } else if (mergeOptions.queryFilterContainsLatest) {
-                val partitions =
-                  tableMetadata.biqueryClient.listPartitions(table.getTableId).asScala.toList
-                val latestPartition = partitions.max
+                val finalQueryArgs = mergeOptions.buildQueryForLast(partitions, options)
                 val existingBigQueryDF = session.read
                   // We provided the acceptedDF schema here since BQ lose the required / nullable information of the schema
                   .schema(withScriptFieldsDF.schema)
@@ -1035,7 +999,23 @@ trait IngestionJob extends SparkJob {
                   .option("table", bqTable)
                   .option(
                     "filter",
-                    queryArgs.replace("latest", s"PARSE_DATE('%Y%m%d','$latestPartition')")
+                    finalQueryArgs.getOrElse(throw new Exception("should never happen"))
+                  )
+                  .load()
+                processMerge(withScriptFieldsDF, existingBigQueryDF, mergeOptions)
+
+              } else if (mergeOptions.queryFilterContainsLatest) {
+                val partitions =
+                  tableMetadata.biqueryClient.listPartitions(table.getTableId).asScala.toList
+                val finalQueryArgs = mergeOptions.buildQueryForLastest(partitions, options)
+                val existingBigQueryDF = session.read
+                  // We provided the acceptedDF schema here since BQ lose the required / nullable information of the schema
+                  .schema(withScriptFieldsDF.schema)
+                  .format("com.google.cloud.spark.bigquery")
+                  .option("table", bqTable)
+                  .option(
+                    "filter",
+                    finalQueryArgs.getOrElse(throw new Exception("should never happen"))
                   )
                   .load()
                 processMerge(withScriptFieldsDF, existingBigQueryDF, mergeOptions)
@@ -1046,7 +1026,12 @@ trait IngestionJob extends SparkJob {
                   .schema(withScriptFieldsDF.schema)
                   .format("com.google.cloud.spark.bigquery")
                   .option("table", bqTable)
-                  .option("filter", queryArgs)
+                  .option(
+                    "filter",
+                    mergeOptions
+                      .formatQuery(options)
+                      .getOrElse(throw new Exception("should never happen"))
+                  )
                   .load()
                 processMerge(withScriptFieldsDF, existingBigQueryDF, mergeOptions)
               }
