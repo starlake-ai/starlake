@@ -1,6 +1,6 @@
 package com.ebiznext.comet.schema.model
 
-/** Thisi tag appears in files and allow import of views and assertions definitions into the current
+/** This tag appears in files and allow import of views and assertions definitions into the current
   * files.
   * @param assertions
   *   : List of assertion definitions to include
