@@ -944,16 +944,15 @@ trait IngestionJob extends SparkJob {
             case (Some(query), Some(BigQuerySink(_, _, Some(_), _, _, _, _))) =>
               val queryArgs = query.richFormat(options)
 
-              /** rajouter last(n) dans les queryArgs
-                *
-                * Rajouter l'option dynamicPartition pour le sink BQ
-                *
-                * L'option dynamicParition est implicite quand on utilise latest ou last dans la
-                * query
-                *
-                * merge: queryFilter: parition in last(3) Tester les cas où il y a moins de
-                * parittions présentes que de partitions à conserver
-                */
+              /*In the queryFIlter, the user may now write something like this :
+                `partitionField in last(3)`
+                this will be translated to partitionField between partitionStart and partitionEnd
+
+                partitionEnd is the last partition in the dataset
+                paritionStart is the 3rd last partition in the dataset
+
+                if partititionStart or partitionEnd does nos exist (aka empty dataset) they are replaced by 19700101
+               */
               val lastPat =
                 Pattern.compile(".*(in)\\s+last\\(\\s*(\\d+)\\s*(\\)).*", Pattern.DOTALL)
               val lastPatMatcher = lastPat.matcher(queryArgs)
