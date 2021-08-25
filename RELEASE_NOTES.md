@@ -8,7 +8,8 @@ __New feature__:
 - Support engine on task SQL (query pushdown to BigQuery)
 - Support last(n) partition on merge
 - Added new env var to control parititioning COMET_SPARK_SQL_SOURCES_PARTITION_OVERWRITE_MODE
-
+- Added env var to control BigQuery materialization on pushdown queries COMET_SPARK_BIGQUERY_MATERIALIZATION_PROJECT, COMET_SPARK_BIGQUERY_MATERIALIZATION_DATASET (default to materalization)
+- Added env var to control BigQuery read data format COMET_SPARK_BIGQUERY_READ_DATA_FORMAT (default to AVRO)
 
 __Bug Fix__:
 - Loading empty files when the schema contains script fields
