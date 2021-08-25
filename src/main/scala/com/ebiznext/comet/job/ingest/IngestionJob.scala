@@ -856,6 +856,7 @@ trait IngestionJob extends SparkJob {
           settings.comet.mergeOptimizePartitionWrite
         ) match {
           case ("dynamic", SinkType.BQ, true) =>
+            logger.info(s"Computing partitions to update on timestamp $timestamp")
             val partitionsToUpdate = finalIncomingDF
               .select(col(timestamp))
               .union(toDeleteDF.select(col(timestamp)))
@@ -865,6 +866,10 @@ trait IngestionJob extends SparkJob {
               .collect()
               .map(_.getString(0))
               .toList
+            logger.info(
+              s"The following partitions will be updated ${partitionsToUpdate.mkString(",")}"
+            )
+
             Some(partitionsToUpdate)
 
           case ("static", _, _) | ("dynamic", _, _) =>

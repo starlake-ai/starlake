@@ -167,9 +167,18 @@ class BigQuerySparkJob(
             .collect()
             .toList
 
-          logger.info(
-            s"Overwriting the following partitions: [${partitions.mkString(" , ")}] ..."
-          )
+          cliConfig.partitionsToUpdate match {
+            case None =>
+              logger.info(
+                s"No optimization applied -> the following ${partitions.length} partitions will be written: ${partitions
+                  .mkString(",")}"
+              )
+            case Some(partitionsToUpdate) =>
+              logger.info(
+                s"After optimization -> only the following ${partitionsToUpdate.length} partitions will be written: ${partitionsToUpdate
+                  .mkString(",")}"
+              )
+          }
           partitions.foreach { partitionStr =>
             val finalDF =
               sourceDF
@@ -190,6 +199,9 @@ class BigQuerySparkJob(
               case Some(partitionsToUpdate) =>
                 // We only overwrite partitions containing updated or newly added elements
                 if (partitionsToUpdate.contains(partitionStr)) {
+                  logger.info(
+                    s"Optimization -> Writing partition : $partitionStr"
+                  )
                   finalDFWithOptions.save()
                 }
             }
