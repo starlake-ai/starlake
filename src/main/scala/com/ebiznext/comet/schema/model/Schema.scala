@@ -49,7 +49,38 @@ case class MergeOptions(
   delete: Option[String] = None,
   timestamp: Option[String] = None,
   queryFilter: Option[String] = None
-)
+) {
+  @JsonIgnore
+  private val lastPat =
+    Pattern.compile(".*(in)\\s+last\\(\\s*(\\d+)\\s*(\\)).*", Pattern.DOTALL)
+
+  @JsonIgnore
+  private val matcher = lastPat.matcher(queryFilter.getOrElse(""))
+
+  @JsonIgnore
+  val queryFilterContainsLast: Boolean =
+    queryFilter.exists { queryFilter =>
+      matcher.matches()
+    }
+  @JsonIgnore
+  val queryFilterContainsLatest: Boolean = queryFilter.contains("latest")
+
+  @JsonIgnore
+  val canOptimizeQueryFilter: Boolean = queryFilterContainsLast || queryFilterContainsLatest
+
+  @JsonIgnore
+  val nbPartitionQueryFilter: Int = if (queryFilterContainsLast) matcher.group(1).toInt else -1
+
+  @JsonIgnore
+  val lastStartQueryFilter: Int = if (queryFilterContainsLast) matcher.start(1) else -1
+
+  @JsonIgnore
+  val lastEndQueryFilter: Int = if (queryFilterContainsLast) matcher.end(3) else -1
+
+  def formatQuery(options: Map[String, String])(implicit settings: Settings): Option[String] =
+    queryFilter.map(_.richFormat(options))
+
+}
 
 /** Dataset Schema
   *
