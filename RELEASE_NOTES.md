@@ -6,6 +6,7 @@ __New feature__:
 - Support the ability to reject the whole file on error
 - Improve error reporting
 - Support engine on task SQL (query pushdown to BigQuery)
+- Support last(n) partition on merge
 
 __Bug Fix__:
 - Loading empty files when the schema contains script fields
