@@ -29,7 +29,6 @@ import com.ebiznext.comet.job.index.bqload.{
 import com.ebiznext.comet.job.ingest.{AuditLog, SparkAuditLogWriter, Step}
 import com.ebiznext.comet.job.metrics.AssertionJob
 import com.ebiznext.comet.schema.handlers.{SchemaHandler, StorageHandler}
-import com.ebiznext.comet.schema.model.Engine.SPARK
 import com.ebiznext.comet.schema.model._
 import com.ebiznext.comet.utils.Formatter._
 import com.ebiznext.comet.utils.{JobResult, SparkJob, SparkJobResult, Utils}
