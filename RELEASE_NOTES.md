@@ -5,6 +5,9 @@ __New feature__:
 - Support XML Schema inference
 - Support the ability to reject the whole file on error
 - Improve error reporting
+- Support engine on task SQL (query pushdown to BigQuery)
+- Added env var to control BigQuery materialization on pushdown queries COMET_SPARK_BIGQUERY_MATERIALIZATION_PROJECT, COMET_SPARK_BIGQUERY_MATERIALIZATION_DATASET (default to materalization)
+- Added env var to control BigQuery read data format COMET_SPARK_BIGQUERY_READ_DATA_FORMAT (default to AVRO)
 
 __Bug Fix__:
 - Loading empty files when the schema contains script fields
