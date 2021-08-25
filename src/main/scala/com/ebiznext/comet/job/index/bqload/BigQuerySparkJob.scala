@@ -1,6 +1,7 @@
 package com.ebiznext.comet.job.index.bqload
 
 import com.ebiznext.comet.config.Settings
+import com.ebiznext.comet.schema.model.MergeOptions
 import com.ebiznext.comet.utils.conversion.BigQueryUtils._
 import com.ebiznext.comet.utils.{JobResult, SparkJob, SparkJobResult, Utils}
 import com.google.cloud.ServiceOptions
@@ -146,15 +147,27 @@ class BigQuerySparkJob(
 
       val intermediateFormat =
         settings.comet.internal.map(_.intermediateBigqueryFormat).getOrElse("orc")
-      (cliConfig.writeDisposition, cliConfig.outputPartition) match {
-        case ("WRITE_TRUNCATE", Some(partition)) =>
-          logger.info(s"overwriting partition ${partition} in The BQ Table $bqTable")
+      val partitionOverwriteMode =
+        session.conf
+          .getOption("spark.sql.sources.partitionOverwriteMode")
+          .getOrElse("static")
+          .toLowerCase()
+      val outputPartitionCol = MergeOptions.getTimestampCol(cliConfig.outputPartition)
+      val outputPartitionType = MergeOptions.getTimestampType(cliConfig.outputPartition)
+
+      (cliConfig.writeDisposition, outputPartitionCol, partitionOverwriteMode) match {
+        case ("WRITE_TRUNCATE", Some(partitionField), "dynamic") =>
+          logger.info(s"overwriting partition ${partitionField} in The BQ Table $bqTable")
           // BigQuery supports only this date format 'yyyyMMdd', so we have to use it
           // in order to overwrite only one partition
+          assert(
+            outputPartitionType.contains("DATE"),
+            "Only DATE type supported for partition on merge. TIMESTAMP not yet supported"
+          )
           val dateFormat = "yyyyMMdd"
           val partitions = sourceDF
-            .select(date_format(col(partition), dateFormat).cast("string"))
-            .where(col(partition).isNotNull)
+            .select(date_format(col(partitionField), dateFormat).cast("string"))
+            .where(col(partitionField).isNotNull)
             .distinct()
             .rdd
             .map(r => r.getString(0))
@@ -167,10 +180,11 @@ class BigQuerySparkJob(
           partitions.foreach { partitionStr =>
             val finalDF =
               sourceDF
-                .where(date_format(col(partition), dateFormat).cast("string") === partitionStr)
+                .where(date_format(col(partitionField), dateFormat).cast("string") === partitionStr)
                 .write
                 .mode(SaveMode.Overwrite)
                 .format("com.google.cloud.spark.bigquery")
+                .option("partitionField", partitionField)
                 .option("datePartition", partitionStr)
                 .option("table", bqTable)
                 .option("intermediateFormat", intermediateFormat)
@@ -179,7 +193,19 @@ class BigQuerySparkJob(
               .save()
           }
 
-        case (writeDisposition, _) =>
+        case (writeDisposition, Some(partitionField), "static") =>
+          val saveMode =
+            if (writeDisposition == "WRITE_TRUNCATE") SaveMode.Overwrite else SaveMode.Append
+          logger.info(s"Saving BQ Table $bqTable")
+          val finalDF = sourceDF.write
+            .mode(saveMode)
+            .format("com.google.cloud.spark.bigquery")
+            .option("partitionField", partitionField)
+            .option("table", bqTable)
+            .option("intermediateFormat", intermediateFormat)
+          cliConfig.options.foldLeft(finalDF)((w, kv) => w.option(kv._1, kv._2)).save()
+
+        case (writeDisposition, None, _) =>
           val saveMode =
             if (writeDisposition == "WRITE_TRUNCATE") SaveMode.Overwrite else SaveMode.Append
           logger.info(s"Saving BQ Table $bqTable")
@@ -189,6 +215,11 @@ class BigQuerySparkJob(
             .option("table", bqTable)
             .option("intermediateFormat", intermediateFormat)
           cliConfig.options.foldLeft(finalDF)((w, kv) => w.option(kv._1, kv._2)).save()
+
+        case (_, Some(_), invalidPartitionOverwriteMode) =>
+          throw new Exception(
+            s"Only dynamic or static are values values for property partitionOverwriteMode. $invalidPartitionOverwriteMode found"
+          )
       }
 
       val stdTableDefinitionAfter =
