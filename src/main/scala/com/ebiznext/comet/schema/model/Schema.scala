@@ -49,29 +49,7 @@ case class MergeOptions(
   delete: Option[String] = None,
   timestamp: Option[String] = None,
   queryFilter: Option[String] = None
-) {
-  def getTimestampCol(): Option[String] = MergeOptions.getTimestampCol(timestamp)
-  def getTimestampType(): Option[String] = MergeOptions.getTimestampType(timestamp)
-}
-
-object MergeOptions {
-  def getTimestampCol(timestamp: Option[String]): Option[String] = {
-    timestamp.map { timestamp =>
-      if (timestamp.indexOf(':') > 0)
-        timestamp.substring(timestamp.indexOf(':') + 1)
-      else
-        timestamp
-    }
-  }
-  def getTimestampType(timestamp: Option[String]): Option[String] = {
-    timestamp.map { timestamp =>
-      if (timestamp.indexOf(':') > 0)
-        timestamp.substring(0, timestamp.indexOf(':')).toUpperCase()
-      else
-        "DATE"
-    }
-  }
-}
+)
 
 /** Dataset Schema
   *

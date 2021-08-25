@@ -819,8 +819,7 @@ trait IngestionJob extends SparkJob {
       .map(condition => in.filter(s"not ($condition)"))
       .getOrElse(in)
 
-    val (toDeleteDF, mergedDF) = merge
-      .getTimestampCol()
+    val (toDeleteDF, mergedDF) = merge.timestamp
       .map { timestamp =>
         // We only keep the first occurrence of each record, from both datasets
         val orderingWindow =
