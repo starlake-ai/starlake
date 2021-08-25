@@ -29,6 +29,7 @@ import com.ebiznext.comet.job.index.bqload.{
 import com.ebiznext.comet.job.ingest.{AuditLog, SparkAuditLogWriter, Step}
 import com.ebiznext.comet.job.metrics.AssertionJob
 import com.ebiznext.comet.schema.handlers.{SchemaHandler, StorageHandler}
+import com.ebiznext.comet.schema.model.Engine.SPARK
 import com.ebiznext.comet.schema.model._
 import com.ebiznext.comet.utils.Formatter._
 import com.ebiznext.comet.utils.{JobResult, SparkJob, SparkJobResult, Utils}
@@ -226,15 +227,6 @@ case class AutoTaskJob(
   }
 
   def runSpark(): Try[SparkJobResult] = {
-    def bqPushDown(sql: String): (Boolean, String) = {
-      val pushdownPat = "\\s*/\\*\\+\\s*BQ\\s*\\*/.*".r
-      val pushdown = pushdownPat.pattern.matcher(sql).matches()
-      if (pushdown)
-        (true, sql.substring(sql.indexOf("*/")))
-      else
-        (false, sql)
-
-    }
     val start = Timestamp.from(Instant.now())
     val res = Try {
       udf.foreach { udf =>
@@ -245,16 +237,19 @@ case class AutoTaskJob(
       val (preSql, sqlWithParameters, postSql) = buildQuerySpark()
 
       preSql.foreach(req => session.sql(req))
-      logger.info(s"running sql request $sqlWithParameters")
+      logger.info(s"running sql request $sqlWithParameters wusing ${task.engine}")
 
       val dataframe =
-        bqPushDown(sqlWithParameters) match {
-          case (true, sqlWithParameters) =>
+        task.engine.getOrElse(Engine.SPARK) match {
+          case Engine.BQ =>
             session.read
               .format("com.google.cloud.spark.bigquery")
               .option("query", sqlWithParameters)
               .load()
-          case (false, sqlWithParameters) => session.sql(sqlWithParameters)
+          case Engine.SPARK => session.sql(sqlWithParameters)
+          case Engine.JDBC =>
+            logger.warn("JDBC Engine not supported on job task. Running query using Spark Engine")
+            session.sql(sqlWithParameters)
         }
 
       val targetPath = task.getTargetPath(defaultArea)
