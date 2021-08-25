@@ -19,7 +19,8 @@ case class BigQueryLoadConfig(
   rls: Option[List[RowLevelSecurity]] = None,
   requirePartitionFilter: Boolean = false,
   engine: Engine = Engine.SPARK,
-  options: Map[String, String] = Map.empty
+  options: Map[String, String] = Map.empty,
+  partitionsToUpdate: Option[List[String]] = None
 ) {
   def getLocation(): String = this.location.getOrElse("EU")
 }
