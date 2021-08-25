@@ -158,9 +158,6 @@ class BigQuerySparkJob(
           // BigQuery supports only this date format 'yyyyMMdd', so we have to use it
           // in order to overwrite only one partition
           val dateFormat = "yyyyMMdd"
-          val incomingDF: DataFrame = null
-          val toDeleteDF: DataFrame = null
-
           val partitions = sourceDF
             .select(date_format(col(partitionField), dateFormat).cast("string"))
             .where(col(partitionField).isNotNull)
