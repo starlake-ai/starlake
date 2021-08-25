@@ -32,6 +32,7 @@ import org.apache.spark.sql.types.{StringType, StructField, StructType, Timestam
 
 import java.sql.Timestamp
 import java.time.{Instant, LocalDateTime}
+import java.util.regex.Pattern
 import scala.collection.JavaConverters._
 import scala.language.existentials
 import scala.util.{Failure, Success, Try}
@@ -818,7 +819,8 @@ trait IngestionJob extends SparkJob {
       .map(condition => in.filter(s"not ($condition)"))
       .getOrElse(in)
 
-    val (toDeleteDF, mergedDF) = merge.timestamp
+    val (toDeleteDF, mergedDF) = merge
+      .getTimestampCol()
       .map { timestamp =>
         // We only keep the first occurrence of each record, from both datasets
         val orderingWindow =
@@ -942,10 +944,61 @@ trait IngestionJob extends SparkJob {
           (mergeOptions.queryFilter, metadata.sink) match {
             case (Some(query), Some(BigQuerySink(_, _, Some(_), _, _, _, _))) =>
               val queryArgs = query.richFormat(options)
-              if (queryArgs.contains("latest")) {
+
+              /** rajouter last(n) dans les queryArgs
+                *
+                * Rajouter l'option dynamicPartition pour le sink BQ
+                *
+                * L'option dynamicParition est implicite quand on utilise latest ou last dans la
+                * query
+                *
+                * merge: queryFilter: parition in last(3) Tester les cas où il y a moins de
+                * parittions présentes que de partitions à conserver
+                */
+              val lastPat =
+                Pattern.compile(".*(in)\\s+last\\(\\s*(\\d+)\\s*(\\)).*", Pattern.DOTALL)
+              val lastPatMatcher = lastPat.matcher(queryArgs)
+              if (lastPatMatcher.matches()) {
+                val nbPartition = lastPatMatcher.group(1).toInt
+                assert(nbPartition > 0)
+                val lastStart = lastPatMatcher.start(1)
+                val lastEnd = lastPatMatcher.end(3)
+                val partitions =
+                  tableMetadata.biqueryClient.listPartitions(table.getTableId).asScala.toList.sorted
+                val (oldestPartition, newestPartition) = if (partitions.length < nbPartition) {
+                  (
+                    partitions.headOption.getOrElse("19700101"),
+                    partitions.lastOption.getOrElse("19700101")
+                  )
+                } else {
+                  (
+                    partitions.last,
+                    partitions(partitions.length - nbPartition)
+                  )
+
+                }
+                val finalQueryArgs =
+                  queryArgs
+                    .substring(
+                      0,
+                      lastStart
+                    ) + s"between PARSE_DATE('%Y%m%d','$oldestPartition') and PARSE_DATE('%Y%m%d','$newestPartition')" + queryArgs
+                    .substring(lastEnd)
+                val lastPartitions = partitions.sorted.drop(partitions.length - nbPartition)
+                // "where x in last(3)"
+                val existingBigQueryDF = session.read
+                  // We provided the acceptedDF schema here since BQ lose the required / nullable information of the schema
+                  .schema(withScriptFieldsDF.schema)
+                  .format("com.google.cloud.spark.bigquery")
+                  .option("table", bqTable)
+                  .option("filter", finalQueryArgs)
+                  .load()
+                processMerge(withScriptFieldsDF, existingBigQueryDF, mergeOptions)
+
+              } else if (queryArgs.contains("latest")) {
                 val partitions =
                   tableMetadata.biqueryClient.listPartitions(table.getTableId).asScala.toList
-                val latestPartition = partitions.last
+                val latestPartition = partitions.max
                 val existingBigQueryDF = session.read
                   // We provided the acceptedDF schema here since BQ lose the required / nullable information of the schema
                   .schema(withScriptFieldsDF.schema)
