@@ -983,8 +983,6 @@ trait IngestionJob extends SparkJob {
                       lastStart
                     ) + s"between PARSE_DATE('%Y%m%d','$oldestPartition') and PARSE_DATE('%Y%m%d','$newestPartition')" + queryArgs
                     .substring(lastEnd)
-                val lastPartitions = partitions.sorted.drop(partitions.length - nbPartition)
-                // "where x in last(3)"
                 val existingBigQueryDF = session.read
                   // We provided the acceptedDF schema here since BQ lose the required / nullable information of the schema
                   .schema(withScriptFieldsDF.schema)
