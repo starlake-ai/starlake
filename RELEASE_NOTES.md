@@ -5,6 +5,7 @@ __New feature__:
 - Support XML Schema inference
 - Support the ability to reject the whole file on error
 - Improve error reporting
+- Support engine on task SQL (query pushdown to BigQuery)
 
 __Bug Fix__:
 - Loading empty files when the schema contains script fields

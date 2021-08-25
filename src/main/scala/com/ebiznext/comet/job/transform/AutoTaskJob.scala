@@ -236,7 +236,7 @@ case class AutoTaskJob(
       val (preSql, sqlWithParameters, postSql) = buildQuerySpark()
 
       preSql.foreach(req => session.sql(req))
-      logger.info(s"running sql request $sqlWithParameters wusing ${task.engine}")
+      logger.info(s"running sql request $sqlWithParameters using ${task.engine}")
 
       val dataframe =
         task.engine.getOrElse(Engine.SPARK) match {
@@ -249,6 +249,7 @@ case class AutoTaskJob(
           case Engine.JDBC =>
             logger.warn("JDBC Engine not supported on job task. Running query using Spark Engine")
             session.sql(sqlWithParameters)
+          case _ => throw new Exception("should never happen")
         }
 
       val targetPath = task.getTargetPath(defaultArea)
