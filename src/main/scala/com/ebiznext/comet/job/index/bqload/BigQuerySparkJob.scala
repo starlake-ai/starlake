@@ -1,7 +1,6 @@
 package com.ebiznext.comet.job.index.bqload
 
 import com.ebiznext.comet.config.Settings
-import com.ebiznext.comet.schema.model.MergeOptions
 import com.ebiznext.comet.utils.conversion.BigQueryUtils._
 import com.ebiznext.comet.utils.{JobResult, SparkJob, SparkJobResult, Utils}
 import com.google.cloud.ServiceOptions
@@ -152,18 +151,12 @@ class BigQuerySparkJob(
           .getOption("spark.sql.sources.partitionOverwriteMode")
           .getOrElse("static")
           .toLowerCase()
-      val outputPartitionCol = MergeOptions.getTimestampCol(cliConfig.outputPartition)
-      val outputPartitionType = MergeOptions.getTimestampType(cliConfig.outputPartition)
 
-      (cliConfig.writeDisposition, outputPartitionCol, partitionOverwriteMode) match {
+      (cliConfig.writeDisposition, cliConfig.outputPartition, partitionOverwriteMode) match {
         case ("WRITE_TRUNCATE", Some(partitionField), "dynamic") =>
           logger.info(s"overwriting partition ${partitionField} in The BQ Table $bqTable")
           // BigQuery supports only this date format 'yyyyMMdd', so we have to use it
           // in order to overwrite only one partition
-          assert(
-            outputPartitionType.contains("DATE"),
-            "Only DATE type supported for partition on merge. TIMESTAMP not yet supported"
-          )
           val dateFormat = "yyyyMMdd"
           val partitions = sourceDF
             .select(date_format(col(partitionField), dateFormat).cast("string"))
