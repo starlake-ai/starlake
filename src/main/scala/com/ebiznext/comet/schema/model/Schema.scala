@@ -80,6 +80,41 @@ case class MergeOptions(
   def formatQuery(options: Map[String, String])(implicit settings: Settings): Option[String] =
     queryFilter.map(_.richFormat(options))
 
+  def buildQueryForLastest(partitions: List[String], options: Map[String, String])(implicit
+    settings: Settings
+  ): Option[String] = {
+    val latestPartition = partitions.max
+    val queryArgs = formatQuery(options).getOrElse("")
+    Some(queryArgs.replace("latest", s"PARSE_DATE('%Y%m%d','$latestPartition')"))
+  }
+
+  def buildQueryForLast(partitions: List[String], options: Map[String, String])(implicit
+    settings: Settings
+  ): Option[String] = {
+    val (oldestPartition, newestPartition) = if (partitions.length < nbPartitionQueryFilter) {
+      (
+        partitions.headOption.getOrElse("19700101"),
+        partitions.lastOption.getOrElse("19700101")
+      )
+    } else {
+      (
+        partitions(partitions.length - nbPartitionQueryFilter),
+        partitions.last
+      )
+
+    }
+    val lastStart = lastStartQueryFilter
+    val lastEnd = lastEndQueryFilter
+    val queryArgs = formatQuery(options)
+    queryArgs.map { queryArgs =>
+      queryArgs
+        .substring(
+          0,
+          lastStart
+        ) + s"between PARSE_DATE('%Y%m%d','$oldestPartition') and PARSE_DATE('%Y%m%d','$newestPartition')" + queryArgs
+        .substring(lastEnd)
+    }
+  }
 }
 
 /** Dataset Schema
