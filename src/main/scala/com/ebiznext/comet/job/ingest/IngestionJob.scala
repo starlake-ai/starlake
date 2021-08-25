@@ -971,8 +971,8 @@ trait IngestionJob extends SparkJob {
                   )
                 } else {
                   (
-                    partitions.last,
-                    partitions(partitions.length - nbPartition)
+                    partitions(partitions.length - nbPartition),
+                    partitions.last
                   )
 
                 }
