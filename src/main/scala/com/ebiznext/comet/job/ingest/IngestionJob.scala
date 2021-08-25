@@ -966,6 +966,19 @@ trait IngestionJob extends SparkJob {
   // Merge From BigQuery Data Source
   ///////////////////////////////////////////////////////////////////////////
 
+  /** In the queryFilter, the user may now write something like this : `partitionField in last(3)`
+    * this will be translated to partitionField between partitionStart and partitionEnd
+    *
+    * partitionEnd is the last partition in the dataset paritionStart is the 3rd last partition in
+    * the dataset
+    *
+    * if partititionStart or partitionEnd does nos exist (aka empty dataset) they are replaced by
+    * 19700101
+    *
+    * @param withScriptFieldsDF
+    * @param mergeOptions
+    * @return
+    */
   private[this] def mergeFromBQ(
     withScriptFieldsDF: DataFrame,
     mergeOptions: MergeOptions
@@ -987,59 +1000,27 @@ trait IngestionJob extends SparkJob {
             .schema(withScriptFieldsDF.schema)
             .format("com.google.cloud.spark.bigquery")
             .option("table", bqTable)
-          (mergeOptions.queryFilter, metadata.sink) match {
+
+          val existingBigQueryDF = (mergeOptions.queryFilter, metadata.sink) match {
             case (Some(_), Some(BigQuerySink(_, _, Some(_), _, _, _, _))) =>
-              /*In the queryFIlter, the user may now write something like this :
-                `partitionField in last(3)`
-                this will be translated to partitionField between partitionStart and partitionEnd
-
-                partitionEnd is the last partition in the dataset
-                paritionStart is the 3rd last partition in the dataset
-
-                if partititionStart or partitionEnd does nos exist (aka empty dataset) they are replaced by 19700101
-               */
-
-              if (mergeOptions.queryFilterContainsLast) {
-                val partitions =
-                  tableMetadata.biqueryClient.listPartitions(table.getTableId).asScala.toList.sorted
-                val finalQueryArgs = mergeOptions.buildQueryForLast(partitions, options)
-                val existingBigQueryDF = existingBQDFWithoutFilter
-                  .option(
-                    "filter",
-                    finalQueryArgs.getOrElse(throw new Exception("should never happen"))
-                  )
-                  .load()
-                processMerge(withScriptFieldsDF, existingBigQueryDF, mergeOptions)
-
-              } else if (mergeOptions.queryFilterContainsLatest) {
-                val partitions =
-                  tableMetadata.biqueryClient.listPartitions(table.getTableId).asScala.toList
-                val finalQueryArgs = mergeOptions.buildQueryForLastest(partitions, options)
-                val existingBigQueryDF = existingBQDFWithoutFilter
-                  .option(
-                    "filter",
-                    finalQueryArgs.getOrElse(throw new Exception("should never happen"))
-                  )
-                  .load()
-                processMerge(withScriptFieldsDF, existingBigQueryDF, mergeOptions)
-
-              } else {
-                val existingBigQueryDF = existingBQDFWithoutFilter
-                  .option(
-                    "filter",
-                    mergeOptions
-                      .formatQuery(options)
-                      .getOrElse(throw new Exception("should never happen"))
-                  )
-                  .load()
-                processMerge(withScriptFieldsDF, existingBigQueryDF, mergeOptions)
-              }
-            case _ =>
-              val existingBigQueryDF = existingBQDFWithoutFilter
+              val partitions =
+                tableMetadata.biqueryClient.listPartitions(table.getTableId).asScala.toList
+              val filter =
+                if (mergeOptions.queryFilterContainsLast) {
+                  mergeOptions.buildQueryForLast(partitions, options)
+                } else if (mergeOptions.queryFilterContainsLatest) {
+                  mergeOptions.buildQueryForLastest(partitions, options)
+                } else {
+                  mergeOptions.formatQuery(options)
+                }
+              existingBQDFWithoutFilter
+                .option("filter", filter.getOrElse(throw new Exception("should never happen")))
                 .load()
-              processMerge(withScriptFieldsDF, existingBigQueryDF, mergeOptions)
-          }
 
+            case (_, _) =>
+              existingBQDFWithoutFilter.load()
+          }
+          processMerge(withScriptFieldsDF, existingBigQueryDF, mergeOptions)
         } else
           throw new RuntimeException(
             "Input Dataset and existing HDFS dataset do not have the same number of columns. Check for changes in the dataset schema ?"
