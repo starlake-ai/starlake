@@ -808,13 +808,13 @@ trait IngestionJob extends SparkJob {
 
   private[this] def processMerge(
     incomingDF: DataFrame,
-    existing: DataFrame,
+    existingDF: DataFrame,
     merge: MergeOptions
   ): (DataFrame, Option[List[String]]) = {
     logger.info(s"incomingDF Schema before merge -> ${incomingDF.schema}")
-    logger.info(s"existingDF Schema before merge -> ${existing.schema}")
-    logger.info(s"existingDF field count=${existing.schema.fields.length}")
-    logger.info(s"""existingDF field list=${existing.schema.fields.map(_.name).mkString(",")}""")
+    logger.info(s"existingDF Schema before merge -> ${existingDF.schema}")
+    logger.info(s"existingDF field count=${existingDF.schema.fields.length}")
+    logger.info(s"""existingDF field list=${existingDF.schema.fields.map(_.name).mkString(",")}""")
     logger.info(s"incomingDF field count=${incomingDF.schema.fields.length}")
     logger.info(s"""incomingDF field list=${incomingDF.schema.fields.map(_.name).mkString(",")}""")
 
@@ -823,27 +823,11 @@ trait IngestionJob extends SparkJob {
       .map(condition => incomingDF.filter(s"not ($condition)"))
       .getOrElse(incomingDF)
 
-    val (toDeleteDF, mergedDF, partitionsToUpdate) = merge.timestamp
-      .map { timestamp =>
+    val (toDeleteDF, mergedDF, partitionsToUpdate) = merge.timestamp match {
+      case Some(timestamp) =>
         // We only keep the first occurrence of each record, from both datasets
-        val orderingWindow =
-          Window.partitionBy(merge.key.head, merge.key.tail: _*).orderBy(col(timestamp).desc)
-
-        val allRowsDF = existing.union(finalIncomingDF)
-
-        val allRowsWithRownum = allRowsDF
-          .withColumn("rownum", row_number.over(orderingWindow))
-
-        // Deduplicate
-        val mergedDF = allRowsWithRownum
-          .where(col("rownum") === 1)
-          .drop("rownum")
-
-        // Compute rows that will be deleted (for logging purposes)
-        val toDeleteDF = allRowsWithRownum
-          .where(col("rownum") =!= 1)
-          .drop("rownum")
-
+        val (mergedDF: DataFrame, toDeleteDF: DataFrame) =
+          computeToMergeAndToDeleteDF(existingDF, merge, finalIncomingDF, timestamp)
         val partitionOverwriteMode =
           session.conf
             .getOption("spark.sql.sources.partitionOverwriteMode")
@@ -855,41 +839,29 @@ trait IngestionJob extends SparkJob {
           metadata.getSink().map(_.`type`).getOrElse(SinkType.None),
           settings.comet.mergeOptimizePartitionWrite
         ) match {
-          case ("dynamic", SinkType.BQ, true) =>
+          // no need to apply optimization if existing dataset is empty
+          case ("dynamic", SinkType.BQ, true) if existingDF.limit(1).count() == 1 =>
             logger.info(s"Computing partitions to update on timestamp $timestamp")
-            val partitionsToUpdate = finalIncomingDF
-              .select(col(timestamp))
-              .union(toDeleteDF.select(col(timestamp)))
-              .select(date_format(col(timestamp), "yyyyMMdd").cast("string"))
-              .where(col(timestamp).isNotNull)
-              .distinct()
-              .collect()
-              .map(_.getString(0))
-              .toList
+            val partitionsToUpdate =
+              computePartitionsToUpdateAfterMerge(finalIncomingDF, timestamp, toDeleteDF)
             logger.info(
               s"The following partitions will be updated ${partitionsToUpdate.mkString(",")}"
             )
-
             Some(partitionsToUpdate)
-
           case ("static", _, _) | ("dynamic", _, _) =>
             None
-
           case (_, _, _) =>
             throw new Exception("Should never happen")
-
         }
-
         (toDeleteDF, mergedDF, partitionsToUpdate)
-      }
-      .getOrElse {
+      case None =>
         // We directly remove from the existing dataset the row that are present in the incoming dataset
-        val commonDF = existing
+        val commonDF = existingDF
           .join(finalIncomingDF.select(merge.key.map(col): _*), merge.key)
           .select(finalIncomingDF.columns.map(col): _*)
 
-        (commonDF, existing.except(commonDF).union(finalIncomingDF), None)
-      }
+        (commonDF, existingDF.except(commonDF).union(finalIncomingDF), None)
+    }
     logger.whenDebugEnabled {
       logger.debug(s"Merge detected ${toDeleteDF.count()} items to update/delete")
       logger.debug(s"Merge detected ${finalIncomingDF.count()} items to update/insert")
@@ -903,9 +875,48 @@ trait IngestionJob extends SparkJob {
     }
   }
 
-  ///////////////////////////////////////////////////////////////////////////
-  // Merge From Parquets Data Source
-  ///////////////////////////////////////////////////////////////////////////
+  private[this] def computeToMergeAndToDeleteDF(
+    existingDF: DataFrame,
+    merge: MergeOptions,
+    finalIncomingDF: Dataset[Row],
+    timestamp: String
+  ): (DataFrame, DataFrame) = {
+    val orderingWindow =
+      Window.partitionBy(merge.key.head, merge.key.tail: _*).orderBy(col(timestamp).desc)
+
+    val allRowsDF = existingDF.union(finalIncomingDF)
+
+    val allRowsWithRownum = allRowsDF
+      .withColumn("rownum", row_number.over(orderingWindow))
+
+    // Deduplicate
+    val mergedDF = allRowsWithRownum
+      .where(col("rownum") === 1)
+      .drop("rownum")
+
+    // Compute rows that will be deleted (for logging purposes)
+    val toDeleteDF = allRowsWithRownum
+      .where(col("rownum") =!= 1)
+      .drop("rownum")
+    (mergedDF, toDeleteDF)
+  }
+
+  private def computePartitionsToUpdateAfterMerge(
+    finalIncomingDF: Dataset[Row],
+    timestamp: String,
+    toDeleteDF: DataFrame
+  ): List[String] = {
+    val partitionsToUpdate = finalIncomingDF
+      .select(col(timestamp))
+      .union(toDeleteDF.select(col(timestamp)))
+      .select(date_format(col(timestamp), "yyyyMMdd").cast("string"))
+      .where(col(timestamp).isNotNull)
+      .distinct()
+      .collect()
+      .map(_.getString(0))
+      .toList
+    partitionsToUpdate
+  }
 
   private[this] def mergeFromParquet(
     acceptedPath: Path,
@@ -924,13 +935,15 @@ trait IngestionJob extends SparkJob {
           .fields
           .length
       )
-        mergeParquet(withScriptFieldsDF, existingDF, mergeOptions)
+        applyMergeParquet(withScriptFieldsDF, existingDF, mergeOptions)
       else
         throw new RuntimeException(
           "Input Dataset and existing HDFS dataset do not have the same number of columns. Check for changes in the dataset schema ?"
         )
     } else {
-      withScriptFieldsDF
+      val emptyExistingDF = session
+        .createDataFrame(session.sparkContext.emptyRDD[Row], withScriptFieldsDF.schema)
+      applyMergeParquet(withScriptFieldsDF, emptyExistingDF, mergeOptions)
     }
   }
 
@@ -942,7 +955,7 @@ trait IngestionJob extends SparkJob {
     * @return
     *   merged dataframe
     */
-  private[this] def mergeParquet(
+  private[this] def applyMergeParquet(
     inputDF: DataFrame,
     existingDF: DataFrame,
     merge: MergeOptions
@@ -1026,7 +1039,11 @@ trait IngestionJob extends SparkJob {
             "Input Dataset and existing HDFS dataset do not have the same number of columns. Check for changes in the dataset schema ?"
           )
       }
-      .getOrElse((withScriptFieldsDF, None))
+      .getOrElse {
+        val emptyExistingDF = session
+          .createDataFrame(session.sparkContext.emptyRDD[Row], withScriptFieldsDF.schema)
+        processMerge(withScriptFieldsDF, emptyExistingDF, mergeOptions)
+      }
   }
 
   def reorderAttributes(dataFrame: DataFrame): List[Attribute] = {
