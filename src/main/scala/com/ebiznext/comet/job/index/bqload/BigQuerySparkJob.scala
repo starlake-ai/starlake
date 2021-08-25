@@ -177,7 +177,6 @@ class BigQuerySparkJob(
                 .write
                 .mode(SaveMode.Overwrite)
                 .format("com.google.cloud.spark.bigquery")
-                .option("partitionField", partitionField)
                 .option("datePartition", partitionStr)
                 .option("table", bqTable)
                 .option("intermediateFormat", intermediateFormat)
@@ -193,7 +192,6 @@ class BigQuerySparkJob(
           val finalDF = sourceDF.write
             .mode(saveMode)
             .format("com.google.cloud.spark.bigquery")
-            .option("partitionField", partitionField)
             .option("table", bqTable)
             .option("intermediateFormat", intermediateFormat)
           cliConfig.options.foldLeft(finalDF)((w, kv) => w.option(kv._1, kv._2)).save()
