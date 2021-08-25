@@ -40,14 +40,38 @@ import com.google.cloud.bigquery.{Schema => BQSchema}
   *   Optional valid sql condition on the incoming dataset. Use renamed column here.
   * @param timestamp
   *   Timestamp column used to identify last version, if not specified currently ingested row is
-  *   considered the last
+  *   considered the last. Maybe prefixed with TIMESTAMP or DATE(default) to specifiy if it is a
+  *   timestamp or a date (useful on dynamic partitioning on BQ to selectively apply PARSE_DATE or
+  *   PARSE_TIMESTAMP
   */
 case class MergeOptions(
   key: List[String],
   delete: Option[String] = None,
   timestamp: Option[String] = None,
   queryFilter: Option[String] = None
-)
+) {
+  def getTimestampCol(): Option[String] = MergeOptions.getTimestampCol(timestamp)
+  def getTimestampType(): Option[String] = MergeOptions.getTimestampType(timestamp)
+}
+
+object MergeOptions {
+  def getTimestampCol(timestamp: Option[String]): Option[String] = {
+    timestamp.map { timestamp =>
+      if (timestamp.indexOf(':') > 0)
+        timestamp.substring(timestamp.indexOf(':') + 1)
+      else
+        timestamp
+    }
+  }
+  def getTimestampType(timestamp: Option[String]): Option[String] = {
+    timestamp.map { timestamp =>
+      if (timestamp.indexOf(':') > 0)
+        timestamp.substring(0, timestamp.indexOf(':')).toUpperCase()
+      else
+        "DATE"
+    }
+  }
+}
 
 /** Dataset Schema
   *
