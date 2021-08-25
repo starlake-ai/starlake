@@ -30,16 +30,21 @@ trait Definition {
 
   /** Creates a library module
     *
-    * @param name the name of the module, will be used as the module's root folder name
-    * @return the module's `Project`
+    * @param name
+    *   the name of the module, will be used as the module's root folder name
+    * @return
+    *   the module's `Project`
     */
   def library(name: String): Project = library(name, file(name))
 
   /** Creates a library sub project
     *
-    * @param name the name of the project
-    * @param src  the module's root folder
-    * @return the module's `Project`
+    * @param name
+    *   the name of the project
+    * @param src
+    *   the module's root folder
+    * @return
+    *   the module's `Project`
     */
   def library(name: String, src: File): Project =
     sbt
