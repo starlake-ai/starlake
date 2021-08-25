@@ -7,6 +7,8 @@ __New feature__:
 - Improve error reporting
 - Support engine on task SQL (query pushdown to BigQuery)
 - Support last(n) partition on merge
+- Added new env var to control parititioning COMET_SPARK_SQL_SOURCES_PARTITION_OVERWRITE_MODE
+
 
 __Bug Fix__:
 - Loading empty files when the schema contains script fields
