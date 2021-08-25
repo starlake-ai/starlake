@@ -91,15 +91,16 @@ case class MergeOptions(
   def buildQueryForLast(partitions: List[String], options: Map[String, String])(implicit
     settings: Settings
   ): Option[String] = {
-    val (oldestPartition, newestPartition) = if (partitions.length < nbPartitionQueryFilter) {
+    val sortedPartitions = partitions.sorted
+    val (oldestPartition, newestPartition) = if (sortedPartitions.length < nbPartitionQueryFilter) {
       (
-        partitions.headOption.getOrElse("19700101"),
-        partitions.lastOption.getOrElse("19700101")
+        sortedPartitions.headOption.getOrElse("19700101"),
+        sortedPartitions.lastOption.getOrElse("19700101")
       )
     } else {
       (
-        partitions(partitions.length - nbPartitionQueryFilter),
-        partitions.last
+        sortedPartitions(sortedPartitions.length - nbPartitionQueryFilter),
+        sortedPartitions.last
       )
 
     }
