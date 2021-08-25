@@ -158,6 +158,9 @@ class BigQuerySparkJob(
           // BigQuery supports only this date format 'yyyyMMdd', so we have to use it
           // in order to overwrite only one partition
           val dateFormat = "yyyyMMdd"
+          val incomingDF: DataFrame = null
+          val toDeleteDF: DataFrame = null
+
           val partitions = sourceDF
             .select(date_format(col(partitionField), dateFormat).cast("string"))
             .where(col(partitionField).isNotNull)
@@ -173,16 +176,26 @@ class BigQuerySparkJob(
           partitions.foreach { partitionStr =>
             val finalDF =
               sourceDF
-                .where(date_format(col(partitionField), dateFormat).cast("string") === partitionStr)
+                .where(
+                  date_format(col(partitionField), dateFormat).cast("string") === partitionStr
+                )
                 .write
                 .mode(SaveMode.Overwrite)
                 .format("com.google.cloud.spark.bigquery")
                 .option("datePartition", partitionStr)
                 .option("table", bqTable)
                 .option("intermediateFormat", intermediateFormat)
-            cliConfig.options
+            val finalDFWithOptions = cliConfig.options
               .foldLeft(finalDF) { case (df, (k, v)) => df.option(k, v) }
-              .save()
+            cliConfig.partitionsToUpdate match {
+              case None =>
+                finalDFWithOptions.save()
+              case Some(partitionsToUpdate) =>
+                // We only overwrite partitions containing updated or newly added elements
+                if (partitionsToUpdate.contains(partitionStr)) {
+                  finalDFWithOptions.save()
+                }
+            }
           }
 
         case (writeDisposition, _, "dynamic") =>
@@ -197,6 +210,7 @@ class BigQuerySparkJob(
             .format("com.google.cloud.spark.bigquery")
             .option("table", bqTable)
             .option("intermediateFormat", intermediateFormat)
+
           cliConfig.options.foldLeft(finalDF)((w, kv) => w.option(kv._1, kv._2)).save()
 
         case (writeDisposition, _, "static") =>
@@ -208,6 +222,7 @@ class BigQuerySparkJob(
             .format("com.google.cloud.spark.bigquery")
             .option("table", bqTable)
             .option("intermediateFormat", intermediateFormat)
+
           cliConfig.options.foldLeft(finalDF)((w, kv) => w.option(kv._1, kv._2)).save()
 
         case (_, _, invalidPartitionOverwriteMode) =>
