@@ -10,6 +10,7 @@ __New feature__:
 - Added new env var to control parititioning COMET_SPARK_SQL_SOURCES_PARTITION_OVERWRITE_MODE
 - Added env var to control BigQuery materialization on pushdown queries COMET_SPARK_BIGQUERY_MATERIALIZATION_PROJECT, COMET_SPARK_BIGQUERY_MATERIALIZATION_DATASET (default to materalization)
 - Added env var to control BigQuery read data format COMET_SPARK_BIGQUERY_READ_DATA_FORMAT (default to AVRO)
+- When COMET_MERGE_OPTIMIZE_PARTITION_WRITE is set and dynamic partition is active, only write partition containing new records or records to be deleted or updated for BQ (handled by Spark by default for FS).
 
 __Bug Fix__:
 - Loading empty files when the schema contains script fields
@@ -18,6 +19,7 @@ __Bug Fix__:
 - XLS2YML : remove non-breaking spaces from Excel file cells to avoid parsing errors
 - Fix merge using timestamp option
 - Json ingestion fails with complex array of objects
+- Remove duplicates on incoming when existingDF does not exist or is empty
 
 # 0.2.4 / 0.2.5
 __Bug Fix__:
