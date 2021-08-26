@@ -1012,7 +1012,6 @@ trait IngestionJob extends SparkJob {
           val bqTable = s"${domain.name}.${schema.name}"
           // We provided the acceptedDF schema here since BQ lose the required / nullable information of the schema
           val existingBQDFWithoutFilter = session.read
-            .schema(withScriptFieldsDF.schema)
             .format("com.google.cloud.spark.bigquery")
             .option("table", bqTable)
 
