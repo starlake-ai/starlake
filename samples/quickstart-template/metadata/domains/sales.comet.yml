@@ -15,6 +15,14 @@ load:
       pattern: "customers-.*.psv"
       metadata:
         separator: "|"
+        partition:
+          attributes:
+            - signup
+      merge:
+        queryFilter: signup in last(4)
+        timestamp: signup
+        key:
+          - id
       primaryKey:
         - id
       attributes:
