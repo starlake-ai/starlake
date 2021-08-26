@@ -953,14 +953,14 @@ trait IngestionJob extends SparkJob {
     *
     * @param inputDF
     * @param existingDF
-    * @param merge
+    * @param mergeOptions
     * @return
     *   merged dataframe
     */
   private[this] def applyMergeParquet(
     inputDF: DataFrame,
     existingDF: DataFrame,
-    merge: MergeOptions
+    mergeOptions: MergeOptions
   ): DataFrame = {
 
     val partitionedInputDF = partitionDataset(inputDF, metadata.getPartitionAttributes())
@@ -1022,9 +1022,9 @@ trait IngestionJob extends SparkJob {
                 tableMetadata.biqueryClient.listPartitions(table.getTableId).asScala.toList
               val filter =
                 if (mergeOptions.queryFilterContainsLast) {
-                  mergeOptions.buildQueryForLast(partitions, options)
+                  mergeOptions.buildBQQueryForLast(partitions, options)
                 } else if (mergeOptions.queryFilterContainsLatest) {
-                  mergeOptions.buildQueryForLastest(partitions, options)
+                  mergeOptions.buildBQQueryForLastest(partitions, options)
                 } else {
                   mergeOptions.formatQuery(options)
                 }
