@@ -823,45 +823,47 @@ trait IngestionJob extends SparkJob {
       .map(condition => incomingDF.filter(s"not ($condition)"))
       .getOrElse(incomingDF)
 
-    val (toDeleteDF, mergedDF, partitionsToUpdate) = merge.timestamp match {
+    val (toDeleteDF, mergedDF) = merge.timestamp match {
       case Some(timestamp) =>
         // We only keep the first occurrence of each record, from both datasets
         val (mergedDF: DataFrame, toDeleteDF: DataFrame) =
           computeToMergeAndToDeleteDF(existingDF, merge, finalIncomingDF, timestamp)
-        val partitionOverwriteMode =
-          session.conf
-            .getOption("spark.sql.sources.partitionOverwriteMode")
-            .getOrElse("static")
-            .toLowerCase()
-
-        val partitionsToUpdate = (
-          partitionOverwriteMode,
-          metadata.getSink().map(_.`type`).getOrElse(SinkType.None),
-          settings.comet.mergeOptimizePartitionWrite
-        ) match {
-          // no need to apply optimization if existing dataset is empty
-          case ("dynamic", SinkType.BQ, true) if existingDF.limit(1).count() == 1 =>
-            logger.info(s"Computing partitions to update on timestamp $timestamp")
-            val partitionsToUpdate =
-              computePartitionsToUpdateAfterMerge(finalIncomingDF, timestamp, toDeleteDF)
-            logger.info(
-              s"The following partitions will be updated ${partitionsToUpdate.mkString(",")}"
-            )
-            Some(partitionsToUpdate)
-          case ("static", _, _) | ("dynamic", _, _) =>
-            None
-          case (_, _, _) =>
-            throw new Exception("Should never happen")
-        }
-        (toDeleteDF, mergedDF, partitionsToUpdate)
+        (toDeleteDF, mergedDF)
       case None =>
         // We directly remove from the existing dataset the row that are present in the incoming dataset
         val commonDF = existingDF
           .join(finalIncomingDF.select(merge.key.map(col): _*), merge.key)
           .select(finalIncomingDF.columns.map(col): _*)
 
-        (commonDF, existingDF.except(commonDF).union(finalIncomingDF), None)
+        (commonDF, existingDF.except(commonDF).union(finalIncomingDF))
     }
+    val partitionOverwriteMode =
+      session.conf
+        .getOption("spark.sql.sources.partitionOverwriteMode")
+        .getOrElse("static")
+        .toLowerCase()
+
+    val partitionsToUpdate = (
+      partitionOverwriteMode,
+      metadata.getSink(),
+      settings.comet.mergeOptimizePartitionWrite
+    ) match {
+      // no need to apply optimization if existing dataset is empty
+      case ("dynamic", Some(BigQuerySink(_, _, Some(timestamp), _, _, _, _)), true)
+          if existingDF.limit(1).count() == 1 =>
+        logger.info(s"Computing partitions to update on date column $timestamp")
+        val partitionsToUpdate =
+          computePartitionsToUpdateAfterMerge(finalIncomingDF, timestamp, toDeleteDF)
+        logger.info(
+          s"The following partitions will be updated ${partitionsToUpdate.mkString(",")}"
+        )
+        Some(partitionsToUpdate)
+      case ("static", _, _) | ("dynamic", _, _) =>
+        None
+      case (_, _, _) =>
+        throw new Exception("Should never happen")
+    }
+
     logger.whenDebugEnabled {
       logger.debug(s"Merge detected ${toDeleteDF.count()} items to update/delete")
       logger.debug(s"Merge detected ${finalIncomingDF.count()} items to update/insert")
