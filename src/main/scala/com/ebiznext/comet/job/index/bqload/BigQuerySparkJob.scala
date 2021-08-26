@@ -18,7 +18,7 @@ import com.google.cloud.bigquery.{
 import com.google.cloud.hadoop.io.bigquery.BigQueryConfiguration
 import org.apache.hadoop.conf.Configuration
 import org.apache.spark.sql.functions.{col, date_format}
-import org.apache.spark.sql.{DataFrame, SaveMode, SparkSession}
+import org.apache.spark.sql.{DataFrame, Row, SaveMode, SparkSession}
 import org.apache.spark.storage.StorageLevel
 
 import scala.collection.JavaConverters._
@@ -178,6 +178,26 @@ class BigQuerySparkJob(
                 s"After optimization -> only the following ${partitionsToUpdate.length} partitions will be written: ${partitionsToUpdate
                   .mkString(",")}"
               )
+          }
+
+          // Delete partitions becoming empty
+          cliConfig.partitionsToUpdate match {
+            case None =>
+            case Some(partitionsToUpdate) =>
+              partitionsToUpdate.foreach { partitionToUpdate =>
+                // if partitionToUpdate is not in the list of parititions to merge. It means that it need to be deleted
+                // this case happen mahen there is no more than a single element in the partition
+                if (!partitions.contains(partitionToUpdate)) {
+                  val emptyDF = session
+                    .createDataFrame(session.sparkContext.emptyRDD[Row], sourceDF.schema)
+                  emptyDF.write
+                    .mode(SaveMode.Overwrite)
+                    .format("com.google.cloud.spark.bigquery")
+                    .option("datePartition", partitionToUpdate)
+                    .option("table", bqTable)
+                    .option("intermediateFormat", intermediateFormat)
+                }
+              }
           }
           partitions.foreach { partitionStr =>
             val finalDF =
