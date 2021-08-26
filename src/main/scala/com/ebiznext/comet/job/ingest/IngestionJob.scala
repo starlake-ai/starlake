@@ -1016,26 +1016,18 @@ trait IngestionJob extends SparkJob {
             .format("com.google.cloud.spark.bigquery")
             .option("table", bqTable)
 
-          val existingBigQueryDF = (mergeOptions.queryFilter, metadata.sink) match {
+          val existingBigQueryDFReader = (mergeOptions.queryFilter, metadata.sink) match {
             case (Some(_), Some(BigQuerySink(_, _, Some(_), _, _, _, _))) =>
               val partitions =
                 tableMetadata.biqueryClient.listPartitions(table.getTableId).asScala.toList
-              val filter =
-                if (mergeOptions.queryFilterContainsLast) {
-                  mergeOptions.buildBQQueryForLast(partitions, options)
-                } else if (mergeOptions.queryFilterContainsLatest) {
-                  mergeOptions.buildBQQueryForLastest(partitions, options)
-                } else {
-                  mergeOptions.formatQuery(options)
-                }
+              val filter = mergeOptions.buidlBQQuery(partitions, options)
               existingBQDFWithoutFilter
                 .option("filter", filter.getOrElse(throw new Exception("should never happen")))
-                .load()
 
             case (_, _) =>
-              existingBQDFWithoutFilter.load()
+              existingBQDFWithoutFilter
           }
-          processMerge(withScriptFieldsDF, existingBigQueryDF, mergeOptions)
+          processMerge(withScriptFieldsDF, existingBigQueryDFReader.load(), mergeOptions)
         } else
           throw new RuntimeException(
             "Input Dataset and existing HDFS dataset do not have the same number of columns. Check for changes in the dataset schema ?"
