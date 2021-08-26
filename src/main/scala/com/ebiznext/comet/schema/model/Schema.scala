@@ -58,18 +58,19 @@ case class MergeOptions(
   private val matcher = lastPat.matcher(queryFilter.getOrElse(""))
 
   @JsonIgnore
-  val queryFilterContainsLast: Boolean =
+  private val queryFilterContainsLast: Boolean =
     queryFilter.exists { queryFilter =>
       matcher.matches()
     }
   @JsonIgnore
-  val queryFilterContainsLatest: Boolean = queryFilter.exists(_.contains("latest"))
+  private val queryFilterContainsLatest: Boolean = queryFilter.exists(_.contains("latest"))
 
   @JsonIgnore
-  val canOptimizeQueryFilter: Boolean = queryFilterContainsLast || queryFilterContainsLatest
+  private val canOptimizeQueryFilter: Boolean = queryFilterContainsLast || queryFilterContainsLatest
 
   @JsonIgnore
-  val nbPartitionQueryFilter: Int = if (queryFilterContainsLast) matcher.group(2).toInt else -1
+  private val nbPartitionQueryFilter: Int =
+    if (queryFilterContainsLast) matcher.group(2).toInt else -1
 
   @JsonIgnore
   val lastStartQueryFilter: Int = if (queryFilterContainsLast) matcher.start(1) else -1
@@ -77,18 +78,32 @@ case class MergeOptions(
   @JsonIgnore
   val lastEndQueryFilter: Int = if (queryFilterContainsLast) matcher.end(3) else -1
 
-  def formatQuery(options: Map[String, String])(implicit settings: Settings): Option[String] =
+  private def formatQuery(options: Map[String, String])(implicit
+    settings: Settings
+  ): Option[String] =
     queryFilter.map(_.richFormat(options))
 
-  def buildBQQueryForLastest(partitions: List[String], options: Map[String, String])(implicit
+  def buidlBQQuery(partitions: List[String], options: Map[String, String])(implicit
     settings: Settings
+  ): Option[String] = {
+    if (queryFilterContainsLast) {
+      buildBQQueryForLast(partitions, options)
+    } else if (queryFilterContainsLatest) {
+      buildBQQueryForLastest(partitions, options)
+    } else {
+      formatQuery(options)
+    }
+  }
+
+  private def buildBQQueryForLastest(partitions: List[String], options: Map[String, String])(
+    implicit settings: Settings
   ): Option[String] = {
     val latestPartition = partitions.max
     val queryArgs = formatQuery(options).getOrElse("")
     Some(queryArgs.replace("latest", s"PARSE_DATE('%Y%m%d','$latestPartition')"))
   }
 
-  def buildBQQueryForLast(partitions: List[String], options: Map[String, String])(implicit
+  private def buildBQQueryForLast(partitions: List[String], options: Map[String, String])(implicit
     settings: Settings
   ): Option[String] = {
     val sortedPartitions = partitions.sorted
