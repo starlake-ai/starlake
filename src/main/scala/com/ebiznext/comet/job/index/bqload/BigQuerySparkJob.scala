@@ -186,7 +186,7 @@ class BigQuerySparkJob(
             case Some(partitionsToUpdate) =>
               partitionsToUpdate.foreach { partitionToUpdate =>
                 // if partitionToUpdate is not in the list of parititions to merge. It means that it need to be deleted
-                // this case happen mahen there is no more than a single element in the partition
+                // this case happen when there is no more than a single element in the partition
                 if (!partitions.contains(partitionToUpdate)) {
                   val emptyDF = session
                     .createDataFrame(session.sparkContext.emptyRDD[Row], sourceDF.schema)
