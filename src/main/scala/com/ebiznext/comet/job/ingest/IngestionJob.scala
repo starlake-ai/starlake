@@ -973,7 +973,7 @@ trait IngestionJob extends SparkJob {
     val orderedExisting =
       existingDF.select(partitionedInputDF.columns.map(col): _*)
 
-    val (dataframe, _) = processMerge(partitionedInputDF, orderedExisting, merge)
+    val (dataframe, _) = processMerge(partitionedInputDF, orderedExisting, mergeOptions)
     dataframe
   }
 
