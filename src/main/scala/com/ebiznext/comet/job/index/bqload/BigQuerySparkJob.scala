@@ -203,6 +203,10 @@ class BigQuerySparkJob(
                     s"Optimization -> Writing partition : $partitionStr"
                   )
                   finalDFWithOptions.save()
+                } else {
+                  logger.info(
+                    s"Optimization -> Not writing partition : $partitionStr"
+                  )
                 }
             }
           }
