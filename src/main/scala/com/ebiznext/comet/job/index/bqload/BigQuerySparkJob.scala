@@ -236,9 +236,11 @@ class BigQuerySparkJob(
             }
           }
 
-        case (writeDisposition, _, "dynamic") =>
-          logger.warn(
-            "dynamic partition requested but not partition field defined. Ignoring dynamic option"
+        case (writeDisposition, _, partitionOverwriteMode) =>
+          assert(
+            partitionOverwriteMode == "static" || partitionOverwriteMode == "dynamic",
+            s"""Only dynamic or static are values values for property 
+               |partitionOverwriteMode. $partitionOverwriteMode found""".stripMargin
           )
           val saveMode =
             if (writeDisposition == "WRITE_TRUNCATE") SaveMode.Overwrite else SaveMode.Append
@@ -250,23 +252,6 @@ class BigQuerySparkJob(
             .option("intermediateFormat", intermediateFormat)
 
           cliConfig.options.foldLeft(finalDF)((w, kv) => w.option(kv._1, kv._2)).save()
-
-        case (writeDisposition, _, "static") =>
-          val saveMode =
-            if (writeDisposition == "WRITE_TRUNCATE") SaveMode.Overwrite else SaveMode.Append
-          logger.info(s"Saving BQ Table $bqTable")
-          val finalDF = sourceDF.write
-            .mode(saveMode)
-            .format("com.google.cloud.spark.bigquery")
-            .option("table", bqTable)
-            .option("intermediateFormat", intermediateFormat)
-
-          cliConfig.options.foldLeft(finalDF)((w, kv) => w.option(kv._1, kv._2)).save()
-
-        case (_, _, invalidPartitionOverwriteMode) =>
-          throw new Exception(
-            s"Only dynamic or static are values values for property partitionOverwriteMode. $invalidPartitionOverwriteMode found"
-          )
       }
 
       val stdTableDefinitionAfter =
