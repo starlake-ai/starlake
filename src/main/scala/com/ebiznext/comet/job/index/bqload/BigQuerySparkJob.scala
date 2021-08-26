@@ -185,17 +185,22 @@ class BigQuerySparkJob(
             case None =>
             case Some(partitionsToUpdate) =>
               partitionsToUpdate.foreach { partitionToUpdate =>
-                // if partitionToUpdate is not in the list of parititions to merge. It means that it need to be deleted
+                // if partitionToUpdate is not in the list of partitions to merge. It means that it need to be deleted
                 // this case happen when there is no more than a single element in the partition
                 if (!partitions.contains(partitionToUpdate)) {
+                  logger.info(s"Deleting partition $partitionToUpdate")
                   val emptyDF = session
                     .createDataFrame(session.sparkContext.emptyRDD[Row], sourceDF.schema)
-                  emptyDF.write
+                  val finalEmptyDF = emptyDF.write
                     .mode(SaveMode.Overwrite)
                     .format("com.google.cloud.spark.bigquery")
                     .option("datePartition", partitionToUpdate)
                     .option("table", bqTable)
                     .option("intermediateFormat", intermediateFormat)
+
+                  cliConfig.options
+                    .foldLeft(finalEmptyDF) { case (df, (k, v)) => df.option(k, v) }
+                    .save()
                 }
               }
           }
