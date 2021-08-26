@@ -63,13 +63,13 @@ case class MergeOptions(
       matcher.matches()
     }
   @JsonIgnore
-  val queryFilterContainsLatest: Boolean = queryFilter.contains("latest")
+  val queryFilterContainsLatest: Boolean = queryFilter.exists(_.contains("latest"))
 
   @JsonIgnore
   val canOptimizeQueryFilter: Boolean = queryFilterContainsLast || queryFilterContainsLatest
 
   @JsonIgnore
-  val nbPartitionQueryFilter: Int = if (queryFilterContainsLast) matcher.group(1).toInt else -1
+  val nbPartitionQueryFilter: Int = if (queryFilterContainsLast) matcher.group(2).toInt else -1
 
   @JsonIgnore
   val lastStartQueryFilter: Int = if (queryFilterContainsLast) matcher.start(1) else -1
