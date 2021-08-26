@@ -80,7 +80,7 @@ case class MergeOptions(
   def formatQuery(options: Map[String, String])(implicit settings: Settings): Option[String] =
     queryFilter.map(_.richFormat(options))
 
-  def buildQueryForLastest(partitions: List[String], options: Map[String, String])(implicit
+  def buildBQQueryForLastest(partitions: List[String], options: Map[String, String])(implicit
     settings: Settings
   ): Option[String] = {
     val latestPartition = partitions.max
@@ -88,7 +88,7 @@ case class MergeOptions(
     Some(queryArgs.replace("latest", s"PARSE_DATE('%Y%m%d','$latestPartition')"))
   }
 
-  def buildQueryForLast(partitions: List[String], options: Map[String, String])(implicit
+  def buildBQQueryForLast(partitions: List[String], options: Map[String, String])(implicit
     settings: Settings
   ): Option[String] = {
     val sortedPartitions = partitions.sorted
