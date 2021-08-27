@@ -25,7 +25,15 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.sql._
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions._
-import org.apache.spark.sql.types._
+import org.apache.spark.sql.types.{
+  ArrayType,
+  IntegerType,
+  LongType,
+  StringType,
+  StructField,
+  StructType,
+  TimestampType
+}
 
 import java.sql.Timestamp
 import java.time.{Instant, LocalDateTime}
