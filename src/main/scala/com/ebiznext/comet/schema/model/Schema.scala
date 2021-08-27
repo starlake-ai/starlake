@@ -356,7 +356,7 @@ case class Schema(
 
   }
 
-  private[this] def dotRow(
+  private def dotRow(
     attr: Attribute,
     isPK: Boolean,
     isFK: Boolean,
@@ -379,7 +379,7 @@ case class Schema(
     }
   }
 
-  private[this] def dotRelation(attr: Attribute, domain: String): Option[String] = {
+  private def dotRelation(attr: Attribute, domain: String): Option[String] = {
     val tableLabel = s"${domain}_$name"
     attr.foreignKey match {
       case None => None
