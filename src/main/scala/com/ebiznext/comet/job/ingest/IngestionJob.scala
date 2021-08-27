@@ -28,7 +28,15 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.sql._
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions._
-import org.apache.spark.sql.types.{StringType, StructField, StructType, TimestampType}
+import org.apache.spark.sql.types.{
+  ArrayType,
+  IntegerType,
+  LongType,
+  StringType,
+  StructField,
+  StructType,
+  TimestampType
+}
 
 import java.sql.Timestamp
 import java.time.{Instant, LocalDateTime}
@@ -437,7 +445,7 @@ trait IngestionJob extends SparkJob {
     acceptedDfWithScriptFields
   }
 
-  private[this] def sink(
+  private def sink(
     mergedDF: DataFrame,
     partitionsToUpdate: Option[List[String]]
   ): Try[Unit] = {
@@ -551,7 +559,7 @@ trait IngestionJob extends SparkJob {
     * @param area
     *   : accepted or rejected area
     */
-  private[this] def sinkToFile(
+  private def sinkToFile(
     dataset: DataFrame,
     targetPath: Path,
     writeMode: WriteMode,
@@ -806,7 +814,7 @@ trait IngestionJob extends SparkJob {
   // Merge between the target and the source Dataframe
   ///////////////////////////////////////////////////////////////////////////
 
-  private[this] def processMerge(
+  private def processMerge(
     incomingDF: DataFrame,
     existingDF: DataFrame,
     merge: MergeOptions
@@ -877,7 +885,7 @@ trait IngestionJob extends SparkJob {
     }
   }
 
-  private[this] def computeToMergeAndToDeleteDF(
+  private def computeToMergeAndToDeleteDF(
     existingDF: DataFrame,
     merge: MergeOptions,
     finalIncomingDF: Dataset[Row],
@@ -920,11 +928,11 @@ trait IngestionJob extends SparkJob {
     partitionsToUpdate
   }
 
-  private[this] def mergeFromParquet(
+  private def mergeFromParquet(
     acceptedPath: Path,
     withScriptFieldsDF: DataFrame,
     mergeOptions: MergeOptions
-  ) = {
+  ): DataFrame = {
     if (storageHandler.exists(new Path(acceptedPath, "_SUCCESS"))) {
       // Otherwise load from accepted area
       // We provide the accepted DF schema since partition columns types are infered when parquet is loaded and might not match with the DF being ingested
@@ -957,7 +965,7 @@ trait IngestionJob extends SparkJob {
     * @return
     *   merged dataframe
     */
-  private[this] def applyMergeParquet(
+  private def applyMergeParquet(
     inputDF: DataFrame,
     existingDF: DataFrame,
     mergeOptions: MergeOptions
@@ -977,6 +985,27 @@ trait IngestionJob extends SparkJob {
     dataframe
   }
 
+  /** Spark BigQuery driver consider interger in BQ as Long. We need to convert the Int DataType to
+    * LongType before loading the data. As a good practice, always use long when dealing with big
+    * query in your YAML Schema.
+    * @param schema
+    * @return
+    */
+  private def converIntToLongInSchema(schema: StructType) = {
+    // TODO: Support complex fields
+    val fields = schema.fields.map { field =>
+      field.dataType match {
+        case IntegerType => field.copy(dataType = LongType)
+        case StructType(_) | ArrayType(_, _) =>
+          logger.warn(
+            "nested and repeated fields conversion not supported in converIntToLongInSchema for BigQuery"
+          )
+          field
+        case _ => field
+      }
+    }
+    schema.copy(fields = fields)
+  }
   ///////////////////////////////////////////////////////////////////////////
   // Merge From BigQuery Data Source
   ///////////////////////////////////////////////////////////////////////////
@@ -994,7 +1023,7 @@ trait IngestionJob extends SparkJob {
     * @param mergeOptions
     * @return
     */
-  private[this] def mergeFromBQ(
+  private def mergeFromBQ(
     withScriptFieldsDF: DataFrame,
     mergeOptions: MergeOptions
   ): (DataFrame, Option[List[String]]) = {
@@ -1012,6 +1041,7 @@ trait IngestionJob extends SparkJob {
           val bqTable = s"${domain.name}.${schema.name}"
           // We provided the acceptedDF schema here since BQ lose the required / nullable information of the schema
           val existingBQDFWithoutFilter = session.read
+            .schema(converIntToLongInSchema(withScriptFieldsDF.schema))
             .format("com.google.cloud.spark.bigquery")
             .option("table", bqTable)
 
