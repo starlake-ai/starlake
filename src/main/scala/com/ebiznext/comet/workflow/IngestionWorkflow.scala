@@ -291,7 +291,7 @@ class IngestionWorkflow(
     schemas.partition { case (schema, _) => schema.isDefined }
   }
 
-  private[this] def predicate(domain: Domain, schemasName: List[String], file: Path): Boolean = {
+  private def predicate(domain: Domain, schemasName: List[String], file: Path): Boolean = {
     schemasName.exists { schemaName =>
       val schema = domain.schemas.find(_.name.equals(schemaName))
       schema.exists(_.pattern.matcher(file.getName).matches())
