@@ -181,7 +181,7 @@ class InferSchemaJob(implicit settings: Settings) {
 
       case "XML" =>
         session.read
-          .format("xml")
+          .format("com.databricks.spark.xml")
           .option("inferSchema", value = true)
           .load(dataPath)
 
