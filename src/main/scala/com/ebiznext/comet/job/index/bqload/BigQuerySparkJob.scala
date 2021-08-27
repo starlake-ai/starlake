@@ -147,10 +147,7 @@ class BigQuerySparkJob(
       val intermediateFormat =
         settings.comet.internal.map(_.intermediateBigqueryFormat).getOrElse("orc")
       val partitionOverwriteMode =
-        session.conf
-          .getOption("spark.sql.sources.partitionOverwriteMode")
-          .getOrElse("static")
-          .toLowerCase()
+        session.conf.get("spark.sql.sources.partitionOverwriteMode", "static").toLowerCase()
 
       (cliConfig.writeDisposition, cliConfig.outputPartition, partitionOverwriteMode) match {
         case ("WRITE_TRUNCATE", Some(partitionField), "dynamic") =>
