@@ -16,27 +16,16 @@ import com.ebiznext.comet.utils.conversion.BigQueryUtils
 import com.ebiznext.comet.utils.kafka.KafkaClient
 import com.ebiznext.comet.utils.{JobResult, SparkJob, SparkJobResult, Utils}
 import com.google.cloud.bigquery.JobInfo.{CreateDisposition, WriteDisposition}
-import com.google.cloud.bigquery.{
-  Field,
-  LegacySQLTypeName,
-  Schema => BQSchema,
-  StandardTableDefinition
-}
+import com.ebiznext.comet.utils.BQTableEx._
+
+import com.google.cloud.bigquery.{Field, LegacySQLTypeName, Schema => BQSchema}
 import org.apache.hadoop.fs.Path
 import org.apache.spark.ml.feature.SQLTransformer
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql._
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions._
-import org.apache.spark.sql.types.{
-  ArrayType,
-  IntegerType,
-  LongType,
-  StringType,
-  StructField,
-  StructType,
-  TimestampType
-}
+import org.apache.spark.sql.types._
 
 import java.sql.Timestamp
 import java.time.{Instant, LocalDateTime}
@@ -44,7 +33,6 @@ import scala.collection.JavaConverters._
 import scala.language.existentials
 import scala.util.{Failure, Success, Try}
 
-/** */
 trait IngestionJob extends SparkJob {
 
   protected val treeRowValidator: GenericRowValidator = Utils
@@ -1023,6 +1011,7 @@ trait IngestionJob extends SparkJob {
     * @param mergeOptions
     * @return
     */
+
   private def mergeFromBQ(
     withScriptFieldsDF: DataFrame,
     mergeOptions: MergeOptions
@@ -1052,7 +1041,6 @@ trait IngestionJob extends SparkJob {
               val filter = mergeOptions.buidlBQQuery(partitions, options)
               existingBQDFWithoutFilter
                 .option("filter", filter.getOrElse(throw new Exception("should never happen")))
-
             case (_, _) =>
               existingBQDFWithoutFilter
           }
