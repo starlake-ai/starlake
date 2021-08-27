@@ -17,8 +17,12 @@ import com.ebiznext.comet.utils.kafka.KafkaClient
 import com.ebiznext.comet.utils.{JobResult, SparkJob, SparkJobResult, Utils}
 import com.google.cloud.bigquery.JobInfo.{CreateDisposition, WriteDisposition}
 import com.ebiznext.comet.utils.BQTableEx._
-
-import com.google.cloud.bigquery.{Field, LegacySQLTypeName, Schema => BQSchema}
+import com.google.cloud.bigquery.{
+  Field,
+  LegacySQLTypeName,
+  Schema => BQSchema,
+  StandardTableDefinition
+}
 import org.apache.hadoop.fs.Path
 import org.apache.spark.ml.feature.SQLTransformer
 import org.apache.spark.rdd.RDD
