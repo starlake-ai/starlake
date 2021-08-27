@@ -898,7 +898,7 @@ trait IngestionJob extends SparkJob {
     val toDeleteDF = allRowsWithRownum
       .where(col("rownum") =!= 1)
       .drop("rownum")
-    (mergedDF, toDeleteDF)
+    (toDeleteDF, mergedDF)
   }
 
   private def computePartitionsToUpdateAfterMerge(
