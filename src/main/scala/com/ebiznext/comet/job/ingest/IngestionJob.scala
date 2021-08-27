@@ -835,7 +835,6 @@ trait IngestionJob extends SparkJob {
     logger.info(s"existingDF field list=${existingDF.schema.fields.map(_.name).mkString(",")}")
     logger.info(s"incomingDF field count=${incomingDF.schema.fields.length}")
     logger.info(s"incomingDF field list=${incomingDF.schema.fields.map(_.name).mkString(",")}")
-
     // We remove from the incoming data the records to delete
     val finalIncomingDF = mergeOptions.delete
       .map(condition => incomingDF.filter(s"not ($condition)"))
@@ -867,13 +866,11 @@ trait IngestionJob extends SparkJob {
       case (_, _, _) =>
         throw new Exception("Should never happen")
     }
-
     logger.whenDebugEnabled {
       logger.debug(s"Merge detected ${toDeleteDF.count()} items to update/delete")
       logger.debug(s"Merge detected ${finalIncomingDF.count()} items to update/insert")
       mergedDF.show(false)
     }
-
     if (settings.comet.mergeForceDistinct) (mergedDF.distinct(), partitionsToUpdate)
     else (mergedDF, partitionsToUpdate)
   }
