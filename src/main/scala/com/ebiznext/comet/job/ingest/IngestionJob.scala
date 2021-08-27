@@ -809,6 +809,17 @@ trait IngestionJob extends SparkJob {
     jobResult
   }
 
+  private def computeNoTimestampFieldToMergeAndToDeleteDF(
+    existingDF: DataFrame,
+    mergeOptions: MergeOptions,
+    finalIncomingDF: Dataset[Row]
+  ): (DataFrame, DataFrame) = {
+    val commonDF = existingDF
+      .join(finalIncomingDF.select(mergeOptions.key.map(col): _*), mergeOptions.key)
+      .select(finalIncomingDF.columns.map(col): _*)
+    (commonDF, existingDF.except(commonDF).union(finalIncomingDF))
+  }
+
   ///////////////////////////////////////////////////////////////////////////
   // Merge between the target and the source Dataframe
   ///////////////////////////////////////////////////////////////////////////
@@ -816,40 +827,30 @@ trait IngestionJob extends SparkJob {
   private def processMerge(
     incomingDF: DataFrame,
     existingDF: DataFrame,
-    merge: MergeOptions
+    mergeOptions: MergeOptions
   ): (DataFrame, Option[List[String]]) = {
     logger.info(s"incomingDF Schema before merge -> ${incomingDF.schema}")
     logger.info(s"existingDF Schema before merge -> ${existingDF.schema}")
     logger.info(s"existingDF field count=${existingDF.schema.fields.length}")
-    logger.info(s"""existingDF field list=${existingDF.schema.fields.map(_.name).mkString(",")}""")
+    logger.info(s"existingDF field list=${existingDF.schema.fields.map(_.name).mkString(",")}")
     logger.info(s"incomingDF field count=${incomingDF.schema.fields.length}")
-    logger.info(s"""incomingDF field list=${incomingDF.schema.fields.map(_.name).mkString(",")}""")
+    logger.info(s"incomingDF field list=${incomingDF.schema.fields.map(_.name).mkString(",")}")
 
     // We remove from the incoming data the records to delete
-    val finalIncomingDF = merge.delete
+    val finalIncomingDF = mergeOptions.delete
       .map(condition => incomingDF.filter(s"not ($condition)"))
       .getOrElse(incomingDF)
 
-    val (toDeleteDF, mergedDF) = merge.timestamp match {
+    val (toDeleteDF, mergedDF) = mergeOptions.timestamp match {
       case Some(timestamp) =>
         // We only keep the first occurrence of each record, from both datasets
-        val (mergedDF: DataFrame, toDeleteDF: DataFrame) =
-          computeToMergeAndToDeleteDF(existingDF, merge, finalIncomingDF, timestamp)
-        (toDeleteDF, mergedDF)
+        computeToMergeAndToDeleteDF(existingDF, mergeOptions, finalIncomingDF, timestamp)
       case None =>
         // We directly remove from the existing dataset the row that are present in the incoming dataset
-        val commonDF = existingDF
-          .join(finalIncomingDF.select(merge.key.map(col): _*), merge.key)
-          .select(finalIncomingDF.columns.map(col): _*)
-
-        (commonDF, existingDF.except(commonDF).union(finalIncomingDF))
+        computeNoTimestampFieldToMergeAndToDeleteDF(existingDF, mergeOptions, finalIncomingDF)
     }
     val partitionOverwriteMode =
-      session.conf
-        .getOption("spark.sql.sources.partitionOverwriteMode")
-        .getOrElse("static")
-        .toLowerCase()
-
+      session.conf.get("spark.sql.sources.partitionOverwriteMode", "static").toLowerCase()
     val partitionsToUpdate = (
       partitionOverwriteMode,
       metadata.getSink(),
@@ -858,12 +859,8 @@ trait IngestionJob extends SparkJob {
       // no need to apply optimization if existing dataset is empty
       case ("dynamic", Some(BigQuerySink(_, _, Some(timestamp), _, _, _, _)), true)
           if existingDF.limit(1).count() == 1 =>
-        logger.info(s"Computing partitions to update on date column $timestamp")
         val partitionsToUpdate =
           computePartitionsToUpdateAfterMerge(finalIncomingDF, timestamp, toDeleteDF)
-        logger.info(
-          s"The following partitions will be updated ${partitionsToUpdate.mkString(",")}"
-        )
         Some(partitionsToUpdate)
       case ("static", _, _) | ("dynamic", _, _) =>
         None
@@ -877,11 +874,8 @@ trait IngestionJob extends SparkJob {
       mergedDF.show(false)
     }
 
-    if (settings.comet.mergeForceDistinct) {
-      (mergedDF.distinct(), partitionsToUpdate)
-    } else {
-      (mergedDF, partitionsToUpdate)
-    }
+    if (settings.comet.mergeForceDistinct) (mergedDF.distinct(), partitionsToUpdate)
+    else (mergedDF, partitionsToUpdate)
   }
 
   private def computeToMergeAndToDeleteDF(
@@ -915,6 +909,7 @@ trait IngestionJob extends SparkJob {
     timestamp: String,
     toDeleteDF: DataFrame
   ): List[String] = {
+    logger.info(s"Computing partitions to update on date column $timestamp")
     val partitionsToUpdate = finalIncomingDF
       .select(col(timestamp))
       .union(toDeleteDF.select(col(timestamp)))
@@ -924,6 +919,9 @@ trait IngestionJob extends SparkJob {
       .collect()
       .map(_.getString(0))
       .toList
+    logger.info(
+      s"The following partitions will be updated ${partitionsToUpdate.mkString(",")}"
+    )
     partitionsToUpdate
   }
 
