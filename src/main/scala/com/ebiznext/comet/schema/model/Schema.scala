@@ -86,12 +86,13 @@ case class MergeOptions(
   def buidlBQQuery(partitions: List[String], options: Map[String, String])(implicit
     settings: Settings
   ): Option[String] = {
-    if (queryFilterContainsLast) {
-      buildBQQueryForLast(partitions, options)
-    } else if (queryFilterContainsLatest) {
-      buildBQQueryForLastest(partitions, options)
-    } else {
-      formatQuery(options)
+    (queryFilterContainsLast, queryFilterContainsLatest) match {
+      case (true, false)  => buildBQQueryForLast(partitions, options)
+      case (false, true)  => buildBQQueryForLastest(partitions, options)
+      case (false, false) => formatQuery(options)
+      case (true, true) =>
+        val last = buildBQQueryForLast(partitions, options)
+        this.copy(queryFilter = last).buildBQQueryForLastest(partitions, options)
     }
   }
 
