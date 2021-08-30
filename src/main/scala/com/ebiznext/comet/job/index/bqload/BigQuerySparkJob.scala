@@ -18,7 +18,7 @@ import com.google.cloud.bigquery.{
 import com.google.cloud.hadoop.io.bigquery.BigQueryConfiguration
 import org.apache.hadoop.conf.Configuration
 import org.apache.spark.sql.functions.{col, date_format}
-import org.apache.spark.sql.{DataFrame, SaveMode, SparkSession}
+import org.apache.spark.sql.{DataFrame, Row, SaveMode, SparkSession}
 import org.apache.spark.storage.StorageLevel
 
 import scala.collection.JavaConverters._
@@ -146,40 +146,99 @@ class BigQuerySparkJob(
 
       val intermediateFormat =
         settings.comet.internal.map(_.intermediateBigqueryFormat).getOrElse("orc")
-      (cliConfig.writeDisposition, cliConfig.outputPartition) match {
-        case ("WRITE_TRUNCATE", Some(partition)) =>
-          logger.info(s"overwriting partition ${partition} in The BQ Table $bqTable")
+      val partitionOverwriteMode =
+        session.conf.get("spark.sql.sources.partitionOverwriteMode", "static").toLowerCase()
+
+      (cliConfig.writeDisposition, cliConfig.outputPartition, partitionOverwriteMode) match {
+        case ("WRITE_TRUNCATE", Some(partitionField), "dynamic") =>
+          logger.info(s"overwriting partition ${partitionField} in The BQ Table $bqTable")
           // BigQuery supports only this date format 'yyyyMMdd', so we have to use it
           // in order to overwrite only one partition
           val dateFormat = "yyyyMMdd"
           val partitions = sourceDF
-            .select(date_format(col(partition), dateFormat).cast("string"))
-            .where(col(partition).isNotNull)
+            .select(date_format(col(partitionField), dateFormat).cast("string"))
+            .where(col(partitionField).isNotNull)
             .distinct()
             .rdd
             .map(r => r.getString(0))
             .collect()
             .toList
 
-          logger.info(
-            s"Overwriting the following partitions: [${partitions.mkString(" , ")}] ..."
-          )
+          cliConfig.partitionsToUpdate match {
+            case None =>
+              logger.info(
+                s"No optimization applied -> the following ${partitions.length} partitions will be written: ${partitions
+                  .mkString(",")}"
+              )
+            case Some(partitionsToUpdate) =>
+              logger.info(
+                s"After optimization -> only the following ${partitionsToUpdate.length} partitions will be written: ${partitionsToUpdate
+                  .mkString(",")}"
+              )
+          }
+
+          // Delete partitions becoming empty
+          cliConfig.partitionsToUpdate match {
+            case None =>
+            case Some(partitionsToUpdate) =>
+              partitionsToUpdate.foreach { partitionToUpdate =>
+                // if partitionToUpdate is not in the list of partitions to merge. It means that it need to be deleted
+                // this case happen when there is no more than a single element in the partition
+                if (!partitions.contains(partitionToUpdate)) {
+                  logger.info(s"Deleting partition $partitionToUpdate")
+                  val emptyDF = session
+                    .createDataFrame(session.sparkContext.emptyRDD[Row], sourceDF.schema)
+                  val finalEmptyDF = emptyDF.write
+                    .mode(SaveMode.Overwrite)
+                    .format("com.google.cloud.spark.bigquery")
+                    .option("datePartition", partitionToUpdate)
+                    .option("table", bqTable)
+                    .option("intermediateFormat", intermediateFormat)
+
+                  cliConfig.options
+                    .foldLeft(finalEmptyDF) { case (df, (k, v)) => df.option(k, v) }
+                    .save()
+                }
+              }
+          }
           partitions.foreach { partitionStr =>
             val finalDF =
               sourceDF
-                .where(date_format(col(partition), dateFormat).cast("string") === partitionStr)
+                .where(
+                  date_format(col(partitionField), dateFormat).cast("string") === partitionStr
+                )
                 .write
                 .mode(SaveMode.Overwrite)
                 .format("com.google.cloud.spark.bigquery")
                 .option("datePartition", partitionStr)
                 .option("table", bqTable)
                 .option("intermediateFormat", intermediateFormat)
-            cliConfig.options
+            val finalDFWithOptions = cliConfig.options
               .foldLeft(finalDF) { case (df, (k, v)) => df.option(k, v) }
-              .save()
+            cliConfig.partitionsToUpdate match {
+              case None =>
+                finalDFWithOptions.save()
+              case Some(partitionsToUpdate) =>
+                // We only overwrite partitions containing updated or newly added elements
+                if (partitionsToUpdate.contains(partitionStr)) {
+                  logger.info(
+                    s"Optimization -> Writing partition : $partitionStr"
+                  )
+                  finalDFWithOptions.save()
+                } else {
+                  logger.info(
+                    s"Optimization -> Not writing partition : $partitionStr"
+                  )
+                }
+            }
           }
 
-        case (writeDisposition, _) =>
+        case (writeDisposition, _, partitionOverwriteMode) =>
+          assert(
+            partitionOverwriteMode == "static" || partitionOverwriteMode == "dynamic",
+            s"""Only dynamic or static are values values for property 
+               |partitionOverwriteMode. $partitionOverwriteMode found""".stripMargin
+          )
           val saveMode =
             if (writeDisposition == "WRITE_TRUNCATE") SaveMode.Overwrite else SaveMode.Append
           logger.info(s"Saving BQ Table $bqTable")
@@ -188,6 +247,7 @@ class BigQuerySparkJob(
             .format("com.google.cloud.spark.bigquery")
             .option("table", bqTable)
             .option("intermediateFormat", intermediateFormat)
+
           cliConfig.options.foldLeft(finalDF)((w, kv) => w.option(kv._1, kv._2)).save()
       }
 

@@ -10,11 +10,21 @@ load:
     write: "APPEND"
     sink:
       type: ${sink_type}
+      timestamp: signup
   schemas:
     - name: "customers"
       pattern: "customers-.*.psv"
       metadata:
         separator: "|"
+        partition:
+          attributes:
+            - signup
+      merge:
+        # for BQ only
+        #queryFilter: date(signup) in last(4)
+        timestamp: signup
+        key:
+          - id
       primaryKey:
         - id
       attributes:

@@ -263,6 +263,7 @@ object Settings extends StrictLogging {
     hive: Boolean,
     grouped: Boolean,
     mergeForceDistinct: Boolean,
+    mergeOptimizePartitionWrite: Boolean,
     area: Area,
     airflow: Airflow,
     elasticsearch: Elasticsearch,

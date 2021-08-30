@@ -28,7 +28,15 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.sql._
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions._
-import org.apache.spark.sql.types.{StringType, StructField, StructType, TimestampType}
+import org.apache.spark.sql.types.{
+  ArrayType,
+  IntegerType,
+  LongType,
+  StringType,
+  StructField,
+  StructType,
+  TimestampType
+}
 
 import java.sql.Timestamp
 import java.time.{Instant, LocalDateTime}
@@ -36,7 +44,6 @@ import scala.collection.JavaConverters._
 import scala.language.existentials
 import scala.util.{Failure, Success, Try}
 
-/** */
 trait IngestionJob extends SparkJob {
 
   protected val treeRowValidator: GenericRowValidator = Utils
@@ -65,11 +72,6 @@ trait IngestionJob extends SparkJob {
     */
   lazy val metadata: Metadata = schema.mergedMetadata(domain.metadata)
 
-  /** Dataset loading strategy (JSON / CSV / ...)
-    *
-    * @return
-    *   Spark Dataframe loaded using metadata options
-    */
   protected def loadDataSet(): Try[DataFrame]
 
   /** ingestion algorithm
@@ -268,7 +270,7 @@ trait IngestionJob extends SparkJob {
         acceptedDfWithScriptFields
       )
       val finalAcceptedDF: DataFrame = computeFinalSchema(acceptedDfWithoutIgnoredFields)
-      val mergedDF: DataFrame = applyMerge(acceptedPath, finalAcceptedDF)
+      val (mergedDF, partitionsToUpdate) = applyMerge(acceptedPath, finalAcceptedDF)
 
       val finalMergedDf: DataFrame = runPostSQL(mergedDF)
 
@@ -306,7 +308,7 @@ trait IngestionJob extends SparkJob {
       }
       logger.info("Saved Dataset Schema")
       savedDataset.printSchema()
-      sink(finalMergedDf) match {
+      sink(finalMergedDf, partitionsToUpdate) match {
         case Success(_) =>
           val end = Timestamp.from(Instant.now())
           val log = AuditLog(
@@ -362,18 +364,20 @@ trait IngestionJob extends SparkJob {
     finalMergedDf
   }
 
-  private def applyMerge(acceptedPath: Path, finalAcceptedDF: DataFrame) = {
-    val mergedDF = schema.merge
+  private def applyMerge(
+    acceptedPath: Path,
+    finalAcceptedDF: DataFrame
+  ): (DataFrame, Option[List[String]]) = {
+    val (mergedDF, partitionsToUpdate) = schema.merge
       .map { mergeOptions =>
         if (metadata.getSink().map(_.`type`).getOrElse(SinkType.None) == SinkType.BQ) {
-          val mergedDfBq = mergeFromBQ(finalAcceptedDF, mergeOptions)
-          mergedDfBq
+          mergeFromBQ(finalAcceptedDF, mergeOptions)
         } else {
-          mergeFromParquet(acceptedPath, finalAcceptedDF, mergeOptions)
+          (mergeFromParquet(acceptedPath, finalAcceptedDF, mergeOptions), None)
         }
       }
-      .getOrElse(finalAcceptedDF)
-    mergedDF
+      .getOrElse((finalAcceptedDF, None))
+    (mergedDF, partitionsToUpdate)
   }
 
   private def computeFinalSchema(acceptedDfWithoutIgnoredFields: DataFrame) = {
@@ -440,7 +444,10 @@ trait IngestionJob extends SparkJob {
     acceptedDfWithScriptFields
   }
 
-  private[this] def sink(mergedDF: DataFrame): Try[Unit] = {
+  private def sink(
+    mergedDF: DataFrame,
+    partitionsToUpdate: Option[List[String]]
+  ): Try[Unit] = {
     Try {
       val sinkType = metadata.getSink().map(_.`type`)
       sinkType.getOrElse(SinkType.None) match {
@@ -483,7 +490,8 @@ trait IngestionJob extends SparkJob {
             days = sink.flatMap(_.days),
             requirePartitionFilter = sink.flatMap(_.requirePartitionFilter).getOrElse(false),
             rls = schema.rls,
-            options = sink.map(_.getOptions).getOrElse(Map.empty)
+            options = sink.map(_.getOptions).getOrElse(Map.empty),
+            partitionsToUpdate = partitionsToUpdate
           )
           val res = new BigQuerySparkJob(config, tableSchema).run()
           res match {
@@ -550,7 +558,7 @@ trait IngestionJob extends SparkJob {
     * @param area
     *   : accepted or rejected area
     */
-  private[this] def sinkToFile(
+  private def sinkToFile(
     dataset: DataFrame,
     targetPath: Path,
     writeMode: WriteMode,
@@ -801,76 +809,124 @@ trait IngestionJob extends SparkJob {
     jobResult
   }
 
+  private def computeNoTimestampFieldToMergeAndToDeleteDF(
+    existingDF: DataFrame,
+    mergeOptions: MergeOptions,
+    finalIncomingDF: Dataset[Row]
+  ): (DataFrame, DataFrame) = {
+    val commonDF = existingDF
+      .join(finalIncomingDF.select(mergeOptions.key.map(col): _*), mergeOptions.key)
+      .select(finalIncomingDF.columns.map(col): _*)
+    (commonDF, existingDF.except(commonDF).union(finalIncomingDF))
+  }
+
   ///////////////////////////////////////////////////////////////////////////
   // Merge between the target and the source Dataframe
   ///////////////////////////////////////////////////////////////////////////
 
-  private[this] def processMerge(in: DataFrame, existing: DataFrame, merge: MergeOptions) = {
-    logger.info(s"inputDF Schema before merge -> ${in.schema}")
-    logger.info(s"existingDF Schema before merge -> ${existing.schema}")
-    logger.info(s"existingDF field count=${existing.schema.fields.length}")
-    logger.info(s"""existingDF field list=${existing.schema.fields.map(_.name).mkString(",")}""")
-    logger.info(s"inputDF field count=${in.schema.fields.length}")
-    logger.info(s"""inputDF field list=${in.schema.fields.map(_.name).mkString(",")}""")
-
+  private def processMerge(
+    incomingDF: DataFrame,
+    existingDF: DataFrame,
+    mergeOptions: MergeOptions
+  ): (DataFrame, Option[List[String]]) = {
+    logger.info(s"incomingDF Schema before merge -> ${incomingDF.schema}")
+    logger.info(s"existingDF Schema before merge -> ${existingDF.schema}")
+    logger.info(s"existingDF field count=${existingDF.schema.fields.length}")
+    logger.info(s"existingDF field list=${existingDF.schema.fields.map(_.name).mkString(",")}")
+    logger.info(s"incomingDF field count=${incomingDF.schema.fields.length}")
+    logger.info(s"incomingDF field list=${incomingDF.schema.fields.map(_.name).mkString(",")}")
     // We remove from the incoming data the records to delete
-    val updatesDF = merge.delete
-      .map(condition => in.filter(s"not ($condition)"))
-      .getOrElse(in)
+    val finalIncomingDF = mergeOptions.delete
+      .map(condition => incomingDF.filter(s"not ($condition)"))
+      .getOrElse(incomingDF)
 
-    val (toDeleteDF, mergedDF) = merge.timestamp
-      .map { timestamp =>
+    val (toDeleteDF, mergedDF) = mergeOptions.timestamp match {
+      case Some(timestamp) =>
         // We only keep the first occurrence of each record, from both datasets
-        val orderingWindow =
-          Window.partitionBy(merge.key.head, merge.key.tail: _*).orderBy(col(timestamp).desc)
-
-        val allRowsDF = existing.union(updatesDF)
-
-        // Deduplicate
-        val mergedDF = allRowsDF
-          .withColumn("rownum", row_number.over(orderingWindow))
-          .where(col("rownum") === 1)
-          .drop("rownum")
-
-        // Compute rows that will be deleted (for logging purposes)
-        val toDeleteDF = allRowsDF
-          .withColumn("rownum", row_number.over(orderingWindow))
-          .where(col("rownum") =!= 1)
-          .drop("rownum")
-
-        (toDeleteDF, mergedDF)
-      }
-      .getOrElse {
+        computeToMergeAndToDeleteDF(existingDF, mergeOptions, finalIncomingDF, timestamp)
+      case None =>
         // We directly remove from the existing dataset the row that are present in the incoming dataset
-        val commonDF = existing
-          .join(updatesDF.select(merge.key.map(col): _*), merge.key)
-          .select(updatesDF.columns.map(col): _*)
-
-        (commonDF, existing.except(commonDF).union(updatesDF))
-      }
-
+        computeNoTimestampFieldToMergeAndToDeleteDF(existingDF, mergeOptions, finalIncomingDF)
+    }
+    val partitionOverwriteMode =
+      session.conf.get("spark.sql.sources.partitionOverwriteMode", "static").toLowerCase()
+    val partitionsToUpdate = (
+      partitionOverwriteMode,
+      metadata.getSink(),
+      settings.comet.mergeOptimizePartitionWrite
+    ) match {
+      // no need to apply optimization if existing dataset is empty
+      case ("dynamic", Some(BigQuerySink(_, _, Some(timestamp), _, _, _, _)), true)
+          if existingDF.limit(1).count() == 1 =>
+        val partitionsToUpdate =
+          computePartitionsToUpdateAfterMerge(finalIncomingDF, timestamp, toDeleteDF)
+        Some(partitionsToUpdate)
+      case ("static", _, _) | ("dynamic", _, _) =>
+        None
+      case (_, _, _) =>
+        throw new Exception("Should never happen")
+    }
     logger.whenDebugEnabled {
       logger.debug(s"Merge detected ${toDeleteDF.count()} items to update/delete")
-      logger.debug(s"Merge detected ${updatesDF.count()} items to update/insert")
+      logger.debug(s"Merge detected ${finalIncomingDF.count()} items to update/insert")
       mergedDF.show(false)
     }
-
-    if (settings.comet.mergeForceDistinct) {
-      mergedDF.distinct()
-    } else {
-      mergedDF
-    }
+    if (settings.comet.mergeForceDistinct) (mergedDF.distinct(), partitionsToUpdate)
+    else (mergedDF, partitionsToUpdate)
   }
 
-  ///////////////////////////////////////////////////////////////////////////
-  // Merge From Parquets Data Source
-  ///////////////////////////////////////////////////////////////////////////
+  private def computeToMergeAndToDeleteDF(
+    existingDF: DataFrame,
+    merge: MergeOptions,
+    finalIncomingDF: Dataset[Row],
+    timestamp: String
+  ): (DataFrame, DataFrame) = {
+    val orderingWindow =
+      Window.partitionBy(merge.key.head, merge.key.tail: _*).orderBy(col(timestamp).desc)
 
-  private[this] def mergeFromParquet(
+    val allRowsDF = existingDF.union(finalIncomingDF)
+
+    val allRowsWithRownum = allRowsDF
+      .withColumn("rownum", row_number.over(orderingWindow))
+
+    // Deduplicate
+    val mergedDF = allRowsWithRownum
+      .where(col("rownum") === 1)
+      .drop("rownum")
+
+    // Compute rows that will be deleted (for logging purposes)
+    val toDeleteDF = allRowsWithRownum
+      .where(col("rownum") =!= 1)
+      .drop("rownum")
+    (toDeleteDF, mergedDF)
+  }
+
+  private def computePartitionsToUpdateAfterMerge(
+    finalIncomingDF: Dataset[Row],
+    timestamp: String,
+    toDeleteDF: DataFrame
+  ): List[String] = {
+    logger.info(s"Computing partitions to update on date column $timestamp")
+    val partitionsToUpdate = finalIncomingDF
+      .select(col(timestamp))
+      .union(toDeleteDF.select(col(timestamp)))
+      .select(date_format(col(timestamp), "yyyyMMdd").cast("string"))
+      .where(col(timestamp).isNotNull)
+      .distinct()
+      .collect()
+      .map(_.getString(0))
+      .toList
+    logger.info(
+      s"The following partitions will be updated ${partitionsToUpdate.mkString(",")}"
+    )
+    partitionsToUpdate
+  }
+
+  private def mergeFromParquet(
     acceptedPath: Path,
     withScriptFieldsDF: DataFrame,
     mergeOptions: MergeOptions
-  ) = {
+  ): DataFrame = {
     if (storageHandler.exists(new Path(acceptedPath, "_SUCCESS"))) {
       // Otherwise load from accepted area
       // We provide the accepted DF schema since partition columns types are infered when parquet is loaded and might not match with the DF being ingested
@@ -883,14 +939,15 @@ trait IngestionJob extends SparkJob {
           .fields
           .length
       )
-        mergeParquet(withScriptFieldsDF, existingDF, mergeOptions)
+        applyMergeParquet(withScriptFieldsDF, existingDF, mergeOptions)
       else
         throw new RuntimeException(
           "Input Dataset and existing HDFS dataset do not have the same number of columns. Check for changes in the dataset schema ?"
         )
-      mergeParquet(withScriptFieldsDF, existingDF, mergeOptions)
     } else {
-      withScriptFieldsDF
+      val emptyExistingDF = session
+        .createDataFrame(session.sparkContext.emptyRDD[Row], withScriptFieldsDF.schema)
+      applyMergeParquet(withScriptFieldsDF, emptyExistingDF, mergeOptions)
     }
   }
 
@@ -898,14 +955,14 @@ trait IngestionJob extends SparkJob {
     *
     * @param inputDF
     * @param existingDF
-    * @param merge
+    * @param mergeOptions
     * @return
     *   merged dataframe
     */
-  private[this] def mergeParquet(
+  private def applyMergeParquet(
     inputDF: DataFrame,
     existingDF: DataFrame,
-    merge: MergeOptions
+    mergeOptions: MergeOptions
   ): DataFrame = {
 
     val partitionedInputDF = partitionDataset(inputDF, metadata.getPartitionAttributes())
@@ -918,15 +975,53 @@ trait IngestionJob extends SparkJob {
     val orderedExisting =
       existingDF.select(partitionedInputDF.columns.map(col): _*)
 
-    processMerge(partitionedInputDF, orderedExisting, merge)
-
+    val (dataframe, _) = processMerge(partitionedInputDF, orderedExisting, mergeOptions)
+    dataframe
   }
 
+  /** Spark BigQuery driver consider interger in BQ as Long. We need to convert the Int DataType to
+    * LongType before loading the data. As a good practice, always use long when dealing with big
+    * query in your YAML Schema.
+    * @param schema
+    * @return
+    */
+  private def converIntToLongInSchema(schema: StructType) = {
+    // TODO: Support complex fields
+    val fields = schema.fields.map { field =>
+      field.dataType match {
+        case IntegerType => field.copy(dataType = LongType)
+        case StructType(_) | ArrayType(_, _) =>
+          logger.warn(
+            "nested and repeated fields conversion not supported in converIntToLongInSchema for BigQuery"
+          )
+          field
+        case _ => field
+      }
+    }
+    schema.copy(fields = fields)
+  }
   ///////////////////////////////////////////////////////////////////////////
   // Merge From BigQuery Data Source
   ///////////////////////////////////////////////////////////////////////////
 
-  private[this] def mergeFromBQ(withScriptFieldsDF: DataFrame, mergeOptions: MergeOptions) = {
+  /** In the queryFilter, the user may now write something like this : `partitionField in last(3)`
+    * this will be translated to partitionField between partitionStart and partitionEnd
+    *
+    * partitionEnd is the last partition in the dataset paritionStart is the 3rd last partition in
+    * the dataset
+    *
+    * if partititionStart or partitionEnd does nos exist (aka empty dataset) they are replaced by
+    * 19700101
+    *
+    * @param withScriptFieldsDF
+    * @param mergeOptions
+    * @return
+    */
+
+  private def mergeFromBQ(
+    withScriptFieldsDF: DataFrame,
+    mergeOptions: MergeOptions
+  ): (DataFrame, Option[List[String]]) = {
     // When merging to BigQuery, load existing DF from BigQuery
     val tableMetadata = BigQuerySparkJob.getTable(session, domain.name, schema.name)
     tableMetadata.table
@@ -939,51 +1034,33 @@ trait IngestionJob extends SparkJob {
             .size() == withScriptFieldsDF.schema.fields.length
         ) {
           val bqTable = s"${domain.name}.${schema.name}"
-          (mergeOptions.queryFilter, metadata.sink) match {
-            case (Some(query), Some(BigQuerySink(_, _, Some(_), _, _, _, _))) =>
-              val queryArgs = query.richFormat(options)
-              if (queryArgs.contains("latest")) {
-                val partitions =
-                  tableMetadata.biqueryClient.listPartitions(table.getTableId).asScala.toList
-                val latestPartition = partitions.last
-                val existingBigQueryDF = session.read
-                  // We provided the acceptedDF schema here since BQ lose the required / nullable information of the schema
-                  .schema(withScriptFieldsDF.schema)
-                  .format("com.google.cloud.spark.bigquery")
-                  .option("table", bqTable)
-                  .option(
-                    "filter",
-                    queryArgs.replace("latest", s"PARSE_DATE('%Y%m%d','$latestPartition')")
-                  )
-                  .load()
-                processMerge(withScriptFieldsDF, existingBigQueryDF, mergeOptions)
+          // We provided the acceptedDF schema here since BQ lose the required / nullable information of the schema
+          val existingBQDFWithoutFilter = session.read
+            .schema(converIntToLongInSchema(withScriptFieldsDF.schema))
+            .format("com.google.cloud.spark.bigquery")
+            .option("table", bqTable)
 
-              } else {
-                val existingBigQueryDF = session.read
-                  // We provided the acceptedDF schema here since BQ lose the required / nullable information of the schema
-                  .schema(withScriptFieldsDF.schema)
-                  .format("com.google.cloud.spark.bigquery")
-                  .option("table", bqTable)
-                  .option("filter", queryArgs)
-                  .load()
-                processMerge(withScriptFieldsDF, existingBigQueryDF, mergeOptions)
-              }
-            case _ =>
-              val existingBigQueryDF = session.read
-                // We provided the acceptedDF schema here since BQ lose the required / nullable information of the schema
-                .schema(withScriptFieldsDF.schema)
-                .format("com.google.cloud.spark.bigquery")
-                .option("table", bqTable)
-                .load()
-              processMerge(withScriptFieldsDF, existingBigQueryDF, mergeOptions)
+          val existingBigQueryDFReader = (mergeOptions.queryFilter, metadata.sink) match {
+            case (Some(_), Some(BigQuerySink(_, _, Some(_), _, _, _, _))) =>
+              val partitions =
+                tableMetadata.biqueryClient.listPartitions(table.getTableId).asScala.toList
+              val filter = mergeOptions.buidlBQQuery(partitions, options)
+              existingBQDFWithoutFilter
+                .option("filter", filter.getOrElse(throw new Exception("should never happen")))
+            case (_, _) =>
+              existingBQDFWithoutFilter
           }
-
+          processMerge(withScriptFieldsDF, existingBigQueryDFReader.load(), mergeOptions)
         } else
           throw new RuntimeException(
             "Input Dataset and existing HDFS dataset do not have the same number of columns. Check for changes in the dataset schema ?"
           )
       }
-      .getOrElse(withScriptFieldsDF)
+      .getOrElse {
+        val emptyExistingDF = session
+          .createDataFrame(session.sparkContext.emptyRDD[Row], withScriptFieldsDF.schema)
+        processMerge(withScriptFieldsDF, emptyExistingDF, mergeOptions)
+      }
   }
 
   def reorderAttributes(dataFrame: DataFrame): List[Attribute] = {
