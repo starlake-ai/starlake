@@ -37,7 +37,7 @@ import JsonParser.NumberType._
   */
 object JsonIngestionUtil {
 
-  private[this] val structFieldComparator = new Comparator[StructField] {
+  private val structFieldComparator = new Comparator[StructField] {
 
     override def compare(o1: StructField, o2: StructField): Int = {
       o1.name.compare(o2.name)
