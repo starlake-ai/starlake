@@ -142,21 +142,21 @@ case class Domain(
     // Check Schemas validity
     schemas.foreach { schema =>
       for (errors <- schema.checkValidity(this.metadata, schemaHandler).left) {
-        errorList ++= errors
+        errorList ++= errors.map(s"schema ${schema.name}:" + _)
       }
     }
 
     // Check Metadata validity
     metadata.foreach { metadata =>
       for (errors <- metadata.checkValidity(schemaHandler).left) {
-        errorList ++= errors
+        errorList ++= errors.map(s"domain $name:" + _)
       }
     }
 
     val duplicatesErrorMessage =
       "%s is defined %d times. A schema can only be defined once."
     for (errors <- Utils.duplicates(schemas.map(_.name), duplicatesErrorMessage).left) {
-      errorList ++= errors
+      errorList ++= errors.map(s"domain $name:" + _)
     }
 
     // TODO Check partition columns
