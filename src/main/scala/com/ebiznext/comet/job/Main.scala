@@ -49,6 +49,8 @@ import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.StrictLogging
 
+import scala.util.{Failure, Success, Try}
+
 /** The root of all things.
   *   - importing from landing
   *   - submitting requests to the cron manager
@@ -109,7 +111,15 @@ object Main extends StrictLogging {
     import settings.{launcherService, metadataStorageHandler, storageHandler}
     DatasetArea.initMetadata(metadataStorageHandler)
     val schemaHandler = new SchemaHandler(metadataStorageHandler)
-    schemaHandler.checkValidity()
+    Try {
+      schemaHandler.checkValidity()
+    } match {
+      case Success(_) => // do nothing
+      case Failure(e) =>
+        e.printStackTrace()
+        if (settings.comet.validateOnLoad)
+          throw e
+    }
 
     DatasetArea.initDomains(storageHandler, schemaHandler.domains.map(_.name))
 
@@ -132,6 +142,9 @@ object Main extends StrictLogging {
         }
       case "import" =>
         workflow.loadLanding()
+        true
+      case "validate" =>
+        schemaHandler.checkValidity()
         true
       case "watch" =>
         WatchConfig.parse(args.drop(1)) match {
