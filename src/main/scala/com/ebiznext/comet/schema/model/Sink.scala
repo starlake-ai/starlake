@@ -20,7 +20,7 @@
 
 package com.ebiznext.comet.schema.model
 
-import com.fasterxml.jackson.annotation.{JsonIgnore, JsonSubTypes, JsonTypeInfo, JsonTypeName}
+import com.fasterxml.jackson.annotation.{JsonSubTypes, JsonTypeInfo, JsonTypeName}
 import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.databind.annotation.{JsonDeserialize, JsonSerialize}
 import com.fasterxml.jackson.databind.ser.std.ToStringSerializer
@@ -82,7 +82,11 @@ class SinkTypeDeserializer extends JsonDeserializer[SinkType] {
   *   - BQ : Dataset is sinked to BigQuery. See BigQuerySink below
   *   - None: Don't sink. This is the default.
   */
-@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "type")
+@JsonTypeInfo(
+  use = JsonTypeInfo.Id.NAME,
+  include = JsonTypeInfo.As.EXISTING_PROPERTY,
+  property = "type"
+)
 @JsonSubTypes(
   Array(
     new JsonSubTypes.Type(value = classOf[FsSink], name = "FS"),
@@ -96,8 +100,6 @@ sealed abstract class Sink(val `type`: SinkType) {
   def name: Option[String]
   def options: Option[Map[String, String]]
 
-  // work around for Jackson deserialization issue (https://github.com/FasterXML/jackson-module-scala/issues/87)
-  @JsonIgnore
   def getOptions: Map[String, String] = options.getOrElse(Map.empty)
 }
 
