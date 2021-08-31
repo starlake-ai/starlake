@@ -20,6 +20,7 @@ __Bug Fix__:
 - Fix merge using timestamp option
 - Json ingestion fails with complex array of objects
 - Remove duplicates on incoming when existingDF does not exist or is empty
+- Parse Sink options correctly 
 
 # 0.2.4 / 0.2.5
 __Bug Fix__:
