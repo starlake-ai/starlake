@@ -243,6 +243,7 @@ object Settings extends StrictLogging {
     datasets: String,
     metadata: String,
     metrics: Metrics,
+    validateOnLoad: Boolean,
     audit: Audit,
     archive: Boolean,
     sinkToFile: Boolean,
