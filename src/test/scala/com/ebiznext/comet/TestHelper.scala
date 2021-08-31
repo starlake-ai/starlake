@@ -158,7 +158,7 @@ trait TestHelper extends AnyFlatSpec with Matchers with BeforeAndAfterAll with S
   def readFileContent(path: Path): String = readFileContent(path.toUri.getPath)
 
   def applyTestFileSubstitutions(fileContent: String): String = {
-    fileContent.replaceAll("COMET_TEST_ROOT", cometTestRoot)
+    fileContent.replaceAll("__COMET_TEST_ROOT__", cometTestRoot)
   }
 
   def withSettings(configuration: Config)(op: Settings => Assertion): Assertion =

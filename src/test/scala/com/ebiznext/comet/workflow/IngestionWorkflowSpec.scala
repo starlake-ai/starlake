@@ -26,6 +26,11 @@ class IngestionWorkflowSpec extends TestHelper {
         assert(storageHandler.exists(targetFile))
       }
     }
+
+    "Loading files without extension in Landing area" should "produce file in pending area" in {
+      loadLandingFile("/sample/_SUCCESS", "_SUCCESS")
+    }
+
     "Loading files in Landing area" should "produce file in pending area" in {
       loadLandingFile("/sample/SCHEMA-VALID.dsv", "SCHEMA-VALID.dsv")
     }
