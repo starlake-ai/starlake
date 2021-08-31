@@ -102,12 +102,11 @@ class FileLock(path: Path, storageHandler: StorageHandler) extends StrictLogging
             watch()
             true
           case Failure(e) =>
-            logger.info(s"Audit lock already in use waiting ... ${path.toString} ${e.getMessage}")
+            logger.info(s"Audit lock ${path.toString} already in use waiting ...  ${e.getMessage}")
             Try {
               storageHandler.lastModified(path)
             } match {
-              case Success(lastModified) => // do nothing
-                storageHandler.lastModified(path)
+              case Success(lastModified) =>
                 val currentTimeMillis = System.currentTimeMillis()
 
                 logger.info(s"""
@@ -115,7 +114,7 @@ class FileLock(path: Path, storageHandler: StorageHandler) extends StrictLogging
                                |System.currentTimeMillis()=${currentTimeMillis}
                                |checkinPeriod*4=${checkinPeriod * 4}
                                |refreshPeriod*4=${refreshPeriod * 4}
-          """.stripMargin)
+                               |""".stripMargin)
                 if ((currentTimeMillis - lastModified) > (refreshPeriod * 4)) {
                   storageHandler.delete(path)
                 }
