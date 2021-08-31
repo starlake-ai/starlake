@@ -36,7 +36,6 @@ class SinkSpec extends TestHelper {
     }
 
     "parsing any sink with options" should "succeed" in {
-
       mapper.readValue(
         """
           |name: "sink"
