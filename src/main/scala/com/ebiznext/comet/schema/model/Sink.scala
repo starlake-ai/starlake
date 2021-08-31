@@ -82,7 +82,11 @@ class SinkTypeDeserializer extends JsonDeserializer[SinkType] {
   *   - BQ : Dataset is sinked to BigQuery. See BigQuerySink below
   *   - None: Don't sink. This is the default.
   */
-@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.EXISTING_PROPERTY, property = "type")
+@JsonTypeInfo(
+  use = JsonTypeInfo.Id.NAME,
+  include = JsonTypeInfo.As.EXISTING_PROPERTY,
+  property = "type"
+)
 @JsonSubTypes(
   Array(
     new JsonSubTypes.Type(value = classOf[FsSink], name = "FS"),
