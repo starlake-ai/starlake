@@ -11,6 +11,7 @@ __New feature__:
 - Added env var to control BigQuery materialization on pushdown queries COMET_SPARK_BIGQUERY_MATERIALIZATION_PROJECT, COMET_SPARK_BIGQUERY_MATERIALIZATION_DATASET (default to materalization)
 - Added env var to control BigQuery read data format COMET_SPARK_BIGQUERY_READ_DATA_FORMAT (default to AVRO)
 - When COMET_MERGE_OPTIMIZE_PARTITION_WRITE is set and dynamic partition is active, only write partition containing new records or records to be deleted or updated for BQ (handled by Spark by default for FS).
+- Add VALIDATE_ON_LOAD (comet-validate-on-load) property to raise an exception if one of the domain/job YML file is invalid. default to false
 
 __Bug Fix__:
 - Loading empty files when the schema contains script fields
@@ -21,6 +22,7 @@ __Bug Fix__:
 - Json ingestion fails with complex array of objects
 - Remove duplicates on incoming when existingDF does not exist or is empty
 - Parse Sink options correctly 
+- Handle extreme cases where audit lock raise an exception on creation
 
 # 0.2.4 / 0.2.5
 __Bug Fix__:
