@@ -206,7 +206,8 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
         logger.error(
           s"There is one or more invalid Yaml files in your domains folder:${err.getMessage}"
         )
-        throw err
+        if (settings.comet.validateOnLoad)
+          throw err
       case Success(_) => // ignore
     }
 
@@ -314,7 +315,8 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
         logger.error(
           s"There is one or more invalid Yaml files in your jobs folder:${err.getMessage}"
         )
-        throw err
+        if (settings.comet.validateOnLoad)
+          throw err
       case Success(_) => // do nothing
     }
 
