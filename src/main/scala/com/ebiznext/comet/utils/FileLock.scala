@@ -108,7 +108,6 @@ class FileLock(path: Path, storageHandler: StorageHandler) extends StrictLogging
             } match {
               case Success(lastModified) =>
                 val currentTimeMillis = System.currentTimeMillis()
-
                 logger.info(s"""
                                |lastModified=$lastModified
                                |System.currentTimeMillis()=${currentTimeMillis}
