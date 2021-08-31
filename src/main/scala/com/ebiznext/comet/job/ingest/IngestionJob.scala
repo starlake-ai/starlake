@@ -14,6 +14,7 @@ import com.ebiznext.comet.schema.model._
 import com.ebiznext.comet.utils.Formatter._
 import com.ebiznext.comet.utils.conversion.BigQueryUtils
 import com.ebiznext.comet.utils.kafka.KafkaClient
+import com.ebiznext.comet.utils.repackaged.BigQuerySchemaConverters
 import com.ebiznext.comet.utils.{JobResult, SparkJob, SparkJobResult, Utils}
 import com.google.cloud.bigquery.JobInfo.{CreateDisposition, WriteDisposition}
 import com.google.cloud.bigquery.{
@@ -28,15 +29,7 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.sql._
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions._
-import org.apache.spark.sql.types.{
-  ArrayType,
-  IntegerType,
-  LongType,
-  StringType,
-  StructField,
-  StructType,
-  TimestampType
-}
+import org.apache.spark.sql.types.{Metadata => _, _}
 
 import java.sql.Timestamp
 import java.time.{Instant, LocalDateTime}
@@ -921,50 +914,30 @@ trait IngestionJob extends SparkJob {
     partitionsToUpdate
   }
 
+  private def checkSchemaValidity(existingSchema: StructType, incomingSchema: StructType): Unit = {
+    if (existingSchema.fields.length != incomingSchema.fields.length)
+      throw new RuntimeException(
+        "Input Dataset and existing HDFS dataset do not have the same number of columns. Check for changes in the dataset schema ?"
+      )
+  }
+
   private def mergeFromParquet(
     acceptedPath: Path,
     withScriptFieldsDF: DataFrame,
     mergeOptions: MergeOptions
   ): DataFrame = {
-    if (storageHandler.exists(new Path(acceptedPath, "_SUCCESS"))) {
-      // Otherwise load from accepted area
-      // We provide the accepted DF schema since partition columns types are infered when parquet is loaded and might not match with the DF being ingested
-      val existingDF =
-        session.read.schema(withScriptFieldsDF.schema).parquet(acceptedPath.toString)
-      if (
-        existingDF.schema.fields.length == session.read
-          .parquet(acceptedPath.toString)
-          .schema
-          .fields
-          .length
-      )
-        applyMergeParquet(withScriptFieldsDF, existingDF, mergeOptions)
-      else
-        throw new RuntimeException(
-          "Input Dataset and existing HDFS dataset do not have the same number of columns. Check for changes in the dataset schema ?"
-        )
-    } else {
-      val emptyExistingDF = session
-        .createDataFrame(session.sparkContext.emptyRDD[Row], withScriptFieldsDF.schema)
-      applyMergeParquet(withScriptFieldsDF, emptyExistingDF, mergeOptions)
-    }
-  }
+    val existingDF =
+      if (storageHandler.exists(new Path(acceptedPath, "_SUCCESS"))) {
+        // Otherwise load from accepted area
+        // We provide the accepted DF schema since partition columns types are infered when parquet is loaded and might not match with the DF being ingested
+        val existingDF =
+          session.read.schema(withScriptFieldsDF.schema).parquet(acceptedPath.toString)
+        checkSchemaValidity(session.read.parquet(acceptedPath.toString).schema, existingDF.schema)
+        existingDF
+      } else
+        session.createDataFrame(session.sparkContext.emptyRDD[Row], withScriptFieldsDF.schema)
 
-  /** Merge incoming and existing dataframes using merge options
-    *
-    * @param inputDF
-    * @param existingDF
-    * @param mergeOptions
-    * @return
-    *   merged dataframe
-    */
-  private def applyMergeParquet(
-    inputDF: DataFrame,
-    existingDF: DataFrame,
-    mergeOptions: MergeOptions
-  ): DataFrame = {
-
-    val partitionedInputDF = partitionDataset(inputDF, metadata.getPartitionAttributes())
+    val partitionedInputDF = partitionDataset(withScriptFieldsDF, metadata.getPartitionAttributes())
     logger.info(s"partitionedInputDF field count=${partitionedInputDF.schema.fields.length}")
     logger.info(s"""partitionedInputDF field list=${partitionedInputDF.schema.fields
       .map(_.name)
@@ -1023,43 +996,39 @@ trait IngestionJob extends SparkJob {
   ): (DataFrame, Option[List[String]]) = {
     // When merging to BigQuery, load existing DF from BigQuery
     val tableMetadata = BigQuerySparkJob.getTable(session, domain.name, schema.name)
-    tableMetadata.table
+    val existingDF = tableMetadata.table
       .map { table =>
-        if (
-          table.getDefinition
-            .asInstanceOf[StandardTableDefinition]
-            .getSchema
-            .getFields
-            .size() == withScriptFieldsDF.schema.fields.length
-        ) {
-          val bqTable = s"${domain.name}.${schema.name}"
-          // We provided the acceptedDF schema here since BQ lose the required / nullable information of the schema
-          val existingBQDFWithoutFilter = session.read
-            .schema(converIntToLongInSchema(withScriptFieldsDF.schema))
-            .format("com.google.cloud.spark.bigquery")
-            .option("table", bqTable)
+        checkSchemaValidity(
+          BigQuerySchemaConverters.toSpark(
+            table.getDefinition.asInstanceOf[StandardTableDefinition].getSchema
+          ),
+          withScriptFieldsDF.schema
+        )
 
-          val existingBigQueryDFReader = (mergeOptions.queryFilter, metadata.sink) match {
-            case (Some(_), Some(BigQuerySink(_, _, Some(_), _, _, _, _))) =>
-              val partitions =
-                tableMetadata.biqueryClient.listPartitions(table.getTableId).asScala.toList
-              val filter = mergeOptions.buidlBQQuery(partitions, options)
-              existingBQDFWithoutFilter
-                .option("filter", filter.getOrElse(throw new Exception("should never happen")))
-            case (_, _) =>
-              existingBQDFWithoutFilter
-          }
-          processMerge(withScriptFieldsDF, existingBigQueryDFReader.load(), mergeOptions)
-        } else
-          throw new RuntimeException(
-            "Input Dataset and existing HDFS dataset do not have the same number of columns. Check for changes in the dataset schema ?"
-          )
+        val bqTable = s"${domain.name}.${schema.name}"
+        // We provided the acceptedDF schema here since BQ lose the required / nullable information of the schema
+        val existingBQDFWithoutFilter = session.read
+          .schema(converIntToLongInSchema(withScriptFieldsDF.schema))
+          .format("com.google.cloud.spark.bigquery")
+          .option("table", bqTable)
+
+        val existingBigQueryDFReader = (mergeOptions.queryFilter, metadata.sink) match {
+          case (Some(_), Some(BigQuerySink(_, _, Some(_), _, _, _, _))) =>
+            val partitions =
+              tableMetadata.biqueryClient.listPartitions(table.getTableId).asScala.toList
+            val filter = mergeOptions.buidlBQQuery(partitions, options)
+            existingBQDFWithoutFilter
+              .option("filter", filter.getOrElse(throw new Exception("should never happen")))
+          case (_, _) =>
+            existingBQDFWithoutFilter
+        }
+        existingBigQueryDFReader.load()
       }
       .getOrElse {
-        val emptyExistingDF = session
-          .createDataFrame(session.sparkContext.emptyRDD[Row], withScriptFieldsDF.schema)
-        processMerge(withScriptFieldsDF, emptyExistingDF, mergeOptions)
+        session.createDataFrame(session.sparkContext.emptyRDD[Row], withScriptFieldsDF.schema)
       }
+
+    processMerge(withScriptFieldsDF, existingDF, mergeOptions)
   }
 
   def reorderAttributes(dataFrame: DataFrame): List[Attribute] = {
