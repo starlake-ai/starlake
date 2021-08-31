@@ -19,12 +19,12 @@ package com.ebiznext.comet.utils.repackaged;
  * Included here only to avoid repackaged conflict
  */
 
-import com.google.common.base.Preconditions;
 import com.google.cloud.bigquery.Field;
 import com.google.cloud.bigquery.FieldList;
 import com.google.cloud.bigquery.LegacySQLTypeName;
 import com.google.cloud.bigquery.Schema;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.util.Utf8;
 import org.apache.spark.sql.catalyst.InternalRow;
@@ -50,13 +50,14 @@ public class BigQuerySchemaConverters {
     private static final int MAX_BIGQUERY_NESTED_DEPTH = 15;
     private static final String MAPTYPE_ERROR_MESSAGE = "MapType is unsupported.";
 
-    /** Convert a BigQuery schema to a Spark schema */
+    /**
+     * Convert a BigQuery schema to a Spark schema
+     */
     public static StructType toSpark(Schema schema) {
-        List<StructField> fieldList =
-                schema.getFields().stream().map(BigQuerySchemaConverters::convert).collect(Collectors.toList());
-        StructType structType = new StructType(fieldList.toArray(new StructField[0]));
-
-        return structType;
+        return new StructType(schema.getFields()
+                .stream()
+                .map(BigQuerySchemaConverters::convert)
+                .toArray(StructField[]::new));
     }
 
     public static InternalRow convertToInternalRow(
@@ -81,7 +82,7 @@ public class BigQuerySchemaConverters {
                             .setMode(Field.Mode.REQUIRED)
                             .build();
 
-            List<Object> valueList = (List<Object>) value;
+            List<?> valueList = value instanceof List ? (List<?>) value : Collections.emptyList();
 
             return new GenericArrayData(
                     valueList.stream().map(v -> convert(nestedField, v)).collect(Collectors.toList()));
@@ -89,7 +90,7 @@ public class BigQuerySchemaConverters {
 
         Object datum = convertByBigQueryType(field, value);
         Optional<Object> customDatum =
-                getCustomDataType(field).map(dt -> ((UserDefinedType) dt).deserialize(datum));
+                getCustomDataType(field).map(dt -> ((UserDefinedType<?>) dt).deserialize(datum));
         return customDatum.orElse(datum);
     }
 
@@ -116,16 +117,15 @@ public class BigQuerySchemaConverters {
         if (LegacySQLTypeName.NUMERIC.equals(field.getType())) {
             byte[] bytes = getBytes((ByteBuffer) value);
             BigDecimal b = new BigDecimal(new BigInteger(bytes), BQ_NUMERIC_SCALE);
-            Decimal d = Decimal.apply(b, BQ_NUMERIC_PRECISION, BQ_NUMERIC_SCALE);
 
-            return d;
+            return Decimal.apply(b, BQ_NUMERIC_PRECISION, BQ_NUMERIC_SCALE);
         }
 
         if (LegacySQLTypeName.RECORD.equals(field.getType())) {
             return convertAll(
                     field.getSubFields(),
                     (GenericRecord) value,
-                    field.getSubFields().stream().map(f -> f.getName()).collect(Collectors.toList()));
+                    field.getSubFields().stream().map(Field::getName).collect(Collectors.toList()));
         }
 
         throw new IllegalStateException("Unexpected type: " + field.getType());
@@ -142,11 +142,8 @@ public class BigQuerySchemaConverters {
     static GenericInternalRow convertAll(
             FieldList fieldList, GenericRecord record, List<String> namesInOrder) {
 
-        Map<String, Object> fieldMap = new HashMap<>();
-
-        fieldList.stream()
-                .forEach(
-                        field -> fieldMap.put(field.getName(), convert(field, record.get(field.getName()))));
+        Map<String, Object> fieldMap = fieldList.stream()
+                .collect(Collectors.toMap(Field::getName, field -> convert(field, record.get(field.getName()))));
 
         Object[] values = new Object[namesInOrder.size()];
         for (int i = 0; i < namesInOrder.size(); i++) {
@@ -176,7 +173,7 @@ public class BigQuerySchemaConverters {
 
         MetadataBuilder metadata = new MetadataBuilder();
         if (field.getDescription() != null) {
-            metadata.putString("description", field.getDescription());
+            metadata.putString("comment", field.getDescription());
         }
 
         return new StructField(field.getName(), dataType, nullable, metadata.build());
@@ -227,9 +224,10 @@ public class BigQuerySchemaConverters {
         } else if (LegacySQLTypeName.DATETIME.equals(field.getType())) {
             return DataTypes.StringType;
         } else if (LegacySQLTypeName.RECORD.equals(field.getType())) {
-            List<StructField> structFields =
-                    field.getSubFields().stream().map(BigQuerySchemaConverters::convert).collect(Collectors.toList());
-            return new StructType(structFields.toArray(new StructField[0]));
+            return new StructType(field.getSubFields()
+                    .stream()
+                    .map(BigQuerySchemaConverters::convert)
+                    .toArray(StructField[]::new));
         } else if (LegacySQLTypeName.GEOGRAPHY.equals(field.getType())) {
             return DataTypes.StringType;
         } else {
@@ -237,7 +235,9 @@ public class BigQuerySchemaConverters {
         }
     }
 
-    /** Spark ==> BigQuery Schema Converter utils: */
+    /**
+     * Spark ==> BigQuery Schema Converter utils:
+     */
     public static Schema toBigQuerySchema(StructType sparkSchema) {
         FieldList bigQueryFields = sparkToBigQueryFields(sparkSchema, 0);
         return Schema.of(bigQueryFields);
@@ -256,39 +256,32 @@ public class BigQuerySchemaConverters {
         return FieldList.of(bqFields);
     }
 
-    /** Converts a single StructField to a BigQuery Field (column). */
+    /**
+     * Converts a single StructField to a BigQuery Field (column).
+     */
     @VisibleForTesting
     protected static Field createBigQueryColumn(StructField sparkField, int depth) {
-        DataType sparkType = sparkField.dataType();
-        String fieldName = sparkField.name();
-        Field.Mode fieldMode = (sparkField.nullable()) ? Field.Mode.NULLABLE : Field.Mode.REQUIRED;
-        String description;
-        FieldList subFields = null;
-        LegacySQLTypeName fieldType;
+        final Field.Builder builder = Field.newBuilder(sparkField.name(), LegacySQLTypeName.STRING);
 
+        builder.setMode((sparkField.nullable()) ? Field.Mode.NULLABLE : Field.Mode.REQUIRED);
+
+        DataType sparkType = sparkField.dataType();
         if (sparkType instanceof ArrayType) {
             ArrayType arrayType = (ArrayType) sparkType;
 
-            fieldMode = Field.Mode.REPEATED;
+            builder.setMode(Field.Mode.REPEATED);
             sparkType = arrayType.elementType();
         }
 
         if (sparkType instanceof StructType) {
-            subFields = sparkToBigQueryFields((StructType) sparkType, depth + 1);
-            fieldType = LegacySQLTypeName.RECORD;
+            builder.setType(LegacySQLTypeName.RECORD, sparkToBigQueryFields((StructType) sparkType, depth + 1));
         } else {
-            fieldType = toBigQueryType(sparkType);
+            builder.setType(toBigQueryType(sparkType));
         }
 
-        try {
-            description = sparkField.metadata().getString("comment");
-        } catch (NoSuchElementException e) {
-            return createBigQueryFieldBuilder(fieldName, fieldType, fieldMode, subFields).build();
-        }
+        sparkField.getComment().foreach(builder::setDescription);
 
-        return createBigQueryFieldBuilder(fieldName, fieldType, fieldMode, subFields)
-                .setDescription(description)
-                .build();
+        return builder.build();
     }
 
     @VisibleForTesting
@@ -334,10 +327,5 @@ public class BigQuerySchemaConverters {
         } else {
             throw new IllegalArgumentException("Data type not expected: " + elementType.simpleString());
         }
-    }
-
-    private static Field.Builder createBigQueryFieldBuilder(
-            String name, LegacySQLTypeName type, Field.Mode mode, FieldList subFields) {
-        return Field.newBuilder(name, type, subFields).setMode(mode);
     }
 }
