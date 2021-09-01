@@ -147,7 +147,7 @@ class IngestionWorkflow(
             storageHandler.moveFromLocal(file, destFile)
           }
 
-          tmpDir.map(storageHandler.delete)
+          tmpDir.foreach(storageHandler.delete)
         }
       } else {
         logger.error(s"Input path : $inputDir not found, ${domain.name} Domain is ignored")
