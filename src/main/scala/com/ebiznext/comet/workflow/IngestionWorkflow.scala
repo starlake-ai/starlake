@@ -87,7 +87,7 @@ class IngestionWorkflow(
         logger.info(s"Scanning $inputDir")
         storageHandler.list(inputDir, domain.getAck(), recursive = false).foreach { path =>
           val (filesToLoad, tmpDir) = {
-            val pathWithoutExt = new Path(
+            val pathWithoutFirstExt = new Path(
               inputDir,
               if (domain.getAck().isEmpty)
                 File(path.toUri).nameWithoutExtension(false)
@@ -99,38 +99,42 @@ class IngestionWorkflow(
               else
                 domain
                   .getExtensions()
-                  .map(ext => pathWithoutExt.suffix(ext))
+                  .map(ext => pathWithoutFirstExt.suffix(ext))
                   .find(file => storageHandler.exists(file))
             val foundZipExtension =
               List(".gz", ".tgz", ".zip").find(ext => path.getName.endsWith(ext))
 
-            if (foundZipExtension.isEmpty && existingRawFile.isDefined) {
-              logger.info(s"Found raw file ${existingRawFile.get}")
-              (existingRawFile.toList, None)
-            } else if (foundZipExtension.isDefined && storageHandler.fs.getScheme == "file") {
-              val zipPath = pathWithoutExt.suffix(foundZipExtension.get)
-              if (storageHandler.exists(zipPath)) {
-                logger.info(s"Found compressed file $zipPath")
-                storageHandler.mkdirs(pathWithoutExt)
+            (foundZipExtension, existingRawFile, storageHandler.fs.getScheme) match {
+              case (None, Some(file), _) =>
+                logger.info(s"Found raw file $file")
+                (List(file), None)
+              case (Some(zipExt), _, "file") =>
+                val zipPath = pathWithoutFirstExt.suffix(zipExt)
+                if (storageHandler.exists(zipPath)) {
+                  logger.info(s"Found compressed file $zipPath")
+                  storageHandler.mkdirs(pathWithoutFirstExt)
 
-                // File is a proxy to java.nio.Path / working with Uri
-                val tmpDir = File(pathWithoutExt.toUri)
-                val zipFile = File(zipPath.toUri)
-                foundZipExtension.get match {
-                  case ".tgz" => Unpacker.unpack(zipFile, tmpDir)
-                  case ".gz"  => zipFile.unGzipTo(tmpDir / pathWithoutExt.getName)
-                  case ".zip" => zipFile.unzipTo(tmpDir)
+                  // File is a proxy to java.nio.Path / working with Uri
+                  val tmpDir = File(pathWithoutFirstExt.toUri)
+                  val zipFile = File(zipPath.toUri)
+                  zipExt match {
+                    case ".tgz" => Unpacker.unpack(zipFile, tmpDir)
+                    case ".gz"  => zipFile.unGzipTo(tmpDir / pathWithoutFirstExt.getName)
+                    case ".zip" => zipFile.unzipTo(tmpDir)
+                  }
+                  storageHandler.delete(zipPath)
+
+                  (
+                    storageHandler.list(pathWithoutFirstExt, recursive = false),
+                    Some(pathWithoutFirstExt)
+                  )
+                } else {
+                  logger.error(s"No archive found for ack $path")
+                  (List.empty, None)
                 }
-                storageHandler.delete(zipPath)
-
-                (storageHandler.list(pathWithoutExt, recursive = false), Some(pathWithoutExt))
-              } else {
-                logger.error(s"No archive found for ack $path")
+              case (_, _, _) =>
+                logger.error(s"No file found for ack $path")
                 (List.empty, None)
-              }
-            } else {
-              logger.error(s"No file found for ack $path")
-              (List.empty, None)
             }
           }
 
@@ -141,8 +145,7 @@ class IngestionWorkflow(
             storageHandler.moveFromLocal(file, destFile)
           }
 
-          if (tmpDir.isDefined)
-            storageHandler.delete(tmpDir.get)
+          tmpDir.map(storageHandler.delete)
         }
       } else {
         logger.error(s"Input path : $inputDir not found, ${domain.name} Domain is ignored")
