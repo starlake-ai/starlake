@@ -87,53 +87,52 @@ class IngestionWorkflow(
         logger.info(s"Scanning $inputDir")
         storageHandler.list(inputDir, domain.getAck(), recursive = false).foreach { path =>
           val (filesToLoad, tmpDir) = {
-            val pathWithoutFirstExt = new Path(
+            val pathWithoutLastExt = new Path(
               inputDir,
-              if (domain.getAck().isEmpty)
-                File(path.toUri).nameWithoutExtension(false)
+              if (domain.getAck().isEmpty) File(path.toUri).nameWithoutExtension(false)
               else path.getName.stripSuffix(domain.getAck())
             )
 
-            val existingRawFile =
-              if (domain.getAck().isEmpty) Some(path)
-              else
-                domain
-                  .getExtensions()
-                  .map(ext => pathWithoutFirstExt.suffix(ext))
-                  .find(file => storageHandler.exists(file))
-            val foundZipExtension =
-              List(".gz", ".tgz", ".zip").find(ext => path.getName.endsWith(ext))
+            val zipExtensions = List(".gz", ".tgz", ".zip")
+            val (existingRawFile, existingArchiveFile) = {
+              val findPathWithExt = if (domain.getAck().isEmpty) {
+                // the file is always the one being iterated over, we just need to check the extension
+                (extensions: List[String]) => extensions.find(path.getName.endsWith).map(_ => path)
+              } else {
+                // for each extension, look if there exists a file near the .ack one
+                (extensions: List[String]) =>
+                  extensions.map(pathWithoutLastExt.suffix).find(storageHandler.exists)
+              }
+              (findPathWithExt(domain.getExtensions()), findPathWithExt(zipExtensions))
+            }
 
-            (foundZipExtension, existingRawFile, storageHandler.fs.getScheme) match {
-              case (None, Some(file), _) =>
-                logger.info(s"Found raw file $file")
-                (List(file), None)
-              case (Some(zipExt), _, "file") =>
-                val zipPath = pathWithoutFirstExt.suffix(zipExt)
-                if (storageHandler.exists(zipPath)) {
-                  logger.info(s"Found compressed file $zipPath")
-                  storageHandler.mkdirs(pathWithoutFirstExt)
+            (existingArchiveFile, existingRawFile, storageHandler.fs.getScheme) match {
+              case (Some(zipPath), _, "file") =>
+                logger.info(s"Found compressed file $zipPath")
+                storageHandler.mkdirs(pathWithoutLastExt)
 
-                  // File is a proxy to java.nio.Path / working with Uri
-                  val tmpDir = File(pathWithoutFirstExt.toUri)
-                  val zipFile = File(zipPath.toUri)
-                  zipExt match {
-                    case ".tgz" => Unpacker.unpack(zipFile, tmpDir)
-                    case ".gz"  => zipFile.unGzipTo(tmpDir / pathWithoutFirstExt.getName)
-                    case ".zip" => zipFile.unzipTo(tmpDir)
-                  }
-                  storageHandler.delete(zipPath)
-
-                  (
-                    storageHandler.list(pathWithoutFirstExt, recursive = false),
-                    Some(pathWithoutFirstExt)
-                  )
-                } else {
-                  logger.error(s"No archive found for ack $path")
-                  (List.empty, None)
+                // File is a proxy to java.nio.Path / working with Uri
+                val tmpDir = File(pathWithoutLastExt.toUri)
+                val zipFile = File(zipPath.toUri)
+                zipFile.extension() match {
+                  case Some(".tgz") => Unpacker.unpack(zipFile, tmpDir)
+                  case Some(".gz")  => zipFile.unGzipTo(tmpDir / pathWithoutLastExt.getName)
+                  case Some(".zip") => zipFile.unzipTo(tmpDir)
+                  case _            => logger.error(s"Unsupported archive type for $zipFile")
                 }
+                storageHandler.delete(zipPath)
+
+                (
+                  storageHandler
+                    .list(pathWithoutLastExt, recursive = false)
+                    .filter(path => domain.getExtensions().exists(path.getName.endsWith)),
+                  Some(pathWithoutLastExt)
+                )
+              case (_, Some(filePath), _) =>
+                logger.info(s"Found raw file $filePath")
+                (List(filePath), None)
               case (_, _, _) =>
-                logger.error(s"No file found for ack $path")
+                logger.info(s"Ignoring file for path $path")
                 (List.empty, None)
             }
           }
