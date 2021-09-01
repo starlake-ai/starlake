@@ -106,6 +106,9 @@ class IngestionWorkflow(
               (findPathWithExt(domain.getExtensions()), findPathWithExt(zipExtensions))
             }
 
+            if (domain.getAck().nonEmpty)
+              storageHandler.delete(path)
+
             (existingArchiveFile, existingRawFile, storageHandler.fs.getScheme) match {
               case (Some(zipPath), _, "file") =>
                 logger.info(s"Found compressed file $zipPath")
