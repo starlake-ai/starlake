@@ -236,7 +236,7 @@ object AuditLog extends StrictLogging {
           log.asBqInsert(bqConfig.outputDataset + "." + bqConfig.outputTable),
           None
         )
-          .runBatchDML()
+          .runBatchQuery()
         Utils.logFailure(res, logger)
       case _: EsSink =>
         // TODO Sink Audit Log to ES

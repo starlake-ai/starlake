@@ -86,7 +86,7 @@ class BigQueryNativeJob(
     BigQueryJobResult(Some(results))
   }
 
-  def runBatchDML(sql: String): Try[BigQueryJobResult] = {
+  def runBatchQuery(sql: String): Try[BigQueryJobResult] = {
     Try {
       val bigquery: BigQuery = BigQueryOptions.getDefaultInstance.getService
       getOrCreateDataset()
@@ -134,8 +134,8 @@ class BigQueryNativeJob(
     Utils.logFailure(res, logger)
   }
 
-  def runBatchDML(): Try[JobResult] = {
-    val res = runBatchDML(sql)
+  def runBatchQuery(): Try[JobResult] = {
+    val res = runBatchQuery(sql)
     Utils.logFailure(res, logger)
   }
 
