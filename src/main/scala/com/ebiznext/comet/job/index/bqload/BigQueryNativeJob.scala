@@ -4,9 +4,11 @@ import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.utils.{JobBase, JobResult, Utils}
 import com.google.cloud.ServiceOptions
 import com.google.cloud.bigquery.JobInfo.{CreateDisposition, WriteDisposition}
+import com.google.cloud.bigquery.QueryJobConfiguration.Priority
 import com.google.cloud.bigquery._
 import com.typesafe.scalalogging.StrictLogging
 
+import java.util.UUID
 import scala.collection.JavaConverters._
 import scala.util.Try
 
@@ -26,7 +28,10 @@ class BigQueryNativeJob(
 
   logger.info(s"BigQuery Config $cliConfig")
 
-  def runNativeConnector(): Try[BigQueryJobResult] = {
+  def runNativeConnector(
+    sql: String,
+    priority: Priority
+  ): Try[BigQueryJobResult] = {
     Try {
       val targetDataset = getOrCreateDataset()
       val queryConfig: QueryJobConfiguration.Builder =
@@ -35,6 +40,7 @@ class BigQueryNativeJob(
           .setCreateDisposition(CreateDisposition.valueOf(cliConfig.createDisposition))
           .setWriteDisposition(WriteDisposition.valueOf(cliConfig.writeDisposition))
           .setDefaultDataset(targetDataset.getDatasetId)
+          .setPriority(priority)
           .setAllowLargeResults(true)
 
       val queryConfigWithPartition = (cliConfig.outputPartition) match {
@@ -56,7 +62,7 @@ class BigQueryNativeJob(
       }
       val queryConfigWithUDF = addUDFToQueryConfig(queryConfigWithClustering)
       logger.info(s"Executing BQ Query $sql")
-      val results = bigquery.query(queryConfigWithUDF.setDestinationTable(tableId).build())
+      val results = bigquery.query(queryConfigWithUDF.build())
       logger.info(
         s"Query large results performed successfully: ${results.getTotalRows} rows inserted."
       )
@@ -64,7 +70,7 @@ class BigQueryNativeJob(
     }
   }
 
-  def runSQL(
+  def runInteractiveQuery(
     sql: String
   ): BigQueryJobResult = {
     val queryConfig: QueryJobConfiguration.Builder =
@@ -73,11 +79,37 @@ class BigQueryNativeJob(
         .setAllowLargeResults(true)
     logger.info(s"Running BQ Query $sql")
     val queryConfigWithUDF = addUDFToQueryConfig(queryConfig)
-    val results = bigquery.query(queryConfigWithUDF.build())
+    val results = bigquery.query(queryConfigWithUDF.setPriority(Priority.INTERACTIVE).build())
     logger.info(
       s"Query large results performed successfully: ${results.getTotalRows} rows inserted."
     )
     BigQueryJobResult(Some(results))
+  }
+
+  def runBatchQuery(sql: String): Try[BigQueryJobResult] = {
+    Try {
+      val bigquery: BigQuery = BigQueryOptions.getDefaultInstance.getService
+      getOrCreateDataset()
+      val jobId = JobId
+        .newBuilder()
+        .setJob(
+          UUID.randomUUID.toString
+        ) // Run at batch priority, which won't count toward concurrent rate limit.
+        .setLocation(cliConfig.getLocation())
+        .build()
+      val queryConfig =
+        QueryJobConfiguration
+          .newBuilder(sql)
+          .setPriority(Priority.BATCH)
+          .setUseLegacySql(false)
+          .build()
+      logger.info(s"Executing BQ Query $sql")
+      val results = bigquery.query(queryConfig)
+      logger.info(
+        s"Query large results performed successfully: ${results.getTotalRows} rows inserted."
+      )
+      BigQueryJobResult(Some(results))
+    }
   }
 
   private def addUDFToQueryConfig(
@@ -98,7 +130,12 @@ class BigQueryNativeJob(
     *   : Spark Session used for the job
     */
   override def run(): Try[JobResult] = {
-    val res = runNativeConnector()
+    val res = runNativeConnector(sql, Priority.INTERACTIVE)
+    Utils.logFailure(res, logger)
+  }
+
+  def runBatchDML(): Try[JobResult] = {
+    val res = runBatchQuery(sql)
     Utils.logFailure(res, logger)
   }
 
