@@ -1,0 +1,132 @@
+---
+name: "DOMAIN"
+directory: "__COMET_TEST_ROOT__/DOMAIN"
+metadata:
+  mode: "FILE"
+  format: "DSV"
+  withHeader: false
+  separator: ";"
+  quote: "\""
+  escape: "\\"
+  write: "APPEND"
+  partition:
+    attributes:
+      - comet_year
+      - comet_month
+      - comet_day
+  sink:
+    type: ES
+ack: "ack"
+schemas:
+  - name: "User"
+    pattern: "SCHEMA-.*.dsv"
+    attributes:
+      - name: "first name"
+        rename: "firstname"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "last name"
+        rename: "lastname"
+        type: "string"
+        required: false
+        privacy: "MD5"
+      - name: "age"
+        rename: "age"
+        type: "int"
+        metricType: "discrete"
+        required: false
+        privacy: "NONE"
+      - name: "ok"
+        type: "boolean"
+        required: false
+        privacy: "NONE"
+        default: true
+    metadata:
+      mode: "FILE"
+      format: "DSV"
+      withHeader: true
+      separator: ";"
+      quote: "\""
+      escape: "\\"
+      write: "APPEND"
+  - name: "Players"
+    pattern: "Players.*.csv"
+    attributes:
+      - name: "PK"
+        type: "string"
+        array: false
+        required: true
+        privacy: "NONE"
+        metricType: "NONE"
+      - name: "firstName"
+        type: "string"
+        array: false
+        required: true
+        privacy: "NONE"
+        metricType: "NONE"
+      - name: "lastName"
+        type: "string"
+        array: false
+        required: true
+        privacy: "NONE"
+        metricType: "NONE"
+      - name: "DOB"
+        type: "date"
+        array: false
+        required: true
+        privacy: "NONE"
+      - name: "YEAR"
+        type: "string"
+        array: false
+        required: false
+        privacy: "NONE"
+      - name: "MONTH"
+        type: "string"
+        array: false
+        required: false
+        privacy: "NONE"
+    metadata:
+      mode: "FILE"
+      format: "DSV"
+      encoding: "UTF-8"
+      multiline: false
+      withHeader: false
+      separator: ","
+      quote: "\""
+      escape: "\\"
+      write: "OVERWRITE"
+      partition:
+        attributes:
+          - "YEAR"
+          - "MONTH"
+    merge:
+      key:
+        - "PK"
+  - name: "employee"
+    pattern: "employee.*.csv"
+    attributes:
+      - name: "name"
+        type: "string"
+        privacy: "None"
+        required: false
+      - name: "age"
+        type: "int"
+        privacy: "None"
+        required: false
+      - name: "fileName"
+        type: "string"
+        script: "comet_input_file_name"
+        privacy: None
+        required: false
+    postsql:
+      - "Select name from COMET_TABLE"
+    metadata:
+      mode: "FILE"
+      format: "DSV"
+      withHeader: false
+      separator: ","
+      partition:
+        attributes: []
+      sink:
+        type: None

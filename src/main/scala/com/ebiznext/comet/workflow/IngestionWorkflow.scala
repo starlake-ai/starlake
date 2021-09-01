@@ -81,71 +81,73 @@ class IngestionWorkflow(
     logger.info("LoadLanding")
     domains.foreach { domain =>
       val storageHandler = settings.storageHandler
-      val inputDir = new Path(domain.directory)
+      val inputDir =
+        storageHandler.fs.resolvePath(new Path(domain.directory)) // restore scheme if missing
       if (storageHandler.exists(inputDir)) {
         logger.info(s"Scanning $inputDir")
         storageHandler.list(inputDir, domain.getAck(), recursive = false).foreach { path =>
-          val ackFile = path
-          val fileStr = ackFile.toString
-          val prefixStr =
-            if (domain.getAck().isEmpty) fileStr.substring(0, fileStr.lastIndexOf('.'))
-            else fileStr.stripSuffix(domain.getAck())
-          val tmpDir = new Path(prefixStr)
-          val rawFormats =
-            if (domain.getAck().isEmpty) List(ackFile)
-            else
-              domain.getExtensions().map(ext => new Path(prefixStr + ext))
-          val existRawFile = rawFormats.find(file => storageHandler.exists(file))
-          logger.info(s"Found ack file $ackFile")
-          val zipExtensions = List(".tgz", ".gz", ".zip")
-          val isZip = zipExtensions.exists(ext => path.toString.endsWith(ext))
-          if (domain.getAck().nonEmpty)
-            storageHandler.delete(ackFile)
-          if (!isZip && existRawFile.isDefined) {
-            existRawFile.foreach { file =>
-              logger.info(s"Found raw file $existRawFile")
-              storageHandler.mkdirs(tmpDir)
-              val tmpFile = new Path(tmpDir, file.getName)
-              storageHandler.move(file, tmpFile)
-            }
-          } else if (storageHandler.fs.getScheme == "file") {
-            storageHandler.mkdirs(tmpDir)
-            val tgz = new Path(prefixStr + ".tgz")
-            val gz = new Path(prefixStr + ".gz")
-            val zip = new Path(prefixStr + ".zip")
-            val tmpFile = Path.getPathWithoutSchemeAndAuthority(tmpDir).toString
-            if (storageHandler.exists(gz)) {
-              logger.info(s"Found compressed file $gz")
+          val (filesToLoad, tmpDir) = {
+            val pathWithoutLastExt = new Path(
+              inputDir,
+              if (domain.getAck().isEmpty) File(path.toUri).nameWithoutExtension(false)
+              else path.getName.stripSuffix(domain.getAck())
+            )
 
-              File(Path.getPathWithoutSchemeAndAuthority(gz).toString)
-                .unGzipTo(File(tmpFile, File(prefixStr).name))
-              storageHandler.delete(gz)
-            } else if (storageHandler.exists(tgz)) {
-              logger.info(s"Found compressed file $tgz")
-              Unpacker
-                .unpack(File(Path.getPathWithoutSchemeAndAuthority(tgz).toString), File(tmpFile))
-              storageHandler.delete(tgz)
-            } else if (storageHandler.exists(zip)) {
-              logger.info(s"Found compressed file $zip")
-              File(Path.getPathWithoutSchemeAndAuthority(zip).toString)
-                .unzipTo(File(tmpFile))
-              storageHandler.delete(zip)
-            } else {
-              logger.error(s"No archive found for ack ${ackFile.toString}")
+            val zipExtensions = List(".gz", ".tgz", ".zip")
+            val (existingRawFile, existingArchiveFile) = {
+              val findPathWithExt = if (domain.getAck().isEmpty) {
+                // the file is always the one being iterated over, we just need to check the extension
+                (extensions: List[String]) => extensions.find(path.getName.endsWith).map(_ => path)
+              } else {
+                // for each extension, look if there exists a file near the .ack one
+                (extensions: List[String]) =>
+                  extensions.map(pathWithoutLastExt.suffix).find(storageHandler.exists)
+              }
+              (findPathWithExt(domain.getExtensions()), findPathWithExt(zipExtensions))
             }
-          } else {
-            logger.error(s"No file found for ack ${ackFile.toString}")
-          }
-          if (storageHandler.exists(tmpDir)) {
-            val destFolder = DatasetArea.pending(domain.name)
-            storageHandler.list(tmpDir, recursive = false).foreach { file =>
-              val source = new Path(file.toString)
-              logger.info(s"Importing ${file.toString}")
-              val destFile = new Path(destFolder, file.getName)
-              storageHandler.moveFromLocal(source, destFile)
+
+            if (domain.getAck().nonEmpty)
+              storageHandler.delete(path)
+
+            (existingArchiveFile, existingRawFile, storageHandler.fs.getScheme) match {
+              case (Some(zipPath), _, "file") =>
+                logger.info(s"Found compressed file $zipPath")
+                storageHandler.mkdirs(pathWithoutLastExt)
+
+                // File is a proxy to java.nio.Path / working with Uri
+                val tmpDir = File(pathWithoutLastExt.toUri)
+                val zipFile = File(zipPath.toUri)
+                zipFile.extension() match {
+                  case Some(".tgz") => Unpacker.unpack(zipFile, tmpDir)
+                  case Some(".gz")  => zipFile.unGzipTo(tmpDir / pathWithoutLastExt.getName)
+                  case Some(".zip") => zipFile.unzipTo(tmpDir)
+                  case _            => logger.error(s"Unsupported archive type for $zipFile")
+                }
+                storageHandler.delete(zipPath)
+
+                (
+                  storageHandler
+                    .list(pathWithoutLastExt, recursive = false)
+                    .filter(path => domain.getExtensions().exists(path.getName.endsWith)),
+                  Some(pathWithoutLastExt)
+                )
+              case (_, Some(filePath), _) =>
+                logger.info(s"Found raw file $filePath")
+                (List(filePath), None)
+              case (_, _, _) =>
+                logger.info(s"Ignoring file for path $path")
+                (List.empty, None)
             }
-            storageHandler.delete(tmpDir)
           }
+
+          val destFolder = DatasetArea.pending(domain.name)
+          filesToLoad.foreach { file =>
+            logger.info(s"Importing $file")
+            val destFile = new Path(destFolder, file.getName)
+            storageHandler.moveFromLocal(file, destFile)
+          }
+
+          tmpDir.foreach(storageHandler.delete)
         }
       } else {
         logger.error(s"Input path : $inputDir not found, ${domain.name} Domain is ignored")
