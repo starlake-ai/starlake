@@ -21,19 +21,19 @@
 package com.ebiznext.comet.job.ingest
 
 import com.ebiznext.comet.config.Settings
-import com.ebiznext.comet.job.index.bqload.{BigQueryLoadConfig, BigQuerySparkJob}
+import com.ebiznext.comet.job.index.bqload.{BigQueryLoadConfig, BigQueryNativeJob}
 import com.ebiznext.comet.job.index.connectionload.{ConnectionLoadConfig, ConnectionLoadJob}
-import com.ebiznext.comet.schema.model.{BigQuerySink, EsSink, FsSink, JdbcSink, NoneSink}
-import com.ebiznext.comet.utils.FileLock
-import com.google.cloud.bigquery.{Field, LegacySQLTypeName}
+import com.ebiznext.comet.schema.model._
+import com.ebiznext.comet.utils.{FileLock, Utils}
+import com.google.cloud.bigquery.{Field, LegacySQLTypeName, Schema => BQSchema}
+import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{SaveMode, SparkSession}
 
 import java.sql.Timestamp
-import com.google.cloud.bigquery.{Schema => BQSchema}
-import com.typesafe.scalalogging.StrictLogging
+import java.text.SimpleDateFormat
 
 sealed case class Step(value: String) {
   override def toString: String = value
@@ -76,7 +76,7 @@ case class AuditLog(
   step: String
 ) {
 
-  override def toString(): String = {
+  override def toString(): String =
     s"""
        |jobid=$jobid
        |paths=$paths
@@ -91,10 +91,44 @@ case class AuditLog(
        |message=$message
        |step=$step
        |""".stripMargin.split('\n').mkString(",")
+
+  def asBqInsert(table: String) = {
+    val df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
+    val timestampStr = df.format(timestamp)
+    s"""
+       |insert into $table(
+       | jobid, 
+       | paths,
+       | domain,
+       | schema,
+       | success, 
+       | count, 
+       | countAccepted, 
+       | countRejected, 
+       | timestamp, 
+       | duration, 
+       | message, 
+       | step
+       |) 
+       |values( 
+       |'$jobid',
+       |'$paths',
+       |'$domain',
+       |'$schema',
+       |$success,
+       |$count,
+       |$countAccepted,
+       |$countRejected,
+       |'$timestampStr',
+       |$duration,
+       |'$message',
+       |'$step'
+       |)""".stripMargin
   }
+
 }
 
-object SparkAuditLogWriter extends StrictLogging {
+object AuditLog extends StrictLogging {
 
   val auditCols = List(
     ("jobid", LegacySQLTypeName.STRING, StringType),
@@ -122,7 +156,7 @@ object SparkAuditLogWriter extends StrictLogging {
     BQSchema.of(fields: _*)
   }
 
-  def append(session: SparkSession, log: AuditLog)(implicit
+  def sink(session: SparkSession, log: AuditLog)(implicit
     settings: Settings
   ) = {
     import session.implicits._
@@ -154,18 +188,6 @@ object SparkAuditLogWriter extends StrictLogging {
       }
     }
 
-    val auditTypedRDD: RDD[AuditLog] = session.sparkContext.parallelize(Seq(log))
-    val auditDF = session
-      .createDataFrame(
-        auditTypedRDD.toDF().rdd,
-        StructType(
-          auditCols.map { case (name, _, sparkType) =>
-            StructField(name = name, dataType = sparkType, nullable = true)
-          }
-        )
-      )
-      .toDF(auditCols.map { case (name, _, _) => name }: _*)
-
     // We sink to a file when running unit tests
     if (settings.comet.sinkToFile) {
       sinkToFile(log, settings)
@@ -173,6 +195,17 @@ object SparkAuditLogWriter extends StrictLogging {
 
     settings.comet.audit.sink match {
       case sink: JdbcSink =>
+        val auditTypedRDD: RDD[AuditLog] = session.sparkContext.parallelize(Seq(log))
+        val auditDF = session
+          .createDataFrame(
+            auditTypedRDD.toDF().rdd,
+            StructType(
+              auditCols.map { case (name, _, sparkType) =>
+                StructField(name = name, dataType = sparkType, nullable = true)
+              }
+            )
+          )
+          .toDF(auditCols.map { case (name, _, _) => name }: _*)
         val jdbcConfig = ConnectionLoadConfig.fromComet(
           sink.connection,
           settings.comet,
@@ -186,7 +219,7 @@ object SparkAuditLogWriter extends StrictLogging {
 
       case sink: BigQuerySink =>
         val bqConfig = BigQueryLoadConfig(
-          Right(auditDF),
+          Left("ignore"),
           outputDataset = sink.name.getOrElse("audit"),
           outputTable = "audit",
           None,
@@ -198,8 +231,13 @@ object SparkAuditLogWriter extends StrictLogging {
           None,
           options = sink.getOptions
         )
-        new BigQuerySparkJob(bqConfig, Some(bigqueryAuditSchema())).run()
-
+        val res = new BigQueryNativeJob(
+          bqConfig,
+          log.asBqInsert(bqConfig.outputDataset + "." + bqConfig.outputTable),
+          None
+        )
+          .runBatchDML()
+        Utils.logFailure(res, logger)
       case _: EsSink =>
         // TODO Sink Audit Log to ES
         throw new Exception("Sinking Audit log to Elasticsearch not yet supported")
