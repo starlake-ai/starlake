@@ -90,7 +90,7 @@ class IngestionWorkflow(
             val pathWithoutExt = new Path(
               inputDir,
               if (domain.getAck().isEmpty)
-                File(path.toUri).nameWithoutExtension(true)
+                File(path.toUri).nameWithoutExtension(false)
               else path.getName.stripSuffix(domain.getAck())
             )
 
