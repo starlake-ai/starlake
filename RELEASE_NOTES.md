@@ -24,7 +24,7 @@ __Bug Fix__:
 - Parse Sink options correctly 
 - Handle extreme cases where audit lock raise an exception on creation
 - Handle files without extension in the landing zone
-- Store audit log with batch priority
+- Store audit log with batch priority on BigQuery
 
 # 0.2.4 / 0.2.5
 __Bug Fix__:
