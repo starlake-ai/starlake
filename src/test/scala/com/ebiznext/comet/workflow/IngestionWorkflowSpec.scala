@@ -22,7 +22,7 @@ class IngestionWorkflowSpec extends TestHelper {
 
         storageHandler.delete(new Path(landingPath))
         // Make sure unrelated files, even without extensions, are not imported
-        withSettings.deliverTestFile("/sample/_SUCCESS", new Path(landingPath, "_SUCCESS"))
+        storageHandler.touchz(new Path(landingPath, "_SUCCESS"))
 
         loadLanding(Codec.default, createAckFile = false)
         val destFolder: Path = DatasetArea.pending(datasetDomainName)
