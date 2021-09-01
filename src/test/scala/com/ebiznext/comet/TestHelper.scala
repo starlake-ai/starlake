@@ -336,7 +336,7 @@ trait TestHelper extends AnyFlatSpec with Matchers with BeforeAndAfterAll with S
         .map(_.directory)
         .getOrElse(throw new Exception("Incoming directory must be specified in domain descriptor"))
 
-    def loadLanding(implicit codec: Codec): Unit = {
+    def loadLanding(implicit codec: Codec, createAckFile: Boolean = true): Unit = {
 
       val schemaHandler = new SchemaHandler(settings.storageHandler)
 
@@ -350,10 +350,12 @@ trait TestHelper extends AnyFlatSpec with Matchers with BeforeAndAfterAll with S
       // Deliver file to incoming folder
       val targetPath = new Path(incomingDirectory.get, new Path(sourceDatasetPathName).getName)
       withSettings.deliverBinaryFile(sourceDatasetPathName, targetPath)
-      storageHandler.touchz(
-        new Path(targetPath.getParent, targetPath.getName.replaceFirst("\\.[^.]+$", ""))
-          .suffix(".ack")
-      )
+      if (createAckFile) {
+        storageHandler.touchz(
+          new Path(targetPath.getParent, targetPath.getName.replaceFirst("\\.[^.]+$", ""))
+            .suffix(".ack")
+        )
+      }
 
       // Load landing file
       val validator = new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
