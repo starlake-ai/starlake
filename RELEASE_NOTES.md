@@ -23,6 +23,7 @@ __Bug Fix__:
 - Remove duplicates on incoming when existingDF does not exist or is empty
 - Parse Sink options correctly 
 - Handle extreme cases where audit lock raise an exception on creation
+- Handle files without extension in the landing zone
 
 # 0.2.4 / 0.2.5
 __Bug Fix__:

@@ -158,7 +158,7 @@ trait TestHelper extends AnyFlatSpec with Matchers with BeforeAndAfterAll with S
   def readFileContent(path: Path): String = readFileContent(path.toUri.getPath)
 
   def applyTestFileSubstitutions(fileContent: String): String = {
-    fileContent.replaceAll("COMET_TEST_ROOT", cometTestRoot)
+    fileContent.replaceAll("__COMET_TEST_ROOT__", cometTestRoot)
   }
 
   def withSettings(configuration: Config)(op: Settings => Assertion): Assertion =
@@ -336,7 +336,7 @@ trait TestHelper extends AnyFlatSpec with Matchers with BeforeAndAfterAll with S
         .map(_.directory)
         .getOrElse(throw new Exception("Incoming directory must be specified in domain descriptor"))
 
-    def loadLanding(implicit codec: Codec): Unit = {
+    def loadLanding(implicit codec: Codec, createAckFile: Boolean = true): Unit = {
 
       val schemaHandler = new SchemaHandler(settings.storageHandler)
 
@@ -350,9 +350,12 @@ trait TestHelper extends AnyFlatSpec with Matchers with BeforeAndAfterAll with S
       // Deliver file to incoming folder
       val targetPath = new Path(incomingDirectory.get, new Path(sourceDatasetPathName).getName)
       withSettings.deliverBinaryFile(sourceDatasetPathName, targetPath)
-      storageHandler.touchz(
-        new Path(targetPath.toString.substring(0, targetPath.toString.lastIndexOf('.')) + ".ack")
-      )
+      if (createAckFile) {
+        storageHandler.touchz(
+          new Path(targetPath.getParent, targetPath.getName.replaceFirst("\\.[^.]+$", ""))
+            .suffix(".ack")
+        )
+      }
 
       // Load landing file
       val validator = new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
