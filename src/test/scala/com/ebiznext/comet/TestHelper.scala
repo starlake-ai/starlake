@@ -351,7 +351,8 @@ trait TestHelper extends AnyFlatSpec with Matchers with BeforeAndAfterAll with S
       val targetPath = new Path(incomingDirectory.get, new Path(sourceDatasetPathName).getName)
       withSettings.deliverBinaryFile(sourceDatasetPathName, targetPath)
       storageHandler.touchz(
-        new Path(targetPath.toString.substring(0, targetPath.toString.lastIndexOf('.')) + ".ack")
+        new Path(targetPath.getParent, targetPath.getName.replaceFirst("\\.[^.]+$", ""))
+          .suffix(".ack")
       )
 
       // Load landing file
