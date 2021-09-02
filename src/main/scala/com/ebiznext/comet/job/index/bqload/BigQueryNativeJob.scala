@@ -1,7 +1,7 @@
 package com.ebiznext.comet.job.index.bqload
 
 import com.ebiznext.comet.config.Settings
-import com.ebiznext.comet.utils.{JobBase, JobResult, Utils}
+import com.ebiznext.comet.utils.{JobBase, JobResult}
 import com.google.cloud.ServiceOptions
 import com.google.cloud.bigquery.JobInfo.{CreateDisposition, WriteDisposition}
 import com.google.cloud.bigquery.QueryJobConfiguration.Priority
@@ -28,10 +28,38 @@ class BigQueryNativeJob(
 
   logger.info(s"BigQuery Config $cliConfig")
 
-  def runNativeConnector(
-    sql: String,
-    priority: Priority
-  ): Try[BigQueryJobResult] = {
+  def runInteractiveQuery(): BigQueryJobResult = {
+    val queryConfig: QueryJobConfiguration.Builder =
+      QueryJobConfiguration
+        .newBuilder(sql)
+        .setAllowLargeResults(true)
+    logger.info(s"Running BQ Query $sql")
+    val queryConfigWithUDF = addUDFToQueryConfig(queryConfig)
+    val results = bigquery.query(queryConfigWithUDF.setPriority(Priority.INTERACTIVE).build())
+    logger.info(
+      s"Query large results performed successfully: ${results.getTotalRows} rows inserted."
+    )
+    BigQueryJobResult(Some(results))
+  }
+
+  private def addUDFToQueryConfig(
+    queryConfig: QueryJobConfiguration.Builder
+  ): QueryJobConfiguration.Builder = {
+    val queryConfigWithUDF = udf
+      .map { udf =>
+        import scala.collection.JavaConverters._
+        queryConfig.setUserDefinedFunctions(List(UserDefinedFunction.fromUri(udf)).asJava)
+      }
+      .getOrElse(queryConfig)
+    queryConfigWithUDF
+  }
+
+  /** Just to force any spark job to implement its entry point within the "run" method
+    *
+    * @return
+    *   : Spark Session used for the job
+    */
+  override def run(): Try[JobResult] = {
     Try {
       val targetDataset = getOrCreateDataset()
       val queryConfig: QueryJobConfiguration.Builder =
@@ -40,7 +68,7 @@ class BigQueryNativeJob(
           .setCreateDisposition(CreateDisposition.valueOf(cliConfig.createDisposition))
           .setWriteDisposition(WriteDisposition.valueOf(cliConfig.writeDisposition))
           .setDefaultDataset(targetDataset.getDatasetId)
-          .setPriority(priority)
+          .setPriority(Priority.INTERACTIVE)
           .setAllowLargeResults(true)
 
       val queryConfigWithPartition = (cliConfig.outputPartition) match {
@@ -70,23 +98,7 @@ class BigQueryNativeJob(
     }
   }
 
-  def runInteractiveQuery(
-    sql: String
-  ): BigQueryJobResult = {
-    val queryConfig: QueryJobConfiguration.Builder =
-      QueryJobConfiguration
-        .newBuilder(sql)
-        .setAllowLargeResults(true)
-    logger.info(s"Running BQ Query $sql")
-    val queryConfigWithUDF = addUDFToQueryConfig(queryConfig)
-    val results = bigquery.query(queryConfigWithUDF.setPriority(Priority.INTERACTIVE).build())
-    logger.info(
-      s"Query large results performed successfully: ${results.getTotalRows} rows inserted."
-    )
-    BigQueryJobResult(Some(results))
-  }
-
-  def runBatchQuery(sql: String): Try[BigQueryJobResult] = {
+  def runBatchQuery(): Try[JobResult] = {
     Try {
       val bigquery: BigQuery = BigQueryOptions.getDefaultInstance.getService
       getOrCreateDataset()
@@ -110,33 +122,6 @@ class BigQueryNativeJob(
       )
       BigQueryJobResult(Some(results))
     }
-  }
-
-  private def addUDFToQueryConfig(
-    queryConfig: QueryJobConfiguration.Builder
-  ): QueryJobConfiguration.Builder = {
-    val queryConfigWithUDF = udf
-      .map { udf =>
-        import scala.collection.JavaConverters._
-        queryConfig.setUserDefinedFunctions(List(UserDefinedFunction.fromUri(udf)).asJava)
-      }
-      .getOrElse(queryConfig)
-    queryConfigWithUDF
-  }
-
-  /** Just to force any spark job to implement its entry point within the "run" method
-    *
-    * @return
-    *   : Spark Session used for the job
-    */
-  override def run(): Try[JobResult] = {
-    val res = runNativeConnector(sql, Priority.INTERACTIVE)
-    Utils.logFailure(res, logger)
-  }
-
-  def runBatchQuery(): Try[JobResult] = {
-    val res = runBatchQuery(sql)
-    Utils.logFailure(res, logger)
   }
 
 }
