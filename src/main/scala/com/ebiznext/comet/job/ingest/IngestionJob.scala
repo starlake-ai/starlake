@@ -161,7 +161,7 @@ trait IngestionJob extends SparkJob {
           "success",
           Step.SINK_REJECTED.toString
         )
-        SparkAuditLogWriter.append(session, log)
+        AuditLog.sink(session, log)
         Success(rejectedPath)
       case Failure(exception) =>
         logger.error("Failed to save Rejected", exception)
@@ -180,7 +180,7 @@ trait IngestionJob extends SparkJob {
           Utils.exceptionAsString(exception),
           Step.LOAD.toString
         )
-        SparkAuditLogWriter.append(session, log)
+        AuditLog.sink(session, log)
         Failure(exception)
     }
   }
@@ -325,7 +325,7 @@ trait IngestionJob extends SparkJob {
             "success",
             Step.SINK_ACCEPTED.toString
           )
-          SparkAuditLogWriter.append(session, log)
+          AuditLog.sink(session, log)
         case Failure(exception) =>
           Utils.logException(logger, exception)
           val end = Timestamp.from(Instant.now())
@@ -343,7 +343,7 @@ trait IngestionJob extends SparkJob {
             Utils.exceptionAsString(exception),
             Step.SINK_ACCEPTED.toString
           )
-          SparkAuditLogWriter.append(session, log)
+          AuditLog.sink(session, log)
           throw exception
       }
       (savedDataset, acceptedPath)
@@ -778,7 +778,7 @@ trait IngestionJob extends SparkJob {
                 if (success) "success" else s"$rejectedCount invalid records",
                 Step.LOAD.toString
               )
-              SparkAuditLogWriter.append(session, log)
+              AuditLog.sink(session, log)
               if (success) SparkJobResult(None)
               else throw new Exception("Fail on rejected count requested")
             }
@@ -799,7 +799,7 @@ trait IngestionJob extends SparkJob {
               err,
               Step.LOAD.toString
             )
-            SparkAuditLogWriter.append(session, log)
+            AuditLog.sink(session, log)
             logger.error(err)
             Failure(throw exception)
         }
