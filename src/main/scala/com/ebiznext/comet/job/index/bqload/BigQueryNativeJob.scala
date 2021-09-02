@@ -1,12 +1,14 @@
 package com.ebiznext.comet.job.index.bqload
 
 import com.ebiznext.comet.config.Settings
-import com.ebiznext.comet.utils.{JobBase, JobResult, Utils}
+import com.ebiznext.comet.utils.{JobBase, JobResult}
 import com.google.cloud.ServiceOptions
 import com.google.cloud.bigquery.JobInfo.{CreateDisposition, WriteDisposition}
+import com.google.cloud.bigquery.QueryJobConfiguration.Priority
 import com.google.cloud.bigquery._
 import com.typesafe.scalalogging.StrictLogging
 
+import java.util.UUID
 import scala.collection.JavaConverters._
 import scala.util.Try
 
@@ -26,7 +28,38 @@ class BigQueryNativeJob(
 
   logger.info(s"BigQuery Config $cliConfig")
 
-  def runNativeConnector(): Try[BigQueryJobResult] = {
+  def runInteractiveQuery(): BigQueryJobResult = {
+    val queryConfig: QueryJobConfiguration.Builder =
+      QueryJobConfiguration
+        .newBuilder(sql)
+        .setAllowLargeResults(true)
+    logger.info(s"Running BQ Query $sql")
+    val queryConfigWithUDF = addUDFToQueryConfig(queryConfig)
+    val results = bigquery.query(queryConfigWithUDF.setPriority(Priority.INTERACTIVE).build())
+    logger.info(
+      s"Query large results performed successfully: ${results.getTotalRows} rows inserted."
+    )
+    BigQueryJobResult(Some(results))
+  }
+
+  private def addUDFToQueryConfig(
+    queryConfig: QueryJobConfiguration.Builder
+  ): QueryJobConfiguration.Builder = {
+    val queryConfigWithUDF = udf
+      .map { udf =>
+        import scala.collection.JavaConverters._
+        queryConfig.setUserDefinedFunctions(List(UserDefinedFunction.fromUri(udf)).asJava)
+      }
+      .getOrElse(queryConfig)
+    queryConfigWithUDF
+  }
+
+  /** Just to force any spark job to implement its entry point within the "run" method
+    *
+    * @return
+    *   : Spark Session used for the job
+    */
+  override def run(): Try[JobResult] = {
     Try {
       val targetDataset = getOrCreateDataset()
       val queryConfig: QueryJobConfiguration.Builder =
@@ -35,6 +68,7 @@ class BigQueryNativeJob(
           .setCreateDisposition(CreateDisposition.valueOf(cliConfig.createDisposition))
           .setWriteDisposition(WriteDisposition.valueOf(cliConfig.writeDisposition))
           .setDefaultDataset(targetDataset.getDatasetId)
+          .setPriority(Priority.INTERACTIVE)
           .setAllowLargeResults(true)
 
       val queryConfigWithPartition = (cliConfig.outputPartition) match {
@@ -64,42 +98,30 @@ class BigQueryNativeJob(
     }
   }
 
-  def runSQL(
-    sql: String
-  ): BigQueryJobResult = {
-    val queryConfig: QueryJobConfiguration.Builder =
-      QueryJobConfiguration
-        .newBuilder(sql)
-        .setAllowLargeResults(true)
-    logger.info(s"Running BQ Query $sql")
-    val queryConfigWithUDF = addUDFToQueryConfig(queryConfig)
-    val results = bigquery.query(queryConfigWithUDF.build())
-    logger.info(
-      s"Query large results performed successfully: ${results.getTotalRows} rows inserted."
-    )
-    BigQueryJobResult(Some(results))
-  }
-
-  private def addUDFToQueryConfig(
-    queryConfig: QueryJobConfiguration.Builder
-  ): QueryJobConfiguration.Builder = {
-    val queryConfigWithUDF = udf
-      .map { udf =>
-        import scala.collection.JavaConverters._
-        queryConfig.setUserDefinedFunctions(List(UserDefinedFunction.fromUri(udf)).asJava)
-      }
-      .getOrElse(queryConfig)
-    queryConfigWithUDF
-  }
-
-  /** Just to force any spark job to implement its entry point within the "run" method
-    *
-    * @return
-    *   : Spark Session used for the job
-    */
-  override def run(): Try[JobResult] = {
-    val res = runNativeConnector()
-    Utils.logFailure(res, logger)
+  def runBatchQuery(): Try[JobResult] = {
+    Try {
+      val bigquery: BigQuery = BigQueryOptions.getDefaultInstance.getService
+      getOrCreateDataset()
+      val jobId = JobId
+        .newBuilder()
+        .setJob(
+          UUID.randomUUID.toString
+        ) // Run at batch priority, which won't count toward concurrent rate limit.
+        .setLocation(cliConfig.getLocation())
+        .build()
+      val queryConfig =
+        QueryJobConfiguration
+          .newBuilder(sql)
+          .setPriority(Priority.BATCH)
+          .setUseLegacySql(false)
+          .build()
+      logger.info(s"Executing BQ Query $sql")
+      bigquery.create(JobInfo.newBuilder(queryConfig).setJobId(jobId).build)
+      logger.info(
+        s"Batch query wth jobId $jobId sent to BigQuery "
+      )
+      BigQueryJobResult(None)
+    }
   }
 
 }
