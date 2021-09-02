@@ -116,11 +116,11 @@ class BigQueryNativeJob(
           .setUseLegacySql(false)
           .build()
       logger.info(s"Executing BQ Query $sql")
-      val results = bigquery.query(queryConfig)
+      bigquery.create(JobInfo.newBuilder(queryConfig).setJobId(jobId).build)
       logger.info(
-        s"Query large results performed successfully: ${results.getTotalRows} rows inserted."
+        s"Batch query wth jobId $jobId sent to BigQuery "
       )
-      BigQueryJobResult(Some(results))
+      BigQueryJobResult(None)
     }
   }
 
