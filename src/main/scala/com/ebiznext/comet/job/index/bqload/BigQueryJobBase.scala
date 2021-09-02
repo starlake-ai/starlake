@@ -1,15 +1,13 @@
 package com.ebiznext.comet.job.index.bqload
 
 import com.ebiznext.comet.job.index.bqload.BigQueryJobBase.extractProjectDataset
-
-import java.util
 import com.ebiznext.comet.schema.model.{RowLevelSecurity, UserType}
 import com.google.cloud.bigquery._
 import com.google.cloud.{Identity, Policy, Role}
 import com.typesafe.scalalogging.StrictLogging
 
+import java.util
 import scala.collection.JavaConverters._
-import java.util.UUID
 
 trait BigQueryJobBase extends StrictLogging {
   def cliConfig: BigQueryLoadConfig
@@ -133,25 +131,6 @@ trait BigQueryJobBase extends StrictLogging {
           .setField(partitionField)
           .setRequirePartitionFilter(requirePartitionFilter)
     }
-  }
-
-  def runJob(statement: String, location: String): Job = {
-    val bigquery: BigQuery = BigQueryOptions.getDefaultInstance.getService
-    val jobId = JobId
-      .newBuilder()
-      .setJob(UUID.randomUUID.toString)
-      .setLocation(location)
-      .build()
-    val config =
-      QueryJobConfiguration
-        .newBuilder(statement)
-        .setUseLegacySql(false)
-        .build()
-
-    // Use standard SQL syntax for queries.
-    // See: https://cloud.google.com/bigquery/sql-reference/
-    val job: Job = bigquery.create(JobInfo.newBuilder(config).setJobId(jobId).build)
-    job.waitFor()
   }
 }
 
