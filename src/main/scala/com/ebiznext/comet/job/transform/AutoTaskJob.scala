@@ -32,7 +32,6 @@ import com.ebiznext.comet.schema.handlers.{SchemaHandler, StorageHandler}
 import com.ebiznext.comet.schema.model._
 import com.ebiznext.comet.utils.Formatter._
 import com.ebiznext.comet.utils.{JobResult, SparkJob, SparkJobResult, Utils}
-import com.google.cloud.bigquery.QueryJobConfiguration.Priority
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.SaveMode
 
@@ -98,15 +97,11 @@ case class AutoTaskJob(
       val config = createConfig()
       val queryExpr = views.views
         .getOrElse(viewName, throw new Exception(s"View with name $viewName not found"))
-      val bqNativeJob = new BigQueryNativeJob(
-        config,
-        "DUMMY - NOT EXECUTED",
-        udf
-      )
+      def bqNativeJob(sql: String) = new BigQueryNativeJob(config, sql, udf)
 
       val jsonQuery =
         s"SELECT TO_JSON_STRING(t,false) FROM (${queryExpr.richFormat(sqlParameters)}) AS t"
-      val result = bqNativeJob.runInteractiveQuery(jsonQuery.richFormat(sqlParameters))
+      val result = bqNativeJob(jsonQuery.richFormat(sqlParameters)).runInteractiveQuery()
       result.tableResult.foreach { tableResult =>
         var count = 0
         val it = tableResult.iterateAll().iterator().asScala
@@ -154,27 +149,23 @@ case class AutoTaskJob(
     val start = Timestamp.from(Instant.now())
     val config = createConfig()
     val (preSql, mainSql, postSql) = buildQueryBQ()
-    val bqNativeJob = new BigQueryNativeJob(
-      config,
-      mainSql,
-      udf
-    )
+    def bqNativeJob(sql: String) = new BigQueryNativeJob(config, sql, udf)
 
     val presqlResult: Try[Iterable[BigQueryJobResult]] = Try {
       preSql.map { sql =>
-        bqNativeJob.runInteractiveQuery(sql)
+        bqNativeJob(sql).runInteractiveQuery()
       }
     }
     Utils.logFailure(presqlResult, logger)
 
-    val jobResult: Try[JobResult] = bqNativeJob.runNativeConnector(mainSql, Priority.INTERACTIVE)
+    val jobResult: Try[JobResult] = bqNativeJob(mainSql).run()
     Utils.logFailure(jobResult, logger)
 
     // We execute the post statements even if the main statement failed
     // We may be doing some cleanup here.
     val postsqlResult: Try[Iterable[BigQueryJobResult]] = Try {
       postSql.map { sql =>
-        bqNativeJob.runInteractiveQuery(sql)
+        bqNativeJob(sql).runInteractiveQuery()
       }
     }
     Utils.logFailure(postsqlResult, logger)
@@ -202,8 +193,8 @@ case class AutoTaskJob(
               None,
               engine,
               sql =>
-                bqNativeJob
-                  .runInteractiveQuery(sql.richFormat(sqlParameters))
+                bqNativeJob(sql.richFormat(sqlParameters))
+                  .runInteractiveQuery()
                   .tableResult
                   .map(_.getTotalRows)
                   .getOrElse(0)
