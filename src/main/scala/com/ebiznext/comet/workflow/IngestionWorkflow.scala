@@ -606,6 +606,7 @@ class IngestionWorkflow(
                 }
                 case _ =>
                   logger.warn("Sink is not activated for this job")
+                  true
               }
             case Failure(exception) =>
               exception.printStackTrace()
