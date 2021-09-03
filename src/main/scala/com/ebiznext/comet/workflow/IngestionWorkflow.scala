@@ -490,7 +490,7 @@ class IngestionWorkflow(
     val job = schemaHandler.jobs(config.name)
     logger.info(job.toString)
     val includes = schemaHandler.views(job.name)
-    val result = buildTasks(config.name, config.options).map { action =>
+    val result: Seq[Boolean] = buildTasks(config.name, config.options).map { action =>
       val engine = action.engine
       logger.info(s"running with $engine engine")
       engine match {
@@ -596,8 +596,8 @@ class IngestionWorkflow(
 
                       val res = new ConnectionLoadJob(jdbcConfig).run()
                       res match {
-                        case Success(_) => ;
-                        case Failure(e) => logger.error("JDBCLoad Failed", e)
+                        case Success(_) => true
+                        case Failure(e) => logger.error("JDBCLoad Failed", e); false
                       }
                     case _ =>
                       logger.warn("No supported Sink is activated for this job")
