@@ -269,7 +269,7 @@ case class AutoTaskJob(
           session.sql(s"drop table if exists $tableName")
         finalDataset.saveAsTable(fullTableName)
         analyze(fullTableName)
-      } else {
+      } else if (settings.comet.sinkToFile) {
         finalDataset.save()
         if (coalesce) {
           val extension = format.getOrElse(settings.comet.defaultWriteFormat)
