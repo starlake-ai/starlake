@@ -536,68 +536,74 @@ class IngestionWorkflow(
         case Engine.SPARK =>
           action.runSpark() match {
             case Success(SparkJobResult(maybeDataFrame)) =>
-              val sink = action.task.sink
-              logger.info(s"Spark Job succeeded. sinking data to $sink")
-              sink.getOrElse(Sink.fromType(SinkType.None.toString)).`type` match {
-                case SinkType.ES if settings.comet.elasticsearch.active =>
-                  esload(action)
-                case SinkType.BQ =>
-                  val bqSink = sink.asInstanceOf[BigQuerySink]
-                  val source = maybeDataFrame
-                    .map(df => Right(setNullableStateOfColumn(df, nullable = true)))
-                    .getOrElse(Left(action.task.getTargetPath(job.getArea()).toString))
-                  val (createDisposition, writeDisposition) = {
-                    Utils.getDBDisposition(action.task.write, hasMergeKeyDefined = false)
-                  }
-                  val config =
-                    BigQueryLoadConfig(
-                      source = source,
-                      outputTable = action.task.dataset,
-                      outputDataset = action.task.domain,
-                      sourceFormat = "parquet",
-                      createDisposition = createDisposition,
-                      writeDisposition = writeDisposition,
-                      location = bqSink.location,
-                      outputPartition = bqSink.timestamp,
-                      outputClustering = bqSink.clustering.getOrElse(Nil),
-                      days = bqSink.days,
-                      requirePartitionFilter = bqSink.requirePartitionFilter.getOrElse(false),
-                      rls = action.task.rls,
-                      options = bqSink.getOptions
-                    )
-                  val result = new BigQuerySparkJob(config, None).run()
-                  result.isSuccess
+              val sinkOption = action.task.sink
+              logger.info(s"Spark Job succeeded. sinking data to $sinkOption")
+              sinkOption match {
+                case Some(sink) => {
+                  sink.`type` match {
+                    case SinkType.ES if settings.comet.elasticsearch.active =>
+                      esload(action)
+                    case SinkType.BQ =>
+                      val bqSink = sink.asInstanceOf[BigQuerySink]
+                      val source = maybeDataFrame
+                        .map(df => Right(setNullableStateOfColumn(df, nullable = true)))
+                        .getOrElse(Left(action.task.getTargetPath(job.getArea()).toString))
+                      val (createDisposition, writeDisposition) = {
+                        Utils.getDBDisposition(action.task.write, hasMergeKeyDefined = false)
+                      }
+                      val config =
+                        BigQueryLoadConfig(
+                          source = source,
+                          outputTable = action.task.dataset,
+                          outputDataset = action.task.domain,
+                          sourceFormat = "parquet",
+                          createDisposition = createDisposition,
+                          writeDisposition = writeDisposition,
+                          location = bqSink.location,
+                          outputPartition = bqSink.timestamp,
+                          outputClustering = bqSink.clustering.getOrElse(Nil),
+                          days = bqSink.days,
+                          requirePartitionFilter = bqSink.requirePartitionFilter.getOrElse(false),
+                          rls = action.task.rls,
+                          options = bqSink.getOptions
+                        )
+                      val result = new BigQuerySparkJob(config, None).run()
+                      result.isSuccess
 
-                case SinkType.JDBC =>
-                  val jdbcSink = sink.asInstanceOf[JdbcSink]
-                  val partitions = jdbcSink.partitions.getOrElse(1)
-                  val batchSize = jdbcSink.batchsize.getOrElse(1000)
-                  val jdbcName = jdbcSink.connection
-                  val source = maybeDataFrame
-                    .map(df => Right(df))
-                    .getOrElse(Left(action.task.getTargetPath(job.getArea()).toString))
-                  val (createDisposition, writeDisposition) = {
-                    Utils.getDBDisposition(action.task.write, hasMergeKeyDefined = false)
-                  }
+                    case SinkType.JDBC =>
+                      val jdbcSink = sink.asInstanceOf[JdbcSink]
+                      val partitions = jdbcSink.partitions.getOrElse(1)
+                      val batchSize = jdbcSink.batchsize.getOrElse(1000)
+                      val jdbcName = jdbcSink.connection
+                      val source = maybeDataFrame
+                        .map(df => Right(df))
+                        .getOrElse(Left(action.task.getTargetPath(job.getArea()).toString))
+                      val (createDisposition, writeDisposition) = {
+                        Utils.getDBDisposition(action.task.write, hasMergeKeyDefined = false)
+                      }
+                      val jdbcConfig = ConnectionLoadConfig.fromComet(
+                        jdbcName,
+                        settings.comet,
+                        source,
+                        outputTable = action.task.dataset,
+                        createDisposition = CreateDisposition.valueOf(createDisposition),
+                        writeDisposition = WriteDisposition.valueOf(writeDisposition),
+                        partitions = partitions,
+                        batchSize = batchSize,
+                        createTableIfAbsent = false,
+                        options = jdbcSink.getOptions
+                      )
 
-                  val jdbcConfig = ConnectionLoadConfig.fromComet(
-                    jdbcName,
-                    settings.comet,
-                    source,
-                    outputTable = action.task.dataset,
-                    createDisposition = CreateDisposition.valueOf(createDisposition),
-                    writeDisposition = WriteDisposition.valueOf(writeDisposition),
-                    partitions = partitions,
-                    batchSize = batchSize,
-                    createTableIfAbsent = false,
-                    options = jdbcSink.getOptions
-                  )
-
-                  val res = new ConnectionLoadJob(jdbcConfig).run()
-                  res match {
-                    case Success(_) => ;
-                    case Failure(e) => logger.error("JDBCLoad Failed", e)
+                      val res = new ConnectionLoadJob(jdbcConfig).run()
+                      res match {
+                        case Success(_) => ;
+                        case Failure(e) => logger.error("JDBCLoad Failed", e)
+                      }
+                    case _ =>
+                      logger.warn("No supported Sink is activated for this job")
+                      true
                   }
+                }
                 case _ =>
                   logger.warn("Sink is not activated for this job")
                   true
