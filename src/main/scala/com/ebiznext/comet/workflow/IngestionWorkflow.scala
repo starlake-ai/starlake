@@ -538,11 +538,10 @@ class IngestionWorkflow(
             case Success(SparkJobResult(maybeDataFrame)) =>
               val sink = action.task.sink
               logger.info(s"Spark Job succeeded. sinking data to $sink")
-              sink match {
-                case Some(sink)
-                    if settings.comet.elasticsearch.active && sink.`type` == SinkType.ES =>
+              sink.getOrElse(Sink.fromType(SinkType.None.toString)).`type` match {
+                case SinkType.ES if settings.comet.elasticsearch.active =>
                   esload(action)
-                case Some(sink) if sink.`type` == SinkType.BQ =>
+                case SinkType.BQ =>
                   val bqSink = sink.asInstanceOf[BigQuerySink]
                   val source = maybeDataFrame
                     .map(df => Right(setNullableStateOfColumn(df, nullable = true)))
@@ -569,7 +568,7 @@ class IngestionWorkflow(
                   val result = new BigQuerySparkJob(config, None).run()
                   result.isSuccess
 
-                case Some(sink) if sink.`type` == SinkType.JDBC =>
+                case SinkType.JDBC =>
                   val jdbcSink = sink.asInstanceOf[JdbcSink]
                   val partitions = jdbcSink.partitions.getOrElse(1)
                   val batchSize = jdbcSink.batchsize.getOrElse(1000)
