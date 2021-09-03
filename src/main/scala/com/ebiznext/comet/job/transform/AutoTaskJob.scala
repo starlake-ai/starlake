@@ -269,7 +269,8 @@ case class AutoTaskJob(
           session.sql(s"drop table if exists $tableName")
         finalDataset.saveAsTable(fullTableName)
         analyze(fullTableName)
-      } else {
+      } else if (settings.comet.sinkToFile) {
+        // TODO Handle SinkType.FS and SinkType to Hive in Sink section in the caller
         finalDataset.save()
         if (coalesce) {
           val extension = format.getOrElse(settings.comet.defaultWriteFormat)
