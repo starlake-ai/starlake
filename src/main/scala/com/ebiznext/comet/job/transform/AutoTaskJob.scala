@@ -270,6 +270,7 @@ case class AutoTaskJob(
         finalDataset.saveAsTable(fullTableName)
         analyze(fullTableName)
       } else if (settings.comet.sinkToFile) {
+        // TODO Handle SinkType.FS and SinkType to Hive in Sink section in the caller
         finalDataset.save()
         if (coalesce) {
           val extension = format.getOrElse(settings.comet.defaultWriteFormat)
