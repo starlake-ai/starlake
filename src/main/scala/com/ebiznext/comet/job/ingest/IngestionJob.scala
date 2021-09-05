@@ -381,25 +381,24 @@ trait IngestionJob extends SparkJob {
   }
 
   private def computeFinalSchema(acceptedDfWithoutIgnoredFields: DataFrame) = {
-    val finalAcceptedDF: DataFrame = schema.attributes.exists(_.script.isDefined) match {
-      case true => {
-        logger.whenDebugEnabled {
-          logger.debug("Accepted Dataframe schema right after adding computed columns")
-          acceptedDfWithoutIgnoredFields.printSchema()
-        }
-        // adding computed columns can change the order of columns, we must force the order defined in the schema
-        val orderedWithScriptFieldsDF =
-          session.createDataFrame(
-            acceptedDfWithoutIgnoredFields.rdd,
-            schema.finalSparkSchema(schemaHandler)
-          )
-        logger.whenDebugEnabled {
-          logger.debug("Accepted Dataframe schema after applying the defined schema")
-          acceptedDfWithoutIgnoredFields.printSchema()
-        }
-        orderedWithScriptFieldsDF
+    val finalAcceptedDF: DataFrame = if (schema.attributes.exists(_.script.isDefined)) {
+      logger.whenDebugEnabled {
+        logger.debug("Accepted Dataframe schema right after adding computed columns")
+        acceptedDfWithoutIgnoredFields.printSchema()
       }
-      case false => acceptedDfWithoutIgnoredFields
+      // adding computed columns can change the order of columns, we must force the order defined in the schema
+      val orderedWithScriptFieldsDF =
+        session.createDataFrame(
+          acceptedDfWithoutIgnoredFields.rdd,
+          schema.finalSparkSchema(schemaHandler)
+        )
+      logger.whenDebugEnabled {
+        logger.debug("Accepted Dataframe schema after applying the defined schema")
+        acceptedDfWithoutIgnoredFields.printSchema()
+      }
+      orderedWithScriptFieldsDF
+    } else {
+      acceptedDfWithoutIgnoredFields
     }
     finalAcceptedDF
   }

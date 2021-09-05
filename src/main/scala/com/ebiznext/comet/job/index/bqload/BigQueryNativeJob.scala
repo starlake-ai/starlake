@@ -71,7 +71,7 @@ class BigQueryNativeJob(
           .setPriority(Priority.INTERACTIVE)
           .setAllowLargeResults(true)
 
-      val queryConfigWithPartition = (cliConfig.outputPartition) match {
+      val queryConfigWithPartition = cliConfig.outputPartition match {
         case Some(partitionField) =>
           // Generating schema from YML to get the descriptions in BQ
           val partitioning =
@@ -81,7 +81,7 @@ class BigQueryNativeJob(
         case None =>
           queryConfig
       }
-      val queryConfigWithClustering = (cliConfig.outputClustering) match {
+      val queryConfigWithClustering = cliConfig.outputClustering match {
         case Nil =>
           queryConfigWithPartition
         case fields =>

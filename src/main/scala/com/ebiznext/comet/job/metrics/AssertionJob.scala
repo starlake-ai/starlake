@@ -92,7 +92,7 @@ class AssertionJob(
           Some(sql),
           Some(assertionCount),
           None,
-          true
+          success = true
         )
       } match {
         case Failure(e: IllegalArgumentException) =>
@@ -102,7 +102,7 @@ class AssertionJob(
             None,
             None,
             Some(Utils.exceptionAsString(e)),
-            false
+            success = false
           )
         case Failure(e) =>
           AssertionReport(
@@ -111,7 +111,7 @@ class AssertionJob(
             Some(sql),
             None,
             Some(Utils.exceptionAsString(e)),
-            false
+            success = false
           )
         case Success(value) => value
       }

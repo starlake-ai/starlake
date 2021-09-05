@@ -17,7 +17,7 @@ object AssertionCall {
   def extractNameAndParams(call: String): (String, List[String]) = {
     call
       .split('(') match {
-      case Array(n, p) if p.length >= 1 =>
+      case Array(n, p) if p.nonEmpty =>
         (n.trim, p.dropRight(1).split(',').map(_.trim).filter(_.nonEmpty).toList)
       case Array(n) =>
         (n, Nil)

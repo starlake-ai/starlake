@@ -189,22 +189,21 @@ class KafkaClient(kafkaConfig: KafkaConfig)(implicit settings: Settings)
   private def topicCurrentOffsetsFromFile(topicConfigName: String): Option[List[(Int, Long)]] = {
     cometOffsetsLock(topicConfigName).doExclusively() {
       val cometOffsetsPath = new Path(cometOffsetsConfig.topicName, topicConfigName)
-      settings.storageHandler.exists(cometOffsetsPath) match {
-        case false =>
-          logger.info(s"Cannot load comet offsets: $cometOffsetsPath file does not exist")
-          None
-        case true =>
-          logger.info(s"Loading comet offsets to path $cometOffsetsPath")
-          val res = YamlSerializer.mapper
-            .readValue(
-              settings.storageHandler.read(cometOffsetsPath),
-              classOf[List[String]]
-            )
-            .map { str =>
-              val tab = str.split(',')
-              (tab(0).toInt, tab(1).toLong)
-            }
-          Some(res)
+      if (settings.storageHandler.exists(cometOffsetsPath)) {
+        logger.info(s"Loading comet offsets to path $cometOffsetsPath")
+        val res = YamlSerializer.mapper
+          .readValue(
+            settings.storageHandler.read(cometOffsetsPath),
+            classOf[List[String]]
+          )
+          .map { str =>
+            val tab = str.split(',')
+            (tab(0).toInt, tab(1).toLong)
+          }
+        Some(res)
+      } else {
+        logger.info(s"Cannot load comet offsets: $cometOffsetsPath file does not exist")
+        None
       }
     }
   }

@@ -19,7 +19,7 @@ object AssertionDefinition extends StrictLogging {
   def extractNameAndParams(fullName: String): (String, List[String]) = {
     fullName
       .split('(') match {
-      case Array(n, p) if p.length >= 1 =>
+      case Array(n, p) if p.nonEmpty =>
         (n.trim, p.dropRight(1).split(',').map(_.trim).filter(_.nonEmpty).toList)
       case Array(n) =>
         (n, Nil)

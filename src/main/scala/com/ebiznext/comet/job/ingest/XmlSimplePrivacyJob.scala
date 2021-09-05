@@ -92,16 +92,15 @@ object XmlSimplePrivacyJob {
     val resultRDD: RDD[Row] = inputDF.rdd.mapPartitions { partition =>
       partition.map { row =>
         val line = row.getString(0)
-        val privacy: String = pattern.matcher(line).matches() match {
-          case false => line
-          case true => {
-            val openIndex = line.indexOf(openTag) + openTag.size
-            val closeIndex = line.indexOf(closeTag)
-            val prefix = line.substring(0, openIndex)
-            val suffix = line.substring(closeIndex)
-            val privacyInput = line.substring(openIndex, closeIndex)
-            prefix + attribute.getPrivacy().crypt(privacyInput, Map.empty) + suffix
-          }
+        val privacy: String = if (pattern.matcher(line).matches()) {
+          val openIndex = line.indexOf(openTag) + openTag.length
+          val closeIndex = line.indexOf(closeTag)
+          val prefix = line.substring(0, openIndex)
+          val suffix = line.substring(closeIndex)
+          val privacyInput = line.substring(openIndex, closeIndex)
+          prefix + attribute.getPrivacy().crypt(privacyInput, Map.empty) + suffix
+        } else {
+          line
         }
         Row(privacy)
       }

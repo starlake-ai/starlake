@@ -275,7 +275,7 @@ class SchemaHandlerSpec extends TestHelper {
         loadPending
         val acceptedDf: DataFrame = sparkSession.read
           .parquet(cometDatasetsPath + s"/accepted/$datasetDomainName/employee")
-        acceptedDf.schema.fields.size shouldBe 1
+        acceptedDf.schema.fields.length shouldBe 1
         acceptedDf.schema.fields.map(_.name).count("name".equals) shouldBe 1
 
       }
@@ -678,7 +678,7 @@ class SchemaHandlerSpec extends TestHelper {
             .withColumn("truncated_zip_code", substring(col("zip_code"), 0, 3))
             .withColumn("source_file_name", lit("OneClient_Contact_20190101_090800_008.psv"))
 
-        acceptedDf.columns.size shouldBe expectedAccepted.columns.size
+        acceptedDf.columns.length shouldBe expectedAccepted.columns.length
         acceptedDf.except(expectedAccepted).count() shouldBe 0
       }
 

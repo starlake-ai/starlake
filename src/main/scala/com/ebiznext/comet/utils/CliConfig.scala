@@ -32,7 +32,7 @@ trait CliConfig[T] {
         }
       val rstExample = example.replace("example:", "\n\n")
       val rstDescription = rawText
-      if (rstExample.trim.length > 0)
+      if (rstExample.trim.nonEmpty)
         rstDescription + "````shell\n" + rstExample.trim + "\n````\n"
       else
         rstDescription
