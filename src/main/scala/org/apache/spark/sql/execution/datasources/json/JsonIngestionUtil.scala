@@ -254,7 +254,7 @@ object JsonIngestionUtil {
       case StructType(fields) =>
         val canonicalFields: Array[StructField] = for {
           field <- fields
-          if field.name.length > 0
+          if field.name.nonEmpty
           canonicalType <- canonicalizeType(field.dataType)
         } yield {
           field.copy(dataType = canonicalType)

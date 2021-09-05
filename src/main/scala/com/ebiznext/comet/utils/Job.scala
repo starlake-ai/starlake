@@ -240,7 +240,7 @@ trait SparkJob extends JobBase {
             session.read.parquet(s"${settings.comet.datasets}/$path")
         case JDBC => // (JDBC, connectionName, queryString)
           val jdbcConfig =
-            settings.comet.connections(sinkConfig.getOrElse((throw new Exception(""))))
+            settings.comet.connections(sinkConfig.getOrElse(throw new Exception("")))
           jdbcConfig.options
             .foldLeft(session.read)((w, kv) => w.option(kv._1, kv._2))
             .format(jdbcConfig.format)

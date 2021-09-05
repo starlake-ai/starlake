@@ -61,7 +61,7 @@ class ESLoadJob(
           format match {
             case "json" =>
               session.read
-                .option("multiline", true)
+                .option("multiline", value = true)
                 .json(path.toString)
 
             case "json-array" =>

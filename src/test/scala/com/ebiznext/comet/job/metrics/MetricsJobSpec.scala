@@ -122,7 +122,7 @@ class MetricsJobSpec extends TestHelper with JdbcChecks {
 
   lazy val dimensionDataframe = result1.map { result1 =>
     result1.printSchema()
-    (result1.columns.size - 1) * (result1
+    (result1.columns.length - 1) * (result1
       .select(col("attribute"))
       .collect()
       .map(_.getString(0))

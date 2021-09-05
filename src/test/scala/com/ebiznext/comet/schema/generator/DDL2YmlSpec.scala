@@ -92,7 +92,7 @@ class DDL2YmlSpec extends TestHelper {
       val outputDir = File.newTemporaryDirectory()
       jdbcMapping.overwrite(imput)
       val jdbcSchemas = YamlSerializer.deserializeJDBCSchemas(jdbcMapping)
-      assert(jdbcSchemas.jdbcSchemas.size > 0)
+      assert(jdbcSchemas.jdbcSchemas.nonEmpty)
     }
   }
 

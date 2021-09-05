@@ -65,21 +65,21 @@ class StorageHandlerSpec extends TestHelper {
                 "firstname",
                 "string",
                 Some(false),
-                false,
+                required = false,
                 PrivacyLevel.None
               ),
               Attribute(
                 "lastname",
                 "string",
                 Some(false),
-                false,
+                required = false,
                 PrivacyLevel("SHA1")
               ),
               Attribute(
                 "age",
                 "age",
                 Some(false),
-                false,
+                required = false,
                 PrivacyLevel("HIDE")
               )
             ),

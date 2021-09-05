@@ -92,7 +92,7 @@ case class AuditLog(
        |step=$step
        |""".stripMargin.split('\n').mkString(",")
 
-  def asBqInsert(table: String) = {
+  def asBqInsert(table: String): String = {
     val df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
     val timestampStr = df.format(timestamp)
     s"""
@@ -158,10 +158,10 @@ object AuditLog extends StrictLogging {
 
   def sink(session: SparkSession, log: AuditLog)(implicit
     settings: Settings
-  ) = {
+  ): Any = {
     import session.implicits._
 
-    def sinkToFile(log: AuditLog, settings: Settings) = {
+    def sinkToFile(log: AuditLog, settings: Settings): Unit = {
       val lockPath = new Path(settings.comet.audit.path, s"audit.lock")
       val locker = new FileLock(lockPath, settings.storageHandler)
       locker.doExclusively() {

@@ -15,38 +15,38 @@ class BigQueryUtilsSpec extends TestHelper {
     "Spark Types" should "be converted to corresponding BQ Types" in {
       val sparkSchema = StructType(
         Seq(
-          StructField("categoryId", StringType, true),
-          StructField("categorySynonyms", ArrayType(StringType, true), true),
-          StructField("isNew", BooleanType, true),
-          StructField("exclusiveOfferCode", IntegerType, true),
+          StructField("categoryId", StringType, nullable = true),
+          StructField("categorySynonyms", ArrayType(StringType, containsNull = true), nullable = true),
+          StructField("isNew", BooleanType, nullable = true),
+          StructField("exclusiveOfferCode", IntegerType, nullable = true),
           StructField(
             "filters",
             ArrayType(
               StructType(
                 Seq(
-                  StructField("dimension", StringType, false),
+                  StructField("dimension", StringType, nullable = false),
                   StructField(
                     "dimensionValues",
                     ArrayType(
                       StructType(
                         Seq(
-                          StructField("identifier", StringType, true),
-                          StructField("label", StringType, false)
+                          StructField("identifier", StringType, nullable = true),
+                          StructField("label", StringType, nullable = false)
                         )
                       ),
-                      true
+                      containsNull = true
                     ),
-                    true
+                    nullable = true
                   ),
-                  StructField("name", StringType, true)
+                  StructField("name", StringType, nullable = true)
                 )
               ),
-              true
+              containsNull = true
             ),
-            true
+            nullable = true
           ),
-          StructField("name", StringType, false),
-          StructField("subCategories", ArrayType(BinaryType, true), true)
+          StructField("name", StringType, nullable = false),
+          StructField("subCategories", ArrayType(BinaryType, containsNull = true), nullable = true)
         )
       )
       //Schema{fields=[Field{name=value, type=INTEGER, mode=NULLABLE, description=, policyTags=null}]}
