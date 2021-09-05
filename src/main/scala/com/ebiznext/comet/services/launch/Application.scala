@@ -12,7 +12,7 @@ import scala.concurrent.duration.Duration
 
 object Application extends App {
 
-  implicit val system = ActorSystem()
+  implicit val system: ActorSystem = ActorSystem()
 
   lazy val config: Config = ConfigFactory.load()
   implicit val settings: Settings = Settings(config)

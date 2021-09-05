@@ -93,7 +93,7 @@ class SimpleJsonIngestionJob(
       if (df.columns.contains("_corrupt_record")) {
         //TODO send rejected records to rejected area
         logger.whenDebugEnabled {
-          df.filter($"_corrupt_record".isNotNull).show(1000, false)
+          df.filter($"_corrupt_record".isNotNull).show(1000, truncate = false)
         }
         throw new Exception(
           s"""Invalid JSON File: ${path

@@ -43,12 +43,12 @@ class JsonIngestionParsingSpec extends TestHelper {
             "glossary",
             StructType(
               Seq(
-                StructField("title", StringType, true),
+                StructField("title", StringType, nullable = true),
                 StructField(
                   "GlossDiv",
                   StructType(
                     Seq(
-                      StructField("title", StringType, true),
+                      StructField("title", StringType, nullable = true),
                       StructField(
                         "GlossList",
                         StructType(
@@ -57,42 +57,42 @@ class JsonIngestionParsingSpec extends TestHelper {
                               "GlossEntry",
                               StructType(
                                 Seq(
-                                  StructField("ID", StringType, true),
-                                  StructField("SortAs", StringType, true),
-                                  StructField("GlossTerm", StringType, true),
-                                  StructField("Acronym", StringType, true),
-                                  StructField("Abbrev", StringType, true),
+                                  StructField("ID", StringType, nullable = true),
+                                  StructField("SortAs", StringType, nullable = true),
+                                  StructField("GlossTerm", StringType, nullable = true),
+                                  StructField("Acronym", StringType, nullable = true),
+                                  StructField("Abbrev", StringType, nullable = true),
                                   StructField(
                                     "GlossDef",
                                     StructType(
                                       Seq(
-                                        StructField("para", StringType, true),
+                                        StructField("para", StringType, nullable = true),
                                         StructField(
                                           "GlossSeeAlso",
-                                          ArrayType(StringType, true),
-                                          true
+                                          ArrayType(StringType, containsNull = true),
+                                          nullable = true
                                         ),
-                                        StructField("IntArray", ArrayType(LongType, true), true)
+                                        StructField("IntArray", ArrayType(LongType, containsNull = true), nullable = true)
                                       )
                                     ),
-                                    true
+                                    nullable = true
                                   ),
-                                  StructField("GlossSee", StringType, true)
+                                  StructField("GlossSee", StringType, nullable = true)
                                 )
                               ),
-                              true
+                              nullable = true
                             )
                           )
                         ),
-                        true
+                        nullable = true
                       )
                     )
                   ),
-                  true
+                  nullable = true
                 )
               )
             ),
-            true
+            nullable = true
           )
         )
       )
@@ -117,8 +117,8 @@ class JsonIngestionParsingSpec extends TestHelper {
     JsonIngestionUtil.parseString(json1) shouldBe Success(
       StructType(
         Seq(
-          StructField("GlossSeeAlso", ArrayType(StringType, true), true),
-          StructField("IntArray", ArrayType(DoubleType, true), true)
+          StructField("GlossSeeAlso", ArrayType(StringType, containsNull = true), nullable = true),
+          StructField("IntArray", ArrayType(DoubleType, containsNull = true), nullable = true)
         )
       )
     )
@@ -126,8 +126,8 @@ class JsonIngestionParsingSpec extends TestHelper {
     JsonIngestionUtil.parseString(json2) shouldBe Success(
       StructType(
         Seq(
-          StructField("GlossSeeAlso", ArrayType(StringType, true), true),
-          StructField("IntArray", ArrayType(LongType, true), true)
+          StructField("GlossSeeAlso", ArrayType(StringType, containsNull = true), nullable = true),
+          StructField("IntArray", ArrayType(LongType, containsNull = true), nullable = true)
         )
       )
     )

@@ -19,7 +19,7 @@ object SqlTask {
       if (sql.nonEmpty) {
         section match {
           case "SQL" =>
-            if (sql.size > 0 && sqlSection.toString.size == 0)
+            if (sql.nonEmpty && sqlSection.toString.isEmpty)
               sqlSection.append(sql)
           case "PRESQL" =>
             presqlSection.append(sql)

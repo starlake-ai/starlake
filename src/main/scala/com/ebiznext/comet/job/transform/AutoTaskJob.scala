@@ -303,7 +303,7 @@ case class AutoTaskJob(
     res match {
       case Success(jobResult) =>
         val end = Timestamp.from(Instant.now())
-        val jobResultCount = jobResult.asInstanceOf[SparkJobResult].dataframe.map(_.count())
+        val jobResultCount = jobResult.dataframe.map(_.count())
         jobResultCount.foreach(logAuditSuccess(start, end, _))
       case Failure(e) =>
         logAuditFailure(start, end, e)
@@ -336,8 +336,8 @@ case class AutoTaskJob(
   }
 
   private def logAuditSuccess(start: Timestamp, end: Timestamp, jobResultCount: Long) =
-    logAudit(start, end, jobResultCount, true, "success")
+    logAudit(start, end, jobResultCount, success = true, "success")
 
   private def logAuditFailure(start: Timestamp, end: Timestamp, e: Throwable) =
-    logAudit(start, end, -1, true, Utils.exceptionAsString(e))
+    logAudit(start, end, -1, success = true, Utils.exceptionAsString(e))
 }

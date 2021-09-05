@@ -135,7 +135,7 @@ class Yml2XlsWriter(schemaHandler: SchemaHandler) extends LazyLogging with XlsMo
 
     }
 
-    xlsOut.delete(true)
+    xlsOut.delete(swallowIOExceptions = true)
     workbook.write(xlsOut.newFileOutputStream(false))
   }
 

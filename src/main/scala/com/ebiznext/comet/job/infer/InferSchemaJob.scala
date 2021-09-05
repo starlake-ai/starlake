@@ -121,7 +121,7 @@ class InferSchemaJob(implicit settings: Settings) {
         .toCharArray
         .map((_, 1))
         .groupBy(_._1)
-        .mapValues(_.size)
+        .mapValues(_.length)
         .toList
         .maxBy(_._2)
     separator._1.toString

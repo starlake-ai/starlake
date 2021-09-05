@@ -75,8 +75,8 @@ object TreeRowValidator extends GenericRowValidator {
     val schemaSparkTypeWithSuccessErrorMessage =
       StructType(
         schemaSparkType.fields ++ Array(
-          StructField(Settings.cometSuccessColumn, BooleanType, false),
-          StructField(Settings.cometErrorMessageColumn, StringType, false)
+          StructField(Settings.cometSuccessColumn, BooleanType, nullable = false),
+          StructField(Settings.cometErrorMessageColumn, StringType, nullable = false)
         )
       )
     //  implicit val encoder2 = RowEncoder(schemaSparkType)
@@ -115,8 +115,8 @@ object TreeRowValidator extends GenericRowValidator {
     val schemaSparkTypeWithSuccessErrorMessage =
       StructType(
         schemaSparkType.fields ++ Array(
-          StructField(Settings.cometSuccessColumn, BooleanType, false),
-          StructField(Settings.cometErrorMessageColumn, StringType, false)
+          StructField(Settings.cometSuccessColumn, BooleanType, nullable = false),
+          StructField(Settings.cometErrorMessageColumn, StringType, nullable = false)
         )
       )
 

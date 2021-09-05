@@ -43,12 +43,8 @@ import java.util.regex.Pattern
 class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extends StrictLogging {
 
   // uses Jackson YAML for parsing, relies on SnakeYAML for low level handling
-  val mapper: ObjectMapper with ScalaObjectMapper = {
-    val mapper =
-      new CometObjectMapper(new YAMLFactory(), injectables = (classOf[Settings], settings) :: Nil)
-
-    mapper
-  }
+  val mapper: ObjectMapper with ScalaObjectMapper =
+    new CometObjectMapper(new YAMLFactory(), injectables = (classOf[Settings], settings) :: Nil)
 
   @throws[Exception]
   def checkValidity(): Unit = {
@@ -109,7 +105,6 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
 
   @throws[Exception]
   def assertions(name: String): Map[String, AssertionDefinition] = {
-
     val defaultAssertions = loadAssertions("default.comet.yml")
     val assertions = loadAssertions("assertions.comet.yml")
     val resAssertions = loadAssertions(name + ".comet.yml")
@@ -129,12 +124,10 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     }
   }
 
-  def views(name: String): Views = {
-
+  def views(name: String): Views =
     Views.merge(
       ("default.comet.yml" :: "views.comet.yml" :: (name + ".comet.yml") :: Nil).map(loadViews)
     )
-  }
 
   @throws[Exception]
   lazy val activeEnv: Map[String, String] = {
@@ -157,9 +150,7 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     * @return
     *   Unique type referenced by this name.
     */
-  def getType(tpe: String): Option[Type] = {
-    types.find(_.name == tpe)
-  }
+  def getType(tpe: String): Option[Type] = types.find(_.name == tpe)
 
   /** All defined domains Domains are defined under the "domains" folder in the metadata folder
     */
@@ -232,10 +223,9 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
         errors.foreach(logger.error(_))
         throw new Exception("Duplicated domain directory name")
     }
-
   }
 
-  def loadJobFromFile(path: Path): Try[AutoJobDesc] = {
+  def loadJobFromFile(path: Path): Try[AutoJobDesc] =
     Try {
       val rootNode = mapper.readTree(storage.read(path).richFormat(activeEnv))
       val tranformNode = rootNode.path("transform")
@@ -278,7 +268,6 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
         tasks = tasks
       )
     }
-  }
 
   /** To be deprecated soon
     * @param path
@@ -287,7 +276,7 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     *   : job desc
     * @return
     */
-  private def finalDomainOrJobName(path: Path, name: String) = {
+  private def finalDomainOrJobName(path: Path, name: String) =
     if (path.getName != s"$name.comet.yml") {
       val newJobName = path.getName.substring(0, path.getName.length - ".comet.yml".length)
       logger.error(
@@ -297,7 +286,6 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     } else {
       name
     }
-  }
 
   /** All defined jobs Jobs are defined under the "jobs" folder in the metadata folder
     */
@@ -333,9 +321,7 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     * @return
     *   Unique Domain referenced by this name.
     */
-  def getDomain(name: String): Option[Domain] = {
-    domains.find(_.name == name)
-  }
+  def getDomain(name: String): Option[Domain] = domains.find(_.name == name)
 
   /** Return all schemas for a domain
     *
@@ -344,9 +330,7 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     * @return
     *   List of schemas for a domain, empty list if no schema or domain is found
     */
-  def getSchemas(domain: String): List[Schema] = {
-    getDomain(domain).map(_.schemas).getOrElse(Nil)
-  }
+  def getSchemas(domain: String): List[Schema] = getDomain(domain).map(_.schemas).getOrElse(Nil)
 
   /** Get schema by name for a domain
     *
@@ -357,10 +341,9 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     * @return
     *   Unique Schema with this name for a domain
     */
-  def getSchema(domainName: String, schemaName: String): Option[Schema] = {
+  def getSchema(domainName: String, schemaName: String): Option[Schema] =
     for {
       domain <- getDomain(domainName)
       schema <- domain.schemas.find(_.name == schemaName)
     } yield schema
-  }
 }

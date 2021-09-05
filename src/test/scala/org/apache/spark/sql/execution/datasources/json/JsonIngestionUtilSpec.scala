@@ -10,21 +10,21 @@ class JsonIngestionUtilSpec extends TestHelper {
         "root",
         StructType(
           Array(
-            StructField("email", StringType, false),
-            StructField("textattr", StringType, false),
-            StructField("nullattr", StringType, true),
+            StructField("email", StringType, nullable = false),
+            StructField("textattr", StringType, nullable = false),
+            StructField("nullattr", StringType, nullable = true),
             StructField(
               "structAttr",
               StructType(
                 Array(
-                  StructField("intAttr", LongType, false),
-                  StructField("decimalAttr", DecimalType(38, 9), true),
-                  StructField("doubleAttr", DoubleType, true),
-                  StructField("arrayOfString", ArrayType(StringType, true), true),
-                  StructField("arrayOfInt", ArrayType(LongType, true), true)
+                  StructField("intAttr", LongType, nullable = false),
+                  StructField("decimalAttr", DecimalType(38, 9), nullable = true),
+                  StructField("doubleAttr", DoubleType, nullable = true),
+                  StructField("arrayOfString", ArrayType(StringType, containsNull = true), nullable = true),
+                  StructField("arrayOfInt", ArrayType(LongType, containsNull = true), nullable = true)
                 )
               ),
-              true
+              nullable = true
             )
           )
         ),
@@ -35,21 +35,21 @@ class JsonIngestionUtilSpec extends TestHelper {
           "root",
           StructType(
             Array(
-              StructField("email", StringType, true),
-              StructField("textattr", StringType, true),
-              StructField("nullattr", NullType, true),
+              StructField("email", StringType, nullable = true),
+              StructField("textattr", StringType, nullable = true),
+              StructField("nullattr", NullType, nullable = true),
               StructField(
                 "structAttr",
                 StructType(
                   Array(
-                    StructField("intAttr", LongType, true),
-                    StructField("decimalAttr", DoubleType, true),
-                    StructField("doubleAttr", DoubleType, true),
-                    StructField("arrayOfString", ArrayType(StringType, true), true),
-                    StructField("arrayOfInt", ArrayType(LongType, true), true)
+                    StructField("intAttr", LongType, nullable = true),
+                    StructField("decimalAttr", DoubleType, nullable = true),
+                    StructField("doubleAttr", DoubleType, nullable = true),
+                    StructField("arrayOfString", ArrayType(StringType, containsNull = true), nullable = true),
+                    StructField("arrayOfInt", ArrayType(LongType, containsNull = true), nullable = true)
                   )
                 ),
-                true
+                nullable = true
               )
             )
           ),
@@ -62,22 +62,22 @@ class JsonIngestionUtilSpec extends TestHelper {
           "root",
           StructType(
             Array(
-              StructField("invalidField1", LongType, true),
-              StructField("email", StringType, true),
-              StructField("textattr", StringType, true),
-              StructField("nullattr", NullType, true),
+              StructField("invalidField1", LongType, nullable = true),
+              StructField("email", StringType, nullable = true),
+              StructField("textattr", StringType, nullable = true),
+              StructField("nullattr", NullType, nullable = true),
               StructField(
                 "structAttr",
                 StructType(
                   Array(
-                    StructField("intAttr", LongType, true),
-                    StructField("decimalAttr", DoubleType, true),
-                    StructField("doubleAttr", DoubleType, true),
-                    StructField("arrayOfString", ArrayType(StringType, true), true),
-                    StructField("arrayOfInt", ArrayType(LongType, true), true)
+                    StructField("intAttr", LongType, nullable = true),
+                    StructField("decimalAttr", DoubleType, nullable = true),
+                    StructField("doubleAttr", DoubleType, nullable = true),
+                    StructField("arrayOfString", ArrayType(StringType, containsNull = true), nullable = true),
+                    StructField("arrayOfInt", ArrayType(LongType, containsNull = true), nullable = true)
                   )
                 ),
-                true
+                nullable = true
               )
             )
           ),
@@ -91,22 +91,22 @@ class JsonIngestionUtilSpec extends TestHelper {
           "root",
           StructType(
             Array(
-              StructField("email", StringType, true),
-              StructField("textattr", StringType, true),
-              StructField("nullattr", NullType, true),
+              StructField("email", StringType, nullable = true),
+              StructField("textattr", StringType, nullable = true),
+              StructField("nullattr", NullType, nullable = true),
               StructField(
                 "structAttr",
                 StructType(
                   Array(
-                    StructField("intAttr", LongType, true),
-                    StructField("decimalAttr", DoubleType, true),
-                    StructField("doubleAttr", DoubleType, true),
-                    StructField("arrayOfString", ArrayType(StringType, true), true),
-                    StructField("arrayOfInt", ArrayType(LongType, true), true),
-                    StructField("invalidField2", LongType, true)
+                    StructField("intAttr", LongType, nullable = true),
+                    StructField("decimalAttr", DoubleType, nullable = true),
+                    StructField("doubleAttr", DoubleType, nullable = true),
+                    StructField("arrayOfString", ArrayType(StringType, containsNull = true), nullable = true),
+                    StructField("arrayOfInt", ArrayType(LongType, containsNull = true), nullable = true),
+                    StructField("invalidField2", LongType, nullable = true)
                   )
                 ),
-                true
+                nullable = true
               )
             )
           ),

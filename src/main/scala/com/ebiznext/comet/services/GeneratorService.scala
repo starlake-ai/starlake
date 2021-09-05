@@ -15,7 +15,7 @@ class GeneratorService(implicit
   settings: Settings
 ) extends Directives {
 
-  val tempFile: (FileInfo ⇒ File) = fileInfo => {
+  val tempFile: FileInfo ⇒ File = fileInfo => {
     File.createTempFile(fileInfo.getFieldName, fileInfo.getFileName)
   }
 

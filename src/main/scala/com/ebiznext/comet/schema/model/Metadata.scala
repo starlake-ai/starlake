@@ -180,7 +180,7 @@ case class Metadata(
   def checkValidity(
     schemaHandler: SchemaHandler
   ): Either[List[String], Boolean] = {
-    def isIgnoreUDF = ignore.map(_.startsWith("udf:")).getOrElse(true)
+    def isIgnoreUDF = ignore.forall(_.startsWith("udf:"))
     val errorList: mutable.MutableList[String] = mutable.MutableList.empty
 
     if (!isIgnoreUDF && getFormat() == Format.DSV)
