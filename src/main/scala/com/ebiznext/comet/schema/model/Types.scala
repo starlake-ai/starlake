@@ -141,7 +141,7 @@ case class Type(
   }
 
   def sparkValue(value: String): Any = {
-    primitiveType.fromString(value, pattern, zone.getOrElse(null))
+    primitiveType.fromString(value, pattern, zone.orNull)
   }
 
   def sparkType(fieldName: String, nullable: Boolean, comment: Option[String]): StructField = {

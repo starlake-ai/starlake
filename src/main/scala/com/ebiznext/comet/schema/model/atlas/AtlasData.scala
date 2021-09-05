@@ -2,7 +2,7 @@ package com.ebiznext.comet.schema.model.atlas
 
 object AtlasData {
 
-  val domainContent =
+  val domainContent: String =
     """
       |---
       |name: mone

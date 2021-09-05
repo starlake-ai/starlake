@@ -386,7 +386,7 @@ case class Schema(
       case None => None
       case Some(ref) =>
         val tab = ref.split('.')
-        val (refDomain, refSchema, refAttr) = tab.size match {
+        val (refDomain, refSchema, refAttr) = tab.length match {
           case 3 => (tab(0), tab(1), tab(2)) // reference to domain.table.column
           case 2 => (domain, tab(0), tab(1)) // reference to table.column
           case 1 => (domain, tab(0), 0) // reference to table

@@ -484,7 +484,7 @@ object Metrics extends StrictLogging {
     e: Column,
     dataCategoryCount: DataFrame,
     metricName: String,
-    metricFunction: (DataFrame) => Column
+    metricFunction: DataFrame => Column
   ): Column = {
     val aliasMetricName: String = metricName
     metricFunction(dataCategoryCount).as(aliasMetricName)
