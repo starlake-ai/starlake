@@ -93,11 +93,12 @@ class IngestionWorkflow(
                 File(path.toUri)
               } match {
                 case Success(file) => file
-                case Failure(_ : ProviderNotFoundException) =>
+                case Failure(_: ProviderNotFoundException) =>
                   // if a FileSystem is available in the classpath, it will be installed
                   FileSystems
                     .newFileSystem(path.toUri, Collections.emptyMap(), getClass.getClassLoader)
                   File(path.toUri) // retry
+                case Failure(exception) => throw exception
               }
             }
 
