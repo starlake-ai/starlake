@@ -915,10 +915,19 @@ trait IngestionJob extends SparkJob {
   }
 
   private def checkSchemaValidity(existingSchema: StructType, incomingSchema: StructType): Unit = {
-    if (existingSchema.fields.length != incomingSchema.fields.length)
-      throw new RuntimeException(
-        "Input Dataset and existing HDFS dataset do not have the same number of columns. Check for changes in the dataset schema ?"
-      )
+    for (field <- existingSchema.fields)
+      (field, incomingSchema.find(_.name == field.name)) match {
+        case (_, None) =>
+          throw new RuntimeException(
+            "Input Dataset should contain every column from the existing HDFS dataset. The field " + field.name + " was not matched."
+          )
+        case (
+              StructField(_, existingSubSchema: StructType, _, _),
+              Some(StructField(_, incomingSubSchema: StructType, _, _))
+            ) =>
+          checkSchemaValidity(existingSubSchema, incomingSubSchema)
+        case (_, _) => // ok
+      }
   }
 
   private def mergeFromParquet(
@@ -998,17 +1007,19 @@ trait IngestionJob extends SparkJob {
     val tableMetadata = BigQuerySparkJob.getTable(session, domain.name, schema.name)
     val existingDF = tableMetadata.table
       .map { table =>
+        val inputSchemaSafe = converIntToLongInSchema(withScriptFieldsDF.schema)
+
         checkSchemaValidity(
           BigQuerySchemaConverters.toSpark(
             table.getDefinition.asInstanceOf[StandardTableDefinition].getSchema
           ),
-          withScriptFieldsDF.schema
+          inputSchemaSafe
         )
 
         val bqTable = s"${domain.name}.${schema.name}"
         // We provided the acceptedDF schema here since BQ lose the required / nullable information of the schema
         val existingBQDFWithoutFilter = session.read
-          .schema(converIntToLongInSchema(withScriptFieldsDF.schema))
+          .schema(inputSchemaSafe)
           .format("com.google.cloud.spark.bigquery")
           .option("table", bqTable)
 
