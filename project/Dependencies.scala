@@ -98,7 +98,7 @@ object Dependencies {
     // see https://github.com/GoogleCloudDataproc/spark-bigquery-connector/issues/36
     // Add the jar file to spark dependencies
     "com.google.cloud.spark" %% "spark-bigquery-with-dependencies" % "0.22.0" % "provided" excludeAll (jacksonExclusions: _*),
-    "com.google.cloud" % "google-cloud-nio" % "0.123.9" exclude ("javax.jms", "jms") exclude ("com.sun.jdmk", "jmxtools") exclude ("com.sun.jmx", "jmxri") excludeAll (jacksonExclusions: _*) classifier "shaded",
+    "com.google.cloud" % "google-cloud-nio" % "0.123.9" exclude ("javax.jms", "jms") exclude ("com.sun.jdmk", "jmxtools") exclude ("com.sun.jmx", "jmxri") excludeAll (jacksonExclusions: _*) classifier "shaded"
   )
 
   val esSpark211 = Seq(
