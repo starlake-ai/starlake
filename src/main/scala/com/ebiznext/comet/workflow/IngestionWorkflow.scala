@@ -43,6 +43,8 @@ import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.types.{StructField, StructType}
 
+import java.nio.file.{FileSystems, ProviderNotFoundException}
+import java.util.Collections
 import scala.util.{Failure, Success, Try}
 
 /** The whole worklfow works as follow :
@@ -86,9 +88,21 @@ class IngestionWorkflow(
         logger.info(s"Scanning $inputDir")
         storageHandler.list(inputDir, domain.getAck(), recursive = false).foreach { path =>
           val (filesToLoad, tmpDir) = {
+            def asBetterFile(path: Path): File = {
+              try {
+                File(path.toUri)
+              } catch {
+                case _: ProviderNotFoundException =>
+                  // if a FileSystem is available in the classpath, it will be installed
+                  FileSystems
+                    .newFileSystem(path.toUri, Collections.emptyMap(), getClass.getClassLoader)
+                  File(path.toUri) // retry
+              }
+            }
+
             val pathWithoutLastExt = new Path(
-              inputDir,
-              if (domain.getAck().isEmpty) File(path.toUri).nameWithoutExtension(false)
+              path.getParent, // works as long this is not recursive
+              if (domain.getAck().isEmpty) asBetterFile(path).nameWithoutExtension(false)
               else path.getName.stripSuffix(domain.getAck())
             )
 
@@ -114,8 +128,8 @@ class IngestionWorkflow(
                 storageHandler.mkdirs(pathWithoutLastExt)
 
                 // File is a proxy to java.nio.Path / working with Uri
-                val tmpDir = File(pathWithoutLastExt.toUri)
-                val zipFile = File(zipPath.toUri)
+                val tmpDir = asBetterFile(pathWithoutLastExt)
+                val zipFile = asBetterFile(zipPath)
                 zipFile.extension() match {
                   case Some(".tgz") => Unpacker.unpack(zipFile, tmpDir)
                   case Some(".gz")  => zipFile.unGzipTo(tmpDir / pathWithoutLastExt.getName)
