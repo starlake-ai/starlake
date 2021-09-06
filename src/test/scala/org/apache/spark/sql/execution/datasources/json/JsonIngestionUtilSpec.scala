@@ -20,8 +20,16 @@ class JsonIngestionUtilSpec extends TestHelper {
                   StructField("intAttr", LongType, nullable = false),
                   StructField("decimalAttr", DecimalType(38, 9), nullable = true),
                   StructField("doubleAttr", DoubleType, nullable = true),
-                  StructField("arrayOfString", ArrayType(StringType, containsNull = true), nullable = true),
-                  StructField("arrayOfInt", ArrayType(LongType, containsNull = true), nullable = true)
+                  StructField(
+                    "arrayOfString",
+                    ArrayType(StringType, containsNull = true),
+                    nullable = true
+                  ),
+                  StructField(
+                    "arrayOfInt",
+                    ArrayType(LongType, containsNull = true),
+                    nullable = true
+                  )
                 )
               ),
               nullable = true
@@ -45,8 +53,16 @@ class JsonIngestionUtilSpec extends TestHelper {
                     StructField("intAttr", LongType, nullable = true),
                     StructField("decimalAttr", DoubleType, nullable = true),
                     StructField("doubleAttr", DoubleType, nullable = true),
-                    StructField("arrayOfString", ArrayType(StringType, containsNull = true), nullable = true),
-                    StructField("arrayOfInt", ArrayType(LongType, containsNull = true), nullable = true)
+                    StructField(
+                      "arrayOfString",
+                      ArrayType(StringType, containsNull = true),
+                      nullable = true
+                    ),
+                    StructField(
+                      "arrayOfInt",
+                      ArrayType(LongType, containsNull = true),
+                      nullable = true
+                    )
                   )
                 ),
                 nullable = true
@@ -73,8 +89,16 @@ class JsonIngestionUtilSpec extends TestHelper {
                     StructField("intAttr", LongType, nullable = true),
                     StructField("decimalAttr", DoubleType, nullable = true),
                     StructField("doubleAttr", DoubleType, nullable = true),
-                    StructField("arrayOfString", ArrayType(StringType, containsNull = true), nullable = true),
-                    StructField("arrayOfInt", ArrayType(LongType, containsNull = true), nullable = true)
+                    StructField(
+                      "arrayOfString",
+                      ArrayType(StringType, containsNull = true),
+                      nullable = true
+                    ),
+                    StructField(
+                      "arrayOfInt",
+                      ArrayType(LongType, containsNull = true),
+                      nullable = true
+                    )
                   )
                 ),
                 nullable = true
@@ -101,8 +125,16 @@ class JsonIngestionUtilSpec extends TestHelper {
                     StructField("intAttr", LongType, nullable = true),
                     StructField("decimalAttr", DoubleType, nullable = true),
                     StructField("doubleAttr", DoubleType, nullable = true),
-                    StructField("arrayOfString", ArrayType(StringType, containsNull = true), nullable = true),
-                    StructField("arrayOfInt", ArrayType(LongType, containsNull = true), nullable = true),
+                    StructField(
+                      "arrayOfString",
+                      ArrayType(StringType, containsNull = true),
+                      nullable = true
+                    ),
+                    StructField(
+                      "arrayOfInt",
+                      ArrayType(LongType, containsNull = true),
+                      nullable = true
+                    ),
                     StructField("invalidField2", LongType, nullable = true)
                   )
                 ),
