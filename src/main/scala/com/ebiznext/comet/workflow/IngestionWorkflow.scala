@@ -89,10 +89,11 @@ class IngestionWorkflow(
         storageHandler.list(inputDir, domain.getAck(), recursive = false).foreach { path =>
           val (filesToLoad, tmpDir) = {
             def asBetterFile(path: Path): File = {
-              try {
+              Try {
                 File(path.toUri)
-              } catch {
-                case _: ProviderNotFoundException =>
+              } match {
+                case Success(file) => file
+                case Failure(_ : ProviderNotFoundException) =>
                   // if a FileSystem is available in the classpath, it will be installed
                   FileSystems
                     .newFileSystem(path.toUri, Collections.emptyMap(), getClass.getClassLoader)
