@@ -158,55 +158,55 @@ developers := List(
     id = "hayssams",
     name = "Hayssam Saleh",
     email = "hayssam@saleh.fr",
-    url = url("")
+    url = url("https://github.com/hayssams")
   ),
   Developer(
     id = "elarib",
     name = "Abdelhamide Elarib",
     email = "elarib.abdelhamide@gmail.com",
-    url = url("")
+    url = url("https://github.com/elarib")
   ),
   Developer(
     id = "cchepelov",
     name = "Cyrille Chepelov",
     email = "cyrille@chepelov.org",
-    url = url("")
+    url = url("https://github.com/cchepelov")
   ),
   Developer(
     id = "AmineSagaama",
     name = "Amine Sagaama",
     email = "amine.sagaama@gmail.com",
-    url = url("")
+    url = url("https://github.com/AmineSagaama")
   ),
   Developer(
     id = "mhdqassir",
     name = "Mohamad Kassir",
     email = "mbkassir@gmail.com",
-    url = url("")
+    url = url("https://github.com/mhdkassir")
   ),
   Developer(
     id = "mmenestret",
     name = "Martin Menestret",
     email = "martinmenestret@gmail.com",
-    url = url("")
+    url = url("https://github.com/mmenestret")
   ),
   Developer(
     id = "pchalcol",
     name = "Patice Chalcol",
     email = "pchalcol@gmail.com",
-    url = url("")
+    url = url("https://github.com/pchalcol")
   ),
   Developer(
     id = "zedach",
     name = "Mourad Dachraoui",
     email = "mourad.dachraoui@gmail.com",
-    url = url("")
+    url = url("https://github.com/zedach")
   ),
   Developer(
     id = "seyguai",
     name = "Nicolas Boussuge",
     email = "nb.seyguai@gmail.com",
-    url = url("")
+    url = url("https://github.com/seyguai")
   )
 )
 
