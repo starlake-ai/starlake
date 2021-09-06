@@ -81,8 +81,7 @@ class IngestionWorkflow(
     logger.info("LoadLanding")
     domains.foreach { domain =>
       val storageHandler = settings.storageHandler
-      val inputDir =
-        storageHandler.fs.resolvePath(new Path(domain.directory)) // restore scheme if missing
+      val inputDir = new Path(domain.directory)
       if (storageHandler.exists(inputDir)) {
         logger.info(s"Scanning $inputDir")
         storageHandler.list(inputDir, domain.getAck(), recursive = false).foreach { path =>
