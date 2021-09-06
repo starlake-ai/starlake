@@ -16,7 +16,11 @@ class BigQueryUtilsSpec extends TestHelper {
       val sparkSchema = StructType(
         Seq(
           StructField("categoryId", StringType, nullable = true),
-          StructField("categorySynonyms", ArrayType(StringType, containsNull = true), nullable = true),
+          StructField(
+            "categorySynonyms",
+            ArrayType(StringType, containsNull = true),
+            nullable = true
+          ),
           StructField("isNew", BooleanType, nullable = true),
           StructField("exclusiveOfferCode", IntegerType, nullable = true),
           StructField(

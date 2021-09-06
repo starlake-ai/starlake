@@ -72,7 +72,11 @@ class JsonIngestionParsingSpec extends TestHelper {
                                           ArrayType(StringType, containsNull = true),
                                           nullable = true
                                         ),
-                                        StructField("IntArray", ArrayType(LongType, containsNull = true), nullable = true)
+                                        StructField(
+                                          "IntArray",
+                                          ArrayType(LongType, containsNull = true),
+                                          nullable = true
+                                        )
                                       )
                                     ),
                                     nullable = true
