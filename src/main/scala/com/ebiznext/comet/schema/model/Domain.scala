@@ -20,12 +20,12 @@
 
 package com.ebiznext.comet.schema.model
 
-import java.util.regex.Pattern
 import com.ebiznext.comet.config.{DatasetArea, Settings}
 import com.ebiznext.comet.schema.handlers.SchemaHandler
 import com.ebiznext.comet.utils.Utils
 import org.apache.hadoop.fs.Path
 
+import java.util.regex.Pattern
 import scala.collection.mutable
 
 /** Let's say you are willing to import customers and orders from your Sales system. Sales is
@@ -109,9 +109,13 @@ case class Domain(
     * @return
     *   the list of extensions of teh default ones : ".json", ".csv", ".dsv", ".psv"
     */
-  def getExtensions(): List[String] = {
-    extensions.getOrElse(List("json", "csv", "dsv", "psv")).map("." + _)
-  }
+  def getExtensions(default: List[String]): List[String] =
+    extensions.getOrElse(default).map { extension =>
+      if (extension.startsWith(".") || extension.isEmpty)
+        extension
+      else
+        "." + extension
+    }
 
   /** Ack file should be present for each file to ingest.
     *
