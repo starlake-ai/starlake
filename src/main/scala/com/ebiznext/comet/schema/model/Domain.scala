@@ -111,13 +111,17 @@ case class Domain(
     * @return
     *   the list of extensions of teh default ones : ".json", ".csv", ".dsv", ".psv"
     */
-  def getExtensions(defaultFileExtensions: String): List[String] =
-    extensions.getOrElse(defaultFileExtensions.split(',').map(_.trim).toList).map { extension =>
+  def getExtensions(defaultFileExtensions: String, forceFileExtensions: String): List[String] = {
+    def toList(extensions: String) = extensions.split(',').map(_.trim).toList
+    val allExtensions =
+      extensions.getOrElse(toList(defaultFileExtensions)) ++ toList(forceFileExtensions)
+    allExtensions.distinct.map { extension =>
       if (extension.startsWith(".") || extension.isEmpty)
         extension
       else
         "." + extension
     }
+  }
 
   /** Ack file should be present for each file to ingest.
     *

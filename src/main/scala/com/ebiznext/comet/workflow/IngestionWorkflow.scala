@@ -109,7 +109,12 @@ class IngestionWorkflow(
                   extensions.map(pathWithoutLastExt.suffix).find(storageHandler.exists)
               }
               (
-                findPathWithExt(domain.getExtensions(settings.comet.defaultFileExtensions)),
+                findPathWithExt(
+                  domain.getExtensions(
+                    settings.comet.defaultFileExtensions,
+                    settings.comet.forceFileExtensions
+                  )
+                ),
                 findPathWithExt(zipExtensions)
               )
             }
@@ -159,7 +164,10 @@ class IngestionWorkflow(
                     .list(pathWithoutLastExt, recursive = false)
                     .filter(path =>
                       domain
-                        .getExtensions(settings.comet.defaultFileExtensions)
+                        .getExtensions(
+                          settings.comet.defaultFileExtensions,
+                          settings.comet.forceFileExtensions
+                        )
                         .exists(path.getName.endsWith)
                     ),
                   Some(pathWithoutLastExt)
