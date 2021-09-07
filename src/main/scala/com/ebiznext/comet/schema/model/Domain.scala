@@ -106,11 +106,13 @@ case class Domain(
 
   /** List of file extensions to scan for in the domain directory
     *
+    * @param defaultFileExtensions
+    *   List of comma separated accepted file extensions
     * @return
     *   the list of extensions of teh default ones : ".json", ".csv", ".dsv", ".psv"
     */
-  def getExtensions(default: List[String]): List[String] =
-    extensions.getOrElse(default).map { extension =>
+  def getExtensions(defaultFileExtensions: String): List[String] =
+    extensions.getOrElse(defaultFileExtensions.split(',').map(_.trim).toList).map { extension =>
       if (extension.startsWith(".") || extension.isEmpty)
         extension
       else

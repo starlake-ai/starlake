@@ -281,7 +281,7 @@ object Settings extends StrictLogging {
     kafka: KafkaConfig,
     sqlParameterPattern: String,
     rejectAllOnError: Boolean,
-    defaultFileExtensions: List[String]
+    defaultFileExtensions: String
   ) extends Serializable {
 
     @JsonIgnore
