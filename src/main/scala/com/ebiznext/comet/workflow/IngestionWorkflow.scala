@@ -88,31 +88,21 @@ class IngestionWorkflow(
         logger.info(s"Scanning $inputDir")
         storageHandler.list(inputDir, domain.getAck(), recursive = false).foreach { path =>
           val (filesToLoad, tmpDir) = {
-            def asBetterFile(path: Path): File = {
-              Try {
-                File(path.toUri)
-              } match {
-                case Success(file)                         => file
-                case Failure(_: ProviderNotFoundException) =>
-                  // if a FileSystem is available in the classpath, it will be installed
-                  FileSystems
-                    .newFileSystem(path.toUri, Collections.emptyMap(), getClass.getClassLoader)
-                  File(path.toUri) // retry
-                case Failure(exception) => throw exception
-              }
-            }
-
+            val fileName = path.getName
             val pathWithoutLastExt = new Path(
-              path.getParent, // works as long this is not recursive
-              if (domain.getAck().isEmpty) asBetterFile(path).nameWithoutExtension(false)
-              else path.getName.stripSuffix(domain.getAck())
+              path.getParent,
+              (domain.getAck(), fileName.lastIndexOf('.')) match {
+                case ("", -1) => fileName
+                case ("", i)  => fileName.substring(0, i)
+                case (ack, _) => fileName.stripSuffix(ack)
+              }
             )
 
             val zipExtensions = List(".gz", ".tgz", ".zip")
             val (existingRawFile, existingArchiveFile) = {
               val findPathWithExt = if (domain.getAck().isEmpty) {
                 // the file is always the one being iterated over, we just need to check the extension
-                (extensions: List[String]) => extensions.find(path.getName.endsWith).map(_ => path)
+                (extensions: List[String]) => extensions.find(fileName.endsWith).map(_ => path)
               } else {
                 // for each extension, look if there exists a file near the .ack one
                 (extensions: List[String]) =>
@@ -128,6 +118,27 @@ class IngestionWorkflow(
               case (Some(zipPath), _, "file") =>
                 logger.info(s"Found compressed file $zipPath")
                 storageHandler.mkdirs(pathWithoutLastExt)
+
+                // We use Java nio to handle archive files
+
+                // Java nio FileSystems are only registered based on the system the JVM is based on
+                // To handle external FileSystems (ex: GCS from a linux OS), we need to manually install them
+                // As long as the user provide this app classpath with the appropriate FileSystem implementations,
+                // we can virtually handle anything
+                def asBetterFile(path: Path): File = {
+                  Try {
+                    File(path.toUri) // try once
+                  } match {
+                    case Success(file) => file
+                    // There is no FileSystem registered that can handle this URI
+                    case Failure(_: ProviderNotFoundException) =>
+                      FileSystems
+                        .newFileSystem(path.toUri, Collections.emptyMap(), getClass.getClassLoader)
+                      // Try to install one from the classpath
+                      File(path.toUri) // retry
+                    case Failure(exception) => throw exception
+                  }
+                }
 
                 // File is a proxy to java.nio.Path / working with Uri
                 val tmpDir = asBetterFile(pathWithoutLastExt)
