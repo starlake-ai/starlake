@@ -106,9 +106,9 @@ class StorageHandlerSpec extends TestHelper {
       resultDomain.metadata.get equals domain.metadata.get
       resultDomain.ack shouldBe None
       resultDomain.comment shouldBe domain.comment
-      resultDomain.extensions shouldBe Some(
-        domain.getExtensions(settings.comet.defaultFileExtensions)
-      )
+      resultDomain.getExtensions(
+        settings.comet.defaultFileExtensions
+      ) should contain theSameElementsAs domain.getExtensions(settings.comet.defaultFileExtensions)
     }
 
     "Types Case Class" should "be written as yaml and read correctly" in {
