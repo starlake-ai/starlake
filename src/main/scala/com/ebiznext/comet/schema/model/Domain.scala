@@ -20,12 +20,12 @@
 
 package com.ebiznext.comet.schema.model
 
-import java.util.regex.Pattern
 import com.ebiznext.comet.config.{DatasetArea, Settings}
 import com.ebiznext.comet.schema.handlers.SchemaHandler
 import com.ebiznext.comet.utils.Utils
 import org.apache.hadoop.fs.Path
 
+import java.util.regex.Pattern
 import scala.collection.mutable
 
 /** Let's say you are willing to import customers and orders from your Sales system. Sales is
@@ -106,11 +106,21 @@ case class Domain(
 
   /** List of file extensions to scan for in the domain directory
     *
+    * @param defaultFileExtensions
+    *   List of comma separated accepted file extensions
     * @return
     *   the list of extensions of teh default ones : ".json", ".csv", ".dsv", ".psv"
     */
-  def getExtensions(): List[String] = {
-    extensions.getOrElse(List("json", "csv", "dsv", "psv")).map("." + _)
+  def getExtensions(defaultFileExtensions: String, forceFileExtensions: String): List[String] = {
+    def toList(extensions: String) = extensions.split(',').map(_.trim).toList
+    val allExtensions =
+      extensions.getOrElse(toList(defaultFileExtensions)) ++ toList(forceFileExtensions)
+    allExtensions.distinct.map { extension =>
+      if (extension.startsWith(".") || extension.isEmpty)
+        extension
+      else
+        "." + extension
+    }
   }
 
   /** Ack file should be present for each file to ingest.
