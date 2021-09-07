@@ -12,7 +12,7 @@ __New feature__:
 - Added env var to control BigQuery read data format COMET_SPARK_BIGQUERY_READ_DATA_FORMAT (default to AVRO)
 - When COMET_MERGE_OPTIMIZE_PARTITION_WRITE is set and dynamic partition is active, only write partition containing new records or records to be deleted or updated for BQ (handled by Spark by default for FS).
 - Add VALIDATE_ON_LOAD (comet-validate-on-load) property to raise an exception if one of the domain/job YML file is invalid. default to false
-
+- Add custom file extensions property in Domain import ```default-file-extensions``` and env var ```COMET_DEFAULT_FILE_EXTENSIONS```
 __Bug Fix__:
 - Loading empty files when the schema contains script fields
 - Applying default value for an attribute when value in the input data is null
