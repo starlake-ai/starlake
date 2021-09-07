@@ -102,7 +102,8 @@ class IngestionWorkflow(
             val (existingRawFile, existingArchiveFile) = {
               val findPathWithExt = if (domain.getAck().isEmpty) {
                 // the file is always the one being iterated over, we just need to check the extension
-                (extensions: List[String]) => extensions.find(fileName.endsWith).map(_ => path)
+                // TODO: in future version constraint with extensions => extensions.find(fileName.endsWith).map(_ => path)
+                (extensions: List[String]) => Some(path)
               } else {
                 // for each extension, look if there exists a file near the .ack one
                 (extensions: List[String]) =>
