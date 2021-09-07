@@ -102,14 +102,21 @@ class IngestionWorkflow(
             val (existingRawFile, existingArchiveFile) = {
               val findPathWithExt = if (domain.getAck().isEmpty) {
                 // the file is always the one being iterated over, we just need to check the extension
-                // TODO: in future version constraint with extensions => extensions.find(fileName.endsWith).map(_ => path)
-                (extensions: List[String]) => Some(path)
+                (extensions: List[String]) => extensions.find(fileName.endsWith).map(_ => path)
               } else {
                 // for each extension, look if there exists a file near the .ack one
                 (extensions: List[String]) =>
                   extensions.map(pathWithoutLastExt.suffix).find(storageHandler.exists)
               }
-              (findPathWithExt(domain.getExtensions()), findPathWithExt(zipExtensions))
+              (
+                findPathWithExt(
+                  domain.getExtensions(
+                    settings.comet.defaultFileExtensions,
+                    settings.comet.forceFileExtensions
+                  )
+                ),
+                findPathWithExt(zipExtensions)
+              )
             }
 
             if (domain.getAck().nonEmpty)
@@ -155,7 +162,14 @@ class IngestionWorkflow(
                 (
                   storageHandler
                     .list(pathWithoutLastExt, recursive = false)
-                    .filter(path => domain.getExtensions().exists(path.getName.endsWith)),
+                    .filter(path =>
+                      domain
+                        .getExtensions(
+                          settings.comet.defaultFileExtensions,
+                          settings.comet.forceFileExtensions
+                        )
+                        .exists(path.getName.endsWith)
+                    ),
                   Some(pathWithoutLastExt)
                 )
               case (_, Some(filePath), _) =>
