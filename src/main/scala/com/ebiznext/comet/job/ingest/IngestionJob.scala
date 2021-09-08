@@ -361,16 +361,12 @@ trait IngestionJob extends SparkJob {
     acceptedPath: Path,
     finalAcceptedDF: DataFrame
   ): (DataFrame, Option[List[String]]) = {
-    val (mergedDF, partitionsToUpdate) = schema.merge
-      .map { mergeOptions =>
-        if (metadata.getSink().map(_.`type`).getOrElse(SinkType.None) == SinkType.BQ) {
-          mergeFromBQ(finalAcceptedDF, mergeOptions)
-        } else {
-          (mergeFromParquet(acceptedPath, finalAcceptedDF, mergeOptions), None)
-        }
+    schema.merge.fold((finalAcceptedDF, Option.empty[List[String]])) { mergeOptions =>
+      metadata.getSink() match {
+        case Some(_: BigQuerySink) => mergeFromBQ(finalAcceptedDF, mergeOptions)
+        case _                     => mergeFromParquet(acceptedPath, finalAcceptedDF, mergeOptions)
       }
-      .getOrElse((finalAcceptedDF, None))
-    (mergedDF, partitionsToUpdate)
+    }
   }
 
   private def computeFinalSchema(acceptedDfWithoutIgnoredFields: DataFrame) = {
@@ -801,19 +797,8 @@ trait IngestionJob extends SparkJob {
     jobResult
   }
 
-  private def computeNoTimestampFieldToMergeAndToDeleteDF(
-    existingDF: DataFrame,
-    mergeOptions: MergeOptions,
-    finalIncomingDF: Dataset[Row]
-  ): (DataFrame, DataFrame) = {
-    val commonDF = existingDF
-      .join(finalIncomingDF.select(mergeOptions.key.map(col): _*), mergeOptions.key)
-      .select(finalIncomingDF.columns.map(col): _*)
-    (commonDF, existingDF.except(commonDF).union(finalIncomingDF))
-  }
-
   ///////////////////////////////////////////////////////////////////////////
-  // Merge between the target and the source Dataframe
+  // region Merge between the target and the source Dataframe
   ///////////////////////////////////////////////////////////////////////////
 
   private def processMerge(
@@ -832,14 +817,14 @@ trait IngestionJob extends SparkJob {
       .map(condition => incomingDF.filter(s"not ($condition)"))
       .getOrElse(incomingDF)
 
-    val (toDeleteDF, mergedDF) = mergeOptions.timestamp match {
-      case Some(timestamp) =>
-        // We only keep the first occurrence of each record, from both datasets
-        computeToMergeAndToDeleteDF(existingDF, mergeOptions, finalIncomingDF, timestamp)
-      case None =>
-        // We directly remove from the existing dataset the row that are present in the incoming dataset
-        computeNoTimestampFieldToMergeAndToDeleteDF(existingDF, mergeOptions, finalIncomingDF)
+    val (mergedDF, toDeleteDF) =
+      computeToMergeAndToDeleteDF(existingDF, mergeOptions, finalIncomingDF)
+    logger.whenDebugEnabled {
+      logger.debug(s"Merge detected ${toDeleteDF.count()} items to update/delete")
+      logger.debug(s"Merge detected ${mergedDF.except(finalIncomingDF).count()} items to insert")
+      mergedDF.show(false)
     }
+
     val partitionOverwriteMode =
       session.conf.get("spark.sql.sources.partitionOverwriteMode", "static").toLowerCase()
     val partitionsToUpdate = (
@@ -849,34 +834,91 @@ trait IngestionJob extends SparkJob {
     ) match {
       // no need to apply optimization if existing dataset is empty
       case ("dynamic", Some(BigQuerySink(_, _, Some(timestamp), _, _, _, _)), true)
-          if existingDF.limit(1).count() == 1 =>
+          if !existingDF.isEmpty =>
         val partitionsToUpdate =
-          computePartitionsToUpdateAfterMerge(finalIncomingDF, timestamp, toDeleteDF)
+          computePartitionsToUpdateAfterMerge(mergedDF, timestamp, toDeleteDF)
         Some(partitionsToUpdate)
       case ("static", _, _) | ("dynamic", _, _) =>
         None
       case (_, _, _) =>
         throw new Exception("Should never happen")
     }
-    logger.whenDebugEnabled {
-      logger.debug(s"Merge detected ${toDeleteDF.count()} items to update/delete")
-      logger.debug(s"Merge detected ${finalIncomingDF.count()} items to update/insert")
-      mergedDF.show(false)
-    }
+
     if (settings.comet.mergeForceDistinct) (mergedDF.distinct(), partitionsToUpdate)
     else (mergedDF, partitionsToUpdate)
+  }
+
+  /** Perform an union between two dataframe. Fixes any missing column from the originalDF by add
+    * null values where needed. Assumes toAddDF to at least contains all the columns from originalDF
+    * (see {@link mergeSchemas})
+    */
+  private def computeUnionDataset(originalDF: DataFrame, toAddDF: DataFrame): DataFrame = {
+    // return an optional list of column paths (ex "root.field" <=> ("root", "field"))
+    def findMissingColumnsType(
+      schema: StructType,
+      reference: StructType,
+      stack: List[String] = List()
+    ): Option[Map[List[String], DataType]] = {
+      val fields = schema.fields.map(field => field.name -> field).toMap
+      reference.fields
+        .flatMap { referenceField =>
+          fields
+            .get(referenceField.name)
+            .fold(
+              // Without match, we have found a missing column
+              Option(Map((stack :+ referenceField.name) -> referenceField.dataType))
+            ) { field =>
+              (field.dataType, referenceField.dataType) match {
+                // In here, we known the reference column is matched in the original schema
+                // If the innerType is a StructType, we must do some recursion
+                // Otherwise, we can end the search, there is no missing column here.
+                case (fieldType: StructType, referenceType: StructType) =>
+                  findMissingColumnsType(fieldType, referenceType, stack :+ referenceField.name)
+                case (
+                      ArrayType(fieldType: StructType, _),
+                      ArrayType(referenceType: StructType, _)
+                    ) =>
+                  findMissingColumnsType(fieldType, referenceType, stack :+ referenceField.name)
+                case (_, _) => None
+              }
+            }
+        }
+        .reduceOption(_ ++ _)
+    }
+
+    val missingTypes = findMissingColumnsType(originalDF.schema, toAddDF.schema)
+    val patchedDF = missingTypes.fold(originalDF) { missingTypes =>
+      missingTypes.foldLeft(originalDF) {
+        (dataframe: DataFrame, missingType: (List[String], DataType)) =>
+          missingType match {
+            case (Nil, _) => dataframe
+            case (colName :: Nil, dataType) =>
+              dataframe.withColumn(colName, lit(null).cast(dataType))
+            case (colName :: tail, dataType) =>
+              dataframe.withColumn(
+                colName,
+                col(colName).withField(tail.mkString("."), lit(null).cast(dataType))
+              )
+          }
+      }
+    }
+      // Force ordering of columns to be the same
+      .select(toAddDF.columns.map(col): _*)
+
+    // place toAddDF first, so that if a new data takes precedence over the rest
+    toAddDF.union(patchedDF)
   }
 
   private def computeToMergeAndToDeleteDF(
     existingDF: DataFrame,
     merge: MergeOptions,
-    finalIncomingDF: Dataset[Row],
-    timestamp: String
+    incomingDF: DataFrame
   ): (DataFrame, DataFrame) = {
-    val orderingWindow =
-      Window.partitionBy(merge.key.head, merge.key.tail: _*).orderBy(col(timestamp).desc)
+    val orderingWindow = Window
+      .partitionBy(merge.key.head, merge.key.tail: _*)
+      .orderBy(merge.timestamp.fold(merge.key) { List(_) }.map(col(_).desc): _*)
 
-    val allRowsDF = existingDF.union(finalIncomingDF)
+    val allRowsDF = computeUnionDataset(existingDF, incomingDF)
 
     val allRowsWithRownum = allRowsDF
       .withColumn("rownum", row_number.over(orderingWindow))
@@ -890,16 +932,16 @@ trait IngestionJob extends SparkJob {
     val toDeleteDF = allRowsWithRownum
       .where(col("rownum") =!= 1)
       .drop("rownum")
-    (toDeleteDF, mergedDF)
+    (mergedDF, toDeleteDF)
   }
 
   private def computePartitionsToUpdateAfterMerge(
-    finalIncomingDF: Dataset[Row],
+    mergedDF: Dataset[Row],
     timestamp: String,
     toDeleteDF: DataFrame
   ): List[String] = {
     logger.info(s"Computing partitions to update on date column $timestamp")
-    val partitionsToUpdate = finalIncomingDF
+    val partitionsToUpdate = mergedDF
       .select(col(timestamp))
       .union(toDeleteDF.select(col(timestamp)))
       .select(date_format(col(timestamp), "yyyyMMdd").cast("string"))
@@ -914,35 +956,69 @@ trait IngestionJob extends SparkJob {
     partitionsToUpdate
   }
 
-  private def checkSchemaValidity(existingSchema: StructType, incomingSchema: StructType): Unit = {
-    for (field <- existingSchema.fields)
-      (field, incomingSchema.find(_.name == field.name)) match {
-        case (_, None) =>
-          throw new RuntimeException(
-            "Input Dataset should contain every column from the existing HDFS dataset. The field " + field.name + " was not matched."
-          )
-        case (
-              StructField(_, existingSubSchema: StructType, _, _),
-              Some(StructField(_, incomingSubSchema: StructType, _, _))
-            ) =>
-          checkSchemaValidity(existingSubSchema, incomingSubSchema)
-        case (_, _) => // ok
-      }
+  /** Compute a new schema that is compatible with merge operations. Built recursively from the
+    * incoming schema to retain the latest attributes, but without the columns that does not exist
+    * yet. Ensures that the incomingSchema contains all the columns from the existingSchema.
+    */
+  private def mergeSchemas(actualSchema: StructType, expectedSchema: StructType): StructType = {
+    val actualColumns = actualSchema.map(field => field.name -> field).toMap
+    val expectedColumns = expectedSchema.map(field => field.name -> field).toMap
+
+    val missingColumns = actualColumns.keySet.diff(expectedColumns.keySet)
+    if (missingColumns.nonEmpty)
+      throw new RuntimeException(
+        "Input Dataset should contain every column from the existing HDFS dataset. The following columns were not matched: " + missingColumns
+          .mkString(", ")
+      )
+
+    val newColumns = expectedColumns.keySet.diff(actualColumns.keySet)
+    val newColumnsNotNullable =
+      newColumns.flatMap(expectedColumns.get).filterNot(_.nullable).map(_.name)
+    if (newColumnsNotNullable.nonEmpty)
+      throw new RuntimeException(
+        "The new columns from Input Dataset should be nullable. The following columns were not: " + newColumnsNotNullable
+          .mkString(", ")
+      )
+
+    StructType(
+      expectedSchema
+        .flatMap(expectedField =>
+          actualColumns
+            .get(expectedField.name)
+            .map(existingField =>
+              (existingField.dataType, expectedField.dataType) match {
+                case (existingType: StructType, incomingType: StructType) =>
+                  expectedField.copy(dataType = mergeSchemas(existingType, incomingType))
+                case (
+                      ArrayType(existingType: StructType, _),
+                      ArrayType(incomingType: StructType, nullable)
+                    ) =>
+                  expectedField
+                    .copy(dataType = ArrayType(mergeSchemas(existingType, incomingType), nullable))
+                case (_, _) => expectedField
+              }
+            )
+        )
+    )
   }
 
   private def mergeFromParquet(
     acceptedPath: Path,
     withScriptFieldsDF: DataFrame,
     mergeOptions: MergeOptions
-  ): DataFrame = {
+  ): (DataFrame, Option[List[String]]) = {
     val existingDF =
       if (storageHandler.exists(new Path(acceptedPath, "_SUCCESS"))) {
-        // Otherwise load from accepted area
-        // We provide the accepted DF schema since partition columns types are infered when parquet is loaded and might not match with the DF being ingested
-        val existingDF =
-          session.read.schema(withScriptFieldsDF.schema).parquet(acceptedPath.toString)
-        checkSchemaValidity(session.read.parquet(acceptedPath.toString).schema, existingDF.schema)
-        existingDF
+        // Load from accepted area
+        // We provide the accepted DF schema since partition columns types are inferred when parquet is loaded and might not match with the DF being ingested
+        session.read
+          .schema(
+            mergeSchemas(
+              session.read.parquet(acceptedPath.toString).schema,
+              withScriptFieldsDF.schema
+            )
+          )
+          .parquet(acceptedPath.toString)
       } else
         session.createDataFrame(session.sparkContext.emptyRDD[Row], withScriptFieldsDF.schema)
 
@@ -952,31 +1028,26 @@ trait IngestionJob extends SparkJob {
       .map(_.name)
       .mkString(",")}""")
 
-    // Force ordering of columns to be the same
-    val orderedExisting =
-      existingDF.select(partitionedInputDF.columns.map(col): _*)
-
-    val (dataframe, _) = processMerge(partitionedInputDF, orderedExisting, mergeOptions)
-    dataframe
+    processMerge(partitionedInputDF, existingDF, mergeOptions)
   }
 
-  /** Spark BigQuery driver consider interger in BQ as Long. We need to convert the Int DataType to
+  /** Spark BigQuery driver consider integer in BQ as Long. We need to convert the Int DataType to
     * LongType before loading the data. As a good practice, always use long when dealing with big
     * query in your YAML Schema.
     * @param schema
     * @return
     */
-  private def converIntToLongInSchema(schema: StructType) = {
-    // TODO: Support complex fields
+  private def convertIntToLongInSchema(schema: StructType): StructType = {
     val fields = schema.fields.map { field =>
       field.dataType match {
+        case dataType: StructType =>
+          field.copy(dataType = convertIntToLongInSchema(dataType))
+        case ArrayType(elementType: StructType, nullable) =>
+          field.copy(dataType = ArrayType(convertIntToLongInSchema(elementType), nullable))
+        case ArrayType(_: IntegerType, nullable) =>
+          field.copy(dataType = ArrayType(LongType, nullable))
         case IntegerType => field.copy(dataType = LongType)
-        case StructType(_) | ArrayType(_, _) =>
-          logger.warn(
-            "nested and repeated fields conversion not supported in converIntToLongInSchema for BigQuery"
-          )
-          field
-        case _ => field
+        case _           => field
       }
     }
     schema.copy(fields = fields)
@@ -1007,19 +1078,15 @@ trait IngestionJob extends SparkJob {
     val tableMetadata = BigQuerySparkJob.getTable(session, domain.name, schema.name)
     val existingDF = tableMetadata.table
       .map { table =>
-        val inputSchemaSafe = converIntToLongInSchema(withScriptFieldsDF.schema)
-
-        checkSchemaValidity(
-          BigQuerySchemaConverters.toSpark(
-            table.getDefinition.asInstanceOf[StandardTableDefinition].getSchema
-          ),
-          inputSchemaSafe
+        val incomingSchema = convertIntToLongInSchema(withScriptFieldsDF.schema)
+        val existingSchema = BigQuerySchemaConverters.toSpark(
+          table.getDefinition.asInstanceOf[StandardTableDefinition].getSchema
         )
 
         val bqTable = s"${domain.name}.${schema.name}"
         // We provided the acceptedDF schema here since BQ lose the required / nullable information of the schema
         val existingBQDFWithoutFilter = session.read
-          .schema(inputSchemaSafe)
+          .schema(mergeSchemas(existingSchema, incomingSchema))
           .format("com.google.cloud.spark.bigquery")
           .option("table", bqTable)
 
@@ -1041,6 +1108,10 @@ trait IngestionJob extends SparkJob {
 
     processMerge(withScriptFieldsDF, existingDF, mergeOptions)
   }
+
+  ///////////////////////////////////////////////////////////////////////////
+  // endregion
+  ///////////////////////////////////////////////////////////////////////////
 
   def reorderAttributes(dataFrame: DataFrame): List[Attribute] = {
     val finalSchema = schema.attributesWithoutScript :+ Attribute(
