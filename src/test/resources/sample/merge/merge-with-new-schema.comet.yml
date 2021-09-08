@@ -56,7 +56,7 @@ schemas:
       - name: "title"
         type: "string"
         array: false
-        required: true
+        required: false
         privacy: "NONE"
         metricType: "NONE"
     metadata:
