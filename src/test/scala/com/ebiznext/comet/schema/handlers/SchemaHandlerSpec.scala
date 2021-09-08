@@ -260,7 +260,7 @@ class SchemaHandlerSpec extends TestHelper {
         accepted should contain theSameElementsAs expected
       }
     }
-    "Ingest updated schema with merge" should "work" in {
+    "Ingest updated schema with merge" should "produce merged results accepted" in {
       new SpecTrait(
         domainOrJobFilename = "simple-merge.comet.yml",
         sourceDomainOrJobPathname = s"/sample/merge/simple-merge.comet.yml",
