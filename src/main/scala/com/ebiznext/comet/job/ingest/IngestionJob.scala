@@ -887,21 +887,22 @@ trait IngestionJob extends SparkJob {
     }
 
     val missingTypes = findMissingColumnsType(originalDF.schema, toAddDF.schema)
-    val patchedDF = missingTypes.fold(originalDF) { missingTypes =>
-      missingTypes.foldLeft(originalDF) {
-        (dataframe: DataFrame, missingType: (List[String], DataType)) =>
-          missingType match {
-            case (Nil, _) => dataframe
-            case (colName :: Nil, dataType) =>
-              dataframe.withColumn(colName, lit(null).cast(dataType))
-            case (colName :: tail, dataType) =>
-              dataframe.withColumn(
-                colName,
-                col(colName).withField(tail.mkString("."), lit(null).cast(dataType))
-              )
-          }
+    val patchedDF = missingTypes
+      .fold(originalDF) { missingTypes =>
+        missingTypes.foldLeft(originalDF) {
+          (dataframe: DataFrame, missingType: (List[String], DataType)) =>
+            missingType match {
+              case (Nil, _) => dataframe
+              case (colName :: Nil, dataType) =>
+                dataframe.withColumn(colName, lit(null).cast(dataType))
+              case (colName :: tail, dataType) =>
+                dataframe.withColumn(
+                  colName,
+                  col(colName).withField(tail.mkString("."), lit(null).cast(dataType))
+                )
+            }
+        }
       }
-    }
       // Force ordering of columns to be the same
       .select(toAddDF.columns.map(col): _*)
 
