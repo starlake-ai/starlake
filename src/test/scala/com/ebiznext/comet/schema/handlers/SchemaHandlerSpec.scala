@@ -292,7 +292,9 @@ class SchemaHandlerSpec extends TestHelper {
         val expected: Array[Row] =
           sparkSession.read
             .option("encoding", "UTF-8")
-            .schema("`PK` STRING,`firstName` STRING,`lastName` STRING,`DOB` DATE,`title` STRING,`YEAR` INT,`MONTH` INT")
+            .schema(
+              "`PK` STRING,`firstName` STRING,`lastName` STRING,`DOB` DATE,`title` STRING,`YEAR` INT,`MONTH` INT"
+            )
             .csv(getResPath("/expected/datasets/accepted/DOMAIN/Players-merged-entitled.csv"))
             .collect()
 
