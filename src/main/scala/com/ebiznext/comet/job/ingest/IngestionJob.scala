@@ -363,7 +363,7 @@ trait IngestionJob extends SparkJob {
     val (mergedDF, partitionsToUpdate) =
       schema.merge.fold((finalAcceptedDF, Option.empty[List[String]])) { mergeOptions =>
         metadata.getSink() match {
-          case Some(_: BigQuerySink) => mergeFromBQ(finalAcceptedDF, mergeOptions)
+          case Some(sink: BigQuerySink) => mergeFromBQ(finalAcceptedDF, mergeOptions, sink)
           case _ => mergeFromParquet(acceptedPath, finalAcceptedDF, mergeOptions)
         }
       }
@@ -850,7 +850,8 @@ trait IngestionJob extends SparkJob {
     */
   private def mergeFromBQ(
     withScriptFieldsDF: DataFrame,
-    mergeOptions: MergeOptions
+    mergeOptions: MergeOptions,
+    sink: BigQuerySink
   ): (DataFrame, Option[List[String]]) = {
     // When merging to BigQuery, load existing DF from BigQuery
     val tableMetadata = BigQuerySparkJob.getTable(session, domain.name, schema.name)
@@ -868,8 +869,8 @@ trait IngestionJob extends SparkJob {
           .format("com.google.cloud.spark.bigquery")
           .option("table", bqTable)
 
-        val existingBigQueryDFReader = (mergeOptions.queryFilter, metadata.sink) match {
-          case (Some(_), Some(BigQuerySink(_, _, Some(_), _, _, _, _))) =>
+        val existingBigQueryDFReader = (mergeOptions.queryFilter, sink.timestamp) match {
+          case (Some(_), Some(_)) =>
             val partitions =
               tableMetadata.biqueryClient.listPartitions(table.getTableId).asScala.toList
             val filter = mergeOptions.buidlBQQuery(partitions, options)
@@ -891,12 +892,11 @@ trait IngestionJob extends SparkJob {
       session.conf.get("spark.sql.sources.partitionOverwriteMode", "static").toLowerCase()
     val partitionsToUpdate = (
       partitionOverwriteMode,
-      metadata.getSink(),
+      sink.timestamp,
       settings.comet.mergeOptimizePartitionWrite
     ) match {
       // no need to apply optimization if existing dataset is empty
-      case ("dynamic", Some(BigQuerySink(_, _, Some(timestamp), _, _, _, _)), true)
-          if !existingDF.isEmpty =>
+      case ("dynamic", Some(timestamp), true) if !existingDF.isEmpty =>
         logger.info(s"Computing partitions to update on date column $timestamp")
         val partitionsToUpdate =
           BigQueryUtils.computePartitionsToUpdateAfterMerge(mergedDF, toDeleteDF, timestamp)
