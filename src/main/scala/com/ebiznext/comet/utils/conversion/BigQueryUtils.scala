@@ -3,6 +3,7 @@ package com.ebiznext.comet.utils.conversion
 import com.ebiznext.comet.utils.repackaged.BigQuerySchemaConverters
 import com.google.cloud.bigquery.{Schema => BQSchema}
 import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.functions.{col, date_format}
 import org.apache.spark.sql.types._
 
 /** [X] whatever Conversion between [X] Schema and BigQuery Schema
@@ -43,8 +44,21 @@ object BigQueryUtils {
     }
     schema.copy(fields = fields)
   }
-  ///////////////////////////////////////////////////////////////////////////
-  // Merge From BigQuery Data Source
-  ///////////////////////////////////////////////////////////////////////////
+
+  def computePartitionsToUpdateAfterMerge(
+    mergedDF: DataFrame,
+    toDeleteDF: DataFrame,
+    timestamp: String
+  ): List[String] = {
+    mergedDF
+      .select(col(timestamp))
+      .union(toDeleteDF.select(col(timestamp)))
+      .select(date_format(col(timestamp), "yyyyMMdd").cast("string"))
+      .where(col(timestamp).isNotNull)
+      .distinct()
+      .collect()
+      .map(_.getString(0))
+      .toList
+  }
 
 }

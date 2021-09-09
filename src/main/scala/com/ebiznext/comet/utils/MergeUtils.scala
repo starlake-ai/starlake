@@ -4,7 +4,7 @@ import com.ebiznext.comet.schema.model.MergeOptions
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.expressions.Window
-import org.apache.spark.sql.functions.{col, date_format, lit, row_number}
+import org.apache.spark.sql.functions.{col, lit, row_number}
 import org.apache.spark.sql.types.{ArrayType, DataType, StructType}
 
 object MergeUtils extends StrictLogging {
@@ -62,6 +62,13 @@ object MergeUtils extends StrictLogging {
     incomingDF: DataFrame,
     mergeOptions: MergeOptions
   ): (DataFrame, DataFrame) = {
+    logger.info(s"incomingDF Schema before merge -> ${incomingDF.schema}")
+    logger.info(s"existingDF Schema before merge -> ${existingDF.schema}")
+    logger.info(s"existingDF field count=${existingDF.schema.fields.length}")
+    logger.info(s"existingDF field list=${existingDF.schema.fields.map(_.name).mkString(",")}")
+    logger.info(s"incomingDF field count=${incomingDF.schema.fields.length}")
+    logger.info(s"incomingDF field list=${incomingDF.schema.fields.map(_.name).mkString(",")}")
+
     val finalIncomingDF = mergeOptions.delete
       .map(condition => incomingDF.filter(s"not ($condition)"))
       .getOrElse(incomingDF)
@@ -155,27 +162,4 @@ object MergeUtils extends StrictLogging {
     // place toAddDF first, so that if a new data takes precedence over the rest
     toAddDF.union(patchedDF)
   }
-
-  def computePartitionsToUpdateAfterMerge(
-    mergedDF: DataFrame,
-    toDeleteDF: DataFrame,
-    timestamp: String,
-    dateFormat: String
-  ): List[String] = {
-    logger.info(s"Computing partitions to update on date column $timestamp")
-    val partitionsToUpdate = mergedDF
-      .select(col(timestamp))
-      .union(toDeleteDF.select(col(timestamp)))
-      .select(date_format(col(timestamp), dateFormat).cast("string"))
-      .where(col(timestamp).isNotNull)
-      .distinct()
-      .collect()
-      .map(_.getString(0))
-      .toList
-    logger.info(
-      s"The following partitions will be updated ${partitionsToUpdate.mkString(",")}"
-    )
-    partitionsToUpdate
-  }
-
 }
