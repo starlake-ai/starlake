@@ -12,10 +12,10 @@ import com.ebiznext.comet.schema.model.Rejection.{ColInfo, ColResult}
 import com.ebiznext.comet.schema.model.Trim.{BOTH, LEFT, RIGHT}
 import com.ebiznext.comet.schema.model._
 import com.ebiznext.comet.utils.Formatter._
+import com.ebiznext.comet.utils._
 import com.ebiznext.comet.utils.conversion.BigQueryUtils
 import com.ebiznext.comet.utils.kafka.KafkaClient
 import com.ebiznext.comet.utils.repackaged.BigQuerySchemaConverters
-import com.ebiznext.comet.utils._
 import com.google.cloud.bigquery.JobInfo.{CreateDisposition, WriteDisposition}
 import com.google.cloud.bigquery.{
   Field,
@@ -360,12 +360,16 @@ trait IngestionJob extends SparkJob {
     acceptedPath: Path,
     finalAcceptedDF: DataFrame
   ): (DataFrame, Option[List[String]]) = {
-    schema.merge.fold((finalAcceptedDF, Option.empty[List[String]])) { mergeOptions =>
-      metadata.getSink() match {
-        case Some(_: BigQuerySink) => mergeFromBQ(finalAcceptedDF, mergeOptions)
-        case _                     => mergeFromParquet(acceptedPath, finalAcceptedDF, mergeOptions)
+    val (mergedDF, partitionsToUpdate) =
+      schema.merge.fold((finalAcceptedDF, Option.empty[List[String]])) { mergeOptions =>
+        metadata.getSink() match {
+          case Some(_: BigQuerySink) => mergeFromBQ(finalAcceptedDF, mergeOptions)
+          case _ => mergeFromParquet(acceptedPath, finalAcceptedDF, mergeOptions)
+        }
       }
-    }
+
+    if (settings.comet.mergeForceDistinct) (mergedDF.distinct(), partitionsToUpdate)
+    else (mergedDF, partitionsToUpdate)
   }
 
   private def computeFinalSchema(acceptedDfWithoutIgnoredFields: DataFrame) = {
@@ -800,44 +804,6 @@ trait IngestionJob extends SparkJob {
   // region Merge between the target and the source Dataframe
   ///////////////////////////////////////////////////////////////////////////
 
-  private def processMerge(
-    incomingDF: DataFrame,
-    existingDF: DataFrame,
-    mergeOptions: MergeOptions
-  ): (DataFrame, Option[List[String]]) = {
-    logger.info(s"incomingDF Schema before merge -> ${incomingDF.schema}")
-    logger.info(s"existingDF Schema before merge -> ${existingDF.schema}")
-    logger.info(s"existingDF field count=${existingDF.schema.fields.length}")
-    logger.info(s"existingDF field list=${existingDF.schema.fields.map(_.name).mkString(",")}")
-    logger.info(s"incomingDF field count=${incomingDF.schema.fields.length}")
-    logger.info(s"incomingDF field list=${incomingDF.schema.fields.map(_.name).mkString(",")}")
-
-    val (mergedDF, toDeleteDF) =
-      MergeUtils.computeToMergeAndToDeleteDF(existingDF, incomingDF, mergeOptions)
-
-    val partitionOverwriteMode =
-      session.conf.get("spark.sql.sources.partitionOverwriteMode", "static").toLowerCase()
-    val partitionsToUpdate = (
-      partitionOverwriteMode,
-      metadata.getSink(),
-      settings.comet.mergeOptimizePartitionWrite
-    ) match {
-      // no need to apply optimization if existing dataset is empty
-      case ("dynamic", Some(BigQuerySink(_, _, Some(timestamp), _, _, _, _)), true)
-          if !existingDF.isEmpty =>
-        val partitionsToUpdate =
-          MergeUtils.computePartitionsToUpdateAfterMerge(mergedDF, toDeleteDF, timestamp, "yyyyMMdd")
-        Some(partitionsToUpdate)
-      case ("static", _, _) | ("dynamic", _, _) =>
-        None
-      case (_, _, _) =>
-        throw new Exception("Should never happen")
-    }
-
-    if (settings.comet.mergeForceDistinct) (mergedDF.distinct(), partitionsToUpdate)
-    else (mergedDF, partitionsToUpdate)
-  }
-
   private def mergeFromParquet(
     acceptedPath: Path,
     withScriptFieldsDF: DataFrame,
@@ -864,7 +830,9 @@ trait IngestionJob extends SparkJob {
       .map(_.name)
       .mkString(",")}""")
 
-    processMerge(partitionedInputDF, existingDF, mergeOptions)
+    val (mergedDF, _) =
+      MergeUtils.computeToMergeAndToDeleteDF(existingDF, partitionedInputDF, mergeOptions)
+    (mergedDF, None)
   }
 
   /** In the queryFilter, the user may now write something like this : `partitionField in last(3)`
@@ -916,7 +884,33 @@ trait IngestionJob extends SparkJob {
         session.createDataFrame(session.sparkContext.emptyRDD[Row], withScriptFieldsDF.schema)
       }
 
-    processMerge(withScriptFieldsDF, existingDF, mergeOptions)
+    val (mergedDF, toDeleteDF) =
+      MergeUtils.computeToMergeAndToDeleteDF(existingDF, withScriptFieldsDF, mergeOptions)
+
+    val partitionOverwriteMode =
+      session.conf.get("spark.sql.sources.partitionOverwriteMode", "static").toLowerCase()
+    val partitionsToUpdate = (
+      partitionOverwriteMode,
+      metadata.getSink(),
+      settings.comet.mergeOptimizePartitionWrite
+    ) match {
+      // no need to apply optimization if existing dataset is empty
+      case ("dynamic", Some(BigQuerySink(_, _, Some(timestamp), _, _, _, _)), true)
+          if !existingDF.isEmpty =>
+        logger.info(s"Computing partitions to update on date column $timestamp")
+        val partitionsToUpdate =
+          BigQueryUtils.computePartitionsToUpdateAfterMerge(mergedDF, toDeleteDF, timestamp)
+        logger.info(
+          s"The following partitions will be updated ${partitionsToUpdate.mkString(",")}"
+        )
+        Some(partitionsToUpdate)
+      case ("static", _, _) | ("dynamic", _, _) =>
+        None
+      case (_, _, _) =>
+        throw new Exception("Should never happen")
+    }
+
+    (mergedDF, partitionsToUpdate)
   }
 
   ///////////////////////////////////////////////////////////////////////////
