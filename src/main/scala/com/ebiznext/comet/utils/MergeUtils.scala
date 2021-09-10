@@ -107,31 +107,39 @@ object MergeUtils extends StrictLogging {
     */
   private def computeDataframeUnion(originalDF: DataFrame, toAddDF: DataFrame): DataFrame = {
     // return an optional list of column paths (ex "root.field" <=> ("root", "field"))
-    def findMissingColumnsType(
-      schema: StructType,
-      reference: StructType,
-      stack: List[String] = List()
+    def findMissingColumns(
+      originalSchema: StructType,
+      toAddSchema: StructType,
+      currentFieldPathName: List[String] = List()
     ): Option[Map[List[String], DataType]] = {
-      val fields = schema.fields.map(field => field.name -> field).toMap
-      reference.fields
-        .flatMap { referenceField =>
-          fields
-            .get(referenceField.name)
+      val originalFields = originalSchema.fields.map(field => field.name -> field).toMap
+      toAddSchema.fields
+        .flatMap { toAddField =>
+          originalFields
+            .get(toAddField.name)
             .fold(
               // Without match, we have found a missing column
-              Option(Map((stack :+ referenceField.name) -> referenceField.dataType))
+              Option(Map((currentFieldPathName :+ toAddField.name) -> toAddField.dataType))
             ) { field =>
-              (field.dataType, referenceField.dataType) match {
+              (field.dataType, toAddField.dataType) match {
                 // In here, we known the reference column is matched in the original schema
                 // If the innerType is a StructType, we must do some recursion
                 // Otherwise, we can end the search, there is no missing column here.
                 case (fieldType: StructType, referenceType: StructType) =>
-                  findMissingColumnsType(fieldType, referenceType, stack :+ referenceField.name)
+                  findMissingColumns(
+                    fieldType,
+                    referenceType,
+                    currentFieldPathName :+ toAddField.name
+                  )
                 case (
                       ArrayType(fieldType: StructType, _),
                       ArrayType(referenceType: StructType, _)
                     ) =>
-                  findMissingColumnsType(fieldType, referenceType, stack :+ referenceField.name)
+                  findMissingColumns(
+                    fieldType,
+                    referenceType,
+                    currentFieldPathName :+ toAddField.name
+                  )
                 case (_, _) => None
               }
             }
@@ -139,12 +147,13 @@ object MergeUtils extends StrictLogging {
         .reduceOption(_ ++ _)
     }
 
-    val missingTypes = findMissingColumnsType(originalDF.schema, toAddDF.schema)
-    val patchedDF = missingTypes
-      .fold(originalDF) { missingTypes =>
-        missingTypes.foldLeft(originalDF) {
-          (dataframe: DataFrame, missingType: (List[String], DataType)) =>
-            missingType match {
+    val missingColumns = findMissingColumns(originalDF.schema, toAddDF.schema)
+    val patchedDF = missingColumns
+      .fold(originalDF) { missingColumns =>
+        missingColumns.foldLeft(originalDF) {
+          (dataframe: DataFrame, missingColumns: (List[String], DataType)) =>
+            missingColumns match {
+              case (Nil, _) => dataframe
               case (colName :: Nil, dataType) =>
                 dataframe.withColumn(colName, lit(null).cast(dataType))
               case (colName :: tail, dataType) =>
@@ -152,7 +161,6 @@ object MergeUtils extends StrictLogging {
                   colName,
                   col(colName).withField(tail.mkString("."), lit(null).cast(dataType))
                 )
-              case (_, _) => dataframe
             }
         }
       }
