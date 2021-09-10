@@ -145,7 +145,6 @@ object MergeUtils extends StrictLogging {
         missingTypes.foldLeft(originalDF) {
           (dataframe: DataFrame, missingType: (List[String], DataType)) =>
             missingType match {
-              case (Nil, _) => dataframe
               case (colName :: Nil, dataType) =>
                 dataframe.withColumn(colName, lit(null).cast(dataType))
               case (colName :: tail, dataType) =>
@@ -153,6 +152,7 @@ object MergeUtils extends StrictLogging {
                   colName,
                   col(colName).withField(tail.mkString("."), lit(null).cast(dataType))
                 )
+              case (_, _) => dataframe
             }
         }
       }
