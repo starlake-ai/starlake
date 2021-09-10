@@ -896,7 +896,7 @@ trait IngestionJob extends SparkJob {
       settings.comet.mergeOptimizePartitionWrite
     ) match {
       // no need to apply optimization if existing dataset is empty
-      case ("dynamic", Some(timestamp), true) if !existingDF.isEmpty =>
+      case ("dynamic", Some(timestamp), true) if existingDF.limit(1).count == 1 =>
         logger.info(s"Computing partitions to update on date column $timestamp")
         val partitionsToUpdate =
           BigQueryUtils.computePartitionsToUpdateAfterMerge(mergedDF, toDeleteDF, timestamp)
