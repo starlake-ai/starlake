@@ -1,5 +1,9 @@
 # Release notes
 
+# 0.2.7
+__New feature__:
+- Support merging dataset with updated schema
+
 # 0.2.6
 __New feature__:
 - Support XML Schema inference
