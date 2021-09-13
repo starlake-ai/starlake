@@ -210,7 +210,6 @@ class SchemaHandlerSpec extends TestHelper {
         datasetDomainName = "DOMAIN",
         sourceDatasetPathName = "/sample/Players-merge.csv"
       ) {
-
         cleanMetadata
         deliverSourceDomain()
         loadPending
@@ -239,7 +238,6 @@ class SchemaHandlerSpec extends TestHelper {
         datasetDomainName = "DOMAIN",
         sourceDatasetPathName = "/sample/Players-merge.csv"
       ) {
-
         cleanMetadata
         deliverSourceDomain()
         loadPending
@@ -257,6 +255,47 @@ class SchemaHandlerSpec extends TestHelper {
             .option("encoding", "UTF-8")
             .schema(playerSchema)
             .csv(getResPath("/expected/datasets/accepted/DOMAIN/Players-always-override.csv"))
+            .collect()
+
+        accepted should contain theSameElementsAs expected
+      }
+    }
+    "Ingest updated schema with merge" should "produce merged results accepted" in {
+      new SpecTrait(
+        domainOrJobFilename = "simple-merge.comet.yml",
+        sourceDomainOrJobPathname = s"/sample/merge/simple-merge.comet.yml",
+        datasetDomainName = "DOMAIN",
+        sourceDatasetPathName = "/sample/Players.csv"
+      ) {
+        cleanMetadata
+        cleanDatasets
+        loadPending
+      }
+
+      new SpecTrait(
+        domainOrJobFilename = "merge-with-new-schema.comet.yml",
+        sourceDomainOrJobPathname = s"/sample/merge/merge-with-new-schema.comet.yml",
+        datasetDomainName = "DOMAIN",
+        sourceDatasetPathName = "/sample/merge/Players-Entitled.csv"
+      ) {
+        cleanMetadata
+        deliverSourceDomain()
+        loadPending
+
+        val accepted: Array[Row] = sparkSession.read
+          .parquet(cometDatasetsPath + s"/accepted/$datasetDomainName/Players")
+          .collect()
+
+        // Input contains a row with an older timestamp
+        // With MergeOptions.timestamp set, that row should be ignored (the rest should be updated)
+
+        val expected: Array[Row] =
+          sparkSession.read
+            .option("encoding", "UTF-8")
+            .schema(
+              "`PK` STRING,`firstName` STRING,`lastName` STRING,`DOB` DATE,`title` STRING,`YEAR` INT,`MONTH` INT"
+            )
+            .csv(getResPath("/expected/datasets/accepted/DOMAIN/Players-merged-entitled.csv"))
             .collect()
 
         accepted should contain theSameElementsAs expected
