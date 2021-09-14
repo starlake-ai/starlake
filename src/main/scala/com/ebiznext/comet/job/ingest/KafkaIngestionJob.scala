@@ -81,11 +81,15 @@ class KafkaIngestionJob(
       case _ =>
         throw new Exception("Should never happen")
     }
-    logger.debug(dfIn.schema.treeString)
+    logger.whenDebugEnabled {
+      logger.debug(dfIn.schemaString())
+    }
     val rddIn = dfIn.rdd.map { row =>
       row.getAs[String]("value")
     }
-    logger.debug(dfIn.schema.treeString)
+    logger.whenDebugEnabled {
+      logger.debug(dfIn.schemaString())
+    }
     session.createDataset(rddIn)(Encoders.STRING)
   }
 
