@@ -85,7 +85,9 @@ class SimpleJsonIngestionJob(
             )
         }
 
-      logger.debug(dfIn.schema.treeString)
+      logger.whenDebugEnabled {
+        logger.debug(dfIn.schemaString())
+      }
 
       val df = applyIgnore(dfIn)
 
@@ -93,7 +95,7 @@ class SimpleJsonIngestionJob(
       if (df.columns.contains("_corrupt_record")) {
         //TODO send rejected records to rejected area
         logger.whenDebugEnabled {
-          df.filter($"_corrupt_record".isNotNull).show(1000, truncate = false)
+          logger.debug(df.filter($"_corrupt_record".isNotNull).showString(1000, truncate = 0))
         }
         throw new Exception(
           s"""Invalid JSON File: ${path
