@@ -49,7 +49,7 @@ class JsonMultilineIngestionJobSpec extends TestHelper with JdbcChecks {
             cometDatasetsPath + s"/accepted/${datasetDomainName}/sample_json/${getTodayPartitionPath}"
           )
 
-        resultDf.show(false)
+        logger.info(resultDf.showString(truncate = 0))
         import sparkSession.implicits._
         resultDf
           .select($"email")

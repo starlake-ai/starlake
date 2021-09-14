@@ -184,7 +184,7 @@ object DDL2Yml extends LazyLogging {
         def hasNext: Boolean = columnsResultSet.next()
         def next(): Attribute = {
           val colName = columnsResultSet.getString("COLUMN_NAME")
-          println(s"COLUMN_NAME=$tableName.$colName")
+          logger.info(s"COLUMN_NAME=$tableName.$colName")
           val colType = columnsResultSet.getInt("DATA_TYPE")
           val colRemarks = columnsResultSet.getString("REMARKS")
           val colRequired = columnsResultSet.getString("IS_NULLABLE").equals("NO")

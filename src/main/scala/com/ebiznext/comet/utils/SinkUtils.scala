@@ -8,11 +8,11 @@ import com.ebiznext.comet.schema.model._
 import com.google.cloud.bigquery.JobInfo.WriteDisposition
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
-import org.apache.spark.sql.{DataFrame, SaveMode, SparkSession}
+import org.apache.spark.sql.{DataFrame, DatasetLogging, SaveMode, SparkSession}
 
 import scala.util.{Success, Try}
 
-class SinkUtils(implicit settings: Settings) extends StrictLogging {
+class SinkUtils(implicit settings: Settings) extends StrictLogging with DatasetLogging {
 
   def sink(
     sinkType: Sink,
@@ -163,7 +163,7 @@ class SinkUtils(implicit settings: Settings) extends StrictLogging {
       val pathIntermediate = new Path(path.getParent, ".tmp")
 
       logger.whenDebugEnabled {
-        session.read.parquet(path.toString).show(false)
+        logger.debug(session.read.parquet(path.toString).showString(truncate = 0))
       }
       val dataByVariableStored: DataFrame = session.read
         .parquet(path.toString)
@@ -192,7 +192,7 @@ class SinkUtils(implicit settings: Settings) extends StrictLogging {
       storageHandler.delete(path)
       storageHandler.move(pathIntermediate, path)
       logger.whenDebugEnabled {
-        session.read.parquet(path.toString).show(1000, truncate = false)
+        logger.debug(session.read.parquet(path.toString).showString(1000, truncate = 0))
       }
     } else {
       storageHandler.mkdirs(path)

@@ -72,7 +72,9 @@ class PositionIngestionJob(
           session.createDataFrame(rdd.map(line => Row.fromSeq(Seq(line))), schema)
         }
       }
-      logger.debug(dfIn.schema.treeString)
+      logger.whenDebugEnabled {
+        logger.debug(dfIn.schemaString())
+      }
 
       val df = applyIgnore(dfIn)
 
