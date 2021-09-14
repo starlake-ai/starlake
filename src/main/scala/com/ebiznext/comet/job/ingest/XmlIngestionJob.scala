@@ -78,7 +78,9 @@ class XmlIngestionJob(
               .load(singlePath.toString)
           }
           .reduce((acc, df) => acc union df)
-        df.printSchema()
+        logger.whenInfoEnabled {
+          logger.info(df.schemaString())
+        }
         df
       } getOrElse (
         throw new Exception(s"rowTag not found for schema ${domain.name}.${schema.name}")
