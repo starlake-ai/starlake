@@ -39,6 +39,11 @@ class ESLoadJob(
 )(implicit val settings: Settings)
     extends SparkJob {
 
+  /** Set extra spark conf here otherwise it will be too late once the spark session is created.
+    * @return
+    */
+  override def withExtraSparkConf(): Map[String, String] = cliConfig.options
+
   val esresource = Some(("es.resource.write", s"${cliConfig.getResource()}"))
   val esId = cliConfig.id.map("es.mapping.id" -> _)
   val esCliConf = cliConfig.options ++ List(esresource, esId).flatten.toMap
