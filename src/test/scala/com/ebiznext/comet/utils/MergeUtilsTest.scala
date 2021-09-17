@@ -2,7 +2,7 @@ package com.ebiznext.comet.utils
 
 import com.ebiznext.comet.TestHelper
 import com.ebiznext.comet.schema.model.MergeOptions
-import org.apache.spark.sql.types.{StringType, StructType}
+import org.apache.spark.sql.types.{IntegerType, StringType, StructType}
 
 import scala.io.Source
 
@@ -92,6 +92,48 @@ class MergeUtilsTest extends TestHelper {
     val actual = mergedDF.toJSON.collect()
 
     val expected = Source.fromResource("expected/merge/merge-new-schema.jsonl").getLines().toList
+    actual should contain theSameElementsAs expected
+  }
+
+  "build missing type with nested fields" should "succeed" in {
+    val schema = StructType.fromDDL("`id` INT,`data` STRUCT<`version`: INT>")
+
+    val dataFrame =
+      sparkSession.read.schema(schema).json(getResPath("/sample/merge/existing.jsonl"))
+
+    val newDataFrame = Map(List("field") -> StringType, List("data", "new") -> StringType)
+      .foldLeft(dataFrame) { (dataframe, missingType) =>
+        MergeUtils.buildMissingType(dataframe, missingType, useNestedFields = true)
+      }
+    newDataFrame.schema shouldBe new StructType()
+      .add("id", IntegerType)
+      .add("data", new StructType().add("version", IntegerType).add("new", StringType))
+      .add("field", StringType)
+
+    val actual = newDataFrame.toJSON.collect()
+
+    val expected = Source.fromResource("sample/merge/existing.jsonl").getLines().toList
+    actual should contain theSameElementsAs expected
+  }
+
+  "build missing type without nested fields" should "succeed" in {
+    val schema = StructType.fromDDL("`id` INT,`data` STRUCT<`version`: INT>")
+
+    val dataFrame =
+      sparkSession.read.schema(schema).json(getResPath("/sample/merge/existing.jsonl"))
+
+    val newDataFrame = Map(List("field") -> StringType, List("data", "new") -> StringType)
+      .foldLeft(dataFrame) { (dataframe, missingType) =>
+        MergeUtils.buildMissingType(dataframe, missingType, useNestedFields = false)
+      }
+    newDataFrame.schema shouldBe new StructType()
+      .add("id", IntegerType)
+      .add("data", new StructType().add("version", IntegerType).add("new", StringType))
+      .add("field", StringType)
+
+    val actual = newDataFrame.toJSON.collect()
+
+    val expected = Source.fromResource("sample/merge/existing.jsonl").getLines().toList
     actual should contain theSameElementsAs expected
   }
 }
