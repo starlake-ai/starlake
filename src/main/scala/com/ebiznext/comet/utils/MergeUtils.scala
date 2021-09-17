@@ -134,41 +134,34 @@ object MergeUtils extends StrictLogging {
       .reduceOption(_ ++ _)
   }
 
-  private def supportsNestedFieldsOperations(dataFrame: DataFrame): Boolean =
-    Version(dataFrame.sparkSession.sparkContext.version).compareTo(Version("3.1.0")) >= 0
-
-  private def buildMissingType(
-    dataframe: DataFrame,
-    missingType: (List[String], DataType)
-  ): DataFrame = buildMissingType(dataframe, missingType, supportsNestedFieldsOperations(dataframe))
-
   def buildMissingType(
     dataframe: DataFrame,
-    missingType: (List[String], DataType),
-    useNestedFields: Boolean
+    missingType: (List[String], DataType)
   ): DataFrame = {
     // Inspired from https://medium.com/@fqaiser94/manipulating-nested-data-just-got-easier-in-apache-spark-3-1-1-f88bc9003827
-    def buildMissingColumn: (List[String], List[String], DataType, Boolean) => Column = {
-      case (_ :+ colName, Nil, missingType, _) => lit(null).cast(missingType).as(colName)
-      case (_ :+ colName, fields, missingType, true) =>
-        col(colName).withField(fields.mkString("."), lit(null).cast(missingType))
-      case (parents, colName :: fields, missingType, false) =>
+    def buildMissingColumn: (List[String], List[String], DataType) => Column = {
+      case (_ :+ colName, Nil, missingType) => lit(null).cast(missingType).as(colName)
+        //TODO Once we drop support for Spark 2. Use directly withField instead
+      //case (_ :+ colName, fields, missingType, true) =>
+      //  col(colName).withField(fields.mkString("."), lit(null).cast(missingType))
+      //case (parents, colName :: fields, missingType, false) =>
+      case (parents, colName :: fields, missingType) =>
         val parentColName = parents.mkString(".")
         when(
           col(parentColName).isNotNull,
           struct(
             col(s"$parentColName.*"),
-            buildMissingColumn(parents ++ List(colName), fields, missingType, false)
+            buildMissingColumn(parents ++ List(colName), fields, missingType)
           )
         )
-      case (_, _, _, _) => throw new Exception("should never happen")
+      case (_, _, _) => throw new Exception("should never happen")
     }
 
     missingType match {
       case (colName :: tail, dataType) =>
         dataframe.withColumn(
           colName,
-          buildMissingColumn(List(colName), tail, dataType, useNestedFields)
+          buildMissingColumn(List(colName), tail, dataType)
         )
       case (_, _) => dataframe
     }

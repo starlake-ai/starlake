@@ -103,7 +103,7 @@ class MergeUtilsTest extends TestHelper {
 
     val newDataFrame = Map(List("field") -> StringType, List("data", "new") -> StringType)
       .foldLeft(dataFrame) { (dataframe, missingType) =>
-        MergeUtils.buildMissingType(dataframe, missingType, useNestedFields = true)
+        MergeUtils.buildMissingType(dataframe, missingType)
       }
     newDataFrame.schema shouldBe new StructType()
       .add("id", IntegerType)
@@ -124,7 +124,7 @@ class MergeUtilsTest extends TestHelper {
 
     val newDataFrame = Map(List("field") -> StringType, List("data", "new") -> StringType)
       .foldLeft(dataFrame) { (dataframe, missingType) =>
-        MergeUtils.buildMissingType(dataframe, missingType, useNestedFields = false)
+        MergeUtils.buildMissingType(dataframe, missingType)
       }
     newDataFrame.schema shouldBe new StructType()
       .add("id", IntegerType)
