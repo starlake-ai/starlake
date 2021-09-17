@@ -2,10 +2,10 @@ package com.ebiznext.comet.utils
 
 import com.ebiznext.comet.schema.model.MergeOptions
 import com.typesafe.scalalogging.StrictLogging
-import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.expressions.Window
-import org.apache.spark.sql.functions.{col, lit, row_number}
+import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.{ArrayType, DataType, StructType}
+import org.apache.spark.sql.{Column, DataFrame}
 
 object MergeUtils extends StrictLogging {
 
@@ -101,68 +101,88 @@ object MergeUtils extends StrictLogging {
     (mergedDF, toDeleteDF)
   }
 
+  // return an optional list of column paths (ex "root.field" <=> ("root", "field"))
+  private def findMissingColumnsType(
+    schema: StructType,
+    reference: StructType,
+    stack: List[String] = List()
+  ): Option[Map[List[String], DataType]] = {
+    val fields = schema.fields.map(field => field.name -> field).toMap
+    reference.fields
+      .flatMap { referenceField =>
+        fields
+          .get(referenceField.name)
+          .fold(
+            // Without match, we have found a missing column
+            Option(Map((stack :+ referenceField.name) -> referenceField.dataType))
+          ) { field =>
+            (field.dataType, referenceField.dataType) match {
+              // In here, we known the reference column is matched in the original schema
+              // If the innerType is a StructType, we must do some recursion
+              // Otherwise, we can end the search, there is no missing column here.
+              case (fieldType: StructType, referenceType: StructType) =>
+                findMissingColumnsType(fieldType, referenceType, stack :+ referenceField.name)
+              case (
+                    ArrayType(fieldType: StructType, _),
+                    ArrayType(referenceType: StructType, _)
+                  ) =>
+                findMissingColumnsType(fieldType, referenceType, stack :+ referenceField.name)
+              case (_, _) => None
+            }
+          }
+      }
+      .reduceOption(_ ++ _)
+  }
+
+  private def supportsNestedFieldsOperations(dataFrame: DataFrame): Boolean =
+    Version(dataFrame.sparkSession.sparkContext.version).compareTo(Version("3.1.0")) >= 0
+
+  private def buildMissingType(
+    dataframe: DataFrame,
+    missingType: (List[String], DataType)
+  ): DataFrame = buildMissingType(dataframe, missingType, supportsNestedFieldsOperations(dataframe))
+
+  def buildMissingType(
+    dataframe: DataFrame,
+    missingType: (List[String], DataType),
+    useNestedFields: Boolean
+  ): DataFrame = {
+    // Inspired from https://medium.com/@fqaiser94/manipulating-nested-data-just-got-easier-in-apache-spark-3-1-1-f88bc9003827
+    def buildMissingColumn: (List[String], List[String], DataType, Boolean) => Column = {
+      case (_ :+ colName, Nil, missingType, _) => lit(null).cast(missingType).as(colName)
+      case (_ :+ colName, fields, missingType, true) =>
+        col(colName).withField(fields.mkString("."), lit(null).cast(missingType))
+      case (parents, colName :: fields, missingType, false) =>
+        val parentColName = parents.mkString(".")
+        when(
+          col(parentColName).isNotNull,
+          struct(
+            col(s"$parentColName.*"),
+            buildMissingColumn(parents ++ List(colName), fields, missingType, false)
+          )
+        )
+      case (_, _, _, _) => throw new Exception("should never happen")
+    }
+
+    missingType match {
+      case (colName :: tail, dataType) =>
+        dataframe.withColumn(
+          colName,
+          buildMissingColumn(List(colName), tail, dataType, useNestedFields)
+        )
+      case (_, _) => dataframe
+    }
+  }
+
   /** Perform an union between two dataframe. Fixes any missing column from the originalDF by add
     * null values where needed. Assumes toAddDF to at least contains all the columns from originalDF
     * (see {@link computeCompatibleSchema})
     */
   private def computeDataframeUnion(originalDF: DataFrame, toAddDF: DataFrame): DataFrame = {
-    // return an optional list of column paths (ex "root.field" <=> ("root", "field"))
-    def findMissingColumns(
-      originalSchema: StructType,
-      toAddSchema: StructType,
-      currentFieldPathName: List[String] = List()
-    ): Option[Map[List[String], DataType]] = {
-      val originalFields = originalSchema.fields.map(field => field.name -> field).toMap
-      toAddSchema.fields
-        .flatMap { toAddField =>
-          originalFields
-            .get(toAddField.name)
-            .fold(
-              // Without match, we have found a missing column
-              Option(Map((currentFieldPathName :+ toAddField.name) -> toAddField.dataType))
-            ) { field =>
-              (field.dataType, toAddField.dataType) match {
-                // In here, we known the reference column is matched in the original schema
-                // If the innerType is a StructType, we must do some recursion
-                // Otherwise, we can end the search, there is no missing column here.
-                case (fieldType: StructType, referenceType: StructType) =>
-                  findMissingColumns(
-                    fieldType,
-                    referenceType,
-                    currentFieldPathName :+ toAddField.name
-                  )
-                case (
-                      ArrayType(fieldType: StructType, _),
-                      ArrayType(referenceType: StructType, _)
-                    ) =>
-                  findMissingColumns(
-                    fieldType,
-                    referenceType,
-                    currentFieldPathName :+ toAddField.name
-                  )
-                case (_, _) => None
-              }
-            }
-        }
-        .reduceOption(_ ++ _)
-    }
-
-    val missingColumns = findMissingColumns(originalDF.schema, toAddDF.schema)
-    val patchedDF = missingColumns
-      .fold(originalDF) { missingColumns =>
-        missingColumns.foldLeft(originalDF) {
-          (dataframe: DataFrame, missingColumns: (List[String], DataType)) =>
-            missingColumns match {
-              case (Nil, _) => dataframe
-              case (colName :: Nil, dataType) =>
-                dataframe.withColumn(colName, lit(null).cast(dataType))
-              case (colName :: tail, dataType) =>
-                dataframe.withColumn(
-                  colName,
-                  col(colName).withField(tail.mkString("."), lit(null).cast(dataType))
-                )
-            }
-        }
+    val missingTypes = findMissingColumnsType(originalDF.schema, toAddDF.schema)
+    val patchedDF = missingTypes
+      .fold(originalDF) { missingTypes =>
+        missingTypes.foldLeft(originalDF) { buildMissingType }
       }
       // Force ordering of columns to be the same
       .select(toAddDF.columns.map(col): _*)
