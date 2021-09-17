@@ -31,6 +31,15 @@ class BigQuerySparkJob(
     extends SparkJob
     with BigQueryJobBase {
 
+  override def withExtraSparkConf(): Map[String, String] =
+    if (cliConfig.writeDisposition == "WRITE_TRUNCATE")
+      cliConfig.options ++ Map(
+        "spark.datasource.bigquery.allowFieldAddition"   -> "false",
+        "spark.datasource.bigquery.allowFieldRelaxation" -> "false"
+      )
+    else
+      cliConfig.options
+
   override def name: String = s"bqload-${cliConfig.outputDataset}-${cliConfig.outputTable}"
 
   val conf: Configuration = session.sparkContext.hadoopConfiguration
