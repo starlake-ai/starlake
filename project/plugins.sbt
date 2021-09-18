@@ -26,7 +26,7 @@ addSbtPlugin("org.xerial.sbt" % "sbt-sonatype" % "3.9.7")
 addSbtPlugin("com.jsuereth" % "sbt-pgp" % "2.0.2")
 
 // provides "sbt dependencyUpdates":
-addSbtPlugin("com.timushev.sbt" % "sbt-updates" % "0.5.0")
+addSbtPlugin("com.timushev.sbt" % "sbt-updates" % "0.5.3")
 
 addSbtPlugin("com.eed3si9n" % "sbt-buildinfo" % "0.10.0")
 
