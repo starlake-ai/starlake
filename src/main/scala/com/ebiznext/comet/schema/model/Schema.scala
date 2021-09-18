@@ -174,7 +174,43 @@ case class Schema(
 ) {
 
   @JsonIgnore
-  lazy val attributesWithoutScript: List[Attribute] = attributes.filter(_.script.isEmpty)
+  lazy val attributesWithoutScriptedFields: List[Attribute] = attributes.filter(_.script.isEmpty)
+
+  /** This Schema as a Spark Catalyst Schema, without scripted fields
+    *
+    * @return
+    *   Spark Catalyst Schema
+    */
+  def sparkSchemaWithoutScriptedFields(schemaHandler: SchemaHandler): StructType = {
+    val fields = attributes.filter(_.script.isEmpty).map { attr =>
+      StructField(attr.name, attr.sparkType(schemaHandler), !attr.required)
+        .withComment(attr.comment.getOrElse(""))
+    }
+    StructType(fields)
+  }
+
+  def sparkSchemaUntypedEpochWithoutScriptedFields(schemaHandler: SchemaHandler): StructType = {
+    val xx = attributesWithoutScriptedFields
+    val fields = attributesWithoutScriptedFields.map { attr =>
+      val sparkType = attr.tpe(schemaHandler).fold(attr.sparkType(schemaHandler)) { tpe =>
+        (tpe.primitiveType, tpe.pattern) match {
+          case (PrimitiveType.timestamp, "epoch_second") => LongType
+          case (PrimitiveType.timestamp, "epoch_milli")  => LongType
+          case (PrimitiveType.date, _)                   => StringType
+          case (_, _)                                    => attr.sparkType(schemaHandler)
+        }
+      }
+      StructField(attr.name, sparkType, !attr.required)
+        .withComment(attr.comment.getOrElse(""))
+    }
+    StructType(fields)
+  }
+  def sparkSchemaWithoutScriptedFieldsWithInputFileName(
+    schemaHandler: SchemaHandler
+  ): StructType = {
+    sparkSchemaWithoutScriptedFields(schemaHandler)
+      .add(StructField(Settings.cometInputFileNameColumn, StringType))
+  }
 
   /** @return
     *   Are the parittions columns defined in the metadata valid column names
@@ -210,21 +246,6 @@ case class Schema(
     */
   def finalSparkSchema(schemaHandler: SchemaHandler): StructType =
     sparkSchemaWithCondition(schemaHandler, !_.isIgnore())
-
-  /** This Schema as a Spark Catalyst Schema, without scripted fields
-    *
-    * @return
-    *   Spark Catalyst Schema
-    */
-  def sparkSchemaWithoutScriptedFields(schemaHandler: SchemaHandler): StructType = {
-    val fields = attributes.filter(_.script.isEmpty).map { attr =>
-      StructField(attr.name, attr.sparkType(schemaHandler), !attr.required)
-        .withComment(attr.comment.getOrElse(""))
-    }
-    StructType(fields)
-  }
-
-  def attributesWithoutScriptedFields(): List[Attribute] = attributes filter (_.script.isEmpty)
 
   private def sparkSchemaWithCondition(
     schemaHandler: SchemaHandler,

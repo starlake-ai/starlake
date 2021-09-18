@@ -148,10 +148,7 @@ case class Attribute(
       Right(true)
   }
 
-  def tpe(schemaHandler: SchemaHandler): Option[Type] = {
-    schemaHandler.types
-      .find(_.name == `type`)
-  }
+  def tpe(schemaHandler: SchemaHandler): Option[Type] = schemaHandler.types.find(_.name == `type`)
 
   /** Spark Type if this attribute is a primitive type of array of primitive type
     *

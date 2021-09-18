@@ -26,10 +26,10 @@ import com.ebiznext.comet.schema.handlers.{SchemaHandler, StorageHandler}
 import com.ebiznext.comet.schema.model._
 import org.apache.hadoop.fs.Path
 import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.{DataFrame, Row}
 import org.apache.spark.sql.execution.datasources.json.JsonIngestionUtil.compareTypes
 import org.apache.spark.sql.functions.input_file_name
-import org.apache.spark.sql.types.{StringType, StructField, StructType}
+import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.{DataFrame, Row}
 
 import scala.util.Try
 
@@ -74,7 +74,7 @@ class XmlIngestionJob(
               .option("rowTag", rowTag)
               .option("inferSchema", value = false)
               .option("encoding", metadata.getEncoding())
-              .schema(schema.sparkSchemaWithoutScriptedFields(schemaHandler))
+              .schema(schema.sparkSchemaUntypedEpochWithoutScriptedFields(schemaHandler))
               .load(singlePath.toString)
           }
           .reduce((acc, df) => acc union df)
@@ -114,9 +114,9 @@ class XmlIngestionJob(
         val withInputFileNameDS =
           dataset.withColumn(Settings.cometInputFileNameColumn, input_file_name())
 
-        val appliedSchema = schema
-          .sparkSchemaWithoutScriptedFields(schemaHandler)
-          .add(StructField(Settings.cometInputFileNameColumn, StringType))
+        val validationSchema =
+          schema.sparkSchemaWithoutScriptedFieldsWithInputFileName(schemaHandler)
+
         val validationResult =
           treeRowValidator.validate(
             session,
@@ -125,13 +125,13 @@ class XmlIngestionJob(
             withInputFileNameDS,
             schema.attributes,
             types,
-            appliedSchema
+            validationSchema
           )
 
         val allRejected = rejectedRDD.union(validationResult.errors)
         saveRejected(allRejected, validationResult.rejected)
         val transformedAcceptedDF =
-          session.createDataFrame(validationResult.accepted, appliedSchema)
+          session.createDataFrame(validationResult.accepted, validationSchema)
         saveAccepted(transformedAcceptedDF, validationResult)
         (allRejected, validationResult.accepted)
     }
