@@ -3,9 +3,13 @@
     <element continent = "088f003833d523d9dccc529e929afdc7">
         <id>1</id>
         <name>New York</name>
+        <seconds>1631562189</seconds>
+        <millis>1631562190</millis>
     </element>
     <element continent = "912d59cdf1d3f551fae21f6f0062258f">
         <id>2</id>
         <name>Paris</name>
+        <seconds>1631562191</seconds>
+        <millis>1631562192</millis>
     </element>
 </root>

@@ -78,11 +78,19 @@ abstract class JsonIngestionJobSpecBase(variant: String) extends TestHelper with
           .withColumn("email_domain", regexp_extract(col("email"), ".+@(.+)", 1))
           .withColumn("source_file_name", regexp_extract(input_file_name, ".+\\/(.+)$", 1))
 
+        resultDf.show(false)
+        expectedDf.show(false)
         resultDf
+          .drop(col("millis"))
           .except(
-            expectedDf
+            expectedDf.drop(col("millis"))
           )
           .count() shouldBe 0
+
+        import sparkSession.implicits._
+        val (seconds, millis) =
+          resultDf.select(col("seconds"), col("millis")).as[(String, String)].head()
+        seconds shouldBe millis
       }
       expectingAudit("test-h2", expectedAuditLogs(settings): _*)
       expectingRejections("test-h2", expectedRejectRecords(settings): _*)

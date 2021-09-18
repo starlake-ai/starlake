@@ -21,7 +21,6 @@
 package com.ebiznext.comet.schema.handlers
 
 import better.files.File
-import com.databricks.spark.xml._
 import com.dimafeng.testcontainers.ElasticsearchContainer
 import com.ebiznext.comet.TestHelper
 import com.ebiznext.comet.config.DatasetArea
@@ -471,15 +470,17 @@ class SchemaHandlerSpec extends TestHelper {
           .parquet(
             cometDatasetsPath + s"/accepted/$datasetDomainName/locations/$getTodayPartitionPath"
           )
-        acceptedDf.show(false)
-        val expectedAccepted =
-          sparkSession.read
-            .option("rowTag", "element")
-            .xml(
-              getResPath("/expected/datasets/accepted/locations/locations.xml")
-            )
 
-        acceptedDf.except(expectedAccepted).count() shouldBe 0
+        import sparkSession.implicits._
+        val (seconds, millis) =
+          acceptedDf
+            .select($"seconds", $"millis")
+            .filter($"name" like "Paris")
+            .as[(String, String)]
+            .collect()
+            .head
+
+        (seconds, millis) shouldBe ("2021-09-13 21:43:11", "1970-01-19 22:12:42.192")
 
       }
 
