@@ -128,12 +128,14 @@ class JsonIngestionJob(
         }
         .map(_.mkString("\n"))
 
-    val appliedSchema = schema
-      .sparkSchemaWithoutScriptedFields(schemaHandler)
+    val loadSchema = schema
+      .sparkSchemaUntypedEpochWithoutScriptedFields(schemaHandler)
       .add(StructField(Settings.cometInputFileNameColumn, StringType))
 
+    val validationSchema = schema.sparkSchemaWithoutScriptedFieldsWithInputFileName(schemaHandler)
+
     val toValidate = session.read
-      .schema(appliedSchema)
+      .schema(loadSchema)
       .json(session.createDataset(withValidSchema)(Encoders.STRING))
 
     val validationResult =
@@ -144,11 +146,11 @@ class JsonIngestionJob(
         toValidate,
         schema.attributes,
         types,
-        appliedSchema
+        validationSchema
       )
     saveRejected(withInvalidSchema.union(validationResult.errors), validationResult.rejected)
     val acceptedWithFinalSchema =
-      session.createDataFrame(validationResult.accepted, appliedSchema)
+      session.createDataFrame(validationResult.accepted, validationSchema)
     saveAccepted(
       acceptedWithFinalSchema,
       validationResult
