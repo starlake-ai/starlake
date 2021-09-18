@@ -3,6 +3,11 @@
 # 0.2.7
 __New feature__:
 - Support merging dataset with updated schema
+- Support publishing to github packages
+- Reduce number of dependencies
+
+__Bug Fix__:
+- Support timestamps as long in XML & JSOn FIles
 
 # 0.2.6
 __New feature__:
