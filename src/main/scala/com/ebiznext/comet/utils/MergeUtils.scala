@@ -141,7 +141,7 @@ object MergeUtils extends StrictLogging {
     // Inspired from https://medium.com/@fqaiser94/manipulating-nested-data-just-got-easier-in-apache-spark-3-1-1-f88bc9003827
     def buildMissingColumn: (List[String], List[String], DataType) => Column = {
       case (_ :+ colName, Nil, missingType) => lit(null).cast(missingType).as(colName)
-        //TODO Once we drop support for Spark 2. Use directly withField instead
+      //TODO Once we drop support for Spark 2. Use directly withField instead
       //case (_ :+ colName, fields, missingType, true) =>
       //  col(colName).withField(fields.mkString("."), lit(null).cast(missingType))
       //case (parents, colName :: fields, missingType, false) =>
