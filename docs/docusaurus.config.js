@@ -2,16 +2,16 @@
 module.exports = {
     title: "Quickly Build Optimized Big & Fast Data Pipelines",
     tagline: 'So your data just keep moving',
-    url: 'https://ebiznext.github.io',
-    baseUrl: '/comet-data-pipeline/',
+    url: 'https://starlake-ai.github.io',
+    baseUrl: '/starlake/',
     onBrokenLinks: 'throw',
     onBrokenMarkdownLinks: 'warn',
     favicon: 'img/favicon.ico',
-    organizationName: 'ebiznext', // Usually your GitHub org/user name.
-    projectName: 'comet-data-pipeline', // Usually your repo name.
+    organizationName: 'starlake-ai', // Usually your GitHub org/user name.
+    projectName: 'starlake', // Usually your repo name.
     themeConfig: {
         googleAnalytics: {
-            trackingID: 'UA-196399711-1',
+            trackingID: 'G-S16TFWHZYT',
             // Optional fields.
             anonymizeIP: true // Should IPs be anonymized?
         },
@@ -32,10 +32,10 @@ module.exports = {
             //... other Algolia params
         },
         navbar: {
-            title: 'Comet Data Pipeline',
+            title: 'Starlake',
             logo: {
-                alt: 'Comet Data Pipeline',
-                src: 'img/comet.png',
+                alt: 'Starlake',
+                src: 'img/starlake.png',
             },
             items: [
                 {
@@ -46,13 +46,13 @@ module.exports = {
                 },
                 {to: '/blog', label: 'Blog', position: 'left'},
                 {
-                    href: 'https://github.com/ebiznext/comet-data-pipeline/releases/latest',
+                    href: 'https://github.com/starlake-ai/starlake/releases/latest',
                     position: 'right',
                     className: 'header-download-link header-icon-link',
                     'aria-label': 'Download',
                 },
                 {
-                    href: 'https://github.com/ebiznext/comet-data-pipeline',
+                    href: 'https://github.com/starlake-ai/starlake',
                     position: 'right',
                     className: 'header-github-link header-icon-link',
                     'aria-label': 'GitHub repository',
@@ -77,15 +77,15 @@ module.exports = {
                     items: [
                         {
                             label: 'Stack Overflow',
-                            href: 'https://stackoverflow.com/questions/tagged/comet-data-pipeline',
+                            href: 'https://stackoverflow.com/questions/tagged/starlake',
                         },
                         {
                             label: 'Gitter',
-                            href: 'https://gitter.im/comet-data-pipeline/community',
+                            href: 'https://gitter.im/starlake/community',
                         },
                         {
                             label: 'Twitter',
-                            href: 'https://twitter.com/comet-data-pipeline',
+                            href: 'https://twitter.com/starlake-ai',
                         },
                     ],
                 },
@@ -98,12 +98,12 @@ module.exports = {
                         },
                         {
                             label: 'GitHub',
-                            href: 'https://github.com/ebiznext/comet-data-pipeline',
+                            href: 'https://github.com/starlake-ai/starlake',
                         },
                     ],
                 },
             ],
-            copyright: `Copyright © ${new Date().getFullYear()} Comet Data Pipeline, Inc. Built with Docusaurus.`,
+            copyright: `Built with Docusaurus.`,
         },
     },
     presets: [
@@ -114,13 +114,13 @@ module.exports = {
                     sidebarPath: require.resolve('./sidebars.js'),
                     // Please change this to your repo.
                     editUrl:
-                        'https://github.com/ebiznext/comet-data-pipeline/edit/master/docs/',
+                        'https://github.com/starlake-ai/starlake/edit/master/docs/',
                 },
                 blog: {
                     showReadingTime: true,
                     // Please change this to your repo.
                     editUrl:
-                        'https://github.com/ebiznext/comet-data-pipeline/edit/master/docs/blog/',
+                        'https://github.com/starlake-ai/starlake/edit/master/docs/blog/',
                 },
                 theme: {
                     customCss: require.resolve('./src/css/custom.css'),
