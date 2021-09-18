@@ -80,8 +80,8 @@ module.exports = {
                             href: 'https://stackoverflow.com/questions/tagged/starlake',
                         },
                         {
-                            label: 'Gitter',
-                            href: 'https://gitter.im/starlake/community',
+                            label: 'Discuss',
+                            href: 'https://github.com/starlake-ai/starlake/issues',
                         },
                         {
                             label: 'Twitter',

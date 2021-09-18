@@ -34,3 +34,13 @@ types:
     pattern: "dd.MM.yyyy"
     sample: 21.07.2018
     comment: Date in the format dd.MM.yyyy
+  - name: "epoch_second"
+    primitiveType: "timestamp"
+    pattern: "epoch_second"
+    sample: "1631562304"
+    comment: "date/time in epoch seconds"
+  - name: "epoch_milli"
+    primitiveType: "timestamp"
+    pattern: "epoch_milli"
+    sample: "1631562304000"
+    comment: "date/time in epoch milliseconds"

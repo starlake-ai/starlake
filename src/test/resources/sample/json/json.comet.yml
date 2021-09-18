@@ -19,6 +19,14 @@ schemas:
         type: "email"
         required: true
         privacy: "NONE"
+      - name: "seconds"
+        type: "epoch_second"
+        required: true
+        privacy: "NONE"
+      - name: "millis"
+        type: "epoch_milli"
+        required: true
+        privacy: "NONE"
       - name: "textattr"
         type: "string"
         required: true

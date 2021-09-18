@@ -918,7 +918,7 @@ trait IngestionJob extends SparkJob {
   ///////////////////////////////////////////////////////////////////////////
 
   def reorderAttributes(dataFrame: DataFrame): List[Attribute] = {
-    val finalSchema = schema.attributesWithoutScript :+ Attribute(
+    val finalSchema = schema.attributesWithoutScriptedFields :+ Attribute(
       name = Settings.cometInputFileNameColumn
     )
     val attributesMap =
