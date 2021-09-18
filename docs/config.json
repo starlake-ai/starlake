@@ -1,10 +1,10 @@
 {
     "index_name": "comet-website",
     "start_urls": [
-    "https://ebiznext.github.io/comet-data-pipeline/"
+    "https://starlake-ai.github.io/starlake/"
 ],
     "sitemap_urls": [
-    "https://ebiznext.github.io/comet-data-pipeline/sitemap.xml"
+    "https://starlake-ai.github.io/starlake/sitemap.xml"
 ],
     "sitemap_alternate_links": true,
     "stop_urls": [],

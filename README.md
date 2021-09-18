@@ -1,14 +1,14 @@
-![Build Status](https://github.com/ebiznext/comet-data-pipeline/workflows/Build/badge.svg)
+![Build Status](https://github.com/starlake-ai/starlake/workflows/Build/badge.svg)
 [![Scala Steward badge](https://img.shields.io/badge/Scala_Steward-helping-blue.svg?style=flat&logo=data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAQCAMAAAARSr4IAAAAVFBMVEUAAACHjojlOy5NWlrKzcYRKjGFjIbp293YycuLa3pYY2LSqql4f3pCUFTgSjNodYRmcXUsPD/NTTbjRS+2jomhgnzNc223cGvZS0HaSD0XLjbaSjElhIr+AAAAAXRSTlMAQObYZgAAAHlJREFUCNdNyosOwyAIhWHAQS1Vt7a77/3fcxxdmv0xwmckutAR1nkm4ggbyEcg/wWmlGLDAA3oL50xi6fk5ffZ3E2E3QfZDCcCN2YtbEWZt+Drc6u6rlqv7Uk0LdKqqr5rk2UCRXOk0vmQKGfc94nOJyQjouF9H/wCc9gECEYfONoAAAAASUVORK5CYII=)](https://scala-steward.org)
-[![codecov](https://codecov.io/gh/ebiznext/comet-data-pipeline/branch/master/graph/badge.svg)](https://codecov.io/gh/ebiznext/comet-data-pipeline)
-[![Codacy Badge](https://app.codacy.com/project/badge/Grade/f79729e67cce45aba81e1950b91ef8eb)](https://www.codacy.com/gh/ebiznext/comet-data-pipeline/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=ebiznext/comet-data-pipeline&amp;utm_campaign=Badge_Grade)
-[![Documentation](https://img.shields.io/badge/docs-passing-green.svg)](https://ebiznext.github.io/comet-data-pipeline/)
+[![codecov](https://codecov.io/gh/starlake-ai/starlake/branch/master/graph/badge.svg)](https://codecov.io/gh/starlake-ai/starlake)
+[![Codacy Badge](https://app.codacy.com/project/badge/Grade/569178d6936842808702e72c30d74643)](https://www.codacy.com/gh/starlake-ai/starlake/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=starlake-ai/starlake&amp;utm_campaign=Badge_Grade)
+[![Documentation](https://img.shields.io/badge/docs-passing-green.svg)](https://starlake-ai.github.io/starlake/)
 [![Maven Central Comet Spark 3](https://maven-badges.herokuapp.com/maven-central/com.ebiznext/comet-spark3_2.12/badge.svg)](https://mvnrepository.com/artifact/com.ebiznext/comet-spark3_2.12)
-[![Join the chat at https://gitter.im/comet-data-pipeline/community](https://badges.gitter.im/comet-data-pipeline/community.svg)](https://gitter.im/comet-data-pipeline/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+[![Join the chat at https://gitter.im/comet-data-pipeline/community](https://badges.gitter.im/starlake/community.svg)](https://gitter.im/starlake/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-# About Comet Data Pipeline
+# About Starlake
 
-Complete documentation available [here](https://ebiznext.github.io/comet-data-pipeline/)
+Complete documentation available [here](https://starlake-ai.github.io/starlake/index.html)
 
 ## Introduction
 
