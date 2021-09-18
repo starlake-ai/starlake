@@ -19,13 +19,13 @@ lazy val scala211 = "2.11.12"
 
 crossScalaVersions := List(scala211, scala212)
 
-organization := "com.ebiznext"
+organization := "ai.starlake"
 
-organizationName := "ebiznext"
+organizationName := "starlake"
 
 scalaVersion := scala212
 
-organizationHomepage := Some(url("https://github.com/ebiznext/comet-data-pipeline"))
+organizationHomepage := Some(url("https://github.com/starlake-ai/starlake"))
 
 libraryDependencies ++= {
   val (spark, jackson, esSpark) = {
@@ -46,17 +46,11 @@ name := {
       case _             => throw new Exception(s"Invalid Scala Version")
     }
   }
-  s"comet-spark$sparkNameSuffix"
+  s"starlake-spark$sparkNameSuffix"
 }
 
 assembly / assemblyJarName := s"${name.value}_${scalaBinaryVersion.value}-${version.value}-assembly.jar"
 
-/*
-artifactName := { (sv: ScalaVersion, module: ModuleID, artifact: Artifact) =>
-  artifact.name + "-spark" + sparkMajor +   + "_" + sv.binary "-" + module.revision + "." + artifact.extension
-}
- */
-// assembly / assemblyJarName := s"comet-spark-${sparkVersion}_${scalaVersion.value}-assembly.jar"
 
 Common.enableCometAliases
 
@@ -107,14 +101,16 @@ assembly / assemblyShadeRules := Seq(
 
 // Publish
 publishTo := {
-  sys.env.get("GCS_BUCKET_ARTEFACTS") match {
-    case None =>
-      sonatypePublishToBundle.value
-    case Some(value) => Some(GCSPublisher.forBucket(value, AccessRights.InheritBucket))
+  (sys.env.get("GCS_BUCKET_ARTEFACTS"), sys.env.getOrElse("RELEASE_SONATYPE", "false").toBoolean) match {
+    case (None, false) =>
+      githubPublishTo.value
+    case (None, true) => sonatypePublishToBundle.value
+    case (Some(value), _) =>
+      Some(GCSPublisher.forBucket(value, AccessRights.InheritBucket))
   }
 }
 // Your profile name of the sonatype account. The default is the same with the organization value
-sonatypeProfileName := "com.ebiznext"
+sonatypeProfileName := "ai.starlake"
 
 // To sync with Maven central, you need to supply the following information:
 publishMavenStyle := true
@@ -125,7 +121,7 @@ licenses := Seq(
 )
 
 sonatypeProjectHosting := Some(
-  GitHubHosting("ebiznext", "comet-data-pipeline", "hayssam@saleh.fr")
+  GitHubHosting("starlake-ai", "starlake", "hayssam.saleh@starlake.ai")
 )
 
 // Release
@@ -151,6 +147,14 @@ releaseProcess := Seq(
 releaseCommitMessage := s"Release ${ReleasePlugin.runtimeVersion.value}"
 
 releaseVersionBump := Next
+
+// publish to github packages
+
+githubOwner := "starlake-ai"
+
+githubRepository := "starlake"
+
+githubTokenSource := TokenSource.Environment("GITHUB_TOKEN")
 
 
 developers := List(
