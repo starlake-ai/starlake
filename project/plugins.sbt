@@ -19,7 +19,7 @@ addSbtPlugin("org.scalameta" % "sbt-scalafmt" % "2.4.3")
 
 addSbtPlugin("com.lightbend" % "sbt-google-cloud-storage" % "0.0.10")
 
-addSbtPlugin("com.github.sbt" % "sbt-release" % "1.0.15")
+addSbtPlugin("com.github.sbt" % "sbt-release" % "1.1.0")
 
 addSbtPlugin("org.xerial.sbt" % "sbt-sonatype" % "3.9.10")
 
