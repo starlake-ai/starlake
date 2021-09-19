@@ -17,6 +17,7 @@ jobs:
       - uses: smartsquaregmbh/delete-old-packages@v0.3.1
         with:
           version-pattern: "^\\d+\\.\\d+\\.\\d+-SNAPSHOT$" # Remove all previous SNAPSHOT versions
+          keep: 0
           names: |
             ai.starlake.starlake-spark2_2.11
             ai.starlake.starlake-spark3_2.12
