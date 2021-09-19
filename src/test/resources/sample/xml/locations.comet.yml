@@ -34,3 +34,11 @@ schemas:
         type: "string"
         required: false
         privacy: "NONE"
+      - name: "seconds"
+        type: "epoch_second"
+        required: true
+        privacy: "NONE"
+      - name: "millis"
+        type: "epoch_milli"
+        required: true
+        privacy: "NONE"
