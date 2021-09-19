@@ -94,7 +94,7 @@ class PositionIngestionJob(
   override protected def ingest(input: DataFrame): (RDD[_], RDD[_]) = {
 
     val dataset: DataFrame =
-      PositionIngestionUtil.prepare(session, input, schema.attributesWithoutScript)
+      PositionIngestionUtil.prepare(session, input, schema.attributesWithoutScriptedFields)
 
     val orderedAttributes = reorderAttributes(dataset)
 
