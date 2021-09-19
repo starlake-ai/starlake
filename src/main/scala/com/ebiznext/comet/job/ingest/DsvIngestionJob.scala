@@ -27,7 +27,7 @@ import com.ebiznext.comet.schema.model._
 import org.apache.hadoop.fs.Path
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql._
-import org.apache.spark.sql.types.{StructField, StructType}
+import org.apache.spark.sql.types.StructType
 
 import scala.util.Try
 
@@ -124,9 +124,8 @@ class DsvIngestionJob(
       logger.debug(dfIn.schema.treeString)
       if (dfIn.limit(1).count() == 0) {
         //empty dataframe with accepted schema
-        val sparkSchema = schema.attributesWithoutScriptedFields().map { attr =>
-          StructField(attr.name, attr.sparkType(schemaHandler), !attr.required)
-        }
+        val sparkSchema = schema.sparkSchemaWithoutScriptedFields(schemaHandler)
+
         session
           .createDataFrame(session.sparkContext.emptyRDD[Row], StructType(sparkSchema))
           .withColumn(
@@ -136,6 +135,7 @@ class DsvIngestionJob(
       } else {
         val df = applyIgnore(dfIn)
 
+        val attributesWithoutScriptedFields = schema.attributesWithoutScriptedFields
         val resDF = metadata.withHeader match {
           case Some(true) =>
             val datasetHeaders: List[String] = df.columns.toList.map(cleanHeaderCol)
@@ -152,21 +152,25 @@ class DsvIngestionJob(
              if there are more in the CSV file
              */
 
-            val attributesWithoutscript = schema.attributesWithoutScript
             val compare =
-              attributesWithoutscript.length.compareTo(df.columns.length)
+              attributesWithoutScriptedFields.length.compareTo(df.columns.length)
             compare match {
               case 0 =>
                 df.toDF(
-                  attributesWithoutscript.map(_.name).take(attributesWithoutscript.length): _*
+                  attributesWithoutScriptedFields
+                    .map(_.name)
+                    .take(attributesWithoutScriptedFields.length): _*
                 )
               case c if c > 0 =>
-                val countMissing = attributesWithoutscript.length - df.columns.length
+                val countMissing =
+                  attributesWithoutScriptedFields.length - df.columns.length
                 throw new Exception(s"$countMissing MISSING columns in the input DataFrame ")
               case _ => // compare < 0
                 val cols = df.columns
-                df.select(cols.head, cols.tail.take(attributesWithoutscript.length - 1): _*)
-                  .toDF(attributesWithoutscript.map(_.name): _*)
+                df.select(
+                  cols.head,
+                  cols.tail.take(attributesWithoutScriptedFields.length - 1): _*
+                ).toDF(attributesWithoutScriptedFields.map(_.name): _*)
             }
         }
         resDF.withColumn(
