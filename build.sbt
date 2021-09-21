@@ -31,7 +31,11 @@ libraryDependencies ++= {
   val (spark, jackson, esSpark) = {
     CrossVersion.partialVersion(scalaVersion.value) match {
       case Some((2, 12)) => (spark_3d0_forScala_2d12, jackson212ForSpark3, esSpark212)
-      case Some((2, 11)) => (spark_2d4_forScala_2d11, jackson211ForSpark2, esSpark211)
+      case Some((2, 11)) =>
+        sys.env.getOrElse("COMET_HDP31", "false").toBoolean match {
+          case false => (spark_2d4_forScala_2d11, jackson211ForSpark2, esSpark211)
+          case true => (spark_2d4_forScala_2d11, jackson211ForSpark2Hdp31, esSpark211)
+        }
       case _             => throw new Exception(s"Invalid Scala Version")
     }
   }
