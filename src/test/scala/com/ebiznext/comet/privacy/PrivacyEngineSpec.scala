@@ -125,5 +125,52 @@ class PrivacyEngineSpec extends TestHelper {
       result2 shouldBe ""
 
     }
+    "hash functions" should "not have missing leading zeros" in {
+      val randomString = "SomeStringThatDoNotProduceLeadingZeroAfterHash"
+      //SHA256
+      val testStr1SHA256 = "9QGXpjDcIt"
+      val testStr2SHA256 = "w3D6vpfT02"
+      val hashSHA256 = PrivacyEngine.algo("SHA-256", testStr1SHA256)
+      val hash2SHA256 = PrivacyEngine.algo("SHA-256", testStr2SHA256)
+      val hashTestSHA256 = PrivacyEngine.algo("SHA-256", randomString)
+      hashSHA256.startsWith("0") shouldBe true
+      hash2SHA256.startsWith("0") shouldBe true
+      println(hash2SHA256)
+      hashSHA256.length shouldBe 64
+      hash2SHA256.length shouldBe 64
+
+      hashTestSHA256.startsWith("0") shouldBe false
+      hashTestSHA256.length shouldBe 64
+
+      // MD 5
+      val testStrMD5 = "dzRycgvXb9"
+      val hashMD5 = PrivacyEngine.algo("MD5", testStrMD5)
+      val hashTestMD5 = PrivacyEngine.algo("MD5", randomString)
+      hashMD5.startsWith("0") shouldBe true
+      hashMD5.length shouldBe 32
+
+      hashTestMD5.startsWith("0") shouldBe false
+      hashTestMD5.length shouldBe 32
+      // SHA-1
+      val testStrSHA1 = "bHXgtt2xvO"
+      val hashSHA1 = PrivacyEngine.algo("SHA-1", testStrSHA1)
+      val hashTestSHA1 = PrivacyEngine.algo("SHA-1", randomString)
+      hashSHA1.startsWith("0") shouldBe true
+      hashSHA1.length shouldBe 40
+
+      hashTestSHA1.startsWith("0") shouldBe false
+      hashTestSHA1.length shouldBe 40
+
+      // SHA-512
+      val testStrSHA512 = "q9z2ZT5T5w"
+      val hashSHA512 = PrivacyEngine.algo("SHA-512", testStrSHA512)
+      val hashTestSHA512 = PrivacyEngine.algo("SHA-512", randomString)
+      hashSHA512.startsWith("0") shouldBe true
+      hashSHA512.length shouldBe 128
+
+      hashTestSHA512.startsWith("0") shouldBe false
+      hashTestSHA512.length shouldBe 128
+
+    }
   }
 }
