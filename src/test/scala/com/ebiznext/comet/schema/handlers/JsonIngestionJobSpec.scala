@@ -78,8 +78,8 @@ abstract class JsonIngestionJobSpecBase(variant: String) extends TestHelper with
           .withColumn("email_domain", regexp_extract(col("email"), ".+@(.+)", 1))
           .withColumn("source_file_name", regexp_extract(input_file_name, ".+\\/(.+)$", 1))
 
-        resultDf.show(false)
-        expectedDf.show(false)
+        logger.info(resultDf.showString())
+        logger.info(expectedDf.showString())
         resultDf
           .drop(col("millis"))
           .except(

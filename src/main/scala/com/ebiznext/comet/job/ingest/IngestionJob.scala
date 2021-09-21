@@ -252,7 +252,7 @@ trait IngestionJob extends SparkJob {
       val start = Timestamp.from(Instant.now())
       logger.whenDebugEnabled {
         logger.debug(s"acceptedRDD SIZE ${acceptedDF.count()}")
-        acceptedDF.show(1000)
+        logger.debug(acceptedDF.showString(1000))
       }
       runAssertions(acceptedDF)
       runMetrics(acceptedDF)
@@ -268,8 +268,10 @@ trait IngestionJob extends SparkJob {
 
       val writeMode = getWriteMode()
 
-      logger.info("Final Dataframe Schema")
-      finalMergedDf.printSchema()
+      logger.whenInfoEnabled {
+        logger.info("Final Dataframe Schema")
+        logger.info(finalMergedDf.schemaString())
+      }
       val savedInFileDataset =
         if (settings.comet.sinkToFile)
           sinkToFile(
@@ -298,8 +300,10 @@ trait IngestionJob extends SparkJob {
         case _ =>
           savedInFileDataset
       }
-      logger.info("Saved Dataset Schema")
-      savedDataset.printSchema()
+      logger.whenInfoEnabled {
+        logger.info("Saved Dataset Schema")
+        logger.info(savedDataset.schemaString())
+      }
       sink(finalMergedDf, partitionsToUpdate) match {
         case Success(_) =>
           val end = Timestamp.from(Instant.now())
@@ -376,7 +380,7 @@ trait IngestionJob extends SparkJob {
     val finalAcceptedDF: DataFrame = if (schema.attributes.exists(_.script.isDefined)) {
       logger.whenDebugEnabled {
         logger.debug("Accepted Dataframe schema right after adding computed columns")
-        acceptedDfWithoutIgnoredFields.printSchema()
+        logger.debug(acceptedDfWithoutIgnoredFields.schemaString())
       }
       // adding computed columns can change the order of columns, we must force the order defined in the schema
       val orderedWithScriptFieldsDF =
@@ -386,7 +390,7 @@ trait IngestionJob extends SparkJob {
         )
       logger.whenDebugEnabled {
         logger.debug("Accepted Dataframe schema after applying the defined schema")
-        acceptedDfWithoutIgnoredFields.printSchema()
+        logger.debug(orderedWithScriptFieldsDF.schemaString())
       }
       orderedWithScriptFieldsDF
     } else {
@@ -825,10 +829,12 @@ trait IngestionJob extends SparkJob {
         session.createDataFrame(session.sparkContext.emptyRDD[Row], withScriptFieldsDF.schema)
 
     val partitionedInputDF = partitionDataset(withScriptFieldsDF, metadata.getPartitionAttributes())
-    logger.info(s"partitionedInputDF field count=${partitionedInputDF.schema.fields.length}")
-    logger.info(s"""partitionedInputDF field list=${partitionedInputDF.schema.fields
-      .map(_.name)
-      .mkString(",")}""")
+    logger.whenInfoEnabled {
+      logger.info(s"partitionedInputDF field count=${partitionedInputDF.schema.fields.length}")
+      logger.info(
+        s"partitionedInputDF field list=${partitionedInputDF.schema.fieldNames.mkString(",")}"
+      )
+    }
 
     val (mergedDF, _) =
       MergeUtils.computeToMergeAndToDeleteDF(existingDF, partitionedInputDF, mergeOptions)

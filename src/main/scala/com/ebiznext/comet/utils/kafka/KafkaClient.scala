@@ -11,7 +11,7 @@ import org.apache.kafka.clients.admin.{AdminClient, NewTopic}
 import org.apache.kafka.clients.consumer.KafkaConsumer
 import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
 import org.apache.kafka.common.{TopicPartition, TopicPartitionInfo}
-import org.apache.spark.sql.{DataFrame, SparkSession}
+import org.apache.spark.sql.{DataFrame, DatasetLogging, SparkSession}
 
 import java.time.Duration
 import java.util.Properties
@@ -20,6 +20,7 @@ import scala.collection.mutable
 
 class KafkaClient(kafkaConfig: KafkaConfig)(implicit settings: Settings)
     extends StrictLogging
+    with DatasetLogging
     with AutoCloseable {
 
   val cometOffsetsMode: Mode =
@@ -55,7 +56,7 @@ class KafkaClient(kafkaConfig: KafkaConfig)(implicit settings: Settings)
 
   def deleteTopic(topicName: String): Unit = {
     val found = client.listTopics().names().get().contains(topicName)
-    client.listTopics().names().get().asScala.toSet.foreach(println)
+    logger.info(client.listTopics().names().get().asScala.toSet.mkString("\n"))
     if (found) {
       client.deleteTopics(List(topicName).asJavaCollection)
     }
@@ -273,7 +274,9 @@ class KafkaClient(kafkaConfig: KafkaConfig)(implicit settings: Settings)
         .load()
         .selectExpr(config.fields.map(x => s"CAST($x)"): _*)
 
-    logger.whenInfoEnabled(df.printSchema())
+    logger.whenInfoEnabled {
+      logger.info(df.schemaString())
+    }
     (df, endOffsets)
   }
 

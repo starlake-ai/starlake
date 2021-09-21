@@ -35,7 +35,7 @@ import org.apache.commons.io.FileUtils
 import org.apache.commons.io.filefilter.TrueFileFilter
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.types.StructType
-import org.apache.spark.sql.{DataFrame, SparkSession}
+import org.apache.spark.sql.{DataFrame, DatasetLogging, SparkSession}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{Assertion, BeforeAndAfterAll}
@@ -49,7 +49,12 @@ import scala.collection.JavaConverters._
 import scala.io.{Codec, Source}
 import scala.util.Try
 
-trait TestHelper extends AnyFlatSpec with Matchers with BeforeAndAfterAll with StrictLogging {
+trait TestHelper
+    extends AnyFlatSpec
+    with Matchers
+    with BeforeAndAfterAll
+    with StrictLogging
+    with DatasetLogging {
 
   override protected def afterAll(): Unit = {
     sparkSessionInterest.close()
@@ -365,9 +370,9 @@ trait TestHelper extends AnyFlatSpec with Matchers with BeforeAndAfterAll with S
 
   def printDF(df: DataFrame, marker: String) = {
     logger.info(s"Displaying schema for $marker")
-    df.printSchema
+    logger.info(df.schemaString())
     logger.info(s"Displaying data for $marker")
-    df.show(false)
+    logger.info(df.showString(truncate = 0))
     logger.info("-----")
   }
 

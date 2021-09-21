@@ -87,7 +87,9 @@ class JsonIngestionJob(
         org.apache.spark.sql.functions.input_file_name(),
         org.apache.spark.sql.functions.col("value")
       )
-      logger.debug(dfIn.schema.treeString)
+      logger.whenDebugEnabled {
+        logger.debug(dfIn.schemaString())
+      }
       val df = applyIgnore(dfInWithInputFilename)
       df
     }
