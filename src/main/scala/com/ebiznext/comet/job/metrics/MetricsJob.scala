@@ -134,7 +134,7 @@ class MetricsJob(
           .withColumn("cometTime", lit(ingestionTime))
           .withColumn("cometStage", lit(stageState.toString))
         logger.whenDebugEnabled {
-          res.show()
+          logger.debug(res.showString())
         }
 
         Some(res)

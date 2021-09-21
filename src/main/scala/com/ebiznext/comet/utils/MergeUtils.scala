@@ -5,9 +5,9 @@ import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.{ArrayType, DataType, StructType}
-import org.apache.spark.sql.{Column, DataFrame}
+import org.apache.spark.sql.{Column, DataFrame, DatasetLogging}
 
-object MergeUtils extends StrictLogging {
+object MergeUtils extends StrictLogging with DatasetLogging {
 
   /** Compute a new schema that is compatible with merge operations. Built recursively from the
     * incoming schema to retain the latest attributes, but without the columns that does not exist
@@ -62,12 +62,14 @@ object MergeUtils extends StrictLogging {
     incomingDF: DataFrame,
     mergeOptions: MergeOptions
   ): (DataFrame, DataFrame) = {
-    logger.info(s"incomingDF Schema before merge -> ${incomingDF.schema}")
-    logger.info(s"existingDF Schema before merge -> ${existingDF.schema}")
-    logger.info(s"existingDF field count=${existingDF.schema.fields.length}")
-    logger.info(s"existingDF field list=${existingDF.schema.fields.map(_.name).mkString(",")}")
-    logger.info(s"incomingDF field count=${incomingDF.schema.fields.length}")
-    logger.info(s"incomingDF field list=${incomingDF.schema.fields.map(_.name).mkString(",")}")
+    logger.whenInfoEnabled {
+      logger.info(s"incomingDF Schema before merge -> ${incomingDF.schema}")
+      logger.info(s"existingDF Schema before merge -> ${existingDF.schema}")
+      logger.info(s"existingDF field count=${existingDF.schema.fields.length}")
+      logger.info(s"existingDF field list=${existingDF.schema.fieldNames.mkString(",")}")
+      logger.info(s"incomingDF field count=${incomingDF.schema.fields.length}")
+      logger.info(s"incomingDF field list=${incomingDF.schema.fieldNames.mkString(",")}")
+    }
 
     val finalIncomingDF = mergeOptions.delete
       .map(condition => incomingDF.filter(s"not ($condition)"))
@@ -95,7 +97,7 @@ object MergeUtils extends StrictLogging {
     logger.whenDebugEnabled {
       logger.debug(s"Merge detected ${toDeleteDF.count()} items to update/delete")
       logger.debug(s"Merge detected ${mergedDF.except(finalIncomingDF).count()} items to insert")
-      mergedDF.show(false)
+      logger.debug(mergedDF.showString(truncate = 0))
     }
 
     (mergedDF, toDeleteDF)
