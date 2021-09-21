@@ -5,6 +5,6 @@ trait DatasetLogging {
     def showString(numRows: Int = 20, truncate: Int = 20, vertical: Boolean = false): String =
       ds.showString(numRows, truncate, vertical)
 
-    def schemaString(level: Int = Int.MaxValue): String = ds.schema.treeString(level)
+    def schemaString(): String = ds.schema.treeString
   }
 }
