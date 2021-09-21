@@ -34,7 +34,7 @@ import org.apache.hadoop.fs.Path
 import java.util.Locale
 
 /** Utilities methods to reference datasets paths Datasets paths are constructed as follows :
-  *   - root path defined by the COMET_DATASETS env var or datasets applciation property
+  *   - root path defined by the COMET_DATASETS env var or datasets application property
   *   - followed by the area name
   *   - followed by the the domain name
   */
