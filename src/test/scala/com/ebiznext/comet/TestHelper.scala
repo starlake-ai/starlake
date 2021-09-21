@@ -49,7 +49,12 @@ import scala.collection.JavaConverters._
 import scala.io.{Codec, Source}
 import scala.util.Try
 
-trait TestHelper extends AnyFlatSpec with Matchers with BeforeAndAfterAll with StrictLogging with DatasetLogging {
+trait TestHelper
+    extends AnyFlatSpec
+    with Matchers
+    with BeforeAndAfterAll
+    with StrictLogging
+    with DatasetLogging {
 
   override protected def afterAll(): Unit = {
     sparkSessionInterest.close()
