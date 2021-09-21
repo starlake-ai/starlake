@@ -94,7 +94,7 @@ class MetricsJobSpec extends TestHelper with JdbcChecks {
 
     /** Descriptive statistics of the dataframe for Quantitative variable:
       */
-    value.printSchema()
+    logger.info(value.schemaString())
     value
   }
 
@@ -121,7 +121,7 @@ class MetricsJobSpec extends TestHelper with JdbcChecks {
   }
 
   lazy val dimensionDataframe = result1.map { result1 =>
-    result1.printSchema()
+    logger.info(result1.schemaString())
     (result1.columns.length - 1) * (result1
       .select(col("attribute"))
       .collect()
@@ -226,7 +226,7 @@ class MetricsJobSpec extends TestHelper with JdbcChecks {
 
         val discretePath: Path = DatasetArea.discreteMetrics("yelp", "business")
         val discreteMetricsDf: DataFrame = sparkSession.read.parquet(discretePath.toString)
-        discreteMetricsDf.show(false)
+        logger.info(discreteMetricsDf.showString(truncate = 0))
         discreteMetricsDf.schema shouldBe expectedDiscreteMetricsSchema
         import sparkSession.implicits._
         val discreteMetricsSelectedColumns =
@@ -244,7 +244,7 @@ class MetricsJobSpec extends TestHelper with JdbcChecks {
 
         val continuousPath: Path = DatasetArea.continuousMetrics("yelp", "business")
         val continuousMetricsDf: DataFrame = sparkSession.read.parquet(continuousPath.toString)
-        continuousMetricsDf.show(false)
+        logger.info(continuousMetricsDf.showString(truncate = 0))
         continuousMetricsDf.schema shouldBe expectedContinuousMetricsSchema
         import sparkSession.implicits._
         val continuousMetricsSelectedColumns =
@@ -260,7 +260,7 @@ class MetricsJobSpec extends TestHelper with JdbcChecks {
 
         val freqPath: Path = DatasetArea.frequenciesMetrics("yelp", "business")
         val freqMetricsDf: DataFrame = sparkSession.read.parquet(freqPath.toString)
-        freqMetricsDf.show(false)
+        logger.info(freqMetricsDf.showString(truncate = 0))
         freqMetricsDf.schema shouldBe expectedFreqMetricsSchema
         import sparkSession.implicits._
         val freqMetricsSelectedColumns =
@@ -451,7 +451,7 @@ class MetricsJobSpec extends TestHelper with JdbcChecks {
 
         val discretePath: Path = DatasetArea.discreteMetrics("yelp", "business")
         val discreteMetricsDf: DataFrame = sparkSession.read.parquet(discretePath.toString)
-        discreteMetricsDf.show(false)
+        logger.info(discreteMetricsDf.showString(truncate = 0))
         discreteMetricsDf.schema shouldBe expectedDiscreteMetricsSchema
 
         import sparkSession.implicits._
