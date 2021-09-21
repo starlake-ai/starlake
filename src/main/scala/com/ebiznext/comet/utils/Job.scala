@@ -23,7 +23,7 @@ case class SparkJobResult(dataframe: Option[DataFrame]) extends JobResult
   * application.conf.
   */
 
-trait JobBase extends StrictLogging {
+trait JobBase extends StrictLogging with DatasetLogging {
   def name: String
   implicit def settings: Settings
 

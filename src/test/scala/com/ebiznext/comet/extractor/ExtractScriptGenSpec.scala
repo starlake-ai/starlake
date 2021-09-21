@@ -100,7 +100,7 @@ class ExtractScriptGenSpec extends TestHelper {
         assert(success)
 
         val resultFile = scriptOutputFolder / "comet-test-my-job.txt"
-        println(resultFile.contentAsString)
+        logger.info(resultFile.contentAsString)
         resultFile.contentAsString.trim shouldBe File(
           getClass.getResource("/sample/job/expected-extract-job.txt").getPath
         ).contentAsString.trim
