@@ -9,7 +9,7 @@ class ExtractScriptGenSpec extends TestHelper {
 
   val scriptOutputFolder: File = File("/tmp")
   new WithSettings() {
-Map()
+
     "templatize domain using mustache" should "generate an export script from a TemplateSettings" in {
       val templateParams: TemplateParams = TemplateParams(
         domainToExport = "domain1",
