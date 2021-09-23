@@ -144,8 +144,6 @@ sonatypeProjectHosting := Some(
   GitHubHosting("starlake-ai", "starlake", "hayssam.saleh@starlake.ai")
 )
 
-ThisBuild / sonatypeCredentialHost := "s01.oss.sonatype.org"
-
 // Release
 releaseCrossBuild := false
 
