@@ -2,10 +2,6 @@ name: Release
 # Run workflow on commits to the `master` branch
 on:
   workflow_dispatch:
-env:
-  SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
-  SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
-  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 jobs:
   release:
     runs-on: ubuntu-18.04
@@ -17,4 +13,4 @@ jobs:
         with:
           java-version: 1.8
       - name: Release Spark 2/3
-        run: sbt 'release with-defaults'
+        run: RELEASE_SONATYPE=true GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ secrets.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ secrets.SONATYPE_PASSWORD }} sbt 'release with-defaults'
