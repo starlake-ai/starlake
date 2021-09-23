@@ -6,10 +6,6 @@ on:
     types: [closed]
     branches:
       - master
-env:
-  SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
-  SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
-  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 jobs:
   snapshot:
     runs-on: ubuntu-18.04
@@ -27,6 +23,6 @@ jobs:
         with:
           java-version: 1.8
       - name: Publish Snapshot on Sonatype Spark 2/3
-        run: RELEASE_SONATYPE=true sbt +publish
+        run: RELEASE_SONATYPE=true SONATYPE_USERNAME=${{ secrets.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ secrets.SONATYPE_PASSWORD }} sbt +publish
       - name: Publish Snapshot on Github Packages Spark 2/3
-        run: RELEASE_SONATYPE=false sbt +publish
+        run: RELEASE_SONATYPE=false GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} sbt +publish
