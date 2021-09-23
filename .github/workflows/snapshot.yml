@@ -26,5 +26,7 @@ jobs:
         uses: actions/setup-java@v1
         with:
           java-version: 1.8
-      - name: Publish Snapshot Spark 2/3
-        run: sbt +publish
+      - name: Publish Snapshot on Sonatype Spark 2/3
+        run: RELEASE_SONATYPE=true sbt +publish
+      - name: Publish Snapshot on Github Packages Spark 2/3
+        run: RELEASE_SONATYPE=false sbt +publish
