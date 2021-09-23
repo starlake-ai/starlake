@@ -34,9 +34,9 @@ libraryDependencies ++= {
       case Some((2, 11)) =>
         sys.env.getOrElse("COMET_HDP31", "false").toBoolean match {
           case false => (spark_2d4_forScala_2d11, jackson211ForSpark2, esSpark211)
-          case true => (spark_2d4_forScala_2d11, jackson211ForSpark2Hdp31, esSpark211)
+          case true  => (spark_2d4_forScala_2d11, jackson211ForSpark2Hdp31, esSpark211)
         }
-      case _             => throw new Exception(s"Invalid Scala Version")
+      case _ => throw new Exception(s"Invalid Scala Version")
     }
   }
   dependencies ++ spark ++ jackson ++ esSpark ++ scalaReflection(scalaVersion.value)
@@ -54,7 +54,6 @@ name := {
 }
 
 assembly / assemblyJarName := s"${name.value}_${scalaBinaryVersion.value}-${version.value}-assembly.jar"
-
 
 Common.enableCometAliases
 
@@ -105,7 +104,10 @@ assembly / assemblyShadeRules := Seq(
 
 // Publish
 publishTo := {
-  (sys.env.get("GCS_BUCKET_ARTEFACTS"), sys.env.getOrElse("RELEASE_SONATYPE", "false").toBoolean) match {
+  (
+    sys.env.get("GCS_BUCKET_ARTEFACTS"),
+    sys.env.getOrElse("RELEASE_SONATYPE", "false").toBoolean
+  ) match {
     case (None, false) =>
       githubPublishTo.value
     case (None, true) => sonatypePublishToBundle.value
@@ -142,6 +144,8 @@ sonatypeProjectHosting := Some(
   GitHubHosting("starlake-ai", "starlake", "hayssam.saleh@starlake.ai")
 )
 
+ThisBuild / sonatypeCredentialHost := "s01.oss.sonatype.org"
+
 // Release
 releaseCrossBuild := false
 
@@ -173,7 +177,6 @@ githubOwner := "starlake-ai"
 githubRepository := "starlake"
 
 githubTokenSource := TokenSource.Environment("GITHUB_TOKEN")
-
 
 developers := List(
   Developer(
