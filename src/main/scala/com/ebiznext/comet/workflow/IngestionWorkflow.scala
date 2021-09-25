@@ -86,110 +86,117 @@ class IngestionWorkflow(
       val inputDir = new Path(domain.directory)
       if (storageHandler.exists(inputDir)) {
         logger.info(s"Scanning $inputDir")
-        storageHandler.list(inputDir, domain.getAck(), recursive = false).foreach { path =>
-          val (filesToLoad, tmpDir) = {
-            val fileName = path.getName
-            val pathWithoutLastExt = new Path(
-              path.getParent,
-              (domain.getAck(), fileName.lastIndexOf('.')) match {
-                case ("", -1) => fileName
-                case ("", i)  => fileName.substring(0, i)
-                case (ack, _) => fileName.stripSuffix(ack)
-              }
-            )
-
-            val zipExtensions = List(".gz", ".tgz", ".zip")
-            val (existingRawFile, existingArchiveFile) = {
-              val findPathWithExt = if (domain.getAck().isEmpty) {
-                // the file is always the one being iterated over, we just need to check the extension
-                (extensions: List[String]) => extensions.find(fileName.endsWith).map(_ => path)
-              } else {
-                // for each extension, look if there exists a file near the .ack one
-                (extensions: List[String]) =>
-                  extensions.map(pathWithoutLastExt.suffix).find(storageHandler.exists)
-              }
-              (
-                findPathWithExt(
-                  domain.getExtensions(
-                    settings.comet.defaultFileExtensions,
-                    settings.comet.forceFileExtensions
-                  )
-                ),
-                findPathWithExt(zipExtensions)
+        storageHandler
+          .list(inputDir, domain.getAck(), recursive = false)
+          .filterNot(_.getName().startsWith(".")) // ignore files starting with '.' aka .DS_Store
+          .foreach { path =>
+            val (filesToLoad, tmpDir) = {
+              val fileName = path.getName
+              val pathWithoutLastExt = new Path(
+                path.getParent,
+                (domain.getAck(), fileName.lastIndexOf('.')) match {
+                  case ("", -1) => fileName
+                  case ("", i)  => fileName.substring(0, i)
+                  case (ack, _) => fileName.stripSuffix(ack)
+                }
               )
-            }
 
-            if (domain.getAck().nonEmpty)
-              storageHandler.delete(path)
-
-            (existingArchiveFile, existingRawFile, storageHandler.fs.getScheme) match {
-              case (Some(zipPath), _, "file") =>
-                logger.info(s"Found compressed file $zipPath")
-                storageHandler.mkdirs(pathWithoutLastExt)
-
-                // We use Java nio to handle archive files
-
-                // Java nio FileSystems are only registered based on the system the JVM is based on
-                // To handle external FileSystems (ex: GCS from a linux OS), we need to manually install them
-                // As long as the user provide this app classpath with the appropriate FileSystem implementations,
-                // we can virtually handle anything
-                def asBetterFile(path: Path): File = {
-                  Try {
-                    File(path.toUri) // try once
-                  } match {
-                    case Success(file) => file
-                    // There is no FileSystem registered that can handle this URI
-                    case Failure(_: ProviderNotFoundException) =>
-                      FileSystems
-                        .newFileSystem(path.toUri, Collections.emptyMap(), getClass.getClassLoader)
-                      // Try to install one from the classpath
-                      File(path.toUri) // retry
-                    case Failure(exception) => throw exception
-                  }
+              val zipExtensions = List(".gz", ".tgz", ".zip")
+              val (existingRawFile, existingArchiveFile) = {
+                val findPathWithExt = if (domain.getAck().isEmpty) {
+                  // the file is always the one being iterated over, we just need to check the extension
+                  (extensions: List[String]) => extensions.find(fileName.endsWith).map(_ => path)
+                } else {
+                  // for each extension, look if there exists a file near the .ack one
+                  (extensions: List[String]) =>
+                    extensions.map(pathWithoutLastExt.suffix).find(storageHandler.exists)
                 }
-
-                // File is a proxy to java.nio.Path / working with Uri
-                val tmpDir = asBetterFile(pathWithoutLastExt)
-                val zipFile = asBetterFile(zipPath)
-                zipFile.extension() match {
-                  case Some(".tgz") => Unpacker.unpack(zipFile, tmpDir)
-                  case Some(".gz")  => zipFile.unGzipTo(tmpDir / pathWithoutLastExt.getName)
-                  case Some(".zip") => zipFile.unzipTo(tmpDir)
-                  case _            => logger.error(s"Unsupported archive type for $zipFile")
-                }
-                storageHandler.delete(zipPath)
-
                 (
-                  storageHandler
-                    .list(pathWithoutLastExt, recursive = false)
-                    .filter(path =>
-                      domain
-                        .getExtensions(
-                          settings.comet.defaultFileExtensions,
-                          settings.comet.forceFileExtensions
-                        )
-                        .exists(path.getName.endsWith)
-                    ),
-                  Some(pathWithoutLastExt)
+                  findPathWithExt(
+                    domain.getExtensions(
+                      settings.comet.defaultFileExtensions,
+                      settings.comet.forceFileExtensions
+                    )
+                  ),
+                  findPathWithExt(zipExtensions)
                 )
-              case (_, Some(filePath), _) =>
-                logger.info(s"Found raw file $filePath")
-                (List(filePath), None)
-              case (_, _, _) =>
-                logger.info(s"Ignoring file for path $path")
-                (List.empty, None)
+              }
+
+              if (domain.getAck().nonEmpty)
+                storageHandler.delete(path)
+
+              (existingArchiveFile, existingRawFile, storageHandler.fs.getScheme) match {
+                case (Some(zipPath), _, "file") =>
+                  logger.info(s"Found compressed file $zipPath")
+                  storageHandler.mkdirs(pathWithoutLastExt)
+
+                  // We use Java nio to handle archive files
+
+                  // Java nio FileSystems are only registered based on the system the JVM is based on
+                  // To handle external FileSystems (ex: GCS from a linux OS), we need to manually install them
+                  // As long as the user provide this app classpath with the appropriate FileSystem implementations,
+                  // we can virtually handle anything
+                  def asBetterFile(path: Path): File = {
+                    Try {
+                      File(path.toUri) // try once
+                    } match {
+                      case Success(file) => file
+                      // There is no FileSystem registered that can handle this URI
+                      case Failure(_: ProviderNotFoundException) =>
+                        FileSystems
+                          .newFileSystem(
+                            path.toUri,
+                            Collections.emptyMap(),
+                            getClass.getClassLoader
+                          )
+                        // Try to install one from the classpath
+                        File(path.toUri) // retry
+                      case Failure(exception) => throw exception
+                    }
+                  }
+
+                  // File is a proxy to java.nio.Path / working with Uri
+                  val tmpDir = asBetterFile(pathWithoutLastExt)
+                  val zipFile = asBetterFile(zipPath)
+                  zipFile.extension() match {
+                    case Some(".tgz") => Unpacker.unpack(zipFile, tmpDir)
+                    case Some(".gz")  => zipFile.unGzipTo(tmpDir / pathWithoutLastExt.getName)
+                    case Some(".zip") => zipFile.unzipTo(tmpDir)
+                    case _            => logger.error(s"Unsupported archive type for $zipFile")
+                  }
+                  storageHandler.delete(zipPath)
+
+                  (
+                    storageHandler
+                      .list(pathWithoutLastExt, recursive = false)
+                      .filter(path =>
+                        domain
+                          .getExtensions(
+                            settings.comet.defaultFileExtensions,
+                            settings.comet.forceFileExtensions
+                          )
+                          .exists(path.getName.endsWith)
+                      ),
+                    Some(pathWithoutLastExt)
+                  )
+                case (_, Some(filePath), _) =>
+                  logger.info(s"Found raw file $filePath")
+                  (List(filePath), None)
+                case (_, _, _) =>
+                  logger.info(s"Ignoring file for path $path")
+                  (List.empty, None)
+              }
             }
-          }
 
-          val destFolder = DatasetArea.pending(domain.name)
-          filesToLoad.foreach { file =>
-            logger.info(s"Importing $file")
-            val destFile = new Path(destFolder, file.getName)
-            storageHandler.moveFromLocal(file, destFile)
-          }
+            val destFolder = DatasetArea.pending(domain.name)
+            filesToLoad.foreach { file =>
+              logger.info(s"Importing $file")
+              val destFile = new Path(destFolder, file.getName)
+              storageHandler.moveFromLocal(file, destFile)
+            }
 
-          tmpDir.foreach(storageHandler.delete)
-        }
+            tmpDir.foreach(storageHandler.delete)
+          }
       } else {
         logger.error(s"Input path : $inputDir not found, ${domain.name} Domain is ignored")
       }
