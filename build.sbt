@@ -13,6 +13,8 @@ initialize := {
     sys.error("Java 1.8 is required for this project. Found " + javaVersion + " instead")
 }
 
+sonatypeCredentialHost := "s01.oss.sonatype.org"
+
 lazy val scala212 = "2.12.12"
 
 lazy val scala211 = "2.11.12"
