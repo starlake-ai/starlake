@@ -31,14 +31,33 @@ class BigQuerySparkJob(
     extends SparkJob
     with BigQueryJobBase {
 
-  override def withExtraSparkConf(): Map[String, String] =
-    if (cliConfig.writeDisposition == "WRITE_TRUNCATE")
-      cliConfig.options ++ Map(
-        "spark.datasource.bigquery.allowFieldAddition"   -> "false",
-        "spark.datasource.bigquery.allowFieldRelaxation" -> "false"
-      )
-    else
-      cliConfig.options
+  val bqOptions = {
+    val schemaUpdateOptions = List(
+      "spark.datasource.bigquery.allowFieldAddition",
+      "spark.datasource.bigquery.allowFieldRelaxation",
+      "allowFieldAddition",
+      "allowFieldRelaxation"
+    )
+    Option(bigquery.getTable(tableId)) match {
+      case None =>
+        cliConfig.options -- schemaUpdateOptions
+      case Some(tableId) if cliConfig.writeDisposition == "WRITE_TRUNCATE" =>
+        val definition = tableId.getDefinition.asInstanceOf[StandardTableDefinition]
+        if (definition.getTimePartitioning == null && definition.getRangePartitioning == null)
+          cliConfig.options -- schemaUpdateOptions
+        else
+          (cliConfig.options -- schemaUpdateOptions) ++ Map(
+            "spark.datasource.bigquery.allowFieldAddition"   -> "false",
+            "spark.datasource.bigquery.allowFieldRelaxation" -> "false"
+          )
+      case Some(_) =>
+        cliConfig.options
+    }
+  }
+
+  override def withExtraSparkConf(): Map[String, String] = {
+    bqOptions
+  }
 
   override def name: String = s"bqload-${cliConfig.outputDataset}-${cliConfig.outputTable}"
 
