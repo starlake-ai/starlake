@@ -70,7 +70,7 @@ object FlatRowValidator extends GenericRowValidator {
             }.toList
             RowResult(
               colResults,
-              colResults.forall(_.colInfo.success),
+              false,
               row.getAs[String](Settings.cometInputFileNameColumn),
               Some(toOriginalFormat(row, format, separator))
             )
@@ -83,7 +83,7 @@ object FlatRowValidator extends GenericRowValidator {
               colResults,
               isRowAccepted,
               row.getAs[String](Settings.cometInputFileNameColumn),
-              if (isRowAccepted && settings.comet.sinkReplayToFile) None
+              if (isRowAccepted || !settings.comet.sinkReplayToFile) None
               else Some(toOriginalFormat(row, format, separator))
             )
           }
