@@ -223,7 +223,7 @@ class BigQuerySparkJob(
                     .option("table", bqTable)
                     .option("intermediateFormat", intermediateFormat)
 
-                  cliConfig.options
+                  bqOptions
                     .foldLeft(finalEmptyDF) { case (df, (k, v)) => df.option(k, v) }
                     .save()
                 }
@@ -241,7 +241,7 @@ class BigQuerySparkJob(
                 .option("datePartition", partitionStr)
                 .option("table", bqTable)
                 .option("intermediateFormat", intermediateFormat)
-            val finalDFWithOptions = cliConfig.options
+            val finalDFWithOptions = bqOptions
               .foldLeft(finalDF) { case (df, (k, v)) => df.option(k, v) }
             cliConfig.partitionsToUpdate match {
               case None =>
@@ -276,7 +276,7 @@ class BigQuerySparkJob(
             .option("table", bqTable)
             .option("intermediateFormat", intermediateFormat)
 
-          cliConfig.options.foldLeft(finalDF)((w, kv) => w.option(kv._1, kv._2)).save()
+          bqOptions.foldLeft(finalDF)((w, kv) => w.option(kv._1, kv._2)).save()
       }
 
       val stdTableDefinitionAfter =
