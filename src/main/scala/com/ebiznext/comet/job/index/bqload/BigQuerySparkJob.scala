@@ -31,40 +31,41 @@ class BigQuerySparkJob(
     extends SparkJob
     with BigQueryJobBase {
 
-  val bqOptions = {
-    val schemaUpdateOptions = List(
-      "spark.datasource.bigquery.allowFieldAddition",
-      "spark.datasource.bigquery.allowFieldRelaxation",
+  val (connectorOptions, sparkOptions) = {
+    val connectorUpdateOptions = List(
       "allowFieldAddition",
       "allowFieldRelaxation"
     )
     Try {
       Option(bigquery.getTable(tableId)) match {
         case None =>
-          cliConfig.options -- schemaUpdateOptions
+          (cliConfig.options -- connectorUpdateOptions, Map.empty[String, String])
         case Some(tableId) if cliConfig.writeDisposition == "WRITE_TRUNCATE" =>
           val definition = tableId.getDefinition.asInstanceOf[StandardTableDefinition]
           if (definition.getTimePartitioning == null && definition.getRangePartitioning == null)
-            cliConfig.options -- schemaUpdateOptions
+            (cliConfig.options -- connectorUpdateOptions, Map.empty[String, String])
           else
-            (cliConfig.options -- schemaUpdateOptions) ++ Map(
-              "spark.datasource.bigquery.allowFieldAddition"   -> "false",
-              "spark.datasource.bigquery.allowFieldRelaxation" -> "false"
+            (
+              cliConfig.options -- connectorUpdateOptions,
+              Map(
+                "spark.datasource.bigquery.allowFieldAddition"   -> "false",
+                "spark.datasource.bigquery.allowFieldRelaxation" -> "false"
+              )
             )
         case Some(_) =>
-          cliConfig.options
+          (cliConfig.options, Map.empty[String, String])
       }
     } match {
       case Success(value) => value
       case Failure(_)     =>
         // In test mode, we are not connected to BigQuery
         // simply return original options
-        cliConfig.options
+        (cliConfig.options, Map.empty[String, String])
     }
   }
 
   override def withExtraSparkConf(): Map[String, String] = {
-    bqOptions
+    sparkOptions
   }
 
   override def name: String = s"bqload-${cliConfig.outputDataset}-${cliConfig.outputTable}"
@@ -231,9 +232,7 @@ class BigQuerySparkJob(
                     .option("table", bqTable)
                     .option("intermediateFormat", intermediateFormat)
 
-                  bqOptions
-                    .foldLeft(finalEmptyDF) { case (df, (k, v)) => df.option(k, v) }
-                    .save()
+                  finalEmptyDF.options(connectorOptions).save()
                 }
               }
           }
@@ -249,8 +248,7 @@ class BigQuerySparkJob(
                 .option("datePartition", partitionStr)
                 .option("table", bqTable)
                 .option("intermediateFormat", intermediateFormat)
-            val finalDFWithOptions = bqOptions
-              .foldLeft(finalDF) { case (df, (k, v)) => df.option(k, v) }
+            val finalDFWithOptions = finalDF.options(connectorOptions)
             cliConfig.partitionsToUpdate match {
               case None =>
                 finalDFWithOptions.save()
@@ -284,7 +282,7 @@ class BigQuerySparkJob(
             .option("table", bqTable)
             .option("intermediateFormat", intermediateFormat)
 
-          bqOptions.foldLeft(finalDF)((w, kv) => w.option(kv._1, kv._2)).save()
+          finalDF.options(connectorOptions).save()
       }
 
       val stdTableDefinitionAfter =
