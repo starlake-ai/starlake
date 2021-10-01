@@ -145,8 +145,8 @@ class ESLoadJob(
       logger.whenDebugEnabled {
         logger.debug(s"sending ${df.count()} documents to Elasticsearch using $allConf")
       }
-      val writer = allConf
-        .foldLeft(df.write) { case (w, (k, v)) => w.option(k, v) }
+      val writer = df.write
+        .options(allConf.toMap)
         .format("org.elasticsearch.spark.sql")
         .mode(SaveMode.Overwrite)
       if (settings.comet.isElasticsearchSupported())

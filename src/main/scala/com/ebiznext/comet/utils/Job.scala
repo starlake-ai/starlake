@@ -243,8 +243,8 @@ trait SparkJob extends JobBase {
         case JDBC => // (JDBC, connectionName, queryString)
           val jdbcConfig =
             settings.comet.connections(sinkConfig.getOrElse(throw new Exception("")))
-          jdbcConfig.options
-            .foldLeft(session.read)((w, kv) => w.option(kv._1, kv._2))
+          session.read
+            .options(jdbcConfig.options)
             .format(jdbcConfig.format)
             .option(JDBCOptions.JDBC_QUERY_STRING, path)
             .load()
