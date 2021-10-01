@@ -269,8 +269,8 @@ class KafkaClient(kafkaConfig: KafkaConfig)(implicit settings: Settings)
 
     val reader = session.read.format("kafka")
     val df =
-      withOffsetsTopicOptions
-        .foldLeft(reader) { case (reader, (k, v)) => reader.option(k, v) }
+      reader
+        .options(withOffsetsTopicOptions)
         .load()
         .selectExpr(config.fields.map(x => s"CAST($x)"): _*)
 
@@ -286,8 +286,8 @@ class KafkaClient(kafkaConfig: KafkaConfig)(implicit settings: Settings)
   ): DataFrame = {
     val reader = session.readStream.format("kafka")
     val df =
-      config.accessOptions
-        .foldLeft(reader) { case (reader, (k, v)) => reader.option(k, v) }
+      reader
+        .options(config.accessOptions)
         .load()
         .selectExpr(config.fields.map(x => s"CAST($x)"): _*)
     df
@@ -299,8 +299,8 @@ class KafkaClient(kafkaConfig: KafkaConfig)(implicit settings: Settings)
   ): Unit = {
     val writer = df.selectExpr(config.fields.map(x => s"CAST($x)"): _*).write.format("kafka")
 
-    config.accessOptions
-      .foldLeft(writer) { case (writer, (k, v)) => writer.option(k, v) }
+    writer
+      .options(config.accessOptions)
       .option("topic", config.topicName)
       .save()
   }

@@ -133,8 +133,8 @@ class SinkUtils(implicit settings: Settings) extends StrictLogging with DatasetL
           .option("truncate", cliConfig.writeDisposition == WriteDisposition.WRITE_TRUNCATE)
           .option("dbtable", cliConfig.outputTable)
 
-        cliConfig.options
-          .foldLeft(dfw) { case (w, (k, v)) => w.option(k, v) }
+        dfw
+          .options(cliConfig.options)
           .mode(SaveMode.Append)
           .save()
     }
