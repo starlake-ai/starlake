@@ -22,7 +22,7 @@ import org.apache.spark.sql.{DataFrame, Row, SaveMode, SparkSession}
 import org.apache.spark.storage.StorageLevel
 
 import scala.collection.JavaConverters._
-import scala.util.Try
+import scala.util.{Failure, Success, Try}
 
 class BigQuerySparkJob(
   override val cliConfig: BigQueryLoadConfig,
@@ -38,19 +38,27 @@ class BigQuerySparkJob(
       "allowFieldAddition",
       "allowFieldRelaxation"
     )
-    Option(bigquery.getTable(tableId)) match {
-      case None =>
-        cliConfig.options -- schemaUpdateOptions
-      case Some(tableId) if cliConfig.writeDisposition == "WRITE_TRUNCATE" =>
-        val definition = tableId.getDefinition.asInstanceOf[StandardTableDefinition]
-        if (definition.getTimePartitioning == null && definition.getRangePartitioning == null)
+    Try {
+      Option(bigquery.getTable(tableId)) match {
+        case None =>
           cliConfig.options -- schemaUpdateOptions
-        else
-          (cliConfig.options -- schemaUpdateOptions) ++ Map(
-            "spark.datasource.bigquery.allowFieldAddition"   -> "false",
-            "spark.datasource.bigquery.allowFieldRelaxation" -> "false"
-          )
-      case Some(_) =>
+        case Some(tableId) if cliConfig.writeDisposition == "WRITE_TRUNCATE" =>
+          val definition = tableId.getDefinition.asInstanceOf[StandardTableDefinition]
+          if (definition.getTimePartitioning == null && definition.getRangePartitioning == null)
+            cliConfig.options -- schemaUpdateOptions
+          else
+            (cliConfig.options -- schemaUpdateOptions) ++ Map(
+              "spark.datasource.bigquery.allowFieldAddition"   -> "false",
+              "spark.datasource.bigquery.allowFieldRelaxation" -> "false"
+            )
+        case Some(_) =>
+          cliConfig.options
+      }
+    } match {
+      case Success(value) => value
+      case Failure(_)     =>
+        // In test mode, we are not connected to BigQuery
+        // simply return original options
         cliConfig.options
     }
   }
