@@ -57,11 +57,19 @@ object MergeUtils extends StrictLogging with DatasetLogging {
     )
   }
 
+  /** @param existingDF
+    * @param incomingDF
+    * @param mergeOptions
+    * @return
+    *   a tuple containing incomingDF without de records to delete as specified in the merge.delete
+    *   option, the merge Dataframe containing all the data and deleted DF containing all the rows
+    *   to delete
+    */
   def computeToMergeAndToDeleteDF(
     existingDF: DataFrame,
     incomingDF: DataFrame,
     mergeOptions: MergeOptions
-  ): (DataFrame, DataFrame) = {
+  ): (DataFrame, DataFrame, DataFrame) = {
     logger.whenInfoEnabled {
       logger.info(s"incomingDF Schema before merge -> ${incomingDF.schema}")
       logger.info(s"existingDF Schema before merge -> ${existingDF.schema}")
@@ -100,7 +108,7 @@ object MergeUtils extends StrictLogging with DatasetLogging {
       logger.debug(mergedDF.showString(truncate = 0))
     }
 
-    (mergedDF, toDeleteDF)
+    (finalIncomingDF, mergedDF, toDeleteDF)
   }
 
   // return an optional list of column paths (ex "root.field" <=> ("root", "field"))
