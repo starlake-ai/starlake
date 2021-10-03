@@ -835,8 +835,7 @@ trait IngestionJob extends SparkJob {
         s"partitionedInputDF field list=${partitionedInputDF.schema.fieldNames.mkString(",")}"
       )
     }
-
-    val (mergedDF, _) =
+    val (finalIncomingDF, mergedDF, _) =
       MergeUtils.computeToMergeAndToDeleteDF(existingDF, partitionedInputDF, mergeOptions)
     (mergedDF, None)
   }
@@ -888,7 +887,7 @@ trait IngestionJob extends SparkJob {
         session.createDataFrame(session.sparkContext.emptyRDD[Row], incomingDF.schema)
       }
 
-    val (mergedDF, toDeleteDF) =
+    val (finalIncomingDF, mergedDF, toDeleteDF) =
       MergeUtils.computeToMergeAndToDeleteDF(existingDF, incomingDF, mergeOptions)
 
     val partitionOverwriteMode =
@@ -902,7 +901,7 @@ trait IngestionJob extends SparkJob {
       case ("dynamic", Some(timestamp), true) if existingDF.limit(1).count == 1 =>
         logger.info(s"Computing partitions to update on date column $timestamp")
         val partitionsToUpdate =
-          BigQueryUtils.computePartitionsToUpdateAfterMerge(mergedDF, toDeleteDF, timestamp)
+          BigQueryUtils.computePartitionsToUpdateAfterMerge(finalIncomingDF, toDeleteDF, timestamp)
         logger.info(
           s"The following partitions will be updated ${partitionsToUpdate.mkString(",")}"
         )
