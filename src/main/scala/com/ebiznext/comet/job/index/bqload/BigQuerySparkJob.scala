@@ -225,35 +225,36 @@ class BigQuerySparkJob(
                 }
               }
           }
-          partitions.foreach { partitionStr =>
-            val finalDF =
-              sourceDF
-                .where(
-                  date_format(col(partitionField), dateFormat).cast("string") === partitionStr
-                )
-                .write
+          cliConfig.partitionsToUpdate match {
+            case None =>
+              sourceDF.write
                 .mode(SaveMode.Overwrite)
                 .format("com.google.cloud.spark.bigquery")
-                .option("datePartition", partitionStr)
                 .option("table", bqTable)
                 .option("intermediateFormat", intermediateFormat)
-            val finalDFWithOptions = finalDF.options(connectorOptions)
-            cliConfig.partitionsToUpdate match {
-              case None =>
-                finalDFWithOptions.save()
-              case Some(partitionsToUpdate) =>
+                .options(connectorOptions)
+                .save()
+            case Some(partitionsToUpdate) =>
+              partitions.foreach { partitionStr =>
                 // We only overwrite partitions containing updated or newly added elements
                 if (partitionsToUpdate.contains(partitionStr)) {
-                  logger.info(
-                    s"Optimization -> Writing partition : $partitionStr"
-                  )
-                  finalDFWithOptions.save()
+                  logger.info(s"Optimization -> Writing partition : $partitionStr")
+                  sourceDF
+                    .where(
+                      date_format(col(partitionField), dateFormat).cast("string") === partitionStr
+                    )
+                    .write
+                    .mode(SaveMode.Overwrite)
+                    .format("com.google.cloud.spark.bigquery")
+                    .option("datePartition", partitionStr)
+                    .option("table", bqTable)
+                    .option("intermediateFormat", intermediateFormat)
+                    .options(connectorOptions)
+                    .save()
                 } else {
-                  logger.info(
-                    s"Optimization -> Not writing partition : $partitionStr"
-                  )
+                  logger.info(s"Optimization -> Not writing partition : $partitionStr")
                 }
-            }
+              }
           }
 
         case (writeDisposition, _, partitionOverwriteMode) =>
