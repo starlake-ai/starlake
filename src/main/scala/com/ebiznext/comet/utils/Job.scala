@@ -6,6 +6,7 @@ import com.ebiznext.comet.schema.model.{Metadata, SinkType, Views}
 import com.ebiznext.comet.utils.Formatter._
 import com.ebiznext.comet.utils.kafka.KafkaClient
 import com.typesafe.scalalogging.StrictLogging
+import org.apache.spark.SparkConf
 import org.apache.spark.sql._
 import org.apache.spark.sql.execution.datasources.jdbc.JDBCOptions
 import org.apache.spark.sql.functions._
@@ -64,10 +65,32 @@ trait JobBase extends StrictLogging with DatasetLogging {
 
 trait SparkJob extends JobBase {
 
-  def withExtraSparkConf(): Map[String, String] = Map.empty
+  def withExtraSparkConf(sourceConfig: SparkConf): SparkConf = {
+    // During Job execution, schema update are done on the table before data is written
+    // These two options below are thus disabled.
+    // We disable them because even though the suer asked for WRITE_APPEND
+    // On merge, we write in WRITE_TRUNCATE mode.
+    sourceConfig.remove("spark.datasource.bigquery.allowFieldAddition")
+    sourceConfig.remove("spark.datasource.bigquery.allowFieldRelaxation")
+    sourceConfig
+  }
+
+  // Specific to BigQuery
+  val allowFieldAddition: Boolean =
+    if (settings.sparkConfig.hasPath("datasource.bigquery.allowFieldAddition"))
+      settings.sparkConfig.getString("datasource.bigquery.allowFieldAddition").toBoolean
+    else
+      false
+
+  // Specific to BigQuery
+  val allowFieldRelaxation: Boolean =
+    if (settings.sparkConfig.hasPath("datasource.bigquery.allowFieldRelaxation"))
+      settings.sparkConfig.getString("datasource.bigquery.allowFieldRelaxation").toBoolean
+    else
+      false
 
   lazy val sparkEnv: SparkEnv = {
-    new SparkEnv(name, withExtraSparkConf())
+    new SparkEnv(name, withExtraSparkConf)
   }
 
   protected def registerUdf(udf: String): Unit = {
