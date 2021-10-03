@@ -31,41 +31,29 @@ class BigQuerySparkJob(
     extends SparkJob
     with BigQueryJobBase {
 
-  val (connectorOptions, sparkOptions) = {
-    val connectorUpdateOptions = List(
-      "allowFieldAddition",
-      "allowFieldRelaxation"
-    )
-    Try {
+  val connectorOptions: Map[String, String] = {
+    val optionsOnTruncate = cliConfig.writeDisposition match {
+      case "WRITE_TRUNCATE" =>
+        cliConfig.options -- List("allowFieldAddition", "allowFieldRelaxation")
+      case "WRITE_APPEND" =>
+        cliConfig.options ++ Map(
+          "allowFieldAddition"   -> allowFieldAddition.toString,
+          "allowFieldRelaxation" -> allowFieldRelaxation.toString
+        )
+      case _ =>
+        cliConfig.options
+    }
+    Try { // In test mode, we are not connected to BigQuery hence the Try bloc.
       Option(bigquery.getTable(tableId)) match {
-        case None =>
-          (cliConfig.options -- connectorUpdateOptions, Map.empty[String, String])
-        case Some(tableId) if cliConfig.writeDisposition == "WRITE_TRUNCATE" =>
-          val definition = tableId.getDefinition.asInstanceOf[StandardTableDefinition]
-          if (definition.getTimePartitioning == null && definition.getRangePartitioning == null)
-            (cliConfig.options -- connectorUpdateOptions, Map.empty[String, String])
-          else
-            (
-              cliConfig.options -- connectorUpdateOptions,
-              Map(
-                "spark.datasource.bigquery.allowFieldAddition"   -> "false",
-                "spark.datasource.bigquery.allowFieldRelaxation" -> "false"
-              )
-            )
+        case None => // Table does not exits yet
+          optionsOnTruncate -- List("allowFieldAddition", "allowFieldRelaxation")
         case Some(_) =>
-          (cliConfig.options, Map.empty[String, String])
+          optionsOnTruncate
       }
     } match {
       case Success(value) => value
-      case Failure(_)     =>
-        // In test mode, we are not connected to BigQuery
-        // simply return original options
-        (cliConfig.options, Map.empty[String, String])
+      case Failure(e)     => optionsOnTruncate
     }
-  }
-
-  override def withExtraSparkConf(): Map[String, String] = {
-    sparkOptions
   }
 
   override def name: String = s"bqload-${cliConfig.outputDataset}-${cliConfig.outputTable}"
@@ -188,6 +176,7 @@ class BigQuerySparkJob(
 
       (cliConfig.writeDisposition, cliConfig.outputPartition, partitionOverwriteMode) match {
         case ("WRITE_TRUNCATE", Some(partitionField), "dynamic") =>
+          // Partitioned table
           logger.info(s"overwriting partition ${partitionField} in The BQ Table $bqTable")
           // BigQuery supports only this date format 'yyyyMMdd', so we have to use it
           // in order to overwrite only one partition
