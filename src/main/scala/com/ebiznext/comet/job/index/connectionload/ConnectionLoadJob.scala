@@ -3,6 +3,7 @@ package com.ebiznext.comet.job.index.connectionload
 import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.utils.{JobResult, SparkJob, SparkJobResult, Utils}
 import com.google.cloud.bigquery.JobInfo.WriteDisposition
+import org.apache.spark.SparkConf
 import org.apache.spark.sql.SaveMode
 
 import scala.util.Try
@@ -15,7 +16,10 @@ class ConnectionLoadJob(
   /** Set extra spark conf here otherwise it will be too late once the spark session is created.
     * @return
     */
-  override def withExtraSparkConf(): Map[String, String] = cliConfig.options
+  override def withExtraSparkConf(sourceConfig: SparkConf): SparkConf = {
+    cliConfig.options.foreach { case (k, v) => sourceConfig.set(k, v) }
+    sourceConfig
+  }
 
   override def name: String = s"jdbcload-JDBC-${cliConfig.outputTable}"
 

@@ -34,7 +34,7 @@ import scala.collection.JavaConverters._
   *   : Cusom spark application name prefix. The current datetime is appended this the Spark Job
   *   name
   */
-class SparkEnv(name: String, extraSparkConf: Map[String, String] = Map.empty)(implicit
+class SparkEnv(name: String, confTransformer: SparkConf => SparkConf = identity)(implicit
   settings: Settings
 ) extends StrictLogging {
 
@@ -55,7 +55,7 @@ class SparkEnv(name: String, extraSparkConf: Map[String, String] = Map.empty)(im
       .setAppName(appName)
       .set("spark.app.id", appName)
 
-    val withExtraConf = extraSparkConf.foldLeft(thisConf) { case (conf, (k, v)) => conf.set(k, v) }
+    val withExtraConf = confTransformer(thisConf)
 
     logger.whenDebugEnabled {
       logger.debug(withExtraConf.toDebugString)
