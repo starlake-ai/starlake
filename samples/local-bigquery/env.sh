@@ -2,7 +2,7 @@ source ../env.sh
 
 GCP_BUCKET_NAME="${GCP_BUCKET_NAME:-starlake-app}"
 GCP_PROJECT_ID="${GCP_PROJECT_ID:-starlake-325712}"
-GCP_SA_JSON_PATH="${GCP_SA_JSON_PATH:-/Users/hayssams/.gcloud/keys/starlake-hayssam-saleh.json}"
+GCP_SA_JSON_PATH="${GCP_SA_JSON_PATH:-$HOME/.gcloud/keys/starlake-$USER.json}"
 
 export GOOGLE_APPLICATION_CREDENTIALS="$GCP_SA_JSON_PATH"
 
