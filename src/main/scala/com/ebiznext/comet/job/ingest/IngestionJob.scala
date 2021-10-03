@@ -15,13 +15,13 @@ import com.ebiznext.comet.utils.Formatter._
 import com.ebiznext.comet.utils._
 import com.ebiznext.comet.utils.conversion.BigQueryUtils
 import com.ebiznext.comet.utils.kafka.KafkaClient
-import com.ebiznext.comet.utils.repackaged.BigQuerySchemaConverters
 import com.google.cloud.bigquery.JobInfo.{CreateDisposition, WriteDisposition}
 import com.google.cloud.bigquery.{
   Field,
   LegacySQLTypeName,
   Schema => BQSchema,
-  StandardTableDefinition
+  StandardTableDefinition,
+  Table
 }
 import org.apache.hadoop.fs.Path
 import org.apache.spark.ml.feature.SQLTransformer
@@ -850,12 +850,12 @@ trait IngestionJob extends SparkJob {
     * if partititionStart or partitionEnd does nos exist (aka empty dataset) they are replaced by
     * 19700101
     *
-    * @param withScriptFieldsDF
+    * @param incomingDF
     * @param mergeOptions
     * @return
     */
   private def mergeFromBQ(
-    withScriptFieldsDF: DataFrame,
+    incomingDF: DataFrame,
     mergeOptions: MergeOptions,
     sink: BigQuerySink
   ): (DataFrame, Option[List[String]]) = {
@@ -863,15 +863,12 @@ trait IngestionJob extends SparkJob {
     val tableMetadata = BigQuerySparkJob.getTable(session, domain.name, schema.name)
     val existingDF = tableMetadata.table
       .map { table =>
-        val incomingSchema = BigQueryUtils.normalizeSchema(withScriptFieldsDF.schema)
-        val existingSchema = BigQuerySchemaConverters.toSpark(
-          table.getDefinition.asInstanceOf[StandardTableDefinition].getSchema
-        )
-
+        val incomingSchema = BigQueryUtils.normalizeSchema(incomingDF.schema)
+        updateBqTableSchema(table, incomingSchema)
         val bqTable = s"${domain.name}.${schema.name}"
         // We provided the acceptedDF schema here since BQ lose the required / nullable information of the schema
         val existingBQDFWithoutFilter = session.read
-          .schema(MergeUtils.computeCompatibleSchema(existingSchema, incomingSchema))
+          .schema(incomingSchema)
           .format("com.google.cloud.spark.bigquery")
           .option("table", bqTable)
 
@@ -888,11 +885,11 @@ trait IngestionJob extends SparkJob {
         existingBigQueryDFReader.load()
       }
       .getOrElse {
-        session.createDataFrame(session.sparkContext.emptyRDD[Row], withScriptFieldsDF.schema)
+        session.createDataFrame(session.sparkContext.emptyRDD[Row], incomingDF.schema)
       }
 
     val (mergedDF, toDeleteDF) =
-      MergeUtils.computeToMergeAndToDeleteDF(existingDF, withScriptFieldsDF, mergeOptions)
+      MergeUtils.computeToMergeAndToDeleteDF(existingDF, incomingDF, mergeOptions)
 
     val partitionOverwriteMode =
       session.conf.get("spark.sql.sources.partitionOverwriteMode", "static").toLowerCase()
@@ -930,6 +927,61 @@ trait IngestionJob extends SparkJob {
     val attributesMap =
       finalSchema.map(attr => (attr.name, attr)).toMap
     dataFrame.columns.map(colName => attributesMap(colName)).toList
+  }
+
+  private def updateBqTableSchema(table: Table, incomingSchema: StructType): Unit = {
+    import scala.collection.JavaConverters._
+    val incomingFieldsMap = incomingSchema.fields.map(f => f.name -> f).toMap
+    val existingSchema =
+      table.getDefinition.asInstanceOf[StandardTableDefinition].getSchema.getFields()
+    val existingFieldNames = existingSchema.asScala.map(_.getName).toList
+    val newFields = incomingFieldsMap.keys.filterNot(existingFieldNames.toSet)
+    val oldFields = existingFieldNames.filterNot(incomingFieldsMap.keys.toSet)
+    if (oldFields.nonEmpty) {
+      throw new Exception(
+        s"existing table contains fields not present in the new schema:  $oldFields"
+      )
+    }
+
+    def updateSchema() = {
+      val newBqSchema = BigQueryUtils.bqSchema(incomingSchema)
+      val updatedTable =
+        table.toBuilder.setDefinition(StandardTableDefinition.of(newBqSchema)).build()
+      updatedTable.update()
+    }
+
+    if (allowFieldAddition) {
+      if (newFields.nonEmpty) {
+        logger.info(s"The following new columns have been detected: ${newFields.toList}")
+        // make sure all new fields are nullable
+        newFields.foreach { fieldName =>
+          val field = incomingFieldsMap(fieldName)
+          if (!field.nullable) {
+            throw new Exception(s"Cannot add required $field with name $fieldName")
+          }
+        }
+        updateSchema()
+      }
+    }
+    if (allowFieldRelaxation) {
+      val existingFields = existingSchema.asScala
+        .map(f => (f.getName, Option(f.getMode).forall(_ == Field.Mode.NULLABLE)))
+        .toMap
+      val incomingRequiredFields = incomingSchema.fields.filter(!_.nullable).map(_.name)
+      incomingRequiredFields.foreach { newFieldName =>
+        val existingField = existingFields.get(newFieldName)
+        existingField match {
+          case None => logger.info("This is a new field, it is handled by allowFieldAddition Above")
+          case Some(true) =>
+            throw new Exception(
+              s"Merge failed because existing field is nullable but incoming one is required -> $newFieldName"
+            )
+          case Some(false) => // unchanged field
+        }
+      }
+      if (!allowFieldAddition || newFields.isEmpty)
+        updateSchema()
+    }
   }
 }
 
