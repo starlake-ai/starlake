@@ -226,7 +226,7 @@ class BigQuerySparkJob(
               }
           }
           cliConfig.partitionsToUpdate match {
-            case None =>
+            case None => // No optimisation requested. This happens when there is no existing dataset
               sourceDF.write
                 .mode(SaveMode.Overwrite)
                 .format("com.google.cloud.spark.bigquery")
