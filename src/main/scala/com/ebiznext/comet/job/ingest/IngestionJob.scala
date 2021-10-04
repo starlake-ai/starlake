@@ -29,6 +29,7 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.{Metadata => _, _}
+import scala.collection.JavaConverters._
 
 import java.sql.Timestamp
 import java.time.{Instant, LocalDateTime}
@@ -929,18 +930,16 @@ trait IngestionJob extends SparkJob {
   }
 
   private def updateBqTableSchema(table: Table, incomingSchema: StructType): Unit = {
-    import scala.collection.JavaConverters._
     val incomingFieldsMap = incomingSchema.fields.map(f => f.name -> f).toMap
     val existingSchema =
       table.getDefinition.asInstanceOf[StandardTableDefinition].getSchema.getFields()
     val existingFieldNames = existingSchema.asScala.map(_.getName).toList
     val newFields = incomingFieldsMap.keys.filterNot(existingFieldNames.toSet)
     val oldFields = existingFieldNames.filterNot(incomingFieldsMap.keys.toSet)
-    if (oldFields.nonEmpty) {
+    if (oldFields.nonEmpty)
       throw new Exception(
         s"existing table contains fields not present in the new schema:  $oldFields"
       )
-    }
 
     def updateSchema() = {
       val newBqSchema = BigQueryUtils.bqSchema(incomingSchema)
@@ -949,18 +948,15 @@ trait IngestionJob extends SparkJob {
       updatedTable.update()
     }
 
-    if (allowFieldAddition) {
-      if (newFields.nonEmpty) {
-        logger.info(s"The following new columns have been detected: ${newFields.toList}")
-        // make sure all new fields are nullable
-        newFields.foreach { fieldName =>
-          val field = incomingFieldsMap(fieldName)
-          if (!field.nullable) {
-            throw new Exception(s"Cannot add required $field with name $fieldName")
-          }
+    if (allowFieldAddition && newFields.nonEmpty) {
+      logger.info(s"The following new columns have been detected: ${newFields.toList}")
+      newFields.foreach { fieldName => // make sure all new fields are nullable
+        val field = incomingFieldsMap(fieldName)
+        if (!field.nullable) {
+          throw new Exception(s"Cannot add required $field with name $fieldName")
         }
-        updateSchema()
       }
+      updateSchema()
     }
     if (allowFieldRelaxation) {
       val existingFields = existingSchema.asScala
