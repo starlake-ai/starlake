@@ -18,11 +18,15 @@ object MergeUtils extends StrictLogging with DatasetLogging {
     val expectedColumns = expectedSchema.map(field => field.name -> field).toMap
 
     val missingColumns = actualColumns.keySet.diff(expectedColumns.keySet)
-    if (missingColumns.nonEmpty)
-      throw new RuntimeException(
-        "Input Dataset should contain every column from the existing HDFS dataset. The following columns were not matched: " + missingColumns
-          .mkString(", ")
-      )
+    if (missingColumns.nonEmpty) {
+      logger.info(s"Missing columns ${missingColumns.mkString(",")}")
+      missingColumns.foreach { missingColumn =>
+        if (!actualColumns(missingColumn).nullable)
+          throw new RuntimeException(
+            "Input Dataset should contain every required column from the existing HDFS dataset. The following columns were not matched: " + missingColumn
+          )
+      }
+    }
 
     val newColumns = expectedColumns.keySet.diff(actualColumns.keySet)
     val newColumnsNotNullable =
@@ -178,19 +182,25 @@ object MergeUtils extends StrictLogging with DatasetLogging {
   }
 
   /** Perform an union between two dataframe. Fixes any missing column from the originalDF by add
-    * null values where needed. Assumes toAddDF to at least contains all the columns from originalDF
-    * (see {@link computeCompatibleSchema})
+    * null values where needed and also fixes any missing column in the incoming DF (see {@link
+    * computeCompatibleSchema})
     */
-  private def computeDataframeUnion(originalDF: DataFrame, toAddDF: DataFrame): DataFrame = {
-    val missingTypes = findMissingColumnsType(originalDF.schema, toAddDF.schema)
-    val patchedDF = missingTypes
-      .fold(originalDF) { missingTypes =>
-        missingTypes.foldLeft(originalDF) { buildMissingType }
-      }
-      // Force ordering of columns to be the same
-      .select(toAddDF.columns.map(col): _*)
+  private def computeDataframeUnion(originalDF: DataFrame, incomingDF: DataFrame): DataFrame = {
+    val patchedExistingDF = addMissingAttributes(originalDF, incomingDF)
+    val patchedIncomingDF = addMissingAttributes(incomingDF, originalDF)
 
-    // place toAddDF first, so that if a new data takes precedence over the rest
-    toAddDF.union(patchedDF)
+    patchedIncomingDF.unionByName(patchedExistingDF)
+  }
+
+  private def addMissingAttributes(existingDF: DataFrame, incomingDF: DataFrame) = {
+    val missingTypesInExisting = findMissingColumnsType(existingDF.schema, incomingDF.schema)
+    val patchedExistingDF = missingTypesInExisting
+      .fold(existingDF) { missingTypes =>
+        missingTypes.foldLeft(existingDF) {
+          buildMissingType
+        }
+      }
+    logger.info(patchedExistingDF.schemaString())
+    patchedExistingDF
   }
 }
