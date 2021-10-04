@@ -25,14 +25,12 @@ import com.ebiznext.comet.schema.handlers.{SchemaHandler, StorageHandler}
 import com.ebiznext.comet.schema.model.Schema
 import com.ebiznext.comet.utils.{JobResult, SparkJob, SparkJobResult}
 import com.softwaremill.sttp._
-import org.apache.spark.SparkConf
 import org.apache.spark.sql.SaveMode
+import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.StructField
 
-import scala.util.{Failure, Success, Try}
-import org.apache.spark.sql.functions._
-
 import scala.collection.JavaConverters._
+import scala.util.{Failure, Success, Try}
 
 class ESLoadJob(
   cliConfig: ESLoadConfig,
@@ -40,14 +38,6 @@ class ESLoadJob(
   schemaHandler: SchemaHandler
 )(implicit val settings: Settings)
     extends SparkJob {
-
-  /** Set extra spark conf here otherwise it will be too late once the spark session is created.
-    * @return
-    */
-  override def withExtraSparkConf(sourceConfig: SparkConf): SparkConf = {
-    cliConfig.options.foreach { case (k, v) => sourceConfig.set(k, v) }
-    sourceConfig
-  }
 
   val esresource = Some(("es.resource.write", s"${cliConfig.getResource()}"))
   val esId = cliConfig.id.map("es.mapping.id" -> _)

@@ -33,15 +33,10 @@ class BigQuerySparkJob(
 
   val connectorOptions: Map[String, String] = {
     val optionsOnTruncate = cliConfig.writeDisposition match {
-      case "WRITE_TRUNCATE" =>
-        cliConfig.options -- List("allowFieldAddition", "allowFieldRelaxation")
       case "WRITE_APPEND" =>
-        cliConfig.options ++ Map(
-          "allowFieldAddition"   -> allowFieldAddition.toString,
-          "allowFieldRelaxation" -> allowFieldRelaxation.toString
-        )
-      case _ =>
-        cliConfig.options
+        cliConfig.options ++ Map("allowFieldAddition" -> "true", "allowFieldRelaxation" -> "true")
+      case _ => // including "WRITE_TRUNCATE"
+        cliConfig.options -- List("allowFieldAddition", "allowFieldRelaxation")
     }
     Try { // In test mode, we are not connected to BigQuery hence the Try bloc.
       Option(bigquery.getTable(tableId)) match {
