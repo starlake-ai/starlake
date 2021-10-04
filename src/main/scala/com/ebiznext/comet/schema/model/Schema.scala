@@ -231,7 +231,7 @@ case class Schema(
     * @return
     *   Spark Catalyst Schema
     */
-  def sparkSchema(schemaHandler: SchemaHandler): StructType = {
+  def sourceSparkSchema(schemaHandler: SchemaHandler): StructType = {
     val fields = attributes.map { attr =>
       StructField(attr.name, attr.sparkType(schemaHandler), !attr.required)
         .withComment(attr.comment.getOrElse(""))

@@ -88,7 +88,7 @@ class XmlIngestionJob(
     }
   }
 
-  lazy val schemaSparkType: StructType = schema.sparkSchema(schemaHandler)
+  lazy val schemaSparkType: StructType = schema.sourceSparkSchema(schemaHandler)
 
   /** Where the magic happen
     *
