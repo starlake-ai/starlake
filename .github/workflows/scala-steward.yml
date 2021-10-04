@@ -20,4 +20,4 @@ jobs:
       - name: Scala Steward
         uses: scala-steward-org/scala-steward-action@v2
         with:
-          github-token: ${{ github.token }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
