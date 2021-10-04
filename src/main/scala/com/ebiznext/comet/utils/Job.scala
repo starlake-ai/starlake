@@ -68,26 +68,13 @@ trait SparkJob extends JobBase {
   def withExtraSparkConf(sourceConfig: SparkConf): SparkConf = {
     // During Job execution, schema update are done on the table before data is written
     // These two options below are thus disabled.
-    // We disable them because even though the suer asked for WRITE_APPEND
+    // We disable them because even though the user asked for WRITE_APPEND
     // On merge, we write in WRITE_TRUNCATE mode.
+    // Moreover, since we handle schema validaty through the YAML file, we manage these settings automatically
     sourceConfig.remove("spark.datasource.bigquery.allowFieldAddition")
     sourceConfig.remove("spark.datasource.bigquery.allowFieldRelaxation")
     sourceConfig
   }
-
-  // Specific to BigQuery
-  val allowFieldAddition: Boolean =
-    if (settings.sparkConfig.hasPath("datasource.bigquery.allowFieldAddition"))
-      settings.sparkConfig.getString("datasource.bigquery.allowFieldAddition").toBoolean
-    else
-      false
-
-  // Specific to BigQuery
-  val allowFieldRelaxation: Boolean =
-    if (settings.sparkConfig.hasPath("datasource.bigquery.allowFieldRelaxation"))
-      settings.sparkConfig.getString("datasource.bigquery.allowFieldRelaxation").toBoolean
-    else
-      false
 
   lazy val sparkEnv: SparkEnv = {
     new SparkEnv(name, withExtraSparkConf)
