@@ -15,12 +15,12 @@ import com.ebiznext.comet.utils.Formatter._
 import com.ebiznext.comet.utils._
 import com.ebiznext.comet.utils.conversion.BigQueryUtils
 import com.ebiznext.comet.utils.kafka.KafkaClient
+import com.ebiznext.comet.utils.repackaged.BigQuerySchemaConverters
 import com.google.cloud.bigquery.JobInfo.{CreateDisposition, WriteDisposition}
 import com.google.cloud.bigquery.{
   Field,
   LegacySQLTypeName,
   Schema => BQSchema,
-  StandardSQLTypeName,
   StandardTableDefinition,
   Table
 }
@@ -31,7 +31,6 @@ import org.apache.spark.sql._
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.{Metadata => _, _}
 
-import scala.collection.JavaConverters._
 import java.sql.Timestamp
 import java.time.{Instant, LocalDateTime}
 import scala.collection.JavaConverters._
@@ -815,6 +814,7 @@ trait IngestionJob extends SparkJob {
     withScriptFieldsDF: DataFrame,
     mergeOptions: MergeOptions
   ): (DataFrame, Option[List[String]]) = {
+    val incomingSchema = BigQueryUtils.normalizeSchema(schema.finalSparkSchema(schemaHandler))
     val existingDF =
       if (storageHandler.exists(new Path(acceptedPath, "_SUCCESS"))) {
         // Load from accepted area
@@ -823,7 +823,7 @@ trait IngestionJob extends SparkJob {
           .schema(
             MergeUtils.computeCompatibleSchema(
               session.read.parquet(acceptedPath.toString).schema,
-              withScriptFieldsDF.schema
+              incomingSchema
             )
           )
           .parquet(acceptedPath.toString)
@@ -864,8 +864,8 @@ trait IngestionJob extends SparkJob {
     val tableMetadata = BigQuerySparkJob.getTable(session, domain.name, schema.name)
     val existingDF = tableMetadata.table
       .map { table =>
-        val incomingSchema = BigQueryUtils.normalizeSchema(incomingDF.schema)
-        updateBqTableSchema(table, incomingSchema)
+        val incomingSchema = BigQueryUtils.normalizeSchema(schema.finalSparkSchema(schemaHandler))
+        val updatedTable = updateBqTableSchema(table, incomingSchema)
         val bqTable = s"${domain.name}.${schema.name}"
         // We provided the acceptedDF schema here since BQ lose the required / nullable information of the schema
         val existingBQDFWithoutFilter = session.read
@@ -876,7 +876,7 @@ trait IngestionJob extends SparkJob {
         val existingBigQueryDFReader = (mergeOptions.queryFilter, sink.timestamp) match {
           case (Some(_), Some(_)) =>
             val partitions =
-              tableMetadata.biqueryClient.listPartitions(table.getTableId).asScala.toList
+              tableMetadata.biqueryClient.listPartitions(updatedTable.getTableId).asScala.toList
             val filter = mergeOptions.buidlBQQuery(partitions, options)
             existingBQDFWithoutFilter
               .option("filter", filter.getOrElse(throw new Exception("should never happen")))
@@ -930,11 +930,21 @@ trait IngestionJob extends SparkJob {
     dataFrame.columns.map(colName => attributesMap(colName)).toList
   }
 
-  private def updateBqTableSchema(table: Table, incomingSchema: StructType): Unit = {
-    // This will raise an exception if schema are not compatible.
-    val newBqSchema = BigQueryUtils.bqSchema(incomingSchema)
+  private def updateBqTableSchema(table: Table, incomingSchema: StructType): Table = {
+    // This will raise an exception if schemas are not compatible.
+    val existingSchema = BigQuerySchemaConverters.toSpark(
+      table.getDefinition.asInstanceOf[StandardTableDefinition].getSchema
+    )
+
+    MergeUtils.computeCompatibleSchema(existingSchema, incomingSchema)
+    val newBqSchema =
+      BigQueryUtils.bqSchema(
+        BigQueryUtils.normalizeSchema(schema.finalSparkSchema(schemaHandler))
+      )
+    val updatedTableDefinition =
+      table.getDefinition[StandardTableDefinition].toBuilder.setSchema(newBqSchema).build()
     val updatedTable =
-      table.toBuilder.setDefinition(StandardTableDefinition.of(newBqSchema)).build()
+      table.toBuilder.setDefinition(updatedTableDefinition).build()
     updatedTable.update()
   }
 }
