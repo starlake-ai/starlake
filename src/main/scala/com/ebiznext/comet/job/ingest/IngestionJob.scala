@@ -20,6 +20,7 @@ import com.google.cloud.bigquery.{
   Field,
   LegacySQLTypeName,
   Schema => BQSchema,
+  StandardSQLTypeName,
   StandardTableDefinition,
   Table
 }
@@ -29,8 +30,8 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.{Metadata => _, _}
-import scala.collection.JavaConverters._
 
+import scala.collection.JavaConverters._
 import java.sql.Timestamp
 import java.time.{Instant, LocalDateTime}
 import scala.collection.JavaConverters._
@@ -930,53 +931,11 @@ trait IngestionJob extends SparkJob {
   }
 
   private def updateBqTableSchema(table: Table, incomingSchema: StructType): Unit = {
-    val incomingFieldsMap = incomingSchema.fields.map(f => f.name -> f).toMap
-    val existingSchema =
-      table.getDefinition.asInstanceOf[StandardTableDefinition].getSchema.getFields()
-    val existingFieldNames = existingSchema.asScala.map(_.getName).toList
-    val newFields = incomingFieldsMap.keys.filterNot(existingFieldNames.toSet)
-    val oldFields = existingFieldNames.filterNot(incomingFieldsMap.keys.toSet)
-    if (oldFields.nonEmpty)
-      throw new Exception(
-        s"existing table contains fields not present in the new schema:  $oldFields"
-      )
-
-    def updateSchema() = {
-      val newBqSchema = BigQueryUtils.bqSchema(incomingSchema)
-      val updatedTable =
-        table.toBuilder.setDefinition(StandardTableDefinition.of(newBqSchema)).build()
-      updatedTable.update()
-    }
-
-    if (allowFieldAddition && newFields.nonEmpty) {
-      logger.info(s"The following new columns have been detected: ${newFields.toList}")
-      newFields.foreach { fieldName => // make sure all new fields are nullable
-        val field = incomingFieldsMap(fieldName)
-        if (!field.nullable) {
-          throw new Exception(s"Cannot add required $field with name $fieldName")
-        }
-      }
-      updateSchema()
-    }
-    if (allowFieldRelaxation) {
-      val existingFields = existingSchema.asScala
-        .map(f => (f.getName, Option(f.getMode).forall(_ == Field.Mode.NULLABLE)))
-        .toMap
-      val incomingRequiredFields = incomingSchema.fields.filter(!_.nullable).map(_.name)
-      incomingRequiredFields.foreach { newFieldName =>
-        val existingField = existingFields.get(newFieldName)
-        existingField match {
-          case None => logger.info("This is a new field, it is handled by allowFieldAddition Above")
-          case Some(true) =>
-            throw new Exception(
-              s"Merge failed because existing field is nullable but incoming one is required -> $newFieldName"
-            )
-          case Some(false) => // unchanged field
-        }
-      }
-      if (!allowFieldAddition || newFields.isEmpty)
-        updateSchema()
-    }
+    // This will raise an exception if schema are not compatible.
+    val newBqSchema = BigQueryUtils.bqSchema(incomingSchema)
+    val updatedTable =
+      table.toBuilder.setDefinition(StandardTableDefinition.of(newBqSchema)).build()
+    updatedTable.update()
   }
 }
 
