@@ -19,13 +19,13 @@ object MergeUtils extends StrictLogging with DatasetLogging {
 
     val missingColumns = actualColumns.keySet.diff(expectedColumns.keySet)
     if (missingColumns.nonEmpty) {
-      logger.info(s"Missing columns ${missingColumns.mkString(",")}")
-      missingColumns.foreach { missingColumn =>
-        if (!actualColumns(missingColumn).nullable)
-          throw new RuntimeException(
-            "Input Dataset should contain every required column from the existing HDFS dataset. The following columns were not matched: " + missingColumn
-          )
-      }
+      logger.info(s"Columns omitted in the new schema: ${missingColumns.mkString(",")}")
+      val missingColumnsNotNullable = missingColumns.filterNot(actualColumns(_).nullable)
+      if (missingColumnsNotNullable.nonEmpty)
+        throw new RuntimeException(
+          s"Input Dataset should contain every required column from the existing HDFS dataset. The following columns were not matched: ${missingColumnsNotNullable
+            .mkString(",")}"
+        )
     }
 
     val newColumns = expectedColumns.keySet.diff(actualColumns.keySet)
