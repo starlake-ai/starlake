@@ -814,7 +814,7 @@ trait IngestionJob extends SparkJob {
     withScriptFieldsDF: DataFrame,
     mergeOptions: MergeOptions
   ): (DataFrame, Option[List[String]]) = {
-    val incomingSchema = BigQueryUtils.normalizeSchema(schema.finalSparkSchema(schemaHandler))
+    val incomingSchema = schema.finalSparkSchema(schemaHandler)
     val existingDF =
       if (storageHandler.exists(new Path(acceptedPath, "_SUCCESS"))) {
         // Load from accepted area
