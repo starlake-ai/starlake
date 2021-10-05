@@ -22,7 +22,7 @@ import org.apache.spark.sql.{DataFrame, Row, SaveMode, SparkSession}
 import org.apache.spark.storage.StorageLevel
 
 import scala.collection.JavaConverters._
-import scala.util.{Failure, Success, Try}
+import scala.util.Try
 
 class BigQuerySparkJob(
   override val cliConfig: BigQueryLoadConfig,
@@ -31,25 +31,13 @@ class BigQuerySparkJob(
     extends SparkJob
     with BigQueryJobBase {
 
-  val connectorOptions: Map[String, String] = {
-    val optionsOnTruncate = cliConfig.writeDisposition match {
+  val connectorOptions: Map[String, String] =
+    cliConfig.writeDisposition match {
       case "WRITE_APPEND" =>
         cliConfig.options ++ Map("allowFieldAddition" -> "true", "allowFieldRelaxation" -> "true")
       case _ => // including "WRITE_TRUNCATE"
         cliConfig.options -- List("allowFieldAddition", "allowFieldRelaxation")
     }
-    Try { // In test mode, we are not connected to BigQuery hence the Try bloc.
-      Option(bigquery.getTable(tableId)) match {
-        case None => // Table does not exits yet
-          optionsOnTruncate -- List("allowFieldAddition", "allowFieldRelaxation")
-        case Some(_) =>
-          optionsOnTruncate
-      }
-    } match {
-      case Success(value) => value
-      case Failure(e)     => optionsOnTruncate
-    }
-  }
 
   override def name: String = s"bqload-${cliConfig.outputDataset}-${cliConfig.outputTable}"
 
