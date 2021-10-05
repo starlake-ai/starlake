@@ -31,14 +31,13 @@ class BigQuerySparkJob(
     extends SparkJob
     with BigQueryJobBase {
 
-  override def withExtraSparkConf(): Map[String, String] =
-    if (cliConfig.writeDisposition == "WRITE_TRUNCATE")
-      cliConfig.options ++ Map(
-        "spark.datasource.bigquery.allowFieldAddition"   -> "false",
-        "spark.datasource.bigquery.allowFieldRelaxation" -> "false"
-      )
-    else
-      cliConfig.options
+  val connectorOptions: Map[String, String] =
+    cliConfig.writeDisposition match {
+      case "WRITE_APPEND" =>
+        cliConfig.options ++ Map("allowFieldAddition" -> "true", "allowFieldRelaxation" -> "true")
+      case _ => // including "WRITE_TRUNCATE"
+        cliConfig.options -- List("allowFieldAddition", "allowFieldRelaxation")
+    }
 
   override def name: String = s"bqload-${cliConfig.outputDataset}-${cliConfig.outputTable}"
 
@@ -160,6 +159,7 @@ class BigQuerySparkJob(
 
       (cliConfig.writeDisposition, cliConfig.outputPartition, partitionOverwriteMode) match {
         case ("WRITE_TRUNCATE", Some(partitionField), "dynamic") =>
+          // Partitioned table
           logger.info(s"overwriting partition ${partitionField} in The BQ Table $bqTable")
           // BigQuery supports only this date format 'yyyyMMdd', so we have to use it
           // in order to overwrite only one partition
@@ -204,42 +204,40 @@ class BigQuerySparkJob(
                     .option("table", bqTable)
                     .option("intermediateFormat", intermediateFormat)
 
-                  cliConfig.options
-                    .foldLeft(finalEmptyDF) { case (df, (k, v)) => df.option(k, v) }
-                    .save()
+                  finalEmptyDF.options(connectorOptions).save()
                 }
               }
           }
-          partitions.foreach { partitionStr =>
-            val finalDF =
-              sourceDF
-                .where(
-                  date_format(col(partitionField), dateFormat).cast("string") === partitionStr
-                )
-                .write
+          cliConfig.partitionsToUpdate match {
+            case None => // No optimisation requested. This happens when there is no existing dataset
+              sourceDF.write
                 .mode(SaveMode.Overwrite)
                 .format("com.google.cloud.spark.bigquery")
-                .option("datePartition", partitionStr)
                 .option("table", bqTable)
                 .option("intermediateFormat", intermediateFormat)
-            val finalDFWithOptions = cliConfig.options
-              .foldLeft(finalDF) { case (df, (k, v)) => df.option(k, v) }
-            cliConfig.partitionsToUpdate match {
-              case None =>
-                finalDFWithOptions.save()
-              case Some(partitionsToUpdate) =>
+                .options(connectorOptions)
+                .save()
+            case Some(partitionsToUpdate) =>
+              partitions.foreach { partitionStr =>
                 // We only overwrite partitions containing updated or newly added elements
                 if (partitionsToUpdate.contains(partitionStr)) {
-                  logger.info(
-                    s"Optimization -> Writing partition : $partitionStr"
-                  )
-                  finalDFWithOptions.save()
+                  logger.info(s"Optimization -> Writing partition : $partitionStr")
+                  sourceDF
+                    .where(
+                      date_format(col(partitionField), dateFormat).cast("string") === partitionStr
+                    )
+                    .write
+                    .mode(SaveMode.Overwrite)
+                    .format("com.google.cloud.spark.bigquery")
+                    .option("datePartition", partitionStr)
+                    .option("table", bqTable)
+                    .option("intermediateFormat", intermediateFormat)
+                    .options(connectorOptions)
+                    .save()
                 } else {
-                  logger.info(
-                    s"Optimization -> Not writing partition : $partitionStr"
-                  )
+                  logger.info(s"Optimization -> Not writing partition : $partitionStr")
                 }
-            }
+              }
           }
 
         case (writeDisposition, _, partitionOverwriteMode) =>
@@ -257,7 +255,7 @@ class BigQuerySparkJob(
             .option("table", bqTable)
             .option("intermediateFormat", intermediateFormat)
 
-          cliConfig.options.foldLeft(finalDF)((w, kv) => w.option(kv._1, kv._2)).save()
+          finalDF.options(connectorOptions).save()
       }
 
       val stdTableDefinitionAfter =
