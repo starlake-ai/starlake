@@ -21,7 +21,8 @@ import com.google.cloud.bigquery.{
   Field,
   LegacySQLTypeName,
   Schema => BQSchema,
-  StandardTableDefinition
+  StandardTableDefinition,
+  Table
 }
 import org.apache.hadoop.fs.Path
 import org.apache.spark.ml.feature.SQLTransformer
@@ -813,6 +814,7 @@ trait IngestionJob extends SparkJob {
     withScriptFieldsDF: DataFrame,
     mergeOptions: MergeOptions
   ): (DataFrame, Option[List[String]]) = {
+    val incomingSchema = schema.finalSparkSchema(schemaHandler)
     val existingDF =
       if (storageHandler.exists(new Path(acceptedPath, "_SUCCESS"))) {
         // Load from accepted area
@@ -821,7 +823,7 @@ trait IngestionJob extends SparkJob {
           .schema(
             MergeUtils.computeCompatibleSchema(
               session.read.parquet(acceptedPath.toString).schema,
-              withScriptFieldsDF.schema
+              incomingSchema
             )
           )
           .parquet(acceptedPath.toString)
@@ -835,8 +837,7 @@ trait IngestionJob extends SparkJob {
         s"partitionedInputDF field list=${partitionedInputDF.schema.fieldNames.mkString(",")}"
       )
     }
-
-    val (mergedDF, _) =
+    val (finalIncomingDF, mergedDF, _) =
       MergeUtils.computeToMergeAndToDeleteDF(existingDF, partitionedInputDF, mergeOptions)
     (mergedDF, None)
   }
@@ -850,12 +851,12 @@ trait IngestionJob extends SparkJob {
     * if partititionStart or partitionEnd does nos exist (aka empty dataset) they are replaced by
     * 19700101
     *
-    * @param withScriptFieldsDF
+    * @param incomingDF
     * @param mergeOptions
     * @return
     */
   private def mergeFromBQ(
-    withScriptFieldsDF: DataFrame,
+    incomingDF: DataFrame,
     mergeOptions: MergeOptions,
     sink: BigQuerySink
   ): (DataFrame, Option[List[String]]) = {
@@ -863,22 +864,19 @@ trait IngestionJob extends SparkJob {
     val tableMetadata = BigQuerySparkJob.getTable(session, domain.name, schema.name)
     val existingDF = tableMetadata.table
       .map { table =>
-        val incomingSchema = BigQueryUtils.normalizeSchema(withScriptFieldsDF.schema)
-        val existingSchema = BigQuerySchemaConverters.toSpark(
-          table.getDefinition.asInstanceOf[StandardTableDefinition].getSchema
-        )
-
+        val incomingSchema = BigQueryUtils.normalizeSchema(schema.finalSparkSchema(schemaHandler))
+        val updatedTable = updateBqTableSchema(table, incomingSchema)
         val bqTable = s"${domain.name}.${schema.name}"
         // We provided the acceptedDF schema here since BQ lose the required / nullable information of the schema
         val existingBQDFWithoutFilter = session.read
-          .schema(MergeUtils.computeCompatibleSchema(existingSchema, incomingSchema))
+          .schema(incomingSchema)
           .format("com.google.cloud.spark.bigquery")
           .option("table", bqTable)
 
         val existingBigQueryDFReader = (mergeOptions.queryFilter, sink.timestamp) match {
           case (Some(_), Some(_)) =>
             val partitions =
-              tableMetadata.biqueryClient.listPartitions(table.getTableId).asScala.toList
+              tableMetadata.biqueryClient.listPartitions(updatedTable.getTableId).asScala.toList
             val filter = mergeOptions.buidlBQQuery(partitions, options)
             existingBQDFWithoutFilter
               .option("filter", filter.getOrElse(throw new Exception("should never happen")))
@@ -888,11 +886,11 @@ trait IngestionJob extends SparkJob {
         existingBigQueryDFReader.load()
       }
       .getOrElse {
-        session.createDataFrame(session.sparkContext.emptyRDD[Row], withScriptFieldsDF.schema)
+        session.createDataFrame(session.sparkContext.emptyRDD[Row], incomingDF.schema)
       }
 
-    val (mergedDF, toDeleteDF) =
-      MergeUtils.computeToMergeAndToDeleteDF(existingDF, withScriptFieldsDF, mergeOptions)
+    val (finalIncomingDF, mergedDF, toDeleteDF) =
+      MergeUtils.computeToMergeAndToDeleteDF(existingDF, incomingDF, mergeOptions)
 
     val partitionOverwriteMode =
       session.conf.get("spark.sql.sources.partitionOverwriteMode", "static").toLowerCase()
@@ -905,7 +903,7 @@ trait IngestionJob extends SparkJob {
       case ("dynamic", Some(timestamp), true) if existingDF.limit(1).count == 1 =>
         logger.info(s"Computing partitions to update on date column $timestamp")
         val partitionsToUpdate =
-          BigQueryUtils.computePartitionsToUpdateAfterMerge(mergedDF, toDeleteDF, timestamp)
+          BigQueryUtils.computePartitionsToUpdateAfterMerge(finalIncomingDF, toDeleteDF, timestamp)
         logger.info(
           s"The following partitions will be updated ${partitionsToUpdate.mkString(",")}"
         )
@@ -930,6 +928,24 @@ trait IngestionJob extends SparkJob {
     val attributesMap =
       finalSchema.map(attr => (attr.name, attr)).toMap
     dataFrame.columns.map(colName => attributesMap(colName)).toList
+  }
+
+  private def updateBqTableSchema(table: Table, incomingSchema: StructType): Table = {
+    // This will raise an exception if schemas are not compatible.
+    val existingSchema = BigQuerySchemaConverters.toSpark(
+      table.getDefinition.asInstanceOf[StandardTableDefinition].getSchema
+    )
+
+    MergeUtils.computeCompatibleSchema(existingSchema, incomingSchema)
+    val newBqSchema =
+      BigQueryUtils.bqSchema(
+        BigQueryUtils.normalizeSchema(schema.finalSparkSchema(schemaHandler))
+      )
+    val updatedTableDefinition =
+      table.getDefinition[StandardTableDefinition].toBuilder.setSchema(newBqSchema).build()
+    val updatedTable =
+      table.toBuilder.setDefinition(updatedTableDefinition).build()
+    updatedTable.update()
   }
 }
 

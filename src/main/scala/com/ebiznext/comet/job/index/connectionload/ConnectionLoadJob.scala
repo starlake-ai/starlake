@@ -12,11 +12,6 @@ class ConnectionLoadJob(
 )(implicit val settings: Settings)
     extends SparkJob {
 
-  /** Set extra spark conf here otherwise it will be too late once the spark session is created.
-    * @return
-    */
-  override def withExtraSparkConf(): Map[String, String] = cliConfig.options
-
   override def name: String = s"jdbcload-JDBC-${cliConfig.outputTable}"
 
   val conf = session.sparkContext.hadoopConfiguration
@@ -44,7 +39,7 @@ class ConnectionLoadJob(
         .option("dbtable", cliConfig.outputTable)
         .mode(cliConfig.mode.getOrElse(writeMode.toString))
 
-      cliConfig.options.foldLeft(dfw) { case (w, (k, v)) => w.option(k, v) }.save()
+      dfw.options(cliConfig.options).save()
       SparkJobResult(None)
     }
   }
