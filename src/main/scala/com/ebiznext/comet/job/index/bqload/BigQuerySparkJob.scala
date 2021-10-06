@@ -32,12 +32,7 @@ class BigQuerySparkJob(
     with BigQueryJobBase {
 
   val connectorOptions: Map[String, String] =
-    cliConfig.writeDisposition match {
-      case "WRITE_APPEND" =>
-        cliConfig.options ++ Map("allowFieldAddition" -> "true", "allowFieldRelaxation" -> "true")
-      case _ => // including "WRITE_TRUNCATE"
-        cliConfig.options -- List("allowFieldAddition", "allowFieldRelaxation")
-    }
+    cliConfig.options -- List("allowFieldAddition", "allowFieldRelaxation")
 
   override def name: String = s"bqload-${cliConfig.outputDataset}-${cliConfig.outputTable}"
 
