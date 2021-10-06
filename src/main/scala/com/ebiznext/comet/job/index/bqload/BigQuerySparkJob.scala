@@ -18,7 +18,7 @@ import com.google.cloud.bigquery.{
 import com.google.cloud.hadoop.io.bigquery.BigQueryConfiguration
 import org.apache.hadoop.conf.Configuration
 import org.apache.spark.sql.functions.{col, date_format}
-import org.apache.spark.sql.{DataFrame, Row, SaveMode, SparkSession}
+import org.apache.spark.sql.{DataFrame, SaveMode, SparkSession}
 import org.apache.spark.storage.StorageLevel
 
 import scala.collection.JavaConverters._
@@ -185,21 +185,15 @@ class BigQuerySparkJob(
           cliConfig.partitionsToUpdate match {
             case None =>
             case Some(partitionsToUpdate) =>
+              val minPartition = partitionsToUpdate.min
+              val maxPartition = partitionsToUpdate.max
+
               partitionsToUpdate.foreach { partitionToUpdate =>
                 // if partitionToUpdate is not in the list of partitions to merge. It means that it need to be deleted
                 // this case happen when there is no more than a single element in the partition
-                if (!partitions.contains(partitionToUpdate)) {
+                if (settings.comet.mergeAppendStrategy || !partitions.contains(partitionToUpdate)) {
                   logger.info(s"Deleting partition $partitionToUpdate")
-                  val emptyDF = session
-                    .createDataFrame(session.sparkContext.emptyRDD[Row], sourceDF.schema)
-                  val finalEmptyDF = emptyDF.write
-                    .mode(SaveMode.Overwrite)
-                    .format("com.google.cloud.spark.bigquery")
-                    .option("datePartition", partitionToUpdate)
-                    .option("table", bqTable)
-                    .option("intermediateFormat", intermediateFormat)
-
-                  finalEmptyDF.options(connectorOptions).save()
+                  bigquery.getTable(partitionId(partitionToUpdate)).delete()
                 }
               }
           }
@@ -214,8 +208,23 @@ class BigQuerySparkJob(
                 .save()
             case Some(partitionsToUpdate) =>
               partitions.foreach { partitionStr =>
-                // We only overwrite partitions containing updated or newly added elements
-                if (partitionsToUpdate.contains(partitionStr)) {
+                if (settings.comet.mergeAppendStrategy) {
+                  sourceDF
+                    .where(
+                      date_format(col(partitionField), dateFormat).cast(
+                        "string"
+                      ) isin (partitionsToUpdate: _*)
+                    )
+                    .write
+                    .mode(SaveMode.Append)
+                    .format("com.google.cloud.spark.bigquery")
+                    .option("table", bqTable)
+                    .option("intermediateFormat", intermediateFormat)
+                    .options(connectorOptions)
+                    .save()
+
+                } else if (partitionsToUpdate.contains(partitionStr)) {
+                  // We only overwrite partitions containing updated or newly added elements
                   logger.info(s"Optimization -> Writing partition : $partitionStr")
                   sourceDF
                     .where(

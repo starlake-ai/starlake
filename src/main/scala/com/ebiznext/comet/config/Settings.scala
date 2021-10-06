@@ -265,6 +265,7 @@ object Settings extends StrictLogging {
     grouped: Boolean,
     mergeForceDistinct: Boolean,
     mergeOptimizePartitionWrite: Boolean,
+    mergeAppendStrategy: Boolean,
     area: Area,
     airflow: Airflow,
     elasticsearch: Elasticsearch,
