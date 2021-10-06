@@ -58,6 +58,10 @@ trait BigQueryJobBase extends StrictLogging {
     cliConfig.outputDataset + "." + cliConfig.outputTable
   )
 
+  def partitionId(partition: String): TableId = BigQueryJobBase.extractProjectDatasetAndTable(
+    cliConfig.outputDataset + "." + cliConfig.outputTable + "$" + partition
+  )
+
   val datasetId: DatasetId = {
     scala.Option(tableId.getProject) match {
       case None =>
