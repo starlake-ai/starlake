@@ -208,38 +208,39 @@ class BigQuerySparkJob(
                 .save()
             case Some(partitionsToUpdate) =>
               partitions.foreach { partitionStr =>
-                if (settings.comet.mergeAppendStrategy) {
-                  sourceDF
-                    .where(
-                      date_format(col(partitionField), dateFormat).cast(
-                        "string"
-                      ) isin (partitionsToUpdate: _*)
-                    )
-                    .write
-                    .mode(SaveMode.Append)
-                    .format("com.google.cloud.spark.bigquery")
-                    .option("table", bqTable)
-                    .option("intermediateFormat", intermediateFormat)
-                    .options(connectorOptions)
-                    .save()
+                settings.comet.mergeAppendStrategy match {
+                  case true =>
+                    sourceDF
+                      .where(
+                        date_format(col(partitionField), dateFormat).cast(
+                          "string"
+                        ) isin (partitionsToUpdate: _*)
+                      )
+                      .write
+                      .mode(SaveMode.Append)
+                      .format("com.google.cloud.spark.bigquery")
+                      .option("table", bqTable)
+                      .option("intermediateFormat", intermediateFormat)
+                      .options(connectorOptions)
+                      .save()
 
-                } else if (partitionsToUpdate.contains(partitionStr)) {
-                  // We only overwrite partitions containing updated or newly added elements
-                  logger.info(s"Optimization -> Writing partition : $partitionStr")
-                  sourceDF
-                    .where(
-                      date_format(col(partitionField), dateFormat).cast("string") === partitionStr
-                    )
-                    .write
-                    .mode(SaveMode.Overwrite)
-                    .format("com.google.cloud.spark.bigquery")
-                    .option("datePartition", partitionStr)
-                    .option("table", bqTable)
-                    .option("intermediateFormat", intermediateFormat)
-                    .options(connectorOptions)
-                    .save()
-                } else {
-                  logger.info(s"Optimization -> Not writing partition : $partitionStr")
+                  case false if partitionsToUpdate.contains(partitionStr) =>
+                    // We only overwrite partitions containing updated or newly added elements
+                    logger.info(s"Optimization -> Writing partition : $partitionStr")
+                    sourceDF
+                      .where(
+                        date_format(col(partitionField), dateFormat).cast("string") === partitionStr
+                      )
+                      .write
+                      .mode(SaveMode.Overwrite)
+                      .format("com.google.cloud.spark.bigquery")
+                      .option("datePartition", partitionStr)
+                      .option("table", bqTable)
+                      .option("intermediateFormat", intermediateFormat)
+                      .options(connectorOptions)
+                      .save()
+                  case false =>
+                    logger.info(s"Optimization -> Not writing partition : $partitionStr")
                 }
               }
           }
