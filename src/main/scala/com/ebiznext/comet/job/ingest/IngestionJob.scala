@@ -383,11 +383,13 @@ trait IngestionJob extends SparkJob {
         logger.debug("Accepted Dataframe schema right after adding computed columns")
         logger.debug(acceptedDfWithoutIgnoredFields.schemaString())
       }
+      val finalSchema = schema.finalSparkSchema(schemaHandler)
+
       // adding computed columns can change the order of columns, we must force the order defined in the schema
       val orderedWithScriptFieldsDF =
         session.createDataFrame(
-          acceptedDfWithoutIgnoredFields.rdd,
-          schema.finalSparkSchema(schemaHandler)
+          acceptedDfWithoutIgnoredFields.select(finalSchema.map(attr => col(attr.name)): _*).rdd,
+          finalSchema
         )
       logger.whenDebugEnabled {
         logger.debug("Accepted Dataframe schema after applying the defined schema")
