@@ -5,6 +5,7 @@ __New feature__:
 - Support merging dataset with updated schema
 - Support publishing to github packages
 - Reduce number of dependencies
+- Allow Audit sink name configuration from environment variable
 
 __Bug Fix__:
 - Support timestamps as long in XML & JSOn FIles
