@@ -23,13 +23,12 @@ class MergeUtilsTest extends TestHelper {
     result shouldBe actualSchema
   }
 
-  "merging schemas with missing columns" should "fail" in {
+  "merging schemas with missing columns" should "succeed" in {
     val actualSchema = StructType.fromDDL("`root` STRUCT<`field`: BIGINT>,`note` STRING")
     val invalidSchema = StructType.fromDDL("`root` STRUCT<`other`: BIGINT>,`note` STRING")
 
-    assertThrows[RuntimeException] {
-      MergeUtils.computeCompatibleSchema(actualSchema, invalidSchema)
-    }
+    val result = MergeUtils.computeCompatibleSchema(actualSchema, invalidSchema)
+    result.sql shouldBe "STRUCT<`root`: STRUCT<>, `note`: STRING>"
   }
 
   "merging schemas new columns not nullable" should "fail" in {
@@ -50,7 +49,7 @@ class MergeUtilsTest extends TestHelper {
     val incomingDF =
       sparkSession.read.schema(schema).json(getResPath("/sample/merge/incoming.jsonl"))
 
-    val (mergedDF, _) =
+    val (_, mergedDF, _) =
       MergeUtils.computeToMergeAndToDeleteDF(existingDF, incomingDF, MergeOptions(key = List("id")))
     val actual = mergedDF.toJSON.collect()
 
@@ -65,7 +64,7 @@ class MergeUtilsTest extends TestHelper {
     val incomingDF =
       sparkSession.read.schema(schema).json(getResPath("/sample/merge/incoming.jsonl"))
 
-    val (mergedDF, _) = MergeUtils.computeToMergeAndToDeleteDF(
+    val (_, mergedDF, _) = MergeUtils.computeToMergeAndToDeleteDF(
       existingDF,
       incomingDF,
       MergeOptions(key = List("id"), timestamp = Some("data.version"))
@@ -87,7 +86,7 @@ class MergeUtilsTest extends TestHelper {
       .schema(incomingSchema)
       .json(getResPath("/sample/merge/incoming-new-schema.jsonl"))
 
-    val (mergedDF, _) =
+    val (_, mergedDF, _) =
       MergeUtils.computeToMergeAndToDeleteDF(existingDF, incomingDF, MergeOptions(key = List("id")))
     val actual = mergedDF.toJSON.collect()
 
