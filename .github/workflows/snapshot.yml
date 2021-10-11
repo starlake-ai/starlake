@@ -23,6 +23,6 @@ jobs:
         with:
           java-version: 1.8
       - name: Publish Snapshot on Sonatype Spark 2/3 for scala 2.11 & scala 2.12
-        run: RELEASE_SONATYPE=true GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ secrets.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ secrets.SONATYPE_PASSWORD }} sbt +publish
+        run: RELEASE_SONATYPE=true GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ secrets.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ secrets.SONATYPE_PASSWORD }} sbt +test +publish
       - name: Publish Snapshot on Github Packages Spark 2/3
         run: RELEASE_SONATYPE=false GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} sbt 'set test in ThisBuild := println("tests disabled")' +publish
