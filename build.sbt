@@ -117,19 +117,19 @@ publishTo := {
       Some(GCSPublisher.forBucket(value, AccessRights.InheritBucket))
   }
 }
-// Diable scaladoc generation
+// Disable scaladoc generation
 Compile / doc / sources := Seq.empty
 
 Compile / packageDoc / publishArtifact := false
 
-Compile / packageBin / publishArtifact := false
+Compile / packageBin / publishArtifact := true
 
-Compile / packageSrc / publishArtifact := false
+Compile / packageSrc / publishArtifact := true
 
-// Disable checksum
-publishLocal / checksums := Nil
+// Do not disable checksum
+// publishLocal / checksums := Nil
 
-publish / checksums := Nil
+// publish / checksums := Nil
 
 // Your profile name of the sonatype account. The default is the same with the organization value
 sonatypeProfileName := "ai.starlake"
