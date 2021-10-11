@@ -53,7 +53,8 @@ class MergeUtilsTest extends TestHelper {
       MergeUtils.computeToMergeAndToDeleteDF(existingDF, incomingDF, MergeOptions(key = List("id")))
     val actual = mergedDF.toJSON.collect()
 
-    val expected = Source.fromResource("expected/merge/merge-simple.jsonl").getLines().toList
+    val stream = getClass.getResourceAsStream("/expected/merge/merge-simple.jsonl")
+    val expected = scala.io.Source.fromInputStream(stream).getLines().toList
     actual should contain theSameElementsAs expected
   }
 
@@ -71,8 +72,9 @@ class MergeUtilsTest extends TestHelper {
     )
     val actual = mergedDF.toJSON.collect()
 
+    val stream = getClass.getResourceAsStream("/expected/merge/merge-with-timestamp.jsonl")
     val expected =
-      Source.fromResource("expected/merge/merge-with-timestamp.jsonl").getLines().toList
+      Source.fromInputStream(stream).getLines().toList
     actual should contain theSameElementsAs expected
   }
 
@@ -90,7 +92,8 @@ class MergeUtilsTest extends TestHelper {
       MergeUtils.computeToMergeAndToDeleteDF(existingDF, incomingDF, MergeOptions(key = List("id")))
     val actual = mergedDF.toJSON.collect()
 
-    val expected = Source.fromResource("expected/merge/merge-new-schema.jsonl").getLines().toList
+    val stream = getClass.getResourceAsStream("/expected/merge/merge-new-schema.jsonl")
+    val expected = Source.fromInputStream(stream).getLines().toList
     actual should contain theSameElementsAs expected
   }
 
@@ -111,7 +114,8 @@ class MergeUtilsTest extends TestHelper {
 
     val actual = newDataFrame.toJSON.collect()
 
-    val expected = Source.fromResource("sample/merge/existing.jsonl").getLines().toList
+    val stream = getClass.getResourceAsStream("/sample/merge/existing.jsonl")
+    val expected = Source.fromInputStream(stream).getLines().toList
     actual should contain theSameElementsAs expected
   }
 
@@ -132,7 +136,8 @@ class MergeUtilsTest extends TestHelper {
 
     val actual = newDataFrame.toJSON.collect()
 
-    val expected = Source.fromResource("sample/merge/existing.jsonl").getLines().toList
+    val stream = getClass.getResourceAsStream("/sample/merge/existing.jsonl")
+    val expected = Source.fromInputStream(stream).getLines().toList
     actual should contain theSameElementsAs expected
   }
 }
