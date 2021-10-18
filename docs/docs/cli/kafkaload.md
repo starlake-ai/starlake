@@ -6,7 +6,7 @@ title: kafkaload
 
 ## Synopsis
 
-**comet kafkaload [options]**
+**starlake kafkaload [options]**
 
 ## Description
 

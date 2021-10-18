@@ -6,7 +6,7 @@ title: cnxload
 
 ## Synopsis
 
-**comet cnxload [options]**
+**starlake cnxload [options]**
 
 ## Description
 

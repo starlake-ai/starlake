@@ -8,7 +8,7 @@ class IngestJobSpec extends TestHelper {
       val rendered = LoadConfig.usage()
       val expected =
         """
-          |Usage: comet load | ingest domain schema paths [options]
+          |Usage: starlake load | ingest domain schema paths [options]
           |
           |  domain  Domain name
           |  schema  Schema name

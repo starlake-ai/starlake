@@ -6,7 +6,7 @@ title: infer-schema
 
 ## Synopsis
 
-**comet infer-schema [options]**
+**starlake infer-schema [options]**
 
 ## Description
 
