@@ -22,12 +22,19 @@ case class DDLLeaf(
   }
 }
 
-case class DDLNode(name: String, fields: List[DDLField], required: Boolean, comment: Option[String])
-    extends DDLField {
+case class DDLNode(
+  name: String,
+  fields: List[DDLField],
+  required: Boolean,
+  isArray: Boolean,
+  comment: Option[String]
+) extends DDLField {
   override def toMap(): Map[String, Any] = {
+    val tpe = if (isArray) "ARRAY" else "STRUCT"
     Map(
-      "type"     -> "node",
+      "nodeType" -> "node",
       "name"     -> name,
+      "type"     -> tpe,
       "fields"   -> fields.map(_.toMap()),
       "required" -> required.toString,
       "comment"  -> comment.getOrElse("")

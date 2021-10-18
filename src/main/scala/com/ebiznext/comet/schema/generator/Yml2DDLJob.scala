@@ -23,6 +23,7 @@ package com.ebiznext.comet.schema.generator
 import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.schema.generator.DDLUtils.{Columns, PrimaryKeys, TableRemarks}
 import com.ebiznext.comet.schema.handlers.SchemaHandler
+import com.ebiznext.comet.schema.model.{Domain, Schema}
 import org.fusesource.scalate.{TemplateEngine, TemplateSource}
 
 import scala.util.Try
@@ -74,41 +75,153 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
             )
           case None => Map.empty[String, (TableRemarks, Columns, PrimaryKeys)]
         }
-        val oldTables = existingTables.keys.filter(table => schemas.map(_.name).contains(table))
+        val oldTables = existingTables.keys.filter(table =>
+          schemas.map(_.name.toLowerCase()).contains(table.toLowerCase())
+        )
         oldTables.foreach { table =>
-          println(s"table $table need to be dropped")
+          val schema = schemas
+            .find(_.name.toLowerCase() == table.toLowerCase())
+            .getOrElse(throw new Exception("Should never happen"))
+          val ddlType = "drop"
+          val dropParamMap = Map(
+            "attributes"              -> List.empty[Map[String, Any]],
+            "newAttributes"           -> Nil,
+            "alterAttributes"         -> Nil,
+            "alterCommentAttributes"  -> Nil,
+            "alterDataTypeAttributes" -> Nil,
+            "alterRequiredAttributes" -> Nil,
+            "droppedAttributes"       -> Nil,
+            "domain"                  -> domain.name,
+            "schema"                  -> schema.name,
+            "partitions"              -> Nil,
+            "clustered"               -> Nil,
+            "primaryKeys"             -> Nil,
+            "comment"                 -> "",
+            "domainComment"           -> ""
+          )
+          println(s"Dropping table $table")
+          val result = applyTemplate(domain, schema, ddlType, dropParamMap)
+          println(result)
         }
         schemas.map { schema =>
           val ddlFields = schema.ddlMapping(config.datawarehouse, schemaHandler)
-          val attributes = ddlFields.map(_.toMap())
+
           val mergedMetadata = schema.mergedMetadata(domain.metadata)
-          val isNew = existingTables.contains(schema.name.toUpperCase())
+          val isNew = !existingTables.contains(schema.name.toUpperCase())
           isNew match {
             case false =>
-              val (existingTableRemarks, existingColumns, existingPKs) =
+              val (_, existingColumns, _) =
                 existingTables(schema.name.toUpperCase())
-
-            case true =>
-              val paramMap = Map(
-                "attributes"    -> attributes,
+              val addColumns =
+                schema.attributes.filter(attr =>
+                  !existingColumns.map(_.name.toLowerCase()).contains(attr.name.toLowerCase())
+                )
+              val dropColumns =
+                existingColumns.filter(attr =>
+                  !schema.attributes.map(_.name.toLowerCase()).contains(attr.name.toLowerCase())
+                )
+              val alterColumns =
+                schema.attributes.filter { attr =>
+                  existingColumns.exists(existingAttr =>
+                    existingAttr.name.toLowerCase() == attr.name.toLowerCase() &&
+                    (existingAttr.required != attr.required ||
+                    existingAttr.`type` != attr.`type` ||
+                    existingAttr.comment != attr.comment)
+                  )
+                }
+              val alterDataTypeColumns =
+                schema.attributes.filter { attr =>
+                  existingColumns.exists(existingAttr =>
+                    existingAttr.name.toLowerCase() == attr.name.toLowerCase() &&
+                    existingAttr.`type` != attr.`type`
+                  )
+                }
+              val alterDescriptionColumns =
+                schema.attributes.filter { attr =>
+                  existingColumns.exists(existingAttr =>
+                    existingAttr.name.toLowerCase() == attr.name.toLowerCase() &&
+                    existingAttr.comment != attr.comment
+                  )
+                }
+              val alterRequiredColumns =
+                schema.attributes.filter { attr =>
+                  existingColumns.exists(existingAttr =>
+                    existingAttr.name.toLowerCase() == attr.name.toLowerCase() &&
+                    existingAttr.required != attr.required
+                  )
+                }
+              val ddlType = "alter"
+              val alterParamMap = Map(
+                "attributes" -> Nil,
+                "newAttributes" -> addColumns.map(
+                  _.ddlMapping(false, config.datawarehouse, schemaHandler).toMap()
+                ),
+                "alterAttributes" -> alterColumns.map(
+                  _.ddlMapping(false, config.datawarehouse, schemaHandler).toMap()
+                ),
+                "alterCommentAttributes" -> alterDescriptionColumns.map(
+                  _.ddlMapping(false, config.datawarehouse, schemaHandler).toMap()
+                ),
+                "alterDataTypeAttributes" -> alterDataTypeColumns.map(
+                  _.ddlMapping(false, config.datawarehouse, schemaHandler).toMap()
+                ),
+                "alterRequiredAttributes" -> alterRequiredColumns.map(
+                  _.ddlMapping(false, config.datawarehouse, schemaHandler).toMap()
+                ),
+                "droppedAttributes" -> dropColumns.map(
+                  _.ddlMapping(false, config.datawarehouse, schemaHandler).toMap()
+                ),
                 "domain"        -> domain.name,
                 "schema"        -> schema.name,
+                "partitions"    -> Nil,
+                "clustered"     -> Nil,
+                "primaryKeys"   -> Nil,
+                "comment"       -> schema.comment.getOrElse(""),
+                "domainComment" -> domain.comment.getOrElse("")
+              )
+              val result = applyTemplate(domain, schema, ddlType, alterParamMap)
+
+            case true =>
+              val createParamMap = Map(
+                "attributes"              -> ddlFields.map(_.toMap()),
+                "newAttributes"           -> Nil,
+                "alterAttributes"         -> Nil,
+                "alterCommentAttributes"  -> Nil,
+                "alterDataTypeAttributes" -> Nil,
+                "alterRequiredAttributes" -> Nil,
+                "droppedAttributes"       -> Nil,
+                "domain"                  -> domain.name,
+                "schema"                  -> schema.name,
                 "partitions"    -> mergedMetadata.partition.map(_.getAttributes()).getOrElse(Nil),
                 "clustered"     -> mergedMetadata.clustering.getOrElse(Nil),
                 "primaryKeys"   -> schema.primaryKey.getOrElse(Nil),
                 "comment"       -> schema.comment.getOrElse(""),
                 "domainComment" -> domain.comment.getOrElse("")
               )
-              val (templatePath, templateContent) =
-                domain.ddlMapping(schema, config.datawarehouse, "create")
-              val result =
-                engine.layout(
-                  TemplateSource.fromText(templatePath.toString, templateContent),
-                  paramMap
-                )
+              val ddlType = "create"
+              println(s"Creating new table ${schema.name}")
+              val result = applyTemplate(domain, schema, ddlType, createParamMap)
               println(result)
           }
         }
       }
     }
+
+  private def applyTemplate(
+    domain: Domain,
+    schema: Schema,
+    ddlType: TableRemarks,
+    dropParamMap: Map[TableRemarks, Any]
+  ): String = {
+    val (templatePath, templateContent) =
+      domain.ddlMapping(
+        schema,
+        config.datawarehouse,
+        ddlType
+      )
+    engine.layout(
+      TemplateSource.fromText(templatePath.toString, templateContent),
+      dropParamMap
+    )
+  }
 }
