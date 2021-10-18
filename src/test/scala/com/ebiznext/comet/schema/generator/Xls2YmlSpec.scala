@@ -187,7 +187,7 @@ class Xls2YmlSpec extends TestHelper {
       val rendered = Xls2YmlConfig.usage()
       val expected =
         """
-          |Usage: comet xls2yml [options]
+          |Usage: starlake xls2yml [options]
           |
           |  --files <value>       List of Excel files describing Domains & Schemas
           |  --encryption <value>  If true generate pre and post encryption YML

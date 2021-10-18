@@ -6,7 +6,7 @@ title: load | ingest
 
 ## Synopsis
 
-**comet load | ingest [options]**
+**starlake load | ingest [options]**
 
 ## Description
 

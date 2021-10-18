@@ -6,7 +6,7 @@ title: bqload
 
 ## Synopsis
 
-**comet bqload [options]**
+**starlake bqload [options]**
 
 ## Description
 
