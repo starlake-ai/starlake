@@ -193,9 +193,9 @@ object DDLUtils extends LazyLogging {
 
           def next(): String = primaryKeysResultSet.getString("COLUMN_NAME")
         }.toList
-        connection.close()
         tableName -> (tableRemarks, selectedColumns, primaryKeys)
       }
+    connection.close()
     selectedTablesAndColumns
   }
 
