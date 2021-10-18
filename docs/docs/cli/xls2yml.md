@@ -6,7 +6,7 @@ title: xls2yml
 
 ## Synopsis
 
-**comet xls2yml [options]**
+**starlake xls2yml [options]**
 
 ## Description
 

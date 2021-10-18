@@ -6,7 +6,7 @@ title: extract
 
 ## Synopsis
 
-**comet extract [options]**
+**starlake extract [options]**
 
 ## Description
 

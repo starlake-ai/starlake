@@ -33,7 +33,7 @@ object Parquet2CSVConfig extends CliConfig[Parquet2CSVConfig] {
           |otherwise, it is a folder containing the part*.csv files.
           |When output_folder is not specified, then the input_folder is used a the base output folder.
           |
-          |example: comet parquet2csv
+          |example: starlake parquet2csv
           |         --input_dir /tmp/datasets/accepted/
           |         --output_dir /tmp/datasets/csv/
           |         --domain sales
