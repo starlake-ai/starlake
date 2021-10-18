@@ -62,7 +62,8 @@ case class Type(
   zone: Option[String] = None,
   sample: Option[String] = None,
   comment: Option[String] = None,
-  indexMapping: Option[IndexMapping] = None
+  indexMapping: Option[IndexMapping] = None,
+  ddlMapping: Option[Map[String, String]] = None
 ) {
 
   @JsonIgnore

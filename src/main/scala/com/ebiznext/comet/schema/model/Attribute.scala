@@ -190,13 +190,43 @@ case class Attribute(
     }
   }
 
-  def mapping(schemaHandler: SchemaHandler): String = {
+  def ddlMapping(
+    isPrimaryKey: Boolean,
+    datawarehouse: String,
+    schemaHandler: SchemaHandler
+  ): DDLField = {
+    attributes match {
+      // TODO: Support NoSQL Documents
+      case Some(attrs) =>
+        DDLNode(
+          this.getFinalName(),
+          attrs.map(_.ddlMapping(false, datawarehouse, schemaHandler)),
+          required,
+          comment
+        )
+      case None =>
+        tpe(schemaHandler).map { tpe =>
+          tpe.ddlMapping match {
+            case None => throw new Exception(s"No mapping found for type $tpe")
+            case Some(mapping) =>
+              DDLLeaf(
+                this.getFinalName(),
+                mapping(datawarehouse),
+                this.required,
+                this.comment,
+                isPrimaryKey
+              )
+          }
+        } getOrElse (throw new Exception(s"Unknown type ${`type`}"))
+    }
+  }
+  def indexMapping(schemaHandler: SchemaHandler): String = {
     attributes match {
       case Some(attrs) =>
         s"""
            |"$name": {
            |  "properties" : {
-           |  ${attrs.map(_.mapping(schemaHandler)).mkString(",")}
+           |  ${attrs.map(_.indexMapping(schemaHandler)).mkString(",")}
            |  }
            |}""".stripMargin
 
@@ -274,6 +304,5 @@ case class Attribute(
       case (_, _) =>
         MetricType.NONE
     }
-
   }
 }

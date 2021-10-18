@@ -38,8 +38,8 @@ object KafkaJobConfig extends CliConfig[KafkaJobConfig] {
     val builder = OParser.builder[KafkaJobConfig]
     import builder._
     OParser.sequence(
-      programName("comet kafkaload"),
-      head("comet", "kafkaload", "[options]"),
+      programName("starlake kafkaload"),
+      head("starlake", "kafkaload", "[options]"),
       note("""
           |Two modes are available : The batch mode and the streaming mode.
           |
