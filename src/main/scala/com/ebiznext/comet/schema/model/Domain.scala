@@ -86,6 +86,22 @@ case class Domain(
     schemas.find(_.pattern.matcher(filename).matches())
   }
 
+  def ddlMapping(schema: Schema, datawarehouse: String, ddlType: String)(implicit
+    settings: Settings
+  ): (Path, String) = {
+    val rootPath = new Path(new Path(DatasetArea.mapping, "ddl"), datawarehouse)
+    val mustache = new Path(rootPath, s"$ddlType.mustache")
+    val ssp = new Path(rootPath, s"$ddlType.ssp")
+    val template =
+      if (settings.metadataStorageHandler.exists(mustache))
+        mustache
+      else if (settings.metadataStorageHandler.exists(ssp))
+        ssp
+      else
+        throw new Exception(s"No $ddlType.mustache/ssp found for datawarehouse $datawarehouse")
+    template -> settings.metadataStorageHandler.read(template)
+  }
+
   /** Load Elasticsearch template file if it exist
     *
     * @param schema
@@ -94,12 +110,12 @@ case class Domain(
     *   ES template with optionally the __PROPERTIES__ string that will be replaced by the schema
     *   attributes dynamically computed mappings
     */
-  def mapping(
+  def esMapping(
     schema: Schema
   )(implicit settings: Settings): Option[String] = {
     val template = new Path(new Path(DatasetArea.mapping, this.name), schema.name + ".json")
-    if (settings.storageHandler.exists(template))
-      Some(settings.storageHandler.read(template))
+    if (settings.metadataStorageHandler.exists(template))
+      Some(settings.metadataStorageHandler.read(template))
     else
       None
   }

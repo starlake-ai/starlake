@@ -1,0 +1,44 @@
+<%@ val attributes: List[Map[String, Any]] %>
+<%@ val domain: String %>
+<%@ val domainComment: String = ""  %>
+<%@ val schema: String %>
+<%@ val schemaComment: String = ""  %>
+<%@ val partitions: List[String] %>
+<%@ val clustered: List[String] %>
+<%@ val primaryKeys: List[String] %>
+<%
+    val isPrimaryKeyDefined: Boolean  = !primaryKeys.isEmpty
+    val isPartitionDefined: Boolean = !partitions.isEmpty
+
+    def genAttrs(i: Int): String = {
+      if (i > 0) "-" + genAttrs(i-1) else "*"
+    }
+
+    val genRes = genAttrs(100)
+%>
+
+${genRes}
+
+#if (isPrimaryKeyDefined)
+    #for (primaryKey <- primaryKeys)
+        ${primaryKey}
+    #end
+#end
+
+#if (isPartitionDefined)
+    #for (partition <- partitions)
+        ${partition}
+    #end
+#end
+
+CREATE TABLE ${domain}.${schema}
+#for (attribute <- attributes)
+    #if (attribute("nodeType") == "leaf")
+        ${attribute("name")} ${attribute("type")} ${attribute("required")} ${attribute("comment")} ${attribute("comment")}
+    #else
+      STRUCT< >
+    #end
+#end
+
+
+${genRes}

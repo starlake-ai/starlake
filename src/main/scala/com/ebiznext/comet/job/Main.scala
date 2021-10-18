@@ -35,6 +35,7 @@ import com.ebiznext.comet.job.metrics.MetricsConfig
 import com.ebiznext.comet.schema.generator.{
   Xls2Yml,
   Xls2YmlConfig,
+  Yml2DDLConfig,
   Yml2GraphViz,
   Yml2GraphVizConfig,
   Yml2XlsConfig,
@@ -210,10 +211,18 @@ object Main extends StrictLogging {
             false
         }
 
+      case "infer-ddl" =>
+        Yml2DDLConfig.parse(args.drop(1)) match {
+          case Some(config) =>
+            workflow.inferDDL(config).isSuccess
+          case _ =>
+            println(Yml2DDLConfig.usage())
+            false
+        }
       case "infer-schema" =>
         InferSchemaConfig.parse(args.drop(1)) match {
           case Some(config) =>
-            workflow.infer(config).isSuccess
+            workflow.inferSchema(config).isSuccess
           case _ =>
             println(InferSchemaConfig.usage())
             false

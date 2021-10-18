@@ -22,8 +22,8 @@ object Parquet2CSVConfig extends CliConfig[Parquet2CSVConfig] {
     val builder = OParser.builder[Parquet2CSVConfig]
     import builder._
     OParser.sequence(
-      programName("comet parquet2csv"),
-      head("comet", "parquet2csv", "[options]"),
+      programName("starlake parquet2csv"),
+      head("starlake", "parquet2csv", "[options]"),
       note(
         """
           |Convert parquet files to CSV.

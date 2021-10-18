@@ -36,8 +36,8 @@ object InferSchemaConfig extends CliConfig[InferSchemaConfig] {
     val builder = OParser.builder[InferSchemaConfig]
     import builder._
     OParser.sequence(
-      programName("comet infer-schema"),
-      head("comet", "infer-schema", "[options]"),
+      programName("starlake infer-schema"),
+      head("starlake", "infer-schema", "[options]"),
       note(""),
       opt[String]("domain")
         .action((x, c) => c.copy(domainName = x))

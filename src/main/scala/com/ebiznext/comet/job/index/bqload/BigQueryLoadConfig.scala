@@ -31,8 +31,8 @@ object BigQueryLoadConfig extends CliConfig[BigQueryLoadConfig] {
     val builder = OParser.builder[BigQueryLoadConfig]
     import builder._
     OParser.sequence(
-      programName("comet bqload"),
-      head("comet", "bqload", "[options]"),
+      programName("starlake bqload"),
+      head("starlake", "bqload", "[options]"),
       note(""),
       opt[String]("source_file")
         .action((x, c) => c.copy(source = Left(x)))

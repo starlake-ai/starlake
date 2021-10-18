@@ -117,6 +117,14 @@ trait TestHelper
     )
   )
 
+  val allMappings: List[FileToImport] = List(
+    FileToImport(
+      "create.ssp",
+      "/sample/ddl/bigquery/create.ssp",
+      Some("ddl/bigquery")
+    )
+  )
+
   val allAssertions: List[FileToImport] = List(
     FileToImport(
       "default.comet.yml",
@@ -242,6 +250,17 @@ trait TestHelper
       allViews.foreach { viewToImport =>
         val assertionPath = new Path(DatasetArea.views, viewToImport.name)
         deliverTestFile(viewToImport.path, assertionPath)
+      }
+      allMappings.foreach { mappingToImport =>
+        val path = mappingToImport.folder match {
+          case None =>
+            DatasetArea.mapping.toString
+          case Some(folder) =>
+            DatasetArea.mapping.toString + "/" + folder
+        }
+        metadataStorageHandler.mkdirs(new Path(path))
+        val mappingPath = new Path(path, mappingToImport.name)
+        deliverTestFile(mappingToImport.path, mappingPath)
       }
     }
 
@@ -520,4 +539,4 @@ object TestHelper {
   private val runtimeId: String = UUID.randomUUID().toString
 }
 
-case class FileToImport(name: String, path: String)
+case class FileToImport(name: String, path: String, folder: Option[String] = None)
