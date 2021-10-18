@@ -34,7 +34,7 @@ class Yml2XlsSpec extends TestHelper {
     val rendered = Yml2XlsConfig.usage()
     val expected =
       """
-        |Usage: comet yml2xls [options]
+        |Usage: starlake yml2xls [options]
         |
         |  --domain <value>  domains to convert to XLS
         |  --xls <value>     directory where XLS files are generated

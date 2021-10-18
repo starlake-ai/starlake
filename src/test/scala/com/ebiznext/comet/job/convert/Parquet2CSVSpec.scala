@@ -91,7 +91,7 @@ class Parquet2CSVSpec extends TestHelper {
       println(rendered)
       val expected = {
         """
-          |Usage: comet parquet2csv [options]
+          |Usage: starlake parquet2csv [options]
           |
           |
           |Convert parquet files to CSV.
@@ -101,7 +101,7 @@ class Parquet2CSVSpec extends TestHelper {
           |otherwise, it is a folder containing the part*.csv files.
           |When output_folder is not specified, then the input_folder is used a the base output folder.
           |
-          |example: comet parquet2csv
+          |example: starlake parquet2csv
           |         --input_dir /tmp/datasets/accepted/
           |         --output_dir /tmp/datasets/csv/
           |         --domain sales
@@ -134,7 +134,7 @@ class Parquet2CSVSpec extends TestHelper {
           |
           |## Synopsis
           |
-          |**comet parquet2csv [options]**
+          |**starlake parquet2csv [options]**
           |
           |## Description
           |
@@ -146,7 +146,7 @@ class Parquet2CSVSpec extends TestHelper {
           |When output_folder is not specified, then the input_folder is used a the base output folder.
           |
           |````shell
-          |comet parquet2csv
+          |starlake parquet2csv
           |         --input_dir /tmp/datasets/accepted/
           |         --output_dir /tmp/datasets/csv/
           |         --domain sales

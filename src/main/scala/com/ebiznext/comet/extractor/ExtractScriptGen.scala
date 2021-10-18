@@ -160,7 +160,7 @@ class ScriptGen(
     *     mode full_export -> if the export is a full or delta export (the logic is to be
     *     implemented in your script)
     *
-    * Usage: comet [script-gen] [options]
+    * Usage: starlake [script-gen] [options]
     *
     * Command: script-gen
     * --domain <value> The domain for which to generate extract scripts
