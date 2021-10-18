@@ -6,7 +6,7 @@ title: yml2gv
 
 ## Synopsis
 
-**comet yml2gv [options]**
+**starlake yml2gv [options]**
 
 ## Description
 Generate GraphViz files from Domain / Schema YAML files

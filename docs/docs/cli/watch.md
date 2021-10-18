@@ -6,7 +6,7 @@ title: watch
 
 ## Synopsis
 
-**comet watch [options]**
+**starlake watch [options]**
 
 ## Description
 

@@ -6,7 +6,7 @@ title: transform | job
 
 ## Synopsis
 
-**comet transform | job [options]**
+**starlake transform | job [options]**
 
 ## Description
 

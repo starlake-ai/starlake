@@ -6,7 +6,7 @@ title: import
 
 ## Synopsis
 
-**comet import**
+**starlake import**
 
 ## Description
 

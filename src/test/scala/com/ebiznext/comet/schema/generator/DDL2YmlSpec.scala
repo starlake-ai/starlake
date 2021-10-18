@@ -187,7 +187,7 @@ class DDL2YmlSpec extends TestHelper {
     val rendered = DDL2YmlConfig.usage()
     val expected =
       """
-        |Usage: comet ddl2yml [options]
+        |Usage: starlake ddl2yml [options]
         |
         |  --jdbc-mapping <value>  Database tables & connection info
         |  --output-dir <value>    Where to output YML files

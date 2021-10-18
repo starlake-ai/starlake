@@ -6,7 +6,7 @@ title: metrics
 
 ## Synopsis
 
-**comet metrics [options]**
+**starlake metrics [options]**
 
 ## Description
 
