@@ -12,8 +12,8 @@ object MetricsConfig extends CliConfig[MetricsConfig] {
     val builder = OParser.builder[MetricsConfig]
     import builder._
     OParser.sequence(
-      programName("comet metrics"),
-      head("comet", "metrics", "[options]"),
+      programName("starlake metrics"),
+      head("starlake", "metrics", "[options]"),
       note(""),
       opt[String]("domain")
         .action((x, c) => c.copy(domain = x))

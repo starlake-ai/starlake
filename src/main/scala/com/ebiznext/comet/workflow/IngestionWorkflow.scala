@@ -23,6 +23,7 @@ package com.ebiznext.comet.workflow
 import better.files.File
 import com.ebiznext.comet.config.{DatasetArea, Settings}
 import com.ebiznext.comet.job.atlas.{AtlasConfig, AtlasJob}
+import com.ebiznext.comet.job.ddl.Yml2DDLJob
 import com.ebiznext.comet.job.index.bqload.{BigQueryLoadConfig, BigQuerySparkJob}
 import com.ebiznext.comet.job.index.connectionload.{ConnectionLoadConfig, ConnectionLoadJob}
 import com.ebiznext.comet.job.index.esload.{ESLoadConfig, ESLoadJob}
@@ -32,6 +33,7 @@ import com.ebiznext.comet.job.ingest._
 import com.ebiznext.comet.job.load.LoadStrategy
 import com.ebiznext.comet.job.metrics.{MetricsConfig, MetricsJob}
 import com.ebiznext.comet.job.transform.AutoTaskJob
+import com.ebiznext.comet.schema.generator.{Yml2DDLConfig, Yml2DDLJob}
 import com.ebiznext.comet.schema.handlers.{LaunchHandler, SchemaHandler, StorageHandler}
 import com.ebiznext.comet.schema.model.Format._
 import com.ebiznext.comet.schema.model._
@@ -499,7 +501,7 @@ class IngestionWorkflow(
     }
   }
 
-  def infer(config: InferSchemaConfig): Try[Unit] = {
+  def inferSchema(config: InferSchemaConfig): Try[Unit] = {
     val result = new InferSchema(
       config.domainName,
       config.schemaName,
@@ -507,6 +509,11 @@ class IngestionWorkflow(
       config.outputPath,
       config.header
     ).run()
+    Utils.logFailure(result, logger)
+  }
+
+  def inferDDL(config: Yml2DDLConfig): Try[Unit] = {
+    val result = new Yml2DDLJob(config, schemaHandler).run()
     Utils.logFailure(result, logger)
   }
 

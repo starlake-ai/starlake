@@ -173,6 +173,13 @@ case class Schema(
   primaryKey: Option[List[String]] = None
 ) {
 
+  def ddlMapping(datawarehouse: String, schemaHandler: SchemaHandler): List[DDLField] = {
+    attributes.map { attribute =>
+      val isPrimaryKey = primaryKey.getOrElse(Nil).contains(attribute.name)
+      attribute.ddlMapping(isPrimaryKey, datawarehouse, schemaHandler)
+    }
+  }
+
   @JsonIgnore
   lazy val attributesWithoutScriptedFields: List[Attribute] = attributes.filter(_.script.isEmpty)
 
@@ -327,12 +334,12 @@ case class Schema(
   def continuousAttrs(schemaHandler: SchemaHandler): List[Attribute] =
     attributes.filter(_.getMetricType(schemaHandler) == MetricType.CONTINUOUS)
 
-  def mapping(
+  def esMapping(
     template: Option[String],
     domainName: String,
     schemaHandler: SchemaHandler
   )(implicit settings: Settings): String = {
-    val attrs = attributes.map(_.mapping(schemaHandler)).mkString(",")
+    val attrs = attributes.map(_.indexMapping(schemaHandler)).mkString(",")
     val properties =
       s"""
          |"properties": {
@@ -481,7 +488,7 @@ object Schema {
       None,
       None,
       None
-    ).mapping(None, domainName, schemaHandler)
+    ).esMapping(None, domainName, schemaHandler)
   }
 
 }
