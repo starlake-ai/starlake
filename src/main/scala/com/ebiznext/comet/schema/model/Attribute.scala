@@ -202,6 +202,7 @@ case class Attribute(
           this.getFinalName(),
           attrs.map(_.ddlMapping(false, datawarehouse, schemaHandler)),
           required,
+          isArray(),
           comment
         )
       case None =>

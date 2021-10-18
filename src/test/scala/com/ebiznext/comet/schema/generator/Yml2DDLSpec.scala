@@ -1,11 +1,12 @@
-package com.ebiznext.comet.job.ddl
+package com.ebiznext.comet.schema.generator
 
 import com.ebiznext.comet.TestHelper
-import com.ebiznext.comet.schema.generator.{Yml2DDLConfig, Yml2DDLJob}
 import com.ebiznext.comet.schema.handlers.SchemaHandler
 import com.ebiznext.comet.utils.Utils
 
-class DDLInferSpec extends TestHelper {
+import scala.util.{Failure, Success}
+
+class Yml2DDLSpec extends TestHelper {
 
   "Infer Create BQ Table" should "succeed" in {
     import org.slf4j.impl.StaticLoggerBinder
@@ -25,7 +26,10 @@ class DDLInferSpec extends TestHelper {
         cleanDatasets
         val config = Yml2DDLConfig("bigquery")
         val result = new Yml2DDLJob(config, schemaHandler).run()
-        Utils.logFailure(result, logger)
+        Utils.logFailure(result, logger) match {
+          case Failure(exception) => throw exception
+          case Success(_)         => // do nothing
+        }
       }
 
     }
