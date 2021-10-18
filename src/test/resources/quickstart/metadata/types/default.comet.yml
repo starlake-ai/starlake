@@ -5,37 +5,69 @@ types:
     pattern: ".+"
     sample: "Hello World"
     comment: "Any set of chars"
+    ddlMapping:
+      sql:
+      bigquery: STRING
+      snowflake: STRING
   - name: "byte"
     primitiveType: "byte"
     pattern: "."
     sample: "x"
     comment: "Any set of chars"
+    ddlMapping:
+      sql:
+      bigquery: INT64
+      snowflake: CLOB
   - name: "date"
     primitiveType: "date"
     pattern: "yyyy-MM-dd"
     sample: "2018-07-21"
     comment: "Date in the format yyyy-MM-dd"
+    ddlMapping:
+      sql:
+      bigquery: DATE
+      snowflake: DATE
   - name: "double"
     primitiveType: "double"
     pattern: "-?\\d*\\.{0,1}\\d+"
     sample: "-45.78"
     comment: "Any flating value"
+    ddlMapping:
+      sql:
+      bigquery: FLOAT64
+      snowflake: DOUBLE
   - name: "decimal"
     primitiveType: "decimal"
     pattern: "-?\\d*\\.{0,1}\\d+"
     sample: "-45.787686786876"
     comment: "Any flating value"
+    ddlMapping:
+      sql:
+      bigquery: NUMERIC
+      snowflake: DECIMAL
   - name: "long"
     primitiveType: "long"
     pattern: "-?\\d+"
     sample: "-64564"
     comment: "any positive or negative number"
+    ddlMapping:
+      sql:
+      bigquery: INT64
+      snowflake: INTEGER
   - name: "boolean"
     primitiveType: "boolean"
     pattern: "(?i)true|yes|[y1]<-TF->(?i)false|no|[n0]"
     sample: "TruE"
+    ddlMapping:
+      sql:
+      bigquery: BOOL
+      snowflake: BOOLEAN
   - name: "datetime"
     primitiveType: "timestamp"
     pattern: "yyyy-MM-dd HH:mm:ss"
     sample: "2019-12-31 23:59:02"
     comment: "date/time in epoch millis"
+    ddlMapping:
+      sql:
+      bigquery: TIMESTAMP
+      snowflake: TIMESTAMP
