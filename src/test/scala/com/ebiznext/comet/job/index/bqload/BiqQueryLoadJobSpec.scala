@@ -8,7 +8,7 @@ class BiqQueryLoadJobSpec extends TestHelper {
       val rendered = BigQueryLoadConfig.usage()
       val expected =
         """
-          |Usage: comet bqload [options]
+          |Usage: starlake bqload [options]
           |
           |
           |  --source_file <value>    Full Path to source file

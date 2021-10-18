@@ -278,7 +278,7 @@ class MetricsJobSpec extends TestHelper with JdbcChecks {
       val rendered = MetricsConfig.usage()
       val expected =
         """
-          |Usage: comet metrics [options]
+          |Usage: starlake metrics [options]
           |
           |  --domain <value>  Domain Name
           |  --schema <value>  Schema Name
