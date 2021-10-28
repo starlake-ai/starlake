@@ -74,8 +74,8 @@ object DDL2YmlConfig extends CliConfig[DDL2YmlConfig] {
     val builder = OParser.builder[DDL2YmlConfig]
     import builder._
     OParser.sequence(
-      programName("comet ddl2yml"),
-      head("comet", "ddl2yml", "[options]"),
+      programName("starlake ddl2yml"),
+      head("starlake", "ddl2yml", "[options]"),
       note(""),
       opt[String]("jdbc-mapping")
         .action((x, c) => c.copy(jdbcMapping = x))

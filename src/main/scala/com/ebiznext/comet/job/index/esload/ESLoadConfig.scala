@@ -82,8 +82,8 @@ object ESLoadConfig extends CliConfig[ESLoadConfig] {
     val builder = OParser.builder[ESLoadConfig]
     import builder._
     OParser.sequence(
-      programName("comet esload | index"),
-      head("comet", "index | esload", "[options]"),
+      programName("starlake esload | index"),
+      head("starlake", "index | esload", "[options]"),
       note(""),
       opt[String]("timestamp")
         .action((x, c) => c.copy(timestamp = Some(x)))

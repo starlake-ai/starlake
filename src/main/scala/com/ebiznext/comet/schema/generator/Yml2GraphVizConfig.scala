@@ -14,8 +14,8 @@ object Yml2GraphVizConfig extends CliConfig[Yml2GraphVizConfig] {
     val builder = OParser.builder[Yml2GraphVizConfig]
     import builder._
     OParser.sequence(
-      programName("comet yml2gv"),
-      head("comet", "yml2gv", "[options]"),
+      programName("starlake yml2gv"),
+      head("starlake", "yml2gv", "[options]"),
       note("Generate GraphViz files from Domain / Schema YAML files"),
       opt[String]("output")
         .action((x, c) => c.copy(output = Some(x)))

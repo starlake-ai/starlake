@@ -35,8 +35,8 @@ object Yml2XlsConfig extends CliConfig[Yml2XlsConfig] {
     val builder = OParser.builder[Yml2XlsConfig]
     import builder._
     OParser.sequence(
-      programName("comet yml2xls"),
-      head("comet", "yml2xls", "[options]"),
+      programName("starlake yml2xls"),
+      head("starlake", "yml2xls", "[options]"),
       note(""),
       opt[Seq[String]]("domain")
         .action((x, c) => c.copy(domains = x))
