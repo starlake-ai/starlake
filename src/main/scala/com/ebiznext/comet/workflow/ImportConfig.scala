@@ -11,8 +11,8 @@ object ImportConfig extends CliConfig[ImportConfig] {
     val builder = OParser.builder[ImportConfig]
     import builder._
     OParser.sequence(
-      programName("comet import"),
-      head("comet", "import"),
+      programName("starlake import"),
+      head("starlake", "import"),
       note("""
           |Move the files from the landing area to the pending area.
           |

@@ -44,8 +44,8 @@ object LoadConfig extends CliConfig[LoadConfig] {
     val builder = OParser.builder[LoadConfig]
     import builder._
     OParser.sequence(
-      programName("comet load | ingest"),
-      head("comet", "load | ingest", "[options]"),
+      programName("starlake load | ingest"),
+      head("starlake", "load | ingest", "[options]"),
       note(""),
       arg[String]("domain")
         .required()
