@@ -16,8 +16,8 @@ object WatchConfig extends CliConfig[WatchConfig] {
     val builder = OParser.builder[WatchConfig]
     import builder._
     OParser.sequence(
-      programName("comet watch"),
-      head("comet", "watch", "[options]"),
+      programName("starlake watch"),
+      head("starlake", "watch", "[options]"),
       note(""),
       opt[Seq[String]]("include")
         .action((x, c) => c.copy(includes = x))

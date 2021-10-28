@@ -31,6 +31,7 @@ class DDL2YmlSpec extends TestHelper {
 
       val metadata = Metadata(mode = Some(Mode.STREAM), quote = Some("::"))
       val domainTemplate = Domain("CUSTOM_NAME", "/{domain}/{schema}", metadata = Some(metadata))
+      val config = DDL2YmlConfig()
       DDL2Yml.run(JDBCSchema("test-h2", None, "PUBLIC", Nil), File("/tmp"), Some(domainTemplate))
       val domain = YamlSerializer.deserializeDomain(File("/tmp", "PUBLIC.comet.yml")) match {
         case Success(domain) => domain
@@ -166,6 +167,7 @@ class DDL2YmlSpec extends TestHelper {
         File("/tmp"),
         None
       )
+
       val domain = YamlSerializer.deserializeDomain(File("/tmp", "PUBLIC.comet.yml")) match {
         case Success(domain) => domain
         case Failure(e)      => throw e
