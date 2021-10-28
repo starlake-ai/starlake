@@ -10,7 +10,7 @@ import com.typesafe.scalalogging.StrictLogging
 
 import java.util.UUID
 import scala.collection.JavaConverters._
-import scala.util.Try
+import scala.util.{Failure, Success, Try}
 
 case class BigQueryJobResult(tableResult: scala.Option[TableResult]) extends JobResult
 
@@ -128,7 +128,7 @@ class BigQueryNativeJob(
 
 object BigQueryNativeJob extends StrictLogging {
   def createTable(datasetName: String, tableName: String, schema: Schema): Unit = {
-    try {
+    Try {
       val bigquery = BigQueryOptions.getDefaultInstance.getService
       val tableId = TableId.of(datasetName, tableName)
       val table = scala.Option(bigquery.getTable(tableId))
@@ -140,8 +140,9 @@ object BigQueryNativeJob extends StrictLogging {
           bigquery.create(tableInfo)
           logger.info(s"Table $datasetName.$tableName created successfully")
       }
-    } catch {
-      case e: BigQueryException =>
+    } match {
+      case Success(_) =>
+      case Failure(e) =>
         logger.info(s"Table $datasetName.$tableName was not created.")
         Utils.logException(logger, e)
     }
