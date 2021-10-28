@@ -1,7 +1,7 @@
 package com.ebiznext.comet.job.index.bqload
 
 import com.ebiznext.comet.config.Settings
-import com.ebiznext.comet.utils.{JobBase, JobResult}
+import com.ebiznext.comet.utils.{JobBase, JobResult, Utils}
 import com.google.cloud.ServiceOptions
 import com.google.cloud.bigquery.JobInfo.{CreateDisposition, WriteDisposition}
 import com.google.cloud.bigquery.QueryJobConfiguration.Priority
@@ -127,6 +127,25 @@ class BigQueryNativeJob(
 }
 
 object BigQueryNativeJob extends StrictLogging {
+  def createTable(datasetName: String, tableName: String, schema: Schema): Unit = {
+    try {
+      val bigquery = BigQueryOptions.getDefaultInstance.getService
+      val tableId = TableId.of(datasetName, tableName)
+      val table = scala.Option(bigquery.getTable(tableId))
+      table match {
+        case Some(tbl) if tbl.exists() =>
+        case _ =>
+          val tableDefinition = StandardTableDefinition.of(schema)
+          val tableInfo = TableInfo.newBuilder(tableId, tableDefinition).build
+          bigquery.create(tableInfo)
+          logger.info(s"Table $datasetName.$tableName created successfully")
+      }
+    } catch {
+      case e: BigQueryException =>
+        logger.info(s"Table $datasetName.$tableName was not created.")
+        Utils.logException(logger, e)
+    }
+  }
 
   @deprecated("Views are now created using the syntax WTH ... AS ...", "0.1.25")
   def createViews(views: Map[String, String], udf: scala.Option[String]) = {
