@@ -23,8 +23,8 @@ object ExtractScriptGenConfig extends CliConfig[ExtractScriptGenConfig] {
     val builder = OParser.builder[ExtractScriptGenConfig]
     import builder._
     OParser.sequence(
-      programName("comet extract"),
-      head("comet", "extract", "[options]"),
+      programName("starlake extract"),
+      head("starlake", "extract", "[options]"),
       note(
         """
           |For domain extraction, the schemas should at least, specify :

@@ -571,7 +571,7 @@ class SchemaHandlerSpec extends TestHelper {
             |}
         """.stripMargin.trim
         val mapping =
-          schema.map(_.mapping(None, "locations", schemaHandler)).map(_.trim).getOrElse("")
+          schema.map(_.esMapping(None, "locations", schemaHandler)).map(_.trim).getOrElse("")
         logger.info(mapping)
         mapping.replaceAll("\\s", "") shouldBe expected.replaceAll("\\s", "")
       }

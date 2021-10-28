@@ -24,6 +24,7 @@ schemas:
         type: "byte"
         required: true
         privacy: "NONE"
+        comment:  "simple description"
         position:
           first: 0
           last: 0
