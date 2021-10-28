@@ -87,7 +87,7 @@ class ESLoadJob(
       val dynamicTemplate = for {
         domain <- schemaHandler.getDomain(cliConfig.domain)
         schema <- domain.schemas.find(_.name == cliConfig.schema)
-      } yield schema.mapping(domain.mapping(schema), domain.name, schemaHandler)
+      } yield schema.esMapping(domain.esMapping(schema), domain.name, schemaHandler)
 
       dynamicTemplate.getOrElse {
         // Handle datasets without YAML schema
