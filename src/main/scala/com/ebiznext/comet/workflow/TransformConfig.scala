@@ -17,8 +17,8 @@ object TransformConfig extends CliConfig[TransformConfig] {
     val builder = OParser.builder[TransformConfig]
     import builder._
     OParser.sequence(
-      programName("comet transform | job"),
-      head("comet", "transform | job", "[options]"),
+      programName("starlake transform | job"),
+      head("starlake", "transform | job", "[options]"),
       note(""),
       opt[String]("name")
         .action((x, c) => c.copy(name = x))

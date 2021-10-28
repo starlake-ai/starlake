@@ -16,7 +16,7 @@ trait CliConfig[T] {
     val descriptionOptionDef = synopsisOptionDef.flatMap(_ => optionDefs.drop(2).headOption)
     val options = descriptionOptionDef.map(_ => optionDefs.drop(3)).getOrElse(Nil)
 
-    val programName = programNameOptionDef.map(_.desc.substring("comet ".length)).getOrElse("")
+    val programName = programNameOptionDef.map(_.desc.substring("starlake ".length)).getOrElse("")
     val synopsis = synopsisOptionDef.map(_.desc).getOrElse("")
     val rawDescription = descriptionOptionDef
       .map(_.desc)

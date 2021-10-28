@@ -18,8 +18,8 @@ object AtlasConfig extends CliConfig[AtlasConfig] {
     val builder = OParser.builder[AtlasConfig]
     import builder._
     OParser.sequence(
-      programName("comet atlas"),
-      head("comet", "atlas", "[options]"),
+      programName("starlake atlas"),
+      head("starlake", "atlas", "[options]"),
       note(""),
       opt[Unit]("delete")
         .action((_, c) => c.copy(delete = true))

@@ -91,8 +91,8 @@ object ConnectionLoadConfig extends CliConfig[ConnectionLoadConfig] {
     val builder = OParser.builder[ConnectionLoadConfig]
     import builder._
     OParser.sequence(
-      programName("comet cnxload"),
-      head("comet", "cnxload", "[options]"),
+      programName("starlake cnxload"),
+      head("starlake", "cnxload", "[options]"),
       note("""
           |Load parquet file into JDBC Table.
           |""".stripMargin),
