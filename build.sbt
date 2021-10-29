@@ -108,7 +108,7 @@ assembly / assemblyShadeRules := Seq(
 publishTo := {
   (
     sys.env.get("GCS_BUCKET_ARTEFACTS"),
-    sys.env.getOrElse("RELEASE_SONATYPE", "false").toBoolean
+    sys.env.getOrElse("RELEASE_SONATYPE", "true").toBoolean
   ) match {
     case (None, false) =>
       githubPublishTo.value
@@ -176,7 +176,7 @@ githubOwner := "starlake-ai"
 
 githubRepository := "starlake"
 
-githubTokenSource := TokenSource.Environment("GITHUB_TOKEN")
+//githubTokenSource := TokenSource.Environment("GITHUB_TOKEN")
 
 developers := List(
   Developer(
