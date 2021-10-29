@@ -25,7 +25,7 @@ import com.ebiznext.comet.job.index.bqload.{BigQueryLoadConfig, BigQueryNativeJo
 import com.ebiznext.comet.job.index.connectionload.{ConnectionLoadConfig, ConnectionLoadJob}
 import com.ebiznext.comet.schema.model._
 import com.ebiznext.comet.utils.{FileLock, Utils}
-import com.google.cloud.bigquery.{Field, LegacySQLTypeName, Schema => BQSchema}
+import com.google.cloud.bigquery.{Field, Schema => BQSchema, StandardSQLTypeName}
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
 import org.apache.spark.rdd.RDD
@@ -131,21 +131,21 @@ case class AuditLog(
 object AuditLog extends StrictLogging {
 
   val auditCols = List(
-    ("jobid", LegacySQLTypeName.STRING, StringType),
-    ("paths", LegacySQLTypeName.STRING, StringType),
-    ("domain", LegacySQLTypeName.STRING, StringType),
-    ("schema", LegacySQLTypeName.STRING, StringType),
-    ("success", LegacySQLTypeName.BOOLEAN, BooleanType),
-    ("count", LegacySQLTypeName.INTEGER, LongType),
-    ("countAccepted", LegacySQLTypeName.INTEGER, LongType),
-    ("countRejected", LegacySQLTypeName.INTEGER, LongType),
-    ("timestamp", LegacySQLTypeName.TIMESTAMP, TimestampType),
-    ("duration", LegacySQLTypeName.INTEGER, LongType),
-    ("message", LegacySQLTypeName.STRING, StringType),
-    ("step", LegacySQLTypeName.STRING, StringType)
+    ("jobid", StandardSQLTypeName.STRING, StringType),
+    ("paths", StandardSQLTypeName.STRING, StringType),
+    ("domain", StandardSQLTypeName.STRING, StringType),
+    ("schema", StandardSQLTypeName.STRING, StringType),
+    ("success", StandardSQLTypeName.BOOL, BooleanType),
+    ("count", StandardSQLTypeName.INT64, LongType),
+    ("countAccepted", StandardSQLTypeName.INT64, LongType),
+    ("countRejected", StandardSQLTypeName.INT64, LongType),
+    ("timestamp", StandardSQLTypeName.TIMESTAMP, TimestampType),
+    ("duration", StandardSQLTypeName.INT64, LongType),
+    ("message", StandardSQLTypeName.STRING, StringType),
+    ("step", StandardSQLTypeName.STRING, StringType)
   )
 
-  private def bigqueryAuditSchema(): BQSchema = {
+  private def bqSchema(): BQSchema = {
     val fields = auditCols.map { case (name, tpe, _) =>
       Field
         .newBuilder(name, tpe)
@@ -218,9 +218,11 @@ object AuditLog extends StrictLogging {
         new ConnectionLoadJob(jdbcConfig).run()
 
       case sink: BigQuerySink =>
+        val auditDataset = sink.name.getOrElse("audit")
+        BigQueryNativeJob.createTable(auditDataset, "audit", bqSchema())
         val bqConfig = BigQueryLoadConfig(
           Left("ignore"),
-          outputDataset = sink.name.getOrElse("audit"),
+          outputDataset = auditDataset,
           outputTable = "audit",
           None,
           Nil,
