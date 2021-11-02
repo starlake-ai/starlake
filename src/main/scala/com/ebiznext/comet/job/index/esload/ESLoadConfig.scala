@@ -69,9 +69,9 @@ case class ESLoadConfig(
 
   def getResource(): String = {
     timestamp.map { ts =>
-      s"${this.getIndexName()}-$ts/_doc"
+      s"${this.getIndexName()}-$ts"
     } getOrElse {
-      s"${this.getIndexName()}/_doc"
+      s"${this.getIndexName()}"
     }
   }
 }
