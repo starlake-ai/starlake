@@ -20,12 +20,6 @@ import scala.util.{Failure, Success}
 class KafkaJobSpec extends TestHelper {
   type Containers = KafkaContainer and ElasticsearchContainer
 
-  //https://scala.monster/testcontainers/
-  // We need to start iit manually because we need to access the HTTP mapped port
-  // in the configuration below before any test get executed.
-  val kafkaContainer: KafkaContainer = KafkaContainer.Def().start()
-  val esContainer: ElasticsearchContainer = ElasticsearchContainer.Def().start()
-
   override def afterAll(): Unit = {
     kafkaContainer.stop()
     esContainer.stop()
@@ -367,7 +361,7 @@ class KafkaJobSpec extends TestHelper {
                 "kafka_to_es",
                 "org.elasticsearch.spark.sql",
                 SaveMode.Overwrite,
-                "test/_doc",
+                "test",
                 writeOptions = settings.comet.elasticsearch.options.asScala.toMap
               )
             )
