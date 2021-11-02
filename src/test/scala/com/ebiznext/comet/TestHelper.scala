@@ -20,6 +20,7 @@
 
 package com.ebiznext.comet
 
+import com.dimafeng.testcontainers.{ElasticsearchContainer, KafkaContainer}
 import com.ebiznext.comet.config.{DatasetArea, Settings}
 import com.ebiznext.comet.schema.handlers.{SchemaHandler, SimpleLauncher, StorageHandler}
 import com.ebiznext.comet.schema.model.AutoJobDesc
@@ -39,6 +40,7 @@ import org.apache.spark.sql.{DataFrame, DatasetLogging, SparkSession}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{Assertion, BeforeAndAfterAll}
+import org.testcontainers.utility.DockerImageName
 
 import java.io.{File, InputStream}
 import java.nio.file.Files
@@ -393,6 +395,18 @@ trait TestHelper
     logger.info(s"Displaying data for $marker")
     logger.info(df.showString(truncate = 0))
     logger.info("-----")
+  }
+
+  //https://scala.monster/testcontainers/
+  // We need to start it manually because we need to access the HTTP mapped port
+  // in the configuration below before any test get executed.
+  lazy val kafkaContainer: KafkaContainer = KafkaContainer.Def().start()
+
+  lazy val esContainer: ElasticsearchContainer = {
+    val esDockerImage = "docker.elastic.co/elasticsearch/elasticsearch"
+    val esDockerTag = "7.8.1"
+    val esDockerImageName = DockerImageName.parse(s"$esDockerImage:$esDockerTag")
+    ElasticsearchContainer.Def(esDockerImageName).start()
   }
 
 }
