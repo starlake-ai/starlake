@@ -21,7 +21,6 @@
 package com.ebiznext.comet.schema.handlers
 
 import better.files.File
-import com.dimafeng.testcontainers.ElasticsearchContainer
 import com.ebiznext.comet.TestHelper
 import com.ebiznext.comet.config.DatasetArea
 import com.ebiznext.comet.schema.generator.Yml2GraphViz
@@ -37,7 +36,6 @@ import java.net.URL
 import scala.util.Try
 
 class SchemaHandlerSpec extends TestHelper {
-  val esContainer: ElasticsearchContainer = ElasticsearchContainer.Def().start()
 
   override def afterAll(): Unit = {
     // We need to start it manually because we need to access the HTTP mapped port
@@ -546,7 +544,6 @@ class SchemaHandlerSpec extends TestHelper {
             |    "number_of_replicas": "0"
             |  },
             |  "mappings": {
-            |    "_doc": {
             |      "_source": {
             |        "enabled": true
             |      },
@@ -566,7 +563,6 @@ class SchemaHandlerSpec extends TestHelper {
             |  "type": "keyword"
             |}
             |}
-            |    }
             |  }
             |}
         """.stripMargin.trim
