@@ -363,7 +363,6 @@ case class Schema(
          |    "number_of_replicas": "0"
          |  },
          |  "mappings": {
-         |    "_doc": {
          |      "_source": {
          |        "enabled": true
          |      },
@@ -371,7 +370,6 @@ case class Schema(
          |      "properties": {
          |        {{attributes}}
          |      }
-         |    }
          |  }
          |}""".stripMargin
       }
