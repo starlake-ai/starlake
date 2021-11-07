@@ -178,6 +178,7 @@ object Metrics extends StrictLogging {
     *   Integer : the computed value of the percentile of order 0.25
     */
 
+  @annotation.nowarn
   def percentile25(e: Column): Column = {
     customMetricUDF(e: Column, "percentile25", callUDF, "percentile_approx", 0.25)
   }
@@ -190,6 +191,7 @@ object Metrics extends StrictLogging {
     *   Integer : the computed value of the Median
     */
 
+  @annotation.nowarn
   def customMedian(e: Column): Column = {
     customMetricUDF(e: Column, "median", callUDF, "percentile_approx", 0.50)
   }
@@ -202,6 +204,7 @@ object Metrics extends StrictLogging {
     *   Integer : the computed value of the percentile of order 0.75
     */
 
+  @annotation.nowarn
   def percentile75(e: Column): Column = {
     customMetricUDF(e: Column, "percentile75", callUDF, "percentile_approx", 0.75)
   }

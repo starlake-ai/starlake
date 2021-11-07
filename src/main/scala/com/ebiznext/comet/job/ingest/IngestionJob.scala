@@ -73,10 +73,12 @@ trait IngestionJob extends SparkJob {
     */
   protected def ingest(dataset: DataFrame): (RDD[_], RDD[_])
 
+  @annotation.nowarn
   protected def applyIgnore(dfIn: DataFrame): Dataset[Row] = {
     import session.implicits._
     metadata.ignore.map { ignore =>
       if (ignore.startsWith("udf:")) {
+
         dfIn.filter(
           !callUDF(ignore.substring("udf:".length), struct(dfIn.columns.map(dfIn(_)): _*))
         )
