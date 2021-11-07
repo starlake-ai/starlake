@@ -6,6 +6,7 @@ __New feature__:
 - Support publishing to github packages
 - Reduce number of dependencies
 - Allow Audit sink name configuration from environment variable
+- Dropped support for elasticsearch 6
 
 __Bug Fix__:
 - Support timestamps as long in XML & JSOn FIles
