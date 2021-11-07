@@ -185,7 +185,13 @@ object Dependencies {
     "net.java.dev.jna" % "jna" % "5.9.0"
   )
 
+  val silencer = Seq(
+    compilerPlugin(
+      "com.github.ghik" % "silencer-plugin" % Versions.silencerVersion cross CrossVersion.full
+    ),
+    "com.github.ghik" % "silencer-lib" % Versions.silencerVersion % Provided cross CrossVersion.full
+  )
   val dependencies =
-    jna_apple_arm_testcontainers ++ scalate ++ logging ++ typedConfigs ++ betterfiles ++ scalaTest ++ scopt ++ hadoop ++
+    silencer ++ jna_apple_arm_testcontainers ++ scalate ++ logging ++ typedConfigs ++ betterfiles ++ scalaTest ++ scopt ++ hadoop ++
     sttp ++ gcp ++ azure ++ h2 ++ excelClientApi ++ akkaHttp ++ akkaStream ++ kafkaClients ++ graphviz // ++ atlas
 }
