@@ -107,6 +107,18 @@ object Main extends StrictLogging {
     *     specific schema in a specific domain
     */
   def main(args: Array[String]): Unit = {
+    logger.warn(
+      "com.ebiznext.comet.job.Main is deprecated. Please start using ai.starlake.job.Main"
+    )
+    Thread.sleep(10 * 1000)
+    legacyMain(args)
+  }
+  def legacyMain(args: Array[String]): Unit = {
+    logger.info(BuildInfo.toString)
+    // Double punishment if using com.ebiznext.job.Main && scala 2.11
+    if (BuildInfo.scalaVersion.startsWith("2.11"))
+      Thread.sleep(10 * 1000)
+
     implicit val settings: Settings = Settings(ConfigFactory.load())
     logger.info(s"Comet Version ${BuildInfo.version}")
     import settings.{launcherService, metadataStorageHandler, storageHandler}

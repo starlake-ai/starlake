@@ -7,6 +7,7 @@ __New feature__:
 - Reduce number of dependencies
 - Allow Audit sink name configuration from environment variable
 - Dropped support for elasticsearch 6
+- Deprecate scala 2.11
 
 __Bug Fix__:
 - Support timestamps as long in XML & JSOn FIles
