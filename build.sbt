@@ -120,7 +120,7 @@ publishTo := {
   }
 }
 // Disable scaladoc generation
-Compile / doc / sources := Seq.empty
+// Compile / doc / sources := Seq.empty
 
 Compile / packageDoc / publishArtifact := false
 
