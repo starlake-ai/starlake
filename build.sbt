@@ -120,16 +120,17 @@ publishTo := {
   }
 }
 // Disable scaladoc generation
-// Compile / doc / sources := Seq.empty
 
-Compile / packageDoc / publishArtifact := false
+Compile / doc / sources := Seq.empty
+
+//Compile / packageDoc / publishArtifact := false
 
 Compile / packageBin / publishArtifact := true
 
 Compile / packageSrc / publishArtifact := true
 
 // Do not disable checksum
-// publishLocal / checksums := Nil
+publishLocal / checksums := Nil
 
 // publish / checksums := Nil
 
