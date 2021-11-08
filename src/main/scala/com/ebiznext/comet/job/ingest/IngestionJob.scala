@@ -16,6 +16,7 @@ import com.ebiznext.comet.utils._
 import com.ebiznext.comet.utils.conversion.BigQueryUtils
 import com.ebiznext.comet.utils.kafka.KafkaClient
 import com.ebiznext.comet.utils.repackaged.BigQuerySchemaConverters
+import com.github.ghik.silencer.silent
 import com.google.cloud.bigquery.JobInfo.{CreateDisposition, WriteDisposition}
 import com.google.cloud.bigquery.{
   Field,
@@ -73,7 +74,7 @@ trait IngestionJob extends SparkJob {
     */
   protected def ingest(dataset: DataFrame): (RDD[_], RDD[_])
 
-  @annotation.nowarn
+  @silent
   protected def applyIgnore(dfIn: DataFrame): Dataset[Row] = {
     import session.implicits._
     metadata.ignore.map { ignore =>

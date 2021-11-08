@@ -1,6 +1,7 @@
 package com.ebiznext.comet.job.metrics
 
 import com.ebiznext.comet.utils.DataTypeEx._
+import com.github.ghik.silencer.silent
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.{DoubleType, LongType, StringType}
@@ -178,7 +179,7 @@ object Metrics extends StrictLogging {
     *   Integer : the computed value of the percentile of order 0.25
     */
 
-  @annotation.nowarn
+  @silent
   def percentile25(e: Column): Column = {
     customMetricUDF(e: Column, "percentile25", callUDF, "percentile_approx", 0.25)
   }
@@ -191,7 +192,7 @@ object Metrics extends StrictLogging {
     *   Integer : the computed value of the Median
     */
 
-  @annotation.nowarn
+  @silent
   def customMedian(e: Column): Column = {
     customMetricUDF(e: Column, "median", callUDF, "percentile_approx", 0.50)
   }
@@ -204,7 +205,7 @@ object Metrics extends StrictLogging {
     *   Integer : the computed value of the percentile of order 0.75
     */
 
-  @annotation.nowarn
+  @silent
   def percentile75(e: Column): Column = {
     customMetricUDF(e: Column, "percentile75", callUDF, "percentile_approx", 0.75)
   }
