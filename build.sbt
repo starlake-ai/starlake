@@ -17,37 +17,40 @@ sonatypeCredentialHost := "s01.oss.sonatype.org"
 
 lazy val scala212 = "2.12.12"
 
+lazy val scala213 = "2.13.7"
+
 lazy val scala211 = "2.11.12"
 
-crossScalaVersions := List(scala211, scala212)
+crossScalaVersions := List(scala211, scala212, scala213)
 
 organization := "ai.starlake"
 
 organizationName := "starlake"
 
-scalaVersion := scala212
+scalaVersion := scala213
 
 organizationHomepage := Some(url("https://github.com/starlake-ai/starlake"))
 
 libraryDependencies ++= {
-  val (spark, jackson, esSpark) = {
+  val (spark, jackson, esSpark, typedConfigs) = {
     CrossVersion.partialVersion(scalaVersion.value) match {
-      case Some((2, 12)) => (spark_3d0_forScala_2d12, jackson212ForSpark3, esSpark212)
+      case Some((3, _)) | Some((2, 13))  => (spark_3d0_forScala_2d12, jackson212ForSpark3, esSpark212, typedConfigsForScala3)
+      case Some((2, 12)) => (spark_3d0_forScala_2d12, jackson212ForSpark3, esSpark212, typedConfigsForScala2)
       case Some((2, 11)) =>
         sys.env.getOrElse("COMET_HDP31", "false").toBoolean match {
-          case false => (spark_2d4_forScala_2d11, jackson211ForSpark2, esSpark211)
-          case true  => (spark_2d4_forScala_2d11, jackson211ForSpark2Hdp31, esSpark211)
+          case false => (spark_2d4_forScala_2d11, jackson211ForSpark2, esSpark211, typedConfigsForScala2)
+          case true  => (spark_2d4_forScala_2d11, jackson211ForSpark2Hdp31, esSpark211, typedConfigsForScala2)
         }
       case _ => throw new Exception(s"Invalid Scala Version")
     }
   }
-  dependencies ++ spark ++ jackson ++ esSpark ++ scalaReflection(scalaVersion.value)
+  dependencies ++ typedConfigs ++  spark ++ jackson ++ esSpark ++ scalaReflection(scalaVersion.value)
 }
 
 name := {
   val sparkNameSuffix = {
     CrossVersion.partialVersion(scalaVersion.value) match {
-      case Some((2, 12)) => "3"
+      case Some((2, 12)) | Some((2, 13)) => "3"
       case Some((2, 11)) => "2"
       case _             => throw new Exception(s"Invalid Scala Version")
     }

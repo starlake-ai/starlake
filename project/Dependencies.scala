@@ -51,7 +51,9 @@ object Dependencies {
     "com.typesafe.scala-logging" %% "scala-logging" % Versions.scalaLogging
   )
 
-  val typedConfigs = Seq("com.github.kxbmap" %% "configs" % Versions.configs)
+  val typedConfigsForScala2 = Seq("com.github.kxbmap" %% "configs" % Versions.configsForScala2)
+
+  val typedConfigsForScala3 = Seq("com.github.kxbmap" %% "configs" % Versions.configsForScala3)
 
   val jackson211ForSpark2 = Seq(
     "com.fasterxml.jackson.core" % "jackson-core" % Versions.jackson211ForSpark2 % "provided",
@@ -82,7 +84,7 @@ object Dependencies {
     "org.apache.spark" %% "spark-sql" % Versions.spark2d4 % "provided" excludeAll (jacksonExclusions: _*) exclude ("com.google.guava", "guava"),
     "org.apache.spark" %% "spark-hive" % Versions.spark2d4 % "provided" excludeAll (jacksonExclusions: _*) exclude ("com.google.guava", "guava"),
     "org.apache.spark" %% "spark-mllib" % Versions.spark2d4 % "provided" excludeAll (jacksonExclusions: _*) exclude ("com.google.guava", "guava"),
-    "com.databricks" %% "spark-xml" % Versions.sparkXML,
+    "com.databricks" %% "spark-xml" % Versions.sparkXMLForScala2d11,
     "org.apache.spark" %% "spark-sql-kafka-0-10" % Versions.spark2d4 % "provided"
   )
 
@@ -91,7 +93,7 @@ object Dependencies {
     "org.apache.spark" %% "spark-sql" % Versions.spark3d0 % "provided" exclude ("com.google.guava", "guava") excludeAll (jacksonExclusions: _*),
     "org.apache.spark" %% "spark-hive" % Versions.spark3d0 % "provided" exclude ("com.google.guava", "guava") excludeAll (jacksonExclusions: _*),
     "org.apache.spark" %% "spark-mllib" % Versions.spark3d0 % "provided" exclude ("com.google.guava", "guava") excludeAll (jacksonExclusions: _*),
-    "com.databricks" %% "spark-xml" % Versions.sparkXML,
+    "com.databricks" %% "spark-xml" % Versions.sparkXMLForScala2d12,
     "org.apache.spark" %% "spark-sql-kafka-0-10" % Versions.spark3d0 % "provided"
   )
 
@@ -192,6 +194,6 @@ object Dependencies {
     "com.github.ghik" % "silencer-lib" % Versions.silencerVersion % Provided cross CrossVersion.full
   )
   val dependencies =
-    silencer ++ jna_apple_arm_testcontainers ++ scalate ++ logging ++ typedConfigs ++ betterfiles ++ scalaTest ++ scopt ++ hadoop ++
+    silencer ++ jna_apple_arm_testcontainers ++ scalate ++ logging ++ betterfiles ++ scalaTest ++ scopt ++ hadoop ++
     sttp ++ gcp ++ azure ++ h2 ++ excelClientApi ++ akkaHttp ++ akkaStream ++ kafkaClients ++ graphviz // ++ atlas
 }
