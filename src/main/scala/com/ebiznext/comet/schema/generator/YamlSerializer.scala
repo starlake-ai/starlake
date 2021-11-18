@@ -2,7 +2,7 @@ package com.ebiznext.comet.schema.generator
 
 import better.files.File
 import com.ebiznext.comet.config.Settings
-import com.ebiznext.comet.schema.model.{AutoJobDesc, Domain, Schemas}
+import com.ebiznext.comet.schema.model.{AutoJobDesc, Domain, Schema, Schemas}
 import com.fasterxml.jackson.annotation.JsonInclude.Include
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
@@ -17,6 +17,8 @@ object YamlSerializer extends LazyLogging {
   mapper.setSerializationInclusion(Include.NON_EMPTY)
 
   def serialize(domain: Domain): String = mapper.writeValueAsString(domain)
+
+  def serialize(schema: Schema): String = mapper.writeValueAsString(schema)
 
   def serializeObject(obj: Object): String = mapper.writeValueAsString(obj)
 
