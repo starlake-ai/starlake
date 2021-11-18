@@ -86,7 +86,7 @@ case class Domain(
     schemas.find(_.pattern.matcher(filename).matches())
   }
 
-  def ddlMapping(schema: Schema, datawarehouse: String, ddlType: String)(implicit
+  def ddlMapping(datawarehouse: String, ddlType: String)(implicit
     settings: Settings
   ): (Path, String) = {
     val rootPath = new Path(new Path(DatasetArea.mapping, "ddl"), datawarehouse)
