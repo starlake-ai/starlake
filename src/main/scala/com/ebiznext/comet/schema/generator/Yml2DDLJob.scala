@@ -24,15 +24,16 @@ import com.ebiznext.comet.config.Settings
 import com.ebiznext.comet.schema.generator.DDLUtils.{Columns, PrimaryKeys, TableRemarks}
 import com.ebiznext.comet.schema.handlers.SchemaHandler
 import com.ebiznext.comet.schema.model.{Domain, Schema}
+import com.typesafe.scalalogging.StrictLogging
 import org.fusesource.scalate.{TemplateEngine, TemplateSource}
-
+import org.apache.hadoop.fs.{Path => StoragePath}
 import scala.util.Try
 
 /** * Infers the schema of a given datapath, domain name, schema name.
   */
 class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
   settings: Settings
-) {
+) extends StrictLogging {
   val engine: TemplateEngine = new TemplateEngine
 
   def name: String = "InferDDL"
@@ -52,8 +53,9 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
             .getOrElse(throw new Exception(s"Domain ${domain} not found"))
           List(res)
       }
+      val sqlString = new StringBuffer()
       domains.map { domain =>
-        val schemas = config.schemas match {
+        val schemas: Seq[Schema] = config.schemas match {
           case Some(schemas) =>
             schemas.flatMap(schema =>
               domain.schemas.find(_.name.toLowerCase() == schema.toLowerCase)
@@ -75,13 +77,16 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
             )
           case None => Map.empty[String, (TableRemarks, Columns, PrimaryKeys)]
         }
-        val oldTables = existingTables.keys.filter(table =>
+        val oldTables = existingTables.keys.filterNot(table =>
           schemas.map(_.name.toLowerCase()).contains(table.toLowerCase())
         )
+
         oldTables.foreach { table =>
-          val schema = schemas
-            .find(_.name.toLowerCase() == table.toLowerCase())
-            .getOrElse(throw new Exception("Should never happen"))
+          val schema: String = schemas
+            .collectFirst {
+              case s if s.name.toLowerCase() == table.toLowerCase() => s.name
+            }
+            .getOrElse(table)
           val ddlType = "drop"
           val dropParamMap = Map(
             "attributes"              -> List.empty[Map[String, Any]],
@@ -92,7 +97,7 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
             "alterRequiredAttributes" -> Nil,
             "droppedAttributes"       -> Nil,
             "domain"                  -> domain.name,
-            "schema"                  -> schema.name,
+            "schema"                  -> schema,
             "partitions"              -> Nil,
             "clustered"               -> Nil,
             "primaryKeys"             -> Nil,
@@ -100,18 +105,18 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
             "domainComment"           -> ""
           )
           println(s"Dropping table $table")
-          val result = applyTemplate(domain, schema, ddlType, dropParamMap)
-          println(result)
+          val result = applyTemplate(domain, ddlType, dropParamMap)
+          sqlString.append(result)
         }
         schemas.map { schema =>
           val ddlFields = schema.ddlMapping(config.datawarehouse, schemaHandler)
 
           val mergedMetadata = schema.mergedMetadata(domain.metadata)
-          val isNew = !existingTables.contains(schema.name.toUpperCase())
+          val isNew = !existingTables.contains(schema.name)
           isNew match {
             case false =>
               val (_, existingColumns, _) =
-                existingTables(schema.name.toUpperCase())
+                existingTables(schema.name)
               val addColumns =
                 schema.attributes.filter(attr =>
                   !existingColumns.map(_.name.toLowerCase()).contains(attr.name.toLowerCase())
@@ -179,8 +184,9 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
                 "comment"       -> schema.comment.getOrElse(""),
                 "domainComment" -> domain.comment.getOrElse("")
               )
-              val result = applyTemplate(domain, schema, ddlType, alterParamMap)
-
+              val result = applyTemplate(domain, ddlType, alterParamMap)
+              println(s"Altering existing table ${schema.name}")
+              sqlString.append(result)
             case true =>
               val createParamMap = Map(
                 "attributes"              -> ddlFields.map(_.toMap()),
@@ -200,22 +206,29 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
               )
               val ddlType = "create"
               println(s"Creating new table ${schema.name}")
-              val result = applyTemplate(domain, schema, ddlType, createParamMap)
-              println(result)
+              val result = applyTemplate(domain, ddlType, createParamMap)
+              sqlString.append(result)
           }
         }
       }
+      val sqlScript = sqlString.toString
+      logger.debug(s"Final script is:\n $sqlScript")
+
+      config.outputPath.flatMap(output => writeScript(sqlScript, output).toOption)
+
+      if (config.apply)
+        config.connection.fold(logger.warn("Could not apply script, connection is not defined"))(
+          conn => DDLUtils.applyScript(sqlScript, conn)
+        )
     }
 
   private def applyTemplate(
     domain: Domain,
-    schema: Schema,
     ddlType: TableRemarks,
     dropParamMap: Map[TableRemarks, Any]
   ): String = {
     val (templatePath, templateContent) =
       domain.ddlMapping(
-        schema,
         config.datawarehouse,
         ddlType
       )
@@ -223,5 +236,8 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
       TemplateSource.fromText(templatePath.toString, templateContent),
       dropParamMap
     )
+  }
+  private def writeScript(sqlScript: String, output: String): Try[Unit] = {
+    Try(settings.storageHandler.write(sqlScript, new StoragePath(output)))
   }
 }
