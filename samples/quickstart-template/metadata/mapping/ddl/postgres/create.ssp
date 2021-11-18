@@ -1,0 +1,80 @@
+<%@ val attributes: List[Map[String, Any]] %>
+<%@ val newAttributes: List[Map[String, Any]] %>
+<%@ val alterAttributes: List[Map[String, Any]] %>
+<%@ val alterCommentAttributes: List[Map[String, Any]] %>
+<%@ val alterRequiredAttributes: List[Map[String, Any]] %>
+<%@ val alterDataTypeAttributes: List[Map[String, Any]] %>
+<%@ val droppedAttributes: List[Map[String, Any]] %>
+<%@ val domain: String %>
+<%@ val domainComment: String = ""  %>
+<%@ val schema: String %>
+<%@ val schemaComment: String = ""  %>
+<%@ val partitions: List[String] %>
+<%@ val clustered: List[String] %>
+<%@ val primaryKeys: List[String] %>
+<%
+    val isPrimaryKeyDefined: Boolean  = primaryKeys.nonEmpty
+    val isPartitionDefined: Boolean = partitions.nonEmpty
+
+    def attributeDDL(attr:Map[String, Any]): String = {
+    val required = if (attr("required").toString.toBoolean) "NOT NULL" else ""
+    val attrName = attr("name")
+    val attrType = attr("type")
+
+    attr("nodeType") match {
+    case "leaf" =>
+    s"""$attrName $attrType $required"""
+    case "node" =>
+    val fields = attr("fields").asInstanceOf[List[Map[String, Any]]]
+    val ddlFields = fields.map(field => attributeDDL(field)).mkString(",")
+    s"""$attrName $attrName $required""" // TODO NO
+    case _ => throw new Exception("Should never happen")
+    }
+    }
+
+    def createTypeforAttr(attr:Map[String, Any]):String = {
+    val attrName = attr("name")
+    val attrType = attr("type")
+    attr("nodeType") match {
+    case "node" =>
+    val fields = attr("fields").asInstanceOf[List[Map[String, Any]]]
+    val ddlFields = fields.map(field => createTypeforAttr(field)).mkString(",")
+    s"""DROP TYPE IF EXISTS $attrName CASCADE;
+       |CREATE TYPE $attrName AS($ddlFields);""".stripMargin // TODO Ugly hack
+    case "leaf" => s"""$attrName $attrType"""
+    }
+    }
+%>
+
+#for (attribute <- attributes)
+    #{val res = if(attribute("nodeType")=="node") createTypeforAttr(attribute) else ""}#
+    ${res}
+#end
+
+CREATE SCHEMA IF NOT EXISTS ${domain};
+
+CREATE TABLE ${domain}.${schema} (
+#{
+    val attributesCount = attributes.length
+    var attributesIndex = 1
+}#
+#for (attribute <- attributes)
+    #{
+        val attributeSuffix = if (attributesIndex == attributesCount) "" else ","
+        attributesIndex = attributesIndex + 1
+    }#
+    ${attributeDDL(attribute)}${attributeSuffix}
+#end
+);
+
+#for (attribute <- attributes)
+    #{
+        val attributeComment = attribute("comment")
+        val attributeName = attribute("name")
+    }#
+    #if (attributeComment != "")
+        COMMENT ON COLUMN ${domain}.${schema}.${attributeName} IS '${attributeComment}';
+    #end
+#end
+COMMENT ON TABLE ${domain}.${schema} IS '${schemaComment}';
+COMMENT ON SCHEMA ${domain} IS '${domainComment}';
