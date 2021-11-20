@@ -47,7 +47,6 @@ class BigQueryNativeJob(
   ): QueryJobConfiguration.Builder = {
     val queryConfigWithUDF = udf
       .map { udf =>
-        import scala.collection.JavaConverters._
         queryConfig.setUserDefinedFunctions(List(UserDefinedFunction.fromUri(udf)).asJava)
       }
       .getOrElse(queryConfig)
