@@ -30,7 +30,7 @@ object MergeUtils extends StrictLogging with DatasetLogging {
 
     val newColumns = expectedColumns.keySet.diff(actualColumns.keySet)
     val newColumnsNotNullable =
-      newColumns.flatMap(expectedColumns.get).filterNot(_.nullable).map(_.name)
+      newColumns.flatMap(expectedColumns.get(_)).filterNot(_.nullable).map(_.name)
     if (newColumnsNotNullable.nonEmpty)
       throw new RuntimeException(
         "The new columns from Input Dataset should be nullable. The following columns were not: " + newColumnsNotNullable
