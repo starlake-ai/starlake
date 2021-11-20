@@ -6,7 +6,8 @@ trait XlsModel {
     "_name"        -> "Name",
     "_path"        -> "Directory",
     "_ack"         -> "Ack",
-    "_description" -> "Description"
+    "_description" -> "Description",
+    "_schema_refs" -> "Schema Refs"
   )
 
   val allSchemaHeaders = List(
@@ -25,7 +26,11 @@ trait XlsModel {
     "_partitioning"       -> "partition columns",
     "_sink"               -> "Sink Type",
     "_clustering"         -> "Clustering columns",
-    "_merge_query_filter" -> "Filter to use on merge"
+    "_merge_query_filter" -> "Filter to use on merge",
+    "_presql"             -> "Pre SQLs - ###",
+    "_postsql"            -> "Post SQLs - ###",
+    "_primary_key"        -> "Primary Key",
+    "_tags"               -> "Tags"
   )
 
   val allAttributeHeaders = List(
@@ -41,7 +46,9 @@ trait XlsModel {
     "_position_start" -> "Start Position",
     "_position_end"   -> "End Position",
     "_trim"           -> "Trim (LEFT, RIGHT,BOTH)",
-    "_ignore"         -> "Ignore ?"
+    "_ignore"         -> "Ignore ?",
+    "_foreign_key"    -> "Foreign Key",
+    "_tags"           -> "Tags"
   )
 
 }
