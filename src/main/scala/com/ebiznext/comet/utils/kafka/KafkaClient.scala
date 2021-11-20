@@ -17,6 +17,7 @@ import java.time.Duration
 import java.util.Properties
 import scala.collection.JavaConverters._
 import scala.collection.mutable
+import scala.util.{Failure, Success, Try}
 
 class KafkaClient(kafkaConfig: KafkaConfig)(implicit settings: Settings)
     extends StrictLogging
@@ -81,7 +82,7 @@ class KafkaClient(kafkaConfig: KafkaConfig)(implicit settings: Settings)
   }
 
   def topicEndOffsets(topicName: String, accessOptions: Map[String, String]): List[(Int, Long)] = {
-    try {
+    Try {
       val props: Properties = buildProps(accessOptions)
       val consumer = new KafkaConsumer[String, String](props)
       logger.whenInfoEnabled {
@@ -99,10 +100,11 @@ class KafkaClient(kafkaConfig: KafkaConfig)(implicit settings: Settings)
       consumer.assign(partitions.asJava)
       consumer.seekToEnd(partitions.asJava)
       partitions.map(p => (p.partition(), consumer.position(p)))
-    } catch {
-      case e: Throwable =>
+    } match {
+      case Failure(e) =>
         e.printStackTrace()
         throw e
+      case Success(value) => value
     }
   }
 
