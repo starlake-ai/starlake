@@ -32,7 +32,7 @@ load:
           type: "customerid"
           required: true
         - name: "signup"
-          type: "datetime"
+          type: "timestamp"
           required: false
         - name: "contact"
           type: "email"

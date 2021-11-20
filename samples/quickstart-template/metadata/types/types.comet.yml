@@ -9,7 +9,8 @@ types:
       sql:
       bigquery: STRING
       snowflake: STRING
-      postgres: varchar(255)
+      postgres: varchar(8000)
+      synapse: Varchar(8000)
   - name: "customerid"
     primitiveType: "string"
     pattern: "[A-Z][0-9]{6}"
@@ -19,7 +20,8 @@ types:
       sql:
       bigquery: STRING
       snowflake: STRING
-      postgres: varchar(255)
+      postgres: varchar(8000)
+      synapse: Varchar(8000)
   - name: "sellerid"
     primitiveType: "string"
     pattern: "[0-9]{6}"
@@ -29,4 +31,5 @@ types:
       sql:
       bigquery: STRING
       snowflake: STRING
-      postgres: varchar(255)
+      postgres: varchar(8000)
+      synapse: Varchar(8000)
