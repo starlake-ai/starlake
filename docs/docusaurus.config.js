@@ -15,22 +15,7 @@ module.exports = {
             // Optional fields.
             anonymizeIP: true // Should IPs be anonymized?
         },
-        algolia: {
-            apiKey: 'ac0b111da6354964b01b7e634e6d73fe',
-            indexName: 'comet-website',
 
-            // Optional: see doc section below
-            contextualSearch: true,
-
-
-            // Optional: see doc section below
-            appId: 'IEP5P8HN5L',
-
-            // Optional: Algolia search parameters
-            searchParameters: {},
-
-            //... other Algolia params
-        },
         navbar: {
             title: 'Starlake',
             logo: {
@@ -46,7 +31,7 @@ module.exports = {
                 },
                 {to: '/blog', label: 'Blog', position: 'left'},
                 {
-                    href: 'https://github.com/starlake-ai/starlake/releases/latest',
+                    href: 'https://search.maven.org/search?q=ai.starlake',
                     position: 'right',
                     className: 'header-download-link header-icon-link',
                     'aria-label': 'Download',
@@ -80,8 +65,8 @@ module.exports = {
                             href: 'https://stackoverflow.com/questions/tagged/starlake',
                         },
                         {
-                            label: 'Discuss',
-                            href: 'https://github.com/starlake-ai/starlake/issues',
+                            label: 'Discord',
+                            href: 'https://discord.com/channels/833336395430625310/908709208025858079',
                         },
                         {
                             label: 'Twitter',
@@ -128,4 +113,20 @@ module.exports = {
             },
         ],
     ],
+    plugins: [
+        // ... Your other plugins.
+        [
+            require.resolve("@easyops-cn/docusaurus-search-local"),
+            {
+                // ... Your options.
+                // `hashed` is recommended as long-term-cache of index file is possible.
+                hashed: true,
+                // For Docs using Chinese, The `language` is recommended to set to:
+                // ```
+                // language: ["en", "zh"],
+                // ```
+                // When applying `zh` in language, please install `nodejieba` in your project.
+            },
+        ],
+    ]
 };
