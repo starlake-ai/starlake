@@ -43,9 +43,13 @@ class XlsReader(input: Input) extends XlsModel {
       val comment =
         Option(row.getCell(headerMap("_description"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
           .flatMap(formatter.formatCellValue)
+      val schemaRefsOpt =
+        Option(row.getCell(headerMap("_schema_refs"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
+          .flatMap(formatter.formatCellValue)
+          .map(_.split(",").toList)
       (nameOpt, directoryOpt) match {
         case (Some(name), Some(directory)) =>
-          Some(Domain(name, directory, ack = ack, comment = comment))
+          Some(Domain(name, directory, ack = ack, comment = comment, schemaRefs = schemaRefsOpt))
         case _ => None
       }
     }
@@ -113,6 +117,24 @@ class XlsReader(input: Input) extends XlsModel {
         Option(
           row.getCell(headerMap("_merge_query_filter"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
         ).flatMap(formatter.formatCellValue)
+      val presql =
+        Option(
+          row.getCell(headerMap("_presql"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
+        ).flatMap(formatter.formatCellValue).map(_.split("###").toList)
+      val postsql =
+        Option(
+          row.getCell(headerMap("_postsql"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
+        ).flatMap(formatter.formatCellValue).map(_.split("###").toList)
+
+      val primaryKeys =
+        Option(
+          row.getCell(headerMap("_primary_key"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
+        ).flatMap(formatter.formatCellValue).map(_.split(",").toList)
+
+      val tags =
+        Option(
+          row.getCell(headerMap("_tags"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
+        ).flatMap(formatter.formatCellValue).map(_.split(",").toSet)
 
       (nameOpt, patternOpt) match {
         case (Some(name), Some(pattern)) => {
@@ -188,14 +210,16 @@ class XlsReader(input: Input) extends XlsModel {
             }
           Some(
             Schema(
-              name,
-              pattern,
+              name = name,
+              pattern = pattern,
               attributes = Nil,
-              Some(metaData),
-              mergeOptions,
-              comment,
-              None,
-              None
+              metadata = Some(metaData),
+              merge = mergeOptions,
+              comment = comment,
+              presql = presql,
+              postsql = postsql,
+              tags = tags,
+              primaryKey = primaryKeys
             )
           )
         }
@@ -295,14 +319,24 @@ class XlsReader(input: Input) extends XlsModel {
                 .flatMap(formatter.formatCellValue)
                 .map(_.toBoolean)
 
+            val foreignKey =
+              Option(
+                row.getCell(headerMap("_foreign_key"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
+              ).flatMap(formatter.formatCellValue)
+
+            val tags =
+              Option(
+                row.getCell(headerMap("_tags"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
+              ).flatMap(formatter.formatCellValue).map(_.split(",").toSet)
+
             (nameOpt, semTypeOpt) match {
-              case (Some(name), Some(semType)) =>
+              case (Some(name), Some(semanticType)) =>
                 Some(
                   Attribute(
-                    name,
-                    semType,
+                    name = name,
+                    `type` = semanticType,
                     array = None,
-                    required,
+                    required = required,
                     privacy.getOrElse(PrivacyLevel.None),
                     comment = commentOpt,
                     rename = renameOpt,
@@ -311,9 +345,10 @@ class XlsReader(input: Input) extends XlsModel {
                     position = positionOpt,
                     default = defaultOpt,
                     script = scriptOpt,
-                    tags = None,
                     attributes = None,
-                    ignore = attributeIgnore
+                    ignore = attributeIgnore,
+                    foreignKey = foreignKey,
+                    tags = tags
                   )
                 )
               case _ => None
