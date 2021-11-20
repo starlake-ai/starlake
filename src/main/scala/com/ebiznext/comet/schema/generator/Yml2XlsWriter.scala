@@ -66,7 +66,8 @@ class Yml2XlsWriter(schemaHandler: SchemaHandler) extends LazyLogging with XlsMo
     domainRow.createCell(1).setCellValue(domain.directory)
     domainRow.createCell(2).setCellValue(domain.ack.getOrElse(""))
     domainRow.createCell(3).setCellValue(domain.comment.getOrElse(""))
-    for (i <- 0 to 3)
+    domainRow.createCell(4).setCellValue(domain.schemaRefs.getOrElse(Nil).mkString(","))
+    for (i <- allDomainHeaders.indices)
       domainSheet.autoSizeColumn(i)
 
     val schemaSheet = workbook.createSheet("schemas")
@@ -102,7 +103,20 @@ class Yml2XlsWriter(schemaHandler: SchemaHandler) extends LazyLogging with XlsMo
       schemaRow
         .createCell(14)
         .setCellValue(metadata.clustering.map(_.mkString(",")).getOrElse(""))
-      for (i <- 0 to 14)
+      schemaRow
+        .createCell(15)
+        .setCellValue(schema.presql.map(_.mkString("###")).getOrElse(""))
+      schemaRow
+        .createCell(16)
+        .setCellValue(schema.presql.map(_.mkString("###")).getOrElse(""))
+      schemaRow
+        .createCell(17)
+        .setCellValue(schema.primaryKey.map(_.mkString(",")).getOrElse(""))
+      schemaRow
+        .createCell(18)
+        .setCellValue(schema.tags.map(_.mkString(",")).getOrElse(""))
+
+      for (i <- allSchemaHeaders.indices)
         schemaSheet.autoSizeColumn(i)
 
       val attributesSheet = workbook.createSheet(schema.name)
@@ -129,8 +143,10 @@ class Yml2XlsWriter(schemaHandler: SchemaHandler) extends LazyLogging with XlsMo
         }
         attrRow.createCell(11).setCellValue(attr.trim.map(_.toString).getOrElse(""))
         attrRow.createCell(12).setCellValue(attr.ignore.map(_.toString).getOrElse("false"))
+        attrRow.createCell(13).setCellValue(attr.foreignKey.getOrElse(""))
+        attrRow.createCell(14).setCellValue(attr.tags.map(_.mkString(",")).getOrElse(""))
       }
-      for (i <- 0 to 12)
+      for (i <- allAttributeHeaders.indices)
         attributesSheet.autoSizeColumn(i)
 
     }
