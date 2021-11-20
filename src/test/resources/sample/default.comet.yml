@@ -65,7 +65,7 @@ types:
   - name: "timestamp"
     primitiveType: "timestamp"
     pattern: "yyyy-MM-dd HH:mm:ss"
-    sample: "2018-07-21 12:21:22"
+    sample: "2019-12-31 23:59:02"
     comment: "date/time in epoch millis"
     ddlMapping:
       sql:
