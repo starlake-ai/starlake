@@ -2,10 +2,11 @@
 
 # 0.2.8
 __New feature__:
-- Generate DDL from YML files with support for BigQuery, Snowflake, Synapse and Postgres (PR #51 / #56)
+- Generate DDL from YML files with support for BigQuery, Snowflake, Synapse and Postgres #51 / #56
+- Improve XLS handling: Add support for presql / postsql, tags, primary and foreign keys #59
 
 __Bug Fix__:
-- Include env var and option when running presql in ingestion mode (PR #58)
+- Include env var and option when running presql in ingestion mode #58
 
 # 0.2.7
 __New feature__:
