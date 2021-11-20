@@ -53,9 +53,12 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     this.activeEnv
     this.jobs
     val allErrors = typesValidity ++ domainsValidty
-    val errs = allErrors
-      .filter(_.isLeft)
-      .flatMap(_.left.get)
+
+    val errs = allErrors.flatMap {
+      case Left(values) => values
+      case Right(_)     => Nil
+    }
+
     errs match {
       case Nil =>
       case _ =>
