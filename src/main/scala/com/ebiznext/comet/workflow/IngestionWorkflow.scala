@@ -390,6 +390,7 @@ class IngestionWorkflow(
       s"Ingesting domain: ${domain.name} with schema: ${schema.name} on file: $ingestingPath with metadata $metadata"
     )
     val ingestionResult = Try {
+      val optionsAndEnvVars = schemaHandler.activeEnv ++ options
       metadata.getFormat() match {
         case DSV =>
           new DsvIngestionJob(
@@ -399,7 +400,7 @@ class IngestionWorkflow(
             ingestingPath,
             storageHandler,
             schemaHandler,
-            options
+            optionsAndEnvVars
           ).run()
         case SIMPLE_JSON =>
           new SimpleJsonIngestionJob(
@@ -409,7 +410,7 @@ class IngestionWorkflow(
             ingestingPath,
             storageHandler,
             schemaHandler,
-            options
+            optionsAndEnvVars
           ).run()
         case JSON =>
           new JsonIngestionJob(
@@ -419,7 +420,7 @@ class IngestionWorkflow(
             ingestingPath,
             storageHandler,
             schemaHandler,
-            options
+            optionsAndEnvVars
           ).run()
         case XML =>
           new XmlIngestionJob(
@@ -429,7 +430,7 @@ class IngestionWorkflow(
             ingestingPath,
             storageHandler,
             schemaHandler,
-            options
+            optionsAndEnvVars
           ).run()
         case TEXT_XML =>
           new XmlSimplePrivacyJob(
@@ -439,7 +440,7 @@ class IngestionWorkflow(
             ingestingPath,
             storageHandler,
             schemaHandler,
-            options
+            optionsAndEnvVars
           ).run()
         case POSITION =>
           new PositionIngestionJob(
@@ -449,7 +450,7 @@ class IngestionWorkflow(
             ingestingPath,
             storageHandler,
             schemaHandler,
-            options
+            optionsAndEnvVars
           ).run()
         case KAFKA =>
           new KafkaIngestionJob(
@@ -459,7 +460,7 @@ class IngestionWorkflow(
             ingestingPath,
             storageHandler,
             schemaHandler,
-            options,
+            optionsAndEnvVars,
             Mode.FILE
           ).run()
         case KAFKASTREAM =>
@@ -470,7 +471,7 @@ class IngestionWorkflow(
             ingestingPath,
             storageHandler,
             schemaHandler,
-            options,
+            optionsAndEnvVars,
             Mode.STREAM
           ).run()
         case _ =>

@@ -357,7 +357,7 @@ trait IngestionJob extends SparkJob {
       case Some(queryList) =>
         queryList.foldLeft(mergedDF) { (df, query) =>
           df.createOrReplaceTempView("COMET_TABLE")
-          df.sparkSession.sql(query)
+          df.sparkSession.sql(query.richFormat(options))
         }
       case _ => mergedDF
     }
@@ -748,7 +748,7 @@ trait IngestionJob extends SparkJob {
         Failure(throw new Exception(errs))
       case Right(_) =>
         val start = Timestamp.from(Instant.now())
-        schema.presql.getOrElse(Nil).foreach(session.sql)
+        schema.presql.getOrElse(Nil).foreach(sql => session.sql(sql.richFormat(options)))
         val dataset = loadDataSet()
         dataset match {
           case Success(dataset) =>
