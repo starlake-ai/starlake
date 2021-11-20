@@ -1,5 +1,12 @@
 # Release notes
 
+# 0.2.8
+__New feature__:
+- Generate DDL from YML files with support for BigQuery, Snowflake, Synapse and Postgres (PR #51 / #56)
+
+__Bug Fix__:
+- Include env var and option when running presql in ingestion mode (PR #58)
+
 # 0.2.7
 __New feature__:
 - Support merging dataset with updated schema
