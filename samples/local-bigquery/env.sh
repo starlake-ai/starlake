@@ -32,7 +32,7 @@ export COMET_SINK_TO_FILE=false
 export COMET_ANALYZE=false
 export COMET_HIVE=false
 export COMET_GROUPED=false
-export COMET_MAIN=com.ebiznext.comet.job.Main
+export COMET_MAIN=ai.starlake.job.Main
 export COMET_METRICS_PATH="/tmp/quickstart/metrics/{domain}"
 export SPARK_DRIVER_OPTIONS="-Dlog4j.configuration=file://$SPARK_DIR/conf/log4j.properties.template"
 export SPARK_CONF_OPTIONS="--conf spark.executorEnv.GOOGLE_APPLICATION_CREDENTIALS=$GCP_SA_JSON_PATH \
