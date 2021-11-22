@@ -1,7 +1,7 @@
 package com.ebiznext.comet.job.ingest
 
 import com.ebiznext.comet.config.{DatasetArea, Settings, StorageArea}
-import com.ebiznext.comet.job.index.bqload.{BigQueryLoadConfig, BigQuerySparkJob}
+import com.ebiznext.comet.job.index.bqload.{BigQueryLoadConfig, BigQueryNativeJob, BigQuerySparkJob}
 import com.ebiznext.comet.job.index.connectionload.{ConnectionLoadConfig, ConnectionLoadJob}
 import com.ebiznext.comet.job.index.esload.{ESLoadConfig, ESLoadJob}
 import com.ebiznext.comet.job.ingest.ImprovedDataFrameContext._
@@ -350,18 +350,6 @@ trait IngestionJob extends SparkJob {
     } else {
       (session.emptyDataFrame, new Path("invalid-path"))
     }
-  }
-
-  private def runPostSQL(mergedDF: DataFrame) = {
-    val finalMergedDf = schema.postsql match {
-      case Some(queryList) =>
-        queryList.foldLeft(mergedDF) { (df, query) =>
-          df.createOrReplaceTempView("COMET_TABLE")
-          df.sparkSession.sql(query.richFormat(options))
-        }
-      case _ => mergedDF
-    }
-    finalMergedDf
   }
 
   private def applyMerge(
@@ -734,6 +722,32 @@ trait IngestionJob extends SparkJob {
     resultDataFrame
   }
 
+  private def runPreSql(): Unit = {
+    val bqConfig = BigQueryLoadConfig()
+    def bqNativeJob(sql: String) = new BigQueryNativeJob(bqConfig, sql, None)
+    schema.presql.getOrElse(Nil).foreach { sql =>
+      val compiledSql = sql.richFormat(options)
+      metadata.getSink().getOrElse(NoneSink()).`type` match {
+        case SinkType.BQ =>
+          bqNativeJob(compiledSql).runInteractiveQuery()
+        case _ =>
+          session.sql(compiledSql)
+      }
+    }
+  }
+
+  private def runPostSQL(mergedDF: DataFrame) = {
+    val finalMergedDf = schema.postsql match {
+      case Some(queryList) =>
+        queryList.foldLeft(mergedDF) { (df, query) =>
+          df.createOrReplaceTempView("COMET_TABLE")
+          df.sparkSession.sql(query.richFormat(options))
+        }
+      case _ => mergedDF
+    }
+    finalMergedDf
+  }
+
   /** Main entry point as required by the Spark Job interface
     *
     * @return
@@ -748,7 +762,7 @@ trait IngestionJob extends SparkJob {
         Failure(throw new Exception(errs))
       case Right(_) =>
         val start = Timestamp.from(Instant.now())
-        schema.presql.getOrElse(Nil).foreach(sql => session.sql(sql.richFormat(options)))
+        runPreSql()
         val dataset = loadDataSet()
         dataset match {
           case Success(dataset) =>
