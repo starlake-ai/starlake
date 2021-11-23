@@ -68,6 +68,7 @@ class BigQueryNativeJob(
           .setWriteDisposition(WriteDisposition.valueOf(cliConfig.writeDisposition))
           .setDefaultDataset(targetDataset.getDatasetId)
           .setPriority(Priority.INTERACTIVE)
+          .setUseLegacySql(false)
           .setAllowLargeResults(true)
 
       val queryConfigWithPartition = cliConfig.outputPartition match {
