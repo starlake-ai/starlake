@@ -9,7 +9,7 @@
         <generator>https://github.com/jpmonette/feed</generator>
         <item>
             <title><![CDATA[Bonjour]]></title>
-            <link>https://starlake-ai.github.io/starlake/blog/bonjour</link>
+            <link>https://starlake-ai.github.io/blog/bonjour</link>
             <guid>bonjour</guid>
             <pubDate>Sat, 18 Sep 2021 00:00:00 GMT</pubDate>
             <description><![CDATA[Pipelining big data fast is fun :)]]></description>
