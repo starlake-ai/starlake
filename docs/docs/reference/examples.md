@@ -1,11 +1,76 @@
 ---
-sidebar_position: 2
-title: Load
+sidebar_position: 40
+title: Extract
 ---
 
+# Examples
+
+## Extract
+This sample is available in the `samples/extract` directory 
+First you need to set the JDBC connection to the database. Below an example on a H2 database:
+
+```hocon
+connections {
+  h2-sample-db {
+    format = "jdbc"
+    options {
+      url: "jdbc:h2:file:/my/h2db/path",
+      driver: "org.h2.Driver"
+    }
+  }
+}
+```
+
+Next create a file describing the schema you want to import. We provide below 2 examples.
+
+### Extract All Tables: 
+Extract all objects from the `PUBLIC` schema.
+```yaml
+jdbcSchemas:
+  - connection: "h2-sample-db" # Connection name as defined in the connections section of the application.conf file
+    schema: "PUBLIC" # Database schema where tables are located
+    tables:
+      - name: "*" # Takes all tables
+    tableTypes: # One or many of the types below
+      - "TABLE"
+      - "VIEW"
+      - "SYSTEM TABLE"
+      - "GLOBAL TEMPORARY"
+      - "LOCAL TEMPORARY"
+      - "ALIAS"
+      - "SYNONYM"
+    template: "domain-template.yml" # Metadata to use for the generated YML file.
+
+```
+
+### Extract Specific Tables: 
+Extract only the selected tables from the `PUBLIC`schema and only the selected columns from the `votes` table.
+```yaml
+jdbcSchemas:
+  - connection: "h2-sample-db" # Connection name as defined in the connections section of the application.conf file
+    schema: "PUBLIC" # Database schema where tables are located
+    tables:
+      - name: "speakers"
+      - name: "votes"
+        columns:
+          - speaker_id
+          - id
+          - rating
+    tableTypes: # One or many of the types below
+      - "TABLE"
+    templateFile: "domain-template.yml" # Metadata to use for the generated YML file.
+```
+
+
+The `templateFile` section are used to set the default values for the metadata fields in the generated `load` file. 
+
+
+
+
+## Load
 This section describes how to import text files (eq. json / CSV) files into your Data Factory.
 
-## Load to Parquet
+### Load to Parquet
 Files will be ingested and stored in parquet format in the `$COMET_DATASETS/sales/customers` and `$COMET_DATASETS/sales/orders` files.
 
 ````yaml
@@ -69,7 +134,7 @@ load:
             required: false
 ````
 
-## Load to BigQuery
+### Load to BigQuery
 Based on the [Load to parquet](#load-to-parquet) example, the only thing we add is the /metadata/sink section
 Files will be stored in the `customers` and `orders` BigQuery tables under the `sales` BigQuery dataset
 
@@ -136,7 +201,7 @@ load:
             required: false
 ````
 
-## Load to SQL Database
+### Load to SQL Database
 
 Based on the [Load to parquet](#load-to-parquet) example, we need to
 
@@ -211,7 +276,7 @@ jdbc = {
 }
 ````
 
-## Load to Elasticsearch
+### Load to Elasticsearch
 Based on the example [Load to parquet](#load-to-parquet) example, we add is the /metadata/sink section to both schemas.
 
 For the sake of the example, we added a field to the location schema to highlight how timestamped indexes may be handled.
@@ -287,7 +352,7 @@ load:
             required: false
 ````
 
-### Custom ES Template
+#### Custom ES Template
 
 By default, Starlake will infer from the dataset schema the properties and their types and create the ES template accordingly.
 The default template template is shown below. The variable  `__ATTRIBUTES__` is substituted by the Starlake with
@@ -317,3 +382,139 @@ You may customize your ES template by creating a similar file with your own cust
 in the file with the following name `COMET_ROOT/metadata/mapping/${domainName}/${schemaName}.json`.
 
 You may inject the domain and schema names using the `{{domain}}` and `{{schema}}` substitution variables.
+
+
+## Transform
+
+### Parquet to Parquet
+
+Will load the dataset `accepted/graduateProgram` under `$COMET_DATASETS` directory from the configured storage.
+An absolute path may also be specified.
+
+This example create two views : One temporary view in the `views` section, and another one in the `presql` section.
+Note that the sql request in the `presql` section uses the view defined in the `views` section.
+
+The resulting file will be stored in the `$COMET_DATASETS/business/graduateProgram/output` directory.
+
+````yaml
+---
+transform:
+    name: "graduateProgram"
+    views:
+      graduate_View: "fs:accepted/graduateProgram"
+    tasks:
+      - domain: "graduateProgram"
+        area: "business"
+        dataset: "output"
+        write: "OVERWRITE"
+        presql: |
+          create or replace view graduate_agg_view
+          select degree,
+            department,
+            school
+          from graduate_View
+          where school={{school}}
+    
+        sql: SELECT * FROM graduate_agg_view
+````
+
+### Transform Parquet to DSV
+
+Based ont the [parquet to parquet](#parquet-to-parquet) example, we add the format property to request a csv output
+and set coalesce to `true` to output everything in a single CSV file.
+
+````yaml
+---
+transform:
+    name: "graduateProgram"
+    format: "csv"
+    coalesce: true
+    views:
+      graduate_View: "fs:accepted/graduateProgram"
+    tasks:
+      - domain: "graduateProgram"
+        area: "business"
+        dataset: "output"
+        write: "OVERWRITE"
+        presql: |
+          create or replace view graduate_agg_view
+          select degree,
+            department,
+            school
+          from graduate_View
+          where school={{school}}
+    
+        sql: SELECT * FROM graduate_agg_view
+````
+
+### Transform Parquet to BigQuery
+
+Based ont the [parquet to parquet](#parquet-to-parquet) example, we add the sink section to force the task to store the SQL result in BigQuery
+
+The result will store in the current project under the `business` BigQuery dataset in the `output` table.
+
+You may also specify the target project in the `/tasks/dataset` property using the syntax `PROJECT_ID:business`
+
+
+
+````yaml
+---
+transform:
+    name: "graduateProgram"
+    views:
+      graduate_View: "fs:accepted/graduateProgram"
+    tasks:
+      - domain: "graduateProgram"
+        area: "business"
+        dataset: "output"
+        write: "OVERWRITE"
+        sink:
+            type: BQ
+            location: EU
+        presql: |
+          create or replace view graduate_agg_view
+          select degree,
+            department,
+            school
+          from graduate_View
+          where school={{school}}
+    
+        sql: SELECT * FROM graduate_agg_view
+````
+
+### BigQuery to BigQuery
+We may use the Spark (SPARK) or BigQuery (BQ) engine. When using the BQ engine, no spark cluster is needed.
+
+You may want to use the Spark engine if you need to run your jobs to stay agnostic to the underlying storage or
+if you need your jobs to overwrite only the partitions present in the resulting SQL.
+
+
+````yaml
+---
+transform:
+    name: "graduateProgram"
+    views:
+      graduate_View: "bq:gcp_project_id:bqdataset/graduateProgram"
+    tasks:
+      - domain: "graduateProgram"
+        sink:
+            type: BQ
+        area: "business"
+        dataset: "output"
+        write: "OVERWRITE"
+        sql: SELECT * FROM graduate_View
+````
+
+### BigQuery to CSV
+
+### BigQuery to Parquet
+
+### Parquet to Elasticsearch
+
+### BigQuery to Elasticsearch
+
+### BigQuery to SQL Database
+
+### Parquet to SQL Database
+
+### SQL Database to SQL Database
