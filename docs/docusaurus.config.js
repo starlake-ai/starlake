@@ -10,6 +10,7 @@ module.exports = {
     organizationName: 'starlake-ai', // Usually your GitHub org/user name.
     projectName: 'starlake', // Usually your repo name.
     themeConfig: {
+        hideableSidebar: false,
         googleAnalytics: {
             trackingID: 'G-4SGV74FQ7M',
             // Optional fields.
@@ -28,12 +29,39 @@ module.exports = {
             },
             items: [
                 {
-                    type: 'doc',
-                    docId: 'intro',
+                    to: '/docs/userguide/extract',
+                    label: 'User Guide',
                     position: 'left',
-                    label: 'Documentation',
+                },
+                {
+                    to: '/docs/reference/configuration',
+                    label: 'Reference',
+                    position: 'left',
+                },
+                {
+                    to: '/docs/cli/import',
+                    label: 'CLI',
+                    position: 'left',
                 },
                 {to: '/blog', label: 'Blog', position: 'left'},
+                {
+                    label: 'Community',
+                    position: 'left',
+                    items: [
+                        {
+                            label: 'GitHub',
+                            href: 'https://github.com/starlake-ai/starlake',
+                        },
+                        {
+                            label: 'Discord',
+                            href: 'https://discord.com/channels/833336395430625310/908709208025858079',
+                        },
+                        {
+                            label: 'Stack Overflow',
+                            href: 'https://stackoverflow.com/questions/tagged/starlake',
+                        },
+                    ]
+                },
                 {
                     href: 'https://search.maven.org/search?q=ai.starlake',
                     position: 'right',
