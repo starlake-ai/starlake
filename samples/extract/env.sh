@@ -38,4 +38,4 @@ awk -v h2db="$PWD/h2db" '{gsub("H2_DB", h2db)}1' application-template.conf >appl
 
 COMET_LIBS="--jars drivers/$H2_JAR"
 
-export COMET_SCRIPT="$SPARK_SUBMIT $SPARK_CONF_OPTIONS $COMET_LIBS --class com.ebiznext.comet.schema.generator.DDL2Yml $COMET_JAR_FULL_NAME"
+export COMET_SCRIPT="$SPARK_SUBMIT $SPARK_CONF_OPTIONS $COMET_LIBS --class ai.starlake.schema.generator.DDL2Yml $COMET_JAR_FULL_NAME"

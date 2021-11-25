@@ -19,7 +19,7 @@
  */
 package org.apache.spark.sql.execution.datasources.json
 
-import com.ebiznext.comet.utils.Utils
+import ai.starlake.utils.Utils
 import com.fasterxml.jackson.core.JsonToken._
 import com.fasterxml.jackson.core.{JsonFactory, JsonParser}
 import org.apache.spark.rdd.RDD

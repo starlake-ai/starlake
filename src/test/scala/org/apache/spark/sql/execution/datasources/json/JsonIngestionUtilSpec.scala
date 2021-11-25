@@ -1,6 +1,6 @@
 package org.apache.spark.sql.execution.datasources.json
 
-import com.ebiznext.comet.TestHelper
+import ai.starlake.TestHelper
 import org.apache.spark.sql.types.{StructField, _}
 
 class JsonIngestionUtilSpec extends TestHelper {
