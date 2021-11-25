@@ -1,5 +1,5 @@
-<%@ var job: com.ebiznext.comet.schema.model.AutoJobDesc %>
-<%@ var actions: List[com.ebiznext.comet.job.transform.AutoTaskJob] %>
+<%@ var job: ai.starlake.schema.model.AutoJobDesc %>
+<%@ var actions: List[ai.starlake.job.transform.AutoTaskJob] %>
 <%@ var env: Map[String, String] %>
 
 #{

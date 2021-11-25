@@ -1,49 +1,21 @@
-/*
- *
- *  * Licensed to the Apache Software Foundation (ASF) under one or more
- *  * contributor license agreements.  See the NOTICE file distributed with
- *  * this work for additional information regarding copyright ownership.
- *  * The ASF licenses this file to You under the Apache License, Version 2.0
- *  * (the "License"); you may not use this file except in compliance with
- *  * the License.  You may obtain a copy of the License at
- *  *
- *  *    http://www.apache.org/licenses/LICENSE-2.0
- *  *
- *  * Unless required by applicable law or agreed to in writing, software
- *  * distributed under the License is distributed on an "AS IS" BASIS,
- *  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  * See the License for the specific language governing permissions and
- *  * limitations under the License.
- *
- *
- */
-
 package com.ebiznext.comet.job
 
+import ai.starlake.config.{DatasetArea, Settings}
+import ai.starlake.extractor.ScriptGen
+import ai.starlake.job.atlas.AtlasConfig
+import ai.starlake.job.convert.{Parquet2CSV, Parquet2CSVConfig}
+import ai.starlake.job.index.bqload.BigQueryLoadConfig
+import ai.starlake.job.index.connectionload.ConnectionLoadConfig
+import ai.starlake.job.index.esload.ESLoadConfig
+import ai.starlake.job.index.kafkaload.KafkaJobConfig
+import ai.starlake.job.infer.InferSchemaConfig
+import ai.starlake.job.ingest.LoadConfig
+import ai.starlake.job.metrics.MetricsConfig
+import ai.starlake.schema.generator._
+import ai.starlake.schema.handlers.SchemaHandler
+import ai.starlake.utils.CometObjectMapper
+import ai.starlake.workflow.{ImportConfig, IngestionWorkflow, TransformConfig, WatchConfig}
 import buildinfo.BuildInfo
-import com.ebiznext.comet.config.{DatasetArea, Settings}
-import com.ebiznext.comet.extractor.ScriptGen
-import com.ebiznext.comet.job.atlas.AtlasConfig
-import com.ebiznext.comet.job.convert.{Parquet2CSV, Parquet2CSVConfig}
-import com.ebiznext.comet.job.index.bqload.BigQueryLoadConfig
-import com.ebiznext.comet.job.index.connectionload.ConnectionLoadConfig
-import com.ebiznext.comet.job.index.esload.ESLoadConfig
-import com.ebiznext.comet.job.index.kafkaload.KafkaJobConfig
-import com.ebiznext.comet.job.infer.InferSchemaConfig
-import com.ebiznext.comet.job.ingest.LoadConfig
-import com.ebiznext.comet.job.metrics.MetricsConfig
-import com.ebiznext.comet.schema.generator.{
-  Xls2Yml,
-  Xls2YmlConfig,
-  Yml2DDLConfig,
-  Yml2GraphViz,
-  Yml2GraphVizConfig,
-  Yml2XlsConfig,
-  Yml2XlsWriter
-}
-import com.ebiznext.comet.schema.handlers.SchemaHandler
-import com.ebiznext.comet.utils.CometObjectMapper
-import com.ebiznext.comet.workflow.{ImportConfig, IngestionWorkflow, TransformConfig, WatchConfig}
 import com.fasterxml.jackson.annotation.JsonInclude.Include
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
@@ -68,21 +40,21 @@ object Main extends StrictLogging {
     // scalastyle:off println
     println(
       s"""
-        |Usage : One of
-        |${LoadConfig.usage()}
-        |${ImportConfig.usage()}
-        |${TransformConfig.usage()}
-        |${WatchConfig.usage()}
-        |${ESLoadConfig.usage()}
-        |${BigQueryLoadConfig.usage()}
-        |${InferSchemaConfig.usage()}
-        |${MetricsConfig.usage()}
-        |${Parquet2CSVConfig.usage()}
-        |${Xls2YmlConfig.usage()}
-        |${Yml2XlsConfig.usage()}
-        |${KafkaJobConfig.usage()}
-        |${Yml2GraphVizConfig.usage()}
-        |""".stripMargin
+         |Usage : One of
+         |${LoadConfig.usage()}
+         |${ImportConfig.usage()}
+         |${TransformConfig.usage()}
+         |${WatchConfig.usage()}
+         |${ESLoadConfig.usage()}
+         |${BigQueryLoadConfig.usage()}
+         |${InferSchemaConfig.usage()}
+         |${MetricsConfig.usage()}
+         |${Parquet2CSVConfig.usage()}
+         |${Xls2YmlConfig.usage()}
+         |${Yml2XlsConfig.usage()}
+         |${KafkaJobConfig.usage()}
+         |${Yml2GraphVizConfig.usage()}
+         |""".stripMargin
     )
     // scalastyle:on println
   }
@@ -108,7 +80,7 @@ object Main extends StrictLogging {
     */
   def main(args: Array[String]): Unit = {
     logger.warn(
-      "com.ebiznext.comet.job.Main is deprecated. Please start using ai.starlake.job.Main"
+      "ai.starlake.job.Main is deprecated. Please start using ai.starlake.job.Main"
     )
     Thread.sleep(10 * 1000)
     legacyMain(args)
