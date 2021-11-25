@@ -5,7 +5,7 @@ sidebar_position: 10
 # Environment
 ## Env specific variables
 
-Comet allows you to use variables almost everywhere in the domain and job files.
+Starlake allows you to use variables almost everywhere in the domain and job files.
 For example, you may need to set the folder name to watch to a different value
 in development and production environments. This is where variables may help. They are enclosed inside 
 `${}` or `{{}}`
@@ -36,7 +36,7 @@ env:
   root_path: "/cluster/quickstart"
 ```
 
-To apply the substitution in the DEV env set the COMET_ENV variable before running Comet as follows:
+To apply the substitution in the DEV env set the COMET_ENV variable before running Starlake as follows:
 
 ```shell
 export COMET_ENV=DEV

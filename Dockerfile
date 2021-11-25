@@ -31,4 +31,4 @@ COPY --from=builder /usr/local/spark-3.0.1/spark-3.0.1-bin-hadoop2.7/jars/* /lib
 
 EXPOSE 9000
 # Run the web service on container startup.
-CMD ["java", "-cp","/comet.jar:/lib/*", "com.ebiznext.comet.services.launch.Application"]
+CMD ["java", "-cp","/comet.jar:/lib/*", "ai.starlake.services.launch.Application"]
