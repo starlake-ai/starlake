@@ -1,11 +1,9 @@
 package ai.starlake.job.validator
 
-import ai.starlake.schema.model.{Attribute, Type}
 import ai.starlake.config.Settings
 import ai.starlake.schema.model.{Attribute, Format, Type}
-import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.{DataFrame, SparkSession}
 
 object AcceptAllValidator extends GenericRowValidator {
 
@@ -18,9 +16,10 @@ object AcceptAllValidator extends GenericRowValidator {
     types: List[Type],
     sparkType: StructType
   )(implicit settings: Settings): ValidationResult = {
-    val rejectedRDD: RDD[String] = session.emptyDataFrame.rdd.map(_.mkString)
-    val rejectedInputRDD: RDD[String] = session.emptyDataFrame.rdd.map(_.mkString)
-    val acceptedRDD: RDD[Row] = dataset.rdd
-    ValidationResult(rejectedRDD, rejectedInputRDD, acceptedRDD)
+    import session.implicits._
+    val rejectedDS = session.emptyDataset[String]
+    val rejectedInputDS = session.emptyDataset[String]
+    val acceptedDS = dataset
+    ValidationResult(rejectedDS, rejectedInputDS, acceptedDS)
   }
 }

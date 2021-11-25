@@ -1,18 +1,13 @@
 package ai.starlake.job.ingest
 
-import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
-import ai.starlake.schema.model.{Domain, PrivacyLevel, Schema, Type}
-
-import java.util.regex.Pattern
 import ai.starlake.config.Settings
 import ai.starlake.job.validator.ValidationResult
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model._
 import org.apache.hadoop.fs.Path
-import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.types.{StringType, StructField, StructType}
-import org.apache.spark.sql.{DataFrame, Row, SparkSession}
+import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
 
+import java.util.regex.Pattern
 import scala.util.Try
 
 /** Used only to apply data masking rules (privacy) on one or more simple elements in XML data. The
@@ -63,20 +58,20 @@ class XmlSimplePrivacyJob(
     *
     * @param dataset
     */
-  override protected def ingest(dataset: DataFrame): (RDD[_], RDD[_]) = {
+  override protected def ingest(dataset: DataFrame): (Dataset[String], Dataset[Row]) = {
     val privacyAttributes = schema.attributes.filter(_.getPrivacy() != PrivacyLevel.None)
     val acceptedPrivacyDF: DataFrame = privacyAttributes.foldLeft(dataset) { case (ds, attribute) =>
-      XmlSimplePrivacyJob.applyPrivacy(ds, attribute, session)
+      XmlSimplePrivacyJob.applyPrivacy(ds, attribute, session).toDF()
     }
+    import session.implicits._
     saveAccepted(
-      acceptedPrivacyDF,
       ValidationResult(
-        session.sparkContext.emptyRDD[String],
-        session.sparkContext.emptyRDD[String],
-        session.sparkContext.emptyRDD[Row]
+        session.emptyDataset[String],
+        session.emptyDataset[String],
+        acceptedPrivacyDF
       )
     )
-    (session.sparkContext.emptyRDD[Row], acceptedPrivacyDF.rdd)
+    (session.emptyDataset[String], acceptedPrivacyDF)
   }
 
   override def name: String = "XML-SimplePrivacyJob"
@@ -88,27 +83,24 @@ object XmlSimplePrivacyJob {
     inputDF: DataFrame,
     attribute: Attribute,
     session: SparkSession
-  )(implicit settings: Settings): DataFrame = {
+  )(implicit settings: Settings): Dataset[String] = {
+    import session.implicits._
     val openTag = "<" + attribute.name + ">"
     val closeTag = "</" + attribute.name + ">"
     val pattern = Pattern.compile(s".*$openTag.*$closeTag.*")
-    val resultRDD: RDD[Row] = inputDF.rdd.mapPartitions { partition =>
-      partition.map { row =>
-        val line = row.getString(0)
-        val privacy: String = if (pattern.matcher(line).matches()) {
-          val openIndex = line.indexOf(openTag) + openTag.length
-          val closeIndex = line.indexOf(closeTag)
-          val prefix = line.substring(0, openIndex)
-          val suffix = line.substring(closeIndex)
-          val privacyInput = line.substring(openIndex, closeIndex)
-          prefix + attribute.getPrivacy().crypt(privacyInput, Map.empty) + suffix
-        } else {
-          line
-        }
-        Row(privacy)
+    inputDF.map { row =>
+      val line = row.getString(0)
+      val privacy: String = if (pattern.matcher(line).matches()) {
+        val openIndex = line.indexOf(openTag) + openTag.length
+        val closeIndex = line.indexOf(closeTag)
+        val prefix = line.substring(0, openIndex)
+        val suffix = line.substring(closeIndex)
+        val privacyInput = line.substring(openIndex, closeIndex)
+        prefix + attribute.getPrivacy().crypt(privacyInput, Map.empty) + suffix
+      } else {
+        line
       }
+      privacy
     }
-    val schema: StructType = StructType(Array(StructField("value", StringType)))
-    session.createDataFrame(resultRDD, schema)
   }
 }

@@ -1,14 +1,13 @@
 package ai.starlake.job.validator
 
-import ai.starlake.schema.model.{Attribute, Type}
 import ai.starlake.config.Settings
 import ai.starlake.job.ingest.IngestionUtil
 import ai.starlake.schema.model.{Attribute, Format, Type}
 import ai.starlake.utils.Utils
-import org.apache.spark.rdd.RDD
+import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
 import org.apache.spark.sql.types.{BooleanType, StringType, StructField, StructType}
-import org.apache.spark.sql.{DataFrame, Row, SparkSession}
+import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
 
 import java.sql.Timestamp
 import java.time.format.DateTimeFormatter
@@ -46,21 +45,23 @@ object TreeRowValidator extends GenericRowValidator {
     types: List[Type],
     schemaSparkType: StructType
   )(implicit settings: Settings): ValidationResult = {
+    import session.implicits._
     val typesMap = types.map(tpe => tpe.name -> tpe).toMap
-    val successErrorRDD = validateDataset(session, dataset, attributes, schemaSparkType, typesMap)
-    val successRDD: RDD[Row] =
-      successErrorRDD
+    val successErrorDS = validateDataset(session, dataset, attributes, schemaSparkType, typesMap)
+    implicit val enc = RowEncoder.apply(schemaSparkType)
+    val successDS =
+      successErrorDS
         .filter(row => row.getAs[Boolean](Settings.cometSuccessColumn))
-        .map(row => new GenericRowWithSchema(row.toSeq.dropRight(2).toArray, schemaSparkType))
+        .map(row => Row(row.toSeq.dropRight(2).toArray))
 
-    val errorRDD: RDD[String] =
-      successErrorRDD
+    val errorDS =
+      successErrorDS
         .filter(row => !row.getAs[Boolean](Settings.cometSuccessColumn))
         .map(row => row.getAs[String](Settings.cometErrorMessageColumn))
 
     // TODO add here input lines to be rejected
-    val rejectedInputRDD: RDD[String] = session.emptyDataFrame.rdd.map(_.mkString)
-    ValidationResult(errorRDD, rejectedInputRDD, successRDD)
+    val rejectedInputDS = session.emptyDataset[String]
+    ValidationResult(errorDS, rejectedInputDS, successDS)
   }
 
   private def validateDataset(
@@ -71,7 +72,7 @@ object TreeRowValidator extends GenericRowValidator {
     typesMap: Map[String, Type]
   )(implicit
     settings: Settings
-  ): RDD[Row] = {
+  ): Dataset[Row] = {
 
     val schemaSparkTypeWithSuccessErrorMessage =
       StructType(
@@ -81,11 +82,11 @@ object TreeRowValidator extends GenericRowValidator {
         )
       )
     //  implicit val encoder2 = RowEncoder(schemaSparkType)
-    dataset.rdd.map { row =>
+    implicit val enc = RowEncoder.apply(schemaSparkTypeWithSuccessErrorMessage)
+    dataset.map { row =>
       val rowWithSchema = row.asInstanceOf[GenericRowWithSchema]
-      validateRow(rowWithSchema, Utils.toMap(attributes), schemaSparkType, typesMap)
+      Row(validateRow(rowWithSchema, Utils.toMap(attributes), schemaSparkType, typesMap))
     }
-
   }
 
   private def validateRow(
@@ -95,7 +96,7 @@ object TreeRowValidator extends GenericRowValidator {
     types: Map[String, Type]
   )(implicit
     settings: Settings
-  ): GenericRowWithSchema = {
+  ): Array[Any] = {
     val errorList: mutable.MutableList[String] = mutable.MutableList.empty
     def validateCol(attribute: Attribute, item: Any): Any = {
       val colResult = IngestionUtil.validateCol(
@@ -113,14 +114,6 @@ object TreeRowValidator extends GenericRowValidator {
     }
 
     val cells = row.toSeq.zip(row.schema.fields.map(_.name))
-    val schemaSparkTypeWithSuccessErrorMessage =
-      StructType(
-        schemaSparkType.fields ++ Array(
-          StructField(Settings.cometSuccessColumn, BooleanType, nullable = false),
-          StructField(Settings.cometErrorMessageColumn, StringType, nullable = false)
-        )
-      )
-
     def cellHandleTimestamp(cell: Any) = {
       cell match {
         case timestamp: Timestamp =>
@@ -176,6 +169,6 @@ object TreeRowValidator extends GenericRowValidator {
              |FILE -> ${row.getAs[String](Settings.cometInputFileNameColumn)}
              |""".stripMargin
         )
-    new GenericRowWithSchema(updatedRowWithMessage, schemaSparkTypeWithSuccessErrorMessage)
+    updatedRowWithMessage
   }
 }
