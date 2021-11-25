@@ -259,7 +259,7 @@ case class Schema(
     p: Attribute => Boolean
   ): StructType = {
     val fields = attributes filter p map { attr =>
-      StructField(attr.rename.getOrElse(attr.name), attr.sparkType(schemaHandler), !attr.required)
+      StructField(attr.getFinalName(), attr.sparkType(schemaHandler), !attr.required)
         .withComment(attr.comment.getOrElse(""))
     }
     StructType(fields)
