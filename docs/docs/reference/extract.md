@@ -40,6 +40,6 @@ To import all the columns of a table, do not define the columns attribute.
 
 This will generate a YML file with the metadata section.
 
-Then you can [extract the data](../howto/extract.md).
+Then you can [extract the data](../userguide/extract.md).
 
-Once data are extracted you can proceed to the [load step](../howto/load.md).
+Once data are extracted you can proceed to the [load step](../userguide/load.md).

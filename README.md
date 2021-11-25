@@ -28,7 +28,7 @@ The workflow below is a typical use case :
 * Start watching your data being available as Hive Tables in your  datalake
 
 
-The main advantages of the Comet Data Pipeline project are :
+The main advantages of the Starlake Data Pipeline project are :
 
 * Eliminates manual coding for data ingestion
 * Assign metadata to each dataset
@@ -40,11 +40,11 @@ The main advantages of the Comet Data Pipeline project are :
 
 ## How it works
 
-Comet Data Pipeline automates the loading and parsing of files and
+Starlake Data Pipeline automates the loading and parsing of files and
 their ingestion into a Hadoop Datalake where datasets become
 available as Hive tables.
 
-![Complete Comet Data pipeline]( docs/static/img/guide/animated-elt.gif "Complete Comet Data pipeline")
+![Complete Starlake Data Pipeline]( docs/static/img/guide/animated-elt.gif "Complete Starlake Data Pipeline")
 
 
 1. Landing Area : Files are first stored in the local file system

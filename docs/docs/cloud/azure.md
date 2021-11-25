@@ -5,7 +5,7 @@ title: Microsoft Azure
 
 ## Storage Accounts
 
-Comet need to access ADFS. You need to provide the credentials in one of the three ways below :
+Starlake need to access ADFS. You need to provide the credentials in one of the three ways below :
 
 * Through a core-site.xml file present in the classpath (you'll probably use this method when running the ingestion process from your laptop):
 
@@ -28,6 +28,6 @@ Comet need to access ADFS. You need to provide the credentials in one of the thr
   (you'll probably use this method on a production cluster)
 
 
-* Through a specific application.conf file in the comet.jar classpath.
-  You must add the spark.hadoop. prefix to the corresponding Hadoop configuration keys to propagate them to the Hadoop configurations that are used used in the Comet Spark Job.
+* Through a specific application.conf file in the starlake-assembly.jar classpath.
+  You must add the spark.hadoop. prefix to the corresponding Hadoop configuration keys to propagate them to the Hadoop configurations that are used used in the Starlake Spark Job.
 

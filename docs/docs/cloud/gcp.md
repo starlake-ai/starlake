@@ -33,15 +33,15 @@ In that case, you need to set the GOOGLE_CLOUD_PROJECT env var and create a cust
      </property>
      <property>
          <name>fs.default.name</name>
-         <value>gs://comet-app</value>
+         <value>gs://startlake-app</value>
      </property>
      <property>
          <name>fs.defaultFS</name>
-         <value>gs://comet-app</value>
+         <value>gs://startlake-app</value>
      </property>
      <property>
          <name>fs.gs.system.bucket</name>
-         <value>comet-app</value>
+         <value>startlake-app</value>
      </property>
  </configuration>
 ````
