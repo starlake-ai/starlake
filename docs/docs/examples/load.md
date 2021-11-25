@@ -289,8 +289,8 @@ load:
 
 ### Custom ES Template
 
-By default, Comet will infer from the dataset schema the properties and their types and create the ES template accordingly.
-The default template template is shown below. The variable  `__ATTRIBUTES__` is substituted by the Comet with
+By default, Starlake will infer from the dataset schema the properties and their types and create the ES template accordingly.
+The default template template is shown below. The variable  `__ATTRIBUTES__` is substituted by the Starlake with
 the ES representation of the attributes.
 
 ````json

@@ -3,7 +3,7 @@ module.exports = {
     title: "Quickly Build Optimized Big & Fast Data Pipelines",
     tagline: 'So your data just keep moving',
     url: 'https://starlake-ai.github.io',
-    baseUrl: '/starlake/',
+    baseUrl: process.env.BASE_URL || '/',
     onBrokenLinks: 'throw',
     onBrokenMarkdownLinks: 'warn',
     favicon: 'img/favicon.ico',
@@ -11,23 +11,27 @@ module.exports = {
     projectName: 'starlake', // Usually your repo name.
     themeConfig: {
         googleAnalytics: {
-            trackingID: 'G-S16TFWHZYT',
+            trackingID: 'G-4SGV74FQ7M',
             // Optional fields.
             anonymizeIP: true // Should IPs be anonymized?
         },
-
+        prism: {
+            theme: require('prism-react-renderer/themes/github'),
+            darkTheme: require('prism-react-renderer/themes/dracula'),
+        },
         navbar: {
             title: 'Starlake',
             logo: {
                 alt: 'Starlake',
-                src: 'img/starlake.png',
+                src: 'img/shooting-star.png',
+                srcDark: 'img/shooting-star-white.png',
             },
             items: [
                 {
                     type: 'doc',
                     docId: 'intro',
                     position: 'left',
-                    label: 'Getting Started',
+                    label: 'Documentation',
                 },
                 {to: '/blog', label: 'Blog', position: 'left'},
                 {
