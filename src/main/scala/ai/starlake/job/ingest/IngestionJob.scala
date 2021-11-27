@@ -999,7 +999,7 @@ object IngestionUtil {
     // We need to save first the application ID
     // refrencing it inside the worker (rdd.map) below would fail.
     val applicationId = session.sparkContext.applicationId
-    val rejectedTypedRDD = rejectedDS.map { err =>
+    val rejectedTypedDS = rejectedDS.map { err =>
       RejectedRecord(
         applicationId,
         now,
@@ -1011,7 +1011,7 @@ object IngestionUtil {
     }
     val rejectedDF = session
       .createDataFrame(
-        rejectedTypedRDD.toDF().rdd,
+        rejectedTypedDS.toDF().rdd,
         StructType(
           rejectedCols.map { case (attrName, _, sparkType) =>
             StructField(attrName, sparkType, nullable = false)
