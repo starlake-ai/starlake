@@ -34,8 +34,12 @@ order_id|customer_id|amount|seller_id
 12345|A009701|123.65|AQZERD
 56432|B308629|23.8|AQZERD
 
-> :memo: **Before sending the files, the "sales" department zip all its files
-> into a single compressed files and put them in the folder /mnt/incoming/sales of the landing area.**
+:::note 
+
+Before sending the files, the "sales" department zip all its files
+into a single compressed files and put them in the folder /mnt/incoming/sales of the landing area.
+
+:::
 
 The `sellers` dataset is sent as JSON array by the HR department.
 
@@ -58,10 +62,19 @@ The `sellers` dataset is sent as JSON array by the HR department.
 
 
 
-> :memo: **the HR department does not zip its files. It simply copy them into the
-> folder /mnt/incoming/hr of the landing area.**
+:::note
 
-> :warning: **We intentionnally set an invalid email for the second seller.**
+the HR department does not zip its files. It simply copy them into the
+folder /mnt/incoming/hr of the landing area.
+
+:::
+
+
+:::caution
+
+We intentionnally set an invalid email for the second seller.
+
+:::
 
 
 ## Build & Run
