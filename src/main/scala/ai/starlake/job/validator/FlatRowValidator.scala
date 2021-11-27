@@ -5,7 +5,9 @@ import ai.starlake.job.ingest.IngestionUtil
 import ai.starlake.schema.model.Rejection.{ColInfo, ColResult, RowInfo, RowResult}
 import ai.starlake.schema.model.{Attribute, Format, Type}
 import com.google.gson.Gson
+import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
+import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 
@@ -40,9 +42,8 @@ object FlatRowValidator extends GenericRowValidator {
     types: List[Type],
     sparkType: StructType
   )(implicit settings: Settings): ValidationResult = {
-    import session.implicits._
     val now = Timestamp.from(Instant.now)
-    val checkedDS = dataset
+    val checkedRDD: RDD[RowResult] = dataset.rdd
       .map { row =>
         val rowValues: Seq[(Option[String], Attribute)] = row.toSeq
           .zip(attributes)
@@ -64,7 +65,7 @@ object FlatRowValidator extends GenericRowValidator {
                 tpe.pattern,
                 success = false
               ),
-              null
+              ""
             )
           }.toList
           RowResult(
@@ -88,7 +89,7 @@ object FlatRowValidator extends GenericRowValidator {
         }
       } persist (settings.comet.cacheStorageLevel)
 
-    val rejectedDS = checkedDS
+    val rejectedRDD = checkedRDD
       .filter(_.isRejected)
       .map(rowResult =>
         RowInfo(
@@ -98,17 +99,24 @@ object FlatRowValidator extends GenericRowValidator {
         ).toString
       )
 
-    val rejectedInputLinesDS = checkedDS.filter(_.isRejected).flatMap(_.inputLine)
+    val rejectedInputLinesRDD = checkedRDD.filter(_.isRejected).flatMap(_.inputLine)
 
     implicit val enc = RowEncoder.apply(sparkType)
-    val acceptedDS = checkedDS
+    val acceptedRDD: RDD[Row] = checkedRDD
       .filter(_.isAccepted)
       .map { rowResult =>
         val sparkValues: List[Any] = rowResult.colResults.map(_.sparkValue)
-        Row(sparkValues)
+        //Row(sparkValues.toArray)
+        new GenericRowWithSchema(sparkValues.toArray, sparkType)
+
       }
 
-    checkedDS.filter(_.isAccepted)
+    val acceptedDS = session.createDataFrame(acceptedRDD, sparkType)
+
+    import session.implicits._
+    val rejectedDS = rejectedRDD.toDS()
+    val rejectedInputLinesDS = rejectedInputLinesRDD.toDS()
+
     ValidationResult(rejectedDS, rejectedInputLinesDS, acceptedDS)
   }
 }

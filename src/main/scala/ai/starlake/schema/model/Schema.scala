@@ -280,6 +280,9 @@ case class Schema(
     }
   }
 
+  def finalAttributeNames(): List[String] =
+    attributes.filterNot(_.isIgnore()).map(attr => attr.getFinalName())
+
   /** Check attribute definition correctness :
     *   - schema name should be a valid table identifier
     *   - attribute name should be a valid Hive column identifier
