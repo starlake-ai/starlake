@@ -8,10 +8,10 @@
     <subtitle>Quickly Build Optimized Big &amp; Fast Data Pipelines Blog</subtitle>
     <icon>https://starlake-ai.github.io/img/favicon.ico</icon>
     <entry>
-        <title type="html"><![CDATA[Bonjour]]></title>
-        <id>bonjour</id>
-        <link href="https://starlake-ai.github.io/blog/bonjour"/>
+        <title type="html"><![CDATA[Starlke Features Tour]]></title>
+        <id>starlake</id>
+        <link href="https://starlake-ai.github.io/starlake/blog/starlake"/>
         <updated>2021-09-18T00:00:00.000Z</updated>
-        <summary type="html"><![CDATA[Pipelining big data fast is fun :)]]></summary>
+        <summary type="html"><![CDATA[Pipelining fast data is big. Pipelining big data fast is bigger.  :)]]></summary>
     </entry>
 </feed>

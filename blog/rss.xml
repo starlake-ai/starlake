@@ -8,11 +8,11 @@
         <docs>https://validator.w3.org/feed/docs/rss2.html</docs>
         <generator>https://github.com/jpmonette/feed</generator>
         <item>
-            <title><![CDATA[Bonjour]]></title>
-            <link>https://starlake-ai.github.io/blog/bonjour</link>
-            <guid>bonjour</guid>
+            <title><![CDATA[Starlke Features Tour]]></title>
+            <link>https://starlake-ai.github.io/starlake/blog/starlake</link>
+            <guid>starlake</guid>
             <pubDate>Sat, 18 Sep 2021 00:00:00 GMT</pubDate>
-            <description><![CDATA[Pipelining big data fast is fun :)]]></description>
+            <description><![CDATA[Pipelining fast data is big. Pipelining big data fast is bigger.  :)]]></description>
         </item>
     </channel>
 </rss>
