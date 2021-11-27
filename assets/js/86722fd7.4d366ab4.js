@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunkstarlake_docs=self.webpackChunkstarlake_docs||[]).push([[8830],{4249:function(s){s.exports=JSON.parse('{"allTagsPath":"/blog/tags","slug":"bonjour","name":"bonjour","count":1,"permalink":"/blog/tags/bonjour"}')}}]);
