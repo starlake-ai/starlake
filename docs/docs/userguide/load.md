@@ -9,8 +9,12 @@ sidebar_position: 3
 Load rules are stored in the folder referenced by the COMET_METADATA
 environment variable (/tmp/metadata by default).
 
-> :memo: **You need to export the COMET_METADATA variable before executing any comet load step.**
-> 
+:::note
+
+You need to export the COMET_METADATA variable before executing any comet load step.
+
+:::
+
 ``export COMET_METADATA=hdfs:///my/metadata``
 
 Dataset validation is based on a set of rules we define in schema files.
@@ -94,10 +98,9 @@ We may add new types that map to these primitive types.
 For our example above, we will add the following
 semantic types to allow better validation on the input fields
 
-File ``$COMET_METADATA/types/types.comet.yml``
+$COMET_METADATA/types/types.comet.yml
 
 ```yaml
-
 types:
 - name: "email"
     primitiveType: "string"
@@ -115,6 +118,7 @@ types:
     sample: "123456"
     comment: "6 digits string"
 ```
+
 
 Now that we have defined the set of semantic
 types we want to recognize, we may start defining our schemas.
@@ -176,8 +180,11 @@ ingest it if present :
 * dataset.dsv
 * dataset.psv
 
-> :memo: **To process files without relying on ack files, simply define the ack attribute with an empty string :`
-> ```ack : ""``**
+:::note 
+
+To process files without relying on ack files, simply define the ack attribute with an empty string :```ack : ""```
+
+:::
 
 To ingest files present in the domain incoming directory (/mnt/incoming/sales),
 we need to add schema definitions to the domain description file,
@@ -258,8 +265,12 @@ metadata.multiline|"Are JSON object on multiple line. Used when format is JSON o
 metadata.array|"Should we treat the file as a single array of JSON objects. Used  when format is JSON or SIMPLE_JSON and the input data is in brackets [...]"
 
 
-> :memo: **Simple JSON are JSON with top level attributes of basic types only. JSON may be used wherever 
-> you use SIMPLE_JSON but SIMPLE_JSON will make parsing much faster.**
+:::note
+
+Simple JSON are JSON with top level attributes of basic types only. JSON may be used wherever 
+you use SIMPLE_JSON but SIMPLE_JSON will make parsing much faster.
+
+:::
 
 Metadata properties may also be defined at the domain level. They will be inherited by all schemas of the domain.
 Any metadata property may be redefined at the attribute level.
@@ -384,7 +395,11 @@ File ``$COMET_METADATA/domains/sales.yml``
             required: false
 ```
 
-> :memo: **The merge attribute above should be read as follows:**
+:::note
+
+The merge attribute above should be read as follows:
+
+:::
 
  ```yaml
 merge:
@@ -560,11 +575,14 @@ folder, /tmp/datasets/unresolved/``DOMAIN NAME``/ by default.
 
 Once copied to the pending folder, a request for ingestion (see step below) is submitted to the Job Manager.
 
-> :memo: **By default the ``simple`` job manager is invoked. This simple manager 
-> used for debugging & testing purpose would launch the ingestion step inside the current process. 
-> In production, you would configure a job manager running on your cluster. 
-> Starlake comes with the ``airflow`` job manager and sample DAGs required to run all three steps.**
+:::note
 
+By default the ``simple`` job manager is invoked. This simple manager 
+used for debugging & testing purpose would launch the ingestion step inside the current process. 
+In production, you would configure a job manager running on your cluster. 
+Starlake comes with the ``airflow`` job manager and sample DAGs required to run all three steps.
+
+:::
 
 ### Running it
 To run the import step, you have to have the spark & hadoop

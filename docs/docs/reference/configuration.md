@@ -467,12 +467,20 @@ options|Map|None|[JDBC Options](https://spark.apache.org/docs/latest/sql-data-so
 Env. Var|Description|Default value
 ---|---|---
 
-> :memo: **When running Spark on YARN in cluster mode,
-> environment variables need to be set using the syntax spark.yarn.appMasterEnv.[EnvironmentVariableName]**
+:::note
 
-> :memo: **When running Dataproc on GCP, environment variables need to be set 
-> in the DataprocClusterCreateOperator in the properties attributes 
-> using the syntax "spark-env:[EnvironmentVariableName]":"[Value]"**
+When running Spark on YARN in cluster mode,
+environment variables need to be set using the syntax spark.yarn.appMasterEnv.[EnvironmentVariableName]
+
+:::
+
+:::note
+
+When running Dataproc on GCP, environment variables need to be set 
+in the DataprocClusterCreateOperator in the properties attributes 
+using the syntax "spark-env:[EnvironmentVariableName]":"[Value]"
+
+:::
 
 
 ## Airflow DAGs

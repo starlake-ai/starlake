@@ -137,7 +137,7 @@ module.exports = {
                     showReadingTime: true,
                     // Please change this to your repo.
                     editUrl:
-                        'https://github.com/starlake-ai/starlake/edit/master/docs/blog/',
+                        'https://github.com/starlake-ai/starlake/edit/master/docs/',
                 },
                 theme: {
                     customCss: require.resolve('./src/css/custom.css'),
