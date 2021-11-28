@@ -126,7 +126,7 @@ class InferSchemaJob(implicit settings: Settings) {
         .mapValues(_.length)
         .toList
         .maxBy { case (ch, count) => count }
-    //.maxBy(_._2)
+    // .maxBy(_._2)
     separator._1.toString
   }
 

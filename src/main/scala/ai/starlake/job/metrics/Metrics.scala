@@ -241,17 +241,17 @@ object Metrics extends StrictLogging {
     */
 
   def regroupContinuousMetricsByVariable(nameCol: String, metricFrame: DataFrame): DataFrame = {
-    //Get the whole list of headers that contains the column name
+    // Get the whole list of headers that contains the column name
     val listColumns = metricFrame.columns.filter(_.contains(s"($nameCol)")).sorted
-    //Select only columns in listColumns
+    // Select only columns in listColumns
     val selectedListColumns: DataFrame = metricFrame.select(listColumns.head, listColumns.tail: _*)
-    //Reduce decimal values to 3
+    // Reduce decimal values to 3
     val broundColumns: DataFrame = selectedListColumns.select(
       selectedListColumns.columns.map(c => bround(col(c), 3).alias(c)): _*
     )
-    //Add column Variables that contains the nameCol
+    // Add column Variables that contains the nameCol
     val addVariablesColumn: DataFrame = broundColumns.withColumn("attribute", lit(nameCol))
-    //Remove nameCol to keep only the metric name foreach metric.
+    // Remove nameCol to keep only the metric name foreach metric.
     val removeNameColumnMetric = addVariablesColumn.columns.toList
       .map(str => str.replaceAll("\\(" + nameCol + "\\)", ""))
       .map(_.capitalize)
