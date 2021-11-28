@@ -28,7 +28,7 @@ object YamlSerializer extends LazyLogging {
       .writer()
       .withAttribute(classOf[Settings], settings)
     val jsonContent = jobWriter.writeValueAsString(job)
-    //val jobReader = mapper.reader().withAttribute(classOf[Settings], settings)
+    // val jobReader = mapper.reader().withAttribute(classOf[Settings], settings)
     mapper.readValue(jsonContent, classOf[Map[String, Any]])
   }
 

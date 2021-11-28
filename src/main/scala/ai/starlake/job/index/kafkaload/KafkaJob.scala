@@ -96,7 +96,7 @@ class KafkaJob(
           }
           val streamingQuery =
             if (kafkaJobConfig.streamingWriteToTable) {
-              //partitionedWriter.toTable(kafkaJobConfig.path)
+              // partitionedWriter.toTable(kafkaJobConfig.path)
               throw new Exception("streamingWriteToTable Not Supported")
             } else
               partitionedWriter
