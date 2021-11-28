@@ -323,10 +323,10 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       val conf = job.prepareConf()
 
       conf.get(
-        BigQueryConfiguration.OUTPUT_TABLE_WRITE_DISPOSITION_KEY
+        BigQueryConfiguration.OUTPUT_TABLE_WRITE_DISPOSITION.getKey()
       ) shouldEqual "WRITE_TRUNCATE"
       conf.get(
-        BigQueryConfiguration.OUTPUT_TABLE_CREATE_DISPOSITION_KEY
+        BigQueryConfiguration.OUTPUT_TABLE_CREATE_DISPOSITION.getKey()
       ) shouldEqual "CREATE_IF_NEEDED"
 
       val delStatement = "DROP ALL ROW ACCESS POLICIES ON DOMAIN.TABLE"
