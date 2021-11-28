@@ -127,7 +127,7 @@ class PrivacyEngineSpec extends TestHelper {
     }
     "hash functions" should "not have missing leading zeros" in {
       val randomString = "SomeStringThatDoNotProduceLeadingZeroAfterHash"
-      //SHA256
+      // SHA256
       val testStr1SHA256 = "9QGXpjDcIt"
       val testStr2SHA256 = "w3D6vpfT02"
       val hashSHA256 = PrivacyEngine.algo("SHA-256", testStr1SHA256)

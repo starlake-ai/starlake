@@ -399,7 +399,7 @@ trait TestHelper
     logger.info("-----")
   }
 
-  //https://scala.monster/testcontainers/
+  // https://scala.monster/testcontainers/
   // We need to start it manually because we need to access the HTTP mapped port
   // in the configuration below before any test get executed.
   lazy val kafkaContainer: KafkaContainer = KafkaContainer.Def().start()
