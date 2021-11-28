@@ -783,7 +783,7 @@ class IngestionWorkflow(
     *   : Client's configuration for metrics computing
     */
   def metric(cliConfig: MetricsConfig): Try[JobResult] = {
-    //Lookup for the domain given as prompt arguments, if is found then find the given schema in this domain
+    // Lookup for the domain given as prompt arguments, if is found then find the given schema in this domain
     val cmdArgs = for {
       domain <- schemaHandler.getDomain(cliConfig.domain)
       schema <- domain.schemas.find(_.name == cliConfig.schema)
