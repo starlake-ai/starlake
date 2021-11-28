@@ -95,7 +95,7 @@ class SimpleJsonIngestionJob(
 
       import session.implicits._
       if (df.columns.contains("_corrupt_record")) {
-        //TODO send rejected records to rejected area
+        // TODO send rejected records to rejected area
         logger.whenDebugEnabled {
           logger.debug(df.filter($"_corrupt_record".isNotNull).showString(1000, truncate = 0))
         }

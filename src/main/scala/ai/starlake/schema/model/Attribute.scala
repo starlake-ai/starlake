@@ -99,7 +99,7 @@ case class Attribute(
       errorList += s"$this : unspecified type"
 
     val colNamePattern = Pattern.compile("[a-zA-Z_][a-zA-Z0-9_]{1,767}")
-    //if (!colNamePattern.matcher(name).matches())
+    // if (!colNamePattern.matcher(name).matches())
     //  errorList += s"attribute with name $name should respect the pattern ${colNamePattern.pattern()}"
 
     if (!rename.forall(colNamePattern.matcher(_).matches()))
@@ -251,7 +251,7 @@ case class Attribute(
               }
               format match {
                 case Some(_) =>
-                  //"format" : "$fmt"
+                  // "format" : "$fmt"
                   s"""
                      |"$name": {
                      |"type": "$typeMapping"
