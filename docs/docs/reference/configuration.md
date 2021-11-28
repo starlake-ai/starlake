@@ -3,11 +3,11 @@ sidebar_position: 1
 title: Configuration
 ---
 
-Comet Data Pipeline is written using Scala / Spark and is thus run using the spark-submit command.
+Starlake Data Pipeline is written using Scala / Spark and is thus run using the spark-submit command.
 
 To run it with the default configuration, you simply launch it as follows :
 ```shell
-SPARK_HOME/bin/spark-submit --class com.ebiznext.comet.job.Main ../bin/comet-spark3_2.12-VERSION-assembly.jar COMMAND [ARGS]
+SPARK_HOME/bin/spark-submit --class ai.starlake.job.Main ../bin/starlake-spark3_2.12-VERSION-assembly.jar COMMAND [ARGS]
 ```
 
 * SPARK_HOME: Spark home directory
@@ -18,9 +18,9 @@ SPARK_HOME/bin/spark-submit --class com.ebiznext.comet.job.Main ../bin/comet-spa
 
 ### application.conf
 You may also pass any Spark arguments as usual but also pass a custom `application.conf` file
-using the [HOCON](https://github.com/lightbend/config) syntax  that supersedes the default Comet Data Pipeline settings.
-default settings are found in the [reference.conf](https://github.com/ebiznext/comet-data-pipeline/blob/master/src/main/resources/reference.conf)
-and [reference-*.conf](https://github.com/ebiznext/comet-data-pipeline/blob/master/src/main/resources) files. In your `application.conf`file you only
+using the [HOCON](https://github.com/lightbend/config) syntax  that supersedes the default Starlake Data Pipeline settings.
+default settings are found in the [reference.conf](https://github.com/starlake-ai/starlake/blob/master/src/main/resources/reference.conf)
+and [reference-*.conf](https://github.com/starlake-ai/starlake/tree/master/src/main/resources) files. In your `application.conf`file you only
 need to redefine the variables you want to customize.
 
 Some of those configurations may also be redefined through environment variables.
@@ -31,11 +31,11 @@ Passing the `application.conf` file to the spark job use the syntax below:
 
 ```shell
 export CUSTOM_OPTIONS="--conf spark.driver.extraJavaOptions=-Dconfig.file=$PWD/application.conf"
-SPARK_HOME/bin/spark-submit $CUSTOM_OPTIONS --class com.ebiznext.comet.job.Main ../bin/comet-spark3_2.12-VERSION-assembly.jar COMMAND [ARGS]
+SPARK_HOME/bin/spark-submit $CUSTOM_OPTIONS --class ai.starlake.job.Main ../bin/starlake-spark3_2.12-VERSION-assembly.jar COMMAND [ARGS]
 ```
 ### Environment variables
 
-* On Premise: To pass Comet Data Pipeline env vars in cluster mode, you'll have to put them in the spark-defaults.conf file or pass them as arguments to your
+* On Premise: To pass Starlake Data Pipeline env vars in cluster mode, you'll have to put them in the spark-defaults.conf file or pass them as arguments to your
   Spark job as described in this [article](https://stackoverflow.com/questions/37887168/how-to-pass-environment-variables-to-spark-driver-in-cluster-mode-with-spark-sub)
 
 * On Google Cloud: To make it available for all your jobs, you need to pass them in the `DataprocClusterCreateOperator` using the `spark-env:`prefix
@@ -71,9 +71,9 @@ To set variables for specific tasks only, use a syntax similar to this one:
 ```python
 t1 = dataproc_operator.DataProcSparkOperator(
   task_id ='my_task',
-  dataproc_spark_jars='gs://my-bucket/comet-spark3_2.12-VERSION-assembly.jar',
+  dataproc_spark_jars='gs://my-bucket/starlake-spark3_2.12-VERSION-assembly.jar',
   cluster_name='cluster',
-  main_class = 'com.ebiznext.comet.job.Main',
+  main_class = 'ai.starlake.job.Main',
   arguments=['import'],
   project_id='my-project-id',
   dataproc_spark_properties={'spark.driver.extraJavaOptions':'-DCOMET_FS=gs://${my_bucket} -DCOMET_HIVE=false -DCOMET_GROUPED=false'},
@@ -83,16 +83,16 @@ t1 = dataproc_operator.DataProcSparkOperator(
 ## Configuration sections
 ### Filesystem
 
-A filesystem is the location where datasets and Comet Data Pipeline metadata used for ingestion are stored.
+A filesystem is the location where datasets and Starlake Data Pipeline metadata used for ingestion are stored.
 * On premise this reference the folder where datasets and metadata are stored, eq.
   * On a local filesystem: file://
   * On a HDFS: hdfs://localhost:9000
 * In the cloud:
   * On Google Cloud Platform: gs://my-bucket
-  * On Microsoft Azure: abfs://my-bucket@comet.dfs.core.windows.net
+  * On Microsoft Azure: abfs://my-bucket@starlake.dfs.core.windows.net
   * On Amazon Web Service: s3a://my_bucket
   
-By default, Comet expect metadata in the /tmp/metadata folder and will store ingested datasets in the /tmp/datasets folder.
+By default, Starlake expect metadata in the /tmp/metadata folder and will store ingested datasets in the /tmp/datasets folder.
 Below is how the folders look like by default for the provided quickstart sample.
 
 ````
@@ -123,7 +123,7 @@ Below is how the folders look like by default for the provided quickstart sample
     |   |   |-- discrete
     |   |   |-- continuous
     |   |   `-- frequencies
-    |   |-- ingesting (Temporary folder used during ingestion by Comet)
+    |   |-- ingesting (Temporary folder used during ingestion by Starlake)
     |   |   |-- hr (One temporary subfolder / domain)
     |   |   `-- sales
     |   |-- pending (Source files are copied here from the incoming folder before processing)
@@ -161,7 +161,7 @@ Below is how the folders look like by default for the provided quickstart sample
             `-- sales-by-name.yml (Compute sales by )
 ````
 
-Comet Data Pipeline allows you to store datasets and metadata in two different filesystems. Thi is useful if you want to define a specific lifecycle
+Starlake Data Pipeline allows you to store datasets and metadata in two different filesystems. Thi is useful if you want to define a specific lifecycle
 for your datasets.
 Almost all options are customizable through environnement variables.
 The main env vars are described below, you may change default settings. The exhaustive list of predefined env vars can be found in the reference.conf file.
@@ -169,16 +169,16 @@ The main env vars are described below, you may change default settings. The exha
 |HOCON Variable|Env variable|Default Value|Description
 |:--------------|:------------|:-------|:-----------
 |file-system|COMET_FS|file://|File system where datasets will be located
-|metadata-file-system|COMET_METADATA_FS|${file-system}|File system where Comet metadata will be located
+|metadata-file-system|COMET_METADATA_FS|${file-system}|File system where Starlake metadata will be located
 |root|COMET_ROOT|/tmp|Root directory of the datasets and metadata files in the defined filesystem above
-|tmp-dir|COMET_TMPDIR|When compacting data and estimating number of partitions, Comet stores intermediates files in this folder|${root}"/comet_tmp"
+|tmp-dir|COMET_TMPDIR|When compacting data and estimating number of partitions, Starlake stores intermediates files in this folder|${root}"/comet_tmp"
 |datasets|COMET_DATASETS|${root}"/datasets"|Folder where datasets are located in the datasets `file-system`
 |metadata|COMET_METADATA|${root}"/metadata" otherwise|Folder where metadata are located in the metadata `metadata-file-system`
 |file-system|COMET_FS|file://|File system where datasets will be located
 |area.pending|COMET_AREA_PENDING|pending|Source files are copied here from the incoming folder before processing
 |area.unresolved|COMET_AREA_UNRESOLVED|unresolved|Files found in the incoming folder but do not match any schema
 |area.archive|COMET_AREA_ARCHIVE|archive|Source files as found in the incoming folder are saved here after processing
-|area.ingesting|COMET_AREA_INGESTING|ingesting|Temporary folder used during ingestion by Comet
+|area.ingesting|COMET_AREA_INGESTING|ingesting|Temporary folder used during ingestion by Starlake
 |area.accepted|COMET_AREA_ACCEPTED|accepted|root folder of all valid records
 |area.rejected|COMET_AREA_REJECTED|rejected|invalid records in processed datasets are stored here
 |area.business|COMET_AREA_BUSINESS|business|root folder for all datasets produced by autojobs
@@ -246,7 +246,7 @@ launcher = ${?COMET_LAUNCHER}
 ```
 
 
-To make sure, the same schema is not ingested by two concurrent Comet processes, Comet Data Pipeline uses a file lock when necessary.
+To make sure, the same schema is not ingested by two concurrent Starlake processes, Starlake Data Pipeline uses a file lock when necessary.
 
 |HOCON Variable|Env variable|Default Value|Description
 |:--------------|:------------|:-------|:-----------
@@ -270,13 +270,13 @@ or ingest all of them at once.
 
 When ingesting the files with the same schema one after the other, it is possible to use a custom ordering policy by settings the `COMET_LOAD_STRATEGY` environment variable. Currently, the following ordering policies are defined:
 
-* `com.ebiznext.comet.job.load.IngestionTimeStrategy` : Order the files by modification date
-* `com.ebiznext.comet.job.load.IngestionNameStrategy` : Order  the files by name
+* `ai.starlake.job.load.IngestionTimeStrategy` : Order the files by modification date
+* `ai.starlake.job.load.IngestionNameStrategy` : Order  the files by name
 
 If you want to use another custom strategy, you'll have to implement the trait below, make it available in the classpath and set the `COMET_LOAD_STRATEGY` environment variable
 
 ````scala
-package com.ebiznext.comet.job.load
+package ai.starlake.job.load
 
 import java.time.LocalDateTime
 
@@ -308,13 +308,13 @@ To ingest all the files at once, set the `COMET_GROUPED` variable to true.
 |HOCON Variable|Env variable|Default Value|Description
 |:--------------|:------------|:-------|:-----------
 |grouped|COMET_GROUPED|false|Should files with the same schema be ingested all at once ?
-|load-strategy-class|COMET_LOAD_STRATEGY|com.ebiznext.comet.job.load.IngestionTimeStrategy|When `grouped` is false, which ingestion order strategy to use 
+|load-strategy-class|COMET_LOAD_STRATEGY|ai.starlake.job.load.IngestionTimeStrategy|When `grouped` is false, which ingestion order strategy to use 
 
 
 Below is an example of HOCON file with the default values.
 
 ```hocon
-load-strategy-class = "com.ebiznext.comet.job.load.IngestionTimeStrategy"
+load-strategy-class = "ai.starlake.job.load.IngestionTimeStrategy"
 load-strategy-class = ${?COMET_LOAD_STRATEGY}
 
 grouped = false
@@ -341,16 +341,16 @@ environment variable to `true`.
 ### Validation
 During ingestion, the input file is validated up to the attribute level. Three default row validators are defined:
 
-- com.ebiznext.comet.job.validator.FlatRowValidator: to validate flat files, eq. DSV, Position and single level Json files.
-- com.ebiznext.comet.job.validator.TreeRowValidator:  used for tree like documents, eq. XML and JSON files
-- com.ebiznext.comet.job.validator.AcceptAllValidator: used for any document type (flat and tree like) and accept the input without any validation
+- ai.starlake.job.validator.FlatRowValidator: to validate flat files, eq. DSV, Position and single level Json files.
+- ai.starlake.job.validator.TreeRowValidator:  used for tree like documents, eq. XML and JSON files
+- ai.starlake.job.validator.AcceptAllValidator: used for any document type (flat and tree like) and accept the input without any validation
 
 The validtor to use is configurable as follows:
 
 HOCON Variable|Env. variable|Default value
 :---|:---|:---
-row-validator-class|COMET_ROW_VALIDATOR_CLASS|com.ebiznext.comet.job.validator.FlatRowValidator
-tree-validator-class|COMET_TREE_VALIDATOR_CLASS|com.ebiznext.comet.job.validator.TreeRowValidator
+row-validator-class|COMET_ROW_VALIDATOR_CLASS|ai.starlake.job.validator.FlatRowValidator
+tree-validator-class|COMET_TREE_VALIDATOR_CLASS|ai.starlake.job.validator.TreeRowValidator
 
 ### Privacy
 Default valid values are NONE, HIDE, MD5, SHA1, SHA256, SHA512, AES(not implemented). 
@@ -359,15 +359,15 @@ The default reference.conf file defines the following valid privacy strategies:
 ```hocon
 privacy {
   options = {
-    "none": "com.ebiznext.comet.privacy.No",
-    "hide": "com.ebiznext.comet.privacy.Hide",
-    "hide10X": "com.ebiznext.comet.privacy.Hide(\"X\",10)",
-    "approxLong20": "com.ebiznext.comet.privacy.ApproxLong(20)",
-    "md5": "com.ebiznext.comet.privacy.Md5",
-    "sha1": "com.ebiznext.comet.privacy.Sha1",
-    "sha256": "com.ebiznext.comet.privacy.Sha256",
-    "sha512": "com.ebiznext.comet.privacy.Sha512",
-    "initials": "com.ebiznext.comet.privacy.Initials"
+    "none": "ai.starlake.privacy.No",
+    "hide": "ai.starlake.privacy.Hide",
+    "hide10X": "ai.starlake.privacy.Hide(\"X\",10)",
+    "approxLong20": "ai.starlake.privacy.ApproxLong(20)",
+    "md5": "ai.starlake.privacy.Md5",
+    "sha1": "ai.starlake.privacy.Sha1",
+    "sha256": "ai.starlake.privacy.Sha256",
+    "sha512": "ai.starlake.privacy.Sha512",
+    "initials": "ai.starlake.privacy.Initials"
   }
 }
 ```
@@ -377,29 +377,29 @@ Below the predefined strategies:
 
 Privacy Strategy|Privacy class|Description
 :---|:---|:---
-none|com.ebiznext.comet.privacy.No|Return the input string itself
-hide|com.ebiznext.comet.privacy.Hide(\"X\", 10)|Without a parameter, return the empty string. Otherwise, replace with 10 occurrences of the character 'X'
-md5|com.ebiznext.comet.privacy.Md5|Return the md5 of the input string
-sha1|com.ebiznext.comet.privacy.Sha1|Return the sha1 of the input string
-sha256|com.ebiznext.comet.privacy.Sha256|Return the sha256 of the input string
-sha512|com.ebiznext.comet.privacy.Sha512|Return the sha256 of the input string
-initials|com.ebiznext.comet.privacy.Initials|Return the first char of each word (usually applied to user names)
+none|ai.starlake.privacy.No|Return the input string itself
+hide|ai.starlake.privacy.Hide(\"X\", 10)|Without a parameter, return the empty string. Otherwise, replace with 10 occurrences of the character 'X'
+md5|ai.starlake.privacy.Md5|Return the md5 of the input string
+sha1|ai.starlake.privacy.Sha1|Return the sha1 of the input string
+sha256|ai.starlake.privacy.Sha256|Return the sha256 of the input string
+sha512|ai.starlake.privacy.Sha512|Return the sha256 of the input string
+initials|ai.starlake.privacy.Initials|Return the first char of each word (usually applied to user names)
 
 The following startegies are also defined and may be declared in the custom configuration file.
 
 Privacy class|Description
 :---|:---
-com.ebiznext.comet.privacy.IPv4(8)|Return the IPv4 address with the last 8 bytes masked  
-com.ebiznext.comet.privacy.IPv6(8|Return the IPv6 address with the last 8 bytes masked
-com.ebiznext.comet.privacy.RandomDouble|Return a random double number
-com.ebiznext.comet.privacy.RandomDouble(10,20)|Return a random double between 10.0 and 20.0
-com.ebiznext.comet.privacy.RandomLong|Return a random long number
-com.ebiznext.comet.privacy.RandomLong(10, 20)|Return a random long number between 10 and 20
-com.ebiznext.comet.privacy.RandomInt|Return a random int number
-com.ebiznext.comet.privacy.RandomInt(10, 20)|Return a random int number between 10 and 20
-com.ebiznext.comet.privacy.ApproxDouble(70)|Return a double value with a variation up to 70% applied to the input value  
-com.ebiznext.comet.privacy.ApproxLong(70)|Return a double long with a variation up to 70% applied to the input value
-com.ebiznext.comet.privacy.Mask(\"*\", 4, 1, 3)| Partially mask the input value with 4 occurrences of the '*' character, 1 on the left side and 3 on the right side. 
+ai.starlake.privacy.IPv4(8)|Return the IPv4 address with the last 8 bytes masked  
+ai.starlake.privacy.IPv6(8|Return the IPv6 address with the last 8 bytes masked
+ai.starlake.privacy.RandomDouble|Return a random double number
+ai.starlake.privacy.RandomDouble(10,20)|Return a random double between 10.0 and 20.0
+ai.starlake.privacy.RandomLong|Return a random long number
+ai.starlake.privacy.RandomLong(10, 20)|Return a random long number between 10 and 20
+ai.starlake.privacy.RandomInt|Return a random int number
+ai.starlake.privacy.RandomInt(10, 20)|Return a random int number between 10 and 20
+ai.starlake.privacy.ApproxDouble(70)|Return a double value with a variation up to 70% applied to the input value  
+ai.starlake.privacy.ApproxLong(70)|Return a double long with a variation up to 70% applied to the input value
+ai.starlake.privacy.Mask(\"*\", 4, 1, 3)| Partially mask the input value with 4 occurrences of the '*' character, 1 on the left side and 3 on the right side. 
 
 
 Any new privacy strategy should implement the following trait :
@@ -443,7 +443,7 @@ options|Map|None|Elasticsearch options to be set on the ES connection
 
 #### Filesystem Sink
 When type field is set to `FsSink`. FsSink est the default sink type when ingesting data.
-The file where data is saved is computed using the domain and schema name. See [Load](../howto/load.md) and [Transform](../howto/transform.md)
+The file where data is saved is computed using the domain and schema name. See [Load](../userguide/load.md) and [Transform](../userguide/transform.md)
 
 Property|Type|Default Value|Description
 :---|:---|:---|:---
@@ -467,16 +467,24 @@ options|Map|None|[JDBC Options](https://spark.apache.org/docs/latest/sql-data-so
 Env. Var|Description|Default value
 ---|---|---
 
-> :memo: **When running Spark on YARN in cluster mode,
-> environment variables need to be set using the syntax spark.yarn.appMasterEnv.[EnvironmentVariableName]**
+:::note
 
-> :memo: **When running Dataproc on GCP, environment variables need to be set 
-> in the DataprocClusterCreateOperator in the properties attributes 
-> using the syntax "spark-env:[EnvironmentVariableName]":"[Value]"**
+When running Spark on YARN in cluster mode,
+environment variables need to be set using the syntax spark.yarn.appMasterEnv.[EnvironmentVariableName]
+
+:::
+
+:::note
+
+When running Dataproc on GCP, environment variables need to be set 
+in the DataprocClusterCreateOperator in the properties attributes 
+using the syntax "spark-env:[EnvironmentVariableName]":"[Value]"
+
+:::
 
 
 ## Airflow DAGs
-Comet Data Pipeline comes with native  Airflow support.
+Starlake Data Pipeline comes with native  Airflow support.
 Below are DAG definitions for each of the three ingestion steps on an kerberized cluster.
 
 ### Import DAG
@@ -572,8 +580,8 @@ COMET_DOMAIN = os.environ.get('COMET_DOMAIN', '')
 CometWatch = BashOperator(
     task_id='comet_watcher',
     bash_command= COMET_SPARK_CMD + ' watch '+ COMET_DOMAIN,
-    #on_failure_callback=slack_task(":red_circle: Task Comet Watch Failed"),
-    #on_success_callback=slack_task(":ok_hand: Task Comet Watch Success"),
+    #on_failure_callback=slack_task(":red_circle: Task Starlake Watch Failed"),
+    #on_success_callback=slack_task(":ok_hand: Task Starlake Watch Success"),
     env={
         'AIRFLOW_ENDPOINT':"https://airflow.my.server.com/api/experimental",
         'COMET_DATASETS':"/project/data",
@@ -634,8 +642,8 @@ templated_command = COMET_SPARK_CMD + """ {{ dag_run.conf['command'] }}"""
 CometIngest = BashOperator(
     task_id='comet_ingest',
     bash_command=templated_command,
-    #on_failure_callback=slack_task(":red_circle: Task Comet Ingest Failed: "),
-    #on_success_callback=slack_task(":ok_hand: Task Comet Ingest Success: "),
+    #on_failure_callback=slack_task(":red_circle: Task Starlake Ingest Failed: "),
+    #on_success_callback=slack_task(":ok_hand: Task Starlake Ingest Success: "),
     env={
         'COMET_DATASETS':"/project/data",
         'COMET_METADATA':"/project/metadata",

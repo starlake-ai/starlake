@@ -9,7 +9,7 @@ addSbtPlugin("net.virtual-void" % "sbt-dependency-graph" % "0.10.0-RC1")
 
 addSbtPlugin("com.eed3si9n" % "sbt-assembly" % "1.1.0")
 
-addSbtPlugin("com.typesafe.sbt" % "sbt-git" % "1.0.1")
+addSbtPlugin("com.typesafe.sbt" % "sbt-git" % "1.0.2")
 
 addSbtPlugin("com.typesafe.sbt" % "sbt-site" % "1.3.3")
 
@@ -28,6 +28,6 @@ addSbtPlugin("com.timushev.sbt" % "sbt-updates" % "0.6.0")
 
 addSbtPlugin("com.eed3si9n" % "sbt-buildinfo" % "0.10.0")
 
-addSbtPlugin("org.scoverage" % "sbt-scoverage" % "1.9.0")
+addSbtPlugin("org.scoverage" % "sbt-scoverage" % "1.9.2")
 
-addSbtPlugin("com.codecommit" % "sbt-github-packages" % "0.5.3")
+//addSbtPlugin("com.codecommit" % "sbt-github-packages" % "0.5.3")

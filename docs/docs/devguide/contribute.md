@@ -4,44 +4,16 @@ sidebar_position: 1
 
 # How to contribute
 
-This guide documents the best way to make various types of contribution to Comet Data Pipeline, including what is required before submitting a code change.
+This guide documents the best way to make various types of contribution to Starlake Data Pipeline, including what is required before submitting a code change.
 
-Contributing to Comet Data Pipeline doesn’t just mean writing code. Testing the application and improving documentation are also welcome.
+Contributing to Starlake Data Pipeline doesn’t just mean writing code. Testing the application and improving documentation are also welcome.
 
 ## How to contribute to this documentation
 
 
-This documentation is rendered by `sphinx <http://www.sphinx-doc.org/en/master/index.html>`_ and has to be written in reStructuredText (**rst**) markup language.
-This choice has been strengthened by its plugin ecosystem.
+This documentation is rendered by [Docusaurus](https://docusaurus.io/) and has to be written in Markdown markup language.
 
-In order to render this documentation on your side, please install python package and plantuml.
-
-On debian like:
-
-````shell
-    apt-get install python-pip \
-                    python-setuptools \
-                    plantuml \
-                    python-sphinx
-````
-
-
-On OSX like:
-
-````shell
-    $ brew install sphinx-doc
-    $ brew link sphinx-doc --force
-    $ brew install plantuml
-    $ sudo pip install sphinxcontrib-plantuml
-    $ sudo pip install sphinx_rtd_theme
-````
-
-This documentation can be rendered on your side by following these steps:
- - *cd <COMET_APP_HOME>/docs*
- - *pip install -r requirements.txt*
- - *make clean html* or *make.bat clean html*
-
-The last command will allow you to open **docs/\_build/html/index.html** in your favorite browser to see how beautiful your contribution is!
+In order to render this documentation on your side, please follow the instructions available [here](https://github.com/starlake-ai/starlake/blob/master/docs/README.md)
 
 
 ### Contributing Issue Reports
@@ -67,7 +39,7 @@ Any architecture changes, update or proposal can be made through a documentation
 
 ### Contributing by Reviewing Changes
 
-Changes to Comet Data Pipeline source code are proposed, reviewed and committed via Github merge requests (described later). Anyone can view and comment on active changes here. Reviewing others’ changes is a good way to learn how the change process works and gain exposure to activity in various parts of the code. You can help by reviewing the changes and asking questions or pointing out issues – as simple as typos or small issues of style.
+Changes to Starlake Data Pipeline source code are proposed, reviewed and committed via Github merge requests (described later). Anyone can view and comment on active changes here. Reviewing others’ changes is a good way to learn how the change process works and gain exposure to activity in various parts of the code. You can help by reviewing the changes and asking questions or pointing out issues – as simple as typos or small issues of style.
 
 ## The Review Process
 * Other reviewers, including committers, may comment on the changes and suggest modifications. Changes can be added by simply pushing more commits to the same branch.
@@ -77,7 +49,7 @@ Changes to Comet Data Pipeline source code are proposed, reviewed and committed 
 * Try to be responsive to the discussion rather than let days pass between replies.
 
 ## Contributing Documentation Changes
-To propose a change to documentation, you have to create an issue first, then edit the Sphinx source files in Comet Data Pipeline’s docs/ directory and try to build it by following the process described in ``building.rst``. The process to propose a doc change is otherwise the same as the process for proposing code changes below.
+To propose a change to documentation, you have to create an issue first, then edit the Sphinx source files in Starlake Data Pipeline’s docs/ directory and try to build it by following the process described in ``building.rst``. The process to propose a doc change is otherwise the same as the process for proposing code changes below.
 
 
 ## Contributing Code Changes
@@ -86,7 +58,7 @@ Code changes are all related to an issue. If you plan to contribute code changes
 
 ## Git workflow
 
-Comet Data Pipeline source code has the following branches' type:
+Starlake Data Pipeline source code has the following branches' type:
 
 * ``master`` is where all issues are merged to and it is the only way to commit to master
 * ``[X.Y].x`` is a release branch branched from ``master`` Each commits on it are related to a fix branch.
@@ -144,7 +116,7 @@ The commit contains the following structural elements, to communicate intent to 
 
 # Code Style Guide
 
-* Comet Data Pipeline uses ``scalafmt`` to format scala codes. Configuration is located in the file ``.scalafmt`` at the root of the project. Use ``scalafmt`` SBT task to format your code and use ``scalafmtCheck`` SBT task to validate your code.
+* Starlake Data Pipeline uses ``scalafmt`` to format scala codes. Configuration is located in the file ``.scalafmt`` at the root of the project. Use ``scalafmt`` SBT task to format your code and use ``scalafmtCheck`` SBT task to validate your code.
 * Git commit log is linted with ``gitlint``. Configuration is located in the file ``.gitlint``.
     * Use ``gitlint --commits master..HEAD`` to validate your commit log.
     * You can install commit-msg hook with ``gitlint install-hook``. It will prevent you from committing with a wrong message.

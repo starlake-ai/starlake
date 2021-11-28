@@ -6,7 +6,7 @@ title: ddl2yml
 
 ## Synopsis
 
-**comet ddl2yml [options]**
+**starlake ddl2yml [options]**
 
 ## Description
 

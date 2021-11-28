@@ -11,5 +11,5 @@ export COMET_ANALYZE=false
 export COMET_HIVE=false
 export COMET_GROUPED=false
 export COMET_METRICS_PATH="/tmp/metrics/{domain}"
-export COMET_MAIN=com.ebiznext.comet.job.Main
+export COMET_MAIN=ai.starlake.job.Main
 export SPARK_DRIVER_OPTIONS="-Dlog4j.configuration=file://$SPARK_DIR/conf/log4j.properties.template"

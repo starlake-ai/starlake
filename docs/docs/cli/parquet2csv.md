@@ -6,7 +6,7 @@ title: parquet2csv
 
 ## Synopsis
 
-**comet parquet2csv [options]**
+**starlake parquet2csv [options]**
 
 ## Description
 
@@ -18,7 +18,7 @@ otherwise, it is a folder containing the part*.csv files.
 When output_folder is not specified, then the input_folder is used a the base output folder.
 
 ````shell
-comet parquet2csv
+starlake parquet2csv
          --input_dir /tmp/datasets/accepted/
          --output_dir /tmp/datasets/csv/
          --domain sales

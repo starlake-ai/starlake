@@ -3,50 +3,67 @@ module.exports = {
     title: "Quickly Build Optimized Big & Fast Data Pipelines",
     tagline: 'So your data just keep moving',
     url: 'https://starlake-ai.github.io',
-    baseUrl: '/starlake/',
+    baseUrl: process.env.BASE_URL || '/',
     onBrokenLinks: 'throw',
     onBrokenMarkdownLinks: 'warn',
     favicon: 'img/favicon.ico',
     organizationName: 'starlake-ai', // Usually your GitHub org/user name.
     projectName: 'starlake', // Usually your repo name.
     themeConfig: {
+        hideableSidebar: false,
         googleAnalytics: {
-            trackingID: 'G-S16TFWHZYT',
+            trackingID: 'G-4SGV74FQ7M',
             // Optional fields.
             anonymizeIP: true // Should IPs be anonymized?
         },
-        algolia: {
-            apiKey: 'ac0b111da6354964b01b7e634e6d73fe',
-            indexName: 'comet-website',
-
-            // Optional: see doc section below
-            contextualSearch: true,
-
-
-            // Optional: see doc section below
-            appId: 'IEP5P8HN5L',
-
-            // Optional: Algolia search parameters
-            searchParameters: {},
-
-            //... other Algolia params
+        prism: {
+            theme: require('prism-react-renderer/themes/github'),
+            darkTheme: require('prism-react-renderer/themes/dracula'),
         },
         navbar: {
             title: 'Starlake',
             logo: {
                 alt: 'Starlake',
-                src: 'img/starlake.png',
+                src: 'img/shooting-star.png',
+                srcDark: 'img/shooting-star-white.png',
             },
             items: [
                 {
-                    type: 'doc',
-                    docId: 'intro',
+                    to: '/docs/userguide/extract',
+                    label: 'User Guide',
                     position: 'left',
-                    label: 'Getting Started',
+                },
+                {
+                    to: '/docs/reference/configuration',
+                    label: 'Reference',
+                    position: 'left',
+                },
+                {
+                    to: '/docs/cli/import',
+                    label: 'CLI',
+                    position: 'left',
                 },
                 {to: '/blog', label: 'Blog', position: 'left'},
                 {
-                    href: 'https://github.com/starlake-ai/starlake/releases/latest',
+                    label: 'Community',
+                    position: 'left',
+                    items: [
+                        {
+                            label: 'GitHub',
+                            href: 'https://github.com/starlake-ai/starlake',
+                        },
+                        {
+                            label: 'Discord',
+                            href: 'https://discord.com/channels/833336395430625310/908709208025858079',
+                        },
+                        {
+                            label: 'Stack Overflow',
+                            href: 'https://stackoverflow.com/questions/tagged/starlake',
+                        },
+                    ]
+                },
+                {
+                    href: 'https://search.maven.org/search?q=ai.starlake',
                     position: 'right',
                     className: 'header-download-link header-icon-link',
                     'aria-label': 'Download',
@@ -80,8 +97,8 @@ module.exports = {
                             href: 'https://stackoverflow.com/questions/tagged/starlake',
                         },
                         {
-                            label: 'Discuss',
-                            href: 'https://github.com/starlake-ai/starlake/issues',
+                            label: 'Discord',
+                            href: 'https://discord.com/channels/833336395430625310/908709208025858079',
                         },
                         {
                             label: 'Twitter',
@@ -120,7 +137,7 @@ module.exports = {
                     showReadingTime: true,
                     // Please change this to your repo.
                     editUrl:
-                        'https://github.com/starlake-ai/starlake/edit/master/docs/blog/',
+                        'https://github.com/starlake-ai/starlake/edit/master/docs/',
                 },
                 theme: {
                     customCss: require.resolve('./src/css/custom.css'),
@@ -128,4 +145,20 @@ module.exports = {
             },
         ],
     ],
+    plugins: [
+        // ... Your other plugins.
+        [
+            require.resolve("@easyops-cn/docusaurus-search-local"),
+            {
+                // ... Your options.
+                // `hashed` is recommended as long-term-cache of index file is possible.
+                hashed: true,
+                // For Docs using Chinese, The `language` is recommended to set to:
+                // ```
+                // language: ["en", "zh"],
+                // ```
+                // When applying `zh` in language, please install `nodejieba` in your project.
+            },
+        ],
+    ]
 };

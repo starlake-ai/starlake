@@ -34,6 +34,8 @@ object Dependencies {
     ExclusionRule(organization = "com.fasterxml.jackson.module")
   )
 
+  val jnaExclusions = Seq(ExclusionRule(organization = "net.java.dev.jna"))
+
   val sparkExclusions = Seq(
     ExclusionRule(organization = "org.apache.spark")
   )
@@ -94,15 +96,15 @@ object Dependencies {
   )
 
   val gcsConnectorShadedJar =
-    s"${Resolvers.googleCloudBigDataMavenRepo}/gcs-connector/${Versions.gcs}/gcs-connector-${Versions.gcs}-shaded.jar"
+    s"${Resolvers.googleCloudBigDataMavenRepo}/gcs-connector/${Versions.gcsConnector}/gcs-connector-${Versions.gcsConnector}-shaded.jar"
 
   val gcpBigQueryConnectorShadedJar =
-    s"${Resolvers.googleCloudBigDataMavenRepo}/bigquery-connector/${Versions.hadoopbq}/bigquery-connector-${Versions.hadoopbq}-shaded.jar"
+    s"${Resolvers.googleCloudBigDataMavenRepo}/bigquery-connector/${Versions.bigqueryConnector}/bigquery-connector-${Versions.bigqueryConnector}-shaded.jar"
 
   val gcp = Seq(
-    "com.google.cloud.bigdataoss" % "gcs-connector" % Versions.gcs from gcsConnectorShadedJar exclude ("javax.jms", "jms") exclude ("com.sun.jdmk", "jmxtools") exclude ("com.sun.jmx", "jmxri") excludeAll (jacksonExclusions: _*) classifier "shaded",
-    "com.google.cloud.bigdataoss" % "bigquery-connector" % Versions.hadoopbq from gcpBigQueryConnectorShadedJar exclude ("javax.jms", "jms") exclude ("com.sun.jdmk", "jmxtools") exclude ("com.sun.jmx", "jmxri") excludeAll (jacksonExclusions: _*) classifier "shaded",
-    "com.google.cloud" % "google-cloud-bigquery" % Versions.bq exclude ("javax.jms", "jms") exclude ("com.sun.jdmk", "jmxtools") exclude ("com.sun.jmx", "jmxri") excludeAll (jacksonExclusions: _*),
+    "com.google.cloud.bigdataoss" % "gcs-connector" % Versions.gcsConnector from gcsConnectorShadedJar exclude ("javax.jms", "jms") exclude ("com.sun.jdmk", "jmxtools") exclude ("com.sun.jmx", "jmxri") excludeAll (jacksonExclusions: _*) classifier "shaded",
+    "com.google.cloud.bigdataoss" % "bigquery-connector" % Versions.bigqueryConnector from gcpBigQueryConnectorShadedJar exclude ("javax.jms", "jms") exclude ("com.sun.jdmk", "jmxtools") exclude ("com.sun.jmx", "jmxri") excludeAll (jacksonExclusions: _*) classifier "shaded",
+    "com.google.cloud" % "google-cloud-bigquery" % Versions.bigquery exclude ("javax.jms", "jms") exclude ("com.sun.jdmk", "jmxtools") exclude ("com.sun.jmx", "jmxri") excludeAll (jacksonExclusions: _*),
     // see https://github.com/GoogleCloudDataproc/spark-bigquery-connector/issues/36
     // Add the jar file to spark dependencies
     "com.google.cloud.spark" %% "spark-bigquery-with-dependencies" % "0.22.2" % "provided" excludeAll (jacksonExclusions: _*)
@@ -110,12 +112,12 @@ object Dependencies {
 
   val esSpark211 = Seq(
     "org.elasticsearch" %% "elasticsearch-spark-20" % Versions.esSpark211 exclude ("com.google.guava", "guava") excludeAll ((sparkExclusions ++ jacksonExclusions): _*),
-    "com.dimafeng" %% "testcontainers-scala-elasticsearch" % Versions.testContainers % Test
+    "com.dimafeng" %% "testcontainers-scala-elasticsearch" % Versions.testContainers % Test excludeAll (jnaExclusions: _*)
   )
 
   val esSpark212 = Seq(
     "org.elasticsearch" %% "elasticsearch-spark-30" % Versions.esSpark212 exclude ("com.google.guava", "guava") excludeAll ((sparkExclusions ++ jacksonExclusions): _*),
-    "com.dimafeng" %% "testcontainers-scala-elasticsearch" % Versions.testContainers % Test
+    "com.dimafeng" %% "testcontainers-scala-elasticsearch" % Versions.testContainers % Test excludeAll (jnaExclusions: _*)
   )
 
   val scopt = Seq(
@@ -171,15 +173,25 @@ object Dependencies {
 
   val kafkaClients = Seq(
     "org.apache.kafka" % "kafka-clients" % Versions.kafkaClients,
-    "com.dimafeng" %% "testcontainers-scala-scalatest" % Versions.testContainers % Test,
-    "com.dimafeng" %% "testcontainers-scala-kafka" % Versions.testContainers % Test
+    "com.dimafeng" %% "testcontainers-scala-scalatest" % Versions.testContainers % Test excludeAll (jnaExclusions: _*),
+    "com.dimafeng" %% "testcontainers-scala-kafka" % Versions.testContainers % Test excludeAll (jnaExclusions: _*)
   )
 
   val graphviz = Seq(
     "com.github.jsqlparser" % "jsqlparser" % Versions.jsqlparser
   )
 
+  val jna_apple_arm_testcontainers = Seq(
+    "net.java.dev.jna" % "jna" % "5.9.0"
+  )
+
+  val silencer = Seq(
+    compilerPlugin(
+      "com.github.ghik" % "silencer-plugin" % Versions.silencerVersion cross CrossVersion.full
+    ),
+    "com.github.ghik" % "silencer-lib" % Versions.silencerVersion % Provided cross CrossVersion.full
+  )
   val dependencies =
-    scalate ++ logging ++ typedConfigs ++ betterfiles ++ scalaTest ++ scopt ++ hadoop ++
+    silencer ++ jna_apple_arm_testcontainers ++ scalate ++ logging ++ typedConfigs ++ betterfiles ++ scalaTest ++ scopt ++ hadoop ++
     sttp ++ gcp ++ azure ++ h2 ++ excelClientApi ++ akkaHttp ++ akkaStream ++ kafkaClients ++ graphviz // ++ atlas
 }

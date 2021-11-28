@@ -6,7 +6,7 @@ title: esload | index
 
 ## Synopsis
 
-**comet index | esload [options]**
+**starlake index | esload [options]**
 
 ## Description
 
