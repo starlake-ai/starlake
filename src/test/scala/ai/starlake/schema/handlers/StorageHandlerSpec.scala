@@ -96,14 +96,14 @@ class StorageHandlerSpec extends TestHelper {
 
       storageHandler.write(mapper.writeValueAsString(domain), pathDomain)
 
-      //TODO different behaviour between sbt & intellij
+      // TODO different behaviour between sbt & intellij
       //    readFileContent(pathDomain) shouldBe loadFile("/expected/yml/domain.yml")
 
       val resultDomain: Domain = mapper.readValue[Domain](storageHandler.read(pathDomain))
 
       resultDomain.name shouldBe domain.name
       resultDomain.directory shouldBe domain.directory
-      //TODO TOFIX : domain written is not the domain expected, the test below just to make debug easy
+      // TODO TOFIX : domain written is not the domain expected, the test below just to make debug easy
       resultDomain.metadata.get equals domain.metadata.get
       resultDomain.ack shouldBe None
       resultDomain.comment shouldBe domain.comment

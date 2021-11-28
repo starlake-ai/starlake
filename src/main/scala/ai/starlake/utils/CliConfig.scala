@@ -73,7 +73,7 @@ trait CliConfig[T] {
         "index"       -> (pageIndex * 10).toString
       )
 
-    //TODO keep the lines below until we depreciate Scala 2.11
+    // TODO keep the lines below until we depreciate Scala 2.11
     //     We'll replace it by --> val template = Source.fromResource("scalate/sphinx-cli.mustache").mkString
 
     val stream = getClass.getResourceAsStream("/scalate/md-cli.mustache")
