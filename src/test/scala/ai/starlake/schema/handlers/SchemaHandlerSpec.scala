@@ -336,7 +336,7 @@ class SchemaHandlerSpec extends TestHelper {
           sourceDatasetPathName
         )
 
-        //If we run this test alone, we do not have rejected, else we have rejected but not accepted ...
+        // If we run this test alone, we do not have rejected, else we have rejected but not accepted ...
         Try {
           printDF(
             sparkSession.read.parquet(
@@ -501,7 +501,7 @@ class SchemaHandlerSpec extends TestHelper {
       }
     }
 
-    //TODO TOFIX
+    // TODO TOFIX
     //  "Load Business Definition" should "produce business dataset" in {
     //    val sh = new HdfsStorageHandler
     //    val jobsPath = new Path(DatasetArea.jobs, "sample/metadata/business/business.comet.yml")
@@ -687,7 +687,7 @@ class SchemaHandlerSpec extends TestHelper {
           sourceDatasetPathName
         )
 
-        //If we run this test alone, we do not have rejected, else we have rejected but not accepted ...
+        // If we run this test alone, we do not have rejected, else we have rejected but not accepted ...
         Try {
           printDF(
             sparkSession.read.parquet(

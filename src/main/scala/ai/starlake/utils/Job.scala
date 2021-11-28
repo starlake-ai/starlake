@@ -234,12 +234,12 @@ trait SparkJob extends JobBase {
     sqlParameters: Map[String, String]
   ): Unit = {
     // We parse the following strings
-    //ex  BQ:[[ProjectID.]DATASET_ID.]TABLE_NAME"
-    //or  BQ:[[ProjectID.]DATASET_ID.]TABLE_NAME.[comet_filter(col1 > 10 and col2 < 20)].[comet_select(col1, col2)]"
-    //or  FS:/bucket/parquetfolder
-    //or  JDBC:postgres:select *
-    //or  KAFKA:topicConfigName
-    //or  KAFKA:stream:topicConfigName
+    // ex  BQ:[[ProjectID.]DATASET_ID.]TABLE_NAME"
+    // or  BQ:[[ProjectID.]DATASET_ID.]TABLE_NAME.[comet_filter(col1 > 10 and col2 < 20)].[comet_select(col1, col2)]"
+    // or  FS:/bucket/parquetfolder
+    // or  JDBC:postgres:select *
+    // or  KAFKA:topicConfigName
+    // or  KAFKA:stream:topicConfigName
     views.views.foreach { case (key, value) =>
       // Apply substitution defined with {{ }} and overload options in env by option in command line
       val valueWithEnv = value.richFormat(sqlParameters)

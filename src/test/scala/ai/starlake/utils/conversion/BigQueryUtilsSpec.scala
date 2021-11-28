@@ -53,7 +53,7 @@ class BigQueryUtilsSpec extends TestHelper {
           StructField("subCategories", ArrayType(BinaryType, containsNull = true), nullable = true)
         )
       )
-      //Schema{fields=[Field{name=value, type=INTEGER, mode=NULLABLE, description=, policyTags=null}]}
+      // Schema{fields=[Field{name=value, type=INTEGER, mode=NULLABLE, description=, policyTags=null}]}
       val bqSchemaExpected = BQSchema.of(
         Field
           .newBuilder("categoryId", StandardSQLTypeName.STRING)
