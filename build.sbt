@@ -108,28 +108,31 @@ assembly / assemblyShadeRules := Seq(
 publishTo := {
   (
     sys.env.get("GCS_BUCKET_ARTEFACTS"),
-    sys.env.getOrElse("RELEASE_SONATYPE", "false").toBoolean
+    sys.env.getOrElse("RELEASE_SONATYPE", "true").toBoolean
   ) match {
     case (None, false) =>
-      githubPublishTo.value
+//      githubPublishTo.value
+      // we do not publish on github anymore
+      sonatypePublishToBundle.value
     case (None, true) => sonatypePublishToBundle.value
     case (Some(value), _) =>
       Some(GCSPublisher.forBucket(value, AccessRights.InheritBucket))
   }
 }
-// Diable scaladoc generation
+// Disable scaladoc generation
+
 Compile / doc / sources := Seq.empty
 
-Compile / packageDoc / publishArtifact := false
+//Compile / packageDoc / publishArtifact := false
 
-Compile / packageBin / publishArtifact := false
+Compile / packageBin / publishArtifact := true
 
-Compile / packageSrc / publishArtifact := false
+Compile / packageSrc / publishArtifact := true
 
-// Disable checksum
+// Do not disable checksum
 publishLocal / checksums := Nil
 
-publish / checksums := Nil
+// publish / checksums := Nil
 
 // Your profile name of the sonatype account. The default is the same with the organization value
 sonatypeProfileName := "ai.starlake"
@@ -171,12 +174,14 @@ releaseCommitMessage := s"Release ${ReleasePlugin.runtimeVersion.value}"
 releaseVersionBump := Next
 
 // publish to github packages
+// we do not publish on github anymore
+//githubOwner := "starlake-ai"
 
-githubOwner := "starlake-ai"
+// we do not publish on github anymore
+// githubRepository := "starlake"
 
-githubRepository := "starlake"
-
-githubTokenSource := TokenSource.Environment("GITHUB_TOKEN")
+// we do not publish on github anymore
+// githubTokenSource := TokenSource.Environment("GITHUB_TOKEN")
 
 developers := List(
   Developer(

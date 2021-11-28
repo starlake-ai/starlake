@@ -4,8 +4,6 @@ on:
     - cron: '0 0 * * 0'
   workflow_dispatch:
 name: Scala Steward
-env:
-  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 jobs:
   scala-steward:
     runs-on: ubuntu-latest
@@ -22,4 +20,4 @@ jobs:
       - name: Scala Steward
         uses: scala-steward-org/scala-steward-action@v2
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ github.token }}
