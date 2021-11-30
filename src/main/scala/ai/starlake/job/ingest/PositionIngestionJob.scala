@@ -20,15 +20,12 @@
 
 package ai.starlake.job.ingest
 
-import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
-import ai.starlake.schema.model.{Domain, Schema, Type}
 import ai.starlake.config.Settings
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model._
 import org.apache.hadoop.fs.Path
 import org.apache.hadoop.io.{LongWritable, Text}
 import org.apache.hadoop.mapred.TextInputFormat
-import org.apache.spark.rdd.RDD
 import org.apache.spark.sql._
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
 
@@ -95,7 +92,7 @@ class PositionIngestionJob(
     * @param input
     *   : Spark Dataset
     */
-  override protected def ingest(input: DataFrame): (RDD[_], RDD[_]) = {
+  override protected def ingest(input: DataFrame): (Dataset[String], Dataset[Row]) = {
 
     val dataset: DataFrame =
       PositionIngestionUtil.prepare(session, input, schema.attributesWithoutScriptedFields)
@@ -123,7 +120,7 @@ class PositionIngestionJob(
       orderedSparkTypes
     )
     saveRejected(validationResult.errors, validationResult.rejected)
-    saveAccepted(validationResult.accepted, orderedSparkTypes, validationResult)
+    saveAccepted(validationResult)
     (validationResult.errors, validationResult.accepted)
   }
 
