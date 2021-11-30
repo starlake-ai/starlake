@@ -1,16 +1,14 @@
 package ai.starlake.job.validator
 
-import ai.starlake.schema.model.{Attribute, Type}
 import ai.starlake.config.Settings
 import ai.starlake.schema.model.{Attribute, Format, Type}
-import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
 
 case class ValidationResult(
-  errors: RDD[String],
-  rejected: RDD[String],
-  accepted: RDD[Row]
+  errors: Dataset[String],
+  rejected: Dataset[String],
+  accepted: Dataset[Row]
 )
 
 trait GenericRowValidator {
