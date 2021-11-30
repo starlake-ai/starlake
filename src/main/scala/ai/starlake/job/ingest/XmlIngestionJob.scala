@@ -20,18 +20,15 @@
 
 package ai.starlake.job.ingest
 
-import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
-import ai.starlake.schema.model.{Domain, Schema, Type}
 import ai.starlake.config.Settings
 import ai.starlake.job.validator.ValidationResult
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
-import ai.starlake.schema.model._
+import ai.starlake.schema.model.{Domain, Schema, Type}
 import org.apache.hadoop.fs.Path
-import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.execution.datasources.json.JsonIngestionUtil.compareTypes
 import org.apache.spark.sql.functions.input_file_name
 import org.apache.spark.sql.types.StructType
-import org.apache.spark.sql.{DataFrame, Row}
+import org.apache.spark.sql.{DataFrame, Dataset, Row}
 
 import scala.util.Try
 
@@ -97,23 +94,23 @@ class XmlIngestionJob(
     * @param dataset
     *   input dataset as a RDD of string
     */
-  protected def ingest(dataset: DataFrame): (RDD[_], RDD[_]) = {
+  protected def ingest(dataset: DataFrame): (Dataset[String], Dataset[Row]) = {
+    import session.implicits._
     val datasetSchema = dataset.schema
     val errorList = compareTypes(schemaSparkType, datasetSchema)
-    val rejectedRDD = session.sparkContext.parallelize(errorList)
+    val rejectedDS = errorList.toDS
     metadata.xml.flatMap(_.get("skipValidation")) match {
       case Some(_) =>
-        val rejectedRDD = session.sparkContext.parallelize(errorList)
-        saveRejected(rejectedRDD, session.emptyDataFrame.rdd.map(_.mkString))
+        val rejectedDS = errorList.toDS()
+        saveRejected(rejectedDS, session.emptyDataset[String])
         saveAccepted(
-          dataset,
           ValidationResult(
-            session.sparkContext.emptyRDD[String],
-            session.sparkContext.emptyRDD[String],
-            session.sparkContext.emptyRDD[Row]
+            session.emptyDataset[String],
+            session.emptyDataset[String],
+            dataset
           )
         )
-        (rejectedRDD, dataset.rdd)
+        (rejectedDS, dataset)
       case _ =>
         val withInputFileNameDS =
           dataset.withColumn(Settings.cometInputFileNameColumn, input_file_name())
@@ -132,11 +129,9 @@ class XmlIngestionJob(
             validationSchema
           )
 
-        val allRejected = rejectedRDD.union(validationResult.errors)
+        val allRejected = rejectedDS.union(validationResult.errors)
         saveRejected(allRejected, validationResult.rejected)
-        val transformedAcceptedDF =
-          session.createDataFrame(validationResult.accepted, validationSchema)
-        saveAccepted(transformedAcceptedDF, validationResult)
+        saveAccepted(validationResult)
         (allRejected, validationResult.accepted)
     }
   }

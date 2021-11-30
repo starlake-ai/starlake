@@ -104,7 +104,7 @@ class JsonIngestionJob(
     * @param dataset
     *   input dataset as a RDD of string
     */
-  protected def ingest(dataset: DataFrame): (RDD[_], RDD[_]) = {
+  protected def ingest(dataset: DataFrame) = {
     val rdd: RDD[Row] = dataset.rdd
 
     val parsed: RDD[Either[List[String], (String, String)]] = JsonIngestionUtil
@@ -152,14 +152,13 @@ class JsonIngestionJob(
         types,
         validationSchema
       )
-    saveRejected(withInvalidSchema.union(validationResult.errors), validationResult.rejected)
-    val acceptedWithFinalSchema =
-      session.createDataFrame(validationResult.accepted, validationSchema)
-    saveAccepted(
-      acceptedWithFinalSchema,
-      validationResult
-    ) // prefer to let Spark compute the final schema
-    (withInvalidSchema, toValidate.rdd)
+
+    import session.implicits._
+    val rejectedDS = session.createDataset(withInvalidSchema).union(validationResult.errors)
+
+    saveRejected(rejectedDS, validationResult.rejected)
+    saveAccepted(validationResult) // prefer to let Spark compute the final schema
+    (rejectedDS, toValidate)
   }
 
   override def name: String = "JsonJob"
