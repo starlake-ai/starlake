@@ -1,14 +1,13 @@
 package ai.starlake.job.validator
 
-import ai.starlake.schema.model.{Attribute, Type}
 import ai.starlake.config.Settings
 import ai.starlake.job.ingest.IngestionUtil
 import ai.starlake.schema.model.{Attribute, Format, Type}
 import ai.starlake.utils.Utils
-import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
 import org.apache.spark.sql.types.{BooleanType, StringType, StructField, StructType}
 import org.apache.spark.sql.{DataFrame, Row, SparkSession}
+import org.apache.spark.rdd.RDD
 
 import java.sql.Timestamp
 import java.time.format.DateTimeFormatter
@@ -53,14 +52,17 @@ object TreeRowValidator extends GenericRowValidator {
         .filter(row => row.getAs[Boolean](Settings.cometSuccessColumn))
         .map(row => new GenericRowWithSchema(row.toSeq.dropRight(2).toArray, schemaSparkType))
 
-    val errorRDD: RDD[String] =
+    val errorRDD =
       successErrorRDD
         .filter(row => !row.getAs[Boolean](Settings.cometSuccessColumn))
         .map(row => row.getAs[String](Settings.cometErrorMessageColumn))
 
+    val successDS = session.createDataFrame(successRDD, schemaSparkType)
+    import session.implicits._
+    val errorDS = errorRDD.toDS()
     // TODO add here input lines to be rejected
-    val rejectedInputRDD: RDD[String] = session.emptyDataFrame.rdd.map(_.mkString)
-    ValidationResult(errorRDD, rejectedInputRDD, successRDD)
+    val rejectedInputDS = session.emptyDataset[String]
+    ValidationResult(errorDS, rejectedInputDS, successDS)
   }
 
   private def validateDataset(
@@ -80,19 +82,24 @@ object TreeRowValidator extends GenericRowValidator {
           StructField(Settings.cometErrorMessageColumn, StringType, nullable = false)
         )
       )
-    //  implicit val encoder2 = RowEncoder(schemaSparkType)
     dataset.rdd.map { row =>
       val rowWithSchema = row.asInstanceOf[GenericRowWithSchema]
-      validateRow(rowWithSchema, Utils.toMap(attributes), schemaSparkType, typesMap)
+      validateRow(
+        rowWithSchema,
+        Utils.toMap(attributes),
+        schemaSparkType,
+        typesMap,
+        schemaSparkTypeWithSuccessErrorMessage
+      )
     }
-
   }
 
   private def validateRow(
     row: GenericRowWithSchema,
     attributes: Map[String, Any],
     schemaSparkType: StructType,
-    types: Map[String, Type]
+    types: Map[String, Type],
+    schemaSparkTypeWithSuccessErrorMessage: StructType
   )(implicit
     settings: Settings
   ): GenericRowWithSchema = {
@@ -113,14 +120,6 @@ object TreeRowValidator extends GenericRowValidator {
     }
 
     val cells = row.toSeq.zip(row.schema.fields.map(_.name))
-    val schemaSparkTypeWithSuccessErrorMessage =
-      StructType(
-        schemaSparkType.fields ++ Array(
-          StructField(Settings.cometSuccessColumn, BooleanType, nullable = false),
-          StructField(Settings.cometErrorMessageColumn, StringType, nullable = false)
-        )
-      )
-
     def cellHandleTimestamp(cell: Any) = {
       cell match {
         case timestamp: Timestamp =>
@@ -137,7 +136,8 @@ object TreeRowValidator extends GenericRowValidator {
               cell,
               attributes(name).asInstanceOf[Map[String, Any]],
               schemaSparkType,
-              types
+              types,
+              schemaSparkTypeWithSuccessErrorMessage
             )
           case (cell: mutable.WrappedArray[_], name) =>
             cell.map {
@@ -146,7 +146,8 @@ object TreeRowValidator extends GenericRowValidator {
                   subcell,
                   attributes(name).asInstanceOf[Map[String, Any]],
                   schemaSparkType,
-                  types
+                  types,
+                  schemaSparkTypeWithSuccessErrorMessage
                 )
               case subcell =>
                 validateCol(attributes(name).asInstanceOf[Attribute], cellHandleTimestamp(subcell))
