@@ -361,7 +361,7 @@ trait TestHelper
     def landingPath: String =
       new SchemaHandler(settings.storageHandler)
         .getDomain(datasetDomainName)
-        .map(_.directory)
+        .map(_.resolveDirectory())
         .getOrElse(throw new Exception("Incoming directory must be specified in domain descriptor"))
 
     def loadLanding(implicit codec: Codec, createAckFile: Boolean = true): Unit = {
@@ -372,7 +372,7 @@ trait TestHelper
       DatasetArea.initDomains(storageHandler, schemaHandler.domains.map(_.name))
 
       // Get incoming directory from Domain descriptor
-      val incomingDirectory = schemaHandler.getDomain(datasetDomainName).map(_.directory)
+      val incomingDirectory = schemaHandler.getDomain(datasetDomainName).map(_.resolveDirectory())
       assert(incomingDirectory.isDefined)
 
       // Deliver file to incoming folder
