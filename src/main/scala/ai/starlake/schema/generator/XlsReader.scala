@@ -49,7 +49,14 @@ class XlsReader(input: Input) extends XlsModel {
           .map(_.split(",").toList)
       (nameOpt, directoryOpt) match {
         case (Some(name), Some(directory)) =>
-          Some(Domain(name, directory, ack = ack, comment = comment, schemaRefs = schemaRefsOpt))
+          Some(
+            Domain(
+              name,
+              metadata = Some(Metadata(directory = Some(directory), ack = ack)),
+              comment = comment,
+              schemaRefs = schemaRefsOpt
+            )
+          )
         case _ => None
       }
     }

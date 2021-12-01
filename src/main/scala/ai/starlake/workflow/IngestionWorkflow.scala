@@ -118,7 +118,7 @@ class IngestionWorkflow(
     logger.info("LoadLanding")
     domains.foreach { domain =>
       val storageHandler = settings.storageHandler
-      val inputDir = new Path(domain.directory)
+      val inputDir = new Path(domain.resolveDirectory())
       if (storageHandler.exists(inputDir)) {
         logger.info(s"Scanning $inputDir")
         storageHandler
