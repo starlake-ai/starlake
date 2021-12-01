@@ -29,8 +29,12 @@ class DDL2YmlSpec extends TestHelper {
       val row1InsertionCheck = (1 == rs.getInt("ID")) && ("A" == rs.getString("NAME"))
       assert(row1InsertionCheck, "Data not inserted")
 
-      val metadata = Metadata(mode = Some(Mode.STREAM), quote = Some("::"))
-      val domainTemplate = Domain("CUSTOM_NAME", "/{domain}/{schema}", metadata = Some(metadata))
+      val metadata = Metadata(
+        mode = Some(Mode.STREAM),
+        quote = Some("::"),
+        directory = Some("/{domain}/{schema}")
+      )
+      val domainTemplate = Domain(name = "CUSTOM_NAME", metadata = Some(metadata))
       val config = DDL2YmlConfig()
       DDL2Yml.run(JDBCSchema("test-h2", None, "PUBLIC", Nil), File("/tmp"), Some(domainTemplate))
       val domain = YamlSerializer.deserializeDomain(File("/tmp", "PUBLIC.comet.yml")) match {

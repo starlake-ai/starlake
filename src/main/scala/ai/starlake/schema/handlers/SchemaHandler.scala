@@ -219,7 +219,7 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     }
 
     Utils.duplicates(
-      domains.map(_.directory),
+      domains.map(_.resolveDirectory()),
       s"%s is defined %d times. A directory can only appear once in a domain definition file."
     ) match {
       case Right(_) => domains
