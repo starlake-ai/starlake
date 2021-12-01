@@ -39,25 +39,23 @@ class StorageHandlerSpec extends TestHelper {
   new WithSettings() {
     "Domain Case Class" should "be written as yaml and read correctly" in {
       val domain = Domain(
-        "DOMAIN",
-        s"${cometTestRoot}/incoming/DOMAIN",
-        Some(
+        name = "DOMAIN",
+        metadata = Some(
           Metadata(
-            Some(Mode.FILE),
-            Some(Format.DSV),
-            None,
-            Some(false),
-            Some(false),
-            Some(false),
-            Some(";"),
-            Some("\""),
-            Some("\\"),
-            Some(WriteMode.APPEND),
-            None
+            mode = Some(Mode.FILE),
+            format = Some(Format.DSV),
+            encoding = None,
+            multiline = Some(false),
+            array = Some(false),
+            withHeader = Some(false),
+            separator = Some(";"),
+            quote = Some("\""),
+            escape = Some("\\"),
+            write = Some(WriteMode.APPEND),
+            directory = Some(s"${cometTestRoot}/incoming/DOMAIN")
           )
         ),
-        None,
-        List(
+        schemas = List(
           Schema(
             "User",
             Pattern.compile("SCHEMA-.*.dsv"),
@@ -91,7 +89,7 @@ class StorageHandlerSpec extends TestHelper {
             None
           )
         ),
-        Some("Domain Comment")
+        comment = Some("Domain Comment")
       )
 
       storageHandler.write(mapper.writeValueAsString(domain), pathDomain)
@@ -102,10 +100,10 @@ class StorageHandlerSpec extends TestHelper {
       val resultDomain: Domain = mapper.readValue[Domain](storageHandler.read(pathDomain))
 
       resultDomain.name shouldBe domain.name
-      resultDomain.directory shouldBe domain.directory
-      // TODO TOFIX : domain written is not the domain expected, the test below just to make debug easy
+      resultDomain.resolveDirectory() shouldBe domain.resolveDirectory()
+      //TODO TOFIX : domain written is not the domain expected, the test below just to make debug easy
       resultDomain.metadata.get equals domain.metadata.get
-      resultDomain.ack shouldBe None
+      resultDomain.resolveAck() shouldBe None
       resultDomain.comment shouldBe domain.comment
       resultDomain.getExtensions(
         settings.comet.defaultFileExtensions,

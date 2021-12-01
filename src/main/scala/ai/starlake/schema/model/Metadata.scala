@@ -93,7 +93,10 @@ case class Metadata(
   sink: Option[Sink] = None,
   ignore: Option[String] = None,
   clustering: Option[Seq[String]] = None,
-  xml: Option[Map[String, String]] = None
+  xml: Option[Map[String, String]] = None,
+  directory: Option[String] = None,
+  extensions: Option[List[String]] = None,
+  ack: Option[String] = None
 ) {
 
   override def toString: String =
@@ -111,6 +114,9 @@ case class Metadata(
        |partition:${getPartitionAttributes()}
        |sink:${getSink()}
        |xml:${xml}
+       |directory:${directory}
+       |extensions:${extensions}
+       |ack:${ack}
        """.stripMargin
 
   def getMode(): Mode = mode.getOrElse(FILE)
@@ -177,7 +183,10 @@ case class Metadata(
       partition = merge(this.partition, child.partition),
       sink = merge(this.sink, child.sink),
       ignore = merge(this.ignore, child.ignore),
-      xml = merge(this.xml, child.xml)
+      xml = merge(this.xml, child.xml),
+      directory = merge(this.directory, child.directory),
+      extensions = merge(this.extensions, child.extensions),
+      ack = merge(this.ack, child.ack)
     )
   }
 
