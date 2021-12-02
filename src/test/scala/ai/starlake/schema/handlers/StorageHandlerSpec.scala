@@ -101,7 +101,7 @@ class StorageHandlerSpec extends TestHelper {
 
       resultDomain.name shouldBe domain.name
       resultDomain.resolveDirectory() shouldBe domain.resolveDirectory()
-      //TODO TOFIX : domain written is not the domain expected, the test below just to make debug easy
+      // TODO TOFIX : domain written is not the domain expected, the test below just to make debug easy
       resultDomain.metadata.get equals domain.metadata.get
       resultDomain.resolveAck() shouldBe None
       resultDomain.comment shouldBe domain.comment
