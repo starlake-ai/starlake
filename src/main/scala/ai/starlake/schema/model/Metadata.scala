@@ -24,10 +24,6 @@ import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.Format.DSV
 import ai.starlake.schema.model.Mode.FILE
 import ai.starlake.schema.model.WriteMode.APPEND
-import ai.starlake.schema.handlers.SchemaHandler
-import ai.starlake.schema.model.Format.DSV
-import ai.starlake.schema.model.Mode.FILE
-import ai.starlake.schema.model.WriteMode.APPEND
 import com.fasterxml.jackson.annotation.JsonIgnore
 
 import scala.collection.mutable
