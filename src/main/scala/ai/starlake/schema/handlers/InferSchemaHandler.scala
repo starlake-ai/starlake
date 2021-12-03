@@ -132,7 +132,16 @@ object InferSchemaHandler {
     metadata: Option[Metadata]
   ): Schema = {
 
-    Schema(name, pattern, attributes, metadata, None, None, None, None)
+    Schema(
+      name = name,
+      pattern = pattern,
+      attributes = attributes,
+      metadata = metadata,
+      None,
+      None,
+      None,
+      None
+    )
   }
 
   /** * Builds the Domain case class
@@ -151,12 +160,11 @@ object InferSchemaHandler {
 
   def createDomain(
     name: String,
-    directory: String,
     metadata: Option[Metadata] = None,
     schemas: List[Schema] = Nil
   ): Domain = {
 
-    Domain(name, directory, metadata, None, schemas)
+    Domain(name = name, metadata = metadata, schemas = schemas)
   }
 
   /** * Generates the YAML file using the domain object and a savepath

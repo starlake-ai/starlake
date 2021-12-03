@@ -398,33 +398,15 @@ trait IngestionJob extends SparkJob {
   private def computeScriptedAttributes(acceptedDF: DataFrame) = {
     val acceptedDfWithScriptFields = (if (schema.attributes.exists(_.script.isDefined)) {
                                         val allColumns = "*"
-                                        schema.attributes.foldLeft(acceptedDF) {
-                                          case (
-                                                df,
-                                                Attribute(
-                                                  name,
-                                                  _,
-                                                  _,
-                                                  _,
-                                                  _,
-                                                  _,
-                                                  _,
-                                                  _,
-                                                  _,
-                                                  _,
-                                                  _,
-                                                  _,
-                                                  _,
-                                                  Some(script),
-                                                  _,
-                                                  _
-                                                )
-                                              ) =>
-                                            df.T(
-                                              s"SELECT $allColumns, ${script.richFormat(options)} as $name FROM __THIS__"
-                                            )
-                                          case (df, _) => df
-                                        }
+                                        schema.attributes
+                                          .map(attr => (attr.name, attr.script))
+                                          .foldLeft(acceptedDF) {
+                                            case (df, (name, Some(script))) =>
+                                              df.T(
+                                                s"SELECT $allColumns, ${script.richFormat(options)} as $name FROM __THIS__"
+                                              )
+                                            case (df, _) => df
+                                          }
                                       } else acceptedDF).drop(Settings.cometInputFileNameColumn)
     acceptedDfWithScriptFields
   }
