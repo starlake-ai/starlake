@@ -13,7 +13,7 @@ import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 import scala.util.{Failure, Success, Try}
 
-object DDLUtils extends LazyLogging {
+object JDBCUtils extends LazyLogging {
 
   type TableRemarks = String
   type Columns = List[Attribute]
@@ -297,6 +297,6 @@ object DDLUtils extends LazyLogging {
   }
 
   def main(args: Array[String]): Unit = {
-    DDL2Yml.run(args)
+    JDBC2Yml.run(args)
   }
 }

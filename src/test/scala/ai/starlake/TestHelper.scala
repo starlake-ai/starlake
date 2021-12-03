@@ -402,7 +402,10 @@ trait TestHelper
   // https://scala.monster/testcontainers/
   // We need to start it manually because we need to access the HTTP mapped port
   // in the configuration below before any test get executed.
-  lazy val kafkaContainer: KafkaContainer = KafkaContainer.Def().start()
+  lazy val kafkaContainer: KafkaContainer = {
+    val kafkaDockerTag = "7.8.1"
+    KafkaContainer.Def(kafkaDockerTag).start()
+  }
 
   lazy val esContainer: ElasticsearchContainer = {
     val esDockerImage = "docker.elastic.co/elasticsearch/elasticsearch"

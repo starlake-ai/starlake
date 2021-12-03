@@ -54,7 +54,7 @@ __New feature__:
 - Add ability to ignore some fields (only top level fields supported)
 - **BREAKING CHANGE**: Handle multiple schemas during extraction. Update your `extract` configurations before migrating to this version.
 - Improve InferSchemaJob
-- Include primary keys & foreign keys in DDL2Yml
+- Include primary keys & foreign keys in JDBC2Yml
 
 __Bug Fix__:
 - Handle rename in JSON / XML files
@@ -81,9 +81,9 @@ __Bug Fix__:
 
 ## 0.2.0
 __New feature__:
-- Export all tables in DDL2YML generation
+- Export all tables in JDBC2Yml generation
 - Include table & column names when meeting unknown column type in JDBC source schema
-- Better logging on forced conversion in DDL2YML
+- Better logging on forced conversion in JDBC2Yml
 - Compute Hive Statistics on Table & Partitions
 - DataGrip support with implementation of substitution for ${} in addition to {{}}
 - Improve logging
@@ -101,7 +101,7 @@ __Bug Fix__:
 
 ## 0.1.36
 __New feature__:
-- Parameterize with Domain & Schema metadata in DDL2YML generation 
+- Parameterize with Domain & Schema metadata in JDBC2Yml generation 
 __Bug Fix__:
 
 ## 0.1.35

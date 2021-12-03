@@ -78,7 +78,8 @@ case class Attribute(
   trim: Option[Trim] = None,
   script: Option[String] = None,
   foreignKey: Option[String] = None, // [domain.]table.attribute
-  ignore: Option[Boolean] = None
+  ignore: Option[Boolean] = None,
+  accessPolicy: Option[String] = None
 ) extends LazyLogging {
 
   override def toString: String =
