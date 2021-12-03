@@ -3,16 +3,17 @@ package ai.starlake.schema.generator
 import better.files.File
 import ai.starlake.config.Settings
 import ai.starlake.schema.model.Domain
+import ai.starlake.utils.YamlSerializer
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.LazyLogging
 
 import scala.util.{Failure, Success}
 
-object DDL2Yml extends LazyLogging {
+object JDBC2Yml extends LazyLogging {
 
   def run(args: Array[String]): Unit = {
     implicit val settings: Settings = Settings(ConfigFactory.load())
-    DDL2YmlConfig.parse(args) match {
+    JDBC2YmlConfig.parse(args) match {
       case Some(config) =>
         run(config)
       case None =>
@@ -30,7 +31,7 @@ object DDL2Yml extends LazyLogging {
     * @param settings
     *   : Application configuration file
     */
-  def run(config: DDL2YmlConfig)(implicit settings: Settings): Unit = {
+  def run(config: JDBC2YmlConfig)(implicit settings: Settings): Unit = {
     val jdbcSchemas =
       YamlSerializer.deserializeJDBCSchemas(File(config.jdbcMapping))
     jdbcSchemas.jdbcSchemas.foreach { jdbcSchema =>
@@ -64,11 +65,11 @@ object DDL2Yml extends LazyLogging {
   def run(jdbcSchema: JDBCSchema, domainTemplate: Option[Domain])(implicit
     settings: Settings
   ): Domain = {
-    val selectedTablesAndColumns = DDLUtils.extractJDBCTables(jdbcSchema)
-    DDLUtils.extractDomain(jdbcSchema, domainTemplate, selectedTablesAndColumns)
+    val selectedTablesAndColumns = JDBCUtils.extractJDBCTables(jdbcSchema)
+    JDBCUtils.extractDomain(jdbcSchema, domainTemplate, selectedTablesAndColumns)
   }
 
   def main(args: Array[String]): Unit = {
-    DDL2Yml.run(args)
+    JDBC2Yml.run(args)
   }
 }

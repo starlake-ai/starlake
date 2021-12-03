@@ -1,9 +1,9 @@
-package ai.starlake.schema.generator
+package ai.starlake.utils
 
-import ai.starlake.schema.model.{Schema, Schemas}
-import better.files.File
 import ai.starlake.config.Settings
+import ai.starlake.schema.generator.JDBCSchemas
 import ai.starlake.schema.model.{AutoJobDesc, Domain, Schema, Schemas}
+import better.files.File
 import com.fasterxml.jackson.annotation.JsonInclude.Include
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
