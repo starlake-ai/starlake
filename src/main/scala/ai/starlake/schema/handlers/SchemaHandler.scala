@@ -22,9 +22,8 @@ package ai.starlake.schema.handlers
 
 import ai.starlake.schema.model.{Schema, Type, Types, Views}
 import ai.starlake.config.{DatasetArea, Settings, StorageArea}
-import ai.starlake.schema.generator.YamlSerializer
 import ai.starlake.schema.model._
-import ai.starlake.utils.{CometObjectMapper, Utils}
+import ai.starlake.utils.{CometObjectMapper, Utils, YamlSerializer}
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.scala.experimental.ScalaObjectMapper
@@ -219,7 +218,7 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     }
 
     Utils.duplicates(
-      domains.map(_.directory),
+      domains.map(_.resolveDirectory()),
       s"%s is defined %d times. A directory can only appear once in a domain definition file."
     ) match {
       case Right(_) => domains

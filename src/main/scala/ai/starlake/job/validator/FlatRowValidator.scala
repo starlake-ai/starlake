@@ -106,7 +106,7 @@ object FlatRowValidator extends GenericRowValidator {
       .filter(_.isAccepted)
       .map { rowResult =>
         val sparkValues: List[Any] = rowResult.colResults.map(_.sparkValue)
-        //Row(sparkValues.toArray)
+        // Row(sparkValues.toArray)
         new GenericRowWithSchema(sparkValues.toArray, sparkType)
 
       }
