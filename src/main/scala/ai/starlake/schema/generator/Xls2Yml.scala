@@ -5,7 +5,7 @@ import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.schema.model._
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.LazyLogging
-import YamlSerializer._
+import ai.starlake.utils.YamlSerializer._
 
 object Xls2Yml extends LazyLogging {
 

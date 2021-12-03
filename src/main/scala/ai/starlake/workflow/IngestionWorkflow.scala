@@ -20,41 +20,6 @@
 
 package ai.starlake.workflow
 
-import ai.starlake.job.atlas.AtlasConfig
-import ai.starlake.job.index.bqload.BigQueryLoadConfig
-import ai.starlake.job.index.connectionload.ConnectionLoadConfig
-import ai.starlake.job.index.esload.ESLoadConfig
-import ai.starlake.job.index.kafkaload.KafkaJobConfig
-import ai.starlake.job.infer.InferSchemaConfig
-import ai.starlake.job.ingest.LoadConfig
-import ai.starlake.job.load.LoadStrategy
-import ai.starlake.job.metrics.MetricsConfig
-import ai.starlake.job.transform.AutoTaskJob
-import ai.starlake.schema.generator.Yml2DDLConfig
-import ai.starlake.schema.handlers.{LaunchHandler, SchemaHandler, StorageHandler}
-import ai.starlake.schema.model.Engine.{BQ, SPARK}
-import ai.starlake.schema.model.Format.{
-  DSV,
-  JSON,
-  KAFKA,
-  KAFKASTREAM,
-  POSITION,
-  SIMPLE_JSON,
-  TEXT_XML,
-  XML
-}
-import ai.starlake.schema.model.Mode.{FILE, STREAM}
-import ai.starlake.schema.model.{
-  BigQuerySink,
-  Domain,
-  EsSink,
-  JdbcSink,
-  PrivacyLevel,
-  Schema,
-  SinkType,
-  Stage
-}
-import better.files.File
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.job.atlas.{AtlasConfig, AtlasJob}
 import ai.starlake.job.index.bqload.{BigQueryLoadConfig, BigQuerySparkJob}
@@ -68,9 +33,12 @@ import ai.starlake.job.metrics.{MetricsConfig, MetricsJob}
 import ai.starlake.job.transform.AutoTaskJob
 import ai.starlake.schema.generator.{Yml2DDLConfig, Yml2DDLJob}
 import ai.starlake.schema.handlers.{LaunchHandler, SchemaHandler, StorageHandler}
+import ai.starlake.schema.model.Engine.{BQ, SPARK}
 import ai.starlake.schema.model.Format._
+import ai.starlake.schema.model.Mode.{FILE, STREAM}
 import ai.starlake.schema.model._
 import ai.starlake.utils._
+import better.files.File
 import com.google.cloud.bigquery.JobInfo.{CreateDisposition, WriteDisposition}
 import com.google.cloud.bigquery.{Schema => BQSchema}
 import com.typesafe.scalalogging.StrictLogging
@@ -118,7 +86,7 @@ class IngestionWorkflow(
     logger.info("LoadLanding")
     domains.foreach { domain =>
       val storageHandler = settings.storageHandler
-      val inputDir = new Path(domain.directory)
+      val inputDir = new Path(domain.resolveDirectory())
       if (storageHandler.exists(inputDir)) {
         logger.info(s"Scanning $inputDir")
         storageHandler

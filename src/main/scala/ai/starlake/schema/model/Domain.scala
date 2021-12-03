@@ -24,10 +24,12 @@ import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.utils.Utils
+import com.github.ghik.silencer.silent
 import org.apache.hadoop.fs.Path
 
 import java.util.regex.Pattern
 import scala.collection.mutable
+import scala.util.{Failure, Success, Try}
 
 /** Let's say you are willing to import customers and orders from your Sales system. Sales is
   * therefore the domain and customer & order are your datasets. In a DBMS, A Domain would be
@@ -62,18 +64,16 @@ import scala.collection.mutable
   *   folder only once a file with the same name as the source file and with this extension is
   *   present. To move a file without requiring an ack file to be present, set explicitly this
   *   property to the empty string value "".
-  * @param include
-  *   : Include views / assertions
   */
-case class Domain(
+@silent case class Domain(
   name: String,
-  directory: String,
+  @silent @deprecated("Moved to Metadata", "0.2.8") directory: Option[String] = None,
   metadata: Option[Metadata] = None,
   schemaRefs: Option[List[String]] = None,
   schemas: List[Schema] = Nil,
   comment: Option[String] = None,
-  extensions: Option[List[String]] = None,
-  ack: Option[String] = None
+  @silent @deprecated("Moved to Metadata", "0.2.8") extensions: Option[List[String]] = None,
+  @silent @deprecated("Moved to Metadata", "0.2.8") ack: Option[String] = None
 ) {
 
   /** Get schema from filename Schema are matched against filenames using filename patterns. The
@@ -131,7 +131,7 @@ case class Domain(
   def getExtensions(defaultFileExtensions: String, forceFileExtensions: String): List[String] = {
     def toList(extensions: String) = extensions.split(',').map(_.trim).toList
     val allExtensions =
-      extensions.getOrElse(toList(defaultFileExtensions)) ++ toList(forceFileExtensions)
+      resolveExtensions().getOrElse(toList(defaultFileExtensions)) ++ toList(forceFileExtensions)
     allExtensions.distinct.map { extension =>
       if (extension.startsWith(".") || extension.isEmpty)
         extension
@@ -140,12 +140,44 @@ case class Domain(
     }
   }
 
+  /** Resolve method are here to handle backward compatibility
+    * @return
+    */
+  @silent def resolveDirectory(): String = {
+    val maybeDirectory = for {
+      metadata  <- metadata
+      directory <- metadata.directory
+    } yield directory
+
+    maybeDirectory match {
+      case Some(directory) => directory
+      case None =>
+        this.directory
+          .getOrElse(throw new Exception("directory attribute is mandatory. should never happen"))
+    }
+  }
+
+  @silent def resolveAck(): Option[String] = {
+    val maybeAck = for {
+      metadata <- metadata
+      ack      <- metadata.ack
+    } yield ack
+
+    maybeAck match {
+      case Some(ack) => maybeAck
+      case None      => this.ack
+    }
+  }
+
+  @silent def resolveExtensions(): Option[List[String]] =
+    metadata.map(m => m.extensions).getOrElse(this.extensions)
+
   /** Ack file should be present for each file to ingest.
     *
     * @return
     *   the ack attribute or ".ack" by default
     */
-  def getAck(): String = ack.map(ack => if (ack.nonEmpty) "." + ack else ack).getOrElse("")
+  def getAck(): String = resolveAck().map(ack => if (ack.nonEmpty) "." + ack else ack).getOrElse("")
 
   /** Is this Domain valid ? A domain is valid if :
     *   - The domain name is a valid attribute
@@ -165,6 +197,12 @@ case class Domain(
     val dbNamePattern = Pattern.compile("[a-zA-Z][a-zA-Z0-9_]{1,100}")
     if (!dbNamePattern.matcher(name).matches())
       errorList += s"Domain with name $name should respect the pattern ${dbNamePattern.pattern()}"
+
+    Try(resolveDirectory()) match {
+      case Success(_) => //
+      case Failure(_) =>
+        errorList += s"Domain with name $name should define the directory attribute"
+    }
 
     // Check Schemas validity
     schemas.foreach { schema =>
