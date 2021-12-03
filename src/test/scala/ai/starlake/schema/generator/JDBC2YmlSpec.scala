@@ -192,7 +192,7 @@ class JDBC2YmlSpec extends TestHelper {
     val rendered = JDBC2YmlConfig.usage()
     val expected =
       """
-        |Usage: starlake ddl2yml [options]
+        |Usage: starlake jdbc2yml [options]
         |
         |  --jdbc-mapping <value>  Database tables & connection info
         |  --output-dir <value>    Where to output YML files
