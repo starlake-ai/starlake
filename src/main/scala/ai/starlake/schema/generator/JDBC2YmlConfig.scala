@@ -62,20 +62,20 @@ case class JDBCSchema(
   */
 case class JDBCTable(name: String, columns: Option[List[String]])
 
-case class DDL2YmlConfig(
+case class JDBC2YmlConfig(
   jdbcMapping: String = "",
   outputDir: String = "",
   ymlTemplate: Option[String] = None
 )
 
-object DDL2YmlConfig extends CliConfig[DDL2YmlConfig] {
+object JDBC2YmlConfig extends CliConfig[JDBC2YmlConfig] {
 
-  val parser: OParser[Unit, DDL2YmlConfig] = {
-    val builder = OParser.builder[DDL2YmlConfig]
+  val parser: OParser[Unit, JDBC2YmlConfig] = {
+    val builder = OParser.builder[JDBC2YmlConfig]
     import builder._
     OParser.sequence(
-      programName("starlake ddl2yml"),
-      head("starlake", "ddl2yml", "[options]"),
+      programName("starlake jdbc2yml"),
+      head("starlake", "jdbc2yml", "[options]"),
       note(""),
       opt[String]("jdbc-mapping")
         .action((x, c) => c.copy(jdbcMapping = x))
@@ -95,8 +95,8 @@ object DDL2YmlConfig extends CliConfig[DDL2YmlConfig] {
   /** @param args
     *   args list passed from command line
     * @return
-    *   Option of case class DDL2YmlConfig.
+    *   Option of case class JDBC2YmlConfig.
     */
-  def parse(args: Seq[String]): Option[DDL2YmlConfig] =
-    OParser.parse(parser, args, DDL2YmlConfig())
+  def parse(args: Seq[String]): Option[JDBC2YmlConfig] =
+    OParser.parse(parser, args, JDBC2YmlConfig())
 }

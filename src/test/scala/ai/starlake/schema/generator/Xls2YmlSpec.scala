@@ -4,6 +4,7 @@ import better.files.File
 import ai.starlake.TestHelper
 import ai.starlake.config.DatasetArea
 import ai.starlake.schema.model.{BigQuerySink, Domain, Format}
+import ai.starlake.utils.YamlSerializer
 
 class Xls2YmlSpec extends TestHelper {
   new WithSettings() {
