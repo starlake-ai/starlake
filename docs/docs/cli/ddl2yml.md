@@ -1,12 +1,12 @@
 ---
 sidebar_position: 100
-title: ddl2yml
+title: jdbc2yml
 ---
 
 
 ## Synopsis
 
-**starlake ddl2yml [options]**
+**starlake jdbc2yml [options]**
 
 ## Description
 

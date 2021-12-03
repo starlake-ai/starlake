@@ -13,7 +13,7 @@ import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 import scala.util.{Failure, Success, Try}
 
-object DDLUtils extends LazyLogging {
+object JDBCUtils extends LazyLogging {
 
   type TableRemarks = String
   type Columns = List[Attribute]
@@ -251,20 +251,24 @@ object DDLUtils extends LazyLogging {
     val incomingDir = domainTemplate
       .map { dom =>
         DatasetArea
-          .substituteDomainAndSchemaInPath(jdbcSchema.schema, "", dom.directory)
+          .substituteDomainAndSchemaInPath(jdbcSchema.schema, "", dom.resolveDirectory())
           .toString
       }
       .getOrElse(s"/${jdbcSchema.schema}")
 
+    val extensions = domainTemplate.flatMap(_.resolveExtensions())
+    val ack = domainTemplate.flatMap(_.resolveAck())
+
     Domain(
-      jdbcSchema.schema,
-      incomingDir,
-      domainTemplate.flatMap(_.metadata),
-      None,
-      cometSchema.toList,
-      None,
-      domainTemplate.flatMap(_.extensions),
-      domainTemplate.flatMap(_.ack)
+      name = jdbcSchema.schema,
+      metadata = domainTemplate
+        .flatMap(_.metadata)
+        .map(_.copy(directory = Some(incomingDir), extensions = extensions, ack = ack)),
+      schemaRefs = None,
+      schemas = cometSchema.toList,
+      comment = None,
+      extensions = None,
+      ack = None
     )
   }
 
@@ -293,6 +297,6 @@ object DDLUtils extends LazyLogging {
   }
 
   def main(args: Array[String]): Unit = {
-    DDL2Yml.run(args)
+    JDBC2Yml.run(args)
   }
 }

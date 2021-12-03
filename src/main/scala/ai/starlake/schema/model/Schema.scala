@@ -170,7 +170,8 @@ case class Schema(
   tags: Option[Set[String]] = None,
   rls: Option[List[RowLevelSecurity]] = None,
   assertions: Option[Map[String, String]] = None,
-  primaryKey: Option[List[String]] = None
+  primaryKey: Option[List[String]] = None,
+  accessPolicy: Option[String] = None
 ) {
 
   def ddlMapping(datawarehouse: String, schemaHandler: SchemaHandler): List[DDLField] = {

@@ -5,7 +5,7 @@ import ai.starlake.job.index.connectionload.ConnectionLoadConfig
 import ai.starlake.job.index.esload.ESLoadConfig
 import ai.starlake.job.index.kafkaload.KafkaJobConfig
 import ai.starlake.schema.generator.{
-  DDL2YmlConfig,
+  JDBC2YmlConfig,
   Xls2YmlConfig,
   Yml2GraphVizConfig,
   Yml2XlsConfig
@@ -21,7 +21,7 @@ import ai.starlake.job.infer.InferSchemaConfig
 import ai.starlake.job.ingest.LoadConfig
 import ai.starlake.job.metrics.MetricsConfig
 import ai.starlake.schema.generator.{
-  DDL2YmlConfig,
+  JDBC2YmlConfig,
   Xls2YmlConfig,
   Yml2GraphVizConfig,
   Yml2XlsConfig
@@ -41,7 +41,7 @@ class CliConfigSpec extends TestHelper {
         "parquet2csv"  -> Parquet2CSVConfig.markdown(7),
         "cnxload"      -> ConnectionLoadConfig.markdown(8),
         "xls2yml"      -> Xls2YmlConfig.markdown(9),
-        "ddl2yml"      -> DDL2YmlConfig.markdown(10),
+        "ddl2yml"      -> JDBC2YmlConfig.markdown(10),
         "extract"      -> ExtractScriptGenConfig.markdown(11),
         "transform"    -> TransformConfig.markdown(12),
         "watch"        -> WatchConfig.markdown(13),
