@@ -18,6 +18,11 @@ metadata:
 schemas:
   - name: "segment"
     pattern: "OneClient_Segmentation.*.*"
+    acl:
+      role1:
+        - user1
+        - user2
+        - user3
     primaryKey:
       - dream_id
     attributes:

@@ -458,7 +458,8 @@ trait IngestionJob extends SparkJob {
             requirePartitionFilter = sink.flatMap(_.requirePartitionFilter).getOrElse(false),
             rls = schema.rls,
             options = sink.map(_.getOptions).getOrElse(Map.empty),
-            partitionsToUpdate = partitionsToUpdate
+            partitionsToUpdate = partitionsToUpdate,
+            starlakeSchema = Some(schema)
           )
           val res = new BigQuerySparkJob(config, tableSchema).run()
           res match {

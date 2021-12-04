@@ -94,11 +94,12 @@ class BigQueryNativeJob(
       logger.info(
         s"Query large results performed successfully: ${results.getTotalRows} rows inserted."
       )
+      applyRLS()
       BigQueryJobResult(Some(results))
     }
   }
 
-  def runBatchQuery(): Try[JobResult] = {
+  def runBatchQuery(): Try[Job] = {
     Try {
       val bigquery: BigQuery = BigQueryOptions.getDefaultInstance.getService
       getOrCreateDataset()
@@ -116,14 +117,16 @@ class BigQueryNativeJob(
           .setUseLegacySql(false)
           .build()
       logger.info(s"Executing BQ Query $sql")
-      bigquery.create(JobInfo.newBuilder(queryConfig).setJobId(jobId).build)
+      val job = bigquery.create(JobInfo.newBuilder(queryConfig).setJobId(jobId).build)
       logger.info(
         s"Batch query wth jobId $jobId sent to BigQuery "
       )
-      BigQueryJobResult(None)
+      if (job == null)
+        throw new Exception("Job not executed since it no longer exists.")
+      else
+        job
     }
   }
-
 }
 
 object BigQueryNativeJob extends StrictLogging {
