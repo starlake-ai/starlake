@@ -210,6 +210,8 @@ object Settings extends StrictLogging {
     cometOffsetsMode: Option[String] = Some("STREAM")
   )
 
+  case class AccessPolicies(apply: Boolean, location: String, projectId: String, taxonomy: String)
+
   /** @param datasets
     *   : Absolute path, datasets root folder beneath which each area is defined.
     * @param metadata
@@ -282,7 +284,8 @@ object Settings extends StrictLogging {
     sqlParameterPattern: String,
     rejectAllOnError: Boolean,
     defaultFileExtensions: String,
-    forceFileExtensions: String
+    forceFileExtensions: String,
+    accessPolicies: AccessPolicies
   ) extends Serializable {
 
     @JsonIgnore

@@ -225,6 +225,15 @@ object Main extends StrictLogging {
             false
         }
 
+      case "secure" =>
+        WatchConfig.parse(args.drop(1)) match {
+          case Some(config) =>
+            workflow.secure(config)
+          case _ =>
+            println(WatchConfig.usage())
+            false
+        }
+
       case "xls2yml" =>
         Xls2Yml.run(args.drop(1))
 
