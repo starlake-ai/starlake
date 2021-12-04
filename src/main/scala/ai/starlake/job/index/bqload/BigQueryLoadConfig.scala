@@ -1,6 +1,6 @@
 package ai.starlake.job.index.bqload
 
-import ai.starlake.schema.model.{Engine, RowLevelSecurity}
+import ai.starlake.schema.model.{Engine, RowLevelSecurity, Schema}
 import ai.starlake.utils.CliConfig
 import org.apache.spark.sql.DataFrame
 import scopt.OParser
@@ -20,7 +20,9 @@ case class BigQueryLoadConfig(
   requirePartitionFilter: Boolean = false,
   engine: Engine = Engine.SPARK,
   options: Map[String, String] = Map.empty,
-  partitionsToUpdate: Option[List[String]] = None
+  partitionsToUpdate: Option[List[String]] = None,
+  acl: Option[Map[String, List[String]]] = None,
+  starlakeSchema: Option[Schema] = None
 ) {
   def getLocation(): String = this.location.getOrElse("EU")
 }
