@@ -139,8 +139,6 @@ class BigQuerySparkJob(
 
       val (table, tableDefinition) = getOrCreateTable(Some(sourceDF), maybeSchema)
 
-      setTablePolicy(table)
-
       val stdTableDefinition =
         bigquery.getTable(table.getTableId).getDefinition.asInstanceOf[StandardTableDefinition]
       logger.info(
@@ -258,36 +256,9 @@ class BigQuerySparkJob(
       logger.info(
         s"BigQuery Saved to ${table.getTableId} now contains ${stdTableDefinitionAfter.getNumRows} rows"
       )
-
-      /** !!! We will use TABLE ACCESS CONTROLS as workaround, until RLS option is released !!!
-        */
-      //      prepareRLS().foreach { rlsStatement =>
-      //        logger.info(s"Applying security $rlsStatement")
-      //        try {
-      //          Option(runJob(rlsStatement, cliConfig.getLocation())) match {
-      //            case None =>
-      //              throw new RuntimeException("Job no longer exists")
-      //            case Some(job) if job.getStatus.getExecutionErrors() != null =>
-      //              throw new RuntimeException(
-      //                job.getStatus.getExecutionErrors().asScala.reverse.mkString(",")
-      //              )
-      //            case Some(job) =>
-      //              logger.info(s"Job with id ${job} on Statement $rlsStatement succeeded")
-      //          }
-      //
-      //        } catch {
-      //          case e: Exception =>
-      //            e.printStackTrace()
-      //        }
-      //      }
+      applyRLS()
+      applyCLS()
       SparkJobResult(None)
-    }
-  }
-
-  private def setTablePolicy(table: Table) = {
-    cliConfig.rls match {
-      case Some(h :: Nil) => applyTableIamPolicy(table.getTableId, h)
-      case _              => logger.info(s"Table ACL is not set on this Table: $tableId")
     }
   }
 
