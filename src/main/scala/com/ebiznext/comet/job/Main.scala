@@ -80,7 +80,7 @@ object Main extends StrictLogging {
     */
   def main(args: Array[String]): Unit = {
     logger.warn(
-      "ai.starlake.job.Main is deprecated. Please start using ai.starlake.job.Main"
+      "com.ebiznext.comet.job.Main is deprecated. Please start using ai.starlake.job.Main"
     )
     Thread.sleep(10 * 1000)
     legacyMain(args)
