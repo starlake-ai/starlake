@@ -1,32 +1,5 @@
 package ai.starlake.job.ingest
 
-import ai.starlake.job.index.bqload.BigQuerySparkJob
-import ai.starlake.job.index.connectionload.ConnectionLoadConfig
-import ai.starlake.job.validator.{GenericRowValidator, ValidationResult}
-import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
-import ai.starlake.schema.model.Engine.SPARK
-import ai.starlake.schema.model.Rejection.ColResult
-import ai.starlake.schema.model.Stage.UNIT
-import ai.starlake.schema.model.Trim.{BOTH, LEFT, RIGHT}
-import ai.starlake.schema.model.WriteMode.APPEND
-import ai.starlake.schema.model.{
-  Attribute,
-  BigQuerySink,
-  Domain,
-  EsSink,
-  FsSink,
-  JdbcSink,
-  MergeOptions,
-  Metadata,
-  NoneSink,
-  PrivacyLevel,
-  Schema,
-  SinkType,
-  Stage,
-  Type,
-  WriteMode
-}
-import ai.starlake.utils.conversion.BigQueryUtils
 import ai.starlake.config.{DatasetArea, Settings, StorageArea}
 import ai.starlake.job.index.bqload.{BigQueryLoadConfig, BigQueryNativeJob, BigQuerySparkJob}
 import ai.starlake.job.index.connectionload.{ConnectionLoadConfig, ConnectionLoadJob}
@@ -35,8 +8,11 @@ import ai.starlake.job.ingest.ImprovedDataFrameContext._
 import ai.starlake.job.metrics.{AssertionJob, MetricsJob}
 import ai.starlake.job.validator.{GenericRowValidator, ValidationResult}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
+import ai.starlake.schema.model.Engine.SPARK
 import ai.starlake.schema.model.Rejection.{ColInfo, ColResult}
+import ai.starlake.schema.model.Stage.UNIT
 import ai.starlake.schema.model.Trim.{BOTH, LEFT, RIGHT}
+import ai.starlake.schema.model.WriteMode.APPEND
 import ai.starlake.schema.model._
 import ai.starlake.utils.Formatter._
 import ai.starlake.utils._
@@ -54,7 +30,6 @@ import com.google.cloud.bigquery.{
 }
 import org.apache.hadoop.fs.Path
 import org.apache.spark.ml.feature.SQLTransformer
-import org.apache.spark.rdd.RDD
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.{Metadata => _, _}
@@ -62,7 +37,6 @@ import org.apache.spark.sql.types.{Metadata => _, _}
 import java.sql.Timestamp
 import java.time.{Instant, LocalDateTime}
 import scala.collection.JavaConverters._
-import scala.language.existentials
 import scala.util.{Failure, Success, Try}
 
 trait IngestionJob extends SparkJob {
@@ -99,7 +73,7 @@ trait IngestionJob extends SparkJob {
     *
     * @param dataset
     */
-  protected def ingest(dataset: DataFrame): (RDD[_], RDD[_])
+  protected def ingest(dataset: DataFrame): (Dataset[String], Dataset[Row])
 
   @silent
   protected def applyIgnore(dfIn: DataFrame): Dataset[Row] = {
@@ -117,12 +91,12 @@ trait IngestionJob extends SparkJob {
   }
 
   protected def saveRejected(
-    errMessagesRDD: RDD[String],
-    rejectedLinesRDD: RDD[String]
+    errMessagesDS: Dataset[String],
+    rejectedLinesDS: Dataset[String]
   ): Try[Path] = {
     logger.whenDebugEnabled {
-      logger.debug(s"rejectedRDD SIZE ${errMessagesRDD.count()}")
-      errMessagesRDD.take(100).foreach(rejected => logger.debug(rejected.replaceAll("\n", "|")))
+      logger.debug(s"rejectedRDD SIZE ${errMessagesDS.count()}")
+      errMessagesDS.take(100).foreach(rejected => logger.debug(rejected.replaceAll("\n", "|")))
     }
     val domainName = domain.name
     val schemaName = schema.name
@@ -130,12 +104,13 @@ trait IngestionJob extends SparkJob {
     val start = Timestamp.from(Instant.now())
     val formattedDate = new java.text.SimpleDateFormat("yyyyMMddHHmmss").format(start)
 
-    if (settings.comet.sinkReplayToFile && !rejectedLinesRDD.isEmpty()) {
+    if (settings.comet.sinkReplayToFile && rejectedLinesDS.limit(1).count() > 0) {
       val replayArea = DatasetArea.replay(domainName)
       val targetPath =
         new Path(replayArea, s"$domainName.$schemaName.$formattedDate.replay")
-      rejectedLinesRDD
+      rejectedLinesDS
         .coalesce(1)
+        .rdd
         .saveAsTextFile(targetPath.toString)
       storageHandler.moveSparkPartFile(
         targetPath,
@@ -143,7 +118,7 @@ trait IngestionJob extends SparkJob {
       )
     }
 
-    IngestionUtil.sinkRejected(session, errMessagesRDD, domainName, schemaName, now) match {
+    IngestionUtil.sinkRejected(session, errMessagesDS, domainName, schemaName, now) match {
       case Success((rejectedDF, rejectedPath)) =>
         // We sink to a file when running unit tests
         if (settings.comet.sinkToFile) {
@@ -275,11 +250,10 @@ trait IngestionJob extends SparkJob {
     * @param acceptedDF
     */
   protected def saveAccepted(
-    dataframe: DataFrame,
     validationResult: ValidationResult
   ): (DataFrame, Path) = {
-    if (!settings.comet.rejectAllOnError || validationResult.rejected.isEmpty()) {
-      val acceptedDF = dfWithAttributesRenamed(dataframe)
+    if (!settings.comet.rejectAllOnError || validationResult.rejected.limit(1).count() == 0) {
+      val acceptedDF = dfWithAttributesRenamed(validationResult.accepted)
       val start = Timestamp.from(Instant.now())
       logger.whenDebugEnabled {
         logger.debug(s"acceptedRDD SIZE ${acceptedDF.count()}")
@@ -401,14 +375,9 @@ trait IngestionJob extends SparkJob {
         logger.debug("Accepted Dataframe schema right after adding computed columns")
         logger.debug(acceptedDfWithoutIgnoredFields.schemaString())
       }
-      val finalSchema = schema.finalSparkSchema(schemaHandler)
-
       // adding computed columns can change the order of columns, we must force the order defined in the schema
-      val orderedWithScriptFieldsDF =
-        session.createDataFrame(
-          acceptedDfWithoutIgnoredFields.select(finalSchema.map(attr => col(attr.name)): _*).rdd,
-          finalSchema
-        )
+      val cols = schema.finalAttributeNames().map(col)
+      val orderedWithScriptFieldsDF = acceptedDfWithoutIgnoredFields.select(cols: _*)
       logger.whenDebugEnabled {
         logger.debug("Accepted Dataframe schema after applying the defined schema")
         logger.debug(orderedWithScriptFieldsDF.schemaString())
@@ -429,33 +398,15 @@ trait IngestionJob extends SparkJob {
   private def computeScriptedAttributes(acceptedDF: DataFrame) = {
     val acceptedDfWithScriptFields = (if (schema.attributes.exists(_.script.isDefined)) {
                                         val allColumns = "*"
-                                        schema.attributes.foldLeft(acceptedDF) {
-                                          case (
-                                                df,
-                                                Attribute(
-                                                  name,
-                                                  _,
-                                                  _,
-                                                  _,
-                                                  _,
-                                                  _,
-                                                  _,
-                                                  _,
-                                                  _,
-                                                  _,
-                                                  _,
-                                                  _,
-                                                  _,
-                                                  Some(script),
-                                                  _,
-                                                  _
-                                                )
-                                              ) =>
-                                            df.T(
-                                              s"SELECT $allColumns, ${script.richFormat(options)} as $name FROM __THIS__"
-                                            )
-                                          case (df, _) => df
-                                        }
+                                        schema.attributes
+                                          .map(attr => (attr.name, attr.script))
+                                          .foldLeft(acceptedDF) {
+                                            case (df, (name, Some(script))) =>
+                                              df.T(
+                                                s"SELECT $allColumns, ${script.richFormat(options)} as $name FROM __THIS__"
+                                              )
+                                            case (df, _) => df
+                                          }
                                       } else acceptedDF).drop(Settings.cometInputFileNameColumn)
     acceptedDfWithScriptFields
   }
@@ -851,9 +802,9 @@ trait IngestionJob extends SparkJob {
     jobResult
   }
 
-  ///////////////////////////////////////////////////////////////////////////
+  // /////////////////////////////////////////////////////////////////////////
   // region Merge between the target and the source Dataframe
-  ///////////////////////////////////////////////////////////////////////////
+  // /////////////////////////////////////////////////////////////////////////
 
   private def mergeFromParquet(
     acceptedPath: Path,
@@ -963,9 +914,9 @@ trait IngestionJob extends SparkJob {
     (mergedDF, partitionsToUpdate)
   }
 
-  ///////////////////////////////////////////////////////////////////////////
+  // /////////////////////////////////////////////////////////////////////////
   // endregion
-  ///////////////////////////////////////////////////////////////////////////
+  // /////////////////////////////////////////////////////////////////////////
 
   def reorderAttributes(dataFrame: DataFrame): List[Attribute] = {
     val finalSchema = schema.attributesWithoutScriptedFields :+ Attribute(
@@ -1019,7 +970,7 @@ object IngestionUtil {
 
   def sinkRejected(
     session: SparkSession,
-    rejectedRDD: RDD[String],
+    rejectedDS: Dataset[String],
     domainName: String,
     schemaName: String,
     now: Timestamp
@@ -1030,7 +981,7 @@ object IngestionUtil {
     // We need to save first the application ID
     // refrencing it inside the worker (rdd.map) below would fail.
     val applicationId = session.sparkContext.applicationId
-    val rejectedTypedRDD = rejectedRDD.map { err =>
+    val rejectedTypedDS = rejectedDS.map { err =>
       RejectedRecord(
         applicationId,
         now,
@@ -1042,7 +993,7 @@ object IngestionUtil {
     }
     val rejectedDF = session
       .createDataFrame(
-        rejectedTypedRDD.toDF().rdd,
+        rejectedTypedDS.toDF().rdd,
         StructType(
           rejectedCols.map { case (attrName, _, sparkType) =>
             StructField(attrName, sparkType, nullable = false)

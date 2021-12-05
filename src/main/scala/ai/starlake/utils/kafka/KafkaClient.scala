@@ -2,9 +2,8 @@ package ai.starlake.utils.kafka
 
 import ai.starlake.config.Settings
 import ai.starlake.config.Settings.{KafkaConfig, KafkaTopicConfig}
-import ai.starlake.schema.generator.YamlSerializer
 import ai.starlake.schema.model.Mode
-import ai.starlake.utils.FileLock
+import ai.starlake.utils.{FileLock, YamlSerializer}
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
 import org.apache.kafka.clients.admin.{AdminClient, NewTopic}

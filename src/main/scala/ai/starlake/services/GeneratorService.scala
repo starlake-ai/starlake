@@ -6,7 +6,7 @@ import akka.http.scaladsl.server.directives.FileInfo
 import akka.http.scaladsl.server.{Directives, Route, StandardRoute}
 import ai.starlake.config.Settings
 import ai.starlake.schema.generator.Xls2Yml.{genPostEncryptionDomain, genPreEncryptionDomain}
-import ai.starlake.schema.generator.YamlSerializer._
+import ai.starlake.utils.YamlSerializer._
 import ai.starlake.schema.generator.{FileInput, XlsReader}
 
 import java.io.File

@@ -55,11 +55,11 @@ class BigQuerySparkJob(
     val writeDisposition = JobInfo.WriteDisposition.valueOf(cliConfig.writeDisposition)
 
     conf.set(
-      BigQueryConfiguration.OUTPUT_TABLE_WRITE_DISPOSITION_KEY,
+      BigQueryConfiguration.OUTPUT_TABLE_WRITE_DISPOSITION.getKey(),
       writeDisposition.toString
     )
     conf.set(
-      BigQueryConfiguration.OUTPUT_TABLE_CREATE_DISPOSITION_KEY,
+      BigQueryConfiguration.OUTPUT_TABLE_CREATE_DISPOSITION.getKey(),
       cliConfig.createDisposition
     )
     conf

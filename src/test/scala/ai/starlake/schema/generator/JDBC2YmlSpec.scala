@@ -3,12 +3,13 @@ package ai.starlake.schema.generator
 import better.files.File
 import ai.starlake.TestHelper
 import ai.starlake.schema.model.{Domain, Metadata, Mode}
+import ai.starlake.utils.YamlSerializer
 
 import java.sql.DriverManager
 import scala.util.{Failure, Success}
 
-class DDL2YmlSpec extends TestHelper {
-  "DDL2Yml of all tables" should "should generated all the table schemas in a YML file" in {
+class JDBC2YmlSpec extends TestHelper {
+  "JDBC2Yml of all tables" should "should generated all the table schemas in a YML file" in {
     new WithSettings() {
       val jdbcOptions = settings.comet.connections("test-h2")
       val conn = DriverManager.getConnection(
@@ -29,10 +30,14 @@ class DDL2YmlSpec extends TestHelper {
       val row1InsertionCheck = (1 == rs.getInt("ID")) && ("A" == rs.getString("NAME"))
       assert(row1InsertionCheck, "Data not inserted")
 
-      val metadata = Metadata(mode = Some(Mode.STREAM), quote = Some("::"))
-      val domainTemplate = Domain("CUSTOM_NAME", "/{domain}/{schema}", metadata = Some(metadata))
-      val config = DDL2YmlConfig()
-      DDL2Yml.run(JDBCSchema("test-h2", None, "PUBLIC", Nil), File("/tmp"), Some(domainTemplate))
+      val metadata = Metadata(
+        mode = Some(Mode.STREAM),
+        quote = Some("::"),
+        directory = Some("/{domain}/{schema}")
+      )
+      val domainTemplate = Domain(name = "CUSTOM_NAME", metadata = Some(metadata))
+      val config = JDBC2YmlConfig()
+      JDBC2Yml.run(JDBCSchema("test-h2", None, "PUBLIC", Nil), File("/tmp"), Some(domainTemplate))
       val domain = YamlSerializer.deserializeDomain(File("/tmp", "PUBLIC.comet.yml")) match {
         case Success(domain) => domain
         case Failure(e)      => throw e
@@ -97,7 +102,7 @@ class DDL2YmlSpec extends TestHelper {
     }
   }
 
-  "DDL2Yml of some columns" should "should generated only the tables and columns requested" in {
+  "JDBC2Yml of some columns" should "should generated only the tables and columns requested" in {
     new WithSettings() {
       val jdbcOptions = settings.comet.connections("test-h2")
       val conn = DriverManager.getConnection(
@@ -118,7 +123,7 @@ class DDL2YmlSpec extends TestHelper {
       val row1InsertionCheck = (1 == rs.getInt("ID")) && ("A" == rs.getString("NAME"))
       assert(row1InsertionCheck, "Data not inserted")
 
-      DDL2Yml.run(
+      JDBC2Yml.run(
         JDBCSchema("test-h2", None, "PUBLIC", List(JDBCTable("TEST_TABLE1", Some(List("ID"))))),
         File("/tmp"),
         None
@@ -137,7 +142,7 @@ class DDL2YmlSpec extends TestHelper {
     }
   }
 
-  "DDL2Yml with foreign keys" should "detect the foreign keys" in {
+  "JDBC2Yml with foreign keys" should "detect the foreign keys" in {
     new WithSettings() {
       val jdbcOptions = settings.comet.connections("test-h2")
       val conn = DriverManager.getConnection(
@@ -162,7 +167,7 @@ class DDL2YmlSpec extends TestHelper {
       val row1InsertionCheck = (1 == rs.getInt("ID")) && ("A" == rs.getString("NAME"))
       assert(row1InsertionCheck, "Data not inserted")
 
-      DDL2Yml.run(
+      JDBC2Yml.run(
         JDBCSchema("test-h2", None, "PUBLIC", List(JDBCTable("TEST_TABLE2", None))),
         File("/tmp"),
         None
@@ -184,10 +189,10 @@ class DDL2YmlSpec extends TestHelper {
   }
 
   "All SchemaGen Config" should "be known and taken  into account" in {
-    val rendered = DDL2YmlConfig.usage()
+    val rendered = JDBC2YmlConfig.usage()
     val expected =
       """
-        |Usage: starlake ddl2yml [options]
+        |Usage: starlake jdbc2yml [options]
         |
         |  --jdbc-mapping <value>  Database tables & connection info
         |  --output-dir <value>    Where to output YML files

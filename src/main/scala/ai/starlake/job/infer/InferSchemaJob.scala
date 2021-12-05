@@ -20,11 +20,9 @@
 
 package ai.starlake.job.infer
 
-import ai.starlake.schema.handlers.InferSchemaHandler
-import ai.starlake.schema.model.{Attribute, Domain}
 import ai.starlake.config.{Settings, SparkEnv}
 import ai.starlake.schema.handlers.InferSchemaHandler
-import ai.starlake.schema.model.{Attribute, Domain}
+import ai.starlake.schema.model.{Attribute, Domain, Metadata}
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.{DataFrame, Dataset, Encoders, SparkSession}
 
@@ -126,7 +124,7 @@ class InferSchemaJob(implicit settings: Settings) {
         .mapValues(_.length)
         .toList
         .maxBy { case (ch, count) => count }
-    //.maxBy(_._2)
+    // .maxBy(_._2)
     separator._1.toString
   }
 
@@ -247,7 +245,7 @@ class InferSchemaJob(implicit settings: Settings) {
       val domain: Domain =
         inferSchema.createDomain(
           domainName,
-          getDomainDirectoryName(path),
+          metadata = Some(Metadata(directory = Some(getDomainDirectoryName(path)))),
           schemas = List(schema)
         )
 

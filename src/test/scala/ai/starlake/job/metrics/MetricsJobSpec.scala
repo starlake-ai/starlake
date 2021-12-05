@@ -83,7 +83,7 @@ class MetricsJobSpec extends TestHelper with JdbcChecks {
 
     val value = sparkSession.read
       .format("csv")
-      .option("header", "true") //reading the headers
+      .option("header", "true") // reading the headers
       .option("mode", "DROPMALFORMED")
       .option("inferSchema", "true")
       .load("./src/test/resources/iris.csv")
