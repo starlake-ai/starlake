@@ -21,11 +21,9 @@
 package ai.starlake.job.ingest
 
 import ai.starlake.config.Settings
-import ai.starlake.job.validator.ValidationResult
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model._
 import org.apache.hadoop.fs.Path
-import org.apache.spark.rdd.RDD
 import org.apache.spark.sql._
 import org.apache.spark.sql.types.StructType
 
@@ -123,7 +121,7 @@ class DsvIngestionJob(
 
       logger.debug(dfIn.schema.treeString)
       if (dfIn.limit(1).count() == 0) {
-        //empty dataframe with accepted schema
+        // empty dataframe with accepted schema
         val sparkSchema = schema.sparkSchemaWithoutScriptedFields(schemaHandler)
 
         session
@@ -188,7 +186,7 @@ class DsvIngestionJob(
     * @param dataset
     *   : Spark Dataset
     */
-  protected def ingest(dataset: DataFrame): (RDD[_], RDD[_]) = {
+  protected def ingest(dataset: DataFrame): (Dataset[String], Dataset[Row]) = {
 
     val orderedAttributes = reorderAttributes(dataset)
 
@@ -214,17 +212,7 @@ class DsvIngestionJob(
     )
 
     saveRejected(validationResult.errors, validationResult.rejected)
-    saveAccepted(validationResult.accepted, orderedSparkTypes, validationResult)
+    saveAccepted(validationResult)
     (validationResult.errors, validationResult.accepted)
   }
-
-  protected def saveAccepted(
-    acceptedRDD: RDD[Row],
-    orderedSparkTypes: StructType,
-    validationResult: ValidationResult
-  ): (DataFrame, Path) = {
-    val acceptedDF = session.createDataFrame(acceptedRDD, orderedSparkTypes)
-    super.saveAccepted(acceptedDF, validationResult)
-  }
-
 }

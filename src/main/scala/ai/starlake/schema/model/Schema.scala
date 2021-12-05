@@ -170,7 +170,8 @@ case class Schema(
   tags: Option[Set[String]] = None,
   rls: Option[List[RowLevelSecurity]] = None,
   assertions: Option[Map[String, String]] = None,
-  primaryKey: Option[List[String]] = None
+  primaryKey: Option[List[String]] = None,
+  accessPolicy: Option[String] = None
 ) {
 
   def ddlMapping(datawarehouse: String, schemaHandler: SchemaHandler): List[DDLField] = {
@@ -259,7 +260,7 @@ case class Schema(
     p: Attribute => Boolean
   ): StructType = {
     val fields = attributes filter p map { attr =>
-      StructField(attr.rename.getOrElse(attr.name), attr.sparkType(schemaHandler), !attr.required)
+      StructField(attr.getFinalName(), attr.sparkType(schemaHandler), !attr.required)
         .withComment(attr.comment.getOrElse(""))
     }
     StructType(fields)
@@ -279,6 +280,9 @@ case class Schema(
       (attr.name, attr.getFinalName())
     }
   }
+
+  def finalAttributeNames(): List[String] =
+    attributes.filterNot(_.isIgnore()).map(attr => attr.getFinalName())
 
   /** Check attribute definition correctness :
     *   - schema name should be a valid table identifier

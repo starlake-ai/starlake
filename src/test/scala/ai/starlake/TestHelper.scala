@@ -361,7 +361,7 @@ trait TestHelper
     def landingPath: String =
       new SchemaHandler(settings.storageHandler)
         .getDomain(datasetDomainName)
-        .map(_.directory)
+        .map(_.resolveDirectory())
         .getOrElse(throw new Exception("Incoming directory must be specified in domain descriptor"))
 
     def loadLanding(implicit codec: Codec, createAckFile: Boolean = true): Unit = {
@@ -372,7 +372,7 @@ trait TestHelper
       DatasetArea.initDomains(storageHandler, schemaHandler.domains.map(_.name))
 
       // Get incoming directory from Domain descriptor
-      val incomingDirectory = schemaHandler.getDomain(datasetDomainName).map(_.directory)
+      val incomingDirectory = schemaHandler.getDomain(datasetDomainName).map(_.resolveDirectory())
       assert(incomingDirectory.isDefined)
 
       // Deliver file to incoming folder
@@ -399,10 +399,13 @@ trait TestHelper
     logger.info("-----")
   }
 
-  //https://scala.monster/testcontainers/
+  // https://scala.monster/testcontainers/
   // We need to start it manually because we need to access the HTTP mapped port
   // in the configuration below before any test get executed.
-  lazy val kafkaContainer: KafkaContainer = KafkaContainer.Def().start()
+  lazy val kafkaContainer: KafkaContainer = {
+    val kafkaDockerTag = "7.0.0"
+    KafkaContainer.Def(kafkaDockerTag).start()
+  }
 
   lazy val esContainer: ElasticsearchContainer = {
     val esDockerImage = "docker.elastic.co/elasticsearch/elasticsearch"

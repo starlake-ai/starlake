@@ -3,6 +3,7 @@ package ai.starlake.schema.generator
 import ai.starlake.TestHelper
 import ai.starlake.config.StorageArea
 import ai.starlake.schema.model.{AutoJobDesc, AutoTaskDesc, WriteMode}
+import ai.starlake.utils.YamlSerializer
 
 class YamlSerializerSpec extends TestHelper {
   new WithSettings() {

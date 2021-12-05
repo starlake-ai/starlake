@@ -21,7 +21,7 @@
 package ai.starlake.schema.generator
 
 import ai.starlake.config.Settings
-import ai.starlake.schema.generator.DDLUtils.{Columns, PrimaryKeys, TableRemarks}
+import ai.starlake.schema.generator.JDBCUtils.{Columns, PrimaryKeys, TableRemarks}
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.{Domain, Schema}
 import com.typesafe.scalalogging.StrictLogging
@@ -65,7 +65,7 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
         }
         val existingTables = config.connection match {
           case Some(connection) =>
-            DDLUtils.extractJDBCTables(
+            JDBCUtils.extractJDBCTables(
               JDBCSchema(
                 connection,
                 config.catalog,
@@ -218,7 +218,7 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
 
       if (config.apply)
         config.connection.fold(logger.warn("Could not apply script, connection is not defined"))(
-          conn => DDLUtils.applyScript(sqlScript, conn)
+          conn => JDBCUtils.applyScript(sqlScript, conn)
         )
     }
 

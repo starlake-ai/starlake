@@ -1,16 +1,15 @@
 package ai.starlake.job.validator
 
-import ai.starlake.schema.model.Rejection.RowResult
-import ai.starlake.schema.model.{Attribute, Type}
 import ai.starlake.config.Settings
 import ai.starlake.job.ingest.IngestionUtil
 import ai.starlake.schema.model.Rejection.{ColInfo, ColResult, RowInfo, RowResult}
 import ai.starlake.schema.model.{Attribute, Format, Type}
 import com.google.gson.Gson
 import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.{DataFrame, Row, SparkSession}
+import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
 import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 
 import java.sql.Timestamp
 import java.time.Instant
@@ -45,54 +44,52 @@ object FlatRowValidator extends GenericRowValidator {
   )(implicit settings: Settings): ValidationResult = {
     val now = Timestamp.from(Instant.now)
     val checkedRDD: RDD[RowResult] = dataset.rdd
-      .mapPartitions { partition =>
-        partition.map { row =>
-          val rowValues: Seq[(Option[String], Attribute)] = row.toSeq
-            .zip(attributes)
-            .map { case (colValue, colAttribute) =>
-              (Option(colValue).map(_.toString), colAttribute)
-            }
-          val rowCols = rowValues.zip(types)
-          lazy val colMap = rowValues.map { case (colValue, colAttr) =>
-            (colAttr.name, colValue)
-          }.toMap
-          val validNumberOfColumns = attributes.length <= rowCols.length
-          if (!validNumberOfColumns) {
-            val colResults = rowCols.map { case ((colRawValue, colAttribute), tpe) =>
-              ColResult(
-                ColInfo(
-                  colRawValue,
-                  colAttribute.name,
-                  tpe.name,
-                  tpe.pattern,
-                  success = false
-                ),
-                null
-              )
-            }.toList
-            RowResult(
-              colResults,
-              false,
-              row.getAs[String](Settings.cometInputFileNameColumn),
-              Some(toOriginalFormat(row, format, separator))
-            )
-          } else {
-            val colResults = rowCols.map { case ((colRawValue, colAttribute), tpe) =>
-              IngestionUtil.validateCol(colRawValue, colAttribute, tpe, colMap)
-            }.toList
-            val isRowAccepted = colResults.forall(_.colInfo.success)
-            RowResult(
-              colResults,
-              isRowAccepted,
-              row.getAs[String](Settings.cometInputFileNameColumn),
-              if (isRowAccepted || !settings.comet.sinkReplayToFile) None
-              else Some(toOriginalFormat(row, format, separator))
-            )
+      .map { row =>
+        val rowValues: Seq[(Option[String], Attribute)] = row.toSeq
+          .zip(attributes)
+          .map { case (colValue, colAttribute) =>
+            (Option(colValue).map(_.toString), colAttribute)
           }
+        val rowCols = rowValues.zip(types)
+        lazy val colMap = rowValues.map { case (colValue, colAttr) =>
+          (colAttr.name, colValue)
+        }.toMap
+        val validNumberOfColumns = attributes.length <= rowCols.length
+        if (!validNumberOfColumns) {
+          val colResults = rowCols.map { case ((colRawValue, colAttribute), tpe) =>
+            ColResult(
+              ColInfo(
+                colRawValue,
+                colAttribute.name,
+                tpe.name,
+                tpe.pattern,
+                success = false
+              ),
+              ""
+            )
+          }.toList
+          RowResult(
+            colResults,
+            false,
+            row.getAs[String](Settings.cometInputFileNameColumn),
+            Some(toOriginalFormat(row, format, separator))
+          )
+        } else {
+          val colResults = rowCols.map { case ((colRawValue, colAttribute), tpe) =>
+            IngestionUtil.validateCol(colRawValue, colAttribute, tpe, colMap)
+          }.toList
+          val isRowAccepted = colResults.forall(_.colInfo.success)
+          RowResult(
+            colResults,
+            isRowAccepted,
+            row.getAs[String](Settings.cometInputFileNameColumn),
+            if (isRowAccepted || !settings.comet.sinkReplayToFile) None
+            else Some(toOriginalFormat(row, format, separator))
+          )
         }
       } persist (settings.comet.cacheStorageLevel)
 
-    val rejectedRDD: RDD[String] = checkedRDD
+    val rejectedRDD = checkedRDD
       .filter(_.isRejected)
       .map(rowResult =>
         RowInfo(
@@ -102,13 +99,24 @@ object FlatRowValidator extends GenericRowValidator {
         ).toString
       )
 
-    val rejectedInputLinesRDD: RDD[String] = checkedRDD.filter(_.isRejected).flatMap(_.inputLine)
+    val rejectedInputLinesRDD = checkedRDD.filter(_.isRejected).flatMap(_.inputLine)
 
-    val acceptedRDD: RDD[Row] = checkedRDD.filter(_.isAccepted).map { rowResult =>
-      val sparkValues: List[Any] = rowResult.colResults.map(_.sparkValue)
-      new GenericRowWithSchema(Row(sparkValues: _*).toSeq.toArray, sparkType)
-    }
+    implicit val enc = RowEncoder.apply(sparkType)
+    val acceptedRDD: RDD[Row] = checkedRDD
+      .filter(_.isAccepted)
+      .map { rowResult =>
+        val sparkValues: List[Any] = rowResult.colResults.map(_.sparkValue)
+        // Row(sparkValues.toArray)
+        new GenericRowWithSchema(sparkValues.toArray, sparkType)
 
-    ValidationResult(rejectedRDD, rejectedInputLinesRDD, acceptedRDD)
+      }
+
+    val acceptedDS = session.createDataFrame(acceptedRDD, sparkType)
+
+    import session.implicits._
+    val rejectedDS = rejectedRDD.toDS()
+    val rejectedInputLinesDS = rejectedInputLinesRDD.toDS()
+
+    ValidationResult(rejectedDS, rejectedInputLinesDS, acceptedDS)
   }
 }

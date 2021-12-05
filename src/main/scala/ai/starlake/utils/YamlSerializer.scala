@@ -1,9 +1,9 @@
-package ai.starlake.schema.generator
+package ai.starlake.utils
 
-import ai.starlake.schema.model.{Schema, Schemas}
-import better.files.File
 import ai.starlake.config.Settings
+import ai.starlake.schema.generator.JDBCSchemas
 import ai.starlake.schema.model.{AutoJobDesc, Domain, Schema, Schemas}
+import better.files.File
 import com.fasterxml.jackson.annotation.JsonInclude.Include
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
@@ -28,7 +28,7 @@ object YamlSerializer extends LazyLogging {
       .writer()
       .withAttribute(classOf[Settings], settings)
     val jsonContent = jobWriter.writeValueAsString(job)
-    //val jobReader = mapper.reader().withAttribute(classOf[Settings], settings)
+    // val jobReader = mapper.reader().withAttribute(classOf[Settings], settings)
     mapper.readValue(jsonContent, classOf[Map[String, Any]])
   }
 
