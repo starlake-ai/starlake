@@ -190,6 +190,7 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
               .flatMap(_.schemas)
             Success(domain.copy(schemas = Option(domain.schemas).getOrElse(Nil) ::: schemaRefs))
           case Failure(e) =>
+            Utils.logException(logger, e)
             Failure(e)
         }
       }

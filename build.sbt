@@ -82,6 +82,7 @@ Compile / assembly / artifact := {
 addArtifact(Compile / assembly / artifact, assembly)
 
 assembly / assemblyMergeStrategy := {
+  case PathList("META-INF", "services", _ @_*) => MergeStrategy.concat
   case PathList("META-INF", _ @_*) => MergeStrategy.discard
   case "reference.conf"            => MergeStrategy.concat
   case _                           => MergeStrategy.first
@@ -101,7 +102,8 @@ assembly / assemblyShadeRules := Seq(
   // poi needs a newer version of commons-compress (> 1.17) than the one shipped with spark (1.4)
   ShadeRule.rename("org.apache.commons.compress.**" -> "poiShade.commons.compress.@1").inAll,
   //shade it or else writing to bigquery wont work because spark comes with an older version of google common.
-  ShadeRule.rename("com.google.common.**" -> "shade.@0").inAll
+  ShadeRule.rename("com.google.common.**" -> "shade.@0").inAll,
+  ShadeRule.rename("com.google.protobuf.**" -> "shade.@0").inAll
 )
 
 // Publish
