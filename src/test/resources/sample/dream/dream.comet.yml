@@ -20,9 +20,14 @@ schemas:
     pattern: "OneClient_Segmentation.*.*"
     acl:
       role1:
-        - user1
-        - user2
-        - user3
+        - role: viewer
+          grants:
+            - "user:me@me.com"
+            - "user:you@me.com"
+        - role: owner
+          grants:
+            - "user:me@you.com"
+            - "user:you@you.com"
     primaryKey:
       - dream_id
     attributes:

@@ -256,8 +256,8 @@ class BigQuerySparkJob(
       logger.info(
         s"BigQuery Saved to ${table.getTableId} now contains ${stdTableDefinitionAfter.getNumRows} rows"
       )
-      applyRLS()
-      applyCLS()
+      Utils.logIfFailure(logger, applyRLS())
+      Utils.logIfFailure(logger, applyCLS())
       SparkJobResult(None)
     }
   }

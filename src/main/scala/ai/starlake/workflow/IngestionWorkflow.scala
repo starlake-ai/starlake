@@ -794,9 +794,9 @@ class IngestionWorkflow(
         val res = new BigQuerySparkJob(config).applyRLS(forceApply = true)
         res match {
           case Success(_) =>
-            new BigQuerySparkJob(config).applyCLS(forceApply = true)
+            Utils.logIfFailure(logger, new BigQuerySparkJob(config).applyCLS(forceApply = true))
           case Failure(e) =>
-            logger.error(e.getMessage())
+            Utils.logException(logger, e)
             throw e
         }
       }

@@ -171,7 +171,7 @@ case class Schema(
   rls: Option[List[RowLevelSecurity]] = None,
   assertions: Option[Map[String, String]] = None,
   primaryKey: Option[List[String]] = None,
-  acl: Option[Map[String, List[String]]] = None
+  acl: Option[List[AccessControlList]] = None
 ) {
 
   def ddlMapping(datawarehouse: String, schemaHandler: SchemaHandler): List[DDLField] = {
