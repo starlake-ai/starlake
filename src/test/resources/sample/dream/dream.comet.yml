@@ -18,6 +18,15 @@ metadata:
 schemas:
   - name: "segment"
     pattern: "OneClient_Segmentation.*.*"
+    acl:
+      - role: viewer
+        grants:
+          - "user:me@me.com"
+          - "user:you@me.com"
+      - role: owner
+        grants:
+          - "user:me@you.com"
+          - "user:you@you.com"
     primaryKey:
       - dream_id
     attributes:

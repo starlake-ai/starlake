@@ -71,7 +71,7 @@ class BigQuerySparkJob(
   ): (Table, StandardTableDefinition) = {
     getOrCreateDataset()
 
-    val table = Option(bigquery.getTable(tableId)) getOrElse {
+    val table = Option(BigQueryJobBase.bigquery.getTable(tableId)) getOrElse {
       val withPartitionDefinition =
         (maybeSchema, cliConfig.outputPartition) match {
           case (Some(schema), Some(partitionField)) =>
@@ -115,7 +115,9 @@ class BigQuerySparkJob(
             val clustering = Clustering.newBuilder().setFields(fields.asJava).build()
             withPartitionDefinition.setClustering(clustering)
         }
-      bigquery.create(TableInfo.newBuilder(tableId, withClusteringDefinition.build()).build)
+      BigQueryJobBase.bigquery.create(
+        TableInfo.newBuilder(tableId, withClusteringDefinition.build()).build
+      )
     }
     (table, table.getDefinition.asInstanceOf[StandardTableDefinition])
 
@@ -139,10 +141,11 @@ class BigQuerySparkJob(
 
       val (table, tableDefinition) = getOrCreateTable(Some(sourceDF), maybeSchema)
 
-      setTablePolicy(table)
-
       val stdTableDefinition =
-        bigquery.getTable(table.getTableId).getDefinition.asInstanceOf[StandardTableDefinition]
+        BigQueryJobBase.bigquery
+          .getTable(table.getTableId)
+          .getDefinition
+          .asInstanceOf[StandardTableDefinition]
       logger.info(
         s"BigQuery Saving to  ${table.getTableId} containing ${stdTableDefinition.getNumRows} rows"
       )
@@ -254,40 +257,19 @@ class BigQuerySparkJob(
       }
 
       val stdTableDefinitionAfter =
-        bigquery.getTable(table.getTableId).getDefinition.asInstanceOf[StandardTableDefinition]
+        BigQueryJobBase.bigquery
+          .getTable(table.getTableId)
+          .getDefinition
+          .asInstanceOf[StandardTableDefinition]
       logger.info(
         s"BigQuery Saved to ${table.getTableId} now contains ${stdTableDefinitionAfter.getNumRows} rows"
       )
+      applyRLSAndCLS().recover { case e =>
+        Utils.logException(logger, e)
+        throw e
+      }
 
-      /** !!! We will use TABLE ACCESS CONTROLS as workaround, until RLS option is released !!!
-        */
-      //      prepareRLS().foreach { rlsStatement =>
-      //        logger.info(s"Applying security $rlsStatement")
-      //        try {
-      //          Option(runJob(rlsStatement, cliConfig.getLocation())) match {
-      //            case None =>
-      //              throw new RuntimeException("Job no longer exists")
-      //            case Some(job) if job.getStatus.getExecutionErrors() != null =>
-      //              throw new RuntimeException(
-      //                job.getStatus.getExecutionErrors().asScala.reverse.mkString(",")
-      //              )
-      //            case Some(job) =>
-      //              logger.info(s"Job with id ${job} on Statement $rlsStatement succeeded")
-      //          }
-      //
-      //        } catch {
-      //          case e: Exception =>
-      //            e.printStackTrace()
-      //        }
-      //      }
       SparkJobResult(None)
-    }
-  }
-
-  private def setTablePolicy(table: Table) = {
-    cliConfig.rls match {
-      case Some(h :: Nil) => applyTableIamPolicy(table.getTableId, h)
-      case _              => logger.info(s"Table ACL is not set on this Table: $tableId")
     }
   }
 
