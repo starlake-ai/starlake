@@ -24,8 +24,15 @@ jobs:
         uses: actions/setup-java@v1
         with:
           java-version: 1.8
+      - uses: google-github-actions/setup-gcloud@master
+        with:
+          project_id: ${{ secrets.GCP_PROJECT }}
+          service_account_key: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+          export_default_credentials: true
+      - name: Use gcloud CLI
+        run: gcloud info
       - name: Run tests & Coverage Report
-        run: sbt coverage test coverageReport
+        run: COMET_ACCESS_POLICIES_PROJECT_ID=${{ secrets.GCP_PROJECT }} TEMPORARY_GCS_BUCKET=starlake-app COMET_GCP_TEST=true sbt coverage test coverageReport
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v1
         with:

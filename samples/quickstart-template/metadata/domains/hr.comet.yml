@@ -19,6 +19,7 @@ load:
         - name: "id"
           type: "string"
           required: true
+          accessPolicy: PII
         - name: "seller_email"
           type: "email"
           required: true

@@ -21,7 +21,6 @@ case class RowLevelSecurity(
       assert(res.length == 2)
       (UserType.fromString(res(0).trim), res(1).trim)
     }
-
   }
 }
 

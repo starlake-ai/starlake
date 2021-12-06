@@ -5,7 +5,12 @@ awk -v bucket="$GCP_BUCKET_NAME" -v project="$GCP_PROJECT_ID" -v json="$GCP_SA_J
 
 export COMET_SPARK_SQL_SOURCES_PARTITION_OVERWRITE_MODE=dynamic
 export COMET_MERGE_OPTIMIZE_PARTITION_WRITE=true
+export COMET_ACCESS_POLICIES_APPLY=true
+export COMET_ACCESS_POLICIES_LOCATION=eu
+export COMET_ACCESS_POLICIES_PROJECT_ID=starlake-325712
+export COMET_ACCESS_POLICIES_TAXONOMY=RGPD
 
-#SPARK_DRIVER_OPTIONS="-Dconfig.file=$PWD/application.conf -agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005 -Dlog4j.configuration=file://$SPARK_DIR/conf/log4j.properties.template"
+SPARK_DRIVER_OPTIONS="-Dconfig.file=$PWD/application.conf -Dlog4j.configuration=file://$SPARK_DIR/conf/log4j.properties.template"
+SPARK_DRIVER_OPTIONS="-Dconfig.file=$PWD/application.conf -agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005 -Dlog4j.configuration=file://$SPARK_DIR/conf/log4j.properties.template"
 
 $SPARK_SUBMIT --driver-java-options "$SPARK_DRIVER_OPTIONS" $SPARK_CONF_OPTIONS  --class $COMET_MAIN $COMET_JAR_FULL_NAME watch

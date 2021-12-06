@@ -80,7 +80,7 @@ object Main extends StrictLogging {
     */
   def main(args: Array[String]): Unit = {
     logger.warn(
-      "ai.starlake.job.Main is deprecated. Please start using ai.starlake.job.Main"
+      "com.ebiznext.comet.job.Main is deprecated. Please start using ai.starlake.job.Main"
     )
     Thread.sleep(10 * 1000)
     legacyMain(args)
@@ -222,6 +222,15 @@ object Main extends StrictLogging {
             new Parquet2CSV(config, storageHandler).run().isSuccess
           case _ =>
             println(Parquet2CSVConfig.usage())
+            false
+        }
+
+      case "secure" =>
+        WatchConfig.parse(args.drop(1)) match {
+          case Some(config) =>
+            workflow.secure(config)
+          case _ =>
+            println(WatchConfig.usage())
             false
         }
 
