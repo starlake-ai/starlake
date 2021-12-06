@@ -8,8 +8,6 @@ load:
       type: ${sink_type}
   schemas:
     - name: "sellers"
-      acl:
-      - "roles/bigquery.dataViewer": "user:hayssam@saleh.fr"
       pattern: "sellers-.*.json"
       primaryKey:
         - id
