@@ -41,11 +41,16 @@ schemas:
         attributes: []
   - name: "account"
     pattern: ".*TBL"
+    acl:
+      - role: "roles/bigquery/dataViewer"
+        grants:
+          - "user:hayssam@saleh.fr"
     merge:
       key:
         - code1
     attributes:
       - name: "code0"
+        accessPolicy: PII
         type: "string"
         required: true
         privacy: "NONE"
