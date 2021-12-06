@@ -1,8 +1,7 @@
 package ai.starlake.job.gcp
 
+import ai.starlake.job.index.bqload.BigQueryJobBase
 import com.google.cloud.bigquery.{
-  BigQuery,
-  BigQueryOptions,
   Field,
   PolicyTags,
   Schema,
@@ -53,9 +52,8 @@ class DataCatalogTest
       val policyTag = client.getPolicyTag(getPolicyTagRequest)
       println(policyTag)
 
-      val bigquery: BigQuery = BigQueryOptions.getDefaultInstance.getService
       val tableId = TableId.of("audit", "audit")
-      val table: Table = bigquery.getTable(tableId)
+      val table: Table = BigQueryJobBase.bigquery.getTable(tableId)
       val tableDefinition = table.getDefinition().asInstanceOf[StandardTableDefinition]
       val bqSchema = tableDefinition.getSchema()
       val bqFields = bqSchema.getFields.asScala.toList

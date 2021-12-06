@@ -35,7 +35,8 @@ class BigQueryNativeJob(
         .setAllowLargeResults(true)
     logger.info(s"Running BQ Query $sql")
     val queryConfigWithUDF = addUDFToQueryConfig(queryConfig)
-    val results = bigquery.query(queryConfigWithUDF.setPriority(Priority.INTERACTIVE).build())
+    val results =
+      BigQueryJobBase.bigquery.query(queryConfigWithUDF.setPriority(Priority.INTERACTIVE).build())
     logger.info(
       s"Query large results performed successfully: ${results.getTotalRows} rows inserted."
     )
@@ -90,7 +91,8 @@ class BigQueryNativeJob(
       }
       val queryConfigWithUDF = addUDFToQueryConfig(queryConfigWithClustering)
       logger.info(s"Executing BQ Query $sql")
-      val results = bigquery.query(queryConfigWithUDF.setDestinationTable(tableId).build())
+      val results =
+        BigQueryJobBase.bigquery.query(queryConfigWithUDF.setDestinationTable(tableId).build())
       logger.info(
         s"Query large results performed successfully: ${results.getTotalRows} rows inserted."
       )
@@ -101,7 +103,6 @@ class BigQueryNativeJob(
 
   def runBatchQuery(): Try[Job] = {
     Try {
-      val bigquery: BigQuery = BigQueryOptions.getDefaultInstance.getService
       getOrCreateDataset()
       val jobId = JobId
         .newBuilder()
@@ -117,7 +118,8 @@ class BigQueryNativeJob(
           .setUseLegacySql(false)
           .build()
       logger.info(s"Executing BQ Query $sql")
-      val job = bigquery.create(JobInfo.newBuilder(queryConfig).setJobId(jobId).build)
+      val job =
+        BigQueryJobBase.bigquery.create(JobInfo.newBuilder(queryConfig).setJobId(jobId).build)
       logger.info(
         s"Batch query wth jobId $jobId sent to BigQuery "
       )
@@ -132,15 +134,14 @@ class BigQueryNativeJob(
 object BigQueryNativeJob extends StrictLogging {
   def createTable(datasetName: String, tableName: String, schema: Schema): Unit = {
     Try {
-      val bigquery = BigQueryOptions.getDefaultInstance.getService
       val tableId = TableId.of(datasetName, tableName)
-      val table = scala.Option(bigquery.getTable(tableId))
+      val table = scala.Option(BigQueryJobBase.bigquery.getTable(tableId))
       table match {
         case Some(tbl) if tbl.exists() =>
         case _ =>
           val tableDefinition = StandardTableDefinition.of(schema)
           val tableInfo = TableInfo.newBuilder(tableId, tableDefinition).build
-          bigquery.create(tableInfo)
+          BigQueryJobBase.bigquery.create(tableInfo)
           logger.info(s"Table $datasetName.$tableName created successfully")
       }
     } match {
@@ -153,7 +154,6 @@ object BigQueryNativeJob extends StrictLogging {
 
   @deprecated("Views are now created using the syntax WTH ... AS ...", "0.1.25")
   def createViews(views: Map[String, String], udf: scala.Option[String]) = {
-    val bigquery: BigQuery = BigQueryOptions.getDefaultInstance.getService
     views.foreach { case (key, value) =>
       val viewQuery: ViewDefinition.Builder =
         ViewDefinition.newBuilder(value).setUseLegacySql(false)
@@ -164,10 +164,10 @@ object BigQueryNativeJob extends StrictLogging {
         }
         .getOrElse(viewQuery)
       val tableId = BigQueryJobBase.extractProjectDatasetAndTable(key)
-      val viewRef = scala.Option(bigquery.getTable(tableId))
+      val viewRef = scala.Option(BigQueryJobBase.bigquery.getTable(tableId))
       if (viewRef.isEmpty) {
         logger.info(s"View $tableId does not exist, creating it!")
-        bigquery.create(TableInfo.of(tableId, viewDefinition.build()))
+        BigQueryJobBase.bigquery.create(TableInfo.of(tableId, viewDefinition.build()))
         logger.info(s"View $tableId created")
       } else {
         logger.info(s"View $tableId already exist")
