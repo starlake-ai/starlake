@@ -791,13 +791,10 @@ class IngestionWorkflow(
           acl = schema.acl,
           starlakeSchema = Some(schema)
         )
-        val res = new BigQuerySparkJob(config).applyRLS(forceApply = true)
-        res match {
-          case Success(_) =>
-            Utils.logIfFailure(logger, new BigQuerySparkJob(config).applyCLS(forceApply = true))
-          case Failure(e) =>
-            Utils.logException(logger, e)
-            throw e
+        val res = new BigQuerySparkJob(config).applyRLSAndCLS(forceApply = true)
+        res.recover { case e =>
+          Utils.logException(logger, e)
+          throw e
         }
       }
     }

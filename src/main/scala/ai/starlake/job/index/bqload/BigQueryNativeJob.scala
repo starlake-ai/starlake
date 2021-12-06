@@ -96,7 +96,12 @@ class BigQueryNativeJob(
       logger.info(
         s"Query large results performed successfully: ${results.getTotalRows} rows inserted."
       )
-      applyRLS()
+
+      applyRLSAndCLS().recover { case e =>
+        Utils.logException(logger, e)
+        throw new Exception(e)
+      }
+
       BigQueryJobResult(Some(results))
     }
   }
