@@ -94,7 +94,8 @@ trait TestHelper
         |COMET_METRICS_PATH="${cometTestRoot}/metrics/{domain}/{schema}"
         |COMET_AUDIT_PATH="${cometTestRoot}/audit"
         |COMET_UDFS="ai.starlake.udf.TestUdf"
-        |
+        |COMET_ACCESS_POLICIES_LOCATION="eu"
+        |COMET_ACCESS_POLICIES_TAXONOMY="RGPD"
         |include required("application-test.conf")
         |""".stripMargin,
       ConfigParseOptions.defaults().setAllowMissing(false)
