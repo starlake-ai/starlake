@@ -80,78 +80,81 @@ trait BigQueryJobBase extends StrictLogging {
     settings: Settings
   ): Try[Unit] = {
     Try {
-
       if (forceApply || settings.comet.accessPolicies.apply) {
         cliConfig.starlakeSchema match {
           case None =>
           case Some(schema) =>
-            val (location, projectId, taxonomy, taxonomyRef) =
-              getTaxonomy(BigQueryJobBase.policyTagClient)
-            val policyTagIds = mutable.Map.empty[String, String]
-            val tableId = TableId.of(cliConfig.outputDataset, cliConfig.outputTable)
-            val table: Table = bigquery.getTable(tableId)
-            val tableDefinition = table.getDefinition().asInstanceOf[StandardTableDefinition]
-            val bqSchema = tableDefinition.getSchema()
-            val bqFields = bqSchema.getFields.asScala.toList
-            val attributesMap = schema.attributes.map(attr => (attr.name.toLowerCase, attr)).toMap
-            val updatedFields = bqFields.map { field =>
-              attributesMap.get(field.getName.toLowerCase) match {
-                case None =>
-                  // Maybe an ignored field
-                  logger.info(
-                    s"Ignore this field ${schema.name}.${field.getName} during CLS application "
-                  )
-                  field
-                case Some(attr) =>
-                  attr.accessPolicy match {
-                    case None =>
-                      field
-                    case Some(accessPolicy) =>
-                      val policyTagId = policyTagIds.getOrElse(
-                        accessPolicy, {
-                          val policyTagsRequest =
-                            ListPolicyTagsRequest.newBuilder().setParent(taxonomyRef).build()
-                          val policyTags =
-                            BigQueryJobBase.policyTagClient.listPolicyTags(policyTagsRequest)
-                          val policyTagRef =
-                            policyTags
-                              .iterateAll()
-                              .asScala
-                              .filter(_.getDisplayName() == accessPolicy)
-                              .map(_.getName)
-                              .headOption
-                              .getOrElse(
-                                throw new Exception(
-                                  s"PolicyTag $accessPolicy not found in Taxonomy $taxonomy in project $projectId in location $location"
-                                )
-                              )
-                          policyTagIds.put(accessPolicy, policyTagRef)
-                          policyTagRef
-                        }
-                      )
-
-                      val fieldPolicyTags =
-                        scala
-                          .Option(field.getPolicyTags)
-                          .map(_.getNames.asScala.toList)
-                          .getOrElse(Nil)
-                      if (fieldPolicyTags.length == 1 && fieldPolicyTags.head == policyTagId)
+            val anyAccessPolicyToApply =
+              schema.attributes.map(_.accessPolicy).count(_.isDefined) > 0
+            if (anyAccessPolicyToApply) {
+              val (location, projectId, taxonomy, taxonomyRef) =
+                getTaxonomy(BigQueryJobBase.policyTagClient)
+              val policyTagIds = mutable.Map.empty[String, String]
+              val tableId = TableId.of(cliConfig.outputDataset, cliConfig.outputTable)
+              val table: Table = bigquery.getTable(tableId)
+              val tableDefinition = table.getDefinition().asInstanceOf[StandardTableDefinition]
+              val bqSchema = tableDefinition.getSchema()
+              val bqFields = bqSchema.getFields.asScala.toList
+              val attributesMap = schema.attributes.map(attr => (attr.name.toLowerCase, attr)).toMap
+              val updatedFields = bqFields.map { field =>
+                attributesMap.get(field.getName.toLowerCase) match {
+                  case None =>
+                    // Maybe an ignored field
+                    logger.info(
+                      s"Ignore this field ${schema.name}.${field.getName} during CLS application "
+                    )
+                    field
+                  case Some(attr) =>
+                    attr.accessPolicy match {
+                      case None =>
                         field
-                      else {
-                        Field
-                          .newBuilder(field.getName, field.getType, field.getSubFields)
-                          .setPolicyTags(
-                            PolicyTags.newBuilder().setNames(List(policyTagId).asJava).build()
-                          )
-                          .build()
-                      }
-                  }
+                      case Some(accessPolicy) =>
+                        val policyTagId = policyTagIds.getOrElse(
+                          accessPolicy, {
+                            val policyTagsRequest =
+                              ListPolicyTagsRequest.newBuilder().setParent(taxonomyRef).build()
+                            val policyTags =
+                              BigQueryJobBase.policyTagClient.listPolicyTags(policyTagsRequest)
+                            val policyTagRef =
+                              policyTags
+                                .iterateAll()
+                                .asScala
+                                .filter(_.getDisplayName() == accessPolicy)
+                                .map(_.getName)
+                                .headOption
+                                .getOrElse(
+                                  throw new Exception(
+                                    s"PolicyTag $accessPolicy not found in Taxonomy $taxonomy in project $projectId in location $location"
+                                  )
+                                )
+                            policyTagIds.put(accessPolicy, policyTagRef)
+                            policyTagRef
+                          }
+                        )
+
+                        val fieldPolicyTags =
+                          scala
+                            .Option(field.getPolicyTags)
+                            .map(_.getNames.asScala.toList)
+                            .getOrElse(Nil)
+                        if (fieldPolicyTags.length == 1 && fieldPolicyTags.head == policyTagId)
+                          field
+                        else {
+                          Field
+                            .newBuilder(field.getName, field.getType, field.getSubFields)
+                            .setPolicyTags(
+                              PolicyTags.newBuilder().setNames(List(policyTagId).asJava).build()
+                            )
+                            .build()
+                        }
+                    }
+                }
               }
+              table.toBuilder
+                .setDefinition(StandardTableDefinition.of(BQSchema.of(updatedFields: _*)))
+                .build()
+                .update()
             }
-            table.toBuilder
-              .setDefinition(StandardTableDefinition.of(BQSchema.of(updatedFields: _*)))
-              .build()
-              .update()
         }
       }
 
