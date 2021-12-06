@@ -301,10 +301,10 @@ trait BigQueryJobBase extends StrictLogging {
 object BigQueryJobBase {
 
   val bigquery: BigQuery =
-    if (sys.env.contains("GOOGLE_CLOUD_PROJECT"))
-      BigQueryOptions.newBuilder().setProjectId(sys.env("GOOGLE_CLOUD_PROJECT")).build().getService
-    else if (sys.env.contains("GCLOUD_PROJECT"))
+    if (sys.env.contains("GCLOUD_PROJECT"))
       BigQueryOptions.newBuilder().setProjectId(sys.env("GCLOUD_PROJECT")).build().getService
+    else if (sys.env.contains("GOOGLE_CLOUD_PROJECT"))
+      BigQueryOptions.newBuilder().setProjectId(sys.env("GOOGLE_CLOUD_PROJECT")).build().getService
     else
       BigQueryOptions.getDefaultInstance.getService
 
