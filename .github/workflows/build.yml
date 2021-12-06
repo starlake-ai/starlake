@@ -32,7 +32,7 @@ jobs:
       - name: Gcloud login
         run: gcloud auth configure-docker
       - name: Run tests & Coverage Report
-        run: GCP_PROJECT=${{ secrets.GCP_PROJECT }} GOOGLE_CLOUD_PROJECT=${{ secrets.GCP_PROJECT }} TEMPORARY_GCS_BUCKET=true COMET_GCP_TEST=true sbt coverage test coverageReport
+        run: GOOGLE_CLOUD_PROJECT=${{ secrets.GCP_PROJECT }} TEMPORARY_GCS_BUCKET=true COMET_GCP_TEST=true sbt coverage test coverageReport
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v1
         with:

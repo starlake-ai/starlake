@@ -71,7 +71,7 @@ class BigQuerySparkJob(
   ): (Table, StandardTableDefinition) = {
     getOrCreateDataset()
 
-    val table = Option(bigquery.getTable(tableId)) getOrElse {
+    val table = Option(BigQueryJobBase.bigquery.getTable(tableId)) getOrElse {
       val withPartitionDefinition =
         (maybeSchema, cliConfig.outputPartition) match {
           case (Some(schema), Some(partitionField)) =>
@@ -115,7 +115,9 @@ class BigQuerySparkJob(
             val clustering = Clustering.newBuilder().setFields(fields.asJava).build()
             withPartitionDefinition.setClustering(clustering)
         }
-      bigquery.create(TableInfo.newBuilder(tableId, withClusteringDefinition.build()).build)
+      BigQueryJobBase.bigquery.create(
+        TableInfo.newBuilder(tableId, withClusteringDefinition.build()).build
+      )
     }
     (table, table.getDefinition.asInstanceOf[StandardTableDefinition])
 
@@ -140,7 +142,10 @@ class BigQuerySparkJob(
       val (table, tableDefinition) = getOrCreateTable(Some(sourceDF), maybeSchema)
 
       val stdTableDefinition =
-        bigquery.getTable(table.getTableId).getDefinition.asInstanceOf[StandardTableDefinition]
+        BigQueryJobBase.bigquery
+          .getTable(table.getTableId)
+          .getDefinition
+          .asInstanceOf[StandardTableDefinition]
       logger.info(
         s"BigQuery Saving to  ${table.getTableId} containing ${stdTableDefinition.getNumRows} rows"
       )
@@ -252,7 +257,10 @@ class BigQuerySparkJob(
       }
 
       val stdTableDefinitionAfter =
-        bigquery.getTable(table.getTableId).getDefinition.asInstanceOf[StandardTableDefinition]
+        BigQueryJobBase.bigquery
+          .getTable(table.getTableId)
+          .getDefinition
+          .asInstanceOf[StandardTableDefinition]
       logger.info(
         s"BigQuery Saved to ${table.getTableId} now contains ${stdTableDefinitionAfter.getNumRows} rows"
       )
