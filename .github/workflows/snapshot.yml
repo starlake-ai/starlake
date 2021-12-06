@@ -30,6 +30,6 @@ jobs:
       - name: Gcloud login
         run: gcloud auth configure-docker
       - name: Publish Snapshot on Sonatype Spark 2/3 for scala 2.12
-        run: GCP_PROJECT=${{ secrets.GCP_PROJECT }} GOOGLE_CLOUD_PROJECT=${{ secrets.GCP_PROJECT }} TEMPORARY_GCS_BUCKET=true COMET_GCP_TEST=true RELEASE_SONATYPE=true GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ secrets.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ secrets.SONATYPE_PASSWORD }} sbt ++2.12.12 test publish
+        run: GOOGLE_CLOUD_PROJECT=${{ secrets.GCP_PROJECT }} TEMPORARY_GCS_BUCKET=true COMET_GCP_TEST=true RELEASE_SONATYPE=true GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ secrets.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ secrets.SONATYPE_PASSWORD }} sbt ++2.12.12 test publish
       - name: Publish Snapshot on Sonatype Spark 2/3 for scala 2.11
-        run: GCP_PROJECT=${{ secrets.GCP_PROJECT }} GOOGLE_CLOUD_PROJECT=${{ secrets.GCP_PROJECT }} TEMPORARY_GCS_BUCKET=true COMET_GCP_TEST=true RELEASE_SONATYPE=true GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ secrets.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ secrets.SONATYPE_PASSWORD }} sbt ++2.11.12 publish
+        run: GOOGLE_CLOUD_PROJECT=${{ secrets.GCP_PROJECT }} TEMPORARY_GCS_BUCKET=true COMET_GCP_TEST=true RELEASE_SONATYPE=true GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ secrets.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ secrets.SONATYPE_PASSWORD }} sbt ++2.11.12 publish
