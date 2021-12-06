@@ -22,7 +22,14 @@ jobs:
         uses: actions/setup-java@v1
         with:
           java-version: 1.8
+      - uses: GoogleCloudPlatform/github-actions/setup-gcloud@master
+        with:
+          project_id: starlake-325712
+          service_account_key: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+          export_default_credentials: true
+      - name: Gcloud login
+        run: gcloud auth configure-docker
       - name: Publish Snapshot on Sonatype Spark 2/3 for scala 2.12
-        run: RELEASE_SONATYPE=true GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ secrets.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ secrets.SONATYPE_PASSWORD }} sbt ++2.12.12 test publish
+        run: TEMPORARY_GCS_BUCKET=true COMET_GCP_TEST=true RELEASE_SONATYPE=true GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ secrets.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ secrets.SONATYPE_PASSWORD }} sbt ++2.12.12 test publish
       - name: Publish Snapshot on Sonatype Spark 2/3 for scala 2.11
-        run: RELEASE_SONATYPE=true GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ secrets.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ secrets.SONATYPE_PASSWORD }} sbt ++2.11.12 publish
+        run: TEMPORARY_GCS_BUCKET=true COMET_GCP_TEST=true RELEASE_SONATYPE=true GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ secrets.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ secrets.SONATYPE_PASSWORD }} sbt ++2.11.12 publish

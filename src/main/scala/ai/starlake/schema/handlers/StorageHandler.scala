@@ -30,12 +30,11 @@ import org.apache.spark.sql.execution.streaming.FileStreamSource.Timestamp
 
 import java.io.ByteArrayOutputStream
 import java.time.{Instant, LocalDateTime, ZoneId}
+import java.util.regex.Pattern
+import java.util.zip.ZipInputStream
+import scala.collection.JavaConverters._
 import scala.concurrent.duration.FiniteDuration
 import scala.util.{Failure, Success, Try}
-import scala.collection.JavaConverters._
-import java.util.zip.ZipInputStream
-
-import java.util.regex.Pattern
 
 /** Interface required by any filesystem manager
   */
@@ -202,21 +201,24 @@ class HdfsStorageHandler(fileSystem: Option[String])(implicit
   ): List[Path] = {
     logger.info(s"list($path, $extension, $since)")
     Try {
-      val iterator: RemoteIterator[LocatedFileStatus] = fs.listFiles(path, recursive)
-      iterator
-        .filter { status =>
-          logger.info(s"found file=$status")
-          val time = LocalDateTime.ofInstant(
-            Instant.ofEpochMilli(status.getModificationTime),
-            ZoneId.systemDefault
-          )
-          val excludeFile =
-            exclude.exists(_.matcher(status.getPath().getName()).matches())
-          !excludeFile && time.isAfter(since) && status.getPath().getName().endsWith(extension)
-        }
-        .toList
-        .sortBy(r => (r.getModificationTime, r.getPath.getName))
-        .map((status: LocatedFileStatus) => status.getPath())
+      if (exists(path)) {
+        val iterator: RemoteIterator[LocatedFileStatus] = fs.listFiles(path, recursive)
+        iterator
+          .filter { status =>
+            logger.info(s"found file=$status")
+            val time = LocalDateTime.ofInstant(
+              Instant.ofEpochMilli(status.getModificationTime),
+              ZoneId.systemDefault
+            )
+            val excludeFile =
+              exclude.exists(_.matcher(status.getPath().getName()).matches())
+            !excludeFile && time.isAfter(since) && status.getPath().getName().endsWith(extension)
+          }
+          .toList
+          .sortBy(r => (r.getModificationTime, r.getPath.getName))
+          .map((status: LocatedFileStatus) => status.getPath())
+      } else
+        Nil
     } match {
       case Success(list) => list
       case Failure(e) =>

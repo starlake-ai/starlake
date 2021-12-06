@@ -618,44 +618,50 @@ trait IngestionJob extends SparkJob {
         )
       } else
         (partitionedDFWriter, dataset)
-      val finalTargetDatasetWriter =
-        if (csvOutput() && area != StorageArea.rejected) {
-          targetDatasetWriter
-            .mode(saveMode)
-            .format("csv")
-            .option("ignoreLeadingWhiteSpace", value = false)
-            .option("ignoreTrailingWhiteSpace", value = false)
-            .option("header", metadata.withHeader.getOrElse(false))
-            .option("delimiter", metadata.separator.getOrElse("µ"))
-            .option("path", targetPath.toString)
+
+      // We do not output empty datasets
+      if (finalDataset.limit(1).count() > 0) {
+        val finalTargetDatasetWriter =
+          if (csvOutput() && area != StorageArea.rejected) {
+            targetDatasetWriter
+              .mode(saveMode)
+              .format("csv")
+              .option("ignoreLeadingWhiteSpace", value = false)
+              .option("ignoreTrailingWhiteSpace", value = false)
+              .option("header", metadata.withHeader.getOrElse(false))
+              .option("delimiter", metadata.separator.getOrElse("µ"))
+              .option("path", targetPath.toString)
+          } else
+            targetDatasetWriter
+              .mode(saveMode)
+              .format(writeFormat)
+              .option("path", targetPath.toString)
+
+        logger.info(s"Saving Dataset to final location $targetPath in $saveMode mode")
+
+        if (settings.comet.hive) {
+          finalTargetDatasetWriter.saveAsTable(fullTableName)
+          val tableComment = schema.comment.getOrElse("")
+          session.sql(s"ALTER TABLE $fullTableName SET TBLPROPERTIES ('comment' = '$tableComment')")
+          analyze(fullTableName)
+        } else {
+          finalTargetDatasetWriter.save()
+        }
+        if (merge && area != StorageArea.rejected) {
+          // Here we read the df from the targetPath and not the merged one since that on is gonna be removed
+          // However, we keep the merged DF schema so we don't lose any metadata from reloading the final parquet (especially the nullables)
+          val df = session.createDataFrame(
+            session.read.parquet(targetPath.toString).rdd,
+            dataset.schema
+          )
+          storageHandler.delete(new Path(mergePath))
+          logger.info(s"deleted merge file $mergePath")
+          df
         } else
-          targetDatasetWriter
-            .mode(saveMode)
-            .format(writeFormat)
-            .option("path", targetPath.toString)
-
-      logger.info(s"Saving Dataset to final location $targetPath in $saveMode mode")
-
-      if (settings.comet.hive) {
-        finalTargetDatasetWriter.saveAsTable(fullTableName)
-        val tableComment = schema.comment.getOrElse("")
-        session.sql(s"ALTER TABLE $fullTableName SET TBLPROPERTIES ('comment' = '$tableComment')")
-        analyze(fullTableName)
+          finalDataset
       } else {
-        finalTargetDatasetWriter.save()
-      }
-      if (merge && area != StorageArea.rejected) {
-        // Here we read the df from the targetPath and not the merged one since that on is gonna be removed
-        // However, we keep the merged DF schema so we don't lose any metadata from reloading the final parquet (especially the nullables)
-        val df = session.createDataFrame(
-          session.read.parquet(targetPath.toString).rdd,
-          dataset.schema
-        )
-        storageHandler.delete(new Path(mergePath))
-        logger.info(s"deleted merge file $mergePath")
-        df
-      } else
         finalDataset
+      }
     } else {
       logger.warn("Empty dataset with no columns won't be saved")
       session.emptyDataFrame

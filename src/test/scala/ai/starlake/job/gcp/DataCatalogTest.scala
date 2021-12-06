@@ -1,4 +1,4 @@
-package ai.starlake.gcp
+package ai.starlake.job.gcp
 
 import com.google.cloud.bigquery.{
   BigQuery,

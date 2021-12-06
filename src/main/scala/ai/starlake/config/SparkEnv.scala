@@ -46,12 +46,19 @@ class SparkEnv(name: String, confTransformer: SparkConf => SparkConf = identity)
       .format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss.SSS"))
     val appName = s"$name-$now"
 
+    // When using local Spark with remote BigQuery (useful for testing)
+    val initialConf =
+      sys.env.get("TEMPORARY_GCS_BUCKET") match {
+        case Some(value) => new SparkConf().set("temporaryGcsBucket", value)
+        case None        => new SparkConf()
+      }
+
     val thisConf = settings.sparkConfig
       .entrySet()
       .asScala
       .to[Vector]
       .map(x => (x.getKey, x.getValue.unwrapped().toString))
-      .foldLeft(new SparkConf()) { case (conf, (key, value)) => conf.set("spark." + key, value) }
+      .foldLeft(initialConf) { case (conf, (key, value)) => conf.set("spark." + key, value) }
       .setAppName(appName)
       .set("spark.app.id", appName)
 
