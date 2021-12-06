@@ -30,6 +30,6 @@ jobs:
       - name: Use gcloud CLI
         run: gcloud info
       - name: Publish Snapshot on Sonatype Spark 2/3 for scala 2.12
-        run: TEMPORARY_GCS_BUCKET=true COMET_GCP_TEST=true RELEASE_SONATYPE=true GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ secrets.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ secrets.SONATYPE_PASSWORD }} sbt ++2.12.12 test publish
+        run: TEMPORARY_GCS_BUCKET=true COMET_GCP_TEST=false RELEASE_SONATYPE=true GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ secrets.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ secrets.SONATYPE_PASSWORD }} sbt ++2.12.12 test publish
       - name: Publish Snapshot on Sonatype Spark 2/3 for scala 2.11
-        run: TEMPORARY_GCS_BUCKET=true COMET_GCP_TEST=true RELEASE_SONATYPE=true GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ secrets.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ secrets.SONATYPE_PASSWORD }} sbt ++2.11.12 publish
+        run: TEMPORARY_GCS_BUCKET=true COMET_GCP_TEST=false RELEASE_SONATYPE=true GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ secrets.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ secrets.SONATYPE_PASSWORD }} sbt ++2.11.12 publish
