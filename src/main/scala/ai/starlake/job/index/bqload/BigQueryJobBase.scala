@@ -46,7 +46,18 @@ trait BigQueryJobBase extends StrictLogging {
   private def getTaxonomy(
     client: PolicyTagManagerClient
   )(implicit settings: Settings): (String, String, String, String) = {
-    val projectId = settings.comet.accessPolicies.projectId
+    val projectId = {
+      if (settings.comet.accessPolicies.projectId == "invalid_project")
+        if (sys.env.contains("GCLOUD_PROJECT"))
+          sys.env("GCLOUD_PROJECT")
+        else if (sys.env.contains("GOOGLE_CLOUD_PROJECT"))
+          sys.env("GOOGLE_CLOUD_PROJECT")
+        else
+          "invalid_project"
+      else
+        settings.comet.accessPolicies.projectId
+    }
+
     val location = settings.comet.accessPolicies.location
     val taxonomy = settings.comet.accessPolicies.taxonomy
     if (location == "invalid_location")
@@ -290,8 +301,10 @@ trait BigQueryJobBase extends StrictLogging {
 object BigQueryJobBase {
 
   val bigquery: BigQuery =
-    if (sys.env.get("GOOGLE_CLOUD_PROJECT").isDefined)
+    if (sys.env.contains("GOOGLE_CLOUD_PROJECT"))
       BigQueryOptions.newBuilder().setProjectId(sys.env("GOOGLE_CLOUD_PROJECT")).build().getService
+    else if (sys.env.contains("GCLOUD_PROJECT"))
+      BigQueryOptions.newBuilder().setProjectId(sys.env("GCLOUD_PROJECT")).build().getService
     else
       BigQueryOptions.getDefaultInstance.getService
 

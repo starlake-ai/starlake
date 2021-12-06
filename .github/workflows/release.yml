@@ -12,5 +12,14 @@ jobs:
         if: ${{ !github.event.repository.fork }}
         with:
           java-version: 1.8
+      - uses: google-github-actions/setup-gcloud@master
+        with:
+          project_id: ${{ secrets.GCP_PROJECT }}
+          service_account_key: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+          export_default_credentials: true
+      - name: Use gcloud CLI
+        run: gcloud info
+      - name: Run tests & Coverage Report
+        run: TEMPORARY_GCS_BUCKET=starlake-app COMET_GCP_TEST=true sbt coverage test coverageReport
       - name: Release Spark 2/3
-        run: RELEASE_SONATYPE=true GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ secrets.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ secrets.SONATYPE_PASSWORD }} sbt 'release with-defaults'
+        run: TEMPORARY_GCS_BUCKET=starlake-app COMET_GCP_TEST=true RELEASE_SONATYPE=true GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ secrets.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ secrets.SONATYPE_PASSWORD }} sbt 'release with-defaults'
