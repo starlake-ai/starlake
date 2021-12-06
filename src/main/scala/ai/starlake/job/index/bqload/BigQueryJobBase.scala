@@ -21,7 +21,14 @@ trait BigQueryJobBase extends StrictLogging {
   def cliConfig: BigQueryLoadConfig
   def projectId: String
 
-  def applyRLS(forceApply: Boolean = false)(implicit settings: Settings): Try[Unit] = {
+  def applyRLSAndCLS(forceApply: Boolean = false)(implicit settings: Settings): Try[Unit] = {
+    for {
+      _ <- applyRLS(forceApply)
+      _ <- applyCLS(forceApply)
+    } yield ()
+  }
+
+  private def applyRLS(forceApply: Boolean)(implicit settings: Settings): Try[Unit] = {
     Try {
       if (forceApply || settings.comet.accessPolicies.apply) {
         val tableId = TableId.of(cliConfig.outputDataset, cliConfig.outputTable)
@@ -87,7 +94,7 @@ trait BigQueryJobBase extends StrictLogging {
     (location, projectId, taxonomy, taxonomyRef)
   }
 
-  def applyCLS(forceApply: Boolean = false)(implicit
+  private def applyCLS(forceApply: Boolean)(implicit
     settings: Settings
   ): Try[Unit] = {
     Try {
