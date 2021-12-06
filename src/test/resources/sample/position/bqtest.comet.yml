@@ -40,6 +40,11 @@ schemas:
         sampling: 0
         attributes: []
   - name: "account"
+    rls:
+      - name: "bqrls"
+        predicate: "TRUE"
+        grants:
+          - "user:hayssam@saleh.fr"
     pattern: ".*TBL"
     acl:
       - role: "roles/bigquery/dataViewer"
