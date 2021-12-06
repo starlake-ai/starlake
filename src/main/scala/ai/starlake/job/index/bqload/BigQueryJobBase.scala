@@ -288,7 +288,8 @@ trait BigQueryJobBase extends StrictLogging {
 
 object BigQueryJobBase {
 
-  val policyTagClient = PolicyTagManagerClient.create()
+  // Lazy otherwise tests fail since there is no GCP credentials in test mode
+  lazy val policyTagClient = PolicyTagManagerClient.create()
 
   def extractProjectDatasetAndTable(value: String): TableId = {
     def extractDatasetAndTable(str: String): (String, String) = {
