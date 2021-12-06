@@ -32,7 +32,7 @@ class DataCatalogTest
     with BeforeAndAfterAll
     with StrictLogging
     with DatasetLogging {
-  "Taxonomy" should "list files by modification_time and name" in {
+  "Taxonomy" should "Work" in {
     if (sys.env.getOrElse("COMET_GCP_TEST", "false").toBoolean) {
       val client = PolicyTagManagerClient.create()
       val taxonomyListRequest =
