@@ -107,6 +107,14 @@ object Utils {
     logger.error(exceptionAsString(exception))
   }
 
+  def logIfFailure[T](logger: Logger, res: Try[T]): Try[T] = {
+    res match {
+      case Failure(e) => logException(logger, e)
+      case _          =>
+    }
+    res
+  }
+
   def exceptionAsString(exception: Throwable): String = {
     val sw = new StringWriter
     exception.printStackTrace(new PrintWriter(sw))

@@ -17,13 +17,13 @@ case class AssertionReport(
   name: String,
   params: String,
   sql: Option[String],
-  countFailed: Option[Long],
+  count: Option[Long],
   message: Option[String],
   success: Boolean
 ) {
 
   override def toString: String = {
-    s"""name: $name, params:$params, countFailed:${countFailed.getOrElse(
+    s"""name: $name, params:$params, count:${count.getOrElse(
       0
     )}, success:$success, message: ${message.getOrElse("")}, sql:$sql""".stripMargin
   }

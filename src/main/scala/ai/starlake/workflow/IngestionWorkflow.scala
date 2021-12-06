@@ -71,6 +71,7 @@ class IngestionWorkflow(
   launchHandler: LaunchHandler
 )(implicit settings: Settings)
     extends StrictLogging {
+
   val domains: List[Domain] = schemaHandler.domains
 
   /** Move the files from the landing area to the pending area. files are loaded one domain at a
@@ -214,16 +215,7 @@ class IngestionWorkflow(
     *   these domains if both lists are empty, all domains are included
     */
   def loadPending(config: WatchConfig = WatchConfig()): Boolean = {
-    val includedDomains = (config.includes, config.excludes) match {
-      case (Nil, Nil) =>
-        domains
-      case (_, Nil) =>
-        domains.filter(domain => config.includes.contains(domain.name))
-      case (Nil, _) =>
-        domains.filter(domain => !config.excludes.contains(domain.name))
-      case (_, _) => throw new Exception("Should never happen ")
-    }
-    logger.info(s"Domains that will be watched: ${includedDomains.map(_.name).mkString(",")}")
+    val includedDomains = domainsToWatch(config)
 
     val result: List[Boolean] = includedDomains.flatMap { domain =>
       logger.info(s"Watch Domain: ${domain.name}")
@@ -293,6 +285,20 @@ class IngestionWorkflow(
       }
     }
     result.forall(_ == true)
+  }
+
+  private def domainsToWatch(config: WatchConfig) = {
+    val includedDomains = (config.includes, config.excludes) match {
+      case (Nil, Nil) =>
+        domains
+      case (_, Nil) =>
+        domains.filter(domain => config.includes.contains(domain.name))
+      case (Nil, _) =>
+        domains.filter(domain => !config.excludes.contains(domain.name))
+      case (_, _) => throw new Exception("Should never happen ")
+    }
+    logger.info(s"Domains that will be watched: ${includedDomains.map(_.name).mkString(",")}")
+    includedDomains
   }
 
   /** @param domainName
@@ -772,5 +778,26 @@ class IngestionWorkflow(
         logger.error("The domain or schema you specified doesn't exist! ")
         Failure(new Exception("The domain or schema you specified doesn't exist! "))
     }
+  }
+  def secure(config: WatchConfig): Boolean = {
+    val includedDomains = domainsToWatch(config)
+    val result = includedDomains.flatMap { domain =>
+      domain.schemas.map { schema =>
+        val config = BigQueryLoadConfig(
+          outputTable = schema.name,
+          outputDataset = domain.name,
+          sourceFormat = "parquet",
+          rls = schema.rls,
+          acl = schema.acl,
+          starlakeSchema = Some(schema)
+        )
+        val res = new BigQuerySparkJob(config).applyRLSAndCLS(forceApply = true)
+        res.recover { case e =>
+          Utils.logException(logger, e)
+          throw e
+        }
+      }
+    }
+    !result.exists(_.isFailure)
   }
 }
