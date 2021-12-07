@@ -115,7 +115,8 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     defaultAssertions ++ assertions ++ resAssertions
   }
 
-  def loadViews(path: String): Views = {
+  @deprecated("Views are directly stored in sql files", "0.2.8")
+  private def loadViews(path: String): Views = {
     val viewsPath = DatasetArea.views(path)
     if (storage.exists(viewsPath)) {
       val rootNode = mapper.readTree(storage.read(viewsPath))
@@ -127,10 +128,39 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     }
   }
 
-  def views(name: String): Views =
-    Views.merge(
-      ("default.comet.yml" :: "views.comet.yml" :: (name + ".comet.yml") :: Nil).map(loadViews)
-    )
+  private def loadSqlFile(sqlFile: Path, rootLen: Int = 0): (String, String) = {
+    val sqlExpr = storage.read(sqlFile)
+    val sqlFilename =
+      sqlFile.toString.dropRight(3).substring(rootLen + 1).replaceAll("/", ".")
+    sqlFilename -> sqlExpr
+  }
+
+  private def loadSqlFiles(path: Path): Map[String, String] = {
+    val sqlFiles = storage.list(path, extension = ".sql", recursive = true)
+    val rootLen = path.toString.length
+    sqlFiles.map { sqlFile =>
+      loadSqlFile(sqlFile, rootLen)
+    }.toMap
+  }
+
+  private def loadSqlViews(viewsPath: Path): Map[String, String] = {
+    val sqlViews = loadSqlFiles(viewsPath)
+    sqlViews.foreach { case (viewName, _) =>
+      val standardPrefixes = Set("CTE", "TBL", "TABLE", "VIEW")
+      val sqlName = viewName.substring(viewName.lastIndexOf('.') + 1)
+      val isStandardViewName =
+        standardPrefixes.exists(prefix => sqlName.toUpperCase().startsWith(prefix + "_"))
+      if (!isStandardViewName)
+        logger.warn(s"$viewName does not start with one of $standardPrefixes")
+    }
+    sqlViews
+  }
+
+  def views(viewName: String): Views = {
+    val viewsPath = DatasetArea.views(viewName)
+    val viewMap = loadSqlViews(viewsPath)
+    Views(viewMap)
+  }
 
   @throws[Exception]
   lazy val activeEnv: Map[String, String] = {
