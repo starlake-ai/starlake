@@ -20,18 +20,15 @@
 
 package ai.starlake.job.transform
 
-import ai.starlake.job.index.bqload.{BigQueryJobResult, BigQueryLoadConfig}
-import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
-import ai.starlake.schema.model.Stage.UNIT
-import ai.starlake.schema.model.{AutoTaskDesc, BigQuerySink, Stage, Views}
 import ai.starlake.config.{Settings, StorageArea}
 import ai.starlake.job.index.bqload.{BigQueryJobResult, BigQueryLoadConfig, BigQueryNativeJob}
 import ai.starlake.job.ingest.{AuditLog, Step}
 import ai.starlake.job.metrics.AssertionJob
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
+import ai.starlake.schema.model.Stage.UNIT
 import ai.starlake.schema.model._
 import ai.starlake.utils.Formatter._
-import ai.starlake.utils.{JobResult, SparkJob, SparkJobResult, Utils}
+import ai.starlake.utils._
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.SaveMode
 
@@ -128,18 +125,30 @@ case class AutoTaskJob(
       (queryName, viewValue)
     }
 
-    val subSelects = withViews.map { case (queryName, queryExpr) =>
-      val selectExpr =
-        if (queryExpr.toLowerCase.startsWith("select "))
-          queryExpr
-        else {
-          val allColumns = "*"
-          s"SELECT $allColumns FROM $queryExpr"
-        }
-      queryName + " AS (" + selectExpr + ")"
+    val mainTaskSQL =
+      CommentParser.stripComments(task.getSql().richFormat(sqlParameters).trim) match {
+        case Right(s) => s
+        case Left(error) =>
+          throw new Exception(
+            s"ERROR: Could not strip comments from SQL Request ${task.getSql()}\n $error"
+          )
+      }
+    val sql = if (mainTaskSQL.toLowerCase().startsWith("with ")) {
+      mainTaskSQL
+    } else {
+      val subSelects = withViews.map { case (queryName, queryExpr) =>
+        val selectExpr =
+          if (queryExpr.toLowerCase.startsWith("select "))
+            queryExpr
+          else {
+            val allColumns = "*"
+            s"SELECT $allColumns FROM $queryExpr"
+          }
+        queryName + " AS (" + selectExpr + ")"
+      }
+      val subSelectsString = if (subSelects.nonEmpty) subSelects.mkString("WITH ", ",", " ") else ""
+      "(" + subSelectsString + mainTaskSQL + ")"
     }
-    val subSelectsString = if (subSelects.nonEmpty) subSelects.mkString("WITH ", ",", " ") else ""
-    val sql = subSelectsString + task.getSql().richFormat(sqlParameters)
     val preSql = task.presql.getOrElse(Nil).map { sql => sql.richFormat(sqlParameters) }
     val postSql = task.postsql.getOrElse(Nil).map { sql => sql.richFormat(sqlParameters) }
     (preSql, sql, postSql)
@@ -149,7 +158,9 @@ case class AutoTaskJob(
     val start = Timestamp.from(Instant.now())
     val config = createConfig()
     val (preSql, mainSql, postSql) = buildQueryBQ()
-    def bqNativeJob(sql: String) = new BigQueryNativeJob(config, sql, udf)
+
+    // We add extra parenthesis required dby BQ when using "WITH" keyword
+    def bqNativeJob(sql: String) = new BigQueryNativeJob(config, "(" + sql + ")", udf)
 
     val presqlResult: Try[Iterable[BigQueryJobResult]] = Try {
       preSql.map { sql =>
