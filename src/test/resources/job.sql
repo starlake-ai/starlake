@@ -1,6 +1,5 @@
 /* comet_presql */
-select count(*) from PRP.LA_BONNE_ADRESSE
-where x = '${actor}'
+(((select * from `starlake-325712`.hr.locations)))
 
 /* comet_sql */
 
