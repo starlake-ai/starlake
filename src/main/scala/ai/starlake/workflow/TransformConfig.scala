@@ -6,7 +6,6 @@ import scopt.OParser
 case class TransformConfig(
   name: String = "",
   options: Map[String, String] = Map.empty,
-  views: Seq[String] = Nil,
   viewsDir: Option[String] = None,
   viewsCount: Int = 1000
 )
@@ -24,12 +23,6 @@ object TransformConfig extends CliConfig[TransformConfig] {
         .action((x, c) => c.copy(name = x))
         .required()
         .text("Job Name"),
-      opt[Seq[String]]("views")
-        .action((x, c) => c.copy(views = x))
-        .optional()
-        .text("""view1,view2 ...
-            |If present only the request present in these views statements are run. Useful for unit testing
-            |""".stripMargin),
       opt[String]("views-dir")
         .action((x, c) => c.copy(viewsDir = Some(x)))
         .optional()
