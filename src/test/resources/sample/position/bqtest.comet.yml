@@ -2,6 +2,7 @@
 name: "bqtest"
 directory: "__COMET_TEST_ROOT__/position"
 ack: ""
+tags: ["datasetkey=value", "datasetkeynovalue"]
 metadata:
   sink:
     type: BQ
@@ -40,6 +41,7 @@ schemas:
         sampling: 0
         attributes: []
   - name: "account"
+    tags: ["tablekey=value", "tablekeynovalue"]
     rls:
       - name: "bqrls"
         predicate: "TRUE"
