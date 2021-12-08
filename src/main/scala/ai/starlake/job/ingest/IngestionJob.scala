@@ -459,7 +459,8 @@ trait IngestionJob extends SparkJob {
             rls = schema.rls,
             options = sink.map(_.getOptions).getOrElse(Map.empty),
             partitionsToUpdate = partitionsToUpdate,
-            starlakeSchema = Some(schema)
+            starlakeSchema = Some(schema),
+            domainTags = domain.tags
           )
           val res = new BigQuerySparkJob(config, tableSchema).run()
           res match {
@@ -752,8 +753,6 @@ trait IngestionJob extends SparkJob {
         dataset match {
           case Success(dataset) =>
             Try {
-              val views = schemaHandler.views(domain.name)
-              createSparkViews(views, schemaHandler.activeEnv ++ options)
               val (rejectedRDD, acceptedRDD) = ingest(dataset)
               val inputCount = dataset.count()
               val acceptedCount = acceptedRDD.count()
