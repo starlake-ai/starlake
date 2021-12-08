@@ -85,6 +85,19 @@ class UtilsSpec extends TestHelper {
       import ai.starlake.utils.Formatter._
       assert("${key}_and_${key}".richFormat(Map("key" -> "value")) == "value_and_value")
     }
-  }
 
+    "ViewParser" should "substitute refs and return view names" in {
+      val input =
+        """SELECT *
+          |FROM ref( myview), ref(yourview)
+          |union
+          |select ref(herview )""".stripMargin
+      val (sql, views) = ViewExtractor.parse(input)
+      sql should be("""SELECT *
+                         |FROM myview, yourview
+                         |union
+                         |select herview""".stripMargin)
+      views should contain theSameElementsInOrderAs (List("myview", "yourview", "herview"))
+    }
+  }
 }

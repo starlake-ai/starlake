@@ -32,10 +32,8 @@ import ai.starlake.utils._
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.SaveMode
 
-import java.io.{File, PrintStream}
 import java.sql.Timestamp
 import java.time.{Instant, LocalDateTime}
-import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try}
 
 /** Execute the SQL Task and store it in parquet/orc/.... If Hive support is enabled, also store it
@@ -89,42 +87,14 @@ case class AutoTaskJob(
     )
   }
 
-  def runView(viewName: String, viewDir: Option[String], viewCount: Int): Try[JobResult] = {
-    Try {
-      val config = createConfig()
-      val queryExpr = views.views
-        .getOrElse(viewName, throw new Exception(s"View with name $viewName not found"))
-      def bqNativeJob(sql: String) = new BigQueryNativeJob(config, sql, udf)
-
-      val jsonQuery =
-        s"SELECT TO_JSON_STRING(t,false) FROM (${queryExpr.richFormat(sqlParameters)}) AS t"
-      val result = bqNativeJob(jsonQuery.richFormat(sqlParameters)).runInteractiveQuery()
-      result.tableResult.foreach { tableResult =>
-        var count = 0
-        val it = tableResult.iterateAll().iterator().asScala
-        val file = viewDir
-          .map { dir =>
-            new File(dir).mkdirs()
-            new PrintStream(new File(dir, s"$viewName.json"), "UTF-8")
-          }
-          .getOrElse(System.out)
-        while (it.hasNext && count < viewCount) {
-          val item = it.next().get(0).getStringValue
-          file.println(item)
-          count = count + 1
-        }
-        file.close()
-      }
-      result
-    }
-  }
-
-  def buildQueryBQ(): (List[String], String, List[String]) = {
-    val withViews = views.views.map { case (queryName, queryExpr) =>
+  private def parseJobViews(): Map[String, String] =
+    views.views.map { case (queryName, queryExpr) =>
       val (_, _, viewValue) = parseViewDefinition(queryExpr.richFormat(sqlParameters))
       (queryName, viewValue)
     }
 
+  def parseMainSqlBQ(): JdbcConfigName = {
+    val withViews = parseJobViews()
     val mainTaskSQL =
       CommentParser.stripComments(task.getSql().richFormat(sqlParameters).trim) match {
         case Right(s) => s
@@ -133,7 +103,7 @@ case class AutoTaskJob(
             s"ERROR: Could not strip comments from SQL Request ${task.getSql()}\n $error"
           )
       }
-    val sql = if (mainTaskSQL.toLowerCase().startsWith("with ")) {
+    if (mainTaskSQL.toLowerCase().startsWith("with ")) {
       mainTaskSQL
     } else {
       val subSelects = withViews.map { case (queryName, queryExpr) =>
@@ -149,6 +119,10 @@ case class AutoTaskJob(
       val subSelectsString = if (subSelects.nonEmpty) subSelects.mkString("WITH ", ",", " ") else ""
       "(" + subSelectsString + mainTaskSQL + ")"
     }
+  }
+
+  def buildQueryBQ(): (List[String], String, List[String]) = {
+    val sql = parseMainSqlBQ()
     val preSql = task.presql.getOrElse(Nil).map { sql => sql.richFormat(sqlParameters) }
     val postSql = task.postsql.getOrElse(Nil).map { sql => sql.richFormat(sqlParameters) }
     (preSql, sql, postSql)
@@ -159,7 +133,7 @@ case class AutoTaskJob(
     val config = createConfig()
     val (preSql, mainSql, postSql) = buildQueryBQ()
 
-    // We add extra parenthesis required dby BQ when using "WITH" keyword
+    // We add extra parenthesis required by BQ when using "WITH" keyword
     def bqNativeJob(sql: String) = new BigQueryNativeJob(config, "(" + sql + ")", udf)
 
     val presqlResult: Try[Iterable[BigQueryJobResult]] = Try {

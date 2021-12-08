@@ -20,9 +20,9 @@
 
 package ai.starlake.schema.handlers
 
-import ai.starlake.schema.model.{Schema, Type, Types, Views}
 import ai.starlake.config.{DatasetArea, Settings, StorageArea}
 import ai.starlake.schema.model._
+import ai.starlake.utils.Formatter._
 import ai.starlake.utils.{CometObjectMapper, Utils, YamlSerializer}
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
@@ -30,10 +30,9 @@ import com.fasterxml.jackson.module.scala.experimental.ScalaObjectMapper
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
 
-import scala.util.{Failure, Success, Try}
-import ai.starlake.utils.Formatter._
-
 import java.util.regex.Pattern
+import scala.collection.mutable
+import scala.util.{Failure, Success, Try}
 
 /** Handles access to datasets metadata, eq. domains / types / schemas.
   *
@@ -52,7 +51,7 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     val domainsValidty = this.domains.map(_.checkValidity(this))
     this.activeEnv
     this.jobs
-    val allErrors = typesValidity ++ domainsValidty
+    val allErrors = typesValidity ++ domainsValidty :+ checkViewsValidity()
 
     val errs = allErrors.flatMap {
       case Left(values) => values
@@ -67,6 +66,20 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     }
   }
 
+  def checkViewsValidity(): Either[List[String], Boolean] = {
+    val errorList: mutable.MutableList[String] = mutable.MutableList.empty
+    val viewsPath = DatasetArea.views
+    val sqlFiles = storage.list(viewsPath, extension = ".sql", recursive = true)
+    val duplicates = sqlFiles.groupBy(_.getName).filter { case (name, paths) => paths.length > 1 }
+    duplicates.foreach { duplicate =>
+      errorList += s"Found duplicate views => $duplicate"
+    }
+    if (errorList.nonEmpty)
+      Left(errorList.toList)
+    else
+      Right(true)
+
+  }
   def loadTypes(filename: String): List[Type] = {
     val deprecatedTypesPath = new Path(DatasetArea.types, filename + ".yml")
     val typesCometPath = new Path(DatasetArea.types, filename + ".comet.yml")
@@ -128,36 +141,30 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     }
   }
 
-  private def loadSqlFile(sqlFile: Path, rootLen: Int = 0): (String, String) = {
+  private def loadSqlFile(sqlFile: Path): (String, String) = {
     val sqlExpr = storage.read(sqlFile)
-    val sqlFilename =
-      sqlFile.toString.dropRight(3).substring(rootLen + 1).replaceAll("/", ".")
+    val sqlFilename = sqlFile.getName().dropRight(".sql".length)
     sqlFilename -> sqlExpr
   }
 
   private def loadSqlFiles(path: Path): Map[String, String] = {
     val sqlFiles = storage.list(path, extension = ".sql", recursive = true)
-    val rootLen = path.toString.length
     sqlFiles.map { sqlFile =>
-      loadSqlFile(sqlFile, rootLen)
+      loadSqlFile(sqlFile)
     }.toMap
   }
 
   private def loadSqlViews(viewsPath: Path): Map[String, String] = {
     val sqlViews = loadSqlFiles(viewsPath)
     sqlViews.foreach { case (viewName, _) =>
-      val standardPrefixes = Set("CTE", "TBL", "TABLE", "VIEW")
       val sqlName = viewName.substring(viewName.lastIndexOf('.') + 1)
-      val isStandardViewName =
-        standardPrefixes.exists(prefix => sqlName.toUpperCase().startsWith(prefix + "_"))
-      if (!isStandardViewName)
-        logger.warn(s"$viewName does not start with one of $standardPrefixes")
     }
     sqlViews
   }
 
-  def views(viewName: String): Views = {
-    val viewsPath = DatasetArea.views(viewName)
+  def views(viewName: Option[String] = None): Views = {
+    val viewsPath =
+      viewName.map(viewName => DatasetArea.views(viewName)).getOrElse(DatasetArea.views)
     val viewMap = loadSqlViews(viewsPath)
     Views(viewMap)
   }
@@ -282,7 +289,7 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
           case None           => new Path(s"$sqlFilePrefix.sql")
         }
         if (storage.exists(sqlTaskFile)) {
-          val sqlTask = SqlTask(storage.read(sqlTaskFile))
+          val sqlTask = SqlTaskExtractor(storage.read(sqlTaskFile))
           taskDesc.copy(
             presql = sqlTask.presql,
             sql = Option(sqlTask.sql),
