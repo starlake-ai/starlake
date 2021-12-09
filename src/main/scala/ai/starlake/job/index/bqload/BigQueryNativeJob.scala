@@ -82,6 +82,7 @@ class BigQueryNativeJob(
         case None =>
           queryConfig
       }
+
       val queryConfigWithClustering = cliConfig.outputClustering match {
         case Nil =>
           queryConfigWithPartition

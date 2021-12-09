@@ -22,7 +22,8 @@ case class BigQueryLoadConfig(
   options: Map[String, String] = Map.empty,
   partitionsToUpdate: Option[List[String]] = None,
   acl: Option[List[AccessControlList]] = None,
-  starlakeSchema: Option[Schema] = None
+  starlakeSchema: Option[Schema] = None,
+  domainTags: Option[Set[String]] = None
 ) {
   def getLocation(): String = this.location.getOrElse("EU")
 }
