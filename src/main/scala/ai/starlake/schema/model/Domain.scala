@@ -73,7 +73,8 @@ import scala.util.{Failure, Success, Try}
   schemas: List[Schema] = Nil,
   comment: Option[String] = None,
   @silent @deprecated("Moved to Metadata", "0.2.8") extensions: Option[List[String]] = None,
-  @silent @deprecated("Moved to Metadata", "0.2.8") ack: Option[String] = None
+  @silent @deprecated("Moved to Metadata", "0.2.8") ack: Option[String] = None,
+  tags: Option[Set[String]] = None
 ) {
 
   /** Get schema from filename Schema are matched against filenames using filename patterns. The

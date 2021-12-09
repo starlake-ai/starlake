@@ -234,14 +234,43 @@ trait BigQueryJobBase extends StrictLogging {
   val bqTable = s"${cliConfig.outputDataset}.${cliConfig.outputTable}"
 
   def getOrCreateDataset(): Dataset = {
-    val dataset = scala.Option(BigQueryJobBase.bigquery.getDataset(datasetId))
-    dataset.getOrElse {
+    val existingDataset = scala.Option(BigQueryJobBase.bigquery.getDataset(datasetId))
+    val dataset = existingDataset.getOrElse {
       val datasetInfo = DatasetInfo
         .newBuilder(extractProjectDataset(cliConfig.outputDataset))
         .setLocation(cliConfig.getLocation())
         .build
       BigQueryJobBase.bigquery.create(datasetInfo)
     }
+    setTagsOnDataset(dataset)
+    dataset
+  }
+
+  private def extractTags(tags: scala.Option[Set[String]]): Set[(String, String)] = {
+    tags.getOrElse(Set.empty[String]).map { tag =>
+      val hasValue = tag.indexOf('=') > 0
+      val keyValuePAir =
+        if (hasValue)
+          tag.split('=')
+        else
+          Array(tag, "")
+      keyValuePAir(0) -> keyValuePAir(1)
+    }
+  }
+
+  def setTagsOnTable(table: Table): Unit = {
+    cliConfig.starlakeSchema.foreach { schema =>
+      val tableTagPairs = extractTags(schema.tags)
+      table.toBuilder.setLabels(tableTagPairs.toMap.asJava).build().update()
+    }
+  }
+
+  def setTagsOnDataset(dataset: Dataset): Unit = {
+    cliConfig.domainTags.foreach { domainTags =>
+      val datasetTagPairs = extractTags(Some(domainTags))
+      dataset.toBuilder.setLabels(datasetTagPairs.toMap.asJava).build().update()
+    }
+
   }
 
   /** To set access control on a table or view, we can use Identity and Access Management (IAM)

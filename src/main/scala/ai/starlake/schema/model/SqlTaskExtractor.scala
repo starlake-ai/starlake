@@ -2,11 +2,15 @@ package ai.starlake.schema.model
 
 import scala.collection.mutable.ListBuffer
 
-case class SqlTask(presql: Option[List[String]], sql: String, postsql: Option[List[String]])
+case class SqlTaskExtractor(
+  presql: Option[List[String]],
+  sql: String,
+  postsql: Option[List[String]]
+)
 
-object SqlTask {
+object SqlTaskExtractor {
 
-  def apply(sqlContent: String): SqlTask = {
+  def apply(sqlContent: String): SqlTaskExtractor = {
     val cometPattern = "^\\s*/\\*\\s*(SQL|PRESQL|POSTSQL)\\s*\\*/\\s*$".r
     val sqlFileLines = sqlContent.split("\n")
     val buffer = new StringBuffer()
@@ -47,7 +51,7 @@ object SqlTask {
           buffer.append(trimmed).append('\n')
     }
     appendToStep(buffer, section)
-    SqlTask(
+    SqlTaskExtractor(
       if (presqlSection.isEmpty) None else Some(presqlSection.toList),
       sqlSection.toString,
       if (postsqlSection.isEmpty) None else Some(postsqlSection.toList)
