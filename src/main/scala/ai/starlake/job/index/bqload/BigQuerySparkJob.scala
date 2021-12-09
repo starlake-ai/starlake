@@ -119,8 +119,8 @@ class BigQuerySparkJob(
         TableInfo.newBuilder(tableId, withClusteringDefinition.build()).build
       )
     }
+    setTagsOnTable(table)
     (table, table.getDefinition.asInstanceOf[StandardTableDefinition])
-
   }
 
   def runSparkConnector(): Try[SparkJobResult] = {
