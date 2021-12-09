@@ -528,7 +528,6 @@ class IngestionWorkflow(
   def buildTasks(jobName: String, jobOptions: Map[String, String]): Seq[AutoTaskJob] = {
     val job = schemaHandler.jobs(jobName)
     logger.info(job.toString)
-    val includes = schemaHandler.views(job.name)
     job.tasks.map { task =>
       AutoTaskJob(
         job.name,
@@ -536,7 +535,7 @@ class IngestionWorkflow(
         job.format,
         job.coalesce.getOrElse(false),
         job.udf,
-        Views(job.views.getOrElse(Map.empty) ++ includes.views),
+        Views(job.views.getOrElse(Map.empty)),
         job.getEngine(),
         task,
         schemaHandler.activeEnv ++ jobOptions
@@ -552,47 +551,20 @@ class IngestionWorkflow(
   def autoJob(config: TransformConfig): Boolean = {
     val job = schemaHandler.jobs(config.name)
     logger.info(job.toString)
-    val includes = schemaHandler.views(job.name)
     val result: Seq[Boolean] = buildTasks(config.name, config.options).map { action =>
       val engine = action.engine
       logger.info(s"running with $engine engine")
       engine match {
         case BQ =>
-          val result = config.views match {
-            case Nil => // User asked to executed the whole job
-              val result = action.runBQ()
-              val sink = action.task.sink
-              logger.info(s"BQ Job succeeded. sinking data to $sink")
-              sink match {
-                case Some(sink) if sink.`type` == SinkType.BQ =>
-                  logger.info("Sinking to BQ done")
-                case _ =>
-                  // TODO Sinking not supported
-                  logger.error(s"Sinking from BQ to $sink not yet supported.")
-              }
-              result
-            case queryNames => // User asked to executed one or more views only (for debugging purpose probably)
-              val queries =
-                if (queryNames.contains("_") || queryNames.contains("*"))
-                  job.views.map(_.keys).getOrElse(Nil)
-                else
-                  queryNames
-              val result = queries.map(queryName =>
-                action.runView(queryName, config.viewsDir, config.viewsCount)
-              )
-              result.filter(_.isFailure) match {
-                case Nil =>
-                  result.headOption.getOrElse(
-                    Failure(
-                      new Exception(
-                        s"No view with the provided view names '$queryNames' has been found"
-                      )
-                    )
-                  )
-                case errors =>
-                  // We return all failures
-                  Failure(errors.collect { case Failure(e) => e }.reduce(_.initCause(_)))
-              }
+          val result = action.runBQ()
+          val sink = action.task.sink
+          logger.info(s"BQ Job succeeded. sinking data to $sink")
+          sink match {
+            case Some(sink) if sink.`type` == SinkType.BQ =>
+              logger.info("Sinking to BQ done")
+            case _ =>
+              // TODO Sinking not supported
+              logger.error(s"Sinking from BQ to $sink not yet supported.")
           }
           Utils.logFailure(result, logger)
           result.isSuccess
