@@ -196,4 +196,18 @@ object Utils {
     }.flatten
     if (errors.isEmpty) Right(true) else Left(errors)
   }
+
+  def extractTags(tags: scala.Option[Set[String]]): Set[(String, String)] = {
+    tags.getOrElse(Set.empty[String]).map { tag =>
+      val hasValue = tag.indexOf('=') > 0
+      val keyValuePAir =
+        if (hasValue)
+          tag.split('=')
+        else
+          Array(tag, "")
+      keyValuePAir(0) -> keyValuePAir(1)
+    }
+  }
+  def isRunningInDatabricks(): Boolean =
+    sys.env.contains("DATABRICKS_RUNTIME_VERSION")
 }
