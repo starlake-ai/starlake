@@ -3,6 +3,7 @@ package ai.starlake.job.index.bqload
 import ai.starlake.config.Settings
 import ai.starlake.job.index.bqload.BigQueryJobBase.extractProjectDataset
 import ai.starlake.schema.model.{AccessControlList, RowLevelSecurity, UserType}
+import ai.starlake.utils.Utils
 import com.google.cloud.bigquery.{Schema => BQSchema, _}
 import com.google.cloud.datacatalog.v1.{
   ListPolicyTagsRequest,
@@ -246,28 +247,16 @@ trait BigQueryJobBase extends StrictLogging {
     dataset
   }
 
-  private def extractTags(tags: scala.Option[Set[String]]): Set[(String, String)] = {
-    tags.getOrElse(Set.empty[String]).map { tag =>
-      val hasValue = tag.indexOf('=') > 0
-      val keyValuePAir =
-        if (hasValue)
-          tag.split('=')
-        else
-          Array(tag, "")
-      keyValuePAir(0) -> keyValuePAir(1)
-    }
-  }
-
   def setTagsOnTable(table: Table): Unit = {
     cliConfig.starlakeSchema.foreach { schema =>
-      val tableTagPairs = extractTags(schema.tags)
+      val tableTagPairs = Utils.extractTags(schema.tags)
       table.toBuilder.setLabels(tableTagPairs.toMap.asJava).build().update()
     }
   }
 
   def setTagsOnDataset(dataset: Dataset): Unit = {
     cliConfig.domainTags.foreach { domainTags =>
-      val datasetTagPairs = extractTags(Some(domainTags))
+      val datasetTagPairs = Utils.extractTags(Some(domainTags))
       dataset.toBuilder.setLabels(datasetTagPairs.toMap.asJava).build().update()
     }
 
