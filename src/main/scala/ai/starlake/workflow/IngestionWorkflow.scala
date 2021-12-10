@@ -755,18 +755,30 @@ class IngestionWorkflow(
     val includedDomains = domainsToWatch(config)
     val result = includedDomains.flatMap { domain =>
       domain.schemas.map { schema =>
-        val config = BigQueryLoadConfig(
-          outputTable = schema.name,
-          outputDataset = domain.name,
-          sourceFormat = "parquet",
-          rls = schema.rls,
-          acl = schema.acl,
-          starlakeSchema = Some(schema)
-        )
-        val res = new BigQuerySparkJob(config).applyRLSAndCLS(forceApply = true)
-        res.recover { case e =>
-          Utils.logException(logger, e)
-          throw e
+        if (settings.comet.hive || Utils.isRunningInDatabricks()) {
+          new DummyIngestionJob(
+            domain,
+            schema,
+            schemaHandler.types,
+            Nil,
+            storageHandler,
+            schemaHandler,
+            Map.empty
+          ).applyHiveTableAcl()
+        } else {
+          val config = BigQueryLoadConfig(
+            outputTable = schema.name,
+            outputDataset = domain.name,
+            sourceFormat = "parquet",
+            rls = schema.rls,
+            acl = schema.acl,
+            starlakeSchema = Some(schema)
+          )
+          val res = new BigQuerySparkJob(config).applyRLSAndCLS(forceApply = true)
+          res.recover { case e =>
+            Utils.logException(logger, e)
+            throw e
+          }
         }
       }
     }
