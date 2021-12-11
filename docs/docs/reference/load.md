@@ -65,6 +65,12 @@ Ack extension used for each file.
 Files are moved to the pending folder only once a file with the same name as the source file and with this extension is present.
 To move a file without requiring an ack file to be present, set explicitly this property to the empty string value "".
 
+````scala
+tags: Set[String]
+````
+*Optional*.
+List of key value pairs to set as database properties (or Dataset properties in  BigQuery).
+Each string holds data in the form "key=value" or "key" if there is no value.
 
 ## Schema
 
@@ -86,6 +92,16 @@ primaryKey: List[String]
 ````
 *Optional*. List of attributes that make up the primary key of this table. 
 This setting is just for documentation purpose and graphviz generation.
+
+````scala
+acl: List[AccessControlEntry]
+````
+*Optional*.
+List of access control entries to limit access to the resulting table.
+
+This execute a set of grants on  the table.
+See [Access Control Entry](#accesscontrolentry) for more details
+
 
 ````scala
 attributes: List[Attribute]
@@ -114,18 +130,19 @@ presql: String
 ````scala
 postsql: String
 ````
-
 *Optional*. Reserved for future use.
 
 ````scala
 tags: Set[String]
 ````
-*Optional*. Set of string to attach to this Schema
+*Optional*.
+List of key value pairs to set as table properties.
+Each string holds data in the form "key=value" or "key" if there is no value.
 
 ````scala
 rls: List[RowLevelSecurity]
 ````
-*Optional*. Experimental. Row level security to apply to this schema once it is ingested.
+*Optional*. Row level security to apply to this schema once it is ingested.
 This usually execute a set on grants by applying a predicate filter to restrict
 access to a subset of the rows in the table.
 See [Row Level Security](#rowlevelsecurity) for more details
@@ -375,6 +392,8 @@ Batch size of each JDBC bulk insert
 When the sink *type* field is set to KAFKA, you just need to set the name field to configuration name defined in the application.conf.
 Please refer to [this section](../reference/configuration.md#kafka) to understand how kafka sink are defined in the configuration file.
 
+
+
 ## RowLevelSecurity
 
 User / Group and Service accounts rights on a subset of the table.
@@ -387,11 +406,54 @@ name: String
 ````scala
 predicate: String
 ````
-*Required*. The condition that goes to the WHERE clause and limitt the visible rows.
+*Required*. The condition that goes to the WHERE clause and limit the visible rows.
 
 ````scala
 grants: List[String]
 ````
 *Required*. user / groups / service accounts to which this security level is applied.
-For example: user:me@mycompany.com,group:group@mycompany.com,serviceAccount:mysa@google-accounts.com
+
+
+## AccessControlEntry
+
+List the user / groups /service account that should be assigned a role.
+
+Databricks Example:
+````yaml
+acl:
+  role: SELECT
+  grants:
+    - user@starlake.ai
+    - group
+````
+
+BigQuery Example
+````yaml
+acl:
+  role: role/bigQueryViewer
+  grants:
+    - user: user@starlake.ai
+    - group: goup@starlake.ai
+    - serviceAccount: service@gserviceaccount.google.com
+````
+
+Hive Example
+````yaml
+acl:
+  role: SELECT
+  grants:
+    - user: someone
+    - group: onegroup
+````
+
+
+````scala
+role: String
+````
+*Required*. This Row Level Security unique name.
+
+````scala
+grants: List[String]
+````
+*Required*. user / groups / service accounts to which this access control is applied.
 
