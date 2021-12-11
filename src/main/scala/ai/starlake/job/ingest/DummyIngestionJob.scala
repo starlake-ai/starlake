@@ -8,7 +8,7 @@ import org.apache.spark.sql.{DataFrame, Dataset, Row}
 
 import scala.util.Try
 
-class JdbcIngestionJob(
+class DummyIngestionJob(
   val domain: Domain,
   val schema: Schema,
   val types: List[Type],
