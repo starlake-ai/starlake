@@ -515,6 +515,47 @@ trait IngestionJob extends SparkJob {
     }
   }
 
+  def extractTableAcl(): List[String] = {
+    if (settings.comet.hive) {
+      schema.acl.getOrElse(Nil).flatMap { ace =>
+        if (Utils.isRunningInDatabricks()) {
+          /*
+        GRANT
+          privilege_type [, privilege_type ] ...
+          ON (CATALOG | DATABASE <database-name> | TABLE <table-name> | VIEW <view-name> | FUNCTION <function-name> | ANONYMOUS FUNCTION | ANY FILE)
+          TO principal
+
+        privilege_type
+          : SELECT | CREATE | MODIFY | READ_METADATA | CREATE_NAMED_FUNCTION | ALL PRIVILEGES
+           */
+          ace.grants.map { grant =>
+            val principal =
+              if (grant.indexOf('@') > 0 && !grant.startsWith("`")) s"`$grant`" else grant
+            s"GRANT ${ace.role} ON TABLE ${domain.name}.${schema.name} TO $principal"
+          }
+        } else { // Hive
+          ace.grants.map { grant =>
+            val principal =
+              if (grant.startsWith("user:"))
+                s"USER ${grant.substring("user:".length)}"
+              else if (grant.startsWith("group:") || grant.startsWith("role:"))
+                s"ROLE ${grant.substring("group:".length)}"
+            s"GRANT ${ace.role} ON TABLE ${domain.name}.${schema.name} TO $principal"
+          }
+        }
+      }
+    } else {
+      Nil
+    }
+  }
+
+  def applyHiveTableAcl(forceApply: Boolean = false): Try[Unit] = {
+    Try {
+      if (forceApply || settings.comet.accessPolicies.apply)
+        extractTableAcl().foreach(session.sql)
+    }
+  }
+
   /** Save typed dataset in parquet. If hive support is active, also register it as a Hive Table and
     * if analyze is active, also compute basic statistics
     *
@@ -542,11 +583,13 @@ trait IngestionJob extends SparkJob {
       val fullTableName = s"$hiveDB.$tableName"
       if (settings.comet.hive) {
         val dbComment = domain.comment.getOrElse("")
-        session.sql(s"create database if not exists $hiveDB comment '$dbComment'")
+        val tableTagPairs = Utils.extractTags(domain.tags) + ("comment" -> dbComment)
+        val tagsAsString = tableTagPairs.map { case (k, v) => s"'$k'='$v'" }.mkString(",")
+        session.sql(s"CREATE DATABASE IF NOT EXISTS $hiveDB WITH DBPROPERTIES($tagsAsString)")
         session.sql(s"use $hiveDB")
         Try {
           if (writeMode.toSaveMode == SaveMode.Overwrite)
-            session.sql(s"drop table if exists $hiveDB.$tableName")
+            session.sql(s"DROP TABLE IF EXISTS $hiveDB.$tableName")
         } match {
           case Success(_) => ;
           case Failure(e) =>
@@ -643,7 +686,11 @@ trait IngestionJob extends SparkJob {
         if (settings.comet.hive) {
           finalTargetDatasetWriter.saveAsTable(fullTableName)
           val tableComment = schema.comment.getOrElse("")
-          session.sql(s"ALTER TABLE $fullTableName SET TBLPROPERTIES ('comment' = '$tableComment')")
+          val tableTagPairs = Utils.extractTags(schema.tags) + ("comment" -> tableComment)
+          val tagsAsString = tableTagPairs.map { case (k, v) => s"'$k'='$v'" }.mkString(",")
+          session.sql(
+            s"ALTER TABLE $fullTableName SET TBLPROPERTIES($tagsAsString)"
+          )
           analyze(fullTableName)
         } else {
           finalTargetDatasetWriter.save()
@@ -705,6 +752,7 @@ trait IngestionJob extends SparkJob {
         storageHandler.move(txtPath, finalTxtPath)
       }
     }
+    applyHiveTableAcl()
     resultDataFrame
   }
 
