@@ -414,6 +414,30 @@ grants: List[String]
 *Required*. user / groups / service accounts to which this security level is applied.
 
 
+Example
+````yaml
+rls:
+  - name: business_dept
+    predicate: departement like 'Business'
+  grants:
+    - user:user@starlake.ai
+    - group:goup@starlake.ai
+    - serviceAccount:service@gserviceaccount.google.com
+````
+
+The example above will :
+- On BigQuery, set a row level security access rule
+- Ignored on Hive
+- On Databricks, create a view named business_dept as follows:
+
+````sparksql
+create view business_dept as 
+select * 
+from table_name
+where curernt_user() like 'user@starlake.ai' or is_member('somegroup')
+````
+
+
 ## AccessControlEntry
 
 List the user / groups /service account that should be assigned a role.
@@ -432,9 +456,9 @@ BigQuery Example
 acl:
   role: role/bigQueryViewer
   grants:
-    - user: user@starlake.ai
-    - group: goup@starlake.ai
-    - serviceAccount: service@gserviceaccount.google.com
+    - user:user@starlake.ai
+    - group:goup@starlake.ai
+    - serviceAccount:service@gserviceaccount.google.com
 ````
 
 Hive Example
