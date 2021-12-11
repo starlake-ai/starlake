@@ -2,7 +2,7 @@ package ai.starlake.job.index.bqload
 
 import ai.starlake.config.Settings
 import ai.starlake.job.index.bqload.BigQueryJobBase.extractProjectDataset
-import ai.starlake.schema.model.{AccessControlList, RowLevelSecurity, UserType}
+import ai.starlake.schema.model.{AccessControlEntry, RowLevelSecurity, UserType}
 import ai.starlake.utils.Utils
 import com.google.cloud.bigquery.{Schema => BQSchema, _}
 import com.google.cloud.datacatalog.v1.{
@@ -33,7 +33,7 @@ trait BigQueryJobBase extends StrictLogging {
     Try {
       if (forceApply || settings.comet.accessPolicies.apply) {
         val tableId = TableId.of(cliConfig.outputDataset, cliConfig.outputTable)
-        cliConfig.acl.foreach(acl => applyTableIamPolicy(tableId, acl))
+        cliConfig.acl.foreach(acl => applyACL(tableId, acl))
         prepareRLS().foreach { rlsStatement =>
           logger.info(s"Applying row level security $rlsStatement")
           new BigQueryNativeJob(cliConfig, rlsStatement, None).runBatchQuery() match {
@@ -270,9 +270,9 @@ trait BigQueryJobBase extends StrictLogging {
     * @param rls
     * @return
     */
-  def applyTableIamPolicy(
+  def applyACL(
     tableId: TableId,
-    acl: List[AccessControlList]
+    acl: List[AccessControlEntry]
   ): Policy = {
     // val BIG_QUERY_VIEWER_ROLE = "roles/bigquery.dataViewer"
     val existingPolicy: Policy = BigQueryJobBase.bigquery.getIamPolicy(tableId)
