@@ -119,18 +119,22 @@ See [Metadata](#metadata) for more details.
 ````scala
 comment: String
 ````
-*Optional*. Free text
+*Optional*. Free text that will be added as the table description
 
 ````scala
 presql: String
 ````
 
-*Optional*. Reserved for future use.
+*Optional*. 
+SQL requests to execute before starting the ingestion process.
+You may create view that is used in a UDF during the ingestion process for example.
 
 ````scala
 postsql: String
 ````
-*Optional*. Reserved for future use.
+*Optional*.
+SQL requests to execute post execution of te ingestion process.
+You may for example set the table ownership in this section.
 
 ````scala
 tags: Set[String]
@@ -419,10 +423,10 @@ Example
 rls:
   - name: business_dept
     predicate: departement like 'Business'
-  grants:
-    - user:user@starlake.ai
-    - group:goup@starlake.ai
-    - serviceAccount:service@gserviceaccount.google.com
+    grants:
+      - user:user@starlake.ai
+      - group:goup@starlake.ai
+      - serviceAccount:service@gserviceaccount.google.com
 ````
 
 The example above will :
@@ -430,17 +434,29 @@ The example above will :
 - Ignored on Hive
 - On Databricks, create a view named business_dept as follows:
 
-````sparksql
+````sql
 create view business_dept as 
 select * 
 from table_name
-where curernt_user() like 'user@starlake.ai' or is_member('somegroup')
+where current_user() like 'user@starlake.ai' or is_member('somegroup')
 ````
 
 
 ## AccessControlEntry
 
 List the user / groups /service account that should be assigned a role.
+
+````scala
+role: String
+````
+*Required*. This Row Level Security unique name.
+
+````scala
+grants: List[String]
+````
+*Required*. user / groups / service accounts to which this access control is applied.
+
+
 
 Databricks Example:
 ````yaml
@@ -470,14 +486,4 @@ acl:
     - group: onegroup
 ````
 
-
-````scala
-role: String
-````
-*Required*. This Row Level Security unique name.
-
-````scala
-grants: List[String]
-````
-*Required*. user / groups / service accounts to which this access control is applied.
 
