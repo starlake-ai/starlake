@@ -17,7 +17,7 @@ object Versions {
   val jackson212ForSpark3 = "2.10.0"
   val configs = "0.4.4"
   val esSpark211 = "7.8.1"
-  val esSpark212 = "7.15.2"
+  val esSpark212 = "7.16.0"
   val scopt = "4.0.1"
   val sttp = "1.7.2"
   val gcsConnector = "hadoop3-2.2.4"
