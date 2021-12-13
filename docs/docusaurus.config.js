@@ -29,7 +29,7 @@ module.exports = {
             },
             items: [
                 {
-                    to: '/docs/userguide/extract',
+                    to: '/docs/userguide/load',
                     label: 'User Guide',
                     position: 'left',
                 },

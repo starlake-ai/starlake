@@ -92,7 +92,8 @@ case class Metadata(
   xml: Option[Map[String, String]] = None,
   directory: Option[String] = None,
   extensions: Option[List[String]] = None,
-  ack: Option[String] = None
+  ack: Option[String] = None,
+  schedule: Option[String] = None
 ) {
 
   override def toString: String =

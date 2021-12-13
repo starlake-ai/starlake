@@ -168,7 +168,7 @@ class ScriptGen(
   def run(args: Array[String]): Boolean = {
 
     val arglist = args.toList
-    logger.info(s"Running Comet $arglist")
+    logger.info(s"Running Starlake $arglist")
 
     ExtractScriptGenConfig.parse(args) match {
       case Some(config) =>
