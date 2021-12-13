@@ -13,7 +13,7 @@ import ai.starlake.job.ingest.LoadConfig
 import ai.starlake.job.metrics.MetricsConfig
 import ai.starlake.schema.generator._
 import ai.starlake.schema.handlers.SchemaHandler
-import ai.starlake.utils.CometObjectMapper
+import ai.starlake.utils.{CometObjectMapper, YamlSerializer}
 import ai.starlake.workflow.{ImportConfig, IngestionWorkflow, TransformConfig, WatchConfig}
 import buildinfo.BuildInfo
 import com.fasterxml.jackson.annotation.JsonInclude.Include
@@ -88,6 +88,7 @@ object Main extends StrictLogging {
 
   def legacyMain(args: Array[String]): Unit = {
     implicit val settings: Settings = Settings(ConfigFactory.load())
+    println(YamlSerializer.serializeObject(settings.comet))
     logger.info(s"Comet Version ${BuildInfo.version}")
     import settings.{launcherService, metadataStorageHandler, storageHandler}
     DatasetArea.initMetadata(metadataStorageHandler)
@@ -110,7 +111,7 @@ object Main extends StrictLogging {
     if (args.length == 0) printUsage()
 
     val arglist = args.toList
-    logger.info(s"Running Comet $arglist")
+    logger.info(s"Running Starlake $arglist")
     val result = arglist.head match {
       case "job" | "transform" =>
         TransformConfig.parse(args.drop(1)) match {
