@@ -3,7 +3,8 @@
     {
       "text": "val acceptedLocationsDF \u003d spark.read.parquet(\"file:///zeppelin/files/local/quickstart/datasets/accepted/hr/locations\")\nacceptedLocationsDF.registerTempTable(\"locations\")\n\nval acceptedSellersDF \u003d spark.read.parquet(\"file:///zeppelin/files/local/quickstart/datasets/accepted/hr/sellers\")\nacceptedSellersDF.registerTempTable(\"sellers\")\n\nval acceptedCustomersDF \u003d spark.read.parquet(\"file:///zeppelin/files/local/quickstart/datasets/accepted/sales/customers\")\nacceptedCustomersDF.registerTempTable(\"customers\")\n\nval acceptedOrdersDF \u003d spark.read.parquet(\"file:///zeppelin/files/local/quickstart/datasets/accepted/sales/orders\")\nacceptedOrdersDF.registerTempTable(\"orders\")\n\nval auditDF \u003d spark.read.parquet(\"file:///zeppelin/files/local/quickstart/audit/ingestion-log\")\nauditDF.registerTempTable(\"audit\")\n\nval rejectedSellersDF \u003d spark.read.parquet(\"file:///zeppelin/files/local/quickstart/datasets/rejected/hr/sellers\")\nrejectedSellersDF.registerTempTable(\"rejected_sellers\")\n\n\n\n//val discrete \u003d spark.read.parquet(\"file:///zeppelin/files/local/quickstart/metrics/PRP/discrete/*.parquet\")\n//discrete.registerTempTable(\"discrete\")\n//val frequencies \u003d spark.read.parquet(\"file:///zeppelin/files/local/quickstart/metrics/PRP/frequencies/*.parquet\")\n//frequencies.registerTempTable(\"frequencies\")\n//val assertions \u003d spark.read.parquet(\"file:///zeppelin/files/local/quickstart/assertions/PRP/*.parquet\")\n//assertions.registerTempTable(\"assertions\")\n\n",
       "user": "anonymous",
-      "dateUpdated": "2021-04-28 11:45:41.694",
+      "dateUpdated": "2021-12-15 15:45:07.879",
+      "progress": 0,
       "config": {
         "colWidth": 12.0,
         "fontSize": 9.0,
@@ -22,56 +23,29 @@
         "forms": {}
       },
       "results": {
-        "code": "SUCCESS",
+        "code": "ERROR",
         "msg": [
           {
             "type": "TEXT",
-            "data": "\u001b[33mwarning: \u001b[0mthere were 6 deprecation warnings; re-run with -deprecation for details\n\u001b[1m\u001b[34macceptedLocationsDF\u001b[0m: \u001b[1m\u001b[32morg.apache.spark.sql.DataFrame\u001b[0m \u003d [id: string, address: struct\u003ccity: string, stores: array\u003cstring\u003e ... 1 more field\u003e]\n\u001b[1m\u001b[34macceptedSellersDF\u001b[0m: \u001b[1m\u001b[32morg.apache.spark.sql.DataFrame\u001b[0m \u003d [id: string, location_id: bigint ... 1 more field]\n\u001b[1m\u001b[34macceptedCustomersDF\u001b[0m: \u001b[1m\u001b[32morg.apache.spark.sql.DataFrame\u001b[0m \u003d [id: string, signup: timestamp ... 4 more fields]\n\u001b[1m\u001b[34macceptedOrdersDF\u001b[0m: \u001b[1m\u001b[32morg.apache.spark.sql.DataFrame\u001b[0m \u003d [id: string, customer_id: string ... 2 more fields]\n\u001b[1m\u001b[34mauditDF\u001b[0m: \u001b[1m\u001b[32morg.apache.spark.sql.DataFrame\u001b[0m \u003d [jobid: string, paths: string ... 10 more fields]\n\u001b[1m\u001b[34mrejectedSellersDF\u001b[0m: \u001b[1m\u001b[32morg.apache.spark.sql.DataFrame\u001b[0m \u003d [jobid: string, timestamp: timestamp ... 4 more f..."
+            "data": "org.apache.zeppelin.interpreter.InterpreterException: java.io.IOException: Fail to launch interpreter process:\nInterpreter download command: /usr/lib/jvm/java-8-openjdk-amd64/bin/java -Dfile.encoding\u003dUTF-8 -Dlog4j.configuration\u003dfile:///opt/zeppelin/conf/log4j.properties -Dlog4j.configurationFile\u003dfile:///opt/zeppelin/conf/log4j2.properties -Dzeppelin.log.file\u003d/opt/zeppelin/logs/zeppelin-interpreter-spark-shared_process--e9d26c06f3e0.log -cp :/opt/zeppelin/interpreter/spark/dep/*:/opt/zeppelin/interpreter/spark/*:::/opt/zeppelin/interpreter/zeppelin-interpreter-shaded-0.10.0.jar org.apache.zeppelin.interpreter.remote.RemoteInterpreterDownloader 172.17.0.2 39481 spark /opt/zeppelin/local-repo/spark\nSLF4J: Class path contains multiple SLF4J bindings.\nSLF4J: Found binding in [jar:file:/opt/zeppelin/interpreter/spark/dep/zeppelin-spark-dependencies-0.10.0.jar!/org/slf4j/impl/StaticLoggerBinder.class]\nSLF4J: Found binding in [jar:file:/opt/zeppelin/interpreter/spark/spark-interpreter-0.10.0.jar!/org/slf4j/impl/StaticLoggerBinder.class]\nSLF4J: See http://www.slf4j.org/codes.html#multiple_bindings for an explanation.\nSLF4J: Actual binding is of type [org.slf4j.impl.Log4jLoggerFactory]\n INFO [2021-12-15 15:45:11,381] ({main} RemoteInterpreterDownloader.java[syncAllLibraries]:73) - Loading all libraries for interpreter spark to /opt/zeppelin/local-repo/spark\n[INFO] Interpreter launch command: /usr/lib/jvm/java-8-openjdk-amd64/bin/java -Dfile.encoding\u003dUTF-8 -Dlog4j.configuration\u003dfile:///opt/zeppelin/conf/log4j.properties -Dlog4j.configurationFile\u003dfile:///opt/zeppelin/conf/log4j2.properties -Dzeppelin.log.file\u003d/opt/zeppelin/logs/zeppelin-interpreter-spark-shared_process--e9d26c06f3e0.log -Xmx1024m -cp :/opt/zeppelin/local-repo/spark/*:/opt/zeppelin/interpreter/spark/dep/*:/opt/zeppelin/interpreter/spark/*:::/opt/zeppelin/interpreter/zeppelin-interpreter-shaded-0.10.0.jar org.apache.zeppelin.interpreter.remote.RemoteInterpreterServer 172.17.0.2 39481 spark-shared_process :\n#\n# A fatal error has been detected by the Java Runtime Environment:\n#\n#  SIGSEGV (0xb) at pc\u003d0x000000400ae6201f, pid\u003d141, tid\u003d0x0000004002cd8700\n#\n# JRE version: OpenJDK Runtime Environment (8.0_292-b10) (build 1.8.0_292-8u292-b10-0ubuntu1~20.04-b10)\n# Java VM: OpenJDK 64-Bit Server VM (25.292-b10 mixed mode linux-amd64 compressed oops)\n# Problematic frame:\n# J 1 C1 java.lang.String.hashCode()I (55 bytes) @ 0x000000400ae6201f [0x000000400ae62040+0xffffffdf]\n#\n# Failed to write core dump. Core dumps have been disabled. To enable core dumping, try \"ulimit -c unlimited\" before starting Java again\n#\n# An error report file with more information is saved as:\n# /opt/zeppelin/hs_err_pid141.log\nCompiled method (c1)    1010  123  s!   3       sun.misc.URLClassPath::getLoader (243 bytes)\n total in heap  [0x000000400aea6fd0,0x000000400aeabb20] \u003d 19280\n relocation     [0x000000400aea70f8,0x000000400aea73f0] \u003d 760\n main code      [0x000000400aea7400,0x000000400aea9ea0] \u003d 10912\n stub code      [0x000000400aea9ea0,0x000000400aeaa028] \u003d 392\n metadata       [0x000000400aeaa028,0x000000400aeaa0e8] \u003d 192\n scopes data    [0x000000400aeaa0e8,0x000000400aeab240] \u003d 4440\n scopes pcs     [0x000000400aeab240,0x000000400aeab7c0] \u003d 1408\n dependencies   [0x000000400aeab7c0,0x000000400aeab7d0] \u003d 16\n handler table  [0x000000400aeab7d0,0x000000400aeaba88] \u003d 696\n nul chk table  [0x000000400aeaba88,0x000000400aeabb20] \u003d 152\nCompiled method (c1)    1011  123  s!   3       sun.misc.URLClassPath::getLoader (243 bytes)\n total in heap  [0x000000400aea6fd0,0x000000400aeabb20] \u003d 19280\n relocation     [0x000000400aea70f8,0x000000400aea73f0] \u003d 760\n main code      [0x000000400aea7400,0x000000400aea9ea0] \u003d 10912\n stub code      [0x000000400aea9ea0,0x000000400aeaa028] \u003d 392\n metadata       [0x000000400aeaa028,0x000000400aeaa0e8] \u003d 192\n scopes data    [0x000000400aeaa0e8,0x000000400aeab240] \u003d 4440\n scopes pcs     [0x000000400aeab240,0x000000400aeab7c0] \u003d 1408\n dependencies   [0x000000400aeab7c0,0x000000400aeab7d0] \u003d 16\n handler table  [0x000000400aeab7d0,0x000000400aeaba88] \u003d 696\n nul chk table  [0x000000400aeaba88,0x000000400aeabb20] \u003d 152\n#\n# If you would like to submit a bug report, please visit:\n#   http://bugreport.java.com/bugreport/crash.jsp\n#\nqemu: uncaught target signal 6 (Aborted) - core dumped\n\n\tat org.apache.zeppelin.interpreter.remote.RemoteInterpreter.open(RemoteInterpreter.java:129)\n\tat org.apache.zeppelin.interpreter.remote.RemoteInterpreter.getFormType(RemoteInterpreter.java:271)\n\tat org.apache.zeppelin.notebook.Paragraph.jobRun(Paragraph.java:440)\n\tat org.apache.zeppelin.notebook.Paragraph.jobRun(Paragraph.java:71)\n\tat org.apache.zeppelin.scheduler.Job.run(Job.java:172)\n\tat org.apache.zeppelin.scheduler.AbstractScheduler.runJob(AbstractScheduler.java:132)\n\tat org.apache.zeppelin.scheduler.RemoteScheduler$JobRunner.run(RemoteScheduler.java:182)\n\tat java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:511)\n\tat java.util.concurrent.FutureTask.run(FutureTask.java:266)\n\tat java.util.concurrent.ScheduledThreadPoolExecutor$ScheduledFutureTask.access$201(ScheduledThreadPoolExecutor.java:180)\n\tat java.util.concurrent.ScheduledThreadPoolExecutor$ScheduledFutureTask.run(ScheduledThreadPoolExecutor.java:293)\n\tat java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1149)\n\tat java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:624)\n\tat java.lang.Thread.run(Thread.java:748)\nCaused by: java.io.IOException: Fail to launch interpreter process:\nInterpreter download command: /usr/lib/jvm/java-8-openjdk-amd64/bin/java -Dfile.encoding\u003dUTF-8 -Dlog4j.configuration\u003dfile:///opt/zeppelin/conf/log4j.properties -Dlog4j.configurationFile\u003dfile:///opt/zeppelin/conf/log4j2.properties -Dzeppelin.log.file\u003d/opt/zeppelin/logs/zeppelin-interpreter-spark-shared_process--e9d26c06f3e0.log -cp :/opt/zeppelin/interpreter/spark/dep/*:/opt/zeppelin/interpreter/spark/*:::/opt/zeppelin/interpreter/zeppelin-interpreter-shaded-0.10.0.jar org.apache.zeppelin.interpreter.remote.RemoteInterpreterDownloader 172.17.0.2 39481 spark /opt/zeppelin/local-repo/spark\nSLF4J: Class path contains multiple SLF4J bindings.\nSLF4J: Found binding in [jar:file:/opt/zeppelin/interpreter/spark/dep/zeppelin-spark-dependencies-0.10.0.jar!/org/slf4j/impl/StaticLoggerBinder.class]\nSLF4J: Found binding in [jar:file:/opt/zeppelin/interpreter/spark/spark-interpreter-0.10.0.jar!/org/slf4j/impl/StaticLoggerBinder.class]\nSLF4J: See http://www.slf4j.org/codes.html#multiple_bindings for an explanation.\nSLF4J: Actual binding is of type [org.slf4j.impl.Log4jLoggerFactory]\n INFO [2021-12-15 15:45:11,381] ({main} RemoteInterpreterDownloader.java[syncAllLibraries]:73) - Loading all libraries for interpreter spark to /opt/zeppelin/local-repo/spark\n[INFO] Interpreter launch command: /usr/lib/jvm/java-8-openjdk-amd64/bin/java -Dfile.encoding\u003dUTF-8 -Dlog4j.configuration\u003dfile:///opt/zeppelin/conf/log4j.properties -Dlog4j.configurationFile\u003dfile:///opt/zeppelin/conf/log4j2.properties -Dzeppelin.log.file\u003d/opt/zeppelin/logs/zeppelin-interpreter-spark-shared_process--e9d26c06f3e0.log -Xmx1024m -cp :/opt/zeppelin/local-repo/spark/*:/opt/zeppelin/interpreter/spark/dep/*:/opt/zeppelin/interpreter/spark/*:::/opt/zeppelin/interpreter/zeppelin-interpreter-shaded-0.10.0.jar org.apache.zeppelin.interpreter.remote.RemoteInterpreterServer 172.17.0.2 39481 spark-shared_process :\n#\n# A fatal error has been detected by the Java Runtime Environment:\n#\n#  SIGSEGV (0xb) at pc\u003d0x000000400ae6201f, pid\u003d141, tid\u003d0x0000004002cd8700\n#\n# JRE version: OpenJDK Runtime Environment (8.0_292-b10) (build 1.8.0_292-8u292-b10-0ubuntu1~20.04-b10)\n# Java VM: OpenJDK 64-Bit Server VM (25.292-b10 mixed mode linux-amd64 compressed oops)\n# Problematic frame:\n# J 1 C1 java.lang.String.hashCode()I (55 bytes) @ 0x000000400ae6201f [0x000000400ae62040+0xffffffdf]\n#\n# Failed to write core dump. Core dumps have been disabled. To enable core dumping, try \"ulimit -c unlimited\" before starting Java again\n#\n# An error report file with more information is saved as:\n# /opt/zeppelin/hs_err_pid141.log\nCompiled method (c1)    1010  123  s!   3       sun.misc.URLClassPath::getLoader (243 bytes)\n total in heap  [0x000000400aea6fd0,0x000000400aeabb20] \u003d 19280\n relocation     [0x000000400aea70f8,0x000000400aea73f0] \u003d 760\n main code      [0x000000400aea7400,0x000000400aea9ea0] \u003d 10912\n stub code      [0x000000400aea9ea0,0x000000400aeaa028] \u003d 392\n metadata       [0x000000400aeaa028,0x000000400aeaa0e8] \u003d 192\n scopes data    [0x000000400aeaa0e8,0x000000400aeab240] \u003d 4440\n scopes pcs     [0x000000400aeab240,0x000000400aeab7c0] \u003d 1408\n dependencies   [0x000000400aeab7c0,0x000000400aeab7d0] \u003d 16\n handler table  [0x000000400aeab7d0,0x000000400aeaba88] \u003d 696\n nul chk table  [0x000000400aeaba88,0x000000400aeabb20] \u003d 152\nCompiled method (c1)    1011  123  s!   3       sun.misc.URLClassPath::getLoader (243 bytes)\n total in heap  [0x000000400aea6fd0,0x000000400aeabb20] \u003d 19280\n relocation     [0x000000400aea70f8,0x000000400aea73f0] \u003d 760\n main code      [0x000000400aea7400,0x000000400aea9ea0] \u003d 10912\n stub code      [0x000000400aea9ea0,0x000000400aeaa028] \u003d 392\n metadata       [0x000000400aeaa028,0x000000400aeaa0e8] \u003d 192\n scopes data    [0x000000400aeaa0e8,0x000000400aeab240] \u003d 4440\n scopes pcs     [0x000000400aeab240,0x000000400aeab7c0] \u003d 1408\n dependencies   [0x000000400aeab7c0,0x000000400aeab7d0] \u003d 16\n handler table  [0x000000400aeab7d0,0x000000400aeaba88] \u003d 696\n nul chk table  [0x000000400aeaba88,0x000000400aeabb20] \u003d 152\n#\n# If you would like to submit a bug report, please visit:\n#   http://bugreport.java.com/bugreport/crash.jsp\n#\nqemu: uncaught target signal 6 (Aborted) - core dumped\n\n\tat org.apache.zeppelin.interpreter.remote.ExecRemoteInterpreterProcess.start(ExecRemoteInterpreterProcess.java:97)\n\tat org.apache.zeppelin.interpreter.ManagedInterpreterGroup.getOrCreateInterpreterProcess(ManagedInterpreterGroup.java:68)\n\tat org.apache.zeppelin.interpreter.remote.RemoteInterpreter.getOrCreateInterpreterProcess(RemoteInterpreter.java:104)\n\tat org.apache.zeppelin.interpreter.remote.RemoteInterpreter.internal_create(RemoteInterpreter.java:154)\n\tat org.apache.zeppelin.interpreter.remote.RemoteInterpreter.open(RemoteInterpreter.java:126)\n\t... 13 more\n"
           }
         ]
       },
       "apps": [],
-      "runtimeInfos": {
-        "jobUrl": {
-          "propertyName": "jobUrl",
-          "label": "SPARK JOB",
-          "tooltip": "View in Spark web UI",
-          "group": "spark",
-          "values": [
-            {
-              "jobUrl": "http://bd0797df9a93:4040/jobs/job?id\u003d129"
-            },
-            {
-              "jobUrl": "http://bd0797df9a93:4040/jobs/job?id\u003d130"
-            },
-            {
-              "jobUrl": "http://bd0797df9a93:4040/jobs/job?id\u003d131"
-            },
-            {
-              "jobUrl": "http://bd0797df9a93:4040/jobs/job?id\u003d132"
-            },
-            {
-              "jobUrl": "http://bd0797df9a93:4040/jobs/job?id\u003d133"
-            },
-            {
-              "jobUrl": "http://bd0797df9a93:4040/jobs/job?id\u003d134"
-            }
-          ],
-          "interpreterSettingId": "spark"
-        }
-      },
+      "runtimeInfos": {},
       "progressUpdateIntervalMs": 500,
       "jobName": "paragraph_1619607655820_1059041968",
       "id": "paragraph_1619607655820_1059041968",
       "dateCreated": "2021-04-28 11:00:55.820",
-      "dateStarted": "2021-04-28 11:45:41.736",
-      "dateFinished": "2021-04-28 11:45:42.524",
-      "status": "FINISHED"
+      "dateStarted": "2021-12-15 15:45:08.009",
+      "dateFinished": "2021-12-15 15:45:12.734",
+      "status": "ERROR"
     },
     {
       "text": "%sql\nselect * from locations",
       "user": "anonymous",
       "dateUpdated": "2021-04-28 11:45:42.538",
+      "progress": 0,
       "config": {
         "colWidth": 12.0,
         "fontSize": 9.0,
@@ -154,6 +128,7 @@
       "text": "%sql\nselect * from sellers",
       "user": "anonymous",
       "dateUpdated": "2021-04-28 11:45:42.763",
+      "progress": 0,
       "config": {
         "colWidth": 12.0,
         "fontSize": 9.0,
@@ -237,6 +212,7 @@
       "text": "%sql\nselect * from customers",
       "user": "anonymous",
       "dateUpdated": "2021-04-28 11:45:42.883",
+      "progress": 0,
       "config": {
         "colWidth": 12.0,
         "fontSize": 9.0,
@@ -323,6 +299,7 @@
       "text": "%sql\nselect * from orders",
       "user": "anonymous",
       "dateUpdated": "2021-04-28 11:45:43.109",
+      "progress": 0,
       "config": {
         "colWidth": 12.0,
         "fontSize": 9.0,
@@ -407,6 +384,7 @@
       "text": "%sql\nselect * from audit",
       "user": "anonymous",
       "dateUpdated": "2021-04-28 11:45:43.333",
+      "progress": 0,
       "config": {
         "colWidth": 12.0,
         "fontSize": 9.0,
@@ -642,6 +620,7 @@
       "text": "%sql\nselect * from rejected_sellers",
       "user": "anonymous",
       "dateUpdated": "2021-04-28 11:45:43.656",
+      "progress": 0,
       "config": {
         "colWidth": 12.0,
         "fontSize": 9.0,
@@ -728,6 +707,7 @@
       "text": "val bysellerKpiDF \u003d spark.read.parquet(\"file:///zeppelin/files/local/quickstart/datasets/business/sales_kpi/byseller_kpi\")\nbysellerKpiDF.registerTempTable(\"byseller_kpi\")\n\n",
       "user": "anonymous",
       "dateUpdated": "2021-04-28 11:45:43.871",
+      "progress": 0,
       "config": {
         "colWidth": 12.0,
         "fontSize": 9.0,
@@ -781,6 +761,7 @@
       "text": "%sql\nselect * from byseller_kpi",
       "user": "anonymous",
       "dateUpdated": "2021-04-28 11:45:44.194",
+      "progress": 0,
       "config": {
         "colWidth": 12.0,
         "fontSize": 9.0,
@@ -866,6 +847,7 @@
       "text": "%sql\n",
       "user": "anonymous",
       "dateUpdated": "2021-04-28 11:45:44.414",
+      "progress": 0,
       "config": {
         "colWidth": 12.0,
         "fontSize": 9.0,
@@ -902,7 +884,5 @@
   "config": {
     "isZeppelinNotebookCronEnable": false
   },
-  "info": {
-    "isRunning": true
-  }
+  "info": {}
 }
