@@ -3,7 +3,7 @@ source ../env.sh
 export COMET_ENV=FS
 export SPARK_DRIVER_MEMORY=4G
 export COMET_FS=file://
-export COMET_ROOT="$(PWD)/quickstart"
+export COMET_ROOT="$(pwd)/quickstart"
 export COMET_METRICS_ACTIVE=true
 export COMET_ASSERTIONS_ACTIVE=true
 export COMET_SINK_TO_FILE=true

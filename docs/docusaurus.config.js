@@ -29,19 +29,22 @@ module.exports = {
             },
             items: [
                 {
-                    to: '/docs/userguide/load',
-                    label: 'User Guide',
+                    label: 'Documentation',
                     position: 'left',
-                },
-                {
-                    to: '/docs/reference/configuration',
-                    label: 'Reference',
-                    position: 'left',
-                },
-                {
-                    to: '/docs/cli/import',
-                    label: 'CLI',
-                    position: 'left',
+                    items: [
+                        {
+                            label: 'User Guide',
+                            to: '/docs/userguide/load'
+                        },
+                        {
+                            to: '/docs/reference/configuration',
+                            label: 'Reference'
+                        },
+                        {
+                            to: '/docs/cli/import',
+                            label: 'CLI'
+                        },
+                    ]
                 },
                 {to: '/blog', label: 'Blog', position: 'left'},
                 {
