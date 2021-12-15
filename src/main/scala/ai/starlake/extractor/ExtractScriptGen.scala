@@ -260,6 +260,6 @@ object Main {
 
   def main(args: Array[String]): Unit = {
     val result = new ScriptGen(storageHandler, schemaHandler, launcherService).run(args)
-    System.exit(if (result) 0 else 1)
+    if (!result) throw new Exception("ScriptGen failed!")
   }
 }
