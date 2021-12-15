@@ -12,7 +12,8 @@ echo "HADOOP_VERSION=$HADOOP_VERSION"
 if [[ "$COMET_VERSION" == *"SNAPSHOT"* ]]; then
   COMET_JAR_URL=https://oss.sonatype.org/content/repositories/snapshots/com/ebiznext/comet-spark3_2.12/$COMET_VERSION/$COMET_JAR_NAME
 else
-  COMET_JAR_URL=https://repo1.maven.org/maven2/com/ebiznext/comet-spark3_2.12/$COMET_VERSION/$COMET_JAR_NAME
+  COMET_JAR_URL=https://s01.oss.sonatype.org/content/repositories/snapshots/ai/starlake/starlake-spark3_2.12/$COMET_VERSION/$COMET_JAR_NAME
+
 fi
 
 echo "COMET_JAR_URL=$COMET_JAR_URL"
