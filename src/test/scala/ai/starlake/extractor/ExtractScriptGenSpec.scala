@@ -23,10 +23,10 @@ class ExtractScriptGenSpec extends TestHelper {
         dsvDelimiter = ",",
         deltaColumn = Some("updateCol"),
         exportOutputFileBase = "output_file",
-        scriptOutputFile = scriptOutputFolder / "EXTRACT_table1.sql"
+        scriptOutputFile = Some(scriptOutputFolder / "extract_AnyDomain.table1.sql")
       )
 
-      val templatePayload: String = new ScriptGen(
+      val templatePayload = new ScriptGen(
         storageHandler,
         new SchemaHandler(settings.storageHandler),
         new SimpleLauncher()
@@ -35,9 +35,10 @@ class ExtractScriptGenSpec extends TestHelper {
           getClass.getResource("/sample/database/EXTRACT_TABLE.sql.mustache").getPath
         ),
         templateParams
-      )
+      ).head
+        .pathAsString
 
-      templatePayload shouldBe File(
+      File(templatePayload).lines.mkString("\n") shouldBe File(
         getClass.getResource("/sample/database/expected_script_payload.txt").getPath
       ).lines.mkString("\n")
     }
@@ -56,7 +57,7 @@ class ExtractScriptGenSpec extends TestHelper {
         dsvDelimiter = ",",
         deltaColumn = Some("updateCol"),
         exportOutputFileBase = "output_file",
-        scriptOutputFile = scriptOutputFolder / "EXTRACT_TABLE.sql"
+        scriptOutputFile = Some(scriptOutputFolder / "EXTRACT_TABLE.sql")
       )
 
       val templatePayload: String = new ScriptGen(
@@ -68,10 +69,11 @@ class ExtractScriptGenSpec extends TestHelper {
           getClass.getResource("/sample/database/EXTRACT_TABLE.sql.ssp").getPath
         ),
         templateParams
-      )
+      ).head
+        .pathAsString
 
       print(getClass.getResource("/sample/database/expected_script_payload2.txt").getPath)
-      templatePayload shouldBe File(
+      File(templatePayload).lines.mkString("\n") shouldBe File(
         getClass.getResource("/sample/database/expected_script_payload2.txt").getPath
       ).lines.mkString("\n")
     }
