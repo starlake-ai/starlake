@@ -35,7 +35,7 @@ class TemplateParamsSpec extends TestHelper {
         dsvDelimiter = ",",
         deltaColumn = Some("updateCol"),
         exportOutputFileBase = "output_file",
-        scriptOutputFile = scriptOutputFolder / "EXTRACT_table1.sql"
+        scriptOutputFile = Some(scriptOutputFolder / "extract_AnyDomain.table1.sql")
       )
       TemplateParams.fromSchema(
         "AnyDomain",
@@ -69,7 +69,7 @@ class TemplateParamsSpec extends TestHelper {
         dsvDelimiter = "|",
         deltaColumn = None,
         exportOutputFileBase = "output_file",
-        scriptOutputFile = scriptOutputFolder / "EXTRACT_table1.sql"
+        scriptOutputFile = Some(scriptOutputFolder / "extract_AnyDomain.table1.sql")
       )
       TemplateParams.fromSchema(
         "AnyDomain",
