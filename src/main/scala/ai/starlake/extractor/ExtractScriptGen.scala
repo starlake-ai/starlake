@@ -28,11 +28,39 @@ class ScriptGen(
     * @return
     *   The produced script payload
     */
-  def templatize(template: File, templateParams: TemplateParams): String =
-    engine.layout(
-      template.pathAsString,
-      templateParams.paramMap
-    )
+  def templatize(template: File, templateParams: TemplateParams): List[File] = {
+    def formatFilename(name: String): String =
+      name
+        .substring(0, name.lastIndexOf("."))
+        .replaceAll("domain", templateParams.domainToExport)
+        .replaceAll("schema", templateParams.tableToExport)
+
+    val filesPath = if (template.isDirectory) {
+      template.list
+        .map(_.pathAsString)
+        .filter(name => name.endsWith(".ssp") || name.endsWith(".mustache"))
+        .map(name => (name, formatFilename(name)))
+
+    } else {
+      val outputFilename =
+        templateParams.scriptOutputFile
+          .map(_.pathAsString)
+          .getOrElse(formatFilename(template.pathAsString))
+      Iterator((template.pathAsString, outputFilename))
+    }
+
+    filesPath.map { case (inputPath, outputPath) =>
+      val scriptPayload = engine.layout(
+        inputPath,
+        templateParams.paramMap
+      )
+      val outputFile = File(outputPath)
+      outputFile.createFileIfNotExists().overwrite(scriptPayload)
+
+      logger.info(s"Successfully generated script $outputFile")
+      outputFile
+    }.toList
+  }
 
   /** Generate all extraction scripts based on the given domain
     * @param domain
@@ -64,12 +92,8 @@ class ScriptGen(
         defaultDeltaColumn,
         deltaColumns
       )
-    templateSettings.map { ts =>
-      val scriptPayload = templatize(scriptTemplateFile, ts)
-      val scriptFile =
-        ts.scriptOutputFile.createFileIfNotExists().overwrite(scriptPayload)
-      logger.info(s"Successfully generated script $scriptFile")
-      scriptFile
+    templateSettings.flatMap { ts =>
+      templatize(scriptTemplateFile, ts)
     }
   }
 
