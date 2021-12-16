@@ -32,7 +32,7 @@ case class TemplateParams(
   deltaColumn: Option[String],
   dsvDelimiter: String,
   exportOutputFileBase: String,
-  scriptOutputFile: File
+  scriptOutputFile: Option[File]
 ) {
 
   val paramMap: Map[String, Any] = {
@@ -147,7 +147,7 @@ object TemplateParams {
             )
           )
         )
-        .getOrElse(s"EXTRACT_${schema.name}.sql")
+        .getOrElse(s"extract_${domainName}.${schema.name}.sql")
     // exportFileBase is the csv file name base such as EXPORT_L58MA_CLIENT_DELTA_...
     // Considering a pattern like EXPORT_L58MA_CLIENT.*.csv
     // The script which is generated will append the current date time to that base (EXPORT_L58MA_CLIENT_18032020173100).
@@ -163,7 +163,7 @@ object TemplateParams {
       deltaColumn = if (!isFullExport) deltaColumn else None,
       dsvDelimiter = schema.metadata.flatMap(_.separator).getOrElse(","),
       exportOutputFileBase = exportFileBase,
-      scriptOutputFile = scriptsOutputFolder / scriptOutputFileName
+      scriptOutputFile = Some(scriptsOutputFolder / scriptOutputFileName)
     )
   }
 }
