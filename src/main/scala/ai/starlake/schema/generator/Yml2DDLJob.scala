@@ -87,7 +87,7 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
               case s if s.name.toLowerCase() == table.toLowerCase() => s.name
             }
             .getOrElse(table)
-          val ddlType = "drop"
+
           val dropParamMap = Map(
             "attributes"              -> List.empty[Map[String, Any]],
             "newAttributes"           -> Nil,
@@ -105,7 +105,7 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
             "domainComment"           -> ""
           )
           println(s"Dropping table $table")
-          val result = applyTemplate(domain, ddlType, dropParamMap)
+          val result = applyTemplate(domain, "drop", dropParamMap)
           sqlString.append(result)
         }
         schemas.map { schema =>
@@ -155,7 +155,7 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
                     existingAttr.required != attr.required
                   )
                 }
-              val ddlType = "alter"
+
               val alterParamMap = Map(
                 "attributes" -> Nil,
                 "newAttributes" -> addColumns.map(
@@ -184,7 +184,7 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
                 "comment"       -> schema.comment.getOrElse(""),
                 "domainComment" -> domain.comment.getOrElse("")
               )
-              val result = applyTemplate(domain, ddlType, alterParamMap)
+              val result = applyTemplate(domain, "alter", alterParamMap)
               println(s"Altering existing table ${schema.name}")
               sqlString.append(result)
             case true =>
@@ -204,9 +204,9 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
                 "comment"       -> schema.comment.getOrElse(""),
                 "domainComment" -> domain.comment.getOrElse("")
               )
-              val ddlType = "create"
+
               println(s"Creating new table ${schema.name}")
-              val result = applyTemplate(domain, ddlType, createParamMap)
+              val result = applyTemplate(domain, "create", createParamMap)
               sqlString.append(result)
           }
         }
