@@ -20,11 +20,9 @@
 
 package ai.starlake.job.ingest
 
+import ai.starlake.config.{CometColumns, Settings}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.{Domain, Schema, Type}
-import ai.starlake.config.Settings
-import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
-import ai.starlake.schema.model._
 import org.apache.hadoop.fs.Path
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql._
@@ -104,7 +102,7 @@ class JsonIngestionJob(
     * @param dataset
     *   input dataset as a RDD of string
     */
-  protected def ingest(dataset: DataFrame) = {
+  protected def ingest(dataset: DataFrame): (Dataset[String], Dataset[Row]) = {
     val rdd: RDD[Row] = dataset.rdd
 
     val parsed: RDD[Either[List[String], (String, String)]] = JsonIngestionUtil
@@ -122,7 +120,7 @@ class JsonIngestionJob(
           // Because Spark cannot detect the input files when session.read.json(session.createDataset(withValidSchema)(Encoders.STRING)),
           // We should add it as a normal field in the RDD before converting to a dataframe using session.read.json
 
-          s"""$left, "${Settings.cometInputFileNameColumn}" : "$inputFileName" }"""
+          s"""$left, "${CometColumns.cometInputFileNameColumn}" : "$inputFileName" }"""
         }
 
     val withInvalidSchema: RDD[String] =
@@ -134,7 +132,7 @@ class JsonIngestionJob(
 
     val loadSchema = schema
       .sparkSchemaUntypedEpochWithoutScriptedFields(schemaHandler)
-      .add(StructField(Settings.cometInputFileNameColumn, StringType))
+      .add(StructField(CometColumns.cometInputFileNameColumn, StringType))
 
     val validationSchema = schema.sparkSchemaWithoutScriptedFieldsWithInputFileName(schemaHandler)
 
@@ -150,7 +148,10 @@ class JsonIngestionJob(
         toValidate,
         schema.attributes,
         types,
-        validationSchema
+        validationSchema,
+        settings.comet.privacy.options,
+        settings.comet.cacheStorageLevel,
+        settings.comet.sinkReplayToFile
       )
 
     import session.implicits._

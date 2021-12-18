@@ -96,7 +96,8 @@ class SinkTypeDeserializer extends JsonDeserializer[SinkType] {
     new JsonSubTypes.Type(value = classOf[JdbcSink], name = "JDBC")
   )
 )
-sealed abstract class Sink(val `type`: SinkType) {
+sealed abstract class Sink(val `type`: String) {
+  def getType(): SinkType = SinkType.fromString(`type`)
   def name: Option[String]
   def options: Option[Map[String, String]]
 
@@ -128,7 +129,7 @@ final case class BigQuerySink(
   days: Option[Int] = None,
   requirePartitionFilter: Option[Boolean] = None,
   options: Option[Map[String, String]] = None
-) extends Sink(SinkType.BQ)
+) extends Sink(SinkType.BQ.value)
 
 /** When the sink *type* field is set to ES, the options below should be provided. Elasticsearch
   * options are specified in the application.conf file.
@@ -143,13 +144,13 @@ final case class EsSink(
   id: Option[String] = None,
   timestamp: Option[String] = None,
   options: Option[Map[String, String]] = None
-) extends Sink(SinkType.ES)
+) extends Sink(SinkType.ES.value)
 
 @JsonTypeName("None")
 final case class NoneSink(
   override val name: Option[String] = None,
   options: Option[Map[String, String]] = None
-) extends Sink(SinkType.None)
+) extends Sink(SinkType.None.value)
 
 // We had to set format and extension outside options because of the bug below
 // https://www.google.fr/url?sa=t&rct=j&q=&esrc=s&source=web&cd=&ved=2ahUKEwjo9qr3v4PxAhWNohQKHfh1CqoQFjAAegQIAhAD&url=https%3A%2F%2Fgithub.com%2FFasterXML%2Fjackson-module-scala%2Fissues%2F218&usg=AOvVaw02niMBgrqd-BWw7-e1YQfc
@@ -159,7 +160,7 @@ final case class FsSink(
   override val options: Option[Map[String, String]] = None,
   format: Option[String] = None,
   extension: Option[String] = None
-) extends Sink(SinkType.FS)
+) extends Sink(SinkType.FS.value)
 
 /** When the sink *type* field is set to JDBC, the options below should be provided.
   * @param connection:
@@ -176,7 +177,7 @@ final case class JdbcSink(
   partitions: Option[Int] = None,
   batchsize: Option[Int] = None,
   options: Option[Map[String, String]] = None
-) extends Sink(SinkType.JDBC)
+) extends Sink(SinkType.JDBC.value)
 
 object Sink {
 

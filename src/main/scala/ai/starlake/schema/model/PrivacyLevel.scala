@@ -20,12 +20,13 @@
 
 package ai.starlake.schema.model
 
-import java.util.Locale
-import ai.starlake.config.Settings
+import ai.starlake.privacy.PrivacyEngine
 import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.databind.annotation.{JsonDeserialize, JsonSerialize}
 import com.fasterxml.jackson.databind.ser.std.ToStringSerializer
 import com.fasterxml.jackson.databind.{DeserializationContext, JsonDeserializer}
+
+import java.util.Locale
 
 /** How (the attribute should be transformed at ingestion time ?
   *
@@ -37,11 +38,15 @@ import com.fasterxml.jackson.databind.{DeserializationContext, JsonDeserializer}
 sealed case class PrivacyLevel(value: String) {
   override def toString: String = value
 
-  def crypt(s: String, colMap: Map[String, Option[String]])(implicit settings: Settings): String = {
-    val ((privacyAlgo, privacyParams), _) = settings.allPrivacyLevels(value)
+  def crypt(
+    s: String,
+    colMap: Map[String, Option[String]],
+    privacyAlgo: PrivacyEngine,
+    privacyParams: List[String]
+  ): String = {
+    // val ((privacyAlgo, privacyParams), _) = allPrivacyLevels(value)
     privacyAlgo.crypt(s, colMap, privacyParams)
   }
-
 }
 
 object PrivacyLevel {

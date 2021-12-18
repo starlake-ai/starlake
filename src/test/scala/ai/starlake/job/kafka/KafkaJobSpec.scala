@@ -353,7 +353,6 @@ class KafkaJobSpec extends TestHelper {
               settings.comet.kafka.topics("kafka_to_es").accessOptions
             )
           offsets should contain theSameElementsAs List((0, 100))
-          import scala.collection.JavaConverters._
 
           val kafkaJobToEs =
             new KafkaJob(
@@ -362,7 +361,7 @@ class KafkaJobSpec extends TestHelper {
                 "org.elasticsearch.spark.sql",
                 SaveMode.Overwrite,
                 "test",
-                writeOptions = settings.comet.elasticsearch.options.asScala.toMap
+                writeOptions = settings.comet.elasticsearch.options
               )
             )
           kafkaJobToEs.run()
@@ -400,7 +399,6 @@ class KafkaJobSpec extends TestHelper {
               )
             )
           kafkaJob.run()
-          import scala.collection.JavaConverters._
 
           val kafkaJobToEs =
             new KafkaJob(
@@ -409,7 +407,7 @@ class KafkaJobSpec extends TestHelper {
                 "org.elasticsearch.spark.sql",
                 SaveMode.Overwrite,
                 "test/_doc",
-                writeOptions = settings.comet.elasticsearch.options.asScala.toMap,
+                writeOptions = settings.comet.elasticsearch.options,
                 streaming = true
               )
             )

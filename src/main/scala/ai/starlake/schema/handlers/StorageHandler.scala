@@ -32,7 +32,6 @@ import java.io.ByteArrayOutputStream
 import java.time.{Instant, LocalDateTime, ZoneId}
 import java.util.regex.Pattern
 import java.util.zip.ZipInputStream
-import scala.collection.JavaConverters._
 import scala.concurrent.duration.FiniteDuration
 import scala.util.{Failure, Success, Try}
 
@@ -91,30 +90,28 @@ trait StorageHandler extends StrictLogging {
 
 /** HDFS Filesystem Handler
   */
-class HdfsStorageHandler(fileSystem: Option[String])(implicit
+class HdfsStorageHandler(fileSystem: String)(implicit
   settings: Settings
 ) extends StorageHandler {
 
   val conf = new Configuration()
 
-  lazy val normalizedFileSystem: Option[String] = {
-    fileSystem.map { fs =>
-      if (fs.endsWith(":"))
-        fs + "///"
-      else if (!fs.endsWith("://") && fs.last == '/')
-        fs.dropRight(1)
-      else if (fs.endsWith("://"))
-        fs + "/."
-      else
-        fs
-    }
+  lazy val normalizedFileSystem: String = {
+    if (fileSystem.endsWith(":"))
+      fileSystem + "///"
+    else if (!fileSystem.endsWith("://") && fileSystem.last == '/')
+      fileSystem.dropRight(1)
+    else if (fileSystem.endsWith("://"))
+      fileSystem + "/."
+    else
+      fileSystem
   }
 
   override def lockAcquisitionPollTime: FiniteDuration = settings.comet.lock.pollTime
   override def lockRefreshPollTime: FiniteDuration = settings.comet.lock.refreshTime
 
-  normalizedFileSystem.foreach(fs => conf.set("fs.defaultFS", fs))
-  settings.comet.hadoop.asScala.toMap.foreach { case (k, v) =>
+  conf.set("fs.defaultFS", normalizedFileSystem)
+  settings.comet.hadoop.foreach { case (k, v) =>
     conf.set(k, v)
   }
 
