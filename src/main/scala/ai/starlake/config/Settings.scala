@@ -20,6 +20,7 @@
 
 package ai.starlake.config
 
+import ai.starlake.config.Settings.JdbcEngine.TableDdl
 import ai.starlake.privacy.PrivacyEngine
 import ai.starlake.schema.handlers.{
   AirflowLauncher,
@@ -28,28 +29,24 @@ import ai.starlake.schema.handlers.{
   SimpleLauncher
 }
 import ai.starlake.schema.model.{Mode, PrivacyLevel, Sink}
-import ai.starlake.utils.{CometObjectMapper, Utils, Version}
+import ai.starlake.utils.{CometObjectMapper, Utils, Version, YamlSerializer}
 import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.typesafe.config.{Config, ConfigValueFactory}
-import com.typesafe.scalalogging.{Logger, StrictLogging}
-import configs.Configs
-import configs.syntax._
+import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.storage.StorageLevel
+import pureconfig.ConvertHelpers._
+import pureconfig._
+import pureconfig.generic.FieldCoproductHint
+import pureconfig.generic.auto._
 
 import java.io.ObjectStreamException
 import java.util.concurrent.TimeUnit
-import java.util.{Locale, Map => juMap, UUID}
-import scala.collection.JavaConverters._
+import java.util.{Locale, UUID}
 import scala.concurrent.duration.FiniteDuration
 
 object Settings extends StrictLogging {
 
-  private def loggerForCompanionInstances: Logger = logger
-
-  /** @param endpoint
-    *   : Airflow REST API endpoint, aka. http://127.0.0.1:8080/api/experimental
-    */
   final case class Airflow(endpoint: String, ingest: String)
 
   /** datasets in the data pipeline go through several stages and are stored on disk at each of
@@ -89,9 +86,9 @@ object Settings extends StrictLogging {
   /** @param options
     *   : Map of privacy algorightms name -> PrivacyEngine
     */
-  final case class Privacy(options: juMap[String, String])
+  final case class Privacy(options: Map[String, String])
 
-  final case class Elasticsearch(active: Boolean, options: juMap[String, String])
+  final case class Elasticsearch(active: Boolean, options: Map[String, String])
 
   /** @param discreteMaxCardinality
     *   : Max number of unique values allowed in cardinality compute
@@ -151,9 +148,7 @@ object Settings extends StrictLogging {
     *   for each of the Standard Table Names used by Comet, the specific SQL DDL statements as
     *   expected in the engine's own dialect.
     */
-  final case class JdbcEngine(
-    tables: scala.collection.Map[String, JdbcEngine.TableDdl]
-  )
+  final case class JdbcEngine(tables: Map[String, TableDdl])
 
   object JdbcEngine {
 
@@ -270,13 +265,13 @@ object Settings extends StrictLogging {
     area: Area,
     airflow: Airflow,
     elasticsearch: Elasticsearch,
-    hadoop: juMap[String, String],
+    hadoop: Map[String, String],
     connections: Map[String, Connection],
     jdbcEngines: Map[String, JdbcEngine],
     atlas: Atlas,
     privacy: Privacy,
-    fileSystem: Option[String],
-    metadataFileSystem: Option[String],
+    fileSystem: String,
+    metadataFileSystem: String,
     internal: Option[Internal],
     udfs: Option[String],
     assertions: Assertions,
@@ -287,7 +282,6 @@ object Settings extends StrictLogging {
     forceFileExtensions: String,
     accessPolicies: AccessPolicies
   ) extends Serializable {
-
     @JsonIgnore
     def isElasticsearchSupported(): Boolean = {
       if (
@@ -332,34 +326,33 @@ object Settings extends StrictLogging {
     }
   }
 
-  private implicit val sinkConfigs: Configs[Sink] = Configs.derive[Sink]
-  private implicit val jdbcEngineConfigs: Configs[JdbcEngine] = Configs.derive[JdbcEngine]
+  implicit val sinkHint = new FieldCoproductHint[Sink]("type") {
+    override def fieldValue(name: String) = name
+  }
 
-  private implicit val storageLevelConfigs: Configs[StorageLevel] =
-    Configs[String].map(StorageLevel.fromString)
+  implicit val storageLevelReader =
+    ConfigReader.fromString[StorageLevel](catchReadError(StorageLevel.fromString))
 
   def apply(config: Config): Settings = {
     val jobId = UUID.randomUUID().toString
     val effectiveConfig = config
       .withValue("job-id", ConfigValueFactory.fromAnyRef(jobId, "per JVM instance"))
 
-    val loaded = effectiveConfig.extract[Comet].valueOrThrow { error =>
-      error.messages.foreach(err => logger.error(err))
-      throw new Exception(s"Failed to load config: $error")
-    }
-    logger.info(s"Using Config $loaded")
+    val loaded = ConfigSource
+      .fromConfig(effectiveConfig)
+      .loadOrThrow[Comet]
+
+    logger.info(YamlSerializer.serializeObject(loaded))
     Settings(loaded, effectiveConfig.getConfig("spark"))
   }
 
+}
+
+object CometColumns {
   val cometInputFileNameColumn: String = "comet_input_file_name"
   val cometSuccessColumn: String = "comet_success"
   val cometErrorMessageColumn: String = "comet_error_message"
 
-  private def make(schemeName: String, encryptionAlgo: String): (PrivacyEngine, List[Any]) = {
-    val (privacyObject, typedParams) = PrivacyEngine.parse(encryptionAlgo)
-    val encryption = Utils.loadInstance[PrivacyEngine](privacyObject)
-    (encryption, typedParams)
-  }
 }
 
 /** This class holds the current Comet settings and an assembly of reference instances for core,
@@ -369,7 +362,6 @@ object Settings extends StrictLogging {
   * justified? probably not quite yet) — cchepelov
   */
 final case class Settings(comet: Settings.Comet, sparkConfig: Config) {
-  def logger: Logger = Settings.loggerForCompanionInstances
 
   @transient
   lazy val storageHandler: HdfsStorageHandler = {
@@ -391,11 +383,28 @@ final case class Settings(comet: Settings.Comet, sparkConfig: Config) {
     case "airflow" => new AirflowLauncher()
   }
 
+}
+
+object PrivacyLevels {
+  private def make(schemeName: String, encryptionAlgo: String): (PrivacyEngine, List[String]) = {
+    val (privacyObject, typedParams) = PrivacyEngine.parse(encryptionAlgo)
+    val encryption = Utils.loadInstance[PrivacyEngine](privacyObject)
+    (encryption, typedParams)
+  }
+
+  private var allPrivacy = Map.empty[String, ((PrivacyEngine, List[String]), PrivacyLevel)]
   @transient
-  lazy val allPrivacyLevels: Map[String, ((PrivacyEngine, List[Any]), PrivacyLevel)] =
-    comet.privacy.options.asScala.map { case (k, objName) =>
-      val encryption = Settings.make(k, objName)
-      val key = k.toUpperCase(Locale.ROOT)
-      (key, (encryption, new PrivacyLevel(key)))
-    }.toMap
+  def allPrivacyLevels(
+    options: Map[String, String]
+  ): Map[String, ((PrivacyEngine, List[String]), PrivacyLevel)] = {
+    if (allPrivacy.isEmpty) {
+      allPrivacy = options.map { case (k, objName) =>
+        val encryption = make(k, objName)
+        val key = k.toUpperCase(Locale.ROOT)
+        (key, (encryption, new PrivacyLevel(key)))
+      }
+    }
+    allPrivacy
+  }
+
 }
