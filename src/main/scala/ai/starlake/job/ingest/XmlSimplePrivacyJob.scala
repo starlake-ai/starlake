@@ -1,6 +1,6 @@
 package ai.starlake.job.ingest
 
-import ai.starlake.config.Settings
+import ai.starlake.config.{PrivacyLevels, Settings}
 import ai.starlake.job.validator.ValidationResult
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model._
@@ -88,6 +88,8 @@ object XmlSimplePrivacyJob {
     val openTag = "<" + attribute.name + ">"
     val closeTag = "</" + attribute.name + ">"
     val pattern = Pattern.compile(s".*$openTag.*$closeTag.*")
+    val allPrivacyLevels = PrivacyLevels.allPrivacyLevels(settings.comet.privacy.options)
+
     inputDF.map { row =>
       val line = row.getString(0)
       val privacy: String = if (pattern.matcher(line).matches()) {
@@ -96,7 +98,9 @@ object XmlSimplePrivacyJob {
         val prefix = line.substring(0, openIndex)
         val suffix = line.substring(closeIndex)
         val privacyInput = line.substring(openIndex, closeIndex)
-        prefix + attribute.getPrivacy().crypt(privacyInput, Map.empty) + suffix
+        val attrPrivacy = attribute.getPrivacy()
+        val ((privacyAlgo, privacyParams), _) = allPrivacyLevels(attrPrivacy.value)
+        prefix + attrPrivacy.crypt(privacyInput, Map.empty, privacyAlgo, privacyParams) + suffix
       } else {
         line
       }

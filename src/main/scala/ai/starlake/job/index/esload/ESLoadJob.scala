@@ -29,7 +29,6 @@ import org.apache.spark.sql.SaveMode
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.StructField
 
-import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try}
 
 class ESLoadJob(
@@ -103,7 +102,7 @@ class ESLoadJob(
     logger.info(
       s"Registering template ${cliConfig.domain.toLowerCase}_${cliConfig.schema.toLowerCase} -> $content"
     )
-    val esOptions = settings.comet.elasticsearch.options.asScala.toMap
+    val esOptions = settings.comet.elasticsearch.options
     val host: String = esOptions.getOrElse("es.nodes", "localhost")
     val port = esOptions.getOrElse("es.port", "9200").toInt
     val ssl = esOptions.getOrElse("es.net.ssl", "false").toBoolean
