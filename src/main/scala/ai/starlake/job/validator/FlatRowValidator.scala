@@ -1,6 +1,6 @@
 package ai.starlake.job.validator
 
-import ai.starlake.config.Settings
+import ai.starlake.config.{CometColumns, PrivacyLevels}
 import ai.starlake.job.ingest.IngestionUtil
 import ai.starlake.schema.model.Rejection.{ColInfo, ColResult, RowInfo, RowResult}
 import ai.starlake.schema.model.{Attribute, Format, Type}
@@ -10,6 +10,7 @@ import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, Row, SparkSession}
+import org.apache.spark.storage.StorageLevel
 
 import java.sql.Timestamp
 import java.time.Instant
@@ -23,7 +24,7 @@ object FlatRowValidator extends GenericRowValidator {
         row.toSeq.dropRight(1).map(Option(_).getOrElse("").toString).mkString(separator)
       case Format.SIMPLE_JSON =>
         val rowAsMap = row.getValuesMap(row.schema.fieldNames)
-        new Gson().toJson(rowAsMap - Settings.cometInputFileNameColumn)
+        new Gson().toJson(rowAsMap - CometColumns.cometInputFileNameColumn)
       case Format.POSITION =>
         // dropRight removes CometInputFileName Column
         row.toSeq.dropRight(1).map(_.toString).mkString("")
@@ -40,8 +41,11 @@ object FlatRowValidator extends GenericRowValidator {
     dataset: DataFrame,
     attributes: List[Attribute],
     types: List[Type],
-    sparkType: StructType
-  )(implicit settings: Settings): ValidationResult = {
+    sparkType: StructType,
+    privacyOptions: Map[String, String],
+    cacheStorageLevel: StorageLevel,
+    sinkReplayToFile: Boolean
+  ): ValidationResult = {
     val now = Timestamp.from(Instant.now)
     val checkedRDD: RDD[RowResult] = dataset.rdd
       .map { row =>
@@ -71,23 +75,29 @@ object FlatRowValidator extends GenericRowValidator {
           RowResult(
             colResults,
             false,
-            row.getAs[String](Settings.cometInputFileNameColumn),
+            row.getAs[String](CometColumns.cometInputFileNameColumn),
             Some(toOriginalFormat(row, format, separator))
           )
         } else {
           val colResults = rowCols.map { case ((colRawValue, colAttribute), tpe) =>
-            IngestionUtil.validateCol(colRawValue, colAttribute, tpe, colMap)
+            IngestionUtil.validateCol(
+              colRawValue,
+              colAttribute,
+              tpe,
+              colMap,
+              PrivacyLevels.allPrivacyLevels(privacyOptions)
+            )
           }.toList
           val isRowAccepted = colResults.forall(_.colInfo.success)
           RowResult(
             colResults,
             isRowAccepted,
-            row.getAs[String](Settings.cometInputFileNameColumn),
-            if (isRowAccepted || !settings.comet.sinkReplayToFile) None
+            row.getAs[String](CometColumns.cometInputFileNameColumn),
+            if (isRowAccepted || !sinkReplayToFile) None
             else Some(toOriginalFormat(row, format, separator))
           )
         }
-      } persist (settings.comet.cacheStorageLevel)
+      } persist cacheStorageLevel
 
     val rejectedRDD = checkedRDD
       .filter(_.isRejected)

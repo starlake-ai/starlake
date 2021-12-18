@@ -8,19 +8,19 @@ class PrivacyEngineSpec extends TestHelper {
     "Parsing a single arg encryption algo" should "succeed" in {
       val (algo, params) = PrivacyEngine.parse("ai.starlake.privacy.Approx(10)")
       algo should equal("ai.starlake.privacy.Approx")
-      params.head shouldBe a[Int]
-      params should equal(List(10))
+      params.head.toInt shouldBe a[Int]
+      params should equal(List("10"))
     }
     "Parsing a multiple arg encryption algo" should "succeed" in {
       val (algo, params) = PrivacyEngine.parse("package.SomeAlgo('X', \"Hello\", 12, false, 12.34)")
       algo should equal("package.SomeAlgo")
       params should have length 5
-      params(0) shouldBe a[Char]
+      params(0) should have length 1
       params(1) shouldBe a[String]
-      params(2) shouldBe a[Int]
-      params(3) shouldBe a[Boolean]
-      params(4) shouldBe a[Double]
-      params should equal(List('X', "Hello", 12, false, 12.34))
+      params(2).toInt shouldBe a[Int]
+      params(3).toBoolean shouldBe a[Boolean]
+      params(4).toDouble shouldBe a[Double]
+      params should equal(List("X", "Hello", "12", "false", "12.34"))
     }
 
     "Initials Masking Firstname" should "succeed" in {
@@ -40,7 +40,7 @@ class PrivacyEngineSpec extends TestHelper {
     }
 
     "IPv4 Masking" should "succeed" in {
-      val result = IPv4.crypt("192.168.2.1", Map.empty, List(1))
+      val result = IPv4.crypt("192.168.2.1", Map.empty, List("1"))
       result shouldBe "192.168.2.0"
     }
 
@@ -50,7 +50,7 @@ class PrivacyEngineSpec extends TestHelper {
     }
 
     "IPv6 Masking" should "succeed" in {
-      val result = IPv6.crypt("2001:db8:0:85a3::ac1f:8001", Map.empty, List(1))
+      val result = IPv6.crypt("2001:db8:0:85a3::ac1f:8001", Map.empty, List("1"))
       result shouldBe "2001:db8:0:85a3::ac1f:0"
     }
 
@@ -65,39 +65,39 @@ class PrivacyEngineSpec extends TestHelper {
     }
 
     "ApproxDouble" should "succeed" in {
-      val result = ApproxDouble.crypt("2.5", Map.empty, List(20))
+      val result = ApproxDouble.crypt("2.5", Map.empty, List("20"))
       result.toDouble shouldEqual 2.5 +- 0.5
     }
 
     "ApproxLong" should "succeed" in {
-      val result = ApproxLong.crypt("4", Map.empty, List(25))
+      val result = ApproxLong.crypt("4", Map.empty, List("25"))
       result.toLong.toDouble shouldEqual 4.0 +- 1
 
     }
 
     "RandomDouble" should "succeed" in {
       val resultWithoutBounds = RandomDouble.crypt("", Map.empty, List())
-      val resultWithBounds = RandomDouble.crypt("", Map.empty, List(10, 20))
+      val resultWithBounds = RandomDouble.crypt("", Map.empty, List("10", "20"))
       resultWithoutBounds.toDouble shouldBe 0.5 +- 1
       resultWithBounds.toDouble shouldBe 15.0 +- 5
     }
 
     "RandomLong" should "succeed" in {
       val resultWithoutBounds = RandomLong.crypt("", Map.empty, List())
-      val resultWithBounds = RandomLong.crypt("", Map.empty, List(10, 20))
+      val resultWithBounds = RandomLong.crypt("", Map.empty, List("10", "20"))
       resultWithoutBounds.toLong shouldBe 0L +- Long.MaxValue
       resultWithBounds.toLong shouldBe 15L +- 5
     }
 
     "RandomInt" should "succeed" in {
       val resultWithoutBounds = RandomInt.crypt("", Map.empty, List())
-      val resultWithBounds = RandomInt.crypt("", Map.empty, List(10, 20))
+      val resultWithBounds = RandomInt.crypt("", Map.empty, List("10", "20"))
       resultWithoutBounds.toInt shouldBe 0 +- Int.MaxValue
       resultWithBounds.toInt shouldBe 15 +- 5
     }
 
     "Hide" should "succeed" in {
-      val result = Hide.crypt("Hello", Map.empty, List("X", 5))
+      val result = Hide.crypt("Hello", Map.empty, List("X", "5"))
       result shouldBe "XXXXX"
 
     }
@@ -106,7 +106,7 @@ class PrivacyEngineSpec extends TestHelper {
         override def crypt(
           s: String,
           colMap: => Map[String, Option[String]],
-          params: List[Any]
+          params: List[String]
         ): String = {
           if (colMap.isDefinedAt("col1")) s else ""
         }

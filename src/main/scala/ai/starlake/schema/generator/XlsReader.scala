@@ -1,6 +1,6 @@
 package ai.starlake.schema.generator
 
-import ai.starlake.config.Settings
+import ai.starlake.config.{PrivacyLevels, Settings}
 import ai.starlake.schema.model._
 import org.apache.poi.ss.usermodel._
 
@@ -271,7 +271,9 @@ class XlsReader(input: Input) extends XlsModel {
               Option(row.getCell(headerMap("_privacy"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
                 .flatMap(formatter.formatCellValue)
                 .map { value =>
-                  val (_, level) = settings.allPrivacyLevels(value.toUpperCase())
+                  val (_, level) = PrivacyLevels.allPrivacyLevels(settings.comet.privacy.options)(
+                    value.toUpperCase
+                  )
                   level
                 }
             val metricType =

@@ -20,7 +20,7 @@
 
 package ai.starlake.job.ingest
 
-import ai.starlake.config.Settings
+import ai.starlake.config.{CometColumns, Settings}
 import ai.starlake.job.validator.ValidationResult
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.{Domain, Schema, Type}
@@ -113,7 +113,7 @@ class XmlIngestionJob(
         (rejectedDS, dataset)
       case _ =>
         val withInputFileNameDS =
-          dataset.withColumn(Settings.cometInputFileNameColumn, input_file_name())
+          dataset.withColumn(CometColumns.cometInputFileNameColumn, input_file_name())
 
         val validationSchema =
           schema.sparkSchemaWithoutScriptedFieldsWithInputFileName(schemaHandler)
@@ -126,7 +126,10 @@ class XmlIngestionJob(
             withInputFileNameDS,
             schema.attributes,
             types,
-            validationSchema
+            validationSchema,
+            settings.comet.privacy.options,
+            settings.comet.cacheStorageLevel,
+            settings.comet.sinkReplayToFile
           )
 
         val allRejected = rejectedDS.union(validationResult.errors)
