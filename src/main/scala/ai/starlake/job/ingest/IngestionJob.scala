@@ -1,12 +1,13 @@
 package ai.starlake.job.ingest
 
-import ai.starlake.config.{DatasetArea, Settings, StorageArea}
+import ai.starlake.config.{CometColumns, DatasetArea, Settings, StorageArea}
 import ai.starlake.job.index.bqload.{BigQueryLoadConfig, BigQueryNativeJob, BigQuerySparkJob}
 import ai.starlake.job.index.connectionload.{ConnectionLoadConfig, ConnectionLoadJob}
 import ai.starlake.job.index.esload.{ESLoadConfig, ESLoadJob}
 import ai.starlake.job.ingest.ImprovedDataFrameContext._
 import ai.starlake.job.metrics.{AssertionJob, MetricsJob}
 import ai.starlake.job.validator.{GenericRowValidator, ValidationResult}
+import ai.starlake.privacy.PrivacyEngine
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.Engine.SPARK
 import ai.starlake.schema.model.Rejection.{ColInfo, ColResult}
@@ -290,7 +291,7 @@ trait IngestionJob extends SparkJob {
         else
           finalMergedDf
 
-      val sinkType = metadata.getSink().map(_.`type`)
+      val sinkType = metadata.getSink().map(_.getType())
       val savedDataset = sinkType.getOrElse(SinkType.None) match {
         case SinkType.FS | SinkType.None if !settings.comet.sinkToFile =>
           // TODO do this inside the sink function below
@@ -407,7 +408,7 @@ trait IngestionJob extends SparkJob {
                                               )
                                             case (df, _) => df
                                           }
-                                      } else acceptedDF).drop(Settings.cometInputFileNameColumn)
+                                      } else acceptedDF).drop(CometColumns.cometInputFileNameColumn)
     acceptedDfWithScriptFields
   }
 
@@ -416,7 +417,7 @@ trait IngestionJob extends SparkJob {
     partitionsToUpdate: Option[List[String]]
   ): Try[Unit] = {
     Try {
-      val sinkType = metadata.getSink().map(_.`type`)
+      val sinkType = metadata.getSink().map(_.getType())
       sinkType.getOrElse(SinkType.None) match {
         case SinkType.ES if settings.comet.elasticsearch.active =>
           val sink = metadata.getSink().map(_.asInstanceOf[EsSink])
@@ -761,7 +762,7 @@ trait IngestionJob extends SparkJob {
     def bqNativeJob(sql: String) = new BigQueryNativeJob(bqConfig, sql, None)
     schema.presql.getOrElse(Nil).foreach { sql =>
       val compiledSql = sql.richFormat(options)
-      metadata.getSink().getOrElse(NoneSink()).`type` match {
+      metadata.getSink().getOrElse(NoneSink()).getType() match {
         case SinkType.BQ =>
           bqNativeJob(compiledSql).runInteractiveQuery()
         case _ =>
@@ -974,7 +975,7 @@ trait IngestionJob extends SparkJob {
 
   def reorderAttributes(dataFrame: DataFrame): List[Attribute] = {
     val finalSchema = schema.attributesWithoutScriptedFields :+ Attribute(
-      name = Settings.cometInputFileNameColumn
+      name = CometColumns.cometInputFileNameColumn
     )
     val attributesMap =
       finalSchema.map(attr => (attr.name, attr)).toMap
@@ -1106,9 +1107,8 @@ object IngestionUtil {
     colRawValue: Option[String],
     colAttribute: Attribute,
     tpe: Type,
-    colMap: => Map[String, Option[String]]
-  )(
-    implicit /* TODO: make me explicit. Avoid rebuilding the PrivacyLevel(settings) at each invocation? */ settings: Settings
+    colMap: => Map[String, Option[String]],
+    allPrivacyLevels: Map[String, ((PrivacyEngine, List[String]), PrivacyLevel)]
   ): ColResult = {
     def ltrim(s: String) = s.replaceAll("^\\s+", "")
 
@@ -1146,8 +1146,10 @@ object IngestionUtil {
     val privacy = colValue.map { colValue =>
       if (privacyLevel == PrivacyLevel.None)
         colValue
-      else
-        privacyLevel.crypt(colValue, colMap)
+      else {
+        val ((privacyAlgo, privacyParams), _) = allPrivacyLevels(privacyLevel.value)
+        privacyLevel.crypt(colValue, colMap, privacyAlgo, privacyParams)
+      }
     }
 
     val colPatternOK = !requiredColIsEmpty && (optionalColIsEmpty || colPatternIsValid)

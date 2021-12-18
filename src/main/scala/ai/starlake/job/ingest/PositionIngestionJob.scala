@@ -20,7 +20,7 @@
 
 package ai.starlake.job.ingest
 
-import ai.starlake.config.Settings
+import ai.starlake.config.{CometColumns, Settings}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model._
 import org.apache.hadoop.fs.Path
@@ -117,7 +117,10 @@ class PositionIngestionJob(
       dataset,
       orderedAttributes,
       orderedTypes,
-      orderedSparkTypes
+      orderedSparkTypes,
+      settings.comet.privacy.options,
+      settings.comet.cacheStorageLevel,
+      settings.comet.sinkReplayToFile
     )
     saveRejected(validationResult.errors, validationResult.rejected)
     saveAccepted(validationResult)
@@ -165,7 +168,7 @@ object PositionIngestionUtil {
     val dataset =
       session.createDataFrame(rdd, StructType(fieldTypeArray)).toDF(attributes.map(_.name): _*)
     dataset withColumn (
-      Settings.cometInputFileNameColumn,
+      CometColumns.cometInputFileNameColumn,
       org.apache.spark.sql.functions.input_file_name()
     )
   }

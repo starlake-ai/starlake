@@ -20,7 +20,7 @@
 
 package ai.starlake.job.ingest
 
-import ai.starlake.config.Settings
+import ai.starlake.config.{CometColumns, Settings}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model._
 import org.apache.hadoop.fs.Path
@@ -127,7 +127,7 @@ class DsvIngestionJob(
         session
           .createDataFrame(session.sparkContext.emptyRDD[Row], StructType(sparkSchema))
           .withColumn(
-            Settings.cometInputFileNameColumn,
+            CometColumns.cometInputFileNameColumn,
             org.apache.spark.sql.functions.input_file_name()
           )
       } else {
@@ -173,7 +173,7 @@ class DsvIngestionJob(
         }
         resDF.withColumn(
           //  Spark here can detect the input file automatically, so we're just using the input_file_name spark function
-          Settings.cometInputFileNameColumn,
+          CometColumns.cometInputFileNameColumn,
           org.apache.spark.sql.functions.input_file_name()
         )
       }
@@ -208,7 +208,10 @@ class DsvIngestionJob(
       dataset,
       orderedAttributes,
       orderedTypes,
-      orderedSparkTypes
+      orderedSparkTypes,
+      settings.comet.privacy.options,
+      settings.comet.cacheStorageLevel,
+      settings.comet.sinkReplayToFile
     )
 
     saveRejected(validationResult.errors, validationResult.rejected)

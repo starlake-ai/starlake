@@ -560,7 +560,7 @@ class IngestionWorkflow(
           val sink = action.task.sink
           logger.info(s"BQ Job succeeded. sinking data to $sink")
           sink match {
-            case Some(sink) if sink.`type` == SinkType.BQ =>
+            case Some(sink) if sink.getType() == SinkType.BQ =>
               logger.info("Sinking to BQ done")
             case _ =>
               // TODO Sinking not supported
@@ -575,7 +575,7 @@ class IngestionWorkflow(
               logger.info(s"Spark Job succeeded. sinking data to $sinkOption")
               sinkOption match {
                 case Some(sink) => {
-                  sink.`type` match {
+                  sink.getType() match {
                     case SinkType.ES if settings.comet.elasticsearch.active =>
                       esload(action)
                     case SinkType.BQ =>
