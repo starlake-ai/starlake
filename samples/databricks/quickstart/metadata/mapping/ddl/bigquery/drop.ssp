@@ -1,0 +1,17 @@
+<%@ val attributes: List[Map[String, Any]] %>
+<%@ val newAttributes: List[Map[String, Any]] %>
+<%@ val alterAttributes: List[Map[String, Any]] %>
+<%@ val alterCommentAttributes: List[Map[String, Any]] %>
+<%@ val alterRequiredAttributes: List[Map[String, Any]] %>
+<%@ val alterDataTypeAttributes: List[Map[String, Any]] %>
+<%@ val droppedAttributes: List[Map[String, Any]] %>
+<%@ val domain: String %>
+<%@ val domainComment: String = ""  %>
+<%@ val schema: String %>
+<%@ val schemaComment: String = ""  %>
+<%@ val partitions: List[String] %>
+<%@ val clustered: List[String] %>
+<%@ val primaryKeys: List[String] %>
+
+
+drop table  ${domain}.${schema};
