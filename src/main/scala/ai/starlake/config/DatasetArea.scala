@@ -41,7 +41,9 @@ import java.util.Locale
 object DatasetArea {
 
   def path(domain: String, area: String)(implicit settings: Settings) =
-    new Path(s"${settings.comet.datasets}/$area/$domain")
+    new Path(
+      s"${settings.comet.fileSystem}/${settings.comet.datasets}/$area/$domain"
+    )
 
   def path(domainPath: Path, schema: String) = new Path(domainPath, schema)
 
