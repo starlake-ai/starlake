@@ -14,19 +14,15 @@ object PrivacyEngine {
     bytes.map("%02x" format _).mkString
   }
 
-  def parse(maskingAlgo: String): (String, List[Any]) = {
-    def parseParams(params: List[String]): List[Any] =
+  def parse(maskingAlgo: String): (String, List[String]) = {
+    def parseParams(params: List[String]): List[String] =
       params.map { param =>
         if (param.startsWith("\"") && param.endsWith("\""))
           param.substring(1, param.length - 1)
         else if (param.startsWith("'") && param.endsWith("'"))
-          param.charAt(1)
-        else if (param.contains('.'))
-          param.toDouble
-        else if (param.equalsIgnoreCase("true") || param.equalsIgnoreCase("false"))
-          param.toBoolean
+          param.substring(1, 2)
         else
-          param.toInt
+          param
       }
 
     val hasParam = maskingAlgo.indexOf('(')
@@ -58,61 +54,61 @@ trait PrivacyEngine {
     * @return
     *   The encrypted string
     */
-  def crypt(s: String, colMap: => Map[String, Option[String]], params: List[Any]): String
+  def crypt(s: String, colMap: => Map[String, Option[String]], params: List[String]): String
 }
 
 object Md5 extends PrivacyEngine {
 
-  def crypt(s: String, colMap: => Map[String, Option[String]], params: List[Any]): String =
+  def crypt(s: String, colMap: => Map[String, Option[String]], params: List[String]): String =
     PrivacyEngine.algo("MD5", s)
 }
 
 object Sha1 extends PrivacyEngine {
 
-  def crypt(s: String, colMap: => Map[String, Option[String]], params: List[Any]): String =
+  def crypt(s: String, colMap: => Map[String, Option[String]], params: List[String]): String =
     PrivacyEngine.algo("SHA-1", s)
 }
 
 object Sha256 extends PrivacyEngine {
 
-  def crypt(s: String, colMap: => Map[String, Option[String]], params: List[Any]): String =
+  def crypt(s: String, colMap: => Map[String, Option[String]], params: List[String]): String =
     PrivacyEngine.algo("SHA-256", s)
 }
 
 object Sha512 extends PrivacyEngine {
 
-  def crypt(s: String, colMap: => Map[String, Option[String]], params: List[Any]): String =
+  def crypt(s: String, colMap: => Map[String, Option[String]], params: List[String]): String =
     PrivacyEngine.algo("SHA-512", s)
 }
 
 object Hide extends PrivacyEngine {
 
-  def crypt(s: String, colMap: => Map[String, Option[String]], params: List[Any]): String = {
+  def crypt(s: String, colMap: => Map[String, Option[String]], params: List[String]): String = {
     if (params.isEmpty)
       ""
     else {
       assert(params.length == 2)
-      val c = params(0).asInstanceOf[String]
-      val i = params(1).asInstanceOf[Int]
+      val c = params.head
+      val i = params(1).toInt
       c * i
     }
   }
 }
 
 object No extends PrivacyEngine {
-  def crypt(s: String, colMap: => Map[String, Option[String]], params: List[Any]): String = s
+  def crypt(s: String, colMap: => Map[String, Option[String]], params: List[String]): String = s
 }
 
 object Initials extends PrivacyEngine {
 
-  def crypt(s: String, colMap: => Map[String, Option[String]], params: List[Any]): String = {
+  def crypt(s: String, colMap: => Map[String, Option[String]], params: List[String]): String = {
     s.split("\\s+").map(_.substring(0, 1)).mkString("", ".", ".")
   }
 }
 
 object Email extends PrivacyEngine {
 
-  def crypt(s: String, colMap: => Map[String, Option[String]], params: List[Any]): String = {
+  def crypt(s: String, colMap: => Map[String, Option[String]], params: List[String]): String = {
     assert(params.length == 1)
     val split = s.split('@')
     PrivacyEngine.algo(params.head.toString, split(0)) + "@" + split(1)
@@ -122,9 +118,9 @@ object Email extends PrivacyEngine {
 trait IP extends PrivacyEngine {
   def separator: Char
 
-  def crypt(s: String, colMap: => Map[String, Option[String]], params: List[Any]): String = {
+  def crypt(s: String, colMap: => Map[String, Option[String]], params: List[String]): String = {
     assert(params.length == 1)
-    crypt(s, params.head.asInstanceOf[Int])
+    crypt(s, params.head.toInt)
   }
 
   def crypt(s: String, maskBytes: Int): String = {
@@ -148,14 +144,14 @@ trait NumericRandomPrivacy extends PrivacyEngine {
 
   def genUnbounded(): Double
 
-  final def crypt(params: List[Any]): Double = {
+  final def crypt(params: List[String]): Double = {
     assert(params.length == 2 || params.isEmpty)
     params match {
       case Nil =>
         genUnbounded()
       case lowerBound :: upperBound :: Nil =>
-        val low = lowerBound.asInstanceOf[Int].toDouble
-        val up = upperBound.asInstanceOf[Int].toDouble
+        val low = lowerBound.toDouble
+        val up = upperBound.toDouble
         gen(low, up)
       case _ => throw new Exception("Should never happen!")
     }
@@ -170,7 +166,7 @@ object RandomDouble extends NumericRandomPrivacy {
   override def crypt(
     s: String,
     colMap: => Map[String, Option[String]],
-    params: List[Any]
+    params: List[String]
   ): String = {
     crypt(params).toString
   }
@@ -181,7 +177,11 @@ object RandomLong extends NumericRandomPrivacy {
 
   override def genUnbounded(): Double = rnd.nextLong().toDouble
 
-  override def crypt(s: String, colMap: => Map[String, Option[String]], params: List[Any]): String =
+  override def crypt(
+    s: String,
+    colMap: => Map[String, Option[String]],
+    params: List[String]
+  ): String =
     (crypt(params) % Long.MaxValue).toLong.toString
 }
 
@@ -190,16 +190,20 @@ object RandomInt extends NumericRandomPrivacy {
 
   override def genUnbounded(): Double = rnd.nextInt().toDouble
 
-  override def crypt(s: String, colMap: => Map[String, Option[String]], params: List[Any]): String =
+  override def crypt(
+    s: String,
+    colMap: => Map[String, Option[String]],
+    params: List[String]
+  ): String =
     (crypt(params) % Int.MaxValue).toInt.toString
 }
 
 class ApproxDouble extends PrivacyEngine {
   val rnd = new SecureRandom()
 
-  def crypt(s: String, colMap: => Map[String, Option[String]], params: List[Any]): String = {
+  def crypt(s: String, colMap: => Map[String, Option[String]], params: List[String]): String = {
     assert(params.length == 1)
-    crypt(s.toDouble, params.head.asInstanceOf[Int]).toString
+    crypt(s.toDouble, params.head.toInt).toString
   }
 
   def crypt(value: Double, percent: Int): Double = {
@@ -219,22 +223,22 @@ object ApproxLong extends ApproxDouble {
   override def crypt(
     s: String,
     colMap: => Map[String, Option[String]],
-    params: List[Any]
+    params: List[String]
   ): String = {
     assert(params.length == 1)
-    crypt(s.toDouble, params.head.asInstanceOf[Int]).toLong.toString
+    crypt(s.toDouble, params.head.toInt).toLong.toString
   }
 
 }
 
 object Mask extends PrivacyEngine {
 
-  def crypt(s: String, colMap: => Map[String, Option[String]], params: List[Any]): String = {
+  def crypt(s: String, colMap: => Map[String, Option[String]], params: List[String]): String = {
     assert(params.length == 4)
-    val maskingChar = params(0).asInstanceOf[Char]
-    val numberOfChars = params(1).asInstanceOf[Int]
-    val leftSide = params(2).asInstanceOf[Int]
-    val rightSide = params(3).asInstanceOf[Int]
+    val maskingChar = params(0).charAt(0)
+    val numberOfChars = params(1).toInt
+    val leftSide = params(2).toInt
+    val rightSide = params(3).toInt
     crypt(s, maskingChar, numberOfChars, leftSide, rightSide)
   }
 

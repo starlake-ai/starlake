@@ -22,7 +22,7 @@ package ai.starlake.job.ingest
 
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.{Domain, Schema, Type}
-import ai.starlake.config.Settings
+import ai.starlake.config.{CometColumns, Settings}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model._
 import org.apache.hadoop.fs.Path
@@ -70,7 +70,7 @@ class SimpleJsonIngestionJob(
             .json(session.createDataset(jsonRDD)(Encoders.STRING))
             .withColumn(
               //  Spark cannot detect the input file automatically, so we should add it explicitly
-              Settings.cometInputFileNameColumn,
+              CometColumns.cometInputFileNameColumn,
               if (settings.comet.grouped) lit(path.map(_.toString).mkString(","))
               else lit(path.head.toString)
             )
@@ -82,7 +82,7 @@ class SimpleJsonIngestionJob(
             .json(path.map(_.toString): _*)
             .withColumn(
               //  Spark here can detect the input file automatically, so we're just using the input_file_name spark function
-              Settings.cometInputFileNameColumn,
+              CometColumns.cometInputFileNameColumn,
               org.apache.spark.sql.functions.input_file_name()
             )
         }
