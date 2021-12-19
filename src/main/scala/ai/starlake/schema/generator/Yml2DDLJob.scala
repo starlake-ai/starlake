@@ -104,7 +104,7 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
             "comment"                 -> "",
             "domainComment"           -> ""
           )
-          println(s"Dropping table $table")
+          logger.info(s"Dropping table $table")
           val result = applyTemplate(domain, "drop", dropParamMap)
           sqlString.append(result)
         }

@@ -23,6 +23,8 @@ package ai.starlake.schema.handlers
 import better.files.File
 import ai.starlake.TestHelper
 import ai.starlake.config.DatasetArea
+import ai.starlake.job.index.esload.ESLoadConfig
+import ai.starlake.job.ingest.LoadConfig
 import ai.starlake.schema.generator.Yml2GraphViz
 import ai.starlake.schema.model._
 import com.softwaremill.sttp.{HttpURLConnectionBackend, _}
@@ -158,6 +160,53 @@ class SchemaHandlerSpec extends TestHelper {
         }
       }
     }
+
+    "load File" should "work" in {
+      new WithSettings() {
+        new SpecTrait(
+          domainOrJobFilename = "DOMAIN.comet.yml",
+          sourceDomainOrJobPathname = s"/sample/DOMAIN.comet.yml",
+          datasetDomainName = "DOMAIN",
+          sourceDatasetPathName = "/sample/SCHEMA-VALID.dsv"
+        ) {
+          val targetPath = DatasetArea.path(
+            DatasetArea.pending("DOMAIN.comet.yml"),
+            new Path("/sample/SCHEMA-VALID.dsv").getName
+          )
+          cleanMetadata
+          cleanDatasets
+          load(LoadConfig(domainOrJobFilename, "User", List(targetPath))) shouldBe true
+        }
+      }
+    }
+
+    "load to elasticsearch" should "work" in {
+      new WithSettings(configuration) {
+        new SpecTrait(
+          domainOrJobFilename = "locations.comet.yml",
+          sourceDomainOrJobPathname = s"/sample/simple-json-locations/locations.comet.yml",
+          datasetDomainName = "locations",
+          sourceDatasetPathName = "/sample/simple-json-locations/locations.json"
+        ) {
+          cleanMetadata
+          cleanDatasets
+          // loadPending
+          val validator = loadWorkflow()
+          val result = validator.esLoad(
+            ESLoadConfig(
+              domain = "DOMAIN",
+              schema = "",
+              format = "json",
+              dataset = Some(
+                Left(new Path(cometDatasetsPath + s"/pending/$datasetDomainName/locations.json"))
+              )
+            )
+          )
+          result.isSuccess shouldBe true
+        }
+      }
+    }
+
     "Ingest schema with partition" should "produce partitioned output in accepted" in {
       new SpecTrait(
         domainOrJobFilename = "DOMAIN.comet.yml",
