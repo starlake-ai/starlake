@@ -170,7 +170,7 @@ class JsonIngestionJobSpecNoIndexJdbcMetricsJdbcAuditSpec
   override def expectedAuditLogs(implicit settings: Settings): List[AuditLog] =
     AuditLog(
       jobid = sparkSession.sparkContext.applicationId,
-      paths = settings.comet.datasets + "/ingesting/json/complex.json",
+      paths = "file:" + settings.comet.datasets + "/ingesting/json/complex.json",
       domain = "json",
       schema = "sample_json",
       success = true,

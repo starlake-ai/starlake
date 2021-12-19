@@ -106,12 +106,13 @@ trait JdbcChecks {
 
       val standardize = implicitly[ItemStandardizer[T]].standardize _
 
-      fetched
+      val result = fetched
         .map(standardize.andThen(_.toString))
-        .asInstanceOf[Seq[T]] should contain allElementsOf (expectedValues
-        .map(
-          standardize.andThen(_.toString)
-        ))
+        .asInstanceOf[Seq[T]]
+
+      val expected = expectedValues.map(standardize.andThen(_.toString))
+
+      result should contain allElementsOf expected
     } finally {
       conn.close()
     }

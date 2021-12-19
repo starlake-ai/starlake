@@ -20,7 +20,7 @@
 
 package ai.starlake.schema.model
 
-import ai.starlake.config.Settings
+import ai.starlake.config.{CometColumns, Settings}
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.utils.Formatter._
 import ai.starlake.utils.Utils
@@ -217,7 +217,7 @@ case class Schema(
     schemaHandler: SchemaHandler
   ): StructType = {
     sparkSchemaWithoutScriptedFields(schemaHandler)
-      .add(StructField(Settings.cometInputFileNameColumn, StringType))
+      .add(StructField(CometColumns.cometInputFileNameColumn, StringType))
   }
 
   /** @return

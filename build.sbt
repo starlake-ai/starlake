@@ -101,10 +101,12 @@ assembly / assemblyExcludedJars := {
 assembly / assemblyShadeRules := Seq(
   // poi needs a newer version of commons-compress (> 1.17) than the one shipped with spark (1.4)
   ShadeRule.rename("org.apache.commons.compress.**" -> "poiShade.commons.compress.@1").inAll,
+//  ShadeRule.rename("shapeless.**" -> "shade.@0").inAll,
   //shade it or else writing to bigquery wont work because spark comes with an older version of google common.
   ShadeRule.rename("com.google.common.**" -> "shade.@0").inAll,
   ShadeRule.rename("com.google.protobuf.**" -> "shade.@0").inAll
 )
+
 
 // Publish
 publishTo := {
@@ -243,3 +245,5 @@ developers := List(
 )
 
 //assembly / logLevel := Level.Debug
+
+addCompilerPlugin("io.tryp" % "splain" % "0.5.8" cross CrossVersion.patch)
