@@ -338,7 +338,7 @@ trait TestHelper
 
     }
 
-    protected def loadWorkflow() = {
+    protected def loadWorkflow()(implicit codec: Codec) = {
       val targetPath = DatasetArea.path(
         DatasetArea.pending(datasetDomainName),
         new Path(sourceDatasetPathName).getName
