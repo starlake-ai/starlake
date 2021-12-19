@@ -17,7 +17,7 @@ object Versions {
   val jackson212ForSpark3 = "2.10.0"
   val pureConfig = "0.14.1"
   val esSpark211 = "7.8.1"
-  val esSpark212 = "7.16.0"
+  val esSpark212 = "7.16.1"
   val scopt = "4.0.1"
   val sttp = "1.7.2"
   val gcsConnector = "hadoop3-2.2.4"
@@ -32,7 +32,7 @@ object Versions {
   val akkaStream = "2.5.32"
   val kafkaClients = "2.8.1"
   val testContainers = "0.39.12"
-  val jsqlparser = "4.2"
+  val jsqlparser = "4.3"
   val silencerVersion = "1.7.1"
   val gcpDataCatalog = "1.6.1"
 }
