@@ -13,9 +13,11 @@ import ai.starlake.config.Settings.{
   KafkaTopicConfig,
   Metrics
 }
+import ai.starlake.privacy.PrivacyEngine
 import ai.starlake.schema.model.{BigQuerySink, EsSink, FsSink, JdbcSink, Mode, NoneSink, Sink}
 import com.esotericsoftware.kryo.Kryo
 import org.apache.spark.serializer.KryoRegistrator
+import org.apache.spark.storage.StorageLevel
 
 class KryoSerialization extends KryoRegistrator {
   override def registerClasses(kryo: Kryo) {
@@ -38,6 +40,8 @@ class KryoSerialization extends KryoRegistrator {
     kryo.register(classOf[TableDdl])
     kryo.register(classOf[KafkaTopicConfig])
     kryo.register(classOf[Mode])
+    kryo.register(classOf[StorageLevel])
+    kryo.register(classOf[PrivacyEngine])
 
   }
 }

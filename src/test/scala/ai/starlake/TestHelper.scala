@@ -24,10 +24,11 @@ import ai.starlake.schema.handlers.StorageHandler
 import ai.starlake.schema.model.AutoJobDesc
 import com.dimafeng.testcontainers.{ElasticsearchContainer, KafkaContainer}
 import ai.starlake.config.{DatasetArea, Settings}
+import ai.starlake.job.ingest.LoadConfig
 import ai.starlake.schema.handlers.{SchemaHandler, SimpleLauncher, StorageHandler}
 import ai.starlake.schema.model.AutoJobDesc
 import ai.starlake.utils.{CometObjectMapper, Utils}
-import ai.starlake.workflow.IngestionWorkflow
+import ai.starlake.workflow.{IngestionWorkflow, WatchConfig}
 import com.fasterxml.jackson.annotation.JsonInclude.Include
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
@@ -337,8 +338,7 @@ trait TestHelper
 
     }
 
-    def loadPending(implicit codec: Codec): Boolean = {
-
+    protected def loadWorkflow() = {
       val targetPath = DatasetArea.path(
         DatasetArea.pending(datasetDomainName),
         new Path(sourceDatasetPathName).getName
@@ -353,8 +353,22 @@ trait TestHelper
       DatasetArea.initDomains(storageHandler, schemaHandler.domains.map(_.name))
 
       val validator = new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
+      validator
+    }
 
+    def loadPending(implicit codec: Codec): Boolean = {
+      val validator = loadWorkflow()
       validator.loadPending()
+    }
+
+    def secure(config: WatchConfig): Boolean = {
+      val validator = loadWorkflow()
+      validator.secure(config)
+    }
+
+    def load(config: LoadConfig): Boolean = {
+      val validator = loadWorkflow()
+      validator.load(config)
     }
 
     def getJobs(): Map[String, AutoJobDesc] = {
