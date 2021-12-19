@@ -2,8 +2,9 @@ package ai.starlake.extractor.config
 
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.StrictLogging
-import configs.syntax._
 import DeltaColumnsMapping._
+import pureconfig._
+import pureconfig.generic.auto._
 
 case class DeltaColumnsMapping(
   defaultColumn: Option[ColumnName] = None,
@@ -20,6 +21,10 @@ object Settings extends StrictLogging {
   private val config = ConfigFactory.load()
 
   val deltaColumns =
-    config.get[DeltaColumnsMapping]("database-extractor").valueOrElse(DeltaColumnsMapping())
+    ConfigSource
+      .fromConfig(config)
+      .at("database-extractor")
+      .load[DeltaColumnsMapping]
+      .getOrElse(DeltaColumnsMapping())
 
 }
