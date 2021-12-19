@@ -1,3 +1,0 @@
-source ./env.sh
-initEnv
-

@@ -577,7 +577,7 @@ class IngestionWorkflow(
                 case Some(sink) => {
                   sink.getType() match {
                     case SinkType.ES if settings.comet.elasticsearch.active =>
-                      esload(action)
+                      saveToES(action)
                     case SinkType.BQ =>
                       val bqSink = sink.asInstanceOf[BigQuerySink]
                       val source = maybeDataFrame
@@ -655,7 +655,7 @@ class IngestionWorkflow(
     result.forall(_ == true)
   }
 
-  def esload(action: AutoTaskJob): Boolean = {
+  private def saveToES(action: AutoTaskJob): Boolean = {
     val targetArea = action.task.area.getOrElse(action.defaultArea)
     val targetPath =
       new Path(DatasetArea.path(action.task.domain, targetArea.value), action.task.dataset)
