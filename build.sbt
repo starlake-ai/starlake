@@ -82,6 +82,7 @@ Compile / assembly / artifact := {
 addArtifact(Compile / assembly / artifact, assembly)
 
 assembly / assemblyMergeStrategy := {
+  case "META-INF/services/org.apache.spark.sql.sources.DataSourceRegister" => MergeStrategy.concat
   case PathList("META-INF", "services", _ @_*) => MergeStrategy.concat
   case PathList("META-INF", _ @_*) => MergeStrategy.discard
   case "reference.conf"            => MergeStrategy.concat
