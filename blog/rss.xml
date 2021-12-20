@@ -4,15 +4,22 @@
         <title>Quickly Build Optimized Big &amp; Fast Data Pipelines Blog</title>
         <link>https://starlake-ai.github.io/blog</link>
         <description>Quickly Build Optimized Big &amp; Fast Data Pipelines Blog</description>
-        <lastBuildDate>Sat, 18 Sep 2021 00:00:00 GMT</lastBuildDate>
+        <lastBuildDate>Wed, 15 Dec 2021 00:00:00 GMT</lastBuildDate>
         <docs>https://validator.w3.org/feed/docs/rss2.html</docs>
         <generator>https://github.com/jpmonette/feed</generator>
+        <item>
+            <title><![CDATA[Handling Dynamic Partitioning with Spark On BigQuery]]></title>
+            <link>https://starlake-ai.github.io/starlake/blog/spark-big-query-partitioning</link>
+            <guid>spark-big-query-partitioning</guid>
+            <pubDate>Wed, 15 Dec 2021 00:00:00 GMT</pubDate>
+            <description><![CDATA[When loading data into BigQuery, you may want to:]]></description>
+        </item>
         <item>
             <title><![CDATA[Bonjour]]></title>
             <link>https://starlake-ai.github.io/starlake/blog/bonjour</link>
             <guid>bonjour</guid>
             <pubDate>Sat, 18 Sep 2021 00:00:00 GMT</pubDate>
-            <description><![CDATA[Pipelining big data fast is fun :)]]></description>
+            <description><![CDATA[Pipelining fast data is big. Pipelining big data fast is bigger.  :)]]></description>
         </item>
     </channel>
 </rss>
