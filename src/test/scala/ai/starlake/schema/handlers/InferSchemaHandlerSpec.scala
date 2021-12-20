@@ -11,7 +11,7 @@ class InferSchemaHandlerSpec extends TestHelper {
       val sparkImplicits = sparkSession.implicits
       import sparkImplicits._
 
-      val ComplexjsonStr = """{ "metadata": { "key": 84896, "value": 54 }}"""
+      val ComplexjsonStr = """{ "metadata": { "key": 84896, "value": 54, "values": [1, 2, 3] }}"""
 
       val df = sparkSession.read
         .option("inferSchema", value = true)
@@ -20,6 +20,7 @@ class InferSchemaHandlerSpec extends TestHelper {
       val complexAttr2 = Attribute("key", "long", Some(false), required = false)
       val complexAttr3 =
         Attribute("value", "long", Some(false), required = false)
+      val complexAttr4 = Attribute("values", "long", Some(true), required = false)
 
       val complexAttr1: List[Attribute] = List(
         Attribute(
@@ -27,7 +28,7 @@ class InferSchemaHandlerSpec extends TestHelper {
           "struct",
           Some(false),
           required = false,
-          attributes = Some(List(complexAttr2, complexAttr3))
+          attributes = Some(List(complexAttr2, complexAttr3, complexAttr4))
         )
       )
 
