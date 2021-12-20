@@ -210,4 +210,8 @@ object Utils {
   }
   def isRunningInDatabricks(): Boolean =
     sys.env.contains("DATABRICKS_RUNTIME_VERSION")
+
+  def isRunningTest(): Boolean =
+    Thread.currentThread.getStackTrace.exists(_.getClassName.startsWith("org.scalatest."))
+
 }
