@@ -1,12 +1,12 @@
 ---
-sidebar_position: 2
-title: Google Cloud Platform
+sidebar_position: 4
+title: Google Cloud Dataproc
 ---
 
 
 ## Running Locally
 
-When debugging your application, you may need to run your job locally against the remote GCP Project hosting your BigQuery datasets.
+When describing your data format, you may need to run, for testing purposes, your job locally against the remote GCP Project hosting your BigQuery datasets.
 In that case, you need to set the GOOGLE_CLOUD_PROJECT env var and create a custom core-site.xml in your classpath as described below :
 
 ````xml

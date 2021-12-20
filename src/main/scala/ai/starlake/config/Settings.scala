@@ -29,8 +29,7 @@ import ai.starlake.schema.handlers.{
   SimpleLauncher
 }
 import ai.starlake.schema.model.{Mode, PrivacyLevel, Sink}
-import ai.starlake.utils.{CometObjectMapper, Utils, Version, YamlSerializer}
-import com.fasterxml.jackson.annotation.JsonIgnore
+import ai.starlake.utils.{CometObjectMapper, Utils, YamlSerializer}
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.typesafe.config.{Config, ConfigValueFactory}
 import com.typesafe.scalalogging.StrictLogging
@@ -282,18 +281,6 @@ object Settings extends StrictLogging {
     forceFileExtensions: String,
     accessPolicies: AccessPolicies
   ) extends Serializable {
-    @JsonIgnore
-    def isElasticsearchSupported(): Boolean = {
-      if (
-        Version(util.Properties.versionNumberString).compareTo(Version("2.12")) >= 0
-        && elasticsearch.active
-      ) {
-        logger.warn("""Elasticsearch inserts won't be effective before es-hadoop support scala 2.12
-                      |See https://github.com/elastic/elasticsearch-hadoop/pull/1308
-                      |""".stripMargin)
-        false
-      } else true
-    }
 
     val cacheStorageLevel =
       internal.map(_.cacheStorageLevel).getOrElse(StorageLevel.MEMORY_AND_DISK)

@@ -151,10 +151,6 @@ object Dependencies {
     "com.github.scopt" %% "scopt" % Versions.scopt
   )
 
-  val sttp = Seq(
-    "com.softwaremill.sttp" %% "core" % Versions.sttp
-  )
-
   // We need here to remove any reference to hadoop 3
   val atlas = Seq(
     // "org.apache.atlas" % "apache-atlas" % "2.0.0" pomOnly(),
@@ -203,5 +199,5 @@ object Dependencies {
   )
   val dependencies =
     silencer ++ jna_apple_arm_testcontainers ++ scalate ++ logging ++ typedConfigs ++ betterfiles ++ scalaTest ++ scopt ++ hadoop ++
-    sttp ++ gcp ++ azure ++ h2 ++ excelClientApi ++ akkaHttp ++ akkaStream ++ kafkaClients ++ graphviz // ++ atlas
+    gcp ++ azure ++ h2 ++ excelClientApi ++ akkaHttp ++ akkaStream ++ kafkaClients ++ graphviz // ++ atlas
 }

@@ -20,16 +20,18 @@
 
 package ai.starlake.schema.handlers
 
-import better.files.File
 import ai.starlake.TestHelper
 import ai.starlake.config.DatasetArea
 import ai.starlake.job.index.esload.ESLoadConfig
 import ai.starlake.job.ingest.LoadConfig
 import ai.starlake.schema.generator.Yml2GraphViz
 import ai.starlake.schema.model._
-import com.softwaremill.sttp.{HttpURLConnectionBackend, _}
+import better.files.File
 import com.typesafe.config.{Config, ConfigFactory}
 import org.apache.hadoop.fs.Path
+import org.apache.http.client.methods.HttpGet
+import org.apache.http.impl.client.HttpClients
+import org.apache.http.util.EntityUtils
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.{Metadata => _, _}
 import org.apache.spark.sql.{DataFrame, Row}
@@ -46,7 +48,7 @@ class SchemaHandlerSpec extends TestHelper {
     super.afterAll()
   }
 
-  private val playerSchema: StructType = StructType(
+  private val playerSchema = StructType(
     Seq(
       StructField("PK", StringType),
       StructField("firstName", StringType),
@@ -135,15 +137,16 @@ class SchemaHandlerSpec extends TestHelper {
           .except(expectedAccepted.select("firstname"))
           .count() shouldBe 0
 
-        if (settings.comet.isElasticsearchSupported()) {
-          implicit val backend = HttpURLConnectionBackend()
-          val countUri = uri"http://${esContainer.httpHostAddress}/domain.user/_count"
-          val response = sttp.get(countUri).send()
-          response.code should be <= 299
-          response.code should be >= 200
-          assert(response.body.isRight)
-          response.body.right.toString() contains "\"count\":2"
-        }
+        val countUri = s"http://${esContainer.httpHostAddress}/domain.user/_count"
+        val getRequest = new HttpGet(countUri)
+        getRequest.setHeader("Content-Type", "application/json")
+        val client = HttpClients.createDefault
+        val response = client.execute(getRequest)
+
+        response.getStatusLine.getStatusCode should be <= 299
+        response.getStatusLine.getStatusCode should be >= 200
+        EntityUtils.toString(response.getEntity()) contains "\"count\":2"
+
       }
     }
     "Ingest empty file with DSV schema" should "be ok " in {
