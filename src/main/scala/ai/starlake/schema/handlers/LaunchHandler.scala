@@ -20,10 +20,6 @@
 
 package ai.starlake.schema.handlers
 
-import ai.starlake.job.index.bqload.BigQueryLoadConfig
-import ai.starlake.job.index.connectionload.ConnectionLoadConfig
-import ai.starlake.job.index.esload.ESLoadConfig
-import ai.starlake.schema.model.Schema
 import ai.starlake.config.Settings
 import ai.starlake.job.index.bqload.BigQueryLoadConfig
 import ai.starlake.job.index.connectionload.ConnectionLoadConfig

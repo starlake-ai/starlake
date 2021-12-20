@@ -1,4 +1,4 @@
 ---
-sidebar_position: 3
-title: Amazon Web Services
+sidebar_position: 1
+title: Amazon Web Services EMR
 ---

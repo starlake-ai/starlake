@@ -1,9 +1,9 @@
 ---
-sidebar_position: 1
-title: Microsoft Azure
+sidebar_position: 2
+title: Azure Synapse Spark Pools
 ---
 
-## Storage Accounts
+## Running Locally
 
 Starlake need to access ADFS. You need to provide the credentials in one of the three ways below :
 
@@ -23,6 +23,8 @@ Starlake need to access ADFS. You need to provide the credentials in one of the 
      </property>
  </configuration>
 ````
+
+## Running on Azure
 
 * At cluster creation as specified `here <https://docs.microsoft.com/fr-fr/azure/databricks/data/data-sources/azure/azure-datalake-gen2#rdd-api>`_.
   (you'll probably use this method on a production cluster)

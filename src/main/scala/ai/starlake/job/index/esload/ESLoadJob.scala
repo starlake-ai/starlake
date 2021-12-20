@@ -24,7 +24,9 @@ import ai.starlake.config.Settings
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.Schema
 import ai.starlake.utils.{JobResult, SparkJob, SparkJobResult}
-import com.softwaremill.sttp._
+import org.apache.http.client.methods.{HttpDelete, HttpPut}
+import org.apache.http.entity.{ContentType, StringEntity}
+import org.apache.http.impl.client.HttpClients
 import org.apache.spark.sql.SaveMode
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.StructField
@@ -109,31 +111,33 @@ class ESLoadJob(
     val protocol = if (ssl) "https" else "http"
     val username = esOptions.get("net.http.auth.user")
     val password = esOptions.get("net.http.auth.password")
+    val client = HttpClients.createDefault
+    import java.nio.charset.StandardCharsets
+    import java.util.Base64
 
-    implicit val backend = HttpURLConnectionBackend()
-    val authSttp = for {
+    val basicHeader = for {
       u <- username
       p <- password
     } yield {
-      sttp.auth.basic(u, p)
+      "Basic " + Base64.getEncoder.encodeToString("$u:$p".getBytes(StandardCharsets.UTF_8))
+
     }
+    val templateURL = s"$protocol://$host:$port/_template/${cliConfig.getIndexName()}"
+    val delRequest = new HttpDelete(templateURL)
+    delRequest.setHeader("Content-Type", "application/json")
+    basicHeader.foreach { basicHeader =>
+      delRequest.setHeader("Authorization", basicHeader)
+    }
+    client.execute(delRequest)
 
-    val templateUri =
-      uri"$protocol://$host:$port/_template/${cliConfig.getIndexName()}"
-    val requestDel = authSttp
-      .getOrElse(sttp)
-      .delete(templateUri)
-      .contentType("application/json")
-    val _ = requestDel.send()
+    val putRequest = new HttpPut(templateURL)
+    putRequest.setEntity(new StringEntity(content, ContentType.APPLICATION_JSON))
+    basicHeader.foreach { basicHeader =>
+      delRequest.setHeader("Authorization", basicHeader)
+    }
+    val responsePut = client.execute(putRequest)
 
-    val requestPut = authSttp
-      .getOrElse(sttp)
-      .body(content)
-      .put(templateUri)
-      .contentType("application/json")
-
-    val responsePut = requestPut.send()
-    val ok = (200 to 299) contains responsePut.code
+    val ok = (200 to 299) contains responsePut.getStatusLine().getStatusCode()
     if (ok) {
       val allConf = esOptions.toList ++ esCliConf.toList
       logger.whenDebugEnabled {
@@ -143,8 +147,7 @@ class ESLoadJob(
         .options(allConf.toMap)
         .format("org.elasticsearch.spark.sql")
         .mode(SaveMode.Overwrite)
-      if (settings.comet.isElasticsearchSupported())
-        writer.save(cliConfig.getResource())
+      writer.save(cliConfig.getResource())
       Success(SparkJobResult(None))
     } else {
       Failure(throw new Exception("Failed to create template"))

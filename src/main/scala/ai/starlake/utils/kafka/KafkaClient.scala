@@ -58,6 +58,7 @@ class KafkaClient(kafkaConfig: KafkaConfig)(implicit settings: Settings)
     val found = client.listTopics().names().get().contains(topicName)
     logger.info(client.listTopics().names().get().asScala.toSet.mkString("\n"))
     if (found) {
+      logger.info(s"Deleting topic $topicName")
       client.deleteTopics(List(topicName).asJavaCollection)
     }
   }
