@@ -246,4 +246,4 @@ developers := List(
 
 //assembly / logLevel := Level.Debug
 
-addCompilerPlugin("io.tryp" % "splain" % "0.5.8" cross CrossVersion.patch)
+// addCompilerPlugin("io.tryp" % "splain" % "0.5.8" cross CrossVersion.patch)
