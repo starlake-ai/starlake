@@ -42,3 +42,30 @@ schemas:
         required: true
         privacy: "NONE"
         metricType: "NONE"
+  - name: "flat_locations"
+    pattern: "flat-locations.*"
+  metadata:
+    array: false
+    attributes:
+      - name: "id"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "name"
+        type: "string"
+        required: false
+        privacy: "NONE"
+      - name: "name_upper_case"
+        type: "string"
+        script: "upper(name)"
+        array: false
+        required: true
+        privacy: "NONE"
+        metricType: "NONE"
+      - name: "source_file_name"
+        type: "string"
+        script: regexp_extract(comet_input_file_name, '.+\/(.+)$' , 1)
+        array: false
+        required: true
+        privacy: "NONE"
+        metricType: "NONE"

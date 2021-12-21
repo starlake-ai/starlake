@@ -2,6 +2,8 @@ package ai.starlake.schema.handlers
 
 import ai.starlake.TestHelper
 import ai.starlake.job.infer.InferSchemaJob
+import ai.starlake.utils.YamlSerializer
+import better.files.File
 
 import scala.io.Source
 
@@ -61,9 +63,41 @@ class InferSchemaJobSpec extends TestHelper {
     }
 
     "GetFormatArrayJsonMultiline" should "succeed" in {
-
       inferSchemaJob.getFormatFile(jsonArrayMultilinesLines) shouldBe "ARRAY_JSON"
-
     }
+    "Ingest Flat Locations JSON" should "produce file in accepted" in {
+      new SpecTrait(
+        domainOrJobFilename = "locations.comet.yml",
+        sourceDomainOrJobPathname = s"/sample/simple-json-locations/locations.comet.yml",
+        datasetDomainName = "locations",
+        sourceDatasetPathName = "/sample/simple-json-locations/flat-locations.json"
+      ) {
+        cleanMetadata
+        cleanDatasets
+        val inputData = loadTextFile("/sample/simple-json-locations/flat-locations.json")
+        for {
+          sourceFile <- File.temporaryFile()
+          targetFile <- File.temporaryFile()
+        } {
+          sourceFile.overwrite(inputData)
+          inferSchemaJob.infer(
+            "locations",
+            "flat_locations",
+            sourceFile.pathAsString,
+            targetFile.pathAsString,
+            true
+          )
+          val maybeDomain = YamlSerializer.deserializeDomain(targetFile)
+          maybeDomain.isSuccess shouldBe true
+          val discoveredSchema = maybeDomain.get.schemas.head
+          discoveredSchema.name shouldBe "flat_locations"
+          discoveredSchema.attributes.map(_.name) should contain theSameElementsAs List(
+            "id",
+            "name"
+          )
+        }
+      }
+    }
+
   }
 }
