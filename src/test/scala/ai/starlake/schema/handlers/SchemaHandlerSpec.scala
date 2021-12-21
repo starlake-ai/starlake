@@ -496,6 +496,46 @@ class SchemaHandlerSpec extends TestHelper {
       }
 
     }
+    "Ingest Flat Locations JSON" should "produce file in accepted" in {
+
+      new SpecTrait(
+        domainOrJobFilename = "locations.comet.yml",
+        sourceDomainOrJobPathname = s"/sample/simple-json-locations/flat-locations.comet.yml",
+        datasetDomainName = "locations",
+        sourceDatasetPathName = "/sample/simple-json-locations/locations.json"
+      ) {
+        cleanMetadata
+        cleanDatasets
+
+        loadPending
+
+        readFileContent(
+          cometDatasetsPath + s"/${settings.comet.area.archive}/$datasetDomainName/flat-locations.json"
+        ) shouldBe loadTextFile(
+          sourceDatasetPathName
+        )
+
+        // Accepted should have the same data as input
+        val acceptedDf = sparkSession.read
+          .parquet(
+            cometDatasetsPath + s"/accepted/$datasetDomainName/flat_locations/$getTodayPartitionPath"
+          )
+
+        val expectedAccepted =
+          sparkSession.read
+            .json(
+              getResPath("/expected/datasets/accepted/locations/locations.json")
+            )
+            .withColumn("name_upper_case", upper(col("name")))
+            .withColumn("source_file_name", lit("locations.json"))
+
+        acceptedDf
+          .except(expectedAccepted.select(acceptedDf.columns.map(col): _*))
+          .count() shouldBe 0
+
+      }
+
+    }
     "Ingest Locations XML" should "produce file in accepted" in {
 
       new SpecTrait(
