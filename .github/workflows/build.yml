@@ -32,7 +32,7 @@ jobs:
       - name: Use gcloud CLI
         run: gcloud info
       - name: Run tests & Coverage Report
-        run: COMET_ACCESS_POLICIES_PROJECT_ID=${{ secrets.GCP_PROJECT }} TEMPORARY_GCS_BUCKET=starlake-app COMET_GCP_TEST=true sbt coverage test coverageReport
+        run: COMET_ACCESS_POLICIES_PROJECT_ID=${{ secrets.GCP_PROJECT }} TEMPORARY_GCS_BUCKET=starlake-app COMET_GCP_TEST=true RELEASE_SONATYPE=false GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} sbt coverage test coverageReport
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v1
         with:
