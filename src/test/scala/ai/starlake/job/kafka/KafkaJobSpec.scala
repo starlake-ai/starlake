@@ -98,7 +98,7 @@ class KafkaJobSpec extends TestHelper {
          |        "value.deserializer": "org.apache.kafka.common.serialization.StringDeserializer"
          |        "key.serializer": "org.apache.kafka.common.serialization.StringSerializer"
          |        "value.serializer": "org.apache.kafka.common.serialization.StringSerializer"
-         |        "subscribe": "test_load"
+         |        "subscribe": "kafka_to_es"
          |      }
          |    },
          |    "topic_sink_config": {
@@ -163,7 +163,7 @@ class KafkaJobSpec extends TestHelper {
          |        "bootstrap.servers": "${kafkaContainer.bootstrapServers}"
          |        "key.deserializer": "org.apache.kafka.common.serialization.StringDeserializer",
          |        "value.deserializer": "org.apache.kafka.common.serialization.StringDeserializer"
-         |        "subscribe": "comet_offsets"
+         |        "subscribe": "$cometOffsetTopicName"
          |      }
          |    }
          |  }
@@ -335,7 +335,7 @@ class KafkaJobSpec extends TestHelper {
         kafkaClient.deleteTopic("test_offload")
         val file = createTempJsonDataFile(100)
         kafkaClient.deleteTopic("kafka_to_es")
-        Thread.sleep(5000) // wait for topic to be deleted
+        Thread.sleep(1000) // wait for topic to be deleted
         kafkaClient.createTopicIfNotPresent(new NewTopic("kafka_to_es", 1, 1.toShort), Map.empty)
         val kafkaJob =
           new KafkaJob(
