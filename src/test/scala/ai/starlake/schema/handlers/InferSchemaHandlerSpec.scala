@@ -1,6 +1,5 @@
 package ai.starlake.schema.handlers
 
-import ai.starlake.schema.model.Attribute
 import ai.starlake.TestHelper
 import ai.starlake.schema.model.Attribute
 
@@ -129,6 +128,5 @@ class InferSchemaHandlerSpec extends TestHelper {
       dsv shouldBe dsv1
 
     }
-
   }
 }
