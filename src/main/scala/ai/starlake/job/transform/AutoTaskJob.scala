@@ -241,7 +241,7 @@ case class AutoTaskJob(
 
       val finalDataset = partitionedDF
         .mode(task.write.toSaveMode)
-        .format(format.getOrElse(settings.comet.defaultWriteFormat))
+        .format(format.getOrElse(settings.comet.defaultFormat))
         .option("path", targetPath.toString)
 
       if (settings.comet.hive) {
@@ -258,7 +258,7 @@ case class AutoTaskJob(
         // TODO Handle SinkType.FS and SinkType to Hive in Sink section in the caller
         finalDataset.save()
         if (coalesce) {
-          val extension = format.getOrElse(settings.comet.defaultWriteFormat)
+          val extension = format.getOrElse(settings.comet.defaultFormat)
           val csvPath = storageHandler
             .list(targetPath, s".$extension", LocalDateTime.MIN, recursive = false)
             .head

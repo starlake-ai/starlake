@@ -44,8 +44,9 @@ schemas:
         metricType: "NONE"
   - name: "flat_locations"
     pattern: "flat-locations.*"
-  metadata:
-    array: false
+    metadata:
+      multiline: false
+      array: false
     attributes:
       - name: "id"
         type: "string"
