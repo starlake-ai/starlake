@@ -286,7 +286,7 @@ trait IngestionJob extends SparkJob {
             writeMode,
             StorageArea.accepted,
             schema.merge.isDefined,
-            settings.comet.defaultWriteFormat
+            settings.comet.defaultFormat
           )
         else
           finalMergedDf
@@ -301,7 +301,7 @@ trait IngestionJob extends SparkJob {
             writeMode,
             StorageArea.accepted,
             schema.merge.isDefined,
-            settings.comet.defaultWriteFormat
+            settings.comet.defaultFormat
           )
         case _ =>
           savedInFileDataset
@@ -424,7 +424,7 @@ trait IngestionJob extends SparkJob {
           val config = ESLoadConfig(
             timestamp = sink.flatMap(_.timestamp),
             id = sink.flatMap(_.id),
-            format = "parquet",
+            format = settings.comet.defaultFormat,
             domain = domain.name,
             schema = schema.name,
             dataset = Some(Right(mergedDF)),
@@ -449,7 +449,7 @@ trait IngestionJob extends SparkJob {
             source = Right(mergedDF),
             outputTable = schema.name,
             outputDataset = domain.name,
-            sourceFormat = "parquet",
+            sourceFormat = settings.comet.defaultFormat,
             createDisposition = createDisposition,
             writeDisposition = writeDisposition,
             location = sink.flatMap(_.location),
@@ -653,7 +653,7 @@ trait IngestionJob extends SparkJob {
           .option("path", mergePath)
           .save()
         logger.info(s"reading Dataset from merge location $mergePath")
-        val mergedDataset = session.read.parquet(mergePath)
+        val mergedDataset = session.read.format(settings.comet.defaultFormat).load(mergePath)
         (
           partitionedDatasetWriter(
             mergedDataset,
@@ -700,7 +700,7 @@ trait IngestionJob extends SparkJob {
           // Here we read the df from the targetPath and not the merged one since that on is gonna be removed
           // However, we keep the merged DF schema so we don't lose any metadata from reloading the final parquet (especially the nullables)
           val df = session.createDataFrame(
-            session.read.parquet(targetPath.toString).rdd,
+            session.read.format(settings.comet.defaultFormat).load(targetPath.toString).rdd,
             dataset.schema
           )
           storageHandler.delete(new Path(mergePath))
@@ -739,7 +739,7 @@ trait IngestionJob extends SparkJob {
     }
     // output file should have the same name as input file when applying privacy
     if (
-      settings.comet.defaultWriteFormat == "text" && settings.comet.privacyOnly && area != StorageArea.rejected
+      settings.comet.defaultFormat == "text" && settings.comet.privacyOnly && area != StorageArea.rejected
     ) {
       val pathsOutput = storageHandler
         .list(targetPath, ".txt", LocalDateTime.MIN, recursive = false)
@@ -874,11 +874,12 @@ trait IngestionJob extends SparkJob {
         session.read
           .schema(
             MergeUtils.computeCompatibleSchema(
-              session.read.parquet(acceptedPath.toString).schema,
+              session.read.format(settings.comet.defaultFormat).load(acceptedPath.toString).schema,
               incomingSchema
             )
           )
-          .parquet(acceptedPath.toString)
+          .format(settings.comet.defaultFormat)
+          .load(acceptedPath.toString)
       } else
         session.createDataFrame(session.sparkContext.emptyRDD[Row], withScriptFieldsDF.schema)
 
@@ -1067,7 +1068,7 @@ object IngestionUtil {
             outputTable = "rejected",
             None,
             Nil,
-            "parquet",
+            settings.comet.defaultFormat,
             "CREATE_IF_NEEDED",
             "WRITE_APPEND",
             None,

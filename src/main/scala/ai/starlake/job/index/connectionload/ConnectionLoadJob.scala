@@ -23,7 +23,7 @@ class ConnectionLoadJob(
     Try {
       val sourceDF =
         inputPath match {
-          case Left(path) => session.read.parquet(path)
+          case Left(path) => session.read.format(settings.comet.defaultFormat).load(path)
           case Right(df)  => df
         }
 

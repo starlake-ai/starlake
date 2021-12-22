@@ -70,7 +70,10 @@ class ESLoadJob(
               session.read.json(jsonDS)
 
             case "parquet" =>
-              session.read.parquet(path.toString)
+              session.read.format("parquet").load(path.toString)
+
+            case "delta" =>
+              session.read.format("delta").load(path.toString)
           }
         case Right(df) =>
           df
