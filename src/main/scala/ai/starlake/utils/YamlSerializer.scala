@@ -2,7 +2,7 @@ package ai.starlake.utils
 
 import ai.starlake.config.Settings
 import ai.starlake.schema.generator.JDBCSchemas
-import ai.starlake.schema.model.{AutoJobDesc, Domain, Schema, Schemas}
+import ai.starlake.schema.model.{AutoJobDesc, Domain, Schema => ModelSchema, Schemas}
 import better.files.File
 import com.fasterxml.jackson.annotation.JsonInclude.Include
 import com.fasterxml.jackson.databind.ObjectMapper
@@ -19,7 +19,7 @@ object YamlSerializer extends LazyLogging {
 
   def serialize(domain: Domain): String = mapper.writeValueAsString(domain)
 
-  def serialize(schema: Schema): String = mapper.writeValueAsString(schema)
+  def serialize(schema: ModelSchema): String = mapper.writeValueAsString(schema)
 
   def serializeObject(obj: Object): String = mapper.writeValueAsString(obj)
 
@@ -58,6 +58,11 @@ object YamlSerializer extends LazyLogging {
   def serializeToFile(targetFile: File, domain: Domain): Unit = {
     case class Load(load: Domain)
     mapper.writeValue(targetFile.toJava, Load(domain))
+  }
+
+  def serializeToFile(targetFile: File, schema: ModelSchema): Unit = {
+    case class Schema(schema: ModelSchema)
+    mapper.writeValue(targetFile.toJava, Schema(schema))
   }
 
   def deserializeSchemas(content: String, path: String): Schemas = {
