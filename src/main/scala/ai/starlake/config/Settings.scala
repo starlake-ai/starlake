@@ -216,7 +216,7 @@ object Settings extends StrictLogging {
     *   : Absolute path, location where all log are stored
     * @param archive
     *   : Should we backup the ingested datasets ? true by default
-    * @param defaultWriteFormat
+    * @param defaultFormat
     *   : Choose between parquet, orc ... Default is parquet
     * @param defaultRejectedWriteFormat
     *   : Writing format for rejected datasets, choose between parquet, orc ... Default is parquet
@@ -245,7 +245,7 @@ object Settings extends StrictLogging {
     sinkToFile: Boolean,
     sinkReplayToFile: Boolean,
     lock: Lock,
-    defaultWriteFormat: String,
+    defaultFormat: String,
     defaultRejectedWriteFormat: String,
     defaultAuditWriteFormat: String,
     csvOutput: Boolean,
