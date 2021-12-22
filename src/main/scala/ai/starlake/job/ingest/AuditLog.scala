@@ -229,7 +229,7 @@ object AuditLog extends StrictLogging {
           outputTable = "audit",
           None,
           Nil,
-          "parquet",
+          settings.comet.defaultFormat,
           "CREATE_IF_NEEDED",
           "WRITE_APPEND",
           None,
