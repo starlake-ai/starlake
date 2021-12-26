@@ -70,11 +70,12 @@ object JDBCUtils extends LazyLogging {
     try {
       val result = f(connection)
       result
-    } finally Try(connection.close()) match {
-      case Success(_) => logger.debug(s"Closed connection to $connString")
-      case Failure(exception) =>
-        logger.warn(s"Could not close connection to $connString", exception)
-    }
+    } finally
+      Try(connection.close()) match {
+        case Success(_) => logger.debug(s"Closed connection to $connString")
+        case Failure(exception) =>
+          logger.warn(s"Could not close connection to $connString", exception)
+      }
   }
 
   def applyScript(script: String, connectionString: String)(implicit
