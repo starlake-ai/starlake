@@ -102,7 +102,7 @@ class SinkUtils(implicit settings: Settings) extends StrictLogging with DatasetL
         outputTable = bqTable,
         None,
         Nil,
-        "parquet",
+        settings.comet.defaultFormat,
         "CREATE_IF_NEEDED",
         "WRITE_APPEND",
         None,
@@ -166,10 +166,16 @@ class SinkUtils(implicit settings: Settings) extends StrictLogging with DatasetL
       val pathIntermediate = new Path(path.getParent, ".tmp")
 
       logger.whenDebugEnabled {
-        logger.debug(session.read.parquet(path.toString).showString(truncate = 0))
+        logger.debug(
+          session.read
+            .format(settings.comet.defaultFormat)
+            .load(path.toString)
+            .showString(truncate = 0)
+        )
       }
       val dataByVariableStored: DataFrame = session.read
-        .parquet(path.toString)
+        .format(settings.comet.defaultFormat)
+        .load(path.toString)
         .union(dataToSave)
 
       if (settings.comet.hive) {
@@ -181,21 +187,26 @@ class SinkUtils(implicit settings: Settings) extends StrictLogging with DatasetL
           .coalesce(1)
           .write
           .mode(SaveMode.Append)
-          .format("parquet")
+          .format(settings.comet.defaultFormat)
           .saveAsTable(fullTableName)
       } else {
         dataByVariableStored
           .coalesce(1)
           .write
           .mode(SaveMode.Append)
-          .format("parquet")
+          .format(settings.comet.defaultFormat)
           .save(pathIntermediate.toString)
       }
 
       storageHandler.delete(path)
       storageHandler.move(pathIntermediate, path)
       logger.whenDebugEnabled {
-        logger.debug(session.read.parquet(path.toString).showString(1000, truncate = 0))
+        logger.debug(
+          session.read
+            .format(settings.comet.defaultFormat)
+            .load(path.toString)
+            .showString(1000, truncate = 0)
+        )
       }
     } else {
       storageHandler.mkdirs(path)
@@ -203,8 +214,8 @@ class SinkUtils(implicit settings: Settings) extends StrictLogging with DatasetL
         .coalesce(1)
         .write
         .mode(SaveMode.Append)
-        .parquet(path.toString)
-
+        .format(settings.comet.defaultFormat)
+        .save(path.toString)
     }
   }
 }

@@ -48,7 +48,8 @@ class Parquet2CSV(config: Parquet2CSVConfig, val storageHandler: StorageHandler)
           val csvPath =
             new Path(new Path(outputPath, path.getParent.getName()), path.getName() + ".csv")
           val writer = session.read
-            .parquet(path.toString)
+            .format(settings.comet.defaultFormat)
+            .load(path.toString)
             .coalesce(config.partitions)
             .write
             .mode(config.writeMode.getOrElse(ERROR_IF_EXISTS).toSaveMode)
