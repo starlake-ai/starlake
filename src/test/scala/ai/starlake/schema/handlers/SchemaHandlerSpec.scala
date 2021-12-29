@@ -500,20 +500,14 @@ class SchemaHandlerSpec extends TestHelper {
 
       new SpecTrait(
         domainOrJobFilename = "locations.comet.yml",
-        sourceDomainOrJobPathname = s"/sample/simple-json-locations/flat-locations.comet.yml",
+        sourceDomainOrJobPathname = s"/sample/simple-json-locations/locations.comet.yml",
         datasetDomainName = "locations",
-        sourceDatasetPathName = "/sample/simple-json-locations/locations.json"
+        sourceDatasetPathName = "/sample/simple-json-locations/flat-locations.json"
       ) {
         cleanMetadata
         cleanDatasets
 
         loadPending
-
-        readFileContent(
-          cometDatasetsPath + s"/${settings.comet.area.archive}/$datasetDomainName/flat-locations.json"
-        ) shouldBe loadTextFile(
-          sourceDatasetPathName
-        )
 
         // Accepted should have the same data as input
         val acceptedDf = sparkSession.read
@@ -529,8 +523,11 @@ class SchemaHandlerSpec extends TestHelper {
             .withColumn("name_upper_case", upper(col("name")))
             .withColumn("source_file_name", lit("locations.json"))
 
+        acceptedDf.show(false)
+        expectedAccepted.show(false)
         acceptedDf
-          .except(expectedAccepted.select(acceptedDf.columns.map(col): _*))
+          .select(col("id"))
+          .except(expectedAccepted.select(col("id")))
           .count() shouldBe 0
 
       }

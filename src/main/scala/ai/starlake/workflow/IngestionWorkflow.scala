@@ -591,7 +591,7 @@ class IngestionWorkflow(
                           source = source,
                           outputTable = action.task.dataset,
                           outputDataset = action.task.domain,
-                          sourceFormat = "parquet",
+                          sourceFormat = settings.comet.defaultFormat,
                           createDisposition = createDisposition,
                           writeDisposition = writeDisposition,
                           location = bqSink.location,
@@ -669,7 +669,7 @@ class IngestionWorkflow(
       ESLoadConfig(
         timestamp = sink.timestamp,
         id = sink.id,
-        format = "parquet",
+        format = settings.comet.defaultFormat,
         domain = action.task.domain,
         schema = action.task.dataset,
         dataset = Some(Left(targetPath)),
@@ -769,7 +769,7 @@ class IngestionWorkflow(
           val config = BigQueryLoadConfig(
             outputTable = schema.name,
             outputDataset = domain.name,
-            sourceFormat = "parquet",
+            sourceFormat = settings.comet.defaultFormat,
             rls = schema.rls,
             acl = schema.acl,
             starlakeSchema = Some(schema)

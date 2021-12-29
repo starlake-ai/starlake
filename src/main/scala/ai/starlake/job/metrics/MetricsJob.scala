@@ -151,7 +151,8 @@ class MetricsJob(
     */
   override def run(): Try[JobResult] = {
     val datasetPath = new Path(DatasetArea.accepted(domain.name), schema.name)
-    val dataUse: DataFrame = session.read.parquet(datasetPath.toString)
+    val dataUse: DataFrame =
+      session.read.format(settings.comet.defaultFormat).load(datasetPath.toString)
     run(dataUse, storageHandler.lastModified(datasetPath))
   }
 
