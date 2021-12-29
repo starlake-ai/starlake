@@ -22,7 +22,7 @@ The screenshots below are taken from a Databricks cluster running on Google Clou
 :::
 
 ### Create a service account
-Crate a bucket and name it for example `starlake-app`. This bucket will have the following purposes:
+Create a bucket and name it for example `starlake-app`. This bucket will have the following purposes:
 - Store Starlake jars
 - Store Starlake metadata 
 - Store parquet files after ingestion
@@ -34,7 +34,7 @@ Create a service account and assign it the Storage Admin role.
 ### Create a Databricks Cluster
 
 In a Databricks Workspace, create a cluster and set the value of the `Service Account` field name to the service account you just create in the step above.
-![Create Databricks Cluster]( /img/databricks/cluster.png "create service account")
+![Create Databricks Cluster]( /img/databricks/cluster.png "[Create Databricks cluster")
 
 In the `Advanced Settings / Spark Config`  page set the variables below:
 
@@ -64,7 +64,7 @@ TEMPORARY_GCS_BUCKET|starlake-app|Bucket name where Google Cloud API store tempo
 
 ### Mount DBFS
 
-Databricks virtualize the underlying filesystem through DBFS. We first need to enable it in `Admin COnsole / Workspace Settings` page:
+Databricks virtualize the underlying filesystem through DBFS. We first need to enable it in `Admin Console / Workspace Settings` page:
 
 
 ![Enable DBFS]( /img/databricks/advanced-settings.png "Enable DBFS")
