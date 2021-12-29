@@ -132,7 +132,8 @@ class BigQuerySparkJob(
         cliConfig.source match {
           case Left(path) =>
             session.read
-              .parquet(path)
+              .format(settings.comet.defaultFormat)
+              .load(path)
               .persist(
                 cacheStorageLevel
               )

@@ -248,11 +248,13 @@ trait SparkJob extends JobBase {
       val df = sinkType match {
         case FS => // (FS, _, absolute_path|relative_path|sql)
           if (path.startsWith("/"))
-            session.read.parquet(path)
+            session.read.format(settings.comet.defaultFormat).load(path)
           else if (path.trim.toLowerCase.startsWith("select "))
             session.sql(path)
           else
-            session.read.parquet(s"${settings.comet.datasets}/$path")
+            session.read
+              .format(settings.comet.defaultFormat)
+              .load(s"${settings.comet.datasets}/$path")
         case JDBC => // (JDBC, connectionName, queryString)
           val jdbcConfig =
             settings.comet.connections(sinkConfig.getOrElse(throw new Exception("")))

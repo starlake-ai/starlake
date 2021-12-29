@@ -299,7 +299,7 @@ Default valid values are NONE, HIDE, MD5, SHA1, SHA256, SHA512, AES(not implemen
 Custom values may also be defined by adding a new privacy option in the application.conf. The default reference.conf file defines the following valid privacy
 strategies:
 
-```hocon
+```javascript
 privacy {
   options = {
     "none": "ai.starlake.privacy.No",
