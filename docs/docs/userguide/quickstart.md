@@ -4,6 +4,29 @@ sidebar_position: 1
 
 #Quick Start
 
+This quickstart is based on the example available in the sample directory.
+This sample will work out of the box on MacOS / Linux or in a Docker container on Windows.
+
+
+:::note
+
+When running as a Docker image, the sample directory is mounted in the Docker container making the underlying filesystem available. The reason we run Docker on Windows is because `starlake` to run on any cloud is based on the hadoop filesystem API which require on Windows a native DLL / EXE installed. If you still want to runt the example natively on Windows, compiling and installing these native libraries on Windows is described here ???. 
+
+:::
+
+The provided script will download the Spark and starlake binary from Maven and run the ingestion process locally on your laptop (local filsystem or local hadoop). It will also highlight how through a few environment variables, `starlake` is able to ingest your data to a remote sink such as :
+
+- Google Cloud Storage
+- Google BigQuery
+- Azure ADLS
+- Azure Synapse
+- AWS S3
+- AWS Redshift
+- Databricks on any cloud
+- Snowflake on any cloud
+
+To run `starlake` in the ingestion process in the Cloud instead of your laptop, please refer to the cloud section of this documentation.
+
 ## Example
 Say we have to ingest customers, orders and sellers into the datalake.
 The customers and orders are provided by the "sales" department while
