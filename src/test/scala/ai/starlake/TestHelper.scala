@@ -33,6 +33,7 @@ import com.fasterxml.jackson.annotation.JsonInclude.Include
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.scala.experimental.ScalaObjectMapper
+import com.github.ghik.silencer.silent
 import com.typesafe.config._
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.commons.io.FileUtils
@@ -204,7 +205,7 @@ trait TestHelper
     def metadataStorageHandler = settings.storageHandler
     def storageHandler = settings.storageHandler
 
-    lazy val mapper: ObjectMapper with ScalaObjectMapper = {
+    @silent val mapper: ObjectMapper with ScalaObjectMapper = {
       val mapper = new CometObjectMapper(new YAMLFactory(), (classOf[Settings], settings) :: Nil)
       mapper
     }
