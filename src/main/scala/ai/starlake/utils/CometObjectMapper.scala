@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.module.SimpleModule
 import com.fasterxml.jackson.databind.{InjectableValues, ObjectMapper}
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.fasterxml.jackson.module.scala.experimental.ScalaObjectMapper
+import com.github.ghik.silencer.silent
 
 object CometObjectMapper {
 
@@ -15,6 +16,7 @@ object CometObjectMapper {
 
 }
 
+@silent
 class CometObjectMapper(
   jf: JsonFactory = null,
   injectables: scala.collection.immutable.Seq[(Class[_], AnyRef)] = Nil
