@@ -3,14 +3,13 @@ if [[ -z "$STARLAKE_ENV" ]]; then
     exit 1
 fi
 
-if (["LOCAL", "HDFS", "GCP"].indexOf(foo) > -1)
-
 case $STARLAKE_ENV in
     LOCAL|HDFS|GCP) echo "Running  in $STARLAKE_ENV env";;
     *)             echo "$STARLAKE_ENV for STARLAKE_ENV unknown"; exit 1;;
 esac
 
-source ./env.${STARLAKE_ENV}.sh
+# shellcheck disable=SC1090
+source ./env."${STARLAKE_ENV}".sh
 
 set -x
 export SPARK_CONF_OPTIONS="--conf spark.eventLog.enabled=true --conf spark.eventLog.dir=file:///tmp/spark-events/ --conf spark.driver.extraJavaOptions=-Dconfig.file=$PWD/application.conf --conf spark.driver.extraJavaOptions=-Dlog4j.configuration=file://$SPARK_DIR/conf/log4j.properties.template"
