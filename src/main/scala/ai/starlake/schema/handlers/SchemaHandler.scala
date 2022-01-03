@@ -27,6 +27,7 @@ import ai.starlake.utils.{CometObjectMapper, Utils, YamlSerializer}
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.scala.experimental.ScalaObjectMapper
+import com.github.ghik.silencer.silent
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
 
@@ -42,7 +43,7 @@ import scala.util.{Failure, Success, Try}
 class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extends StrictLogging {
 
   // uses Jackson YAML for parsing, relies on SnakeYAML for low level handling
-  val mapper: ObjectMapper with ScalaObjectMapper =
+  @silent val mapper: ObjectMapper with ScalaObjectMapper =
     new CometObjectMapper(new YAMLFactory(), injectables = (classOf[Settings], settings) :: Nil)
 
   @throws[Exception]
