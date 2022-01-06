@@ -1,7 +1,8 @@
 if [[ -z "$STARLAKE_ENV" ]]; then
-    echo "Must provide STARLAKE_ENV in environment" 1>&2
-    exit 1
+    echo "STARLAKE_ENV not provided using default value LOCAL" 1>&2
 fi
+
+export STARLAKE_ENV="${STARLAKE_ENV:-LOCAL}"
 
 case $STARLAKE_ENV in
     LOCAL|HDFS|GCP) echo "Running  in $STARLAKE_ENV env";;
