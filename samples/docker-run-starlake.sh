@@ -1,1 +1,2 @@
-docker run -v ${PWD}:/samples starlake:latest
+# shellcheck disable=SC2046
+docker run -it starlake:latest
