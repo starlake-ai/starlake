@@ -48,8 +48,8 @@ initEnv() {
     curl --output ../bin/$COMET_JAR_NAME $COMET_JAR_URL
   fi
 
-  if test -f "../bin/$SPARK_TGZ_NAME"; then
-      echo "$SPARK_TGZ_NAME found in ../bin/"
+  if test -d"../bin/$SPARK_DIR_NAME"; then
+      echo "$SPARK_DIR_NAME found in ../bin/"
   else
     echo "downloading $SPARK_TGZ_NAME from $SPARK_TGZ_URL"
     curl --output ../bin/$SPARK_TGZ_NAME $SPARK_TGZ_URL
