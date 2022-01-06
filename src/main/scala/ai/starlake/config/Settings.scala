@@ -31,8 +31,9 @@ import ai.starlake.schema.handlers.{
 import ai.starlake.schema.model.{Mode, PrivacyLevel, Sink}
 import ai.starlake.utils.{CometObjectMapper, Utils, YamlSerializer}
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.typesafe.config.{Config, ConfigValueFactory}
+import com.typesafe.config.{Config, ConfigFactory, ConfigValueFactory}
 import com.typesafe.scalalogging.StrictLogging
+import org.apache.hadoop.fs.Path
 import org.apache.spark.storage.StorageLevel
 import pureconfig.ConvertHelpers._
 import pureconfig._
@@ -321,16 +322,29 @@ object Settings extends StrictLogging {
     ConfigReader.fromString[StorageLevel](catchReadError(StorageLevel.fromString))
 
   def apply(config: Config): Settings = {
+
     val jobId = UUID.randomUUID().toString
-    val effectiveConfig = config
-      .withValue("job-id", ConfigValueFactory.fromAnyRef(jobId, "per JVM instance"))
+    val effectiveConfig =
+      config.withValue("job-id", ConfigValueFactory.fromAnyRef(jobId, "per JVM instance"))
 
     val loaded = ConfigSource
       .fromConfig(effectiveConfig)
       .loadOrThrow[Comet]
 
     logger.info(YamlSerializer.serializeObject(loaded))
-    Settings(loaded, effectiveConfig.getConfig("spark"))
+    val settings = Settings(loaded, effectiveConfig.getConfig("spark"))
+    val applicationConfPath = new Path(DatasetArea.metadata(settings), "application.conf")
+    if (settings.metadataStorageHandler.exists(applicationConfPath)) {
+      val applicationConfContent = settings.metadataStorageHandler.read(applicationConfPath)
+      val cfg = ConfigFactory.parseString(applicationConfContent)
+      val effectiveApplicationConfig = cfg
+        .withFallback(effectiveConfig)
+      val loadedApplication = ConfigSource
+        .fromConfig(effectiveApplicationConfig)
+        .loadOrThrow[Comet]
+      Settings(loadedApplication, effectiveApplicationConfig.getConfig("spark"))
+    } else
+      settings
   }
 
 }

@@ -7,6 +7,7 @@ __New feature__:
 - Add optional application of row & column level security
 - Databricks Support
 - Signification reduction of memory consumption
+- Support application.conf file in metadata folder (COMET_METADATA_FS and COMET_ROOT must still be passed as env variables)
 
 __Bug Fix__:
 - Include env var and option when running presql in ingestion mode #58
