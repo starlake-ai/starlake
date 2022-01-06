@@ -26,4 +26,6 @@ COPY env.sh /samples/
 
 COPY docker-init.sh /app
 
+WORKDIR /samples/local
+
 CMD ["/app/docker-init.sh"]
