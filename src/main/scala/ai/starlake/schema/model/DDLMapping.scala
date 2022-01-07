@@ -8,7 +8,8 @@ case class DDLLeaf(
   tpe: String,
   required: Boolean,
   comment: Option[String],
-  primaryKey: Boolean
+  primaryKey: Boolean,
+  labels: Map[String, String]
 ) extends DDLField {
   override def toMap(): Map[String, Any] = {
     Map(
@@ -17,7 +18,8 @@ case class DDLLeaf(
       "type"       -> tpe,
       "required"   -> required.toString,
       "comment"    -> comment.getOrElse(""),
-      "primaryKey" -> primaryKey.toString
+      "primaryKey" -> primaryKey.toString,
+      "labels"     -> labels
     )
   }
 }
@@ -27,7 +29,8 @@ case class DDLNode(
   fields: List[DDLField],
   required: Boolean,
   isArray: Boolean,
-  comment: Option[String]
+  comment: Option[String],
+  labels: Map[String, String]
 ) extends DDLField {
   override def toMap(): Map[String, Any] = {
     val tpe = if (isArray) "ARRAY" else "STRUCT"
@@ -37,7 +40,8 @@ case class DDLNode(
       "type"     -> tpe,
       "fields"   -> fields.map(_.toMap()),
       "required" -> required.toString,
-      "comment"  -> comment.getOrElse("")
+      "comment"  -> comment.getOrElse(""),
+      "labels"   -> labels
     )
   }
 }
