@@ -133,7 +133,7 @@ trait IngestionJob extends SparkJob {
           )
         } else {
           settings.comet.audit.sink match {
-            case _: NoneSink | FsSink(_, _, _, _) =>
+            case _: NoneSink | FsSink(_, _, _, _, _, _) =>
               sinkToFile(
                 rejectedDF,
                 rejectedPath,
@@ -644,10 +644,15 @@ trait IngestionJob extends SparkJob {
             metadata.getPartitionAttributes()
           )
 
+      val clusteredDFWriter = metadata.clustering match {
+        case None          => partitionedDFWriter
+        case Some(columns) => partitionedDFWriter.sortBy(columns.head, columns.tail: _*)
+      }
+
       val mergePath = s"${targetPath.toString}.merge"
       val (targetDatasetWriter, finalDataset) = if (merge && area != StorageArea.rejected) {
         logger.info(s"Saving Dataset to merge location $mergePath")
-        partitionedDFWriter
+        clusteredDFWriter
           .mode(SaveMode.Overwrite)
           .format(writeFormat)
           .option("path", mergePath)
@@ -662,7 +667,7 @@ trait IngestionJob extends SparkJob {
           mergedDataset
         )
       } else
-        (partitionedDFWriter, dataset)
+        (clusteredDFWriter, dataset)
 
       // We do not output empty datasets
       if (finalDataset.limit(1).count() > 0) {
@@ -1093,7 +1098,7 @@ object IngestionUtil {
         case _: EsSink =>
           // TODO Sink Rejected Log to ES
           throw new Exception("Sinking Audit log to Elasticsearch not yet supported")
-        case _: NoneSink | FsSink(_, _, _, _) =>
+        case _: NoneSink | FsSink(_, _, _, _, _, _) =>
           // We save in the caller
           // TODO rewrite this one
           Success(())
