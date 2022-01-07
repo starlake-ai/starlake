@@ -100,7 +100,6 @@ sealed abstract class Sink(val `type`: String) {
   def getType(): SinkType = SinkType.fromString(`type`)
   def name: Option[String]
   def options: Option[Map[String, String]]
-
   def getOptions: Map[String, String] = options.getOrElse(Map.empty)
 }
 
@@ -159,7 +158,9 @@ final case class FsSink(
   override val name: Option[String] = None,
   override val options: Option[Map[String, String]] = None,
   format: Option[String] = None,
-  extension: Option[String] = None
+  extension: Option[String] = None,
+  partition: Option[Partition] = None,
+  clustering: Option[Seq[String]] = None
 ) extends Sink(SinkType.FS.value)
 
 /** When the sink *type* field is set to JDBC, the options below should be provided.

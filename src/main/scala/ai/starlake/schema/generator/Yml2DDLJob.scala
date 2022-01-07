@@ -24,9 +24,11 @@ import ai.starlake.config.Settings
 import ai.starlake.schema.generator.JDBCUtils.{Columns, PrimaryKeys, TableRemarks}
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.{Domain, Schema}
+import ai.starlake.utils.Utils
 import com.typesafe.scalalogging.StrictLogging
-import org.fusesource.scalate.{TemplateEngine, TemplateSource}
 import org.apache.hadoop.fs.{Path => StoragePath}
+import org.fusesource.scalate.{TemplateEngine, TemplateSource}
+
 import scala.util.Try
 
 /** * Infers the schema of a given datapath, domain name, schema name.
@@ -55,6 +57,7 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
       }
       val sqlString = new StringBuffer()
       domains.map { domain =>
+        val domainLabels = Utils.labels(domain.tags)
         val schemas: Seq[Schema] = config.schemas match {
           case Some(schemas) =>
             schemas.flatMap(schema =>
@@ -99,7 +102,6 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
             "domain"                  -> domain.name,
             "schema"                  -> schema,
             "partitions"              -> Nil,
-            "clustered"               -> Nil,
             "primaryKeys"             -> Nil,
             "comment"                 -> "",
             "domainComment"           -> ""
@@ -109,6 +111,8 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
           sqlString.append(result)
         }
         schemas.map { schema =>
+          val schemaLabels = Utils.labels(schema.tags)
+
           val ddlFields = schema.ddlMapping(config.datawarehouse, schemaHandler)
 
           val mergedMetadata = schema.mergedMetadata(domain.metadata)
@@ -159,30 +163,31 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
               val alterParamMap = Map(
                 "attributes" -> Nil,
                 "newAttributes" -> addColumns.map(
-                  _.ddlMapping(false, config.datawarehouse, schemaHandler).toMap()
+                  _.ddlMapping(isPrimaryKey = false, config.datawarehouse, schemaHandler).toMap()
                 ),
                 "alterAttributes" -> alterColumns.map(
-                  _.ddlMapping(false, config.datawarehouse, schemaHandler).toMap()
+                  _.ddlMapping(isPrimaryKey = false, config.datawarehouse, schemaHandler).toMap()
                 ),
                 "alterCommentAttributes" -> alterDescriptionColumns.map(
-                  _.ddlMapping(false, config.datawarehouse, schemaHandler).toMap()
+                  _.ddlMapping(isPrimaryKey = false, config.datawarehouse, schemaHandler).toMap()
                 ),
                 "alterDataTypeAttributes" -> alterDataTypeColumns.map(
-                  _.ddlMapping(false, config.datawarehouse, schemaHandler).toMap()
+                  _.ddlMapping(isPrimaryKey = false, config.datawarehouse, schemaHandler).toMap()
                 ),
                 "alterRequiredAttributes" -> alterRequiredColumns.map(
-                  _.ddlMapping(false, config.datawarehouse, schemaHandler).toMap()
+                  _.ddlMapping(isPrimaryKey = false, config.datawarehouse, schemaHandler).toMap()
                 ),
                 "droppedAttributes" -> dropColumns.map(
-                  _.ddlMapping(false, config.datawarehouse, schemaHandler).toMap()
+                  _.ddlMapping(isPrimaryKey = false, config.datawarehouse, schemaHandler).toMap()
                 ),
                 "domain"        -> domain.name,
                 "schema"        -> schema.name,
                 "partitions"    -> Nil,
-                "clustered"     -> Nil,
                 "primaryKeys"   -> Nil,
                 "comment"       -> schema.comment.getOrElse(""),
-                "domainComment" -> domain.comment.getOrElse("")
+                "domainComment" -> domain.comment.getOrElse(""),
+                "domainLabels"  -> domainLabels,
+                "schemaLabels"  -> schemaLabels
               )
               val result = applyTemplate(domain, "alter", alterParamMap)
               println(s"Altering existing table ${schema.name}")
@@ -199,18 +204,20 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
                 "domain"                  -> domain.name,
                 "schema"                  -> schema.name,
                 "partitions"    -> mergedMetadata.partition.map(_.getAttributes()).getOrElse(Nil),
-                "clustered"     -> mergedMetadata.clustering.getOrElse(Nil),
                 "primaryKeys"   -> schema.primaryKey.getOrElse(Nil),
                 "comment"       -> schema.comment.getOrElse(""),
-                "domainComment" -> domain.comment.getOrElse("")
+                "domainComment" -> domain.comment.getOrElse(""),
+                "domainLabels"  -> domainLabels,
+                "schemaLabels"  -> schemaLabels,
+                "sink"          -> mergedMetadata.sink
               )
-
               println(s"Creating new table ${schema.name}")
               val result = applyTemplate(domain, "create", createParamMap)
               sqlString.append(result)
           }
         }
       }
+
       val sqlScript = sqlString.toString
       logger.debug(s"Final script is:\n $sqlScript")
 
