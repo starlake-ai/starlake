@@ -21,7 +21,6 @@
 package ai.starlake.schema.model
 
 import java.util.regex.Pattern
-
 import ai.starlake.schema.handlers.SchemaHandler
 import com.fasterxml.jackson.annotation.JsonIgnore
 import com.typesafe.scalalogging.LazyLogging
@@ -30,6 +29,7 @@ import org.apache.spark.sql.types._
 import scala.collection.mutable
 import scala.util.{Failure, Success, Try}
 import ai.starlake.utils.DataTypeEx._
+import ai.starlake.utils.Utils
 
 /** A field in the schema. For struct fields, the field "attributes" contains all sub attributes
   *
@@ -204,7 +204,8 @@ case class Attribute(
           attrs.map(_.ddlMapping(false, datawarehouse, schemaHandler)),
           required,
           isArray(),
-          comment
+          comment,
+          Utils.labels(tags)
         )
       case None =>
         tpe(schemaHandler).map { tpe =>
@@ -216,7 +217,8 @@ case class Attribute(
                 mapping(datawarehouse),
                 this.required,
                 this.comment,
-                isPrimaryKey
+                isPrimaryKey,
+                Utils.labels(tags)
               )
           }
         } getOrElse (throw new Exception(s"Unknown type ${`type`}"))
