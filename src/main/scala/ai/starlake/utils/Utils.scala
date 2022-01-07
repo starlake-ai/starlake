@@ -21,7 +21,6 @@
 package ai.starlake.utils
 
 import ai.starlake.schema.model.{Attribute, WriteMode}
-import ai.starlake.schema.model.{Attribute, WriteMode}
 import com.typesafe.scalalogging.Logger
 
 import java.io.{PrintWriter, StringWriter}
@@ -213,5 +212,24 @@ object Utils {
 
   def isRunningTest(): Boolean =
     Thread.currentThread.getStackTrace.exists(_.getClassName.startsWith("org.scalatest."))
+
+  def caseClassToMap(cc: AnyRef): Map[String, Any] = {
+    cc.getClass.getDeclaredFields.foldLeft(Map.empty[String, Any]) { (a, f) =>
+      f.setAccessible(true)
+      f.getType.getName
+      a + (f.getName -> f.get(cc))
+    }
+  }
+  def labels(tags: Option[Set[String]]): Map[String, String] =
+    tags
+      .getOrElse(Set.empty)
+      .map { tag =>
+        val labelValue = tag.split("=")
+        if (labelValue.size == 1)
+          (labelValue(0), "")
+        else
+          (labelValue(0), labelValue(1))
+      }
+      .toMap
 
 }
