@@ -12,7 +12,7 @@ module.exports = {
     themeConfig: {
         hideableSidebar: false,
         googleAnalytics: {
-            trackingID: 'G-4SGV74FQ7M',
+            trackingID: 'UA-207943293-1',
             // Optional fields.
             anonymizeIP: true // Should IPs be anonymized?
         },
