@@ -8,7 +8,6 @@ cp -r /app/spark-3.1.2-bin-hadoop3.2 /samples/bin/
 HOSTNAM=`cat /etc/hostname`
 echo "setup finished"
 echo "to login run: docker exec -it $HOSTNAM bash"
-echo "to kill session run: docker kill $HOSTNAM"
 
 mainmenu () {
   read -n 1 -p "Press x to exit container:" mainmenuinput

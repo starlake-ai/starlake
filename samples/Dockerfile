@@ -2,7 +2,7 @@
 # https://hub.docker.com/_/openjdk
 # https://docs.docker.com/develop/develop-images/multistage-build/#use-multi-stage-builds
 FROM openjdk:8-jre-alpine
-ARG STARLAKE_VERSION=0.2.8-SNAPSHOT
+ARG STARLAKE_VERSION=0.2.8
 
 RUN apk add --update \
     curl \
@@ -17,7 +17,7 @@ RUN tar -zxf spark-3.1.2-bin-hadoop3.2.tgz -C /app
 RUN rm spark-3.1.2-bin-hadoop3.2.tgz
 
 ## download starlake
-RUN curl -L -O https://s01.oss.sonatype.org/content/repositories/snapshots/ai/starlake/starlake-spark3_2.12/$STARLAKE_VERSION/starlake-spark3_2.12-$STARLAKE_VERSION-assembly.jar
+RUN curl -L -O https://s01.oss.sonatype.org/content/repositories/releases/ai/starlake/starlake-spark3_2.12/$STARLAKE_VERSION/starlake-spark3_2.12-$STARLAKE_VERSION-assembly.jar
 
 RUN mkdir /samples
 COPY local/ /samples/local/
