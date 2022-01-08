@@ -102,6 +102,7 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
             "domain"                  -> domain.name,
             "schema"                  -> schema,
             "partitions"              -> Nil,
+            "clustered"               -> Nil,
             "primaryKeys"             -> Nil,
             "comment"                 -> "",
             "domainComment"           -> ""
@@ -183,6 +184,7 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
                 "domain"        -> domain.name,
                 "schema"        -> schema.name,
                 "partitions"    -> Nil,
+                "clustered"     -> Nil,
                 "primaryKeys"   -> Nil,
                 "comment"       -> schema.comment.getOrElse(""),
                 "domainComment" -> domain.comment.getOrElse(""),
@@ -204,6 +206,7 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
                 "domain"                  -> domain.name,
                 "schema"                  -> schema.name,
                 "partitions"    -> mergedMetadata.partition.map(_.getAttributes()).getOrElse(Nil),
+                "clustered"     -> mergedMetadata.clustering.getOrElse(Nil),
                 "primaryKeys"   -> schema.primaryKey.getOrElse(Nil),
                 "comment"       -> schema.comment.getOrElse(""),
                 "domainComment" -> domain.comment.getOrElse(""),
