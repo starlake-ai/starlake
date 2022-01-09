@@ -26,7 +26,7 @@ object Versions {
   val h2 = "2.0.204" // Test only
   val poi = "4.1.2"
   val scalate = "1.9.6"
-  val akkaHttp = "10.1.15"
+  val akkaHttp = "10.2.7"
   //  val akkaStream = "2.6.12"
   val akkaStream = "2.5.32"
   val kafkaClients = "2.8.1"
