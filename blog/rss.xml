@@ -24,11 +24,11 @@ val incomingDF = ... // Incoming data loaded with the correct schema
 val bqTable = &quot;project-id.dataset.table&quot;
 val saveMode = SaveMode.Overwrite // or SaveMode.Append fot he appending data
 incomingDF.write
-.mode(saveMode)
-.partitionBy(&quot;date&quot;)
-.format(&quot;com.google.cloud.spark.bigquery&quot;)
-.option(&quot;table&quot;, bqTable)
-.save()
+    .mode(saveMode)
+    .partitionBy(&quot;date&quot;)
+    .format(&quot;com.google.cloud.spark.bigquery&quot;)
+    .option(&quot;table&quot;, bqTable)
+    .save()
 
 </code></pre><h3>Dynamic Partition Overwrite mode in Spark</h3><p>To activate dynamic partitioning, you need to set the configuration below before saving the data using the exact same code above :</p><pre><code class="language-scala">spark.conf.set(&quot;spark.sql.sources.partitionOverwriteMode&quot;,&quot;dynamic&quot;)
 </code></pre><p>Unfortunately, the BigQuery Spark connector does not support this feature (at the time of writing).
