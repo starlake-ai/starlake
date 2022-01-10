@@ -48,11 +48,11 @@ To drop a table partition using the Google Cloud <code>bq</code> command line to
 val bqTable = &quot;project-id.dataset.table&quot;
 val saveMode = SaveMode.Append
 incomingDF.write
-.mode(saveMode)
-.partitionBy(&quot;date&quot;)
-.format(&quot;com.google.cloud.spark.bigquery&quot;)
-.option(&quot;table&quot;, bqTable)
-.save()
+    .mode(saveMode)
+    .partitionBy(&quot;date&quot;)
+    .format(&quot;com.google.cloud.spark.bigquery&quot;)
+    .option(&quot;table&quot;, bqTable)
+    .save()
 </code></pre><h3>Dynamic Partition Merge in Spark</h3><p>When you need to keep the last version of the record for each product, both BigQuery and Databricks (the company behind Spark in case you lived on the moon the last ten years) support
 the merge SQL statement:</p><pre><code class="language-sql" metastring="{5,7} title=&quot;Merge records using SQL statement&quot;" title="&quot;Merge">MERGE INTO target_table
 USING incoming_table
