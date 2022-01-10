@@ -18,8 +18,10 @@ RUN rm spark-3.1.2-bin-hadoop3.2.tgz
 
 ## download starlake
 RUN curl -L -O https://s01.oss.sonatype.org/content/repositories/releases/ai/starlake/starlake-spark3_2.12/$STARLAKE_VERSION/starlake-spark3_2.12-$STARLAKE_VERSION-assembly.jar
+RUN mkdir -p /samples/bin
+RUN mv /app/starlake-spark3_2.12-$STARLAKE_VERSION-assembly.jar /samples/bin/
+RUN mv /app/spark-3.1.2-bin-hadoop3.2 /samples/bin/
 
-RUN mkdir /samples
 COPY local/ /samples/local/
 COPY quickstart-template/ /samples/quickstart-template/
 COPY env.sh /samples/
