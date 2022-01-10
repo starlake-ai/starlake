@@ -9,7 +9,7 @@ load:
   schemas:
     - name: "sellers"
       acl:
-        - role: "roles/bigquery/dataViewer"
+        - role: "roles/bigquery.dataViewer"
           grants:
             - "user:hayssam@saleh.fr"
       pattern: "sellers-.*.json"
