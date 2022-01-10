@@ -109,7 +109,7 @@ spark.sql.sources.partitionOverwriteMode = &quot;static&quot;
             type: &quot;string&quot;
           - name: &quot;price&quot;
             type: &quot;decimal&quot;
-</code></pre><p><a href="#append-and-overwrite-modes-in-spark">See gain manual Spark overwrite</a></p></div><div value="append" label="Append"><pre><code class="language-json" metastring="title=&quot;application.conf&quot;" title="&quot;application.conf&quot;">// Irrelevant since we are only appending data afterwards
+</code></pre><p><a href="#append-and-overwrite-modes-in-spark">See again manual Spark overwrite</a></p></div><div value="append" label="Append"><pre><code class="language-json" metastring="title=&quot;application.conf&quot;" title="&quot;application.conf&quot;">// Irrelevant since we are only appending data afterwards
 spark.sql.sources.partitionOverwriteMode = &quot;static&quot; // or &quot;dynamic&quot;
 </code></pre><pre><code class="language-yaml" metastring="{8} title=&quot;Schema Definition File&quot;" title="&quot;Schema">     name: &quot;mydb&quot;
      directory: &quot;...&quot;
@@ -127,7 +127,7 @@ spark.sql.sources.partitionOverwriteMode = &quot;static&quot; // or &quot;dynami
             type: &quot;string&quot;
           - name: &quot;price&quot;
             type: &quot;decimal&quot;
-</code></pre><p><a href="#append-and-overwrite-modes-in-spark">See gain manual Spark append</a></p></div><div value="partitioned-overwrite" label="Dynamic partition Overwrite"><pre><code class="language-json" metastring="{2} title=&quot;application.conf&quot;" title="&quot;application.conf&quot;">// When set to &quot;dynamic&quot;, only partitions that are  affected will be truncated in overwrite mode.
+</code></pre><p><a href="#append-and-overwrite-modes-in-spark">See again manual Spark append</a></p></div><div value="partitioned-overwrite" label="Dynamic partition Overwrite"><pre><code class="language-json" metastring="{2} title=&quot;application.conf&quot;" title="&quot;application.conf&quot;">// When set to &quot;dynamic&quot;, only partitions that are  affected will be truncated in overwrite mode.
 spark.sql.sources.partitionOverwriteMode = &quot;dynamic&quot;
 </code></pre><pre><code class="language-yaml" metastring="{8} title=&quot;Schema Definition File&quot;" title="&quot;Schema">     name: &quot;mydb&quot;
      directory: &quot;...&quot;
@@ -145,7 +145,7 @@ spark.sql.sources.partitionOverwriteMode = &quot;dynamic&quot;
             type: &quot;string&quot;
           - name: &quot;price&quot;
             type: &quot;decimal&quot;
-</code></pre><p><a href="#dynamic-partition-overwrite-mode-in-spark">See gain manual Spark dynamic partition overwrite</a></p></div><div value="merge" label="Merge"><pre><code class="language-json" metastring="title=&quot;application.conf&quot;" title="&quot;application.conf&quot;">// Irrelevant since we are truncating manually and  appending data afterwards
+</code></pre><p><a href="#dynamic-partition-overwrite-mode-in-spark">See again manual Spark dynamic partition overwrite</a></p></div><div value="merge" label="Merge"><pre><code class="language-json" metastring="title=&quot;application.conf&quot;" title="&quot;application.conf&quot;">// Irrelevant since we are truncating manually and  appending data afterwards
 spark.sql.sources.partitionOverwriteMode = &quot;dynamic&quot; // or static
 </code></pre><pre><code class="language-yaml" metastring="{8,9,12,13} title=&quot;Schema Definition File&quot;" title="&quot;Schema">     name: &quot;mydb&quot;
      directory: &quot;...&quot;
@@ -167,7 +167,7 @@ spark.sql.sources.partitionOverwriteMode = &quot;dynamic&quot; // or static
             type: &quot;string&quot;
           - name: &quot;price&quot;
             type: &quot;decimal&quot;
-</code></pre><p><a href="#dynamic-partition-merge-in-spark">See gain manual Spark Merge</a></p></div></div><h2>Comments</h2><p><a href="https://discord.com/channels/833336395430625310/908709208025858079">Let&#x27;s continue the conversion on Discord</a></p>]]></content>
+</code></pre><p><a href="#dynamic-partition-merge-in-spark">See again manual Spark Merge</a></p></div></div><h2>Comments</h2><p><a href="https://discord.com/channels/833336395430625310/908709208025858079">Let&#x27;s continue the conversion on Discord</a></p>]]></content>
         <author>
             <name>Hayssam Saleh</name>
             <uri>https://www.linkedin.com/in/hayssams/</uri>
