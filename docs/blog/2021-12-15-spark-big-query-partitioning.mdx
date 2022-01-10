@@ -219,11 +219,11 @@ val toKeepDF =
 val bqTable = "project-id.dataset.table"
 val saveMode = SaveMode.Overwrite
 toKeepDF.write
-.mode(saveMode)
-.partitionBy("date")
-.format("com.google.cloud.spark.bigquery")
-.option("table", bqTable)
-.save()
+    .mode(saveMode)
+    .partitionBy("date")
+    .format("com.google.cloud.spark.bigquery")
+    .option("table", bqTable)
+    .save()
 ```
 
 ![Step 4]( /img/blog/spark-bigquery/step4-save-data.png "Step 4")
@@ -260,6 +260,8 @@ spark.sql.sources.partitionOverwriteMode = "static"
             type: "decimal"
 ```
 
+[See again manual Spark overwrite](#append-and-overwrite-modes-in-spark)
+
 </TabItem>
 <TabItem value="append" label="Append">
 
@@ -286,6 +288,8 @@ spark.sql.sources.partitionOverwriteMode = "static" // or "dynamic"
           - name: "price"
             type: "decimal"
 ```
+
+[See again manual Spark append](#append-and-overwrite-modes-in-spark)
 
 </TabItem>
 <TabItem value="partitioned-overwrite" label="Dynamic partition Overwrite">
@@ -314,6 +318,8 @@ spark.sql.sources.partitionOverwriteMode = "dynamic"
             type: "decimal"
 ```
 
+[See again manual Spark dynamic partition overwrite](#dynamic-partition-overwrite-mode-in-spark)
+
 </TabItem>
 <TabItem value="merge" label="Merge">
 
@@ -339,12 +345,13 @@ spark.sql.sources.partitionOverwriteMode = "dynamic" // or static
         attributes:
           - name: "date"
             type: "date"
-            rename: "id"
           - name: "product"
             type: "string"
           - name: "price"
             type: "decimal"
 ```
+
+[See again manual Spark Merge](#dynamic-partition-merge-in-spark)
 
 </TabItem>
 </Tabs>
