@@ -1,5 +1,10 @@
 # Release notes
 
+# 0.2.9
+__New feature__:
+
+__Bug Fix__:
+
 # 0.2.8
 __New feature__:
 - Generate DDL from YML files with support for BigQuery, Snowflake, Synapse and Postgres #51 / #56
