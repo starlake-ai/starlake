@@ -2,13 +2,18 @@
 sidebar_position: 6
 title: On Premise Hadoop Cluster
 ---
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
 
 
 Running on Hadoop is similar to running on a [local filesystem](file), we just need to set the correct filesystem
-and add the `jackson-dataformat-yaml`library to the classpath on HDP:
+and add the `jackson-dataformat-yaml` library to the classpath on HDP:
+
+<Tabs>
+<TabItem value="spark2" label="Spark 2">
 
 
-```bash title="Spark 2 / HDP example"
+```bash title="HDP example"
 spark-submit --deploy-mode cluster --master yarn \
 --jars hdfs://my-namespace/libraires/jackson-dataformat-yaml-2.6.7.jar \
 --conf spark.yarn.appMasterEnv.COMET_ROOT=/user/quickstart \
@@ -17,7 +22,10 @@ spark-submit --deploy-mode cluster --master yarn \
 hdfs://my-namespace/libraires/comet-spark2_2.12-0.2.8-assembly.jar import
 ```
 
-```shell title="Spark 3 / HDP example"
+</TabItem>
+<TabItem value="spark3" label="Spark 3">
+
+```shell title="HDP example"
 spark-submit --deploy-mode cluster --master yarn \
 --jars hdfs://my-namespace/libraires/jackson-dataformat-yaml-2.12.3.jar \
 --conf spark.yarn.appMasterEnv.COMET_ROOT=/user/quickstart \
@@ -26,7 +34,10 @@ spark-submit --deploy-mode cluster --master yarn \
 hdfs://my-namespace/libraires/comet-spark2_2.12-0.2.8-assembly.jar import
 ```
 
-```xml title="Oozie / HDP example"
+</TabItem>
+<TabItem value="oozie" label="Oozie">
+
+```xml title="HDP example"
     <action name="ImportToHDFS" cred="hdfs_creds">
         <spark xmlns="uri:oozie:spark-action:0.2">
             <job-tracker>${jobTracker}</job-tracker>
@@ -67,3 +78,6 @@ hdfs://my-namespace/libraires/comet-spark2_2.12-0.2.8-assembly.jar import
         <error to="..." />
     </action>
 ```
+
+</TabItem>
+</Tabs>
