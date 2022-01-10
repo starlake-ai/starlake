@@ -19,7 +19,6 @@ jobs:
           version-pattern: "^\\d+\\.\\d+\\.\\d+-SNAPSHOT$" # Remove all previous SNAPSHOT versions
           keep: 0
           names: |
-            ai.starlake.starlake-spark2_2.11
             ai.starlake.starlake-spark3_2.12
       - uses: actions/checkout@v2
       - name: Set up JDK 1.8
