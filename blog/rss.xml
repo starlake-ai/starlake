@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<rss version="2.0">
+<rss version="2.0" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:content="http://purl.org/rss/1.0/modules/content/">
     <channel>
         <title>Quickly Build Optimized Big &amp; Fast Data Pipelines Blog</title>
-        <link>https://starlake-ai.github.io/blog</link>
+        <link>https://starlake-ai.github.io/starlake/blog</link>
         <description>Quickly Build Optimized Big &amp; Fast Data Pipelines Blog</description>
         <lastBuildDate>Wed, 15 Dec 2021 00:00:00 GMT</lastBuildDate>
         <docs>https://validator.w3.org/feed/docs/rss2.html</docs>
@@ -13,13 +13,15 @@
             <guid>spark-big-query-partitioning</guid>
             <pubDate>Wed, 15 Dec 2021 00:00:00 GMT</pubDate>
             <description><![CDATA[When loading data into BigQuery, you may want to:]]></description>
+            <content:encoded><![CDATA[<p>When loading data into BigQuery, you may want to:</p><ul><li>Overwrite all the existing data and replace it with the incoming data.</li><li>Append</li></ul>]]></content:encoded>
         </item>
         <item>
             <title><![CDATA[Bonjour]]></title>
             <link>https://starlake-ai.github.io/starlake/blog/bonjour</link>
             <guid>bonjour</guid>
             <pubDate>Sat, 18 Sep 2021 00:00:00 GMT</pubDate>
-            <description><![CDATA[Pipelining big data fast is fun :)]]></description>
+            <description><![CDATA[Pipelining fast data is big. Pipelining big data fast is bigger.  :)]]></description>
+            <content:encoded><![CDATA[<p>Pipelining fast data is big. Pipelining big data fast is bigger.  :)</p>]]></content:encoded>
         </item>
     </channel>
 </rss>
