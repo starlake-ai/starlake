@@ -17,6 +17,7 @@ module.exports = {
             anonymizeIP: true // Should IPs be anonymized?
         },
         prism: {
+            additionalLanguages: ['java', 'scala', 'sql', 'powershell'],
             theme: require('prism-react-renderer/themes/github'),
             darkTheme: require('prism-react-renderer/themes/dracula'),
         },

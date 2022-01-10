@@ -1,0 +1,353 @@
+---
+slug: spark-big-query-partitioning
+title: Handling Dynamic Partitioning and Merge with Spark on BigQuery
+author: Hayssam Saleh
+author_title: Starlake Core Team Member
+author_url: https://www.linkedin.com/in/hayssams/
+author_image_url: https://s.gravatar.com/avatar/04aa2a859a66b52787bcba8c36beba8c.png
+tags: [Spark, BigQuery, Dataproc, Google Cloud, ETL]
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+
+
+## Data Loading strategies
+
+When loading data into BigQuery, you may want to:
+- **Overwrite** the existing data and replace it with the incoming data.
+- **Append** incoming data to existing
+- **Dynamic partition Overwrite** where only the partitions to which the incoming data belong to are overwritten.
+- **Merge** incoming data with existing data by keeping the newest version of each record.
+
+For performance reasons, when having huge amount of data, tables are usually split
+into multiple partitions. BigQuery supports range partitioning which are uncommon and date/time partitioning
+which is the most widely used type of partitioning.
+The diagram below shows our initial table partitioned by the `date` field.
+
+![Initial data]( /img/blog/spark-bigquery/initial-data.png "Initial data")
+
+
+Let's assume we receive the following data that we need to ingest into the table:
+
+![Incoming data]( /img/blog/spark-bigquery/incoming-data.png "Incoming data")
+
+The strategies above will produce respectively the results below:
+
+<Tabs groupId="modes">
+<TabItem value="overwrite" label="Overwrite">
+
+The table ends up with the 2 incoming records.
+All existing partitions are deleted.
+
+![Overwrite data]( /img/blog/spark-bigquery/overwrite-data.png "Overwrite data")
+
+</TabItem>
+<TabItem value="append" label="Append">
+
+The table ends up with 7 records. Note that a new `ìtem 1` record is added while the older one is kept.
+
+![Append data]( /img/blog/spark-bigquery/append-data.png "Append data")
+
+</TabItem>
+<TabItem value="partitioned-overwrite" label="Dynamic partition Overwrite">
+
+The table ends up with 4 records.
+The second partition remains untouched while the first partition is erased and overwritten by with the incoming data.
+
+![Merge data]( /img/blog/spark-bigquery/partitioned-overwrite.png "Merge data")
+
+</TabItem>
+<TabItem value="merge" label="Merge">
+
+The table ends up with 4 records.
+Incoming and existing records are added up but only the newest version of each product in the kept in the resulting table.
+
+![Merge data]( /img/blog/spark-bigquery/merge-data.png "Merge data")
+
+</TabItem>
+</Tabs>
+
+There is no good or bad strategy, the use of one of the strategies above depends on the use case. Some use case examples for each of the strategies are :
+- Overwrite mode may be useful when you receive every day the list of all product names.
+- Append mode may be useful when you receive daily sales.
+- Dynamic Partition Overwrite mode may be useful when you ingested the first time a partition and you need to ingest it again with a different set of data and thus alter only that partition.
+- Merge mode may be useful when you receive product updates every day and that you need to keep only the last version of each product.
+
+
+# Spark How-to
+## Append and Overwrite modes in Spark
+
+BigQuery is supported by Spark as a source and sink through the [Spark BigQuery connector](https://github.com/GoogleCloudDataproc/spark-bigquery-connector)
+
+Spark comes out of the box with the ability to append or overwrite existing data using a predefined save mode :
+
+```scala
+
+val incomingDF = ... // Incoming data loaded with the correct schema
+val bqTable = "project-id.dataset.table"
+val saveMode = SaveMode.Overwrite // or SaveMode.Append fot he appending data
+incomingDF.write
+.mode(saveMode)
+.partitionBy("date")
+.format("com.google.cloud.spark.bigquery")
+.option("table", bqTable)
+.save()
+
+```
+
+### Dynamic Partition Overwrite mode in Spark
+
+To activate dynamic partitioning, you need to set the configuration below before saving the data using the exact same code above :
+```scala
+spark.conf.set("spark.sql.sources.partitionOverwriteMode","dynamic")
+```
+
+Unfortunately, the BigQuery Spark connector does not support this feature (at the time of writing).
+We need to manually delete the partitions we want to overwrite first and then append the incoming data.
+
+Assuming the table is partitioned by the field `date` and the incoming data loaded in the incomingDF dataframe, the code below will
+remove existing partitions that need to be overwritten.
+
+```scala {4,5,8} title="Delete partitions that need to be updated"
+val incomingDF = ... // Incoming data loaded with the correct schema
+incomingDF
+  .select(date_format(col("date"), "yyyyMMdd").cast("string"))
+  .distinct()
+  .collect()
+  .map(_.getString(0))
+  .foreach { partition =>
+    spark.sql(s"DELETE $table WHERE date  like $partition")
+  }
+```
+
+:::note
+To drop a table partition using the Google Cloud `bq` command line tool, you may use the following syntax:
+
+```shell
+bq rm -t 'project-id.dataset.table$YYYYMMDD'
+```
+:::
+
+We now need to append the incomingDF to mimic the `dynamic partition overwrite` feature:
+
+```scala {3} title="Append incoming partitions"
+val incomingDF = ... // Incoming data loaded with the correct schema
+val bqTable = "project-id.dataset.table"
+val saveMode = SaveMode.Append
+incomingDF.write
+.mode(saveMode)
+.partitionBy("date")
+.format("com.google.cloud.spark.bigquery")
+.option("table", bqTable)
+.save()
+```
+
+### Dynamic Partition Merge in Spark
+
+When you need to keep the last version of the record for each product, both BigQuery and Databricks (the company behind Spark in case you lived on the moon the last ten years) support
+the merge SQL statement:
+
+```sql {5,7} title="Merge records using SQL statement"
+MERGE INTO target_table
+USING incoming_table
+ON target_table.product = incoming_table.product
+    WHEN NOT MATCHED
+		THEN INSERT *
+	WHEN MATCHED AND incoming_table.date > target_table.date THEN
+		UPDATE SET *
+/*
+    WHEN MATCHED AND incoming_table.timestamp <= target_table.timestamp THEN
+		SKIP
+*/
+```
+
+Unfortunately the `MERGE` statement is not supported by Apache Spark. It is only supported by Databricks, its commercial version.
+
+To do a merge using the Spark BigQuery connector, we need to do it by following the steps below :
+
+
+**Step 1: Create a dataframe with all the rows**
+
+```scala
+val allRowsDF =
+    incomingDF
+    .unionByName(existingDF)
+```
+
+![Step 1]( /img/blog/spark-bigquery/step1-union-data.png "Step 1")
+
+
+**Step 2: group by product and order each product occurrence by date descending**
+
+```scala
+val orderingWindow =
+    Window
+      .partitionBy("product")
+      .orderBy(col("date").desc, col("product")))
+
+val orderedDF =
+    allRowsDF
+        .withColumn("rownum", row_number.over(orderingWindow))
+```
+
+![Step 2]( /img/blog/spark-bigquery/step2-ordering-data.png "Step 2")
+
+
+
+In the step 2 above, each product is ordered by date with the most recent one first (descending order).
+We identify it by the `rownum` column.
+
+
+**Step 3: Keep the most recent product**
+
+```scala {3}
+val toKeepDF =
+    orderedDF
+        .where(col("rownum") === 1)
+        .drop("rownum")
+```
+
+![Step 3]( /img/blog/spark-bigquery/step3-keep-data.png "Step 3")
+
+
+**Step 4: Overwrite existing partitions with the data we want to keep**
+
+```scala {3}
+
+val bqTable = "project-id.dataset.table"
+val saveMode = SaveMode.Overwrite
+toKeepDF.write
+.mode(saveMode)
+.partitionBy("date")
+.format("com.google.cloud.spark.bigquery")
+.option("table", bqTable)
+.save()
+```
+
+![Step 4]( /img/blog/spark-bigquery/step4-save-data.png "Step 4")
+
+## Starlake How-to
+
+[Starlake](https://starlake.io) is a declarative Ingestion Framework based on YAML description files.<br/>
+The 4 ingestion strategies described above are supported through the settings below:
+
+<Tabs groupId="modes">
+<TabItem value="overwrite" label="Overwrite">
+
+```json {2} title="application.conf"
+// When set to "static" all partitions are truncated before data is written in overwrite mode.
+spark.sql.sources.partitionOverwriteMode = "static"
+```
+
+```yaml {8} title="Schema Definition File"
+     name: "mydb"
+     directory: "..."
++    metadata:
+    schemas:
+      - name: "mytable"
+        pattern: "data-.*.csv"
+        metadata:
+          mode: "Overwrite"
+        attributes:
+          - name: "date"
+            type: "date"
+            rename: "id"
+          - name: "product"
+            type: "string"
+          - name: "price"
+            type: "decimal"
+```
+
+</TabItem>
+<TabItem value="append" label="Append">
+
+```json title="application.conf"
+// Irrelevant since we are only appending data afterwards
+spark.sql.sources.partitionOverwriteMode = "static" // or "dynamic"
+```
+
+```yaml {8} title="Schema Definition File"
+     name: "mydb"
+     directory: "..."
++    metadata:
+    schemas:
+      - name: "mytable"
+        pattern: "data-.*.csv"
+        metadata:
+          mode: "Append"
+        attributes:
+          - name: "date"
+            type: "date"
+            rename: "id"
+          - name: "product"
+            type: "string"
+          - name: "price"
+            type: "decimal"
+```
+
+</TabItem>
+<TabItem value="partitioned-overwrite" label="Dynamic partition Overwrite">
+
+```json {2} title="application.conf"
+// When set to "dynamic", only partitions that are  affected will be truncated in overwrite mode.
+spark.sql.sources.partitionOverwriteMode = "dynamic"
+```
+
+```yaml {8} title="Schema Definition File"
+     name: "mydb"
+     directory: "..."
++    metadata:
+    schemas:
+      - name: "mytable"
+        pattern: "data-.*.csv"
+        metadata:
+          mode: "Overwrite"
+        attributes:
+          - name: "date"
+            type: "date"
+            rename: "id"
+          - name: "product"
+            type: "string"
+          - name: "price"
+            type: "decimal"
+```
+
+</TabItem>
+<TabItem value="merge" label="Merge">
+
+```json title="application.conf"
+// Irrelevant since we are truncating manually and  appending data afterwards
+spark.sql.sources.partitionOverwriteMode = "dynamic" // or static
+```
+
+```yaml {8,9,12,13} title="Schema Definition File"
+     name: "mydb"
+     directory: "..."
++    metadata:
+    schemas:
+      - name: "mytable"
+        pattern: "data-.*.csv"
+        merge:
+          key:
+            - "product"
+        metadata:
+          mode: "Overwrite"
+          partition:
+            - "date"
+        attributes:
+          - name: "date"
+            type: "date"
+            rename: "id"
+          - name: "product"
+            type: "string"
+          - name: "price"
+            type: "decimal"
+```
+
+</TabItem>
+</Tabs>
+
+## Comments
+[Let's continue the conversion on Discord](https://discord.com/channels/833336395430625310/908709208025858079)
