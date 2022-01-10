@@ -33,7 +33,7 @@ incomingDF.write
 </code></pre><h3>Dynamic Partition Overwrite mode in Spark</h3><p>To activate dynamic partitioning, you need to set the configuration below before saving the data using the exact same code above :</p><pre><code class="language-scala">spark.conf.set(&quot;spark.sql.sources.partitionOverwriteMode&quot;,&quot;dynamic&quot;)
 </code></pre><p>Unfortunately, the BigQuery Spark connector does not support this feature (at the time of writing).
 We need to manually delete the partitions we want to overwrite first and then append the incoming data.</p><p>Assuming the table is partitioned by the field <code>date</code> and the incoming data loaded in the incomingDF dataframe, the code below will
-remove existing partitions that need to be overwritten.</p><pre><code class="language-scala" metastring="{4-5,8} title=&quot;Delete partitions that need to be updated&quot;" title="&quot;Delete">val incomingDF = ... // Incoming data loaded with the correct schema
+remove existing partitions that need to be overwritten.</p><pre><code class="language-scala" metastring="{4,5,8} title=&quot;Delete partitions that need to be updated&quot;" title="&quot;Delete">val incomingDF = ... // Incoming data loaded with the correct schema
 incomingDF
   .select(date_format(col(&quot;date&quot;), &quot;yyyyMMdd&quot;).cast(&quot;string&quot;))
   .distinct()
