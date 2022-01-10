@@ -147,7 +147,7 @@ spark.sql.sources.partitionOverwriteMode = &quot;dynamic&quot;
             type: &quot;decimal&quot;
 </code></pre></div><div value="merge" label="Merge"><pre><code class="language-json" metastring="title=&quot;application.conf&quot;" title="&quot;application.conf&quot;">// Irrelevant since we are truncating manually and  appending data afterwards
 spark.sql.sources.partitionOverwriteMode = &quot;dynamic&quot; // or static
-</code></pre><pre><code class="language-yaml" metastring="{8-9,12-13} title=&quot;Schema Definition File&quot;" title="&quot;Schema">     name: &quot;mydb&quot;
+</code></pre><pre><code class="language-yaml" metastring="{8,9,12,13} title=&quot;Schema Definition File&quot;" title="&quot;Schema">     name: &quot;mydb&quot;
      directory: &quot;...&quot;
 +    metadata:
     schemas:
