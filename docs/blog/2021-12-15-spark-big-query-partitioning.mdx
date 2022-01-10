@@ -89,11 +89,11 @@ val incomingDF = ... // Incoming data loaded with the correct schema
 val bqTable = "project-id.dataset.table"
 val saveMode = SaveMode.Overwrite // or SaveMode.Append fot he appending data
 incomingDF.write
-.mode(saveMode)
-.partitionBy("date")
-.format("com.google.cloud.spark.bigquery")
-.option("table", bqTable)
-.save()
+    .mode(saveMode)
+    .partitionBy("date")
+    .format("com.google.cloud.spark.bigquery")
+    .option("table", bqTable)
+    .save()
 
 ```
 
