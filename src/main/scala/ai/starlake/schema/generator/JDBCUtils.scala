@@ -171,13 +171,14 @@ object JDBCUtils extends LazyLogging {
               val colName = columnsResultSet.getString("COLUMN_NAME")
               logger.info(s"COLUMN_NAME=$tableName.$colName")
               val colType = columnsResultSet.getInt("DATA_TYPE")
+              val colTypename = columnsResultSet.getString("TYPE_NAME")
               val colRemarks = columnsResultSet.getString("REMARKS")
               val colRequired = columnsResultSet.getString("IS_NULLABLE").equals("NO")
               val foreignKey = foreignKeys.get(colName.toUpperCase)
 
               Attribute(
                 name = colName,
-                `type` = sparkType(colType, tableName, colName),
+                `type` = sparkType(colType, tableName, colName, colTypename),
                 required = colRequired,
                 comment = Option(colRemarks),
                 foreignKey = foreignKey
@@ -273,8 +274,13 @@ object JDBCUtils extends LazyLogging {
     )
   }
 
-  private def sparkType(jdbcType: Int, tableName: String, colName: String): String = {
-    val sqlType = reverseSqlTypes.getOrElse(jdbcType, s"UNKNOWN JDBC TYPE => $jdbcType")
+  private def sparkType(
+    jdbcType: Int,
+    tableName: String,
+    colName: String,
+    colTypename: String
+  ): String = {
+    val sqlType = reverseSqlTypes.getOrElse(jdbcType, colTypename)
     jdbcType match {
       case VARCHAR | CHAR | LONGVARCHAR          => "string"
       case BIT | BOOLEAN                         => "boolean"
@@ -291,9 +297,9 @@ object JDBCUtils extends LazyLogging {
         "string"
       case _ =>
         logger.error(
-          s"""unsupported column type for $tableName.$colName  -> $sqlType ($jdbcType)"""
+          s"""Make sure user defined type  $colTypename is defined. Context: $tableName.$colName  -> $sqlType ($jdbcType)"""
         )
-        sqlType
+        colTypename
     }
   }
 
