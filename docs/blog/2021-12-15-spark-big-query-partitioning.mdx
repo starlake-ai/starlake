@@ -77,6 +77,9 @@ There is no good or bad strategy, the use of one of the strategies above depends
 
 
 # Spark How-to
+
+[Apache Spark SQL connector for Google BigQuery](https://github.com/GoogleCloudDataproc/spark-bigquery-connector) makes BigQuery a first class citizen as a source and sink for Spark jobs.
+
 ## Append and Overwrite modes in Spark
 
 BigQuery is supported by Spark as a source and sink through the [Spark BigQuery connector](https://github.com/GoogleCloudDataproc/spark-bigquery-connector)
@@ -110,7 +113,7 @@ We need to manually delete the partitions we want to overwrite first and then ap
 Assuming the table is partitioned by the field `date` and the incoming data loaded in the incomingDF dataframe, the code below will
 remove existing partitions that need to be overwritten.
 
-```scala {4,5,8} title="Delete partitions that need to be updated"
+```scala {3,8} title="Delete partitions that need to be updated"
 val incomingDF = ... // Incoming data loaded with the correct schema
 incomingDF
   .select(date_format(col("date"), "yyyyMMdd").cast("string"))
@@ -118,11 +121,11 @@ incomingDF
   .collect()
   .map(_.getString(0))
   .foreach { partition =>
-    spark.sql(s"DELETE $table WHERE date  like $partition")
+    bigQueryClient.deleteTable(TableId.of(datasetName, s"$table\$$partition"));
   }
 ```
 
-:::note
+:::tip
 To drop a table partition using the Google Cloud `bq` command line tool, you may use the following syntax:
 
 ```shell
@@ -143,6 +146,14 @@ incomingDF.write
     .option("table", bqTable)
     .save()
 ```
+
+:::caution
+The issue with this approach is that if the program crashes during the "appending" of the incoming data, partitions will have been deleted and data would be lost.
+However, you can still ingest the same file again in case of failure and the end result will be the same.
+:::
+
+
+
 
 ### Dynamic Partition Merge in Spark
 
@@ -357,4 +368,4 @@ spark.sql.sources.partitionOverwriteMode = "dynamic" // or static
 </Tabs>
 
 ## Comments
-[Let's continue the conversion on Discord](https://discord.com/channels/833336395430625310/908709208025858079)
+[Let's continue the conversation on Discord](https://discord.com/channels/833336395430625310/908709208025858079)
