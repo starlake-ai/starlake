@@ -33,7 +33,7 @@ incomingDF.write
 </code></pre><h3>Dynamic Partition Overwrite mode in Spark</h3><p>To activate dynamic partitioning, you need to set the configuration below before saving the data using the exact same code above :</p><pre><code class="language-scala">spark.conf.set(&quot;spark.sql.sources.partitionOverwriteMode&quot;,&quot;dynamic&quot;)
 </code></pre><p>Unfortunately, the BigQuery Spark connector does not support this feature (at the time of writing).
 We need to manually delete the partitions we want to overwrite first and then append the incoming data.</p><p>Assuming the table is partitioned by the field <code>date</code> and the incoming data loaded in the incomingDF dataframe, the code below will
-remove existing partitions that need to be overwritten.</p><pre><code class="language-scala" metastring="{3,8}=true title=&quot;Delete partitions that need to be updated&quot;" title="&quot;Delete">val incomingDF = ... // Incoming data loaded with the correct schema
+remove existing partitions that need to be overwritten.</p><pre><code class="language-scala" metastring="{3,8} title=&quot;Delete partitions that need to be updated&quot;" title="&quot;Delete">val incomingDF = ... // Incoming data loaded with the correct schema
 incomingDF
   .select(date_format(col(&quot;date&quot;), &quot;yyyyMMdd&quot;).cast(&quot;string&quot;))
   .distinct()
@@ -44,7 +44,7 @@ incomingDF
   }
 </code></pre><p>:::tip
 To drop a table partition using the Google Cloud <code>bq</code> command line tool, you may use the following syntax:</p><pre><code class="language-shell">bq rm -t &#x27;project-id.dataset.table$YYYYMMDD&#x27;
-</code></pre><p>:::</p><p>We now need to append the incomingDF to mimic the <code>dynamic partition overwrite</code> feature:</p><pre><code class="language-scala" metastring="{3}=true title=&quot;Append incoming partitions&quot;" title="&quot;Append">val incomingDF = ... // Incoming data loaded with the correct schema
+</code></pre><p>:::</p><p>We now need to append the incomingDF to mimic the <code>dynamic partition overwrite</code> feature:</p><pre><code class="language-scala" metastring="{3} title=&quot;Append incoming partitions&quot;" title="&quot;Append">val incomingDF = ... // Incoming data loaded with the correct schema
 val bqTable = &quot;project-id.dataset.table&quot;
 val saveMode = SaveMode.Append
 incomingDF.write
@@ -80,11 +80,11 @@ val orderedDF =
     allRowsDF
         .withColumn(&quot;rownum&quot;, row_number.over(orderingWindow))
 </code></pre><p><img src="/img/blog/spark-bigquery/step2-ordering-data.png" alt="Step 2" title="Step 2"/></p><p>In the step 2 above, each product is ordered by date with the most recent one first (descending order).
-We identify it by the <code>rownum</code> column.</p><p><strong>Step 3: Keep the most recent product</strong></p><pre><code class="language-scala" metastring="{3}=true">val toKeepDF =
+We identify it by the <code>rownum</code> column.</p><p><strong>Step 3: Keep the most recent product</strong></p><pre><code class="language-scala" metastring="{3}">val toKeepDF =
     orderedDF
         .where(col(&quot;rownum&quot;) === 1)
         .drop(&quot;rownum&quot;)
-</code></pre><p><img src="/img/blog/spark-bigquery/step3-keep-data.png" alt="Step 3" title="Step 3"/></p><p><strong>Step 4: Overwrite existing partitions with the data we want to keep</strong></p><pre><code class="language-scala" metastring="{3}=true">
+</code></pre><p><img src="/img/blog/spark-bigquery/step3-keep-data.png" alt="Step 3" title="Step 3"/></p><p><strong>Step 4: Overwrite existing partitions with the data we want to keep</strong></p><pre><code class="language-scala" metastring="{3}">
 val bqTable = &quot;project-id.dataset.table&quot;
 val saveMode = SaveMode.Overwrite
 toKeepDF.write
