@@ -21,4 +21,7 @@ SPARK_DRIVER_OPTIONS="-Dconfig.file=$PWD/application.conf -Dlog4j.configuration=
 DRIVER_JAR="--jars $PWD/../bin/postgresql-42.3.1.jar"
 
 export COMET_ENV=BQ
+
+export COMET_ROOT="$(pwd)/quickstart"
+
 $SPARK_SUBMIT --driver-java-options "$SPARK_DRIVER_OPTIONS" $SPARK_CONF_OPTIONS $DRIVER_JAR --class $COMET_MAIN $COMET_JAR_FULL_NAME infer-ddl --datawarehouse bigquery --output /tmp/sql.txt #--apply

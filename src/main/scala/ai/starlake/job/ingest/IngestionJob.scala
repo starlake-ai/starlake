@@ -43,10 +43,14 @@ import scala.util.{Failure, Success, Try}
 trait IngestionJob extends SparkJob {
 
   protected val treeRowValidator: GenericRowValidator = Utils
-    .loadInstance[GenericRowValidator](settings.comet.treeValidatorClass)
+    .loadInstance[GenericRowValidator](
+      metadata.validator.getOrElse(settings.comet.treeValidatorClass)
+    )
 
   protected val flatRowValidator: GenericRowValidator = Utils
-    .loadInstance[GenericRowValidator](settings.comet.rowValidatorClass)
+    .loadInstance[GenericRowValidator](
+      metadata.validator.getOrElse(settings.comet.rowValidatorClass)
+    )
 
   def domain: Domain
 
@@ -75,6 +79,30 @@ trait IngestionJob extends SparkJob {
     * @param dataset
     */
   protected def ingest(dataset: DataFrame): (Dataset[String], Dataset[Row])
+
+  protected def reorderTypes(orderedAttributes: List[Attribute]): (List[Type], StructType) = {
+    val typeMap: Map[String, Type] = types.map(tpe => tpe.name -> tpe).toMap
+    val (tpes, sparkFields) = orderedAttributes.map { attribute =>
+      val tpe = typeMap(attribute.`type`)
+      (tpe, tpe.sparkType(attribute.name, !attribute.required, attribute.comment))
+    }.unzip
+    (tpes, StructType(sparkFields))
+  }
+
+  /** @param datasetHeaders
+    *   : Headers found in the dataset
+    * @param schemaHeaders
+    *   : Headers defined in the schema
+    * @return
+    *   two lists : One with thecolumns present in the schema and the dataset and another with the
+    *   headers present in the dataset only
+    */
+  protected def intersectHeaders(
+    datasetHeaders: List[String],
+    schemaHeaders: List[String]
+  ): (List[String], List[String]) = {
+    datasetHeaders.partition(schemaHeaders.contains)
+  }
 
   @silent
   protected def applyIgnore(dfIn: DataFrame): Dataset[Row] = {
