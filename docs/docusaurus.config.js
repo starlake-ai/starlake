@@ -11,11 +11,6 @@ module.exports = {
     projectName: 'starlake', // Usually your repo name.
     themeConfig: {
         hideableSidebar: false,
-        googleAnalytics: {
-            trackingID: 'UA-207943293-1',
-            // Optional fields.
-            anonymizeIP: true // Should IPs be anonymized?
-        },
         prism: {
             additionalLanguages: ['java', 'scala', 'sql', 'powershell'],
             theme: require('prism-react-renderer/themes/github'),
@@ -131,6 +126,11 @@ module.exports = {
         [
             '@docusaurus/preset-classic',
             {
+                googleAnalytics: {
+                    trackingID: 'UA-207943293-1',
+                    // Optional fields.
+                    anonymizeIP: true // Should IPs be anonymized?
+                },
                 docs: {
                     sidebarPath: require.resolve('./sidebars.js'),
                     // Please change this to your repo.
