@@ -34,7 +34,6 @@ import ai.starlake.job.transform.AutoTaskJob
 import ai.starlake.schema.generator.{Yml2DDLConfig, Yml2DDLJob}
 import ai.starlake.schema.handlers.{LaunchHandler, SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.Engine.{BQ, SPARK}
-import ai.starlake.schema.model.Format._
 import ai.starlake.schema.model.Mode.{FILE, STREAM}
 import ai.starlake.schema.model._
 import ai.starlake.utils._
@@ -397,10 +396,31 @@ class IngestionWorkflow(
     logger.info(
       s"Ingesting domain: ${domain.name} with schema: ${schema.name} on file: $ingestingPath with metadata $metadata"
     )
+
     val ingestionResult = Try {
       val optionsAndEnvVars = schemaHandler.activeEnv ++ options
       metadata.getFormat() match {
-        case DSV =>
+        case Format.PARQUET =>
+          new ParquetIngestionJob(
+            domain,
+            schema,
+            schemaHandler.types,
+            ingestingPath,
+            storageHandler,
+            schemaHandler,
+            optionsAndEnvVars
+          ).run()
+        case Format.GENERIC =>
+          new GenericIngestionJob(
+            domain,
+            schema,
+            schemaHandler.types,
+            ingestingPath,
+            storageHandler,
+            schemaHandler,
+            optionsAndEnvVars
+          ).run()
+        case Format.DSV =>
           new DsvIngestionJob(
             domain,
             schema,
@@ -410,7 +430,7 @@ class IngestionWorkflow(
             schemaHandler,
             optionsAndEnvVars
           ).run()
-        case SIMPLE_JSON =>
+        case Format.SIMPLE_JSON =>
           new SimpleJsonIngestionJob(
             domain,
             schema,
@@ -420,7 +440,7 @@ class IngestionWorkflow(
             schemaHandler,
             optionsAndEnvVars
           ).run()
-        case JSON =>
+        case Format.JSON =>
           new JsonIngestionJob(
             domain,
             schema,
@@ -430,7 +450,7 @@ class IngestionWorkflow(
             schemaHandler,
             optionsAndEnvVars
           ).run()
-        case XML =>
+        case Format.XML =>
           new XmlIngestionJob(
             domain,
             schema,
@@ -440,7 +460,7 @@ class IngestionWorkflow(
             schemaHandler,
             optionsAndEnvVars
           ).run()
-        case TEXT_XML =>
+        case Format.TEXT_XML =>
           new XmlSimplePrivacyJob(
             domain,
             schema,
@@ -450,7 +470,7 @@ class IngestionWorkflow(
             schemaHandler,
             optionsAndEnvVars
           ).run()
-        case POSITION =>
+        case Format.POSITION =>
           new PositionIngestionJob(
             domain,
             schema,
@@ -460,7 +480,7 @@ class IngestionWorkflow(
             schemaHandler,
             optionsAndEnvVars
           ).run()
-        case KAFKA =>
+        case Format.KAFKA =>
           new KafkaIngestionJob(
             domain,
             schema,
@@ -471,7 +491,7 @@ class IngestionWorkflow(
             optionsAndEnvVars,
             FILE
           ).run()
-        case KAFKASTREAM =>
+        case Format.KAFKASTREAM =>
           new KafkaIngestionJob(
             domain,
             schema,
