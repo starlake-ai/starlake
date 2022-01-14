@@ -38,9 +38,9 @@ class ExtractScriptGenSpec extends TestHelper {
       ).head
         .pathAsString
 
-      File(templatePayload).lines.mkString("\n") shouldBe File(
+      File(templatePayload).lines.mkString("\n").toLowerCase shouldBe File(
         getClass.getResource("/sample/database/expected_script_payload.txt").getPath
-      ).lines.mkString("\n")
+      ).lines.mkString("\n").toLowerCase
     }
 
     "templatize domain using ssp" should "generate an export script from a TemplateSettings" in {
@@ -73,9 +73,9 @@ class ExtractScriptGenSpec extends TestHelper {
         .pathAsString
 
       print(getClass.getResource("/sample/database/expected_script_payload2.txt").getPath)
-      File(templatePayload).lines.mkString("\n") shouldBe File(
+      File(templatePayload).lines.mkString("\n").toLowerCase shouldBe File(
         getClass.getResource("/sample/database/expected_script_payload2.txt").getPath
-      ).lines.mkString("\n")
+      ).lines.mkString("\n").toLowerCase
     }
 
     "templatize job using ssp" should "generate an export script from a TemplateSettings" in {
