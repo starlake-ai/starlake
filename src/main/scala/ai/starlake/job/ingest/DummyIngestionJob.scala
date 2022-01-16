@@ -24,7 +24,8 @@ class DummyIngestionJob(
     *
     * @param dataset
     */
-  override protected def ingest(dataset: DataFrame): (Dataset[String], Dataset[Row]) = ???
+  override protected def ingest(dataset: DataFrame): (Dataset[String], Dataset[Row]) =
+    throw new Exception("Should never be called. User for applying security only")
 
   override def name: String = s"""${domain.name}-${schema.name}"""
 }
