@@ -640,7 +640,7 @@ trait IngestionJob extends SparkJob {
           // Use sample to determine partitioning
           val count = dataset.count()
           val minFraction =
-            if (fraction * count >= 1) // Make sure we get at least on item in teh dataset
+            if (fraction * count >= 1) // Make sure we get at least on item in the dataset
               fraction
             else if (
               count > 0
@@ -1048,9 +1048,9 @@ object IngestionUtil {
   )
 
   private def bigqueryRejectedSchema(): BQSchema = {
-    val fields = rejectedCols map { attribute =>
+    val fields = rejectedCols map { case (attrName, attrLegacyType, attrStandardType) =>
       Field
-        .newBuilder(attribute._1, attribute._2)
+        .newBuilder(attrName, attrLegacyType)
         .setMode(Field.Mode.REQUIRED)
         .setDescription("")
         .build()
