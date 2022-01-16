@@ -1,8 +1,5 @@
 package ai.starlake.utils
 
-import ai.starlake.config.UdfRegistration
-import ai.starlake.schema.model.SinkType.{BQ, FS, JDBC, KAFKA}
-import ai.starlake.schema.model.{Metadata, SinkType, Views}
 import ai.starlake.config.{Settings, SparkEnv, UdfRegistration}
 import ai.starlake.schema.model.SinkType.{BQ, FS, JDBC, KAFKA}
 import ai.starlake.schema.model.{Metadata, SinkType, Views}
@@ -231,6 +228,7 @@ trait SparkJob extends JobBase {
 
   protected def createSparkViews(
     views: Views,
+    activeEnv: Map[String, String],
     sqlParameters: Map[String, String]
   ): Unit = {
     // We parse the following strings
@@ -242,7 +240,7 @@ trait SparkJob extends JobBase {
     // or  KAFKA:stream:topicConfigName
     views.views.foreach { case (key, value) =>
       // Apply substitution defined with {{ }} and overload options in env by option in command line
-      val valueWithEnv = value.richFormat(sqlParameters)
+      val valueWithEnv = value.richFormat(activeEnv, sqlParameters)
       val (sinkType, sinkConfig, path) = parseViewDefinition(valueWithEnv)
       logger.info(s"Loading view $path from $sinkType")
       val df = sinkType match {
