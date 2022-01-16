@@ -141,6 +141,7 @@ object TemplateParams {
       scriptOutputPattern
         .map(
           _.richFormat(
+            Map.empty,
             Map(
               "domain" -> domainName,
               "schema" -> schema.name

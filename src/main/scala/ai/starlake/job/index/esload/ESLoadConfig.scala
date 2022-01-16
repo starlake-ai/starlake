@@ -52,26 +52,15 @@ case class ESLoadConfig(
     }
   }
 
-  def getIndexName(): String = s"${domain.toLowerCase}.${schema.toLowerCase}"
-
-  private val pattern = Pattern.compile("\\{(.*)\\|(.*)\\}")
-
+  private val timestampColPattern = Pattern.compile("\\{(.*)\\|(.*)\\}")
   def getTimestampCol(): Option[String] = {
     timestamp.flatMap { ts =>
-      val matcher = pattern.matcher(ts)
+      val matcher = timestampColPattern.matcher(ts)
       if (matcher.matches()) {
         Some(matcher.group(1))
       } else {
         None
       }
-    }
-  }
-
-  def getResource(): String = {
-    timestamp.map { ts =>
-      s"${this.getIndexName()}-$ts"
-    } getOrElse {
-      s"${this.getIndexName()}"
     }
   }
 }
@@ -123,5 +112,6 @@ object ESLoadConfig extends CliConfig[ESLoadConfig] {
     )
   }
 
-  def parse(args: Seq[String]): Option[ESLoadConfig] = OParser.parse(parser, args, ESLoadConfig())
+  def parse(args: Seq[String]): Option[ESLoadConfig] =
+    OParser.parse(parser, args, ESLoadConfig())
 }

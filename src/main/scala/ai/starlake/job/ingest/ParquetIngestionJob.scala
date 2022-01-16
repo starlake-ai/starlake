@@ -44,7 +44,7 @@ import scala.util.Try
   * @param options
   *   : Parameters to pass as input (k1=v1,k2=v2,k3=v3)
   */
-class DsvIngestionJob(
+class ParquetIngestionJob(
   val domain: Domain,
   val schema: Schema,
   val types: List[Type],
@@ -65,26 +65,6 @@ class DsvIngestionJob(
     */
   val schemaHeaders: List[String] = schema.attributes.map(_.name)
 
-  /** remove any extra quote / BOM in the header
-    *
-    * @param header
-    *   : Header column name
-    * @return
-    */
-  private def cleanHeaderCol(header: String): String =
-    header.replaceAll("\"", "").replaceAll("\uFEFF", "")
-
-  /** @param datasetHeaders
-    *   : Headers found in the dataset
-    * @param schemaHeaders
-    *   : Headers defined in the schema
-    * @return
-    *   success if all headers in the schema exist in the dataset
-    */
-  private def validateHeader(datasetHeaders: List[String], schemaHeaders: List[String]): Boolean = {
-    schemaHeaders.forall(schemaHeader => datasetHeaders.contains(schemaHeader))
-  }
-
   /** Load dataset using spark csv reader and all metadata. Does not infer schema. columns not
     * defined in the schema are dropped fro the dataset (require datsets with a header)
     *
@@ -93,16 +73,11 @@ class DsvIngestionJob(
     */
   protected def loadDataSet(): Try[DataFrame] = {
     Try {
+      val format = metadata.getOptions().getOrElse("format", "parquet")
       val dfIn = session.read
-        .option("header", metadata.isWithHeader().toString)
-        .option("inferSchema", value = false)
-        .option("delimiter", metadata.getSeparator())
-        .option("multiLine", metadata.getMultiline())
-        .option("quote", metadata.getQuote())
-        .option("escape", metadata.getEscape())
-        .option("parserLib", "UNIVOCITY")
-        .option("encoding", metadata.getEncoding())
-        .csv(path.map(_.toString): _*)
+        .options(metadata.getOptions())
+        .format(format)
+        .load(path.map(_.toString): _*)
 
       logger.debug(dfIn.schema.treeString)
       if (dfIn.isEmpty) {
@@ -118,43 +93,15 @@ class DsvIngestionJob(
       } else {
         val df = applyIgnore(dfIn)
 
-        val resDF = metadata.withHeader match {
-          case Some(true) =>
-            val datasetHeaders: List[String] = df.columns.toList.map(cleanHeaderCol)
-            val (_, drop) = intersectHeaders(datasetHeaders, schemaHeaders)
-            if (datasetHeaders.length == drop.length) {
-              throw new Exception(s"""No attribute found in input dataset ${path.toString}
-                                   | SchemaHeaders : ${schemaHeaders.mkString(",")}
-                                   | Dataset Headers : ${datasetHeaders.mkString(",")}
+        val datasetHeaders = df.columns.toList
+        val (_, drop) = intersectHeaders(datasetHeaders, schemaHeaders)
+        if (datasetHeaders.length == drop.length) {
+          throw new Exception(s"""No attribute found in input dataset ${path.toString}
+                                 | SchemaHeaders : ${schemaHeaders.mkString(",")}
+                                 | Dataset Headers : ${datasetHeaders.mkString(",")}
              """.stripMargin)
-            }
-            df.drop(drop: _*)
-          case Some(false) | None =>
-            /* No header, let's make sure we take the first attributes
-             if there are more in the CSV file
-             */
-            val attributesWithoutScriptedFields = schema.attributesWithoutScriptedFields
-            val compare =
-              attributesWithoutScriptedFields.length.compareTo(df.columns.length)
-            compare match {
-              case 0 =>
-                df.toDF(
-                  attributesWithoutScriptedFields
-                    .map(_.name)
-                    .take(attributesWithoutScriptedFields.length): _*
-                )
-              case c if c > 0 =>
-                val countMissing =
-                  attributesWithoutScriptedFields.length - df.columns.length
-                throw new Exception(s"$countMissing MISSING columns in the input DataFrame ")
-              case _ => // compare < 0
-                val cols = df.columns
-                df.select(
-                  cols.head,
-                  cols.tail.take(attributesWithoutScriptedFields.length - 1): _*
-                ).toDF(attributesWithoutScriptedFields.map(_.name): _*)
-            }
         }
+        val resDF = df.drop(drop: _*)
         resDF.withColumn(
           //  Spark here can detect the input file automatically, so we're just using the input_file_name spark function
           CometColumns.cometInputFileNameColumn,
@@ -174,18 +121,9 @@ class DsvIngestionJob(
 
     val orderedAttributes = reorderAttributes(dataset)
 
-    def reorderTypes(): (List[Type], StructType) = {
-      val typeMap: Map[String, Type] = types.map(tpe => tpe.name -> tpe).toMap
-      val (tpes, sparkFields) = orderedAttributes.map { attribute =>
-        val tpe = typeMap(attribute.`type`)
-        (tpe, tpe.sparkType(attribute.name, !attribute.required, attribute.comment))
-      }.unzip
-      (tpes, StructType(sparkFields))
-    }
+    val (orderedTypes, orderedSparkTypes) = reorderTypes(orderedAttributes)
 
-    val (orderedTypes, orderedSparkTypes) = reorderTypes()
-
-    val validationResult = flatRowValidator.validate(
+    val validationResult = treeRowValidator.validate(
       session,
       metadata.getFormat(),
       metadata.getSeparator(),
