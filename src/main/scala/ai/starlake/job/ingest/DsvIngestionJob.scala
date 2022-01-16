@@ -105,7 +105,7 @@ class DsvIngestionJob(
         .csv(path.map(_.toString): _*)
 
       logger.debug(dfIn.schema.treeString)
-      if (dfIn.limit(1).count() == 0) {
+      if (dfIn.isEmpty) {
         // empty dataframe with accepted schema
         val sparkSchema = schema.sparkSchemaWithoutScriptedFields(schemaHandler)
 
