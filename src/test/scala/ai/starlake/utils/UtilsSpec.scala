@@ -83,7 +83,7 @@ class UtilsSpec extends TestHelper {
     }
     "Custom format should" should "match patterns" in {
       import ai.starlake.utils.Formatter._
-      assert("${key}_and_${key}".richFormat(Map("key" -> "value")) == "value_and_value")
+      assert("${key}_and_${key}".richFormat(Map.empty, Map("key" -> "value")) == "value_and_value")
     }
 
     "ViewParser" should "substitute refs and return view names" in {
