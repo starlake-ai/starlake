@@ -2,6 +2,10 @@
 
 # 0.2.9
 __New feature__:
+- Drop support for Spark 2.3.X
+- Allow table renaming on write
+- Any Spark supported input is now allowed
+- Env vars in env.yml files
 
 __Bug Fix__:
 

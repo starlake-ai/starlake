@@ -142,6 +142,7 @@ class ScriptGen(
     val scriptOutputFileName = scriptOutputPattern
       .map(
         _.richFormat(
+          schemaHandler.activeEnv,
           Map(
             "job" -> job.name
           )
