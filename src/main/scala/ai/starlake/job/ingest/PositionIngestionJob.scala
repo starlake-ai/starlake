@@ -99,16 +99,7 @@ class PositionIngestionJob(
 
     val orderedAttributes = reorderAttributes(dataset)
 
-    def reorderTypes(): (List[Type], StructType) = {
-      val mapTypes: Map[String, Type] = types.map(tpe => tpe.name -> tpe).toMap
-      val (tpes, sparkFields) = orderedAttributes.map { attribute =>
-        val tpe = mapTypes(attribute.`type`)
-        (tpe, tpe.sparkType(attribute.name, !attribute.required, attribute.comment))
-      }.unzip
-      (tpes, StructType(sparkFields))
-    }
-
-    val (orderedTypes, orderedSparkTypes) = reorderTypes()
+    val (orderedTypes, orderedSparkTypes) = reorderTypes(orderedAttributes)
 
     val validationResult = flatRowValidator.validate(
       session,

@@ -49,6 +49,8 @@ object Format {
       case "TEXT_XML"            => Format.TEXT_XML
       case "KAFKA"               => Format.KAFKA
       case "KAFKASTREAM"         => Format.KAFKASTREAM
+      case "GENERIC"             => Format.GENERIC
+      case "PARQUET"             => Format.PARQUET
     }
   }
 
@@ -66,10 +68,14 @@ object Format {
 
   object XML extends Format("XML")
 
+  object GENERIC extends Format("GENERIC")
+
+  object PARQUET extends Format("PARQUET")
+
   object TEXT_XML extends Format("TEXT_XML")
 
   val formats: Set[Format] =
-    Set(DSV, POSITION, SIMPLE_JSON, JSON, XML, TEXT_XML, KAFKA, KAFKASTREAM)
+    Set(DSV, POSITION, SIMPLE_JSON, JSON, XML, TEXT_XML, KAFKA, KAFKASTREAM, GENERIC, PARQUET)
 }
 
 class FormatDeserializer extends JsonDeserializer[Format] {
