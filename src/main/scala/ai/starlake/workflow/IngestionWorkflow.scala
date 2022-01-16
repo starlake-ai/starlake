@@ -558,7 +558,7 @@ class IngestionWorkflow(
         Views(job.views.getOrElse(Map.empty)),
         job.getEngine(),
         task,
-        schemaHandler.activeEnv ++ jobOptions
+        jobOptions
       )(settings, storageHandler, schemaHandler)
     }
   }

@@ -179,8 +179,13 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
         Map.empty
     val globalsCometPath = new Path(DatasetArea.metadata, s"env.comet.yml")
     val envsCometPath = new Path(DatasetArea.metadata, s"env.${settings.comet.env}.comet.yml")
-    val globalEnv = loadEnv(globalsCometPath)
-    val localEnv = loadEnv(envsCometPath).mapValues(_.richFormat(globalEnv))
+    val globalEnv = {
+      loadEnv(globalsCometPath).mapValues(
+        _.richFormat(sys.env, Map.empty)
+      ) // will replace with sys.env
+    }
+    val localEnv =
+      loadEnv(envsCometPath).mapValues(_.richFormat(sys.env, globalEnv))
     globalEnv ++ localEnv
   }
 
@@ -206,7 +211,10 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
       )
       .map { path =>
         val domain =
-          YamlSerializer.deserializeDomain(storage.read(path).richFormat(activeEnv), path.toString)
+          YamlSerializer.deserializeDomain(
+            storage.read(path).richFormat(activeEnv, Map.empty),
+            path.toString
+          )
         domain match {
           case Success(domain) =>
             val folder = path.getParent()
@@ -221,7 +229,7 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
                   if (ref.endsWith(".yml") || ref.endsWith(".yaml")) ref else ref + ".comet.yml"
                 val schemaPath = new Path(folder, refFullName)
                 YamlSerializer.deserializeSchemas(
-                  storage.read(schemaPath).richFormat(activeEnv),
+                  storage.read(schemaPath).richFormat(activeEnv, Map.empty),
                   schemaPath.toString
                 )
               }
@@ -269,7 +277,7 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
 
   def loadJobFromFile(path: Path): Try[AutoJobDesc] =
     Try {
-      val rootNode = mapper.readTree(storage.read(path).richFormat(activeEnv))
+      val rootNode = mapper.readTree(storage.read(path).richFormat(activeEnv, Map.empty))
       val tranformNode = rootNode.path("transform")
       val autojobNode =
         if (tranformNode.isNull() || tranformNode.isMissingNode) {
@@ -295,10 +303,11 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
             presql = sqlTask.presql,
             sql = Option(sqlTask.sql),
             postsql = sqlTask.postsql,
-            domain = taskDesc.domain.richFormat(activeEnv),
-            dataset = taskDesc.dataset.richFormat(activeEnv),
-            area =
-              taskDesc.area.map(area => StorageArea.fromString(area.value.richFormat(activeEnv)))
+            domain = taskDesc.domain.richFormat(activeEnv, Map.empty),
+            dataset = taskDesc.dataset.richFormat(activeEnv, Map.empty),
+            area = taskDesc.area.map(area =>
+              StorageArea.fromString(area.value.richFormat(activeEnv, Map.empty))
+            )
           )
         } else {
           taskDesc
