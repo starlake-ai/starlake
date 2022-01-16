@@ -115,7 +115,7 @@ class InferSchemaJob(implicit settings: Settings) {
     */
   def getSeparator(lines: List[String]): String = {
     val firstLine = lines.head
-    val separator =
+    val (separator, count) =
       firstLine
         .replaceAll("[A-Za-z0-9 \"'()@?!éèîàÀÉÈç+]", "")
         .toCharArray
@@ -125,7 +125,7 @@ class InferSchemaJob(implicit settings: Settings) {
         .toList
         .maxBy { case (ch, count) => count }
     // .maxBy(_._2)
-    separator._1.toString
+    separator.toString
   }
 
   /** Get domain directory name
