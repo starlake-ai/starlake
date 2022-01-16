@@ -133,8 +133,7 @@ class GenericIngestionJob(
     def getResult(resultSet: ResultSet): Int = resultSet.getInt(0)
   }
 
-  def updateStatement(
-    conn: Connection,
+  case class DeltaRow(
     domain: String,
     schema: String,
     timestamp: Timestamp,
@@ -144,20 +143,24 @@ class GenericIngestionJob(
     success: Boolean,
     message: String,
     step: String
+  )
+  def updateStatement(
+    conn: Connection,
+    row: DeltaRow
   ): Try[PreparedStatement] = {
     Try {
-      val SqlInsert =
+      val sqlInsert =
         s"insert into STARLAKE_DELTA(domain, schema, timestamp, duration, mode, count, success, message, step) values(?, ?, ?, ?, ?, ?, ?, ?, ?)"
-      val preparedStatement = conn.prepareStatement(SqlInsert)
-      preparedStatement.setString(1, domain)
-      preparedStatement.setString(2, schema)
-      preparedStatement.setTimestamp(3, timestamp)
-      preparedStatement.setInt(4, duration)
-      preparedStatement.setString(5, mode)
-      preparedStatement.setLong(6, count)
-      preparedStatement.setBoolean(7, success)
-      preparedStatement.setString(8, message)
-      preparedStatement.setString(9, step)
+      val preparedStatement = conn.prepareStatement(sqlInsert)
+      preparedStatement.setString(1, row.domain)
+      preparedStatement.setString(2, row.schema)
+      preparedStatement.setTimestamp(3, row.timestamp)
+      preparedStatement.setInt(4, row.duration)
+      preparedStatement.setString(5, row.mode)
+      preparedStatement.setLong(6, row.count)
+      preparedStatement.setBoolean(7, row.success)
+      preparedStatement.setString(8, row.message)
+      preparedStatement.setString(9, row.step)
       preparedStatement
     }
   }
@@ -180,15 +183,17 @@ class GenericIngestionJob(
         conn     <- getConnection(url, user, password)
         startLoadStatement <- updateStatement(
           conn,
-          domain.name,
-          schema.name,
-          startTime,
-          -1,
-          timestampColumn.map(_ => "DELTA").getOrElse("FULL"),
-          -1L,
-          true,
-          "Starting ...",
-          "1.START_LOAD"
+          DeltaRow(
+            domain.name,
+            schema.name,
+            startTime,
+            -1,
+            timestampColumn.map(_ => "DELTA").getOrElse("FULL"),
+            -1L,
+            true,
+            "Starting ...",
+            "1.START_LOAD"
+          )
         )
         _ <- executeUpdate(conn, startLoadStatement)
       } {
