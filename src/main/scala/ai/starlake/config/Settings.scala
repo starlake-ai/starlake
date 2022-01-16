@@ -353,7 +353,6 @@ object CometColumns {
   val cometInputFileNameColumn: String = "comet_input_file_name"
   val cometSuccessColumn: String = "comet_success"
   val cometErrorMessageColumn: String = "comet_error_message"
-
 }
 
 /** This class holds the current Comet settings and an assembly of reference instances for core,
