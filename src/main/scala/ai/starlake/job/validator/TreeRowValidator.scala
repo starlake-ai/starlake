@@ -53,7 +53,6 @@ object TreeRowValidator extends GenericRowValidator {
     val typesMap = types.map(tpe => tpe.name -> tpe).toMap
     val successErrorRDD =
       validateDataset(
-        session,
         dataset,
         attributes,
         schemaSparkType,
@@ -79,7 +78,6 @@ object TreeRowValidator extends GenericRowValidator {
   }
 
   private def validateDataset(
-    session: SparkSession,
     dataset: DataFrame,
     attributes: List[Attribute],
     schemaSparkType: StructType,

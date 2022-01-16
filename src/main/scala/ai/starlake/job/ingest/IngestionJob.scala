@@ -43,10 +43,14 @@ import scala.util.{Failure, Success, Try}
 trait IngestionJob extends SparkJob {
 
   protected val treeRowValidator: GenericRowValidator = Utils
-    .loadInstance[GenericRowValidator](settings.comet.treeValidatorClass)
+    .loadInstance[GenericRowValidator](
+      metadata.validator.getOrElse(settings.comet.treeValidatorClass)
+    )
 
   protected val flatRowValidator: GenericRowValidator = Utils
-    .loadInstance[GenericRowValidator](settings.comet.rowValidatorClass)
+    .loadInstance[GenericRowValidator](
+      metadata.validator.getOrElse(settings.comet.rowValidatorClass)
+    )
 
   def domain: Domain
 
@@ -76,6 +80,30 @@ trait IngestionJob extends SparkJob {
     */
   protected def ingest(dataset: DataFrame): (Dataset[String], Dataset[Row])
 
+  protected def reorderTypes(orderedAttributes: List[Attribute]): (List[Type], StructType) = {
+    val typeMap: Map[String, Type] = types.map(tpe => tpe.name -> tpe).toMap
+    val (tpes, sparkFields) = orderedAttributes.map { attribute =>
+      val tpe = typeMap(attribute.`type`)
+      (tpe, tpe.sparkType(attribute.name, !attribute.required, attribute.comment))
+    }.unzip
+    (tpes, StructType(sparkFields))
+  }
+
+  /** @param datasetHeaders
+    *   : Headers found in the dataset
+    * @param schemaHeaders
+    *   : Headers defined in the schema
+    * @return
+    *   two lists : One with thecolumns present in the schema and the dataset and another with the
+    *   headers present in the dataset only
+    */
+  protected def intersectHeaders(
+    datasetHeaders: List[String],
+    schemaHeaders: List[String]
+  ): (List[String], List[String]) = {
+    datasetHeaders.partition(schemaHeaders.contains)
+  }
+
   @silent
   protected def applyIgnore(dfIn: DataFrame): Dataset[Row] = {
     import session.implicits._
@@ -100,12 +128,12 @@ trait IngestionJob extends SparkJob {
       errMessagesDS.take(100).foreach(rejected => logger.debug(rejected.replaceAll("\n", "|")))
     }
     val domainName = domain.name
-    val schemaName = schema.name
+    val schemaName = schema.getFinalName()
 
     val start = Timestamp.from(Instant.now())
     val formattedDate = new java.text.SimpleDateFormat("yyyyMMddHHmmss").format(start)
 
-    if (settings.comet.sinkReplayToFile && rejectedLinesDS.limit(1).count() > 0) {
+    if (settings.comet.sinkReplayToFile && !rejectedLinesDS.isEmpty) {
       val replayArea = DatasetArea.replay(domainName)
       val targetPath =
         new Path(replayArea, s"$domainName.$schemaName.$formattedDate.replay")
@@ -253,7 +281,7 @@ trait IngestionJob extends SparkJob {
   protected def saveAccepted(
     validationResult: ValidationResult
   ): (DataFrame, Path) = {
-    if (!settings.comet.rejectAllOnError || validationResult.rejected.limit(1).count() == 0) {
+    if (!settings.comet.rejectAllOnError || validationResult.rejected.isEmpty) {
       val acceptedDF = dfWithAttributesRenamed(validationResult.accepted)
       val start = Timestamp.from(Instant.now())
       logger.whenDebugEnabled {
@@ -262,7 +290,7 @@ trait IngestionJob extends SparkJob {
       }
       runAssertions(acceptedDF)
       runMetrics(acceptedDF)
-      val acceptedPath = new Path(DatasetArea.accepted(domain.name), schema.name)
+      val acceptedPath = new Path(DatasetArea.accepted(domain.name), schema.getFinalName())
       val acceptedDfWithScriptFields: DataFrame = computeScriptedAttributes(acceptedDF)
       val acceptedDfWithoutIgnoredFields: DataFrame = removeIgnoredAttributes(
         acceptedDfWithScriptFields
@@ -317,7 +345,7 @@ trait IngestionJob extends SparkJob {
             session.sparkContext.applicationId,
             acceptedPath.toString,
             domain.name,
-            schema.name,
+            schema.getFinalName(),
             success = true,
             -1,
             -1,
@@ -335,7 +363,7 @@ trait IngestionJob extends SparkJob {
             session.sparkContext.applicationId,
             acceptedPath.toString,
             domain.name,
-            schema.name,
+            schema.getFinalName(),
             success = false,
             -1,
             -1,
@@ -404,7 +432,8 @@ trait IngestionJob extends SparkJob {
                                           .foldLeft(acceptedDF) {
                                             case (df, (name, Some(script))) =>
                                               df.T(
-                                                s"SELECT $allColumns, ${script.richFormat(options)} as $name FROM __THIS__"
+                                                s"SELECT $allColumns, ${script
+                                                  .richFormat(schemaHandler.activeEnv, options)} as $name FROM __THIS__"
                                               )
                                             case (df, _) => df
                                           }
@@ -447,7 +476,7 @@ trait IngestionJob extends SparkJob {
           }
           val config = BigQueryLoadConfig(
             source = Right(mergedDF),
-            outputTable = schema.name,
+            outputTable = schema.getFinalName(),
             outputDataset = domain.name,
             sourceFormat = settings.comet.defaultFormat,
             createDisposition = createDisposition,
@@ -472,7 +501,7 @@ trait IngestionJob extends SparkJob {
 
         case SinkType.KAFKA =>
           Utils.withResources(new KafkaClient(settings.comet.kafka)) { kafkaClient =>
-            kafkaClient.sinkToTopic(settings.comet.kafka.topics(schema.name), mergedDF)
+            kafkaClient.sinkToTopic(settings.comet.kafka.topics(schema.getFinalName()), mergedDF)
           }
         case SinkType.JDBC =>
           val (createDisposition: CreateDisposition, writeDisposition: WriteDisposition) = {
@@ -493,7 +522,7 @@ trait IngestionJob extends SparkJob {
               jdbcName,
               settings.comet,
               Right(mergedDF),
-              outputTable = schema.name,
+              outputTable = schema.getFinalName(),
               createDisposition = createDisposition,
               writeDisposition = writeDisposition,
               partitions = partitions,
@@ -670,7 +699,7 @@ trait IngestionJob extends SparkJob {
         (clusteredDFWriter, dataset)
 
       // We do not output empty datasets
-      if (finalDataset.limit(1).count() > 0) {
+      if (!finalDataset.limit(1).isEmpty) {
         val finalTargetDatasetWriter =
           if (csvOutput() && area != StorageArea.rejected) {
             targetDatasetWriter
@@ -766,7 +795,7 @@ trait IngestionJob extends SparkJob {
     val bqConfig = BigQueryLoadConfig()
     def bqNativeJob(sql: String) = new BigQueryNativeJob(bqConfig, sql, None)
     schema.presql.getOrElse(Nil).foreach { sql =>
-      val compiledSql = sql.richFormat(options)
+      val compiledSql = sql.richFormat(schemaHandler.activeEnv, options)
       metadata.getSink().getOrElse(NoneSink()).getType() match {
         case SinkType.BQ =>
           bqNativeJob(compiledSql).runInteractiveQuery()
@@ -781,7 +810,7 @@ trait IngestionJob extends SparkJob {
       case Some(queryList) =>
         queryList.foldLeft(mergedDF) { (df, query) =>
           df.createOrReplaceTempView("COMET_TABLE")
-          df.sparkSession.sql(query.richFormat(options))
+          df.sparkSession.sql(query.richFormat(schemaHandler.activeEnv, options))
         }
       case _ => mergedDF
     }
@@ -935,7 +964,7 @@ trait IngestionJob extends SparkJob {
           case (Some(_), Some(_)) =>
             val partitions =
               tableMetadata.biqueryClient.listPartitions(updatedTable.getTableId).asScala.toList
-            val filter = mergeOptions.buidlBQQuery(partitions, options)
+            val filter = mergeOptions.buidlBQQuery(partitions, schemaHandler.activeEnv, options)
             existingBQDFWithoutFilter
               .option("filter", filter.getOrElse(throw new Exception("should never happen")))
           case (_, _) =>

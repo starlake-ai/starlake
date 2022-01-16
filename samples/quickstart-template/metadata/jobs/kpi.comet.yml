@@ -5,8 +5,7 @@ transform:
     sellers: "${sellers_view}"
     orders: "${orders_view}"
   tasks:
-    - sql: ""
-      name: byseller
+    - name: byseller
       domain: sales_kpi
       dataset: byseller_kpi
       write: OVERWRITE
