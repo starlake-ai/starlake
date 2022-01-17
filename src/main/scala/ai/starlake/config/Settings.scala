@@ -75,7 +75,8 @@ object Settings extends StrictLogging {
     accepted: String,
     rejected: String,
     replay: String,
-    business: String
+    business: String,
+    hiveDatabase: String
   ) {
     val acceptedFinal: String = accepted.toLowerCase(Locale.ROOT)
     val rejectedFinal: String = rejected.toLowerCase(Locale.ROOT)

@@ -21,6 +21,7 @@
 package ai.starlake.config
 
 import ai.starlake.schema.handlers.StorageHandler
+import ai.starlake.utils.Formatter.RichFormatter
 import com.fasterxml.jackson.core.{JsonGenerator, JsonParser}
 import com.fasterxml.jackson.databind.annotation.{JsonDeserialize, JsonSerialize}
 import com.fasterxml.jackson.databind.{
@@ -233,8 +234,14 @@ object StorageArea {
 
   final case class Custom(value: String) extends StorageArea
 
-  def area(domain: String, area: StorageArea): String = s"${domain}_${area.value}"
-
+  def area(domain: String, area: StorageArea)(implicit settings: Settings): String =
+    settings.comet.area.hiveDatabase.richFormat(
+      Map.empty,
+      Map(
+        "domain" -> domain,
+        "area"   -> area.toString
+      )
+    )
 }
 
 final class StorageAreaSerializer extends JsonSerializer[StorageArea] {
