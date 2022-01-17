@@ -24,6 +24,7 @@ import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.utils.Utils
+import com.fasterxml.jackson.annotation.JsonIgnore
 import com.github.ghik.silencer.silent
 import org.apache.hadoop.fs.Path
 
@@ -74,8 +75,15 @@ import scala.util.{Failure, Success, Try}
   comment: Option[String] = None,
   @silent @deprecated("Moved to Metadata", "0.2.8") extensions: Option[List[String]] = None,
   @silent @deprecated("Moved to Metadata", "0.2.8") ack: Option[String] = None,
-  tags: Option[Set[String]] = None
+  tags: Option[Set[String]] = None,
+  rename: Option[String] = None
 ) {
+
+  /** @return
+    *   renamed column if defined, source name otherwise
+    */
+  @JsonIgnore
+  def getFinalName(): String = rename.getOrElse(name)
 
   /** Get schema from filename Schema are matched against filenames using filename patterns. The
     * schema pattern that matches the filename is returned

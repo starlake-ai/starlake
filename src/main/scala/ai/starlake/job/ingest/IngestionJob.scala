@@ -290,7 +290,8 @@ trait IngestionJob extends SparkJob {
       }
       runAssertions(acceptedDF)
       runMetrics(acceptedDF)
-      val acceptedPath = new Path(DatasetArea.accepted(domain.name), schema.getFinalName())
+      val acceptedPath =
+        new Path(DatasetArea.accepted(domain.getFinalName()), schema.getFinalName())
       val acceptedDfWithScriptFields: DataFrame = computeScriptedAttributes(acceptedDF)
       val acceptedDfWithoutIgnoredFields: DataFrame = removeIgnoredAttributes(
         acceptedDfWithScriptFields
@@ -477,7 +478,7 @@ trait IngestionJob extends SparkJob {
           val config = BigQueryLoadConfig(
             source = Right(mergedDF),
             outputTable = schema.getFinalName(),
-            outputDataset = domain.name,
+            outputDataset = domain.getFinalName,
             sourceFormat = settings.comet.defaultFormat,
             createDisposition = createDisposition,
             writeDisposition = writeDisposition,
@@ -608,7 +609,7 @@ trait IngestionJob extends SparkJob {
   ): DataFrame = {
     val resultDataFrame = if (dataset.columns.length > 0) {
       val saveMode = writeMode.toSaveMode
-      val hiveDB = StorageArea.area(domain.name, area)
+      val hiveDB = StorageArea.area(domain.getFinalName(), area)
       val tableName = schema.name
       val fullTableName = s"$hiveDB.$tableName"
       if (settings.comet.hive) {
