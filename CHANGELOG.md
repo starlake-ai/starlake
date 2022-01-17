@@ -1,5 +1,13 @@
 # Release notes
 
+# 0.3.0
+__New feature__:
+- Drop Java 1.8 prerequisite for compilation  
+- Support custom database name for Hive compatible metastore
+- Support delta mode ingestion for generic Spark input
+- Support custom dataset name in BQ
+__Bug Fix__:
+
 # 0.2.9
 __New feature__:
 - Drop support for Spark 2.3.X

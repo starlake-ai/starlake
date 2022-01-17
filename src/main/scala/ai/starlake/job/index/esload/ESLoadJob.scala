@@ -51,7 +51,7 @@ class ESLoadJob(
   def getIndexName(): String =
     (domain, schema) match {
       case (Some(domain), Some(schema)) =>
-        s"${domain.name.toLowerCase}.${schema.getFinalName().toLowerCase}"
+        s"${domain.getFinalName().toLowerCase}.${schema.getFinalName().toLowerCase}"
       case _ =>
         // Handle datasets without YAML schema
         // We handle only index name like idx-{...}
