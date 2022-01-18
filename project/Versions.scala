@@ -15,7 +15,7 @@ object Versions {
   val betterFiles = "3.9.1"
   val jackson211ForSpark2 = "2.6.7"
   val jackson212ForSpark3 = "2.12.3"
-  val pureConfig = "0.14.0"
+  val pureConfig = "0.14.1"
   val esSpark211 = "7.8.1"
   val esSpark212 = "7.16.3"
   val scopt = "4.0.1"
