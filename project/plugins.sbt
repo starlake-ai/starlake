@@ -11,7 +11,7 @@ addSbtPlugin("com.eed3si9n" % "sbt-assembly" % "1.1.0")
 
 addSbtPlugin("com.typesafe.sbt" % "sbt-git" % "1.0.2")
 
-addSbtPlugin("com.typesafe.sbt" % "sbt-site" % "1.3.3")
+addSbtPlugin("com.typesafe.sbt" % "sbt-site" % "1.4.1")
 
 addSbtPlugin("org.scalameta" % "sbt-scalafmt" % "2.4.6")
 
