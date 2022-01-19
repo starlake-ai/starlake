@@ -2,7 +2,7 @@
 sidebar_position: 1
 ---
 
-#Quick Start
+# Quick Start
 
 This quickstart is based on the example available in the sample directory.
 This sample will work out of the box on MacOS / Linux or in a Docker container on Windows.
