@@ -127,7 +127,7 @@ trait IngestionJob extends SparkJob {
       logger.debug(s"rejectedRDD SIZE ${errMessagesDS.count()}")
       errMessagesDS.take(100).foreach(rejected => logger.debug(rejected.replaceAll("\n", "|")))
     }
-    val domainName = domain.name
+    val domainName = domain.getFinalName()
     val schemaName = schema.getFinalName()
 
     val start = Timestamp.from(Instant.now())
@@ -240,8 +240,8 @@ trait IngestionJob extends SparkJob {
   private def runAssertions(acceptedDF: DataFrame) = {
     if (settings.comet.assertions.active) {
       new AssertionJob(
-        this.domain.name,
-        this.schema.name,
+        this.domain.getFinalName(),
+        this.schema.getFinalName(),
         this.schema.assertions.getOrElse(Map.empty),
         UNIT,
         storageHandler,
@@ -282,21 +282,25 @@ trait IngestionJob extends SparkJob {
     validationResult: ValidationResult
   ): (DataFrame, Path) = {
     if (!settings.comet.rejectAllOnError || validationResult.rejected.isEmpty) {
-      val acceptedDF = dfWithAttributesRenamed(validationResult.accepted)
       val start = Timestamp.from(Instant.now())
       logger.whenDebugEnabled {
-        logger.debug(s"acceptedRDD SIZE ${acceptedDF.count()}")
-        logger.debug(acceptedDF.showString(1000))
+        logger.debug(s"acceptedRDD SIZE ${validationResult.accepted.count()}")
+        logger.debug(validationResult.accepted.showString(1000))
       }
-      runAssertions(acceptedDF)
-      runMetrics(acceptedDF)
+
       val acceptedPath =
         new Path(DatasetArea.accepted(domain.getFinalName()), schema.getFinalName())
-      val acceptedDfWithScriptFields: DataFrame = computeScriptedAttributes(acceptedDF)
+      val acceptedDfWithScriptFields: DataFrame = computeScriptedAttributes(
+        validationResult.accepted
+      )
+
       val acceptedDfWithoutIgnoredFields: DataFrame = removeIgnoredAttributes(
         acceptedDfWithScriptFields
       )
-      val finalAcceptedDF: DataFrame = computeFinalSchema(acceptedDfWithoutIgnoredFields)
+      val acceptedDF = dfWithAttributesRenamed(acceptedDfWithoutIgnoredFields)
+      val finalAcceptedDF: DataFrame = computeFinalSchema(acceptedDF).cache()
+      runAssertions(finalAcceptedDF)
+      runMetrics(finalAcceptedDF)
       val (mergedDF, partitionsToUpdate) = applyMerge(acceptedPath, finalAcceptedDF)
 
       val finalMergedDf: DataFrame = runPostSQL(mergedDF)
@@ -345,7 +349,7 @@ trait IngestionJob extends SparkJob {
           val log = AuditLog(
             session.sparkContext.applicationId,
             acceptedPath.toString,
-            domain.name,
+            domain.getFinalName(),
             schema.getFinalName(),
             success = true,
             -1,
@@ -363,7 +367,7 @@ trait IngestionJob extends SparkJob {
           val log = AuditLog(
             session.sparkContext.applicationId,
             acceptedPath.toString,
-            domain.name,
+            domain.getFinalName(),
             schema.getFinalName(),
             success = false,
             -1,
@@ -562,7 +566,7 @@ trait IngestionJob extends SparkJob {
           ace.grants.map { grant =>
             val principal =
               if (grant.indexOf('@') > 0 && !grant.startsWith("`")) s"`$grant`" else grant
-            s"GRANT ${ace.role} ON TABLE ${domain.name}.${schema.name} TO $principal"
+            s"GRANT ${ace.role} ON TABLE ${domain.getFinalName()}.${schema.getFinalName()} TO $principal"
           }
         } else { // Hive
           ace.grants.map { grant =>
@@ -571,7 +575,7 @@ trait IngestionJob extends SparkJob {
                 s"USER ${grant.substring("user:".length)}"
               else if (grant.startsWith("group:") || grant.startsWith("role:"))
                 s"ROLE ${grant.substring("group:".length)}"
-            s"GRANT ${ace.role} ON TABLE ${domain.name}.${schema.name} TO $principal"
+            s"GRANT ${ace.role} ON TABLE ${domain.getFinalName()}.${schema.getFinalName()} TO $principal"
           }
         }
       }
@@ -850,8 +854,8 @@ trait IngestionJob extends SparkJob {
               val log = AuditLog(
                 session.sparkContext.applicationId,
                 inputFiles,
-                domain.name,
-                schema.name,
+                domain.getFinalName(),
+                schema.getFinalName(),
                 success = success,
                 inputCount,
                 acceptedCount,
@@ -871,8 +875,8 @@ trait IngestionJob extends SparkJob {
             val log = AuditLog(
               session.sparkContext.applicationId,
               path.map(_.toString).mkString(","),
-              domain.name,
-              schema.name,
+              domain.getFinalName(),
+              schema.getFinalName(),
               success = false,
               0,
               0,
@@ -949,12 +953,13 @@ trait IngestionJob extends SparkJob {
     sink: BigQuerySink
   ): (DataFrame, Option[List[String]]) = {
     // When merging to BigQuery, load existing DF from BigQuery
-    val tableMetadata = BigQuerySparkJob.getTable(session, domain.name, schema.name)
+    val tableMetadata =
+      BigQuerySparkJob.getTable(session, domain.getFinalName(), schema.getFinalName())
     val existingDF = tableMetadata.table
       .map { table =>
         val incomingSchema = BigQueryUtils.normalizeSchema(schema.finalSparkSchema(schemaHandler))
         val updatedTable = updateBqTableSchema(table, incomingSchema)
-        val bqTable = s"${domain.name}.${schema.name}"
+        val bqTable = s"${domain.getFinalName()}.${schema.getFinalName()}"
         // We provided the acceptedDF schema here since BQ lose the required / nullable information of the schema
         val existingBQDFWithoutFilter = session.read
           .schema(incomingSchema)
@@ -1179,7 +1184,7 @@ object IngestionUtil {
     def colPatternIsValid = colValue.exists(tpe.matches)
 
     val privacyLevel = colAttribute.getPrivacy()
-    val privacy = colValue.map { colValue =>
+    val colValueWithPrivacyApplied = colValue.map { colValue =>
       if (privacyLevel == PrivacyLevel.None)
         colValue
       else {
@@ -1191,13 +1196,13 @@ object IngestionUtil {
     val colPatternOK = !requiredColIsEmpty && (optionalColIsEmpty || colPatternIsValid)
 
     val (sparkValue, colParseOK) = {
-      (colPatternOK, privacy) match {
+      (colPatternOK, colValueWithPrivacyApplied) match {
         case (false, _) =>
           (None, false)
         case (true, None) =>
           (None, true)
-        case (true, Some(privacy)) =>
-          Try(tpe.sparkValue(privacy)) match {
+        case (true, Some(colValueWithPrivacyApplied)) =>
+          Try(tpe.sparkValue(colValueWithPrivacyApplied)) match {
             case Success(res) => (Some(res), true)
             case Failure(_)   => (None, false)
           }

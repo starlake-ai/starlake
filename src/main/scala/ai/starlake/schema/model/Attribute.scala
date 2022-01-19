@@ -143,6 +143,14 @@ case class Attribute(
         errorList += s"Attribute $this : when present, attributes list cannot be empty."
     }
 
+    (script, required) match {
+      case (Some(_), true) =>
+        logger.warn(
+          s"Attribute $name : Scripted attributed cannot be required. It will be forced to optional"
+        )
+      case (_, _) =>
+    }
+
     if (errorList.nonEmpty)
       Left(errorList.toList)
     else
