@@ -402,7 +402,7 @@ object PrivacyLevels {
       allPrivacy = options.map { case (k, objName) =>
         val encryption = make(k, objName)
         val key = k.toUpperCase(Locale.ROOT)
-        (key, (encryption, new PrivacyLevel(key)))
+        (key, (encryption, new PrivacyLevel(key, false)))
       }
     }
     allPrivacy

@@ -59,14 +59,13 @@ schemas:
       - name: "code2"
         type: "byte"
         required: true
-        privacy: "NONE"
         position:
           first: 2
           last: 2
       - name: "bancode"
         type: "string"
+        privacy: "sql:md5(bancode)"
         required: true
-        privacy: "NONE"
         position:
           first: 3
           last: 7
