@@ -73,6 +73,7 @@ types:
       snowflake: TIMESTAMP
   - name: "decimal"
     primitiveType: "decimal"
+    zone: "16,4"
     pattern: "-?\\d*\\.{0,1}\\d+"
     sample: "-45.787686786876"
     comment: "Any floating value"
