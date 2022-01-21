@@ -166,14 +166,13 @@ case class Attribute(
     */
   def primitiveSparkType(schemaHandler: SchemaHandler): DataType = {
     tpe(schemaHandler)
-      .map(_.primitiveType)
       .map { tpe =>
         if (isArray())
-          ArrayType(tpe.sparkType, !required)
+          ArrayType(tpe.primitiveType.sparkType(tpe.zone), !required)
         else
-          tpe.sparkType
+          tpe.primitiveType.sparkType(tpe.zone)
       }
-      .getOrElse(PrimitiveType.struct.sparkType)
+      .getOrElse(PrimitiveType.struct.sparkType(None))
   }
 
   /** Go get recursively the Spark tree type of this object
@@ -300,7 +299,7 @@ case class Attribute(
 
   @JsonIgnore
   def getMetricType(schemaHandler: SchemaHandler): MetricType = {
-    val sparkType = tpe(schemaHandler).map(_.primitiveType.sparkType)
+    val sparkType = tpe(schemaHandler).map(tpe => tpe.primitiveType.sparkType(tpe.zone))
     logger.info(s"Attribute Metric ==> $name, $metricType, $sparkType")
     (sparkType, metricType) match {
       case (Some(sparkType), Some(MetricType.DISCRETE)) =>
