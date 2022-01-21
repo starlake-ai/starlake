@@ -294,8 +294,11 @@ trait IngestionJob extends SparkJob {
         validationResult.accepted
       )
 
-      val acceptedDfWithoutIgnoredFields: DataFrame = removeIgnoredAttributes(
+      val acceptedDfWithScriptAndTransformedFields: DataFrame = computeTransformedAttributes(
         acceptedDfWithScriptFields
+      )
+      val acceptedDfWithoutIgnoredFields: DataFrame = removeIgnoredAttributes(
+        acceptedDfWithScriptAndTransformedFields
       )
       val acceptedDF = dfWithAttributesRenamed(acceptedDfWithoutIgnoredFields)
       val finalAcceptedDF: DataFrame = computeFinalSchema(acceptedDF).cache()
@@ -423,13 +426,27 @@ trait IngestionJob extends SparkJob {
     finalAcceptedDF
   }
 
-  private def removeIgnoredAttributes(acceptedDfWithScriptFields: DataFrame) = {
-    val ignoredAttributes = schema.attributes.filter(_.isIgnore()).map(_.getFinalName())
-    val acceptedDfWithoutIgnoredFields = acceptedDfWithScriptFields.drop(ignoredAttributes: _*)
+  private def removeIgnoredAttributes(
+    acceptedDfWithScriptAndTransformedFields: DataFrame
+  ): DataFrame = {
+    val ignoredAttributes = schema.attributes.filter(_.isIgnore()).map(_.name)
+    val acceptedDfWithoutIgnoredFields =
+      acceptedDfWithScriptAndTransformedFields.drop(ignoredAttributes: _*)
     acceptedDfWithoutIgnoredFields
   }
 
-  private def computeScriptedAttributes(acceptedDF: DataFrame) = {
+  private def computeTransformedAttributes(acceptedDfWithScriptFields: DataFrame): DataFrame = {
+    val sqlAttributes = schema.attributes.filter(_.getPrivacy().sql).filter(_.transform.isDefined)
+    sqlAttributes.foldLeft(acceptedDfWithScriptFields) { case (df, attr) =>
+      df.withColumn(
+        attr.name,
+        expr(attr.transform.getOrElse(throw new Exception("Should never happen")))
+          .cast(attr.primitiveSparkType(schemaHandler))
+      )
+    }
+  }
+
+  private def computeScriptedAttributes(acceptedDF: DataFrame): DataFrame = {
     val acceptedDfWithScriptFields = (if (schema.attributes.exists(_.script.isDefined)) {
                                         val allColumns = "*"
                                         schema.attributes
@@ -1185,7 +1202,7 @@ object IngestionUtil {
 
     val privacyLevel = colAttribute.getPrivacy()
     val colValueWithPrivacyApplied = colValue.map { colValue =>
-      if (privacyLevel == PrivacyLevel.None)
+      if (privacyLevel.sql || privacyLevel == PrivacyLevel.None)
         colValue
       else {
         val ((privacyAlgo, privacyParams), _) = allPrivacyLevels(privacyLevel.value)

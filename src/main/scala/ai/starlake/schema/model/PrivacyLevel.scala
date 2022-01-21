@@ -26,8 +26,6 @@ import com.fasterxml.jackson.databind.annotation.{JsonDeserialize, JsonSerialize
 import com.fasterxml.jackson.databind.ser.std.ToStringSerializer
 import com.fasterxml.jackson.databind.{DeserializationContext, JsonDeserializer}
 
-import java.util.Locale
-
 /** How (the attribute should be transformed at ingestion time ?
   *
   * @param value
@@ -35,8 +33,8 @@ import java.util.Locale
   */
 @JsonSerialize(using = classOf[ToStringSerializer])
 @JsonDeserialize(using = classOf[PrivacyLevelDeserializer])
-sealed case class PrivacyLevel(value: String) {
-  override def toString: String = value
+sealed case class PrivacyLevel(value: String, sql: Boolean) {
+  override def toString: String = if (sql) s"SQL:$value" else value
 
   def crypt(
     s: String,
@@ -51,15 +49,18 @@ sealed case class PrivacyLevel(value: String) {
 
 object PrivacyLevel {
 
-  val None: PrivacyLevel = PrivacyLevel("NONE")
+  val None: PrivacyLevel = PrivacyLevel("NONE", false)
 }
 
 class PrivacyLevelDeserializer extends JsonDeserializer[PrivacyLevel] {
 
   override def deserialize(jp: JsonParser, ctx: DeserializationContext): PrivacyLevel = {
-    val value = jp.readValueAs[String](classOf[String])
+    val value = jp.readValueAs[String](classOf[String]).toUpperCase()
+    val isSQL = value.startsWith("SQL:")
+    val finalValue = if (isSQL) value.substring("SQL:".length) else value
     PrivacyLevel(
-      value.toUpperCase(Locale.ROOT)
-    ) /* TODO: prior to 2020-02-25 we enforced a valid PrivacyLevel at deser time */
+      finalValue,
+      isSQL
+    )
   }
 }
