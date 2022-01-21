@@ -20,25 +20,22 @@
 
 package ai.starlake.schema.model
 
-import java.sql.Timestamp
-import java.text.{DecimalFormat, NumberFormat}
-import java.time._
-import java.time.temporal.TemporalAccessor
-import java.util.regex.Pattern
-import java.util.{Locale, TimeZone}
-import java.time.format.DateTimeFormatter
-import java.time.format.DateTimeFormatterBuilder
-
 import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.databind.annotation.{JsonDeserialize, JsonSerialize}
 import com.fasterxml.jackson.databind.ser.std.ToStringSerializer
 import com.fasterxml.jackson.databind.{DeserializationContext, JsonDeserializer}
 import org.apache.spark.sql.types._
 
+import java.sql.Timestamp
+import java.text.{DecimalFormat, NumberFormat, SimpleDateFormat}
+import java.time._
+import java.time.format.DateTimeFormatter._
+import java.time.format.{DateTimeFormatter, DateTimeFormatterBuilder}
+import java.time.temporal.TemporalAccessor
+import java.util.regex.Pattern
+import java.util.{Locale, TimeZone}
+import scala.collection.mutable
 import scala.util.{Failure, Success, Try}
-import java.time.format.DateTimeFormatter
-import java.text.SimpleDateFormat
-import DateTimeFormatter._
 
 /** Spark supported primitive types. These are the only valid raw types. Dataframes columns are
   * converted to these types before the dataset is ingested
@@ -53,7 +50,7 @@ sealed abstract case class PrimitiveType(value: String) {
 
   override def toString: String = value
 
-  def sparkType: DataType
+  def sparkType(zone: Option[String]): DataType
 }
 
 class PrimitiveTypeDeserializer extends JsonDeserializer[PrimitiveType] {
@@ -89,7 +86,7 @@ object PrimitiveType {
   object string extends PrimitiveType("string") {
     def fromString(str: String, pattern: String, zone: String): Any = str
 
-    def sparkType: DataType = StringType
+    def sparkType(zone: Option[String]): DataType = StringType
   }
 
   object long extends PrimitiveType("long") {
@@ -97,7 +94,7 @@ object PrimitiveType {
     def fromString(str: String, pattern: String, zone: String): Any =
       if (str == null || str.isEmpty) null else str.toLong
 
-    def sparkType: DataType = LongType
+    def sparkType(zone: Option[String]): DataType = LongType
   }
 
   object int extends PrimitiveType("int") {
@@ -105,7 +102,7 @@ object PrimitiveType {
     def fromString(str: String, pattern: String, zone: String): Any =
       if (str == null || str.isEmpty) null else str.toInt
 
-    def sparkType: DataType = IntegerType
+    def sparkType(zone: Option[String]): DataType = IntegerType
   }
 
   object short extends PrimitiveType("short") {
@@ -113,7 +110,7 @@ object PrimitiveType {
     def fromString(str: String, pattern: String, zone: String): Any =
       if (str == null || str.isEmpty) null else str.toShort
 
-    def sparkType: DataType = ShortType
+    def sparkType(zone: Option[String]): DataType = ShortType
   }
 
   object double extends PrimitiveType("double") {
@@ -134,16 +131,38 @@ object PrimitiveType {
       }
     }
 
-    def sparkType: DataType = DoubleType
+    def sparkType(zone: Option[String]): DataType = DoubleType
   }
 
   object decimal extends PrimitiveType("decimal") {
     val defaultDecimalType = DataTypes.createDecimalType(38, 9)
-
+    var decimals: mutable.Map[String, DecimalType] = mutable.Map.empty
     def fromString(str: String, pattern: String, zone: String): Any =
       if (str == null || str.isEmpty) null else BigDecimal(str)
 
-    override def sparkType: DataType = defaultDecimalType
+    override def sparkType(zone: Option[String]): DataType = {
+      zone match {
+        case None =>
+          defaultDecimalType
+        case Some(zone) =>
+          Try {
+            val precisionScale = zone.split(",")
+            val precision = precisionScale(0).toInt
+            val scale = precisionScale(1).toInt
+            val key = s"$precision/$scale"
+            decimals.get(key) match {
+              case None =>
+                val newDecimalType = DataTypes.createDecimalType(precision, scale)
+                decimals.put(key, newDecimalType)
+                newDecimalType
+              case Some(decimalType) => decimalType
+            }
+          } match {
+            case Success(res) => res
+            case Failure(_)   => defaultDecimalType
+          }
+      }
+    }
   }
 
   object boolean extends PrimitiveType("boolean") {
@@ -171,7 +190,7 @@ object PrimitiveType {
       }
     }
 
-    def sparkType: DataType = BooleanType
+    def sparkType(zone: Option[String]): DataType = BooleanType
   }
 
   object byte extends PrimitiveType("byte") {
@@ -179,7 +198,7 @@ object PrimitiveType {
     def fromString(str: String, pattern: String, zone: String): Any =
       if (str == null || str.isEmpty) null else str.head.toByte
 
-    def sparkType: DataType = ByteType
+    def sparkType(zone: Option[String]): DataType = ByteType
   }
 
   object struct extends PrimitiveType("struct") {
@@ -187,7 +206,7 @@ object PrimitiveType {
     def fromString(str: String, pattern: String, zone: String): Any =
       if (str == null || str.isEmpty) null else str.toByte
 
-    def sparkType: DataType = new StructType(Array.empty[StructField])
+    def sparkType(zone: Option[String]): DataType = new StructType(Array.empty[StructField])
   }
 
   private def instantFromString(str: String, pattern: String, zone: String): Instant = {
@@ -306,7 +325,7 @@ object PrimitiveType {
         }
       }
     }
-    def sparkType: DataType = DateType
+    def sparkType(zone: Option[String]): DataType = DateType
   }
 
   object timestamp extends PrimitiveType("timestamp") {
@@ -320,7 +339,7 @@ object PrimitiveType {
       }
     }
 
-    def sparkType: DataType = TimestampType
+    def sparkType(zone: Option[String]): DataType = TimestampType
   }
 
   val primitiveTypes: Set[PrimitiveType] =
