@@ -298,6 +298,9 @@ case class Attribute(
   def isRequired(): Boolean = Option(required).getOrElse(false)
 
   @JsonIgnore
+  val transform: Option[String] = Option(privacy).filter(_.sql).map(_.value)
+
+  @JsonIgnore
   def getMetricType(schemaHandler: SchemaHandler): MetricType = {
     val sparkType = tpe(schemaHandler).map(tpe => tpe.primitiveType.sparkType(tpe.zone))
     logger.info(s"Attribute Metric ==> $name, $metricType, $sparkType")
