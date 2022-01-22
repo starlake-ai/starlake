@@ -111,7 +111,7 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     val assertionsPath = new Path(DatasetArea.assertions, filename)
     logger.info(s"Loading assertions $assertionsPath")
     if (storage.exists(assertionsPath)) {
-      val content = storage.read(assertionsPath)
+      val content = storage.read(assertionsPath).richFormat(activeEnv, Map.empty)
       logger.info(s"reading content $content")
       mapper
         .readValue(content, classOf[AssertionDefinitions])
@@ -129,21 +129,8 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     defaultAssertions ++ assertions ++ resAssertions
   }
 
-  @deprecated("Views are directly stored in sql files", "0.2.8")
-  private def loadViews(path: String): Views = {
-    val viewsPath = DatasetArea.views(path)
-    if (storage.exists(viewsPath)) {
-      val rootNode = mapper.readTree(storage.read(viewsPath))
-      if (rootNode.path("views").isMissingNode)
-        throw new Exception(s"Root node views missing in file $path")
-      mapper.treeToValue(rootNode, classOf[Views])
-    } else {
-      Views()
-    }
-  }
-
   private def loadSqlFile(sqlFile: Path): (String, String) = {
-    val sqlExpr = storage.read(sqlFile)
+    val sqlExpr = storage.read(sqlFile).richFormat(activeEnv, Map.empty)
     val sqlFilename = sqlFile.getName().dropRight(".sql".length)
     sqlFilename -> sqlExpr
   }

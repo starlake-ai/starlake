@@ -4,7 +4,6 @@ import ai.starlake.config.{CometColumns, DatasetArea, Settings, StorageArea}
 import ai.starlake.job.index.bqload.{BigQueryLoadConfig, BigQueryNativeJob, BigQuerySparkJob}
 import ai.starlake.job.index.connectionload.{ConnectionLoadConfig, ConnectionLoadJob}
 import ai.starlake.job.index.esload.{ESLoadConfig, ESLoadJob}
-import ai.starlake.job.ingest.ImprovedDataFrameContext._
 import ai.starlake.job.metrics.{AssertionJob, MetricsJob}
 import ai.starlake.job.validator.{GenericRowValidator, ValidationResult}
 import ai.starlake.privacy.PrivacyEngine
@@ -440,27 +439,27 @@ trait IngestionJob extends SparkJob {
     sqlAttributes.foldLeft(acceptedDfWithScriptFields) { case (df, attr) =>
       df.withColumn(
         attr.name,
-        expr(attr.transform.getOrElse(throw new Exception("Should never happen")))
+        expr(
+          attr.transform
+            .getOrElse(throw new Exception("Should never happen"))
+            .richFormat(schemaHandler.activeEnv, options)
+        )
           .cast(attr.primitiveSparkType(schemaHandler))
       )
     }
   }
 
   private def computeScriptedAttributes(acceptedDF: DataFrame): DataFrame = {
-    val acceptedDfWithScriptFields = (if (schema.attributes.exists(_.script.isDefined)) {
-                                        val allColumns = "*"
-                                        schema.attributes
-                                          .map(attr => (attr.name, attr.script))
-                                          .foldLeft(acceptedDF) {
-                                            case (df, (name, Some(script))) =>
-                                              df.T(
-                                                s"SELECT $allColumns, ${script
-                                                  .richFormat(schemaHandler.activeEnv, options)} as $name FROM __THIS__"
-                                              )
-                                            case (df, _) => df
-                                          }
-                                      } else acceptedDF).drop(CometColumns.cometInputFileNameColumn)
-    acceptedDfWithScriptFields
+    schema.attributes
+      .filter(_.script.isDefined)
+      .map(attr => (attr.name, attr.sparkType(schemaHandler), attr.script))
+      .foldLeft(acceptedDF) { case (df, (name, sparkType, Some(script))) =>
+        df.withColumn(
+          name,
+          expr(script.richFormat(schemaHandler.activeEnv, options)).cast(sparkType)
+        )
+      }
+      .drop(CometColumns.cometInputFileNameColumn)
   }
 
   private def sink(
