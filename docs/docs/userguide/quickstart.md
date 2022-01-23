@@ -2,7 +2,7 @@
 sidebar_position: 1
 ---
 
-#Quick Start
+# Quick Start
 
 This quickstart is based on the example available in the sample directory.
 This sample will work out of the box on MacOS / Linux or in a Docker container on Windows.
@@ -10,7 +10,10 @@ This sample will work out of the box on MacOS / Linux or in a Docker container o
 
 :::note
 
-When running as a Docker image, the sample directory is mounted in the Docker container making the underlying filesystem available. The reason we run Docker on Windows is because `starlake` to run on any cloud is based on the hadoop filesystem API which require on Windows a native DLL / EXE installed. If you still want to runt the example natively on Windows, compiling and installing these native libraries on Windows is described here ???. 
+When running as a Docker image, 
+the sample directory is mounted in the Docker container making the underlying filesystem available. 
+The reason we run Docker on Windows is because `starlake` to run on any cloud is based on the hadoop filesystem API 
+which require on Windows a native DLL / EXE installed. If you still want to run the example natively on Windows, compiling and installing these native libraries on Windows is described here ???. 
 
 :::
 

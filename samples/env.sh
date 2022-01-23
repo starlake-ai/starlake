@@ -1,4 +1,4 @@
-export COMET_VERSION="${COMET_VERSION:-0.2.8-SNAPSHOT}"
+export COMET_VERSION="${COMET_VERSION:-0.2.9-SNAPSHOT}"
 export SPARK_VERSION="${SPARK_VERSION:-3.1.2}"
 export HADOOP_VERSION="${HADOOP_VERSION:-3.2}"
 
@@ -10,9 +10,9 @@ echo "SPARK_VERSION=$SPARK_VERSION"
 echo "HADOOP_VERSION=$HADOOP_VERSION"
 
 if [[ "$COMET_VERSION" == *"SNAPSHOT"* ]]; then
-  COMET_JAR_URL=https://oss.sonatype.org/content/repositories/snapshots/com/ebiznext/comet-spark3_2.12/$COMET_VERSION/$COMET_JAR_NAME
+  COMET_JAR_URL=https://oss.sonatype.org/content/repositories/snapshots/ai/starlake/comet-spark3_2.12/$COMET_VERSION/$COMET_JAR_NAME
 else
-  COMET_JAR_URL=https://s01.oss.sonatype.org/content/repositories/snapshots/ai/starlake/starlake-spark3_2.12/$COMET_VERSION/$COMET_JAR_NAME
+  COMET_JAR_URL=https://s01.oss.sonatype.org/content/repositories/releases/ai/starlake/starlake-spark3_2.12/$COMET_VERSION/$COMET_JAR_NAME
 
 fi
 

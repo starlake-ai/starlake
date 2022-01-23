@@ -10,7 +10,6 @@
 <%@ val domainComment: String = ""  %>
 <%@ val schemaComment: String = ""  %>
 <%@ val partitions: List[String] %>
-<%@ val clustered: List[String] %>
 <%@ val primaryKeys: List[String] %>
 <%
     val isPrimaryKeyDefined: Boolean  = primaryKeys.nonEmpty

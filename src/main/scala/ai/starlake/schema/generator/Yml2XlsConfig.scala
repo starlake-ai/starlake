@@ -40,7 +40,7 @@ object Yml2XlsConfig extends CliConfig[Yml2XlsConfig] {
       note(""),
       opt[Seq[String]]("domain")
         .action((x, c) => c.copy(domains = x))
-        .required()
+        .optional()
         .text("domains to convert to XLS"),
       opt[String]("xls")
         .action((x, c) => c.copy(xlsDirectory = x))

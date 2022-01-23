@@ -78,33 +78,45 @@ case class MergeOptions(
   @JsonIgnore
   val lastEndQueryFilter: Int = if (queryFilterContainsLast) matcher.end(3) else -1
 
-  private def formatQuery(options: Map[String, String])(implicit
+  private def formatQuery(activeEnv: Map[String, String], options: Map[String, String])(implicit
     settings: Settings
   ): Option[String] =
-    queryFilter.map(_.richFormat(options))
+    queryFilter.map(_.richFormat(activeEnv, options))
 
-  def buidlBQQuery(partitions: List[String], options: Map[String, String])(implicit
+  def buidlBQQuery(
+    partitions: List[String],
+    activeEnv: Map[String, String],
+    options: Map[String, String]
+  )(implicit
     settings: Settings
   ): Option[String] = {
     (queryFilterContainsLast, queryFilterContainsLatest) match {
-      case (true, false)  => buildBQQueryForLast(partitions, options)
-      case (false, true)  => buildBQQueryForLastest(partitions, options)
-      case (false, false) => formatQuery(options)
+      case (true, false)  => buildBQQueryForLast(partitions, activeEnv, options)
+      case (false, true)  => buildBQQueryForLastest(partitions, activeEnv, options)
+      case (false, false) => formatQuery(activeEnv, options)
       case (true, true) =>
-        val last = buildBQQueryForLast(partitions, options)
-        this.copy(queryFilter = last).buildBQQueryForLastest(partitions, options)
+        val last = buildBQQueryForLast(partitions, activeEnv, options)
+        this.copy(queryFilter = last).buildBQQueryForLastest(partitions, activeEnv, options)
     }
   }
 
-  private def buildBQQueryForLastest(partitions: List[String], options: Map[String, String])(
-    implicit settings: Settings
+  private def buildBQQueryForLastest(
+    partitions: List[String],
+    activeEnv: Map[String, String],
+    options: Map[String, String]
+  )(implicit
+    settings: Settings
   ): Option[String] = {
     val latestPartition = partitions.max
-    val queryArgs = formatQuery(options).getOrElse("")
+    val queryArgs = formatQuery(activeEnv, options).getOrElse("")
     Some(queryArgs.replace("latest", s"PARSE_DATE('%Y%m%d','$latestPartition')"))
   }
 
-  private def buildBQQueryForLast(partitions: List[String], options: Map[String, String])(implicit
+  private def buildBQQueryForLast(
+    partitions: List[String],
+    activeEnv: Map[String, String],
+    options: Map[String, String]
+  )(implicit
     settings: Settings
   ): Option[String] = {
     val sortedPartitions = partitions.sorted
@@ -122,7 +134,7 @@ case class MergeOptions(
     }
     val lastStart = lastStartQueryFilter
     val lastEnd = lastEndQueryFilter
-    val queryArgs = formatQuery(options)
+    val queryArgs = formatQuery(activeEnv, options)
     queryArgs.map { queryArgs =>
       queryArgs
         .substring(
@@ -171,7 +183,8 @@ case class Schema(
   rls: Option[List[RowLevelSecurity]] = None,
   assertions: Option[Map[String, String]] = None,
   primaryKey: Option[List[String]] = None,
-  acl: Option[List[AccessControlEntry]] = None
+  acl: Option[List[AccessControlEntry]] = None,
+  rename: Option[String] = None
 ) {
 
   def ddlMapping(datawarehouse: String, schemaHandler: SchemaHandler): List[DDLField] = {
@@ -180,6 +193,12 @@ case class Schema(
       attribute.ddlMapping(isPrimaryKey, datawarehouse, schemaHandler)
     }
   }
+
+  /** @return
+    *   renamed column if defined, source name otherwise
+    */
+  @JsonIgnore
+  def getFinalName(): String = rename.getOrElse(name)
 
   @JsonIgnore
   lazy val attributesWithoutScriptedFields: List[Attribute] = attributes.filter(_.script.isEmpty)
@@ -260,7 +279,11 @@ case class Schema(
     p: Attribute => Boolean
   ): StructType = {
     val fields = attributes filter p map { attr =>
-      StructField(attr.getFinalName(), attr.sparkType(schemaHandler), !attr.required)
+      StructField(
+        attr.getFinalName(),
+        attr.sparkType(schemaHandler),
+        if (attr.script.isDefined) true else !attr.required
+      )
         .withComment(attr.comment.getOrElse(""))
     }
     StructType(fields)
@@ -354,14 +377,14 @@ case class Schema(
       "properties" -> properties,
       "attributes" -> attrs,
       "domain"     -> domainName.toLowerCase,
-      "schema"     -> name.toLowerCase
+      "schema"     -> getFinalName().toLowerCase
     )
 
     template
       .getOrElse {
         """
          |{
-         |  "index_patterns": ["{{domain}}.{{schema}}", "{{domain}}.{{schema}}-*"],
+         |  "index_patterns": ["${domain}.${schema}", "${domain}.${schema}-*"],
          |  "settings": {
          |    "number_of_shards": "1",
          |    "number_of_replicas": "0"
@@ -372,12 +395,12 @@ case class Schema(
          |      },
          |
          |      "properties": {
-         |        {{attributes}}
+         |        ${attributes}
          |      }
          |  }
          |}""".stripMargin
       }
-      .richFormat(tse)
+      .richFormat(schemaHandler.activeEnv, tse)
   }
 
   def mergedMetadata(domainMetadata: Option[Metadata]): Metadata = {
@@ -467,11 +490,11 @@ object Schema {
         case StringType | LongType | IntegerType | ShortType | DoubleType | BooleanType | ByteType |
             DateType | TimestampType =>
           Attribute(obj.name, obj.dataType.typeName, required = !obj.nullable)
-        case d: DecimalType =>
+        case _: DecimalType =>
           Attribute(obj.name, "decimal", required = !obj.nullable)
         case ArrayType(eltType, containsNull) => buildAttributeTree(obj.copy(dataType = eltType))
         case x: StructType =>
-          new Attribute(
+          Attribute(
             obj.name,
             "struct",
             required = !obj.nullable,

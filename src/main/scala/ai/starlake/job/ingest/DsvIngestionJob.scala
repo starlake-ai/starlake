@@ -85,21 +85,6 @@ class DsvIngestionJob(
     schemaHeaders.forall(schemaHeader => datasetHeaders.contains(schemaHeader))
   }
 
-  /** @param datasetHeaders
-    *   : Headers found in the dataset
-    * @param schemaHeaders
-    *   : Headers defined in the schema
-    * @return
-    *   two lists : One with thecolumns present in the schema and the dataset and onther with the
-    *   headers present in the dataset only
-    */
-  private def intersectHeaders(
-    datasetHeaders: List[String],
-    schemaHeaders: List[String]
-  ): (List[String], List[String]) = {
-    datasetHeaders.partition(schemaHeaders.contains)
-  }
-
   /** Load dataset using spark csv reader and all metadata. Does not infer schema. columns not
     * defined in the schema are dropped fro the dataset (require datsets with a header)
     *
@@ -120,7 +105,7 @@ class DsvIngestionJob(
         .csv(path.map(_.toString): _*)
 
       logger.debug(dfIn.schema.treeString)
-      if (dfIn.limit(1).count() == 0) {
+      if (dfIn.isEmpty) {
         // empty dataframe with accepted schema
         val sparkSchema = schema.sparkSchemaWithoutScriptedFields(schemaHandler)
 
@@ -133,7 +118,6 @@ class DsvIngestionJob(
       } else {
         val df = applyIgnore(dfIn)
 
-        val attributesWithoutScriptedFields = schema.attributesWithoutScriptedFields
         val resDF = metadata.withHeader match {
           case Some(true) =>
             val datasetHeaders: List[String] = df.columns.toList.map(cleanHeaderCol)
@@ -149,7 +133,7 @@ class DsvIngestionJob(
             /* No header, let's make sure we take the first attributes
              if there are more in the CSV file
              */
-
+            val attributesWithoutScriptedFields = schema.attributesWithoutScriptedFields
             val compare =
               attributesWithoutScriptedFields.length.compareTo(df.columns.length)
             compare match {

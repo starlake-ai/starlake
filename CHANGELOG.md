@@ -1,5 +1,22 @@
 # Release notes
 
+# 0.2.10
+__New feature__:
+- Drop Java 1.8 prerequisite for compilation  
+- Support custom database name for Hive compatible metastore
+- Support custom dataset name in BQ
+
+__Bug Fix__:
+
+# 0.2.9
+__New feature__:
+- Drop support for Spark 2.3.X
+- Allow table renaming on write
+- Any Spark supported input is now allowed
+- Env vars in env.yml files
+
+__Bug Fix__:
+
 # 0.2.8
 __New feature__:
 - Generate DDL from YML files with support for BigQuery, Snowflake, Synapse and Postgres #51 / #56

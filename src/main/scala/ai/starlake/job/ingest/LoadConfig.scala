@@ -56,7 +56,7 @@ object LoadConfig extends CliConfig[LoadConfig] {
         .action((x, c) => c.copy(schema = x))
         .text("Schema name"),
       arg[String]("paths")
-        .required()
+        .optional() // Some Ingestion Engine are not based on paths.$ eq. JdbcIngestionJob
         .action((x, c) => c.copy(paths = x.split(',').map(new Path(_)).toList))
         .text("list of comma separated paths"),
       arg[Map[String, String]]("options")

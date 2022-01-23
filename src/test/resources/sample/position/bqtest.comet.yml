@@ -49,7 +49,7 @@ schemas:
           - "user:hayssam@saleh.fr"
     pattern: ".*TBL"
     acl:
-      - role: "roles/bigquery/dataViewer"
+      - role: "roles/bigquery.dataViewer"
         grants:
           - "user:hayssam@saleh.fr"
     merge:

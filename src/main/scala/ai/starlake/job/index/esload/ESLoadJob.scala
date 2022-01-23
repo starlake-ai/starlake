@@ -40,14 +40,31 @@ class ESLoadJob(
 )(implicit val settings: Settings)
     extends SparkJob {
 
-  val esresource = Some(("es.resource.write", s"${cliConfig.getResource()}"))
-  val esId = cliConfig.id.map("es.mapping.id" -> _)
-  val esCliConf = cliConfig.options ++ List(esresource, esId).flatten.toMap
   val path = cliConfig.getDataset()
   val format = cliConfig.format
   val dataset = cliConfig.dataset
+  val domain = schemaHandler.getDomain(cliConfig.domain)
+  val schema = domain.flatMap(_.schemas.find(_.name == cliConfig.schema))
 
   override def name: String = s"Index $path"
+
+  def getIndexName(): String =
+    (domain, schema) match {
+      case (Some(domain), Some(schema)) =>
+        s"${domain.getFinalName().toLowerCase}.${schema.getFinalName().toLowerCase}"
+      case _ =>
+        // Handle datasets without YAML schema
+        // We handle only index name like idx-{...}
+        s"${cliConfig.domain.toLowerCase}.${cliConfig.schema.toLowerCase}"
+    }
+
+  def getResource(): String = {
+    cliConfig.timestamp.map { ts =>
+      s"${this.getIndexName()}-$ts"
+    } getOrElse {
+      s"${this.getIndexName()}"
+    }
+  }
 
   /** Just to force any spark job to implement its entry point within the "run" method
     *
@@ -55,7 +72,7 @@ class ESLoadJob(
     *   : Spark Session used for the job
     */
   override def run(): Try[JobResult] = {
-    logger.info(s"Indexing resource ${cliConfig.getResource()} with $cliConfig")
+    logger.info(s"Indexing resource ${getResource()} with $cliConfig")
     val inputDF =
       path match {
         case Left(path) =>
@@ -88,20 +105,18 @@ class ESLoadJob(
     } getOrElse inputDF
 
     val content = cliConfig.mapping.map(storageHandler.read).getOrElse {
-      val dynamicTemplate = for {
-        domain <- schemaHandler.getDomain(cliConfig.domain)
-        schema <- domain.schemas.find(_.name == cliConfig.schema)
-      } yield schema.esMapping(domain.esMapping(schema), domain.name, schemaHandler)
-
-      dynamicTemplate.getOrElse {
-        // Handle datasets without YAML schema
-        // We handle only index name like idx-{...}
-        Schema.mapping(
-          cliConfig.domain,
-          cliConfig.schema,
-          StructField("ignore", df.schema),
-          schemaHandler
-        )
+      (domain, schema) match {
+        case (Some(domain), Some(schema)) =>
+          schema.esMapping(domain.esMapping(schema), domain.name, schemaHandler)
+        case _ =>
+          // Handle datasets without YAML schema
+          // We handle only index name like idx-{...}
+          Schema.mapping(
+            cliConfig.domain,
+            cliConfig.schema,
+            StructField("ignore", df.schema),
+            schemaHandler
+          )
       }
     }
     logger.info(
@@ -125,7 +140,7 @@ class ESLoadJob(
       "Basic " + Base64.getEncoder.encodeToString("$u:$p".getBytes(StandardCharsets.UTF_8))
 
     }
-    val templateURL = s"$protocol://$host:$port/_template/${cliConfig.getIndexName()}"
+    val templateURL = s"$protocol://$host:$port/_template/${getIndexName()}"
     val delRequest = new HttpDelete(templateURL)
     delRequest.setHeader("Content-Type", "application/json")
     basicHeader.foreach { basicHeader =>
@@ -142,6 +157,9 @@ class ESLoadJob(
 
     val ok = (200 to 299) contains responsePut.getStatusLine().getStatusCode()
     if (ok) {
+      val esresource = Some(("es.resource.write", s"${getResource()}"))
+      val esId = cliConfig.id.map("es.mapping.id" -> _)
+      val esCliConf = cliConfig.options ++ List(esresource, esId).flatten.toMap
       val allConf = esOptions.toList ++ esCliConf.toList
       logger.whenDebugEnabled {
         logger.debug(s"sending ${df.count()} documents to Elasticsearch using $allConf")
@@ -150,7 +168,7 @@ class ESLoadJob(
         .options(allConf.toMap)
         .format("org.elasticsearch.spark.sql")
         .mode(SaveMode.Overwrite)
-      writer.save(cliConfig.getResource())
+      writer.save(getResource())
       Success(SparkJobResult(None))
     } else {
       Failure(throw new Exception("Failed to create template"))

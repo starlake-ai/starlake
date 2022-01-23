@@ -143,6 +143,14 @@ case class Attribute(
         errorList += s"Attribute $this : when present, attributes list cannot be empty."
     }
 
+    (script, required) match {
+      case (Some(_), true) =>
+        logger.warn(
+          s"Attribute $name : Scripted attributed cannot be required. It will be forced to optional"
+        )
+      case (_, _) =>
+    }
+
     if (errorList.nonEmpty)
       Left(errorList.toList)
     else
@@ -158,14 +166,13 @@ case class Attribute(
     */
   def primitiveSparkType(schemaHandler: SchemaHandler): DataType = {
     tpe(schemaHandler)
-      .map(_.primitiveType)
       .map { tpe =>
         if (isArray())
-          ArrayType(tpe.sparkType, !required)
+          ArrayType(tpe.primitiveType.sparkType(tpe.zone), !required)
         else
-          tpe.sparkType
+          tpe.primitiveType.sparkType(tpe.zone)
       }
-      .getOrElse(PrimitiveType.struct.sparkType)
+      .getOrElse(PrimitiveType.struct.sparkType(None))
   }
 
   /** Go get recursively the Spark tree type of this object
@@ -291,8 +298,11 @@ case class Attribute(
   def isRequired(): Boolean = Option(required).getOrElse(false)
 
   @JsonIgnore
+  val transform: Option[String] = Option(privacy).filter(_.sql).map(_.value)
+
+  @JsonIgnore
   def getMetricType(schemaHandler: SchemaHandler): MetricType = {
-    val sparkType = tpe(schemaHandler).map(_.primitiveType.sparkType)
+    val sparkType = tpe(schemaHandler).map(tpe => tpe.primitiveType.sparkType(tpe.zone))
     logger.info(s"Attribute Metric ==> $name, $metricType, $sparkType")
     (sparkType, metricType) match {
       case (Some(sparkType), Some(MetricType.DISCRETE)) =>

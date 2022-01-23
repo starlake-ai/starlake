@@ -142,6 +142,7 @@ class ScriptGen(
     val scriptOutputFileName = scriptOutputPattern
       .map(
         _.richFormat(
+          schemaHandler.activeEnv,
           Map(
             "job" -> job.name
           )
@@ -209,8 +210,9 @@ class ScriptGen(
     val schemaHandler = new SchemaHandler(metadataStorageHandler)
     (config.domain, config.jobs) match {
       case (Nil, Nil) =>
-        logger.error(s"One of domain or jobs should be provided")
-        false
+        logger.warn(s"No domain or jobs provided. Extracting all domains")
+        val domainNames = schemaHandler.domains.map(_.name)
+        runOnDomains(config, schemaHandler, domainNames)
       case (Nil, jobNames) =>
         runOnJobs(config, schemaHandler, jobNames)
       case (domainNames, Nil) =>
