@@ -78,7 +78,7 @@ case class AutoTaskDesc(
     new Path(DatasetArea.path(domain, area.getOrElse(defaultArea).value), dataset)
   }
 
-  def getHiveDB(defaultArea: StorageArea): String = {
+  def getHiveDB(defaultArea: StorageArea)(implicit settings: Settings): String = {
     StorageArea.area(domain, area.getOrElse(defaultArea))
   }
 }

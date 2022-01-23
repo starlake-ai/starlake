@@ -89,14 +89,17 @@ case class AutoTaskJob(
 
   private def parseJobViews(): Map[String, String] =
     views.views.map { case (queryName, queryExpr) =>
-      val (_, _, viewValue) = parseViewDefinition(queryExpr.richFormat(sqlParameters))
+      val (_, _, viewValue) =
+        parseViewDefinition(queryExpr.richFormat(schemaHandler.activeEnv, sqlParameters))
       (queryName, viewValue)
     }
 
   def parseMainSqlBQ(): JdbcConfigName = {
     val withViews = parseJobViews()
     val mainTaskSQL =
-      CommentParser.stripComments(task.getSql().richFormat(sqlParameters).trim) match {
+      CommentParser.stripComments(
+        task.getSql().richFormat(schemaHandler.activeEnv, sqlParameters).trim
+      ) match {
         case Right(s) => s
         case Left(error) =>
           throw new Exception(
@@ -123,8 +126,12 @@ case class AutoTaskJob(
 
   def buildQueryBQ(): (List[String], String, List[String]) = {
     val sql = parseMainSqlBQ()
-    val preSql = task.presql.getOrElse(Nil).map { sql => sql.richFormat(sqlParameters) }
-    val postSql = task.postsql.getOrElse(Nil).map { sql => sql.richFormat(sqlParameters) }
+    val preSql = task.presql.getOrElse(Nil).map { sql =>
+      sql.richFormat(schemaHandler.activeEnv, sqlParameters)
+    }
+    val postSql = task.postsql.getOrElse(Nil).map { sql =>
+      sql.richFormat(schemaHandler.activeEnv, sqlParameters)
+    }
     (preSql, sql, postSql)
   }
 
@@ -178,7 +185,7 @@ case class AutoTaskJob(
               None,
               engine,
               sql =>
-                bqNativeJob(sql.richFormat(sqlParameters))
+                bqNativeJob(sql.richFormat(schemaHandler.activeEnv, sqlParameters))
                   .runInteractiveQuery()
                   .tableResult
                   .map(_.getTotalRows)
@@ -196,9 +203,13 @@ case class AutoTaskJob(
   }
 
   def buildQuerySpark(): (List[String], String, List[String]) = {
-    val preSql = task.presql.getOrElse(Nil).map { sql => sql.richFormat(sqlParameters) }
-    val sql = task.getSql().richFormat(sqlParameters)
-    val postSql = task.postsql.getOrElse(Nil).map { sql => sql.richFormat(sqlParameters) }
+    val preSql = task.presql.getOrElse(Nil).map { sql =>
+      sql.richFormat(schemaHandler.activeEnv, sqlParameters)
+    }
+    val sql = task.getSql().richFormat(schemaHandler.activeEnv, sqlParameters)
+    val postSql = task.postsql.getOrElse(Nil).map { sql =>
+      sql.richFormat(schemaHandler.activeEnv, sqlParameters)
+    }
     (preSql, sql, postSql)
   }
 
@@ -208,7 +219,7 @@ case class AutoTaskJob(
       udf.foreach { udf =>
         registerUdf(udf)
       }
-      createSparkViews(views, schemaHandler.activeEnv ++ sqlParameters)
+      createSparkViews(views, schemaHandler.activeEnv, sqlParameters)
 
       val (preSql, sqlWithParameters, postSql) = buildQuerySpark()
 

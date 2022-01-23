@@ -75,7 +75,8 @@ object Settings extends StrictLogging {
     accepted: String,
     rejected: String,
     replay: String,
-    business: String
+    business: String,
+    hiveDatabase: String
   ) {
     val acceptedFinal: String = accepted.toLowerCase(Locale.ROOT)
     val rejectedFinal: String = rejected.toLowerCase(Locale.ROOT)
@@ -353,7 +354,6 @@ object CometColumns {
   val cometInputFileNameColumn: String = "comet_input_file_name"
   val cometSuccessColumn: String = "comet_success"
   val cometErrorMessageColumn: String = "comet_error_message"
-
 }
 
 /** This class holds the current Comet settings and an assembly of reference instances for core,
@@ -402,7 +402,7 @@ object PrivacyLevels {
       allPrivacy = options.map { case (k, objName) =>
         val encryption = make(k, objName)
         val key = k.toUpperCase(Locale.ROOT)
-        (key, (encryption, new PrivacyLevel(key)))
+        (key, (encryption, new PrivacyLevel(key, false)))
       }
     }
     allPrivacy

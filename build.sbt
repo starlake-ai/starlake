@@ -6,13 +6,6 @@ import xerial.sbt.Sonatype._
 // require Java 8 for Spark 2 support
 javacOptions ++= Seq("-source", "1.8", "-target", "1.8", "-Xlint")
 
-initialize := {
-  val _ = initialize.value
-  val javaVersion = sys.props("java.specification.version")
-  if (javaVersion != "1.8")
-    sys.error("Java 1.8 is required for this project. Found " + javaVersion + " instead")
-}
-
 sonatypeCredentialHost := "s01.oss.sonatype.org"
 
 lazy val scala212 = "2.12.12"

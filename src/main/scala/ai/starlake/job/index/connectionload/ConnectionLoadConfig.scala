@@ -46,7 +46,7 @@ object ConnectionLoadConfig extends CliConfig[ConnectionLoadConfig] {
       } match {
         case Failure(e) if e.isInstanceOf[SQLException] =>
           stmt.executeUpdate(table.createSql)
-          conn.commit() // some databases are transactional wrt schema updates 🥰
+          conn.commit() // some databases are transactional wrt schema updates
         case Success(_) => ;
       }
       stmt.close()
