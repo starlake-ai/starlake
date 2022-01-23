@@ -11,12 +11,16 @@ import org.scalatest.BeforeAndAfterAll
 
 class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
   override def beforeAll(): Unit = {
-    BigQueryJobBase.bigquery.delete(TableId.of("bqtest", "account"))
-    BigQueryJobBase.bigquery.delete(TableId.of("bqtest", "jobresult"))
+    if (sys.env.getOrElse("COMET_GCP_TEST", "false").toBoolean) {
+      BigQueryJobBase.bigquery.delete(TableId.of("bqtest", "account"))
+      BigQueryJobBase.bigquery.delete(TableId.of("bqtest", "jobresult"))
+    }
   }
   override def afterAll(): Unit = {
-    BigQueryJobBase.bigquery.delete(TableId.of("bqtest", "account"))
-    BigQueryJobBase.bigquery.delete(TableId.of("bqtest", "jobresult"))
+    if (sys.env.getOrElse("COMET_GCP_TEST", "false").toBoolean) {
+      BigQueryJobBase.bigquery.delete(TableId.of("bqtest", "account"))
+      BigQueryJobBase.bigquery.delete(TableId.of("bqtest", "jobresult"))
+    }
   }
 
   new WithSettings() {
