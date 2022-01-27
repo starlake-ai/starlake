@@ -8,21 +8,21 @@ import org.apache.spark.sql.DataFrame
 
 import scala.collection.mutable.ArrayBuffer
 
-
-private[http] class HttpSinkClient(url: String, maxMessages: Int, transformer:SinkTransformer) extends StrictLogging {
+private[http] class HttpSinkClient(url: String, maxMessages: Int, transformer: SinkTransformer)
+    extends StrictLogging {
 
   val connectionManager = new PoolingHttpClientConnectionManager()
   connectionManager.setMaxTotal(200);
   connectionManager.setDefaultMaxPerRoute(20);
 
   private def client =
-    HttpClients.custom()
+    HttpClients
+      .custom()
       .setConnectionManager(connectionManager)
       .build();
 
-
   def send(dataFrame: DataFrame): Int = {
-    //performed on the driver node instead of worker nodes, so use local iterator
+    // performed on the driver node instead of worker nodes, so use local iterator
     val iter = dataFrame.toLocalIterator;
     val buffer = ArrayBuffer[Seq[String]]();
     var count = 0
