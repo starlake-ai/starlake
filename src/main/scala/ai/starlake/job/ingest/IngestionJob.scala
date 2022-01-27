@@ -1,9 +1,9 @@
 package ai.starlake.job.ingest
 
 import ai.starlake.config.{CometColumns, DatasetArea, Settings, StorageArea}
-import ai.starlake.job.index.bqload.{BigQueryLoadConfig, BigQueryNativeJob, BigQuerySparkJob}
-import ai.starlake.job.index.connectionload.{ConnectionLoadConfig, ConnectionLoadJob}
-import ai.starlake.job.index.esload.{ESLoadConfig, ESLoadJob}
+import ai.starlake.job.sink.bigquery.{BigQueryLoadConfig, BigQueryNativeJob, BigQuerySparkJob}
+import ai.starlake.job.sink.jdbc.{ConnectionLoadConfig, ConnectionLoadJob}
+import ai.starlake.job.sink.es.{ESLoadConfig, ESLoadJob}
 import ai.starlake.job.metrics.{AssertionJob, MetricsJob}
 import ai.starlake.job.validator.{GenericRowValidator, ValidationResult}
 import ai.starlake.privacy.PrivacyEngine

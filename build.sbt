@@ -20,6 +20,8 @@ scalaVersion := scala212
 
 organizationHomepage := Some(url("https://github.com/starlake-ai/starlake"))
 
+resolvers ++= Resolvers.allResolvers
+
 libraryDependencies ++= {
   val (spark, jackson, esSpark) = {
     CrossVersion.partialVersion(scalaVersion.value) match {

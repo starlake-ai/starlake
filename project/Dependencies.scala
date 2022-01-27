@@ -58,7 +58,8 @@ object Dependencies {
     "org.apache.spark" %% "spark-hive" % Versions.spark3d0 % "provided" exclude ("com.google.guava", "guava") excludeAll (jacksonExclusions: _*),
     "org.apache.spark" %% "spark-mllib" % Versions.spark3d0 % "provided" exclude ("com.google.guava", "guava") excludeAll (jacksonExclusions: _*),
     "com.databricks" %% "spark-xml" % Versions.sparkXML,
-    "org.apache.spark" %% "spark-sql-kafka-0-10" % Versions.spark3d0 % "provided"
+    "org.apache.spark" %% "spark-sql-kafka-0-10" % Versions.spark3d0 % "provided",
+    "org.apache.spark" %% "spark-avro" % Versions.spark3d0 % "provided"
   )
 
   val azure = Seq(
@@ -149,6 +150,8 @@ object Dependencies {
 
   val kafkaClients = Seq(
     "org.apache.kafka" % "kafka-clients" % Versions.kafkaClients,
+    "io.confluent" % "kafka-schema-registry-client" % Versions.confluentVersion % "provided",
+    "io.confluent" % "kafka-avro-serializer" % Versions.confluentVersion % "provided",
     "com.dimafeng" %% "testcontainers-scala-scalatest" % Versions.testContainers % Test excludeAll (jnaExclusions: _*),
     "com.dimafeng" %% "testcontainers-scala-kafka" % Versions.testContainers % Test excludeAll (jnaExclusions: _*)
   )

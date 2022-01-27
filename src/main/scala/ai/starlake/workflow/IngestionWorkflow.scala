@@ -22,10 +22,10 @@ package ai.starlake.workflow
 
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.job.atlas.{AtlasConfig, AtlasJob}
-import ai.starlake.job.index.bqload.{BigQueryLoadConfig, BigQuerySparkJob}
-import ai.starlake.job.index.connectionload.{ConnectionLoadConfig, ConnectionLoadJob}
-import ai.starlake.job.index.esload.{ESLoadConfig, ESLoadJob}
-import ai.starlake.job.index.kafkaload.{KafkaJob, KafkaJobConfig}
+import ai.starlake.job.sink.bigquery.{BigQueryLoadConfig, BigQuerySparkJob}
+import ai.starlake.job.sink.jdbc.{ConnectionLoadConfig, ConnectionLoadJob}
+import ai.starlake.job.sink.es.{ESLoadConfig, ESLoadJob}
+import ai.starlake.job.sink.kafka.{KafkaJob, KafkaJobConfig}
 import ai.starlake.job.infer.{InferSchema, InferSchemaConfig}
 import ai.starlake.job.ingest._
 import ai.starlake.job.load.LoadStrategy

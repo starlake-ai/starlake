@@ -1,11 +1,11 @@
 package ai.starlake.utils
 
-import ai.starlake.job.index.connectionload.ConnectionLoadConfig
+import ai.starlake.job.sink.jdbc.ConnectionLoadConfig
 import ai.starlake.schema.handlers.StorageHandler
 import ai.starlake.schema.model.{BigQuerySink, Engine, EsSink, JdbcSink, NoneSink, Sink}
 import ai.starlake.config.Settings
-import ai.starlake.job.index.bqload.{BigQueryLoadConfig, BigQuerySparkJob}
-import ai.starlake.job.index.connectionload.ConnectionLoadConfig
+import ai.starlake.job.sink.bigquery.{BigQueryLoadConfig, BigQuerySparkJob}
+import ai.starlake.job.sink.jdbc.ConnectionLoadConfig
 import ai.starlake.schema.handlers.StorageHandler
 import ai.starlake.schema.model._
 import com.google.cloud.bigquery.JobInfo.WriteDisposition

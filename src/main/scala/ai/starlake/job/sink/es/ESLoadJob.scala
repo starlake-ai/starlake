@@ -18,7 +18,7 @@
  *
  */
 
-package ai.starlake.job.index.esload
+package ai.starlake.job.sink.es
 
 import ai.starlake.config.Settings
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
@@ -30,7 +30,6 @@ import org.apache.http.impl.client.HttpClients
 import org.apache.spark.sql.SaveMode
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.StructField
-
 import scala.util.{Failure, Success, Try}
 
 class ESLoadJob(

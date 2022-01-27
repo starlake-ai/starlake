@@ -20,12 +20,12 @@
 
 package ai.starlake.job.ingest
 
-import ai.starlake.job.index.bqload.BigQueryNativeJob
-import ai.starlake.job.index.connectionload.ConnectionLoadConfig
+import ai.starlake.job.sink.bigquery.BigQueryNativeJob
+import ai.starlake.job.sink.jdbc.ConnectionLoadConfig
 import ai.starlake.schema.model.{BigQuerySink, EsSink, JdbcSink, NoneSink}
 import ai.starlake.config.Settings
-import ai.starlake.job.index.bqload.{BigQueryLoadConfig, BigQueryNativeJob}
-import ai.starlake.job.index.connectionload.{ConnectionLoadConfig, ConnectionLoadJob}
+import ai.starlake.job.sink.bigquery.{BigQueryLoadConfig, BigQueryNativeJob}
+import ai.starlake.job.sink.jdbc.{ConnectionLoadConfig, ConnectionLoadJob}
 import ai.starlake.schema.model._
 import ai.starlake.utils.{FileLock, Utils}
 import com.google.cloud.bigquery.{Field, Schema => BQSchema, StandardSQLTypeName}
