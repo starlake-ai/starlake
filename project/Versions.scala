@@ -28,7 +28,7 @@ object Versions {
   val akkaHttp = "10.1.15"
   //  val akkaStream = "2.6.12"
   val akkaStream = "2.5.32"
-  val kafkaClients = "3.1.0"
+  val kafkaClients = "7.0.1-ce"
   val confluentVersion = "7.0.1"
   val testContainers = "0.39.12"
   val jsqlparser = "4.3"
