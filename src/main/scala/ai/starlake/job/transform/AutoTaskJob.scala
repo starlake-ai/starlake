@@ -21,7 +21,7 @@
 package ai.starlake.job.transform
 
 import ai.starlake.config.{Settings, StorageArea}
-import ai.starlake.job.index.bqload.{BigQueryJobResult, BigQueryLoadConfig, BigQueryNativeJob}
+import ai.starlake.job.sink.bigquery.{BigQueryJobResult, BigQueryLoadConfig, BigQueryNativeJob}
 import ai.starlake.job.ingest.{AuditLog, Step}
 import ai.starlake.job.metrics.AssertionJob
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}

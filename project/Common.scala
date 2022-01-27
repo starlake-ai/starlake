@@ -96,10 +96,9 @@ object Common {
 object Resolvers {
 
   val typeSafe = "Typesafe repository" at "https://repo.typesafe.com/typesafe/releases/"
+  val confluent = "Confluent repository" at "https://packages.confluent.io/maven/"
 
-  val allResolvers = Seq(
-    typeSafe
-  )
+  val allResolvers = Seq(typeSafe, confluent)
 
   val googleCloudBigDataMavenRepo = "https://repo1.maven.org/maven2/com/google/cloud/bigdataoss"
 

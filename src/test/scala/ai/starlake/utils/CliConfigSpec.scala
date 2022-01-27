@@ -1,9 +1,9 @@
 package ai.starlake.utils
 
-import ai.starlake.job.index.bqload.BigQueryLoadConfig
-import ai.starlake.job.index.connectionload.ConnectionLoadConfig
-import ai.starlake.job.index.esload.ESLoadConfig
-import ai.starlake.job.index.kafkaload.KafkaJobConfig
+import ai.starlake.job.sink.bigquery.BigQueryLoadConfig
+import ai.starlake.job.sink.jdbc.ConnectionLoadConfig
+import ai.starlake.job.sink.es.ESLoadConfig
+import ai.starlake.job.sink.kafka.KafkaJobConfig
 import ai.starlake.schema.generator.{
   JDBC2YmlConfig,
   Xls2YmlConfig,
@@ -13,10 +13,10 @@ import ai.starlake.schema.generator.{
 import ai.starlake.TestHelper
 import ai.starlake.extractor.ExtractScriptGenConfig
 import ai.starlake.job.convert.Parquet2CSVConfig
-import ai.starlake.job.index.bqload.BigQueryLoadConfig
-import ai.starlake.job.index.connectionload.ConnectionLoadConfig
-import ai.starlake.job.index.esload.ESLoadConfig
-import ai.starlake.job.index.kafkaload.KafkaJobConfig
+import ai.starlake.job.sink.bigquery.BigQueryLoadConfig
+import ai.starlake.job.sink.jdbc.ConnectionLoadConfig
+import ai.starlake.job.sink.es.ESLoadConfig
+import ai.starlake.job.sink.kafka.KafkaJobConfig
 import ai.starlake.job.infer.InferSchemaConfig
 import ai.starlake.job.ingest.LoadConfig
 import ai.starlake.job.metrics.MetricsConfig

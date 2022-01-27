@@ -2,7 +2,7 @@ package ai.starlake.schema.handlers
 
 import ai.starlake.TestHelper
 import ai.starlake.config.{Settings, StorageArea}
-import ai.starlake.job.index.bqload.{BigQueryLoadConfig, BigQuerySparkJob}
+import ai.starlake.job.sink.bigquery.{BigQueryLoadConfig, BigQuerySparkJob}
 import ai.starlake.schema.model._
 import ai.starlake.workflow.{IngestionWorkflow, TransformConfig}
 import com.google.cloud.hadoop.io.bigquery.BigQueryConfiguration

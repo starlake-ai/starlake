@@ -18,7 +18,7 @@
  *
  */
 
-package ai.starlake.job.index.esload
+package ai.starlake.job.sink.es
 
 import ai.starlake.config.Settings
 import ai.starlake.schema.model.RowLevelSecurity

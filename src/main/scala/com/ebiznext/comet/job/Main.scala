@@ -4,10 +4,10 @@ import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.extractor.ScriptGen
 import ai.starlake.job.atlas.AtlasConfig
 import ai.starlake.job.convert.{Parquet2CSV, Parquet2CSVConfig}
-import ai.starlake.job.index.bqload.BigQueryLoadConfig
-import ai.starlake.job.index.connectionload.ConnectionLoadConfig
-import ai.starlake.job.index.esload.ESLoadConfig
-import ai.starlake.job.index.kafkaload.KafkaJobConfig
+import ai.starlake.job.sink.bigquery.BigQueryLoadConfig
+import ai.starlake.job.sink.jdbc.ConnectionLoadConfig
+import ai.starlake.job.sink.es.ESLoadConfig
+import ai.starlake.job.sink.kafka.KafkaJobConfig
 import ai.starlake.job.infer.InferSchemaConfig
 import ai.starlake.job.ingest.LoadConfig
 import ai.starlake.job.metrics.MetricsConfig

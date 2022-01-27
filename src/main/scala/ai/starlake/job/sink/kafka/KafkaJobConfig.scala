@@ -1,6 +1,7 @@
-package ai.starlake.job.index.kafkaload
+package ai.starlake.job.sink.kafka
 
-import ai.starlake.utils.{CliConfig, Utils}
+import ai.starlake.config.Settings
+import ai.starlake.utils.CliConfig
 import org.apache.spark.sql.{DataFrame, SaveMode}
 import scopt.OParser
 
@@ -15,21 +16,22 @@ case class KafkaJobConfig(
   streamingWriteFormat: String = "console",
   streamingWriteMode: String = "append",
   writeOptions: Map[String, String] = Map.empty,
-  streamingTrigger: String = "Once",
-  streamingTriggerOption: String = "",
+  streamingTrigger: Option[String] = Some("Once"), // Once, ProcessingTime, Continuous or None
+  streamingTriggerOption: String = "10 seconds",
   streamingWritePartitionBy: Seq[String] = Nil,
   streamingWriteToTable: Boolean = false,
   coalesce: Option[Int] = None,
   coalesceMerge: Boolean = true
-) {
-
-  val transformInstance: Option[DataFrameTransform] = {
-    transform.map(Utils.loadInstance[DataFrameTransform])
-  }
-}
-
+)
 trait DataFrameTransform {
   def transform(dataFrame: DataFrame): DataFrame
+  def configure(topicConfig: Settings.KafkaTopicConfig): DataFrameTransform = this
+}
+
+abstract class AvroDataFrameTransform extends DataFrameTransform {
+  def transform(dataFrame: DataFrame): DataFrame = {
+    dataFrame
+  }
 }
 
 object KafkaJobConfig extends CliConfig[KafkaJobConfig] {
@@ -129,7 +131,7 @@ object KafkaJobConfig extends CliConfig[KafkaJobConfig] {
                 )
                 .required(),
               opt[String]("streaming-trigger")
-                .action((x, c) => c.copy(streamingTrigger = x))
+                .action((x, c) => c.copy(streamingTrigger = Some(x)))
                 .text("Once / Continuous / ProcessingTime")
                 .required(),
               opt[String]("streaming-trigger-option")
