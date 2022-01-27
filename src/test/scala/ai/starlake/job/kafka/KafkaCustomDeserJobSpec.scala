@@ -87,23 +87,23 @@ class KafkaCustomDeserJobSpec extends TestHelper {
       val kafkaClient = new KafkaClient(settings.comet.kafka)
       if (cometOffsetsMode == "FILE")
         File("/tmp/comet_offsets").delete(swallowIOExceptions = true)
-      val kafkaJob2 =
-        new KafkaJob(
-          KafkaJobConfig(
-            topicConfigName = "avro_offload",
-            streamingTrigger = None,
-            streamingWriteFormat = "starlake-http",
-            writeOptions = Map(
-              "url"         -> "http://localhost:8080",
-              "transformer" -> "ai.starlake.job.kafka.TestSinkTransformer"
-            ),
-            mode = SaveMode.Overwrite,
-            path = "/tmp/outdir.json",
-            streaming = true,
-            coalesce = Some(1)
-          )
-        )
       if (false) { // require explicit activation
+        val kafkaJob2 =
+          new KafkaJob(
+            KafkaJobConfig(
+              topicConfigName = "avro_offload",
+              streamingTrigger = None,
+              streamingWriteFormat = "starlake-http",
+              writeOptions = Map(
+                "url"         -> "http://localhost:8080",
+                "transformer" -> "ai.starlake.job.kafka.TestSinkTransformer"
+              ),
+              mode = SaveMode.Overwrite,
+              path = "/tmp/outdir.json",
+              streaming = true,
+              coalesce = Some(1)
+            )
+          )
         kafkaJob2.run() match {
           case Success(_) =>
           case Failure(e) => throw e
