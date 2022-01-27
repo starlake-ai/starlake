@@ -1,4 +1,4 @@
-package ai.starlake.job.index.bqload
+package ai.starlake.job.sink.bigquery
 
 import ai.starlake.TestHelper
 

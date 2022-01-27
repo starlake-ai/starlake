@@ -22,7 +22,7 @@ package ai.starlake.schema.handlers
 
 import ai.starlake.TestHelper
 import ai.starlake.config.DatasetArea
-import ai.starlake.job.index.esload.ESLoadConfig
+import ai.starlake.job.sink.es.ESLoadConfig
 import ai.starlake.job.ingest.LoadConfig
 import ai.starlake.schema.generator.Yml2GraphViz
 import ai.starlake.schema.model._

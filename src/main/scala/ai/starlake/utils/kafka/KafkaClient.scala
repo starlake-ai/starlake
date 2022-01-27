@@ -73,7 +73,7 @@ class KafkaClient(kafkaConfig: KafkaConfig)(implicit settings: Settings)
   def topicPartitions(topicName: String): List[TopicPartitionInfo] = {
     client
       .describeTopics(java.util.Collections.singleton(topicName))
-      .allTopicNames()
+      .all()
       .get()
       .get(topicName)
       .partitions()
@@ -274,7 +274,7 @@ class KafkaClient(kafkaConfig: KafkaConfig)(implicit settings: Settings)
       reader
         .options(withOffsetsTopicOptions)
         .load()
-        .selectExpr(config.fields.map(x => s"CAST($x)"): _*)
+        .selectExpr(config.fields: _*)
 
     logger.whenInfoEnabled {
       logger.info(df.schemaString())
@@ -291,7 +291,7 @@ class KafkaClient(kafkaConfig: KafkaConfig)(implicit settings: Settings)
       reader
         .options(config.accessOptions)
         .load()
-        .selectExpr(config.fields.map(x => s"CAST($x)"): _*)
+        .selectExpr(config.fields: _*)
     df
   }
 
@@ -299,7 +299,7 @@ class KafkaClient(kafkaConfig: KafkaConfig)(implicit settings: Settings)
     config: KafkaTopicConfig,
     df: DataFrame
   ): Unit = {
-    val writer = df.selectExpr(config.fields.map(x => s"CAST($x)"): _*).write.format("kafka")
+    val writer = df.selectExpr(config.fields: _*).write.format("kafka")
 
     writer
       .options(config.accessOptions)

@@ -203,7 +203,8 @@ object Settings extends StrictLogging {
   final case class KafkaConfig(
     serverOptions: Map[String, String],
     topics: Map[String, KafkaTopicConfig],
-    cometOffsetsMode: Option[String] = Some("STREAM")
+    cometOffsetsMode: Option[String] = Some("STREAM"),
+    customDeserializer: Option[String]
   )
 
   case class AccessPolicies(apply: Boolean, location: String, projectId: String, taxonomy: String)

@@ -1,4 +1,4 @@
-package ai.starlake.job.index.esload
+package ai.starlake.job.sink.es
 
 import ai.starlake.TestHelper
 

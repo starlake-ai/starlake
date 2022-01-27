@@ -1,4 +1,4 @@
-package ai.starlake.job.index.bqload
+package ai.starlake.job.sink.bigquery
 
 import ai.starlake.config.Settings
 import ai.starlake.utils.conversion.BigQueryUtils.sparkToBq

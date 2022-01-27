@@ -1,5 +1,4 @@
 object Versions {
-  val sparkAvro = "4.0.0"
   val curator = "2.6.0"
   val spark2d4 = "2.4.8"
   val spark3d0 = "3.2.0"
@@ -30,6 +29,7 @@ object Versions {
   //  val akkaStream = "2.6.12"
   val akkaStream = "2.5.32"
   val kafkaClients = "3.1.0"
+  val confluentVersion = "7.0.1"
   val testContainers = "0.39.12"
   val jsqlparser = "4.3"
   val silencerVersion = "1.7.1"

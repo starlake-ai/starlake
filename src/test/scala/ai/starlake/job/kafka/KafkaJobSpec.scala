@@ -1,7 +1,7 @@
 package ai.starlake.job.kafka
 
 import ai.starlake.TestHelper
-import ai.starlake.job.index.kafkaload.{KafkaJob, KafkaJobConfig}
+import ai.starlake.job.sink.kafka.{KafkaJob, KafkaJobConfig}
 import ai.starlake.utils.kafka.KafkaClient
 import better.files.File
 import com.dimafeng.testcontainers.lifecycle.and
@@ -42,7 +42,7 @@ class KafkaJobSpec extends TestHelper {
          |    "test_offload": {
          |      topic-name: "test_offload"
          |      max-read = 0
-         |      fields = ["key as STRING", "value as STRING"]
+         |      fields = ["cast(key as STRING)", "cast(value as STRING)"]
          |      write-format = "parquet"
          |      access-options = {
          |        "kafka.bootstrap.servers": "${kafkaContainer.bootstrapServers}"
@@ -58,7 +58,23 @@ class KafkaJobSpec extends TestHelper {
          |    "test_offload_kafka_to_kafka": {
          |      topic-name: "test_offload_kafka_to_kafka"
          |      max-read = 0
-         |      fields = ["key as STRING", "value as STRING"]
+         |      fields = ["cast(key as STRING)", "cast(value as STRING)"]
+         |      write-format = "parquet"
+         |      access-options = {
+         |        "kafka.bootstrap.servers": "${kafkaContainer.bootstrapServers}"
+         |        "bootstrap.servers": "${kafkaContainer.bootstrapServers}"
+         |        "key.deserializer": "org.apache.kafka.common.serialization.StringDeserializer"
+         |        "value.deserializer": "org.apache.kafka.common.serialization.StringDeserializer"
+         |        "key.serializer": "org.apache.kafka.common.serialization.StringSerializer"
+         |        "value.serializer": "org.apache.kafka.common.serialization.StringSerializer"
+         |        "subscribe": "test_offload_kafka_to_kafka"
+         |        "startingOffsets": "earliest"
+         |      }
+         |    },
+         |    "test_offload_kafka_to_http": {
+         |      topic-name: "test_offload_kafka_to_http"
+         |      max-read = 0
+         |      fields = ["cast(key as STRING)", "cast(value as STRING)"]
          |      write-format = "parquet"
          |      access-options = {
          |        "kafka.bootstrap.servers": "${kafkaContainer.bootstrapServers}"
@@ -74,7 +90,7 @@ class KafkaJobSpec extends TestHelper {
          |    "test_load": {
          |      topic-name: "test_load"
          |      max-read = 0
-         |      fields = ["key as STRING", "value as STRING"]
+         |      fields = ["cast(key as STRING)", "cast(value as STRING)"]
          |      write-format = "parquet"
          |      access-options = {
          |        "kafka.bootstrap.servers": "${kafkaContainer.bootstrapServers}"
@@ -89,7 +105,7 @@ class KafkaJobSpec extends TestHelper {
          |    "kafka_to_es": {
          |      topic-name: "kafka_to_es"
          |      max-read = 0
-         |      fields = ["key as STRING", "value as STRING"]
+         |      fields = ["cast(key as STRING)", "cast(value as STRING)"]
          |      write-format = "parquet"
          |      access-options = {
          |        "kafka.bootstrap.servers": "${kafkaContainer.bootstrapServers}"
@@ -104,7 +120,7 @@ class KafkaJobSpec extends TestHelper {
          |    "topic_sink_config": {
          |      topic-name: "topic_sink"
          |      max-read = 0
-         |      fields = ["key as STRING", "value as STRING"]
+         |      fields = ["cast(key as STRING)", "cast(value as STRING)"]
          |      write-format = "parquet"
          |      access-options = {
          |        "kafka.bootstrap.servers": "${kafkaContainer.bootstrapServers}"
@@ -119,7 +135,7 @@ class KafkaJobSpec extends TestHelper {
          |    "stream_kafka_to_es": {
          |      topic-name: "stream_kafka_to_es"
          |      max-read = 0
-         |      fields = ["key as STRING", "value as STRING"]
+         |      fields = ["cast(key as STRING)", "cast(value as STRING)"]
          |      write-format = "parquet"
          |      access-options = {
          |        "kafka.bootstrap.servers": "${kafkaContainer.bootstrapServers}"
@@ -134,7 +150,7 @@ class KafkaJobSpec extends TestHelper {
          |    "stream_kafka_to_table": {
          |      topic-name: "stream_kafka_to_table"
          |      max-read = 0
-         |      fields = ["key as STRING", "value as STRING"]
+         |      fields = ["cast(key as STRING)", "cast(value as STRING)"]
          |      write-format = "parquet"
          |      access-options = {
          |        "kafka.bootstrap.servers": "${kafkaContainer.bootstrapServers}"
