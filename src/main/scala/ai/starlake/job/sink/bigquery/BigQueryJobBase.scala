@@ -1,7 +1,7 @@
-package ai.starlake.job.index.bqload
+package ai.starlake.job.sink.bigquery
 
 import ai.starlake.config.Settings
-import ai.starlake.job.index.bqload.BigQueryJobBase.extractProjectDataset
+import ai.starlake.job.sink.bigquery.BigQueryJobBase.extractProjectDataset
 import ai.starlake.schema.model.{AccessControlEntry, RowLevelSecurity, UserType}
 import ai.starlake.utils.Utils
 import com.google.cloud.bigquery.{Schema => BQSchema, _}

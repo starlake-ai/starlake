@@ -1,4 +1,4 @@
-package ai.starlake.job.index.connectionload
+package ai.starlake.job.sink.jdbc
 
 import ai.starlake.TestHelper
 
