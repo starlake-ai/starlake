@@ -207,6 +207,14 @@ object Settings extends StrictLogging {
     customDeserializer: Option[String]
   )
 
+  case class JobScheduling(
+    mode: String,
+    weight: Int,
+    minShare: Int,
+    maxJobs: Int,
+    allocations: String
+  )
+
   case class AccessPolicies(apply: Boolean, location: String, projectId: String, taxonomy: String)
 
   /** @param datasets
@@ -282,7 +290,8 @@ object Settings extends StrictLogging {
     rejectAllOnError: Boolean,
     defaultFileExtensions: String,
     forceFileExtensions: String,
-    accessPolicies: AccessPolicies
+    accessPolicies: AccessPolicies,
+    scheduling: JobScheduling
   ) extends Serializable {
 
     val cacheStorageLevel =
