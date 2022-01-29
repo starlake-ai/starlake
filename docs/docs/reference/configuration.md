@@ -27,7 +27,8 @@ Some of those configurations may also be redefined through environment variables
 * In client mode: To pass those env vars, simply export / set them before calling spark-submmit.
 * In cluster mode, you need to pass them as extra driver options.
 
-Passing the `application.conf` file to the spark job use the syntax below:
+An `application.conf` file stored in the metadata subdirectory will be automatically loaded by Starlake. 
+If you want to store the `application.conf` file elsewhere, you may pass its path to the spark job using the syntax below:
 
 ```shell
 export CUSTOM_OPTIONS="--conf spark.driver.extraJavaOptions=-Dconfig.file=$PWD/application.conf"
@@ -79,6 +80,21 @@ t1 = dataproc_operator.DataProcSparkOperator(
   dataproc_spark_properties={'spark.driver.extraJavaOptions':'-DCOMET_FS=gs://${my_bucket} -DCOMET_HIVE=false -DCOMET_GROUPED=false'},
   dag=dag)
 ```
+
+
+Starlake allows you to override some configurations properties using predefined env variables prefixed by `COMET_`. 
+In addition, you may override any configuration option by setting the JVM property `-Dconfig.override_with_env_vars=true` and using the prefix
+`CONFIG_FORCE_` as explained below:
+
+- prefix the property name with `CONFIG_FORCE_`
+- use single underscore `_` for a dot `.`
+- use double underscore `__` for a dash `-`
+- use triple undercore `___`for a single underscore `_`
+
+For example, to redefine the property `metrics.discrete-max-cardinality` with the value `100`,
+you need to set it as a JVM property using the syntax `-DCONFIG_FORCE_metrics_discrete__max__cardinality=100`
+
+For more details, please refer to the official [typesafeconfig](https://github.com/lightbend/config#optional-system-or-env-variable-overrides) documentation. 
 
 ## Configuration sections
 ### Filesystem
@@ -263,6 +279,7 @@ lock {
   timeout = ${?COMET_LOCK_TIMEOUT}
 }
 ```
+
 
 ### Ingestion
 When many files that have the same pattern and thus belong to the same schema, it is possible to ingest them one after the other using an ingestion policy 
