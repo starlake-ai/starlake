@@ -20,11 +20,13 @@
 
 package ai.starlake.config
 
-import java.time.LocalDateTime
-import java.time.format.DateTimeFormatter
+import better.files.File
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.SparkSession
+
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 import scala.collection.JavaConverters._
 
 /** Any Spark Job will inherit from this class. All properties defined in application conf file and
@@ -38,9 +40,30 @@ class SparkEnv(name: String, confTransformer: SparkConf => SparkConf = identity)
   settings: Settings
 ) extends StrictLogging {
 
+  private def initSchedulingConfig(): File = {
+    import settings.comet.scheduling._
+
+    val schedulingConfig =
+      if (allocations.isEmpty)
+        s"""<?xml version="1.0"?>
+                     |<allocations>
+                     |  <pool name="starlake">
+                     |    <schedulingMode>$mode</schedulingMode>
+                     |    <weight>$weight}</weight>
+                     |    <minShare>$minShare</minShare>
+                     |  </pool>
+                     |</allocations>""".stripMargin
+      else
+        allocations
+
+    val tempFile = File.temp / "starlake-spark-scheduling.xml"
+    tempFile.overwrite(schedulingConfig)
+  }
+
   /** Load spark.* properties from the loaded application conf file
     */
   val config: SparkConf = {
+    val schedulingConfig = initSchedulingConfig()
     val now = LocalDateTime
       .now()
       .format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss.SSS"))
@@ -61,6 +84,7 @@ class SparkEnv(name: String, confTransformer: SparkConf => SparkConf = identity)
       .foldLeft(initialConf) { case (conf, (key, value)) => conf.set("spark." + key, value) }
       .setAppName(appName)
       .set("spark.app.id", appName)
+      .set("spark.scheduler.allocation.file", schedulingConfig.uri.toString)
 
     val withExtraConf = confTransformer(thisConf)
 

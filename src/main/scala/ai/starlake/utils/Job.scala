@@ -65,7 +65,7 @@ trait JobBase extends StrictLogging with DatasetLogging {
 
 trait SparkJob extends JobBase {
 
-  def withExtraSparkConf(sourceConfig: SparkConf): SparkConf = {
+  protected def withExtraSparkConf(sourceConfig: SparkConf): SparkConf = {
     // During Job execution, schema update are done on the table before data is written
     // These two options below are thus disabled.
     // We disable them because even though the user asked for WRITE_APPEND
@@ -76,7 +76,7 @@ trait SparkJob extends JobBase {
     sourceConfig
   }
 
-  lazy val sparkEnv: SparkEnv = {
+  private lazy val sparkEnv: SparkEnv = {
     new SparkEnv(name, withExtraSparkConf)
   }
 
