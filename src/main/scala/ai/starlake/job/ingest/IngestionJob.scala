@@ -844,6 +844,11 @@ trait IngestionJob extends SparkJob {
     *   : Spark Session used for the job
     */
   def run(): Try[JobResult] = {
+    session.sparkContext.setLocalProperty(
+      "spark.scheduler.pool",
+      settings.comet.scheduling.poolName
+    )
+
     val jobResult = domain.checkValidity(schemaHandler) match {
       case Left(errors) =>
         val errs = errors.reduce { (errs, err) =>

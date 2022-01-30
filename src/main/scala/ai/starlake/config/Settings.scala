@@ -34,6 +34,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.typesafe.config.{Config, ConfigFactory, ConfigValueFactory}
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
+import org.apache.spark.SparkConf
 import org.apache.spark.storage.StorageLevel
 import pureconfig.ConvertHelpers._
 import pureconfig._
@@ -43,6 +44,7 @@ import pureconfig.generic.auto._
 import java.io.ObjectStreamException
 import java.util.concurrent.TimeUnit
 import java.util.{Locale, UUID}
+import scala.collection.JavaConverters._
 import scala.concurrent.duration.FiniteDuration
 
 object Settings extends StrictLogging {
@@ -128,7 +130,6 @@ object Settings extends StrictLogging {
     * @param engineOverride
     *   the index into the [[Comet.jdbcEngines]] map of the underlying database engine, in case one
     *   cannot use the engine name from the uri
-    *
     * @note
     *   the use case for engineOverride is when you need to have an alternate schema definition
     *   (e.g. non-standard table names) alongside with the regular schema definition, on the same
@@ -162,7 +163,6 @@ object Settings extends StrictLogging {
       * @param pingSql
       *   a cheap SQL query whose results are irrelevant but guaranteed to trigger an error in case
       *   the table is absent
-      *
       * @note
       *   pingSql is optional, and will default to `select * from `name` where 1=0` as Spark SQL
       *   does
@@ -208,11 +208,10 @@ object Settings extends StrictLogging {
   )
 
   case class JobScheduling(
-    mode: String,
-    weight: Int,
-    minShare: Int,
     maxJobs: Int,
-    allocations: String
+    poolName: String,
+    mode: String,
+    file: String
   )
 
   case class AccessPolicies(apply: Boolean, location: String, projectId: String, taxonomy: String)
@@ -345,7 +344,7 @@ object Settings extends StrictLogging {
     logger.info(YamlSerializer.serializeObject(loaded))
     val settings = Settings(loaded, effectiveConfig.getConfig("spark"))
     val applicationConfPath = new Path(DatasetArea.metadata(settings), "application.conf")
-    if (settings.metadataStorageHandler.exists(applicationConfPath)) {
+    val result: Settings = if (settings.metadataStorageHandler.exists(applicationConfPath)) {
       val applicationConfContent = settings.metadataStorageHandler.read(applicationConfPath)
       val cfg = ConfigFactory.parseString(applicationConfContent)
       val effectiveApplicationConfig = cfg
@@ -356,8 +355,44 @@ object Settings extends StrictLogging {
       Settings(loadedApplication, effectiveApplicationConfig.getConfig("spark"))
     } else
       settings
+    val jobConf = initSparkConfig(result)
+    result.copy(jobConf = jobConf)
   }
 
+  private def initSparkConfig(settings: Settings): SparkConf = {
+    val schedulingConfig = schedulingPath(settings)
+
+    // When using local Spark with remote BigQuery (useful for testing)
+    val initialConf =
+      sys.env.get("TEMPORARY_GCS_BUCKET") match {
+        case Some(value) => new SparkConf().set("temporaryGcsBucket", value)
+        case None        => new SparkConf()
+      }
+
+    val thisConf = settings.sparkConfig
+      .entrySet()
+      .asScala
+      .to[Vector]
+      .map(x => (x.getKey, x.getValue.unwrapped().toString))
+      .foldLeft(initialConf) { case (conf, (key, value)) => conf.set("spark." + key, value) }
+      .set("spark.scheduler.mode", settings.comet.scheduling.mode)
+
+    schedulingConfig.foreach(path => thisConf.set("spark.scheduler.allocation.file", path.toString))
+
+    logger.whenDebugEnabled {
+      logger.debug(thisConf.toDebugString)
+    }
+    thisConf
+  }
+
+  private def schedulingPath(settings: Settings): Option[Path] = {
+    import settings.comet.scheduling._
+    if (file.isEmpty) {
+      val schedulingPath = new Path(DatasetArea.metadata(settings), "fairscheduler.xml")
+      Some(schedulingPath).filter(settings.metadataStorageHandler.exists)
+    } else
+      Some(new Path(file))
+  }
 }
 
 object CometColumns {
@@ -372,7 +407,11 @@ object CometColumns {
   * SMELL: this may be the start of a Dependency Injection root (but at 2-3 objects, is DI
   * justified? probably not quite yet) — cchepelov
   */
-final case class Settings(comet: Settings.Comet, sparkConfig: Config) {
+final case class Settings(
+  comet: Settings.Comet,
+  sparkConfig: Config,
+  jobConf: SparkConf = new SparkConf()
+) {
 
   @transient
   lazy val storageHandler: HdfsStorageHandler = {
@@ -404,6 +443,7 @@ object PrivacyLevels {
   }
 
   private var allPrivacy = Map.empty[String, ((PrivacyEngine, List[String]), PrivacyLevel)]
+
   @transient
   def allPrivacyLevels(
     options: Map[String, String]
