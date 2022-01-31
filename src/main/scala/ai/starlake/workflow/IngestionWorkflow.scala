@@ -280,7 +280,7 @@ class IngestionWorkflow(
         val parJobs = jobs.par
         val forkJoinPool = new java.util.concurrent.ForkJoinPool(settings.comet.scheduling.maxJobs)
         parJobs.tasksupport = new ForkJoinTaskSupport(forkJoinPool)
-        val res = jobs.par.map { jobContext =>
+        val res = parJobs.map { jobContext =>
           launchHandler.ingest(
             this,
             jobContext.domain,
