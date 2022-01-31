@@ -272,7 +272,7 @@ class IngestionWorkflow(
         val jobs = if (settings.comet.grouped) {
           JobContext(domain, schema, ingestingPaths.toList, config.options) :: Nil
         } else {
-          // We ingest all the files but return false if one them fails.
+          // We ingest all the files but return false if one of them fails.
           ingestingPaths.map { path =>
             JobContext(domain, schema, path :: Nil, config.options)
           }
