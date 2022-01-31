@@ -47,6 +47,7 @@ import org.apache.spark.sql.types.{StructField, StructType}
 
 import java.nio.file.{FileSystems, ProviderNotFoundException}
 import java.util.Collections
+import scala.collection.parallel.ForkJoinTaskSupport
 import scala.util.{Failure, Success, Try}
 
 /** The whole worklfow works as follow :
@@ -251,6 +252,12 @@ class IngestionWorkflow(
         case (None, _)            => throw new Exception("Should never happen")
       } groupBy { case (schema, _) => schema } mapValues (it => it.map { case (_, path) => path })
 
+      case class JobContext(
+        domain: Domain,
+        schema: Schema,
+        paths: List[Path],
+        options: Map[String, String]
+      )
       groupedResolved.map { case (schema, pendingPaths) =>
         logger.info(s"""Ingest resolved file : ${pendingPaths
           .map(_.getName)
@@ -262,25 +269,33 @@ class IngestionWorkflow(
           }
           ingestingPath
         }
-        val resTry = Try {
-          if (settings.comet.grouped) {
-            val res =
-              launchHandler.ingest(this, domain, schema, ingestingPaths.toList, config.options)
-            res.isSuccess
-          } else {
-            // We ingest all the files but return false if one them fails.
-            val res = ingestingPaths.map { path =>
-              launchHandler.ingest(this, domain, schema, path, config.options)
-            }
-            res.forall(_.isSuccess)
+        val jobs = if (settings.comet.grouped) {
+          JobContext(domain, schema, ingestingPaths.toList, config.options) :: Nil
+        } else {
+          // We ingest all the files but return false if one them fails.
+          ingestingPaths.map { path =>
+            JobContext(domain, schema, path :: Nil, config.options)
           }
         }
-        resTry match {
-          case Failure(e) =>
-            e.printStackTrace()
-            false
-          case Success(r) => r
-        }
+        val parJobs = jobs.par
+        val forkJoinPool = new java.util.concurrent.ForkJoinPool(settings.comet.scheduling.maxJobs)
+        parJobs.tasksupport = new ForkJoinTaskSupport(forkJoinPool)
+        val res = jobs.par.map { jobContext =>
+          launchHandler.ingest(
+            this,
+            jobContext.domain,
+            jobContext.schema,
+            jobContext.paths,
+            jobContext.options
+          ) match {
+            case Failure(e) =>
+              e.printStackTrace()
+              false
+            case Success(r) => true
+          }
+        }.toList
+        forkJoinPool.shutdown()
+        res.forall(_ == true)
       }
     }
     result.forall(_ == true)

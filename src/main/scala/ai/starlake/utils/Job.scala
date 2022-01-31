@@ -12,6 +12,8 @@ import org.apache.spark.sql.execution.datasources.jdbc.JDBCOptions
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.IntegerType
 
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 import scala.util.{Failure, Success, Try}
 
 trait JobResult
@@ -65,7 +67,7 @@ trait JobBase extends StrictLogging with DatasetLogging {
 
 trait SparkJob extends JobBase {
 
-  def withExtraSparkConf(sourceConfig: SparkConf): SparkConf = {
+  protected def withExtraSparkConf(sourceConfig: SparkConf): SparkConf = {
     // During Job execution, schema update are done on the table before data is written
     // These two options below are thus disabled.
     // We disable them because even though the user asked for WRITE_APPEND
@@ -73,12 +75,20 @@ trait SparkJob extends JobBase {
     // Moreover, since we handle schema validaty through the YAML file, we manage these settings automatically
     sourceConfig.remove("spark.datasource.bigquery.allowFieldAddition")
     sourceConfig.remove("spark.datasource.bigquery.allowFieldRelaxation")
-    sourceConfig
+
+    val now = LocalDateTime
+      .now()
+      .format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss.SSS"))
+
+    val appName = s"$name-$now"
+    val thisConf = sourceConfig.setAppName(appName).set("spark.app.id", appName)
+    logger.whenDebugEnabled {
+      logger.debug(thisConf.toDebugString)
+    }
+    thisConf
   }
 
-  lazy val sparkEnv: SparkEnv = {
-    new SparkEnv(name, withExtraSparkConf)
-  }
+  private lazy val sparkEnv: SparkEnv = new SparkEnv(name, withExtraSparkConf)
 
   protected def registerUdf(udf: String): Unit = {
     val udfInstance: UdfRegistration =
