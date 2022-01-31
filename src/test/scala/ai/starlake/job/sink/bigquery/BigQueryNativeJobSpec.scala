@@ -80,29 +80,31 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
     }
 
     "Native BigQuery AutoJob" should "succeed" in {
-      val businessTask1 = AutoTaskDesc(
-        None,
-        Some("select * from bqtest.account"),
-        "bqtest",
-        "jobresult",
-        WriteMode.OVERWRITE,
-        sink = Some(BigQuerySink(name = Some("sinktest"), location = Some("EU"))),
-        engine = Some(Engine.BQ)
-      )
-      val businessJob =
-        AutoJobDesc("user", List(businessTask1), None, None, None, engine = Some(Engine.BQ))
-      val schemaHandler = new SchemaHandler(metadataStorageHandler)
+      if (sys.env.getOrElse("COMET_GCP_TEST", "false").toBoolean) {
+        val businessTask1 = AutoTaskDesc(
+          None,
+          Some("select * from bqtest.account"),
+          "bqtest",
+          "jobresult",
+          WriteMode.OVERWRITE,
+          sink = Some(BigQuerySink(name = Some("sinktest"), location = Some("EU"))),
+          engine = Some(Engine.BQ)
+        )
+        val businessJob =
+          AutoJobDesc("user", List(businessTask1), None, None, None, engine = Some(Engine.BQ))
+        val schemaHandler = new SchemaHandler(metadataStorageHandler)
 
-      val businessJobDef = mapper
-        .writer()
-        .withAttribute(classOf[Settings], settings)
-        .writeValueAsString(businessJob)
-      lazy val pathBusiness = new Path(cometMetadataPath + "/jobs/bqjobtest.comet.yml")
+        val businessJobDef = mapper
+          .writer()
+          .withAttribute(classOf[Settings], settings)
+          .writeValueAsString(businessJob)
+        lazy val pathBusiness = new Path(cometMetadataPath + "/jobs/bqjobtest.comet.yml")
 
-      val workflow =
-        new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
-      storageHandler.write(businessJobDef, pathBusiness)
-      workflow.autoJob(TransformConfig("bqjobtest")) should be(true)
+        val workflow =
+          new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
+        storageHandler.write(businessJobDef, pathBusiness)
+        workflow.autoJob(TransformConfig("bqjobtest")) should be(true)
+      }
     }
   }
 }
