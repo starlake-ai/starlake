@@ -346,13 +346,13 @@ object Settings extends StrictLogging {
     val applicationConfPath = new Path(DatasetArea.metadata(settings), "application.conf")
     val result: Settings = if (settings.metadataStorageHandler.exists(applicationConfPath)) {
       val applicationConfContent = settings.metadataStorageHandler.read(applicationConfPath)
-      val cfg = ConfigFactory.parseString(applicationConfContent)
-      val effectiveApplicationConfig = cfg
+      val applicationConfig = ConfigFactory.parseString(applicationConfContent)
+      val effectiveApplicationConfig = applicationConfig
         .withFallback(effectiveConfig)
-      val loadedApplication = ConfigSource
+      val mergedSettings = ConfigSource
         .fromConfig(effectiveApplicationConfig)
         .loadOrThrow[Comet]
-      Settings(loadedApplication, effectiveApplicationConfig.getConfig("spark"))
+      Settings(mergedSettings, effectiveApplicationConfig.getConfig("spark"))
     } else
       settings
     val jobConf = initSparkConfig(result)
