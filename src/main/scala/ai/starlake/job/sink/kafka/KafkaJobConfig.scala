@@ -20,8 +20,7 @@ case class KafkaJobConfig(
   streamingTriggerOption: String = "10 seconds",
   streamingWritePartitionBy: Seq[String] = Nil,
   streamingWriteToTable: Boolean = false,
-  coalesce: Option[Int] = None,
-  coalesceMerge: Boolean = true
+  coalesce: Option[Int] = None
 )
 trait DataFrameTransform {
   def transform(dataFrame: DataFrame): DataFrame
@@ -65,7 +64,7 @@ object KafkaJobConfig extends CliConfig[KafkaJobConfig] {
           |In this mode, te program keep running and you the comet_offsets topic is not used. The (off)loader will use a consumer group id 
           |you specify in the access options of the topic configuration you are dealing with.
           |""".stripMargin),
-      opt[String]("topic")
+      opt[String]("config")
         .action((x, c) => c.copy(topicConfigName = x))
         .text("Topic Name declared in reference.conf file")
         .required(),
@@ -95,12 +94,6 @@ object KafkaJobConfig extends CliConfig[KafkaJobConfig] {
           "Should we coalesce the resulting dataframe"
         )
         .optional(),
-      opt[Boolean]("coalesce-merge")
-        .action((x, c) => c.copy(coalesceMerge = x))
-        .text(
-          "Should we coalesce the resulting dataframe"
-        )
-        .optional(),
       opt[String]("transform")
         .action((x, c) => c.copy(transform = Some(x)))
         .text("Any transformation to apply to message before loading / offloading it"),
@@ -123,23 +116,23 @@ object KafkaJobConfig extends CliConfig[KafkaJobConfig] {
                 .text(
                   "Streaming format eq. kafka, console ..."
                 )
-                .required(),
+                .optional(),
               opt[String]("streaming-output-mode")
                 .action((x, c) => c.copy(streamingWriteMode = x))
                 .text(
                   "Output mode : eq. append ... "
                 )
-                .required(),
+                .optional(),
               opt[String]("streaming-trigger")
                 .action((x, c) => c.copy(streamingTrigger = Some(x)))
                 .text("Once / Continuous / ProcessingTime")
-                .required(),
+                .optional(),
               opt[String]("streaming-trigger-option")
                 .action((x, c) => c.copy(streamingTriggerOption = x))
                 .text(
                   "10 seconds for example. see https://spark.apache.org/docs/latest/api/java/org/apache/spark/sql/streaming/Trigger.html#ProcessingTime-java.lang.String-"
                 )
-                .required(),
+                .optional(),
               opt[Boolean]("streaming-to-table")
                 .action { (x, c) =>
                   if (x) {
@@ -150,11 +143,11 @@ object KafkaJobConfig extends CliConfig[KafkaJobConfig] {
                   c.copy(streamingWriteToTable = x)
                 }
                 .text("Table name to sink to")
-                .required(),
+                .optional(),
               opt[Seq[String]]("streaming-partition-by")
                 .action((x, c) => c.copy(streamingWritePartitionBy = x))
                 .text("List of columns to use for partitioning")
-                .required()
+                .optional()
             )
         )
     )

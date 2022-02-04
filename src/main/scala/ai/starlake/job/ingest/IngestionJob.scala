@@ -204,7 +204,7 @@ trait IngestionJob extends SparkJob {
           start,
           end.getTime - start.getTime,
           Utils.exceptionAsString(exception),
-          Step.LOAD.toString
+          Step.SINK_REJECTED.toString
         )
         AuditLog.sink(session, log)
         Failure(exception)

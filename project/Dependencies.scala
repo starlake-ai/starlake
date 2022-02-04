@@ -58,8 +58,8 @@ object Dependencies {
     "org.apache.spark" %% "spark-hive" % Versions.spark3d0 % "provided" exclude ("com.google.guava", "guava") excludeAll (jacksonExclusions: _*),
     "org.apache.spark" %% "spark-mllib" % Versions.spark3d0 % "provided" exclude ("com.google.guava", "guava") excludeAll (jacksonExclusions: _*),
     "com.databricks" %% "spark-xml" % Versions.sparkXML,
-    "org.apache.spark" %% "spark-sql-kafka-0-10" % Versions.spark3d0 % "provided",
-    "org.apache.spark" %% "spark-avro" % Versions.spark3d0 % "provided"
+    "org.apache.spark" %% "spark-sql-kafka-0-10" % Versions.spark3d0,
+    "org.apache.spark" %% "spark-avro" % Versions.spark3d0
   )
 
   val azure = Seq(

@@ -293,6 +293,12 @@ array|true when this attribute is an array, false by default
 script|Allows you to add a new field computed from a UDF or a Spark SQL built-in standard function
 
 
+Once the schema is validated, transformation at load time is done in the following order:
+- Scripted attributes are added and the script executed
+- privacy function is applied to existing attributes
+- attributes to ignore are removed
+- attributes are renamed 
+
 ### Privacy Strategy
 
 Default valid values are NONE, HIDE, MD5, SHA1, SHA256, SHA512, AES(not implemented).
