@@ -3,7 +3,6 @@ package ai.starlake.job.kafka
 import ai.starlake.TestHelper
 import ai.starlake.job.sink.http.SinkTransformer
 import ai.starlake.job.sink.kafka.{KafkaJob, KafkaJobConfig}
-import ai.starlake.utils.kafka.KafkaClient
 import better.files.File
 import com.fasterxml.jackson.annotation.JsonInclude.Include
 import com.fasterxml.jackson.databind.ObjectMapper
@@ -84,7 +83,6 @@ class KafkaCustomDeserJobSpec extends TestHelper {
 
   new WithSettings(kafkaConfig(cometOffsetsMode, cometOffsetTopicName)) {
     s"$cometOffsetsMode($cometOffsetTopicName) Offload messages from Kafka" should "work" in {
-      val kafkaClient = new KafkaClient(settings.comet.kafka)
       if (cometOffsetsMode == "FILE")
         File("/tmp/comet_offsets").delete(swallowIOExceptions = true)
       if (false) { // require explicit activation
@@ -95,7 +93,7 @@ class KafkaCustomDeserJobSpec extends TestHelper {
               streamingTrigger = None,
               streamingWriteFormat = "starlake-http",
               writeOptions = Map(
-                "url"         -> "http://localhost:8080",
+                "url"         -> "http://localhost:9000",
                 "transformer" -> "ai.starlake.job.kafka.TestSinkTransformer"
               ),
               mode = SaveMode.Overwrite,
