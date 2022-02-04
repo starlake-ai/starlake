@@ -5,7 +5,7 @@ object Versions {
   val scalatest = "3.2.11"
   val sparkXML = "0.14.0"
   val springBoot = "2.0.6.RELEASE"
-  val typesafeConfig = "1.4.1"
+  val typesafeConfig = "1.4.2"
   val scalaLogging = "3.9.4"
   val zookeeper = "3.4.6"
   val jets3t = "0.9.3"
@@ -16,10 +16,10 @@ object Versions {
   val jackson212ForSpark3 = "2.12.3"
   val pureConfig = "0.14.0"
   val esSpark211 = "7.8.1"
-  val esSpark212 = "7.16.3"
+  val esSpark212 = "7.17.0"
   val scopt = "4.0.1"
   val gcsConnector = "hadoop3-2.2.4"
-  val bigquery = "2.7.1"
+  val bigquery = "2.8.0"
   val bigqueryConnector = "hadoop3-1.2.0"
   val hadoop = "3.3.1"
   val h2 = "2.1.210" // Test only
@@ -33,5 +33,5 @@ object Versions {
   val testContainers = "0.40.0"
   val jsqlparser = "4.3"
   val silencerVersion = "1.7.1"
-  val gcpDataCatalog = "1.6.2"
+  val gcpDataCatalog = "1.6.3"
 }
