@@ -1,6 +1,7 @@
 package ai.starlake.job.sink.kafka
 
-import ai.starlake.config.Settings
+import ai.starlake.config.{DatasetArea, Settings}
+import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.utils.kafka.KafkaClient
 import ai.starlake.utils.{JobResult, SparkJob, SparkJobResult, Utils}
 import io.confluent.kafka.schemaregistry.client.CachedSchemaRegistryClient
@@ -12,6 +13,7 @@ import org.apache.spark.sql.streaming.Trigger
 
 import scala.collection.JavaConverters._
 import scala.util.Try
+import ai.starlake.utils.Formatter._
 
 object CustomDeserializer {
   var userDefinedDeserializer: Deserializer[Any] = _
@@ -35,9 +37,17 @@ class KafkaJob(
   val kafkaJobConfig: KafkaJobConfig
 )(implicit val settings: Settings)
     extends SparkJob {
+  import settings.metadataStorageHandler
+  DatasetArea.initMetadata(metadataStorageHandler)
+  val schemaHandler = new SchemaHandler(metadataStorageHandler)
 
   private val topicConfig: Settings.KafkaTopicConfig =
     settings.comet.kafka.topics(kafkaJobConfig.topicConfigName)
+
+  private val finalPath = kafkaJobConfig.path.richFormat(
+    schemaHandler.activeEnv,
+    Map("config" -> kafkaJobConfig.topicConfigName, "topic" -> topicConfig.topicName)
+  )
 
   val schemaRegistryUrl = settings.comet.kafka.serverOptions.get("schema.registry.url")
   val schemaRegistryClient = schemaRegistryUrl.map(schemaRegistryUrl =>
@@ -83,13 +93,13 @@ class KafkaJob(
             .mode(kafkaJobConfig.mode)
             .format(kafkaJobConfig.format)
             .options(kafkaJobConfig.writeOptions)
-            .save(kafkaJobConfig.path)
-          logger.info(s"Kafka saved messages to offload -> ${kafkaJobConfig.path}")
+            .save(finalPath)
+          logger.info(s"Kafka saved messages to offload -> ${finalPath}")
 
           kafkaJobConfig.coalesce match {
-            case Some(1) if kafkaJobConfig.coalesceMerge =>
+            case Some(1) =>
               val extension = kafkaJobConfig.format
-              val targetPath = new Path(kafkaJobConfig.path)
+              val targetPath = new Path(finalPath)
               val singleFile = settings.storageHandler
                 .list(
                   targetPath,
@@ -150,7 +160,7 @@ class KafkaJob(
               throw new Exception("streamingWriteToTable Not Supported")
             else
               partitionedWriter
-                .start(kafkaJobConfig.path)
+                .start(finalPath)
 
           streamingQuery
             .awaitTermination()
@@ -163,7 +173,7 @@ class KafkaJob(
   def load(): Try[SparkJobResult] = {
     Try {
       Utils.withResources(new KafkaClient(settings.comet.kafka)) { kafkaClient =>
-        val df = session.read.format(kafkaJobConfig.format).load(kafkaJobConfig.path.split(','): _*)
+        val df = session.read.format(kafkaJobConfig.format).load(finalPath.split(','): _*)
         val transformedDF = transfom(df)
 
         kafkaClient.sinkToTopic(
