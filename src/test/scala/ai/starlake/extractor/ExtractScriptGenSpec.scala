@@ -26,6 +26,22 @@ class ExtractScriptGenSpec extends TestHelper {
         scriptOutputFile = Some(scriptOutputFolder / "extract_AnyDomain.table1.sql")
       )
 
+      val templatesPayloadFromDir = new ScriptGen(
+        storageHandler,
+        new SchemaHandler(settings.storageHandler),
+        new SimpleLauncher()
+      ).templatize(
+        File(
+          getClass.getResource("/sample/database").getPath
+        ),
+        templateParams
+      ).head
+        .pathAsString
+
+      File(templatesPayloadFromDir).lines.mkString("\n").toLowerCase shouldBe File(
+        getClass.getResource("/sample/database/expected_script_payload.txt").getPath
+      ).lines.mkString("\n").toLowerCase
+
       val templatePayload = new ScriptGen(
         storageHandler,
         new SchemaHandler(settings.storageHandler),
