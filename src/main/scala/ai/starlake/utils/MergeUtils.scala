@@ -25,7 +25,7 @@ object MergeUtils extends StrictLogging with DatasetLogging {
       if (missingColumnsNotNullable.nonEmpty)
         throw new RuntimeException(
           s"Input Dataset should contain every required column from the existing HDFS dataset. The following columns were not matched: ${missingColumnsNotNullable
-            .mkString(",")}"
+              .mkString(",")}"
         )
     }
 
