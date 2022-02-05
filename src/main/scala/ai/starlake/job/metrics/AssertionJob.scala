@@ -24,8 +24,8 @@ case class AssertionReport(
 
   override def toString: String = {
     s"""name: $name, params:$params, count:${count.getOrElse(
-      0
-    )}, success:$success, message: ${message.getOrElse("")}, sql:$sql""".stripMargin
+        0
+      )}, success:$success, message: ${message.getOrElse("")}, sql:$sql""".stripMargin
   }
 }
 

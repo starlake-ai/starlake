@@ -132,7 +132,7 @@ object JsonIngestionUtil {
       case (_, _) =>
         List(
           s"Validation error in context: ${context
-            .mkString(".")}, $datasetAttrName:$datasetAttrType isnullable:$datasetAttrNullable against " +
+              .mkString(".")}, $datasetAttrName:$datasetAttrType isnullable:$datasetAttrNullable against " +
           s"schema $schemaAttrName:$schemaAttrType isnullable:$schemaAttrNullable"
         )
     }
@@ -144,9 +144,9 @@ object JsonIngestionUtil {
     f2: StructField
   ): Unit = {
     errorList += s"""${f2.name}, ${f2.dataType.typeName}, ${context.mkString(
-      "."
-    )}, unknown field ${f2.name} : ${f2.dataType.typeName} in context ${context
-      .mkString(".")}"""
+        "."
+      )}, unknown field ${f2.name} : ${f2.dataType.typeName} in context ${context
+        .mkString(".")}"""
   }
 
 // From Spark TypeCoercion

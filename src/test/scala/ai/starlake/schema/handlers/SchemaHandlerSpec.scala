@@ -68,8 +68,8 @@ class SchemaHandlerSpec extends TestHelper {
                      |    "es.nodes.wan.only": "true"
                      |    "es.nodes": "localhost"
                      |    "es.port": "${esContainer.httpHostAddress.substring(
-        esContainer.httpHostAddress.lastIndexOf(':') + 1
-      )}",
+                       esContainer.httpHostAddress.lastIndexOf(':') + 1
+                     )}",
                      |
                      |    #  net.http.auth.user = ""
                      |    #  net.http.auth.pass = ""
