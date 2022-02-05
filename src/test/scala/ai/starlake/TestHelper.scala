@@ -99,7 +99,7 @@ trait TestHelper
         |COMET_ACCESS_POLICIES_LOCATION="eu"
         |COMET_ACCESS_POLICIES_TAXONOMY="RGPD"
         |COMET_ACCESS_POLICIES_PROJECT_ID=${sys.env
-        .getOrElse("COMET_ACCESS_POLICIES_PROJECT_ID", "invalid_project")}
+          .getOrElse("COMET_ACCESS_POLICIES_PROJECT_ID", "invalid_project")}
         |include required("application-test.conf")
         |""".stripMargin,
       ConfigParseOptions.defaults().setAllowMissing(false)
