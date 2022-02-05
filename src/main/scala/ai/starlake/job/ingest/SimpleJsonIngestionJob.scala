@@ -101,8 +101,8 @@ class SimpleJsonIngestionJob(
         }
         throw new Exception(
           s"""Invalid JSON File: ${path
-            .map(_.toString)
-            .mkString(",")}. SIMPLE_JSON require a valid json file """
+              .map(_.toString)
+              .mkString(",")}. SIMPLE_JSON require a valid json file """
         )
       } else {
         df
