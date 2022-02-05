@@ -339,7 +339,7 @@ trait TestHelper
 
     }
 
-    protected def loadWorkflow()(implicit codec: Codec) = {
+    protected def loadWorkflow()(implicit codec: Codec): IngestionWorkflow = {
       val targetPath = DatasetArea.path(
         DatasetArea.pending(datasetDomainName),
         new Path(sourceDatasetPathName).getName
