@@ -63,7 +63,7 @@ object CometJacksonModule extends CometJacksonModule {
       throw new IllegalStateException(
         s"Attempting to start a new instance of object (singleton)! \n" +
         s"    Have you decorated your case object with @JsonDeserialize(builder = classOf[${this.getClass.getSimpleName
-          .stripSuffix("$")}Builder]) ?\n" +
+            .stripSuffix("$")}Builder]) ?\n" +
         s"    The older instance was built at ${theirBuildStack.map(_.toString).mkString("\n")}\n" +
         s"    We are at: "
       )
