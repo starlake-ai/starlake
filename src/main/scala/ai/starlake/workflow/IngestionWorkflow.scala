@@ -260,8 +260,8 @@ class IngestionWorkflow(
       )
       groupedResolved.map { case (schema, pendingPaths) =>
         logger.info(s"""Ingest resolved file : ${pendingPaths
-          .map(_.getName)
-          .mkString(",")} with schema ${schema.name}""")
+            .map(_.getName)
+            .mkString(",")} with schema ${schema.name}""")
         val ingestingPaths = pendingPaths.map { pendingPath =>
           val ingestingPath = new Path(DatasetArea.ingesting(domain.name), pendingPath.getName)
           if (!storageHandler.move(pendingPath, ingestingPath)) {

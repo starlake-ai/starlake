@@ -176,12 +176,12 @@ class BigQuerySparkJob(
             case None =>
               logger.info(
                 s"No optimization applied -> the following ${partitions.length} partitions will be written: ${partitions
-                  .mkString(",")}"
+                    .mkString(",")}"
               )
             case Some(partitionsToUpdate) =>
               logger.info(
                 s"After optimization -> only the following ${partitionsToUpdate.length} partitions will be written: ${partitionsToUpdate
-                  .mkString(",")}"
+                    .mkString(",")}"
               )
           }
 
