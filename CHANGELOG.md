@@ -1,9 +1,16 @@
 # Release notes
 
+# 0.3.1
+__New feature__:
+- Update Kafka / BigQuery libraries
+
+
+__Bug Fix__:
+
 # 0.3.0
 __New feature__:
 - Vars in assertions are now substituted at load time
-- Support SQL statement in privacy phase 
+- Support SQL statement in privacy phase
 - Support parameterized semantic types
 - Add support for generic sink
 - Allow use of custom deserializer on Kafka source
