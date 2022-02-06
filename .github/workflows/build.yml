@@ -30,6 +30,8 @@ jobs:
           project_id: ${{ secrets.GCP_PROJECT }}
           service_account_key: ${{ secrets.GCP_SERVICE_ACCOUNT }}
           export_default_credentials: true
+      - name: echo GITHUB ACTION
+        run: echo ${{ github.action }} echo ${{ github.action == 'pull_request' }}
       - name: Use gcloud CLI
         run: gcloud info
       - name: Run tests & Coverage Report
