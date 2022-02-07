@@ -1,6 +1,6 @@
 ---
-slug: spark-big-query-partitioning
-title: Handling Dynamic Partitioning and Merge with Spark on BigQuery
+slug: rls-cls-big-query
+title: Adressing Column Level and Row LevelSecurity in BigQuery
 author: Hayssam Saleh
 author_title: Starlake Core Team Member
 author_url: https://www.linkedin.com/in/hayssams/
@@ -13,7 +13,9 @@ import TabItem from '@theme/TabItem';
 
 
 
-## Data Loading strategies
+## Data exposition strategies
+
+Data may be exposed using views or authorized views and more recently using Column level sec
 
 When loading data into BigQuery, you may want to:
 - **Overwrite** the existing data and replace it with the incoming data.
