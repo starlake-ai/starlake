@@ -3,7 +3,7 @@ package ai.starlake.schema.generator
 import better.files.File
 import ai.starlake.config.Settings
 import ai.starlake.schema.handlers.SchemaHandler
-import ai.starlake.schema.model.{Domain, Format}
+import ai.starlake.schema.model.{BigQuerySink, Domain, Format, Partition}
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.poi.ss.usermodel.CellType
@@ -94,12 +94,20 @@ class Yml2XlsWriter(schemaHandler: SchemaHandler) extends LazyLogging with XlsMo
       schemaRow
         .createCell(11)
         .setCellValue(metadata.partition.map(_.getSampling().toString).getOrElse(""))
+
+      val partitionColumns = metadata.getSink() match {
+        case Some(bq: BigQuerySink) =>
+          bq.timestamp
+            .map(timestamp => Some(Partition(None, Some(List(timestamp)))))
+            .getOrElse(metadata.partition)
+        case _ => metadata.partition
+      }
       schemaRow
         .createCell(12)
-        .setCellValue(metadata.partition.map(_.getAttributes().mkString(",")).getOrElse(""))
+        .setCellValue(partitionColumns.map(_.getAttributes().mkString(",")).getOrElse(""))
       schemaRow
         .createCell(13)
-        .setCellValue(metadata.getSink().map(_.toString).getOrElse(""))
+        .setCellValue(metadata.getSink().map(_.`type`).getOrElse(""))
       schemaRow
         .createCell(14)
         .setCellValue(metadata.clustering.map(_.mkString(",")).getOrElse(""))
