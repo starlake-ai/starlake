@@ -1,1 +1,0 @@
-"use strict";(self.webpackChunkstarlake_docs=self.webpackChunkstarlake_docs||[]).push([[2535],{5641:function(e){e.exports=JSON.parse('{"title":"Recent posts","items":[{"title":"Handling Dynamic Partitioning and Merge with Spark on BigQuery","permalink":"/starlake/blog/spark-big-query-partitioning"},{"title":"Bonjour","permalink":"/starlake/blog/bonjour"}]}')}}]);
