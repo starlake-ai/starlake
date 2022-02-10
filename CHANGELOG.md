@@ -3,7 +3,7 @@
 # 0.3.1
 __New feature__:
 - Update Kafka / BigQuery libraries
-
+- Add new  [preset env vars](https://starlake-ai.github.io/starlake/docs/reference/environment#preset-variables)
 
 __Bug Fix__:
 
