@@ -31,6 +31,8 @@ import com.github.ghik.silencer.silent
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
 
+import java.time.format.DateTimeFormatter
+import java.time.{LocalDateTime, ZoneId}
 import java.util.regex.Pattern
 import scala.collection.mutable
 import scala.util.{Failure, Success, Try}
@@ -168,12 +170,40 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     val envsCometPath = new Path(DatasetArea.metadata, s"env.${settings.comet.env}.comet.yml")
     val globalEnv = {
       loadEnv(globalsCometPath).mapValues(
-        _.richFormat(sys.env, Map.empty)
+        _.richFormat(sys.env, cometDateVars)
       ) // will replace with sys.env
     }
     val localEnv =
-      loadEnv(envsCometPath).mapValues(_.richFormat(sys.env, globalEnv))
-    globalEnv ++ localEnv
+      loadEnv(envsCometPath).mapValues(_.richFormat(sys.env, globalEnv ++ cometDateVars))
+    cometDateVars ++ globalEnv ++ localEnv
+  }
+
+  private val cometDateVars = {
+    val today = LocalDateTime.now
+    val dateFormatter = DateTimeFormatter.ofPattern("yyyyMMdd")
+    val dateTimeFormatter = DateTimeFormatter.ofPattern("yyyyMMddHHmmss")
+    val yearFormatter = DateTimeFormatter.ofPattern("yyyy")
+    val monthFormatter = DateTimeFormatter.ofPattern("MM")
+    val dayFormatter = DateTimeFormatter.ofPattern("dd")
+    val hourFormatter = DateTimeFormatter.ofPattern("HH")
+    val minuteFormatter = DateTimeFormatter.ofPattern("mm")
+    val secondFormatter = DateTimeFormatter.ofPattern("ss")
+    val milliFormatter = DateTimeFormatter.ofPattern("SSS")
+    val instantFormatter = DateTimeFormatter.ofPattern("SSS")
+    val epochMillis = today.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli
+    Map(
+      "comet_date"         -> today.format(dateFormatter),
+      "comet_datetime"     -> today.format(dateTimeFormatter),
+      "comet_year"         -> today.format(yearFormatter),
+      "comet_month"        -> today.format(monthFormatter),
+      "comet_day"          -> today.format(dayFormatter),
+      "comet_hour"         -> today.format(hourFormatter),
+      "comet_minute"       -> today.format(minuteFormatter),
+      "comet_second"       -> today.format(secondFormatter),
+      "comet_milli"        -> today.format(milliFormatter),
+      "comet_epoch_second" -> (epochMillis / 1000).toString,
+      "comet_epoch_milli"  -> epochMillis.toString
+    )
   }
 
   /** Fnd type by name
