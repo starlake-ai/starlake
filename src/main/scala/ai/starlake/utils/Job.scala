@@ -253,90 +253,114 @@ trait SparkJob extends JobBase {
       val valueWithEnv = value.richFormat(activeEnv, sqlParameters)
       val (sinkType, sinkConfig, path) = parseViewDefinition(valueWithEnv)
       logger.info(s"Loading view $path from $sinkType")
-      val df = sinkType match {
-        case FS => // (FS, _, absolute_path|relative_path|sql)
-          if (path.startsWith("/"))
-            session.read.format(settings.comet.defaultFormat).load(path)
-          else if (path.trim.toLowerCase.startsWith("select "))
-            session.sql(path)
-          else
-            session.read
-              .format(settings.comet.defaultFormat)
-              .load(s"${settings.comet.datasets}/$path")
-        case JDBC => // (JDBC, connectionName, queryString)
-          val jdbcConfig =
-            settings.comet.connections(sinkConfig.getOrElse(throw new Exception("")))
-          session.read
-            .options(jdbcConfig.options)
-            .format(jdbcConfig.format)
-            .option(JDBCOptions.JDBC_QUERY_STRING, path)
-            .load()
-            .cache()
-
-        case KAFKA => // (KAFKA, STREAM|FILE, topic)
-          sinkConfig match {
-            case Some(x) if x.toLowerCase() == "stream" =>
-              Utils.withResources(new KafkaClient(settings.comet.kafka)) { kafkaClient =>
-                kafkaClient.consumeTopicStreaming(session, settings.comet.kafka.topics(path))
-              }
-            case _ =>
-              Utils.withResources(new KafkaClient(settings.comet.kafka)) { kafkaClient =>
-                val (dataframe, _) =
-                  kafkaClient.consumeTopicBatch(path, session, settings.comet.kafka.topics(path))
-                dataframe
-              }
-
-          }
-        case BQ =>
-          val TablePathWithFilter = "(.*)\\.comet_filter\\((.*)\\)".r
-          val TablePathWithSelect = "(.*)\\.comet_select\\((.*)\\)".r
-          val TablePathWithFilterAndSelect =
-            "(.*)\\.comet_select\\((.*)\\)\\.comet_filter\\((.*)\\)".r
-          path match {
-            case TablePathWithFilterAndSelect(tablePath, select, filter) =>
-              logger
-                .info(
-                  s"We are loading the Table with columns: $select and filters: $filter"
-                )
-              session.read
-                .option("readDataFormat", "AVRO")
-                .format("com.google.cloud.spark.bigquery")
-                .option("table", tablePath)
-                .option("filter", filter)
-                .load()
-                .selectExpr(select.replaceAll("\\s", "").split(","): _*)
-                .cache()
-            case TablePathWithFilter(tablePath, filter) =>
-              logger.info(s"We are loading the Table with filters: $filter")
-              session.read
-                .option("readDataFormat", "AVRO")
-                .format("com.google.cloud.spark.bigquery")
-                .option("table", tablePath)
-                .option("filter", filter)
-                .load()
-                .cache()
-            case TablePathWithSelect(tablePath, select) =>
-              logger.info(s"We are loading the Table with columns: $select")
-              session.read
-                .option("readDataFormat", "AVRO")
-                .format("com.google.cloud.spark.bigquery")
-                .option("table", tablePath)
-                .load()
-                .selectExpr(select.replaceAll("\\s", "").split(","): _*)
-                .cache()
-            case _ =>
-              session.read
-                .option("readDataFormat", "AVRO")
-                .format("com.google.cloud.spark.bigquery")
-                .option("table", path)
-                .load()
-                .cache()
-          }
-        case _ =>
-          throw new Exception("Should never happen")
-      }
+      val df: DataFrame = createSparkView(sinkType, sinkConfig, path)
       df.createOrReplaceTempView(key)
       logger.info(s"Created view $key")
+    }
+  }
+
+  protected def createSparkView(
+    sinkType: SinkType,
+    sinkConfig: Option[String],
+    path: String
+  ): DataFrame = {
+    val df = sinkType match {
+      case FS => // (FS, _, absolute_path|relative_path|sql)
+        createFSView(path)
+      case JDBC => // (JDBC, connectionName, queryString)
+        createJDBCView(sinkConfig, path)
+      case KAFKA => // (KAFKA, STREAM|FILE, topic)
+        createKafkaView(sinkConfig, path)
+      case BQ =>
+        createBQView(path)
+      case _ =>
+        throw new Exception("Should never happen")
+    }
+    df
+  }
+
+  private def createJDBCView(sinkConfig: Option[String], path: String) = {
+    val jdbcConfig =
+      settings.comet.connections(sinkConfig.getOrElse(throw new Exception("")))
+    session.read
+      .options(jdbcConfig.options)
+      .format(jdbcConfig.format)
+      .option(JDBCOptions.JDBC_QUERY_STRING, path)
+      .load()
+      .cache()
+  }
+
+  private def createFSView(path: String) = {
+    if (path.startsWith("/"))
+      session.read.format(settings.comet.defaultFormat).load(path)
+    else if (path.trim.toLowerCase.startsWith("select "))
+      session.sql(path)
+    else
+      session.read
+        .format(settings.comet.defaultFormat)
+        .load(s"${settings.comet.datasets}/$path")
+  }
+
+  private def createBQView(path: String) = {
+    val TablePathWithFilter = "(.*)\\.comet_filter\\((.*)\\)".r
+    val TablePathWithSelect = "(.*)\\.comet_select\\((.*)\\)".r
+    val TablePathWithFilterAndSelect =
+      "(.*)\\.comet_select\\((.*)\\)\\.comet_filter\\((.*)\\)".r
+    path match {
+      case TablePathWithFilterAndSelect(tablePath, select, filter) =>
+        logger
+          .info(
+            s"We are loading the Table with columns: $select and filters: $filter"
+          )
+        session.read
+          .option("readDataFormat", "AVRO")
+          .format("com.google.cloud.spark.bigquery")
+          .option("table", tablePath)
+          .option("filter", filter)
+          .load()
+          .selectExpr(select.replaceAll("\\s", "").split(","): _*)
+          .cache()
+      case TablePathWithFilter(tablePath, filter) =>
+        logger.info(s"We are loading the Table with filters: $filter")
+        session.read
+          .option("readDataFormat", "AVRO")
+          .format("com.google.cloud.spark.bigquery")
+          .option("table", tablePath)
+          .option("filter", filter)
+          .load()
+          .cache()
+      case TablePathWithSelect(tablePath, select) =>
+        logger.info(s"We are loading the Table with columns: $select")
+        session.read
+          .option("readDataFormat", "AVRO")
+          .format("com.google.cloud.spark.bigquery")
+          .option("table", tablePath)
+          .load()
+          .selectExpr(select.replaceAll("\\s", "").split(","): _*)
+          .cache()
+      case _ =>
+        session.read
+          .option("readDataFormat", "AVRO")
+          .format("com.google.cloud.spark.bigquery")
+          .option("table", path)
+          .load()
+          .cache()
+    }
+  }
+
+  private def createKafkaView(sinkConfig: Option[String], path: String) = {
+    sinkConfig match {
+      case Some(x) if x.toLowerCase() == "stream" =>
+        Utils.withResources(new KafkaClient(settings.comet.kafka)) { kafkaClient =>
+          kafkaClient.consumeTopicStreaming(session, settings.comet.kafka.topics(path))
+        }
+      case _ =>
+        Utils.withResources(new KafkaClient(settings.comet.kafka)) { kafkaClient =>
+          val (dataframe, _) =
+            kafkaClient.consumeTopicBatch(path, session, settings.comet.kafka.topics(path))
+          dataframe
+        }
+
     }
   }
 }
