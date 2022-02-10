@@ -65,7 +65,7 @@ class KafkaJob(
     SchemaConverters.toSqlType(parser.parse(avroSchema))
   }
 
-  val dfValueSchema = {
+  val dfValueSchema: Option[SchemaConverters.SchemaType] = {
     val rawSchema = lookupTopicSchema(topicConfig.topicName)
     rawSchema.map(rawSchema => avroSchemaToSparkSchema(rawSchema))
   }
