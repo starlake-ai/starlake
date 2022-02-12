@@ -83,7 +83,7 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
       if (sys.env.getOrElse("COMET_GCP_TEST", "false").toBoolean) {
         val businessTask1 = AutoTaskDesc(
           None,
-          Some("select * from bqtest.account"),
+          Some("select * except(code0) from bqtest.account"),
           "bqtest",
           "jobresult",
           WriteMode.OVERWRITE,
@@ -98,7 +98,7 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
           .writer()
           .withAttribute(classOf[Settings], settings)
           .writeValueAsString(businessJob)
-        lazy val pathBusiness = new Path(cometMetadataPath + "/jobs/bqjobtest.comet.yml")
+        val pathBusiness = new Path(cometMetadataPath + "/jobs/bqjobtest.comet.yml")
 
         val workflow =
           new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
