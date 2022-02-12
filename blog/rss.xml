@@ -37,7 +37,7 @@ that your tables are secured in BigQuery:</p><pre><code class="language-yaml" me
     attributes:
       - name: &quot;id&quot;
         accessPolicy: PII
-</code></pre>]]></content:encoded>
+</code></pre><h2>Comments</h2><p><a href="https://discord.com/channels/833336395430625310/908709208025858079">Let&#x27;s continue the conversation on Discord</a></p>]]></content:encoded>
         </item>
         <item>
             <title><![CDATA[Handling Dynamic Partitioning and Merge with Spark on BigQuery]]></title>
