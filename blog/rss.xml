@@ -8,7 +8,7 @@
         <docs>https://validator.w3.org/feed/docs/rss2.html</docs>
         <generator>https://github.com/jpmonette/feed</generator>
         <item>
-            <title><![CDATA[Adressing Column  and Row Level Security in BigQuery]]></title>
+            <title><![CDATA[Column  and Row Level Security in BigQuery]]></title>
             <link>https://starlake-ai.github.io/starlake/blog/rls-cls-big-query</link>
             <guid>rls-cls-big-query</guid>
             <pubDate>Tue, 15 Feb 2022 00:00:00 GMT</pubDate>
