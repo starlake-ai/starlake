@@ -8,7 +8,7 @@
     <subtitle>Quickly Build Optimized Big &amp; Fast Data Pipelines Blog</subtitle>
     <icon>https://starlake-ai.github.io/starlake/img/favicon.ico</icon>
     <entry>
-        <title type="html"><![CDATA[Adressing Column Level and Row LevelSecurity in BigQuery]]></title>
+        <title type="html"><![CDATA[Adressing Column  and Row Level Security in BigQuery]]></title>
         <id>rls-cls-big-query</id>
         <link href="https://starlake-ai.github.io/starlake/blog/rls-cls-big-query"/>
         <updated>2022-02-15T00:00:00.000Z</updated>
