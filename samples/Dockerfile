@@ -12,15 +12,15 @@ RUN apk update && apk add bash
 
 WORKDIR /app
 ## configure spark
-RUN curl -L -O https://downloads.apache.org/spark/spark-3.1.2/spark-3.1.2-bin-hadoop3.2.tgz
-RUN tar -zxf spark-3.1.2-bin-hadoop3.2.tgz -C /app
-RUN rm spark-3.1.2-bin-hadoop3.2.tgz
+RUN curl -L -O https://downloads.apache.org/spark/spark-3.2.1/spark-3.2.1-bin-hadoop3.2.tgz
+RUN tar -zxf spark-3.2.1-bin-hadoop3.2.tgz -C /app
+RUN rm spark-3.2.1-bin-hadoop3.2.tgz
 
 ## download starlake
 RUN curl -L -O https://s01.oss.sonatype.org/content/repositories/releases/ai/starlake/starlake-spark3_2.12/$STARLAKE_VERSION/starlake-spark3_2.12-$STARLAKE_VERSION-assembly.jar
 RUN mkdir -p /samples/bin
 RUN mv /app/starlake-spark3_2.12-$STARLAKE_VERSION-assembly.jar /samples/bin/
-RUN mv /app/spark-3.1.2-bin-hadoop3.2 /samples/bin/
+RUN mv /app/spark-3.2.1-bin-hadoop3.2 /samples/bin/
 
 COPY local/ /samples/local/
 COPY quickstart-template/ /samples/quickstart-template/
