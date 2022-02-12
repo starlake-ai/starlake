@@ -98,8 +98,8 @@ trait TestHelper
         |COMET_UDFS="ai.starlake.udf.TestUdf"
         |COMET_ACCESS_POLICIES_LOCATION="eu"
         |COMET_ACCESS_POLICIES_TAXONOMY="RGPD"
-        |COMET_ACCESS_POLICIES_PROJECT_ID=${sys.env
-          .getOrElse("COMET_ACCESS_POLICIES_PROJECT_ID", "invalid_project")}
+        |COMET_ACCESS_POLICIES_PROJECT_ID="${sys.env
+          .getOrElse("COMET_ACCESS_POLICIES_PROJECT_ID", "invalid_project")}"
         |include required("application-test.conf")
         |""".stripMargin,
       ConfigParseOptions.defaults().setAllowMissing(false)
