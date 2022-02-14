@@ -68,7 +68,7 @@ case class AutoTaskJob(
   val (createDisposition, writeDisposition) =
     Utils.getDBDisposition(task.write, hasMergeKeyDefined = false)
 
-  private def createConfig(): BigQueryLoadConfig = {
+  private def createBigQueryConfig(): BigQueryLoadConfig = {
     val bqSink = task.sink.map(sink => sink.asInstanceOf[BigQuerySink]).getOrElse(BigQuerySink())
 
     BigQueryLoadConfig(
@@ -137,7 +137,7 @@ case class AutoTaskJob(
 
   def runBQ(): Try[JobResult] = {
     val start = Timestamp.from(Instant.now())
-    val config = createConfig()
+    val config = createBigQueryConfig()
     val (preSql, mainSql, postSql) = buildQueryBQ()
 
     // We add extra parenthesis required by BQ when using "WITH" keyword
