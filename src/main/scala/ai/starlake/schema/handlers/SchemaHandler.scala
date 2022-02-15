@@ -320,7 +320,7 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
             presql = sqlTask.presql,
             sql = Option(sqlTask.sql),
             postsql = sqlTask.postsql,
-            domain = taskDesc.domain.richFormat(activeEnv, Map.empty),
+            domain = Option(taskDesc.domain).getOrElse("").richFormat(activeEnv, Map.empty),
             dataset = taskDesc.dataset.richFormat(activeEnv, Map.empty),
             area = taskDesc.area.map(area =>
               StorageArea.fromString(area.value.richFormat(activeEnv, Map.empty))

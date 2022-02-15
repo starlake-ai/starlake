@@ -32,6 +32,7 @@ import java.util.Comparator
 import scala.collection.mutable
 import scala.util.{Failure, Success, Try}
 import JsonParser.NumberType._
+import com.fasterxml.jackson.core.JsonParser.Feature
 
 /** Code here comes from org.apache.spark.sql.execution.datasources.json.InferSchema
   */
@@ -388,6 +389,5 @@ object JsonIngestionUtil {
     }
   }
 
-  val factory = new JsonFactory()
-
+  val factory = (new JsonFactory()).enable(Feature.ALLOW_SINGLE_QUOTES)
 }
