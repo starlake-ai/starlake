@@ -85,7 +85,7 @@ class KafkaJob(
           val finalDF =
             kafkaJobConfig.coalesce match {
               case None    => transformedDF
-              case Some(x) => transformedDF.coalesce(x)
+              case Some(x) => transformedDF.repartition(x)
             }
 
           logger.info(s"Saving to $kafkaJobConfig")

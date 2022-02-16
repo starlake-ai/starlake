@@ -137,9 +137,10 @@ trait IngestionJob extends SparkJob {
       val targetPath =
         new Path(replayArea, s"$domainName.$schemaName.$formattedDate.replay")
       rejectedLinesDS
-        .coalesce(1)
-        .rdd
-        .saveAsTextFile(targetPath.toString)
+        .repartition(1)
+        .write
+        .format("text")
+        .save(targetPath.toString)
       storageHandler.moveSparkPartFile(
         targetPath,
         "0000" // When saving as text file, no extension is added.
@@ -687,10 +688,10 @@ trait IngestionJob extends SparkJob {
       // No need to apply partition on rejected dF
       val partitionedDFWriter =
         if (area == StorageArea.rejected)
-          partitionedDatasetWriter(dataset.coalesce(nbPartitions), Nil)
+          partitionedDatasetWriter(dataset.repartition(nbPartitions), Nil)
         else
           partitionedDatasetWriter(
-            dataset.coalesce(nbPartitions),
+            dataset.repartition(nbPartitions),
             metadata.getPartitionAttributes()
           )
 
@@ -862,10 +863,10 @@ trait IngestionJob extends SparkJob {
         dataset match {
           case Success(dataset) =>
             Try {
-              val (rejectedRDD, acceptedRDD) = ingest(dataset)
+              val (rejectedDS, acceptedDS) = ingest(dataset)
               val inputCount = dataset.count()
-              val acceptedCount = acceptedRDD.count()
-              val rejectedCount = rejectedRDD.count()
+              val acceptedCount = acceptedDS.count()
+              val rejectedCount = rejectedDS.count()
               val inputFiles = path.map(_.toString).mkString(",")
               logger.info(
                 s"ingestion-summary -> files: [$inputFiles], domain: ${domain.name}, schema: ${schema.name}, input: $inputCount, accepted: $acceptedCount, rejected:$rejectedCount"
