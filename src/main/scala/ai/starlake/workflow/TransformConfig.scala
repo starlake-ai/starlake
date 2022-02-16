@@ -26,12 +26,12 @@ object TransformConfig extends CliConfig[TransformConfig] {
       opt[String]("views-dir")
         .action((x, c) => c.copy(viewsDir = Some(x)))
         .optional()
-        .text("Where to store the result of the query in JSON"),
+        .text("Useful for testing. Where to store the result of the query in JSON"),
       opt[Int]("views-count")
         .action((x, c) => c.copy(viewsCount = x))
         .optional()
         .text(
-          s"Max number of rows to retrieve. Negative value means the maximum value ${Int.MaxValue}"
+          s"Useful for testing. Max number of rows to retrieve. Negative value means the maximum value ${Int.MaxValue}"
         ),
       opt[Map[String, String]]("options")
         .valueName("k1=v1,k2=v2...")

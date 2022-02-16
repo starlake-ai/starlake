@@ -184,14 +184,14 @@ class SinkUtils(implicit settings: Settings) extends StrictLogging with DatasetL
         session.sql(s"create database if not exists $hiveDB")
         session.sql(s"use $hiveDB")
         dataByVariableStored
-          .coalesce(1)
+          .repartition(1)
           .write
           .mode(SaveMode.Append)
           .format(settings.comet.defaultFormat)
           .saveAsTable(fullTableName)
       } else {
         dataByVariableStored
-          .coalesce(1)
+          .repartition(1)
           .write
           .mode(SaveMode.Append)
           .format(settings.comet.defaultFormat)
@@ -211,7 +211,7 @@ class SinkUtils(implicit settings: Settings) extends StrictLogging with DatasetL
     } else {
       storageHandler.mkdirs(path)
       dataToSave
-        .coalesce(1)
+        .repartition(1)
         .write
         .mode(SaveMode.Append)
         .format(settings.comet.defaultFormat)

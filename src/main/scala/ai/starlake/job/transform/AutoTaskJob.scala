@@ -246,7 +246,7 @@ case class AutoTaskJob(
       // To execute a task without writing to disk simply avoid the area at the job and task level
       val partitionedDF =
         partitionedDatasetWriter(
-          if (coalesce) dataframe.coalesce(1) else dataframe,
+          if (coalesce) dataframe.repartition(1) else dataframe,
           task.getPartitions()
         )
 
