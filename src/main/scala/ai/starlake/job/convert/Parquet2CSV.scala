@@ -50,7 +50,7 @@ class Parquet2CSV(config: Parquet2CSVConfig, val storageHandler: StorageHandler)
           val writer = session.read
             .format(settings.comet.defaultFormat)
             .load(path.toString)
-            .coalesce(config.partitions)
+            .repartition(config.partitions)
             .write
             .mode(config.writeMode.getOrElse(ERROR_IF_EXISTS).toSaveMode)
           writer

@@ -31,6 +31,5 @@ class KryoSerialization extends KryoRegistrator {
     kryo.register(classOf[Mode])
     kryo.register(classOf[StorageLevel])
     kryo.register(classOf[PrivacyEngine])
-
   }
 }
