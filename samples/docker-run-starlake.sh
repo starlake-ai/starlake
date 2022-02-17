@@ -1,2 +1,2 @@
 # shellcheck disable=SC2046
-docker run -it starlake:latest
+docker run -it starlake:latest bash
