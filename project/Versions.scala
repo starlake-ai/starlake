@@ -24,10 +24,7 @@ object Versions {
   val hadoop = "3.3.1"
   val h2 = "2.1.210" // Test only
   val poi = "4.1.2"
-  val scalate = "1.9.6"
-  val akkaHttp = "10.1.15"
-  //  val akkaStream = "2.6.12"
-  val akkaStream = "2.5.32"
+  val scalate = "1.9.7"
   val kafkaClients = "7.0.1-ce"
   val confluentVersion = "7.0.1"
   val testContainers = "0.40.1"
