@@ -8,7 +8,7 @@ javacOptions ++= Seq("-source", "1.8", "-target", "1.8", "-Xlint")
 
 sonatypeCredentialHost := "s01.oss.sonatype.org"
 
-lazy val scala212 = "2.12.12"
+lazy val scala212 = "2.12.15"
 
 crossScalaVersions := List(scala212)
 
