@@ -454,10 +454,10 @@ trait IngestionJob extends SparkJob {
     schema.attributes
       .filter(_.script.isDefined)
       .map(attr => (attr.name, attr.sparkType(schemaHandler), attr.script))
-      .foldLeft(acceptedDF) { case (df, (name, sparkType, Some(script))) =>
+      .foldLeft(acceptedDF) { case (df, (name, sparkType, script)) =>
         df.withColumn(
           name,
-          expr(script.richFormat(schemaHandler.activeEnv, options)).cast(sparkType)
+          expr(script.getOrElse("").richFormat(schemaHandler.activeEnv, options)).cast(sparkType)
         )
       }
       .drop(CometColumns.cometInputFileNameColumn)
@@ -721,7 +721,7 @@ trait IngestionJob extends SparkJob {
         (clusteredDFWriter, dataset)
 
       // We do not output empty datasets
-      if (!finalDataset.limit(1).isEmpty) {
+      if (!finalDataset.isEmpty) {
         val finalTargetDatasetWriter =
           if (csvOutput() && area != StorageArea.rejected) {
             targetDatasetWriter
@@ -1109,17 +1109,9 @@ object IngestionUtil {
         rejectedPathName
       )
     }
-    val rejectedDF = session
-      .createDataFrame(
-        rejectedTypedDS.toDF().rdd,
-        StructType(
-          rejectedCols.map { case (attrName, _, sparkType) =>
-            StructField(attrName, sparkType, nullable = false)
-          }
-        )
-      )
-      .toDF(rejectedCols.map { case (attrName, _, _) => attrName }: _*)
+    val rejectedDF = rejectedTypedDS
       .limit(settings.comet.audit.maxErrors)
+      .toDF(rejectedCols.map { case (attrName, _, _) => attrName }: _*)
 
     val res =
       settings.comet.audit.sink match {
