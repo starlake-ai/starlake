@@ -33,6 +33,6 @@ println()
 println("----------------------------------------------------------------------------")
 println("----------------------------SALES TABLE-------------------------------------")
 println("----------------------------------------------------------------------------")
-spark.read.parquet("./quickstart/datasets/business/sales_kpi").printSchema
-spark.read.parquet("./quickstart/datasets/business/sales_kpi").show(false)
+spark.read.parquet("./quickstart/datasets/business/sales_kpi/byseller_kpi").printSchema
+spark.read.parquet("./quickstart/datasets/business/sales_kpi/byseller_kpi").show(false)
 
