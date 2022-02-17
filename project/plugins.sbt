@@ -26,7 +26,7 @@ addSbtPlugin("com.github.sbt" % "sbt-pgp" % "2.1.2")
 // provides "sbt dependencyUpdates":
 addSbtPlugin("com.timushev.sbt" % "sbt-updates" % "0.6.2")
 
-addSbtPlugin("com.eed3si9n" % "sbt-buildinfo" % "0.10.0")
+addSbtPlugin("com.eed3si9n" % "sbt-buildinfo" % "0.11.0")
 
 addSbtPlugin("org.scoverage" % "sbt-scoverage" % "1.9.3")
 
