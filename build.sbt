@@ -32,6 +32,12 @@ libraryDependencies ++= {
   dependencies ++ spark ++ jackson ++ esSpark ++ scalaReflection(scalaVersion.value)
 }
 
+dependencyOverrides := Seq(
+  "org.scala-lang"         % "scala-library"             % scalaVersion.value,
+  "org.scala-lang"         % "scala-reflect"             % scalaVersion.value,
+  "org.scala-lang"         % "scala-compiler"            % scalaVersion.value
+)
+
 name := {
   val sparkNameSuffix = {
     CrossVersion.partialVersion(scalaVersion.value) match {
