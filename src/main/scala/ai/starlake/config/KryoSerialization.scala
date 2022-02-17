@@ -2,6 +2,7 @@ package ai.starlake.config
 
 import ai.starlake.config.Settings.JdbcEngine.TableDdl
 import ai.starlake.config.Settings._
+import ai.starlake.job.ingest.RejectedRecord
 import ai.starlake.privacy.PrivacyEngine
 import ai.starlake.schema.model.{BigQuerySink, EsSink, FsSink, JdbcSink, Mode, NoneSink, Sink}
 import com.esotericsoftware.kryo.Kryo
@@ -31,5 +32,7 @@ class KryoSerialization extends KryoRegistrator {
     kryo.register(classOf[Mode])
     kryo.register(classOf[StorageLevel])
     kryo.register(classOf[PrivacyEngine])
+    kryo.register(classOf[RejectedRecord])
+
   }
 }
