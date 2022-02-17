@@ -10,4 +10,4 @@ case $STARLAKE_ENV in
     *)             echo "Only available in LOCAL mode for testing"; exit 1;;
 esac
 
-../bin/spark-*/bin/spark-shell -i ./spark-shell-view-results.scala
+../bin/spark-*/bin/spark-shell -i ./spark-shell-view-audit.scala
