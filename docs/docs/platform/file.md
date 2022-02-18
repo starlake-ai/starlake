@@ -23,6 +23,7 @@ $ docker run -it starlake:latest bash
 ## Running the samples
 
 Inside the docker container, make sure you are in the `samples/local` folder
+
 The quickstart-template is first duplicated into the samples/local folder to create a startup project  
 
 ````shell
