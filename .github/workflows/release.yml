@@ -10,11 +10,11 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - name: Set up Zulu 11
+      - name: Set up Zulu 8
         uses: actions/setup-java@v2
         with:
           distribution: 'zulu' # See 'Supported distributions' for available options
-          java-version: '11'
+          java-version: '8'
       - uses: actions/checkout@v2
         if: ${{ !github.event.repository.fork }}
       - uses: google-github-actions/setup-gcloud@v0.3.0
