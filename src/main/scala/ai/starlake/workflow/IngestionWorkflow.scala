@@ -22,14 +22,14 @@ package ai.starlake.workflow
 
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.job.atlas.{AtlasConfig, AtlasJob}
-import ai.starlake.job.sink.bigquery.{BigQueryLoadConfig, BigQuerySparkJob}
-import ai.starlake.job.sink.jdbc.{ConnectionLoadConfig, ConnectionLoadJob}
-import ai.starlake.job.sink.es.{ESLoadConfig, ESLoadJob}
-import ai.starlake.job.sink.kafka.{KafkaJob, KafkaJobConfig}
 import ai.starlake.job.infer.{InferSchema, InferSchemaConfig}
 import ai.starlake.job.ingest._
 import ai.starlake.job.load.LoadStrategy
 import ai.starlake.job.metrics.{MetricsConfig, MetricsJob}
+import ai.starlake.job.sink.bigquery.{BigQueryLoadConfig, BigQuerySparkJob}
+import ai.starlake.job.sink.es.{ESLoadConfig, ESLoadJob}
+import ai.starlake.job.sink.jdbc.{ConnectionLoadConfig, ConnectionLoadJob}
+import ai.starlake.job.sink.kafka.{KafkaJob, KafkaJobConfig}
 import ai.starlake.job.transform.AutoTaskJob
 import ai.starlake.schema.generator.{Yml2DDLConfig, Yml2DDLJob}
 import ai.starlake.schema.handlers.{LaunchHandler, SchemaHandler, StorageHandler}
@@ -38,6 +38,7 @@ import ai.starlake.schema.model.Mode.{FILE, STREAM}
 import ai.starlake.schema.model._
 import ai.starlake.utils._
 import better.files.File
+import com.github.ghik.silencer.silent
 import com.google.cloud.bigquery.JobInfo.{CreateDisposition, WriteDisposition}
 import com.google.cloud.bigquery.{Schema => BQSchema}
 import com.typesafe.scalalogging.StrictLogging
@@ -214,6 +215,7 @@ class IngestionWorkflow(
     *   : includes Load pending dataset of these domain only excludes : Do not load datasets of
     *   these domains if both lists are empty, all domains are included
     */
+  @silent
   def loadPending(config: WatchConfig = WatchConfig()): Boolean = {
     val includedDomains = domainsToWatch(config)
 
@@ -278,7 +280,8 @@ class IngestionWorkflow(
           }
         }
         val parJobs = jobs.par
-        val forkJoinPool = new java.util.concurrent.ForkJoinPool(settings.comet.scheduling.maxJobs)
+        val forkJoinPool =
+          new scala.concurrent.forkjoin.ForkJoinPool(settings.comet.scheduling.maxJobs)
         parJobs.tasksupport = new ForkJoinTaskSupport(forkJoinPool)
         val res = parJobs.map { jobContext =>
           launchHandler.ingest(
