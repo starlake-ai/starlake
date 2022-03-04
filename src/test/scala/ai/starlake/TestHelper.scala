@@ -28,7 +28,7 @@ import ai.starlake.job.ingest.LoadConfig
 import ai.starlake.schema.handlers.{SchemaHandler, SimpleLauncher, StorageHandler}
 import ai.starlake.schema.model.AutoJobDesc
 import ai.starlake.utils.{CometObjectMapper, Utils}
-import ai.starlake.workflow.{IngestionWorkflow, WatchConfig}
+import ai.starlake.workflow.{ImportConfig, IngestionWorkflow, WatchConfig}
 import com.fasterxml.jackson.annotation.JsonInclude.Include
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
@@ -45,12 +45,12 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{Assertion, BeforeAndAfterAll}
 import org.testcontainers.utility.DockerImageName
-
 import java.io.{File, InputStream}
 import java.nio.file.Files
 import java.time.LocalDate
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
+
 import scala.collection.JavaConverters._
 import scala.io.{Codec, Source}
 import scala.util.Try
@@ -405,7 +405,7 @@ trait TestHelper
 
       // Load landing file
       val validator = new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
-      validator.loadLanding()
+      validator.loadLanding(ImportConfig())
     }
   }
 
