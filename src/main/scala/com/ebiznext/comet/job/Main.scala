@@ -122,8 +122,14 @@ object Main extends StrictLogging {
             false
         }
       case "import" =>
-        workflow.loadLanding()
-        true
+        ImportConfig.parse(args.drop(1)) match {
+          case Some(config) =>
+            workflow.loadLanding(config)
+            true
+          case None =>
+            println(ImportConfig.usage())
+            false
+        }
       case "validate" =>
         schemaHandler.checkValidity()
         true
