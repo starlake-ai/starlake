@@ -117,7 +117,7 @@ publishTo := {
     sys.env.getOrElse("RELEASE_SONATYPE", "true").toBoolean
   ) match {
     case (None, false) =>
-      githubPublishTo.value
+      // githubPublishTo.value
       // we do not publish on github anymore
       sonatypePublishToBundle.value
     case (None, true) => sonatypePublishToBundle.value
@@ -156,7 +156,7 @@ sonatypeProjectHosting := Some(
 )
 
 // Release
-releaseCrossBuild := false
+releaseCrossBuild := true
 
 releaseIgnoreUntrackedFiles := true
 
