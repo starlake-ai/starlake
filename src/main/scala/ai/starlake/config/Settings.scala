@@ -341,6 +341,8 @@ object Settings extends StrictLogging {
       .fromConfig(effectiveConfig)
       .loadOrThrow[Comet]
 
+    logger.info("COMET_FS=" + System.getenv("COMET_FS"))
+    logger.info("COMET_ROOT=" + System.getenv("COMET_ROOT"))
     logger.info(YamlSerializer.serializeObject(loaded))
     val settings = Settings(loaded, effectiveConfig.getConfig("spark"))
     val applicationConfPath = new Path(DatasetArea.metadata(settings), "application.conf")

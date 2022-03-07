@@ -245,7 +245,7 @@ class KafkaJobSpec extends TestHelper {
           new NewTopic("comet_offsets", 1, 1.toShort),
           topicProperties
         )
-        val partitions = kafkaClient.topicPartitions("comet_offsets")
+        val partitions = kafkaClient.adminTopicPartitions("comet_offsets")
         partitions should have size 1
       }
 
