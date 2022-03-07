@@ -84,9 +84,15 @@ class IngestionWorkflow(
     * file. "ack" is the default ack extension searched for but you may specify a different one in
     * the domain YML file.
     */
-  def loadLanding(): Unit = {
-    logger.info("LoadLanding")
-    domains.foreach { domain =>
+  def loadLanding(config: ImportConfig): Unit = {
+    val filteredDomains = config.includes match {
+      case Nil => domains
+      case _   => domains.filter { d => config.includes.contains(d.name) }
+    }
+    logger.info(
+      s"Loading files from Landing Zone for domains : ${filteredDomains.map(_.name).mkString(",")}"
+    )
+    filteredDomains.foreach { domain =>
       val storageHandler = settings.storageHandler
       val inputDir = new Path(domain.resolveDirectory())
       if (storageHandler.exists(inputDir)) {
