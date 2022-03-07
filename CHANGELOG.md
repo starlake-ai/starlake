@@ -1,5 +1,9 @@
 # Release notes
 
+# 0.3.2
+__New feature__:
+- import step can be limited to one or more domains
+
 # 0.3.1
 __New feature__:
 - Update Kafka / BigQuery libraries
