@@ -70,42 +70,43 @@ class KafkaClient(kafkaConfig: KafkaConfig)(implicit settings: Settings)
     }
   }
 
-  def topicPartitions(topicName: String): List[TopicPartitionInfo] = {
-    client
-      .describeTopics(java.util.Collections.singleton(topicName))
-      .all()
-      .get()
-      .get(topicName)
-      .partitions()
-      .asScala
-      .toList
-  }
-
   def topicEndOffsets(topicName: String, accessOptions: Map[String, String]): List[(Int, Long)] = {
     Try {
-      val props: Properties = buildProps(accessOptions)
-      val consumer = new KafkaConsumer[String, String](props)
-      logger.whenInfoEnabled {
-        import scala.collection.JavaConverters._
-        logger.info(s"access options for topic $topicName ==>")
-        props.asScala.foreach { case (k, v) =>
-          logger.info(s"\t$k=$v")
-        }
-      }
-      val partitions = consumer
-        .partitionsFor(topicName)
-        .asScala
-        .map(info => new TopicPartition(topicName, info.partition()))
-        .toList
+      val consumer = newConsumer(topicName, accessOptions)
+      val partitions = extractPartitions(topicName, consumer)
       consumer.assign(partitions.asJava)
       consumer.seekToEnd(partitions.asJava)
-      partitions.map(p => (p.partition(), consumer.position(p)))
+      val result = partitions.map(p => (p.partition(), consumer.position(p)))
+      consumer.close()
+      result
     } match {
       case Failure(e) =>
         e.printStackTrace()
         throw e
       case Success(value) => value
     }
+  }
+
+  private def extractPartitions(topicName: String, consumer: KafkaConsumer[String, String]) = {
+    val partitions = consumer
+      .partitionsFor(topicName)
+      .asScala
+      .map(info => new TopicPartition(topicName, info.partition()))
+      .toList
+    partitions
+  }
+
+  private def newConsumer(topicName: String, accessOptions: Map[String, String]) = {
+    val props: Properties = buildProps(accessOptions)
+    logger.whenInfoEnabled {
+      import scala.collection.JavaConverters._
+      logger.info(s"access options for topic $topicName ==>")
+      props.asScala.foreach { case (k, v) =>
+        logger.info(s"\t$k=$v")
+      }
+    }
+    val consumer = new KafkaConsumer[String, String](props)
+    consumer
   }
 
   private def buildProps(accessOptions: Map[String, String]) = {
@@ -151,16 +152,24 @@ class KafkaClient(kafkaConfig: KafkaConfig)(implicit settings: Settings)
     }
   }
 
+  def adminTopicPartitions(topicName: String): List[TopicPartitionInfo] = {
+    client
+      .describeTopics(java.util.Collections.singleton(topicName))
+      .all()
+      .get()
+      .get(topicName)
+      .partitions()
+      .asScala
+      .toList
+  }
+
   private def topicCurrentOffsetsFromStream(topicConfigName: String): Option[List[(Int, Long)]] = {
     val props = new Properties()
     cometOffsetsConfig.accessOptions.foreach { option =>
       props.put(option._1, option._2)
     }
     val consumer = new KafkaConsumer[String, String](props)
-    val partitions =
-      topicPartitions(cometOffsetsConfig.topicName).map(info =>
-        new TopicPartition(cometOffsetsConfig.topicName, info.partition())
-      )
+    val partitions = extractPartitions(cometOffsetsConfig.topicName, consumer)
     consumer.assign(partitions.asJava)
     consumer.seekToBeginning(partitions.asJava)
     val offsets = mutable.Map.empty[String, String]
@@ -243,8 +252,11 @@ class KafkaClient(kafkaConfig: KafkaConfig)(implicit settings: Settings)
     val startOffsets =
       topicCurrentOffsets(topicConfigName)
         .getOrElse {
-          topicPartitions(config.topicName)
+          val consumer = newConsumer(config.topicName, config.accessOptions)
+          val partitions = extractPartitions(config.topicName, consumer)
             .map(p => (p.partition(), EARLIEST_OFFSET))
+          consumer.close()
+          partitions
         }
 
     logger.whenInfoEnabled {
