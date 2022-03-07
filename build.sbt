@@ -18,7 +18,7 @@ organization := "ai.starlake"
 
 organizationName := "starlake"
 
-scalaVersion := scala211
+scalaVersion := scala212
 
 organizationHomepage := Some(url("https://github.com/starlake-ai/starlake"))
 
