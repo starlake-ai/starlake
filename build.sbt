@@ -12,13 +12,13 @@ lazy val scala211 = "2.11.12"
 
 lazy val scala212 = "2.12.15"
 
-crossScalaVersions := List(scala211, scala212)
+ThisBuild / crossScalaVersions := List(scala211, scala212)
 
 organization := "ai.starlake"
 
 organizationName := "starlake"
 
-scalaVersion := scala212
+ThisBuild / scalaVersion := scala212
 
 organizationHomepage := Some(url("https://github.com/starlake-ai/starlake"))
 
@@ -164,7 +164,7 @@ releaseProcess := Seq(
   checkSnapshotDependencies,
   inquireVersions,
   runClean,
-  releaseStepCommand("+test"),
+//  releaseStepCommand("+test"),
   setReleaseVersion,
   commitReleaseVersion, // forces to push dirty files
   tagRelease,
