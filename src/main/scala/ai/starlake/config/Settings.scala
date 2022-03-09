@@ -290,7 +290,8 @@ object Settings extends StrictLogging {
     defaultFileExtensions: String,
     forceFileExtensions: String,
     accessPolicies: AccessPolicies,
-    scheduling: JobScheduling
+    scheduling: JobScheduling,
+    maxParCopy: Int
   ) extends Serializable {
 
     val cacheStorageLevel =

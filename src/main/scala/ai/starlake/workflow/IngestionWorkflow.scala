@@ -49,6 +49,8 @@ import org.apache.spark.sql.types.{StructField, StructType}
 import java.nio.file.{FileSystems, ProviderNotFoundException}
 import java.util.Collections
 import scala.collection.parallel.ForkJoinTaskSupport
+import scala.collection.parallel.immutable.ParSeq
+import scala.concurrent.forkjoin.ForkJoinPool
 import scala.util.{Failure, Success, Try}
 
 /** The whole worklfow works as follow :
@@ -285,10 +287,7 @@ class IngestionWorkflow(
             JobContext(domain, schema, path :: Nil, config.options)
           }
         }
-        val parJobs = jobs.par
-        val forkJoinPool =
-          new scala.concurrent.forkjoin.ForkJoinPool(settings.comet.scheduling.maxJobs)
-        parJobs.tasksupport = new ForkJoinTaskSupport(forkJoinPool)
+        val (parJobs, forkJoinPool) = makeParallel(jobs.toList, settings.comet.scheduling.maxJobs)
         val res = parJobs.map { jobContext =>
           launchHandler.ingest(
             this,
@@ -405,6 +404,7 @@ class IngestionWorkflow(
     }
   }
 
+  @silent
   def ingest(
     domain: Domain,
     schema: Schema,
@@ -533,12 +533,14 @@ class IngestionWorkflow(
     ingestionResult match {
       case Success(Success(jobResult)) =>
         if (settings.comet.archive) {
-          ingestingPath.foreach { ingestingPath =>
+          val (parIngests, forkJoinPool) = makeParallel(ingestingPath, settings.comet.maxParCopy)
+          parIngests.foreach { ingestingPath =>
             val archivePath =
               new Path(DatasetArea.archive(domain.name), ingestingPath.getName)
             logger.info(s"Backing up file $ingestingPath to $archivePath")
             val _ = storageHandler.move(ingestingPath, archivePath)
           }
+          forkJoinPool.shutdown()
         } else {
           logger.info(s"Deleting file $ingestingPath")
           ingestingPath.foreach(storageHandler.delete)
@@ -551,6 +553,15 @@ class IngestionWorkflow(
         Utils.logException(logger, exception)
         Failure(exception)
     }
+  }
+
+  @silent
+  private def makeParallel[T](collection: List[T], maxPar: Int): (ParSeq[T], ForkJoinPool) = {
+    val parCollection = collection.par
+    val forkJoinPool =
+      new scala.concurrent.forkjoin.ForkJoinPool(maxPar)
+    parCollection.tasksupport = new ForkJoinTaskSupport(forkJoinPool)
+    (parCollection, forkJoinPool)
   }
 
   def inferSchema(config: InferSchemaConfig): Try[Unit] = {
