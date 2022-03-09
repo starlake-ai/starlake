@@ -25,18 +25,18 @@ organizationHomepage := Some(url("https://github.com/starlake-ai/starlake"))
 resolvers ++= Resolvers.allResolvers
 
 libraryDependencies ++= {
-  val (spark, jackson, esSpark) = {
+  val (spark, jackson, esSpark, pureConfigs) = {
     CrossVersion.partialVersion(scalaVersion.value) match {
-      case Some((2, 12)) => (spark_3d0_forScala_2d12, jackson212ForSpark3, esSpark212)
+      case Some((2, 12)) => (spark_3d0_forScala_2d12, jackson212ForSpark3, esSpark212, pureConfig212)
       case Some((2, 11)) =>
         sys.env.getOrElse("COMET_HDP31", "false").toBoolean match {
-          case false => (spark_2d4_forScala_2d11, jackson211ForSpark2, esSpark211)
-          case true  => (spark_2d4_forScala_2d11, jackson211ForSpark2Hdp31, esSpark211)
+          case false => (spark_2d4_forScala_2d11, jackson211ForSpark2, esSpark211, pureConfig211)
+          case true  => (spark_2d4_forScala_2d11, jackson211ForSpark2Hdp31, esSpark211, pureConfig212)
         }
       case _ => throw new Exception(s"Invalid Scala Version")
     }
   }
-  dependencies ++ spark ++ jackson ++ esSpark ++ scalaReflection(scalaVersion.value)
+  dependencies ++ spark ++ jackson ++ esSpark ++ pureConfigs ++ scalaReflection(scalaVersion.value)
 }
 
 dependencyOverrides := Seq(
