@@ -118,9 +118,14 @@ object Dependencies {
     "com.typesafe.scala-logging" %% "scala-logging" % Versions.scalaLogging
   )
 
-  val typedConfigs =
+  val pureConfig211 =
     Seq(
-      "com.github.pureconfig" %% "pureconfig" % Versions.pureConfig exclude ("com.chuusai", "shapeless") // shapeless provided by Spark
+      "com.github.pureconfig" %% "pureconfig" % Versions.pureConfig211ForSpark2 exclude ("com.chuusai", "shapeless") // shapeless provided by Spark
+    )
+
+  val pureConfig212 =
+    Seq(
+      "com.github.pureconfig" %% "pureconfig" % Versions.pureConfig212ForSpark3 exclude ("com.chuusai", "shapeless") // shapeless provided by Spark
     )
 
   val gcsConnectorShadedJar =
@@ -194,6 +199,6 @@ object Dependencies {
     "com.github.ghik" % "silencer-lib" % Versions.silencerVersion % Provided cross CrossVersion.full
   )
   val dependencies =
-    silencer ++ jna_apple_arm_testcontainers ++ scalate ++ logging ++ typedConfigs ++ betterfiles ++ scalaTest ++ scopt ++ hadoop ++
+    silencer ++ jna_apple_arm_testcontainers ++ scalate ++ logging ++ betterfiles ++ scalaTest ++ scopt ++ hadoop ++
     gcp ++ azure ++ h2 ++ excelClientApi ++ kafkaClients ++ graphviz // ++ atlas
 }
