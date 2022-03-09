@@ -6,7 +6,7 @@ import xerial.sbt.Sonatype._
 // require Java 8 for Spark 2 support
 javacOptions ++= Seq("-source", "1.8", "-target", "1.8", "-Xlint")
 
-sonatypeCredentialHost := "s01.oss.sonatype.org"
+ThisBuild / sonatypeCredentialHost := "s01.oss.sonatype.org"
 
 lazy val scala211 = "2.11.12"
 
