@@ -1,5 +1,8 @@
 # Release notes
 
+# 0.3.3 / 0.3.4
+- Fixing release process
+
 # 0.3.2
 __New feature__:
 - import step can be limited to one or more domains
