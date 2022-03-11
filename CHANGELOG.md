@@ -3,6 +3,7 @@
 #0.3.5
 __New feature__:
 - Parallel copy of files when loading and archiving
+- Support renaming of domains and schemas in XLS
 
 # 0.3.3 / 0.3.4
 - Fixing release process
