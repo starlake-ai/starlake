@@ -7,7 +7,8 @@ trait XlsModel {
     "_path"        -> "Directory",
     "_ack"         -> "Ack",
     "_description" -> "Description",
-    "_schema_refs" -> "Schema Refs"
+    "_schema_refs" -> "Schema Refs",
+    "_rename"      -> "Rename"
   )
 
   val allSchemaHeaders = List(
@@ -30,7 +31,8 @@ trait XlsModel {
     "_presql"             -> "Pre SQLs - ###",
     "_postsql"            -> "Post SQLs - ###",
     "_primary_key"        -> "Primary Key",
-    "_tags"               -> "Tags"
+    "_tags"               -> "Tags",
+    "_rename"             -> "Rename"
   )
 
   val allAttributeHeaders = List(
