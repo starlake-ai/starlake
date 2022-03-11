@@ -48,8 +48,8 @@ import org.apache.spark.sql.types.{StructField, StructType}
 
 import java.nio.file.{FileSystems, ProviderNotFoundException}
 import java.util.Collections
+import scala.collection.GenSeq
 import scala.collection.parallel.ForkJoinTaskSupport
-import scala.collection.parallel.immutable.ParSeq
 import scala.concurrent.forkjoin.ForkJoinPool
 import scala.util.{Failure, Success, Try}
 
@@ -302,7 +302,7 @@ class IngestionWorkflow(
             case Success(r) => true
           }
         }.toList
-        forkJoinPool.shutdown()
+        forkJoinPool.foreach(_.shutdown())
         res.forall(_ == true)
       }
     }
@@ -540,7 +540,7 @@ class IngestionWorkflow(
             logger.info(s"Backing up file $ingestingPath to $archivePath")
             val _ = storageHandler.move(ingestingPath, archivePath)
           }
-          forkJoinPool.shutdown()
+          forkJoinPool.foreach(_.shutdown())
         } else {
           logger.info(s"Deleting file $ingestingPath")
           ingestingPath.foreach(storageHandler.delete)
@@ -556,12 +556,19 @@ class IngestionWorkflow(
   }
 
   @silent
-  private def makeParallel[T](collection: List[T], maxPar: Int): (ParSeq[T], ForkJoinPool) = {
-    val parCollection = collection.par
-    val forkJoinPool =
-      new scala.concurrent.forkjoin.ForkJoinPool(maxPar)
-    parCollection.tasksupport = new ForkJoinTaskSupport(forkJoinPool)
-    (parCollection, forkJoinPool)
+  private def makeParallel[T](
+    collection: List[T],
+    maxPar: Int
+  ): (GenSeq[T], Option[ForkJoinPool]) = {
+    maxPar match {
+      case 1 => (collection, None)
+      case _ =>
+        val parCollection = collection.par
+        val forkJoinPool =
+          new scala.concurrent.forkjoin.ForkJoinPool(maxPar)
+        parCollection.tasksupport = new ForkJoinTaskSupport(forkJoinPool)
+        (parCollection, Some(forkJoinPool))
+    }
   }
 
   def inferSchema(config: InferSchemaConfig): Try[Unit] = {
