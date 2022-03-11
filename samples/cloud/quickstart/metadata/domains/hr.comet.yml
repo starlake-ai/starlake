@@ -8,10 +8,6 @@ load:
       type: ${sink_type}
   schemas:
     - name: "sellers"
-      acl:
-        - role: "roles/bigquery.dataViewer"
-          grants:
-            - "user:hayssam@saleh.fr"
       pattern: "sellers-.*.json"
       primaryKey:
         - id
@@ -40,7 +36,6 @@ load:
       attributes:
         - name: "id"
           type: "string"
-          accessPolicy: PII
           required: true
         - name: "address"
           type: "struct"
