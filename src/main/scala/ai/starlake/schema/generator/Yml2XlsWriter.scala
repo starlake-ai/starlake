@@ -67,6 +67,7 @@ class Yml2XlsWriter(schemaHandler: SchemaHandler) extends LazyLogging with XlsMo
     domainRow.createCell(2).setCellValue(domain.resolveAck().getOrElse(""))
     domainRow.createCell(3).setCellValue(domain.comment.getOrElse(""))
     domainRow.createCell(4).setCellValue(domain.schemaRefs.getOrElse(Nil).mkString(","))
+    domainRow.createCell(5).setCellValue(domain.rename.getOrElse(""))
     for (i <- allDomainHeaders.indices)
       domainSheet.autoSizeColumn(i)
 
@@ -123,6 +124,7 @@ class Yml2XlsWriter(schemaHandler: SchemaHandler) extends LazyLogging with XlsMo
       schemaRow
         .createCell(18)
         .setCellValue(schema.tags.map(_.mkString(",")).getOrElse(""))
+      schemaRow.createCell(19).setCellValue(schema.rename.getOrElse(""))
 
       for (i <- allSchemaHeaders.indices)
         schemaSheet.autoSizeColumn(i)
