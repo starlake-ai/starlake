@@ -1,5 +1,9 @@
 # Release notes
 
+#0.3.8
+__New feature__:
+- Rollback on support for kafka.properties files. It is useless since we already have a server-options properties.
+
 #0.3.7
 __New feature__:
 - Improve XLS support for metadata
