@@ -1,5 +1,9 @@
 # Release notes
 
+#0.3.7
+__New feature__:
+- Improve XLS support for metadata
+
 #0.3.6
 __New feature__:
 - Autoload kafka.properties file from metadata directory.
