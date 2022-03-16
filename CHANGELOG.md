@@ -1,5 +1,9 @@
 # Release notes
 
+#0.3.6
+__New feature__:
+- Autoload kafka.properties file from metadata directory.
+
 #0.3.5
 __New feature__:
 - Parallel copy of files when loading and archiving
