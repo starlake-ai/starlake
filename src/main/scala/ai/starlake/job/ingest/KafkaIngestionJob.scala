@@ -102,7 +102,7 @@ class KafkaIngestionJob(
         Utils.withResources(new KafkaClient(settings.comet.kafka)) { kafkaClient =>
           kafkaClient.topicSaveOffsets(
             schema.name,
-            topicConfig.allAccessOptions((settings.kafkaProperties)),
+            topicConfig.allAccessOptions(settings.comet.kafka.sparkServerOptions),
             offsets
           )
           res
