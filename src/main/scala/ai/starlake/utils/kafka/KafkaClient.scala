@@ -28,12 +28,12 @@ class KafkaClient(kafkaConfig: KafkaConfig)(implicit settings: Settings)
   val serverOptions: Map[String, String] = kafkaConfig.serverOptions
   val cometOffsetsConfig: KafkaTopicConfig = kafkaConfig.topics("comet_offsets")
 
-  val props = new Properties()
+  val serverOptionsProperties = new Properties()
   serverOptions.foreach { case (k, v) =>
-    props.put(k, v)
+    serverOptionsProperties.put(k, v)
   }
 
-  lazy val client: AdminClient = AdminClient.create(props)
+  lazy val client: AdminClient = AdminClient.create(serverOptionsProperties)
 
   cometOffsetsMode match {
     case Mode.STREAM =>
@@ -166,7 +166,7 @@ class KafkaClient(kafkaConfig: KafkaConfig)(implicit settings: Settings)
   private def topicCurrentOffsetsFromStream(topicConfigName: String): Option[List[(Int, Long)]] = {
     val props = new Properties()
 
-    cometOffsetsConfig.allAccessOptions(settings.kafkaProperties).foreach { option =>
+    cometOffsetsConfig.allAccessOptions(settings.comet.kafka.sparkServerOptions).foreach { option =>
       props.put(option._1, option._2)
     }
     val consumer = new KafkaConsumer[String, String](props)
@@ -254,7 +254,10 @@ class KafkaClient(kafkaConfig: KafkaConfig)(implicit settings: Settings)
       topicCurrentOffsets(topicConfigName)
         .getOrElse {
           val consumer =
-            newConsumer(config.topicName, config.allAccessOptions(settings.kafkaProperties))
+            newConsumer(
+              config.topicName,
+              config.allAccessOptions(settings.comet.kafka.sparkServerOptions)
+            )
           val partitions = extractPartitions(config.topicName, consumer)
             .map(p => (p.partition(), EARLIEST_OFFSET))
           consumer.close()
@@ -268,7 +271,10 @@ class KafkaClient(kafkaConfig: KafkaConfig)(implicit settings: Settings)
     }
 
     val endOffsets =
-      topicEndOffsets(config.topicName, config.allAccessOptions(settings.kafkaProperties))
+      topicEndOffsets(
+        config.topicName,
+        config.allAccessOptions(settings.comet.kafka.sparkServerOptions)
+      )
     logger.whenInfoEnabled {
       endOffsets.foreach { case (partition, offsetEnd) =>
         logger.info(s"$topicConfigName end-offset -> $partition:$offsetEnd")
@@ -277,17 +283,18 @@ class KafkaClient(kafkaConfig: KafkaConfig)(implicit settings: Settings)
 
     // We do not use the topic Name but the config name to allow us to
     // consume differently the same topic
-    val withOffsetsTopicOptions = config.allAccessOptions((settings.kafkaProperties)) ++ Seq(
-      "startingOffsets" -> offsetsAsJson(config.topicName, startOffsets).getOrElse("earliest"),
-      "endingOffsets"   -> offsetsAsJson(config.topicName, endOffsets).getOrElse("latest")
-    )
+    val withOffsetsTopicOptions =
+      config.allAccessOptions((settings.comet.kafka.sparkServerOptions)) ++ Seq(
+        "startingOffsets" -> offsetsAsJson(config.topicName, startOffsets).getOrElse("earliest"),
+        "endingOffsets"   -> offsetsAsJson(config.topicName, endOffsets).getOrElse("latest")
+      )
     // TODO Loop based on maxRead need to be implemented here
 
     val reader = session.read.format("kafka")
     val df =
       reader
         .options(withOffsetsTopicOptions)
-        .options(settings.kafkaProperties)
+        .options(settings.comet.kafka.sparkServerOptions)
         .load()
         .selectExpr(config.fields: _*)
 
@@ -304,8 +311,7 @@ class KafkaClient(kafkaConfig: KafkaConfig)(implicit settings: Settings)
     val reader = session.readStream.format("kafka")
     val df =
       reader
-        .options(config.allAccessOptions(settings.kafkaProperties))
-        .options(settings.kafkaProperties)
+        .options(config.allAccessOptions(settings.comet.kafka.sparkServerOptions))
         .load()
         .selectExpr(config.fields: _*)
     df
@@ -318,7 +324,7 @@ class KafkaClient(kafkaConfig: KafkaConfig)(implicit settings: Settings)
     val writer = df.selectExpr(config.fields: _*).write.format("kafka")
 
     writer
-      .options(config.allAccessOptions((settings.kafkaProperties)))
+      .options(config.allAccessOptions((settings.comet.kafka.sparkServerOptions)))
       .option("topic", config.topicName)
       .save()
   }
