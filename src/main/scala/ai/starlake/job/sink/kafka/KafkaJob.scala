@@ -117,7 +117,7 @@ class KafkaJob(
 
           kafkaClient.topicSaveOffsets(
             kafkaJobConfig.topicConfigName,
-            topicConfig.allAccessOptions(settings.kafkaProperties),
+            topicConfig.allAccessOptions(settings.comet.kafka.sparkServerOptions),
             offsets
           )
           SparkJobResult(Some(transformedDF))
