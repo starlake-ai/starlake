@@ -34,6 +34,8 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.typesafe.config.{Config, ConfigFactory, ConfigValueFactory}
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
+import org.apache.kafka.clients.consumer.ConsumerConfig
+import org.apache.kafka.clients.producer.ProducerConfig
 import org.apache.spark.SparkConf
 import org.apache.spark.storage.StorageLevel
 import pureconfig.ConvertHelpers._
@@ -41,9 +43,9 @@ import pureconfig._
 import pureconfig.generic.FieldCoproductHint
 import pureconfig.generic.auto._
 
-import java.io.ObjectStreamException
+import java.io.{ByteArrayInputStream, ObjectStreamException}
 import java.util.concurrent.TimeUnit
-import java.util.{Locale, UUID}
+import java.util.{Locale, Properties, UUID}
 import scala.collection.JavaConverters._
 import scala.concurrent.duration.FiniteDuration
 
@@ -198,7 +200,11 @@ object Settings extends StrictLogging {
     writeFormat: String = "parquet",
     createOptions: Map[String, String] = Map.empty,
     accessOptions: Map[String, String] = Map.empty
-  )
+  ) {
+    def allAccessOptions(kafkaProperties: Map[String, String]) = {
+      kafkaProperties ++ accessOptions
+    }
+  }
 
   final case class KafkaConfig(
     serverOptions: Map[String, String],
@@ -355,7 +361,33 @@ object Settings extends StrictLogging {
       val mergedSettings = ConfigSource
         .fromConfig(effectiveApplicationConfig)
         .loadOrThrow[Comet]
-      Settings(mergedSettings, effectiveApplicationConfig.getConfig("spark"))
+
+      val kafkaPropsPath = new Path(DatasetArea.metadata(settings), "kafka.properties")
+      val kafkaProperties = new Properties()
+      if (settings.metadataStorageHandler.exists(kafkaPropsPath)) {
+        val kafkaPropsContent = settings.metadataStorageHandler.read(kafkaPropsPath)
+        kafkaProperties.load(new ByteArrayInputStream(kafkaPropsContent.getBytes))
+        kafkaProperties.asScala.toMap.foreach { case (k, v) =>
+          // for spark we need to prefix them with "kafka."
+          val ignoreKafkaProperties = List(
+            ConsumerConfig.GROUP_ID_CONFIG,
+            ConsumerConfig.AUTO_OFFSET_RESET_CONFIG,
+            ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
+            ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
+            ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG,
+            ConsumerConfig.INTERCEPTOR_CLASSES_CONFIG,
+            ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
+            ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG
+          )
+          if (!ignoreKafkaProperties.contains(k))
+            kafkaProperties.put(s"kafka.$k", v)
+        }
+      }
+      Settings(
+        mergedSettings,
+        effectiveApplicationConfig.getConfig("spark"),
+        kafkaProperties = kafkaProperties.asScala.toMap
+      )
     } else
       settings
     val jobConf = initSparkConfig(result)
@@ -413,7 +445,8 @@ object CometColumns {
 final case class Settings(
   comet: Settings.Comet,
   sparkConfig: Config,
-  jobConf: SparkConf = new SparkConf()
+  jobConf: SparkConf = new SparkConf(),
+  kafkaProperties: Map[String, String] = Map.empty
 ) {
 
   @transient
