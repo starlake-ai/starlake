@@ -233,7 +233,7 @@ object Settings extends StrictLogging {
       serverOptions.foreach { case (k, v) =>
         // for spark we need to prefix them with "kafka."
         kafkaServerProperties.put(k, v)
-        if (!ignoreKafkaProperties.contains(k))
+        if (!ignoreKafkaProperties.contains(k) && !k.startsWith("kafka."))
           kafkaServerProperties.put(s"kafka.$k", v)
       }
       kafkaServerProperties.asScala.toMap
