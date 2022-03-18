@@ -248,7 +248,7 @@ class BigQuerySparkJob(
 
           val (saveMode, withFieldRelaxationOptions) = writeDisposition match {
             case "WRITE_TRUNCATE" => (SaveMode.Overwrite, connectorOptions)
-            case _ =>
+            case _ if table.exists() =>
               (
                 SaveMode.Append,
                 connectorOptions ++ Map(
@@ -256,8 +256,14 @@ class BigQuerySparkJob(
                   "allowFieldRelaxation" -> "true"
                 )
               )
+            case _ =>
+              (
+                SaveMode.Append,
+                connectorOptions
+              )
 
           }
+
           val finalDF = sourceDF.write
             .mode(saveMode)
             .format("com.google.cloud.spark.bigquery")
