@@ -2,7 +2,7 @@ package ai.starlake.job.sink.kafka
 
 import ai.starlake.config.Settings
 import ai.starlake.utils.CliConfig
-import org.apache.spark.sql.{DataFrame, SaveMode}
+import org.apache.spark.sql.{DataFrame, SaveMode, SparkSession}
 import scopt.OParser
 
 case class KafkaJobConfig(
@@ -23,12 +23,12 @@ case class KafkaJobConfig(
   coalesce: Option[Int] = None
 )
 trait DataFrameTransform {
-  def transform(dataFrame: DataFrame): DataFrame
+  def transform(dataFrame: DataFrame, session: SparkSession): DataFrame
   def configure(topicConfig: Settings.KafkaTopicConfig): DataFrameTransform = this
 }
 
 abstract class AvroDataFrameTransform extends DataFrameTransform {
-  def transform(dataFrame: DataFrame): DataFrame = {
+  def transform(dataFrame: DataFrame, session: SparkSession): DataFrame = {
     dataFrame
   }
 }

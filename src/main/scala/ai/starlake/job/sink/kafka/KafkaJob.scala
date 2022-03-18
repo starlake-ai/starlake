@@ -194,7 +194,7 @@ class KafkaJob(
   private def transfom(df: DataFrame): DataFrame = {
     val transformedDF = transformInstance match {
       case Some(transformer) =>
-        transformer.transform(df)
+        transformer.transform(df, session)
       case None =>
         df
     }
