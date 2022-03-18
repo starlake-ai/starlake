@@ -1079,7 +1079,7 @@ object IngestionUtil {
     val fields = rejectedCols map { case (attrName, attrLegacyType, attrStandardType) =>
       Field
         .newBuilder(attrName, attrLegacyType)
-        .setMode(Field.Mode.REQUIRED)
+        .setMode(Field.Mode.NULLABLE)
         .setDescription("")
         .build()
     }
