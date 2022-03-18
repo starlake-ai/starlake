@@ -1,6 +1,6 @@
 # Release notes
 
-#0.3.9
+#0.3.9 / 0.3.10 / 0.3.11
 __Bug Fix__:
 - Make fields in rejected table optional
 
