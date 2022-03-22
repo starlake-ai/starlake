@@ -1,5 +1,13 @@
 # Release notes
 
+# 0.3.12
+__Bug Fix__: reorder transformation on attributes as follows:
+- rename columns
+  - run script fields
+  - apply transformations (privacy: "sql: ...")
+  - remove ignore fields
+  - remove infput filename column
+
 # 0.3.11 
 __Bug Fix__:
 - Handle field relaxation when in Append Mode and table does not exist.
