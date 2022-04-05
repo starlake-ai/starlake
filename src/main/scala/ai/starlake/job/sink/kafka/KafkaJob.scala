@@ -51,7 +51,11 @@ class KafkaJob(
 
   val schemaRegistryUrl = settings.comet.kafka.serverOptions.get("schema.registry.url")
   val schemaRegistryClient = schemaRegistryUrl.map(schemaRegistryUrl =>
-    new CachedSchemaRegistryClient(schemaRegistryUrl, 128)
+    new CachedSchemaRegistryClient(
+      schemaRegistryUrl,
+      128,
+      settings.comet.kafka.serverOptions.asJava
+    )
   )
 
   def lookupTopicSchema(topic: String, isKey: Boolean = false): Option[JdbcConfigName] = {
@@ -117,7 +121,7 @@ class KafkaJob(
 
           kafkaClient.topicSaveOffsets(
             kafkaJobConfig.topicConfigName,
-            topicConfig.accessOptions,
+            topicConfig.allAccessOptions(settings.comet.kafka.sparkServerOptions),
             offsets
           )
           SparkJobResult(Some(transformedDF))
@@ -194,7 +198,7 @@ class KafkaJob(
   private def transfom(df: DataFrame): DataFrame = {
     val transformedDF = transformInstance match {
       case Some(transformer) =>
-        transformer.transform(df)
+        transformer.transform(df, session)
       case None =>
         df
     }
