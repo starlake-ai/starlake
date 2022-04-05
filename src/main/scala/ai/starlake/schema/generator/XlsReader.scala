@@ -34,6 +34,9 @@ class XlsReader(input: Input) extends XlsModel {
       val nameOpt =
         Option(row.getCell(headerMap("_name"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
           .flatMap(formatter.formatCellValue)
+      val renameOpt =
+        Option(row.getCell(headerMap("_rename"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
+          .flatMap(formatter.formatCellValue)
       val directoryOpt =
         Option(row.getCell(headerMap("_path"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
           .flatMap(formatter.formatCellValue)
@@ -55,7 +58,8 @@ class XlsReader(input: Input) extends XlsModel {
               name,
               metadata = Some(Metadata(directory = Some(directory), ack = ack)),
               comment = comment,
-              schemaRefs = schemaRefsOpt
+              schemaRefs = schemaRefsOpt,
+              rename = renameOpt
             )
           )
         case _ => None
@@ -69,6 +73,9 @@ class XlsReader(input: Input) extends XlsModel {
     rows.flatMap { row =>
       val nameOpt =
         Option(row.getCell(headerMap("_name"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
+          .flatMap(formatter.formatCellValue)
+      val renameOpt =
+        Option(row.getCell(headerMap("_rename"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
           .flatMap(formatter.formatCellValue)
       val patternOpt =
         Option(row.getCell(headerMap("_pattern"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
@@ -227,7 +234,8 @@ class XlsReader(input: Input) extends XlsModel {
               presql = presql,
               postsql = postsql,
               tags = tags,
-              primaryKey = primaryKeys
+              primaryKey = primaryKeys,
+              rename = renameOpt
             )
           )
         }

@@ -22,14 +22,14 @@ package ai.starlake.workflow
 
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.job.atlas.{AtlasConfig, AtlasJob}
-import ai.starlake.job.sink.bigquery.{BigQueryLoadConfig, BigQuerySparkJob}
-import ai.starlake.job.sink.jdbc.{ConnectionLoadConfig, ConnectionLoadJob}
-import ai.starlake.job.sink.es.{ESLoadConfig, ESLoadJob}
-import ai.starlake.job.sink.kafka.{KafkaJob, KafkaJobConfig}
 import ai.starlake.job.infer.{InferSchema, InferSchemaConfig}
 import ai.starlake.job.ingest._
 import ai.starlake.job.load.LoadStrategy
 import ai.starlake.job.metrics.{MetricsConfig, MetricsJob}
+import ai.starlake.job.sink.bigquery.{BigQueryLoadConfig, BigQuerySparkJob}
+import ai.starlake.job.sink.es.{ESLoadConfig, ESLoadJob}
+import ai.starlake.job.sink.jdbc.{ConnectionLoadConfig, ConnectionLoadJob}
+import ai.starlake.job.sink.kafka.{KafkaJob, KafkaJobConfig}
 import ai.starlake.job.transform.AutoTaskJob
 import ai.starlake.schema.generator.{Yml2DDLConfig, Yml2DDLJob}
 import ai.starlake.schema.handlers.{LaunchHandler, SchemaHandler, StorageHandler}
@@ -38,6 +38,7 @@ import ai.starlake.schema.model.Mode.{FILE, STREAM}
 import ai.starlake.schema.model._
 import ai.starlake.utils._
 import better.files.File
+import com.github.ghik.silencer.silent
 import com.google.cloud.bigquery.JobInfo.{CreateDisposition, WriteDisposition}
 import com.google.cloud.bigquery.{Schema => BQSchema}
 import com.typesafe.scalalogging.StrictLogging
@@ -47,7 +48,9 @@ import org.apache.spark.sql.types.{StructField, StructType}
 
 import java.nio.file.{FileSystems, ProviderNotFoundException}
 import java.util.Collections
+import scala.collection.GenSeq
 import scala.collection.parallel.ForkJoinTaskSupport
+import scala.concurrent.forkjoin.ForkJoinPool
 import scala.util.{Failure, Success, Try}
 
 /** The whole worklfow works as follow :
@@ -83,9 +86,15 @@ class IngestionWorkflow(
     * file. "ack" is the default ack extension searched for but you may specify a different one in
     * the domain YML file.
     */
-  def loadLanding(): Unit = {
-    logger.info("LoadLanding")
-    domains.foreach { domain =>
+  def loadLanding(config: ImportConfig): Unit = {
+    val filteredDomains = config.includes match {
+      case Nil => domains
+      case _   => domains.filter { d => config.includes.contains(d.name) }
+    }
+    logger.info(
+      s"Loading files from Landing Zone for domains : ${filteredDomains.map(_.name).mkString(",")}"
+    )
+    filteredDomains.foreach { domain =>
       val storageHandler = settings.storageHandler
       val inputDir = new Path(domain.resolveDirectory())
       if (storageHandler.exists(inputDir)) {
@@ -214,6 +223,7 @@ class IngestionWorkflow(
     *   : includes Load pending dataset of these domain only excludes : Do not load datasets of
     *   these domains if both lists are empty, all domains are included
     */
+  @silent
   def loadPending(config: WatchConfig = WatchConfig()): Boolean = {
     val includedDomains = domainsToWatch(config)
 
@@ -277,9 +287,7 @@ class IngestionWorkflow(
             JobContext(domain, schema, path :: Nil, config.options)
           }
         }
-        val parJobs = jobs.par
-        val forkJoinPool = new java.util.concurrent.ForkJoinPool(settings.comet.scheduling.maxJobs)
-        parJobs.tasksupport = new ForkJoinTaskSupport(forkJoinPool)
+        val (parJobs, forkJoinPool) = makeParallel(jobs.toList, settings.comet.scheduling.maxJobs)
         val res = parJobs.map { jobContext =>
           launchHandler.ingest(
             this,
@@ -294,7 +302,7 @@ class IngestionWorkflow(
             case Success(r) => true
           }
         }.toList
-        forkJoinPool.shutdown()
+        forkJoinPool.foreach(_.shutdown())
         res.forall(_ == true)
       }
     }
@@ -396,6 +404,7 @@ class IngestionWorkflow(
     }
   }
 
+  @silent
   def ingest(
     domain: Domain,
     schema: Schema,
@@ -524,12 +533,14 @@ class IngestionWorkflow(
     ingestionResult match {
       case Success(Success(jobResult)) =>
         if (settings.comet.archive) {
-          ingestingPath.foreach { ingestingPath =>
+          val (parIngests, forkJoinPool) = makeParallel(ingestingPath, settings.comet.maxParCopy)
+          parIngests.foreach { ingestingPath =>
             val archivePath =
               new Path(DatasetArea.archive(domain.name), ingestingPath.getName)
             logger.info(s"Backing up file $ingestingPath to $archivePath")
             val _ = storageHandler.move(ingestingPath, archivePath)
           }
+          forkJoinPool.foreach(_.shutdown())
         } else {
           logger.info(s"Deleting file $ingestingPath")
           ingestingPath.foreach(storageHandler.delete)
@@ -541,6 +552,22 @@ class IngestionWorkflow(
       case Failure(exception) =>
         Utils.logException(logger, exception)
         Failure(exception)
+    }
+  }
+
+  @silent
+  private def makeParallel[T](
+    collection: List[T],
+    maxPar: Int
+  ): (GenSeq[T], Option[ForkJoinPool]) = {
+    maxPar match {
+      case 1 => (collection, None)
+      case _ =>
+        val parCollection = collection.par
+        val forkJoinPool =
+          new scala.concurrent.forkjoin.ForkJoinPool(maxPar)
+        parCollection.tasksupport = new ForkJoinTaskSupport(forkJoinPool)
+        (parCollection, Some(forkJoinPool))
     }
   }
 

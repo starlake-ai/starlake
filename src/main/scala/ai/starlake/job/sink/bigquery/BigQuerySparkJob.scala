@@ -245,16 +245,33 @@ class BigQuerySparkJob(
             s"""Only dynamic or static are values values for property 
                |partitionOverwriteMode. $partitionOverwriteMode found""".stripMargin
           )
-          val saveMode =
-            if (writeDisposition == "WRITE_TRUNCATE") SaveMode.Overwrite else SaveMode.Append
-          logger.info(s"Saving BQ Table $bqTable")
+
+          val (saveMode, withFieldRelaxationOptions) = writeDisposition match {
+            case "WRITE_TRUNCATE" => (SaveMode.Overwrite, connectorOptions)
+            case _ if table.exists() =>
+              (
+                SaveMode.Append,
+                connectorOptions ++ Map(
+                  "allowFieldAddition"   -> "true",
+                  "allowFieldRelaxation" -> "true"
+                )
+              )
+            case _ =>
+              (
+                SaveMode.Append,
+                connectorOptions
+              )
+
+          }
+
           val finalDF = sourceDF.write
             .mode(saveMode)
             .format("com.google.cloud.spark.bigquery")
             .option("table", bqTable)
             .option("intermediateFormat", intermediateFormat)
+            .options(withFieldRelaxationOptions)
 
-          finalDF.options(connectorOptions).save()
+          finalDF.save()
       }
 
       val stdTableDefinitionAfter =
