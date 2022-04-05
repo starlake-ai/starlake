@@ -290,6 +290,11 @@ class KafkaClient(kafkaConfig: KafkaConfig)(implicit settings: Settings)
       )
     // TODO Loop based on maxRead need to be implemented here
 
+    logger.info("withOffsetsTopicOptions:" + withOffsetsTopicOptions.toString())
+    logger.info(
+      "settings.comet.kafka.sparkServerOptions:" + settings.comet.kafka.sparkServerOptions
+        .toString()
+    )
     val reader = session.read.format("kafka")
     val df =
       reader
