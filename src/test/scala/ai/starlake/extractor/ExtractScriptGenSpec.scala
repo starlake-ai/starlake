@@ -23,7 +23,8 @@ class ExtractScriptGenSpec extends TestHelper {
         dsvDelimiter = ",",
         deltaColumn = Some("updateCol"),
         exportOutputFileBase = "output_file",
-        scriptOutputFile = Some(scriptOutputFolder / "extract_AnyDomain.table1.sql")
+        scriptOutputFile = Some(scriptOutputFolder / "extract_AnyDomain.table1.sql"),
+        activeEnv = Map.empty
       )
 
       val templatesPayloadFromDir = new ScriptGen(
@@ -71,7 +72,8 @@ class ExtractScriptGenSpec extends TestHelper {
         dsvDelimiter = ",",
         deltaColumn = Some("updateCol"),
         exportOutputFileBase = "output_file",
-        scriptOutputFile = Some(scriptOutputFolder / "EXTRACT_TABLE.sql")
+        scriptOutputFile = Some(scriptOutputFolder / "EXTRACT_TABLE.sql"),
+        activeEnv = Map.empty
       )
 
       val templatePayload: String = new ScriptGen(

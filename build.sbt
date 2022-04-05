@@ -6,30 +6,37 @@ import xerial.sbt.Sonatype._
 // require Java 8 for Spark 2 support
 javacOptions ++= Seq("-source", "1.8", "-target", "1.8", "-Xlint")
 
-sonatypeCredentialHost := "s01.oss.sonatype.org"
+ThisBuild / sonatypeCredentialHost := "s01.oss.sonatype.org"
+
+lazy val scala211 = "2.11.12"
 
 lazy val scala212 = "2.12.15"
 
-crossScalaVersions := List(scala212)
+ThisBuild / crossScalaVersions := List(scala211, scala212)
 
 organization := "ai.starlake"
 
 organizationName := "starlake"
 
-scalaVersion := scala212
+ThisBuild / scalaVersion := scala212
 
 organizationHomepage := Some(url("https://github.com/starlake-ai/starlake"))
 
 resolvers ++= Resolvers.allResolvers
 
 libraryDependencies ++= {
-  val (spark, jackson, esSpark) = {
+  val (spark, jackson, esSpark, pureConfigs) = {
     CrossVersion.partialVersion(scalaVersion.value) match {
-      case Some((2, 12)) => (spark_3d0_forScala_2d12, jackson212ForSpark3, esSpark212)
+      case Some((2, 12)) => (spark_3d0_forScala_2d12, jackson212ForSpark3, esSpark212, pureConfig212)
+      case Some((2, 11)) =>
+        sys.env.getOrElse("COMET_HDP31", "false").toBoolean match {
+          case false => (spark_2d4_forScala_2d11, jackson211ForSpark2, esSpark211, pureConfig211)
+          case true  => (spark_2d4_forScala_2d11, jackson211ForSpark2Hdp31, esSpark211, pureConfig212)
+        }
       case _ => throw new Exception(s"Invalid Scala Version")
     }
   }
-  dependencies ++ spark ++ jackson ++ esSpark ++ scalaReflection(scalaVersion.value)
+  dependencies ++ spark ++ jackson ++ esSpark ++ pureConfigs ++ scalaReflection(scalaVersion.value)
 }
 
 dependencyOverrides := Seq(
@@ -42,6 +49,7 @@ name := {
   val sparkNameSuffix = {
     CrossVersion.partialVersion(scalaVersion.value) match {
       case Some((2, 12)) => "3"
+      case Some((2, 11)) => "2"
       case _             => throw new Exception(s"Invalid Scala Version")
     }
   }
@@ -109,7 +117,7 @@ publishTo := {
     sys.env.getOrElse("RELEASE_SONATYPE", "true").toBoolean
   ) match {
     case (None, false) =>
-//      githubPublishTo.value
+      // githubPublishTo.value
       // we do not publish on github anymore
       sonatypePublishToBundle.value
     case (None, true) => sonatypePublishToBundle.value
@@ -148,7 +156,7 @@ sonatypeProjectHosting := Some(
 )
 
 // Release
-releaseCrossBuild := false
+releaseCrossBuild := true
 
 releaseIgnoreUntrackedFiles := true
 
@@ -156,7 +164,7 @@ releaseProcess := Seq(
   checkSnapshotDependencies,
   inquireVersions,
   runClean,
-  releaseStepCommand("+test"),
+//  releaseStepCommand("+test"),
   setReleaseVersion,
   commitReleaseVersion, // forces to push dirty files
   tagRelease,

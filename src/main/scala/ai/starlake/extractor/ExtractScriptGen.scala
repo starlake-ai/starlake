@@ -82,7 +82,8 @@ class ScriptGen(
     scriptsOutputPath: File,
     scriptOutputPattern: Option[String],
     defaultDeltaColumn: Option[String],
-    deltaColumns: Map[String, String]
+    deltaColumns: Map[String, String],
+    activeEnv: Map[String, String]
   ): List[File] = {
     val templateSettings =
       TemplateParams.fromDomain(
@@ -90,7 +91,8 @@ class ScriptGen(
         scriptsOutputPath,
         scriptOutputPattern,
         defaultDeltaColumn,
-        deltaColumns
+        deltaColumns,
+        activeEnv
       )
     templateSettings.flatMap { ts =>
       templatize(scriptTemplateFile, ts)
@@ -240,7 +242,8 @@ class ScriptGen(
               config.scriptOutputDir,
               config.scriptOutputPattern,
               config.deltaColumn.orElse(ExtractorSettings.deltaColumns.defaultColumn),
-              ExtractorSettings.deltaColumns.deltaColumns
+              ExtractorSettings.deltaColumns.deltaColumns,
+              schemaHandler.activeEnv
             )
             true
           case None =>

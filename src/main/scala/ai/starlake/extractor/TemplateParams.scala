@@ -32,7 +32,8 @@ case class TemplateParams(
   deltaColumn: Option[String],
   dsvDelimiter: String,
   exportOutputFileBase: String,
-  scriptOutputFile: Option[File]
+  scriptOutputFile: Option[File],
+  activeEnv: Map[String, String]
 ) {
 
   val paramMap: Map[String, Any] = {
@@ -81,7 +82,7 @@ case class TemplateParams(
           "full_export"  -> fullExport
         )
       ) { case (list, deltaCol) => list :+ ("delta_column" -> deltaCol.toUpperCase) }
-      .toMap
+      .toMap ++ activeEnv
   }
 }
 
@@ -107,7 +108,8 @@ object TemplateParams {
     scriptsOutputFolder: File,
     scriptOutputPattern: Option[String],
     defaultDeltaColumn: Option[String],
-    deltaColumns: Map[String, String]
+    deltaColumns: Map[String, String],
+    activeEnv: Map[String, String]
   )(implicit settings: Settings): List[TemplateParams] =
     domain.schemas.map(s =>
       fromSchema(
@@ -115,7 +117,8 @@ object TemplateParams {
         s,
         scriptsOutputFolder,
         scriptOutputPattern,
-        deltaColumns.get(s.name).orElse(defaultDeltaColumn)
+        deltaColumns.get(s.name).orElse(defaultDeltaColumn),
+        activeEnv
       )
     )
 
@@ -135,7 +138,8 @@ object TemplateParams {
     schema: Schema,
     scriptsOutputFolder: File,
     scriptOutputPattern: Option[String],
-    deltaColumn: Option[String]
+    deltaColumn: Option[String],
+    activeEnv: Map[String, String]
   )(implicit settings: Settings): TemplateParams = {
     val scriptOutputFileName =
       scriptOutputPattern
@@ -145,7 +149,7 @@ object TemplateParams {
             Map(
               "domain" -> domainName,
               "schema" -> schema.name
-            )
+            ) ++ activeEnv
           )
         )
         .getOrElse(s"extract_${domainName}.${schema.name}.sql")
@@ -164,7 +168,8 @@ object TemplateParams {
       deltaColumn = if (!isFullExport) deltaColumn else None,
       dsvDelimiter = schema.metadata.flatMap(_.separator).getOrElse(","),
       exportOutputFileBase = exportFileBase,
-      scriptOutputFile = Some(scriptsOutputFolder / scriptOutputFileName)
+      scriptOutputFile = Some(scriptsOutputFolder / scriptOutputFileName),
+      activeEnv
     )
   }
 }
