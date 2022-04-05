@@ -83,5 +83,51 @@ class TemplateParamsSpec extends TestHelper {
         Map.empty
       ) shouldBe expectedTemplateParams
     }
+
+    it should "generate the correct TemplateParams for a schema with a renamed source" in {
+      val schema: Schema = Schema(
+        name = "myReallySuperExtraLongTableName1",
+        pattern = Pattern.compile("output_file.*.csv"),
+        List(
+          Attribute(name = "col1"),
+          Attribute(name = "col2", `type` = "long")
+        ),
+        metadata = Option(Metadata(write = Some(WriteMode.APPEND), separator = Some("|"))),
+        merge = Some(MergeOptions(List("col1", "col2"), None, timestamp = Some("updateCol"))),
+        comment = None,
+        presql = None,
+        postsql = None,
+        tags = None,
+        rls = None,
+        assertions = None,
+        primaryKey = None,
+        acl = None,
+        renameTarget = None,
+        renameSource = Some("table1")
+      )
+
+      val expectedTemplateParams = TemplateParams(
+        domainToExport = "AnyDomain",
+        tableToExport = "table1",
+        columnsToExport = List(
+          ("col1", "string", false, PrivacyLevel.None),
+          ("col2", "long", false, PrivacyLevel.None)
+        ),
+        fullExport = false,
+        dsvDelimiter = "|",
+        deltaColumn = Some("updateCol"),
+        exportOutputFileBase = "output_file",
+        scriptOutputFile = Some(scriptOutputFolder / "extract_AnyDomain.table1.sql"),
+        activeEnv = Map.empty
+      )
+      TemplateParams.fromSchema(
+        "AnyDomain",
+        schema,
+        scriptOutputFolder,
+        None,
+        Some("updateCol"),
+        Map.empty
+      ) shouldBe expectedTemplateParams
+    }
   }
 }

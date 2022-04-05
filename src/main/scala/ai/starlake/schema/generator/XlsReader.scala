@@ -238,7 +238,7 @@ class XlsReader(input: Input) extends XlsModel {
               postsql = postsql,
               tags = tags,
               primaryKey = primaryKeys,
-              rename = renameTargetOpt,
+              renameTarget = renameTargetOpt,
               renameSource = renameSourceOpt
             )
           )
