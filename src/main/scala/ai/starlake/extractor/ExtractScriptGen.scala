@@ -162,7 +162,7 @@ class ScriptGen(
     * that we use the script to generate SQL export files.
     *
     * The schemas should at least, specify :
-    *   - a table name (schemas.name)
+    *   - a table name (schemas.renameSource else schemas.name)
     *   - a file pattern (schemas.pattern) which is used as the export file base name
     *   - a write mode (schemas.metadata.write): APPEND or OVERWRITE
     *   - the columns to extract (schemas.attributes.name*)

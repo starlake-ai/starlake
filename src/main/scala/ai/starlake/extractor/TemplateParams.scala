@@ -111,16 +111,17 @@ object TemplateParams {
     deltaColumns: Map[String, String],
     activeEnv: Map[String, String]
   )(implicit settings: Settings): List[TemplateParams] =
-    domain.schemas.map(s =>
+    domain.schemas.map(s => {
+      val schemaName = s.renameSource.getOrElse(s.name)
       fromSchema(
         domain.name,
         s,
         scriptsOutputFolder,
         scriptOutputPattern,
-        deltaColumns.get(s.name).orElse(defaultDeltaColumn),
+        deltaColumns.get(schemaName).orElse(defaultDeltaColumn),
         activeEnv
       )
-    )
+    })
 
   /** Generate scripts template parameters, extracting the tables and the columns described in the
     * schema
@@ -141,6 +142,9 @@ object TemplateParams {
     deltaColumn: Option[String],
     activeEnv: Map[String, String]
   )(implicit settings: Settings): TemplateParams = {
+
+    val schemaName = schema.renameSource.getOrElse(schema.name)
+
     val scriptOutputFileName =
       scriptOutputPattern
         .map(
@@ -148,11 +152,11 @@ object TemplateParams {
             Map.empty,
             Map(
               "domain" -> domainName,
-              "schema" -> schema.name
+              "schema" -> schemaName
             ) ++ activeEnv
           )
         )
-        .getOrElse(s"extract_${domainName}.${schema.name}.sql")
+        .getOrElse(s"extract_${domainName}.${schemaName}.sql")
     // exportFileBase is the csv file name base such as EXPORT_L58MA_CLIENT_DELTA_...
     // Considering a pattern like EXPORT_L58MA_CLIENT.*.csv
     // The script which is generated will append the current date time to that base (EXPORT_L58MA_CLIENT_18032020173100).
@@ -160,7 +164,7 @@ object TemplateParams {
     val isFullExport = schema.metadata.flatMap(_.write).contains(OVERWRITE)
     new TemplateParams(
       domainToExport = domainName,
-      tableToExport = schema.name,
+      tableToExport = schemaName,
       columnsToExport = schema.attributes
         .filter(_.script.isEmpty)
         .map(col => (col.name, col.`type`, col.isIgnore(), col.privacy)),

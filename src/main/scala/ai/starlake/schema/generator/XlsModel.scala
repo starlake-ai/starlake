@@ -33,6 +33,7 @@ trait XlsModel {
     "_primary_key"        -> "Primary Key",
     "_tags"               -> "Tags",
     "_rename_target"      -> "Rename target table"
+    "_rename_source"      -> "Rename source table"
   )
 
   val allAttributeHeaders = List(
