@@ -32,7 +32,7 @@ trait XlsModel {
     "_postsql"            -> "Post SQLs - ###",
     "_primary_key"        -> "Primary Key",
     "_tags"               -> "Tags",
-    "_rename"             -> "Rename"
+    "_rename_target"      -> "Rename target table"
   )
 
   val allAttributeHeaders = List(
