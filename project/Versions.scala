@@ -28,7 +28,7 @@ object Versions {
   val poi = "4.1.2"
   val scalate = "1.9.7"
   val kafkaClients = "7.0.1-ce"
-  val confluentVersion = "7.0.1"
+  val confluentVersion = "7.0.2"
   val testContainers = "0.40.1"
   val jsqlparser = "4.3"
   val silencerVersion = "1.7.8"
