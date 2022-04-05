@@ -245,7 +245,7 @@ class KafkaJobSpec extends TestHelper {
           new NewTopic("comet_offsets", 1, 1.toShort),
           topicProperties
         )
-        val partitions = kafkaClient.topicPartitions("comet_offsets")
+        val partitions = kafkaClient.adminTopicPartitions("comet_offsets")
         partitions should have size 1
       }
 
@@ -339,7 +339,9 @@ class KafkaJobSpec extends TestHelper {
         val offsets =
           kafkaClient.topicEndOffsets(
             "test_load",
-            settings.comet.kafka.topics("test_load").accessOptions
+            settings.comet.kafka
+              .topics("test_load")
+              .allAccessOptions(settings.comet.kafka.sparkServerOptions)
           )
         offsets should contain theSameElementsAs List((0, 10000))
       }
@@ -367,7 +369,9 @@ class KafkaJobSpec extends TestHelper {
         val offsets =
           kafkaClient.topicEndOffsets(
             "kafka_to_es",
-            settings.comet.kafka.topics("kafka_to_es").accessOptions
+            settings.comet.kafka
+              .topics("kafka_to_es")
+              .allAccessOptions(settings.comet.kafka.sparkServerOptions)
           )
         offsets should contain theSameElementsAs List((0, 100))
 
@@ -485,7 +489,9 @@ class KafkaJobSpec extends TestHelper {
             val offsets =
               kafkaClient.topicEndOffsets(
                 "topic_sink",
-                settings.comet.kafka.topics("topic_sink_config").accessOptions
+                settings.comet.kafka
+                  .topics("topic_sink_config")
+                  .allAccessOptions(settings.comet.kafka.sparkServerOptions)
               )
             offsets should contain theSameElementsAs List((0, 5000))
           case Failure(e) => throw e

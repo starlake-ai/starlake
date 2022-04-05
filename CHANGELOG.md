@@ -1,9 +1,50 @@
 # Release notes
 
+# 0.3.12
+__Bug Fix__: reorder transformation on attributes as follows:
+- rename columns
+  - run script fields
+  - apply transformations (privacy: "sql: ...")
+  - remove ignore fields
+  - remove infput filename column
+
+# 0.3.11 
+__Bug Fix__:
+- Handle field relaxation when in Append Mode and table does not exist.
+
+#0.3.9 / 0.3.10 / 0.3.11
+__Bug Fix__:
+- Make fields in rejected table optional
+
+#0.3.8
+__New feature__:
+- Rollback on support for kafka.properties files. It is useless since we already have a server-options properties.
+
+#0.3.7
+__New feature__:
+- Improve XLS support for metadata
+
+#0.3.6
+__New feature__:
+- Autoload kafka.properties file from metadata directory.
+
+#0.3.5
+__New feature__:
+- Parallel copy of files when loading and archiving
+- Support renaming of domains and schemas in XLS
+
+# 0.3.3 / 0.3.4
+- Fixing release process
+
+# 0.3.2
+__New feature__:
+- import step can be limited to one or more domains
+
 # 0.3.1
 __New feature__:
 - Update Kafka / BigQuery libraries
 - Add new  [preset env vars](https://starlake-ai.github.io/starlake/docs/reference/environment#preset-variables)
+- Allow renaming of domains and schemas
 
 __Bug Fix__:
 
