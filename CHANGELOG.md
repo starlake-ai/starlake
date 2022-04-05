@@ -1,5 +1,9 @@
 # Release notes
 
+# 0.3.13
+__New feature__:
+- Improve XLS support for schemas with a new field: rename_source
+
 # 0.3.12
 __Bug Fix__: reorder transformation on attributes as follows:
 - rename columns
