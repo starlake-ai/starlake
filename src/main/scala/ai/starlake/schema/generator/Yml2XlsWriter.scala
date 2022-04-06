@@ -113,18 +113,18 @@ class Yml2XlsWriter(schemaHandler: SchemaHandler) extends LazyLogging with XlsMo
         .createCell(14)
         .setCellValue(metadata.clustering.map(_.mkString(",")).getOrElse(""))
       schemaRow
-        .createCell(15)
-        .setCellValue(schema.presql.map(_.mkString("###")).getOrElse(""))
-      schemaRow
         .createCell(16)
         .setCellValue(schema.presql.map(_.mkString("###")).getOrElse(""))
       schemaRow
         .createCell(17)
-        .setCellValue(schema.primaryKey.map(_.mkString(",")).getOrElse(""))
+        .setCellValue(schema.postsql.map(_.mkString("###")).getOrElse(""))
       schemaRow
         .createCell(18)
+        .setCellValue(schema.primaryKey.map(_.mkString(",")).getOrElse(""))
+      schemaRow
+        .createCell(19)
         .setCellValue(schema.tags.map(_.mkString(",")).getOrElse(""))
-      schemaRow.createCell(19).setCellValue(schema.rename.getOrElse(""))
+      schemaRow.createCell(20).setCellValue(schema.rename.getOrElse(""))
 
       for (i <- allSchemaHeaders.indices)
         schemaSheet.autoSizeColumn(i)
