@@ -151,6 +151,10 @@ class XlsReader(input: Input) extends XlsModel {
           row.getCell(headerMap("_tags"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
         ).flatMap(formatter.formatCellValue).map(_.split(",").toSet)
 
+      val longNameOpt =
+        Option(row.getCell(headerMap("_long_name"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
+          .flatMap(formatter.formatCellValue)
+
       (nameOpt, patternOpt) match {
         case (Some(name), Some(pattern)) => {
           val metaData = Metadata(
@@ -225,7 +229,7 @@ class XlsReader(input: Input) extends XlsModel {
             }
           Some(
             Schema(
-              name = name,
+              name = longNameOpt.getOrElse(name),
               pattern = pattern,
               attributes = Nil,
               metadata = Some(metaData),
