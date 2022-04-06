@@ -122,7 +122,7 @@ class Yml2XlsWriter(schemaHandler: SchemaHandler) extends LazyLogging with XlsMo
         .setCellValue(schema.presql.map(_.mkString("###")).getOrElse(""))
       schemaRow
         .createCell(17)
-        .setCellValue(schema.presql.map(_.mkString("###")).getOrElse(""))
+        .setCellValue(schema.postsql.map(_.mkString("###")).getOrElse(""))
       schemaRow
         .createCell(18)
         .setCellValue(schema.primaryKey.map(_.mkString(",")).getOrElse(""))
