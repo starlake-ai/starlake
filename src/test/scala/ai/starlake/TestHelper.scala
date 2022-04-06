@@ -421,7 +421,7 @@ trait TestHelper
   // We need to start it manually because we need to access the HTTP mapped port
   // in the configuration below before any test get executed.
   lazy val kafkaContainer: KafkaContainer = {
-    val kafkaDockerImage = "confluentinc/cp-kafka:"
+    val kafkaDockerImage = "confluentinc/cp-kafka"
     val kafkaDockerTag = "7.0.2"
     val kafkaDockerImageName = DockerImageName.parse(s"$kafkaDockerImage:$kafkaDockerTag")
     KafkaContainer.Def(kafkaDockerImageName).start()
