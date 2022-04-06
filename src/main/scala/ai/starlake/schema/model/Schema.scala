@@ -184,8 +184,7 @@ case class Schema(
   assertions: Option[Map[String, String]] = None,
   primaryKey: Option[List[String]] = None,
   acl: Option[List[AccessControlEntry]] = None,
-  renameTarget: Option[String] = None,
-  renameSource: Option[String] = None
+  rename: Option[String] = None
 ) {
 
   def ddlMapping(datawarehouse: String, schemaHandler: SchemaHandler): List[DDLField] = {
@@ -199,7 +198,7 @@ case class Schema(
     *   renamed column if defined, source name otherwise
     */
   @JsonIgnore
-  def getFinalName(): String = renameTarget.getOrElse(name)
+  def getFinalName(): String = rename.getOrElse(name)
 
   @JsonIgnore
   lazy val attributesWithoutScriptedFields: List[Attribute] = attributes.filter(_.script.isEmpty)

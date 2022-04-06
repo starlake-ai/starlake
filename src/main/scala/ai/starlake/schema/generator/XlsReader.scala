@@ -74,11 +74,11 @@ class XlsReader(input: Input) extends XlsModel {
       val nameOpt =
         Option(row.getCell(headerMap("_name"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
           .flatMap(formatter.formatCellValue)
-      val renameTargetOpt =
-        Option(row.getCell(headerMap("_rename_target"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
+      val renameOpt =
+        Option(row.getCell(headerMap("_rename"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
           .flatMap(formatter.formatCellValue)
-      val renameSourceOpt =
-        Option(row.getCell(headerMap("_rename_source"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
+      val longNameOpt: Option[String] =
+        Option(row.getCell(headerMap("_long_name"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
           .flatMap(formatter.formatCellValue)
       val patternOpt =
         Option(row.getCell(headerMap("_pattern"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
@@ -228,7 +228,7 @@ class XlsReader(input: Input) extends XlsModel {
             }
           Some(
             Schema(
-              name = name,
+              name = longNameOpt.getOrElse(name),
               pattern = pattern,
               attributes = Nil,
               metadata = Some(metaData),
@@ -238,8 +238,7 @@ class XlsReader(input: Input) extends XlsModel {
               postsql = postsql,
               tags = tags,
               primaryKey = primaryKeys,
-              renameTarget = renameTargetOpt,
-              renameSource = renameSourceOpt
+              rename = renameOpt
             )
           )
         }

@@ -76,7 +76,12 @@ class Yml2XlsWriter(schemaHandler: SchemaHandler) extends LazyLogging with XlsMo
     domain.schemas.zipWithIndex.foreach { case (schema, rowIndex) =>
       val metadata = schema.mergedMetadata(domain.metadata)
       val schemaRow = schemaSheet.createRow(2 + rowIndex)
-      schemaRow.createCell(0).setCellValue(schema.name)
+      val schemaName =
+        if (schema.name.length > 31)
+          schema.name.take(27) + "_" + rowIndex
+        else
+          schema.name
+      schemaRow.createCell(0).setCellValue(schemaName)
       schemaRow.createCell(1).setCellValue(schema.pattern.toString)
       schemaRow.createCell(2).setCellValue(metadata.mode.map(_.toString).getOrElse(""))
       schemaRow.createCell(3).setCellValue(metadata.write.map(_.toString).getOrElse(""))
@@ -113,24 +118,24 @@ class Yml2XlsWriter(schemaHandler: SchemaHandler) extends LazyLogging with XlsMo
         .createCell(14)
         .setCellValue(metadata.clustering.map(_.mkString(",")).getOrElse(""))
       schemaRow
-        .createCell(15)
-        .setCellValue(schema.presql.map(_.mkString("###")).getOrElse(""))
-      schemaRow
         .createCell(16)
         .setCellValue(schema.presql.map(_.mkString("###")).getOrElse(""))
       schemaRow
         .createCell(17)
-        .setCellValue(schema.primaryKey.map(_.mkString(",")).getOrElse(""))
+        .setCellValue(schema.presql.map(_.mkString("###")).getOrElse(""))
       schemaRow
         .createCell(18)
+        .setCellValue(schema.primaryKey.map(_.mkString(",")).getOrElse(""))
+      schemaRow
+        .createCell(19)
         .setCellValue(schema.tags.map(_.mkString(",")).getOrElse(""))
-      schemaRow.createCell(19).setCellValue(schema.renameTarget.getOrElse(""))
-      schemaRow.createCell(20).setCellValue(schema.renameSource.getOrElse(""))
+      schemaRow.createCell(20).setCellValue(schema.rename.getOrElse(""))
+      if (schema.name.length > 31) schemaRow.createCell(21).setCellValue(schema.name)
 
       for (i <- allSchemaHeaders.indices)
         schemaSheet.autoSizeColumn(i)
 
-      val attributesSheet = workbook.createSheet(schema.name)
+      val attributesSheet = workbook.createSheet(schemaName)
       fillHeaders(allAttributeHeaders, attributesSheet)
       schema.attributes.zipWithIndex.foreach { case (attr, rowIndex) =>
         val attrRow = attributesSheet.createRow(2 + rowIndex)
