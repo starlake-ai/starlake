@@ -423,7 +423,7 @@ trait TestHelper
   lazy val kafkaContainer: KafkaContainer = {
     val kafkaDockerImage = "confluentinc/cp-kafka:"
     val kafkaDockerTag = "7.0.2"
-    val kafkaDockerImageName = DockerImageName.parse(s"confluentinc/cp-kafka:$kafkaDockerTag")
+    val kafkaDockerImageName = DockerImageName.parse(s"$kafkaDockerImage:$kafkaDockerTag")
     KafkaContainer.Def(kafkaDockerImageName).start()
   }
 
