@@ -302,6 +302,7 @@ object Settings extends StrictLogging {
     analyze: Boolean,
     hive: Boolean,
     grouped: Boolean,
+    groupedMax: Int,
     mergeForceDistinct: Boolean,
     mergeOptimizePartitionWrite: Boolean,
     area: Area,
