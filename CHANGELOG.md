@@ -1,5 +1,8 @@
 # Release notes
 
+# 0.3.14
+__Bug Fix__: Xls2Yml - Get a correct sheet name based on the schema name field
+
 # 0.3.13
 __New feature__:
 - Improve XLS support for long name
