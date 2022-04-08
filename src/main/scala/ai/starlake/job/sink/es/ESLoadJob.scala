@@ -43,7 +43,7 @@ class ESLoadJob(
   val format = cliConfig.format
   val dataset = cliConfig.dataset
   val domain = schemaHandler.getDomain(cliConfig.domain)
-  val schema = domain.flatMap(_.schemas.find(_.name == cliConfig.schema))
+  val schema = domain.flatMap(_.tables.find(_.name == cliConfig.schema))
 
   override def name: String = s"Index $path"
 

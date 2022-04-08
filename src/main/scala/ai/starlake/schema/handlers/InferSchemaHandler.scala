@@ -164,7 +164,7 @@ object InferSchemaHandler {
     schemas: List[Schema] = Nil
   ): Domain = {
 
-    Domain(name = name, metadata = metadata, schemas = schemas)
+    Domain(name = name, metadata = metadata, tables = schemas)
   }
 
   /** * Generates the YAML file using the domain object and a savepath
