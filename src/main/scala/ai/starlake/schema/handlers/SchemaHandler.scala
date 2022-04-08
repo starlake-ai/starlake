@@ -309,8 +309,8 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
       for (i <- 0 until tasksNode.size()) {
         val taskNode = tasksNode.get(i).asInstanceOf[ObjectNode]
         val datasetNode = taskNode.path("dataset")
-        val schemaNode = taskNode.path("table")
-        if (schemaNode.isNull || schemaNode.isMissingNode) {
+        val tableNode = taskNode.path("table")
+        if (tableNode.isNull || tableNode.isMissingNode) {
           taskNode.set("table", datasetNode)
           taskNode.remove("dataset")
         }
