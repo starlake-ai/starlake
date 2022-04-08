@@ -236,7 +236,7 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
         domain match {
           case Success(domain) =>
             val folder = path.getParent()
-            val schemaRefs = domain.schemaRefs
+            val schemaRefs = domain.tableRefs
               .getOrElse(Nil)
               .map { ref =>
                 if (!ref.startsWith("_"))
@@ -251,8 +251,8 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
                   schemaPath.toString
                 )
               }
-              .flatMap(_.schemas)
-            Success(domain.copy(schemas = Option(domain.schemas).getOrElse(Nil) ::: schemaRefs))
+              .flatMap(_.tables)
+            Success(domain.copy(tables = Option(domain.tables).getOrElse(Nil) ::: schemaRefs))
           case Failure(e) =>
             Utils.logException(logger, e)
             Failure(e)
@@ -308,12 +308,7 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
       val tasksNode = autojobNode.path("tasks").asInstanceOf[ArrayNode]
       for (i <- 0 until tasksNode.size()) {
         val taskNode = tasksNode.get(i).asInstanceOf[ObjectNode]
-        val datasetNode = taskNode.path("dataset")
-        val tableNode = taskNode.path("table")
-        if (tableNode.isNull || tableNode.isMissingNode) {
-          taskNode.set("table", datasetNode)
-          taskNode.remove("dataset")
-        }
+        YamlSerializer.renameField(taskNode, "dataset", "table")
       }
 
       // Now load any sql file related to this JOB
@@ -410,7 +405,7 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     * @return
     *   List of schemas for a domain, empty list if no schema or domain is found
     */
-  def getSchemas(domain: String): List[Schema] = getDomain(domain).map(_.schemas).getOrElse(Nil)
+  def getSchemas(domain: String): List[Schema] = getDomain(domain).map(_.tables).getOrElse(Nil)
 
   /** Get schema by name for a domain
     *
@@ -424,6 +419,6 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
   def getSchema(domainName: String, schemaName: String): Option[Schema] =
     for {
       domain <- getDomain(domainName)
-      schema <- domain.schemas.find(_.name == schemaName)
+      schema <- domain.tables.find(_.name == schemaName)
     } yield schema
 }
