@@ -380,7 +380,7 @@ class IngestionWorkflow(
 
   private def predicate(domain: Domain, schemasName: List[String], file: Path): Boolean = {
     schemasName.exists { schemaName =>
-      val schema = domain.schemas.find(_.name.equals(schemaName))
+      val schema = domain.tables.find(_.name.equals(schemaName))
       schema.exists(_.pattern.matcher(file.getName).matches())
     }
   }
@@ -399,7 +399,7 @@ class IngestionWorkflow(
       val ingestingPaths = config.paths
       val result = for {
         domain <- domains.find(_.name == domainName)
-        schema <- domain.schemas.find(_.name == schemaName)
+        schema <- domain.tables.find(_.name == schemaName)
       } yield ingest(domain, schema, ingestingPaths, config.options)
       result match {
         case None | Some(Success(_)) => true
@@ -800,7 +800,7 @@ class IngestionWorkflow(
     // Lookup for the domain given as prompt arguments, if is found then find the given schema in this domain
     val cmdArgs = for {
       domain <- schemaHandler.getDomain(cliConfig.domain)
-      schema <- domain.schemas.find(_.name == cliConfig.schema)
+      schema <- domain.tables.find(_.name == cliConfig.schema)
     } yield (domain, schema)
 
     cmdArgs match {
@@ -822,7 +822,7 @@ class IngestionWorkflow(
   def secure(config: WatchConfig): Boolean = {
     val includedDomains = domainsToWatch(config)
     val result = includedDomains.flatMap { domain =>
-      domain.schemas.map { schema =>
+      domain.tables.map { schema =>
         if (settings.comet.hive || Utils.isRunningInDatabricks()) {
           new DummyIngestionJob(
             domain,
