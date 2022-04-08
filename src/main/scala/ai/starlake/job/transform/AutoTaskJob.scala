@@ -72,7 +72,7 @@ case class AutoTaskJob(
     val bqSink = task.sink.map(sink => sink.asInstanceOf[BigQuerySink]).getOrElse(BigQuerySink())
 
     BigQueryLoadConfig(
-      outputTable = task.dataset,
+      outputTable = task.table,
       outputDataset = task.domain,
       createDisposition = createDisposition,
       writeDisposition = writeDisposition,
@@ -256,7 +256,7 @@ case class AutoTaskJob(
         .option("path", targetPath.toString)
 
       if (settings.comet.hive) {
-        val tableName = task.dataset
+        val tableName = task.table
         val hiveDB = task.getHiveDB(defaultArea)
         val fullTableName = s"$hiveDB.$tableName"
         session.sql(s"create database if not exists $hiveDB")
@@ -318,7 +318,7 @@ case class AutoTaskJob(
       session.sparkContext.applicationId,
       this.name,
       this.task.domain,
-      this.task.dataset,
+      this.task.table,
       success,
       -1,
       -1,
