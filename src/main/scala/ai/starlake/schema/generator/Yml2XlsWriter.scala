@@ -66,14 +66,14 @@ class Yml2XlsWriter(schemaHandler: SchemaHandler) extends LazyLogging with XlsMo
     domainRow.createCell(1).setCellValue(domain.resolveDirectory())
     domainRow.createCell(2).setCellValue(domain.resolveAck().getOrElse(""))
     domainRow.createCell(3).setCellValue(domain.comment.getOrElse(""))
-    domainRow.createCell(4).setCellValue(domain.schemaRefs.getOrElse(Nil).mkString(","))
+    domainRow.createCell(4).setCellValue(domain.tableRefs.getOrElse(Nil).mkString(","))
     domainRow.createCell(5).setCellValue(domain.rename.getOrElse(""))
     for (i <- allDomainHeaders.indices)
       domainSheet.autoSizeColumn(i)
 
     val schemaSheet = workbook.createSheet("schemas")
     fillHeaders(allSchemaHeaders, schemaSheet)
-    domain.schemas.zipWithIndex.foreach { case (schema, rowIndex) =>
+    domain.tables.zipWithIndex.foreach { case (schema, rowIndex) =>
       val metadata = schema.mergedMetadata(domain.metadata)
       val schemaRow = schemaSheet.createRow(2 + rowIndex)
       val schemaName =

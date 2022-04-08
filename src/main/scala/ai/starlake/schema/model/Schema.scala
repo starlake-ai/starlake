@@ -518,4 +518,4 @@ object Schema {
 
 }
 
-case class Schemas(schemas: List[Schema])
+case class Schemas(tables: List[Schema])
