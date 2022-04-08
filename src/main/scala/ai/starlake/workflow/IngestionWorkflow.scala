@@ -657,7 +657,7 @@ class IngestionWorkflow(
                       val config =
                         BigQueryLoadConfig(
                           source = source,
-                          outputTable = action.task.dataset,
+                          outputTable = action.task.table,
                           outputDataset = action.task.domain,
                           sourceFormat = settings.comet.defaultFormat,
                           createDisposition = createDisposition,
@@ -688,7 +688,7 @@ class IngestionWorkflow(
                         jdbcName,
                         settings.comet,
                         source,
-                        outputTable = action.task.dataset,
+                        outputTable = action.task.table,
                         createDisposition = CreateDisposition.valueOf(createDisposition),
                         writeDisposition = WriteDisposition.valueOf(writeDisposition),
                         partitions = partitions,
@@ -726,7 +726,7 @@ class IngestionWorkflow(
   private def saveToES(action: AutoTaskJob): Boolean = {
     val targetArea = action.task.area.getOrElse(action.defaultArea)
     val targetPath =
-      new Path(DatasetArea.path(action.task.domain, targetArea.value), action.task.dataset)
+      new Path(DatasetArea.path(action.task.domain, targetArea.value), action.task.table)
     val sink: EsSink = action.task.sink
       .map(_.asInstanceOf[EsSink])
       .getOrElse(
@@ -739,7 +739,7 @@ class IngestionWorkflow(
         id = sink.id,
         format = settings.comet.defaultFormat,
         domain = action.task.domain,
-        schema = action.task.dataset,
+        schema = action.task.table,
         dataset = Some(Left(targetPath)),
         options = sink.getOptions
       )

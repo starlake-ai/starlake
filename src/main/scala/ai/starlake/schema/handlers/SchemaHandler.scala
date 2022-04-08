@@ -25,6 +25,7 @@ import ai.starlake.schema.model._
 import ai.starlake.utils.Formatter._
 import ai.starlake.utils.{CometObjectMapper, Utils, YamlSerializer}
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.node.{ArrayNode, ObjectNode}
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.scala.experimental.ScalaObjectMapper
 import com.github.ghik.silencer.silent
@@ -304,6 +305,17 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
           rootNode
         } else
           tranformNode
+      val tasksNode = autojobNode.path("tasks").asInstanceOf[ArrayNode]
+      for (i <- 0 until tasksNode.size()) {
+        val taskNode = tasksNode.get(i).asInstanceOf[ObjectNode]
+        val datasetNode = taskNode.path("dataset")
+        val schemaNode = taskNode.path("table")
+        if (schemaNode.isNull || schemaNode.isMissingNode) {
+          taskNode.set("table", datasetNode)
+          taskNode.remove("dataset")
+        }
+      }
+
       // Now load any sql file related to this JOB
       // for file job.comet.yml containing a single unnamed task, we search for job.sql
       // for file job.comet.yml containing multiple named tasks (say task1, task2), we search for job.task1.sql & job.task2.sql
@@ -321,7 +333,7 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
             sql = Option(sqlTask.sql),
             postsql = sqlTask.postsql,
             domain = Option(taskDesc.domain).getOrElse("").richFormat(activeEnv, Map.empty),
-            dataset = taskDesc.dataset.richFormat(activeEnv, Map.empty),
+            table = taskDesc.table.richFormat(activeEnv, Map.empty),
             area = taskDesc.area.map(area =>
               StorageArea.fromString(area.value.richFormat(activeEnv, Map.empty))
             )
