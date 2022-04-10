@@ -21,7 +21,7 @@ object Versions {
   val esSpark212 = "8.1.2"
   val scopt = "4.0.1"
   val gcsConnector = "hadoop3-2.2.5"
-  val bigquery = "2.9.4"
+  val bigquery = "2.10.7"
   val bigqueryConnector = "hadoop3-1.2.0"
   val hadoop = "3.3.1"
   val h2 = "2.1.210" // Test only
