@@ -15,6 +15,8 @@ case class Path(path: String) extends Input
 
 case class FileInput(file: File) extends Input
 
+final case class SchemaName(value: String) extends AnyVal
+
 /** Reads the spreadsheet found at the specified {@param input} and builds the corresponding Domain
   * object
   *
@@ -67,7 +69,7 @@ class XlsReader(input: Input) extends XlsModel {
     }
   }
 
-  private lazy val schemas: List[Schema] = {
+  private lazy val schemas: List[(Schema, SchemaName)] = {
     val sheet = workbook.getSheet("schemas")
     val (rows, headerMap) = getColsOrder(sheet, allSchemaHeaders.map { case (name, _) => name })
     rows.flatMap { row =>
@@ -151,6 +153,10 @@ class XlsReader(input: Input) extends XlsModel {
           row.getCell(headerMap("_tags"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
         ).flatMap(formatter.formatCellValue).map(_.split(",").toSet)
 
+      val longNameOpt =
+        Option(row.getCell(headerMap("_long_name"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
+          .flatMap(formatter.formatCellValue)
+
       (nameOpt, patternOpt) match {
         case (Some(name), Some(pattern)) => {
           val metaData = Metadata(
@@ -223,21 +229,21 @@ class XlsReader(input: Input) extends XlsModel {
                 )
               case _ => None
             }
-          Some(
-            Schema(
-              name = name,
-              pattern = pattern,
-              attributes = Nil,
-              metadata = Some(metaData),
-              merge = mergeOptions,
-              comment = comment,
-              presql = presql,
-              postsql = postsql,
-              tags = tags,
-              primaryKey = primaryKeys,
-              rename = renameOpt
-            )
+
+          val schema = Schema(
+            name = longNameOpt.getOrElse(name),
+            pattern = pattern,
+            attributes = Nil,
+            metadata = Some(metaData),
+            merge = mergeOptions,
+            comment = comment,
+            presql = presql,
+            postsql = postsql,
+            tags = tags,
+            primaryKey = primaryKeys,
+            rename = renameOpt
           )
+          Some(schema, SchemaName(name))
         }
         case _ => None
       }
@@ -255,8 +261,8 @@ class XlsReader(input: Input) extends XlsModel {
   }
 
   private def buildSchemas(settings: Settings): List[Schema] = {
-    schemas.map { schema =>
-      val schemaName = schema.name
+    schemas.map { case (schema, originalName) =>
+      val schemaName = originalName.value
       val sheetOpt = Option(workbook.getSheet(schemaName))
       val attributes = sheetOpt match {
         case None => List.empty
