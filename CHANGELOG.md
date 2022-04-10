@@ -1,5 +1,13 @@
 # Release notes
 
+# 0.3.14
+__Bug Fix__: Xls2Yml - Get a correct sheet name based on the schema name field
+
+# 0.3.13
+__New feature__:
+- Improve XLS support for long name
+- Handle rate limit exceeded by setting COMET_GROUPED_MAX to avoir HTTP 429 on some cloud providers. 
+
 # 0.3.12
 __Bug Fix__: reorder transformation on attributes as follows:
 - rename columns
@@ -46,8 +54,6 @@ __New feature__:
 - Add new  [preset env vars](https://starlake-ai.github.io/starlake/docs/reference/environment#preset-variables)
 - Allow renaming of domains and schemas
 
-__Bug Fix__:
-
 # 0.3.0
 __New feature__:
 - Vars in assertions are now substituted at load time
@@ -56,15 +62,11 @@ __New feature__:
 - Add support for generic sink
 - Allow use of custom deserializer on Kafka source
 
-__Bug Fix__:
-
 # 0.2.10
 __New feature__:
 - Drop Java 1.8 prerequisite for compilation  
 - Support custom database name for Hive compatible metastore
 - Support custom dataset name in BQ
-
-__Bug Fix__:
 
 # 0.2.9
 __New feature__:
@@ -72,8 +74,6 @@ __New feature__:
 - Allow table renaming on write
 - Any Spark supported input is now allowed
 - Env vars in env.yml files
-
-__Bug Fix__:
 
 # 0.2.8
 __New feature__:

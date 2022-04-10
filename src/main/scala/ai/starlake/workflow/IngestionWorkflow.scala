@@ -272,40 +272,46 @@ class IngestionWorkflow(
         logger.info(s"""Ingest resolved file : ${pendingPaths
             .map(_.getName)
             .mkString(",")} with schema ${schema.name}""")
-        val ingestingPaths = pendingPaths.map { pendingPath =>
-          val ingestingPath = new Path(DatasetArea.ingesting(domain.name), pendingPath.getName)
-          if (!storageHandler.move(pendingPath, ingestingPath)) {
-            logger.error(s"Could not move $pendingPath to $ingestingPath")
+
+        // We group by groupedMax to avoid rateLimit exceeded when the number of grouped files is too big for some cloud storage rate limitations.
+        val groupedPendingPathsIterator =
+          pendingPaths.grouped(settings.comet.groupedMax)
+        groupedPendingPathsIterator.map { pendingPaths =>
+          val ingestingPaths = pendingPaths.map { pendingPath =>
+            val ingestingPath = new Path(DatasetArea.ingesting(domain.name), pendingPath.getName)
+            if (!storageHandler.move(pendingPath, ingestingPath)) {
+              logger.error(s"Could not move $pendingPath to $ingestingPath")
+            }
+            ingestingPath
           }
-          ingestingPath
+          val jobs = if (settings.comet.grouped) {
+            JobContext(domain, schema, ingestingPaths.toList, config.options) :: Nil
+          } else {
+            // We ingest all the files but return false if one of them fails.
+            ingestingPaths.map { path =>
+              JobContext(domain, schema, path :: Nil, config.options)
+            }
+          }
+          val (parJobs, forkJoinPool) = makeParallel(jobs.toList, settings.comet.scheduling.maxJobs)
+          val res = parJobs.map { jobContext =>
+            launchHandler.ingest(
+              this,
+              jobContext.domain,
+              jobContext.schema,
+              jobContext.paths,
+              jobContext.options
+            ) match {
+              case Failure(e) =>
+                e.printStackTrace()
+                false
+              case Success(r) => true
+            }
+          }.toList
+          forkJoinPool.foreach(_.shutdown())
+          res.forall(_ == true)
         }
-        val jobs = if (settings.comet.grouped) {
-          JobContext(domain, schema, ingestingPaths.toList, config.options) :: Nil
-        } else {
-          // We ingest all the files but return false if one of them fails.
-          ingestingPaths.map { path =>
-            JobContext(domain, schema, path :: Nil, config.options)
-          }
-        }
-        val (parJobs, forkJoinPool) = makeParallel(jobs.toList, settings.comet.scheduling.maxJobs)
-        val res = parJobs.map { jobContext =>
-          launchHandler.ingest(
-            this,
-            jobContext.domain,
-            jobContext.schema,
-            jobContext.paths,
-            jobContext.options
-          ) match {
-            case Failure(e) =>
-              e.printStackTrace()
-              false
-            case Success(r) => true
-          }
-        }.toList
-        forkJoinPool.foreach(_.shutdown())
-        res.forall(_ == true)
       }
-    }
+    }.flatten
     result.forall(_ == true)
   }
 
