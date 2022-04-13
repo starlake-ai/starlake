@@ -1,7 +1,6 @@
 package ai.starlake.utils
 
 import ai.starlake.schema.model.MergeOptions
-import ai.starlake.schema.model.MergeOptions
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions._
@@ -11,9 +10,9 @@ import org.apache.spark.sql.{Column, DataFrame, DatasetLogging}
 object MergeUtils extends StrictLogging with DatasetLogging {
 
   /** Compute a new schema that is compatible with merge operations. Built recursively from the
-    * incoming schema to retain the latest attributes, but without the columns that does not exist
-    * yet. Ensures that the incomingSchema contains all the columns from the existingSchema.
-    */
+   * incoming schema to retain the latest attributes, but without the columns that does not exist
+   * yet. Ensures that the incomingSchema contains all the columns from the existingSchema.
+   */
   def computeCompatibleSchema(actualSchema: StructType, expectedSchema: StructType): StructType = {
     val actualColumns = actualSchema.map(field => field.name -> field).toMap
     val expectedColumns = expectedSchema.map(field => field.name -> field).toMap
@@ -24,8 +23,10 @@ object MergeUtils extends StrictLogging with DatasetLogging {
       val missingColumnsNotNullable = missingColumns.filterNot(actualColumns(_).nullable)
       if (missingColumnsNotNullable.nonEmpty)
         throw new RuntimeException(
-          s"Input Dataset should contain every required column from the existing HDFS dataset. The following columns were not matched: ${missingColumnsNotNullable
-              .mkString(",")}"
+          s"Input Dataset should contain every required column from the existing HDFS dataset. The following columns were not matched: ${
+            missingColumnsNotNullable
+              .mkString(",")
+          }"
         )
     }
 
@@ -48,9 +49,9 @@ object MergeUtils extends StrictLogging with DatasetLogging {
                 case (existingType: StructType, incomingType: StructType) =>
                   expectedField.copy(dataType = computeCompatibleSchema(existingType, incomingType))
                 case (
-                      ArrayType(existingType: StructType, _),
-                      ArrayType(incomingType: StructType, nullable)
-                    ) =>
+                  ArrayType(existingType: StructType, _),
+                  ArrayType(incomingType: StructType, nullable)
+                  ) =>
                   expectedField
                     .copy(dataType =
                       ArrayType(computeCompatibleSchema(existingType, incomingType), nullable)
@@ -63,18 +64,18 @@ object MergeUtils extends StrictLogging with DatasetLogging {
   }
 
   /** @param existingDF
-    * @param incomingDF
-    * @param mergeOptions
-    * @return
-    *   a tuple containing incomingDF without de records to delete as specified in the merge.delete
-    *   option, the merge Dataframe containing all the data and deleted DF containing all the rows
-    *   to delete
-    */
+   * @param incomingDF
+   * @param mergeOptions
+   * @return
+   * a tuple containing incomingDF without de records to delete as specified in the merge.delete
+   * option, the merge Dataframe containing all the data and deleted DF containing all the rows
+   * to delete
+   */
   def computeToMergeAndToDeleteDF(
-    existingDF: DataFrame,
-    incomingDF: DataFrame,
-    mergeOptions: MergeOptions
-  ): (DataFrame, DataFrame, DataFrame) = {
+                                   existingDF: DataFrame,
+                                   incomingDF: DataFrame,
+                                   mergeOptions: MergeOptions
+                                 ): (DataFrame, DataFrame, DataFrame) = {
     logger.whenInfoEnabled {
       logger.info(s"incomingDF Schema before merge -> ${incomingDF.schema}")
       logger.info(s"existingDF Schema before merge -> ${existingDF.schema}")
@@ -91,23 +92,23 @@ object MergeUtils extends StrictLogging with DatasetLogging {
     val (mergedDF, toDeleteDF) = mergeOptions.timestamp match {
       case Some(timestamp) =>
         // We only keep the first occurrence of each record, from both datasets
-    val orderingWindow = Window
-      .partitionBy(mergeOptions.key.head, mergeOptions.key.tail: _*)
+        val orderingWindow = Window
+          .partitionBy(mergeOptions.key.head, mergeOptions.key.tail: _*)
           .orderBy(col(timestamp).desc)
 
-    val allRowsDF = computeDataframeUnion(existingDF, finalIncomingDF)
+        val allRowsDF = computeDataframeUnion(existingDF, finalIncomingDF)
 
-    val allRowsWithRownum = allRowsDF
-      .withColumn("rownum", row_number.over(orderingWindow))
+        val allRowsWithRownum = allRowsDF
+          .withColumn("rownum", row_number.over(orderingWindow))
 
-    // Deduplicate
-    val mergedDF = allRowsWithRownum
-      .where(col("rownum") === 1)
-      .drop("rownum")
+        // Deduplicate
+        val mergedDF = allRowsWithRownum
+          .where(col("rownum") === 1)
+          .drop("rownum")
 
-    // Compute rows that will be deleted
-    val toDeleteDF = allRowsWithRownum
-      .where(col("rownum") =!= 1)
+        // Compute rows that will be deleted
+        val toDeleteDF = allRowsWithRownum
+          .where(col("rownum") =!= 1)
           .drop("rownum")
         (mergedDF, toDeleteDF)
       case None =>
@@ -131,10 +132,10 @@ object MergeUtils extends StrictLogging with DatasetLogging {
 
   // return an optional list of column paths (ex "root.field" <=> ("root", "field"))
   private def findMissingColumnsType(
-    schema: StructType,
-    reference: StructType,
-    stack: List[String] = List()
-  ): Option[Map[List[String], DataType]] = {
+                                      schema: StructType,
+                                      reference: StructType,
+                                      stack: List[String] = List()
+                                    ): Option[Map[List[String], DataType]] = {
     val fields = schema.fields.map(field => field.name -> field).toMap
     reference.fields
       .flatMap { referenceField =>
@@ -151,9 +152,9 @@ object MergeUtils extends StrictLogging with DatasetLogging {
               case (fieldType: StructType, referenceType: StructType) =>
                 findMissingColumnsType(fieldType, referenceType, stack :+ referenceField.name)
               case (
-                    ArrayType(fieldType: StructType, _),
-                    ArrayType(referenceType: StructType, _)
-                  ) =>
+                ArrayType(fieldType: StructType, _),
+                ArrayType(referenceType: StructType, _)
+                ) =>
                 findMissingColumnsType(fieldType, referenceType, stack :+ referenceField.name)
               case (_, _) => None
             }
@@ -163,9 +164,9 @@ object MergeUtils extends StrictLogging with DatasetLogging {
   }
 
   def buildMissingType(
-    dataframe: DataFrame,
-    missingType: (List[String], DataType)
-  ): DataFrame = {
+                        dataframe: DataFrame,
+                        missingType: (List[String], DataType)
+                      ): DataFrame = {
     // Inspired from https://medium.com/@fqaiser94/manipulating-nested-data-just-got-easier-in-apache-spark-3-1-1-f88bc9003827
     def buildMissingColumn: (List[String], List[String], DataType) => Column = {
       case (_ :+ colName, Nil, missingType) => lit(null).cast(missingType).as(colName)
@@ -196,9 +197,9 @@ object MergeUtils extends StrictLogging with DatasetLogging {
   }
 
   /** Perform an union between two dataframe. Fixes any missing column from the originalDF by adding
-    * null values where needed and also fixes any missing column in the incoming DF (see {@link
-    * computeCompatibleSchema})
-    */
+   * null values where needed and also fixes any missing column in the incoming DF (see {@link
+ * computeCompatibleSchema})
+   */
   private def computeDataframeUnion(existingDF: DataFrame, incomingDF: DataFrame): DataFrame = {
     val patchedExistingDF = addMissingAttributes(existingDF, incomingDF)
     val patchedIncomingDF = addMissingAttributes(incomingDF, existingDF)
