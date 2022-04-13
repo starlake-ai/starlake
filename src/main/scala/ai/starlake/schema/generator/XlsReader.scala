@@ -60,7 +60,7 @@ class XlsReader(input: Input) extends XlsModel {
               name,
               metadata = Some(Metadata(directory = Some(directory), ack = ack)),
               comment = comment,
-              schemaRefs = schemaRefsOpt,
+              tableRefs = schemaRefsOpt,
               rename = renameOpt
             )
           )
@@ -257,7 +257,7 @@ class XlsReader(input: Input) extends XlsModel {
     */
   def getDomain()(implicit settings: Settings): Option[Domain] = {
     val completeSchemas = buildSchemas(settings).filter(_.attributes.nonEmpty)
-    domain.map(_.copy(schemas = completeSchemas))
+    domain.map(_.copy(tables = completeSchemas))
   }
 
   private def buildSchemas(settings: Settings): List[Schema] = {

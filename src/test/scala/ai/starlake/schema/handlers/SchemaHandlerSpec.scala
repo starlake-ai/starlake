@@ -623,7 +623,7 @@ class SchemaHandlerSpec extends TestHelper {
 
         val schema: Option[Schema] = schemaHandler.domains
           .find(_.name == "locations")
-          .flatMap(_.schemas.find(_.name == "locations"))
+          .flatMap(_.tables.find(_.name == "locations"))
         val expected: String =
           """
             |{
@@ -830,7 +830,7 @@ class SchemaHandlerSpec extends TestHelper {
         val schemaHandler = new SchemaHandler(settings.storageHandler)
         schemaHandler
           .getDomain("WITH_REF")
-          .map(_.schemas.map(_.name))
+          .map(_.tables.map(_.name))
           .get should contain theSameElementsAs List(
           "User",
           "Players",
