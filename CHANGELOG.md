@@ -15,7 +15,7 @@ __Bug Fix__:
 # 0.3.13
 __New feature__:
 - Improve XLS support for long name
-- Handle rate limit exceeded by setting COMET_GROUPED_MAX to avoir HTTP 429 on some cloud providers. 
+- Handle rate limit exceeded by setting COMET_GROUPED_MAX to avoid HTTP 429 on some cloud providers. 
 
 # 0.3.12
 __Bug Fix__: reorder transformation on attributes as follows:
