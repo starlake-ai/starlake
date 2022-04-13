@@ -6,6 +6,7 @@ __New feature__:
 - deprecate usage of schema, schemaRefs in domains and dataset in autojobs. Prefer the use of table and tableRefs
 
 __Bug Fix__:
+- fix regression on Merge mode without Timestamp option
 
 # 0.3.14
 __Bug Fix__:
