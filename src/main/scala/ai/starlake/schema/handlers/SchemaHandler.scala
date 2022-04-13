@@ -25,6 +25,7 @@ import ai.starlake.schema.model._
 import ai.starlake.utils.Formatter._
 import ai.starlake.utils.{CometObjectMapper, Utils, YamlSerializer}
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.node.{ArrayNode, ObjectNode}
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.scala.experimental.ScalaObjectMapper
 import com.github.ghik.silencer.silent
@@ -235,7 +236,7 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
         domain match {
           case Success(domain) =>
             val folder = path.getParent()
-            val schemaRefs = domain.schemaRefs
+            val schemaRefs = domain.tableRefs
               .getOrElse(Nil)
               .map { ref =>
                 if (!ref.startsWith("_"))
@@ -250,8 +251,8 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
                   schemaPath.toString
                 )
               }
-              .flatMap(_.schemas)
-            Success(domain.copy(schemas = Option(domain.schemas).getOrElse(Nil) ::: schemaRefs))
+              .flatMap(_.tables)
+            Success(domain.copy(tables = Option(domain.tables).getOrElse(Nil) ::: schemaRefs))
           case Failure(e) =>
             Utils.logException(logger, e)
             Failure(e)
@@ -304,6 +305,12 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
           rootNode
         } else
           tranformNode
+      val tasksNode = autojobNode.path("tasks").asInstanceOf[ArrayNode]
+      for (i <- 0 until tasksNode.size()) {
+        val taskNode = tasksNode.get(i).asInstanceOf[ObjectNode]
+        YamlSerializer.renameField(taskNode, "dataset", "table")
+      }
+
       // Now load any sql file related to this JOB
       // for file job.comet.yml containing a single unnamed task, we search for job.sql
       // for file job.comet.yml containing multiple named tasks (say task1, task2), we search for job.task1.sql & job.task2.sql
@@ -321,7 +328,7 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
             sql = Option(sqlTask.sql),
             postsql = sqlTask.postsql,
             domain = Option(taskDesc.domain).getOrElse("").richFormat(activeEnv, Map.empty),
-            dataset = taskDesc.dataset.richFormat(activeEnv, Map.empty),
+            table = taskDesc.table.richFormat(activeEnv, Map.empty),
             area = taskDesc.area.map(area =>
               StorageArea.fromString(area.value.richFormat(activeEnv, Map.empty))
             )
@@ -398,7 +405,7 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     * @return
     *   List of schemas for a domain, empty list if no schema or domain is found
     */
-  def getSchemas(domain: String): List[Schema] = getDomain(domain).map(_.schemas).getOrElse(Nil)
+  def getSchemas(domain: String): List[Schema] = getDomain(domain).map(_.tables).getOrElse(Nil)
 
   /** Get schema by name for a domain
     *
@@ -412,6 +419,6 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
   def getSchema(domainName: String, schemaName: String): Option[Schema] =
     for {
       domain <- getDomain(domainName)
-      schema <- domain.schemas.find(_.name == schemaName)
+      schema <- domain.tables.find(_.name == schemaName)
     } yield schema
 }

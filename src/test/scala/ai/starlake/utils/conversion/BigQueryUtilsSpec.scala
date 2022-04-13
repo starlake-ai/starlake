@@ -129,7 +129,7 @@ class BigQueryUtilsSpec extends TestHelper {
         val schemaHandler = new SchemaHandler(settings.storageHandler)
 
         val schema = schemaHandler.domains
-          .flatMap(_.schemas)
+          .flatMap(_.tables)
           .find(_.name == "User")
           .map(_.bqSchema(schemaHandler))
 

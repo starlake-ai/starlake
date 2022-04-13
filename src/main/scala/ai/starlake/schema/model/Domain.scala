@@ -51,7 +51,7 @@ import scala.util.{Failure, Success, Try}
   *   : Default Schema metadata. This metadata is applied to the schemas defined in this domain.
   *   Metadata properties may be redefined at the schema level. See Metadata Entity for more
   *   details.
-  * @param schemas
+  * @param tables
   *   : List of schemas for each dataset in this domain A domain ususally contains multiple schemas.
   *   Each schema defining how the contents of the input file should be parsed. See Schema for more
   *   details.
@@ -70,8 +70,8 @@ import scala.util.{Failure, Success, Try}
   name: String,
   @silent @deprecated("Moved to Metadata", "0.2.8") directory: Option[String] = None,
   metadata: Option[Metadata] = None,
-  schemaRefs: Option[List[String]] = None,
-  schemas: List[Schema] = Nil,
+  tableRefs: Option[List[String]] = None,
+  tables: List[Schema] = Nil,
   comment: Option[String] = None,
   @silent @deprecated("Moved to Metadata", "0.2.8") extensions: Option[List[String]] = None,
   @silent @deprecated("Moved to Metadata", "0.2.8") ack: Option[String] = None,
@@ -93,7 +93,7 @@ import scala.util.{Failure, Success, Try}
     * @return
     */
   def findSchema(filename: String): Option[Schema] = {
-    schemas.find(_.pattern.matcher(filename).matches())
+    tables.find(_.pattern.matcher(filename).matches())
   }
 
   def ddlMapping(datawarehouse: String, ddlType: String)(implicit
@@ -214,7 +214,7 @@ import scala.util.{Failure, Success, Try}
     }
 
     // Check Schemas validity
-    schemas.foreach { schema =>
+    tables.foreach { schema =>
       for (errors <- schema.checkValidity(this.metadata, schemaHandler).left) {
         errorList ++= errors.map(s"schema ${schema.name}:" + _)
       }
@@ -229,7 +229,7 @@ import scala.util.{Failure, Success, Try}
 
     val duplicatesErrorMessage =
       "%s is defined %d times. A schema can only be defined once."
-    for (errors <- Utils.duplicates(schemas.map(_.name), duplicatesErrorMessage).left) {
+    for (errors <- Utils.duplicates(tables.map(_.name), duplicatesErrorMessage).left) {
       errorList ++= errors.map(s"domain $name:" + _)
     }
 
@@ -241,7 +241,7 @@ import scala.util.{Failure, Success, Try}
   }
 
   def asDot(includeAllAttrs: Boolean): String = {
-    schemas
+    tables
       .map { schema =>
         schema.asDot(name, includeAllAttrs)
       }

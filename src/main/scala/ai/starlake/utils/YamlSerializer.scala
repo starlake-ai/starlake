@@ -6,6 +6,7 @@ import ai.starlake.schema.model.{AutoJobDesc, Domain, Schema => ModelSchema, Sch
 import better.files.File
 import com.fasterxml.jackson.annotation.JsonInclude.Include
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.node.ObjectNode
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.typesafe.scalalogging.LazyLogging
@@ -67,7 +68,10 @@ object YamlSerializer extends LazyLogging {
 
   def deserializeSchemas(content: String, path: String): Schemas = {
     Try {
-      mapper.readValue(content, classOf[Schemas])
+      val rootNode = mapper.readTree(content).asInstanceOf[ObjectNode]
+      YamlSerializer.renameField(rootNode, "schemas", "tables")
+      mapper.treeToValue(rootNode, classOf[Schemas])
+
     } match {
       case Success(value) => value
       case Failure(exception) =>
@@ -81,9 +85,11 @@ object YamlSerializer extends LazyLogging {
       val loadNode = rootNode.path("load")
       val domainNode =
         if (loadNode.isNull() || loadNode.isMissingNode) {
-          rootNode
+          rootNode.asInstanceOf[ObjectNode]
         } else
-          loadNode
+          loadNode.asInstanceOf[ObjectNode]
+      renameField(domainNode, "schemas", "tables")
+      renameField(domainNode, "schemaRefs", "tableRefs")
       val domain = mapper.treeToValue(domainNode, classOf[Domain])
       if (domainNode == rootNode)
         logger.warn(
@@ -95,6 +101,15 @@ object YamlSerializer extends LazyLogging {
       case Success(value) => Success(value)
       case Failure(exception) =>
         Failure(new Exception(s"Invalid domain file: $path(${exception.getMessage})"))
+    }
+  }
+
+  def renameField(node: ObjectNode, oldName: String, newName: String) = {
+    val oldNode = node.path(oldName)
+    val newNode = node.path(newName)
+    if ((newNode.isNull || newNode.isMissingNode) && !(oldNode.isNull || oldNode.isMissingNode)) {
+      node.set(newName, oldNode)
+      node.remove(oldName)
     }
   }
 }
