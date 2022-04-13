@@ -1,7 +1,15 @@
 # Release notes
 
+# 0.3.15
+
+__New feature__:
+- deprecate usage of schema, schemaRefs in domains and dataset in autojobs. Prefer the use of table and tableRefs
+
+__Bug Fix__:
+
 # 0.3.14
-__Bug Fix__: Xls2Yml - Get a correct sheet name based on the schema name field
+__Bug Fix__:
+- Xls2Yml - Get a correct sheet name based on the schema name field
 
 # 0.3.13
 __New feature__:

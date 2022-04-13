@@ -43,16 +43,16 @@ class JDBC2YmlSpec extends TestHelper {
         case Failure(e)      => throw e
       }
       assert(domain.name == "PUBLIC")
-      assert(domain.schemas.size == 2)
+      assert(domain.tables.size == 2)
       assert(domain.metadata.flatMap(_.quote).getOrElse("") == "::")
       assert(domain.metadata.flatMap(_.mode).getOrElse(Mode.FILE) == Mode.STREAM)
-      domain.schemas.map(_.name) should contain theSameElementsAs Set("TEST_TABLE1", "TEST_VIEW1")
-      domain.schemas
+      domain.tables.map(_.name) should contain theSameElementsAs Set("TEST_TABLE1", "TEST_VIEW1")
+      domain.tables
         .find(_.name == "TEST_TABLE1")
         .get
         .attributes
         .map(_.name) should contain theSameElementsAs Set("ID", "NAME")
-      domain.schemas
+      domain.tables
         .find(_.name == "TEST_TABLE1")
         .get
         .attributes
@@ -60,7 +60,7 @@ class JDBC2YmlSpec extends TestHelper {
         "long",
         "string"
       )
-      domain.schemas
+      domain.tables
         .find(_.name == "TEST_TABLE1")
         .get
         .primaryKey
@@ -133,12 +133,12 @@ class JDBC2YmlSpec extends TestHelper {
         case Failure(e)      => throw e
       }
       assert(domain.name == "PUBLIC")
-      assert(domain.schemas.size == 1)
-      assert(domain.schemas.head.name == "TEST_TABLE1")
-      domain.schemas.head.attributes
+      assert(domain.tables.size == 1)
+      assert(domain.tables.head.name == "TEST_TABLE1")
+      domain.tables.head.attributes
         .map(_.name) should contain theSameElementsAs Set("ID")
-      domain.schemas.head.attributes.map(_.`type`) should contain theSameElementsAs Set("long")
-      domain.schemas.head.primaryKey.getOrElse(List.empty) should contain("ID")
+      domain.tables.head.attributes.map(_.`type`) should contain theSameElementsAs Set("long")
+      domain.tables.head.primaryKey.getOrElse(List.empty) should contain("ID")
     }
   }
 
@@ -178,9 +178,9 @@ class JDBC2YmlSpec extends TestHelper {
         case Failure(e)      => throw e
       }
       assert(domain.name == "PUBLIC")
-      assert(domain.schemas.size == 1)
-      assert(domain.schemas.head.name == "TEST_TABLE2")
-      domain.schemas.head.attributes
+      assert(domain.tables.size == 1)
+      assert(domain.tables.head.name == "TEST_TABLE2")
+      domain.tables.head.attributes
         .find(_.name == "TABLE1_ID")
         .get
         .foreignKey
