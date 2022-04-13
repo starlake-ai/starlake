@@ -106,6 +106,7 @@ assembly / assemblyShadeRules := Seq(
 //  ShadeRule.rename("shapeless.**" -> "shade.@0").inAll,
   //shade it or else writing to bigquery wont work because spark comes with an older version of google common.
   ShadeRule.rename("com.google.common.**" -> "shade.@0").inAll,
+  ShadeRule.rename("com.google.gson.**" -> "shade.@0").inAll,
   ShadeRule.rename("com.google.protobuf.**" -> "shade.@0").inAll
 )
 

@@ -52,7 +52,7 @@ case class AutoTaskDesc(
   name: Option[String],
   sql: Option[String],
   domain: String,
-  dataset: String,
+  table: String,
   write: WriteMode,
   partition: Option[List[String]] = None,
   presql: Option[List[String]] = None,
@@ -75,7 +75,7 @@ case class AutoTaskDesc(
     * @return
     */
   def getTargetPath(defaultArea: StorageArea)(implicit settings: Settings): Path = {
-    new Path(DatasetArea.path(domain, area.getOrElse(defaultArea).value), dataset)
+    new Path(DatasetArea.path(domain, area.getOrElse(defaultArea).value), table)
   }
 
   def getHiveDB(defaultArea: StorageArea)(implicit settings: Settings): String = {
