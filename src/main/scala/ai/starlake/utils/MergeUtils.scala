@@ -1,7 +1,6 @@
 package ai.starlake.utils
 
 import ai.starlake.schema.model.MergeOptions
-import ai.starlake.schema.model.MergeOptions
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions._
@@ -88,24 +87,37 @@ object MergeUtils extends StrictLogging with DatasetLogging {
       .map(condition => incomingDF.filter(s"not ($condition)"))
       .getOrElse(incomingDF)
 
-    val orderingWindow = Window
-      .partitionBy(mergeOptions.key.head, mergeOptions.key.tail: _*)
-      .orderBy(mergeOptions.timestamp.fold(mergeOptions.key) { List(_) }.map(col(_).desc): _*)
+    val (mergedDF, toDeleteDF) = mergeOptions.timestamp match {
+      case Some(timestamp) =>
+        // We only keep the first occurrence of each record, from both datasets
+        val orderingWindow = Window
+          .partitionBy(mergeOptions.key.head, mergeOptions.key.tail: _*)
+          .orderBy(col(timestamp).desc)
 
-    val allRowsDF = computeDataframeUnion(existingDF, finalIncomingDF)
+        val allRowsDF = computeDataframeUnion(existingDF, finalIncomingDF)
 
-    val allRowsWithRownum = allRowsDF
-      .withColumn("rownum", row_number.over(orderingWindow))
+        val allRowsWithRownum = allRowsDF
+          .withColumn("rownum", row_number.over(orderingWindow))
 
-    // Deduplicate
-    val mergedDF = allRowsWithRownum
-      .where(col("rownum") === 1)
-      .drop("rownum")
+        // Deduplicate
+        val mergedDF = allRowsWithRownum
+          .where(col("rownum") === 1)
+          .drop("rownum")
 
-    // Compute rows that will be deleted
-    val toDeleteDF = allRowsWithRownum
-      .where(col("rownum") =!= 1)
-      .drop("rownum")
+        // Compute rows that will be deleted
+        val toDeleteDF = allRowsWithRownum
+          .where(col("rownum") =!= 1)
+          .drop("rownum")
+        (mergedDF, toDeleteDF)
+      case None =>
+        // We directly remove from the existing dataset the rows that are present in the incoming dataset
+        val patchedExistingDF = addMissingAttributes(existingDF, finalIncomingDF)
+        val patchedIncomingDF = addMissingAttributes(finalIncomingDF, existingDF)
+        val commonDF = patchedExistingDF
+          .join(patchedIncomingDF.select(mergeOptions.key.map(col): _*), mergeOptions.key)
+          .select(patchedIncomingDF.columns.map(col): _*)
+        (patchedExistingDF.except(commonDF).union(patchedIncomingDF), commonDF)
+    }
 
     logger.whenDebugEnabled {
       logger.debug(s"Merge detected ${toDeleteDF.count()} items to update/delete")
@@ -182,13 +194,13 @@ object MergeUtils extends StrictLogging with DatasetLogging {
     }
   }
 
-  /** Perform an union between two dataframe. Fixes any missing column from the originalDF by add
+  /** Perform an union between two dataframe. Fixes any missing column from the originalDF by adding
     * null values where needed and also fixes any missing column in the incoming DF (see {@link
     * computeCompatibleSchema})
     */
-  private def computeDataframeUnion(originalDF: DataFrame, incomingDF: DataFrame): DataFrame = {
-    val patchedExistingDF = addMissingAttributes(originalDF, incomingDF)
-    val patchedIncomingDF = addMissingAttributes(incomingDF, originalDF)
+  private def computeDataframeUnion(existingDF: DataFrame, incomingDF: DataFrame): DataFrame = {
+    val patchedExistingDF = addMissingAttributes(existingDF, incomingDF)
+    val patchedIncomingDF = addMissingAttributes(incomingDF, existingDF)
 
     patchedIncomingDF.unionByName(patchedExistingDF)
   }
