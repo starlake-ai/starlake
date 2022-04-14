@@ -101,7 +101,8 @@ case class AutoTaskJob(
       CommentParser.stripComments(
         task.getSql().richFormat(schemaHandler.activeEnv, sqlParameters).trim
       )
-    if (mainTaskSQL.toLowerCase().startsWith("with ")) {
+    val trimmedMainTaskSQL = mainTaskSQL.toLowerCase().trim
+    if (trimmedMainTaskSQL.startsWith("with ") || trimmedMainTaskSQL.startsWith("(with ")) {
       mainTaskSQL
     } else {
       val subSelects = withViews.map { case (queryName, queryExpr) =>
@@ -115,7 +116,7 @@ case class AutoTaskJob(
         queryName + " AS (" + selectExpr + ")"
       }
       val subSelectsString = if (subSelects.nonEmpty) subSelects.mkString("WITH ", ",", " ") else ""
-      "(" + subSelectsString + mainTaskSQL + ")"
+      "(\n" + subSelectsString + mainTaskSQL + "\n)"
     }
   }
 
