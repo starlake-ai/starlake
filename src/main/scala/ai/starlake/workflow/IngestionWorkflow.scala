@@ -621,9 +621,10 @@ class IngestionWorkflow(
     logger.info(job.toString)
     val result: Seq[Boolean] = buildTasks(config.name, config.options).map { action =>
       val engine = action.engine
-      logger.info(s"running with $engine engine")
+      logger.info(s"running with -> $engine engine")
       engine match {
         case BQ =>
+          logger.info(s"Entering $engine engine")
           val result = action.runBQ()
           val sink = action.task.sink
           logger.info(s"BQ Job succeeded. sinking data to $sink")
