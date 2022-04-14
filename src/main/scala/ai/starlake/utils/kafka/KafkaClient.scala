@@ -155,7 +155,7 @@ class KafkaClient(kafkaConfig: KafkaConfig)(implicit settings: Settings)
   def adminTopicPartitions(topicName: String): List[TopicPartitionInfo] = {
     client
       .describeTopics(java.util.Collections.singleton(topicName))
-      .all()
+      .allTopicNames()
       .get()
       .get(topicName)
       .partitions()

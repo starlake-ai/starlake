@@ -1,5 +1,10 @@
 # Release notes
 
+# 0.3.16
+__New feature__:
+- Upgrade Kafka libraries
+- Simplify removal of comments in autojobs SQL statements. 
+
 # 0.3.15
 
 __New feature__:
@@ -23,7 +28,7 @@ __Bug Fix__: reorder transformation on attributes as follows:
   - run script fields
   - apply transformations (privacy: "sql: ...")
   - remove ignore fields
-  - remove infput filename column
+  - remove input filename column
 
 # 0.3.11 
 __Bug Fix__:
