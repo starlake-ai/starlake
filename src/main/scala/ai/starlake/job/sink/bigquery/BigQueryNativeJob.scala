@@ -72,6 +72,7 @@ class BigQueryNativeJob(
           .setUseLegacySql(false)
           .setAllowLargeResults(true)
 
+      logger.info("Computing partitionning")
       val queryConfigWithPartition = cliConfig.outputPartition match {
         case Some(partitionField) =>
           // Generating schema from YML to get the descriptions in BQ
@@ -83,6 +84,7 @@ class BigQueryNativeJob(
           queryConfig
       }
 
+      logger.info("Computing clustering")
       val queryConfigWithClustering = cliConfig.outputClustering match {
         case Nil =>
           queryConfigWithPartition
@@ -90,6 +92,7 @@ class BigQueryNativeJob(
           val clustering = Clustering.newBuilder().setFields(fields.asJava).build()
           queryConfigWithPartition.setClustering(clustering)
       }
+      logger.info("Add user defined functions")
       val queryConfigWithUDF = addUDFToQueryConfig(queryConfigWithClustering)
       logger.info(s"Executing BQ Query $sql")
       val results =
