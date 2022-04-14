@@ -95,17 +95,12 @@ case class AutoTaskJob(
     }
 
   def parseMainSqlBQ(): JdbcConfigName = {
+    logger.info(s"Parse Views")
     val withViews = parseJobViews()
     val mainTaskSQL =
       CommentParser.stripComments(
         task.getSql().richFormat(schemaHandler.activeEnv, sqlParameters).trim
-      ) match {
-        case Right(s) => s
-        case Left(error) =>
-          throw new Exception(
-            s"ERROR: Could not strip comments from SQL Request ${task.getSql()}\n $error"
-          )
-      }
+      )
     if (mainTaskSQL.toLowerCase().startsWith("with ")) {
       mainTaskSQL
     } else {
@@ -137,12 +132,16 @@ case class AutoTaskJob(
 
   def runBQ(): Try[JobResult] = {
     val start = Timestamp.from(Instant.now())
+    logger.info(s"running BQ Query  start time $start")
     val config = createBigQueryConfig()
+    logger.info(s"running BQ Query with config $config")
     val (preSql, mainSql, postSql) = buildQueryBQ()
-
+    logger.info(s"Config $config")
     // We add extra parenthesis required by BQ when using "WITH" keyword
-    def bqNativeJob(sql: String) = new BigQueryNativeJob(config, "(" + sql + ")", udf)
+    def bqNativeJob(sql: String) =
+      new BigQueryNativeJob(config, if (sql.trim.startsWith("(")) sql else "(" + sql + ")", udf)
 
+    logger.info(s"running PreSQL BQ Query $preSql")
     val presqlResult: Try[Iterable[BigQueryJobResult]] = Try {
       preSql.map { sql =>
         bqNativeJob(sql).runInteractiveQuery()
@@ -150,11 +149,13 @@ case class AutoTaskJob(
     }
     Utils.logFailure(presqlResult, logger)
 
+    logger.info(s"running MainSQL BQ Query $mainSql")
     val jobResult: Try[JobResult] = bqNativeJob(mainSql).run()
     Utils.logFailure(jobResult, logger)
 
     // We execute the post statements even if the main statement failed
     // We may be doing some cleanup here.
+    logger.info(s"running PostSQL BQ Query $postSql")
     val postsqlResult: Try[Iterable[BigQueryJobResult]] = Try {
       postSql.map { sql =>
         bqNativeJob(sql).runInteractiveQuery()
