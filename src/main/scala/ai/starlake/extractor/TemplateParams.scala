@@ -111,7 +111,7 @@ object TemplateParams {
     deltaColumns: Map[String, String],
     activeEnv: Map[String, String]
   )(implicit settings: Settings): List[TemplateParams] =
-    domain.schemas.map(s =>
+    domain.tables.map(s =>
       fromSchema(
         domain.name,
         s,

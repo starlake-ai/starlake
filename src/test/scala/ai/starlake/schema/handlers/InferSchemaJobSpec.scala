@@ -89,7 +89,7 @@ class InferSchemaJobSpec extends TestHelper {
           )
           val maybeDomain = YamlSerializer.deserializeDomain(targetFile)
           maybeDomain.isSuccess shouldBe true
-          val discoveredSchema = maybeDomain.get.schemas.head
+          val discoveredSchema = maybeDomain.get.tables.head
           discoveredSchema.name shouldBe "flat_locations"
           discoveredSchema.attributes.map(_.name) should contain theSameElementsAs List(
             "id",

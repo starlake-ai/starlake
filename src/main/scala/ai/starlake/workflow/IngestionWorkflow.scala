@@ -380,7 +380,7 @@ class IngestionWorkflow(
 
   private def predicate(domain: Domain, schemasName: List[String], file: Path): Boolean = {
     schemasName.exists { schemaName =>
-      val schema = domain.schemas.find(_.name.equals(schemaName))
+      val schema = domain.tables.find(_.name.equals(schemaName))
       schema.exists(_.pattern.matcher(file.getName).matches())
     }
   }
@@ -399,7 +399,7 @@ class IngestionWorkflow(
       val ingestingPaths = config.paths
       val result = for {
         domain <- domains.find(_.name == domainName)
-        schema <- domain.schemas.find(_.name == schemaName)
+        schema <- domain.tables.find(_.name == schemaName)
       } yield ingest(domain, schema, ingestingPaths, config.options)
       result match {
         case None | Some(Success(_)) => true
@@ -621,9 +621,10 @@ class IngestionWorkflow(
     logger.info(job.toString)
     val result: Seq[Boolean] = buildTasks(config.name, config.options).map { action =>
       val engine = action.engine
-      logger.info(s"running with $engine engine")
+      logger.info(s"running with -> $engine engine")
       engine match {
         case BQ =>
+          logger.info(s"Entering $engine engine")
           val result = action.runBQ()
           val sink = action.task.sink
           logger.info(s"BQ Job succeeded. sinking data to $sink")
@@ -657,7 +658,7 @@ class IngestionWorkflow(
                       val config =
                         BigQueryLoadConfig(
                           source = source,
-                          outputTable = action.task.dataset,
+                          outputTable = action.task.table,
                           outputDataset = action.task.domain,
                           sourceFormat = settings.comet.defaultFormat,
                           createDisposition = createDisposition,
@@ -688,7 +689,7 @@ class IngestionWorkflow(
                         jdbcName,
                         settings.comet,
                         source,
-                        outputTable = action.task.dataset,
+                        outputTable = action.task.table,
                         createDisposition = CreateDisposition.valueOf(createDisposition),
                         writeDisposition = WriteDisposition.valueOf(writeDisposition),
                         partitions = partitions,
@@ -726,7 +727,7 @@ class IngestionWorkflow(
   private def saveToES(action: AutoTaskJob): Boolean = {
     val targetArea = action.task.area.getOrElse(action.defaultArea)
     val targetPath =
-      new Path(DatasetArea.path(action.task.domain, targetArea.value), action.task.dataset)
+      new Path(DatasetArea.path(action.task.domain, targetArea.value), action.task.table)
     val sink: EsSink = action.task.sink
       .map(_.asInstanceOf[EsSink])
       .getOrElse(
@@ -739,7 +740,7 @@ class IngestionWorkflow(
         id = sink.id,
         format = settings.comet.defaultFormat,
         domain = action.task.domain,
-        schema = action.task.dataset,
+        schema = action.task.table,
         dataset = Some(Left(targetPath)),
         options = sink.getOptions
       )
@@ -800,7 +801,7 @@ class IngestionWorkflow(
     // Lookup for the domain given as prompt arguments, if is found then find the given schema in this domain
     val cmdArgs = for {
       domain <- schemaHandler.getDomain(cliConfig.domain)
-      schema <- domain.schemas.find(_.name == cliConfig.schema)
+      schema <- domain.tables.find(_.name == cliConfig.schema)
     } yield (domain, schema)
 
     cmdArgs match {
@@ -822,7 +823,7 @@ class IngestionWorkflow(
   def secure(config: WatchConfig): Boolean = {
     val includedDomains = domainsToWatch(config)
     val result = includedDomains.flatMap { domain =>
-      domain.schemas.map { schema =>
+      domain.tables.map { schema =>
         if (settings.comet.hive || Utils.isRunningInDatabricks()) {
           new DummyIngestionJob(
             domain,

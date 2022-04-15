@@ -55,7 +55,7 @@ class StorageHandlerSpec extends TestHelper {
             directory = Some(s"${cometTestRoot}/incoming/DOMAIN")
           )
         ),
-        schemas = List(
+        tables = List(
           Schema(
             "User",
             Pattern.compile("SCHEMA-.*.dsv"),

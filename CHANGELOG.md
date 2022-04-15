@@ -1,12 +1,26 @@
 # Release notes
 
+# 0.3.16
+__New feature__:
+- Upgrade Kafka libraries
+- Simplify removal of comments in autojobs SQL statements. 
+
+# 0.3.15
+
+__New feature__:
+- deprecate usage of schema, schemaRefs in domains and dataset in autojobs. Prefer the use of table and tableRefs
+
+__Bug Fix__:
+- fix regression on Merge mode without Timestamp option
+
 # 0.3.14
-__Bug Fix__: Xls2Yml - Get a correct sheet name based on the schema name field
+__Bug Fix__:
+- Xls2Yml - Get a correct sheet name based on the schema name field
 
 # 0.3.13
 __New feature__:
 - Improve XLS support for long name
-- Handle rate limit exceeded by setting COMET_GROUPED_MAX to avoir HTTP 429 on some cloud providers. 
+- Handle rate limit exceeded by setting COMET_GROUPED_MAX to avoid HTTP 429 on some cloud providers. 
 
 # 0.3.12
 __Bug Fix__: reorder transformation on attributes as follows:
@@ -14,7 +28,7 @@ __Bug Fix__: reorder transformation on attributes as follows:
   - run script fields
   - apply transformations (privacy: "sql: ...")
   - remove ignore fields
-  - remove infput filename column
+  - remove input filename column
 
 # 0.3.11 
 __Bug Fix__:
