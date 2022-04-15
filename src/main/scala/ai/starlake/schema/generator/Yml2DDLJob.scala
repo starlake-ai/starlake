@@ -61,10 +61,10 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
         val schemas: Seq[Schema] = config.schemas match {
           case Some(schemas) =>
             schemas.flatMap(schema =>
-              domain.schemas.find(_.name.toLowerCase() == schema.toLowerCase)
+              domain.tables.find(_.name.toLowerCase() == schema.toLowerCase)
             )
           case None =>
-            domain.schemas
+            domain.tables
         }
         val existingTables = config.connection match {
           case Some(connection) =>

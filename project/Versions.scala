@@ -21,16 +21,17 @@ object Versions {
   val esSpark212 = "8.1.2"
   val scopt = "4.0.1"
   val gcsConnector = "hadoop3-2.2.5"
-  val bigquery = "2.9.4"
+  val bigquery = "2.10.7"
+  val hadoop = "3.3.2"
+  val sparkBigqueryWithDependencies = "0.24.2"
   val bigqueryConnector = "hadoop3-1.2.0"
-  val hadoop = "3.3.1"
-  val h2 = "2.1.210" // Test only
+  val h2 = "2.1.212" // Test only
   val poi = "4.1.2"
-  val scalate = "1.9.8"
-  val kafkaClients = "7.0.2-ce"
+  val scalate = "1.9.7"
+  val kafkaClients = "7.1.0-ce"
   val confluentVersion = "7.0.2"
   val testContainers = "0.40.5"
   val jsqlparser = "4.3"
   val silencerVersion = "1.7.8"
-  val gcpDataCatalog = "1.7.1"
+  val gcpDataCatalog = "1.7.2"
 }
