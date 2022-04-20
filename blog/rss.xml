@@ -32,7 +32,7 @@ that your tables are secured in BigQuery:</p><pre><code class="language-yaml" me
         predicate: &quot;category like &#x27;Food&#x27;&quot;
         grants:
           - &quot;user:me@company.com&quot;
-          - &quot;group:financcegroup@company.com&quot;
+          - &quot;group:financegroup@company.com&quot;
           - &quot;sa:serviceacount@gserviceaccount.com&quot;
     attributes:
       - name: &quot;id&quot;
