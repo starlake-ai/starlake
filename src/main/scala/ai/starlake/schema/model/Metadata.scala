@@ -150,7 +150,7 @@ case class Metadata(
   def getSink(): Option[Sink] = sink
 
   @JsonIgnore
-  def getOptions(): Map[String, String] = Map.empty
+  def getOptions(): Map[String, String] = options.getOrElse(Map.empty)
 
   /** Merge a single attribute
     *

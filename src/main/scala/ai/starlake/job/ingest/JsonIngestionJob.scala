@@ -69,6 +69,7 @@ class JsonIngestionJob(
       session.read
         .option("inferSchema", value = false)
         .option("encoding", metadata.getEncoding())
+        .options(metadata.getOptions())
         .textFile(path.map(_.toString): _*)
     }
 
