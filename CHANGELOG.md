@@ -1,9 +1,14 @@
 # Release notes
 
+# 0.3.17
+__New feature__:
+- Support extra dsv options in conf file
+- support any option stored in metadata.options as an option for the reader.
+
 # 0.3.16
 __New feature__:
 - Upgrade Kafka libraries
-- Simplify removal of comments in autojobs SQL statements. 
+- Simplify removal of comments in autojobs SQL statements.
 
 # 0.3.15
 

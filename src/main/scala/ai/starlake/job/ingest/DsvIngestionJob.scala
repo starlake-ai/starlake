@@ -102,6 +102,8 @@ class DsvIngestionJob(
         .option("escape", metadata.getEscape())
         .option("parserLib", "UNIVOCITY")
         .option("encoding", metadata.getEncoding())
+        .options(metadata.getOptions())
+        .options(settings.comet.dsvOptions)
         .csv(path.map(_.toString): _*)
 
       logger.debug(dfIn.schema.treeString)
