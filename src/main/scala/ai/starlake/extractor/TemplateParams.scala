@@ -163,7 +163,7 @@ object TemplateParams {
       tableToExport = schema.name,
       columnsToExport = schema.attributes
         .filter(_.script.isEmpty)
-        .map(col => (col.name, col.`type`, col.isIgnore(), col.privacy)),
+        .map(col => (col.name, col.`type`, col.isIgnore(), col.getPrivacy())),
       fullExport = isFullExport,
       deltaColumn = if (!isFullExport) deltaColumn else None,
       dsvDelimiter = schema.metadata.flatMap(_.separator).getOrElse(","),
