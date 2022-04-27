@@ -1,401 +1,402 @@
 ---
-name: "dream"
-directory: "__COMET_TEST_ROOT__/dream"
-metadata:
-  mode: "FILE"
-  format: "DSV"
-  withHeader: false
-  separator: "|"
-  quote: "\""
-  escape: "\\"
-  write: "OVERWRITE"
-  partition:
-    sampling: 0.5
-    attributes:
-      - comet_year
-      - comet_month
-      - comet_day
-schemas:
-  - name: "segment"
-    pattern: "OneClient_Segmentation.*.*"
-    acl:
-      - role: viewer
-        grants:
-          - "user:me@me.com"
-          - "user:you@me.com"
-      - role: owner
-        grants:
-          - "user:me@you.com"
-          - "user:you@you.com"
-    primaryKey:
-      - dream_id
-    attributes:
-      - name: "dream_id"
-        type: "long"
-        required: false
-        privacy: "NONE"
-        rename: "dreamkey"
-        comment: ""
-      - name: "segmentation_label"
-        type: "string"
-        required: false
-        privacy: "NONE"
-      - name: "segment_label"
-        type: "string"
-        required: false
-        privacy: "NONE"
-      - name: "sub_segment_label"
-        type: "string"
-        required: false
-        privacy: "NONE"
-      - name: "client_profile_label"
-        type: "string"
-        required: false
-        privacy: "NONE"
-  - name: "client"
-    pattern: "OneClient_Contact.*"
-    attributes:
-      - name: "dream_id"
-        type: "long"
-        foreignKey: "segment"
-        required: false
-        privacy: "NONE"
-      - name: "gender"
-        type: "string"
-        required: false
-        privacy: "NONE"
-        ignore: true
-      - name: "birthdate_day"
-        type: "long"
-        required: false
-        privacy: "NONE"
-      - name: "birthdate_month"
-        type: "long"
-        required: false
-        privacy: "NONE"
-      - name: "birthdate_year"
-        type: "long"
-        required: false
-        privacy: "NONE"
-      - name: "nationality"
-        type: "string"
-        required: false
-        privacy: "NONE"
-      - name: "customer_creation_date"
-        type: "timestamp"
-        required: false
-        privacy: "NONE"
-      - name: "zip_code"
-        type: "string"
-        required: false
-        privacy: "NONE"
-      - name: "city"
-        type: "string"
-        required: false
-        privacy: "NONE"
-      - name: "state"
-        type: "string"
-        required: false
-        privacy: "NONE"
-      - name: "main_postal_country"
-        type: "string"
-        required: false
-        privacy: "NONE"
-      - name: "email"
-        type: "string"
-        required: false
-        privacy: "NONE"
-      - name: "home_phone"
-        type: "string"
-        required: false
-        privacy: "NONE"
-      - name: "mobile_phone"
-        type: "string"
-        required: false
-        privacy: "NONE"
-      - name: "professional_phone"
-        type: "string"
-        required: false
-        privacy: "NONE"
-      - name: "stop_mailing_flag"
-        type: "long"
-        required: false
-        privacy: "NONE"
-      - name: "stop_emailing_flag"
-        type: "long"
-        required: false
-        privacy: "NONE"
-      - name: "stop_home_phone_flag"
-        type: "long"
-        required: false
-        privacy: "NONE"
-      - name: "stop_mobile_phone_flag"
-        type: "long"
-        required: false
-        privacy: "NONE"
-      - name: "stop_call_flag"
-        type: "long"
-        required: false
-        privacy: "NONE"
-      - name: "stop_sms_mms_flag"
-        type: "long"
-        required: false
-        privacy: "NONE"
-      - name: "can_email"
-        type: "long"
-        required: false
-        privacy: "NONE"
-      - name: "can_mail"
-        type: "long"
-        required: false
-        privacy: "NONE"
-      - name: "can_call"
-        type: "long"
-        required: false
-        privacy: "NONE"
-      - name: "can_sms"
-        type: "long"
-        required: false
-        privacy: "NONE"
-      - name: "attached_channel"
-        type: "string"
-        required: false
-        privacy: "NONE"
-      - name: "first_transaction_date_hist"
-        type: "date"
-        required: false
-        privacy: "NONE"
-      - name: "last_transaction_date_hist"
-        type: "date"
-        required: false
-        privacy: "NONE"
-      - name: "turnover_hist_euro"
-        type: "decimal"
-        required: false
-        privacy: "NONE"
-      - name: "turnover_hist_dollar"
-        type: "decimal"
-        required: false
-        privacy: "NONE"
-      - name: "number_of_products_hist"
-        type: "long"
-        required: false
-        privacy: "NONE"
-      - name: "number_of_transactions_hist"
-        type: "long"
-        required: false
-        privacy: "NONE"
-      - name: "typology_code"
-        type: "long"
-        required: false
-        privacy: "NONE"
-      - name: "typology"
-        type: "string"
-        required: false
-        privacy: "NONE"
-      - name: "iaca_sf_code"
-        type: "string"
-        required: false
-        privacy: "NONE"
-      - name: "iaca_name"
-        type: "string"
-        required: false
-        privacy: "NONE"
-      - name: "iaca_rms_code"
-        type: "string"
-        required: false
-        privacy: "NONE"
-      - name: "iaca_store_name"
-        type: "string"
-        required: false
-        privacy: "NONE"
-      - name: "iaca_store_retail_code"
-        type: "string"
-        required: false
-        privacy: "NONE"
-      - name: "preferred_language"
-        type: "string"
-        required: false
-        privacy: "NONE"
-      - name: "client_complaint"
-        type: "string"
-        required: false
-        privacy: "NONE"
-      - name: "complaint_last_closure_date"
-        type: "timestamp"
-        required: false
-        privacy: "NONE"
-      - name: "segmentation"
-        type: "string"
-        required: false
-        privacy: "NONE"
-      - name: "main_postal_country_label"
-        type: "string"
-        required: false
-        privacy: "NONE"
-      - name: "nationality_label"
-        type: "string"
-        required: false
-        privacy: "NONE"
-      - name: "attached_channel_name"
-        type: "string"
-        required: false
-        privacy: "NONE"
-      - name: "gender_label"
-        type: "string"
-        required: false
-        privacy: "NONE"
-      - name: "client_sf_id"
-        type: "string"
-        required: false
-        privacy: "NONE"
-      - name: "turnover_histyuan"
-        type: "decimal"
-        required: false
-        privacy: "NONE"
-      - name: "turnover_histyen"
-        type: "decimal"
-        required: false
-        privacy: "NONE"
-      - name: "turnover_histeuro_wo_tx"
-        type: "decimal"
-        required: false
-        privacy: "NONE"
-      - name: "turnover_histdollar_wo_tx"
-        type: "decimal"
-        required: false
-        privacy: "NONE"
-      - name: "turnover_histyuan_wo_tx"
-        type: "decimal"
-        required: false
-        privacy: "NONE"
-      - name: "turnover_histyen_wo_tx"
-        type: "decimal"
-        required: false
-        privacy: "NONE"
-      - name: "title_id"
-        type: "long"
-        required: false
-        privacy: "NONE"
-      - name: "title_label"
-        type: "string"
-        required: false
-        privacy: "NONE"
-      - name: "civility_id"
-        type: "long"
-        required: false
-        privacy: "NONE"
-      - name: "civility_label"
-        type: "string"
-        required: false
-        privacy: "NONE"
-      - name: "channel_visited_id"
-        type: "long"
-        required: false
-        privacy: "NONE"
-      - name: "channel_visited_label"
-        type: "string"
-        required: false
-        privacy: "NONE"
-      - name: "email_domain"
-        type: "string"
-        required: false
-        privacy: "NONE"
-      - name: "id_ww_vendeur"
-        type: "string"
-        required: false
-        privacy: "NONE"
-      - name: "isvalid_mainpostal_adr"
-        type: "long"
-        required: false
-        privacy: "NONE"
-      - name: "isvalid_email"
-        type: "long"
-        required: false
-        privacy: "NONE"
-      - name: "isvalid_pmobile_phone"
-        type: "long"
-        required: false
-        privacy: "NONE"
-      - name: "isvalid_phome_phone"
-        type: "long"
-        required: false
-        privacy: "NONE"
-      - name: "isvalid_birthd"
-        type: "long"
-        required: false
-        privacy: "NONE"
-      - name: "has_serial_number"
-        type: "long"
-        required: false
-        privacy: "NONE"
-      - name: "has_lock_number"
-        type: "long"
-        required: false
-        privacy: "NONE"
-      - name: "has_active_icon_lic"
-        type: "long"
-        required: false
-        privacy: "NONE"
-      - name: "cust_initiales"
-        type: "string"
-        required: false
-        privacy: "NONE"
-      - name: "cust_arrival_date"
-        type: "date"
-        required: false
-        privacy: "NONE"
-      - name: "cust_wedding_date"
-        type: "date"
-        required: false
-        privacy: "NONE"
-      - name: "cust_segmentation_id"
-        type: "long"
-        required: false
-        privacy: "NONE"
-      - name: "id_10k"
-        type: "string"
-        required: false
-        privacy: "NONE"
-      - name: "lib_10k"
-        type: "string"
-        required: false
-        privacy: "NONE"
-      - name: "id_10k_ytm"
-        type: "string"
-        required: false
-        privacy: "NONE"
-      - name: "lib_10k_ytm"
-        type: "string"
-        required: false
-        privacy: "NONE"
-      - name: "sub_segment_label"
-        type: "string"
-        required: false
-        privacy: "NONE"
-      - name: "client_profile_label"
-        type: "string"
-        required: false
-        privacy: "NONE"
-      - name: "id_subsegment"
-        type: "string"
-        required: false
-        privacy: "NONE"
-      - name: "id_client_profile_label"
-        type: "string"
-        required: false
-        privacy: "NONE"
-      - name: "truncated_zip_code"
-        type: "string"
-        script: "substring(zip_code, 0, 3)"
-        array: false
-        required: true
-        privacy: "NONE"
-        metricType: "NONE"
-      - name: "source_file_name"
-        type: "string"
-        script: regexp_extract(comet_input_file_name, '.+\/(.+)$' , 1)
-        array: false
-        required: true
-        privacy: "NONE"
-        metricType: "NONE"
+load:
+  name: "dream"
+  directory: "__COMET_TEST_ROOT__/dream"
+  metadata:
+    mode: "FILE"
+    format: "DSV"
+    withHeader: false
+    separator: "|"
+    quote: "\""
+    escape: "\\"
+    write: "OVERWRITE"
+    partition:
+      sampling: 0.5
+      attributes:
+        - comet_year
+        - comet_month
+        - comet_day
+  tables:
+    - name: "segment"
+      pattern: "OneClient_Segmentation.*.*"
+      acl:
+        - role: viewer
+          grants:
+            - "user:me@me.com"
+            - "user:you@me.com"
+        - role: owner
+          grants:
+            - "user:me@you.com"
+            - "user:you@you.com"
+      primaryKey:
+        - dream_id
+      attributes:
+        - name: "dream_id"
+          type: "long"
+          required: false
+          privacy: "NONE"
+          rename: "dreamkey"
+          comment: ""
+        - name: "segmentation_label"
+          type: "string"
+          required: false
+          privacy: "NONE"
+        - name: "segment_label"
+          type: "string"
+          required: false
+          privacy: "NONE"
+        - name: "sub_segment_label"
+          type: "string"
+          required: false
+          privacy: "NONE"
+        - name: "client_profile_label"
+          type: "string"
+          required: false
+          privacy: "NONE"
+    - name: "client"
+      pattern: "OneClient_Contact.*"
+      attributes:
+        - name: "dream_id"
+          type: "long"
+          foreignKey: "segment"
+          required: false
+          privacy: "NONE"
+        - name: "gender"
+          type: "string"
+          required: false
+          privacy: "NONE"
+          ignore: true
+        - name: "birthdate_day"
+          type: "long"
+          required: false
+          privacy: "NONE"
+        - name: "birthdate_month"
+          type: "long"
+          required: false
+          privacy: "NONE"
+        - name: "birthdate_year"
+          type: "long"
+          required: false
+          privacy: "NONE"
+        - name: "nationality"
+          type: "string"
+          required: false
+          privacy: "NONE"
+        - name: "customer_creation_date"
+          type: "timestamp"
+          required: false
+          privacy: "NONE"
+        - name: "zip_code"
+          type: "string"
+          required: false
+          privacy: "NONE"
+        - name: "city"
+          type: "string"
+          required: false
+          privacy: "NONE"
+        - name: "state"
+          type: "string"
+          required: false
+          privacy: "NONE"
+        - name: "main_postal_country"
+          type: "string"
+          required: false
+          privacy: "NONE"
+        - name: "email"
+          type: "string"
+          required: false
+          privacy: "NONE"
+        - name: "home_phone"
+          type: "string"
+          required: false
+          privacy: "NONE"
+        - name: "mobile_phone"
+          type: "string"
+          required: false
+          privacy: "NONE"
+        - name: "professional_phone"
+          type: "string"
+          required: false
+          privacy: "NONE"
+        - name: "stop_mailing_flag"
+          type: "long"
+          required: false
+          privacy: "NONE"
+        - name: "stop_emailing_flag"
+          type: "long"
+          required: false
+          privacy: "NONE"
+        - name: "stop_home_phone_flag"
+          type: "long"
+          required: false
+          privacy: "NONE"
+        - name: "stop_mobile_phone_flag"
+          type: "long"
+          required: false
+          privacy: "NONE"
+        - name: "stop_call_flag"
+          type: "long"
+          required: false
+          privacy: "NONE"
+        - name: "stop_sms_mms_flag"
+          type: "long"
+          required: false
+          privacy: "NONE"
+        - name: "can_email"
+          type: "long"
+          required: false
+          privacy: "NONE"
+        - name: "can_mail"
+          type: "long"
+          required: false
+          privacy: "NONE"
+        - name: "can_call"
+          type: "long"
+          required: false
+          privacy: "NONE"
+        - name: "can_sms"
+          type: "long"
+          required: false
+          privacy: "NONE"
+        - name: "attached_channel"
+          type: "string"
+          required: false
+          privacy: "NONE"
+        - name: "first_transaction_date_hist"
+          type: "date"
+          required: false
+          privacy: "NONE"
+        - name: "last_transaction_date_hist"
+          type: "date"
+          required: false
+          privacy: "NONE"
+        - name: "turnover_hist_euro"
+          type: "decimal"
+          required: false
+          privacy: "NONE"
+        - name: "turnover_hist_dollar"
+          type: "decimal"
+          required: false
+          privacy: "NONE"
+        - name: "number_of_products_hist"
+          type: "long"
+          required: false
+          privacy: "NONE"
+        - name: "number_of_transactions_hist"
+          type: "long"
+          required: false
+          privacy: "NONE"
+        - name: "typology_code"
+          type: "long"
+          required: false
+          privacy: "NONE"
+        - name: "typology"
+          type: "string"
+          required: false
+          privacy: "NONE"
+        - name: "iaca_sf_code"
+          type: "string"
+          required: false
+          privacy: "NONE"
+        - name: "iaca_name"
+          type: "string"
+          required: false
+          privacy: "NONE"
+        - name: "iaca_rms_code"
+          type: "string"
+          required: false
+          privacy: "NONE"
+        - name: "iaca_store_name"
+          type: "string"
+          required: false
+          privacy: "NONE"
+        - name: "iaca_store_retail_code"
+          type: "string"
+          required: false
+          privacy: "NONE"
+        - name: "preferred_language"
+          type: "string"
+          required: false
+          privacy: "NONE"
+        - name: "client_complaint"
+          type: "string"
+          required: false
+          privacy: "NONE"
+        - name: "complaint_last_closure_date"
+          type: "timestamp"
+          required: false
+          privacy: "NONE"
+        - name: "segmentation"
+          type: "string"
+          required: false
+          privacy: "NONE"
+        - name: "main_postal_country_label"
+          type: "string"
+          required: false
+          privacy: "NONE"
+        - name: "nationality_label"
+          type: "string"
+          required: false
+          privacy: "NONE"
+        - name: "attached_channel_name"
+          type: "string"
+          required: false
+          privacy: "NONE"
+        - name: "gender_label"
+          type: "string"
+          required: false
+          privacy: "NONE"
+        - name: "client_sf_id"
+          type: "string"
+          required: false
+          privacy: "NONE"
+        - name: "turnover_histyuan"
+          type: "decimal"
+          required: false
+          privacy: "NONE"
+        - name: "turnover_histyen"
+          type: "decimal"
+          required: false
+          privacy: "NONE"
+        - name: "turnover_histeuro_wo_tx"
+          type: "decimal"
+          required: false
+          privacy: "NONE"
+        - name: "turnover_histdollar_wo_tx"
+          type: "decimal"
+          required: false
+          privacy: "NONE"
+        - name: "turnover_histyuan_wo_tx"
+          type: "decimal"
+          required: false
+          privacy: "NONE"
+        - name: "turnover_histyen_wo_tx"
+          type: "decimal"
+          required: false
+          privacy: "NONE"
+        - name: "title_id"
+          type: "long"
+          required: false
+          privacy: "NONE"
+        - name: "title_label"
+          type: "string"
+          required: false
+          privacy: "NONE"
+        - name: "civility_id"
+          type: "long"
+          required: false
+          privacy: "NONE"
+        - name: "civility_label"
+          type: "string"
+          required: false
+          privacy: "NONE"
+        - name: "channel_visited_id"
+          type: "long"
+          required: false
+          privacy: "NONE"
+        - name: "channel_visited_label"
+          type: "string"
+          required: false
+          privacy: "NONE"
+        - name: "email_domain"
+          type: "string"
+          required: false
+          privacy: "NONE"
+        - name: "id_ww_vendeur"
+          type: "string"
+          required: false
+          privacy: "NONE"
+        - name: "isvalid_mainpostal_adr"
+          type: "long"
+          required: false
+          privacy: "NONE"
+        - name: "isvalid_email"
+          type: "long"
+          required: false
+          privacy: "NONE"
+        - name: "isvalid_pmobile_phone"
+          type: "long"
+          required: false
+          privacy: "NONE"
+        - name: "isvalid_phome_phone"
+          type: "long"
+          required: false
+          privacy: "NONE"
+        - name: "isvalid_birthd"
+          type: "long"
+          required: false
+          privacy: "NONE"
+        - name: "has_serial_number"
+          type: "long"
+          required: false
+          privacy: "NONE"
+        - name: "has_lock_number"
+          type: "long"
+          required: false
+          privacy: "NONE"
+        - name: "has_active_icon_lic"
+          type: "long"
+          required: false
+          privacy: "NONE"
+        - name: "cust_initiales"
+          type: "string"
+          required: false
+          privacy: "NONE"
+        - name: "cust_arrival_date"
+          type: "date"
+          required: false
+          privacy: "NONE"
+        - name: "cust_wedding_date"
+          type: "date"
+          required: false
+          privacy: "NONE"
+        - name: "cust_segmentation_id"
+          type: "long"
+          required: false
+          privacy: "NONE"
+        - name: "id_10k"
+          type: "string"
+          required: false
+          privacy: "NONE"
+        - name: "lib_10k"
+          type: "string"
+          required: false
+          privacy: "NONE"
+        - name: "id_10k_ytm"
+          type: "string"
+          required: false
+          privacy: "NONE"
+        - name: "lib_10k_ytm"
+          type: "string"
+          required: false
+          privacy: "NONE"
+        - name: "sub_segment_label"
+          type: "string"
+          required: false
+          privacy: "NONE"
+        - name: "client_profile_label"
+          type: "string"
+          required: false
+          privacy: "NONE"
+        - name: "id_subsegment"
+          type: "string"
+          required: false
+          privacy: "NONE"
+        - name: "id_client_profile_label"
+          type: "string"
+          required: false
+          privacy: "NONE"
+        - name: "truncated_zip_code"
+          type: "string"
+          script: "substring(zip_code, 0, 3)"
+          array: false
+          required: true
+          privacy: "NONE"
+          metricType: "NONE"
+        - name: "source_file_name"
+          type: "string"
+          script: regexp_extract(comet_input_file_name, '.+\/(.+)$' , 1)
+          array: false
+          required: true
+          privacy: "NONE"
+          metricType: "NONE"
