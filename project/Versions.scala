@@ -30,7 +30,7 @@ object Versions {
   val scalate = "1.9.7"
   val kafkaClients = "7.1.1-ce"
   val confluentVersion = "7.0.3"
-  val testContainers = "0.40.5"
+  val testContainers = "0.40.7"
   val jsqlparser = "4.4"
   val silencerVersion = "1.7.8"
   val gcpDataCatalog = "1.7.3"
