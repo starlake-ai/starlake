@@ -73,6 +73,7 @@ class XmlIngestionJob(
               .option("rowTag", rowTag)
               .option("inferSchema", value = false)
               .option("encoding", metadata.getEncoding())
+              .options(metadata.getOptions())
               .schema(schema.sparkSchemaUntypedEpochWithoutScriptedFields(schemaHandler))
               .load(singlePath.toString)
           }

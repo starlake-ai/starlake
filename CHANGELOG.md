@@ -1,9 +1,14 @@
 # Release notes
 
+# 0.3.17
+__New feature__:
+- Support extra dsv options in conf file
+- support any option stored in metadata.options as an option for the reader.
+
 # 0.3.16
 __New feature__:
 - Upgrade Kafka libraries
-- Simplify removal of comments in autojobs SQL statements. 
+- Simplify removal of comments in autojobs SQL statements.
 
 # 0.3.15
 
@@ -34,23 +39,23 @@ __Bug Fix__: reorder transformation on attributes as follows:
 __Bug Fix__:
 - Handle field relaxation when in Append Mode and table does not exist.
 
-#0.3.9 / 0.3.10 / 0.3.11
+# 0.3.9 / 0.3.10 / 0.3.11
 __Bug Fix__:
 - Make fields in rejected table optional
 
-#0.3.8
+# 0.3.8
 __New feature__:
 - Rollback on support for kafka.properties files. It is useless since we already have a server-options properties.
 
-#0.3.7
+# 0.3.7
 __New feature__:
 - Improve XLS support for metadata
 
-#0.3.6
+# 0.3.6
 __New feature__:
 - Autoload kafka.properties file from metadata directory.
 
-#0.3.5
+# 0.3.5
 __New feature__:
 - Parallel copy of files when loading and archiving
 - Support renaming of domains and schemas in XLS
