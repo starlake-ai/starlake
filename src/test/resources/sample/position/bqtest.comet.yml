@@ -1,142 +1,143 @@
 ---
-name: "bqtest"
-directory: "__COMET_TEST_ROOT__/position"
-ack: ""
-tags: ["datasetkey=value", "datasetkeynovalue"]
-metadata:
-  sink:
-    type: BQ
-    location: EU
-  mode: "FILE"
-  format: "POSITION"
-  withHeader: false
-  separator: "|"
-  quote: "\""
-  escape: "\\"
-  write: "OVERWRITE"
-  partition:
-    attributes:
-      - comet_date
-schemas:
-  - name: "TEST_EMTPY"
-    pattern: "empty_position"
-    attributes:
-      - name: "code0"
-        type: "byte"
-        required: true
-        privacy: "NONE"
-        comment:  "simple description"
-        position:
-          first: 0
-          last: 0
-      - name: "code1"
-        type: "byte"
-        required: true
-        privacy: "NONE"
-        position:
-          first: 1
-          last: 1
-    metadata:
-      partition:
-        sampling: 0
-        attributes: []
-  - name: "account"
-    tags: ["tablekey=value", "tablekeynovalue"]
-    rls:
-      - name: "bqrls"
-        predicate: "TRUE"
-        grants:
-          - "user:hayssam@saleh.fr"
-    pattern: ".*TBL"
-    acl:
-      - role: "roles/bigquery.dataViewer"
-        grants:
-          - "user:hayssam@saleh.fr"
-    merge:
-      key:
-        - code1
-    attributes:
-      - name: "code0"
-        accessPolicy: PII
-        type: "string"
-        required: true
-        privacy: "NONE"
-        position:
-          first: 0
-          last: 0
-      - name: "code1"
-        type: "string"
-        required: true
-        privacy: "NONE"
-        position:
-          first: 1
-          last: 1
-      - name: "code2"
-        type: "string"
-        required: true
-        privacy: "NONE"
-        position:
-          first: 2
-          last: 2
-      - name: "bancode"
-        type: "string"
-        required: true
-        privacy: "NONE"
-        position:
-          first: 3
-          last: 7
-      - name: "account"
-        type: "string"
-        required: true
-        privacy: "NONE"
-        position:
-          first: 8
-          last: 26
-      - name: "date1"
-        type: "datefr"
-        required: true
-        privacy: "NONE"
-        position:
-          first: 27
-          last: 36
-      - name: "dtcode"
-        type: "string"
-        required: true
-        privacy: "NONE"
-        trim: BOTH
-        position:
-          first: 37
-          last: 37
-      - name: "date2"
-        type: "datefr"
-        required: true
-        privacy: "NONE"
-        trim: BOTH
-        position:
-          first: 38
-          last: 47
-      - name: "date3"
-        type: "datefr"
-        required: true
-        privacy: "NONE"
-        position:
-          first: 48
-          last: 57
-      - name: "calculatedCode"
-        type: "string"
-        script: concat(code0,'-',code1,'-',bancode,'-')
-        array: false
-        required: true
-        privacy: "NONE"
-        metricType: "NONE"
-        position:
-          first: 0
-          last: 0
-      - name: "fileName"
-        type: "string"
-        script: "comet_input_file_name"
-        privacy: None
-        required: true
-        position:
-          first: 0
-          last: 0
+load:
+  name: "bqtest"
+  directory: "__COMET_TEST_ROOT__/position"
+  ack: ""
+  tags: ["datasetkey=value", "datasetkeynovalue"]
+  metadata:
+    sink:
+      type: BQ
+      location: EU
+    mode: "FILE"
+    format: "POSITION"
+    withHeader: false
+    separator: "|"
+    quote: "\""
+    escape: "\\"
+    write: "OVERWRITE"
+    partition:
+      attributes:
+        - comet_date
+  tables:
+    - name: "TEST_EMTPY"
+      pattern: "empty_position"
+      attributes:
+        - name: "code0"
+          type: "byte"
+          required: true
+          privacy: "NONE"
+          comment:  "simple description"
+          position:
+            first: 0
+            last: 0
+        - name: "code1"
+          type: "byte"
+          required: true
+          privacy: "NONE"
+          position:
+            first: 1
+            last: 1
+      metadata:
+        partition:
+          sampling: 0
+          attributes: []
+    - name: "account"
+      tags: ["tablekey=value", "tablekeynovalue"]
+      rls:
+        - name: "bqrls"
+          predicate: "TRUE"
+          grants:
+            - "user:hayssam@saleh.fr"
+      pattern: ".*TBL"
+      acl:
+        - role: "roles/bigquery.dataViewer"
+          grants:
+            - "user:hayssam@saleh.fr"
+      merge:
+        key:
+          - code1
+      attributes:
+        - name: "code0"
+          accessPolicy: PII
+          type: "string"
+          required: true
+          privacy: "NONE"
+          position:
+            first: 0
+            last: 0
+        - name: "code1"
+          type: "string"
+          required: true
+          privacy: "NONE"
+          position:
+            first: 1
+            last: 1
+        - name: "code2"
+          type: "string"
+          required: true
+          privacy: "NONE"
+          position:
+            first: 2
+            last: 2
+        - name: "bancode"
+          type: "string"
+          required: true
+          privacy: "NONE"
+          position:
+            first: 3
+            last: 7
+        - name: "account"
+          type: "string"
+          required: true
+          privacy: "NONE"
+          position:
+            first: 8
+            last: 26
+        - name: "date1"
+          type: "datefr"
+          required: true
+          privacy: "NONE"
+          position:
+            first: 27
+            last: 36
+        - name: "dtcode"
+          type: "string"
+          required: true
+          privacy: "NONE"
+          trim: BOTH
+          position:
+            first: 37
+            last: 37
+        - name: "date2"
+          type: "datefr"
+          required: true
+          privacy: "NONE"
+          trim: BOTH
+          position:
+            first: 38
+            last: 47
+        - name: "date3"
+          type: "datefr"
+          required: true
+          privacy: "NONE"
+          position:
+            first: 48
+            last: 57
+        - name: "calculatedCode"
+          type: "string"
+          script: concat(code0,'-',code1,'-',bancode,'-')
+          array: false
+          required: true
+          privacy: "NONE"
+          metricType: "NONE"
+          position:
+            first: 0
+            last: 0
+        - name: "fileName"
+          type: "string"
+          script: "comet_input_file_name"
+          privacy: None
+          required: true
+          position:
+            first: 0
+            last: 0
