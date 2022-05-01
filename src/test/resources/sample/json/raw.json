@@ -1,0 +1,1 @@
+{"email": "comet-test@dummy.com", "seconds": 1631562189, "millis": 1631562189000, "textattr": "Hello", "nullattr": null, "structAttr": {"intAttr": 1, "decimalAttr": 3.225637256372, "doubleAttr": 1.2, "arrayOfString": ["strval1", "strval2", null], "arrayOfInt": [1, 2, 3]}}

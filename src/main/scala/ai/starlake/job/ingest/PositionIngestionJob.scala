@@ -64,7 +64,7 @@ class PositionIngestionJob(
   override protected def loadDataSet(): Try[DataFrame] = {
     Try {
       val dfIn = metadata.getEncoding().toUpperCase match {
-        case "UTF-8" => session.read.text(path.map(_.toString): _*)
+        case "UTF-8" => session.read.options(metadata.getOptions()).text(path.map(_.toString): _*)
         case _ => {
           val rdd = PositionIngestionUtil.loadDfWithEncoding(session, path, metadata.getEncoding())
           val schema: StructType = StructType(Array(StructField("value", StringType)))
