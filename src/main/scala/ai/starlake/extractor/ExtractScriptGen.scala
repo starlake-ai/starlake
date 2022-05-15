@@ -117,7 +117,7 @@ class ScriptGen(
   ): File = {
     import settings.metadataStorageHandler
     val workflow =
-      new IngestionWorkflow(metadataStorageHandler, schemaHandler, new SimpleLauncher())
+      new IngestionWorkflow(metadataStorageHandler, schemaHandler, new SimpleLauncher)
     val actions = workflow.buildTasks(job.name, Map.empty[String, String])
     actions.map { action =>
       val (preSql, sql, postSql) = action.engine match {

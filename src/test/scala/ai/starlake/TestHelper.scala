@@ -204,7 +204,7 @@ trait TestHelper
     def storageHandler = settings.storageHandler
 
     @silent val mapper: ObjectMapper with ScalaObjectMapper = {
-      val mapper = new CometObjectMapper(new YAMLFactory(), (classOf[Settings], settings) :: Nil)
+      val mapper = new CometObjectMapper(new YAMLFactory, (classOf[Settings], settings) :: Nil)
       mapper
     }
     mapper.setSerializationInclusion(Include.NON_EMPTY)
@@ -351,7 +351,7 @@ trait TestHelper
       DatasetArea.initMetadata(metadataStorageHandler)
       DatasetArea.initDomains(storageHandler, schemaHandler.domains.map(_.name))
 
-      val validator = new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
+      val validator = new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher)
       validator
     }
 
@@ -402,7 +402,7 @@ trait TestHelper
       }
 
       // Load landing file
-      val validator = new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
+      val validator = new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher)
       validator.loadLanding(ImportConfig())
     }
   }

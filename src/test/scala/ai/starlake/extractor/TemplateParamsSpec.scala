@@ -7,7 +7,7 @@ import ai.starlake.schema.model._
 
 class TemplateParamsSpec extends TestHelper {
   val scriptOutputFolder: File = File("/tmp")
-  new WithSettings() {
+  new WithSettings {
     "fromSchema" should "generate the correct TemplateParams for a given Schema" in {
       val schema: Schema = Schema(
         name = "table1",

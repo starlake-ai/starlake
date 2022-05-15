@@ -3,7 +3,7 @@ package ai.starlake.job.atlas
 import ai.starlake.TestHelper
 
 class AtlasConfigSpec extends TestHelper {
-  new WithSettings() {
+  new WithSettings {
     "All Atlas Config" should "be known and taken  into account" in {
       val rendered = AtlasConfig.usage()
       println(rendered)

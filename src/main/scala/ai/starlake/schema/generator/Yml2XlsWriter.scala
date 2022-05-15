@@ -35,7 +35,7 @@ class Yml2XlsWriter(schemaHandler: SchemaHandler) extends LazyLogging with XlsMo
   }
 
   def writeDomainXls(domain: Domain, folder: String): Unit = {
-    val workbook = new XSSFWorkbook()
+    val workbook = new XSSFWorkbook
     val font = workbook.createFont
     font.setFontHeightInPoints(14.toShort)
     font.setFontName("Calibri")

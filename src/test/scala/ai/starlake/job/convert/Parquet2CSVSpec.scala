@@ -11,7 +11,7 @@ import scala.io.Source
 case class Schema(id: String, customer: String, amount: Double, seller_id: String)
 
 class Parquet2CSVSpec extends TestHelper {
-  new WithSettings() {
+  new WithSettings {
 
     val rootDir = File.newTemporaryDirectory()
     val outputDir = File(rootDir, "output")

@@ -148,7 +148,7 @@ trait IngestionJob extends SparkJob {
     }
 
     IngestionUtil.sinkRejected(session, errMessagesDS, domainName, schemaName, now) match {
-      case Success((rejectedDF, rejectedPath)) =>
+      case Success(rejectedDF, rejectedPath) =>
         // We sink to a file when running unit tests
         if (settings.comet.sinkToFile) {
           sinkToFile(
@@ -1241,7 +1241,7 @@ object ImprovedDataFrameContext {
   implicit class ImprovedDataFrame(df: org.apache.spark.sql.DataFrame) {
 
     def T(query: String): org.apache.spark.sql.DataFrame = {
-      new SQLTransformer().setStatement(query).transform(df)
+      new SQLTransformer.setStatement(query).transform(df)
     }
   }
 

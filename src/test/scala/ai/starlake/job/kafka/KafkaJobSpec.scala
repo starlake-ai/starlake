@@ -211,7 +211,7 @@ class KafkaJobSpec extends TestHelper {
       s"$cometOffsetsMode($cometOffsetTopicName) runs with embedded kafka" should "work" in {
         if (cometOffsetsMode == "FILE")
           File("/tmp/comet_offsets").delete(swallowIOExceptions = true)
-        val properties = new Properties()
+        val properties = new Properties
         properties.put("bootstrap.servers", kafkaContainer.bootstrapServers)
         properties.put("group.id", "consumer-test")
         properties.put("key.deserializer", classOf[StringDeserializer])

@@ -38,7 +38,7 @@ abstract class JsonIngestionJobSpecBase(variant: String) extends TestHelper with
 
   def configuration: Config
 
-  ("Ingest Complex JSON " + variant) should "should be ingested from pending to accepted, and archived " in {
+  "Ingest Complex JSON " + variant should "should be ingested from pending to accepted, and archived " in {
     new WithSettings(configuration) {
 
       new SpecTrait(
@@ -100,7 +100,7 @@ abstract class JsonIngestionJobSpecBase(variant: String) extends TestHelper with
   }
 
   "Ingestion JSn Scheam" should "succceed" in {}
-  ("Ingest JSON with unordered scripted fields " + variant) should "fail" in {
+  "Ingest JSON with unordered scripted fields " + variant should "fail" in {
     new WithSettings(configuration) {
 
       new SpecTrait(

@@ -57,7 +57,7 @@ object Unpacker {
 
   private def createUncompressedStream(inputStream: InputStream): Try[CompressorInputStream] =
     Try {
-      new CompressorStreamFactory().createCompressorInputStream(
+      new CompressorStreamFactory.createCompressorInputStream(
         getMarkableStream(inputStream)
       )
     }
@@ -66,7 +66,7 @@ object Unpacker {
     uncompressedInputStream: CompressorInputStream
   ): Try[ArchiveInputStream] =
     Try {
-      new ArchiveStreamFactory()
+      new ArchiveStreamFactory
         .createArchiveInputStream(
           getMarkableStream(uncompressedInputStream)
         )

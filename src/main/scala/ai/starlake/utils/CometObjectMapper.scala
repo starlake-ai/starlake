@@ -29,12 +29,12 @@ class CometObjectMapper(
     /* this thing ensures we'll never attempt to serialize the ObjectMapper itself even if it appears in a class
     hierarchy. This happens, in particular, within [[Settings]].
      */
-    new SimpleModule()
+    new SimpleModule
       .setMixInAnnotation(classOf[ObjectMapper], classOf[CometObjectMapper.MixinsForObjectMapper])
   )
 
   if (injectables.nonEmpty) {
-    val iv = new InjectableValues.Std()
+    val iv = new InjectableValues.Std
     injectables.foreach { case (klass, value) => iv.addValue(klass, value) }
     this.setInjectableValues(iv: InjectableValues)
   }

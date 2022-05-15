@@ -4,7 +4,7 @@ import ai.starlake.TestHelper
 
 class PrivacyEngineSpec extends TestHelper {
 
-  new WithSettings() {
+  new WithSettings {
     "Parsing a single arg encryption algo" should "succeed" in {
       val (algo, params) = PrivacyEngine.parse("ai.starlake.privacy.Approx(10)")
       algo should equal("ai.starlake.privacy.Approx")

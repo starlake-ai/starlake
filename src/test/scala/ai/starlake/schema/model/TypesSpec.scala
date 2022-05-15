@@ -25,7 +25,7 @@ import java.io.InputStream
 import ai.starlake.TestHelper
 
 class TypesSpec extends TestHelper {
-  new WithSettings() {
+  new WithSettings {
     "Default types" should "be valid" in {
       val stream: InputStream =
         getClass.getResourceAsStream("/quickstart/metadata/types/default.comet.yml")

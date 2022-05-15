@@ -55,7 +55,7 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
             .getOrElse(throw new Exception(s"Domain ${domain} not found"))
           List(res)
       }
-      val sqlString = new StringBuffer()
+      val sqlString = new StringBuffer
       domains.map { domain =>
         val domainLabels = Utils.labels(domain.tags)
         val schemas: Seq[Schema] = config.schemas match {

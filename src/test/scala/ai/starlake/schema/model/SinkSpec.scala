@@ -23,7 +23,7 @@ package ai.starlake.schema.model
 import ai.starlake.TestHelper
 
 class SinkSpec extends TestHelper {
-  new WithSettings() {
+  new WithSettings {
     "parsing any sink without options" should "succeed" in {
       mapper.readValue(
         """

@@ -5,7 +5,7 @@ import ai.starlake.schema.model.Attribute
 
 class InferSchemaHandlerSpec extends TestHelper {
 
-  new WithSettings() {
+  new WithSettings {
     "CreateAttributes" should "create the correct list of attributes for a complex Json" in {
       val sparkImplicits = sparkSession.implicits
       import sparkImplicits._

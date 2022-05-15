@@ -57,7 +57,7 @@ object CometJacksonModule extends CometJacksonModule {
     private val (registeredInstance, theirBuildStack) =
       jacksonProtectedSingletons.getOrElseUpdate(
         this.getClass,
-        (this, (new Throwable().getStackTrace))
+        (this, (new Throwable.getStackTrace))
       )
     if (registeredInstance ne this) {
       throw new IllegalStateException(
@@ -79,7 +79,7 @@ object CometJacksonModule extends CometJacksonModule {
     * @see
     *   https://github.com/FasterXML/jackson-module-scala/issues/211
     */
-  @JsonPOJOBuilder()
+  @JsonPOJOBuilder
   abstract class ProtectedSingletonBuilder[T <: JacksonProtectedSingleton: ClassTag]
       extends Serializable {
     private val ourType = implicitly[ClassTag[T]].runtimeClass
@@ -94,7 +94,7 @@ object CometJacksonModule extends CometJacksonModule {
 
     def build: T =
       jacksonProtectedSingletons.get(ourType) match {
-        case Some((realSingleton, reallyCreatedThere)) =>
+        case Some(realSingleton, reallyCreatedThere) =>
           realSingleton.asInstanceOf[T]
         case None =>
           /* this is the very first time we hear of this type within this Classloader. Perhaps we got hit by lazy

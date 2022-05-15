@@ -47,7 +47,7 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
 
   // uses Jackson YAML for parsing, relies on SnakeYAML for low level handling
   @silent val mapper: ObjectMapper with ScalaObjectMapper =
-    new CometObjectMapper(new YAMLFactory(), injectables = (classOf[Settings], settings) :: Nil)
+    new CometObjectMapper(new YAMLFactory, injectables = (classOf[Settings], settings) :: Nil)
 
   @throws[Exception]
   def checkValidity(): Unit = {

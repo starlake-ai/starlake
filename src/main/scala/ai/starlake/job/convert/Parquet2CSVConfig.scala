@@ -75,7 +75,7 @@ object Parquet2CSVConfig extends CliConfig[Parquet2CSVConfig] {
         .valueName("spark-option=value")
         .action((x, c) => {
           val option = x.split('=')
-          c.copy(options = c.options :+ (option(0) -> option(1)))
+          c.copy(options = c.options :+ option(0) -> option(1))
         })
         .text("Any Spark option to use (sep, delimiter, quote, quoteAll, escape, header ...)")
         .optional(),

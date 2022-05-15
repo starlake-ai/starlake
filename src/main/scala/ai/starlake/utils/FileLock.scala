@@ -115,7 +115,7 @@ class FileLock(path: Path, storageHandler: StorageHandler) extends StrictLogging
                                |checkinPeriod*4=${checkinPeriod * 4}
                                |refreshPeriod*4=${refreshPeriod * 4}
                                |""".stripMargin)
-                if ((currentTimeMillis - lastModified) > (refreshPeriod * 4)) {
+                if (currentTimeMillis - lastModified > refreshPeriod * 4) {
                   storageHandler.delete(path)
                 }
 

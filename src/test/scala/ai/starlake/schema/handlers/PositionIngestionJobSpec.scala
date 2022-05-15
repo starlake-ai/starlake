@@ -33,7 +33,7 @@ class PositionIngestionJobSpec extends TestHelper {
     logger.debug(binder.getLoggerFactory.toString)
     logger.debug(binder.getLoggerFactoryClassStr)
 
-    new WithSettings() {
+    new WithSettings {
       new SpecTrait(
         domainOrJobFilename = "position.comet.yml",
         sourceDomainOrJobPathname = "/sample/position/position.comet.yml",
@@ -71,7 +71,7 @@ class PositionIngestionJobSpec extends TestHelper {
     }
   }
   "Ingestion of empty Position file" should "run without errors" in {
-    new WithSettings() {
+    new WithSettings {
       new SpecTrait(
         domainOrJobFilename = "position.comet.yml",
         sourceDomainOrJobPathname = "/sample/position/position.comet.yml",
@@ -86,7 +86,7 @@ class PositionIngestionJobSpec extends TestHelper {
     }
   }
   "Ingest Position File" should "use encoding when loading files" in {
-    new WithSettings() {
+    new WithSettings {
       new SpecTrait(
         domainOrJobFilename = "positionWithEncoding.comet.yml",
         sourceDomainOrJobPathname = "/sample/positionWithEncoding/positionWithEncoding.comet.yml",
@@ -106,7 +106,7 @@ class PositionIngestionJobSpec extends TestHelper {
     }
   }
   "Ingest Position Regex File with ignore string" should "ignore first line" in {
-    new WithSettings() {
+    new WithSettings {
       new SpecTrait(
         domainOrJobFilename = "positionWithIgnore.comet.yml",
         sourceDomainOrJobPathname = "/sample/positionWithIgnore/positionWithIgnore.comet.yml",
@@ -127,7 +127,7 @@ class PositionIngestionJobSpec extends TestHelper {
   }
 
   "Ingest Position UDF File with ignore string" should "ignore first line" in {
-    new WithSettings() {
+    new WithSettings {
       new SpecTrait(
         domainOrJobFilename = "positionWithIgnore.comet.yml",
         sourceDomainOrJobPathname = "/sample/positionWithIgnore/positionWithIgnore.comet.yml",

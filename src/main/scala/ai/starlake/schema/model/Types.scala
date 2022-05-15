@@ -126,7 +126,7 @@ case class Type(
         case PrimitiveType.boolean =>
           // We can get the pattern safely since checkValidity has been called by now
           booleanPattern match {
-            case Some((truePattern, falsePattern)) =>
+            case Some(truePattern, falsePattern) =>
               boolean.matches(value, truePattern, falsePattern)
             case _ => false
           }

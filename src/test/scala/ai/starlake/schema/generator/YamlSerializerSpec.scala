@@ -6,7 +6,7 @@ import ai.starlake.schema.model.{AutoJobDesc, AutoTaskDesc, WriteMode}
 import ai.starlake.utils.YamlSerializer
 
 class YamlSerializerSpec extends TestHelper {
-  new WithSettings() {
+  new WithSettings {
     "Job toMap" should "should produce the correct map" in {
       val task = AutoTaskDesc(
         None,

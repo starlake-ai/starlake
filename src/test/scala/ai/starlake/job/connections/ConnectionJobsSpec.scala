@@ -10,7 +10,7 @@ import org.apache.spark.sql.SaveMode
 
 class ConnectionJobsSpec extends TestHelper {
   lazy val pathBusiness = new Path(cometMetadataPath + "/jobs/user.comet.yml")
-  new WithSettings() {
+  new WithSettings {
     "JDBC 2 JDBC Connection" should "succeed" in {
       val connection = "test-h2"
 
@@ -50,7 +50,7 @@ class ConnectionJobsSpec extends TestHelper {
         .writeValueAsString(businessJob)
 
       val workflow =
-        new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
+        new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher)
       storageHandler.write(businessJobDef, pathBusiness)
 
       workflow.autoJob(TransformConfig("user", Map("age" -> "10")))

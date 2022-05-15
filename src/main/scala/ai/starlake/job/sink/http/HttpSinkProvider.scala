@@ -19,7 +19,7 @@ trait SinkTransformer {
 }
 
 object DefaultSinkTransformer extends SinkTransformer {
-  val mapper: ObjectMapper = new ObjectMapper()
+  val mapper: ObjectMapper = new ObjectMapper
   mapper.registerModule(DefaultScalaModule)
   mapper.setSerializationInclusion(Include.NON_EMPTY)
 

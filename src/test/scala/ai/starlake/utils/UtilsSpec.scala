@@ -6,7 +6,7 @@ import ai.starlake.TestHelper
 import ai.starlake.schema.model.WriteMode
 
 class UtilsSpec extends TestHelper {
-  new WithSettings() {
+  new WithSettings {
     "Exceptions" should "be returned as string" in {
       val expected = "java.lang.Exception: test"
       Utils.exceptionAsString(new Exception("test")) should startWith(expected)
@@ -97,7 +97,7 @@ class UtilsSpec extends TestHelper {
                          |FROM myview, yourview
                          |union
                          |select herview""".stripMargin)
-      views should contain theSameElementsInOrderAs (List("myview", "yourview", "herview"))
+      views should contain theSameElementsInOrderAs List("myview", "yourview", "herview")
     }
   }
 }

@@ -208,7 +208,7 @@ class MetricsJobSpec extends TestHelper with JdbcChecks {
     assert(kurtosisList.zip(kurtosisListTable).map(x => x._1 - x._2).sum <= 0.001)
   }
 
-  new WithSettings() {
+  new WithSettings {
     "Yelp Business Metrics" should "produce correct metrics in parquet file" in {
       new SpecTrait(
         domainOrJobFilename = "yelp.comet.yml",

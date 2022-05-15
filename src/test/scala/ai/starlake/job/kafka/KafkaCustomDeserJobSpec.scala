@@ -14,7 +14,7 @@ import org.apache.spark.sql.SaveMode
 import scala.util.{Failure, Success}
 
 object TestSinkTransformer extends SinkTransformer {
-  val mapper: ObjectMapper = new ObjectMapper()
+  val mapper: ObjectMapper = new ObjectMapper
   mapper.registerModule(DefaultScalaModule)
   mapper.setSerializationInclusion(Include.NON_EMPTY)
 

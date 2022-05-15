@@ -25,7 +25,7 @@ import ai.starlake.{JdbcChecks, TestHelper}
 class JsonMultilineIngestionJobSpec extends TestHelper with JdbcChecks {
 
   "Ingest Complex Multiline JSON " should "should be ingested from pending to accepted, and archived " in {
-    new WithSettings() {
+    new WithSettings {
 
       new SpecTrait(
         domainOrJobFilename = "json-multiline.comet.yml",

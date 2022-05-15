@@ -71,9 +71,9 @@ object Xls2Yml extends LazyLogging {
      */
     def noPreEncryptPrivacy(s: Schema): Boolean = {
       s.attributes.forall(_.getPrivacy().equals(PrivacyLevel.None)) ||
-      (encryptionPrivacyList.nonEmpty && s.attributes.map(_.getPrivacy()).distinct.forall { p =>
+      encryptionPrivacyList.nonEmpty && s.attributes.map(_.getPrivacy()).distinct.forall { p =>
         !encryptionPrivacyList.contains(p.toString)
-      })
+      }
     }
     val postEncryptSchemas: List[Schema] = domain.tables.map { schema =>
       if (noPreEncryptPrivacy(schema))

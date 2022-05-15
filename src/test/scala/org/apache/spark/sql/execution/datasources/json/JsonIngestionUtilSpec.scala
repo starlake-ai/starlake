@@ -4,7 +4,7 @@ import ai.starlake.TestHelper
 import org.apache.spark.sql.types.{StructField, _}
 
 class JsonIngestionUtilSpec extends TestHelper {
-  new WithSettings() {
+  new WithSettings {
     {
       val schemaType = (
         "root",

@@ -192,7 +192,7 @@ object JsonIngestionUtil {
         case (StructType(unsortedFields1), StructType(unsortedFields2)) =>
           val fields1 = unsortedFields1.sortBy(_.name)
           val fields2 = unsortedFields2.sortBy(_.name)
-          val newFields = new java.util.ArrayList[StructField]()
+          val newFields = new java.util.ArrayList[StructField]
           var f1Idx = 0
           var f2Idx = 0
 
@@ -389,5 +389,5 @@ object JsonIngestionUtil {
     }
   }
 
-  val factory = (new JsonFactory()).enable(Feature.ALLOW_SINGLE_QUOTES)
+  val factory = (new JsonFactory).enable(Feature.ALLOW_SINGLE_QUOTES)
 }

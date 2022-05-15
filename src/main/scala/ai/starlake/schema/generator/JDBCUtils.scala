@@ -62,7 +62,7 @@ object JDBCUtils extends LazyLogging {
     assert(jdbcOptions.format == "jdbc")
 
     val url = jdbcOptions.options("url")
-    val properties = new Properties()
+    val properties = new Properties
     (jdbcOptions.options - "url").foreach { case (key, value) =>
       properties.setProperty(key, value)
     }

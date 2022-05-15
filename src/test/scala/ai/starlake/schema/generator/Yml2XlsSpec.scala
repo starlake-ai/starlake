@@ -5,7 +5,7 @@ import ai.starlake.schema.handlers.SchemaHandler
 
 class Yml2XlsSpec extends TestHelper {
   "Yml2XLS" should "should generated all domain / schema in XLS files" in {
-    new WithSettings() {
+    new WithSettings {
       new SpecTrait(
         domainOrJobFilename = "position.comet.yml",
         sourceDomainOrJobPathname = "/sample/position/position.comet.yml",

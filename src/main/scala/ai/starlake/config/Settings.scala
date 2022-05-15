@@ -227,7 +227,7 @@ object Settings extends StrictLogging {
         SUBSCRIBE_PATTERN,
         SUBSCRIBE
       )
-      val kafkaServerProperties = new Properties()
+      val kafkaServerProperties = new Properties
       serverOptions.foreach { case (k, v) =>
         // for spark we need to prefix them with "kafka."
         kafkaServerProperties.put(k, v)
@@ -348,7 +348,7 @@ object Settings extends StrictLogging {
     }
 
     private object JsonWrapped {
-      private def jsonMapper: ObjectMapper = new CometObjectMapper()
+      private def jsonMapper: ObjectMapper = new CometObjectMapper
 
       def apply(comet: Comet): JsonWrapped = {
         val writer = jsonMapper.writerFor(classOf[Comet])
@@ -405,8 +405,8 @@ object Settings extends StrictLogging {
     // When using local Spark with remote BigQuery (useful for testing)
     val initialConf =
       sys.env.get("TEMPORARY_GCS_BUCKET") match {
-        case Some(value) => new SparkConf().set("temporaryGcsBucket", value)
-        case None        => new SparkConf()
+        case Some(value) => new SparkConf.set("temporaryGcsBucket", value)
+        case None        => new SparkConf
       }
 
     val thisConf = settings.sparkConfig
@@ -450,7 +450,7 @@ object CometColumns {
 final case class Settings(
   comet: Settings.Comet,
   sparkConfig: Config,
-  jobConf: SparkConf = new SparkConf()
+  jobConf: SparkConf = new SparkConf
 ) {
 
   @transient
@@ -469,8 +469,8 @@ final case class Settings(
 
   @transient
   lazy val launcherService: LaunchHandler = comet.launcher match {
-    case "simple"  => new SimpleLauncher()
-    case "airflow" => new AirflowLauncher()
+    case "simple"  => new SimpleLauncher
+    case "airflow" => new AirflowLauncher
   }
 
 }

@@ -321,7 +321,7 @@ trait ItemStandardizer[T] {
 trait ItemStandardizerLowPriority {
 
   implicit def identityStandardizer[T]: ItemStandardizer[T] =
-    new ItemStandardizerLowPriority.IdentityStandardizer[T]()
+    new ItemStandardizerLowPriority.IdentityStandardizer[T]
 }
 
 object ItemStandardizerLowPriority {

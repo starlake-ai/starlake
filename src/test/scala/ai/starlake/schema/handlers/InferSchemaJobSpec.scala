@@ -9,7 +9,7 @@ import scala.io.Source
 
 class InferSchemaJobSpec extends TestHelper {
 
-  new WithSettings() {
+  new WithSettings {
 
     lazy val csvLines =
       Source.fromFile("src/test/resources/sample/SCHEMA-VALID-NOHEADER.dsv").getLines().toList
@@ -36,7 +36,7 @@ class InferSchemaJobSpec extends TestHelper {
     lazy val xmlLines =
       Source.fromFile("src/test/resources/sample/xml/locations.xml").getLines().toList
 
-    lazy val inferSchemaJob: InferSchemaJob = new InferSchemaJob()
+    lazy val inferSchemaJob: InferSchemaJob = new InferSchemaJob
 
     "GetSeparatorSemiColon" should "succeed" in {
       inferSchemaJob.getSeparator(csvLines) shouldBe ";"

@@ -14,7 +14,7 @@ class Yml2DDLSpec extends TestHelper {
     logger.debug(binder.getLoggerFactory.toString)
     logger.debug(binder.getLoggerFactoryClassStr)
 
-    new WithSettings() {
+    new WithSettings {
       new SpecTrait(
         domainOrJobFilename = "position.comet.yml",
         sourceDomainOrJobPathname = "/sample/position/position.comet.yml",

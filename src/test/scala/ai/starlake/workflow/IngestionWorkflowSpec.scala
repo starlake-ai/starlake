@@ -8,7 +8,7 @@ import org.apache.hadoop.fs.Path
 import scala.io.Codec
 
 class IngestionWorkflowSpec extends TestHelper {
-  new WithSettings() {
+  new WithSettings {
 
     private def loadLandingFile(landingFile: String): TestHelper#SpecTrait = {
       new SpecTrait(

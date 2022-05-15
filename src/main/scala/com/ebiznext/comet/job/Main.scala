@@ -33,7 +33,7 @@ import scala.util.{Failure, Success, Try}
   */
 object Main extends StrictLogging {
   // uses Jackson YAML to parsing, relies on SnakeYAML for low level handling
-  val mapper: ObjectMapper = new CometObjectMapper(new YAMLFactory())
+  val mapper: ObjectMapper = new CometObjectMapper(new YAMLFactory)
   mapper.setSerializationInclusion(Include.NON_EMPTY)
 
   private def printUsage() = {

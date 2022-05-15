@@ -23,7 +23,7 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
     }
   }
 
-  new WithSettings() {
+  new WithSettings {
     "Ingest to BigQuery" should "should be ingest and store table in BigQuery" in {
       if (sys.env.getOrElse("COMET_GCP_TEST", "false").toBoolean) {
         import org.slf4j.impl.StaticLoggerBinder
@@ -31,7 +31,7 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
         logger.debug(binder.getLoggerFactory.toString)
         logger.debug(binder.getLoggerFactoryClassStr)
 
-        new WithSettings() {
+        new WithSettings {
           new SpecTrait(
             domainOrJobFilename = "bqtest.comet.yml",
             sourceDomainOrJobPathname = "/sample/position/bqtest.comet.yml",
@@ -58,7 +58,7 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
         logger.debug(binder.getLoggerFactory.toString)
         logger.debug(binder.getLoggerFactoryClassStr)
 
-        new WithSettings() {
+        new WithSettings {
           new SpecTrait(
             domainOrJobFilename = "bqtest.comet.yml",
             sourceDomainOrJobPathname = "/sample/position/bqtest.comet.yml",
@@ -101,7 +101,7 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
         val pathBusiness = new Path(cometMetadataPath + "/jobs/bqjobtest.comet.yml")
 
         val workflow =
-          new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
+          new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher)
         storageHandler.write(businessJobDef, pathBusiness)
         workflow.autoJob(TransformConfig("bqjobtest")) should be(true)
       }

@@ -5,7 +5,7 @@ import ai.starlake.utils.Utils
 import org.apache.hadoop.fs.Path
 
 class LoadStrategySpec extends TestHelper {
-  new WithSettings() {
+  new WithSettings {
 
     val myDataset1 = new Path(cometDatasetsPath + "/my_dataset_20210101120000.csv")
     val myDataset2 = new Path(cometDatasetsPath + "/my_dataset_20210102120000.csv")

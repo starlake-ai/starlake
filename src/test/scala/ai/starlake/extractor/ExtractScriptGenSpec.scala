@@ -9,7 +9,7 @@ import ai.starlake.schema.model.PrivacyLevel
 class ExtractScriptGenSpec extends TestHelper {
 
   val scriptOutputFolder: File = File("/tmp")
-  new WithSettings() {
+  new WithSettings {
 
     "templatize domain using mustache" should "generate an export script from a TemplateSettings" in {
       val templateParams: TemplateParams = TemplateParams(
@@ -30,7 +30,7 @@ class ExtractScriptGenSpec extends TestHelper {
       val templatesPayloadFromDir = new ScriptGen(
         storageHandler,
         new SchemaHandler(settings.storageHandler),
-        new SimpleLauncher()
+        new SimpleLauncher
       ).templatize(
         File(
           getClass.getResource("/sample/database").getPath
@@ -44,7 +44,7 @@ class ExtractScriptGenSpec extends TestHelper {
       val templatePayload = new ScriptGen(
         storageHandler,
         new SchemaHandler(settings.storageHandler),
-        new SimpleLauncher()
+        new SimpleLauncher
       ).templatize(
         File(
           getClass.getResource("/sample/database/EXTRACT_TABLE.sql.mustache").getPath
@@ -79,7 +79,7 @@ class ExtractScriptGenSpec extends TestHelper {
       val templatePayload: String = new ScriptGen(
         storageHandler,
         new SchemaHandler(settings.storageHandler),
-        new SimpleLauncher()
+        new SimpleLauncher
       ).templatize(
         File(
           getClass.getResource("/sample/database/EXTRACT_TABLE.sql.ssp").getPath
@@ -114,7 +114,7 @@ class ExtractScriptGenSpec extends TestHelper {
         val success = new ScriptGen(
           storageHandler,
           new SchemaHandler(settings.storageHandler),
-          new SimpleLauncher()
+          new SimpleLauncher
         ).run(config)(settings)
         assert(success)
 

@@ -154,7 +154,7 @@ class ESLoadJob(
     }
     val responsePut = client.execute(putRequest)
 
-    val ok = (200 to 299) contains responsePut.getStatusLine().getStatusCode()
+    val ok = 200 to 299 contains responsePut.getStatusLine().getStatusCode()
     if (ok) {
       val esresource = Some(("es.resource.write", s"${getResource()}"))
       val esId = cliConfig.id.map("es.mapping.id" -> _)

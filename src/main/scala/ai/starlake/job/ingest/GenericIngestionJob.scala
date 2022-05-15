@@ -74,7 +74,7 @@ class GenericIngestionJob(
     password: Option[String]
   ): Try[Connection] =
     Try {
-      val info = new Properties()
+      val info = new Properties
       user.foreach(user => info.put("user", user))
       password.foreach(password => info.put("password", password))
       DriverManager.getConnection(url, info)

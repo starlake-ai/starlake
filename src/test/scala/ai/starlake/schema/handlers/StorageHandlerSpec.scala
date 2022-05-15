@@ -36,7 +36,7 @@ class StorageHandlerSpec extends TestHelper {
 
   lazy val pathBusiness = new Path(cometTestRoot + "/business.comet.yml")
 
-  new WithSettings() {
+  new WithSettings {
     "Domain Case Class" should "be written as yaml and read correctly" in {
       val domain = Domain(
         name = "DOMAIN",

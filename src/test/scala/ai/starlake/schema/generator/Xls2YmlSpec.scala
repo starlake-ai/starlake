@@ -7,7 +7,7 @@ import ai.starlake.schema.model.{BigQuerySink, Domain, Format}
 import ai.starlake.utils.YamlSerializer
 
 class Xls2YmlSpec extends TestHelper {
-  new WithSettings() {
+  new WithSettings {
     Xls2Yml.generateSchema(getClass.getResource("/sample/SomeDomainTemplate.xls").getPath)
     val outputFile = File(DatasetArea.domains.toString + "/someDomain.comet.yml")
 

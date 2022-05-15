@@ -40,7 +40,7 @@ case class TemplateParams(
 
     // This is how we deal with the last element not needing a trailing a comma in a Mustache template
     val columnsParam: List[Map[String, Any]] = columnsToExport match {
-      case (name, tpe, ignore, privacyLevel) :: Nil =>
+      case name, tpe, ignore, privacyLevel :: Nil =>
         List(
           Map(
             "name"              -> name.toLowerCase(),
@@ -81,7 +81,7 @@ case class TemplateParams(
           "export_file"  -> exportOutputFileBase,
           "full_export"  -> fullExport
         )
-      ) { case (list, deltaCol) => list :+ ("delta_column" -> deltaCol.toUpperCase) }
+      ) { case (list, deltaCol) => list :+ "delta_column" -> deltaCol.toUpperCase }
       .toMap ++ activeEnv
   }
 }

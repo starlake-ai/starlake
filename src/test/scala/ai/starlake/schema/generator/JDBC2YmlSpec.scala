@@ -10,7 +10,7 @@ import scala.util.{Failure, Success}
 
 class JDBC2YmlSpec extends TestHelper {
   "JDBC2Yml of all tables" should "should generated all the table schemas in a YML file" in {
-    new WithSettings() {
+    new WithSettings {
       val jdbcOptions = settings.comet.connections("test-h2")
       val conn = DriverManager.getConnection(
         jdbcOptions.options("url"),
@@ -27,7 +27,7 @@ class JDBC2YmlSpec extends TestHelper {
       st.execute(sql)
       val rs = st.executeQuery("select * from test_table1")
       rs.next
-      val row1InsertionCheck = (1 == rs.getInt("ID")) && ("A" == rs.getString("NAME"))
+      val row1InsertionCheck = 1 == rs.getInt("ID") && "A" == rs.getString("NAME")
       assert(row1InsertionCheck, "Data not inserted")
 
       val metadata = Metadata(
@@ -69,7 +69,7 @@ class JDBC2YmlSpec extends TestHelper {
   }
 
   "JDBCSchemas" should "deserialize corrected" in {
-    new WithSettings() {
+    new WithSettings {
       val imput =
         """
           |extract:
@@ -103,7 +103,7 @@ class JDBC2YmlSpec extends TestHelper {
   }
 
   "JDBC2Yml of some columns" should "should generated only the tables and columns requested" in {
-    new WithSettings() {
+    new WithSettings {
       val jdbcOptions = settings.comet.connections("test-h2")
       val conn = DriverManager.getConnection(
         jdbcOptions.options("url"),
@@ -120,7 +120,7 @@ class JDBC2YmlSpec extends TestHelper {
       st.execute(sql)
       val rs = st.executeQuery("select * from test_table1")
       rs.next
-      val row1InsertionCheck = (1 == rs.getInt("ID")) && ("A" == rs.getString("NAME"))
+      val row1InsertionCheck = 1 == rs.getInt("ID") && "A" == rs.getString("NAME")
       assert(row1InsertionCheck, "Data not inserted")
 
       JDBC2Yml.run(
@@ -143,7 +143,7 @@ class JDBC2YmlSpec extends TestHelper {
   }
 
   "JDBC2Yml with foreign keys" should "detect the foreign keys" in {
-    new WithSettings() {
+    new WithSettings {
       val jdbcOptions = settings.comet.connections("test-h2")
       val conn = DriverManager.getConnection(
         jdbcOptions.options("url"),
@@ -164,7 +164,7 @@ class JDBC2YmlSpec extends TestHelper {
       st.execute(sql)
       val rs = st.executeQuery("select * from test_table1")
       rs.next
-      val row1InsertionCheck = (1 == rs.getInt("ID")) && ("A" == rs.getString("NAME"))
+      val row1InsertionCheck = 1 == rs.getInt("ID") && "A" == rs.getString("NAME")
       assert(row1InsertionCheck, "Data not inserted")
 
       JDBC2Yml.run(

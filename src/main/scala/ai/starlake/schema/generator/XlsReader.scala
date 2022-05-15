@@ -416,7 +416,7 @@ class XlsReader(input: Input) extends XlsModel {
   }
 
   object formatter {
-    private val f = new DataFormatter()
+    private val f = new DataFormatter
 
     def formatCellValue(cell: Cell): Option[String] = {
       // remove all no-breaking spaces from cell to avoid parsing errors

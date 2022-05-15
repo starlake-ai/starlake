@@ -27,7 +27,7 @@ import ai.starlake.schema.handlers.SchemaHandler
 
 class SchemaSpec extends TestHelper {
 
-  new WithSettings() {
+  new WithSettings {
     val schemaHandler = new SchemaHandler(storageHandler)
 
     "Attribute type" should "be valid" in {
@@ -89,7 +89,7 @@ class SchemaSpec extends TestHelper {
 
       val attr =
         Attribute("hello", position = Some(Position(1, 2)))
-      val writer = new StringWriter()
+      val writer = new StringWriter
       mapper.writer().writeValue(writer, attr)
       logger.info("--" + writer.toString + "--")
       logger.info("++" + yml + "++")

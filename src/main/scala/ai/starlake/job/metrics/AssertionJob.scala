@@ -130,7 +130,7 @@ class AssertionJob(
         .withColumn("cometTime", lit(System.currentTimeMillis()))
         .withColumn("cometStage", lit(Stage.UNIT.value))
 
-      new SinkUtils().sink(
+      new SinkUtils.sink(
         settings.comet.assertions.sink,
         assertionsDF,
         settings.comet.assertions.sink.name.getOrElse("assertions"),

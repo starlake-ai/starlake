@@ -187,7 +187,7 @@ class MetricsJob(
       df match {
         case Some(df) =>
           settings.comet.internal.foreach(in => df.persist(in.cacheStorageLevel))
-          new SinkUtils().sink(
+          new SinkUtils.sink(
             settings.comet.metrics.sink,
             df,
             table.toString,

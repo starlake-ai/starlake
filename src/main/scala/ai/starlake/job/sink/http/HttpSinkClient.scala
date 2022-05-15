@@ -11,7 +11,7 @@ import scala.collection.mutable.ArrayBuffer
 private[http] class HttpSinkClient(url: String, maxMessages: Int, transformer: SinkTransformer)
     extends StrictLogging {
 
-  val connectionManager = new PoolingHttpClientConnectionManager()
+  val connectionManager = new PoolingHttpClientConnectionManager
   connectionManager.setMaxTotal(200);
   connectionManager.setDefaultMaxPerRoute(20);
 
@@ -45,7 +45,7 @@ private[http] class HttpSinkClient(url: String, maxMessages: Int, transformer: S
     logger.debug(s"request: ${rows.mkString("Array(", ", ", ")")}");
     transformer.requestUris(url, rows).foreach { requestUri =>
       val response = client.execute(requestUri)
-      val ok = (200 to 299) contains response.getStatusLine.getStatusCode
+      val ok = 200 to 299 contains response.getStatusLine.getStatusCode
       if (!ok)
         throw new RuntimeException(response.getStatusLine.getReasonPhrase)
 

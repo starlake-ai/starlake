@@ -107,9 +107,9 @@ class MergeUtilsTest extends TestHelper {
       .foldLeft(dataFrame) { (dataframe, missingType) =>
         MergeUtils.buildMissingType(dataframe, missingType)
       }
-    newDataFrame.schema shouldBe new StructType()
+    newDataFrame.schema shouldBe new StructType
       .add("id", IntegerType)
-      .add("data", new StructType().add("version", IntegerType).add("new", StringType))
+      .add("data", new StructType.add("version", IntegerType).add("new", StringType))
       .add("field", StringType)
 
     val actual = newDataFrame.toJSON.collect()
@@ -129,9 +129,9 @@ class MergeUtilsTest extends TestHelper {
       .foldLeft(dataFrame) { (dataframe, missingType) =>
         MergeUtils.buildMissingType(dataframe, missingType)
       }
-    newDataFrame.schema shouldBe new StructType()
+    newDataFrame.schema shouldBe new StructType
       .add("id", IntegerType)
-      .add("data", new StructType().add("version", IntegerType).add("new", StringType))
+      .add("data", new StructType.add("version", IntegerType).add("new", StringType))
       .add("field", StringType)
 
     val actual = newDataFrame.toJSON.collect()

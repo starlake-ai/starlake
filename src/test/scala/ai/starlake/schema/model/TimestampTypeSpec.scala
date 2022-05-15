@@ -8,7 +8,7 @@ import PrimitiveType.timestamp
 
 class TimestampTypeSpec extends TestHelper {
 
-  new WithSettings() {
+  new WithSettings {
 
     "Timestamp primitive type initialization with null values " should "be empty" in {
       Option(timestamp.fromString(null, null, null)) shouldBe None

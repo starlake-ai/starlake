@@ -159,7 +159,7 @@ trait NumericRandomPrivacy extends PrivacyEngine {
 }
 
 object RandomDouble extends NumericRandomPrivacy {
-  val rnd = new SecureRandom()
+  val rnd = new SecureRandom
 
   def genUnbounded(): Double = rnd.nextDouble()
 
@@ -173,7 +173,7 @@ object RandomDouble extends NumericRandomPrivacy {
 }
 
 object RandomLong extends NumericRandomPrivacy {
-  val rnd = new SecureRandom()
+  val rnd = new SecureRandom
 
   override def genUnbounded(): Double = rnd.nextLong().toDouble
 
@@ -186,7 +186,7 @@ object RandomLong extends NumericRandomPrivacy {
 }
 
 object RandomInt extends NumericRandomPrivacy {
-  val rnd = new SecureRandom()
+  val rnd = new SecureRandom
 
   override def genUnbounded(): Double = rnd.nextInt().toDouble
 
@@ -199,7 +199,7 @@ object RandomInt extends NumericRandomPrivacy {
 }
 
 class ApproxDouble extends PrivacyEngine {
-  val rnd = new SecureRandom()
+  val rnd = new SecureRandom
 
   def crypt(s: String, colMap: => Map[String, Option[String]], params: List[String]): String = {
     assert(params.length == 1)
@@ -208,7 +208,7 @@ class ApproxDouble extends PrivacyEngine {
 
   def crypt(value: Double, percent: Int): Double = {
     val rndBool = rnd.nextBoolean()
-    val distance = (value * percent * rnd.nextDouble()) / 100
+    val distance = value * percent * rnd.nextDouble() / 100
     if (rndBool)
       value - distance
     else

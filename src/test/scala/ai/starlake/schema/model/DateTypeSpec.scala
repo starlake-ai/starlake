@@ -6,7 +6,7 @@ import ai.starlake.TestHelper
 import ai.starlake.schema.model.PrimitiveType.date
 
 class DateTypeSpec extends TestHelper {
-  new WithSettings() {
+  new WithSettings {
 
     "Parsing a string not respecting the pattern with the number of characters " should "fail" in {
       assertThrows[DateTimeParseException] {

@@ -29,7 +29,7 @@ import ai.starlake.schema.generator.{
 import ai.starlake.workflow.{ImportConfig, TransformConfig, WatchConfig}
 
 class CliConfigSpec extends TestHelper {
-  new WithSettings() {
+  new WithSettings {
     "Generate Documentation" should "succeed" in {
       val rstMap = Map(
         "import"       -> ImportConfig.markdown(1),

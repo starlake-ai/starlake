@@ -8,7 +8,7 @@ import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.types._
 
 class BigQueryUtilsSpec extends TestHelper {
-  new WithSettings() {
+  new WithSettings {
     val sparkEnv: SparkEnv = new SparkEnv("test")
     val session: SparkSession = sparkEnv.session
 

@@ -45,7 +45,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       .parquet(pathGraduateProgramAccepted.toString)
   }
 
-  new WithSettings() {
+  new WithSettings {
     "trigger AutoJob by passing parameters on SQL statement" should "generate a dataset in business" in {
 
       val businessTask1 = AutoTaskDesc(
@@ -73,7 +73,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         .writeValueAsString(businessJob)
 
       val workflow =
-        new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
+        new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher)
       storageHandler.write(businessJobDef, pathBusiness)
 
       workflow.autoJob(TransformConfig("user", Map("view" -> "user_View", "age" -> "40")))
@@ -123,7 +123,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         .writeValueAsString(businessJob)
 
       val workflow =
-        new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
+        new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher)
       storageHandler.write(businessJobDef, pathBusiness)
 
       workflow.autoJob(
@@ -170,7 +170,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         .writeValueAsString(businessJob)
 
       val workflow =
-        new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
+        new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher)
       storageHandler.write(businessJobDef, pathBusiness)
 
       workflow.autoJob(TransformConfig("user"))
@@ -217,7 +217,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       storageHandler.write(businessJobDef, pathBusiness)
 
       val workflow =
-        new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
+        new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher)
 
       workflow.autoJob(TransformConfig("user"))
 
@@ -267,7 +267,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         .writeValueAsString(businessJob)
 
       val workflow =
-        new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
+        new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher)
       storageHandler.write(businessJobDef, pathGraduateProgramBusiness)
 
       workflow.autoJob(TransformConfig("graduateProgram", Map("school" -> "'UC_Berkeley'")))

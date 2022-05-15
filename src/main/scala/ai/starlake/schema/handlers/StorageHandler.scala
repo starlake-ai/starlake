@@ -96,7 +96,7 @@ class HdfsStorageHandler(fileSystem: String)(implicit
   settings: Settings
 ) extends StorageHandler {
 
-  val conf = new Configuration()
+  val conf = new Configuration
 
   lazy val normalizedFileSystem: String = {
     if (fileSystem.endsWith(":"))
@@ -354,7 +354,7 @@ class HdfsStorageHandler(fileSystem: String)(implicit
         .takeWhile(ze => ze != null && !ze.isDirectory)
         .foreach { zipEntry =>
           val entryName = zipEntry.getName()
-          val outputStream = new ByteArrayOutputStream()
+          val outputStream = new ByteArrayOutputStream
           val buf = new Array[Byte](4096)
           var bytesRead = zipInputStream.read(buf, 0, 4096)
           while (bytesRead > -1) {
