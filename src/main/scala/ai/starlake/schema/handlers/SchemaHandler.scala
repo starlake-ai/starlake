@@ -50,7 +50,7 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     new CometObjectMapper(new YAMLFactory(), injectables = (classOf[Settings], settings) :: Nil)
 
   @throws[Exception]
-  def checkValidity(): Unit = {
+  def checkValidity(): List[String] = {
     val typesValidity = this.types.map(_.checkValidity())
     val domainsValidty = this.domains.map(_.checkValidity(this))
     this.activeEnv
@@ -61,13 +61,15 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
       case Left(values) => values
       case Right(_)     => Nil
     }
-
+    logger.error(s"START VALIDATION RESULTS: ${errs.length} errors found")
+    errs.foreach(err => logger.error(err))
+    logger.error(s"END VALIDATION RESULTS")
     errs match {
       case Nil =>
       case _ =>
-        errs.foreach(err => logger.error(err))
         throw new Exception("Invalid YML file(s) found. See errors above.")
     }
+    errs
   }
 
   def checkViewsValidity(): Either[List[String], Boolean] = {
@@ -190,7 +192,6 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     val minuteFormatter = DateTimeFormatter.ofPattern("mm")
     val secondFormatter = DateTimeFormatter.ofPattern("ss")
     val milliFormatter = DateTimeFormatter.ofPattern("SSS")
-    val instantFormatter = DateTimeFormatter.ofPattern("SSS")
     val epochMillis = today.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli
     Map(
       "comet_date"         -> today.format(dateFormatter),
