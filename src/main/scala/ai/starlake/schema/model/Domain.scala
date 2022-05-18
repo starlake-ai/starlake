@@ -228,7 +228,7 @@ import scala.util.{Failure, Success, Try}
     }
 
     val duplicatesErrorMessage =
-      "%s is defined %d times. A schema can only be defined once."
+      "Schema %s defined %d times. A schema can only be defined once."
     for (errors <- Utils.duplicates(tables.map(_.name), duplicatesErrorMessage).left) {
       errorList ++= errors.map(s"domain $name:" + _)
     }
