@@ -611,6 +611,31 @@ class IngestionWorkflow(
     }
   }
 
+  def compileAutoJob(config: TransformConfig): Seq[String] = {
+    val job = schemaHandler.jobs(config.name)
+    logger.info(job.toString)
+    val result = buildTasks(config.name, config.options).map { action =>
+      val engine = action.engine
+      logger.info(s"running with -> $engine engine")
+      engine match {
+        case BQ =>
+          val (preSQL, mainSQL, postSQL) = action.buildQueryBQ()
+          mainSQL
+        case SPARK =>
+          val (preSql, mainSQL, postSql) = action.buildQuerySpark()
+          mainSQL
+        case _ =>
+          logger.error("Should never happen")
+          s"Invalid Engine $engine"
+      }
+    }
+    result.foreach { sql =>
+      logger.info(
+        s"""START COMPILE SQL $sql END COMPILE SQL""".stripMargin)
+    }
+    result
+  }
+
   /** Successively run each task of a job
     *
     * @param config
@@ -669,7 +694,8 @@ class IngestionWorkflow(
                           days = bqSink.days,
                           requirePartitionFilter = bqSink.requirePartitionFilter.getOrElse(false),
                           rls = action.task.rls,
-                          options = bqSink.getOptions
+                          options = bqSink.getOptions,
+                          acl = action.task.acl
                         )
                       val result = new BigQuerySparkJob(config, None).run()
                       result.isSuccess
