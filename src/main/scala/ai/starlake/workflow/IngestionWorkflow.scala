@@ -630,8 +630,7 @@ class IngestionWorkflow(
       }
     }
     result.foreach { sql =>
-      logger.info(
-        s"""START COMPILE SQL $sql END COMPILE SQL""".stripMargin)
+      logger.info(s"""START COMPILE SQL $sql END COMPILE SQL""".stripMargin)
     }
     result
   }
