@@ -4,6 +4,8 @@
 __New feature__:
 - Support extra dsv options in conf file
 - support any option stored in metadata.options as an option for the reader.
+- Support VSCode  Development
+
 
 # 0.3.16
 __New feature__:
