@@ -17,7 +17,7 @@ object Versions {
   val jackson212ForSpark3 = "2.12.3"
   val pureConfig211ForSpark2 = "0.14.0"
   val pureConfig212ForSpark3 = "0.14.0"
-  val esSpark211 = "7.8.1"
+  val esSpark211 = "7.17.4"
   val esSpark212 = "8.2.0"
   val scopt = "4.0.1"
   val bigquery = "2.11.0"
