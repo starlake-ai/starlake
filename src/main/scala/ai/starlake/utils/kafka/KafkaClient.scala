@@ -284,7 +284,7 @@ class KafkaClient(kafkaConfig: KafkaConfig)(implicit settings: Settings)
     // We do not use the topic Name but the config name to allow us to
     // consume differently the same topic
     val withOffsetsTopicOptions =
-      config.allAccessOptions((settings.comet.kafka.sparkServerOptions)) ++ Seq(
+      config.allAccessOptions(settings.comet.kafka.sparkServerOptions) ++ Seq(
         "startingOffsets" -> offsetsAsJson(config.topicName, startOffsets).getOrElse("earliest"),
         "endingOffsets"   -> offsetsAsJson(config.topicName, endOffsets).getOrElse("latest")
       )
@@ -329,7 +329,7 @@ class KafkaClient(kafkaConfig: KafkaConfig)(implicit settings: Settings)
     val writer = df.selectExpr(config.fields: _*).write.format("kafka")
 
     writer
-      .options(config.allAccessOptions((settings.comet.kafka.sparkServerOptions)))
+      .options(config.allAccessOptions(settings.comet.kafka.sparkServerOptions))
       .option("topic", config.topicName)
       .save()
   }
