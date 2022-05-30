@@ -57,7 +57,7 @@ object CometJacksonModule extends CometJacksonModule {
     private val (registeredInstance, theirBuildStack) =
       jacksonProtectedSingletons.getOrElseUpdate(
         this.getClass,
-        (this, (new Throwable().getStackTrace))
+        (this, new Throwable().getStackTrace)
       )
     if (registeredInstance ne this) {
       throw new IllegalStateException(
