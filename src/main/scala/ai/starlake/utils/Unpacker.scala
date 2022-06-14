@@ -84,7 +84,7 @@ object Unpacker {
       }
 
       override def next(): (ArchiveEntry, InputStream) =
-        (latestEntry, new CloseShieldInputStream(archiveInputStream))
+        (latestEntry, CloseShieldInputStream.wrap(archiveInputStream))
     }
 
   private def getMarkableStream(inputStream: InputStream): InputStream =

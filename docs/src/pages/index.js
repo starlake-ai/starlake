@@ -30,7 +30,7 @@ export default function Home() {
   return (
     <Layout
       title={`${siteConfig.title}`}
-      description="Big & Fast Data Integration <head />">
+      description="Big & Fast Data Integration">
       <HomepageHeader />
       <main>
         <HomepageFeatures />
