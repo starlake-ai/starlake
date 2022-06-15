@@ -247,4 +247,13 @@ import scala.util.{Failure, Success, Try}
       }
       .mkString("\n")
   }
+
+  def policies(): List[RowLevelSecurity] = {
+    tables
+      .flatMap(_.acl.getOrElse(Nil))
+      .map(ace => RowLevelSecurity(name = ace.role, grants = ace.grants.toSet)) ++
+    tables.flatMap(
+      _.rls.getOrElse(Nil)
+    )
+  }
 }

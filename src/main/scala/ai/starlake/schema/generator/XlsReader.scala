@@ -30,7 +30,7 @@ class XlsReader(input: Input) extends XlsModel {
   }
 
   private lazy val domain: Option[Domain] = {
-    val sheet = workbook.getSheet("domain")
+    val sheet = Option(workbook.getSheet("_domain")).getOrElse(workbook.getSheet("domain"))
     val (rows, headerMap) = getColsOrder(sheet, allDomainHeaders.map { case (k, _) => k })
     rows.headOption.flatMap { row =>
       val nameOpt =
@@ -70,7 +70,7 @@ class XlsReader(input: Input) extends XlsModel {
   }
 
   private lazy val schemas: List[(Schema, SchemaName)] = {
-    val sheet = workbook.getSheet("schemas")
+    val sheet = Option(workbook.getSheet("_schemas")).getOrElse(workbook.getSheet("schemas"))
     val (rows, headerMap) = getColsOrder(sheet, allSchemaHeaders.map { case (name, _) => name })
     rows.flatMap { row =>
       val nameOpt =
@@ -157,6 +157,11 @@ class XlsReader(input: Input) extends XlsModel {
         Option(row.getCell(headerMap("_long_name"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
           .flatMap(formatter.formatCellValue)
 
+      val policiesOpt =
+        Option(row.getCell(headerMap("_policy"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
+          .flatMap(formatter.formatCellValue)
+          .map(_.split(",").map(_.trim))
+
       (nameOpt, patternOpt) match {
         case (Some(name), Some(pattern)) => {
           val metaData = Metadata(
@@ -230,6 +235,18 @@ class XlsReader(input: Input) extends XlsModel {
               case _ => None
             }
 
+          val tablePolicies = policiesOpt
+            .map { tablePolicies =>
+              policies.filter(p => tablePolicies.contains(p.name))
+            }
+            .getOrElse(Nil)
+
+          val (withoutPredicate, withPredicate) = tablePolicies
+            .partition(_.predicate.toUpperCase() == "TRUE")
+
+          val acl = withoutPredicate.map(rls => AccessControlEntry(rls.name, rls.grants.toList))
+          val rls = withPredicate
+
           val schema = Schema(
             name = longNameOpt.getOrElse(name),
             pattern = pattern,
@@ -241,10 +258,43 @@ class XlsReader(input: Input) extends XlsModel {
             postsql = postsql,
             tags = tags,
             primaryKey = primaryKeys,
-            rename = renameOpt
+            rename = renameOpt,
+            acl = if (acl.isEmpty) None else Some(acl),
+            rls = if (rls.isEmpty) None else Some(rls)
           )
           Some(schema, SchemaName(name))
         }
+        case _ => None
+      }
+    }.toList
+  }
+
+  private lazy val policies: List[RowLevelSecurity] = {
+    val sheet = Option(workbook.getSheet("_policies")).getOrElse(workbook.getSheet("policies"))
+    val (rows, headerMap) = getColsOrder(sheet, allPolicyHeaders.map { case (k, _) => k })
+    rows.flatMap { row =>
+      val nameOpt =
+        Option(row.getCell(headerMap("_name"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
+          .flatMap(formatter.formatCellValue)
+      val predicateOpt =
+        Option(row.getCell(headerMap("_predicate"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
+          .flatMap(formatter.formatCellValue)
+      val grantsOpt =
+        Option(row.getCell(headerMap("_grants"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
+          .flatMap(formatter.formatCellValue)
+      val descriptionOpt =
+        Option(row.getCell(headerMap("_description"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
+          .flatMap(formatter.formatCellValue)
+      (nameOpt, predicateOpt, grantsOpt, descriptionOpt) match {
+        case (Some(name), predicate, Some(grants), description) =>
+          Some(
+            RowLevelSecurity(
+              name = name,
+              predicate = predicate.getOrElse("TRUE"),
+              grants = grants.replaceAll("\\s*,\\s*", ",").replaceAll("\\s+", ",").split(',').toSet,
+              description = description.getOrElse("")
+            )
+          )
         case _ => None
       }
     }.toList
@@ -359,6 +409,10 @@ class XlsReader(input: Input) extends XlsModel {
                 row.getCell(headerMap("_tags"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
               ).flatMap(formatter.formatCellValue).map(_.split(",").toSet)
 
+            val accessPolicy = Option(
+              row.getCell(headerMap("_policy"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
+            ).flatMap(formatter.formatCellValue)
+
             (nameOpt, semTypeOpt) match {
               case (Some(name), Some(semanticType)) =>
                 Some(
@@ -378,7 +432,8 @@ class XlsReader(input: Input) extends XlsModel {
                     attributes = None,
                     ignore = attributeIgnore,
                     foreignKey = foreignKey,
-                    tags = tags
+                    tags = tags,
+                    accessPolicy = accessPolicy
                   )
                 )
               case _ => None

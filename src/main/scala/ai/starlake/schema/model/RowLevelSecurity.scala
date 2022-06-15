@@ -12,7 +12,8 @@ package ai.starlake.schema.model
 case class RowLevelSecurity(
   name: String,
   predicate: String = "TRUE",
-  grants: Set[String]
+  grants: Set[String],
+  description: String = ""
 ) {
 
   def grantees(): Set[(UserType, String)] = {
