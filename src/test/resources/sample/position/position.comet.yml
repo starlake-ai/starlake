@@ -1,126 +1,136 @@
 ---
-name: "position"
-directory: "__COMET_TEST_ROOT__/position"
-ack: ""
-metadata:
-  mode: "FILE"
-  format: "POSITION"
-  withHeader: false
-  separator: "|"
-  quote: "\""
-  escape: "\\"
-  write: "OVERWRITE"
-  partition:
-    sampling: 0.5
-    attributes:
-      - comet_year
-      - comet_month
-      - comet_day
-schemas:
-  - name: "TEST_EMTPY"
-    pattern: "empty_position"
-    attributes:
-      - name: "code0"
-        type: "byte"
-        required: true
-        privacy: "NONE"
-        comment:  "simple description"
-        position:
-          first: 0
-          last: 0
-      - name: "code1"
-        type: "byte"
-        required: true
-        privacy: "NONE"
-        position:
-          first: 1
-          last: 1
-    metadata:
-      partition:
-        sampling: 0
-        attributes: []
-  - name: "account"
-    pattern: ".*TBL"
-    attributes:
-      - name: "code0"
-        type: "byte"
-        required: true
-        privacy: "NONE"
-        position:
-          first: 0
-          last: 0
-      - name: "code1"
-        type: "byte"
-        required: true
-        privacy: "NONE"
-        position:
-          first: 1
-          last: 1
-      - name: "code2"
-        type: "byte"
-        required: true
-        position:
-          first: 2
-          last: 2
-      - name: "bancode"
-        type: "string"
-        privacy: "sql:md5(bancode)"
-        required: true
-        position:
-          first: 3
-          last: 7
-      - name: "account"
-        type: "string"
-        required: true
-        privacy: "NONE"
-        position:
-          first: 8
-          last: 26
-      - name: "date1"
-        type: "datefr"
-        required: true
-        privacy: "NONE"
-        position:
-          first: 27
-          last: 36
-      - name: "dtcode"
-        type: "byte"
-        required: true
-        privacy: "NONE"
-        trim: BOTH
-        position:
-          first: 37
-          last: 37
-      - name: "date2"
-        type: "datefr"
-        required: true
-        privacy: "NONE"
-        trim: BOTH
-        position:
-          first: 38
-          last: 47
-      - name: "date3"
-        type: "datefr"
-        required: true
-        privacy: "NONE"
-        position:
-          first: 48
-          last: 57
-      - name: "calculatedCode"
-        type: "string"
-        script: concat(code0,'-',code1,'-',bancode,'-')
-        array: false
-        required: true
-        privacy: "NONE"
-        metricType: "NONE"
-        position:
-          first: 0
-          last: 0
-      - name: "fileName"
-        type: "string"
-        script: "comet_input_file_name"
-        privacy: None
-        required: true
-        position:
-          first: 0
-          last: 0
+load:
+  name: "position"
+  directory: "__COMET_TEST_ROOT__/position"
+  ack: ""
+  metadata:
+    mode: "FILE"
+    format: "POSITION"
+    withHeader: false
+    separator: "|"
+    quote: "\""
+    escape: "\\"
+    write: "OVERWRITE"
+    partition:
+      sampling: 0.5
+      attributes:
+        - comet_year
+        - comet_month
+        - comet_day
+  tables:
+    - name: "TEST_EMTPY"
+      pattern: "empty_position"
+      acl:
+        - role: "test reader"
+          grants:
+            - user:myuser
+            - group:mygroup
+        - role: "test writer"
+          grants:
+            - group:mygroup
+
+      attributes:
+        - name: "code0"
+          type: "byte"
+          required: true
+          privacy: "NONE"
+          comment:  "simple description"
+          position:
+            first: 0
+            last: 0
+        - name: "code1"
+          type: "byte"
+          required: true
+          privacy: "NONE"
+          position:
+            first: 1
+            last: 1
+      metadata:
+        partition:
+          sampling: 0
+          attributes: []
+    - name: "account"
+      pattern: ".*TBL"
+      attributes:
+        - name: "code0"
+          type: "byte"
+          required: true
+          privacy: "NONE"
+          position:
+            first: 0
+            last: 0
+        - name: "code1"
+          type: "byte"
+          required: true
+          privacy: "NONE"
+          position:
+            first: 1
+            last: 1
+        - name: "code2"
+          type: "byte"
+          required: true
+          position:
+            first: 2
+            last: 2
+        - name: "bancode"
+          type: "string"
+          privacy: "sql:md5(bancode)"
+          required: true
+          position:
+            first: 3
+            last: 7
+        - name: "account"
+          type: "string"
+          required: true
+          privacy: "NONE"
+          position:
+            first: 8
+            last: 26
+        - name: "date1"
+          type: "datefr"
+          required: true
+          privacy: "NONE"
+          position:
+            first: 27
+            last: 36
+        - name: "dtcode"
+          type: "byte"
+          required: true
+          privacy: "NONE"
+          trim: BOTH
+          position:
+            first: 37
+            last: 37
+        - name: "date2"
+          type: "datefr"
+          required: true
+          privacy: "NONE"
+          trim: BOTH
+          position:
+            first: 38
+            last: 47
+        - name: "date3"
+          type: "datefr"
+          required: true
+          privacy: "NONE"
+          position:
+            first: 48
+            last: 57
+        - name: "calculatedCode"
+          type: "string"
+          script: concat(code0,'-',code1,'-',bancode,'-')
+          array: false
+          required: true
+          privacy: "NONE"
+          metricType: "NONE"
+          position:
+            first: 0
+            last: 0
+        - name: "fileName"
+          type: "string"
+          script: "comet_input_file_name"
+          privacy: None
+          required: true
+          position:
+            first: 0
+            last: 0
