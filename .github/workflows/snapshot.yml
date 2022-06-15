@@ -35,6 +35,6 @@ jobs:
       - name: Use gcloud CLI
         run: gcloud info
       - name: Publish Snapshot on Sonatype Spark 2/3 for scala 2.12
-        run: SBT_OPTS="-Xss4M" COMET_ACCESS_POLICIES_PROJECT_ID=${{ secrets.GCP_PROJECT }} TEMPORARY_GCS_BUCKET=${{ secrets.TEMPORARY_GCS_BUCKET }} COMET_GCP_TEST=true RELEASE_SONATYPE=true GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ secrets.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ secrets.SONATYPE_PASSWORD }} sbt ++2.12.15 test publish
+        run: SBT_OPTS="-Xss4M" COMET_ACCESS_POLICIES_PROJECT_ID=${{ secrets.GCP_PROJECT }} TEMPORARY_GCS_BUCKET=${{ secrets.TEMPORARY_GCS_BUCKET }} COMET_GCP_TEST=true RELEASE_SONATYPE=true GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ secrets.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ secrets.SONATYPE_PASSWORD }} sbt ++2.12.16 test publish
       - name: Publish Snapshot on Sonatype Spark 2/3 for scala 2.11
         run: COMET_ACCESS_POLICIES_PROJECT_ID=${{ secrets.GCP_PROJECT }} TEMPORARY_GCS_BUCKET=starlake-app COMET_GCP_TEST=false RELEASE_SONATYPE=true GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ secrets.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ secrets.SONATYPE_PASSWORD }} sbt ++2.11.12 publish
