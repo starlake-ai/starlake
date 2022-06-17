@@ -343,6 +343,10 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
         name = jobName,
         tasks = tasks
       )
+    } match {
+      case Success(value) => Success(value)
+      case Failure(exception) =>
+        Failure(new Exception(s"Invalid Job file: $path(${exception.getMessage})"))
     }
 
   /** To be deprecated soon
