@@ -52,10 +52,10 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
   @throws[Exception]
   def checkValidity(): List[String] = {
     val typesValidity = this.types.map(_.checkValidity())
-    val domainsValidty = this.domains.map(_.checkValidity(this))
+    val domainsValidity = this.domains.map(_.checkValidity(this))
     this.activeEnv
     this.jobs
-    val allErrors = typesValidity ++ domainsValidty :+ checkViewsValidity()
+    val allErrors = typesValidity ++ domainsValidity :+ checkViewsValidity()
 
     val errs = allErrors.flatMap {
       case Left(values) => values
