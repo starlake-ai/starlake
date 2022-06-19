@@ -28,7 +28,7 @@ class MergeUtilsTest extends TestHelper {
     val invalidSchema = StructType.fromDDL("`root` STRUCT<`other`: BIGINT>,`note` STRING")
 
     val result = MergeUtils.computeCompatibleSchema(actualSchema, invalidSchema)
-    result.sql shouldBe "STRUCT<`root`: STRUCT<>, `note`: STRING>"
+    result.sql shouldBe "STRUCT<root: STRUCT<>, note: STRING>"
   }
 
   "merging schemas new columns not nullable" should "fail" in {
