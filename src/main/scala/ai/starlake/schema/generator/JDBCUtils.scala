@@ -234,7 +234,7 @@ object JDBCUtils extends LazyLogging {
     selectedTablesAndColumns: Map[String, (TableRemarks, Columns, PrimaryKeys)]
   ) = {
     val schemaMetadata =
-      domainTemplate.flatMap(_.schemas.headOption.flatMap(_.metadata))
+      domainTemplate.flatMap(_.tables.headOption.flatMap(_.metadata))
     val cometSchema = selectedTablesAndColumns.map {
       case (tableName, (tableRemarks, selectedColumns, primaryKeys)) =>
         Schema(
@@ -266,8 +266,8 @@ object JDBCUtils extends LazyLogging {
       metadata = domainTemplate
         .flatMap(_.metadata)
         .map(_.copy(directory = Some(incomingDir), extensions = extensions, ack = ack)),
-      schemaRefs = None,
-      schemas = cometSchema.toList,
+      tableRefs = None,
+      tables = cometSchema.toList,
       comment = None,
       extensions = None,
       ack = None

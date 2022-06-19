@@ -22,14 +22,10 @@ package ai.starlake.schema.handlers
 
 import ai.starlake.config.Settings
 import ai.starlake.schema.model._
-import ai.starlake.utils.CometObjectMapper
+import ai.starlake.utils.YamlSerializer
 import better.files.File
-import com.fasterxml.jackson.annotation.JsonInclude.Include
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import org.apache.spark.sql.types.{ArrayType, StructType}
 
-import java.io.StringWriter
 import java.util.regex.Pattern
 
 object InferSchemaHandler {
@@ -43,7 +39,7 @@ object InferSchemaHandler {
     */
   def createAttributes(
     schema: StructType
-  )(implicit settings: Settings): List[Attribute] = {
+  )(implicit settings: Settings): List[Attribute] =
     schema
       .map(row =>
         row.dataType.typeName match {
@@ -80,7 +76,6 @@ object InferSchemaHandler {
         }
       )
       .toList
-  }
 
   /** * builds the Metadata case class. check case class metadata for attribute definition
     *
@@ -100,7 +95,7 @@ object InferSchemaHandler {
     array: Option[Boolean],
     withHeader: Option[Boolean],
     separator: Option[String]
-  ): Metadata = {
+  ): Metadata =
     Metadata(
       Some(Mode.fromString("FILE")),
       Some(Format.fromString(format)),
@@ -110,7 +105,6 @@ object InferSchemaHandler {
       withHeader,
       separator
     )
-  }
 
   /** * builds the Schema case class
     *
@@ -130,8 +124,7 @@ object InferSchemaHandler {
     pattern: Pattern,
     attributes: List[Attribute],
     metadata: Option[Metadata]
-  ): Schema = {
-
+  ): Schema =
     Schema(
       name = name,
       pattern = pattern,
@@ -142,7 +135,6 @@ object InferSchemaHandler {
       None,
       None
     )
-  }
 
   /** * Builds the Domain case class
     *
@@ -162,10 +154,8 @@ object InferSchemaHandler {
     name: String,
     metadata: Option[Metadata] = None,
     schemas: List[Schema] = Nil
-  ): Domain = {
-
-    Domain(name = name, metadata = metadata, schemas = schemas)
-  }
+  ): Domain =
+    Domain(name = name, metadata = metadata, tables = schemas)
 
   /** * Generates the YAML file using the domain object and a savepath
     *
@@ -176,14 +166,7 @@ object InferSchemaHandler {
     */
   def generateYaml(domain: Domain, savePath: String)(implicit
     settings: Settings
-  ): Unit = {
-    val objw = new StringWriter()
-    val mapper: ObjectMapper = new CometObjectMapper(new YAMLFactory())
-    mapper.setSerializationInclusion(Include.NON_EMPTY)
-    mapper.writeValue(objw, domain)
-    val output = File(savePath)
-    output.overwrite(objw.toString)
-
-  }
+  ): Unit =
+    YamlSerializer.serializeToFile(File(savePath), domain)
 
 }

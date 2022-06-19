@@ -30,11 +30,11 @@ class YamlSerializerSpec extends TestHelper {
         "name" -> "user",
         "tasks" -> List(
           Map(
-            "sql"     -> "select firstname, lastname, age from {{view}} where age=${age}",
-            "domain"  -> "user",
-            "dataset" -> "user",
-            "write"   -> "OVERWRITE",
-            "area"    -> "business"
+            "sql"    -> "select firstname, lastname, age from {{view}} where age=${age}",
+            "domain" -> "user",
+            "table"  -> "user",
+            "write"  -> "OVERWRITE",
+            "area"   -> "business"
           )
         ),
         "area"     -> "business",

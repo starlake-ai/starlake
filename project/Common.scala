@@ -18,10 +18,10 @@
  *
  */
 
-import com.typesafe.sbt.GitPlugin.autoImport._
+import com.github.sbt.git.GitPlugin.autoImport._
 import com.typesafe.sbt.site.SiteScaladocPlugin
 import com.typesafe.sbt.site.sphinx.SphinxPlugin
-import com.typesafe.sbt.{GitBranchPrompt, GitVersioning}
+import com.github.sbt.git.{GitBranchPrompt, GitVersioning}
 import org.scalafmt.sbt.ScalafmtPlugin.autoImport.scalafmtOnCompile
 import sbt.Keys._
 import sbt.{Def, _}

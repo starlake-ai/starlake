@@ -28,7 +28,7 @@ import ai.starlake.schema.handlers.{
   LaunchHandler,
   SimpleLauncher
 }
-import ai.starlake.schema.model.{Mode, PrivacyLevel, Sink}
+import ai.starlake.schema.model.{PrivacyLevel, Sink}
 import ai.starlake.utils.{CometObjectMapper, Utils, YamlSerializer}
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.typesafe.config.{Config, ConfigFactory, ConfigValueFactory}
@@ -192,12 +192,10 @@ object Settings extends StrictLogging {
 
   final case class KafkaTopicConfig(
     topicName: String,
-    topicOffsetMode: Option[Mode] = Some(Mode.STREAM), // used only for comet_offsets
     maxRead: Long = -1,
     fields: List[String] = List("key as STRING", "value as STRING"),
     partitions: Int = 1,
     replicationFactor: Short = 1,
-    writeFormat: String = "parquet",
     createOptions: Map[String, String] = Map.empty,
     accessOptions: Map[String, String] = Map.empty
   ) {
@@ -302,6 +300,7 @@ object Settings extends StrictLogging {
     analyze: Boolean,
     hive: Boolean,
     grouped: Boolean,
+    groupedMax: Int,
     mergeForceDistinct: Boolean,
     mergeOptimizePartitionWrite: Boolean,
     area: Area,
@@ -324,7 +323,8 @@ object Settings extends StrictLogging {
     forceFileExtensions: String,
     accessPolicies: AccessPolicies,
     scheduling: JobScheduling,
-    maxParCopy: Int
+    maxParCopy: Int,
+    dsvOptions: Map[String, String]
   ) extends Serializable {
 
     val cacheStorageLevel =

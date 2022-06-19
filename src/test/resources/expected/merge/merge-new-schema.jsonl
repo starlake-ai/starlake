@@ -1,3 +1,4 @@
 {"id":1,"data":{"version":0}}
+{"id":1,"data":{"version":1}}
 {"id":2,"data":{"version":0,"new":"value"}}
 {"id":3,"data":{"version":1,"new":"value"},"field":"new"}
