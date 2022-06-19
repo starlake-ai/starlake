@@ -6,6 +6,8 @@ import scopt.OParser
 case class TransformConfig(
   name: String = "",
   options: Map[String, String] = Map.empty,
+  compile: Boolean = false,
+  noSink: Boolean = false,
   viewsDir: Option[String] = None,
   viewsCount: Int = 1000
 )
@@ -23,6 +25,14 @@ object TransformConfig extends CliConfig[TransformConfig] {
         .action((x, c) => c.copy(name = x))
         .required()
         .text("Job Name"),
+      opt[Unit]("compile")
+        .action((x, c) => c.copy(compile = true))
+        .optional()
+        .text("Return final query only"),
+      opt[String]("no-sink")
+        .action((x, c) => c.copy(noSink = true))
+        .optional()
+        .text("Just run the query and return rows"),
       opt[String]("views-dir")
         .action((x, c) => c.copy(viewsDir = Some(x)))
         .optional()

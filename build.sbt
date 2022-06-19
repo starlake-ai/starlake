@@ -10,7 +10,7 @@ ThisBuild / sonatypeCredentialHost := "s01.oss.sonatype.org"
 
 lazy val scala211 = "2.11.12"
 
-lazy val scala212 = "2.13.8"
+lazy val scala212 = "2.12.16"
 
 ThisBuild / crossScalaVersions := List(scala211, scala212)
 
@@ -106,6 +106,7 @@ assembly / assemblyShadeRules := Seq(
 //  ShadeRule.rename("shapeless.**" -> "shade.@0").inAll,
   //shade it or else writing to bigquery wont work because spark comes with an older version of google common.
   ShadeRule.rename("com.google.common.**" -> "shade.@0").inAll,
+  ShadeRule.rename("com.google.gson.**" -> "shade.@0").inAll,
   ShadeRule.rename("com.google.protobuf.**" -> "shade.@0").inAll
 )
 

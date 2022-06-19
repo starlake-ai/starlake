@@ -10,6 +10,12 @@ trait XlsModel {
     "_schema_refs" -> "Schema Refs",
     "_rename"      -> "Rename"
   )
+  val allPolicyHeaders = List(
+    "_name"        -> "Name",
+    "_predicate"   -> "Predicate",
+    "_grants"      -> "User Groups",
+    "_description" -> "Description"
+  )
 
   val allSchemaHeaders = List(
     "_name"               -> "Name",
@@ -32,7 +38,9 @@ trait XlsModel {
     "_postsql"            -> "Post SQLs - ###",
     "_primary_key"        -> "Primary Key",
     "_tags"               -> "Tags",
-    "_rename"             -> "Rename"
+    "_rename"             -> "Rename",
+    "_long_name"          -> "Rename source table",
+    "_policy"             -> "Access Policy"
   )
 
   val allAttributeHeaders = List(
@@ -50,7 +58,8 @@ trait XlsModel {
     "_trim"           -> "Trim (LEFT, RIGHT,BOTH)",
     "_ignore"         -> "Ignore ?",
     "_foreign_key"    -> "Foreign Key",
-    "_tags"           -> "Tags"
+    "_tags"           -> "Tags",
+    "_policy"         -> "Access Policy"
   )
 
 }

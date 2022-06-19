@@ -272,40 +272,46 @@ class IngestionWorkflow(
         logger.info(s"""Ingest resolved file : ${pendingPaths
             .map(_.getName)
             .mkString(",")} with schema ${schema.name}""")
-        val ingestingPaths = pendingPaths.map { pendingPath =>
-          val ingestingPath = new Path(DatasetArea.ingesting(domain.name), pendingPath.getName)
-          if (!storageHandler.move(pendingPath, ingestingPath)) {
-            logger.error(s"Could not move $pendingPath to $ingestingPath")
+
+        // We group by groupedMax to avoid rateLimit exceeded when the number of grouped files is too big for some cloud storage rate limitations.
+        val groupedPendingPathsIterator =
+          pendingPaths.grouped(settings.comet.groupedMax)
+        groupedPendingPathsIterator.map { pendingPaths =>
+          val ingestingPaths = pendingPaths.map { pendingPath =>
+            val ingestingPath = new Path(DatasetArea.ingesting(domain.name), pendingPath.getName)
+            if (!storageHandler.move(pendingPath, ingestingPath)) {
+              logger.error(s"Could not move $pendingPath to $ingestingPath")
+            }
+            ingestingPath
           }
-          ingestingPath
+          val jobs = if (settings.comet.grouped) {
+            JobContext(domain, schema, ingestingPaths.toList, config.options) :: Nil
+          } else {
+            // We ingest all the files but return false if one of them fails.
+            ingestingPaths.map { path =>
+              JobContext(domain, schema, path :: Nil, config.options)
+            }
+          }
+          val (parJobs, forkJoinPool) = makeParallel(jobs.toList, settings.comet.scheduling.maxJobs)
+          val res = parJobs.map { jobContext =>
+            launchHandler.ingest(
+              this,
+              jobContext.domain,
+              jobContext.schema,
+              jobContext.paths,
+              jobContext.options
+            ) match {
+              case Failure(e) =>
+                e.printStackTrace()
+                false
+              case Success(r) => true
+            }
+          }.toList
+          forkJoinPool.foreach(_.shutdown())
+          res.forall(_ == true)
         }
-        val jobs = if (settings.comet.grouped) {
-          JobContext(domain, schema, ingestingPaths.toList, config.options) :: Nil
-        } else {
-          // We ingest all the files but return false if one of them fails.
-          ingestingPaths.map { path =>
-            JobContext(domain, schema, path :: Nil, config.options)
-          }
-        }
-        val (parJobs, forkJoinPool) = makeParallel(jobs.toList, settings.comet.scheduling.maxJobs)
-        val res = parJobs.map { jobContext =>
-          launchHandler.ingest(
-            this,
-            jobContext.domain,
-            jobContext.schema,
-            jobContext.paths,
-            jobContext.options
-          ) match {
-            case Failure(e) =>
-              e.printStackTrace()
-              false
-            case Success(r) => true
-          }
-        }.toList
-        forkJoinPool.foreach(_.shutdown())
-        res.forall(_ == true)
       }
-    }
+    }.flatten
     result.forall(_ == true)
   }
 
@@ -374,7 +380,7 @@ class IngestionWorkflow(
 
   private def predicate(domain: Domain, schemasName: List[String], file: Path): Boolean = {
     schemasName.exists { schemaName =>
-      val schema = domain.schemas.find(_.name.equals(schemaName))
+      val schema = domain.tables.find(_.name.equals(schemaName))
       schema.exists(_.pattern.matcher(file.getName).matches())
     }
   }
@@ -393,7 +399,7 @@ class IngestionWorkflow(
       val ingestingPaths = config.paths
       val result = for {
         domain <- domains.find(_.name == domainName)
-        schema <- domain.schemas.find(_.name == schemaName)
+        schema <- domain.tables.find(_.name == schemaName)
       } yield ingest(domain, schema, ingestingPaths, config.options)
       result match {
         case None | Some(Success(_)) => true
@@ -605,6 +611,30 @@ class IngestionWorkflow(
     }
   }
 
+  def compileAutoJob(config: TransformConfig): Seq[String] = {
+    val job = schemaHandler.jobs(config.name)
+    logger.info(job.toString)
+    val result = buildTasks(config.name, config.options).map { action =>
+      val engine = action.engine
+      logger.info(s"running with -> $engine engine")
+      engine match {
+        case BQ =>
+          val (preSQL, mainSQL, postSQL) = action.buildQueryBQ()
+          mainSQL
+        case SPARK =>
+          val (preSql, mainSQL, postSql) = action.buildQuerySpark()
+          mainSQL
+        case _ =>
+          logger.error("Should never happen")
+          s"Invalid Engine $engine"
+      }
+    }
+    result.foreach { sql =>
+      logger.info(s"""START COMPILE SQL $sql END COMPILE SQL""".stripMargin)
+    }
+    result
+  }
+
   /** Successively run each task of a job
     *
     * @param config
@@ -615,9 +645,10 @@ class IngestionWorkflow(
     logger.info(job.toString)
     val result: Seq[Boolean] = buildTasks(config.name, config.options).map { action =>
       val engine = action.engine
-      logger.info(s"running with $engine engine")
+      logger.info(s"running with -> $engine engine")
       engine match {
         case BQ =>
+          logger.info(s"Entering $engine engine")
           val result = action.runBQ()
           val sink = action.task.sink
           logger.info(s"BQ Job succeeded. sinking data to $sink")
@@ -651,7 +682,7 @@ class IngestionWorkflow(
                       val config =
                         BigQueryLoadConfig(
                           source = source,
-                          outputTable = action.task.dataset,
+                          outputTable = action.task.table,
                           outputDataset = action.task.domain,
                           sourceFormat = settings.comet.defaultFormat,
                           createDisposition = createDisposition,
@@ -662,7 +693,8 @@ class IngestionWorkflow(
                           days = bqSink.days,
                           requirePartitionFilter = bqSink.requirePartitionFilter.getOrElse(false),
                           rls = action.task.rls,
-                          options = bqSink.getOptions
+                          options = bqSink.getOptions,
+                          acl = action.task.acl
                         )
                       val result = new BigQuerySparkJob(config, None).run()
                       result.isSuccess
@@ -682,7 +714,7 @@ class IngestionWorkflow(
                         jdbcName,
                         settings.comet,
                         source,
-                        outputTable = action.task.dataset,
+                        outputTable = action.task.table,
                         createDisposition = CreateDisposition.valueOf(createDisposition),
                         writeDisposition = WriteDisposition.valueOf(writeDisposition),
                         partitions = partitions,
@@ -720,7 +752,7 @@ class IngestionWorkflow(
   private def saveToES(action: AutoTaskJob): Boolean = {
     val targetArea = action.task.area.getOrElse(action.defaultArea)
     val targetPath =
-      new Path(DatasetArea.path(action.task.domain, targetArea.value), action.task.dataset)
+      new Path(DatasetArea.path(action.task.domain, targetArea.value), action.task.table)
     val sink: EsSink = action.task.sink
       .map(_.asInstanceOf[EsSink])
       .getOrElse(
@@ -733,7 +765,7 @@ class IngestionWorkflow(
         id = sink.id,
         format = settings.comet.defaultFormat,
         domain = action.task.domain,
-        schema = action.task.dataset,
+        schema = action.task.table,
         dataset = Some(Left(targetPath)),
         options = sink.getOptions
       )
@@ -794,7 +826,7 @@ class IngestionWorkflow(
     // Lookup for the domain given as prompt arguments, if is found then find the given schema in this domain
     val cmdArgs = for {
       domain <- schemaHandler.getDomain(cliConfig.domain)
-      schema <- domain.schemas.find(_.name == cliConfig.schema)
+      schema <- domain.tables.find(_.name == cliConfig.schema)
     } yield (domain, schema)
 
     cmdArgs match {
@@ -816,7 +848,7 @@ class IngestionWorkflow(
   def secure(config: WatchConfig): Boolean = {
     val includedDomains = domainsToWatch(config)
     val result = includedDomains.flatMap { domain =>
-      domain.schemas.map { schema =>
+      domain.tables.map { schema =>
         if (settings.comet.hive || Utils.isRunningInDatabricks()) {
           new DummyIngestionJob(
             domain,

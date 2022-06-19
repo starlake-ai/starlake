@@ -1,7 +1,7 @@
-export COMET_VERSION="${COMET_VERSION:-0.3.16}"
+export COMET_VERSION="${COMET_VERSION:-0.3.17-SNAPSHOT}"
 export SPARK_VERSION="${SPARK_VERSION:-3.2.1}"
 export HADOOP_VERSION="${HADOOP_VERSION:-3.2}"
-export SCALA_VERSION=2.12
+export SCALA_VERSION="${SCALA_VERSION:-2.12}"
 export COMET_JAR_NAME=starlake-spark3_$SCALA_VERSION-$COMET_VERSION-assembly.jar
 export COMET_JAR_FULL_NAME=../bin/$COMET_JAR_NAME
 
@@ -24,16 +24,19 @@ SPARK_TGZ_URL=https://downloads.apache.org/spark/spark-$SPARK_VERSION/$SPARK_TGZ
 export SPARK_SUBMIT=../bin/spark-$SPARK_VERSION-bin-hadoop$HADOOP_VERSION/bin/spark-submit
 export SPARK_DIR="$PWD/../bin/spark-$SPARK_VERSION-bin-hadoop$HADOOP_VERSION"
 
+if [[ -z "$COMET_ROOT" ]]; then
+    echo "COMET_ROOT undefined. set it to the starlake project folder" 1>&2
+    exit 2
+fi
+
+
 initEnv() {
   PROG_DIR=$(cd `dirname $0` && pwd)
 
   if [ "$PWD" != "$PROG_DIR" ]; then
-    echo "run command from local folder in the form ./0.init.sh"
+    echo "run command from local folder in the form ./my-starlake-command.sh"
     exit 1
   fi
-
-  rm -rf quickstart/
-  mkdir quickstart/
 
   if [[ ! -d "../bin/" ]]
   then
@@ -48,7 +51,7 @@ initEnv() {
     curl --output ../bin/$COMET_JAR_NAME $COMET_JAR_URL
   fi
 
-  if test -d"../bin/$SPARK_DIR_NAME"; then
+  if test -d "../bin/$SPARK_DIR_NAME"; then
       echo "$SPARK_DIR_NAME found in ../bin/"
   else
     echo "downloading $SPARK_TGZ_NAME from $SPARK_TGZ_URL"
@@ -58,14 +61,6 @@ initEnv() {
 
   rm ../bin/$SPARK_DIR_NAME/conf/*.xml
 
-  cp -r ../quickstart-template/* quickstart/
-
-  awk -v var="$COMET_ROOT" '{sub("__COMET_TEST_ROOT__", var)}1' ../quickstart-template/metadata/env.comet.yml >quickstart/metadata/env.comet.yml
-
-  if [[ ! -d "notebooks/" ]]
-  then
-    mkdir notebooks/
-  fi
   if test -f $SPARK_SUBMIT; then
       echo "$SPARK_SUBMIT found in ../bin/"
       echo "SUCCESS: Local env initialized correctly"
@@ -74,4 +69,14 @@ initEnv() {
     echo "FAILURE: Failed to initialize environment"
     exit 2
   fi
+
+  cp ../bin/$SPARK_DIR_NAME/conf/log4j.properties.template ../bin/$SPARK_DIR_NAME/conf/log4j.properties
+  
+  if [ -z "$COMET_LOGLEVEL" ] || [ "$COMET_LOGLEVEL"  = "Default"]; then
+    cp ../bin/$SPARK_DIR_NAME/conf/log4j.properties.template > ../bin/$SPARK_DIR_NAME/conf/log4j.properties 
+  else 
+    sed '/log4j.rootCategory/d' ../bin/$SPARK_DIR_NAME/conf/log4j.properties.template > ../bin/$SPARK_DIR_NAME/conf/log4j.properties 
+    echo "log4j.rootCategory=$COMET_LOGLEVEL, console" >> ../bin/$SPARK_DIR_NAME/conf/log4j.properties
+  fi
+  
 }
