@@ -13,6 +13,8 @@ metadata:
   write: "APPEND"
   xml:
     rowTag: element
+    inferSchema: false
+    rowValidationXSDPath: /Users/hayssams/git/public/starlake/src/test/resources/sample/xsd/locations.xsd
   partition:
     attributes:
       - comet_year

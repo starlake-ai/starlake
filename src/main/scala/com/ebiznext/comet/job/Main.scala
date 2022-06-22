@@ -125,7 +125,7 @@ object Main extends StrictLogging {
             false
         }
       case "validate" =>
-        schemaHandler.checkValidity()
+        schemaHandler.fullValidation()
         true
       case "watch" =>
         WatchConfig.parse(args.drop(1)) match {
