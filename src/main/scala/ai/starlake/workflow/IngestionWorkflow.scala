@@ -728,6 +728,11 @@ class IngestionWorkflow(
                         case Success(_) => true
                         case Failure(e) => logger.error("JDBCLoad Failed", e); false
                       }
+                    case SinkType.None =>
+                      maybeDataFrame.foreach { dataframe =>
+                        dataframe.write.format("console").save()
+                      }
+                      true
                     case _ =>
                       logger.warn("No supported Sink is activated for this job")
                       true
