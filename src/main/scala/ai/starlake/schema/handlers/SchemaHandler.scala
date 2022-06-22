@@ -53,18 +53,12 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
   def checkValidity(): List[String] = {
     val typesValidity = this.types.map(_.checkValidity())
     val domainsValidity = this.domains.map(_.checkValidity(this))
-    this.activeEnv
-    this.jobs
+
     val allErrors = typesValidity ++ domainsValidity :+ checkViewsValidity()
 
     val errs = allErrors.flatMap {
       case Left(values) => values
       case Right(_)     => Nil
-    }
-    errs match {
-      case Nil =>
-      case _ =>
-        throw new Exception("Invalid YML file(s) found. See errors above.")
     }
     errs
   }
@@ -75,12 +69,15 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
       val deserErrors = deserializedDomains.filter { case (path, res) =>
         res.isFailure
       }
-      logger.error(s"START VALIDATION RESULTS: ${errs.length + deserErrors.length} errors found")
-      deserErrors.foreach { case (path, err) =>
-        logger.error(s"${path.toString} could not be deserialized")
+      val errorCount = errs.length + deserErrors.length
+      if (errorCount > 0) {
+        logger.error(s"START VALIDATION RESULTS: $errorCount errors found")
+        deserErrors.foreach { case (path, err) =>
+          logger.error(s"${path.toString} could not be deserialized")
+        }
+        errs.foreach(err => logger.error(err))
+        logger.error(s"END VALIDATION RESULTS")
       }
-      errs.foreach(err => logger.error(err))
-      logger.error(s"END VALIDATION RESULTS")
     } match {
       case Success(_) => // do nothing
       case Failure(e) =>
@@ -369,7 +366,7 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     } match {
       case Success(value) => Success(value)
       case Failure(exception) =>
-        Failure(new Exception(s"Invalid Job file: $path(${exception.getMessage})"))
+        Failure(new Exception(s"Invalid Job file: $path(${exception.getMessage})", exception))
     }
 
   /** To be deprecated soon
