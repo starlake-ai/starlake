@@ -571,6 +571,7 @@ class SchemaHandlerSpec extends TestHelper {
         millis.substring(0, 4) shouldBe "1970"
       }
     }
+
     "Ingest Locations XML with XSD" should "produce file in accepted" in {
       new SpecTrait(
         domainOrJobFilename = "locations.comet.yml",
@@ -580,6 +581,11 @@ class SchemaHandlerSpec extends TestHelper {
       ) {
         cleanMetadata
         cleanDatasets
+
+        withSettings.deliverTestFile(
+          "/sample/xsd/locations.xsd",
+          new Path(domainMetadataRootPath, "sample/xsd/locations.xsd")
+        )
 
         loadPending
 
@@ -609,6 +615,7 @@ class SchemaHandlerSpec extends TestHelper {
         millis.substring(0, 4) shouldBe "1631"
       }
     }
+
     "Load Business with Transform Tag" should "load an AutoDesc" in {
       new SpecTrait(
         domainOrJobFilename = "locations.comet.yml",
