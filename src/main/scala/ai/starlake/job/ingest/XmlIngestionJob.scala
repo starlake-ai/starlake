@@ -63,14 +63,15 @@ class XmlIngestionJob(
     *   Spark Dataframe loaded using metadata options
     */
   protected def loadDataSet(): Try[DataFrame] = {
+    val xmlOptions = metadata.getXmlOptions()
     Try {
-      val rowTag = metadata.xml.flatMap(_.get("rowTag"))
+      val rowTag = xmlOptions.get("rowTag")
       rowTag.map { rowTag =>
         val df = path
           .map { singlePath =>
             session.read
               .format("com.databricks.spark.xml")
-              .option("rowTag", rowTag)
+              .options(xmlOptions)
               .option("inferSchema", value = false)
               .option("encoding", metadata.getEncoding())
               .options(metadata.getOptions())
@@ -112,7 +113,7 @@ class XmlIngestionJob(
           )
         )
         (rejectedDS, dataset)
-      case _ =>
+      case None =>
         val withInputFileNameDS =
           dataset.withColumn(CometColumns.cometInputFileNameColumn, input_file_name())
 

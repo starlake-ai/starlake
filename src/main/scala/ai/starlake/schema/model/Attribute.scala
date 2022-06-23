@@ -320,3 +320,27 @@ case class Attribute(
     }
   }
 }
+
+object Attribute {
+  def apply(sparkField: StructField): Attribute = {
+    val sparkType = sparkField.dataType
+    val fieldName = sparkField.name
+    val required = !sparkField.nullable
+    val isArray = sparkType.isInstanceOf[ArrayType]
+    sparkType match {
+      case _: StructType =>
+        val struct = sparkType.asInstanceOf[StructType]
+        val subFields = struct.fields.map(field => apply(field))
+        new Attribute(
+          fieldName,
+          PrimitiveType.struct.toString,
+          Some(isArray),
+          required,
+          attributes = Some(subFields.toList)
+        )
+      case _ =>
+        val tpe = PrimitiveType.toPrimitiveType(sparkType)
+        new Attribute(fieldName, tpe.toString, Some(isArray), required)
+    }
+  }
+}
