@@ -339,7 +339,7 @@ object Attribute {
           attributes = Some(subFields.toList)
         )
       case _ =>
-        val tpe = PrimitiveType.toPrimitiveType(sparkType)
+        val tpe = PrimitiveType.from(sparkType)
         new Attribute(fieldName, tpe.toString, Some(isArray), required)
     }
   }
