@@ -362,7 +362,7 @@ object PrimitiveType {
     "RFC_1123_DATE_TIME"   -> RFC_1123_DATE_TIME
   )
 
-  def toPrimitiveType(elementType: DataType): PrimitiveType = {
+  def from(elementType: DataType): PrimitiveType = {
     elementType match {
       case _: BinaryType    => PrimitiveType.string
       case _: ByteType      => PrimitiveType.byte
