@@ -53,24 +53,38 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
   def checkValidity(): List[String] = {
     val typesValidity = this.types.map(_.checkValidity())
     val domainsValidity = this.domains.map(_.checkValidity(this))
-    this.activeEnv
-    this.jobs
+
     val allErrors = typesValidity ++ domainsValidity :+ checkViewsValidity()
 
     val errs = allErrors.flatMap {
       case Left(values) => values
       case Right(_)     => Nil
     }
-    logger.error(s"START VALIDATION RESULTS: ${errs.length} errors found")
-    errs.foreach(err => logger.error(err))
-    logger.error(s"END VALIDATION RESULTS")
-    errs match {
-      case Nil =>
-      case _ =>
-        throw new Exception("Invalid YML file(s) found. See errors above.")
-    }
     errs
   }
+
+  def fullValidation(): Unit =
+    Try {
+      val errs = checkValidity()
+      val deserErrors = deserializedDomains.filter { case (path, res) =>
+        res.isFailure
+      }
+      val errorCount = errs.length + deserErrors.length
+      if (errorCount > 0) {
+        logger.error(s"START VALIDATION RESULTS: $errorCount errors found")
+        deserErrors.foreach { case (path, err) =>
+          logger.error(s"${path.toString} could not be deserialized")
+        }
+        errs.foreach(err => logger.error(err))
+        logger.error(s"END VALIDATION RESULTS")
+      }
+    } match {
+      case Success(_) => // do nothing
+      case Failure(e) =>
+        e.printStackTrace()
+        if (settings.comet.validateOnLoad)
+          throw e
+    }
 
   def checkViewsValidity(): Either[List[String], Boolean] = {
     val errorList: mutable.MutableList[String] = mutable.MutableList.empty
@@ -217,47 +231,53 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     */
   def getType(tpe: String): Option[Type] = types.find(_.name == tpe)
 
+  lazy val deserializedDomains: List[(Path, Try[Domain])] = {
+    val paths = storage.list(
+      DatasetArea.domains,
+      extension = ".yml",
+      recursive = true,
+      exclude = Some(Pattern.compile("_.*"))
+    )
+
+    val domains = paths
+      .map { path =>
+        YamlSerializer.deserializeDomain(
+          storage.read(path).richFormat(activeEnv, Map.empty),
+          path.toString
+        )
+      }
+
+    paths.zip(domains)
+  }
+
   /** All defined domains Domains are defined under the "domains" folder in the metadata folder
     */
   @throws[Exception]
   lazy val domains: List[Domain] = {
-    val (validDomainsFile, invalidDomainsFiles) = storage
-      .list(
-        DatasetArea.domains,
-        extension = ".yml",
-        recursive = true,
-        exclude = Some(Pattern.compile("_.*"))
-      )
-      .map { path =>
-        val domain =
-          YamlSerializer.deserializeDomain(
-            storage.read(path).richFormat(activeEnv, Map.empty),
-            path.toString
-          )
-        domain match {
-          case Success(domain) =>
-            val folder = path.getParent()
-            val schemaRefs = domain.tableRefs
-              .getOrElse(Nil)
-              .map { ref =>
-                if (!ref.startsWith("_"))
-                  throw new Exception(
-                    s"reference to a schema should start with '_' in domain ${domain.name} in $path for schema ref $ref"
-                  )
-                val refFullName =
-                  if (ref.endsWith(".yml") || ref.endsWith(".yaml")) ref else ref + ".comet.yml"
-                val schemaPath = new Path(folder, refFullName)
-                YamlSerializer.deserializeSchemas(
-                  storage.read(schemaPath).richFormat(activeEnv, Map.empty),
-                  schemaPath.toString
+    val (validDomainsFile, invalidDomainsFiles) = deserializedDomains
+      .map {
+        case (path, Success(domain)) =>
+          val folder = path.getParent()
+          val schemaRefs = domain.tableRefs
+            .getOrElse(Nil)
+            .map { ref =>
+              if (!ref.startsWith("_"))
+                throw new Exception(
+                  s"reference to a schema should start with '_' in domain ${domain.name} in $path for schema ref $ref"
                 )
-              }
-              .flatMap(_.tables)
-            Success(domain.copy(tables = Option(domain.tables).getOrElse(Nil) ::: schemaRefs))
-          case Failure(e) =>
-            Utils.logException(logger, e)
-            Failure(e)
-        }
+              val refFullName =
+                if (ref.endsWith(".yml") || ref.endsWith(".yaml")) ref else ref + ".comet.yml"
+              val schemaPath = new Path(folder, refFullName)
+              YamlSerializer.deserializeSchemas(
+                storage.read(schemaPath).richFormat(activeEnv, Map.empty),
+                schemaPath.toString
+              )
+            }
+            .flatMap(_.tables)
+          Success(domain.copy(tables = Option(domain.tables).getOrElse(Nil) ::: schemaRefs))
+        case (path, Failure(e)) =>
+          Utils.logException(logger, e)
+          Failure(e)
       }
       .partition(_.isSuccess)
 
@@ -346,7 +366,7 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     } match {
       case Success(value) => Success(value)
       case Failure(exception) =>
-        Failure(new Exception(s"Invalid Job file: $path(${exception.getMessage})"))
+        Failure(new Exception(s"Invalid Job file: $path(${exception.getMessage})", exception))
     }
 
   /** To be deprecated soon

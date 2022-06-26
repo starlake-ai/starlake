@@ -4,13 +4,13 @@ import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.extractor.ScriptGen
 import ai.starlake.job.atlas.AtlasConfig
 import ai.starlake.job.convert.{Parquet2CSV, Parquet2CSVConfig}
-import ai.starlake.job.sink.bigquery.BigQueryLoadConfig
-import ai.starlake.job.sink.jdbc.ConnectionLoadConfig
-import ai.starlake.job.sink.es.ESLoadConfig
-import ai.starlake.job.sink.kafka.KafkaJobConfig
 import ai.starlake.job.infer.InferSchemaConfig
 import ai.starlake.job.ingest.LoadConfig
 import ai.starlake.job.metrics.MetricsConfig
+import ai.starlake.job.sink.bigquery.BigQueryLoadConfig
+import ai.starlake.job.sink.es.ESLoadConfig
+import ai.starlake.job.sink.jdbc.ConnectionLoadConfig
+import ai.starlake.job.sink.kafka.KafkaJobConfig
 import ai.starlake.schema.generator._
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.utils.CometObjectMapper
@@ -21,8 +21,6 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.StrictLogging
-
-import scala.util.{Failure, Success, Try}
 
 /** The root of all things.
   *   - importing from landing
@@ -92,15 +90,8 @@ object Main extends StrictLogging {
     import settings.{launcherService, metadataStorageHandler, storageHandler}
     DatasetArea.initMetadata(metadataStorageHandler)
     val schemaHandler = new SchemaHandler(metadataStorageHandler)
-    Try {
-      schemaHandler.checkValidity()
-    } match {
-      case Success(_) => // do nothing
-      case Failure(e) =>
-        e.printStackTrace()
-        if (settings.comet.validateOnLoad)
-          throw e
-    }
+
+    schemaHandler.fullValidation()
 
     DatasetArea.initDomains(storageHandler, schemaHandler.domains.map(_.name))
 
@@ -134,7 +125,7 @@ object Main extends StrictLogging {
             false
         }
       case "validate" =>
-        schemaHandler.checkValidity()
+        schemaHandler.fullValidation()
         true
       case "watch" =>
         WatchConfig.parse(args.drop(1)) match {
