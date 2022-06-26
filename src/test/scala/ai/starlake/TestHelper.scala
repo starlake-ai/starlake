@@ -346,7 +346,7 @@ trait TestHelper
       withSettings.deliverTestFile(sourceDatasetPathName, targetPath)
 
       val schemaHandler = new SchemaHandler(settings.storageHandler)
-      schemaHandler.checkValidity()
+      schemaHandler.fullValidation()
 
       DatasetArea.initMetadata(metadataStorageHandler)
       DatasetArea.initDomains(storageHandler, schemaHandler.domains.map(_.name))
