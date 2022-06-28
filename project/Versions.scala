@@ -21,9 +21,9 @@ object Versions {
   val esSpark212 = "8.2.3"
   val scopt = "4.0.1"
   val gcsConnector = "hadoop3-2.2.7"
-  val bigquery = "2.13.3"
+  val bigquery = "2.13.6"
   val hadoop = "3.3.3"
-  val sparkBigqueryWithDependencies = "0.25.1"
+  val sparkBigqueryWithDependencies = "0.25.2"
   val bigqueryConnector = "hadoop3-1.2.0"
   val h2 = "2.1.214" // Test only
   val poi = "4.1.2"
@@ -32,6 +32,6 @@ object Versions {
   val confluentVersion = "7.1.1"
   val testContainers = "0.40.8"
   val jsqlparser = "4.4"
-  val gcpDataCatalog = "1.8.2"
+  val gcpDataCatalog = "1.8.3"
   val silencerVersion = "1.7.9"
 }
