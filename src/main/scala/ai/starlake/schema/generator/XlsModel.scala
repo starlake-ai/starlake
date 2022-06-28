@@ -40,7 +40,8 @@ trait XlsModel {
     "_tags"               -> "Tags",
     "_rename"             -> "Rename",
     "_long_name"          -> "Rename source table",
-    "_policy"             -> "Access Policy"
+    "_policy"             -> "Access Policy",
+    "_escape"             -> "Escaping Char"
   )
 
   val allAttributeHeaders = List(

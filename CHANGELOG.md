@@ -1,5 +1,9 @@
 # Release notes
 
+# 0.3.18
+__New feature__:
+- Enhance XLS support for escaping char
+
 # 0.3.17
 __New feature__:
 - Support extra dsv options in conf file
