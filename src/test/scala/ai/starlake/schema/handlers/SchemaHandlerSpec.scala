@@ -534,7 +534,6 @@ class SchemaHandlerSpec extends TestHelper {
 
     }
     "Ingest Locations XML" should "produce file in accepted" in {
-
       new SpecTrait(
         domainOrJobFilename = "locations.comet.yml",
         sourceDomainOrJobPathname = s"/sample/xml/locations.comet.yml",
@@ -572,6 +571,51 @@ class SchemaHandlerSpec extends TestHelper {
         millis.substring(0, 4) shouldBe "1970"
       }
     }
+
+    "Ingest Locations XML with XSD" should "produce file in accepted" in {
+      new SpecTrait(
+        domainOrJobFilename = "locations.comet.yml",
+        sourceDomainOrJobPathname = s"/sample/xsd/locations.comet.yml",
+        datasetDomainName = "locations",
+        sourceDatasetPathName = "/sample/xsd/locations.xml"
+      ) {
+        cleanMetadata
+        cleanDatasets
+
+        withSettings.deliverTestFile(
+          "/sample/xsd/locations.xsd",
+          new Path(domainMetadataRootPath, "sample/xsd/locations.xsd")
+        )
+
+        loadPending
+
+        readFileContent(
+          cometDatasetsPath + s"/${settings.comet.area.archive}/$datasetDomainName/locations.xml"
+        ) shouldBe loadTextFile(
+          sourceDatasetPathName
+        )
+
+        // Accepted should have the same data as input
+        val acceptedDf = sparkSession.read
+          .parquet(
+            cometDatasetsPath + s"/accepted/$datasetDomainName/locations/$getTodayPartitionPath"
+          )
+
+        import sparkSession.implicits._
+        val (seconds, millis) =
+          acceptedDf
+            .select($"seconds", $"millis")
+            .filter($"name" like "Paris")
+            .as[(String, String)]
+            .collect()
+            .head
+
+        // We just check against the year since the test may be executed in a different time zone :)
+        seconds.substring(0, 4) shouldBe "1631"
+        millis.substring(0, 4) shouldBe "1631"
+      }
+    }
+
     "Load Business with Transform Tag" should "load an AutoDesc" in {
       new SpecTrait(
         domainOrJobFilename = "locations.comet.yml",
