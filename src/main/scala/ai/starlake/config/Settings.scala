@@ -378,7 +378,8 @@ object Settings extends StrictLogging {
     logger.info("COMET_FS=" + System.getenv("COMET_FS"))
     logger.info("COMET_ROOT=" + System.getenv("COMET_ROOT"))
     logger.info(YamlSerializer.serializeObject(loaded))
-    val settings = Settings(loaded, effectiveConfig.getConfig("spark"))
+    val settings =
+      Settings(loaded, effectiveConfig.getConfig("spark"), effectiveConfig.getConfig("extra"))
     val applicationConfPath = new Path(DatasetArea.metadata(settings), "application.conf")
     val result: Settings = if (settings.metadataStorageHandler.exists(applicationConfPath)) {
       val applicationConfContent = settings.metadataStorageHandler.read(applicationConfPath)
@@ -391,7 +392,8 @@ object Settings extends StrictLogging {
 
       Settings(
         mergedSettings,
-        effectiveApplicationConfig.getConfig("spark")
+        effectiveApplicationConfig.getConfig("spark"),
+        effectiveApplicationConfig.getConfig("extra")
       )
     } else
       settings
@@ -450,6 +452,7 @@ object CometColumns {
 final case class Settings(
   comet: Settings.Comet,
   sparkConfig: Config,
+  extraConf: Config,
   jobConf: SparkConf = new SparkConf()
 ) {
 
