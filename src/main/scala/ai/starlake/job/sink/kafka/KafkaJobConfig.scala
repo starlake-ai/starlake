@@ -9,6 +9,7 @@ case class KafkaJobConfig(
   topicConfigName: String = "",
   format: String = "parquet",
   mode: SaveMode = SaveMode.Append,
+  options: Map[String, String] = Map.empty,
   path: String = "",
   transform: Option[String] = None,
   offload: Boolean = true,
@@ -86,6 +87,12 @@ object KafkaJobConfig extends CliConfig[KafkaJobConfig] {
         .action((x, c) => c.copy(writeOptions = x))
         .text(
           "Options to pass to Spark Writer"
+        )
+        .optional(),
+      opt[Map[String, String]]("options")
+        .action((x, c) => c.copy(options = x))
+        .text(
+          "Options to pass to Spark Reader"
         )
         .optional(),
       opt[Int]("coalesce")
