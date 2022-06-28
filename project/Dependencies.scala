@@ -189,7 +189,7 @@ object Dependencies {
   )
 
   val jna_apple_arm_testcontainers = Seq(
-    "net.java.dev.jna" % "jna" % "5.11.0"
+    "net.java.dev.jna" % "jna" % "5.12.0"
   )
 
   val silencer = Seq(
