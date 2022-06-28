@@ -24,6 +24,7 @@ import ai.starlake.config.{DatasetArea, Settings, StorageArea}
 import ai.starlake.schema.model._
 import ai.starlake.utils.Formatter._
 import ai.starlake.utils.{CometObjectMapper, Utils, YamlSerializer}
+import com.databricks.spark.xml.util.XSDToSchema
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.node.{ArrayNode, ObjectNode}
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
@@ -291,7 +292,9 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
       case Success(_) => // ignore
     }
 
-    val domains = validDomainsFile.collect { case Success(domain) => domain }
+    val domains = validDomainsFile
+      .collect { case Success(domain) => domain }
+      .map(domain => this.fromXSD(domain))
 
     Utils.duplicates(
       domains.map(_.name),
@@ -446,4 +449,27 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
       domain <- getDomain(domainName)
       schema <- domain.tables.find(_.name == schemaName)
     } yield schema
+
+  def fromXSD(domain: Domain): Domain = {
+    val domainMetadata = domain.metadata
+    val tables = domain.tables.map { table =>
+      fromXSD(table, domainMetadata)
+    }
+    domain.copy(tables = tables)
+  }
+
+  def fromXSD(schema: Schema, domainMetadata: Option[Metadata]): Schema = {
+    val metadata = schema.mergedMetadata(domainMetadata)
+    metadata.getXsdPath() match {
+      case None =>
+        schema
+      case Some(xsd) =>
+        val xsdContent = storage.read(new Path(xsd))
+        val sparkType = XSDToSchema.read(xsdContent)
+        val topElement = sparkType.fields.map(field => Attribute(field))
+        val xsdAttributes = topElement.head.attributes.map(_.toList).getOrElse(Nil)
+        schema.copy(attributes = xsdAttributes)
+    }
+  }
+
 }
