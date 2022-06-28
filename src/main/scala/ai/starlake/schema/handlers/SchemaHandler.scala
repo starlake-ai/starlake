@@ -472,4 +472,26 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     }
   }
 
+  def mergeAttributes(ymlSchema: Schema, xsdSchema: Schema) = {
+    val ymlAttrsMap = attrsMap(ymlSchema.attributes, Nil, Map.empty)
+    val xsdAttrsMap = attrsMap(xsdSchema.attributes, Nil, Map.empty)
+    val curomAttrsMap =
+      ymlAttrsMap.keySet.intersect(xsdAttrsMap.keySet).map(k => k -> ymlAttrsMap(k))
+
+  }
+  private def attrsMap(
+    attributes: List[Attribute],
+    path: List[String],
+    map: Map[String, Attribute]
+  ): Map[String, Attribute] = {
+    val newMap: Map[String, Attribute] = attributes.flatMap { attribute =>
+      attribute.`type` match {
+        case "struct" =>
+          attrsMap(attribute.attributes.getOrElse(Nil), path :+ attribute.name, map)
+        case _ =>
+          Map((path :+ attribute.name).mkString("/") -> attribute)
+      }
+    }.toMap
+    map ++ newMap
+  }
 }
