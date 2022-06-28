@@ -42,6 +42,7 @@ Parameter|Cardinality|Description
 --path:`<value>`|*Required*|Source file for load and target file for store
 --mode:`<value>`|*Required*|When offload is true, describes how data should be stored on disk. Ignored if offload is false.
 --write-options:`<value>`|*Optional*|Options to pass to Spark Writer
+--options:`<value>`|*Optional*|Options to pass to Spark Reader
 --coalesce:`<value>`|*Optional*|Should we coalesce the resulting dataframe
 --transform:`<value>`|*Optional*|Any transformation to apply to message before loading / offloading it
 --offload:`<value>`|*Optional*|If true, kafka topic is offloaded to path, else data contained in path is stored in the kafka topic
