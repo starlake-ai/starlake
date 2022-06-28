@@ -217,7 +217,6 @@ case class Schema(
   }
 
   def sparkSchemaUntypedEpochWithoutScriptedFields(schemaHandler: SchemaHandler): StructType = {
-    val xx = attributesWithoutScriptedFields
     val fields = attributesWithoutScriptedFields.map { attr =>
       val sparkType = attr.tpe(schemaHandler).fold(attr.sparkType(schemaHandler)) { tpe =>
         (tpe.primitiveType, tpe.pattern) match {

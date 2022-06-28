@@ -362,4 +362,23 @@ object PrimitiveType {
     "RFC_1123_DATE_TIME"   -> RFC_1123_DATE_TIME
   )
 
+  def from(elementType: DataType): PrimitiveType = {
+    elementType match {
+      case _: BinaryType    => PrimitiveType.string
+      case _: ByteType      => PrimitiveType.byte
+      case _: ShortType     => PrimitiveType.short
+      case _: IntegerType   => PrimitiveType.int
+      case _: LongType      => PrimitiveType.long
+      case _: BooleanType   => PrimitiveType.boolean
+      case _: FloatType     => PrimitiveType.double
+      case _: DoubleType    => PrimitiveType.double
+      case _: DecimalType   => PrimitiveType.decimal
+      case _: StringType    => PrimitiveType.string
+      case _: TimestampType => PrimitiveType.timestamp
+      case _: DateType      => PrimitiveType.date
+      case _ =>
+        throw new IllegalArgumentException("Data type not expected: " + elementType.simpleString)
+    }
+  }
+
 }
