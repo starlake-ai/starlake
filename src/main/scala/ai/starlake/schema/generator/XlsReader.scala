@@ -162,6 +162,10 @@ class XlsReader(input: Input) extends XlsModel {
           .flatMap(formatter.formatCellValue)
           .map(_.split(",").map(_.trim))
 
+      val escape =
+        Option(row.getCell(headerMap("_escape"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
+          .flatMap(formatter.formatCellValue)
+
       (nameOpt, patternOpt) match {
         case (Some(name), Some(pattern)) => {
           val metaData = Metadata(
@@ -172,6 +176,7 @@ class XlsReader(input: Input) extends XlsModel {
             array = None,
             withHeader,
             separator,
+            escape = escape,
             write = write,
             partition = (partitionSamplingOpt, partitionColumnsOpt) match {
               case (None, None) => None
