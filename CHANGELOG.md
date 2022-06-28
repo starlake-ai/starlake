@@ -3,6 +3,8 @@
 # 0.3.18
 __New feature__:
 - Enhance XLS support for escaping char
+- Support HTTP Stream Source
+- Support XSD Validation
 
 # 0.3.17
 __New feature__:
