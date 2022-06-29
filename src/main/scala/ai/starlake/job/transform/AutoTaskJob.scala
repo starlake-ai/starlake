@@ -322,7 +322,7 @@ case class AutoTaskJob(
       this.task.domain,
       this.task.table,
       success,
-      -1,
+      jobResultCount,
       -1,
       -1,
       start,
