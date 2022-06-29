@@ -6,6 +6,9 @@ __New feature__:
 - Support HTTP Stream Source
 - Support XSD Validation
 
+__Bug Fix__:
+- Regression return value of an autojob
+
 # 0.3.17
 __New feature__:
 - Support extra dsv options in conf file
