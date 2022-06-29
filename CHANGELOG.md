@@ -5,6 +5,7 @@ __New feature__:
 - Enhance XLS support for escaping char
 - Support HTTP Stream Source
 - Support XSD Validation
+- Transform  jobs now report on the number of affected rows.
 
 __Bug Fix__:
 - Regression return value of an autojob
