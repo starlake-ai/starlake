@@ -106,11 +106,11 @@ object Main extends StrictLogging {
       case "job" | "transform" =>
         TransformConfig.parse(args.drop(1)) match {
           case Some(config) =>
-            if (config.compile)
+            if (config.compile) {
               workflow.compileAutoJob(config)
-            else
+              true
+            } else
               workflow.autoJob(config)
-            true
           case _ =>
             println(TransformConfig.usage())
             false
