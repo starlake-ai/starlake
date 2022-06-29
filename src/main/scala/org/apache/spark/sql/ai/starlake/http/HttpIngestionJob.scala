@@ -5,7 +5,7 @@ class HttpIngestionJob {
   //  https://github.com/hienluu/wikiedit-streaming/blob/master/streaming-receiver/src/main/scala/org/twitterstreaming/receiver/TwitterStreamingSource.scala
 }
 
-import com.sun.net.httpserver.{HttpExchange, HttpServer}
+import com.sun.net.httpserver.{HttpExchange, HttpHandler, HttpServer}
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.internal.Logging
 import org.apache.spark.rdd.RDD
@@ -71,11 +71,13 @@ class HttpStreamSource(sqlContext: SQLContext, port: Int) extends Source with St
     server.setExecutor(Executors.newCachedThreadPool())
     server.createContext(
       "/",
-      (httpExchange: HttpExchange) => {
-        val payload = scala.io.Source.fromInputStream(httpExchange.getRequestBody).mkString
-        producerOffset += 1;
-        streamBuffer += payload;
-        sendResponse(httpExchange, status = 200, response = """{"success": true}""")
+      new HttpHandler {
+        override def handle(httpExchange: HttpExchange): Unit = {
+          val payload = scala.io.Source.fromInputStream(httpExchange.getRequestBody).mkString
+          producerOffset += 1;
+          streamBuffer += payload;
+          sendResponse(httpExchange, status = 200, response = """{"success": true}""")
+        }
       }
     )
     // Start server and return streaming DF
