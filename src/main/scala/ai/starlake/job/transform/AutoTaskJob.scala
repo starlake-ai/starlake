@@ -242,41 +242,43 @@ case class AutoTaskJob(
           case _ => throw new Exception("should never happen")
         }
 
-      val targetPath = task.getTargetPath(defaultArea)
-      logger.info(s"About to write resulting dataset to $targetPath")
-      // Target Path exist only if a storage area has been defined at task or job level
-      // To execute a task without writing to disk simply avoid the area at the job and task level
-      val partitionedDF =
-        partitionedDatasetWriter(
-          if (coalesce) dataframe.repartition(1) else dataframe,
-          task.getPartitions()
-        )
+      if (settings.comet.hive || settings.comet.sinkToFile) {
+        val targetPath = task.getTargetPath(defaultArea)
+        logger.info(s"About to write resulting dataset to $targetPath")
+        // Target Path exist only if a storage area has been defined at task or job level
+        // To execute a task without writing to disk simply avoid the area at the job and task level
+        val partitionedDF =
+          partitionedDatasetWriter(
+            if (coalesce) dataframe.repartition(1) else dataframe,
+            task.getPartitions()
+          )
 
-      val finalDataset = partitionedDF
-        .mode(task.write.toSaveMode)
-        .format(format.getOrElse(settings.comet.defaultFormat))
-        .option("path", targetPath.toString)
+        val finalDataset = partitionedDF
+          .mode(task.write.toSaveMode)
+          .format(format.getOrElse(settings.comet.defaultFormat))
+          .option("path", targetPath.toString)
 
-      if (settings.comet.hive) {
-        val tableName = task.table
-        val hiveDB = task.getHiveDB(defaultArea)
-        val fullTableName = s"$hiveDB.$tableName"
-        session.sql(s"create database if not exists $hiveDB")
-        session.sql(s"use $hiveDB")
-        if (task.write.toSaveMode == SaveMode.Overwrite)
-          session.sql(s"drop table if exists $tableName")
-        finalDataset.saveAsTable(fullTableName)
-        analyze(fullTableName)
-      } else if (settings.comet.sinkToFile) {
-        // TODO Handle SinkType.FS and SinkType to Hive in Sink section in the caller
-        finalDataset.save()
-        if (coalesce) {
-          val extension = format.getOrElse(settings.comet.defaultFormat)
-          val csvPath = storageHandler
-            .list(targetPath, s".$extension", LocalDateTime.MIN, recursive = false)
-            .head
-          val finalPath = new Path(targetPath, targetPath.getName + s".$extension")
-          storageHandler.move(csvPath, finalPath)
+        if (settings.comet.hive) {
+          val tableName = task.table
+          val hiveDB = task.getHiveDB(defaultArea)
+          val fullTableName = s"$hiveDB.$tableName"
+          session.sql(s"create database if not exists $hiveDB")
+          session.sql(s"use $hiveDB")
+          if (task.write.toSaveMode == SaveMode.Overwrite)
+            session.sql(s"drop table if exists $tableName")
+          finalDataset.saveAsTable(fullTableName)
+          analyze(fullTableName)
+        } else if (settings.comet.sinkToFile) {
+          // TODO Handle SinkType.FS and SinkType to Hive in Sink section in the caller
+          finalDataset.save()
+          if (coalesce) {
+            val extension = format.getOrElse(settings.comet.defaultFormat)
+            val csvPath = storageHandler
+              .list(targetPath, s".$extension", LocalDateTime.MIN, recursive = false)
+              .head
+            val finalPath = new Path(targetPath, targetPath.getName + s".$extension")
+            storageHandler.move(csvPath, finalPath)
+          }
         }
       }
       if (settings.comet.assertions.active) {
