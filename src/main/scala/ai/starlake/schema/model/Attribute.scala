@@ -106,7 +106,7 @@ case class Attribute(
     if (!rename.forall(colNamePattern.matcher(_).matches()))
       errorList += s"renamed attribute with renamed name '$rename' should respect the pattern ${colNamePattern.pattern()}"
 
-    val primitiveType = tpe(schemaHandler).map(_.primitiveType)
+    val primitiveType = `type`(schemaHandler).map(_.primitiveType)
 
     primitiveType match {
       case Some(tpe) =>
@@ -124,7 +124,7 @@ case class Attribute(
       primitiveType.foreach { primitiveType =>
         if (primitiveType == PrimitiveType.struct)
           errorList += s"attribute with name $name: default value not valid for struct type fields"
-        tpe(schemaHandler).foreach { someTpe =>
+        `type`(schemaHandler).foreach { someTpe =>
           Try(someTpe.sparkValue(default)) match {
             case Success(_) =>
             case Failure(e) =>
@@ -157,7 +157,8 @@ case class Attribute(
       Right(true)
   }
 
-  def tpe(schemaHandler: SchemaHandler): Option[Type] = schemaHandler.types.find(_.name == `type`)
+  def `type`(schemaHandler: SchemaHandler): Option[Type] =
+    schemaHandler.types.find(_.name == `type`)
 
   /** Spark Type if this attribute is a primitive type of array of primitive type
     *
@@ -165,7 +166,7 @@ case class Attribute(
     *   Primitive type if attribute is a leaf node or array of primitive type, None otherwise
     */
   def primitiveSparkType(schemaHandler: SchemaHandler): DataType = {
-    tpe(schemaHandler)
+    `type`(schemaHandler)
       .map { tpe =>
         if (isArray())
           ArrayType(tpe.primitiveType.sparkType(tpe.zone), !required)
@@ -215,7 +216,7 @@ case class Attribute(
           Utils.labels(tags)
         )
       case None =>
-        tpe(schemaHandler).map { tpe =>
+        `type`(schemaHandler).map { tpe =>
           tpe.ddlMapping match {
             case None => throw new Exception(s"No mapping found for type $tpe")
             case Some(mapping) =>
@@ -242,7 +243,7 @@ case class Attribute(
            |}""".stripMargin
 
       case None =>
-        tpe(schemaHandler).map { tpe =>
+        `type`(schemaHandler).map { tpe =>
           val typeMapping = tpe.getIndexMapping().toString
           tpe.primitiveType match {
             case PrimitiveType.date =>
@@ -302,7 +303,7 @@ case class Attribute(
 
   @JsonIgnore
   def getMetricType(schemaHandler: SchemaHandler): MetricType = {
-    val sparkType = tpe(schemaHandler).map(tpe => tpe.primitiveType.sparkType(tpe.zone))
+    val sparkType = `type`(schemaHandler).map(tpe => tpe.primitiveType.sparkType(tpe.zone))
     logger.info(s"Attribute Metric ==> $name, $metricType, $sparkType")
     (sparkType, metricType) match {
       case (Some(sparkType), Some(MetricType.DISCRETE)) =>
