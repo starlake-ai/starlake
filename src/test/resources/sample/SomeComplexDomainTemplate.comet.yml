@@ -1,0 +1,218 @@
+---
+name: "someComplexDomain"
+metadata:
+  mode: "FILE"
+  format: "DSV"
+  encoding: "UTF-8"
+  multiline: false
+  array: false
+  withHeader: true
+  separator: ";"
+  quote: "\""
+  escape: "\\"
+  write: "APPEND"
+  directory: "/tmp/incoming/someComplexDomain"
+tables:
+  - name: "SCHEMA1"
+    pattern: "SomeFile1_*.txt"
+    attributes:
+      - name: "ATTRIBUTE_1"
+        type: "string"
+        array: false
+        required: true
+        privacy: "HIDE"
+        comment: "Some description for attribute_1"
+        metricType: "NONE"
+        ignore: false
+      - name: "ATTRIBUTE_2"
+        type: "string"
+        array: false
+        required: false
+        privacy: "MD5"
+        comment: "Some description for attribute_2"
+        metricType: "NONE"
+        ignore: false
+      - name: "ATTRIBUTE_3"
+        type: "string"
+        array: false
+        required: false
+        privacy: "SHA1"
+        comment: "Some description for attribute_3"
+        metricType: "NONE"
+        ignore: false
+      - name: "ATTRIBUTE_4"
+        type: "date"
+        array: false
+        required: false
+        privacy: "NONE"
+        comment: "Some description for attribute_4"
+        metricType: "NONE"
+        script: "current_date()"
+        ignore: false
+      - name: "ATTRIBUTE_5"
+        type: "string"
+        array: false
+        required: false
+        privacy: "NONE"
+        comment: "Some description for attribute_5"
+        metricType: "NONE"
+        ignore: false
+      - name: "STRUCT1"
+        type: "struct"
+        array: false
+        required: true
+        privacy: "NONE"
+        comment: "Some description for attribute_6"
+        rename: "RENAME_ATTRIBUTE_6"
+        metricType: "NONE"
+        attributes:
+          - name: "ATTRIBUTE_7"
+            type: "string"
+            array: false
+            required: false
+            privacy: "NONE"
+            comment: "Some description for attribute_7"
+            metricType: "NONE"
+            ignore: false
+          - name: "ATTRIBUTE_8"
+            type: "string"
+            array: true
+            required: false
+            privacy: "NONE"
+            comment: "Some description for attribute_8"
+            rename: "RENAME_ATTRIBUTE_8"
+            metricType: "NONE"
+            ignore: false
+          - name: "STRUCT2"
+            type: "struct"
+            array: false
+            required: false
+            privacy: "NONE"
+            comment: "Some description for attribute_9"
+            rename: "RENAME_ATTRIBUTE_9"
+            metricType: "NONE"
+            attributes:
+              - name: "ATTRIBUTE_10"
+                type: "string"
+                array: false
+                required: false
+                privacy: "NONE"
+                comment: "Some description for attribute_10"
+                rename: "RENAME_ATTRIBUTE_10"
+                metricType: "NONE"
+                ignore: false
+              - name: "ATTRIBUTE_11"
+                type: "string"
+                array: true
+                required: false
+                privacy: "NONE"
+                comment: "Some description for attribute_11"
+                metricType: "NONE"
+                default: "DEFAULT_VAL"
+                ignore: false
+            ignore: false
+        ignore: false
+      - name: "ATTRIBUTE_12"
+        type: "string"
+        array: false
+        required: true
+        privacy: "NONE"
+        comment: "Some description for attribute_12"
+        rename: "RENAME_ATTRIBUTE_12"
+        metricType: "NONE"
+        ignore: false
+      - name: "ATTRIBUTE_13"
+        type: "string"
+        array: false
+        required: true
+        privacy: "NONE"
+        comment: "Some description for attribute_13"
+        metricType: "NONE"
+        ignore: false
+      - name: "ATTRIBUTE_14"
+        type: "string"
+        array: false
+        required: false
+        privacy: "NONE"
+        comment: "Some description for attribute_14"
+        metricType: "NONE"
+        ignore: false
+      - name: "ATTRIBUTE_15"
+        type: "string"
+        array: false
+        required: false
+        privacy: "NONE"
+        comment: "Some description for attribute_15"
+        metricType: "NONE"
+        ignore: false
+      - name: "ATTRIBUTE_16"
+        type: "string"
+        array: false
+        required: false
+        privacy: "NONE"
+        comment: "Some description for attribute_16"
+        metricType: "NONE"
+        ignore: false
+      - name: "ATTRIBUTE_17"
+        type: "string"
+        array: false
+        required: false
+        privacy: "NONE"
+        comment: "Some description for attribute_17"
+        metricType: "NONE"
+        ignore: false
+      - name: "ATTRIBUTE_18"
+        type: "string"
+        array: false
+        required: false
+        privacy: "NONE"
+        comment: "Some description for attribute_18"
+        rename: "RENAME_ATTRIBUTE_12"
+        metricType: "NONE"
+        ignore: false
+      - name: "ATTRIBUTE_19"
+        type: "string"
+        array: false
+        required: false
+        privacy: "NONE"
+        comment: "Some description for attribute_19"
+        metricType: "NONE"
+        ignore: false
+    metadata:
+      mode: "FILE"
+      format: "XML"
+      encoding: "UTF-8"
+      multiline: false
+      array: false
+      withHeader: false
+      separator: "position"
+      quote: "\""
+      escape: "\\"
+      write: "APPEND"
+      partition:
+        sampling: 10.0
+        attributes:
+          - "comet_year"
+          - "comet_month"
+          - "comet_day"
+          - "comet_hour"
+      sink: !<BQ>
+        type: "BQ"
+    merge:
+      key:
+        - "ID1"
+        - "ID2"
+      timestamp: "ATTRIBUTE_1"
+    rls:
+      - name: "test writer"
+        predicate: "X = 10"
+        grants:
+          - "group:mygroup"
+    acl:
+      - role: "test reader"
+        grants:
+          - "user:myuser"
+          - "group:mygroup"
+comment: "A description of the Complex domain"
+
+

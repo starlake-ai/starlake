@@ -118,7 +118,7 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     */
   @throws[Exception]
   lazy val types: List[Type] = {
-    val defaultTypes = loadTypes("default")
+    val defaultTypes = loadTypes("default") :+ Type("struct", ".*", PrimitiveType.struct)
     val types = loadTypes("types")
 
     val redefinedTypeNames =
@@ -477,7 +477,7 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     val ymlTopLevelAttr = Attribute("__dummy", "struct", attributes = Some(ymlAttrs))
     val xsdTopLevelAttr = Attribute("__dummy", "struct", attributes = Some(xsdAttrs))
 
-    val merged = xsdTopLevelAttr.importAttribute(ymlTopLevelAttr)
+    val merged = xsdTopLevelAttr.importAttr(ymlTopLevelAttr)
     merged.attributes.getOrElse(Nil)
   }
 }
