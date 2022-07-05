@@ -8,6 +8,7 @@ import org.apache.poi.ss.usermodel._
 import java.io.File
 import java.util.regex.Pattern
 import scala.collection.JavaConverters._
+import scala.collection.mutable.ListBuffer
 
 sealed trait Input
 
@@ -311,141 +312,214 @@ class XlsReader(input: Input) extends XlsModel {
     *   an Option of Domain
     */
   def getDomain()(implicit settings: Settings): Option[Domain] = {
-    val completeSchemas = buildSchemas(settings).filter(_.attributes.nonEmpty)
+    val completeSchemas = buildSchemas().filter(_.attributes.nonEmpty)
     domain.map(_.copy(tables = completeSchemas))
   }
 
-  private def buildSchemas(settings: Settings): List[Schema] = {
+  private def buildSchemas()(implicit settings: Settings): List[Schema] = {
     schemas.map { case (schema, originalName) =>
       val schemaName = originalName.value
       val sheetOpt = Option(workbook.getSheet(schemaName))
       val attributes = sheetOpt match {
         case None => List.empty
         case Some(sheet) =>
-          val (rows, headerMap) = getColsOrder(sheet, allAttributeHeaders.map { case (k, _) => k })
-          rows.flatMap { row =>
-            val nameOpt =
-              Option(row.getCell(headerMap("_name"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
-                .flatMap(formatter.formatCellValue)
-            val renameOpt =
-              Option(row.getCell(headerMap("_rename"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
-                .flatMap(formatter.formatCellValue)
-            val semTypeOpt =
-              Option(row.getCell(headerMap("_type"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
-                .flatMap(formatter.formatCellValue)
-            val required = Option(
-              row.getCell(headerMap("_required"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
-            ).flatMap(formatter.formatCellValue)
-              .forall(_.toBoolean)
-            val privacy =
-              Option(row.getCell(headerMap("_privacy"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
-                .flatMap(formatter.formatCellValue)
-                .map { value =>
-                  val allPrivacyLevels =
-                    PrivacyLevels.allPrivacyLevels(settings.comet.privacy.options)
-                  val ignore: Option[((PrivacyEngine, List[String]), PrivacyLevel)] =
-                    allPrivacyLevels.get(value.toUpperCase)
-                  ignore.map { case (_, level) => level }.getOrElse {
-                    if (value.toUpperCase().startsWith("SQL:"))
-                      PrivacyLevel(value.substring("SQL:".length), true)
-                    else
-                      throw new Exception(s"key not found: $value")
-                  }
-                }
-            val metricType =
-              Option(row.getCell(headerMap("_metric"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
-                .flatMap(formatter.formatCellValue)
-                .map(MetricType.fromString)
-            val defaultOpt =
-              Option(row.getCell(headerMap("_default"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
-                .flatMap(formatter.formatCellValue)
-            val scriptOpt =
-              Option(row.getCell(headerMap("_script"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
-                .flatMap(formatter.formatCellValue)
-            val commentOpt = Option(
-              row.getCell(headerMap("_description"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
-            ).flatMap(formatter.formatCellValue)
-
-            val positionOpt = schema.metadata.flatMap(_.format) match {
-              case Some(Format.POSITION) => {
-                val positionStart =
-                  Option(
-                    row.getCell(
-                      headerMap("_position_start"),
-                      Row.MissingCellPolicy.RETURN_BLANK_AS_NULL
-                    )
-                  ).flatMap(formatter.formatCellValue)
-                    .map(_.toInt) match {
-                    case Some(v) => v - 1
-                    case _       => 0
-                  }
-                val positionEnd =
-                  Option(
-                    row.getCell(
-                      headerMap("_position_end"),
-                      Row.MissingCellPolicy.RETURN_BLANK_AS_NULL
-                    )
-                  ).flatMap(formatter.formatCellValue)
-                    .map(_.toInt) match {
-                    case Some(v) => v - 1
-                    case _       => 0
-                  }
-                Some(Position(positionStart, positionEnd))
-              }
-              case _ => None
-            }
-            val attributeTrim =
-              Option(row.getCell(headerMap("_trim"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
-                .flatMap(formatter.formatCellValue)
-                .map(Trim.fromString)
-
-            val attributeIgnore =
-              Option(row.getCell(headerMap("_ignore"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
-                .flatMap(formatter.formatCellValue)
-                .map(_.toBoolean)
-
-            val foreignKey =
-              Option(
-                row.getCell(headerMap("_foreign_key"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
-              ).flatMap(formatter.formatCellValue)
-
-            val tags =
-              Option(
-                row.getCell(headerMap("_tags"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
-              ).flatMap(formatter.formatCellValue).map(_.split(",").toSet)
-
-            val accessPolicy = Option(
-              row.getCell(headerMap("_policy"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
-            ).flatMap(formatter.formatCellValue)
-
-            (nameOpt, semTypeOpt) match {
-              case (Some(name), Some(semanticType)) =>
-                Some(
-                  Attribute(
-                    name = name,
-                    `type` = semanticType,
-                    array = None,
-                    required = required,
-                    privacy.getOrElse(PrivacyLevel.None),
-                    comment = commentOpt,
-                    rename = renameOpt,
-                    metricType = metricType,
-                    trim = attributeTrim,
-                    position = positionOpt,
-                    default = defaultOpt,
-                    script = scriptOpt,
-                    attributes = None,
-                    ignore = attributeIgnore,
-                    foreignKey = foreignKey,
-                    tags = tags,
-                    accessPolicy = accessPolicy
-                  )
-                )
-              case _ => None
-            }
-          }.toList
+          buildAttributes(schema, sheet)
       }
       schema.copy(attributes = attributes)
+    }
+  }
+
+  private def buildAttributes(schema: Schema, sheet: Sheet)(implicit
+    settings: Settings
+  ): List[Attribute] = {
+    val (rows, headerMap) = getColsOrder(sheet, allAttributeHeaders.map { case (k, _) => k })
+    val attrs = rows.flatMap { row =>
+      readAttribute(schema, headerMap, row)
+    }.toList
+    val withEndOfStruct = markEndOfStruct(attrs)
+    val topParent = Attribute("__dummy", "struct", attributes = Some(withEndOfStruct))
+    buildAttrsTree(topParent, withEndOfStruct.toIterator).attributes.getOrElse(Nil)
+  }
+
+  private def markEndOfStruct(attrs: List[Attribute]): List[Attribute] = {
+    var previousLevel = 0
+    val result = attrs.flatMap { attr =>
+      val level = attr.name.count(_ == '.')
+      val attrWithEndStruct: List[Attribute] =
+        if (level == previousLevel)
+          List(attr)
+        else if (level == previousLevel + 1) {
+          List(attr)
+        } else if (level < previousLevel) {
+          val endingStruct = ListBuffer.empty[Attribute]
+          for (i <- level until previousLevel)
+            endingStruct.append(Attribute(name = "__end_struct", `type` = "struct"))
+          endingStruct.toList :+ attr
+        } else
+          throw new Exception("Invalid Level in XLS")
+      previousLevel = level
+      attrWithEndStruct
+    }
+    val endingStruct = ListBuffer.empty[Attribute]
+    for (i <- 0 until previousLevel)
+      endingStruct.append(Attribute(name = "__end_struct", `type` = "struct"))
+
+    result ++ endingStruct.toList
+  }
+
+  private def buildAttrsTree(
+    parent: Attribute,
+    attributes: Iterator[Attribute]
+  )(implicit settings: Settings): Attribute = {
+    //
+    val attrsAtTheSameLevel: ListBuffer[Attribute] = ListBuffer.empty
+    var endOfStructFound = false
+    while (!endOfStructFound && attributes.hasNext) {
+      val attr = attributes.next()
+      val attrName = attr.name.split('.').last
+      val finalAttr = attr.copy(name = attrName)
+      val attrTree = finalAttr.`type` match {
+        case "struct" if finalAttr.name == "__end_struct" =>
+          endOfStructFound = true
+          parent.copy(attributes = Some(attrsAtTheSameLevel.toList))
+
+        case "struct" =>
+          val childAttr = buildAttrsTree(finalAttr, attributes)
+          attrsAtTheSameLevel.append(childAttr)
+          childAttr
+        case _ =>
+          attrsAtTheSameLevel.append(finalAttr)
+          finalAttr
+      }
+    }
+    parent.copy(attributes = Some(attrsAtTheSameLevel.toList))
+  }
+
+  private def readAttribute(
+    schema: Schema,
+    headerMap: Map[String, Int],
+    row: Row
+  )(implicit settings: Settings): Option[Attribute] = {
+    val nameOpt =
+      Option(row.getCell(headerMap("_name"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
+        .flatMap(formatter.formatCellValue)
+    val renameOpt =
+      Option(row.getCell(headerMap("_rename"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
+        .flatMap(formatter.formatCellValue)
+    val semTypeOpt =
+      Option(row.getCell(headerMap("_type"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
+        .flatMap(formatter.formatCellValue)
+    val required = Option(
+      row.getCell(headerMap("_required"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
+    ).flatMap(formatter.formatCellValue)
+      .forall(_.toBoolean)
+    val privacy =
+      Option(row.getCell(headerMap("_privacy"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
+        .flatMap(formatter.formatCellValue)
+        .map { value =>
+          val allPrivacyLevels =
+            PrivacyLevels.allPrivacyLevels(settings.comet.privacy.options)
+          val ignore: Option[((PrivacyEngine, List[String]), PrivacyLevel)] =
+            allPrivacyLevels.get(value.toUpperCase)
+          ignore.map { case (_, level) => level }.getOrElse {
+            if (value.toUpperCase().startsWith("SQL:"))
+              PrivacyLevel(value.substring("SQL:".length), true)
+            else
+              throw new Exception(s"key not found: $value")
+          }
+        }
+    val metricType =
+      Option(row.getCell(headerMap("_metric"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
+        .flatMap(formatter.formatCellValue)
+        .map(MetricType.fromString)
+    val defaultOpt =
+      Option(row.getCell(headerMap("_default"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
+        .flatMap(formatter.formatCellValue)
+    val scriptOpt =
+      Option(row.getCell(headerMap("_script"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
+        .flatMap(formatter.formatCellValue)
+    val commentOpt = Option(
+      row.getCell(headerMap("_description"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
+    ).flatMap(formatter.formatCellValue)
+
+    val positionOpt = schema.metadata.flatMap(_.format) match {
+      case Some(Format.POSITION) => {
+        val positionStart =
+          Option(
+            row.getCell(
+              headerMap("_position_start"),
+              Row.MissingCellPolicy.RETURN_BLANK_AS_NULL
+            )
+          ).flatMap(formatter.formatCellValue)
+            .map(_.toInt) match {
+            case Some(v) => v - 1
+            case _       => 0
+          }
+        val positionEnd =
+          Option(
+            row.getCell(
+              headerMap("_position_end"),
+              Row.MissingCellPolicy.RETURN_BLANK_AS_NULL
+            )
+          ).flatMap(formatter.formatCellValue)
+            .map(_.toInt) match {
+            case Some(v) => v - 1
+            case _       => 0
+          }
+        Some(Position(positionStart, positionEnd))
+      }
+      case _ => None
+    }
+    val attributeTrim =
+      Option(row.getCell(headerMap("_trim"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
+        .flatMap(formatter.formatCellValue)
+        .map(Trim.fromString)
+
+    val attributeIgnore =
+      Option(row.getCell(headerMap("_ignore"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
+        .flatMap(formatter.formatCellValue)
+        .map(_.toBoolean)
+
+    val foreignKey =
+      Option(
+        row.getCell(headerMap("_foreign_key"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
+      ).flatMap(formatter.formatCellValue)
+
+    val tags =
+      Option(
+        row.getCell(headerMap("_tags"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
+      ).flatMap(formatter.formatCellValue).map(_.split(",").toSet)
+
+    val accessPolicy = Option(
+      row.getCell(headerMap("_policy"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
+    ).flatMap(formatter.formatCellValue)
+
+    (nameOpt, semTypeOpt) match {
+      case (Some(name), Some(semanticType)) =>
+        val isArray = if (name.endsWith("*")) Some(true) else None
+        val simpleName = if (isArray.getOrElse(false)) name.dropRight(1) else name
+        Some(
+          Attribute(
+            name = simpleName,
+            `type` = semanticType,
+            array = isArray,
+            required = required,
+            privacy.getOrElse(PrivacyLevel.None),
+            comment = commentOpt,
+            rename = renameOpt,
+            metricType = metricType,
+            trim = attributeTrim,
+            position = positionOpt,
+            default = defaultOpt,
+            script = scriptOpt,
+            attributes = None,
+            ignore = attributeIgnore,
+            foreignKey = foreignKey,
+            tags = tags,
+            accessPolicy = accessPolicy
+          )
+        )
+      case _ => None
     }
   }
 
