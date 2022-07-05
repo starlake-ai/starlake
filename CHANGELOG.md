@@ -1,4 +1,15 @@
+
 # Release notes
+
+# 0.3.19
+__New feature__:
+- Handle Mixed XSD / YML ingestion & validation
+- Support JSON / XML descriptions in XLS files
+- Support arrays in XLS files
+
+__Bug Fix__:
+- Support file system sink options in autojob
+- 
 
 # 0.3.18
 __New feature__:
