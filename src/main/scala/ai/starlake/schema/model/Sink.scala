@@ -159,7 +159,6 @@ final case class FsSink(
   override val options: Option[Map[String, String]] = None,
   format: Option[String] = None,
   extension: Option[String] = None,
-  partition: Option[Partition] = None,
   clustering: Option[Seq[String]] = None
 ) extends Sink(SinkType.FS.value)
 
