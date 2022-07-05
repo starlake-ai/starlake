@@ -722,7 +722,7 @@ trait IngestionJob extends SparkJob {
         (clusteredDFWriter, dataset)
 
       // We do not output empty datasets
-      if (!finalDataset.isEmpty) {
+      if (finalDataset.limit(1).count() == 1) {
         val finalTargetDatasetWriter =
           if (csvOutput() && area != StorageArea.rejected) {
             targetDatasetWriter
