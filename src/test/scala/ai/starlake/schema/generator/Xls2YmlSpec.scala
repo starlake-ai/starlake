@@ -1,10 +1,10 @@
 package ai.starlake.schema.generator
 
-import better.files.File
 import ai.starlake.TestHelper
 import ai.starlake.config.DatasetArea
 import ai.starlake.schema.model.{BigQuerySink, Domain, Format}
 import ai.starlake.utils.YamlSerializer
+import better.files.File
 
 class Xls2YmlSpec extends TestHelper {
   new WithSettings() {
@@ -71,6 +71,24 @@ class Xls2YmlSpec extends TestHelper {
 
     val reader = new XlsReader(Path(getClass.getResource("/sample/SomeDomainTemplate.xls").getPath))
     val domainOpt = reader.getDomain()
+
+    "a complex XLS (aka JSON/XML)" should "produce the correct schema" in {
+      val complexReader =
+        new XlsReader(Path(getClass.getResource("/sample/SomeComplexDomainTemplate.xls").getPath))
+      val xlsTable = complexReader.getDomain().get.tables.head
+      val domainAsYaml = YamlSerializer.serialize(complexReader.getDomain().get)
+      val yamlFile =
+        File(getClass.getResource("/sample/SomeComplexDomainTemplate.comet.yml").getPath)
+      val yamlTable = YamlSerializer
+        .deserializeDomain(yamlFile)
+        .getOrElse(throw new Exception(s"Invalid file name $yamlFile"))
+        .tables
+        .head
+
+      xlsTable.attributes.length shouldBe yamlTable.attributes.length
+
+      deepEquals(xlsTable.attributes, yamlTable.attributes)
+    }
 
     "a preEncryption domain" should "have only string types" in {
       domainOpt shouldBe defined
