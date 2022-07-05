@@ -82,6 +82,58 @@ case class Attribute(
   accessPolicy: Option[String] = None
 ) extends LazyLogging {
 
+  /** Bring properties from another attribue. Used in XSD handling Exclude some properties: name,
+    * type, required, array, attributes, position, script
+    * @param imported
+    * @return
+    *   merged attribute
+    */
+  private def importAttributeProperties(imported: Attribute): Attribute = {
+    this.copy(
+      privacy = imported.privacy,
+      comment = imported.comment.orElse(this.comment),
+      rename = imported.rename.orElse(this.rename),
+      metricType = imported.metricType.orElse(this.metricType),
+      default = imported.default.orElse(this.default),
+      tags = imported.tags.orElse(this.tags),
+      trim = imported.trim.orElse(this.trim),
+      foreignKey = imported.foreignKey.orElse(this.foreignKey),
+      ignore = imported.ignore.orElse(this.ignore),
+      accessPolicy = imported.accessPolicy.orElse(this.accessPolicy)
+    )
+  }
+
+  def mergeAttrList(ymlAttrs: List[Attribute]): List[Attribute] = {
+    this.attributes.getOrElse(Nil).map { xsdAttr =>
+      ymlAttrs.find(_.name == xsdAttr.name) match {
+        case Some(ymlAttr) if xsdAttr.`type` == "struct" =>
+          assert(
+            ymlAttr.`type` == "struct",
+            s"attribute with name ${ymlAttr.name} found with type ${ymlAttr.`type`} where type 'struct' is expected"
+          )
+          xsdAttr.importAttr(ymlAttr)
+        case Some(ymlAttr) =>
+          xsdAttr.importAttributeProperties(ymlAttr)
+        case None =>
+          xsdAttr
+      }
+    }
+  }
+
+  def importAttr(ymlAttr: Attribute): Attribute = {
+    val merged = this.importAttributeProperties(ymlAttr)
+    (ymlAttr.attributes, this.attributes) match {
+      case (Some(ymlSubAttrs), Some(xsdSubAttrs)) =>
+        val mergedAttributes = this.mergeAttrList(ymlSubAttrs)
+        merged.copy(attributes = Some(mergedAttributes))
+      case (None, None) => merged
+      case (_, _) =>
+        throw new Exception(
+          s"XSD and YML sources contradict each other for attributes ${this.name} && ${ymlAttr.name}"
+        )
+    }
+  }
+
   override def toString: String =
     // we pretend the "settings" field does not exist
     s"Attribute(${name},${`type`},${array},${required},${getPrivacy()},${comment},${rename},${metricType},${attributes},${position},${default},${tags})"

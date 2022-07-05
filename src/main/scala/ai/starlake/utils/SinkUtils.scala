@@ -1,8 +1,5 @@
 package ai.starlake.utils
 
-import ai.starlake.job.sink.jdbc.ConnectionLoadConfig
-import ai.starlake.schema.handlers.StorageHandler
-import ai.starlake.schema.model.{BigQuerySink, Engine, EsSink, JdbcSink, NoneSink, Sink}
 import ai.starlake.config.Settings
 import ai.starlake.job.sink.bigquery.{BigQueryLoadConfig, BigQuerySparkJob}
 import ai.starlake.job.sink.jdbc.ConnectionLoadConfig
@@ -21,7 +18,7 @@ class SinkUtils(implicit settings: Settings) extends StrictLogging with DatasetL
     sinkType: Sink,
     dataframe: DataFrame,
     table: String,
-    /* arguments below used for filesink ony */
+    /* arguments below used for filesink only */
     savePath: Path,
     lockPath: Path,
     storageHandler: StorageHandler,
@@ -44,7 +41,7 @@ class SinkUtils(implicit settings: Settings) extends StrictLogging with DatasetL
       }
     }
     sinkType match {
-      case _: NoneSink | FsSink(_, _, _, _, _, _) if !settings.comet.sinkToFile =>
+      case _: NoneSink | FsSink(_, _, _, _, _) if !settings.comet.sinkToFile =>
         if (engine == Engine.SPARK) {
           val waitTimeMillis = settings.comet.lock.timeout
           val locker = new FileLock(lockPath, storageHandler)
@@ -61,7 +58,7 @@ class SinkUtils(implicit settings: Settings) extends StrictLogging with DatasetL
         } else
           Success(())
 
-      case _: NoneSink | FsSink(_, _, _, _, _, _) if settings.comet.sinkToFile =>
+      case _: NoneSink | FsSink(_, _, _, _, _) if settings.comet.sinkToFile =>
         // Do nothing dataset already sinked to file. Forced at the reference.conf level
         Success(())
 
