@@ -103,7 +103,7 @@ case class Attribute(
     )
   }
 
-  def mergeAttributesList(ymlAttrs: List[Attribute]): List[Attribute] = {
+  def mergeAttrList(ymlAttrs: List[Attribute]): List[Attribute] = {
     this.attributes.getOrElse(Nil).map { xsdAttr =>
       ymlAttrs.find(_.name == xsdAttr.name) match {
         case Some(ymlAttr) if xsdAttr.`type` == "struct" =>
@@ -111,7 +111,7 @@ case class Attribute(
             ymlAttr.`type` == "struct",
             s"attribute with name ${ymlAttr.name} found with type ${ymlAttr.`type`} where type 'struct' is expected"
           )
-          xsdAttr.importAttribute(ymlAttr)
+          xsdAttr.importAttr(ymlAttr)
         case Some(ymlAttr) =>
           xsdAttr.importAttributeProperties(ymlAttr)
         case None =>
@@ -120,11 +120,11 @@ case class Attribute(
     }
   }
 
-  def importAttribute(ymlAttr: Attribute): Attribute = {
+  def importAttr(ymlAttr: Attribute): Attribute = {
     val merged = this.importAttributeProperties(ymlAttr)
     (ymlAttr.attributes, this.attributes) match {
       case (Some(ymlSubAttrs), Some(xsdSubAttrs)) =>
-        val mergedAttributes = this.mergeAttributesList(ymlSubAttrs)
+        val mergedAttributes = this.mergeAttrList(ymlSubAttrs)
         merged.copy(attributes = Some(mergedAttributes))
       case (None, None) => merged
       case (_, _) =>
