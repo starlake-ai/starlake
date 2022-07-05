@@ -1,6 +1,10 @@
 
 # Release notes
 
+# 0.3.20
+__Bug Fix__:
+- Keep retrocompatibility with scala 2.11
+
 # 0.3.19
 __New feature__:
 - Handle Mixed XSD / YML ingestion & validation
@@ -9,7 +13,6 @@ __New feature__:
 
 __Bug Fix__:
 - Support file system sink options in autojob
-- 
 
 # 0.3.18
 __New feature__:
