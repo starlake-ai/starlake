@@ -458,40 +458,26 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     domain.copy(tables = tables)
   }
 
-  def fromXSD(schema: Schema, domainMetadata: Option[Metadata]): Schema = {
-    val metadata = schema.mergedMetadata(domainMetadata)
+  def fromXSD(ymlSchema: Schema, domainMetadata: Option[Metadata]): Schema = {
+    val metadata = ymlSchema.mergedMetadata(domainMetadata)
     metadata.getXsdPath() match {
       case None =>
-        schema
+        ymlSchema
       case Some(xsd) =>
         val xsdContent = storage.read(new Path(xsd))
         val sparkType = XSDToSchema.read(xsdContent)
         val topElement = sparkType.fields.map(field => Attribute(field))
         val xsdAttributes = topElement.head.attributes.map(_.toList).getOrElse(Nil)
-        schema.copy(attributes = xsdAttributes)
+        val merged = mergeAttributes(ymlSchema.attributes, xsdAttributes)
+        ymlSchema.copy(attributes = merged)
     }
   }
 
-  def mergeAttributes(ymlSchema: Schema, xsdSchema: Schema) = {
-    val ymlAttrsMap = attrsMap(ymlSchema.attributes, Nil, Map.empty)
-    val xsdAttrsMap = attrsMap(xsdSchema.attributes, Nil, Map.empty)
-    val curomAttrsMap =
-      ymlAttrsMap.keySet.intersect(xsdAttrsMap.keySet).map(k => k -> ymlAttrsMap(k))
+  def mergeAttributes(ymlAttrs: List[Attribute], xsdAttrs: List[Attribute]): List[Attribute] = {
+    val ymlTopLevelAttr = Attribute("__dummy", "struct", attributes = Some(ymlAttrs))
+    val xsdTopLevelAttr = Attribute("__dummy", "struct", attributes = Some(xsdAttrs))
 
-  }
-  private def attrsMap(
-    attributes: List[Attribute],
-    path: List[String],
-    map: Map[String, Attribute]
-  ): Map[String, Attribute] = {
-    val newMap: Map[String, Attribute] = attributes.flatMap { attribute =>
-      attribute.`type` match {
-        case "struct" =>
-          attrsMap(attribute.attributes.getOrElse(Nil), path :+ attribute.name, map)
-        case _ =>
-          Map((path :+ attribute.name).mkString("/") -> attribute)
-      }
-    }.toMap
-    map ++ newMap
+    val merged = xsdTopLevelAttr.importAttribute(ymlTopLevelAttr)
+    merged.attributes.getOrElse(Nil)
   }
 }
