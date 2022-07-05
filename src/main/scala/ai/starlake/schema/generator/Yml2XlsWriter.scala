@@ -3,7 +3,7 @@ package ai.starlake.schema.generator
 import better.files.File
 import ai.starlake.config.Settings
 import ai.starlake.schema.handlers.SchemaHandler
-import ai.starlake.schema.model.{BigQuerySink, Domain, Format, Partition}
+import ai.starlake.schema.model.{Attribute, BigQuerySink, Domain, Format, Partition}
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.poi.ss.usermodel.CellType
@@ -31,6 +31,26 @@ class Yml2XlsWriter(schemaHandler: SchemaHandler) extends LazyLogging with XlsMo
       }
     domains.foreach { domain =>
       writeDomainXls(domain, outputDir)
+    }
+  }
+
+  private def linearize(attrs: List[Attribute], prefix: List[String] = Nil): List[Attribute] = {
+    def finalName(attr: Attribute, prefix: List[String]) = {
+      prefix match {
+        case Nil => attr.name
+        case _   => prefix.mkString(".") + "." + attr.name
+      }
+    }
+
+    attrs.flatMap { attr =>
+      attr.`type` match {
+        case "struct" =>
+          val attrList = linearize(attr.attributes.getOrElse(Nil), prefix :+ attr.name)
+          attr.copy(name = finalName(attr, prefix)) +: attrList
+        case _ =>
+          List(attr.copy(name = finalName(attr, prefix)))
+      }
+
     }
   }
 
@@ -151,9 +171,10 @@ class Yml2XlsWriter(schemaHandler: SchemaHandler) extends LazyLogging with XlsMo
 
       val attributesSheet = workbook.createSheet(schemaName)
       fillHeaders(allAttributeHeaders, attributesSheet)
-      schema.attributes.zipWithIndex.foreach { case (attr, rowIndex) =>
+      linearize(schema.attributes).zipWithIndex.foreach { case (attr, rowIndex) =>
         val attrRow = attributesSheet.createRow(2 + rowIndex)
-        attrRow.createCell(0).setCellValue(attr.name)
+        val finalName = if (attr.array.getOrElse(false)) attr.name + '*' else attr.name
+        attrRow.createCell(0).setCellValue(finalName)
         attrRow.createCell(1).setCellValue(attr.rename.getOrElse(""))
         attrRow.createCell(2).setCellValue(attr.`type`)
         attrRow.createCell(3).setCellValue(attr.required)

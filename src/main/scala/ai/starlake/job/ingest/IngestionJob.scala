@@ -161,7 +161,7 @@ trait IngestionJob extends SparkJob {
           )
         } else {
           settings.comet.audit.sink match {
-            case _: NoneSink | FsSink(_, _, _, _, _, _) =>
+            case _: NoneSink | FsSink(_, _, _, _, _) =>
               sinkToFile(
                 rejectedDF,
                 rejectedPath,
@@ -1148,7 +1148,7 @@ object IngestionUtil {
         case _: EsSink =>
           // TODO Sink Rejected Log to ES
           throw new Exception("Sinking Audit log to Elasticsearch not yet supported")
-        case _: NoneSink | FsSink(_, _, _, _, _, _) =>
+        case _: NoneSink | FsSink(_, _, _, _, _) =>
           // We save in the caller
           // TODO rewrite this one
           Success(())
