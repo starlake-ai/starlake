@@ -81,11 +81,12 @@ object Main extends StrictLogging {
       "com.ebiznext.comet.job.Main is deprecated. Please start using ai.starlake.job.Main"
     )
     Thread.sleep(10 * 1000)
+    implicit val settings: Settings = Settings(ConfigFactory.load())
     legacyMain(args)
   }
 
-  def legacyMain(args: Array[String]): Unit = {
-    implicit val settings: Settings = Settings(ConfigFactory.load())
+  def legacyMain(args: Array[String])(implicit settings: Settings): Unit = {
+
     logger.info(s"Comet Version ${BuildInfo.version}")
     import settings.{launcherService, metadataStorageHandler, storageHandler}
     DatasetArea.initMetadata(metadataStorageHandler)
