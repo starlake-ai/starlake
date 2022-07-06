@@ -1,3 +1,3 @@
 package ai.starlake.schema.model
 
-case class Env(env: Map[String, String])
+case class Env(env: Option[Map[String, String]])

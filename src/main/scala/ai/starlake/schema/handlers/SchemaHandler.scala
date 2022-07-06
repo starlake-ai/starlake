@@ -181,7 +181,8 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
   lazy val activeEnv: Map[String, String] = {
     def loadEnv(path: Path): Map[String, String] =
       if (storage.exists(path))
-        Option(mapper.readValue(storage.read(path), classOf[Env]).env).getOrElse(Map.empty)
+        Option(mapper.readValue(storage.read(path), classOf[Env]).env.getOrElse(Map.empty))
+          .getOrElse(Map.empty)
       else
         Map.empty
     val globalsCometPath = new Path(DatasetArea.metadata, s"env.comet.yml")
