@@ -641,6 +641,7 @@ class IngestionWorkflow(
     * @param config
     *   : job name as defined in the YML file and sql parameters to pass to SQL statements.
     */
+  // scalastyle:off println
   def autoJob(config: TransformConfig): Boolean = {
     val job = schemaHandler.jobs(config.name)
     logger.info(job.toString)
@@ -663,8 +664,15 @@ class IngestionWorkflow(
           Utils.logFailure(result, logger)
           result.isSuccess
         case SPARK =>
-          action.runSpark() match {
-            case Success(SparkJobResult(maybeDataFrame)) =>
+          (action.runSpark(), config.query) match {
+            case (Success(SparkJobResult(None)), _) =>
+              true
+            case (Success(SparkJobResult(Some(dataFrame))), Some(_)) =>
+              println("""START QUERY SQL""")
+              dataFrame.show(false)
+              println("""END QUERY SQL""")
+              true
+            case (Success(SparkJobResult(maybeDataFrame)), None) =>
               val sinkOption = action.task.sink
               logger.info(s"Spark Job succeeded. sinking data to $sinkOption")
               sinkOption match {
@@ -744,7 +752,7 @@ class IngestionWorkflow(
                   logger.warn("Sink is not activated for this job")
                   true
               }
-            case Failure(exception) =>
+            case (Failure(exception), _) =>
               exception.printStackTrace()
               false
           }

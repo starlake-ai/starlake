@@ -41,7 +41,7 @@ class SinkUtils(implicit settings: Settings) extends StrictLogging with DatasetL
       }
     }
     sinkType match {
-      case _: NoneSink | FsSink(_, _, _, _, _) if !settings.comet.sinkToFile =>
+      case _: NoneSink | FsSink(_, _, _, _, _, _) if !settings.comet.sinkToFile =>
         if (engine == Engine.SPARK) {
           val waitTimeMillis = settings.comet.lock.timeout
           val locker = new FileLock(lockPath, storageHandler)
@@ -58,7 +58,7 @@ class SinkUtils(implicit settings: Settings) extends StrictLogging with DatasetL
         } else
           Success(())
 
-      case _: NoneSink | FsSink(_, _, _, _, _) if settings.comet.sinkToFile =>
+      case _: NoneSink | FsSink(_, _, _, _, _, _) if settings.comet.sinkToFile =>
         // Do nothing dataset already sinked to file. Forced at the reference.conf level
         Success(())
 
