@@ -221,15 +221,43 @@ case class AutoTaskJob(
     logger.info(s"About to write resulting dataset to $targetPath")
     // Target Path exist only if a storage area has been defined at task or job level
     // To execute a task without writing to disk simply avoid the area at the job and task level
+
+    val sinkPartition =
+      sink.partition.getOrElse(Partition(sampling = None, attributes = task.partition))
+
+    val sinkPartitionSampling = sinkPartition.sampling.getOrElse(0.0)
+    val nbPartitions = sinkPartitionSampling match {
+      case 0.0 =>
+        dataframe.rdd.getNumPartitions
+      case count if count >= 1.0 =>
+        count.toInt
+      case count =>
+        throw new Exception(s"Invalid partition value $count in Sink $sink")
+    }
+
     val partitionedDF =
+      if (coalesce)
+        dataframe.repartition(1)
+      else if (sinkPartitionSampling == 0)
+        dataframe
+      else
+        dataframe.repartition(nbPartitions)
+
+    val partitionedDFWriter =
       partitionedDatasetWriter(
-        if (coalesce) dataframe.repartition(1) else dataframe,
-        task.getPartitions()
+        partitionedDF,
+        sinkPartition.attributes.getOrElse(Nil)
       )
 
-    val finalDataset = partitionedDF
+    val clusteredDFWriter = sink.clustering match {
+      case None          => partitionedDFWriter
+      case Some(columns) => partitionedDFWriter.sortBy(columns.head, columns.tail: _*)
+    }
+
+    val finalDataset = clusteredDFWriter
       .mode(task.write.toSaveMode)
       .format(sink.format.getOrElse(format.getOrElse(settings.comet.defaultFormat)))
+      .options(sink.getOptions)
       .option("path", targetPath.toString)
       .options(sink.getOptions)
 

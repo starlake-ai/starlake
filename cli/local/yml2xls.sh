@@ -16,6 +16,6 @@ source ./env."${STARLAKE_ENV}".sh
 
 set -x
 
-$SPARK_SUBMIT --driver-java-options "$SPARK_DRIVER_OPTIONS" $SPARK_CONF_OPTIONS \
+COMET_INTERNAL_SUBSTITUTE_VARS=false $SPARK_SUBMIT --driver-java-options "$SPARK_DRIVER_OPTIONS" $SPARK_CONF_OPTIONS \
     --class $COMET_MAIN $COMET_JAR_FULL_NAME yml2xls --xls $COMET_ROOT/metadata/domains
 
