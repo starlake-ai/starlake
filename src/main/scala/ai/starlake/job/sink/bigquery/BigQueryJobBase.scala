@@ -247,14 +247,14 @@ trait BigQueryJobBase extends StrictLogging {
     dataset
   }
 
-  def setTagsOnTable(table: Table): Unit = {
+  protected def setTagsOnTable(table: Table): Unit = {
     cliConfig.starlakeSchema.foreach { schema =>
       val tableTagPairs = Utils.extractTags(schema.tags)
       table.toBuilder.setLabels(tableTagPairs.toMap.asJava).build().update()
     }
   }
 
-  def setTagsOnDataset(dataset: Dataset): Unit = {
+  protected def setTagsOnDataset(dataset: Dataset): Unit = {
     cliConfig.domainTags.foreach { domainTags =>
       val datasetTagPairs = Utils.extractTags(Some(domainTags))
       dataset.toBuilder.setLabels(datasetTagPairs.toMap.asJava).build().update()

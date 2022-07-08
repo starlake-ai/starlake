@@ -66,7 +66,7 @@ class XmlIngestionJob(
     val xmlOptions = metadata.getXmlOptions()
     Try {
       val rowTag = xmlOptions.get("rowTag")
-      rowTag.map { rowTag =>
+      rowTag.map { _ =>
         val df = path
           .map { singlePath =>
             session.read
@@ -101,7 +101,7 @@ class XmlIngestionJob(
     val datasetSchema = dataset.schema
     val errorList = compareTypes(schemaSparkType, datasetSchema)
     val rejectedDS = errorList.toDS
-    metadata.xml.flatMap(_.get("skipValidation")) match {
+    metadata.getXmlOptions().get("skipValidation") match {
       case Some(_) =>
         val rejectedDS = errorList.toDS()
         saveRejected(rejectedDS, session.emptyDataset[String])

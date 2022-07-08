@@ -159,7 +159,8 @@ final case class FsSink(
   override val options: Option[Map[String, String]] = None,
   format: Option[String] = None,
   extension: Option[String] = None,
-  clustering: Option[Seq[String]] = None
+  clustering: Option[Seq[String]] = None,
+  partition: Option[Partition] = None
 ) extends Sink(SinkType.FS.value)
 
 /** When the sink *type* field is set to JDBC, the options below should be provided.
