@@ -667,12 +667,55 @@ trait IngestionJob extends SparkJob {
         }
       }
 
-      val sink = metadata
-        .getSink()
-        .map(_.asInstanceOf[FsSink])
+      val (sinkPartition, nbPartitions, clustering, options) =
+        metadata.getSink().getOrElse(NoneSink()) match {
+          case _: NoneSink =>
+            (
+              metadata.partition,
+              nbFsPartitions(
+                dataset,
+                writeFormat,
+                targetPath,
+                None
+              ),
+              metadata.clustering,
+              Map.empty[String, String]
+            )
+          case s: FsSink =>
+            val partitionColumns = s.partition.orElse(metadata.partition)
+            (
+              partitionColumns,
+              nbFsPartitions(
+                dataset,
+                writeFormat,
+                targetPath,
+                partitionColumns
+              ),
+              s.clustering,
+              s.options.getOrElse(Map.empty)
+            )
+          case _ if area == StorageArea.accepted => // sink-to-file is true in application.conf
+            (
+              metadata.partition,
+              nbFsPartitions(
+                dataset,
+                writeFormat,
+                targetPath,
+                None
+              ),
+              metadata.clustering,
+              Map.empty[String, String]
+            )
+          case _ if area == StorageArea.rejected =>
+            logger.debug("saving in rejected")
+            (
+              None,
+              1,
+              None,
+              Map.empty[String, String]
+            )
 
-      val sinkPartition = sink.flatMap(_.partition).orElse(metadata.partition)
-      val nbPartitions: Int = nbFsPartitions(dataset, writeFormat, targetPath, sinkPartition)
+        }
 
       // No need to apply partition on rejected dF
       val partitionedDFWriter =
@@ -683,10 +726,6 @@ trait IngestionJob extends SparkJob {
             dataset.repartition(nbPartitions),
             sinkPartition.map(_.getAttributes()).getOrElse(Nil)
           )
-
-      val clustering = sink
-        .flatMap(_.clustering)
-        .orElse(metadata.clustering)
 
       val clusteredDFWriter = clustering match {
         case None          => partitionedDFWriter
@@ -699,7 +738,7 @@ trait IngestionJob extends SparkJob {
         clusteredDFWriter
           .mode(SaveMode.Overwrite)
           .format(writeFormat)
-          .options(sink.map(_.getOptions).getOrElse(Map.empty))
+          .options(options)
           .option("path", mergePath)
           .save()
         logger.info(s"reading Dataset from merge location $mergePath")
@@ -814,41 +853,42 @@ trait IngestionJob extends SparkJob {
     sinkPartition: Option[Partition]
   ): Int = {
     val tmpPath = new Path(s"${targetPath.toString}.tmp")
-    val nbPartitions = sinkPartition.map(_.getSampling()).getOrElse(0.0) match {
-      case 0.0 => // default partitioning
-        if (csvOutput() || dataset.rdd.getNumPartitions == 0) // avoid error for an empty dataset
-          1
-        else
-          dataset.rdd.getNumPartitions
-      case fraction if fraction > 0.0 && fraction < 1.0 =>
-        // Use sample to determine partitioning
-        val count = dataset.count()
-        val minFraction =
-          if (fraction * count >= 1) // Make sure we get at least on item in the dataset
-            fraction
-          else if (
-            count > 0
-          ) // We make sure we get at least 1 item which is 2 because of double imprecision for huge numbers.
-            2 / count
+    val nbPartitions =
+      sinkPartition.map(_.getSampling()).getOrElse(metadata.getSamplingStrategy()) match {
+        case 0.0 => // default partitioning
+          if (csvOutput() || dataset.rdd.getNumPartitions == 0) // avoid error for an empty dataset
+            1
           else
-            0
+            dataset.rdd.getNumPartitions
+        case fraction if fraction > 0.0 && fraction < 1.0 =>
+          // Use sample to determine partitioning
+          val count = dataset.count()
+          val minFraction =
+            if (fraction * count >= 1) // Make sure we get at least on item in the dataset
+              fraction
+            else if (
+              count > 0
+            ) // We make sure we get at least 1 item which is 2 because of double imprecision for huge numbers.
+              2 / count
+            else
+              0
 
-        val sampledDataset = dataset.sample(withReplacement = false, minFraction)
-        partitionedDatasetWriter(
-          sampledDataset,
-          sinkPartition.map(_.getAttributes()).getOrElse(Nil)
-        )
-          .mode(SaveMode.ErrorIfExists)
-          .format(writeFormat)
-          .option("path", tmpPath.toString)
-          .save()
-        val consumed = storageHandler.spaceConsumed(tmpPath) / fraction
-        val blocksize = storageHandler.blockSize(tmpPath)
-        storageHandler.delete(tmpPath)
-        Math.max(consumed / blocksize, 1).toInt
-      case count if count >= 1.0 =>
-        count.toInt
-    }
+          val sampledDataset = dataset.sample(withReplacement = false, minFraction)
+          partitionedDatasetWriter(
+            sampledDataset,
+            sinkPartition.map(_.getAttributes()).getOrElse(metadata.getPartitionAttributes())
+          )
+            .mode(SaveMode.ErrorIfExists)
+            .format(writeFormat)
+            .option("path", tmpPath.toString)
+            .save()
+          val consumed = storageHandler.spaceConsumed(tmpPath) / fraction
+          val blocksize = storageHandler.blockSize(tmpPath)
+          storageHandler.delete(tmpPath)
+          Math.max(consumed / blocksize, 1).toInt
+        case count if count >= 1.0 =>
+          count.toInt
+      }
     nbPartitions
   }
 
