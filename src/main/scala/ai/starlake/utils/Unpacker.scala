@@ -1,9 +1,7 @@
 package ai.starlake.utils
 
-import java.io.{BufferedInputStream, InputStream}
-import java.nio.file.{Files, Paths}
-
 import better.files.File
+import com.github.ghik.silencer.silent
 import org.apache.commons.compress.archivers.{
   ArchiveEntry,
   ArchiveInputStream,
@@ -13,6 +11,8 @@ import org.apache.commons.compress.compressors.{CompressorInputStream, Compresso
 import org.apache.commons.compress.utils.IOUtils
 import org.apache.commons.io.input.CloseShieldInputStream
 
+import java.io.{BufferedInputStream, InputStream}
+import java.nio.file.{Files, Paths}
 import scala.util.Try
 
 object Unpacker {
@@ -83,6 +83,7 @@ object Unpacker {
         latestEntry != null
       }
 
+      @silent
       override def next(): (ArchiveEntry, InputStream) =
         (latestEntry, new CloseShieldInputStream(archiveInputStream))
     }

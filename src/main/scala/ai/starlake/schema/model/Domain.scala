@@ -228,7 +228,7 @@ import scala.util.{Failure, Success, Try}
     }
 
     val duplicatesErrorMessage =
-      "%s is defined %d times. A schema can only be defined once."
+      "Schema %s defined %d times. A schema can only be defined once."
     for (errors <- Utils.duplicates(tables.map(_.name), duplicatesErrorMessage).left) {
       errorList ++= errors.map(s"domain $name:" + _)
     }
@@ -246,5 +246,14 @@ import scala.util.{Failure, Success, Try}
         schema.asDot(name, includeAllAttrs)
       }
       .mkString("\n")
+  }
+
+  def policies(): List[RowLevelSecurity] = {
+    tables
+      .flatMap(_.acl.getOrElse(Nil))
+      .map(ace => RowLevelSecurity(name = ace.role, grants = ace.grants.toSet)) ++
+    tables.flatMap(
+      _.rls.getOrElse(Nil)
+    )
   }
 }

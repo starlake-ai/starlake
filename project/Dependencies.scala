@@ -89,7 +89,7 @@ object Dependencies {
   )
 
   val azure = Seq(
-    "org.apache.hadoop" % "hadoop-azure" % "3.3.2" % "provided" excludeAll (jacksonExclusions: _*) exclude ("com.google.guava", "guava"),
+    "org.apache.hadoop" % "hadoop-azure" % "3.3.3" % "provided" excludeAll (jacksonExclusions: _*) exclude ("com.google.guava", "guava"),
     "com.microsoft.azure" % "azure-storage" % "8.6.6" % "provided" excludeAll (jacksonExclusions: _*) exclude ("com.google.guava", "guava")
   )
 
@@ -189,7 +189,7 @@ object Dependencies {
   )
 
   val jna_apple_arm_testcontainers = Seq(
-    "net.java.dev.jna" % "jna" % "5.11.0"
+    "net.java.dev.jna" % "jna" % "5.12.1"
   )
 
   val silencer = Seq(

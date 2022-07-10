@@ -1,8 +1,8 @@
-export COMET_VERSION="${COMET_VERSION:-0.3.16}"
+export COMET_VERSION="${COMET_VERSION:-0.3.20}"
 export SPARK_VERSION="${SPARK_VERSION:-3.2.1}"
 export HADOOP_VERSION="${HADOOP_VERSION:-3.2}"
-
-export COMET_JAR_NAME=starlake-spark3_2.12-$COMET_VERSION-assembly.jar
+export SCALA_VERSION=2.12
+export COMET_JAR_NAME=starlake-spark3_$SCALA_VERSION-$COMET_VERSION-assembly.jar
 export COMET_JAR_FULL_NAME=../bin/$COMET_JAR_NAME
 
 echo "COMET_VERSION=$COMET_VERSION"
@@ -10,9 +10,9 @@ echo "SPARK_VERSION=$SPARK_VERSION"
 echo "HADOOP_VERSION=$HADOOP_VERSION"
 
 if [[ "$COMET_VERSION" == *"SNAPSHOT"* ]]; then
-  COMET_JAR_URL=https://oss.sonatype.org/content/repositories/snapshots/ai/starlake/comet-spark3_2.12/$COMET_VERSION/$COMET_JAR_NAME
+  COMET_JAR_URL=https://oss.sonatype.org/content/repositories/snapshots/ai/starlake/comet-spark3_$SCALA_VERSION/$COMET_VERSION/$COMET_JAR_NAME
 else
-  COMET_JAR_URL=https://s01.oss.sonatype.org/content/repositories/releases/ai/starlake/starlake-spark3_2.12/$COMET_VERSION/$COMET_JAR_NAME
+  COMET_JAR_URL=https://s01.oss.sonatype.org/content/repositories/releases/ai/starlake/starlake-spark3_$SCALA_VERSION/$COMET_VERSION/$COMET_JAR_NAME
 
 fi
 

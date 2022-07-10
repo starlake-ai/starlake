@@ -24,7 +24,7 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
   }
 
   new WithSettings() {
-    "Ingest to BigQuery" should "should be ingest and store table in BigQuery" in {
+    "Ingest to BigQuery" should "be ingest and store table in BigQuery" in {
       if (sys.env.getOrElse("COMET_GCP_TEST", "false").toBoolean) {
         import org.slf4j.impl.StaticLoggerBinder
         val binder = StaticLoggerBinder.getSingleton

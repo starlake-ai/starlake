@@ -18,7 +18,7 @@ metadata:
       - comet_year
       - comet_month
       - comet_day
-schemas:
+tables:
   - name: "locations"
     pattern: "locations.*"
     attributes:
