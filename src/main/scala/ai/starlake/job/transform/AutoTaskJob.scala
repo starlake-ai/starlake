@@ -30,7 +30,7 @@ import ai.starlake.schema.model._
 import ai.starlake.utils.Formatter._
 import ai.starlake.utils._
 import org.apache.hadoop.fs.Path
-import org.apache.spark.sql.SaveMode
+import org.apache.spark.sql.{DataFrame, SaveMode}
 
 import java.sql.Timestamp
 import java.time.{Instant, LocalDateTime}
@@ -57,7 +57,8 @@ case class AutoTaskJob(
   views: Views,
   engine: Engine,
   task: AutoTaskDesc,
-  sqlParameters: Map[String, String]
+  sqlParameters: Map[String, String],
+  sink: Option[Sink]
 )(implicit val settings: Settings, storageHandler: StorageHandler, schemaHandler: SchemaHandler)
     extends SparkJob {
 
@@ -215,6 +216,77 @@ case class AutoTaskJob(
     (preSql, sql, postSql)
   }
 
+  def sinkToFS(dataframe: DataFrame, sink: FsSink): Boolean = {
+    val targetPath = task.getTargetPath(defaultArea)
+    logger.info(s"About to write resulting dataset to $targetPath")
+    // Target Path exist only if a storage area has been defined at task or job level
+    // To execute a task without writing to disk simply avoid the area at the job and task level
+
+    val sinkPartition =
+      sink.partition.getOrElse(Partition(sampling = None, attributes = task.partition))
+
+    val sinkPartitionSampling = sinkPartition.sampling.getOrElse(0.0)
+    val nbPartitions = sinkPartitionSampling match {
+      case 0.0 =>
+        dataframe.rdd.getNumPartitions
+      case count if count >= 1.0 =>
+        count.toInt
+      case count =>
+        throw new Exception(s"Invalid partition value $count in Sink $sink")
+    }
+
+    val partitionedDF =
+      if (coalesce)
+        dataframe.repartition(1)
+      else if (sinkPartitionSampling == 0)
+        dataframe
+      else
+        dataframe.repartition(nbPartitions)
+
+    val partitionedDFWriter =
+      partitionedDatasetWriter(
+        partitionedDF,
+        sinkPartition.attributes.getOrElse(Nil)
+      )
+
+    val clusteredDFWriter = sink.clustering match {
+      case None          => partitionedDFWriter
+      case Some(columns) => partitionedDFWriter.sortBy(columns.head, columns.tail: _*)
+    }
+
+    val finalDataset = clusteredDFWriter
+      .mode(task.write.toSaveMode)
+      .format(sink.format.getOrElse(format.getOrElse(settings.comet.defaultFormat)))
+      .options(sink.getOptions)
+      .option("path", targetPath.toString)
+      .options(sink.getOptions)
+
+    if (settings.comet.hive) {
+      val tableName = task.table
+      val hiveDB = task.getHiveDB(defaultArea)
+      val fullTableName = s"$hiveDB.$tableName"
+      session.sql(s"create database if not exists $hiveDB")
+      session.sql(s"use $hiveDB")
+      if (task.write.toSaveMode == SaveMode.Overwrite)
+        session.sql(s"drop table if exists $tableName")
+      finalDataset.saveAsTable(fullTableName)
+      analyze(fullTableName)
+    } else {
+      // TODO Handle SinkType.FS and SinkType to Hive in Sink section in the caller
+
+      finalDataset.save()
+      if (coalesce) {
+        val extension = sink.format.getOrElse(format.getOrElse(settings.comet.defaultFormat))
+        val csvPath = storageHandler
+          .list(targetPath, s".$extension", LocalDateTime.MIN, recursive = false)
+          .head
+        val finalPath = new Path(targetPath, targetPath.getName + s".$extension")
+        storageHandler.move(csvPath, finalPath)
+      }
+    }
+    true
+  }
+
   def runSpark(): Try[SparkJobResult] = {
     val start = Timestamp.from(Instant.now())
     val res = Try {
@@ -242,43 +314,9 @@ case class AutoTaskJob(
           case _ => throw new Exception("should never happen")
         }
 
-      val targetPath = task.getTargetPath(defaultArea)
-      logger.info(s"About to write resulting dataset to $targetPath")
-      // Target Path exist only if a storage area has been defined at task or job level
-      // To execute a task without writing to disk simply avoid the area at the job and task level
-      val partitionedDF =
-        partitionedDatasetWriter(
-          if (coalesce) dataframe.repartition(1) else dataframe,
-          task.getPartitions()
-        )
+      if (settings.comet.hive || settings.comet.sinkToFile)
+        sinkToFS(dataframe, FsSink())
 
-      val finalDataset = partitionedDF
-        .mode(task.write.toSaveMode)
-        .format(format.getOrElse(settings.comet.defaultFormat))
-        .option("path", targetPath.toString)
-
-      if (settings.comet.hive) {
-        val tableName = task.table
-        val hiveDB = task.getHiveDB(defaultArea)
-        val fullTableName = s"$hiveDB.$tableName"
-        session.sql(s"create database if not exists $hiveDB")
-        session.sql(s"use $hiveDB")
-        if (task.write.toSaveMode == SaveMode.Overwrite)
-          session.sql(s"drop table if exists $tableName")
-        finalDataset.saveAsTable(fullTableName)
-        analyze(fullTableName)
-      } else if (settings.comet.sinkToFile) {
-        // TODO Handle SinkType.FS and SinkType to Hive in Sink section in the caller
-        finalDataset.save()
-        if (coalesce) {
-          val extension = format.getOrElse(settings.comet.defaultFormat)
-          val csvPath = storageHandler
-            .list(targetPath, s".$extension", LocalDateTime.MIN, recursive = false)
-            .head
-          val finalPath = new Path(targetPath, targetPath.getName + s".$extension")
-          storageHandler.move(csvPath, finalPath)
-        }
-      }
       if (settings.comet.assertions.active) {
         new AssertionJob(
           task.domain,
@@ -322,7 +360,7 @@ case class AutoTaskJob(
       this.task.domain,
       this.task.table,
       success,
-      -1,
+      jobResultCount,
       -1,
       -1,
       start,

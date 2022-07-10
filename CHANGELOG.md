@@ -1,9 +1,35 @@
+
 # Release notes
+
+# 0.3.20
+__Bug Fix__:
+- Keep retrocompatibility with scala 2.11
+
+# 0.3.19
+__New feature__:
+- Handle Mixed XSD / YML ingestion & validation
+- Support JSON / XML descriptions in XLS files
+- Support arrays in XLS files
+
+__Bug Fix__:
+- Support file system sink options in autojob
+
+# 0.3.18
+__New feature__:
+- Enhance XLS support for escaping char
+- Support HTTP Stream Source
+- Support XSD Validation
+- Transform  jobs now report on the number of affected rows.
+
+__Bug Fix__:
+- Regression return value of an autojob
 
 # 0.3.17
 __New feature__:
 - Support extra dsv options in conf file
 - support any option stored in metadata.options as an option for the reader.
+- Support VSCode  Development
+
 
 # 0.3.16
 __New feature__:

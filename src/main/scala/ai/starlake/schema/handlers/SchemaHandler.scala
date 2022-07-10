@@ -24,6 +24,7 @@ import ai.starlake.config.{DatasetArea, Settings, StorageArea}
 import ai.starlake.schema.model._
 import ai.starlake.utils.Formatter._
 import ai.starlake.utils.{CometObjectMapper, Utils, YamlSerializer}
+import com.databricks.spark.xml.util.XSDToSchema
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.node.{ArrayNode, ObjectNode}
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
@@ -50,25 +51,41 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     new CometObjectMapper(new YAMLFactory(), injectables = (classOf[Settings], settings) :: Nil)
 
   @throws[Exception]
-  def checkValidity(): Unit = {
+  def checkValidity(): List[String] = {
     val typesValidity = this.types.map(_.checkValidity())
-    val domainsValidty = this.domains.map(_.checkValidity(this))
-    this.activeEnv
-    this.jobs
-    val allErrors = typesValidity ++ domainsValidty :+ checkViewsValidity()
+    val domainsValidity = this.domains.map(_.checkValidity(this))
+
+    val allErrors = typesValidity ++ domainsValidity :+ checkViewsValidity()
 
     val errs = allErrors.flatMap {
       case Left(values) => values
       case Right(_)     => Nil
     }
-
-    errs match {
-      case Nil =>
-      case _ =>
-        errs.foreach(err => logger.error(err))
-        throw new Exception("Invalid YML file(s) found. See errors above.")
-    }
+    errs
   }
+
+  def fullValidation(): Unit =
+    Try {
+      val errs = checkValidity()
+      val deserErrors = deserializedDomains.filter { case (path, res) =>
+        res.isFailure
+      }
+      val errorCount = errs.length + deserErrors.length
+      if (errorCount > 0) {
+        logger.error(s"START VALIDATION RESULTS: $errorCount errors found")
+        deserErrors.foreach { case (path, err) =>
+          logger.error(s"${path.toString} could not be deserialized")
+        }
+        errs.foreach(err => logger.error(err))
+        logger.error(s"END VALIDATION RESULTS")
+      }
+    } match {
+      case Success(_) => // do nothing
+      case Failure(e) =>
+        e.printStackTrace()
+        if (settings.comet.validateOnLoad)
+          throw e
+    }
 
   def checkViewsValidity(): Either[List[String], Boolean] = {
     val errorList: mutable.MutableList[String] = mutable.MutableList.empty
@@ -101,7 +118,7 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     */
   @throws[Exception]
   lazy val types: List[Type] = {
-    val defaultTypes = loadTypes("default")
+    val defaultTypes = loadTypes("default") :+ Type("struct", ".*", PrimitiveType.struct)
     val types = loadTypes("types")
 
     val redefinedTypeNames =
@@ -164,7 +181,8 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
   lazy val activeEnv: Map[String, String] = {
     def loadEnv(path: Path): Map[String, String] =
       if (storage.exists(path))
-        Option(mapper.readValue(storage.read(path), classOf[Env]).env).getOrElse(Map.empty)
+        Option(mapper.readValue(storage.read(path), classOf[Env]).env.getOrElse(Map.empty))
+          .getOrElse(Map.empty)
       else
         Map.empty
     val globalsCometPath = new Path(DatasetArea.metadata, s"env.comet.yml")
@@ -190,7 +208,6 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     val minuteFormatter = DateTimeFormatter.ofPattern("mm")
     val secondFormatter = DateTimeFormatter.ofPattern("ss")
     val milliFormatter = DateTimeFormatter.ofPattern("SSS")
-    val instantFormatter = DateTimeFormatter.ofPattern("SSS")
     val epochMillis = today.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli
     Map(
       "comet_date"         -> today.format(dateFormatter),
@@ -216,47 +233,53 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     */
   def getType(tpe: String): Option[Type] = types.find(_.name == tpe)
 
+  lazy val deserializedDomains: List[(Path, Try[Domain])] = {
+    val paths = storage.list(
+      DatasetArea.domains,
+      extension = ".yml",
+      recursive = true,
+      exclude = Some(Pattern.compile("_.*"))
+    )
+
+    val domains = paths
+      .map { path =>
+        YamlSerializer.deserializeDomain(
+          storage.read(path).richFormat(activeEnv, Map.empty),
+          path.toString
+        )
+      }
+
+    paths.zip(domains)
+  }
+
   /** All defined domains Domains are defined under the "domains" folder in the metadata folder
     */
   @throws[Exception]
   lazy val domains: List[Domain] = {
-    val (validDomainsFile, invalidDomainsFiles) = storage
-      .list(
-        DatasetArea.domains,
-        extension = ".yml",
-        recursive = true,
-        exclude = Some(Pattern.compile("_.*"))
-      )
-      .map { path =>
-        val domain =
-          YamlSerializer.deserializeDomain(
-            storage.read(path).richFormat(activeEnv, Map.empty),
-            path.toString
-          )
-        domain match {
-          case Success(domain) =>
-            val folder = path.getParent()
-            val schemaRefs = domain.tableRefs
-              .getOrElse(Nil)
-              .map { ref =>
-                if (!ref.startsWith("_"))
-                  throw new Exception(
-                    s"reference to a schema should start with '_' in domain ${domain.name} in $path for schema ref $ref"
-                  )
-                val refFullName =
-                  if (ref.endsWith(".yml") || ref.endsWith(".yaml")) ref else ref + ".comet.yml"
-                val schemaPath = new Path(folder, refFullName)
-                YamlSerializer.deserializeSchemas(
-                  storage.read(schemaPath).richFormat(activeEnv, Map.empty),
-                  schemaPath.toString
+    val (validDomainsFile, invalidDomainsFiles) = deserializedDomains
+      .map {
+        case (path, Success(domain)) =>
+          val folder = path.getParent()
+          val schemaRefs = domain.tableRefs
+            .getOrElse(Nil)
+            .map { ref =>
+              if (!ref.startsWith("_"))
+                throw new Exception(
+                  s"reference to a schema should start with '_' in domain ${domain.name} in $path for schema ref $ref"
                 )
-              }
-              .flatMap(_.tables)
-            Success(domain.copy(tables = Option(domain.tables).getOrElse(Nil) ::: schemaRefs))
-          case Failure(e) =>
-            Utils.logException(logger, e)
-            Failure(e)
-        }
+              val refFullName =
+                if (ref.endsWith(".yml") || ref.endsWith(".yaml")) ref else ref + ".comet.yml"
+              val schemaPath = new Path(folder, refFullName)
+              YamlSerializer.deserializeSchemas(
+                storage.read(schemaPath).richFormat(activeEnv, Map.empty),
+                schemaPath.toString
+              )
+            }
+            .flatMap(_.tables)
+          Success(domain.copy(tables = Option(domain.tables).getOrElse(Nil) ::: schemaRefs))
+        case (path, Failure(e)) =>
+          Utils.logException(logger, e)
+          Failure(e)
       }
       .partition(_.isSuccess)
 
@@ -270,7 +293,9 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
       case Success(_) => // ignore
     }
 
-    val domains = validDomainsFile.collect { case Success(domain) => domain }
+    val domains = validDomainsFile
+      .collect { case Success(domain) => domain }
+      .map(domain => this.fromXSD(domain))
 
     Utils.duplicates(
       domains.map(_.name),
@@ -342,6 +367,10 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
         name = jobName,
         tasks = tasks
       )
+    } match {
+      case Success(value) => Success(value)
+      case Failure(exception) =>
+        Failure(new Exception(s"Invalid Job file: $path(${exception.getMessage})", exception))
     }
 
   /** To be deprecated soon
@@ -421,4 +450,35 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
       domain <- getDomain(domainName)
       schema <- domain.tables.find(_.name == schemaName)
     } yield schema
+
+  def fromXSD(domain: Domain): Domain = {
+    val domainMetadata = domain.metadata
+    val tables = domain.tables.map { table =>
+      fromXSD(table, domainMetadata)
+    }
+    domain.copy(tables = tables)
+  }
+
+  def fromXSD(ymlSchema: Schema, domainMetadata: Option[Metadata]): Schema = {
+    val metadata = ymlSchema.mergedMetadata(domainMetadata)
+    metadata.getXsdPath() match {
+      case None =>
+        ymlSchema
+      case Some(xsd) =>
+        val xsdContent = storage.read(new Path(xsd))
+        val sparkType = XSDToSchema.read(xsdContent)
+        val topElement = sparkType.fields.map(field => Attribute(field))
+        val xsdAttributes = topElement.head.attributes.map(_.toList).getOrElse(Nil)
+        val merged = mergeAttributes(ymlSchema.attributes, xsdAttributes)
+        ymlSchema.copy(attributes = merged)
+    }
+  }
+
+  def mergeAttributes(ymlAttrs: List[Attribute], xsdAttrs: List[Attribute]): List[Attribute] = {
+    val ymlTopLevelAttr = Attribute("__dummy", "struct", attributes = Some(ymlAttrs))
+    val xsdTopLevelAttr = Attribute("__dummy", "struct", attributes = Some(xsdAttrs))
+
+    val merged = xsdTopLevelAttr.importAttr(ymlTopLevelAttr)
+    merged.attributes.getOrElse(Nil)
+  }
 }

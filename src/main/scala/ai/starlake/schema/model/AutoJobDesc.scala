@@ -61,7 +61,8 @@ case class AutoTaskDesc(
   sink: Option[Sink] = None,
   rls: Option[List[RowLevelSecurity]] = None,
   assertions: Option[Map[String, String]] = None,
-  engine: Option[Engine] = None
+  engine: Option[Engine] = None,
+  acl: Option[List[AccessControlEntry]] = None
 ) {
 
   @JsonIgnore

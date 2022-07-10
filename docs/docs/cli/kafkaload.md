@@ -42,13 +42,14 @@ Parameter|Cardinality|Description
 --path:`<value>`|*Required*|Source file for load and target file for store
 --mode:`<value>`|*Required*|When offload is true, describes how data should be stored on disk. Ignored if offload is false.
 --write-options:`<value>`|*Optional*|Options to pass to Spark Writer
+--options:`<value>`|*Optional*|Options to pass to Spark Reader
 --coalesce:`<value>`|*Optional*|Should we coalesce the resulting dataframe
 --transform:`<value>`|*Optional*|Any transformation to apply to message before loading / offloading it
 --offload:`<value>`|*Optional*|If true, kafka topic is offloaded to path, else data contained in path is stored in the kafka topic
---stream:`<value>`|*Optional*|Should we use streaming mode ?
 --streaming-format:`<value>`|*Optional*|Streaming format eq. kafka, console ...
 --streaming-output-mode:`<value>`|*Optional*|Output mode : eq. append ... 
 --streaming-trigger:`<value>`|*Optional*|Once / Continuous / ProcessingTime
 --streaming-trigger-option:`<value>`|*Optional*|10 seconds for example. see https://spark.apache.org/docs/latest/api/java/org/apache/spark/sql/streaming/Trigger.html#ProcessingTime-java.lang.String-
 --streaming-to-table:`<value>`|*Optional*|Table name to sink to
 --streaming-partition-by:`<value>`|*Optional*|List of columns to use for partitioning
+--stream:`<value>`|*Optional*|Should we use streaming mode ?

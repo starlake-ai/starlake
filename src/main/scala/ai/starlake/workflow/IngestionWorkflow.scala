@@ -593,7 +593,7 @@ class IngestionWorkflow(
     Utils.logFailure(result, logger)
   }
 
-  def buildTasks(jobName: String, jobOptions: Map[String, String]): Seq[AutoTaskJob] = {
+  def buildTasks(jobName: String, configOptions: Map[String, String]): Seq[AutoTaskJob] = {
     val job = schemaHandler.jobs(jobName)
     logger.info(job.toString)
     job.tasks.map { task =>
@@ -606,9 +606,34 @@ class IngestionWorkflow(
         Views(job.views.getOrElse(Map.empty)),
         job.getEngine(),
         task,
-        jobOptions
+        configOptions,
+        task.sink
       )(settings, storageHandler, schemaHandler)
     }
+  }
+
+  def compileAutoJob(config: TransformConfig): Seq[String] = {
+    val job = schemaHandler.jobs(config.name)
+    logger.info(job.toString)
+    val result = buildTasks(config.name, config.options).map { action =>
+      val engine = action.engine
+      logger.info(s"running with -> $engine engine")
+      engine match {
+        case BQ =>
+          val (preSQL, mainSQL, postSQL) = action.buildQueryBQ()
+          mainSQL
+        case SPARK =>
+          val (preSql, mainSQL, postSql) = action.buildQuerySpark()
+          mainSQL
+        case _ =>
+          logger.error("Should never happen")
+          s"Invalid Engine $engine"
+      }
+    }
+    result.foreach { sql =>
+      logger.info(s"""START COMPILE SQL $sql END COMPILE SQL""".stripMargin)
+    }
+    result
   }
 
   /** Successively run each task of a job
@@ -616,6 +641,7 @@ class IngestionWorkflow(
     * @param config
     *   : job name as defined in the YML file and sql parameters to pass to SQL statements.
     */
+  // scalastyle:off println
   def autoJob(config: TransformConfig): Boolean = {
     val job = schemaHandler.jobs(config.name)
     logger.info(job.toString)
@@ -638,17 +664,26 @@ class IngestionWorkflow(
           Utils.logFailure(result, logger)
           result.isSuccess
         case SPARK =>
-          action.runSpark() match {
-            case Success(SparkJobResult(maybeDataFrame)) =>
+          (action.runSpark(), config.query) match {
+            case (Success(SparkJobResult(None)), _) =>
+              true
+            case (Success(SparkJobResult(Some(dataFrame))), Some(_)) =>
+              println("""START QUERY SQL""")
+              dataFrame.show(false)
+              println("""END QUERY SQL""")
+              true
+            case (Success(SparkJobResult(maybeDataFrame)), None) =>
               val sinkOption = action.task.sink
               logger.info(s"Spark Job succeeded. sinking data to $sinkOption")
               sinkOption match {
                 case Some(sink) => {
-                  sink.getType() match {
-                    case SinkType.ES if settings.comet.elasticsearch.active =>
+                  sink match {
+                    case _: EsSink if settings.comet.elasticsearch.active =>
                       saveToES(action)
-                    case SinkType.BQ =>
-                      val bqSink = sink.asInstanceOf[BigQuerySink]
+                    case fsSink: FsSink if !settings.comet.sinkToFile =>
+                      maybeDataFrame.exists(dataframe => action.sinkToFS(dataframe, fsSink))
+
+                    case bqSink: BigQuerySink =>
                       val source = maybeDataFrame
                         .map(df => Right(setNullableStateOfColumn(df, nullable = true)))
                         .getOrElse(Left(action.task.getTargetPath(job.getArea()).toString))
@@ -669,13 +704,13 @@ class IngestionWorkflow(
                           days = bqSink.days,
                           requirePartitionFilter = bqSink.requirePartitionFilter.getOrElse(false),
                           rls = action.task.rls,
-                          options = bqSink.getOptions
+                          options = bqSink.getOptions,
+                          acl = action.task.acl
                         )
                       val result = new BigQuerySparkJob(config, None).run()
                       result.isSuccess
 
-                    case SinkType.JDBC =>
-                      val jdbcSink = sink.asInstanceOf[JdbcSink]
+                    case jdbcSink: JdbcSink =>
                       val partitions = jdbcSink.partitions.getOrElse(1)
                       val batchSize = jdbcSink.batchsize.getOrElse(1000)
                       val jdbcName = jdbcSink.connection
@@ -703,16 +738,21 @@ class IngestionWorkflow(
                         case Success(_) => true
                         case Failure(e) => logger.error("JDBCLoad Failed", e); false
                       }
+                    case _: NoneSink =>
+                      maybeDataFrame.foreach { dataframe =>
+                        dataframe.write.format("console").save()
+                      }
+                      true
                     case _ =>
-                      logger.warn("No supported Sink is activated for this job")
+                      logger.warn(s"No supported Sink is activated for this job $sink")
                       true
                   }
                 }
-                case _ =>
+                case None =>
                   logger.warn("Sink is not activated for this job")
                   true
               }
-            case Failure(exception) =>
+            case (Failure(exception), _) =>
               exception.printStackTrace()
               false
           }
