@@ -32,6 +32,6 @@ object Versions {
   val confluentVersion = "7.1.2"
   val testContainers = "0.40.8"
   val jsqlparser = "4.4"
-  val gcpDataCatalog = "1.8.4"
+  val gcpDataCatalog = "1.9.1"
   val silencerVersion = "1.7.9"
 }
