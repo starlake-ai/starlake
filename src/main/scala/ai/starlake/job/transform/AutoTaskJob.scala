@@ -143,14 +143,14 @@ case class AutoTaskJob(
     def bqNativeJob(sql: String) =
       new BigQueryNativeJob(config, if (sql.trim.startsWith("(")) sql else "(" + sql + ")", udf)
 
-    logger.info(s"running PreSQL BQ Query $preSql")
     val presqlResult: List[Try[JobResult]] =
       preSql.map { sql =>
+        logger.info(s"Running PreSQL BQ Query: $sql")
         bqNativeJob(sql).runInteractiveQuery()
       }
     presqlResult.foreach(Utils.logFailure(_, logger))
 
-    logger.info(s"running MainSQL BQ Query $mainSql")
+    logger.info(s"""START COMPILE SQL $mainSql END COMPILE SQL""")
     val jobResult: Try[JobResult] = interactive match {
       case None =>
         bqNativeJob(mainSql).run()
@@ -162,9 +162,10 @@ case class AutoTaskJob(
 
     // We execute the post statements even if the main statement failed
     // We may be doing some cleanup here.
-    logger.info(s"running PostSQL BQ Query $postSql")
+
     val postsqlResult: List[Try[JobResult]] =
       postSql.map { sql =>
+        logger.info(s"Running PostSQL BQ Query: $sql")
         bqNativeJob(sql).runInteractiveQuery()
       }
     postsqlResult.foreach(Utils.logFailure(_, logger))
@@ -306,7 +307,8 @@ case class AutoTaskJob(
       val (preSql, sqlWithParameters, postSql) = buildQuerySpark()
 
       preSql.foreach(req => session.sql(req))
-      logger.info(s"running sql request $sqlWithParameters using ${task.engine}")
+      logger.info(s"""START COMPILE SQL $sqlWithParameters END COMPILE SQL""")
+      logger.info(s"running sql request using ${task.engine}")
 
       val dataframe =
         task.engine.getOrElse(Engine.SPARK) match {

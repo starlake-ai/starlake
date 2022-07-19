@@ -1,6 +1,17 @@
 
 # Release notes
 
+# 0.3.21
+__New feature__:
+- Reduce assembly size
+- Update to sbt 1.7.1
+- Add interactive mode for transform with csv, json and table output formats
+- Improve FS Sink handling
+
+__Bug Fix__:
+- Support empty env files
+- 
+
 # 0.3.20
 __Bug Fix__:
 - Keep retrocompatibility with scala 2.11
