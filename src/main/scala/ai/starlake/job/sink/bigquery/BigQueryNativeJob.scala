@@ -18,7 +18,7 @@ case class BigQueryJobResult(tableResult: scala.Option[TableResult], totalBytesP
     extends JobResult {
 
   def show(format: String): Unit = {
-    println(s"Total Bytes Processed: $totalBytesProcessed")
+    println(s"Total Bytes Processed: $totalBytesProcessed bytes.")
     tableResult.foreach { rows =>
       val headers = rows.getSchema.getFields.iterator().asScala.toList.map(_.getName)
       val values =
