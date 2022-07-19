@@ -636,7 +636,7 @@ class IngestionWorkflow(
       }
     }
     result.foreach { sql =>
-      logger.info(s"""START COMPILE SQL $sql END COMPILE SQL""".stripMargin)
+      logger.info(s"""START COMPILE SQL $sql END COMPILE SQL""")
     }
     result
   }
@@ -654,6 +654,7 @@ class IngestionWorkflow(
       action =>
         val engine = action.engine
         logger.info(s"running with config $config")
+
         engine match {
           case BQ =>
             logger.info(s"Entering $engine engine")
@@ -672,7 +673,9 @@ class IngestionWorkflow(
               case Some(format) =>
                 result.map { result =>
                   val bqJobResult = result.asInstanceOf[BigQueryJobResult]
+                  logger.info("START INTERACTIVE SQL")
                   bqJobResult.show(format)
+                  logger.info("END INTERACTIVE SQL")
                 }
               // No sink on interactive queries. Results displayed in console output
             }
