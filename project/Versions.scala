@@ -18,7 +18,7 @@ object Versions {
   val pureConfig211ForSpark2 = "0.14.0"
   val pureConfig212ForSpark3 = "0.14.0"
   val esSpark211 = "7.17.5"
-  val esSpark212 = "8.2.3"
+  val esSpark212 = "8.3.2"
   val scopt = "4.1.0"
   val gcsConnector = "hadoop3-2.2.7"
   val bigquery = "2.13.8"
@@ -28,10 +28,10 @@ object Versions {
   val h2 = "2.1.214" // Test only
   val poi = "4.1.2"
   val scalate = "1.9.7"
-  val kafkaClients = "7.1.2-ce"
+  val kafkaClients = "7.2.0-ce"
   val confluentVersion = "7.1.2"
-  val testContainers = "0.40.8"
+  val testContainers = "0.40.9"
   val jsqlparser = "4.4"
-  val gcpDataCatalog = "1.8.4"
+  val gcpDataCatalog = "1.9.1"
   val silencerVersion = "1.7.9"
 }
