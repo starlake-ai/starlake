@@ -13,7 +13,7 @@ tags: [Spark, BigQuery, Dataproc, Google Cloud, ETL, Starlake]
 
 Data may be exposed using views or authorized views and more recently using Row / Column level security.
 
-Historically, to resrict access on specific columns or rows in in BigQuery, one can create a (authorized) view with a SQL request like the one below:
+Historically, to restrict access on specific columns or rows in BigQuery, one can create a (authorized) view with a SQL request like the one below:
 
 ![CLS / RLS using Views]( /img/blog/cls-rls-bigquery/cls-rls.png "CLS / RLS using Views")
 
@@ -27,19 +27,19 @@ loosing thus at the table level, the identity of the user making the request.
 
 
 2. Each restriction policy require to define a specific authorized view making it difficult to identify who has access to what ?
-![Multilication of Authorized Views]( /img/blog/cls-rls-bigquery/cls-rls-multiple-authorized.png "Multilication of Authorized Views")
+![Multiplication of Authorized Views]( /img/blog/cls-rls-bigquery/cls-rls-multiple-authorized.png "Multiplication of Authorized Views")
 
 
 3. Authorized views need to be updated whenever a schema evolution on the underlying table bring in a sensitive field that need to be excluded or a field that need to be included in the view.
 In the example below, the new column "description" need to be added to the authorized view if we want it .
-![Multilication of Authorized Views]( /img/blog/cls-rls-bigquery/cls-rls-schema-evolution.png "Multilication of Authorized Views")
+![Multiplication of Authorized Views]( /img/blog/cls-rls-bigquery/cls-rls-schema-evolution.png "Multiplication of Authorized Views")
 
 
 That's where Row Level Security and Column Level security features natively supported by BigQuery come in.
 
 ## BigQuery Row Level Security
 
-Row Level Security restrict access to rows based on conditions set in the where clause using the custom SQL statement below:
+Row Level Security restrict access to the rows based on the conditions set in the where clause using the custom SQL statement below:
 
 ![RLS]( /img/blog/cls-rls-bigquery/rls-syntax.png "RLS")
 
@@ -71,7 +71,7 @@ Assigning policy tags may be done using the `bq load/update` command line tool
 Using BigQuery row and column level security features bring several benefits:
 - There is no need to create extra views
 - Users use the same name for the table but with different access rights
-- A company wide taxonomy is defined allowing better Data Management
+- A company-wide taxonomy is defined allowing better Data Management
 - Access rights to a new column in the table are automatically handled
 
 ## A word about RLS and CLS in Starlake
