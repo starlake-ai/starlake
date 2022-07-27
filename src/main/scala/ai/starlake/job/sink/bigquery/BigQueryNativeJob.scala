@@ -1,18 +1,59 @@
 package ai.starlake.job.sink.bigquery
 
 import ai.starlake.config.Settings
-import ai.starlake.utils.{JobBase, JobResult, Utils}
+import ai.starlake.utils.{JobBase, JobResult, TableFormatter, Utils}
 import com.google.cloud.ServiceOptions
 import com.google.cloud.bigquery.JobInfo.{CreateDisposition, WriteDisposition}
+import com.google.cloud.bigquery.JobStatistics.QueryStatistics
 import com.google.cloud.bigquery.QueryJobConfiguration.Priority
 import com.google.cloud.bigquery._
+import com.google.gson.Gson
 import com.typesafe.scalalogging.StrictLogging
 
 import java.util.UUID
 import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try}
 
-case class BigQueryJobResult(tableResult: scala.Option[TableResult]) extends JobResult
+case class BigQueryJobResult(tableResult: scala.Option[TableResult], totalBytesProcessed: Long)
+    extends JobResult {
+
+  def show(format: String): Unit = {
+    println(s"Total Bytes Processed: $totalBytesProcessed bytes.")
+    tableResult.foreach { rows =>
+      val headers = rows.getSchema.getFields.iterator().asScala.toList.map(_.getName)
+      val values =
+        rows.getValues.iterator().asScala.toList.map { row =>
+          row
+            .iterator()
+            .asScala
+            .toList
+            .map(cell => scala.Option(cell.getValue()).getOrElse("null").toString)
+        }
+
+      format match {
+        case "csv" =>
+          (headers :: values).foreach { row =>
+            println(row.mkString(","))
+          }
+
+        case "table" =>
+          headers :: values match {
+            case Nil =>
+              println("Result is empty.")
+            case _ =>
+              println(TableFormatter.format(headers :: values))
+          }
+
+        case "json" =>
+          values.foreach { value =>
+            val map = headers.zip(value).toMap
+            val json = new Gson().toJson(map.asJava)
+            println(json)
+          }
+      }
+    }
+  }
+}
 
 class BigQueryNativeJob(
   override val cliConfig: BigQueryLoadConfig,
@@ -28,19 +69,29 @@ class BigQueryNativeJob(
 
   logger.info(s"BigQuery Config $cliConfig")
 
-  def runInteractiveQuery(): BigQueryJobResult = {
-    val queryConfig: QueryJobConfiguration.Builder =
-      QueryJobConfiguration
-        .newBuilder(sql)
-        .setAllowLargeResults(true)
-    logger.info(s"Running BQ Query $sql")
-    val queryConfigWithUDF = addUDFToQueryConfig(queryConfig)
-    val results =
-      BigQueryJobBase.bigquery.query(queryConfigWithUDF.setPriority(Priority.INTERACTIVE).build())
-    logger.info(
-      s"Query large results performed successfully: ${results.getTotalRows} rows inserted."
-    )
-    BigQueryJobResult(Some(results))
+  def runInteractiveQuery(): Try[JobResult] = {
+    Try {
+      val queryConfig: QueryJobConfiguration.Builder =
+        QueryJobConfiguration
+          .newBuilder(sql)
+          .setAllowLargeResults(true)
+      logger.info(s"Running interactive BQ Query $sql")
+      val queryConfigWithUDF = addUDFToQueryConfig(queryConfig)
+      val finalConfiguration = queryConfigWithUDF.setPriority(Priority.INTERACTIVE).build()
+
+      val queryJob = BigQueryJobBase.bigquery.create(JobInfo.of(finalConfiguration))
+      val totalBytesProcessed = queryJob
+        .getStatistics()
+        .asInstanceOf[QueryStatistics]
+        .getTotalBytesProcessed
+
+      val results = queryJob.getQueryResults()
+      logger.info(
+        s"Query large results performed successfully: ${results.getTotalRows} rows returned."
+      )
+
+      BigQueryJobResult(Some(results), totalBytesProcessed)
+    }
   }
 
   private def addUDFToQueryConfig(
@@ -95,8 +146,14 @@ class BigQueryNativeJob(
       logger.info("Add user defined functions")
       val queryConfigWithUDF = addUDFToQueryConfig(queryConfigWithClustering)
       logger.info(s"Executing BQ Query $sql")
-      val results =
-        BigQueryJobBase.bigquery.query(queryConfigWithUDF.setDestinationTable(tableId).build())
+      val finalConfiguration = queryConfigWithUDF.setDestinationTable(tableId).build()
+      val jobInfo = BigQueryJobBase.bigquery.create(JobInfo.of(finalConfiguration))
+      val totalBytesProcessed = jobInfo
+        .getStatistics()
+        .asInstanceOf[QueryStatistics]
+        .getTotalBytesProcessed
+
+      val results = jobInfo.getQueryResults()
       logger.info(
         s"Query large results performed successfully: ${results.getTotalRows} rows inserted."
       )
@@ -106,7 +163,7 @@ class BigQueryNativeJob(
         throw new Exception(e)
       }
 
-      BigQueryJobResult(Some(results))
+      BigQueryJobResult(Some(results), totalBytesProcessed)
     }
   }
 

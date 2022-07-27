@@ -7,7 +7,7 @@ case class TransformConfig(
   name: String = "",
   options: Map[String, String] = Map.empty,
   compile: Boolean = false,
-  query: Option[String] = None,
+  interactive: Option[String] = None,
   noSink: Boolean = false,
   viewsDir: Option[String] = None,
   viewsCount: Int = 1000
@@ -30,8 +30,8 @@ object TransformConfig extends CliConfig[TransformConfig] {
         .action((x, c) => c.copy(compile = true))
         .optional()
         .text("Return final query only"),
-      opt[String]("query")
-        .action((x, c) => c.copy(query = Some(x)))
+      opt[String]("interactive")
+        .action((x, c) => c.copy(interactive = Some(x)))
         .optional()
         .text("Run query without "),
       opt[String]("no-sink")

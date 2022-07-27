@@ -58,7 +58,8 @@ case class AutoTaskJob(
   engine: Engine,
   task: AutoTaskDesc,
   sqlParameters: Map[String, String],
-  sink: Option[Sink]
+  sink: Option[Sink],
+  interactive: Option[String]
 )(implicit val settings: Settings, storageHandler: StorageHandler, schemaHandler: SchemaHandler)
     extends SparkJob {
 
@@ -71,7 +72,6 @@ case class AutoTaskJob(
 
   private def createBigQueryConfig(): BigQueryLoadConfig = {
     val bqSink = task.sink.map(sink => sink.asInstanceOf[BigQuerySink]).getOrElse(BigQuerySink())
-
     BigQueryLoadConfig(
       outputTable = task.table,
       outputDataset = task.domain,
@@ -143,30 +143,35 @@ case class AutoTaskJob(
     def bqNativeJob(sql: String) =
       new BigQueryNativeJob(config, if (sql.trim.startsWith("(")) sql else "(" + sql + ")", udf)
 
-    logger.info(s"running PreSQL BQ Query $preSql")
-    val presqlResult: Try[Iterable[BigQueryJobResult]] = Try {
+    val presqlResult: List[Try[JobResult]] =
       preSql.map { sql =>
+        logger.info(s"Running PreSQL BQ Query: $sql")
         bqNativeJob(sql).runInteractiveQuery()
       }
-    }
-    Utils.logFailure(presqlResult, logger)
+    presqlResult.foreach(Utils.logFailure(_, logger))
 
-    logger.info(s"running MainSQL BQ Query $mainSql")
-    val jobResult: Try[JobResult] = bqNativeJob(mainSql).run()
+    logger.info(s"""START COMPILE SQL $mainSql END COMPILE SQL""")
+    val jobResult: Try[JobResult] = interactive match {
+      case None =>
+        bqNativeJob(mainSql).run()
+      case Some(_) =>
+        bqNativeJob(mainSql).runInteractiveQuery()
+    }
+
     Utils.logFailure(jobResult, logger)
 
     // We execute the post statements even if the main statement failed
     // We may be doing some cleanup here.
-    logger.info(s"running PostSQL BQ Query $postSql")
-    val postsqlResult: Try[Iterable[BigQueryJobResult]] = Try {
+
+    val postsqlResult: List[Try[JobResult]] =
       postSql.map { sql =>
+        logger.info(s"Running PostSQL BQ Query: $sql")
         bqNativeJob(sql).runInteractiveQuery()
       }
-    }
-    Utils.logFailure(postsqlResult, logger)
+    postsqlResult.foreach(Utils.logFailure(_, logger))
 
     val errors =
-      Iterable(presqlResult, jobResult, postsqlResult).map(_.failed).collect { case Success(e) =>
+      (presqlResult ++ List(jobResult) ++ postsqlResult).map(_.failed).collect { case Success(e) =>
         e
       }
     errors match {
@@ -190,13 +195,17 @@ case class AutoTaskJob(
               sql =>
                 bqNativeJob(sql.richFormat(schemaHandler.activeEnv, sqlParameters))
                   .runInteractiveQuery()
-                  .tableResult
-                  .map(_.getTotalRows)
-                  .getOrElse(0)
+                  .map { result =>
+                    val bqResult = result.asInstanceOf[BigQueryJobResult]
+                    bqResult.tableResult
+                      .map(_.getTotalRows)
+                      .getOrElse(0L)
+                  }
+                  .getOrElse(0L)
             ).run()
           }
         }
-        Success(BigQueryJobResult(None))
+        jobResult
       case _ =>
         val err = errors.reduce(_.initCause(_))
         val end = Timestamp.from(Instant.now())
@@ -298,7 +307,8 @@ case class AutoTaskJob(
       val (preSql, sqlWithParameters, postSql) = buildQuerySpark()
 
       preSql.foreach(req => session.sql(req))
-      logger.info(s"running sql request $sqlWithParameters using ${task.engine}")
+      logger.info(s"""START COMPILE SQL $sqlWithParameters END COMPILE SQL""")
+      logger.info(s"running sql request using ${task.engine}")
 
       val dataframe =
         task.engine.getOrElse(Engine.SPARK) match {
