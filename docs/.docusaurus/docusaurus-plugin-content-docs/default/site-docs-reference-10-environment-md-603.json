@@ -1,0 +1,27 @@
+{
+  "unversionedId": "reference/environment",
+  "id": "reference/environment",
+  "title": "Environment",
+  "description": "Env specific variables",
+  "source": "@site/docs/reference/10.environment.md",
+  "sourceDirName": "reference",
+  "slug": "/reference/environment",
+  "permalink": "/docs/reference/environment",
+  "draft": false,
+  "editUrl": "https://github.com/starlake-ai/starlake/edit/master/docs/docs/reference/10.environment.md",
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 10,
+  "frontMatter": {
+    "sidebar_position": 10
+  },
+  "sidebar": "starlakeSidebar",
+  "previous": {
+    "title": "Configuration",
+    "permalink": "/docs/reference/configuration"
+  },
+  "next": {
+    "title": "Extract",
+    "permalink": "/docs/reference/extract"
+  }
+}

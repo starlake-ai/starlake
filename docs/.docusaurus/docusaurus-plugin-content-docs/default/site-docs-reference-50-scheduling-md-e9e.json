@@ -1,0 +1,28 @@
+{
+  "unversionedId": "reference/scheduling",
+  "id": "reference/scheduling",
+  "title": "Scheduling",
+  "description": "Scheduling Spark jobs using the native job schedulers such as Airflow fits the following cases:",
+  "source": "@site/docs/reference/50.scheduling.md",
+  "sourceDirName": "reference",
+  "slug": "/reference/scheduling",
+  "permalink": "/docs/reference/scheduling",
+  "draft": false,
+  "editUrl": "https://github.com/starlake-ai/starlake/edit/master/docs/docs/reference/50.scheduling.md",
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 50,
+  "frontMatter": {
+    "sidebar_position": 50,
+    "title": "Scheduling"
+  },
+  "sidebar": "starlakeSidebar",
+  "previous": {
+    "title": "Extract",
+    "permalink": "/docs/reference/examples"
+  },
+  "next": {
+    "title": "Amazon Web Services EMR",
+    "permalink": "/docs/platform/aws"
+  }
+}

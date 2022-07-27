@@ -1,0 +1,28 @@
+{
+  "unversionedId": "cli/watch",
+  "id": "cli/watch",
+  "title": "watch",
+  "description": "Synopsis",
+  "source": "@site/docs/cli/watch.md",
+  "sourceDirName": "cli",
+  "slug": "/cli/watch",
+  "permalink": "/docs/cli/watch",
+  "draft": false,
+  "editUrl": "https://github.com/starlake-ai/starlake/edit/master/docs/docs/cli/watch.md",
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 130,
+  "frontMatter": {
+    "sidebar_position": 130,
+    "title": "watch"
+  },
+  "sidebar": "starlakeSidebar",
+  "previous": {
+    "title": "transform | job",
+    "permalink": "/docs/cli/transform"
+  },
+  "next": {
+    "title": "kafkaload",
+    "permalink": "/docs/cli/kafkaload"
+  }
+}

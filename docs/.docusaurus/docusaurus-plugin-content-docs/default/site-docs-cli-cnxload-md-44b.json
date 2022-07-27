@@ -1,0 +1,28 @@
+{
+  "unversionedId": "cli/cnxload",
+  "id": "cli/cnxload",
+  "title": "cnxload",
+  "description": "Synopsis",
+  "source": "@site/docs/cli/cnxload.md",
+  "sourceDirName": "cli",
+  "slug": "/cli/cnxload",
+  "permalink": "/docs/cli/cnxload",
+  "draft": false,
+  "editUrl": "https://github.com/starlake-ai/starlake/edit/master/docs/docs/cli/cnxload.md",
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 80,
+  "frontMatter": {
+    "sidebar_position": 80,
+    "title": "cnxload"
+  },
+  "sidebar": "starlakeSidebar",
+  "previous": {
+    "title": "parquet2csv",
+    "permalink": "/docs/cli/parquet2csv"
+  },
+  "next": {
+    "title": "xls2yml",
+    "permalink": "/docs/cli/xls2yml"
+  }
+}

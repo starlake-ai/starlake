@@ -31,7 +31,7 @@ export default function Home() {
     <Layout
       title={`${siteConfig.title}`}
       description="Big & Fast Data Integration">
-      <HomepageHeader />
+       <HomepageHeader />
       <main>
         <HomepageFeatures />
       </main>

@@ -1,0 +1,23 @@
+{
+  "unversionedId": "intro",
+  "id": "intro",
+  "title": "What is Starlake ?",
+  "description": "The purpose of this project is to efficiently ingest various data",
+  "source": "@site/docs/intro.md",
+  "sourceDirName": ".",
+  "slug": "/intro",
+  "permalink": "/docs/intro",
+  "draft": false,
+  "editUrl": "https://github.com/starlake-ai/starlake/edit/master/docs/docs/intro.md",
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 1,
+  "frontMatter": {
+    "sidebar_position": 1
+  },
+  "sidebar": "starlakeSidebar",
+  "next": {
+    "title": "Quick Start",
+    "permalink": "/docs/userguide/quickstart"
+  }
+}

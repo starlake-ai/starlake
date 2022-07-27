@@ -1,0 +1,28 @@
+{
+  "unversionedId": "platform/hadoop",
+  "id": "platform/hadoop",
+  "title": "On Premise Hadoop Cluster",
+  "description": "Running on Hadoop is similar to running on a local filesystem, we just need to set the correct filesystem",
+  "source": "@site/docs/platform/hadoop.mdx",
+  "sourceDirName": "platform",
+  "slug": "/platform/hadoop",
+  "permalink": "/docs/platform/hadoop",
+  "draft": false,
+  "editUrl": "https://github.com/starlake-ai/starlake/edit/master/docs/docs/platform/hadoop.mdx",
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 6,
+  "frontMatter": {
+    "sidebar_position": 6,
+    "title": "On Premise Hadoop Cluster"
+  },
+  "sidebar": "starlakeSidebar",
+  "previous": {
+    "title": "Local filesystem",
+    "permalink": "/docs/platform/file"
+  },
+  "next": {
+    "title": "import",
+    "permalink": "/docs/cli/import"
+  }
+}

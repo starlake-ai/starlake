@@ -1,0 +1,28 @@
+{
+  "unversionedId": "platform/gcp",
+  "id": "platform/gcp",
+  "title": "Google Cloud Dataproc",
+  "description": "Two options are available when running on Google Cloud:",
+  "source": "@site/docs/platform/gcp.md",
+  "sourceDirName": "platform",
+  "slug": "/platform/gcp",
+  "permalink": "/docs/platform/gcp",
+  "draft": false,
+  "editUrl": "https://github.com/starlake-ai/starlake/edit/master/docs/docs/platform/gcp.md",
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 4,
+  "frontMatter": {
+    "sidebar_position": 4,
+    "title": "Google Cloud Dataproc"
+  },
+  "sidebar": "starlakeSidebar",
+  "previous": {
+    "title": "Databricks on any cloud",
+    "permalink": "/docs/platform/databricks"
+  },
+  "next": {
+    "title": "Local filesystem",
+    "permalink": "/docs/platform/file"
+  }
+}

@@ -1,0 +1,69 @@
+{
+  "permalink": "/blog/spark-big-query-partitioning",
+  "editUrl": "https://github.com/starlake-ai/starlake/edit/master/docs/blog/2021-12-15-spark-big-query-partitioning.mdx",
+  "source": "@site/blog/2021-12-15-spark-big-query-partitioning.mdx",
+  "title": "Handling Dynamic Partitioning and Merge with Spark on BigQuery",
+  "description": "Data Loading strategies",
+  "date": "2021-12-15T00:00:00.000Z",
+  "formattedDate": "December 15, 2021",
+  "tags": [
+    {
+      "label": "Spark",
+      "permalink": "/blog/tags/spark"
+    },
+    {
+      "label": "BigQuery",
+      "permalink": "/blog/tags/big-query"
+    },
+    {
+      "label": "Dataproc",
+      "permalink": "/blog/tags/dataproc"
+    },
+    {
+      "label": "Google Cloud",
+      "permalink": "/blog/tags/google-cloud"
+    },
+    {
+      "label": "ETL",
+      "permalink": "/blog/tags/etl"
+    },
+    {
+      "label": "Starlake",
+      "permalink": "/blog/tags/starlake"
+    }
+  ],
+  "readingTime": 6.735,
+  "truncated": false,
+  "authors": [
+    {
+      "name": "Hayssam Saleh",
+      "title": "Starlake Core Team Member",
+      "url": "https://www.linkedin.com/in/hayssams/",
+      "imageURL": "https://s.gravatar.com/avatar/04aa2a859a66b52787bcba8c36beba8c.png"
+    }
+  ],
+  "frontMatter": {
+    "slug": "spark-big-query-partitioning",
+    "title": "Handling Dynamic Partitioning and Merge with Spark on BigQuery",
+    "author": "Hayssam Saleh",
+    "author_title": "Starlake Core Team Member",
+    "author_url": "https://www.linkedin.com/in/hayssams/",
+    "author_image_url": "https://s.gravatar.com/avatar/04aa2a859a66b52787bcba8c36beba8c.png",
+    "tags": [
+      "Spark",
+      "BigQuery",
+      "Dataproc",
+      "Google Cloud",
+      "ETL",
+      "Starlake"
+    ]
+  },
+  "prevItem": {
+    "title": "Column  and Row Level Security in BigQuery",
+    "permalink": "/blog/rls-cls-big-query"
+  },
+  "nextItem": {
+    "title": "Bonjour",
+    "permalink": "/blog/bonjour"
+  }
+}

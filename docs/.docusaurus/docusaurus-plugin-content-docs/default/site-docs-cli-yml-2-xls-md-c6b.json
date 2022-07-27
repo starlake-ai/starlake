@@ -1,0 +1,28 @@
+{
+  "unversionedId": "cli/yml2xls",
+  "id": "cli/yml2xls",
+  "title": "yml2xls",
+  "description": "Synopsis",
+  "source": "@site/docs/cli/yml2xls.md",
+  "sourceDirName": "cli",
+  "slug": "/cli/yml2xls",
+  "permalink": "/docs/cli/yml2xls",
+  "draft": false,
+  "editUrl": "https://github.com/starlake-ai/starlake/edit/master/docs/docs/cli/yml2xls.md",
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 150,
+  "frontMatter": {
+    "sidebar_position": 150,
+    "title": "yml2xls"
+  },
+  "sidebar": "starlakeSidebar",
+  "previous": {
+    "title": "kafkaload",
+    "permalink": "/docs/cli/kafkaload"
+  },
+  "next": {
+    "title": "yml2gv",
+    "permalink": "/docs/cli/yml2gv"
+  }
+}

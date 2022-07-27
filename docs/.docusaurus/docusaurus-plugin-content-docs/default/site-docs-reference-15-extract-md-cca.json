@@ -1,0 +1,27 @@
+{
+  "unversionedId": "reference/extract",
+  "id": "reference/extract",
+  "title": "Extract",
+  "description": "Configuration",
+  "source": "@site/docs/reference/15.extract.md",
+  "sourceDirName": "reference",
+  "slug": "/reference/extract",
+  "permalink": "/docs/reference/extract",
+  "draft": false,
+  "editUrl": "https://github.com/starlake-ai/starlake/edit/master/docs/docs/reference/15.extract.md",
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 10,
+  "frontMatter": {
+    "sidebar_position": 10
+  },
+  "sidebar": "starlakeSidebar",
+  "previous": {
+    "title": "Environment",
+    "permalink": "/docs/reference/environment"
+  },
+  "next": {
+    "title": "Load",
+    "permalink": "/docs/reference/load"
+  }
+}

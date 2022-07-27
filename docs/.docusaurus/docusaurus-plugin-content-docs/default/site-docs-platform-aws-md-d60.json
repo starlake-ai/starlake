@@ -1,0 +1,28 @@
+{
+  "unversionedId": "platform/aws",
+  "id": "platform/aws",
+  "title": "Amazon Web Services EMR",
+  "description": "",
+  "source": "@site/docs/platform/aws.md",
+  "sourceDirName": "platform",
+  "slug": "/platform/aws",
+  "permalink": "/docs/platform/aws",
+  "draft": false,
+  "editUrl": "https://github.com/starlake-ai/starlake/edit/master/docs/docs/platform/aws.md",
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 1,
+  "frontMatter": {
+    "sidebar_position": 1,
+    "title": "Amazon Web Services EMR"
+  },
+  "sidebar": "starlakeSidebar",
+  "previous": {
+    "title": "Scheduling",
+    "permalink": "/docs/reference/scheduling"
+  },
+  "next": {
+    "title": "Azure Synapse Spark Pools",
+    "permalink": "/docs/platform/azure"
+  }
+}

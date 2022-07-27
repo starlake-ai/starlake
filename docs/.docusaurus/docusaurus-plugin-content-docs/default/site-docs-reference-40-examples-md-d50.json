@@ -1,0 +1,28 @@
+{
+  "unversionedId": "reference/examples",
+  "id": "reference/examples",
+  "title": "Extract",
+  "description": "Extract",
+  "source": "@site/docs/reference/40.examples.md",
+  "sourceDirName": "reference",
+  "slug": "/reference/examples",
+  "permalink": "/docs/reference/examples",
+  "draft": false,
+  "editUrl": "https://github.com/starlake-ai/starlake/edit/master/docs/docs/reference/40.examples.md",
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 40,
+  "frontMatter": {
+    "sidebar_position": 40,
+    "title": "Extract"
+  },
+  "sidebar": "starlakeSidebar",
+  "previous": {
+    "title": "Transform",
+    "permalink": "/docs/reference/transform"
+  },
+  "next": {
+    "title": "Scheduling",
+    "permalink": "/docs/reference/scheduling"
+  }
+}

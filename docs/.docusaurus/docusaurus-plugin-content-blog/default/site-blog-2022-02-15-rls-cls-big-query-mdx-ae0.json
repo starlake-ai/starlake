@@ -1,0 +1,65 @@
+{
+  "permalink": "/blog/rls-cls-big-query",
+  "editUrl": "https://github.com/starlake-ai/starlake/edit/master/docs/blog/2022-02-15-rls-cls-big-query.mdx",
+  "source": "@site/blog/2022-02-15-rls-cls-big-query.mdx",
+  "title": "Column  and Row Level Security in BigQuery",
+  "description": "Data exposition strategies",
+  "date": "2022-02-15T00:00:00.000Z",
+  "formattedDate": "February 15, 2022",
+  "tags": [
+    {
+      "label": "Spark",
+      "permalink": "/blog/tags/spark"
+    },
+    {
+      "label": "BigQuery",
+      "permalink": "/blog/tags/big-query"
+    },
+    {
+      "label": "Dataproc",
+      "permalink": "/blog/tags/dataproc"
+    },
+    {
+      "label": "Google Cloud",
+      "permalink": "/blog/tags/google-cloud"
+    },
+    {
+      "label": "ETL",
+      "permalink": "/blog/tags/etl"
+    },
+    {
+      "label": "Starlake",
+      "permalink": "/blog/tags/starlake"
+    }
+  ],
+  "readingTime": 2.855,
+  "truncated": false,
+  "authors": [
+    {
+      "name": "Hayssam Saleh",
+      "title": "Starlake Core Team Member",
+      "url": "https://www.linkedin.com/in/hayssams/",
+      "imageURL": "https://s.gravatar.com/avatar/04aa2a859a66b52787bcba8c36beba8c.png"
+    }
+  ],
+  "frontMatter": {
+    "slug": "rls-cls-big-query",
+    "title": "Column  and Row Level Security in BigQuery",
+    "author": "Hayssam Saleh",
+    "author_title": "Starlake Core Team Member",
+    "author_url": "https://www.linkedin.com/in/hayssams/",
+    "author_image_url": "https://s.gravatar.com/avatar/04aa2a859a66b52787bcba8c36beba8c.png",
+    "tags": [
+      "Spark",
+      "BigQuery",
+      "Dataproc",
+      "Google Cloud",
+      "ETL",
+      "Starlake"
+    ]
+  },
+  "nextItem": {
+    "title": "Handling Dynamic Partitioning and Merge with Spark on BigQuery",
+    "permalink": "/blog/spark-big-query-partitioning"
+  }
+}

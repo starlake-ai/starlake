@@ -1,0 +1,28 @@
+{
+  "unversionedId": "cli/kafkaload",
+  "id": "cli/kafkaload",
+  "title": "kafkaload",
+  "description": "Synopsis",
+  "source": "@site/docs/cli/kafkaload.md",
+  "sourceDirName": "cli",
+  "slug": "/cli/kafkaload",
+  "permalink": "/docs/cli/kafkaload",
+  "draft": false,
+  "editUrl": "https://github.com/starlake-ai/starlake/edit/master/docs/docs/cli/kafkaload.md",
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 140,
+  "frontMatter": {
+    "sidebar_position": 140,
+    "title": "kafkaload"
+  },
+  "sidebar": "starlakeSidebar",
+  "previous": {
+    "title": "watch",
+    "permalink": "/docs/cli/watch"
+  },
+  "next": {
+    "title": "yml2xls",
+    "permalink": "/docs/cli/yml2xls"
+  }
+}

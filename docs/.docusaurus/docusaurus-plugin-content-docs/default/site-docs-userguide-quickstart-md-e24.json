@@ -1,0 +1,27 @@
+{
+  "unversionedId": "userguide/quickstart",
+  "id": "userguide/quickstart",
+  "title": "Quick Start",
+  "description": "This quickstart is based on the example available in the sample directory.",
+  "source": "@site/docs/userguide/quickstart.md",
+  "sourceDirName": "userguide",
+  "slug": "/userguide/quickstart",
+  "permalink": "/docs/userguide/quickstart",
+  "draft": false,
+  "editUrl": "https://github.com/starlake-ai/starlake/edit/master/docs/docs/userguide/quickstart.md",
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 1,
+  "frontMatter": {
+    "sidebar_position": 1
+  },
+  "sidebar": "starlakeSidebar",
+  "previous": {
+    "title": "What is Starlake ?",
+    "permalink": "/docs/intro"
+  },
+  "next": {
+    "title": "Load",
+    "permalink": "/docs/userguide/load"
+  }
+}

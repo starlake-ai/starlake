@@ -1,0 +1,28 @@
+{
+  "unversionedId": "platform/databricks",
+  "id": "platform/databricks",
+  "title": "Databricks on any cloud",
+  "description": "Cluster Setup",
+  "source": "@site/docs/platform/databricks.md",
+  "sourceDirName": "platform",
+  "slug": "/platform/databricks",
+  "permalink": "/docs/platform/databricks",
+  "draft": false,
+  "editUrl": "https://github.com/starlake-ai/starlake/edit/master/docs/docs/platform/databricks.md",
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 3,
+  "frontMatter": {
+    "sidebar_position": 3,
+    "title": "Databricks on any cloud"
+  },
+  "sidebar": "starlakeSidebar",
+  "previous": {
+    "title": "Azure Synapse Spark Pools",
+    "permalink": "/docs/platform/azure"
+  },
+  "next": {
+    "title": "Google Cloud Dataproc",
+    "permalink": "/docs/platform/gcp"
+  }
+}

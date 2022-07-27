@@ -1,0 +1,28 @@
+{
+  "unversionedId": "cli/yml2gv",
+  "id": "cli/yml2gv",
+  "title": "yml2gv",
+  "description": "Synopsis",
+  "source": "@site/docs/cli/yml2gv.md",
+  "sourceDirName": "cli",
+  "slug": "/cli/yml2gv",
+  "permalink": "/docs/cli/yml2gv",
+  "draft": false,
+  "editUrl": "https://github.com/starlake-ai/starlake/edit/master/docs/docs/cli/yml2gv.md",
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 160,
+  "frontMatter": {
+    "sidebar_position": 160,
+    "title": "yml2gv"
+  },
+  "sidebar": "starlakeSidebar",
+  "previous": {
+    "title": "yml2xls",
+    "permalink": "/docs/cli/yml2xls"
+  },
+  "next": {
+    "title": "How to contribute",
+    "permalink": "/docs/devguide/contribute"
+  }
+}
