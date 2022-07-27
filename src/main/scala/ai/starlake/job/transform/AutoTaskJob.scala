@@ -30,7 +30,7 @@ import ai.starlake.schema.model._
 import ai.starlake.utils.Formatter._
 import ai.starlake.utils._
 import org.apache.hadoop.fs.Path
-import org.apache.spark.sql.{DataFrame, SaveMode}
+import org.apache.spark.sql.SaveMode
 
 import java.sql.Timestamp
 import java.time.{Instant, LocalDateTime}
@@ -57,9 +57,7 @@ case class AutoTaskJob(
   views: Views,
   engine: Engine,
   task: AutoTaskDesc,
-  sqlParameters: Map[String, String],
-  sink: Option[Sink],
-  interactive: Option[String]
+  sqlParameters: Map[String, String]
 )(implicit val settings: Settings, storageHandler: StorageHandler, schemaHandler: SchemaHandler)
     extends SparkJob {
 
@@ -72,6 +70,7 @@ case class AutoTaskJob(
 
   private def createBigQueryConfig(): BigQueryLoadConfig = {
     val bqSink = task.sink.map(sink => sink.asInstanceOf[BigQuerySink]).getOrElse(BigQuerySink())
+
     BigQueryLoadConfig(
       outputTable = task.table,
       outputDataset = task.domain,
@@ -143,35 +142,30 @@ case class AutoTaskJob(
     def bqNativeJob(sql: String) =
       new BigQueryNativeJob(config, if (sql.trim.startsWith("(")) sql else "(" + sql + ")", udf)
 
-    val presqlResult: List[Try[JobResult]] =
+    logger.info(s"running PreSQL BQ Query $preSql")
+    val presqlResult: Try[Iterable[BigQueryJobResult]] = Try {
       preSql.map { sql =>
-        logger.info(s"Running PreSQL BQ Query: $sql")
         bqNativeJob(sql).runInteractiveQuery()
       }
-    presqlResult.foreach(Utils.logFailure(_, logger))
-
-    logger.info(s"""START COMPILE SQL $mainSql END COMPILE SQL""")
-    val jobResult: Try[JobResult] = interactive match {
-      case None =>
-        bqNativeJob(mainSql).run()
-      case Some(_) =>
-        bqNativeJob(mainSql).runInteractiveQuery()
     }
+    Utils.logFailure(presqlResult, logger)
 
+    logger.info(s"running MainSQL BQ Query $mainSql")
+    val jobResult: Try[JobResult] = bqNativeJob(mainSql).run()
     Utils.logFailure(jobResult, logger)
 
     // We execute the post statements even if the main statement failed
     // We may be doing some cleanup here.
-
-    val postsqlResult: List[Try[JobResult]] =
+    logger.info(s"running PostSQL BQ Query $postSql")
+    val postsqlResult: Try[Iterable[BigQueryJobResult]] = Try {
       postSql.map { sql =>
-        logger.info(s"Running PostSQL BQ Query: $sql")
         bqNativeJob(sql).runInteractiveQuery()
       }
-    postsqlResult.foreach(Utils.logFailure(_, logger))
+    }
+    Utils.logFailure(postsqlResult, logger)
 
     val errors =
-      (presqlResult ++ List(jobResult) ++ postsqlResult).map(_.failed).collect { case Success(e) =>
+      Iterable(presqlResult, jobResult, postsqlResult).map(_.failed).collect { case Success(e) =>
         e
       }
     errors match {
@@ -195,17 +189,13 @@ case class AutoTaskJob(
               sql =>
                 bqNativeJob(sql.richFormat(schemaHandler.activeEnv, sqlParameters))
                   .runInteractiveQuery()
-                  .map { result =>
-                    val bqResult = result.asInstanceOf[BigQueryJobResult]
-                    bqResult.tableResult
-                      .map(_.getTotalRows)
-                      .getOrElse(0L)
-                  }
-                  .getOrElse(0L)
+                  .tableResult
+                  .map(_.getTotalRows)
+                  .getOrElse(0)
             ).run()
           }
         }
-        jobResult
+        Success(BigQueryJobResult(None))
       case _ =>
         val err = errors.reduce(_.initCause(_))
         val end = Timestamp.from(Instant.now())
@@ -225,77 +215,6 @@ case class AutoTaskJob(
     (preSql, sql, postSql)
   }
 
-  def sinkToFS(dataframe: DataFrame, sink: FsSink): Boolean = {
-    val targetPath = task.getTargetPath(defaultArea)
-    logger.info(s"About to write resulting dataset to $targetPath")
-    // Target Path exist only if a storage area has been defined at task or job level
-    // To execute a task without writing to disk simply avoid the area at the job and task level
-
-    val sinkPartition =
-      sink.partition.getOrElse(Partition(sampling = None, attributes = task.partition))
-
-    val sinkPartitionSampling = sinkPartition.sampling.getOrElse(0.0)
-    val nbPartitions = sinkPartitionSampling match {
-      case 0.0 =>
-        dataframe.rdd.getNumPartitions
-      case count if count >= 1.0 =>
-        count.toInt
-      case count =>
-        throw new Exception(s"Invalid partition value $count in Sink $sink")
-    }
-
-    val partitionedDF =
-      if (coalesce)
-        dataframe.repartition(1)
-      else if (sinkPartitionSampling == 0)
-        dataframe
-      else
-        dataframe.repartition(nbPartitions)
-
-    val partitionedDFWriter =
-      partitionedDatasetWriter(
-        partitionedDF,
-        sinkPartition.attributes.getOrElse(Nil)
-      )
-
-    val clusteredDFWriter = sink.clustering match {
-      case None          => partitionedDFWriter
-      case Some(columns) => partitionedDFWriter.sortBy(columns.head, columns.tail: _*)
-    }
-
-    val finalDataset = clusteredDFWriter
-      .mode(task.write.toSaveMode)
-      .format(sink.format.getOrElse(format.getOrElse(settings.comet.defaultFormat)))
-      .options(sink.getOptions)
-      .option("path", targetPath.toString)
-      .options(sink.getOptions)
-
-    if (settings.comet.hive) {
-      val tableName = task.table
-      val hiveDB = task.getHiveDB(defaultArea)
-      val fullTableName = s"$hiveDB.$tableName"
-      session.sql(s"create database if not exists $hiveDB")
-      session.sql(s"use $hiveDB")
-      if (task.write.toSaveMode == SaveMode.Overwrite)
-        session.sql(s"drop table if exists $tableName")
-      finalDataset.saveAsTable(fullTableName)
-      analyze(fullTableName)
-    } else {
-      // TODO Handle SinkType.FS and SinkType to Hive in Sink section in the caller
-
-      finalDataset.save()
-      if (coalesce) {
-        val extension = sink.format.getOrElse(format.getOrElse(settings.comet.defaultFormat))
-        val csvPath = storageHandler
-          .list(targetPath, s".$extension", LocalDateTime.MIN, recursive = false)
-          .head
-        val finalPath = new Path(targetPath, targetPath.getName + s".$extension")
-        storageHandler.move(csvPath, finalPath)
-      }
-    }
-    true
-  }
-
   def runSpark(): Try[SparkJobResult] = {
     val start = Timestamp.from(Instant.now())
     val res = Try {
@@ -307,8 +226,7 @@ case class AutoTaskJob(
       val (preSql, sqlWithParameters, postSql) = buildQuerySpark()
 
       preSql.foreach(req => session.sql(req))
-      logger.info(s"""START COMPILE SQL $sqlWithParameters END COMPILE SQL""")
-      logger.info(s"running sql request using ${task.engine}")
+      logger.info(s"running sql request $sqlWithParameters using ${task.engine}")
 
       val dataframe =
         task.engine.getOrElse(Engine.SPARK) match {
@@ -324,9 +242,43 @@ case class AutoTaskJob(
           case _ => throw new Exception("should never happen")
         }
 
-      if (settings.comet.hive || settings.comet.sinkToFile)
-        sinkToFS(dataframe, FsSink())
+      val targetPath = task.getTargetPath(defaultArea)
+      logger.info(s"About to write resulting dataset to $targetPath")
+      // Target Path exist only if a storage area has been defined at task or job level
+      // To execute a task without writing to disk simply avoid the area at the job and task level
+      val partitionedDF =
+        partitionedDatasetWriter(
+          if (coalesce) dataframe.repartition(1) else dataframe,
+          task.getPartitions()
+        )
 
+      val finalDataset = partitionedDF
+        .mode(task.write.toSaveMode)
+        .format(format.getOrElse(settings.comet.defaultFormat))
+        .option("path", targetPath.toString)
+
+      if (settings.comet.hive) {
+        val tableName = task.table
+        val hiveDB = task.getHiveDB(defaultArea)
+        val fullTableName = s"$hiveDB.$tableName"
+        session.sql(s"create database if not exists $hiveDB")
+        session.sql(s"use $hiveDB")
+        if (task.write.toSaveMode == SaveMode.Overwrite)
+          session.sql(s"drop table if exists $tableName")
+        finalDataset.saveAsTable(fullTableName)
+        analyze(fullTableName)
+      } else if (settings.comet.sinkToFile) {
+        // TODO Handle SinkType.FS and SinkType to Hive in Sink section in the caller
+        finalDataset.save()
+        if (coalesce) {
+          val extension = format.getOrElse(settings.comet.defaultFormat)
+          val csvPath = storageHandler
+            .list(targetPath, s".$extension", LocalDateTime.MIN, recursive = false)
+            .head
+          val finalPath = new Path(targetPath, targetPath.getName + s".$extension")
+          storageHandler.move(csvPath, finalPath)
+        }
+      }
       if (settings.comet.assertions.active) {
         new AssertionJob(
           task.domain,

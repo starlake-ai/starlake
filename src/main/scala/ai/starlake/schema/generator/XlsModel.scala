@@ -41,16 +41,7 @@ trait XlsModel {
     "_rename"             -> "Rename",
     "_long_name"          -> "Rename source table",
     "_policy"             -> "Access Policy",
-    "_escape"             -> "Escaping Char",
-    // new fields
-    "_multiline"  -> "Multiline",
-    "_array"      -> "Is JSON array",
-    "_quote"      -> "Quote character",
-    "_ignore"     -> "UDF to apply to ignore input lines",
-    "_xml"        -> "XML Options",
-    "_extensions" -> "Accepted extensions",
-    "_options"    -> "Spark ingestion options",
-    "_validator"  -> "Class validator"
+    "_escape"             -> "Escaping Char"
   )
 
   val allAttributeHeaders = List(
