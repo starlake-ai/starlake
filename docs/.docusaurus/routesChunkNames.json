@@ -1,0 +1,385 @@
+{
+  "/__docusaurus/debug-b25": {
+    "__comp": "__comp---theme-debug-config-23-a-2ff",
+    "__context": {
+      "plugin": "plugin---docusaurus-debug-0-a-3-226"
+    }
+  },
+  "/__docusaurus/debug/config-ed0": {
+    "__comp": "__comp---theme-debug-config-23-a-2ff",
+    "__context": {
+      "plugin": "plugin---docusaurus-debug-0-a-3-226"
+    }
+  },
+  "/__docusaurus/debug/content-f9a": {
+    "__comp": "__comp---theme-debug-contentba-8-ce7",
+    "__context": {
+      "plugin": "plugin---docusaurus-debug-0-a-3-226"
+    },
+    "allContent": "allContent---docusaurus-debug-content-246-9aa"
+  },
+  "/__docusaurus/debug/globalData-172": {
+    "__comp": "__comp---theme-debug-global-dataede-0fa",
+    "__context": {
+      "plugin": "plugin---docusaurus-debug-0-a-3-226"
+    }
+  },
+  "/__docusaurus/debug/metadata-9db": {
+    "__comp": "__comp---theme-debug-site-metadata-68-e-3d4",
+    "__context": {
+      "plugin": "plugin---docusaurus-debug-0-a-3-226"
+    }
+  },
+  "/__docusaurus/debug/registry-c55": {
+    "__comp": "__comp---theme-debug-registry-679-501",
+    "__context": {
+      "plugin": "plugin---docusaurus-debug-0-a-3-226"
+    }
+  },
+  "/__docusaurus/debug/routes-19b": {
+    "__comp": "__comp---theme-debug-routes-946-699",
+    "__context": {
+      "plugin": "plugin---docusaurus-debug-0-a-3-226"
+    }
+  },
+  "/blog-51b": {
+    "__comp": "__comp---theme-blog-list-pagea-6-a-7ba",
+    "__context": {
+      "plugin": "plugin---blog-414-580"
+    },
+    "sidebar": "sidebar---blog-814-8ac",
+    "items": [
+      {
+        "content": "content---bloga-7-d-af9"
+      },
+      {
+        "content": "content---blogf-29-0e8"
+      },
+      {
+        "content": "content---blog-6-bf-0a3"
+      }
+    ],
+    "metadata": "metadata---blogb-2-b-df1"
+  },
+  "/blog/archive-cd4": {
+    "__comp": "__comp---theme-blog-archive-page-9-e-4-1d8",
+    "__context": {
+      "plugin": "plugin---blog-414-580"
+    },
+    "archive": "archive---blog-archiveb-2-f-393"
+  },
+  "/blog/bonjour-599": {
+    "__comp": "__comp---theme-blog-post-pageccc-cab",
+    "__context": {
+      "plugin": "plugin---blog-414-580"
+    },
+    "sidebar": "sidebar---blog-814-8ac",
+    "content": "content---blog-bonjour-03-d-f1b"
+  },
+  "/blog/rls-cls-big-query-86d": {
+    "__comp": "__comp---theme-blog-post-pageccc-cab",
+    "__context": {
+      "plugin": "plugin---blog-414-580"
+    },
+    "sidebar": "sidebar---blog-814-8ac",
+    "content": "content---blog-rls-cls-big-queryae-0-44a"
+  },
+  "/blog/spark-big-query-partitioning-9e4": {
+    "__comp": "__comp---theme-blog-post-pageccc-cab",
+    "__context": {
+      "plugin": "plugin---blog-414-580"
+    },
+    "sidebar": "sidebar---blog-814-8ac",
+    "content": "content---blog-spark-big-query-partitioning-310-249"
+  },
+  "/blog/tags-6f1": {
+    "__comp": "__comp---theme-blog-tags-list-page-01-a-d0b",
+    "__context": {
+      "plugin": "plugin---blog-414-580"
+    },
+    "sidebar": "sidebar---blog-814-8ac",
+    "tags": "tags---blog-tagsa-70-da2"
+  },
+  "/blog/tags/big-query-c98": {
+    "__comp": "__comp---theme-blog-tags-posts-page-687-b6c",
+    "__context": {
+      "plugin": "plugin---blog-414-580"
+    },
+    "sidebar": "sidebar---blog-814-8ac",
+    "items": [
+      {
+        "content": "content---bloga-7-d-af9"
+      },
+      {
+        "content": "content---blogf-29-0e8"
+      }
+    ],
+    "tag": "tag---blog-tags-big-query-3-f-8-fac",
+    "listMetadata": "listMetadata---blog-tags-big-queryd-21-76f"
+  },
+  "/blog/tags/bonjour-a23": {
+    "__comp": "__comp---theme-blog-tags-posts-page-687-b6c",
+    "__context": {
+      "plugin": "plugin---blog-414-580"
+    },
+    "sidebar": "sidebar---blog-814-8ac",
+    "items": [
+      {
+        "content": "content---blog-6-bf-0a3"
+      }
+    ],
+    "tag": "tag---blog-tags-bonjour-867-2d3",
+    "listMetadata": "listMetadata---blog-tags-bonjourfcd-5a0"
+  },
+  "/blog/tags/dataproc-6c9": {
+    "__comp": "__comp---theme-blog-tags-posts-page-687-b6c",
+    "__context": {
+      "plugin": "plugin---blog-414-580"
+    },
+    "sidebar": "sidebar---blog-814-8ac",
+    "items": [
+      {
+        "content": "content---bloga-7-d-af9"
+      },
+      {
+        "content": "content---blogf-29-0e8"
+      }
+    ],
+    "tag": "tag---blog-tags-dataproca-96-b31",
+    "listMetadata": "listMetadata---blog-tags-dataproc-38-a-f09"
+  },
+  "/blog/tags/etl-d25": {
+    "__comp": "__comp---theme-blog-tags-posts-page-687-b6c",
+    "__context": {
+      "plugin": "plugin---blog-414-580"
+    },
+    "sidebar": "sidebar---blog-814-8ac",
+    "items": [
+      {
+        "content": "content---bloga-7-d-af9"
+      },
+      {
+        "content": "content---blogf-29-0e8"
+      }
+    ],
+    "tag": "tag---blog-tags-etlc-33-fe4",
+    "listMetadata": "listMetadata---blog-tags-etl-0-b-8-ce0"
+  },
+  "/blog/tags/google-cloud-ceb": {
+    "__comp": "__comp---theme-blog-tags-posts-page-687-b6c",
+    "__context": {
+      "plugin": "plugin---blog-414-580"
+    },
+    "sidebar": "sidebar---blog-814-8ac",
+    "items": [
+      {
+        "content": "content---bloga-7-d-af9"
+      },
+      {
+        "content": "content---blogf-29-0e8"
+      }
+    ],
+    "tag": "tag---blog-tags-google-cloudd-97-0b5",
+    "listMetadata": "listMetadata---blog-tags-google-cloudc-2-d-1f8"
+  },
+  "/blog/tags/spark-510": {
+    "__comp": "__comp---theme-blog-tags-posts-page-687-b6c",
+    "__context": {
+      "plugin": "plugin---blog-414-580"
+    },
+    "sidebar": "sidebar---blog-814-8ac",
+    "items": [
+      {
+        "content": "content---bloga-7-d-af9"
+      },
+      {
+        "content": "content---blogf-29-0e8"
+      }
+    ],
+    "tag": "tag---blog-tags-spark-720-9a4",
+    "listMetadata": "listMetadata---blog-tags-spark-35-a-825"
+  },
+  "/blog/tags/starlake-69d": {
+    "__comp": "__comp---theme-blog-tags-posts-page-687-b6c",
+    "__context": {
+      "plugin": "plugin---blog-414-580"
+    },
+    "sidebar": "sidebar---blog-814-8ac",
+    "items": [
+      {
+        "content": "content---bloga-7-d-af9"
+      },
+      {
+        "content": "content---blogf-29-0e8"
+      },
+      {
+        "content": "content---blog-6-bf-0a3"
+      }
+    ],
+    "tag": "tag---blog-tags-starlakeb-2-e-117",
+    "listMetadata": "listMetadata---blog-tags-starlake-889-fc9"
+  },
+  "/markdown-page-6d8": {
+    "__comp": "__comp---theme-mdx-page-1-f-3-b90",
+    "__context": {
+      "plugin": "plugin---markdown-pageb-91-b50"
+    },
+    "content": "content---markdown-page-393-028"
+  },
+  "/search-16a": {
+    "__comp": "__comp---theme-search-page-1-a-4-d6f",
+    "__context": {
+      "plugin": "plugin---search-111-2e3"
+    }
+  },
+  "/docs-f86": {
+    "__comp": "__comp---theme-doc-page-1-be-9be",
+    "__context": {
+      "plugin": "plugin---docs-830-8c1"
+    },
+    "versionMetadata": "versionMetadata---docs-935-398"
+  },
+  "/docs/cli/bqload-dad": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-cli-bqload-5-d-9-a81"
+  },
+  "/docs/cli/cnxload-838": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-cli-cnxload-44-b-fdd"
+  },
+  "/docs/cli/ddl2yml-045": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-cli-ddl-2-ymlc-17-82d"
+  },
+  "/docs/cli/esload-a8e": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-cli-esloadef-8-88e"
+  },
+  "/docs/cli/extract-0cd": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-cli-extract-206-d42"
+  },
+  "/docs/cli/import-00c": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-cli-import-971-701"
+  },
+  "/docs/cli/infer-schema-638": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-cli-infer-schema-3-a-9-6ca"
+  },
+  "/docs/cli/kafkaload-3fc": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-cli-kafkaload-9-c-0-dd2"
+  },
+  "/docs/cli/load-c0b": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-cli-load-8-ac-1ee"
+  },
+  "/docs/cli/metrics-217": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-cli-metrics-1-f-5-4b9"
+  },
+  "/docs/cli/parquet2csv-006": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-cli-parquet-2-csv-911-ed4"
+  },
+  "/docs/cli/transform-960": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-cli-transforma-8-e-9ba"
+  },
+  "/docs/cli/watch-fdb": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-cli-watch-36-a-8fc"
+  },
+  "/docs/cli/xls2yml-513": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-cli-xls-2-yml-8-f-9-f4a"
+  },
+  "/docs/cli/yml2gv-977": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-cli-yml-2-gv-36-e-77d"
+  },
+  "/docs/cli/yml2xls-096": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-cli-yml-2-xlsc-6-b-b0d"
+  },
+  "/docs/devguide/contribute-110": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-devguide-contribute-091-4ee"
+  },
+  "/docs/intro-84c": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-intro-0-e-3-be1"
+  },
+  "/docs/platform/aws-bcc": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-platform-awsd-60-fd8"
+  },
+  "/docs/platform/azure-ee0": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-platform-azure-037-96f"
+  },
+  "/docs/platform/databricks-ee7": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-platform-databricks-228-58e"
+  },
+  "/docs/platform/file-831": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-platform-fileeb-7-e32"
+  },
+  "/docs/platform/gcp-9ff": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-platform-gcp-2-d-0-c68"
+  },
+  "/docs/platform/hadoop-339": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-platform-hadoopa-86-fbd"
+  },
+  "/docs/reference/configuration-a33": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-reference-configuration-0-cb-4ad"
+  },
+  "/docs/reference/environment-cc8": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-reference-environment-603-ff8"
+  },
+  "/docs/reference/examples-d86": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-reference-examplesd-50-443"
+  },
+  "/docs/reference/extract-d30": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-reference-extractcca-736"
+  },
+  "/docs/reference/load-21a": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-reference-load-78-b-ffe"
+  },
+  "/docs/reference/scheduling-2b6": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-reference-schedulinge-9-e-400"
+  },
+  "/docs/reference/transform-76b": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-reference-transform-6-fe-ef8"
+  },
+  "/docs/userguide/load-fd8": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-userguide-load-14-c-76a"
+  },
+  "/docs/userguide/quickstart-860": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-userguide-quickstarte-24-8bf"
+  },
+  "/docs/userguide/transform-eaf": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-userguide-transform-03-a-23b"
+  },
+  "/-3b6": {
+    "__comp": "__comp---site-src-pages-index-jsc-4-f-f99",
+    "__context": {
+      "plugin": "plugin---markdown-pageb-91-b50"
+    },
+    "config": "config---5-e-9-4f3"
+  }
+}

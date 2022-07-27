@@ -1,0 +1,198 @@
+{
+  "docusaurus-plugin-content-docs": {
+    "default": {
+      "path": "/docs",
+      "versions": [
+        {
+          "name": "current",
+          "label": "Next",
+          "isLast": true,
+          "path": "/docs",
+          "mainDocId": "intro",
+          "docs": [
+            {
+              "id": "cli/bqload",
+              "path": "/docs/cli/bqload",
+              "sidebar": "starlakeSidebar"
+            },
+            {
+              "id": "cli/cnxload",
+              "path": "/docs/cli/cnxload",
+              "sidebar": "starlakeSidebar"
+            },
+            {
+              "id": "cli/ddl2yml",
+              "path": "/docs/cli/ddl2yml",
+              "sidebar": "starlakeSidebar"
+            },
+            {
+              "id": "cli/esload",
+              "path": "/docs/cli/esload",
+              "sidebar": "starlakeSidebar"
+            },
+            {
+              "id": "cli/extract",
+              "path": "/docs/cli/extract",
+              "sidebar": "starlakeSidebar"
+            },
+            {
+              "id": "cli/import",
+              "path": "/docs/cli/import",
+              "sidebar": "starlakeSidebar"
+            },
+            {
+              "id": "cli/infer-schema",
+              "path": "/docs/cli/infer-schema",
+              "sidebar": "starlakeSidebar"
+            },
+            {
+              "id": "cli/kafkaload",
+              "path": "/docs/cli/kafkaload",
+              "sidebar": "starlakeSidebar"
+            },
+            {
+              "id": "cli/load",
+              "path": "/docs/cli/load",
+              "sidebar": "starlakeSidebar"
+            },
+            {
+              "id": "cli/metrics",
+              "path": "/docs/cli/metrics",
+              "sidebar": "starlakeSidebar"
+            },
+            {
+              "id": "cli/parquet2csv",
+              "path": "/docs/cli/parquet2csv",
+              "sidebar": "starlakeSidebar"
+            },
+            {
+              "id": "cli/transform",
+              "path": "/docs/cli/transform",
+              "sidebar": "starlakeSidebar"
+            },
+            {
+              "id": "cli/watch",
+              "path": "/docs/cli/watch",
+              "sidebar": "starlakeSidebar"
+            },
+            {
+              "id": "cli/xls2yml",
+              "path": "/docs/cli/xls2yml",
+              "sidebar": "starlakeSidebar"
+            },
+            {
+              "id": "cli/yml2gv",
+              "path": "/docs/cli/yml2gv",
+              "sidebar": "starlakeSidebar"
+            },
+            {
+              "id": "cli/yml2xls",
+              "path": "/docs/cli/yml2xls",
+              "sidebar": "starlakeSidebar"
+            },
+            {
+              "id": "devguide/contribute",
+              "path": "/docs/devguide/contribute",
+              "sidebar": "starlakeSidebar"
+            },
+            {
+              "id": "intro",
+              "path": "/docs/intro",
+              "sidebar": "starlakeSidebar"
+            },
+            {
+              "id": "platform/aws",
+              "path": "/docs/platform/aws",
+              "sidebar": "starlakeSidebar"
+            },
+            {
+              "id": "platform/azure",
+              "path": "/docs/platform/azure",
+              "sidebar": "starlakeSidebar"
+            },
+            {
+              "id": "platform/databricks",
+              "path": "/docs/platform/databricks",
+              "sidebar": "starlakeSidebar"
+            },
+            {
+              "id": "platform/file",
+              "path": "/docs/platform/file",
+              "sidebar": "starlakeSidebar"
+            },
+            {
+              "id": "platform/gcp",
+              "path": "/docs/platform/gcp",
+              "sidebar": "starlakeSidebar"
+            },
+            {
+              "id": "platform/hadoop",
+              "path": "/docs/platform/hadoop",
+              "sidebar": "starlakeSidebar"
+            },
+            {
+              "id": "reference/configuration",
+              "path": "/docs/reference/configuration",
+              "sidebar": "starlakeSidebar"
+            },
+            {
+              "id": "reference/environment",
+              "path": "/docs/reference/environment",
+              "sidebar": "starlakeSidebar"
+            },
+            {
+              "id": "reference/examples",
+              "path": "/docs/reference/examples",
+              "sidebar": "starlakeSidebar"
+            },
+            {
+              "id": "reference/extract",
+              "path": "/docs/reference/extract",
+              "sidebar": "starlakeSidebar"
+            },
+            {
+              "id": "reference/load",
+              "path": "/docs/reference/load",
+              "sidebar": "starlakeSidebar"
+            },
+            {
+              "id": "reference/scheduling",
+              "path": "/docs/reference/scheduling",
+              "sidebar": "starlakeSidebar"
+            },
+            {
+              "id": "reference/transform",
+              "path": "/docs/reference/transform",
+              "sidebar": "starlakeSidebar"
+            },
+            {
+              "id": "userguide/load",
+              "path": "/docs/userguide/load",
+              "sidebar": "starlakeSidebar"
+            },
+            {
+              "id": "userguide/quickstart",
+              "path": "/docs/userguide/quickstart",
+              "sidebar": "starlakeSidebar"
+            },
+            {
+              "id": "userguide/transform",
+              "path": "/docs/userguide/transform",
+              "sidebar": "starlakeSidebar"
+            }
+          ],
+          "draftIds": [],
+          "sidebars": {
+            "starlakeSidebar": {
+              "link": {
+                "path": "/docs/intro",
+                "label": "intro"
+              }
+            }
+          }
+        }
+      ],
+      "breadcrumbs": true
+    }
+  }
+}

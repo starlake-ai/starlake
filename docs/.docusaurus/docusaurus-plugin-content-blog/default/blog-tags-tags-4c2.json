@@ -1,0 +1,37 @@
+[
+  {
+    "label": "Spark",
+    "permalink": "/blog/tags/spark",
+    "count": 2
+  },
+  {
+    "label": "BigQuery",
+    "permalink": "/blog/tags/big-query",
+    "count": 2
+  },
+  {
+    "label": "Dataproc",
+    "permalink": "/blog/tags/dataproc",
+    "count": 2
+  },
+  {
+    "label": "Google Cloud",
+    "permalink": "/blog/tags/google-cloud",
+    "count": 2
+  },
+  {
+    "label": "ETL",
+    "permalink": "/blog/tags/etl",
+    "count": 2
+  },
+  {
+    "label": "Starlake",
+    "permalink": "/blog/tags/starlake",
+    "count": 3
+  },
+  {
+    "label": "bonjour",
+    "permalink": "/blog/tags/bonjour",
+    "count": 1
+  }
+]

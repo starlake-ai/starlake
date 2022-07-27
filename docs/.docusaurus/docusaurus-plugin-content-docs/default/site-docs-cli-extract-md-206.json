@@ -1,0 +1,28 @@
+{
+  "unversionedId": "cli/extract",
+  "id": "cli/extract",
+  "title": "extract",
+  "description": "Synopsis",
+  "source": "@site/docs/cli/extract.md",
+  "sourceDirName": "cli",
+  "slug": "/cli/extract",
+  "permalink": "/docs/cli/extract",
+  "draft": false,
+  "editUrl": "https://github.com/starlake-ai/starlake/edit/master/docs/docs/cli/extract.md",
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 110,
+  "frontMatter": {
+    "sidebar_position": 110,
+    "title": "extract"
+  },
+  "sidebar": "starlakeSidebar",
+  "previous": {
+    "title": "jdbc2yml",
+    "permalink": "/docs/cli/ddl2yml"
+  },
+  "next": {
+    "title": "transform | job",
+    "permalink": "/docs/cli/transform"
+  }
+}

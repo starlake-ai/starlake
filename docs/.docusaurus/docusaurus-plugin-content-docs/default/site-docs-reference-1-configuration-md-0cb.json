@@ -1,0 +1,28 @@
+{
+  "unversionedId": "reference/configuration",
+  "id": "reference/configuration",
+  "title": "Configuration",
+  "description": "Starlake Data Pipeline is written using Scala / Spark and is thus run using the spark-submit command.",
+  "source": "@site/docs/reference/1.configuration.md",
+  "sourceDirName": "reference",
+  "slug": "/reference/configuration",
+  "permalink": "/docs/reference/configuration",
+  "draft": false,
+  "editUrl": "https://github.com/starlake-ai/starlake/edit/master/docs/docs/reference/1.configuration.md",
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 1,
+  "frontMatter": {
+    "sidebar_position": 1,
+    "title": "Configuration"
+  },
+  "sidebar": "starlakeSidebar",
+  "previous": {
+    "title": "Transform",
+    "permalink": "/docs/userguide/transform"
+  },
+  "next": {
+    "title": "Environment",
+    "permalink": "/docs/reference/environment"
+  }
+}

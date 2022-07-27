@@ -1,0 +1,27 @@
+{
+  "unversionedId": "reference/transform",
+  "id": "reference/transform",
+  "title": "Transform",
+  "description": "Job",
+  "source": "@site/docs/reference/30.transform.md",
+  "sourceDirName": "reference",
+  "slug": "/reference/transform",
+  "permalink": "/docs/reference/transform",
+  "draft": false,
+  "editUrl": "https://github.com/starlake-ai/starlake/edit/master/docs/docs/reference/30.transform.md",
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 30,
+  "frontMatter": {
+    "sidebar_position": 30
+  },
+  "sidebar": "starlakeSidebar",
+  "previous": {
+    "title": "Load",
+    "permalink": "/docs/reference/load"
+  },
+  "next": {
+    "title": "Extract",
+    "permalink": "/docs/reference/examples"
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "unversionedId": "cli/import",
+  "id": "cli/import",
+  "title": "import",
+  "description": "Synopsis",
+  "source": "@site/docs/cli/import.md",
+  "sourceDirName": "cli",
+  "slug": "/cli/import",
+  "permalink": "/docs/cli/import",
+  "draft": false,
+  "editUrl": "https://github.com/starlake-ai/starlake/edit/master/docs/docs/cli/import.md",
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 10,
+  "frontMatter": {
+    "sidebar_position": 10,
+    "title": "import"
+  },
+  "sidebar": "starlakeSidebar",
+  "previous": {
+    "title": "On Premise Hadoop Cluster",
+    "permalink": "/docs/platform/hadoop"
+  },
+  "next": {
+    "title": "bqload",
+    "permalink": "/docs/cli/bqload"
+  }
+}

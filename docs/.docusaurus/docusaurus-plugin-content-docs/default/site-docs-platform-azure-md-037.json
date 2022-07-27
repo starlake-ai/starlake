@@ -1,0 +1,28 @@
+{
+  "unversionedId": "platform/azure",
+  "id": "platform/azure",
+  "title": "Azure Synapse Spark Pools",
+  "description": "Running Locally",
+  "source": "@site/docs/platform/azure.md",
+  "sourceDirName": "platform",
+  "slug": "/platform/azure",
+  "permalink": "/docs/platform/azure",
+  "draft": false,
+  "editUrl": "https://github.com/starlake-ai/starlake/edit/master/docs/docs/platform/azure.md",
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 2,
+  "frontMatter": {
+    "sidebar_position": 2,
+    "title": "Azure Synapse Spark Pools"
+  },
+  "sidebar": "starlakeSidebar",
+  "previous": {
+    "title": "Amazon Web Services EMR",
+    "permalink": "/docs/platform/aws"
+  },
+  "next": {
+    "title": "Databricks on any cloud",
+    "permalink": "/docs/platform/databricks"
+  }
+}

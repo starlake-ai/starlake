@@ -1,0 +1,28 @@
+{
+  "unversionedId": "cli/parquet2csv",
+  "id": "cli/parquet2csv",
+  "title": "parquet2csv",
+  "description": "Synopsis",
+  "source": "@site/docs/cli/parquet2csv.md",
+  "sourceDirName": "cli",
+  "slug": "/cli/parquet2csv",
+  "permalink": "/docs/cli/parquet2csv",
+  "draft": false,
+  "editUrl": "https://github.com/starlake-ai/starlake/edit/master/docs/docs/cli/parquet2csv.md",
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 70,
+  "frontMatter": {
+    "sidebar_position": 70,
+    "title": "parquet2csv"
+  },
+  "sidebar": "starlakeSidebar",
+  "previous": {
+    "title": "metrics",
+    "permalink": "/docs/cli/metrics"
+  },
+  "next": {
+    "title": "cnxload",
+    "permalink": "/docs/cli/cnxload"
+  }
+}

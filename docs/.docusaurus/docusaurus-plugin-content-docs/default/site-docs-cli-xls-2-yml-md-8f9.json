@@ -1,0 +1,28 @@
+{
+  "unversionedId": "cli/xls2yml",
+  "id": "cli/xls2yml",
+  "title": "xls2yml",
+  "description": "Synopsis",
+  "source": "@site/docs/cli/xls2yml.md",
+  "sourceDirName": "cli",
+  "slug": "/cli/xls2yml",
+  "permalink": "/docs/cli/xls2yml",
+  "draft": false,
+  "editUrl": "https://github.com/starlake-ai/starlake/edit/master/docs/docs/cli/xls2yml.md",
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 90,
+  "frontMatter": {
+    "sidebar_position": 90,
+    "title": "xls2yml"
+  },
+  "sidebar": "starlakeSidebar",
+  "previous": {
+    "title": "cnxload",
+    "permalink": "/docs/cli/cnxload"
+  },
+  "next": {
+    "title": "jdbc2yml",
+    "permalink": "/docs/cli/ddl2yml"
+  }
+}

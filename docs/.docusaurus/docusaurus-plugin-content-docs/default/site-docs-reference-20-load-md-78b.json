@@ -1,0 +1,28 @@
+{
+  "unversionedId": "reference/load",
+  "id": "reference/load",
+  "title": "Load",
+  "description": "Domain",
+  "source": "@site/docs/reference/20.load.md",
+  "sourceDirName": "reference",
+  "slug": "/reference/load",
+  "permalink": "/docs/reference/load",
+  "draft": false,
+  "editUrl": "https://github.com/starlake-ai/starlake/edit/master/docs/docs/reference/20.load.md",
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 20,
+  "frontMatter": {
+    "sidebar_position": 20,
+    "title": "Load"
+  },
+  "sidebar": "starlakeSidebar",
+  "previous": {
+    "title": "Extract",
+    "permalink": "/docs/reference/extract"
+  },
+  "next": {
+    "title": "Transform",
+    "permalink": "/docs/reference/transform"
+  }
+}

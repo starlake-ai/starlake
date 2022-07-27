@@ -1,0 +1,28 @@
+{
+  "unversionedId": "cli/esload",
+  "id": "cli/esload",
+  "title": "esload | index",
+  "description": "Synopsis",
+  "source": "@site/docs/cli/esload.md",
+  "sourceDirName": "cli",
+  "slug": "/cli/esload",
+  "permalink": "/docs/cli/esload",
+  "draft": false,
+  "editUrl": "https://github.com/starlake-ai/starlake/edit/master/docs/docs/cli/esload.md",
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 30,
+  "frontMatter": {
+    "sidebar_position": 30,
+    "title": "esload | index"
+  },
+  "sidebar": "starlakeSidebar",
+  "previous": {
+    "title": "bqload",
+    "permalink": "/docs/cli/bqload"
+  },
+  "next": {
+    "title": "infer-schema",
+    "permalink": "/docs/cli/infer-schema"
+  }
+}

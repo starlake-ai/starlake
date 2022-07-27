@@ -118,7 +118,7 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     */
   @throws[Exception]
   lazy val types: List[Type] = {
-    val defaultTypes = loadTypes("default") :+ Type("struct", ".*", PrimitiveType.struct)
+    val defaultTypes = loadTypes("default")
     val types = loadTypes("types")
 
     val redefinedTypeNames =
@@ -181,8 +181,7 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
   lazy val activeEnv: Map[String, String] = {
     def loadEnv(path: Path): Map[String, String] =
       if (storage.exists(path))
-        Option(mapper.readValue(storage.read(path), classOf[Env]).env.getOrElse(Map.empty))
-          .getOrElse(Map.empty)
+        Option(mapper.readValue(storage.read(path), classOf[Env]).env).getOrElse(Map.empty)
       else
         Map.empty
     val globalsCometPath = new Path(DatasetArea.metadata, s"env.comet.yml")
@@ -459,26 +458,40 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     domain.copy(tables = tables)
   }
 
-  def fromXSD(ymlSchema: Schema, domainMetadata: Option[Metadata]): Schema = {
-    val metadata = ymlSchema.mergedMetadata(domainMetadata)
+  def fromXSD(schema: Schema, domainMetadata: Option[Metadata]): Schema = {
+    val metadata = schema.mergedMetadata(domainMetadata)
     metadata.getXsdPath() match {
       case None =>
-        ymlSchema
+        schema
       case Some(xsd) =>
         val xsdContent = storage.read(new Path(xsd))
         val sparkType = XSDToSchema.read(xsdContent)
         val topElement = sparkType.fields.map(field => Attribute(field))
         val xsdAttributes = topElement.head.attributes.map(_.toList).getOrElse(Nil)
-        val merged = mergeAttributes(ymlSchema.attributes, xsdAttributes)
-        ymlSchema.copy(attributes = merged)
+        schema.copy(attributes = xsdAttributes)
     }
   }
 
-  def mergeAttributes(ymlAttrs: List[Attribute], xsdAttrs: List[Attribute]): List[Attribute] = {
-    val ymlTopLevelAttr = Attribute("__dummy", "struct", attributes = Some(ymlAttrs))
-    val xsdTopLevelAttr = Attribute("__dummy", "struct", attributes = Some(xsdAttrs))
+  def mergeAttributes(ymlSchema: Schema, xsdSchema: Schema) = {
+    val ymlAttrsMap = attrsMap(ymlSchema.attributes, Nil, Map.empty)
+    val xsdAttrsMap = attrsMap(xsdSchema.attributes, Nil, Map.empty)
+    val curomAttrsMap =
+      ymlAttrsMap.keySet.intersect(xsdAttrsMap.keySet).map(k => k -> ymlAttrsMap(k))
 
-    val merged = xsdTopLevelAttr.importAttr(ymlTopLevelAttr)
-    merged.attributes.getOrElse(Nil)
+  }
+  private def attrsMap(
+    attributes: List[Attribute],
+    path: List[String],
+    map: Map[String, Attribute]
+  ): Map[String, Attribute] = {
+    val newMap: Map[String, Attribute] = attributes.flatMap { attribute =>
+      attribute.`type` match {
+        case "struct" =>
+          attrsMap(attribute.attributes.getOrElse(Nil), path :+ attribute.name, map)
+        case _ =>
+          Map((path :+ attribute.name).mkString("/") -> attribute)
+      }
+    }.toMap
+    map ++ newMap
   }
 }

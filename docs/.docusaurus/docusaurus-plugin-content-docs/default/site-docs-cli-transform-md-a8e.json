@@ -1,0 +1,28 @@
+{
+  "unversionedId": "cli/transform",
+  "id": "cli/transform",
+  "title": "transform | job",
+  "description": "Synopsis",
+  "source": "@site/docs/cli/transform.md",
+  "sourceDirName": "cli",
+  "slug": "/cli/transform",
+  "permalink": "/docs/cli/transform",
+  "draft": false,
+  "editUrl": "https://github.com/starlake-ai/starlake/edit/master/docs/docs/cli/transform.md",
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 120,
+  "frontMatter": {
+    "sidebar_position": 120,
+    "title": "transform | job"
+  },
+  "sidebar": "starlakeSidebar",
+  "previous": {
+    "title": "extract",
+    "permalink": "/docs/cli/extract"
+  },
+  "next": {
+    "title": "watch",
+    "permalink": "/docs/cli/watch"
+  }
+}

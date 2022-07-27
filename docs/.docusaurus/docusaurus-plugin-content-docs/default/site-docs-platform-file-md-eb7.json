@@ -1,0 +1,28 @@
+{
+  "unversionedId": "platform/file",
+  "id": "platform/file",
+  "title": "Local filesystem",
+  "description": "Sample setup",
+  "source": "@site/docs/platform/file.md",
+  "sourceDirName": "platform",
+  "slug": "/platform/file",
+  "permalink": "/docs/platform/file",
+  "draft": false,
+  "editUrl": "https://github.com/starlake-ai/starlake/edit/master/docs/docs/platform/file.md",
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 5,
+  "frontMatter": {
+    "sidebar_position": 5,
+    "title": "Local filesystem"
+  },
+  "sidebar": "starlakeSidebar",
+  "previous": {
+    "title": "Google Cloud Dataproc",
+    "permalink": "/docs/platform/gcp"
+  },
+  "next": {
+    "title": "On Premise Hadoop Cluster",
+    "permalink": "/docs/platform/hadoop"
+  }
+}

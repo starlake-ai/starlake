@@ -56,7 +56,7 @@ load:
             - name: "country"
               type: "string"
               required: true
-        - name: loaded_at
+        - name: dt_hr_chargement
           type: timestamp
           required: true
           script: "current_timestamp()"

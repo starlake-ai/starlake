@@ -1,0 +1,17 @@
+{
+  "title": "Recent posts",
+  "items": [
+    {
+      "title": "Column  and Row Level Security in BigQuery",
+      "permalink": "/blog/rls-cls-big-query"
+    },
+    {
+      "title": "Handling Dynamic Partitioning and Merge with Spark on BigQuery",
+      "permalink": "/blog/spark-big-query-partitioning"
+    },
+    {
+      "title": "Bonjour",
+      "permalink": "/blog/bonjour"
+    }
+  ]
+}

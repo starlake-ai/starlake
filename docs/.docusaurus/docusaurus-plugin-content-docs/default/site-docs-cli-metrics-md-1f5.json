@@ -1,0 +1,28 @@
+{
+  "unversionedId": "cli/metrics",
+  "id": "cli/metrics",
+  "title": "metrics",
+  "description": "Synopsis",
+  "source": "@site/docs/cli/metrics.md",
+  "sourceDirName": "cli",
+  "slug": "/cli/metrics",
+  "permalink": "/docs/cli/metrics",
+  "draft": false,
+  "editUrl": "https://github.com/starlake-ai/starlake/edit/master/docs/docs/cli/metrics.md",
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 60,
+  "frontMatter": {
+    "sidebar_position": 60,
+    "title": "metrics"
+  },
+  "sidebar": "starlakeSidebar",
+  "previous": {
+    "title": "load | ingest",
+    "permalink": "/docs/cli/load"
+  },
+  "next": {
+    "title": "parquet2csv",
+    "permalink": "/docs/cli/parquet2csv"
+  }
+}

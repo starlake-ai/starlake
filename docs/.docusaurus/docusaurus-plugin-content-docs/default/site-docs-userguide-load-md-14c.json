@@ -1,0 +1,27 @@
+{
+  "unversionedId": "userguide/load",
+  "id": "userguide/load",
+  "title": "Load",
+  "description": "Load Rules",
+  "source": "@site/docs/userguide/load.md",
+  "sourceDirName": "userguide",
+  "slug": "/userguide/load",
+  "permalink": "/docs/userguide/load",
+  "draft": false,
+  "editUrl": "https://github.com/starlake-ai/starlake/edit/master/docs/docs/userguide/load.md",
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 2,
+  "frontMatter": {
+    "sidebar_position": 2
+  },
+  "sidebar": "starlakeSidebar",
+  "previous": {
+    "title": "Quick Start",
+    "permalink": "/docs/userguide/quickstart"
+  },
+  "next": {
+    "title": "Transform",
+    "permalink": "/docs/userguide/transform"
+  }
+}

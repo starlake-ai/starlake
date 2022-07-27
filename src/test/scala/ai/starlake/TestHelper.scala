@@ -23,7 +23,7 @@ package ai.starlake
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.job.ingest.LoadConfig
 import ai.starlake.schema.handlers.{SchemaHandler, SimpleLauncher, StorageHandler}
-import ai.starlake.schema.model.{Attribute, AutoJobDesc}
+import ai.starlake.schema.model.AutoJobDesc
 import ai.starlake.utils.{CometObjectMapper, Utils}
 import ai.starlake.workflow.{ImportConfig, IngestionWorkflow, WatchConfig}
 import com.dimafeng.testcontainers.{ElasticsearchContainer, KafkaContainer}
@@ -431,15 +431,7 @@ trait TestHelper
     val esDockerImageName = DockerImageName.parse(s"$esDockerImage:$esDockerTag")
     ElasticsearchContainer.Def(esDockerImageName).start()
   }
-  def deepEquals(l1: List[Attribute], l2: List[Attribute]): Boolean = {
-    l1.zip(l2).foreach { case (a1, a2) =>
-      a1.name should equal(a2.name)
-      a1.`type` should equal(a2.`type`)
-      if (a1.`type` == "struct")
-        deepEquals(a1.attributes.get, a2.attributes.get)
-    }
-    true
-  }
+
 }
 
 object TestHelper {

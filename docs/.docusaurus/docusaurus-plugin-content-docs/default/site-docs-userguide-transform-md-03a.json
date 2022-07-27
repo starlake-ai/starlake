@@ -1,0 +1,27 @@
+{
+  "unversionedId": "userguide/transform",
+  "id": "userguide/transform",
+  "title": "Transform",
+  "description": "Once your data is ingested, you may start to expose insights by joining them and / or create meaningful aggregates.",
+  "source": "@site/docs/userguide/transform.md",
+  "sourceDirName": "userguide",
+  "slug": "/userguide/transform",
+  "permalink": "/docs/userguide/transform",
+  "draft": false,
+  "editUrl": "https://github.com/starlake-ai/starlake/edit/master/docs/docs/userguide/transform.md",
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 3,
+  "frontMatter": {
+    "sidebar_position": 3
+  },
+  "sidebar": "starlakeSidebar",
+  "previous": {
+    "title": "Load",
+    "permalink": "/docs/userguide/load"
+  },
+  "next": {
+    "title": "Configuration",
+    "permalink": "/docs/reference/configuration"
+  }
+}

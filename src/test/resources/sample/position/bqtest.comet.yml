@@ -47,12 +47,11 @@ load:
         - name: "bqrls"
           predicate: "TRUE"
           grants:
-            - "user:hayssam.saleh@starlake.ai"
+            - "user:hayssam@saleh.fr"
       pattern: ".*TBL"
       acl:
         - role: "roles/bigquery.dataViewer"
           grants:
-            - "user:hayssam.saleh@starlake.ai"
             - "user:hayssam@saleh.fr"
       merge:
         key:

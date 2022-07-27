@@ -33,7 +33,7 @@ import scopt.OParser
   */
 case class Xls2YmlConfig(
   files: Seq[String] = Nil,
-  encryption: Boolean = false,
+  encryption: Boolean = true,
   delimiter: Option[String] = None,
   privacy: Seq[String] = Nil,
   outputPath: Option[String] = None
@@ -54,7 +54,7 @@ object Xls2YmlConfig extends CliConfig[Xls2YmlConfig] {
         .text("List of Excel files describing Domains & Schemas"),
       opt[Boolean]("encryption")
         .action((x, c) => c.copy(encryption = x))
-        .optional()
+        .required()
         .text("If true generate pre and post encryption YML"),
       opt[String]("delimiter")
         .action((x, c) => c.copy(delimiter = Some(x)))

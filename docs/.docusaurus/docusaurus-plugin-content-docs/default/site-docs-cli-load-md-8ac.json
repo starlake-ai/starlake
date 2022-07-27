@@ -1,0 +1,28 @@
+{
+  "unversionedId": "cli/load",
+  "id": "cli/load",
+  "title": "load | ingest",
+  "description": "Synopsis",
+  "source": "@site/docs/cli/load.md",
+  "sourceDirName": "cli",
+  "slug": "/cli/load",
+  "permalink": "/docs/cli/load",
+  "draft": false,
+  "editUrl": "https://github.com/starlake-ai/starlake/edit/master/docs/docs/cli/load.md",
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 50,
+  "frontMatter": {
+    "sidebar_position": 50,
+    "title": "load | ingest"
+  },
+  "sidebar": "starlakeSidebar",
+  "previous": {
+    "title": "infer-schema",
+    "permalink": "/docs/cli/infer-schema"
+  },
+  "next": {
+    "title": "metrics",
+    "permalink": "/docs/cli/metrics"
+  }
+}

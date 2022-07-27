@@ -1,29 +1,4 @@
-
 # Release notes
-
-# 0.3.21
-__New feature__:
-- Reduce assembly size
-- Update to sbt 1.7.1
-- Add interactive mode for transform with csv, json and table output formats
-- Improve FS Sink handling
-
-__Bug Fix__:
-- Support empty env files
-- 
-
-# 0.3.20
-__Bug Fix__:
-- Keep retrocompatibility with scala 2.11
-
-# 0.3.19
-__New feature__:
-- Handle Mixed XSD / YML ingestion & validation
-- Support JSON / XML descriptions in XLS files
-- Support arrays in XLS files
-
-__Bug Fix__:
-- Support file system sink options in autojob
 
 # 0.3.18
 __New feature__:

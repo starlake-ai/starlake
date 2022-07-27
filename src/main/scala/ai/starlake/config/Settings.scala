@@ -187,8 +187,7 @@ object Settings extends StrictLogging {
 
   final case class Internal(
     cacheStorageLevel: StorageLevel,
-    intermediateBigqueryFormat: String = "orc",
-    substituteVars: Boolean = true
+    intermediateBigqueryFormat: String = "orc"
   )
 
   final case class KafkaTopicConfig(
@@ -328,7 +327,7 @@ object Settings extends StrictLogging {
     dsvOptions: Map[String, String]
   ) extends Serializable {
 
-    val cacheStorageLevel: StorageLevel =
+    val cacheStorageLevel =
       internal.map(_.cacheStorageLevel).getOrElse(StorageLevel.MEMORY_AND_DISK)
 
     @throws(classOf[ObjectStreamException])

@@ -1,0 +1,28 @@
+{
+  "unversionedId": "cli/bqload",
+  "id": "cli/bqload",
+  "title": "bqload",
+  "description": "Synopsis",
+  "source": "@site/docs/cli/bqload.md",
+  "sourceDirName": "cli",
+  "slug": "/cli/bqload",
+  "permalink": "/docs/cli/bqload",
+  "draft": false,
+  "editUrl": "https://github.com/starlake-ai/starlake/edit/master/docs/docs/cli/bqload.md",
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 20,
+  "frontMatter": {
+    "sidebar_position": 20,
+    "title": "bqload"
+  },
+  "sidebar": "starlakeSidebar",
+  "previous": {
+    "title": "import",
+    "permalink": "/docs/cli/import"
+  },
+  "next": {
+    "title": "esload | index",
+    "permalink": "/docs/cli/esload"
+  }
+}

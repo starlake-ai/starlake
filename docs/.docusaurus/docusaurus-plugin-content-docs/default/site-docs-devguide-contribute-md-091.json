@@ -1,0 +1,23 @@
+{
+  "unversionedId": "devguide/contribute",
+  "id": "devguide/contribute",
+  "title": "How to contribute",
+  "description": "This guide documents the best way to make various types of contribution to Starlake Data Pipeline, including what is required before submitting a code change.",
+  "source": "@site/docs/devguide/contribute.md",
+  "sourceDirName": "devguide",
+  "slug": "/devguide/contribute",
+  "permalink": "/docs/devguide/contribute",
+  "draft": false,
+  "editUrl": "https://github.com/starlake-ai/starlake/edit/master/docs/docs/devguide/contribute.md",
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 1,
+  "frontMatter": {
+    "sidebar_position": 1
+  },
+  "sidebar": "starlakeSidebar",
+  "previous": {
+    "title": "yml2gv",
+    "permalink": "/docs/cli/yml2gv"
+  }
+}

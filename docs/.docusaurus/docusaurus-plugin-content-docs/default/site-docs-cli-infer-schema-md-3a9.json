@@ -1,0 +1,28 @@
+{
+  "unversionedId": "cli/infer-schema",
+  "id": "cli/infer-schema",
+  "title": "infer-schema",
+  "description": "Synopsis",
+  "source": "@site/docs/cli/infer-schema.md",
+  "sourceDirName": "cli",
+  "slug": "/cli/infer-schema",
+  "permalink": "/docs/cli/infer-schema",
+  "draft": false,
+  "editUrl": "https://github.com/starlake-ai/starlake/edit/master/docs/docs/cli/infer-schema.md",
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 40,
+  "frontMatter": {
+    "sidebar_position": 40,
+    "title": "infer-schema"
+  },
+  "sidebar": "starlakeSidebar",
+  "previous": {
+    "title": "esload | index",
+    "permalink": "/docs/cli/esload"
+  },
+  "next": {
+    "title": "load | ingest",
+    "permalink": "/docs/cli/load"
+  }
+}

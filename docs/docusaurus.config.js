@@ -10,7 +10,9 @@ module.exports = {
     organizationName: 'starlake-ai', // Usually your GitHub org/user name.
     projectName: 'starlake', // Usually your repo name.
     themeConfig: {
-        hideableSidebar: false,
+        //FIXME: 
+        // hideableSidebar: false,
+
         prism: {
             additionalLanguages: ['java', 'scala', 'sql', 'powershell'],
             theme: require('prism-react-renderer/themes/github'),
@@ -130,10 +132,6 @@ module.exports = {
                     trackingID: 'UA-207943293-1',
                     // Optional fields.
                     anonymizeIP: true // Should IPs be anonymized?
-                },
-                gtag: {
-                    trackingID: 'G-FYS72XYD48',
-                    anonymizeIP: true,
                 },
                 docs: {
                     sidebarPath: require.resolve('./sidebars.js'),

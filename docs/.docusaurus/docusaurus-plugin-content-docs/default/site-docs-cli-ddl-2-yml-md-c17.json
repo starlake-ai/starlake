@@ -1,0 +1,28 @@
+{
+  "unversionedId": "cli/ddl2yml",
+  "id": "cli/ddl2yml",
+  "title": "jdbc2yml",
+  "description": "Synopsis",
+  "source": "@site/docs/cli/ddl2yml.md",
+  "sourceDirName": "cli",
+  "slug": "/cli/ddl2yml",
+  "permalink": "/docs/cli/ddl2yml",
+  "draft": false,
+  "editUrl": "https://github.com/starlake-ai/starlake/edit/master/docs/docs/cli/ddl2yml.md",
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 100,
+  "frontMatter": {
+    "sidebar_position": 100,
+    "title": "jdbc2yml"
+  },
+  "sidebar": "starlakeSidebar",
+  "previous": {
+    "title": "xls2yml",
+    "permalink": "/docs/cli/xls2yml"
+  },
+  "next": {
+    "title": "extract",
+    "permalink": "/docs/cli/extract"
+  }
+}

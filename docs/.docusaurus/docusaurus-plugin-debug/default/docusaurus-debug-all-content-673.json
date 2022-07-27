@@ -1,0 +1,1562 @@
+{
+  "docusaurus-plugin-content-docs": {
+    "default": {
+      "loadedVersions": [
+        {
+          "versionName": "current",
+          "label": "Next",
+          "banner": null,
+          "badge": false,
+          "className": "docs-version-current",
+          "path": "/docs",
+          "tagsPath": "/docs/tags",
+          "editUrl": "https://github.com/starlake-ai/starlake/edit/master/docs/docs",
+          "editUrlLocalized": "https://github.com/starlake-ai/starlake/edit/master/docs/i18n/en/docusaurus-plugin-content-docs/current",
+          "isLast": true,
+          "routePriority": -1,
+          "sidebarFilePath": "/Users/aliberro/Documents/starlake/docs/sidebars.js",
+          "contentPath": "/Users/aliberro/Documents/starlake/docs/docs",
+          "contentPathLocalized": "/Users/aliberro/Documents/starlake/docs/i18n/en/docusaurus-plugin-content-docs/current",
+          "docs": [
+            {
+              "unversionedId": "cli/bqload",
+              "id": "cli/bqload",
+              "title": "bqload",
+              "description": "Synopsis",
+              "source": "@site/docs/cli/bqload.md",
+              "sourceDirName": "cli",
+              "slug": "/cli/bqload",
+              "permalink": "/docs/cli/bqload",
+              "draft": false,
+              "editUrl": "https://github.com/starlake-ai/starlake/edit/master/docs/docs/cli/bqload.md",
+              "tags": [],
+              "version": "current",
+              "sidebarPosition": 20,
+              "frontMatter": {
+                "sidebar_position": 20,
+                "title": "bqload"
+              },
+              "sidebar": "starlakeSidebar",
+              "previous": {
+                "title": "import",
+                "permalink": "/docs/cli/import"
+              },
+              "next": {
+                "title": "esload | index",
+                "permalink": "/docs/cli/esload"
+              }
+            },
+            {
+              "unversionedId": "cli/cnxload",
+              "id": "cli/cnxload",
+              "title": "cnxload",
+              "description": "Synopsis",
+              "source": "@site/docs/cli/cnxload.md",
+              "sourceDirName": "cli",
+              "slug": "/cli/cnxload",
+              "permalink": "/docs/cli/cnxload",
+              "draft": false,
+              "editUrl": "https://github.com/starlake-ai/starlake/edit/master/docs/docs/cli/cnxload.md",
+              "tags": [],
+              "version": "current",
+              "sidebarPosition": 80,
+              "frontMatter": {
+                "sidebar_position": 80,
+                "title": "cnxload"
+              },
+              "sidebar": "starlakeSidebar",
+              "previous": {
+                "title": "parquet2csv",
+                "permalink": "/docs/cli/parquet2csv"
+              },
+              "next": {
+                "title": "xls2yml",
+                "permalink": "/docs/cli/xls2yml"
+              }
+            },
+            {
+              "unversionedId": "cli/ddl2yml",
+              "id": "cli/ddl2yml",
+              "title": "jdbc2yml",
+              "description": "Synopsis",
+              "source": "@site/docs/cli/ddl2yml.md",
+              "sourceDirName": "cli",
+              "slug": "/cli/ddl2yml",
+              "permalink": "/docs/cli/ddl2yml",
+              "draft": false,
+              "editUrl": "https://github.com/starlake-ai/starlake/edit/master/docs/docs/cli/ddl2yml.md",
+              "tags": [],
+              "version": "current",
+              "sidebarPosition": 100,
+              "frontMatter": {
+                "sidebar_position": 100,
+                "title": "jdbc2yml"
+              },
+              "sidebar": "starlakeSidebar",
+              "previous": {
+                "title": "xls2yml",
+                "permalink": "/docs/cli/xls2yml"
+              },
+              "next": {
+                "title": "extract",
+                "permalink": "/docs/cli/extract"
+              }
+            },
+            {
+              "unversionedId": "cli/esload",
+              "id": "cli/esload",
+              "title": "esload | index",
+              "description": "Synopsis",
+              "source": "@site/docs/cli/esload.md",
+              "sourceDirName": "cli",
+              "slug": "/cli/esload",
+              "permalink": "/docs/cli/esload",
+              "draft": false,
+              "editUrl": "https://github.com/starlake-ai/starlake/edit/master/docs/docs/cli/esload.md",
+              "tags": [],
+              "version": "current",
+              "sidebarPosition": 30,
+              "frontMatter": {
+                "sidebar_position": 30,
+                "title": "esload | index"
+              },
+              "sidebar": "starlakeSidebar",
+              "previous": {
+                "title": "bqload",
+                "permalink": "/docs/cli/bqload"
+              },
+              "next": {
+                "title": "infer-schema",
+                "permalink": "/docs/cli/infer-schema"
+              }
+            },
+            {
+              "unversionedId": "cli/extract",
+              "id": "cli/extract",
+              "title": "extract",
+              "description": "Synopsis",
+              "source": "@site/docs/cli/extract.md",
+              "sourceDirName": "cli",
+              "slug": "/cli/extract",
+              "permalink": "/docs/cli/extract",
+              "draft": false,
+              "editUrl": "https://github.com/starlake-ai/starlake/edit/master/docs/docs/cli/extract.md",
+              "tags": [],
+              "version": "current",
+              "sidebarPosition": 110,
+              "frontMatter": {
+                "sidebar_position": 110,
+                "title": "extract"
+              },
+              "sidebar": "starlakeSidebar",
+              "previous": {
+                "title": "jdbc2yml",
+                "permalink": "/docs/cli/ddl2yml"
+              },
+              "next": {
+                "title": "transform | job",
+                "permalink": "/docs/cli/transform"
+              }
+            },
+            {
+              "unversionedId": "cli/import",
+              "id": "cli/import",
+              "title": "import",
+              "description": "Synopsis",
+              "source": "@site/docs/cli/import.md",
+              "sourceDirName": "cli",
+              "slug": "/cli/import",
+              "permalink": "/docs/cli/import",
+              "draft": false,
+              "editUrl": "https://github.com/starlake-ai/starlake/edit/master/docs/docs/cli/import.md",
+              "tags": [],
+              "version": "current",
+              "sidebarPosition": 10,
+              "frontMatter": {
+                "sidebar_position": 10,
+                "title": "import"
+              },
+              "sidebar": "starlakeSidebar",
+              "previous": {
+                "title": "On Premise Hadoop Cluster",
+                "permalink": "/docs/platform/hadoop"
+              },
+              "next": {
+                "title": "bqload",
+                "permalink": "/docs/cli/bqload"
+              }
+            },
+            {
+              "unversionedId": "cli/infer-schema",
+              "id": "cli/infer-schema",
+              "title": "infer-schema",
+              "description": "Synopsis",
+              "source": "@site/docs/cli/infer-schema.md",
+              "sourceDirName": "cli",
+              "slug": "/cli/infer-schema",
+              "permalink": "/docs/cli/infer-schema",
+              "draft": false,
+              "editUrl": "https://github.com/starlake-ai/starlake/edit/master/docs/docs/cli/infer-schema.md",
+              "tags": [],
+              "version": "current",
+              "sidebarPosition": 40,
+              "frontMatter": {
+                "sidebar_position": 40,
+                "title": "infer-schema"
+              },
+              "sidebar": "starlakeSidebar",
+              "previous": {
+                "title": "esload | index",
+                "permalink": "/docs/cli/esload"
+              },
+              "next": {
+                "title": "load | ingest",
+                "permalink": "/docs/cli/load"
+              }
+            },
+            {
+              "unversionedId": "cli/kafkaload",
+              "id": "cli/kafkaload",
+              "title": "kafkaload",
+              "description": "Synopsis",
+              "source": "@site/docs/cli/kafkaload.md",
+              "sourceDirName": "cli",
+              "slug": "/cli/kafkaload",
+              "permalink": "/docs/cli/kafkaload",
+              "draft": false,
+              "editUrl": "https://github.com/starlake-ai/starlake/edit/master/docs/docs/cli/kafkaload.md",
+              "tags": [],
+              "version": "current",
+              "sidebarPosition": 140,
+              "frontMatter": {
+                "sidebar_position": 140,
+                "title": "kafkaload"
+              },
+              "sidebar": "starlakeSidebar",
+              "previous": {
+                "title": "watch",
+                "permalink": "/docs/cli/watch"
+              },
+              "next": {
+                "title": "yml2xls",
+                "permalink": "/docs/cli/yml2xls"
+              }
+            },
+            {
+              "unversionedId": "cli/load",
+              "id": "cli/load",
+              "title": "load | ingest",
+              "description": "Synopsis",
+              "source": "@site/docs/cli/load.md",
+              "sourceDirName": "cli",
+              "slug": "/cli/load",
+              "permalink": "/docs/cli/load",
+              "draft": false,
+              "editUrl": "https://github.com/starlake-ai/starlake/edit/master/docs/docs/cli/load.md",
+              "tags": [],
+              "version": "current",
+              "sidebarPosition": 50,
+              "frontMatter": {
+                "sidebar_position": 50,
+                "title": "load | ingest"
+              },
+              "sidebar": "starlakeSidebar",
+              "previous": {
+                "title": "infer-schema",
+                "permalink": "/docs/cli/infer-schema"
+              },
+              "next": {
+                "title": "metrics",
+                "permalink": "/docs/cli/metrics"
+              }
+            },
+            {
+              "unversionedId": "cli/metrics",
+              "id": "cli/metrics",
+              "title": "metrics",
+              "description": "Synopsis",
+              "source": "@site/docs/cli/metrics.md",
+              "sourceDirName": "cli",
+              "slug": "/cli/metrics",
+              "permalink": "/docs/cli/metrics",
+              "draft": false,
+              "editUrl": "https://github.com/starlake-ai/starlake/edit/master/docs/docs/cli/metrics.md",
+              "tags": [],
+              "version": "current",
+              "sidebarPosition": 60,
+              "frontMatter": {
+                "sidebar_position": 60,
+                "title": "metrics"
+              },
+              "sidebar": "starlakeSidebar",
+              "previous": {
+                "title": "load | ingest",
+                "permalink": "/docs/cli/load"
+              },
+              "next": {
+                "title": "parquet2csv",
+                "permalink": "/docs/cli/parquet2csv"
+              }
+            },
+            {
+              "unversionedId": "cli/parquet2csv",
+              "id": "cli/parquet2csv",
+              "title": "parquet2csv",
+              "description": "Synopsis",
+              "source": "@site/docs/cli/parquet2csv.md",
+              "sourceDirName": "cli",
+              "slug": "/cli/parquet2csv",
+              "permalink": "/docs/cli/parquet2csv",
+              "draft": false,
+              "editUrl": "https://github.com/starlake-ai/starlake/edit/master/docs/docs/cli/parquet2csv.md",
+              "tags": [],
+              "version": "current",
+              "sidebarPosition": 70,
+              "frontMatter": {
+                "sidebar_position": 70,
+                "title": "parquet2csv"
+              },
+              "sidebar": "starlakeSidebar",
+              "previous": {
+                "title": "metrics",
+                "permalink": "/docs/cli/metrics"
+              },
+              "next": {
+                "title": "cnxload",
+                "permalink": "/docs/cli/cnxload"
+              }
+            },
+            {
+              "unversionedId": "cli/transform",
+              "id": "cli/transform",
+              "title": "transform | job",
+              "description": "Synopsis",
+              "source": "@site/docs/cli/transform.md",
+              "sourceDirName": "cli",
+              "slug": "/cli/transform",
+              "permalink": "/docs/cli/transform",
+              "draft": false,
+              "editUrl": "https://github.com/starlake-ai/starlake/edit/master/docs/docs/cli/transform.md",
+              "tags": [],
+              "version": "current",
+              "sidebarPosition": 120,
+              "frontMatter": {
+                "sidebar_position": 120,
+                "title": "transform | job"
+              },
+              "sidebar": "starlakeSidebar",
+              "previous": {
+                "title": "extract",
+                "permalink": "/docs/cli/extract"
+              },
+              "next": {
+                "title": "watch",
+                "permalink": "/docs/cli/watch"
+              }
+            },
+            {
+              "unversionedId": "cli/watch",
+              "id": "cli/watch",
+              "title": "watch",
+              "description": "Synopsis",
+              "source": "@site/docs/cli/watch.md",
+              "sourceDirName": "cli",
+              "slug": "/cli/watch",
+              "permalink": "/docs/cli/watch",
+              "draft": false,
+              "editUrl": "https://github.com/starlake-ai/starlake/edit/master/docs/docs/cli/watch.md",
+              "tags": [],
+              "version": "current",
+              "sidebarPosition": 130,
+              "frontMatter": {
+                "sidebar_position": 130,
+                "title": "watch"
+              },
+              "sidebar": "starlakeSidebar",
+              "previous": {
+                "title": "transform | job",
+                "permalink": "/docs/cli/transform"
+              },
+              "next": {
+                "title": "kafkaload",
+                "permalink": "/docs/cli/kafkaload"
+              }
+            },
+            {
+              "unversionedId": "cli/xls2yml",
+              "id": "cli/xls2yml",
+              "title": "xls2yml",
+              "description": "Synopsis",
+              "source": "@site/docs/cli/xls2yml.md",
+              "sourceDirName": "cli",
+              "slug": "/cli/xls2yml",
+              "permalink": "/docs/cli/xls2yml",
+              "draft": false,
+              "editUrl": "https://github.com/starlake-ai/starlake/edit/master/docs/docs/cli/xls2yml.md",
+              "tags": [],
+              "version": "current",
+              "sidebarPosition": 90,
+              "frontMatter": {
+                "sidebar_position": 90,
+                "title": "xls2yml"
+              },
+              "sidebar": "starlakeSidebar",
+              "previous": {
+                "title": "cnxload",
+                "permalink": "/docs/cli/cnxload"
+              },
+              "next": {
+                "title": "jdbc2yml",
+                "permalink": "/docs/cli/ddl2yml"
+              }
+            },
+            {
+              "unversionedId": "cli/yml2gv",
+              "id": "cli/yml2gv",
+              "title": "yml2gv",
+              "description": "Synopsis",
+              "source": "@site/docs/cli/yml2gv.md",
+              "sourceDirName": "cli",
+              "slug": "/cli/yml2gv",
+              "permalink": "/docs/cli/yml2gv",
+              "draft": false,
+              "editUrl": "https://github.com/starlake-ai/starlake/edit/master/docs/docs/cli/yml2gv.md",
+              "tags": [],
+              "version": "current",
+              "sidebarPosition": 160,
+              "frontMatter": {
+                "sidebar_position": 160,
+                "title": "yml2gv"
+              },
+              "sidebar": "starlakeSidebar",
+              "previous": {
+                "title": "yml2xls",
+                "permalink": "/docs/cli/yml2xls"
+              },
+              "next": {
+                "title": "How to contribute",
+                "permalink": "/docs/devguide/contribute"
+              }
+            },
+            {
+              "unversionedId": "cli/yml2xls",
+              "id": "cli/yml2xls",
+              "title": "yml2xls",
+              "description": "Synopsis",
+              "source": "@site/docs/cli/yml2xls.md",
+              "sourceDirName": "cli",
+              "slug": "/cli/yml2xls",
+              "permalink": "/docs/cli/yml2xls",
+              "draft": false,
+              "editUrl": "https://github.com/starlake-ai/starlake/edit/master/docs/docs/cli/yml2xls.md",
+              "tags": [],
+              "version": "current",
+              "sidebarPosition": 150,
+              "frontMatter": {
+                "sidebar_position": 150,
+                "title": "yml2xls"
+              },
+              "sidebar": "starlakeSidebar",
+              "previous": {
+                "title": "kafkaload",
+                "permalink": "/docs/cli/kafkaload"
+              },
+              "next": {
+                "title": "yml2gv",
+                "permalink": "/docs/cli/yml2gv"
+              }
+            },
+            {
+              "unversionedId": "devguide/contribute",
+              "id": "devguide/contribute",
+              "title": "How to contribute",
+              "description": "This guide documents the best way to make various types of contribution to Starlake Data Pipeline, including what is required before submitting a code change.",
+              "source": "@site/docs/devguide/contribute.md",
+              "sourceDirName": "devguide",
+              "slug": "/devguide/contribute",
+              "permalink": "/docs/devguide/contribute",
+              "draft": false,
+              "editUrl": "https://github.com/starlake-ai/starlake/edit/master/docs/docs/devguide/contribute.md",
+              "tags": [],
+              "version": "current",
+              "sidebarPosition": 1,
+              "frontMatter": {
+                "sidebar_position": 1
+              },
+              "sidebar": "starlakeSidebar",
+              "previous": {
+                "title": "yml2gv",
+                "permalink": "/docs/cli/yml2gv"
+              }
+            },
+            {
+              "unversionedId": "intro",
+              "id": "intro",
+              "title": "What is Starlake ?",
+              "description": "The purpose of this project is to efficiently ingest various data",
+              "source": "@site/docs/intro.md",
+              "sourceDirName": ".",
+              "slug": "/intro",
+              "permalink": "/docs/intro",
+              "draft": false,
+              "editUrl": "https://github.com/starlake-ai/starlake/edit/master/docs/docs/intro.md",
+              "tags": [],
+              "version": "current",
+              "sidebarPosition": 1,
+              "frontMatter": {
+                "sidebar_position": 1
+              },
+              "sidebar": "starlakeSidebar",
+              "next": {
+                "title": "Quick Start",
+                "permalink": "/docs/userguide/quickstart"
+              }
+            },
+            {
+              "unversionedId": "platform/aws",
+              "id": "platform/aws",
+              "title": "Amazon Web Services EMR",
+              "description": "",
+              "source": "@site/docs/platform/aws.md",
+              "sourceDirName": "platform",
+              "slug": "/platform/aws",
+              "permalink": "/docs/platform/aws",
+              "draft": false,
+              "editUrl": "https://github.com/starlake-ai/starlake/edit/master/docs/docs/platform/aws.md",
+              "tags": [],
+              "version": "current",
+              "sidebarPosition": 1,
+              "frontMatter": {
+                "sidebar_position": 1,
+                "title": "Amazon Web Services EMR"
+              },
+              "sidebar": "starlakeSidebar",
+              "previous": {
+                "title": "Scheduling",
+                "permalink": "/docs/reference/scheduling"
+              },
+              "next": {
+                "title": "Azure Synapse Spark Pools",
+                "permalink": "/docs/platform/azure"
+              }
+            },
+            {
+              "unversionedId": "platform/azure",
+              "id": "platform/azure",
+              "title": "Azure Synapse Spark Pools",
+              "description": "Running Locally",
+              "source": "@site/docs/platform/azure.md",
+              "sourceDirName": "platform",
+              "slug": "/platform/azure",
+              "permalink": "/docs/platform/azure",
+              "draft": false,
+              "editUrl": "https://github.com/starlake-ai/starlake/edit/master/docs/docs/platform/azure.md",
+              "tags": [],
+              "version": "current",
+              "sidebarPosition": 2,
+              "frontMatter": {
+                "sidebar_position": 2,
+                "title": "Azure Synapse Spark Pools"
+              },
+              "sidebar": "starlakeSidebar",
+              "previous": {
+                "title": "Amazon Web Services EMR",
+                "permalink": "/docs/platform/aws"
+              },
+              "next": {
+                "title": "Databricks on any cloud",
+                "permalink": "/docs/platform/databricks"
+              }
+            },
+            {
+              "unversionedId": "platform/databricks",
+              "id": "platform/databricks",
+              "title": "Databricks on any cloud",
+              "description": "Cluster Setup",
+              "source": "@site/docs/platform/databricks.md",
+              "sourceDirName": "platform",
+              "slug": "/platform/databricks",
+              "permalink": "/docs/platform/databricks",
+              "draft": false,
+              "editUrl": "https://github.com/starlake-ai/starlake/edit/master/docs/docs/platform/databricks.md",
+              "tags": [],
+              "version": "current",
+              "sidebarPosition": 3,
+              "frontMatter": {
+                "sidebar_position": 3,
+                "title": "Databricks on any cloud"
+              },
+              "sidebar": "starlakeSidebar",
+              "previous": {
+                "title": "Azure Synapse Spark Pools",
+                "permalink": "/docs/platform/azure"
+              },
+              "next": {
+                "title": "Google Cloud Dataproc",
+                "permalink": "/docs/platform/gcp"
+              }
+            },
+            {
+              "unversionedId": "platform/file",
+              "id": "platform/file",
+              "title": "Local filesystem",
+              "description": "Sample setup",
+              "source": "@site/docs/platform/file.md",
+              "sourceDirName": "platform",
+              "slug": "/platform/file",
+              "permalink": "/docs/platform/file",
+              "draft": false,
+              "editUrl": "https://github.com/starlake-ai/starlake/edit/master/docs/docs/platform/file.md",
+              "tags": [],
+              "version": "current",
+              "sidebarPosition": 5,
+              "frontMatter": {
+                "sidebar_position": 5,
+                "title": "Local filesystem"
+              },
+              "sidebar": "starlakeSidebar",
+              "previous": {
+                "title": "Google Cloud Dataproc",
+                "permalink": "/docs/platform/gcp"
+              },
+              "next": {
+                "title": "On Premise Hadoop Cluster",
+                "permalink": "/docs/platform/hadoop"
+              }
+            },
+            {
+              "unversionedId": "platform/gcp",
+              "id": "platform/gcp",
+              "title": "Google Cloud Dataproc",
+              "description": "Two options are available when running on Google Cloud:",
+              "source": "@site/docs/platform/gcp.md",
+              "sourceDirName": "platform",
+              "slug": "/platform/gcp",
+              "permalink": "/docs/platform/gcp",
+              "draft": false,
+              "editUrl": "https://github.com/starlake-ai/starlake/edit/master/docs/docs/platform/gcp.md",
+              "tags": [],
+              "version": "current",
+              "sidebarPosition": 4,
+              "frontMatter": {
+                "sidebar_position": 4,
+                "title": "Google Cloud Dataproc"
+              },
+              "sidebar": "starlakeSidebar",
+              "previous": {
+                "title": "Databricks on any cloud",
+                "permalink": "/docs/platform/databricks"
+              },
+              "next": {
+                "title": "Local filesystem",
+                "permalink": "/docs/platform/file"
+              }
+            },
+            {
+              "unversionedId": "platform/hadoop",
+              "id": "platform/hadoop",
+              "title": "On Premise Hadoop Cluster",
+              "description": "Running on Hadoop is similar to running on a local filesystem, we just need to set the correct filesystem",
+              "source": "@site/docs/platform/hadoop.mdx",
+              "sourceDirName": "platform",
+              "slug": "/platform/hadoop",
+              "permalink": "/docs/platform/hadoop",
+              "draft": false,
+              "editUrl": "https://github.com/starlake-ai/starlake/edit/master/docs/docs/platform/hadoop.mdx",
+              "tags": [],
+              "version": "current",
+              "sidebarPosition": 6,
+              "frontMatter": {
+                "sidebar_position": 6,
+                "title": "On Premise Hadoop Cluster"
+              },
+              "sidebar": "starlakeSidebar",
+              "previous": {
+                "title": "Local filesystem",
+                "permalink": "/docs/platform/file"
+              },
+              "next": {
+                "title": "import",
+                "permalink": "/docs/cli/import"
+              }
+            },
+            {
+              "unversionedId": "reference/configuration",
+              "id": "reference/configuration",
+              "title": "Configuration",
+              "description": "Starlake Data Pipeline is written using Scala / Spark and is thus run using the spark-submit command.",
+              "source": "@site/docs/reference/1.configuration.md",
+              "sourceDirName": "reference",
+              "slug": "/reference/configuration",
+              "permalink": "/docs/reference/configuration",
+              "draft": false,
+              "editUrl": "https://github.com/starlake-ai/starlake/edit/master/docs/docs/reference/1.configuration.md",
+              "tags": [],
+              "version": "current",
+              "sidebarPosition": 1,
+              "frontMatter": {
+                "sidebar_position": 1,
+                "title": "Configuration"
+              },
+              "sidebar": "starlakeSidebar",
+              "previous": {
+                "title": "Transform",
+                "permalink": "/docs/userguide/transform"
+              },
+              "next": {
+                "title": "Environment",
+                "permalink": "/docs/reference/environment"
+              }
+            },
+            {
+              "unversionedId": "reference/environment",
+              "id": "reference/environment",
+              "title": "Environment",
+              "description": "Env specific variables",
+              "source": "@site/docs/reference/10.environment.md",
+              "sourceDirName": "reference",
+              "slug": "/reference/environment",
+              "permalink": "/docs/reference/environment",
+              "draft": false,
+              "editUrl": "https://github.com/starlake-ai/starlake/edit/master/docs/docs/reference/10.environment.md",
+              "tags": [],
+              "version": "current",
+              "sidebarPosition": 10,
+              "frontMatter": {
+                "sidebar_position": 10
+              },
+              "sidebar": "starlakeSidebar",
+              "previous": {
+                "title": "Configuration",
+                "permalink": "/docs/reference/configuration"
+              },
+              "next": {
+                "title": "Extract",
+                "permalink": "/docs/reference/extract"
+              }
+            },
+            {
+              "unversionedId": "reference/examples",
+              "id": "reference/examples",
+              "title": "Extract",
+              "description": "Extract",
+              "source": "@site/docs/reference/40.examples.md",
+              "sourceDirName": "reference",
+              "slug": "/reference/examples",
+              "permalink": "/docs/reference/examples",
+              "draft": false,
+              "editUrl": "https://github.com/starlake-ai/starlake/edit/master/docs/docs/reference/40.examples.md",
+              "tags": [],
+              "version": "current",
+              "sidebarPosition": 40,
+              "frontMatter": {
+                "sidebar_position": 40,
+                "title": "Extract"
+              },
+              "sidebar": "starlakeSidebar",
+              "previous": {
+                "title": "Transform",
+                "permalink": "/docs/reference/transform"
+              },
+              "next": {
+                "title": "Scheduling",
+                "permalink": "/docs/reference/scheduling"
+              }
+            },
+            {
+              "unversionedId": "reference/extract",
+              "id": "reference/extract",
+              "title": "Extract",
+              "description": "Configuration",
+              "source": "@site/docs/reference/15.extract.md",
+              "sourceDirName": "reference",
+              "slug": "/reference/extract",
+              "permalink": "/docs/reference/extract",
+              "draft": false,
+              "editUrl": "https://github.com/starlake-ai/starlake/edit/master/docs/docs/reference/15.extract.md",
+              "tags": [],
+              "version": "current",
+              "sidebarPosition": 10,
+              "frontMatter": {
+                "sidebar_position": 10
+              },
+              "sidebar": "starlakeSidebar",
+              "previous": {
+                "title": "Environment",
+                "permalink": "/docs/reference/environment"
+              },
+              "next": {
+                "title": "Load",
+                "permalink": "/docs/reference/load"
+              }
+            },
+            {
+              "unversionedId": "reference/load",
+              "id": "reference/load",
+              "title": "Load",
+              "description": "Domain",
+              "source": "@site/docs/reference/20.load.md",
+              "sourceDirName": "reference",
+              "slug": "/reference/load",
+              "permalink": "/docs/reference/load",
+              "draft": false,
+              "editUrl": "https://github.com/starlake-ai/starlake/edit/master/docs/docs/reference/20.load.md",
+              "tags": [],
+              "version": "current",
+              "sidebarPosition": 20,
+              "frontMatter": {
+                "sidebar_position": 20,
+                "title": "Load"
+              },
+              "sidebar": "starlakeSidebar",
+              "previous": {
+                "title": "Extract",
+                "permalink": "/docs/reference/extract"
+              },
+              "next": {
+                "title": "Transform",
+                "permalink": "/docs/reference/transform"
+              }
+            },
+            {
+              "unversionedId": "reference/scheduling",
+              "id": "reference/scheduling",
+              "title": "Scheduling",
+              "description": "Scheduling Spark jobs using the native job schedulers such as Airflow fits the following cases:",
+              "source": "@site/docs/reference/50.scheduling.md",
+              "sourceDirName": "reference",
+              "slug": "/reference/scheduling",
+              "permalink": "/docs/reference/scheduling",
+              "draft": false,
+              "editUrl": "https://github.com/starlake-ai/starlake/edit/master/docs/docs/reference/50.scheduling.md",
+              "tags": [],
+              "version": "current",
+              "sidebarPosition": 50,
+              "frontMatter": {
+                "sidebar_position": 50,
+                "title": "Scheduling"
+              },
+              "sidebar": "starlakeSidebar",
+              "previous": {
+                "title": "Extract",
+                "permalink": "/docs/reference/examples"
+              },
+              "next": {
+                "title": "Amazon Web Services EMR",
+                "permalink": "/docs/platform/aws"
+              }
+            },
+            {
+              "unversionedId": "reference/transform",
+              "id": "reference/transform",
+              "title": "Transform",
+              "description": "Job",
+              "source": "@site/docs/reference/30.transform.md",
+              "sourceDirName": "reference",
+              "slug": "/reference/transform",
+              "permalink": "/docs/reference/transform",
+              "draft": false,
+              "editUrl": "https://github.com/starlake-ai/starlake/edit/master/docs/docs/reference/30.transform.md",
+              "tags": [],
+              "version": "current",
+              "sidebarPosition": 30,
+              "frontMatter": {
+                "sidebar_position": 30
+              },
+              "sidebar": "starlakeSidebar",
+              "previous": {
+                "title": "Load",
+                "permalink": "/docs/reference/load"
+              },
+              "next": {
+                "title": "Extract",
+                "permalink": "/docs/reference/examples"
+              }
+            },
+            {
+              "unversionedId": "userguide/load",
+              "id": "userguide/load",
+              "title": "Load",
+              "description": "Load Rules",
+              "source": "@site/docs/userguide/load.md",
+              "sourceDirName": "userguide",
+              "slug": "/userguide/load",
+              "permalink": "/docs/userguide/load",
+              "draft": false,
+              "editUrl": "https://github.com/starlake-ai/starlake/edit/master/docs/docs/userguide/load.md",
+              "tags": [],
+              "version": "current",
+              "sidebarPosition": 2,
+              "frontMatter": {
+                "sidebar_position": 2
+              },
+              "sidebar": "starlakeSidebar",
+              "previous": {
+                "title": "Quick Start",
+                "permalink": "/docs/userguide/quickstart"
+              },
+              "next": {
+                "title": "Transform",
+                "permalink": "/docs/userguide/transform"
+              }
+            },
+            {
+              "unversionedId": "userguide/quickstart",
+              "id": "userguide/quickstart",
+              "title": "Quick Start",
+              "description": "This quickstart is based on the example available in the sample directory.",
+              "source": "@site/docs/userguide/quickstart.md",
+              "sourceDirName": "userguide",
+              "slug": "/userguide/quickstart",
+              "permalink": "/docs/userguide/quickstart",
+              "draft": false,
+              "editUrl": "https://github.com/starlake-ai/starlake/edit/master/docs/docs/userguide/quickstart.md",
+              "tags": [],
+              "version": "current",
+              "sidebarPosition": 1,
+              "frontMatter": {
+                "sidebar_position": 1
+              },
+              "sidebar": "starlakeSidebar",
+              "previous": {
+                "title": "What is Starlake ?",
+                "permalink": "/docs/intro"
+              },
+              "next": {
+                "title": "Load",
+                "permalink": "/docs/userguide/load"
+              }
+            },
+            {
+              "unversionedId": "userguide/transform",
+              "id": "userguide/transform",
+              "title": "Transform",
+              "description": "Once your data is ingested, you may start to expose insights by joining them and / or create meaningful aggregates.",
+              "source": "@site/docs/userguide/transform.md",
+              "sourceDirName": "userguide",
+              "slug": "/userguide/transform",
+              "permalink": "/docs/userguide/transform",
+              "draft": false,
+              "editUrl": "https://github.com/starlake-ai/starlake/edit/master/docs/docs/userguide/transform.md",
+              "tags": [],
+              "version": "current",
+              "sidebarPosition": 3,
+              "frontMatter": {
+                "sidebar_position": 3
+              },
+              "sidebar": "starlakeSidebar",
+              "previous": {
+                "title": "Load",
+                "permalink": "/docs/userguide/load"
+              },
+              "next": {
+                "title": "Configuration",
+                "permalink": "/docs/reference/configuration"
+              }
+            }
+          ],
+          "drafts": [],
+          "sidebars": {
+            "starlakeSidebar": [
+              {
+                "type": "doc",
+                "id": "intro"
+              },
+              {
+                "type": "category",
+                "label": "User Guide",
+                "collapsible": true,
+                "collapsed": true,
+                "items": [
+                  {
+                    "type": "doc",
+                    "id": "userguide/quickstart"
+                  },
+                  {
+                    "type": "doc",
+                    "id": "userguide/load"
+                  },
+                  {
+                    "type": "doc",
+                    "id": "userguide/transform"
+                  }
+                ]
+              },
+              {
+                "type": "category",
+                "label": "Reference",
+                "collapsible": true,
+                "collapsed": true,
+                "items": [
+                  {
+                    "type": "doc",
+                    "id": "reference/configuration"
+                  },
+                  {
+                    "type": "doc",
+                    "id": "reference/environment"
+                  },
+                  {
+                    "type": "doc",
+                    "id": "reference/extract"
+                  },
+                  {
+                    "type": "doc",
+                    "id": "reference/load"
+                  },
+                  {
+                    "type": "doc",
+                    "id": "reference/transform"
+                  },
+                  {
+                    "type": "doc",
+                    "id": "reference/examples"
+                  },
+                  {
+                    "type": "doc",
+                    "id": "reference/scheduling"
+                  }
+                ]
+              },
+              {
+                "type": "category",
+                "label": "Platform Specific",
+                "collapsible": true,
+                "collapsed": true,
+                "items": [
+                  {
+                    "type": "doc",
+                    "id": "platform/aws"
+                  },
+                  {
+                    "type": "doc",
+                    "id": "platform/azure"
+                  },
+                  {
+                    "type": "doc",
+                    "id": "platform/databricks"
+                  },
+                  {
+                    "type": "doc",
+                    "id": "platform/gcp"
+                  },
+                  {
+                    "type": "doc",
+                    "id": "platform/file"
+                  },
+                  {
+                    "type": "doc",
+                    "id": "platform/hadoop"
+                  }
+                ]
+              },
+              {
+                "type": "category",
+                "label": "CLI",
+                "collapsible": true,
+                "collapsed": true,
+                "items": [
+                  {
+                    "type": "doc",
+                    "id": "cli/import"
+                  },
+                  {
+                    "type": "doc",
+                    "id": "cli/bqload"
+                  },
+                  {
+                    "type": "doc",
+                    "id": "cli/esload"
+                  },
+                  {
+                    "type": "doc",
+                    "id": "cli/infer-schema"
+                  },
+                  {
+                    "type": "doc",
+                    "id": "cli/load"
+                  },
+                  {
+                    "type": "doc",
+                    "id": "cli/metrics"
+                  },
+                  {
+                    "type": "doc",
+                    "id": "cli/parquet2csv"
+                  },
+                  {
+                    "type": "doc",
+                    "id": "cli/cnxload"
+                  },
+                  {
+                    "type": "doc",
+                    "id": "cli/xls2yml"
+                  },
+                  {
+                    "type": "doc",
+                    "id": "cli/ddl2yml"
+                  },
+                  {
+                    "type": "doc",
+                    "id": "cli/extract"
+                  },
+                  {
+                    "type": "doc",
+                    "id": "cli/transform"
+                  },
+                  {
+                    "type": "doc",
+                    "id": "cli/watch"
+                  },
+                  {
+                    "type": "doc",
+                    "id": "cli/kafkaload"
+                  },
+                  {
+                    "type": "doc",
+                    "id": "cli/yml2xls"
+                  },
+                  {
+                    "type": "doc",
+                    "id": "cli/yml2gv"
+                  }
+                ]
+              },
+              {
+                "type": "category",
+                "label": "Developer Guide",
+                "collapsible": true,
+                "collapsed": true,
+                "items": [
+                  {
+                    "type": "doc",
+                    "id": "devguide/contribute"
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    }
+  },
+  "docusaurus-plugin-content-blog": {
+    "default": {
+      "blogSidebarTitle": "Recent posts",
+      "blogPosts": [
+        {
+          "id": "rls-cls-big-query",
+          "metadata": {
+            "permalink": "/blog/rls-cls-big-query",
+            "editUrl": "https://github.com/starlake-ai/starlake/edit/master/docs/blog/2022-02-15-rls-cls-big-query.mdx",
+            "source": "@site/blog/2022-02-15-rls-cls-big-query.mdx",
+            "title": "Column  and Row Level Security in BigQuery",
+            "description": "Data exposition strategies",
+            "date": "2022-02-15T00:00:00.000Z",
+            "formattedDate": "February 15, 2022",
+            "tags": [
+              {
+                "label": "Spark",
+                "permalink": "/blog/tags/spark"
+              },
+              {
+                "label": "BigQuery",
+                "permalink": "/blog/tags/big-query"
+              },
+              {
+                "label": "Dataproc",
+                "permalink": "/blog/tags/dataproc"
+              },
+              {
+                "label": "Google Cloud",
+                "permalink": "/blog/tags/google-cloud"
+              },
+              {
+                "label": "ETL",
+                "permalink": "/blog/tags/etl"
+              },
+              {
+                "label": "Starlake",
+                "permalink": "/blog/tags/starlake"
+              }
+            ],
+            "readingTime": 2.855,
+            "truncated": false,
+            "authors": [
+              {
+                "name": "Hayssam Saleh",
+                "title": "Starlake Core Team Member",
+                "url": "https://www.linkedin.com/in/hayssams/",
+                "imageURL": "https://s.gravatar.com/avatar/04aa2a859a66b52787bcba8c36beba8c.png"
+              }
+            ],
+            "frontMatter": {
+              "slug": "rls-cls-big-query",
+              "title": "Column  and Row Level Security in BigQuery",
+              "author": "Hayssam Saleh",
+              "author_title": "Starlake Core Team Member",
+              "author_url": "https://www.linkedin.com/in/hayssams/",
+              "author_image_url": "https://s.gravatar.com/avatar/04aa2a859a66b52787bcba8c36beba8c.png",
+              "tags": [
+                "Spark",
+                "BigQuery",
+                "Dataproc",
+                "Google Cloud",
+                "ETL",
+                "Starlake"
+              ]
+            },
+            "nextItem": {
+              "title": "Handling Dynamic Partitioning and Merge with Spark on BigQuery",
+              "permalink": "/blog/spark-big-query-partitioning"
+            }
+          },
+          "content": "## Data exposition strategies\n\nData may be exposed using views or authorized views and more recently using Row / Column level security.\n\nHistorically, to resrict access on specific columns or rows in in BigQuery, one can create a (authorized) view with a SQL request like the one below:\n\n![CLS / RLS using Views]( /img/blog/cls-rls-bigquery/cls-rls.png \"CLS / RLS using Views\")\n\n\nBigQuery **Views** require to grant access for the end users to the table on top of which the view is created. To bypass that limitation,\nBigQuery provide **Authorized views**. However, Authorized views come with the following restrictions:\n\n1.  The underlying table is accessed through the authorized view where the end user is impersonated,\nloosing thus at the table level, the identity of the user making the request.\n![Impersonation]( /img/blog/cls-rls-bigquery/cls-rls-impersonation.png \"Impersonation\")\n\n\n2. Each restriction policy require to define a specific authorized view making it difficult to identify who has access to what ?\n![Multilication of Authorized Views]( /img/blog/cls-rls-bigquery/cls-rls-multiple-authorized.png \"Multilication of Authorized Views\")\n\n\n3. Authorized views need to be updated whenever a schema evolution on the underlying table bring in a sensitive field that need to be excluded or a field that need to be included in the view.\nIn the example below, the new column \"description\" need to be added to the authorized view if we want it .\n![Multilication of Authorized Views]( /img/blog/cls-rls-bigquery/cls-rls-schema-evolution.png \"Multilication of Authorized Views\")\n\n\nThat's where Row Level Security and Column Level security features natively supported by BigQuery come in.\n\n## BigQuery Row Level Security\n\nRow Level Security restrict access to rows based on conditions set in the where clause using the custom SQL statement below:\n\n![RLS]( /img/blog/cls-rls-bigquery/rls-syntax.png \"RLS\")\n\n## Big Query Column Level Security\n\nColumn level security in BigQuery is managed using a taxonomy. This taxonomy is a hierarchy of policy tags\ndescribing the table attributes or other resources. By assigning access rights to a tag,\nwe restrict access to any resource tagged using this specific tag and this applies to BigQuery table fields.\n\nIn our example, restricting access to specific user/group/sa to the column `price` require the following steps:\n\n1. In Cloud Data Catalog/Policy Tags, create a Taxonomy. Note that `Enfore access control` should be checked.\n\n![CLS Taxonomy]( /img/blog/cls-rls-bigquery/cls-taxonomy.png \"CLS Taxonomy\")\n\n2. Assign permissions for each policy tag you defined\n\n![CLS Access]( /img/blog/cls-rls-bigquery/cls-tag-access.png \"CLS Access\")\n\n3. Tag restricted columns in the BigQuery schema editor.\n![CLS Assign]( /img/blog/cls-rls-bigquery/cls-tag-assign.png \"CLS Assign\")\n\n:::tip\nAssigning policy tags may be done using the `bq load/update` command line tool\n:::\n\n## BigQuery RLS/CLS benefits\n\nUsing BigQuery row and column level security features bring several benefits:\n- There is no need to create extra views\n- Users use the same name for the table but with different access rights\n- A company wide taxonomy is defined allowing better Data Management\n- Access rights to a new column in the table are automatically handled\n\n## A word about RLS and CLS in Starlake\n\nIngesting Data into BigQuery cannot be considered complete without taking into account the access level restrictions on the target table.\nStarlake will handle for you all the scripting required to secure BigQuery rows and columns using a YAML declarative syntax to make sure\nthat your tables are secured in BigQuery:\n```yaml {2,11} title=\"Declarative Row Level & Column Level Security\"\n  - name: \"PRODUCT\"\n    rls:\n      - name: \"my-rls\"\n        predicate: \"category like 'Food'\"\n        grants:\n          - \"user:me@company.com\"\n          - \"group:financegroup@company.com\"\n          - \"sa:serviceacount@gserviceaccount.com\"\n    attributes:\n      - name: \"id\"\n        accessPolicy: PII\n```\n## Comments\n[Let's continue the conversation on Discord](https://discord.com/channels/833336395430625310/908709208025858079)"
+        },
+        {
+          "id": "spark-big-query-partitioning",
+          "metadata": {
+            "permalink": "/blog/spark-big-query-partitioning",
+            "editUrl": "https://github.com/starlake-ai/starlake/edit/master/docs/blog/2021-12-15-spark-big-query-partitioning.mdx",
+            "source": "@site/blog/2021-12-15-spark-big-query-partitioning.mdx",
+            "title": "Handling Dynamic Partitioning and Merge with Spark on BigQuery",
+            "description": "Data Loading strategies",
+            "date": "2021-12-15T00:00:00.000Z",
+            "formattedDate": "December 15, 2021",
+            "tags": [
+              {
+                "label": "Spark",
+                "permalink": "/blog/tags/spark"
+              },
+              {
+                "label": "BigQuery",
+                "permalink": "/blog/tags/big-query"
+              },
+              {
+                "label": "Dataproc",
+                "permalink": "/blog/tags/dataproc"
+              },
+              {
+                "label": "Google Cloud",
+                "permalink": "/blog/tags/google-cloud"
+              },
+              {
+                "label": "ETL",
+                "permalink": "/blog/tags/etl"
+              },
+              {
+                "label": "Starlake",
+                "permalink": "/blog/tags/starlake"
+              }
+            ],
+            "readingTime": 6.735,
+            "truncated": false,
+            "authors": [
+              {
+                "name": "Hayssam Saleh",
+                "title": "Starlake Core Team Member",
+                "url": "https://www.linkedin.com/in/hayssams/",
+                "imageURL": "https://s.gravatar.com/avatar/04aa2a859a66b52787bcba8c36beba8c.png"
+              }
+            ],
+            "frontMatter": {
+              "slug": "spark-big-query-partitioning",
+              "title": "Handling Dynamic Partitioning and Merge with Spark on BigQuery",
+              "author": "Hayssam Saleh",
+              "author_title": "Starlake Core Team Member",
+              "author_url": "https://www.linkedin.com/in/hayssams/",
+              "author_image_url": "https://s.gravatar.com/avatar/04aa2a859a66b52787bcba8c36beba8c.png",
+              "tags": [
+                "Spark",
+                "BigQuery",
+                "Dataproc",
+                "Google Cloud",
+                "ETL",
+                "Starlake"
+              ]
+            },
+            "prevItem": {
+              "title": "Column  and Row Level Security in BigQuery",
+              "permalink": "/blog/rls-cls-big-query"
+            },
+            "nextItem": {
+              "title": "Bonjour",
+              "permalink": "/blog/bonjour"
+            }
+          },
+          "content": "import Tabs from '@theme/Tabs';\nimport TabItem from '@theme/TabItem';\n\n\n\n## Data Loading strategies\n\nWhen loading data into BigQuery, you may want to:\n- **Overwrite** the existing data and replace it with the incoming data.\n- **Append** incoming data to existing\n- **Dynamic partition Overwrite** where only the partitions to which the incoming data belong to are overwritten.\n- **Merge** incoming data with existing data by keeping the newest version of each record.\n\nFor performance reasons, when having huge amount of data, tables are usually split\ninto multiple partitions. BigQuery supports range partitioning which are uncommon and date/time partitioning\nwhich is the most widely used type of partitioning.\nThe diagram below shows our initial table partitioned by the `date` field.\n\n![Initial data]( /img/blog/spark-bigquery/initial-data.png \"Initial data\")\n\n\nLet's assume we receive the following data that we need to ingest into the table:\n\n![Incoming data]( /img/blog/spark-bigquery/incoming-data.png \"Incoming data\")\n\nThe strategies above will produce respectively the results below:\n\n<Tabs groupId=\"modes\">\n<TabItem value=\"overwrite\" label=\"Overwrite\">\n\nThe table ends up with the 2 incoming records.\nAll existing partitions are deleted.\n\n![Overwrite data]( /img/blog/spark-bigquery/overwrite-data.png \"Overwrite data\")\n\n</TabItem>\n<TabItem value=\"append\" label=\"Append\">\n\nThe table ends up with 7 records. Note that a new `ìtem 1` record is added while the older one is kept.\n\n![Append data]( /img/blog/spark-bigquery/append-data.png \"Append data\")\n\n</TabItem>\n<TabItem value=\"partitioned-overwrite\" label=\"Dynamic partition Overwrite\">\n\nThe table ends up with 4 records.\nThe second partition remains untouched while the first partition is erased and overwritten by with the incoming data.\n\n![Merge data]( /img/blog/spark-bigquery/partitioned-overwrite.png \"Merge data\")\n\n</TabItem>\n<TabItem value=\"merge\" label=\"Merge\">\n\nThe table ends up with 4 records.\nIncoming and existing records are added up but only the newest version of each product in the kept in the resulting table.\n\n![Merge data]( /img/blog/spark-bigquery/merge-data.png \"Merge data\")\n\n</TabItem>\n</Tabs>\n\nThere is no good or bad strategy, the use of one of the strategies above depends on the use case. Some use case examples for each of the strategies are :\n- Overwrite mode may be useful when you receive every day the list of all product names.\n- Append mode may be useful when you receive daily sales.\n- Dynamic Partition Overwrite mode may be useful when you ingested the first time a partition and you need to ingest it again with a different set of data and thus alter only that partition.\n- Merge mode may be useful when you receive product updates every day and that you need to keep only the last version of each product.\n\n\n# Spark How-to\n\n[Apache Spark SQL connector for Google BigQuery](https://github.com/GoogleCloudDataproc/spark-bigquery-connector) makes BigQuery a first class citizen as a source and sink for Spark jobs.\n\n## Append and Overwrite modes in Spark\n\nBigQuery is supported by Spark as a source and sink through the [Spark BigQuery connector](https://github.com/GoogleCloudDataproc/spark-bigquery-connector)\n\nSpark comes out of the box with the ability to append or overwrite existing data using a predefined save mode :\n\n```scala\n\nval incomingDF = ... // Incoming data loaded with the correct schema\nval bqTable = \"project-id.dataset.table\"\nval saveMode = SaveMode.Overwrite // or SaveMode.Append fot he appending data\nincomingDF.write\n    .mode(saveMode)\n    .partitionBy(\"date\")\n    .format(\"com.google.cloud.spark.bigquery\")\n    .option(\"table\", bqTable)\n    .save()\n\n```\n\n### Dynamic Partition Overwrite mode in Spark\n\nTo activate dynamic partitioning, you need to set the configuration below before saving the data using the exact same code above :\n```scala\nspark.conf.set(\"spark.sql.sources.partitionOverwriteMode\",\"dynamic\")\n```\n\nUnfortunately, the BigQuery Spark connector does not support this feature (at the time of writing).\nWe need to manually delete the partitions we want to overwrite first and then append the incoming data.\n\nAssuming the table is partitioned by the field `date` and the incoming data loaded in the incomingDF dataframe, the code below will\nremove existing partitions that need to be overwritten.\n\n```scala {3,8} title=\"Delete partitions that need to be updated\"\nval incomingDF = ... // Incoming data loaded with the correct schema\nincomingDF\n  .select(date_format(col(\"date\"), \"yyyyMMdd\").cast(\"string\"))\n  .distinct()\n  .collect()\n  .map(_.getString(0))\n  .foreach { partition =>\n    bigQueryClient.deleteTable(TableId.of(datasetName, s\"$table\\$$partition\"));\n  }\n```\n\n:::tip\nTo drop a table partition using the Google Cloud `bq` command line tool, you may use the following syntax:\n\n```shell\nbq rm -t 'project-id.dataset.table$YYYYMMDD'\n```\n:::\n\nWe now need to append the incomingDF to mimic the `dynamic partition overwrite` feature:\n\n```scala {3} title=\"Append incoming partitions\"\nval incomingDF = ... // Incoming data loaded with the correct schema\nval bqTable = \"project-id.dataset.table\"\nval saveMode = SaveMode.Append\nincomingDF.write\n    .mode(saveMode)\n    .partitionBy(\"date\")\n    .format(\"com.google.cloud.spark.bigquery\")\n    .option(\"table\", bqTable)\n    .save()\n```\n\n:::caution\nThe issue with this approach is that if the program crashes during the \"appending\" of the incoming data, partitions will have been deleted and data would be lost.\nHowever, you can still ingest the same file again in case of failure and the end result will be the same.\n:::\n\n\n\n\n### Dynamic Partition Merge in Spark\n\nWhen you need to keep the last version of the record for each product, both BigQuery and Databricks (the company behind Spark in case you lived on the moon the last ten years) support\nthe merge SQL statement:\n\n```sql {5,7} title=\"Merge records using SQL statement\"\nMERGE INTO target_table\nUSING incoming_table\nON target_table.product = incoming_table.product\n    WHEN NOT MATCHED\n\t\tTHEN INSERT *\n\tWHEN MATCHED AND incoming_table.date > target_table.date THEN\n\t\tUPDATE SET *\n/*\n    WHEN MATCHED AND incoming_table.timestamp <= target_table.timestamp THEN\n\t\tSKIP\n*/\n```\n\nUnfortunately the `MERGE` statement is not supported by Apache Spark. It is only supported by Databricks, its commercial version.\n\nTo do a merge using the Spark BigQuery connector, we need to do it by following the steps below :\n\n\n**Step 1: Create a dataframe with all the rows**\n\n```scala\nval allRowsDF =\n    incomingDF\n    .unionByName(existingDF)\n```\n\n![Step 1]( /img/blog/spark-bigquery/step1-union-data.png \"Step 1\")\n\n\n**Step 2: group by product and order each product occurrence by date descending**\n\n```scala\nval orderingWindow =\n    Window\n      .partitionBy(\"product\")\n      .orderBy(col(\"date\").desc, col(\"product\")))\n\nval orderedDF =\n    allRowsDF\n        .withColumn(\"rownum\", row_number.over(orderingWindow))\n```\n\n![Step 2]( /img/blog/spark-bigquery/step2-ordering-data.png \"Step 2\")\n\n\n\nIn the step 2 above, each product is ordered by date with the most recent one first (descending order).\nWe identify it by the `rownum` column.\n\n\n**Step 3: Keep the most recent product**\n\n```scala {3}\nval toKeepDF =\n    orderedDF\n        .where(col(\"rownum\") === 1)\n        .drop(\"rownum\")\n```\n\n![Step 3]( /img/blog/spark-bigquery/step3-keep-data.png \"Step 3\")\n\n\n**Step 4: Overwrite existing partitions with the data we want to keep**\n\n```scala {3}\n\nval bqTable = \"project-id.dataset.table\"\nval saveMode = SaveMode.Overwrite\ntoKeepDF.write\n    .mode(saveMode)\n    .partitionBy(\"date\")\n    .format(\"com.google.cloud.spark.bigquery\")\n    .option(\"table\", bqTable)\n    .save()\n```\n\n![Step 4]( /img/blog/spark-bigquery/step4-save-data.png \"Step 4\")\n\n## Starlake How-to\n\n[Starlake](https://starlake.io) is a declarative Ingestion Framework based on YAML description files.<br/>\nThe 4 ingestion strategies described above are supported through the settings below:\n\n<Tabs groupId=\"modes\">\n<TabItem value=\"overwrite\" label=\"Overwrite\">\n\n```json {2} title=\"application.conf\"\n// When set to \"static\" all partitions are truncated before data is written in overwrite mode.\nspark.sql.sources.partitionOverwriteMode = \"static\"\n```\n\n```yaml {8} title=\"Schema Definition File\"\n     name: \"mydb\"\n     directory: \"...\"\n+    metadata:\n    schemas:\n      - name: \"mytable\"\n        pattern: \"data-.*.csv\"\n        metadata:\n          mode: \"Overwrite\"\n        attributes:\n          - name: \"date\"\n            type: \"date\"\n            rename: \"id\"\n          - name: \"product\"\n            type: \"string\"\n          - name: \"price\"\n            type: \"decimal\"\n```\n\n[See again manual Spark overwrite](#append-and-overwrite-modes-in-spark)\n\n</TabItem>\n<TabItem value=\"append\" label=\"Append\">\n\n```json title=\"application.conf\"\n// Irrelevant since we are only appending data afterwards\nspark.sql.sources.partitionOverwriteMode = \"static\" // or \"dynamic\"\n```\n\n```yaml {8} title=\"Schema Definition File\"\n     name: \"mydb\"\n     directory: \"...\"\n+    metadata:\n    schemas:\n      - name: \"mytable\"\n        pattern: \"data-.*.csv\"\n        metadata:\n          mode: \"Append\"\n        attributes:\n          - name: \"date\"\n            type: \"date\"\n            rename: \"id\"\n          - name: \"product\"\n            type: \"string\"\n          - name: \"price\"\n            type: \"decimal\"\n```\n\n[See again manual Spark append](#append-and-overwrite-modes-in-spark)\n\n</TabItem>\n<TabItem value=\"partitioned-overwrite\" label=\"Dynamic partition Overwrite\">\n\n```json {2} title=\"application.conf\"\n// When set to \"dynamic\", only partitions that are  affected will be truncated in overwrite mode.\nspark.sql.sources.partitionOverwriteMode = \"dynamic\"\n```\n\n```yaml {8} title=\"Schema Definition File\"\n     name: \"mydb\"\n     directory: \"...\"\n+    metadata:\n    schemas:\n      - name: \"mytable\"\n        pattern: \"data-.*.csv\"\n        metadata:\n          mode: \"Overwrite\"\n        attributes:\n          - name: \"date\"\n            type: \"date\"\n            rename: \"id\"\n          - name: \"product\"\n            type: \"string\"\n          - name: \"price\"\n            type: \"decimal\"\n```\n\n[See again manual Spark dynamic partition overwrite](#dynamic-partition-overwrite-mode-in-spark)\n\n</TabItem>\n<TabItem value=\"merge\" label=\"Merge\">\n\n```json title=\"application.conf\"\n// Irrelevant since we are truncating manually and  appending data afterwards\nspark.sql.sources.partitionOverwriteMode = \"dynamic\" // or static\n```\n\n```yaml {8,9,12,13} title=\"Schema Definition File\"\n     name: \"mydb\"\n     directory: \"...\"\n+    metadata:\n    schemas:\n      - name: \"mytable\"\n        pattern: \"data-.*.csv\"\n        merge:\n          key:\n            - \"product\"\n        metadata:\n          mode: \"Overwrite\"\n          partition:\n            - \"date\"\n        attributes:\n          - name: \"date\"\n            type: \"date\"\n          - name: \"product\"\n            type: \"string\"\n          - name: \"price\"\n            type: \"decimal\"\n```\n\n[See again manual Spark Merge](#dynamic-partition-merge-in-spark)\n\n</TabItem>\n</Tabs>\n\n## Comments\n[Let's continue the conversation on Discord](https://discord.com/channels/833336395430625310/908709208025858079)"
+        },
+        {
+          "id": "bonjour",
+          "metadata": {
+            "permalink": "/blog/bonjour",
+            "editUrl": "https://github.com/starlake-ai/starlake/edit/master/docs/blog/2021-09-18-bonjour.md",
+            "source": "@site/blog/2021-09-18-bonjour.md",
+            "title": "Bonjour",
+            "description": "Pipelining fast data is big. Pipelining big data fast is bigger.  :)",
+            "date": "2021-09-18T00:00:00.000Z",
+            "formattedDate": "September 18, 2021",
+            "tags": [
+              {
+                "label": "bonjour",
+                "permalink": "/blog/tags/bonjour"
+              },
+              {
+                "label": "Starlake",
+                "permalink": "/blog/tags/starlake"
+              }
+            ],
+            "readingTime": 0.06,
+            "truncated": false,
+            "authors": [
+              {
+                "name": "Starlake Team",
+                "title": "Starlake Core Team",
+                "url": "https://github.com/starlake-ai",
+                "imageURL": "https://avatars.githubusercontent.com/u/89859410?s=200&v=4"
+              }
+            ],
+            "frontMatter": {
+              "slug": "bonjour",
+              "title": "Bonjour",
+              "author": "Starlake Team",
+              "author_title": "Starlake Core Team",
+              "author_url": "https://github.com/starlake-ai",
+              "author_image_url": "https://avatars.githubusercontent.com/u/89859410?s=200&v=4",
+              "tags": [
+                "bonjour",
+                "Starlake"
+              ]
+            },
+            "prevItem": {
+              "title": "Handling Dynamic Partitioning and Merge with Spark on BigQuery",
+              "permalink": "/blog/spark-big-query-partitioning"
+            }
+          },
+          "content": "Pipelining fast data is big. Pipelining big data fast is bigger.  :)"
+        }
+      ],
+      "blogListPaginated": [
+        {
+          "items": [
+            "rls-cls-big-query",
+            "spark-big-query-partitioning",
+            "bonjour"
+          ],
+          "metadata": {
+            "permalink": "/blog",
+            "page": 1,
+            "postsPerPage": 10,
+            "totalPages": 1,
+            "totalCount": 3,
+            "blogDescription": "Blog",
+            "blogTitle": "Blog"
+          }
+        }
+      ],
+      "blogTags": {
+        "/blog/tags/spark": {
+          "label": "Spark",
+          "items": [
+            "rls-cls-big-query",
+            "spark-big-query-partitioning"
+          ],
+          "permalink": "/blog/tags/spark",
+          "pages": [
+            {
+              "items": [
+                "rls-cls-big-query",
+                "spark-big-query-partitioning"
+              ],
+              "metadata": {
+                "permalink": "/blog/tags/spark",
+                "page": 1,
+                "postsPerPage": 10,
+                "totalPages": 1,
+                "totalCount": 2,
+                "blogDescription": "Blog",
+                "blogTitle": "Blog"
+              }
+            }
+          ]
+        },
+        "/blog/tags/big-query": {
+          "label": "BigQuery",
+          "items": [
+            "rls-cls-big-query",
+            "spark-big-query-partitioning"
+          ],
+          "permalink": "/blog/tags/big-query",
+          "pages": [
+            {
+              "items": [
+                "rls-cls-big-query",
+                "spark-big-query-partitioning"
+              ],
+              "metadata": {
+                "permalink": "/blog/tags/big-query",
+                "page": 1,
+                "postsPerPage": 10,
+                "totalPages": 1,
+                "totalCount": 2,
+                "blogDescription": "Blog",
+                "blogTitle": "Blog"
+              }
+            }
+          ]
+        },
+        "/blog/tags/dataproc": {
+          "label": "Dataproc",
+          "items": [
+            "rls-cls-big-query",
+            "spark-big-query-partitioning"
+          ],
+          "permalink": "/blog/tags/dataproc",
+          "pages": [
+            {
+              "items": [
+                "rls-cls-big-query",
+                "spark-big-query-partitioning"
+              ],
+              "metadata": {
+                "permalink": "/blog/tags/dataproc",
+                "page": 1,
+                "postsPerPage": 10,
+                "totalPages": 1,
+                "totalCount": 2,
+                "blogDescription": "Blog",
+                "blogTitle": "Blog"
+              }
+            }
+          ]
+        },
+        "/blog/tags/google-cloud": {
+          "label": "Google Cloud",
+          "items": [
+            "rls-cls-big-query",
+            "spark-big-query-partitioning"
+          ],
+          "permalink": "/blog/tags/google-cloud",
+          "pages": [
+            {
+              "items": [
+                "rls-cls-big-query",
+                "spark-big-query-partitioning"
+              ],
+              "metadata": {
+                "permalink": "/blog/tags/google-cloud",
+                "page": 1,
+                "postsPerPage": 10,
+                "totalPages": 1,
+                "totalCount": 2,
+                "blogDescription": "Blog",
+                "blogTitle": "Blog"
+              }
+            }
+          ]
+        },
+        "/blog/tags/etl": {
+          "label": "ETL",
+          "items": [
+            "rls-cls-big-query",
+            "spark-big-query-partitioning"
+          ],
+          "permalink": "/blog/tags/etl",
+          "pages": [
+            {
+              "items": [
+                "rls-cls-big-query",
+                "spark-big-query-partitioning"
+              ],
+              "metadata": {
+                "permalink": "/blog/tags/etl",
+                "page": 1,
+                "postsPerPage": 10,
+                "totalPages": 1,
+                "totalCount": 2,
+                "blogDescription": "Blog",
+                "blogTitle": "Blog"
+              }
+            }
+          ]
+        },
+        "/blog/tags/starlake": {
+          "label": "Starlake",
+          "items": [
+            "rls-cls-big-query",
+            "spark-big-query-partitioning",
+            "bonjour"
+          ],
+          "permalink": "/blog/tags/starlake",
+          "pages": [
+            {
+              "items": [
+                "rls-cls-big-query",
+                "spark-big-query-partitioning",
+                "bonjour"
+              ],
+              "metadata": {
+                "permalink": "/blog/tags/starlake",
+                "page": 1,
+                "postsPerPage": 10,
+                "totalPages": 1,
+                "totalCount": 3,
+                "blogDescription": "Blog",
+                "blogTitle": "Blog"
+              }
+            }
+          ]
+        },
+        "/blog/tags/bonjour": {
+          "label": "bonjour",
+          "items": [
+            "bonjour"
+          ],
+          "permalink": "/blog/tags/bonjour",
+          "pages": [
+            {
+              "items": [
+                "bonjour"
+              ],
+              "metadata": {
+                "permalink": "/blog/tags/bonjour",
+                "page": 1,
+                "postsPerPage": 10,
+                "totalPages": 1,
+                "totalCount": 1,
+                "blogDescription": "Blog",
+                "blogTitle": "Blog"
+              }
+            }
+          ]
+        }
+      },
+      "blogTagsListPath": "/blog/tags"
+    }
+  },
+  "docusaurus-plugin-content-pages": {
+    "default": [
+      {
+        "type": "jsx",
+        "permalink": "/",
+        "source": "@site/src/pages/index.js"
+      },
+      {
+        "type": "mdx",
+        "permalink": "/markdown-page",
+        "source": "@site/src/pages/markdown-page.md",
+        "title": "Markdown page example",
+        "description": "You don't need React to write simple standalone pages.",
+        "frontMatter": {
+          "title": "Markdown page example"
+        }
+      }
+    ]
+  },
+  "docusaurus-plugin-google-analytics": {},
+  "docusaurus-plugin-debug": {},
+  "docusaurus-theme-classic": {},
+  "@easyops-cn/docusaurus-search-local": {},
+  "docusaurus-bootstrap-plugin": {},
+  "docusaurus-mdx-fallback-plugin": {}
+}
