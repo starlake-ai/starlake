@@ -131,6 +131,10 @@ module.exports = {
                     // Optional fields.
                     anonymizeIP: true // Should IPs be anonymized?
                 },
+                gtag: {
+                    trackingID: 'G-FYS72XYD48',
+                    anonymizeIP: true,
+                },
                 docs: {
                     sidebarPath: require.resolve('./sidebars.js'),
                     // Please change this to your repo.
