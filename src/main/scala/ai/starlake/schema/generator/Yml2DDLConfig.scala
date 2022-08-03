@@ -59,7 +59,7 @@ object Yml2DDLConfig extends CliConfig[Yml2DDLConfig] {
       opt[String]("domain")
         .action((x, c) => c.copy(domain = Some(x)))
         .optional()
-        .text("Domain to create DDL for. ALl by default")
+        .text("Domain to create DDL for. All by default")
         .children(
           opt[Seq[String]]("schemas")
             .action((x, c) => c.copy(schemas = Some(x)))

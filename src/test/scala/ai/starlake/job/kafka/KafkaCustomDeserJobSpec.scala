@@ -5,7 +5,7 @@ import ai.starlake.job.sink.http.SinkTransformer
 import ai.starlake.job.sink.kafka.{KafkaJob, KafkaJobConfig}
 import better.files.File
 import com.fasterxml.jackson.annotation.JsonInclude.Include
-import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.{DeserializationFeature, ObjectMapper}
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.typesafe.config.ConfigFactory
 import org.apache.http.client.methods.HttpUriRequest
@@ -17,6 +17,7 @@ object TestSinkTransformer extends SinkTransformer {
   val mapper: ObjectMapper = new ObjectMapper()
   mapper.registerModule(DefaultScalaModule)
   mapper.setSerializationInclusion(Include.NON_EMPTY)
+  mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
 
   def requestUris(url: String, rows: Array[Seq[String]]): Seq[HttpUriRequest] = {
     rows.foreach { row =>
