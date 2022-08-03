@@ -2,6 +2,7 @@
 
 .features {
   display: flex;
+  flex-direction: column;
   align-items: center;
   padding: 2rem 0;
   width: 100%;
@@ -10,4 +11,187 @@
 .featureSvg {
   height: 200px;
   width: 200px;
+}
+
+.twoColumnsContainer{
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+.TwoColumns {
+  display: grid;
+}
+
+.TwoColumns .column {
+  width: 100%;
+}
+
+.TwoColumns .column.first {
+  grid-area: first;
+}
+
+.TwoColumns .column.last {
+  grid-area: last;
+}
+
+@media only screen and (min-width: 961px) {
+  .TwoColumns {
+    max-width: 900px;
+    margin: 0 auto;
+    grid-template-columns: repeat(2, 1fr);
+    grid-template-areas: "first last";
+  }
+
+  .TwoColumns.reverse {
+    grid-template-areas: "last first";
+  }
+
+  .TwoColumns .column {
+    max-width: 450px;
+  }
+
+  .TwoColumns .column.left {
+    padding-right: 50px;
+  }
+
+  .TwoColumns .column.right {
+    padding-left: 50px;
+  }
+}
+
+@media only screen and (max-width: 960px) {
+  .TwoColumns,
+  .TwoColumns.reverse {
+    grid-template-columns: 1fr;
+    grid-template-areas: "first" "last";
+  }
+
+  .TwoColumns .column {
+    padding: 0 4rem;
+  }
+}
+
+@media only screen and (max-width: 480px) {
+  .TwoColumns .column {
+    padding: 0 1.25rem;
+  }
+}
+
+
+/* Section */
+
+.Section {
+  width: 100%;
+  padding-top: 50px;
+  padding-bottom: 50px;
+  overflow-x: hidden;
+}
+
+.Section + .Section {
+  border-top: 1px solid var(--ifm-table-border-color);
+}
+
+.Section.tint {
+  background-color: var(--ifm-menu-color-background-active);
+}
+
+.Section.dark {
+  background-color: var(--dark);
+}
+
+.Section p a {
+  @extend %link-style;
+}
+
+html[data-theme="dark"] .Section p a {
+  @extend %link-style-dark;
+}
+
+/* Heading */
+
+.Heading {
+  font-size: 25px;
+  color: var(--ifm-font-color-base);
+  line-height: 1.2;
+  margin-top: 0;
+  margin-bottom: 20px;
+  font-weight: 700;
+}
+
+
+/* Cross Platform */
+
+.CrossPlatform svg{
+  max-width: 400px;
+  margin: -20px 0;
+}
+.CrossPlatform text{
+  fill: var(--ifm-color-content-secondary);
+}
+
+@media only screen and (max-width: 960px) {
+  .CrossPlatform .TwoColumns {
+    grid-gap: 2rem;
+  }
+
+  .CrossPlatform svg {
+    max-width: 100%;
+    margin: 0 auto;
+  }
+  .CrossPlatform text {
+    fill: var(--ifm-color-content-secondary);
+  }
+}
+
+@media only screen and (min-width: 481px) and (max-width: 960px) {
+  .CrossPlatform .column.last {
+    width: 86%;
+    margin: 0 auto;
+    text-align: center;
+  }
+}
+
+/* VideoContent */
+
+@media only screen and (max-width: 960px) {
+  .VideoContent .TwoColumns {
+    grid-gap: 2rem;
+  }
+
+  .VideoContent .column.last {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+  }
+
+  /*
+   * If the full-width video won't fit, make it full-width.
+   * https://jameshfisher.com/2017/08/30/how-do-i-make-a-full-width-iframe/
+   */
+  .VideoContent .vidWrapper {
+    position: relative;
+    width: 100%;
+    padding-top: 56.25%;
+  }
+
+  .VideoContent iframe {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+  }
+}
+
+@media only screen and (min-width: 961px) {
+  /* Give more width for the video */
+  .VideoContent .TwoColumns {
+    grid-template-columns: 1fr 2fr;
+  }
+
+  .VideoContent iframe {
+    width: 560px;
+    height: 315px;
+  }
 }
