@@ -3,7 +3,7 @@
 
 # 0.3.22
 __New feature__:
-- Imrove cli doc generation. Extra doc can be added in docs/merge/cli folder
+- Improve cli doc generation. Extra doc can be added in docs/merge/cli folder
 
 __Bug Fix__:
 - Code improvement: JDBC is handled as a generic sink
