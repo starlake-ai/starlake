@@ -214,8 +214,6 @@ object AuditLog extends StrictLogging {
           settings.comet,
           Right(auditDF),
           "audit",
-          partitions = sink.partitions.getOrElse(1),
-          batchSize = sink.batchsize.getOrElse(1000),
           options = sink.getOptions
         )
         new ConnectionLoadJob(jdbcConfig).run()

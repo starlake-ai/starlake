@@ -74,8 +74,6 @@ class SinkUtils(implicit settings: Settings) extends StrictLogging with DatasetL
             settings.comet,
             Right(dataframe),
             table,
-            partitions = sink.partitions.getOrElse(1),
-            batchSize = sink.batchsize.getOrElse(1000),
             options = sink.getOptions
           )
           sinkToJdbc(jdbcConfig)
