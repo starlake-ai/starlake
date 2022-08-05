@@ -1,5 +1,6 @@
 package ai.starlake.utils
 
+import better.files.File
 import org.fusesource.scalate.TemplateEngine
 import scopt.{OParser, OptionDef}
 
@@ -30,13 +31,21 @@ trait CliConfig[T] {
         } else {
           (rawDescription, "")
         }
-      val rstExample = example.replace("example:", "\n\n")
-      val rstDescription = rawText
-      if (rstExample.trim.nonEmpty)
-        rstDescription + "````shell\n" + rstExample.trim + "\n````\n"
+      val mdExample = example.replace("example:", "\n\n")
+      val mdDescription = rawText
+      if (mdExample.trim.nonEmpty)
+        mdDescription + "````shell\n" + mdExample.trim + "\n````\n"
       else
-        rstDescription
+        mdDescription
     }
+
+    val mdExtraDescriptionFile =
+      File(getClass.getResource("/").getPath + s"../../../docs/merge/cli/$programName.md")
+    val extra =
+      if (mdExtraDescriptionFile.exists())
+        mdExtraDescriptionFile.lines().mkString("\n")
+      else
+        ""
 
     case class MarkdownOption(
       name: String,
@@ -70,11 +79,12 @@ trait CliConfig[T] {
         "synopsis"    -> synopsis,
         "description" -> description,
         "options"     -> options.map(opt => option(opt).toMap()),
-        "index"       -> (pageIndex * 10).toString
+        "index"       -> (pageIndex * 10).toString,
+        "extra"       -> extra
       )
 
     // TODO keep the lines below until we depreciate Scala 2.11
-    //     We'll replace it by --> val template = Source.fromResource("scalate/sphinx-cli.mustache").mkString
+    //     We'll replace it by --> val template = Source.fromResource("scalate/md-cli.mustache").mkString
 
     val stream = getClass.getResourceAsStream("/scalate/md-cli.mustache")
     val template = scala.io.Source.fromInputStream(stream).mkString

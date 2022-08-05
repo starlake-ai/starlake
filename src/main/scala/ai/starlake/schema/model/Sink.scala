@@ -42,12 +42,12 @@ object SinkType {
 
   def fromString(value: String): SinkType = {
     value.toUpperCase match {
-      case "NONE" | "NONESINK"   => SinkType.None
-      case "FS" | "FSSINK"       => SinkType.FS
-      case "JDBC" | "JDBCSINK"   => SinkType.JDBC
-      case "BQ" | "BIGQUERYSINK" => SinkType.BQ
-      case "ES" | "ESSINK"       => SinkType.ES
-      case "KAFKA" | "KAFKASINK" => SinkType.KAFKA
+      case "NONE" | "NONESINK"             => SinkType.None
+      case "FS" | "FSSINK"                 => SinkType.FS
+      case "GENERIC" | "JDBC" | "JDBCSINK" => SinkType.JDBC
+      case "BQ" | "BIGQUERYSINK"           => SinkType.BQ
+      case "ES" | "ESSINK"                 => SinkType.ES
+      case "KAFKA" | "KAFKASINK"           => SinkType.KAFKA
     }
   }
 
@@ -63,7 +63,7 @@ object SinkType {
 
   object JDBC extends SinkType("JDBC")
 
-  val sinks: Set[SinkType] = Set(None, FS, BQ, ES, JDBC)
+  val sinks: Set[SinkType] = Set(None, FS, BQ, ES, KAFKA, JDBC)
 }
 
 class SinkTypeDeserializer extends JsonDeserializer[SinkType] {
@@ -175,8 +175,6 @@ final case class FsSink(
 final case class JdbcSink(
   override val name: Option[String] = None,
   connection: String,
-  partitions: Option[Int] = None,
-  batchsize: Option[Int] = None,
   options: Option[Map[String, String]] = None
 ) extends Sink(SinkType.JDBC.value)
 
