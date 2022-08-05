@@ -30,7 +30,6 @@ object CustomDeserializer {
 
   def deserialize(topic: String, bytes: Array[Byte]): String =
     userDefinedDeserializer.deserialize(topic, bytes).toString
-
 }
 
 class KafkaJob(
