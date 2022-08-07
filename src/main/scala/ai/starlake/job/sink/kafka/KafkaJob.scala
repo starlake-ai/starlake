@@ -15,23 +15,6 @@ import org.apache.spark.sql.streaming.Trigger
 import scala.collection.JavaConverters._
 import scala.util.Try
 
-object CustomDeserializer {
-  var userDefinedDeserializer: Deserializer[Any] = _
-
-  def configure(customDeserializerName: String, configs: Map[String, _]): Unit = {
-    userDefinedDeserializer = Class
-      .forName(customDeserializerName)
-      .getDeclaredConstructor()
-      .newInstance()
-      .asInstanceOf[Deserializer[Any]]
-
-    userDefinedDeserializer.configure(configs.asJava, false)
-  }
-
-  def deserialize(topic: String, bytes: Array[Byte]): String =
-    userDefinedDeserializer.deserialize(topic, bytes).toString
-}
-
 class KafkaJob(
   val kafkaJobConfig: KafkaJobConfig
 )(implicit val settings: Settings)
@@ -251,23 +234,42 @@ class KafkaJob(
   }
 
   override def run(): Try[JobResult] = {
-    settings.comet.kafka.customDeserializer.foreach { customDeserializerName =>
-      val options =
-        settings.comet.kafka.serverOptions
-      CustomDeserializer.configure(customDeserializerName, options)
-      val topicName = topicConfig.topicName
-      session.udf.register(
-        "deserialize",
-        (bytes: Array[Byte]) => CustomDeserializer.deserialize(topicName, bytes)
-      )
+    val customDeserializers = settings.comet.kafka.customDeserializers.getOrElse(Map.empty)
+    customDeserializers.foreach { case (customDeserializerName, customDeserializerFunction) =>
+      val userDefinedDeserializer =
+        CustomDeserializer.configure(customDeserializerFunction, settings.comet.kafka.serverOptions)
 
+      session.udf.register(
+        customDeserializerName,
+        (bytes: Array[Byte]) =>
+          CustomDeserializer.deserialize(userDefinedDeserializer, topicConfig.topicName, bytes)
+      )
     }
+
     if (kafkaJobConfig.offload) {
       offload()
     } else {
       load()
     }
   }
-
   override def name: String = s"${kafkaJobConfig.topicConfigName}"
+}
+
+object CustomDeserializer {
+  def configure(customDeserializerName: String, configs: Map[String, _]): Deserializer[Any] = {
+    val userDefinedDeserializer = Class
+      .forName(customDeserializerName)
+      .getDeclaredConstructor()
+      .newInstance()
+      .asInstanceOf[Deserializer[Any]]
+    userDefinedDeserializer.configure(configs.asJava, false)
+    userDefinedDeserializer
+  }
+
+  def deserialize(
+    userDefinedDeserializer: Deserializer[Any],
+    topic: String,
+    bytes: Array[Byte]
+  ): String =
+    userDefinedDeserializer.deserialize(topic, bytes).toString
 }
