@@ -25,6 +25,7 @@ import ai.starlake.schema.generator.JDBCUtils.{Columns, PrimaryKeys, TableRemark
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.{Domain, Schema}
 import ai.starlake.utils.Utils
+import better.files.File
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.{Path => StoragePath}
 import org.fusesource.scalate.{TemplateEngine, TemplateSource}
@@ -224,7 +225,13 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
       val sqlScript = sqlString.toString
       logger.debug(s"Final script is:\n $sqlScript")
 
-      config.outputPath.flatMap(output => writeScript(sqlScript, output).toOption)
+      val outputPath =
+        File(
+          config.outputPath.getOrElse(settings.comet.metadata),
+          "ddl",
+          config.datawarehouse + ".sql"
+        )
+      writeScript(sqlScript, outputPath.pathAsString).toOption
 
       if (config.apply)
         config.connection.fold(logger.warn("Could not apply script, connection is not defined"))(

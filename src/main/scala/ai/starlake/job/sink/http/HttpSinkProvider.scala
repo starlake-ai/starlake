@@ -2,7 +2,7 @@ package ai.starlake.job.sink.http
 
 import ai.starlake.utils.Utils
 import com.fasterxml.jackson.annotation.JsonInclude.Include
-import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.{DeserializationFeature, ObjectMapper}
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.http.client.methods.{HttpPost, HttpUriRequest}
@@ -22,6 +22,7 @@ object DefaultSinkTransformer extends SinkTransformer {
   val mapper: ObjectMapper = new ObjectMapper()
   mapper.registerModule(DefaultScalaModule)
   mapper.setSerializationInclusion(Include.NON_EMPTY)
+  mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
 
   def requestUris(url: String, rows: Array[Seq[String]]): Seq[HttpUriRequest] =
     rows.map { row =>
