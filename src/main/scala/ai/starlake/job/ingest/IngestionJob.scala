@@ -540,19 +540,13 @@ trait IngestionJob extends SparkJob {
           }
           val sink = metadata.getSink().map(_.asInstanceOf[JdbcSink])
           sink.foreach { sink =>
-            val partitions = sink.partitions.getOrElse(1)
-            val batchSize = sink.batchsize.getOrElse(1000)
-            val jdbcName = sink.connection
-
             val jdbcConfig = ConnectionLoadConfig.fromComet(
-              jdbcName,
+              sink.connection,
               settings.comet,
               Right(mergedDF),
               outputTable = schema.getFinalName(),
               createDisposition = createDisposition,
               writeDisposition = writeDisposition,
-              partitions = partitions,
-              batchSize = batchSize,
               options = sink.getOptions
             )
 
@@ -1216,8 +1210,6 @@ object IngestionUtil {
             settings.comet,
             Right(rejectedDF),
             "rejected",
-            partitions = sink.partitions.getOrElse(1),
-            batchSize = sink.batchsize.getOrElse(1000),
             options = sink.getOptions
           )
 

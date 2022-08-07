@@ -1,6 +1,13 @@
 
 # Release notes
 
+# 0.3.22
+__New feature__:
+- Improve cli doc generation. Extra doc can be added in docs/merge/cli folder
+
+__Bug Fix__:
+- Code improvement: JDBC is handled as a generic sink
+
 # 0.3.21
 __New feature__:
 - Reduce assembly size
@@ -10,7 +17,6 @@ __New feature__:
 
 __Bug Fix__:
 - Support empty env files
-- 
 
 # 0.3.20
 __Bug Fix__:

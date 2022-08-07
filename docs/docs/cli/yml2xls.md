@@ -17,3 +17,4 @@ Parameter|Cardinality|Description
 ---|---|---
 --domain:`<value>`|*Optional*|domains to convert to XLS
 --xls:`<value>`|*Required*|directory where XLS files are generated
+

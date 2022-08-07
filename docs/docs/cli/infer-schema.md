@@ -20,3 +20,4 @@ Parameter|Cardinality|Description
 --input:`<value>`|*Required*|Dataset Input Path
 --output:`<value>`|*Required*|Domain YAML Output Path
 --with-header:`<value>`|*Optional*|Does the file contain a header (For CSV files only)
+
