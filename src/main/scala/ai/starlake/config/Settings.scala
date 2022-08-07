@@ -209,7 +209,7 @@ object Settings extends StrictLogging {
     serverOptions: Map[String, String],
     topics: Map[String, KafkaTopicConfig],
     cometOffsetsMode: Option[String] = Some("STREAM"),
-    customDeserializer: Option[String]
+    customDeserializers: Option[Map[String, String]]
   ) {
     lazy val sparkServerOptions: Map[String, String] = {
       val ASSIGN = "assign"
