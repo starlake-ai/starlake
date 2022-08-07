@@ -153,11 +153,11 @@ case class Metadata(
   def getOptions(): Map[String, String] = options.getOrElse(Map.empty)
 
   @JsonIgnore
-  def getXmlOptions(): Map[String, String] = xml.getOrElse(Map.empty)
+  def getXmlOptions(): Map[String, String] = this.getOptions() ++ xml.getOrElse(Map.empty)
 
   @JsonIgnore
   def getXsdPath(): Option[String] = {
-    val xmlOptions = xml.getOrElse(Map.empty)
+    val xmlOptions = getXmlOptions()
     xmlOptions.get("rowValidationXSDPath").orElse(xmlOptions.get("xsdPath"))
   }
 
