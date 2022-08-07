@@ -4,6 +4,6 @@ package ai.starlake.utils
 object CommentParser {
 
   def stripComments(str: String): String = {
-    str.replaceAll("(?:/\\*(?:[^*]|(?:\\*+[^*/]))*\\*+/)|(?://.*)", "")
+    str.replaceAll("(?:/\\*(?:[^*]|(?:\\*+[^*/]))*\\*+/)|(?://.*)|(?:--.*)|(?:#.*)", "")
   }
 }
