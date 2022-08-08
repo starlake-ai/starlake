@@ -21,9 +21,9 @@
 package ai.starlake.job.transform
 
 import ai.starlake.config.{Settings, StorageArea}
-import ai.starlake.job.sink.bigquery.{BigQueryJobResult, BigQueryLoadConfig, BigQueryNativeJob}
 import ai.starlake.job.ingest.{AuditLog, Step}
 import ai.starlake.job.metrics.AssertionJob
+import ai.starlake.job.sink.bigquery.{BigQueryJobResult, BigQueryLoadConfig, BigQueryNativeJob}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.Stage.UNIT
 import ai.starlake.schema.model._
@@ -94,7 +94,7 @@ case class AutoTaskJob(
       (queryName, viewValue)
     }
 
-  def parseMainSqlBQ(): JdbcConfigName = {
+  def parseMainSqlBQ(): String = {
     logger.info(s"Parse Views")
     val withViews = parseJobViews()
     val mainTaskSQL =
@@ -123,10 +123,14 @@ case class AutoTaskJob(
   def buildQueryBQ(): (List[String], String, List[String]) = {
     val sql = parseMainSqlBQ()
     val preSql = task.presql.getOrElse(Nil).map { sql =>
-      sql.richFormat(schemaHandler.activeEnv, sqlParameters)
+      CommentParser.stripComments(
+        sql.richFormat(schemaHandler.activeEnv, sqlParameters).trim
+      )
     }
     val postSql = task.postsql.getOrElse(Nil).map { sql =>
-      sql.richFormat(schemaHandler.activeEnv, sqlParameters)
+      CommentParser.stripComments(
+        sql.richFormat(schemaHandler.activeEnv, sqlParameters).trim
+      )
     }
     (preSql, sql, postSql)
   }
@@ -139,8 +143,15 @@ case class AutoTaskJob(
     val (preSql, mainSql, postSql) = buildQueryBQ()
     logger.info(s"Config $config")
     // We add extra parenthesis required by BQ when using "WITH" keyword
-    def bqNativeJob(sql: String) =
-      new BigQueryNativeJob(config, if (sql.trim.startsWith("(")) sql else "(" + sql + ")", udf)
+    def bqNativeJob(sql: String) = {
+      val toUpperSql = sql.toUpperCase()
+      val finalSql =
+        if (toUpperSql.startsWith("WITH") || toUpperSql.startsWith("SELECT"))
+          "(" + sql + ")"
+        else
+          sql
+      new BigQueryNativeJob(config, finalSql, udf)
+    }
 
     logger.info(s"running PreSQL BQ Query $preSql")
     val presqlResult: Try[Iterable[BigQueryJobResult]] = Try {
