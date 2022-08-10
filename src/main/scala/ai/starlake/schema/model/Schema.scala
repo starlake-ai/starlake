@@ -421,13 +421,13 @@ case class Schema(
     }
     (isPK, isFK, includeAllAttrs) match {
       case (true, true, _) =>
-        Some(s"""<tr><td port="${attr.name}"><B><I> $col </I></B></td></tr>""")
+        Some(s"""<tr><td port="${attr.getFinalName()}"><B><I> $col </I></B></td></tr>""")
       case (true, false, _) =>
-        Some(s"""<tr><td port="${attr.name}"><B> $col </B></td></tr>""")
+        Some(s"""<tr><td port="${attr.getFinalName()}"><B> $col </B></td></tr>""")
       case (false, true, _) =>
-        Some(s"""<tr><td port="${attr.name}"><I> $col </I></td></tr>""")
+        Some(s"""<tr><td port="${attr.getFinalName()}"><I> $col </I></td></tr>""")
       case (false, false, true) =>
-        Some(s"""<tr><td port="${attr.name}"> $col </td></tr>""")
+        Some(s"""<tr><td port="${attr.getFinalName()}"> $col </td></tr>""")
       case (false, false, false) => None
     }
   }
