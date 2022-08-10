@@ -783,7 +783,7 @@ class SchemaHandlerSpec extends TestHelper {
                                |dream_segment [label=<
                                |<table border="0" cellborder="1" cellspacing="0">
                                |<tr><td port="0" bgcolor="darkgreen"><B><FONT color="white"> segment </FONT></B></td></tr>
-                               |<tr><td port="dream_id"><B> dreamkey:long </B></td></tr>
+                               |<tr><td port="dreamkey"><B> dreamkey:long </B></td></tr>
                                |</table>>];
                                |
                                |
