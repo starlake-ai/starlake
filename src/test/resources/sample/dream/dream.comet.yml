@@ -29,7 +29,7 @@ load:
             - "user:me@you.com"
             - "user:you@you.com"
       primaryKey:
-        - dream_id
+        - dreamkey
       attributes:
         - name: "dream_id"
           type: "long"
