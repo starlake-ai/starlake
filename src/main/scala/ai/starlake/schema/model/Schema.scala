@@ -453,7 +453,7 @@ case class Schema(
       s"""<tr><td port="0" bgcolor="darkgreen"><B><FONT color="white"> $name </FONT></B></td></tr>\n"""
     val rows =
       attributes.flatMap { attr =>
-        val isPK = primaryKey.getOrElse(Nil).contains(attr.name)
+        val isPK = primaryKey.getOrElse(Nil).contains(attr.getFinalName())
         val isFK = attr.foreignKey.isDefined
         dotRow(attr, isPK, isFK, includeAllAttrs)
       } mkString "\n"
