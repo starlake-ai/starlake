@@ -1,6 +1,10 @@
 
 # Release notes
 
+# 0.3.23
+__Bug Fix__:
+- Generate final name in Graphiz diagram
+
 # 0.3.22
 __New feature__:
 - Improve cli doc generation. Extra doc can be added in docs/merge/cli folder
