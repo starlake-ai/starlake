@@ -1,6 +1,10 @@
 
 # Release notes
 
+# 0.3.24
+__Bug Fix__:
+- Improve GraphViz Generation
+
 # 0.3.23
 __Bug Fix__:
 - Generate final name in Graphiz diagram
