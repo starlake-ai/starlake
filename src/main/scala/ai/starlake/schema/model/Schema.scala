@@ -447,32 +447,52 @@ case class Schema(
     }
   }
 
-  def asDot(domain: String, includeAllAttrs: Boolean): String = {
-    val tableLabel = s"${domain}_$name"
-    val header =
-      s"""<tr><td port="0" bgcolor="darkgreen"><B><FONT color="white"> $name </FONT></B></td></tr>\n"""
-    val rows =
-      attributes.flatMap { attr =>
-        val isPK = primaryKey.getOrElse(Nil).contains(attr.getFinalName())
-        val isFK = attr.foreignKey.isDefined
-        dotRow(attr, isPK, isFK, includeAllAttrs)
-      } mkString "\n"
+  def relatedTables(): List[String] = {
+    val fkTables = attributes.flatMap(_.foreignKey).map { fk =>
+      val tab = fk.split('.')
+      tab.length match {
+        case 3 => tab(1) // reference to domain.table.column
+        case 2 => tab(0) // reference to table.column
+        case 1 => tab(0) // reference to table
+      }
+    }
+    if (fkTables.nonEmpty)
+      fkTables :+ name
+    else
+      fkTables
+  }
 
-    val relations = attributes
-      .flatMap { attr => dotRelation(attr, domain) }
-      .mkString("\n")
+  def asDot(domain: String, includeAllAttrs: Boolean, fkTables: Set[String]): String = {
+    val isFKTable = fkTables.contains(name.toLowerCase)
+    if (isFKTable || includeAllAttrs) {
+      val tableLabel = s"${domain}_$name"
+      val header =
+        s"""<tr><td port="0" bgcolor="darkgreen"><B><FONT color="white"> $name </FONT></B></td></tr>\n"""
+      val rows =
+        attributes.flatMap { attr =>
+          val isPK = primaryKey.getOrElse(Nil).contains(attr.getFinalName())
+          val isFK = attr.foreignKey.isDefined
+          dotRow(attr, isPK, isFK, includeAllAttrs)
+        } mkString "\n"
 
-    s"""
-        |$tableLabel [label=<
-        |<table border="0" cellborder="1" cellspacing="0">
-        |""".stripMargin +
-    header +
-    rows +
-    """
+      val relations = attributes
+        .flatMap { attr => dotRelation(attr, domain) }
+        .mkString("\n")
+
+      s"""
+         |$tableLabel [label=<
+         |<table border="0" cellborder="1" cellspacing="0">
+         |""".stripMargin +
+      header +
+      rows +
+      """
           |</table>>];
           |
           |""".stripMargin +
-    relations
+      relations
+    } else {
+      ""
+    }
   }
 }
 
