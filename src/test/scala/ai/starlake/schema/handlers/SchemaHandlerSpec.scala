@@ -777,7 +777,7 @@ class SchemaHandlerSpec extends TestHelper {
         val expectedFileContent = loadTextFile("/expected/dot/output.dot")
         fileContent shouldBe expectedFileContent
 
-        val result = schemaHandler.domains.head.asDot(false)
+        val result = schemaHandler.domains.head.asDot(false, Set("segment", "client"))
         result.trim shouldBe """
                                |
                                |dream_segment [label=<
