@@ -22,7 +22,7 @@ object Versions {
   val scopt = "4.1.0"
   val gcsConnector = "hadoop3-2.2.7"
   val bigquery = "2.14.3"
-  val hadoop = "3.3.3"
+  val hadoop = "3.3.4"
   val sparkBigqueryWithDependencies = "0.26.0"
   val bigqueryConnector = "hadoop3-1.2.0"
   val h2 = "2.1.214" // Test only
@@ -32,6 +32,6 @@ object Versions {
   val kafkaClients = "7.2.1-ce"
   val testContainers = "0.40.10"
   val jsqlparser = "4.5"
-  val gcpDataCatalog = "1.9.1"
+  val gcpDataCatalog = "1.9.2"
   val silencerVersion = "1.7.9"
 }
