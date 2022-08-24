@@ -1,6 +1,9 @@
 package ai.starlake.utils
 
 import ai.starlake.config.Settings
+
+import java.util.regex.Pattern
+import scala.collection.mutable.ListBuffer
 object Formatter extends Formatter
 
 trait Formatter {
@@ -23,6 +26,19 @@ trait Formatter {
         }
       else
         str
+    }
+
+    def extractVars()(implicit settings: Settings): Set[String] = {
+      val oldPattern = Pattern.compile("\\{\\{\\s*(\\S+)\\s*\\}\\}").matcher(str)
+      val newPattern = Pattern.compile("\\$\\{\\s*(\\S+)\\s*\\}").matcher(str)
+
+      val result = ListBuffer[String]()
+      while (oldPattern.find())
+        result.append(oldPattern.group(1))
+      while (newPattern.find())
+        result.append(newPattern.group(1))
+
+      result.toSet
     }
   }
 }

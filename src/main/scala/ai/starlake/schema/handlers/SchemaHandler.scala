@@ -54,14 +54,30 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
   def checkValidity(): List[String] = {
     val typesValidity = this.types.map(_.checkValidity())
     val domainsValidity = this.domains.map(_.checkValidity(this))
-
+    val domainsVarsValidity = checkDomainsVars()
+    val jobsVarsValidity = checkJobsVars()
     val allErrors = typesValidity ++ domainsValidity :+ checkViewsValidity()
 
     val errs = allErrors.flatMap {
       case Left(values) => values
       case Right(_)     => Nil
     }
-    errs
+    errs ++ domainsVarsValidity ++ jobsVarsValidity
+  }
+
+  def checkDomainsVars(): List[String] = {
+    val paths = storage.list(
+      DatasetArea.domains,
+      extension = ".yml",
+      recursive = true,
+      exclude = Some(Pattern.compile("_.*"))
+    )
+    paths.flatMap(checkVarsAreDefined)
+  }
+
+  def checkJobsVars(): List[String] = {
+    val paths = storage.list(DatasetArea.jobs, ".yml", recursive = true)
+    paths.flatMap(checkVarsAreDefined)
   }
 
   def fullValidation(): Unit =
@@ -316,6 +332,15 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
         errors.foreach(logger.error(_))
         throw new Exception("Duplicated domain directory name")
     }
+  }
+
+  def checkVarsAreDefined(path: Path): Set[String] = {
+    val vars = storage.read(path).extractVars()
+    val envVars = activeEnv.keySet
+    val undefinedVars = vars.diff(envVars)
+    undefinedVars.map(undefVar =>
+      s"${path.toString} contains undefined vars: ${undefVar.toList.mkString(",")}"
+    )
   }
 
   def loadJobFromFile(path: Path): Try[AutoJobDesc] =
