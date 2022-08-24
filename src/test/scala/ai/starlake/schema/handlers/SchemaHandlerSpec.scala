@@ -800,6 +800,29 @@ class SchemaHandlerSpec extends TestHelper {
       }
     }
 
+    "Exporting domain as ACL Dot" should "create a valid ACL dot file" in {
+      new SpecTrait(
+        domainOrJobFilename = "dream.comet.yml",
+        sourceDomainOrJobPathname = s"/sample/dream/dream.comet.yml",
+        datasetDomainName = "dream",
+        sourceDatasetPathName = "/sample/dream/OneClient_Segmentation_20190101_090800_008.psv"
+      ) {
+        cleanMetadata
+        cleanDatasets
+        val schemaHandler = new SchemaHandler(settings.storageHandler)
+
+        new Yml2GraphViz(schemaHandler).run(Array("--acl", "true"))
+
+        val tempFile = File.newTemporaryFile().pathAsString
+        new Yml2GraphViz(schemaHandler).run(
+          Array("--acl", "true", "--acl-output", tempFile)
+        )
+        val fileContent = readFileContent(tempFile)
+        val expectedFileContent = loadTextFile("/expected/dot/acl-output.dot")
+        fileContent.trim shouldBe expectedFileContent.trim
+      }
+    }
+
     "Ingest Dream Contact CSV with ignore" should "produce file in accepted" in {
       new SpecTrait(
         domainOrJobFilename = "dreamignore.comet.yml",
