@@ -1,6 +1,10 @@
 
 # Release notes
 
+# 0.3.25
+__New feature__:
+- Add ACL Graph generation
+
 # 0.3.24
 __Bug Fix__:
 - Improve GraphViz Generation
