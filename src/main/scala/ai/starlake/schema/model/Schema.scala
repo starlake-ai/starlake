@@ -32,120 +32,6 @@ import org.apache.spark.sql.types._
 import java.util.regex.Pattern
 import scala.collection.mutable
 
-/** How dataset are merged
-  *
-  * @param key
-  *   list of attributes to join existing with incoming dataset. Use renamed columns here.
-  * @param delete
-  *   Optional valid sql condition on the incoming dataset. Use renamed column here.
-  * @param timestamp
-  *   Timestamp column used to identify last version, if not specified currently ingested row is
-  *   considered the last. Maybe prefixed with TIMESTAMP or DATE(default) to specifiy if it is a
-  *   timestamp or a date (useful on dynamic partitioning on BQ to selectively apply PARSE_DATE or
-  *   PARSE_TIMESTAMP
-  */
-case class MergeOptions(
-  key: List[String],
-  delete: Option[String] = None,
-  timestamp: Option[String] = None,
-  queryFilter: Option[String] = None
-) {
-  @JsonIgnore
-  private val lastPat =
-    Pattern.compile(".*(in)\\s+last\\(\\s*(\\d+)\\s*(\\)).*", Pattern.DOTALL)
-
-  @JsonIgnore
-  private val matcher = lastPat.matcher(queryFilter.getOrElse(""))
-
-  @JsonIgnore
-  private val queryFilterContainsLast: Boolean =
-    queryFilter.exists { queryFilter =>
-      matcher.matches()
-    }
-  @JsonIgnore
-  private val queryFilterContainsLatest: Boolean = queryFilter.exists(_.contains("latest"))
-
-  @JsonIgnore
-  private val canOptimizeQueryFilter: Boolean = queryFilterContainsLast || queryFilterContainsLatest
-
-  @JsonIgnore
-  private val nbPartitionQueryFilter: Int =
-    if (queryFilterContainsLast) matcher.group(2).toInt else -1
-
-  @JsonIgnore
-  val lastStartQueryFilter: Int = if (queryFilterContainsLast) matcher.start(1) else -1
-
-  @JsonIgnore
-  val lastEndQueryFilter: Int = if (queryFilterContainsLast) matcher.end(3) else -1
-
-  private def formatQuery(activeEnv: Map[String, String], options: Map[String, String])(implicit
-    settings: Settings
-  ): Option[String] =
-    queryFilter.map(_.richFormat(activeEnv, options))
-
-  def buidlBQQuery(
-    partitions: List[String],
-    activeEnv: Map[String, String],
-    options: Map[String, String]
-  )(implicit
-    settings: Settings
-  ): Option[String] = {
-    (queryFilterContainsLast, queryFilterContainsLatest) match {
-      case (true, false)  => buildBQQueryForLast(partitions, activeEnv, options)
-      case (false, true)  => buildBQQueryForLastest(partitions, activeEnv, options)
-      case (false, false) => formatQuery(activeEnv, options)
-      case (true, true) =>
-        val last = buildBQQueryForLast(partitions, activeEnv, options)
-        this.copy(queryFilter = last).buildBQQueryForLastest(partitions, activeEnv, options)
-    }
-  }
-
-  private def buildBQQueryForLastest(
-    partitions: List[String],
-    activeEnv: Map[String, String],
-    options: Map[String, String]
-  )(implicit
-    settings: Settings
-  ): Option[String] = {
-    val latestPartition = partitions.max
-    val queryArgs = formatQuery(activeEnv, options).getOrElse("")
-    Some(queryArgs.replace("latest", s"PARSE_DATE('%Y%m%d','$latestPartition')"))
-  }
-
-  private def buildBQQueryForLast(
-    partitions: List[String],
-    activeEnv: Map[String, String],
-    options: Map[String, String]
-  )(implicit
-    settings: Settings
-  ): Option[String] = {
-    val sortedPartitions = partitions.sorted
-    val (oldestPartition, newestPartition) = if (sortedPartitions.length < nbPartitionQueryFilter) {
-      (
-        sortedPartitions.headOption.getOrElse("19700101"),
-        sortedPartitions.lastOption.getOrElse("19700101")
-      )
-    } else {
-      (
-        sortedPartitions(sortedPartitions.length - nbPartitionQueryFilter),
-        sortedPartitions.last
-      )
-
-    }
-    val lastStart = lastStartQueryFilter
-    val lastEnd = lastEndQueryFilter
-    val queryArgs = formatQuery(activeEnv, options)
-    queryArgs.map { queryArgs =>
-      queryArgs
-        .substring(
-          0,
-          lastStart
-        ) + s"between PARSE_DATE('%Y%m%d','$oldestPartition') and PARSE_DATE('%Y%m%d','$newestPartition')" + queryArgs
-        .substring(lastEnd)
-    }
-  }
-}
-
 /** Dataset Schema
   *
   * @param name
@@ -439,13 +325,26 @@ case class Schema(
       case Some(ref) =>
         val tab = ref.split('.')
         val (refDomain, refSchema, refAttr) = tab.length match {
-          case 3 => (tab(0), tab(1), tab(2)) // reference to domain.table.column
-          case 2 => (domain, tab(0), tab(1)) // reference to table.column
-          case 1 => (domain, tab(0), 0) // reference to table
+          case 3 =>
+            (tab(0), tab(1), if (tab(2).isEmpty) "0" else tab(2)) // ref to domain.table.column
+          case 2 =>
+            (domain, tab(0), if (tab(1).isEmpty) "0" else tab(1)) // ref to table.column
+          case 1 => (domain, tab(0), "0") // ref to table
+          case _ =>
+            throw new Exception(
+              s"Invalid number of parts in relation $ref in domain $domain and table $name"
+            )
         }
         Some(s"$tableLabel:${attr.name} -> ${refDomain}_$refSchema:$refAttr")
     }
   }
+
+  @JsonIgnore
+  def hasACL(): Boolean =
+    acl match {
+      case None | Some(Nil) => false
+      case Some(x)          => true
+    }
 
   def relatedTables(): List[String] = {
     val fkTables = attributes.flatMap(_.foreignKey).map { fk =>
@@ -463,11 +362,12 @@ case class Schema(
   }
 
   def asDot(domain: String, includeAllAttrs: Boolean, fkTables: Set[String]): String = {
-    val isFKTable = fkTables.contains(name.toLowerCase)
+    val finalName = getFinalName()
+    val isFKTable = fkTables.contains(finalName.toLowerCase)
     if (isFKTable || includeAllAttrs) {
-      val tableLabel = s"${domain}_$name"
+      val tableLabel = s"${domain}_$finalName"
       val header =
-        s"""<tr><td port="0" bgcolor="darkgreen"><B><FONT color="white"> $name </FONT></B></td></tr>\n"""
+        s"""<tr><td port="0" bgcolor="darkgreen"><B><FONT color="white"> $finalName </FONT></B></td></tr>\n"""
       val rows =
         attributes.flatMap { attr =>
           val isPK = primaryKey.getOrElse(Nil).contains(attr.getFinalName())

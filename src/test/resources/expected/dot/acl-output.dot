@@ -1,0 +1,43 @@
+digraph {
+graph [pad="0.5", nodesep="0.5", ranksep="2"];
+
+
+subgraph cluster_dream {
+node[shape = plain]
+label = "dream";
+
+dream_segment [label=<
+<table border="0" cellborder="1" cellspacing="0">
+<tr><td port="0" bgcolor="darkgreen"><B><FONT color="white"> segment </FONT></B></td></tr>
+
+</table>>];
+
+}
+subgraph cluster_users {
+me_me_com[label = "me@me.com"];
+you_you_com[label = "you@you.com"];
+me_you_com[label = "me@you.com"];
+you_me_com[label = "you@me.com"];
+
+label = "Users";
+}
+subgraph cluster_groups {
+financegroup_company_com[label = "financegroup@company.com"];
+
+label = "Groups";
+}
+dream_segment_acl_viewer [shape=invhouse, label = "viewer"];
+dream_segment_acl_owner [shape=invhouse, label = "owner"];
+dream_segment_acl_viewer -> dream_segment;
+dream_segment_acl_owner -> dream_segment;
+me_me_com -> dream_segment_acl_viewer;
+you_me_com -> dream_segment_acl_viewer;
+me_you_com -> dream_segment_acl_owner;
+you_you_com -> dream_segment_acl_owner;
+dream_segment_rls_my_rls [shape=diamond, label = "category like 'Food'"];
+dream_segment_rls_my_rls -> dream_segment [style=dotted];
+me_me_com -> dream_segment_rls_my_rls [style=dotted];
+financegroup_company_com -> dream_segment_rls_my_rls [style=dotted];
+you_me_com -> dream_segment_rls_my_rls [style=dotted];
+
+}
