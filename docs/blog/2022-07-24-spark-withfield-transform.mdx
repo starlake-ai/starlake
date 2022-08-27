@@ -1,0 +1,120 @@
+---
+slug: spark-withfield-transform
+title: Transform Nested Columns in Spark and BigQuery
+author: Hayssam Saleh
+author_title: Starlake Core Team Member
+author_url: https://www.linkedin.com/in/hayssams/
+author_image_url: https://s.gravatar.com/avatar/04aa2a859a66b52787bcba8c36beba8c.png
+tags: [Spark, BigQuery, Dataproc, Google Cloud, ETL, Starlake]
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+
+
+## Data transformation Strategies
+
+When loading data into a Datawarehouse like Databricks or BigQuery, you may need in to apply transformations like
+privacy or normalization. Transformations may include any or all of the following operations:
+- **Field transformation**: a top or nested level attribute in the incoming dataset need to have its value replaced.
+- **Repeated field transformation**: an array attribute need to have one or more of its array values replaced.
+- **Field dropping**: Remove a top level of a nested attribute from the incoming dataset
+- **Field addition**: Add a new field at a top or nested level.
+
+A naive approach would be to ingest the data as it is using Spark, store in a BigQuery table
+and then apply the transformations using BigQuery SQL. This approach has several drawbacks:
+- **Privacy issue**: When the use case requires us not to store the source data but a hashed or encrypted value,
+                     we cannot afford to apply the transformation once the data is stored
+- **Performance issue**: Storing the data and then applying the transformation in an extra step means that we load the data twice and store it twice
+                         instead of doing it all in a single in-memory step.
+- **Data management issue**: A two steps approach often means storing the data in two different tables that both refer to the exact same source.
+
+Storing the transformed data in the original table may not be possible without loading and saving the whole table history.
+This is the case when the incoming data goes into multiple partitions or when  no partitioning is available.
+See [Dynamic partition handling](/starlake/blog/spark-big-query-partitioning) for a detailed explanation
+
+Using a single step transform, we can easily combine the 4 transformations above and store
+the ingested dataset in the same table using different names for the transformed fields allowing us to keep
+the source and transformed attributes in a single table and restrict access to source fields using
+[Column Level Security](/starlake/blog/rls-cls-big-query)
+
+BigQuery and Spark, both supports a two-steps strategy that we will present below whereas
+Spark also provide support for a single step strategy
+
+
+## Two steps strategy
+
+### Step 1: Loading the data
+
+BigQuery comes with the `bq load` command line tool to load formatted files into BigQuery. JSON and CSV are the human-readable
+file formats supported by `bq load`. However, this comes with some limitations:
+- JSON stored as arrays are not supported and those are often present in the Open Data industry.
+- CSV files with a multi-character delimiter, with a date or time field not stored as `YYYY-MM-DD hh:mm:ss` are not supported
+- [POSITIONAL](https://www.ibm.com/docs/en/order-management?topic=formats-positional-flat-files) and XML files are also not supported
+
+Below is an example
+```shell
+bq load
+```
+
+
+Spark on the other end is a distributed engine that comes with a CSV, XML, JSON and TEXT parsing library that allows
+to address any custom case at 'spark speed' and seamlessly connect with BigQuery
+using the [Google Spark BigQuery Connector](https://github.com/GoogleCloudDataproc/spark-bigquery-connector)
+
+#### Loading data with BigQuery
+<Tabs groupId="loadbq">
+<TabItem value="loadcsv" label="Load CSV">
+
+    The table ends up with the 2 incoming records.
+    All existing partitions are deleted.
+
+    ![Overwrite data]( /img/blog/spark-bigquery/overwrite-data.png "Overwrite data")
+
+</TabItem>
+<TabItem value="loadjson" label="Load JSON">
+
+    The table ends up with 7 records. Note that a new `ìtem 1` record is added while the older one is kept.
+
+    ![Append data]( /img/blog/spark-bigquery/append-data.png "Append data")
+
+</TabItem>
+</Tabs>
+
+
+
+### Step 2: Transforming the data
+
+:::note
+BigQuery is a datawarehouse, not an ingestion engine.
+:::
+
+## BigQuery RLS/CLS benefits
+
+Using BigQuery row and column level security features bring several benefits:
+- There is no need to create extra views
+- Users use the same name for the table but with different access rights
+- A company-wide taxonomy is defined allowing better Data Management
+- Access rights to a new column in the table are automatically handled
+
+## A word about RLS and CLS in Starlake
+
+Ingesting Data into BigQuery cannot be considered complete without taking into account the access level restrictions on the target table.
+Starlake will handle for you all the scripting required to secure BigQuery rows and columns using a YAML declarative syntax to make sure
+that your tables are secured in BigQuery:
+```yaml {2,11} title="Declarative Row Level & Column Level Security"
+  - name: "PRODUCT"
+    rls:
+      - name: "my-rls"
+        predicate: "category like 'Food'"
+        grants:
+          - "user:me@company.com"
+          - "group:financegroup@company.com"
+          - "sa:serviceacount@gserviceaccount.com"
+    attributes:
+      - name: "id"
+        accessPolicy: PII
+```
+## Comments
+[Let's continue the conversation on Discord](https://discord.com/channels/833336395430625310/908709208025858079)
