@@ -1,2 +1,1 @@
-ai.starlake.job.sink.http.HttpSinkProvider
-org.apache.spark.sql.ai.starlake.http.HttpStreamSourceProvider
+ai.starlake.job.sink.http.HttpProvider

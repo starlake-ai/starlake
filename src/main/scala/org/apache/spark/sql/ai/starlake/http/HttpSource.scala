@@ -1,60 +1,27 @@
 package org.apache.spark.sql.ai.starlake.http
 
-class HttpIngestionJob {
-  // https://github.com/bluejoe2008/spark-http-stream/blob/master/src/main/scala/org/apache/spark/sql/execution/streaming/http/ActionsHandler.scala
-  //  https://github.com/hienluu/wikiedit-streaming/blob/master/streaming-receiver/src/main/scala/org/twitterstreaming/receiver/TwitterStreamingSource.scala
-}
+// https://github.com/bluejoe2008/spark-http-stream/blob/master/src/main/scala/org/apache/spark/sql/execution/streaming/http/ActionsHandler.scala
+//  https://github.com/hienluu/wikiedit-streaming/blob/master/streaming-receiver/src/main/scala/org/twitterstreaming/receiver/TwitterStreamingSource.scala
 
 import com.sun.net.httpserver.{HttpExchange, HttpHandler, HttpServer}
 import com.typesafe.scalalogging.StrictLogging
-import org.apache.spark.internal.Logging
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.execution.streaming.{LongOffset, Offset, SerializedOffset, Source}
-import org.apache.spark.sql.sources.{DataSourceRegister, StreamSourceProvider}
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
 import org.apache.spark.sql.{DataFrame, SQLContext}
 import org.apache.spark.unsafe.types.UTF8String
 
 import java.net.InetSocketAddress
-import java.util.UUID
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 import scala.collection.mutable.ListBuffer
 
-class HttpStreamSourceProvider extends StreamSourceProvider with DataSourceRegister with Logging {
-  override def shortName() = "starlake-http-source";
-
-  override def sourceSchema(
-    sqlContext: SQLContext,
-    schema: Option[StructType],
-    providerName: String,
-    parameters: Map[String, String]
-  ): (String, StructType) = {
-    (
-      parameters.getOrElse("name", UUID.randomUUID().toString),
-      StructType(List(StructField("value", StringType, true)))
-    )
-  }
-
-  override def createSource(
-    sqlContext: SQLContext,
-    metadataPath: String,
-    schema: Option[StructType],
-    providerName: String,
-    parameters: Map[String, String]
-  ): Source =
-    new HttpStreamSource(
-      sqlContext,
-      parameters("port").toInt
-    )
-}
-
-class HttpStreamSource(sqlContext: SQLContext, port: Int) extends Source with StrictLogging {
+class HttpSource(sqlContext: SQLContext, port: Int) extends Source with StrictLogging {
   override def schema: StructType = StructType(List(StructField("value", StringType, true)))
-  var producerOffset: LongOffset = new LongOffset(-1);
-  var consumerOffset = -1;
-  val streamBuffer = ListBuffer[String]();
+  private var producerOffset: LongOffset = new LongOffset(-1);
+  private var consumerOffset = -1;
+  private val streamBuffer = ListBuffer[String]();
   val flagStop = new AtomicBoolean(false);
 
   /** Send back a response with provided status code and response text */
@@ -89,7 +56,7 @@ class HttpStreamSource(sqlContext: SQLContext, port: Int) extends Source with St
   private val server: HttpServer = startServer()
 
   override def getOffset: Option[Offset] = {
-    val po = this.synchronized { producerOffset };
+    val po = producerOffset;
     if (po.offset == -1) {
       None
     } else {
@@ -120,7 +87,7 @@ class HttpStreamSource(sqlContext: SQLContext, port: Int) extends Source with St
     sqlContext.sparkSession.internalCreateDataFrame(
       rdd,
       StructType(List(StructField("value", StringType))),
-      true
+      isStreaming = true
     )
   }
 

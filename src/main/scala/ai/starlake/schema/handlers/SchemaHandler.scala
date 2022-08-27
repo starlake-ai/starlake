@@ -339,8 +339,9 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     val envVars = activeEnv.keySet
     val undefinedVars = vars.diff(envVars)
     undefinedVars.map(undefVar =>
-      s"${path.toString} contains undefined vars: ${undefVar.toList.mkString(",")}"
+      s"${path.toString} contains undefined vars: ${undefVar.mkString(",")}"
     )
+
   }
 
   def loadJobFromFile(path: Path): Try[AutoJobDesc] =
