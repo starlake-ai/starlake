@@ -4,15 +4,16 @@ import ai.starlake.utils.Utils
 import com.fasterxml.jackson.annotation.JsonInclude.Include
 import com.fasterxml.jackson.databind.{DeserializationFeature, ObjectMapper}
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
-import com.typesafe.scalalogging.StrictLogging
 import org.apache.http.client.methods.{HttpPost, HttpUriRequest}
 import org.apache.http.entity.{ContentType, StringEntity}
-import org.apache.spark.sql.execution.streaming.Sink
-import org.apache.spark.sql.sources.{DataSourceRegister, StreamSinkProvider}
+import org.apache.spark.sql.SQLContext
+import org.apache.spark.sql.ai.starlake.http.HttpSource
+import org.apache.spark.sql.execution.streaming.Source
+import org.apache.spark.sql.sources.{DataSourceRegister, StreamSinkProvider, StreamSourceProvider}
 import org.apache.spark.sql.streaming.OutputMode
-import org.apache.spark.sql.{DataFrame, SQLContext}
+import org.apache.spark.sql.types.{StringType, StructField, StructType}
 
-import scala.util.{Failure, Success, Try}
+import java.util.UUID
 
 trait SinkTransformer {
   def requestUris(url: String, rows: Array[Seq[String]]): Seq[HttpUriRequest]
@@ -35,7 +36,7 @@ object DefaultSinkTransformer extends SinkTransformer {
     }
 }
 
-class HttpSinkProvider extends StreamSinkProvider with DataSourceRegister {
+class HttpProvider extends StreamSinkProvider with StreamSourceProvider with DataSourceRegister {
   def createSink(
     sqlContext: SQLContext,
     parameters: Map[String, String],
@@ -55,39 +56,29 @@ class HttpSinkProvider extends StreamSinkProvider with DataSourceRegister {
   }
 
   def shortName(): String = "starlake-http"
-}
 
-class HtttpSink(
-  url: String,
-  maxMessages: Int,
-  numRetries: Int,
-  retryInterval: Int,
-  transformer: SinkTransformer
-) extends Sink
-    with StrictLogging {
-  val client = new HttpSinkClient(url, maxMessages, transformer)
-
-  override def addBatch(batchId: Long, data: DataFrame) {
-    var success = false;
-    var retried = 0;
-    while (!success && retried < numRetries) {
-      Try {
-        retried += 1;
-        client.send(data);
-        success = true;
-      } match {
-        case Failure(e) =>
-          success = false;
-          logger.warn(Utils.exceptionAsString(e));
-          if (retried < numRetries) {
-            val sleepTime = retryInterval * retried;
-            logger.warn(s"will retry to send after ${sleepTime}ms");
-            Thread.sleep(sleepTime);
-          } else {
-            throw e;
-          }
-        case Success(_) =>
-      }
-    }
+  override def sourceSchema(
+    sqlContext: SQLContext,
+    schema: Option[StructType],
+    providerName: String,
+    parameters: Map[String, String]
+  ): (String, StructType) = {
+    (
+      parameters.getOrElse("name", UUID.randomUUID().toString),
+      StructType(List(StructField("value", StringType, true)))
+    )
   }
+
+  override def createSource(
+    sqlContext: SQLContext,
+    metadataPath: String,
+    schema: Option[StructType],
+    providerName: String,
+    parameters: Map[String, String]
+  ): Source =
+    new HttpSource(
+      sqlContext,
+      parameters("port").toInt
+    )
+
 }
