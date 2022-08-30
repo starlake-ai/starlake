@@ -1,7 +1,7 @@
 import React from 'react';
 import clsx from 'clsx';
 import styles from './HomepageFeatures.module.css';
-import CrossPlatformSVG from '../../static/img/cross-platform.svg'
+import YamlSchemaValidatorSVG from '../../static/img/cross-platform.svg'
 const FeatureList = [
   {
     title: 'Low Code / No Code',
@@ -86,16 +86,50 @@ React Native lets you create truly native apps and doesn't compromise your users
 It provides a core set of platform agnostic native components like <code>View</code>, <code>Text</code>, and <code>Image</code>
 that map directly to the platform’s native UI building blocks.
   `,
-  crossPlatform: `
-React components wrap existing native code and interact with native APIs via
-React’s declarative UI paradigm and JavaScript. This enables native app development
-for whole new teams of developers, and can let existing native teams work much faster.
-  `,
-  fastRefresh: `
-<strong>See your changes as soon as you save.</strong> With the power of JavaScript,
-React Native lets you iterate at lightning speed. No more waiting for native builds to finish.
-Save, see, repeat.
-  `,
+    yamlSchemaValidator: `
+Work using your favorite VSCode <a href="https://marketplace.visualstudio.com/items?itemName=redhat.vscode-yaml" target="_yaml_extension" >YAML validation extension</a> . 
+Improve productivity and readability using the context sensitive entry helpers 
+and intelligent YAML auto-completion feature.`,
+
+    xlsgit: `
+    Get the best of both worlds.<br> Because business users love Excel and developers love Git and text based development,
+    share your ingestion metadata with business users and let them bring in any update before getting them back instantly in YAML
+    for full git versioning support.
+    `,
+    dbReplication: `
+    Select the tables and columns in your source database and replicate your data 
+    into any data warehouse using full and/or incremental modes
+    with optional pre and post load transformations.
+    `,
+    anywhere: `
+    Code free ingestion of any Spark source or sink 
+    including Snowflake, BigQuery, Parquet, JDBC, TEXT, XML, JSON,
+    <a href="https://www.ibm.com/docs/en/order-management?topic=formats-positional-flat-files">POSITIONAL</a> sources.
+    Work on any Spark distribution including Azure Synapse, Amazon EMR, Cloudera, Google Dataproc and Databricks.
+    `,
+    validation: `
+    With advanced validation and rich metadata, define semantic types and make sure your input fields respect the specified formats.<br/>
+    Mark fields as being primary/foreign keys,  optional or ignored, apply custom privacy functions and / or rename fields during the ingestion process.<br/>  
+    Apply on the fly in memory transformation using any standard SQL function or custom UDF.
+    `,
+    security: `
+    Because you take your data security seriously, Starlake makes it possible to define the access control restrictions using acccess control lists (ACL), row level security (RLS)
+    and column level security (CLS).
+    `,
+    observability: `
+    For each file ingested: get the date and time, the number of records accepted / rejected and the process duration. <br/>
+    For each rejected input attribute: get the reason for rejection, the source value and the expected format.<br/>
+    For each discrete column: get the list of distinct values,  modality, frequency and missing values.<br/>
+    For each continuous column: get the min, the max, the mean, the median, the variance, the sum, the standard deviation, the 25th percentile and the 75th percentile.
+    `,
+    releditor: `
+    Using the Starlake VSCode extension, create interactive entity-relationship diagrams and share them with your business users.<br/>
+    Use the CLI to generate the complete entity-relationship diagram in a searchable SVG format and include it in your website.
+    `,
+    acleditor: `
+    Using the CLI you may also generate the complete access control rules diagram in a searchable SVG format.
+    `,
+    byTheWay: `It's serverless.`,
   talks: `
 Members of the React Native team frequently speak at various conferences.
 <br/><br/>
@@ -142,68 +176,181 @@ function TwoColumns({columnOne, columnTwo, reverse}) {
   );
 }
 
-function CrossPlatform() {
+function YamlSchemaValidator() {
   return (
     <Section className={styles.CrossPlatform} background="tint">
       <TwoColumns
         columnOne={
           <TextColumn
-            title="Seamless Cross-Platform"
-            text={textContent.crossPlatform}
+            title="Interactive YAML Schema Validation"
+            text={textContent.yamlSchemaValidator}
           />
         }
-        columnTwo={<CrossPlatformSVG />}
+        columnTwo={
+          <img src="/starlake/img/yamlSchemaValidator2.png"/>
+        }
       />
     </Section>
   );
 }
-function CrossPlatform2() {
-  return (
-    <Section className={styles.CrossPlatform}>
-      <TwoColumns
-      reverse
-        columnOne={
-          <TextColumn
-            title="Seamless Cross-Platform"
-            text={textContent.crossPlatform}
-          />
-        }
-        columnTwo={<CrossPlatformSVG />}
-      />
-    </Section>
-  );
-}
-function CrossPlatform3() {
+function XlsGitSupport() {
   return (
     <Section className={styles.CrossPlatform} background="tint">
       <TwoColumns
+
         columnOne={
           <TextColumn
-            title="Seamless Cross-Platform"
-            text={textContent.fastRefresh}
+            title="Business & Developer Friendly"
+            text={textContent.xlsgit}
           />
         }
-        columnTwo={<CrossPlatformSVG />}
+        columnTwo={
+            <img src="/starlake/img/xlsgit.png"/>
+        }
       />
     </Section>
   );
 }
-function CrossPlatform4() {
+
+function DbReplication() {
   return (
     <Section className={styles.CrossPlatform}>
       <TwoColumns
-      reverse
+          reverse
         columnOne={
           <TextColumn
-            title="Seamless Cross-Platform"
-            text={textContent.fastRefresh}
+            title="Script Free Database Replication"
+            text={textContent.dbReplication}
           />
         }
-        columnTwo={<CrossPlatformSVG />}
+          columnTwo={
+              <img src="/starlake/img/dbReplication.png"/>
+          }
       />
     </Section>
   );
 }
+
+function Anywhere() {
+    return (
+        <Section className={styles.CrossPlatform} background="tint">
+            <TwoColumns
+                columnOne={
+                    <TextColumn
+                        title="From any source to any sink at Spark&#8482; speed."
+                        text={textContent.anywhere}
+                    />
+                }
+                columnTwo={
+                    <img src="/starlake/img/anywhere.png"/>
+                }
+            />
+        </Section>
+    );
+}
+
+function Validation() {
+    return (
+        <Section className={styles.CrossPlatform}>
+            <TwoColumns
+                reverse
+                columnOne={
+                    <TextColumn
+                        title="Keep your Lakehouse from becoming a Dataswamp."
+                        text={textContent.validation}
+                    />
+                }
+                columnTwo={
+                    <img src="/starlake/img/validation.png"/>
+                }
+            />
+        </Section>
+    );
+}
+
+function Security() {
+    return (
+        <Section className={styles.CrossPlatform} background="tint">
+            <TwoColumns
+
+                columnOne={
+                    <TextColumn
+                        title="Security as a First-Class Citizen"
+                        text={textContent.security}
+                    />
+                }
+                columnTwo={
+                    <img src="/starlake/img/acl.png"/>
+                }
+            />
+        </Section>
+    );
+}
+
+function Observability() {
+    return (
+        <Section className={styles.CrossPlatform}>
+            <TwoColumns
+                reverse
+                columnOne={
+                    <TextColumn
+                        title="Data Observability through Metrics and Auditing"
+                        text={textContent.observability}
+                    />
+                }
+                columnTwo={
+                    <img src="/starlake/img/observability.png"/>
+                }
+            />
+        </Section>
+    );
+}
+
+function Editor() {
+    return (
+        <Section className={styles.CrossPlatform}>
+            <br />
+            <TwoColumns
+                reverse
+                columnOne={
+                    <TextColumn
+                        title="Interactive Relationships Editor"
+                        text={textContent.releditor}
+                    />
+                }
+                columnTwo={
+                    <img src="/starlake/img/relations.png"/>
+                }
+            />
+            <br />
+            <TwoColumns
+                reverse
+                columnOne={
+                    <TextColumn
+                        title=""
+                        text={textContent.acleditor}
+                    />                }
+                columnTwo={
+                    <img src="/starlake/img/aclrelations.png"/>
+                }
+            />
+        </Section>
+
+    );
+}
+
+
+function ByTheWay() {
+    return (
+        <Section className={styles.VideoContent}>
+                    <TextColumn
+                        title="And By the way ..."
+                        text={textContent.byTheWay}
+                    />
+        </Section>
+    );
+}
+
 function VideoContent() {
   return (
       <Section className={styles.VideoContent}>
@@ -281,13 +428,21 @@ export default function HomepageFeatures() {
           ))}
           </div>
           </div>
-          {/*<div className={styles.twoColumnsContainer}>
-            <CrossPlatform/>
-          <CrossPlatform2/>
-          <CrossPlatform3/>
-          <CrossPlatform4/>
-          <VideoContent/>
-          </div>*/}
+          <div className={styles.twoColumnsContainer}>
+              <Anywhere/>
+              <Validation/>
+              <XlsGitSupport/>
+              <DbReplication/>
+              <Security/>
+              <Observability/>
+              <YamlSchemaValidator/>
+              <Editor/>
+              {/*
+
+
+
+          <VideoContent/>*/}
+          </div>
     </section>
   );
 }

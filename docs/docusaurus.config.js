@@ -10,7 +10,12 @@ module.exports = {
     organizationName: 'starlake-ai', // Usually your GitHub org/user name.
     projectName: 'starlake', // Usually your repo name.
     themeConfig: {
-        hideableSidebar: false,
+
+        docs: {
+            sidebar: {
+                hideable: false
+            }
+        },
         prism: {
             additionalLanguages: ['java', 'scala', 'sql', 'powershell'],
             theme: require('prism-react-renderer/themes/github'),
@@ -119,7 +124,7 @@ module.exports = {
                     ],
                 },
             ],
-            copyright: `Built with Docusaurus.`,
+            copyright: `By the way, Starlake is serverless.`,
         },
     },
     presets: [
