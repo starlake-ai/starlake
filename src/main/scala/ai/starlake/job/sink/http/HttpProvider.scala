@@ -7,7 +7,6 @@ import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import org.apache.http.client.methods.{HttpPost, HttpUriRequest}
 import org.apache.http.entity.{ContentType, StringEntity}
 import org.apache.spark.sql.SQLContext
-import org.apache.spark.sql.ai.starlake.http.HttpSource
 import org.apache.spark.sql.execution.streaming.Source
 import org.apache.spark.sql.sources.{DataSourceRegister, StreamSinkProvider, StreamSourceProvider}
 import org.apache.spark.sql.streaming.OutputMode
@@ -78,7 +77,8 @@ class HttpProvider extends StreamSinkProvider with StreamSourceProvider with Dat
   ): Source =
     new HttpSource(
       sqlContext,
-      parameters("port").toInt
+      parameters("port").toInt,
+      parameters.get("transformer")
     )
 
 }
