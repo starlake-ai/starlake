@@ -1,6 +1,7 @@
 package ai.starlake.job.sink.kafka
 
 import ai.starlake.config.{DatasetArea, Settings}
+import ai.starlake.job.sink.DataFrameTransform
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.utils.Formatter._
 import ai.starlake.utils.kafka.KafkaClient
@@ -133,7 +134,7 @@ class KafkaJob(
             SparkJobResult(None)
           case false =>
             val df = session.read.format(kafkaJobConfig.format).load(finalPath.split(','): _*)
-            val transformedDF = transfom(df)
+            val transformedDF = DataFrameTransform.transform(transformInstance, df, session)
 
             kafkaClient.sinkToTopic(
               topicConfig,
@@ -146,7 +147,7 @@ class KafkaJob(
   }
 
   private def batchSave(df: DataFrame) = {
-    val transformedDF = transfom(df)
+    val transformedDF = DataFrameTransform.transform(transformInstance, df, session)
     val finalDF =
       kafkaJobConfig.coalesce match {
         case None    => transformedDF
@@ -182,7 +183,7 @@ class KafkaJob(
   }
 
   private def streamToKafka(df: DataFrame) = {
-    val transformedDF = transfom(df)
+    val transformedDF = DataFrameTransform.transform(transformInstance, df, session)
 
     val writer = transformedDF.writeStream
       .outputMode(kafkaJobConfig.streamingWriteMode)
@@ -220,17 +221,6 @@ class KafkaJob(
   private val transformInstance: Option[DataFrameTransform] = {
     kafkaJobConfig.transform
       .map(Utils.loadInstance[DataFrameTransform])
-      .map(_.configure(topicConfig))
-  }
-
-  private def transfom(df: DataFrame): DataFrame = {
-    val transformedDF = transformInstance match {
-      case Some(transformer) =>
-        transformer.transform(df, session)
-      case None =>
-        df
-    }
-    transformedDF
   }
 
   override def run(): Try[JobResult] = {

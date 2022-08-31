@@ -1,15 +1,15 @@
-package org.apache.spark.sql.ai.starlake.http
+package ai.starlake.job.sink.http
 
-// https://github.com/bluejoe2008/spark-http-stream/blob/master/src/main/scala/org/apache/spark/sql/execution/streaming/http/ActionsHandler.scala
-//  https://github.com/hienluu/wikiedit-streaming/blob/master/streaming-receiver/src/main/scala/org/twitterstreaming/receiver/TwitterStreamingSource.scala
-
+import ai.starlake.job.sink.DataFrameTransform
+import ai.starlake.utils.Utils
 import com.sun.net.httpserver.{HttpExchange, HttpHandler, HttpServer}
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.rdd.RDD
+import org.apache.spark.sql.{DataFrame, SQLContext}
+import org.apache.spark.sql.ai.starlake.http.HttpSourceProxy
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.execution.streaming.{LongOffset, Offset, SerializedOffset, Source}
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
-import org.apache.spark.sql.{DataFrame, SQLContext}
 import org.apache.spark.unsafe.types.UTF8String
 
 import java.net.InetSocketAddress
@@ -17,7 +17,14 @@ import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 import scala.collection.mutable.ListBuffer
 
-class HttpSource(sqlContext: SQLContext, port: Int) extends Source with StrictLogging {
+// https://github.com/bluejoe2008/spark-http-stream/blob/master/src/main/scala/org/apache/spark/sql/execution/streaming/http/ActionsHandler.scala
+//  https://github.com/hienluu/wikiedit-streaming/blob/master/streaming-receiver/src/main/scala/org/twitterstreaming/receiver/TwitterStreamingSource.scala
+
+class HttpSource(sqlContext: SQLContext, port: Int, transfomer: Option[String])
+    extends HttpSourceProxy
+    with Source
+    with StrictLogging {
+
   override def schema: StructType = StructType(List(StructField("value", StringType, true)))
   private var producerOffset: LongOffset = new LongOffset(-1);
   private var consumerOffset = -1;
@@ -84,12 +91,17 @@ class HttpSource(sqlContext: SQLContext, port: Int) extends Source with StrictLo
     val rdd: RDD[InternalRow] = sqlContext.sparkContext.parallelize(slice).map { item =>
       InternalRow(UTF8String.fromString(item))
     }
-    sqlContext.sparkSession.internalCreateDataFrame(
+    val dataframe = internalCreateDataFrame(
+      sqlContext.sparkSession,
       rdd,
       StructType(List(StructField("value", StringType))),
       isStreaming = true
     )
+    DataFrameTransform.transform(transformInstance, dataframe, sqlContext.sparkSession)
   }
+
+  private val transformInstance: Option[DataFrameTransform] =
+    transfomer.map(Utils.loadInstance[DataFrameTransform])
 
   override def commit(end: Offset) {
     // discards [0, end] lines, since they have been consumed
@@ -102,7 +114,6 @@ class HttpSource(sqlContext: SQLContext, port: Int) extends Source with StrictLo
             consumerOffset = iOffset.toInt;
           }
         }
-
       case _ ⇒ throw new Exception(s"Cannot commit with end offset => $end");
     }
   }

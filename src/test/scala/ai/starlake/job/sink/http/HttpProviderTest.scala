@@ -1,7 +1,11 @@
 package ai.starlake.job.sink.http
 
+import better.files.File
 import com.sun.net.httpserver.{HttpExchange, HttpHandler, HttpServer}
 import com.typesafe.scalalogging.StrictLogging
+import org.apache.http.client.methods.HttpPost
+import org.apache.http.entity.StringEntity
+import org.apache.http.impl.client.HttpClientBuilder
 import org.apache.spark.sql.execution.streaming.MemoryStream
 import org.apache.spark.sql.{DatasetLogging, SparkSession}
 import org.scalatest.BeforeAndAfterAll
@@ -11,7 +15,7 @@ import org.scalatest.matchers.should.Matchers
 import java.io.{ByteArrayOutputStream, InputStream}
 import java.net.InetSocketAddress
 
-class HttpSinkProviderTest
+class HttpProviderTest
     extends AnyFlatSpec
     with Matchers
     with BeforeAndAfterAll
@@ -71,6 +75,43 @@ class HttpSinkProviderTest
     server.stop(0)
 
     outputStream.toString should be("""["0"]["1"]["2"]""")
+  }
+  s"Load from HTTP Source" should "work" in {
+    val spark = SparkSession.builder
+      .master("local[4]")
+      .getOrCreate();
+    File("/tmp/http").delete(true)
+    spark.conf.set("spark.sql.streaming.checkpointLocation", s"/tmp/http");
 
+    val sqlContext = spark.sqlContext;
+    // reads data from memory
+
+    val inputData = List("http data1", "http data2")
+    val df = spark.readStream.format("starlake-http").option("port", "10000").load()
+    val thread = new Thread {
+      override def run {
+        Thread.sleep(2000)
+        val post = new HttpPost("http://localhost:10000/")
+        val client = HttpClientBuilder.create.build()
+        inputData.foreach { input =>
+          post.setEntity(new StringEntity(input))
+          client.execute(post)
+        }
+        client.close()
+      }
+    }
+    thread.start()
+    // df.writeStream.format("console").start().awaitTermination(30000)
+    df.writeStream
+      .format("memory")
+      .queryName("http")
+      .outputMode("append")
+      .start()
+      .awaitTermination(5000)
+    val httpData = spark
+      .sql("select value from http")
+      .collect()
+      .map(_.getAs[String](0))
+    httpData.toList should contain theSameElementsAs inputData
   }
 }
