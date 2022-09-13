@@ -75,10 +75,6 @@ class HttpProvider extends StreamSinkProvider with StreamSourceProvider with Dat
     providerName: String,
     parameters: Map[String, String]
   ): Source =
-    new HttpSource(
-      sqlContext,
-      parameters("port").toInt,
-      parameters.get("transformer")
-    )
+    new HttpSource(sqlContext, parameters)
 
 }
