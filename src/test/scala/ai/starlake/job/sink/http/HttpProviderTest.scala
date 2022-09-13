@@ -51,11 +51,60 @@ class HttpProviderTest
       os.close()
     }
   }
+
+  s"Load from HTTP Source to multiple URLs" should "work" in {
+    val spark = SparkSession.builder
+      .master("local[4]")
+      .getOrCreate();
+    File("/tmp/http2").delete(true)
+    spark.conf.set("spark.sql.streaming.checkpointLocation", s"/tmp/http2");
+
+    val sqlContext = spark.sqlContext;
+    // reads data from memory
+
+    val df = spark.readStream
+      .format("starlake-http")
+      .option("port", "10000")
+      .option("urls", "/test1, /test2")
+      .option(
+        "transformers",
+        "ai.starlake.job.sink.IdentityDataFrameTransformer, ai.starlake.job.sink.IdentityDataFrameTransformer"
+      )
+      .load()
+    val thread = new Thread {
+      override def run {
+        Thread.sleep(2000)
+        val post1 = new HttpPost("http://localhost:10000/test1")
+        val post2 = new HttpPost("http://localhost:10000/test2")
+        val client = HttpClientBuilder.create.build()
+        post1.setEntity(new StringEntity("http data1"))
+        client.execute(post1)
+        post2.setEntity(new StringEntity("http data2"))
+        client.execute(post2)
+        client.close()
+      }
+    }
+    thread.start()
+    // df.writeStream.format("console").start().awaitTermination(30000)
+    df.writeStream
+      .format("memory")
+      .queryName("http")
+      .outputMode("append")
+      .start()
+      .awaitTermination(10000)
+    val httpData = spark
+      .sql("select value from http")
+      .collect()
+      .map(_.getAs[String](0))
+    httpData.toList should contain theSameElementsAs List("http data1", "http data2")
+  }
   s"Save in HTTP Sink" should "work" in {
     val spark = SparkSession.builder
       .master("local[4]")
       .getOrCreate();
-    spark.conf.set("spark.sql.streaming.checkpointLocation", "/tmp/");
+    File("/tmp/sink").delete(true)
+    File("/tmp/sink").createDirectory()
+    spark.conf.set("spark.sql.streaming.checkpointLocation", "/tmp/sink");
 
     val sqlContext = spark.sqlContext;
     // reads data from memory
@@ -76,42 +125,5 @@ class HttpProviderTest
 
     outputStream.toString should be("""["0"]["1"]["2"]""")
   }
-  s"Load from HTTP Source" should "work" in {
-    val spark = SparkSession.builder
-      .master("local[4]")
-      .getOrCreate();
-    File("/tmp/http").delete(true)
-    spark.conf.set("spark.sql.streaming.checkpointLocation", s"/tmp/http");
 
-    val sqlContext = spark.sqlContext;
-    // reads data from memory
-
-    val inputData = List("http data1", "http data2")
-    val df = spark.readStream.format("starlake-http").option("port", "10000").load()
-    val thread = new Thread {
-      override def run {
-        Thread.sleep(2000)
-        val post = new HttpPost("http://localhost:10000/")
-        val client = HttpClientBuilder.create.build()
-        inputData.foreach { input =>
-          post.setEntity(new StringEntity(input))
-          client.execute(post)
-        }
-        client.close()
-      }
-    }
-    thread.start()
-    // df.writeStream.format("console").start().awaitTermination(30000)
-    df.writeStream
-      .format("memory")
-      .queryName("http")
-      .outputMode("append")
-      .start()
-      .awaitTermination(5000)
-    val httpData = spark
-      .sql("select value from http")
-      .collect()
-      .map(_.getAs[String](0))
-    httpData.toList should contain theSameElementsAs inputData
-  }
 }
