@@ -6,6 +6,10 @@ trait DataFrameTransform {
   def transform(dataFrame: DataFrame, session: SparkSession): DataFrame
 }
 
+object IdentityDataFrameTransformer extends DataFrameTransform {
+  override def transform(dataFrame: DataFrame, session: SparkSession): DataFrame = dataFrame
+}
+
 object DataFrameTransform {
   def transform(
     transformInstance: Option[DataFrameTransform],
