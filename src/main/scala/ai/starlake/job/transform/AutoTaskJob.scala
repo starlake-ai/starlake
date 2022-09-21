@@ -102,7 +102,7 @@ case class AutoTaskJob(
       CommentParser.stripComments(
         task.getSql().richFormat(schemaHandler.activeEnv, sqlParameters).trim
       )
-    val trimmedMainTaskSQL = mainTaskSQL.toLowerCase().trim
+    val trimmedMainTaskSQL = mainTaskSQL.toLowerCase()
     if (trimmedMainTaskSQL.startsWith("with ") || trimmedMainTaskSQL.startsWith("(with ")) {
       mainTaskSQL
     } else {

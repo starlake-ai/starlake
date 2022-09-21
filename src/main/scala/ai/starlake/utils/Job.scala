@@ -53,7 +53,7 @@ trait JobBase extends StrictLogging with DatasetLogging {
       val sepConfigIndex = valueWithEnv.indexOf(':', sepIndex + 1)
       if (sepConfigIndex > 0) {
         (
-          SinkType.fromString(valueWithEnv.substring(0, sepIndex)),
+          SinkType.fromString(key),
           Some(valueWithEnv.substring(sepIndex + 1, sepConfigIndex)),
           valueWithEnv.substring(sepConfigIndex + 1)
         )
