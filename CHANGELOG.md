@@ -1,6 +1,11 @@
 
 # Release notes
 
+# 0.3.26
+__New feature__:
+- Support JINJA in autojob
+- Support external views defined using JINJA
+
 # 0.3.25
 __New feature__:
 - Add ACL Graph generation

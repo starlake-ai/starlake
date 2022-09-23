@@ -5,6 +5,7 @@ import ai.starlake.schema.model.SinkType.{BQ, FS, JDBC, KAFKA}
 import ai.starlake.schema.model.{Metadata, SinkType, Views}
 import ai.starlake.utils.Formatter._
 import ai.starlake.utils.kafka.KafkaClient
+import com.hubspot.jinjava.Jinjava
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.SparkConf
 import org.apache.spark.sql._
@@ -14,6 +15,7 @@ import org.apache.spark.sql.types.IntegerType
 
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
+import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success, Try}
 
 trait JobResult
@@ -61,6 +63,28 @@ trait JobBase extends StrictLogging with DatasetLogging {
         (SinkType.fromString(key), None, valueWithEnv.substring(sepIndex + 1))
     } else // parquet is the default
       (SinkType.FS, None, valueWithEnv)
+  }
+  protected val jinjava = {
+    val res = new Jinjava()
+    res.setResourceLocator(new JinjaResourceHandler())
+    res
+  }
+
+  protected def parseJinja(str: String, params: Map[String, String]): String = parseJinja(
+    List(str),
+    params
+  ).head
+
+  protected def parseJinja(str: List[String], params: Map[String, String]): List[String] = {
+    val result = str.map { sql =>
+      CommentParser.stripComments(
+        jinjava
+          .render(sql, params.asJava)
+          .richFormat(params, Map.empty)
+          .trim
+      )
+    }
+    result
   }
 
 }
@@ -250,7 +274,8 @@ trait SparkJob extends JobBase {
     // or  KAFKA:stream:topicConfigName
     views.views.foreach { case (key, value) =>
       // Apply substitution defined with {{ }} and overload options in env by option in command line
-      val valueWithEnv = value.richFormat(activeEnv, sqlParameters)
+      val valueWithEnv =
+        parseJinja(value, activeEnv ++ sqlParameters).richFormat(activeEnv, sqlParameters)
       val (sinkType, sinkConfig, path) = parseViewDefinition(valueWithEnv)
       logger.info(s"Loading view $path from $sinkType")
       val df: DataFrame = createSparkView(sinkType, sinkConfig, path)
