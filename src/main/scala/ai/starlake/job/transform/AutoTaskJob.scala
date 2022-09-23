@@ -27,7 +27,7 @@ import ai.starlake.job.metrics.AssertionJob
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.Stage.UNIT
 import ai.starlake.schema.model._
-import ai.starlake.utils.Formatter._
+import ai.starlake.utils.Formatter.RichFormatter
 import ai.starlake.utils._
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.{DataFrame, SaveMode}
@@ -90,18 +90,26 @@ case class AutoTaskJob(
 
   private def parseJobViews(): Map[String, String] =
     views.views.map { case (queryName, queryExpr) =>
-      val (_, _, viewValue) =
-        parseViewDefinition(queryExpr.richFormat(schemaHandler.activeEnv, sqlParameters))
+      val (_, _, viewValue) = Option(queryExpr) match {
+        case None =>
+          val viewContent = schemaHandler
+            .views(queryName)
+            .getOrElse(throw new Exception(s"Unknown view $queryName"))
+          parseViewDefinition(
+            parseJinja(viewContent)
+          )
+        case Some(viewContent) =>
+          parseViewDefinition(
+            parseJinja(viewContent)
+          )
+      }
       (queryName, viewValue)
     }
 
   def parseMainSqlBQ(): String = {
     logger.info(s"Parse Views")
     val withViews = parseJobViews()
-    val mainTaskSQL =
-      CommentParser.stripComments(
-        task.getSql().richFormat(schemaHandler.activeEnv, sqlParameters).trim
-      )
+    val mainTaskSQL = parseJinja(task.getSql())
     val trimmedMainTaskSQL = mainTaskSQL.toLowerCase()
     if (trimmedMainTaskSQL.startsWith("with ") || trimmedMainTaskSQL.startsWith("(with ")) {
       mainTaskSQL
@@ -119,21 +127,6 @@ case class AutoTaskJob(
       val subSelectsString = if (subSelects.nonEmpty) subSelects.mkString("WITH ", ",", " ") else ""
       "(\n" + subSelectsString + mainTaskSQL + "\n)"
     }
-  }
-
-  def buildQueryBQ(): (List[String], String, List[String]) = {
-    val sql = parseMainSqlBQ()
-    val preSql = task.presql.getOrElse(Nil).map { sql =>
-      CommentParser.stripComments(
-        sql.richFormat(schemaHandler.activeEnv, sqlParameters).trim
-      )
-    }
-    val postSql = task.postsql.getOrElse(Nil).map { sql =>
-      CommentParser.stripComments(
-        sql.richFormat(schemaHandler.activeEnv, sqlParameters).trim
-      )
-    }
-    (preSql, sql, postSql)
   }
 
   def runBQ(): Try[JobResult] = {
@@ -204,7 +197,7 @@ case class AutoTaskJob(
               None,
               engine,
               sql =>
-                bqNativeJob(sql.richFormat(schemaHandler.activeEnv, sqlParameters))
+                bqNativeJob(parseJinja(sql))
                   .runInteractiveQuery()
                   .map { result =>
                     val bqResult = result.asInstanceOf[BigQueryJobResult]
@@ -226,15 +219,25 @@ case class AutoTaskJob(
   }
 
   def buildQuerySpark(): (List[String], String, List[String]) = {
-    val preSql = task.presql.getOrElse(Nil).map { sql =>
-      sql.richFormat(schemaHandler.activeEnv, sqlParameters)
-    }
-    val sql = task.getSql().richFormat(schemaHandler.activeEnv, sqlParameters)
-    val postSql = task.postsql.getOrElse(Nil).map { sql =>
-      sql.richFormat(schemaHandler.activeEnv, sqlParameters)
-    }
+    val sql = parseJinja(task.getSql())
+    val preSql = parseJinja(task.presql.getOrElse(Nil))
+    val postSql = parseJinja(task.postsql.getOrElse(Nil))
     (preSql, sql, postSql)
   }
+
+  def buildQueryBQ(): (List[String], String, List[String]) = {
+    val sql = parseMainSqlBQ()
+    val preSql = parseJinja(task.presql.getOrElse(Nil))
+    val postSql = parseJinja(task.postsql.getOrElse(Nil))
+
+    (preSql, sql, postSql)
+  }
+
+  private def parseJinja(sql: String): String = parseJinja(List(sql)).head
+
+  private def parseJinja(sqls: List[String]): List[String] =
+    parseJinja(sqls, schemaHandler.activeEnv ++ sqlParameters)
+      .map(_.richFormat(schemaHandler.activeEnv, sqlParameters))
 
   def sinkToFS(dataframe: DataFrame, sink: FsSink): Boolean = {
     val targetPath = task.getTargetPath(defaultArea)
