@@ -5,6 +5,7 @@
 __New feature__:
 - Support JINJA in autojob
 - Support external views defined using JINJA
+- File Splitter allow to split file based on first column or position in line.
 
 # 0.3.25
 __New feature__:
