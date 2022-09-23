@@ -15,7 +15,7 @@ import org.apache.spark.sql.types.IntegerType
 
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
-import scala.jdk.CollectionConverters._
+import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try}
 
 trait JobResult
