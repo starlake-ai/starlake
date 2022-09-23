@@ -5,7 +5,7 @@ transform:
     - sql: "select * from dream_working.client"
       area: "business"
       domain: "dream2"
-      dataset: "client2"
+      table: "client2"
       write: "OVERWRITE"
       partition:
         - "year"
