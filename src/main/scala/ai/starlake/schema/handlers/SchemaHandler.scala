@@ -327,9 +327,7 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     val vars = storage.read(path).extractVars()
     val envVars = activeEnv.keySet
     val undefinedVars = vars.diff(envVars)
-    undefinedVars.map(undefVar =>
-      s"${path.toString} contains undefined vars: ${undefVar.mkString(",")}"
-    )
+    undefinedVars.map(undefVar => s"${path.toString} contains undefined vars: ${undefVar}")
 
   }
 
