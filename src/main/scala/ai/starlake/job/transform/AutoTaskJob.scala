@@ -122,10 +122,10 @@ case class AutoTaskJob(
             val allColumns = "*"
             s"SELECT $allColumns FROM $queryExpr"
           }
-        queryName + " AS (" + selectExpr + ")"
+        s"$queryName  AS ($selectExpr)"
       }
-      val subSelectsString = if (subSelects.nonEmpty) subSelects.mkString("WITH ", ",", " ") else ""
-      "(\n" + subSelectsString + mainTaskSQL + "\n)"
+      val subSelectsString = if (subSelects.nonEmpty) subSelects.mkString("WITH ", ", ", "") else ""
+      s"(\n$subSelectsString $mainTaskSQL\n)"
     }
   }
 
@@ -218,8 +218,14 @@ case class AutoTaskJob(
     }
   }
 
-  def buildQuerySpark(): (List[String], String, List[String]) = {
-    val sql = parseJinja(task.getSql())
+  def buildQuerySpark(cteSelects: List[String]): (List[String], String, List[String]) = {
+    val sql = cteSelects match {
+      case Nil =>
+        parseJinja(task.getSql())
+      case list =>
+        list.mkString("WITH ", ", ", " ") + parseJinja(task.getSql())
+    }
+
     val preSql = parseJinja(task.presql.getOrElse(Nil))
     val postSql = parseJinja(task.postsql.getOrElse(Nil))
     (preSql, sql, postSql)
@@ -316,9 +322,9 @@ case class AutoTaskJob(
       udf.foreach { udf =>
         registerUdf(udf)
       }
-      createSparkViews(views, schemaHandler.activeEnv, sqlParameters)
+      val cteSelects = createSparkViews(views, schemaHandler, sqlParameters)
 
-      val (preSql, sqlWithParameters, postSql) = buildQuerySpark()
+      val (preSql, sqlWithParameters, postSql) = buildQuerySpark(cteSelects)
 
       preSql.foreach(req => session.sql(req))
       logger.info(s"""START COMPILE SQL $sqlWithParameters END COMPILE SQL""")
