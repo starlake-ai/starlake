@@ -3,6 +3,7 @@ package ai.starlake.utils
 import ai.starlake.config.{Settings, SparkEnv, UdfRegistration}
 import ai.starlake.schema.model.SinkType.{BQ, FS, JDBC, KAFKA}
 import ai.starlake.schema.model.{Metadata, SinkType, Views}
+import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.utils.Formatter._
 import ai.starlake.utils.kafka.KafkaClient
 import com.hubspot.jinjava.Jinjava
@@ -260,11 +261,17 @@ trait SparkJob extends JobBase {
     }
   }
 
+  /** @param views
+    * @param schemaHandler
+    * @param sqlParameters
+    * @return
+    *   CTEs expressions that need to be injected in requests
+    */
   protected def createSparkViews(
     views: Views,
-    activeEnv: Map[String, String],
+    schemaHandler: SchemaHandler,
     sqlParameters: Map[String, String]
-  ): Unit = {
+  ): List[String] = {
     // We parse the following strings
     // ex  BQ:[[ProjectID.]DATASET_ID.]TABLE_NAME"
     // or  BQ:[[ProjectID.]DATASET_ID.]TABLE_NAME.[comet_filter(col1 > 10 and col2 < 20)].[comet_select(col1, col2)]"
@@ -272,16 +279,29 @@ trait SparkJob extends JobBase {
     // or  JDBC:postgres:select *
     // or  KAFKA:topicConfigName
     // or  KAFKA:stream:topicConfigName
-    views.views.foreach { case (key, value) =>
+    views.views.flatMap { case (key, value) =>
       // Apply substitution defined with {{ }} and overload options in env by option in command line
-      val valueWithEnv =
-        parseJinja(value, activeEnv ++ sqlParameters).richFormat(activeEnv, sqlParameters)
-      val (sinkType, sinkConfig, path) = parseViewDefinition(valueWithEnv)
-      logger.info(s"Loading view $path from $sinkType")
-      val df: DataFrame = createSparkView(sinkType, sinkConfig, path)
-      df.createOrReplaceTempView(key)
-      logger.info(s"Created view $key")
-    }
+      Option(value) match {
+        case None =>
+          val viewContent = schemaHandler
+            .views(key)
+            .getOrElse(throw new Exception(s"Unknown view $key"))
+
+          val parsedContent = parseJinja(viewContent, schemaHandler.activeEnv ++ sqlParameters)
+          Some(s"$key AS ($parsedContent)")
+
+        case Some(value) =>
+          val valueWithEnv =
+            parseJinja(value, schemaHandler.activeEnv ++ sqlParameters)
+              .richFormat(schemaHandler.activeEnv, sqlParameters)
+          val (sinkType, sinkConfig, path) = parseViewDefinition(valueWithEnv)
+          logger.info(s"Loading view $path from $sinkType")
+          val df: DataFrame = createSparkView(sinkType, sinkConfig, path)
+          df.createOrReplaceTempView(key)
+          logger.info(s"Created view $key")
+          None
+      }
+    }.toList
   }
 
   protected def createSparkView(
