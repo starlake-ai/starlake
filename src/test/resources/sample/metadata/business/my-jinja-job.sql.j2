@@ -1,0 +1,7 @@
+{% set myList = ["col1,", "col2"] %}
+select
+{%- for x in myList %}
+{{x}}
+{%- endfor %}
+from dream_working.client
+
