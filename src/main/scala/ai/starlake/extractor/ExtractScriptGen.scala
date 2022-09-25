@@ -124,7 +124,7 @@ class ScriptGen(
         case BQ =>
           action.buildQueryBQ()
         case SPARK =>
-          action.buildQuerySpark()
+          action.buildQuerySpark(Nil)
         case _ =>
           throw new Exception("not supported") // TODO
       }
