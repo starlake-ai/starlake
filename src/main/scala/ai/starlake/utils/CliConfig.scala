@@ -9,6 +9,7 @@ trait CliConfig[T] {
   def usage(): String = OParser.usage(parser)
   def parse(args: Seq[String]): Option[T]
   val engine: TemplateEngine = new TemplateEngine
+  def command: String
 
   def markdown(pageIndex: Int): String = {
     val optionDefs = parser.toList

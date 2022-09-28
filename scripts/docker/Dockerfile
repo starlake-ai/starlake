@@ -24,9 +24,9 @@ RUN mkdir -p /samples/bin
 RUN mv /app/starlake-spark3_2.12-$STARLAKE_VERSION-assembly.jar /samples/bin/
 RUN mv /app/spark-$SPARK_VERSION-bin-hadoop3.2 /samples/bin/
 
-COPY local/ /samples/local/
-COPY quickstart-template/ /samples/quickstart-template/
-COPY env.sh /samples/
+COPY ../../samples/local/ /samples/local/
+COPY ../../samples/quickstart-template/ /samples/quickstart-template/
+COPY ../../samples/env.sh /samples/
 
 COPY docker-init.sh /app
 

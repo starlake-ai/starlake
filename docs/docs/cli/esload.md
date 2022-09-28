@@ -1,12 +1,12 @@
 ---
 sidebar_position: 30
-title: esload | index
+title: esload
 ---
 
 
 ## Synopsis
 
-**starlake index | esload [options]**
+**starlake esload [options]**
 
 ## Description
 
