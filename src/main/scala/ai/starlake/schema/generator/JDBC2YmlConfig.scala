@@ -69,13 +69,13 @@ case class JDBC2YmlConfig(
 )
 
 object JDBC2YmlConfig extends CliConfig[JDBC2YmlConfig] {
-
+  val command = "jdbc2yml"
   val parser: OParser[Unit, JDBC2YmlConfig] = {
     val builder = OParser.builder[JDBC2YmlConfig]
     import builder._
     OParser.sequence(
-      programName("starlake jdbc2yml"),
-      head("starlake", "jdbc2yml", "[options]"),
+      programName(s"starlake $command"),
+      head("starlake", command, "[options]"),
       note(""),
       opt[String]("jdbc-mapping")
         .action((x, c) => c.copy(jdbcMapping = x))

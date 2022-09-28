@@ -1,9 +1,9 @@
 package com.ebiznext.comet.job
 
 import ai.starlake.config.{DatasetArea, Settings}
-import ai.starlake.extractor.ScriptGen
+import ai.starlake.extractor.{ExtractScriptGenConfig, ScriptGen}
 import ai.starlake.job.atlas.AtlasConfig
-import ai.starlake.job.convert.{Parquet2CSV, Parquet2CSVConfig}
+import ai.starlake.job.convert.{FileSplitterConfig, Parquet2CSV, Parquet2CSVConfig}
 import ai.starlake.job.infer.InferSchemaConfig
 import ai.starlake.job.ingest.LoadConfig
 import ai.starlake.job.metrics.MetricsConfig
@@ -13,7 +13,7 @@ import ai.starlake.job.sink.jdbc.ConnectionLoadConfig
 import ai.starlake.job.sink.kafka.KafkaJobConfig
 import ai.starlake.schema.generator._
 import ai.starlake.schema.handlers.SchemaHandler
-import ai.starlake.utils.CometObjectMapper
+import ai.starlake.utils.{CliConfig, CometObjectMapper}
 import ai.starlake.workflow.{ImportConfig, IngestionWorkflow, TransformConfig, WatchConfig}
 import buildinfo.BuildInfo
 import com.fasterxml.jackson.annotation.JsonInclude.Include
@@ -34,28 +34,45 @@ object Main extends StrictLogging {
   val mapper: ObjectMapper = new CometObjectMapper(new YAMLFactory())
   mapper.setSerializationInclusion(Include.NON_EMPTY)
 
+  val configs: List[CliConfig[_]] = List(
+    BigQueryLoadConfig,
+    ConnectionLoadConfig,
+    ESLoadConfig,
+    ExtractScriptGenConfig,
+    FileSplitterConfig,
+    ImportConfig,
+    InferSchemaConfig,
+    JDBC2YmlConfig,
+    KafkaJobConfig,
+    LoadConfig,
+    MetricsConfig,
+    Parquet2CSVConfig,
+    TransformConfig,
+    WatchConfig,
+    Xls2YmlConfig,
+    Yml2DDLConfig,
+    Yml2GraphVizConfig,
+    Yml2XlsConfig
+  )
   private def printUsage() = {
     // scalastyle:off println
-    println(
-      s"""
-         |Usage : One of
-         |${LoadConfig.usage()}
-         |${ImportConfig.usage()}
-         |${TransformConfig.usage()}
-         |${WatchConfig.usage()}
-         |${ESLoadConfig.usage()}
-         |${BigQueryLoadConfig.usage()}
-         |${InferSchemaConfig.usage()}
-         |${MetricsConfig.usage()}
-         |${Parquet2CSVConfig.usage()}
-         |${Xls2YmlConfig.usage()}
-         |${Yml2XlsConfig.usage()}
-         |${KafkaJobConfig.usage()}
-         |${Yml2GraphVizConfig.usage()}
-         |""".stripMargin
-    )
-    // scalastyle:on println
+    println("Usage:")
+    println("\tstarlake [command]")
+    println("Available commands =>")
+    configs.foreach { config =>
+      println(s"\t${config.command}")
+    }
   }
+  private def printUsage(command: String) = {
+    // scalastyle:off println
+    configs.find(_.command == command) match {
+      case None =>
+        println(s"ERROR: Unknown command --> $command")
+      case Some(config) =>
+        println(config.usage())
+    }
+  }
+  // scalastyle:on println
 
   /** @param args
     *   depends on the action required to run a job:
@@ -85,25 +102,52 @@ object Main extends StrictLogging {
     legacyMain(args)
   }
 
-  def legacyMain(args: Array[String])(implicit settings: Settings): Unit = {
+  def checkPrerequisites(args: List[String]) = {
+    args match {
+      case Nil | "help" :: Nil =>
+        printUsage()
+        System.exit(1)
+      case "help" :: command :: Nil =>
+        printUsage(command)
+        System.exit(1)
+      case _ =>
+    }
 
+    sys.env.get("COMET_ROOT") match {
+      case None =>
+        println("ERROR: Define and set the COMET_ROOT env variable to your starlake project folder")
+        System.exit(1)
+      case Some(rootDir) =>
+        logger.info(s"Running command on project located in $rootDir")
+    }
+
+  }
+
+  def legacyMain(args: Array[String])(implicit settings: Settings): Unit = {
     logger.info(s"Comet Version ${BuildInfo.version}")
+    val argList = args.toList
+    checkPrerequisites(argList)
+
     import settings.{launcherService, metadataStorageHandler, storageHandler}
     DatasetArea.initMetadata(metadataStorageHandler)
     val schemaHandler = new SchemaHandler(metadataStorageHandler)
 
+    // handle non existing project commands
+    argList.head match {
+      case "bootstrap" =>
+        DatasetArea.bootstrap(storageHandler)
+        System.exit(0)
+      case _ =>
+    }
+
+    // handle existing project commands
     schemaHandler.fullValidation()
-
     DatasetArea.initDomains(storageHandler, schemaHandler.domains.map(_.name))
-
     val workflow =
       new IngestionWorkflow(storageHandler, schemaHandler, launcherService)
 
-    if (args.length == 0) printUsage()
-
-    val arglist = args.toList
-    logger.info(s"Running Starlake $arglist")
-    val result = arglist.head match {
+    logger.info(s"Running Starlake $argList")
+    val result = argList.head match {
       case "job" | "transform" =>
         TransformConfig.parse(args.drop(1)) match {
           case Some(config) =>
@@ -248,7 +292,7 @@ object Main extends StrictLogging {
 
       case "extract" =>
         new ScriptGen(storageHandler, schemaHandler, launcherService).run(args.drop(1))
-      case _ =>
+      case command =>
         printUsage()
         false
     }

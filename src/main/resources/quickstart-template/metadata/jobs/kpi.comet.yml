@@ -1,0 +1,13 @@
+transform:
+  name: kpi
+  engine: ${engine}
+  views:
+    sellers: "${sellers_view}"
+    orders: "${orders_view}"
+  tasks:
+    - name: byseller
+      domain: sales_kpi
+      dataset: byseller_kpi
+      write: OVERWRITE
+  area: business
+
