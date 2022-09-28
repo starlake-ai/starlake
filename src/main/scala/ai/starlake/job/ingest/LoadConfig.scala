@@ -39,13 +39,13 @@ case class LoadConfig(
 )
 
 object LoadConfig extends CliConfig[LoadConfig] {
-
+  val command = "load"
   val parser: OParser[Unit, LoadConfig] = {
     val builder = OParser.builder[LoadConfig]
     import builder._
     OParser.sequence(
-      programName("starlake load | ingest"),
-      head("starlake", "load | ingest", "[options]"),
+      programName(s"starlake $command"),
+      head("starlake", command, "[options]"),
       note(""),
       arg[String]("domain")
         .required()
