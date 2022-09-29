@@ -14,13 +14,13 @@ case class FileSplitterConfig(
 )
 
 object FileSplitterConfig extends CliConfig[FileSplitterConfig] {
-
+  val command = "splitfile"
   val parser: OParser[Unit, FileSplitterConfig] = {
     val builder = OParser.builder[FileSplitterConfig]
     import builder._
     OParser.sequence(
-      programName("starlake filesplit"),
-      head("starlake", "filesplit", "[options]"),
+      programName(s"starlake $command"),
+      head("starlake", command, "[options]"),
       note(
         """
           |Split DSV or POSITION files.
