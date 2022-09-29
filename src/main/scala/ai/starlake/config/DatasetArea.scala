@@ -30,16 +30,18 @@ import com.fasterxml.jackson.databind.{
   JsonSerializer,
   SerializerProvider
 }
+import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
 
 import java.util.Locale
+import scala.io.Source
 
 /** Utilities methods to reference datasets paths Datasets paths are constructed as follows :
   *   - root path defined by the COMET_DATASETS env var or datasets application property
   *   - followed by the area name
   *   - followed by the the domain name
   */
-object DatasetArea {
+object DatasetArea extends StrictLogging {
 
   def path(domain: String, area: String)(implicit settings: Settings) =
     new Path(
@@ -160,6 +162,9 @@ object DatasetArea {
   def domains(implicit settings: Settings): Path =
     new Path(metadata, "domains")
 
+  def extract(implicit settings: Settings): Path =
+    new Path(metadata, "extract")
+
   def jobs(implicit settings: Settings): Path =
     new Path(metadata, "jobs")
 
@@ -178,7 +183,9 @@ object DatasetArea {
   def initMetadata(
     storage: StorageHandler
   )(implicit settings: Settings): Unit = {
-    List(metadata, types, domains, jobs, assertions, views, mapping).foreach(storage.mkdirs)
+    List(metadata, types, domains, extract, jobs, assertions, views, mapping).foreach(
+      storage.mkdirs
+    )
   }
 
   def initDomains(storage: StorageHandler, domains: Iterable[String])(implicit
@@ -189,6 +196,52 @@ object DatasetArea {
         .map(_(domain))
         .foreach(storage.mkdirs)
     }
+  }
+
+  def bootstrap(storage: StorageHandler)(implicit settings: Settings) = {
+    def copyToFolder(resources: List[String], resourceFolder: String, targetFolder: Path) = {
+      resources.foreach { resource =>
+        logger.info(s"Boostrapping $resource")
+        val source = Source.fromResource(s"$resourceFolder/$resource")
+        if (source == null)
+          throw new Exception(s"Resource $resource not found in assembly")
+
+        val lines: Iterator[String] = source.getLines()
+        val targetFile = new Path(targetFolder.toString + "/" + resource)
+        val contents =
+          lines.mkString("\n").replace("__COMET_TEST_ROOT__", metadata.getParent.toString)
+        storage.write(contents, targetFile)
+      }
+    }
+
+    initMetadata(storage)
+
+    val metadataResources = List(
+      "domains/hr.comet.yml",
+      "domains/sales.comet.yml",
+      "jobs/kpi.comet.yml",
+      "jobs/kpi.byseller.sql.j2",
+      "types/default.comet.yml",
+      "types/types.comet.yml",
+      "env.comet.yml",
+      "env.BQ.comet.yml",
+      "env.FS.comet.yml"
+    )
+    storage.mkdirs(metadata)
+    copyToFolder(metadataResources, "quickstart-template/metadata", metadata)
+    val incomingFolder = new Path(metadata.getParent(), "incoming")
+    storage.mkdirs(incomingFolder)
+    val rootResources = List(
+      "incoming/hr/locations-2018-01-01.ack",
+      "incoming/hr/locations-2018-01-01.json",
+      "incoming/hr/sellers-2018-01-01.ack",
+      "incoming/hr/sellers-2018-01-01.json",
+      "incoming/sales/customers-2018-01-01.ack",
+      "incoming/sales/customers-2018-01-01.psv",
+      "incoming/sales/orders-2018-01-01.ack",
+      "incoming/sales/orders-2018-01-01.csv"
+    )
+    copyToFolder(rootResources, "quickstart-template", incomingFolder)
   }
 }
 
