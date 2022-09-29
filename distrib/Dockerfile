@@ -19,4 +19,4 @@ COPY starlake.sh /app/starlake
 
 RUN /app/starlake/starlake.sh
 
-CMD ["/app/starlake/starlake.sh"]
+ENTRYPOINT ["/app/starlake/starlake.sh"]
