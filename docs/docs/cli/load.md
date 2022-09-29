@@ -1,12 +1,12 @@
 ---
 sidebar_position: 50
-title: load | ingest
+title: load
 ---
 
 
 ## Synopsis
 
-**starlake load | ingest [options]**
+**starlake load [options]**
 
 ## Description
 

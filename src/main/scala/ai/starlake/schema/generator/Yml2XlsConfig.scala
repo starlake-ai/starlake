@@ -30,13 +30,14 @@ import scopt.OParser
 case class Yml2XlsConfig(domains: Seq[String] = Nil, xlsDirectory: String = "")
 
 object Yml2XlsConfig extends CliConfig[Yml2XlsConfig] {
+  override val command: String = "yml2xls"
 
   val parser: OParser[Unit, Yml2XlsConfig] = {
     val builder = OParser.builder[Yml2XlsConfig]
     import builder._
     OParser.sequence(
-      programName("starlake yml2xls"),
-      head("starlake", "yml2xls", "[options]"),
+      programName(s"starlake $command"),
+      head("starlake", "$command", "[options]"),
       note(""),
       opt[Seq[String]]("domain")
         .action((x, c) => c.copy(domains = x))
@@ -56,4 +57,5 @@ object Yml2XlsConfig extends CliConfig[Yml2XlsConfig] {
     */
   def parse(args: Seq[String]): Option[Yml2XlsConfig] =
     OParser.parse(parser, args, Yml2XlsConfig())
+
 }

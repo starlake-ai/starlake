@@ -24,13 +24,13 @@ case class KafkaJobConfig(
 )
 
 object KafkaJobConfig extends CliConfig[KafkaJobConfig] {
-
+  val command = "kafkaload"
   val parser: OParser[Unit, KafkaJobConfig] = {
     val builder = OParser.builder[KafkaJobConfig]
     import builder._
     OParser.sequence(
-      programName("starlake kafkaload"),
-      head("starlake", "kafkaload", "[options]"),
+      programName(s"starlake $command"),
+      head("starlake", command, "[options]"),
       note("""
           |Two modes are available : The batch mode and the streaming mode.
           |
