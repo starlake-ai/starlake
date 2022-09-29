@@ -21,7 +21,7 @@ TARGET_FOLDER="$(cd "$STARLAKE_PATH" && pwd)"
 mkdir $TARGET_FOLDER 2>/dev/null
 
 if [[ "$COMET_VERSION" == *"SNAPSHOT"* ]]; then
-  COMET_JAR_URL=https://oss.sonatype.org/content/repositories/snapshots/ai/starlake/comet-spark3_$SCALA_VERSION/$COMET_VERSION/$COMET_JAR_NAME
+  COMET_JAR_URL=https://s01.oss.sonatype.org/content/repositories/snapshots/ai/starlake/starlake-spark3_$SCALA_VERSION/$COMET_VERSION/$COMET_JAR_NAME
 else
   COMET_JAR_URL=https://s01.oss.sonatype.org/content/repositories/releases/ai/starlake/starlake-spark3_$SCALA_VERSION/$COMET_VERSION/$COMET_JAR_NAME
 fi
@@ -37,9 +37,6 @@ SPARK_BQ_URL=https://repo1.maven.org/maven2/com/google/cloud/spark/spark-3.1-big
 
 
 initEnv() {
-  rm -rf $TARGET_FOLDER/quickstart/
-  mkdir $TARGET_FOLDER/quickstart/
-
   if [[ ! -d "$TARGET_FOLDER/bin/" ]]
   then
       mkdir $TARGET_FOLDER/bin/
