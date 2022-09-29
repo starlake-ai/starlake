@@ -80,7 +80,7 @@ object Main extends StrictLogging {
     *     definition files present in the metadata/jobs folder. to import files from a local file
     *     system
     *   - call "comet import", this will move files in the landing area to the pending area to watch
-    *     for files wiating to be processed
+    *     for files waiting to be processed
     *   - call"comet watch [{+|–}domain1,domain2,domain3]" with a optional domain list separated by
     *     a ','. When called without any domain, will watch for all domain folders in the landing
     *     area When called with a '+' sign, will look only for this domain folders in the landing
@@ -107,7 +107,7 @@ object Main extends StrictLogging {
       case Nil | "help" :: Nil =>
         printUsage()
         System.exit(1)
-      case "help" :: command :: Nil =>
+      case "help" :: command :: any =>
         printUsage(command)
         System.exit(1)
       case _ =>
