@@ -106,10 +106,10 @@ object Main extends StrictLogging {
     args match {
       case Nil | "help" :: Nil =>
         printUsage()
-        System.exit(1)
+        System.exit(0)
       case "help" :: command :: any =>
         printUsage(command)
-        System.exit(1)
+        System.exit(0)
       case _ =>
     }
 
