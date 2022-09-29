@@ -14,13 +14,14 @@ case class TransformConfig(
 )
 
 object TransformConfig extends CliConfig[TransformConfig] {
+  val command = "transform"
 
   val parser: OParser[Unit, TransformConfig] = {
     val builder = OParser.builder[TransformConfig]
     import builder._
     OParser.sequence(
-      programName("starlake transform | job"),
-      head("starlake", "transform | job", "[options]"),
+      programName(s"starlake $command"),
+      head("starlake", command, "[options]"),
       note(""),
       opt[String]("name")
         .action((x, c) => c.copy(name = x))
