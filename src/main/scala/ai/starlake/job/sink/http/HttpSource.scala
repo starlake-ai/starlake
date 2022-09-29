@@ -29,9 +29,9 @@ class HttpSource(sqlContext: SQLContext, parameters: Map[String, String])
   private val port = parameters.getOrElse("port", "8080").toInt
   private val transformers = parameters
     .getOrElse("transformers", "ai.starlake.job.sink.IdentityDataFrameTransformer")
-    .split(',')
+    .split('|')
     .map(_.trim)
-  private val urls = parameters.getOrElse("urls", "/").split(',').map(_.trim)
+  private val urls = parameters.getOrElse("urls", "/").split('|').map(_.trim)
 
   private val urlsMap: Map[String, DataFrameTransform] = {
     assert(

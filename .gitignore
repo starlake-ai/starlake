@@ -144,3 +144,4 @@ samples/airflow/docker-compose.yaml
 /customers/
 /samples/extract/quickstart/
 /samples/hadoop/
+distrib/bin
