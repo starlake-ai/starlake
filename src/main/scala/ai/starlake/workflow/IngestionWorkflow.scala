@@ -628,7 +628,7 @@ class IngestionWorkflow(
           val (preSQL, mainSQL, postSQL) = action.buildQueryBQ()
           mainSQL
         case SPARK =>
-          val (preSql, mainSQL, postSql) = action.buildQuerySpark()
+          val (preSql, mainSQL, postSql) = action.buildQuerySpark(Nil)
           mainSQL
         case _ =>
           logger.error("Should never happen")

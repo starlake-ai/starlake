@@ -31,13 +31,13 @@ case class InferSchemaConfig(
 )
 
 object InferSchemaConfig extends CliConfig[InferSchemaConfig] {
-
+  val command = "infer-schema"
   val parser: OParser[Unit, InferSchemaConfig] = {
     val builder = OParser.builder[InferSchemaConfig]
     import builder._
     OParser.sequence(
-      programName("starlake infer-schema"),
-      head("starlake", "infer-schema", "[options]"),
+      programName(s"starlake $command"),
+      head("starlake", command, "[options]"),
       note(""),
       opt[String]("domain")
         .action((x, c) => c.copy(domainName = x))

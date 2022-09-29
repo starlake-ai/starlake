@@ -1,6 +1,6 @@
 ---
 transform:
-  name: "business1"
+  name: "business2"
   tasks:
     - sql: "select * from dream_working.client"
       area: "business"

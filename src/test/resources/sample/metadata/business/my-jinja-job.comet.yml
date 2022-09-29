@@ -1,0 +1,11 @@
+---
+transform:
+  name: "my-jinja-job"
+  tasks:
+    - area: "business"
+      domain: "dream2"
+      table: "client2"
+      write: "OVERWRITE"
+      partition:
+        - "year"
+        - "month"
