@@ -1,12 +1,12 @@
 ---
 sidebar_position: 120
-title: transform | job
+title: transform
 ---
 
 
 ## Synopsis
 
-**starlake transform | job [options]**
+**starlake transform [options]**
 
 ## Description
 

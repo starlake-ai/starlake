@@ -22,7 +22,7 @@ case class ConnectionLoadConfig(
 )
 
 object ConnectionLoadConfig extends CliConfig[ConnectionLoadConfig] {
-
+  val command = "jdbcload"
   def checkTablePresent(
     jdbcOptions: Settings.Connection,
     jdbcEngine: Settings.JdbcEngine,
@@ -91,8 +91,8 @@ object ConnectionLoadConfig extends CliConfig[ConnectionLoadConfig] {
     val builder = OParser.builder[ConnectionLoadConfig]
     import builder._
     OParser.sequence(
-      programName("starlake cnxload"),
-      head("starlake", "cnxload", "[options]"),
+      programName(s"starlake $command"),
+      head("starlake", command, "[options]"),
       note("""
           |Load parquet file into JDBC Table.
           |""".stripMargin),

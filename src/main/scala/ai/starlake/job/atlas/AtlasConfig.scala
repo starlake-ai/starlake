@@ -13,13 +13,13 @@ case class AtlasConfig(
 )
 
 object AtlasConfig extends CliConfig[AtlasConfig] {
-
+  val command = "atlas"
   val parser: OParser[Unit, AtlasConfig] = {
     val builder = OParser.builder[AtlasConfig]
     import builder._
     OParser.sequence(
-      programName("starlake atlas"),
-      head("starlake", "atlas", "[options]"),
+      programName(s"starlake $command"),
+      head("starlake", command, "[options]"),
       note(""),
       opt[Unit]("delete")
         .action((_, c) => c.copy(delete = true))
