@@ -6,7 +6,7 @@ title: import
 
 ## Synopsis
 
-**starlake import**
+**starlake import [options]**
 
 ## Description
 
