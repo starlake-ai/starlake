@@ -1,12 +1,12 @@
 ---
 sidebar_position: 80
-title: cnxload
+title: jdbcload
 ---
 
 
 ## Synopsis
 
-**starlake cnxload [options]**
+**starlake jdbcload [options]**
 
 ## Description
 

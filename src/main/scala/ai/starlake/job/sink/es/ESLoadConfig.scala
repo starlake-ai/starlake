@@ -66,13 +66,13 @@ case class ESLoadConfig(
 }
 
 object ESLoadConfig extends CliConfig[ESLoadConfig] {
-
+  val command = "esload"
   val parser: OParser[Unit, ESLoadConfig] = {
     val builder = OParser.builder[ESLoadConfig]
     import builder._
     OParser.sequence(
-      programName("starlake esload | index"),
-      head("starlake", "index | esload", "[options]"),
+      programName(s"starlake $command"),
+      head("starlake", command, "[options]"),
       note(""),
       opt[String]("timestamp")
         .action((x, c) => c.copy(timestamp = Some(x)))
