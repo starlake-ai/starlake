@@ -1,6 +1,16 @@
 
 # Release notes
 
+# 0.3.27
+__CI__:
+ - remove support of github registry
+
+# 0.3.26
+__New feature__:
+- Support JINJA in autojob
+- Support external views defined using JINJA
+- File Splitter allow to split file based on first column or position in line.
+
 # 0.3.25
 __New feature__:
 - Add ACL Graph generation

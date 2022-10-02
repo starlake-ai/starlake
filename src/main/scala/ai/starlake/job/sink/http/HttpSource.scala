@@ -20,15 +20,32 @@ import scala.collection.mutable.ListBuffer
 // https://github.com/bluejoe2008/spark-http-stream/blob/master/src/main/scala/org/apache/spark/sql/execution/streaming/http/ActionsHandler.scala
 //  https://github.com/hienluu/wikiedit-streaming/blob/master/streaming-receiver/src/main/scala/org/twitterstreaming/receiver/TwitterStreamingSource.scala
 
-class HttpSource(sqlContext: SQLContext, port: Int, transfomer: Option[String])
+case class HttpPayload(url: String, data: String)
+class HttpSource(sqlContext: SQLContext, parameters: Map[String, String])
     extends HttpSourceProxy
     with Source
     with StrictLogging {
 
+  private val port = parameters.getOrElse("port", "8080").toInt
+  private val transformers = parameters
+    .getOrElse("transformers", "ai.starlake.job.sink.IdentityDataFrameTransformer")
+    .split('|')
+    .map(_.trim)
+  private val urls = parameters.getOrElse("urls", "/").split('|').map(_.trim)
+
+  private val urlsMap: Map[String, DataFrameTransform] = {
+    assert(
+      urls.length == transformers.length,
+      "Parameters urls and transformers should expose the exact same number of values"
+    )
+    val transformerObjects = transformers.map(Utils.loadInstance[DataFrameTransform])
+    urls.zip(transformerObjects).toMap
+  }
+
   override def schema: StructType = StructType(List(StructField("value", StringType, true)))
   private var producerOffset: LongOffset = new LongOffset(-1);
   private var consumerOffset = -1;
-  private val streamBuffer = ListBuffer[String]();
+  private val streamBuffer = ListBuffer.empty[HttpPayload]
   val flagStop = new AtomicBoolean(false);
 
   /** Send back a response with provided status code and response text */
@@ -43,17 +60,19 @@ class HttpSource(sqlContext: SQLContext, port: Int, transfomer: Option[String])
   private def startServer(): HttpServer = {
     val server = HttpServer.create(new InetSocketAddress(port), 0)
     server.setExecutor(Executors.newCachedThreadPool())
-    server.createContext(
-      "/",
-      new HttpHandler {
-        override def handle(httpExchange: HttpExchange): Unit = {
-          val payload = scala.io.Source.fromInputStream(httpExchange.getRequestBody).mkString
-          producerOffset += 1;
-          streamBuffer += payload;
-          sendResponse(httpExchange, status = 200, response = """{"success": true}""")
+    urls.foreach { url =>
+      server.createContext(
+        url,
+        new HttpHandler {
+          override def handle(httpExchange: HttpExchange): Unit = {
+            val payload = scala.io.Source.fromInputStream(httpExchange.getRequestBody).mkString
+            producerOffset += 1;
+            streamBuffer += HttpPayload(url, payload)
+            sendResponse(httpExchange, status = 200, response = """{"success": true}""")
+          }
         }
-      }
-    )
+      )
+    }
     // Start server and return streaming DF
     server.start()
     server
@@ -85,23 +104,30 @@ class HttpSource(sqlContext: SQLContext, port: Int, transfomer: Option[String])
     val iStart =
       convertToLongOffset(start.getOrElse(LongOffset(-1))).getOrElse(LongOffset(-1)).offset;
     val iEnd = convertToLongOffset(end).getOrElse(LongOffset(-1)).offset;
-    val slice = this.synchronized {
-      streamBuffer.slice(iStart.toInt - consumerOffset, iEnd.toInt - consumerOffset);
+    val slices = this.synchronized {
+      val messages = streamBuffer.slice(iStart.toInt - consumerOffset, iEnd.toInt - consumerOffset)
+      val messagesByUrl = messages.groupBy(_.url)
+      messagesByUrl.map { case (url, payload) =>
+        (urlsMap(url), payload.map(_.data))
+      }
     }
-    val rdd: RDD[InternalRow] = sqlContext.sparkContext.parallelize(slice).map { item =>
-      InternalRow(UTF8String.fromString(item))
-    }
-    val dataframe = internalCreateDataFrame(
-      sqlContext.sparkSession,
-      rdd,
-      StructType(List(StructField("value", StringType))),
-      isStreaming = true
-    )
-    DataFrameTransform.transform(transformInstance, dataframe, sqlContext.sparkSession)
+    val dfs = slices.map { case (transformer, slice) =>
+      val rdd: RDD[InternalRow] = sqlContext.sparkContext.parallelize(slice).map { item =>
+        InternalRow(UTF8String.fromString(item))
+      }
+      val dataframe = internalCreateDataFrame(
+        sqlContext.sparkSession,
+        rdd,
+        StructType(List(StructField("value", StringType))),
+        isStreaming = true
+      )
+      DataFrameTransform.transform(Some(transformer), dataframe, sqlContext.sparkSession)
+    }.toList
+    if (dfs.size == 1)
+      dfs.head
+    else
+      dfs.reduce(_ union _)
   }
-
-  private val transformInstance: Option[DataFrameTransform] =
-    transfomer.map(Utils.loadInstance[DataFrameTransform])
 
   override def commit(end: Offset) {
     // discards [0, end] lines, since they have been consumed
