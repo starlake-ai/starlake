@@ -13,7 +13,7 @@ object Versions {
   val hive = "3.1.0"
   val log4s = "1.3.3"
   val betterFiles = "3.9.1"
-  val jackson211ForSpark2 = "2.6.7"
+  val jackson211ForSpark2 = "2.6.7.5"
   val jackson212ForSpark3 = "2.13.3"
   val pureConfig211ForSpark2 = "0.14.0"
   val pureConfig212ForSpark3 = "0.14.0"
