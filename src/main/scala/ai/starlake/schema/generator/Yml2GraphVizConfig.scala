@@ -11,13 +11,14 @@ case class Yml2GraphVizConfig(
 )
 
 object Yml2GraphVizConfig extends CliConfig[Yml2GraphVizConfig] {
+  val command = "yml2gv"
 
   val parser: OParser[Unit, Yml2GraphVizConfig] = {
     val builder = OParser.builder[Yml2GraphVizConfig]
     import builder._
     OParser.sequence(
-      programName("starlake yml2gv"),
-      head("starlake", "yml2gv", "[options]"),
+      programName(s"starlake $command"),
+      head("starlake", command, "[options]"),
       note("Generate GraphViz files from Domain / Schema YAML files"),
       opt[String]("output")
         .action((x, c) => c.copy(output = Some(x)))

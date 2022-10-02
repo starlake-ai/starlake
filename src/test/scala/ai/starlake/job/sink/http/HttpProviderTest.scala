@@ -65,10 +65,10 @@ class HttpProviderTest
     val df = spark.readStream
       .format("starlake-http")
       .option("port", "10000")
-      .option("urls", "/test1, /test2")
+      .option("urls", "/test1|/test2")
       .option(
         "transformers",
-        "ai.starlake.job.sink.IdentityDataFrameTransformer, ai.starlake.job.sink.IdentityDataFrameTransformer"
+        "ai.starlake.job.sink.IdentityDataFrameTransformer|ai.starlake.job.sink.IdentityDataFrameTransformer"
       )
       .load()
     val thread = new Thread {

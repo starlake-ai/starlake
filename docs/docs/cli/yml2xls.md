@@ -6,7 +6,7 @@ title: yml2xls
 
 ## Synopsis
 
-**starlake yml2xls [options]**
+**starlake $command [options]**
 
 ## Description
 
