@@ -1,6 +1,10 @@
 
 # Release notes
 
+# 0.3.27
+__CI__:
+ - remove support of github registry
+
 # 0.3.26
 __New feature__:
 - Support JINJA in autojob
