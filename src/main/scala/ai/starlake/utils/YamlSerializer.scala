@@ -35,6 +35,7 @@ object YamlSerializer extends LazyLogging {
   }
 
   def serialize(jdbcSchemas: JDBCSchemas): String = mapper.writeValueAsString(jdbcSchemas)
+  def serialize(schemas: Schemas): String = mapper.writeValueAsString(schemas)
 
   def deserializeJDBCSchemas(file: File): JDBCSchemas = {
     val rootNode = mapper.readTree(file.newInputStream)
