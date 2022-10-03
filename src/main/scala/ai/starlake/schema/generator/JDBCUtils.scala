@@ -2,13 +2,15 @@ package ai.starlake.schema.generator
 
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.schema.model.{Attribute, Domain, Schema}
+import better.files.File
 import com.typesafe.scalalogging.LazyLogging
 
-import java.sql.DriverManager
 import java.sql.Types._
+import java.sql.{Connection => SQLConnection, DriverManager}
+import java.time.format.DateTimeFormatter
+import java.time.{Instant, ZoneOffset}
 import java.util.Properties
 import java.util.regex.Pattern
-import java.sql.{Connection => SQLConnection}
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 import scala.util.{Failure, Success, Try}
@@ -57,6 +59,11 @@ object JDBCUtils extends LazyLogging {
     connString: String
   )(f: SQLConnection => T)(implicit settings: Settings): T = {
     val jdbcOptions = settings.comet.connections(connString)
+    assert(
+      jdbcOptions.options.contains("driver"),
+      "driver class not found in JDBC connection options"
+    )
+    Class.forName(jdbcOptions.options("driver"))
 
     // Only JDBC connections are supported
     assert(jdbcOptions.format == "jdbc")
@@ -233,15 +240,18 @@ object JDBCUtils extends LazyLogging {
     domainTemplate: Option[Domain],
     selectedTablesAndColumns: Map[String, (TableRemarks, Columns, PrimaryKeys)]
   ) = {
-    val schemaMetadata =
-      domainTemplate.flatMap(_.tables.headOption.flatMap(_.metadata))
+    val domainMetadata =
+      domainTemplate.flatMap(_.metadata)
+    val patternTemplate =
+      domainTemplate.flatMap(_.tables.headOption.map(_.pattern))
+
     val cometSchema = selectedTablesAndColumns.map {
       case (tableName, (tableRemarks, selectedColumns, primaryKeys)) =>
         Schema(
           name = tableName,
           pattern = Pattern.compile(s"$tableName.*"),
           attributes = selectedColumns,
-          metadata = schemaMetadata,
+          metadata = None,
           merge = None,
           comment = Option(tableRemarks),
           presql = None,
@@ -249,11 +259,12 @@ object JDBCUtils extends LazyLogging {
           primaryKey = if (primaryKeys.isEmpty) None else Some(primaryKeys)
         )
     }
+    val domainName = jdbcSchema.schema.replaceAll("[^\\p{Alnum}]", "_")
     // Generate the domain with a dummy watch directory
     val incomingDir = domainTemplate
       .map { dom =>
         DatasetArea
-          .substituteDomainAndSchemaInPath(jdbcSchema.schema, "", dom.resolveDirectory())
+          .substituteDomainAndSchemaInPath(domainName, "", dom.resolveDirectory())
           .toString
       }
       .getOrElse(s"/${jdbcSchema.schema}")
@@ -262,7 +273,7 @@ object JDBCUtils extends LazyLogging {
     val ack = domainTemplate.flatMap(_.resolveAck())
 
     Domain(
-      name = jdbcSchema.schema,
+      name = domainName,
       metadata = domainTemplate
         .flatMap(_.metadata)
         .map(_.copy(directory = Some(incomingDir), extensions = extensions, ack = ack)),
@@ -300,6 +311,67 @@ object JDBCUtils extends LazyLogging {
           s"""Make sure user defined type  $colTypename is defined. Context: $tableName.$colName  -> $sqlType ($jdbcType)"""
         )
         colTypename
+    }
+  }
+
+  def extractData(jdbcSchema: JDBCSchema, baseOutputDir: File, limit: Int, separator: String)(
+    implicit settings: Settings
+  ): Unit = {
+    val domainName = jdbcSchema.schema.replaceAll("[^\\p{Alnum}]", "_")
+    val outputDir = File(baseOutputDir, domainName)
+    outputDir.createDirectories()
+    val selectedTablesAndColumns = JDBCUtils.extractJDBCTables(jdbcSchema)
+    selectedTablesAndColumns.foreach {
+      case (tableName, (tableRemarks, selectedColumns, primaryKeys)) =>
+        val formatter = DateTimeFormatter
+          .ofPattern("yyyyMMddHHmmss")
+          .withZone(ZoneOffset.UTC)
+        val dateTime = formatter.format(Instant.now())
+        val outFile = File(outputDir, tableName + s"-$dateTime.csv")
+        val cols = selectedColumns.map(_.name).mkString(",")
+        val headers = selectedColumns.map(_.name).mkString(";")
+        outFile.parent.createDirectories()
+        outFile.delete(true).appendLine(headers)
+        val sql = s"select $cols from ${jdbcSchema.schema}.$tableName"
+        withJDBCConnection(jdbcSchema.connection) { connection =>
+          val statement = connection.createStatement()
+          if (limit > 0)
+            statement.setMaxRows(limit)
+          val rs = statement.executeQuery(sql)
+          val rsMetadata = rs.getMetaData()
+          while (rs.next()) {
+            val colList = ListBuffer.empty[String]
+            for (icol <- 1 to rsMetadata.getColumnCount) {
+              val obj = Option(rs.getObject(icol))
+              val sqlType = rsMetadata.getColumnType(icol)
+              import java.sql.Types
+              val colValue = sqlType match {
+                case Types.VARCHAR =>
+                  rs.getString(icol)
+                case Types.NULL =>
+                  "null"
+                case Types.CHAR =>
+                  "\"" + obj.map(_ => rs.getString(icol)).getOrElse("") + "\""
+                case Types.TIMESTAMP =>
+                  "\"" + obj.map(_ => rs.getTimestamp(icol).toString).getOrElse("") + "\""
+                case Types.DOUBLE =>
+                  obj.map(_ => rs.getDouble(icol).toString).getOrElse("")
+                case Types.INTEGER =>
+                  obj.map(_ => rs.getInt(icol).toString).getOrElse("")
+                case Types.SMALLINT =>
+                  obj.map(_ => rs.getInt(icol).toString).getOrElse("")
+                case Types.DECIMAL =>
+                  obj.map(_ => rs.getBigDecimal(icol).toString).getOrElse("")
+                case _ =>
+                  "\"" + obj.map(_.toString).getOrElse("") + "\""
+              }
+              colList.append(colValue)
+            }
+            val rowString = colList.mkString(separator)
+            outFile.appendLine(rowString)
+          }
+        }
+
     }
   }
 
