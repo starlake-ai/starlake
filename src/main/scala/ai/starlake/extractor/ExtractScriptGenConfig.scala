@@ -57,7 +57,7 @@ object ExtractScriptGenConfig extends CliConfig[ExtractScriptGenConfig] {
           | full_export -> if the export is a full or delta export (the logic is to be implemented in your script)
           |""".stripMargin
       ),
-      cmd("script-gen"),
+      cmd("extract"),
       opt[Seq[String]]("domain")
         .action((x, c) => c.copy(domain = x))
         .valueName("domain1,domain2 ...")

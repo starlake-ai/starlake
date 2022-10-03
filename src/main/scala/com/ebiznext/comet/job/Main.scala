@@ -292,6 +292,9 @@ object Main extends StrictLogging {
 
       case "extract" =>
         new ScriptGen(storageHandler, schemaHandler, launcherService).run(args.drop(1))
+      case "jdbc2yml" =>
+        JDBC2Yml.run(args.drop(1))
+        true
       case command =>
         printUsage()
         false
