@@ -198,7 +198,8 @@ object Settings extends StrictLogging {
     partitions: Int = 1,
     replicationFactor: Short = 1,
     createOptions: Map[String, String] = Map.empty,
-    accessOptions: Map[String, String] = Map.empty
+    accessOptions: Map[String, String] = Map.empty,
+    headers: Map[String, Map[String, String]] = Map.empty
   ) {
     def allAccessOptions(serverProperties: Map[String, String]) = {
       serverProperties ++ accessOptions

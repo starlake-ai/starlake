@@ -326,9 +326,9 @@ class KafkaClient(kafkaConfig: KafkaConfig)(implicit settings: Settings)
     config: KafkaTopicConfig,
     df: DataFrame
   ): Unit = {
-    val writer = df.selectExpr(config.fields: _*).write.format("kafka")
-
-    writer
+    df.printSchema()
+    df.write
+      .format("kafka")
       .options(config.allAccessOptions(settings.comet.kafka.sparkServerOptions))
       .option("topic", config.topicName)
       .save()
