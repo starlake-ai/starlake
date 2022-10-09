@@ -27,7 +27,7 @@ object Versions {
   val bigqueryConnector = "hadoop3-1.2.0"
   val h2 = "2.1.214" // Test only
   val poi = "4.1.2"
-  val scalate = "1.9.8"
+  val scalate = "1.9.7"
   val confluentVersion = "7.2.1"
   val kafkaClients = "7.2.1-ce"
   val testContainers = "0.40.9"
