@@ -19,6 +19,14 @@ load:
   tables:
     - name: "segment"
       pattern: "OneClient_Segmentation.*.*"
+      rls:
+        - name: "my-rls"
+          predicate: "category like 'Food'"
+          description: "couc"
+          grants:
+            - "user:me@me.com"
+            - "group:financegroup@company.com"
+            - "user:you@me.com"
       acl:
         - role: viewer
           grants:
@@ -29,7 +37,7 @@ load:
             - "user:me@you.com"
             - "user:you@you.com"
       primaryKey:
-        - dream_id
+        - dreamkey
       attributes:
         - name: "dream_id"
           type: "long"

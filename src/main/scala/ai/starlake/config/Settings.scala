@@ -198,7 +198,8 @@ object Settings extends StrictLogging {
     partitions: Int = 1,
     replicationFactor: Short = 1,
     createOptions: Map[String, String] = Map.empty,
-    accessOptions: Map[String, String] = Map.empty
+    accessOptions: Map[String, String] = Map.empty,
+    headers: Map[String, Map[String, String]] = Map.empty
   ) {
     def allAccessOptions(serverProperties: Map[String, String]) = {
       serverProperties ++ accessOptions
@@ -209,7 +210,7 @@ object Settings extends StrictLogging {
     serverOptions: Map[String, String],
     topics: Map[String, KafkaTopicConfig],
     cometOffsetsMode: Option[String] = Some("STREAM"),
-    customDeserializer: Option[String]
+    customDeserializers: Option[Map[String, String]]
   ) {
     lazy val sparkServerOptions: Map[String, String] = {
       val ASSIGN = "assign"
@@ -378,7 +379,7 @@ object Settings extends StrictLogging {
 
     logger.info("COMET_FS=" + System.getenv("COMET_FS"))
     logger.info("COMET_ROOT=" + System.getenv("COMET_ROOT"))
-    logger.info(YamlSerializer.serializeObject(loaded))
+    logger.debug(YamlSerializer.serializeObject(loaded))
     val settings =
       Settings(loaded, effectiveConfig.getConfig("spark"), effectiveConfig.getConfig("extra"))
     val applicationConfPath = new Path(DatasetArea.metadata(settings), "application.conf")

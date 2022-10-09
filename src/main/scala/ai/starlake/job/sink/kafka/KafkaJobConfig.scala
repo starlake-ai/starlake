@@ -1,8 +1,7 @@
 package ai.starlake.job.sink.kafka
 
-import ai.starlake.config.Settings
 import ai.starlake.utils.CliConfig
-import org.apache.spark.sql.{DataFrame, SaveMode, SparkSession}
+import org.apache.spark.sql.SaveMode
 import scopt.OParser
 
 case class KafkaJobConfig(
@@ -23,25 +22,15 @@ case class KafkaJobConfig(
   streamingWriteToTable: Boolean = false,
   coalesce: Option[Int] = None
 )
-trait DataFrameTransform {
-  def transform(dataFrame: DataFrame, session: SparkSession): DataFrame
-  def configure(topicConfig: Settings.KafkaTopicConfig): DataFrameTransform = this
-}
-
-abstract class AvroDataFrameTransform extends DataFrameTransform {
-  def transform(dataFrame: DataFrame, session: SparkSession): DataFrame = {
-    dataFrame
-  }
-}
 
 object KafkaJobConfig extends CliConfig[KafkaJobConfig] {
-
+  val command = "kafkaload"
   val parser: OParser[Unit, KafkaJobConfig] = {
     val builder = OParser.builder[KafkaJobConfig]
     import builder._
     OParser.sequence(
-      programName("starlake kafkaload"),
-      head("starlake", "kafkaload", "[options]"),
+      programName(s"starlake $command"),
+      head("starlake", command, "[options]"),
       note("""
           |Two modes are available : The batch mode and the streaming mode.
           |

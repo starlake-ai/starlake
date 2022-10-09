@@ -41,9 +41,9 @@ object UserType {
 
   def fromString(value: String): UserType = {
     value.toUpperCase match {
-      case "SA"    => UserType.SA
-      case "USER"  => UserType.USER
-      case "GROUP" => UserType.GROUP
+      case "SA" | "SERVICEACCOUNT" => UserType.SA
+      case "USER"                  => UserType.USER
+      case "GROUP"                 => UserType.GROUP
     }
   }
 

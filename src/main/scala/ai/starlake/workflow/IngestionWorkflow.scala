@@ -628,7 +628,7 @@ class IngestionWorkflow(
           val (preSQL, mainSQL, postSQL) = action.buildQueryBQ()
           mainSQL
         case SPARK =>
-          val (preSql, mainSQL, postSql) = action.buildQuerySpark()
+          val (preSql, mainSQL, postSql) = action.buildQuerySpark(Nil)
           mainSQL
         case _ =>
           logger.error("Should never happen")
@@ -729,8 +729,6 @@ class IngestionWorkflow(
                         result.isSuccess
 
                       case jdbcSink: JdbcSink =>
-                        val partitions = jdbcSink.partitions.getOrElse(1)
-                        val batchSize = jdbcSink.batchsize.getOrElse(1000)
                         val jdbcName = jdbcSink.connection
                         val source = maybeDataFrame
                           .map(df => Right(df))
@@ -745,8 +743,6 @@ class IngestionWorkflow(
                           outputTable = action.task.table,
                           createDisposition = CreateDisposition.valueOf(createDisposition),
                           writeDisposition = WriteDisposition.valueOf(writeDisposition),
-                          partitions = partitions,
-                          batchSize = batchSize,
                           createTableIfAbsent = false,
                           options = jdbcSink.getOptions
                         )
