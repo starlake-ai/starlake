@@ -37,7 +37,11 @@ class JDBC2YmlSpec extends TestHelper {
       )
       val domainTemplate = Domain(name = "CUSTOM_NAME", metadata = Some(metadata))
       val config = JDBC2YmlConfig()
-      JDBC2Yml.run(JDBCSchema("test-h2", None, "PUBLIC", Nil), File("/tmp"), Some(domainTemplate))
+      JDBC2Yml.extractSchema(
+        JDBCSchema("test-h2", None, "PUBLIC", Nil),
+        File("/tmp"),
+        Some(domainTemplate)
+      )
       val domain = YamlSerializer.deserializeDomain(File("/tmp", "PUBLIC.comet.yml")) match {
         case Success(domain) => domain
         case Failure(e)      => throw e
@@ -123,7 +127,7 @@ class JDBC2YmlSpec extends TestHelper {
       val row1InsertionCheck = (1 == rs.getInt("ID")) && ("A" == rs.getString("NAME"))
       assert(row1InsertionCheck, "Data not inserted")
 
-      JDBC2Yml.run(
+      JDBC2Yml.extractSchema(
         JDBCSchema("test-h2", None, "PUBLIC", List(JDBCTable("TEST_TABLE1", Some(List("ID"))))),
         File("/tmp"),
         None
@@ -167,7 +171,7 @@ class JDBC2YmlSpec extends TestHelper {
       val row1InsertionCheck = (1 == rs.getInt("ID")) && ("A" == rs.getString("NAME"))
       assert(row1InsertionCheck, "Data not inserted")
 
-      JDBC2Yml.run(
+      JDBC2Yml.extractSchema(
         JDBCSchema("test-h2", None, "PUBLIC", List(JDBCTable("TEST_TABLE2", None))),
         File("/tmp"),
         None

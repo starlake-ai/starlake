@@ -5,7 +5,7 @@ import ai.starlake.schema.generator.JDBCSchemas
 import ai.starlake.schema.model.{AutoJobDesc, Domain, Schema => ModelSchema, Schemas}
 import better.files.File
 import com.fasterxml.jackson.annotation.JsonInclude.Include
-import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.{DeserializationFeature, ObjectMapper}
 import com.fasterxml.jackson.databind.node.ObjectNode
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
@@ -17,6 +17,7 @@ object YamlSerializer extends LazyLogging {
   val mapper: ObjectMapper = new ObjectMapper(new YAMLFactory())
   mapper.registerModule(DefaultScalaModule)
   mapper.setSerializationInclusion(Include.NON_EMPTY)
+  mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
 
   def serialize(domain: Domain): String = mapper.writeValueAsString(domain)
 
@@ -34,6 +35,7 @@ object YamlSerializer extends LazyLogging {
   }
 
   def serialize(jdbcSchemas: JDBCSchemas): String = mapper.writeValueAsString(jdbcSchemas)
+  def serialize(schemas: Schemas): String = mapper.writeValueAsString(schemas)
 
   def deserializeJDBCSchemas(file: File): JDBCSchemas = {
     val rootNode = mapper.readTree(file.newInputStream)

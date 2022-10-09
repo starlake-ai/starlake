@@ -22,36 +22,37 @@ case class ConnectionLoadConfig(
 )
 
 object ConnectionLoadConfig extends CliConfig[ConnectionLoadConfig] {
-
+  val command = "jdbcload"
   def checkTablePresent(
     jdbcOptions: Settings.Connection,
     jdbcEngine: Settings.JdbcEngine,
     outputTable: String
   ): Unit = {
     assert(jdbcOptions.format == "jdbc")
-    val table = jdbcEngine.tables(outputTable)
+    val table = jdbcEngine.tables.get(outputTable)
+    table.foreach { table =>
+      val conn = DriverManager.getConnection(
+        jdbcOptions.options("url"),
+        jdbcOptions.options("user"),
+        jdbcOptions.options("password")
+      )
 
-    val conn = DriverManager.getConnection(
-      jdbcOptions.options("url"),
-      jdbcOptions.options("user"),
-      jdbcOptions.options("password")
-    )
-
-    Try {
-      val stmt = conn.createStatement
       Try {
-        val pingSql = table.effectivePingSql(outputTable)
-        val rs = stmt.executeQuery(pingSql)
-        rs.close() // we don't need to fetch the result, it should be empty anyway.
-      } match {
-        case Failure(e) if e.isInstanceOf[SQLException] =>
-          stmt.executeUpdate(table.createSql)
-          conn.commit() // some databases are transactional wrt schema updates
-        case Success(_) => ;
+        val stmt = conn.createStatement
+        Try {
+          val pingSql = table.effectivePingSql(outputTable)
+          val rs = stmt.executeQuery(pingSql)
+          rs.close() // we don't need to fetch the result, it should be empty anyway.
+        } match {
+          case Failure(e) if e.isInstanceOf[SQLException] =>
+            stmt.executeUpdate(table.createSql)
+            conn.commit() // some databases are transactional wrt schema updates
+          case Success(_) => ;
+        }
+        stmt.close()
       }
-      stmt.close()
+      conn.close()
     }
-    conn.close()
   }
 
   def fromComet(
@@ -61,8 +62,6 @@ object ConnectionLoadConfig extends CliConfig[ConnectionLoadConfig] {
     outputTable: String,
     createDisposition: CreateDisposition = CreateDisposition.CREATE_IF_NEEDED,
     writeDisposition: WriteDisposition = WriteDisposition.WRITE_APPEND,
-    partitions: Int = 1,
-    batchSize: Int = 1000,
     options: Map[String, String],
     createTableIfAbsent: Boolean = true
   ): ConnectionLoadConfig = {
@@ -72,8 +71,9 @@ object ConnectionLoadConfig extends CliConfig[ConnectionLoadConfig] {
     val isJDBC = jdbcOptions.format == "jdbc"
 
     if (createTableIfAbsent && isJDBC) {
-      val jdbcEngine = comet.jdbcEngines(jdbcOptions.engine)
-      checkTablePresent(jdbcOptions, jdbcEngine, outputTable)
+      comet.jdbcEngines.get(jdbcOptions.engine).foreach { jdbcEngine =>
+        checkTablePresent(jdbcOptions, jdbcEngine, outputTable)
+      }
     }
 
     ConnectionLoadConfig(
@@ -91,8 +91,8 @@ object ConnectionLoadConfig extends CliConfig[ConnectionLoadConfig] {
     val builder = OParser.builder[ConnectionLoadConfig]
     import builder._
     OParser.sequence(
-      programName("starlake cnxload"),
-      head("starlake", "cnxload", "[options]"),
+      programName(s"starlake $command"),
+      head("starlake", command, "[options]"),
       note("""
           |Load parquet file into JDBC Table.
           |""".stripMargin),

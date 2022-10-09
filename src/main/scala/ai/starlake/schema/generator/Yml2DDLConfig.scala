@@ -33,12 +33,13 @@ case class Yml2DDLConfig(
 )
 
 object Yml2DDLConfig extends CliConfig[Yml2DDLConfig] {
+  val command = "yml2ddl"
   val parser: OParser[Unit, Yml2DDLConfig] = {
     val builder = OParser.builder[Yml2DDLConfig]
     import builder._
     OParser.sequence(
-      programName("starlake infer-ddl"),
-      head("starlake", "infer-ddl", "[options]"),
+      programName(s"starlake $command"),
+      head("starlake", command, "[options]"),
       note(""),
       opt[String]("datawarehouse")
         .action((x, c) => c.copy(datawarehouse = x))
@@ -59,7 +60,7 @@ object Yml2DDLConfig extends CliConfig[Yml2DDLConfig] {
       opt[String]("domain")
         .action((x, c) => c.copy(domain = Some(x)))
         .optional()
-        .text("Domain to create DDL for. ALl by default")
+        .text("Domain to create DDL for. All by default")
         .children(
           opt[Seq[String]]("schemas")
             .action((x, c) => c.copy(schemas = Some(x)))

@@ -30,5 +30,11 @@ class CommentParserSpec
 
     val r6 = CommentParser.stripComments("Text Before./* comment  */Text after.")
     "Text Before.Text after." should equal(r6)
+
+    val r7 = CommentParser.stripComments("Text Before.-- comment\nText after.")
+    "Text Before.\nText after." should equal(r7)
+
+    val r8 = CommentParser.stripComments("Text Before.# comment\nText after.")
+    "Text Before.\nText after." should equal(r8)
   }
 }

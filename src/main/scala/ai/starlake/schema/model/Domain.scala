@@ -240,13 +240,23 @@ import scala.util.{Failure, Success, Try}
       Right(true)
   }
 
-  def asDot(includeAllAttrs: Boolean): String = {
+  def asDot(includeAllAttrs: Boolean, fkTables: Set[String]): String = {
     tables
       .map { schema =>
-        schema.asDot(name, includeAllAttrs)
+        schema.asDot(name, includeAllAttrs, fkTables)
       }
       .mkString("\n")
   }
+
+  def relatedTables(): List[String] = tables.flatMap(_.relatedTables())
+
+  def aclTables(): List[Schema] = tables.filter(_.hasACL())
+
+  def rlsTables(): Map[String, List[RowLevelSecurity]] =
+    tables
+      .map(t => (t.getFinalName(), t.rls.getOrElse(Nil)))
+      .filter { case (tableName, rls) => rls.nonEmpty }
+      .toMap
 
   def policies(): List[RowLevelSecurity] = {
     tables

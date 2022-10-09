@@ -27,7 +27,7 @@ class ConnectionLoadJob(
           case Right(df)  => df
         }
 
-      // Some database do not suport truncate during save
+      // Some database do not support truncate during save
       // Truncate should be done manually in pre-sql
       // https://stackoverflow.com/questions/59451275/how-to-generate-a-spark-sql-truncate-query-without-only
       val writeMode =
@@ -35,11 +35,19 @@ class ConnectionLoadJob(
         else SaveMode.Append
       val dfw = sourceDF.write
         .format(cliConfig.format)
-        .option("truncate", cliConfig.writeDisposition == WriteDisposition.WRITE_TRUNCATE)
-        .option("dbtable", cliConfig.outputTable)
-        .mode(cliConfig.mode.getOrElse(writeMode.toString))
 
-      dfw.options(cliConfig.options).save()
+      val finalDfw =
+        if (cliConfig.format == "jdbc")
+          dfw
+            .option("truncate", cliConfig.writeDisposition == WriteDisposition.WRITE_TRUNCATE)
+            .option("dbtable", cliConfig.outputTable)
+        else
+          dfw
+
+      finalDfw
+        .mode(cliConfig.mode.getOrElse(writeMode.toString))
+        .options(cliConfig.options)
+        .save()
       SparkJobResult(None)
     }
   }

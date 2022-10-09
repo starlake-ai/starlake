@@ -160,8 +160,6 @@ publishTo := {
     sys.env.getOrElse("RELEASE_SONATYPE", "true").toBoolean
   ) match {
     case (None, false) =>
-      // githubPublishTo.value
-      // we do not publish on github anymore
       sonatypePublishToBundle.value
     case (None, true) => sonatypePublishToBundle.value
     case (Some(value), _) =>
@@ -221,16 +219,6 @@ releaseProcess := Seq(
 releaseCommitMessage := s"Release ${ReleasePlugin.runtimeVersion.value}"
 
 releaseVersionBump := Next
-
-// publish to github packages
-// we do not publish on github anymore
-//githubOwner := "starlake-ai"
-
-// we do not publish on github anymore
-// githubRepository := "starlake"
-
-// we do not publish on github anymore
-// githubTokenSource := TokenSource.Environment("GITHUB_TOKEN")
 
 developers := List(
   Developer(

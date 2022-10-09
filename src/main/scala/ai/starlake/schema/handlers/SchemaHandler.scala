@@ -54,14 +54,30 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
   def checkValidity(): List[String] = {
     val typesValidity = this.types.map(_.checkValidity())
     val domainsValidity = this.domains.map(_.checkValidity(this))
-
+    val domainsVarsValidity = checkDomainsVars()
+    val jobsVarsValidity = checkJobsVars()
     val allErrors = typesValidity ++ domainsValidity :+ checkViewsValidity()
 
     val errs = allErrors.flatMap {
       case Left(values) => values
       case Right(_)     => Nil
     }
-    errs
+    errs ++ domainsVarsValidity ++ jobsVarsValidity
+  }
+
+  def checkDomainsVars(): List[String] = {
+    val paths = storage.list(
+      DatasetArea.domains,
+      extension = ".yml",
+      recursive = true,
+      exclude = Some(Pattern.compile("_.*"))
+    )
+    paths.flatMap(checkVarsAreDefined)
+  }
+
+  def checkJobsVars(): List[String] = {
+    val paths = storage.list(DatasetArea.jobs, ".yml", recursive = true)
+    paths.flatMap(checkVarsAreDefined)
   }
 
   def fullValidation(): Unit =
@@ -149,33 +165,22 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     defaultAssertions ++ assertions ++ resAssertions
   }
 
-  private def loadSqlFile(sqlFile: Path): (String, String) = {
-    val sqlExpr = storage.read(sqlFile).richFormat(activeEnv, Map.empty)
-    val sqlFilename = sqlFile.getName().dropRight(".sql".length)
-    sqlFilename -> sqlExpr
+  private def loadSqlJ2File(sqlFile: Path): (String, String) = {
+    val sqlExpr = storage.read(sqlFile)
+    val sqlName = sqlFile.getName().dropRight(".sql.j2".length)
+    sqlName -> sqlExpr
   }
 
-  private def loadSqlFiles(path: Path): Map[String, String] = {
-    val sqlFiles = storage.list(path, extension = ".sql", recursive = true)
+  private def loadSqlJi2Files(path: Path): Map[String, String] = {
+    val sqlFiles = storage.list(path, extension = ".sql.j2", recursive = true)
     sqlFiles.map { sqlFile =>
-      loadSqlFile(sqlFile)
+      loadSqlJ2File(sqlFile)
     }.toMap
   }
 
-  private def loadSqlViews(viewsPath: Path): Map[String, String] = {
-    val sqlViews = loadSqlFiles(viewsPath)
-    sqlViews.foreach { case (viewName, _) =>
-      val sqlName = viewName.substring(viewName.lastIndexOf('.') + 1)
-    }
-    sqlViews
-  }
+  private lazy val viewsMap = loadSqlJi2Files(DatasetArea.views)
 
-  def views(viewName: Option[String] = None): Views = {
-    val viewsPath =
-      viewName.map(viewName => DatasetArea.views(viewName)).getOrElse(DatasetArea.views)
-    val viewMap = loadSqlViews(viewsPath)
-    Views(viewMap)
-  }
+  def views(viewName: String): Option[String] = viewsMap.get(viewName)
 
   @throws[Exception]
   lazy val activeEnv: Map[String, String] = {
@@ -318,6 +323,14 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     }
   }
 
+  def checkVarsAreDefined(path: Path): Set[String] = {
+    val vars = storage.read(path).extractVars()
+    val envVars = activeEnv.keySet
+    val undefinedVars = vars.diff(envVars)
+    undefinedVars.map(undefVar => s"${path.toString} contains undefined vars: ${undefVar}")
+
+  }
+
   def loadJobFromFile(path: Path): Try[AutoJobDesc] =
     Try {
       val rootNode = mapper.readTree(storage.read(path).richFormat(activeEnv, Map.empty))
@@ -346,21 +359,54 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
           case Some(taskName) => new Path(s"$sqlFilePrefix.$taskName.sql")
           case None           => new Path(s"$sqlFilePrefix.sql")
         }
-        if (storage.exists(sqlTaskFile)) {
-          val sqlTask = SqlTaskExtractor(storage.read(sqlTaskFile))
-          taskDesc.copy(
-            presql = sqlTask.presql,
-            sql = Option(sqlTask.sql),
-            postsql = sqlTask.postsql,
-            domain = Option(taskDesc.domain).getOrElse("").richFormat(activeEnv, Map.empty),
-            table = taskDesc.table.richFormat(activeEnv, Map.empty),
-            area = taskDesc.area.map(area =>
-              StorageArea.fromString(area.value.richFormat(activeEnv, Map.empty))
-            )
-          )
-        } else {
-          taskDesc
+        val j2TaskFile = taskDesc.name match {
+          case Some(taskName) => new Path(s"$sqlFilePrefix.$taskName.sql.j2")
+          case None           => new Path(s"$sqlFilePrefix.sql.j2")
         }
+        val commonTaskDesc = taskDesc.copy(
+          domain = Option(taskDesc.domain).getOrElse("").richFormat(activeEnv, Map.empty),
+          table = taskDesc.table.richFormat(activeEnv, Map.empty),
+          area = taskDesc.area.map(area =>
+            StorageArea.fromString(area.value.richFormat(activeEnv, Map.empty))
+          )
+        )
+        val taskFile = (storage.exists(sqlTaskFile), storage.exists(j2TaskFile)) match {
+          case (true, true) =>
+            Some(j2TaskFile)
+          case (true, false) =>
+            Some(sqlTaskFile)
+          case (false, true) =>
+            Some(j2TaskFile)
+          case (false, false) =>
+            None
+        }
+        taskFile
+          .map { taskFile =>
+            val sqlTask = SqlTaskExtractor(storage.read(taskFile))
+            taskDesc.copy(
+              domain = Option(taskDesc.domain).getOrElse("").richFormat(activeEnv, Map.empty),
+              table = taskDesc.table.richFormat(activeEnv, Map.empty),
+              area = taskDesc.area.map(area =>
+                StorageArea.fromString(area.value.richFormat(activeEnv, Map.empty))
+              ),
+              presql = sqlTask.presql,
+              sql = Option(sqlTask.sql),
+              postsql = sqlTask.postsql
+            )
+          }
+          .getOrElse(taskDesc)
+      /*
+          import com.hubspot.jinjava.Jinjava
+          import scala.collection.JavaConverters._
+          val jinjava = new Jinjava()
+          jinjava.setResourceLocator(new JinjaResourceHandler())
+          val context = activeEnv.asJava
+          commonTaskDesc.copy(
+            presql = sqlTask.presql.map(sqls => sqls.map(sql => jinjava.render(sql, context))),
+            sql = Option(jinjava.render(sqlTask.sql, context)),
+            postsql = sqlTask.postsql.map(sqls => sqls.map(sql => jinjava.render(sql, context)))
+          )
+       */
       }
       val jobName = finalDomainOrJobName(path, jobDesc.name)
       jobDesc.copy(

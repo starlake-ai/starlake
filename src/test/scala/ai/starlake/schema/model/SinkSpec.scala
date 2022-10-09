@@ -129,16 +129,15 @@ class SinkSpec extends TestHelper {
           |name: "sink"
           |type: "JDBC"
           |connection: "connection"
-          |partitions: 3
           |options:
           |  anyOption: "true"
+          |  partitions: 3
           |""".stripMargin,
         classOf[Sink]
       ) shouldBe JdbcSink(
         name = Some("sink"),
         connection = "connection",
-        partitions = Some(3),
-        options = Some(Map("anyOption" -> "true"))
+        options = Some(Map("anyOption" -> "true", "partitions" -> "3"))
       )
     }
 
