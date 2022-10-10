@@ -78,7 +78,7 @@ class KafkaIngestionJob(
         }
       case Some(Mode.STREAM) =>
         Utils.withResources(new KafkaClient(settings.comet.kafka)) { kafkaClient =>
-          kafkaClient.consumeTopicStreaming(session, topicConfig)
+          KafkaClient.consumeTopicStreaming(session, topicConfig)
         }
       case _ =>
         throw new Exception("Should never happen")
@@ -102,7 +102,7 @@ class KafkaIngestionJob(
         Utils.withResources(new KafkaClient(settings.comet.kafka)) { kafkaClient =>
           kafkaClient.topicSaveOffsets(
             schema.name,
-            topicConfig.allAccessOptions(settings.comet.kafka.sparkServerOptions),
+            topicConfig.allAccessOptions(),
             offsets
           )
           res
