@@ -8,6 +8,7 @@ __New feature__:
 
 __CI__:
  - remove support of github registry
+ - Remove scala 2.11 support
 
 # 0.3.26
 __New feature__:
