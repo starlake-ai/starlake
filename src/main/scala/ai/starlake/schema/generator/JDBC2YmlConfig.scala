@@ -42,6 +42,8 @@ case class JDBCSchema(
   connection: String,
   catalog: Option[String] = None,
   schema: String = "",
+  tableRemarks: Option[String] = None,
+  columnRemarks: Option[String] = None,
   tables: List[JDBCTable] = Nil,
   tableTypes: List[String] = List(
     "TABLE",

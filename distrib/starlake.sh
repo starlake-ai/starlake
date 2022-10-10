@@ -42,6 +42,11 @@ initEnv() {
       mkdir $TARGET_FOLDER/bin/
   fi
 
+  if [[ ! -d "$TARGET_FOLDER/bin/spark" ]]
+  then
+      mkdir $TARGET_FOLDER/bin/spark
+  fi
+
   if ! test -f "$TARGET_FOLDER/bin/spark/bin/spark-submit"; then
     while true; do
       read -n1 -s -p "Do you wish to install starlake in $TARGET_FOLDER (Y/n)? " yn
@@ -57,7 +62,7 @@ initEnv() {
     curl --output $TARGET_FOLDER/bin/$SPARK_TGZ_NAME $SPARK_TGZ_URL
     tar zxvf $TARGET_FOLDER/bin/$SPARK_TGZ_NAME -C $TARGET_FOLDER/bin/
     rm -f $TARGET_FOLDER/bin/$SPARK_TGZ_NAME
-    mv $TARGET_FOLDER/bin/$SPARK_DIR_NAME $TARGET_FOLDER/bin/spark
+    mv $TARGET_FOLDER/bin/$SPARK_DIR_NAME/* $TARGET_FOLDER/bin/spark
     rm -f $TARGET_FOLDER/bin/spark/conf/*.xml 2>/dev/null
     cp $TARGET_FOLDER/bin/spark/conf/log4j2.properties.template $TARGET_FOLDER/bin/spark/conf/log4j2.properties
     echo "Spark Version: $SPARK_VERSION" >$TARGET_FOLDER/version.info

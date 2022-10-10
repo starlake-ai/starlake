@@ -1,7 +1,11 @@
 
 # Release notes
 
-# 0.3.27
+# 0.4.0
+__New feature__:
+- Support any source to any sink using kafkaload including sink and source that are not kafka. This has been possible at the cost of a breaking change
+- Support table and column remarks extraction on DB2 iSeries databases
+
 __CI__:
  - remove support of github registry
 

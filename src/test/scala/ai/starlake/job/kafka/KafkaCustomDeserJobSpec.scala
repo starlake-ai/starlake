@@ -90,15 +90,15 @@ class KafkaCustomDeserJobSpec extends TestHelper {
         val kafkaJob2 =
           new KafkaJob(
             KafkaJobConfig(
-              topicConfigName = "avro_offload",
+              topicConfigName = Some("avro_offload"),
               streamingTrigger = None,
-              streamingWriteFormat = "starlake-http",
+              writeFormat = "starlake-http",
               writeOptions = Map(
                 "url"         -> "http://localhost:9000",
                 "transformer" -> "ai.starlake.job.kafka.TestSinkTransformer"
               ),
-              mode = SaveMode.Overwrite,
-              path = "/tmp/outdir.json",
+              writeMode = SaveMode.Overwrite.toString,
+              path = Some("/tmp/outdir.json"),
               streaming = true,
               coalesce = Some(1)
             )
