@@ -397,7 +397,7 @@ trait SparkJob extends JobBase {
     sinkConfig match {
       case Some(x) if x.toLowerCase() == "stream" =>
         Utils.withResources(new KafkaClient(settings.comet.kafka)) { kafkaClient =>
-          kafkaClient.consumeTopicStreaming(session, settings.comet.kafka.topics(path))
+          KafkaClient.consumeTopicStreaming(session, settings.comet.kafka.topics(path))
         }
       case _ =>
         Utils.withResources(new KafkaClient(settings.comet.kafka)) { kafkaClient =>
