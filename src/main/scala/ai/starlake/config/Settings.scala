@@ -201,8 +201,8 @@ object Settings extends StrictLogging {
     accessOptions: Map[String, String] = Map.empty,
     headers: Map[String, Map[String, String]] = Map.empty
   ) {
-    def allAccessOptions(serverProperties: Map[String, String]) = {
-      serverProperties ++ accessOptions
+    def allAccessOptions()(implicit settings: Settings): Map[String, String] = {
+      settings.comet.kafka.sparkServerOptions ++ accessOptions
     }
   }
 

@@ -74,6 +74,8 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
                 connection,
                 config.catalog,
                 domain.name,
+                None,
+                None,
                 Nil,
                 List("TABLE"),
                 None

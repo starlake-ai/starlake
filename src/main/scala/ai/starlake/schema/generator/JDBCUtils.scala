@@ -93,6 +93,42 @@ object JDBCUtils extends LazyLogging {
     }
   }
 
+  def extractTableRemarks(jdbcSchema: JDBCSchema, table: String)(implicit
+    settings: Settings
+  ): Option[String] = {
+    jdbcSchema.tableRemarks.map { remarks =>
+      val sql = formatRemarksSQL(jdbcSchema, table, remarks)
+      logger.info(s"Extracting table remarks using $sql")
+      withJDBCConnection(jdbcSchema.connection) { connection =>
+        val statement = connection.createStatement()
+        val rs = statement.executeQuery(sql)
+        if (rs.next()) {
+          rs.getString(1)
+        } else {
+          logger.warn(s"Not table remark found for table $table")
+          ""
+        }
+      }
+    }
+  }
+  def extractColumnRemarks(jdbcSchema: JDBCSchema, table: String)(implicit
+    settings: Settings
+  ): Option[Map[TableRemarks, TableRemarks]] = {
+    jdbcSchema.columnRemarks.map { remarks =>
+      val sql = formatRemarksSQL(jdbcSchema, table, remarks)
+      logger.info(s"Extracting column remarks using $sql")
+      withJDBCConnection(jdbcSchema.connection) { connection =>
+        val statement = connection.createStatement()
+        val rs = statement.executeQuery(sql)
+        val res = mutable.Map.empty[String, String]
+        while (rs.next()) {
+          res.put(rs.getString(1), rs.getString(2))
+        }
+        res.toMap
+      }
+    }
+  }
+
   def extractJDBCTables(
     jdbcSchema: JDBCSchema
   )(implicit settings: Settings): Map[String, (TableRemarks, Columns, PrimaryKeys)] =
@@ -105,7 +141,7 @@ object JDBCUtils extends LazyLogging {
       val tableNames = jdbcTableMap.keys.toList
 
       /* Extract all tables from the database and return Map of tablename -> tableDescription */
-      def extractTables(): Map[String, String] = {
+      def extractTables(tablesToExtract: List[String] = Nil): Map[String, String] = {
         val tableNames = mutable.Map.empty[String, String]
         val resultSet = databaseMetaData.getTables(
           jdbcSchema.catalog.orNull,
@@ -115,24 +151,23 @@ object JDBCUtils extends LazyLogging {
         )
         while (resultSet.next()) {
           val tableName = resultSet.getString("TABLE_NAME");
-          val remarks = resultSet.getString("REMARKS");
-          tableNames += tableName -> remarks
+          if (tablesToExtract.isEmpty || tablesToExtract.contains(tableName.toUpperCase())) {
+            val _remarks = extractTableRemarks(jdbcSchema, tableName)
+            val remarks = _remarks.getOrElse(resultSet.getString("REMARKS"))
+            logger.info(s"Extracting table $tableName: $remarks")
+            tableNames += tableName -> remarks
+          }
         }
         resultSet.close()
         tableNames.toMap
       }
-
-      val allExtractedTables = extractTables()
-      logger.whenDebugEnabled {
-        extractTables.keys.foreach(table => logger.debug(s"Found: $table"))
-      } // If the user specified a list of table to extract we limit the table sot extract to those ones
       val selectedTables = tableNames match {
         case Nil =>
-          allExtractedTables
+          extractTables()
+        case list if list.contains("*") =>
+          extractTables()
         case list =>
-          allExtractedTables.filter { case (table, _) =>
-            list.contains(table.toUpperCase) || list.contains("*")
-          }
+          extractTables(list)
       }
       logger.whenInfoEnabled {
         selectedTables.keys.foreach(table => logger.info(s"Selected: $table"))
@@ -171,6 +206,8 @@ object JDBCUtils extends LazyLogging {
             tableName,
             null
           )
+          val remarks = extractColumnRemarks(jdbcSchema, tableName).getOrElse(Map.empty)
+
           val attrs = new Iterator[Attribute] {
             def hasNext: Boolean = columnsResultSet.next()
 
@@ -179,7 +216,8 @@ object JDBCUtils extends LazyLogging {
               logger.info(s"COLUMN_NAME=$tableName.$colName")
               val colType = columnsResultSet.getInt("DATA_TYPE")
               val colTypename = columnsResultSet.getString("TYPE_NAME")
-              val colRemarks = columnsResultSet.getString("REMARKS")
+              val colRemarks =
+                remarks.getOrElse(colName, columnsResultSet.getString("REMARKS"))
               val colRequired = columnsResultSet.getString("IS_NULLABLE").equals("NO")
               val foreignKey = foreignKeys.get(colName.toUpperCase)
 
@@ -235,6 +273,23 @@ object JDBCUtils extends LazyLogging {
       selectedTablesAndColumns
     }
 
+  private def formatRemarksSQL(
+    jdbcSchema: JDBCSchema,
+    table: String,
+    remarks: String
+  )(implicit settings: Settings): String = {
+    import ai.starlake.utils.Formatter._
+    val sql = remarks.richFormat(
+      Map(
+        "catalog" -> jdbcSchema.catalog.getOrElse(""),
+        "schema"  -> jdbcSchema.schema,
+        "table"   -> table
+      ),
+      Map.empty
+    )
+    sql
+  }
+
   def extractDomain(
     jdbcSchema: JDBCSchema,
     domainTemplate: Option[Domain],
@@ -244,13 +299,15 @@ object JDBCUtils extends LazyLogging {
       domainTemplate.flatMap(_.metadata)
     val patternTemplate =
       domainTemplate.flatMap(_.tables.headOption.map(_.pattern))
+    val trimTemplate =
+      domainTemplate.flatMap(_.tables.headOption.flatMap(_.attributes.head.trim))
 
     val cometSchema = selectedTablesAndColumns.map {
       case (tableName, (tableRemarks, selectedColumns, primaryKeys)) =>
         Schema(
           name = tableName,
           pattern = Pattern.compile(s"$tableName.*"),
-          attributes = selectedColumns,
+          attributes = selectedColumns.map(_.copy(trim = trimTemplate)),
           metadata = None,
           merge = None,
           comment = Option(tableRemarks),
@@ -330,48 +387,58 @@ object JDBCUtils extends LazyLogging {
         val outFile = File(outputDir, tableName + s"-$dateTime.csv")
         val cols = selectedColumns.map(_.name).mkString(",")
         val headers = selectedColumns.map(_.name).mkString(";")
+        logger.info(s"Exporting data to file ${outFile.pathAsString}")
         outFile.parent.createDirectories()
-        outFile.delete(true).appendLine(headers)
-        val sql = s"select $cols from ${jdbcSchema.schema}.$tableName"
-        withJDBCConnection(jdbcSchema.connection) { connection =>
-          val statement = connection.createStatement()
-          if (limit > 0)
+        outFile.delete(true)
+        val outFileWriter = outFile.newFileWriter(append = false)
+        Try {
+          outFileWriter.append(headers + "\n")
+          val sql = s"select $cols from ${jdbcSchema.schema}.$tableName"
+          withJDBCConnection(jdbcSchema.connection) { connection =>
+            val statement = connection.createStatement()
+            // 0 means no limit
             statement.setMaxRows(limit)
-          val rs = statement.executeQuery(sql)
-          val rsMetadata = rs.getMetaData()
-          while (rs.next()) {
-            val colList = ListBuffer.empty[String]
-            for (icol <- 1 to rsMetadata.getColumnCount) {
-              val obj = Option(rs.getObject(icol))
-              val sqlType = rsMetadata.getColumnType(icol)
-              import java.sql.Types
-              val colValue = sqlType match {
-                case Types.VARCHAR =>
-                  rs.getString(icol)
-                case Types.NULL =>
-                  "null"
-                case Types.CHAR =>
-                  "\"" + obj.map(_ => rs.getString(icol)).getOrElse("") + "\""
-                case Types.TIMESTAMP =>
-                  "\"" + obj.map(_ => rs.getTimestamp(icol).toString).getOrElse("") + "\""
-                case Types.DOUBLE =>
-                  obj.map(_ => rs.getDouble(icol).toString).getOrElse("")
-                case Types.INTEGER =>
-                  obj.map(_ => rs.getInt(icol).toString).getOrElse("")
-                case Types.SMALLINT =>
-                  obj.map(_ => rs.getInt(icol).toString).getOrElse("")
-                case Types.DECIMAL =>
-                  obj.map(_ => rs.getBigDecimal(icol).toString).getOrElse("")
-                case _ =>
-                  "\"" + obj.map(_.toString).getOrElse("") + "\""
+            val rs = statement.executeQuery(sql)
+            val rsMetadata = rs.getMetaData()
+            while (rs.next()) {
+              val colList = ListBuffer.empty[String]
+              for (icol <- 1 to rsMetadata.getColumnCount) {
+                val obj = Option(rs.getObject(icol))
+                val sqlType = rsMetadata.getColumnType(icol)
+                import java.sql.Types
+                val colValue = sqlType match {
+                  case Types.VARCHAR =>
+                    rs.getString(icol)
+                  case Types.NULL =>
+                    "null"
+                  case Types.CHAR =>
+                    "\"" + obj.map(_ => rs.getString(icol)).getOrElse("") + "\""
+                  case Types.TIMESTAMP =>
+                    "\"" + obj.map(_ => rs.getTimestamp(icol).toString).getOrElse("") + "\""
+                  case Types.DOUBLE =>
+                    obj.map(_ => rs.getDouble(icol).toString).getOrElse("")
+                  case Types.INTEGER =>
+                    obj.map(_ => rs.getInt(icol).toString).getOrElse("")
+                  case Types.SMALLINT =>
+                    obj.map(_ => rs.getInt(icol).toString).getOrElse("")
+                  case Types.DECIMAL =>
+                    obj.map(_ => rs.getBigDecimal(icol).toString).getOrElse("")
+                  case _ =>
+                    "\"" + obj.map(_.toString).getOrElse("") + "\""
+                }
+                colList.append(colValue)
               }
-              colList.append(colValue)
+              val rowString = colList.mkString(separator)
+              outFileWriter.append(rowString + "\n")
             }
-            val rowString = colList.mkString(separator)
-            outFile.appendLine(rowString)
           }
+        } match {
+          case Success(_) =>
+            outFileWriter.close()
+          case Failure(_) =>
+            outFileWriter.close()
+            outFile.delete(true)
         }
-
     }
   }
 
