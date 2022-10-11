@@ -77,7 +77,7 @@ initEnv() {
 
   if ! test -f "$TARGET_FOLDER/$SPARK_BQ_JAR_FULL_NAME"; then
     echo "downloading $SPARK_BQ_JAR_FULL_NAME from $SPARK_BQ_URL"
-    #curl --output $TARGET_FOLDER/$SPARK_BQ_JAR_FULL_NAME $SPARK_BQ_URL
+    curl --output $TARGET_FOLDER/$SPARK_BQ_JAR_FULL_NAME $SPARK_BQ_URL
     echo "Spark Bigquery Version Version: $SPARK_BQ_VERSION" >>$TARGET_FOLDER/version.info
   fi
 
