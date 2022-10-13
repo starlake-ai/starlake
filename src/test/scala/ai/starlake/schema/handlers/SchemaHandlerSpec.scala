@@ -689,7 +689,8 @@ class SchemaHandlerSpec extends TestHelper {
 
         val schemaHandler = new SchemaHandler(storageHandler)
 
-        val schema: Option[Schema] = schemaHandler.domains
+        val schema: Option[Schema] = schemaHandler
+          .domains()
           .find(_.name == "locations")
           .flatMap(_.tables.find(_.name == "locations"))
         val expected: String =
@@ -801,7 +802,7 @@ class SchemaHandlerSpec extends TestHelper {
         val expectedFileContent = loadTextFile("/expected/dot/output.dot")
         fileContent shouldBe expectedFileContent
 
-        val result = schemaHandler.domains.head.asDot(false, Set("segment", "client"))
+        val result = schemaHandler.domains().head.asDot(false, Set("segment", "client"))
         result.trim shouldBe """
                                |
                                |dream_segment [label=<
