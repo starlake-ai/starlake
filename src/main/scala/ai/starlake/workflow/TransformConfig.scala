@@ -10,7 +10,8 @@ case class TransformConfig(
   interactive: Option[String] = None,
   noSink: Boolean = false,
   viewsDir: Option[String] = None,
-  viewsCount: Int = 1000
+  viewsCount: Int = 1000,
+  reload: Boolean = false
 )
 
 object TransformConfig extends CliConfig[TransformConfig] {
@@ -35,8 +36,12 @@ object TransformConfig extends CliConfig[TransformConfig] {
         .action((x, c) => c.copy(interactive = Some(x)))
         .optional()
         .text("Run query without "),
-      opt[String]("no-sink")
+      opt[Unit]("no-sink")
         .action((x, c) => c.copy(noSink = true))
+        .optional()
+        .text("Just run the query and return rows"),
+      opt[Unit]("reload")
+        .action((x, c) => c.copy(reload = true))
         .optional()
         .text("Just run the query and return rows"),
       opt[String]("views-dir")

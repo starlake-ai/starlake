@@ -242,8 +242,8 @@ case class AutoTaskJob(
   private def parseJinja(sql: String): String = parseJinja(List(sql)).head
 
   private def parseJinja(sqls: List[String]): List[String] =
-    parseJinja(sqls, schemaHandler.activeEnv ++ sqlParameters)
-      .map(_.richFormat(schemaHandler.activeEnv, sqlParameters))
+    parseJinja(sqls, schemaHandler.activeEnv() ++ sqlParameters)
+      .map(_.richFormat(schemaHandler.activeEnv(), sqlParameters))
 
   def sinkToFS(dataframe: DataFrame, sink: FsSink): Boolean = {
     val targetPath = task.getTargetPath(defaultArea)

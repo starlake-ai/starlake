@@ -2,6 +2,7 @@ package ai.starlake.job.sink.bigquery
 
 import ai.starlake.config.Settings
 import ai.starlake.utils.{JobBase, JobResult, TableFormatter, Utils}
+import better.files.File
 import com.google.cloud.ServiceOptions
 import com.google.cloud.bigquery.JobInfo.{CreateDisposition, WriteDisposition}
 import com.google.cloud.bigquery.JobStatistics.QueryStatistics
@@ -17,7 +18,9 @@ import scala.util.{Failure, Success, Try}
 case class BigQueryJobResult(tableResult: scala.Option[TableResult], totalBytesProcessed: Long)
     extends JobResult {
 
-  def show(format: String): Unit = {
+  def show(format: String, rootServe: scala.Option[String]): Unit = {
+    val output = rootServe.map(File(_, "run.log"))
+    output.foreach(_.overwrite(s"Total Bytes Processed: $totalBytesProcessed bytes.\n"))
     println(s"Total Bytes Processed: $totalBytesProcessed bytes.")
     tableResult.foreach { rows =>
       val headers = rows.getSchema.getFields.iterator().asScala.toList.map(_.getName)
@@ -33,14 +36,17 @@ case class BigQueryJobResult(tableResult: scala.Option[TableResult], totalBytesP
       format match {
         case "csv" =>
           (headers :: values).foreach { row =>
+            output.foreach(_.appendLine(row.mkString(",")))
             println(row.mkString(","))
           }
 
         case "table" =>
           headers :: values match {
             case Nil =>
+              output.foreach(_.appendLine("Result is empty."))
               println("Result is empty.")
             case _ =>
+              output.foreach(_.appendLine(TableFormatter.format(headers :: values)))
               println(TableFormatter.format(headers :: values))
           }
 
@@ -48,6 +54,7 @@ case class BigQueryJobResult(tableResult: scala.Option[TableResult], totalBytesP
           values.foreach { value =>
             val map = headers.zip(value).toMap
             val json = new Gson().toJson(map.asJava)
+            output.foreach(_.appendLine(json))
             println(json)
           }
       }

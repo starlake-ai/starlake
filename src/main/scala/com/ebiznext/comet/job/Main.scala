@@ -7,12 +7,13 @@ import ai.starlake.job.convert.{FileSplitterConfig, Parquet2CSV, Parquet2CSVConf
 import ai.starlake.job.infer.InferSchemaConfig
 import ai.starlake.job.ingest.LoadConfig
 import ai.starlake.job.metrics.MetricsConfig
+import ai.starlake.job.serve.{MainServer, MainServerConfig}
 import ai.starlake.job.sink.bigquery.BigQueryLoadConfig
 import ai.starlake.job.sink.es.ESLoadConfig
 import ai.starlake.job.sink.jdbc.ConnectionLoadConfig
 import ai.starlake.job.sink.kafka.KafkaJobConfig
 import ai.starlake.schema.generator._
-import ai.starlake.schema.handlers.SchemaHandler
+import ai.starlake.schema.handlers.{SchemaHandler, ValidateConfig}
 import ai.starlake.utils.{CliConfig, CometObjectMapper}
 import ai.starlake.workflow.{ImportConfig, IngestionWorkflow, TransformConfig, WatchConfig}
 import buildinfo.BuildInfo
@@ -142,7 +143,7 @@ object Main extends StrictLogging {
 
     // handle existing project commands
     schemaHandler.fullValidation()
-    DatasetArea.initDomains(storageHandler, schemaHandler.domains.map(_.name))
+    DatasetArea.initDomains(storageHandler, schemaHandler.domains().map(_.name))
     val workflow =
       new IngestionWorkflow(storageHandler, schemaHandler, launcherService)
 
@@ -170,8 +171,14 @@ object Main extends StrictLogging {
             false
         }
       case "validate" =>
-        schemaHandler.fullValidation()
-        true
+        ValidateConfig.parse(args.drop(1)) match {
+          case Some(config) =>
+            schemaHandler.fullValidation(config)
+            true
+          case _ =>
+            println(WatchConfig.usage())
+            false
+        }
       case "watch" =>
         WatchConfig.parse(args.drop(1)) match {
           case Some(config) =>
@@ -295,8 +302,17 @@ object Main extends StrictLogging {
       case "jdbc2yml" =>
         JDBC2Yml.run(args.drop(1))
         true
+      case "serve" =>
+        MainServerConfig.parse(args.drop(1)) match {
+          case Some(config) =>
+            MainServer.serve(config)
+            true
+          case _ =>
+            println(MainServerConfig.usage())
+            false
+        }
       case command =>
-        printUsage()
+        printUsage(command)
         false
     }
     if (!result)

@@ -37,13 +37,13 @@ you specify in the access options of the topic configuration you are dealing wit
 
 Parameter|Cardinality|Description
 ---|---|---
---config:`<value>`|*Required*|Topic Name declared in reference.conf file
+--config:`<value>`|*Optional*|Topic Name declared in reference.conf file
 --format:`<value>`|*Optional*|Read/Write format eq : parquet, json, csv ... Default to parquet.
---path:`<value>`|*Required*|Source file for load and target file for store
+--path:`<value>`|*Optional*|Source file for load and target file for store
 --options:`<value>`|*Optional*|Options to pass to Spark Reader
---write-config:`<value>`|*Required*|Topic Name declared in reference.conf file
---write-path:`<value>`|*Required*|Source file for load and target file for store
---write-mode:`<value>`|*Required*|When offload is true, describes how data should be stored on disk. Ignored if offload is false.
+--write-config:`<value>`|*Optional*|Topic Name declared in reference.conf file
+--write-path:`<value>`|*Optional*|Source file for load and target file for store
+--write-mode:`<value>`|*Optional*|When offload is true, describes how data should be stored on disk. Ignored if offload is false.
 --write-options:`<value>`|*Optional*|Options to pass to Spark Writer
 --write-format:`<value>`|*Optional*|Streaming format eq. kafka, console ...
 --write-coalesce:`<value>`|*Optional*|Should we coalesce the resulting dataframe

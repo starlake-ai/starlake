@@ -349,7 +349,7 @@ trait TestHelper
       schemaHandler.fullValidation()
 
       DatasetArea.initMetadata(metadataStorageHandler)
-      DatasetArea.initDomains(storageHandler, schemaHandler.domains.map(_.name))
+      DatasetArea.initDomains(storageHandler, schemaHandler.domains().map(_.name))
 
       val validator = new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
       validator
@@ -371,7 +371,7 @@ trait TestHelper
     }
 
     def getJobs(): Map[String, AutoJobDesc] = {
-      new SchemaHandler(settings.storageHandler).jobs
+      new SchemaHandler(settings.storageHandler).jobs()
     }
 
     def landingPath: String =
@@ -385,7 +385,7 @@ trait TestHelper
       val schemaHandler = new SchemaHandler(settings.storageHandler)
 
       DatasetArea.initMetadata(metadataStorageHandler)
-      DatasetArea.initDomains(storageHandler, schemaHandler.domains.map(_.name))
+      DatasetArea.initDomains(storageHandler, schemaHandler.domains().map(_.name))
 
       // Get incoming directory from Domain descriptor
       val incomingDirectory = schemaHandler.getDomain(datasetDomainName).map(_.resolveDirectory())

@@ -1,6 +1,10 @@
 
 # Release notes
 
+# 0.4.1
+__New feature__:
+- Added "serve --port 7070" to start starlake in server mode and wait for requests 
+
 # 0.4.0
 __New feature__:
 - Support any source to any sink using kafkaload including sink and source that are not kafka. This has been possible at the cost of a breaking change

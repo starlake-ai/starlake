@@ -26,8 +26,8 @@ class Yml2XlsWriter(schemaHandler: SchemaHandler) extends LazyLogging with XlsMo
   ): Unit = {
     val domains =
       domainNames match {
-        case Nil => schemaHandler.domains
-        case x   => schemaHandler.domains.filter(domain => x.contains(domain.name))
+        case Nil => schemaHandler.domains()
+        case x   => schemaHandler.domains().filter(domain => x.contains(domain.name))
       }
     domains.foreach { domain =>
       writeDomainXls(domain, outputDir)
