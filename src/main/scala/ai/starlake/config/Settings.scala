@@ -188,6 +188,7 @@ object Settings extends StrictLogging {
   final case class Internal(
     cacheStorageLevel: StorageLevel,
     intermediateBigqueryFormat: String = "orc",
+    temporaryGcsBucket: Option[String],
     substituteVars: Boolean = true
   )
 
@@ -326,7 +327,8 @@ object Settings extends StrictLogging {
     accessPolicies: AccessPolicies,
     scheduling: JobScheduling,
     maxParCopy: Int,
-    dsvOptions: Map[String, String]
+    dsvOptions: Map[String, String],
+    rootServe: Option[String]
   ) extends Serializable {
 
     val cacheStorageLevel: StorageLevel =
@@ -408,7 +410,7 @@ object Settings extends StrictLogging {
 
     // When using local Spark with remote BigQuery (useful for testing)
     val initialConf =
-      sys.env.get("TEMPORARY_GCS_BUCKET") match {
+      settings.comet.internal.flatMap(_.temporaryGcsBucket) match {
         case Some(value) => new SparkConf().set("temporaryGcsBucket", value)
         case None        => new SparkConf()
       }

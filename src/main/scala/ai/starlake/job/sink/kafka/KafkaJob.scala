@@ -37,7 +37,7 @@ class KafkaJob(
   private def formatPath(path: Option[String]): Option[String] = path
     .map(
       _.richFormat(
-        schemaHandler.activeEnv,
+        schemaHandler.activeEnv(),
         Map(
           "config" -> kafkaJobConfig.topicConfigName.getOrElse(""),
           "topic"  -> topicConfig.map(_.topicName).getOrElse("")
