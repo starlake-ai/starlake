@@ -24,6 +24,7 @@ import ai.starlake.config.{DatasetArea, Settings, StorageArea}
 import ai.starlake.schema.model._
 import ai.starlake.utils.Formatter._
 import ai.starlake.utils.{CometObjectMapper, Utils, YamlSerializer}
+import better.files.File
 import com.databricks.spark.xml.util.XSDToSchema
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.node.{ArrayNode, ObjectNode}
@@ -51,9 +52,9 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     new CometObjectMapper(new YAMLFactory(), injectables = (classOf[Settings], settings) :: Nil)
 
   @throws[Exception]
-  def checkValidity(): List[String] = {
-    val typesValidity = this.types.map(_.checkValidity())
-    val domainsValidity = this.domains.map(_.checkValidity(this))
+  def checkValidity(reload: Boolean = false): List[String] = {
+    val typesValidity = this.types(reload).map(_.checkValidity())
+    val domainsValidity = this.domains(reload).map(_.checkValidity(this))
     val domainsVarsValidity = checkDomainsVars()
     val jobsVarsValidity = checkJobsVars()
     val allErrors = typesValidity ++ domainsValidity :+ checkViewsValidity()
@@ -80,20 +81,31 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     paths.flatMap(checkVarsAreDefined)
   }
 
-  def fullValidation(): Unit =
+  def fullValidation(config: ValidateConfig = ValidateConfig(reload = false)): Unit =
     Try {
-      val errs = checkValidity()
+      val errs = checkValidity(config.reload)
       val deserErrors = deserializedDomains.filter { case (path, res) =>
         res.isFailure
       }
       val errorCount = errs.length + deserErrors.length
+      val output =
+        settings.comet.rootServe.map(rootServe => File(File(rootServe), "validation.log"))
+      output.foreach(_.overwrite(""))
       if (errorCount > 0) {
+        output.foreach(
+          _.appendLine(
+            s"START VALIDATION RESULTS: $errorCount errors found"
+          )
+        )
         logger.error(s"START VALIDATION RESULTS: $errorCount errors found")
         deserErrors.foreach { case (path, err) =>
+          output.foreach(_.appendLine(s"${path.toString} could not be deserialized"))
           logger.error(s"${path.toString} could not be deserialized")
         }
         errs.foreach(err => logger.error(err))
+        errs.foreach(err => output.foreach(_.appendLine(err)))
         logger.error(s"END VALIDATION RESULTS")
+        output.foreach(_.appendLine(s"END VALIDATION RESULTS"))
       }
     } match {
       case Success(_) => // do nothing
@@ -128,26 +140,31 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
       List.empty[Type]
   }
 
+  def types(reload: Boolean = false): List[Type] = if (reload) loadTypes() else _types
+  var _types: List[Type] = loadTypes()
+
   /** All defined types. Load all default types defined in the file default.comet.yml Types are
     * located in the only file "types.comet.yml" Types redefined in the file "types.comet.yml"
     * supersede the ones in "default.comet.yml"
     */
   @throws[Exception]
-  lazy val types: List[Type] = {
+  private def loadTypes(): List[Type] = {
     val defaultTypes = loadTypes("default") :+ Type("struct", ".*", PrimitiveType.struct)
     val types = loadTypes("types")
 
     val redefinedTypeNames =
       defaultTypes.map(_.name).intersect(types.map(_.name))
 
-    defaultTypes.filter(defaultType => !redefinedTypeNames.contains(defaultType.name)) ++ types
+    this._types =
+      defaultTypes.filter(defaultType => !redefinedTypeNames.contains(defaultType.name)) ++ types
+    this._types
   }
 
   def loadAssertions(filename: String): Map[String, AssertionDefinition] = {
     val assertionsPath = new Path(DatasetArea.assertions, filename)
     logger.info(s"Loading assertions $assertionsPath")
     if (storage.exists(assertionsPath)) {
-      val content = storage.read(assertionsPath).richFormat(activeEnv, Map.empty)
+      val content = storage.read(assertionsPath).richFormat(activeEnv(), Map.empty)
       logger.info(s"reading content $content")
       mapper
         .readValue(content, classOf[AssertionDefinitions])
@@ -178,29 +195,9 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     }.toMap
   }
 
-  private lazy val viewsMap = loadSqlJi2Files(DatasetArea.views)
+  private var viewsMap = loadSqlJi2Files(DatasetArea.views)
 
   def views(viewName: String): Option[String] = viewsMap.get(viewName)
-
-  @throws[Exception]
-  lazy val activeEnv: Map[String, String] = {
-    def loadEnv(path: Path): Map[String, String] =
-      if (storage.exists(path))
-        Option(mapper.readValue(storage.read(path), classOf[Env]).env.getOrElse(Map.empty))
-          .getOrElse(Map.empty)
-      else
-        Map.empty
-    val globalsCometPath = new Path(DatasetArea.metadata, s"env.comet.yml")
-    val envsCometPath = new Path(DatasetArea.metadata, s"env.${settings.comet.env}.comet.yml")
-    val globalEnv = {
-      loadEnv(globalsCometPath).mapValues(
-        _.richFormat(sys.env, cometDateVars)
-      ) // will replace with sys.env
-    }
-    val localEnv =
-      loadEnv(envsCometPath).mapValues(_.richFormat(sys.env, globalEnv ++ cometDateVars))
-    cometDateVars ++ globalEnv ++ localEnv
-  }
 
   private val cometDateVars = {
     val today = LocalDateTime.now
@@ -229,6 +226,29 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     )
   }
 
+  def activeEnv(reload: Boolean = false) = if (reload) loadActiveEnv() else _activeEnv
+  private var _activeEnv = loadActiveEnv()
+  @throws[Exception]
+  private def loadActiveEnv(): Map[String, String] = {
+    def loadEnv(path: Path): Map[String, String] =
+      if (storage.exists(path))
+        Option(mapper.readValue(storage.read(path), classOf[Env]).env.getOrElse(Map.empty))
+          .getOrElse(Map.empty)
+      else
+        Map.empty
+    val globalsCometPath = new Path(DatasetArea.metadata, s"env.comet.yml")
+    val envsCometPath = new Path(DatasetArea.metadata, s"env.${settings.comet.env}.comet.yml")
+    val globalEnv = {
+      loadEnv(globalsCometPath).mapValues(
+        _.richFormat(sys.env, cometDateVars)
+      ) // will replace with sys.env
+    }
+    val localEnv =
+      loadEnv(envsCometPath).mapValues(_.richFormat(sys.env, globalEnv ++ cometDateVars))
+    this._activeEnv = cometDateVars ++ globalEnv ++ localEnv
+    this._activeEnv
+  }
+
   /** Fnd type by name
     *
     * @param tpe
@@ -236,9 +256,9 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     * @return
     *   Unique type referenced by this name.
     */
-  def getType(tpe: String): Option[Type] = types.find(_.name == tpe)
+  def getType(tpe: String): Option[Type] = types().find(_.name == tpe)
 
-  lazy val deserializedDomains: List[(Path, Try[Domain])] = {
+  var deserializedDomains: List[(Path, Try[Domain])] = {
     val paths = storage.list(
       DatasetArea.domains,
       extension = ".yml",
@@ -249,7 +269,7 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     val domains = paths
       .map { path =>
         YamlSerializer.deserializeDomain(
-          storage.read(path).richFormat(activeEnv, Map.empty),
+          storage.read(path).richFormat(activeEnv(), Map.empty),
           path.toString
         )
       }
@@ -257,10 +277,14 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     paths.zip(domains)
   }
 
+  def domains(reload: Boolean = false) = if (reload) loadDomains() else _domains
+
+  private var _domains = loadDomains()
+
   /** All defined domains Domains are defined under the "domains" folder in the metadata folder
     */
   @throws[Exception]
-  lazy val domains: List[Domain] = {
+  private def loadDomains(): List[Domain] = {
     val (validDomainsFile, invalidDomainsFiles) = deserializedDomains
       .map {
         case (path, Success(domain)) =>
@@ -276,7 +300,7 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
                 if (ref.endsWith(".yml") || ref.endsWith(".yaml")) ref else ref + ".comet.yml"
               val schemaPath = new Path(folder, refFullName)
               YamlSerializer.deserializeSchemas(
-                storage.read(schemaPath).richFormat(activeEnv, Map.empty),
+                storage.read(schemaPath).richFormat(activeEnv(), Map.empty),
                 schemaPath.toString
               )
             }
@@ -312,7 +336,7 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
         throw new Exception("Duplicated domain name(s)")
     }
 
-    Utils.duplicates(
+    this._domains = Utils.duplicates(
       domains.map(_.resolveDirectory()),
       s"%s is defined %d times. A directory can only appear once in a domain definition file."
     ) match {
@@ -321,11 +345,12 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
         errors.foreach(logger.error(_))
         throw new Exception("Duplicated domain directory name")
     }
+    this._domains
   }
 
   def checkVarsAreDefined(path: Path): Set[String] = {
     val vars = storage.read(path).extractVars()
-    val envVars = activeEnv.keySet
+    val envVars = activeEnv().keySet
     val undefinedVars = vars.diff(envVars)
     undefinedVars.map(undefVar => s"${path.toString} contains undefined vars: ${undefVar}")
 
@@ -333,7 +358,7 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
 
   def loadJobFromFile(path: Path): Try[AutoJobDesc] =
     Try {
-      val rootNode = mapper.readTree(storage.read(path).richFormat(activeEnv, Map.empty))
+      val rootNode = mapper.readTree(storage.read(path).richFormat(activeEnv(), Map.empty))
       val tranformNode = rootNode.path("transform")
       val autojobNode =
         if (tranformNode.isNull() || tranformNode.isMissingNode) {
@@ -364,10 +389,10 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
           case None           => new Path(s"$sqlFilePrefix.sql.j2")
         }
         val commonTaskDesc = taskDesc.copy(
-          domain = Option(taskDesc.domain).getOrElse("").richFormat(activeEnv, Map.empty),
-          table = taskDesc.table.richFormat(activeEnv, Map.empty),
+          domain = Option(taskDesc.domain).getOrElse("").richFormat(activeEnv(), Map.empty),
+          table = taskDesc.table.richFormat(activeEnv(), Map.empty),
           area = taskDesc.area.map(area =>
-            StorageArea.fromString(area.value.richFormat(activeEnv, Map.empty))
+            StorageArea.fromString(area.value.richFormat(activeEnv(), Map.empty))
           )
         )
         val taskFile = (storage.exists(sqlTaskFile), storage.exists(j2TaskFile)) match {
@@ -384,10 +409,10 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
           .map { taskFile =>
             val sqlTask = SqlTaskExtractor(storage.read(taskFile))
             taskDesc.copy(
-              domain = Option(taskDesc.domain).getOrElse("").richFormat(activeEnv, Map.empty),
-              table = taskDesc.table.richFormat(activeEnv, Map.empty),
+              domain = Option(taskDesc.domain).getOrElse("").richFormat(activeEnv(), Map.empty),
+              table = taskDesc.table.richFormat(activeEnv(), Map.empty),
               area = taskDesc.area.map(area =>
-                StorageArea.fromString(area.value.richFormat(activeEnv, Map.empty))
+                StorageArea.fromString(area.value.richFormat(activeEnv(), Map.empty))
               ),
               presql = sqlTask.presql,
               sql = Option(sqlTask.sql),
@@ -437,10 +462,13 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
       name
     }
 
+  def jobs(reload: Boolean = false): Map[String, AutoJobDesc] = if (reload) loadJobs() else _jobs
+  private var _jobs: Map[String, AutoJobDesc] = loadJobs()
+
   /** All defined jobs Jobs are defined under the "jobs" folder in the metadata folder
     */
   @throws[Exception]
-  lazy val jobs: Map[String, AutoJobDesc] = {
+  private def loadJobs(): Map[String, AutoJobDesc] = {
     val jobs = storage.list(DatasetArea.jobs, ".yml", recursive = true)
     val (validJobsFile, invalidJobsFile) =
       jobs
@@ -458,10 +486,11 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
       case Success(_) => // do nothing
     }
 
-    validJobsFile
+    this._jobs = validJobsFile
       .collect { case Success(job) => job }
       .map(job => job.name -> job)
       .toMap
+    this._jobs
   }
 
   /** Find domain by name
@@ -471,7 +500,7 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     * @return
     *   Unique Domain referenced by this name.
     */
-  def getDomain(name: String): Option[Domain] = domains.find(_.name == name)
+  def getDomain(name: String): Option[Domain] = domains().find(_.name == name)
 
   /** Return all schemas for a domain
     *

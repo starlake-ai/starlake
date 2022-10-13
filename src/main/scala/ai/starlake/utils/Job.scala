@@ -287,13 +287,13 @@ trait SparkJob extends JobBase {
             .views(key)
             .getOrElse(throw new Exception(s"Unknown view $key"))
 
-          val parsedContent = parseJinja(viewContent, schemaHandler.activeEnv ++ sqlParameters)
+          val parsedContent = parseJinja(viewContent, schemaHandler.activeEnv() ++ sqlParameters)
           Some(s"$key AS ($parsedContent)")
 
         case Some(value) =>
           val valueWithEnv =
-            parseJinja(value, schemaHandler.activeEnv ++ sqlParameters)
-              .richFormat(schemaHandler.activeEnv, sqlParameters)
+            parseJinja(value, schemaHandler.activeEnv() ++ sqlParameters)
+              .richFormat(schemaHandler.activeEnv(), sqlParameters)
           val (sinkType, sinkConfig, path) = parseViewDefinition(valueWithEnv)
           logger.info(s"Loading view $path from $sinkType")
           val df: DataFrame = createSparkView(sinkType, sinkConfig, path)

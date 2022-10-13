@@ -42,16 +42,17 @@ class ConnectionJobsSpec extends TestHelper {
           views = Some(Map("user_View" -> s"jdbc:$connection:select * from users"))
         )
 
-      val schemaHandler = new SchemaHandler(metadataStorageHandler)
-
       val businessJobDef = mapper
         .writer()
         .withAttribute(classOf[Settings], settings)
         .writeValueAsString(businessJob)
 
+      storageHandler.write(businessJobDef, pathBusiness)
+
+      val schemaHandler = new SchemaHandler(metadataStorageHandler)
+
       val workflow =
         new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
-      storageHandler.write(businessJobDef, pathBusiness)
 
       workflow.autoJob(TransformConfig("user", Map("age" -> "10")))
 
