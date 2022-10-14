@@ -4,8 +4,8 @@ import ai.starlake.config.Settings
 import ai.starlake.job.Main
 import better.files.File
 import com.typesafe.config.ConfigFactory
-import org.eclipse.jetty.server.Server
-import org.eclipse.jetty.servlet.ServletHandler
+import org.sparkproject.jetty.server.Server
+import org.sparkproject.jetty.servlet.ServletHandler
 
 import java.io.IOException
 import javax.servlet.ServletException
