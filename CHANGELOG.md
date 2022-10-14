@@ -1,9 +1,13 @@
 
 # Release notes
 
+# 0.4.2
+__Bgu Fix__:
+- Use Spark Project Jetty shaded class to remove extra jetty dependency in Starlake server
+
 # 0.4.1
 __New feature__:
-- Added "serve --port 7070" to start starlake in server mode and wait for requests 
+- Added "serve --port 7070" to start starlake in server mode and wait for requests
 
 # 0.4.0
 __New feature__:
