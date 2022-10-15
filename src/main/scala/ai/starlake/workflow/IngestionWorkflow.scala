@@ -682,6 +682,14 @@ class IngestionWorkflow(
               // No sink on interactive queries. Results displayed in console output
             }
             Utils.logFailure(result, logger)
+            result match {
+              case Success(res) =>
+              case Failure(e) =>
+                val output =
+                  settings.comet.rootServe.map(rootServe => File(File(rootServe), "transform.log"))
+                output.foreach(_.overwrite(Utils.exceptionAsString(e)))
+            }
+
             result.isSuccess
           case SPARK =>
             (action.runSpark(), config.interactive) match {
@@ -769,6 +777,9 @@ class IngestionWorkflow(
                     true
                 }
               case (Failure(exception), _) =>
+                val output =
+                  settings.comet.rootServe.map(rootServe => File(File(rootServe), "run.log"))
+                output.foreach(_.overwrite(Utils.exceptionAsString(exception)))
                 exception.printStackTrace()
                 false
             }
