@@ -1,8 +1,12 @@
 
 # Release notes
 
+# 0.4.3
+__New Feature__:
+- Server mode now support multiple projects simultaneously
+
 # 0.4.2
-__Bgu Fix__:
+__Bug Fix__:
 - Use Spark Project Jetty shaded class to remove extra jetty dependency in Starlake server
 
 # 0.4.1

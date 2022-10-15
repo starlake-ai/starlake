@@ -4,13 +4,13 @@
 # Pull base image.
 FROM ubuntu
 
-ARG STARLAKE_VERSION=0.3.27-SNAPSHOT
+ARG STARLAKE_VERSION=0.4.3
 ARG SPARK_VERSION=3.3.0
 ARG HADOOP_VERSION=3
 
+
 # Install Java.
-RUN apt-get update && apt-get -y install openjdk-8-jdk curl
-#RUN update-alternatives --set java /usr/lib/jvm/jdk1.8.0_version/bin/java
+RUN apt-get update && apt-get -y install openjdk-17-jdk curl
 
 
 RUN mkdir -p /app/starlake/
