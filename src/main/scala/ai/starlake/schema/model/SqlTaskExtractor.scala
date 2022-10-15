@@ -11,7 +11,8 @@ case class SqlTaskExtractor(
 object SqlTaskExtractor {
 
   def apply(sqlContent: String): SqlTaskExtractor = {
-    val cometPattern = "^\\s*/\\*\\s*(SQL|PRESQL|POSTSQL)\\s*\\*/\\s*$".r
+    // val cometPattern = "^\\s*/\\*\\s*(SQL|PRESQL|POSTSQL)\\s*\\*/\\s*$".r
+    val cometPattern = "^--\\s*(SQL|PRESQL|POSTSQL)\\s*$".r
     val sqlFileLines = sqlContent.split("\n")
     val buffer = new StringBuffer()
     val presqlSection = ListBuffer.empty[String]
