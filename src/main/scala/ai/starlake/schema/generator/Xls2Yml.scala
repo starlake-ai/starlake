@@ -116,7 +116,7 @@ object Xls2Yml extends LazyLogging {
     settings: Settings
   ): Unit = {
     val reader = new XlsReader(Path(inputPath))
-    reader.getDomain.foreach { domain =>
+    reader.getDomain().foreach { domain =>
       writeDomainYaml(domain, outputPath.getOrElse(DatasetArea.domains.toString), domain.name)
     }
   }

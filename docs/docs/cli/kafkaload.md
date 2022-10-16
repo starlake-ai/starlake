@@ -37,22 +37,22 @@ you specify in the access options of the topic configuration you are dealing wit
 
 Parameter|Cardinality|Description
 ---|---|---
---config:`<value>`|*Required*|Topic Name declared in reference.conf file
+--config:`<value>`|*Optional*|Topic Name declared in reference.conf file
 --format:`<value>`|*Optional*|Read/Write format eq : parquet, json, csv ... Default to parquet.
---path:`<value>`|*Required*|Source file for load and target file for store
---mode:`<value>`|*Required*|When offload is true, describes how data should be stored on disk. Ignored if offload is false.
---write-options:`<value>`|*Optional*|Options to pass to Spark Writer
+--path:`<value>`|*Optional*|Source file for load and target file for store
 --options:`<value>`|*Optional*|Options to pass to Spark Reader
---coalesce:`<value>`|*Optional*|Should we coalesce the resulting dataframe
+--write-config:`<value>`|*Optional*|Topic Name declared in reference.conf file
+--write-path:`<value>`|*Optional*|Source file for load and target file for store
+--write-mode:`<value>`|*Optional*|When offload is true, describes how data should be stored on disk. Ignored if offload is false.
+--write-options:`<value>`|*Optional*|Options to pass to Spark Writer
+--write-format:`<value>`|*Optional*|Streaming format eq. kafka, console ...
+--write-coalesce:`<value>`|*Optional*|Should we coalesce the resulting dataframe
 --transform:`<value>`|*Optional*|Any transformation to apply to message before loading / offloading it
---offload:`<value>`|*Optional*|If true, kafka topic is offloaded to path, else data contained in path is stored in the kafka topic
---streaming-format:`<value>`|*Optional*|Streaming format eq. kafka, console ...
---streaming-output-mode:`<value>`|*Optional*|Output mode : eq. append ... 
+--stream:`<value>`|*Optional*|Should we use streaming mode ?
 --streaming-trigger:`<value>`|*Optional*|Once / Continuous / ProcessingTime
 --streaming-trigger-option:`<value>`|*Optional*|10 seconds for example. see https://spark.apache.org/docs/latest/api/java/org/apache/spark/sql/streaming/Trigger.html#ProcessingTime-java.lang.String-
 --streaming-to-table:`<value>`|*Optional*|Table name to sink to
 --streaming-partition-by:`<value>`|*Optional*|List of columns to use for partitioning
---stream:`<value>`|*Optional*|Should we use streaming mode ?
 ## Samples
 
 ### Batch offload topic from kafka to a file

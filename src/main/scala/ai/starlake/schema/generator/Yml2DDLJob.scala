@@ -49,9 +49,10 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
   def run(): Try[Unit] =
     Try {
       val domains = config.domain match {
-        case None => schemaHandler.domains
+        case None => schemaHandler.domains()
         case Some(domain) =>
-          val res = schemaHandler.domains
+          val res = schemaHandler
+            .domains()
             .find(_.name.toLowerCase() == domain)
             .getOrElse(throw new Exception(s"Domain ${domain} not found"))
           List(res)
@@ -74,6 +75,8 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
                 connection,
                 config.catalog,
                 domain.name,
+                None,
+                None,
                 Nil,
                 List("TABLE"),
                 None

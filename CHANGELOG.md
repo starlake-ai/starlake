@@ -1,6 +1,33 @@
 
 # Release notes
 
+# 0.4.3
+__New Feature__:
+- Server mode now support multiple projects simultaneously
+
+# 0.4.2
+__Bug Fix__:
+- Use Spark Project Jetty shaded class to remove extra jetty dependency in Starlake server
+
+# 0.4.1
+__New feature__:
+- Added "serve --port 7070" to start starlake in server mode and wait for requests
+
+# 0.4.0
+__New feature__:
+- Support any source to any sink using kafkaload including sink and source that are not kafka. This has been possible at the cost of a breaking change
+- Support table and column remarks extraction on DB2 iSeries databases
+
+__CI__:
+ - remove support of github registry
+ - Remove scala 2.11 support
+
+# 0.3.26
+__New feature__:
+- Support JINJA in autojob
+- Support external views defined using JINJA
+- File Splitter allow to split file based on first column or position in line.
+
 # 0.3.25
 __New feature__:
 - Add ACL Graph generation

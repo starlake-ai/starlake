@@ -37,34 +37,32 @@ class JDBC2YmlSpec extends TestHelper {
       )
       val domainTemplate = Domain(name = "CUSTOM_NAME", metadata = Some(metadata))
       val config = JDBC2YmlConfig()
-      JDBC2Yml.run(JDBCSchema("test-h2", None, "PUBLIC", Nil), File("/tmp"), Some(domainTemplate))
-      val domain = YamlSerializer.deserializeDomain(File("/tmp", "PUBLIC.comet.yml")) match {
+      JDBC2Yml.extractSchema(
+        JDBCSchema("test-h2", None, "PUBLIC"),
+        File("/tmp"),
+        Some(domainTemplate)
+      )
+      val domain = YamlSerializer.deserializeDomain(File("/tmp/PUBLIC", "PUBLIC.comet.yml")) match {
         case Success(domain) => domain
         case Failure(e)      => throw e
       }
       assert(domain.name == "PUBLIC")
-      assert(domain.tables.size == 2)
+      assert(domain.tableRefs.getOrElse(Nil).size == 2)
       assert(domain.metadata.flatMap(_.quote).getOrElse("") == "::")
       assert(domain.metadata.flatMap(_.mode).getOrElse(Mode.FILE) == Mode.STREAM)
-      domain.tables.map(_.name) should contain theSameElementsAs Set("TEST_TABLE1", "TEST_VIEW1")
-      domain.tables
-        .find(_.name == "TEST_TABLE1")
-        .get
-        .attributes
-        .map(_.name) should contain theSameElementsAs Set("ID", "NAME")
-      domain.tables
-        .find(_.name == "TEST_TABLE1")
-        .get
-        .attributes
-        .map(_.`type`) should contain theSameElementsAs Set(
-        "long",
-        "string"
+      val tableFile = File("/tmp/PUBLIC", "_TEST_TABLE1.comet.yml")
+      val table =
+        YamlSerializer
+          .deserializeSchemas(tableFile.contentAsString, tableFile.pathAsString)
+          .tables
+          .head
+      domain.tableRefs.getOrElse(Nil) should contain theSameElementsAs Set(
+        "_TEST_TABLE1",
+        "_TEST_VIEW1"
       )
-      domain.tables
-        .find(_.name == "TEST_TABLE1")
-        .get
-        .primaryKey
-        .getOrElse(List.empty) should contain("ID")
+      table.attributes.map(_.name) should contain theSameElementsAs Set("ID", "NAME")
+      table.attributes.map(_.`type`) should contain theSameElementsAs Set("long", "string")
+      table.primaryKey.getOrElse(List.empty) should contain("ID")
     }
   }
 
@@ -123,22 +121,36 @@ class JDBC2YmlSpec extends TestHelper {
       val row1InsertionCheck = (1 == rs.getInt("ID")) && ("A" == rs.getString("NAME"))
       assert(row1InsertionCheck, "Data not inserted")
 
-      JDBC2Yml.run(
-        JDBCSchema("test-h2", None, "PUBLIC", List(JDBCTable("TEST_TABLE1", Some(List("ID"))))),
+      JDBC2Yml.extractSchema(
+        JDBCSchema(
+          "test-h2",
+          None,
+          "PUBLIC",
+          None,
+          None,
+          List(JDBCTable("TEST_TABLE1", Some(List("ID"))))
+        ),
         File("/tmp"),
         None
       )
-      val domain = YamlSerializer.deserializeDomain(File("/tmp", "PUBLIC.comet.yml")) match {
-        case Success(domain) => domain
-        case Failure(e)      => throw e
-      }
+      val domain =
+        YamlSerializer.deserializeDomain(File("/tmp/PUBLIC", "PUBLIC.comet.yml")) match {
+          case Success(domain) => domain
+          case Failure(e)      => throw e
+        }
       assert(domain.name == "PUBLIC")
-      assert(domain.tables.size == 1)
-      assert(domain.tables.head.name == "TEST_TABLE1")
-      domain.tables.head.attributes
+      assert(domain.tableRefs.getOrElse(Nil).size == 1)
+      assert(domain.tableRefs.get.head == "_TEST_TABLE1")
+      val tableFile = File("/tmp/PUBLIC", "_TEST_TABLE1.comet.yml")
+      val table =
+        YamlSerializer
+          .deserializeSchemas(tableFile.contentAsString, tableFile.pathAsString)
+          .tables
+          .head
+      table.attributes
         .map(_.name) should contain theSameElementsAs Set("ID")
-      domain.tables.head.attributes.map(_.`type`) should contain theSameElementsAs Set("long")
-      domain.tables.head.primaryKey.getOrElse(List.empty) should contain("ID")
+      table.attributes.map(_.`type`) should contain theSameElementsAs Set("long")
+      table.primaryKey.getOrElse(List.empty) should contain("ID")
     }
   }
 
@@ -167,20 +179,26 @@ class JDBC2YmlSpec extends TestHelper {
       val row1InsertionCheck = (1 == rs.getInt("ID")) && ("A" == rs.getString("NAME"))
       assert(row1InsertionCheck, "Data not inserted")
 
-      JDBC2Yml.run(
-        JDBCSchema("test-h2", None, "PUBLIC", List(JDBCTable("TEST_TABLE2", None))),
+      JDBC2Yml.extractSchema(
+        JDBCSchema("test-h2", None, "PUBLIC", None, None, List(JDBCTable("TEST_TABLE2", None))),
         File("/tmp"),
         None
       )
 
-      val domain = YamlSerializer.deserializeDomain(File("/tmp", "PUBLIC.comet.yml")) match {
+      val domain = YamlSerializer.deserializeDomain(File("/tmp/PUBLIC", "PUBLIC.comet.yml")) match {
         case Success(domain) => domain
         case Failure(e)      => throw e
       }
       assert(domain.name == "PUBLIC")
-      assert(domain.tables.size == 1)
-      assert(domain.tables.head.name == "TEST_TABLE2")
-      domain.tables.head.attributes
+      assert(domain.tableRefs.get.size == 1)
+      assert(domain.tableRefs.get.head == "_TEST_TABLE2")
+      val tableFile = File("/tmp/PUBLIC", "_TEST_TABLE2.comet.yml")
+      val table =
+        YamlSerializer
+          .deserializeSchemas(tableFile.contentAsString, tableFile.pathAsString)
+          .tables
+          .head
+      table.attributes
         .find(_.name == "TABLE1_ID")
         .get
         .foreignKey
@@ -190,14 +208,20 @@ class JDBC2YmlSpec extends TestHelper {
 
   "All SchemaGen Config" should "be known and taken  into account" in {
     val rendered = JDBC2YmlConfig.usage()
+    println(rendered)
     val expected =
       """
         |Usage: starlake jdbc2yml [options]
         |
+        |  --data                  Export table data
+        |  --jdbc-mapping <value>  Database tables & connection info
+        |  --limit <value>         Limit number of records
+        |  --separator <value>     Column separator
+        |  --output-dir <value>    Where to output csv files
+        |  --schema                Export table schema
         |  --jdbc-mapping <value>  Database tables & connection info
         |  --output-dir <value>    Where to output YML files
-        |  --yml-template <value>  YML template to use YML metadata
-        |
+        |  --template <value>      YML template to use YML metadata
         |""".stripMargin
     rendered.substring(rendered.indexOf("Usage:")).replaceAll("\\s", "") shouldEqual expected
       .replaceAll("\\s", "")

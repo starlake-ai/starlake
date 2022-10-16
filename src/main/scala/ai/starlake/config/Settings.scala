@@ -188,6 +188,7 @@ object Settings extends StrictLogging {
   final case class Internal(
     cacheStorageLevel: StorageLevel,
     intermediateBigqueryFormat: String = "orc",
+    temporaryGcsBucket: Option[String],
     substituteVars: Boolean = true
   )
 
@@ -198,10 +199,11 @@ object Settings extends StrictLogging {
     partitions: Int = 1,
     replicationFactor: Short = 1,
     createOptions: Map[String, String] = Map.empty,
-    accessOptions: Map[String, String] = Map.empty
+    accessOptions: Map[String, String] = Map.empty,
+    headers: Map[String, Map[String, String]] = Map.empty
   ) {
-    def allAccessOptions(serverProperties: Map[String, String]) = {
-      serverProperties ++ accessOptions
+    def allAccessOptions()(implicit settings: Settings): Map[String, String] = {
+      settings.comet.kafka.sparkServerOptions ++ accessOptions
     }
   }
 
@@ -325,7 +327,8 @@ object Settings extends StrictLogging {
     accessPolicies: AccessPolicies,
     scheduling: JobScheduling,
     maxParCopy: Int,
-    dsvOptions: Map[String, String]
+    dsvOptions: Map[String, String],
+    rootServe: Option[String]
   ) extends Serializable {
 
     val cacheStorageLevel: StorageLevel =
@@ -378,7 +381,7 @@ object Settings extends StrictLogging {
 
     logger.info("COMET_FS=" + System.getenv("COMET_FS"))
     logger.info("COMET_ROOT=" + System.getenv("COMET_ROOT"))
-    logger.info(YamlSerializer.serializeObject(loaded))
+    logger.debug(YamlSerializer.serializeObject(loaded))
     val settings =
       Settings(loaded, effectiveConfig.getConfig("spark"), effectiveConfig.getConfig("extra"))
     val applicationConfPath = new Path(DatasetArea.metadata(settings), "application.conf")
@@ -407,7 +410,7 @@ object Settings extends StrictLogging {
 
     // When using local Spark with remote BigQuery (useful for testing)
     val initialConf =
-      sys.env.get("TEMPORARY_GCS_BUCKET") match {
+      settings.comet.internal.flatMap(_.temporaryGcsBucket) match {
         case Some(value) => new SparkConf().set("temporaryGcsBucket", value)
         case None        => new SparkConf()
       }

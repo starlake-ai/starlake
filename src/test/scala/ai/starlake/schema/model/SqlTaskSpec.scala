@@ -9,12 +9,12 @@ class SqlTaskSpec extends AnyFlatSpec with Matchers with BeforeAndAfterAll with 
   "SQL Task file with PRE, SQL AND POST sections" should "be interpreted correctly" in {
     val sqlContent =
       """
-        |/* PRESQL */
+        |-- PRESQL
         |insert into table value('string', 2, 3)
-        |/* SQL */
+        |-- SQL
         |select count(*) from table
         |where x = '${value}'
-        |/* POSTSQL */
+        |-- POSTSQL
         |
         |""".stripMargin
     val sqlTask = SqlTaskExtractor(sqlContent)
@@ -40,7 +40,7 @@ class SqlTaskSpec extends AnyFlatSpec with Matchers with BeforeAndAfterAll with 
   "SQL Task file with a single PRESQL Section" should "be interpreted correctly" in {
     val sqlContent =
       """
-        |/* PRESQL */
+        |-- PRESQL
         |insert into table value('string', 2, 3)
         |
     |""".stripMargin

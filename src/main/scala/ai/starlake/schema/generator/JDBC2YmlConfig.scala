@@ -42,6 +42,8 @@ case class JDBCSchema(
   connection: String,
   catalog: Option[String] = None,
   schema: String = "",
+  tableRemarks: Option[String] = None,
+  columnRemarks: Option[String] = None,
   tables: List[JDBCTable] = Nil,
   tableTypes: List[String] = List(
     "TABLE",
@@ -65,30 +67,61 @@ case class JDBCTable(name: String, columns: Option[List[String]])
 case class JDBC2YmlConfig(
   jdbcMapping: String = "",
   outputDir: String = "",
-  ymlTemplate: Option[String] = None
+  ymlTemplate: Option[String] = None,
+  mode: String = "schema",
+  limit: Int = 0,
+  separator: String = ";"
 )
 
 object JDBC2YmlConfig extends CliConfig[JDBC2YmlConfig] {
-
+  val command = "jdbc2yml"
   val parser: OParser[Unit, JDBC2YmlConfig] = {
     val builder = OParser.builder[JDBC2YmlConfig]
     import builder._
     OParser.sequence(
-      programName("starlake jdbc2yml"),
-      head("starlake", "jdbc2yml", "[options]"),
+      programName(s"starlake $command"),
+      head("starlake", command, "[options]"),
       note(""),
-      opt[String]("jdbc-mapping")
-        .action((x, c) => c.copy(jdbcMapping = x))
-        .required()
-        .text("Database tables & connection info"),
-      opt[String]("output-dir")
-        .action((x, c) => c.copy(outputDir = x))
-        .required()
-        .text("Where to output YML files"),
-      opt[String]("yml-template")
-        .action((x, c) => c.copy(ymlTemplate = Some(x)))
+      opt[Unit]("data")
+        .text("Export table data")
+        .action((x, c) => c.copy(mode = "data"))
         .optional()
-        .text("YML template to use YML metadata")
+        .children(
+          opt[String]("jdbc-mapping")
+            .action((x, c) => c.copy(jdbcMapping = x))
+            .required()
+            .text("Database tables & connection info"),
+          opt[Int]("limit")
+            .action((x, c) => c.copy(limit = x))
+            .optional()
+            .text("Limit number of records"),
+          opt[String]("separator")
+            .action((x, c) => c.copy(separator = x))
+            .optional()
+            .text("Column separator"),
+          opt[String]("output-dir")
+            .action((x, c) => c.copy(outputDir = x))
+            .required()
+            .text("Where to output csv files")
+        ),
+      opt[Unit]("schema")
+        .text("Export table schema")
+        .action((x, c) => c.copy(mode = "schema"))
+        .optional()
+        .children(
+          opt[String]("jdbc-mapping")
+            .action((x, c) => c.copy(jdbcMapping = x))
+            .required()
+            .text("Database tables & connection info"),
+          opt[String]("output-dir")
+            .action((x, c) => c.copy(outputDir = x))
+            .required()
+            .text("Where to output YML files"),
+          opt[String]("template")
+            .action((x, c) => c.copy(ymlTemplate = Some(x)))
+            .optional()
+            .text("YML template to use YML metadata")
+        )
     )
   }
 

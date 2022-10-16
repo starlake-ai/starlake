@@ -44,7 +44,7 @@ In that template you can use the following parameters:
 
 Parameter|Cardinality|Description
 ---|---|---
---script-gen:`<value>`|*Optional*|
+--extract:`<value>`|*Optional*|
 --domain:`domain1,domain2 ...`|*Optional*|The domain list for which to generate extract scripts
 --job:`job1,job2 ...`|*Optional*|The jobs you want to load. use '*' to load all jobs 
 --templateFile:`<value>`|*Required*|Script template file
