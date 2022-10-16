@@ -10,7 +10,7 @@ ThisBuild / sonatypeCredentialHost := "s01.oss.sonatype.org"
 
 lazy val scala211 = "2.11.12"
 
-lazy val scala212 = "2.12.17"
+lazy val scala212 = "2.12.16"
 
 ThisBuild / crossScalaVersions := List(scala211, scala212)
 
