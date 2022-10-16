@@ -444,7 +444,7 @@ trait IngestionJob extends SparkJob {
         expr(
           attr.transform
             .getOrElse(throw new Exception("Should never happen"))
-            .richFormat(schemaHandler.activeEnv, options)
+            .richFormat(schemaHandler.activeEnv(), options)
         )
           .cast(attr.primitiveSparkType(schemaHandler))
       )
@@ -458,7 +458,7 @@ trait IngestionJob extends SparkJob {
       .foldLeft(acceptedDF) { case (df, (name, sparkType, script)) =>
         df.withColumn(
           name,
-          expr(script.getOrElse("").richFormat(schemaHandler.activeEnv, options)).cast(sparkType)
+          expr(script.getOrElse("").richFormat(schemaHandler.activeEnv(), options)).cast(sparkType)
         )
       }
   }
@@ -889,7 +889,7 @@ trait IngestionJob extends SparkJob {
     val bqConfig = BigQueryLoadConfig()
     def bqNativeJob(sql: String) = new BigQueryNativeJob(bqConfig, sql, None)
     schema.presql.getOrElse(Nil).foreach { sql =>
-      val compiledSql = sql.richFormat(schemaHandler.activeEnv, options)
+      val compiledSql = sql.richFormat(schemaHandler.activeEnv(), options)
       metadata.getSink().getOrElse(NoneSink()).getType() match {
         case SinkType.BQ =>
           bqNativeJob(compiledSql).runInteractiveQuery()
@@ -904,7 +904,7 @@ trait IngestionJob extends SparkJob {
       case Some(queryList) =>
         queryList.foldLeft(mergedDF) { (df, query) =>
           df.createOrReplaceTempView("COMET_TABLE")
-          df.sparkSession.sql(query.richFormat(schemaHandler.activeEnv, options))
+          df.sparkSession.sql(query.richFormat(schemaHandler.activeEnv(), options))
         }
       case _ => mergedDF
     }
@@ -1064,7 +1064,7 @@ trait IngestionJob extends SparkJob {
           case (Some(_), Some(_)) =>
             val partitions =
               tableMetadata.biqueryClient.listPartitions(updatedTable.getTableId).asScala.toList
-            val filter = mergeOptions.buidlBQQuery(partitions, schemaHandler.activeEnv, options)
+            val filter = mergeOptions.buidlBQQuery(partitions, schemaHandler.activeEnv(), options)
             existingBQDFWithoutFilter
               .option("filter", filter.getOrElse(throw new Exception("should never happen")))
           case (_, _) =>

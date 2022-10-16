@@ -13,26 +13,26 @@ and add the `jackson-dataformat-yaml` library to the classpath on HDP:
 <TabItem value="spark2" label="Spark 2">
 
 
-```bash title="HDP example"
-spark-submit --deploy-mode cluster --master yarn \
---jars hdfs://my-namespace/libraires/jackson-dataformat-yaml-2.6.7.jar \
---conf spark.yarn.appMasterEnv.COMET_ROOT=/user/quickstart \
---conf spark.yarn.appMasterEnv.COMET_FS=hdfs://my-namespace \
---class ai.starlake.job.Main \
-hdfs://my-namespace/libraires/comet-spark2_2.12-0.2.8-assembly.jar import
-```
+    ```bash title="HDP example"
+    spark-submit --deploy-mode cluster --master yarn \
+    --jars hdfs://my-namespace/libraires/jackson-dataformat-yaml-2.6.7.jar \
+    --conf spark.yarn.appMasterEnv.COMET_ROOT=/user/quickstart \
+    --conf spark.yarn.appMasterEnv.COMET_FS=hdfs://my-namespace \
+    --class ai.starlake.job.Main \
+    hdfs://my-namespace/libraires/comet-spark2_2.12-0.2.8-assembly.jar import
+    ```
 
 </TabItem>
 <TabItem value="spark3" label="Spark 3">
 
-```shell title="HDP example"
-spark-submit --deploy-mode cluster --master yarn \
---jars hdfs://my-namespace/libraires/jackson-dataformat-yaml-2.12.3.jar \
---conf spark.yarn.appMasterEnv.COMET_ROOT=/user/quickstart \
---conf spark.yarn.appMasterEnv.COMET_FS=hdfs://my-namespace \
---class ai.starlake.job.Main \
-hdfs://my-namespace/libraires/comet-spark2_2.12-0.2.8-assembly.jar import
-```
+    ```shell title="HDP example"
+    spark-submit --deploy-mode cluster --master yarn \
+    --jars hdfs://my-namespace/libraires/jackson-dataformat-yaml-2.12.3.jar \
+    --conf spark.yarn.appMasterEnv.COMET_ROOT=/user/quickstart \
+    --conf spark.yarn.appMasterEnv.COMET_FS=hdfs://my-namespace \
+    --class ai.starlake.job.Main \
+    hdfs://my-namespace/libraires/comet-spark2_2.12-0.2.8-assembly.jar import
+    ```
 
 </TabItem>
 <TabItem value="oozie" label="Oozie">

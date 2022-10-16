@@ -11,13 +11,14 @@ case class WatchConfig(
 )
 
 object WatchConfig extends CliConfig[WatchConfig] {
+  val command = "watch"
 
   val parser: OParser[Unit, WatchConfig] = {
     val builder = OParser.builder[WatchConfig]
     import builder._
     OParser.sequence(
-      programName("starlake watch"),
-      head("starlake", "watch", "[options]"),
+      programName(s"starlake $command"),
+      head("starlake", command, "[options]"),
       note(""),
       opt[Seq[String]]("include")
         .action((x, c) => c.copy(includes = x))
