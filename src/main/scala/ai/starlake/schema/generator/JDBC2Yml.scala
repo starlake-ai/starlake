@@ -2,7 +2,7 @@ package ai.starlake.schema.generator
 
 import better.files.File
 import ai.starlake.config.Settings
-import ai.starlake.schema.model.Domain
+import ai.starlake.schema.model.{Domain, Schemas}
 import ai.starlake.utils.YamlSerializer
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.LazyLogging
@@ -34,24 +34,57 @@ object JDBC2Yml extends LazyLogging {
   def run(config: JDBC2YmlConfig)(implicit settings: Settings): Unit = {
     val jdbcSchemas =
       YamlSerializer.deserializeJDBCSchemas(File(config.jdbcMapping))
-    jdbcSchemas.jdbcSchemas.foreach { jdbcSchema =>
-      val domainTemplate = config.ymlTemplate.orElse(jdbcSchema.template).map { ymlTemplate =>
-        YamlSerializer.deserializeDomain(File(ymlTemplate)) match {
-          case Success(domain) => domain
-          case Failure(e)      => throw e
+    config.mode match {
+      case "data" =>
+        jdbcSchemas.jdbcSchemas.foreach { jdbcSchema =>
+          extractData(jdbcSchema, File(config.outputDir), config.limit, config.separator)
         }
-      }
-      run(jdbcSchema, File(config.outputDir), domainTemplate)
+      case "schema" =>
+        jdbcSchemas.jdbcSchemas.foreach { jdbcSchema =>
+          val domainTemplate = config.ymlTemplate.orElse(jdbcSchema.template).map { ymlTemplate =>
+            YamlSerializer.deserializeDomain(File(ymlTemplate)) match {
+              case Success(domain) =>
+                domain.metadata match {
+                  case Some(metadata) if metadata.directory.isEmpty =>
+                    throw new Exception(
+                      "Domain metadata directory property is mandatory in template file."
+                    )
+                  case Some(_) =>
+                    domain
+                }
+                domain
+              case Failure(e) => throw e
+            }
+          }
+          extractSchema(jdbcSchema, File(config.outputDir), domainTemplate)
+        }
     }
   }
 
-  def run(jdbcSchema: JDBCSchema, outputDir: File, domainTemplate: Option[Domain])(implicit
+  def extractData(jdbcSchema: JDBCSchema, outputDir: File, limit: Int, separator: String)(implicit
     settings: Settings
   ): Unit = {
-    val domain = run(jdbcSchema, domainTemplate)
+    JDBCUtils.extractData(jdbcSchema, outputDir, limit, separator)
+  }
+
+  def extractSchema(jdbcSchema: JDBCSchema, baseOutputDir: File, domainTemplate: Option[Domain])(
+    implicit settings: Settings
+  ): Unit = {
+
+    val domainName = jdbcSchema.schema.replaceAll("[^\\p{Alnum}]", "_")
+    File(baseOutputDir, domainName).createDirectories()
+    val domain = extractDomain(jdbcSchema, domainTemplate)
+    val tables = domain.tables
+    val tableRefs = tables.map("_" + _.name)
+    tables.foreach { table =>
+      val content = YamlSerializer.serialize(Schemas(List(table)))
+      val file = File(baseOutputDir, domainName, "_" + table.name + ".comet.yml")
+      file.overwrite(content)
+    }
+    val finalDomain = domain.copy(tableRefs = Some(tableRefs), tables = Nil)
     YamlSerializer.serializeToFile(
-      File(outputDir, jdbcSchema.schema + ".comet.yml"),
-      domain
+      File(baseOutputDir, domainName, domainName + ".comet.yml"),
+      finalDomain
     )
   }
 
@@ -62,7 +95,7 @@ object JDBC2Yml extends LazyLogging {
     * @param settings
     *   : Application configuration file
     */
-  def run(jdbcSchema: JDBCSchema, domainTemplate: Option[Domain])(implicit
+  def extractDomain(jdbcSchema: JDBCSchema, domainTemplate: Option[Domain])(implicit
     settings: Settings
   ): Domain = {
     val selectedTablesAndColumns = JDBCUtils.extractJDBCTables(jdbcSchema)

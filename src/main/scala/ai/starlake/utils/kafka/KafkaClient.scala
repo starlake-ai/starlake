@@ -166,7 +166,7 @@ class KafkaClient(kafkaConfig: KafkaConfig)(implicit settings: Settings)
   private def topicCurrentOffsetsFromStream(topicConfigName: String): Option[List[(Int, Long)]] = {
     val props = new Properties()
 
-    cometOffsetsConfig.allAccessOptions(settings.comet.kafka.sparkServerOptions).foreach { option =>
+    cometOffsetsConfig.allAccessOptions().foreach { option =>
       props.put(option._1, option._2)
     }
     val consumer = new KafkaConsumer[String, String](props)
@@ -256,7 +256,7 @@ class KafkaClient(kafkaConfig: KafkaConfig)(implicit settings: Settings)
           val consumer =
             newConsumer(
               config.topicName,
-              config.allAccessOptions(settings.comet.kafka.sparkServerOptions)
+              config.allAccessOptions()
             )
           val partitions = extractPartitions(config.topicName, consumer)
             .map(p => (p.partition(), EARLIEST_OFFSET))
@@ -273,7 +273,7 @@ class KafkaClient(kafkaConfig: KafkaConfig)(implicit settings: Settings)
     val endOffsets =
       topicEndOffsets(
         config.topicName,
-        config.allAccessOptions(settings.comet.kafka.sparkServerOptions)
+        config.allAccessOptions()
       )
     logger.whenInfoEnabled {
       endOffsets.foreach { case (partition, offsetEnd) =>
@@ -284,7 +284,7 @@ class KafkaClient(kafkaConfig: KafkaConfig)(implicit settings: Settings)
     // We do not use the topic Name but the config name to allow us to
     // consume differently the same topic
     val withOffsetsTopicOptions =
-      config.allAccessOptions(settings.comet.kafka.sparkServerOptions) ++ Seq(
+      config.allAccessOptions() ++ Seq(
         "startingOffsets" -> offsetsAsJson(config.topicName, startOffsets).getOrElse("earliest"),
         "endingOffsets"   -> offsetsAsJson(config.topicName, endOffsets).getOrElse("latest")
       )
@@ -309,28 +309,31 @@ class KafkaClient(kafkaConfig: KafkaConfig)(implicit settings: Settings)
     (df, endOffsets)
   }
 
+  def sinkToTopic(
+    config: KafkaTopicConfig,
+    df: DataFrame
+  ): Unit = {
+    df.printSchema()
+    df.write
+      .format("kafka")
+      .options(config.allAccessOptions())
+      .option("topic", config.topicName)
+      .save()
+  }
+}
+
+object KafkaClient {
   def consumeTopicStreaming(
     session: SparkSession,
     config: KafkaTopicConfig
-  ): DataFrame = {
+  )(implicit settings: Settings): DataFrame = {
     val reader = session.readStream.format("kafka")
     val df =
       reader
-        .options(config.allAccessOptions(settings.comet.kafka.sparkServerOptions))
+        .options(config.allAccessOptions())
         .load()
         .selectExpr(config.fields: _*)
     df
   }
 
-  def sinkToTopic(
-    config: KafkaTopicConfig,
-    df: DataFrame
-  ): Unit = {
-    val writer = df.selectExpr(config.fields: _*).write.format("kafka")
-
-    writer
-      .options(config.allAccessOptions(settings.comet.kafka.sparkServerOptions))
-      .option("topic", config.topicName)
-      .save()
-  }
 }

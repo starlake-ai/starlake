@@ -3,8 +3,10 @@ package ai.starlake.utils
 import ai.starlake.config.{Settings, SparkEnv, UdfRegistration}
 import ai.starlake.schema.model.SinkType.{BQ, FS, JDBC, KAFKA}
 import ai.starlake.schema.model.{Metadata, SinkType, Views}
+import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.utils.Formatter._
 import ai.starlake.utils.kafka.KafkaClient
+import com.hubspot.jinjava.Jinjava
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.SparkConf
 import org.apache.spark.sql._
@@ -14,6 +16,7 @@ import org.apache.spark.sql.types.IntegerType
 
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
+import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try}
 
 trait JobResult
@@ -53,7 +56,7 @@ trait JobBase extends StrictLogging with DatasetLogging {
       val sepConfigIndex = valueWithEnv.indexOf(':', sepIndex + 1)
       if (sepConfigIndex > 0) {
         (
-          SinkType.fromString(valueWithEnv.substring(0, sepIndex)),
+          SinkType.fromString(key),
           Some(valueWithEnv.substring(sepIndex + 1, sepConfigIndex)),
           valueWithEnv.substring(sepConfigIndex + 1)
         )
@@ -61,6 +64,28 @@ trait JobBase extends StrictLogging with DatasetLogging {
         (SinkType.fromString(key), None, valueWithEnv.substring(sepIndex + 1))
     } else // parquet is the default
       (SinkType.FS, None, valueWithEnv)
+  }
+  protected val jinjava = {
+    val res = new Jinjava()
+    res.setResourceLocator(new JinjaResourceHandler())
+    res
+  }
+
+  protected def parseJinja(str: String, params: Map[String, String]): String = parseJinja(
+    List(str),
+    params
+  ).head
+
+  protected def parseJinja(str: List[String], params: Map[String, String]): List[String] = {
+    val result = str.map { sql =>
+      CommentParser.stripComments(
+        jinjava
+          .render(sql, params.asJava)
+          .richFormat(params, Map.empty)
+          .trim
+      )
+    }
+    result
   }
 
 }
@@ -236,11 +261,17 @@ trait SparkJob extends JobBase {
     }
   }
 
+  /** @param views
+    * @param schemaHandler
+    * @param sqlParameters
+    * @return
+    *   CTEs expressions that need to be injected in requests
+    */
   protected def createSparkViews(
     views: Views,
-    activeEnv: Map[String, String],
+    schemaHandler: SchemaHandler,
     sqlParameters: Map[String, String]
-  ): Unit = {
+  ): List[String] = {
     // We parse the following strings
     // ex  BQ:[[ProjectID.]DATASET_ID.]TABLE_NAME"
     // or  BQ:[[ProjectID.]DATASET_ID.]TABLE_NAME.[comet_filter(col1 > 10 and col2 < 20)].[comet_select(col1, col2)]"
@@ -248,15 +279,29 @@ trait SparkJob extends JobBase {
     // or  JDBC:postgres:select *
     // or  KAFKA:topicConfigName
     // or  KAFKA:stream:topicConfigName
-    views.views.foreach { case (key, value) =>
+    views.views.flatMap { case (key, value) =>
       // Apply substitution defined with {{ }} and overload options in env by option in command line
-      val valueWithEnv = value.richFormat(activeEnv, sqlParameters)
-      val (sinkType, sinkConfig, path) = parseViewDefinition(valueWithEnv)
-      logger.info(s"Loading view $path from $sinkType")
-      val df: DataFrame = createSparkView(sinkType, sinkConfig, path)
-      df.createOrReplaceTempView(key)
-      logger.info(s"Created view $key")
-    }
+      Option(value) match {
+        case None =>
+          val viewContent = schemaHandler
+            .views(key)
+            .getOrElse(throw new Exception(s"Unknown view $key"))
+
+          val parsedContent = parseJinja(viewContent, schemaHandler.activeEnv() ++ sqlParameters)
+          Some(s"$key AS ($parsedContent)")
+
+        case Some(value) =>
+          val valueWithEnv =
+            parseJinja(value, schemaHandler.activeEnv() ++ sqlParameters)
+              .richFormat(schemaHandler.activeEnv(), sqlParameters)
+          val (sinkType, sinkConfig, path) = parseViewDefinition(valueWithEnv)
+          logger.info(s"Loading view $path from $sinkType")
+          val df: DataFrame = createSparkView(sinkType, sinkConfig, path)
+          df.createOrReplaceTempView(key)
+          logger.info(s"Created view $key")
+          None
+      }
+    }.toList
   }
 
   protected def createSparkView(
@@ -352,7 +397,7 @@ trait SparkJob extends JobBase {
     sinkConfig match {
       case Some(x) if x.toLowerCase() == "stream" =>
         Utils.withResources(new KafkaClient(settings.comet.kafka)) { kafkaClient =>
-          kafkaClient.consumeTopicStreaming(session, settings.comet.kafka.topics(path))
+          KafkaClient.consumeTopicStreaming(session, settings.comet.kafka.topics(path))
         }
       case _ =>
         Utils.withResources(new KafkaClient(settings.comet.kafka)) { kafkaClient =>

@@ -634,6 +634,30 @@ class SchemaHandlerSpec extends TestHelper {
       }
     }
 
+    "Load Business with jinja" should "should not run jinja parser" in {
+      new SpecTrait(
+        domainOrJobFilename = "locations.comet.yml",
+        sourceDomainOrJobPathname = "/sample/simple-json-locations/locations.comet.yml",
+        datasetDomainName = "locations",
+        sourceDatasetPathName = "/sample/simple-json-locations/locations.json"
+      ) {
+        import org.scalatest.TryValues._
+        cleanMetadata
+        cleanDatasets
+        val schemaHandler = new SchemaHandler(storageHandler)
+        val filename = "/sample/metadata/business/my-jinja-job.comet.yml"
+        val jobPath = new Path(getClass.getResource(filename).toURI)
+        val job = schemaHandler.loadJobFromFile(jobPath)
+        println(job)
+        job.success.value.tasks.head.sql.get.trim shouldBe """{% set myList = ["col1,", "col2"] %}
+                                                             |select
+                                                             |{%- for x in myList %}
+                                                             |{{x}}
+                                                             |{%- endfor %}
+                                                             |from dream_working.client""".stripMargin // Job renamed to filename and error is logged
+      }
+    }
+
     // TODO TOFIX
     //  "Load Business Definition" should "produce business dataset" in {
     //    val sh = new HdfsStorageHandler
@@ -665,7 +689,8 @@ class SchemaHandlerSpec extends TestHelper {
 
         val schemaHandler = new SchemaHandler(storageHandler)
 
-        val schema: Option[Schema] = schemaHandler.domains
+        val schema: Option[Schema] = schemaHandler
+          .domains()
           .find(_.name == "locations")
           .flatMap(_.tables.find(_.name == "locations"))
         val expected: String =
@@ -777,7 +802,7 @@ class SchemaHandlerSpec extends TestHelper {
         val expectedFileContent = loadTextFile("/expected/dot/output.dot")
         fileContent shouldBe expectedFileContent
 
-        val result = schemaHandler.domains.head.asDot(false, Set("segment", "client"))
+        val result = schemaHandler.domains().head.asDot(false, Set("segment", "client"))
         result.trim shouldBe """
                                |
                                |dream_segment [label=<

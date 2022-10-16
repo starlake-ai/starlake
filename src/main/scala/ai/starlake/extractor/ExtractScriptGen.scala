@@ -124,7 +124,7 @@ class ScriptGen(
         case BQ =>
           action.buildQueryBQ()
         case SPARK =>
-          action.buildQuerySpark()
+          action.buildQuerySpark(Nil)
         case _ =>
           throw new Exception("not supported") // TODO
       }
@@ -138,13 +138,13 @@ class ScriptGen(
       Map(
         "job"     -> job,
         "actions" -> actions,
-        "env"     -> schemaHandler.activeEnv
+        "env"     -> schemaHandler.activeEnv()
       )
     )
     val scriptOutputFileName = scriptOutputPattern
       .map(
         _.richFormat(
-          schemaHandler.activeEnv,
+          schemaHandler.activeEnv(),
           Map(
             "job" -> job.name
           )
@@ -213,7 +213,7 @@ class ScriptGen(
     (config.domain, config.jobs) match {
       case (Nil, Nil) =>
         logger.warn(s"No domain or jobs provided. Extracting all domains")
-        val domainNames = schemaHandler.domains.map(_.name)
+        val domainNames = schemaHandler.domains().map(_.name)
         runOnDomains(config, schemaHandler, domainNames)
       case (Nil, jobNames) =>
         runOnJobs(config, schemaHandler, jobNames)
@@ -230,7 +230,7 @@ class ScriptGen(
     schemaHandler: SchemaHandler,
     domainNames: Seq[String]
   ): Boolean = {
-    val domains: List[Domain] = schemaHandler.domains
+    val domains: List[Domain] = schemaHandler.domains()
     domainNames
       .map { domainName =>
         // Extracting the domain from the Excel referential file
@@ -243,7 +243,7 @@ class ScriptGen(
               config.scriptOutputPattern,
               config.deltaColumn.orElse(ExtractorSettings.deltaColumns.defaultColumn),
               ExtractorSettings.deltaColumns.deltaColumns,
-              schemaHandler.activeEnv
+              schemaHandler.activeEnv()
             )
             true
           case None =>
@@ -259,7 +259,7 @@ class ScriptGen(
     schemaHandler: SchemaHandler,
     jobNames: Seq[String]
   ): Boolean = {
-    val jobs = schemaHandler.jobs
+    val jobs = schemaHandler.jobs()
     jobNames
       .map { jobName =>
         // Extracting the Job

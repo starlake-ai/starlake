@@ -29,13 +29,13 @@ case class BigQueryLoadConfig(
 }
 
 object BigQueryLoadConfig extends CliConfig[BigQueryLoadConfig] {
-
+  val command = "bqload"
   val parser: OParser[Unit, BigQueryLoadConfig] = {
     val builder = OParser.builder[BigQueryLoadConfig]
     import builder._
     OParser.sequence(
-      programName("starlake bqload"),
-      head("starlake", "bqload", "[options]"),
+      programName(s"starlake $command"),
+      head("starlake", command, "[options]"),
       note(""),
       opt[String]("source_file")
         .action((x, c) => c.copy(source = Left(x)))
