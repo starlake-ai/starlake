@@ -45,22 +45,6 @@ object Dependencies {
 
   // Provided
 
-  val jackson211ForSpark2 = Seq(
-    "com.fasterxml.jackson.core" % "jackson-core" % Versions.jackson211ForSpark2 % "provided",
-    "com.fasterxml.jackson.core" % "jackson-annotations" % Versions.jackson211ForSpark2 % "provided",
-    "com.fasterxml.jackson.core" % "jackson-databind" % Versions.jackson211ForSpark2 % "provided",
-    "com.fasterxml.jackson.module" %% "jackson-module-scala" % Versions.jackson211ForSpark2 % "provided",
-    "com.fasterxml.jackson.dataformat" % "jackson-dataformat-yaml" % Versions.jackson211ForSpark2 % "provided"
-  )
-
-  val jackson211ForSpark2Hdp31 = Seq(
-    "com.fasterxml.jackson.core" % "jackson-core" % Versions.jackson212ForSpark3 % "provided",
-    "com.fasterxml.jackson.core" % "jackson-annotations" % Versions.jackson212ForSpark3 % "provided",
-    "com.fasterxml.jackson.core" % "jackson-databind" % Versions.jackson212ForSpark3 % "provided",
-    "com.fasterxml.jackson.module" %% "jackson-module-scala" % Versions.jackson212ForSpark3 % "provided",
-    "com.fasterxml.jackson.dataformat" % "jackson-dataformat-yaml" % Versions.jackson212ForSpark3 % "provided"
-  )
-
   val jackson212ForSpark3 = Seq(
     "com.fasterxml.jackson.core" % "jackson-core" % Versions.jackson212ForSpark3 % "provided",
     "com.fasterxml.jackson.core" % "jackson-annotations" % Versions.jackson212ForSpark3 % "provided",
@@ -119,11 +103,6 @@ object Dependencies {
     "com.typesafe.scala-logging" %% "scala-logging" % Versions.scalaLogging
   )
 
-  val pureConfig211 =
-    Seq(
-      "com.github.pureconfig" %% "pureconfig" % Versions.pureConfig211ForSpark2 exclude ("com.chuusai", "shapeless") // shapeless provided by Spark
-    )
-
   val pureConfig212 =
     Seq(
       "com.github.pureconfig" %% "pureconfig" % Versions.pureConfig212ForSpark3 exclude ("com.chuusai", "shapeless") // shapeless provided by Spark
@@ -143,11 +122,6 @@ object Dependencies {
     // Add the jar file to spark dependencies
     "com.google.cloud.spark" %% "spark-bigquery-with-dependencies" % Versions.sparkBigqueryWithDependencies % "provided" excludeAll (jacksonExclusions: _*),
     "com.google.cloud" % "google-cloud-datacatalog" % Versions.gcpDataCatalog excludeAll (jacksonExclusions: _*)
-  )
-
-  val esSpark211 = Seq(
-    "org.elasticsearch" %% "elasticsearch-spark-20" % Versions.esSpark211 % "provided" exclude ("com.google.guava", "guava") excludeAll ((sparkExclusions ++ jacksonExclusions): _*),
-    "com.dimafeng" %% "testcontainers-scala-elasticsearch" % Versions.testContainers % Test excludeAll (jnaExclusions: _*)
   )
 
   val esSpark212 = Seq(
@@ -174,7 +148,7 @@ object Dependencies {
   )
 
   val scalate = Seq(
-    "org.scalatra.scalate" %% "scalate-core" % Versions.scalate
+    "org.scalatra.scalate" %% "scalate-core" % Versions.scalate exclude ("org.scala-lang.modules", "scala-xml_2.12")
   )
 
   val kafkaClients = Seq(
@@ -193,18 +167,11 @@ object Dependencies {
     "net.java.dev.jna" % "jna" % "5.12.1"
   )
 
-  val silencer = Seq(
-    compilerPlugin(
-      "com.github.ghik" % "silencer-plugin" % Versions.silencer cross CrossVersion.full
-    ),
-    "com.github.ghik" % "silencer-lib" % Versions.silencer % Provided cross CrossVersion.full
-  )
-
   val jinja = Seq(
     "com.hubspot.jinjava" % "jinjava" % Versions.jinja excludeAll (jacksonExclusions: _*) exclude ("com.google.guava", "guava") exclude ("org.apache.commons", "commons-lang3")
   )
 
   val dependencies =
-    silencer ++ jna_apple_arm_testcontainers ++ scalate ++ logging ++ betterfiles ++ scalaTest ++ scopt ++ hadoop ++
+    jna_apple_arm_testcontainers ++ scalate ++ logging ++ betterfiles ++ scalaTest ++ scopt ++ hadoop ++
     gcp ++ azure ++ h2 ++ excelClientApi ++ kafkaClients ++ graphviz ++ jinja // ++ atlas
 }
