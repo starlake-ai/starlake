@@ -29,14 +29,14 @@ import com.databricks.spark.xml.util.XSDToSchema
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.node.{ArrayNode, ObjectNode}
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
-import com.fasterxml.jackson.module.scala.experimental.ScalaObjectMapper
-import com.github.ghik.silencer.silent
+import com.fasterxml.jackson.module.scala.ScalaObjectMapper
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
 
 import java.time.format.DateTimeFormatter
 import java.time.{LocalDateTime, ZoneId}
 import java.util.regex.Pattern
+import scala.annotation.nowarn
 import scala.collection.mutable
 import scala.util.{Failure, Success, Try}
 
@@ -48,7 +48,7 @@ import scala.util.{Failure, Success, Try}
 class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extends StrictLogging {
 
   // uses Jackson YAML for parsing, relies on SnakeYAML for low level handling
-  @silent val mapper: ObjectMapper with ScalaObjectMapper =
+  @nowarn val mapper: ObjectMapper with ScalaObjectMapper =
     new CometObjectMapper(new YAMLFactory(), injectables = (classOf[Settings], settings) :: Nil)
 
   @throws[Exception]
