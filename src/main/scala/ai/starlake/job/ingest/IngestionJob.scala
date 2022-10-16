@@ -19,7 +19,6 @@ import ai.starlake.utils._
 import ai.starlake.utils.conversion.BigQueryUtils
 import ai.starlake.utils.kafka.KafkaClient
 import ai.starlake.utils.repackaged.BigQuerySchemaConverters
-import com.github.ghik.silencer.silent
 import com.google.cloud.bigquery.JobInfo.{CreateDisposition, WriteDisposition}
 import com.google.cloud.bigquery.{
   Field,
@@ -36,6 +35,7 @@ import org.apache.spark.sql.types.{Metadata => _, _}
 
 import java.sql.Timestamp
 import java.time.{Instant, LocalDateTime}
+import scala.annotation.nowarn
 import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try}
 
@@ -103,7 +103,7 @@ trait IngestionJob extends SparkJob {
     datasetHeaders.partition(schemaHeaders.contains)
   }
 
-  @silent
+  @nowarn
   protected def applyIgnore(dfIn: DataFrame): Dataset[Row] = {
     import session.implicits._
     metadata.ignore.map { ignore =>
