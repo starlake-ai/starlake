@@ -8,7 +8,7 @@ import xerial.sbt.Sonatype._
 
 ThisBuild / sonatypeCredentialHost := "s01.oss.sonatype.org"
 
-lazy val scala212 = "2.12.16"
+lazy val scala212 = "2.12.17"
 
 ThisBuild / crossScalaVersions := List(scala212)
 
