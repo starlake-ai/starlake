@@ -8,13 +8,14 @@ case class ImportConfig(
 )
 
 object ImportConfig extends CliConfig[ImportConfig] {
+  val command = "import"
 
   val parser: OParser[Unit, ImportConfig] = {
     val builder = OParser.builder[ImportConfig]
     import builder._
     OParser.sequence(
-      programName("starlake import"),
-      head("starlake", "import"),
+      programName(s"starlake $command"),
+      head("starlake", command, "[options]"),
       note("""
           |Move the files from the landing area to the pending area.
           |

@@ -30,7 +30,7 @@ class Yml2GraphViz(schemaHandler: SchemaHandler) extends LazyLogging {
                      |""".stripMargin
 
   private def relatedTables(): List[String] = {
-    schemaHandler.domains.flatMap(_.relatedTables())
+    schemaHandler.domains().flatMap(_.relatedTables())
   }
 
   def run(args: Array[String]): Unit = {
@@ -51,7 +51,7 @@ class Yml2GraphViz(schemaHandler: SchemaHandler) extends LazyLogging {
   }
 
   private def usersAsDot(): String = {
-    val aclTables = schemaHandler.domains.map(d => d.getFinalName() -> d.aclTables().toSet).toMap
+    val aclTables = schemaHandler.domains().map(d => d.getFinalName() -> d.aclTables().toSet).toMap
     val aclGrants = aclTables.values.flatten
       .flatMap(_.acl.getOrElse(Nil))
       .flatMap(_.grants)
@@ -59,7 +59,8 @@ class Yml2GraphViz(schemaHandler: SchemaHandler) extends LazyLogging {
       .toSet
 
     val rlsTables =
-      schemaHandler.domains
+      schemaHandler
+        .domains()
         .map(d => d.getFinalName() -> d.rlsTables())
         .filter { case (domainName, rls) => rls.nonEmpty }
         .toMap
@@ -111,7 +112,8 @@ class Yml2GraphViz(schemaHandler: SchemaHandler) extends LazyLogging {
 
   private def tablesAsDot(): String = {
     val rlsTables =
-      schemaHandler.domains
+      schemaHandler
+        .domains()
         .map(d => d.getFinalName() -> d.rlsTables())
         .filter { case (domainName, rls) => rls.nonEmpty }
         .toMap
@@ -120,7 +122,8 @@ class Yml2GraphViz(schemaHandler: SchemaHandler) extends LazyLogging {
       domain -> rlsMap.keySet
     }
 
-    val aclTableNames = schemaHandler.domains
+    val aclTableNames = schemaHandler
+      .domains()
       .map(d => d.getFinalName() -> d.aclTables().toSet[Schema].map(x => x.getFinalName()))
       .toMap
 
@@ -155,7 +158,7 @@ class Yml2GraphViz(schemaHandler: SchemaHandler) extends LazyLogging {
   }
 
   private def aclRelationsAsDot(): String = {
-    val aclTables = schemaHandler.domains.map(d => d.getFinalName() -> d.aclTables().toSet).toMap
+    val aclTables = schemaHandler.domains().map(d => d.getFinalName() -> d.aclTables().toSet).toMap
     val aclRelations = aclTables.toList.flatMap { case (domainName, schemas) =>
       schemas.flatMap { schema =>
         val acls = schema.acl.getOrElse(Nil)
@@ -191,7 +194,8 @@ class Yml2GraphViz(schemaHandler: SchemaHandler) extends LazyLogging {
 
   private def rlsRelationsAsDot(): String = {
     val rlsTables =
-      schemaHandler.domains
+      schemaHandler
+        .domains()
         .map(d => d.getFinalName() -> d.rlsTables())
         .filter { case (domainName, rls) => rls.nonEmpty }
         .toMap
@@ -239,9 +243,10 @@ class Yml2GraphViz(schemaHandler: SchemaHandler) extends LazyLogging {
   }
 
   private def asDotRelations(config: Yml2GraphVizConfig): Unit = {
+    schemaHandler.domains(config.reload)
     val fkTables = relatedTables().map(_.toLowerCase).toSet
     val dots =
-      schemaHandler.domains.map(_.asDot(config.includeAllAttributes.getOrElse(true), fkTables))
+      schemaHandler.domains().map(_.asDot(config.includeAllAttributes.getOrElse(true), fkTables))
     val result = prefix + dots.mkString("\n") + suffix
     config.output match {
       case None => println(result)

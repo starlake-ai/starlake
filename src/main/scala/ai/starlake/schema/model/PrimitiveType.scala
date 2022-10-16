@@ -92,7 +92,7 @@ object PrimitiveType {
   object long extends PrimitiveType("long") {
 
     def fromString(str: String, pattern: String, zone: String): Any =
-      if (str == null || str.isEmpty) null else str.toLong
+      if (str == null || str.isEmpty) null else str.trim.toLong
 
     def sparkType(zone: Option[String]): DataType = LongType
   }
@@ -100,7 +100,7 @@ object PrimitiveType {
   object int extends PrimitiveType("int") {
 
     def fromString(str: String, pattern: String, zone: String): Any =
-      if (str == null || str.isEmpty) null else str.toInt
+      if (str == null || str.isEmpty) null else str.trim.toInt
 
     def sparkType(zone: Option[String]): DataType = IntegerType
   }
@@ -108,7 +108,7 @@ object PrimitiveType {
   object short extends PrimitiveType("short") {
 
     def fromString(str: String, pattern: String, zone: String): Any =
-      if (str == null || str.isEmpty) null else str.toShort
+      if (str == null || str.isEmpty) null else str.trim.toShort
 
     def sparkType(zone: Option[String]): DataType = ShortType
   }
@@ -119,7 +119,7 @@ object PrimitiveType {
       if (str == null || str.isEmpty)
         null
       else if (zone == null)
-        str.toDouble
+        str.trim.toDouble
       else {
         val locale = zone.split('_')
         val currentLocale: Locale = new Locale(locale(0), locale(1))
@@ -127,7 +127,7 @@ object PrimitiveType {
           NumberFormat.getNumberInstance(currentLocale).asInstanceOf[DecimalFormat]
         if (str.head == '+')
           numberFormatter.setPositivePrefix("+")
-        numberFormatter.parse(str).doubleValue()
+        numberFormatter.parse(str.trim).doubleValue()
       }
     }
 
@@ -138,7 +138,7 @@ object PrimitiveType {
     val defaultDecimalType = DataTypes.createDecimalType(38, 9)
     var decimals: mutable.Map[String, DecimalType] = mutable.Map.empty
     def fromString(str: String, pattern: String, zone: String): Any =
-      if (str == null || str.isEmpty) null else BigDecimal(str)
+      if (str == null || str.isEmpty) null else BigDecimal(str.trim)
 
     override def sparkType(zone: Option[String]): DataType = {
       zone match {
@@ -179,9 +179,9 @@ object PrimitiveType {
     def fromString(str: String, pattern: String, zone: String): Any = {
       if (pattern.indexOf("<-TF->") >= 0) {
         val tf = pattern.split("<-TF->")
-        if (Pattern.compile(tf(0), Pattern.MULTILINE).matcher(str).matches())
+        if (Pattern.compile(tf(0), Pattern.MULTILINE).matcher(str.trim).matches())
           true
-        else if (Pattern.compile(tf(1), Pattern.MULTILINE).matcher(str).matches())
+        else if (Pattern.compile(tf(1), Pattern.MULTILINE).matcher(str.trim).matches())
           false
         else
           throw new Exception(s"value $str does not match $pattern")
@@ -218,7 +218,7 @@ object PrimitiveType {
         )
       val df = new SimpleDateFormat(pattern)
       df.setTimeZone(TimeZone.getTimeZone("UTC"))
-      val date = df.parse(str)
+      val date = df.parse(str.trim)
       Instant.ofEpochMilli(date.getTime)
     }
 
@@ -317,11 +317,11 @@ object PrimitiveType {
               .withLocale(currentLocale)
         }
         Try {
-          val date = LocalDate.parse(str, formatter)
+          val date = LocalDate.parse(str.trim, formatter)
           java.sql.Date.valueOf(date)
         } match {
           case Success(value) => value
-          case Failure(_)     => java.sql.Date.valueOf(YearMonth.parse(str, formatter).atDay(1))
+          case Failure(_) => java.sql.Date.valueOf(YearMonth.parse(str.trim, formatter).atDay(1))
         }
       }
     }
@@ -334,7 +334,7 @@ object PrimitiveType {
       if (str == null || str.isEmpty)
         null
       else {
-        val instant = instantFromString(str, timeFormat, zone)
+        val instant = instantFromString(str.trim, timeFormat, zone)
         Timestamp.from(instant)
       }
     }

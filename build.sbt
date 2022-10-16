@@ -4,15 +4,13 @@ import sbtrelease.Version.Bump.Next
 import xerial.sbt.Sonatype._
 
 // require Java 8 for Spark 2 support
-javacOptions ++= Seq("-source", "1.8", "-target", "1.8", "-Xlint")
+// javacOptions ++= Seq("-source", "1.8", "-target", "1.8", "-Xlint")
 
 ThisBuild / sonatypeCredentialHost := "s01.oss.sonatype.org"
 
-lazy val scala211 = "2.11.12"
-
 lazy val scala212 = "2.12.16"
 
-ThisBuild / crossScalaVersions := List(scala211, scala212)
+ThisBuild / crossScalaVersions := List(scala212)
 
 organization := "ai.starlake"
 
@@ -160,8 +158,6 @@ publishTo := {
     sys.env.getOrElse("RELEASE_SONATYPE", "true").toBoolean
   ) match {
     case (None, false) =>
-      // githubPublishTo.value
-      // we do not publish on github anymore
       sonatypePublishToBundle.value
     case (None, true) => sonatypePublishToBundle.value
     case (Some(value), _) =>
@@ -221,16 +217,6 @@ releaseProcess := Seq(
 releaseCommitMessage := s"Release ${ReleasePlugin.runtimeVersion.value}"
 
 releaseVersionBump := Next
-
-// publish to github packages
-// we do not publish on github anymore
-//githubOwner := "starlake-ai"
-
-// we do not publish on github anymore
-// githubRepository := "starlake"
-
-// we do not publish on github anymore
-// githubTokenSource := TokenSource.Environment("GITHUB_TOKEN")
 
 developers := List(
   Developer(

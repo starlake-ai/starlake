@@ -65,16 +65,17 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
           Some(false),
           views = Some(Map("user_View" -> "accepted/user"))
         )
-      val schemaHandler = new SchemaHandler(metadataStorageHandler)
 
       val businessJobDef = mapper
         .writer()
         .withAttribute(classOf[Settings], settings)
         .writeValueAsString(businessJob)
+      storageHandler.write(businessJobDef, pathBusiness)
+
+      val schemaHandler = new SchemaHandler(metadataStorageHandler)
 
       val workflow =
         new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
-      storageHandler.write(businessJobDef, pathBusiness)
 
       workflow.autoJob(TransformConfig("user", Map("view" -> "user_View", "age" -> "40")))
 
@@ -115,16 +116,17 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
           Some(false),
           views = Some(Map("user_View" -> "accepted/user"))
         )
-      val schemaHandler = new SchemaHandler(storageHandler)
 
       val businessJobDef = mapper
         .writer()
         .withAttribute(classOf[Settings], settings)
         .writeValueAsString(businessJob)
+      storageHandler.write(businessJobDef, pathBusiness)
+
+      val schemaHandler = new SchemaHandler(storageHandler)
 
       val workflow =
         new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
-      storageHandler.write(businessJobDef, pathBusiness)
 
       workflow.autoJob(
         TransformConfig("user", Map("age" -> "25", "lastname" -> "'Doe'", "firstname" -> "'John'"))
@@ -162,16 +164,17 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
           Some(false),
           views = Some(Map("user_View" -> "accepted/user"))
         )
-      val schemaHandler = new SchemaHandler(storageHandler)
 
       val businessJobDef = mapper
         .writer()
         .withAttribute(classOf[Settings], settings)
         .writeValueAsString(businessJob)
+      storageHandler.write(businessJobDef, pathBusiness)
+
+      val schemaHandler = new SchemaHandler(storageHandler)
 
       val workflow =
         new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
-      storageHandler.write(businessJobDef, pathBusiness)
 
       workflow.autoJob(TransformConfig("user"))
 
@@ -207,7 +210,6 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
           udf = Some("ai.starlake.udf.TestUdf"),
           views = Some(Map("user_View" -> "accepted/user"))
         )
-      val schemaHandler = new SchemaHandler(storageHandler)
 
       val businessJobDef = mapper
         .writer()
@@ -215,6 +217,8 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         .writeValueAsString(businessJob)
 
       storageHandler.write(businessJobDef, pathBusiness)
+
+      val schemaHandler = new SchemaHandler(storageHandler)
 
       val workflow =
         new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
@@ -259,16 +263,16 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
           Some(false),
           views = Some(Map("graduate_View" -> "accepted/graduateProgram"))
         )
-      val schemaHandler = new SchemaHandler(storageHandler)
 
       val businessJobDef = mapper
         .writer()
         .withAttribute(classOf[Settings], settings)
         .writeValueAsString(businessJob)
+      storageHandler.write(businessJobDef, pathGraduateProgramBusiness)
 
+      val schemaHandler = new SchemaHandler(storageHandler)
       val workflow =
         new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
-      storageHandler.write(businessJobDef, pathGraduateProgramBusiness)
 
       workflow.autoJob(TransformConfig("graduateProgram", Map("school" -> "'UC_Berkeley'")))
 

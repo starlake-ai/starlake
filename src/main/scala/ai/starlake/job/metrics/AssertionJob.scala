@@ -79,10 +79,14 @@ class AssertionJob(
         .get(assertion.name)
         .map { ad =>
           logger.info(s"Applying substitution ${ad.name} -> ${ad.sql}")
-          val paramsMap = schemaHandler.activeEnv ++ ad.params.zip(assertion.paramValues).toMap
+          val paramsMap = schemaHandler.activeEnv() ++ ad.params.zip(assertion.paramValues).toMap
           // Apply substitution defined with {{ }} and overload options in env by option in command line
           Utils
-            .subst(ad.sql.richFormat(schemaHandler.activeEnv, paramsMap), paramsMap)
+            .subst(
+              parseJinja(ad.sql, schemaHandler.activeEnv() ++ paramsMap)
+                .richFormat(schemaHandler.activeEnv(), paramsMap),
+              paramsMap
+            )
         }
         .getOrElse(assertion.sql)
       logger.info(s"Applying assertion ${assertion.name} with request $sql")

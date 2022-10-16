@@ -24,13 +24,26 @@ class KafkaJob(
   DatasetArea.initMetadata(metadataStorageHandler)
   val schemaHandler = new SchemaHandler(metadataStorageHandler)
 
-  private val topicConfig: Settings.KafkaTopicConfig =
-    settings.comet.kafka.topics(kafkaJobConfig.topicConfigName)
+  private val topicConfig: Option[Settings.KafkaTopicConfig] =
+    kafkaJobConfig.topicConfigName.map(settings.comet.kafka.topics)
 
-  private val finalPath = kafkaJobConfig.path.richFormat(
-    schemaHandler.activeEnv,
-    Map("config" -> kafkaJobConfig.topicConfigName, "topic" -> topicConfig.topicName)
-  )
+  private val writeTopicConfig: Option[Settings.KafkaTopicConfig] =
+    kafkaJobConfig.writeTopicConfigName.map(settings.comet.kafka.topics)
+
+  private val finalWritePath: Option[JdbcConfigName] = formatPath(kafkaJobConfig.writePath)
+
+  private val finalLoadPath: Option[JdbcConfigName] = formatPath(kafkaJobConfig.path)
+
+  private def formatPath(path: Option[String]): Option[String] = path
+    .map(
+      _.richFormat(
+        schemaHandler.activeEnv(),
+        Map(
+          "config" -> kafkaJobConfig.topicConfigName.getOrElse(""),
+          "topic"  -> topicConfig.map(_.topicName).getOrElse("")
+        )
+      )
+    )
 
   val schemaRegistryUrl: Option[JdbcConfigName] =
     settings.comet.kafka.serverOptions.get("schema.registry.url")
@@ -55,21 +68,24 @@ class KafkaJob(
     SchemaConverters.toSqlType(parser.parse(avroSchema))
   }
 
-  private val dfValueSchema: Option[SchemaConverters.SchemaType] = {
-    val rawSchema = lookupTopicSchema(topicConfig.topicName)
-    rawSchema.map(rawSchema => avroSchemaToSparkSchema(rawSchema))
-  }
-
   private val writeOptions = kafkaJobConfig.writeOptions.get("config") match {
+    case Some(configValue) if kafkaJobConfig.writeFormat == "kafka" =>
+      settings.comet.kafka
+        .topics(configValue)
+        .allAccessOptions() ++ (kafkaJobConfig.writeOptions - "config")
     case Some(configValue) =>
-      loadOptionsFromConfig(configValue)
+      loadOptionsFromConfig(configValue) ++ (kafkaJobConfig.writeOptions - "config")
     case None =>
       kafkaJobConfig.writeOptions
   }
 
   private val options = kafkaJobConfig.options.get("config") match {
+    case Some(configValue) if kafkaJobConfig.format == "kafka" =>
+      settings.comet.kafka
+        .topics(configValue)
+        .allAccessOptions() ++ (kafkaJobConfig.options - "config")
     case Some(configValue) =>
-      loadOptionsFromConfig(configValue)
+      loadOptionsFromConfig(configValue) ++ (kafkaJobConfig.options - "config")
     case None =>
       kafkaJobConfig.options
   }
@@ -84,87 +100,103 @@ class KafkaJob(
       .toMap
   }
 
-  def offload(): Try[SparkJobResult] = {
+  def pipeline(): Try[SparkJobResult] = {
     Try {
-      if (!kafkaJobConfig.streaming) {
-        Utils.withResources(new KafkaClient(settings.comet.kafka)) { kafkaClient =>
-          val (df, offsets) = kafkaClient
-            .consumeTopicBatch(
-              kafkaJobConfig.topicConfigName,
+      topicConfig match {
+        case Some(topicConfig) =>
+          if (kafkaJobConfig.streaming) {
+            val df = KafkaClient.consumeTopicStreaming(
               session,
               topicConfig
             )
-
-          val transformedDF: DataFrame = batchSave(df)
-
-          kafkaClient.topicSaveOffsets(
-            kafkaJobConfig.topicConfigName,
-            topicConfig.allAccessOptions(settings.comet.kafka.sparkServerOptions),
-            offsets
-          )
-          SparkJobResult(Some(transformedDF))
-        }
-      } else {
-        Utils.withResources(new KafkaClient(settings.comet.kafka)) { kafkaClient =>
-          val df = kafkaClient
-            .consumeTopicStreaming(
-              session,
-              topicConfig
-            )
-          streamToKafka(df)
-          SparkJobResult(None)
-        }
-      }
-    }
-  }
-
-  def load(): Try[SparkJobResult] = {
-    Try {
-      Utils.withResources(new KafkaClient(settings.comet.kafka)) { kafkaClient =>
-        // DataSource.lookupDataSource(kafkaJobConfig.format, session.sessionState.conf)
-
-        kafkaJobConfig.streaming match {
-          case true =>
-            val df = session.readStream
-              .format(kafkaJobConfig.format)
-              .options(options)
-              .load()
-              .selectExpr(topicConfig.fields: _*)
-            streamToKafka(df)
+            val transformedDF = transform(df)
+            writeStreaming(transformedDF)
             SparkJobResult(None)
-          case false =>
-            val df = session.read.format(kafkaJobConfig.format).load(finalPath.split(','): _*)
-            val transformedDF = DataFrameTransform.transform(transformInstance, df, session)
+          } else {
+            Utils.withResources(new KafkaClient(settings.comet.kafka)) { kafkaClient =>
+              val (df, offsets) = kafkaClient
+                .consumeTopicBatch(
+                  kafkaJobConfig.topicConfigName.getOrElse(""),
+                  session,
+                  topicConfig
+                )
+              val transformedDF = transform(df)
 
-            kafkaClient.sinkToTopic(
-              topicConfig,
-              transformedDF
-            )
+              val savedDF: DataFrame = batchSave(transformedDF)
+
+              kafkaClient.topicSaveOffsets(
+                kafkaJobConfig.topicConfigName.getOrElse(""),
+                topicConfig.allAccessOptions(),
+                offsets
+              )
+              SparkJobResult(Some(savedDF))
+            }
+          }
+        case None =>
+          if (kafkaJobConfig.streaming) {
+            assert(kafkaJobConfig.format != "kafka")
+            val df = session.readStream.format(kafkaJobConfig.format).options(options).load()
+            val transformedDF = transform(df)
+            writeStreaming(transformedDF)
+            SparkJobResult(None)
+          } else {
+            assert(kafkaJobConfig.path.isDefined)
+            val df = session.read
+              .format(kafkaJobConfig.format)
+              .load(
+                finalLoadPath
+                  .getOrElse(throw new Exception("Load path should be set in config"))
+                  .split(','): _*
+              )
+            val transformedDF: DataFrame = transform(df)
+            (kafkaJobConfig.writeFormat, writeTopicConfig) match {
+              case ("kafka", Some(writeTopicConfig)) =>
+                Utils.withResources(new KafkaClient(settings.comet.kafka)) { kafkaClient =>
+                  kafkaClient.sinkToTopic(
+                    writeTopicConfig,
+                    transformedDF
+                  )
+                }
+              case _ =>
+                batchSave(transformedDF)
+            }
             SparkJobResult(Some(transformedDF))
-        }
+          }
       }
     }
   }
 
   private def batchSave(df: DataFrame) = {
-    val transformedDF = DataFrameTransform.transform(transformInstance, df, session)
     val finalDF =
       kafkaJobConfig.coalesce match {
-        case None    => transformedDF
-        case Some(x) => transformedDF.repartition(x)
+        case None    => df
+        case Some(x) => df.repartition(x)
       }
 
     logger.info(s"Saving to $kafkaJobConfig")
-    finalDF.write
-      .mode(kafkaJobConfig.mode)
-      .format(kafkaJobConfig.format)
-      .options(writeOptions)
-      .save(finalPath)
-    logger.info(s"Kafka saved messages to offload -> ${finalPath}")
+    val kafkaOptions =
+      if (kafkaJobConfig.writeFormat == "kafka")
+        writeTopicConfig.map(_.allAccessOptions()).getOrElse(Map.empty)
+      else
+        Map.empty[JdbcConfigName, JdbcConfigName]
 
-    kafkaJobConfig.coalesce match {
-      case Some(1) =>
-        val targetPath = new Path(finalPath)
+    val dfWriter = finalDF.write
+      .mode(kafkaJobConfig.writeMode)
+      .format(kafkaJobConfig.writeFormat)
+      .options(kafkaOptions ++ writeOptions)
+
+    finalWritePath match {
+      case None =>
+        dfWriter.save()
+      case Some(path) =>
+        dfWriter.save(path)
+    }
+
+    logger.info(s"Kafka saved messages to offload -> ${finalWritePath}")
+
+    (kafkaJobConfig.coalesce, finalWritePath) match {
+      case (Some(1), Some(path)) =>
+        val targetPath = new Path(path)
         val singleFile = settings.storageHandler
           .list(
             targetPath,
@@ -177,18 +209,41 @@ class KafkaJob(
           settings.storageHandler.delete(targetPath)
           settings.storageHandler.move(tmpPath, targetPath)
         }
-      case _ =>
+      case (None, _) =>
+      case (_, _) =>
+        throw new Exception("Only coalesce(1) supported. Anything else is ignored")
     }
+    df
+  }
+
+  private def transform(df: DataFrame) = {
+    val transformedDF = DataFrameTransform.transform(transformInstance, df, session)
     transformedDF
   }
 
-  private def streamToKafka(df: DataFrame) = {
-    val transformedDF = DataFrameTransform.transform(transformInstance, df, session)
+  private def writeStreaming(df: DataFrame) = {
 
-    val writer = transformedDF.writeStream
-      .outputMode(kafkaJobConfig.streamingWriteMode)
-      .format(kafkaJobConfig.streamingWriteFormat)
-      .options(writeOptions)
+    val writer = {
+      (kafkaJobConfig.writeFormat, writeTopicConfig) match {
+        case ("kafka", Some(writeTopicConfig)) =>
+          df.writeStream
+            .outputMode(kafkaJobConfig.writeMode)
+            .options(writeTopicConfig.allAccessOptions())
+            .option("topic", writeTopicConfig.topicName)
+            .format(kafkaJobConfig.writeFormat)
+            .options(writeOptions)
+        case (_, None) =>
+          // ("kafka", None) is accepted because we can set the topic & brokers config in the writeOptions
+          df.writeStream
+            .outputMode(kafkaJobConfig.writeMode)
+            .format(kafkaJobConfig.writeFormat)
+            .options(writeOptions)
+        case (_, Some(_)) =>
+          throw new Exception(
+            "Cannot load to destination not kafka  with topic config name"
+          )
+      }
+    }
 
     val trigger = kafkaJobConfig.streamingTrigger.map(_.toLowerCase).map {
       case "once"           => Trigger.Once()
@@ -208,11 +263,15 @@ class KafkaJob(
         triggerWriter.partitionBy(list: _*)
     }
     val streamingQuery =
-      if (kafkaJobConfig.streamingWriteToTable) // partitionedWriter.toTable(kafkaJobConfig.path)
-        throw new Exception("streamingWriteToTable Not Supported")
-      else
-        partitionedWriter
-          .start(finalPath)
+      (finalWritePath, kafkaJobConfig.streamingWriteToTable) match {
+        case (_, true) =>
+          throw new Exception("streamingWriteToTable Not Supported")
+        case (Some(path), false) =>
+          partitionedWriter
+            .start(path)
+        case (None, false) =>
+          partitionedWriter.start()
+      }
 
     streamingQuery
       .awaitTermination()
@@ -226,21 +285,23 @@ class KafkaJob(
   override def run(): Try[JobResult] = {
     val customDeserializers = settings.comet.kafka.customDeserializers.getOrElse(Map.empty)
     customDeserializers.foreach { case (customDeserializerName, customDeserializerFunction) =>
+      val topicName = topicConfig
+        .map(_.topicName)
+        .getOrElse(
+          writeTopicConfig
+            .map(_.topicName)
+            .getOrElse(throw new Exception("Cannot register de/serializers if topic not defined"))
+        )
       val userDefinedDeserializer =
         CustomDeserializer.configure(customDeserializerFunction, settings.comet.kafka.serverOptions)
 
       session.udf.register(
         customDeserializerName,
         (bytes: Array[Byte]) =>
-          CustomDeserializer.deserialize(userDefinedDeserializer, topicConfig.topicName, bytes)
+          CustomDeserializer.deserialize(userDefinedDeserializer, topicName, bytes)
       )
     }
-
-    if (kafkaJobConfig.offload) {
-      offload()
-    } else {
-      load()
-    }
+    pipeline()
   }
   override def name: String = s"${kafkaJobConfig.topicConfigName}"
 }

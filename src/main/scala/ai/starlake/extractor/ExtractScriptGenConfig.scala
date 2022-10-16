@@ -14,7 +14,7 @@ case class ExtractScriptGenConfig(
 )
 
 object ExtractScriptGenConfig extends CliConfig[ExtractScriptGenConfig] {
-
+  val command = "extract"
   def exists(name: String)(path: String): Either[String, Unit] =
     if (File(path).exists) Right(())
     else Left(s"$name at path $path does not exist")
@@ -23,8 +23,8 @@ object ExtractScriptGenConfig extends CliConfig[ExtractScriptGenConfig] {
     val builder = OParser.builder[ExtractScriptGenConfig]
     import builder._
     OParser.sequence(
-      programName("starlake extract"),
-      head("starlake", "extract", "[options]"),
+      programName(s"starlake $command"),
+      head("starlake", command, "[options]"),
       note(
         """
           |For domain extraction, the schemas should at least, specify :
@@ -57,7 +57,7 @@ object ExtractScriptGenConfig extends CliConfig[ExtractScriptGenConfig] {
           | full_export -> if the export is a full or delta export (the logic is to be implemented in your script)
           |""".stripMargin
       ),
-      cmd("script-gen"),
+      cmd("extract"),
       opt[Seq[String]]("domain")
         .action((x, c) => c.copy(domain = x))
         .valueName("domain1,domain2 ...")

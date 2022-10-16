@@ -75,7 +75,7 @@ class IngestionWorkflow(
 )(implicit settings: Settings)
     extends StrictLogging {
 
-  val domains: List[Domain] = schemaHandler.domains
+  val domains: List[Domain] = schemaHandler.domains()
 
   /** Move the files from the landing area to the pending area. files are loaded one domain at a
     * time each domain has its own directory and is specified in the "directory" key of Domain YML
@@ -428,13 +428,13 @@ class IngestionWorkflow(
     )
 
     val ingestionResult = Try {
-      val optionsAndEnvVars = schemaHandler.activeEnv ++ options
+      val optionsAndEnvVars = schemaHandler.activeEnv() ++ options
       metadata.getFormat() match {
         case Format.PARQUET =>
           new ParquetIngestionJob(
             domain,
             schema,
-            schemaHandler.types,
+            schemaHandler.types(),
             ingestingPath,
             storageHandler,
             schemaHandler,
@@ -444,7 +444,7 @@ class IngestionWorkflow(
           new GenericIngestionJob(
             domain,
             schema,
-            schemaHandler.types,
+            schemaHandler.types(),
             ingestingPath,
             storageHandler,
             schemaHandler,
@@ -454,7 +454,7 @@ class IngestionWorkflow(
           new DsvIngestionJob(
             domain,
             schema,
-            schemaHandler.types,
+            schemaHandler.types(),
             ingestingPath,
             storageHandler,
             schemaHandler,
@@ -464,7 +464,7 @@ class IngestionWorkflow(
           new SimpleJsonIngestionJob(
             domain,
             schema,
-            schemaHandler.types,
+            schemaHandler.types(),
             ingestingPath,
             storageHandler,
             schemaHandler,
@@ -474,7 +474,7 @@ class IngestionWorkflow(
           new JsonIngestionJob(
             domain,
             schema,
-            schemaHandler.types,
+            schemaHandler.types(),
             ingestingPath,
             storageHandler,
             schemaHandler,
@@ -484,7 +484,7 @@ class IngestionWorkflow(
           new XmlIngestionJob(
             domain,
             schema,
-            schemaHandler.types,
+            schemaHandler.types(),
             ingestingPath,
             storageHandler,
             schemaHandler,
@@ -494,7 +494,7 @@ class IngestionWorkflow(
           new XmlSimplePrivacyJob(
             domain,
             schema,
-            schemaHandler.types,
+            schemaHandler.types(),
             ingestingPath,
             storageHandler,
             schemaHandler,
@@ -504,7 +504,7 @@ class IngestionWorkflow(
           new PositionIngestionJob(
             domain,
             schema,
-            schemaHandler.types,
+            schemaHandler.types(),
             ingestingPath,
             storageHandler,
             schemaHandler,
@@ -514,7 +514,7 @@ class IngestionWorkflow(
           new KafkaIngestionJob(
             domain,
             schema,
-            schemaHandler.types,
+            schemaHandler.types(),
             ingestingPath,
             storageHandler,
             schemaHandler,
@@ -525,7 +525,7 @@ class IngestionWorkflow(
           new KafkaIngestionJob(
             domain,
             schema,
-            schemaHandler.types,
+            schemaHandler.types(),
             ingestingPath,
             storageHandler,
             schemaHandler,
@@ -598,7 +598,7 @@ class IngestionWorkflow(
     configOptions: Map[String, String],
     interactive: Option[String]
   ): Seq[AutoTaskJob] = {
-    val job = schemaHandler.jobs(jobName)
+    val job = schemaHandler.jobs()(jobName)
     logger.info(job.toString)
     job.tasks.map { task =>
       AutoTaskJob(
@@ -618,7 +618,7 @@ class IngestionWorkflow(
   }
 
   def compileAutoJob(config: TransformConfig): Seq[String] = {
-    val job = schemaHandler.jobs(config.name)
+    val job = schemaHandler.jobs(config.reload)
     logger.info(job.toString)
     val result = buildTasks(config.name, config.options, config.interactive).map { action =>
       val engine = action.engine
@@ -628,7 +628,7 @@ class IngestionWorkflow(
           val (preSQL, mainSQL, postSQL) = action.buildQueryBQ()
           mainSQL
         case SPARK =>
-          val (preSql, mainSQL, postSql) = action.buildQuerySpark()
+          val (preSql, mainSQL, postSql) = action.buildQuerySpark(Nil)
           mainSQL
         case _ =>
           logger.error("Should never happen")
@@ -636,6 +636,8 @@ class IngestionWorkflow(
       }
     }
     result.foreach { sql =>
+      val output = settings.comet.rootServe.map(rootServe => File(File(rootServe), "compile.log"))
+      output.foreach(_.overwrite(s"""START COMPILE SQL $sql END COMPILE SQL"""))
       logger.info(s"""START COMPILE SQL $sql END COMPILE SQL""")
     }
     result
@@ -648,7 +650,7 @@ class IngestionWorkflow(
     */
   // scalastyle:off println
   def autoJob(config: TransformConfig): Boolean = {
-    val job = schemaHandler.jobs(config.name)
+    val job = schemaHandler.jobs(config.reload)(config.name)
     logger.info(job.toString)
     val result: Seq[Boolean] = buildTasks(config.name, config.options, config.interactive).map {
       action =>
@@ -674,21 +676,29 @@ class IngestionWorkflow(
                 result.map { result =>
                   val bqJobResult = result.asInstanceOf[BigQueryJobResult]
                   logger.info("START INTERACTIVE SQL")
-                  bqJobResult.show(format)
+                  bqJobResult.show(format, settings.comet.rootServe)
                   logger.info("END INTERACTIVE SQL")
                 }
               // No sink on interactive queries. Results displayed in console output
             }
             Utils.logFailure(result, logger)
+            result match {
+              case Success(res) =>
+              case Failure(e) =>
+                val output =
+                  settings.comet.rootServe.map(rootServe => File(File(rootServe), "transform.log"))
+                output.foreach(_.overwrite(Utils.exceptionAsString(e)))
+            }
+
             result.isSuccess
           case SPARK =>
             (action.runSpark(), config.interactive) match {
               case (Success(SparkJobResult(None)), _) =>
                 true
               case (Success(SparkJobResult(Some(dataFrame))), Some(_)) =>
-                println("""START QUERY SQL""")
+                logger.info("""START QUERY SQL""")
                 dataFrame.show(false)
-                println("""END QUERY SQL""")
+                logger.info("""END QUERY SQL""")
                 true
               case (Success(SparkJobResult(maybeDataFrame)), None) =>
                 val sinkOption = action.task.sink
@@ -767,6 +777,9 @@ class IngestionWorkflow(
                     true
                 }
               case (Failure(exception), _) =>
+                val output =
+                  settings.comet.rootServe.map(rootServe => File(File(rootServe), "run.log"))
+                output.foreach(_.overwrite(Utils.exceptionAsString(exception)))
                 exception.printStackTrace()
                 false
             }
@@ -882,7 +895,7 @@ class IngestionWorkflow(
           new DummyIngestionJob(
             domain,
             schema,
-            schemaHandler.types,
+            schemaHandler.types(),
             Nil,
             storageHandler,
             schemaHandler,

@@ -33,7 +33,8 @@ object Dependencies {
     ExclusionRule(organization = "com.fasterxml.jackson.core"),
     ExclusionRule(organization = "com.fasterxml.jackson.databind"),
     ExclusionRule(organization = "com.fasterxml.jackson.jaxrs"),
-    ExclusionRule(organization = "com.fasterxml.jackson.module")
+    ExclusionRule(organization = "com.fasterxml.jackson.module"),
+    ExclusionRule(organization = "com.fasterxml.jackson.dataformat", "jackson-dataformat-yaml")
   )
 
   val jnaExclusions = Seq(ExclusionRule(organization = "net.java.dev.jna"))
@@ -194,11 +195,16 @@ object Dependencies {
 
   val silencer = Seq(
     compilerPlugin(
-      "com.github.ghik" % "silencer-plugin" % Versions.silencerVersion cross CrossVersion.full
+      "com.github.ghik" % "silencer-plugin" % Versions.silencer cross CrossVersion.full
     ),
-    "com.github.ghik" % "silencer-lib" % Versions.silencerVersion % Provided cross CrossVersion.full
+    "com.github.ghik" % "silencer-lib" % Versions.silencer % Provided cross CrossVersion.full
   )
+
+  val jinja = Seq(
+    "com.hubspot.jinjava" % "jinjava" % Versions.jinja excludeAll (jacksonExclusions: _*) exclude ("com.google.guava", "guava") exclude ("org.apache.commons", "commons-lang3")
+  )
+
   val dependencies =
     silencer ++ jna_apple_arm_testcontainers ++ scalate ++ logging ++ betterfiles ++ scalaTest ++ scopt ++ hadoop ++
-    gcp ++ azure ++ h2 ++ excelClientApi ++ kafkaClients ++ graphviz // ++ atlas
+    gcp ++ azure ++ h2 ++ excelClientApi ++ kafkaClients ++ graphviz ++ jinja // ++ atlas
 }
