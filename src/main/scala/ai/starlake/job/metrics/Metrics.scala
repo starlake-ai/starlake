@@ -1,11 +1,12 @@
 package ai.starlake.job.metrics
 
 import ai.starlake.utils.DataTypeEx._
-import com.github.ghik.silencer.silent
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.{DoubleType, LongType, StringType}
 import org.apache.spark.sql.{Column, DataFrame}
+
+import scala.annotation.nowarn
 
 sealed case class MetricsTable(value: String) {
   override def toString: String = value
@@ -179,7 +180,7 @@ object Metrics extends StrictLogging {
     *   Integer : the computed value of the percentile of order 0.25
     */
 
-  @silent
+  @nowarn
   def percentile25(e: Column): Column = {
     customMetricUDF(e: Column, "percentile25", callUDF, "percentile_approx", 0.25)
   }
@@ -192,7 +193,7 @@ object Metrics extends StrictLogging {
     *   Integer : the computed value of the Median
     */
 
-  @silent
+  @nowarn
   def customMedian(e: Column): Column = {
     customMetricUDF(e: Column, "median", callUDF, "percentile_approx", 0.50)
   }
@@ -205,7 +206,7 @@ object Metrics extends StrictLogging {
     *   Integer : the computed value of the percentile of order 0.75
     */
 
-  @silent
+  @nowarn
   def percentile75(e: Column): Column = {
     customMetricUDF(e: Column, "percentile75", callUDF, "percentile_approx", 0.75)
   }

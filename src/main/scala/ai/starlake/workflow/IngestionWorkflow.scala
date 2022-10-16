@@ -38,7 +38,6 @@ import ai.starlake.schema.model.Mode.{FILE, STREAM}
 import ai.starlake.schema.model._
 import ai.starlake.utils._
 import better.files.File
-import com.github.ghik.silencer.silent
 import com.google.cloud.bigquery.JobInfo.{CreateDisposition, WriteDisposition}
 import com.google.cloud.bigquery.{Schema => BQSchema}
 import com.typesafe.scalalogging.StrictLogging
@@ -48,6 +47,7 @@ import org.apache.spark.sql.types.{StructField, StructType}
 
 import java.nio.file.{FileSystems, ProviderNotFoundException}
 import java.util.Collections
+import scala.annotation.nowarn
 import scala.collection.GenSeq
 import scala.collection.parallel.ForkJoinTaskSupport
 import scala.concurrent.forkjoin.ForkJoinPool
@@ -223,7 +223,7 @@ class IngestionWorkflow(
     *   : includes Load pending dataset of these domain only excludes : Do not load datasets of
     *   these domains if both lists are empty, all domains are included
     */
-  @silent
+  @nowarn
   def loadPending(config: WatchConfig = WatchConfig()): Boolean = {
     val includedDomains = domainsToWatch(config)
 
@@ -410,7 +410,7 @@ class IngestionWorkflow(
     }
   }
 
-  @silent
+  @nowarn
   def ingest(
     domain: Domain,
     schema: Schema,
@@ -561,7 +561,7 @@ class IngestionWorkflow(
     }
   }
 
-  @silent
+  @nowarn
   private def makeParallel[T](
     collection: List[T],
     maxPar: Int

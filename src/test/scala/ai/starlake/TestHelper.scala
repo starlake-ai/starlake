@@ -30,8 +30,7 @@ import com.dimafeng.testcontainers.{ElasticsearchContainer, KafkaContainer}
 import com.fasterxml.jackson.annotation.JsonInclude.Include
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
-import com.fasterxml.jackson.module.scala.experimental.ScalaObjectMapper
-import com.github.ghik.silencer.silent
+import com.fasterxml.jackson.module.scala.ScalaObjectMapper
 import com.typesafe.config._
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.commons.io.FileUtils
@@ -49,6 +48,7 @@ import java.nio.file.Files
 import java.time.LocalDate
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
+import scala.annotation.nowarn
 import scala.collection.JavaConverters._
 import scala.io.{Codec, Source}
 import scala.util.Try
@@ -203,7 +203,7 @@ trait TestHelper
     def metadataStorageHandler = settings.storageHandler
     def storageHandler = settings.storageHandler
 
-    @silent val mapper: ObjectMapper with ScalaObjectMapper = {
+    @nowarn val mapper: ObjectMapper with ScalaObjectMapper = {
       val mapper = new CometObjectMapper(new YAMLFactory(), (classOf[Settings], settings) :: Nil)
       mapper
     }
