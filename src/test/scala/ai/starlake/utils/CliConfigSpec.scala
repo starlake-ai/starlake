@@ -1,9 +1,9 @@
 package ai.starlake.utils
 
-import ai.starlake.job.index.bqload.BigQueryLoadConfig
-import ai.starlake.job.index.connectionload.ConnectionLoadConfig
-import ai.starlake.job.index.esload.ESLoadConfig
-import ai.starlake.job.index.kafkaload.KafkaJobConfig
+import ai.starlake.job.sink.bigquery.BigQueryLoadConfig
+import ai.starlake.job.sink.jdbc.ConnectionLoadConfig
+import ai.starlake.job.sink.es.ESLoadConfig
+import ai.starlake.job.sink.kafka.KafkaJobConfig
 import ai.starlake.schema.generator.{
   JDBC2YmlConfig,
   Xls2YmlConfig,
@@ -13,10 +13,10 @@ import ai.starlake.schema.generator.{
 import ai.starlake.TestHelper
 import ai.starlake.extractor.ExtractScriptGenConfig
 import ai.starlake.job.convert.Parquet2CSVConfig
-import ai.starlake.job.index.bqload.BigQueryLoadConfig
-import ai.starlake.job.index.connectionload.ConnectionLoadConfig
-import ai.starlake.job.index.esload.ESLoadConfig
-import ai.starlake.job.index.kafkaload.KafkaJobConfig
+import ai.starlake.job.sink.bigquery.BigQueryLoadConfig
+import ai.starlake.job.sink.jdbc.ConnectionLoadConfig
+import ai.starlake.job.sink.es.ESLoadConfig
+import ai.starlake.job.sink.kafka.KafkaJobConfig
 import ai.starlake.job.infer.InferSchemaConfig
 import ai.starlake.job.ingest.LoadConfig
 import ai.starlake.job.metrics.MetricsConfig
@@ -31,7 +31,7 @@ import ai.starlake.workflow.{ImportConfig, TransformConfig, WatchConfig}
 class CliConfigSpec extends TestHelper {
   new WithSettings() {
     "Generate Documentation" should "succeed" in {
-      val rstMap = Map(
+      val mdMap = Map(
         "import"       -> ImportConfig.markdown(1),
         "bqload"       -> BigQueryLoadConfig.markdown(2),
         "esload"       -> ESLoadConfig.markdown(3),
@@ -50,10 +50,10 @@ class CliConfigSpec extends TestHelper {
         "yml2gv"       -> Yml2GraphVizConfig.markdown(16)
       )
 
-      val rstPath =
+      val mdPath =
         getClass.getResource("/").getPath + "../../../docs/docs/cli"
-      rstMap.foreach { case (k, v) =>
-        reflect.io.File(s"$rstPath/$k.md").writeAll(v)
+      mdMap.foreach { case (k, v) =>
+        reflect.io.File(s"$mdPath/$k.md").writeAll(v)
       }
     }
   }

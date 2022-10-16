@@ -53,7 +53,6 @@ object TreeRowValidator extends GenericRowValidator {
     val typesMap = types.map(tpe => tpe.name -> tpe).toMap
     val successErrorRDD =
       validateDataset(
-        session,
         dataset,
         attributes,
         schemaSparkType,
@@ -79,7 +78,6 @@ object TreeRowValidator extends GenericRowValidator {
   }
 
   private def validateDataset(
-    session: SparkSession,
     dataset: DataFrame,
     attributes: List[Attribute],
     schemaSparkType: StructType,
@@ -96,14 +94,16 @@ object TreeRowValidator extends GenericRowValidator {
       )
     dataset.rdd.map { row =>
       val rowWithSchema = row.asInstanceOf[GenericRowWithSchema]
-      validateRow(
+      val (rowRes, errors) = validateRow(
         rowWithSchema,
         Utils.toMap(attributes),
         schemaSparkType,
         typesMap,
         schemaSparkTypeWithSuccessErrorMessage,
-        PrivacyLevels.allPrivacyLevels(privacyOptions)
+        PrivacyLevels.allPrivacyLevels(privacyOptions),
+        true
       )
+      rowRes
     }
   }
 
@@ -113,8 +113,9 @@ object TreeRowValidator extends GenericRowValidator {
     schemaSparkType: StructType,
     types: Map[String, Type],
     schemaSparkTypeWithSuccessErrorMessage: StructType,
-    allPrivacyLevels: Map[String, ((PrivacyEngine, List[String]), PrivacyLevel)]
-  ): GenericRowWithSchema = {
+    allPrivacyLevels: Map[String, ((PrivacyEngine, List[String]), PrivacyLevel)],
+    topLevel: Boolean
+  ): (GenericRowWithSchema, mutable.MutableList[String]) = {
     val errorList: mutable.MutableList[String] = mutable.MutableList.empty
     def validateCol(attribute: Attribute, item: Any): Any = {
       val colResult = IngestionUtil.validateCol(
@@ -145,25 +146,31 @@ object TreeRowValidator extends GenericRowValidator {
       Try {
         cells.map {
           case (cell: GenericRowWithSchema, name) =>
-            validateRow(
+            val (row, errors) = validateRow(
               cell,
               attributes(name).asInstanceOf[Map[String, Any]],
               schemaSparkType,
               types,
               schemaSparkTypeWithSuccessErrorMessage,
-              allPrivacyLevels
+              allPrivacyLevels,
+              false
             )
+            errorList ++= errors
+            row
           case (cell: mutable.WrappedArray[_], name) =>
             cell.map {
               case subcell: GenericRowWithSchema =>
-                validateRow(
+                val (row, errors) = validateRow(
                   subcell,
                   attributes(name).asInstanceOf[Map[String, Any]],
                   schemaSparkType,
                   types,
                   schemaSparkTypeWithSuccessErrorMessage,
-                  allPrivacyLevels
+                  allPrivacyLevels,
+                  false
                 )
+                errorList ++= errors
+                row
               case subcell =>
                 validateCol(attributes(name).asInstanceOf[Attribute], cellHandleTimestamp(subcell))
             }
@@ -182,6 +189,7 @@ object TreeRowValidator extends GenericRowValidator {
           Array.empty[Any]
       }
 
+    // TODO Handle filename in error messages for deep fon nodes
     val updatedRowWithMessage =
       if (errorList.isEmpty)
         updatedRow ++ Array(true, "")
@@ -189,9 +197,14 @@ object TreeRowValidator extends GenericRowValidator {
         updatedRow ++ Array(
           false,
           s"""ERR  -> ${errorList.mkString("\n")}
-             |FILE -> ${row.getAs[String](CometColumns.cometInputFileNameColumn)}
+             |FILE -> ${if (topLevel) row.getAs[String](CometColumns.cometInputFileNameColumn)
+            else "unknown"}
              |""".stripMargin
         )
-    new GenericRowWithSchema(updatedRowWithMessage, schemaSparkTypeWithSuccessErrorMessage)
+
+    (
+      new GenericRowWithSchema(updatedRowWithMessage, schemaSparkTypeWithSuccessErrorMessage),
+      errorList
+    )
   }
 }

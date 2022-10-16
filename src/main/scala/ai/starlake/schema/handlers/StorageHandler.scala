@@ -49,6 +49,8 @@ trait StorageHandler extends StrictLogging {
 
   def copyFromLocal(source: Path, dest: Path): Unit
 
+  def copyToLocal(source: Path, dest: Path): Unit
+
   def moveFromLocal(source: Path, dest: Path): Unit
 
   def moveSparkPartFile(sparkFolder: Path, extension: String): Option[Path]
@@ -268,6 +270,18 @@ class HdfsStorageHandler(fileSystem: String)(implicit
   override def copyFromLocal(source: Path, dest: Path): Unit = {
 
     fs.copyFromLocalFile(source, dest)
+  }
+
+  /** Copy file to local filesystem from remote file system
+    *
+    * @param source
+    *   Remote file path
+    * @param dest
+    *   Local file path
+    */
+  override def copyToLocal(source: Path, dest: Path): Unit = {
+
+    fs.copyToLocalFile(source, dest)
   }
 
   /** Move file from local filesystem to target file system If source FS Scheme is not "file" then

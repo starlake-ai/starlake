@@ -7,7 +7,14 @@ trait XlsModel {
     "_path"        -> "Directory",
     "_ack"         -> "Ack",
     "_description" -> "Description",
-    "_schema_refs" -> "Schema Refs"
+    "_schema_refs" -> "Schema Refs",
+    "_rename"      -> "Rename"
+  )
+  val allPolicyHeaders = List(
+    "_name"        -> "Name",
+    "_predicate"   -> "Predicate",
+    "_grants"      -> "User Groups",
+    "_description" -> "Description"
   )
 
   val allSchemaHeaders = List(
@@ -30,7 +37,20 @@ trait XlsModel {
     "_presql"             -> "Pre SQLs - ###",
     "_postsql"            -> "Post SQLs - ###",
     "_primary_key"        -> "Primary Key",
-    "_tags"               -> "Tags"
+    "_tags"               -> "Tags",
+    "_rename"             -> "Rename",
+    "_long_name"          -> "Rename source table",
+    "_policy"             -> "Access Policy",
+    "_escape"             -> "Escaping Char",
+    // new fields
+    "_multiline"  -> "Multiline",
+    "_array"      -> "Is JSON array",
+    "_quote"      -> "Quote character",
+    "_ignore"     -> "UDF to apply to ignore input lines",
+    "_xml"        -> "XML Options",
+    "_extensions" -> "Accepted extensions",
+    "_options"    -> "Spark ingestion options",
+    "_validator"  -> "Class validator"
   )
 
   val allAttributeHeaders = List(
@@ -48,7 +68,8 @@ trait XlsModel {
     "_trim"           -> "Trim (LEFT, RIGHT,BOTH)",
     "_ignore"         -> "Ignore ?",
     "_foreign_key"    -> "Foreign Key",
-    "_tags"           -> "Tags"
+    "_tags"           -> "Tags",
+    "_policy"         -> "Access Policy"
   )
 
 }

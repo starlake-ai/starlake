@@ -1,0 +1,83 @@
+---
+sidebar_position: 6
+title: On Premise Hadoop Cluster
+---
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+
+Running on Hadoop is similar to running on a [local filesystem](file), we just need to set the correct filesystem
+and add the `jackson-dataformat-yaml` library to the classpath on HDP:
+
+<Tabs>
+<TabItem value="spark2" label="Spark 2">
+
+
+    ```bash title="HDP example"
+    spark-submit --deploy-mode cluster --master yarn \
+    --jars hdfs://my-namespace/libraires/jackson-dataformat-yaml-2.6.7.jar \
+    --conf spark.yarn.appMasterEnv.COMET_ROOT=/user/quickstart \
+    --conf spark.yarn.appMasterEnv.COMET_FS=hdfs://my-namespace \
+    --class ai.starlake.job.Main \
+    hdfs://my-namespace/libraires/comet-spark2_2.12-0.2.8-assembly.jar import
+    ```
+
+</TabItem>
+<TabItem value="spark3" label="Spark 3">
+
+    ```shell title="HDP example"
+    spark-submit --deploy-mode cluster --master yarn \
+    --jars hdfs://my-namespace/libraires/jackson-dataformat-yaml-2.12.3.jar \
+    --conf spark.yarn.appMasterEnv.COMET_ROOT=/user/quickstart \
+    --conf spark.yarn.appMasterEnv.COMET_FS=hdfs://my-namespace \
+    --class ai.starlake.job.Main \
+    hdfs://my-namespace/libraires/comet-spark2_2.12-0.2.8-assembly.jar import
+    ```
+
+</TabItem>
+<TabItem value="oozie" label="Oozie">
+
+```xml title="HDP example"
+    <action name="ImportToHDFS" cred="hdfs_creds">
+        <spark xmlns="uri:oozie:spark-action:0.2">
+            <job-tracker>${jobTracker}</job-tracker>
+            <name-node>${nameNode}</name-node>
+            <job-xml>${commonRoot}/conf/hbase-site.xml</job-xml>
+            <master>yarn-cluster</master>
+            <name>ai.starlake.job.Main</name>
+            <class>ai.starlake.job.Main</class>
+            <jar>hdfs://${appRoot}/libraries/comet-spark2_2.12-0.2.8-assembly.jar</jar>
+            <spark-opts>
+                --num-executors 6
+                --executor-cores 3 --executor-memory 2g --driver-memory 5g
+                --queue ${queueName}
+                --driver-java-options "-Djava.security.auth.login.config=./jaas.conf -Dconfig.file=./application.conf"
+                --conf spark.yarn.security.tokens.hive.enabled=false
+                --conf spark.history.kerberos.enabled=true
+                --conf spark.history.kerberos.keytab="${sparkHistoryKerberosKeytab}"
+                --conf spark.history.kerberos.principal="${sparkHistoryKerberosPrincipal}"
+                --conf spark.yarn.historyServer.address="${sparkYarnHistoryServerAddress}"
+                --conf spark.history.ui.port="${sparkYarnHistoryServerUiPort}"
+                --conf spark.history.fs.logDirectory="${sparkHistoryFsLogDirectory}"
+                --conf spark.eventLog.dir="${sparkHistoryFsLogDirectory}"
+                --conf spark.eventLog.enabled=true
+                --conf spark.executor.extraJavaOptions="-Djava.security.auth.login.config=./jaas.conf"
+                --conf spark.ssl.enabledAlgorithms=TLS_RSA_WITH_AES_256_CBC_SHA
+                --jars hdfs://${appRoot}/libraries/jackson-dataformat-yaml-2.6.7.jar
+            </spark-opts>
+            <arg>import</arg>
+            <file>${nameNode}/${appRoot}/config/application.conf</file>
+            <file>${nameNode}/user/${userName}/${userKeytab}</file>
+            <file>${nameNode}/${commonRoot}/conf/hive-site.xml</file>
+            <file>${nameNode}/${appRoot}/config/jaas.conf</file>
+            <file>${nameNode}/${commonRoot}/conf/hbase-site.xml</file>
+            <file>${nameNode}/${appRoot}/config/metrics.properties</file>
+            <file>${nameNode}/${commonRoot}/kerberos/krb5.conf</file>
+        </spark>
+        <ok to="..." />
+        <error to="..." />
+    </action>
+```
+
+</TabItem>
+</Tabs>

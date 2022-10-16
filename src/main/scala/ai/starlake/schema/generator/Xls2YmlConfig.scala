@@ -33,20 +33,21 @@ import scopt.OParser
   */
 case class Xls2YmlConfig(
   files: Seq[String] = Nil,
-  encryption: Boolean = true,
+  encryption: Boolean = false,
   delimiter: Option[String] = None,
   privacy: Seq[String] = Nil,
   outputPath: Option[String] = None
 )
 
 object Xls2YmlConfig extends CliConfig[Xls2YmlConfig] {
+  val command = "xls2yml"
 
   val parser: OParser[Unit, Xls2YmlConfig] = {
     val builder = OParser.builder[Xls2YmlConfig]
     import builder._
     OParser.sequence(
-      programName("starlake xls2yml"),
-      head("starlake", "xls2yml", "[options]"),
+      programName(s"starlake $command"),
+      head("starlake", command, "[options]"),
       note(""),
       opt[Seq[String]]("files")
         .action((x, c) => c.copy(files = x))
@@ -54,7 +55,7 @@ object Xls2YmlConfig extends CliConfig[Xls2YmlConfig] {
         .text("List of Excel files describing Domains & Schemas"),
       opt[Boolean]("encryption")
         .action((x, c) => c.copy(encryption = x))
-        .required()
+        .optional()
         .text("If true generate pre and post encryption YML"),
       opt[String]("delimiter")
         .action((x, c) => c.copy(delimiter = Some(x)))

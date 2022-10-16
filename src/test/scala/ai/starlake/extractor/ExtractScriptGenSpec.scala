@@ -23,8 +23,23 @@ class ExtractScriptGenSpec extends TestHelper {
         dsvDelimiter = ",",
         deltaColumn = Some("updateCol"),
         exportOutputFileBase = "output_file",
-        scriptOutputFile = Some(scriptOutputFolder / "extract_AnyDomain.table1.sql")
+        scriptOutputFile = Some(scriptOutputFolder / "extract_AnyDomain.table1.sql"),
+        activeEnv = Map.empty
       )
+
+      val templatesPayloadFromDir = new ScriptGen(
+        storageHandler,
+        new SchemaHandler(settings.storageHandler),
+        new SimpleLauncher()
+      ).templatize(
+        File(
+          getClass.getResource("/sample/database").getPath
+        ),
+        templateParams
+      ).head
+        .pathAsString
+
+      println(File(templatesPayloadFromDir).lines.mkString("\n").toLowerCase)
 
       val templatePayload = new ScriptGen(
         storageHandler,
@@ -38,9 +53,9 @@ class ExtractScriptGenSpec extends TestHelper {
       ).head
         .pathAsString
 
-      File(templatePayload).lines.mkString("\n") shouldBe File(
+      File(templatePayload).lines.mkString("\n").toLowerCase shouldBe File(
         getClass.getResource("/sample/database/expected_script_payload.txt").getPath
-      ).lines.mkString("\n")
+      ).lines.mkString("\n").toLowerCase
     }
 
     "templatize domain using ssp" should "generate an export script from a TemplateSettings" in {
@@ -57,7 +72,8 @@ class ExtractScriptGenSpec extends TestHelper {
         dsvDelimiter = ",",
         deltaColumn = Some("updateCol"),
         exportOutputFileBase = "output_file",
-        scriptOutputFile = Some(scriptOutputFolder / "EXTRACT_TABLE.sql")
+        scriptOutputFile = Some(scriptOutputFolder / "EXTRACT_TABLE.sql"),
+        activeEnv = Map.empty
       )
 
       val templatePayload: String = new ScriptGen(
@@ -73,9 +89,9 @@ class ExtractScriptGenSpec extends TestHelper {
         .pathAsString
 
       print(getClass.getResource("/sample/database/expected_script_payload2.txt").getPath)
-      File(templatePayload).lines.mkString("\n") shouldBe File(
+      File(templatePayload).lines.mkString("\n").toLowerCase shouldBe File(
         getClass.getResource("/sample/database/expected_script_payload2.txt").getPath
-      ).lines.mkString("\n")
+      ).lines.mkString("\n").toLowerCase
     }
 
     "templatize job using ssp" should "generate an export script from a TemplateSettings" in {

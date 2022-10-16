@@ -21,16 +21,16 @@
 package ai.starlake.job.transform
 
 import ai.starlake.config.{Settings, StorageArea}
-import ai.starlake.job.index.bqload.{BigQueryJobResult, BigQueryLoadConfig, BigQueryNativeJob}
+import ai.starlake.job.sink.bigquery.{BigQueryJobResult, BigQueryLoadConfig, BigQueryNativeJob}
 import ai.starlake.job.ingest.{AuditLog, Step}
 import ai.starlake.job.metrics.AssertionJob
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.Stage.UNIT
 import ai.starlake.schema.model._
-import ai.starlake.utils.Formatter._
+import ai.starlake.utils.Formatter.RichFormatter
 import ai.starlake.utils._
 import org.apache.hadoop.fs.Path
-import org.apache.spark.sql.SaveMode
+import org.apache.spark.sql.{DataFrame, SaveMode}
 
 import java.sql.Timestamp
 import java.time.{Instant, LocalDateTime}
@@ -57,7 +57,9 @@ case class AutoTaskJob(
   views: Views,
   engine: Engine,
   task: AutoTaskDesc,
-  sqlParameters: Map[String, String]
+  sqlParameters: Map[String, String],
+  sink: Option[Sink],
+  interactive: Option[String]
 )(implicit val settings: Settings, storageHandler: StorageHandler, schemaHandler: SchemaHandler)
     extends SparkJob {
 
@@ -68,11 +70,10 @@ case class AutoTaskJob(
   val (createDisposition, writeDisposition) =
     Utils.getDBDisposition(task.write, hasMergeKeyDefined = false)
 
-  private def createConfig(): BigQueryLoadConfig = {
+  private def createBigQueryConfig(): BigQueryLoadConfig = {
     val bqSink = task.sink.map(sink => sink.asInstanceOf[BigQuerySink]).getOrElse(BigQuerySink())
-
     BigQueryLoadConfig(
-      outputTable = task.dataset,
+      outputTable = task.table,
       outputDataset = task.domain,
       createDisposition = createDisposition,
       writeDisposition = writeDisposition,
@@ -89,21 +90,28 @@ case class AutoTaskJob(
 
   private def parseJobViews(): Map[String, String] =
     views.views.map { case (queryName, queryExpr) =>
-      val (_, _, viewValue) = parseViewDefinition(queryExpr.richFormat(sqlParameters))
+      val (_, _, viewValue) = Option(queryExpr) match {
+        case None =>
+          val viewContent = schemaHandler
+            .views(queryName)
+            .getOrElse(throw new Exception(s"Unknown view $queryName"))
+          parseViewDefinition(
+            parseJinja(viewContent)
+          )
+        case Some(viewContent) =>
+          parseViewDefinition(
+            parseJinja(viewContent)
+          )
+      }
       (queryName, viewValue)
     }
 
-  def parseMainSqlBQ(): JdbcConfigName = {
+  def parseMainSqlBQ(): String = {
+    logger.info(s"Parse Views")
     val withViews = parseJobViews()
-    val mainTaskSQL =
-      CommentParser.stripComments(task.getSql().richFormat(sqlParameters).trim) match {
-        case Right(s) => s
-        case Left(error) =>
-          throw new Exception(
-            s"ERROR: Could not strip comments from SQL Request ${task.getSql()}\n $error"
-          )
-      }
-    if (mainTaskSQL.toLowerCase().startsWith("with ")) {
+    val mainTaskSQL = parseJinja(task.getSql())
+    val trimmedMainTaskSQL = mainTaskSQL.toLowerCase()
+    if (trimmedMainTaskSQL.startsWith("with ") || trimmedMainTaskSQL.startsWith("(with ")) {
       mainTaskSQL
     } else {
       val subSelects = withViews.map { case (queryName, queryExpr) =>
@@ -114,49 +122,60 @@ case class AutoTaskJob(
             val allColumns = "*"
             s"SELECT $allColumns FROM $queryExpr"
           }
-        queryName + " AS (" + selectExpr + ")"
+        s"$queryName  AS ($selectExpr)"
       }
-      val subSelectsString = if (subSelects.nonEmpty) subSelects.mkString("WITH ", ",", " ") else ""
-      "(" + subSelectsString + mainTaskSQL + ")"
+      val subSelectsString = if (subSelects.nonEmpty) subSelects.mkString("WITH ", ", ", "") else ""
+      s"(\n$subSelectsString $mainTaskSQL\n)"
     }
-  }
-
-  def buildQueryBQ(): (List[String], String, List[String]) = {
-    val sql = parseMainSqlBQ()
-    val preSql = task.presql.getOrElse(Nil).map { sql => sql.richFormat(sqlParameters) }
-    val postSql = task.postsql.getOrElse(Nil).map { sql => sql.richFormat(sqlParameters) }
-    (preSql, sql, postSql)
   }
 
   def runBQ(): Try[JobResult] = {
     val start = Timestamp.from(Instant.now())
-    val config = createConfig()
+    logger.info(s"running BQ Query  start time $start")
+    val config = createBigQueryConfig()
+    logger.info(s"running BQ Query with config $config")
     val (preSql, mainSql, postSql) = buildQueryBQ()
-
+    logger.info(s"Config $config")
     // We add extra parenthesis required by BQ when using "WITH" keyword
-    def bqNativeJob(sql: String) = new BigQueryNativeJob(config, "(" + sql + ")", udf)
+    def bqNativeJob(sql: String) = {
+      val toUpperSql = sql.toUpperCase()
+      val finalSql =
+        if (toUpperSql.startsWith("WITH") || toUpperSql.startsWith("SELECT"))
+          "(" + sql + ")"
+        else
+          sql
+      new BigQueryNativeJob(config, finalSql, udf)
+    }
 
-    val presqlResult: Try[Iterable[BigQueryJobResult]] = Try {
+    val presqlResult: List[Try[JobResult]] =
       preSql.map { sql =>
+        logger.info(s"Running PreSQL BQ Query: $sql")
         bqNativeJob(sql).runInteractiveQuery()
       }
-    }
-    Utils.logFailure(presqlResult, logger)
+    presqlResult.foreach(Utils.logFailure(_, logger))
 
-    val jobResult: Try[JobResult] = bqNativeJob(mainSql).run()
+    logger.info(s"""START COMPILE SQL $mainSql END COMPILE SQL""")
+    val jobResult: Try[JobResult] = interactive match {
+      case None =>
+        bqNativeJob(mainSql).run()
+      case Some(_) =>
+        bqNativeJob(mainSql).runInteractiveQuery()
+    }
+
     Utils.logFailure(jobResult, logger)
 
     // We execute the post statements even if the main statement failed
     // We may be doing some cleanup here.
-    val postsqlResult: Try[Iterable[BigQueryJobResult]] = Try {
+
+    val postsqlResult: List[Try[JobResult]] =
       postSql.map { sql =>
+        logger.info(s"Running PostSQL BQ Query: $sql")
         bqNativeJob(sql).runInteractiveQuery()
       }
-    }
-    Utils.logFailure(postsqlResult, logger)
+    postsqlResult.foreach(Utils.logFailure(_, logger))
 
     val errors =
-      Iterable(presqlResult, jobResult, postsqlResult).map(_.failed).collect { case Success(e) =>
+      (presqlResult ++ List(jobResult) ++ postsqlResult).map(_.failed).collect { case Success(e) =>
         e
       }
     errors match {
@@ -178,15 +197,19 @@ case class AutoTaskJob(
               None,
               engine,
               sql =>
-                bqNativeJob(sql.richFormat(sqlParameters))
+                bqNativeJob(parseJinja(sql))
                   .runInteractiveQuery()
-                  .tableResult
-                  .map(_.getTotalRows)
-                  .getOrElse(0)
+                  .map { result =>
+                    val bqResult = result.asInstanceOf[BigQueryJobResult]
+                    bqResult.tableResult
+                      .map(_.getTotalRows)
+                      .getOrElse(0L)
+                  }
+                  .getOrElse(0L)
             ).run()
           }
         }
-        Success(BigQueryJobResult(None))
+        jobResult
       case _ =>
         val err = errors.reduce(_.initCause(_))
         val end = Timestamp.from(Instant.now())
@@ -195,11 +218,102 @@ case class AutoTaskJob(
     }
   }
 
-  def buildQuerySpark(): (List[String], String, List[String]) = {
-    val preSql = task.presql.getOrElse(Nil).map { sql => sql.richFormat(sqlParameters) }
-    val sql = task.getSql().richFormat(sqlParameters)
-    val postSql = task.postsql.getOrElse(Nil).map { sql => sql.richFormat(sqlParameters) }
+  def buildQuerySpark(cteSelects: List[String]): (List[String], String, List[String]) = {
+    val sql = cteSelects match {
+      case Nil =>
+        parseJinja(task.getSql())
+      case list =>
+        list.mkString("WITH ", ", ", " ") + parseJinja(task.getSql())
+    }
+
+    val preSql = parseJinja(task.presql.getOrElse(Nil))
+    val postSql = parseJinja(task.postsql.getOrElse(Nil))
     (preSql, sql, postSql)
+  }
+
+  def buildQueryBQ(): (List[String], String, List[String]) = {
+    val sql = parseMainSqlBQ()
+    val preSql = parseJinja(task.presql.getOrElse(Nil))
+    val postSql = parseJinja(task.postsql.getOrElse(Nil))
+
+    (preSql, sql, postSql)
+  }
+
+  private def parseJinja(sql: String): String = parseJinja(List(sql)).head
+
+  private def parseJinja(sqls: List[String]): List[String] =
+    parseJinja(sqls, schemaHandler.activeEnv() ++ sqlParameters)
+      .map(_.richFormat(schemaHandler.activeEnv(), sqlParameters))
+
+  def sinkToFS(dataframe: DataFrame, sink: FsSink): Boolean = {
+    val targetPath = task.getTargetPath(defaultArea)
+    logger.info(s"About to write resulting dataset to $targetPath")
+    // Target Path exist only if a storage area has been defined at task or job level
+    // To execute a task without writing to disk simply avoid the area at the job and task level
+
+    val sinkPartition =
+      sink.partition.getOrElse(Partition(sampling = None, attributes = task.partition))
+
+    val sinkPartitionSampling = sinkPartition.sampling.getOrElse(0.0)
+    val nbPartitions = sinkPartitionSampling match {
+      case 0.0 =>
+        dataframe.rdd.getNumPartitions
+      case count if count >= 1.0 =>
+        count.toInt
+      case count =>
+        throw new Exception(s"Invalid partition value $count in Sink $sink")
+    }
+
+    val partitionedDF =
+      if (coalesce)
+        dataframe.repartition(1)
+      else if (sinkPartitionSampling == 0)
+        dataframe
+      else
+        dataframe.repartition(nbPartitions)
+
+    val partitionedDFWriter =
+      partitionedDatasetWriter(
+        partitionedDF,
+        sinkPartition.attributes.getOrElse(Nil)
+      )
+
+    val clusteredDFWriter = sink.clustering match {
+      case None          => partitionedDFWriter
+      case Some(columns) => partitionedDFWriter.sortBy(columns.head, columns.tail: _*)
+    }
+
+    val finalDataset = clusteredDFWriter
+      .mode(task.write.toSaveMode)
+      .format(sink.format.getOrElse(format.getOrElse(settings.comet.defaultFormat)))
+      .options(sink.getOptions)
+      .option("path", targetPath.toString)
+      .options(sink.getOptions)
+
+    if (settings.comet.hive) {
+      val tableName = task.table
+      val hiveDB = task.getHiveDB(defaultArea)
+      val fullTableName = s"$hiveDB.$tableName"
+      session.sql(s"create database if not exists $hiveDB")
+      session.sql(s"use $hiveDB")
+      if (task.write.toSaveMode == SaveMode.Overwrite)
+        session.sql(s"drop table if exists $tableName")
+      finalDataset.saveAsTable(fullTableName)
+      analyze(fullTableName)
+    } else {
+      // TODO Handle SinkType.FS and SinkType to Hive in Sink section in the caller
+
+      finalDataset.save()
+      if (coalesce) {
+        val extension = sink.format.getOrElse(format.getOrElse(settings.comet.defaultFormat))
+        val csvPath = storageHandler
+          .list(targetPath, s".$extension", LocalDateTime.MIN, recursive = false)
+          .head
+        val finalPath = new Path(targetPath, targetPath.getName + s".$extension")
+        storageHandler.move(csvPath, finalPath)
+      }
+    }
+    true
   }
 
   def runSpark(): Try[SparkJobResult] = {
@@ -208,12 +322,13 @@ case class AutoTaskJob(
       udf.foreach { udf =>
         registerUdf(udf)
       }
-      createSparkViews(views, schemaHandler.activeEnv ++ sqlParameters)
+      val cteSelects = createSparkViews(views, schemaHandler, sqlParameters)
 
-      val (preSql, sqlWithParameters, postSql) = buildQuerySpark()
+      val (preSql, sqlWithParameters, postSql) = buildQuerySpark(cteSelects)
 
       preSql.foreach(req => session.sql(req))
-      logger.info(s"running sql request $sqlWithParameters using ${task.engine}")
+      logger.info(s"""START COMPILE SQL $sqlWithParameters END COMPILE SQL""")
+      logger.info(s"running sql request using ${task.engine}")
 
       val dataframe =
         task.engine.getOrElse(Engine.SPARK) match {
@@ -229,43 +344,9 @@ case class AutoTaskJob(
           case _ => throw new Exception("should never happen")
         }
 
-      val targetPath = task.getTargetPath(defaultArea)
-      logger.info(s"About to write resulting dataset to $targetPath")
-      // Target Path exist only if a storage area has been defined at task or job level
-      // To execute a task without writing to disk simply avoid the area at the job and task level
-      val partitionedDF =
-        partitionedDatasetWriter(
-          if (coalesce) dataframe.coalesce(1) else dataframe,
-          task.getPartitions()
-        )
+      if (settings.comet.hive || settings.comet.sinkToFile)
+        sinkToFS(dataframe, FsSink())
 
-      val finalDataset = partitionedDF
-        .mode(task.write.toSaveMode)
-        .format(format.getOrElse(settings.comet.defaultFormat))
-        .option("path", targetPath.toString)
-
-      if (settings.comet.hive) {
-        val tableName = task.dataset
-        val hiveDB = task.getHiveDB(defaultArea)
-        val fullTableName = s"$hiveDB.$tableName"
-        session.sql(s"create database if not exists $hiveDB")
-        session.sql(s"use $hiveDB")
-        if (task.write.toSaveMode == SaveMode.Overwrite)
-          session.sql(s"drop table if exists $tableName")
-        finalDataset.saveAsTable(fullTableName)
-        analyze(fullTableName)
-      } else if (settings.comet.sinkToFile) {
-        // TODO Handle SinkType.FS and SinkType to Hive in Sink section in the caller
-        finalDataset.save()
-        if (coalesce) {
-          val extension = format.getOrElse(settings.comet.defaultFormat)
-          val csvPath = storageHandler
-            .list(targetPath, s".$extension", LocalDateTime.MIN, recursive = false)
-            .head
-          val finalPath = new Path(targetPath, targetPath.getName + s".$extension")
-          storageHandler.move(csvPath, finalPath)
-        }
-      }
       if (settings.comet.assertions.active) {
         new AssertionJob(
           task.domain,
@@ -307,9 +388,9 @@ case class AutoTaskJob(
       session.sparkContext.applicationId,
       this.name,
       this.task.domain,
-      this.task.dataset,
+      this.task.table,
       success,
-      -1,
+      jobResultCount,
       -1,
       -1,
       start,

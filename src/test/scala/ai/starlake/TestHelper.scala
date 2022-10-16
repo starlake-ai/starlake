@@ -20,15 +20,13 @@
 
 package ai.starlake
 
-import ai.starlake.schema.handlers.StorageHandler
-import ai.starlake.schema.model.AutoJobDesc
-import com.dimafeng.testcontainers.{ElasticsearchContainer, KafkaContainer}
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.job.ingest.LoadConfig
 import ai.starlake.schema.handlers.{SchemaHandler, SimpleLauncher, StorageHandler}
-import ai.starlake.schema.model.AutoJobDesc
+import ai.starlake.schema.model.{Attribute, AutoJobDesc}
 import ai.starlake.utils.{CometObjectMapper, Utils}
-import ai.starlake.workflow.{IngestionWorkflow, WatchConfig}
+import ai.starlake.workflow.{ImportConfig, IngestionWorkflow, WatchConfig}
+import com.dimafeng.testcontainers.{ElasticsearchContainer, KafkaContainer}
 import com.fasterxml.jackson.annotation.JsonInclude.Include
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
@@ -98,8 +96,8 @@ trait TestHelper
         |COMET_UDFS="ai.starlake.udf.TestUdf"
         |COMET_ACCESS_POLICIES_LOCATION="eu"
         |COMET_ACCESS_POLICIES_TAXONOMY="RGPD"
-        |COMET_ACCESS_POLICIES_PROJECT_ID=${sys.env
-        .getOrElse("COMET_ACCESS_POLICIES_PROJECT_ID", "invalid_project")}
+        |COMET_ACCESS_POLICIES_PROJECT_ID="${sys.env
+          .getOrElse("COMET_ACCESS_POLICIES_PROJECT_ID", "invalid_project")}"
         |include required("application-test.conf")
         |""".stripMargin,
       ConfigParseOptions.defaults().setAllowMissing(false)
@@ -339,7 +337,7 @@ trait TestHelper
 
     }
 
-    protected def loadWorkflow()(implicit codec: Codec) = {
+    protected def loadWorkflow()(implicit codec: Codec): IngestionWorkflow = {
       val targetPath = DatasetArea.path(
         DatasetArea.pending(datasetDomainName),
         new Path(sourceDatasetPathName).getName
@@ -348,10 +346,10 @@ trait TestHelper
       withSettings.deliverTestFile(sourceDatasetPathName, targetPath)
 
       val schemaHandler = new SchemaHandler(settings.storageHandler)
-      schemaHandler.checkValidity()
+      schemaHandler.fullValidation()
 
       DatasetArea.initMetadata(metadataStorageHandler)
-      DatasetArea.initDomains(storageHandler, schemaHandler.domains.map(_.name))
+      DatasetArea.initDomains(storageHandler, schemaHandler.domains().map(_.name))
 
       val validator = new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
       validator
@@ -373,7 +371,7 @@ trait TestHelper
     }
 
     def getJobs(): Map[String, AutoJobDesc] = {
-      new SchemaHandler(settings.storageHandler).jobs
+      new SchemaHandler(settings.storageHandler).jobs()
     }
 
     def landingPath: String =
@@ -387,7 +385,7 @@ trait TestHelper
       val schemaHandler = new SchemaHandler(settings.storageHandler)
 
       DatasetArea.initMetadata(metadataStorageHandler)
-      DatasetArea.initDomains(storageHandler, schemaHandler.domains.map(_.name))
+      DatasetArea.initDomains(storageHandler, schemaHandler.domains().map(_.name))
 
       // Get incoming directory from Domain descriptor
       val incomingDirectory = schemaHandler.getDomain(datasetDomainName).map(_.resolveDirectory())
@@ -405,7 +403,7 @@ trait TestHelper
 
       // Load landing file
       val validator = new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
-      validator.loadLanding()
+      validator.loadLanding(ImportConfig())
     }
   }
 
@@ -421,8 +419,10 @@ trait TestHelper
   // We need to start it manually because we need to access the HTTP mapped port
   // in the configuration below before any test get executed.
   lazy val kafkaContainer: KafkaContainer = {
-    val kafkaDockerTag = "5.2.1"
-    KafkaContainer.Def(kafkaDockerTag).start()
+    val kafkaDockerImage = "confluentinc/cp-kafka"
+    val kafkaDockerTag = "7.1.0"
+    val kafkaDockerImageName = DockerImageName.parse(s"$kafkaDockerImage:$kafkaDockerTag")
+    KafkaContainer.Def(kafkaDockerImageName).start()
   }
 
   lazy val esContainer: ElasticsearchContainer = {
@@ -431,7 +431,15 @@ trait TestHelper
     val esDockerImageName = DockerImageName.parse(s"$esDockerImage:$esDockerTag")
     ElasticsearchContainer.Def(esDockerImageName).start()
   }
-
+  def deepEquals(l1: List[Attribute], l2: List[Attribute]): Boolean = {
+    l1.zip(l2).foreach { case (a1, a2) =>
+      a1.name should equal(a2.name)
+      a1.`type` should equal(a2.`type`)
+      if (a1.`type` == "struct")
+        deepEquals(a1.attributes.get, a2.attributes.get)
+    }
+    true
+  }
 }
 
 object TestHelper {

@@ -55,7 +55,7 @@ class StorageHandlerSpec extends TestHelper {
             directory = Some(s"${cometTestRoot}/incoming/DOMAIN")
           )
         ),
-        schemas = List(
+        tables = List(
           Schema(
             "User",
             Pattern.compile("SCHEMA-.*.dsv"),
@@ -72,14 +72,14 @@ class StorageHandlerSpec extends TestHelper {
                 "string",
                 Some(false),
                 required = false,
-                PrivacyLevel("SHA1")
+                PrivacyLevel("SHA1", false)
               ),
               Attribute(
                 "age",
                 "age",
                 Some(false),
                 required = false,
-                PrivacyLevel("HIDE")
+                PrivacyLevel("HIDE", false)
               )
             ),
             Some(Metadata(withHeader = Some(true))),

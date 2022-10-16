@@ -10,13 +10,14 @@ module.exports = {
     organizationName: 'starlake-ai', // Usually your GitHub org/user name.
     projectName: 'starlake', // Usually your repo name.
     themeConfig: {
-        hideableSidebar: false,
-        googleAnalytics: {
-            trackingID: 'UA-207943293-1',
-            // Optional fields.
-            anonymizeIP: true // Should IPs be anonymized?
+
+        docs: {
+            sidebar: {
+                hideable: false
+            }
         },
         prism: {
+            additionalLanguages: ['java', 'scala', 'sql', 'powershell'],
             theme: require('prism-react-renderer/themes/github'),
             darkTheme: require('prism-react-renderer/themes/dracula'),
         },
@@ -123,13 +124,22 @@ module.exports = {
                     ],
                 },
             ],
-            copyright: `Built with Docusaurus.`,
+            copyright: `By the way, Starlake is serverless.`,
         },
     },
     presets: [
         [
             '@docusaurus/preset-classic',
             {
+                googleAnalytics: {
+                    trackingID: 'UA-207943293-1',
+                    // Optional fields.
+                    anonymizeIP: true // Should IPs be anonymized?
+                },
+                gtag: {
+                    trackingID: 'G-FYS72XYD48',
+                    anonymizeIP: true,
+                },
                 docs: {
                     sidebarPath: require.resolve('./sidebars.js'),
                     // Please change this to your repo.

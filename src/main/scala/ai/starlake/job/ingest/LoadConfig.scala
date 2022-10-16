@@ -39,13 +39,13 @@ case class LoadConfig(
 )
 
 object LoadConfig extends CliConfig[LoadConfig] {
-
+  val command = "load"
   val parser: OParser[Unit, LoadConfig] = {
     val builder = OParser.builder[LoadConfig]
     import builder._
     OParser.sequence(
-      programName("starlake load | ingest"),
-      head("starlake", "load | ingest", "[options]"),
+      programName(s"starlake $command"),
+      head("starlake", command, "[options]"),
       note(""),
       arg[String]("domain")
         .required()
@@ -56,7 +56,7 @@ object LoadConfig extends CliConfig[LoadConfig] {
         .action((x, c) => c.copy(schema = x))
         .text("Schema name"),
       arg[String]("paths")
-        .required()
+        .optional() // Some Ingestion Engine are not based on paths.$ eq. JdbcIngestionJob
         .action((x, c) => c.copy(paths = x.split(',').map(new Path(_)).toList))
         .text("list of comma separated paths"),
       arg[Map[String, String]]("options")

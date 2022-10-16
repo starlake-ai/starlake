@@ -42,7 +42,8 @@ class SchemaSpec extends TestHelper {
         Some(true),
         required = true,
         PrivacyLevel(
-          "MD5"
+          "MD5",
+          false
         ) // Should raise an error. Privacy cannot be applied on types other than string
       )
 
@@ -56,7 +57,8 @@ class SchemaSpec extends TestHelper {
         Some(true),
         required = true,
         PrivacyLevel(
-          "ApproxLong(20)"
+          "ApproxLong(20)",
+          false
         ) // Should raise an error. Privacy cannot be applied on types other than stringsettings = settings
       )
       attr.checkValidity(schemaHandler) shouldBe Right(true)
@@ -69,7 +71,8 @@ class SchemaSpec extends TestHelper {
         Some(true),
         required = true,
         PrivacyLevel(
-          "ApproxLong(20)"
+          "ApproxLong(20)",
+          false
         ), // Should raise an error. Privacy cannot be applied on types other than string
         attributes = Some(List[Attribute]())
       )

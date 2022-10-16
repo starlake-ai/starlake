@@ -3,16 +3,19 @@ package ai.starlake.workflow
 import ai.starlake.utils.CliConfig
 import scopt.OParser
 
-case class ImportConfig()
+case class ImportConfig(
+  includes: Seq[String] = Seq.empty
+)
 
 object ImportConfig extends CliConfig[ImportConfig] {
+  val command = "import"
 
   val parser: OParser[Unit, ImportConfig] = {
     val builder = OParser.builder[ImportConfig]
     import builder._
     OParser.sequence(
-      programName("starlake import"),
-      head("starlake", "import"),
+      programName(s"starlake $command"),
+      head("starlake", command, "[options]"),
       note("""
           |Move the files from the landing area to the pending area.
           |
@@ -29,7 +32,12 @@ object ImportConfig extends CliConfig[ImportConfig] {
           |
           |"ack" is the default ack extension searched for but you may specify a different one in the domain YML file.
           |example: comet import
-          |""".stripMargin)
+          |""".stripMargin),
+      opt[Seq[String]]("include")
+        .action((x, c) => c.copy(includes = x))
+        .valueName("domain1,domain2...")
+        .optional()
+        .text("Domains to import")
     )
   }
 

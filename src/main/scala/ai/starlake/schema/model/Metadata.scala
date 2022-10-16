@@ -93,7 +93,9 @@ case class Metadata(
   directory: Option[String] = None,
   extensions: Option[List[String]] = None,
   ack: Option[String] = None,
-  schedule: Option[String] = None
+  options: Option[Map[String, String]] = None,
+  validator: Option[String] = None,
+  schedule: Option[Map[String, String]] = None
 ) {
 
   override def toString: String =
@@ -114,7 +116,10 @@ case class Metadata(
        |directory:${directory}
        |extensions:${extensions}
        |ack:${ack}
-       """.stripMargin
+       |options:${options}
+       |validator:${validator}
+       |schedule:${schedule}
+       |""".stripMargin
 
   def getMode(): Mode = mode.getOrElse(FILE)
 
@@ -143,6 +148,18 @@ case class Metadata(
   def getSamplingStrategy(): Double = partition.map(_.getSampling()).getOrElse(0.0)
 
   def getSink(): Option[Sink] = sink
+
+  @JsonIgnore
+  def getOptions(): Map[String, String] = options.getOrElse(Map.empty)
+
+  @JsonIgnore
+  def getXmlOptions(): Map[String, String] = this.getOptions() ++ xml.getOrElse(Map.empty)
+
+  @JsonIgnore
+  def getXsdPath(): Option[String] = {
+    val xmlOptions = getXmlOptions()
+    xmlOptions.get("rowValidationXSDPath").orElse(xmlOptions.get("xsdPath"))
+  }
 
   /** Merge a single attribute
     *
@@ -183,7 +200,10 @@ case class Metadata(
       xml = merge(this.xml, child.xml),
       directory = merge(this.directory, child.directory),
       extensions = merge(this.extensions, child.extensions),
-      ack = merge(this.ack, child.ack)
+      ack = merge(this.ack, child.ack),
+      options = merge(this.options, child.options),
+      validator = merge(this.validator, child.validator),
+      schedule = merge(this.schedule, child.schedule)
     )
   }
 

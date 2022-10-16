@@ -1,11 +1,8 @@
 package ai.starlake.utils
 
-import ai.starlake.job.index.connectionload.ConnectionLoadConfig
-import ai.starlake.schema.handlers.StorageHandler
-import ai.starlake.schema.model.{BigQuerySink, Engine, EsSink, JdbcSink, NoneSink, Sink}
 import ai.starlake.config.Settings
-import ai.starlake.job.index.bqload.{BigQueryLoadConfig, BigQuerySparkJob}
-import ai.starlake.job.index.connectionload.ConnectionLoadConfig
+import ai.starlake.job.sink.bigquery.{BigQueryLoadConfig, BigQuerySparkJob}
+import ai.starlake.job.sink.jdbc.ConnectionLoadConfig
 import ai.starlake.schema.handlers.StorageHandler
 import ai.starlake.schema.model._
 import com.google.cloud.bigquery.JobInfo.WriteDisposition
@@ -21,7 +18,7 @@ class SinkUtils(implicit settings: Settings) extends StrictLogging with DatasetL
     sinkType: Sink,
     dataframe: DataFrame,
     table: String,
-    /* arguments below used for filesink ony */
+    /* arguments below used for filesink only */
     savePath: Path,
     lockPath: Path,
     storageHandler: StorageHandler,
@@ -77,8 +74,6 @@ class SinkUtils(implicit settings: Settings) extends StrictLogging with DatasetL
             settings.comet,
             Right(dataframe),
             table,
-            partitions = sink.partitions.getOrElse(1),
-            batchSize = sink.batchsize.getOrElse(1000),
             options = sink.getOptions
           )
           sinkToJdbc(jdbcConfig)
@@ -184,14 +179,14 @@ class SinkUtils(implicit settings: Settings) extends StrictLogging with DatasetL
         session.sql(s"create database if not exists $hiveDB")
         session.sql(s"use $hiveDB")
         dataByVariableStored
-          .coalesce(1)
+          .repartition(1)
           .write
           .mode(SaveMode.Append)
           .format(settings.comet.defaultFormat)
           .saveAsTable(fullTableName)
       } else {
         dataByVariableStored
-          .coalesce(1)
+          .repartition(1)
           .write
           .mode(SaveMode.Append)
           .format(settings.comet.defaultFormat)
@@ -211,7 +206,7 @@ class SinkUtils(implicit settings: Settings) extends StrictLogging with DatasetL
     } else {
       storageHandler.mkdirs(path)
       dataToSave
-        .coalesce(1)
+        .repartition(1)
         .write
         .mode(SaveMode.Append)
         .format(settings.comet.defaultFormat)

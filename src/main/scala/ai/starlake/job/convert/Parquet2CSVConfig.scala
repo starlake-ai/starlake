@@ -18,13 +18,13 @@ case class Parquet2CSVConfig(
 )
 
 object Parquet2CSVConfig extends CliConfig[Parquet2CSVConfig] {
-
+  val command = "parquet2csv"
   val parser: OParser[Unit, Parquet2CSVConfig] = {
     val builder = OParser.builder[Parquet2CSVConfig]
     import builder._
     OParser.sequence(
-      programName("starlake parquet2csv"),
-      head("starlake", "parquet2csv", "[options]"),
+      programName(s"starlake $command"),
+      head("starlake", command, "[options]"),
       note(
         """
           |Convert parquet files to CSV.

@@ -1,10 +1,10 @@
 package ai.starlake.schema.generator
 
-import better.files.File
 import ai.starlake.TestHelper
 import ai.starlake.config.DatasetArea
 import ai.starlake.schema.model.{BigQuerySink, Domain, Format}
 import ai.starlake.utils.YamlSerializer
+import better.files.File
 
 class Xls2YmlSpec extends TestHelper {
   new WithSettings() {
@@ -18,18 +18,18 @@ class Xls2YmlSpec extends TestHelper {
     "Parsing a sample xlsx file" should "generate a yml file" in {
       outputFile.exists() shouldBe true
       result.name shouldBe "someDomain"
-      result.schemas.size shouldBe 2
+      result.tables.size shouldBe 2
     }
 
     it should "trim leading of trailing spaces in cells contents" in {
-      result.schemas.map(_.name) should contain(
+      result.tables.map(_.name) should contain(
         "SCHEMA1"
       ) // while it is "SCHEMA1 " in the excel file
     }
 
     it should "take into account the index col of a schema" in {
       val sink = for {
-        schema   <- result.schemas.find(_.name == "SCHEMA1")
+        schema   <- result.tables.find(_.name == "SCHEMA1")
         metadata <- schema.metadata
         sink     <- metadata.sink
       } yield sink
@@ -38,7 +38,7 @@ class Xls2YmlSpec extends TestHelper {
     }
 
     "All configured schemas" should "have all declared attributes correctly set" in {
-      val schema1 = result.schemas.filter(_.name == "SCHEMA1").head
+      val schema1 = result.tables.filter(_.name == "SCHEMA1").head
       schema1.metadata.flatMap(_.format) shouldBe Some(Format.POSITION)
       schema1.metadata.flatMap(_.encoding) shouldBe Some("UTF-8")
       schema1.attributes.size shouldBe 19
@@ -54,7 +54,7 @@ class Xls2YmlSpec extends TestHelper {
         .flatMap(_.sampling)
         .get shouldEqual 10.0
 
-      val schema2 = result.schemas.filter(_.name == "SCHEMA2").head
+      val schema2 = result.tables.filter(_.name == "SCHEMA2").head
       schema2.metadata.flatMap(_.format) shouldBe Some(Format.DSV)
       schema2.metadata.flatMap(_.encoding) shouldBe Some("ISO-8859-1")
       schema2.attributes.size shouldBe 19
@@ -72,32 +72,50 @@ class Xls2YmlSpec extends TestHelper {
     val reader = new XlsReader(Path(getClass.getResource("/sample/SomeDomainTemplate.xls").getPath))
     val domainOpt = reader.getDomain()
 
+    "a complex XLS (aka JSON/XML)" should "produce the correct schema" in {
+      val complexReader =
+        new XlsReader(Path(getClass.getResource("/sample/SomeComplexDomainTemplate.xls").getPath))
+      val xlsTable = complexReader.getDomain().get.tables.head
+      val domainAsYaml = YamlSerializer.serialize(complexReader.getDomain().get)
+      val yamlFile =
+        File(getClass.getResource("/sample/SomeComplexDomainTemplate.comet.yml").getPath)
+      val yamlTable = YamlSerializer
+        .deserializeDomain(yamlFile)
+        .getOrElse(throw new Exception(s"Invalid file name $yamlFile"))
+        .tables
+        .head
+
+      xlsTable.attributes.length shouldBe yamlTable.attributes.length
+
+      deepEquals(xlsTable.attributes, yamlTable.attributes)
+    }
+
     "a preEncryption domain" should "have only string types" in {
       domainOpt shouldBe defined
       val preEncrypt = Xls2Yml.genPreEncryptionDomain(domainOpt.get, Nil)
-      preEncrypt.schemas.flatMap(_.attributes).filter(_.`type` != "string") shouldBe empty
+      preEncrypt.tables.flatMap(_.attributes).filter(_.`type` != "string") shouldBe empty
     }
 
     "Merge and Partition elements" should "only be present in Post-Encryption domain" in {
       domainOpt shouldBe defined
       val preEncrypt = Xls2Yml.genPreEncryptionDomain(domainOpt.get, Nil)
-      preEncrypt.schemas.flatMap(_.metadata.map(_.partition)).forall(p => p.isEmpty) shouldBe true
-      preEncrypt.schemas.map(_.merge).forall(m => m.isEmpty) shouldBe true
+      preEncrypt.tables.flatMap(_.metadata.map(_.partition)).forall(p => p.isEmpty) shouldBe true
+      preEncrypt.tables.map(_.merge).forall(m => m.isEmpty) shouldBe true
       val postEncrypt = Xls2Yml.genPostEncryptionDomain(domainOpt.get, None, Nil)
-      postEncrypt.schemas
+      postEncrypt.tables
         .flatMap(_.metadata.map(_.partition))
         .forall(p => p.isDefined) shouldBe true
-      postEncrypt.schemas.map(_.merge).forall(m => m.isDefined) shouldBe true
+      postEncrypt.tables.map(_.merge).forall(m => m.isDefined) shouldBe true
 
     }
 
     "Column Description in schema" should "be present" in {
       domainOpt shouldBe defined
-      domainOpt.get.schemas.flatMap(_.comment) should have length 1
+      domainOpt.get.tables.flatMap(_.comment) should have length 1
     }
 
     private def validCount(domain: Domain, algo: String, count: Int) =
-      domain.schemas
+      domain.tables
         .flatMap(_.attributes)
         .filter(_.getPrivacy().toString == algo) should have length count
 
@@ -118,7 +136,7 @@ class Xls2YmlSpec extends TestHelper {
     "In prestep Attributes" should "not be renamed" in {
       domainOpt shouldBe defined
       val preEncrypt = Xls2Yml.genPreEncryptionDomain(domainOpt.get, Nil)
-      val schemaOpt = preEncrypt.schemas.find(_.name == "SCHEMA1")
+      val schemaOpt = preEncrypt.tables.find(_.name == "SCHEMA1")
       schemaOpt shouldBe defined
       val attrOpt = schemaOpt.get.attributes.find(_.name == "ATTRIBUTE_6")
       attrOpt shouldBe defined
@@ -128,7 +146,7 @@ class Xls2YmlSpec extends TestHelper {
     "In poststep Attributes" should "keep renaming strategy" in {
       domainOpt shouldBe defined
       val postEncrypt = Xls2Yml.genPostEncryptionDomain(domainOpt.get, Some("µ"), Nil)
-      val schemaOpt = postEncrypt.schemas.find(_.name == "SCHEMA1")
+      val schemaOpt = postEncrypt.tables.find(_.name == "SCHEMA1")
       schemaOpt shouldBe defined
       val attrOpt = schemaOpt.get.attributes.find(_.name == "ATTRIBUTE_6")
       attrOpt shouldBe defined
@@ -147,17 +165,17 @@ class Xls2YmlSpec extends TestHelper {
     "a preEncryption domain" should " not have required attributes" in {
       domainOpt shouldBe defined
       val preEncrypt = Xls2Yml.genPreEncryptionDomain(domainOpt.get, Nil)
-      preEncrypt.schemas.flatMap(_.attributes).filter(_.required) shouldBe empty
+      preEncrypt.tables.flatMap(_.attributes).filter(_.required) shouldBe empty
     }
 
     "a postEncryption domain" should "have not have POSITION schemas" in {
       domainOpt shouldBe defined
-      domainOpt.get.schemas
+      domainOpt.get.tables
         .flatMap(_.metadata)
         .count(_.format.contains(Format.POSITION)) shouldBe 1
       val postEncrypt =
         Xls2Yml.genPostEncryptionDomain(domainOpt.get, Some("µ"), List("HIDE", "SHA1"))
-      postEncrypt.schemas
+      postEncrypt.tables
         .flatMap(_.metadata)
         .filter(_.format.contains(Format.POSITION)) shouldBe empty
       validCount(postEncrypt, "HIDE", 0)
@@ -166,11 +184,11 @@ class Xls2YmlSpec extends TestHelper {
     }
     "a custom separator" should "be generated" in {
       domainOpt shouldBe defined
-      domainOpt.get.schemas
+      domainOpt.get.tables
         .flatMap(_.metadata)
         .count(_.format.contains(Format.POSITION)) shouldBe 1
       val postEncrypt = Xls2Yml.genPostEncryptionDomain(domainOpt.get, Some(","), Nil)
-      postEncrypt.schemas
+      postEncrypt.tables
         .flatMap(_.metadata)
         .filterNot(_.separator.contains(",")) shouldBe empty
     }
@@ -178,7 +196,7 @@ class Xls2YmlSpec extends TestHelper {
     "a scripted attribute" should "be generated" in {
       domainOpt shouldBe defined
       domainOpt
-        .flatMap(_.schemas.find(_.name == "SCHEMA1"))
+        .flatMap(_.tables.find(_.name == "SCHEMA1"))
         .flatMap(_.attributes.find(_.name == "ATTRIBUTE_4").flatMap(_.script)) shouldBe Some(
         "current_date()"
       )

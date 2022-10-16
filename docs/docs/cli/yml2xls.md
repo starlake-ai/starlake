@@ -6,7 +6,7 @@ title: yml2xls
 
 ## Synopsis
 
-**starlake yml2xls [options]**
+**starlake $command [options]**
 
 ## Description
 
@@ -15,5 +15,6 @@ title: yml2xls
 
 Parameter|Cardinality|Description
 ---|---|---
---domain:`<value>`|*Required*|domains to convert to XLS
+--domain:`<value>`|*Optional*|domains to convert to XLS
 --xls:`<value>`|*Required*|directory where XLS files are generated
+

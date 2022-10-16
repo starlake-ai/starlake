@@ -28,7 +28,7 @@ class MergeUtilsTest extends TestHelper {
     val invalidSchema = StructType.fromDDL("`root` STRUCT<`other`: BIGINT>,`note` STRING")
 
     val result = MergeUtils.computeCompatibleSchema(actualSchema, invalidSchema)
-    result.sql shouldBe "STRUCT<`root`: STRUCT<>, `note`: STRING>"
+    result.sql shouldBe "STRUCT<root: STRUCT<>, note: STRING>"
   }
 
   "merging schemas new columns not nullable" should "fail" in {
@@ -42,7 +42,7 @@ class MergeUtilsTest extends TestHelper {
     }
   }
 
-  "merging two dataset with duplicated lines" should "deduplicate the lines" in {
+  "merging two dataset with duplicated lines" should "apply upsert" in {
     val schema = StructType.fromDDL("`id` INT,`data` STRUCT<`version`: INT>")
     val existingDF =
       sparkSession.read.schema(schema).json(getResPath("/sample/merge/existing.jsonl"))
@@ -78,7 +78,7 @@ class MergeUtilsTest extends TestHelper {
     actual should contain theSameElementsAs expected
   }
 
-  "merging two dataset with duplicated lines and different schemas" should "deduplicate the lines" in {
+  "merging two dataset with duplicated lines and different schemas" should "apply upsert and update schema" in {
     val existingSchema = StructType.fromDDL("`id` INT,`data` STRUCT<`version`: INT>")
     val incomingSchema =
       StructType.fromDDL("`id` INT,`data` STRUCT<`version`: INT,`new`: STRING>,`field` STRING")

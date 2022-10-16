@@ -1,6 +1,6 @@
 ---
-sidebar_position: 6
-title: Local filesystem for testing
+sidebar_position: 5
+title: Local filesystem
 ---
 
 
@@ -11,27 +11,19 @@ To run the samples locally on Windows, you must first create the docker image :
 
 ````shell
 $ cd samples
-$ docker build --build-arg STARLAKE_VERSION=0.2.8 -t starlake .
+$ docker build --build-arg STARLAKE_VERSION=0.3.1 -t starlake .
 ````
 
 One the docker image is built locally, run it :
 
 ````shell
-$ docker run -it starlake:latest
-Setting up samples ...
-setup finished
-to login run: docker exec -it 51c331b7e757 bash
-Press x to exit container:
-````
-From another window terminal, enter the docker container (replace 51c331b7e757 by the container id returned above) :
-
-````shell
-$ docker exec -it 51c331b7e757 bash
+$ docker run -it starlake:latest bash
 ````
 
 ## Running the samples
 
-Make sure you are in the `samples/local` folder
+Inside the docker container, make sure you are in the `samples/local` folder
+
 The quickstart-template is first duplicated into the samples/local folder to create a startup project  
 
 ````shell

@@ -6,7 +6,7 @@ title: import
 
 ## Synopsis
 
-**starlake import**
+**starlake import [options]**
 
 ## Description
 
@@ -33,3 +33,5 @@ comet import
 
 Parameter|Cardinality|Description
 ---|---|---
+--include:`domain1,domain2...`|*Optional*|Domains to import
+

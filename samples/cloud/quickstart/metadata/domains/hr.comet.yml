@@ -6,12 +6,9 @@ load:
     format: "JSON"
     sink:
       type: ${sink_type}
+      timestamp: loaded_at
   schemas:
     - name: "sellers"
-      acl:
-        - role: "roles/bigquery/dataViewer"
-          grants:
-            - "user:hayssam@saleh.fr"
       pattern: "sellers-.*.json"
       primaryKey:
         - id
@@ -30,6 +27,10 @@ load:
         - name: "location_id"
           type: "long"
           required: true
+        - name: "loaded_at"
+          type: "timestamp"
+          required: true
+          script: "current_timestamp()"
     - name: "locations"
       pattern: "locations-.*.json"
       primaryKey:
@@ -40,7 +41,6 @@ load:
       attributes:
         - name: "id"
           type: "string"
-          accessPolicy: PII
           required: true
         - name: "address"
           type: "struct"
@@ -56,3 +56,7 @@ load:
             - name: "country"
               type: "string"
               required: true
+        - name: loaded_at
+          type: timestamp
+          required: true
+          script: "current_timestamp()"

@@ -1,13 +1,12 @@
 package ai.starlake.utils
 
-import ai.starlake.config.UdfRegistration
-import ai.starlake.schema.model.SinkType.{BQ, FS, JDBC, KAFKA}
-import ai.starlake.schema.model.{Metadata, SinkType, Views}
 import ai.starlake.config.{Settings, SparkEnv, UdfRegistration}
 import ai.starlake.schema.model.SinkType.{BQ, FS, JDBC, KAFKA}
 import ai.starlake.schema.model.{Metadata, SinkType, Views}
+import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.utils.Formatter._
 import ai.starlake.utils.kafka.KafkaClient
+import com.hubspot.jinjava.Jinjava
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.SparkConf
 import org.apache.spark.sql._
@@ -15,6 +14,9 @@ import org.apache.spark.sql.execution.datasources.jdbc.JDBCOptions
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.IntegerType
 
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
+import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try}
 
 trait JobResult
@@ -54,7 +56,7 @@ trait JobBase extends StrictLogging with DatasetLogging {
       val sepConfigIndex = valueWithEnv.indexOf(':', sepIndex + 1)
       if (sepConfigIndex > 0) {
         (
-          SinkType.fromString(valueWithEnv.substring(0, sepIndex)),
+          SinkType.fromString(key),
           Some(valueWithEnv.substring(sepIndex + 1, sepConfigIndex)),
           valueWithEnv.substring(sepConfigIndex + 1)
         )
@@ -63,12 +65,34 @@ trait JobBase extends StrictLogging with DatasetLogging {
     } else // parquet is the default
       (SinkType.FS, None, valueWithEnv)
   }
+  protected val jinjava = {
+    val res = new Jinjava()
+    res.setResourceLocator(new JinjaResourceHandler())
+    res
+  }
+
+  protected def parseJinja(str: String, params: Map[String, String]): String = parseJinja(
+    List(str),
+    params
+  ).head
+
+  protected def parseJinja(str: List[String], params: Map[String, String]): List[String] = {
+    val result = str.map { sql =>
+      CommentParser.stripComments(
+        jinjava
+          .render(sql, params.asJava)
+          .richFormat(params, Map.empty)
+          .trim
+      )
+    }
+    result
+  }
 
 }
 
 trait SparkJob extends JobBase {
 
-  def withExtraSparkConf(sourceConfig: SparkConf): SparkConf = {
+  protected def withExtraSparkConf(sourceConfig: SparkConf): SparkConf = {
     // During Job execution, schema update are done on the table before data is written
     // These two options below are thus disabled.
     // We disable them because even though the user asked for WRITE_APPEND
@@ -76,12 +100,20 @@ trait SparkJob extends JobBase {
     // Moreover, since we handle schema validaty through the YAML file, we manage these settings automatically
     sourceConfig.remove("spark.datasource.bigquery.allowFieldAddition")
     sourceConfig.remove("spark.datasource.bigquery.allowFieldRelaxation")
-    sourceConfig
+
+    val now = LocalDateTime
+      .now()
+      .format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss.SSS"))
+
+    val appName = s"$name-$now"
+    val thisConf = sourceConfig.setAppName(appName).set("spark.app.id", appName)
+    logger.whenDebugEnabled {
+      logger.debug(thisConf.toDebugString)
+    }
+    thisConf
   }
 
-  lazy val sparkEnv: SparkEnv = {
-    new SparkEnv(name, withExtraSparkConf)
-  }
+  private lazy val sparkEnv: SparkEnv = new SparkEnv(name, withExtraSparkConf)
 
   protected def registerUdf(udf: String): Unit = {
     val udfInstance: UdfRegistration =
@@ -229,10 +261,17 @@ trait SparkJob extends JobBase {
     }
   }
 
+  /** @param views
+    * @param schemaHandler
+    * @param sqlParameters
+    * @return
+    *   CTEs expressions that need to be injected in requests
+    */
   protected def createSparkViews(
     views: Views,
+    schemaHandler: SchemaHandler,
     sqlParameters: Map[String, String]
-  ): Unit = {
+  ): List[String] = {
     // We parse the following strings
     // ex  BQ:[[ProjectID.]DATASET_ID.]TABLE_NAME"
     // or  BQ:[[ProjectID.]DATASET_ID.]TABLE_NAME.[comet_filter(col1 > 10 and col2 < 20)].[comet_select(col1, col2)]"
@@ -240,95 +279,133 @@ trait SparkJob extends JobBase {
     // or  JDBC:postgres:select *
     // or  KAFKA:topicConfigName
     // or  KAFKA:stream:topicConfigName
-    views.views.foreach { case (key, value) =>
+    views.views.flatMap { case (key, value) =>
       // Apply substitution defined with {{ }} and overload options in env by option in command line
-      val valueWithEnv = value.richFormat(sqlParameters)
-      val (sinkType, sinkConfig, path) = parseViewDefinition(valueWithEnv)
-      logger.info(s"Loading view $path from $sinkType")
-      val df = sinkType match {
-        case FS => // (FS, _, absolute_path|relative_path|sql)
-          if (path.startsWith("/"))
-            session.read.format(settings.comet.defaultFormat).load(path)
-          else if (path.trim.toLowerCase.startsWith("select "))
-            session.sql(path)
-          else
-            session.read
-              .format(settings.comet.defaultFormat)
-              .load(s"${settings.comet.datasets}/$path")
-        case JDBC => // (JDBC, connectionName, queryString)
-          val jdbcConfig =
-            settings.comet.connections(sinkConfig.getOrElse(throw new Exception("")))
-          session.read
-            .options(jdbcConfig.options)
-            .format(jdbcConfig.format)
-            .option(JDBCOptions.JDBC_QUERY_STRING, path)
-            .load()
-            .cache()
+      Option(value) match {
+        case None =>
+          val viewContent = schemaHandler
+            .views(key)
+            .getOrElse(throw new Exception(s"Unknown view $key"))
 
-        case KAFKA => // (KAFKA, STREAM|FILE, topic)
-          sinkConfig match {
-            case Some(x) if x.toLowerCase() == "stream" =>
-              Utils.withResources(new KafkaClient(settings.comet.kafka)) { kafkaClient =>
-                kafkaClient.consumeTopicStreaming(session, settings.comet.kafka.topics(path))
-              }
-            case _ =>
-              Utils.withResources(new KafkaClient(settings.comet.kafka)) { kafkaClient =>
-                val (dataframe, _) =
-                  kafkaClient.consumeTopicBatch(path, session, settings.comet.kafka.topics(path))
-                dataframe
-              }
+          val parsedContent = parseJinja(viewContent, schemaHandler.activeEnv() ++ sqlParameters)
+          Some(s"$key AS ($parsedContent)")
 
-          }
-        case BQ =>
-          val TablePathWithFilter = "(.*)\\.comet_filter\\((.*)\\)".r
-          val TablePathWithSelect = "(.*)\\.comet_select\\((.*)\\)".r
-          val TablePathWithFilterAndSelect =
-            "(.*)\\.comet_select\\((.*)\\)\\.comet_filter\\((.*)\\)".r
-          path match {
-            case TablePathWithFilterAndSelect(tablePath, select, filter) =>
-              logger
-                .info(
-                  s"We are loading the Table with columns: $select and filters: $filter"
-                )
-              session.read
-                .option("readDataFormat", "AVRO")
-                .format("com.google.cloud.spark.bigquery")
-                .option("table", tablePath)
-                .option("filter", filter)
-                .load()
-                .selectExpr(select.replaceAll("\\s", "").split(","): _*)
-                .cache()
-            case TablePathWithFilter(tablePath, filter) =>
-              logger.info(s"We are loading the Table with filters: $filter")
-              session.read
-                .option("readDataFormat", "AVRO")
-                .format("com.google.cloud.spark.bigquery")
-                .option("table", tablePath)
-                .option("filter", filter)
-                .load()
-                .cache()
-            case TablePathWithSelect(tablePath, select) =>
-              logger.info(s"We are loading the Table with columns: $select")
-              session.read
-                .option("readDataFormat", "AVRO")
-                .format("com.google.cloud.spark.bigquery")
-                .option("table", tablePath)
-                .load()
-                .selectExpr(select.replaceAll("\\s", "").split(","): _*)
-                .cache()
-            case _ =>
-              session.read
-                .option("readDataFormat", "AVRO")
-                .format("com.google.cloud.spark.bigquery")
-                .option("table", path)
-                .load()
-                .cache()
-          }
-        case _ =>
-          throw new Exception("Should never happen")
+        case Some(value) =>
+          val valueWithEnv =
+            parseJinja(value, schemaHandler.activeEnv() ++ sqlParameters)
+              .richFormat(schemaHandler.activeEnv(), sqlParameters)
+          val (sinkType, sinkConfig, path) = parseViewDefinition(valueWithEnv)
+          logger.info(s"Loading view $path from $sinkType")
+          val df: DataFrame = createSparkView(sinkType, sinkConfig, path)
+          df.createOrReplaceTempView(key)
+          logger.info(s"Created view $key")
+          None
       }
-      df.createOrReplaceTempView(key)
-      logger.info(s"Created view $key")
+    }.toList
+  }
+
+  protected def createSparkView(
+    sinkType: SinkType,
+    sinkConfig: Option[String],
+    path: String
+  ): DataFrame = {
+    val df = sinkType match {
+      case FS => // (FS, _, absolute_path|relative_path|sql)
+        createFSView(path)
+      case JDBC => // (JDBC, connectionName, queryString)
+        createJDBCView(sinkConfig, path)
+      case KAFKA => // (KAFKA, STREAM|FILE, topic)
+        createKafkaView(sinkConfig, path)
+      case BQ =>
+        createBQView(path)
+      case _ =>
+        throw new Exception("Should never happen")
+    }
+    df
+  }
+
+  private def createJDBCView(sinkConfig: Option[String], path: String) = {
+    val jdbcConfig =
+      settings.comet.connections(sinkConfig.getOrElse(throw new Exception("")))
+    session.read
+      .options(jdbcConfig.options)
+      .format(jdbcConfig.format)
+      .option(JDBCOptions.JDBC_QUERY_STRING, path)
+      .load()
+      .cache()
+  }
+
+  private def createFSView(path: String) = {
+    if (path.startsWith("/"))
+      session.read.format(settings.comet.defaultFormat).load(path)
+    else if (path.trim.toLowerCase.startsWith("select "))
+      session.sql(path)
+    else
+      session.read
+        .format(settings.comet.defaultFormat)
+        .load(s"${settings.comet.datasets}/$path")
+  }
+
+  private def createBQView(path: String) = {
+    val TablePathWithFilter = "(.*)\\.comet_filter\\((.*)\\)".r
+    val TablePathWithSelect = "(.*)\\.comet_select\\((.*)\\)".r
+    val TablePathWithFilterAndSelect =
+      "(.*)\\.comet_select\\((.*)\\)\\.comet_filter\\((.*)\\)".r
+    path match {
+      case TablePathWithFilterAndSelect(tablePath, select, filter) =>
+        logger
+          .info(
+            s"We are loading the Table with columns: $select and filters: $filter"
+          )
+        session.read
+          .option("readDataFormat", "AVRO")
+          .format("com.google.cloud.spark.bigquery")
+          .option("table", tablePath)
+          .option("filter", filter)
+          .load()
+          .selectExpr(select.replaceAll("\\s", "").split(","): _*)
+          .cache()
+      case TablePathWithFilter(tablePath, filter) =>
+        logger.info(s"We are loading the Table with filters: $filter")
+        session.read
+          .option("readDataFormat", "AVRO")
+          .format("com.google.cloud.spark.bigquery")
+          .option("table", tablePath)
+          .option("filter", filter)
+          .load()
+          .cache()
+      case TablePathWithSelect(tablePath, select) =>
+        logger.info(s"We are loading the Table with columns: $select")
+        session.read
+          .option("readDataFormat", "AVRO")
+          .format("com.google.cloud.spark.bigquery")
+          .option("table", tablePath)
+          .load()
+          .selectExpr(select.replaceAll("\\s", "").split(","): _*)
+          .cache()
+      case _ =>
+        session.read
+          .option("readDataFormat", "AVRO")
+          .format("com.google.cloud.spark.bigquery")
+          .option("table", path)
+          .load()
+          .cache()
+    }
+  }
+
+  private def createKafkaView(sinkConfig: Option[String], path: String) = {
+    sinkConfig match {
+      case Some(x) if x.toLowerCase() == "stream" =>
+        Utils.withResources(new KafkaClient(settings.comet.kafka)) { kafkaClient =>
+          KafkaClient.consumeTopicStreaming(session, settings.comet.kafka.topics(path))
+        }
+      case _ =>
+        Utils.withResources(new KafkaClient(settings.comet.kafka)) { kafkaClient =>
+          val (dataframe, _) =
+            kafkaClient.consumeTopicBatch(path, session, settings.comet.kafka.topics(path))
+          dataframe
+        }
+
     }
   }
 }

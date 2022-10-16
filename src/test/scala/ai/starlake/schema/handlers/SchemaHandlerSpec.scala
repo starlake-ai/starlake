@@ -22,7 +22,7 @@ package ai.starlake.schema.handlers
 
 import ai.starlake.TestHelper
 import ai.starlake.config.DatasetArea
-import ai.starlake.job.index.esload.ESLoadConfig
+import ai.starlake.job.sink.es.ESLoadConfig
 import ai.starlake.job.ingest.LoadConfig
 import ai.starlake.schema.generator.Yml2GraphViz
 import ai.starlake.schema.model._
@@ -68,8 +68,8 @@ class SchemaHandlerSpec extends TestHelper {
                      |    "es.nodes.wan.only": "true"
                      |    "es.nodes": "localhost"
                      |    "es.port": "${esContainer.httpHostAddress.substring(
-        esContainer.httpHostAddress.lastIndexOf(':') + 1
-      )}",
+                       esContainer.httpHostAddress.lastIndexOf(':') + 1
+                     )}",
                      |
                      |    #  net.http.auth.user = ""
                      |    #  net.http.auth.pass = ""
@@ -534,7 +534,6 @@ class SchemaHandlerSpec extends TestHelper {
 
     }
     "Ingest Locations XML" should "produce file in accepted" in {
-
       new SpecTrait(
         domainOrJobFilename = "locations.comet.yml",
         sourceDomainOrJobPathname = s"/sample/xml/locations.comet.yml",
@@ -572,6 +571,51 @@ class SchemaHandlerSpec extends TestHelper {
         millis.substring(0, 4) shouldBe "1970"
       }
     }
+
+    "Ingest Locations XML with XSD" should "produce file in accepted" in {
+      new SpecTrait(
+        domainOrJobFilename = "locations.comet.yml",
+        sourceDomainOrJobPathname = s"/sample/xsd/locations.comet.yml",
+        datasetDomainName = "locations",
+        sourceDatasetPathName = "/sample/xsd/locations.xml"
+      ) {
+        cleanMetadata
+        cleanDatasets
+
+        withSettings.deliverTestFile(
+          "/sample/xsd/locations.xsd",
+          new Path(domainMetadataRootPath, "sample/xsd/locations.xsd")
+        )
+
+        loadPending
+
+        readFileContent(
+          cometDatasetsPath + s"/${settings.comet.area.archive}/$datasetDomainName/locations.xml"
+        ) shouldBe loadTextFile(
+          sourceDatasetPathName
+        )
+
+        // Accepted should have the same data as input
+        val acceptedDf = sparkSession.read
+          .parquet(
+            cometDatasetsPath + s"/accepted/$datasetDomainName/locations/$getTodayPartitionPath"
+          )
+
+        import sparkSession.implicits._
+        val (seconds, millis) =
+          acceptedDf
+            .select($"seconds", $"millis")
+            .filter($"name" like "Paris")
+            .as[(String, String)]
+            .collect()
+            .head
+
+        // We just check against the year since the test may be executed in a different time zone :)
+        seconds.substring(0, 4) shouldBe "1631"
+        millis.substring(0, 4) shouldBe "1631"
+      }
+    }
+
     "Load Business with Transform Tag" should "load an AutoDesc" in {
       new SpecTrait(
         domainOrJobFilename = "locations.comet.yml",
@@ -587,6 +631,30 @@ class SchemaHandlerSpec extends TestHelper {
         val jobPath = new Path(getClass.getResource(filename).toURI)
         val job = schemaHandler.loadJobFromFile(jobPath)
         job.success.value.name shouldBe "business" // Job renamed to filename and error is logged
+      }
+    }
+
+    "Load Business with jinja" should "should not run jinja parser" in {
+      new SpecTrait(
+        domainOrJobFilename = "locations.comet.yml",
+        sourceDomainOrJobPathname = "/sample/simple-json-locations/locations.comet.yml",
+        datasetDomainName = "locations",
+        sourceDatasetPathName = "/sample/simple-json-locations/locations.json"
+      ) {
+        import org.scalatest.TryValues._
+        cleanMetadata
+        cleanDatasets
+        val schemaHandler = new SchemaHandler(storageHandler)
+        val filename = "/sample/metadata/business/my-jinja-job.comet.yml"
+        val jobPath = new Path(getClass.getResource(filename).toURI)
+        val job = schemaHandler.loadJobFromFile(jobPath)
+        println(job)
+        job.success.value.tasks.head.sql.get.trim shouldBe """{% set myList = ["col1,", "col2"] %}
+                                                             |select
+                                                             |{%- for x in myList %}
+                                                             |{{x}}
+                                                             |{%- endfor %}
+                                                             |from dream_working.client""".stripMargin // Job renamed to filename and error is logged
       }
     }
 
@@ -621,9 +689,10 @@ class SchemaHandlerSpec extends TestHelper {
 
         val schemaHandler = new SchemaHandler(storageHandler)
 
-        val schema: Option[Schema] = schemaHandler.domains
+        val schema: Option[Schema] = schemaHandler
+          .domains()
           .find(_.name == "locations")
-          .flatMap(_.schemas.find(_.name == "locations"))
+          .flatMap(_.tables.find(_.name == "locations"))
         val expected: String =
           """
             |{
@@ -733,13 +802,13 @@ class SchemaHandlerSpec extends TestHelper {
         val expectedFileContent = loadTextFile("/expected/dot/output.dot")
         fileContent shouldBe expectedFileContent
 
-        val result = schemaHandler.domains.head.asDot(false)
+        val result = schemaHandler.domains().head.asDot(false, Set("segment", "client"))
         result.trim shouldBe """
                                |
                                |dream_segment [label=<
                                |<table border="0" cellborder="1" cellspacing="0">
                                |<tr><td port="0" bgcolor="darkgreen"><B><FONT color="white"> segment </FONT></B></td></tr>
-                               |<tr><td port="dream_id"><B> dreamkey:long </B></td></tr>
+                               |<tr><td port="dreamkey"><B> dreamkey:long </B></td></tr>
                                |</table>>];
                                |
                                |
@@ -753,6 +822,29 @@ class SchemaHandlerSpec extends TestHelper {
                                |dream_client:dream_id -> dream_segment:0
                                |
                                |""".stripMargin.trim
+      }
+    }
+
+    "Exporting domain as ACL Dot" should "create a valid ACL dot file" in {
+      new SpecTrait(
+        domainOrJobFilename = "dream.comet.yml",
+        sourceDomainOrJobPathname = s"/sample/dream/dream.comet.yml",
+        datasetDomainName = "dream",
+        sourceDatasetPathName = "/sample/dream/OneClient_Segmentation_20190101_090800_008.psv"
+      ) {
+        cleanMetadata
+        cleanDatasets
+        val schemaHandler = new SchemaHandler(settings.storageHandler)
+
+        new Yml2GraphViz(schemaHandler).run(Array("--acl", "true"))
+
+        val tempFile = File.newTemporaryFile().pathAsString
+        new Yml2GraphViz(schemaHandler).run(
+          Array("--acl", "true", "--acl-output", tempFile)
+        )
+        val fileContent = readFileContent(tempFile)
+        val expectedFileContent = loadTextFile("/expected/dot/acl-output.dot")
+        fileContent.trim shouldBe expectedFileContent.trim
       }
     }
 
@@ -830,7 +922,7 @@ class SchemaHandlerSpec extends TestHelper {
         val schemaHandler = new SchemaHandler(settings.storageHandler)
         schemaHandler
           .getDomain("WITH_REF")
-          .map(_.schemas.map(_.name))
+          .map(_.tables.map(_.name))
           .get should contain theSameElementsAs List(
           "User",
           "Players",

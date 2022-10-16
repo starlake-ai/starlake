@@ -1,7 +1,7 @@
 package ai.starlake.job.kafka
 
 import ai.starlake.TestHelper
-import ai.starlake.job.index.kafkaload.{KafkaJob, KafkaJobConfig}
+import ai.starlake.job.sink.kafka.{KafkaJob, KafkaJobConfig}
 import ai.starlake.utils.kafka.KafkaClient
 import better.files.File
 import com.dimafeng.testcontainers.lifecycle.and
@@ -42,7 +42,7 @@ class KafkaJobSpec extends TestHelper {
          |    "test_offload": {
          |      topic-name: "test_offload"
          |      max-read = 0
-         |      fields = ["key as STRING", "value as STRING"]
+         |      fields = ["cast(key as STRING)", "cast(value as STRING)"]
          |      write-format = "parquet"
          |      access-options = {
          |        "kafka.bootstrap.servers": "${kafkaContainer.bootstrapServers}"
@@ -58,7 +58,37 @@ class KafkaJobSpec extends TestHelper {
          |    "test_offload_kafka_to_kafka": {
          |      topic-name: "test_offload_kafka_to_kafka"
          |      max-read = 0
-         |      fields = ["key as STRING", "value as STRING"]
+         |      fields = ["cast(key as STRING)", "cast(value as STRING)"]
+         |      access-options = {
+         |        "kafka.bootstrap.servers": "${kafkaContainer.bootstrapServers}"
+         |        "bootstrap.servers": "${kafkaContainer.bootstrapServers}"
+         |        "key.deserializer": "org.apache.kafka.common.serialization.StringDeserializer"
+         |        "value.deserializer": "org.apache.kafka.common.serialization.StringDeserializer"
+         |        "key.serializer": "org.apache.kafka.common.serialization.StringSerializer"
+         |        "value.serializer": "org.apache.kafka.common.serialization.StringSerializer"
+         |        "subscribe": "test_offload_kafka_to_kafka"
+         |        "startingOffsets": "earliest"
+         |      }
+         |    },
+         |    "test_offload_http_to_kafka": {
+         |      topic-name: "test_offload_http_to_kafka"
+         |      max-read = 0
+         |      fields = ["cast(value as STRING)"]
+         |      access-options = {
+         |        "kafka.bootstrap.servers": "${kafkaContainer.bootstrapServers}"
+         |        "bootstrap.servers": "${kafkaContainer.bootstrapServers}"
+         |        "key.deserializer": "org.apache.kafka.common.serialization.StringDeserializer"
+         |        "value.deserializer": "org.apache.kafka.common.serialization.StringDeserializer"
+         |        "key.serializer": "org.apache.kafka.common.serialization.StringSerializer"
+         |        "value.serializer": "org.apache.kafka.common.serialization.StringSerializer"
+         |        "subscribe": "test_offload_kafka_to_kafka"
+         |        "startingOffsets": "earliest"
+         |      }
+         |    },
+         |    "test_offload_kafka_to_http": {
+         |      topic-name: "test_offload_kafka_to_http"
+         |      max-read = 0
+         |      fields = ["cast(key as STRING)", "cast(value as STRING)"]
          |      write-format = "parquet"
          |      access-options = {
          |        "kafka.bootstrap.servers": "${kafkaContainer.bootstrapServers}"
@@ -74,7 +104,7 @@ class KafkaJobSpec extends TestHelper {
          |    "test_load": {
          |      topic-name: "test_load"
          |      max-read = 0
-         |      fields = ["key as STRING", "value as STRING"]
+         |      fields = ["cast(key as STRING)", "cast(value as STRING)"]
          |      write-format = "parquet"
          |      access-options = {
          |        "kafka.bootstrap.servers": "${kafkaContainer.bootstrapServers}"
@@ -89,7 +119,7 @@ class KafkaJobSpec extends TestHelper {
          |    "kafka_to_es": {
          |      topic-name: "kafka_to_es"
          |      max-read = 0
-         |      fields = ["key as STRING", "value as STRING"]
+         |      fields = ["cast(key as STRING)", "cast(value as STRING)"]
          |      write-format = "parquet"
          |      access-options = {
          |        "kafka.bootstrap.servers": "${kafkaContainer.bootstrapServers}"
@@ -104,7 +134,7 @@ class KafkaJobSpec extends TestHelper {
          |    "topic_sink_config": {
          |      topic-name: "topic_sink"
          |      max-read = 0
-         |      fields = ["key as STRING", "value as STRING"]
+         |      fields = ["cast(key as STRING)", "cast(value as STRING)"]
          |      write-format = "parquet"
          |      access-options = {
          |        "kafka.bootstrap.servers": "${kafkaContainer.bootstrapServers}"
@@ -119,7 +149,7 @@ class KafkaJobSpec extends TestHelper {
          |    "stream_kafka_to_es": {
          |      topic-name: "stream_kafka_to_es"
          |      max-read = 0
-         |      fields = ["key as STRING", "value as STRING"]
+         |      fields = ["cast(key as STRING)", "cast(value as STRING)"]
          |      write-format = "parquet"
          |      access-options = {
          |        "kafka.bootstrap.servers": "${kafkaContainer.bootstrapServers}"
@@ -134,7 +164,7 @@ class KafkaJobSpec extends TestHelper {
          |    "stream_kafka_to_table": {
          |      topic-name: "stream_kafka_to_table"
          |      max-read = 0
-         |      fields = ["key as STRING", "value as STRING"]
+         |      fields = ["cast(key as STRING)", "cast(value as STRING)"]
          |      write-format = "parquet"
          |      access-options = {
          |        "kafka.bootstrap.servers": "${kafkaContainer.bootstrapServers}"
@@ -229,7 +259,7 @@ class KafkaJobSpec extends TestHelper {
           new NewTopic("comet_offsets", 1, 1.toShort),
           topicProperties
         )
-        val partitions = kafkaClient.topicPartitions("comet_offsets")
+        val partitions = kafkaClient.adminTopicPartitions("comet_offsets")
         partitions should have size 1
       }
 
@@ -275,21 +305,22 @@ class KafkaJobSpec extends TestHelper {
         val kafkaJob =
           new KafkaJob(
             KafkaJobConfig(
-              "test_offload",
-              "json",
-              SaveMode.Overwrite,
-              file.pathAsString,
-              offload = false
+              path = Some(file.pathAsString),
+              format = "json",
+              writeTopicConfigName = Some("test_offload"),
+              writeMode = SaveMode.Append.toString,
+              writeFormat = "kafka"
             )
           )
         kafkaJob.run()
         val kafkaJob2 =
           new KafkaJob(
             KafkaJobConfig(
-              "test_offload",
-              "json",
-              SaveMode.Overwrite,
-              "/tmp/json2.json",
+              topicConfigName = Some("test_offload"),
+              format = "kafka",
+              writeMode = SaveMode.Overwrite.toString,
+              writeFormat = "json",
+              writePath = Some("/tmp/json2.json"),
               coalesce = Some(1)
             )
           )
@@ -312,18 +343,19 @@ class KafkaJobSpec extends TestHelper {
         val kafkaJob =
           new KafkaJob(
             KafkaJobConfig(
-              "test_load",
-              "json",
-              SaveMode.Overwrite,
-              file.pathAsString,
-              offload = false
+              format = "json",
+              path = Some(file.pathAsString),
+              writeTopicConfigName = Some("test_load"),
+              writeMode = SaveMode.Append.toString
             )
           )
         kafkaJob.run()
         val offsets =
           kafkaClient.topicEndOffsets(
             "test_load",
-            settings.comet.kafka.topics("test_load").accessOptions
+            settings.comet.kafka
+              .topics("test_load")
+              .allAccessOptions()
           )
         offsets should contain theSameElementsAs List((0, 10000))
       }
@@ -340,28 +372,29 @@ class KafkaJobSpec extends TestHelper {
         val kafkaJob =
           new KafkaJob(
             KafkaJobConfig(
-              "kafka_to_es",
-              "json",
-              SaveMode.Overwrite,
-              file.pathAsString,
-              offload = false
+              format = "json",
+              path = Some(file.pathAsString),
+              writeTopicConfigName = Some("kafka_to_es"),
+              writeMode = SaveMode.Overwrite.toString
             )
           )
         kafkaJob.run()
         val offsets =
           kafkaClient.topicEndOffsets(
             "kafka_to_es",
-            settings.comet.kafka.topics("kafka_to_es").accessOptions
+            settings.comet.kafka
+              .topics("kafka_to_es")
+              .allAccessOptions()
           )
         offsets should contain theSameElementsAs List((0, 100))
 
         val kafkaJobToEs =
           new KafkaJob(
             KafkaJobConfig(
-              "kafka_to_es",
-              "org.elasticsearch.spark.sql",
-              SaveMode.Overwrite,
-              "test",
+              topicConfigName = Some("kafka_to_es"),
+              writeFormat = "org.elasticsearch.spark.sql",
+              writeMode = SaveMode.Overwrite.toString,
+              writePath = Some("test/_doc"),
               writeOptions = settings.comet.elasticsearch.options
             )
           )
@@ -393,11 +426,10 @@ class KafkaJobSpec extends TestHelper {
         val kafkaJob =
           new KafkaJob(
             KafkaJobConfig(
-              "stream_kafka_to_es",
-              "json",
-              SaveMode.Overwrite,
-              file.pathAsString,
-              offload = false
+              path = Some(file.pathAsString),
+              format = "json",
+              writeTopicConfigName = Some("stream_kafka_to_es"),
+              writeMode = SaveMode.Append.toString
             )
           )
         kafkaJob.run()
@@ -405,12 +437,12 @@ class KafkaJobSpec extends TestHelper {
         val kafkaJobToEs =
           new KafkaJob(
             KafkaJobConfig(
-              "stream_kafka_to_es",
-              "org.elasticsearch.spark.sql",
-              SaveMode.Overwrite,
-              "test/_doc",
-              writeOptions = settings.comet.elasticsearch.options,
-              streaming = true
+              streaming = true,
+              topicConfigName = Some("stream_kafka_to_es"),
+              writeFormat = "org.elasticsearch.spark.sql",
+              writeMode = SaveMode.Overwrite.toString,
+              writePath = Some("test/_doc"),
+              writeOptions = settings.comet.elasticsearch.options
             )
           )
         kafkaJobToEs.run()
@@ -425,7 +457,53 @@ class KafkaJobSpec extends TestHelper {
         EntityUtils.toString(response.getEntity()) contains "\"count\":100"
 
       }
-
+      /*
+      s"$cometOffsetsMode($cometOffsetTopicName) Stream from HTTP to Kafka" should "succeed" in {
+        val kafkaClient = new KafkaClient(settings.comet.kafka)
+        if (cometOffsetsMode == "FILE")
+          File("/tmp/comet_offsets").delete(swallowIOExceptions = true)
+        kafkaClient.deleteTopic("test_offload_http_to_kafka")
+        Thread.sleep(1000) // wait for topic to be deleted
+        kafkaClient.createTopicIfNotPresent(
+          new NewTopic("test_offload_http_to_kafka", 1, 1.toShort),
+          Map.empty
+        )
+        val kafkaJob =
+          new KafkaJob(
+            KafkaJobConfig(
+              topicConfigName = "test_offload_http_to_kafka",
+              offload = false,
+              format = "starlake-http-source",
+              mode = SaveMode.Append,
+              options = Map(
+                "port" -> "9999",
+                "name" -> "test_offload_http_to_kafka"
+              ),
+              path = "topic_sink",
+              streaming = true,
+              streamingWriteFormat = "kafka",
+              streamingTrigger = Some("ProcessingTime"),
+              streamingTriggerOption = "10 millisecond",
+              writeOptions = Map(
+                "topic"                   -> "topic_sink",
+                "kafka.bootstrap.servers" -> s"${kafkaContainer.bootstrapServers}"
+              )
+            )
+          )
+        kafkaJob.run() match {
+          case Success(_) =>
+            val offsets =
+              kafkaClient.topicEndOffsets(
+                "topic_sink",
+                settings.comet.kafka
+                  .topics("topic_sink_config")
+                  .allAccessOptions()
+              )
+            offsets should contain theSameElementsAs List((0, 5000))
+          case Failure(e) => throw e
+        }
+      }
+       */
       s"$cometOffsetsMode($cometOffsetTopicName) Stream from Kafka to Kafka" should "succeed" in {
         val kafkaClient = new KafkaClient(settings.comet.kafka)
         if (cometOffsetsMode == "FILE")
@@ -441,23 +519,21 @@ class KafkaJobSpec extends TestHelper {
         val kafkaJob =
           new KafkaJob(
             KafkaJobConfig(
-              "test_offload_kafka_to_kafka",
-              "json",
-              SaveMode.Overwrite,
-              file.pathAsString,
-              offload = false
+              format = "json",
+              path = Some(file.pathAsString),
+              writeTopicConfigName = Some("test_offload_kafka_to_kafka"),
+              writeMode = SaveMode.Append.toString
             )
           )
         kafkaJob.run()
         val kafkaJob2 =
           new KafkaJob(
             KafkaJobConfig(
-              topicConfigName = "test_offload_kafka_to_kafka",
-              format = "json",
-              SaveMode.Append,
-              path = "topic_sink",
               streaming = true,
-              streamingWriteFormat = "kafka",
+              topicConfigName = Some("test_offload_kafka_to_kafka"),
+              format = "json",
+              writeMode = SaveMode.Append.toString,
+              writeFormat = "kafka",
               writeOptions = Map(
                 "topic"                   -> "topic_sink",
                 "kafka.bootstrap.servers" -> s"${kafkaContainer.bootstrapServers}"
@@ -469,7 +545,9 @@ class KafkaJobSpec extends TestHelper {
             val offsets =
               kafkaClient.topicEndOffsets(
                 "topic_sink",
-                settings.comet.kafka.topics("topic_sink_config").accessOptions
+                settings.comet.kafka
+                  .topics("topic_sink_config")
+                  .allAccessOptions()
               )
             offsets should contain theSameElementsAs List((0, 5000))
           case Failure(e) => throw e

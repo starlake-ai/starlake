@@ -57,13 +57,13 @@ object CometJacksonModule extends CometJacksonModule {
     private val (registeredInstance, theirBuildStack) =
       jacksonProtectedSingletons.getOrElseUpdate(
         this.getClass,
-        (this, (new Throwable().getStackTrace))
+        (this, new Throwable().getStackTrace)
       )
     if (registeredInstance ne this) {
       throw new IllegalStateException(
         s"Attempting to start a new instance of object (singleton)! \n" +
         s"    Have you decorated your case object with @JsonDeserialize(builder = classOf[${this.getClass.getSimpleName
-          .stripSuffix("$")}Builder]) ?\n" +
+            .stripSuffix("$")}Builder]) ?\n" +
         s"    The older instance was built at ${theirBuildStack.map(_.toString).mkString("\n")}\n" +
         s"    We are at: "
       )

@@ -19,7 +19,7 @@ object Xls2Yml extends LazyLogging {
     * @param domain
     */
   def genPreEncryptionDomain(domain: Domain, privacy: Seq[String]): Domain = {
-    val preEncryptSchemas: List[Schema] = domain.schemas.map { s =>
+    val preEncryptSchemas: List[Schema] = domain.tables.map { s =>
       val newAttributes =
         s.attributes
           .filter(_.script.isEmpty)
@@ -47,7 +47,7 @@ object Xls2Yml extends LazyLogging {
         .copy(metadata = newMetaData)
         .copy(merge = None)
     }
-    val preEncryptDomain = domain.copy(schemas = preEncryptSchemas)
+    val preEncryptDomain = domain.copy(tables = preEncryptSchemas)
     preEncryptDomain
   }
 
@@ -75,7 +75,7 @@ object Xls2Yml extends LazyLogging {
         !encryptionPrivacyList.contains(p.toString)
       })
     }
-    val postEncryptSchemas: List[Schema] = domain.schemas.map { schema =>
+    val postEncryptSchemas: List[Schema] = domain.tables.map { schema =>
       if (noPreEncryptPrivacy(schema))
         schema
       else {
@@ -108,7 +108,7 @@ object Xls2Yml extends LazyLogging {
         )
       }
     }
-    val postEncryptDomain = domain.copy(schemas = postEncryptSchemas)
+    val postEncryptDomain = domain.copy(tables = postEncryptSchemas)
     postEncryptDomain
   }
 
@@ -116,7 +116,7 @@ object Xls2Yml extends LazyLogging {
     settings: Settings
   ): Unit = {
     val reader = new XlsReader(Path(inputPath))
-    reader.getDomain.foreach { domain =>
+    reader.getDomain().foreach { domain =>
       writeDomainYaml(domain, outputPath.getOrElse(DatasetArea.domains.toString), domain.name)
     }
   }
