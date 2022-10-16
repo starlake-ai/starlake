@@ -105,7 +105,6 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
               None,
               engine = Some(Engine.BQ)
             )
-          val schemaHandler = new SchemaHandler(metadataStorageHandler)
 
           val businessJobDef = mapper
             .writer()
@@ -113,6 +112,8 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
             .writeValueAsString(businessJob)
           val pathBusiness = new Path(cometMetadataPath + "/jobs/bqjobtest.comet.yml")
           storageHandler.write(businessJobDef, pathBusiness)
+
+          val schemaHandler = new SchemaHandler(metadataStorageHandler)
 
           val workflow =
             new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
