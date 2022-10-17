@@ -2,6 +2,10 @@
 # Release notes
 
 # 0.4.3
+__Bug Fix__:
+- root serve must stay optional
+
+# 0.4.3
 __New Feature__:
 - Server mode now support multiple projects simultaneously
 

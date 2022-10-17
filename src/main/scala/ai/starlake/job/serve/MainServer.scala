@@ -37,6 +37,7 @@ object MainServer {
           root, {
             settingsMap.clear() // For now we keep only one project in memory
             System.getProperties().setProperty("root", root)
+            System.getProperties().setProperty("root-serve", root + "/out")
             ConfigFactory.invalidateCaches()
             val settings = Settings(ConfigFactory.load())
             settingsMap.put(root, settings)
