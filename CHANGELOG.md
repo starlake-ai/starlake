@@ -1,13 +1,12 @@
 
 # Release notes
 
-# 0.4.3
-__Bug Fix__:
-- root serve must stay optional
-
-# 0.4.3
+# 0.4.5
 __New Feature__:
 - Server mode now support multiple projects simultaneously
+  __Bug Fix__:
+- root serve must stay optional
+- Generate classes for Java8 support
 
 # 0.4.2
 __Bug Fix__:

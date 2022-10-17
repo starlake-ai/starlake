@@ -4,7 +4,7 @@ import sbtrelease.Version.Bump.Next
 import xerial.sbt.Sonatype._
 
 // require Java 8 for Spark 2 support
-// javacOptions ++= Seq("-source", "1.8", "-target", "1.8", "-Xlint")
+javacOptions ++= Seq("-source", "1.8", "-target", "1.8", "-Xlint")
 
 ThisBuild / sonatypeCredentialHost := "s01.oss.sonatype.org"
 
