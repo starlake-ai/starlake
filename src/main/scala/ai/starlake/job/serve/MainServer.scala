@@ -25,7 +25,7 @@ object MainServer {
 
   val main = new Main()
 
-  def run(root: String, args: Array[String]): String = {
+  def run(root: String, args: Array[String], env: Option[String]): String = {
     args.head match {
       case "quit" | "exit" =>
         System.exit(0)
@@ -37,7 +37,15 @@ object MainServer {
           root, {
             settingsMap.clear() // For now we keep only one project in memory
             System.getProperties().setProperty("root", root)
-            System.getProperties().setProperty("root-serve", root + "/out")
+            System.getProperties().setProperty("root-serve", File(root, "out").pathAsString)
+            env match {
+              case None =>
+                System
+                  .getProperties()
+                  .setProperty("env", "prod") // prod is the default value in reference.conf
+              case Some(env) if env.nonEmpty && env != "None" =>
+                System.getProperties().setProperty("env", env)
+            }
             ConfigFactory.invalidateCaches()
             val settings = Settings(ConfigFactory.load())
             settingsMap.put(root, settings)
@@ -56,7 +64,8 @@ class RequestHandler extends HttpServlet {
   override protected def doGet(req: HttpServletRequest, resp: HttpServletResponse): Unit = {
     val params = req.getParameter("PARAMS").split(" ")
     val root = Option(req.getParameter("ROOT")).getOrElse(File.temp.pathAsString)
-    val rootServe = MainServer.run(root, params)
+    val env = Option(req.getParameter("ENV"))
+    val rootServe = MainServer.run(root, params, env)
     resp.setStatus(HttpServletResponse.SC_OK)
     resp.getWriter.println(s"""{ "serve": "$rootServe"}""")
   }
