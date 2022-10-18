@@ -97,8 +97,3 @@ initEnv
 SPARK_SUBMIT=$TARGET_FOLDER/bin/spark/bin/spark-submit
 $SPARK_SUBMIT --driver-java-options "$SPARK_DRIVER_OPTIONS" $SPARK_CONF_OPTIONS --class $COMET_MAIN $TARGET_FOLDER/$COMET_JAR_FULL_NAME $@
 
-
-
-
-
-
