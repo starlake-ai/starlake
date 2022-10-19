@@ -145,6 +145,7 @@ class HdfsStorageHandler(fileSystem: String)(implicit
   def read(path: Path): String = {
     val stream = fs.open(path)
     val content = IOUtils.toString(stream, "UTF-8")
+    stream.close()
     content
   }
 

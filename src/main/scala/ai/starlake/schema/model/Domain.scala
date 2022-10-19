@@ -177,8 +177,10 @@ import scala.util.{Failure, Success, Try}
     }
   }
 
-  @nowarn def resolveExtensions(): Option[List[String]] =
-    metadata.map(m => m.extensions).getOrElse(this.extensions)
+  @nowarn def resolveExtensions(): Option[List[String]] = {
+    val ext = metadata.flatMap(m => m.extensions)
+    ext.orElse(this.extensions)
+  }
 
   /** Ack file should be present for each file to ingest.
     *
