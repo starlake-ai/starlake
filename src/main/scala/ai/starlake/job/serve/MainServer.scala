@@ -79,7 +79,7 @@ class RequestHandler extends HttpServlet {
     System.out.println(s"ROOT=$root")
     System.out.println(s"ENV=$env")
     val rootServe = MainServer.run(root, params, env)
-    val response = Response(rootServe)
+    val response = MainServer.mapper.writeValueAsString(Response(rootServe))
     resp.setStatus(HttpServletResponse.SC_OK)
     resp.getWriter.println(response)
   }
