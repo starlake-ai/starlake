@@ -10,7 +10,7 @@ import com.google.cloud.datacatalog.v1.{
   ListTaxonomiesRequest,
   PolicyTagManagerClient
 }
-import com.google.cloud.{Identity, Policy, Role}
+import com.google.cloud.{Identity, Policy, Role, ServiceOptions}
 import com.typesafe.scalalogging.StrictLogging
 
 import java.util
@@ -54,30 +54,24 @@ trait BigQueryJobBase extends StrictLogging {
   private def getTaxonomy(
     client: PolicyTagManagerClient
   )(implicit settings: Settings): (String, String, String, String) = {
-    val projectId = {
-      if (settings.comet.accessPolicies.projectId == "invalid_project")
-        if (sys.env.contains("GCLOUD_PROJECT"))
-          sys.env("GCLOUD_PROJECT")
-        else if (sys.env.contains("GOOGLE_CLOUD_PROJECT"))
-          sys.env("GOOGLE_CLOUD_PROJECT")
-        else
-          "invalid_project"
-      else
+    val taxonomyProjectId =
+      if (settings.comet.accessPolicies.projectId == "invalid_project") {
+        this.projectId
+      } else
         settings.comet.accessPolicies.projectId
-    }
 
     val location = settings.comet.accessPolicies.location
     val taxonomy = settings.comet.accessPolicies.taxonomy
     if (location == "invalid_location")
       throw new Exception("accessPolicies.location not set")
-    if (projectId == "invalid_project")
+    if (taxonomyProjectId == "invalid_project")
       throw new Exception("accessPolicies.projectId not set")
     if (taxonomy == "invalid_taxonomy")
       throw new Exception("accessPolicies.taxonomy not set")
     val taxonomyListRequest =
       ListTaxonomiesRequest
         .newBuilder()
-        .setParent(s"projects/$projectId/locations/$location")
+        .setParent(s"projects/$taxonomyProjectId/locations/$location")
         .setPageSize(1000)
         .build()
     val taxonomyList = client.listTaxonomies(taxonomyListRequest)
@@ -89,10 +83,10 @@ trait BigQueryJobBase extends StrictLogging {
       .headOption
       .getOrElse(
         throw new Exception(
-          s"Taxonomy $taxonomy not found in project $projectId in location $location"
+          s"Taxonomy $taxonomy not found in project $taxonomyProjectId in location $location"
         )
       )
-    (location, projectId, taxonomy, taxonomyRef)
+    (location, taxonomyProjectId, taxonomy, taxonomyRef)
   }
 
   private def applyCLS(forceApply: Boolean)(implicit
@@ -223,7 +217,7 @@ trait BigQueryJobBase extends StrictLogging {
     cliConfig.outputDataset + "." + cliConfig.outputTable
   )
 
-  val datasetId: DatasetId = {
+  def datasetId: DatasetId = {
     scala.Option(tableId.getProject) match {
       case None =>
         DatasetId.of(projectId, cliConfig.outputDataset)
@@ -325,13 +319,26 @@ trait BigQueryJobBase extends StrictLogging {
 
 object BigQueryJobBase {
 
-  val bigquery: BigQuery =
-    if (sys.env.contains("GCLOUD_PROJECT"))
-      BigQueryOptions.newBuilder().setProjectId(sys.env("GCLOUD_PROJECT")).build().getService
+  def getProjectId(): String = {
+    if (System.getProperties().containsKey("GCLOUD_PROJECT"))
+      System.getProperties().getProperty("GCLOUD_PROJECT")
+    else if (System.getProperties().containsKey("GOOGLE_CLOUD_PROJECT"))
+      System.getProperties().getProperty("GOOGLE_CLOUD_PROJECT")
+    else if (sys.env.contains("GCLOUD_PROJECT"))
+      sys.env("GCLOUD_PROJECT")
     else if (sys.env.contains("GOOGLE_CLOUD_PROJECT"))
-      BigQueryOptions.newBuilder().setProjectId(sys.env("GOOGLE_CLOUD_PROJECT")).build().getService
+      sys.env("GOOGLE_CLOUD_PROJECT")
     else
-      BigQueryOptions.getDefaultInstance.getService
+      ServiceOptions.getDefaultProjectId
+  }
+
+  val bigquery: BigQuery =
+    scala.Option(getProjectId()) match {
+      case None =>
+        BigQueryOptions.getDefaultInstance().getService()
+      case Some(projectId) =>
+        BigQueryOptions.newBuilder().setProjectId(projectId).build().getService()
+    }
 
   // Lazy otherwise tests fail since there is no GCP credentials in test mode
   lazy val policyTagClient = PolicyTagManagerClient.create()
