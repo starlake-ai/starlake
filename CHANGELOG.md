@@ -1,9 +1,11 @@
 
 # Release notes
 
-# 0.4.6
+# 0.5.0
 __New Feature__:
 - Add Server mode
+__Bug Fix__:
+- Extensions may be defined at the domain level
 
 # 0.4.2
 __Bug Fix__:

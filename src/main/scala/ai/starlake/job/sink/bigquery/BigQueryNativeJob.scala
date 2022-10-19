@@ -3,7 +3,6 @@ package ai.starlake.job.sink.bigquery
 import ai.starlake.config.Settings
 import ai.starlake.utils.{JobBase, JobResult, TableFormatter, Utils}
 import better.files.File
-import com.google.cloud.ServiceOptions
 import com.google.cloud.bigquery.JobInfo.{CreateDisposition, WriteDisposition}
 import com.google.cloud.bigquery.JobStatistics.QueryStatistics
 import com.google.cloud.bigquery.QueryJobConfiguration.Priority
@@ -72,7 +71,7 @@ class BigQueryNativeJob(
 
   override def name: String = s"bqload-${cliConfig.outputDataset}-${cliConfig.outputTable}"
 
-  override val projectId: String = ServiceOptions.getDefaultProjectId
+  override def projectId: String = BigQueryJobBase.getProjectId()
 
   logger.info(s"BigQuery Config $cliConfig")
 
