@@ -2,6 +2,7 @@ package ai.starlake.job.serve
 
 import ai.starlake.config.Settings
 import ai.starlake.job.Main
+import ai.starlake.utils.Utils
 import better.files.File
 import buildinfo.BuildInfo
 import com.fasterxml.jackson.annotation.JsonInclude.Include
@@ -33,7 +34,12 @@ object MainServer {
 
   val main = new Main()
 
-  def run(root: String, args: Array[String], env: Option[String]): String = {
+  def run(
+    root: String,
+    args: Array[String],
+    env: Option[String],
+    gcpProject: Option[String]
+  ): String = {
     args.head match {
       case "quit" | "exit" =>
         System.exit(0)
@@ -46,6 +52,9 @@ object MainServer {
             settingsMap.clear() // For now we keep only one project in memory
             System.getProperties().setProperty("root", root)
             System.getProperties().setProperty("root-serve", File(root, "out").pathAsString)
+            gcpProject.foreach(gcpProject =>
+              System.getProperties().setProperty("GOOGLE_CLOUD_PROJECT", gcpProject)
+            )
             env match {
               case Some(env) if env.nonEmpty && env != "None" =>
                 System.getProperties().setProperty("env", env)
@@ -75,12 +84,23 @@ class RequestHandler extends HttpServlet {
     val params = req.getParameter("PARAMS").split(" ")
     val root = Option(req.getParameter("ROOT")).getOrElse(File.temp.pathAsString)
     val env = Option(req.getParameter("ENV"))
+    val gcpProject = Option(req.getParameter("GOOGLE_CLOUD_PROJECT"))
     System.out.println(s"PARAMS=${params.toList}")
     System.out.println(s"ROOT=$root")
     System.out.println(s"ENV=$env")
-    val rootServe = MainServer.run(root, params, env)
-    val response = MainServer.mapper.writeValueAsString(Response(rootServe))
-    resp.setStatus(HttpServletResponse.SC_OK)
-    resp.getWriter.println(response)
+    System.out.println(s"GOOGLE_CLOUD_PROJECT=$gcpProject")
+    try {
+      val rootServe = MainServer.run(root, params, env, gcpProject)
+      val response = MainServer.mapper.writeValueAsString(Response(rootServe))
+      resp.setStatus(HttpServletResponse.SC_OK)
+      resp.getWriter.println(response)
+      println(response)
+    } catch {
+      case e: Throwable =>
+        e.printStackTrace()
+        resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR)
+        resp.getWriter.println(Utils.exceptionAsString(e))
+    }
+
   }
 }

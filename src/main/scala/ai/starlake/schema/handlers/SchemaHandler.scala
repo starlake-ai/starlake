@@ -273,7 +273,6 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
           path.toString
         )
       }
-
     paths.zip(domains)
   }
 
