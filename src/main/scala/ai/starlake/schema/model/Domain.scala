@@ -20,7 +20,6 @@
 
 package ai.starlake.schema.model
 
-import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.utils.Utils
