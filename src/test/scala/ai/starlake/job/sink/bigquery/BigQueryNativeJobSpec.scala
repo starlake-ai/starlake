@@ -12,8 +12,8 @@ import org.scalatest.BeforeAndAfterAll
 class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
   override def beforeAll(): Unit = {
     if (sys.env.getOrElse("COMET_GCP_TEST", "false").toBoolean) {
-      BigQueryJobBase.bigquery.delete(TableId.of("bqtest", "account"))
-      BigQueryJobBase.bigquery.delete(TableId.of("bqtest", "jobresult"))
+      BigQueryJobBase.bigquery().delete(TableId.of("bqtest", "account"))
+      BigQueryJobBase.bigquery().delete(TableId.of("bqtest", "jobresult"))
     }
   }
   override def afterAll(): Unit = {
@@ -45,7 +45,7 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
         }
       }
       val tableFound =
-        Option(BigQueryJobBase.bigquery.getTable(TableId.of("bqtest", "account"))).isDefined
+        Option(BigQueryJobBase.bigquery().getTable(TableId.of("bqtest", "account"))).isDefined
       tableFound should be(true)
 
     }
@@ -72,7 +72,7 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
         }
       }
       val tableFound =
-        Option(BigQueryJobBase.bigquery.getTable(TableId.of("bqtest", "account"))).isDefined
+        Option(BigQueryJobBase.bigquery().getTable(TableId.of("bqtest", "account"))).isDefined
       tableFound should be(true)
 
     }
