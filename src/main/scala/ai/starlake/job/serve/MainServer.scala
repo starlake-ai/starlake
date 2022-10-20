@@ -2,6 +2,7 @@ package ai.starlake.job.serve
 
 import ai.starlake.config.Settings
 import ai.starlake.job.Main
+import ai.starlake.job.sink.bigquery.BigQueryJobBase
 import ai.starlake.utils.Utils
 import better.files.File
 import buildinfo.BuildInfo
@@ -36,6 +37,7 @@ object MainServer {
 
   def run(
     root: String,
+    metadata: String,
     args: Array[String],
     env: Option[String],
     gcpProject: Option[String]
@@ -47,14 +49,20 @@ object MainServer {
       case "version"   => BuildInfo.version
       case "heartbeat" => "" // do nothing
       case _ =>
+        System.getProperties().setProperty("root-serve", File(root, "out").pathAsString)
+        gcpProject.foreach { gcpProject =>
+          val oldGcpProject =
+            Option(System.getProperties().getProperty("GOOGLE_CLOUD_PROJECT")).getOrElse("")
+          if (oldGcpProject != gcpProject) {
+            System.getProperties().setProperty("GOOGLE_CLOUD_PROJECT", gcpProject)
+            BigQueryJobBase.bigquery(reload = true)
+          }
+        }
         val settings = settingsMap.getOrElse(
           root, {
             settingsMap.clear() // For now we keep only one project in memory
             System.getProperties().setProperty("root", root)
-            System.getProperties().setProperty("root-serve", File(root, "out").pathAsString)
-            gcpProject.foreach(gcpProject =>
-              System.getProperties().setProperty("GOOGLE_CLOUD_PROJECT", gcpProject)
-            )
+            System.getProperties().setProperty("metadata", root + "/" + metadata)
             env match {
               case Some(env) if env.nonEmpty && env != "None" =>
                 System.getProperties().setProperty("env", env)
@@ -84,13 +92,15 @@ class RequestHandler extends HttpServlet {
     val params = req.getParameter("PARAMS").split(" ")
     val root = Option(req.getParameter("ROOT")).getOrElse(File.temp.pathAsString)
     val env = Option(req.getParameter("ENV"))
+    val metadata = Option(req.getParameter("METADATA")).getOrElse("metadata")
     val gcpProject = Option(req.getParameter("GOOGLE_CLOUD_PROJECT"))
     System.out.println(s"PARAMS=${params.toList}")
     System.out.println(s"ROOT=$root")
+    System.out.println(s"METADATA=$metadata")
     System.out.println(s"ENV=$env")
     System.out.println(s"GOOGLE_CLOUD_PROJECT=$gcpProject")
     try {
-      val rootServe = MainServer.run(root, params, env, gcpProject)
+      val rootServe = MainServer.run(root, metadata, params, env, gcpProject)
       val response = MainServer.mapper.writeValueAsString(Response(rootServe))
       resp.setStatus(HttpServletResponse.SC_OK)
       resp.getWriter.println(response)
