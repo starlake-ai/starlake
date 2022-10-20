@@ -37,7 +37,7 @@ object MainServer {
 
   def run(
     root: String,
-    metadata: String,
+    metadata: Option[String],
     args: Array[String],
     env: Option[String],
     gcpProject: Option[String]
@@ -49,27 +49,41 @@ object MainServer {
       case "version"   => BuildInfo.version
       case "heartbeat" => "" // do nothing
       case _ =>
-        System.getProperties().setProperty("root-serve", File(root, "out").pathAsString)
+        val sysProps = System.getProperties()
+        val outFile = File(root, "out")
+        outFile.createDirectoryIfNotExists()
+
+        sysProps.setProperty("root-serve", outFile.pathAsString)
+
         gcpProject.foreach { gcpProject =>
           val oldGcpProject =
-            Option(System.getProperties().getProperty("GOOGLE_CLOUD_PROJECT")).getOrElse("")
+            Option(sysProps.getProperty("GOOGLE_CLOUD_PROJECT")).getOrElse("")
           if (oldGcpProject != gcpProject) {
-            System.getProperties().setProperty("GOOGLE_CLOUD_PROJECT", gcpProject)
+            sysProps.setProperty("GOOGLE_CLOUD_PROJECT", gcpProject)
             BigQueryJobBase.bigquery(reload = true)
           }
         }
+
+        env.foreach { env =>
+          val oldEnv = Option(sysProps.getProperty("env")).getOrElse("")
+          if (oldEnv != env) settingsMap.clear()
+        }
+
+        metadata.foreach { metadata =>
+          val oldMetadata = Option(sysProps.getProperty("metadata")).getOrElse("")
+          if (oldMetadata != metadata) settingsMap.clear()
+        }
+
         val settings = settingsMap.getOrElse(
           root, {
             settingsMap.clear() // For now we keep only one project in memory
-            System.getProperties().setProperty("root", root)
-            System.getProperties().setProperty("metadata", root + "/" + metadata)
+            sysProps.setProperty("root", root)
+            sysProps.setProperty("metadata", root + "/" + metadata.getOrElse("metadata"))
             env match {
               case Some(env) if env.nonEmpty && env != "None" =>
-                System.getProperties().setProperty("env", env)
+                sysProps.setProperty("env", env)
               case _ =>
-                System
-                  .getProperties()
-                  .setProperty("env", "prod") // prod is the default value in reference.conf
+                sysProps.setProperty("env", "prod") // prod is the default value in reference.conf
             }
             ConfigFactory.invalidateCaches()
             val settings = Settings(ConfigFactory.load())
@@ -77,6 +91,7 @@ object MainServer {
             settings
           }
         )
+
         main.run(args)(settings)
         settings.comet.rootServe.getOrElse("Should never happen")
     }
@@ -92,7 +107,7 @@ class RequestHandler extends HttpServlet {
     val params = req.getParameter("PARAMS").split(" ")
     val root = Option(req.getParameter("ROOT")).getOrElse(File.temp.pathAsString)
     val env = Option(req.getParameter("ENV"))
-    val metadata = Option(req.getParameter("METADATA")).getOrElse("metadata")
+    val metadata = Option(req.getParameter("METADATA"))
     val gcpProject = Option(req.getParameter("GOOGLE_CLOUD_PROJECT"))
     System.out.println(s"PARAMS=${params.toList}")
     System.out.println(s"ROOT=$root")

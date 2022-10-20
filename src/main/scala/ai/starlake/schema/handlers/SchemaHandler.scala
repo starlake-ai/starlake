@@ -347,17 +347,20 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     this._domains
   }
 
-  def checkVarsAreDefined(path: Path): Set[String] = {
+  def checkVarsAreDefined(path: Path) = {
     val vars = storage.read(path).extractVars()
     val envVars = activeEnv().keySet
     val undefinedVars = vars.diff(envVars)
-    undefinedVars.map(undefVar => s"${path.toString} contains undefined vars: ${undefVar}")
-
+    undefinedVars.map(undefVar => s"""${path.toString} contains undefined var: ${undefVar}""")
   }
 
   def loadJobFromFile(path: Path): Try[AutoJobDesc] =
     Try {
-      val rootNode = mapper.readTree(storage.read(path).richFormat(activeEnv(), Map.empty))
+      val errors = checkVarsAreDefined(path)
+      if (errors.nonEmpty)
+        throw new Exception(errors.mkString(","))
+      val rootContent = storage.read(path).richFormat(activeEnv(), Map.empty)
+      val rootNode = mapper.readTree(rootContent)
       val tranformNode = rootNode.path("transform")
       val autojobNode =
         if (tranformNode.isNull() || tranformNode.isMissingNode) {
