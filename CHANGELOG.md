@@ -1,6 +1,11 @@
 
 # Release notes
 
+# 0.5.1
+__Bug Fix__:
+- Support dynamic value for comet metadata through rest api.
+
+
 # 0.5.0
 __New Feature__:
 - Add Server mode
