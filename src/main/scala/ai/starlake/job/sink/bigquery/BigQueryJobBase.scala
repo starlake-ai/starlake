@@ -104,7 +104,7 @@ trait BigQueryJobBase extends StrictLogging {
                 getTaxonomy(BigQueryJobBase.policyTagClient)
               val policyTagIds = mutable.Map.empty[String, String]
               val tableId = TableId.of(cliConfig.outputDataset, cliConfig.outputTable)
-              val table: Table = BigQueryJobBase.bigquery.getTable(tableId)
+              val table: Table = BigQueryJobBase.bigquery().getTable(tableId)
               val tableDefinition = table.getDefinition().asInstanceOf[StandardTableDefinition]
               val bqSchema = tableDefinition.getSchema()
               val bqFields = bqSchema.getFields.asScala.toList
@@ -229,13 +229,13 @@ trait BigQueryJobBase extends StrictLogging {
   val bqTable = s"${cliConfig.outputDataset}.${cliConfig.outputTable}"
 
   def getOrCreateDataset(): Dataset = {
-    val existingDataset = scala.Option(BigQueryJobBase.bigquery.getDataset(datasetId))
+    val existingDataset = scala.Option(BigQueryJobBase.bigquery().getDataset(datasetId))
     val dataset = existingDataset.getOrElse {
       val datasetInfo = DatasetInfo
         .newBuilder(extractProjectDataset(cliConfig.outputDataset))
         .setLocation(cliConfig.getLocation())
         .build
-      BigQueryJobBase.bigquery.create(datasetInfo)
+      BigQueryJobBase.bigquery().create(datasetInfo)
     }
     setTagsOnDataset(dataset)
     dataset
@@ -269,7 +269,7 @@ trait BigQueryJobBase extends StrictLogging {
     acl: List[AccessControlEntry]
   ): Policy = {
     // val BIG_QUERY_VIEWER_ROLE = "roles/bigquery.dataViewer"
-    val existingPolicy: Policy = BigQueryJobBase.bigquery.getIamPolicy(tableId)
+    val existingPolicy: Policy = BigQueryJobBase.bigquery().getIamPolicy(tableId)
     val existingPolicyBindings: util.Map[Role, util.Set[Identity]] = existingPolicy.getBindings
 
     val bindings = acl
@@ -288,7 +288,7 @@ trait BigQueryJobBase extends StrictLogging {
           bindings
         )
         .build()
-      BigQueryJobBase.bigquery.setIamPolicy(tableId, editedPolicy)
+      BigQueryJobBase.bigquery().setIamPolicy(tableId, editedPolicy)
       editedPolicy
     } else {
       logger.info(s"Iam Policy is the same as before on this Table: $tableId")
@@ -332,13 +332,23 @@ object BigQueryJobBase {
       ServiceOptions.getDefaultProjectId
   }
 
-  val bigquery: BigQuery =
-    scala.Option(getProjectId()) match {
-      case None =>
-        BigQueryOptions.getDefaultInstance().getService()
-      case Some(projectId) =>
-        BigQueryOptions.newBuilder().setProjectId(projectId).build().getService()
+  def bigquery(reload: Boolean = false): BigQuery = {
+    (reload, _bigquery) match {
+      case (true, _) | (_, None) =>
+        val res = scala.Option(getProjectId()) match {
+          case None =>
+            BigQueryOptions.getDefaultInstance().getService()
+          case Some(projectId) =>
+            BigQueryOptions.newBuilder().setProjectId(projectId).build().getService()
+        }
+        _bigquery = Some(res)
+        res
+      case (false, Some(client)) =>
+        client
     }
+  }
+
+  private var _bigquery: scala.Option[BigQuery] = None
 
   // Lazy otherwise tests fail since there is no GCP credentials in test mode
   lazy val policyTagClient = PolicyTagManagerClient.create()
