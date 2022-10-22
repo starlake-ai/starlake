@@ -54,7 +54,8 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
   @throws[Exception]
   def checkValidity(reload: Boolean = false): List[String] = {
     val typesValidity = this.types(reload).map(_.checkValidity())
-    val domainsValidity = this.domains(reload).map(_.checkValidity(this))
+    val loadedDomains = this.domains(reload)
+    val domainsValidity = loadedDomains.map(_.checkValidity(this))
     val domainsVarsValidity = checkDomainsVars()
     val jobsVarsValidity = checkJobsVars()
     val allErrors = typesValidity ++ domainsValidity :+ checkViewsValidity()
@@ -78,19 +79,32 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
 
   def checkJobsVars(): List[String] = {
     val paths = storage.list(DatasetArea.jobs, ".yml", recursive = true)
-    paths.flatMap(checkVarsAreDefined)
+    paths.flatMap { path =>
+      val ymlErrors = checkVarsAreDefined(path)
+      val sqlPath = taskSqlPath(path, None)
+      val sqlErrors = sqlPath.map(checkVarsAreDefined).getOrElse(Nil)
+      ymlErrors ++ sqlErrors
+    }
   }
 
   def fullValidation(config: ValidateConfig = ValidateConfig(reload = false)): Unit =
     Try {
       val errs = checkValidity(config.reload)
-      val deserErrors = deserializedDomains.filter { case (path, res) =>
-        res.isFailure
+      val deserErrors = deserializedDomains
+        .filter { case (path, res) =>
+          res.isFailure
+        } map { case (path, err) =>
+        s"${path.toString} could not be deserialized"
       }
-      val errorCount = errs.length + deserErrors.length
+
+      val errorCount =
+        errs.length + deserErrors.length + this._domainErrors.length + this._jobErrors.length
+
+      val allErrors = errs ++ deserErrors ++ this._domainErrors ++ this._jobErrors
       val output =
         settings.comet.rootServe.map(rootServe => File(File(rootServe), "validation.log"))
       output.foreach(_.overwrite(""))
+
       if (errorCount > 0) {
         output.foreach(
           _.appendLine(
@@ -98,21 +112,18 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
           )
         )
         logger.error(s"START VALIDATION RESULTS: $errorCount errors found")
-        deserErrors.foreach { case (path, err) =>
-          output.foreach(_.appendLine(s"${path.toString} could not be deserialized"))
-          logger.error(s"${path.toString} could not be deserialized")
+        allErrors.foreach { err =>
+          logger.error(err)
+          output.foreach(_.appendLine(err))
         }
-        errs.foreach(err => logger.error(err))
-        errs.foreach(err => output.foreach(_.appendLine(err)))
         logger.error(s"END VALIDATION RESULTS")
         output.foreach(_.appendLine(s"END VALIDATION RESULTS"))
+        throw new Exception(s"$errorCount errors found")
       }
     } match {
       case Success(_) => // do nothing
       case Failure(e) =>
         e.printStackTrace()
-        if (settings.comet.validateOnLoad)
-          throw e
     }
 
   def checkViewsValidity(): Either[List[String], Boolean] = {
@@ -226,8 +237,11 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     )
   }
 
-  def activeEnv(reload: Boolean = false) = if (reload) loadActiveEnv() else _activeEnv
+  def activeEnv(reload: Boolean = false): Map[String, String] =
+    if (reload) loadActiveEnv() else _activeEnv
+
   private var _activeEnv = loadActiveEnv()
+
   @throws[Exception]
   private def loadActiveEnv(): Map[String, String] = {
     def loadEnv(path: Path): Map[String, String] =
@@ -276,14 +290,18 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     paths.zip(domains)
   }
 
-  def domains(reload: Boolean = false) = if (reload) loadDomains() else _domains
+  def domains(reload: Boolean = false) = {
+    if (reload)
+      loadDomains()
+    _domains
+  }
 
-  private var _domains = loadDomains()
+  private var (_domainErrors, _domains): (List[String], List[Domain]) = loadDomains()
 
   /** All defined domains Domains are defined under the "domains" folder in the metadata folder
     */
   @throws[Exception]
-  private def loadDomains(): List[Domain] = {
+  private def loadDomains(): (List[String], List[Domain]) = {
     val (validDomainsFile, invalidDomainsFiles) = deserializedDomains
       .map {
         case (path, Success(domain)) =>
@@ -311,54 +329,64 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
       }
       .partition(_.isSuccess)
 
+    val domains = validDomainsFile
+      .collect { case Success(domain) => domain }
+      .map(domain => this.fromXSD(domain))
+
+    val nameErrors = Utils.duplicates(
+      domains.map(_.name),
+      s"%s is defined %d times. A domain can only be defined once."
+    ) match {
+      case Right(_) => Nil
+      case Left(errors) =>
+        errors
+    }
+
+    val renameErrors = Utils.duplicates(
+      domains.map(d => d.rename.getOrElse(d.name)),
+      s"renamed domain %s is defined %d times. It can only appear once."
+    ) match {
+      case Right(_) => Nil
+      case Left(errors) =>
+        errors
+    }
+
+    val directoryErrors = Utils.duplicates(
+      domains.map(_.resolveDirectory()),
+      s"%s is defined %d times. A directory can only appear once in a domain definition file."
+    ) match {
+      case Right(_) =>
+        this._domains = domains
+        Nil
+      case Left(errors) =>
+        errors
+    }
+
     invalidDomainsFiles.foreach {
       case Failure(err) =>
         logger.error(
           s"There is one or more invalid Yaml files in your domains folder:${err.getMessage}"
         )
-        if (settings.comet.validateOnLoad)
-          throw err
       case Success(_) => // ignore
     }
-
-    val domains = validDomainsFile
-      .collect { case Success(domain) => domain }
-      .map(domain => this.fromXSD(domain))
-
-    Utils.duplicates(
-      domains.map(_.name),
-      s"%s is defined %d times. A domain can only be defined once."
-    ) match {
-      case Right(_) => domains
-      case Left(errors) =>
-        errors.foreach(logger.error(_))
-        throw new Exception("Duplicated domain name(s)")
-    }
-
-    this._domains = Utils.duplicates(
-      domains.map(_.resolveDirectory()),
-      s"%s is defined %d times. A directory can only appear once in a domain definition file."
-    ) match {
-      case Right(_) => domains
-      case Left(errors) =>
-        errors.foreach(logger.error(_))
-        throw new Exception("Duplicated domain directory name")
-    }
-    this._domains
+    this._domainErrors = nameErrors ++ renameErrors ++ directoryErrors
+    (this._domainErrors, this._domains)
   }
 
-  def checkVarsAreDefined(path: Path) = {
-    val vars = storage.read(path).extractVars()
+  private def checkVarsAreDefined(path: Path): Set[String] = {
+    val content = storage.read(path)
+    checkVarsAreDefined(path, content)
+  }
+
+  private def checkVarsAreDefined(path: Path, content: String): Set[String] = {
+    val vars = content.extractVars()
     val envVars = activeEnv().keySet
     val undefinedVars = vars.diff(envVars)
-    undefinedVars.map(undefVar => s"""${path.toString} contains undefined var: ${undefVar}""")
+    undefinedVars.map(undefVar => s"""${path.getName} contains undefined var: ${undefVar}""")
   }
 
   def loadJobFromFile(path: Path): Try[AutoJobDesc] =
     Try {
-      val errors = checkVarsAreDefined(path)
-      if (errors.nonEmpty)
-        throw new Exception(errors.mkString(","))
       val rootContent = storage.read(path).richFormat(activeEnv(), Map.empty)
       val rootNode = mapper.readTree(rootContent)
       val tranformNode = rootNode.path("transform")
@@ -380,33 +408,9 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
       // for file job.comet.yml containing a single unnamed task, we search for job.sql
       // for file job.comet.yml containing multiple named tasks (say task1, task2), we search for job.task1.sql & job.task2.sql
       val jobDesc = mapper.treeToValue(autojobNode, classOf[AutoJobDesc])
-      val sqlFilePrefix = path.toString.substring(0, path.toString.length - ".comet.yml".length)
       val tasks = jobDesc.tasks.map { taskDesc =>
-        val sqlTaskFile = taskDesc.name match {
-          case Some(taskName) => new Path(s"$sqlFilePrefix.$taskName.sql")
-          case None           => new Path(s"$sqlFilePrefix.sql")
-        }
-        val j2TaskFile = taskDesc.name match {
-          case Some(taskName) => new Path(s"$sqlFilePrefix.$taskName.sql.j2")
-          case None           => new Path(s"$sqlFilePrefix.sql.j2")
-        }
-        val commonTaskDesc = taskDesc.copy(
-          domain = Option(taskDesc.domain).getOrElse("").richFormat(activeEnv(), Map.empty),
-          table = taskDesc.table.richFormat(activeEnv(), Map.empty),
-          area = taskDesc.area.map(area =>
-            StorageArea.fromString(area.value.richFormat(activeEnv(), Map.empty))
-          )
-        )
-        val taskFile = (storage.exists(sqlTaskFile), storage.exists(j2TaskFile)) match {
-          case (true, true) =>
-            Some(j2TaskFile)
-          case (true, false) =>
-            Some(sqlTaskFile)
-          case (false, true) =>
-            Some(j2TaskFile)
-          case (false, false) =>
-            None
-        }
+        val taskFile: Option[Path] = taskSqlPath(path, taskDesc.name)
+
         taskFile
           .map { taskFile =>
             val sqlTask = SqlTaskExtractor(storage.read(taskFile))
@@ -422,18 +426,6 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
             )
           }
           .getOrElse(taskDesc)
-      /*
-          import com.hubspot.jinjava.Jinjava
-          import scala.collection.JavaConverters._
-          val jinjava = new Jinjava()
-          jinjava.setResourceLocator(new JinjaResourceHandler())
-          val context = activeEnv.asJava
-          commonTaskDesc.copy(
-            presql = sqlTask.presql.map(sqls => sqls.map(sql => jinjava.render(sql, context))),
-            sql = Option(jinjava.render(sqlTask.sql, context)),
-            postsql = sqlTask.postsql.map(sqls => sqls.map(sql => jinjava.render(sql, context)))
-          )
-       */
       }
       val jobName = finalDomainOrJobName(path, jobDesc.name)
       jobDesc.copy(
@@ -446,7 +438,31 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
         Failure(new Exception(s"Invalid Job file: $path(${exception.getMessage})", exception))
     }
 
+  private def taskSqlPath(path: Path, taskName: Option[String]): Option[Path] = {
+    val sqlFilePrefix = path.toString.substring(0, path.toString.length - ".comet.yml".length)
+    val sqlTaskFile = taskName match {
+      case Some(taskName) => new Path(s"$sqlFilePrefix.$taskName.sql")
+      case None           => new Path(s"$sqlFilePrefix.sql")
+    }
+    val j2TaskFile = taskName match {
+      case Some(taskName) => new Path(s"$sqlFilePrefix.$taskName.sql.j2")
+      case None           => new Path(s"$sqlFilePrefix.sql.j2")
+    }
+    val taskFile = (storage.exists(sqlTaskFile), storage.exists(j2TaskFile)) match {
+      case (true, true) =>
+        Some(j2TaskFile)
+      case (true, false) =>
+        Some(sqlTaskFile)
+      case (false, true) =>
+        Some(j2TaskFile)
+      case (false, false) =>
+        None
+    }
+    taskFile
+  }
+
   /** To be deprecated soon
+    *
     * @param path
     *   : JOb path
     * @param jobDesc
@@ -464,14 +480,27 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
       name
     }
 
-  def jobs(reload: Boolean = false): Map[String, AutoJobDesc] = if (reload) loadJobs() else _jobs
-  private var _jobs: Map[String, AutoJobDesc] = loadJobs()
+  def jobs(reload: Boolean = false): Map[String, AutoJobDesc] = {
+    if (reload) loadJobs()
+    _jobs
+  }
+
+  private var (_jobErrors, _jobs): (List[String], Map[String, AutoJobDesc]) = loadJobs()
 
   /** All defined jobs Jobs are defined under the "jobs" folder in the metadata folder
     */
   @throws[Exception]
-  private def loadJobs(): Map[String, AutoJobDesc] = {
+  private def loadJobs(): (List[String], Map[String, AutoJobDesc]) = {
     val jobs = storage.list(DatasetArea.jobs, ".yml", recursive = true)
+    val filenameErrors = Utils.duplicates(
+      jobs.map(_.getName()),
+      s"%s is defined %d times. A job can only be defined once."
+    ) match {
+      case Right(_) => Nil
+      case Left(errors) =>
+        errors
+    }
+
     val (validJobsFile, invalidJobsFile) =
       jobs
         .map(loadJobFromFile)
@@ -483,16 +512,24 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
         logger.error(
           s"There is one or more invalid Yaml files in your jobs folder:${err.getMessage}"
         )
-        if (settings.comet.validateOnLoad)
-          throw err
       case Success(_) => // do nothing
     }
 
-    this._jobs = validJobsFile
+    val validJobs = validJobsFile
       .collect { case Success(job) => job }
-      .map(job => job.name -> job)
-      .toMap
-    this._jobs
+
+    val nameErrors = Utils.duplicates(
+      validJobs.map(_.name),
+      s"%s is defined %d times. A job can only be defined once."
+    ) match {
+      case Right(_) => Nil
+      case Left(errors) =>
+        errors
+    }
+
+    this._jobs = validJobs.map(job => job.name -> job).toMap
+    this._jobErrors = filenameErrors ++ nameErrors
+    (this._jobErrors, this._jobs)
   }
 
   /** Find domain by name
