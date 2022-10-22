@@ -92,8 +92,8 @@ object MainServer {
       case "quit" | "exit" =>
         System.exit(0)
         "" // makes the compiler happy
-      case "version"   => BuildInfo.version
-      case "heartbeat" => "OK"
+      case "version"   => MainServer.mapper.writeValueAsString(BuildInfo.version)
+      case "heartbeat" => MainServer.mapper.writeValueAsString("OK")
       case "domains" =>
         val settings = getUpdatedSettings(root, metadata, env, gcpProject)
         MainServer.mapper.writeValueAsString(Services.domains()(settings))
@@ -106,9 +106,11 @@ object MainServer {
       case _ =>
         val settings = getUpdatedSettings(root, metadata, env, gcpProject)
         core.run(args)(settings)
-        Response(settings.comet.rootServe.getOrElse("Should never happen"))
+        MainServer.mapper.writeValueAsString(
+          Response(settings.comet.rootServe.getOrElse("Should never happen"))
+        )
     }
-    MainServer.mapper.writeValueAsString(response)
+    response
   }
 }
 
