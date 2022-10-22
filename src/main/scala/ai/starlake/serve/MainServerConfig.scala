@@ -1,4 +1,4 @@
-package ai.starlake.job.serve
+package ai.starlake.serve
 
 import ai.starlake.utils.CliConfig
 import scopt.OParser
