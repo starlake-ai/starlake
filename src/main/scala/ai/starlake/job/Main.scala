@@ -7,7 +7,7 @@ import ai.starlake.job.convert.{FileSplitterConfig, Parquet2CSV, Parquet2CSVConf
 import ai.starlake.job.infer.InferSchemaConfig
 import ai.starlake.job.ingest.LoadConfig
 import ai.starlake.job.metrics.MetricsConfig
-import ai.starlake.job.serve.{MainServer, MainServerConfig}
+import ai.starlake.serve.{MainServer, MainServerConfig}
 import ai.starlake.job.sink.bigquery.BigQueryLoadConfig
 import ai.starlake.job.sink.es.ESLoadConfig
 import ai.starlake.job.sink.jdbc.ConnectionLoadConfig
@@ -145,6 +145,9 @@ class Main() extends StrictLogging {
 
     // handle existing project commands
     schemaHandler.fullValidation()
+    if (settings.comet.validateOnLoad)
+      throw new Exception("Validation failed!")
+
     DatasetArea.initDomains(storageHandler, schemaHandler.domains().map(_.name))
     val workflow =
       new IngestionWorkflow(storageHandler, schemaHandler, launcherService)
