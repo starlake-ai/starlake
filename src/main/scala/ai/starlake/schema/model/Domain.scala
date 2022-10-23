@@ -20,15 +20,14 @@
 
 package ai.starlake.schema.model
 
-import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.utils.Utils
 import com.fasterxml.jackson.annotation.JsonIgnore
-import com.github.ghik.silencer.silent
 import org.apache.hadoop.fs.Path
 
 import java.util.regex.Pattern
+import scala.annotation.nowarn
 import scala.collection.mutable
 import scala.util.{Failure, Success, Try}
 
@@ -66,15 +65,15 @@ import scala.util.{Failure, Success, Try}
   *   present. To move a file without requiring an ack file to be present, set explicitly this
   *   property to the empty string value "".
   */
-@silent case class Domain(
+@nowarn case class Domain(
   name: String,
-  @silent @deprecated("Moved to Metadata", "0.2.8") directory: Option[String] = None,
+  @nowarn @deprecated("Moved to Metadata", "0.2.8") directory: Option[String] = None,
   metadata: Option[Metadata] = None,
   tableRefs: Option[List[String]] = None,
   tables: List[Schema] = Nil,
   comment: Option[String] = None,
-  @silent @deprecated("Moved to Metadata", "0.2.8") extensions: Option[List[String]] = None,
-  @silent @deprecated("Moved to Metadata", "0.2.8") ack: Option[String] = None,
+  @nowarn @deprecated("Moved to Metadata", "0.2.8") extensions: Option[List[String]] = None,
+  @nowarn @deprecated("Moved to Metadata", "0.2.8") ack: Option[String] = None,
   tags: Option[Set[String]] = None,
   rename: Option[String] = None
 ) {
@@ -152,7 +151,7 @@ import scala.util.{Failure, Success, Try}
   /** Resolve method are here to handle backward compatibility
     * @return
     */
-  @silent def resolveDirectory(): String = {
+  @nowarn def resolveDirectory(): String = {
     val maybeDirectory = for {
       metadata  <- metadata
       directory <- metadata.directory
@@ -166,7 +165,7 @@ import scala.util.{Failure, Success, Try}
     }
   }
 
-  @silent def resolveAck(): Option[String] = {
+  @nowarn def resolveAck(): Option[String] = {
     val maybeAck = for {
       metadata <- metadata
       ack      <- metadata.ack
@@ -178,8 +177,10 @@ import scala.util.{Failure, Success, Try}
     }
   }
 
-  @silent def resolveExtensions(): Option[List[String]] =
-    metadata.map(m => m.extensions).getOrElse(this.extensions)
+  @nowarn def resolveExtensions(): Option[List[String]] = {
+    val ext = metadata.flatMap(m => m.extensions)
+    ext.orElse(this.extensions)
+  }
 
   /** Ack file should be present for each file to ingest.
     *

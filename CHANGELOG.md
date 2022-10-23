@@ -1,9 +1,16 @@
 
 # Release notes
 
-# 0.4.3
+# 0.5.1
+__Bug Fix__:
+- Support dynamic value for comet metadata through rest api.
+
+
+# 0.5.0
 __New Feature__:
-- Server mode now support multiple projects simultaneously
+- Add Server mode
+__Bug Fix__:
+- Extensions may be defined at the domain level
 
 # 0.4.2
 __Bug Fix__:

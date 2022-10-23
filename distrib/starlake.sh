@@ -1,6 +1,6 @@
 #!/bin/bash
 
-COMET_VERSION="${COMET_VERSION:-0.4.3-SNAPSHOT}"
+COMET_VERSION="${COMET_VERSION:-0.5.1}"
 SPARK_VERSION="${SPARK_VERSION:-3.3.0}"
 HADOOP_VERSION="${HADOOP_VERSION:-3}"
 SPARK_BQ_VERSION="${SPARK_BQ_VERSION:-0.27.0-preview}"
@@ -14,6 +14,7 @@ export COMET_ENV="${COMET_ENV:-FS}"
 export SPARK_DRIVER_MEMORY="${SPARK_DRIVER_MEMORY:-4G}"
 export COMET_FS="${COMET_FS:-file://}"
 export COMET_MAIN=ai.starlake.job.Main
+export COMET_VALIDATE_ON_LOAD=false
 
 STARLAKE_PATH=$( dirname -- "${BASH_SOURCE[0]}" )
 TARGET_FOLDER="$(cd "$STARLAKE_PATH" && pwd)"
@@ -96,9 +97,4 @@ initEnv
 #export SPARK_DRIVER_OPTIONS="-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005 -Dlog4j.configuration=file://$SPARK_DIR/conf/log4j.properties"
 SPARK_SUBMIT=$TARGET_FOLDER/bin/spark/bin/spark-submit
 $SPARK_SUBMIT --driver-java-options "$SPARK_DRIVER_OPTIONS" $SPARK_CONF_OPTIONS --class $COMET_MAIN $TARGET_FOLDER/$COMET_JAR_FULL_NAME $@
-
-
-
-
-
 
