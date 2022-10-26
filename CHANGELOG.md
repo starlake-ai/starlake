@@ -1,6 +1,10 @@
 
 # Release notes
 
+# 0.5.2
+__New Feature__:
+- Domain & Jobs delivery in rest api
+
 # 0.5.1
 __Bug Fix__:
 - Support dynamic value for comet metadata through rest api.
