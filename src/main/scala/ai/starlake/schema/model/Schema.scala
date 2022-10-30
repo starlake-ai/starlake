@@ -203,11 +203,11 @@ case class Schema(
   def checkValidity(
     domainMetaData: Option[Metadata],
     schemaHandler: SchemaHandler
-  ): Either[List[String], Boolean] = {
+  )(implicit settings: Settings): Either[List[String], Boolean] = {
     val errorList: mutable.MutableList[String] = mutable.MutableList.empty
-    val tableNamePattern = Pattern.compile("[a-zA-Z][a-zA-Z0-9_]{1,256}")
-    if (!tableNamePattern.matcher(name).matches())
-      errorList += s"Schema with name $name should respect the pattern ${tableNamePattern.pattern()}"
+    val forceTablePrefixRegex = settings.comet.forceTablePattern.r
+    if (!forceTablePrefixRegex.pattern.matcher(name).matches())
+      errorList += s"Domain with name $name should respect the pattern ${forceTablePrefixRegex.regex}"
 
     metadata.foreach { metadata =>
       for (errors <- metadata.checkValidity(schemaHandler).left) {

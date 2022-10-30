@@ -38,14 +38,20 @@ class JDBC2YmlSpec extends TestHelper {
       val domainTemplate = Domain(name = "CUSTOM_NAME", metadata = Some(metadata))
       val config = JDBC2YmlConfig()
       JDBC2Yml.extractSchema(
-        JDBCSchema("test-h2", None, "PUBLIC"),
+        JDBCSchema(Some("test-h2"), None, "PUBLIC"),
+        settings.comet.connections("test-h2").options,
         File("/tmp"),
         Some(domainTemplate)
       )
-      val domain = YamlSerializer.deserializeDomain(File("/tmp/PUBLIC", "PUBLIC.comet.yml")) match {
-        case Success(domain) => domain
-        case Failure(e)      => throw e
-      }
+      val publicPath = File("/tmp/PUBLIC/PUBLIC.comet.yml")
+      val domain =
+        YamlSerializer.deserializeDomain(
+          publicPath.contentAsString,
+          publicPath.pathAsString
+        ) match {
+          case Success(domain) => domain
+          case Failure(e)      => throw e
+        }
       assert(domain.name == "PUBLIC")
       assert(domain.tableRefs.getOrElse(Nil).size == 2)
       assert(domain.metadata.flatMap(_.quote).getOrElse("") == "::")
@@ -68,7 +74,7 @@ class JDBC2YmlSpec extends TestHelper {
 
   "JDBCSchemas" should "deserialize corrected" in {
     new WithSettings() {
-      val imput =
+      val input =
         """
           |extract:
           |  jdbcSchemas:
@@ -94,8 +100,10 @@ class JDBC2YmlSpec extends TestHelper {
           |""".stripMargin
       val jdbcMapping = File.newTemporaryFile()
       val outputDir = File.newTemporaryDirectory()
-      jdbcMapping.overwrite(imput)
-      val jdbcSchemas = YamlSerializer.deserializeJDBCSchemas(jdbcMapping)
+      jdbcMapping.overwrite(input)
+
+      val jdbcSchemas =
+        YamlSerializer.deserializeJDBCSchemas(jdbcMapping.contentAsString, jdbcMapping.pathAsString)
       assert(jdbcSchemas.jdbcSchemas.nonEmpty)
     }
   }
@@ -123,18 +131,23 @@ class JDBC2YmlSpec extends TestHelper {
 
       JDBC2Yml.extractSchema(
         JDBCSchema(
-          "test-h2",
+          Some("test-h2"),
           None,
           "PUBLIC",
           None,
           None,
           List(JDBCTable("TEST_TABLE1", Some(List("ID"))))
         ),
+        settings.comet.connections("test-h2").options,
         File("/tmp"),
         None
       )
+      val publicPath = File("/tmp/PUBLIC/PUBLIC.comet.yml")
       val domain =
-        YamlSerializer.deserializeDomain(File("/tmp/PUBLIC", "PUBLIC.comet.yml")) match {
+        YamlSerializer.deserializeDomain(
+          publicPath.contentAsString,
+          publicPath.pathAsString
+        ) match {
           case Success(domain) => domain
           case Failure(e)      => throw e
         }
@@ -180,15 +193,27 @@ class JDBC2YmlSpec extends TestHelper {
       assert(row1InsertionCheck, "Data not inserted")
 
       JDBC2Yml.extractSchema(
-        JDBCSchema("test-h2", None, "PUBLIC", None, None, List(JDBCTable("TEST_TABLE2", None))),
+        JDBCSchema(
+          Some("test-h2"),
+          None,
+          "PUBLIC",
+          None,
+          None,
+          List(JDBCTable("TEST_TABLE2", None))
+        ),
+        settings.comet.connections("test-h2").options,
         File("/tmp"),
         None
       )
-
-      val domain = YamlSerializer.deserializeDomain(File("/tmp/PUBLIC", "PUBLIC.comet.yml")) match {
-        case Success(domain) => domain
-        case Failure(e)      => throw e
-      }
+      val publicPath = File("/tmp/PUBLIC/PUBLIC.comet.yml")
+      val domain =
+        YamlSerializer.deserializeDomain(
+          publicPath.contentAsString,
+          publicPath.pathAsString
+        ) match {
+          case Success(domain) => domain
+          case Failure(e)      => throw e
+        }
       assert(domain.name == "PUBLIC")
       assert(domain.tableRefs.get.size == 1)
       assert(domain.tableRefs.get.head == "_TEST_TABLE2")
@@ -219,7 +244,7 @@ class JDBC2YmlSpec extends TestHelper {
         |  --separator <value>     Column separator
         |  --output-dir <value>    Where to output csv files
         |  --schema                Export table schema
-        |  --jdbc-mapping <value>  Database tables & connection info
+        |  --mapping <value>        Database tables & connection info
         |  --output-dir <value>    Where to output YML files
         |  --template <value>      YML template to use YML metadata
         |""".stripMargin

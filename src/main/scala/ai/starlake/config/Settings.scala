@@ -328,7 +328,12 @@ object Settings extends StrictLogging {
     scheduling: JobScheduling,
     maxParCopy: Int,
     dsvOptions: Map[String, String],
-    rootServe: Option[String]
+    rootServe: Option[String],
+    forceViewPattern: String,
+    forceDomainPattern: String,
+    forceTablePattern: String,
+    forceJobPattern: String,
+    forceTaskPattern: String
   ) extends Serializable {
 
     val cacheStorageLevel: StorageLevel =
