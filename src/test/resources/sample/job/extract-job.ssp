@@ -1,5 +1,5 @@
 <%@ var job: ai.starlake.schema.model.AutoJobDesc %>
-<%@ var actions: List[ai.starlake.job.transform.AutoTaskJob] %>
+<%@ var actions: List[ai.starlake.job.transform.AutoTask] %>
 <%@ var env: Map[String, String] %>
 
 #{
