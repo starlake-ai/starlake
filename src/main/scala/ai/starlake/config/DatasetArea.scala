@@ -215,6 +215,10 @@ object DatasetArea extends StrictLogging {
     }
 
     initMetadata(storage)
+    List("out", "diagrams", "diagrams/domains", "diagrams/acl", "diagrams/jobs").foreach { folder =>
+      val root = new Path(s"${settings.comet.metadata}").getParent
+      storage.mkdirs(new Path(root, folder))
+    }
 
     val metadataResources = List(
       "domains/hr.comet.yml",
@@ -242,6 +246,10 @@ object DatasetArea extends StrictLogging {
       "incoming/sales/orders-2018-01-01.csv"
     )
     copyToFolder(rootResources, "quickstart-template", incomingFolder)
+
+    val vscodeFolder = new Path(metadata.getParent(), ".vscode")
+    storage.mkdirs(vscodeFolder)
+    copyToFolder(List("extensions.json"), "quickstart-template", vscodeFolder)
   }
 }
 

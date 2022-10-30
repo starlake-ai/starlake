@@ -3,7 +3,7 @@
 <%@ var env: Map[String, String] %>
 
 #{
-    val task = actions.head.task
+    val task = actions.head.taskDesc
 }#
 ${job.name}
 ${task.sql}

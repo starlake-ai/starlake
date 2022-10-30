@@ -49,7 +49,7 @@ trait JobBase extends StrictLogging with DatasetLogging {
     */
   protected def parseViewDefinition(
     valueWithEnv: String
-  ): (SinkType, Option[JdbcConfigName], String) = {
+  ): (SinkType, Option[String], String) = {
     val sepIndex = valueWithEnv.indexOf(":")
     if (sepIndex > 0) {
       val key = valueWithEnv.substring(0, sepIndex)
@@ -284,7 +284,7 @@ trait SparkJob extends JobBase {
       Option(value) match {
         case None =>
           val viewContent = schemaHandler
-            .views(key)
+            .view(key)
             .getOrElse(throw new Exception(s"Unknown view $key"))
 
           val parsedContent = parseJinja(viewContent, schemaHandler.activeEnv() ++ sqlParameters)

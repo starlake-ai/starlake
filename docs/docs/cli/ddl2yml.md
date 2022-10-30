@@ -21,7 +21,7 @@ Parameter|Cardinality|Description
 --separator:`<value>`|*Optional*|Column separator
 --output-dir:`<value>`|*Required*|Where to output csv files
 --schema:`<value>`|*Optional*|Export table schema
---jdbc-mapping:`<value>`|*Required*|Database tables & connection info
---output-dir:`<value>`|*Required*|Where to output YML files
+--mapping:`<value>`|*Required*|Database tables & connection info
+--output-dir:`<value>`|*Optional*|Where to output YML files
 --template:`<value>`|*Optional*|YML template to use YML metadata
 

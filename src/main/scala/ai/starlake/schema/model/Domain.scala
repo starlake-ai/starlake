@@ -26,7 +26,6 @@ import ai.starlake.utils.Utils
 import com.fasterxml.jackson.annotation.JsonIgnore
 import org.apache.hadoop.fs.Path
 
-import java.util.regex.Pattern
 import scala.annotation.nowarn
 import scala.collection.mutable
 import scala.util.{Failure, Success, Try}
@@ -201,12 +200,15 @@ import scala.util.{Failure, Success, Try}
   def checkValidity(
     schemaHandler: SchemaHandler
   )(implicit settings: Settings): Either[List[String], Boolean] = {
+
     val errorList: mutable.MutableList[String] = mutable.MutableList.empty
 
     // Check Domain name validity
-    val dbNamePattern = Pattern.compile("[a-zA-Z][a-zA-Z0-9_]{1,100}")
-    if (!dbNamePattern.matcher(name).matches())
-      errorList += s"Domain with name $name should respect the pattern ${dbNamePattern.pattern()}"
+    val forceDomainPrefixRegex = settings.comet.forceDomainPattern.r
+    if (!forceDomainPrefixRegex.pattern.matcher(name).matches())
+      errorList += s"Domain with name $name should respect the pattern ${forceDomainPrefixRegex.regex}"
+
+    val forceTablePrefixRegex = settings.comet.forceTablePattern.r
 
     Try(resolveDirectory()) match {
       case Success(_) => //

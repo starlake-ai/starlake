@@ -23,7 +23,8 @@ import ai.starlake.utils.CliConfig
 import scopt.OParser
 
 case class JDBCSchemas(
-  jdbcSchemas: List[JDBCSchema]
+  jdbcSchemas: List[JDBCSchema],
+  connection: Map[String, String] = Map.empty
 )
 
 /** @param connection
@@ -39,7 +40,7 @@ case class JDBCSchemas(
   */
 
 case class JDBCSchema(
-  connection: String,
+  connection: Option[String] = None,
   catalog: Option[String] = None,
   schema: String = "",
   tableRemarks: Option[String] = None,
@@ -65,8 +66,8 @@ case class JDBCSchema(
 case class JDBCTable(name: String, columns: Option[List[String]])
 
 case class JDBC2YmlConfig(
-  jdbcMapping: String = "",
-  outputDir: String = "",
+  mapping: String = "",
+  outputDir: Option[String] = None,
   ymlTemplate: Option[String] = None,
   mode: String = "schema",
   limit: Int = 0,
@@ -88,7 +89,7 @@ object JDBC2YmlConfig extends CliConfig[JDBC2YmlConfig] {
         .optional()
         .children(
           opt[String]("jdbc-mapping")
-            .action((x, c) => c.copy(jdbcMapping = x))
+            .action((x, c) => c.copy(mapping = x))
             .required()
             .text("Database tables & connection info"),
           opt[Int]("limit")
@@ -100,7 +101,7 @@ object JDBC2YmlConfig extends CliConfig[JDBC2YmlConfig] {
             .optional()
             .text("Column separator"),
           opt[String]("output-dir")
-            .action((x, c) => c.copy(outputDir = x))
+            .action((x, c) => c.copy(outputDir = Some(x)))
             .required()
             .text("Where to output csv files")
         ),
@@ -109,13 +110,13 @@ object JDBC2YmlConfig extends CliConfig[JDBC2YmlConfig] {
         .action((x, c) => c.copy(mode = "schema"))
         .optional()
         .children(
-          opt[String]("jdbc-mapping")
-            .action((x, c) => c.copy(jdbcMapping = x))
+          opt[String]("mapping")
+            .action((x, c) => c.copy(mapping = x))
             .required()
             .text("Database tables & connection info"),
           opt[String]("output-dir")
-            .action((x, c) => c.copy(outputDir = x))
-            .required()
+            .action((x, c) => c.copy(outputDir = Some(x)))
+            .optional()
             .text("Where to output YML files"),
           opt[String]("template")
             .action((x, c) => c.copy(ymlTemplate = Some(x)))

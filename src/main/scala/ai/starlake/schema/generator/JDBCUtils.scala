@@ -56,50 +56,51 @@ object JDBCUtils extends LazyLogging {
   val reverseSqlTypes = sqlTypes map (_.swap)
 
   private def withJDBCConnection[T](
-    connString: String
+    connectionOptions: Map[String, String]
   )(f: SQLConnection => T)(implicit settings: Settings): T = {
-    val jdbcOptions = settings.comet.connections(connString)
     assert(
-      jdbcOptions.options.contains("driver"),
+      connectionOptions.contains("driver"),
       "driver class not found in JDBC connection options"
     )
-    Class.forName(jdbcOptions.options("driver"))
-
-    // Only JDBC connections are supported
-    assert(jdbcOptions.format == "jdbc")
-
-    val url = jdbcOptions.options("url")
+    Class.forName(connectionOptions("driver"))
+    val url = connectionOptions("url")
     val properties = new Properties()
-    (jdbcOptions.options - "url").foreach { case (key, value) =>
+    (connectionOptions - "url").foreach { case (key, value) =>
       properties.setProperty(key, value)
     }
     val connection = DriverManager.getConnection(url, properties)
     try {
-      val result = f(connection)
-      result
-    } finally
+      f(connection)
+    } finally {
       Try(connection.close()) match {
-        case Success(_) => logger.debug(s"Closed connection to $connString")
+        case Success(_) => logger.debug(s"Closed connection $url")
         case Failure(exception) =>
-          logger.warn(s"Could not close connection to $connString", exception)
+          logger.warn(s"Could not close connection to $url", exception)
       }
+    }
   }
 
-  def applyScript(script: String, connectionString: String)(implicit
+  def applyScript(script: String, connectionOptions: Map[String, String])(implicit
     settings: Settings
   ): Boolean = {
-    withJDBCConnection(connectionString) { conn =>
+    withJDBCConnection(connectionOptions) { conn =>
       conn.createStatement().execute(script)
     }
   }
 
-  def extractTableRemarks(jdbcSchema: JDBCSchema, table: String)(implicit
+  private def getConnectionOptions(jdbcSchema: JDBCSchema) = {}
+
+  def extractTableRemarks(
+    jdbcSchema: JDBCSchema,
+    connectionOptions: Map[String, String],
+    table: String
+  )(implicit
     settings: Settings
   ): Option[String] = {
     jdbcSchema.tableRemarks.map { remarks =>
       val sql = formatRemarksSQL(jdbcSchema, table, remarks)
       logger.info(s"Extracting table remarks using $sql")
-      withJDBCConnection(jdbcSchema.connection) { connection =>
+      withJDBCConnection(connectionOptions) { connection =>
         val statement = connection.createStatement()
         val rs = statement.executeQuery(sql)
         if (rs.next()) {
@@ -111,13 +112,17 @@ object JDBCUtils extends LazyLogging {
       }
     }
   }
-  def extractColumnRemarks(jdbcSchema: JDBCSchema, table: String)(implicit
+  def extractColumnRemarks(
+    jdbcSchema: JDBCSchema,
+    connectionOptions: Map[String, String],
+    table: String
+  )(implicit
     settings: Settings
   ): Option[Map[TableRemarks, TableRemarks]] = {
     jdbcSchema.columnRemarks.map { remarks =>
       val sql = formatRemarksSQL(jdbcSchema, table, remarks)
       logger.info(s"Extracting column remarks using $sql")
-      withJDBCConnection(jdbcSchema.connection) { connection =>
+      withJDBCConnection(connectionOptions) { connection =>
         val statement = connection.createStatement()
         val rs = statement.executeQuery(sql)
         val res = mutable.Map.empty[String, String]
@@ -130,9 +135,10 @@ object JDBCUtils extends LazyLogging {
   }
 
   def extractJDBCTables(
-    jdbcSchema: JDBCSchema
+    jdbcSchema: JDBCSchema,
+    connectionOptions: Map[String, String]
   )(implicit settings: Settings): Map[String, (TableRemarks, Columns, PrimaryKeys)] =
-    withJDBCConnection(jdbcSchema.connection) { connection =>
+    withJDBCConnection(connectionOptions) { connection =>
       val databaseMetaData = connection.getMetaData()
       val jdbcTableMap =
         jdbcSchema.tables
@@ -152,7 +158,7 @@ object JDBCUtils extends LazyLogging {
         while (resultSet.next()) {
           val tableName = resultSet.getString("TABLE_NAME");
           if (tablesToExtract.isEmpty || tablesToExtract.contains(tableName.toUpperCase())) {
-            val _remarks = extractTableRemarks(jdbcSchema, tableName)
+            val _remarks = extractTableRemarks(jdbcSchema, connectionOptions, tableName)
             val remarks = _remarks.getOrElse(resultSet.getString("REMARKS"))
             logger.info(s"Extracting table $tableName: $remarks")
             tableNames += tableName -> remarks
@@ -206,7 +212,8 @@ object JDBCUtils extends LazyLogging {
             tableName,
             null
           )
-          val remarks = extractColumnRemarks(jdbcSchema, tableName).getOrElse(Map.empty)
+          val remarks =
+            extractColumnRemarks(jdbcSchema, connectionOptions, tableName).getOrElse(Map.empty)
 
           val attrs = new Iterator[Attribute] {
             def hasNext: Boolean = columnsResultSet.next()
@@ -371,13 +378,19 @@ object JDBCUtils extends LazyLogging {
     }
   }
 
-  def extractData(jdbcSchema: JDBCSchema, baseOutputDir: File, limit: Int, separator: String)(
-    implicit settings: Settings
+  def extractData(
+    jdbcSchema: JDBCSchema,
+    connectionOptions: Map[String, String],
+    baseOutputDir: File,
+    limit: Int,
+    separator: String
+  )(implicit
+    settings: Settings
   ): Unit = {
     val domainName = jdbcSchema.schema.replaceAll("[^\\p{Alnum}]", "_")
     val outputDir = File(baseOutputDir, domainName)
     outputDir.createDirectories()
-    val selectedTablesAndColumns = JDBCUtils.extractJDBCTables(jdbcSchema)
+    val selectedTablesAndColumns = JDBCUtils.extractJDBCTables(jdbcSchema, connectionOptions)
     selectedTablesAndColumns.foreach {
       case (tableName, (tableRemarks, selectedColumns, primaryKeys)) =>
         val formatter = DateTimeFormatter
@@ -394,7 +407,7 @@ object JDBCUtils extends LazyLogging {
         Try {
           outFileWriter.append(headers + "\n")
           val sql = s"select $cols from ${jdbcSchema.schema}.$tableName"
-          withJDBCConnection(jdbcSchema.connection) { connection =>
+          withJDBCConnection(connectionOptions) { connection =>
             val statement = connection.createStatement()
             // 0 means no limit
             statement.setMaxRows(limit)
