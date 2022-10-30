@@ -82,6 +82,7 @@ case class AutoTaskDesc(
   def getHiveDB(defaultArea: StorageArea)(implicit settings: Settings): String = {
     StorageArea.area(domain, area.getOrElse(defaultArea))
   }
+
 }
 
 /** A job is a set of transform tasks executed using the specified engine.
@@ -116,9 +117,7 @@ case class AutoJobDesc(
   coalesce: Option[Boolean],
   udf: Option[String] = None,
   views: Option[Map[String, String]] = None,
-  engine: Option[Engine] = None,
-  require: Option[List[String]] = None,
-  taskRefs: Option[List[String]] = None
+  engine: Option[Engine] = None
 ) {
 
   def getArea(): StorageArea = area.getOrElse(StorageArea.business)

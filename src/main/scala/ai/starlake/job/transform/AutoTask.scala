@@ -29,12 +29,50 @@ import ai.starlake.schema.model.Stage.UNIT
 import ai.starlake.schema.model._
 import ai.starlake.utils.Formatter.RichFormatter
 import ai.starlake.utils._
+import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.{DataFrame, SaveMode}
 
 import java.sql.Timestamp
 import java.time.{Instant, LocalDateTime}
 import scala.util.{Failure, Success, Try}
+
+object AutoTask extends StrictLogging {
+  def tasks(reload: Boolean)(implicit
+    settings: Settings,
+    storageHandler: StorageHandler,
+    schemaHandler: SchemaHandler
+  ): List[AutoTask] = {
+    schemaHandler
+      .jobs(reload)
+      .values
+      .flatMap(jobDesc => tasks(jobDesc, Map.empty, None))
+      .toList
+  }
+
+  def tasks(jobDesc: AutoJobDesc, configOptions: Map[String, String], interactive: Option[String])(
+    implicit
+    settings: Settings,
+    storageHandler: StorageHandler,
+    schemaHandler: SchemaHandler
+  ): List[AutoTask] = {
+    jobDesc.tasks.map(taskDesc =>
+      AutoTask(
+        jobDesc.name,
+        jobDesc.getArea(),
+        jobDesc.format,
+        jobDesc.coalesce.getOrElse(false),
+        jobDesc.udf,
+        Views(jobDesc.views.getOrElse(Map.empty)),
+        jobDesc.getEngine(),
+        taskDesc,
+        configOptions,
+        taskDesc.sink,
+        interactive
+      )(settings, storageHandler, schemaHandler)
+    )
+  }
+}
 
 /** Execute the SQL Task and store it in parquet/orc/.... If Hive support is enabled, also store it
   * as a Hive Table. If analyze support is active, also compute basic statistics for twhe dataset.
@@ -43,38 +81,41 @@ import scala.util.{Failure, Success, Try}
   *   : Job Name as defined in the YML job description file
   * @param defaultArea
   *   : Where the resulting dataset is stored by default if not specified in the task
-  * @param task
+  * @param taskDesc
   *   : Task to run
   * @param sqlParameters
   *   : Sql Parameters to pass to SQL statements
   */
-case class AutoTaskJob(
-  override val name: String,
+case class AutoTask(
+  override val name: String, // this is the job name. the task name is stored in the taskDesc field
   defaultArea: StorageArea,
   format: scala.Option[String],
   coalesce: Boolean,
   udf: scala.Option[String],
   views: Views,
   engine: Engine,
-  task: AutoTaskDesc,
+  taskDesc: AutoTaskDesc,
   sqlParameters: Map[String, String],
   sink: Option[Sink],
   interactive: Option[String]
 )(implicit val settings: Settings, storageHandler: StorageHandler, schemaHandler: SchemaHandler)
     extends SparkJob {
 
+  // for clarity purpose. the task name is stored in the taskDesc field
+  def jobName(): String = this.name
   override def run(): Try[JobResult] = {
     throw new Exception("Should never happen !!! Call runBQ or runSpark directly")
   }
 
   val (createDisposition, writeDisposition) =
-    Utils.getDBDisposition(task.write, hasMergeKeyDefined = false)
+    Utils.getDBDisposition(taskDesc.write, hasMergeKeyDefined = false)
 
   private def createBigQueryConfig(): BigQueryLoadConfig = {
-    val bqSink = task.sink.map(sink => sink.asInstanceOf[BigQuerySink]).getOrElse(BigQuerySink())
+    val bqSink =
+      taskDesc.sink.map(sink => sink.asInstanceOf[BigQuerySink]).getOrElse(BigQuerySink())
     BigQueryLoadConfig(
-      outputTable = task.table,
-      outputDataset = task.domain,
+      outputTable = taskDesc.table,
+      outputDataset = taskDesc.domain,
       createDisposition = createDisposition,
       writeDisposition = writeDisposition,
       location = bqSink.location,
@@ -82,34 +123,43 @@ case class AutoTaskJob(
       outputClustering = bqSink.clustering.getOrElse(Nil),
       days = bqSink.days,
       requirePartitionFilter = bqSink.requirePartitionFilter.getOrElse(false),
-      rls = task.rls,
+      rls = taskDesc.rls,
       engine = Engine.BQ,
       options = bqSink.getOptions
     )
   }
 
+  /** view directive in the yaml file is in the form:
+    *
+    * [view: select * from table]
+    *
+    * [view:] in that case it means it references a job or a domain table or a view defined in the
+    * views folder.
+    *
+    * @return
+    */
   private def parseJobViews(): Map[String, String] =
-    views.views.map { case (queryName, queryExpr) =>
-      val (_, _, viewValue) = Option(queryExpr) match {
+    views.views.flatMap { case (viewName, queryExpr) =>
+      Option(queryExpr) match {
         case None =>
-          val viewContent = schemaHandler
-            .views(queryName)
-            .getOrElse(throw new Exception(s"Unknown view $queryName"))
-          parseViewDefinition(
-            parseJinja(viewContent)
-          )
+          val viewContent = schemaHandler.view(viewName)
+          viewContent match {
+            case None =>
+              None
+            case Some(viewContent) =>
+              val (_, _, viewValue) = parseViewDefinition(parseJinja(viewContent))
+              Some((viewName, viewValue))
+          }
         case Some(viewContent) =>
-          parseViewDefinition(
-            parseJinja(viewContent)
-          )
+          val (_, _, viewValue) = parseViewDefinition(parseJinja(viewContent))
+          Some((viewName, viewValue))
       }
-      (queryName, viewValue)
     }
 
   def parseMainSqlBQ(): String = {
     logger.info(s"Parse Views")
     val withViews = parseJobViews()
-    val mainTaskSQL = parseJinja(task.getSql())
+    val mainTaskSQL = parseJinja(taskDesc.getSql())
     val trimmedMainTaskSQL = mainTaskSQL.toLowerCase()
     if (trimmedMainTaskSQL.startsWith("with ") || trimmedMainTaskSQL.startsWith("(with ")) {
       mainTaskSQL
@@ -188,9 +238,9 @@ case class AutoTaskJob(
           // We execute assertions only on success
           if (settings.comet.assertions.active) {
             new AssertionJob(
-              task.domain,
-              task.area.getOrElse(defaultArea).value,
-              task.assertions.getOrElse(Map.empty),
+              taskDesc.domain,
+              taskDesc.area.getOrElse(defaultArea).value,
+              taskDesc.assertions.getOrElse(Map.empty),
               UNIT,
               storageHandler,
               schemaHandler,
@@ -221,20 +271,20 @@ case class AutoTaskJob(
   def buildQuerySpark(cteSelects: List[String]): (List[String], String, List[String]) = {
     val sql = cteSelects match {
       case Nil =>
-        parseJinja(task.getSql())
+        parseJinja(taskDesc.getSql())
       case list =>
-        list.mkString("WITH ", ", ", " ") + parseJinja(task.getSql())
+        list.mkString("WITH ", ", ", " ") + parseJinja(taskDesc.getSql())
     }
 
-    val preSql = parseJinja(task.presql.getOrElse(Nil))
-    val postSql = parseJinja(task.postsql.getOrElse(Nil))
+    val preSql = parseJinja(taskDesc.presql.getOrElse(Nil))
+    val postSql = parseJinja(taskDesc.postsql.getOrElse(Nil))
     (preSql, sql, postSql)
   }
 
   def buildQueryBQ(): (List[String], String, List[String]) = {
     val sql = parseMainSqlBQ()
-    val preSql = parseJinja(task.presql.getOrElse(Nil))
-    val postSql = parseJinja(task.postsql.getOrElse(Nil))
+    val preSql = parseJinja(taskDesc.presql.getOrElse(Nil))
+    val postSql = parseJinja(taskDesc.postsql.getOrElse(Nil))
 
     (preSql, sql, postSql)
   }
@@ -246,13 +296,13 @@ case class AutoTaskJob(
       .map(_.richFormat(schemaHandler.activeEnv(), sqlParameters))
 
   def sinkToFS(dataframe: DataFrame, sink: FsSink): Boolean = {
-    val targetPath = task.getTargetPath(defaultArea)
+    val targetPath = taskDesc.getTargetPath(defaultArea)
     logger.info(s"About to write resulting dataset to $targetPath")
     // Target Path exist only if a storage area has been defined at task or job level
     // To execute a task without writing to disk simply avoid the area at the job and task level
 
     val sinkPartition =
-      sink.partition.getOrElse(Partition(sampling = None, attributes = task.partition))
+      sink.partition.getOrElse(Partition(sampling = None, attributes = taskDesc.partition))
 
     val sinkPartitionSampling = sinkPartition.sampling.getOrElse(0.0)
     val nbPartitions = sinkPartitionSampling match {
@@ -284,19 +334,19 @@ case class AutoTaskJob(
     }
 
     val finalDataset = clusteredDFWriter
-      .mode(task.write.toSaveMode)
+      .mode(taskDesc.write.toSaveMode)
       .format(sink.format.getOrElse(format.getOrElse(settings.comet.defaultFormat)))
       .options(sink.getOptions)
       .option("path", targetPath.toString)
       .options(sink.getOptions)
 
     if (settings.comet.hive) {
-      val tableName = task.table
-      val hiveDB = task.getHiveDB(defaultArea)
+      val tableName = taskDesc.table
+      val hiveDB = taskDesc.getHiveDB(defaultArea)
       val fullTableName = s"$hiveDB.$tableName"
       session.sql(s"create database if not exists $hiveDB")
       session.sql(s"use $hiveDB")
-      if (task.write.toSaveMode == SaveMode.Overwrite)
+      if (taskDesc.write.toSaveMode == SaveMode.Overwrite)
         session.sql(s"drop table if exists $tableName")
       finalDataset.saveAsTable(fullTableName)
       analyze(fullTableName)
@@ -328,10 +378,10 @@ case class AutoTaskJob(
 
       preSql.foreach(req => session.sql(req))
       logger.info(s"""START COMPILE SQL $sqlWithParameters END COMPILE SQL""")
-      logger.info(s"running sql request using ${task.engine}")
+      logger.info(s"running sql request using ${taskDesc.engine}")
 
       val dataframe =
-        task.engine.getOrElse(Engine.SPARK) match {
+        taskDesc.engine.getOrElse(Engine.SPARK) match {
           case Engine.BQ =>
             session.read
               .format("com.google.cloud.spark.bigquery")
@@ -349,9 +399,9 @@ case class AutoTaskJob(
 
       if (settings.comet.assertions.active) {
         new AssertionJob(
-          task.domain,
-          task.area.getOrElse(defaultArea).value,
-          task.assertions.getOrElse(Map.empty),
+          taskDesc.domain,
+          taskDesc.area.getOrElse(defaultArea).value,
+          taskDesc.assertions.getOrElse(Map.empty),
           Stage.UNIT,
           storageHandler,
           schemaHandler,
@@ -387,8 +437,8 @@ case class AutoTaskJob(
     val log = AuditLog(
       session.sparkContext.applicationId,
       this.name,
-      this.task.domain,
-      this.task.table,
+      this.taskDesc.domain,
+      this.taskDesc.table,
       success,
       jobResultCount,
       -1,
@@ -406,4 +456,6 @@ case class AutoTaskJob(
 
   private def logAuditFailure(start: Timestamp, end: Timestamp, e: Throwable) =
     logAudit(start, end, -1, success = true, Utils.exceptionAsString(e))
+
+  def dependencies(): List[String] = SQLUtils.extractRefsFromSQL(this.parseMainSqlBQ())
 }

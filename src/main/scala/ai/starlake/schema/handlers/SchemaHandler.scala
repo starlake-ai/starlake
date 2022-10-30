@@ -47,6 +47,9 @@ import scala.util.{Failure, Success, Try}
   */
 class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extends StrictLogging {
 
+  val forceViewPrefixRegex = settings.comet.forceViewPattern.r
+  val forceJobPrefixRegex = settings.comet.forceJobPattern.r
+  val forceTaskPrefixRegex = settings.comet.forceTablePattern.r
   // uses Jackson YAML for parsing, relies on SnakeYAML for low level handling
   @nowarn val mapper: ObjectMapper with ScalaObjectMapper =
     new CometObjectMapper(new YAMLFactory(), injectables = (classOf[Settings], settings) :: Nil)
@@ -129,11 +132,24 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
   def checkViewsValidity(): Either[List[String], Boolean] = {
     val errorList: mutable.MutableList[String] = mutable.MutableList.empty
     val viewsPath = DatasetArea.views
-    val sqlFiles = storage.list(viewsPath, extension = ".sql", recursive = true)
+    val sqlFiles =
+      storage.list(viewsPath, extension = ".sql", recursive = true) ++
+      storage.list(viewsPath, extension = ".sql.j2", recursive = true)
+
     val duplicates = sqlFiles.groupBy(_.getName).filter { case (name, paths) => paths.length > 1 }
+    // Check Domain name validity
+    val forceViewPrefixRegex = settings.comet.forceViewPattern.r
+    sqlFiles.foreach { sqlFile =>
+      val name = viewName(sqlFile)
+      if (!forceViewPrefixRegex.pattern.matcher(name).matches()) {
+        errorList += s"View with name $name should respect the pattern ${forceViewPrefixRegex.regex}"
+      }
+    }
+
     duplicates.foreach { duplicate =>
       errorList += s"Found duplicate views => $duplicate"
     }
+
     if (errorList.nonEmpty)
       Left(errorList.toList)
     else
@@ -193,22 +209,43 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     defaultAssertions ++ assertions ++ resAssertions
   }
 
+  private def viewName(sqlFile: Path) =
+    if (sqlFile.getName().endsWith(".sql.j2"))
+      sqlFile.getName().dropRight(".sql.j2".length)
+    else
+      sqlFile.getName().dropRight(".sql".length)
+
   private def loadSqlJ2File(sqlFile: Path): (String, String) = {
     val sqlExpr = storage.read(sqlFile)
-    val sqlName = sqlFile.getName().dropRight(".sql.j2".length)
+    val sqlName = viewName(sqlFile)
     sqlName -> sqlExpr
   }
 
+  private def loadSqlJ2File(path: Path, viewName: String): Option[String] = {
+    val viewFile = listSqlj2Files(path).find(_.getName().startsWith(s"$viewName.sql"))
+    viewFile.map { viewFile =>
+      val (viewName, viewContent) = loadSqlJ2File(viewFile)
+      viewContent
+    }
+  }
+
+  private def listSqlj2Files(path: Path) = {
+    val j2Files = storage.list(path, extension = ".sql.j2", recursive = true)
+    val sqlFiles = storage.list(path, extension = ".sql", recursive = true)
+    val allFiles = j2Files ++ sqlFiles
+    allFiles
+  }
+
   private def loadSqlJi2Files(path: Path): Map[String, String] = {
-    val sqlFiles = storage.list(path, extension = ".sql.j2", recursive = true)
-    sqlFiles.map { sqlFile =>
+    val allFiles = listSqlj2Files(path)
+    allFiles.map { sqlFile =>
       loadSqlJ2File(sqlFile)
     }.toMap
   }
 
-  private var viewsMap = loadSqlJi2Files(DatasetArea.views)
+  def views(): Map[String, String] = loadSqlJi2Files(DatasetArea.views)
 
-  def views(viewName: String): Option[String] = viewsMap.get(viewName)
+  def view(viewName: String): Option[String] = loadSqlJ2File(DatasetArea.views, viewName)
 
   private val cometDateVars = {
     val today = LocalDateTime.now
@@ -485,6 +522,8 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     _jobs
   }
 
+  def job(jobName: String): Option[AutoJobDesc] = jobs().get(jobName)
+
   private var (_jobErrors, _jobs): (List[String], Map[String, AutoJobDesc]) = loadJobs()
 
   /** All defined jobs Jobs are defined under the "jobs" folder in the metadata folder
@@ -527,8 +566,25 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
         errors
     }
 
+    val forceJobPrefixRegex = settings.comet.forceJobPattern.r
+    val namePatternErrors = validJobs.map(_.name).flatMap { name =>
+      if (!forceJobPrefixRegex.pattern.matcher(name).matches())
+        Some(s"View with name $name should respect the pattern ${forceJobPrefixRegex.regex}")
+      else
+        None
+    }
+
+    val forceTaskPrefixRegex = settings.comet.forceTaskPattern.r
+    val taskNamePatternErrors =
+      validJobs.flatMap(_.tasks.map(_.name)).flatten.flatMap { name =>
+        if (!forceTaskPrefixRegex.pattern.matcher(name).matches())
+          Some(s"View with name $name should respect the pattern ${forceTaskPrefixRegex.regex}")
+        else
+          None
+      }
+
     this._jobs = validJobs.map(job => job.name -> job).toMap
-    this._jobErrors = filenameErrors ++ nameErrors
+    this._jobErrors = filenameErrors ++ nameErrors ++ namePatternErrors ++ taskNamePatternErrors
     (this._jobErrors, this._jobs)
   }
 

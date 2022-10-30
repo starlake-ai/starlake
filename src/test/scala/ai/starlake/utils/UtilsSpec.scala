@@ -3,7 +3,6 @@ package ai.starlake.utils
 import ai.starlake.schema.model.WriteMode
 import ai.starlake.schema.model.WriteMode.{APPEND, IGNORE, OVERWRITE}
 import ai.starlake.TestHelper
-import ai.starlake.schema.model.WriteMode
 
 class UtilsSpec extends TestHelper {
   new WithSettings() {
@@ -85,19 +84,18 @@ class UtilsSpec extends TestHelper {
       import ai.starlake.utils.Formatter._
       assert("${key}_and_${key}".richFormat(Map.empty, Map("key" -> "value")) == "value_and_value")
     }
+  }
 
-    "ViewParser" should "substitute refs and return view names" in {
-      val input =
-        """SELECT *
-          |FROM ref( myview), ref(yourview)
-          |union
-          |select ref(herview )""".stripMargin
-      val (sql, views) = ViewExtractor.parse(input)
-      sql should be("""SELECT *
-                         |FROM myview, yourview
-                         |union
-                         |select herview""".stripMargin)
-      views should contain theSameElementsInOrderAs (List("myview", "yourview", "herview"))
-    }
+  "TableRefs Extractor" should "return all tables and views" in {
+    val input =
+      """WITH cte1 as (query),
+        |cte2 as (query2)
+        |SELECT *
+        |FROM myview, yourview
+        |union
+        |select whatever cross join herview""".stripMargin
+    val refs = SQLUtils.extractRefsFromSQL(input)
+    refs should contain theSameElementsAs (List("myview", "yourview", "herview"))
+    // , "cte1", "cte2"))
   }
 }

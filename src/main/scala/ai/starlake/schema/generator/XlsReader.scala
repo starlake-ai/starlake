@@ -12,9 +12,9 @@ import scala.collection.mutable.ListBuffer
 
 sealed trait Input
 
-case class Path(path: String) extends Input
+case class InputPath(path: String) extends Input
 
-case class FileInput(file: File) extends Input
+case class InputFile(file: File) extends Input
 
 final case class SchemaName(value: String) extends AnyVal
 
@@ -26,8 +26,8 @@ final case class SchemaName(value: String) extends AnyVal
 class XlsReader(input: Input) extends XlsModel {
 
   private val workbook: Workbook = input match {
-    case Path(s)       => WorkbookFactory.create(new File(s))
-    case FileInput(in) => WorkbookFactory.create(in)
+    case InputPath(s)  => WorkbookFactory.create(new File(s))
+    case InputFile(in) => WorkbookFactory.create(in)
   }
 
   private lazy val domain: Option[Domain] = {

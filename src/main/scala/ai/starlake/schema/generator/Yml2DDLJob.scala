@@ -70,9 +70,10 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
         }
         val existingTables = config.connection match {
           case Some(connection) =>
+            val connectionOptions = settings.comet.connections(connection).options
             JDBCUtils.extractJDBCTables(
               JDBCSchema(
-                connection,
+                Some(connection),
                 config.catalog,
                 domain.name,
                 None,
@@ -80,7 +81,8 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
                 Nil,
                 List("TABLE"),
                 None
-              )
+              ),
+              connectionOptions
             )
           case None => Map.empty[String, (TableRemarks, Columns, PrimaryKeys)]
         }
@@ -238,7 +240,7 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
 
       if (config.apply)
         config.connection.fold(logger.warn("Could not apply script, connection is not defined"))(
-          conn => JDBCUtils.applyScript(sqlScript, conn)
+          conn => JDBCUtils.applyScript(sqlScript, settings.comet.connections(conn).options)
         )
     }
 
