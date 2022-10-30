@@ -7,13 +7,14 @@ import ai.starlake.job.convert.{FileSplitterConfig, Parquet2CSV, Parquet2CSVConf
 import ai.starlake.job.infer.InferSchemaConfig
 import ai.starlake.job.ingest.LoadConfig
 import ai.starlake.job.metrics.MetricsConfig
-import ai.starlake.serve.{MainServer, MainServerConfig}
 import ai.starlake.job.sink.bigquery.BigQueryLoadConfig
 import ai.starlake.job.sink.es.ESLoadConfig
 import ai.starlake.job.sink.jdbc.ConnectionLoadConfig
 import ai.starlake.job.sink.kafka.KafkaJobConfig
+import ai.starlake.job.transform.{AutoTask2GraphVizConfig, AutoTaskToGraphViz}
 import ai.starlake.schema.generator._
 import ai.starlake.schema.handlers.{SchemaHandler, ValidateConfig}
+import ai.starlake.serve.{MainServer, MainServerConfig}
 import ai.starlake.utils.{CliConfig, CometObjectMapper}
 import ai.starlake.workflow.{ImportConfig, IngestionWorkflow, TransformConfig, WatchConfig}
 import buildinfo.BuildInfo
@@ -301,7 +302,14 @@ class Main() extends StrictLogging {
       case "yml2gv" =>
         new Yml2GraphViz(schemaHandler).run(args.drop(1))
         true
-
+      case "jobs2gv" =>
+        AutoTask2GraphVizConfig.parse(args.drop(1)) match {
+          case Some(config) =>
+            new AutoTaskToGraphViz(settings, schemaHandler, storageHandler).run(config)
+          case None =>
+            println(AutoTask2GraphVizConfig.usage())
+        }
+        true
       case "extract" =>
         new ScriptGen(storageHandler, schemaHandler, launcherService).run(args.drop(1))
       case "jdbc2yml" =>

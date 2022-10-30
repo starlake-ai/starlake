@@ -232,15 +232,4 @@ object Utils {
       }
       .toMap
 
-  def escapeMetaCharacters(str: String): String =
-    str
-      .replaceAll(",", "\\,")
-      .replaceAll("\n", "\\\\n")
-      .replaceAll("\r", "\\\\r")
-      .replaceAll("\t", "\\\\t")
-      .replaceAll("\f", "\\\\f")
-      .replaceAll("\b", "\\\\b")
-      .replaceAll("\u000B", "\\\\v")
-      .replaceAll("\u0007", "\\\\a")
-
 }

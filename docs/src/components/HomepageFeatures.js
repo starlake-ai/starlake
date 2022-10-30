@@ -98,7 +98,7 @@ and intelligent YAML auto-completion feature.`,
     `,
     dbReplication: `
     Select the tables and columns in your source database and replicate your data 
-    into any data warehouse using full and/or incremental modes
+    into any warehouse using full and/or incremental modes
     with optional pre and post load transformations.
     `,
     anywhere: `

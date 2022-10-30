@@ -37,25 +37,18 @@ object YamlSerializer extends LazyLogging {
   def serialize(jdbcSchemas: JDBCSchemas): String = mapper.writeValueAsString(jdbcSchemas)
   def serialize(schemas: Schemas): String = mapper.writeValueAsString(schemas)
 
-  def deserializeJDBCSchemas(file: File): JDBCSchemas = {
-    val rootNode = mapper.readTree(file.newInputStream)
+  def deserializeJDBCSchemas(content: String, inputFilename: String): JDBCSchemas = {
+    val rootNode = mapper.readTree(content)
     val extractNode = rootNode.path("extract")
     val jdbcNode =
       if (extractNode.isNull() || extractNode.isMissingNode) {
         logger.warn(
-          s"Defining a jdbc schema outside a extract node is now deprecated. Please update definition ${file.pathAsString}"
+          s"Defining a jdbc schema outside a extract node is now deprecated. Please update definition ${inputFilename}"
         )
         rootNode
       } else
         extractNode
     mapper.treeToValue(jdbcNode, classOf[JDBCSchemas])
-  }
-
-  def deserializeDomain(file: File): Try[Domain] = {
-    deserializeDomain(
-      scala.io.Source.fromFile(file.pathAsString).getLines.mkString("\n"),
-      file.pathAsString
-    )
   }
 
   def serializeToFile(targetFile: File, domain: Domain): Unit = {

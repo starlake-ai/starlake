@@ -9,14 +9,14 @@ import better.files.File
 class Xls2YmlSpec extends TestHelper {
   new WithSettings() {
     Xls2Yml.generateSchema(getClass.getResource("/sample/SomeDomainTemplate.xls").getPath)
-    val outputFile = File(DatasetArea.domains.toString + "/someDomain.comet.yml")
+    val outputPath = File(DatasetArea.domains.toString + "/someDomain.comet.yml")
 
     val result: Domain = YamlSerializer
-      .deserializeDomain(outputFile)
-      .getOrElse(throw new Exception(s"Invalid file name $outputFile"))
+      .deserializeDomain(outputPath.contentAsString, outputPath.pathAsString)
+      .getOrElse(throw new Exception(s"Invalid file name ${outputPath.toString}"))
 
     "Parsing a sample xlsx file" should "generate a yml file" in {
-      outputFile.exists() shouldBe true
+      outputPath.exists shouldBe true
       result.name shouldBe "someDomain"
       result.tables.size shouldBe 2
     }
@@ -69,19 +69,24 @@ class Xls2YmlSpec extends TestHelper {
         .get shouldEqual 0.0
     }
 
-    val reader = new XlsReader(Path(getClass.getResource("/sample/SomeDomainTemplate.xls").getPath))
+    val reader = new XlsReader(
+      InputPath(getClass.getResource("/sample/SomeDomainTemplate.xls").getPath)
+    )
     val domainOpt = reader.getDomain()
 
     "a complex XLS (aka JSON/XML)" should "produce the correct schema" in {
       val complexReader =
-        new XlsReader(Path(getClass.getResource("/sample/SomeComplexDomainTemplate.xls").getPath))
+        new XlsReader(
+          InputPath(getClass.getResource("/sample/SomeComplexDomainTemplate.xls").getPath)
+        )
       val xlsTable = complexReader.getDomain().get.tables.head
       val domainAsYaml = YamlSerializer.serialize(complexReader.getDomain().get)
-      val yamlFile =
+      val yamlPath =
         File(getClass.getResource("/sample/SomeComplexDomainTemplate.comet.yml").getPath)
+
       val yamlTable = YamlSerializer
-        .deserializeDomain(yamlFile)
-        .getOrElse(throw new Exception(s"Invalid file name $yamlFile"))
+        .deserializeDomain(yamlPath.contentAsString, yamlPath.pathAsString)
+        .getOrElse(throw new Exception(s"Invalid file name $yamlPath"))
         .tables
         .head
 
