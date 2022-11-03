@@ -6,8 +6,7 @@ import scopt.OParser
 case class Yml2GraphVizConfig(
   includeAllAttributes: Option[Boolean] = Some(true),
   acl: Option[Boolean] = Some(true),
-  output: Option[String] = None,
-  aclOutput: Option[String] = None,
+  outputDir: Option[String] = None,
   reload: Boolean = false
 )
 
@@ -21,14 +20,10 @@ object Yml2GraphVizConfig extends CliConfig[Yml2GraphVizConfig] {
       programName(s"starlake $command"),
       head("starlake", command, "[options]"),
       note("Generate GraphViz files from Domain / Schema YAML files"),
-      opt[String]("output")
-        .action((x, c) => c.copy(output = Some(x)))
+      opt[String]("output-dir")
+        .action((x, c) => c.copy(outputDir = Some(x)))
         .optional()
         .text("Where to save the generated dot file ? Output to the console by default"),
-      opt[String]("acl-output")
-        .action((x, c) => c.copy(aclOutput = Some(x)))
-        .optional()
-        .text("Where to save the ACL /RLS generated dot file ? Output to the console by default"),
       opt[Boolean]("all")
         .action((x, c) => c.copy(includeAllAttributes = Some(x)))
         .optional()

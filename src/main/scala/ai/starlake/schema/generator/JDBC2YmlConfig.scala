@@ -27,7 +27,7 @@ case class JDBCSchemas(
   connection: Map[String, String] = Map.empty
 )
 
-/** @param connection
+/** @param connectionRef
   *   : JDBC Configuration to use as defined in the connection section in the application.conf
   * @param catalog
   *   : Database catalog name, optional.
@@ -40,7 +40,7 @@ case class JDBCSchemas(
   */
 
 case class JDBCSchema(
-  connection: Option[String] = None,
+  connectionRef: Option[String] = None,
   catalog: Option[String] = None,
   schema: String = "",
   tableRemarks: Option[String] = None,

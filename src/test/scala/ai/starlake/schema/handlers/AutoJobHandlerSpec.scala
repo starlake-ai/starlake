@@ -3,6 +3,7 @@ package ai.starlake.schema.handlers
 import ai.starlake.TestHelper
 import ai.starlake.config.{Settings, StorageArea}
 import ai.starlake.job.sink.bigquery.{BigQueryLoadConfig, BigQuerySparkJob}
+import ai.starlake.job.transform.{AutoTask, TaskViewDependency}
 import ai.starlake.schema.model._
 import ai.starlake.workflow.{IngestionWorkflow, TransformConfig}
 import com.google.cloud.hadoop.io.bigquery.BigQueryConfiguration
@@ -94,6 +95,42 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       )
     }
 
+    "Extract file and view dependencies" should "work" in {
+
+      val businessTask1 = AutoTaskDesc(
+        None,
+        Some(
+          "select firstname, lastname, age from user_View where age={{age}} and lastname={{lastname}} and firstname={{firstname}}"
+        ),
+        "user",
+        "user",
+        WriteMode.OVERWRITE,
+        area = Some(StorageArea.fromString("business")),
+        assertions = Some(Map("uniqFirstname" -> "isUnique(firstname)"))
+      )
+      val businessJob =
+        AutoJobDesc(
+          "user",
+          List(businessTask1),
+          None,
+          Some("parquet"),
+          Some(false),
+          views = Some(Map("user_View" -> "accepted/user"))
+        )
+
+      val businessJobDef = mapper
+        .writer()
+        .withAttribute(classOf[Settings], settings)
+        .writeValueAsString(businessJob)
+      storageHandler.write(businessJobDef, pathBusiness)
+
+      val schemaHandler = new SchemaHandler(storageHandler)
+
+      val tasks = AutoTask.tasks(true)(settings, storageHandler, schemaHandler)
+      val deps = TaskViewDependency.dependencies(tasks)(schemaHandler)
+      deps.map(_.parentRef) should contain theSameElementsAs List("user_View", "accepted/user")
+    }
+
     "trigger AutoJob by passing three parameters on SQL statement" should "generate a dataset in business" in {
 
       val businessTask1 = AutoTaskDesc(
@@ -127,7 +164,6 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
 
       val workflow =
         new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
-
       workflow.autoJob(
         TransformConfig("user", Map("age" -> "25", "lastname" -> "'Doe'", "firstname" -> "'John'"))
       )

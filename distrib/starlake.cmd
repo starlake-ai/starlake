@@ -5,7 +5,7 @@ SET CURRENT_DIR=%CURRENT_DIR:~0,-1%
 echo %CURRENT_DIR%
 
 if "x%COMET_VERSION%"=="x" (
-  set COMET_VERSION=0.4.5
+  set COMET_VERSION=0.5.3
 )
 
 if "x%SPARK_VERSION%"=="x" (
