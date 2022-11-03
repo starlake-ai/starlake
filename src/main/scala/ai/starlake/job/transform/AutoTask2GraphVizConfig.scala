@@ -4,9 +4,11 @@ import ai.starlake.utils.CliConfig
 import scopt.OParser
 
 case class AutoTask2GraphVizConfig(
-  output: Option[String] = None,
+  outputDir: Option[String] = None,
   job: Option[String] = None,
-  reload: Boolean = false
+  reload: Boolean = false,
+  verbose: Boolean = false,
+  objects: Seq[String] = Seq("task", "table")
 )
 
 object AutoTask2GraphVizConfig extends CliConfig[AutoTask2GraphVizConfig] {
@@ -19,8 +21,8 @@ object AutoTask2GraphVizConfig extends CliConfig[AutoTask2GraphVizConfig] {
       programName(s"starlake $command"),
       head("starlake", command, "[options]"),
       note("Generate GraphViz files from Job YAML files"),
-      opt[String]("output")
-        .action((x, c) => c.copy(output = Some(x)))
+      opt[String]("output-dir")
+        .action((x, c) => c.copy(outputDir = Some(x)))
         .optional()
         .text("Where to save the generated dot file ? Output to the console by default"),
       opt[Option[String]]("jobs")
@@ -32,7 +34,15 @@ object AutoTask2GraphVizConfig extends CliConfig[AutoTask2GraphVizConfig] {
         .optional()
         .text(
           "Should we reload the domains first ?"
-        )
+        ),
+      opt[Unit]("verbose")
+        .action((x, c) => c.copy(verbose = true))
+        .optional()
+        .text("Should we generate one graph per job ?"),
+      opt[Seq[String]]("objects")
+        .action((x, c) => c.copy(objects = x))
+        .optional()
+        .text("comma separated list of objects to display: task, table, view, unknown")
     )
   }
 

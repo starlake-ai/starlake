@@ -1,0 +1,145 @@
+---
+sidebar_position: 10
+title: Starlake Install
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+## Download
+
+To install the starlake CLI, you need to download the starlake script from github. 
+The script will in turn download required dependencies and copy them to the bin subdirectory.
+
+<Tabs groupId="platforms">
+<TabItem value="linux_macos" label="Linux/MacOS">
+
+```sh
+$ mkdir starlake
+$ cd starlake
+$ curl -O hhttps://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/starlake.sh
+$ chmod +x starlake.sh
+$ ./starlake.sh
+```
+
+</TabItem>
+<TabItem value="windows" label="Windows">
+
+```powershell
+c:\> mkdir starlake
+c:\starlake> cd starlake
+c:\starlake> curl -O https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/starlake.cmd
+c:\starlake> starlake
+```
+
+</TabItem>
+</Tabs>
+
+This will download starlake dependencies and display commands supported by the CLI.
+
+
+```
+Starlake Version 0.5.2
+Usage:
+	starlake [command]
+Available commands =>
+	bqload
+	jdbcload
+	esload
+	extract
+	splitfile
+	import
+	infer-schema
+	jdbc2yml
+    jobs2gv
+	kafkaload
+	load
+	metrics
+	parquet2csv
+	transform
+	watch
+	xls2yml
+	yml2ddl
+	yml2gv
+	yml2xls
+```
+
+The following files and folders should now have been created.
+
+```text {6,13,14}
+
+.
+├── starlake.sh
+├── version.info
+├── bin
+│   └── spark
+│       ├── ...
+│       ├── conf
+│       │   ├── ...
+│       │   ├── log4j2.properties
+│       ├── jars
+│       │   ├── ...
+│       │   ├── spark-3.1-bigquery-0.27.0-preview.jar
+│       │   ├── starlake-spark3_2.12-0.5.2-assembly.jar
+└──     └── └── ...
+
+```
+
+
+That's it ! We now need to create a new project.
+
+
+## Docker
+
+You may also run Starlake from a docker container. To do so, download this [Dockerfile](https://github.com/starlake-ai/starlake/blob/master/distrib/Dockerfile)
+and build your docker image
+
+
+<Tabs groupId="platforms">
+<TabItem value="linux_macos" label="Linux/MacOS">
+
+```sh
+$ mkdir starlake
+$ cd starlake
+$ curl -O hhttps://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/starlake.sh
+$ curl -O https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/Dockerfile
+$ docker build --build-arg STARLAKE_VERSION=0.5.3 -t starlake .
+$ docker run -it starlake
+```
+
+</TabItem>
+<TabItem value="windows" label="Windows">
+
+```powershell
+c:\> mkdir starlake
+c:\starlake> cd starlake
+c:\starlake> curl -O https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/starlake.cmd
+c:\starlake> curl -O https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/Dockerfile
+c:\starlake> docker build --build-arg STARLAKE_VERSION=0.5.3 -t starlake .
+c:\starlake> docker run -it starlake
+```
+
+</TabItem>
+</Tabs>
+
+## Specific Version
+
+To install a specific version (0.5.3 in the example below), set the COMET_VERSION environment variable before running starlake:
+
+
+<Tabs groupId="platforms">
+<TabItem value="linux_macos" label="Linux/MacOS">
+
+```sh
+$ COMET_VERSION=0.5.3 ./starlake.sh
+```
+
+</TabItem>
+<TabItem value="windows" label="Windows">
+
+```powershell
+c:\> SET COMET_VERSION=0.5.3 starlake
+```
+
+</TabItem>
+</Tabs>

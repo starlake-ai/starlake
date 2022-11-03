@@ -1,5 +1,5 @@
 ---
-sidebar_position: 10
+sidebar_position: 100
 ---
 
 # Quick Start
@@ -132,7 +132,7 @@ This will create the ``/tmp/metadata`` and the ``/tmp/incoming`` folders.
 Import the datasets into the cluster using spark-submit :
 
 ````shell
-$SPARK_HOME/bin/spark-submit target/scala-2.12/starlake-spark3_2.12-VERSION-assembly.jar import
+/app/starlake/starlake.sh import
 ````
 
 This will put the datasets in the ``/tmp/datasets/pending/`` folder. In real life, this will be a HDFS or Cloud Storage folder.
@@ -140,7 +140,7 @@ This will put the datasets in the ``/tmp/datasets/pending/`` folder. In real lif
 Run the ingestion process as follows :
 
 ````shell
-$SPARK_HOME/bin/spark-submit target/scala-2.12/starlake-spark3_2.12-VERSION-assembly.jar watch
+/app/starlake/starlake.sh watch
 ````
 
 
@@ -150,6 +150,6 @@ This will ingest the four datasets of the two domains (hr & sales) and store the
 - /tmp/datasets/unresolved for unrecognized files
 
 
-When run on top of HDFS or any cloud datawarehouse, these datasets are also available as tables.
+When run on top of HDFS or any cloud warehouse, these datasets are also available as tables.
 
 

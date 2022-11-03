@@ -33,20 +33,44 @@ class AutoTaskToGraphViz(
 
   def run(config: AutoTask2GraphVizConfig): Unit = {
     val tasks = AutoTask.tasks(config.reload)(settings, storageHandler, schemaHandler)
-    val deps = config.job
-      .map(TaskViewDependency.jobDependencies(_, tasks)(schemaHandler))
-      .getOrElse(TaskViewDependency.dependencies(tasks)(schemaHandler))
-    val dedup = deps.groupBy(_.name).mapValues(_.head).values
-    val entitiesAsDot = dedup.map(dep => dep.entityAsDot()).mkString("\n")
-    val relationsAsDot = deps.flatMap(dep => dep.relationAsDot()).mkString("\n")
-    val result = List(prefix, entitiesAsDot, relationsAsDot, suffix).mkString("\n")
-    config.output match {
-      case Some(output) =>
-        val file = File(output)
-        file.parent.createDirectoryIfNotExists(true)
-        file.overwrite(result)
-      case None =>
-        println(result)
+    val depsMap =
+      if (config.verbose) {
+        schemaHandler
+          .jobs()
+          .keys
+          .map { jobName =>
+            (jobName, TaskViewDependency.jobDependencies(jobName, tasks)(schemaHandler))
+          }
+          .toList :+ ("_lineage" -> TaskViewDependency.dependencies(tasks)(schemaHandler))
+      } else {
+        val (jobName, deps) = config.job
+          .map(jobName =>
+            (jobName, TaskViewDependency.jobDependencies(jobName, tasks)(schemaHandler))
+          )
+          .getOrElse("_lineage" -> TaskViewDependency.dependencies(tasks)(schemaHandler))
+        List(jobName -> deps)
+      }
+    depsMap.foreach { case (jobName, allDeps) =>
+      val deps =
+        allDeps.filter(dep => config.objects.contains("all") || config.objects.contains(dep.typ))
+      val dedupEntities = deps.groupBy(_.name).mapValues(_.head).values
+      val entitiesAsDot = dedupEntities.map(dep => dep.entityAsDot()).mkString("\n")
+      val relationsAsDot = deps
+        .filter(dep => config.objects.contains(dep.parentTyp))
+        .flatMap(dep => dep.relationAsDot())
+        .distinct
+        .mkString("\n")
+      val result = List(prefix, entitiesAsDot, relationsAsDot, suffix).mkString("\n")
+      config.outputDir match {
+        case Some(outputDir) =>
+          val dir = File(outputDir)
+          dir.createDirectoryIfNotExists(true)
+          val file = File(outputDir, s"$jobName.dot")
+          file.overwrite(result)
+        case None =>
+          println(result)
+      }
+
     }
   }
 }

@@ -1,7 +1,7 @@
 #!/bin/bash
 
-COMET_VERSION="${COMET_VERSION:-0.5.1}"
-SPARK_VERSION="${SPARK_VERSION:-3.3.0}"
+COMET_VERSION="${COMET_VERSION:-0.5.3-SNAPSH0T}"
+SPARK_VERSION="${SPARK_VERSION:-3.3.1}"
 HADOOP_VERSION="${HADOOP_VERSION:-3}"
 SPARK_BQ_VERSION="${SPARK_BQ_VERSION:-0.27.0-preview}"
 SCALA_VERSION=2.12
@@ -64,6 +64,7 @@ initEnv() {
     tar zxvf $TARGET_FOLDER/bin/$SPARK_TGZ_NAME -C $TARGET_FOLDER/bin/
     rm -f $TARGET_FOLDER/bin/$SPARK_TGZ_NAME
     mv $TARGET_FOLDER/bin/$SPARK_DIR_NAME/* $TARGET_FOLDER/bin/spark
+    rmdir $TARGET_FOLDER/bin/$SPARK_DIR_NAME
     rm -f $TARGET_FOLDER/bin/spark/conf/*.xml 2>/dev/null
     cp $TARGET_FOLDER/bin/spark/conf/log4j2.properties.template $TARGET_FOLDER/bin/spark/conf/log4j2.properties
     echo "Spark Version: $SPARK_VERSION" >$TARGET_FOLDER/version.info

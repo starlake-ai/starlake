@@ -22,10 +22,11 @@ package ai.starlake.schema.handlers
 
 import ai.starlake.TestHelper
 import ai.starlake.config.DatasetArea
-import ai.starlake.job.sink.es.ESLoadConfig
 import ai.starlake.job.ingest.LoadConfig
+import ai.starlake.job.sink.es.ESLoadConfig
 import ai.starlake.schema.generator.Yml2GraphViz
 import ai.starlake.schema.model._
+import ai.starlake.utils.Formatter.RichFormatter
 import better.files.File
 import com.typesafe.config.{Config, ConfigFactory}
 import org.apache.hadoop.fs.Path
@@ -623,7 +624,9 @@ class SchemaHandlerSpec extends TestHelper {
         datasetDomainName = "locations",
         sourceDatasetPathName = "/sample/simple-json-locations/locations.json"
       ) {
+
         import org.scalatest.TryValues._
+
         cleanMetadata
         cleanDatasets
         val schemaHandler = new SchemaHandler(storageHandler)
@@ -631,6 +634,25 @@ class SchemaHandlerSpec extends TestHelper {
         val jobPath = new Path(getClass.getResource(filename).toURI)
         val job = schemaHandler.loadJobFromFile(jobPath)
         job.success.value.name shouldBe "business" // Job renamed to filename and error is logged
+      }
+    }
+
+    "Extract Var from Job File" should "find all vars" in {
+      new SpecTrait(
+        domainOrJobFilename = "locations.comet.yml",
+        sourceDomainOrJobPathname = "/sample/simple-json-locations/locations.comet.yml",
+        datasetDomainName = "locations",
+        sourceDatasetPathName = "/sample/simple-json-locations/locations.json"
+      ) {
+
+        cleanMetadata
+        cleanDatasets
+        val schemaHandler = new SchemaHandler(storageHandler)
+        val filename = "/sample/metadata/business/business_with_vars.comet.yml"
+        val jobPath = new Path(getClass.getResource(filename).toURI)
+        val content = storageHandler.read(jobPath)
+        val vars = content.extractVars()
+        vars should contain theSameElementsAs (Set("DOMAIN", "SCHEMA", "Y", "M"))
       }
     }
 
@@ -794,11 +816,11 @@ class SchemaHandlerSpec extends TestHelper {
 
         new Yml2GraphViz(schemaHandler).run(Array("--all", "false"))
 
-        val tempFile = File.newTemporaryFile().pathAsString
+        val tempFile = File.newTemporaryDirectory().pathAsString
         new Yml2GraphViz(schemaHandler).run(
-          Array("--all", "true", "--output", tempFile)
+          Array("--all", "true", "--output-dir", tempFile)
         )
-        val fileContent = readFileContent(tempFile)
+        val fileContent = readFileContent(File(tempFile, "_relations.dot").pathAsString)
         val expectedFileContent = loadTextFile("/expected/dot/output.dot")
         fileContent shouldBe expectedFileContent
 
@@ -838,11 +860,11 @@ class SchemaHandlerSpec extends TestHelper {
 
         new Yml2GraphViz(schemaHandler).run(Array("--acl", "true"))
 
-        val tempFile = File.newTemporaryFile().pathAsString
+        val tempFile = File.newTemporaryDirectory().pathAsString
         new Yml2GraphViz(schemaHandler).run(
-          Array("--acl", "true", "--acl-output", tempFile)
+          Array("--acl", "true", "--output-dir", tempFile)
         )
-        val fileContent = readFileContent(tempFile)
+        val fileContent = readFileContent(File(tempFile, "_acl.dot").pathAsString)
         val expectedFileContent = loadTextFile("/expected/dot/acl-output.dot")
         fileContent.trim shouldBe expectedFileContent.trim
       }
