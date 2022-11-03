@@ -1,5 +1,5 @@
 jdbc-schema:
-  connection: "h2-sample-db" # Connection name as defined in the connections section of the application.conf file
+  connectionRef: "h2-sample-db" # Connection name as defined in the connections section of the application.conf file
   schema: "PUBLIC" # Database schema where tables are located
   tables:
     - name: "*"

@@ -123,4 +123,18 @@ case class AutoJobDesc(
   def getArea(): StorageArea = area.getOrElse(StorageArea.business)
 
   def getEngine(): Engine = engine.getOrElse(Engine.SPARK)
+
+  def aclTasks(): List[AutoTaskDesc] = tasks.filter { task =>
+    task.acl match {
+      case Some(acl) if acl.nonEmpty => true
+      case _                         => false
+    }
+  }
+
+  def rlsTasks(): List[AutoTaskDesc] = tasks.filter { task =>
+    task.rls match {
+      case Some(rls) if rls.nonEmpty => true
+      case _                         => false
+    }
+  }
 }

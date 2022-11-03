@@ -161,22 +161,26 @@ case class AutoTask(
     val withViews = parseJobViews()
     val mainTaskSQL = parseJinja(taskDesc.getSql())
     val trimmedMainTaskSQL = mainTaskSQL.toLowerCase()
-    if (trimmedMainTaskSQL.startsWith("with ") || trimmedMainTaskSQL.startsWith("(with ")) {
-      mainTaskSQL
-    } else {
-      val subSelects = withViews.map { case (queryName, queryExpr) =>
-        val selectExpr =
-          if (queryExpr.toLowerCase.startsWith("select "))
-            queryExpr
-          else {
-            val allColumns = "*"
-            s"SELECT $allColumns FROM $queryExpr"
-          }
-        s"$queryName  AS ($selectExpr)"
+    val result =
+      if (trimmedMainTaskSQL.startsWith("with ") || trimmedMainTaskSQL.startsWith("(with ")) {
+        mainTaskSQL
+      } else {
+        val subSelects = withViews.map { case (queryName, queryExpr) =>
+          val selectExpr =
+            if (queryExpr.toLowerCase.startsWith("select "))
+              queryExpr
+            else {
+              val allColumns = "*"
+              s"SELECT $allColumns FROM $queryExpr"
+            }
+          s"$queryName  AS ($selectExpr)"
+        }
+        val subSelectsString =
+          if (subSelects.nonEmpty) subSelects.mkString("WITH ", ", ", "") else ""
+        s"(\n$subSelectsString $mainTaskSQL\n)"
       }
-      val subSelectsString = if (subSelects.nonEmpty) subSelects.mkString("WITH ", ", ", "") else ""
-      s"(\n$subSelectsString $mainTaskSQL\n)"
-    }
+    logger.info(s"Parse Main SQL: $result")
+    result
   }
 
   def runBQ(): Try[JobResult] = {
@@ -457,5 +461,9 @@ case class AutoTask(
   private def logAuditFailure(start: Timestamp, end: Timestamp, e: Throwable) =
     logAudit(start, end, -1, success = true, Utils.exceptionAsString(e))
 
-  def dependencies(): List[String] = SQLUtils.extractRefsFromSQL(this.parseMainSqlBQ())
+  def dependencies(): List[String] = {
+    val result = SQLUtils.extractRefsFromSQL(this.parseMainSqlBQ())
+    logger.info(s"$name has ${result.length} dependencies: ${result.mkString(",")}")
+    result
+  }
 }

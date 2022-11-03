@@ -66,6 +66,7 @@ class Main() extends StrictLogging {
   mapper.setSerializationInclusion(Include.NON_EMPTY)
 
   val configs: List[CliConfig[_]] = List(
+    AutoTask2GraphVizConfig,
     BigQueryLoadConfig,
     ConnectionLoadConfig,
     ESLoadConfig,
@@ -87,6 +88,7 @@ class Main() extends StrictLogging {
   )
   private def printUsage() = {
     // scalastyle:off println
+    println(s"Starlake Version ${BuildInfo.version}")
     println("Usage:")
     println("\tstarlake [command]")
     println("Available commands =>")
