@@ -55,12 +55,13 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     new CometObjectMapper(new YAMLFactory(), injectables = (classOf[Settings], settings) :: Nil)
 
   @throws[Exception]
-  def checkValidity(reload: Boolean = false): List[String] = {
+  private def checkValidity(reload: Boolean = false): List[String] = {
     val typesValidity = this.types(reload).map(_.checkValidity())
     val loadedDomains = this.domains(reload)
     val domainsValidity = loadedDomains.map(_.checkValidity(this))
     val domainsVarsValidity = checkDomainsVars()
-    val jobsVarsValidity = checkJobsVars()
+    val jobsVarsValidity =
+      checkJobsVars().map("Warning: " + _) // job vars may be defined at runtime.
     val allErrors = typesValidity ++ domainsValidity :+ checkViewsValidity()
 
     val errs = allErrors.flatMap {
@@ -70,7 +71,7 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     errs ++ domainsVarsValidity ++ jobsVarsValidity
   }
 
-  def checkDomainsVars(): List[String] = {
+  private def checkDomainsVars(): List[String] = {
     val paths = storage.list(
       DatasetArea.domains,
       extension = ".yml",
@@ -80,19 +81,19 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     paths.flatMap(checkVarsAreDefined)
   }
 
-  def checkJobsVars(): List[String] = {
+  private def checkJobsVars(): List[String] = {
     val paths = storage.list(DatasetArea.jobs, ".yml", recursive = true)
     paths.flatMap { path =>
-      val ymlErrors = checkVarsAreDefined(path)
+      val ymlWarnings = checkVarsAreDefined(path)
       val sqlPath = taskSqlPath(path, None)
-      val sqlErrors = sqlPath.map(checkVarsAreDefined).getOrElse(Nil)
-      ymlErrors ++ sqlErrors
+      val sqlWarnings = sqlPath.map(checkVarsAreDefined).getOrElse(Nil)
+      ymlWarnings ++ sqlWarnings
     }
   }
 
   def fullValidation(config: ValidateConfig = ValidateConfig(reload = false)): Unit =
     Try {
-      val errs = checkValidity(config.reload)
+      val validityErrorsAndWarnings = checkValidity(config.reload)
       val deserErrors = deserializedDomains
         .filter { case (path, res) =>
           res.isFailure
@@ -100,28 +101,31 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
         s"${path.toString} could not be deserialized"
       }
 
-      val errorCount =
-        errs.length + deserErrors.length + this._domainErrors.length + this._jobErrors.length
+      val allErrorsAndWarnings =
+        validityErrorsAndWarnings ++ deserErrors ++ this._domainErrors ++ this._jobErrors
+      val (warnings, errors) = allErrorsAndWarnings.partition(_.startsWith("Warning: "))
+      val errorCount = errors.length
+      val warningCount = warnings.length
 
-      val allErrors = errs ++ deserErrors ++ this._domainErrors ++ this._jobErrors
       val output =
         settings.comet.rootServe.map(rootServe => File(File(rootServe), "validation.log"))
       output.foreach(_.overwrite(""))
 
-      if (errorCount > 0) {
+      if (errorCount + warningCount > 0) {
         output.foreach(
           _.appendLine(
-            s"START VALIDATION RESULTS: $errorCount errors found"
+            s"START VALIDATION RESULTS: $errorCount errors and $warningCount found"
           )
         )
-        logger.error(s"START VALIDATION RESULTS: $errorCount errors found")
-        allErrors.foreach { err =>
+        logger.error(s"START VALIDATION RESULTS: $errorCount errors  and $warningCount found")
+        allErrorsAndWarnings.foreach { err =>
           logger.error(err)
           output.foreach(_.appendLine(err))
         }
         logger.error(s"END VALIDATION RESULTS")
         output.foreach(_.appendLine(s"END VALIDATION RESULTS"))
-        throw new Exception(s"$errorCount errors found")
+        if (errorCount > 0)
+          throw new Exception(s"$errorCount errors and $warningCount warning found")
       }
     } match {
       case Success(_) => // do nothing

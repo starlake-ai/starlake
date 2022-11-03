@@ -58,7 +58,7 @@ object JDBC2Yml extends LazyLogging {
     config.mode match {
       case "data" =>
         jdbcSchemas.jdbcSchemas.foreach { jdbcSchema =>
-          val connectionOptions = jdbcSchema.connection
+          val connectionOptions = jdbcSchema.connectionRef
             .map(settings.comet.connections(_).options)
             .getOrElse(jdbcSchemas.connection)
           extractData(
@@ -71,7 +71,7 @@ object JDBC2Yml extends LazyLogging {
         }
       case "schema" =>
         jdbcSchemas.jdbcSchemas.foreach { jdbcSchema =>
-          val connectionOptions = jdbcSchema.connection
+          val connectionOptions = jdbcSchema.connectionRef
             .map(settings.comet.connections(_).options)
             .getOrElse(jdbcSchemas.connection)
           val domainTemplate = config.ymlTemplate.orElse(jdbcSchema.template).map { ymlTemplate =>

@@ -208,6 +208,7 @@ object DatasetArea extends StrictLogging {
 
         val lines: Iterator[String] = source.getLines()
         val targetFile = new Path(targetFolder.toString + "/" + resource)
+        storage.mkdirs(targetFile.getParent())
         val contents =
           lines.mkString("\n").replace("__COMET_TEST_ROOT__", metadata.getParent.toString)
         storage.write(contents, targetFile)
@@ -245,7 +246,7 @@ object DatasetArea extends StrictLogging {
       "incoming/sales/orders-2018-01-01.ack",
       "incoming/sales/orders-2018-01-01.csv"
     )
-    copyToFolder(rootResources, "quickstart-template", incomingFolder)
+    copyToFolder(rootResources, "quickstart-template", metadata)
 
     val vscodeFolder = new Path(metadata.getParent(), ".vscode")
     storage.mkdirs(vscodeFolder)

@@ -29,8 +29,8 @@ trait Formatter {
     }
 
     def extractVars()(implicit settings: Settings): Set[String] = {
-      val oldPattern = Pattern.compile("\\{\\{\\s*(\\S+)\\s*\\}\\}").matcher(str)
-      val newPattern = Pattern.compile("\\$\\{\\s*(\\S+)\\s*\\}").matcher(str)
+      val oldPattern = Pattern.compile("\\{\\{\\s*([a-zA-Z_0-9]+)\\s*\\}\\}").matcher(str)
+      val newPattern = Pattern.compile("\\$\\{\\s*([a-zA-Z_0-9]+)\\s*\\}").matcher(str)
 
       val result = ListBuffer[String]()
       while (oldPattern.find())

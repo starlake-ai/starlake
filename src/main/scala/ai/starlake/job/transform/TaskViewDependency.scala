@@ -1,9 +1,9 @@
 package ai.starlake.job.transform
 
-import ai.starlake.job.transform.TaskViewDependency._
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.Domain
 import ai.starlake.utils.SQLUtils
+import com.typesafe.scalalogging.StrictLogging
 
 import scala.collection.mutable.ListBuffer
 
@@ -11,9 +11,10 @@ import scala.collection.mutable.ListBuffer
 https://medium.com/hibob-engineering/from-list-to-immutable-hierarchy-tree-with-scala-c9e16a63cb89
  */
 
-object TaskViewDependency {
+object TaskViewDependency extends StrictLogging {
   // TODO migrate to enum once scala 3 is here
   val TASK_TYPE: String = "task"
+  val CTE_TYPE: String = "cte"
   val TASKVIEW_TYPE: String = "taskview"
   val TABLE_TYPE: String = "table"
   val VIEW_TYPE: String = "view"
@@ -38,8 +39,11 @@ object TaskViewDependency {
   ): Unit = {
     roots.foreach { root =>
       val subRoots = allDeps.filter(t => t.typ == root.parentTyp && t.name == root.parent)
-      result ++= subRoots
-      getHierarchy(subRoots, allDeps, result)
+      val nocyclicRoots = subRoots.filter(subRoot =>
+        !roots.exists(_.name.toLowerCase() == subRoot.name.toLowerCase())
+      )
+      result ++= nocyclicRoots
+      getHierarchy(nocyclicRoots, allDeps, result)
     }
   }
 
@@ -62,6 +66,9 @@ object TaskViewDependency {
 
     val jobAndViewDeps = (jobDependencies ++ viewDependencies).flatMap {
       case SimpleEntry(jobName, typ, parentRefs) =>
+        logger.info(
+          s"Analyzing dependency of type $typ for job $jobName with parent refs ${parentRefs.mkString(",")}"
+        )
         if (parentRefs.isEmpty)
           List(TaskViewDependency(jobName, typ, "", UNKNOWN_TYPE, ""))
         else {
@@ -85,7 +92,9 @@ object TaskViewDependency {
                   .map(_.name)
               case _ =>
                 // Strange. This should never happen as far as I know. Let's make it clear
-                throw new Exception(s"unknown $parentSQLRef syntax. Too many parts")
+                throw new Exception(
+                  s"invalid parent ref $parentSQLRef syntax in job $jobName. Too many parts"
+                )
 
             }
             parentJobName match {
@@ -184,18 +193,22 @@ case class TaskViewDependency(
 ) {
   def hasParent(): Boolean = parent.nonEmpty
 
-  private def dotBgColor() = typ match {
-    case TASK_TYPE     => "darkgreen"
-    case TASKVIEW_TYPE => "darkcyan"
-    case VIEW_TYPE     => "darkblue"
-    case TABLE_TYPE    => "black"
-    case UNKNOWN_TYPE  => "darkgrey"
-    case _             => throw new Exception(s"Unknown type $typ")
+  private def dotBgColor() = {
+    import TaskViewDependency._
+    typ match {
+      case TASK_TYPE     => "darkgreen"
+      case TASKVIEW_TYPE => "darkcyan"
+      case VIEW_TYPE     => "darkblue"
+      case TABLE_TYPE    => "black"
+      case CTE_TYPE      => "darkorange"
+      case UNKNOWN_TYPE  => "darkgrey"
+      case _             => throw new Exception(s"Unknown type $typ")
+    }
   }
 
   def relationAsDot() = {
     val depId = name.replaceAll("\\.", "_")
-    val dotParent = if (parent.isEmpty) parentRef else parent
+    val dotParent: String = if (parent.isEmpty) parentRef else parent
     val dotParentId = dotParent.replaceAll("\\.", "_")
     if (dotParent.nonEmpty)
       Some(s"$depId -> $dotParentId")
@@ -206,7 +219,6 @@ case class TaskViewDependency(
 
   def entityAsDot(): String = {
     val depId = name.replaceAll("\\.", "_")
-    val parentId = parent.replaceAll("\\.", "_")
     val depBgColor = dotBgColor()
     val sinkToTable = sink match {
       case None => ""

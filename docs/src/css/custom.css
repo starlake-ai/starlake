@@ -57,6 +57,7 @@
   --ifm-blockquote-color: #3c3c3c;
 
   --ifm-code-font-size: 95%;
+  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.1);
 }
 
 .footer.footer--dark {
@@ -86,6 +87,7 @@ html[data-theme="dark"] {
   --ifm-hero-text-color: #ffffff;
   --ifm-color-secondary: #f0f0f0;
   --ifm-blockquote-color: #c0c0c0;
+  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.3);
 }
 
 code {
