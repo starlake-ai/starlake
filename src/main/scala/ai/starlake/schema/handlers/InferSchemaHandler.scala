@@ -132,8 +132,8 @@ object InferSchemaHandler {
       metadata = metadata,
       None,
       None,
-      None,
-      None
+      Nil,
+      Nil
     )
 
   /** * Builds the Domain case class

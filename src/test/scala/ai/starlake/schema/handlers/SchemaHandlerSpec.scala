@@ -861,9 +861,11 @@ class SchemaHandlerSpec extends TestHelper {
         new Yml2GraphViz(schemaHandler).run(Array("--acl", "true"))
 
         val tempFile = File.newTemporaryDirectory().pathAsString
+
         new Yml2GraphViz(schemaHandler).run(
           Array("--acl", "true", "--output-dir", tempFile)
         )
+
         val fileContent = readFileContent(File(tempFile, "_acl.dot").pathAsString)
         val expectedFileContent = loadTextFile("/expected/dot/acl-output.dot")
         fileContent.trim shouldBe expectedFileContent.trim
