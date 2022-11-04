@@ -53,7 +53,7 @@ class Yml2GraphViz(schemaHandler: SchemaHandler) extends LazyLogging {
   private def tableAndAclAndRlsUsersAsDot() = {
     val aclTables = schemaHandler.domains().map(d => d.getFinalName() -> d.aclTables().toSet).toMap
     val aclTableGrants = aclTables.values.flatten
-      .flatMap(_.acl.getOrElse(Nil))
+      .flatMap(_.acl)
       .flatMap(_.grants)
       .map(_.toLowerCase())
       .toSet
@@ -67,20 +67,14 @@ class Yml2GraphViz(schemaHandler: SchemaHandler) extends LazyLogging {
     val aclTaskGrants =
       aclTasks
         .map(_.acl)
-        .flatMap {
-          case Some(acl) => acl.map(_.grants)
-          case None      => Nil
-        }
+        .flatMap(_.map(_.grants))
         .flatten
         .toSet
 
     val rlsTaskGrants =
       rlsTasks
         .map(_.rls)
-        .flatMap {
-          case Some(rls) => rls.map(_.grants)
-          case None      => Nil
-        }
+        .flatMap(_.map(_.grants))
         .flatten
         .toSet
 
@@ -223,7 +217,7 @@ class Yml2GraphViz(schemaHandler: SchemaHandler) extends LazyLogging {
     val aclTables = schemaHandler.domains().map(d => d.getFinalName() -> d.aclTables().toSet).toMap
     val aclTablesRelations = aclTables.toList.flatMap { case (domainName, schemas) =>
       schemas.flatMap { schema =>
-        val acls = schema.acl.getOrElse(Nil)
+        val acls = schema.acl
         val schemaName = schema.getFinalName()
         acls.flatMap { ace =>
           ace.grants.map(userName => (userName, ace.role, schemaName, domainName))
@@ -237,7 +231,7 @@ class Yml2GraphViz(schemaHandler: SchemaHandler) extends LazyLogging {
 
     val aclAclTasks = allJobs.flatMap(_.aclTasks()) ++ allJobs.flatMap(_.rlsTasks()).toList
     val aclTaskRelations = aclAclTasks.toList.flatMap { desc =>
-      desc.acl.getOrElse(Nil).flatMap { ace =>
+      desc.acl.flatMap { ace =>
         ace.grants.map(userName => (userName, ace.role, desc.table, desc.domain))
       }
     }
@@ -288,20 +282,17 @@ class Yml2GraphViz(schemaHandler: SchemaHandler) extends LazyLogging {
 
     val rlsTaskRelations = rlsTasks.flatMap { rlsTask =>
       rlsTask.rls
-        .map { rls =>
-          rls.flatMap { r =>
-            r.grants.map(userName =>
-              (
-                userName,
-                r.name,
-                Option(r.predicate).getOrElse("TRUE"),
-                rlsTask.table,
-                rlsTask.domain
-              )
+        .flatMap { r =>
+          r.grants.map(userName =>
+            (
+              userName,
+              r.name,
+              Option(r.predicate).getOrElse("TRUE"),
+              rlsTask.table,
+              rlsTask.domain
             )
-          }
+          )
         }
-        .getOrElse(Nil)
     }.toList
 
     val allRlsRelations = rlsTableRelations ++ rlsTaskRelations

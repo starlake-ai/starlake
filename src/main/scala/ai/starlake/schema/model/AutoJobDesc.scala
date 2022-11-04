@@ -59,10 +59,10 @@ case class AutoTaskDesc(
   postsql: Option[List[String]] = None,
   area: Option[StorageArea] = None,
   sink: Option[Sink] = None,
-  rls: Option[List[RowLevelSecurity]] = None,
-  assertions: Option[Map[String, String]] = None,
+  rls: List[RowLevelSecurity] = Nil,
+  assertions: Map[String, String] = Map.empty,
   engine: Option[Engine] = None,
-  acl: Option[List[AccessControlEntry]] = None
+  acl: List[AccessControlEntry] = Nil
 ) {
 
   @JsonIgnore
@@ -125,16 +125,10 @@ case class AutoJobDesc(
   def getEngine(): Engine = engine.getOrElse(Engine.SPARK)
 
   def aclTasks(): List[AutoTaskDesc] = tasks.filter { task =>
-    task.acl match {
-      case Some(acl) if acl.nonEmpty => true
-      case _                         => false
-    }
+    task.acl.nonEmpty
   }
 
   def rlsTasks(): List[AutoTaskDesc] = tasks.filter { task =>
-    task.rls match {
-      case Some(rls) if rls.nonEmpty => true
-      case _                         => false
-    }
+    task.rls.nonEmpty
   }
 }

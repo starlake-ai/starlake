@@ -85,8 +85,8 @@ class StorageHandlerSpec extends TestHelper {
             Some(Metadata(withHeader = Some(true))),
             None,
             Some("Schema Comment"),
-            Some(List("SQL1", "SQL2")),
-            None
+            List("SQL1", "SQL2"),
+            Nil
           )
         ),
         comment = Some("Domain Comment")
@@ -157,9 +157,7 @@ class StorageHandlerSpec extends TestHelper {
         None,
         None,
         None,
-        Some(
-          List(RowLevelSecurity("myrls", "TRUE", Set("user:hayssam.saleh@ebiznext.com")))
-        )
+        List(RowLevelSecurity("myrls", "TRUE", Set("user:hayssam.saleh@ebiznext.com")))
       )
       val businessJob =
         AutoJobDesc(

@@ -318,9 +318,9 @@ object JDBCUtils extends LazyLogging {
           metadata = None,
           merge = None,
           comment = Option(tableRemarks),
-          presql = None,
-          postsql = None,
-          primaryKey = if (primaryKeys.isEmpty) None else Some(primaryKeys)
+          presql = Nil,
+          postsql = Nil,
+          primaryKey = primaryKeys
         )
     }
     val domainName = jdbcSchema.schema.replaceAll("[^\\p{Alnum}]", "_")
@@ -333,7 +333,7 @@ object JDBCUtils extends LazyLogging {
       }
       .getOrElse(s"/${jdbcSchema.schema}")
 
-    val extensions = domainTemplate.flatMap(_.resolveExtensions())
+    val extensions = domainTemplate.map(_.resolveExtensions()).getOrElse(Nil)
     val ack = domainTemplate.flatMap(_.resolveAck())
 
     Domain(
@@ -341,10 +341,10 @@ object JDBCUtils extends LazyLogging {
       metadata = domainTemplate
         .flatMap(_.metadata)
         .map(_.copy(directory = Some(incomingDir), extensions = extensions, ack = ack)),
-      tableRefs = None,
+      tableRefs = Nil,
       tables = cometSchema.toList,
       comment = None,
-      extensions = None,
+      extensions = Nil,
       ack = None
     )
   }

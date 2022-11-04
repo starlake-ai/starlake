@@ -196,8 +196,8 @@ object Utils {
     if (errors.isEmpty) Right(true) else Left(errors)
   }
 
-  def extractTags(tags: scala.Option[Set[String]]): Set[(String, String)] = {
-    tags.getOrElse(Set.empty[String]).map { tag =>
+  def extractTags(tags: Set[String]): Set[(String, String)] = {
+    tags.map { tag =>
       val hasValue = tag.indexOf('=') > 0
       val keyValuePAir =
         if (hasValue)
@@ -220,16 +220,13 @@ object Utils {
       a + (f.getName -> f.get(cc))
     }
   }
-  def labels(tags: Option[Set[String]]): Map[String, String] =
-    tags
-      .getOrElse(Set.empty)
-      .map { tag =>
-        val labelValue = tag.split("=")
-        if (labelValue.size == 1)
-          (labelValue(0), "")
-        else
-          (labelValue(0), labelValue(1))
-      }
-      .toMap
+  def labels(tags: Set[String]): Map[String, String] =
+    tags.map { tag =>
+      val labelValue = tag.split("=")
+      if (labelValue.size == 1)
+        (labelValue(0), "")
+      else
+        (labelValue(0), labelValue(1))
+    }.toMap
 
 }

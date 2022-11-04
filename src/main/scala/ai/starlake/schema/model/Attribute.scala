@@ -74,7 +74,7 @@ case class Attribute(
   attributes: Option[List[Attribute]] = None,
   position: Option[Position] = None,
   default: Option[String] = None,
-  tags: Option[Set[String]] = None,
+  tags: Set[String] = Set.empty,
   trim: Option[Trim] = None,
   script: Option[String] = None,
   foreignKey: Option[String] = None, // [domain.]table.attribute
@@ -95,7 +95,7 @@ case class Attribute(
       rename = imported.rename.orElse(this.rename),
       metricType = imported.metricType.orElse(this.metricType),
       default = imported.default.orElse(this.default),
-      tags = imported.tags.orElse(this.tags),
+      tags = if (imported.tags.nonEmpty) imported.tags else this.tags,
       trim = imported.trim.orElse(this.trim),
       foreignKey = imported.foreignKey.orElse(this.foreignKey),
       ignore = imported.ignore.orElse(this.ignore),

@@ -1,6 +1,6 @@
 ---
 sidebar_position: 10
-title: Starlake Install
+title: Install
 ---
 
 import Tabs from '@theme/Tabs';
@@ -15,8 +15,8 @@ The script will in turn download required dependencies and copy them to the bin 
 <TabItem value="linux_macos" label="Linux/MacOS">
 
 ```sh
-$ mkdir starlake
-$ cd starlake
+$ mkdir $HOME/starlake
+$ cd $HOME/starlake
 $ curl -O hhttps://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/starlake.sh
 $ chmod +x starlake.sh
 $ ./starlake.sh
@@ -26,10 +26,10 @@ $ ./starlake.sh
 <TabItem value="windows" label="Windows">
 
 ```powershell
-c:\> mkdir starlake
-c:\starlake> cd starlake
-c:\starlake> curl -O https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/starlake.cmd
-c:\starlake> starlake
+c:\> mkdir %userprofile%\starlake
+c:\users\me\starlake> cd %userprofile%\starlake
+c:\users\me\starlake> curl -O https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/starlake.cmd
+c:\users\me\starlake> starlake
 ```
 
 </TabItem>
@@ -85,6 +85,11 @@ The following files and folders should now have been created.
 
 ```
 
+:::note
+
+Any library you may need (Snowflake or Oracle client)  wille need to copied in the bin/spar/jars folder.
+
+:::
 
 That's it ! We now need to create a new project.
 
@@ -126,7 +131,6 @@ c:\starlake> docker run -it starlake
 
 To install a specific version (0.5.3 in the example below), set the COMET_VERSION environment variable before running starlake:
 
-
 <Tabs groupId="platforms">
 <TabItem value="linux_macos" label="Linux/MacOS">
 
@@ -138,8 +142,11 @@ $ COMET_VERSION=0.5.3 ./starlake.sh
 <TabItem value="windows" label="Windows">
 
 ```powershell
-c:\> SET COMET_VERSION=0.5.3 starlake
+c:\starlake> SET COMET_VERSION=0.5.3
+    c:\starlake> starlake
+
 ```
 
 </TabItem>
 </Tabs>
+

@@ -91,7 +91,7 @@ case class Metadata(
   clustering: Option[Seq[String]] = None,
   xml: Option[Map[String, String]] = None,
   directory: Option[String] = None,
-  extensions: Option[List[String]] = None,
+  extensions: List[String] = Nil,
   ack: Option[String] = None,
   options: Option[Map[String, String]] = None,
   validator: Option[String] = None,
@@ -172,6 +172,9 @@ case class Metadata(
     */
   protected def merge[T](parent: Option[T], child: Option[T]): Option[T] =
     if (child.isDefined) child else parent
+
+  protected def merge[T](parent: List[T], child: List[T]): List[T] =
+    if (child.nonEmpty) child else parent
 
   /** Merge this metadata with its child. Any property defined at the child level overrides the one
     * defined at this level This allow a schema to override the domain metadata attribute Applied to

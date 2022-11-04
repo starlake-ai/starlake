@@ -91,7 +91,7 @@ trait TestHelper
         |COMET_METADATA="${cometMetadataPath}"
         |COMET_TMPDIR="${cometTestRoot}/tmp"
         |COMET_LOCK_PATH="${cometTestRoot}/locks"
-        |COMET_METRICS_PATH="${cometTestRoot}/metrics/{domain}/{schema}"
+        |COMET_METRICS_PATH="${cometTestRoot}/metrics/{{domain}}/{{schema}}"
         |COMET_AUDIT_PATH="${cometTestRoot}/audit"
         |COMET_UDFS="ai.starlake.udf.TestUdf"
         |TEMPORARY_GCS_BUCKET="${sys.env.getOrElse("TEMPORARY_GCS_BUCKET", "invalid_gcs_bucket")}"

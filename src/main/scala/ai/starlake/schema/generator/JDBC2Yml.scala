@@ -128,7 +128,7 @@ object JDBC2Yml extends LazyLogging {
       val file = File(baseOutputDir, domainName, "_" + table.name + ".comet.yml")
       file.overwrite(content)
     }
-    val finalDomain = domain.copy(tableRefs = Some(tableRefs), tables = Nil)
+    val finalDomain = domain.copy(tableRefs = tableRefs, tables = Nil)
     YamlSerializer.serializeToFile(
       File(baseOutputDir, domainName, domainName + ".comet.yml"),
       finalDomain
