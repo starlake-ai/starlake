@@ -241,7 +241,7 @@ trait IngestionJob extends SparkJob {
       new AssertionJob(
         this.domain.getFinalName(),
         this.schema.getFinalName(),
-        this.schema.assertions.getOrElse(Map.empty),
+        this.schema.assertions,
         UNIT,
         storageHandler,
         schemaHandler,
@@ -394,9 +394,9 @@ trait IngestionJob extends SparkJob {
   private def applyMerge(
     acceptedPath: Path,
     finalAcceptedDF: DataFrame
-  ): (DataFrame, Option[List[String]]) = {
+  ): (DataFrame, List[String]) = {
     val (mergedDF, partitionsToUpdate) =
-      schema.merge.fold((finalAcceptedDF, Option.empty[List[String]])) { mergeOptions =>
+      schema.merge.fold((finalAcceptedDF, List.empty[String])) { mergeOptions =>
         metadata.getSink() match {
           case Some(sink: BigQuerySink) => mergeFromBQ(finalAcceptedDF, mergeOptions, sink)
           case _ => mergeFromParquet(acceptedPath, finalAcceptedDF, mergeOptions)
@@ -465,7 +465,7 @@ trait IngestionJob extends SparkJob {
 
   private def sinkAccepted(
     mergedDF: DataFrame,
-    partitionsToUpdate: Option[List[String]]
+    partitionsToUpdate: List[String]
   ): Try[DataFrame] = {
     Try {
       val sinkType = metadata.getSink().map(_.getType())
@@ -495,8 +495,8 @@ trait IngestionJob extends SparkJob {
 
           /* We load the schema from the postsql returned dataframe if any */
           val tableSchema = schema.postsql match {
-            case Some(_) => Some(BigQueryUtils.bqSchema(mergedDF.schema))
-            case _       => Some(schema.bqSchema(schemaHandler))
+            case Nil => Some(schema.bqSchema(schemaHandler))
+            case _   => Some(BigQueryUtils.bqSchema(mergedDF.schema))
           }
           val config = BigQueryLoadConfig(
             source = Right(mergedDF),
@@ -579,7 +579,7 @@ trait IngestionJob extends SparkJob {
 
   def extractTableAcl(): List[String] = {
     if (settings.comet.hive) {
-      schema.acl.getOrElse(Nil).flatMap { ace =>
+      schema.acl.flatMap { ace =>
         if (Utils.isRunningInDatabricks()) {
           /*
         GRANT
@@ -888,7 +888,7 @@ trait IngestionJob extends SparkJob {
   private def runPreSql(): Unit = {
     val bqConfig = BigQueryLoadConfig()
     def bqNativeJob(sql: String) = new BigQueryNativeJob(bqConfig, sql, None)
-    schema.presql.getOrElse(Nil).foreach { sql =>
+    schema.presql.foreach { sql =>
       val compiledSql = sql.richFormat(schemaHandler.activeEnv(), options)
       metadata.getSink().getOrElse(NoneSink()).getType() match {
         case SinkType.BQ =>
@@ -899,16 +899,11 @@ trait IngestionJob extends SparkJob {
     }
   }
 
-  private def runPostSQL(mergedDF: DataFrame) = {
-    val finalMergedDf = schema.postsql match {
-      case Some(queryList) =>
-        queryList.foldLeft(mergedDF) { (df, query) =>
-          df.createOrReplaceTempView("COMET_TABLE")
-          df.sparkSession.sql(query.richFormat(schemaHandler.activeEnv(), options))
-        }
-      case _ => mergedDF
+  private def runPostSQL(mergedDF: DataFrame): DataFrame = {
+    schema.postsql.foldLeft(mergedDF) { (df, query) =>
+      df.createOrReplaceTempView("COMET_TABLE")
+      df.sparkSession.sql(query.richFormat(schemaHandler.activeEnv(), options))
     }
-    finalMergedDf
   }
 
   /** Main entry point as required by the Spark Job interface
@@ -998,7 +993,7 @@ trait IngestionJob extends SparkJob {
     acceptedPath: Path,
     withScriptFieldsDF: DataFrame,
     mergeOptions: MergeOptions
-  ): (DataFrame, Option[List[String]]) = {
+  ): (DataFrame, List[String]) = {
     val incomingSchema = schema.finalSparkSchema(schemaHandler)
     val existingDF =
       if (storageHandler.exists(new Path(acceptedPath, "_SUCCESS"))) {
@@ -1025,7 +1020,7 @@ trait IngestionJob extends SparkJob {
     }
     val (finalIncomingDF, mergedDF, _) =
       MergeUtils.computeToMergeAndToDeleteDF(existingDF, partitionedInputDF, mergeOptions)
-    (mergedDF, None)
+    (mergedDF, Nil)
   }
 
   /** In the queryFilter, the user may now write something like this : `partitionField in last(3)`
@@ -1045,7 +1040,7 @@ trait IngestionJob extends SparkJob {
     incomingDF: DataFrame,
     mergeOptions: MergeOptions,
     sink: BigQuerySink
-  ): (DataFrame, Option[List[String]]) = {
+  ): (DataFrame, List[String]) = {
     // When merging to BigQuery, load existing DF from BigQuery
     val tableMetadata =
       BigQuerySparkJob.getTable(session, domain.getFinalName(), schema.getFinalName())
@@ -1094,9 +1089,9 @@ trait IngestionJob extends SparkJob {
         logger.info(
           s"The following partitions will be updated ${partitionsToUpdate.mkString(",")}"
         )
-        Some(partitionsToUpdate)
+        partitionsToUpdate
       case ("static", _, _) | ("dynamic", _, _) =>
-        None
+        Nil
       case (_, _, _) =>
         throw new Exception("Should never happen")
     }

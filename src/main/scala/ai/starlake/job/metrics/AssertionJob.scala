@@ -60,8 +60,8 @@ class AssertionJob(
     new Path(
       settings.comet.lock.path,
       "assertions" + path
-        .replace("{domain}", domainName)
-        .replace("{schema}", schemaName)
+        .replace("{{domain}}", domainName)
+        .replace("{{schema}}", schemaName)
         .replace('/', '_') + ".lock"
     )
   }

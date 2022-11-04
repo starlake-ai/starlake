@@ -106,7 +106,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         "user",
         WriteMode.OVERWRITE,
         area = Some(StorageArea.fromString("business")),
-        assertions = Some(Map("uniqFirstname" -> "isUnique(firstname)"))
+        assertions = Map("uniqFirstname" -> "isUnique(firstname)")
       )
       val businessJob =
         AutoJobDesc(
@@ -142,7 +142,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         "user",
         WriteMode.OVERWRITE,
         area = Some(StorageArea.fromString("business")),
-        assertions = Some(Map("uniqFirstname" -> "isUnique(firstname)"))
+        assertions = Map("uniqFirstname" -> "isUnique(firstname)")
       )
       val businessJob =
         AutoJobDesc(
@@ -339,9 +339,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         None,
         None,
         None,
-        Some(
-          List(RowLevelSecurity("myrls", "TRUE", Set("user:hayssam.saleh@ebiznext.com")))
-        )
+        List(RowLevelSecurity("myrls", "TRUE", Set("user:hayssam.saleh@ebiznext.com")))
       )
 
       val sink = businessTask1.sink.map(_.asInstanceOf[BigQuerySink])

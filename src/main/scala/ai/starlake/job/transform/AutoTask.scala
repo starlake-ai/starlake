@@ -244,7 +244,7 @@ case class AutoTask(
             new AssertionJob(
               taskDesc.domain,
               taskDesc.area.getOrElse(defaultArea).value,
-              taskDesc.assertions.getOrElse(Map.empty),
+              taskDesc.assertions,
               UNIT,
               storageHandler,
               schemaHandler,
@@ -405,7 +405,7 @@ case class AutoTask(
         new AssertionJob(
           taskDesc.domain,
           taskDesc.area.getOrElse(defaultArea).value,
-          taskDesc.assertions.getOrElse(Map.empty),
+          taskDesc.assertions,
           Stage.UNIT,
           storageHandler,
           schemaHandler,
