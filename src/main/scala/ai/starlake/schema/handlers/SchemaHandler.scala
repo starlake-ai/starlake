@@ -348,7 +348,6 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
         case (path, Success(domain)) =>
           val folder = path.getParent()
           val schemaRefs = domain.tableRefs
-            .getOrElse(Nil)
             .map { ref =>
               if (!ref.startsWith("_"))
                 throw new Exception(

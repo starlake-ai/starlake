@@ -50,10 +50,11 @@ class XlsReader(input: Input) extends XlsModel {
       val comment =
         Option(row.getCell(headerMap("_description"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
           .flatMap(formatter.formatCellValue)
-      val schemaRefsOpt =
+      val schemaRefs =
         Option(row.getCell(headerMap("_schema_refs"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
           .flatMap(formatter.formatCellValue)
           .map(_.split(",").toList)
+          .getOrElse(Nil)
       (nameOpt, directoryOpt) match {
         case (Some(name), Some(directory)) =>
           Some(
@@ -61,7 +62,7 @@ class XlsReader(input: Input) extends XlsModel {
               name,
               metadata = Some(Metadata(directory = Some(directory), ack = ack)),
               comment = comment,
-              tableRefs = schemaRefsOpt,
+              tableRefs = schemaRefs,
               rename = renameOpt
             )
           )
@@ -138,21 +139,21 @@ class XlsReader(input: Input) extends XlsModel {
       val presql =
         Option(
           row.getCell(headerMap("_presql"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
-        ).flatMap(formatter.formatCellValue).map(_.split("###").toList)
+        ).flatMap(formatter.formatCellValue).map(_.split("###").toList).getOrElse(Nil)
       val postsql =
         Option(
           row.getCell(headerMap("_postsql"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
-        ).flatMap(formatter.formatCellValue).map(_.split("###").toList)
+        ).flatMap(formatter.formatCellValue).map(_.split("###").toList).getOrElse(Nil)
 
       val primaryKeys =
         Option(
           row.getCell(headerMap("_primary_key"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
-        ).flatMap(formatter.formatCellValue).map(_.split(",").toList)
+        ).flatMap(formatter.formatCellValue).map(_.split(",").toList).getOrElse(Nil)
 
       val tags =
         Option(
           row.getCell(headerMap("_tags"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
-        ).flatMap(formatter.formatCellValue).map(_.split(",").toSet)
+        ).flatMap(formatter.formatCellValue).map(_.split(",").toSet).getOrElse(Set.empty)
 
       val longNameOpt =
         Option(row.getCell(headerMap("_long_name"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
@@ -265,8 +266,8 @@ class XlsReader(input: Input) extends XlsModel {
             tags = tags,
             primaryKey = primaryKeys,
             rename = renameOpt,
-            acl = if (acl.isEmpty) None else Some(acl),
-            rls = if (rls.isEmpty) None else Some(rls)
+            acl = acl,
+            rls = rls
           )
           Some(schema, SchemaName(name))
         }
@@ -488,7 +489,7 @@ class XlsReader(input: Input) extends XlsModel {
     val tags =
       Option(
         row.getCell(headerMap("_tags"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
-      ).flatMap(formatter.formatCellValue).map(_.split(",").toSet)
+      ).flatMap(formatter.formatCellValue).map(_.split(",").toSet).getOrElse(Set.empty)
 
     val accessPolicy = Option(
       row.getCell(headerMap("_policy"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)

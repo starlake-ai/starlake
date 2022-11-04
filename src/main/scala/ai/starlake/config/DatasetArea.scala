@@ -124,8 +124,8 @@ object DatasetArea extends StrictLogging {
   def substituteDomainAndSchemaInPath(domain: String, schema: String, path: String): Path =
     new Path(
       path
-        .replace("{domain}", domain)
-        .replace("{schema}", schema)
+        .replace("{{domain}}", domain)
+        .replace("{{schema}}", schema)
     )
 
   def discreteMetrics(domain: String, schema: String)(implicit settings: Settings): Path =

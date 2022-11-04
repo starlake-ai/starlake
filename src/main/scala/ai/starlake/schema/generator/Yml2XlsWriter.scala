@@ -86,7 +86,7 @@ class Yml2XlsWriter(schemaHandler: SchemaHandler) extends LazyLogging with XlsMo
     domainRow.createCell(1).setCellValue(domain.resolveDirectory())
     domainRow.createCell(2).setCellValue(domain.resolveAck().getOrElse(""))
     domainRow.createCell(3).setCellValue(domain.comment.getOrElse(""))
-    domainRow.createCell(4).setCellValue(domain.tableRefs.getOrElse(Nil).mkString(","))
+    domainRow.createCell(4).setCellValue(domain.tableRefs.mkString(","))
     domainRow.createCell(5).setCellValue(domain.rename.getOrElse(""))
     for (i <- allDomainHeaders.indices)
       domainSheet.autoSizeColumn(i)
@@ -148,20 +148,20 @@ class Yml2XlsWriter(schemaHandler: SchemaHandler) extends LazyLogging with XlsMo
         .setCellValue(metadata.clustering.map(_.mkString(",")).getOrElse(""))
       schemaRow
         .createCell(16)
-        .setCellValue(schema.presql.map(_.mkString("###")).getOrElse(""))
+        .setCellValue(schema.presql.mkString("###"))
       schemaRow
         .createCell(17)
-        .setCellValue(schema.postsql.map(_.mkString("###")).getOrElse(""))
+        .setCellValue(schema.postsql.mkString("###"))
       schemaRow
         .createCell(18)
-        .setCellValue(schema.primaryKey.map(_.mkString(",")).getOrElse(""))
+        .setCellValue(schema.primaryKey.mkString(","))
       schemaRow
         .createCell(19)
-        .setCellValue(schema.tags.map(_.mkString(",")).getOrElse(""))
+        .setCellValue(schema.tags.mkString(","))
       schemaRow.createCell(20).setCellValue(schema.rename.getOrElse(""))
       if (schema.name.length > 31) schemaRow.createCell(21).setCellValue(schema.name)
       val tablePolicies =
-        schema.acl.getOrElse(Nil).map(_.role) ++ schema.rls.getOrElse(Nil).map(_.name)
+        schema.acl.map(_.role) ++ schema.rls.map(_.name)
       schemaRow
         .createCell(22)
         .setCellValue(tablePolicies.mkString(","))
@@ -195,7 +195,7 @@ class Yml2XlsWriter(schemaHandler: SchemaHandler) extends LazyLogging with XlsMo
         attrRow.createCell(11).setCellValue(attr.trim.map(_.toString).getOrElse(""))
         attrRow.createCell(12).setCellValue(attr.ignore.map(_.toString).getOrElse("false"))
         attrRow.createCell(13).setCellValue(attr.foreignKey.getOrElse(""))
-        attrRow.createCell(14).setCellValue(attr.tags.map(_.mkString(",")).getOrElse(""))
+        attrRow.createCell(14).setCellValue(attr.tags.mkString(","))
         attrRow.createCell(15).setCellValue(attr.accessPolicy.getOrElse(""))
       }
       for (i <- allAttributeHeaders.indices)
