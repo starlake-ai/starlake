@@ -3,6 +3,7 @@ package ai.starlake.job
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.extractor.{ExtractScriptGenConfig, ScriptGen}
 import ai.starlake.job.atlas.AtlasConfig
+import ai.starlake.job.bootstrap.BootstrapConfig
 import ai.starlake.job.convert.{FileSplitterConfig, Parquet2CSV, Parquet2CSVConfig}
 import ai.starlake.job.infer.InferSchemaConfig
 import ai.starlake.job.ingest.LoadConfig
@@ -67,6 +68,7 @@ class Main() extends StrictLogging {
 
   val configs: List[CliConfig[_]] = List(
     AutoTask2GraphVizConfig,
+    BootstrapConfig,
     BigQueryLoadConfig,
     ConnectionLoadConfig,
     ESLoadConfig,
@@ -141,7 +143,14 @@ class Main() extends StrictLogging {
     // handle non existing project commands
     argList.head match {
       case "bootstrap" =>
-        DatasetArea.bootstrap(storageHandler)
+        BootstrapConfig.parse(args.drop(1)) match {
+          case Some(config) =>
+            DatasetArea.bootstrap(config.template)
+          case None =>
+            println(BootstrapConfig.usage())
+            false
+
+        }
         System.exit(0)
       case _ =>
     }

@@ -1,12 +1,12 @@
 ---
 sidebar_position: 15
-title:  Bootstrap new project
+title:  Bootstrap project
 ---
 
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
-## Create a new project
+## Create Sample Project
 
 To create a new project, you need first to create an empty folder and run the
 starlake bootstrap CLI command from there:
@@ -26,15 +26,28 @@ $ $HOME/starlake/starlake.sh bootstrap
 ```powershell
 c:\> mkdir %userprofile%\myproject
 c:\users\me\myproject> cd %userprofile%\myproject
-c:\users\me\myproject> %userprofile%\starlake\starlake.cmd bootstrap
+c:\users\me\myproject> %userprofile%\starlake\starlake.cmd bootstrap --template quickstart
 ```
 
 </TabItem>
+<TabItem value="docker" label="Docker">
+We first need to mount the project folder in the container et explicitly set the COMET_ROOT env variable to bootstrap the project
+
+```sh
+$ mkdir $HOME/myproject
+$ docker run -e COMET_ROOT=/app/myproject       \
+             -v $HOME/myproject:/app/myproject  \
+             -it starlake bootstrap             \
+             --template quickstart
+```
+
+</TabItem>
+
 </Tabs>
 
 :::note
 
-By default, theproject will be created in the current working directory.
+By default, the project will be created in the current working directory.
 To bootstrap the project in a different folder set COMET_ROOT env variable to that folder:
 
 <Tabs groupId="platforms">
@@ -53,6 +66,10 @@ c:\> %userprofile%\starlake\starlake.cmd bootstrap
 ```
 
 </TabItem>
+<TabItem value="docker" label="Docker">
+In Docker you always need to pass the COMET_ROOT env variable before running starlake as decribed in the command above.
+
+</TabItem>
 </Tabs>
 
 :::
@@ -67,27 +84,18 @@ myproject/
 │   ├── domains
 │   └── jobs
 ├── incoming
-│   ├── hr
-│   │   ├── locations-2018-01-01.ack
-│   │   ├── locations-2018-01-01.json
-│   │   ├── sellers-2018-01-01.ack
-│   │   └── sellers-2018-01-01.json
 │   └── sales
 │       ├── customers-2018-01-01.ack
-│       ├── customers-2018-01-01.psv
-│       ├── orders-2018-01-01.ack
-│       └── orders-2018-01-01.csv
+│       └──  customers-2018-01-01.psv
 ├── metadata
 │   ├── assertions
 │   ├── domains
-│   │   ├── hr.comet.yml
-│   │   └── sales.comet.yml
 │   ├── env.BQ.comet.yml
 │   ├── env.FS.comet.yml
 │   ├── env.comet.yml
 │   ├── extract
 │   ├── jobs
-│   │   ├── kpi.byseller.sql.j2
+│   │   ├── kpi.sql.j2
 │   │   └── kpi.comet.yml
 │   ├── mapping
 │   ├── types
@@ -100,6 +108,6 @@ myproject/
 ## Understanding the project hierarchy
 
 - The `diagrams` folder holds all the entity/relations and access control views you will be able to interactively create using Starlake WYSIWYG tooling.
-- The `incoming` folder host al the files you will want to load into your warehouse. This is explained in more detail in the [quickstart chapter](100.quickstart.mdx)
+- The `incoming` folder host all the files you will want to load into your warehouse. This is explained in more detail in the [Move data section](run)
 - The `metadata` folder contains the extract, load and transform jobs Starlake will apply to incoming files.
 

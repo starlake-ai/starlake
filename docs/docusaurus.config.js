@@ -35,7 +35,7 @@ module.exports = {
                     items: [
                         {
                             label: 'User Guide',
-                            to: '/docs/userguide/load'
+                            to: '/docs/quickstart/load'
                         },
                         {
                             to: '/docs/reference/configuration',

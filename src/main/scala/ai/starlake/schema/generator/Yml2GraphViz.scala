@@ -36,11 +36,9 @@ class Yml2GraphViz(schemaHandler: SchemaHandler) extends LazyLogging {
   def run(args: Array[String]): Unit = {
     implicit val settings: Settings = Settings(ConfigFactory.load())
     Yml2GraphVizConfig.parse(args) match {
-      case Some(config) if !config.acl.getOrElse(false) =>
-        asDotRelations(config)
-      case Some(config) if config.acl.getOrElse(false) =>
-        asDotRelations(config)
-        aclsAsDot(config)
+      case Some(config) =>
+        if (config.acl) aclsAsDot(config)
+        if (config.domains) asDotRelations(config)
       case _ =>
         println(Yml2GraphVizConfig.usage())
     }
@@ -334,14 +332,14 @@ class Yml2GraphViz(schemaHandler: SchemaHandler) extends LazyLogging {
     schemaHandler.domains(config.reload)
     val fkTables = relatedTables().map(_.toLowerCase).toSet
     val dots =
-      schemaHandler.domains().map(_.asDot(config.includeAllAttributes.getOrElse(true), fkTables))
+      schemaHandler.domains().map(_.asDot(config.includeAllAttributes, fkTables))
     val result = prefix + dots.mkString("\n") + suffix
     config.outputDir match {
       case None => println(result)
       case Some(outputDir) =>
         val outputDirFile = File(outputDir)
         outputDirFile.createDirectories()
-        val file = File(outputDirFile, "_relations.dot")
+        val file = File(outputDirFile, "_domains.dot")
         file.overwrite(result)
     }
   }
