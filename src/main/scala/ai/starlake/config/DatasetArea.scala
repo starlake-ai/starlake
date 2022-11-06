@@ -22,6 +22,7 @@ package ai.starlake.config
 
 import ai.starlake.schema.handlers.StorageHandler
 import ai.starlake.utils.Formatter.RichFormatter
+import better.files.File
 import com.fasterxml.jackson.core.{JsonGenerator, JsonParser}
 import com.fasterxml.jackson.databind.annotation.{JsonDeserialize, JsonSerialize}
 import com.fasterxml.jackson.databind.{
@@ -198,59 +199,77 @@ object DatasetArea extends StrictLogging {
     }
   }
 
-  def bootstrap(storage: StorageHandler)(implicit settings: Settings) = {
-    def copyToFolder(resources: List[String], resourceFolder: String, targetFolder: Path) = {
+  def bootstrap(template: Option[String])(implicit settings: Settings): Unit = {
+    def copyToFolder(resources: List[String], resourceFolder: String, targetFolder: File): Unit = {
       resources.foreach { resource =>
-        logger.info(s"Boostrapping $resource")
+        logger.info(s"copying $resource")
         val source = Source.fromResource(s"$resourceFolder/$resource")
         if (source == null)
           throw new Exception(s"Resource $resource not found in assembly")
 
         val lines: Iterator[String] = source.getLines()
-        val targetFile = new Path(targetFolder.toString + "/" + resource)
-        storage.mkdirs(targetFile.getParent())
+        val targetFile = File(targetFolder.pathAsString, resource.split('/'): _*)
+        targetFile.parent.createDirectories()
         val contents =
           lines.mkString("\n").replace("__COMET_TEST_ROOT__", metadata.getParent.toString)
-        storage.write(contents, targetFile)
+        targetFile.overwrite(contents)
       }
     }
 
-    initMetadata(storage)
+    initMetadata(settings.storageHandler)
     List("out", "diagrams", "diagrams/domains", "diagrams/acl", "diagrams/jobs").foreach { folder =>
-      val root = new Path(s"${settings.comet.metadata}").getParent
-      storage.mkdirs(new Path(root, folder))
+      val root = File(settings.comet.metadata).parent
+      File(root.pathAsString, folder.split('/'): _*).createDirectories()
     }
+    val metadataFile = File(metadata.toString)
+    metadataFile.createDirectories()
+    val incomingFolder = File(metadataFile.parent, "incoming")
+    incomingFolder.createDirectories()
+    val vscodeFolder = File(metadataFile.parent, ".vscode")
+    vscodeFolder.createDirectories()
+    copyToFolder(List("extensions.json"), s"templates", vscodeFolder)
 
-    val metadataResources = List(
-      "domains/hr.comet.yml",
-      "domains/sales.comet.yml",
-      "jobs/kpi.comet.yml",
-      "jobs/kpi.byseller.sql.j2",
-      "types/default.comet.yml",
-      "types/types.comet.yml",
-      "env.comet.yml",
-      "env.BQ.comet.yml",
-      "env.FS.comet.yml"
-    )
-    storage.mkdirs(metadata)
-    copyToFolder(metadataResources, "quickstart-template/metadata", metadata)
-    val incomingFolder = new Path(metadata.getParent(), "incoming")
-    storage.mkdirs(incomingFolder)
-    val rootResources = List(
-      "incoming/hr/locations-2018-01-01.ack",
-      "incoming/hr/locations-2018-01-01.json",
-      "incoming/hr/sellers-2018-01-01.ack",
-      "incoming/hr/sellers-2018-01-01.json",
-      "incoming/sales/customers-2018-01-01.ack",
-      "incoming/sales/customers-2018-01-01.psv",
-      "incoming/sales/orders-2018-01-01.ack",
-      "incoming/sales/orders-2018-01-01.csv"
-    )
-    copyToFolder(rootResources, "quickstart-template", metadata)
-
-    val vscodeFolder = new Path(metadata.getParent(), ".vscode")
-    storage.mkdirs(vscodeFolder)
-    copyToFolder(List("extensions.json"), "quickstart-template", vscodeFolder)
+    template match {
+      case Some("userguide") =>
+        val metadataResources = List(
+          "domains/hr.comet.yml",
+          "domains/sales.comet.yml",
+          "jobs/kpi.comet.yml",
+          "jobs/kpi.byseller.sql.j2",
+          "types/default.comet.yml",
+          "types/types.comet.yml",
+          "env.comet.yml",
+          "env.BQ.comet.yml",
+          "env.FS.comet.yml"
+        )
+        copyToFolder(metadataResources, s"templates/userguide/metadata", metadataFile)
+        val rootResources = List(
+          "incoming/hr/locations-2018-01-01.ack",
+          "incoming/hr/locations-2018-01-01.json",
+          "incoming/hr/sellers-2018-01-01.ack",
+          "incoming/hr/sellers-2018-01-01.json",
+          "incoming/sales/customers-2018-01-01.ack",
+          "incoming/sales/customers-2018-01-01.psv",
+          "incoming/sales/orders-2018-01-01.ack",
+          "incoming/sales/orders-2018-01-01.csv"
+        )
+        copyToFolder(rootResources, s"templates/userguide", metadataFile.parent)
+      case Some("quickstart") =>
+        val metadataResources = List(
+          "types/default.comet.yml",
+          "types/types.comet.yml",
+          "env.comet.yml",
+          "env.BQ.comet.yml",
+          "env.FS.comet.yml"
+        )
+        copyToFolder(metadataResources, s"templates/quickstart/metadata", metadataFile)
+        val rootResources = List(
+          "incoming/sales/customers-2018-01-01.ack",
+          "incoming/sales/customers-2018-01-01.psv"
+        )
+        copyToFolder(rootResources, s"templates/quickstart", metadataFile.parent)
+      case _ => // do nothing
+    }
   }
 }
 

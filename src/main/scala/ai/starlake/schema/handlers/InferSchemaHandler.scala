@@ -24,9 +24,11 @@ import ai.starlake.config.Settings
 import ai.starlake.schema.model._
 import ai.starlake.utils.YamlSerializer
 import better.files.File
+import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.types.{ArrayType, StructType}
 
 import java.util.regex.Pattern
+import scala.util.{Failure, Success}
 
 object InferSchemaHandler {
 
@@ -164,9 +166,35 @@ object InferSchemaHandler {
     * @param savePath
     *   path to save files.
     */
-  def generateYaml(domain: Domain, savePath: String)(implicit
+  def generateYaml(domain: Domain, saveDir: String)(implicit
     settings: Settings
-  ): Unit =
-    YamlSerializer.serializeToFile(File(savePath), domain)
+  ): Unit = {
+    val savePath = File(saveDir, s"${domain.name}.comet.yml")
+    savePath.parent.createDirectories()
+    if (savePath.exists) {
 
+      val existingDomain = YamlSerializer.deserializeDomain(
+        settings.storageHandler.read(new Path(savePath.pathAsString)),
+        savePath.pathAsString
+      )
+      existingDomain match {
+        case Success(existingDomain) =>
+          val tableExist =
+            existingDomain.tables.exists(schema =>
+              schema.name.toLowerCase() == domain.tables.head.name
+            )
+          if (tableExist)
+            throw new Exception(
+              s"Table ${domain.tables.head.name} already defined in file $savePath"
+            )
+          val finalDomain =
+            existingDomain.copy(tables = existingDomain.tables ++ domain.tables)
+          YamlSerializer.serializeToFile(savePath, finalDomain)
+        case Failure(e) => e.printStackTrace()
+      }
+
+    } else {
+      YamlSerializer.serializeToFile(savePath, domain)
+    }
+  }
 }
