@@ -1,6 +1,6 @@
 ---
 sidebar_position: 10
-title: Install
+title: Install the CLI
 ---
 
 import Tabs from '@theme/Tabs';
@@ -14,15 +14,18 @@ The script will in turn download required dependencies and copy them to the bin 
 <Tabs groupId="platforms">
 <TabItem value="linux_macos" label="Linux/MacOS">
 
-```sh
+```shell
 $ mkdir $HOME/starlake
 $ cd $HOME/starlake
 $ curl -O hhttps://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/starlake.sh
 $ chmod +x starlake.sh
 $ ./starlake.sh
+$
+
 ```
 
 </TabItem>
+
 <TabItem value="windows" label="Windows">
 
 ```powershell
@@ -32,6 +35,22 @@ c:\users\me\starlake> curl -O https://raw.githubusercontent.com/starlake-ai/star
 c:\users\me\starlake> starlake
 ```
 
+</TabItem>
+
+<TabItem value="docker" label="Docker">
+
+You may also run Starlake from a docker container. To do so, download this [Dockerfile](https://github.com/starlake-ai/starlake/blob/master/distrib/Dockerfile)
+and build your docker image
+	
+```shell
+$ mkdir starlake
+$ cd starlake
+$ curl -O hhttps://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/starlake.sh
+$ curl -O https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/Dockerfile
+$ docker build -t starlake .
+$ docker run -it starlake
+
+```
 </TabItem>
 </Tabs>
 
@@ -64,7 +83,7 @@ Available commands =>
 	yml2xls
 ```
 
-The following files and folders should now have been created.
+The following files and folders should now have been created. 
 
 ```text {6,13,14}
 
@@ -87,45 +106,12 @@ The following files and folders should now have been created.
 
 :::note
 
-Any library you may need (Snowflake or Oracle client)  wille need to copied in the bin/spar/jars folder.
+Any library you may need (Snowflake or Oracle client)  will need to copied in the bin/spar/jars folder.
 
 :::
 
-That's it ! We now need to create a new project.
+That's it ! We now need to create a [new project](bootstrap).
 
-
-## Docker
-
-You may also run Starlake from a docker container. To do so, download this [Dockerfile](https://github.com/starlake-ai/starlake/blob/master/distrib/Dockerfile)
-and build your docker image
-
-
-<Tabs groupId="platforms">
-<TabItem value="linux_macos" label="Linux/MacOS">
-
-```sh
-$ mkdir starlake
-$ cd starlake
-$ curl -O hhttps://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/starlake.sh
-$ curl -O https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/Dockerfile
-$ docker build --build-arg STARLAKE_VERSION=0.5.3 -t starlake .
-$ docker run -it starlake
-```
-
-</TabItem>
-<TabItem value="windows" label="Windows">
-
-```powershell
-c:\> mkdir starlake
-c:\starlake> cd starlake
-c:\starlake> curl -O https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/starlake.cmd
-c:\starlake> curl -O https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/Dockerfile
-c:\starlake> docker build --build-arg STARLAKE_VERSION=0.5.3 -t starlake .
-c:\starlake> docker run -it starlake
-```
-
-</TabItem>
-</Tabs>
 
 ## Specific Version
 
@@ -136,6 +122,7 @@ To install a specific version (0.5.3 in the example below), set the COMET_VERSIO
 
 ```sh
 $ COMET_VERSION=0.5.3 ./starlake.sh
+$
 ```
 
 </TabItem>
@@ -143,10 +130,20 @@ $ COMET_VERSION=0.5.3 ./starlake.sh
 
 ```powershell
 c:\starlake> SET COMET_VERSION=0.5.3
-    c:\starlake> starlake
+c:\starlake> starlake
 
 ```
 
 </TabItem>
+<TabItem value="docker" label="Docker">
+
+```shell
+$ docker build --build-arg COMET_VERSION=0.5.3 -t starlake .
+$
+```
+
+</TabItem>
+
+
 </Tabs>
 
