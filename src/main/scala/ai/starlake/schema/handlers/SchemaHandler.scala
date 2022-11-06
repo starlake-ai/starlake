@@ -313,7 +313,7 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     */
   def getType(tpe: String): Option[Type] = types().find(_.name == tpe)
 
-  var deserializedDomains: List[(Path, Try[Domain])] = {
+  def deserializedDomains: List[(Path, Try[Domain])] = {
     val paths = storage.list(
       DatasetArea.domains,
       extension = ".yml",
