@@ -20,6 +20,7 @@ import ai.starlake.utils.{CliConfig, CometObjectMapper}
 import ai.starlake.workflow.{ImportConfig, IngestionWorkflow, TransformConfig, WatchConfig}
 import buildinfo.BuildInfo
 import com.fasterxml.jackson.annotation.JsonInclude.Include
+import com.fasterxml.jackson.annotation.{JsonSetter, Nulls}
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.typesafe.config.ConfigFactory
@@ -64,7 +65,9 @@ object Main extends StrictLogging {
 class Main() extends StrictLogging {
   // uses Jackson YAML to parsing, relies on SnakeYAML for low level handling
   val mapper: ObjectMapper = new CometObjectMapper(new YAMLFactory())
-  mapper.setSerializationInclusion(Include.NON_EMPTY)
+  mapper
+    .setSerializationInclusion(Include.NON_EMPTY)
+    .setDefaultSetterInfo(JsonSetter.Value.forValueNulls(Nulls.AS_EMPTY, Nulls.AS_EMPTY))
 
   val configs: List[CliConfig[_]] = List(
     AutoTask2GraphVizConfig,

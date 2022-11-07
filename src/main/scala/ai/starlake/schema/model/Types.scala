@@ -37,6 +37,10 @@ import scala.util.Try
   *   : Type list
   */
 case class Types(types: List[Type]) {
+  def this() = {
+    this(Nil)
+    throw new Exception("Should never be called. Here to satisfy Jackson only")
+  }
 
   def checkValidity(): Either[List[String], Boolean] = {
     val typeNames = types.map(_.name)
@@ -65,6 +69,10 @@ case class Type(
   indexMapping: Option[IndexMapping] = None,
   ddlMapping: Option[Map[String, String]] = None
 ) {
+  def this() = {
+    this("", "")
+    throw new Exception("Should never be called. Here to satisfy Jackson only")
+  }
 
   @JsonIgnore
   val isString: Boolean = name == "string"
