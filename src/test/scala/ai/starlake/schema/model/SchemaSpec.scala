@@ -67,18 +67,17 @@ class SchemaSpec extends TestHelper {
     "Sub Attribute" should "be present for struct types only" in {
       val attr = Attribute(
         "attr",
-        "long",
+        "struct",
         Some(true),
         required = true,
         PrivacyLevel(
           "ApproxLong(20)",
           false
         ), // Should raise an error. Privacy cannot be applied on types other than string
-        attributes = Some(List[Attribute]())
+        attributes = List[Attribute]()
       )
       val expectedErrors = List(
-        "Attribute Attribute(attr,long,Some(true),true,ApproxLong(20),None,None,None,Some(List()),None,None,Set()) : Simple attributes cannot have sub-attributes",
-        "Attribute Attribute(attr,long,Some(true),true,ApproxLong(20),None,None,None,Some(List()),None,None,Set()) : when present, attributes list cannot be empty."
+        "Attribute Attribute(attr,struct,Some(true),true,ApproxLong(20),None,None,None,List(),None,None,Set()) : Struct types must have at least one attribute."
       )
 
       attr.checkValidity(schemaHandler) shouldBe Left(expectedErrors)

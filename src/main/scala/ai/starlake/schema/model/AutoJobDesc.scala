@@ -21,7 +21,6 @@
 package ai.starlake.schema.model
 
 import ai.starlake.config.{DatasetArea, Settings, StorageArea}
-import com.fasterxml.jackson.annotation.JsonIgnore
 import org.apache.hadoop.fs.Path
 
 /** Task executed in the context of a job. Each task is executed in its own session.
@@ -54,9 +53,9 @@ case class AutoTaskDesc(
   domain: String,
   table: String,
   write: WriteMode,
-  partition: Option[List[String]] = None,
-  presql: Option[List[String]] = None,
-  postsql: Option[List[String]] = None,
+  partition: List[String] = Nil,
+  presql: List[String] = Nil,
+  postsql: List[String] = Nil,
   area: Option[StorageArea] = None,
   sink: Option[Sink] = None,
   rls: List[RowLevelSecurity] = Nil,
@@ -65,8 +64,10 @@ case class AutoTaskDesc(
   acl: List[AccessControlEntry] = Nil
 ) {
 
-  @JsonIgnore
-  def getPartitions(): List[String] = partition.getOrElse(Nil)
+  def this() = {
+    this(None, None, "", "", WriteMode.OVERWRITE)
+    throw new Exception("Should never be called. Here to satisfy Jackson only")
+  }
 
   def getSql(): String = sql.getOrElse("")
 

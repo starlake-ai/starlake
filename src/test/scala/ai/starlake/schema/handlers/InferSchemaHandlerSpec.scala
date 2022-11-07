@@ -27,7 +27,7 @@ class InferSchemaHandlerSpec extends TestHelper {
           "struct",
           Some(false),
           required = false,
-          attributes = Some(List(complexAttr2, complexAttr3, complexAttr4))
+          attributes = List(complexAttr2, complexAttr3, complexAttr4)
         )
       )
 

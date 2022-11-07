@@ -72,6 +72,10 @@ case class Schema(
   acl: List[AccessControlEntry] = Nil,
   rename: Option[String] = None
 ) {
+  def this() = {
+    this("", Pattern.compile("."), Nil, None, None, None)
+    throw new Exception("Should never be called. Here to satisfy Jackson only")
+  }
 
   def ddlMapping(datawarehouse: String, schemaHandler: SchemaHandler): List[DDLField] = {
     attributes.map { attribute =>
@@ -414,7 +418,7 @@ object Schema {
             obj.name,
             "struct",
             required = !obj.nullable,
-            attributes = Some(x.fields.map(buildAttributeTree).toList)
+            attributes = x.fields.map(buildAttributeTree).toList
           )
         case _ => throw new Exception(s"Unsupported Date type ${obj.dataType} for object $obj ")
       }
@@ -423,7 +427,7 @@ object Schema {
     Schema(
       schemaName,
       Pattern.compile("ignore"),
-      buildAttributeTree(obj).attributes.getOrElse(Nil),
+      buildAttributeTree(obj).attributes,
       None,
       None,
       None,

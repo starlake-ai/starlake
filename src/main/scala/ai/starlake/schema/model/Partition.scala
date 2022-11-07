@@ -34,9 +34,9 @@ import scala.collection.JavaConverters._
 @JsonDeserialize(using = classOf[PartitionDeserializer])
 case class Partition(
   sampling: Option[Double],
-  attributes: Option[List[String]]
+  attributes: List[String] = Nil
 ) {
-  def getAttributes(): List[String] = attributes.getOrElse(Nil)
+  def getAttributes(): List[String] = attributes
   def getSampling() = sampling.getOrElse(0.0)
 
 }
@@ -58,17 +58,15 @@ class PartitionDeserializer extends JsonDeserializer[Partition] {
         node.get("sampling").asDouble()
 
     val attributes =
-      if (isNull("attributes")) None
+      if (isNull("attributes")) Nil
       else
-        Some(
-          node
-            .get("attributes")
-            .asInstanceOf[ArrayNode]
-            .elements
-            .asScala
-            .toList
-            .map(_.asText())
-        )
+        node
+          .get("attributes")
+          .asInstanceOf[ArrayNode]
+          .elements
+          .asScala
+          .toList
+          .map(_.asText())
     Partition(Some(sampling), attributes)
   }
 }

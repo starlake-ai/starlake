@@ -249,7 +249,7 @@ object JDBCUtils extends LazyLogging {
           val currentTableRequestedColumns =
             jdbcTableMap
               .get(tableName)
-              .map(_.columns.getOrElse(Nil).map(_.toUpperCase))
+              .map(_.columns.map(_.toUpperCase))
               .getOrElse(Nil)
           val selectedColumns =
             if (currentTableRequestedColumns.isEmpty)
