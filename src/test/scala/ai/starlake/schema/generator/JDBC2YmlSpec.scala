@@ -136,7 +136,7 @@ class JDBC2YmlSpec extends TestHelper {
           "PUBLIC",
           None,
           None,
-          List(JDBCTable("TEST_TABLE1", Some(List("ID"))))
+          List(JDBCTable("TEST_TABLE1", List("ID")))
         ),
         settings.comet.connections("test-h2").options,
         File("/tmp"),
@@ -199,7 +199,7 @@ class JDBC2YmlSpec extends TestHelper {
           "PUBLIC",
           None,
           None,
-          List(JDBCTable("TEST_TABLE2", None))
+          List(JDBCTable("TEST_TABLE2", Nil))
         ),
         settings.comet.connections("test-h2").options,
         File("/tmp"),

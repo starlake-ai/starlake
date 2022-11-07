@@ -280,15 +280,15 @@ case class AutoTask(
         list.mkString("WITH ", ", ", " ") + parseJinja(taskDesc.getSql())
     }
 
-    val preSql = parseJinja(taskDesc.presql.getOrElse(Nil))
-    val postSql = parseJinja(taskDesc.postsql.getOrElse(Nil))
+    val preSql = parseJinja(taskDesc.presql)
+    val postSql = parseJinja(taskDesc.postsql)
     (preSql, sql, postSql)
   }
 
   def buildQueryBQ(): (List[String], String, List[String]) = {
     val sql = parseMainSqlBQ()
-    val preSql = parseJinja(taskDesc.presql.getOrElse(Nil))
-    val postSql = parseJinja(taskDesc.postsql.getOrElse(Nil))
+    val preSql = parseJinja(taskDesc.presql)
+    val postSql = parseJinja(taskDesc.postsql)
 
     (preSql, sql, postSql)
   }
@@ -329,7 +329,7 @@ case class AutoTask(
     val partitionedDFWriter =
       partitionedDatasetWriter(
         partitionedDF,
-        sinkPartition.attributes.getOrElse(Nil)
+        sinkPartition.attributes
       )
 
     val clusteredDFWriter = sink.clustering match {

@@ -34,8 +34,12 @@ module.exports = {
                     position: 'left',
                     items: [
                         {
-                            label: 'User Guide',
+                            label: 'Quickstart',
                             to: '/docs/quickstart/load'
+                        },
+                        {
+                            label: 'User Guide',
+                            to: '/docs/userguide/example'
                         },
                         {
                             to: '/docs/reference/configuration',

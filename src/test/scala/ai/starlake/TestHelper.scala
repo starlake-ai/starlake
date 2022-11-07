@@ -28,6 +28,7 @@ import ai.starlake.utils.{CometObjectMapper, Utils}
 import ai.starlake.workflow.{ImportConfig, IngestionWorkflow, WatchConfig}
 import com.dimafeng.testcontainers.{ElasticsearchContainer, KafkaContainer}
 import com.fasterxml.jackson.annotation.JsonInclude.Include
+import com.fasterxml.jackson.annotation.{JsonSetter, Nulls}
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.scala.ScalaObjectMapper
@@ -208,7 +209,9 @@ trait TestHelper
       val mapper = new CometObjectMapper(new YAMLFactory(), (classOf[Settings], settings) :: Nil)
       mapper
     }
-    mapper.setSerializationInclusion(Include.NON_EMPTY)
+    mapper
+      .setSerializationInclusion(Include.NON_EMPTY)
+      .setDefaultSetterInfo(JsonSetter.Value.forValueNulls(Nulls.AS_EMPTY, Nulls.AS_EMPTY))
 
     def deliverTestFile(importPath: String, targetPath: Path)(implicit codec: Codec): Unit = {
       val content = loadTextFile(importPath)
@@ -437,7 +440,7 @@ trait TestHelper
       a1.name should equal(a2.name)
       a1.`type` should equal(a2.`type`)
       if (a1.`type` == "struct")
-        deepEquals(a1.attributes.get, a2.attributes.get)
+        deepEquals(a1.attributes, a2.attributes)
     }
     true
   }

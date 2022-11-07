@@ -3,9 +3,9 @@ package ai.starlake.schema.model
 import scala.collection.mutable.ListBuffer
 
 case class SqlTaskExtractor(
-  presql: Option[List[String]],
+  presql: List[String],
   sql: String,
-  postsql: Option[List[String]]
+  postsql: List[String]
 )
 
 object SqlTaskExtractor {
@@ -52,10 +52,6 @@ object SqlTaskExtractor {
           buffer.append(trimmed).append('\n')
     }
     appendToStep(buffer, section)
-    SqlTaskExtractor(
-      if (presqlSection.isEmpty) None else Some(presqlSection.toList),
-      sqlSection.toString,
-      if (postsqlSection.isEmpty) None else Some(postsqlSection.toList)
-    )
+    SqlTaskExtractor(presqlSection.toList, sqlSection.toString, postsqlSection.toList)
   }
 }

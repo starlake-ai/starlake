@@ -281,13 +281,13 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         "graduateProgram",
         "output",
         WriteMode.OVERWRITE,
-        presql = Some(List("""
+        presql = List("""
             |create or replace temporary view graduate_agg_view as
             |      select degree, department,
             |      school
             |      from graduate_View
             |      where school={{school}}
-            |""".stripMargin)),
+            |""".stripMargin),
         area = Some(StorageArea.fromString("business"))
       )
       val businessJob =
@@ -334,9 +334,9 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         "DOMAIN",
         "TABLE",
         WriteMode.OVERWRITE,
-        Some(List("comet_year", "comet_month")),
-        None,
-        None,
+        List("comet_year", "comet_month"),
+        Nil,
+        Nil,
         None,
         None,
         List(RowLevelSecurity("myrls", "TRUE", Set("user:hayssam.saleh@ebiznext.com")))
