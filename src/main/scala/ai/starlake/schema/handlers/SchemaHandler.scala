@@ -287,7 +287,7 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
   private def loadActiveEnv(): Map[String, String] = {
     def loadEnv(path: Path): Map[String, String] =
       if (storage.exists(path))
-        Option(mapper.readValue(storage.read(path), classOf[Env]).env.getOrElse(Map.empty))
+        Option(mapper.readValue(storage.read(path), classOf[Env]).env)
           .getOrElse(Map.empty)
       else
         Map.empty
@@ -346,6 +346,7 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     val (validDomainsFile, invalidDomainsFiles) = deserializedDomains
       .map {
         case (path, Success(domain)) =>
+          logger.info(s"Loading domain from $path")
           val folder = path.getParent()
           val schemaRefs = domain.tableRefs
             .map { ref =>
@@ -641,17 +642,17 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
         val xsdContent = storage.read(new Path(xsd))
         val sparkType = XSDToSchema.read(xsdContent)
         val topElement = sparkType.fields.map(field => Attribute(field))
-        val xsdAttributes = topElement.head.attributes.map(_.toList).getOrElse(Nil)
+        val xsdAttributes = topElement.head.attributes
         val merged = mergeAttributes(ymlSchema.attributes, xsdAttributes)
         ymlSchema.copy(attributes = merged)
     }
   }
 
   def mergeAttributes(ymlAttrs: List[Attribute], xsdAttrs: List[Attribute]): List[Attribute] = {
-    val ymlTopLevelAttr = Attribute("__dummy", "struct", attributes = Some(ymlAttrs))
-    val xsdTopLevelAttr = Attribute("__dummy", "struct", attributes = Some(xsdAttrs))
+    val ymlTopLevelAttr = Attribute("__dummy", "struct", attributes = ymlAttrs)
+    val xsdTopLevelAttr = Attribute("__dummy", "struct", attributes = xsdAttrs)
 
     val merged = xsdTopLevelAttr.importAttr(ymlTopLevelAttr)
-    merged.attributes.getOrElse(Nil)
+    merged.attributes
   }
 }

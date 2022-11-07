@@ -152,9 +152,9 @@ class StorageHandlerSpec extends TestHelper {
         "DOMAIN",
         "ANALYSE",
         WriteMode.OVERWRITE,
-        Some(List("comet_year", "comet_month")),
-        None,
-        None,
+        List("comet_year", "comet_month"),
+        Nil,
+        Nil,
         None,
         None,
         List(RowLevelSecurity("myrls", "TRUE", Set("user:hayssam.saleh@ebiznext.com")))

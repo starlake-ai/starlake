@@ -1,6 +1,6 @@
 package ai.starlake.schema.model
 
-case class AssertionCalls(assertions: Map[String, String]) {
+case class AssertionCalls(assertions: Map[String, String] = Map.empty) {
 
   val assertionCalls: Map[String, AssertionCall] = {
     assertions.map { case (k, v) =>

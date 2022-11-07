@@ -12,9 +12,14 @@ package ai.starlake.schema.model
 case class RowLevelSecurity(
   name: String,
   predicate: String = "TRUE",
-  grants: Set[String],
+  grants: Set[String] = Set.empty,
   description: String = ""
 ) {
+
+  def this() = {
+    this("")
+    throw new Exception("Should never be called. Here to satisfy Jackson only")
+  }
 
   def grantees(): Set[(UserType, String)] = {
     grants.map { user =>

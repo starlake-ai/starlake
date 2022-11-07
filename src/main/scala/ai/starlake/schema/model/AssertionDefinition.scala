@@ -2,7 +2,7 @@ package ai.starlake.schema.model
 
 import com.typesafe.scalalogging.StrictLogging
 
-case class AssertionDefinitions(assertions: Map[String, String]) {
+case class AssertionDefinitions(assertions: Map[String, String] = Map.empty) {
 
   val assertionDefinitions: Map[String, AssertionDefinition] = {
     assertions.map { case (k, v) =>

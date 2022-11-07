@@ -45,7 +45,7 @@ class Yml2XlsWriter(schemaHandler: SchemaHandler) extends LazyLogging with XlsMo
     attrs.flatMap { attr =>
       attr.`type` match {
         case "struct" =>
-          val attrList = linearize(attr.attributes.getOrElse(Nil), prefix :+ attr.name)
+          val attrList = linearize(attr.attributes, prefix :+ attr.name)
           attr.copy(name = finalName(attr, prefix)) +: attrList
         case _ =>
           List(attr.copy(name = finalName(attr, prefix)))
@@ -133,7 +133,7 @@ class Yml2XlsWriter(schemaHandler: SchemaHandler) extends LazyLogging with XlsMo
       val partitionColumns = metadata.getSink() match {
         case Some(bq: BigQuerySink) =>
           bq.timestamp
-            .map(timestamp => Some(Partition(None, Some(List(timestamp)))))
+            .map(timestamp => Some(Partition(None, List(timestamp))))
             .getOrElse(metadata.partition)
         case _ => metadata.partition
       }

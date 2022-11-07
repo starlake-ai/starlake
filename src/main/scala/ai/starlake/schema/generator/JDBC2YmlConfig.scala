@@ -56,14 +56,24 @@ case class JDBCSchema(
     "SYNONYM"
   ),
   template: Option[String] = None
-)
+) {
+  def this() = {
+    this(None)
+    throw new Exception("Should never be called. Here to satisfy Jackson only")
+  }
+}
 
 /** @param name
   *   : Table name (case insensitive)
   * @param columns
   *   : List of columns (case insensitive). Nil if all columns should be extracted
   */
-case class JDBCTable(name: String, columns: Option[List[String]])
+case class JDBCTable(name: String, columns: List[String]) {
+  def this() = {
+    this("", Nil)
+    throw new Exception("Should never be called. Here to satisfy Jackson only")
+  }
+}
 
 case class JDBC2YmlConfig(
   mapping: String = "",
