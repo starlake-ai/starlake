@@ -1,7 +1,7 @@
 package ai.starlake.schema.model
 
 case class AssertionCalls(assertions: Map[String, String] = Map.empty) {
-
+  def this() = this(Map.empty) // Should never be called. Here for Jackson deserialization only
   val assertionCalls: Map[String, AssertionCall] = {
     assertions.map { case (k, v) =>
       val assertionCall = AssertionCall.fromCall(k, v)

@@ -26,13 +26,16 @@ import ai.starlake.schema.handlers.{
   AirflowLauncher,
   HdfsStorageHandler,
   LaunchHandler,
-  SimpleLauncher
+  LocalStorageHandler,
+  SimpleLauncher,
+  StorageHandler
 }
 import ai.starlake.schema.model.{PrivacyLevel, Sink}
 import ai.starlake.utils.{CometObjectMapper, Utils, YamlSerializer}
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.typesafe.config.{Config, ConfigFactory, ConfigValueFactory}
 import com.typesafe.scalalogging.StrictLogging
+import org.apache.commons.lang.SystemUtils
 import org.apache.hadoop.fs.Path
 import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.clients.producer.ProducerConfig
@@ -333,7 +336,8 @@ object Settings extends StrictLogging {
     forceDomainPattern: String,
     forceTablePattern: String,
     forceJobPattern: String,
-    forceTaskPattern: String
+    forceTaskPattern: String,
+    useLocalFileSystem: Boolean
   ) extends Serializable {
 
     val cacheStorageLevel: StorageLevel =
@@ -384,8 +388,8 @@ object Settings extends StrictLogging {
       .fromConfig(effectiveConfig)
       .loadOrThrow[Comet]
 
-    logger.info("COMET_FS=" + System.getenv("COMET_FS"))
-    logger.info("COMET_ROOT=" + System.getenv("COMET_ROOT"))
+    logger.info("ENV COMET_FS=" + System.getenv("COMET_FS"))
+    logger.info("ENV COMET_ROOT=" + System.getenv("COMET_ROOT"))
     logger.debug(YamlSerializer.serializeObject(loaded))
     val settings =
       Settings(loaded, effectiveConfig.getConfig("spark"), effectiveConfig.getConfig("extra"))
@@ -466,17 +470,23 @@ final case class Settings(
 ) {
 
   @transient
-  lazy val storageHandler: HdfsStorageHandler = {
+  lazy val storageHandler: StorageHandler = {
     implicit val self: Settings =
       this /* TODO: remove this once HdfsStorageHandler explicitly takes Settings or Settings.Comet in */
-    new HdfsStorageHandler(comet.fileSystem)
+    if (SystemUtils.IS_OS_WINDOWS || comet.useLocalFileSystem)
+      new LocalStorageHandler()
+    else
+      new HdfsStorageHandler(comet.fileSystem)
   }
 
   @transient
-  lazy val metadataStorageHandler: HdfsStorageHandler = {
+  lazy val metadataStorageHandler: StorageHandler = {
     implicit val self: Settings =
       this /* TODO: remove this once HdfsStorageHandler explicitly takes Settings or Settings.Comet in */
-    new HdfsStorageHandler(comet.metadataFileSystem)
+    if (SystemUtils.IS_OS_WINDOWS || comet.useLocalFileSystem)
+      new LocalStorageHandler()
+    else
+      new HdfsStorageHandler(comet.fileSystem)
   }
 
   @transient

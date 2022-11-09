@@ -72,10 +72,14 @@ case class Schema(
   acl: List[AccessControlEntry] = Nil,
   rename: Option[String] = None
 ) {
-  def this() = {
-    this("", Pattern.compile("."), Nil, None, None, None)
-    throw new Exception("Should never be called. Here to satisfy Jackson only")
-  }
+  def this() = this(
+    "",
+    Pattern.compile("."),
+    Nil,
+    None,
+    None,
+    None
+  ) // Should never be called. Here for Jackson deserialization only
 
   def ddlMapping(datawarehouse: String, schemaHandler: SchemaHandler): List[DDLField] = {
     attributes.map { attribute =>
