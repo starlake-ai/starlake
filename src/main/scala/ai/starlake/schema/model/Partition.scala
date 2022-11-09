@@ -36,6 +36,8 @@ case class Partition(
   sampling: Option[Double],
   attributes: List[String] = Nil
 ) {
+  def this() = this(Some(0.0)) // Should never be called. Here for Jackson deserialization only
+
   def getAttributes(): List[String] = attributes
   def getSampling() = sampling.getOrElse(0.0)
 

@@ -32,7 +32,12 @@ import ai.starlake.job.sink.jdbc.{ConnectionLoadConfig, ConnectionLoadJob}
 import ai.starlake.job.sink.kafka.{KafkaJob, KafkaJobConfig}
 import ai.starlake.job.transform.AutoTask
 import ai.starlake.schema.generator.{Yml2DDLConfig, Yml2DDLJob}
-import ai.starlake.schema.handlers.{LaunchHandler, SchemaHandler, StorageHandler}
+import ai.starlake.schema.handlers.{
+  LaunchHandler,
+  LocalStorageHandler,
+  SchemaHandler,
+  StorageHandler
+}
 import ai.starlake.schema.model.Engine.{BQ, SPARK}
 import ai.starlake.schema.model.Mode.{FILE, STREAM}
 import ai.starlake.schema.model._
@@ -138,7 +143,7 @@ class IngestionWorkflow(
               if (domain.getAck().nonEmpty)
                 storageHandler.delete(path)
 
-              (existingArchiveFile, existingRawFile, storageHandler.fs.getScheme) match {
+              (existingArchiveFile, existingRawFile, storageHandler.getScheme()) match {
                 case (Some(zipPath), _, "file") =>
                   logger.info(s"Found compressed file $zipPath")
                   storageHandler.mkdirs(pathWithoutLastExt)
@@ -151,7 +156,7 @@ class IngestionWorkflow(
                   // we can virtually handle anything
                   def asBetterFile(path: Path): File = {
                     Try {
-                      File(path.toUri) // try once
+                      LocalStorageHandler.localFile(path) // try once
                     } match {
                       case Success(file) => file
                       // There is no FileSystem registered that can handle this URI
@@ -342,7 +347,7 @@ class IngestionWorkflow(
     logger.info(s"List files in $pendingArea")
     val files = Utils
       .loadInstance[LoadStrategy](settings.comet.loadStrategyClass)
-      .list(settings.storageHandler.fs, pendingArea, recursive = false)
+      .list(settings.storageHandler, pendingArea, recursive = false)
     if (files.nonEmpty)
       logger.info(s"Found ${files.mkString(",")}")
     else

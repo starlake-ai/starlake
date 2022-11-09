@@ -97,9 +97,10 @@ class PositionIngestionJobSpec extends TestHelper {
         cleanDatasets
         loadPending(new Codec(Charset forName "ISO-8859-1"))
         // Accepted should contain data formatted correctly
+        val path = cometDatasetsPath + s"/accepted/${datasetDomainName}/DATA"
         val acceptedDf = sparkSession.read
           .parquet(
-            cometDatasetsPath + s"/accepted/${datasetDomainName}/DATA"
+            path
           )
         acceptedDf.filter(acceptedDf("someData").contains("spécifié")).count() shouldBe 1
       }

@@ -131,6 +131,8 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
       case Success(_) => // do nothing
       case Failure(e) =>
         e.printStackTrace()
+        if (settings.comet.validateOnLoad)
+          throw new Exception("Validation failed!")
     }
 
   def checkViewsValidity(): Either[List[String], Boolean] = {
@@ -363,8 +365,10 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
               )
             }
             .flatMap(_.tables)
+          logger.info(s"Successfully loaded job  in $path")
           Success(domain.copy(tables = Option(domain.tables).getOrElse(Nil) ::: schemaRefs))
         case (path, Failure(e)) =>
+          logger.error(s"Failed to load domain in $path")
           Utils.logException(logger, e)
           Failure(e)
       }
@@ -546,17 +550,18 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
 
     val (validJobsFile, invalidJobsFile) =
       jobs
-        .map(loadJobFromFile)
+        .map { path =>
+          val result = loadJobFromFile(path)
+          result match {
+            case Success(_) =>
+              logger.info(s"Successfully loaded Job $path")
+            case Failure(e) =>
+              logger.error(s"Failed to load Job file $path")
+              e.printStackTrace()
+          }
+          result
+        }
         .partition(_.isSuccess)
-
-    invalidJobsFile.foreach {
-      case Failure(err) =>
-        err.printStackTrace()
-        logger.error(
-          s"There is one or more invalid Yaml files in your jobs folder:${err.getMessage}"
-        )
-      case Success(_) => // do nothing
-    }
 
     val validJobs = validJobsFile
       .collect { case Success(job) => job }

@@ -77,6 +77,8 @@ import scala.util.{Failure, Success, Try}
   rename: Option[String] = None
 ) {
 
+  def this() = this("") // Should never be called. Here for Jackson deserialization only
+
   /** @return
     *   renamed column if defined, source name otherwise
     */

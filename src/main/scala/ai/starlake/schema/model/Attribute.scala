@@ -82,10 +82,7 @@ case class Attribute(
   accessPolicy: Option[String] = None
 ) extends LazyLogging {
 
-  def this() = {
-    this("")
-    throw new Exception("Should never be called. Here to satisfy Jackson only")
-  }
+  def this() = this("") // Should never be called. Here for Jackson deserialization only
 
   /** Bring properties from another attribue. Used in XSD handling Exclude some properties: name,
     * type, required, array, attributes, position, script

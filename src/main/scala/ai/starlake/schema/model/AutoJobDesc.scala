@@ -64,10 +64,13 @@ case class AutoTaskDesc(
   acl: List[AccessControlEntry] = Nil
 ) {
 
-  def this() = {
-    this(None, None, "", "", WriteMode.OVERWRITE)
-    throw new Exception("Should never be called. Here to satisfy Jackson only")
-  }
+  def this() = this(
+    None,
+    None,
+    "",
+    "",
+    WriteMode.OVERWRITE
+  ) // Should never be called. Here for Jackson deserialization only
 
   def getSql(): String = sql.getOrElse("")
 
