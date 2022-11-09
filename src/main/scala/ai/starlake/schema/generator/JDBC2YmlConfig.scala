@@ -57,10 +57,7 @@ case class JDBCSchema(
   ),
   template: Option[String] = None
 ) {
-  def this() = {
-    this(None)
-    throw new Exception("Should never be called. Here to satisfy Jackson only")
-  }
+  def this() = this(None) // Should never be called. Here for Jackson deserialization only
 }
 
 /** @param name
@@ -69,10 +66,7 @@ case class JDBCSchema(
   *   : List of columns (case insensitive). Nil if all columns should be extracted
   */
 case class JDBCTable(name: String, columns: List[String]) {
-  def this() = {
-    this("", Nil)
-    throw new Exception("Should never be called. Here to satisfy Jackson only")
-  }
+  def this() = this("", Nil) // Should never be called. Here for Jackson deserialization only
 }
 
 case class JDBC2YmlConfig(

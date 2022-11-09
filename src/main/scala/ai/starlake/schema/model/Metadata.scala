@@ -97,6 +97,7 @@ case class Metadata(
   validator: Option[String] = None,
   schedule: Option[Map[String, String]] = None
 ) {
+  def this() = this(None) // Should never be called. Here for Jackson deserialization only
 
   override def toString: String =
     s"""

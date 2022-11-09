@@ -217,7 +217,7 @@ trait TestHelper
       val content = loadTextFile(importPath)
       val testContent = applyTestFileSubstitutions(content)
 
-      storageHandler.write(testContent, targetPath)
+      storageHandler.write(testContent, targetPath)(codec.charSet)
 
       logger.whenTraceEnabled {
         if (content != testContent) {

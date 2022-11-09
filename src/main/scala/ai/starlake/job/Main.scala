@@ -160,9 +160,6 @@ class Main() extends StrictLogging {
 
     // handle existing project commands
     schemaHandler.fullValidation()
-    if (settings.comet.validateOnLoad)
-      throw new Exception("Validation failed!")
-
     DatasetArea.initDomains(storageHandler, schemaHandler.domains().map(_.name))
     val workflow =
       new IngestionWorkflow(storageHandler, schemaHandler, launcherService)

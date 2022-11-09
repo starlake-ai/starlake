@@ -16,10 +16,7 @@ case class RowLevelSecurity(
   description: String = ""
 ) {
 
-  def this() = {
-    this("")
-    throw new Exception("Should never be called. Here to satisfy Jackson only")
-  }
+  def this() = this("") // Should never be called. Here for Jackson deserialization only
 
   def grantees(): Set[(UserType, String)] = {
     grants.map { user =>
