@@ -20,12 +20,12 @@ class LoadStrategySpec extends TestHelper {
 
       val files: List[Path] = Utils
         .loadInstance[LoadStrategy]("ai.starlake.job.load.IngestionTimeStrategy")
-        .list(storageHandler.fs, new Path(cometDatasetsPath), recursive = false)
+        .list(storageHandler, new Path(cometDatasetsPath), recursive = false)
 
       val expected: List[Path] = List(
-        new Path(s"file:$cometDatasetsPath/my_dataset_20210102120000.csv"),
-        new Path(s"file:$cometDatasetsPath/my_dataset_20210101120000.csv"),
-        new Path(s"file:$cometDatasetsPath/my_dataset_20210103120000.csv")
+        new Path(s"$cometDatasetsPath/my_dataset_20210102120000.csv"),
+        new Path(s"$cometDatasetsPath/my_dataset_20210101120000.csv"),
+        new Path(s"$cometDatasetsPath/my_dataset_20210103120000.csv")
       )
       files shouldEqual expected
     }
@@ -37,12 +37,12 @@ class LoadStrategySpec extends TestHelper {
 
       val files: List[Path] = Utils
         .loadInstance[LoadStrategy]("ai.starlake.job.load.IngestionNameStrategy")
-        .list(storageHandler.fs, new Path(cometDatasetsPath), recursive = false)
+        .list(storageHandler, new Path(cometDatasetsPath), recursive = false)
 
       val expected: List[Path] = List(
-        new Path(s"file:$cometDatasetsPath/my_dataset_20210101120000.csv"),
-        new Path(s"file:$cometDatasetsPath/my_dataset_20210102120000.csv"),
-        new Path(s"file:$cometDatasetsPath/my_dataset_20210103120000.csv")
+        new Path(s"$cometDatasetsPath/my_dataset_20210101120000.csv"),
+        new Path(s"$cometDatasetsPath/my_dataset_20210102120000.csv"),
+        new Path(s"$cometDatasetsPath/my_dataset_20210103120000.csv")
       )
       files shouldEqual expected
     }
