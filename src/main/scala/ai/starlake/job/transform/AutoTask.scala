@@ -295,6 +295,11 @@ case class AutoTask(
 
   private def parseJinja(sql: String): String = parseJinja(List(sql)).head
 
+  /** All variables defined in the active profile are passed as string parameters to the Jinja
+    * parser.
+    * @param sqls
+    * @return
+    */
   private def parseJinja(sqls: List[String]): List[String] =
     parseJinja(sqls, schemaHandler.activeEnv() ++ sqlParameters)
       .map(_.richFormat(schemaHandler.activeEnv(), sqlParameters))
