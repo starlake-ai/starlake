@@ -292,13 +292,16 @@ class KafkaJob(
             .map(_.topicName)
             .getOrElse(throw new Exception("Cannot register de/serializers if topic not defined"))
         )
-      val userDefinedDeserializer =
-        CustomDeserializer.configure(customDeserializerFunction, settings.comet.kafka.serverOptions)
+      CustomDeserializer.configure(
+        customDeserializerName,
+        customDeserializerFunction,
+        settings.comet.kafka.serverOptions
+      )
 
       session.udf.register(
         customDeserializerName,
         (bytes: Array[Byte]) =>
-          CustomDeserializer.deserialize(userDefinedDeserializer, topicName, bytes)
+          CustomDeserializer.deserialize(customDeserializerName, topicName, bytes)
       )
     }
     pipeline()
@@ -307,20 +310,26 @@ class KafkaJob(
 }
 
 object CustomDeserializer {
-  def configure(customDeserializerName: String, configs: Map[String, _]): Deserializer[Any] = {
+  val deserializers: scala.collection.mutable.Map[String, Deserializer[Any]] =
+    scala.collection.mutable.Map.empty
+
+  def configure(
+    customDeserializerName: String,
+    customDeserializerFunction: String,
+    configs: Map[String, _]
+  ): Unit = {
     val userDefinedDeserializer = Class
-      .forName(customDeserializerName)
+      .forName(customDeserializerFunction)
       .getDeclaredConstructor()
       .newInstance()
       .asInstanceOf[Deserializer[Any]]
     userDefinedDeserializer.configure(configs.asJava, false)
-    userDefinedDeserializer
+    deserializers.put(customDeserializerName, userDefinedDeserializer)
   }
 
   def deserialize(
-    userDefinedDeserializer: Deserializer[Any],
+    userDefinedDeserializerName: String,
     topic: String,
     bytes: Array[Byte]
-  ): String =
-    userDefinedDeserializer.deserialize(topic, bytes).toString
+  ): String = deserializers(userDefinedDeserializerName).deserialize(topic, bytes).toString
 }

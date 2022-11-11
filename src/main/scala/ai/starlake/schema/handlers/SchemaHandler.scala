@@ -38,6 +38,7 @@ import java.time.{LocalDateTime, ZoneId}
 import java.util.regex.Pattern
 import scala.annotation.nowarn
 import scala.collection.mutable
+import scala.util.matching.Regex
 import scala.util.{Failure, Success, Try}
 
 /** Handles access to datasets metadata, eq. domains / types / schemas.
@@ -47,9 +48,10 @@ import scala.util.{Failure, Success, Try}
   */
 class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extends StrictLogging {
 
-  val forceViewPrefixRegex = settings.comet.forceViewPattern.r
-  val forceJobPrefixRegex = settings.comet.forceJobPattern.r
-  val forceTaskPrefixRegex = settings.comet.forceTablePattern.r
+  val forceViewPrefixRegex: Regex = settings.comet.forceViewPattern.r
+  val forceJobPrefixRegex: Regex = settings.comet.forceJobPattern.r
+  val forceTaskPrefixRegex: Regex = settings.comet.forceTablePattern.r
+
   // uses Jackson YAML for parsing, relies on SnakeYAML for low level handling
   @nowarn val mapper: ObjectMapper with ScalaObjectMapper =
     new CometObjectMapper(new YAMLFactory(), injectables = (classOf[Settings], settings) :: Nil)
@@ -81,7 +83,7 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     paths.flatMap(checkVarsAreDefined)
   }
 
-  private def checkJobsVars(): List[String] = {
+  def checkJobsVars(): List[String] = {
     val paths = storage.list(DatasetArea.jobs, ".yml", recursive = true)
     paths.flatMap { path =>
       val ymlWarnings = checkVarsAreDefined(path)
@@ -91,49 +93,44 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     }
   }
 
-  def fullValidation(config: ValidateConfig = ValidateConfig(reload = false)): Unit =
-    Try {
-      val validityErrorsAndWarnings = checkValidity(config.reload)
-      val deserErrors = deserializedDomains
-        .filter { case (path, res) =>
-          res.isFailure
-        } map { case (path, err) =>
-        s"${path.toString} could not be deserialized"
-      }
-
-      val allErrorsAndWarnings =
-        validityErrorsAndWarnings ++ deserErrors ++ this._domainErrors ++ this._jobErrors
-      val (warnings, errors) = allErrorsAndWarnings.partition(_.startsWith("Warning: "))
-      val errorCount = errors.length
-      val warningCount = warnings.length
-
-      val output =
-        settings.comet.rootServe.map(rootServe => File(File(rootServe), "validation.log"))
-      output.foreach(_.overwrite(""))
-
-      if (errorCount + warningCount > 0) {
-        output.foreach(
-          _.appendLine(
-            s"START VALIDATION RESULTS: $errorCount errors and $warningCount found"
-          )
-        )
-        logger.error(s"START VALIDATION RESULTS: $errorCount errors  and $warningCount found")
-        allErrorsAndWarnings.foreach { err =>
-          logger.error(err)
-          output.foreach(_.appendLine(err))
-        }
-        logger.error(s"END VALIDATION RESULTS")
-        output.foreach(_.appendLine(s"END VALIDATION RESULTS"))
-        if (errorCount > 0)
-          throw new Exception(s"$errorCount errors and $warningCount warning found")
-      }
-    } match {
-      case Success(_) => // do nothing
-      case Failure(e) =>
-        e.printStackTrace()
-        if (settings.comet.validateOnLoad)
-          throw new Exception("Validation failed!")
+  def fullValidation(config: ValidateConfig = ValidateConfig(reload = false)): Unit = {
+    val validityErrorsAndWarnings = checkValidity(config.reload)
+    val deserErrors = deserializedDomains
+      .filter { case (path, res) =>
+        res.isFailure
+      } map { case (path, err) =>
+      s"${path.toString} could not be deserialized"
     }
+
+    val allErrorsAndWarnings =
+      validityErrorsAndWarnings ++ deserErrors ++ this._domainErrors ++ this._jobErrors
+    val (warnings, errors) = allErrorsAndWarnings.partition(_.startsWith("Warning: "))
+    val errorCount = errors.length
+    val warningCount = warnings.length
+
+    val output =
+      settings.comet.rootServe.map(rootServe => File(File(rootServe), "validation.log"))
+    output.foreach(_.overwrite(""))
+
+    if (errorCount + warningCount > 0) {
+      output.foreach(
+        _.appendLine(
+          s"START VALIDATION RESULTS: $errorCount errors and $warningCount found"
+        )
+      )
+      logger.error(s"START VALIDATION RESULTS: $errorCount errors  and $warningCount found")
+      allErrorsAndWarnings.foreach { err =>
+        logger.error(err)
+        output.foreach(_.appendLine(err))
+      }
+      logger.error(s"END VALIDATION RESULTS")
+      output.foreach(_.appendLine(s"END VALIDATION RESULTS"))
+      if (settings.comet.validateOnLoad)
+        throw new Exception(
+          s"Validation Failed: $errorCount errors and $warningCount warning found"
+        )
+    }
+  }
 
   def checkViewsValidity(): Either[List[String], Boolean] = {
     val errorList: mutable.MutableList[String] = mutable.MutableList.empty
@@ -144,7 +141,6 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
 
     val duplicates = sqlFiles.groupBy(_.getName).filter { case (name, paths) => paths.length > 1 }
     // Check Domain name validity
-    val forceViewPrefixRegex = settings.comet.forceViewPattern.r
     sqlFiles.foreach { sqlFile =>
       val name = viewName(sqlFile)
       if (!forceViewPrefixRegex.pattern.matcher(name).matches()) {
@@ -293,15 +289,24 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
           .getOrElse(Map.empty)
       else
         Map.empty
+    // We first load all variables defined in the common environment file.
+    // variables defined here are default values.
     val globalsCometPath = new Path(DatasetArea.metadata, s"env.comet.yml")
+    // The env var COMET_ENV should be set to the profile under wich starlake is run.
+    // If no profile is defined, only default values are used.
     val envsCometPath = new Path(DatasetArea.metadata, s"env.${settings.comet.env}.comet.yml")
+    // System Env variables may be used as valuesY
     val globalEnv = {
       loadEnv(globalsCometPath).mapValues(
         _.richFormat(sys.env, cometDateVars)
       ) // will replace with sys.env
     }
+    // We subsittute values defined in the current profile with variables defined
+    // in the default env file
     val localEnv =
       loadEnv(envsCometPath).mapValues(_.richFormat(sys.env, globalEnv ++ cometDateVars))
+
+    // Please note below how profile specific vars override default profile vars.
     this._activeEnv = cometDateVars ++ globalEnv ++ localEnv
     this._activeEnv
   }
@@ -575,7 +580,6 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
         errors
     }
 
-    val forceJobPrefixRegex = settings.comet.forceJobPattern.r
     val namePatternErrors = validJobs.map(_.name).flatMap { name =>
       if (!forceJobPrefixRegex.pattern.matcher(name).matches())
         Some(s"View with name $name should respect the pattern ${forceJobPrefixRegex.regex}")
@@ -583,7 +587,6 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
         None
     }
 
-    val forceTaskPrefixRegex = settings.comet.forceTaskPattern.r
     val taskNamePatternErrors =
       validJobs.flatMap(_.tasks.map(_.name)).flatten.flatMap { name =>
         if (!forceTaskPrefixRegex.pattern.matcher(name).matches())
