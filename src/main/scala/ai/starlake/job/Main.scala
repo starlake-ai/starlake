@@ -51,7 +51,7 @@ object Main extends StrictLogging {
     *   - call "starlake ingest domain schema hdfs://datasets/domain/pending/file.dsv" to ingest a
     *     file defined by its schema in the specified domain
     * -call "starlake infer-schema --domain domainName --schema schemaName --input datasetpath
-    * --output outputPath --with-header boolean
+    * --output outputPath --with-header
     *   - call "starlake metrics --domain domain-name --schema schema-name " to compute all metrics
     *     on specific schema in a specific domain
     */

@@ -588,7 +588,7 @@ class IngestionWorkflow(
       config.schemaName,
       config.inputPath,
       config.outputDir,
-      config.header
+      config.withHeader
     ).run()
     Utils.logFailure(result, logger)
   }
