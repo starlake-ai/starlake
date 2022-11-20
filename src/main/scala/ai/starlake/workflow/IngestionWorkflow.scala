@@ -706,7 +706,7 @@ class IngestionWorkflow(
                       case bqSink: BigQuerySink =>
                         val source = maybeDataFrame
                           .map(df => Right(setNullableStateOfColumn(df, nullable = true)))
-                          .getOrElse(Left(action.taskDesc.getTargetPath(job.getArea()).toString))
+                          .getOrElse(Left(action.taskDesc.getTargetPath().toString))
                         val (createDisposition, writeDisposition) = {
                           Utils.getDBDisposition(action.taskDesc.write, hasMergeKeyDefined = false)
                         }
@@ -734,7 +734,7 @@ class IngestionWorkflow(
                         val jdbcName = jdbcSink.connection
                         val source = maybeDataFrame
                           .map(df => Right(df))
-                          .getOrElse(Left(action.taskDesc.getTargetPath(job.getArea()).toString))
+                          .getOrElse(Left(action.taskDesc.getTargetPath().toString))
                         val (createDisposition, writeDisposition) = {
                           Utils.getDBDisposition(action.taskDesc.write, hasMergeKeyDefined = false)
                         }
@@ -784,9 +784,8 @@ class IngestionWorkflow(
   }
 
   private def saveToES(action: AutoTask): Boolean = {
-    val targetArea = action.taskDesc.area.getOrElse(action.defaultArea)
     val targetPath =
-      new Path(DatasetArea.path(action.taskDesc.domain, targetArea.value), action.taskDesc.table)
+      new Path(DatasetArea.path(action.taskDesc.domain), action.taskDesc.table)
     val sink: EsSink = action.taskDesc.sink
       .map(_.asInstanceOf[EsSink])
       .getOrElse(

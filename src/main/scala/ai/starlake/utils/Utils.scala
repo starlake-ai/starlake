@@ -20,14 +20,18 @@
 
 package ai.starlake.utils
 
+import ai.starlake.config.Settings
 import ai.starlake.schema.model.{Attribute, WriteMode}
+import com.hubspot.jinjava.Jinjava
 import com.typesafe.scalalogging.Logger
+import ai.starlake.utils.Formatter._
 
 import java.io.{PrintWriter, StringWriter}
 import scala.collection.mutable
 import scala.reflect.runtime.universe
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try}
+import scala.collection.JavaConverters._
 
 object Utils {
   type Closeable = { def close(): Unit }
@@ -228,5 +232,36 @@ object Utils {
       else
         (labelValue(0), labelValue(1))
     }.toMap
+
+  def jinjava(implicit settings: Settings) = {
+    if (_jinjava == null) {
+      val res = new Jinjava()
+      res.setResourceLocator(new JinjaResourceHandler())
+      _jinjava = res
+    }
+    _jinjava
+  }
+
+  private var _jinjava: Jinjava = null
+
+  def parseJinja(str: String, params: Map[String, String])(implicit settings: Settings): String =
+    parseJinja(
+      List(str),
+      params
+    ).head
+
+  def parseJinja(str: List[String], params: Map[String, String])(implicit
+    settings: Settings
+  ): List[String] = {
+    val result = str.map { sql =>
+      CommentParser.stripComments(
+        jinjava
+          .render(sql, params.asJava)
+          .richFormat(params, Map.empty)
+          .trim
+      )
+    }
+    result
+  }
 
 }
