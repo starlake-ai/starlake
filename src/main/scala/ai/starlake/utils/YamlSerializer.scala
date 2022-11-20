@@ -68,7 +68,8 @@ object YamlSerializer extends LazyLogging {
     Try {
       val rootNode = mapper.readTree(content).asInstanceOf[ObjectNode]
       YamlSerializer.renameField(rootNode, "schemas", "tables")
-      mapper.treeToValue(rootNode, classOf[Schemas])
+      val result = mapper.treeToValue(rootNode, classOf[Schemas])
+      result
 
     } match {
       case Success(value) => value

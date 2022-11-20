@@ -13,7 +13,7 @@ case class Parquet2CSVConfig(
   schemaName: Option[String] = None,
   writeMode: Option[WriteMode] = None,
   deleteSource: Boolean = false,
-  options: List[(String, String)] = Nil,
+  options: Map[String, String] = Map.empty,
   partitions: Int = 1
 )
 
@@ -70,13 +70,9 @@ object Parquet2CSVConfig extends CliConfig[Parquet2CSVConfig] {
         .action((x, c) => c.copy(writeMode = Some(WriteMode.fromString(x))))
         .text(s"One of ${WriteMode.writes}")
         .optional(),
-      opt[String]("option")
-        .unbounded()
-        .valueName("spark-option=value")
-        .action((x, c) => {
-          val option = x.split('=')
-          c.copy(options = c.options :+ (option(0) -> option(1)))
-        })
+      opt[Map[String, String]]("options")
+        .valueName("k1=v1,k2=v2...")
+        .action((x, c) => c.copy(options = x))
         .text("Any Spark option to use (sep, delimiter, quote, quoteAll, escape, header ...)")
         .optional(),
       opt[String]("partitions")
