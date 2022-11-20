@@ -640,7 +640,7 @@ trait IngestionJob extends SparkJob {
   ): DataFrame = {
     val resultDataFrame = if (dataset.columns.length > 0) {
       val saveMode = writeMode.toSaveMode
-      val hiveDB = StorageArea.area(domain.getFinalName(), area)
+      val hiveDB = StorageArea.area(domain.getFinalName(), Some(area))
       val tableName = schema.name
       val fullTableName = s"$hiveDB.$tableName"
       if (settings.comet.hive) {

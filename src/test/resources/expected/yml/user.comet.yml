@@ -3,8 +3,7 @@ transform:
   views:
     user_View: "accepted/user"
   tasks:
-    - domain: "user"
-      area: "business"
+    - domain: "business/user"
       table: "user"
       write: "OVERWRITE"
       sql: |
