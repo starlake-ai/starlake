@@ -4,7 +4,6 @@ transform:
   tasks:
     - sql: ""
       name: "mytask"
-      area: "business"
       domain: "dream2"
       dataset: "client2"
       write: "OVERWRITE"

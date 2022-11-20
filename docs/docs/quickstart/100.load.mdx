@@ -1,6 +1,6 @@
 ---
 sidebar_position: 100
-title: Load Data
+title: Load
 ---
 
 import Tabs from '@theme/Tabs';
@@ -24,10 +24,22 @@ and are required to be loaded incrementally.
 
 ``File customers-2018-05-10.psv from "sales" department``
 
-|id|signup|contact|name1|name2|
-|---|---|---|---|---|---|
-|A009701|2010-01-31 23:04:15|me@home.com|Donald|Obama|
-|B308629|2016-12-01 09:56:02|you@land.com|1980-10-14|Barack|Trump|
+|id|signup|contact|birthdate|firstname|lastname|country|
+|---|---|---|---|---|---|---|
+|A009701|2010-01-31 23:04:15|k@m.com|1980-04-15|Kylian|Mbappé|France|
+|B000001|2016-12-01 09:56:02|n@b.com|1980-04-15|Napoleon|Bonaparte|France|
+|B000001|2016-12-02 09:56:02|m@c.com|1980-04-15|Marie|Curie|France|
+|B000002|2016-12-02 09:56:02|z@z.com|1980-04-15|Zinedine|Zidane|France|
+|B000003|2016-12-03 09:56:02|e@g.com|1980-04-15|Eva|Green|France|
+|B000012|2016-12-03 09:56:02|k@b.com|1980-04-15|Karim|Benzema|France|
+|B000004|2016-12-04 09:56:02|m@c.com|1980-04-15|Marion|Cotillard|France|
+|B000005|2016-12-05 09:56:02|a@g.com|1980-04-15|Ariana|Grande|USA|
+|B000006|2016-12-06 09:56:02|m@j.com|1980-04-15|Michael|Jordan|USA|
+|B000007|2016-12-07 09:56:02|m@a.com|1980-04-15|Muhammad|Ali|USA|
+|B000008|2016-12-08 09:56:02|t@s.com|1980-04-15|Taylor|Swift|USA|
+|B000009|2016-12-09 09:56:02|e@p.com|1980-04-15|Elvis|Presley|USA|
+|B000010|2016-12-10 09:56:02|s@j.com|1980-04-15|Steve|Jobs|USA|
+|B000011|2016-12-11 09:56:02|a@l.com|1980-04-15|Abraham|Lincoln|USA|
 
 
 ## Infer the schema
@@ -87,7 +99,6 @@ This file may be found in the `sales.comet.yml` file under the `metadata/domains
 The contents of the file looks like this:
 
 ```yaml
-
 ---
 load:
   name: "sales"         # The domain name
@@ -115,6 +126,20 @@ load:
       ignore: false     # Should this field be excluded (false by default) ?
     - name: "signup"    # second attribute
       type: "timestamp" # recognized type by analyzing input.
+    - name: "contact"
+      type: "string"
+      ...
+    - name: "birthdate"
+      type: "date"      # recognized as semantic type date.
+      ...
+    - name: "firstname"
+      type: "string"
+      ...
+    - name: "lastname"
+      type: "string"
+      ...
+    - name: "country"
+      type: "string"
       ...               # and so on ...
 
 ```
@@ -169,12 +194,13 @@ The file has now been moved to the `myproject/datasets/pending/sales` directory.
 :::note
 
 This step is optional and does not need to be run if your files directly arrive in the `datasets/pending/sales` folder.
+Also note that all these source directories may be [redefined](../reference/configuration).
 
 :::
 
 ### Load step
 
-In this second step, each line in the file present in the `datasets/pending` folder is checked against the schema described in the YAML file.
+In this second step, each line in the file present in the `datasets/pending` folder is checked against the schema described in the YAML file
 and its result is stored in the warehouse. To load the file, simply run the watch command below:
 
 <Tabs groupId="platforms">
@@ -209,6 +235,8 @@ This will load the dataset and store it as a parquet file into the folders:
 - `datasets/rejected` for invalid records
 - `datasets/unresolved` for unrecognized files
 
-Through minimum configuration, you will be able to run Starlake on top of any warehouse and have these datasets available as tables.
+:::note
 
+Through minimum extra configuration, we are able to run Starlake on top of any warehouse and have these datasets available as tables.
 
+:::

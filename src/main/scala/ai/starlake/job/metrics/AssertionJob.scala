@@ -83,7 +83,8 @@ class AssertionJob(
           // Apply substitution defined with {{ }} and overload options in env by option in command line
           Utils
             .subst(
-              parseJinja(ad.sql, schemaHandler.activeEnv() ++ paramsMap)
+              Utils
+                .parseJinja(ad.sql, schemaHandler.activeEnv() ++ paramsMap)
                 .richFormat(schemaHandler.activeEnv(), paramsMap),
               paramsMap
             )

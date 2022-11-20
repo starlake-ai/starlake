@@ -20,14 +20,14 @@
 
 package ai.starlake.schema.handlers
 
-import ai.starlake.config.{DatasetArea, Settings, StorageArea}
+import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.schema.model._
 import ai.starlake.utils.Formatter._
 import ai.starlake.utils.{CometObjectMapper, Utils, YamlSerializer}
 import better.files.File
 import com.databricks.spark.xml.util.XSDToSchema
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.databind.node.{ArrayNode, ObjectNode}
+import com.fasterxml.jackson.databind.node.{ArrayNode, ObjectNode, TextNode}
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.scala.ScalaObjectMapper
 import com.typesafe.scalalogging.StrictLogging
@@ -46,7 +46,9 @@ import scala.util.{Failure, Success, Try}
   * @param storage
   *   : Underlying filesystem manager
   */
-class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extends StrictLogging {
+class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.empty)(implicit
+  settings: Settings
+) extends StrictLogging {
 
   val forceViewPrefixRegex: Regex = settings.comet.forceViewPattern.r
   val forceJobPrefixRegex: Regex = settings.comet.forceJobPattern.r
@@ -193,7 +195,10 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     val assertionsPath = new Path(DatasetArea.assertions, filename)
     logger.info(s"Loading assertions $assertionsPath")
     if (storage.exists(assertionsPath)) {
-      val content = storage.read(assertionsPath).richFormat(activeEnv(), Map.empty)
+
+      val content = Utils
+        .parseJinja(storage.read(assertionsPath), activeEnv())
+        .richFormat(activeEnv(), Map.empty)
       logger.info(s"reading content $content")
       mapper
         .readValue(content, classOf[AssertionDefinitions])
@@ -307,7 +312,7 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
       loadEnv(envsCometPath).mapValues(_.richFormat(sys.env, globalEnv ++ cometDateVars))
 
     // Please note below how profile specific vars override default profile vars.
-    this._activeEnv = cometDateVars ++ globalEnv ++ localEnv
+    this._activeEnv = cometDateVars ++ globalEnv ++ localEnv ++ cliEnv
     this._activeEnv
   }
 
@@ -331,7 +336,7 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     val domains = paths
       .map { path =>
         YamlSerializer.deserializeDomain(
-          storage.read(path).richFormat(activeEnv(), Map.empty),
+          Utils.parseJinja(storage.read(path), activeEnv()).richFormat(activeEnv(), Map.empty),
           path.toString
         )
       }
@@ -365,7 +370,9 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
                 if (ref.endsWith(".yml") || ref.endsWith(".yaml")) ref else ref + ".comet.yml"
               val schemaPath = new Path(folder, refFullName)
               YamlSerializer.deserializeSchemas(
-                storage.read(schemaPath).richFormat(activeEnv(), Map.empty),
+                Utils
+                  .parseJinja(storage.read(schemaPath), activeEnv())
+                  .richFormat(activeEnv(), Map.empty),
                 schemaPath.toString
               )
             }
@@ -437,7 +444,14 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
 
   def loadJobFromFile(path: Path): Try[AutoJobDesc] =
     Try {
-      val rootContent = storage.read(path).richFormat(activeEnv(), Map.empty)
+      val fileContent = storage.read(path)
+      // we check if sql is embedded. If it is the case then we cannot use jinja in this file
+      val rootContent =
+        if (fileContent.contains("sql:"))
+          fileContent.richFormat(activeEnv(), Map.empty)
+        else
+          Utils.parseJinja(fileContent, activeEnv()).richFormat(activeEnv(), Map.empty)
+
       val rootNode = mapper.readTree(rootContent)
       val tranformNode = rootNode.path("transform")
       val autojobNode =
@@ -452,6 +466,21 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
       for (i <- 0 until tasksNode.size()) {
         val taskNode = tasksNode.get(i).asInstanceOf[ObjectNode]
         YamlSerializer.renameField(taskNode, "dataset", "table")
+        taskNode.path("sink") match {
+          case node if node.isMissingNode => // do nothing
+          case sinkNode =>
+            sinkNode.path("type") match {
+              case node if node.isMissingNode => // do thing
+              case node =>
+                val textNode = node.asInstanceOf[TextNode]
+                val sinkType = textNode.textValue().replaceAll("\"", "").toUpperCase()
+                val parent = sinkNode.asInstanceOf[ObjectNode]
+                if (sinkType == "DATABRICKS" || sinkType == "HIVE")
+                  parent.replace("type", new TextNode("FS"))
+                else if (sinkType == "BIGQUERY")
+                  parent.replace("type", new TextNode("BQ"))
+            }
+        }
       }
 
       // Now load any sql file related to this JOB
@@ -465,11 +494,8 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
           .map { taskFile =>
             val sqlTask = SqlTaskExtractor(storage.read(taskFile))
             taskDesc.copy(
-              domain = Option(taskDesc.domain).getOrElse("").richFormat(activeEnv(), Map.empty),
-              table = taskDesc.table.richFormat(activeEnv(), Map.empty),
-              area = taskDesc.area.map(area =>
-                StorageArea.fromString(area.value.richFormat(activeEnv(), Map.empty))
-              ),
+              domain = Option(taskDesc.domain).getOrElse(""),
+              table = taskDesc.table,
               presql = sqlTask.presql,
               sql = Option(sqlTask.sql),
               postsql = sqlTask.postsql
@@ -597,7 +623,7 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
 
     this._jobs = validJobs.map(job => job.name -> job).toMap
     this._jobErrors = filenameErrors ++ nameErrors ++ namePatternErrors ++ taskNamePatternErrors
-    (this._jobErrors, this._jobs)
+    (_jobErrors, _jobs)
   }
 
   /** Find domain by name
