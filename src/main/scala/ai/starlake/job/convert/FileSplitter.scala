@@ -9,7 +9,7 @@ import scala.util.{Success, Try}
 class FileSplitter(config: FileSplitterConfig, val storageHandler: StorageHandler)(implicit
   val settings: Settings
 ) extends SparkJob {
-  override def name: JdbcConfigName = "file-splitter"
+  override def name: String = "file-splitter"
 
   override def run(): Try[JobResult] = {
     config match {
