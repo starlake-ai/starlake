@@ -7,7 +7,6 @@
 }#
 ${job.name}
 ${task.sql}
-${task.area}
 ${task.domain}
 ${task.partition.mkString(",")}
 

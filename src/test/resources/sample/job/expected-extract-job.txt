@@ -1,6 +1,5 @@
 my-job
 select * from dream_working.client
-business
 dream2
 year,month
 
