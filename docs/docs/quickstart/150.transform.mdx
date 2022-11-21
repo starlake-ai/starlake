@@ -1,0 +1,186 @@
+---
+sidebar_position: 150
+title: Transform
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+Now that our file is successfully loaded and available as a table, we usually need to crate KPIs or specialized tables.
+To illustrate how transform may be defined on tables, we will create two tables, one containing customers living in France
+and another one containing customers living in the USA.
+
+
+## Templated Job
+Starlake Transforms support Jinja2 templating inside SQL requests.
+
+We create a file `metadata/jobs/bycountry.sql` with the following content
+
+```SQL
+select * from customers where lower(country) like lower('{{ p_country }}')
+```
+
+The french customers will be stored in the table `cust_france` and the american customers in the table `cust_usa`.
+We need to create a YAML file that will instruct where the result of the SQL request will be stored.
+
+```yaml
+transform:
+  name: bycountry
+  views:
+    # The parquet file will be referenced as customers in the SQL request
+    customers: "FS:{{root_path}}/datasets/accepted/sales/customers"
+  tasks:
+    - domain: business
+      table: cust_{{ p_country }}
+      write: OVERWRITE
+      sink:
+        type: FS
+
+```
+
+We need to execute the job twice, once to create the french customers tabel and once to create the american customers.
+The result will be stored on the filesystem (sink.type: FS) in the datasets/business/bycountry_usa and datasets/business/bycountry_usa
+folders as parquet files.
+
+<Tabs groupId="customers">
+<TabItem value="france" label="French customers table">
+
+```sh
+$ cd $HOME/myproject
+$ $HOME/starlake/starlake.sh transform --name bycountry --options p_country=France
+```
+
+</TabItem>
+<TabItem value="usa" label="American customers table">
+
+```sh
+$ cd $HOME/myproject
+$ $HOME/starlake/starlake.sh transform --name bycountry --options p_country=USA
+```
+
+</TabItem>
+</Tabs>
+
+
+## Targeting another datawarehouse
+
+
+<Tabs groupId="warehouses">
+<TabItem value="bq" label="BigQuery">
+
+```yaml
+transform:
+  name: bycountry
+  engine: BigQuery            # We use BigQuery to execute the SQL request. We could have used SPARK.
+  tasks:
+    - domain: business
+      table: cust_{{ p_country }}
+      write: OVERWRITE
+      sink:
+        type: BigQuery        # We store the end result in BigQuery.
+```
+</TabItem>
+<TabItem value="databricks" label="Databricks">
+
+```yaml
+transform:
+  name: bycountry_{{ p_country }}
+  engine: Spark
+  tasks:
+    - domain: business
+      table: cust_{{ p_country }}
+      write: OVERWRITE
+      sink:
+        type: DATABRICKS
+```
+
+</TabItem>
+<TabItem value="hive" label="Hive">
+
+```yaml
+transform:
+  name: bycountry_{{ p_country }}
+  engine: Spark
+  tasks:
+    - domain: business
+      table: cust_{{ p_country }}
+      write: OVERWRITE
+      sink:
+        type: Hive
+```
+
+</TabItem>
+<TabItem value="redshift" label="Redshift">
+
+Amazon Redshift uses a JDBC URL and a specific format. We need to define our redshift connection in the metadata/application.conf file as follows:
+
+```json
+connections {
+  Redshift {
+    format = "com.databricks.spark.redshift"
+    options = {
+      url: "jdbc:redshift://redshifthost:5439/database",
+      user: "username",
+      password: "pass",
+      tempdir: "s3n://path/for/temp/data",
+      aws_iam_role: "arn:aws:iam::123456789000:role/redshift_iam_role"
+    }
+  }
+}
+```
+
+```yaml
+transform:
+  name: bycountry_{{ p_country }}
+  engine: Redshift
+  tasks:
+    - domain: business
+      table: cust_{{ p_country }}
+      write: OVERWRITE
+      sink:
+        type: Redshift
+```
+
+</TabItem>
+<TabItem value="snowflake" label="Snowflake">
+
+Snowflake uses a JDBC URL and a specific format. We need to define our snowflake connection in the metadata/application.conf file as follows:
+
+```json
+
+connections {
+  Snowflake {
+    format = "net.snowflake.spark.snowflake"
+    options = {
+      url: "jdbc:snowflake://myorganization-myaccount.snowflakecomputing.com/",
+      user: "username",
+      password: "pass",
+      account: "myorganization-myaccount",
+      warehouse: "mywh",
+      autopushdown: "off" # to pushdown set to 'on'
+      db: "mydb",
+      schema: "public"
+    }
+  }
+}
+
+```
+
+```yaml
+transform:
+  name: bycountry
+  engine: Snowflake
+  tasks:
+    - domain: business
+      table: cust_{{ p_country }}
+      write: OVERWRITE
+      sink:
+        type: Snowflake
+```
+
+</TabItem>
+
+</Tabs>
+
+
+
