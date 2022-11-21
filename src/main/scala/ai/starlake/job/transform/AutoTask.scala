@@ -399,7 +399,13 @@ case class AutoTask(
           case Engine.JDBC =>
             logger.warn("JDBC Engine not supported on job task. Running query using Spark Engine")
             session.sql(sqlWithParameters)
-          case _ => throw new Exception("should never happen")
+          case custom =>
+            val connectionOptions = settings.comet.connections(custom.toString)
+            session.read
+              .format(connectionOptions.format)
+              .option("query", sqlWithParameters)
+              .options(connectionOptions.options)
+              .load()
         }
 
       if (settings.comet.hive || settings.comet.sinkToFile)
