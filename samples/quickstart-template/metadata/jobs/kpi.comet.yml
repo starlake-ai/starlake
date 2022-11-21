@@ -9,5 +9,4 @@ transform:
       domain: sales_kpi
       dataset: byseller_kpi
       write: OVERWRITE
-  area: business
 

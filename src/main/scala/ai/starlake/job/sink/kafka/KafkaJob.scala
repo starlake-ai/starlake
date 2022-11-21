@@ -30,9 +30,9 @@ class KafkaJob(
   private val writeTopicConfig: Option[Settings.KafkaTopicConfig] =
     kafkaJobConfig.writeTopicConfigName.map(settings.comet.kafka.topics)
 
-  private val finalWritePath: Option[JdbcConfigName] = formatPath(kafkaJobConfig.writePath)
+  private val finalWritePath: Option[String] = formatPath(kafkaJobConfig.writePath)
 
-  private val finalLoadPath: Option[JdbcConfigName] = formatPath(kafkaJobConfig.path)
+  private val finalLoadPath: Option[String] = formatPath(kafkaJobConfig.path)
 
   private def formatPath(path: Option[String]): Option[String] = path
     .map(
@@ -45,7 +45,7 @@ class KafkaJob(
       )
     )
 
-  val schemaRegistryUrl: Option[JdbcConfigName] =
+  val schemaRegistryUrl: Option[String] =
     settings.comet.kafka.serverOptions.get("schema.registry.url")
 
   val schemaRegistryClient: Option[CachedSchemaRegistryClient] =
@@ -57,7 +57,7 @@ class KafkaJob(
       )
     )
 
-  def lookupTopicSchema(topic: String, isKey: Boolean = false): Option[JdbcConfigName] = {
+  def lookupTopicSchema(topic: String, isKey: Boolean = false): Option[String] = {
     schemaRegistryClient.map(
       _.getLatestSchemaMetadata(topic + (if (isKey) "-key" else "-value")).getSchema
     )
@@ -178,7 +178,7 @@ class KafkaJob(
       if (kafkaJobConfig.writeFormat == "kafka")
         writeTopicConfig.map(_.allAccessOptions()).getOrElse(Map.empty)
       else
-        Map.empty[JdbcConfigName, JdbcConfigName]
+        Map.empty[String, String]
 
     val dfWriter = finalDF.write
       .mode(kafkaJobConfig.writeMode)
