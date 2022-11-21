@@ -37,8 +37,6 @@ trait JobBase extends StrictLogging with DatasetLogging {
     */
   def run(): Try[JobResult]
 
-  type JdbcConfigName = String
-
   /** @param valueWithEnv
     *   in the form [SinkType:[configName:]]viewName
     * @return
