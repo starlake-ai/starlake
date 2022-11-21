@@ -50,10 +50,11 @@ class XlsReader(input: Input) extends XlsModel {
       val comment =
         Option(row.getCell(headerMap("_description"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
           .flatMap(formatter.formatCellValue)
-      val schemaRefsOpt =
+      val schemaRefs =
         Option(row.getCell(headerMap("_schema_refs"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
           .flatMap(formatter.formatCellValue)
           .map(_.split(",").toList)
+          .getOrElse(Nil)
       (nameOpt, directoryOpt) match {
         case (Some(name), Some(directory)) =>
           Some(
@@ -61,7 +62,7 @@ class XlsReader(input: Input) extends XlsModel {
               name,
               metadata = Some(Metadata(directory = Some(directory), ack = ack)),
               comment = comment,
-              tableRefs = schemaRefsOpt,
+              tableRefs = schemaRefs,
               rename = renameOpt
             )
           )
@@ -119,11 +120,12 @@ class XlsReader(input: Input) extends XlsModel {
         Option(row.getCell(headerMap("_sampling"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
           .flatMap(formatter.formatCellValue)
           .map(_.toDouble)
-      val partitionColumnsOpt =
+      val partitionColumns =
         Option(row.getCell(headerMap("_partitioning"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
           .flatMap(formatter.formatCellValue)
           .map(_.split(",") map (_.trim))
           .map(_.toList)
+          .getOrElse(Nil)
       val sinkColumnsOpt =
         Option(row.getCell(headerMap("_sink"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
           .flatMap(formatter.formatCellValue)
@@ -138,21 +140,21 @@ class XlsReader(input: Input) extends XlsModel {
       val presql =
         Option(
           row.getCell(headerMap("_presql"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
-        ).flatMap(formatter.formatCellValue).map(_.split("###").toList)
+        ).flatMap(formatter.formatCellValue).map(_.split("###").toList).getOrElse(Nil)
       val postsql =
         Option(
           row.getCell(headerMap("_postsql"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
-        ).flatMap(formatter.formatCellValue).map(_.split("###").toList)
+        ).flatMap(formatter.formatCellValue).map(_.split("###").toList).getOrElse(Nil)
 
       val primaryKeys =
         Option(
           row.getCell(headerMap("_primary_key"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
-        ).flatMap(formatter.formatCellValue).map(_.split(",").toList)
+        ).flatMap(formatter.formatCellValue).map(_.split(",").toList).getOrElse(Nil)
 
       val tags =
         Option(
           row.getCell(headerMap("_tags"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
-        ).flatMap(formatter.formatCellValue).map(_.split(",").toSet)
+        ).flatMap(formatter.formatCellValue).map(_.split(",").toSet).getOrElse(Set.empty)
 
       val longNameOpt =
         Option(row.getCell(headerMap("_long_name"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
@@ -179,21 +181,21 @@ class XlsReader(input: Input) extends XlsModel {
             separator,
             escape = escape,
             write = write,
-            partition = (partitionSamplingOpt, partitionColumnsOpt) match {
-              case (None, None) => None
+            partition = (partitionSamplingOpt, partitionColumns) match {
+              case (None, Nil) => None
               case _ =>
                 Some(
                   Partition(
                     sampling = partitionSamplingOpt,
-                    attributes = partitionColumnsOpt
+                    attributes = partitionColumns
                   )
                 )
             },
             sink = sinkColumnsOpt.map(Sink.fromType).map {
               case bqSink: BigQuerySink =>
-                val partitionBqSink = partitionColumnsOpt match {
-                  case Some(ts :: Nil) => bqSink.copy(timestamp = Some(ts))
-                  case _               => bqSink
+                val partitionBqSink = partitionColumns match {
+                  case ts :: Nil => bqSink.copy(timestamp = Some(ts))
+                  case _         => bqSink
                 }
                 val clusteredBqSink = clusteringOpt match {
                   case Some(cluster) =>
@@ -265,8 +267,8 @@ class XlsReader(input: Input) extends XlsModel {
             tags = tags,
             primaryKey = primaryKeys,
             rename = renameOpt,
-            acl = if (acl.isEmpty) None else Some(acl),
-            rls = if (rls.isEmpty) None else Some(rls)
+            acl = acl,
+            rls = rls
           )
           Some(schema, SchemaName(name))
         }
@@ -337,8 +339,8 @@ class XlsReader(input: Input) extends XlsModel {
       readAttribute(schema, headerMap, row)
     }.toList
     val withEndOfStruct = markEndOfStruct(attrs)
-    val topParent = Attribute("__dummy", "struct", attributes = Some(withEndOfStruct))
-    buildAttrsTree(topParent, withEndOfStruct.toIterator).attributes.getOrElse(Nil)
+    val topParent = Attribute("__dummy", "struct", attributes = withEndOfStruct)
+    buildAttrsTree(topParent, withEndOfStruct.toIterator).attributes
   }
 
   private def markEndOfStruct(attrs: List[Attribute]): List[Attribute] = {
@@ -381,7 +383,7 @@ class XlsReader(input: Input) extends XlsModel {
       val attrTree = finalAttr.`type` match {
         case "struct" if finalAttr.name == "__end_struct" =>
           endOfStructFound = true
-          parent.copy(attributes = Some(attrsAtTheSameLevel.toList))
+          parent.copy(attributes = attrsAtTheSameLevel.toList)
 
         case "struct" =>
           val childAttr = buildAttrsTree(finalAttr, attributes)
@@ -392,7 +394,7 @@ class XlsReader(input: Input) extends XlsModel {
           finalAttr
       }
     }
-    parent.copy(attributes = Some(attrsAtTheSameLevel.toList))
+    parent.copy(attributes = attrsAtTheSameLevel.toList)
   }
 
   private def readAttribute(
@@ -488,7 +490,7 @@ class XlsReader(input: Input) extends XlsModel {
     val tags =
       Option(
         row.getCell(headerMap("_tags"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
-      ).flatMap(formatter.formatCellValue).map(_.split(",").toSet)
+      ).flatMap(formatter.formatCellValue).map(_.split(",").toSet).getOrElse(Set.empty)
 
     val accessPolicy = Option(
       row.getCell(headerMap("_policy"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
@@ -512,7 +514,7 @@ class XlsReader(input: Input) extends XlsModel {
             position = positionOpt,
             default = defaultOpt,
             script = scriptOpt,
-            attributes = None,
+            attributes = Nil,
             ignore = attributeIgnore,
             foreignKey = foreignKey,
             tags = tags,

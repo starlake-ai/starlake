@@ -1,6 +1,7 @@
 #!/bin/bash
 
-COMET_VERSION="${COMET_VERSION:-0.5.3-SNAPSH0T}"
+COMET_ROOT="${COMET_ROOT:-`pwd`}"
+COMET_VERSION="${COMET_VERSION:-0.5.3-SNAPSHOT}"
 SPARK_VERSION="${SPARK_VERSION:-3.3.1}"
 HADOOP_VERSION="${HADOOP_VERSION:-3}"
 SPARK_BQ_VERSION="${SPARK_BQ_VERSION:-0.27.0-preview}"
@@ -71,7 +72,7 @@ initEnv() {
   fi
 
   if ! test -f "$TARGET_FOLDER/$COMET_JAR_FULL_NAME"; then
-    echo "downloading $COMET_JAR_NAME from $COMET_JAR_URL"
+    echo "downloading $COMET_JAR_NAME from $COMET_JAR_URL to $TARGET_FOLDER/"
     curl --output $TARGET_FOLDER/$COMET_JAR_FULL_NAME $COMET_JAR_URL
     echo "Starlake Version: $COMET_VERSION" >>$TARGET_FOLDER/version.info
     echo "Make sure $TARGET_FOLDER is in your path"
@@ -94,8 +95,9 @@ initEnv() {
 
 initEnv
 
+echo COMET_ROOT=$COMET_ROOT
 #SPARK_DRIVER_OPTIONS="-Dlog4j.configuration=file://$TARGET_FOLDER/bin/spark/conf/log4j2.properties"
 #export SPARK_DRIVER_OPTIONS="-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005 -Dlog4j.configuration=file://$SPARK_DIR/conf/log4j.properties"
 SPARK_SUBMIT=$TARGET_FOLDER/bin/spark/bin/spark-submit
-$SPARK_SUBMIT --driver-java-options "$SPARK_DRIVER_OPTIONS" $SPARK_CONF_OPTIONS --class $COMET_MAIN $TARGET_FOLDER/$COMET_JAR_FULL_NAME $@
+COMET_ROOT=$COMET_ROOT $SPARK_SUBMIT --driver-java-options "$SPARK_DRIVER_OPTIONS" $SPARK_CONF_OPTIONS --class $COMET_MAIN $TARGET_FOLDER/$COMET_JAR_FULL_NAME $@
 

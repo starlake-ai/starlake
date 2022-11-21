@@ -68,14 +68,16 @@ import scala.util.{Failure, Success, Try}
   name: String,
   @nowarn @deprecated("Moved to Metadata", "0.2.8") directory: Option[String] = None,
   metadata: Option[Metadata] = None,
-  tableRefs: Option[List[String]] = None,
+  tableRefs: List[String] = Nil,
   tables: List[Schema] = Nil,
   comment: Option[String] = None,
-  @nowarn @deprecated("Moved to Metadata", "0.2.8") extensions: Option[List[String]] = None,
+  @nowarn @deprecated("Moved to Metadata", "0.2.8") extensions: List[String] = Nil,
   @nowarn @deprecated("Moved to Metadata", "0.2.8") ack: Option[String] = None,
-  tags: Option[Set[String]] = None,
+  tags: Set[String] = Set.empty,
   rename: Option[String] = None
 ) {
+
+  def this() = this("") // Should never be called. Here for Jackson deserialization only
 
   /** @return
     *   renamed column if defined, source name otherwise
@@ -137,8 +139,10 @@ import scala.util.{Failure, Success, Try}
     */
   def getExtensions(defaultFileExtensions: String, forceFileExtensions: String): List[String] = {
     def toList(extensions: String) = extensions.split(',').map(_.trim).toList
-    val allExtensions =
-      resolveExtensions().getOrElse(toList(defaultFileExtensions)) ++ toList(forceFileExtensions)
+    val allExtensions = resolveExtensions() match {
+      case Nil  => toList(defaultFileExtensions) ++ toList(forceFileExtensions)
+      case list => list
+    }
     allExtensions.distinct.map { extension =>
       if (extension.startsWith(".") || extension.isEmpty)
         extension
@@ -176,9 +180,9 @@ import scala.util.{Failure, Success, Try}
     }
   }
 
-  @nowarn def resolveExtensions(): Option[List[String]] = {
-    val ext = metadata.flatMap(m => m.extensions)
-    ext.orElse(this.extensions)
+  @nowarn def resolveExtensions(): List[String] = {
+    val ext = metadata.map(m => m.extensions)
+    ext.getOrElse(this.extensions)
   }
 
   /** Ack file should be present for each file to ingest.
@@ -257,16 +261,16 @@ import scala.util.{Failure, Success, Try}
 
   def rlsTables(): Map[String, List[RowLevelSecurity]] =
     tables
-      .map(t => (t.getFinalName(), t.rls.getOrElse(Nil)))
+      .map(t => (t.getFinalName(), t.rls))
       .filter { case (tableName, rls) => rls.nonEmpty }
       .toMap
 
   def policies(): List[RowLevelSecurity] = {
     tables
-      .flatMap(_.acl.getOrElse(Nil))
+      .flatMap(_.acl)
       .map(ace => RowLevelSecurity(name = ace.role, grants = ace.grants.toSet)) ++
     tables.flatMap(
-      _.rls.getOrElse(Nil)
+      _.rls
     )
   }
 }

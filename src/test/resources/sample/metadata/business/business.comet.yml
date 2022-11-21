@@ -3,7 +3,6 @@ transform:
   name: "business2"
   tasks:
     - sql: "select * from dream_working.client"
-      area: "business"
       domain: "dream2"
       dataset: "client2"
       write: "OVERWRITE"

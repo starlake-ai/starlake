@@ -20,8 +20,8 @@ class TemplateParamsSpec extends TestHelper {
         metadata = Option(Metadata(write = Some(WriteMode.APPEND))),
         merge = Some(MergeOptions(List("col1", "col2"), None, timestamp = Some("updateCol"))),
         comment = None,
-        presql = None,
-        postsql = None
+        presql = Nil,
+        postsql = Nil
       )
 
       val expectedTemplateParams = TemplateParams(
@@ -56,8 +56,8 @@ class TemplateParamsSpec extends TestHelper {
         metadata = Option(Metadata(write = Some(WriteMode.OVERWRITE), separator = Some("|"))),
         merge = Some(MergeOptions(List("col1", "col2"), None, timestamp = Some("updateCol"))),
         comment = None,
-        presql = None,
-        postsql = None
+        presql = Nil,
+        postsql = Nil
       )
 
       val expectedTemplateParams = TemplateParams(

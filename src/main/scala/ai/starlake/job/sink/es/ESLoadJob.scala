@@ -103,7 +103,7 @@ class ESLoadJob(
         .withColumnRenamed("comet_es_tmp", tsCol)
     } getOrElse inputDF
 
-    val content = cliConfig.mapping.map(storageHandler.read).getOrElse {
+    val content = cliConfig.mapping.map(path => storageHandler.read(path)).getOrElse {
       (domain, schema) match {
         case (Some(domain), Some(schema)) =>
           schema.esMapping(domain.esMapping(schema), domain.name, schemaHandler)

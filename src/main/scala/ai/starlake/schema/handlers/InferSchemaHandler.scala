@@ -24,11 +24,14 @@ import ai.starlake.config.Settings
 import ai.starlake.schema.model._
 import ai.starlake.utils.YamlSerializer
 import better.files.File
-import org.apache.spark.sql.types.{ArrayType, StructType}
+import org.apache.hadoop.fs.Path
+import org.apache.spark.sql.types.{ArrayType, StructField, StructType}
 
 import java.util.regex.Pattern
+import scala.util.{Failure, Success}
 
 object InferSchemaHandler {
+  val datePattern = "[0-9]{4}-[0-9]{2}-[0-9]{2}".r.pattern
 
   /** * Traverses the schema and returns a list of attributes.
     *
@@ -38,10 +41,13 @@ object InferSchemaHandler {
     *   List of Attributes
     */
   def createAttributes(
+    lines: List[Array[String]],
     schema: StructType
-  )(implicit settings: Settings): List[Attribute] =
-    schema
-      .map(row =>
+  )(implicit settings: Settings): List[Attribute] = {
+    val schemaWithIndex: Seq[(StructField, Int)] = schema.zipWithIndex
+
+    schemaWithIndex
+      .map { case (row, index) =>
         row.dataType.typeName match {
 
           // if the datatype is a struct {...} containing one or more other field
@@ -51,7 +57,7 @@ object InferSchemaHandler {
               row.dataType.typeName,
               Some(false),
               !row.nullable,
-              attributes = Some(createAttributes(row.dataType.asInstanceOf[StructType]))
+              attributes = createAttributes(lines, row.dataType.asInstanceOf[StructType])
             )
 
           case "array" =>
@@ -64,7 +70,7 @@ object InferSchemaHandler {
                 elemType.typeName,
                 Some(true),
                 !row.nullable,
-                attributes = Some(createAttributes(elemType.asInstanceOf[StructType]))
+                attributes = createAttributes(lines, elemType.asInstanceOf[StructType])
               )
             else
               // if it is a regular array. {ages: [21, 25]}
@@ -72,10 +78,19 @@ object InferSchemaHandler {
 
           // if the datatype is a simple Attribute
           case _ =>
-            Attribute(row.name, row.dataType.typeName, Some(false), !row.nullable)
+            val cellType = if (row.dataType.typeName == "timestamp") {
+              // We handle here the case when it is a date and not a timestamp
+              val timestamps = lines.map(row => row(index)).flatMap(Option(_))
+              if (timestamps.forall(v => datePattern.matcher(v).matches()))
+                "date"
+              else
+                "timestamp"
+            } else
+              row.dataType.typeName
+            Attribute(row.name, cellType, Some(false), !row.nullable)
         }
-      )
-      .toList
+      }
+  }.toList
 
   /** * builds the Metadata case class. check case class metadata for attribute definition
     *
@@ -132,8 +147,8 @@ object InferSchemaHandler {
       metadata = metadata,
       None,
       None,
-      None,
-      None
+      Nil,
+      Nil
     )
 
   /** * Builds the Domain case class
@@ -164,9 +179,35 @@ object InferSchemaHandler {
     * @param savePath
     *   path to save files.
     */
-  def generateYaml(domain: Domain, savePath: String)(implicit
+  def generateYaml(domain: Domain, saveDir: String)(implicit
     settings: Settings
-  ): Unit =
-    YamlSerializer.serializeToFile(File(savePath), domain)
+  ): Unit = {
+    val savePath = File(saveDir, s"${domain.name}.comet.yml")
+    savePath.parent.createDirectories()
+    if (savePath.exists) {
 
+      val existingDomain = YamlSerializer.deserializeDomain(
+        settings.storageHandler.read(new Path(savePath.pathAsString)),
+        savePath.pathAsString
+      )
+      existingDomain match {
+        case Success(existingDomain) =>
+          val tableExist =
+            existingDomain.tables.exists(schema =>
+              schema.name.toLowerCase() == domain.tables.head.name
+            )
+          if (tableExist)
+            throw new Exception(
+              s"Table ${domain.tables.head.name} already defined in file $savePath"
+            )
+          val finalDomain =
+            existingDomain.copy(tables = existingDomain.tables ++ domain.tables)
+          YamlSerializer.serializeToFile(savePath, finalDomain)
+        case Failure(e) => e.printStackTrace()
+      }
+
+    } else {
+      YamlSerializer.serializeToFile(savePath, domain)
+    }
+  }
 }

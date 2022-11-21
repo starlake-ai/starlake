@@ -32,7 +32,12 @@ import ai.starlake.job.sink.jdbc.{ConnectionLoadConfig, ConnectionLoadJob}
 import ai.starlake.job.sink.kafka.{KafkaJob, KafkaJobConfig}
 import ai.starlake.job.transform.AutoTask
 import ai.starlake.schema.generator.{Yml2DDLConfig, Yml2DDLJob}
-import ai.starlake.schema.handlers.{LaunchHandler, SchemaHandler, StorageHandler}
+import ai.starlake.schema.handlers.{
+  LaunchHandler,
+  LocalStorageHandler,
+  SchemaHandler,
+  StorageHandler
+}
 import ai.starlake.schema.model.Engine.{BQ, SPARK}
 import ai.starlake.schema.model.Mode.{FILE, STREAM}
 import ai.starlake.schema.model._
@@ -138,7 +143,7 @@ class IngestionWorkflow(
               if (domain.getAck().nonEmpty)
                 storageHandler.delete(path)
 
-              (existingArchiveFile, existingRawFile, storageHandler.fs.getScheme) match {
+              (existingArchiveFile, existingRawFile, storageHandler.getScheme()) match {
                 case (Some(zipPath), _, "file") =>
                   logger.info(s"Found compressed file $zipPath")
                   storageHandler.mkdirs(pathWithoutLastExt)
@@ -151,7 +156,7 @@ class IngestionWorkflow(
                   // we can virtually handle anything
                   def asBetterFile(path: Path): File = {
                     Try {
-                      File(path.toUri) // try once
+                      LocalStorageHandler.localFile(path) // try once
                     } match {
                       case Success(file) => file
                       // There is no FileSystem registered that can handle this URI
@@ -342,7 +347,7 @@ class IngestionWorkflow(
     logger.info(s"List files in $pendingArea")
     val files = Utils
       .loadInstance[LoadStrategy](settings.comet.loadStrategyClass)
-      .list(settings.storageHandler.fs, pendingArea, recursive = false)
+      .list(settings.storageHandler, pendingArea, recursive = false)
     if (files.nonEmpty)
       logger.info(s"Found ${files.mkString(",")}")
     else
@@ -582,8 +587,8 @@ class IngestionWorkflow(
       config.domainName,
       config.schemaName,
       config.inputPath,
-      config.outputPath,
-      config.header
+      config.outputDir,
+      config.withHeader
     ).run()
     Utils.logFailure(result, logger)
   }
@@ -701,7 +706,7 @@ class IngestionWorkflow(
                       case bqSink: BigQuerySink =>
                         val source = maybeDataFrame
                           .map(df => Right(setNullableStateOfColumn(df, nullable = true)))
-                          .getOrElse(Left(action.taskDesc.getTargetPath(job.getArea()).toString))
+                          .getOrElse(Left(action.taskDesc.getTargetPath().toString))
                         val (createDisposition, writeDisposition) = {
                           Utils.getDBDisposition(action.taskDesc.write, hasMergeKeyDefined = false)
                         }
@@ -729,7 +734,7 @@ class IngestionWorkflow(
                         val jdbcName = jdbcSink.connection
                         val source = maybeDataFrame
                           .map(df => Right(df))
-                          .getOrElse(Left(action.taskDesc.getTargetPath(job.getArea()).toString))
+                          .getOrElse(Left(action.taskDesc.getTargetPath().toString))
                         val (createDisposition, writeDisposition) = {
                           Utils.getDBDisposition(action.taskDesc.write, hasMergeKeyDefined = false)
                         }
@@ -779,9 +784,8 @@ class IngestionWorkflow(
   }
 
   private def saveToES(action: AutoTask): Boolean = {
-    val targetArea = action.taskDesc.area.getOrElse(action.defaultArea)
     val targetPath =
-      new Path(DatasetArea.path(action.taskDesc.domain, targetArea.value), action.taskDesc.table)
+      new Path(DatasetArea.path(action.taskDesc.domain), action.taskDesc.table)
     val sink: EsSink = action.taskDesc.sink
       .map(_.asInstanceOf[EsSink])
       .getOrElse(

@@ -20,14 +20,18 @@
 
 package ai.starlake.utils
 
+import ai.starlake.config.Settings
 import ai.starlake.schema.model.{Attribute, WriteMode}
+import com.hubspot.jinjava.Jinjava
 import com.typesafe.scalalogging.Logger
+import ai.starlake.utils.Formatter._
 
 import java.io.{PrintWriter, StringWriter}
 import scala.collection.mutable
 import scala.reflect.runtime.universe
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try}
+import scala.collection.JavaConverters._
 
 object Utils {
   type Closeable = { def close(): Unit }
@@ -155,8 +159,8 @@ object Utils {
   def toMap(attributes: List[Attribute]): Map[String, Any] = {
     attributes.map { attribute =>
       attribute.attributes match {
-        case Some(attributes) => attribute.name -> toMap(attributes)
-        case None             => attribute.name -> attribute
+        case Nil        => attribute.name -> attribute
+        case attributes => attribute.name -> toMap(attributes)
       }
     }.toMap
   }
@@ -196,8 +200,8 @@ object Utils {
     if (errors.isEmpty) Right(true) else Left(errors)
   }
 
-  def extractTags(tags: scala.Option[Set[String]]): Set[(String, String)] = {
-    tags.getOrElse(Set.empty[String]).map { tag =>
+  def extractTags(tags: Set[String]): Set[(String, String)] = {
+    tags.map { tag =>
       val hasValue = tag.indexOf('=') > 0
       val keyValuePAir =
         if (hasValue)
@@ -220,16 +224,44 @@ object Utils {
       a + (f.getName -> f.get(cc))
     }
   }
-  def labels(tags: Option[Set[String]]): Map[String, String] =
-    tags
-      .getOrElse(Set.empty)
-      .map { tag =>
-        val labelValue = tag.split("=")
-        if (labelValue.size == 1)
-          (labelValue(0), "")
-        else
-          (labelValue(0), labelValue(1))
-      }
-      .toMap
+  def labels(tags: Set[String]): Map[String, String] =
+    tags.map { tag =>
+      val labelValue = tag.split("=")
+      if (labelValue.size == 1)
+        (labelValue(0), "")
+      else
+        (labelValue(0), labelValue(1))
+    }.toMap
+
+  def jinjava(implicit settings: Settings) = {
+    if (_jinjava == null) {
+      val res = new Jinjava()
+      res.setResourceLocator(new JinjaResourceHandler())
+      _jinjava = res
+    }
+    _jinjava
+  }
+
+  private var _jinjava: Jinjava = null
+
+  def parseJinja(str: String, params: Map[String, String])(implicit settings: Settings): String =
+    parseJinja(
+      List(str),
+      params
+    ).head
+
+  def parseJinja(str: List[String], params: Map[String, String])(implicit
+    settings: Settings
+  ): List[String] = {
+    val result = str.map { sql =>
+      CommentParser.stripComments(
+        jinjava
+          .render(sql, params.asJava)
+          .richFormat(params, Map.empty)
+          .trim
+      )
+    }
+    result
+  }
 
 }

@@ -814,13 +814,13 @@ class SchemaHandlerSpec extends TestHelper {
         cleanDatasets
         val schemaHandler = new SchemaHandler(settings.storageHandler)
 
-        new Yml2GraphViz(schemaHandler).run(Array("--all", "false"))
+        new Yml2GraphViz(schemaHandler).run(Array.empty)
 
         val tempFile = File.newTemporaryDirectory().pathAsString
         new Yml2GraphViz(schemaHandler).run(
-          Array("--all", "true", "--output-dir", tempFile)
+          Array("--all", "--domains", "--output-dir", tempFile)
         )
-        val fileContent = readFileContent(File(tempFile, "_relations.dot").pathAsString)
+        val fileContent = readFileContent(File(tempFile, "_domains.dot").pathAsString)
         val expectedFileContent = loadTextFile("/expected/dot/output.dot")
         fileContent shouldBe expectedFileContent
 
@@ -858,12 +858,14 @@ class SchemaHandlerSpec extends TestHelper {
         cleanDatasets
         val schemaHandler = new SchemaHandler(settings.storageHandler)
 
-        new Yml2GraphViz(schemaHandler).run(Array("--acl", "true"))
+        new Yml2GraphViz(schemaHandler).run(Array("--acl"))
 
         val tempFile = File.newTemporaryDirectory().pathAsString
+
         new Yml2GraphViz(schemaHandler).run(
-          Array("--acl", "true", "--output-dir", tempFile)
+          Array("--acl", "--output-dir", tempFile)
         )
+
         val fileContent = readFileContent(File(tempFile, "_acl.dot").pathAsString)
         val expectedFileContent = loadTextFile("/expected/dot/acl-output.dot")
         fileContent.trim shouldBe expectedFileContent.trim

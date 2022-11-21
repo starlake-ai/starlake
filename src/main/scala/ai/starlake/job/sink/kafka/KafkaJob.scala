@@ -30,9 +30,9 @@ class KafkaJob(
   private val writeTopicConfig: Option[Settings.KafkaTopicConfig] =
     kafkaJobConfig.writeTopicConfigName.map(settings.comet.kafka.topics)
 
-  private val finalWritePath: Option[JdbcConfigName] = formatPath(kafkaJobConfig.writePath)
+  private val finalWritePath: Option[String] = formatPath(kafkaJobConfig.writePath)
 
-  private val finalLoadPath: Option[JdbcConfigName] = formatPath(kafkaJobConfig.path)
+  private val finalLoadPath: Option[String] = formatPath(kafkaJobConfig.path)
 
   private def formatPath(path: Option[String]): Option[String] = path
     .map(
@@ -45,7 +45,7 @@ class KafkaJob(
       )
     )
 
-  val schemaRegistryUrl: Option[JdbcConfigName] =
+  val schemaRegistryUrl: Option[String] =
     settings.comet.kafka.serverOptions.get("schema.registry.url")
 
   val schemaRegistryClient: Option[CachedSchemaRegistryClient] =
@@ -57,7 +57,7 @@ class KafkaJob(
       )
     )
 
-  def lookupTopicSchema(topic: String, isKey: Boolean = false): Option[JdbcConfigName] = {
+  def lookupTopicSchema(topic: String, isKey: Boolean = false): Option[String] = {
     schemaRegistryClient.map(
       _.getLatestSchemaMetadata(topic + (if (isKey) "-key" else "-value")).getSchema
     )
@@ -178,7 +178,7 @@ class KafkaJob(
       if (kafkaJobConfig.writeFormat == "kafka")
         writeTopicConfig.map(_.allAccessOptions()).getOrElse(Map.empty)
       else
-        Map.empty[JdbcConfigName, JdbcConfigName]
+        Map.empty[String, String]
 
     val dfWriter = finalDF.write
       .mode(kafkaJobConfig.writeMode)
@@ -292,13 +292,16 @@ class KafkaJob(
             .map(_.topicName)
             .getOrElse(throw new Exception("Cannot register de/serializers if topic not defined"))
         )
-      val userDefinedDeserializer =
-        CustomDeserializer.configure(customDeserializerFunction, settings.comet.kafka.serverOptions)
+      CustomDeserializer.configure(
+        customDeserializerName,
+        customDeserializerFunction,
+        settings.comet.kafka.serverOptions
+      )
 
       session.udf.register(
         customDeserializerName,
         (bytes: Array[Byte]) =>
-          CustomDeserializer.deserialize(userDefinedDeserializer, topicName, bytes)
+          CustomDeserializer.deserialize(customDeserializerName, topicName, bytes)
       )
     }
     pipeline()
@@ -307,20 +310,26 @@ class KafkaJob(
 }
 
 object CustomDeserializer {
-  def configure(customDeserializerName: String, configs: Map[String, _]): Deserializer[Any] = {
+  val deserializers: scala.collection.mutable.Map[String, Deserializer[Any]] =
+    scala.collection.mutable.Map.empty
+
+  def configure(
+    customDeserializerName: String,
+    customDeserializerFunction: String,
+    configs: Map[String, _]
+  ): Unit = {
     val userDefinedDeserializer = Class
-      .forName(customDeserializerName)
+      .forName(customDeserializerFunction)
       .getDeclaredConstructor()
       .newInstance()
       .asInstanceOf[Deserializer[Any]]
     userDefinedDeserializer.configure(configs.asJava, false)
-    userDefinedDeserializer
+    deserializers.put(customDeserializerName, userDefinedDeserializer)
   }
 
   def deserialize(
-    userDefinedDeserializer: Deserializer[Any],
+    userDefinedDeserializerName: String,
     topic: String,
     bytes: Array[Byte]
-  ): String =
-    userDefinedDeserializer.deserialize(topic, bytes).toString
+  ): String = deserializers(userDefinedDeserializerName).deserialize(topic, bytes).toString
 }

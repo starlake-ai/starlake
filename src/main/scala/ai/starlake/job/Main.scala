@@ -3,6 +3,7 @@ package ai.starlake.job
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.extractor.{ExtractScriptGenConfig, ScriptGen}
 import ai.starlake.job.atlas.AtlasConfig
+import ai.starlake.job.bootstrap.BootstrapConfig
 import ai.starlake.job.convert.{FileSplitterConfig, Parquet2CSV, Parquet2CSVConfig}
 import ai.starlake.job.infer.InferSchemaConfig
 import ai.starlake.job.ingest.LoadConfig
@@ -15,10 +16,11 @@ import ai.starlake.job.transform.{AutoTask2GraphVizConfig, AutoTaskToGraphViz}
 import ai.starlake.schema.generator._
 import ai.starlake.schema.handlers.{SchemaHandler, ValidateConfig}
 import ai.starlake.serve.{MainServer, MainServerConfig}
-import ai.starlake.utils.{CliConfig, CometObjectMapper}
+import ai.starlake.utils.{CliConfig, CliEnvConfig, CometObjectMapper}
 import ai.starlake.workflow.{ImportConfig, IngestionWorkflow, TransformConfig, WatchConfig}
 import buildinfo.BuildInfo
 import com.fasterxml.jackson.annotation.JsonInclude.Include
+import com.fasterxml.jackson.annotation.{JsonSetter, Nulls}
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.typesafe.config.ConfigFactory
@@ -49,7 +51,7 @@ object Main extends StrictLogging {
     *   - call "starlake ingest domain schema hdfs://datasets/domain/pending/file.dsv" to ingest a
     *     file defined by its schema in the specified domain
     * -call "starlake infer-schema --domain domainName --schema schemaName --input datasetpath
-    * --output outputPath --with-header boolean
+    * --output outputPath --with-header
     *   - call "starlake metrics --domain domain-name --schema schema-name " to compute all metrics
     *     on specific schema in a specific domain
     */
@@ -63,10 +65,13 @@ object Main extends StrictLogging {
 class Main() extends StrictLogging {
   // uses Jackson YAML to parsing, relies on SnakeYAML for low level handling
   val mapper: ObjectMapper = new CometObjectMapper(new YAMLFactory())
-  mapper.setSerializationInclusion(Include.NON_EMPTY)
+  mapper
+    .setSerializationInclusion(Include.NON_EMPTY)
+    .setDefaultSetterInfo(JsonSetter.Value.forValueNulls(Nulls.AS_EMPTY, Nulls.AS_EMPTY))
 
   val configs: List[CliConfig[_]] = List(
     AutoTask2GraphVizConfig,
+    BootstrapConfig,
     BigQueryLoadConfig,
     ConnectionLoadConfig,
     ESLoadConfig,
@@ -136,20 +141,31 @@ class Main() extends StrictLogging {
 
     import settings.{launcherService, metadataStorageHandler, storageHandler}
     DatasetArea.initMetadata(metadataStorageHandler)
-    val schemaHandler = new SchemaHandler(metadataStorageHandler)
+
+    // extarct any env var passed as --options argument
+    val cliEnv = CliEnvConfig.parse(args.drop(1)) match {
+      case Some(env) => env.options
+      case None      => Map.empty[String, String]
+    }
+
+    val schemaHandler = new SchemaHandler(metadataStorageHandler, cliEnv)
 
     // handle non existing project commands
     argList.head match {
       case "bootstrap" =>
-        DatasetArea.bootstrap(storageHandler)
+        BootstrapConfig.parse(args.drop(1)) match {
+          case Some(config) =>
+            DatasetArea.bootstrap(config.template)
+          case None =>
+            println(BootstrapConfig.usage())
+            false
+
+        }
         System.exit(0)
       case _ =>
     }
 
-    // handle existing project commands
     schemaHandler.fullValidation()
-    if (settings.comet.validateOnLoad)
-      throw new Exception("Validation failed!")
 
     DatasetArea.initDomains(storageHandler, schemaHandler.domains().map(_.name))
     val workflow =
@@ -314,7 +330,7 @@ class Main() extends StrictLogging {
         true
       case "extract" =>
         new ScriptGen(storageHandler, schemaHandler, launcherService).run(args.drop(1))
-      case "jdbc2yml" =>
+      case "jdbc2yml" | "extract-schema" =>
         JDBC2Yml.run(args.drop(1))
         true
       case "serve" =>

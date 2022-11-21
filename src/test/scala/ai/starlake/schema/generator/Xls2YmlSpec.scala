@@ -6,14 +6,18 @@ import ai.starlake.schema.model.{BigQuerySink, Domain, Format}
 import ai.starlake.utils.YamlSerializer
 import better.files.File
 
+import scala.util.{Failure, Success}
+
 class Xls2YmlSpec extends TestHelper {
   new WithSettings() {
     Xls2Yml.generateSchema(getClass.getResource("/sample/SomeDomainTemplate.xls").getPath)
     val outputPath = File(DatasetArea.domains.toString + "/someDomain.comet.yml")
 
     val result: Domain = YamlSerializer
-      .deserializeDomain(outputPath.contentAsString, outputPath.pathAsString)
-      .getOrElse(throw new Exception(s"Invalid file name ${outputPath.toString}"))
+      .deserializeDomain(outputPath.contentAsString, outputPath.pathAsString) match {
+      case Success(value)     => value
+      case Failure(exception) => throw exception
+    }
 
     "Parsing a sample xlsx file" should "generate a yml file" in {
       outputPath.exists shouldBe true
@@ -47,7 +51,7 @@ class Xls2YmlSpec extends TestHelper {
 
       val s1MaybePartitions = schema1.metadata.flatMap(_.partition)
       s1MaybePartitions
-        .flatMap(_.attributes)
+        .map(_.attributes)
         .get
         .sorted shouldEqual List("comet_day", "comet_hour", "comet_month", "comet_year")
       s1MaybePartitions
@@ -61,7 +65,7 @@ class Xls2YmlSpec extends TestHelper {
 
       val s2MaybePartitions = schema2.metadata.flatMap(_.partition)
       s2MaybePartitions
-        .flatMap(_.attributes)
+        .map(_.attributes)
         .get
         .sorted shouldEqual List("RENAME_ATTRIBUTE_8", "RENAME_ATTRIBUTE_9")
       s2MaybePartitions

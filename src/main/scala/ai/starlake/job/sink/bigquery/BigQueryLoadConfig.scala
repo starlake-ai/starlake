@@ -16,14 +16,14 @@ case class BigQueryLoadConfig(
   writeDisposition: String = "",
   location: Option[String] = None,
   days: Option[Int] = None,
-  rls: Option[List[RowLevelSecurity]] = None,
+  rls: List[RowLevelSecurity] = Nil,
   requirePartitionFilter: Boolean = false,
   engine: Engine = Engine.SPARK,
   options: Map[String, String] = Map.empty,
-  partitionsToUpdate: Option[List[String]] = None,
-  acl: Option[List[AccessControlEntry]] = None,
+  partitionsToUpdate: List[String] = Nil,
+  acl: List[AccessControlEntry] = Nil,
   starlakeSchema: Option[Schema] = None,
-  domainTags: Option[Set[String]] = None
+  domainTags: Set[String] = Set.empty
 ) {
   def getLocation(): String = this.location.getOrElse("EU")
 }
@@ -83,7 +83,7 @@ object BigQueryLoadConfig extends CliConfig[BigQueryLoadConfig] {
           "Big Query Write disposition https://cloud.google.com/bigquery/docs/reference/auditlogs/rest/Shared.Types/WriteDisposition"
         ),
       opt[Seq[String]]("row_level_security")
-        .action((x, c) => c.copy(rls = Some(x.map(RowLevelSecurity.parse).toList)))
+        .action((x, c) => c.copy(rls = x.map(RowLevelSecurity.parse).toList))
         .text(
           "value is in the form name,filter,sa:sa@mail.com,user:user@mail.com,group:group@mail.com "
         )

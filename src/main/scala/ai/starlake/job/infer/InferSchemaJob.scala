@@ -22,7 +22,7 @@ package ai.starlake.job.infer
 
 import ai.starlake.config.{Settings, SparkEnv}
 import ai.starlake.schema.handlers.InferSchemaHandler
-import ai.starlake.schema.model.{Attribute, Domain, Metadata}
+import ai.starlake.schema.model.{Attribute, Domain}
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.{DataFrame, Dataset, Encoders, SparkSession}
 
@@ -47,12 +47,12 @@ class InferSchema(
   domainName: String,
   schemaName: String,
   dataPath: String,
-  savePath: String,
-  header: Option[Boolean] = Some(false)
+  saveDir: String,
+  header: Boolean = false
 )(implicit settings: Settings) {
 
   def run(): Try[Unit] =
-    (new InferSchemaJob).infer(domainName, schemaName, dataPath, savePath, header.getOrElse(false))
+    (new InferSchemaJob).infer(domainName, schemaName, dataPath, saveDir, header)
 
 }
 
@@ -206,7 +206,7 @@ class InferSchemaJob(implicit settings: Settings) {
     domainName: String,
     schemaName: String,
     dataPath: String,
-    savePath: String,
+    saveDir: String,
     header: Boolean
   ): Try[Unit] = {
     Try {
@@ -226,7 +226,16 @@ class InferSchemaJob(implicit settings: Settings) {
 
       val inferSchema = InferSchemaHandler
 
-      val attributes: List[Attribute] = inferSchema.createAttributes(dataframeWithFormat.schema)
+      val dataLines =
+        format match {
+          case "DSV" =>
+            val linesWithoutHeader = if (withHeader) lines.drop(1) else lines
+            linesWithoutHeader.map(_.split(Pattern.quote(separator)))
+          case _ => Nil
+        }
+
+      val attributes: List[Attribute] =
+        inferSchema.createAttributes(dataLines, dataframeWithFormat.schema)
 
       val metadata = inferSchema.createMetaData(
         format,
@@ -245,11 +254,11 @@ class InferSchemaJob(implicit settings: Settings) {
       val domain: Domain =
         inferSchema.createDomain(
           domainName,
-          metadata = Some(Metadata(directory = Some(getDomainDirectoryName(path)))),
+          Some(metadata.copy(directory = Some(s"{{root_path}}/incoming/$domainName"))),
           schemas = List(schema)
         )
 
-      inferSchema.generateYaml(domain, savePath)
+      inferSchema.generateYaml(domain, saveDir)
     }
   }
 }
