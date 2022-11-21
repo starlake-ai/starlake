@@ -31,7 +31,7 @@ class InferSchemaHandlerSpec extends TestHelper {
         )
       )
 
-      val complexAttr: List[Attribute] = InferSchemaHandler.createAttributes(df.schema)
+      val complexAttr: List[Attribute] = InferSchemaHandler.createAttributes(Nil, df.schema)
 
       complexAttr shouldBe complexAttr1
     }
@@ -46,7 +46,7 @@ class InferSchemaHandlerSpec extends TestHelper {
         .option("inferSchema", value = true)
         .json(Seq(SimpleJsonStr).toDS)
 
-      val simpleAttr: List[Attribute] = InferSchemaHandler.createAttributes(df1.schema)
+      val simpleAttr: List[Attribute] = InferSchemaHandler.createAttributes(Nil, df1.schema)
 
       val simpleAttr1: List[Attribute] = List(
         Attribute("key", "string", Some(false), required = false),
@@ -77,7 +77,7 @@ class InferSchemaHandlerSpec extends TestHelper {
         .option("inferSchema", value = true)
         .json(Seq(arrayJson).toDS)
 
-      val arrayAttr: List[Attribute] = InferSchemaHandler.createAttributes(df1.schema)
+      val arrayAttr: List[Attribute] = InferSchemaHandler.createAttributes(Nil, df1.schema)
 
       val arrayAttr1: List[Attribute] = List(
         Attribute("id", "long", Some(false), required = false),
@@ -97,7 +97,7 @@ class InferSchemaHandlerSpec extends TestHelper {
         .option("parserLib", "UNIVOCITY")
         .load("src/test/resources/sample/SCHEMA-VALID.dsv")
 
-      val dsv: List[Attribute] = InferSchemaHandler.createAttributes(df1.schema)
+      val dsv: List[Attribute] = InferSchemaHandler.createAttributes(Nil, df1.schema)
 
       val dsv1: List[Attribute] = List(
         Attribute("first name", "string", Some(false), required = false),
@@ -118,7 +118,7 @@ class InferSchemaHandlerSpec extends TestHelper {
         .option("parserLib", "UNIVOCITY")
         .load("src/test/resources/sample/SCHEMA-VALID-NOHEADER.dsv")
 
-      val dsv: List[Attribute] = InferSchemaHandler.createAttributes(df1.schema)
+      val dsv: List[Attribute] = InferSchemaHandler.createAttributes(Nil, df1.schema)
 
       val dsv1: List[Attribute] = List(
         Attribute("_c0", "string", Some(false), required = false),

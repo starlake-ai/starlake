@@ -16,7 +16,7 @@ import ai.starlake.job.transform.{AutoTask2GraphVizConfig, AutoTaskToGraphViz}
 import ai.starlake.schema.generator._
 import ai.starlake.schema.handlers.{SchemaHandler, ValidateConfig}
 import ai.starlake.serve.{MainServer, MainServerConfig}
-import ai.starlake.utils.{CliConfig, CometObjectMapper}
+import ai.starlake.utils.{CliConfig, CliEnvConfig, CometObjectMapper}
 import ai.starlake.workflow.{ImportConfig, IngestionWorkflow, TransformConfig, WatchConfig}
 import buildinfo.BuildInfo
 import com.fasterxml.jackson.annotation.JsonInclude.Include
@@ -51,7 +51,7 @@ object Main extends StrictLogging {
     *   - call "starlake ingest domain schema hdfs://datasets/domain/pending/file.dsv" to ingest a
     *     file defined by its schema in the specified domain
     * -call "starlake infer-schema --domain domainName --schema schemaName --input datasetpath
-    * --output outputPath --with-header boolean
+    * --output outputPath --with-header
     *   - call "starlake metrics --domain domain-name --schema schema-name " to compute all metrics
     *     on specific schema in a specific domain
     */
@@ -141,7 +141,14 @@ class Main() extends StrictLogging {
 
     import settings.{launcherService, metadataStorageHandler, storageHandler}
     DatasetArea.initMetadata(metadataStorageHandler)
-    val schemaHandler = new SchemaHandler(metadataStorageHandler)
+
+    // extarct any env var passed as --options argument
+    val cliEnv = CliEnvConfig.parse(args.drop(1)) match {
+      case Some(env) => env.options
+      case None      => Map.empty[String, String]
+    }
+
+    val schemaHandler = new SchemaHandler(metadataStorageHandler, cliEnv)
 
     // handle non existing project commands
     argList.head match {
@@ -158,7 +165,6 @@ class Main() extends StrictLogging {
       case _ =>
     }
 
-    // handle existing project commands
     schemaHandler.fullValidation()
 
     DatasetArea.initDomains(storageHandler, schemaHandler.domains().map(_.name))
@@ -324,7 +330,7 @@ class Main() extends StrictLogging {
         true
       case "extract" =>
         new ScriptGen(storageHandler, schemaHandler, launcherService).run(args.drop(1))
-      case "jdbc2yml" =>
+      case "jdbc2yml" | "extract-schema" =>
         JDBC2Yml.run(args.drop(1))
         true
       case "serve" =>

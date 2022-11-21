@@ -11,13 +11,11 @@ tasks:
   - "comet_month"
   presql: null
   postsql: null
-  area: null
   rls:
     - name: "myrls"
       predicate: "TRUE"
       grants:
       - "user:hayssam.saleh@ebiznext.com"
-area: "business"
 format: "parquet"
 coalesce: true
 udf: null
