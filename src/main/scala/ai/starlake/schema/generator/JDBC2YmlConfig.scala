@@ -56,14 +56,18 @@ case class JDBCSchema(
     "SYNONYM"
   ),
   template: Option[String] = None
-)
+) {
+  def this() = this(None) // Should never be called. Here for Jackson deserialization only
+}
 
 /** @param name
   *   : Table name (case insensitive)
   * @param columns
   *   : List of columns (case insensitive). Nil if all columns should be extracted
   */
-case class JDBCTable(name: String, columns: Option[List[String]])
+case class JDBCTable(name: String, columns: List[String]) {
+  def this() = this("", Nil) // Should never be called. Here for Jackson deserialization only
+}
 
 case class JDBC2YmlConfig(
   mapping: String = "",

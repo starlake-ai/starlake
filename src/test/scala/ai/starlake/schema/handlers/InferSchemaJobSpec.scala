@@ -90,16 +90,17 @@ class InferSchemaJobSpec extends TestHelper {
         val inputData = loadTextFile("/sample/simple-json-locations/flat-locations.json")
         for {
           sourceFile <- File.temporaryFile()
-          targetFile <- File.temporaryFile()
+          targetDir  <- File.temporaryDirectory()
         } {
           sourceFile.overwrite(inputData)
           inferSchemaJob.infer(
             "locations",
             "flat_locations",
             sourceFile.pathAsString,
-            targetFile.pathAsString,
+            targetDir.pathAsString,
             true
           )
+          val targetFile = File(targetDir, "locations.comet.yml")
           val maybeDomain =
             YamlSerializer.deserializeDomain(targetFile.contentAsString, targetFile.pathAsString)
           maybeDomain.isSuccess shouldBe true
@@ -112,6 +113,5 @@ class InferSchemaJobSpec extends TestHelper {
         }
       }
     }
-
   }
 }

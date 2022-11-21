@@ -127,7 +127,7 @@ class SinkUtils(implicit settings: Settings) extends StrictLogging with DatasetL
         )
 
         val dfw = dataframe.write
-          .format("jdbc")
+          .format(cliConfig.format)
           .option("truncate", cliConfig.writeDisposition == WriteDisposition.WRITE_TRUNCATE)
           .option("dbtable", cliConfig.outputTable)
 

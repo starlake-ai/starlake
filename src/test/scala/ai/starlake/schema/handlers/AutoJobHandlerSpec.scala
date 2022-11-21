@@ -1,7 +1,7 @@
 package ai.starlake.schema.handlers
 
 import ai.starlake.TestHelper
-import ai.starlake.config.{Settings, StorageArea}
+import ai.starlake.config.Settings
 import ai.starlake.job.sink.bigquery.{BigQueryLoadConfig, BigQuerySparkJob}
 import ai.starlake.job.transform.{AutoTask, TaskViewDependency}
 import ai.starlake.schema.model._
@@ -52,16 +52,14 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       val businessTask1 = AutoTaskDesc(
         None,
         Some("select firstname, lastname, age from {{view}} where age=${age}"),
+        "business/user",
         "user",
-        "user",
-        WriteMode.OVERWRITE,
-        area = Some(StorageArea.fromString("business"))
+        WriteMode.OVERWRITE
       )
       val businessJob =
         AutoJobDesc(
           "user",
           List(businessTask1),
-          None,
           Some("parquet"),
           Some(false),
           views = Some(Map("user_View" -> "accepted/user"))
@@ -105,14 +103,12 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         "user",
         "user",
         WriteMode.OVERWRITE,
-        area = Some(StorageArea.fromString("business")),
-        assertions = Some(Map("uniqFirstname" -> "isUnique(firstname)"))
+        assertions = Map("uniqFirstname" -> "isUnique(firstname)")
       )
       val businessJob =
         AutoJobDesc(
           "user",
           List(businessTask1),
-          None,
           Some("parquet"),
           Some(false),
           views = Some(Map("user_View" -> "accepted/user"))
@@ -138,17 +134,15 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         Some(
           "select firstname, lastname, age from user_View where age={{age}} and lastname={{lastname}} and firstname={{firstname}}"
         ),
-        "user",
+        "business/user",
         "user",
         WriteMode.OVERWRITE,
-        area = Some(StorageArea.fromString("business")),
-        assertions = Some(Map("uniqFirstname" -> "isUnique(firstname)"))
+        assertions = Map("uniqFirstname" -> "isUnique(firstname)")
       )
       val businessJob =
         AutoJobDesc(
           "user",
           List(businessTask1),
-          None,
           Some("parquet"),
           Some(false),
           views = Some(Map("user_View" -> "accepted/user"))
@@ -186,16 +180,14 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       val businessTask1 = AutoTaskDesc(
         None,
         Some("select firstname, lastname, age from user_View"),
+        "business/user",
         "user",
-        "user",
-        WriteMode.OVERWRITE,
-        area = Some(StorageArea.fromString("business"))
+        WriteMode.OVERWRITE
       )
       val businessJob =
         AutoJobDesc(
           "user",
           List(businessTask1),
-          None,
           Some("parquet"),
           Some(false),
           views = Some(Map("user_View" -> "accepted/user"))
@@ -231,16 +223,14 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       val businessTask1 = AutoTaskDesc(
         None,
         Some("select concatWithSpace(firstname, lastname) as fullName from user_View"),
+        "business/user",
         "user",
-        "user",
-        WriteMode.OVERWRITE,
-        area = Some(StorageArea.fromString("business"))
+        WriteMode.OVERWRITE
       )
       val businessJob =
         AutoJobDesc(
           "user",
           List(businessTask1),
-          None,
           Some("parquet"),
           Some(false),
           udf = Some("ai.starlake.udf.TestUdf"),
@@ -278,23 +268,21 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       val businessTask1 = AutoTaskDesc(
         None,
         Some("SELECT * FROM graduate_agg_view"),
-        "graduateProgram",
+        "business/graduateProgram",
         "output",
         WriteMode.OVERWRITE,
-        presql = Some(List("""
+        presql = List("""
             |create or replace temporary view graduate_agg_view as
             |      select degree, department,
             |      school
             |      from graduate_View
             |      where school={{school}}
-            |""".stripMargin)),
-        area = Some(StorageArea.fromString("business"))
+            |""".stripMargin)
       )
       val businessJob =
         AutoJobDesc(
           "graduateProgram",
           List(businessTask1),
-          None,
           Some("parquet"),
           Some(false),
           views = Some(Map("graduate_View" -> "accepted/graduateProgram"))
@@ -334,14 +322,11 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         "DOMAIN",
         "TABLE",
         WriteMode.OVERWRITE,
-        Some(List("comet_year", "comet_month")),
+        List("comet_year", "comet_month"),
+        Nil,
+        Nil,
         None,
-        None,
-        None,
-        None,
-        Some(
-          List(RowLevelSecurity("myrls", "TRUE", Set("user:hayssam.saleh@ebiznext.com")))
-        )
+        List(RowLevelSecurity("myrls", "TRUE", Set("user:hayssam.saleh@ebiznext.com")))
       )
 
       val sink = businessTask1.sink.map(_.asInstanceOf[BigQuerySink])

@@ -33,7 +33,7 @@ class JDBC2YmlSpec extends TestHelper {
       val metadata = Metadata(
         mode = Some(Mode.STREAM),
         quote = Some("::"),
-        directory = Some("/{domain}/{schema}")
+        directory = Some("/{{domain}}/{{schema}}")
       )
       val domainTemplate = Domain(name = "CUSTOM_NAME", metadata = Some(metadata))
       val config = JDBC2YmlConfig()
@@ -53,7 +53,7 @@ class JDBC2YmlSpec extends TestHelper {
           case Failure(e)      => throw e
         }
       assert(domain.name == "PUBLIC")
-      assert(domain.tableRefs.getOrElse(Nil).size == 2)
+      assert(domain.tableRefs.size == 2)
       assert(domain.metadata.flatMap(_.quote).getOrElse("") == "::")
       assert(domain.metadata.flatMap(_.mode).getOrElse(Mode.FILE) == Mode.STREAM)
       val tableFile = File("/tmp/PUBLIC", "_TEST_TABLE1.comet.yml")
@@ -62,13 +62,13 @@ class JDBC2YmlSpec extends TestHelper {
           .deserializeSchemas(tableFile.contentAsString, tableFile.pathAsString)
           .tables
           .head
-      domain.tableRefs.getOrElse(Nil) should contain theSameElementsAs Set(
+      domain.tableRefs should contain theSameElementsAs Set(
         "_TEST_TABLE1",
         "_TEST_VIEW1"
       )
       table.attributes.map(_.name) should contain theSameElementsAs Set("ID", "NAME")
       table.attributes.map(_.`type`) should contain theSameElementsAs Set("long", "string")
-      table.primaryKey.getOrElse(List.empty) should contain("ID")
+      table.primaryKey should contain("ID")
     }
   }
 
@@ -78,7 +78,7 @@ class JDBC2YmlSpec extends TestHelper {
         """
           |extract:
           |  jdbcSchemas:
-          |    - connection: "test-h2" # Connection name as defined in the connections section of the application.conf file
+          |    - connectionRef: "test-h2" # Connection name as defined in the connections section of the application.conf file
           |      catalog: "business" # Optional catalog name in the target database
           |      schema: "public" # Database schema where tables are located
           |      tables:
@@ -136,7 +136,7 @@ class JDBC2YmlSpec extends TestHelper {
           "PUBLIC",
           None,
           None,
-          List(JDBCTable("TEST_TABLE1", Some(List("ID"))))
+          List(JDBCTable("TEST_TABLE1", List("ID")))
         ),
         settings.comet.connections("test-h2").options,
         File("/tmp"),
@@ -152,8 +152,8 @@ class JDBC2YmlSpec extends TestHelper {
           case Failure(e)      => throw e
         }
       assert(domain.name == "PUBLIC")
-      assert(domain.tableRefs.getOrElse(Nil).size == 1)
-      assert(domain.tableRefs.get.head == "_TEST_TABLE1")
+      assert(domain.tableRefs.size == 1)
+      assert(domain.tableRefs.head == "_TEST_TABLE1")
       val tableFile = File("/tmp/PUBLIC", "_TEST_TABLE1.comet.yml")
       val table =
         YamlSerializer
@@ -163,7 +163,7 @@ class JDBC2YmlSpec extends TestHelper {
       table.attributes
         .map(_.name) should contain theSameElementsAs Set("ID")
       table.attributes.map(_.`type`) should contain theSameElementsAs Set("long")
-      table.primaryKey.getOrElse(List.empty) should contain("ID")
+      table.primaryKey should contain("ID")
     }
   }
 
@@ -199,7 +199,7 @@ class JDBC2YmlSpec extends TestHelper {
           "PUBLIC",
           None,
           None,
-          List(JDBCTable("TEST_TABLE2", None))
+          List(JDBCTable("TEST_TABLE2", Nil))
         ),
         settings.comet.connections("test-h2").options,
         File("/tmp"),
@@ -215,8 +215,8 @@ class JDBC2YmlSpec extends TestHelper {
           case Failure(e)      => throw e
         }
       assert(domain.name == "PUBLIC")
-      assert(domain.tableRefs.get.size == 1)
-      assert(domain.tableRefs.get.head == "_TEST_TABLE2")
+      assert(domain.tableRefs.size == 1)
+      assert(domain.tableRefs.head == "_TEST_TABLE2")
       val tableFile = File("/tmp/PUBLIC", "_TEST_TABLE2.comet.yml")
       val table =
         YamlSerializer

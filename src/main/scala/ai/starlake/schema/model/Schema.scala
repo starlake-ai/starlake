@@ -63,19 +63,27 @@ case class Schema(
   metadata: Option[Metadata],
   merge: Option[MergeOptions],
   comment: Option[String],
-  presql: Option[List[String]],
-  postsql: Option[List[String]] = None,
-  tags: Option[Set[String]] = None,
-  rls: Option[List[RowLevelSecurity]] = None,
-  assertions: Option[Map[String, String]] = None,
-  primaryKey: Option[List[String]] = None,
-  acl: Option[List[AccessControlEntry]] = None,
+  presql: List[String] = Nil,
+  postsql: List[String] = Nil,
+  tags: Set[String] = Set.empty,
+  rls: List[RowLevelSecurity] = Nil,
+  assertions: Map[String, String] = Map.empty,
+  primaryKey: List[String] = Nil,
+  acl: List[AccessControlEntry] = Nil,
   rename: Option[String] = None
 ) {
+  def this() = this(
+    "",
+    Pattern.compile("."),
+    Nil,
+    None,
+    None,
+    None
+  ) // Should never be called. Here for Jackson deserialization only
 
   def ddlMapping(datawarehouse: String, schemaHandler: SchemaHandler): List[DDLField] = {
     attributes.map { attribute =>
-      val isPrimaryKey = primaryKey.getOrElse(Nil).contains(attribute.name)
+      val isPrimaryKey = primaryKey.contains(attribute.name)
       attribute.ddlMapping(isPrimaryKey, datawarehouse, schemaHandler)
     }
   }
@@ -341,10 +349,7 @@ case class Schema(
 
   @JsonIgnore
   def hasACL(): Boolean =
-    acl match {
-      case None | Some(Nil) => false
-      case Some(x)          => true
-    }
+    acl.nonEmpty
 
   def relatedTables(): List[String] = {
     val fkTables = attributes.flatMap(_.foreignKey).map { fk =>
@@ -370,7 +375,7 @@ case class Schema(
         s"""<tr><td port="0" bgcolor="darkgreen"><B><FONT color="white"> $finalName </FONT></B></td></tr>\n"""
       val rows =
         attributes.flatMap { attr =>
-          val isPK = primaryKey.getOrElse(Nil).contains(attr.getFinalName())
+          val isPK = primaryKey.contains(attr.getFinalName())
           val isFK = attr.foreignKey.isDefined
           dotRow(attr, isPK, isFK, includeAllAttrs)
         } mkString "\n"
@@ -417,7 +422,7 @@ object Schema {
             obj.name,
             "struct",
             required = !obj.nullable,
-            attributes = Some(x.fields.map(buildAttributeTree).toList)
+            attributes = x.fields.map(buildAttributeTree).toList
           )
         case _ => throw new Exception(s"Unsupported Date type ${obj.dataType} for object $obj ")
       }
@@ -426,12 +431,12 @@ object Schema {
     Schema(
       schemaName,
       Pattern.compile("ignore"),
-      buildAttributeTree(obj).attributes.getOrElse(Nil),
+      buildAttributeTree(obj).attributes,
       None,
       None,
       None,
-      None,
-      None
+      Nil,
+      Nil
     ).esMapping(None, domainName, schemaHandler)
   }
 

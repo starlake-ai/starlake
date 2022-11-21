@@ -37,6 +37,7 @@ import scala.util.Try
   *   : Type list
   */
 case class Types(types: List[Type]) {
+  def this() = this(Nil) // Should never be called. Here for Jackson deserialization only
 
   def checkValidity(): Either[List[String], Boolean] = {
     val typeNames = types.map(_.name)
@@ -65,6 +66,7 @@ case class Type(
   indexMapping: Option[IndexMapping] = None,
   ddlMapping: Option[Map[String, String]] = None
 ) {
+  def this() = this("", "") // Should never be called. Here for Jackson deserialization only
 
   @JsonIgnore
   val isString: Boolean = name == "string"

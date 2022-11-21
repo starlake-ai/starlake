@@ -2,8 +2,8 @@ package ai.starlake.schema.model
 
 import com.typesafe.scalalogging.StrictLogging
 
-case class AssertionDefinitions(assertions: Map[String, String]) {
-
+case class AssertionDefinitions(assertions: Map[String, String] = Map.empty) {
+  def this() = this(Map.empty) // Should never be called. Here for Jackson deserialization only
   val assertionDefinitions: Map[String, AssertionDefinition] = {
     assertions.map { case (k, v) =>
       val assertionDefinition = AssertionDefinition.fromDefinition(k, v)
@@ -12,7 +12,10 @@ case class AssertionDefinitions(assertions: Map[String, String]) {
   }
 }
 
-case class AssertionDefinition(fullName: String, name: String, params: List[String], sql: String)
+case class AssertionDefinition(fullName: String, name: String, params: List[String], sql: String) {
+  def this() =
+    this("", "", Nil, "") // Should never be called. Here for Jackson deserialization only
+}
 
 object AssertionDefinition extends StrictLogging {
 

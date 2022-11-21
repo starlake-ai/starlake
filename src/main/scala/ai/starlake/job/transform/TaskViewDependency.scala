@@ -67,7 +67,7 @@ object TaskViewDependency extends StrictLogging {
     val jobAndViewDeps = (jobDependencies ++ viewDependencies).flatMap {
       case SimpleEntry(jobName, typ, parentRefs) =>
         logger.info(
-          s"Analyzing dependency of type $typ for job $jobName with parent refs ${parentRefs.mkString(",")}"
+          s"Analyzing dependency of type '$typ' for job '$jobName' with parent refs [${parentRefs.mkString(",")}]"
         )
         if (parentRefs.isEmpty)
           List(TaskViewDependency(jobName, typ, "", UNKNOWN_TYPE, ""))
@@ -91,10 +91,22 @@ object TaskViewDependency extends StrictLogging {
                   )
                   .map(_.name)
               case _ =>
+                val errors = schemaHandler.checkJobsVars().mkString("\n")
+
                 // Strange. This should never happen as far as I know. Let's make it clear
-                throw new Exception(
-                  s"invalid parent ref $parentSQLRef syntax in job $jobName. Too many parts"
-                )
+                if (parts.length == 0)
+                  throw new Exception(
+                    s"""invalid parent ref '$parentSQLRef' syntax in job '$jobName': No part found.
+                     |Make sure variables defined in your job have a default value in the selected env profile.
+                     |$errors""".stripMargin
+                  )
+                else
+                  // Strange. This should never happen as far as I know. Let's make it clear
+                  throw new Exception(
+                    s"""invalid parent ref '$parentSQLRef' syntax in job '$jobName'. Too many parts.
+                       |Make sure variables defined in your job have a default value in the selected env profile.
+                       |$errors""".stripMargin
+                  )
 
             }
             parentJobName match {
