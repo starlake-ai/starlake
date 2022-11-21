@@ -1,22 +1,19 @@
 package ai.starlake.utils
 
 import ai.starlake.config.{Settings, SparkEnv, UdfRegistration}
+import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.SinkType.{BQ, FS, JDBC, KAFKA}
 import ai.starlake.schema.model.{Metadata, SinkType, Views}
-import ai.starlake.schema.handlers.SchemaHandler
-import ai.starlake.utils.Formatter._
 import ai.starlake.utils.kafka.KafkaClient
-import com.hubspot.jinjava.Jinjava
+import ai.starlake.utils.Formatter._
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.SparkConf
 import org.apache.spark.sql._
 import org.apache.spark.sql.execution.datasources.jdbc.JDBCOptions
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.IntegerType
-
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
-import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try}
 
 trait JobResult
@@ -40,8 +37,6 @@ trait JobBase extends StrictLogging with DatasetLogging {
     */
   def run(): Try[JobResult]
 
-  type JdbcConfigName = String
-
   /** @param valueWithEnv
     *   in the form [SinkType:[configName:]]viewName
     * @return
@@ -64,28 +59,6 @@ trait JobBase extends StrictLogging with DatasetLogging {
         (SinkType.fromString(key), None, valueWithEnv.substring(sepIndex + 1))
     } else // parquet is the default
       (SinkType.FS, None, valueWithEnv)
-  }
-  protected val jinjava = {
-    val res = new Jinjava()
-    res.setResourceLocator(new JinjaResourceHandler())
-    res
-  }
-
-  protected def parseJinja(str: String, params: Map[String, String]): String = parseJinja(
-    List(str),
-    params
-  ).head
-
-  protected def parseJinja(str: List[String], params: Map[String, String]): List[String] = {
-    val result = str.map { sql =>
-      CommentParser.stripComments(
-        jinjava
-          .render(sql, params.asJava)
-          .richFormat(params, Map.empty)
-          .trim
-      )
-    }
-    result
   }
 
 }
@@ -287,13 +260,16 @@ trait SparkJob extends JobBase {
             .view(key)
             .getOrElse(throw new Exception(s"Unknown view $key"))
 
-          val parsedContent = parseJinja(viewContent, schemaHandler.activeEnv() ++ sqlParameters)
+          val parsedContent =
+            Utils.parseJinja(viewContent, schemaHandler.activeEnv() ++ sqlParameters)
           Some(s"$key AS ($parsedContent)")
 
         case Some(value) =>
           val valueWithEnv =
-            parseJinja(value, schemaHandler.activeEnv() ++ sqlParameters)
+            Utils
+              .parseJinja(value, schemaHandler.activeEnv() ++ sqlParameters)
               .richFormat(schemaHandler.activeEnv(), sqlParameters)
+
           val (sinkType, sinkConfig, path) = parseViewDefinition(valueWithEnv)
           logger.info(s"Loading view $path from $sinkType")
           val df: DataFrame = createSparkView(sinkType, sinkConfig, path)
