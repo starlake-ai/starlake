@@ -31,7 +31,7 @@ import com.fasterxml.jackson.databind.{
 
 @JsonSerialize(using = classOf[EngineSerializer])
 @JsonDeserialize(using = classOf[EngineDeserializer])
-sealed case class Engine(value: String) {
+sealed abstract class Engine(value: String) {
   override def toString: String = value
 }
 
@@ -39,19 +39,20 @@ object Engine {
 
   def fromString(value: String): Engine = {
     value.toUpperCase() match {
-      case "BQ" | "BigQuery" => Engine.BQ
-      case "JDBC"            => Engine.JDBC
-      case "SPARK"           => Engine.SPARK
+      case "BQ" | "BIGQUERY"      => Engine.BQ
+      case "JDBC"                 => Engine.JDBC
+      case "SPARK" | "DATABRICKS" => Engine.SPARK
+      case custom                 => Engine.Custom(custom)
     }
   }
+
+  final case class Custom(value: String) extends Engine(value)
 
   object BQ extends Engine("BQ")
 
   object SPARK extends Engine("SPARK")
 
   object JDBC extends Engine("JDBC")
-
-  val engines: Set[Engine] = Set(BQ, SPARK, JDBC)
 }
 
 class EngineDeserializer extends JsonDeserializer[Engine] {

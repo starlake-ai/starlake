@@ -25,12 +25,13 @@ import ai.starlake.schema.model._
 import ai.starlake.utils.YamlSerializer
 import better.files.File
 import org.apache.hadoop.fs.Path
-import org.apache.spark.sql.types.{ArrayType, StructType}
+import org.apache.spark.sql.types.{ArrayType, StructField, StructType}
 
 import java.util.regex.Pattern
 import scala.util.{Failure, Success}
 
 object InferSchemaHandler {
+  val datePattern = "[0-9]{4}-[0-9]{2}-[0-9]{2}".r.pattern
 
   /** * Traverses the schema and returns a list of attributes.
     *
@@ -40,10 +41,13 @@ object InferSchemaHandler {
     *   List of Attributes
     */
   def createAttributes(
+    lines: List[Array[String]],
     schema: StructType
-  )(implicit settings: Settings): List[Attribute] =
-    schema
-      .map(row =>
+  )(implicit settings: Settings): List[Attribute] = {
+    val schemaWithIndex: Seq[(StructField, Int)] = schema.zipWithIndex
+
+    schemaWithIndex
+      .map { case (row, index) =>
         row.dataType.typeName match {
 
           // if the datatype is a struct {...} containing one or more other field
@@ -53,7 +57,7 @@ object InferSchemaHandler {
               row.dataType.typeName,
               Some(false),
               !row.nullable,
-              attributes = createAttributes(row.dataType.asInstanceOf[StructType])
+              attributes = createAttributes(lines, row.dataType.asInstanceOf[StructType])
             )
 
           case "array" =>
@@ -66,7 +70,7 @@ object InferSchemaHandler {
                 elemType.typeName,
                 Some(true),
                 !row.nullable,
-                attributes = createAttributes(elemType.asInstanceOf[StructType])
+                attributes = createAttributes(lines, elemType.asInstanceOf[StructType])
               )
             else
               // if it is a regular array. {ages: [21, 25]}
@@ -74,10 +78,19 @@ object InferSchemaHandler {
 
           // if the datatype is a simple Attribute
           case _ =>
-            Attribute(row.name, row.dataType.typeName, Some(false), !row.nullable)
+            val cellType = if (row.dataType.typeName == "timestamp") {
+              // We handle here the case when it is a date and not a timestamp
+              val timestamps = lines.map(row => row(index)).flatMap(Option(_))
+              if (timestamps.forall(v => datePattern.matcher(v).matches()))
+                "date"
+              else
+                "timestamp"
+            } else
+              row.dataType.typeName
+            Attribute(row.name, cellType, Some(false), !row.nullable)
         }
-      )
-      .toList
+      }
+  }.toList
 
   /** * builds the Metadata case class. check case class metadata for attribute definition
     *
