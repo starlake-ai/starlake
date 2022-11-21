@@ -42,12 +42,12 @@ object SinkType {
 
   def fromString(value: String): SinkType = {
     value.toUpperCase match {
-      case "NONE" | "NONESINK"             => SinkType.None
-      case "FS" | "FSSINK"                 => SinkType.FS
-      case "GENERIC" | "JDBC" | "JDBCSINK" => SinkType.JDBC
-      case "BQ" | "BIGQUERYSINK"           => SinkType.BQ
-      case "ES" | "ESSINK"                 => SinkType.ES
-      case "KAFKA" | "KAFKASINK"           => SinkType.KAFKA
+      case "NONE" | "NONESINK"                => SinkType.None
+      case "FS" | "FSSINK"                    => SinkType.FS
+      case "GENERIC" | "JDBC" | "JDBCSINK"    => SinkType.JDBC
+      case "BQ" | "BIGQUERY" | "BIGQUERYSINK" => SinkType.BQ
+      case "ES" | "ESSINK"                    => SinkType.ES
+      case "KAFKA" | "KAFKASINK"              => SinkType.KAFKA
     }
   }
 
