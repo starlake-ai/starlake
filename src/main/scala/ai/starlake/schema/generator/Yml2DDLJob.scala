@@ -213,7 +213,7 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
                 "schema"                  -> schema.name,
                 "partitions"    -> mergedMetadata.partition.map(_.getAttributes()).getOrElse(Nil),
                 "clustered"     -> mergedMetadata.clustering.getOrElse(Nil),
-                "primaryKeys"   -> schema.primaryKey.getOrElse(Nil),
+                "primaryKeys"   -> schema.primaryKey,
                 "comment"       -> schema.comment.getOrElse(""),
                 "domainComment" -> domain.comment.getOrElse(""),
                 "domainLabels"  -> domainLabels,

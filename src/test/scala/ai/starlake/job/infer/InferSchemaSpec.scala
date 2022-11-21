@@ -11,10 +11,10 @@ class InferSchemaSpec extends TestHelper {
           |Usage: starlake infer-schema [options]
           |
           |  --domain <value>       Domain Name
-          |  --schema <value>       Schema Name
+          |  --table <value>        Table Name
           |  --input <value>        Dataset Input Path
-          |  --output <value>       Domain YAML Output Path
-          |  --with-header <value>  Does the file contain a header (For CSV files only)
+          |  --output-dir <value>   Domain YAML Output Path
+          |  --with-header          Does the file contain a header (For CSV files only)
           |""".stripMargin
       rendered.substring(rendered.indexOf("Usage:")).replaceAll("\\s", "") shouldEqual expected
         .replaceAll("\\s", "")

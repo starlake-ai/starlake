@@ -19,9 +19,9 @@ class SqlTaskSpec extends AnyFlatSpec with Matchers with BeforeAndAfterAll with 
         |""".stripMargin
     val sqlTask = SqlTaskExtractor(sqlContent)
     sqlTask shouldBe SqlTaskExtractor(
-      Some(List("insert into table value('string', 2, 3)")),
+      List("insert into table value('string', 2, 3)"),
       "select count(*) from table\nwhere x = '${value}'",
-      None
+      Nil
     )
   }
   "SQL Task file with no section" should "be interpreted correctly" in {
@@ -32,9 +32,9 @@ class SqlTaskSpec extends AnyFlatSpec with Matchers with BeforeAndAfterAll with 
         |""".stripMargin
     val sqlTask = SqlTaskExtractor(sqlContent)
     sqlTask shouldBe SqlTaskExtractor(
-      None,
+      Nil,
       "select count(*) from table\nwhere x = '${value}'",
-      None
+      Nil
     )
   }
   "SQL Task file with a single PRESQL Section" should "be interpreted correctly" in {
@@ -46,9 +46,9 @@ class SqlTaskSpec extends AnyFlatSpec with Matchers with BeforeAndAfterAll with 
     |""".stripMargin
     val sqlTask = SqlTaskExtractor(sqlContent)
     sqlTask shouldBe SqlTaskExtractor(
-      Some(List("insert into table value('string', 2, 3)")),
+      List("insert into table value('string', 2, 3)"),
       "",
-      None
+      Nil
     )
   }
 }

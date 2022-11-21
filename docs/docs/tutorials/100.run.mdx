@@ -1,8 +1,12 @@
 ---
 sidebar_position: 100
+title: Move Data
 ---
 
-# Quick Start
+# Move data
+
+In this section you will learn how to load and transform data using samples files initialized when bootstrapping a new project.
+
 
 This quickstart is based on the example available in the sample directory.
 This sample will work out of the box on MacOS / Linux or in a Docker container on Windows.
@@ -48,17 +52,17 @@ as CSV  files. Below is an extract of these files.
 
 ``File customers-2018-05-10.psv from "sales" department``
 
-id|signup|contact|birthdate|name1|name2
----|---|---|---|---|---
-A009701|2010-01-31 23:04:15|me@home.com|1980-10-14|Donald|Obama
-B308629|2016-12-01 09:56:02|you@land.com|1980-10-14|Barack|Trump
+|id|signup|contact|birthdate|name1|name2|
+|---|-----|-------|---------|-----|-----|
+|A009701|2010-01-31 23:04:15|me@home.com|1980-10-14|Donald|Obama|
+|B308629|2016-12-01 09:56:02|you@land.com|1980-10-14|Barack|Trump|
 
 ``File orders-2018-05-10.csv from the "sales" department``
 
-order_id|customer_id|amount|seller_id
----|---|---|---
-12345|A009701|123.65|AQZERD
-56432|B308629|23.8|AQZERD
+|order_id|customer_id|amount|seller_id|
+|---|---|---|---|
+|12345|A009701|123.65|AQZERD|
+|56432|B308629|23.8|AQZERD|
 
 :::note 
 
@@ -73,20 +77,17 @@ The `sellers` dataset is sent as JSON array by the HR department.
 
 ````json
 [
-{ "id":"AQZERD", "seller_email":"me@acme.com", "location_id": 1},
-{ "id":"TYUEZG", "seller_email":"acme.com","location_id": 2 }
-
+  { "id":"AQZERD", "seller_email":"me@acme.com", "location_id": 1},
+  { "id":"TYUEZG", "seller_email":"acme.com","location_id": 2 }
 ]
 ````
 
 ``File locations-2018-05-10.json from the HR department``
 
 ````json
-{ "id":1, "address": { "city":"Paris", "stores": ["Store 1", "Store 2", "Store 3"] "country":"France" }}
-{ "id":2, "address": { "city":"Berlin", "country":"Germany" }}
+{ "id":1, "address": { "city":"Paris", "stores": ["Store 1", "Store 2", "Store 3"], "country":"France" }}
+{ "id":2, "address": { "city": "Berlin", "country": "Germany" } }
 ````
-
-
 
 :::note
 
@@ -145,9 +146,9 @@ Run the ingestion process as follows :
 
 
 This will ingest the four datasets of the two domains (hr & sales) and store them as parquet files into the folders:
-- /tmp/datasets/accepted for valid records
-- /tmp/datasets/rejected for invalid records
-- /tmp/datasets/unresolved for unrecognized files
+- `/tmp/datasets/accepted` for valid records
+- `/tmp/datasets/rejected` for invalid records
+- `/tmp/datasets/unresolved` for unrecognized files
 
 
 When run on top of HDFS or any cloud warehouse, these datasets are also available as tables.

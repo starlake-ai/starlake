@@ -51,8 +51,8 @@ class MetricsJob(
     new Path(
       settings.comet.lock.path,
       "metrics" + path
-        .replace("{domain}", domain.name)
-        .replace("{schema}", schema.name)
+        .replace("{{domain}}", domain.name)
+        .replace("{{schema}}", schema.name)
         .replace('/', '_') + ".lock"
     )
   }

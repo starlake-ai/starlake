@@ -33,7 +33,7 @@ trait BigQueryJobBase extends StrictLogging {
     Try {
       if (forceApply || settings.comet.accessPolicies.apply) {
         val tableId = TableId.of(cliConfig.outputDataset, cliConfig.outputTable)
-        cliConfig.acl.foreach(acl => applyACL(tableId, acl))
+        applyACL(tableId, cliConfig.acl)
         prepareRLS().foreach { rlsStatement =>
           logger.info(s"Applying row level security $rlsStatement")
           new BigQueryNativeJob(cliConfig, rlsStatement, None).runBatchQuery() match {
@@ -201,7 +201,7 @@ trait BigQueryJobBase extends StrictLogging {
          |  ($filter)
          |""".stripMargin
     }
-    val rlsCreateStatements = cliConfig.rls.getOrElse(Nil).map { rlsRetrieved =>
+    val rlsCreateStatements = cliConfig.rls.map { rlsRetrieved =>
       logger.info(s"Building security statement $rlsRetrieved")
       val rlsCreateStatement = grantPrivileges(rlsRetrieved)
       logger.info(s"An access policy will be created using $rlsCreateStatement")
@@ -249,11 +249,8 @@ trait BigQueryJobBase extends StrictLogging {
   }
 
   protected def setTagsOnDataset(dataset: Dataset): Unit = {
-    cliConfig.domainTags.foreach { domainTags =>
-      val datasetTagPairs = Utils.extractTags(Some(domainTags))
-      dataset.toBuilder.setLabels(datasetTagPairs.toMap.asJava).build().update()
-    }
-
+    val datasetTagPairs = Utils.extractTags(cliConfig.domainTags)
+    dataset.toBuilder.setLabels(datasetTagPairs.toMap.asJava).build().update()
   }
 
   /** To set access control on a table or view, we can use Identity and Access Management (IAM)

@@ -4,8 +4,9 @@ import ai.starlake.utils.CliConfig
 import scopt.OParser
 
 case class Yml2GraphVizConfig(
-  includeAllAttributes: Option[Boolean] = Some(true),
-  acl: Option[Boolean] = Some(true),
+  includeAllAttributes: Boolean = false,
+  acl: Boolean = false,
+  domains: Boolean = false,
   outputDir: Option[String] = None,
   reload: Boolean = false
 )
@@ -24,8 +25,8 @@ object Yml2GraphVizConfig extends CliConfig[Yml2GraphVizConfig] {
         .action((x, c) => c.copy(outputDir = Some(x)))
         .optional()
         .text("Where to save the generated dot file ? Output to the console by default"),
-      opt[Boolean]("all")
-        .action((x, c) => c.copy(includeAllAttributes = Some(x)))
+      opt[Unit]("all")
+        .action((x, c) => c.copy(includeAllAttributes = true))
         .optional()
         .text(
           "Should we include all attributes in the dot file or only the primary and foreign keys ? true by default"
@@ -36,8 +37,14 @@ object Yml2GraphVizConfig extends CliConfig[Yml2GraphVizConfig] {
         .text(
           "Should we reload the domains first ?"
         ),
-      opt[Boolean]("acl")
-        .action((x, c) => c.copy(acl = Some(x)))
+      opt[Unit]("acl")
+        .action((x, c) => c.copy(acl = true))
+        .optional()
+        .text(
+          "Should we include all attributes in the dot file or only the primary and foreign keys ? true by default"
+        ),
+      opt[Unit]("domains")
+        .action((x, c) => c.copy(domains = true))
         .optional()
         .text(
           "Should we include all attributes in the dot file or only the primary and foreign keys ? true by default"

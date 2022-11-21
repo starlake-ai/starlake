@@ -20,10 +20,10 @@
 
 package ai.starlake.job.transform
 
-import ai.starlake.config.{Settings, StorageArea}
-import ai.starlake.job.sink.bigquery.{BigQueryJobResult, BigQueryLoadConfig, BigQueryNativeJob}
+import ai.starlake.config.Settings
 import ai.starlake.job.ingest.{AuditLog, Step}
 import ai.starlake.job.metrics.AssertionJob
+import ai.starlake.job.sink.bigquery.{BigQueryJobResult, BigQueryLoadConfig, BigQueryNativeJob}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.Stage.UNIT
 import ai.starlake.schema.model._
@@ -59,7 +59,6 @@ object AutoTask extends StrictLogging {
     jobDesc.tasks.map(taskDesc =>
       AutoTask(
         jobDesc.name,
-        jobDesc.getArea(),
         jobDesc.format,
         jobDesc.coalesce.getOrElse(false),
         jobDesc.udf,
@@ -88,7 +87,6 @@ object AutoTask extends StrictLogging {
   */
 case class AutoTask(
   override val name: String, // this is the job name. the task name is stored in the taskDesc field
-  defaultArea: StorageArea,
   format: scala.Option[String],
   coalesce: Boolean,
   udf: scala.Option[String],
@@ -243,8 +241,8 @@ case class AutoTask(
           if (settings.comet.assertions.active) {
             new AssertionJob(
               taskDesc.domain,
-              taskDesc.area.getOrElse(defaultArea).value,
-              taskDesc.assertions.getOrElse(Map.empty),
+              taskDesc.table,
+              taskDesc.assertions,
               UNIT,
               storageHandler,
               schemaHandler,
@@ -280,27 +278,33 @@ case class AutoTask(
         list.mkString("WITH ", ", ", " ") + parseJinja(taskDesc.getSql())
     }
 
-    val preSql = parseJinja(taskDesc.presql.getOrElse(Nil))
-    val postSql = parseJinja(taskDesc.postsql.getOrElse(Nil))
+    val preSql = parseJinja(taskDesc.presql)
+    val postSql = parseJinja(taskDesc.postsql)
     (preSql, sql, postSql)
   }
 
   def buildQueryBQ(): (List[String], String, List[String]) = {
     val sql = parseMainSqlBQ()
-    val preSql = parseJinja(taskDesc.presql.getOrElse(Nil))
-    val postSql = parseJinja(taskDesc.postsql.getOrElse(Nil))
+    val preSql = parseJinja(taskDesc.presql)
+    val postSql = parseJinja(taskDesc.postsql)
 
     (preSql, sql, postSql)
   }
 
   private def parseJinja(sql: String): String = parseJinja(List(sql)).head
 
+  /** All variables defined in the active profile are passed as string parameters to the Jinja
+    * parser.
+    * @param sqls
+    * @return
+    */
   private def parseJinja(sqls: List[String]): List[String] =
-    parseJinja(sqls, schemaHandler.activeEnv() ++ sqlParameters)
+    Utils
+      .parseJinja(sqls, schemaHandler.activeEnv() ++ sqlParameters)
       .map(_.richFormat(schemaHandler.activeEnv(), sqlParameters))
 
   def sinkToFS(dataframe: DataFrame, sink: FsSink): Boolean = {
-    val targetPath = taskDesc.getTargetPath(defaultArea)
+    val targetPath = taskDesc.getTargetPath()
     logger.info(s"About to write resulting dataset to $targetPath")
     // Target Path exist only if a storage area has been defined at task or job level
     // To execute a task without writing to disk simply avoid the area at the job and task level
@@ -329,7 +333,7 @@ case class AutoTask(
     val partitionedDFWriter =
       partitionedDatasetWriter(
         partitionedDF,
-        sinkPartition.attributes.getOrElse(Nil)
+        sinkPartition.attributes
       )
 
     val clusteredDFWriter = sink.clustering match {
@@ -346,7 +350,7 @@ case class AutoTask(
 
     if (settings.comet.hive) {
       val tableName = taskDesc.table
-      val hiveDB = taskDesc.getHiveDB(defaultArea)
+      val hiveDB = taskDesc.getHiveDB()
       val fullTableName = s"$hiveDB.$tableName"
       session.sql(s"create database if not exists $hiveDB")
       session.sql(s"use $hiveDB")
@@ -395,7 +399,13 @@ case class AutoTask(
           case Engine.JDBC =>
             logger.warn("JDBC Engine not supported on job task. Running query using Spark Engine")
             session.sql(sqlWithParameters)
-          case _ => throw new Exception("should never happen")
+          case custom =>
+            val connectionOptions = settings.comet.connections(custom.toString)
+            session.read
+              .format(connectionOptions.format)
+              .option("query", sqlWithParameters)
+              .options(connectionOptions.options)
+              .load()
         }
 
       if (settings.comet.hive || settings.comet.sinkToFile)
@@ -404,8 +414,8 @@ case class AutoTask(
       if (settings.comet.assertions.active) {
         new AssertionJob(
           taskDesc.domain,
-          taskDesc.area.getOrElse(defaultArea).value,
-          taskDesc.assertions.getOrElse(Map.empty),
+          taskDesc.table,
+          taskDesc.assertions,
           Stage.UNIT,
           storageHandler,
           schemaHandler,
