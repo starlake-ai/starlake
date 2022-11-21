@@ -142,7 +142,7 @@ class Main() extends StrictLogging {
     import settings.{launcherService, metadataStorageHandler, storageHandler}
     DatasetArea.initMetadata(metadataStorageHandler)
 
-    // extarct any env var passed as --options argument
+    // extract any env var passed as --options argument
     val cliEnv = CliEnvConfig.parse(args.drop(1)) match {
       case Some(env) => env.options
       case None      => Map.empty[String, String]
