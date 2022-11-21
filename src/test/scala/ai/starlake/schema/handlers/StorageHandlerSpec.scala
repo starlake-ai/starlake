@@ -20,13 +20,12 @@
 
 package ai.starlake.schema.handlers
 
-import ai.starlake.schema.model.Types
-
-import java.util.regex.Pattern
 import ai.starlake.TestHelper
-import ai.starlake.config.{Settings, StorageArea}
+import ai.starlake.config.Settings
 import ai.starlake.schema.model._
 import org.apache.hadoop.fs.Path
+
+import java.util.regex.Pattern
 
 class StorageHandlerSpec extends TestHelper {
 
@@ -156,14 +155,12 @@ class StorageHandlerSpec extends TestHelper {
         Nil,
         Nil,
         None,
-        None,
         List(RowLevelSecurity("myrls", "TRUE", Set("user:hayssam.saleh@ebiznext.com")))
       )
       val businessJob =
         AutoJobDesc(
           "business1",
           List(businessTask1),
-          Some(StorageArea.business),
           Some("parquet"),
           Some(true)
         )

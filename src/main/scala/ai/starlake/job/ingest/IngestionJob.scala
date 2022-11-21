@@ -313,6 +313,8 @@ trait IngestionJob extends SparkJob {
         logger.info("Final Dataframe Schema")
         logger.info(finalMergedDf.schemaString())
       }
+
+      // When sinkToFile is set, it means that we want to save to files even if we save somewhere else.
       val savedInFileDataset =
         if (settings.comet.sinkToFile)
           sinkToFile(
@@ -640,7 +642,7 @@ trait IngestionJob extends SparkJob {
   ): DataFrame = {
     val resultDataFrame = if (dataset.columns.length > 0) {
       val saveMode = writeMode.toSaveMode
-      val hiveDB = StorageArea.area(domain.getFinalName(), area)
+      val hiveDB = StorageArea.area(domain.getFinalName(), Some(area))
       val tableName = schema.name
       val fullTableName = s"$hiveDB.$tableName"
       if (settings.comet.hive) {
@@ -841,7 +843,7 @@ trait IngestionJob extends SparkJob {
 
   private def nbFsPartitions(
     dataset: DataFrame,
-    writeFormat: JdbcConfigName,
+    writeFormat: String,
     targetPath: Path,
     sinkPartition: Option[Partition]
   ): Int = {
