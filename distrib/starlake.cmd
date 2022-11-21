@@ -8,6 +8,10 @@ if "x%COMET_VERSION%"=="x" (
   set COMET_VERSION=0.5.3
 )
 
+if "x%COMET_ROOT%"=="x" (
+  set COMET_ROOT=%CURRENT_DIR%
+)
+
 if "x%SPARK_VERSION%"=="x" (
   set SPARK_VERSION=3.1.3
 )

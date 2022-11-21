@@ -20,14 +20,14 @@
 
 package ai.starlake.schema.handlers
 
-import ai.starlake.config.{DatasetArea, Settings, StorageArea}
+import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.schema.model._
 import ai.starlake.utils.Formatter._
 import ai.starlake.utils.{CometObjectMapper, Utils, YamlSerializer}
 import better.files.File
 import com.databricks.spark.xml.util.XSDToSchema
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.databind.node.{ArrayNode, ObjectNode}
+import com.fasterxml.jackson.databind.node.{ArrayNode, ObjectNode, TextNode}
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.scala.ScalaObjectMapper
 import com.typesafe.scalalogging.StrictLogging
@@ -38,6 +38,7 @@ import java.time.{LocalDateTime, ZoneId}
 import java.util.regex.Pattern
 import scala.annotation.nowarn
 import scala.collection.mutable
+import scala.util.matching.Regex
 import scala.util.{Failure, Success, Try}
 
 /** Handles access to datasets metadata, eq. domains / types / schemas.
@@ -45,11 +46,14 @@ import scala.util.{Failure, Success, Try}
   * @param storage
   *   : Underlying filesystem manager
   */
-class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extends StrictLogging {
+class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.empty)(implicit
+  settings: Settings
+) extends StrictLogging {
 
-  val forceViewPrefixRegex = settings.comet.forceViewPattern.r
-  val forceJobPrefixRegex = settings.comet.forceJobPattern.r
-  val forceTaskPrefixRegex = settings.comet.forceTablePattern.r
+  val forceViewPrefixRegex: Regex = settings.comet.forceViewPattern.r
+  val forceJobPrefixRegex: Regex = settings.comet.forceJobPattern.r
+  val forceTaskPrefixRegex: Regex = settings.comet.forceTablePattern.r
+
   // uses Jackson YAML for parsing, relies on SnakeYAML for low level handling
   @nowarn val mapper: ObjectMapper with ScalaObjectMapper =
     new CometObjectMapper(new YAMLFactory(), injectables = (classOf[Settings], settings) :: Nil)
@@ -81,7 +85,7 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     paths.flatMap(checkVarsAreDefined)
   }
 
-  private def checkJobsVars(): List[String] = {
+  def checkJobsVars(): List[String] = {
     val paths = storage.list(DatasetArea.jobs, ".yml", recursive = true)
     paths.flatMap { path =>
       val ymlWarnings = checkVarsAreDefined(path)
@@ -91,47 +95,44 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     }
   }
 
-  def fullValidation(config: ValidateConfig = ValidateConfig(reload = false)): Unit =
-    Try {
-      val validityErrorsAndWarnings = checkValidity(config.reload)
-      val deserErrors = deserializedDomains
-        .filter { case (path, res) =>
-          res.isFailure
-        } map { case (path, err) =>
-        s"${path.toString} could not be deserialized"
-      }
-
-      val allErrorsAndWarnings =
-        validityErrorsAndWarnings ++ deserErrors ++ this._domainErrors ++ this._jobErrors
-      val (warnings, errors) = allErrorsAndWarnings.partition(_.startsWith("Warning: "))
-      val errorCount = errors.length
-      val warningCount = warnings.length
-
-      val output =
-        settings.comet.rootServe.map(rootServe => File(File(rootServe), "validation.log"))
-      output.foreach(_.overwrite(""))
-
-      if (errorCount + warningCount > 0) {
-        output.foreach(
-          _.appendLine(
-            s"START VALIDATION RESULTS: $errorCount errors and $warningCount found"
-          )
-        )
-        logger.error(s"START VALIDATION RESULTS: $errorCount errors  and $warningCount found")
-        allErrorsAndWarnings.foreach { err =>
-          logger.error(err)
-          output.foreach(_.appendLine(err))
-        }
-        logger.error(s"END VALIDATION RESULTS")
-        output.foreach(_.appendLine(s"END VALIDATION RESULTS"))
-        if (errorCount > 0)
-          throw new Exception(s"$errorCount errors and $warningCount warning found")
-      }
-    } match {
-      case Success(_) => // do nothing
-      case Failure(e) =>
-        e.printStackTrace()
+  def fullValidation(config: ValidateConfig = ValidateConfig(reload = false)): Unit = {
+    val validityErrorsAndWarnings = checkValidity(config.reload)
+    val deserErrors = deserializedDomains
+      .filter { case (path, res) =>
+        res.isFailure
+      } map { case (path, err) =>
+      s"${path.toString} could not be deserialized"
     }
+
+    val allErrorsAndWarnings =
+      validityErrorsAndWarnings ++ deserErrors ++ this._domainErrors ++ this._jobErrors
+    val (warnings, errors) = allErrorsAndWarnings.partition(_.startsWith("Warning: "))
+    val errorCount = errors.length
+    val warningCount = warnings.length
+
+    val output =
+      settings.comet.rootServe.map(rootServe => File(File(rootServe), "validation.log"))
+    output.foreach(_.overwrite(""))
+
+    if (errorCount + warningCount > 0) {
+      output.foreach(
+        _.appendLine(
+          s"START VALIDATION RESULTS: $errorCount errors and $warningCount found"
+        )
+      )
+      logger.error(s"START VALIDATION RESULTS: $errorCount errors  and $warningCount found")
+      allErrorsAndWarnings.foreach { err =>
+        logger.error(err)
+        output.foreach(_.appendLine(err))
+      }
+      logger.error(s"END VALIDATION RESULTS")
+      output.foreach(_.appendLine(s"END VALIDATION RESULTS"))
+      if (settings.comet.validateOnLoad)
+        throw new Exception(
+          s"Validation Failed: $errorCount errors and $warningCount warning found"
+        )
+    }
+  }
 
   def checkViewsValidity(): Either[List[String], Boolean] = {
     val errorList: mutable.MutableList[String] = mutable.MutableList.empty
@@ -142,7 +143,6 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
 
     val duplicates = sqlFiles.groupBy(_.getName).filter { case (name, paths) => paths.length > 1 }
     // Check Domain name validity
-    val forceViewPrefixRegex = settings.comet.forceViewPattern.r
     sqlFiles.foreach { sqlFile =>
       val name = viewName(sqlFile)
       if (!forceViewPrefixRegex.pattern.matcher(name).matches()) {
@@ -195,7 +195,10 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     val assertionsPath = new Path(DatasetArea.assertions, filename)
     logger.info(s"Loading assertions $assertionsPath")
     if (storage.exists(assertionsPath)) {
-      val content = storage.read(assertionsPath).richFormat(activeEnv(), Map.empty)
+
+      val content = Utils
+        .parseJinja(storage.read(assertionsPath), activeEnv())
+        .richFormat(activeEnv(), Map.empty)
       logger.info(s"reading content $content")
       mapper
         .readValue(content, classOf[AssertionDefinitions])
@@ -287,20 +290,29 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
   private def loadActiveEnv(): Map[String, String] = {
     def loadEnv(path: Path): Map[String, String] =
       if (storage.exists(path))
-        Option(mapper.readValue(storage.read(path), classOf[Env]).env.getOrElse(Map.empty))
+        Option(mapper.readValue(storage.read(path), classOf[Env]).env)
           .getOrElse(Map.empty)
       else
         Map.empty
+    // We first load all variables defined in the common environment file.
+    // variables defined here are default values.
     val globalsCometPath = new Path(DatasetArea.metadata, s"env.comet.yml")
+    // The env var COMET_ENV should be set to the profile under wich starlake is run.
+    // If no profile is defined, only default values are used.
     val envsCometPath = new Path(DatasetArea.metadata, s"env.${settings.comet.env}.comet.yml")
+    // System Env variables may be used as valuesY
     val globalEnv = {
       loadEnv(globalsCometPath).mapValues(
         _.richFormat(sys.env, cometDateVars)
       ) // will replace with sys.env
     }
+    // We subsittute values defined in the current profile with variables defined
+    // in the default env file
     val localEnv =
       loadEnv(envsCometPath).mapValues(_.richFormat(sys.env, globalEnv ++ cometDateVars))
-    this._activeEnv = cometDateVars ++ globalEnv ++ localEnv
+
+    // Please note below how profile specific vars override default profile vars.
+    this._activeEnv = cometDateVars ++ globalEnv ++ localEnv ++ cliEnv
     this._activeEnv
   }
 
@@ -313,7 +325,7 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     */
   def getType(tpe: String): Option[Type] = types().find(_.name == tpe)
 
-  var deserializedDomains: List[(Path, Try[Domain])] = {
+  def deserializedDomains: List[(Path, Try[Domain])] = {
     val paths = storage.list(
       DatasetArea.domains,
       extension = ".yml",
@@ -324,7 +336,7 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     val domains = paths
       .map { path =>
         YamlSerializer.deserializeDomain(
-          storage.read(path).richFormat(activeEnv(), Map.empty),
+          Utils.parseJinja(storage.read(path), activeEnv()).richFormat(activeEnv(), Map.empty),
           path.toString
         )
       }
@@ -346,9 +358,9 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
     val (validDomainsFile, invalidDomainsFiles) = deserializedDomains
       .map {
         case (path, Success(domain)) =>
+          logger.info(s"Loading domain from $path")
           val folder = path.getParent()
           val schemaRefs = domain.tableRefs
-            .getOrElse(Nil)
             .map { ref =>
               if (!ref.startsWith("_"))
                 throw new Exception(
@@ -358,13 +370,17 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
                 if (ref.endsWith(".yml") || ref.endsWith(".yaml")) ref else ref + ".comet.yml"
               val schemaPath = new Path(folder, refFullName)
               YamlSerializer.deserializeSchemas(
-                storage.read(schemaPath).richFormat(activeEnv(), Map.empty),
+                Utils
+                  .parseJinja(storage.read(schemaPath), activeEnv())
+                  .richFormat(activeEnv(), Map.empty),
                 schemaPath.toString
               )
             }
             .flatMap(_.tables)
+          logger.info(s"Successfully loaded job  in $path")
           Success(domain.copy(tables = Option(domain.tables).getOrElse(Nil) ::: schemaRefs))
         case (path, Failure(e)) =>
+          logger.error(s"Failed to load domain in $path")
           Utils.logException(logger, e)
           Failure(e)
       }
@@ -428,7 +444,14 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
 
   def loadJobFromFile(path: Path): Try[AutoJobDesc] =
     Try {
-      val rootContent = storage.read(path).richFormat(activeEnv(), Map.empty)
+      val fileContent = storage.read(path)
+      // we check if sql is embedded. If it is the case then we cannot use jinja in this file
+      val rootContent =
+        if (fileContent.contains("sql:"))
+          fileContent.richFormat(activeEnv(), Map.empty)
+        else
+          Utils.parseJinja(fileContent, activeEnv()).richFormat(activeEnv(), Map.empty)
+
       val rootNode = mapper.readTree(rootContent)
       val tranformNode = rootNode.path("transform")
       val autojobNode =
@@ -443,6 +466,21 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
       for (i <- 0 until tasksNode.size()) {
         val taskNode = tasksNode.get(i).asInstanceOf[ObjectNode]
         YamlSerializer.renameField(taskNode, "dataset", "table")
+        taskNode.path("sink") match {
+          case node if node.isMissingNode => // do nothing
+          case sinkNode =>
+            sinkNode.path("type") match {
+              case node if node.isMissingNode => // do thing
+              case node =>
+                val textNode = node.asInstanceOf[TextNode]
+                val sinkType = textNode.textValue().replaceAll("\"", "").toUpperCase()
+                val parent = sinkNode.asInstanceOf[ObjectNode]
+                if (sinkType == "DATABRICKS" || sinkType == "HIVE")
+                  parent.replace("type", new TextNode("FS"))
+                else if (sinkType == "BIGQUERY")
+                  parent.replace("type", new TextNode("BQ"))
+            }
+        }
       }
 
       // Now load any sql file related to this JOB
@@ -456,11 +494,8 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
           .map { taskFile =>
             val sqlTask = SqlTaskExtractor(storage.read(taskFile))
             taskDesc.copy(
-              domain = Option(taskDesc.domain).getOrElse("").richFormat(activeEnv(), Map.empty),
-              table = taskDesc.table.richFormat(activeEnv(), Map.empty),
-              area = taskDesc.area.map(area =>
-                StorageArea.fromString(area.value.richFormat(activeEnv(), Map.empty))
-              ),
+              domain = Option(taskDesc.domain).getOrElse(""),
+              table = taskDesc.table,
               presql = sqlTask.presql,
               sql = Option(sqlTask.sql),
               postsql = sqlTask.postsql
@@ -546,17 +581,18 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
 
     val (validJobsFile, invalidJobsFile) =
       jobs
-        .map(loadJobFromFile)
+        .map { path =>
+          val result = loadJobFromFile(path)
+          result match {
+            case Success(_) =>
+              logger.info(s"Successfully loaded Job $path")
+            case Failure(e) =>
+              logger.error(s"Failed to load Job file $path")
+              e.printStackTrace()
+          }
+          result
+        }
         .partition(_.isSuccess)
-
-    invalidJobsFile.foreach {
-      case Failure(err) =>
-        err.printStackTrace()
-        logger.error(
-          s"There is one or more invalid Yaml files in your jobs folder:${err.getMessage}"
-        )
-      case Success(_) => // do nothing
-    }
 
     val validJobs = validJobsFile
       .collect { case Success(job) => job }
@@ -570,7 +606,6 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
         errors
     }
 
-    val forceJobPrefixRegex = settings.comet.forceJobPattern.r
     val namePatternErrors = validJobs.map(_.name).flatMap { name =>
       if (!forceJobPrefixRegex.pattern.matcher(name).matches())
         Some(s"View with name $name should respect the pattern ${forceJobPrefixRegex.regex}")
@@ -578,7 +613,6 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
         None
     }
 
-    val forceTaskPrefixRegex = settings.comet.forceTaskPattern.r
     val taskNamePatternErrors =
       validJobs.flatMap(_.tasks.map(_.name)).flatten.flatMap { name =>
         if (!forceTaskPrefixRegex.pattern.matcher(name).matches())
@@ -589,7 +623,7 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
 
     this._jobs = validJobs.map(job => job.name -> job).toMap
     this._jobErrors = filenameErrors ++ nameErrors ++ namePatternErrors ++ taskNamePatternErrors
-    (this._jobErrors, this._jobs)
+    (_jobErrors, _jobs)
   }
 
   /** Find domain by name
@@ -642,17 +676,17 @@ class SchemaHandler(storage: StorageHandler)(implicit settings: Settings) extend
         val xsdContent = storage.read(new Path(xsd))
         val sparkType = XSDToSchema.read(xsdContent)
         val topElement = sparkType.fields.map(field => Attribute(field))
-        val xsdAttributes = topElement.head.attributes.map(_.toList).getOrElse(Nil)
+        val xsdAttributes = topElement.head.attributes
         val merged = mergeAttributes(ymlSchema.attributes, xsdAttributes)
         ymlSchema.copy(attributes = merged)
     }
   }
 
   def mergeAttributes(ymlAttrs: List[Attribute], xsdAttrs: List[Attribute]): List[Attribute] = {
-    val ymlTopLevelAttr = Attribute("__dummy", "struct", attributes = Some(ymlAttrs))
-    val xsdTopLevelAttr = Attribute("__dummy", "struct", attributes = Some(xsdAttrs))
+    val ymlTopLevelAttr = Attribute("__dummy", "struct", attributes = ymlAttrs)
+    val xsdTopLevelAttr = Attribute("__dummy", "struct", attributes = xsdAttrs)
 
     val merged = xsdTopLevelAttr.importAttr(ymlTopLevelAttr)
-    merged.attributes.getOrElse(Nil)
+    merged.attributes
   }
 }

@@ -21,7 +21,6 @@
 package ai.starlake.schema.model
 
 import ai.starlake.config.{DatasetArea, Settings, StorageArea}
-import com.fasterxml.jackson.annotation.JsonIgnore
 import org.apache.hadoop.fs.Path
 
 /** Task executed in the context of a job. Each task is executed in its own session.
@@ -54,19 +53,23 @@ case class AutoTaskDesc(
   domain: String,
   table: String,
   write: WriteMode,
-  partition: Option[List[String]] = None,
-  presql: Option[List[String]] = None,
-  postsql: Option[List[String]] = None,
-  area: Option[StorageArea] = None,
+  partition: List[String] = Nil,
+  presql: List[String] = Nil,
+  postsql: List[String] = Nil,
   sink: Option[Sink] = None,
-  rls: Option[List[RowLevelSecurity]] = None,
-  assertions: Option[Map[String, String]] = None,
+  rls: List[RowLevelSecurity] = Nil,
+  assertions: Map[String, String] = Map.empty,
   engine: Option[Engine] = None,
-  acl: Option[List[AccessControlEntry]] = None
+  acl: List[AccessControlEntry] = Nil
 ) {
 
-  @JsonIgnore
-  def getPartitions(): List[String] = partition.getOrElse(Nil)
+  def this() = this(
+    None,
+    None,
+    "",
+    "",
+    WriteMode.OVERWRITE
+  ) // Should never be called. Here for Jackson deserialization only
 
   def getSql(): String = sql.getOrElse("")
 
@@ -75,12 +78,12 @@ case class AutoTaskDesc(
     * @param settings
     * @return
     */
-  def getTargetPath(defaultArea: StorageArea)(implicit settings: Settings): Path = {
-    new Path(DatasetArea.path(domain, area.getOrElse(defaultArea).value), table)
+  def getTargetPath()(implicit settings: Settings): Path = {
+    new Path(DatasetArea.path(domain), table)
   }
 
-  def getHiveDB(defaultArea: StorageArea)(implicit settings: Settings): String = {
-    StorageArea.area(domain, area.getOrElse(defaultArea))
+  def getHiveDB()(implicit settings: Settings): String = {
+    StorageArea.area(domain, None)
   }
 
 }
@@ -112,7 +115,6 @@ case class AutoTaskDesc(
 case class AutoJobDesc(
   name: String,
   tasks: List[AutoTaskDesc],
-  area: Option[StorageArea] = None,
   format: Option[String],
   coalesce: Option[Boolean],
   udf: Option[String] = None,
@@ -120,21 +122,13 @@ case class AutoJobDesc(
   engine: Option[Engine] = None
 ) {
 
-  def getArea(): StorageArea = area.getOrElse(StorageArea.business)
-
   def getEngine(): Engine = engine.getOrElse(Engine.SPARK)
 
   def aclTasks(): List[AutoTaskDesc] = tasks.filter { task =>
-    task.acl match {
-      case Some(acl) if acl.nonEmpty => true
-      case _                         => false
-    }
+    task.acl.nonEmpty
   }
 
   def rlsTasks(): List[AutoTaskDesc] = tasks.filter { task =>
-    task.rls match {
-      case Some(rls) if rls.nonEmpty => true
-      case _                         => false
-    }
+    task.rls.nonEmpty
   }
 }

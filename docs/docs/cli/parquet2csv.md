@@ -40,6 +40,6 @@ Parameter|Cardinality|Description
 --schema:`<value>`|*Optional*|Schema name to convert. If not specified, all schemas are converted.
 --delete_source:`<value>`|*Optional*|Should we delete source parquet files after conversion ?
 --write_mode:`<value>`|*Optional*|One of Set(OVERWRITE, APPEND, ERROR_IF_EXISTS, IGNORE)
---option:`spark-option=value`|*Optional, Unbounded*|Any Spark option to use (sep, delimiter, quote, quoteAll, escape, header ...)
+--options:`k1=v1,k2=v2...`|*Optional*|Any Spark option to use (sep, delimiter, quote, quoteAll, escape, header ...)
 --partitions:`<value>`|*Optional*|How many output partitions
 
