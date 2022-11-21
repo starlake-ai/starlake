@@ -27,7 +27,7 @@ case class InferSchemaConfig(
   schemaName: String = "",
   inputPath: String = "",
   outputDir: String = "",
-  header: Boolean = false
+  withHeader: Boolean = false
 )
 
 object InferSchemaConfig extends CliConfig[InferSchemaConfig] {
@@ -55,8 +55,8 @@ object InferSchemaConfig extends CliConfig[InferSchemaConfig] {
         .action((x, c) => c.copy(outputDir = x))
         .required()
         .text("Domain YAML Output Path"),
-      opt[Option[Unit]]("with-header")
-        .action((x, c) => c.copy(header = true))
+      opt[Unit]("with-header")
+        .action((x, c) => c.copy(withHeader = true))
         .optional()
         .text("Does the file contain a header (For CSV files only)")
     )
