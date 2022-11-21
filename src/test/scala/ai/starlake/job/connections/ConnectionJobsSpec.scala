@@ -1,7 +1,7 @@
 package ai.starlake.job.connections
 
 import ai.starlake.TestHelper
-import ai.starlake.config.{Settings, StorageArea}
+import ai.starlake.config.Settings
 import ai.starlake.schema.handlers.{SchemaHandler, SimpleLauncher}
 import ai.starlake.schema.model.{AutoJobDesc, AutoTaskDesc, JdbcSink, WriteMode}
 import ai.starlake.workflow.{IngestionWorkflow, TransformConfig}
@@ -29,14 +29,12 @@ class ConnectionJobsSpec extends TestHelper {
         "user",
         "userout",
         WriteMode.OVERWRITE,
-        area = Some(StorageArea.fromString("business")),
         sink = Some(JdbcSink(connection = connection))
       )
       val businessJob =
         AutoJobDesc(
           "user",
           List(businessTask1),
-          None,
           Some("parquet"),
           Some(false),
           views = Some(Map("user_View" -> s"jdbc:$connection:select * from users"))

@@ -1,7 +1,6 @@
 package ai.starlake.schema.generator
 
 import ai.starlake.TestHelper
-import ai.starlake.config.StorageArea
 import ai.starlake.schema.model.{AutoJobDesc, AutoTaskDesc, WriteMode}
 import ai.starlake.utils.YamlSerializer
 
@@ -13,14 +12,12 @@ class YamlSerializerSpec extends TestHelper {
         Some("select firstname, lastname, age from {{view}} where age=${age}"),
         "user",
         "user",
-        WriteMode.OVERWRITE,
-        area = Some(StorageArea.fromString("business"))
+        WriteMode.OVERWRITE
       )
       val job =
         AutoJobDesc(
           "user",
           List(task),
-          None,
           Some("parquet"),
           Some(false),
           views = Some(Map("user_View" -> "accepted/user"))
@@ -33,11 +30,9 @@ class YamlSerializerSpec extends TestHelper {
             "sql"    -> "select firstname, lastname, age from {{view}} where age=${age}",
             "domain" -> "user",
             "table"  -> "user",
-            "write"  -> "OVERWRITE",
-            "area"   -> "business"
+            "write"  -> "OVERWRITE"
           )
         ),
-        "area"     -> "business",
         "format"   -> "parquet",
         "coalesce" -> false,
         "views"    -> Map("user_View" -> "accepted/user"),

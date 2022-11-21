@@ -49,6 +49,11 @@ object DatasetArea extends StrictLogging {
       s"${settings.comet.fileSystem}/${settings.comet.datasets}/$area/$domain"
     )
 
+  def path(domain: String)(implicit settings: Settings) =
+    new Path(
+      s"${settings.comet.fileSystem}/${settings.comet.datasets}/$domain"
+    )
+
   def path(domainPath: Path, schema: String) = new Path(domainPath, schema)
 
   /** datasets waiting to be ingested are stored here
@@ -315,12 +320,12 @@ object StorageArea {
 
   final case class Custom(value: String) extends StorageArea
 
-  def area(domain: String, area: StorageArea)(implicit settings: Settings): String =
+  def area(domain: String, area: Option[StorageArea])(implicit settings: Settings): String =
     settings.comet.area.hiveDatabase.richFormat(
       Map.empty,
       Map(
         "domain" -> domain,
-        "area"   -> area.toString
+        "area"   -> area.map(_.toString).getOrElse("")
       )
     )
 }

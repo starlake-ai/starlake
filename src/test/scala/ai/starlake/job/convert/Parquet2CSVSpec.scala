@@ -27,7 +27,7 @@ class Parquet2CSVSpec extends TestHelper {
       Some(schemaName),
       Some(WriteMode.ERROR_IF_EXISTS),
       deleteSource = false,
-      options = List("sep" -> "|", "header" -> "true"),
+      options = Map("sep" -> "|", "header" -> "true"),
       1
     )
 
@@ -116,7 +116,7 @@ class Parquet2CSVSpec extends TestHelper {
           |  --schema <value>         Schema name to convert. If not specified, all schemas are converted.
           |  --delete_source          Should we delete source parquet files after conversion ?
           |  --write_mode <value>     One of Set(OVERWRITE, APPEND, ERROR_IF_EXISTS, IGNORE)
-          |  --option spark-option=value
+          |  --options k1=v1,k2=v2...
           |                           Any Spark option to use (sep, delimiter, quote, quoteAll, escape, header ...)
           |  --partitions <value>     How many output partitions
           |""".stripMargin
@@ -168,7 +168,7 @@ class Parquet2CSVSpec extends TestHelper {
           |--schema:`<value>`|*Optional*|Schema name to convert. If not specified, all schemas are converted.
           |--delete_source:`<value>`|*Optional*|Should we delete source parquet files after conversion ?
           |--write_mode:`<value>`|*Optional*|One of Set(OVERWRITE, APPEND, ERROR_IF_EXISTS, IGNORE)
-          |--option:`spark-option=value`|*Optional, Unbounded*|Any Spark option to use (sep, delimiter, quote, quoteAll, escape, header ...)
+          |--options:`k1=v1,k2=v2...`|*Optional*|Any Spark option to use (sep, delimiter, quote, quoteAll, escape, header ...)
           |--partitions:`<value>`|*Optional*|How many output partitions
           |""".stripMargin
       println(Parquet2CSVConfig.markdown(1))

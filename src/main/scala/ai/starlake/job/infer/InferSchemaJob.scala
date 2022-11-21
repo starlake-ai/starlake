@@ -226,7 +226,16 @@ class InferSchemaJob(implicit settings: Settings) {
 
       val inferSchema = InferSchemaHandler
 
-      val attributes: List[Attribute] = inferSchema.createAttributes(dataframeWithFormat.schema)
+      val dataLines =
+        format match {
+          case "DSV" =>
+            val linesWithoutHeader = if (withHeader) lines.drop(1) else lines
+            linesWithoutHeader.map(_.split(Pattern.quote(separator)))
+          case _ => Nil
+        }
+
+      val attributes: List[Attribute] =
+        inferSchema.createAttributes(dataLines, dataframeWithFormat.schema)
 
       val metadata = inferSchema.createMetaData(
         format,
