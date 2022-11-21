@@ -445,12 +445,8 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   def loadJobFromFile(path: Path): Try[AutoJobDesc] =
     Try {
       val fileContent = storage.read(path)
-      // we check if sql is embedded. If it is the case then we cannot use jinja in this file
       val rootContent =
-        if (fileContent.contains("sql:"))
-          fileContent.richFormat(activeEnv(), Map.empty)
-        else
-          Utils.parseJinja(fileContent, activeEnv()).richFormat(activeEnv(), Map.empty)
+        Utils.parseJinja(fileContent, activeEnv()).richFormat(activeEnv(), Map.empty)
 
       val rootNode = mapper.readTree(rootContent)
       val tranformNode = rootNode.path("transform")

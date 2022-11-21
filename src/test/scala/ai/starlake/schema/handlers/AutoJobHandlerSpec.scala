@@ -71,12 +71,13 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         .writeValueAsString(businessJob)
       storageHandler.write(businessJobDef, pathBusiness)
 
-      val schemaHandler = new SchemaHandler(metadataStorageHandler)
+      val schemaHandler =
+        new SchemaHandler(metadataStorageHandler, Map("view" -> "user_View", "age" -> "40"))
 
       val workflow =
         new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
 
-      workflow.autoJob(TransformConfig("user", Map("view" -> "user_View", "age" -> "40")))
+      workflow.autoJob(TransformConfig("user"))
 
       val result = sparkSession.read
         .load(pathUserDatasetBusiness.toString)
@@ -154,12 +155,15 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         .writeValueAsString(businessJob)
       storageHandler.write(businessJobDef, pathBusiness)
 
-      val schemaHandler = new SchemaHandler(storageHandler)
+      val schemaHandler = new SchemaHandler(
+        storageHandler,
+        Map("age" -> "25", "lastname" -> "'Doe'", "firstname" -> "'John'")
+      )
 
       val workflow =
         new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
       workflow.autoJob(
-        TransformConfig("user", Map("age" -> "25", "lastname" -> "'Doe'", "firstname" -> "'John'"))
+        TransformConfig("user")
       )
 
       val result = sparkSession.read
@@ -294,11 +298,11 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         .writeValueAsString(businessJob)
       storageHandler.write(businessJobDef, pathGraduateProgramBusiness)
 
-      val schemaHandler = new SchemaHandler(storageHandler)
+      val schemaHandler = new SchemaHandler(storageHandler, Map("school" -> "'UC_Berkeley'"))
       val workflow =
         new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
 
-      workflow.autoJob(TransformConfig("graduateProgram", Map("school" -> "'UC_Berkeley'")))
+      workflow.autoJob(TransformConfig("graduateProgram"))
 
       val result = sparkSession.read
         .load(pathGraduateDatasetProgramBusiness.toString)

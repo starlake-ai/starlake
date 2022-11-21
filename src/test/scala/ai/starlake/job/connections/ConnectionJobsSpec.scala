@@ -47,12 +47,12 @@ class ConnectionJobsSpec extends TestHelper {
 
       storageHandler.write(businessJobDef, pathBusiness)
 
-      val schemaHandler = new SchemaHandler(metadataStorageHandler)
+      val schemaHandler = new SchemaHandler(metadataStorageHandler, Map("age" -> "10"))
 
       val workflow =
         new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
 
-      workflow.autoJob(TransformConfig("user", Map("age" -> "10")))
+      workflow.autoJob(TransformConfig("user"))
 
       val userOutOptions = settings.comet.connections(connection).options + ("dbtable" -> "userout")
       sparkSession.read.format("jdbc").options(userOutOptions).load.collect() should have size 1
