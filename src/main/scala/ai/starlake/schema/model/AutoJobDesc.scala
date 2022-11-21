@@ -56,7 +56,6 @@ case class AutoTaskDesc(
   partition: List[String] = Nil,
   presql: List[String] = Nil,
   postsql: List[String] = Nil,
-  area: Option[StorageArea] = None,
   sink: Option[Sink] = None,
   rls: List[RowLevelSecurity] = Nil,
   assertions: Map[String, String] = Map.empty,
@@ -79,12 +78,12 @@ case class AutoTaskDesc(
     * @param settings
     * @return
     */
-  def getTargetPath(defaultArea: StorageArea)(implicit settings: Settings): Path = {
-    new Path(DatasetArea.path(domain, area.getOrElse(defaultArea).value), table)
+  def getTargetPath()(implicit settings: Settings): Path = {
+    new Path(DatasetArea.path(domain), table)
   }
 
-  def getHiveDB(defaultArea: StorageArea)(implicit settings: Settings): String = {
-    StorageArea.area(domain, area.getOrElse(defaultArea))
+  def getHiveDB()(implicit settings: Settings): String = {
+    StorageArea.area(domain, None)
   }
 
 }
@@ -116,15 +115,12 @@ case class AutoTaskDesc(
 case class AutoJobDesc(
   name: String,
   tasks: List[AutoTaskDesc],
-  area: Option[StorageArea] = None,
   format: Option[String],
   coalesce: Option[Boolean],
   udf: Option[String] = None,
   views: Option[Map[String, String]] = None,
   engine: Option[Engine] = None
 ) {
-
-  def getArea(): StorageArea = area.getOrElse(StorageArea.business)
 
   def getEngine(): Engine = engine.getOrElse(Engine.SPARK)
 
