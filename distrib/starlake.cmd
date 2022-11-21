@@ -5,7 +5,7 @@ SET CURRENT_DIR=%CURRENT_DIR:~0,-1%
 echo %CURRENT_DIR%
 
 if "x%COMET_VERSION%"=="x" (
-  set COMET_VERSION=0.5.3
+  set COMET_VERSION=0.5.2
 )
 
 if "x%COMET_ROOT%"=="x" (
@@ -13,12 +13,14 @@ if "x%COMET_ROOT%"=="x" (
 )
 
 if "x%SPARK_VERSION%"=="x" (
-  set SPARK_VERSION=3.1.3
+  set SPARK_VERSION=3.3.1
 )
+set SPARK_VERSION=3.3.1
 
 if "x%HADOOP_VERSION%"=="x" (
-  set HADOOP_VERSION=2.7
+  set HADOOP_VERSION=3
 )
+set HADOOP_VERSION=3
 
 SET COMET_JAR_NAME=starlake-spark3_2.12-%COMET_VERSION%-assembly.jar
 
@@ -37,8 +39,8 @@ if not x%COMET_VERSION:SNAPSHOT=%==x%COMET_VERSION% (
 )
 
 setlocal EnableDelayedExpansion
-SET HADOOP_DLL=https://github.com/cdarlint/winutils/raw/master/hadoop-3.2.1/bin/hadoop.dll
-SET WINUTILS_EXE=https://github.com/cdarlint/winutils/raw/master/hadoop-3.2.1/bin/winutils.exe
+SET HADOOP_DLL=https://github.com/cdarlint/winutils/raw/master/hadoop-3.2.2/bin/hadoop.dll
+SET WINUTILS_EXE=https://github.com/cdarlint/winutils/raw/master/hadoop-3.2.2/bin/winutils.exe
 
 if "x%HADOOP_HOME%"=="x" (
     mkdir hadoop
@@ -61,7 +63,7 @@ if "x%HADOOP_HOME%"=="x" (
 SET HADOOP_HOME=%CURRENT_DIR%\hadoop
 echo %HADOOP_HOME%
 
-SET SPARK_TGZ_NAME=%CURRENT_DIR%\spark-%SPARK_VERSION%-bin-hadoop%HADOOP_VERSION%.tgz
+SET SPARK_TGZ_NAME=spark-%SPARK_VERSION%-bin-hadoop%HADOOP_VERSION%.tgz
 SET SPARK_TGZ_URL=https://downloads.apache.org/spark/spark-%SPARK_VERSION%/%SPARK_TGZ_NAME%
 SET SPARK_SUBMIT=%CURRENT_DIR%\spark\bin\spark-submit.cmd
 SET SPARK_DIR=%CURRENT_DIR%\spark-%SPARK_VERSION%-bin-hadoop%HADOOP_VERSION%
@@ -100,5 +102,6 @@ if exist %SPARK_SUBMIT% (
 ECHO JAVA_HOME=%JAVA_HOME%
 ECHO Make sure your java home path does not contain space
 
+PATH|FIND /i "%HADOOP_HOME%\bin"    >nul || SET PATH=%path%;%HADOOP_HOME%\bin
 
-%SPARK_SUBMIT% --driver-java-options "%SPARK_DRIVER_OPTIONS%" %SPARK_CONF_OPTIONS% --class ai.starlake.job.Main %COMET_JAR_FULL_NAME% %*
+CALL %SPARK_SUBMIT% --driver-java-options "%SPARK_DRIVER_OPTIONS%" %SPARK_CONF_OPTIONS% --class ai.starlake.job.Main %COMET_JAR_FULL_NAME% %*

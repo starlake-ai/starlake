@@ -1,6 +1,16 @@
 
 # Release notes
 
+# 0.6.0
+__New Feature__:
+- Support for Jinja templating everywhere
+- area property is now ignored in YAML files
+- Support for Amazon Redshift and Snowflake
+- Quickstart documentation upgraded
+- single command setup and run using starlake.sh / starlake.cmd
+- Updated quickstart with docker use
+- Infer schema now recognize date as date not timestamp
+
 # 0.5.2
 __New Feature__:
 - Domain & Jobs delivery in rest api
