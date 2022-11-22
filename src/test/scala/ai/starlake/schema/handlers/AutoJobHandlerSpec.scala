@@ -1,8 +1,9 @@
 package ai.starlake.schema.handlers
 
 import ai.starlake.TestHelper
-import ai.starlake.config.{Settings, StorageArea}
+import ai.starlake.config.Settings
 import ai.starlake.job.sink.bigquery.{BigQueryLoadConfig, BigQuerySparkJob}
+import ai.starlake.job.transform.{AutoTask, TaskViewDependency}
 import ai.starlake.schema.model._
 import ai.starlake.workflow.{IngestionWorkflow, TransformConfig}
 import com.google.cloud.hadoop.io.bigquery.BigQueryConfiguration
@@ -51,32 +52,32 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       val businessTask1 = AutoTaskDesc(
         None,
         Some("select firstname, lastname, age from {{view}} where age=${age}"),
+        "business/user",
         "user",
-        "user",
-        WriteMode.OVERWRITE,
-        area = Some(StorageArea.fromString("business"))
+        WriteMode.OVERWRITE
       )
       val businessJob =
         AutoJobDesc(
           "user",
           List(businessTask1),
-          None,
           Some("parquet"),
           Some(false),
           views = Some(Map("user_View" -> "accepted/user"))
         )
-      val schemaHandler = new SchemaHandler(metadataStorageHandler)
 
       val businessJobDef = mapper
         .writer()
         .withAttribute(classOf[Settings], settings)
         .writeValueAsString(businessJob)
+      storageHandler.write(businessJobDef, pathBusiness)
+
+      val schemaHandler =
+        new SchemaHandler(metadataStorageHandler, Map("view" -> "user_View", "age" -> "40"))
 
       val workflow =
         new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
-      storageHandler.write(businessJobDef, pathBusiness)
 
-      workflow.autoJob(TransformConfig("user", Map("view" -> "user_View", "age" -> "40")))
+      workflow.autoJob(TransformConfig("user"))
 
       val result = sparkSession.read
         .load(pathUserDatasetBusiness.toString)
@@ -93,7 +94,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       )
     }
 
-    "trigger AutoJob by passing three parameters on SQL statement" should "generate a dataset in business" in {
+    "Extract file and view dependencies" should "work" in {
 
       val businessTask1 = AutoTaskDesc(
         None,
@@ -103,31 +104,66 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         "user",
         "user",
         WriteMode.OVERWRITE,
-        area = Some(StorageArea.fromString("business")),
-        assertions = Some(Map("uniqFirstname" -> "isUnique(firstname)"))
+        assertions = Map("uniqFirstname" -> "isUnique(firstname)")
       )
       val businessJob =
         AutoJobDesc(
           "user",
           List(businessTask1),
-          None,
           Some("parquet"),
           Some(false),
           views = Some(Map("user_View" -> "accepted/user"))
         )
-      val schemaHandler = new SchemaHandler(storageHandler)
 
       val businessJobDef = mapper
         .writer()
         .withAttribute(classOf[Settings], settings)
         .writeValueAsString(businessJob)
+      storageHandler.write(businessJobDef, pathBusiness)
+
+      val schemaHandler = new SchemaHandler(storageHandler)
+
+      val tasks = AutoTask.tasks(true)(settings, storageHandler, schemaHandler)
+      val deps = TaskViewDependency.dependencies(tasks)(schemaHandler)
+      deps.map(_.parentRef) should contain theSameElementsAs List("user_View", "accepted/user")
+    }
+
+    "trigger AutoJob by passing three parameters on SQL statement" should "generate a dataset in business" in {
+
+      val businessTask1 = AutoTaskDesc(
+        None,
+        Some(
+          "select firstname, lastname, age from user_View where age={{age}} and lastname={{lastname}} and firstname={{firstname}}"
+        ),
+        "business/user",
+        "user",
+        WriteMode.OVERWRITE,
+        assertions = Map("uniqFirstname" -> "isUnique(firstname)")
+      )
+      val businessJob =
+        AutoJobDesc(
+          "user",
+          List(businessTask1),
+          Some("parquet"),
+          Some(false),
+          views = Some(Map("user_View" -> "accepted/user"))
+        )
+
+      val businessJobDef = mapper
+        .writer()
+        .withAttribute(classOf[Settings], settings)
+        .writeValueAsString(businessJob)
+      storageHandler.write(businessJobDef, pathBusiness)
+
+      val schemaHandler = new SchemaHandler(
+        storageHandler,
+        Map("age" -> "25", "lastname" -> "'Doe'", "firstname" -> "'John'")
+      )
 
       val workflow =
         new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
-      storageHandler.write(businessJobDef, pathBusiness)
-
       workflow.autoJob(
-        TransformConfig("user", Map("age" -> "25", "lastname" -> "'Doe'", "firstname" -> "'John'"))
+        TransformConfig("user")
       )
 
       val result = sparkSession.read
@@ -148,30 +184,29 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       val businessTask1 = AutoTaskDesc(
         None,
         Some("select firstname, lastname, age from user_View"),
+        "business/user",
         "user",
-        "user",
-        WriteMode.OVERWRITE,
-        area = Some(StorageArea.fromString("business"))
+        WriteMode.OVERWRITE
       )
       val businessJob =
         AutoJobDesc(
           "user",
           List(businessTask1),
-          None,
           Some("parquet"),
           Some(false),
           views = Some(Map("user_View" -> "accepted/user"))
         )
-      val schemaHandler = new SchemaHandler(storageHandler)
 
       val businessJobDef = mapper
         .writer()
         .withAttribute(classOf[Settings], settings)
         .writeValueAsString(businessJob)
+      storageHandler.write(businessJobDef, pathBusiness)
+
+      val schemaHandler = new SchemaHandler(storageHandler)
 
       val workflow =
         new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
-      storageHandler.write(businessJobDef, pathBusiness)
 
       workflow.autoJob(TransformConfig("user"))
 
@@ -192,22 +227,19 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       val businessTask1 = AutoTaskDesc(
         None,
         Some("select concatWithSpace(firstname, lastname) as fullName from user_View"),
+        "business/user",
         "user",
-        "user",
-        WriteMode.OVERWRITE,
-        area = Some(StorageArea.fromString("business"))
+        WriteMode.OVERWRITE
       )
       val businessJob =
         AutoJobDesc(
           "user",
           List(businessTask1),
-          None,
           Some("parquet"),
           Some(false),
           udf = Some("ai.starlake.udf.TestUdf"),
           views = Some(Map("user_View" -> "accepted/user"))
         )
-      val schemaHandler = new SchemaHandler(storageHandler)
 
       val businessJobDef = mapper
         .writer()
@@ -215,6 +247,8 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         .writeValueAsString(businessJob)
 
       storageHandler.write(businessJobDef, pathBusiness)
+
+      val schemaHandler = new SchemaHandler(storageHandler)
 
       val workflow =
         new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
@@ -238,39 +272,37 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       val businessTask1 = AutoTaskDesc(
         None,
         Some("SELECT * FROM graduate_agg_view"),
-        "graduateProgram",
+        "business/graduateProgram",
         "output",
         WriteMode.OVERWRITE,
-        presql = Some(List("""
+        presql = List("""
             |create or replace temporary view graduate_agg_view as
             |      select degree, department,
             |      school
             |      from graduate_View
             |      where school={{school}}
-            |""".stripMargin)),
-        area = Some(StorageArea.fromString("business"))
+            |""".stripMargin)
       )
       val businessJob =
         AutoJobDesc(
           "graduateProgram",
           List(businessTask1),
-          None,
           Some("parquet"),
           Some(false),
           views = Some(Map("graduate_View" -> "accepted/graduateProgram"))
         )
-      val schemaHandler = new SchemaHandler(storageHandler)
 
       val businessJobDef = mapper
         .writer()
         .withAttribute(classOf[Settings], settings)
         .writeValueAsString(businessJob)
-
-      val workflow =
-        new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
       storageHandler.write(businessJobDef, pathGraduateProgramBusiness)
 
-      workflow.autoJob(TransformConfig("graduateProgram", Map("school" -> "'UC_Berkeley'")))
+      val schemaHandler = new SchemaHandler(storageHandler, Map("school" -> "'UC_Berkeley'"))
+      val workflow =
+        new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
+
+      workflow.autoJob(TransformConfig("graduateProgram"))
 
       val result = sparkSession.read
         .load(pathGraduateDatasetProgramBusiness.toString)
@@ -294,14 +326,11 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         "DOMAIN",
         "TABLE",
         WriteMode.OVERWRITE,
-        Some(List("comet_year", "comet_month")),
+        List("comet_year", "comet_month"),
+        Nil,
+        Nil,
         None,
-        None,
-        None,
-        None,
-        Some(
-          List(RowLevelSecurity("myrls", "TRUE", Set("user:hayssam.saleh@ebiznext.com")))
-        )
+        List(RowLevelSecurity("myrls", "TRUE", Set("user:hayssam.saleh@ebiznext.com")))
       )
 
       val sink = businessTask1.sink.map(_.asInstanceOf[BigQuerySink])

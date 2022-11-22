@@ -1,6 +1,6 @@
 load:
   name: "DOMAIN"
-  directory: "{domain}/{schema}/DOMAIN"
+  directory: "{{domain}}/{{schema}}/DOMAIN"
   metadata:
     mode: "FILE"
     format: "DSV"

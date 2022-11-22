@@ -25,6 +25,7 @@ import ai.starlake.schema.generator.JDBCUtils.{Columns, PrimaryKeys, TableRemark
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.{Domain, Schema}
 import ai.starlake.utils.Utils
+import better.files.File
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.{Path => StoragePath}
 import org.fusesource.scalate.{TemplateEngine, TemplateSource}
@@ -48,9 +49,10 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
   def run(): Try[Unit] =
     Try {
       val domains = config.domain match {
-        case None => schemaHandler.domains
+        case None => schemaHandler.domains()
         case Some(domain) =>
-          val res = schemaHandler.domains
+          val res = schemaHandler
+            .domains()
             .find(_.name.toLowerCase() == domain)
             .getOrElse(throw new Exception(s"Domain ${domain} not found"))
           List(res)
@@ -68,15 +70,19 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
         }
         val existingTables = config.connection match {
           case Some(connection) =>
+            val connectionOptions = settings.comet.connections(connection).options
             JDBCUtils.extractJDBCTables(
               JDBCSchema(
-                connection,
+                Some(connection),
                 config.catalog,
                 domain.name,
+                None,
+                None,
                 Nil,
                 List("TABLE"),
                 None
-              )
+              ),
+              connectionOptions
             )
           case None => Map.empty[String, (TableRemarks, Columns, PrimaryKeys)]
         }
@@ -207,7 +213,7 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
                 "schema"                  -> schema.name,
                 "partitions"    -> mergedMetadata.partition.map(_.getAttributes()).getOrElse(Nil),
                 "clustered"     -> mergedMetadata.clustering.getOrElse(Nil),
-                "primaryKeys"   -> schema.primaryKey.getOrElse(Nil),
+                "primaryKeys"   -> schema.primaryKey,
                 "comment"       -> schema.comment.getOrElse(""),
                 "domainComment" -> domain.comment.getOrElse(""),
                 "domainLabels"  -> domainLabels,
@@ -224,11 +230,17 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
       val sqlScript = sqlString.toString
       logger.debug(s"Final script is:\n $sqlScript")
 
-      config.outputPath.flatMap(output => writeScript(sqlScript, output).toOption)
+      val outputPath =
+        File(
+          config.outputPath.getOrElse(settings.comet.metadata),
+          "ddl",
+          config.datawarehouse + ".sql"
+        )
+      writeScript(sqlScript, outputPath.pathAsString).toOption
 
       if (config.apply)
         config.connection.fold(logger.warn("Could not apply script, connection is not defined"))(
-          conn => JDBCUtils.applyScript(sqlScript, conn)
+          conn => JDBCUtils.applyScript(sqlScript, settings.comet.connections(conn).options)
         )
     }
 

@@ -6,6 +6,6 @@ transform:
     orders: "${orders_view}"
   tasks:
     - domain: sales_kpi
-      dataset: byseller_kpi
+      table: byseller_kpi
       write: OVERWRITE
 

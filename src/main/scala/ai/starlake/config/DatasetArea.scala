@@ -22,6 +22,7 @@ package ai.starlake.config
 
 import ai.starlake.schema.handlers.StorageHandler
 import ai.starlake.utils.Formatter.RichFormatter
+import better.files.File
 import com.fasterxml.jackson.core.{JsonGenerator, JsonParser}
 import com.fasterxml.jackson.databind.annotation.{JsonDeserialize, JsonSerialize}
 import com.fasterxml.jackson.databind.{
@@ -30,20 +31,27 @@ import com.fasterxml.jackson.databind.{
   JsonSerializer,
   SerializerProvider
 }
+import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
 
 import java.util.Locale
+import scala.io.Source
 
 /** Utilities methods to reference datasets paths Datasets paths are constructed as follows :
   *   - root path defined by the COMET_DATASETS env var or datasets application property
   *   - followed by the area name
   *   - followed by the the domain name
   */
-object DatasetArea {
+object DatasetArea extends StrictLogging {
 
   def path(domain: String, area: String)(implicit settings: Settings) =
     new Path(
       s"${settings.comet.fileSystem}/${settings.comet.datasets}/$area/$domain"
+    )
+
+  def path(domain: String)(implicit settings: Settings) =
+    new Path(
+      s"${settings.comet.fileSystem}/${settings.comet.datasets}/$domain"
     )
 
   def path(domainPath: Path, schema: String) = new Path(domainPath, schema)
@@ -122,8 +130,8 @@ object DatasetArea {
   def substituteDomainAndSchemaInPath(domain: String, schema: String, path: String): Path =
     new Path(
       path
-        .replace("{domain}", domain)
-        .replace("{schema}", schema)
+        .replace("{{domain}}", domain)
+        .replace("{{schema}}", schema)
     )
 
   def discreteMetrics(domain: String, schema: String)(implicit settings: Settings): Path =
@@ -160,6 +168,9 @@ object DatasetArea {
   def domains(implicit settings: Settings): Path =
     new Path(metadata, "domains")
 
+  def extract(implicit settings: Settings): Path =
+    new Path(metadata, "extract")
+
   def jobs(implicit settings: Settings): Path =
     new Path(metadata, "jobs")
 
@@ -178,7 +189,9 @@ object DatasetArea {
   def initMetadata(
     storage: StorageHandler
   )(implicit settings: Settings): Unit = {
-    List(metadata, types, domains, jobs, assertions, views, mapping).foreach(storage.mkdirs)
+    List(metadata, types, domains, extract, jobs, assertions, views, mapping).foreach(
+      storage.mkdirs
+    )
   }
 
   def initDomains(storage: StorageHandler, domains: Iterable[String])(implicit
@@ -188,6 +201,79 @@ object DatasetArea {
       List(pending _, unresolved _, archive _, accepted _, rejected _, business _, replay _)
         .map(_(domain))
         .foreach(storage.mkdirs)
+    }
+  }
+
+  def bootstrap(template: Option[String])(implicit settings: Settings): Unit = {
+    def copyToFolder(resources: List[String], resourceFolder: String, targetFolder: File): Unit = {
+      resources.foreach { resource =>
+        logger.info(s"copying $resource")
+        val source = Source.fromResource(s"$resourceFolder/$resource")
+        if (source == null)
+          throw new Exception(s"Resource $resource not found in assembly")
+
+        val lines: Iterator[String] = source.getLines()
+        val targetFile = File(targetFolder.pathAsString, resource.split('/'): _*)
+        targetFile.parent.createDirectories()
+        val contents =
+          lines.mkString("\n").replace("__COMET_TEST_ROOT__", metadata.getParent.toString)
+        targetFile.overwrite(contents)
+      }
+    }
+
+    initMetadata(settings.storageHandler)
+    List("out", "diagrams", "diagrams/domains", "diagrams/acl", "diagrams/jobs").foreach { folder =>
+      val root = File(settings.comet.metadata).parent
+      File(root.pathAsString, folder.split('/'): _*).createDirectories()
+    }
+    val metadataFile = File(metadata.toString)
+    metadataFile.createDirectories()
+    val incomingFolder = File(metadataFile.parent, "incoming")
+    incomingFolder.createDirectories()
+    val vscodeFolder = File(metadataFile.parent, ".vscode")
+    vscodeFolder.createDirectories()
+    copyToFolder(List("extensions.json"), s"templates", vscodeFolder)
+
+    template match {
+      case Some("userguide") =>
+        val metadataResources = List(
+          "domains/hr.comet.yml",
+          "domains/sales.comet.yml",
+          "jobs/kpi.comet.yml",
+          "jobs/kpi.byseller.sql.j2",
+          "types/default.comet.yml",
+          "types/types.comet.yml",
+          "env.comet.yml",
+          "env.BQ.comet.yml",
+          "env.FS.comet.yml"
+        )
+        copyToFolder(metadataResources, s"templates/userguide/metadata", metadataFile)
+        val rootResources = List(
+          "incoming/hr/locations-2018-01-01.ack",
+          "incoming/hr/locations-2018-01-01.json",
+          "incoming/hr/sellers-2018-01-01.ack",
+          "incoming/hr/sellers-2018-01-01.json",
+          "incoming/sales/customers-2018-01-01.ack",
+          "incoming/sales/customers-2018-01-01.psv",
+          "incoming/sales/orders-2018-01-01.ack",
+          "incoming/sales/orders-2018-01-01.csv"
+        )
+        copyToFolder(rootResources, s"templates/userguide", metadataFile.parent)
+      case Some("quickstart") =>
+        val metadataResources = List(
+          "types/default.comet.yml",
+          "types/types.comet.yml",
+          "env.comet.yml",
+          "env.BQ.comet.yml",
+          "env.FS.comet.yml"
+        )
+        copyToFolder(metadataResources, s"templates/quickstart/metadata", metadataFile)
+        val rootResources = List(
+          "incoming/sales/customers-2018-01-01.ack",
+          "incoming/sales/customers-2018-01-01.psv"
+        )
+        copyToFolder(rootResources, s"templates/quickstart", metadataFile.parent)
+      case _ => // do nothing
     }
   }
 }
@@ -234,12 +320,12 @@ object StorageArea {
 
   final case class Custom(value: String) extends StorageArea
 
-  def area(domain: String, area: StorageArea)(implicit settings: Settings): String =
+  def area(domain: String, area: Option[StorageArea])(implicit settings: Settings): String =
     settings.comet.area.hiveDatabase.richFormat(
       Map.empty,
       Map(
         "domain" -> domain,
-        "area"   -> area.toString
+        "area"   -> area.map(_.toString).getOrElse("")
       )
     )
 }

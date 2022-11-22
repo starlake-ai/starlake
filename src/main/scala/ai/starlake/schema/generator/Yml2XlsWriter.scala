@@ -3,7 +3,7 @@ package ai.starlake.schema.generator
 import better.files.File
 import ai.starlake.config.Settings
 import ai.starlake.schema.handlers.SchemaHandler
-import ai.starlake.schema.model.{BigQuerySink, Domain, Format, Partition}
+import ai.starlake.schema.model.{Attribute, BigQuerySink, Domain, Format, Partition}
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.poi.ss.usermodel.CellType
@@ -26,11 +26,38 @@ class Yml2XlsWriter(schemaHandler: SchemaHandler) extends LazyLogging with XlsMo
   ): Unit = {
     val domains =
       domainNames match {
-        case Nil => schemaHandler.domains
-        case x   => schemaHandler.domains.filter(domain => x.contains(domain.name))
+        case Nil => schemaHandler.domains()
+        case x   => schemaHandler.domains().filter(domain => x.contains(domain.name))
       }
+    if (domains.isEmpty) {
+      val existingDomainNames = schemaHandler.domains().map(_.name)
+      throw new Exception(
+        s"[${domainNames.mkString(",")}] not found in projects domains : [${existingDomainNames.mkString(",")}]"
+      )
+    }
+
     domains.foreach { domain =>
       writeDomainXls(domain, outputDir)
+    }
+  }
+
+  private def linearize(attrs: List[Attribute], prefix: List[String] = Nil): List[Attribute] = {
+    def finalName(attr: Attribute, prefix: List[String]) = {
+      prefix match {
+        case Nil => attr.name
+        case _   => prefix.mkString(".") + "." + attr.name
+      }
+    }
+
+    attrs.flatMap { attr =>
+      attr.`type` match {
+        case "struct" =>
+          val attrList = linearize(attr.attributes, prefix :+ attr.name)
+          attr.copy(name = finalName(attr, prefix)) +: attrList
+        case _ =>
+          List(attr.copy(name = finalName(attr, prefix)))
+      }
+
     }
   }
 
@@ -59,19 +86,31 @@ class Yml2XlsWriter(schemaHandler: SchemaHandler) extends LazyLogging with XlsMo
     }
 
     val xlsOut = File(folder, domain.name + ".xlsx")
-    val domainSheet = workbook.createSheet("domain")
+    val domainSheet = workbook.createSheet("_domain")
     fillHeaders(allDomainHeaders, domainSheet)
     val domainRow = domainSheet.createRow(2)
     domainRow.createCell(0).setCellValue(domain.name)
     domainRow.createCell(1).setCellValue(domain.resolveDirectory())
     domainRow.createCell(2).setCellValue(domain.resolveAck().getOrElse(""))
     domainRow.createCell(3).setCellValue(domain.comment.getOrElse(""))
-    domainRow.createCell(4).setCellValue(domain.tableRefs.getOrElse(Nil).mkString(","))
+    domainRow.createCell(4).setCellValue(domain.tableRefs.mkString(","))
     domainRow.createCell(5).setCellValue(domain.rename.getOrElse(""))
     for (i <- allDomainHeaders.indices)
       domainSheet.autoSizeColumn(i)
 
-    val schemaSheet = workbook.createSheet("schemas")
+    val policySheet = workbook.createSheet("_policies")
+    fillHeaders(allPolicyHeaders, policySheet)
+    domain.policies().zipWithIndex.foreach { case (policy, rowIndex) =>
+      val policyRow = policySheet.createRow(2 + rowIndex)
+      policyRow.createCell(0).setCellValue(policy.name)
+      policyRow.createCell(1).setCellValue(policy.predicate)
+      policyRow.createCell(2).setCellValue(policy.grants.mkString(","))
+      policyRow.createCell(3).setCellValue(policy.description)
+    }
+    for (i <- allPolicyHeaders.indices)
+      policySheet.autoSizeColumn(i)
+
+    val schemaSheet = workbook.createSheet("_schemas")
     fillHeaders(allSchemaHeaders, schemaSheet)
     domain.tables.zipWithIndex.foreach { case (schema, rowIndex) =>
       val metadata = schema.mergedMetadata(domain.metadata)
@@ -101,7 +140,7 @@ class Yml2XlsWriter(schemaHandler: SchemaHandler) extends LazyLogging with XlsMo
       val partitionColumns = metadata.getSink() match {
         case Some(bq: BigQuerySink) =>
           bq.timestamp
-            .map(timestamp => Some(Partition(None, Some(List(timestamp)))))
+            .map(timestamp => Some(Partition(None, List(timestamp))))
             .getOrElse(metadata.partition)
         case _ => metadata.partition
       }
@@ -116,27 +155,33 @@ class Yml2XlsWriter(schemaHandler: SchemaHandler) extends LazyLogging with XlsMo
         .setCellValue(metadata.clustering.map(_.mkString(",")).getOrElse(""))
       schemaRow
         .createCell(16)
-        .setCellValue(schema.presql.map(_.mkString("###")).getOrElse(""))
+        .setCellValue(schema.presql.mkString("###"))
       schemaRow
         .createCell(17)
-        .setCellValue(schema.postsql.map(_.mkString("###")).getOrElse(""))
+        .setCellValue(schema.postsql.mkString("###"))
       schemaRow
         .createCell(18)
-        .setCellValue(schema.primaryKey.map(_.mkString(",")).getOrElse(""))
+        .setCellValue(schema.primaryKey.mkString(","))
       schemaRow
         .createCell(19)
-        .setCellValue(schema.tags.map(_.mkString(",")).getOrElse(""))
+        .setCellValue(schema.tags.mkString(","))
       schemaRow.createCell(20).setCellValue(schema.rename.getOrElse(""))
       if (schema.name.length > 31) schemaRow.createCell(21).setCellValue(schema.name)
+      val tablePolicies =
+        schema.acl.map(_.role) ++ schema.rls.map(_.name)
+      schemaRow
+        .createCell(22)
+        .setCellValue(tablePolicies.mkString(","))
 
       for (i <- allSchemaHeaders.indices)
         schemaSheet.autoSizeColumn(i)
 
       val attributesSheet = workbook.createSheet(schemaName)
       fillHeaders(allAttributeHeaders, attributesSheet)
-      schema.attributes.zipWithIndex.foreach { case (attr, rowIndex) =>
+      linearize(schema.attributes).zipWithIndex.foreach { case (attr, rowIndex) =>
         val attrRow = attributesSheet.createRow(2 + rowIndex)
-        attrRow.createCell(0).setCellValue(attr.name)
+        val finalName = if (attr.array.getOrElse(false)) attr.name + '*' else attr.name
+        attrRow.createCell(0).setCellValue(finalName)
         attrRow.createCell(1).setCellValue(attr.rename.getOrElse(""))
         attrRow.createCell(2).setCellValue(attr.`type`)
         attrRow.createCell(3).setCellValue(attr.required)
@@ -157,7 +202,8 @@ class Yml2XlsWriter(schemaHandler: SchemaHandler) extends LazyLogging with XlsMo
         attrRow.createCell(11).setCellValue(attr.trim.map(_.toString).getOrElse(""))
         attrRow.createCell(12).setCellValue(attr.ignore.map(_.toString).getOrElse("false"))
         attrRow.createCell(13).setCellValue(attr.foreignKey.getOrElse(""))
-        attrRow.createCell(14).setCellValue(attr.tags.map(_.mkString(",")).getOrElse(""))
+        attrRow.createCell(14).setCellValue(attr.tags.mkString(","))
+        attrRow.createCell(15).setCellValue(attr.accessPolicy.getOrElse(""))
       }
       for (i <- allAttributeHeaders.indices)
         attributesSheet.autoSizeColumn(i)

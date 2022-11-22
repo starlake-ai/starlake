@@ -10,7 +10,7 @@ export COMET_SINK_TO_FILE=true
 export COMET_ANALYZE=false
 export COMET_HIVE=false
 export COMET_GROUPED=false
-export COMET_METRICS_PATH="/tmp/metrics/{domain}"
+export COMET_METRICS_PATH="/tmp/metrics/{{domain}}"
 export SPARK_CONF_OPTIONS="--conf spark.driver.extraJavaOptions=-Dconfig.file=$PWD/application.conf"
 
 H2_JAR=h2-1.4.200.jar

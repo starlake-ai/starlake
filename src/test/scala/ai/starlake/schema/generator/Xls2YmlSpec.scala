@@ -1,22 +1,26 @@
 package ai.starlake.schema.generator
 
-import better.files.File
 import ai.starlake.TestHelper
 import ai.starlake.config.DatasetArea
 import ai.starlake.schema.model.{BigQuerySink, Domain, Format}
 import ai.starlake.utils.YamlSerializer
+import better.files.File
+
+import scala.util.{Failure, Success}
 
 class Xls2YmlSpec extends TestHelper {
   new WithSettings() {
     Xls2Yml.generateSchema(getClass.getResource("/sample/SomeDomainTemplate.xls").getPath)
-    val outputFile = File(DatasetArea.domains.toString + "/someDomain.comet.yml")
+    val outputPath = File(DatasetArea.domains.toString + "/someDomain.comet.yml")
 
     val result: Domain = YamlSerializer
-      .deserializeDomain(outputFile)
-      .getOrElse(throw new Exception(s"Invalid file name $outputFile"))
+      .deserializeDomain(outputPath.contentAsString, outputPath.pathAsString) match {
+      case Success(value)     => value
+      case Failure(exception) => throw exception
+    }
 
     "Parsing a sample xlsx file" should "generate a yml file" in {
-      outputFile.exists() shouldBe true
+      outputPath.exists shouldBe true
       result.name shouldBe "someDomain"
       result.tables.size shouldBe 2
     }
@@ -47,7 +51,7 @@ class Xls2YmlSpec extends TestHelper {
 
       val s1MaybePartitions = schema1.metadata.flatMap(_.partition)
       s1MaybePartitions
-        .flatMap(_.attributes)
+        .map(_.attributes)
         .get
         .sorted shouldEqual List("comet_day", "comet_hour", "comet_month", "comet_year")
       s1MaybePartitions
@@ -61,7 +65,7 @@ class Xls2YmlSpec extends TestHelper {
 
       val s2MaybePartitions = schema2.metadata.flatMap(_.partition)
       s2MaybePartitions
-        .flatMap(_.attributes)
+        .map(_.attributes)
         .get
         .sorted shouldEqual List("RENAME_ATTRIBUTE_8", "RENAME_ATTRIBUTE_9")
       s2MaybePartitions
@@ -69,8 +73,31 @@ class Xls2YmlSpec extends TestHelper {
         .get shouldEqual 0.0
     }
 
-    val reader = new XlsReader(Path(getClass.getResource("/sample/SomeDomainTemplate.xls").getPath))
+    val reader = new XlsReader(
+      InputPath(getClass.getResource("/sample/SomeDomainTemplate.xls").getPath)
+    )
     val domainOpt = reader.getDomain()
+
+    "a complex XLS (aka JSON/XML)" should "produce the correct schema" in {
+      val complexReader =
+        new XlsReader(
+          InputPath(getClass.getResource("/sample/SomeComplexDomainTemplate.xls").getPath)
+        )
+      val xlsTable = complexReader.getDomain().get.tables.head
+      val domainAsYaml = YamlSerializer.serialize(complexReader.getDomain().get)
+      val yamlPath =
+        File(getClass.getResource("/sample/SomeComplexDomainTemplate.comet.yml").getPath)
+
+      val yamlTable = YamlSerializer
+        .deserializeDomain(yamlPath.contentAsString, yamlPath.pathAsString)
+        .getOrElse(throw new Exception(s"Invalid file name $yamlPath"))
+        .tables
+        .head
+
+      xlsTable.attributes.length shouldBe yamlTable.attributes.length
+
+      deepEquals(xlsTable.attributes, yamlTable.attributes)
+    }
 
     "a preEncryption domain" should "have only string types" in {
       domainOpt shouldBe defined

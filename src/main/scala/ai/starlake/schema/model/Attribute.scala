@@ -71,16 +71,70 @@ case class Attribute(
   comment: Option[String] = None,
   rename: Option[String] = None,
   metricType: Option[MetricType] = None,
-  attributes: Option[List[Attribute]] = None,
+  attributes: List[Attribute] = Nil,
   position: Option[Position] = None,
   default: Option[String] = None,
-  tags: Option[Set[String]] = None,
+  tags: Set[String] = Set.empty,
   trim: Option[Trim] = None,
   script: Option[String] = None,
   foreignKey: Option[String] = None, // [domain.]table.attribute
   ignore: Option[Boolean] = None,
   accessPolicy: Option[String] = None
 ) extends LazyLogging {
+
+  def this() = this("") // Should never be called. Here for Jackson deserialization only
+
+  /** Bring properties from another attribue. Used in XSD handling Exclude some properties: name,
+    * type, required, array, attributes, position, script
+    * @param imported
+    * @return
+    *   merged attribute
+    */
+  private def importAttributeProperties(imported: Attribute): Attribute = {
+    this.copy(
+      privacy = imported.privacy,
+      comment = imported.comment.orElse(this.comment),
+      rename = imported.rename.orElse(this.rename),
+      metricType = imported.metricType.orElse(this.metricType),
+      default = imported.default.orElse(this.default),
+      tags = if (imported.tags.nonEmpty) imported.tags else this.tags,
+      trim = imported.trim.orElse(this.trim),
+      foreignKey = imported.foreignKey.orElse(this.foreignKey),
+      ignore = imported.ignore.orElse(this.ignore),
+      accessPolicy = imported.accessPolicy.orElse(this.accessPolicy)
+    )
+  }
+
+  def mergeAttrList(ymlAttrs: List[Attribute]): List[Attribute] = {
+    this.attributes.map { xsdAttr =>
+      ymlAttrs.find(_.name == xsdAttr.name) match {
+        case Some(ymlAttr) if xsdAttr.`type` == "struct" =>
+          assert(
+            ymlAttr.`type` == "struct",
+            s"attribute with name ${ymlAttr.name} found with type ${ymlAttr.`type`} where type 'struct' is expected"
+          )
+          xsdAttr.importAttr(ymlAttr)
+        case Some(ymlAttr) =>
+          xsdAttr.importAttributeProperties(ymlAttr)
+        case None =>
+          xsdAttr
+      }
+    }
+  }
+
+  def importAttr(ymlAttr: Attribute): Attribute = {
+    val merged = this.importAttributeProperties(ymlAttr)
+    (ymlAttr.attributes, this.attributes) match {
+      case (Nil, Nil) => merged
+      case (ymlSubAttr :: tail1, xsdSubAttr :: tail2) =>
+        val mergedAttributes = this.mergeAttrList(ymlAttr.attributes)
+        merged.copy(attributes = mergedAttributes)
+      case (_, _) =>
+        throw new Exception(
+          s"XSD and YML sources contradict each other for attributes ${this.name} && ${ymlAttr.name}"
+        )
+    }
+  }
 
   override def toString: String =
     // we pretend the "settings" field does not exist
@@ -106,13 +160,13 @@ case class Attribute(
     if (!rename.forall(colNamePattern.matcher(_).matches()))
       errorList += s"renamed attribute with renamed name '$rename' should respect the pattern ${colNamePattern.pattern()}"
 
-    val primitiveType = tpe(schemaHandler).map(_.primitiveType)
+    val primitiveType = `type`(schemaHandler).map(_.primitiveType)
 
     primitiveType match {
       case Some(tpe) =>
         if (tpe == PrimitiveType.struct && attributes.isEmpty)
-          errorList += s"Attribute $this : Struct types have at least one attribute."
-        if (tpe != PrimitiveType.struct && attributes.isDefined)
+          errorList += s"Attribute $this : Struct types must have at least one attribute."
+        if (tpe != PrimitiveType.struct && attributes.nonEmpty)
           errorList += s"Attribute $this : Simple attributes cannot have sub-attributes"
       case None if attributes.isEmpty => errorList += s"Invalid Type ${`type`}"
       case _                          => // good boy
@@ -124,7 +178,7 @@ case class Attribute(
       primitiveType.foreach { primitiveType =>
         if (primitiveType == PrimitiveType.struct)
           errorList += s"attribute with name $name: default value not valid for struct type fields"
-        tpe(schemaHandler).foreach { someTpe =>
+        `type`(schemaHandler).foreach { someTpe =>
           Try(someTpe.sparkValue(default)) match {
             case Success(_) =>
             case Failure(e) =>
@@ -136,11 +190,6 @@ case class Attribute(
         if (isArray)
           errorList += s"attribute with name $name: default value not valid for array fields"
       }
-    }
-
-    attributes.collect {
-      case list if list.isEmpty =>
-        errorList += s"Attribute $this : when present, attributes list cannot be empty."
     }
 
     (script, required) match {
@@ -157,7 +206,8 @@ case class Attribute(
       Right(true)
   }
 
-  def tpe(schemaHandler: SchemaHandler): Option[Type] = schemaHandler.types.find(_.name == `type`)
+  def `type`(schemaHandler: SchemaHandler): Option[Type] =
+    schemaHandler.types().find(_.name == `type`)
 
   /** Spark Type if this attribute is a primitive type of array of primitive type
     *
@@ -165,7 +215,7 @@ case class Attribute(
     *   Primitive type if attribute is a leaf node or array of primitive type, None otherwise
     */
   def primitiveSparkType(schemaHandler: SchemaHandler): DataType = {
-    tpe(schemaHandler)
+    `type`(schemaHandler)
       .map { tpe =>
         if (isArray())
           ArrayType(tpe.primitiveType.sparkType(tpe.zone), !required)
@@ -184,15 +234,15 @@ case class Attribute(
     val tpe = primitiveSparkType(schemaHandler)
     tpe match {
       case _: StructType =>
-        attributes.map { attrs =>
-          val fields = attrs.map { attr =>
-            StructField(attr.name, attr.sparkType(schemaHandler), !attr.required)
-          }
-          if (isArray())
-            ArrayType(StructType(fields))
-          else
-            StructType(fields)
-        } getOrElse (throw new Exception("Should never happen: empty list of attributes"))
+        if (attributes.isEmpty)
+          throw new Exception("Should never happen: empty list of attributes")
+        val fields = attributes.map { attr =>
+          StructField(attr.name, attr.sparkType(schemaHandler), !attr.required)
+        }
+        if (isArray())
+          ArrayType(StructType(fields))
+        else
+          StructType(fields)
 
       case simpleType => simpleType
     }
@@ -205,17 +255,17 @@ case class Attribute(
   ): DDLField = {
     attributes match {
       // TODO: Support NoSQL Documents
-      case Some(attrs) =>
+      case attr :: tail =>
         DDLNode(
           this.getFinalName(),
-          attrs.map(_.ddlMapping(false, datawarehouse, schemaHandler)),
+          attributes.map(_.ddlMapping(false, datawarehouse, schemaHandler)),
           required,
           isArray(),
           comment,
           Utils.labels(tags)
         )
-      case None =>
-        tpe(schemaHandler).map { tpe =>
+      case Nil =>
+        `type`(schemaHandler).map { tpe =>
           tpe.ddlMapping match {
             case None => throw new Exception(s"No mapping found for type $tpe")
             case Some(mapping) =>
@@ -233,16 +283,16 @@ case class Attribute(
   }
   def indexMapping(schemaHandler: SchemaHandler): String = {
     attributes match {
-      case Some(attrs) =>
+      case attr :: head =>
         s"""
            |"$name": {
            |  "properties" : {
-           |  ${attrs.map(_.indexMapping(schemaHandler)).mkString(",")}
+           |  ${attributes.map(_.indexMapping(schemaHandler)).mkString(",")}
            |  }
            |}""".stripMargin
 
-      case None =>
-        tpe(schemaHandler).map { tpe =>
+      case Nil =>
+        `type`(schemaHandler).map { tpe =>
           val typeMapping = tpe.getIndexMapping().toString
           tpe.primitiveType match {
             case PrimitiveType.date =>
@@ -302,7 +352,7 @@ case class Attribute(
 
   @JsonIgnore
   def getMetricType(schemaHandler: SchemaHandler): MetricType = {
-    val sparkType = tpe(schemaHandler).map(tpe => tpe.primitiveType.sparkType(tpe.zone))
+    val sparkType = `type`(schemaHandler).map(tpe => tpe.primitiveType.sparkType(tpe.zone))
     logger.info(s"Attribute Metric ==> $name, $metricType, $sparkType")
     (sparkType, metricType) match {
       case (Some(sparkType), Some(MetricType.DISCRETE)) =>
@@ -317,6 +367,30 @@ case class Attribute(
           MetricType.NONE
       case (_, _) =>
         MetricType.NONE
+    }
+  }
+}
+
+object Attribute {
+  def apply(sparkField: StructField): Attribute = {
+    val sparkType = sparkField.dataType
+    val fieldName = sparkField.name
+    val required = !sparkField.nullable
+    val isArray = sparkType.isInstanceOf[ArrayType]
+    sparkType match {
+      case _: StructType =>
+        val struct = sparkType.asInstanceOf[StructType]
+        val subFields = struct.fields.map(field => apply(field))
+        new Attribute(
+          fieldName,
+          PrimitiveType.struct.toString,
+          Some(isArray),
+          required,
+          attributes = subFields.toList
+        )
+      case _ =>
+        val tpe = PrimitiveType.from(sparkType)
+        new Attribute(fieldName, tpe.toString, Some(isArray), required)
     }
   }
 }

@@ -32,120 +32,6 @@ import org.apache.spark.sql.types._
 import java.util.regex.Pattern
 import scala.collection.mutable
 
-/** How dataset are merged
-  *
-  * @param key
-  *   list of attributes to join existing with incoming dataset. Use renamed columns here.
-  * @param delete
-  *   Optional valid sql condition on the incoming dataset. Use renamed column here.
-  * @param timestamp
-  *   Timestamp column used to identify last version, if not specified currently ingested row is
-  *   considered the last. Maybe prefixed with TIMESTAMP or DATE(default) to specifiy if it is a
-  *   timestamp or a date (useful on dynamic partitioning on BQ to selectively apply PARSE_DATE or
-  *   PARSE_TIMESTAMP
-  */
-case class MergeOptions(
-  key: List[String],
-  delete: Option[String] = None,
-  timestamp: Option[String] = None,
-  queryFilter: Option[String] = None
-) {
-  @JsonIgnore
-  private val lastPat =
-    Pattern.compile(".*(in)\\s+last\\(\\s*(\\d+)\\s*(\\)).*", Pattern.DOTALL)
-
-  @JsonIgnore
-  private val matcher = lastPat.matcher(queryFilter.getOrElse(""))
-
-  @JsonIgnore
-  private val queryFilterContainsLast: Boolean =
-    queryFilter.exists { queryFilter =>
-      matcher.matches()
-    }
-  @JsonIgnore
-  private val queryFilterContainsLatest: Boolean = queryFilter.exists(_.contains("latest"))
-
-  @JsonIgnore
-  private val canOptimizeQueryFilter: Boolean = queryFilterContainsLast || queryFilterContainsLatest
-
-  @JsonIgnore
-  private val nbPartitionQueryFilter: Int =
-    if (queryFilterContainsLast) matcher.group(2).toInt else -1
-
-  @JsonIgnore
-  val lastStartQueryFilter: Int = if (queryFilterContainsLast) matcher.start(1) else -1
-
-  @JsonIgnore
-  val lastEndQueryFilter: Int = if (queryFilterContainsLast) matcher.end(3) else -1
-
-  private def formatQuery(activeEnv: Map[String, String], options: Map[String, String])(implicit
-    settings: Settings
-  ): Option[String] =
-    queryFilter.map(_.richFormat(activeEnv, options))
-
-  def buidlBQQuery(
-    partitions: List[String],
-    activeEnv: Map[String, String],
-    options: Map[String, String]
-  )(implicit
-    settings: Settings
-  ): Option[String] = {
-    (queryFilterContainsLast, queryFilterContainsLatest) match {
-      case (true, false)  => buildBQQueryForLast(partitions, activeEnv, options)
-      case (false, true)  => buildBQQueryForLastest(partitions, activeEnv, options)
-      case (false, false) => formatQuery(activeEnv, options)
-      case (true, true) =>
-        val last = buildBQQueryForLast(partitions, activeEnv, options)
-        this.copy(queryFilter = last).buildBQQueryForLastest(partitions, activeEnv, options)
-    }
-  }
-
-  private def buildBQQueryForLastest(
-    partitions: List[String],
-    activeEnv: Map[String, String],
-    options: Map[String, String]
-  )(implicit
-    settings: Settings
-  ): Option[String] = {
-    val latestPartition = partitions.max
-    val queryArgs = formatQuery(activeEnv, options).getOrElse("")
-    Some(queryArgs.replace("latest", s"PARSE_DATE('%Y%m%d','$latestPartition')"))
-  }
-
-  private def buildBQQueryForLast(
-    partitions: List[String],
-    activeEnv: Map[String, String],
-    options: Map[String, String]
-  )(implicit
-    settings: Settings
-  ): Option[String] = {
-    val sortedPartitions = partitions.sorted
-    val (oldestPartition, newestPartition) = if (sortedPartitions.length < nbPartitionQueryFilter) {
-      (
-        sortedPartitions.headOption.getOrElse("19700101"),
-        sortedPartitions.lastOption.getOrElse("19700101")
-      )
-    } else {
-      (
-        sortedPartitions(sortedPartitions.length - nbPartitionQueryFilter),
-        sortedPartitions.last
-      )
-
-    }
-    val lastStart = lastStartQueryFilter
-    val lastEnd = lastEndQueryFilter
-    val queryArgs = formatQuery(activeEnv, options)
-    queryArgs.map { queryArgs =>
-      queryArgs
-        .substring(
-          0,
-          lastStart
-        ) + s"between PARSE_DATE('%Y%m%d','$oldestPartition') and PARSE_DATE('%Y%m%d','$newestPartition')" + queryArgs
-        .substring(lastEnd)
-    }
-  }
-}
-
 /** Dataset Schema
   *
   * @param name
@@ -177,19 +63,27 @@ case class Schema(
   metadata: Option[Metadata],
   merge: Option[MergeOptions],
   comment: Option[String],
-  presql: Option[List[String]],
-  postsql: Option[List[String]] = None,
-  tags: Option[Set[String]] = None,
-  rls: Option[List[RowLevelSecurity]] = None,
-  assertions: Option[Map[String, String]] = None,
-  primaryKey: Option[List[String]] = None,
-  acl: Option[List[AccessControlEntry]] = None,
+  presql: List[String] = Nil,
+  postsql: List[String] = Nil,
+  tags: Set[String] = Set.empty,
+  rls: List[RowLevelSecurity] = Nil,
+  assertions: Map[String, String] = Map.empty,
+  primaryKey: List[String] = Nil,
+  acl: List[AccessControlEntry] = Nil,
   rename: Option[String] = None
 ) {
+  def this() = this(
+    "",
+    Pattern.compile("."),
+    Nil,
+    None,
+    None,
+    None
+  ) // Should never be called. Here for Jackson deserialization only
 
   def ddlMapping(datawarehouse: String, schemaHandler: SchemaHandler): List[DDLField] = {
     attributes.map { attribute =>
-      val isPrimaryKey = primaryKey.getOrElse(Nil).contains(attribute.name)
+      val isPrimaryKey = primaryKey.contains(attribute.name)
       attribute.ddlMapping(isPrimaryKey, datawarehouse, schemaHandler)
     }
   }
@@ -217,9 +111,8 @@ case class Schema(
   }
 
   def sparkSchemaUntypedEpochWithoutScriptedFields(schemaHandler: SchemaHandler): StructType = {
-    val xx = attributesWithoutScriptedFields
     val fields = attributesWithoutScriptedFields.map { attr =>
-      val sparkType = attr.tpe(schemaHandler).fold(attr.sparkType(schemaHandler)) { tpe =>
+      val sparkType = attr.`type`(schemaHandler).fold(attr.sparkType(schemaHandler)) { tpe =>
         (tpe.primitiveType, tpe.pattern) match {
           case (PrimitiveType.timestamp, "epoch_second") => LongType
           case (PrimitiveType.timestamp, "epoch_milli")  => LongType
@@ -318,11 +211,11 @@ case class Schema(
   def checkValidity(
     domainMetaData: Option[Metadata],
     schemaHandler: SchemaHandler
-  ): Either[List[String], Boolean] = {
+  )(implicit settings: Settings): Either[List[String], Boolean] = {
     val errorList: mutable.MutableList[String] = mutable.MutableList.empty
-    val tableNamePattern = Pattern.compile("[a-zA-Z][a-zA-Z0-9_]{1,256}")
-    if (!tableNamePattern.matcher(name).matches())
-      errorList += s"Schema with name $name should respect the pattern ${tableNamePattern.pattern()}"
+    val forceTablePrefixRegex = settings.comet.forceTablePattern.r
+    if (!forceTablePrefixRegex.pattern.matcher(name).matches())
+      errorList += s"Domain with name $name should respect the pattern ${forceTablePrefixRegex.regex}"
 
     metadata.foreach { metadata =>
       for (errors <- metadata.checkValidity(schemaHandler).left) {
@@ -400,7 +293,7 @@ case class Schema(
          |  }
          |}""".stripMargin
       }
-      .richFormat(schemaHandler.activeEnv, tse)
+      .richFormat(schemaHandler.activeEnv(), tse)
   }
 
   def mergedMetadata(domainMetadata: Option[Metadata]): Metadata = {
@@ -422,13 +315,13 @@ case class Schema(
     }
     (isPK, isFK, includeAllAttrs) match {
       case (true, true, _) =>
-        Some(s"""<tr><td port="${attr.name}"><B><I> $col </I></B></td></tr>""")
+        Some(s"""<tr><td port="${attr.getFinalName()}"><B><I> $col </I></B></td></tr>""")
       case (true, false, _) =>
-        Some(s"""<tr><td port="${attr.name}"><B> $col </B></td></tr>""")
+        Some(s"""<tr><td port="${attr.getFinalName()}"><B> $col </B></td></tr>""")
       case (false, true, _) =>
-        Some(s"""<tr><td port="${attr.name}"><I> $col </I></td></tr>""")
+        Some(s"""<tr><td port="${attr.getFinalName()}"><I> $col </I></td></tr>""")
       case (false, false, true) =>
-        Some(s"""<tr><td port="${attr.name}"> $col </td></tr>""")
+        Some(s"""<tr><td port="${attr.getFinalName()}"> $col </td></tr>""")
       case (false, false, false) => None
     }
   }
@@ -440,40 +333,71 @@ case class Schema(
       case Some(ref) =>
         val tab = ref.split('.')
         val (refDomain, refSchema, refAttr) = tab.length match {
-          case 3 => (tab(0), tab(1), tab(2)) // reference to domain.table.column
-          case 2 => (domain, tab(0), tab(1)) // reference to table.column
-          case 1 => (domain, tab(0), 0) // reference to table
+          case 3 =>
+            (tab(0), tab(1), if (tab(2).isEmpty) "0" else tab(2)) // ref to domain.table.column
+          case 2 =>
+            (domain, tab(0), if (tab(1).isEmpty) "0" else tab(1)) // ref to table.column
+          case 1 => (domain, tab(0), "0") // ref to table
+          case _ =>
+            throw new Exception(
+              s"Invalid number of parts in relation $ref in domain $domain and table $name"
+            )
         }
         Some(s"$tableLabel:${attr.name} -> ${refDomain}_$refSchema:$refAttr")
     }
   }
 
-  def asDot(domain: String, includeAllAttrs: Boolean): String = {
-    val tableLabel = s"${domain}_$name"
-    val header =
-      s"""<tr><td port="0" bgcolor="darkgreen"><B><FONT color="white"> $name </FONT></B></td></tr>\n"""
-    val rows =
-      attributes.flatMap { attr =>
-        val isPK = primaryKey.getOrElse(Nil).contains(attr.name)
-        val isFK = attr.foreignKey.isDefined
-        dotRow(attr, isPK, isFK, includeAllAttrs)
-      } mkString "\n"
+  @JsonIgnore
+  def hasACL(): Boolean =
+    acl.nonEmpty
 
-    val relations = attributes
-      .flatMap { attr => dotRelation(attr, domain) }
-      .mkString("\n")
+  def relatedTables(): List[String] = {
+    val fkTables = attributes.flatMap(_.foreignKey).map { fk =>
+      val tab = fk.split('.')
+      tab.length match {
+        case 3 => tab(1) // reference to domain.table.column
+        case 2 => tab(0) // reference to table.column
+        case 1 => tab(0) // reference to table
+      }
+    }
+    if (fkTables.nonEmpty)
+      fkTables :+ name
+    else
+      fkTables
+  }
 
-    s"""
-        |$tableLabel [label=<
-        |<table border="0" cellborder="1" cellspacing="0">
-        |""".stripMargin +
-    header +
-    rows +
-    """
+  def asDot(domain: String, includeAllAttrs: Boolean, fkTables: Set[String]): String = {
+    val finalName = getFinalName()
+    val isFKTable = fkTables.contains(finalName.toLowerCase)
+    if (isFKTable || includeAllAttrs) {
+      val tableLabel = s"${domain}_$finalName"
+      val header =
+        s"""<tr><td port="0" bgcolor="darkgreen"><B><FONT color="white"> $finalName </FONT></B></td></tr>\n"""
+      val rows =
+        attributes.flatMap { attr =>
+          val isPK = primaryKey.contains(attr.getFinalName())
+          val isFK = attr.foreignKey.isDefined
+          dotRow(attr, isPK, isFK, includeAllAttrs)
+        } mkString "\n"
+
+      val relations = attributes
+        .flatMap { attr => dotRelation(attr, domain) }
+        .mkString("\n")
+
+      s"""
+         |$tableLabel [label=<
+         |<table border="0" cellborder="1" cellspacing="0">
+         |""".stripMargin +
+      header +
+      rows +
+      """
           |</table>>];
           |
           |""".stripMargin +
-    relations
+      relations
+    } else {
+      ""
+    }
   }
 }
 
@@ -498,7 +422,7 @@ object Schema {
             obj.name,
             "struct",
             required = !obj.nullable,
-            attributes = Some(x.fields.map(buildAttributeTree).toList)
+            attributes = x.fields.map(buildAttributeTree).toList
           )
         case _ => throw new Exception(s"Unsupported Date type ${obj.dataType} for object $obj ")
       }
@@ -507,12 +431,12 @@ object Schema {
     Schema(
       schemaName,
       Pattern.compile("ignore"),
-      buildAttributeTree(obj).attributes.getOrElse(Nil),
+      buildAttributeTree(obj).attributes,
       None,
       None,
       None,
-      None,
-      None
+      Nil,
+      Nil
     ).esMapping(None, domainName, schemaHandler)
   }
 

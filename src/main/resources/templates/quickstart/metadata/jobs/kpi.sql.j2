@@ -1,0 +1,9 @@
+with mycte as (
+    select seller_email, amount
+    from sellers hrs, orders sos where hrs.id = sos.seller_id
+)
+select city, count(*) cnt from sales.customers
+group by city
+
+
+

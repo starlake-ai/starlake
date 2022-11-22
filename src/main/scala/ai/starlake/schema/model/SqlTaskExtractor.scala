@@ -3,15 +3,16 @@ package ai.starlake.schema.model
 import scala.collection.mutable.ListBuffer
 
 case class SqlTaskExtractor(
-  presql: Option[List[String]],
+  presql: List[String],
   sql: String,
-  postsql: Option[List[String]]
+  postsql: List[String]
 )
 
 object SqlTaskExtractor {
 
   def apply(sqlContent: String): SqlTaskExtractor = {
-    val cometPattern = "^\\s*/\\*\\s*(SQL|PRESQL|POSTSQL)\\s*\\*/\\s*$".r
+    // val cometPattern = "^\\s*/\\*\\s*(SQL|PRESQL|POSTSQL)\\s*\\*/\\s*$".r
+    val cometPattern = "^--\\s*(SQL|PRESQL|POSTSQL)\\s*$".r
     val sqlFileLines = sqlContent.split("\n")
     val buffer = new StringBuffer()
     val presqlSection = ListBuffer.empty[String]
@@ -51,10 +52,6 @@ object SqlTaskExtractor {
           buffer.append(trimmed).append('\n')
     }
     appendToStep(buffer, section)
-    SqlTaskExtractor(
-      if (presqlSection.isEmpty) None else Some(presqlSection.toList),
-      sqlSection.toString,
-      if (postsqlSection.isEmpty) None else Some(postsqlSection.toList)
-    )
+    SqlTaskExtractor(presqlSection.toList, sqlSection.toString, postsqlSection.toList)
   }
 }

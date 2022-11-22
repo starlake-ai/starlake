@@ -8,7 +8,7 @@ class ConnectionLoadJobSpec extends TestHelper {
       val rendered = ConnectionLoadConfig.usage()
       val expected =
         """
-          |Usage: starlake cnxload [options]
+          |Usage: starlake jdbcload [options]
           |Load parquet file into JDBC Table.
           |  --source_file <value>    Full Path to source file
           |  --output_table <value>   JDBC Output Table

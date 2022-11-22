@@ -20,15 +20,13 @@
 
 package ai.starlake.schema.model
 
-import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.utils.Utils
 import com.fasterxml.jackson.annotation.JsonIgnore
-import com.github.ghik.silencer.silent
 import org.apache.hadoop.fs.Path
 
-import java.util.regex.Pattern
+import scala.annotation.nowarn
 import scala.collection.mutable
 import scala.util.{Failure, Success, Try}
 
@@ -66,18 +64,20 @@ import scala.util.{Failure, Success, Try}
   *   present. To move a file without requiring an ack file to be present, set explicitly this
   *   property to the empty string value "".
   */
-@silent case class Domain(
+@nowarn case class Domain(
   name: String,
-  @silent @deprecated("Moved to Metadata", "0.2.8") directory: Option[String] = None,
+  @nowarn @deprecated("Moved to Metadata", "0.2.8") directory: Option[String] = None,
   metadata: Option[Metadata] = None,
-  tableRefs: Option[List[String]] = None,
+  tableRefs: List[String] = Nil,
   tables: List[Schema] = Nil,
   comment: Option[String] = None,
-  @silent @deprecated("Moved to Metadata", "0.2.8") extensions: Option[List[String]] = None,
-  @silent @deprecated("Moved to Metadata", "0.2.8") ack: Option[String] = None,
-  tags: Option[Set[String]] = None,
+  @nowarn @deprecated("Moved to Metadata", "0.2.8") extensions: List[String] = Nil,
+  @nowarn @deprecated("Moved to Metadata", "0.2.8") ack: Option[String] = None,
+  tags: Set[String] = Set.empty,
   rename: Option[String] = None
 ) {
+
+  def this() = this("") // Should never be called. Here for Jackson deserialization only
 
   /** @return
     *   renamed column if defined, source name otherwise
@@ -139,8 +139,10 @@ import scala.util.{Failure, Success, Try}
     */
   def getExtensions(defaultFileExtensions: String, forceFileExtensions: String): List[String] = {
     def toList(extensions: String) = extensions.split(',').map(_.trim).toList
-    val allExtensions =
-      resolveExtensions().getOrElse(toList(defaultFileExtensions)) ++ toList(forceFileExtensions)
+    val allExtensions = resolveExtensions() match {
+      case Nil  => toList(defaultFileExtensions) ++ toList(forceFileExtensions)
+      case list => list
+    }
     allExtensions.distinct.map { extension =>
       if (extension.startsWith(".") || extension.isEmpty)
         extension
@@ -152,7 +154,7 @@ import scala.util.{Failure, Success, Try}
   /** Resolve method are here to handle backward compatibility
     * @return
     */
-  @silent def resolveDirectory(): String = {
+  @nowarn def resolveDirectory(): String = {
     val maybeDirectory = for {
       metadata  <- metadata
       directory <- metadata.directory
@@ -166,7 +168,7 @@ import scala.util.{Failure, Success, Try}
     }
   }
 
-  @silent def resolveAck(): Option[String] = {
+  @nowarn def resolveAck(): Option[String] = {
     val maybeAck = for {
       metadata <- metadata
       ack      <- metadata.ack
@@ -178,8 +180,10 @@ import scala.util.{Failure, Success, Try}
     }
   }
 
-  @silent def resolveExtensions(): Option[List[String]] =
-    metadata.map(m => m.extensions).getOrElse(this.extensions)
+  @nowarn def resolveExtensions(): List[String] = {
+    val ext = metadata.map(m => m.extensions)
+    ext.getOrElse(this.extensions)
+  }
 
   /** Ack file should be present for each file to ingest.
     *
@@ -200,12 +204,15 @@ import scala.util.{Failure, Success, Try}
   def checkValidity(
     schemaHandler: SchemaHandler
   )(implicit settings: Settings): Either[List[String], Boolean] = {
+
     val errorList: mutable.MutableList[String] = mutable.MutableList.empty
 
     // Check Domain name validity
-    val dbNamePattern = Pattern.compile("[a-zA-Z][a-zA-Z0-9_]{1,100}")
-    if (!dbNamePattern.matcher(name).matches())
-      errorList += s"Domain with name $name should respect the pattern ${dbNamePattern.pattern()}"
+    val forceDomainPrefixRegex = settings.comet.forceDomainPattern.r
+    if (!forceDomainPrefixRegex.pattern.matcher(name).matches())
+      errorList += s"Domain with name $name should respect the pattern ${forceDomainPrefixRegex.regex}"
+
+    val forceTablePrefixRegex = settings.comet.forceTablePattern.r
 
     Try(resolveDirectory()) match {
       case Success(_) => //
@@ -228,7 +235,7 @@ import scala.util.{Failure, Success, Try}
     }
 
     val duplicatesErrorMessage =
-      "%s is defined %d times. A schema can only be defined once."
+      "Schema %s defined %d times. A schema can only be defined once."
     for (errors <- Utils.duplicates(tables.map(_.name), duplicatesErrorMessage).left) {
       errorList ++= errors.map(s"domain $name:" + _)
     }
@@ -240,11 +247,30 @@ import scala.util.{Failure, Success, Try}
       Right(true)
   }
 
-  def asDot(includeAllAttrs: Boolean): String = {
+  def asDot(includeAllAttrs: Boolean, fkTables: Set[String]): String = {
     tables
       .map { schema =>
-        schema.asDot(name, includeAllAttrs)
+        schema.asDot(name, includeAllAttrs, fkTables)
       }
       .mkString("\n")
+  }
+
+  def relatedTables(): List[String] = tables.flatMap(_.relatedTables())
+
+  def aclTables(): List[Schema] = tables.filter(_.hasACL())
+
+  def rlsTables(): Map[String, List[RowLevelSecurity]] =
+    tables
+      .map(t => (t.getFinalName(), t.rls))
+      .filter { case (tableName, rls) => rls.nonEmpty }
+      .toMap
+
+  def policies(): List[RowLevelSecurity] = {
+    tables
+      .flatMap(_.acl)
+      .map(ace => RowLevelSecurity(name = ace.role, grants = ace.grants.toSet)) ++
+    tables.flatMap(
+      _.rls
+    )
   }
 }

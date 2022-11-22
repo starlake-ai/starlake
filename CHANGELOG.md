@@ -1,9 +1,115 @@
+
 # Release notes
+
+# 0.6.0
+__New Feature__:
+- Support for Jinja templating everywhere
+- area property is now ignored in YAML files
+- Support for Amazon Redshift and Snowflake
+- Quickstart documentation upgraded
+- single command setup and run using starlake.sh / starlake.cmd
+- Updated quickstart with docker use
+- Infer schema now recognize date as date not timestamp
+
+# 0.5.2
+__New Feature__:
+- Domain & Jobs delivery in rest api
+
+# 0.5.1
+__Bug Fix__:
+- Support dynamic value for comet metadata through rest api.
+
+
+# 0.5.0
+__New Feature__:
+- Add Server mode
+__Bug Fix__:
+- Extensions may be defined at the domain level
+
+# 0.4.2
+__Bug Fix__:
+- Use Spark Project Jetty shaded class to remove extra jetty dependency in Starlake server
+
+# 0.4.1
+__New feature__:
+- Added "serve --port 7070" to start starlake in server mode and wait for requests
+
+# 0.4.0
+__New feature__:
+- Support any source to any sink using kafkaload including sink and source that are not kafka. This has been possible at the cost of a breaking change
+- Support table and column remarks extraction on DB2 iSeries databases
+
+__CI__:
+ - remove support of github registry
+ - Remove scala 2.11 support
+
+# 0.3.26
+__New feature__:
+- Support JINJA in autojob
+- Support external views defined using JINJA
+- File Splitter allow to split file based on first column or position in line.
+
+# 0.3.25
+__New feature__:
+- Add ACL Graph generation
+
+# 0.3.24
+__Bug Fix__:
+- Improve GraphViz Generation
+
+# 0.3.23
+__Bug Fix__:
+- Generate final name in Graphiz diagram
+
+# 0.3.22
+__New feature__:
+- Improve cli doc generation. Extra doc can be added in docs/merge/cli folder
+- prepare to deprecate xml tag in metadata section.
+
+__Bug Fix__:
+- Code improvement: JDBC is handled as a generic sink
+- add extra parenthesis in BQ queries only for SELECT and WITH requests
+
+
+# 0.3.21
+__New feature__:
+- Reduce assembly size
+- Update to sbt 1.7.1
+- Add interactive mode for transform with csv, json and table output formats
+- Improve FS Sink handling
+
+__Bug Fix__:
+- Support empty env files
+
+# 0.3.20
+__Bug Fix__:
+- Keep retrocompatibility with scala 2.11
+
+# 0.3.19
+__New feature__:
+- Handle Mixed XSD / YML ingestion & validation
+- Support JSON / XML descriptions in XLS files
+- Support arrays in XLS files
+
+__Bug Fix__:
+- Support file system sink options in autojob
+
+# 0.3.18
+__New feature__:
+- Enhance XLS support for escaping char
+- Support HTTP Stream Source
+- Support XSD Validation
+- Transform  jobs now report on the number of affected rows.
+
+__Bug Fix__:
+- Regression return value of an autojob
 
 # 0.3.17
 __New feature__:
 - Support extra dsv options in conf file
 - support any option stored in metadata.options as an option for the reader.
+- Support VSCode  Development
+
 
 # 0.3.16
 __New feature__:
@@ -39,23 +145,23 @@ __Bug Fix__: reorder transformation on attributes as follows:
 __Bug Fix__:
 - Handle field relaxation when in Append Mode and table does not exist.
 
-#0.3.9 / 0.3.10 / 0.3.11
+# 0.3.9 / 0.3.10 / 0.3.11
 __Bug Fix__:
 - Make fields in rejected table optional
 
-#0.3.8
+# 0.3.8
 __New feature__:
 - Rollback on support for kafka.properties files. It is useless since we already have a server-options properties.
 
-#0.3.7
+# 0.3.7
 __New feature__:
 - Improve XLS support for metadata
 
-#0.3.6
+# 0.3.6
 __New feature__:
 - Autoload kafka.properties file from metadata directory.
 
-#0.3.5
+# 0.3.5
 __New feature__:
 - Parallel copy of files when loading and archiving
 - Support renaming of domains and schemas in XLS

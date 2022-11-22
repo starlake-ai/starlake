@@ -8,13 +8,13 @@ import scopt.OParser
 case class MetricsConfig(domain: String = "", schema: String = "", stage: Option[Stage] = None)
 
 object MetricsConfig extends CliConfig[MetricsConfig] {
-
+  val command = "metrics"
   val parser: OParser[Unit, MetricsConfig] = {
     val builder = OParser.builder[MetricsConfig]
     import builder._
     OParser.sequence(
-      programName("starlake metrics"),
-      head("starlake", "metrics", "[options]"),
+      programName(s"starlake $command"),
+      head("starlake", command, "[options]"),
       note(""),
       opt[String]("domain")
         .action((x, c) => c.copy(domain = x))
