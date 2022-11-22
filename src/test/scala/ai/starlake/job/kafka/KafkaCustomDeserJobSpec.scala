@@ -5,7 +5,8 @@ import ai.starlake.job.sink.http.SinkTransformer
 import ai.starlake.job.sink.kafka.{KafkaJob, KafkaJobConfig}
 import better.files.File
 import com.fasterxml.jackson.annotation.JsonInclude.Include
-import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.annotation.{JsonSetter, Nulls}
+import com.fasterxml.jackson.databind.{DeserializationFeature, ObjectMapper}
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.typesafe.config.ConfigFactory
 import org.apache.http.client.methods.HttpUriRequest
@@ -16,7 +17,10 @@ import scala.util.{Failure, Success}
 object TestSinkTransformer extends SinkTransformer {
   val mapper: ObjectMapper = new ObjectMapper()
   mapper.registerModule(DefaultScalaModule)
-  mapper.setSerializationInclusion(Include.NON_EMPTY)
+  mapper
+    .setSerializationInclusion(Include.NON_EMPTY)
+    .setDefaultSetterInfo(JsonSetter.Value.forValueNulls(Nulls.AS_EMPTY, Nulls.AS_EMPTY))
+  mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
 
   def requestUris(url: String, rows: Array[Seq[String]]): Seq[HttpUriRequest] = {
     rows.foreach { row =>
@@ -89,15 +93,15 @@ class KafkaCustomDeserJobSpec extends TestHelper {
         val kafkaJob2 =
           new KafkaJob(
             KafkaJobConfig(
-              topicConfigName = "avro_offload",
+              topicConfigName = Some("avro_offload"),
               streamingTrigger = None,
-              streamingWriteFormat = "starlake-http",
+              writeFormat = "starlake-http",
               writeOptions = Map(
                 "url"         -> "http://localhost:9000",
                 "transformer" -> "ai.starlake.job.kafka.TestSinkTransformer"
               ),
-              mode = SaveMode.Overwrite,
-              path = "/tmp/outdir.json",
+              writeMode = SaveMode.Overwrite.toString,
+              path = Some("/tmp/outdir.json"),
               streaming = true,
               coalesce = Some(1)
             )

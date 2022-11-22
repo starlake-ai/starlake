@@ -1,12 +1,14 @@
 package ai.starlake.utils
 
-import com.fasterxml.jackson.annotation.JsonIgnoreType
+import com.fasterxml.jackson.annotation.JsonInclude.Include
+import com.fasterxml.jackson.annotation.{JsonIgnoreType, JsonSetter, Nulls}
 import com.fasterxml.jackson.core.JsonFactory
 import com.fasterxml.jackson.databind.module.SimpleModule
-import com.fasterxml.jackson.databind.{InjectableValues, ObjectMapper}
+import com.fasterxml.jackson.databind.{DeserializationFeature, InjectableValues, ObjectMapper}
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
-import com.fasterxml.jackson.module.scala.experimental.ScalaObjectMapper
-import com.github.ghik.silencer.silent
+import com.fasterxml.jackson.module.scala.ScalaObjectMapper
+
+import scala.annotation.nowarn
 
 object CometObjectMapper {
 
@@ -16,7 +18,7 @@ object CometObjectMapper {
 
 }
 
-@silent
+@nowarn
 class CometObjectMapper(
   jf: JsonFactory = null,
   injectables: scala.collection.immutable.Seq[(Class[_], AnyRef)] = Nil
@@ -24,6 +26,10 @@ class CometObjectMapper(
     with ScalaObjectMapper {
   this.registerModule(DefaultScalaModule)
   this.registerModule(CometJacksonModule)
+  this.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+  this
+    .setSerializationInclusion(Include.NON_EMPTY)
+    .setDefaultSetterInfo(JsonSetter.Value.forValueNulls(Nulls.AS_EMPTY, Nulls.AS_EMPTY))
 
   this.registerModule(
     /* this thing ensures we'll never attempt to serialize the ObjectMapper itself even if it appears in a class

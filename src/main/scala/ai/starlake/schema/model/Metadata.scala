@@ -91,12 +91,13 @@ case class Metadata(
   clustering: Option[Seq[String]] = None,
   xml: Option[Map[String, String]] = None,
   directory: Option[String] = None,
-  extensions: Option[List[String]] = None,
+  extensions: List[String] = Nil,
   ack: Option[String] = None,
   options: Option[Map[String, String]] = None,
   validator: Option[String] = None,
   schedule: Option[Map[String, String]] = None
 ) {
+  def this() = this(None) // Should never be called. Here for Jackson deserialization only
 
   override def toString: String =
     s"""
@@ -152,6 +153,15 @@ case class Metadata(
   @JsonIgnore
   def getOptions(): Map[String, String] = options.getOrElse(Map.empty)
 
+  @JsonIgnore
+  def getXmlOptions(): Map[String, String] = this.getOptions() ++ xml.getOrElse(Map.empty)
+
+  @JsonIgnore
+  def getXsdPath(): Option[String] = {
+    val xmlOptions = getXmlOptions()
+    xmlOptions.get("rowValidationXSDPath").orElse(xmlOptions.get("xsdPath"))
+  }
+
   /** Merge a single attribute
     *
     * @param parent
@@ -163,6 +173,9 @@ case class Metadata(
     */
   protected def merge[T](parent: Option[T], child: Option[T]): Option[T] =
     if (child.isDefined) child else parent
+
+  protected def merge[T](parent: List[T], child: List[T]): List[T] =
+    if (child.nonEmpty) child else parent
 
   /** Merge this metadata with its child. Any property defined at the child level overrides the one
     * defined at this level This allow a schema to override the domain metadata attribute Applied to

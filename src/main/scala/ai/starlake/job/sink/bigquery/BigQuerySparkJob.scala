@@ -71,7 +71,7 @@ class BigQuerySparkJob(
   ): (Table, StandardTableDefinition) = {
     getOrCreateDataset()
 
-    val table = Option(BigQueryJobBase.bigquery.getTable(tableId)) getOrElse {
+    val table = Option(BigQueryJobBase.bigquery().getTable(tableId)) getOrElse {
       val withPartitionDefinition =
         (maybeSchema, cliConfig.outputPartition) match {
           case (Some(schema), Some(partitionField)) =>
@@ -115,9 +115,11 @@ class BigQuerySparkJob(
             val clustering = Clustering.newBuilder().setFields(fields.asJava).build()
             withPartitionDefinition.setClustering(clustering)
         }
-      BigQueryJobBase.bigquery.create(
-        TableInfo.newBuilder(tableId, withClusteringDefinition.build()).build
-      )
+      BigQueryJobBase
+        .bigquery()
+        .create(
+          TableInfo.newBuilder(tableId, withClusteringDefinition.build()).build
+        )
     }
     setTagsOnTable(table)
     (table, table.getDefinition.asInstanceOf[StandardTableDefinition])
@@ -143,7 +145,8 @@ class BigQuerySparkJob(
       val (table, tableDefinition) = getOrCreateTable(Some(sourceDF), maybeSchema)
 
       val stdTableDefinition =
-        BigQueryJobBase.bigquery
+        BigQueryJobBase
+          .bigquery()
           .getTable(table.getTableId)
           .getDefinition
           .asInstanceOf[StandardTableDefinition]
@@ -173,12 +176,12 @@ class BigQuerySparkJob(
             .toList
 
           cliConfig.partitionsToUpdate match {
-            case None =>
+            case Nil =>
               logger.info(
                 s"No optimization applied -> the following ${partitions.length} partitions will be written: ${partitions
                     .mkString(",")}"
               )
-            case Some(partitionsToUpdate) =>
+            case partitionsToUpdate =>
               logger.info(
                 s"After optimization -> only the following ${partitionsToUpdate.length} partitions will be written: ${partitionsToUpdate
                     .mkString(",")}"
@@ -186,29 +189,25 @@ class BigQuerySparkJob(
           }
 
           // Delete partitions becoming empty
-          cliConfig.partitionsToUpdate match {
-            case None =>
-            case Some(partitionsToUpdate) =>
-              partitionsToUpdate.foreach { partitionToUpdate =>
-                // if partitionToUpdate is not in the list of partitions to merge. It means that it need to be deleted
-                // this case happen when there is no more than a single element in the partition
-                if (!partitions.contains(partitionToUpdate)) {
-                  logger.info(s"Deleting partition $partitionToUpdate")
-                  val emptyDF = session
-                    .createDataFrame(session.sparkContext.emptyRDD[Row], sourceDF.schema)
-                  val finalEmptyDF = emptyDF.write
-                    .mode(SaveMode.Overwrite)
-                    .format("com.google.cloud.spark.bigquery")
-                    .option("datePartition", partitionToUpdate)
-                    .option("table", bqTable)
-                    .option("intermediateFormat", intermediateFormat)
+          cliConfig.partitionsToUpdate.foreach { partitionToUpdate =>
+            // if partitionToUpdate is not in the list of partitions to merge. It means that it need to be deleted
+            // this case happen when there is no more than a single element in the partition
+            if (!partitions.contains(partitionToUpdate)) {
+              logger.info(s"Deleting partition $partitionToUpdate")
+              val emptyDF = session
+                .createDataFrame(session.sparkContext.emptyRDD[Row], sourceDF.schema)
+              val finalEmptyDF = emptyDF.write
+                .mode(SaveMode.Overwrite)
+                .format("com.google.cloud.spark.bigquery")
+                .option("datePartition", partitionToUpdate)
+                .option("table", bqTable)
+                .option("intermediateFormat", intermediateFormat)
 
-                  finalEmptyDF.options(connectorOptions).save()
-                }
-              }
+              finalEmptyDF.options(connectorOptions).save()
+            }
           }
           cliConfig.partitionsToUpdate match {
-            case None => // No optimisation requested. This happens when there is no existing dataset
+            case Nil => // No optimisation requested. This happens when there is no existing dataset
               sourceDF.write
                 .mode(SaveMode.Overwrite)
                 .format("com.google.cloud.spark.bigquery")
@@ -216,7 +215,7 @@ class BigQuerySparkJob(
                 .option("intermediateFormat", intermediateFormat)
                 .options(connectorOptions)
                 .save()
-            case Some(partitionsToUpdate) =>
+            case partitionsToUpdate =>
               partitions.foreach { partitionStr =>
                 // We only overwrite partitions containing updated or newly added elements
                 if (partitionsToUpdate.contains(partitionStr)) {
@@ -275,7 +274,8 @@ class BigQuerySparkJob(
       }
 
       val stdTableDefinitionAfter =
-        BigQueryJobBase.bigquery
+        BigQueryJobBase
+          .bigquery()
           .getTable(table.getTableId)
           .getDefinition
           .asInstanceOf[StandardTableDefinition]

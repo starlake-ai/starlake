@@ -2,8 +2,7 @@ name: "graduateProgram"
 views:
   graduate_View: "accepted/graduateProgram"
 tasks:
-  - domain: "graduateProgram"
-    area: "business"
+  - domain: "business/graduateProgram"
     dataset: "output"
     write: "OVERWRITE"
     presql: |

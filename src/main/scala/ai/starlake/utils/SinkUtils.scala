@@ -1,8 +1,5 @@
 package ai.starlake.utils
 
-import ai.starlake.job.sink.jdbc.ConnectionLoadConfig
-import ai.starlake.schema.handlers.StorageHandler
-import ai.starlake.schema.model.{BigQuerySink, Engine, EsSink, JdbcSink, NoneSink, Sink}
 import ai.starlake.config.Settings
 import ai.starlake.job.sink.bigquery.{BigQueryLoadConfig, BigQuerySparkJob}
 import ai.starlake.job.sink.jdbc.ConnectionLoadConfig
@@ -21,7 +18,7 @@ class SinkUtils(implicit settings: Settings) extends StrictLogging with DatasetL
     sinkType: Sink,
     dataframe: DataFrame,
     table: String,
-    /* arguments below used for filesink ony */
+    /* arguments below used for filesink only */
     savePath: Path,
     lockPath: Path,
     storageHandler: StorageHandler,
@@ -77,8 +74,6 @@ class SinkUtils(implicit settings: Settings) extends StrictLogging with DatasetL
             settings.comet,
             Right(dataframe),
             table,
-            partitions = sink.partitions.getOrElse(1),
-            batchSize = sink.batchsize.getOrElse(1000),
             options = sink.getOptions
           )
           sinkToJdbc(jdbcConfig)
@@ -132,7 +127,7 @@ class SinkUtils(implicit settings: Settings) extends StrictLogging with DatasetL
         )
 
         val dfw = dataframe.write
-          .format("jdbc")
+          .format(cliConfig.format)
           .option("truncate", cliConfig.writeDisposition == WriteDisposition.WRITE_TRUNCATE)
           .option("dbtable", cliConfig.outputTable)
 

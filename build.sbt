@@ -8,13 +8,11 @@ javacOptions ++= Seq("-source", "1.8", "-target", "1.8", "-Xlint")
 
 ThisBuild / sonatypeCredentialHost := "s01.oss.sonatype.org"
 
-lazy val scala211 = "2.11.12"
-
-lazy val scala212 = "2.12.15"
+lazy val scala212 = "2.12.17"
 
 lazy val scala213 = "2.13.8"
 
-ThisBuild / crossScalaVersions := List(scala211, scala212, scala213)
+ThisBuild / crossScalaVersions := List(scala212, scala213)
 
 organization := "ai.starlake"
 
@@ -30,11 +28,6 @@ libraryDependencies ++= {
   val (spark, jackson, esSpark, pureConfigs) = {
     CrossVersion.partialVersion(scalaVersion.value) match {
       case Some((2, 13)) | Some((2, 12)) => (spark_3d0_forScala_2d12, jackson212ForSpark3, esSpark212, pureConfig212)
-      case Some((2, 11)) =>
-        sys.env.getOrElse("COMET_HDP31", "false").toBoolean match {
-          case false => (spark_2d4_forScala_2d11, jackson211ForSpark2, esSpark211, pureConfig211)
-          case true  => (spark_2d4_forScala_2d11, jackson211ForSpark2Hdp31, esSpark211, pureConfig212)
-        }
       case _ => throw new Exception(s"Invalid Scala Version")
     }
   }
@@ -51,7 +44,6 @@ name := {
   val sparkNameSuffix = {
     CrossVersion.partialVersion(scalaVersion.value) match {
       case Some((2, 13)) | Some((2, 12)) => "3"
-      case Some((2, 11)) => "2"
       case _             => throw new Exception(s"Invalid Scala Version")
     }
   }
@@ -97,13 +89,56 @@ Test / fork := true
 
 assembly / assemblyExcludedJars := {
   val cp: Classpath = (assembly / fullClasspath).value
-  cp.foreach(x => println("->" + x.data.getName))
-  //cp filter {_.data.getName.matches("hadoop-.*-2.6.5.jar")}
-  Nil
+  val sortedCp = cp.sortBy(_.data.getName)
+  sortedCp.foreach(x => println("->" + x.data.getName))
+  sortedCp filter { jar =>
+    val jarList = List(
+      "netty-buffer-",
+      "netty-common-",
+      "arrow-memory-core-",
+      "arrow-memory-netty-",
+      "arrow-format-",
+      "arrow-vector-",
+      "commons-codec-",
+      // "commons-compress-", // Because POI needs it
+      "commons-logging-",
+      "commons-math3-",
+      "flatbuffers-java-",
+      // "gson-", // because BigQuery needs com.google.gson.JsonParser.parseString(Ljava/lang/String;)
+      //"guava-", // BigQuery needs com/google/common/base/MoreObjects (guava-20)
+      "hadoop-client-api-",
+      "hadoop-client-runtime-",
+      "httpclient-",
+      "httpcore-",
+      "jackson-datatype-jsr310-",
+      "json-",
+      "jsr305-",
+      "lz4-java-",
+      // "protobuf-java-", // BigQuery needs com/google/protobuf/GeneratedMessageV3
+      "scala-compiler-",
+      "scala-library-",
+      "scala-parser-combinators_",
+      "scala-reflect-",
+      "scala-xml_",
+      "shapeless_",
+      "slf4j-api-",
+      "snappy-java-",
+      "spark-tags_",
+      "threeten-extra-",
+      "xz-",
+      "zstd-jni-"
+    )
+    if (jarList.exists(jar.data.getName.startsWith)) {
+      println("Exclude ->" + jar.data.getName)
+      true
+    }
+    else
+      false
+  }
 }
 
 assembly / assemblyShadeRules := Seq(
-  // poi needs a newer version of commons-compress (> 1.17) than the one shipped with spark (1.4)
+  // poi needs a newer version of commons-compress (> 1.17) than the one shipped with spark 2.4.X
   ShadeRule.rename("org.apache.commons.compress.**" -> "poiShade.commons.compress.@1").inAll,
 //  ShadeRule.rename("shapeless.**" -> "shade.@0").inAll,
   //shade it or else writing to bigquery wont work because spark comes with an older version of google common.
@@ -112,7 +147,6 @@ assembly / assemblyShadeRules := Seq(
   ShadeRule.rename("com.google.protobuf.**" -> "shade.@0").inAll
 )
 
-
 // Publish
 publishTo := {
   (
@@ -120,8 +154,6 @@ publishTo := {
     sys.env.getOrElse("RELEASE_SONATYPE", "true").toBoolean
   ) match {
     case (None, false) =>
-      // githubPublishTo.value
-      // we do not publish on github anymore
       sonatypePublishToBundle.value
     case (None, true) => sonatypePublishToBundle.value
     case (Some(value), _) =>
@@ -181,16 +213,6 @@ releaseProcess := Seq(
 releaseCommitMessage := s"Release ${ReleasePlugin.runtimeVersion.value}"
 
 releaseVersionBump := Next
-
-// publish to github packages
-// we do not publish on github anymore
-//githubOwner := "starlake-ai"
-
-// we do not publish on github anymore
-// githubRepository := "starlake"
-
-// we do not publish on github anymore
-// githubTokenSource := TokenSource.Environment("GITHUB_TOKEN")
 
 developers := List(
   Developer(

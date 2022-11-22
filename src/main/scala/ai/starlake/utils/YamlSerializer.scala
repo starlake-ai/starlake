@@ -5,7 +5,8 @@ import ai.starlake.schema.generator.JDBCSchemas
 import ai.starlake.schema.model.{AutoJobDesc, Domain, Schema => ModelSchema, Schemas}
 import better.files.File
 import com.fasterxml.jackson.annotation.JsonInclude.Include
-import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.annotation.{JsonSetter, Nulls}
+import com.fasterxml.jackson.databind.{DeserializationFeature, ObjectMapper}
 import com.fasterxml.jackson.databind.node.ObjectNode
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
@@ -16,7 +17,10 @@ import scala.util.{Failure, Success, Try}
 object YamlSerializer extends LazyLogging {
   val mapper: ObjectMapper = new ObjectMapper(new YAMLFactory())
   mapper.registerModule(DefaultScalaModule)
-  mapper.setSerializationInclusion(Include.NON_EMPTY)
+  mapper
+    .setSerializationInclusion(Include.NON_EMPTY)
+    .setDefaultSetterInfo(JsonSetter.Value.forValueNulls(Nulls.AS_EMPTY, Nulls.AS_EMPTY))
+  mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
 
   def serialize(domain: Domain): String = mapper.writeValueAsString(domain)
 
@@ -34,26 +38,20 @@ object YamlSerializer extends LazyLogging {
   }
 
   def serialize(jdbcSchemas: JDBCSchemas): String = mapper.writeValueAsString(jdbcSchemas)
+  def serialize(schemas: Schemas): String = mapper.writeValueAsString(schemas)
 
-  def deserializeJDBCSchemas(file: File): JDBCSchemas = {
-    val rootNode = mapper.readTree(file.newInputStream)
+  def deserializeJDBCSchemas(content: String, inputFilename: String): JDBCSchemas = {
+    val rootNode = mapper.readTree(content)
     val extractNode = rootNode.path("extract")
     val jdbcNode =
       if (extractNode.isNull() || extractNode.isMissingNode) {
         logger.warn(
-          s"Defining a jdbc schema outside a extract node is now deprecated. Please update definition ${file.pathAsString}"
+          s"Defining a jdbc schema outside a extract node is now deprecated. Please update definition ${inputFilename}"
         )
         rootNode
       } else
         extractNode
     mapper.treeToValue(jdbcNode, classOf[JDBCSchemas])
-  }
-
-  def deserializeDomain(file: File): Try[Domain] = {
-    deserializeDomain(
-      scala.io.Source.fromFile(file.pathAsString).getLines.mkString("\n"),
-      file.pathAsString
-    )
   }
 
   def serializeToFile(targetFile: File, domain: Domain): Unit = {
@@ -70,7 +68,8 @@ object YamlSerializer extends LazyLogging {
     Try {
       val rootNode = mapper.readTree(content).asInstanceOf[ObjectNode]
       YamlSerializer.renameField(rootNode, "schemas", "tables")
-      mapper.treeToValue(rootNode, classOf[Schemas])
+      val result = mapper.treeToValue(rootNode, classOf[Schemas])
+      result
 
     } match {
       case Success(value) => value
@@ -100,7 +99,8 @@ object YamlSerializer extends LazyLogging {
     } match {
       case Success(value) => Success(value)
       case Failure(exception) =>
-        Failure(new Exception(s"Invalid domain file: $path(${exception.getMessage})"))
+        logger.error(s"Invalid domain file: $path(${exception.getMessage})")
+        Failure(exception)
     }
   }
 

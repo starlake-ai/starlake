@@ -2,6 +2,8 @@ package ai.starlake.schema.generator
 
 import ai.starlake.TestHelper
 import ai.starlake.schema.handlers.SchemaHandler
+import ai.starlake.utils.YamlSerializer
+import better.files.File
 
 class Yml2XlsSpec extends TestHelper {
   "Yml2XLS" should "should generated all domain / schema in XLS files" in {
@@ -16,7 +18,7 @@ class Yml2XlsSpec extends TestHelper {
         cleanDatasets
         val schemaHandler = new SchemaHandler(settings.storageHandler)
         new Yml2XlsWriter(schemaHandler).generateXls(Nil, "/tmp")
-        val reader = new XlsReader(Path("/tmp/position.xlsx"))
+        val reader = new XlsReader(InputPath("/tmp/position.xlsx"))
         val domain = reader.getDomain()
         assert(domain.isDefined)
         domain.foreach { domain =>
@@ -26,6 +28,33 @@ class Yml2XlsSpec extends TestHelper {
           assert(accountSchema.size == 1)
           accountSchema.head.attributes.size == 10
         }
+      }
+    }
+  }
+
+  new WithSettings() {
+    new SpecTrait(
+      domainOrJobFilename = "position.comet.yml",
+      sourceDomainOrJobPathname = "/sample/position/position.comet.yml",
+      datasetDomainName = "position",
+      sourceDatasetPathName = "/sample/position/XPOSTBL"
+    ) {
+      "a complex attribute list(aka JSON/XML)" should "produce the correct XLS file" in {
+        val yamlPath =
+          File(getClass.getResource("/sample/SomeComplexDomainTemplate.comet.yml").getPath)
+        val yamlDomain = YamlSerializer
+          .deserializeDomain(yamlPath.contentAsString, yamlPath.pathAsString)
+          .getOrElse(throw new Exception(s"Invalid file name $yamlPath"))
+        val schemaHandler = new SchemaHandler(settings.storageHandler)
+        new Yml2XlsWriter(schemaHandler).writeDomainXls(yamlDomain, "/tmp")
+        val xlsOut = File("/tmp", yamlDomain.name + ".xlsx")
+        val complexReader =
+          new XlsReader(InputPath(xlsOut.pathAsString))
+        val xlsTable = complexReader.getDomain().get.tables.head
+        val yamlTable = yamlDomain.tables.head
+        xlsTable.attributes.length shouldBe yamlTable.attributes.length
+
+        deepEquals(xlsTable.attributes, yamlTable.attributes)
       }
     }
   }

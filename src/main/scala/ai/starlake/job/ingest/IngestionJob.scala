@@ -19,7 +19,6 @@ import ai.starlake.utils._
 import ai.starlake.utils.conversion.BigQueryUtils
 import ai.starlake.utils.kafka.KafkaClient
 import ai.starlake.utils.repackaged.BigQuerySchemaConverters
-import com.github.ghik.silencer.silent
 import com.google.cloud.bigquery.JobInfo.{CreateDisposition, WriteDisposition}
 import com.google.cloud.bigquery.{
   Field,
@@ -36,6 +35,7 @@ import org.apache.spark.sql.types.{Metadata => _, _}
 
 import java.sql.Timestamp
 import java.time.{Instant, LocalDateTime}
+import scala.annotation.nowarn
 import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try}
 
@@ -103,12 +103,11 @@ trait IngestionJob extends SparkJob {
     datasetHeaders.partition(schemaHeaders.contains)
   }
 
-  @silent
+  @nowarn
   protected def applyIgnore(dfIn: DataFrame): Dataset[Row] = {
     import session.implicits._
     metadata.ignore.map { ignore =>
       if (ignore.startsWith("udf:")) {
-
         dfIn.filter(
           !callUDF(ignore.substring("udf:".length), struct(dfIn.columns.map(dfIn(_)): _*))
         )
@@ -242,7 +241,7 @@ trait IngestionJob extends SparkJob {
       new AssertionJob(
         this.domain.getFinalName(),
         this.schema.getFinalName(),
-        this.schema.assertions.getOrElse(Map.empty),
+        this.schema.assertions,
         UNIT,
         storageHandler,
         schemaHandler,
@@ -310,18 +309,18 @@ trait IngestionJob extends SparkJob {
 
       val finalMergedDf: DataFrame = runPostSQL(mergedDF)
 
-      val writeMode = getWriteMode()
-
       logger.whenInfoEnabled {
         logger.info("Final Dataframe Schema")
         logger.info(finalMergedDf.schemaString())
       }
+
+      // When sinkToFile is set, it means that we want to save to files even if we save somewhere else.
       val savedInFileDataset =
         if (settings.comet.sinkToFile)
           sinkToFile(
             finalMergedDf,
             acceptedPath,
-            writeMode,
+            getWriteMode(),
             StorageArea.accepted,
             schema.merge.isDefined,
             settings.comet.defaultFormat
@@ -331,12 +330,12 @@ trait IngestionJob extends SparkJob {
 
       val sinkType = metadata.getSink().map(_.getType())
       val savedDataset = sinkType.getOrElse(SinkType.None) match {
-        case SinkType.FS | SinkType.None if !settings.comet.sinkToFile =>
+        case SinkType.None if !settings.comet.sinkToFile =>
           // TODO do this inside the sink function below
           sinkToFile(
             finalMergedDf,
             acceptedPath,
-            writeMode,
+            getWriteMode(),
             StorageArea.accepted,
             schema.merge.isDefined,
             settings.comet.defaultFormat
@@ -348,8 +347,9 @@ trait IngestionJob extends SparkJob {
         logger.info("Saved Dataset Schema")
         logger.info(savedDataset.schemaString())
       }
-      sink(finalMergedDf, partitionsToUpdate) match {
-        case Success(_) =>
+
+      val sinkedDF = sinkAccepted(finalMergedDf, partitionsToUpdate) match {
+        case Success(sinkedDF) =>
           val end = Timestamp.from(Instant.now())
           val log = AuditLog(
             session.sparkContext.applicationId,
@@ -366,6 +366,7 @@ trait IngestionJob extends SparkJob {
             Step.SINK_ACCEPTED.toString
           )
           AuditLog.sink(session, log)
+          sinkedDF
         case Failure(exception) =>
           Utils.logException(logger, exception)
           val end = Timestamp.from(Instant.now())
@@ -386,7 +387,7 @@ trait IngestionJob extends SparkJob {
           AuditLog.sink(session, log)
           throw exception
       }
-      (savedDataset, acceptedPath)
+      (sinkedDF, acceptedPath)
     } else {
       (session.emptyDataFrame, new Path("invalid-path"))
     }
@@ -395,9 +396,9 @@ trait IngestionJob extends SparkJob {
   private def applyMerge(
     acceptedPath: Path,
     finalAcceptedDF: DataFrame
-  ): (DataFrame, Option[List[String]]) = {
+  ): (DataFrame, List[String]) = {
     val (mergedDF, partitionsToUpdate) =
-      schema.merge.fold((finalAcceptedDF, Option.empty[List[String]])) { mergeOptions =>
+      schema.merge.fold((finalAcceptedDF, List.empty[String])) { mergeOptions =>
         metadata.getSink() match {
           case Some(sink: BigQuerySink) => mergeFromBQ(finalAcceptedDF, mergeOptions, sink)
           case _ => mergeFromParquet(acceptedPath, finalAcceptedDF, mergeOptions)
@@ -445,7 +446,7 @@ trait IngestionJob extends SparkJob {
         expr(
           attr.transform
             .getOrElse(throw new Exception("Should never happen"))
-            .richFormat(schemaHandler.activeEnv, options)
+            .richFormat(schemaHandler.activeEnv(), options)
         )
           .cast(attr.primitiveSparkType(schemaHandler))
       )
@@ -459,15 +460,15 @@ trait IngestionJob extends SparkJob {
       .foldLeft(acceptedDF) { case (df, (name, sparkType, script)) =>
         df.withColumn(
           name,
-          expr(script.getOrElse("").richFormat(schemaHandler.activeEnv, options)).cast(sparkType)
+          expr(script.getOrElse("").richFormat(schemaHandler.activeEnv(), options)).cast(sparkType)
         )
       }
   }
 
-  private def sink(
+  private def sinkAccepted(
     mergedDF: DataFrame,
-    partitionsToUpdate: Option[List[String]]
-  ): Try[Unit] = {
+    partitionsToUpdate: List[String]
+  ): Try[DataFrame] = {
     Try {
       val sinkType = metadata.getSink().map(_.getType())
       sinkType.getOrElse(SinkType.None) match {
@@ -483,8 +484,10 @@ trait IngestionJob extends SparkJob {
             options = sink.map(_.getOptions).getOrElse(Map.empty)
           )
           new ESLoadJob(config, storageHandler, schemaHandler).run()
+          mergedDF
         case SinkType.ES if !settings.comet.elasticsearch.active =>
           logger.warn("Indexing to ES requested but elasticsearch not active in conf file")
+          mergedDF
         case SinkType.BQ =>
           val sink = metadata.getSink().map(_.asInstanceOf[BigQuerySink])
           val (createDisposition: String, writeDisposition: String) = Utils.getDBDisposition(
@@ -494,8 +497,8 @@ trait IngestionJob extends SparkJob {
 
           /* We load the schema from the postsql returned dataframe if any */
           val tableSchema = schema.postsql match {
-            case Some(_) => Some(BigQueryUtils.bqSchema(mergedDF.schema))
-            case _       => Some(schema.bqSchema(schemaHandler))
+            case Nil => Some(schema.bqSchema(schemaHandler))
+            case _   => Some(BigQueryUtils.bqSchema(mergedDF.schema))
           }
           val config = BigQueryLoadConfig(
             source = Right(mergedDF),
@@ -521,11 +524,12 @@ trait IngestionJob extends SparkJob {
             case Failure(e) =>
               throw e
           }
-
+          mergedDF
         case SinkType.KAFKA =>
           Utils.withResources(new KafkaClient(settings.comet.kafka)) { kafkaClient =>
             kafkaClient.sinkToTopic(settings.comet.kafka.topics(schema.getFinalName()), mergedDF)
           }
+          mergedDF
         case SinkType.JDBC =>
           val (createDisposition: CreateDisposition, writeDisposition: WriteDisposition) = {
 
@@ -537,19 +541,13 @@ trait IngestionJob extends SparkJob {
           }
           val sink = metadata.getSink().map(_.asInstanceOf[JdbcSink])
           sink.foreach { sink =>
-            val partitions = sink.partitions.getOrElse(1)
-            val batchSize = sink.batchsize.getOrElse(1000)
-            val jdbcName = sink.connection
-
             val jdbcConfig = ConnectionLoadConfig.fromComet(
-              jdbcName,
+              sink.connection,
               settings.comet,
               Right(mergedDF),
               outputTable = schema.getFinalName(),
               createDisposition = createDisposition,
               writeDisposition = writeDisposition,
-              partitions = partitions,
-              batchSize = batchSize,
               options = sink.getOptions
             )
 
@@ -560,17 +558,30 @@ trait IngestionJob extends SparkJob {
                 throw e
             }
           }
+          mergedDF
+        case SinkType.FS if !settings.comet.sinkToFile =>
+          val acceptedPath =
+            new Path(DatasetArea.accepted(domain.getFinalName()), schema.getFinalName())
+          val sinkedDF = sinkToFile(
+            mergedDF,
+            acceptedPath,
+            getWriteMode(),
+            StorageArea.accepted,
+            schema.merge.isDefined,
+            settings.comet.defaultFormat
+          )
+          sinkedDF
         case SinkType.None | SinkType.FS =>
           // Done in the caller
-          // TODO do it here instead
           logger.trace("not producing an index, as requested (no sink or sink at None explicitly)")
+          mergedDF
       }
     }
   }
 
   def extractTableAcl(): List[String] = {
     if (settings.comet.hive) {
-      schema.acl.getOrElse(Nil).flatMap { ace =>
+      schema.acl.flatMap { ace =>
         if (Utils.isRunningInDatabricks()) {
           /*
         GRANT
@@ -631,7 +642,7 @@ trait IngestionJob extends SparkJob {
   ): DataFrame = {
     val resultDataFrame = if (dataset.columns.length > 0) {
       val saveMode = writeMode.toSaveMode
-      val hiveDB = StorageArea.area(domain.getFinalName(), area)
+      val hiveDB = StorageArea.area(domain.getFinalName(), Some(area))
       val tableName = schema.name
       val fullTableName = s"$hiveDB.$tableName"
       if (settings.comet.hive) {
@@ -651,40 +662,55 @@ trait IngestionJob extends SparkJob {
         }
       }
 
-      val tmpPath = new Path(s"${targetPath.toString}.tmp")
+      val (sinkPartition, nbPartitions, clustering, options) =
+        metadata.getSink().getOrElse(NoneSink()) match {
+          case _: NoneSink =>
+            (
+              metadata.partition,
+              nbFsPartitions(
+                dataset,
+                writeFormat,
+                targetPath,
+                None
+              ),
+              metadata.clustering,
+              Map.empty[String, String]
+            )
+          case s: FsSink =>
+            val partitionColumns = s.partition.orElse(metadata.partition)
+            (
+              partitionColumns,
+              nbFsPartitions(
+                dataset,
+                writeFormat,
+                targetPath,
+                partitionColumns
+              ),
+              s.clustering,
+              s.options.getOrElse(Map.empty)
+            )
+          case _ if area == StorageArea.accepted => // sink-to-file is true in application.conf
+            (
+              metadata.partition,
+              nbFsPartitions(
+                dataset,
+                writeFormat,
+                targetPath,
+                None
+              ),
+              metadata.clustering,
+              Map.empty[String, String]
+            )
+          case _ if area == StorageArea.rejected =>
+            logger.debug("saving in rejected")
+            (
+              None,
+              1,
+              None,
+              Map.empty[String, String]
+            )
 
-      val nbPartitions = metadata.getSamplingStrategy() match {
-        case 0.0 => // default partitioning
-          if (csvOutput() || dataset.rdd.getNumPartitions == 0) // avoid error for an empty dataset
-            1
-          else
-            dataset.rdd.getNumPartitions
-        case fraction if fraction > 0.0 && fraction < 1.0 =>
-          // Use sample to determine partitioning
-          val count = dataset.count()
-          val minFraction =
-            if (fraction * count >= 1) // Make sure we get at least on item in the dataset
-              fraction
-            else if (
-              count > 0
-            ) // We make sure we get at least 1 item which is 2 because of double imprecision for huge numbers.
-              2 / count
-            else
-              0
-
-          val sampledDataset = dataset.sample(withReplacement = false, minFraction)
-          partitionedDatasetWriter(sampledDataset, metadata.getPartitionAttributes())
-            .mode(SaveMode.ErrorIfExists)
-            .format(writeFormat)
-            .option("path", tmpPath.toString)
-            .save()
-          val consumed = storageHandler.spaceConsumed(tmpPath) / fraction
-          val blocksize = storageHandler.blockSize(tmpPath)
-          storageHandler.delete(tmpPath)
-          Math.max(consumed / blocksize, 1).toInt
-        case count if count >= 1.0 =>
-          count.toInt
-      }
+        }
 
       // No need to apply partition on rejected dF
       val partitionedDFWriter =
@@ -693,10 +719,10 @@ trait IngestionJob extends SparkJob {
         else
           partitionedDatasetWriter(
             dataset.repartition(nbPartitions),
-            metadata.getPartitionAttributes()
+            sinkPartition.map(_.getAttributes()).getOrElse(Nil)
           )
 
-      val clusteredDFWriter = metadata.clustering match {
+      val clusteredDFWriter = clustering match {
         case None          => partitionedDFWriter
         case Some(columns) => partitionedDFWriter.sortBy(columns.head, columns.tail: _*)
       }
@@ -707,6 +733,7 @@ trait IngestionJob extends SparkJob {
         clusteredDFWriter
           .mode(SaveMode.Overwrite)
           .format(writeFormat)
+          .options(options)
           .option("path", mergePath)
           .save()
         logger.info(s"reading Dataset from merge location $mergePath")
@@ -714,7 +741,7 @@ trait IngestionJob extends SparkJob {
         (
           partitionedDatasetWriter(
             mergedDataset,
-            metadata.getPartitionAttributes()
+            sinkPartition.map(_.getAttributes()).getOrElse(Nil)
           ),
           mergedDataset
         )
@@ -722,7 +749,7 @@ trait IngestionJob extends SparkJob {
         (clusteredDFWriter, dataset)
 
       // We do not output empty datasets
-      if (!finalDataset.isEmpty) {
+      if (finalDataset.limit(1).count() == 1) {
         val finalTargetDatasetWriter =
           if (csvOutput() && area != StorageArea.rejected) {
             targetDatasetWriter
@@ -814,11 +841,57 @@ trait IngestionJob extends SparkJob {
     resultDataFrame
   }
 
+  private def nbFsPartitions(
+    dataset: DataFrame,
+    writeFormat: String,
+    targetPath: Path,
+    sinkPartition: Option[Partition]
+  ): Int = {
+    val tmpPath = new Path(s"${targetPath.toString}.tmp")
+    val nbPartitions =
+      sinkPartition.map(_.getSampling()).getOrElse(metadata.getSamplingStrategy()) match {
+        case 0.0 => // default partitioning
+          if (csvOutput() || dataset.rdd.getNumPartitions == 0) // avoid error for an empty dataset
+            1
+          else
+            dataset.rdd.getNumPartitions
+        case fraction if fraction > 0.0 && fraction < 1.0 =>
+          // Use sample to determine partitioning
+          val count = dataset.count()
+          val minFraction =
+            if (fraction * count >= 1) // Make sure we get at least on item in the dataset
+              fraction
+            else if (
+              count > 0
+            ) // We make sure we get at least 1 item which is 2 because of double imprecision for huge numbers.
+              2 / count
+            else
+              0
+
+          val sampledDataset = dataset.sample(withReplacement = false, minFraction)
+          partitionedDatasetWriter(
+            sampledDataset,
+            sinkPartition.map(_.getAttributes()).getOrElse(metadata.getPartitionAttributes())
+          )
+            .mode(SaveMode.ErrorIfExists)
+            .format(writeFormat)
+            .option("path", tmpPath.toString)
+            .save()
+          val consumed = storageHandler.spaceConsumed(tmpPath) / fraction
+          val blocksize = storageHandler.blockSize(tmpPath)
+          storageHandler.delete(tmpPath)
+          Math.max(consumed / blocksize, 1).toInt
+        case count if count >= 1.0 =>
+          count.toInt
+      }
+    nbPartitions
+  }
+
   private def runPreSql(): Unit = {
     val bqConfig = BigQueryLoadConfig()
     def bqNativeJob(sql: String) = new BigQueryNativeJob(bqConfig, sql, None)
-    schema.presql.getOrElse(Nil).foreach { sql =>
-      val compiledSql = sql.richFormat(schemaHandler.activeEnv, options)
+    schema.presql.foreach { sql =>
+      val compiledSql = sql.richFormat(schemaHandler.activeEnv(), options)
       metadata.getSink().getOrElse(NoneSink()).getType() match {
         case SinkType.BQ =>
           bqNativeJob(compiledSql).runInteractiveQuery()
@@ -828,16 +901,11 @@ trait IngestionJob extends SparkJob {
     }
   }
 
-  private def runPostSQL(mergedDF: DataFrame) = {
-    val finalMergedDf = schema.postsql match {
-      case Some(queryList) =>
-        queryList.foldLeft(mergedDF) { (df, query) =>
-          df.createOrReplaceTempView("COMET_TABLE")
-          df.sparkSession.sql(query.richFormat(schemaHandler.activeEnv, options))
-        }
-      case _ => mergedDF
+  private def runPostSQL(mergedDF: DataFrame): DataFrame = {
+    schema.postsql.foldLeft(mergedDF) { (df, query) =>
+      df.createOrReplaceTempView("COMET_TABLE")
+      df.sparkSession.sql(query.richFormat(schemaHandler.activeEnv(), options))
     }
-    finalMergedDf
   }
 
   /** Main entry point as required by the Spark Job interface
@@ -927,7 +995,7 @@ trait IngestionJob extends SparkJob {
     acceptedPath: Path,
     withScriptFieldsDF: DataFrame,
     mergeOptions: MergeOptions
-  ): (DataFrame, Option[List[String]]) = {
+  ): (DataFrame, List[String]) = {
     val incomingSchema = schema.finalSparkSchema(schemaHandler)
     val existingDF =
       if (storageHandler.exists(new Path(acceptedPath, "_SUCCESS"))) {
@@ -954,7 +1022,7 @@ trait IngestionJob extends SparkJob {
     }
     val (finalIncomingDF, mergedDF, _) =
       MergeUtils.computeToMergeAndToDeleteDF(existingDF, partitionedInputDF, mergeOptions)
-    (mergedDF, None)
+    (mergedDF, Nil)
   }
 
   /** In the queryFilter, the user may now write something like this : `partitionField in last(3)`
@@ -974,7 +1042,7 @@ trait IngestionJob extends SparkJob {
     incomingDF: DataFrame,
     mergeOptions: MergeOptions,
     sink: BigQuerySink
-  ): (DataFrame, Option[List[String]]) = {
+  ): (DataFrame, List[String]) = {
     // When merging to BigQuery, load existing DF from BigQuery
     val tableMetadata =
       BigQuerySparkJob.getTable(session, domain.getFinalName(), schema.getFinalName())
@@ -993,7 +1061,7 @@ trait IngestionJob extends SparkJob {
           case (Some(_), Some(_)) =>
             val partitions =
               tableMetadata.biqueryClient.listPartitions(updatedTable.getTableId).asScala.toList
-            val filter = mergeOptions.buidlBQQuery(partitions, schemaHandler.activeEnv, options)
+            val filter = mergeOptions.buidlBQQuery(partitions, schemaHandler.activeEnv(), options)
             existingBQDFWithoutFilter
               .option("filter", filter.getOrElse(throw new Exception("should never happen")))
           case (_, _) =>
@@ -1023,9 +1091,9 @@ trait IngestionJob extends SparkJob {
         logger.info(
           s"The following partitions will be updated ${partitionsToUpdate.mkString(",")}"
         )
-        Some(partitionsToUpdate)
+        partitionsToUpdate
       case ("static", _, _) | ("dynamic", _, _) =>
-        None
+        Nil
       case (_, _, _) =>
         throw new Exception("Should never happen")
     }
@@ -1138,8 +1206,6 @@ object IngestionUtil {
             settings.comet,
             Right(rejectedDF),
             "rejected",
-            partitions = sink.partitions.getOrElse(1),
-            batchSize = sink.batchsize.getOrElse(1000),
             options = sink.getOptions
           )
 

@@ -23,10 +23,11 @@ import ai.starlake.utils.CliConfig
 import scopt.OParser
 
 case class JDBCSchemas(
-  jdbcSchemas: List[JDBCSchema]
+  jdbcSchemas: List[JDBCSchema],
+  connection: Map[String, String] = Map.empty
 )
 
-/** @param connection
+/** @param connectionRef
   *   : JDBC Configuration to use as defined in the connection section in the application.conf
   * @param catalog
   *   : Database catalog name, optional.
@@ -39,9 +40,11 @@ case class JDBCSchemas(
   */
 
 case class JDBCSchema(
-  connection: String,
+  connectionRef: Option[String] = None,
   catalog: Option[String] = None,
   schema: String = "",
+  tableRemarks: Option[String] = None,
+  columnRemarks: Option[String] = None,
   tables: List[JDBCTable] = Nil,
   tableTypes: List[String] = List(
     "TABLE",
@@ -53,42 +56,77 @@ case class JDBCSchema(
     "SYNONYM"
   ),
   template: Option[String] = None
-)
+) {
+  def this() = this(None) // Should never be called. Here for Jackson deserialization only
+}
 
 /** @param name
   *   : Table name (case insensitive)
   * @param columns
   *   : List of columns (case insensitive). Nil if all columns should be extracted
   */
-case class JDBCTable(name: String, columns: Option[List[String]])
+case class JDBCTable(name: String, columns: List[String]) {
+  def this() = this("", Nil) // Should never be called. Here for Jackson deserialization only
+}
 
 case class JDBC2YmlConfig(
-  jdbcMapping: String = "",
-  outputDir: String = "",
-  ymlTemplate: Option[String] = None
+  mapping: String = "",
+  outputDir: Option[String] = None,
+  ymlTemplate: Option[String] = None,
+  mode: String = "schema",
+  limit: Int = 0,
+  separator: String = ";"
 )
 
 object JDBC2YmlConfig extends CliConfig[JDBC2YmlConfig] {
-
+  val command = "jdbc2yml"
   val parser: OParser[Unit, JDBC2YmlConfig] = {
     val builder = OParser.builder[JDBC2YmlConfig]
     import builder._
     OParser.sequence(
-      programName("starlake jdbc2yml"),
-      head("starlake", "jdbc2yml", "[options]"),
+      programName(s"starlake $command"),
+      head("starlake", command, "[options]"),
       note(""),
-      opt[String]("jdbc-mapping")
-        .action((x, c) => c.copy(jdbcMapping = x))
-        .required()
-        .text("Database tables & connection info"),
-      opt[String]("output-dir")
-        .action((x, c) => c.copy(outputDir = x))
-        .required()
-        .text("Where to output YML files"),
-      opt[String]("yml-template")
-        .action((x, c) => c.copy(ymlTemplate = Some(x)))
+      opt[Unit]("data")
+        .text("Export table data")
+        .action((x, c) => c.copy(mode = "data"))
         .optional()
-        .text("YML template to use YML metadata")
+        .children(
+          opt[String]("jdbc-mapping")
+            .action((x, c) => c.copy(mapping = x))
+            .required()
+            .text("Database tables & connection info"),
+          opt[Int]("limit")
+            .action((x, c) => c.copy(limit = x))
+            .optional()
+            .text("Limit number of records"),
+          opt[String]("separator")
+            .action((x, c) => c.copy(separator = x))
+            .optional()
+            .text("Column separator"),
+          opt[String]("output-dir")
+            .action((x, c) => c.copy(outputDir = Some(x)))
+            .required()
+            .text("Where to output csv files")
+        ),
+      opt[Unit]("schema")
+        .text("Export table schema")
+        .action((x, c) => c.copy(mode = "schema"))
+        .optional()
+        .children(
+          opt[String]("mapping")
+            .action((x, c) => c.copy(mapping = x))
+            .required()
+            .text("Database tables & connection info"),
+          opt[String]("output-dir")
+            .action((x, c) => c.copy(outputDir = Some(x)))
+            .optional()
+            .text("Where to output YML files"),
+          opt[String]("template")
+            .action((x, c) => c.copy(ymlTemplate = Some(x)))
+            .optional()
+            .text("YML template to use YML metadata")
+        )
     )
   }
 

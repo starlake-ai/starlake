@@ -26,13 +26,16 @@ import ai.starlake.schema.handlers.{
   AirflowLauncher,
   HdfsStorageHandler,
   LaunchHandler,
-  SimpleLauncher
+  LocalStorageHandler,
+  SimpleLauncher,
+  StorageHandler
 }
 import ai.starlake.schema.model.{PrivacyLevel, Sink}
 import ai.starlake.utils.{CometObjectMapper, Utils, YamlSerializer}
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.typesafe.config.{Config, ConfigFactory, ConfigValueFactory}
 import com.typesafe.scalalogging.StrictLogging
+import org.apache.commons.lang.SystemUtils
 import org.apache.hadoop.fs.Path
 import org.apache.kafka.clients.consumer.ConsumerConfig
 import org.apache.kafka.clients.producer.ProducerConfig
@@ -187,7 +190,9 @@ object Settings extends StrictLogging {
 
   final case class Internal(
     cacheStorageLevel: StorageLevel,
-    intermediateBigqueryFormat: String = "orc"
+    intermediateBigqueryFormat: String = "orc",
+    temporaryGcsBucket: Option[String],
+    substituteVars: Boolean = true
   )
 
   final case class KafkaTopicConfig(
@@ -197,10 +202,11 @@ object Settings extends StrictLogging {
     partitions: Int = 1,
     replicationFactor: Short = 1,
     createOptions: Map[String, String] = Map.empty,
-    accessOptions: Map[String, String] = Map.empty
+    accessOptions: Map[String, String] = Map.empty,
+    headers: Map[String, Map[String, String]] = Map.empty
   ) {
-    def allAccessOptions(serverProperties: Map[String, String]) = {
-      serverProperties ++ accessOptions
+    def allAccessOptions()(implicit settings: Settings): Map[String, String] = {
+      settings.comet.kafka.sparkServerOptions ++ accessOptions
     }
   }
 
@@ -208,7 +214,7 @@ object Settings extends StrictLogging {
     serverOptions: Map[String, String],
     topics: Map[String, KafkaTopicConfig],
     cometOffsetsMode: Option[String] = Some("STREAM"),
-    customDeserializer: Option[String]
+    customDeserializers: Option[Map[String, String]]
   ) {
     lazy val sparkServerOptions: Map[String, String] = {
       val ASSIGN = "assign"
@@ -324,10 +330,17 @@ object Settings extends StrictLogging {
     accessPolicies: AccessPolicies,
     scheduling: JobScheduling,
     maxParCopy: Int,
-    dsvOptions: Map[String, String]
+    dsvOptions: Map[String, String],
+    rootServe: Option[String],
+    forceViewPattern: String,
+    forceDomainPattern: String,
+    forceTablePattern: String,
+    forceJobPattern: String,
+    forceTaskPattern: String,
+    useLocalFileSystem: Boolean
   ) extends Serializable {
 
-    val cacheStorageLevel =
+    val cacheStorageLevel: StorageLevel =
       internal.map(_.cacheStorageLevel).getOrElse(StorageLevel.MEMORY_AND_DISK)
 
     @throws(classOf[ObjectStreamException])
@@ -375,10 +388,11 @@ object Settings extends StrictLogging {
       .fromConfig(effectiveConfig)
       .loadOrThrow[Comet]
 
-    logger.info("COMET_FS=" + System.getenv("COMET_FS"))
-    logger.info("COMET_ROOT=" + System.getenv("COMET_ROOT"))
-    logger.info(YamlSerializer.serializeObject(loaded))
-    val settings = Settings(loaded, effectiveConfig.getConfig("spark"))
+    logger.info("ENV COMET_FS=" + System.getenv("COMET_FS"))
+    logger.info("ENV COMET_ROOT=" + System.getenv("COMET_ROOT"))
+    logger.debug(YamlSerializer.serializeObject(loaded))
+    val settings =
+      Settings(loaded, effectiveConfig.getConfig("spark"), effectiveConfig.getConfig("extra"))
     val applicationConfPath = new Path(DatasetArea.metadata(settings), "application.conf")
     val result: Settings = if (settings.metadataStorageHandler.exists(applicationConfPath)) {
       val applicationConfContent = settings.metadataStorageHandler.read(applicationConfPath)
@@ -391,7 +405,8 @@ object Settings extends StrictLogging {
 
       Settings(
         mergedSettings,
-        effectiveApplicationConfig.getConfig("spark")
+        effectiveApplicationConfig.getConfig("spark"),
+        effectiveApplicationConfig.getConfig("extra")
       )
     } else
       settings
@@ -404,7 +419,7 @@ object Settings extends StrictLogging {
 
     // When using local Spark with remote BigQuery (useful for testing)
     val initialConf =
-      sys.env.get("TEMPORARY_GCS_BUCKET") match {
+      settings.comet.internal.flatMap(_.temporaryGcsBucket) match {
         case Some(value) => new SparkConf().set("temporaryGcsBucket", value)
         case None        => new SparkConf()
       }
@@ -450,21 +465,28 @@ object CometColumns {
 final case class Settings(
   comet: Settings.Comet,
   sparkConfig: Config,
+  extraConf: Config,
   jobConf: SparkConf = new SparkConf()
 ) {
 
   @transient
-  lazy val storageHandler: HdfsStorageHandler = {
+  lazy val storageHandler: StorageHandler = {
     implicit val self: Settings =
       this /* TODO: remove this once HdfsStorageHandler explicitly takes Settings or Settings.Comet in */
-    new HdfsStorageHandler(comet.fileSystem)
+    if (SystemUtils.IS_OS_WINDOWS || comet.useLocalFileSystem)
+      new LocalStorageHandler()
+    else
+      new HdfsStorageHandler(comet.fileSystem)
   }
 
   @transient
-  lazy val metadataStorageHandler: HdfsStorageHandler = {
+  lazy val metadataStorageHandler: StorageHandler = {
     implicit val self: Settings =
       this /* TODO: remove this once HdfsStorageHandler explicitly takes Settings or Settings.Comet in */
-    new HdfsStorageHandler(comet.metadataFileSystem)
+    if (SystemUtils.IS_OS_WINDOWS || comet.useLocalFileSystem)
+      new LocalStorageHandler()
+    else
+      new HdfsStorageHandler(comet.fileSystem)
   }
 
   @transient

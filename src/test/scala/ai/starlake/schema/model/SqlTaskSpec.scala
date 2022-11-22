@@ -9,19 +9,19 @@ class SqlTaskSpec extends AnyFlatSpec with Matchers with BeforeAndAfterAll with 
   "SQL Task file with PRE, SQL AND POST sections" should "be interpreted correctly" in {
     val sqlContent =
       """
-        |/* PRESQL */
+        |-- PRESQL
         |insert into table value('string', 2, 3)
-        |/* SQL */
+        |-- SQL
         |select count(*) from table
         |where x = '${value}'
-        |/* POSTSQL */
+        |-- POSTSQL
         |
         |""".stripMargin
     val sqlTask = SqlTaskExtractor(sqlContent)
     sqlTask shouldBe SqlTaskExtractor(
-      Some(List("insert into table value('string', 2, 3)")),
+      List("insert into table value('string', 2, 3)"),
       "select count(*) from table\nwhere x = '${value}'",
-      None
+      Nil
     )
   }
   "SQL Task file with no section" should "be interpreted correctly" in {
@@ -32,23 +32,23 @@ class SqlTaskSpec extends AnyFlatSpec with Matchers with BeforeAndAfterAll with 
         |""".stripMargin
     val sqlTask = SqlTaskExtractor(sqlContent)
     sqlTask shouldBe SqlTaskExtractor(
-      None,
+      Nil,
       "select count(*) from table\nwhere x = '${value}'",
-      None
+      Nil
     )
   }
   "SQL Task file with a single PRESQL Section" should "be interpreted correctly" in {
     val sqlContent =
       """
-        |/* PRESQL */
+        |-- PRESQL
         |insert into table value('string', 2, 3)
         |
     |""".stripMargin
     val sqlTask = SqlTaskExtractor(sqlContent)
     sqlTask shouldBe SqlTaskExtractor(
-      Some(List("insert into table value('string', 2, 3)")),
+      List("insert into table value('string', 2, 3)"),
       "",
-      None
+      Nil
     )
   }
 }
