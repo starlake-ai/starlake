@@ -236,7 +236,7 @@ object JDBCUtils extends LazyLogging {
                 foreignKey = foreignKey
               )
             }
-          }.to[ListBuffer]
+          }.toList
           // remove duplicates
           // see https://stackoverflow.com/questions/1601203/jdbc-databasemetadata-getcolumns-returns-duplicate-columns
           val columns = attrs.groupBy(_.name).map { case (_, uniqAttr) => uniqAttr.head }

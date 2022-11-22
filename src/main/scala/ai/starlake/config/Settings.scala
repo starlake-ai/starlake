@@ -427,7 +427,6 @@ object Settings extends StrictLogging {
     val thisConf = settings.sparkConfig
       .entrySet()
       .asScala
-      .to[Vector]
       .map(x => (x.getKey, x.getValue.unwrapped().toString))
       .foldLeft(initialConf) { case (conf, (key, value)) => conf.set("spark." + key, value) }
       .set("spark.scheduler.mode", settings.comet.scheduling.mode)

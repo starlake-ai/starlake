@@ -163,13 +163,13 @@ object Metrics extends StrictLogging {
   def customMetricUDF(
     e: Column,
     metricName: String,
-    metricFunction: (String, Column*) => Column,
+    metricFunction: (String, Seq[Column]) => Column,
     approxMethod: String,
     approxValue: Double
   ): Column = {
 
     val aliasMetric: String = metricName + "(" + e.toString() + ")"
-    metricFunction(approxMethod, e, lit(approxValue)).as(aliasMetric)
+    metricFunction(approxMethod, Seq(e, lit(approxValue))).as(aliasMetric)
   }
 
   /** Customize percentile of order 0.25 of the column e
@@ -265,7 +265,7 @@ object Metrics extends StrictLogging {
   ): List[String] = {
 
     val datasetAttributes =
-      dataset.schema.fields.filter(_.dataType.isOfValidContinuousType).map(_.name).toList
+      dataset.schema.fields.filter(_.dataType.isOfValidContinuousType()).map(_.name).toList
     logger.info(s"Valid Continuous datasetAttributes Attrs =$datasetAttributes")
     val intersectionAttributes = datasetAttributes.intersect(continuousAttributes)
     logger.info(s"Valid intersectionAttributes Attrs =$intersectionAttributes")

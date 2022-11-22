@@ -23,7 +23,7 @@ private[http] class HttpSinkClient(url: String, maxMessages: Int, transformer: S
 
   def send(dataFrame: DataFrame): Int = {
     // performed on the driver node instead of worker nodes, so use local iterator
-    val iter = dataFrame.toLocalIterator;
+    val iter = dataFrame.toLocalIterator();
     val buffer = ArrayBuffer[Seq[String]]();
     var count = 0
     while (iter.hasNext) {

@@ -153,7 +153,7 @@ case class Type(
   }
 
   def checkValidity(): Either[List[String], Boolean] = {
-    val errorList: mutable.MutableList[String] = mutable.MutableList.empty
+    val errorList: mutable.Queue[String] = mutable.Queue.empty
 
     val patternIsValid = Try {
       primitiveType match {

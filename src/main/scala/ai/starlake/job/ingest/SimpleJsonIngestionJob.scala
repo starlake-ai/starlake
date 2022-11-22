@@ -20,11 +20,9 @@
 
 package ai.starlake.job.ingest
 
-import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
-import ai.starlake.schema.model.{Domain, Schema, Type}
 import ai.starlake.config.{CometColumns, Settings}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
-import ai.starlake.schema.model._
+import ai.starlake.schema.model.{Domain, Schema, Type}
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.functions.lit
 import org.apache.spark.sql.{DataFrame, Encoders}

@@ -17,7 +17,7 @@ class HtttpSink(
     with StrictLogging {
   val client = new HttpSinkClient(url, maxMessages, transformer)
 
-  override def addBatch(batchId: Long, data: DataFrame) {
+  override def addBatch(batchId: Long, data: DataFrame): Unit = {
     var success = false;
     var retried = 0;
     while (!success && retried < numRetries) {

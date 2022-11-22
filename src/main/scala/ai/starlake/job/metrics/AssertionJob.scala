@@ -1,7 +1,5 @@
 package ai.starlake.job.metrics
 
-import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
-import ai.starlake.schema.model.{Engine, Stage}
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model._

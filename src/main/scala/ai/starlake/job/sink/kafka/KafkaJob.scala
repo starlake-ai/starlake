@@ -95,7 +95,6 @@ class KafkaJob(
       .getConfig(configValue)
       .entrySet()
       .asScala
-      .to[Vector]
       .map(x => (x.getKey, x.getValue.unwrapped().toString))
       .toMap
   }

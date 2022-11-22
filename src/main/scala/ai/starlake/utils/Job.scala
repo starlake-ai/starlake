@@ -196,7 +196,7 @@ trait SparkJob extends JobBase {
           import session.implicits._
           val partitionedCols = partitionedColsDF
             .map(_.getAs[String](0))
-            .first
+            .first()
             .split('/')
             .map(_.split("=")(0))
             .toList
