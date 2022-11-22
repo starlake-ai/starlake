@@ -20,9 +20,6 @@
 
 package ai.starlake.job.ingest
 
-import ai.starlake.job.sink.bigquery.BigQueryNativeJob
-import ai.starlake.job.sink.jdbc.ConnectionLoadConfig
-import ai.starlake.schema.model.{BigQuerySink, EsSink, JdbcSink, NoneSink}
 import ai.starlake.config.Settings
 import ai.starlake.job.sink.bigquery.{BigQueryLoadConfig, BigQueryNativeJob}
 import ai.starlake.job.sink.jdbc.{ConnectionLoadConfig, ConnectionLoadJob}
@@ -169,7 +166,7 @@ object AuditLog extends StrictLogging {
       val locker = new FileLock(lockPath, settings.storageHandler)
       locker.doExclusively() {
         val auditPath = new Path(settings.comet.audit.path, s"ingestion-log")
-        val dfWriter = Seq(log).toDF.write.mode(SaveMode.Append)
+        val dfWriter = Seq(log).toDF().write.mode(SaveMode.Append)
         logger.info(s"Saving audit to path $auditPath")
         if (settings.comet.hive) {
           val hiveDB = settings.comet.audit.sink.name.getOrElse("audit")

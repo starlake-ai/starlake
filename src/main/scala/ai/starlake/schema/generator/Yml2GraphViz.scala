@@ -7,6 +7,8 @@ import ai.starlake.schema.model.Schema
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.LazyLogging
 
+import scala.collection.MapView
+
 class Yml2GraphViz(schemaHandler: SchemaHandler) extends LazyLogging {
 
   val prefix = """
@@ -141,9 +143,10 @@ class Yml2GraphViz(schemaHandler: SchemaHandler) extends LazyLogging {
         desc.domain -> desc.table
       }
       .groupBy(_._1)
+      .view
       .mapValues(_.map { case (domain, table) => table }.toSet)
 
-    val tasks: Map[String, Set[String]] = rlsAclTaskNames
+    val tasks: MapView[String, Set[String]] = rlsAclTaskNames
     tasks.toList
       .map { case (domain, tables) =>
         val tablesAsDot = tables.map { table =>

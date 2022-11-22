@@ -22,7 +22,6 @@ package ai.starlake.job.atlas
 
 import ai.starlake.schema.handlers.StorageHandler
 import ai.starlake.config.Settings
-import ai.starlake.schema.handlers.StorageHandler
 import ai.starlake.schema.model.atlas.AtlasModel
 import com.typesafe.scalalogging.StrictLogging
 

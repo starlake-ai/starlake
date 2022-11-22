@@ -205,7 +205,7 @@ import scala.util.{Failure, Success, Try}
     schemaHandler: SchemaHandler
   )(implicit settings: Settings): Either[List[String], Boolean] = {
 
-    val errorList: mutable.MutableList[String] = mutable.MutableList.empty
+    val errorList: mutable.Queue[String] = mutable.Queue.empty
 
     // Check Domain name validity
     val forceDomainPrefixRegex = settings.comet.forceDomainPattern.r

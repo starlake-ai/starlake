@@ -503,7 +503,7 @@ trait IngestionJob extends SparkJob {
           val config = BigQueryLoadConfig(
             source = Right(mergedDF),
             outputTable = schema.getFinalName(),
-            outputDataset = domain.getFinalName,
+            outputDataset = domain.getFinalName(),
             sourceFormat = settings.comet.defaultFormat,
             createDisposition = createDisposition,
             writeDisposition = writeDisposition,
@@ -864,9 +864,9 @@ trait IngestionJob extends SparkJob {
             else if (
               count > 0
             ) // We make sure we get at least 1 item which is 2 because of double imprecision for huge numbers.
-              2 / count
+              2.0 / count
             else
-              0
+              0.0
 
           val sampledDataset = dataset.sample(withReplacement = false, minFraction)
           partitionedDatasetWriter(
@@ -1084,7 +1084,7 @@ trait IngestionJob extends SparkJob {
       settings.comet.mergeOptimizePartitionWrite
     ) match {
       // no need to apply optimization if existing dataset is empty
-      case ("dynamic", Some(timestamp), true) if existingDF.limit(1).count == 1 =>
+      case ("dynamic", Some(timestamp), true) if existingDF.limit(1).count() == 1 =>
         logger.info(s"Computing partitions to update on date column $timestamp")
         val partitionsToUpdate =
           BigQueryUtils.computePartitionsToUpdateAfterMerge(finalIncomingDF, toDeleteDF, timestamp)

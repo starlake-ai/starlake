@@ -149,7 +149,7 @@ case class Attribute(
     *   true if attribute is valid
     */
   def checkValidity(schemaHandler: SchemaHandler): Either[List[String], Boolean] = {
-    val errorList: mutable.MutableList[String] = mutable.MutableList.empty
+    val errorList: mutable.Queue[String] = mutable.Queue.empty
     if (`type` == null)
       errorList += s"$this : unspecified type"
 

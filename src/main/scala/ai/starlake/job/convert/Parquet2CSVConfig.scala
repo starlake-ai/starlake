@@ -1,7 +1,6 @@
 package ai.starlake.job.convert
 
 import ai.starlake.schema.model.WriteMode
-import ai.starlake.schema.model.WriteMode
 import ai.starlake.utils.CliConfig
 import org.apache.hadoop.fs.Path
 import scopt.OParser

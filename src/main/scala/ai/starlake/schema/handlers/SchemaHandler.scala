@@ -135,7 +135,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   }
 
   def checkViewsValidity(): Either[List[String], Boolean] = {
-    val errorList: mutable.MutableList[String] = mutable.MutableList.empty
+    val errorList: mutable.Queue[String] = mutable.Queue.empty
     val viewsPath = DatasetArea.views
     val sqlFiles =
       storage.list(viewsPath, extension = ".sql", recursive = true) ++
@@ -302,14 +302,14 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     val envsCometPath = new Path(DatasetArea.metadata, s"env.${settings.comet.env}.comet.yml")
     // System Env variables may be used as valuesY
     val globalEnv = {
-      loadEnv(globalsCometPath).mapValues(
+      loadEnv(globalsCometPath).view.mapValues(
         _.richFormat(sys.env, cometDateVars)
       ) // will replace with sys.env
-    }
+    }.toMap
     // We subsittute values defined in the current profile with variables defined
     // in the default env file
     val localEnv =
-      loadEnv(envsCometPath).mapValues(_.richFormat(sys.env, globalEnv ++ cometDateVars))
+      loadEnv(envsCometPath).view.mapValues(_.richFormat(sys.env, globalEnv ++ cometDateVars))
 
     // Please note below how profile specific vars override default profile vars.
     this._activeEnv = cometDateVars ++ globalEnv ++ localEnv ++ cliEnv

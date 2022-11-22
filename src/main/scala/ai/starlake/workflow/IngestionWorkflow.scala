@@ -53,9 +53,11 @@ import org.apache.spark.sql.types.{StructField, StructType}
 import java.nio.file.{FileSystems, ProviderNotFoundException}
 import java.util.Collections
 import scala.annotation.nowarn
-import scala.collection.GenSeq
+import scala.collection.{GenSeq, MapView}
+import java.util.concurrent.ForkJoinPool
+import scala.collection.parallel.CollectionConverters.ImmutableIterableIsParallelizable
 import scala.collection.parallel.ForkJoinTaskSupport
-import scala.concurrent.forkjoin.ForkJoinPool
+import scala.collection.parallel.immutable.ParVector
 import scala.util.{Failure, Success, Try}
 
 /** The whole worklfow works as follow :
@@ -262,7 +264,7 @@ class IngestionWorkflow(
       }
 
       // We group files with the same schema to ingest them together in a single step.
-      val groupedResolved: Map[Schema, Iterable[Path]] = filteredResolved.map {
+      val groupedResolved: MapView[Schema, Iterable[Path]] = filteredResolved.map {
         case (Some(schema), path) => (schema, path)
         case (None, _)            => throw new Exception("Should never happen")
       } groupBy { case (schema, _) => schema } mapValues (it => it.map { case (_, path) => path })
@@ -570,13 +572,14 @@ class IngestionWorkflow(
   private def makeParallel[T](
     collection: List[T],
     maxPar: Int
-  ): (GenSeq[T], Option[ForkJoinPool]) = {
+  ): (Seq[T], Option[ForkJoinPool]) = {
     maxPar match {
       case 1 => (collection, None)
       case _ =>
-        val parCollection = collection.par
+        // scala 2.13 cross compatibility https://github.com/eed3si9n/sbt/commit/f8c158291d9991335b4fb6cad46cc7f32d5e4f37
+        val parCollection = new ParVector[T](collection.toVector) // collection.par
         val forkJoinPool =
-          new scala.concurrent.forkjoin.ForkJoinPool(maxPar)
+          new java.util.concurrent.ForkJoinPool(maxPar)
         parCollection.tasksupport = new ForkJoinTaskSupport(forkJoinPool)
         (parCollection, Some(forkJoinPool))
     }

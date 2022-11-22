@@ -100,7 +100,7 @@ class XmlIngestionJob(
     import session.implicits._
     val datasetSchema = dataset.schema
     val errorList = compareTypes(schemaSparkType, datasetSchema)
-    val rejectedDS = errorList.toDS
+    val rejectedDS = errorList.toDS()
     metadata.getXmlOptions().get("skipValidation") match {
       case Some(_) =>
         val rejectedDS = errorList.toDS()

@@ -215,7 +215,7 @@ case class Metadata(
     schemaHandler: SchemaHandler
   ): Either[List[String], Boolean] = {
     def isIgnoreUDF = ignore.forall(_.startsWith("udf:"))
-    val errorList: mutable.MutableList[String] = mutable.MutableList.empty
+    val errorList: mutable.Queue[String] = mutable.Queue.empty
 
     if (!isIgnoreUDF && getFormat() == Format.DSV)
       errorList += "When input format is DSV, ignore metadata attribute cannot be a regex, it must be an UDF"

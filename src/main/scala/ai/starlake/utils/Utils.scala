@@ -176,7 +176,7 @@ object Utils {
     *   List of tuples contains for ea ch duplicate the number of occurrences
     */
   def duplicates(values: List[String], errorMessage: String): Either[List[String], Boolean] = {
-    val errorList: mutable.MutableList[String] = mutable.MutableList.empty
+    val errorList: mutable.Queue[String] = mutable.Queue.empty
     val duplicates = values.groupBy(identity).mapValues(_.size).filter { case (_, size) =>
       size > 1
     }

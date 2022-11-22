@@ -97,7 +97,7 @@ object MergeUtils extends StrictLogging with DatasetLogging {
         val allRowsDF = computeDataframeUnion(existingDF, finalIncomingDF)
 
         val allRowsWithRownum = allRowsDF
-          .withColumn("rownum", row_number.over(orderingWindow))
+          .withColumn("rownum", row_number().over(orderingWindow))
 
         // Deduplicate
         val mergedDF = allRowsWithRownum

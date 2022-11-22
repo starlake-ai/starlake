@@ -115,8 +115,8 @@ object TreeRowValidator extends GenericRowValidator {
     schemaSparkTypeWithSuccessErrorMessage: StructType,
     allPrivacyLevels: Map[String, ((PrivacyEngine, List[String]), PrivacyLevel)],
     topLevel: Boolean
-  ): (GenericRowWithSchema, mutable.MutableList[String]) = {
-    val errorList: mutable.MutableList[String] = mutable.MutableList.empty
+  ): (GenericRowWithSchema, mutable.Queue[String]) = {
+    val errorList: mutable.Queue[String] = mutable.Queue.empty
     def validateCol(attribute: Attribute, item: Any): Any = {
       val colResult = IngestionUtil.validateCol(
         Option(item).map(_.toString),
@@ -157,7 +157,7 @@ object TreeRowValidator extends GenericRowValidator {
             )
             errorList ++= errors
             row
-          case (cell: mutable.WrappedArray[_], name) =>
+          case (cell: mutable.ArraySeq[_], name) =>
             cell.map {
               case subcell: GenericRowWithSchema =>
                 val (row, errors) = validateRow(

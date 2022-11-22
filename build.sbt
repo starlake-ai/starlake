@@ -3,14 +3,11 @@ import sbtrelease.ReleasePlugin.autoImport.ReleaseTransformations._
 import sbtrelease.Version.Bump.Next
 import xerial.sbt.Sonatype._
 
-// require Java 8 for Spark 2 support
-javacOptions ++= Seq("-source", "1.8", "-target", "1.8", "-Xlint")
-
 ThisBuild / sonatypeCredentialHost := "s01.oss.sonatype.org"
 
 lazy val scala212 = "2.12.17"
 
-lazy val scala213 = "2.13.8"
+lazy val scala213 = "2.13.10"
 
 ThisBuild / crossScalaVersions := List(scala212, scala213)
 
@@ -18,7 +15,7 @@ organization := "ai.starlake"
 
 organizationName := "starlake"
 
-ThisBuild / scalaVersion := scala212
+ThisBuild / scalaVersion := scala213
 
 organizationHomepage := Some(url("https://github.com/starlake-ai/starlake"))
 
@@ -31,7 +28,13 @@ libraryDependencies ++= {
       case _ => throw new Exception(s"Invalid Scala Version")
     }
   }
-  dependencies ++ spark ++ jackson ++ esSpark ++ pureConfigs ++ scalaReflection(scalaVersion.value)
+
+  val commonDeps = dependencies ++ spark ++ jackson ++ esSpark ++ pureConfigs ++ scalaReflection(scalaVersion.value)
+  CrossVersion.partialVersion(scalaVersion.value) match {
+    case Some((2, 12)) => commonDeps
+    case Some((2, 13)) => commonDeps ++ Seq("org.scala-lang.modules" %% "scala-parallel-collections" % "1.0.4")
+    case _ => throw new Exception(s"Invalid Scala Version")
+  }
 }
 
 dependencyOverrides := Seq(
@@ -273,4 +276,3 @@ developers := List(
 
 //assembly / logLevel := Level.Debug
 
-// addCompilerPlugin("io.tryp" % "splain" % "0.5.8" cross CrossVersion.patch)
