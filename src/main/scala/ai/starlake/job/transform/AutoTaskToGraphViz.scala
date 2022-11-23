@@ -53,7 +53,7 @@ class AutoTaskToGraphViz(
     depsMap.foreach { case (jobName, allDeps) =>
       val deps =
         allDeps.filter(dep => config.objects.contains("all") || config.objects.contains(dep.typ))
-      val dedupEntities = deps.groupBy(_.name).mapValues(_.head).values
+      val dedupEntities = deps.groupBy(_.name).view.mapValues(_.head).values
       val entitiesAsDot = dedupEntities.map(dep => dep.entityAsDot()).mkString("\n")
       val relationsAsDot = deps
         .filter(dep => config.objects.contains(dep.parentTyp))

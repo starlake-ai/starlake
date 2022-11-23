@@ -14,7 +14,7 @@ import org.apache.spark.sql.{DataFrame, DatasetLogging, SparkSession}
 
 import java.time.Duration
 import java.util.Properties
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.collection.mutable
 import scala.util.{Failure, Success, Try}
 
@@ -99,7 +99,6 @@ class KafkaClient(kafkaConfig: KafkaConfig)(implicit settings: Settings)
   private def newConsumer(topicName: String, accessOptions: Map[String, String]) = {
     val props: Properties = buildProps(accessOptions)
     logger.whenInfoEnabled {
-      import scala.collection.JavaConverters._
       logger.info(s"access options for topic $topicName ==>")
       props.asScala.foreach { case (k, v) =>
         logger.info(s"\t$k=$v")
@@ -184,10 +183,11 @@ class KafkaClient(kafkaConfig: KafkaConfig)(implicit settings: Settings)
     }
 
     // (topic/partition, offset)
-    val res = offsets.keys.map { k =>
+    val grouped = offsets.keys.map { k =>
       val tab = k.split('/')
       (tab(0), tab(1), offsets(k))
-    } groupBy { case (topic, _, _) => topic } mapValues (_.map { case (topic, partition, offset) =>
+    } groupBy { case (topic, _, _) => topic }
+    val res = grouped.view.mapValues(_.map { case (topic, partition, offset) =>
       (partition.toInt, offset.toLong)
     }.toList) get topicConfigName
     res

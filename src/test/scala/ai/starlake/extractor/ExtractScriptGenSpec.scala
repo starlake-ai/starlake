@@ -1,10 +1,9 @@
 package ai.starlake.extractor
 
-import ai.starlake.schema.model.PrivacyLevel
-import better.files.File
 import ai.starlake.TestHelper
 import ai.starlake.schema.handlers.{SchemaHandler, SimpleLauncher}
 import ai.starlake.schema.model.PrivacyLevel
+import better.files.File
 
 class ExtractScriptGenSpec extends TestHelper {
 

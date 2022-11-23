@@ -52,12 +52,13 @@ object TaskViewDependency extends StrictLogging {
   )(implicit schemaHandler: SchemaHandler): List[TaskViewDependency] = {
     val jobs: Map[String, List[AutoTask]] = tasks.groupBy(_.name)
     val jobDependencies: List[SimpleEntry] =
-      jobs.mapValues(_.flatMap(_.dependencies())).toList.map { case (jobName, dependencies) =>
+      jobs.view.mapValues(_.flatMap(_.dependencies())).toList.map { case (jobName, dependencies) =>
         SimpleEntry(jobName, TASK_TYPE, dependencies)
       }
     val viewDependencies: List[SimpleEntry] =
       schemaHandler
         .views()
+        .view
         .mapValues(SQLUtils.extractRefsFromSQL)
         .map { case (viewName, dependencies) =>
           SimpleEntry(viewName, VIEW_TYPE, dependencies)

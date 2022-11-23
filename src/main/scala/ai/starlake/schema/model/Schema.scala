@@ -154,7 +154,7 @@ case class Schema(
       _.getPartitionAttributes().forall(
         attributes
           .map(_.getFinalName())
-          .union(Metadata.CometPartitionColumns)
+          .concat(Metadata.CometPartitionColumns)
           .contains
       )
     )

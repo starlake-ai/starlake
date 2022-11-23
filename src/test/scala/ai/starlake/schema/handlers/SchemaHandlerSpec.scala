@@ -491,7 +491,7 @@ class SchemaHandlerSpec extends TestHelper {
             .withColumn("source_file_name", lit("locations.json"))
 
         acceptedDf
-          .except(expectedAccepted.select(acceptedDf.columns.map(col): _*))
+          .except(expectedAccepted.select(acceptedDf.columns.map(col).toIndexedSeq: _*))
           .count() shouldBe 0
 
       }

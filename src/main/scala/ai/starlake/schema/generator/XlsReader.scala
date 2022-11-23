@@ -7,7 +7,7 @@ import org.apache.poi.ss.usermodel._
 
 import java.io.File
 import java.util.regex.Pattern
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.collection.mutable.ListBuffer
 
 sealed trait Input
@@ -199,7 +199,7 @@ class XlsReader(input: Input) extends XlsModel {
                 }
                 val clusteredBqSink = clusteringOpt match {
                   case Some(cluster) =>
-                    partitionBqSink.copy(clustering = Some(cluster))
+                    partitionBqSink.copy(clustering = Some(cluster.toIndexedSeq))
                   case _ => partitionBqSink
                 }
                 clusteredBqSink
@@ -207,7 +207,7 @@ class XlsReader(input: Input) extends XlsModel {
                 sink
             },
             clustering = clusteringOpt match {
-              case Some(cluster) => Some(cluster)
+              case Some(cluster) => Some(cluster.toIndexedSeq)
               case None          => None
             }
           )
@@ -340,7 +340,7 @@ class XlsReader(input: Input) extends XlsModel {
     }.toList
     val withEndOfStruct = markEndOfStruct(attrs)
     val topParent = Attribute("__dummy", "struct", attributes = withEndOfStruct)
-    buildAttrsTree(topParent, withEndOfStruct.toIterator).attributes
+    buildAttrsTree(topParent, withEndOfStruct.iterator).attributes
   }
 
   private def markEndOfStruct(attrs: List[Attribute]): List[Attribute] = {

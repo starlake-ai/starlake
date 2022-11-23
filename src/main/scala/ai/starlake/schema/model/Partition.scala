@@ -24,7 +24,7 @@ import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize
 import com.fasterxml.jackson.databind.node.ArrayNode
 import com.fasterxml.jackson.databind.{DeserializationContext, JsonDeserializer, JsonNode}
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 /** @param sampling
   *   : 0.0 means no sampling, > 0 && < 1 means sample dataset, >=1 absolute number of partitions.

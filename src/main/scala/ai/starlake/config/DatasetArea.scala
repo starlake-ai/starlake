@@ -213,7 +213,7 @@ object DatasetArea extends StrictLogging {
           throw new Exception(s"Resource $resource not found in assembly")
 
         val lines: Iterator[String] = source.getLines()
-        val targetFile = File(targetFolder.pathAsString, resource.split('/'): _*)
+        val targetFile = File(targetFolder.pathAsString, resource.split('/').toIndexedSeq: _*)
         targetFile.parent.createDirectories()
         val contents =
           lines.mkString("\n").replace("__COMET_TEST_ROOT__", metadata.getParent.toString)
@@ -224,7 +224,7 @@ object DatasetArea extends StrictLogging {
     initMetadata(settings.storageHandler)
     List("out", "diagrams", "diagrams/domains", "diagrams/acl", "diagrams/jobs").foreach { folder =>
       val root = File(settings.comet.metadata).parent
-      File(root.pathAsString, folder.split('/'): _*).createDirectories()
+      File(root.pathAsString, folder.split('/').toIndexedSeq: _*).createDirectories()
     }
     val metadataFile = File(metadata.toString)
     metadataFile.createDirectories()

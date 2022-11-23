@@ -50,7 +50,7 @@ import java.time.LocalDate
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
 import scala.annotation.nowarn
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.io.{Codec, Source}
 import scala.util.Try
 
@@ -513,9 +513,10 @@ object TestHelper {
 
         def get: (SparkSession, Running) = {
           val session =
-            SparkSession.builder
+            SparkSession
+              .builder()
               .master("local[*]")
-              .getOrCreate
+              .getOrCreate()
 
           (session, Running(references, session))
         }

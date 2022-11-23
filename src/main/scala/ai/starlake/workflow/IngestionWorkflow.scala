@@ -53,9 +53,8 @@ import org.apache.spark.sql.types.{StructField, StructType}
 import java.nio.file.{FileSystems, ProviderNotFoundException}
 import java.util.Collections
 import scala.annotation.nowarn
-import scala.collection.{GenSeq, MapView}
+import scala.collection.MapView
 import java.util.concurrent.ForkJoinPool
-import scala.collection.parallel.CollectionConverters.ImmutableIterableIsParallelizable
 import scala.collection.parallel.ForkJoinTaskSupport
 import scala.collection.parallel.immutable.ParVector
 import scala.util.{Failure, Success, Try}
@@ -572,17 +571,13 @@ class IngestionWorkflow(
   private def makeParallel[T](
     collection: List[T],
     maxPar: Int
-  ): (Seq[T], Option[ForkJoinPool]) = {
-    maxPar match {
-      case 1 => (collection, None)
-      case _ =>
-        // scala 2.13 cross compatibility https://github.com/eed3si9n/sbt/commit/f8c158291d9991335b4fb6cad46cc7f32d5e4f37
-        val parCollection = new ParVector[T](collection.toVector) // collection.par
-        val forkJoinPool =
-          new java.util.concurrent.ForkJoinPool(maxPar)
-        parCollection.tasksupport = new ForkJoinTaskSupport(forkJoinPool)
-        (parCollection, Some(forkJoinPool))
-    }
+  ): (ParVector[T], Option[ForkJoinPool]) = {
+    // scala 2.13 cross compatibility https://github.com/eed3si9n/sbt/commit/f8c158291d9991335b4fb6cad46cc7f32d5e4f37
+    val parCollection = new ParVector[T](collection.toVector) // collection.par
+    val forkJoinPool =
+      new java.util.concurrent.ForkJoinPool(maxPar)
+    parCollection.tasksupport = new ForkJoinTaskSupport(forkJoinPool)
+    (parCollection, Some(forkJoinPool))
   }
 
   def inferSchema(config: InferSchemaConfig): Try[Unit] = {

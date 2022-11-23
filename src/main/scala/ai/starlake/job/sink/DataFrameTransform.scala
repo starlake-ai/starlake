@@ -5,7 +5,7 @@ import com.typesafe.config.ConfigFactory
 import io.confluent.kafka.serializers.KafkaAvroSerializer
 import org.apache.spark.sql.functions.{array, col, lit, struct}
 import org.apache.spark.sql.{DataFrame, SparkSession}
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 trait DataFrameTransform {
   def transform(dataFrame: DataFrame, session: SparkSession): DataFrame

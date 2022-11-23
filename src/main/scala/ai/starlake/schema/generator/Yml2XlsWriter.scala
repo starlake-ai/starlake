@@ -13,7 +13,7 @@ class Yml2XlsWriter(schemaHandler: SchemaHandler) extends LazyLogging with XlsMo
 
   def run(args: Array[String]): Unit = {
     implicit val settings: Settings = Settings(ConfigFactory.load())
-    Yml2XlsConfig.parse(args) match {
+    Yml2XlsConfig.parse(args.toIndexedSeq) match {
       case Some(config) =>
         generateXls(config.domains, config.xlsDirectory)
       case _ =>

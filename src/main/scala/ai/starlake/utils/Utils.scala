@@ -31,7 +31,7 @@ import scala.collection.mutable
 import scala.reflect.runtime.universe
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try}
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 object Utils {
   type Closeable = { def close(): Unit }
@@ -177,7 +177,7 @@ object Utils {
     */
   def duplicates(values: List[String], errorMessage: String): Either[List[String], Boolean] = {
     val errorList: mutable.Queue[String] = mutable.Queue.empty
-    val duplicates = values.groupBy(identity).mapValues(_.size).filter { case (_, size) =>
+    val duplicates = values.groupBy(identity).view.mapValues(_.size).filter { case (_, size) =>
       size > 1
     }
     duplicates.foreach { case (key, size) =>

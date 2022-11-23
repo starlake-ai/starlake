@@ -245,6 +245,7 @@ object AuditLog extends StrictLogging {
         sinkToFile(log, settings)
       case _: NoneSink | FsSink(_, _, _, _, _, _) if settings.comet.sinkToFile =>
       // Do nothing dataset already sinked to file. Forced at the reference.conf level
+      case _ => throw new Exception(s"should never happen: ${settings.comet.audit.sink}")
     }
   }
 }

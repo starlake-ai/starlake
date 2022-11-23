@@ -16,7 +16,7 @@ object JDBC2Yml extends LazyLogging {
 
   def run(args: Array[String]): Unit = {
     implicit val settings: Settings = Settings(ConfigFactory.load())
-    JDBC2YmlConfig.parse(args) match {
+    JDBC2YmlConfig.parse(args.toIndexedSeq) match {
       case Some(config) =>
         run(config)
       case None =>
@@ -87,6 +87,7 @@ object JDBC2Yml extends LazyLogging {
                     )
                   case Some(_) =>
                     domain
+                  case None => throw new Exception("Should never happen")
                 }
                 domain
               case Failure(e) => throw e

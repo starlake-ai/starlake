@@ -115,7 +115,7 @@ object MergeUtils extends StrictLogging with DatasetLogging {
         val patchedIncomingDF = addMissingAttributes(finalIncomingDF, existingDF)
         val commonDF = patchedExistingDF
           .join(patchedIncomingDF.select(mergeOptions.key.map(col): _*), mergeOptions.key)
-          .select(patchedIncomingDF.columns.map(col): _*)
+          .select(patchedIncomingDF.columns.map(col).toIndexedSeq: _*)
         (patchedExistingDF.except(commonDF).union(patchedIncomingDF), commonDF)
     }
 

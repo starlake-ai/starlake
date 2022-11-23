@@ -14,7 +14,7 @@ class InferSchemaHandlerSpec extends TestHelper {
 
       val df = sparkSession.read
         .option("inferSchema", value = true)
-        .json(Seq(ComplexjsonStr).toDS)
+        .json(Seq(ComplexjsonStr).toDS())
 
       val complexAttr2 = Attribute("key", "long", Some(false), required = false)
       val complexAttr3 =
@@ -44,7 +44,7 @@ class InferSchemaHandlerSpec extends TestHelper {
 
       val df1 = sparkSession.read
         .option("inferSchema", value = true)
-        .json(Seq(SimpleJsonStr).toDS)
+        .json(Seq(SimpleJsonStr).toDS())
 
       val simpleAttr: List[Attribute] = InferSchemaHandler.createAttributes(Nil, df1.schema)
 
@@ -75,7 +75,7 @@ class InferSchemaHandlerSpec extends TestHelper {
 
       val df1 = sparkSession.read
         .option("inferSchema", value = true)
-        .json(Seq(arrayJson).toDS)
+        .json(Seq(arrayJson).toDS())
 
       val arrayAttr: List[Attribute] = InferSchemaHandler.createAttributes(Nil, df1.schema)
 

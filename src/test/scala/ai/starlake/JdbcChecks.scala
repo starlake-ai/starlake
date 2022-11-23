@@ -172,7 +172,7 @@ trait JdbcChecks {
       jdbcName,
       "rejected",
       "jobid" :: "timestamp" :: "domain" :: "schema" :: "error" :: "path" :: Nil,
-      values.to[Vector]
+      values
     ) { rs =>
       val item = RejectedRecord(
         rs.getString("jobid"),
@@ -202,7 +202,7 @@ trait JdbcChecks {
       "jobid" :: "paths" :: "domain" :: "schema" :: "success" ::
       "count" :: "countAccepted" :: "countRejected" :: "timestamp" ::
       "duration" :: "message" :: "step" :: Nil,
-      values.to[Vector]
+      values.toIndexedSeq
     ) { rs =>
       val item = AuditLog(
         rs.getString("jobid"),
@@ -243,7 +243,7 @@ trait JdbcChecks {
       "min" :: "max" :: "mean" :: "missingValues" :: "standardDev" :: "variance" :: "sum" ::
       "skewness" :: "kurtosis" :: "percentile25" :: "median" :: "percentile75" ::
       "count" :: "cometTime" :: "cometStage" :: "cometMetric" :: "jobId" :: Nil,
-      continuous.to[Vector]
+      continuous
     ) { rs =>
       ContinuousMetricRecord(
         domain = rs.getString("domain"),
@@ -275,7 +275,7 @@ trait JdbcChecks {
       "domain" :: "schema" :: "attribute" ::
       "missingValuesDiscrete" :: "countDistinct" :: "count" ::
       "cometTime" :: "cometStage" :: "cometMetric" :: "jobId" :: Nil,
-      discrete.to[Vector]
+      discrete
     ) { rs =>
       DiscreteMetricRecord(
         domain = rs.getString("domain"),
@@ -297,7 +297,7 @@ trait JdbcChecks {
       "domain" :: "schema" :: "attribute" ::
       "category" :: "frequency" :: "count" ::
       "cometTime" :: "cometStage" :: "jobId" :: Nil,
-      frequencies.to[Vector]
+      frequencies
     ) { rs =>
       FrequencyMetricRecord(
         domain = rs.getString("domain"),

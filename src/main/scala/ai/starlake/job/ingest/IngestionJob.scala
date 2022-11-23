@@ -36,7 +36,7 @@ import org.apache.spark.sql.types.{Metadata => _, _}
 import java.sql.Timestamp
 import java.time.{Instant, LocalDateTime}
 import scala.annotation.nowarn
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success, Try}
 
 trait IngestionJob extends SparkJob {
@@ -575,6 +575,8 @@ trait IngestionJob extends SparkJob {
           // Done in the caller
           logger.trace("not producing an index, as requested (no sink or sink at None explicitly)")
           mergedDF
+        case _ => throw new Exception(s"should never happen: $sinkType")
+
       }
     }
   }
@@ -709,6 +711,7 @@ trait IngestionJob extends SparkJob {
               None,
               Map.empty[String, String]
             )
+          case _ => throw new Exception(s"should never happen: ${metadata.getSink()}")
 
         }
 

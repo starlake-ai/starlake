@@ -37,7 +37,7 @@ class Yml2GraphViz(schemaHandler: SchemaHandler) extends LazyLogging {
 
   def run(args: Array[String]): Unit = {
     implicit val settings: Settings = Settings(ConfigFactory.load())
-    Yml2GraphVizConfig.parse(args) match {
+    Yml2GraphVizConfig.parse(args.toIndexedSeq) match {
       case Some(config) =>
         if (config.acl) aclsAsDot(config)
         if (config.domains) asDotRelations(config)

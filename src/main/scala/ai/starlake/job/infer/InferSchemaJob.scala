@@ -121,6 +121,7 @@ class InferSchemaJob(implicit settings: Settings) {
         .toCharArray
         .map((_, 1))
         .groupBy(_._1)
+        .view
         .mapValues(_.length)
         .toList
         .maxBy { case (ch, count) => count }

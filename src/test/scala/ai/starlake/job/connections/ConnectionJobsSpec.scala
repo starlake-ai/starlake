@@ -55,7 +55,7 @@ class ConnectionJobsSpec extends TestHelper {
       workflow.autoJob(TransformConfig("user"))
 
       val userOutOptions = settings.comet.connections(connection).options + ("dbtable" -> "userout")
-      sparkSession.read.format("jdbc").options(userOutOptions).load.collect() should have size 1
+      sparkSession.read.format("jdbc").options(userOutOptions).load().collect() should have size 1
     }
   }
 }
