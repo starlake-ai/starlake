@@ -35,7 +35,7 @@ object DefaultSinkTransformer extends SinkTransformer {
       val httpPost = new HttpPost(url)
       httpPost.setEntity(requestEntity)
       httpPost
-    }
+    }.toIndexedSeq
 }
 
 class HttpProvider extends StreamSinkProvider with StreamSourceProvider with DataSourceRegister {

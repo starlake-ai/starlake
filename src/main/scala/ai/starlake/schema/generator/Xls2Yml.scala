@@ -130,7 +130,7 @@ object Xls2Yml extends LazyLogging {
   def run(args: Array[String]): Boolean = {
     implicit val settings: Settings = Settings(ConfigFactory.load())
     val defaultOutputPath = DatasetArea.domains.toString
-    Xls2YmlConfig.parse(args) match {
+    Xls2YmlConfig.parse(args.toIndexedSeq) match {
       case Some(config) =>
         if (config.encryption) {
           for {

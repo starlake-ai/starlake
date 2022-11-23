@@ -245,10 +245,11 @@ object Metrics extends StrictLogging {
     // Get the whole list of headers that contains the column name
     val listColumns = metricFrame.columns.filter(_.contains(s"($nameCol)")).sorted
     // Select only columns in listColumns
-    val selectedListColumns: DataFrame = metricFrame.select(listColumns.head, listColumns.tail: _*)
+    val selectedListColumns: DataFrame =
+      metricFrame.select(listColumns.head, listColumns.tail.toIndexedSeq: _*)
     // Reduce decimal values to 3
     val broundColumns: DataFrame = selectedListColumns.select(
-      selectedListColumns.columns.map(c => bround(col(c), 3).alias(c)): _*
+      selectedListColumns.columns.map(c => bround(col(c), 3).alias(c)).toIndexedSeq: _*
     )
     // Add column Variables that contains the nameCol
     val addVariablesColumn: DataFrame = broundColumns.withColumn("attribute", lit(nameCol))
@@ -611,7 +612,7 @@ object Metrics extends StrictLogging {
       case Nil =>
         None
       case _ =>
-        val dataset = dataInit.drop(dropAttributes: _*)
+        val dataset = dataInit.drop(dropAttributes.toIndexedSeq: _*)
         val colRenamed: List[String] = "attribute" :: operations.map(_.name)
         val matrixMetric: DataFrame = attributeChecked
           .map(name => categoryCountFreqDataframe(col(name), dataset))

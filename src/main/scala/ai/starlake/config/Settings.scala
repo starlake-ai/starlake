@@ -49,7 +49,7 @@ import pureconfig.generic.auto._
 import java.io.ObjectStreamException
 import java.util.concurrent.TimeUnit
 import java.util.{Locale, Properties, UUID}
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.concurrent.duration.FiniteDuration
 
 object Settings extends StrictLogging {

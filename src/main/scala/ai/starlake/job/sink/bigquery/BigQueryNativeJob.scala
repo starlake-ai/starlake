@@ -11,7 +11,7 @@ import com.google.gson.Gson
 import com.typesafe.scalalogging.StrictLogging
 
 import java.util.UUID
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success, Try}
 
 case class BigQueryJobResult(tableResult: scala.Option[TableResult], totalBytesProcessed: Long)

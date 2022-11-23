@@ -143,7 +143,7 @@ class Main() extends StrictLogging {
     DatasetArea.initMetadata(metadataStorageHandler)
 
     // extract any env var passed as --options argument
-    val cliEnv = CliEnvConfig.parse(args.drop(1)) match {
+    val cliEnv = CliEnvConfig.parse(args.drop(1).toIndexedSeq) match {
       case Some(env) => env.options
       case None      => Map.empty[String, String]
     }
@@ -153,7 +153,7 @@ class Main() extends StrictLogging {
     // handle non existing project commands
     argList.head match {
       case "bootstrap" =>
-        BootstrapConfig.parse(args.drop(1)) match {
+        BootstrapConfig.parse(args.drop(1).toIndexedSeq) match {
           case Some(config) =>
             DatasetArea.bootstrap(config.template)
           case None =>
@@ -174,7 +174,7 @@ class Main() extends StrictLogging {
     logger.info(s"Running Starlake $argList")
     val result = argList.head match {
       case "job" | "transform" =>
-        TransformConfig.parse(args.drop(1)) match {
+        TransformConfig.parse(args.drop(1).toIndexedSeq) match {
           case Some(config) =>
             if (config.compile) {
               workflow.compileAutoJob(config)
@@ -186,7 +186,7 @@ class Main() extends StrictLogging {
             false
         }
       case "import" =>
-        ImportConfig.parse(args.drop(1)) match {
+        ImportConfig.parse(args.drop(1).toIndexedSeq) match {
           case Some(config) =>
             workflow.loadLanding(config)
             true
@@ -195,7 +195,7 @@ class Main() extends StrictLogging {
             false
         }
       case "validate" =>
-        ValidateConfig.parse(args.drop(1)) match {
+        ValidateConfig.parse(args.drop(1).toIndexedSeq) match {
           case Some(config) =>
             schemaHandler.fullValidation(config)
             true
@@ -204,7 +204,7 @@ class Main() extends StrictLogging {
             false
         }
       case "watch" =>
-        WatchConfig.parse(args.drop(1)) match {
+        WatchConfig.parse(args.drop(1).toIndexedSeq) match {
           case Some(config) =>
             workflow.loadPending(config)
           case _ =>
@@ -212,7 +212,7 @@ class Main() extends StrictLogging {
             false
         }
       case "ingest" | "load" =>
-        LoadConfig.parse(args.drop(1)) match {
+        LoadConfig.parse(args.drop(1).toIndexedSeq) match {
           case Some(config) =>
             workflow.load(config)
           case _ =>
@@ -221,7 +221,7 @@ class Main() extends StrictLogging {
         }
 
       case "index" | "esload" =>
-        ESLoadConfig.parse(args.drop(1)) match {
+        ESLoadConfig.parse(args.drop(1).toIndexedSeq) match {
           case Some(config) =>
             // do something
             workflow.esLoad(config).isSuccess
@@ -231,7 +231,7 @@ class Main() extends StrictLogging {
         }
 
       case "atlas" =>
-        AtlasConfig.parse(args.drop(1)) match {
+        AtlasConfig.parse(args.drop(1).toIndexedSeq) match {
           case Some(config) =>
             // do something
             workflow.atlas(config)
@@ -241,7 +241,7 @@ class Main() extends StrictLogging {
         }
 
       case "kafkaload" =>
-        KafkaJobConfig.parse(args.drop(1)) match {
+        KafkaJobConfig.parse(args.drop(1).toIndexedSeq) match {
           case Some(config) =>
             workflow.kafkaload(config).isSuccess
           case _ =>
@@ -250,7 +250,7 @@ class Main() extends StrictLogging {
         }
 
       case "bqload" =>
-        BigQueryLoadConfig.parse(args.drop(1)) match {
+        BigQueryLoadConfig.parse(args.drop(1).toIndexedSeq) match {
           case Some(config) =>
             workflow.bqload(config).isSuccess
           case _ =>
@@ -259,7 +259,7 @@ class Main() extends StrictLogging {
         }
 
       case "cnxload" =>
-        ConnectionLoadConfig.parse(args.drop(1)) match {
+        ConnectionLoadConfig.parse(args.drop(1).toIndexedSeq) match {
           case Some(config) =>
             workflow.jdbcload(config).isSuccess
           case _ =>
@@ -268,7 +268,7 @@ class Main() extends StrictLogging {
         }
 
       case "infer-ddl" =>
-        Yml2DDLConfig.parse(args.drop(1)) match {
+        Yml2DDLConfig.parse(args.drop(1).toIndexedSeq) match {
           case Some(config) =>
             workflow.inferDDL(config).isSuccess
           case _ =>
@@ -276,7 +276,7 @@ class Main() extends StrictLogging {
             false
         }
       case "infer-schema" =>
-        InferSchemaConfig.parse(args.drop(1)) match {
+        InferSchemaConfig.parse(args.drop(1).toIndexedSeq) match {
           case Some(config) =>
             workflow.inferSchema(config).isSuccess
           case _ =>
@@ -284,7 +284,7 @@ class Main() extends StrictLogging {
             false
         }
       case "metrics" =>
-        MetricsConfig.parse(args.drop(1)) match {
+        MetricsConfig.parse(args.drop(1).toIndexedSeq) match {
           case Some(config) =>
             workflow.metric(config).isSuccess
           case _ =>
@@ -293,7 +293,7 @@ class Main() extends StrictLogging {
         }
 
       case "parquet2csv" =>
-        Parquet2CSVConfig.parse(args.drop(1)) match {
+        Parquet2CSVConfig.parse(args.drop(1).toIndexedSeq) match {
           case Some(config) =>
             new Parquet2CSV(config, storageHandler).run().isSuccess
           case _ =>
@@ -302,7 +302,7 @@ class Main() extends StrictLogging {
         }
 
       case "secure" =>
-        WatchConfig.parse(args.drop(1)) match {
+        WatchConfig.parse(args.drop(1).toIndexedSeq) match {
           case Some(config) =>
             workflow.secure(config)
           case _ =>
@@ -321,7 +321,7 @@ class Main() extends StrictLogging {
         new Yml2GraphViz(schemaHandler).run(args.drop(1))
         true
       case "jobs2gv" =>
-        AutoTask2GraphVizConfig.parse(args.drop(1)) match {
+        AutoTask2GraphVizConfig.parse(args.drop(1).toIndexedSeq) match {
           case Some(config) =>
             new AutoTaskToGraphViz(settings, schemaHandler, storageHandler).run(config)
           case None =>
@@ -334,7 +334,7 @@ class Main() extends StrictLogging {
         JDBC2Yml.run(args.drop(1))
         true
       case "serve" =>
-        MainServerConfig.parse(args.drop(1)) match {
+        MainServerConfig.parse(args.drop(1).toIndexedSeq) match {
           case Some(config) =>
             MainServer.serve(config)
             true

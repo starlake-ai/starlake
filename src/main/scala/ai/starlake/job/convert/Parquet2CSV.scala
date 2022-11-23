@@ -78,7 +78,7 @@ object Parquet2CSV {
     implicit val settings: Settings = Settings(ConfigFactory.load())
 
     import settings.storageHandler
-    Parquet2CSVConfig.parse(args) match {
+    Parquet2CSVConfig.parse(args.toIndexedSeq) match {
       case Some(config) =>
         new Parquet2CSV(config, storageHandler).run()
       case _ =>

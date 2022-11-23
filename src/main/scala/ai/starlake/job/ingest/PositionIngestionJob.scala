@@ -144,7 +144,7 @@ object PositionIngestionUtil {
         val last = positions(i).last + 1
         columnArray(i) = if (last <= inputLen) inputLine.substring(first, last) else ""
       }
-      Row.fromSeq(columnArray)
+      Row.fromSeq(columnArray.toIndexedSeq)
     }
 
     val positions = attributes.flatMap(_.position)

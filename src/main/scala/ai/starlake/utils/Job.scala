@@ -339,7 +339,7 @@ trait SparkJob extends JobBase {
           .option("table", tablePath)
           .option("filter", filter)
           .load()
-          .selectExpr(select.replaceAll("\\s", "").split(","): _*)
+          .selectExpr(select.replaceAll("\\s", "").split(",").toIndexedSeq: _*)
           .cache()
       case TablePathWithFilter(tablePath, filter) =>
         logger.info(s"We are loading the Table with filters: $filter")
@@ -357,7 +357,7 @@ trait SparkJob extends JobBase {
           .format("com.google.cloud.spark.bigquery")
           .option("table", tablePath)
           .load()
-          .selectExpr(select.replaceAll("\\s", "").split(","): _*)
+          .selectExpr(select.replaceAll("\\s", "").split(",").toIndexedSeq: _*)
           .cache()
       case _ =>
         session.read

@@ -197,7 +197,7 @@ class ScriptGen(
     val arglist = args.toList
     logger.info(s"Running Starlake $arglist")
 
-    ExtractScriptGenConfig.parse(args) match {
+    ExtractScriptGenConfig.parse(args.toIndexedSeq) match {
       case Some(config) =>
         run(config)
       case _ =>

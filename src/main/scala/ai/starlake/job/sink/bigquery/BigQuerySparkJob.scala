@@ -21,7 +21,7 @@ import org.apache.spark.sql.functions.{col, date_format}
 import org.apache.spark.sql.{DataFrame, Row, SaveMode, SparkSession}
 import org.apache.spark.storage.StorageLevel
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.util.Try
 
 class BigQuerySparkJob(

@@ -81,6 +81,8 @@ class SinkUtils(implicit settings: Settings) extends StrictLogging with DatasetL
       case _: EsSink =>
         // TODO Sink Assertions & Metrics to ES
         throw new Exception("Sinking Assertions & Metrics to Elasticsearch not yet supported")
+      case _ => throw new Exception(s"Should never happen $sinkType")
+
     }
   }
 

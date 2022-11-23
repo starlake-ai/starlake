@@ -136,7 +136,7 @@ class HttpSource(sqlContext: SQLContext, parameters: Map[String, String])
       case Some(LongOffset(iOffset: Long)) =>
         if (iOffset >= 0) {
           this.synchronized {
-            streamBuffer.trimStart(iOffset.toInt - consumerOffset);
+            streamBuffer.dropInPlace(iOffset.toInt - consumerOffset);
             consumerOffset = iOffset.toInt;
           }
         }
