@@ -53,7 +53,8 @@ class HttpProviderTest
   }
 
   s"Load from HTTP Source to multiple URLs" should "work" in {
-    val spark = SparkSession.builder()
+    val spark = SparkSession
+      .builder()
       .master("local[4]")
       .getOrCreate();
     File("/tmp/http2").delete(true)
@@ -98,7 +99,8 @@ class HttpProviderTest
     httpData.toList should contain theSameElementsAs List("http data1")
   }
   s"Save in HTTP Sink" should "work" in {
-    val spark = SparkSession.builder()
+    val spark = SparkSession
+      .builder()
       .master("local[4]")
       .getOrCreate();
     File("/tmp/sink").delete(true)
