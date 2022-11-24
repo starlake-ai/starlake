@@ -19,6 +19,7 @@
  */
 package ai.starlake.schema.generator
 
+import ai.starlake.schema.model.WriteMode
 import ai.starlake.utils.CliConfig
 import scopt.OParser
 
@@ -55,7 +56,9 @@ case class JDBCSchema(
     "ALIAS",
     "SYNONYM"
   ),
-  template: Option[String] = None
+  template: Option[String] = None,
+  write: Option[WriteMode] = None,
+  pattern: Option[String] = None
 ) {
   def this() = this(None) // Should never be called. Here for Jackson deserialization only
 }
@@ -79,7 +82,7 @@ case class JDBC2YmlConfig(
 )
 
 object JDBC2YmlConfig extends CliConfig[JDBC2YmlConfig] {
-  val command = "jdbc2yml"
+  val command = "extract-jdbc-schema"
   val parser: OParser[Unit, JDBC2YmlConfig] = {
     val builder = OParser.builder[JDBC2YmlConfig]
     import builder._

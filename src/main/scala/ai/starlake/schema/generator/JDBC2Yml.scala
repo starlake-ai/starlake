@@ -3,7 +3,7 @@ package ai.starlake.schema.generator
 import better.files.File
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.schema.handlers.SchemaHandler
-import ai.starlake.schema.model.{Domain, Schemas}
+import ai.starlake.schema.model.{Domain, Metadata, Schemas}
 import ai.starlake.utils.YamlSerializer
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.LazyLogging
@@ -11,6 +11,8 @@ import org.apache.hadoop.fs.Path
 
 import scala.util.{Failure, Success}
 import ai.starlake.utils.Formatter._
+
+import java.util.regex.Pattern
 
 object JDBC2Yml extends LazyLogging {
 
@@ -124,10 +126,25 @@ object JDBC2Yml extends LazyLogging {
     val tables = domain.tables
     val tableRefs = tables.map("_" + _.name)
     tables.foreach { table =>
-      val content = YamlSerializer.serialize(Schemas(List(table)))
+      val tableWithWrite = jdbcSchema.write match {
+        case None => table
+        case Some(write) =>
+          val metadata =
+            domainTemplate.flatMap(_.metadata).getOrElse(Metadata(write = jdbcSchema.write))
+          table.copy(metadata = Some(metadata))
+      }
+      val tableWithPatternAndWrite = jdbcSchema.pattern match {
+        case None => tableWithWrite
+        case Some(pattern) =>
+          val pat = Pattern.compile(pattern)
+          tableWithWrite.copy(pattern = pat)
+      }
+
+      val content = YamlSerializer.serialize(Schemas(List(tableWithPatternAndWrite)))
       val file = File(baseOutputDir, domainName, "_" + table.name + ".comet.yml")
       file.overwrite(content)
     }
+
     val finalDomain = domain.copy(tableRefs = tableRefs, tables = Nil)
     YamlSerializer.serializeToFile(
       File(baseOutputDir, domainName, domainName + ".comet.yml"),

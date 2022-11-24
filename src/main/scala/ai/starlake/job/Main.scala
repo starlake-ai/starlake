@@ -330,7 +330,7 @@ class Main() extends StrictLogging {
         true
       case "extract" =>
         new ScriptGen(storageHandler, schemaHandler, launcherService).run(args.drop(1))
-      case "jdbc2yml" | "extract-schema" =>
+      case "jdbc2yml" | "extract-jdbc-schema" =>
         JDBC2Yml.run(args.drop(1))
         true
       case "serve" =>
