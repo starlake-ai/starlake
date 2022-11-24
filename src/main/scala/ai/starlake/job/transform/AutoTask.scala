@@ -123,7 +123,8 @@ case class AutoTask(
       requirePartitionFilter = bqSink.requirePartitionFilter.getOrElse(false),
       rls = taskDesc.rls,
       engine = Engine.BQ,
-      options = bqSink.getOptions
+      options = bqSink.getOptions,
+      acl = taskDesc.acl
     )
   }
 
