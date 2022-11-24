@@ -236,7 +236,7 @@ class JDBC2YmlSpec extends TestHelper {
     println(rendered)
     val expected =
       """
-        |Usage: starlake jdbc2yml [options]
+        |Usage: starlake extract-jdbc-schema [options]
         |
         |  --data                  Export table data
         |  --jdbc-mapping <value>  Database tables & connection info
