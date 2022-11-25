@@ -115,14 +115,14 @@ That's it ! We now need to create a [new project](bootstrap).
 
 ## Specific Version
 
-To install a specific version (0.5.3 in the example below), set the COMET_VERSION environment variable before running starlake.
+To install a specific version (0.5.2 in the example below), set the COMET_VERSION environment variable before running starlake.
 Subsequent runs will use this version:
 
 <Tabs groupId="platforms">
 <TabItem value="linux_macos" label="Linux/MacOS">
 
 ```sh
-$ COMET_VERSION=0.5.3 ./starlake.sh # version 0.5.3 will be installed
+$ COMET_VERSION=0.5.2 ./starlake.sh # version 0.5.3 will be installed
 $ ./starlake.sh ... # version 0.5.3 will be running
 ```
 
@@ -130,7 +130,7 @@ $ ./starlake.sh ... # version 0.5.3 will be running
 <TabItem value="windows" label="Windows">
 
 ```powershell
-c:\starlake> SET COMET_VERSION=0.5.3
+c:\starlake> SET COMET_VERSION=0.5.2
 c:\starlake> starlake
 
 ```
@@ -139,7 +139,7 @@ c:\starlake> starlake
 <TabItem value="docker" label="Docker">
 
 ```shell
-$ docker build --build-arg COMET_VERSION=0.5.3 -t starlake .
+$ docker build --build-arg COMET_VERSION=0.5.2 -t starlake .
 $
 ```
 
@@ -147,4 +147,3 @@ $
 
 
 </Tabs>
-
