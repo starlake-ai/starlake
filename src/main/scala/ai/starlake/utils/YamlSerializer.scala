@@ -1,7 +1,7 @@
 package ai.starlake.utils
 
 import ai.starlake.config.Settings
-import ai.starlake.schema.generator.JDBCSchemas
+import ai.starlake.extractor.JDBCSchemas
 import ai.starlake.schema.model.{AutoJobDesc, Domain, Schema => ModelSchema, Schemas}
 import better.files.File
 import com.fasterxml.jackson.annotation.JsonInclude.Include

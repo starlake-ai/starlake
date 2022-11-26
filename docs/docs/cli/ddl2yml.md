@@ -1,12 +1,12 @@
 ---
 sidebar_position: 100
-title: extract-jdbc-schema
+title: extract schema
 ---
 
 
 ## Synopsis
 
-**starlake extract-jdbc-schema [options]**
+**starlake extract --schema [options]**
 
 ## Description
 

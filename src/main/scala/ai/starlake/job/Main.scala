@@ -1,7 +1,7 @@
 package ai.starlake.job
 
 import ai.starlake.config.{DatasetArea, Settings}
-import ai.starlake.extractor.{ExtractScriptGenConfig, ScriptGen}
+import ai.starlake.extractor.{ExtractData, ExtractSchema, ExtractScriptGenConfig, ScriptGen}
 import ai.starlake.job.atlas.AtlasConfig
 import ai.starlake.job.bootstrap.BootstrapConfig
 import ai.starlake.job.convert.{FileSplitterConfig, Parquet2CSV, Parquet2CSVConfig}
@@ -165,7 +165,8 @@ class Main() extends StrictLogging {
       case _ =>
     }
 
-    schemaHandler.fullValidation()
+    if (settings.comet.validateOnLoad)
+      schemaHandler.fullValidation()
 
     DatasetArea.initDomains(storageHandler, schemaHandler.domains().map(_.name))
     val workflow =
@@ -328,10 +329,13 @@ class Main() extends StrictLogging {
             println(AutoTask2GraphVizConfig.usage())
         }
         true
-      case "extract" =>
+      case "extract-script" =>
         new ScriptGen(storageHandler, schemaHandler, launcherService).run(args.drop(1))
-      case "jdbc2yml" | "extract-jdbc-schema" =>
-        JDBC2Yml.run(args.drop(1))
+      case "extract-schema" =>
+        ExtractSchema.run(args.drop(1))
+        true
+      case "extract-data" =>
+        ExtractData.run(args.drop(1))
         true
       case "serve" =>
         MainServerConfig.parse(args.drop(1)) match {

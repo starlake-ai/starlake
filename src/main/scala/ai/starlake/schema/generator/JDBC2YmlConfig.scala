@@ -19,58 +19,8 @@
  */
 package ai.starlake.schema.generator
 
-import ai.starlake.schema.model.WriteMode
 import ai.starlake.utils.CliConfig
 import scopt.OParser
-
-case class JDBCSchemas(
-  jdbcSchemas: List[JDBCSchema],
-  connection: Map[String, String] = Map.empty
-)
-
-/** @param connectionRef
-  *   : JDBC Configuration to use as defined in the connection section in the application.conf
-  * @param catalog
-  *   : Database catalog name, optional.
-  * @param schema
-  *   : Database schema to use, required.
-  * @param tables
-  *   : Tables to extract. Nil if all tables should be extracted
-  * @param tableTypes
-  *   : Table types to extract
-  */
-
-case class JDBCSchema(
-  connectionRef: Option[String] = None,
-  catalog: Option[String] = None,
-  schema: String = "",
-  tableRemarks: Option[String] = None,
-  columnRemarks: Option[String] = None,
-  tables: List[JDBCTable] = Nil,
-  tableTypes: List[String] = List(
-    "TABLE",
-    "VIEW",
-    "SYSTEM TABLE",
-    "GLOBAL TEMPORARY",
-    "LOCAL TEMPORARY",
-    "ALIAS",
-    "SYNONYM"
-  ),
-  template: Option[String] = None,
-  write: Option[WriteMode] = None,
-  pattern: Option[String] = None
-) {
-  def this() = this(None) // Should never be called. Here for Jackson deserialization only
-}
-
-/** @param name
-  *   : Table name (case insensitive)
-  * @param columns
-  *   : List of columns (case insensitive). Nil if all columns should be extracted
-  */
-case class JDBCTable(name: String, columns: List[String]) {
-  def this() = this("", Nil) // Should never be called. Here for Jackson deserialization only
-}
 
 case class JDBC2YmlConfig(
   mapping: String = "",
@@ -82,7 +32,7 @@ case class JDBC2YmlConfig(
 )
 
 object JDBC2YmlConfig extends CliConfig[JDBC2YmlConfig] {
-  val command = "extract-jdbc-schema"
+  val command = "extract"
   val parser: OParser[Unit, JDBC2YmlConfig] = {
     val builder = OParser.builder[JDBC2YmlConfig]
     import builder._
@@ -95,7 +45,7 @@ object JDBC2YmlConfig extends CliConfig[JDBC2YmlConfig] {
         .action((x, c) => c.copy(mode = "data"))
         .optional()
         .children(
-          opt[String]("jdbc-mapping")
+          opt[String]("mapping")
             .action((x, c) => c.copy(mapping = x))
             .required()
             .text("Database tables & connection info"),

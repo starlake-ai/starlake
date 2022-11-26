@@ -1,9 +1,10 @@
 package ai.starlake.schema.generator
 
-import better.files.File
 import ai.starlake.TestHelper
+import ai.starlake.extractor.{JDBCSchema, JDBCTable}
 import ai.starlake.schema.model.{Domain, Metadata, Mode}
 import ai.starlake.utils.YamlSerializer
+import better.files.File
 
 import java.sql.DriverManager
 import scala.util.{Failure, Success}
@@ -38,7 +39,7 @@ class JDBC2YmlSpec extends TestHelper {
       val domainTemplate = Domain(name = "CUSTOM_NAME", metadata = Some(metadata))
       val config = JDBC2YmlConfig()
       JDBC2Yml.extractSchema(
-        JDBCSchema(Some("test-h2"), None, "PUBLIC"),
+        JDBCSchema(None, "PUBLIC"),
         settings.comet.connections("test-h2").options,
         File("/tmp"),
         Some(domainTemplate)
@@ -131,7 +132,6 @@ class JDBC2YmlSpec extends TestHelper {
 
       JDBC2Yml.extractSchema(
         JDBCSchema(
-          Some("test-h2"),
           None,
           "PUBLIC",
           None,
@@ -194,7 +194,6 @@ class JDBC2YmlSpec extends TestHelper {
 
       JDBC2Yml.extractSchema(
         JDBCSchema(
-          Some("test-h2"),
           None,
           "PUBLIC",
           None,
@@ -236,7 +235,7 @@ class JDBC2YmlSpec extends TestHelper {
     println(rendered)
     val expected =
       """
-        |Usage: starlake extract-jdbc-schema [options]
+        |Usage: starlake extract [options]
         |
         |  --data                  Export table data
         |  --jdbc-mapping <value>  Database tables & connection info

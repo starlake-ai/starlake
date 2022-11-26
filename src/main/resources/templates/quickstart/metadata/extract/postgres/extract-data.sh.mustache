@@ -1,0 +1,9 @@
+if [[ -z "$OUTPUT_DIR" ]]; then
+    echo "Variable OUTPUT_DIR undefined"
+    exit 1
+fi
+
+{{#full_export}}
+mkdir -p $OUTPUT_DIR/{{domain}}
+PGPASSWORD=$DBPASSWD psql -U $DBUSER -d $DBNAME -c "COPY {{domain}}.{{table}} TO '$OUTPUT_DIR/{{domain}}/{{table}}.csv'  WITH (DELIMITER '{{delimiter}}', FORCE_QUOTE *, FORMAT CSV, HEADER);"
+{{/full_export}}
