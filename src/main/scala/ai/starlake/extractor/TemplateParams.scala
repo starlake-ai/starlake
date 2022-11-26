@@ -74,8 +74,10 @@ case class TemplateParams(
     deltaColumn
       .foldLeft(
         List(
-          "domain_table" -> domainToExport,
-          "table_name"   -> tableToExport.toLowerCase,
+          "domain"       -> domainToExport,
+          "table"        -> tableToExport.toLowerCase,
+          "domain_table" -> domainToExport, // For compatibility
+          "table_name"   -> tableToExport.toLowerCase, // For compatibility
           "delimiter"    -> dsvDelimiter,
           "columns"      -> columnsParam,
           "export_file"  -> exportOutputFileBase,
