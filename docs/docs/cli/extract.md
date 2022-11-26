@@ -6,7 +6,7 @@ title: extract
 
 ## Synopsis
 
-**starlake extract [options]**
+**starlake extract --schema [options]**
 
 ## Description
 

@@ -1,7 +1,7 @@
 package ai.starlake.extractor
 
 import ai.starlake.config.{DatasetArea, Settings}
-import ai.starlake.extractor.config.{Settings => ExtractorSettings}
+import ai.starlake.extractor.config.ExtractorSettings
 import ai.starlake.schema.handlers.{LaunchHandler, SchemaHandler, SimpleLauncher, StorageHandler}
 import ai.starlake.schema.model.Engine.{BQ, SPARK}
 import ai.starlake.schema.model.{AutoJobDesc, Domain}

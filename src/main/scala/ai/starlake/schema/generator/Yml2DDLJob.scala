@@ -21,7 +21,8 @@
 package ai.starlake.schema.generator
 
 import ai.starlake.config.Settings
-import ai.starlake.schema.generator.JDBCUtils.{Columns, PrimaryKeys, TableRemarks}
+import ai.starlake.extractor.{JDBCSchema, JDBCUtils}
+import ai.starlake.extractor.JDBCUtils.{Columns, PrimaryKeys, TableRemarks}
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.{Domain, Schema}
 import ai.starlake.utils.Utils
@@ -73,7 +74,6 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
             val connectionOptions = settings.comet.connections(connection).options
             JDBCUtils.extractJDBCTables(
               JDBCSchema(
-                Some(connection),
                 config.catalog,
                 domain.name,
                 None,

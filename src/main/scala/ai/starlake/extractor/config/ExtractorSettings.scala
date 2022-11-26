@@ -18,7 +18,7 @@ object DeltaColumnsMapping {
   type ColumnName = String
 }
 
-object Settings extends StrictLogging {
+object ExtractorSettings extends StrictLogging {
 
   private val config = ConfigFactory.load()
 
