@@ -1,6 +1,7 @@
-package ai.starlake.schema.generator
+package ai.starlake.extractor
 
 import ai.starlake.config.{DatasetArea, Settings}
+import ai.starlake.schema.generator.JDBC2Yml
 import ai.starlake.schema.model.{Attribute, Domain, Schema}
 import better.files.File
 import com.typesafe.scalalogging.LazyLogging
@@ -388,6 +389,7 @@ object JDBCUtils extends LazyLogging {
     settings: Settings
   ): Unit = {
     val domainName = jdbcSchema.schema.replaceAll("[^\\p{Alnum}]", "_")
+    baseOutputDir.createDirectories()
     val outputDir = File(baseOutputDir, domainName)
     outputDir.createDirectories()
     val selectedTablesAndColumns = JDBCUtils.extractJDBCTables(jdbcSchema, connectionOptions)
