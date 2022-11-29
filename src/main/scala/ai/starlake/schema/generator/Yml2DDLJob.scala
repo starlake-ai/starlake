@@ -21,8 +21,8 @@
 package ai.starlake.schema.generator
 
 import ai.starlake.config.Settings
-import ai.starlake.extractor.{JDBCSchema, JDBCUtils}
-import ai.starlake.extractor.JDBCUtils.{Columns, PrimaryKeys, TableRemarks}
+import ai.starlake.extract.{JDBCSchema, JDBCUtils}
+import ai.starlake.extract.JDBCUtils.{Columns, PrimaryKeys, TableRemarks}
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.{Domain, Schema}
 import ai.starlake.utils.Utils

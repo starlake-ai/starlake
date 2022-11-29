@@ -1,4 +1,4 @@
-package ai.starlake.extractor
+package ai.starlake.extract
 
 import java.util.regex.Pattern
 import better.files.File

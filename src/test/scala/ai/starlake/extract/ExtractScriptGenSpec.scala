@@ -1,10 +1,9 @@
-package ai.starlake.extractor
+package ai.starlake.extract
 
-import ai.starlake.schema.model.PrivacyLevel
-import better.files.File
 import ai.starlake.TestHelper
 import ai.starlake.schema.handlers.{SchemaHandler, SimpleLauncher}
 import ai.starlake.schema.model.PrivacyLevel
+import better.files.File
 
 class ExtractScriptGenSpec extends TestHelper {
 
@@ -27,11 +26,11 @@ class ExtractScriptGenSpec extends TestHelper {
         activeEnv = Map.empty
       )
 
-      val templatesPayloadFromDir = new ScriptGen(
+      val templatesPayloadFromDir = new ExtractScript(
         storageHandler,
         new SchemaHandler(settings.storageHandler),
         new SimpleLauncher()
-      ).templatize(
+      ).templatizeFolder(
         File(
           getClass.getResource("/sample/database").getPath
         ),
@@ -41,17 +40,14 @@ class ExtractScriptGenSpec extends TestHelper {
 
       println(File(templatesPayloadFromDir).lines.mkString("\n").toLowerCase)
 
-      val templatePayload = new ScriptGen(
+      val templatePayload = new ExtractScript(
         storageHandler,
         new SchemaHandler(settings.storageHandler),
         new SimpleLauncher()
-      ).templatize(
-        File(
-          getClass.getResource("/sample/database/EXTRACT_TABLE.sql.mustache").getPath
-        ),
+      ).templatizeFile(
+        getClass.getResource("/sample/database/EXTRACT_TABLE.sql.mustache").getPath,
         templateParams
-      ).head
-        .pathAsString
+      ).pathAsString
 
       File(templatePayload).lines.mkString("\n").toLowerCase shouldBe File(
         getClass.getResource("/sample/database/expected_script_payload.txt").getPath
@@ -76,17 +72,14 @@ class ExtractScriptGenSpec extends TestHelper {
         activeEnv = Map.empty
       )
 
-      val templatePayload: String = new ScriptGen(
+      val templatePayload: String = new ExtractScript(
         storageHandler,
         new SchemaHandler(settings.storageHandler),
         new SimpleLauncher()
-      ).templatize(
-        File(
-          getClass.getResource("/sample/database/EXTRACT_TABLE.sql.ssp").getPath
-        ),
+      ).templatizeFile(
+        getClass.getResource("/sample/database/EXTRACT_TABLE.sql.ssp").getPath,
         templateParams
-      ).head
-        .pathAsString
+      ).pathAsString
 
       print(getClass.getResource("/sample/database/expected_script_payload2.txt").getPath)
       File(templatePayload).lines.mkString("\n").toLowerCase shouldBe File(
@@ -105,13 +98,12 @@ class ExtractScriptGenSpec extends TestHelper {
         cleanMetadata
         cleanDatasets
 
-        val config = ExtractScriptGenConfig(
-          jobs = List("my-job"),
+        val config = ExtractScriptConfig(
           scriptOutputDir = scriptOutputFolder,
           scriptOutputPattern = Some("comet-test-my-job.txt"),
-          scriptTemplateFile = File(getClass.getResource("/sample/job/extract-job.ssp").getPath)
+          scriptTemplateName = getClass.getResource("/sample/job").getPath
         )
-        val success = new ScriptGen(
+        val success = new ExtractScript(
           storageHandler,
           new SchemaHandler(settings.storageHandler),
           new SimpleLauncher()

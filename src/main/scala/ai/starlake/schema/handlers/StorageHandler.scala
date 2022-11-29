@@ -65,7 +65,7 @@ trait StorageHandler extends StrictLogging {
 
   def write(data: String, path: Path)(implicit charset: Charset = defaultCharset): Unit
 
-  def writeBinary(data: Array[Byte], path: Path)
+  def writeBinary(data: Array[Byte], path: Path): Unit
 
   def listDirectories(path: Path): List[Path]
 

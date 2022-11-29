@@ -1,18 +1,15 @@
-package ai.starlake.extractor
+package ai.starlake.extract
 
 import ai.starlake.config.{DatasetArea, Settings}
-import ai.starlake.extractor.config.ExtractorSettings
-import ai.starlake.schema.handlers.{LaunchHandler, SchemaHandler, SimpleLauncher, StorageHandler}
-import ai.starlake.schema.model.Engine.{BQ, SPARK}
-import ai.starlake.schema.model.{AutoJobDesc, Domain}
-import ai.starlake.utils.Formatter._
-import ai.starlake.workflow.IngestionWorkflow
+import ai.starlake.schema.handlers.{LaunchHandler, SchemaHandler, StorageHandler}
+import ai.starlake.schema.model.Domain
 import better.files.File
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.StrictLogging
+import org.apache.hadoop.fs.Path
 import org.fusesource.scalate._
 
-class ScriptGen(
+class ExtractScript(
   storageHandler: StorageHandler,
   schemaHandler: SchemaHandler,
   launchHandler: LaunchHandler
@@ -20,52 +17,62 @@ class ScriptGen(
     extends StrictLogging {
   val engine: TemplateEngine = new TemplateEngine
 
+  private def formatOutputScriptName(name: String, templateParams: TemplateParams): String = {
+    val vars = schemaHandler.cometDateVars ++ Map(
+      "domain" -> templateParams.domainToExport,
+      "table"  -> templateParams.tableToExport
+    )
+    vars.foldLeft(name.substring(0, name.lastIndexOf("."))) { case (a, (cometVar, cometVal)) =>
+      a.replace(cometVar, cometVal)
+    }
+  }
+
   /** Generate an extraction script payload based on a template and its params
-    * @param template
+    *
+    * @param templateName
     *   The extraction script template
     * @param templateParams
     *   Its params
     * @return
     *   The produced script payload
     */
-  def templatize(template: File, templateParams: TemplateParams): List[File] = {
-    def formatFilename(name: String): String =
-      name
-        .substring(0, name.lastIndexOf("."))
-        .replaceAll("domain", templateParams.domainToExport)
-        .replaceAll("schema", templateParams.tableToExport)
+  def templatize(templateName: String, templateParams: TemplateParams): List[File] = {
+    val templateFolder = File(new Path(DatasetArea.extract, templateName).toString)
+    templatizeFolder(templateFolder, templateParams)
+  }
 
-    val filesPath = if (template.isDirectory) {
-      template.list
+  def templatizeFolder(templateFolder: File, templateParams: TemplateParams): List[File] = {
+    val filesPath = if (templateFolder.isDirectory) {
+      templateFolder.list
         .map(_.pathAsString)
         .filter(name => name.endsWith(".ssp") || name.endsWith(".mustache"))
-        .map(name => (name, formatFilename(name)))
-
     } else {
-      val outputFilename =
-        templateParams.scriptOutputFile
-          .map(_.pathAsString)
-          .getOrElse(formatFilename(template.pathAsString))
-      Iterator((template.pathAsString, outputFilename))
+      throw new Exception(s"Invalid template folder ${templateFolder.pathAsString}")
     }
 
-    filesPath.map { case (inputPath, outputPath) =>
-      val scriptPayload = engine.layout(
-        inputPath,
-        templateParams.paramMap
-      )
-      val outputFile = File(outputPath)
-      outputFile.createFileIfNotExists().overwrite(scriptPayload)
-
-      logger.info(s"Successfully generated script $outputFile")
-      outputFile
+    filesPath.map { inputPath =>
+      templatizeFile(inputPath, templateParams)
     }.toList
   }
 
+  def templatizeFile(inputPath: String, templateParams: TemplateParams): File = {
+    val scriptPayload = engine.layout(
+      inputPath,
+      templateParams.paramMap
+    )
+    val outputPath = formatOutputScriptName(inputPath, templateParams)
+    val outputFile = File(outputPath)
+    outputFile.createFileIfNotExists().overwrite(scriptPayload)
+
+    logger.info(s"Successfully generated script $outputFile")
+    outputFile
+  }
+
   /** Generate all extraction scripts based on the given domain
+    *
     * @param domain
     *   The domain extracted from the Excel referential file
-    * @param scriptTemplateFile
+    * @param scriptTemplateName
     *   The script template
     * @param scriptsOutputPath
     *   Where the scripts are produced
@@ -78,7 +85,7 @@ class ScriptGen(
     */
   def generateDomain(
     domain: Domain,
-    scriptTemplateFile: File,
+    scriptTemplateName: String,
     scriptsOutputPath: File,
     scriptOutputPattern: Option[String],
     defaultDeltaColumn: Option[String],
@@ -95,67 +102,8 @@ class ScriptGen(
         activeEnv
       )
     templateSettings.flatMap { ts =>
-      templatize(scriptTemplateFile, ts)
+      templatize(scriptTemplateName, ts)
     }
-  }
-
-  /** Generate all extraction scripts based on the given domain
-    * @param job
-    *   The job extracted from the yml file
-    * @param scriptTemplateFile
-    *   The script template
-    * @param scriptsOutputFile
-    *   Where the scripts are produced
-    * @return
-    *   The list of produced files
-    */
-  def generateJob(
-    job: AutoJobDesc,
-    scriptTemplateFile: File,
-    scriptsOutputFolder: File,
-    scriptOutputPattern: Option[String]
-  ): File = {
-    import settings.metadataStorageHandler
-    val workflow =
-      new IngestionWorkflow(metadataStorageHandler, schemaHandler, new SimpleLauncher())
-    val actions = workflow.buildTasks(job.name, Map.empty[String, String], None)
-    actions.map { action =>
-      val (preSql, sql, postSql) = action.engine match {
-        case BQ =>
-          action.buildQueryBQ()
-        case SPARK =>
-          action.buildQuerySpark(Nil)
-        case _ =>
-          throw new Exception("not supported") // TODO
-      }
-      action.copy(taskDesc =
-        action.taskDesc.copy(presql = preSql, sql = Option(sql), postsql = postSql)
-      )(settings, metadataStorageHandler, schemaHandler)
-    }
-
-    val scriptPayload = engine.layout(
-      scriptTemplateFile.pathAsString,
-      Map(
-        "job"     -> job,
-        "actions" -> actions,
-        "env"     -> schemaHandler.activeEnv()
-      )
-    )
-    val scriptOutputFileName = scriptOutputPattern
-      .map(
-        _.richFormat(
-          schemaHandler.activeEnv(),
-          Map(
-            "job" -> job.name
-          )
-        )
-      )
-      .getOrElse(s"${job.name}.py")
-    val scriptOutputFile = scriptsOutputFolder / scriptOutputFileName
-    val scriptFile =
-      scriptOutputFile.createFileIfNotExists().overwrite(scriptPayload)
-    logger.info(s"Successfully generated job script $scriptFile")
-    scriptFile
   }
 
   /** Fills a Mustache templated file based on a given domain. The following documentation considers
@@ -197,7 +145,7 @@ class ScriptGen(
     val arglist = args.toList
     logger.info(s"Running Starlake $arglist")
 
-    ExtractScriptGenConfig.parse(args) match {
+    ExtractScriptConfig.parse(args) match {
       case Some(config) =>
         run(config)
       case _ =>
@@ -206,29 +154,24 @@ class ScriptGen(
     }
   }
 
-  def run(config: ExtractScriptGenConfig)(implicit settings: Settings): Boolean = {
+  def run(config: ExtractScriptConfig)(implicit settings: Settings): Boolean = {
     import settings.metadataStorageHandler
     DatasetArea.initMetadata(metadataStorageHandler)
     val schemaHandler = new SchemaHandler(metadataStorageHandler)
-    (config.domain, config.jobs) match {
-      case (Nil, Nil) =>
+    config.domain match {
+      case Nil =>
         logger.warn(s"No domain or jobs provided. Extracting all domains")
         val domainNames = schemaHandler.domains().map(_.name)
         runOnDomains(config, schemaHandler, domainNames)
-      case (Nil, jobNames) =>
-        runOnJobs(config, schemaHandler, jobNames)
-      case (domainNames, Nil) =>
+      case domainNames =>
         runOnDomains(config, schemaHandler, domainNames)
-      case (_, _) =>
-        logger.error(s"Only one of domain or job list should be passed as an argument")
-        false
     }
   }
 
   private def runOnDomains(
-    config: ExtractScriptGenConfig,
-    schemaHandler: SchemaHandler,
-    domainNames: Seq[String]
+                            config: ExtractScriptConfig,
+                            schemaHandler: SchemaHandler,
+                            domainNames: Seq[String]
   ): Boolean = {
     val domains: List[Domain] = schemaHandler.domains()
     domainNames
@@ -238,7 +181,7 @@ class ScriptGen(
           case Some(domain) =>
             generateDomain(
               domain,
-              config.scriptTemplateFile,
+              config.scriptTemplateName,
               config.scriptOutputDir,
               config.scriptOutputPattern,
               config.deltaColumn.orElse(ExtractorSettings.deltaColumns.defaultColumn),
@@ -253,32 +196,6 @@ class ScriptGen(
       }
       .forall(_ == true)
   }
-
-  private def runOnJobs(
-    config: ExtractScriptGenConfig,
-    schemaHandler: SchemaHandler,
-    jobNames: Seq[String]
-  ): Boolean = {
-    val jobs = schemaHandler.jobs()
-    jobNames
-      .map { jobName =>
-        // Extracting the Job
-        jobs.get(jobName) match {
-          case Some(job) =>
-            generateJob(
-              job,
-              config.scriptTemplateFile,
-              config.scriptOutputDir,
-              config.scriptOutputPattern
-            )
-            true
-          case None =>
-            logger.error(s"No file found for domain name ${config.domain}")
-            false
-        }
-      }
-      .forall(_ == true)
-  }
 }
 
 object Main {
@@ -288,7 +205,7 @@ object Main {
   val schemaHandler = new SchemaHandler(metadataStorageHandler)
 
   def main(args: Array[String]): Unit = {
-    val result = new ScriptGen(storageHandler, schemaHandler, launcherService).run(args)
+    val result = new ExtractScript(storageHandler, schemaHandler, launcherService).run(args)
     if (!result) throw new Exception("ScriptGen failed!")
   }
 }
