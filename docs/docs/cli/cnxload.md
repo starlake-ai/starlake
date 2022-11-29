@@ -1,5 +1,5 @@
 ---
-sidebar_position: 80
+sidebar_position: 20
 title: jdbcload
 ---
 

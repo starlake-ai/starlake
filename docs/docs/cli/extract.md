@@ -1,12 +1,12 @@
 ---
-sidebar_position: 110
+sidebar_position: 40
 title: extract
 ---
 
 
 ## Synopsis
 
-**starlake extract --schema [options]**
+**starlake extract [options]**
 
 ## Description
 
@@ -46,9 +46,8 @@ Parameter|Cardinality|Description
 ---|---|---
 --extract:`<value>`|*Optional*|
 --domain:`domain1,domain2 ...`|*Optional*|The domain list for which to generate extract scripts
---job:`job1,job2 ...`|*Optional*|The jobs you want to load. use '*' to load all jobs 
---templateFile:`<value>`|*Required*|Script template file
---scriptsOutputDir:`<value>`|*Required*|Scripts output folder
+--template-dir:`<value>`|*Required*|Script template file
+--output-dir:`<value>`|*Required*|Scripts output folder
 --deltaColumn:`<value>`|*Optional*|The default date column used to determine new rows to export. Overrides config database-extractor.default-column value.
---scriptsOutputPattern:`<value>`|*Optional*|Default output file pattern name<br />the following variables are allowed.<br />When applied to a domain:<br />  - {{domain}}: domain name<br />  - {{schema}}: Schema name<br />  By default : EXTRACT_{{schema}}.sql<br />When applied to a job:<br />  - {{job}}: job name<br />  By default: {{job}}.py<br />  
+--scriptsOutputPattern:`<value>`|*Optional*|Default output file pattern name<br />the following variables are allowed.<br />When applied to a domain:<br />  - {{domain}}: domain name<br />  - {{table}}: Table name<br />  By default : extract_{{table}}<br />  
 

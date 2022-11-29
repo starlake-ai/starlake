@@ -1,7 +1,14 @@
 package ai.starlake.job
 
 import ai.starlake.config.{DatasetArea, Settings}
-import ai.starlake.extractor.{ExtractData, ExtractSchema, ExtractScriptGenConfig, ScriptGen}
+import ai.starlake.extract.{
+  ExtractData,
+  ExtractDataConfig,
+  ExtractSchema,
+  ExtractSchemaConfig,
+  ExtractScriptConfig,
+  ExtractScript
+}
 import ai.starlake.job.atlas.AtlasConfig
 import ai.starlake.job.bootstrap.BootstrapConfig
 import ai.starlake.job.convert.{FileSplitterConfig, Parquet2CSV, Parquet2CSVConfig}
@@ -75,11 +82,12 @@ class Main() extends StrictLogging {
     BigQueryLoadConfig,
     ConnectionLoadConfig,
     ESLoadConfig,
-    ExtractScriptGenConfig,
+    ExtractDataConfig,
+    ExtractSchemaConfig,
+    ExtractScriptConfig,
     FileSplitterConfig,
     ImportConfig,
     InferSchemaConfig,
-    JDBC2YmlConfig,
     KafkaJobConfig,
     LoadConfig,
     MetricsConfig,
@@ -330,7 +338,7 @@ class Main() extends StrictLogging {
         }
         true
       case "extract-script" =>
-        new ScriptGen(storageHandler, schemaHandler, launcherService).run(args.drop(1))
+        new ExtractScript(storageHandler, schemaHandler, launcherService).run(args.drop(1))
       case "extract-schema" =>
         ExtractSchema.run(args.drop(1))
         true

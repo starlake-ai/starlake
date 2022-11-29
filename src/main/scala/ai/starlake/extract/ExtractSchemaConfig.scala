@@ -1,4 +1,4 @@
-package ai.starlake.extractor
+package ai.starlake.extract
 
 import ai.starlake.utils.CliConfig
 import scopt.OParser

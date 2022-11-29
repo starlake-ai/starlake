@@ -254,7 +254,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
 
   def view(viewName: String): Option[String] = loadSqlJ2File(DatasetArea.views, viewName)
 
-  private val cometDateVars = {
+  val cometDateVars: Map[String, String] = {
     val today = LocalDateTime.now
     val dateFormatter = DateTimeFormatter.ofPattern("yyyyMMdd")
     val dateTimeFormatter = DateTimeFormatter.ofPattern("yyyyMMddHHmmss")
