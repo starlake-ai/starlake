@@ -1,7 +1,6 @@
-package ai.starlake.extractor
+package ai.starlake.extract
 
 import ai.starlake.config.{DatasetArea, Settings}
-import ai.starlake.schema.generator.JDBC2Yml
 import ai.starlake.schema.model.{Attribute, Domain, Schema}
 import better.files.File
 import com.typesafe.scalalogging.LazyLogging
@@ -455,9 +454,5 @@ object JDBCUtils extends LazyLogging {
             outFile.delete(true)
         }
     }
-  }
-
-  def main(args: Array[String]): Unit = {
-    JDBC2Yml.run(args)
   }
 }
