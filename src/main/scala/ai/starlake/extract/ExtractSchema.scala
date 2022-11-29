@@ -1,4 +1,4 @@
-package ai.starlake.extractor
+package ai.starlake.extract
 
 import ai.starlake.config.Settings
 import ai.starlake.schema.handlers.SchemaHandler
@@ -89,7 +89,7 @@ object ExtractSchema extends Extract with LazyLogging {
         case None => table
         case Some(write) =>
           val metadata =
-            domainTemplate.flatMap(_.metadata).getOrElse(Metadata(write = jdbcSchema.write))
+            domainTemplate.flatMap(_.metadata).getOrElse(Metadata()).copy(write = jdbcSchema.write)
           table.copy(metadata = Some(metadata))
       }
       val tableWithPatternAndWrite = jdbcSchema.pattern match {

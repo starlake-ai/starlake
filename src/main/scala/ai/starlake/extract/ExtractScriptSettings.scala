@@ -1,12 +1,10 @@
-package ai.starlake.extractor.config
+package ai.starlake.extract
 
-import ai.starlake.extractor.config.DeltaColumnsMapping._
+import ai.starlake.extract.DeltaColumnsMapping._
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.StrictLogging
 import pureconfig._
 import pureconfig.generic.auto._
-
-import scala.util.Right
 
 case class DeltaColumnsMapping(
   defaultColumn: Option[ColumnName] = None,

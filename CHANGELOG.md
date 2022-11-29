@@ -1,6 +1,10 @@
 
 # Release notes
 
+# 0.6.1
+__ Breaking Changes__
+- Extract has been refactored to 3 different scripts: extract-schema, extract-data and extract-script
+
 # 0.6.0
 __New Feature__:
 - Support for Jinja templating everywhere

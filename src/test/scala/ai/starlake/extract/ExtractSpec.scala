@@ -1,7 +1,6 @@
-package ai.starlake.schema.generator
+package ai.starlake.extract
 
 import ai.starlake.TestHelper
-import ai.starlake.extractor.{JDBCSchema, JDBCTable}
 import ai.starlake.schema.model.{Domain, Metadata, Mode}
 import ai.starlake.utils.YamlSerializer
 import better.files.File
@@ -9,7 +8,7 @@ import better.files.File
 import java.sql.DriverManager
 import scala.util.{Failure, Success}
 
-class JDBC2YmlSpec extends TestHelper {
+class ExtractSpec extends TestHelper {
   "JDBC2Yml of all tables" should "should generated all the table schemas in a YML file" in {
     new WithSettings() {
       val jdbcOptions = settings.comet.connections("test-h2")
@@ -37,8 +36,7 @@ class JDBC2YmlSpec extends TestHelper {
         directory = Some("/{{domain}}/{{schema}}")
       )
       val domainTemplate = Domain(name = "CUSTOM_NAME", metadata = Some(metadata))
-      val config = JDBC2YmlConfig()
-      JDBC2Yml.extractSchema(
+      ExtractSchema.extractSchema(
         JDBCSchema(None, "PUBLIC"),
         settings.comet.connections("test-h2").options,
         File("/tmp"),
@@ -130,7 +128,7 @@ class JDBC2YmlSpec extends TestHelper {
       val row1InsertionCheck = (1 == rs.getInt("ID")) && ("A" == rs.getString("NAME"))
       assert(row1InsertionCheck, "Data not inserted")
 
-      JDBC2Yml.extractSchema(
+      ExtractSchema.extractSchema(
         JDBCSchema(
           None,
           "PUBLIC",
@@ -192,7 +190,7 @@ class JDBC2YmlSpec extends TestHelper {
       val row1InsertionCheck = (1 == rs.getInt("ID")) && ("A" == rs.getString("NAME"))
       assert(row1InsertionCheck, "Data not inserted")
 
-      JDBC2Yml.extractSchema(
+      ExtractSchema.extractSchema(
         JDBCSchema(
           None,
           "PUBLIC",
@@ -230,22 +228,31 @@ class JDBC2YmlSpec extends TestHelper {
     }
   }
 
-  "All SchemaGen Config" should "be known and taken  into account" in {
-    val rendered = JDBC2YmlConfig.usage()
+  "ExtractData Config" should "work" in {
+    val rendered = ExtractDataConfig.usage()
     println(rendered)
     val expected =
       """
-        |Usage: starlake extract [options]
+        |Usage: starlake extract-data [options]
         |
-        |  --data                  Export table data
-        |  --jdbc-mapping <value>  Database tables & connection info
+        |  --mapping <value>  Database tables & connection info
         |  --limit <value>         Limit number of records
         |  --separator <value>     Column separator
         |  --output-dir <value>    Where to output csv files
-        |  --schema                Export table schema
+        |""".stripMargin
+    rendered.substring(rendered.indexOf("Usage:")).replaceAll("\\s", "") shouldEqual expected
+      .replaceAll("\\s", "")
+  }
+
+  "ExtractSchema Config" should "work" in {
+    val rendered = ExtractSchemaConfig.usage()
+    println(rendered)
+    val expected =
+      """
+        |Usage: starlake extract-schema [options]
+        |
         |  --mapping <value>        Database tables & connection info
         |  --output-dir <value>    Where to output YML files
-        |  --template <value>      YML template to use YML metadata
         |""".stripMargin
     rendered.substring(rendered.indexOf("Usage:")).replaceAll("\\s", "") shouldEqual expected
       .replaceAll("\\s", "")

@@ -1,26 +1,27 @@
-package ai.starlake.extractor
+package ai.starlake.extract
 
 import better.files.File
 import ai.starlake.utils.CliConfig
 import scopt.OParser
 
-case class ExtractScriptGenConfig(
+case class ExtractScriptConfig(
   domain: Seq[String] = Nil,
-  jobs: Seq[String] = Nil,
-  scriptTemplateFile: File = File("."),
+  scriptTemplateName: String = ".",
   scriptOutputDir: File = File("."),
   deltaColumn: Option[String] = None,
   scriptOutputPattern: Option[String] = None
 )
 
-object ExtractScriptGenConfig extends CliConfig[ExtractScriptGenConfig] {
-  val command = "extract"
-  def exists(name: String)(path: String): Either[String, Unit] =
+object ExtractScriptConfig extends CliConfig[ExtractScriptConfig] {
+  val command = "extract-script"
+  def exists(name: String)(path: String): Either[String, Unit] = {
+    File(path).createFileIfNotExists(createParents = true)
     if (File(path).exists) Right(())
-    else Left(s"$name at path $path does not exist")
+    else Left(s"$name at path $path could not be created")
+  }
 
-  val parser: OParser[Unit, ExtractScriptGenConfig] = {
-    val builder = OParser.builder[ExtractScriptGenConfig]
+  val parser: OParser[Unit, ExtractScriptConfig] = {
+    val builder = OParser.builder[ExtractScriptConfig]
     import builder._
     OParser.sequence(
       programName(s"starlake $command"),
@@ -63,39 +64,30 @@ object ExtractScriptGenConfig extends CliConfig[ExtractScriptGenConfig] {
         .valueName("domain1,domain2 ...")
         .optional()
         .text("The domain list for which to generate extract scripts"),
-      opt[Seq[String]]("job")
-        .action((x, c) => c.copy(jobs = x))
-        .valueName("job1,job2 ...")
-        .optional()
-        .text("The jobs you want to load. use '*' to load all jobs "),
-      opt[String]("templateFile")
-        .validate(exists("Script template file"))
-        .action((x, c) => c.copy(scriptTemplateFile = File(x)))
+      opt[String]("template")
+        .action((x, c) => c.copy(scriptTemplateName = x))
         .required()
-        .text("Script template file"),
-      opt[String]("scriptsOutputDir")
-        .validate(exists("Script output folder"))
+        .text("Script template dir"),
+      opt[String]("output-dir")
+        .validate(exists("Output Script folder"))
         .action((x, c) => c.copy(scriptOutputDir = File(x)))
         .required()
         .text("Scripts output folder"),
-      opt[String]("deltaColumn")
+      opt[String]("delta-column")
         .action((x, c) => c.copy(deltaColumn = Some(x)))
         .optional()
         .text(
           """The default date column used to determine new rows to export. Overrides config database-extractor.default-column value.""".stripMargin
         ),
-      opt[String]("scriptsOutputPattern")
+      opt[String]("script-output-pattern")
         .action((x, c) => c.copy(scriptOutputPattern = Some(x)))
         .optional()
         .text("""Default output file pattern name
             |the following variables are allowed.
             |When applied to a domain:
             |  - {{domain}}: domain name
-            |  - {{schema}}: Schema name
-            |  By default : EXTRACT_{{schema}}.sql
-            |When applied to a job:
-            |  - {{job}}: job name
-            |  By default: {{job}}.py
+            |  - {{table}}: Table name
+            |  By default : extract_{{table}}
             |  """.stripMargin)
     )
   }
@@ -107,6 +99,6 @@ object ExtractScriptGenConfig extends CliConfig[ExtractScriptGenConfig] {
     * @return
     *   : an Option of MetricConfing with the parsed domain and schema names.
     */
-  def parse(args: Seq[String]): Option[ExtractScriptGenConfig] =
-    OParser.parse(parser, args, ExtractScriptGenConfig())
+  def parse(args: Seq[String]): Option[ExtractScriptConfig] =
+    OParser.parse(parser, args, ExtractScriptConfig())
 }
