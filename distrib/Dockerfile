@@ -1,17 +1,24 @@
-# Use the Official OpenJDK image for a lean production stage of our multi-stage build.
-# https://hub.docker.com/_/openjdk
-# https://docs.docker.com/develop/develop-images/multistage-build/#use-multi-stage-builds
-# Pull base image.
-FROM ubuntu
+# First Stage - Linting
+FROM hadolint/hadolint:latest-alpine as config
+WORKDIR /
+COPY Dockerfile .
+# Execute the linting process
+RUN echo "### Linting Dockerfile ###" && /bin/hadolint Dockerfile
 
-ARG COMET_VERSION=0.5.3
-ARG SPARK_VERSION=3.3.1
-ARG HADOOP_VERSION=3
+# Second stage - Build target image
+FROM ubuntu:22.10
+
+ARG COMET_VERSION
+ARG SPARK_VERSION
+ARG HADOOP_VERSION
 
 
 # Install Java.
-RUN apt-get update && apt-get -y install openjdk-17-jdk curl
-
+# hadolint ignore=DL3008
+RUN apt-get update \
+    && apt-get -y install openjdk-17-jdk curl jq --no-install-recommends \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
 RUN mkdir -p /app/starlake/
 WORKDIR /app/starlake
