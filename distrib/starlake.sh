@@ -140,4 +140,4 @@ echo Make sure your java home path does not contain space
 #SPARK_DRIVER_OPTIONS="-Dlog4j.configuration=file://$SCRIPT_DIR/bin/spark/conf/log4j2.properties"
 #export SPARK_DRIVER_OPTIONS="-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005 -Dlog4j.configuration=file://$SPARK_DIR/conf/log4j.properties"
 SPARK_SUBMIT="$SPARK_TARGET_FOLDER/bin/spark-submit"
-COMET_ROOT="$COMET_ROOT" "$SPARK_SUBMIT" --driver-java-options "$SPARK_DRIVER_OPTIONS" $SPARK_CONF_OPTIONS --class "$COMET_MAIN" "$SPARK_TARGET_FOLDER/jars/$STARLAKE_JAR_NAME" $@
+COMET_ROOT=$COMET_ROOT $SPARK_SUBMIT --driver-java-options "$SPARK_DRIVER_OPTIONS" $SPARK_CONF_OPTIONS --class $COMET_MAIN $SPARK_TARGET_FOLDER/jars/$STARLAKE_JAR_NAME $@
