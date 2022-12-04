@@ -62,10 +62,12 @@ class ExtractScript(
     )
     val outputPath = formatOutputScriptName(inputPath, templateParams)
     val outputFile = File(outputPath)
-    outputFile.createFileIfNotExists().overwrite(scriptPayload)
+    val generatedOutputFile = File(outputFile.parent, "generated", outputFile.name)
+    generatedOutputFile.parent.createDirectoryIfNotExists()
+    generatedOutputFile.createFileIfNotExists().overwrite(scriptPayload)
 
-    logger.info(s"Successfully generated script $outputFile")
-    outputFile
+    logger.info(s"Successfully generated script $generatedOutputFile")
+    generatedOutputFile
   }
 
   /** Generate all extraction scripts based on the given domain
@@ -90,13 +92,12 @@ class ExtractScript(
     scriptOutputPattern: Option[String],
     defaultDeltaColumn: Option[String],
     deltaColumns: Map[String, String],
+    auditDB: String,
     activeEnv: Map[String, String]
   ): List[File] = {
     val templateSettings =
       TemplateParams.fromDomain(
         domain,
-        scriptsOutputPath,
-        scriptOutputPattern,
         defaultDeltaColumn,
         deltaColumns,
         activeEnv
@@ -125,11 +126,10 @@ class ExtractScript(
     *   - name -> the column name
     *   - trailing_col_char -> the separator to append to the column (, if there are more columns to
     *     come, "" otherwise) Here is an example how to use it in a template: SELECT {{#columns}}
-    *     TO_CHAR({{name}}){{trailing_col_char}} {{/columns}} FROM {{table_name}}; export_file ->
-    *     the export file name delta_column -> a delta date column (passed as a Main arg or as a
-    *     config element), the column which is used to determine new rows for each exports in APPEND
-    *     mode full_export -> if the export is a full or delta export (the logic is to be
-    *     implemented in your script)
+    *     TO_CHAR({{name}}){{trailing_col_char}} {{/columns}} FROM {{table_name}}; delta_column -> a
+    *     delta date column (passed as a Main arg or as a config element), the column which is used
+    *     to determine new rows for each exports in APPEND mode full_export -> if the export is a
+    *     full or delta export (the logic is to be implemented in your script)
     *
     * Usage: starlake [script-gen] [options]
     *
@@ -169,9 +169,9 @@ class ExtractScript(
   }
 
   private def runOnDomains(
-                            config: ExtractScriptConfig,
-                            schemaHandler: SchemaHandler,
-                            domainNames: Seq[String]
+    config: ExtractScriptConfig,
+    schemaHandler: SchemaHandler,
+    domainNames: Seq[String]
   ): Boolean = {
     val domains: List[Domain] = schemaHandler.domains()
     domainNames
@@ -186,6 +186,7 @@ class ExtractScript(
               config.scriptOutputPattern,
               config.deltaColumn.orElse(ExtractorSettings.deltaColumns.defaultColumn),
               ExtractorSettings.deltaColumns.deltaColumns,
+              config.auditDB,
               schemaHandler.activeEnv()
             )
             true

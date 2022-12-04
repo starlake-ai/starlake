@@ -3,12 +3,10 @@ package ai.starlake.extract
 import ai.starlake.config.Settings
 import ai.starlake.schema.model.WriteMode.OVERWRITE
 import ai.starlake.schema.model.{Domain, PrivacyLevel, Schema}
-import ai.starlake.utils.Formatter._
-import better.files.File
-
-import java.time.format.DateTimeFormatter
 
 /** Params for the script's mustache template
+  * @param domainToExport
+  *   Domain name
   * @param tableToExport
   *   table to export
   * @param columnsToExport
@@ -23,6 +21,8 @@ import java.time.format.DateTimeFormatter
   *   export dsv file base name (will be completed by current datetime when executed)
   * @param scriptOutputFile
   *   where the script is produced
+  * @param auditDB
+  *   Schema name where the audit table is created. Same as domainToExport by default
   */
 case class TemplateParams(
   domainToExport: String,
@@ -31,8 +31,7 @@ case class TemplateParams(
   fullExport: Boolean,
   deltaColumn: Option[String],
   dsvDelimiter: String,
-  exportOutputFileBase: String,
-  scriptOutputFile: Option[File],
+  auditDB: Option[String],
   activeEnv: Map[String, String]
 ) {
 
@@ -80,8 +79,8 @@ case class TemplateParams(
           "table_name"   -> tableToExport.toLowerCase, // For compatibility
           "delimiter"    -> dsvDelimiter,
           "columns"      -> columnsParam,
-          "export_file"  -> exportOutputFileBase,
-          "full_export"  -> fullExport
+          "full_export"  -> fullExport,
+          "audit_schema" -> auditDB.getOrElse(domainToExport)
         )
       ) { case (list, deltaCol) => list :+ ("delta_column" -> deltaCol.toUpperCase) }
       .toMap ++ activeEnv
@@ -89,8 +88,6 @@ case class TemplateParams(
 }
 
 object TemplateParams {
-
-  val dateFormater: DateTimeFormatter = DateTimeFormatter.ISO_DATE
 
   /** Generating all the TemplateParams, corresponding to all the schema's tables of the domain
     *
@@ -107,19 +104,15 @@ object TemplateParams {
     */
   def fromDomain(
     domain: Domain,
-    scriptsOutputFolder: File,
-    scriptOutputPattern: Option[String],
     defaultDeltaColumn: Option[String],
     deltaColumns: Map[String, String],
     activeEnv: Map[String, String]
   )(implicit settings: Settings): List[TemplateParams] =
-    domain.tables.map(s =>
+    domain.tables.map(table =>
       fromSchema(
         domain.name,
-        s,
-        scriptsOutputFolder,
-        scriptOutputPattern,
-        deltaColumns.get(s.name).orElse(defaultDeltaColumn),
+        table,
+        deltaColumns.get(table.name).orElse(defaultDeltaColumn),
         activeEnv
       )
     )
@@ -138,23 +131,9 @@ object TemplateParams {
   def fromSchema(
     domainName: String,
     schema: Schema,
-    scriptsOutputFolder: File,
-    scriptOutputPattern: Option[String],
     deltaColumn: Option[String],
     activeEnv: Map[String, String]
   )(implicit settings: Settings): TemplateParams = {
-    val scriptOutputFileName =
-      scriptOutputPattern
-        .map(
-          _.richFormat(
-            Map.empty,
-            Map(
-              "domain" -> domainName,
-              "schema" -> schema.name
-            ) ++ activeEnv
-          )
-        )
-        .getOrElse(s"extract_${domainName}.${schema.name}.sql")
     // exportFileBase is the csv file name base such as EXPORT_L58MA_CLIENT_DELTA_...
     // Considering a pattern like EXPORT_L58MA_CLIENT.*.csv
     // The script which is generated will append the current date time to that base (EXPORT_L58MA_CLIENT_18032020173100).
@@ -169,8 +148,7 @@ object TemplateParams {
       fullExport = isFullExport,
       deltaColumn = if (!isFullExport) deltaColumn else None,
       dsvDelimiter = schema.metadata.flatMap(_.separator).getOrElse(","),
-      exportOutputFileBase = exportFileBase,
-      scriptOutputFile = Some(scriptsOutputFolder / scriptOutputFileName),
+      None,
       activeEnv
     )
   }

@@ -1,12 +1,12 @@
 ---
 sidebar_position: 40
-title: extract
+title: extract-script
 ---
 
 
 ## Synopsis
 
-**starlake extract [options]**
+**starlake extract-script [options]**
 
 ## Description
 
@@ -46,8 +46,9 @@ Parameter|Cardinality|Description
 ---|---|---
 --extract:`<value>`|*Optional*|
 --domain:`domain1,domain2 ...`|*Optional*|The domain list for which to generate extract scripts
---template-dir:`<value>`|*Required*|Script template file
+--template:`<value>`|*Required*|Script template dir
 --output-dir:`<value>`|*Required*|Scripts output folder
---deltaColumn:`<value>`|*Optional*|The default date column used to determine new rows to export. Overrides config database-extractor.default-column value.
---scriptsOutputPattern:`<value>`|*Optional*|Default output file pattern name<br />the following variables are allowed.<br />When applied to a domain:<br />  - {{domain}}: domain name<br />  - {{table}}: Table name<br />  By default : extract_{{table}}<br />  
+--audit-db:`<value>`|*Required*|Audit DB that will contain the audit export table
+--delta-column:`<value>`|*Optional*|The default date column used to determine new rows to export. Overrides config database-extractor.default-column value.
+--script-output-pattern:`<value>`|*Optional*|Default output file pattern name<br />the following variables are allowed.<br />When applied to a domain:<br />  - {{domain}}: domain name<br />  - {{table}}: Table name<br />  By default : extract_{{table}}<br />  
 

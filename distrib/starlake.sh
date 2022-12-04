@@ -4,13 +4,14 @@ SCRIPT_DIR="$( cd "$( dirname -- "${BASH_SOURCE[0]}" )" && pwd )"
 COMET_ROOT="${COMET_ROOT:-`pwd`}"
 SPARK_VERSION="${SPARK_VERSION:-3.3.1}"
 HADOOP_VERSION="${HADOOP_VERSION:-3}"
-SPARK_BQ_VERSION="${SPARK_BQ_VERSION:-0.27.1-preview}"
+SPARK_BQ_VERSION="${SPARK_BQ_VERSION:-0.27.1}"
 SCALA_VERSION=2.12
 STARLAKE_ARTIFACT_NAME=starlake-spark3_$SCALA_VERSION
 SPARK_DIR_NAME=spark-$SPARK_VERSION-bin-hadoop$HADOOP_VERSION
 SPARK_TARGET_FOLDER=$SCRIPT_DIR/bin/spark
-SPARK_BQ_ARTIFACT_NAME=spark-3.1-bigquery
+SPARK_BQ_ARTIFACT_NAME=spark-bigquery-with-dependencies_$SCALA_VERSION
 SPARK_BQ_JAR_NAME=$SPARK_BQ_ARTIFACT_NAME-$SPARK_BQ_VERSION.jar
+
 SKIP_INSTALL=0
 export COMET_ENV="${COMET_ENV:-FS}"
 export SPARK_DRIVER_MEMORY="${SPARK_DRIVER_MEMORY:-4G}"
@@ -24,7 +25,7 @@ SPARK_BQ_URL=https://repo1.maven.org/maven2/com/google/cloud/spark/$SPARK_BQ_ART
 
 initStarlakeInstallVariables() {
   if [[ -z "$COMET_VERSION" ]]; then
-      COMET_VERSION=$(curl -s --fail "https://search.maven.org/solrsearch/select?q=g:ai.starlake+AND+a:$STARLAKE_ARTIFACT_NAME&core=gav&start=0&rows=42&wt=json" | jq -r '.response.docs[].v' | sed '/-/!{s/$/_/}' | sort -Vr | sed 's/_$//' | head -n 1)
+      COMET_VERSION=$(curl -s --fail "https://search.maven.org/solrsearch/select?q=g:ai.starlake+AND+a:$STARLAKE_ARTIFACT_NAME&core=gav&start=0&rows=42&wt=json" | jq -r '.response.docs[].v' | sed '#-#!{s/$/_/}' | sort -Vr | sed 's/_$//' | head -n 1)
   fi
   STARLAKE_JAR_NAME=$STARLAKE_ARTIFACT_NAME-$COMET_VERSION-assembly.jar
   if [[ "$COMET_VERSION" == *"SNAPSHOT"* ]]
@@ -87,7 +88,7 @@ initEnv() {
     mkdir -p "$SCRIPT_DIR/bin"
     echo ""
     echo "- spark: downloading from $SPARK_TGZ_URL"
-    curl -s --fail --output "$SCRIPT_DIR/bin/$SPARK_TGZ_NAME" "$SPARK_TGZ_URL"
+    curl --fail --output "$SCRIPT_DIR/bin/$SPARK_TGZ_NAME" "$SPARK_TGZ_URL"
     tar zxf "$SCRIPT_DIR/bin/$SPARK_TGZ_NAME" -C "$SCRIPT_DIR/bin/"
     rm -f "$SCRIPT_DIR/bin/$SPARK_TGZ_NAME"
     mv "$SCRIPT_DIR/bin/$SPARK_DIR_NAME" "$SPARK_TARGET_FOLDER"
@@ -102,7 +103,7 @@ initEnv() {
   if [[ STARLAKE_DOWNLOADED -eq 1 ]]
   then
     echo "- starlake: downloading from $STARLAKE_JAR_URL"
-    curl -s --fail --output "$SPARK_TARGET_FOLDER/jars/$STARLAKE_JAR_NAME" "$STARLAKE_JAR_URL"
+    curl --fail --output "$SPARK_TARGET_FOLDER/jars/$STARLAKE_JAR_NAME" "$STARLAKE_JAR_URL"
     echo "Starlake Version: $COMET_VERSION" >> "$SCRIPT_DIR/version.info"
     echo "- starlake: OK"
   else
@@ -112,7 +113,7 @@ initEnv() {
   if [[ SPARK_BQ_DOWNLOADED -eq 1 ]]
   then
     echo "- spark bq: downloading from $SPARK_BQ_URL"
-    curl -s --fail --output "$SPARK_TARGET_FOLDER/jars/$SPARK_BQ_JAR_NAME" "$SPARK_BQ_URL"
+    curl --fail --output "$SPARK_TARGET_FOLDER/jars/$SPARK_BQ_JAR_NAME" "$SPARK_BQ_URL"
     echo "Spark Bigquery Version Version: $SPARK_BQ_VERSION" >> "$SCRIPT_DIR/version.info"
     echo "- spark bq: OK"
   else
