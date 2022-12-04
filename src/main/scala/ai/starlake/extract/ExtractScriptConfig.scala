@@ -9,6 +9,7 @@ case class ExtractScriptConfig(
   scriptTemplateName: String = ".",
   scriptOutputDir: File = File("."),
   deltaColumn: Option[String] = None,
+  auditDB: String = "",
   scriptOutputPattern: Option[String] = None
 )
 
@@ -54,11 +55,10 @@ object ExtractScriptConfig extends CliConfig[ExtractScriptConfig] {
           |                              FROM
           |                              {{table_name}};
           |````
-          | export_file -> the export file name
           | full_export -> if the export is a full or delta export (the logic is to be implemented in your script)
           |""".stripMargin
       ),
-      cmd("extract"),
+      cmd("extract-script"),
       opt[Seq[String]]("domain")
         .action((x, c) => c.copy(domain = x))
         .valueName("domain1,domain2 ...")
@@ -73,6 +73,10 @@ object ExtractScriptConfig extends CliConfig[ExtractScriptConfig] {
         .action((x, c) => c.copy(scriptOutputDir = File(x)))
         .required()
         .text("Scripts output folder"),
+      opt[String]("audit-db")
+        .action((x, c) => c.copy(auditDB = x))
+        .required()
+        .text("Audit DB that will contain the audit export table"),
       opt[String]("delta-column")
         .action((x, c) => c.copy(deltaColumn = Some(x)))
         .optional()
