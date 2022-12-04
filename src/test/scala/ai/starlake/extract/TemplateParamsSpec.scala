@@ -41,6 +41,7 @@ class TemplateParamsSpec extends TestHelper {
         "AnyDomain",
         schema,
         Some("updateCol"),
+        None,
         Map.empty
       ) shouldBe expectedTemplateParams
     }
@@ -73,6 +74,7 @@ class TemplateParamsSpec extends TestHelper {
       TemplateParams.fromSchema(
         "AnyDomain",
         schema,
+        None,
         None,
         Map.empty
       ) shouldBe expectedTemplateParams

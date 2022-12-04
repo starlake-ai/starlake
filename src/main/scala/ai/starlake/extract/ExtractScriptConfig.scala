@@ -7,7 +7,6 @@ import scopt.OParser
 case class ExtractScriptConfig(
   domain: Seq[String] = Nil,
   scriptTemplateName: String = ".",
-  scriptOutputDir: File = File("."),
   deltaColumn: Option[String] = None,
   auditDB: String = "",
   scriptOutputPattern: Option[String] = None
@@ -68,12 +67,7 @@ object ExtractScriptConfig extends CliConfig[ExtractScriptConfig] {
         .action((x, c) => c.copy(scriptTemplateName = x))
         .required()
         .text("Script template dir"),
-      opt[String]("output-dir")
-        .validate(exists("Output Script folder"))
-        .action((x, c) => c.copy(scriptOutputDir = File(x)))
-        .required()
-        .text("Scripts output folder"),
-      opt[String]("audit-db")
+      opt[String]("audit-schema")
         .action((x, c) => c.copy(auditDB = x))
         .required()
         .text("Audit DB that will contain the audit export table"),
