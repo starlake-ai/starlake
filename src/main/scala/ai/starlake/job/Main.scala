@@ -6,8 +6,8 @@ import ai.starlake.extract.{
   ExtractDataConfig,
   ExtractSchema,
   ExtractSchemaConfig,
-  ExtractScriptConfig,
-  ExtractScript
+  ExtractScript,
+  ExtractScriptConfig
 }
 import ai.starlake.job.atlas.AtlasConfig
 import ai.starlake.job.bootstrap.BootstrapConfig

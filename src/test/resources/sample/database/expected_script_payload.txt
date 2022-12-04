@@ -1,94 +1,94 @@
--- MISE EN FORME POUR L'ECRITURE DANS LE FICHIER
-SET FEED OFF
-SET ECHO OFF
-SET VERIFY OFF
-SET HEADING OFF
-SET TERMOUT OFF
-SET CONCAT "#"
-SET MARKUP CSV ON DELIMITER ","
--- ARRET EN ECHEC EN CAS D'ERREUR SQL
-WHENEVER SQLERROR exit 1;
+-- mise en forme pour l'ecriture dans le fichier
+set feed off
+set echo off
+set verify off
+set heading off
+set termout off
+set concat "#"
+set markup csv on delimiter ","
+-- arret en echec en cas d'erreur sql
+whenever sqlerror exit 1;
 
--- RECUPERATION DU DOSSIER DE SORTIE
-DEFINE OUTPUT_DIR = &1;
+-- recuperation du dossier de sortie
+define output_dir = &1;
 
--- STOCKAGE DU DATE TIME COURANT EN STRING DANS DATE_TIME_CHAR
-DEFINE DATE_TIME_PATTERN = 'yyyymmddhhmiss';
-COLUMN DT_VAL NEW_VALUE CURRENT_EXPORT_DATE_CHAR;
-SELECT TO_CHAR(SYSDATE, '&DATE_TIME_PATTERN') DT_VAL FROM DUAL;
+-- stockage du date time courant en string dans date_time_char
+define date_time_pattern = 'yyyymmddhhmiss';
+column dt_val new_value current_export_date_char;
+select to_char(sysdate, '&date_time_pattern') dt_val from dual;
 
--- STOCKAGE DE LA DATE DE DERNIER EXPORT DANS LAST_EXPORT_DATE
-COLUMN LED NEW_VALUE LAST_EXPORT_DATE;
-SELECT
-    COALESCE(
+-- stockage de la date de dernier export dans last_export_date
+column led new_value last_export_date;
+select
+    coalesce(
         (
-            SELECT
-                LAST_EXPORT_DATE
-            FROM
-                EXPORT_STATUS
-            WHERE
-                TABLE_NAME = 'TABLE1'
+            select
+                last_export_date
+            from
+                export_status
+            where
+                table_name = 'table1'
         ),
-        TO_DATE('19700101','yyyymmdd') -- SI PAS D'EXPORT DATE EN TABLE, EPOCH
-    ) LED
-FROM
-    DUAL;
+        to_date('19700101','yyyymmdd') -- si pas d'export date en table, epoch
+    ) led
+from
+    dual;
 
--- OUVERTURE DU FICHIER
-PROMPT EXPORTING TABLE1 TO &OUTPUT_DIR#/output_file_DELTA_&CURRENT_EXPORT_DATE_CHAR#.csv;
-SPOOL &OUTPUT_DIR#/output_file_DELTA_&CURRENT_EXPORT_DATE_CHAR#.csv REPLACE
+-- ouverture du fichier
+prompt exporting table1 to &output_dir#/domain1_table1_delta_&current_export_date_char#.csv;
+spool &output_dir#/domain1_table1_delta_&current_export_date_char#.csv replace
 
-SELECT
-    TO_CHAR(COL1),
-    TO_CHAR(COL2)
-    FROM
-    TABLE1
-WHERE
-    UPDATECOL >= '&LAST_EXPORT_DATE';
--- FERMETURE DU FICHIER
-SPOOL OFF
+select
+    to_char(col1),
+    to_char(col2)
+    from
+    table1
+where
+    updatecol >= '&last_export_date';
+-- fermeture du fichier
+spool off
 
--- MISE À JOUR DE LA TABLE REPORTING
-BEGIN
-    UPDATE
-        EXPORT_STATUS
-    SET
-        SCHEMA_NAME = 'SCHEMA1',
-        TABLE_NAME = 'TABLE1',
-        LAST_EXPORT_DATE = TO_DATE(&CURRENT_EXPORT_DATE_CHAR, '&DATE_TIME_PATTERN'),
-        TYPE_LAST_EXPORT = 'DELTA',
-        NB_ROWS_LAST_EXPORT = (
-            SELECT
-                COUNT(*)
-            FROM
-                TABLE1
-            WHERE
-                UPDATECOL >= '&LAST_EXPORT_DATE'
+-- mise à jour de la table reporting
+begin
+    update
+        export_status
+    set
+        schema_name = 'schema1',
+        table_name = 'table1',
+        last_export_date = to_date(&current_export_date_char, '&date_time_pattern'),
+        type_last_export = 'delta',
+        nb_rows_last_export = (
+            select
+                count(*)
+            from
+                table1
+            where
+                updatecol >= '&last_export_date'
         )
-    WHERE
-        TABLE_NAME = 'TABLE1';
-    IF
-        SQL%ROWCOUNT = 0
-    THEN -- PAS DE LIGNE UPDATEES
-        INSERT INTO
-            EXPORT_STATUS (SCHEMA_NAME, TABLE_NAME, LAST_EXPORT_DATE, TYPE_LAST_EXPORT, NB_ROWS_LAST_EXPORT)
-        VALUES
+    where
+        table_name = 'table1';
+    if
+        sql%rowcount = 0
+    then -- pas de ligne updatees
+        insert into
+            export_status (schema_name, table_name, last_export_date, type_last_export, nb_rows_last_export)
+        values
             (
-                'SCHEMA1',
-                'TABLE1',
-                TO_DATE(&CURRENT_EXPORT_DATE_CHAR, '&DATE_TIME_PATTERN'),
-                'DELTA',
+                'schema1',
+                'table1',
+                to_date(&current_export_date_char, '&date_time_pattern'),
+                'delta',
                 (
-                    SELECT
-                        COUNT(*)
-                    FROM
-                        TABLE1
-                    WHERE
-                        UPDATECOL >= '&LAST_EXPORT_DATE'
+                    select
+                        count(*)
+                    from
+                        table1
+                    where
+                        updatecol >= '&last_export_date'
                 )
             );
-    END IF;
-END;
+    end if;
+end;
 /
 
-EXIT SUCCESS
+exit success

@@ -5,7 +5,7 @@ SET SCRIPT_DIR=%SCRIPT_DIR:~0,-1%
 
 SET SCALA_VERSION=2.12
 SET STARLAKE_ARTIFACT_NAME=starlake-spark3_%SCALA_VERSION%
-SET SPARK_BQ_ARTIFACT_NAME=spark-3.1-bigquery
+SET SPARK_BQ_ARTIFACT_NAME=spark-bigquery-with-dependencies_%SCALA_VERSION%
 SET HADOOP_DEFAULT_VERSION=3.2.2
 SET HADOOP_DLL=https://github.com/cdarlint/winutils/raw/master/hadoop-%HADOOP_DEFAULT_VERSION%/bin/hadoop.dll
 SET WINUTILS_EXE=https://github.com/cdarlint/winutils/raw/master/hadoop-%HADOOP_DEFAULT_VERSION%/bin/winutils.exe
@@ -120,7 +120,7 @@ echo - hadoop: OK
 :SKIP_HADOOP_HOME
 if "%HADOOP_DLL_DOWNLOADED%" == "FALSE" (
     echo - hadoop dll: downloading from %HADOOP_DLL%
-    powershell -command "& { (New-Object Net.WebClient).DownloadFile('%HADOOP_DLL%', '%HADOOP_HOME%\bin\hadoop.dll') }"
+    powershell -command "Start-BitsTransfer -Source %HADOOP_DLL% -Destination %HADOOP_HOME%\bin\hadoop.dll"
     echo Hadoop dll version: %HADOOP_DEFAULT_VERSION% >> %SCRIPT_DIR%/version.info
     echo - hadoop dll: OK
 ) else (
@@ -129,7 +129,7 @@ if "%HADOOP_DLL_DOWNLOADED%" == "FALSE" (
 
 if "%HADOOP_WINUTILS_DOWNLOADED%" == "FALSE" (
     echo - hadoop winutils: downloading from %WINUTILS_EXE%
-    powershell -command "& { (New-Object Net.WebClient).DownloadFile('%WINUTILS_EXE%', '%HADOOP_HOME%\bin\winutils.exe') }"
+    powershell -command "Start-BitsTransfer -Source %WINUTILS_EXE% -Destination %HADOOP_HOME%\bin\winutils.exe"
     echo Hadoop winutils version: %HADOOP_DEFAULT_VERSION% >> %SCRIPT_DIR%/version.info
     echo - hadoop winutils: OK
 ) else (
@@ -141,7 +141,7 @@ if "x%SPARK_VERSION%"=="x" (
 )
 
 if "x%SPARK_BQ_VERSION%"=="x" (
-    set SPARK_BQ_VERSION=0.27.1-preview
+    set SPARK_BQ_VERSION=0.27.1
 )
 
 if "%SPARK_DOWNLOADED%" == "TRUE" (
@@ -156,7 +156,7 @@ SET SPARK_DIR=%SCRIPT_DIR%\%SPARK_DIR_NAME%
 
 if not exist %SPARK_TGZ_NAME% (
     echo - spark: downloading from %SPARK_TGZ_URL%
-    powershell -command "& { (New-Object Net.WebClient).DownloadFile('%SPARK_TGZ_URL%', './%SPARK_TGZ_NAME%') }"
+    powershell -command "Start-BitsTransfer -Source %SPARK_TGZ_URL% -Destination ./%SPARK_TGZ_NAME%"
 )
 
 tar zxf .\%SPARK_TGZ_NAME% -C .
@@ -191,7 +191,7 @@ if not x%COMET_VERSION:SNAPSHOT=%==x%COMET_VERSION% (
 )
 
 echo - starlake: downloading from %STARLAKE_JAR_URL%
-powershell -command "& { (New-Object Net.WebClient).DownloadFile('%STARLAKE_JAR_URL%', '%SPARK_TARGET_FOLDER%/jars/%STARLAKE_JAR_NAME%') }"
+powershell -command "Start-BitsTransfer -Source %STARLAKE_JAR_URL% -Destination %SPARK_TARGET_FOLDER%/jars/%STARLAKE_JAR_NAME%"
 echo Starlake version: %COMET_VERSION% >> %SCRIPT_DIR%/version.info
 echo - starlake: OK
 
@@ -202,16 +202,12 @@ if "%SPARK_BQ_DOWNLOADED%" == "TRUE" (
     GOTO :SKIP_SPARK_BQ_DOWNLOAD
 )
 
-if "x%SPARK_BQ_VERSION%"=="x" (
-    set SPARK_BQ_VERSION=0.27.1-preview
-)
-
-SET SPARK_BQ_JAR_NAME=spark-3.1-bigquery-%SPARK_BQ_VERSION%.jar
+SET SPARK_BQ_JAR_NAME=%SPARK_BQ_ARTIFACT_NAME%-%SPARK_BQ_VERSION%.jar
 SET SPARK_BQ_JAR_FULL_NAME=%SPARK_TARGET_FOLDER%\jars\%SPARK_BQ_JAR_NAME%
 SET SPARK_BQ_JAR_URL=https://repo1.maven.org/maven2/com/google/cloud/spark/%SPARK_BQ_ARTIFACT_NAME%/%SPARK_BQ_VERSION%/%SPARK_BQ_JAR_NAME%
 
 echo - spark bq: downloading from %SPARK_BQ_JAR_URL%
-powershell -command "& { (New-Object Net.WebClient).DownloadFile('%SPARK_BQ_JAR_URL%', '%SPARK_TARGET_FOLDER%/jars/%SPARK_BQ_JAR_NAME%') }"
+powershell -command "Start-BitsTransfer -Source %SPARK_BQ_JAR_URL% -Destination %SPARK_TARGET_FOLDER%/jars/%SPARK_BQ_JAR_NAME%"
 echo Spark bq version: %SPARK_BQ_VERSION% >> %SCRIPT_DIR%/version.info
 echo - spark bq: OK
 

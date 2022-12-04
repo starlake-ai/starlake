@@ -1,13 +1,12 @@
-<%@ var domain_table: String %>
-<%@ var table_name: String %>
-<%@ var export_file: String %>
+<%@ var domain: String %>
+<%@ var table: String %>
 <%@ var columns: List[Map[String, Any]] %>
 <%@ var customDelimiter: String = ";" %>
 <%@ var full_export: Boolean %>
 <%@ var delta_column: String = ""  %>
 <%
     var suffix:String = if (full_export) {"FULL"} else {"DELTA"}
-    var outputCsvName:String = s"${domain_table}_${table_name}_${suffix}".toLowerCase()
+    var outputCsvName:String = s"${domain}_${table}_${suffix}".toLowerCase()
 
 %>
 -- How the data should be exported
@@ -54,8 +53,8 @@ SELECT
             FROM
                 COMET_EXPORT_STATUS
             WHERE
-                LI_SCHEMA_NAME = '${domain_table}' AND
-                LI_TABLE_NAME = '${table_name}'
+                LI_SCHEMA_NAME = '${domain}' AND
+                LI_TABLE_NAME = '${table}'
         ),
         TO_DATE('19700101','yyyymmdd') -- If table has never been exported
     ) LED
@@ -64,7 +63,7 @@ FROM
 
 -- Start export
 
-PROMPT EXPORTING ${table_name} TO &OUTPUT_DIR/${outputCsvName}_&CURRENT_EXPORT_DATE_CHAR\.csv;
+PROMPT EXPORTING ${table} TO &OUTPUT_DIR/${outputCsvName}_&CURRENT_EXPORT_DATE_CHAR\.csv;
 SPOOL &OUTPUT_DIR/${outputCsvName}_&CURRENT_EXPORT_DATE_CHAR\.csv REPLACE
 
 ALTER SESSION SET NLS_DATE_FORMAT = 'yyyy-mm-dd hh24:mi:ss';
@@ -78,7 +77,7 @@ ALTER SESSION SET NLS_DATE_FORMAT = 'yyyy-mm-dd hh24:mi:ss';
 #end
 #end || '"'
     FROM
-        ${table_name}
+        ${table}
     WHERE
         ${delta_column} >= '&LAST_EXPORT_DATE' AND ${delta_column} IS NOT NULL;
 #end
@@ -92,7 +91,7 @@ SELECT
     #end
 #end || '"'
 FROM
-    ${table_name};
+    ${table};
 #end
 
 -- Export finished successfully
@@ -105,15 +104,15 @@ BEGIN
         COMET_EXPORT_STATUS (LI_SCHEMA_NAME, LI_TABLE_NAME, DA_LAST_EXPORT_DATE, TYPE_LAST_EXPORT, NB_ROWS_LAST_EXPORT)
     VALUES
         (
-            '${domain_table}',
-            '${table_name}',
+            '${domain}',
+            '${table}',
             TO_DATE(&CURRENT_EXPORT_DATE_CHAR),
 #if (full_export)            'FULL',
             (
                 SELECT
                     COUNT(*)
                 FROM
-                    ${table_name}
+                    ${table}
             )
             #end
             #if (!full_export)
@@ -122,7 +121,7 @@ BEGIN
                 SELECT
                     COUNT(*)
                 FROM
-                    ${table_name}
+                    ${table}
                 WHERE
                     ${delta_column} >= '&LAST_EXPORT_DATE' AND ${delta_column} IS NOT NULL
             )
@@ -134,4 +133,4 @@ END;
 EXIT SUCCESS
 
 
--- sqlplus ${domain_table}@${domain_table}/password EXTRACT_${table_name}.sql /opt/oracle/user-scripts/scripts/
+-- sqlplus ${domain}@${domain}/password EXTRACT_${table}.sql /opt/oracle/user-scripts/scripts/
