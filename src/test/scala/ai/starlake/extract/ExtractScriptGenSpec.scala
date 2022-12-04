@@ -21,8 +21,7 @@ class ExtractScriptGenSpec extends TestHelper {
         fullExport = false,
         dsvDelimiter = ",",
         deltaColumn = Some("updateCol"),
-        exportOutputFileBase = "output_file",
-        scriptOutputFile = Some(scriptOutputFolder / "extract_AnyDomain.table1.sql"),
+        auditDB = None,
         activeEnv = Map.empty
       )
 
@@ -67,8 +66,7 @@ class ExtractScriptGenSpec extends TestHelper {
         fullExport = false,
         dsvDelimiter = ",",
         deltaColumn = Some("updateCol"),
-        exportOutputFileBase = "output_file",
-        scriptOutputFile = Some(scriptOutputFolder / "EXTRACT_TABLE.sql"),
+        auditDB = None,
         activeEnv = Map.empty
       )
 
@@ -85,37 +83,6 @@ class ExtractScriptGenSpec extends TestHelper {
       File(templatePayload).lines.mkString("\n").toLowerCase shouldBe File(
         getClass.getResource("/sample/database/expected_script_payload2.txt").getPath
       ).lines.mkString("\n").toLowerCase
-    }
-
-    "templatize job using ssp" should "generate an export script from a TemplateSettings" in {
-      new SpecTrait(
-        domainOrJobFilename = "my-job.comet.yml",
-        sourceDomainOrJobPathname = s"/sample/job/my-job.comet.yml",
-        datasetDomainName = "my-job",
-        sourceDatasetPathName = "Ignore", // ot accessed since not loading pending files
-        isDomain = false
-      ) {
-        cleanMetadata
-        cleanDatasets
-
-        val config = ExtractScriptConfig(
-          scriptOutputDir = scriptOutputFolder,
-          scriptOutputPattern = Some("comet-test-my-job.txt"),
-          scriptTemplateName = getClass.getResource("/sample/job").getPath
-        )
-        val success = new ExtractScript(
-          storageHandler,
-          new SchemaHandler(settings.storageHandler),
-          new SimpleLauncher()
-        ).run(config)(settings)
-        assert(success)
-
-        val resultFile = scriptOutputFolder / "comet-test-my-job.txt"
-        logger.info(resultFile.contentAsString)
-        resultFile.contentAsString.trim shouldBe File(
-          getClass.getResource("/sample/job/expected-extract-job.txt").getPath
-        ).contentAsString.trim
-      }
     }
   }
 }

@@ -35,8 +35,8 @@ FROM
     DUAL;
 
 -- OUVERTURE DU FICHIER
-PROMPT EXPORTING {{table_name}} TO &OUTPUT_DIR#/{{export_file}}_{{#full_export}}FULL{{/full_export}}{{^full_export}}DELTA{{/full_export}}_&CURRENT_EXPORT_DATE_CHAR#.csv;
-SPOOL &OUTPUT_DIR#/{{export_file}}_{{#full_export}}FULL{{/full_export}}{{^full_export}}DELTA{{/full_export}}_&CURRENT_EXPORT_DATE_CHAR#.csv REPLACE
+PROMPT EXPORTING {{table_name}} TO &OUTPUT_DIR#/{{domain}}_{{table}}_{{#full_export}}FULL{{/full_export}}{{^full_export}}DELTA{{/full_export}}_&CURRENT_EXPORT_DATE_CHAR#.csv;
+SPOOL &OUTPUT_DIR#/{{domain}}_{{table}}_{{#full_export}}FULL{{/full_export}}{{^full_export}}DELTA{{/full_export}}_&CURRENT_EXPORT_DATE_CHAR#.csv REPLACE
 
 {{^full_export}}
 SELECT
