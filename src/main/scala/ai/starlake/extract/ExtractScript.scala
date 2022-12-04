@@ -76,8 +76,6 @@ class ExtractScript(
     *   The domain extracted from the Excel referential file
     * @param scriptTemplateName
     *   The script template
-    * @param scriptsOutputPath
-    *   Where the scripts are produced
     * @param defaultDeltaColumn
     *   Defaut delta column
     * @param deltaColumns
@@ -88,11 +86,9 @@ class ExtractScript(
   def generateDomain(
     domain: Domain,
     scriptTemplateName: String,
-    scriptsOutputPath: File,
-    scriptOutputPattern: Option[String],
     defaultDeltaColumn: Option[String],
     deltaColumns: Map[String, String],
-    auditDB: String,
+    auditDB: Option[String],
     activeEnv: Map[String, String]
   ): List[File] = {
     val templateSettings =
@@ -100,6 +96,7 @@ class ExtractScript(
         domain,
         defaultDeltaColumn,
         deltaColumns,
+        auditDB,
         activeEnv
       )
     templateSettings.flatMap { ts =>
@@ -182,11 +179,9 @@ class ExtractScript(
             generateDomain(
               domain,
               config.scriptTemplateName,
-              config.scriptOutputDir,
-              config.scriptOutputPattern,
               config.deltaColumn.orElse(ExtractorSettings.deltaColumns.defaultColumn),
               ExtractorSettings.deltaColumns.deltaColumns,
-              config.auditDB,
+              Some(config.auditDB),
               schemaHandler.activeEnv()
             )
             true

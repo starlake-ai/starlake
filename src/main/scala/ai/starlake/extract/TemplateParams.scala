@@ -106,6 +106,7 @@ object TemplateParams {
     domain: Domain,
     defaultDeltaColumn: Option[String],
     deltaColumns: Map[String, String],
+    auditDB: Option[String],
     activeEnv: Map[String, String]
   )(implicit settings: Settings): List[TemplateParams] =
     domain.tables.map(table =>
@@ -113,6 +114,7 @@ object TemplateParams {
         domain.name,
         table,
         deltaColumns.get(table.name).orElse(defaultDeltaColumn),
+        auditDB,
         activeEnv
       )
     )
@@ -132,12 +134,12 @@ object TemplateParams {
     domainName: String,
     schema: Schema,
     deltaColumn: Option[String],
+    auditDB: Option[String],
     activeEnv: Map[String, String]
   )(implicit settings: Settings): TemplateParams = {
     // exportFileBase is the csv file name base such as EXPORT_L58MA_CLIENT_DELTA_...
     // Considering a pattern like EXPORT_L58MA_CLIENT.*.csv
     // The script which is generated will append the current date time to that base (EXPORT_L58MA_CLIENT_18032020173100).
-    val exportFileBase = s"${schema.pattern.toString.split("\\.\\*").head}"
     val isFullExport = schema.metadata.flatMap(_.write).contains(OVERWRITE)
     new TemplateParams(
       domainToExport = domainName,
@@ -148,7 +150,7 @@ object TemplateParams {
       fullExport = isFullExport,
       deltaColumn = if (!isFullExport) deltaColumn else None,
       dsvDelimiter = schema.metadata.flatMap(_.separator).getOrElse(","),
-      None,
+      auditDB,
       activeEnv
     )
   }
