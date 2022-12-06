@@ -21,7 +21,10 @@ select * from customers where lower(country) like lower('{{ p_country }}')
 ```
 
 The french customers will be stored in the table `cust_france` and the american customers in the table `cust_usa`.
-We need to create a YAML file that will instruct where the result of the SQL request will be stored.
+SQL file alone is not sufficient to be a Starlake Transform.
+In order to be one, a YAML file must be created next to the SQL file and have the same name.
+Therefore we need to create the YAML file `metadata/jobs/bycountry.comet.yml`.
+This file will instruct where the result of the SQL request will be stored.
 
 ```yaml
 transform:
@@ -38,7 +41,15 @@ transform:
 
 ```
 
-We need to execute the job twice, once to create the french customers tabel and once to create the american customers.
+In this file, we instruct to read data from the dataset stored on the filesystem (location of the previously loaded data)
+and store it in a view named `customers`. The key used inside `transform.views` define the name that can be used in the query.
+
+Even if we don't connect to any database, we can note here that we are expressing the transformation of our data in SQL
+by reading from a file stored on our machine.
+
+From now on, we are ready to filter out users. Since the job is to filter on one country and store it to a dynamic destination based on the country name, we need to execute the job twice.
+Once to create the french customers table and once to create the american customers.
+
 The result will be stored on the filesystem (sink.type: FS) in the datasets/business/bycountry_usa and datasets/business/bycountry_usa
 folders as parquet files.
 
@@ -61,6 +72,11 @@ $ $HOME/starlake/starlake.sh transform --name bycountry --options p_country=USA
 </TabItem>
 </Tabs>
 
+The `--options` allow to define variables that will be used for substitution and thus allowing a query to be parameterized and even a Transform!
+
+:::note
+The `--name` will match the transform file name and not its name.
+:::
 
 ## Targeting another datawarehouse
 
@@ -181,6 +197,3 @@ transform:
 </TabItem>
 
 </Tabs>
-
-
-
