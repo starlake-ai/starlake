@@ -7,7 +7,7 @@ import better.files.File
 
 class ExtractScriptGenSpec extends TestHelper {
 
-  val scriptOutputFolder: File = File("/tmp")
+  val scriptOutputFolder: File = File(System.getProperty("java.io.tmpdir"))
   new WithSettings() {
 
     "templatize domain using mustache" should "generate an export script from a TemplateSettings" in {
@@ -31,7 +31,7 @@ class ExtractScriptGenSpec extends TestHelper {
         new SimpleLauncher()
       ).templatizeFolder(
         File(
-          getClass.getResource("/sample/database").getPath
+          getClass.getResource("/sample/database")
         ),
         templateParams
       ).head
@@ -44,12 +44,12 @@ class ExtractScriptGenSpec extends TestHelper {
         new SchemaHandler(settings.storageHandler),
         new SimpleLauncher()
       ).templatizeFile(
-        getClass.getResource("/sample/database/EXTRACT_TABLE.sql.mustache").getPath,
+        File(getClass.getResource("/sample/database/EXTRACT_TABLE.sql.mustache")).pathAsString,
         templateParams
       ).pathAsString
 
       File(templatePayload).lines.mkString("\n").toLowerCase shouldBe File(
-        getClass.getResource("/sample/database/expected_script_payload.txt").getPath
+        getClass.getResource("/sample/database/expected_script_payload.txt")
       ).lines.mkString("\n").toLowerCase
     }
 
@@ -75,13 +75,13 @@ class ExtractScriptGenSpec extends TestHelper {
         new SchemaHandler(settings.storageHandler),
         new SimpleLauncher()
       ).templatizeFile(
-        getClass.getResource("/sample/database/EXTRACT_TABLE.sql.ssp").getPath,
+        File(getClass.getResource("/sample/database/EXTRACT_TABLE.sql.ssp")).pathAsString,
         templateParams
       ).pathAsString
 
       print(getClass.getResource("/sample/database/expected_script_payload2.txt").getPath)
       File(templatePayload).lines.mkString("\n").toLowerCase shouldBe File(
-        getClass.getResource("/sample/database/expected_script_payload2.txt").getPath
+        getClass.getResource("/sample/database/expected_script_payload2.txt")
       ).lines.mkString("\n").toLowerCase
     }
   }

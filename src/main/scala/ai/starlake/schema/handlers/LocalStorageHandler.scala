@@ -147,7 +147,9 @@ class LocalStorageHandler(implicit
           else
             files.sortBy(f => (f.lastModifiedTime, f.name))
 
-        sorted.map(f => new Path(f.pathAsString))
+        sorted.map(f => {
+          new Path(f.pathAsString)
+        })
       } else
         Nil
     } match {

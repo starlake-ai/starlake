@@ -6,6 +6,8 @@ import xerial.sbt.Sonatype._
 // require Java 8 for Spark 2 support
 javacOptions ++= Seq("-source", "1.8", "-target", "1.8", "-Xlint")
 
+Test / javaOptions ++= Seq("-Dfile.encoding=UTF-8")
+
 ThisBuild / sonatypeCredentialHost := "s01.oss.sonatype.org"
 
 lazy val scala212 = "2.12.17"

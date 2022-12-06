@@ -23,7 +23,9 @@ package ai.starlake.schema.handlers
 import ai.starlake.config.Settings
 import ai.starlake.job.ingest._
 import ai.starlake.{JdbcChecks, TestHelper}
+import better.files.File
 import com.typesafe.config.{Config, ConfigFactory}
+import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.functions.{col, input_file_name, regexp_extract}
 
 abstract class JsonIngestionJobSpecBase(variant: String) extends TestHelper with JdbcChecks {
@@ -38,7 +40,7 @@ abstract class JsonIngestionJobSpecBase(variant: String) extends TestHelper with
 
   def configuration: Config
 
-  ("Ingest Complex JSON " + variant) should "should be ingested from pending to accepted, and archived " in {
+  ("Ingest Complex JSON " + variant) should "be ingested from pending to accepted, and archived " in {
     new WithSettings(configuration) {
 
       new SpecTrait(
@@ -73,7 +75,7 @@ abstract class JsonIngestionJobSpecBase(variant: String) extends TestHelper with
         val expectedDf = sparkSession.read
           .schema(sparkSchema)
           .json(
-            getClass.getResource(s"/sample/${datasetDomainName}/complex.json").toURI.getPath
+            File(getClass.getResource(s"/sample/${datasetDomainName}/complex.json")).pathAsString
           )
           .withColumn("email_domain", regexp_extract(col("email"), ".+@(.+)", 1))
           .withColumn("source_file_name", regexp_extract(input_file_name, ".+\\/(.+)$", 1))
@@ -168,7 +170,8 @@ class JsonIngestionJobSpecNoIndexJdbcMetricsJdbcAuditSpec
   override def expectedAuditLogs(implicit settings: Settings): List[AuditLog] =
     AuditLog(
       jobid = sparkSession.sparkContext.applicationId,
-      paths = "file:" + settings.comet.datasets + "/ingesting/json/complex.json",
+      paths =
+        new Path("file:///" + settings.comet.datasets + "/ingesting/json/complex.json").toString,
       domain = "json",
       schema = "sample_json",
       success = true,
