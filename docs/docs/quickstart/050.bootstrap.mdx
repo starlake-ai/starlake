@@ -25,7 +25,7 @@ $ $HOME/starlake/starlake.sh bootstrap
 
 ```powershell
 c:\> mkdir %userprofile%\myproject
-c:\users\me\myproject> cd %userprofile%\myproject
+c:\> cd %userprofile%\myproject
 c:\users\me\myproject> %userprofile%\starlake\starlake.cmd bootstrap --template quickstart
 ```
 
@@ -86,7 +86,7 @@ myproject/
 ├── incoming
 │   └── sales
 │       ├── customers-2018-01-01.ack
-│       └──  customers-2018-01-01.psv
+│       └── customers-2018-01-01.psv
 ├── metadata
 │   ├── assertions
 │   ├── domains
@@ -110,4 +110,3 @@ myproject/
 - The `diagrams` folder holds all the entity/relations and access control views you will be able to interactively create using Starlake WYSIWYG tooling.
 - The `incoming` folder host all the files you will want to load into your warehouse. This is explained in more detail in the [Move data section](load)
 - The `metadata` folder contains the extract, load and transform jobs Starlake will apply to incoming files.
-
