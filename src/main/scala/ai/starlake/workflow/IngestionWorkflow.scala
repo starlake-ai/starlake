@@ -164,7 +164,7 @@ class IngestionWorkflow(
                         FileSystems
                           .newFileSystem(
                             path.toUri,
-                            Collections.emptyMap(),
+                            Collections.emptyMap[String, Any](),
                             getClass.getClassLoader
                           )
                         // Try to install one from the classpath
