@@ -637,6 +637,16 @@ class SchemaHandlerSpec extends TestHelper {
       }
     }
 
+    "Load Transform Job" should "reject tasks without SQL" in {
+      cleanMetadata
+      val schemaHandler = new SchemaHandler(storageHandler)
+      val filename = "/sample/job-tasks-without-sql/invalid.comet.yml"
+      val jobPath = new Path(getClass.getResource(filename).toURI)
+
+      val job = schemaHandler.loadJobFromFile(jobPath)
+      job.isFailure shouldBe true
+    }
+
     "Extract Var from Job File" should "find all vars" in {
       new SpecTrait(
         domainOrJobFilename = "locations.comet.yml",
