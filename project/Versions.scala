@@ -29,6 +29,6 @@ object Versions {
   val kafkaClients = "7.3.0-ce"
   val testContainers = "0.40.12"
   val jsqlparser = "4.5"
-  val gcpDataCatalog = "1.12.0"
+  val gcpDataCatalog = "1.13.0"
   val jinja = "2.6.0"
 }
