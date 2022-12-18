@@ -17,7 +17,7 @@ object Versions {
   val pureConfig212ForSpark3 = "0.14.0"
   val esSpark212 = "8.5.3"
   val scopt = "4.1.0"
-  val gcsConnector = "hadoop3-2.2.9"
+  val gcsConnector = "hadoop3-2.2.10"
   val bigquery = "2.19.1"
   val hadoop = "3.3.4"
   val sparkBigqueryWithDependencies = "0.27.1"
@@ -29,6 +29,6 @@ object Versions {
   val kafkaClients = "7.3.0-ce"
   val testContainers = "0.40.12"
   val jsqlparser = "4.5"
-  val gcpDataCatalog = "1.12.0"
+  val gcpDataCatalog = "1.13.0"
   val jinja = "2.6.0"
 }
