@@ -103,13 +103,13 @@ import scala.util.{Failure, Success, Try}
     val mustache = new Path(rootPath, s"$ddlType.mustache")
     val ssp = new Path(rootPath, s"$ddlType.ssp")
     val template =
-      if (settings.metadataStorageHandler.exists(mustache))
+      if (settings.storageHandler.exists(mustache))
         mustache
-      else if (settings.metadataStorageHandler.exists(ssp))
+      else if (settings.storageHandler.exists(ssp))
         ssp
       else
         throw new Exception(s"No $ddlType.mustache/ssp found for datawarehouse $datawarehouse")
-    template -> settings.metadataStorageHandler.read(template)
+    template -> settings.storageHandler.read(template)
   }
 
   /** Load Elasticsearch template file if it exist
@@ -124,8 +124,8 @@ import scala.util.{Failure, Success, Try}
     schema: Schema
   )(implicit settings: Settings): Option[String] = {
     val template = new Path(new Path(DatasetArea.mapping, this.name), schema.name + ".json")
-    if (settings.metadataStorageHandler.exists(template))
-      Some(settings.metadataStorageHandler.read(template))
+    if (settings.storageHandler.exists(template))
+      Some(settings.storageHandler.read(template))
     else
       None
   }
