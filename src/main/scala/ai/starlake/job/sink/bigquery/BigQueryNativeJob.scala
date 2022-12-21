@@ -3,6 +3,7 @@ package ai.starlake.job.sink.bigquery
 import ai.starlake.config.Settings
 import ai.starlake.utils.{JobBase, JobResult, TableFormatter, Utils}
 import better.files.File
+import com.google.cloud.ServiceOptions
 import com.google.cloud.bigquery.JobInfo.{CreateDisposition, WriteDisposition}
 import com.google.cloud.bigquery.JobStatistics.QueryStatistics
 import com.google.cloud.bigquery.QueryJobConfiguration.Priority
@@ -71,7 +72,7 @@ class BigQueryNativeJob(
 
   override def name: String = s"bqload-${cliConfig.outputDataset}-${cliConfig.outputTable}"
 
-  override def projectId: String = BigQueryJobBase.getProjectId()
+  override def projectId: String = ServiceOptions.getDefaultProjectId()
 
   logger.info(s"BigQuery Config $cliConfig")
 
@@ -85,7 +86,7 @@ class BigQueryNativeJob(
       val queryConfigWithUDF = addUDFToQueryConfig(queryConfig)
       val finalConfiguration = queryConfigWithUDF.setPriority(Priority.INTERACTIVE).build()
 
-      val queryJob = BigQueryJobBase.bigquery().create(JobInfo.of(finalConfiguration))
+      val queryJob = BigQueryJobBase.bigquery(false).create(JobInfo.of(finalConfiguration))
       val totalBytesProcessed = queryJob
         .getStatistics()
         .asInstanceOf[QueryStatistics]
@@ -153,7 +154,7 @@ class BigQueryNativeJob(
       val queryConfigWithUDF = addUDFToQueryConfig(queryConfigWithClustering)
       logger.info(s"Executing BQ Query $sql")
       val finalConfiguration = queryConfigWithUDF.setDestinationTable(tableId).build()
-      val jobInfo = BigQueryJobBase.bigquery().create(JobInfo.of(finalConfiguration))
+      val jobInfo = BigQueryJobBase.bigquery(false).create(JobInfo.of(finalConfiguration))
       val totalBytesProcessed = jobInfo
         .getStatistics()
         .asInstanceOf[QueryStatistics]
@@ -191,7 +192,9 @@ class BigQueryNativeJob(
           .build()
       logger.info(s"Executing BQ Query $sql")
       val job =
-        BigQueryJobBase.bigquery().create(JobInfo.newBuilder(queryConfig).setJobId(jobId).build)
+        BigQueryJobBase
+          .bigquery(false)
+          .create(JobInfo.newBuilder(queryConfig).setJobId(jobId).build)
       logger.info(
         s"Batch query wth jobId $jobId sent to BigQuery "
       )
@@ -207,13 +210,13 @@ object BigQueryNativeJob extends StrictLogging {
   def createTable(datasetName: String, tableName: String, schema: Schema): Unit = {
     Try {
       val tableId = TableId.of(datasetName, tableName)
-      val table = scala.Option(BigQueryJobBase.bigquery().getTable(tableId))
+      val table = scala.Option(BigQueryJobBase.bigquery(false).getTable(tableId))
       table match {
         case Some(tbl) if tbl.exists() =>
         case _ =>
           val tableDefinition = StandardTableDefinition.of(schema)
           val tableInfo = TableInfo.newBuilder(tableId, tableDefinition).build
-          BigQueryJobBase.bigquery().create(tableInfo)
+          BigQueryJobBase.bigquery(false).create(tableInfo)
           logger.info(s"Table $datasetName.$tableName created successfully")
       }
     } match {
@@ -236,10 +239,10 @@ object BigQueryNativeJob extends StrictLogging {
         }
         .getOrElse(viewQuery)
       val tableId = BigQueryJobBase.extractProjectDatasetAndTable(key)
-      val viewRef = scala.Option(BigQueryJobBase.bigquery().getTable(tableId))
+      val viewRef = scala.Option(BigQueryJobBase.bigquery(false).getTable(tableId))
       if (viewRef.isEmpty) {
         logger.info(s"View $tableId does not exist, creating it!")
-        BigQueryJobBase.bigquery().create(TableInfo.of(tableId, viewDefinition.build()))
+        BigQueryJobBase.bigquery(false).create(TableInfo.of(tableId, viewDefinition.build()))
         logger.info(s"View $tableId created")
       } else {
         logger.info(s"View $tableId already exist")

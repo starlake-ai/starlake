@@ -152,9 +152,8 @@ class ExtractScript(
   }
 
   def run(config: ExtractScriptConfig)(implicit settings: Settings): Boolean = {
-    import settings.metadataStorageHandler
-    DatasetArea.initMetadata(metadataStorageHandler)
-    val schemaHandler = new SchemaHandler(metadataStorageHandler)
+    DatasetArea.initMetadata(storageHandler)
+    val schemaHandler = new SchemaHandler(storageHandler)
     config.domain match {
       case Nil =>
         logger.warn(s"No domain or jobs provided. Extracting all domains")
@@ -196,9 +195,9 @@ class ExtractScript(
 
 object Main {
   implicit val settings: Settings = Settings(ConfigFactory.load())
-  import settings.{launcherService, metadataStorageHandler, storageHandler}
-  DatasetArea.initMetadata(metadataStorageHandler)
-  val schemaHandler = new SchemaHandler(metadataStorageHandler)
+  import settings.{launcherService, storageHandler}
+  DatasetArea.initMetadata(storageHandler)
+  val schemaHandler = new SchemaHandler(storageHandler)
 
   def main(args: Array[String]): Unit = {
     val result = new ExtractScript(storageHandler, schemaHandler, launcherService).run(args)

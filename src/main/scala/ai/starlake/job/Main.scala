@@ -1,14 +1,7 @@
 package ai.starlake.job
 
 import ai.starlake.config.{DatasetArea, Settings}
-import ai.starlake.extract.{
-  ExtractData,
-  ExtractDataConfig,
-  ExtractSchema,
-  ExtractSchemaConfig,
-  ExtractScript,
-  ExtractScriptConfig
-}
+import ai.starlake.extract._
 import ai.starlake.job.atlas.AtlasConfig
 import ai.starlake.job.bootstrap.BootstrapConfig
 import ai.starlake.job.convert.{FileSplitterConfig, Parquet2CSV, Parquet2CSVConfig}
@@ -63,8 +56,8 @@ object Main extends StrictLogging {
     *     on specific schema in a specific domain
     */
   def main(args: Array[String]): Unit = {
-    implicit val settings: Settings = Settings(ConfigFactory.load())
-    new Main().run(args)
+    val settings: Settings = Settings(ConfigFactory.load())
+    new Main().run(args)(settings)
   }
 
 }
@@ -147,8 +140,8 @@ class Main() extends StrictLogging {
     val argList = args.toList
     checkPrerequisites(argList)
 
-    import settings.{launcherService, metadataStorageHandler, storageHandler}
-    DatasetArea.initMetadata(metadataStorageHandler)
+    import settings.{launcherService, storageHandler}
+    DatasetArea.initMetadata(storageHandler)
 
     // extract any env var passed as --options argument
     val cliEnv = CliEnvConfig.parse(args.drop(1)) match {
@@ -156,7 +149,7 @@ class Main() extends StrictLogging {
       case None      => Map.empty[String, String]
     }
 
-    val schemaHandler = new SchemaHandler(metadataStorageHandler, cliEnv)
+    val schemaHandler = new SchemaHandler(storageHandler, cliEnv)
 
     // handle non existing project commands
     argList.head match {

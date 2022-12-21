@@ -308,7 +308,7 @@ trait TestHelper
     implicit def settings: Settings = withSettings.settings
 
     def storageHandler: StorageHandler = settings.storageHandler
-    def metadataStorageHandler: StorageHandler = settings.metadataStorageHandler
+    def metadataStorageHandler: StorageHandler = settings.storageHandler
     val domainMetadataRootPath: Path = DatasetArea.domains
     val jobMetadataRootPath: Path = DatasetArea.jobs
 
