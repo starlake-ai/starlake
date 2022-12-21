@@ -1,10 +1,8 @@
 package ai.starlake.schema.generator
 
 import better.files.File
-import ai.starlake.config.Settings
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.Schema
-import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.LazyLogging
 
 class Yml2GraphViz(schemaHandler: SchemaHandler) extends LazyLogging {
@@ -34,11 +32,10 @@ class Yml2GraphViz(schemaHandler: SchemaHandler) extends LazyLogging {
   }
 
   def run(args: Array[String]): Unit = {
-    implicit val settings: Settings = Settings(ConfigFactory.load())
     Yml2GraphVizConfig.parse(args) match {
       case Some(config) =>
-        if (config.acl) aclsAsDot(config)
-        if (config.domains) asDotRelations(config)
+        if (config.acl) aclsAsDotFile(config)
+        if (config.domains) relationsAsDotFile(config)
       case _ =>
         println(Yml2GraphVizConfig.usage())
     }
@@ -314,10 +311,8 @@ class Yml2GraphViz(schemaHandler: SchemaHandler) extends LazyLogging {
     mkstr(dotRlsRelations.toList, ";\n")
   }
 
-  private def aclsAsDot(config: Yml2GraphVizConfig) = {
-    val result =
-      aclPrefix + rlsAclTablesAsDot() + jobsAsDot() + tableAndAclAndRlsUsersAsDot() + aclRelationsAsDot() + rlsRelationsAsDot() + suffix
-
+  private def aclsAsDotFile(config: Yml2GraphVizConfig) = {
+    val result: String = aclAsDotString(config)
     config.outputDir match {
       case None => println(result)
       case Some(outputDir) =>
@@ -328,12 +323,13 @@ class Yml2GraphViz(schemaHandler: SchemaHandler) extends LazyLogging {
     }
   }
 
-  private def asDotRelations(config: Yml2GraphVizConfig): Unit = {
+  def aclAsDotString(config: Yml2GraphVizConfig): String = {
     schemaHandler.domains(config.reload)
-    val fkTables = relatedTables().map(_.toLowerCase).toSet
-    val dots =
-      schemaHandler.domains().map(_.asDot(config.includeAllAttributes, fkTables))
-    val result = prefix + dots.mkString("\n") + suffix
+    aclPrefix + rlsAclTablesAsDot() + jobsAsDot() + tableAndAclAndRlsUsersAsDot() + aclRelationsAsDot() + rlsRelationsAsDot() + suffix
+  }
+
+  private def relationsAsDotFile(config: Yml2GraphVizConfig): Unit = {
+    val result: String = relationsAsDotString(config)
     config.outputDir match {
       case None => println(result)
       case Some(outputDir) =>
@@ -342,5 +338,13 @@ class Yml2GraphViz(schemaHandler: SchemaHandler) extends LazyLogging {
         val file = File(outputDirFile, "_domains.dot")
         file.overwrite(result)
     }
+  }
+
+  def relationsAsDotString(config: Yml2GraphVizConfig): String = {
+    schemaHandler.domains(config.reload)
+    val fkTables = relatedTables().map(_.toLowerCase).toSet
+    val dots =
+      schemaHandler.domains().map(_.asDot(config.includeAllAttributes, fkTables))
+    prefix + dots.mkString("\n") + suffix
   }
 }

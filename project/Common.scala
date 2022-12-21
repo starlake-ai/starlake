@@ -20,7 +20,6 @@
 
 import com.github.sbt.git.GitPlugin.autoImport._
 import com.typesafe.sbt.site.SiteScaladocPlugin
-import com.typesafe.sbt.site.sphinx.SphinxPlugin
 import com.github.sbt.git.{GitBranchPrompt, GitVersioning}
 import org.scalafmt.sbt.ScalafmtPlugin.autoImport.scalafmtOnCompile
 import sbt.Keys._
@@ -45,7 +44,6 @@ object Common {
   def cometPlugins: Seq[AutoPlugin] = Seq(
     GitVersioning,
     GitBranchPrompt,
-    SphinxPlugin,
     SiteScaladocPlugin,
     BuildInfoPlugin
   )

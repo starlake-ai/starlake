@@ -19,6 +19,6 @@ class JinjaResourceHandler(implicit settings: Settings) extends ResourceLocator 
         new Path(fullName)
       else
         new Path(settings.comet.metadata, fullName)
-    settings.metadataStorageHandler.read(path)
+    settings.storageHandler.read(path)
   }
 }
