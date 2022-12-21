@@ -318,7 +318,6 @@ object Settings extends StrictLogging {
     atlas: Atlas,
     privacy: Privacy,
     fileSystem: String,
-    metadataFileSystem: String,
     internal: Option[Internal],
     udfs: Option[String],
     assertions: Assertions,
@@ -338,7 +337,7 @@ object Settings extends StrictLogging {
     forceJobPattern: String,
     forceTaskPattern: String,
     useLocalFileSystem: Boolean,
-    sessionDurationServe: Long,
+    sessionDurationServe: Long
   ) extends Serializable {
 
     val cacheStorageLevel: StorageLevel =
