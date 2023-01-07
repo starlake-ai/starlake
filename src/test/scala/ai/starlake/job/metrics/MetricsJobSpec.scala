@@ -275,10 +275,10 @@ class MetricsJobSpec extends TestHelper with JdbcChecks {
       val expected =
         """
           |Usage: starlake metrics [options]
-          |
-          |  --domain <value>  Domain Name
-          |  --schema <value>  Schema Name
-          |  --stage <value>   Stage (UNIT or GLOBAL)
+          |  --domain <value>   Domain Name
+          |  --schema <value>   Schema Name
+          |  --authInfo <value> Auth Info.  Google Cloud use: gcpProjectId and gcpSAJsonKey
+          |  --stage <value>    Stage (UNIT or GLOBAL)
           |""".stripMargin
       rendered.substring(rendered.indexOf("Usage:")).replaceAll("\\s", "") shouldEqual expected
         .replaceAll("\\s", "")
