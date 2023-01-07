@@ -30,11 +30,12 @@ trait BigQueryJobBase extends StrictLogging {
   }
 
   def bigquery()(implicit settings: Settings): BigQuery = {
-    val projectId = cliConfig.gcpProjectId.getOrElse(ServiceOptions.getDefaultProjectId())
-    val credentials = cliConfig.getCredentials()
     _bigquery match {
       case None =>
         val bqOptionsBuilder = BigQueryOptions.newBuilder()
+        val gcpDefaultProject = System.getProperty("GCP_PROJECT", System.getenv("GCP_PROJECT"))
+        val projectId = cliConfig.gcpProjectId.orElse(scala.Option(gcpDefaultProject))
+        val credentials = cliConfig.getCredentials()
         val bqOptions = scala
           .Option(projectId)
           .map(bqOptionsBuilder.setProjectId)
