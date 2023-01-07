@@ -12,9 +12,10 @@ import org.apache.spark.sql.{DataFrame, DatasetLogging, SaveMode, SparkSession}
 
 import scala.util.{Success, Try}
 
-class SinkUtils(implicit settings: Settings) extends StrictLogging with DatasetLogging {
+class SinkUtils()(implicit settings: Settings) extends StrictLogging with DatasetLogging {
 
   def sink(
+    authInfo: Map[String, String],
     sinkType: Sink,
     dataframe: DataFrame,
     table: String,
@@ -64,7 +65,7 @@ class SinkUtils(implicit settings: Settings) extends StrictLogging with DatasetL
 
       case sink: BigQuerySink =>
         Try {
-          sinkToBigQuery(dataframe, sink.name.getOrElse(table), table, sink.getOptions)
+          sinkToBigQuery(authInfo, dataframe, sink.name.getOrElse(table), table, sink.getOptions)
         }
 
       case sink: JdbcSink =>
@@ -85,6 +86,7 @@ class SinkUtils(implicit settings: Settings) extends StrictLogging with DatasetL
   }
 
   private def sinkToBigQuery(
+    authInfo: Map[String, String],
     dataframe: DataFrame,
     bqDataset: String,
     bqTable: String,
@@ -92,6 +94,8 @@ class SinkUtils(implicit settings: Settings) extends StrictLogging with DatasetL
   ): Unit = {
     if (dataframe.count() > 0) {
       val config = BigQueryLoadConfig(
+        authInfo.get("gcpProjectId"),
+        authInfo.get("gcpSAJsonKey"),
         Right(dataframe),
         outputDataset = bqDataset,
         outputTable = bqTable,

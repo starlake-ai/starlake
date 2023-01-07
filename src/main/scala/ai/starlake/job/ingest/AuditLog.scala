@@ -159,7 +159,7 @@ object AuditLog extends StrictLogging {
     BQSchema.of(fields: _*)
   }
 
-  def sink(session: SparkSession, log: AuditLog)(implicit
+  def sink(authInfo: Map[String, String], session: SparkSession, log: AuditLog)(implicit
     settings: Settings
   ): Any = {
     import session.implicits._
@@ -220,8 +220,9 @@ object AuditLog extends StrictLogging {
 
       case sink: BigQuerySink =>
         val auditDataset = sink.name.getOrElse("audit")
-        BigQueryNativeJob.createTable(auditDataset, "audit", bqSchema())
         val bqConfig = BigQueryLoadConfig(
+          authInfo.get("gcpProjectId"),
+          authInfo.get("gcpSAJsonKey"),
           Left("ignore"),
           outputDataset = auditDataset,
           outputTable = "audit",
@@ -234,12 +235,13 @@ object AuditLog extends StrictLogging {
           None,
           options = sink.getOptions
         )
-        val res = new BigQueryNativeJob(
+        val bqJob = new BigQueryNativeJob(
           bqConfig,
           log.asBqInsert(bqConfig.outputDataset + "." + bqConfig.outputTable),
           None
         )
-          .runBatchQuery()
+        bqJob.createTable(auditDataset, "audit", bqSchema())
+        val res = bqJob.runBatchQuery()
         Utils.logFailure(res, logger)
       case _: EsSink =>
         // TODO Sink Audit Log to ES

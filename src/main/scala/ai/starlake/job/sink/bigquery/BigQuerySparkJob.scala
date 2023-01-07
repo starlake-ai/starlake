@@ -39,7 +39,7 @@ class BigQuerySparkJob(
   val conf: Configuration = session.sparkContext.hadoopConfiguration
   logger.info(s"BigQuery Config $cliConfig")
 
-  override val projectId: String = conf.get("fs.gs.project.id")
+  override val projectId: String = cliConfig.gcpProjectId.getOrElse(conf.get("fs.gs.project.id"))
 
   val bucket: String = conf.get("fs.defaultFS")
 
@@ -71,7 +71,7 @@ class BigQuerySparkJob(
   ): (Table, StandardTableDefinition) = {
     getOrCreateDataset()
 
-    val table = Option(BigQueryJobBase.bigquery(false).getTable(tableId)) getOrElse {
+    val table = Option(bigquery().getTable(tableId)) getOrElse {
       val withPartitionDefinition =
         (maybeSchema, cliConfig.outputPartition) match {
           case (Some(schema), Some(partitionField)) =>
@@ -115,11 +115,7 @@ class BigQuerySparkJob(
             val clustering = Clustering.newBuilder().setFields(fields.asJava).build()
             withPartitionDefinition.setClustering(clustering)
         }
-      BigQueryJobBase
-        .bigquery(false)
-        .create(
-          TableInfo.newBuilder(tableId, withClusteringDefinition.build()).build
-        )
+      bigquery().create(TableInfo.newBuilder(tableId, withClusteringDefinition.build()).build)
     }
     setTagsOnTable(table)
     (table, table.getDefinition.asInstanceOf[StandardTableDefinition])
@@ -145,8 +141,7 @@ class BigQuerySparkJob(
       val (table, tableDefinition) = getOrCreateTable(Some(sourceDF), maybeSchema)
 
       val stdTableDefinition =
-        BigQueryJobBase
-          .bigquery(false)
+        bigquery()
           .getTable(table.getTableId)
           .getDefinition
           .asInstanceOf[StandardTableDefinition]
@@ -274,8 +269,7 @@ class BigQuerySparkJob(
       }
 
       val stdTableDefinitionAfter =
-        BigQueryJobBase
-          .bigquery(false)
+        bigquery()
           .getTable(table.getTableId)
           .getDefinition
           .asInstanceOf[StandardTableDefinition]
