@@ -1,11 +1,16 @@
 package ai.starlake.job.sink.bigquery
 
+import ai.starlake.config.Settings
 import ai.starlake.schema.model.{AccessControlEntry, Engine, RowLevelSecurity, Schema}
 import ai.starlake.utils.CliConfig
 import org.apache.spark.sql.DataFrame
 import scopt.OParser
+import com.google.auth.oauth2.ServiceAccountCredentials
+import org.apache.hadoop.fs.Path
 
 case class BigQueryLoadConfig(
+  gcpProjectId: Option[String],
+  gcpSAJsonKey: Option[String],
   source: Either[String, DataFrame] = Left(""),
   outputDataset: String = "",
   outputTable: String = "",
@@ -26,6 +31,23 @@ case class BigQueryLoadConfig(
   domainTags: Set[String] = Set.empty
 ) {
   def getLocation(): String = this.location.getOrElse("EU")
+  def getCredentials()(implicit settings: Settings): Option[ServiceAccountCredentials] = {
+    gcpSAJsonKey.map { gcpSAJsonKey =>
+      val gcpSAJsonKeyAsString = if (!gcpSAJsonKey.trim.startsWith("{")) {
+        val path = new Path(gcpSAJsonKey)
+        if (settings.storageHandler.exists(path)) {
+          settings.storageHandler.read(path)
+        } else {
+          throw new Exception(s"Invalid GCP SA KEY Path: $path")
+        }
+      } else
+        gcpSAJsonKey
+      val credentialsStream = new java.io.ByteArrayInputStream(
+        gcpSAJsonKeyAsString.getBytes(java.nio.charset.StandardCharsets.UTF_8.name)
+      )
+      ServiceAccountCredentials.fromStream(credentialsStream)
+    }
+  }
 }
 
 object BigQueryLoadConfig extends CliConfig[BigQueryLoadConfig] {
@@ -92,5 +114,5 @@ object BigQueryLoadConfig extends CliConfig[BigQueryLoadConfig] {
 
   // comet bqload  --source_file xxx --output_dataset domain --output_table schema --source_format parquet --create_disposition  CREATE_IF_NEEDED --write_disposition WRITE_TRUNCATE
   def parse(args: Seq[String]): Option[BigQueryLoadConfig] =
-    OParser.parse(parser, args, BigQueryLoadConfig())
+    OParser.parse(parser, args, BigQueryLoadConfig(None, None))
 }

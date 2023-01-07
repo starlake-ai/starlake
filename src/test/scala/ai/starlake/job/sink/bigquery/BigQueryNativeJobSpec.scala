@@ -5,15 +5,16 @@ import ai.starlake.config.Settings
 import ai.starlake.schema.handlers.{SchemaHandler, SimpleLauncher}
 import ai.starlake.schema.model._
 import ai.starlake.workflow.{IngestionWorkflow, TransformConfig, WatchConfig}
-import com.google.cloud.bigquery.TableId
+import com.google.cloud.bigquery.{BigQueryOptions, TableId}
 import org.apache.hadoop.fs.Path
 import org.scalatest.BeforeAndAfterAll
 
 class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
+  val bigquery = BigQueryOptions.newBuilder().build().getService()
   override def beforeAll(): Unit = {
     if (sys.env.getOrElse("COMET_GCP_TEST", "false").toBoolean) {
-      BigQueryJobBase.bigquery(false).delete(TableId.of("bqtest", "account"))
-      BigQueryJobBase.bigquery(false).delete(TableId.of("bqtest", "jobresult"))
+      bigquery.delete(TableId.of("bqtest", "account"))
+      bigquery.delete(TableId.of("bqtest", "jobresult"))
     }
   }
   override def afterAll(): Unit = {
@@ -23,7 +24,7 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
     }
   }
 
-  "Ingest to BigQuery" should "be ingest and store table in BigQuery" in {
+  "Ingest to BigQuery" should "be ingested and stored in a BigQuery table" in {
     if (sys.env.getOrElse("COMET_GCP_TEST", "false").toBoolean) {
       import org.slf4j.impl.StaticLoggerBinder
       val binder = StaticLoggerBinder.getSingleton
@@ -45,7 +46,7 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
         }
       }
       val tableFound =
-        Option(BigQueryJobBase.bigquery(false).getTable(TableId.of("bqtest", "account"))).isDefined
+        Option(bigquery.getTable(TableId.of("bqtest", "account"))).isDefined
       tableFound should be(true)
 
     }
@@ -72,7 +73,7 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
         }
       }
       val tableFound =
-        Option(BigQueryJobBase.bigquery(false).getTable(TableId.of("bqtest", "account"))).isDefined
+        Option(bigquery.getTable(TableId.of("bqtest", "account"))).isDefined
       tableFound should be(true)
 
     }
