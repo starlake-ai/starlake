@@ -599,20 +599,29 @@ class IngestionWorkflow(
   }
 
   def buildTasks(
-    jobName: String,
-    configOptions: Map[String, String],
-    interactive: Option[String]
+    config: TransformConfig
   ): Seq[AutoTask] = {
     val jobDesc =
-      schemaHandler.job(jobName).getOrElse(throw new Exception(s"Invalid job name $jobName"))
+      schemaHandler
+        .job(config.name)
+        .getOrElse(throw new Exception(s"Invalid job name ${config.name}"))
     logger.info(jobDesc.toString)
-    AutoTask.tasks(jobDesc, configOptions, interactive)(settings, storageHandler, schemaHandler)
+    AutoTask.tasks(
+      jobDesc,
+      config.options,
+      config.interactive,
+      config.authInfo
+    )(
+      settings,
+      storageHandler,
+      schemaHandler
+    )
   }
 
   def compileAutoJob(config: TransformConfig): Seq[String] = {
     val job = schemaHandler.jobs(config.reload)
     logger.info(job.toString)
-    val result = buildTasks(config.name, config.options, config.interactive).map { action =>
+    val result = buildTasks(config).map { action =>
       val engine = action.engine
       logger.info(s"running with -> $engine engine")
       engine match {
@@ -637,23 +646,23 @@ class IngestionWorkflow(
 
   /** Successively run each task of a job
     *
-    * @param config
+    * @param transformConfig
     *   : job name as defined in the YML file and sql parameters to pass to SQL statements.
     */
   // scalastyle:off println
-  def autoJob(config: TransformConfig): Boolean = {
-    val job = schemaHandler.jobs(config.reload)(config.name)
+  def autoJob(transformConfig: TransformConfig): Boolean = {
+    val job = schemaHandler.jobs(transformConfig.reload)(transformConfig.name)
     logger.info(job.toString)
-    val result: Seq[Boolean] = buildTasks(config.name, config.options, config.interactive).map {
-      action =>
+    val result: Seq[Boolean] =
+      buildTasks(transformConfig).map { action =>
         val engine = action.engine
-        logger.info(s"running with config $config")
+        logger.info(s"running with config $transformConfig")
 
         engine match {
           case BQ =>
             logger.info(s"Entering $engine engine")
             val result = action.runBQ()
-            config.interactive match {
+            transformConfig.interactive match {
               case None =>
                 val sink = action.taskDesc.sink
                 logger.info(s"BQ Job succeeded. sinking data to $sink")
@@ -684,7 +693,7 @@ class IngestionWorkflow(
 
             result.isSuccess
           case SPARK =>
-            (action.runSpark(), config.interactive) match {
+            (action.runSpark(), transformConfig.interactive) match {
               case (Success(SparkJobResult(None)), _) =>
                 true
               case (Success(SparkJobResult(Some(dataFrame))), Some(_)) =>
@@ -710,8 +719,10 @@ class IngestionWorkflow(
                         val (createDisposition, writeDisposition) = {
                           Utils.getDBDisposition(action.taskDesc.write, hasMergeKeyDefined = false)
                         }
-                        val config =
+                        val bqLoadConfig =
                           BigQueryLoadConfig(
+                            transformConfig.authInfo.get("gcpProjectId"),
+                            transformConfig.authInfo.get("gcpSAJsonKey"),
                             source = source,
                             outputTable = action.taskDesc.table,
                             outputDataset = action.taskDesc.domain,
@@ -727,7 +738,7 @@ class IngestionWorkflow(
                             options = bqSink.getOptions,
                             acl = action.taskDesc.acl
                           )
-                        val result = new BigQuerySparkJob(config, None).run()
+                        val result = new BigQuerySparkJob(bqLoadConfig, None).run()
                         result.isSuccess
 
                       case jdbcSink: JdbcSink =>
@@ -779,7 +790,7 @@ class IngestionWorkflow(
             logger.error("Should never happen")
             false
         }
-    }
+      }
     result.forall(_ == true)
   }
 
@@ -894,6 +905,8 @@ class IngestionWorkflow(
           ).applyHiveTableAcl()
         } else {
           val config = BigQueryLoadConfig(
+            None,
+            None,
             outputTable = schema.name,
             outputDataset = domain.name,
             sourceFormat = settings.comet.defaultFormat,

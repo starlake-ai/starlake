@@ -1,7 +1,5 @@
 package ai.starlake.job.metrics
 
-import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
-import ai.starlake.schema.model.{Engine, Stage}
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model._
@@ -42,6 +40,7 @@ case class AssertionReport(
   *   : Storage Handler
   */
 class AssertionJob(
+  authInfo: Map[String, String],
   domainName: String,
   schemaName: String,
   assertions: Map[String, String],
@@ -136,6 +135,7 @@ class AssertionJob(
         .withColumn("cometStage", lit(Stage.UNIT.value))
 
       new SinkUtils().sink(
+        authInfo,
         settings.comet.assertions.sink,
         assertionsDF,
         settings.comet.assertions.sink.name.getOrElse("assertions"),
