@@ -17,11 +17,10 @@ jobs:
           java-version: '11'
       - uses: actions/checkout@v2
         if: ${{ !github.event.repository.fork }}
-      - uses: google-github-actions/setup-gcloud@v0.3.0
+      - id: 'auth'
+        uses: 'google-github-actions/auth@v1'
         with:
-          project_id: ${{ secrets.GCP_PROJECT }}
-          service_account_key: ${{ secrets.GCP_SERVICE_ACCOUNT }}
-          export_default_credentials: true
+          credentials_json: '${{ secrets.GCP_SERVICE_ACCOUNT }}'
       - name: Use gcloud CLI
         run: gcloud info
       - name: Run tests & Coverage Report
