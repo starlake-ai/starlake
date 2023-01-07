@@ -4,7 +4,7 @@ object Versions {
   val spark3d0 = "3.3.1"
   val scalatest = "3.2.14"
   val sparkXML2d0 = "0.13.0"
-  val sparkXML = "0.15.0"
+  val sparkXML = "0.16.0"
   val springBoot = "2.0.6.RELEASE"
   val typesafeConfig = "1.4.2"
   val scalaLogging = "3.9.5"
