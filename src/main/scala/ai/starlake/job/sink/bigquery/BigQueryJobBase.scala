@@ -10,7 +10,7 @@ import com.google.cloud.datacatalog.v1.{
   ListTaxonomiesRequest,
   PolicyTagManagerClient
 }
-import com.google.cloud.{Identity, Policy, Role, ServiceOptions}
+import com.google.cloud.{Identity, Policy, Role}
 import com.typesafe.scalalogging.StrictLogging
 
 import java.util
@@ -36,8 +36,7 @@ trait BigQueryJobBase extends StrictLogging {
         val gcpDefaultProject = System.getProperty("GCP_PROJECT", System.getenv("GCP_PROJECT"))
         val projectId = cliConfig.gcpProjectId.orElse(scala.Option(gcpDefaultProject))
         val credentials = cliConfig.getCredentials()
-        val bqOptions = scala
-          .Option(projectId)
+        val bqOptions = projectId
           .map(bqOptionsBuilder.setProjectId)
           .getOrElse(bqOptionsBuilder)
         val bqService = credentials
