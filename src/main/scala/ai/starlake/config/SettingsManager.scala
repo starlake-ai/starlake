@@ -55,7 +55,7 @@ object SettingsManager {
     outFile.createDirectoryIfNotExists()
 
     gcpProject.foreach { gcpProject =>
-      sysProps.setProperty("GOOGLE_CLOUD_PROJECT", gcpProject)
+      sysProps.setProperty("GCP_PROJECT", gcpProject)
     }
 
     val currentSettings = settingsMap.getOrElse(
