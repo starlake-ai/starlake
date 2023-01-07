@@ -21,6 +21,7 @@ jobs:
         uses: 'google-github-actions/auth@v1'
         with:
           credentials_json: '${{ secrets.GCP_SERVICE_ACCOUNT }}'
+          cleanup_credentials: false
       - name: Use gcloud CLI
         run: gcloud info
       - name: Run tests & Coverage Report
