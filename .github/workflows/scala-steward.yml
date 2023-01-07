@@ -11,11 +11,11 @@ jobs:
     runs-on: ubuntu-latest
     name: Scala Steward
     steps:
-      - name: Set up Zulu 8
+      - name: Set up Zulu 11
         uses: actions/setup-java@v2
         with:
           distribution: 'zulu' # See 'Supported distributions' for available options
-          java-version: '8'
+          java-version: '11'
         env:
           ACTIONS_ALLOW_UNSECURE_COMMANDS: 'true'
       - name: Run tests
