@@ -11,7 +11,8 @@ case class TransformConfig(
   noSink: Boolean = false,
   viewsDir: Option[String] = None,
   viewsCount: Int = 1000,
-  reload: Boolean = false
+  reload: Boolean = false,
+  authInfo: Map[String, String] = Map.empty
 )
 
 object TransformConfig extends CliConfig[TransformConfig] {
@@ -48,6 +49,10 @@ object TransformConfig extends CliConfig[TransformConfig] {
         .action((x, c) => c.copy(viewsDir = Some(x)))
         .optional()
         .text("Useful for testing. Where to store the result of the query in JSON"),
+      opt[Map[String, String]]("authInfo")
+        .action((x, c) => c.copy(authInfo = x))
+        .optional()
+        .text("Auth Info.  Google Cloud use: gcpProjectId and gcpSAJsonKey"),
       opt[Int]("views-count")
         .action((x, c) => c.copy(viewsCount = x))
         .optional()

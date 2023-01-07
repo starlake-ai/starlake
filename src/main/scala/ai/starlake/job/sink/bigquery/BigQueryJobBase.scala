@@ -29,6 +29,30 @@ trait BigQueryJobBase extends StrictLogging {
     } yield ()
   }
 
+  def bigquery()(implicit settings: Settings): BigQuery = {
+    val projectId = cliConfig.gcpProjectId.getOrElse(ServiceOptions.getDefaultProjectId())
+    val credentials = cliConfig.getCredentials()
+    _bigquery match {
+      case None =>
+        val bqOptionsBuilder = BigQueryOptions.newBuilder()
+        val bqOptions = scala
+          .Option(projectId)
+          .map(bqOptionsBuilder.setProjectId)
+          .getOrElse(bqOptionsBuilder)
+        val bqService = credentials
+          .map(bqOptions.setCredentials)
+          .getOrElse(bqOptions)
+          .build()
+          .getService()
+        _bigquery = Some(bqService)
+        bqService
+      case Some(bqService) =>
+        bqService
+    }
+  }
+
+  private var _bigquery: scala.Option[BigQuery] = None
+
   private def applyRLS(forceApply: Boolean)(implicit settings: Settings): Try[Unit] = {
     Try {
       if (forceApply || settings.comet.accessPolicies.apply) {
@@ -104,7 +128,7 @@ trait BigQueryJobBase extends StrictLogging {
                 getTaxonomy(BigQueryJobBase.policyTagClient)
               val policyTagIds = mutable.Map.empty[String, String]
               val tableId = TableId.of(cliConfig.outputDataset, cliConfig.outputTable)
-              val table: Table = BigQueryJobBase.bigquery(false).getTable(tableId)
+              val table: Table = bigquery().getTable(tableId)
               val tableDefinition = table.getDefinition().asInstanceOf[StandardTableDefinition]
               val bqSchema = tableDefinition.getSchema()
               val bqFields = bqSchema.getFields.asScala.toList
@@ -228,14 +252,14 @@ trait BigQueryJobBase extends StrictLogging {
 
   val bqTable = s"${cliConfig.outputDataset}.${cliConfig.outputTable}"
 
-  def getOrCreateDataset(): Dataset = {
-    val existingDataset = scala.Option(BigQueryJobBase.bigquery(false).getDataset(datasetId))
+  def getOrCreateDataset()(implicit settings: Settings): Dataset = {
+    val existingDataset = scala.Option(bigquery().getDataset(datasetId))
     val dataset = existingDataset.getOrElse {
       val datasetInfo = DatasetInfo
         .newBuilder(extractProjectDataset(cliConfig.outputDataset))
         .setLocation(cliConfig.getLocation())
         .build
-      BigQueryJobBase.bigquery(false).create(datasetInfo)
+      bigquery().create(datasetInfo)
     }
     setTagsOnDataset(dataset)
     dataset
@@ -264,9 +288,9 @@ trait BigQueryJobBase extends StrictLogging {
   def applyACL(
     tableId: TableId,
     acl: List[AccessControlEntry]
-  ): Policy = {
+  )(implicit settings: Settings): Policy = {
     // val BIG_QUERY_VIEWER_ROLE = "roles/bigquery.dataViewer"
-    val existingPolicy: Policy = BigQueryJobBase.bigquery(false).getIamPolicy(tableId)
+    val existingPolicy: Policy = bigquery().getIamPolicy(tableId)
     val existingPolicyBindings: util.Map[Role, util.Set[Identity]] = existingPolicy.getBindings
 
     val bindings = acl
@@ -285,7 +309,7 @@ trait BigQueryJobBase extends StrictLogging {
           bindings
         )
         .build()
-      BigQueryJobBase.bigquery(false).setIamPolicy(tableId, editedPolicy)
+      bigquery().setIamPolicy(tableId, editedPolicy)
       editedPolicy
     } else {
       logger.info(s"Iam Policy is the same as before on this Table: $tableId")
@@ -315,24 +339,6 @@ trait BigQueryJobBase extends StrictLogging {
 }
 
 object BigQueryJobBase {
-
-  def bigquery(reload: Boolean): BigQuery = {
-    (reload, _bigquery) match {
-      case (true, _) | (_, None) =>
-        val res = scala.Option(ServiceOptions.getDefaultProjectId()) match {
-          case None =>
-            BigQueryOptions.getDefaultInstance().getService()
-          case Some(projectId) =>
-            BigQueryOptions.newBuilder().setProjectId(projectId).build().getService()
-        }
-        _bigquery = Some(res)
-        res
-      case (false, Some(client)) =>
-        client
-    }
-  }
-
-  private var _bigquery: scala.Option[BigQuery] = None
 
   // Lazy otherwise tests fail since there is no GCP credentials in test mode
   lazy val policyTagClient = PolicyTagManagerClient.create()

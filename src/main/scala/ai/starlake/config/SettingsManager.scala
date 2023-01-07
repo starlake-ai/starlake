@@ -1,6 +1,5 @@
 package ai.starlake.config
 
-import ai.starlake.job.sink.bigquery.BigQueryJobBase
 import better.files.File
 import com.typesafe.config.ConfigFactory
 
@@ -56,12 +55,7 @@ object SettingsManager {
     outFile.createDirectoryIfNotExists()
 
     gcpProject.foreach { gcpProject =>
-      val oldGcpProject =
-        Option(sysProps.getProperty("GOOGLE_CLOUD_PROJECT")).getOrElse("")
-      if (oldGcpProject != gcpProject) {
-        sysProps.setProperty("GOOGLE_CLOUD_PROJECT", gcpProject)
-        BigQueryJobBase.bigquery(reload = true)
-      }
+      sysProps.setProperty("GOOGLE_CLOUD_PROJECT", gcpProject)
     }
 
     val currentSettings = settingsMap.getOrElse(

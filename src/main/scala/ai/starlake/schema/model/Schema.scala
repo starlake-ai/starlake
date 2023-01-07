@@ -70,7 +70,8 @@ case class Schema(
   assertions: Map[String, String] = Map.empty,
   primaryKey: List[String] = Nil,
   acl: List[AccessControlEntry] = Nil,
-  rename: Option[String] = None
+  rename: Option[String] = None,
+  sample: Option[String] = None
 ) {
   def this() = this(
     "",

@@ -123,7 +123,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
 
       val schemaHandler = new SchemaHandler(storageHandler)
 
-      val tasks = AutoTask.tasks(true)(settings, storageHandler, schemaHandler)
+      val tasks = AutoTask.unauthenticatedTasks(true)(settings, storageHandler, schemaHandler)
       val deps = TaskViewDependency.dependencies(tasks)(schemaHandler)
       deps.map(_.parentRef) should contain theSameElementsAs List("user_View", "accepted/user")
     }
@@ -336,6 +336,8 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       val sink = businessTask1.sink.map(_.asInstanceOf[BigQuerySink])
 
       val config = BigQueryLoadConfig(
+        None,
+        None,
         outputDataset = businessTask1.domain,
         outputTable = businessTask1.table,
         sourceFormat = "parquet",
