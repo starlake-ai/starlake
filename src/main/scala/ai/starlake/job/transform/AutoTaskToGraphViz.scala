@@ -36,7 +36,8 @@ class AutoTaskToGraphViz(
   }
 
   def jobAsDot(config: AutoTask2GraphVizConfig): List[(String, String)] = {
-    val tasks = AutoTask.unauthenticatedTasks(config.reload)(settings, storageHandler, schemaHandler)
+    val tasks =
+      AutoTask.unauthenticatedTasks(config.reload)(settings, storageHandler, schemaHandler)
     val depsMap =
       if (config.verbose) {
         schemaHandler
