@@ -176,6 +176,10 @@ In our example, the directory is `{{root_path}}/incoming/sales` and the expected
 `import` move files from domain directory defined in any domain files such as `metadata/domains/sales.comet.yml` to the `datasets/pending` directory.
 Moving files is only done when it matches at least one table pattern otherwise it is ignored.
 
+Before loading our data, we are going to add another entry in our yaml file by setting `load.metadata.ack=ack`.
+This entry define the behavior for all tables defined in our yaml file to wait for an ack with the same name but ending with `.ack` file before importing it.
+By default, the generated yaml doesn't check for any `.ack` file, hence all files matching the pattern are imported.
+
 <Tabs groupId="platforms">
 <TabItem value="linux_macos" label="Linux/MacOS">
 
