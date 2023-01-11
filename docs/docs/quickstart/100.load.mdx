@@ -9,8 +9,8 @@ import TabItem from '@theme/TabItem';
 In this section you will learn how to load and transform data using the samples files created when [bootstrapping a new project](bootstrap).
 You will learn how to:
 - import: recognize new arriving files that need to be loaded into your warehouse
-- load: Validate file records and load data into you warehouse
-- transform: Apply transformation oin your previously loaded data
+- load: validate file records and load data into you warehouse
+- transform: apply transformation on your previously loaded data
 
 
 ## Sample scenario
@@ -22,7 +22,7 @@ and are required to be loaded incrementally.
 
 #### customers dataset
 
-``File customers-2018-05-10.psv from "sales" department``
+``File customers-2018-01-01.psv from "sales" department``
 
 |id|signup|contact|birthdate|firstname|lastname|country|
 |---|---|---|---|---|---|---|
@@ -144,9 +144,23 @@ load:
 
 ```
 
-An environment file is also created. This `metadata/env.comet.yml` env file contains variables that will be substituted at runtime when present in any YAML file. Variables in YAML files are enclosed with {{ and }}.
+We have seen in the [bootstrap section](bootstrap) that three environment files were created such as `metadata/env.comet.yml`.
+These environment files define variables that will be used for runtime substitution in any YAML file. Variables in YAML files are enclosed with {{ and }}.
+
+Furthermore, it is important to know that `metadata/env.comet.yml` define the default variables.
+Any other environment files will be mixed with this default one and specific environment file have higher precedence.
+In other word, we have the following environments
+
+| Environment | File used                       |
+|-------------|---------------------------------|
+| default     | env.comet.yml                   |
+| FS          | env.FS.comet.yml, env.comet.yml |
+| BQ          | env.BQ.comet.yml, env.comet.yml |
+
+Environment is set thanks to `COMET_ENV` environment variable. For more details, have a look at the [environment reference](../reference/environment)
+
 In our example, the `root_path` must be defined to the location where the incoming directory containing the datasets to load will be located.
-Set it to your project directory as follows:
+Set it to your project directory as follows in the default environment file:
 
 ```
 env:
@@ -158,9 +172,13 @@ Loading is a two step process: The optional `import` step and the `load` step.
 
 ### Import step
 In this first step, Starlake will look at the directory defined in the YAML file and look at the file that matches the expected pattern.
-In our example, the directory is `{{root_path}}/incoming/sales` and the expected file pattern is `customers-.*.psv`
-The file is moved to the `datasets/pending` directory where its content will be validated before the file is loaded in the warehouse.
-Any file that do not match the expected pattern is moved to the `datasets/unresolved` folder.
+In our example, the directory is `{{root_path}}/incoming/sales` and the expected file pattern has been changed to `customers-.*.psv`
+`import` move files from domain directory defined in any domain files such as `metadata/domains/sales.comet.yml` to the `datasets/pending` directory.
+Moving files is only done when it matches at least one table pattern otherwise it is ignored.
+
+Before loading our data, we are going to add another entry in our yaml file by setting `load.metadata.ack=ack`.
+This entry define the behavior for all tables defined in our yaml file to wait for an ack with the same name but ending with `.ack` file before importing it.
+By default, the generated yaml doesn't check for any `.ack` file, hence all files matching the pattern are imported.
 
 <Tabs groupId="platforms">
 <TabItem value="linux_macos" label="Linux/MacOS">
@@ -201,7 +219,9 @@ Also note that all these source directories may be [redefined](../reference/conf
 ### Load step
 
 In this second step, each line in the file present in the `datasets/pending` folder is checked against the schema described in the YAML file
-and its result is stored in the warehouse. To load the file, simply run the watch command below:
+and its result is stored in the warehouse.
+
+Before loading data to the warehouse, create a copy of the psv file and name it `unknown-table.psv`. Then run the `watch` command to load data as below:
 
 <Tabs groupId="platforms">
 <TabItem value="linux_macos" label="Linux/MacOS">
@@ -235,8 +255,18 @@ This will load the dataset and store it as a parquet file into the folders:
 - `datasets/rejected` for invalid records
 - `datasets/unresolved` for unrecognized files
 
+The latter one is where you should find `unknown-table.psv`.
+
 :::note
 
 Through minimum extra configuration, we are able to run Starlake on top of any warehouse and have these datasets available as tables.
+
+:::
+
+:::caution
+
+Starlake validate the data against the table's schema of the first pattern that match with the file name.
+Hence, you must be careful regarding the pattern you set.
+Make sure that there is no overlap.
 
 :::

@@ -17,7 +17,7 @@ The script will in turn download required dependencies and copy them to the bin 
 ```shell
 $ mkdir $HOME/starlake
 $ cd $HOME/starlake
-$ curl -O hhttps://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/starlake.sh
+$ curl -O https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/starlake.sh
 $ chmod +x starlake.sh
 $ ./starlake.sh
 $
@@ -30,7 +30,7 @@ $
 
 ```powershell
 c:\> mkdir %userprofile%\starlake
-c:\users\me\starlake> cd %userprofile%\starlake
+c:\> cd %userprofile%\starlake
 c:\users\me\starlake> curl -O https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/starlake.cmd
 c:\users\me\starlake> starlake
 ```
@@ -45,7 +45,7 @@ and build your docker image
 ```shell
 $ mkdir starlake
 $ cd starlake
-$ curl -O hhttps://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/starlake.sh
+$ curl -O https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/starlake.sh
 $ curl -O https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/Dockerfile
 $ docker build -t starlake .
 $ docker run -it starlake
@@ -129,8 +129,8 @@ $ ./starlake.sh ... # version 0.5.3 will be running
 <TabItem value="windows" label="Windows">
 
 ```powershell
-c:\starlake> SET COMET_VERSION=0.5.2
-c:\starlake> starlake
+c:\users\me\starlake> SET COMET_VERSION=0.5.2
+c:\users\me\starlake> starlake
 
 ```
 

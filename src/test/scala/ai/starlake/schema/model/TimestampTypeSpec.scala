@@ -2,13 +2,16 @@ package ai.starlake.schema.model
 
 import java.sql.Timestamp
 import java.time.Instant
-
 import ai.starlake.TestHelper
 import PrimitiveType.timestamp
+
+import java.util.Locale
 
 class TimestampTypeSpec extends TestHelper {
 
   new WithSettings() {
+
+    Locale.setDefault(Locale.US)
 
     "Timestamp primitive type initialization with null values " should "be empty" in {
       Option(timestamp.fromString(null, null, null)) shouldBe None
