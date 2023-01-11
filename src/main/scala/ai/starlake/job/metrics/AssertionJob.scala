@@ -61,6 +61,7 @@ class AssertionJob(
       "assertions" + path
         .replace("{{domain}}", domainName)
         .replace("{{schema}}", schemaName)
+        .replace(":", "_")
         .replace('/', '_') + ".lock"
     )
   }

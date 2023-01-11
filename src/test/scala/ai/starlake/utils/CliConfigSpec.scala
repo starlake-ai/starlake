@@ -12,6 +12,7 @@ import ai.starlake.job.sink.jdbc.ConnectionLoadConfig
 import ai.starlake.job.sink.kafka.KafkaJobConfig
 import ai.starlake.schema.generator.{Xls2YmlConfig, Yml2GraphVizConfig, Yml2XlsConfig}
 import ai.starlake.workflow.{ImportConfig, TransformConfig, WatchConfig}
+import better.files.File
 
 class CliConfigSpec extends TestHelper {
   new WithSettings() {
@@ -43,7 +44,7 @@ class CliConfigSpec extends TestHelper {
         command -> config.markdown(index + 1)
       }
       val mdPath =
-        getClass.getResource("/").getPath + "../../../docs/docs/cli"
+        (File(getClass.getResource("/")) / "../../../docs/docs/cli").pathAsString
       mdMap.foreach { case (k, v) =>
         reflect.io.File(s"$mdPath/$k.md").writeAll(v)
       }
