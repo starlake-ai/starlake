@@ -41,7 +41,7 @@ trait CliConfig[T] {
     }
 
     val mdExtraDescriptionFile =
-      File(getClass.getResource("/").getPath + s"../../../docs/merge/cli/$programName.md")
+      File(getClass.getResource("/")) / s"../../../docs/merge/cli/$programName.md"
     val extra =
       if (mdExtraDescriptionFile.exists())
         mdExtraDescriptionFile.lines().mkString("\n")
