@@ -21,8 +21,8 @@
 package ai.starlake.schema.handlers
 
 import java.nio.charset.Charset
-
 import ai.starlake.TestHelper
+import better.files.File
 
 import scala.io.Codec
 
@@ -62,7 +62,7 @@ class PositionIngestionJobSpec extends TestHelper {
         printDF(acceptedDf, "acceptedDf")
         acceptedDf.count() shouldBe
         sparkSession.read
-          .text(getClass.getResource(s"/sample/${datasetDomainName}/XPOSTBL").toURI.getPath)
+          .text(File(getClass.getResource(s"/sample/${datasetDomainName}/XPOSTBL")).pathAsString)
           .count()
         acceptedDf.schema.fields.map(_.name).contains("calculatedCode") shouldBe true
         acceptedDf.schema.fields.map(_.name).contains("fileName") shouldBe true
