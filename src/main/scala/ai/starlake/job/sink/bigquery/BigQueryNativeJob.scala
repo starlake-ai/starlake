@@ -157,7 +157,7 @@ class BigQueryNativeJob(
 
   def createTable(datasetName: String, tableName: String, schema: Schema): Unit = {
     Try {
-      val tableId = TableId.of(datasetName, tableName)
+      val tableId = extractProjectDatasetAndTable(datasetName, tableName)
       val table = scala.Option(bigquery().getTable(tableId))
       table match {
         case Some(tbl) if tbl.exists() =>
@@ -197,6 +197,9 @@ class BigQueryNativeJob(
       }
     }
   }
+
+  override def extractProjectDatasetAndTable(resourceId: String): TableId =
+    BigQueryJobBase.extractProjectDatasetAndTable(resourceId)
 }
 
 object BigQueryNativeJob extends StrictLogging {}
