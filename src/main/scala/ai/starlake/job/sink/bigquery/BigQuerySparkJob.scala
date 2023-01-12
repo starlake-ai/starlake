@@ -295,6 +295,8 @@ class BigQuerySparkJob(
     Utils.logFailure(res, logger)
   }
 
+  override protected def extractProjectDatasetAndTable(resourceId: String): TableId =
+    BigQuerySparkJob.getTableId(session, resourceId)
 }
 
 case class TableMetadata(table: Option[Table], biqueryClient: BigQuery)
@@ -303,14 +305,21 @@ object BigQuerySparkJob {
 
   def getTable(
     session: SparkSession,
-    datasetName: String,
-    tableName: String
+    resourceId: String
   ): TableMetadata = {
-    val conf = session.sparkContext.hadoopConfiguration
-    val projectId: String =
-      Option(conf.get("fs.gs.project.id")).getOrElse(ServiceOptions.getDefaultProjectId)
-    val bigquery: BigQuery = BigQueryOptions.getDefaultInstance().getService()
-    val tableId = TableId.of(projectId, datasetName, tableName)
-    TableMetadata(Option(bigquery.getTable(tableId)), bigquery)
+    val finalTableId = getTableId(session, resourceId)
+    val bigquery = BigQueryOptions.getDefaultInstance().getService()
+    TableMetadata(Option(bigquery.getTable(finalTableId)), bigquery)
+  }
+
+  def getTableId(session: SparkSession, resourceId: String): TableId = {
+    val tableId = BigQueryJobBase.extractProjectDatasetAndTable(resourceId)
+    if (tableId.getProject == null) {
+      val conf = session.sparkContext.hadoopConfiguration
+      val defaultProjectId: String =
+        Option(conf.get("fs.gs.project.id")).getOrElse(ServiceOptions.getDefaultProjectId)
+      TableId.of(defaultProjectId, tableId.getDataset, tableId.getTable)
+    } else
+      tableId
   }
 }
