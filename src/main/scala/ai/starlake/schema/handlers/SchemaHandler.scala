@@ -557,6 +557,14 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     _jobs
   }
 
+  def iamPolicyTags(): Option[IamPolicyTags] = {
+    val path = DatasetArea.iamPolicyTags()
+    if (storage.exists(path))
+      Some(YamlSerializer.deserializeIamPolicyTags(storage.read(path)))
+    else
+      None
+  }
+
   def job(jobName: String): Option[AutoJobDesc] = jobs().get(jobName)
 
   private var (_jobErrors, _jobs): (List[String], Map[String, AutoJobDesc]) = loadJobs()

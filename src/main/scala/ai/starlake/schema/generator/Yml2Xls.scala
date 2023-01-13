@@ -1,15 +1,15 @@
 package ai.starlake.schema.generator
 
-import better.files.File
-import ai.starlake.config.Settings
+import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.schema.handlers.SchemaHandler
-import ai.starlake.schema.model.{Attribute, BigQuerySink, Domain, Format, Partition}
+import ai.starlake.schema.model._
+import better.files.File
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.poi.ss.usermodel.CellType
-import org.apache.poi.xssf.usermodel.{XSSFSheet, XSSFWorkbook}
+import org.apache.poi.xssf.usermodel.XSSFWorkbook
 
-class Yml2XlsWriter(schemaHandler: SchemaHandler) extends LazyLogging with XlsModel {
+class Yml2Xls(schemaHandler: SchemaHandler) extends LazyLogging with XlsModel {
 
   def run(args: Array[String]): Unit = {
     implicit val settings: Settings = Settings(ConfigFactory.load())
@@ -39,6 +39,12 @@ class Yml2XlsWriter(schemaHandler: SchemaHandler) extends LazyLogging with XlsMo
     domains.foreach { domain =>
       writeDomainXls(domain, outputDir)
     }
+
+    schemaHandler
+      .iamPolicyTags()
+      .foreach(iamPolicyTags =>
+        Yml2XlsIamPolicyTags.writeXls(iamPolicyTags, DatasetArea.metadata.toString)
+      )
   }
 
   private def linearize(attrs: List[Attribute], prefix: List[String] = Nil): List[Attribute] = {
@@ -63,31 +69,10 @@ class Yml2XlsWriter(schemaHandler: SchemaHandler) extends LazyLogging with XlsMo
 
   def writeDomainXls(domain: Domain, folder: String): Unit = {
     val workbook = new XSSFWorkbook()
-    val font = workbook.createFont
-    font.setFontHeightInPoints(14.toShort)
-    font.setFontName("Calibri")
-    font.setBold(true)
-    val boldStyle = workbook.createCellStyle()
-    boldStyle.setFont(font)
-
-    def fillHeaders(headers: List[(String, String)], sheet: XSSFSheet): Unit = {
-      val header = sheet.createRow(0)
-      header.setHeight(0) // Hide header
-      headers.map { case (key, _) => key }.zipWithIndex.foreach { case (key, columnIndex) =>
-        val cell = header.createCell(columnIndex)
-        cell.setCellValue(key)
-      }
-      val labelHeader = sheet.createRow(1)
-      headers.map { case (_, value) => value }.zipWithIndex.foreach { case (value, columnIndex) =>
-        val cell = labelHeader.createCell(columnIndex)
-        cell.setCellValue(value)
-        cell.setCellStyle(boldStyle)
-      }
-    }
 
     val xlsOut = File(folder, domain.name + ".xlsx")
     val domainSheet = workbook.createSheet("_domain")
-    fillHeaders(allDomainHeaders, domainSheet)
+    fillHeaders(workbook, allDomainHeaders, domainSheet)
     val domainRow = domainSheet.createRow(2)
     domainRow.createCell(0).setCellValue(domain.name)
     domainRow.createCell(1).setCellValue(domain.resolveDirectory())
@@ -99,7 +84,7 @@ class Yml2XlsWriter(schemaHandler: SchemaHandler) extends LazyLogging with XlsMo
       domainSheet.autoSizeColumn(i)
 
     val policySheet = workbook.createSheet("_policies")
-    fillHeaders(allPolicyHeaders, policySheet)
+    fillHeaders(workbook, allPolicyHeaders, policySheet)
     domain.policies().zipWithIndex.foreach { case (policy, rowIndex) =>
       val policyRow = policySheet.createRow(2 + rowIndex)
       policyRow.createCell(0).setCellValue(policy.name)
@@ -111,7 +96,7 @@ class Yml2XlsWriter(schemaHandler: SchemaHandler) extends LazyLogging with XlsMo
       policySheet.autoSizeColumn(i)
 
     val schemaSheet = workbook.createSheet("_schemas")
-    fillHeaders(allSchemaHeaders, schemaSheet)
+    fillHeaders(workbook, allSchemaHeaders, schemaSheet)
     domain.tables.zipWithIndex.foreach { case (schema, rowIndex) =>
       val metadata = schema.mergedMetadata(domain.metadata)
       val schemaRow = schemaSheet.createRow(2 + rowIndex)
@@ -177,7 +162,7 @@ class Yml2XlsWriter(schemaHandler: SchemaHandler) extends LazyLogging with XlsMo
         schemaSheet.autoSizeColumn(i)
 
       val attributesSheet = workbook.createSheet(schemaName)
-      fillHeaders(allAttributeHeaders, attributesSheet)
+      fillHeaders(workbook, allAttributeHeaders, attributesSheet)
       linearize(schema.attributes).zipWithIndex.foreach { case (attr, rowIndex) =>
         val attrRow = attributesSheet.createRow(2 + rowIndex)
         val finalName = if (attr.array.getOrElse(false)) attr.name + '*' else attr.name

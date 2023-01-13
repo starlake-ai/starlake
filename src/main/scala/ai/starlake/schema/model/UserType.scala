@@ -44,6 +44,7 @@ object UserType {
       case "SA" | "SERVICEACCOUNT" => UserType.SA
       case "USER"                  => UserType.USER
       case "GROUP"                 => UserType.GROUP
+      case "DOMAIN"                => UserType.DOMAIN
     }
   }
 
@@ -53,7 +54,9 @@ object UserType {
 
   object GROUP extends UserType("GROUP")
 
-  val formats: Set[UserType] = Set(SA, USER, GROUP)
+  object DOMAIN extends UserType("DOMAIN")
+
+  val formats: Set[UserType] = Set(SA, USER, GROUP, DOMAIN)
 }
 
 class UserTypeDeserializer extends JsonDeserializer[UserType] {

@@ -27,7 +27,11 @@ import scopt.OParser
   * @param xls
   *   Excel file to produce
   */
-case class Yml2XlsConfig(domains: Seq[String] = Nil, xlsDirectory: String = "")
+case class Yml2XlsConfig(
+  domains: Seq[String] = Nil,
+  iamPolicyTagsFile: Option[String] = None,
+  xlsDirectory: String = ""
+)
 
 object Yml2XlsConfig extends CliConfig[Yml2XlsConfig] {
   override val command: String = "yml2xls"
@@ -43,6 +47,12 @@ object Yml2XlsConfig extends CliConfig[Yml2XlsConfig] {
         .action((x, c) => c.copy(domains = x))
         .optional()
         .text("domains to convert to XLS"),
+      opt[String]("iamPolicyTagsFile")
+        .action((x, c) => c.copy(iamPolicyTagsFile = Some(x)))
+        .optional()
+        .text(
+          "IAM PolicyTag file to convert to XLS, COMET_METADATA/iam-policy-tags.yml by default)"
+        ),
       opt[String]("xls")
         .action((x, c) => c.copy(xlsDirectory = x))
         .required()

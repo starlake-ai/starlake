@@ -312,11 +312,15 @@ class Main() extends StrictLogging {
             false
         }
 
+      case "iam-policies" =>
+        workflow.applyIamPolicies()
+        true
+
       case "xls2yml" =>
         Xls2Yml.run(args.drop(1))
 
       case "yml2xls" =>
-        new Yml2XlsWriter(schemaHandler).run(args.drop(1))
+        new Yml2Xls(schemaHandler).run(args.drop(1))
         true
 
       case "yml2gv" =>
