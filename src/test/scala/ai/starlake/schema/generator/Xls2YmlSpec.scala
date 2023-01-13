@@ -10,7 +10,9 @@ import scala.util.{Failure, Success}
 
 class Xls2YmlSpec extends TestHelper {
   new WithSettings() {
-    Xls2Yml.generateSchema(getClass.getResource("/sample/SomeDomainTemplate.xls").getPath)
+    Xls2Yml.generateSchema(
+      File(getClass.getResource("/sample/SomeDomainTemplate.xls")).pathAsString
+    )
     val outputPath = File(DatasetArea.domains.toString + "/someDomain.comet.yml")
 
     val result: Domain = YamlSerializer
@@ -81,12 +83,14 @@ class Xls2YmlSpec extends TestHelper {
     "a complex XLS (aka JSON/XML)" should "produce the correct schema" in {
       val complexReader =
         new XlsDomainReader(
-          InputPath(getClass.getResource("/sample/SomeComplexDomainTemplate.xls").getPath)
+          InputPath(
+            File(getClass.getResource("/sample/SomeComplexDomainTemplate.xls")).pathAsString
+          )
         )
       val xlsTable = complexReader.getDomain().get.tables.head
       val domainAsYaml = YamlSerializer.serialize(complexReader.getDomain().get)
       val yamlPath =
-        File(getClass.getResource("/sample/SomeComplexDomainTemplate.comet.yml").getPath)
+        File(getClass.getResource("/sample/SomeComplexDomainTemplate.comet.yml"))
 
       val yamlTable = YamlSerializer
         .deserializeDomain(yamlPath.contentAsString, yamlPath.pathAsString)

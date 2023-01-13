@@ -2,8 +2,23 @@
 # Release notes
 
 # 0.6.2
+__New Feature__:
 - Support BigQuery IAM Policy Tags 
-- XLS and YML readers renamed. Breaking change if you are calling them outside the starlake command line
+
+- __ Breaking Changes__
+  XLS and YML readers renamed. Breaking change if you are calling them outside the starlake command line
+
+__Bug Fix__:
+- beauty fail when no SQL is defined for a transform task
+- make it build on windows
+- fix quickstart bootstrap
+
+__Build__:
+- add default sbt options and force test file encoding to be UTF-8
+
+__Doc__:
+- enhance quickstart guide
+- fix some typos
 
 # 0.6.1
 __ Breaking Changes__

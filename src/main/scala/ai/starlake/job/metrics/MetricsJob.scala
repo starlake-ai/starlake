@@ -53,6 +53,7 @@ class MetricsJob(
       "metrics" + path
         .replace("{{domain}}", domain.name)
         .replace("{{schema}}", schema.name)
+        .replace(":", "_")
         .replace('/', '_') + ".lock"
     )
   }
