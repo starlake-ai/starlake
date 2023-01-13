@@ -7,7 +7,7 @@ package ai.starlake.schema.model
   *   : The condition that goes to the WHERE clause and limitt the visible rows.
   * @param grants
   *   : user / groups / service accounts to which this security level is applied. ex :
-  *   user:me@mycompany.com,group:group@mycompany.com,serviceAccount:mysa@google-accounts.com
+  *   user:me@mycompany.com,group:group@mycompany.com,serviceAccount:mysa@google-accounts.com,domain:starlake.ai
   */
 case class RowLevelSecurity(
   name: String,

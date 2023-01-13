@@ -184,6 +184,9 @@ object DatasetArea extends StrictLogging {
       new Path(views, viewsPath)
   }
 
+  def iamPolicyTags()(implicit settings: Settings): Path =
+    new Path(DatasetArea.metadata, "iam-policy-tags.comet.yml")
+
   /** @param storage
     */
   def initMetadata(

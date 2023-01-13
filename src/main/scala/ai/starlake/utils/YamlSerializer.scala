@@ -2,7 +2,7 @@ package ai.starlake.utils
 
 import ai.starlake.config.Settings
 import ai.starlake.extract.JDBCSchemas
-import ai.starlake.schema.model.{AutoJobDesc, Domain, Schema => ModelSchema, Schemas}
+import ai.starlake.schema.model.{AutoJobDesc, Domain, IamPolicyTags, Schema => ModelSchema, Schemas}
 import better.files.File
 import com.fasterxml.jackson.annotation.JsonInclude.Include
 import com.fasterxml.jackson.annotation.{JsonSetter, Nulls}
@@ -23,6 +23,12 @@ object YamlSerializer extends LazyLogging {
   mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
 
   def serialize(domain: Domain): String = mapper.writeValueAsString(domain)
+
+  def serialize(iamPolicyTags: IamPolicyTags): String = mapper.writeValueAsString(iamPolicyTags)
+  def deserializeIamPolicyTags(content: String): IamPolicyTags = {
+    val rootNode = mapper.readTree(content)
+    mapper.treeToValue(rootNode, classOf[IamPolicyTags])
+  }
 
   def serialize(schema: ModelSchema): String = mapper.writeValueAsString(schema)
 
@@ -57,6 +63,10 @@ object YamlSerializer extends LazyLogging {
   def serializeToFile(targetFile: File, domain: Domain): Unit = {
     case class Load(load: Domain)
     mapper.writeValue(targetFile.toJava, Load(domain))
+  }
+
+  def serializeToFile(targetFile: File, iamPolicyTags: IamPolicyTags): Unit = {
+    mapper.writeValue(targetFile.toJava, iamPolicyTags)
   }
 
   def serializeToFile(targetFile: File, schema: ModelSchema): Unit = {
@@ -104,7 +114,7 @@ object YamlSerializer extends LazyLogging {
     }
   }
 
-  def renameField(node: ObjectNode, oldName: String, newName: String) = {
+  def renameField(node: ObjectNode, oldName: String, newName: String): Any = {
     val oldNode = node.path(oldName)
     val newNode = node.path(newName)
     if ((newNode.isNull || newNode.isMissingNode) && !(oldNode.isNull || oldNode.isMissingNode)) {

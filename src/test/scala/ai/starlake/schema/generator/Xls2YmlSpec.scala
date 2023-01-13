@@ -73,14 +73,14 @@ class Xls2YmlSpec extends TestHelper {
         .get shouldEqual 0.0
     }
 
-    val reader = new XlsReader(
+    val reader = new XlsDomainReader(
       InputPath(getClass.getResource("/sample/SomeDomainTemplate.xls").getPath)
     )
     val domainOpt = reader.getDomain()
 
     "a complex XLS (aka JSON/XML)" should "produce the correct schema" in {
       val complexReader =
-        new XlsReader(
+        new XlsDomainReader(
           InputPath(getClass.getResource("/sample/SomeComplexDomainTemplate.xls").getPath)
         )
       val xlsTable = complexReader.getDomain().get.tables.head

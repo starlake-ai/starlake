@@ -1,6 +1,10 @@
 
 # Release notes
 
+# 0.6.2
+- Support BigQuery IAM Policy Tags 
+- XLS and YML readers renamed. Breaking change if you are calling them outside the starlake command line
+
 # 0.6.1
 __ Breaking Changes__
 - Extract has been refactored to 3 different scripts: extract-schema, extract-data and extract-script
