@@ -7,7 +7,6 @@ import org.apache.poi.ss.usermodel._
 
 import java.io.File
 import java.util.regex.Pattern
-import scala.collection.JavaConverters._
 import scala.collection.mutable.ListBuffer
 
 sealed trait Input
@@ -23,7 +22,7 @@ final case class SchemaName(value: String) extends AnyVal
   *
   * @param input
   */
-class XlsReader(input: Input) extends XlsModel {
+class XlsDomainReader(input: Input) extends XlsModel {
 
   private val workbook: Workbook = input match {
     case InputPath(s)  => WorkbookFactory.create(new File(s))
@@ -307,6 +306,37 @@ class XlsReader(input: Input) extends XlsModel {
       }
     }.toList
   }
+  private lazy val iamPolicyTags: List[IamPolicyTag] = {
+    val sheet =
+      Option(workbook.getSheet("_iam_policy_tags")).getOrElse(workbook.getSheet("iam_policy_tags"))
+    val (rows, headerMap) = getColsOrder(sheet, allIamPolicyTagHeaders.map { case (k, _) => k })
+    rows.flatMap { row =>
+      val policyTagOpt =
+        Option(row.getCell(headerMap("_policyTag"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
+          .flatMap(formatter.formatCellValue)
+      val membersOpt =
+        Option(row.getCell(headerMap("_members"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
+          .flatMap(formatter.formatCellValue)
+          .map(_.split(","))
+      val roleOpt =
+        Option(row.getCell(headerMap("_role"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL))
+          .flatMap(formatter.formatCellValue)
+
+      (policyTagOpt, membersOpt, roleOpt) match {
+        case (Some(policyTag), Some(members), Some(role)) =>
+          Some(
+            IamPolicyTag(
+              policyTag,
+              members.toList,
+              role
+            )
+          )
+        case _ => None
+      }
+    }.toList
+  }
+
+  def getIamPolicyTags(): List[IamPolicyTag] = iamPolicyTags
 
   /** Returns the Domain corresponding to the parsed spreadsheet
     * @param settings
@@ -522,44 +552,6 @@ class XlsReader(input: Input) extends XlsModel {
           )
         )
       case _ => None
-    }
-  }
-
-  private def getColsOrder(
-    sheet: Sheet,
-    allHeaders: List[String]
-  ): (Iterable[Row], Map[String, Int]) = {
-    val scalaSheet = sheet.asScala
-    val hasSchema = scalaSheet.head
-      .getCell(0, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
-      .getStringCellValue
-      .startsWith("_")
-    if (hasSchema) {
-      val headersRow = scalaSheet.head
-      val headerMap = headersRow
-        .cellIterator()
-        .asScala
-        .zipWithIndex
-        .map { case (headerCell, index) =>
-          val header = headerCell.getStringCellValue
-          (header, index)
-        }
-        .toMap
-      (scalaSheet.drop(2), headerMap)
-    } else {
-      (scalaSheet.drop(1), allHeaders.zipWithIndex.toMap)
-    }
-  }
-
-  object formatter {
-    private val f = new DataFormatter()
-
-    def formatCellValue(cell: Cell): Option[String] = {
-      // remove all no-breaking spaces from cell to avoid parsing errors
-      f.formatCellValue(cell).trim.replaceAll("\\u00A0", "") match {
-        case v if v.isEmpty => None
-        case v              => Some(v)
-      }
     }
   }
 }
