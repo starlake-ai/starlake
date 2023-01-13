@@ -500,6 +500,11 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
           .getOrElse(taskDesc)
       }
       val jobName = finalDomainOrJobName(path, jobDesc.name)
+      val tasksWithNoSQL = tasks.filter(_.sql.isEmpty)
+      assert(
+        tasksWithNoSQL.isEmpty,
+        "Task requires to define a query either through sql attribute or a sql side car file."
+      )
       jobDesc.copy(
         name = jobName,
         tasks = tasks

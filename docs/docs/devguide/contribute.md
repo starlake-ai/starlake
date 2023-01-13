@@ -120,3 +120,10 @@ The commit contains the following structural elements, to communicate intent to 
 * Git commit log is linted with ``gitlint``. Configuration is located in the file ``.gitlint``.
     * Use ``gitlint --commits master..HEAD`` to validate your commit log.
     * You can install commit-msg hook with ``gitlint install-hook``. It will prevent you from committing with a wrong message.
+
+# Build settings
+
+The CI currently compiles with java 11, so we suggest you to use this version if you plan to contribute.
+
+If you plan to build from powershell, you may want to set the input and output settings of the terminal as utf-8.
+This can be done as follows: `$OutputEncoding = [console]::InputEncoding = [console]::OutputEncoding = New-Object System.Text.UTF8Encoding`
