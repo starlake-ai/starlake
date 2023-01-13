@@ -61,11 +61,15 @@ class Yml2XlsSpec extends TestHelper {
 
   "All SchemaGen Config" should "be known and taken  into account" in {
     val rendered = Yml2XlsConfig.usage()
+    println(rendered)
+
     val expected =
       """
         |Usage: starlake yml2xls [options]
         |
         |  --domain <value>  domains to convert to XLS
+        |  --iamPolicyTagsFile <value>
+        |                           IAM PolicyTag file to convert to XLS, COMET_METADATA/iam-policy-tags.yml by default)
         |  --xls <value>     directory where XLS files are generated
         |""".stripMargin
     rendered.substring(rendered.indexOf("Usage:")).replaceAll("\\s", "") shouldEqual expected
