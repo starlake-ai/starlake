@@ -28,7 +28,8 @@ case class BigQueryLoadConfig(
   partitionsToUpdate: List[String] = Nil,
   acl: List[AccessControlEntry] = Nil,
   starlakeSchema: Option[Schema] = None,
-  domainTags: Set[String] = Set.empty
+  domainTags: Set[String] = Set.empty,
+  materializedView: Boolean = false
 ) {
   def getLocation(): String = this.location.getOrElse("EU")
   def getCredentials()(implicit settings: Settings): Option[ServiceAccountCredentials] = {
