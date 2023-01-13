@@ -3,6 +3,7 @@ package ai.starlake.job.convert
 import better.files.File
 import ai.starlake.TestHelper
 import ai.starlake.schema.model.WriteMode
+import ai.starlake.utils.Utils
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.SaveMode
 
@@ -45,7 +46,9 @@ class Parquet2CSVSpec extends TestHelper {
       createParquet()
       new Parquet2CSV(config, storageHandler).run()
       val csvFile = File(outputDir.pathAsString, domainName, schemaName + ".csv")
-      val result = Source.fromFile(csvFile.pathAsString).getLines().toList
+      val result = Utils.withResources(Source.fromFile(csvFile.uri)) { csvFileSource =>
+        csvFileSource.getLines().toList
+      }
       val expected = List(
         "id|customer|amount|seller_id",
         "12345|A009701|123.6|AQZERD",

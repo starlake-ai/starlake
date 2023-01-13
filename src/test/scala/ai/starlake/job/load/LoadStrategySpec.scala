@@ -22,12 +22,13 @@ class LoadStrategySpec extends TestHelper {
         .loadInstance[LoadStrategy]("ai.starlake.job.load.IngestionTimeStrategy")
         .list(storageHandler, new Path(cometDatasetsPath), recursive = false)
 
-      val expected: List[Path] = List(
-        new Path(s"file:$cometDatasetsPath/my_dataset_20210102120000.csv"),
-        new Path(s"file:$cometDatasetsPath/my_dataset_20210101120000.csv"),
-        new Path(s"file:$cometDatasetsPath/my_dataset_20210103120000.csv")
+      val expected: List[String] = List(
+        "my_dataset_20210102120000.csv",
+        "my_dataset_20210101120000.csv",
+        "my_dataset_20210103120000.csv"
       )
-      files shouldEqual expected
+      files.map(_.getName) shouldEqual expected
+      all(files.map(storageHandler.exists)) shouldBe true
     }
 
     "IngestionNameStrategy" should "list files by name" in {
@@ -39,12 +40,13 @@ class LoadStrategySpec extends TestHelper {
         .loadInstance[LoadStrategy]("ai.starlake.job.load.IngestionNameStrategy")
         .list(storageHandler, new Path(cometDatasetsPath), recursive = false)
 
-      val expected: List[Path] = List(
-        new Path(s"file:$cometDatasetsPath/my_dataset_20210101120000.csv"),
-        new Path(s"file:$cometDatasetsPath/my_dataset_20210102120000.csv"),
-        new Path(s"file:$cometDatasetsPath/my_dataset_20210103120000.csv")
+      val expected: List[String] = List(
+        "my_dataset_20210101120000.csv",
+        "my_dataset_20210102120000.csv",
+        "my_dataset_20210103120000.csv"
       )
-      files shouldEqual expected
+      files.map(_.getName) shouldEqual expected
+      all(files.map(storageHandler.exists)) shouldBe true
     }
   }
 }
