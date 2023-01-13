@@ -101,6 +101,7 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
             AutoJobDesc(
               "bqjobtest",
               List(businessTask1),
+              Nil,
               None,
               None,
               None,

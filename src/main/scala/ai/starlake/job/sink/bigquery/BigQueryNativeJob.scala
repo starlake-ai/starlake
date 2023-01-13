@@ -70,6 +70,43 @@ class BigQueryNativeJob(
     *   : Spark Session used for the job
     */
   override def run(): Try[JobResult] = {
+    if (cliConfig.materializedView) {
+      RunAndSinkAsMaterializedView().map(table => BigQueryJobResult(None, 0L))
+    } else {
+      RunAndSinkAsTable()
+    }
+  }
+  private def RunAndSinkAsMaterializedView(): Try[Table] = {
+    Try {
+      val materializedViewDefinitionBuilder = MaterializedViewDefinition.newBuilder(sql)
+      cliConfig.outputPartition match {
+        case Some(partitionField) =>
+          // Generating schema from YML to get the descriptions in BQ
+          val partitioning =
+            timePartitioning(partitionField, cliConfig.days, cliConfig.requirePartitionFilter)
+              .build()
+          materializedViewDefinitionBuilder.setTimePartitioning(partitioning)
+        case None =>
+      }
+      cliConfig.outputClustering match {
+        case Nil =>
+        case fields =>
+          val clustering = Clustering.newBuilder().setFields(fields.asJava).build()
+          materializedViewDefinitionBuilder.setClustering(clustering)
+      }
+      cliConfig.options.get("enableRefresh") match {
+        case Some(x) => materializedViewDefinitionBuilder.setEnableRefresh(x.toBoolean)
+        case None    =>
+      }
+      cliConfig.options.get("refreshIntervalMs") match {
+        case Some(x) => materializedViewDefinitionBuilder.setRefreshIntervalMs(x.toLong)
+        case None    =>
+      }
+      bigquery().create(TableInfo.of(tableId, materializedViewDefinitionBuilder.build()))
+    }
+  }
+
+  private def RunAndSinkAsTable(): Try[BigQueryJobResult] = {
     Try {
       val targetDataset = getOrCreateDataset()
       val queryConfig: QueryJobConfiguration.Builder =

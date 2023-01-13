@@ -3,7 +3,9 @@
 
 # 0.6.2
 __New Feature__:
-- Support BigQuery IAM Policy Tags 
+- Support BigQuery IAM Policy Tags
+- Support task refs in autojob file
+- Support materialized views in autojob
 
 - __ Breaking Changes__
   XLS and YML readers renamed. Breaking change if you are calling them outside the starlake command line
