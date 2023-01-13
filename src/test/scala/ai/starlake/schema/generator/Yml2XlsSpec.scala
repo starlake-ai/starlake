@@ -41,7 +41,7 @@ class Yml2XlsSpec extends TestHelper {
     ) {
       "a complex attribute list(aka JSON/XML)" should "produce the correct XLS file" in {
         val yamlPath =
-          File(getClass.getResource("/sample/SomeComplexDomainTemplate.comet.yml").getPath)
+          File(getClass.getResource("/sample/SomeComplexDomainTemplate.comet.yml"))
         val yamlDomain = YamlSerializer
           .deserializeDomain(yamlPath.contentAsString, yamlPath.pathAsString)
           .getOrElse(throw new Exception(s"Invalid file name $yamlPath"))

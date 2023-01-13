@@ -26,6 +26,7 @@ import ai.starlake.schema.handlers.{SchemaHandler, SimpleLauncher, StorageHandle
 import ai.starlake.schema.model.{Attribute, AutoJobDesc}
 import ai.starlake.utils.{CometObjectMapper, Utils}
 import ai.starlake.workflow.{ImportConfig, IngestionWorkflow, WatchConfig}
+import better.files.{File => BetterFile}
 import com.dimafeng.testcontainers.{ElasticsearchContainer, KafkaContainer}
 import com.fasterxml.jackson.annotation.JsonInclude.Include
 import com.fasterxml.jackson.annotation.{JsonSetter, Nulls}
@@ -76,8 +77,8 @@ trait TestHelper
   lazy val cometTestRoot: String =
     Option(System.getProperty("os.name")).map(_.toLowerCase contains "windows") match {
       case Some(true) =>
-        Files.createTempDirectory(cometTestId).toAbsolutePath.toString.replace("\\", "/")
-      case _ => Files.createTempDirectory(cometTestId).toAbsolutePath.toString
+        BetterFile(Files.createTempDirectory(cometTestId)).pathAsString.replace("\\", "/")
+      case _ => BetterFile(Files.createTempDirectory(cometTestId)).pathAsString
     }
   lazy val cometDatasetsPath: String = cometTestRoot + "/datasets"
   lazy val cometMetadataPath: String = cometTestRoot + "/metadata"
