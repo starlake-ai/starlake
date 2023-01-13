@@ -223,6 +223,8 @@ class Xls2YmlSpec extends TestHelper {
           |
           |  --files <value>       List of Excel files describing Domains & Schemas
           |  --encryption <value>  If true generate pre and post encryption YML
+          |  --iamPolicyTagsFile <value>
+          |                        If true generate IAM PolicyTags YML
           |  --delimiter <value>   CSV delimiter to use in post-encrypt YML.
           |  --privacy <value>     What privacy policies should be applied in the pre-encryption phase ?
           | All privacy policies are applied by default.
