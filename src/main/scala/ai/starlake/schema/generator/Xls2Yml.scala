@@ -115,7 +115,7 @@ object Xls2Yml extends LazyLogging {
   def generateSchema(inputPath: String, outputPath: Option[String] = None)(implicit
     settings: Settings
   ): Unit = {
-    val reader = new XlsReader(InputPath(inputPath))
+    val reader = new XlsDomainReader(InputPath(inputPath))
     reader.getDomain().foreach { domain =>
       writeDomainYaml(domain, outputPath.getOrElse(DatasetArea.domains.toString), domain.name)
     }
@@ -123,8 +123,18 @@ object Xls2Yml extends LazyLogging {
 
   def writeDomainYaml(domain: Domain, outputPath: String, fileName: String): Unit = {
     logger.info(s"""Generated schemas:
-                   |${serialize(domain)}""".stripMargin)
+         |${serialize(domain)}""".stripMargin)
     serializeToFile(File(outputPath, s"${fileName}.comet.yml"), domain)
+  }
+
+  def writeIamPolicyTagsYaml(
+    iamPolicyTags: IamPolicyTags,
+    outputPath: String,
+    fileName: String
+  ): Unit = {
+    logger.info(s"""Generated schemas:
+         |${serialize(iamPolicyTags)}""".stripMargin)
+    serializeToFile(File(outputPath, s"${fileName}.comet.yml"), iamPolicyTags)
   }
 
   def run(args: Array[String]): Boolean = {
@@ -135,7 +145,7 @@ object Xls2Yml extends LazyLogging {
         if (config.encryption) {
           for {
             file   <- config.files
-            domain <- new XlsReader(InputPath(file)).getDomain()
+            domain <- new XlsDomainReader(InputPath(file)).getDomain()
           } yield {
             val preEncrypt = genPreEncryptionDomain(domain, config.privacy)
             writeDomainYaml(
@@ -152,6 +162,15 @@ object Xls2Yml extends LazyLogging {
           }
         } else {
           config.files.foreach(generateSchema(_, config.outputPath))
+        }
+        config.iamPolicyTagsFile.foreach { iamPolicyTagsPath =>
+          val workbook = new XlsIamPolicyTagsReader(InputPath(iamPolicyTagsPath))
+          val iamPolicyTags = IamPolicyTags(workbook.iamPolicyTags)
+          writeIamPolicyTagsYaml(
+            iamPolicyTags,
+            config.outputPath.getOrElse(DatasetArea.metadata.toString),
+            "iam-policy-tags"
+          )
         }
         true
       case _ =>

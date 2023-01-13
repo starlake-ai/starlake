@@ -65,8 +65,6 @@ commands += Command.command("assemblyWithSpark") { state =>
 // Assembly
 Test / fork := true
 
-Test / envVars := Map("GOOGLE_CLOUD_PROJECT" -> "some-gcp-project")
-
 Compile / assembly / artifact := {
   val art: Artifact = (Compile / assembly / artifact).value
   art.withClassifier(Some("assembly"))

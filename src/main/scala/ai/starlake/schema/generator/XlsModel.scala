@@ -1,5 +1,10 @@
 package ai.starlake.schema.generator
 
+import org.apache.poi.ss.usermodel.{Cell, DataFormatter, Row, Sheet, Workbook}
+import org.apache.poi.xssf.usermodel.XSSFSheet
+
+import scala.jdk.CollectionConverters.{asScalaIteratorConverter, iterableAsScalaIterableConverter}
+
 trait XlsModel {
 
   val allDomainHeaders = List(
@@ -15,6 +20,12 @@ trait XlsModel {
     "_predicate"   -> "Predicate",
     "_grants"      -> "User Groups",
     "_description" -> "Description"
+  )
+
+  val allIamPolicyTagHeaders = List(
+    "_policyTag" -> "Policy Tag",
+    "_members"   -> "Members",
+    "_role"      -> "Role"
   )
 
   val allSchemaHeaders = List(
@@ -71,5 +82,64 @@ trait XlsModel {
     "_tags"           -> "Tags",
     "_policy"         -> "Access Policy"
   )
+
+  protected def getColsOrder(
+    sheet: Sheet,
+    allHeaders: List[String]
+  ): (Iterable[Row], Map[String, Int]) = {
+    val scalaSheet = sheet.asScala
+    val hasSchema = scalaSheet.head
+      .getCell(0, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
+      .getStringCellValue
+      .startsWith("_")
+    if (hasSchema) {
+      val headersRow = scalaSheet.head
+      val headerMap = headersRow
+        .cellIterator()
+        .asScala
+        .zipWithIndex
+        .map { case (headerCell, index) =>
+          val header = headerCell.getStringCellValue
+          (header, index)
+        }
+        .toMap
+      (scalaSheet.drop(2), headerMap)
+    } else {
+      (scalaSheet.drop(1), allHeaders.zipWithIndex.toMap)
+    }
+  }
+
+  object formatter {
+    private val f = new DataFormatter()
+
+    def formatCellValue(cell: Cell): Option[String] = {
+      // remove all no-breaking spaces from cell to avoid parsing errors
+      f.formatCellValue(cell).trim.replaceAll("\\u00A0", "") match {
+        case v if v.isEmpty => None
+        case v              => Some(v)
+      }
+    }
+  }
+
+  def fillHeaders(workbook: Workbook, headers: List[(String, String)], sheet: XSSFSheet): Unit = {
+    val font = workbook.createFont
+    font.setFontHeightInPoints(14.toShort)
+    font.setFontName("Calibri")
+    font.setBold(true)
+    val boldStyle = workbook.createCellStyle()
+    boldStyle.setFont(font)
+    val header = sheet.createRow(0)
+    header.setHeight(0) // Hide header
+    headers.map { case (key, _) => key }.zipWithIndex.foreach { case (key, columnIndex) =>
+      val cell = header.createCell(columnIndex)
+      cell.setCellValue(key)
+    }
+    val labelHeader = sheet.createRow(1)
+    headers.map { case (_, value) => value }.zipWithIndex.foreach { case (value, columnIndex) =>
+      val cell = labelHeader.createCell(columnIndex)
+      cell.setCellValue(value)
+      cell.setCellStyle(boldStyle)
+    }
+  }
 
 }

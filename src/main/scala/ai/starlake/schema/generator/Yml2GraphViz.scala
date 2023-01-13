@@ -79,6 +79,7 @@ class Yml2GraphViz(schemaHandler: SchemaHandler) extends LazyLogging {
   private def usersAsDot(allGrants: Set[String]): String = {
     val allUsers = allGrants.filter(_.startsWith("user:")).map(_.substring("user:".length))
     val allGroups = allGrants.filter(_.startsWith("group:")).map(_.substring("group:".length))
+    val allDomains = allGrants.filter(_.startsWith("domain:")).map(_.substring("domain:".length))
     val allSa =
       allGrants
         .map(_.replace("sa:", "serviceAccount:"))
@@ -107,6 +108,14 @@ class Yml2GraphViz(schemaHandler: SchemaHandler) extends LazyLogging {
            |label = "Groups";
            |}\n""".stripMargin
 
+    val domainsSubgraph =
+      if (allDomains.isEmpty) ""
+      else
+        s"""subgraph cluster_domains {
+           |${formattedGroups.mkString("", ";\n", ";\n")}
+           |label = "Domains";
+           |}\n""".stripMargin
+
     val saSubgraph =
       if (allSa.isEmpty) ""
       else
@@ -115,7 +124,7 @@ class Yml2GraphViz(schemaHandler: SchemaHandler) extends LazyLogging {
            |label = "Service Accounts";
            |}\n""".stripMargin
 
-    usersSubgraph + groupsSubgraph + saSubgraph
+    usersSubgraph + groupsSubgraph + saSubgraph + domainsSubgraph
   }
 
   private def rlsTables() = {

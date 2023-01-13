@@ -60,7 +60,8 @@ case class AutoTaskDesc(
   rls: List[RowLevelSecurity] = Nil,
   assertions: Map[String, String] = Map.empty,
   engine: Option[Engine] = None,
-  acl: List[AccessControlEntry] = Nil
+  acl: List[AccessControlEntry] = Nil,
+  comment: Option[String] = None
 ) {
 
   def this() = this(

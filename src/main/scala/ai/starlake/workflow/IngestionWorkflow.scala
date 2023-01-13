@@ -889,6 +889,23 @@ class IngestionWorkflow(
         Failure(new Exception("The domain or schema you specified doesn't exist! "))
     }
   }
+  def applyIamPolicies(): Boolean = {
+    val config = BigQueryLoadConfig(
+      None,
+      None
+    )
+    schemaHandler
+      .iamPolicyTags()
+      .exists { iamPolicyTags =>
+        val res = new BigQuerySparkJob(config).applyIamPolicyTags(iamPolicyTags)
+        res.recover { case e =>
+          Utils.logException(logger, e)
+          throw e
+        }
+        res.isSuccess
+      }
+  }
+
   def secure(config: WatchConfig): Boolean = {
     val includedDomains = domainsToWatch(config)
     val result = includedDomains.flatMap { domain =>
