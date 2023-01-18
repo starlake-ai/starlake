@@ -2,7 +2,6 @@ package ai.starlake.job.sink.bigquery
 
 import ai.starlake.config.Settings
 import ai.starlake.utils.{JobBase, JobResult, Utils}
-import com.google.cloud.ServiceOptions
 import com.google.cloud.bigquery.JobInfo.{CreateDisposition, WriteDisposition}
 import com.google.cloud.bigquery.JobStatistics.QueryStatistics
 import com.google.cloud.bigquery.QueryJobConfiguration.Priority
@@ -22,9 +21,6 @@ class BigQueryNativeJob(
     with BigQueryJobBase {
 
   override def name: String = s"bqload-${cliConfig.outputDataset}-${cliConfig.outputTable}"
-
-  override def projectId: String =
-    cliConfig.gcpProjectId.getOrElse(ServiceOptions.getDefaultProjectId())
 
   logger.info(s"BigQuery Config $cliConfig")
 
@@ -157,7 +153,7 @@ class BigQueryNativeJob(
 
   def createTable(datasetName: String, tableName: String, schema: Schema): Unit = {
     Try {
-      val tableId = extractProjectDatasetAndTable(datasetName, tableName)
+      val tableId = BigQueryJobBase.extractProjectDatasetAndTable(datasetName, tableName)
       val table = scala.Option(bigquery().getTable(tableId))
       table match {
         case Some(tbl) if tbl.exists() =>
@@ -186,7 +182,7 @@ class BigQueryNativeJob(
             .setUserDefinedFunctions(List(UserDefinedFunction.fromUri(udf)).asJava)
         }
         .getOrElse(viewQuery)
-      val tableId = extractProjectDatasetAndTable(key)
+      val tableId = BigQueryJobBase.extractProjectDatasetAndTable(key)
       val viewRef = scala.Option(bigquery().getTable(tableId))
       if (viewRef.isEmpty) {
         logger.info(s"View $tableId does not exist, creating it!")
@@ -197,9 +193,6 @@ class BigQueryNativeJob(
       }
     }
   }
-
-  override def extractProjectDatasetAndTable(resourceId: String): TableId =
-    BigQueryJobBase.extractProjectDatasetAndTable(resourceId)
 }
 
 object BigQueryNativeJob extends StrictLogging {}
