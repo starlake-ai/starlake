@@ -15,7 +15,7 @@ import ai.starlake.job.sink.kafka.KafkaJobConfig
 import ai.starlake.job.transform.{AutoTask2GraphVizConfig, AutoTaskToGraphViz}
 import ai.starlake.schema.generator._
 import ai.starlake.schema.handlers.{SchemaHandler, ValidateConfig}
-import ai.starlake.serve.{MainServer, MainServerConfig}
+import ai.starlake.serve.{SingleUserMainServer, MainServerConfig}
 import ai.starlake.utils.{CliConfig, CliEnvConfig, CometObjectMapper}
 import ai.starlake.workflow.{ImportConfig, IngestionWorkflow, TransformConfig, WatchConfig}
 import buildinfo.BuildInfo
@@ -345,7 +345,7 @@ class Main() extends StrictLogging {
       case "serve" =>
         MainServerConfig.parse(args.drop(1)) match {
           case Some(config) =>
-            MainServer.serve(config)
+            SingleUserMainServer.serve(config)
             true
           case _ =>
             println(MainServerConfig.usage())
