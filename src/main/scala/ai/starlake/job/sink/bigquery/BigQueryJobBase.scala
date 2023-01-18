@@ -1,6 +1,7 @@
 package ai.starlake.job.sink.bigquery
 
 import ai.starlake.config.Settings
+import ai.starlake.job.sink.bigquery.BigQueryJobBase.extractProjectDataset
 import ai.starlake.schema.model.{
   AccessControlEntry,
   IamPolicyTag,
@@ -67,7 +68,7 @@ trait BigQueryJobBase extends StrictLogging {
   private def applyRLS(forceApply: Boolean)(implicit settings: Settings): Try[Unit] = {
     Try {
       if (forceApply || settings.comet.accessPolicies.apply) {
-        val tableId = TableId.of(cliConfig.outputDataset, cliConfig.outputTable)
+        val tableId = extractProjectDatasetAndTable(cliConfig.outputDataset, cliConfig.outputTable)
         applyACL(tableId, cliConfig.acl)
         prepareRLS().foreach { rlsStatement =>
           logger.info(s"Applying row level security $rlsStatement")
@@ -168,7 +169,8 @@ trait BigQueryJobBase extends StrictLogging {
               val (location, projectId, taxonomy, taxonomyRef) =
                 getTaxonomy(policyTagClient)
               val policyTagIds = mutable.Map.empty[String, String]
-              val tableId = TableId.of(cliConfig.outputDataset, cliConfig.outputTable)
+              val tableId =
+                extractProjectDatasetAndTable(cliConfig.outputDataset, cliConfig.outputTable)
               val table: Table = bigquery().getTable(tableId)
               val tableDefinition = table.getDefinition().asInstanceOf[StandardTableDefinition]
               val bqSchema = tableDefinition.getSchema()
@@ -377,6 +379,23 @@ trait BigQueryJobBase extends StrictLogging {
           .setRequirePartitionFilter(requirePartitionFilter)
     }
   }
+
+  protected def extractProjectDatasetAndTable(datasetId: String, tableId: String): TableId = {
+    extractProjectDatasetAndTable(datasetId + "." + tableId)
+  }
+
+  /** @param resourceId
+    *   resourceId is a an id of one of the following pattern: <projectId>:<datasetId>.<tableId> or
+    *   <datasetId>.<tableId>
+    * @return
+    */
+  protected def extractProjectDatasetAndTable(resourceId: String): TableId
+}
+
+object BigQueryJobBase {
+
+  // Lazy otherwise tests fail since there is no GCP credentials in test mode
+  lazy val policyTagClient = PolicyTagManagerClient.create()
 
   def extractProjectDatasetAndTable(value: String): TableId = {
     def extractDatasetAndTable(str: String): (String, String) = {
