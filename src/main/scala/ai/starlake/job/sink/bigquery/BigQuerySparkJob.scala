@@ -3,7 +3,6 @@ package ai.starlake.job.sink.bigquery
 import ai.starlake.config.Settings
 import ai.starlake.utils.conversion.BigQueryUtils.sparkToBq
 import ai.starlake.utils.{JobResult, SparkJob, SparkJobResult, Utils}
-import com.google.cloud.ServiceOptions
 import com.google.cloud.bigquery.{
   BigQuery,
   BigQueryOptions,
@@ -12,13 +11,12 @@ import com.google.cloud.bigquery.{
   Schema => BQSchema,
   StandardTableDefinition,
   Table,
-  TableId,
   TableInfo
 }
 import com.google.cloud.hadoop.io.bigquery.BigQueryConfiguration
 import org.apache.hadoop.conf.Configuration
 import org.apache.spark.sql.functions.{col, date_format}
-import org.apache.spark.sql.{DataFrame, Row, SaveMode, SparkSession}
+import org.apache.spark.sql.{DataFrame, Row, SaveMode}
 import org.apache.spark.storage.StorageLevel
 
 import scala.collection.JavaConverters._
@@ -38,8 +36,6 @@ class BigQuerySparkJob(
 
   val conf: Configuration = session.sparkContext.hadoopConfiguration
   logger.info(s"BigQuery Config $cliConfig")
-
-  override val projectId: String = cliConfig.gcpProjectId.getOrElse(conf.get("fs.gs.project.id"))
 
   val bucket: String = conf.get("fs.defaultFS")
 
@@ -295,8 +291,6 @@ class BigQuerySparkJob(
     Utils.logFailure(res, logger)
   }
 
-  override protected def extractProjectDatasetAndTable(resourceId: String): TableId =
-    BigQuerySparkJob.getTableId(session, resourceId)
 }
 
 case class TableMetadata(table: Option[Table], biqueryClient: BigQuery)
@@ -304,22 +298,11 @@ case class TableMetadata(table: Option[Table], biqueryClient: BigQuery)
 object BigQuerySparkJob {
 
   def getTable(
-    session: SparkSession,
     resourceId: String
   ): TableMetadata = {
-    val finalTableId = getTableId(session, resourceId)
+    val finalTableId = BigQueryJobBase.extractProjectDatasetAndTable(resourceId)
     val bigquery = BigQueryOptions.getDefaultInstance().getService()
     TableMetadata(Option(bigquery.getTable(finalTableId)), bigquery)
   }
 
-  def getTableId(session: SparkSession, resourceId: String): TableId = {
-    val tableId = BigQueryJobBase.extractProjectDatasetAndTable(resourceId)
-    if (tableId.getProject == null) {
-      val conf = session.sparkContext.hadoopConfiguration
-      val defaultProjectId: String =
-        Option(conf.get("fs.gs.project.id")).getOrElse(ServiceOptions.getDefaultProjectId)
-      TableId.of(defaultProjectId, tableId.getDataset, tableId.getTable)
-    } else
-      tableId
-  }
 }
