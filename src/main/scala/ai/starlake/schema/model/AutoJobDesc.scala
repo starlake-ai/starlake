@@ -123,7 +123,8 @@ case class AutoJobDesc(
   coalesce: Option[Boolean],
   udf: Option[String] = None,
   views: Option[Map[String, String]] = None,
-  engine: Option[Engine] = None
+  engine: Option[Engine] = None,
+  schedule: Option[Map[String, String]] = None
 ) {
 
   def getEngine(): Engine = engine.getOrElse(Engine.SPARK)
