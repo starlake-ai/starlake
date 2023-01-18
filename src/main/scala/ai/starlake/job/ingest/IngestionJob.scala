@@ -1054,7 +1054,7 @@ trait IngestionJob extends SparkJob {
   ): (DataFrame, List[String]) = {
     // When merging to BigQuery, load existing DF from BigQuery
     val tableMetadata =
-      BigQuerySparkJob.getTable(session, domain.getFinalName(), schema.getFinalName())
+      BigQuerySparkJob.getTable(session, domain.getFinalName() + "." + schema.getFinalName())
     val existingDF = tableMetadata.table
       .map { table =>
         val incomingSchema = BigQueryUtils.normalizeSchema(schema.finalSparkSchema(schemaHandler))
