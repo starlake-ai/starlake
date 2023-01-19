@@ -3,22 +3,14 @@ package ai.starlake.serve
 import ai.starlake.config.SettingsManager
 import ai.starlake.job.Main
 import ai.starlake.serve.api.RequestHandler
+import ai.starlake.utils.Utils
 import buildinfo.BuildInfo
-import com.fasterxml.jackson.annotation.JsonInclude.Include
-import com.fasterxml.jackson.annotation.{JsonSetter, Nulls}
-import com.fasterxml.jackson.databind.{DeserializationFeature, ObjectMapper}
-import com.fasterxml.jackson.module.scala.DefaultScalaModule
+import com.fasterxml.jackson.databind.ObjectMapper
 import org.sparkproject.jetty.server.Server
 import org.sparkproject.jetty.servlet.ServletHandler
 
 object SingleUserMainServer {
-  val mapper: ObjectMapper = new ObjectMapper()
-  mapper.registerModule(DefaultScalaModule)
-  mapper
-    .setSerializationInclusion(Include.NON_EMPTY)
-    .setDefaultSetterInfo(JsonSetter.Value.forValueNulls(Nulls.AS_EMPTY, Nulls.AS_EMPTY))
-  mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
-
+  val mapper: ObjectMapper = Utils.newMapper()
   def serve(config: MainServerConfig): Unit = {
 
     val server = new Server(config.port)
