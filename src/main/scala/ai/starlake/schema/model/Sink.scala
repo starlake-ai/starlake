@@ -127,7 +127,8 @@ final case class BigQuerySink(
   clustering: Option[Seq[String]] = None,
   days: Option[Int] = None,
   requirePartitionFilter: Option[Boolean] = None,
-  options: Option[Map[String, String]] = None
+  options: Option[Map[String, String]] = None,
+  materializedView: Option[Boolean] = None
 ) extends Sink(SinkType.BQ.value)
 
 /** When the sink *type* field is set to ES, the options below should be provided. Elasticsearch
