@@ -53,7 +53,13 @@ object YamlSerializer extends LazyLogging {
 
   def deserializeTask(content: String): AutoTaskDesc = {
     val rootNode = mapper.readTree(content)
-    mapper.treeToValue(rootNode, classOf[AutoTaskDesc])
+    val taskNode = rootNode.path("task")
+    val targetNode =
+      if (taskNode.isNull() || taskNode.isMissingNode) {
+        rootNode.asInstanceOf[ObjectNode]
+      } else
+        taskNode.asInstanceOf[ObjectNode]
+    mapper.treeToValue(targetNode, classOf[AutoTaskDesc])
   }
 
   def serialize(jdbcSchemas: JDBCSchemas): String = mapper.writeValueAsString(jdbcSchemas)
