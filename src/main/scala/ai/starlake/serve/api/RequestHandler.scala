@@ -1,6 +1,6 @@
 package ai.starlake.serve.api
 
-import ai.starlake.serve.MainServer
+import ai.starlake.serve.SingleUserMainServer
 import ai.starlake.utils.Utils
 import better.files.File
 
@@ -23,7 +23,7 @@ class RequestHandler extends HttpServlet {
     System.out.println(s"ENV=$env")
     System.out.println(s"GCP_PROJECT=$gcpProject")
     try {
-      val response = MainServer.run(root, metadata, params, env, gcpProject)
+      val response = SingleUserMainServer.run(root, metadata, params, env, gcpProject)
       resp.setStatus(HttpServletResponse.SC_OK)
       resp.getWriter.println(response)
       println(response)

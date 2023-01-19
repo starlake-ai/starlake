@@ -35,6 +35,7 @@ class ConnectionJobsSpec extends TestHelper {
         AutoJobDesc(
           "user",
           List(businessTask1),
+          Nil,
           Some("parquet"),
           Some(false),
           views = Some(Map("user_View" -> s"jdbc:$connection:select * from users"))
