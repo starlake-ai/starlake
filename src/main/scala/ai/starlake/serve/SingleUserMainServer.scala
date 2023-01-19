@@ -11,7 +11,7 @@ import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import org.sparkproject.jetty.server.Server
 import org.sparkproject.jetty.servlet.ServletHandler
 
-object MainServer {
+object SingleUserMainServer {
   val mapper: ObjectMapper = new ObjectMapper()
   mapper.registerModule(DefaultScalaModule)
   mapper
@@ -41,25 +41,25 @@ object MainServer {
       case "quit" | "exit" =>
         System.exit(0)
         "" // makes the compiler happy
-      case "version"   => MainServer.mapper.writeValueAsString(BuildInfo.version)
-      case "heartbeat" => MainServer.mapper.writeValueAsString("OK")
+      case "version"   => SingleUserMainServer.mapper.writeValueAsString(BuildInfo.version)
+      case "heartbeat" => SingleUserMainServer.mapper.writeValueAsString("OK")
       case "domains" =>
         val settings =
           SettingsManager.getUpdatedSettings(root, metadata, env, gcpProject)
-        MainServer.mapper.writeValueAsString(Services.domains()(settings))
+        SingleUserMainServer.mapper.writeValueAsString(Services.domains()(settings))
       case "jobs" =>
         val settings =
           SettingsManager.getUpdatedSettings(root, metadata, env, gcpProject)
-        MainServer.mapper.writeValueAsString(Services.jobs()(settings))
+        SingleUserMainServer.mapper.writeValueAsString(Services.jobs()(settings))
       case "types" =>
         val settings =
           SettingsManager.getUpdatedSettings(root, metadata, env, gcpProject)
-        MainServer.mapper.writeValueAsString(Services.types()(settings))
+        SingleUserMainServer.mapper.writeValueAsString(Services.types()(settings))
       case _ =>
         val settings =
           SettingsManager.getUpdatedSettings(root, metadata, env, gcpProject)
         core.run(args)(settings)
-        MainServer.mapper.writeValueAsString(
+        SingleUserMainServer.mapper.writeValueAsString(
           Response(settings.comet.rootServe.getOrElse("Should never happen"))
         )
     }

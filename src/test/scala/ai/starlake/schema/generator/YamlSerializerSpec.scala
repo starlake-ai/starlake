@@ -18,6 +18,7 @@ class YamlSerializerSpec extends TestHelper {
         AutoJobDesc(
           "user",
           List(task),
+          Nil,
           Some("parquet"),
           Some(false),
           views = Some(Map("user_View" -> "accepted/user"))

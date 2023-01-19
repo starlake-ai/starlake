@@ -97,7 +97,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
 
   def fullValidation(config: ValidateConfig = ValidateConfig(reload = false)): Unit = {
     val validityErrorsAndWarnings = checkValidity(config.reload)
-    val deserErrors = deserializedDomains
+    val deserErrors = deserializedDomains()
       .filter { case (path, res) =>
         res.isFailure
       } map { case (path, err) =>
@@ -325,7 +325,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     */
   def getType(tpe: String): Option[Type] = types().find(_.name == tpe)
 
-  def deserializedDomains: List[(Path, Try[Domain])] = {
+  def deserializedDomains(): List[(Path, Try[Domain])] = {
     val paths = storage.list(
       DatasetArea.domains,
       extension = ".yml",
@@ -355,20 +355,30 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     */
   @throws[Exception]
   private def loadDomains(): (List[String], List[Domain]) = {
-    val (validDomainsFile, invalidDomainsFiles) = deserializedDomains
+    val (validDomainsFile, invalidDomainsFiles) = deserializedDomains()
       .map {
         case (path, Success(domain)) =>
           logger.info(s"Loading domain from $path")
           val folder = path.getParent()
-          val schemaRefs = domain.tableRefs
-            .map { ref =>
-              if (!ref.startsWith("_"))
-                throw new Exception(
-                  s"reference to a schema should start with '_' in domain ${domain.name} in $path for schema ref $ref"
-                )
-              val refFullName =
-                if (ref.endsWith(".yml") || ref.endsWith(".yaml")) ref else ref + ".comet.yml"
-              val schemaPath = new Path(folder, refFullName)
+          val tableRefNames = domain.tableRefs match {
+            case "*" :: Nil =>
+              storage
+                .list(folder, extension = ".yml", recursive = true)
+                .map(_.getName())
+                .filter(_.startsWith("_"))
+            case _ =>
+              domain.tableRefs.map { ref =>
+                if (!ref.startsWith("_"))
+                  throw new Exception(
+                    s"reference to a schema should start with '_' in domain ${domain.name} in $path for schema ref $ref"
+                  )
+                if (ref.endsWith(".comet.yml") || ref.endsWith(".yaml")) ref else ref + ".comet.yml"
+              }
+          }
+
+          val schemaRefs = tableRefNames
+            .map { tableRefName =>
+              val schemaPath = new Path(folder, tableRefName)
               YamlSerializer.deserializeSchemas(
                 Utils
                   .parseJinja(storage.read(schemaPath), activeEnv())
@@ -442,9 +452,9 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     undefinedVars.map(undefVar => s"""${path.getName} contains undefined var: ${undefVar}""")
   }
 
-  def loadJobFromFile(path: Path): Try[AutoJobDesc] =
+  def loadJobFromFile(jobPath: Path): Try[AutoJobDesc] =
     Try {
-      val fileContent = storage.read(path)
+      val fileContent = storage.read(jobPath)
       val rootContent =
         Utils.parseJinja(fileContent, activeEnv()).richFormat(activeEnv(), Map.empty)
 
@@ -453,7 +463,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       val autojobNode =
         if (tranformNode.isNull() || tranformNode.isMissingNode) {
           logger.warn(
-            s"Defining a autojob outside a transform node is now deprecated. Please update definition $path"
+            s"Defining an autojob outside a transform node is now deprecated. Please update definition $jobPath"
           )
           rootNode
         } else
@@ -483,10 +493,17 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       // for file job.comet.yml containing a single unnamed task, we search for job.sql
       // for file job.comet.yml containing multiple named tasks (say task1, task2), we search for job.task1.sql & job.task2.sql
       val jobDesc = mapper.treeToValue(autojobNode, classOf[AutoJobDesc])
-      val tasks = jobDesc.tasks.map { taskDesc =>
-        val taskFile: Option[Path] = taskSqlPath(path, taskDesc.name)
+      val folder = jobPath.getParent()
+      val autoTasksRefs = loadTaskRefs(jobPath, jobDesc, folder)
 
-        taskFile
+      logger.info(s"Successfully loaded job  in $jobPath")
+      val jobDescWithRefs: AutoJobDesc =
+        jobDesc.copy(tasks = Option(jobDesc.tasks).getOrElse(Nil) ::: autoTasksRefs)
+
+      val tasks = jobDescWithRefs.tasks.map { taskDesc =>
+        val taskSqlFile: Option[Path] = taskSqlPath(jobPath, taskDesc.name)
+
+        taskSqlFile
           .map { taskFile =>
             val sqlTask = SqlTaskExtractor(storage.read(taskFile))
             taskDesc.copy(
@@ -499,21 +516,62 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
           }
           .getOrElse(taskDesc)
       }
-      val jobName = finalDomainOrJobName(path, jobDesc.name)
+      val jobName = finalDomainOrJobName(jobPath, jobDesc.name)
       val tasksWithNoSQL = tasks.filter(_.sql.isEmpty)
       assert(
         tasksWithNoSQL.isEmpty,
-        "Task requires to define a query either through sql attribute or a sql side car file."
+        s"Tasks ${tasksWithNoSQL.map(_.name).mkString(",")} in job ${jobDesc.name} in path $jobPath need to define a query either through sql attribute or a sql file."
       )
       jobDesc.copy(
         name = jobName,
-        tasks = tasks
+        tasks = tasks,
+        taskRefs = Nil
       )
     } match {
       case Success(value) => Success(value)
       case Failure(exception) =>
-        Failure(new Exception(s"Invalid Job file: $path(${exception.getMessage})", exception))
+        Failure(new Exception(s"Invalid Job file: $jobPath(${exception.getMessage})", exception))
     }
+
+  private def loadTaskRefs(path: Path, jobDesc: AutoJobDesc, folder: Path): List[AutoTaskDesc] = {
+    val autoTasksRefNames = jobDesc.taskRefs match {
+      case "*" :: Nil =>
+        storage
+          .list(folder, extension = ".comet.yml", recursive = true)
+          .map(_.getName())
+          .filter(_.startsWith("_"))
+          .map { ref =>
+            val taskName = ref.substring(1, ref.length - ".comet.yml".length)
+            (taskName, ref)
+          }
+      case _ =>
+        jobDesc.taskRefs.map { ref =>
+          if (!ref.startsWith("_"))
+            throw new Exception(
+              s"reference to a job should start with '_' in task $ref in $path for job ${jobDesc.name}"
+            )
+          if (ref.endsWith(".comet.yml")) {
+            val taskName = ref.substring(1, ref.length - ".comet.yml".length)
+            (taskName, ref)
+
+          } else {
+            (ref.substring(1), ref + ".comet.yml")
+          }
+        }
+    }
+
+    val autoTasksRefs = autoTasksRefNames.map { case (taskName, autoTasksRefName) =>
+      val taskPath = new Path(folder, autoTasksRefName)
+      YamlSerializer
+        .deserializeTask(
+          Utils
+            .parseJinja(storage.read(taskPath), activeEnv())
+            .richFormat(activeEnv(), Map.empty)
+        )
+        .copy(name = Some(taskName))
+    }
+    autoTasksRefs
+  }
 
   private def taskSqlPath(path: Path, taskName: Option[String]): Option[Path] = {
     val sqlFilePrefix = path.toString.substring(0, path.toString.length - ".comet.yml".length)
@@ -578,7 +636,12 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     */
   @throws[Exception]
   private def loadJobs(): (List[String], Map[String, AutoJobDesc]) = {
-    val jobs = storage.list(DatasetArea.jobs, ".yml", recursive = true)
+    val jobs = storage.list(
+      DatasetArea.jobs,
+      ".yml",
+      recursive = true,
+      exclude = Some(Pattern.compile("_.*"))
+    )
     val filenameErrors = Utils.duplicates(
       jobs.map(_.getName()),
       s"%s is defined %d times. A job can only be defined once."
