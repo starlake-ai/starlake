@@ -1,6 +1,10 @@
 
 # Release notes
 
+# 0.6.3
+__Bug Fix__:
+- allow bigquery job to work on a dataset of another project based on dataset name combined with projectId
+
 # 0.6.2
 __New Feature__:
 - Support BigQuery IAM Policy Tags
