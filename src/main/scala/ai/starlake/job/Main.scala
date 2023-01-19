@@ -15,7 +15,7 @@ import ai.starlake.job.sink.kafka.KafkaJobConfig
 import ai.starlake.job.transform.{AutoTask2GraphVizConfig, AutoTaskToGraphViz}
 import ai.starlake.schema.generator._
 import ai.starlake.schema.handlers.{SchemaHandler, ValidateConfig}
-import ai.starlake.serve.{SingleUserMainServer, MainServerConfig}
+import ai.starlake.serve.{MainServerConfig, SingleUserMainServer}
 import ai.starlake.utils.{CliConfig, CliEnvConfig, CometObjectMapper}
 import ai.starlake.workflow.{ImportConfig, IngestionWorkflow, TransformConfig, WatchConfig}
 import buildinfo.BuildInfo
