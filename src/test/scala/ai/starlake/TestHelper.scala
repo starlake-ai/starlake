@@ -210,9 +210,6 @@ trait TestHelper
       val mapper = new CometObjectMapper(new YAMLFactory(), (classOf[Settings], settings) :: Nil)
       mapper
     }
-    mapper
-      .setSerializationInclusion(Include.NON_EMPTY)
-      .setDefaultSetterInfo(JsonSetter.Value.forValueNulls(Nulls.AS_EMPTY, Nulls.AS_EMPTY))
 
     def deliverTestFile(importPath: String, targetPath: Path)(implicit codec: Codec): Unit = {
       val content = loadTextFile(importPath)
