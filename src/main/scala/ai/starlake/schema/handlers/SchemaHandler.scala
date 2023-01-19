@@ -372,7 +372,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
                   throw new Exception(
                     s"reference to a schema should start with '_' in domain ${domain.name} in $path for schema ref $ref"
                   )
-                if (ref.endsWith(".yml") || ref.endsWith(".yaml")) ref else ref + ".comet.yml"
+                if (ref.endsWith(".comet.yml") || ref.endsWith(".yaml")) ref else ref + ".comet.yml"
               }
           }
 
@@ -537,25 +537,38 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     val autoTasksRefNames = jobDesc.taskRefs match {
       case "*" :: Nil =>
         storage
-          .list(folder, extension = ".yml", recursive = true)
+          .list(folder, extension = ".comet.yml", recursive = true)
           .map(_.getName())
           .filter(_.startsWith("_"))
+          .map { ref =>
+            val taskName = ref.substring(1, ref.length - ".comet.yml".length)
+            (taskName, ref)
+          }
       case _ =>
         jobDesc.taskRefs.map { ref =>
           if (!ref.startsWith("_"))
             throw new Exception(
               s"reference to a job should start with '_' in task $ref in $path for job ${jobDesc.name}"
             )
-          if (ref.endsWith(".yml") || ref.endsWith(".yaml")) ref else ref + ".comet.yml"
+          if (ref.endsWith(".comet.yml")) {
+            val taskName = ref.substring(1, ref.length - ".comet.yml".length)
+            (taskName, ref)
+
+          } else {
+            (ref.substring(1), ref + ".comet.yml")
+          }
         }
     }
-    val autoTasksRefs = autoTasksRefNames.map { autoTasksRefName =>
+
+    val autoTasksRefs = autoTasksRefNames.map { case (taskName, autoTasksRefName) =>
       val taskPath = new Path(folder, autoTasksRefName)
-      YamlSerializer.deserializeTask(
-        Utils
-          .parseJinja(storage.read(taskPath), activeEnv())
-          .richFormat(activeEnv(), Map.empty)
-      )
+      YamlSerializer
+        .deserializeTask(
+          Utils
+            .parseJinja(storage.read(taskPath), activeEnv())
+            .richFormat(activeEnv(), Map.empty)
+        )
+        .copy(name = Some(taskName))
     }
     autoTasksRefs
   }
