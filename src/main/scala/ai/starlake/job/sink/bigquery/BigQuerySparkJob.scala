@@ -3,7 +3,6 @@ package ai.starlake.job.sink.bigquery
 import ai.starlake.config.Settings
 import ai.starlake.utils.conversion.BigQueryUtils.sparkToBq
 import ai.starlake.utils.{JobResult, SparkJob, SparkJobResult, Utils}
-import com.google.cloud.ServiceOptions
 import com.google.cloud.bigquery.{
   BigQuery,
   BigQueryOptions,
@@ -12,13 +11,12 @@ import com.google.cloud.bigquery.{
   Schema => BQSchema,
   StandardTableDefinition,
   Table,
-  TableId,
   TableInfo
 }
 import com.google.cloud.hadoop.io.bigquery.BigQueryConfiguration
 import org.apache.hadoop.conf.Configuration
 import org.apache.spark.sql.functions.{col, date_format}
-import org.apache.spark.sql.{DataFrame, Row, SaveMode, SparkSession}
+import org.apache.spark.sql.{DataFrame, Row, SaveMode}
 import org.apache.spark.storage.StorageLevel
 
 import scala.collection.JavaConverters._
@@ -38,8 +36,6 @@ class BigQuerySparkJob(
 
   val conf: Configuration = session.sparkContext.hadoopConfiguration
   logger.info(s"BigQuery Config $cliConfig")
-
-  override val projectId: String = cliConfig.gcpProjectId.getOrElse(conf.get("fs.gs.project.id"))
 
   val bucket: String = conf.get("fs.defaultFS")
 
@@ -302,15 +298,11 @@ case class TableMetadata(table: Option[Table], biqueryClient: BigQuery)
 object BigQuerySparkJob {
 
   def getTable(
-    session: SparkSession,
-    datasetName: String,
-    tableName: String
+    resourceId: String
   ): TableMetadata = {
-    val conf = session.sparkContext.hadoopConfiguration
-    val projectId: String =
-      Option(conf.get("fs.gs.project.id")).getOrElse(ServiceOptions.getDefaultProjectId)
-    val bigquery: BigQuery = BigQueryOptions.getDefaultInstance().getService()
-    val tableId = TableId.of(projectId, datasetName, tableName)
-    TableMetadata(Option(bigquery.getTable(tableId)), bigquery)
+    val finalTableId = BigQueryJobBase.extractProjectDatasetAndTable(resourceId)
+    val bigquery = BigQueryOptions.getDefaultInstance().getService()
+    TableMetadata(Option(bigquery.getTable(finalTableId)), bigquery)
   }
+
 }
