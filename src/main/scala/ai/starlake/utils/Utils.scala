@@ -25,6 +25,10 @@ import ai.starlake.schema.model.{Attribute, WriteMode}
 import com.hubspot.jinjava.Jinjava
 import com.typesafe.scalalogging.Logger
 import ai.starlake.utils.Formatter._
+import com.fasterxml.jackson.annotation.JsonInclude.Include
+import com.fasterxml.jackson.annotation.{JsonSetter, Nulls}
+import com.fasterxml.jackson.databind.{DeserializationFeature, ObjectMapper}
+import com.fasterxml.jackson.module.scala.DefaultScalaModule
 
 import java.io.{PrintWriter, StringWriter}
 import scala.collection.mutable
@@ -264,4 +268,17 @@ object Utils {
     result
   }
 
+  def newMapper(): ObjectMapper = {
+    val mapper = new ObjectMapper()
+    setMapperProperties(mapper)
+  }
+
+  def setMapperProperties(mapper: ObjectMapper): ObjectMapper = {
+    mapper.registerModule(DefaultScalaModule)
+    mapper
+      .setSerializationInclusion(Include.NON_EMPTY)
+      .setDefaultSetterInfo(JsonSetter.Value.forValueNulls(Nulls.AS_EMPTY, Nulls.AS_EMPTY))
+    mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+    mapper
+  }
 }
