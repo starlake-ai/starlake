@@ -61,7 +61,9 @@ case class AutoTaskDesc(
   assertions: Map[String, String] = Map.empty,
   engine: Option[Engine] = None,
   acl: List[AccessControlEntry] = Nil,
-  comment: Option[String] = None
+  comment: Option[String] = None,
+  format: Option[String] = None,
+  coalesce: Option[Boolean] = None
 ) {
 
   def this() = this(
@@ -116,11 +118,13 @@ case class AutoTaskDesc(
 case class AutoJobDesc(
   name: String,
   tasks: List[AutoTaskDesc],
+  taskRefs: List[String] = Nil,
   format: Option[String],
   coalesce: Option[Boolean],
   udf: Option[String] = None,
   views: Option[Map[String, String]] = None,
-  engine: Option[Engine] = None
+  engine: Option[Engine] = None,
+  schedule: Option[Map[String, String]] = None
 ) {
 
   def getEngine(): Engine = engine.getOrElse(Engine.SPARK)

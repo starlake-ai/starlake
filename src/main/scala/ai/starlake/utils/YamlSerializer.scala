@@ -2,7 +2,14 @@ package ai.starlake.utils
 
 import ai.starlake.config.Settings
 import ai.starlake.extract.JDBCSchemas
-import ai.starlake.schema.model.{AutoJobDesc, Domain, IamPolicyTags, Schema => ModelSchema, Schemas}
+import ai.starlake.schema.model.{
+  AutoJobDesc,
+  AutoTaskDesc,
+  Domain,
+  IamPolicyTags,
+  Schema => ModelSchema,
+  Schemas
+}
 import better.files.File
 import com.fasterxml.jackson.annotation.JsonInclude.Include
 import com.fasterxml.jackson.annotation.{JsonSetter, Nulls}
@@ -25,6 +32,7 @@ object YamlSerializer extends LazyLogging {
   def serialize(domain: Domain): String = mapper.writeValueAsString(domain)
 
   def serialize(iamPolicyTags: IamPolicyTags): String = mapper.writeValueAsString(iamPolicyTags)
+
   def deserializeIamPolicyTags(content: String): IamPolicyTags = {
     val rootNode = mapper.readTree(content)
     mapper.treeToValue(rootNode, classOf[IamPolicyTags])
@@ -41,6 +49,17 @@ object YamlSerializer extends LazyLogging {
     val jsonContent = jobWriter.writeValueAsString(job)
     // val jobReader = mapper.reader().withAttribute(classOf[Settings], settings)
     mapper.readValue(jsonContent, classOf[Map[String, Any]])
+  }
+
+  def deserializeTask(content: String): AutoTaskDesc = {
+    val rootNode = mapper.readTree(content)
+    val taskNode = rootNode.path("task")
+    val targetNode =
+      if (taskNode.isNull() || taskNode.isMissingNode) {
+        rootNode.asInstanceOf[ObjectNode]
+      } else
+        taskNode.asInstanceOf[ObjectNode]
+    mapper.treeToValue(targetNode, classOf[AutoTaskDesc])
   }
 
   def serialize(jdbcSchemas: JDBCSchemas): String = mapper.writeValueAsString(jdbcSchemas)

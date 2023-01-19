@@ -63,8 +63,8 @@ object AutoTask extends StrictLogging {
     jobDesc.tasks.map(taskDesc =>
       AutoTask(
         jobDesc.name,
-        jobDesc.format,
-        jobDesc.coalesce.getOrElse(false),
+        taskDesc.format.orElse(jobDesc.format),
+        taskDesc.coalesce.orElse(jobDesc.coalesce).getOrElse(false),
         jobDesc.udf,
         Views(jobDesc.views.getOrElse(Map.empty)),
         jobDesc.getEngine(),
@@ -132,7 +132,10 @@ case class AutoTask(
       rls = taskDesc.rls,
       engine = Engine.BQ,
       options = bqSink.getOptions,
-      acl = taskDesc.acl
+      acl = taskDesc.acl,
+      materializedView = taskDesc.sink.exists(sink =>
+        sink.asInstanceOf[BigQuerySink].materializedView.getOrElse(false)
+      )
     )
   }
 
