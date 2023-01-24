@@ -5,3 +5,4 @@ ignore:
   - "src/main/scala/ai/starlake/job/atlas/AtlasJob.scala"
   - "src/main/scala/ai/starlake/schema/model/atlas/AtlasModel.scala"
   - "src/main/scala/ai/starlake/schema/model/atlas/AtlasData.scala"
+  - "src/main/scala/ai/starlake/serve/SingleUserMainServer.scala"
