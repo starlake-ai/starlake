@@ -27,4 +27,4 @@ jobs:
       - name: Run tests & Coverage Report
         run: TEMPORARY_GCS_BUCKET=starlake-app COMET_GCP_TEST=true sbt coverage test coverageReport
       - name: Release Spark 2/3
-        run: TEMPORARY_GCS_BUCKET=${{ secrets.TEMPORARY_GCS_BUCKET }} COMET_GCP_TEST=true RELEASE_SONATYPE=true GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ secrets.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ secrets.SONATYPE_PASSWORD }} sbt 'release with-defaults'
+        run: TEMPORARY_GCS_BUCKET=${{ secrets.TEMPORARY_GCS_BUCKET }} GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ secrets.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ secrets.SONATYPE_PASSWORD }}  COMET_GCP_TEST=true RELEASE_SONATYPE=true sbt 'release with-defaults'
