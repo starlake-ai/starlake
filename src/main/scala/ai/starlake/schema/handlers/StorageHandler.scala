@@ -24,7 +24,6 @@ import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs._
 import org.apache.spark.sql.execution.streaming.FileStreamSource.Timestamp
 
-import java.io.OutputStream
 import java.nio.charset.Charset.defaultCharset
 import java.nio.charset.{Charset, StandardCharsets}
 import java.time.LocalDateTime
@@ -83,8 +82,6 @@ trait StorageHandler extends StrictLogging {
   def lastModified(path: Path): Timestamp
 
   def spaceConsumed(path: Path): Long
-
-  def getOutputStream(path: Path): OutputStream
 
   def touchz(path: Path): Try[Unit]
 
