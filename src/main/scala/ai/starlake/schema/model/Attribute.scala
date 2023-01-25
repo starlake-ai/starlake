@@ -231,19 +231,23 @@ case class Attribute(
     *   Spark type of this attribute
     */
   def sparkType(schemaHandler: SchemaHandler): DataType = {
+    def buildStruct(): List[StructField] = {
+      if (attributes.isEmpty)
+        throw new Exception("Should never happen: empty list of attributes")
+      val fields = attributes.map { attr =>
+        StructField(attr.name, attr.sparkType(schemaHandler), !attr.required)
+      }
+      fields
+    }
+
     val tpe = primitiveSparkType(schemaHandler)
     tpe match {
+      case ArrayType(s: StructType, b: Boolean) =>
+        val fields = buildStruct()
+        ArrayType(StructType(fields))
       case _: StructType =>
-        if (attributes.isEmpty)
-          throw new Exception("Should never happen: empty list of attributes")
-        val fields = attributes.map { attr =>
-          StructField(attr.name, attr.sparkType(schemaHandler), !attr.required)
-        }
-        if (isArray())
-          ArrayType(StructType(fields))
-        else
-          StructType(fields)
-
+        val fields = buildStruct()
+        StructType(fields)
       case simpleType => simpleType
     }
   }

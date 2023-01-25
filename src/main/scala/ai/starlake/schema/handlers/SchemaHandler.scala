@@ -336,7 +336,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     val domains = paths
       .map { path =>
         YamlSerializer.deserializeDomain(
-          Utils.parseJinja(storage.read(path), activeEnv()).richFormat(activeEnv(), Map.empty),
+          Utils.parseJinja(storage.read(path), activeEnv()),
           path.toString
         )
       }
@@ -387,7 +387,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
               )
             }
             .flatMap(_.tables)
-          logger.info(s"Successfully loaded job  in $path")
+          logger.info(s"Successfully loaded Domain  in $path")
           Success(domain.copy(tables = Option(domain.tables).getOrElse(Nil) ::: schemaRefs))
         case (path, Failure(e)) =>
           logger.error(s"Failed to load domain in $path")
@@ -455,8 +455,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   def loadJobFromFile(jobPath: Path): Try[AutoJobDesc] =
     Try {
       val fileContent = storage.read(jobPath)
-      val rootContent =
-        Utils.parseJinja(fileContent, activeEnv()).richFormat(activeEnv(), Map.empty)
+      val rootContent = Utils.parseJinja(fileContent, activeEnv())
 
       val rootNode = mapper.readTree(rootContent)
       val tranformNode = rootNode.path("transform")

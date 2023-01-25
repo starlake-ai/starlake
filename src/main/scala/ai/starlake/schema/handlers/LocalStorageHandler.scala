@@ -52,7 +52,7 @@ class LocalStorageHandler(implicit
     * @return
     *   FSDataOutputStream
     */
-  def getOutputStream(path: Path): OutputStream = {
+  private def getOutputStream(path: Path): OutputStream = {
     val file = localFile(path)
     file.delete(true)
     file.newOutputStream()
