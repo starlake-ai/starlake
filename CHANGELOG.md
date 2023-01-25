@@ -3,7 +3,7 @@
 
 # 0.6.3
 - Support task refs in job definition files
-
+- Support multiple buckets for between domain files and between domain files and metadata
 
 # 0.6.2
 __Bug Fix__:
