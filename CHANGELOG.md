@@ -1,6 +1,9 @@
 
 # Release notes
 
+# 0.6.4
+
+
 # 0.6.3
 - Support task refs in job definition files
 - Support multiple buckets for between domain files and between domain files and metadata
