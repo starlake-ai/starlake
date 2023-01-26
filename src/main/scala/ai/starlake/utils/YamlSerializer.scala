@@ -96,7 +96,8 @@ object YamlSerializer extends LazyLogging {
     } match {
       case Success(value) => value
       case Failure(exception) =>
-        throw new Exception(s"Invalid Schema file: $path(${exception.getMessage})")
+        exception.printStackTrace()
+        throw new Exception(s"Invalid Schema file: $path(${exception.getMessage})", exception)
     }
   }
 
