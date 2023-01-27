@@ -26,6 +26,7 @@ class BigQueryNativeJob(
 
   def runInteractiveQuery(): Try[JobResult] = {
     Try {
+      getOrCreateDataset()
       val queryConfig: QueryJobConfiguration.Builder =
         QueryJobConfiguration
           .newBuilder(sql)
@@ -74,6 +75,7 @@ class BigQueryNativeJob(
   }
   private def RunAndSinkAsMaterializedView(): Try[Table] = {
     Try {
+      getOrCreateDataset()
       val materializedViewDefinitionBuilder = MaterializedViewDefinition.newBuilder(sql)
       cliConfig.outputPartition match {
         case Some(partitionField) =>
