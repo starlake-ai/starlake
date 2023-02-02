@@ -12,7 +12,7 @@ import ai.starlake.schema.model.{
 }
 import better.files.File
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.databind.node.ObjectNode
+import com.fasterxml.jackson.databind.node.{ArrayNode, ObjectNode}
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.typesafe.scalalogging.LazyLogging
 
@@ -123,6 +123,35 @@ object YamlSerializer extends LazyLogging {
       case Success(value) => Success(value)
       case Failure(exception) =>
         logger.error(s"Invalid domain file: $path(${exception.getMessage})")
+        Failure(exception)
+    }
+  }
+
+  def deserializeJob(content: String, path: String): Try[AutoJobDesc] = {
+    Try {
+      val rootNode = mapper.readTree(content)
+      val transformNode = rootNode.path("transform")
+      val jobNode =
+        if (transformNode.isNull() || transformNode.isMissingNode) {
+          rootNode.asInstanceOf[ObjectNode]
+        } else
+          transformNode.asInstanceOf[ObjectNode]
+      val job = mapper.treeToValue(jobNode, classOf[AutoJobDesc])
+      val tasksNode = jobNode.path("tasks").asInstanceOf[ArrayNode]
+      for (i <- 0 until tasksNode.size()) {
+        val taskNode = tasksNode.get(i).asInstanceOf[ObjectNode]
+        YamlSerializer.renameField(taskNode, "dataset", "table")
+      }
+
+      if (jobNode == rootNode)
+        logger.warn(
+          s"Defining a job outside a load node is now deprecated. Please update definition fo domain ${job.name}"
+        )
+      job
+    } match {
+      case Success(value) => Success(value)
+      case Failure(exception) =>
+        logger.error(s"Invalid job file: $path(${exception.getMessage})")
         Failure(exception)
     }
   }
