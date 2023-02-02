@@ -21,7 +21,10 @@
 package ai.starlake.schema.model
 
 import ai.starlake.config.{DatasetArea, Settings, StorageArea}
+import ai.starlake.utils.JsonSerializer
 import org.apache.hadoop.fs.Path
+
+import scala.util.Try
 
 /** Task executed in the context of a job. Each task is executed in its own session.
   *
@@ -48,7 +51,7 @@ import org.apache.hadoop.fs.Path
   *   Row level security policy to apply too the output data.
   */
 case class AutoTaskDesc(
-  name: Option[String],
+  name: String,
   sql: Option[String],
   domain: String,
   table: String,
@@ -64,10 +67,10 @@ case class AutoTaskDesc(
   comment: Option[String] = None,
   format: Option[String] = None,
   coalesce: Option[Boolean] = None
-) {
+) extends Named {
 
   def this() = this(
-    None,
+    "",
     None,
     "",
     "",
@@ -89,6 +92,12 @@ case class AutoTaskDesc(
     StorageArea.area(domain, None)
   }
 
+}
+
+object AutoTaskDesc {
+  def compare(existing: AutoTaskDesc, incoming: AutoTaskDesc): ListDiff[Named] = {
+    AnyRefDiff.diffAny(existing.name, existing, incoming)
+  }
 }
 
 /** A job is a set of transform tasks executed using the specified engine.
@@ -124,8 +133,8 @@ case class AutoJobDesc(
   udf: Option[String] = None,
   views: Option[Map[String, String]] = None,
   engine: Option[Engine] = None,
-  schedule: Option[Map[String, String]] = None
-) {
+  schedule: Map[String, String] = Map.empty
+) extends Named {
 
   def getEngine(): Engine = engine.getOrElse(Engine.SPARK)
 
@@ -135,5 +144,74 @@ case class AutoJobDesc(
 
   def rlsTasks(): List[AutoTaskDesc] = tasks.filter { task =>
     task.rls.nonEmpty
+  }
+}
+
+object AutoJobDesc {
+  private def diffTasks(
+    existing: List[AutoTaskDesc],
+    incoming: List[AutoTaskDesc]
+  ): (List[AutoTaskDesc], List[AutoTaskDesc], List[AutoTaskDesc]) = {
+    val (commonTasks, deletedTasks) =
+      existing
+        .filter(_.name.nonEmpty)
+        .partition(task => incoming.map(_.name.toLowerCase).contains(task.name.toLowerCase))
+    val addedTasks =
+      incoming.filter(task =>
+        task.name.nonEmpty && !existing.map(_.name.toLowerCase).contains(task.name.toLowerCase)
+      )
+    (addedTasks, deletedTasks, commonTasks)
+  }
+
+  def compare(existing: AutoJobDesc, incoming: AutoJobDesc) = {
+    Try {
+      val tasksDiff = AnyRefDiff.diffNamed("tasks", existing.tasks, incoming.tasks)
+      val (addedTasks, deletedTasks, existingCommonTasks) =
+        diffTasks(existing.tasks, incoming.tasks)
+
+      val commonTasks: List[(AutoTaskDesc, AutoTaskDesc)] = existingCommonTasks.map { task =>
+        (
+          task,
+          incoming.tasks
+            .find(_.name.toLowerCase() == task.name.toLowerCase())
+            .getOrElse(throw new Exception("Should not happen"))
+        )
+      }
+
+      val updatedTasksDiff = commonTasks.map { case (existing, incoming) =>
+        AutoTaskDesc.compare(existing, incoming)
+      }
+      val updatedTasksDiffAsJson = updatedTasksDiff.map(JsonSerializer.serializeDiffNamed(_))
+
+      val taskRefsDiff =
+        AnyRefDiff.diffString("taskRefs", existing.taskRefs.toSet, incoming.taskRefs.toSet)
+      val formatDiff = AnyRefDiff.diffString("format", existing.format, incoming.format)
+      val coalesceDiff = AnyRefDiff.diffString(
+        "coalesce",
+        existing.coalesce.map(_.toString),
+        incoming.coalesce.map(_.toString)
+      )
+      val udfDiff = AnyRefDiff.diffString("udf", existing.udf, incoming.udf)
+      val viewsDiff = AnyRefDiff.diffMap(
+        "views",
+        existing.views.getOrElse(Map.empty),
+        incoming.views.getOrElse(Map.empty)
+      )
+      val engineDiff = AnyRefDiff.diffAny("engine", existing.engine, incoming.engine)
+      val scheduleDiff = AnyRefDiff.diffMap("schedule", existing.schedule, incoming.schedule)
+
+      s"""{ "job": "${existing.name}", """ +
+      """"diff": [""" + (List(
+        JsonSerializer.serializeDiffStrings(taskRefsDiff),
+        JsonSerializer.serializeDiffStrings(formatDiff),
+        JsonSerializer.serializeDiffStrings(coalesceDiff),
+        JsonSerializer.serializeDiffStrings(udfDiff),
+        JsonSerializer.serializeDiffNamed(viewsDiff),
+        JsonSerializer.serializeDiffNamed(engineDiff),
+        JsonSerializer.serializeDiffNamed(scheduleDiff)
+      ).mkString("", ",", ",") ++
+      updatedTasksDiffAsJson.mkString(",")) + "]" +
+      "}"
+    }
   }
 }

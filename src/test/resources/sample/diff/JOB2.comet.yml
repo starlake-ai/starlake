@@ -1,0 +1,14 @@
+---
+transform:
+  name: "JOB2"
+  taskRefs:
+    - _task3
+    - _task2.comet.yml
+  tasks:
+    - sql: "select * from dream_working.client"
+      domain: "dream2"
+      table: "client2"
+      write: "OVERWRITE"
+      partition:
+        - "year2"
+        - "month"

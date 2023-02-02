@@ -8,7 +8,7 @@ class YamlSerializerSpec extends TestHelper {
   new WithSettings() {
     "Job toMap" should "should produce the correct map" in {
       val task = AutoTaskDesc(
-        None,
+        "",
         Some("select firstname, lastname, age from {{view}} where age=${age}"),
         "user",
         "user",
