@@ -22,20 +22,20 @@ package ai.starlake.utils
 
 import ai.starlake.config.Settings
 import ai.starlake.schema.model.{Attribute, WriteMode}
-import com.hubspot.jinjava.Jinjava
-import com.typesafe.scalalogging.Logger
 import ai.starlake.utils.Formatter._
 import com.fasterxml.jackson.annotation.JsonInclude.Include
 import com.fasterxml.jackson.annotation.{JsonSetter, Nulls}
 import com.fasterxml.jackson.databind.{DeserializationFeature, ObjectMapper}
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
+import com.hubspot.jinjava.Jinjava
+import com.typesafe.scalalogging.Logger
 
 import java.io.{PrintWriter, StringWriter}
+import scala.collection.JavaConverters._
 import scala.collection.mutable
 import scala.reflect.runtime.universe
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try}
-import scala.collection.JavaConverters._
 
 object Utils {
   type Closeable = { def close(): Unit }
@@ -281,4 +281,5 @@ object Utils {
     mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
     mapper
   }
+
 }

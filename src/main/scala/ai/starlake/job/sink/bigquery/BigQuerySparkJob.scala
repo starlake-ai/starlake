@@ -114,7 +114,7 @@ class BigQuerySparkJob(
       bigquery().create(TableInfo.newBuilder(tableId, withClusteringDefinition.build()).build)
     }
     setTagsOnTable(table)
-    (table, table.getDefinition.asInstanceOf[StandardTableDefinition])
+    (table, table.getDefinition[StandardTableDefinition])
   }
 
   def runSparkConnector(): Try[SparkJobResult] = {
@@ -139,8 +139,7 @@ class BigQuerySparkJob(
       val stdTableDefinition =
         bigquery()
           .getTable(table.getTableId)
-          .getDefinition
-          .asInstanceOf[StandardTableDefinition]
+          .getDefinition[StandardTableDefinition]
       logger.info(
         s"BigQuery Saving to  ${table.getTableId} containing ${stdTableDefinition.getNumRows} rows"
       )
@@ -267,8 +266,7 @@ class BigQuerySparkJob(
       val stdTableDefinitionAfter =
         bigquery()
           .getTable(table.getTableId)
-          .getDefinition
-          .asInstanceOf[StandardTableDefinition]
+          .getDefinition[StandardTableDefinition]
       logger.info(
         s"BigQuery Saved to ${table.getTableId} now contains ${stdTableDefinitionAfter.getNumRows} rows"
       )

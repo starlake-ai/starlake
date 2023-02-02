@@ -14,7 +14,7 @@ case class RowLevelSecurity(
   predicate: String = "TRUE",
   grants: Set[String] = Set.empty,
   description: String = ""
-) {
+) extends Named {
 
   def this() = this("") // Should never be called. Here for Jackson deserialization only
 

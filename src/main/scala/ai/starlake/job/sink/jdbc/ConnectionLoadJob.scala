@@ -12,7 +12,7 @@ class ConnectionLoadJob(
 )(implicit val settings: Settings)
     extends SparkJob {
 
-  override def name: String = s"jdbcload-JDBC-${cliConfig.outputTable}"
+  override def name: String = s"cnxload-JDBC-${cliConfig.outputTable}"
 
   val conf = session.sparkContext.hadoopConfiguration
   logger.info(s"JDBC Config $cliConfig")

@@ -1126,7 +1126,7 @@ trait IngestionJob extends SparkJob {
   private def updateBqTableSchema(table: Table, incomingSchema: StructType): Table = {
     // This will raise an exception if schemas are not compatible.
     val existingSchema = BigQuerySchemaConverters.toSpark(
-      table.getDefinition.asInstanceOf[StandardTableDefinition].getSchema
+      table.getDefinition[StandardTableDefinition].getSchema
     )
 
     MergeUtils.computeCompatibleSchema(existingSchema, incomingSchema)
