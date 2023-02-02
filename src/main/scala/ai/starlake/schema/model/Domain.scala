@@ -22,7 +22,7 @@ package ai.starlake.schema.model
 
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.schema.handlers.SchemaHandler
-import ai.starlake.utils.Utils
+import ai.starlake.utils.{JsonSerializer, Utils}
 import com.fasterxml.jackson.annotation.JsonIgnore
 import org.apache.hadoop.fs.Path
 
@@ -75,7 +75,7 @@ import scala.util.{Failure, Success, Try}
   @nowarn @deprecated("Moved to Metadata", "0.2.8") ack: Option[String] = None,
   tags: Set[String] = Set.empty,
   rename: Option[String] = None
-) {
+) extends Named {
 
   def this() = this("") // Should never be called. Here for Jackson deserialization only
 
@@ -272,5 +272,64 @@ import scala.util.{Failure, Success, Try}
     tables.flatMap(
       _.rls
     )
+  }
+}
+
+object Domain {
+  def compare(existing: Domain, incoming: Domain): Try[String] = {
+    Try {
+      val (addedTables, deletedTables, existingCommonTables) =
+        diffTables(existing.tables, incoming.tables)
+
+      val commonTables: List[(Schema, Schema)] = existingCommonTables.map { table =>
+        (
+          table,
+          incoming.tables
+            .find(_.name.toLowerCase() == table.name.toLowerCase())
+            .getOrElse(throw new Exception("Should not happen"))
+        )
+      }
+
+      val updatedTablesDiffAsJson: List[String] = commonTables.flatMap {
+        case (existing, incoming) =>
+          Schema.compare(existing, incoming).toOption
+
+      }
+      val metadataDiff: ListDiff[Named] =
+        AnyRefDiff.diffAny("metadata", existing.metadata, incoming.metadata)
+      val tableRefsDiff: ListDiff[String] =
+        AnyRefDiff.diffString("tableRefs", existing.tableRefs.toSet, incoming.tableRefs.toSet)
+      val commentDiff = AnyRefDiff.diffString("comment", existing.comment, incoming.comment)
+      val tagsDiffs = AnyRefDiff.diffString("tags", existing.tags, incoming.tags)
+      val renameDiff = AnyRefDiff.diffString("rename", existing.rename, incoming.rename)
+
+      s"""{ "domain": "${existing.name}", """ +
+      """"diff": [""" + (List(
+        JsonSerializer.serializeDiffNamed(metadataDiff),
+        JsonSerializer.serializeDiffStrings(tableRefsDiff),
+        JsonSerializer.serializeDiffStrings(commentDiff),
+        JsonSerializer.serializeDiffStrings(tagsDiffs),
+        JsonSerializer.serializeDiffStrings(renameDiff)
+      ).mkString("", ",", ",") ++
+      updatedTablesDiffAsJson.mkString(",")) + "]" +
+      "}"
+    }
+  }
+
+  /** @param existing
+    * @param incoming
+    * @return
+    *   (added tables, deleted tables, common tables)
+    */
+  private def diffTables(
+    existing: List[Schema],
+    incoming: List[Schema]
+  ): (List[Schema], List[Schema], List[Schema]) = {
+    val (commonTables, deletedTables) =
+      existing.partition(table => incoming.map(_.name.toLowerCase).contains(table.name.toLowerCase))
+    val addedTables =
+      incoming.filter(table => !existing.map(_.name.toLowerCase).contains(table.name.toLowerCase))
+    (addedTables, deletedTables, commonTables)
+
   }
 }

@@ -1,12 +1,10 @@
 package ai.starlake.job.sink.bigquery
 
-import ai.starlake.config.Settings
+import ai.starlake.config.GcpConnectionConfig
 import ai.starlake.schema.model.{AccessControlEntry, Engine, RowLevelSecurity, Schema}
 import ai.starlake.utils.CliConfig
 import org.apache.spark.sql.DataFrame
 import scopt.OParser
-import com.google.auth.oauth2.ServiceAccountCredentials
-import org.apache.hadoop.fs.Path
 
 case class BigQueryLoadConfig(
   gcpProjectId: Option[String],
@@ -30,26 +28,7 @@ case class BigQueryLoadConfig(
   starlakeSchema: Option[Schema] = None,
   domainTags: Set[String] = Set.empty,
   materializedView: Boolean = false
-) {
-  def getLocation(): String = this.location.getOrElse("EU")
-  def getCredentials()(implicit settings: Settings): Option[ServiceAccountCredentials] = {
-    gcpSAJsonKey.map { gcpSAJsonKey =>
-      val gcpSAJsonKeyAsString = if (!gcpSAJsonKey.trim.startsWith("{")) {
-        val path = new Path(gcpSAJsonKey)
-        if (settings.storageHandler.exists(path)) {
-          settings.storageHandler.read(path)
-        } else {
-          throw new Exception(s"Invalid GCP SA KEY Path: $path")
-        }
-      } else
-        gcpSAJsonKey
-      val credentialsStream = new java.io.ByteArrayInputStream(
-        gcpSAJsonKeyAsString.getBytes(java.nio.charset.StandardCharsets.UTF_8.name)
-      )
-      ServiceAccountCredentials.fromStream(credentialsStream)
-    }
-  }
-}
+) extends GcpConnectionConfig
 
 object BigQueryLoadConfig extends CliConfig[BigQueryLoadConfig] {
   val command = "bqload"
