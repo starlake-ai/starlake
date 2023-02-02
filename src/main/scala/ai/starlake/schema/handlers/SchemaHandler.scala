@@ -50,9 +50,9 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   settings: Settings
 ) extends StrictLogging {
 
-  val forceViewPrefixRegex: Regex = settings.comet.forceViewPattern.r
-  val forceJobPrefixRegex: Regex = settings.comet.forceJobPattern.r
-  val forceTaskPrefixRegex: Regex = settings.comet.forceTablePattern.r
+  private val forceViewPrefixRegex: Regex = settings.comet.forceViewPattern.r
+  private val forceJobPrefixRegex: Regex = settings.comet.forceJobPattern.r
+  private val forceTaskPrefixRegex: Regex = settings.comet.forceTablePattern.r
 
   // uses Jackson YAML for parsing, relies on SnakeYAML for low level handling
   @nowarn val mapper: ObjectMapper with ScalaObjectMapper =

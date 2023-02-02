@@ -2,9 +2,12 @@
 # Release notes
 
 # 0.6.4
-
+__New Feature__:
+- Add Project diffs
+- Import existing BigQUery Datasets and Tables
 
 # 0.6.3
+__New Feature__:
 - Support task refs in job definition files
 - Support multiple buckets for between domain files and between domain files and metadata
 
