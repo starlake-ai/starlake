@@ -20,16 +20,16 @@
 
 package ai.starlake.schema.model
 
-import java.util.regex.Pattern
 import ai.starlake.schema.handlers.SchemaHandler
+import ai.starlake.utils.DataTypeEx._
+import ai.starlake.utils.Utils
 import com.fasterxml.jackson.annotation.JsonIgnore
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.sql.types._
 
+import java.util.regex.Pattern
 import scala.collection.mutable
 import scala.util.{Failure, Success, Try}
-import ai.starlake.utils.DataTypeEx._
-import ai.starlake.utils.Utils
 
 /** A field in the schema. For struct fields, the field "attributes" contains all sub attributes
   *
@@ -80,7 +80,8 @@ case class Attribute(
   foreignKey: Option[String] = None, // [domain.]table.attribute
   ignore: Option[Boolean] = None,
   accessPolicy: Option[String] = None
-) extends LazyLogging {
+) extends Named
+    with LazyLogging {
 
   def this() = this("") // Should never be called. Here for Jackson deserialization only
 

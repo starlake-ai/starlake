@@ -45,18 +45,7 @@ trait BigQueryJobBase extends StrictLogging {
   def bigquery()(implicit settings: Settings): BigQuery = {
     _bigquery match {
       case None =>
-        val bqOptionsBuilder = BigQueryOptions.newBuilder()
-        val gcpDefaultProject = System.getProperty("GCP_PROJECT", System.getenv("GCP_PROJECT"))
-        val projectId = cliConfig.gcpProjectId.orElse(scala.Option(gcpDefaultProject))
-        val credentials = cliConfig.getCredentials()
-        val bqOptions = projectId
-          .map(bqOptionsBuilder.setProjectId)
-          .getOrElse(bqOptionsBuilder)
-        val bqService = credentials
-          .map(bqOptions.setCredentials)
-          .getOrElse(bqOptions)
-          .build()
-          .getService()
+        val bqService = cliConfig.bigquery()
         _bigquery = Some(bqService)
         bqService
       case Some(bqService) =>
@@ -179,7 +168,7 @@ trait BigQueryJobBase extends StrictLogging {
                   cliConfig.outputTable
                 )
               val table: Table = bigquery().getTable(tableId)
-              val tableDefinition = table.getDefinition().asInstanceOf[StandardTableDefinition]
+              val tableDefinition = table.getDefinition[StandardTableDefinition]
               val bqSchema = tableDefinition.getSchema()
               val bqFields = bqSchema.getFields.asScala.toList
               val attributesMap = schema.attributes.map(attr => (attr.name.toLowerCase, attr)).toMap
