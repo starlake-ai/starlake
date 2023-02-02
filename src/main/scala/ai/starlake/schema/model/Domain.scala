@@ -279,7 +279,7 @@ object Domain {
   def compare(existing: Domain, incoming: Domain): Try[String] = {
     Try {
       val (addedTables, deletedTables, existingCommonTables) =
-        diffTables(existing.tables, incoming.tables)
+        AnyRefDiff.partitionNamed(existing.tables, incoming.tables)
 
       val commonTables: List[(Schema, Schema)] = existingCommonTables.map { table =>
         (
@@ -293,8 +293,8 @@ object Domain {
       val updatedTablesDiffAsJson: List[String] = commonTables.flatMap {
         case (existing, incoming) =>
           Schema.compare(existing, incoming).toOption
-
       }
+
       val metadataDiff: ListDiff[Named] =
         AnyRefDiff.diffAny("metadata", existing.metadata, incoming.metadata)
       val tableRefsDiff: ListDiff[String] =
@@ -320,20 +320,4 @@ object Domain {
     }
   }
 
-  /** @param existing
-    * @param incoming
-    * @return
-    *   (added tables, deleted tables, common tables)
-    */
-  private def diffTables(
-    existing: List[Schema],
-    incoming: List[Schema]
-  ): (List[Schema], List[Schema], List[Schema]) = {
-    val (commonTables, deletedTables) =
-      existing.partition(table => incoming.map(_.name.toLowerCase).contains(table.name.toLowerCase))
-    val addedTables =
-      incoming.filter(table => !existing.map(_.name.toLowerCase).contains(table.name.toLowerCase))
-    (addedTables, deletedTables, commonTables)
-
-  }
 }

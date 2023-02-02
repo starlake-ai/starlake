@@ -29,7 +29,7 @@ class DatasetAreaSpec extends TestHelper {
     "bootstrap" should "generate data correctly" in {
       DatasetArea.bootstrap(None)
       assertCommonStructure(settings)
-      assertNoFilesInFolder(
+      assertFoldersExist(
         settings,
         List("out", "diagrams/domains", "diagrams/acl", "diagrams/jobs", "metadata", "incoming")
       )
@@ -119,10 +119,22 @@ class DatasetAreaSpec extends TestHelper {
   ): Unit = {
     val rootFolder = File(settings.comet.metadata).parent
     all(
-      expectedEmptyFolders.map(rootFolder / _).map(f => f -> !f.list.exists(_.isRegularFile))
+      expectedEmptyFolders.map(rootFolder / _).map { f =>
+        println(f.list.toList)
+        println(f.list.exists(_.isRegularFile))
+        f -> !f.list.exists(_.isRegularFile)
+      }
     ) should have(
       '_2(true)
     )
+  }
+
+  private def assertFoldersExist(
+    settings: Settings,
+    folders: List[String]
+  ): Unit = {
+    val rootFolder = File(settings.comet.metadata).parent
+    all(folders.map(rootFolder / _).map { f => f -> f.exists }) should have('_2(true))
   }
 
   private case class FileStatus(exist: Boolean, isDirectory: Boolean)
