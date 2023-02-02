@@ -12,4 +12,5 @@ object JsonSerializer extends LazyLogging {
 
   def serializeDiffNamed(diffs: ListDiff[Named]): String = mapper.writeValueAsString(diffs)
 
+  def serializeObject(obj: Object): String = mapper.writeValueAsString(obj)
 }

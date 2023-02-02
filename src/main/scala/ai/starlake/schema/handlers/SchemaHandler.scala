@@ -89,7 +89,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     val paths = storage.list(DatasetArea.jobs, ".yml", recursive = true)
     paths.flatMap { path =>
       val ymlWarnings = checkVarsAreDefined(path)
-      val sqlPath = taskSqlPath(path, None)
+      val sqlPath = taskSqlPath(path, "")
       val sqlWarnings = sqlPath.map(checkVarsAreDefined).getOrElse(Nil)
       ymlWarnings ++ sqlWarnings
     }
@@ -97,7 +97,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
 
   def fullValidation(config: ValidateConfig = ValidateConfig(reload = false)): Unit = {
     val validityErrorsAndWarnings = checkValidity(config.reload)
-    val deserErrors = deserializedDomains()
+    val deserErrors = deserializedDomains(DatasetArea.domains)
       .filter { case (path, res) =>
         res.isFailure
       } map { case (path, err) =>
@@ -325,9 +325,9 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     */
   def getType(tpe: String): Option[Type] = types().find(_.name == tpe)
 
-  def deserializedDomains(): List[(Path, Try[Domain])] = {
+  def deserializedDomains(domainPath: Path): List[(Path, Try[Domain])] = {
     val paths = storage.list(
-      DatasetArea.domains,
+      domainPath,
       extension = ".yml",
       recursive = true,
       exclude = Some(Pattern.compile("_.*"))
@@ -355,7 +355,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     */
   @throws[Exception]
   private def loadDomains(): (List[String], List[Domain]) = {
-    val (validDomainsFile, invalidDomainsFiles) = deserializedDomains()
+    val (validDomainsFile, invalidDomainsFiles) = deserializedDomains(DatasetArea.domains)
       .map {
         case (path, Success(domain)) =>
           logger.info(s"Loading domain from $path")
@@ -567,20 +567,20 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
             .parseJinja(storage.read(taskPath), activeEnv())
             .richFormat(activeEnv(), Map.empty)
         )
-        .copy(name = Some(taskName))
+        .copy(name = taskName)
     }
     autoTasksRefs
   }
 
-  private def taskSqlPath(path: Path, taskName: Option[String]): Option[Path] = {
+  private def taskSqlPath(path: Path, taskName: String): Option[Path] = {
     val sqlFilePrefix = path.toString.substring(0, path.toString.length - ".comet.yml".length)
-    val sqlTaskFile = taskName match {
-      case Some(taskName) => new Path(s"$sqlFilePrefix.$taskName.sql")
-      case None           => new Path(s"$sqlFilePrefix.sql")
+    val sqlTaskFile = taskName.nonEmpty match {
+      case true  => new Path(s"$sqlFilePrefix.$taskName.sql")
+      case false => new Path(s"$sqlFilePrefix.sql")
     }
-    val j2TaskFile = taskName match {
-      case Some(taskName) => new Path(s"$sqlFilePrefix.$taskName.sql.j2")
-      case None           => new Path(s"$sqlFilePrefix.sql.j2")
+    val j2TaskFile = taskName.nonEmpty match {
+      case true  => new Path(s"$sqlFilePrefix.$taskName.sql.j2")
+      case false => new Path(s"$sqlFilePrefix.sql.j2")
     }
     val taskFile = (storage.exists(sqlTaskFile), storage.exists(j2TaskFile)) match {
       case (true, true) =>
@@ -685,7 +685,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     }
 
     val taskNamePatternErrors =
-      validJobs.flatMap(_.tasks.map(_.name)).flatten.flatMap { name =>
+      validJobs.flatMap(_.tasks.filter(_.name.nonEmpty).map(_.name)).flatMap { name =>
         if (!forceTaskPrefixRegex.pattern.matcher(name).matches())
           Some(s"View with name $name should respect the pattern ${forceTaskPrefixRegex.regex}")
         else

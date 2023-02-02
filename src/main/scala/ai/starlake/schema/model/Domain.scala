@@ -304,15 +304,19 @@ object Domain {
       val renameDiff = AnyRefDiff.diffString("rename", existing.rename, incoming.rename)
 
       s"""{ "domain": "${existing.name}", """ +
-      """"diff": [""" + (List(
+      s"""
+           |"tables": {
+           |  "added": ${JsonSerializer.serializeObject(addedTables.map(_.name))}
+           |  , "deleted": ${JsonSerializer.serializeObject(deletedTables.map(_.name))}
+           |  , "updated": [${updatedTablesDiffAsJson.mkString(",")}]
+           |},""".stripMargin +
+      """"diff": [""" + List(
         JsonSerializer.serializeDiffNamed(metadataDiff),
         JsonSerializer.serializeDiffStrings(tableRefsDiff),
         JsonSerializer.serializeDiffStrings(commentDiff),
         JsonSerializer.serializeDiffStrings(tagsDiffs),
         JsonSerializer.serializeDiffStrings(renameDiff)
-      ).mkString("", ",", ",") ++
-      updatedTablesDiffAsJson.mkString(",")) + "]" +
-      "}"
+      ).mkString(",") + "]}"
     }
   }
 
