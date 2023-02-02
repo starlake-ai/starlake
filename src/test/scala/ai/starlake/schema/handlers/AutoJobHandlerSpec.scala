@@ -50,7 +50,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
     "trigger AutoJob by passing parameters on SQL statement" should "generate a dataset in business" in {
 
       val businessTask1 = AutoTaskDesc(
-        None,
+        "",
         Some("select firstname, lastname, age from {{view}} where age=${age}"),
         "business/user",
         "user",
@@ -98,7 +98,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
     "Extract file and view dependencies" should "work" in {
 
       val businessTask1 = AutoTaskDesc(
-        None,
+        "",
         Some(
           "select firstname, lastname, age from user_View where age={{age}} and lastname={{lastname}} and firstname={{firstname}}"
         ),
@@ -133,7 +133,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
     "trigger AutoJob by passing three parameters on SQL statement" should "generate a dataset in business" in {
 
       val businessTask1 = AutoTaskDesc(
-        None,
+        "",
         Some(
           "select firstname, lastname, age from user_View where age={{age}} and lastname={{lastname}} and firstname={{firstname}}"
         ),
@@ -185,7 +185,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
     "trigger AutoJob with no parameters on SQL statement" should "generate a dataset in business" in {
 
       val businessTask1 = AutoTaskDesc(
-        None,
+        "",
         Some("select firstname, lastname, age from user_View"),
         "business/user",
         "user",
@@ -229,7 +229,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
     "trigger AutoJob using an UDF" should "generate a dataset in business" in {
 
       val businessTask1 = AutoTaskDesc(
-        None,
+        "",
         Some("select concatWithSpace(firstname, lastname) as fullName from user_View"),
         "business/user",
         "user",
@@ -275,7 +275,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
     "trigger AutoJob by passing parameters to presql statement" should "generate a dataset in business" in {
 
       val businessTask1 = AutoTaskDesc(
-        None,
+        "",
         Some("SELECT * FROM graduate_agg_view"),
         "business/graduateProgram",
         "output",
@@ -327,7 +327,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
 
     "BQ Business Job Definition" should "Prepare correctly against BQ" in {
       val businessTask1 = AutoTaskDesc(
-        None,
+        "",
         Some("select * from domain"),
         "DOMAIN",
         "TABLE",
