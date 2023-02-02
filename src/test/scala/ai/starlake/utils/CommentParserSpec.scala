@@ -17,7 +17,7 @@ class CommentParserSpec
     "" should equal(r1)
 
     val r2 = CommentParser.stripComments("// a comment")
-    "" should equal(r2)
+    "// a comment" should equal(r2) // C++ & Java & Scala Line comment not supported in SQL
 
     val r3 = CommentParser.stripComments("/* comment  */")
     "" should equal(r3)

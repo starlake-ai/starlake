@@ -104,6 +104,23 @@ object AnyRefDiff {
     val added = incoming.diff(existing)
     ListDiff(fieldName, added.toList, deleted.toList, Nil)
   }
+
+  /** @param existing
+    * @param incoming
+    * @return
+    *   (added tables, deleted tables, common tables)
+    */
+  def partitionNamed[T <: Named](
+    existing: List[T],
+    incoming: List[T]
+  ): (List[T], List[T], List[T]) = {
+    val (commonTables, deletedTables) =
+      existing.partition(table => incoming.map(_.name.toLowerCase).contains(table.name.toLowerCase))
+    val addedTables =
+      incoming.filter(table => !existing.map(_.name.toLowerCase).contains(table.name.toLowerCase))
+    (addedTables, deletedTables, commonTables)
+  }
+
 }
 
 case class ListDiff[T](
