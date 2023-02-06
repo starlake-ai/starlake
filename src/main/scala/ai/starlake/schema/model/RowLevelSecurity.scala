@@ -25,6 +25,10 @@ case class RowLevelSecurity(
       (UserType.fromString(res(0).trim), res(1).trim)
     }
   }
+
+  def compare(other: RowLevelSecurity): ListDiff[Named] =
+    AnyRefDiff.diffAnyRef(this.name, this, other)
+
 }
 
 object RowLevelSecurity {
