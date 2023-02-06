@@ -475,35 +475,50 @@ object Schema {
             Nil,
             List((existing.pattern.toString, incoming.pattern.toString))
           )
-        else
+        else {
           ListDiff(
             "pattern",
             Nil,
             Nil,
             Nil
           )
+        }
       val attributesDiff =
-        AnyRefDiff.diffNamed("attributes", existing.attributes, incoming.attributes)
+        AnyRefDiff.diffListNamed("attributes", existing.attributes, incoming.attributes)
+
       val metadataDiff: ListDiff[Named] =
-        AnyRefDiff.diffAny("metadata", existing.metadata, incoming.metadata)
-      val mergeDiff: ListDiff[Named] = AnyRefDiff.diffAny("merge", existing.merge, incoming.merge)
+        AnyRefDiff.diffOptionAnyRef("metadata", existing.metadata, incoming.metadata)
+
+      val mergeDiff: ListDiff[Named] =
+        AnyRefDiff.diffOptionAnyRef("merge", existing.merge, incoming.merge)
+
       val commentDiff: ListDiff[String] =
-        AnyRefDiff.diffString("comment", existing.comment, incoming.comment)
+        AnyRefDiff.diffOptionString("comment", existing.comment, incoming.comment)
+
       val presqlDiff: ListDiff[String] =
-        AnyRefDiff.diffString("presql", existing.presql.toSet, incoming.presql.toSet)
+        AnyRefDiff.diffSetString("presql", existing.presql.toSet, incoming.presql.toSet)
+
       val postsqlDiff: ListDiff[String] =
-        AnyRefDiff.diffString("postsql", existing.postsql.toSet, incoming.postsql.toSet)
-      val tagsDiff: ListDiff[String] = AnyRefDiff.diffString("tags", existing.tags, incoming.tags)
-      val rlsDiff: ListDiff[Named] = AnyRefDiff.diffNamed("rls", existing.rls, incoming.rls)
+        AnyRefDiff.diffSetString("postsql", existing.postsql.toSet, incoming.postsql.toSet)
+
+      val tagsDiff: ListDiff[String] =
+        AnyRefDiff.diffSetString("tags", existing.tags, incoming.tags)
+
+      val rlsDiff: ListDiff[Named] = AnyRefDiff.diffListNamed("rls", existing.rls, incoming.rls)
+
       val assertionsDiff: ListDiff[Named] =
         AnyRefDiff.diffMap("assertions", existing.assertions, incoming.assertions)
+
       val primaryKeyDiff: ListDiff[String] =
-        AnyRefDiff.diffString("primaryKey", existing.primaryKey.toSet, incoming.primaryKey.toSet)
-      val aclDiff: ListDiff[Named] = AnyRefDiff.diffNamed("acl", existing.acl, incoming.acl)
+        AnyRefDiff.diffSetString("primaryKey", existing.primaryKey.toSet, incoming.primaryKey.toSet)
+
+      val aclDiff: ListDiff[Named] = AnyRefDiff.diffListNamed("acl", existing.acl, incoming.acl)
+
       val renameDiff: ListDiff[String] =
-        AnyRefDiff.diffString("rename", existing.rename, incoming.rename)
+        AnyRefDiff.diffOptionString("rename", existing.rename, incoming.rename)
+
       val sampleDiff: ListDiff[String] =
-        AnyRefDiff.diffString("sample", existing.sample, incoming.sample)
+        AnyRefDiff.diffOptionString("sample", existing.sample, incoming.sample)
 
       s"""{ "table": "${existing.name}", """ +
       """"diff": [""" +
