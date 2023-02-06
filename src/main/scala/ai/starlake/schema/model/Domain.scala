@@ -296,12 +296,12 @@ object Domain {
       }
 
       val metadataDiff: ListDiff[Named] =
-        AnyRefDiff.diffAny("metadata", existing.metadata, incoming.metadata)
+        AnyRefDiff.diffOptionAnyRef("metadata", existing.metadata, incoming.metadata)
       val tableRefsDiff: ListDiff[String] =
-        AnyRefDiff.diffString("tableRefs", existing.tableRefs.toSet, incoming.tableRefs.toSet)
-      val commentDiff = AnyRefDiff.diffString("comment", existing.comment, incoming.comment)
-      val tagsDiffs = AnyRefDiff.diffString("tags", existing.tags, incoming.tags)
-      val renameDiff = AnyRefDiff.diffString("rename", existing.rename, incoming.rename)
+        AnyRefDiff.diffSetString("tableRefs", existing.tableRefs.toSet, incoming.tableRefs.toSet)
+      val commentDiff = AnyRefDiff.diffOptionString("comment", existing.comment, incoming.comment)
+      val tagsDiffs = AnyRefDiff.diffSetString("tags", existing.tags, incoming.tags)
+      val renameDiff = AnyRefDiff.diffOptionString("rename", existing.rename, incoming.rename)
 
       s"""{ "domain": "${existing.name}", """ +
       s"""

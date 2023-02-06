@@ -3,6 +3,7 @@ package ai.starlake.utils
 import ai.starlake.TestHelper
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model._
+import org.apache.hadoop.fs.Path
 
 import java.io.InputStream
 
@@ -50,7 +51,7 @@ class AnyRefDiffSpec extends TestHelper {
         ) // Should raise an error. Privacy cannot be applied on types other than string
       )
 
-      val diff = AnyRefDiff.diffAny("ignore", attr1, attr2)
+      val diff = AnyRefDiff.diffAnyRef("ignore", attr1, attr2)
       println(diff)
     }
 
@@ -64,21 +65,102 @@ class AnyRefDiffSpec extends TestHelper {
       )
       assert(res.isSuccess)
     }
+    "Generic Domain Diff" should "be valid" in {
+
+      val domain1 = readDomain("/sample/diff/DOMAIN1.comet.yml")
+      val domain2 = readDomain("/sample/diff/DOMAIN2.comet.yml")
+
+      val res = Domain.compare(domain1, domain2)
+      assert(res.isSuccess)
+    }
+    "Generic Project Diff" should "be valid" in {
+      val res = Project.compare(
+        new Path("/Users/hayssams/git/public/starlake/internal/anyref/quickstart1"),
+        new Path("/Users/hayssams/git/public/starlake/internal/anyref/quickstart2")
+      )(settings)
+      println(res)
+    }
+    "Generic Job Diff" should "be valid" in {
+
+      val job1 = readJob("/sample/diff/JOB1.comet.yml")
+      val job2 = readJob("/sample/diff/JOB2.comet.yml")
+
+      val res = AutoJobDesc.compare(job1, job2)
+      println(res)
+    }
   }
-  "Generic Domain Diff" should "be valid" in {
-
-    val domain1 = readDomain("/sample/diff/DOMAIN1.comet.yml")
-    val domain2 = readDomain("/sample/diff/DOMAIN2.comet.yml")
-
-    val res = Domain.compare(domain1, domain2)
-    assert(res.isSuccess)
+  "ACE Diff" should "be valid" in {
+    val ace1 = AccessControlEntry("role1", List("user1", "user2", "user3"))
+    val ace2 = AccessControlEntry("role1", List("user1", "user4", "user3"))
+    val res = ace1.compare(ace2)
+    val expected = ListDiff(
+      "role1",
+      Nil,
+      Nil,
+      List(
+        (
+          NamedValue("grants", List("user1", "user2", "user3")),
+          NamedValue("grants", List("user1", "user4", "user3"))
+        )
+      )
+    )
+    assert(res == expected)
   }
-  "Generic Job Diff" should "be valid" in {
 
-    val job1 = readJob("/sample/diff/JOB1.comet.yml")
-    val job2 = readJob("/sample/diff/JOB2.comet.yml")
-
-    val res = AutoJobDesc.compare(job1, job2)
+  "MergeOptions Diff" should "be valid" in {
+    val m1 = MergeOptions(List("key1", "key2"), None, Some("ts1"))
+    val m2 = MergeOptions(List("key1", "key2"), None, Some("ts2"))
+    val res = m1.compare(m2)
+    val expected = ListDiff(
+      "",
+      Nil,
+      Nil,
+      List(
+        (
+          NamedValue("timestamp", Some("ts1")),
+          NamedValue("timestamp", Some("ts2"))
+        )
+      )
+    )
     println(res)
+    assert(res == expected)
+  }
+
+  "RowLevelSecurity Diff" should "be valid" in {
+    val rls1 =
+      RowLevelSecurity("rls", predicate = "false", grants = Set("gr1"), description = "desc1")
+    val rls2 =
+      RowLevelSecurity("rls", predicate = "false", grants = Set("gr1"), description = "desc2")
+    val res = rls1.compare(rls2)
+    val expected = ListDiff(
+      "rls",
+      Nil,
+      Nil,
+      List((NamedValue("description", "desc1"), NamedValue("description", "desc2")))
+    )
+    assert(res == expected)
+  }
+  "Metadata Diff" should "be valid" in {
+    val metadata1 = Metadata(
+      mode = Some(Mode.STREAM),
+      quote = Some("::"),
+      clustering = Some(List("col1", "col2")),
+      directory = Some("/{{domain}}/{{schema}}")
+    )
+    val metadata2 = Metadata(
+      mode = Some(Mode.FILE),
+      quote = Some("::"),
+      clustering = Some(List("col1", "col2")),
+      directory = Some("/{{domain}}/{{schema}}")
+    )
+
+    val res = metadata1.compare(metadata2)
+    val expected = ListDiff(
+      "",
+      Nil,
+      Nil,
+      List((NamedValue("mode", Some(Mode.STREAM)), NamedValue("mode", Some(Mode.FILE))))
+    )
+    assert(res == expected)
   }
 }

@@ -96,7 +96,7 @@ case class AutoTaskDesc(
 
 object AutoTaskDesc {
   def compare(existing: AutoTaskDesc, incoming: AutoTaskDesc): ListDiff[Named] = {
-    AnyRefDiff.diffAny(existing.name, existing, incoming)
+    AnyRefDiff.diffAnyRef(existing.name, existing, incoming)
   }
 }
 
@@ -165,7 +165,7 @@ object AutoJobDesc {
 
   def compare(existing: AutoJobDesc, incoming: AutoJobDesc) = {
     Try {
-      val tasksDiff = AnyRefDiff.diffNamed("tasks", existing.tasks, incoming.tasks)
+      val tasksDiff = AnyRefDiff.diffListNamed("tasks", existing.tasks, incoming.tasks)
       val (addedTasks, deletedTasks, existingCommonTasks) =
         diffTasks(existing.tasks, incoming.tasks)
 
@@ -184,20 +184,20 @@ object AutoJobDesc {
       val updatedTasksDiffAsJson = updatedTasksDiff.map(JsonSerializer.serializeDiffNamed(_))
 
       val taskRefsDiff =
-        AnyRefDiff.diffString("taskRefs", existing.taskRefs.toSet, incoming.taskRefs.toSet)
-      val formatDiff = AnyRefDiff.diffString("format", existing.format, incoming.format)
-      val coalesceDiff = AnyRefDiff.diffString(
+        AnyRefDiff.diffSetString("taskRefs", existing.taskRefs.toSet, incoming.taskRefs.toSet)
+      val formatDiff = AnyRefDiff.diffOptionString("format", existing.format, incoming.format)
+      val coalesceDiff = AnyRefDiff.diffOptionString(
         "coalesce",
         existing.coalesce.map(_.toString),
         incoming.coalesce.map(_.toString)
       )
-      val udfDiff = AnyRefDiff.diffString("udf", existing.udf, incoming.udf)
+      val udfDiff = AnyRefDiff.diffOptionString("udf", existing.udf, incoming.udf)
       val viewsDiff = AnyRefDiff.diffMap(
         "views",
         existing.views.getOrElse(Map.empty),
         incoming.views.getOrElse(Map.empty)
       )
-      val engineDiff = AnyRefDiff.diffAny("engine", existing.engine, incoming.engine)
+      val engineDiff = AnyRefDiff.diffOptionAnyRef("engine", existing.engine, incoming.engine)
       val scheduleDiff = AnyRefDiff.diffMap("schedule", existing.schedule, incoming.schedule)
 
       s"""{ "job": "${existing.name}", """ +

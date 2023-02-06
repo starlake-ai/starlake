@@ -4,7 +4,7 @@
 # 0.6.4
 __New Feature__:
 - Add Project diffs
-- Import existing BigQUery Datasets and Tables
+- Import existing BigQuery Datasets and Tables
 
 # 0.6.3
 __New Feature__:
