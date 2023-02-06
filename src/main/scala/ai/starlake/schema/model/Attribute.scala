@@ -374,6 +374,10 @@ case class Attribute(
         MetricType.NONE
     }
   }
+
+  def compare(other: Metadata): ListDiff[Named] =
+    AnyRefDiff.diffAnyRef(name, this, other)
+
 }
 
 object Attribute {

@@ -21,7 +21,7 @@ object AnyRefDiff {
     }.toList
   }
 
-  def diffNamed(
+  def diffListNamed(
     fieldName: String,
     existing: List[Named],
     incoming: List[Named]
@@ -38,11 +38,15 @@ object AnyRefDiff {
       (v1.name, v1, v2)
     }
     val updated = common.flatMap { case (k, v1, v2) =>
-      if (v1 != v2)
-        // diffAny(k, v1, v2).updated
-        Some(v1 -> v2)
-      else
-        None
+      // diffAny(k, v1, v2).updated
+      if (v1.isInstanceOf[NamedValue]) {
+        if (v1 != v2)
+          List(v1 -> v2)
+        else
+          Nil
+      } else {
+        diffAnyRef(k, v1, v2).updated
+      }
 
     }
     ListDiff(fieldName, added.toList, deleted.toList, updated)
@@ -55,47 +59,47 @@ object AnyRefDiff {
   ): ListDiff[Named] = {
     val existingNamed = existing.map { case (k, v) => NamedValue(k, v) }.toList
     val incomingNamed = incoming.map { case (k, v) => NamedValue(k, v) }.toList
-    diffNamed(fieldName, existingNamed, incomingNamed)
+    diffListNamed(fieldName, existingNamed, incomingNamed)
   }
 
-  def diffAny(
+  def diffAnyRef(
     fieldName: String,
     existing: AnyRef,
     incoming: AnyRef
   ): ListDiff[Named] = {
     val existingFields = extractFieldValues(existing)
     val incomingFields = extractFieldValues(incoming)
-    diffNamed(fieldName, existingFields, incomingFields)
+    diffListNamed(fieldName, existingFields, incomingFields)
   }
 
-  def diffAny(
+  def diffOptionAnyRef(
     fieldName: String,
     existing: Option[AnyRef],
     incoming: Option[AnyRef]
   ): ListDiff[Named] = {
     (existing, incoming) match {
       case (Some(existing), Some(incoming)) =>
-        diffAny(fieldName, existing, incoming)
+        diffAnyRef(fieldName, existing, incoming)
       case (None, Some(incoming)) =>
         val incomingFields = extractFieldValues(incoming)
-        diffNamed(fieldName, Nil, incomingFields)
+        diffListNamed(fieldName, Nil, incomingFields)
       case (Some(existing), None) =>
         val existingFields = extractFieldValues(existing)
-        diffNamed(fieldName, Nil, existingFields)
+        diffListNamed(fieldName, Nil, existingFields)
       case (None, None) =>
-        diffNamed(fieldName, Nil, Nil)
+        diffListNamed(fieldName, Nil, Nil)
     }
   }
 
-  def diffString(
+  def diffOptionString(
     fieldName: String,
     existing: Option[String],
     incoming: Option[String]
   ): ListDiff[String] = {
-    diffString(fieldName, existing.toSet, incoming.toSet)
+    diffSetString(fieldName, existing.toSet, incoming.toSet)
   }
 
-  def diffString(
+  def diffSetString(
     fieldName: String,
     existing: Set[String],
     incoming: Set[String]
