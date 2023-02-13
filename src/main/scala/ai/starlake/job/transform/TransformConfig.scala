@@ -1,4 +1,4 @@
-package ai.starlake.workflow
+package ai.starlake.job.transform
 
 import ai.starlake.utils.CliConfig
 import scopt.OParser

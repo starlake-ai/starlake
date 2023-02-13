@@ -1,7 +1,7 @@
 package ai.starlake.config
 
 import ai.starlake.TestHelper
-import ai.starlake.extract.{BigQueryExtract, BigQueryExtractConfig}
+import ai.starlake.schema.generator.{BigQuery2Yml, BigQueryTablesConfig}
 import com.google.cloud.bigquery.{BigQueryOptions, TableId}
 import org.scalatest.BeforeAndAfterAll
 
@@ -28,8 +28,8 @@ class BigQueryExtractSpec extends TestHelper with BeforeAndAfterAll {
           datasetDomainName = "bqtest",
           sourceDatasetPathName = "/sample/position/XPOSTBL"
         ) {
-          val domains = new BigQueryExtract(BigQueryExtractConfig(None, None))
-            .getDatasets(System.getenv("GCLOUD_PROJECT"))
+          val domains = new BigQuery2Yml(BigQueryTablesConfig(None, None))
+            .extractDatasets()
         }
       }
     }

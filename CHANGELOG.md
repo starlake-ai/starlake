@@ -5,6 +5,7 @@
 __New Feature__:
 - Add Project diffs
 - Import existing BigQuery Datasets and Tables
+- Generate Dataset and Table statistics
 
 # 0.6.3
 __New Feature__:

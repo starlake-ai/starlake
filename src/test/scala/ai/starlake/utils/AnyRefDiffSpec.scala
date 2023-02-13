@@ -74,9 +74,17 @@ class AnyRefDiffSpec extends TestHelper {
       assert(res.isSuccess)
     }
     "Generic Project Diff" should "be valid" in {
+      val resource1 = getClass.getClassLoader.getResource(
+        "/Users/hayssams/git/public/starlake/internal/anyref/quickstart1"
+      )
+      val resource2 = getClass.getClassLoader.getResource(
+        "/Users/hayssams/git/public/starlake/internal/anyref/quickstart2"
+      )
       val res = Project.compare(
         new Path("/Users/hayssams/git/public/starlake/internal/anyref/quickstart1"),
         new Path("/Users/hayssams/git/public/starlake/internal/anyref/quickstart2")
+        // new Path(resource1.toURI),
+        // new Path(resource2.toURI)
       )(settings)
       println(res)
     }

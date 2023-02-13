@@ -1,0 +1,13 @@
+external:
+  - project: starlake5312
+    datasets:
+      - dataset: dataset1
+        tables:
+          - table1
+          - table2
+          - table3
+      - name: dataset2
+        tables:
+          - table1
+          - table2
+          - table3

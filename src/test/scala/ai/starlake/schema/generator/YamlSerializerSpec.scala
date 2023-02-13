@@ -19,6 +19,7 @@ class YamlSerializerSpec extends TestHelper {
           "user",
           List(task),
           Nil,
+          None,
           Some("parquet"),
           Some(false),
           views = Some(Map("user_View" -> "accepted/user"))
