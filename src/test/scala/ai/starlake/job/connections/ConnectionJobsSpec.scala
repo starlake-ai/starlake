@@ -2,9 +2,10 @@ package ai.starlake.job.connections
 
 import ai.starlake.TestHelper
 import ai.starlake.config.Settings
+import ai.starlake.job.transform.TransformConfig
 import ai.starlake.schema.handlers.{SchemaHandler, SimpleLauncher}
 import ai.starlake.schema.model.{AutoJobDesc, AutoTaskDesc, JdbcSink, WriteMode}
-import ai.starlake.workflow.{IngestionWorkflow, TransformConfig}
+import ai.starlake.workflow.IngestionWorkflow
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.SaveMode
 
@@ -36,6 +37,7 @@ class ConnectionJobsSpec extends TestHelper {
           "user",
           List(businessTask1),
           Nil,
+          None,
           Some("parquet"),
           Some(false),
           views = Some(Map("user_View" -> s"jdbc:$connection:select * from users"))

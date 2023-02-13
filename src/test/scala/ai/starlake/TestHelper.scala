@@ -21,11 +21,11 @@
 package ai.starlake
 
 import ai.starlake.config.{DatasetArea, Settings}
-import ai.starlake.job.ingest.LoadConfig
+import ai.starlake.job.ingest.{ImportConfig, LoadConfig, WatchConfig}
 import ai.starlake.schema.handlers.{SchemaHandler, SimpleLauncher, StorageHandler}
 import ai.starlake.schema.model.{Attribute, AutoJobDesc}
 import ai.starlake.utils.{CometObjectMapper, Utils}
-import ai.starlake.workflow.{ImportConfig, IngestionWorkflow, WatchConfig}
+import ai.starlake.workflow.IngestionWorkflow
 import better.files.{File => BetterFile}
 import com.dimafeng.testcontainers.{ElasticsearchContainer, KafkaContainer}
 import com.fasterxml.jackson.databind.ObjectMapper

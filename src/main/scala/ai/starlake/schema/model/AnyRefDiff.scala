@@ -132,4 +132,6 @@ case class ListDiff[T](
   added: List[T],
   deleted: List[T],
   updated: List[(T, T)]
-)
+) {
+  def isEmpty() = added.isEmpty && deleted.isEmpty && updated.isEmpty
+}

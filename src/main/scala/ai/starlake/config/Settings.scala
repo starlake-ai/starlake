@@ -288,6 +288,7 @@ object Settings extends StrictLogging {
     metrics: Metrics,
     validateOnLoad: Boolean,
     audit: Audit,
+    tableInfo: Audit,
     archive: Boolean,
     sinkToFile: Boolean,
     sinkReplayToFile: Boolean,

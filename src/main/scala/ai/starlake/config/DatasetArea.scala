@@ -179,6 +179,9 @@ object DatasetArea extends StrictLogging {
   def domains(implicit settings: Settings): Path =
     new Path(metadata, "domains")
 
+  def external(implicit settings: Settings): Path =
+    new Path(metadata, "external")
+
   def extract(implicit settings: Settings): Path =
     new Path(metadata, "extract")
 
@@ -203,7 +206,7 @@ object DatasetArea extends StrictLogging {
   def initMetadata(
     storage: StorageHandler
   )(implicit settings: Settings): Unit = {
-    List(metadata, types, domains, extract, jobs, assertions, views, mapping).foreach(
+    List(metadata, types, domains, external, extract, jobs, assertions, views, mapping).foreach(
       storage.mkdirs
     )
   }

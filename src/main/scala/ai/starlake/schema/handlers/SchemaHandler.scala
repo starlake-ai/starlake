@@ -195,11 +195,9 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     val assertionsPath = new Path(DatasetArea.assertions, filename)
     logger.info(s"Loading assertions $assertionsPath")
     if (storage.exists(assertionsPath)) {
-
       val content = Utils
         .parseJinja(storage.read(assertionsPath), activeEnv())
         .richFormat(activeEnv(), Map.empty)
-      logger.info(s"reading content $content")
       mapper
         .readValue(content, classOf[AssertionDefinitions])
         .assertionDefinitions
@@ -207,12 +205,28 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       Map.empty[String, AssertionDefinition]
   }
 
+  def loadExternalSources(filename: String): List[ExternalProject] = {
+    val externalPath = new Path(DatasetArea.external, filename)
+    logger.info(s"Loading assertions $externalPath")
+    if (storage.exists(externalPath)) {
+      val content = Utils
+        .parseJinja(storage.read(externalPath), activeEnv())
+        .richFormat(activeEnv(), Map.empty)
+      mapper
+        .readValue(content, classOf[ExternalSource])
+        .projects
+    } else
+      List.empty[ExternalProject]
+  }
+
+  @throws[Exception]
+  def externalSources(): List[ExternalProject] = loadExternalSources("default.comet.yml")
+
   @throws[Exception]
   def assertions(name: String): Map[String, AssertionDefinition] = {
     val defaultAssertions = loadAssertions("default.comet.yml")
     val assertions = loadAssertions("assertions.comet.yml")
     val resAssertions = loadAssertions(name + ".comet.yml")
-
     defaultAssertions ++ assertions ++ resAssertions
   }
 
@@ -351,11 +365,19 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
 
   private var (_domainErrors, _domains): (List[String], List[Domain]) = loadDomains()
 
+  def loadDomains(): (List[String], List[Domain]) = {
+    loadDomains(DatasetArea.domains)
+  }
+
+  def loadExternals(): (List[String], List[Domain]) = {
+    loadDomains(DatasetArea.external)
+  }
+
   /** All defined domains Domains are defined under the "domains" folder in the metadata folder
     */
   @throws[Exception]
-  private def loadDomains(): (List[String], List[Domain]) = {
-    val (validDomainsFile, invalidDomainsFiles) = deserializedDomains(DatasetArea.domains)
+  private def loadDomains(area: Path): (List[String], List[Domain]) = {
+    val (validDomainsFile, invalidDomainsFiles) = deserializedDomains(area)
       .map {
         case (path, Success(domain)) =>
           logger.info(s"Loading domain from $path")

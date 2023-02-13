@@ -162,6 +162,7 @@ class StorageHandlerSpec extends TestHelper {
           "business1",
           List(businessTask1),
           Nil,
+          None,
           Some("parquet"),
           Some(true)
         )
