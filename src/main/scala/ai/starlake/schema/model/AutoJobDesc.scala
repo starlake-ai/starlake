@@ -33,12 +33,10 @@ import scala.util.Try
   *   avoid conflicts)
   * @param domain
   *   Output domain in output Area (Will be the Database name in Hive or Dataset in BigQuery)
-  * @param dataset
+  * @param table
   *   Dataset Name in output Area (Will be the Table name in Hive & BigQuery)
   * @param write
   *   Append to or overwrite existing data
-  * @param area
-  *   Target Area where domain / dataset will be stored.
   * @param partition
   *   List of columns used for partitioning the outtput.
   * @param presql
@@ -69,6 +67,9 @@ case class AutoTaskDesc(
   coalesce: Option[Boolean] = None
 ) extends Named {
 
+  // TODO
+  def checkValidity() = true
+
   def this() = this(
     "",
     None,
@@ -80,8 +81,6 @@ case class AutoTaskDesc(
   def getSql(): String = sql.getOrElse("")
 
   /** Return a Path only if a storage area s defined
-    * @param defaultArea
-    * @param settings
     * @return
     */
   def getTargetPath()(implicit settings: Settings): Path = {
@@ -106,10 +105,6 @@ object AutoTaskDesc {
   *   Job logical name
   * @param tasks
   *   List of transform tasks to execute
-  * @param area
-  *   Area where the data is located. When using the BigQuery engine, teh area corresponds to the
-  *   dataset name we will be working on in this job. When using the Spark engine, this is folder
-  *   where the data should be store. Default value is "business"
   * @param format
   *   output file format when using Spark engine. Ingored for BigQuery. Default value is "parquet"
   * @param coalesce
@@ -128,6 +123,7 @@ case class AutoJobDesc(
   name: String,
   tasks: List[AutoTaskDesc],
   taskRefs: List[String] = Nil,
+  comment: Option[String] = None,
   format: Option[String],
   coalesce: Option[Boolean],
   udf: Option[String] = None,
@@ -135,6 +131,8 @@ case class AutoJobDesc(
   engine: Option[Engine] = None,
   schedule: Map[String, String] = Map.empty
 ) extends Named {
+  // TODO
+  def checkValidity() = true
 
   def getEngine(): Engine = engine.getOrElse(Engine.SPARK)
 
@@ -163,9 +161,8 @@ object AutoJobDesc {
     (addedTasks, deletedTasks, commonTasks)
   }
 
-  def compare(existing: AutoJobDesc, incoming: AutoJobDesc) = {
+  def compare(existing: AutoJobDesc, incoming: AutoJobDesc): Try[String] = {
     Try {
-      val tasksDiff = AnyRefDiff.diffListNamed("tasks", existing.tasks, incoming.tasks)
       val (addedTasks, deletedTasks, existingCommonTasks) =
         diffTasks(existing.tasks, incoming.tasks)
 
@@ -209,7 +206,7 @@ object AutoJobDesc {
         JsonSerializer.serializeDiffNamed(viewsDiff),
         JsonSerializer.serializeDiffNamed(engineDiff),
         JsonSerializer.serializeDiffNamed(scheduleDiff)
-      ).mkString("", ",", ",") ++
+      ).flatten.mkString("", ",", ",") ++
       updatedTasksDiffAsJson.mkString(",")) + "]" +
       "}"
     }

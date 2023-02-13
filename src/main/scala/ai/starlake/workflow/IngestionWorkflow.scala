@@ -30,7 +30,7 @@ import ai.starlake.job.sink.bigquery.{BigQueryJobResult, BigQueryLoadConfig, Big
 import ai.starlake.job.sink.es.{ESLoadConfig, ESLoadJob}
 import ai.starlake.job.sink.jdbc.{ConnectionLoadConfig, ConnectionLoadJob}
 import ai.starlake.job.sink.kafka.{KafkaJob, KafkaJobConfig}
-import ai.starlake.job.transform.AutoTask
+import ai.starlake.job.transform.{AutoTask, TransformConfig}
 import ai.starlake.schema.generator.{Yml2DDLConfig, Yml2DDLJob}
 import ai.starlake.schema.handlers.{
   LaunchHandler,
@@ -47,8 +47,6 @@ import com.google.cloud.bigquery.JobInfo.{CreateDisposition, WriteDisposition}
 import com.google.cloud.bigquery.{Schema => BQSchema}
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
-import org.apache.spark.sql.DataFrame
-import org.apache.spark.sql.types.{StructField, StructType}
 
 import java.nio.file.{FileSystems, ProviderNotFoundException}
 import java.util.Collections
@@ -714,7 +712,7 @@ class IngestionWorkflow(
 
                       case bqSink: BigQuerySink =>
                         val source = maybeDataFrame
-                          .map(df => Right(setNullableStateOfColumn(df, nullable = true)))
+                          .map(df => Right(Utils.setNullableStateOfColumn(df, nullable = true)))
                           .getOrElse(Left(action.taskDesc.getTargetPath().toString))
                         val (createDisposition, writeDisposition) = {
                           Utils.getDBDisposition(action.taskDesc.write, hasMergeKeyDefined = false)
@@ -814,23 +812,6 @@ class IngestionWorkflow(
         options = sink.getOptions
       )
     )
-  }
-
-  /** Set nullable property of column.
-    * @param df
-    *   source DataFrame
-    * @param nullable
-    *   is the flag to set, such that the column is either nullable or not
-    */
-  def setNullableStateOfColumn(df: DataFrame, nullable: Boolean): DataFrame = {
-
-    // get schema
-    val schema = df.schema
-    val newSchema = StructType(schema.map { case StructField(c, t, _, m) =>
-      StructField(c, t, nullable = nullable, m)
-    })
-    // apply new schema
-    df.sqlContext.createDataFrame(df.rdd, newSchema)
   }
 
   def esLoad(config: ESLoadConfig): Try[JobResult] = {

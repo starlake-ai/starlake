@@ -29,6 +29,8 @@ import com.fasterxml.jackson.databind.{DeserializationFeature, ObjectMapper}
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.hubspot.jinjava.Jinjava
 import com.typesafe.scalalogging.Logger
+import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.types.{StructField, StructType}
 
 import java.io.{PrintWriter, StringWriter}
 import scala.collection.JavaConverters._
@@ -282,4 +284,21 @@ object Utils {
     mapper
   }
 
+  /** Set nullable property of column.
+    *
+    * @param df
+    *   source DataFrame
+    * @param nullable
+    *   is the flag to set, such that the column is either nullable or not
+    */
+  def setNullableStateOfColumn(df: DataFrame, nullable: Boolean): DataFrame = {
+
+    // get schema
+    val schema = df.schema
+    val newSchema = StructType(schema.map { case StructField(c, t, _, m) =>
+      StructField(c, t, nullable = nullable, m)
+    })
+    // apply new schema
+    df.sqlContext.createDataFrame(df.rdd, newSchema)
+  }
 }

@@ -1,0 +1,3953 @@
+---
+load:
+  name: "MONETIQUE_SMC_Emetteur"
+  metadata:
+    mode: "FILE"
+    format: "DSV"
+    encoding: "UTF-8"
+    multiline: false
+    array: false
+    withHeader: true
+    separator: ";"
+    quote: "\""
+    escape: "\\"
+    write: "APPEND"
+    directory: "/incoming/MONETIQUE_SMC_Emetteur"
+  tables:
+  - name: "SMC_OPERATIONEMETTEURVISA_DWH"
+    pattern: "BY9_OPERATIONEMETTEURVISA.*.csv"
+    attributes:
+    - name: "CNOPVI"
+      type: "long"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Identifiant technique de l'opération émetteur VISA"
+      rename: "ID_OPERATION_EMETTEUR_VISA"
+      metricType: "NONE"
+      ignore: false
+    - name: "COVCNU"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "VROL Case Number"
+      rename: "CD_VROL_CASE_NUMBER"
+      metricType: "NONE"
+      ignore: false
+    - name: "COVBCN"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "VROL Bundle Case Number"
+      rename: "CD_VROL_BUNDLE_CASE_NUMBER"
+      metricType: "NONE"
+      ignore: false
+    - name: "CNOPEM"
+      type: "long"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Identifiant technique de l’opération"
+      rename: "ID_OPERATION_EMETTEUR"
+      metricType: "NONE"
+      foreignKey: "SMC_OPERATIONEMETTEUR_DWH"
+      ignore: false
+    - name: "COVRC"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "VROL Dispute Condition"
+      rename: "CD_VROL_DISPUTE_CONDITION"
+      metricType: "NONE"
+      foreignKey: "MONETIQUE_SMC_Referentiel.SMC_REF_VROLDISPUTECONDIT_DWH.CD_VROL_DISPUTE_CONDITION"
+      ignore: false
+    - name: "COVRF"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "VROL Dispute Financial Reason Code"
+      rename: "CD_VROL_DISPUTE_FINANCIAL"
+      metricType: "NONE"
+      default: "-1"
+      foreignKey: "MONETIQUE_SMC_Referentiel.SMC_REF_VROLDISPUTEFINANCIA_DWH.CD_VROL_DISPUTE_FINANCIAL"
+      ignore: false
+    - name: "COVRS"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "VROL Dispute Status"
+      rename: "CD_VROL_DISPUTE_STATUS"
+      metricType: "NONE"
+      default: "-1"
+      foreignKey: "MONETIQUE_SMC_Referentiel.SMC_REF_VROLDISPUTESTATUS_DWH.CD_VROL_DISPUTE_STATUS"
+      ignore: false
+    - name: "CORTRN"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "VROL Transaction Identifier"
+      rename: "NO_TRANSACTION_VROL"
+      metricType: "NONE"
+      default: "-1"
+      ignore: false
+    - name: "COTRAC"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Top Transaction Associée Crédit"
+      rename: "TOP_TRANSACTION_ASSOCIEE"
+      metricType: "NONE"
+      ignore: false
+    - name: "CDFNAT"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Code chef de file natif"
+      rename: "CD_CHEF_FILE_NATIF"
+      metricType: "NONE"
+      ignore: false
+    - name: "ID_VROL_FINANCIAL"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "VROL Financial ID"
+      rename: "CD_VROL_FINANCIAL_ID"
+      metricType: "NONE"
+      ignore: false
+    - name: "CD_CHEF_FILE"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Code chef de file"
+      metricType: "NONE"
+      script: "case CD_CHEF_FILE_NATIF\nwhen '000' then '1'\nwhen '678' then '2'\n\
+        when '882' then '4' \nelse '0' END"
+      foreignKey: "SMC_OPERATIONEMETTEUR_DWH"
+      ignore: false
+    - name: "DT_HR_CHARGEMENT"
+      type: "timestamp"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Date et Heure de chargement"
+      metricType: "NONE"
+      script: "current_timestamp()"
+      ignore: false
+    - name: "DT_EXTRACTION"
+      type: "date"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Date d'extraction du plan (OPC)"
+      metricType: "NONE"
+      script: "to_date(regexp_extract(comet_input_file_name, '.+_([0-9]{6})_.*' ,\
+        \ 1),'yyMMdd')"
+      ignore: false
+    metadata:
+      mode: "FILE"
+      format: "DSV"
+      encoding: "ISO-8859-1"
+      multiline: false
+      array: false
+      withHeader: false
+      separator: ";"
+      quote: "\""
+      escape: "\\"
+      write: "APPEND"
+      sink: 
+        type: "BQ"
+    merge:
+      key:
+      - "ID_OPERATION_EMETTEUR"
+      - "CD_CHEF_FILE"
+    comment: "Structure contenant des informations spécifiques aux opérations contesté\
+      es visa"
+    primaryKey:
+    - "ID_OPERATION_EMETTEUR"
+    - "CD_CHEF_FILE"
+  - name: "SMC_REGLEMENTCLIENT_EM_DWH"
+    pattern: "BY9_REGLEMENTCLIENT.*.csv"
+    attributes:
+    - name: "CNRGCL"
+      type: "long"
+      array: false
+      required: true
+      privacy: "NONE"
+      comment: "Identifiant technique du règlement client"
+      rename: "ID_REGLEMENT_CLIENT"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "COSTRC"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Statut du règlement client"
+      rename: "CD_STATUT_RG_CLIENT"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "CNSQRC"
+      type: "int"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Numero ordre du règlement client"
+      rename: "NO_ORDRE_RG_CLIENT"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "MTRGTC"
+      type: "amount"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Montant a régler client"
+      rename: "MT_A_REGLER_CLIENT"
+      metricType: "NONE"
+      default: "0"
+      trim: "BOTH"
+      ignore: false
+    - name: "MTCOMM"
+      type: "amount"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Montant de la commission de service"
+      rename: "MT_COMMISSION_SERVICE"
+      metricType: "NONE"
+      default: "0"
+      trim: "BOTH"
+      ignore: false
+    - name: "CODEVN"
+      type: "long"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Identifiant technique du code devise"
+      rename: "ID_DEVISE"
+      metricType: "NONE"
+      trim: "BOTH"
+      foreignKey: "MONETIQUE_SMC_Referentiel."
+      ignore: false
+    - name: "FGSRGC"
+      type: "boolean"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Sens du règlement (True=1=plus; False=0=moins)"
+      rename: "TOP_CREDIT_MT_REGLEMENT"
+      metricType: "NONE"
+      default: "0"
+      trim: "BOTH"
+      ignore: false
+    - name: "DAVALC"
+      type: "datetime_fr"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Date de valeur du règlement client"
+      rename: "DT_VALEUR_RG_CLIENT"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "CTYRGC"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Type de règlement client"
+      rename: "CD_TYPE_RG_CLIENT"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "CCPNFI"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Numéro Contrat NFI"
+      rename: "NO_CONTRAT_NFI"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "DASTAC"
+      type: "datetime_fr"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Date statut du règlement client"
+      rename: "DT_STATUT"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "CNDSCE"
+      type: "long"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Identifiant technique du dossier émetteur"
+      rename: "ID_DOSSIER_EMETTEUR"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "CDFNAT"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Code chef de file natif"
+      rename: "CD_CHEF_FILE_NATIF"
+      metricType: "NONE"
+      trim: "BOTH"
+      foreignKey: "SMC_DOSSIEREMETTEUR_DWH"
+      ignore: false
+    - name: "MTRCLI"
+      type: "amount"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Montant reconnu du règlement client"
+      rename: "MT_RECONNU"
+      metricType: "NONE"
+      default: "0"
+      trim: "BOTH"
+      ignore: false
+    - name: "MTCMPW"
+      type: "amount"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Montant compensé du règlement client"
+      rename: "MT_COMPENSE"
+      metricType: "NONE"
+      default: "0"
+      trim: "BOTH"
+      ignore: false
+    - name: "FGSMPW"
+      type: "boolean"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Sens du montant compensé (True=1=plus; False=0=moins)"
+      rename: "TOP_CREDIT_MT_COMPENSE"
+      metricType: "NONE"
+      default: "0"
+      trim: "BOTH"
+      ignore: false
+    - name: "MTCOOP"
+      type: "amount"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Montant de commission de l’opération"
+      rename: "MT_COMMISSION_OPERATION"
+      metricType: "NONE"
+      default: "0"
+      trim: "BOTH"
+      ignore: false
+    - name: "FGSCOP"
+      type: "boolean"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Sens de la commission (True=1=plus; False=0=moins)"
+      rename: "TOP_CREDIT_MT_COMMISSION"
+      metricType: "NONE"
+      default: "0"
+      trim: "BOTH"
+      ignore: false
+    - name: "CNOPEM"
+      type: "long"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Identifiant technique de l’opération émetteur"
+      rename: "ID_OPERATION_EMETTEUR"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "CRESMN"
+      type: "long"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Identifiant technique du réseau"
+      rename: "ID_RESEAU_COMPENSATION"
+      metricType: "NONE"
+      trim: "BOTH"
+      foreignKey: "MONETIQUE_SMC_Referentiel.SMC_REF_RESEAU_DWH"
+      ignore: false
+    - name: "CTYOPN"
+      type: "long"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Identifiant technique du type d'opération"
+      rename: "ID_TYPE_OPERATION"
+      metricType: "NONE"
+      trim: "BOTH"
+      foreignKey: "MONETIQUE_SMC_Referentiel.SMC_REF_TYPEOPERATION_DWH"
+      ignore: false
+    - name: "CNAOPN"
+      type: "long"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Identifiant technique de la nature d'opération"
+      rename: "ID_NATUREOPERATION"
+      metricType: "NONE"
+      trim: "BOTH"
+      foreignKey: "MONETIQUE_SMC_Referentiel.SMC_REF_NATUREOPERATION_DWH"
+      ignore: false
+    - name: "FGFRAN"
+      type: "boolean"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Top franchise"
+      rename: "TOP_FRANCHISE"
+      metricType: "NONE"
+      default: "0"
+      trim: "BOTH"
+      ignore: false
+    - name: "COPTRG"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Code option de règlement"
+      rename: "CD_OPTION_REGLEMENT"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "CD_CHEF_FILE"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Code chef de file"
+      metricType: "NONE"
+      trim: "BOTH"
+      script: "case CD_CHEF_FILE_NATIF\nwhen '000' then '1'\nwhen '678' then '2'\n\
+        when '882' then '4' \nelse '0' END"
+      foreignKey: "SMC_DOSSIEREMETTEUR_DWH"
+      ignore: false
+    - name: "DT_HR_CHARGEMENT"
+      type: "timestamp"
+      array: false
+      required: true
+      privacy: "NONE"
+      comment: "Date et Heure de chargement"
+      metricType: "NONE"
+      trim: "BOTH"
+      script: "current_timestamp()"
+      ignore: false
+    - name: "DT_EXTRACTION"
+      type: "date"
+      array: false
+      required: true
+      privacy: "NONE"
+      comment: "Date d'extraction du plan (OPC)"
+      metricType: "NONE"
+      trim: "BOTH"
+      script: "to_date(regexp_extract(comet_input_file_name, '.+_([0-9]{6})_.*' ,\
+        \ 1),'yyMMdd')"
+      ignore: false
+    metadata:
+      mode: "FILE"
+      format: "DSV"
+      encoding: "ISO-8859-1"
+      multiline: false
+      array: false
+      withHeader: false
+      separator: ";"
+      quote: "\""
+      escape: "\\"
+      write: "APPEND"
+      sink: 
+        type: "BQ"
+    merge:
+      key:
+      - "ID_REGLEMENT_CLIENT"
+      - "CD_CHEF_FILE"
+    comment: "Structure contenant l'ensemble des informations liées aux règlements\
+      \ du client"
+    primaryKey:
+    - "ID_REGLEMENT_CLIENT"
+    - "CD_CHEF_FILE"
+  - name: "SMC_SYNTHESECOMPTABLE_EM_DWH"
+    pattern: "BY9_SYNTHESECOMPTABLE.*.csv"
+    attributes:
+    - name: "CNDSCE"
+      type: "long"
+      array: false
+      required: true
+      privacy: "NONE"
+      comment: "Identifiant technique du dossier émetteur"
+      rename: "ID_DOSSIER_EMETTEUR"
+      metricType: "NONE"
+      trim: "BOTH"
+      foreignKey: "SMC_DOSSIEREMETTEUR_DWH"
+      ignore: false
+    - name: "MTTOSY"
+      type: "amount"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Montant total du dossier"
+      rename: "MT_TOTAL"
+      metricType: "NONE"
+      default: "0"
+      trim: "BOTH"
+      ignore: false
+    - name: "FGSTOS"
+      type: "boolean"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Sens du montant total  (True=1=plus; False=0=moins)"
+      rename: "TOP_CREDIT_MT_TOTAL"
+      metricType: "NONE"
+      default: "0"
+      trim: "BOTH"
+      ignore: false
+    - name: "MTCPTS"
+      type: "amount"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Montant comptable du dossier"
+      rename: "MT_COMPTABLE"
+      metricType: "NONE"
+      default: "0"
+      trim: "BOTH"
+      ignore: false
+    - name: "FGSCPS"
+      type: "boolean"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Sens du montant comptable  (True=1=plus; False=0=moins)"
+      rename: "TOP_CREDIT_MT_COMPTABLE"
+      metricType: "NONE"
+      default: "0"
+      trim: "BOTH"
+      ignore: false
+    - name: "MTREMT"
+      type: "amount"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Montant remboursé total"
+      rename: "MT_REMBOURSE_TOTAL"
+      metricType: "NONE"
+      default: "0"
+      trim: "BOTH"
+      ignore: false
+    - name: "FGREMT"
+      type: "boolean"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Sens montant remboursé total  (True=1=plus; False=0=moins)"
+      rename: "TOP_CREDIT_MT_REMBOURSE_TOTAL"
+      metricType: "NONE"
+      default: "0"
+      trim: "BOTH"
+      ignore: false
+    - name: "MTREM1"
+      type: "amount"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Montant remboursé (compte a vue)"
+      rename: "MT_REMBOURSE_DB"
+      metricType: "NONE"
+      default: "0"
+      trim: "BOTH"
+      ignore: false
+    - name: "FGSRE1"
+      type: "boolean"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Sens montant remboursé (compte a vue)  (True=1=plus; False=0=moins)"
+      rename: "TOP_CREDIT_MT_REMBOURSE_DB"
+      metricType: "NONE"
+      default: "0"
+      trim: "BOTH"
+      ignore: false
+    - name: "MTREM2"
+      type: "amount"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Montant remboursé (reserve de crédit)"
+      rename: "MT_REMBOURSE_CR"
+      metricType: "NONE"
+      default: "0"
+      trim: "BOTH"
+      ignore: false
+    - name: "FGSRE2"
+      type: "boolean"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Sens montant remboursé (reserve credit) (True=1=plus; False=0=moins)"
+      rename: "TOP_CREDIT_MT_REMBOURSE_CR"
+      metricType: "NONE"
+      default: "0"
+      trim: "BOTH"
+      ignore: false
+    - name: "MTRECT"
+      type: "amount"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Montant recouvré total"
+      rename: "MT_RECOUVRE_TOTAL"
+      metricType: "NONE"
+      default: "0"
+      trim: "BOTH"
+      ignore: false
+    - name: "FGSRCT"
+      type: "boolean"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Sens montant recouvré total  (True=1=plus; False=0=moins)"
+      rename: "TOP_CREDIT_MT_RECOUVRE_TOTAL"
+      metricType: "NONE"
+      default: "0"
+      trim: "BOTH"
+      ignore: false
+    - name: "MTREC1"
+      type: "amount"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Montant recouvré acquéreur"
+      rename: "MT_RECOUVRE_ACQ_TOT"
+      metricType: "NONE"
+      default: "0"
+      trim: "BOTH"
+      ignore: false
+    - name: "FGSRC1"
+      type: "boolean"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Sens montant recouvré acquéreur  (True=1=plus; False=0=moins)"
+      rename: "TOP_CREDIT_MT_RECOUVRE_ACQ_TOT"
+      metricType: "NONE"
+      default: "0"
+      trim: "BOTH"
+      ignore: false
+    - name: "MTIMPA"
+      type: "amount"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Montant impayé"
+      rename: "MT_RECOUVRE_ACQ_IMP"
+      metricType: "NONE"
+      default: "0"
+      trim: "BOTH"
+      ignore: false
+    - name: "FGSIMP"
+      type: "boolean"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Sens montant impayé  (True=1=plus; False=0=moins)"
+      rename: "TOP_CREDIT_MT_RECOUVRE_ACQ_IMP"
+      metricType: "NONE"
+      default: "0"
+      trim: "BOTH"
+      ignore: false
+    - name: "MTREPT"
+      type: "amount"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Montant représentation"
+      rename: "MT_RECOUVRE_ACQ_REPRESENTATION"
+      metricType: "NONE"
+      default: "0"
+      trim: "BOTH"
+      ignore: false
+    - name: "FGSREP"
+      type: "boolean"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Sens montant représentation  (True=1=plus; False=0=moins)"
+      rename: "TOP_CREDIT_MT_RECOUVRE_ACQ_REPRESENTATION"
+      metricType: "NONE"
+      default: "0"
+      trim: "BOTH"
+      ignore: false
+    - name: "MTRECS"
+      type: "amount"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Montant recours"
+      rename: "MT_RECOUVRE_ACQ_RECOURS"
+      metricType: "NONE"
+      default: "0"
+      trim: "BOTH"
+      ignore: false
+    - name: "FGSRES"
+      type: "boolean"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Sens montant recours  (True=1=plus; False=0=moins)"
+      rename: "TOP_CREDIT_MT_RECOUVRE_ACQ_RECOURS"
+      metricType: "NONE"
+      default: "0"
+      trim: "BOTH"
+      ignore: false
+    - name: "MTPETA"
+      type: "amount"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Montant pris en charge établissement"
+      rename: "MT_PRISE_EN_CHARGE_ETAB"
+      metricType: "NONE"
+      default: "0"
+      trim: "BOTH"
+      ignore: false
+    - name: "FGSPET"
+      type: "boolean"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Sens du montant pris en charge établissement  (True=1=plus; False=0=moins)"
+      rename: "TOP_CREDIT_MT_PRISE_EN_CHARGE_ETAB"
+      metricType: "NONE"
+      default: "0"
+      trim: "BOTH"
+      ignore: false
+    - name: "MTPCNP"
+      type: "amount"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Montant pris en charge NP"
+      rename: "MT_PRISE_EN_CHARGE_NP"
+      metricType: "NONE"
+      default: "0"
+      trim: "BOTH"
+      ignore: false
+    - name: "FGSPNP"
+      type: "boolean"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Sens du montant pris en charge NP  (True=1=plus; False=0=moins)"
+      rename: "TOP_CREDIT_MT_PRISE_EN_CHARGE_NP"
+      metricType: "NONE"
+      default: "0"
+      trim: "BOTH"
+      ignore: false
+    - name: "MTREC2"
+      type: "amount"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Montant recouvré par l’assurance"
+      rename: "MT_RECOUVRE_ASSURANCE"
+      metricType: "NONE"
+      default: "0"
+      trim: "BOTH"
+      ignore: false
+    - name: "FGSRC2"
+      type: "boolean"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Sens du montant recouvré par l’assurance  (True=1=plus; False=0=moins)"
+      rename: "TOP_CREDIT_MT_RECOUVRE_ASSURANCE"
+      metricType: "NONE"
+      default: "0"
+      trim: "BOTH"
+      ignore: false
+    - name: "MTPCPO"
+      type: "amount"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Montant pris en charge par le porteur"
+      rename: "MT_PRISE_EN_CHARGE_PORTEUR"
+      metricType: "NONE"
+      default: "0"
+      trim: "BOTH"
+      ignore: false
+    - name: "FGSPPO"
+      type: "boolean"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Sens du montant pris en charge par le porteur  (True=1=plus; False=0=moins)"
+      rename: "TOP_CREDIT_MT_PRISE_EN_CHARGE_PORTEUR"
+      metricType: "NONE"
+      default: "0"
+      trim: "BOTH"
+      ignore: false
+    - name: "MTPCLD"
+      type: "amount"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Montant pris en charge par l’établissement initié par LED"
+      rename: "MT_PRIS_EN_CHARGE_LED"
+      metricType: "NONE"
+      default: "0"
+      trim: "BOTH"
+      ignore: false
+    - name: "FGPCLD"
+      type: "boolean"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Sens montant pris en charge par l’établissement initié par LED"
+      rename: "TOP_PRIS_EN_CHARGE_LED"
+      metricType: "NONE"
+      default: "0"
+      trim: "BOTH"
+      ignore: false
+    - name: "CDFNAT"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Code chef de file natif"
+      rename: "CD_CHEF_FILE_NATIF"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "MTFRAN"
+      type: "amount"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Montant de la franchise"
+      rename: "MT_FRANCHISE"
+      metricType: "NONE"
+      default: "0"
+      trim: "BOTH"
+      ignore: false
+    - name: "TOP_CREDIT_MT_FRANCHISE"
+      type: "boolean"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Sens montant de la franchise"
+      metricType: "NONE"
+      default: "0"
+      trim: "BOTH"
+      ignore: false
+    - name: "CD_CHEF_FILE"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Code chef de file"
+      metricType: "NONE"
+      script: "case CD_CHEF_FILE_NATIF\nwhen '000' then '1'\nwhen '678' then '2'\n\
+        when '882' then '4' \nelse '0' END"
+      foreignKey: "SMC_DOSSIEREMETTEUR_DWH"
+      ignore: false
+    - name: "DT_HR_CHARGEMENT"
+      type: "timestamp"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Date et Heure de chargement"
+      metricType: "NONE"
+      script: "current_timestamp()"
+      ignore: false
+    - name: "DT_EXTRACTION"
+      type: "date"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Date d'extraction du plan (OPC)"
+      metricType: "NONE"
+      script: "to_date(regexp_extract(comet_input_file_name, '.+_([0-9]{6})_.*' ,\
+        \ 1),'yyMMdd')"
+      ignore: false
+    metadata:
+      mode: "FILE"
+      format: "DSV"
+      encoding: "ISO-8859-1"
+      multiline: false
+      array: false
+      withHeader: false
+      separator: ";"
+      quote: "\""
+      escape: "\\"
+      write: "APPEND"
+      sink: 
+        type: "BQ"
+    merge:
+      key:
+      - "ID_DOSSIER_EMETTEUR"
+      - "CD_CHEF_FILE"
+    comment: "Structure contenant l'ensemble des éléments de montant de la synthè\
+      se comptable attaché au dossier"
+    primaryKey:
+    - "ID_DOSSIER_EMETTEUR"
+    - "CD_CHEF_FILE"
+  - name: "SMC_TACHEEMETTEUR_DWH"
+    pattern: "BY9_TACHEEMETTEUR.*.csv"
+    attributes:
+    - name: "CNDSCT"
+      type: "long"
+      array: false
+      required: true
+      privacy: "NONE"
+      comment: "Identifiant technique de la tâche émetteur"
+      rename: "ID_TACHE_EMETTEUR"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "CODSCE"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Numéro de dossier émetteur"
+      rename: "NO_DOSSIER_EMETTEUR"
+      metricType: "NONE"
+      trim: "BOTH"
+      foreignKey: "SMC_DOSSIEREMETTEUR_DWH.NO_DOSSIER_EMETTEUR"
+      ignore: false
+    - name: "CCDSCT"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Identifiant complémentaire du dossier émetteur"
+      rename: "CD_COMPLEMENTAIRE_DOSSIER"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "COPRC"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Code processus"
+      rename: "CD_PROCESSUS"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "COTYTA"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Code de la tâche"
+      rename: "CD_TACHE"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "COEVT"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Code évènement"
+      rename: "CD_EVENEMENT"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "LCTACN"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Numéro complémentaire tâche"
+      rename: "NO_COMPLEMENTAIRE_TACHE"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "LIPACX"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Parametres de contexte évènement"
+      rename: "LB_PARAMETRES_CONTEXTE_EVENEMENT"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "DAHDCD"
+      type: "datetime_fr"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Date et heure d'arrivée du dossier"
+      rename: "DT_ARRIVEE_DOSSIER"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "DAHEFD"
+      type: "datetime_fr"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Date et heure début d'effet de la tâche émetteur"
+      rename: "DT_DEBUT_EFFET"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "DAHEFF"
+      type: "datetime_fr"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Date et heure fin d'effet de la tâche émetteur"
+      rename: "DT_FIN_EFFET"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "LIREAE"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Réalisateur de l'évènement"
+      rename: "LB_REALISATEUR_EVENEMENT"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "LIATAC"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Libellé d'avancement de la tâche émetteur"
+      rename: "LB_AVANCEMENT"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "COSTTA"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Code statut de la tâche émetteur"
+      rename: "CD_STATUT"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "COETTA"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Code état de la tâche émetteur"
+      rename: "CD_ETAT"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "COJUR"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Libellé de la juridication"
+      rename: "LB_JURIDICTION"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "COUTI"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Opérateur d'attribution de la tâche émetteur"
+      rename: "CD_USER_ATTRIBUTION_TACHE"
+      metricType: "NONE"
+      default: "-1"
+      trim: "BOTH"
+      ignore: false
+    - name: "COQUTA"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Code qualification du dossier émetteur"
+      rename: "CD_QUALIFICATION_DOSSIER"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "CNATEM"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Code nature du dossier émetteur"
+      rename: "CD_NATURE_DOSSIER"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "MTOPTA"
+      type: "int"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Nombre d'opérations du dossier émetteur"
+      rename: "NB_OPERATION_DOSSIER"
+      metricType: "NONE"
+      default: "0"
+      trim: "BOTH"
+      ignore: false
+    - name: "MTTOPA"
+      type: "amount"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Montant total du dossier émetteur"
+      rename: "MT_TOTAL_DOSSIER"
+      metricType: "NONE"
+      default: "0"
+      trim: "BOTH"
+      ignore: false
+    - name: "LIVALB"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Valeur banalisée"
+      rename: "LB_VALEUR_BANALISEE"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "LINURG"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Indicateur urgence"
+      rename: "LB_INDICATEUR_URGENCE"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "CDFNAT"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Code chef de file natif"
+      rename: "CD_CHEF_FILE_NATIF"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "NB_OPERATION_VAD"
+      type: "int"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Nombre d’opérations vente à distance rattachées au dossier"
+      metricType: "NONE"
+      default: "0"
+      trim: "BOTH"
+      ignore: false
+    - name: "NB_OPERATION_TOUS_RESEAUX"
+      type: "int"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Nombre opérations dossier tous réseaux confondus"
+      metricType: "NONE"
+      default: "0"
+      trim: "BOTH"
+      ignore: false
+    - name: "CD_CHEF_FILE"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Code chef de file"
+      metricType: "NONE"
+      trim: "BOTH"
+      script: "case CD_CHEF_FILE_NATIF\nwhen '000' then '1'\nwhen '678' then '2'\n\
+        when '882' then '4' \nelse '0' END"
+      foreignKey: "SMC_DOSSIEREMETTEUR_DWH.CD_CHEF_FILE"
+      ignore: false
+    - name: "DT_HR_CHARGEMENT"
+      type: "timestamp"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Date et Heure de chargement"
+      metricType: "NONE"
+      trim: "BOTH"
+      script: "current_timestamp()"
+      ignore: false
+    - name: "DT_EXTRACTION"
+      type: "date"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Date d'extraction du plan (OPC)"
+      metricType: "NONE"
+      trim: "BOTH"
+      script: "to_date(regexp_extract(comet_input_file_name, '.+_([0-9]{6})_.*' ,\
+        \ 1),'yyMMdd')"
+      ignore: false
+    metadata:
+      mode: "FILE"
+      format: "DSV"
+      encoding: "ISO-8859-1"
+      multiline: false
+      array: false
+      withHeader: false
+      separator: ";"
+      quote: "\""
+      escape: "\\"
+      write: "APPEND"
+      sink: 
+        type: "BQ"
+    merge:
+      key:
+      - "ID_TACHE_EMETTEUR"
+      - "CD_CHEF_FILE"
+    comment: "Structure contenant l'ensemble des tâches, leur statut et leur avancement,\
+      \ effectuées sur un dossier de contestation"
+    primaryKey:
+    - "ID_TACHE_EMETTEUR"
+    - "CD_CHEF_FILE"
+  - name: "SMC_DOSSIEREMETTEUR_DWH"
+    pattern: "BY9_DOSSIEREMETTEUR.*.csv"
+    attributes:
+    - name: "CNDSCE"
+      type: "long"
+      array: false
+      required: true
+      privacy: "NONE"
+      comment: "Identifiant technique du dossier émetteur"
+      rename: "ID_DOSSIER_EMETTEUR"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "CODSCE"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Numéro de dossier émetteur"
+      rename: "NO_DOSSIER_EMETTEUR"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "COCLTE"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Numéro de client"
+      rename: "NO_CLIENT"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "COCART"
+      type: "PAN"
+      array: false
+      required: true
+      privacy: "NONE"
+      comment: "Numéro de carte bancaire"
+      rename: "NO_CARTE"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "FGSSAN"
+      type: "boolean"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Top dossier sans analyse"
+      rename: "TOP_DOSSIER_SANS_ANALYSE"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "FGDSAU"
+      type: "boolean"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Top dossier sans analyse traité automatiquement"
+      rename: "TOP_DOSSIER_SANS_ANALYSE_AUTO"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "CNVRES"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Code niveau responsabilité"
+      rename: "CD_NIVEAU_RESPONSABILITE"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "DACRDO"
+      type: "datetime_fr"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Date de création du dossier émetteur"
+      rename: "DT_CREATION_DOSSIER_EMETTEUR"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "DACONT"
+      type: "datetime_fr"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Date de contestation"
+      rename: "DT_CONTESTATION"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "DA1CLO"
+      type: "datetime_fr"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Date de 1ère clôture du dossier émetteur"
+      rename: "DT_PREMIERE_CLOTURE_EMETTEUR"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "DAROUV"
+      type: "datetime_fr"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Date de réouverture du dossier émetteur"
+      rename: "DT_REOUVERTURE"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "CSTADO"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Code statut du dossier émetteur"
+      rename: "CD_STATUT_DOSSIER_EMETTEUR"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "CADSCN"
+      type: "long"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Identifiant technique avancement du dossier"
+      rename: "ID_AVC_DOSSIER"
+      metricType: "NONE"
+      trim: "BOTH"
+      foreignKey: "MONETIQUE_SMC_Referentiel.SMC_REF_AVANCEMENT_DWH"
+      ignore: false
+    - name: "MTCPTD"
+      type: "amount"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Montant comptable"
+      rename: "MT_COMPTABLE"
+      metricType: "NONE"
+      default: "0"
+      trim: "BOTH"
+      ignore: false
+    - name: "FGSCPD"
+      type: "boolean"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Sens montant comptable (True=1=plus; False=0=moins)"
+      rename: "TOP_CREDIT_MT_COMPTABLE"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "CODEVC"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Code devise du montant comptable"
+      rename: "CD_DEVISE"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "LIDECO"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Décision sur compléter"
+      rename: "LB_DECISION_SUR_COMPLETER"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "LIDEAN"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Décision sur analyser"
+      rename: "LB_DECISION_ANALYSE"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "FGNIAM"
+      type: "int"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Niveau avancement maximum du dossier émetteur"
+      rename: "NO_NIVEAU_AVANCEMENT_MAXIMUM"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "FGCARI"
+      type: "boolean"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Top carte inexistante"
+      rename: "TOP_CARTE_INEXISTANT_PARTECIS"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "DAHMAJ"
+      type: "datetime_fr"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Date/heure dernière mise a jour"
+      rename: "DT_DERNIER_MAJ"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "COUTI"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Auteur de la dernière mise a jour"
+      rename: "CD_UTILISATEUR_ID_MAJ"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "CQUEMN"
+      type: "long"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Identifiant technique de la qualification du dossier émetteur"
+      rename: "ID_QUALIFICATION_EMETTEUR"
+      metricType: "NONE"
+      trim: "BOTH"
+      foreignKey: "MONETIQUE_SMC_Referentiel.SMC_REF_QUALIFEMETTEUR_DWH"
+      ignore: false
+    - name: "CNAEMN"
+      type: "long"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Identifiant technique de la nature du dossier émetteur"
+      rename: "ID_NATURE_EMETTEUR"
+      metricType: "NONE"
+      trim: "BOTH"
+      foreignKey: "MONETIQUE_SMC_Referentiel.SMC_REF_NATUREEMETTEUR_DWH"
+      ignore: false
+    - name: "CTDSPN"
+      type: "long"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Identifiant technique de la typologie DSP"
+      rename: "ID_TYPOLOGIE_DSP"
+      metricType: "NONE"
+      trim: "BOTH"
+      foreignKey: "MONETIQUE_SMC_Referentiel.SMC_REF_TYPOLOGIEDSP_DWH"
+      ignore: false
+    - name: "CETAN"
+      type: "long"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Identifiant technique du code établissement"
+      rename: "ID_ETABLISSEMENT"
+      metricType: "NONE"
+      trim: "BOTH"
+      foreignKey: "MONETIQUE_SMC_Referentiel.SMC_REF_ETABLISSEMENT_DWH"
+      ignore: false
+    - name: "QTOPTO"
+      type: "int"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Nombre total opérations du dossier émetteur"
+      rename: "NB_TOTAL_OPERATIONS"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "MTOPT"
+      type: "amount"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Montant total opérations du dossier émetteur"
+      rename: "MT_TOTAL_OPERATION"
+      metricType: "NONE"
+      default: "0"
+      trim: "BOTH"
+      ignore: false
+    - name: "FGSOPT"
+      type: "boolean"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Sens montant total opérations (True=1=plus; False=0=moins)"
+      rename: "TOP_CREDIT_MT_TOTAL_OPERATION"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "CODSCR"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Indicateur réseaux du dossier"
+      rename: "CD_RESEAU_DOSSIER"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "CNCRTA"
+      type: "long"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Identifiant technique du contrat d'assurance"
+      rename: "ID_CONTRAT_ASSURANCE"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "CNFRAU"
+      type: "long"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Identifiant technique fraude émetteur"
+      rename: "ID_FRAUD_EMETTEUR"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "CNCART"
+      type: "long"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Identifiant technique infos porteur"
+      rename: "ID_INFOS_PORTEUR"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "CNDSCC"
+      type: "long"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Identifiant technique du dossier appel CRC"
+      rename: "ID_DOSSIER_APPEL_CRC"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "FGSMS"
+      type: "boolean"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Top envoi SMS"
+      rename: "TOP_ENVOI_SMS"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "FGMSV"
+      type: "boolean"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Top envoi Message vocal"
+      rename: "TOP_ENVOI_MSG_VOCAL"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "FGMAIL"
+      type: "boolean"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Top envoi courriel"
+      rename: "TOP_ENVOI_COURRIEL"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "DAINCT"
+      type: "datetime_fr"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Date de validation de la complétude du dossier sur Décision Traité\
+        \ Sce Courrier"
+      rename: "DT_COMPLET_TRAITE_SCE"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "DAHACD"
+      type: "datetime_fr"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Date de décision d’analyse complète du dossier pour toutes les opé\
+        rations"
+      rename: "DT_DECISION_ANALYSE"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "WUSERV"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "User ayant validé la décision d’analyse complète du dossier pour toutes\
+        \ les opérations"
+      rename: "USER_DECISION_ANALYSE"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "CDFNAT"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Code chef de file natif"
+      rename: "CD_CHEF_FILE_NATIF"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "COUTIC"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Auteur de la création du dossier émetteur"
+      rename: "CD_UTILISATEUR_ID_CREATION"
+      metricType: "NONE"
+      trim: "BOTH"
+      foreignKey: "MONETIQUE_SMC_Referentiel.SMC_REF_UTILISATEUR_DWH.SMC_REF_UTILISATEUR_DWH"
+      ignore: false
+    - name: "MTFRAN"
+      type: "amount"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Montant de la franchise"
+      rename: "MT_FRANCHISE"
+      metricType: "NONE"
+      default: "0"
+      trim: "BOTH"
+      ignore: false
+    - name: "NB_OPERATION_VAD"
+      type: "int"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Nombre d’opérations vente à distance rattachées au dossier"
+      metricType: "NONE"
+      default: "0"
+      trim: "BOTH"
+      ignore: false
+    - name: "INDICATEURPRESCORE"
+      type: "int"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Indicateur pré-score"
+      rename: "CD_PRESCORE"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "CD_CHEF_FILE"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Code chef de file"
+      metricType: "NONE"
+      script: "case CD_CHEF_FILE_NATIF\nwhen '000' then '1'\nwhen '678' then '2'\n\
+        when '882' then '4' \nelse '0' END"
+      ignore: false
+    - name: "DT_HR_CHARGEMENT"
+      type: "timestamp"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Date et Heure de chargement"
+      metricType: "NONE"
+      script: "current_timestamp()"
+      ignore: false
+    - name: "DT_EXTRACTION"
+      type: "date"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Date d'extraction du plan (OPC)"
+      metricType: "NONE"
+      script: "to_date(regexp_extract(comet_input_file_name, '.+_([0-9]{6})_.*' ,\
+        \ 1),'yyMMdd')"
+      ignore: false
+    metadata:
+      mode: "FILE"
+      format: "DSV"
+      encoding: "ISO-8859-1"
+      multiline: false
+      array: false
+      withHeader: false
+      separator: ";"
+      quote: "\""
+      escape: "\\"
+      write: "APPEND"
+      sink: 
+        type: "BQ"
+    merge:
+      key:
+      - "ID_DOSSIER_EMETTEUR"
+      - "CD_CHEF_FILE"
+    comment: "Structure contenant l'ensemble des informations d'un dossier de contestation\
+      \ émetteur"
+    primaryKey:
+    - "ID_DOSSIER_EMETTEUR"
+    - "CD_CHEF_FILE"
+  - name: "SMC_EVENEMENTLITIGEEMETTEUR_DWH"
+    pattern: "BY9_EVENEMENTLITIGEEMETTEUR.*.csv"
+    attributes:
+    - name: "CNTEVR"
+      type: "long"
+      array: false
+      required: true
+      privacy: "NONE"
+      comment: "Identifiant technique de l'évènement litige émetteur"
+      rename: "ID_EVENEMENT_LITIGE_EMETTEUR"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "CNOPEM"
+      type: "long"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Identifiant technique de l’opération"
+      rename: "ID_OPERATION_EMETTEUR"
+      metricType: "NONE"
+      trim: "BOTH"
+      foreignKey: "SMC_OPERATIONEMETTEUR_DWH"
+      ignore: false
+    - name: "CNOSIP"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Identifiant unique SIP opération"
+      rename: "CD_SIP"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "FGEVTR"
+      type: "boolean"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Top évènement non rapproché"
+      rename: "TOP_EVENEMENT_RAPPROCHE"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "FGEINC"
+      type: "boolean"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Top état dossier incompatible"
+      rename: "TOP_ETAT_INCOMPATIBLE"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "FGSSMV"
+      type: "boolean"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Top évènement saisi dans SMC"
+      rename: "TOP_EVENEMENT_MANUEL"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "DATEVT"
+      type: "datetime_fr"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Date évènement litige émetteur"
+      rename: "DT_EVENEMENT"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "MTCPTE"
+      type: "amount"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Montant comptable"
+      rename: "MT_COMPTABLE"
+      metricType: "NONE"
+      default: "0"
+      trim: "BOTH"
+      ignore: false
+    - name: "FGSMCE"
+      type: "boolean"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Sens montant comptable (True=1=plus; False=0=moins)"
+      rename: "TOP_CREDIT_MT_COMPTABLE"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "CODEVN"
+      type: "long"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Identifiant technique du code devise"
+      rename: "ID_DEVISE"
+      metricType: "NONE"
+      trim: "BOTH"
+      foreignKey: "MONETIQUE_Referentiel_SMC.SMC_REF_DEVISE_DWH"
+      ignore: false
+    - name: "CTEVTN"
+      type: "long"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Identifiant technique du type d'évènement"
+      rename: "ID_TYPE_EVENEMENT"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "LTESMC"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Libellé évènement manuel SMC"
+      rename: "LB_TYPE_EVENEMENT"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "CEVPAR"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Code évènement Partecis"
+      rename: "CD_EVENEMENT_PARTECIS"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "LTYOPN"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Libellé type opération monétique"
+      rename: "LB_TYPE_OPERATION"
+      metricType: "NONE"
+      trim: "BOTH"
+      foreignKey: "MONETIQUE_Referentiel_SMC.SMC_REF_NATUREOPERATION_DWH"
+      ignore: false
+    - name: "CNAOPN"
+      type: "long"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Nature de l'opération monétique"
+      rename: "ID_NATUREOPERATION"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "COMOIM"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Code motif d'impayé ou représentation"
+      rename: "CD_MOTIF_EVENEMENT"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "CORESM"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Code réseau de compensation"
+      rename: "CD_RESEAU_COMPENSATION"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "COBQCF"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Code banque confrère"
+      rename: "CD_BANQUE_CONFRERE"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "DATVIR"
+      type: "datetime_fr"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Date virement"
+      rename: "DT_VIREMENT"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "CETAN"
+      type: "long"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Identifiant technique du code établissement"
+      rename: "ID_ETABLISSEMENT"
+      metricType: "NONE"
+      trim: "BOTH"
+      foreignKey: "MONETIQUE_Referentiel_SMC.SMC_REF_ETABLISSEMENT_DWH"
+      ignore: false
+    - name: "CRESMN"
+      type: "long"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Identifiant technqiue du réseau de compensation"
+      rename: "ID_RESEAU_COMPENSATION"
+      metricType: "NONE"
+      trim: "BOTH"
+      foreignKey: "MONETIQUE_SMC_Referentiel.SMC_REF_RESEAU_DWH"
+      ignore: false
+    - name: "CSTLIN"
+      type: "long"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Identifiant technique du statut du litige"
+      rename: "ID_STATUT_LITIGE"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "CODISC"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Code discriminant"
+      rename: "CD_DISCRIMINANT"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "DAHVE"
+      type: "datetime_fr"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Date et heure vente"
+      rename: "DT_VENTE"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "DATCMP"
+      type: "datetime_fr"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Date de compensation"
+      rename: "DT_COMPENSATION"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "MTNETC"
+      type: "amount"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Montant net client"
+      rename: "MT_NET_CLIENT"
+      metricType: "NONE"
+      default: "0"
+      trim: "BOTH"
+      ignore: false
+    - name: "LIRSEM"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Raison sociale"
+      rename: "LB_RAISON_SOCIALE"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "CORFAR"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Référence d'archivage"
+      rename: "CD_REFERENCE_ARCHIVAGE"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "CONAUT"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Numéro d'autorisation"
+      rename: "NO_AUTORISATION"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "CDFNAT"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Code chef de file natif"
+      rename: "CD_CHEF_FILE_NATIF"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "CIDIMP"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Identifiant de l'impayé"
+      rename: "CD_IDENTIFIANT_IMPAYE"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "COMIMP"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Code motif de l'impayé"
+      rename: "CD_MOTIF_IMPAYE"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "DAEMIP"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Date de l'impayé"
+      rename: "DT_IMPAYE"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "COMRPS"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Motif de la représentation"
+      rename: "CD_MOTIF_REPRESENTATION"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "DAMRPS"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Date de réception de la représentation"
+      rename: "DT_RECEPTION_REPRESENTATION"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "MCNTRJ"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Montant rejeté par le porteur"
+      rename: "MT_REJETE_PORTEUR"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "CODEVR"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Devise du montant rejeté par le porteur"
+      rename: "CD_DEVISE"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "COEDDJ"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Centre émetteur de la DDJ"
+      rename: "CD_CENTRE_EMETTEUR_DDJ"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "REFDDJ"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Référence de la DDJ"
+      rename: "CD_REFERENCE_DDJ"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "DAEDDJ"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Date d'émission de la DDJ"
+      rename: "DT_EMISSION_DDJ"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "CREDDJ"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Code réponse de la DDJ"
+      rename: "CD_REPONSE_DDJ"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "CORESJ"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Code de réception de justificatif"
+      rename: "CD_RECEPTION_JUSTIFICATIF"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "DARESJ"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Date de réception de justificatif"
+      rename: "DT_RECEPTION_JUSTIFICATIF"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "MTREPT"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Montant de la représentation"
+      rename: "MT_REPRESENTATION"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "MTINRP"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Montant d'interchange de la représentation"
+      rename: "MT_INTERCHARGE_REPRESENTATION"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "CD_MODE_GESTION"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Mode de gestion"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "CD_CHEF_FILE"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Code chef de file"
+      metricType: "NONE"
+      trim: "BOTH"
+      script: "case CD_CHEF_FILE_NATIF\nwhen '000' then '1'\nwhen '678' then '2'\n\
+        when '882' then '4' \nelse '0' END"
+      foreignKey: "SMC_OPERATIONEMETTEUR_DWH"
+      ignore: false
+    - name: "DT_HR_CHARGEMENT"
+      type: "timestamp"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Date et Heure de chargement"
+      metricType: "NONE"
+      trim: "BOTH"
+      script: "current_timestamp()"
+      ignore: false
+    - name: "DT_EXTRACTION"
+      type: "date"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Date d'extraction du plan (OPC)"
+      metricType: "NONE"
+      trim: "BOTH"
+      script: "to_date(regexp_extract(comet_input_file_name, '.+_([0-9]{6})_.*' ,\
+        \ 1),'yyMMdd')"
+      ignore: false
+    metadata:
+      mode: "FILE"
+      format: "DSV"
+      encoding: "ISO-8859-1"
+      multiline: false
+      array: false
+      withHeader: false
+      separator: ";"
+      quote: "\""
+      escape: "\\"
+      write: "APPEND"
+      sink: 
+        type: "BQ"
+    merge:
+      key:
+      - "ID_EVENEMENT_LITIGE_EMETTEUR"
+      - "CD_CHEF_FILE"
+    comment: "Structure contenant l'ensemble évènements de litiges émetteur liés à\
+      \ une opération constestée"
+    primaryKey:
+    - "ID_EVENEMENT_LITIGE_EMETTEUR"
+    - "CD_CHEF_FILE"
+  - name: "SMC_INFOSCONTRATASSURANCE_DWH"
+    pattern: "BY9_INFOSCONTRATASSURANCE.*.csv"
+    attributes:
+    - name: "CNCRTA"
+      type: "long"
+      array: false
+      required: true
+      privacy: "NONE"
+      comment: "Identifiant technique du contrat d'assurance"
+      rename: "ID_CONTRAT_ASSURANCE"
+      metricType: "NONE"
+      ignore: false
+    - name: "COCRTA"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Numéro du contrat d'assurance"
+      rename: "NO_CONTRAT_ASSURANCE"
+      metricType: "NONE"
+      foreignKey: "SMC_DOSSIEREMETTEUR_DWH.NO_CONTRAT_ASSURANCE"
+      ignore: false
+    - name: "DACTRA"
+      type: "datetime_fr"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Date de souscription du contrat d'assurance"
+      rename: "DT_SOUSCRIPTION"
+      metricType: "NONE"
+      ignore: false
+    - name: "MTFRAN"
+      type: "amount"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Montant de la franchise"
+      rename: "MT_FRANCHISE"
+      metricType: "NONE"
+      default: "0"
+      ignore: false
+    - name: "CFOCAN"
+      type: "long"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Identifiant technique du code forfait carte"
+      rename: "ID_FORFAIT_CARTE"
+      metricType: "NONE"
+      foreignKey: "MONETIQUE_Referentiel_SMC.SMC_REF_CODEFORFAITCARTE_DWH"
+      ignore: false
+    - name: "CDFNAT"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Code chef de file natif"
+      rename: "CD_CHEF_FILE_NATIF"
+      metricType: "NONE"
+      ignore: false
+    - name: "CD_CHEF_FILE"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Code chef de file"
+      metricType: "NONE"
+      script: "case CD_CHEF_FILE_NATIF\nwhen '000' then '1'\nwhen '678' then '2'\n\
+        when '882' then '4' \nelse '0' END"
+      foreignKey: "SMC_DOSSIEREMETTEUR_DWH.CD_CHEF_FILE"
+      ignore: false
+    - name: "DT_HR_CHARGEMENT"
+      type: "timestamp"
+      array: false
+      required: true
+      privacy: "NONE"
+      comment: "Date et Heure de chargement"
+      metricType: "NONE"
+      script: "current_timestamp()"
+      ignore: false
+    - name: "DT_EXTRACTION"
+      type: "date"
+      array: false
+      required: true
+      privacy: "NONE"
+      comment: "Date d'extraction du plan (OPC)"
+      metricType: "NONE"
+      script: "to_date(regexp_extract(comet_input_file_name, '.+_([0-9]{6})_.*' ,\
+        \ 1),'yyMMdd')"
+      ignore: false
+    metadata:
+      mode: "FILE"
+      format: "DSV"
+      encoding: "ISO-8859-1"
+      multiline: false
+      array: false
+      withHeader: false
+      separator: ";"
+      quote: "\""
+      escape: "\\"
+      write: "APPEND"
+      sink: 
+        type: "BQ"
+    merge:
+      key:
+      - "ID_CONTRAT_ASSURANCE"
+      - "CD_CHEF_FILE"
+    comment: "Structure contenant les informations relatives au contrat d'assurance"
+    primaryKey:
+    - "ID_CONTRAT_ASSURANCE"
+    - "CD_CHEF_FILE"
+  - name: "SMC_INFOSFRAUDE_EM_DWH"
+    pattern: "BY9_INFOSFRAUDE.*.csv"
+    attributes:
+    - name: "CNFRAU"
+      type: "long"
+      array: false
+      required: true
+      privacy: "NONE"
+      comment: "Identifiant technique fraude émetteur"
+      rename: "ID_FRAUD_EMETTEUR"
+      metricType: "NONE"
+      foreignKey: "SMC_DOSSIEREMETTEUR_DWH.ID_FRAUD_EMETTEUR"
+      ignore: false
+    - name: "DAALER"
+      type: "datetime_fr"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Date d'alerte"
+      rename: "DT_ALERTE"
+      metricType: "NONE"
+      ignore: false
+    - name: "COALER"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Numéro d'alerte"
+      rename: "NO_ALERTE"
+      metricType: "NONE"
+      ignore: false
+    - name: "FGCAOP"
+      type: "boolean"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Top carte mise en opposition par le CRC (1 = Oui => true ; 0 = Non\
+        \ => false)"
+      rename: "TOP_CARTE_OPPOSEE_PAR_CRC"
+      metricType: "NONE"
+      ignore: false
+    - name: "FGCARL"
+      type: "boolean"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Top carte envoyée en remplacement  (1 = Oui => true ; 0 = Non => false)"
+      rename: "TOP_CARTE_ENVOYEE_EN_RECO_PAR_CRC"
+      metricType: "NONE"
+      ignore: false
+    - name: "FGCARS"
+      type: "boolean"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Top carte restituée  (1 = Oui => true ; 0 = Non => false)"
+      rename: "TOP_CARTE_RESTITUEE"
+      metricType: "NONE"
+      ignore: false
+    - name: "DAFRAS"
+      type: "datetime_fr"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Date de survenance"
+      rename: "DT_SURVENANCE"
+      metricType: "NONE"
+      ignore: false
+    - name: "DAFRAD"
+      type: "datetime_fr"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Date de déclaration"
+      rename: "DT_DECLARATION"
+      metricType: "NONE"
+      ignore: false
+    - name: "CDFNAT"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Code chef de file natif"
+      rename: "CD_CHEF_FILE_NATIF"
+      metricType: "NONE"
+      ignore: false
+    - name: "CD_CHEF_FILE"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Code chef de file"
+      metricType: "NONE"
+      script: "case CD_CHEF_FILE_NATIF\nwhen '000' then '1'\nwhen '678' then '2'\n\
+        when '882' then '4' \nelse '0' END"
+      foreignKey: "SMC_DOSSIEREMETTEUR_DWH.CD_CHEF_FILE"
+      ignore: false
+    - name: "DT_HR_CHARGEMENT"
+      type: "timestamp"
+      array: false
+      required: true
+      privacy: "NONE"
+      comment: "Date et Heure de chargement"
+      metricType: "NONE"
+      script: "current_timestamp()"
+      ignore: false
+    - name: "DT_EXTRACTION"
+      type: "date"
+      array: false
+      required: true
+      privacy: "NONE"
+      comment: "Date d'extraction du plan (OPC)"
+      metricType: "NONE"
+      script: "to_date(regexp_extract(comet_input_file_name, '.+_([0-9]{6})_.*' ,\
+        \ 1),'yyMMdd')"
+      ignore: false
+    metadata:
+      mode: "FILE"
+      format: "DSV"
+      encoding: "ISO-8859-1"
+      multiline: false
+      array: false
+      withHeader: false
+      separator: ";"
+      quote: "\""
+      escape: "\\"
+      write: "APPEND"
+      sink: 
+        type: "BQ"
+    merge:
+      key:
+      - "ID_FRAUD_EMETTEUR"
+      - "CD_CHEF_FILE"
+    comment: "Structure contenant des informations relatives aux alertes fraude é\
+      metteur"
+    primaryKey:
+    - "ID_CONTRAT_ASSURANCE"
+    - "CD_CHEF_FILE"
+  - name: "SMC_INFOSPORTEUREMETTEUR_DWH"
+    pattern: "BY9_INFOSPORTEUREMETTEUR.*.csv"
+    attributes:
+    - name: "CNCART"
+      type: "long"
+      array: false
+      required: true
+      privacy: "NONE"
+      comment: "Identifiant technique infos porteur"
+      rename: "ID_INFOS_PORTEUR"
+      metricType: "NONE"
+      foreignKey: "SMC_DOSSIEREMETTEUR_DWH.ID_INFOS_PORTEUR"
+      ignore: false
+    - name: "LIPPO"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Nom du porteur"
+      rename: "LB_NOM"
+      metricType: "NONE"
+      tags:
+      - "X"
+      ignore: false
+      accessPolicy: "hide10X"
+    - name: "LIPRP"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Prénom du porteur"
+      rename: "LB_PRENOM"
+      metricType: "NONE"
+      tags:
+      - "X"
+      ignore: false
+      accessPolicy: "hide10X"
+    - name: "DANAIS"
+      type: "datetime_fr"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Date de naissance du client"
+      rename: "DT_NAISSANCE"
+      metricType: "NONE"
+      tags:
+      - "X"
+      ignore: false
+      accessPolicy: "hideMonthAndDay"
+    - name: "CTCAR"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Type de carte"
+      rename: "CD_TYPE_CARTE"
+      metricType: "NONE"
+      ignore: false
+    - name: "CTSCA"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Sous-type carte"
+      rename: "CD_SOUS_TYPE_CART"
+      metricType: "NONE"
+      ignore: false
+    - name: "CDFNAT"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Code chef de file natif"
+      rename: "CD_CHEF_FILE_NATIF"
+      metricType: "NONE"
+      ignore: false
+    - name: "CD_CHEF_FILE"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Code chef de file"
+      metricType: "NONE"
+      script: "case CD_CHEF_FILE_NATIF\nwhen '000' then '1'\nwhen '678' then '2'\n\
+        when '882' then '4' \nelse '0' END"
+      foreignKey: "SMC_DOSSIEREMETTEUR_DWH.CD_CHEF_FILE"
+      ignore: false
+    - name: "DT_HR_CHARGEMENT"
+      type: "timestamp"
+      array: false
+      required: true
+      privacy: "NONE"
+      comment: "Date et Heure de chargement"
+      metricType: "NONE"
+      script: "current_timestamp()"
+      ignore: false
+    - name: "DT_EXTRACTION"
+      type: "date"
+      array: false
+      required: true
+      privacy: "NONE"
+      comment: "Date d'extraction du plan (OPC)"
+      metricType: "NONE"
+      script: "to_date(regexp_extract(comet_input_file_name, '.+_([0-9]{6})_.*' ,\
+        \ 1),'yyMMdd')"
+      ignore: false
+    metadata:
+      mode: "FILE"
+      format: "DSV"
+      encoding: "ISO-8859-1"
+      multiline: false
+      array: false
+      withHeader: false
+      separator: ";"
+      quote: "\""
+      escape: "\\"
+      write: "APPEND"
+      sink: 
+        type: "BQ"
+    merge:
+      key:
+      - "ID_INFOS_PORTEUR"
+      - "CD_CHEF_FILE"
+    comment: "Structure contenant des informations relatives aux porteurs de carte\
+      \ ayant contesté des opérations"
+    primaryKey:
+    - "ID_INFOS_PORTEUR"
+    - "CD_CHEF_FILE"
+  - name: "SMC_OPERATIONEMETTEUR_DWH"
+    pattern: "BY9_OPERATIONEMETTEUR_.*.csv"
+    attributes:
+    - name: "CNOPEM"
+      type: "long"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Identifiant technique de l'opération émetteur"
+      rename: "ID_OPERATION_EMETTEUR"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "CNPROD"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Identifiant unique producteur"
+      rename: "CD_PRODUCTEUR"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "CRESMN"
+      type: "long"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Identifiant technqiue du réseau de compensation"
+      rename: "ID_RESEAU_COMPENSATION"
+      metricType: "NONE"
+      trim: "BOTH"
+      foreignKey: "MONETIQUE_SMC_Referentiel.SMC_REF_RESEAU_DWH"
+      ignore: false
+    - name: "CTYOPN"
+      type: "long"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Identifiant technique du type d'opération"
+      rename: "ID_TYPE_OPERATION"
+      metricType: "NONE"
+      trim: "BOTH"
+      foreignKey: "MONETIQUE_SMC_Referentiel.SMC_REF_TYPEOPERATION_DWH"
+      ignore: false
+    - name: "CNAOPN"
+      type: "long"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Identifiant technique de la nature d'opération"
+      rename: "ID_NATUREOPERATION"
+      metricType: "NONE"
+      trim: "BOTH"
+      foreignKey: "MONETIQUE_SMC_Referentiel.SMC_REF_NATUREOPERATION_DWH"
+      ignore: false
+    - name: "FGSOPE"
+      type: "boolean"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Sens opération (True=1=plus; False=0=moins)"
+      rename: "TOP_CREDIT_OPERATION"
+      metricType: "NONE"
+      default: "0"
+      trim: "BOTH"
+      ignore: false
+    - name: "MTIMPT"
+      type: "amount"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Montant imputé"
+      rename: "MT_IMPUTE"
+      metricType: "NONE"
+      default: "0"
+      trim: "BOTH"
+      ignore: false
+    - name: "MTFRAI"
+      type: "amount"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Montant frais"
+      rename: "MT_FRAIS"
+      metricType: "NONE"
+      default: "0"
+      trim: "BOTH"
+      ignore: false
+    - name: "CODEVN"
+      type: "long"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Identifiant technique du code devise"
+      rename: "ID_DEVISE"
+      metricType: "NONE"
+      trim: "BOTH"
+      foreignKey: "MONETIQUE_SMC_Referentiel.SMC_REF_DEVISE_DWH"
+      ignore: false
+    - name: "DAHVTE"
+      type: "datetime_fr"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Date et heure vente"
+      rename: "DT_HR_VENTE"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "DATCMP"
+      type: "datetime_fr"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Date et heure de compensation"
+      rename: "DT_HR_COMPENSATION"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "LIRSEM"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Raison sociale"
+      rename: "LB_RAISON_SOCIAL"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "LILOEM"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Localisation"
+      rename: "LB_LOCALISATION"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "COPAYN"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Code pays du commerçant"
+      rename: "CD_PAYS_COMMERCANT"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "CORFAR"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Référence archivage"
+      rename: "CD_REF_ARCHIVAGE"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "CTYODC"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Type d’opération debit/credit"
+      rename: "CD_TYPE_OP_DEB_CREDIT"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "FGREMB"
+      type: "boolean"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Top opération remboursable"
+      rename: "TOP_REMBOURSABLE"
+      metricType: "NONE"
+      default: "0"
+      trim: "BOTH"
+      ignore: false
+    - name: "CMODRN"
+      type: "long"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Mode de recouvrement"
+      rename: "ID_MODE_RECOUVREMENT"
+      metricType: "NONE"
+      trim: "BOTH"
+      foreignKey: "MONETIQUE_SMC_Referentiel.SMC_REF_MODERECOUVREMENT_DWH"
+      ignore: false
+    - name: "CMODAP"
+      type: "long"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Mode d'acceptation"
+      rename: "ID_MODE_ACCEPTATION"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "FGSAIM"
+      type: "boolean"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Top saisie manuelle"
+      rename: "TOP_SAISIE_MANUELLE"
+      metricType: "NONE"
+      default: "0"
+      trim: "BOTH"
+      ignore: false
+    - name: "LIMOSA"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Libellé du motif saisie"
+      rename: "LB_MOTIF_SAISIE"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "COOPTE"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Code opération TERCEO"
+      rename: "CD_OP_TERCEO"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "FGRGCR"
+      type: "boolean"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Top règlement créé"
+      rename: "TOP_REGLEMENT_CREE"
+      metricType: "NONE"
+      default: "0"
+      trim: "BOTH"
+      ignore: false
+    - name: "COREFN"
+      type: "long"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Identifiant technique du motif de refus remboursement"
+      rename: "ID_MOTIF_REFUS_REMBOURSEMENT"
+      metricType: "NONE"
+      trim: "BOTH"
+      foreignKey: "MONETIQUE_SMC_Referentiel.SMC_REF_MOTIFREFUSREMBOURS_DWH"
+      ignore: false
+    - name: "COMAAC"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Identifiant technique du motif d'acceptation remboursement"
+      rename: "CD_MOTIF_ACCEPTATION_REMBOURSEMENT"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "CIDIMP"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Identifiant de l'impayé"
+      rename: "CD_IMPAYE"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "COMIMP"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Code motif impayé"
+      rename: "CD_MOTIF_IMPAYE"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "DAEMIP"
+      type: "datetime_fr"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Date et heure de l'impayé"
+      rename: "DT_HR_IMPAYE"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "COMRPS"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Code motif de la représentation"
+      rename: "CD_MOTIF_REPRESENTATION"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "DAMRPS"
+      type: "datetime_fr"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Date et heure de réception de la représentation"
+      rename: "DT_HR_RECEPTION_REPRESENTATION"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "MCNTRJ"
+      type: "amount"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Montant rejeté par le porteur"
+      rename: "MT_REJETE_PAR_PORTEUR"
+      metricType: "NONE"
+      default: "0"
+      trim: "BOTH"
+      ignore: false
+    - name: "CODEVR"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Code devise du montant rejeté par le porteur"
+      rename: "CD_DEVISE_REJETE_PAR_PORTEUR"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "COEDDJ"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Centre émetteur de la DDJ"
+      rename: "CD_CENTRE_EMETTEUR_DDJ"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "REFDDJ"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Référence de la DDJ"
+      rename: "NO_REFERENCE_DDJ"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "DAEDDJ"
+      type: "datetime_fr"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Date et heure d'émission de la DDJ"
+      rename: "DT_HR_EMISSION_DDJ"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "CREDDJ"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Code réponse de la DDJ"
+      rename: "CD_REPONSE_DDJ"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "CORESJ"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Code de réception du justificatif"
+      rename: "CD_RECEPTION_JUSTIFICATION"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "DARESJ"
+      type: "datetime_fr"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Date et heure de réception du justificatif"
+      rename: "DT_HR_RECEPTION_JUSTIFICATION"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "MTREPT"
+      type: "amount"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Montant de la représentation"
+      rename: "MT_REPRESENTATION"
+      metricType: "NONE"
+      default: "0"
+      trim: "BOTH"
+      ignore: false
+    - name: "MTINRP"
+      type: "amount"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Montant d'interchange de la représentation"
+      rename: "MT_INTERCHANGE_REPRESENTATION"
+      metricType: "NONE"
+      default: "0"
+      trim: "BOTH"
+      ignore: false
+    - name: "COACPT"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Identifiant accepteur"
+      rename: "CD_ACCEPTEUR"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "CODEP"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Code département"
+      rename: "CD_DEPARTEMENT"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "CONAUT"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Numéro d'autorisation"
+      rename: "NO_AUTORISATION"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "CODMCC"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Code activité du commerçant (MCC)"
+      rename: "CD_MCC"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "CNDSCE"
+      type: "long"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Identifiant technique du dossier émetteur"
+      rename: "ID_DOSSIER_EMETTEUR"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "COVTRN"
+      type: "long"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Identifiant technique du dispute financial"
+      rename: "ID_VCR_TRANSACTION"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "CALIAC"
+      type: "int"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Code avancement de l'évènement de litige acquéreur"
+      rename: "CD_AVANCEMENT_LITIGE_ACQUERREUR"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "CALDDJ"
+      type: "int"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Code avancement de l'évènement de litige DDJ"
+      rename: "CD_AVANCEMENT_LITIGE_DJJ"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "FGIMVC"
+      type: "boolean"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Top impayé VISA en cours"
+      rename: "TOP_IMPAYE_VISA_COURS"
+      metricType: "NONE"
+      default: "0"
+      trim: "BOTH"
+      ignore: false
+    - name: "FGFRVE"
+      type: "boolean"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Top impayé fraude VISA émis"
+      rename: "TOP_IMPAYE_FRAUD_VISA_EMIS"
+      metricType: "NONE"
+      default: "0"
+      trim: "BOTH"
+      ignore: false
+    - name: "FGNFVE"
+      type: "boolean"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Top impayé non fraude VISA émis"
+      rename: "TOP_IMPAYE_NON_FRAUD_VISA_EMIS"
+      metricType: "NONE"
+      default: "0"
+      trim: "BOTH"
+      ignore: false
+    - name: "CDFNAT"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Code chef de file natif"
+      rename: "CD_CHEF_FILE_NATIF"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "COTYFA"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Type de facture procédure"
+      rename: "CD_TYPE_FACTU"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "CTA3DS"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Type d’authentification 3DS"
+      rename: "CD_TYPE_3DS"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "CTSOUC"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Souhait Commerçant"
+      rename: "CD_SOUHAIT_COMMERCANT_3DS"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "MTRCLI"
+      type: "amount"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Montant reconnu"
+      rename: "MT_RECONNU"
+      metricType: "NONE"
+      default: "0"
+      trim: "BOTH"
+      ignore: false
+    - name: "COPTRG"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Code option de règlement"
+      rename: "CD_OPTION_REGLEMENT"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "PRESCORE_ID"
+      type: "long"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Identifiant technique du préscore"
+      rename: "ID_PRESCORE"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "TOPPRESCORE"
+      type: "boolean"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Top préscore"
+      rename: "TOP_PRESCORE"
+      metricType: "NONE"
+      default: "0"
+      trim: "BOTH"
+      ignore: false
+    - name: "CD_CHEF_FILE"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Code chef de file"
+      metricType: "NONE"
+      script: "case CD_CHEF_FILE_NATIF\nwhen '000' then '1'\nwhen '678' then '2'\n\
+        when '882' then '4' \nelse '0' END"
+      ignore: false
+    - name: "DT_HR_CHARGEMENT"
+      type: "timestamp"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Date et Heure de chargement"
+      metricType: "NONE"
+      script: "current_timestamp()"
+      ignore: false
+    - name: "DT_EXTRACTION"
+      type: "date"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Date d'extraction du plan (OPC)"
+      metricType: "NONE"
+      script: "to_date(regexp_extract(comet_input_file_name, '.+_([0-9]{6})_.*' ,\
+        \ 1),'yyMMdd')"
+      ignore: false
+    metadata:
+      mode: "FILE"
+      format: "DSV"
+      encoding: "ISO-8859-1"
+      multiline: false
+      array: false
+      withHeader: false
+      separator: ";"
+      quote: "\""
+      escape: "\\"
+      write: "APPEND"
+      sink: 
+        type: "BQ"
+    comment: "Structure contenant l'ensemble des opérations contestées dans un dossier\
+      \ de contestation émetteur"
+    primaryKey:
+    - "ID_OPERATION_EMETTEUR"
+    - "CD_CHEF_FILE"
+  - name: "SMC_DOCUMENTEMETTEUR_DWH"
+    pattern: "BY9_DOCUMENTEMETTEUR.*.csv"
+    attributes:
+    - name: "CNDOCE"
+      type: "long"
+      array: false
+      required: true
+      privacy: "NONE"
+      comment: "Identifiant technique du document émetteur"
+      rename: "ID_DOCUMENT_EMETTEUR"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "DARATT"
+      type: "datetime_fr"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Date d'attachement du document émetteur"
+      rename: "DT_ATTACHMENT"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "CNGED"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Code GED (Gestion Electronique de Document)"
+      rename: "CD_GED"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "LINDOC"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Nom du document émetteur"
+      rename: "LB_DOCUMENT_EMETTEUR"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+      accessPolicy: "hide"
+    - name: "COECRN"
+      type: "long"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Identifiant technique du code écran"
+      rename: "ID_ECRAN"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "CNDSCE"
+      type: "long"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Identifiant technique du dossier émetteur"
+      rename: "ID_DOSSIER_EMETTEUR"
+      metricType: "NONE"
+      trim: "BOTH"
+      foreignKey: "SMC_DOSSIEREMETTEUR_DWH"
+      ignore: false
+    - name: "CTDOCN"
+      type: "long"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Identifiant technique du type de document émetteur"
+      rename: "ID_TYPE_DOC_EMETTEUR"
+      metricType: "NONE"
+      trim: "BOTH"
+      foreignKey: "MONETIQUE_Referentiel_SMC.SMC_REF_TYPEDOCEMETTEUR_DWH"
+      ignore: false
+    - name: "CDFNAT"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Code chef de  file natif"
+      rename: "CD_CHEF_FILE_NATIF"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "LB_DESTINATAIRE"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Destinataire"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "LB_EXPEDITEUR"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Expéditeur"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "LB_OBJET"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Objet"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "CD_CHEF_FILE"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Code chef de file"
+      metricType: "NONE"
+      script: "case CD_CHEF_FILE_NATIF\nwhen '000' then '1'\nwhen '678' then '2'\n\
+        when '882' then '4' \nelse '0' END"
+      foreignKey: "SMC_DOSSIEREMETTEUR_DWH"
+      ignore: false
+    - name: "DT_HR_CHARGEMENT"
+      type: "timestamp"
+      array: false
+      required: true
+      privacy: "NONE"
+      comment: "Date et Heure de chargement"
+      metricType: "NONE"
+      script: "current_timestamp()"
+      ignore: false
+    - name: "DT_EXTRACTION"
+      type: "date"
+      array: false
+      required: true
+      privacy: "NONE"
+      comment: "Date d'extraction du plan (OPC)"
+      metricType: "NONE"
+      script: "to_date(regexp_extract(comet_input_file_name, '.+_([0-9]{6})_.*' ,\
+        \ 1),'yyMMdd')"
+      ignore: false
+    metadata:
+      mode: "FILE"
+      format: "DSV"
+      encoding: "ISO-8859-1"
+      multiline: false
+      array: false
+      withHeader: false
+      separator: ";"
+      quote: "\""
+      escape: "\\"
+      write: "APPEND"
+      sink: 
+        type: "BQ"
+    merge:
+      key:
+      - "ID_DOCUMENT_EMETTEUR"
+      - "CD_CHEF_FILE"
+    comment: "Structure contenant des informations sur les documents attachés aux\
+      \ dossiers de contestation émetteur"
+    primaryKey:
+    - "ID_DOCUMENT_EMETTEUR"
+    - " CD_CHEF_FILE"
+  - name: "SMC_OPERATIONEMETTEURMASTER_DWH"
+    pattern: "BY9_OPERATIONEMETTEURMASTER.*.csv"
+    attributes:
+    - name: "CNOPMC"
+      type: "long"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Identifiant technique de l'opération émetteur MASTER"
+      rename: "ID_OPERATION_EMETTEUR_MASTER"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "CNTEVR"
+      type: "long"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Identifiant technique de l'évènement de litige émetteur"
+      rename: "ID_EVENEMENT_LITIGE_EMETTEUR"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "CNOPEM"
+      type: "long"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Identifiant technique de l’opération émetteur"
+      rename: "ID_OPERATION_EMETTEUR"
+      metricType: "NONE"
+      trim: "BOTH"
+      foreignKey: "SMC_OPERATIONEMETTEUR_DWH"
+      ignore: false
+    - name: "CMCMNC"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Claim ID"
+      rename: "CD_MCM_CLAIM"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "CMCMNE"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Event ID"
+      rename: "CD_MCM_EVENT"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "CMETRST"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Transaction status"
+      rename: "CD_TRANSACTION_STATUS"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "CMIMPM"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Code motif impayé MCM"
+      rename: "CD_MOTIF_IMPAYE_MCM"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "CDFNAT"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Code chef de file natif"
+      rename: "CD_CHEF_FILE_NATIF"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "CD_CHEF_FILE"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Code chef de file"
+      metricType: "NONE"
+      script: "case CD_CHEF_FILE_NATIF\nwhen '000' then '1'\nwhen '678' then '2'\n\
+        when '882' then '4' \nelse '0' END"
+      foreignKey: "SMC_OPERATIONEMETTEUR_DWH"
+      ignore: false
+    - name: "DT_HR_CHARGEMENT"
+      type: "timestamp"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Date et Heure de chargement"
+      metricType: "NONE"
+      script: "current_timestamp()"
+      ignore: false
+    - name: "DT_EXTRACTION"
+      type: "date"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Date d'extraction du plan (OPC)"
+      metricType: "NONE"
+      script: "to_date(regexp_extract(comet_input_file_name, '.+_([0-9]{6})_.*' ,\
+        \ 1),'yyMMdd')"
+      ignore: false
+    metadata:
+      mode: "FILE"
+      format: "DSV"
+      encoding: "ISO-8859-1"
+      multiline: false
+      array: false
+      withHeader: false
+      separator: ";"
+      quote: "\""
+      escape: "\\"
+      write: "APPEND"
+      sink: 
+        type: "BQ"
+    merge:
+      key:
+      - "ID_OPERATION_EMETTEUR"
+      - "CD_CHEF_FILE"
+    comment: "Structure contenant des informations spécifiques aux opérations contesté\
+      es mastercard"
+    primaryKey:
+    - "ID_OPERATION_EMETTEUR"
+    - "CD_CHEF_FILE"
+  - name: "SMC_OPERATIONEMETTEURCONT_DWH"
+    pattern: "BY9_OPERATIONEMETTEURCONTEXTE.*.csv"
+    attributes:
+    - name: "CNOPMC"
+      type: "long"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Identifiant technique du contexte de l'opération émetteur"
+      rename: "ID_OPERATION_EMETTEUR_CONTEXTE"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "CNOPEM"
+      type: "long"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Identifiant technique de l’opération émetteur"
+      rename: "ID_OPERATION_EMETTEUR"
+      metricType: "NONE"
+      trim: "BOTH"
+      foreignKey: "SMC_OPERATIONEMETTEUR_DWH"
+      ignore: false
+    - name: "COERTT"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Code environnement réglementaire / technique de la transaction"
+      rename: "CD_ERT"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "CTLECA"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Mode de lecture carte"
+      rename: "CD_MODE_LECTURE_CARTE"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "CTAUAD"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Méthode d'authentification porteur"
+      rename: "CD_METHODE_AUTHENT"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "CTSCCE"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Type de Sécurisation (de transaction de commerce électronique)"
+      rename: "CD_TYPE_SECURISATION"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "CTMIP"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "CardHolder ID Méthode"
+      rename: "CD_CARDHOLDER_ID_METHODE"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "CTMTEC"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Mail /Phone /Ecommerce Indicator"
+      rename: "CD_CONTACT"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "COPEMV"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "POS Entry Mode Visa"
+      rename: "CD_POINT_SERVICE_ENTRY_MODE_VISA"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "COPEMM"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "POS Entry Mode Master"
+      rename: "CD_POINT_SERVICE_ENTRY_MODE_MASTER"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "COICE"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Electronic commerce security"
+      rename: "CD_ELECTRONIC_COMMERCE"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "CDFNAT"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Code chef de file natif"
+      rename: "CD_CHEF_FILE_NATIF"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "CD_CHEF_FILE"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Code chef de file"
+      metricType: "NONE"
+      trim: "BOTH"
+      script: "case CD_CHEF_FILE_NATIF\nwhen '000' then '1'\nwhen '678' then '2'\n\
+        when '882' then '4' \nelse '0' END"
+      foreignKey: "SMC_OPERATIONEMETTEUR_DWH"
+      ignore: false
+    - name: "DT_HR_CHARGEMENT"
+      type: "timestamp"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Date et Heure de chargement"
+      metricType: "NONE"
+      trim: "BOTH"
+      script: "current_timestamp()"
+      ignore: false
+    - name: "DT_EXTRACTION"
+      type: "date"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Date d'extraction du plan (OPC)"
+      metricType: "NONE"
+      trim: "BOTH"
+      script: "to_date(regexp_extract(comet_input_file_name, '.+_([0-9]{6})_.*' ,\
+        \ 1),'yyMMdd')"
+      ignore: false
+    metadata:
+      mode: "FILE"
+      format: "DSV"
+      encoding: "ISO-8859-1"
+      multiline: false
+      array: false
+      withHeader: false
+      separator: ";"
+      quote: "\""
+      escape: "\\"
+      write: "APPEND"
+      sink: 
+        type: "BQ"
+    merge:
+      key:
+      - "ID_OPERATION_EMETTEUR"
+      - "CD_CHEF_FILE"
+    comment: "Structure contenant des informations spécifiques au contexte des opé\
+      rations contestées"
+    primaryKey:
+    - "ID_OPERATION_EMETTEUR"
+    - "CD_CHEF_FILE"
+  - name: "SMC_PRESCORE"
+    pattern: "BY9_PRESCORE_.*.csv"
+    attributes:
+    - name: "ID"
+      type: "long"
+      array: false
+      required: true
+      privacy: "NONE"
+      comment: "Identifiant technique du préscore"
+      rename: "ID_PRESCORE"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "SCORE"
+      type: "decimal"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Score"
+      rename: "CD_SCORE"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "EXPLICAPIBLITE"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Libellé d'explicabilité"
+      rename: "LB_EXPLICABILITE"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "LABELISATION"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Labelisation"
+      rename: "LB_LABELISATION"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "COMMENTAIRE"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Commentaire de la labelisation"
+      rename: "LB_COMMENTAIRE"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: true
+    - name: "DATELABELISATION"
+      type: "datetime_fr"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Date de la labelisation"
+      rename: "DT_LABELISATION"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "Couleur"
+      type: "int"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Couleur associée au score\n1 = vert\n2 = orange\n3 = rouge\n4 = violet"
+      rename: "CD_COULEUR"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    metadata:
+      mode: "FILE"
+      format: "DSV"
+      encoding: "ISO-8859-1"
+      multiline: false
+      array: false
+      withHeader: false
+      separator: ";"
+      quote: "\""
+      escape: "\\"
+      write: "APPEND"
+      sink: 
+        type: "BQ"
+    merge:
+      key:
+      - "ID_PRESCORE"
+    comment: "Structure contenant la liste des scores, de leur labélisation et leur\
+      \ explicabilité"
+    primaryKey:
+    - "ID_PRESCORE"
+  - name: "SMC_REGLES_PRESCORE"
+    pattern: "BY9_PRESCOREREGLES.*.csv"
+    attributes:
+    - name: "ID"
+      type: "long"
+      array: false
+      required: true
+      privacy: "NONE"
+      comment: "Identifiant technique de la règle de préscore"
+      rename: "ID_REGLES_PRESCORE"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "CODE"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Code de la règle de préscore"
+      rename: "CD_REGLES_PRESCORE"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "LIBELLE"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Libellé de la règle de préscore"
+      rename: "LB_REGLES_PRESCORE"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    - name: "PRESCORE_ID"
+      type: "long"
+      array: false
+      required: false
+      privacy: "NONE"
+      comment: "Identifiant technique du préscore"
+      rename: "ID_PRESCORE"
+      metricType: "NONE"
+      trim: "BOTH"
+      ignore: false
+    metadata:
+      mode: "FILE"
+      format: "DSV"
+      encoding: "ISO-8859-1"
+      multiline: false
+      array: false
+      withHeader: false
+      separator: ";"
+      quote: "\""
+      escape: "\\"
+      write: "APPEND"
+      sink: 
+        type: "BQ"
+    merge:
+      key:
+      - "ID_REGLES_PRESCORE"
+    comment: "Structure contenant l'ensemble des r_gles utilisées dans le cadre du\
+      \ préscore"
+    primaryKey:
+    - "ID_REGLES_PRESCORE"
+  comment: "Ensemble des données liées à la déclaration de dossiers de contestations\
+    \ par les porteurs du groups BPCE"

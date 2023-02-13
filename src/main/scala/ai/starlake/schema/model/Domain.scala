@@ -74,7 +74,8 @@ import scala.util.{Failure, Success, Try}
   @nowarn @deprecated("Moved to Metadata", "0.2.8") extensions: List[String] = Nil,
   @nowarn @deprecated("Moved to Metadata", "0.2.8") ack: Option[String] = None,
   tags: Set[String] = Set.empty,
-  rename: Option[String] = None
+  rename: Option[String] = None,
+  project: Option[String] = None
 ) extends Named {
 
   def this() = this("") // Should never be called. Here for Jackson deserialization only
@@ -316,7 +317,7 @@ object Domain {
         JsonSerializer.serializeDiffStrings(commentDiff),
         JsonSerializer.serializeDiffStrings(tagsDiffs),
         JsonSerializer.serializeDiffStrings(renameDiff)
-      ).mkString(",") + "]}"
+      ).flatten.mkString(",") + "]}"
     }
   }
 

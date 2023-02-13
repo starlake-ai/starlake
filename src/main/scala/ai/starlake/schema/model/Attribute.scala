@@ -155,9 +155,7 @@ case class Attribute(
       errorList += s"$this : unspecified type"
 
     val colNamePattern = Pattern.compile("[a-zA-Z_][a-zA-Z0-9_]{1,767}")
-    // if (!colNamePattern.matcher(name).matches())
-    //  errorList += s"attribute with name $name should respect the pattern ${colNamePattern.pattern()}"
-
+    // We do not check if the name is valid. We only need to check that once renamed, the name is valid.
     if (!rename.forall(colNamePattern.matcher(_).matches()))
       errorList += s"renamed attribute with renamed name '$rename' should respect the pattern ${colNamePattern.pattern()}"
 

@@ -3,9 +3,9 @@ package ai.starlake.schema.handlers
 import ai.starlake.TestHelper
 import ai.starlake.config.Settings
 import ai.starlake.job.sink.bigquery.{BigQueryLoadConfig, BigQuerySparkJob}
-import ai.starlake.job.transform.{AutoTask, TaskViewDependency}
+import ai.starlake.job.transform.{AutoTask, TaskViewDependency, TransformConfig}
 import ai.starlake.schema.model._
-import ai.starlake.workflow.{IngestionWorkflow, TransformConfig}
+import ai.starlake.workflow.IngestionWorkflow
 import com.google.cloud.hadoop.io.bigquery.BigQueryConfiguration
 import org.apache.hadoop.fs.Path
 import org.scalatest.BeforeAndAfterAll
@@ -61,6 +61,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
           "user",
           List(businessTask1),
           Nil,
+          None,
           Some("parquet"),
           Some(false),
           views = Some(Map("user_View" -> "accepted/user"))
@@ -112,6 +113,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
           "user",
           List(businessTask1),
           Nil,
+          None,
           Some("parquet"),
           Some(false),
           views = Some(Map("user_View" -> "accepted/user"))
@@ -147,6 +149,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
           "user",
           List(businessTask1),
           Nil,
+          None,
           Some("parquet"),
           Some(false),
           views = Some(Map("user_View" -> "accepted/user"))
@@ -196,6 +199,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
           "user",
           List(businessTask1),
           Nil,
+          None,
           Some("parquet"),
           Some(false),
           views = Some(Map("user_View" -> "accepted/user"))
@@ -240,6 +244,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
           "user",
           List(businessTask1),
           Nil,
+          None,
           Some("parquet"),
           Some(false),
           udf = Some("ai.starlake.udf.TestUdf"),
@@ -293,6 +298,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
           "graduateProgram",
           List(businessTask1),
           Nil,
+          None,
           Some("parquet"),
           Some(false),
           views = Some(Map("graduate_View" -> "accepted/graduateProgram"))

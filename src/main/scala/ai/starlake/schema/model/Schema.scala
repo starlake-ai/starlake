@@ -537,7 +537,7 @@ object Schema {
         JsonSerializer.serializeDiffNamed(aclDiff),
         JsonSerializer.serializeDiffStrings(renameDiff),
         JsonSerializer.serializeDiffStrings(sampleDiff)
-      ).mkString(",") + "]" +
+      ).flatten.mkString(",") + "]" +
       "}"
     }
   }

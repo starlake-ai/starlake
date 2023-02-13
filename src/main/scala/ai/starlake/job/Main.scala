@@ -6,18 +6,18 @@ import ai.starlake.job.atlas.AtlasConfig
 import ai.starlake.job.bootstrap.BootstrapConfig
 import ai.starlake.job.convert.{FileSplitterConfig, Parquet2CSV, Parquet2CSVConfig}
 import ai.starlake.job.infer.InferSchemaConfig
-import ai.starlake.job.ingest.LoadConfig
+import ai.starlake.job.ingest.{ImportConfig, LoadConfig, WatchConfig}
 import ai.starlake.job.metrics.MetricsConfig
 import ai.starlake.job.sink.bigquery.BigQueryLoadConfig
 import ai.starlake.job.sink.es.ESLoadConfig
 import ai.starlake.job.sink.jdbc.ConnectionLoadConfig
 import ai.starlake.job.sink.kafka.KafkaJobConfig
-import ai.starlake.job.transform.{AutoTask2GraphVizConfig, AutoTaskToGraphViz}
+import ai.starlake.job.transform.{AutoTask2GraphVizConfig, AutoTaskToGraphViz, TransformConfig}
 import ai.starlake.schema.generator._
 import ai.starlake.schema.handlers.{SchemaHandler, ValidateConfig}
 import ai.starlake.serve.{MainServerConfig, SingleUserMainServer}
 import ai.starlake.utils.{CliConfig, CliEnvConfig}
-import ai.starlake.workflow.{ImportConfig, IngestionWorkflow, TransformConfig, WatchConfig}
+import ai.starlake.workflow.IngestionWorkflow
 import buildinfo.BuildInfo
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.StrictLogging
@@ -81,7 +81,8 @@ class Main() extends StrictLogging {
     Xls2YmlConfig,
     Yml2DDLConfig,
     Yml2GraphVizConfig,
-    Yml2XlsConfig
+    Yml2XlsConfig,
+    BigQueryTablesConfig
   )
   private def printUsage() = {
     // scalastyle:off println
@@ -332,6 +333,12 @@ class Main() extends StrictLogging {
         true
       case "extract-data" =>
         ExtractData.run(args.drop(1))
+        true
+      case "bqinfo" =>
+        BigQueryTableLog.run(args.drop(1))
+        true
+      case "bq2yml" =>
+        BigQueryTableLog.run(args.drop(1))
         true
       case "serve" =>
         MainServerConfig.parse(args.drop(1)) match {

@@ -39,7 +39,9 @@ trait GcpConnectionConfig {
       .getOrElse(bqOptionsBuilder)
     val bqService = credentials
       .map(bqOptions.setCredentials)
-      .getOrElse(bqOptions)
+      .getOrElse(
+        bqOptions
+      ) // GOOGLE_APPLICATION_CREDENTIALS should reference the service account in the path
       .build()
       .getService()
     bqService

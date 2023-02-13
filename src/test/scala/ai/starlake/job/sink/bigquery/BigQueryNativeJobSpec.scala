@@ -2,12 +2,19 @@ package ai.starlake.job.sink.bigquery
 
 import ai.starlake.TestHelper
 import ai.starlake.config.Settings
+import ai.starlake.extract.{BigQueryDatasetLog, BigQueryInfo, BigQueryTableLog}
+import ai.starlake.job.ingest.WatchConfig
+import ai.starlake.job.transform.TransformConfig
+import ai.starlake.schema.generator.BigQueryTablesConfig
 import ai.starlake.schema.handlers.{SchemaHandler, SimpleLauncher}
 import ai.starlake.schema.model._
-import ai.starlake.workflow.{IngestionWorkflow, TransformConfig, WatchConfig}
+import ai.starlake.utils.JsonSerializer
+import ai.starlake.workflow.IngestionWorkflow
 import com.google.cloud.bigquery.{BigQueryOptions, TableId}
 import org.apache.hadoop.fs.Path
 import org.scalatest.BeforeAndAfterAll
+
+import java.time.Instant
 
 class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
   val bigquery = BigQueryOptions.newBuilder().build().getService()
@@ -126,6 +133,21 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
           workflow.autoJob(config.copy(interactive = Some("table"))) should be(true)
         }
       }
+    }
+  }
+  "Extract Table infos" should "succeed" in {
+    new WithSettings() {
+      val logTime = java.sql.Timestamp.from(Instant.now)
+      val start = System.currentTimeMillis()
+      val infos = BigQueryInfo.extractProjectInfo()
+      val end = System.currentTimeMillis()
+      println((end - start) / 1000)
+      val datasetInfos = infos.map(_._1).map(BigQueryDatasetLog(_, logTime))
+      val tableInfos = infos.flatMap(_._2).map(BigQueryTableLog(_, logTime))
+      println(JsonSerializer.serializeObject(datasetInfos))
+      println(JsonSerializer.serializeObject(tableInfos))
+      val config = BigQueryTablesConfig()
+      BigQueryTableLog.sink(config)
     }
   }
 }

@@ -6,7 +6,6 @@ load:
     format: "JSON"
     sink:
       type: ${sink_type}
-      timestamp: loaded_at
   schemas:
     - name: "sellers"
       pattern: "sellers-.*.json"
@@ -27,10 +26,6 @@ load:
         - name: "location_id"
           type: "long"
           required: true
-        - name: "loaded_at"
-          type: "timestamp"
-          required: true
-          script: "current_timestamp()"
     - name: "locations"
       pattern: "locations-.*.json"
       primaryKey:
@@ -56,7 +51,3 @@ load:
             - name: "country"
               type: "string"
               required: true
-        - name: loaded_at
-          type: timestamp
-          required: true
-          script: "current_timestamp()"
