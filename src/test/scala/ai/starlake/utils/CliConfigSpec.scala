@@ -4,14 +4,14 @@ import ai.starlake.TestHelper
 import ai.starlake.extract.{ExtractDataConfig, ExtractSchemaConfig, ExtractScriptConfig}
 import ai.starlake.job.convert.Parquet2CSVConfig
 import ai.starlake.job.infer.InferSchemaConfig
-import ai.starlake.job.ingest.LoadConfig
+import ai.starlake.job.ingest.{ImportConfig, LoadConfig, WatchConfig}
 import ai.starlake.job.metrics.MetricsConfig
 import ai.starlake.job.sink.bigquery.BigQueryLoadConfig
 import ai.starlake.job.sink.es.ESLoadConfig
 import ai.starlake.job.sink.jdbc.ConnectionLoadConfig
 import ai.starlake.job.sink.kafka.KafkaJobConfig
+import ai.starlake.job.transform.TransformConfig
 import ai.starlake.schema.generator.{Xls2YmlConfig, Yml2GraphVizConfig, Yml2XlsConfig}
-import ai.starlake.workflow.{ImportConfig, TransformConfig, WatchConfig}
 import better.files.File
 
 class CliConfigSpec extends TestHelper {
