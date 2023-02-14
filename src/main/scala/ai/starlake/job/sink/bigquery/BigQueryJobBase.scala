@@ -171,7 +171,8 @@ trait BigQueryJobBase extends StrictLogging {
               val tableDefinition = table.getDefinition[StandardTableDefinition]
               val bqSchema = tableDefinition.getSchema()
               val bqFields = bqSchema.getFields.asScala.toList
-              val attributesMap = schema.attributes.map(attr => (attr.name.toLowerCase, attr)).toMap
+              val attributesMap =
+                schema.attributes.map(attr => (attr.getFinalName().toLowerCase, attr)).toMap
               val updatedFields = bqFields.map { field =>
                 attributesMap.get(field.getName.toLowerCase) match {
                   case None =>
