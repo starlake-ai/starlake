@@ -62,6 +62,7 @@ load:
           accessPolicy: PII
           type: "string"
           required: true
+          rename: "code0000"
           privacy: "NONE"
           position:
             first: 0
@@ -126,7 +127,7 @@ load:
             last: 57
         - name: "calculatedCode"
           type: "string"
-          script: concat(code0,'-',code1,'-',bancode,'-')
+          script: concat(code0000,'-',code1,'-',bancode,'-')
           array: false
           required: true
           privacy: "NONE"
