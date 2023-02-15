@@ -1,28 +1,24 @@
 package ai.starlake.job
 
 import ai.starlake.config.{DatasetArea, Settings}
-import ai.starlake.extractor.{ExtractScriptGenConfig, ScriptGen}
+import ai.starlake.extract._
 import ai.starlake.job.atlas.AtlasConfig
 import ai.starlake.job.bootstrap.BootstrapConfig
 import ai.starlake.job.convert.{FileSplitterConfig, Parquet2CSV, Parquet2CSVConfig}
 import ai.starlake.job.infer.InferSchemaConfig
-import ai.starlake.job.ingest.LoadConfig
+import ai.starlake.job.ingest.{ImportConfig, LoadConfig, WatchConfig}
 import ai.starlake.job.metrics.MetricsConfig
 import ai.starlake.job.sink.bigquery.BigQueryLoadConfig
 import ai.starlake.job.sink.es.ESLoadConfig
 import ai.starlake.job.sink.jdbc.ConnectionLoadConfig
 import ai.starlake.job.sink.kafka.KafkaJobConfig
-import ai.starlake.job.transform.{AutoTask2GraphVizConfig, AutoTaskToGraphViz}
+import ai.starlake.job.transform.{AutoTask2GraphVizConfig, AutoTaskToGraphViz, TransformConfig}
 import ai.starlake.schema.generator._
 import ai.starlake.schema.handlers.{SchemaHandler, ValidateConfig}
-import ai.starlake.serve.{MainServer, MainServerConfig}
-import ai.starlake.utils.{CliConfig, CliEnvConfig, CometObjectMapper}
-import ai.starlake.workflow.{ImportConfig, IngestionWorkflow, TransformConfig, WatchConfig}
+import ai.starlake.serve.{MainServerConfig, SingleUserMainServer}
+import ai.starlake.utils.{CliConfig, CliEnvConfig}
+import ai.starlake.workflow.IngestionWorkflow
 import buildinfo.BuildInfo
-import com.fasterxml.jackson.annotation.JsonInclude.Include
-import com.fasterxml.jackson.annotation.{JsonSetter, Nulls}
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.StrictLogging
 
@@ -56,18 +52,13 @@ object Main extends StrictLogging {
     *     on specific schema in a specific domain
     */
   def main(args: Array[String]): Unit = {
-    implicit val settings: Settings = Settings(ConfigFactory.load())
-    new Main().run(args)
+    val settings: Settings = Settings(ConfigFactory.load())
+    new Main().run(args)(settings)
   }
 
 }
 
 class Main() extends StrictLogging {
-  // uses Jackson YAML to parsing, relies on SnakeYAML for low level handling
-  val mapper: ObjectMapper = new CometObjectMapper(new YAMLFactory())
-  mapper
-    .setSerializationInclusion(Include.NON_EMPTY)
-    .setDefaultSetterInfo(JsonSetter.Value.forValueNulls(Nulls.AS_EMPTY, Nulls.AS_EMPTY))
 
   val configs: List[CliConfig[_]] = List(
     AutoTask2GraphVizConfig,
@@ -75,11 +66,12 @@ class Main() extends StrictLogging {
     BigQueryLoadConfig,
     ConnectionLoadConfig,
     ESLoadConfig,
-    ExtractScriptGenConfig,
+    ExtractDataConfig,
+    ExtractSchemaConfig,
+    ExtractScriptConfig,
     FileSplitterConfig,
     ImportConfig,
     InferSchemaConfig,
-    JDBC2YmlConfig,
     KafkaJobConfig,
     LoadConfig,
     MetricsConfig,
@@ -89,7 +81,8 @@ class Main() extends StrictLogging {
     Xls2YmlConfig,
     Yml2DDLConfig,
     Yml2GraphVizConfig,
-    Yml2XlsConfig
+    Yml2XlsConfig,
+    BigQueryTablesConfig
   )
   private def printUsage() = {
     // scalastyle:off println
@@ -139,8 +132,8 @@ class Main() extends StrictLogging {
     val argList = args.toList
     checkPrerequisites(argList)
 
-    import settings.{launcherService, metadataStorageHandler, storageHandler}
-    DatasetArea.initMetadata(metadataStorageHandler)
+    import settings.{launcherService, storageHandler}
+    DatasetArea.initMetadata(storageHandler)
 
     // extract any env var passed as --options argument
     val cliEnv = CliEnvConfig.parse(args.drop(1).toIndexedSeq) match {
@@ -148,7 +141,7 @@ class Main() extends StrictLogging {
       case None      => Map.empty[String, String]
     }
 
-    val schemaHandler = new SchemaHandler(metadataStorageHandler, cliEnv)
+    val schemaHandler = new SchemaHandler(storageHandler, cliEnv)
 
     // handle non existing project commands
     argList.head match {
@@ -165,7 +158,8 @@ class Main() extends StrictLogging {
       case _ =>
     }
 
-    schemaHandler.fullValidation()
+    if (settings.comet.validateOnLoad)
+      schemaHandler.fullValidation()
 
     DatasetArea.initDomains(storageHandler, schemaHandler.domains().map(_.name))
     val workflow =
@@ -310,11 +304,15 @@ class Main() extends StrictLogging {
             false
         }
 
+      case "iam-policies" =>
+        workflow.applyIamPolicies()
+        true
+
       case "xls2yml" =>
         Xls2Yml.run(args.drop(1))
 
       case "yml2xls" =>
-        new Yml2XlsWriter(schemaHandler).run(args.drop(1))
+        new Yml2Xls(schemaHandler).run(args.drop(1))
         true
 
       case "yml2gv" =>
@@ -328,15 +326,24 @@ class Main() extends StrictLogging {
             println(AutoTask2GraphVizConfig.usage())
         }
         true
-      case "extract" =>
-        new ScriptGen(storageHandler, schemaHandler, launcherService).run(args.drop(1))
-      case "jdbc2yml" | "extract-schema" =>
-        JDBC2Yml.run(args.drop(1))
+      case "extract-script" =>
+        new ExtractScript(storageHandler, schemaHandler, launcherService).run(args.drop(1))
+      case "extract-schema" =>
+        ExtractSchema.run(args.drop(1))
+        true
+      case "extract-data" =>
+        ExtractData.run(args.drop(1))
+        true
+      case "bqinfo" =>
+        BigQueryTableLog.run(args.drop(1))
+        true
+      case "bq2yml" =>
+        BigQueryTableLog.run(args.drop(1))
         true
       case "serve" =>
         MainServerConfig.parse(args.drop(1).toIndexedSeq) match {
           case Some(config) =>
-            MainServer.serve(config)
+            SingleUserMainServer.serve(config)
             true
           case _ =>
             println(MainServerConfig.usage())

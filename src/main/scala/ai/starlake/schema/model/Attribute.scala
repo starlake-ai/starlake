@@ -20,16 +20,16 @@
 
 package ai.starlake.schema.model
 
-import java.util.regex.Pattern
 import ai.starlake.schema.handlers.SchemaHandler
+import ai.starlake.utils.DataTypeEx._
+import ai.starlake.utils.Utils
 import com.fasterxml.jackson.annotation.JsonIgnore
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.sql.types._
 
+import java.util.regex.Pattern
 import scala.collection.mutable
 import scala.util.{Failure, Success, Try}
-import ai.starlake.utils.DataTypeEx._
-import ai.starlake.utils.Utils
 
 /** A field in the schema. For struct fields, the field "attributes" contains all sub attributes
   *
@@ -80,7 +80,8 @@ case class Attribute(
   foreignKey: Option[String] = None, // [domain.]table.attribute
   ignore: Option[Boolean] = None,
   accessPolicy: Option[String] = None
-) extends LazyLogging {
+) extends Named
+    with LazyLogging {
 
   def this() = this("") // Should never be called. Here for Jackson deserialization only
 
@@ -154,9 +155,7 @@ case class Attribute(
       errorList += s"$this : unspecified type"
 
     val colNamePattern = Pattern.compile("[a-zA-Z_][a-zA-Z0-9_]{1,767}")
-    // if (!colNamePattern.matcher(name).matches())
-    //  errorList += s"attribute with name $name should respect the pattern ${colNamePattern.pattern()}"
-
+    // We do not check if the name is valid. We only need to check that once renamed, the name is valid.
     if (!rename.forall(colNamePattern.matcher(_).matches()))
       errorList += s"renamed attribute with renamed name '$rename' should respect the pattern ${colNamePattern.pattern()}"
 
@@ -231,19 +230,23 @@ case class Attribute(
     *   Spark type of this attribute
     */
   def sparkType(schemaHandler: SchemaHandler): DataType = {
+    def buildStruct(): List[StructField] = {
+      if (attributes.isEmpty)
+        throw new Exception("Should never happen: empty list of attributes")
+      val fields = attributes.map { attr =>
+        StructField(attr.name, attr.sparkType(schemaHandler), !attr.required)
+      }
+      fields
+    }
+
     val tpe = primitiveSparkType(schemaHandler)
     tpe match {
+      case ArrayType(s: StructType, b: Boolean) =>
+        val fields = buildStruct()
+        ArrayType(StructType(fields))
       case _: StructType =>
-        if (attributes.isEmpty)
-          throw new Exception("Should never happen: empty list of attributes")
-        val fields = attributes.map { attr =>
-          StructField(attr.name, attr.sparkType(schemaHandler), !attr.required)
-        }
-        if (isArray())
-          ArrayType(StructType(fields))
-        else
-          StructType(fields)
-
+        val fields = buildStruct()
+        StructType(fields)
       case simpleType => simpleType
     }
   }
@@ -369,6 +372,10 @@ case class Attribute(
         MetricType.NONE
     }
   }
+
+  def compare(other: Metadata): ListDiff[Named] =
+    AnyRefDiff.diffAnyRef(name, this, other)
+
 }
 
 object Attribute {

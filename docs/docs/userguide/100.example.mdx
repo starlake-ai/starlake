@@ -86,7 +86,7 @@ The `locations` dataset below is sent as JSON file by the HR department with one
 ``File locations-2018-05-10.json from the HR department``
 
 ````json
-{ "id":1, "address": { "city":"Paris", "stores": ["Store 1", "Store 2", "Store 3"] "country":"France" }}
+{ "id":1, "address": { "city":"Paris", "stores": ["Store 1", "Store 2", "Store 3"], "country":"France" }}
 { "id":2, "address": { "city":"Berlin", "country":"Germany" }}
 ````
 
@@ -139,7 +139,7 @@ or simply download the assembly artefact from [Maven Central](https://maven-badg
 To run the quickstart on a local filesystem, simply copy the content of the quickstart directory to your /tmp directory.
 This will create the ``/tmp/metadata`` and the ``/tmp/incoming`` folders.
 
-Import the datasets into the cluster using spark-submit :
+Import the datasets into the cluster:
 
 ````shell
 /app/starlake/starlake.sh import

@@ -30,7 +30,7 @@ import ai.starlake.job.sink.bigquery.{BigQueryJobResult, BigQueryLoadConfig, Big
 import ai.starlake.job.sink.es.{ESLoadConfig, ESLoadJob}
 import ai.starlake.job.sink.jdbc.{ConnectionLoadConfig, ConnectionLoadJob}
 import ai.starlake.job.sink.kafka.{KafkaJob, KafkaJobConfig}
-import ai.starlake.job.transform.AutoTask
+import ai.starlake.job.transform.{AutoTask, TransformConfig}
 import ai.starlake.schema.generator.{Yml2DDLConfig, Yml2DDLJob}
 import ai.starlake.schema.handlers.{
   LaunchHandler,
@@ -47,8 +47,6 @@ import com.google.cloud.bigquery.JobInfo.{CreateDisposition, WriteDisposition}
 import com.google.cloud.bigquery.{Schema => BQSchema}
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
-import org.apache.spark.sql.DataFrame
-import org.apache.spark.sql.types.{StructField, StructType}
 
 import java.nio.file.{FileSystems, ProviderNotFoundException}
 import java.util.Collections
@@ -165,7 +163,7 @@ class IngestionWorkflow(
                         FileSystems
                           .newFileSystem(
                             path.toUri,
-                            Collections.emptyMap(),
+                            Collections.emptyMap[String, Any](),
                             getClass.getClassLoader
                           )
                         // Try to install one from the classpath
@@ -597,20 +595,29 @@ class IngestionWorkflow(
   }
 
   def buildTasks(
-    jobName: String,
-    configOptions: Map[String, String],
-    interactive: Option[String]
+    config: TransformConfig
   ): Seq[AutoTask] = {
     val jobDesc =
-      schemaHandler.job(jobName).getOrElse(throw new Exception(s"Invalid job name $jobName"))
+      schemaHandler
+        .job(config.name)
+        .getOrElse(throw new Exception(s"Invalid job name ${config.name}"))
     logger.info(jobDesc.toString)
-    AutoTask.tasks(jobDesc, configOptions, interactive)(settings, storageHandler, schemaHandler)
+    AutoTask.tasks(
+      jobDesc,
+      config.options,
+      config.interactive,
+      config.authInfo
+    )(
+      settings,
+      storageHandler,
+      schemaHandler
+    )
   }
 
   def compileAutoJob(config: TransformConfig): Seq[String] = {
     val job = schemaHandler.jobs(config.reload)
     logger.info(job.toString)
-    val result = buildTasks(config.name, config.options, config.interactive).map { action =>
+    val result = buildTasks(config).map { action =>
       val engine = action.engine
       logger.info(s"running with -> $engine engine")
       engine match {
@@ -635,23 +642,23 @@ class IngestionWorkflow(
 
   /** Successively run each task of a job
     *
-    * @param config
+    * @param transformConfig
     *   : job name as defined in the YML file and sql parameters to pass to SQL statements.
     */
   // scalastyle:off println
-  def autoJob(config: TransformConfig): Boolean = {
-    val job = schemaHandler.jobs(config.reload)(config.name)
+  def autoJob(transformConfig: TransformConfig): Boolean = {
+    val job = schemaHandler.jobs(transformConfig.reload)(transformConfig.name)
     logger.info(job.toString)
-    val result: Seq[Boolean] = buildTasks(config.name, config.options, config.interactive).map {
-      action =>
+    val result: Seq[Boolean] =
+      buildTasks(transformConfig).map { action =>
         val engine = action.engine
-        logger.info(s"running with config $config")
+        logger.info(s"running with config $transformConfig")
 
         engine match {
           case BQ =>
             logger.info(s"Entering $engine engine")
             val result = action.runBQ()
-            config.interactive match {
+            transformConfig.interactive match {
               case None =>
                 val sink = action.taskDesc.sink
                 logger.info(s"BQ Job succeeded. sinking data to $sink")
@@ -682,7 +689,7 @@ class IngestionWorkflow(
 
             result.isSuccess
           case SPARK =>
-            (action.runSpark(), config.interactive) match {
+            (action.runSpark(), transformConfig.interactive) match {
               case (Success(SparkJobResult(None)), _) =>
                 true
               case (Success(SparkJobResult(Some(dataFrame))), Some(_)) =>
@@ -703,13 +710,15 @@ class IngestionWorkflow(
 
                       case bqSink: BigQuerySink =>
                         val source = maybeDataFrame
-                          .map(df => Right(setNullableStateOfColumn(df, nullable = true)))
+                          .map(df => Right(Utils.setNullableStateOfColumn(df, nullable = true)))
                           .getOrElse(Left(action.taskDesc.getTargetPath().toString))
                         val (createDisposition, writeDisposition) = {
                           Utils.getDBDisposition(action.taskDesc.write, hasMergeKeyDefined = false)
                         }
-                        val config =
+                        val bqLoadConfig =
                           BigQueryLoadConfig(
+                            transformConfig.authInfo.get("gcpProjectId"),
+                            transformConfig.authInfo.get("gcpSAJsonKey"),
                             source = source,
                             outputTable = action.taskDesc.table,
                             outputDataset = action.taskDesc.domain,
@@ -725,7 +734,7 @@ class IngestionWorkflow(
                             options = bqSink.getOptions,
                             acl = action.taskDesc.acl
                           )
-                        val result = new BigQuerySparkJob(config, None).run()
+                        val result = new BigQuerySparkJob(bqLoadConfig, None).run()
                         result.isSuccess
 
                       case jdbcSink: JdbcSink =>
@@ -777,7 +786,7 @@ class IngestionWorkflow(
             logger.error("Should never happen")
             false
         }
-    }
+      }
     result.forall(_ == true)
   }
 
@@ -801,23 +810,6 @@ class IngestionWorkflow(
         options = sink.getOptions
       )
     )
-  }
-
-  /** Set nullable property of column.
-    * @param df
-    *   source DataFrame
-    * @param nullable
-    *   is the flag to set, such that the column is either nullable or not
-    */
-  def setNullableStateOfColumn(df: DataFrame, nullable: Boolean): DataFrame = {
-
-    // get schema
-    val schema = df.schema
-    val newSchema = StructType(schema.map { case StructField(c, t, _, m) =>
-      StructField(c, t, nullable = nullable, m)
-    })
-    // apply new schema
-    df.sqlContext.createDataFrame(df.rdd, newSchema)
   }
 
   def esLoad(config: ESLoadConfig): Try[JobResult] = {
@@ -876,6 +868,23 @@ class IngestionWorkflow(
         Failure(new Exception("The domain or schema you specified doesn't exist! "))
     }
   }
+  def applyIamPolicies(): Boolean = {
+    val config = BigQueryLoadConfig(
+      None,
+      None
+    )
+    schemaHandler
+      .iamPolicyTags()
+      .exists { iamPolicyTags =>
+        val res = new BigQuerySparkJob(config).applyIamPolicyTags(iamPolicyTags)
+        res.recover { case e =>
+          Utils.logException(logger, e)
+          throw e
+        }
+        res.isSuccess
+      }
+  }
+
   def secure(config: WatchConfig): Boolean = {
     val includedDomains = domainsToWatch(config)
     val result = includedDomains.flatMap { domain =>
@@ -892,6 +901,8 @@ class IngestionWorkflow(
           ).applyHiveTableAcl()
         } else {
           val config = BigQueryLoadConfig(
+            None,
+            None,
             outputTable = schema.name,
             outputDataset = domain.name,
             sourceFormat = settings.comet.defaultFormat,

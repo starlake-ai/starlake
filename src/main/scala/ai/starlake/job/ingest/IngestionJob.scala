@@ -187,7 +187,7 @@ trait IngestionJob extends SparkJob {
           "success",
           Step.SINK_REJECTED.toString
         )
-        AuditLog.sink(session, log)
+        AuditLog.sink(Map.empty, session, log)
         Success(rejectedPath)
       case Failure(exception) =>
         logger.error("Failed to save Rejected", exception)
@@ -206,7 +206,7 @@ trait IngestionJob extends SparkJob {
           Utils.exceptionAsString(exception),
           Step.SINK_REJECTED.toString
         )
-        AuditLog.sink(session, log)
+        AuditLog.sink(Map.empty, session, log)
         Failure(exception)
     }
   }
@@ -239,6 +239,7 @@ trait IngestionJob extends SparkJob {
   private def runAssertions(acceptedDF: DataFrame) = {
     if (settings.comet.assertions.active) {
       new AssertionJob(
+        Map.empty, // Auth Info from env var since run from spark submit only
         this.domain.getFinalName(),
         this.schema.getFinalName(),
         this.schema.assertions,
@@ -254,7 +255,13 @@ trait IngestionJob extends SparkJob {
 
   private def runMetrics(acceptedDF: DataFrame) = {
     if (settings.comet.metrics.active) {
-      new MetricsJob(this.domain, this.schema, Stage.UNIT, this.storageHandler, this.schemaHandler)
+      new MetricsJob(
+        this.domain,
+        this.schema,
+        Stage.UNIT,
+        this.storageHandler,
+        this.schemaHandler
+      )
         .run(acceptedDF, System.currentTimeMillis())
     }
   }
@@ -365,7 +372,7 @@ trait IngestionJob extends SparkJob {
             "success",
             Step.SINK_ACCEPTED.toString
           )
-          AuditLog.sink(session, log)
+          AuditLog.sink(Map.empty, session, log)
           sinkedDF
         case Failure(exception) =>
           Utils.logException(logger, exception)
@@ -384,7 +391,7 @@ trait IngestionJob extends SparkJob {
             Utils.exceptionAsString(exception),
             Step.SINK_ACCEPTED.toString
           )
-          AuditLog.sink(session, log)
+          AuditLog.sink(Map.empty, session, log)
           throw exception
       }
       (sinkedDF, acceptedPath)
@@ -501,6 +508,8 @@ trait IngestionJob extends SparkJob {
             case _   => Some(BigQueryUtils.bqSchema(mergedDF.schema))
           }
           val config = BigQueryLoadConfig(
+            None,
+            None,
             source = Right(mergedDF),
             outputTable = schema.getFinalName(),
             outputDataset = domain.getFinalName(),
@@ -891,7 +900,7 @@ trait IngestionJob extends SparkJob {
   }
 
   private def runPreSql(): Unit = {
-    val bqConfig = BigQueryLoadConfig()
+    val bqConfig = BigQueryLoadConfig(None, None)
     def bqNativeJob(sql: String) = new BigQueryNativeJob(bqConfig, sql, None)
     schema.presql.foreach { sql =>
       val compiledSql = sql.richFormat(schemaHandler.activeEnv(), options)
@@ -959,7 +968,7 @@ trait IngestionJob extends SparkJob {
                 if (success) "success" else s"$rejectedCount invalid records",
                 Step.LOAD.toString
               )
-              AuditLog.sink(session, log)
+              AuditLog.sink(Map.empty, session, log)
               if (success) SparkJobResult(None)
               else throw new Exception("Fail on rejected count requested")
             }
@@ -980,7 +989,7 @@ trait IngestionJob extends SparkJob {
               err,
               Step.LOAD.toString
             )
-            AuditLog.sink(session, log)
+            AuditLog.sink(Map.empty, session, log)
             logger.error(err)
             Failure(throw exception)
         }
@@ -1048,7 +1057,7 @@ trait IngestionJob extends SparkJob {
   ): (DataFrame, List[String]) = {
     // When merging to BigQuery, load existing DF from BigQuery
     val tableMetadata =
-      BigQuerySparkJob.getTable(session, domain.getFinalName(), schema.getFinalName())
+      BigQuerySparkJob.getTable(domain.getFinalName() + "." + schema.getFinalName())
     val existingDF = tableMetadata.table
       .map { table =>
         val incomingSchema = BigQueryUtils.normalizeSchema(schema.finalSparkSchema(schemaHandler))
@@ -1120,7 +1129,7 @@ trait IngestionJob extends SparkJob {
   private def updateBqTableSchema(table: Table, incomingSchema: StructType): Table = {
     // This will raise an exception if schemas are not compatible.
     val existingSchema = BigQuerySchemaConverters.toSpark(
-      table.getDefinition.asInstanceOf[StandardTableDefinition].getSchema
+      table.getDefinition[StandardTableDefinition].getSchema
     )
 
     MergeUtils.computeCompatibleSchema(existingSchema, incomingSchema)
@@ -1189,6 +1198,8 @@ object IngestionUtil {
       settings.comet.audit.sink match {
         case sink: BigQuerySink =>
           val bqConfig = BigQueryLoadConfig(
+            None,
+            None,
             Right(rejectedDF),
             outputDataset = sink.name.getOrElse("audit"),
             outputTable = "rejected",

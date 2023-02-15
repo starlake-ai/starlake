@@ -27,11 +27,13 @@ jobs:
         with:
           distribution: 'zulu' # See 'Supported distributions' for available options
           java-version: '11'
-      - uses: google-github-actions/setup-gcloud@v0.3.0
+      - id: 'auth'
+        uses: 'google-github-actions/auth@v1'
         with:
-          project_id: ${{ secrets.GCP_PROJECT }}
-          service_account_key: ${{ secrets.GCP_SERVICE_ACCOUNT }}
-          export_default_credentials: true
+          credentials_json: '${{ secrets.GCP_SERVICE_ACCOUNT }}'
+          cleanup_credentials: false
+      - name: 'Set up Cloud SDK'
+        uses: 'google-github-actions/setup-gcloud@v1'
       - name: Use gcloud CLI
         run: gcloud info
       - name: Publish Snapshot on Sonatype Spark 2/3 for scala 2.12

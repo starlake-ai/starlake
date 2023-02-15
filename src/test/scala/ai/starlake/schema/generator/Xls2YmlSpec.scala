@@ -10,7 +10,9 @@ import scala.util.{Failure, Success}
 
 class Xls2YmlSpec extends TestHelper {
   new WithSettings() {
-    Xls2Yml.generateSchema(getClass.getResource("/sample/SomeDomainTemplate.xls").getPath)
+    Xls2Yml.generateSchema(
+      File(getClass.getResource("/sample/SomeDomainTemplate.xls")).pathAsString
+    )
     val outputPath = File(DatasetArea.domains.toString + "/someDomain.comet.yml")
 
     val result: Domain = YamlSerializer
@@ -73,20 +75,22 @@ class Xls2YmlSpec extends TestHelper {
         .get shouldEqual 0.0
     }
 
-    val reader = new XlsReader(
+    val reader = new XlsDomainReader(
       InputPath(getClass.getResource("/sample/SomeDomainTemplate.xls").getPath)
     )
     val domainOpt = reader.getDomain()
 
     "a complex XLS (aka JSON/XML)" should "produce the correct schema" in {
       val complexReader =
-        new XlsReader(
-          InputPath(getClass.getResource("/sample/SomeComplexDomainTemplate.xls").getPath)
+        new XlsDomainReader(
+          InputPath(
+            File(getClass.getResource("/sample/SomeComplexDomainTemplate.xls")).pathAsString
+          )
         )
       val xlsTable = complexReader.getDomain().get.tables.head
       val domainAsYaml = YamlSerializer.serialize(complexReader.getDomain().get)
       val yamlPath =
-        File(getClass.getResource("/sample/SomeComplexDomainTemplate.comet.yml").getPath)
+        File(getClass.getResource("/sample/SomeComplexDomainTemplate.comet.yml"))
 
       val yamlTable = YamlSerializer
         .deserializeDomain(yamlPath.contentAsString, yamlPath.pathAsString)
@@ -219,6 +223,8 @@ class Xls2YmlSpec extends TestHelper {
           |
           |  --files <value>       List of Excel files describing Domains & Schemas
           |  --encryption <value>  If true generate pre and post encryption YML
+          |  --iamPolicyTagsFile <value>
+          |                        If true generate IAM PolicyTags YML
           |  --delimiter <value>   CSV delimiter to use in post-encrypt YML.
           |  --privacy <value>     What privacy policies should be applied in the pre-encryption phase ?
           | All privacy policies are applied by default.

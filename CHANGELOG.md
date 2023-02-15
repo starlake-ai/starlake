@@ -1,6 +1,45 @@
 
 # Release notes
 
+# 0.6.4
+__New Feature__:
+- Add Project diffs
+- Import existing BigQuery Datasets and Tables
+- Generate Dataset and Table statistics
+
+# 0.6.3
+__New Feature__:
+- Support task refs in job definition files
+- Support multiple buckets for between domain files and between domain files and metadata
+
+# 0.6.2
+__Bug Fix__:
+- allow bigquery job to work on a dataset of another project based on dataset name combined with projectId
+
+__New Feature__:
+- Support BigQuery IAM Policy Tags
+- Support task refs in autojob file
+- Support materialized views in autojob
+
+- __ Breaking Changes__
+  XLS and YML readers renamed. Breaking change if you are calling them outside the starlake command line
+
+__Bug Fix__:
+- beauty fail when no SQL is defined for a transform task
+- make it build on windows
+- fix quickstart bootstrap
+
+__Build__:
+- add default sbt options and force test file encoding to be UTF-8
+
+__Doc__:
+- enhance quickstart guide
+- fix some typos
+
+# 0.6.1
+__ Breaking Changes__
+- Extract has been refactored to 3 different scripts: extract-schema, extract-data and extract-script
+
 # 0.6.0
 __New Feature__:
 - Support for Jinja templating everywhere

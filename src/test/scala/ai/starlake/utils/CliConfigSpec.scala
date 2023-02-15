@@ -1,47 +1,50 @@
 package ai.starlake.utils
 
 import ai.starlake.TestHelper
-import ai.starlake.extractor.ExtractScriptGenConfig
+import ai.starlake.extract.{ExtractDataConfig, ExtractSchemaConfig, ExtractScriptConfig}
 import ai.starlake.job.convert.Parquet2CSVConfig
 import ai.starlake.job.infer.InferSchemaConfig
-import ai.starlake.job.ingest.LoadConfig
+import ai.starlake.job.ingest.{ImportConfig, LoadConfig, WatchConfig}
 import ai.starlake.job.metrics.MetricsConfig
 import ai.starlake.job.sink.bigquery.BigQueryLoadConfig
 import ai.starlake.job.sink.es.ESLoadConfig
 import ai.starlake.job.sink.jdbc.ConnectionLoadConfig
 import ai.starlake.job.sink.kafka.KafkaJobConfig
-import ai.starlake.schema.generator.{
-  JDBC2YmlConfig,
-  Xls2YmlConfig,
-  Yml2GraphVizConfig,
-  Yml2XlsConfig
-}
-import ai.starlake.workflow.{ImportConfig, TransformConfig, WatchConfig}
+import ai.starlake.job.transform.TransformConfig
+import ai.starlake.schema.generator.{Xls2YmlConfig, Yml2GraphVizConfig, Yml2XlsConfig}
+import better.files.File
 
 class CliConfigSpec extends TestHelper {
   new WithSettings() {
     "Generate Documentation" should "succeed" in {
-      val mdMap = Map(
-        "import"       -> ImportConfig.markdown(1),
-        "bqload"       -> BigQueryLoadConfig.markdown(2),
-        "esload"       -> ESLoadConfig.markdown(3),
-        "infer-schema" -> InferSchemaConfig.markdown(4),
-        "load"         -> LoadConfig.markdown(5),
-        "metrics"      -> MetricsConfig.markdown(6),
-        "parquet2csv"  -> Parquet2CSVConfig.markdown(7),
-        "cnxload"      -> ConnectionLoadConfig.markdown(8),
-        "xls2yml"      -> Xls2YmlConfig.markdown(9),
-        "ddl2yml"      -> JDBC2YmlConfig.markdown(10),
-        "extract"      -> ExtractScriptGenConfig.markdown(11),
-        "transform"    -> TransformConfig.markdown(12),
-        "watch"        -> WatchConfig.markdown(13),
-        "kafkaload"    -> KafkaJobConfig.markdown(14),
-        "yml2xls"      -> Yml2XlsConfig.markdown(15),
-        "yml2gv"       -> Yml2GraphVizConfig.markdown(16)
+      val configMap = Map[String, CliConfig[_]](
+        "import"         -> ImportConfig,
+        "bqload"         -> BigQueryLoadConfig,
+        "esload"         -> ESLoadConfig,
+        "infer-schema"   -> InferSchemaConfig,
+        "load"           -> LoadConfig,
+        "metrics"        -> MetricsConfig,
+        "parquet2csv"    -> Parquet2CSVConfig,
+        "cnxload"        -> ConnectionLoadConfig,
+        "xls2yml"        -> Xls2YmlConfig,
+        "extract-schema" -> ExtractSchemaConfig,
+        "extract-data"   -> ExtractDataConfig,
+        "extract"        -> ExtractScriptConfig,
+        "transform"      -> TransformConfig,
+        "watch"          -> WatchConfig,
+        "kafkaload"      -> KafkaJobConfig,
+        "yml2xls"        -> Yml2XlsConfig,
+        "yml2gv"         -> Yml2GraphVizConfig
       )
+      val orderedMap = configMap.toList.sortBy { case (command, config) =>
+        command
+      }.zipWithIndex
 
+      val mdMap = orderedMap.map { case ((command, config), index) =>
+        command -> config.markdown(index + 1)
+      }
       val mdPath =
-        getClass.getResource("/").getPath + "../../../docs/docs/cli"
+        (File(getClass.getResource("/")) / "../../../docs/docs/cli").pathAsString
       mdMap.foreach { case (k, v) =>
         reflect.io.File(s"$mdPath/$k.md").writeAll(v)
       }

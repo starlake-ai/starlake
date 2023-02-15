@@ -1,16 +1,24 @@
 package ai.starlake.job.sink.bigquery
 
 import ai.starlake.config.Settings
-import ai.starlake.job.sink.bigquery.BigQueryJobBase.extractProjectDataset
-import ai.starlake.schema.model.{AccessControlEntry, RowLevelSecurity, UserType}
+import ai.starlake.schema.model.{
+  AccessControlEntry,
+  IamPolicyTag,
+  IamPolicyTags,
+  RowLevelSecurity,
+  UserType
+}
 import ai.starlake.utils.Utils
 import com.google.cloud.bigquery.{Schema => BQSchema, _}
 import com.google.cloud.datacatalog.v1.{
   ListPolicyTagsRequest,
   ListTaxonomiesRequest,
-  PolicyTagManagerClient
+  PolicyTagManagerClient,
+  PolicyTagName
 }
 import com.google.cloud.{Identity, Policy, Role, ServiceOptions}
+import com.google.iam.v1.{Binding, Policy => IAMPolicy, SetIamPolicyRequest}
+import com.google.protobuf.FieldMask
 import com.typesafe.scalalogging.StrictLogging
 
 import java.util
@@ -20,7 +28,12 @@ import scala.util.{Failure, Success, Try}
 
 trait BigQueryJobBase extends StrictLogging {
   def cliConfig: BigQueryLoadConfig
-  def projectId: String
+
+  def projectId: String =
+    cliConfig.gcpProjectId.getOrElse(ServiceOptions.getDefaultProjectId())
+
+  // Lazy otherwise tests fail since there is no GCP credentials in test mode
+  lazy val policyTagClient = PolicyTagManagerClient.create()
 
   def applyRLSAndCLS(forceApply: Boolean = false)(implicit settings: Settings): Try[Unit] = {
     for {
@@ -29,10 +42,26 @@ trait BigQueryJobBase extends StrictLogging {
     } yield ()
   }
 
+  def bigquery()(implicit settings: Settings): BigQuery = {
+    _bigquery match {
+      case None =>
+        val bqService = cliConfig.bigquery()
+        _bigquery = Some(bqService)
+        bqService
+      case Some(bqService) =>
+        bqService
+    }
+  }
+
+  private var _bigquery: scala.Option[BigQuery] = None
+
   private def applyRLS(forceApply: Boolean)(implicit settings: Settings): Try[Unit] = {
     Try {
       if (forceApply || settings.comet.accessPolicies.apply) {
-        val tableId = TableId.of(cliConfig.outputDataset, cliConfig.outputTable)
+        val tableId = BigQueryJobBase.extractProjectDatasetAndTable(
+          cliConfig.outputDataset,
+          cliConfig.outputTable
+        )
         applyACL(tableId, cliConfig.acl)
         prepareRLS().foreach { rlsStatement =>
           logger.info(s"Applying row level security $rlsStatement")
@@ -51,6 +80,36 @@ trait BigQueryJobBase extends StrictLogging {
     }
   }
 
+  def applyIamPolicyTags(iamPolicyTags: IamPolicyTags)(implicit settings: Settings): Try[Unit] = {
+    Try {
+      val (location, projectId, taxonomy, taxonomyRef) = getTaxonomy(policyTagClient)
+
+      val groupedPoliciyTags: Map[String, List[IamPolicyTag]] =
+        iamPolicyTags.iamPolicyTags.groupBy(_.policyTag)
+
+      groupedPoliciyTags.foreach { case (policyTag, iamPolicyTags) =>
+        val bindings = iamPolicyTags.map { iamPolicyTag =>
+          val binding = Binding.newBuilder()
+          binding.setRole(iamPolicyTag.role)
+          // binding.setCondition()
+          binding.addAllMembers(iamPolicyTag.members.asJava)
+          binding.build()
+        }
+        val iamPolicy = IAMPolicy.newBuilder().addAllBindings(bindings.asJava).build()
+        val request =
+          SetIamPolicyRequest
+            .newBuilder()
+            .setResource(
+              PolicyTagName.of(projectId, location, taxonomy, policyTag).toString()
+            )
+            .setPolicy(iamPolicy)
+            .setUpdateMask(FieldMask.newBuilder().addPaths("bindings").build())
+            .build()
+        val createdPolicy = policyTagClient.setIamPolicy(request);
+        logger.info(createdPolicy.toString)
+      }
+    }
+  }
   private def getTaxonomy(
     client: PolicyTagManagerClient
   )(implicit settings: Settings): (String, String, String, String) = {
@@ -101,14 +160,19 @@ trait BigQueryJobBase extends StrictLogging {
               schema.attributes.map(_.accessPolicy).count(_.isDefined) > 0
             if (anyAccessPolicyToApply) {
               val (location, projectId, taxonomy, taxonomyRef) =
-                getTaxonomy(BigQueryJobBase.policyTagClient)
+                getTaxonomy(policyTagClient)
               val policyTagIds = mutable.Map.empty[String, String]
-              val tableId = TableId.of(cliConfig.outputDataset, cliConfig.outputTable)
-              val table: Table = BigQueryJobBase.bigquery().getTable(tableId)
-              val tableDefinition = table.getDefinition().asInstanceOf[StandardTableDefinition]
+              val tableId =
+                BigQueryJobBase.extractProjectDatasetAndTable(
+                  cliConfig.outputDataset,
+                  cliConfig.outputTable
+                )
+              val table: Table = bigquery().getTable(tableId)
+              val tableDefinition = table.getDefinition[StandardTableDefinition]
               val bqSchema = tableDefinition.getSchema()
               val bqFields = bqSchema.getFields.asScala.toList
-              val attributesMap = schema.attributes.map(attr => (attr.name.toLowerCase, attr)).toMap
+              val attributesMap =
+                schema.attributes.map(attr => (attr.getFinalName().toLowerCase, attr)).toMap
               val updatedFields = bqFields.map { field =>
                 attributesMap.get(field.getName.toLowerCase) match {
                   case None =>
@@ -127,7 +191,7 @@ trait BigQueryJobBase extends StrictLogging {
                             val policyTagsRequest =
                               ListPolicyTagsRequest.newBuilder().setParent(taxonomyRef).build()
                             val policyTags =
-                              BigQueryJobBase.policyTagClient.listPolicyTags(policyTagsRequest)
+                              policyTagClient.listPolicyTags(policyTagsRequest)
                             val policyTagRef =
                               policyTags
                                 .iterateAll()
@@ -184,8 +248,8 @@ trait BigQueryJobBase extends StrictLogging {
       val grants = rlsRetrieved.grantees().map {
         case (UserType.SA, u) =>
           s"serviceAccount:$u"
-        case (userOrGroupType, userOrGroupName) =>
-          s"${userOrGroupType.toString.toLowerCase}:$userOrGroupName"
+        case (userOrGroupOrDomainType, userOrGroupOrDomainName) =>
+          s"${userOrGroupOrDomainType.toString.toLowerCase}:$userOrGroupOrDomainName"
       }
 
       val name = rlsRetrieved.name
@@ -213,29 +277,22 @@ trait BigQueryJobBase extends StrictLogging {
     rlsDeleteStatement ++ rlsCreateStatements
   }
 
+  val datasetId: DatasetId = BigQueryJobBase.extractProjectDataset(cliConfig.outputDataset)
+
   val tableId: TableId = BigQueryJobBase.extractProjectDatasetAndTable(
     cliConfig.outputDataset + "." + cliConfig.outputTable
   )
 
-  def datasetId: DatasetId = {
-    scala.Option(tableId.getProject) match {
-      case None =>
-        DatasetId.of(projectId, cliConfig.outputDataset)
-      case Some(project) =>
-        DatasetId.of(project, tableId.getDataset)
-    }
-  }
-
   val bqTable = s"${cliConfig.outputDataset}.${cliConfig.outputTable}"
 
-  def getOrCreateDataset(): Dataset = {
-    val existingDataset = scala.Option(BigQueryJobBase.bigquery().getDataset(datasetId))
+  def getOrCreateDataset()(implicit settings: Settings): Dataset = {
+    val existingDataset = scala.Option(bigquery().getDataset(datasetId))
     val dataset = existingDataset.getOrElse {
       val datasetInfo = DatasetInfo
-        .newBuilder(extractProjectDataset(cliConfig.outputDataset))
+        .newBuilder(BigQueryJobBase.extractProjectDataset(cliConfig.outputDataset))
         .setLocation(cliConfig.getLocation())
         .build
-      BigQueryJobBase.bigquery().create(datasetInfo)
+      bigquery().create(datasetInfo)
     }
     setTagsOnDataset(dataset)
     dataset
@@ -264,9 +321,9 @@ trait BigQueryJobBase extends StrictLogging {
   def applyACL(
     tableId: TableId,
     acl: List[AccessControlEntry]
-  ): Policy = {
+  )(implicit settings: Settings): Policy = {
     // val BIG_QUERY_VIEWER_ROLE = "roles/bigquery.dataViewer"
-    val existingPolicy: Policy = BigQueryJobBase.bigquery().getIamPolicy(tableId)
+    val existingPolicy: Policy = bigquery().getIamPolicy(tableId)
     val existingPolicyBindings: util.Map[Role, util.Set[Identity]] = existingPolicy.getBindings
 
     val bindings = acl
@@ -285,7 +342,7 @@ trait BigQueryJobBase extends StrictLogging {
           bindings
         )
         .build()
-      BigQueryJobBase.bigquery().setIamPolicy(tableId, editedPolicy)
+      bigquery().setIamPolicy(tableId, editedPolicy)
       editedPolicy
     } else {
       logger.info(s"Iam Policy is the same as before on this Table: $tableId")
@@ -312,44 +369,20 @@ trait BigQueryJobBase extends StrictLogging {
           .setRequirePartitionFilter(requirePartitionFilter)
     }
   }
+
 }
 
 object BigQueryJobBase {
 
-  def getProjectId(): String = {
-    if (System.getProperties().containsKey("GCLOUD_PROJECT"))
-      System.getProperties().getProperty("GCLOUD_PROJECT")
-    else if (System.getProperties().containsKey("GOOGLE_CLOUD_PROJECT"))
-      System.getProperties().getProperty("GOOGLE_CLOUD_PROJECT")
-    else if (sys.env.contains("GCLOUD_PROJECT"))
-      sys.env("GCLOUD_PROJECT")
-    else if (sys.env.contains("GOOGLE_CLOUD_PROJECT"))
-      sys.env("GOOGLE_CLOUD_PROJECT")
-    else
-      ServiceOptions.getDefaultProjectId
+  def extractProjectDatasetAndTable(datasetId: String, tableId: String): TableId = {
+    BigQueryJobBase.extractProjectDatasetAndTable(datasetId + "." + tableId)
   }
 
-  def bigquery(reload: Boolean = false): BigQuery = {
-    (reload, _bigquery) match {
-      case (true, _) | (_, None) =>
-        val res = scala.Option(getProjectId()) match {
-          case None =>
-            BigQueryOptions.getDefaultInstance().getService()
-          case Some(projectId) =>
-            BigQueryOptions.newBuilder().setProjectId(projectId).build().getService()
-        }
-        _bigquery = Some(res)
-        res
-      case (false, Some(client)) =>
-        client
-    }
-  }
-
-  private var _bigquery: scala.Option[BigQuery] = None
-
-  // Lazy otherwise tests fail since there is no GCP credentials in test mode
-  lazy val policyTagClient = PolicyTagManagerClient.create()
-
+  /** @param resourceId
+    *   resourceId is a an id of one of the following pattern: <projectId>:<datasetId>.<tableId> or
+    *   <datasetId>.<tableId>
+    * @return
+    */
   def extractProjectDatasetAndTable(value: String): TableId = {
     def extractDatasetAndTable(str: String): (String, String) = {
       val sepIndex = str.indexOf('.')
@@ -383,4 +416,5 @@ object BigQueryJobBase {
       .map(project => DatasetId.of(project, dataset))
       .getOrElse(DatasetId.of(dataset))
   }
+
 }

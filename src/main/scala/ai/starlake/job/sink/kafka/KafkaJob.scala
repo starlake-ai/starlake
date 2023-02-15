@@ -20,9 +20,9 @@ class KafkaJob(
   val kafkaJobConfig: KafkaJobConfig
 )(implicit val settings: Settings)
     extends SparkJob {
-  import settings.metadataStorageHandler
-  DatasetArea.initMetadata(metadataStorageHandler)
-  val schemaHandler = new SchemaHandler(metadataStorageHandler)
+  import settings.storageHandler
+  DatasetArea.initMetadata(storageHandler)
+  val schemaHandler = new SchemaHandler(storageHandler)
 
   private val topicConfig: Option[Settings.KafkaTopicConfig] =
     kafkaJobConfig.topicConfigName.map(settings.comet.kafka.topics)

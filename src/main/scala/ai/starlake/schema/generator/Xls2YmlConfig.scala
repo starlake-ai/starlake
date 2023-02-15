@@ -34,6 +34,7 @@ import scopt.OParser
 case class Xls2YmlConfig(
   files: Seq[String] = Nil,
   encryption: Boolean = false,
+  iamPolicyTagsFile: Option[String] = None,
   delimiter: Option[String] = None,
   privacy: Seq[String] = Nil,
   outputPath: Option[String] = None
@@ -57,6 +58,10 @@ object Xls2YmlConfig extends CliConfig[Xls2YmlConfig] {
         .action((x, c) => c.copy(encryption = x))
         .optional()
         .text("If true generate pre and post encryption YML"),
+      opt[String]("iamPolicyTagsFile")
+        .action((x, c) => c.copy(iamPolicyTagsFile = Some(x)))
+        .optional()
+        .text("If true generate IAM PolicyTags YML"),
       opt[String]("delimiter")
         .action((x, c) => c.copy(delimiter = Some(x)))
         .optional()

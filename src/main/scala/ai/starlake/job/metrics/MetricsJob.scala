@@ -53,6 +53,7 @@ class MetricsJob(
       "metrics" + path
         .replace("{{domain}}", domain.name)
         .replace("{{schema}}", schema.name)
+        .replace(":", "_")
         .replace('/', '_') + ".lock"
     )
   }
@@ -188,6 +189,7 @@ class MetricsJob(
         case Some(df) =>
           settings.comet.internal.foreach(in => df.persist(in.cacheStorageLevel))
           new SinkUtils().sink(
+            Map.empty, // Auth info extracted from Env var since run through spark-submit only
             settings.comet.metrics.sink,
             df,
             table.toString,

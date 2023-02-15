@@ -38,7 +38,7 @@ import java.time.{Instant, LocalDateTime}
 import scala.util.{Failure, Success, Try}
 
 object AutoTask extends StrictLogging {
-  def tasks(reload: Boolean)(implicit
+  def unauthenticatedTasks(reload: Boolean)(implicit
     settings: Settings,
     storageHandler: StorageHandler,
     schemaHandler: SchemaHandler
@@ -46,12 +46,16 @@ object AutoTask extends StrictLogging {
     schemaHandler
       .jobs(reload)
       .values
-      .flatMap(jobDesc => tasks(jobDesc, Map.empty, None))
+      .flatMap(jobDesc => tasks(jobDesc, Map.empty, None, Map.empty))
       .toList
   }
 
-  def tasks(jobDesc: AutoJobDesc, configOptions: Map[String, String], interactive: Option[String])(
-    implicit
+  def tasks(
+    jobDesc: AutoJobDesc,
+    configOptions: Map[String, String],
+    interactive: Option[String],
+    authInfo: Map[String, String]
+  )(implicit
     settings: Settings,
     storageHandler: StorageHandler,
     schemaHandler: SchemaHandler
@@ -59,15 +63,16 @@ object AutoTask extends StrictLogging {
     jobDesc.tasks.map(taskDesc =>
       AutoTask(
         jobDesc.name,
-        jobDesc.format,
-        jobDesc.coalesce.getOrElse(false),
+        taskDesc.format.orElse(jobDesc.format),
+        taskDesc.coalesce.orElse(jobDesc.coalesce).getOrElse(false),
         jobDesc.udf,
         Views(jobDesc.views.getOrElse(Map.empty)),
         jobDesc.getEngine(),
         taskDesc,
         configOptions,
         taskDesc.sink,
-        interactive
+        interactive,
+        authInfo
       )(settings, storageHandler, schemaHandler)
     )
   }
@@ -95,7 +100,8 @@ case class AutoTask(
   taskDesc: AutoTaskDesc,
   sqlParameters: Map[String, String],
   sink: Option[Sink],
-  interactive: Option[String]
+  interactive: Option[String],
+  authInfo: Map[String, String]
 )(implicit val settings: Settings, storageHandler: StorageHandler, schemaHandler: SchemaHandler)
     extends SparkJob {
 
@@ -112,6 +118,8 @@ case class AutoTask(
     val bqSink =
       taskDesc.sink.map(sink => sink.asInstanceOf[BigQuerySink]).getOrElse(BigQuerySink())
     BigQueryLoadConfig(
+      gcpProjectId = authInfo.get("gcpProjectId"),
+      gcpSAJsonKey = authInfo.get("gcpSAJsonKey"),
       outputTable = taskDesc.table,
       outputDataset = taskDesc.domain,
       createDisposition = createDisposition,
@@ -123,7 +131,11 @@ case class AutoTask(
       requirePartitionFilter = bqSink.requirePartitionFilter.getOrElse(false),
       rls = taskDesc.rls,
       engine = Engine.BQ,
-      options = bqSink.getOptions
+      options = bqSink.getOptions,
+      acl = taskDesc.acl,
+      materializedView = taskDesc.sink.exists(sink =>
+        sink.asInstanceOf[BigQuerySink].materializedView.getOrElse(false)
+      )
     )
   }
 
@@ -240,6 +252,7 @@ case class AutoTask(
           // We execute assertions only on success
           if (settings.comet.assertions.active) {
             new AssertionJob(
+              authInfo,
               taskDesc.domain,
               taskDesc.table,
               taskDesc.assertions,
@@ -413,6 +426,7 @@ case class AutoTask(
 
       if (settings.comet.assertions.active) {
         new AssertionJob(
+          authInfo,
           taskDesc.domain,
           taskDesc.table,
           taskDesc.assertions,
@@ -462,7 +476,7 @@ case class AutoTask(
       message,
       Step.TRANSFORM.toString
     )
-    AuditLog.sink(session, log)
+    AuditLog.sink(authInfo, session, log)
   }
 
   private def logAuditSuccess(start: Timestamp, end: Timestamp, jobResultCount: Long) =

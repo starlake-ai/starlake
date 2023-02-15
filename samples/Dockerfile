@@ -4,12 +4,12 @@
 # Pull base image.
 FROM ubuntu
 
-ARG STARLAKE_VERSION=0.3.26
-ARG SPARK_VERSION=3.3.0
+ARG STARLAKE_VERSION=0.6.4
+ARG SPARK_VERSION=3.3.1
 ARG HADOOP_VERSION=3
 
 # Install Java.
-RUN apt-get update && apt-get -y install openjdk-8-jdk curl
+RUN apt-get update && apt-get -y install openjdk-11-jdk curl jq
 #RUN update-alternatives --set java /usr/lib/jvm/jdk1.8.0_version/bin/java
 
 

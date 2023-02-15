@@ -1,8 +1,8 @@
 package ai.starlake.utils
 
+import ai.starlake.TestHelper
 import ai.starlake.schema.model.WriteMode
 import ai.starlake.schema.model.WriteMode.{APPEND, IGNORE, OVERWRITE}
-import ai.starlake.TestHelper
 
 class UtilsSpec extends TestHelper {
   new WithSettings() {

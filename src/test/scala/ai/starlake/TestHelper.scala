@@ -21,14 +21,13 @@
 package ai.starlake
 
 import ai.starlake.config.{DatasetArea, Settings}
-import ai.starlake.job.ingest.LoadConfig
+import ai.starlake.job.ingest.{ImportConfig, LoadConfig, WatchConfig}
 import ai.starlake.schema.handlers.{SchemaHandler, SimpleLauncher, StorageHandler}
 import ai.starlake.schema.model.{Attribute, AutoJobDesc}
 import ai.starlake.utils.{CometObjectMapper, Utils}
-import ai.starlake.workflow.{ImportConfig, IngestionWorkflow, WatchConfig}
+import ai.starlake.workflow.IngestionWorkflow
+import better.files.{File => BetterFile}
 import com.dimafeng.testcontainers.{ElasticsearchContainer, KafkaContainer}
-import com.fasterxml.jackson.annotation.JsonInclude.Include
-import com.fasterxml.jackson.annotation.{JsonSetter, Nulls}
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.scala.ScalaObjectMapper
@@ -76,8 +75,8 @@ trait TestHelper
   lazy val cometTestRoot: String =
     Option(System.getProperty("os.name")).map(_.toLowerCase contains "windows") match {
       case Some(true) =>
-        Files.createTempDirectory(cometTestId).toAbsolutePath.toString.replace("\\", "/")
-      case _ => Files.createTempDirectory(cometTestId).toAbsolutePath.toString
+        BetterFile(Files.createTempDirectory(cometTestId)).pathAsString.replace("\\", "/")
+      case _ => BetterFile(Files.createTempDirectory(cometTestId)).pathAsString
     }
   lazy val cometDatasetsPath: String = cometTestRoot + "/datasets"
   lazy val cometMetadataPath: String = cometTestRoot + "/metadata"
@@ -209,9 +208,6 @@ trait TestHelper
       val mapper = new CometObjectMapper(new YAMLFactory(), (classOf[Settings], settings) :: Nil)
       mapper
     }
-    mapper
-      .setSerializationInclusion(Include.NON_EMPTY)
-      .setDefaultSetterInfo(JsonSetter.Value.forValueNulls(Nulls.AS_EMPTY, Nulls.AS_EMPTY))
 
     def deliverTestFile(importPath: String, targetPath: Path)(implicit codec: Codec): Unit = {
       val content = loadTextFile(importPath)
@@ -308,7 +304,7 @@ trait TestHelper
     implicit def settings: Settings = withSettings.settings
 
     def storageHandler: StorageHandler = settings.storageHandler
-    def metadataStorageHandler: StorageHandler = settings.metadataStorageHandler
+    def metadataStorageHandler: StorageHandler = settings.storageHandler
     val domainMetadataRootPath: Path = DatasetArea.domains
     val jobMetadataRootPath: Path = DatasetArea.jobs
 

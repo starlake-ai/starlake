@@ -44,15 +44,26 @@ import scala.io.Source
   */
 object DatasetArea extends StrictLogging {
 
-  def path(domain: String, area: String)(implicit settings: Settings) =
-    new Path(
-      s"${settings.comet.fileSystem}/${settings.comet.datasets}/$area/$domain"
-    )
+  def path(domain: String, area: String)(implicit settings: Settings) = {
+    if (settings.comet.datasets.contains("://"))
+      new Path(
+        s"${settings.comet.datasets}/$area/$domain"
+      )
+    else
+      new Path(
+        s"${settings.comet.fileSystem}/${settings.comet.datasets}/$area/$domain"
+      )
+  }
 
   def path(domain: String)(implicit settings: Settings) =
-    new Path(
-      s"${settings.comet.fileSystem}/${settings.comet.datasets}/$domain"
-    )
+    if (settings.comet.datasets.contains("://"))
+      new Path(
+        s"${settings.comet.datasets}/$domain"
+      )
+    else
+      new Path(
+        s"${settings.comet.fileSystem}/${settings.comet.datasets}/$domain"
+      )
 
   def path(domainPath: Path, schema: String) = new Path(domainPath, schema)
 
@@ -168,6 +179,9 @@ object DatasetArea extends StrictLogging {
   def domains(implicit settings: Settings): Path =
     new Path(metadata, "domains")
 
+  def external(implicit settings: Settings): Path =
+    new Path(metadata, "external")
+
   def extract(implicit settings: Settings): Path =
     new Path(metadata, "extract")
 
@@ -184,12 +198,15 @@ object DatasetArea extends StrictLogging {
       new Path(views, viewsPath)
   }
 
+  def iamPolicyTags()(implicit settings: Settings): Path =
+    new Path(DatasetArea.metadata, "iam-policy-tags.comet.yml")
+
   /** @param storage
     */
   def initMetadata(
     storage: StorageHandler
   )(implicit settings: Settings): Unit = {
-    List(metadata, types, domains, extract, jobs, assertions, views, mapping).foreach(
+    List(metadata, types, domains, external, extract, jobs, assertions, views, mapping).foreach(
       storage.mkdirs
     )
   }
@@ -234,8 +251,8 @@ object DatasetArea extends StrictLogging {
     vscodeFolder.createDirectories()
     copyToFolder(List("extensions.json"), s"templates", vscodeFolder)
 
-    template match {
-      case Some("userguide") =>
+    template.getOrElse("quickstart") match {
+      case "userguide" =>
         val metadataResources = List(
           "domains/hr.comet.yml",
           "domains/sales.comet.yml",
@@ -259,7 +276,7 @@ object DatasetArea extends StrictLogging {
           "incoming/sales/orders-2018-01-01.csv"
         )
         copyToFolder(rootResources, s"templates/userguide", metadataFile.parent)
-      case Some("quickstart") =>
+      case "quickstart" =>
         val metadataResources = List(
           "types/default.comet.yml",
           "types/types.comet.yml",
