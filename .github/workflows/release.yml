@@ -17,14 +17,14 @@ jobs:
           java-version: '11'
       - uses: actions/checkout@v2
         if: ${{ !github.event.repository.fork }}
-      - uses: google-github-actions/setup-gcloud@v0.3.0
+      - id: 'auth'
+        uses: 'google-github-actions/auth@v1'
         with:
-          project_id: ${{ secrets.GCP_PROJECT }}
-          service_account_key: ${{ secrets.GCP_SERVICE_ACCOUNT }}
-          export_default_credentials: true
+          credentials_json: '${{ secrets.GCP_SERVICE_ACCOUNT }}'
+          cleanup_credentials: false
       - name: Use gcloud CLI
         run: gcloud info
       - name: Run tests & Coverage Report
         run: TEMPORARY_GCS_BUCKET=starlake-app COMET_GCP_TEST=true sbt coverage test coverageReport
       - name: Release Spark 2/3
-        run: TEMPORARY_GCS_BUCKET=${{ secrets.TEMPORARY_GCS_BUCKET }} COMET_GCP_TEST=true RELEASE_SONATYPE=true GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ secrets.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ secrets.SONATYPE_PASSWORD }} sbt 'release with-defaults'
+        run: TEMPORARY_GCS_BUCKET=${{ secrets.TEMPORARY_GCS_BUCKET }} GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ secrets.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ secrets.SONATYPE_PASSWORD }}  COMET_GCP_TEST=true RELEASE_SONATYPE=true sbt 'release with-defaults'

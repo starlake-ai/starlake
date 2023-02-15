@@ -1,11 +1,14 @@
 package ai.starlake.job.sink.bigquery
 
+import ai.starlake.config.GcpConnectionConfig
 import ai.starlake.schema.model.{AccessControlEntry, Engine, RowLevelSecurity, Schema}
 import ai.starlake.utils.CliConfig
 import org.apache.spark.sql.DataFrame
 import scopt.OParser
 
 case class BigQueryLoadConfig(
+  gcpProjectId: Option[String],
+  gcpSAJsonKey: Option[String],
   source: Either[String, DataFrame] = Left(""),
   outputDataset: String = "",
   outputTable: String = "",
@@ -23,10 +26,9 @@ case class BigQueryLoadConfig(
   partitionsToUpdate: List[String] = Nil,
   acl: List[AccessControlEntry] = Nil,
   starlakeSchema: Option[Schema] = None,
-  domainTags: Set[String] = Set.empty
-) {
-  def getLocation(): String = this.location.getOrElse("EU")
-}
+  domainTags: Set[String] = Set.empty,
+  materializedView: Boolean = false
+) extends GcpConnectionConfig
 
 object BigQueryLoadConfig extends CliConfig[BigQueryLoadConfig] {
   val command = "bqload"
@@ -92,5 +94,5 @@ object BigQueryLoadConfig extends CliConfig[BigQueryLoadConfig] {
 
   // comet bqload  --source_file xxx --output_dataset domain --output_table schema --source_format parquet --create_disposition  CREATE_IF_NEEDED --write_disposition WRITE_TRUNCATE
   def parse(args: Seq[String]): Option[BigQueryLoadConfig] =
-    OParser.parse(parser, args, BigQueryLoadConfig())
+    OParser.parse(parser, args, BigQueryLoadConfig(None, None))
 }

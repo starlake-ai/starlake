@@ -3,9 +3,9 @@ package ai.starlake.schema.handlers
 import ai.starlake.TestHelper
 import ai.starlake.config.Settings
 import ai.starlake.job.sink.bigquery.{BigQueryLoadConfig, BigQuerySparkJob}
-import ai.starlake.job.transform.{AutoTask, TaskViewDependency}
+import ai.starlake.job.transform.{AutoTask, TaskViewDependency, TransformConfig}
 import ai.starlake.schema.model._
-import ai.starlake.workflow.{IngestionWorkflow, TransformConfig}
+import ai.starlake.workflow.IngestionWorkflow
 import com.google.cloud.hadoop.io.bigquery.BigQueryConfiguration
 import org.apache.hadoop.fs.Path
 import org.scalatest.BeforeAndAfterAll
@@ -50,7 +50,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
     "trigger AutoJob by passing parameters on SQL statement" should "generate a dataset in business" in {
 
       val businessTask1 = AutoTaskDesc(
-        None,
+        "",
         Some("select firstname, lastname, age from {{view}} where age=${age}"),
         "business/user",
         "user",
@@ -60,6 +60,8 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         AutoJobDesc(
           "user",
           List(businessTask1),
+          Nil,
+          None,
           Some("parquet"),
           Some(false),
           views = Some(Map("user_View" -> "accepted/user"))
@@ -97,7 +99,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
     "Extract file and view dependencies" should "work" in {
 
       val businessTask1 = AutoTaskDesc(
-        None,
+        "",
         Some(
           "select firstname, lastname, age from user_View where age={{age}} and lastname={{lastname}} and firstname={{firstname}}"
         ),
@@ -110,6 +112,8 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         AutoJobDesc(
           "user",
           List(businessTask1),
+          Nil,
+          None,
           Some("parquet"),
           Some(false),
           views = Some(Map("user_View" -> "accepted/user"))
@@ -123,7 +127,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
 
       val schemaHandler = new SchemaHandler(storageHandler)
 
-      val tasks = AutoTask.tasks(true)(settings, storageHandler, schemaHandler)
+      val tasks = AutoTask.unauthenticatedTasks(true)(settings, storageHandler, schemaHandler)
       val deps = TaskViewDependency.dependencies(tasks)(schemaHandler)
       deps.map(_.parentRef) should contain theSameElementsAs List("user_View", "accepted/user")
     }
@@ -131,7 +135,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
     "trigger AutoJob by passing three parameters on SQL statement" should "generate a dataset in business" in {
 
       val businessTask1 = AutoTaskDesc(
-        None,
+        "",
         Some(
           "select firstname, lastname, age from user_View where age={{age}} and lastname={{lastname}} and firstname={{firstname}}"
         ),
@@ -144,6 +148,8 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         AutoJobDesc(
           "user",
           List(businessTask1),
+          Nil,
+          None,
           Some("parquet"),
           Some(false),
           views = Some(Map("user_View" -> "accepted/user"))
@@ -182,7 +188,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
     "trigger AutoJob with no parameters on SQL statement" should "generate a dataset in business" in {
 
       val businessTask1 = AutoTaskDesc(
-        None,
+        "",
         Some("select firstname, lastname, age from user_View"),
         "business/user",
         "user",
@@ -192,6 +198,8 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         AutoJobDesc(
           "user",
           List(businessTask1),
+          Nil,
+          None,
           Some("parquet"),
           Some(false),
           views = Some(Map("user_View" -> "accepted/user"))
@@ -225,7 +233,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
     "trigger AutoJob using an UDF" should "generate a dataset in business" in {
 
       val businessTask1 = AutoTaskDesc(
-        None,
+        "",
         Some("select concatWithSpace(firstname, lastname) as fullName from user_View"),
         "business/user",
         "user",
@@ -235,6 +243,8 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         AutoJobDesc(
           "user",
           List(businessTask1),
+          Nil,
+          None,
           Some("parquet"),
           Some(false),
           udf = Some("ai.starlake.udf.TestUdf"),
@@ -270,7 +280,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
     "trigger AutoJob by passing parameters to presql statement" should "generate a dataset in business" in {
 
       val businessTask1 = AutoTaskDesc(
-        None,
+        "",
         Some("SELECT * FROM graduate_agg_view"),
         "business/graduateProgram",
         "output",
@@ -287,6 +297,8 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         AutoJobDesc(
           "graduateProgram",
           List(businessTask1),
+          Nil,
+          None,
           Some("parquet"),
           Some(false),
           views = Some(Map("graduate_View" -> "accepted/graduateProgram"))
@@ -321,7 +333,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
 
     "BQ Business Job Definition" should "Prepare correctly against BQ" in {
       val businessTask1 = AutoTaskDesc(
-        None,
+        "",
         Some("select * from domain"),
         "DOMAIN",
         "TABLE",
@@ -336,6 +348,8 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       val sink = businessTask1.sink.map(_.asInstanceOf[BigQuerySink])
 
       val config = BigQueryLoadConfig(
+        None,
+        None,
         outputDataset = businessTask1.domain,
         outputTable = businessTask1.table,
         sourceFormat = "parquet",

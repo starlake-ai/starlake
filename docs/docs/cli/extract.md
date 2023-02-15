@@ -1,12 +1,12 @@
 ---
-sidebar_position: 110
-title: extract
+sidebar_position: 40
+title: extract-script
 ---
 
 
 ## Synopsis
 
-**starlake extract [options]**
+**starlake extract-script [options]**
 
 ## Description
 
@@ -36,7 +36,6 @@ In that template you can use the following parameters:
                               FROM
                               {{table_name}};
 ````
- export_file -> the export file name
  full_export -> if the export is a full or delta export (the logic is to be implemented in your script)
 
 
@@ -44,11 +43,10 @@ In that template you can use the following parameters:
 
 Parameter|Cardinality|Description
 ---|---|---
---extract:`<value>`|*Optional*|
+--extract-script:`<value>`|*Optional*|
 --domain:`domain1,domain2 ...`|*Optional*|The domain list for which to generate extract scripts
---job:`job1,job2 ...`|*Optional*|The jobs you want to load. use '*' to load all jobs 
---templateFile:`<value>`|*Required*|Script template file
---scriptsOutputDir:`<value>`|*Required*|Scripts output folder
---deltaColumn:`<value>`|*Optional*|The default date column used to determine new rows to export. Overrides config database-extractor.default-column value.
---scriptsOutputPattern:`<value>`|*Optional*|Default output file pattern name<br />the following variables are allowed.<br />When applied to a domain:<br />  - {{domain}}: domain name<br />  - {{schema}}: Schema name<br />  By default : EXTRACT_{{schema}}.sql<br />When applied to a job:<br />  - {{job}}: job name<br />  By default: {{job}}.py<br />  
+--template:`<value>`|*Required*|Script template dir
+--audit-schema:`<value>`|*Required*|Audit DB that will contain the audit export table
+--delta-column:`<value>`|*Optional*|The default date column used to determine new rows to export. Overrides config database-extractor.default-column value.
+--script-output-pattern:`<value>`|*Optional*|Default output file pattern name<br />the following variables are allowed.<br />When applied to a domain:<br />  - {{domain}}: domain name<br />  - {{table}}: Table name<br />  By default : extract_{{table}}<br />  
 

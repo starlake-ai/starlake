@@ -1,12 +1,12 @@
 ---
 sidebar_position: 100
-title: jdbc2yml
+title: extract schema
 ---
 
 
 ## Synopsis
 
-**starlake jdbc2yml [options]**
+**starlake extract --schema [options]**
 
 ## Description
 

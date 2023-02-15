@@ -22,16 +22,22 @@ package ai.starlake.utils
 
 import ai.starlake.config.Settings
 import ai.starlake.schema.model.{Attribute, WriteMode}
+import ai.starlake.utils.Formatter.RichFormatter
+import com.fasterxml.jackson.annotation.JsonInclude.Include
+import com.fasterxml.jackson.annotation.{JsonSetter, Nulls}
+import com.fasterxml.jackson.databind.{DeserializationFeature, ObjectMapper}
+import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.hubspot.jinjava.Jinjava
 import com.typesafe.scalalogging.Logger
-import ai.starlake.utils.Formatter._
+import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.types.{StructField, StructType}
 
 import java.io.{PrintWriter, StringWriter}
 import scala.collection.mutable
+import scala.jdk.CollectionConverters.MapHasAsJava
 import scala.reflect.runtime.universe
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try}
-import scala.jdk.CollectionConverters._
 
 object Utils {
   type Closeable = { def close(): Unit }
@@ -176,7 +182,7 @@ object Utils {
     *   List of tuples contains for ea ch duplicate the number of occurrences
     */
   def duplicates(values: List[String], errorMessage: String): Either[List[String], Boolean] = {
-    val errorList: mutable.Queue[String] = mutable.Queue.empty
+    val errorList = new mutable.ArrayDeque[String]()
     val duplicates = values.groupBy(identity).view.mapValues(_.size).filter { case (_, size) =>
       size > 1
     }
@@ -264,4 +270,35 @@ object Utils {
     result
   }
 
+  def newMapper(): ObjectMapper = {
+    val mapper = new ObjectMapper()
+    setMapperProperties(mapper)
+  }
+
+  def setMapperProperties(mapper: ObjectMapper): ObjectMapper = {
+    mapper.registerModule(DefaultScalaModule)
+    mapper
+      .setSerializationInclusion(Include.NON_EMPTY)
+      .setDefaultSetterInfo(JsonSetter.Value.forValueNulls(Nulls.AS_EMPTY, Nulls.AS_EMPTY))
+    mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+    mapper
+  }
+
+  /** Set nullable property of column.
+    *
+    * @param df
+    *   source DataFrame
+    * @param nullable
+    *   is the flag to set, such that the column is either nullable or not
+    */
+  def setNullableStateOfColumn(df: DataFrame, nullable: Boolean): DataFrame = {
+
+    // get schema
+    val schema = df.schema
+    val newSchema = StructType(schema.map { case StructField(c, t, _, m) =>
+      StructField(c, t, nullable = nullable, m)
+    })
+    // apply new schema
+    df.sqlContext.createDataFrame(df.rdd, newSchema)
+  }
 }

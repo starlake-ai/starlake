@@ -22,7 +22,7 @@ package ai.starlake.schema.model
 
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.schema.handlers.SchemaHandler
-import ai.starlake.utils.Utils
+import ai.starlake.utils.{JsonSerializer, Utils}
 import com.fasterxml.jackson.annotation.JsonIgnore
 import org.apache.hadoop.fs.Path
 
@@ -74,8 +74,9 @@ import scala.util.{Failure, Success, Try}
   @nowarn @deprecated("Moved to Metadata", "0.2.8") extensions: List[String] = Nil,
   @nowarn @deprecated("Moved to Metadata", "0.2.8") ack: Option[String] = None,
   tags: Set[String] = Set.empty,
-  rename: Option[String] = None
-) {
+  rename: Option[String] = None,
+  project: Option[String] = None
+) extends Named {
 
   def this() = this("") // Should never be called. Here for Jackson deserialization only
 
@@ -103,13 +104,13 @@ import scala.util.{Failure, Success, Try}
     val mustache = new Path(rootPath, s"$ddlType.mustache")
     val ssp = new Path(rootPath, s"$ddlType.ssp")
     val template =
-      if (settings.metadataStorageHandler.exists(mustache))
+      if (settings.storageHandler.exists(mustache))
         mustache
-      else if (settings.metadataStorageHandler.exists(ssp))
+      else if (settings.storageHandler.exists(ssp))
         ssp
       else
         throw new Exception(s"No $ddlType.mustache/ssp found for datawarehouse $datawarehouse")
-    template -> settings.metadataStorageHandler.read(template)
+    template -> settings.storageHandler.read(template)
   }
 
   /** Load Elasticsearch template file if it exist
@@ -124,8 +125,8 @@ import scala.util.{Failure, Success, Try}
     schema: Schema
   )(implicit settings: Settings): Option[String] = {
     val template = new Path(new Path(DatasetArea.mapping, this.name), schema.name + ".json")
-    if (settings.metadataStorageHandler.exists(template))
-      Some(settings.metadataStorageHandler.read(template))
+    if (settings.storageHandler.exists(template))
+      Some(settings.storageHandler.read(template))
     else
       None
   }
@@ -273,4 +274,51 @@ import scala.util.{Failure, Success, Try}
       _.rls
     )
   }
+}
+
+object Domain {
+  def compare(existing: Domain, incoming: Domain): Try[String] = {
+    Try {
+      val (addedTables, deletedTables, existingCommonTables) =
+        AnyRefDiff.partitionNamed(existing.tables, incoming.tables)
+
+      val commonTables: List[(Schema, Schema)] = existingCommonTables.map { table =>
+        (
+          table,
+          incoming.tables
+            .find(_.name.toLowerCase() == table.name.toLowerCase())
+            .getOrElse(throw new Exception("Should not happen"))
+        )
+      }
+
+      val updatedTablesDiffAsJson: List[String] = commonTables.flatMap {
+        case (existing, incoming) =>
+          Schema.compare(existing, incoming).toOption
+      }
+
+      val metadataDiff: ListDiff[Named] =
+        AnyRefDiff.diffOptionAnyRef("metadata", existing.metadata, incoming.metadata)
+      val tableRefsDiff: ListDiff[String] =
+        AnyRefDiff.diffSetString("tableRefs", existing.tableRefs.toSet, incoming.tableRefs.toSet)
+      val commentDiff = AnyRefDiff.diffOptionString("comment", existing.comment, incoming.comment)
+      val tagsDiffs = AnyRefDiff.diffSetString("tags", existing.tags, incoming.tags)
+      val renameDiff = AnyRefDiff.diffOptionString("rename", existing.rename, incoming.rename)
+
+      s"""{ "domain": "${existing.name}", """ +
+      s"""
+           |"tables": {
+           |  "added": ${JsonSerializer.serializeObject(addedTables.map(_.name))}
+           |  , "deleted": ${JsonSerializer.serializeObject(deletedTables.map(_.name))}
+           |  , "updated": [${updatedTablesDiffAsJson.mkString(",")}]
+           |},""".stripMargin +
+      """"diff": [""" + List(
+        JsonSerializer.serializeDiffNamed(metadataDiff),
+        JsonSerializer.serializeDiffStrings(tableRefsDiff),
+        JsonSerializer.serializeDiffStrings(commentDiff),
+        JsonSerializer.serializeDiffStrings(tagsDiffs),
+        JsonSerializer.serializeDiffStrings(renameDiff)
+      ).flatten.mkString(",") + "]}"
+    }
+  }
+
 }

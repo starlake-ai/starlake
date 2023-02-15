@@ -38,7 +38,7 @@ import org.apache.spark.sql.types.{Metadata => _, _}
 import org.apache.spark.sql.{DataFrame, Row}
 
 import java.net.URL
-import scala.util.Try
+import scala.util.{Failure, Success, Try}
 
 class SchemaHandlerSpec extends TestHelper {
 
@@ -635,6 +635,37 @@ class SchemaHandlerSpec extends TestHelper {
         val job = schemaHandler.loadJobFromFile(jobPath)
         job.success.value.name shouldBe "business" // Job renamed to filename and error is logged
       }
+    }
+
+    "Load Transform Job" should "reject tasks without SQL" in {
+      cleanMetadata
+      val schemaHandler = new SchemaHandler(storageHandler)
+      val filename = "/sample/job-tasks-without-sql/invalid.comet.yml"
+      val jobPath = new Path(getClass.getResource(filename).toURI)
+
+      val job = schemaHandler.loadJobFromFile(jobPath)
+      job.isFailure shouldBe true
+    }
+    "Load Transform Job with taskrefs" should "succeed" in {
+      cleanMetadata
+      val schemaHandler = new SchemaHandler(storageHandler)
+      val filename = "/sample/job-with-taskrefs/my-job.comet.yml"
+      val jobPath = new Path(getClass.getResource(filename).toURI)
+
+      val job = schemaHandler.loadJobFromFile(jobPath)
+      job match {
+        case Success(job) =>
+          val tasks = job.tasks
+          tasks.length shouldBe 3
+          tasks.map(_.name) should contain theSameElementsInOrderAs (List(
+            "", // tasks are handled before task refs
+            "task1",
+            "task2"
+          ))
+        case Failure(e) =>
+          throw e
+      }
+
     }
 
     "Extract Var from Job File" should "find all vars" in {

@@ -232,6 +232,9 @@ case class Metadata(
     else
       Right(true)
   }
+
+  def compare(other: Metadata): ListDiff[Named] =
+    AnyRefDiff.diffAnyRef("", this, other)
 }
 
 object Metadata {

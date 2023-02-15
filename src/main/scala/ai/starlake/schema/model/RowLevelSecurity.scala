@@ -7,14 +7,14 @@ package ai.starlake.schema.model
   *   : The condition that goes to the WHERE clause and limitt the visible rows.
   * @param grants
   *   : user / groups / service accounts to which this security level is applied. ex :
-  *   user:me@mycompany.com,group:group@mycompany.com,serviceAccount:mysa@google-accounts.com
+  *   user:me@mycompany.com,group:group@mycompany.com,serviceAccount:mysa@google-accounts.com,domain:starlake.ai
   */
 case class RowLevelSecurity(
   name: String,
   predicate: String = "TRUE",
   grants: Set[String] = Set.empty,
   description: String = ""
-) {
+) extends Named {
 
   def this() = this("") // Should never be called. Here for Jackson deserialization only
 
@@ -25,6 +25,10 @@ case class RowLevelSecurity(
       (UserType.fromString(res(0).trim), res(1).trim)
     }
   }
+
+  def compare(other: RowLevelSecurity): ListDiff[Named] =
+    AnyRefDiff.diffAnyRef(this.name, this, other)
+
 }
 
 object RowLevelSecurity {

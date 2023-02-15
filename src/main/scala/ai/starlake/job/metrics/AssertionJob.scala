@@ -40,6 +40,7 @@ case class AssertionReport(
   *   : Storage Handler
   */
 class AssertionJob(
+  authInfo: Map[String, String],
   domainName: String,
   schemaName: String,
   assertions: Map[String, String],
@@ -60,6 +61,7 @@ class AssertionJob(
       "assertions" + path
         .replace("{{domain}}", domainName)
         .replace("{{schema}}", schemaName)
+        .replace(":", "_")
         .replace('/', '_') + ".lock"
     )
   }
@@ -134,6 +136,7 @@ class AssertionJob(
         .withColumn("cometStage", lit(Stage.UNIT.value))
 
       new SinkUtils().sink(
+        authInfo,
         settings.comet.assertions.sink,
         assertionsDF,
         settings.comet.assertions.sink.name.getOrElse("assertions"),

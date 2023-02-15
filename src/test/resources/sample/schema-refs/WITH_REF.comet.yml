@@ -17,10 +17,10 @@ load:
         - comet_day
     sink:
       type: ES
-  schemaRefs:
+  tableRefs:
     - _users.comet.yml
     - _players
-  schemas:
+  tables:
     - name: "employee"
       pattern: "employee.*.csv"
       attributes:

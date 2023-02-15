@@ -23,7 +23,7 @@ package ai.starlake.schema.model
 import ai.starlake.config.{CometColumns, Settings}
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.utils.Formatter._
-import ai.starlake.utils.Utils
+import ai.starlake.utils.{JsonSerializer, Utils}
 import ai.starlake.utils.conversion.BigQueryUtils
 import com.fasterxml.jackson.annotation.JsonIgnore
 import com.google.cloud.bigquery.{Schema => BQSchema}
@@ -45,6 +45,7 @@ import org.apache.spark.sql.types.{
 
 import java.util.regex.Pattern
 import scala.collection.mutable
+import scala.util.Try
 
 /** Dataset Schema
   *
@@ -84,8 +85,9 @@ case class Schema(
   assertions: Map[String, String] = Map.empty,
   primaryKey: List[String] = Nil,
   acl: List[AccessControlEntry] = Nil,
-  rename: Option[String] = None
-) {
+  rename: Option[String] = None,
+  sample: Option[String] = None
+) extends Named {
   def this() = this(
     "",
     Pattern.compile("."),
@@ -100,6 +102,10 @@ case class Schema(
       val isPrimaryKey = primaryKey.contains(attribute.name)
       attribute.ddlMapping(isPrimaryKey, datawarehouse, schemaHandler)
     }
+  }
+
+  def isFlat(): Boolean = {
+    !attributes.exists(_.attributes.nonEmpty)
   }
 
   /** @return
@@ -423,20 +429,36 @@ object Schema {
     obj: StructField,
     schemaHandler: SchemaHandler
   )(implicit settings: Settings): String = {
+    fromSparkSchema(schemaName, obj).esMapping(
+      None,
+      domainName,
+      schemaHandler
+    )
+  }
+  def fromSparkSchema(
+    schemaName: String,
+    obj: StructField
+  )(implicit settings: Settings): Schema = {
     def buildAttributeTree(obj: StructField): Attribute = {
       obj.dataType match {
         case StringType | LongType | IntegerType | ShortType | DoubleType | BooleanType | ByteType |
             DateType | TimestampType =>
-          Attribute(obj.name, obj.dataType.typeName, required = !obj.nullable)
+          Attribute(
+            obj.name,
+            obj.dataType.typeName,
+            required = !obj.nullable,
+            comment = obj.getComment()
+          )
         case _: DecimalType =>
-          Attribute(obj.name, "decimal", required = !obj.nullable)
+          Attribute(obj.name, "decimal", required = !obj.nullable, comment = obj.getComment())
         case ArrayType(eltType, containsNull) => buildAttributeTree(obj.copy(dataType = eltType))
         case x: StructType =>
           Attribute(
             obj.name,
             "struct",
             required = !obj.nullable,
-            attributes = x.fields.map(buildAttributeTree).toList
+            attributes = x.fields.map(buildAttributeTree).toList,
+            comment = obj.getComment()
           )
         case _ => throw new Exception(s"Unsupported Date type ${obj.dataType} for object $obj ")
       }
@@ -451,9 +473,88 @@ object Schema {
       None,
       Nil,
       Nil
-    ).esMapping(None, domainName, schemaHandler)
+    )
   }
 
+  def compare(existing: Schema, incoming: Schema): Try[String] = {
+    Try {
+      if (!existing.isFlat() || !incoming.isFlat())
+        throw new Exception("Only flat schemas are supported")
+
+      val patternDiff: ListDiff[String] =
+        if (existing.pattern.toString != incoming.pattern.toString)
+          ListDiff(
+            "pattern",
+            Nil,
+            Nil,
+            List((existing.pattern.toString, incoming.pattern.toString))
+          )
+        else {
+          ListDiff(
+            "pattern",
+            Nil,
+            Nil,
+            Nil
+          )
+        }
+      val attributesDiff =
+        AnyRefDiff.diffListNamed("attributes", existing.attributes, incoming.attributes)
+
+      val metadataDiff: ListDiff[Named] =
+        AnyRefDiff.diffOptionAnyRef("metadata", existing.metadata, incoming.metadata)
+
+      val mergeDiff: ListDiff[Named] =
+        AnyRefDiff.diffOptionAnyRef("merge", existing.merge, incoming.merge)
+
+      val commentDiff: ListDiff[String] =
+        AnyRefDiff.diffOptionString("comment", existing.comment, incoming.comment)
+
+      val presqlDiff: ListDiff[String] =
+        AnyRefDiff.diffSetString("presql", existing.presql.toSet, incoming.presql.toSet)
+
+      val postsqlDiff: ListDiff[String] =
+        AnyRefDiff.diffSetString("postsql", existing.postsql.toSet, incoming.postsql.toSet)
+
+      val tagsDiff: ListDiff[String] =
+        AnyRefDiff.diffSetString("tags", existing.tags, incoming.tags)
+
+      val rlsDiff: ListDiff[Named] = AnyRefDiff.diffListNamed("rls", existing.rls, incoming.rls)
+
+      val assertionsDiff: ListDiff[Named] =
+        AnyRefDiff.diffMap("assertions", existing.assertions, incoming.assertions)
+
+      val primaryKeyDiff: ListDiff[String] =
+        AnyRefDiff.diffSetString("primaryKey", existing.primaryKey.toSet, incoming.primaryKey.toSet)
+
+      val aclDiff: ListDiff[Named] = AnyRefDiff.diffListNamed("acl", existing.acl, incoming.acl)
+
+      val renameDiff: ListDiff[String] =
+        AnyRefDiff.diffOptionString("rename", existing.rename, incoming.rename)
+
+      val sampleDiff: ListDiff[String] =
+        AnyRefDiff.diffOptionString("sample", existing.sample, incoming.sample)
+
+      s"""{ "table": "${existing.name}", """ +
+      """"diff": [""" +
+      List(
+        JsonSerializer.serializeDiffNamed(attributesDiff),
+        JsonSerializer.serializeDiffStrings(patternDiff),
+        JsonSerializer.serializeDiffNamed(metadataDiff),
+        JsonSerializer.serializeDiffNamed(mergeDiff),
+        JsonSerializer.serializeDiffStrings(commentDiff),
+        JsonSerializer.serializeDiffStrings(presqlDiff),
+        JsonSerializer.serializeDiffStrings(postsqlDiff),
+        JsonSerializer.serializeDiffStrings(tagsDiff),
+        JsonSerializer.serializeDiffNamed(rlsDiff),
+        JsonSerializer.serializeDiffNamed(assertionsDiff),
+        JsonSerializer.serializeDiffStrings(primaryKeyDiff),
+        JsonSerializer.serializeDiffNamed(aclDiff),
+        JsonSerializer.serializeDiffStrings(renameDiff),
+        JsonSerializer.serializeDiffStrings(sampleDiff)
+      ).flatten.mkString(",") + "]" +
+      "}"
+    }
+  }
 }
 
 case class Schemas(tables: List[Schema])

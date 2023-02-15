@@ -17,7 +17,7 @@ load:
         - comet_day
     sink:
       type: ES
-  schemas:
+  tables:
     - name: "User"
       pattern: "SCHEMA-.*.dsv"
       attributes:

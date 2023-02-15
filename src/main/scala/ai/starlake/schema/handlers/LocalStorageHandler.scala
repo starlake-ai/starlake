@@ -52,7 +52,7 @@ class LocalStorageHandler(implicit
     * @return
     *   FSDataOutputStream
     */
-  def getOutputStream(path: Path): OutputStream = {
+  private def getOutputStream(path: Path): OutputStream = {
     val file = localFile(path)
     file.delete(true)
     file.newOutputStream()
@@ -147,7 +147,9 @@ class LocalStorageHandler(implicit
           else
             files.sortBy(f => (f.lastModifiedTime, f.name))
 
-        sorted.map(f => new Path(f.pathAsString))
+        sorted.map(f => {
+          new Path(f.pathAsString)
+        })
       } else
         Nil
     } match {

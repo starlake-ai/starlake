@@ -22,7 +22,7 @@ case class ConnectionLoadConfig(
 )
 
 object ConnectionLoadConfig extends CliConfig[ConnectionLoadConfig] {
-  val command = "jdbcload"
+  val command = "cnxload"
   def checkTablePresent(
     jdbcOptions: Settings.Connection,
     jdbcEngine: Settings.JdbcEngine,

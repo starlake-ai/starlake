@@ -17,8 +17,8 @@ class Yml2XlsSpec extends TestHelper {
         cleanMetadata
         cleanDatasets
         val schemaHandler = new SchemaHandler(settings.storageHandler)
-        new Yml2XlsWriter(schemaHandler).generateXls(Nil, "/tmp")
-        val reader = new XlsReader(InputPath("/tmp/position.xlsx"))
+        new Yml2Xls(schemaHandler).generateXls(Nil, "/tmp")
+        val reader = new XlsDomainReader(InputPath("/tmp/position.xlsx"))
         val domain = reader.getDomain()
         assert(domain.isDefined)
         domain.foreach { domain =>
@@ -41,15 +41,15 @@ class Yml2XlsSpec extends TestHelper {
     ) {
       "a complex attribute list(aka JSON/XML)" should "produce the correct XLS file" in {
         val yamlPath =
-          File(getClass.getResource("/sample/SomeComplexDomainTemplate.comet.yml").getPath)
+          File(getClass.getResource("/sample/SomeComplexDomainTemplate.comet.yml"))
         val yamlDomain = YamlSerializer
           .deserializeDomain(yamlPath.contentAsString, yamlPath.pathAsString)
           .getOrElse(throw new Exception(s"Invalid file name $yamlPath"))
         val schemaHandler = new SchemaHandler(settings.storageHandler)
-        new Yml2XlsWriter(schemaHandler).writeDomainXls(yamlDomain, "/tmp")
+        new Yml2Xls(schemaHandler).writeDomainXls(yamlDomain, "/tmp")
         val xlsOut = File("/tmp", yamlDomain.name + ".xlsx")
         val complexReader =
-          new XlsReader(InputPath(xlsOut.pathAsString))
+          new XlsDomainReader(InputPath(xlsOut.pathAsString))
         val xlsTable = complexReader.getDomain().get.tables.head
         val yamlTable = yamlDomain.tables.head
         xlsTable.attributes.length shouldBe yamlTable.attributes.length
@@ -61,11 +61,15 @@ class Yml2XlsSpec extends TestHelper {
 
   "All SchemaGen Config" should "be known and taken  into account" in {
     val rendered = Yml2XlsConfig.usage()
+    println(rendered)
+
     val expected =
       """
         |Usage: starlake yml2xls [options]
         |
         |  --domain <value>  domains to convert to XLS
+        |  --iamPolicyTagsFile <value>
+        |                           IAM PolicyTag file to convert to XLS, COMET_METADATA/iam-policy-tags.yml by default)
         |  --xls <value>     directory where XLS files are generated
         |""".stripMargin
     rendered.substring(rendered.indexOf("Usage:")).replaceAll("\\s", "") shouldEqual expected

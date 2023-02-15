@@ -288,6 +288,7 @@ object Settings extends StrictLogging {
     metrics: Metrics,
     validateOnLoad: Boolean,
     audit: Audit,
+    tableInfo: Audit,
     archive: Boolean,
     sinkToFile: Boolean,
     sinkReplayToFile: Boolean,
@@ -318,7 +319,6 @@ object Settings extends StrictLogging {
     atlas: Atlas,
     privacy: Privacy,
     fileSystem: String,
-    metadataFileSystem: String,
     internal: Option[Internal],
     udfs: Option[String],
     assertions: Assertions,
@@ -337,7 +337,8 @@ object Settings extends StrictLogging {
     forceTablePattern: String,
     forceJobPattern: String,
     forceTaskPattern: String,
-    useLocalFileSystem: Boolean
+    useLocalFileSystem: Boolean,
+    sessionDurationServe: Long
   ) extends Serializable {
 
     val cacheStorageLevel: StorageLevel =
@@ -394,8 +395,8 @@ object Settings extends StrictLogging {
     val settings =
       Settings(loaded, effectiveConfig.getConfig("spark"), effectiveConfig.getConfig("extra"))
     val applicationConfPath = new Path(DatasetArea.metadata(settings), "application.conf")
-    val result: Settings = if (settings.metadataStorageHandler.exists(applicationConfPath)) {
-      val applicationConfContent = settings.metadataStorageHandler.read(applicationConfPath)
+    val result: Settings = if (settings.storageHandler.exists(applicationConfPath)) {
+      val applicationConfContent = settings.storageHandler.read(applicationConfPath)
       val applicationConfig = ConfigFactory.parseString(applicationConfContent)
       val effectiveApplicationConfig = applicationConfig
         .withFallback(effectiveConfig)
@@ -443,7 +444,7 @@ object Settings extends StrictLogging {
     import settings.comet.scheduling._
     if (file.isEmpty) {
       val schedulingPath = new Path(DatasetArea.metadata(settings), "fairscheduler.xml")
-      Some(schedulingPath).filter(settings.metadataStorageHandler.exists)
+      Some(schedulingPath).filter(settings.storageHandler.exists)
     } else
       Some(new Path(file))
   }
@@ -470,16 +471,6 @@ final case class Settings(
 
   @transient
   lazy val storageHandler: StorageHandler = {
-    implicit val self: Settings =
-      this /* TODO: remove this once HdfsStorageHandler explicitly takes Settings or Settings.Comet in */
-    if (SystemUtils.IS_OS_WINDOWS || comet.useLocalFileSystem)
-      new LocalStorageHandler()
-    else
-      new HdfsStorageHandler(comet.fileSystem)
-  }
-
-  @transient
-  lazy val metadataStorageHandler: StorageHandler = {
     implicit val self: Settings =
       this /* TODO: remove this once HdfsStorageHandler explicitly takes Settings or Settings.Comet in */
     if (SystemUtils.IS_OS_WINDOWS || comet.useLocalFileSystem)

@@ -1,0 +1,9 @@
+transform:
+  name: kpi
+  engine: ${engine}
+  tasks:
+    - name: byseller
+      domain: sales_kpi
+      dataset: byseller_kpi
+      write: OVERWRITE
+

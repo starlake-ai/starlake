@@ -3,7 +3,6 @@ package ai.starlake.job.sink.bigquery
 import ai.starlake.config.Settings
 import ai.starlake.utils.conversion.BigQueryUtils.sparkToBq
 import ai.starlake.utils.{JobResult, SparkJob, SparkJobResult, Utils}
-import com.google.cloud.ServiceOptions
 import com.google.cloud.bigquery.{
   BigQuery,
   BigQueryOptions,
@@ -12,13 +11,12 @@ import com.google.cloud.bigquery.{
   Schema => BQSchema,
   StandardTableDefinition,
   Table,
-  TableId,
   TableInfo
 }
 import com.google.cloud.hadoop.io.bigquery.BigQueryConfiguration
 import org.apache.hadoop.conf.Configuration
 import org.apache.spark.sql.functions.{col, date_format}
-import org.apache.spark.sql.{DataFrame, Row, SaveMode, SparkSession}
+import org.apache.spark.sql.{DataFrame, Row, SaveMode}
 import org.apache.spark.storage.StorageLevel
 
 import scala.jdk.CollectionConverters._
@@ -38,8 +36,6 @@ class BigQuerySparkJob(
 
   val conf: Configuration = session.sparkContext.hadoopConfiguration
   logger.info(s"BigQuery Config $cliConfig")
-
-  override val projectId: String = conf.get("fs.gs.project.id")
 
   val bucket: String = conf.get("fs.defaultFS")
 
@@ -71,7 +67,7 @@ class BigQuerySparkJob(
   ): (Table, StandardTableDefinition) = {
     getOrCreateDataset()
 
-    val table = Option(BigQueryJobBase.bigquery().getTable(tableId)) getOrElse {
+    val table = Option(bigquery().getTable(tableId)) getOrElse {
       val withPartitionDefinition =
         (maybeSchema, cliConfig.outputPartition) match {
           case (Some(schema), Some(partitionField)) =>
@@ -115,14 +111,10 @@ class BigQuerySparkJob(
             val clustering = Clustering.newBuilder().setFields(fields.asJava).build()
             withPartitionDefinition.setClustering(clustering)
         }
-      BigQueryJobBase
-        .bigquery()
-        .create(
-          TableInfo.newBuilder(tableId, withClusteringDefinition.build()).build
-        )
+      bigquery().create(TableInfo.newBuilder(tableId, withClusteringDefinition.build()).build)
     }
     setTagsOnTable(table)
-    (table, table.getDefinition.asInstanceOf[StandardTableDefinition])
+    (table, table.getDefinition[StandardTableDefinition])
   }
 
   def runSparkConnector(): Try[SparkJobResult] = {
@@ -145,11 +137,9 @@ class BigQuerySparkJob(
       val (table, tableDefinition) = getOrCreateTable(Some(sourceDF), maybeSchema)
 
       val stdTableDefinition =
-        BigQueryJobBase
-          .bigquery()
+        bigquery()
           .getTable(table.getTableId)
-          .getDefinition
-          .asInstanceOf[StandardTableDefinition]
+          .getDefinition[StandardTableDefinition]
       logger.info(
         s"BigQuery Saving to  ${table.getTableId} containing ${stdTableDefinition.getNumRows} rows"
       )
@@ -274,11 +264,9 @@ class BigQuerySparkJob(
       }
 
       val stdTableDefinitionAfter =
-        BigQueryJobBase
-          .bigquery()
+        bigquery()
           .getTable(table.getTableId)
-          .getDefinition
-          .asInstanceOf[StandardTableDefinition]
+          .getDefinition[StandardTableDefinition]
       logger.info(
         s"BigQuery Saved to ${table.getTableId} now contains ${stdTableDefinitionAfter.getNumRows} rows"
       )
@@ -308,15 +296,11 @@ case class TableMetadata(table: Option[Table], biqueryClient: BigQuery)
 object BigQuerySparkJob {
 
   def getTable(
-    session: SparkSession,
-    datasetName: String,
-    tableName: String
+    resourceId: String
   ): TableMetadata = {
-    val conf = session.sparkContext.hadoopConfiguration
-    val projectId: String =
-      Option(conf.get("fs.gs.project.id")).getOrElse(ServiceOptions.getDefaultProjectId)
-    val bigquery: BigQuery = BigQueryOptions.getDefaultInstance().getService()
-    val tableId = TableId.of(projectId, datasetName, tableName)
-    TableMetadata(Option(bigquery.getTable(tableId)), bigquery)
+    val finalTableId = BigQueryJobBase.extractProjectDatasetAndTable(resourceId)
+    val bigquery = BigQueryOptions.getDefaultInstance().getService()
+    TableMetadata(Option(bigquery.getTable(finalTableId)), bigquery)
   }
+
 }

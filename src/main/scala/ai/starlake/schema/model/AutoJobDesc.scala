@@ -21,7 +21,10 @@
 package ai.starlake.schema.model
 
 import ai.starlake.config.{DatasetArea, Settings, StorageArea}
+import ai.starlake.utils.JsonSerializer
 import org.apache.hadoop.fs.Path
+
+import scala.util.Try
 
 /** Task executed in the context of a job. Each task is executed in its own session.
   *
@@ -30,12 +33,10 @@ import org.apache.hadoop.fs.Path
   *   avoid conflicts)
   * @param domain
   *   Output domain in output Area (Will be the Database name in Hive or Dataset in BigQuery)
-  * @param dataset
+  * @param table
   *   Dataset Name in output Area (Will be the Table name in Hive & BigQuery)
   * @param write
   *   Append to or overwrite existing data
-  * @param area
-  *   Target Area where domain / dataset will be stored.
   * @param partition
   *   List of columns used for partitioning the outtput.
   * @param presql
@@ -48,7 +49,7 @@ import org.apache.hadoop.fs.Path
   *   Row level security policy to apply too the output data.
   */
 case class AutoTaskDesc(
-  name: Option[String],
+  name: String,
   sql: Option[String],
   domain: String,
   table: String,
@@ -60,11 +61,17 @@ case class AutoTaskDesc(
   rls: List[RowLevelSecurity] = Nil,
   assertions: Map[String, String] = Map.empty,
   engine: Option[Engine] = None,
-  acl: List[AccessControlEntry] = Nil
-) {
+  acl: List[AccessControlEntry] = Nil,
+  comment: Option[String] = None,
+  format: Option[String] = None,
+  coalesce: Option[Boolean] = None
+) extends Named {
+
+  // TODO
+  def checkValidity() = true
 
   def this() = this(
-    None,
+    "",
     None,
     "",
     "",
@@ -74,8 +81,6 @@ case class AutoTaskDesc(
   def getSql(): String = sql.getOrElse("")
 
   /** Return a Path only if a storage area s defined
-    * @param defaultArea
-    * @param settings
     * @return
     */
   def getTargetPath()(implicit settings: Settings): Path = {
@@ -88,16 +93,18 @@ case class AutoTaskDesc(
 
 }
 
+object AutoTaskDesc {
+  def compare(existing: AutoTaskDesc, incoming: AutoTaskDesc): ListDiff[Named] = {
+    AnyRefDiff.diffAnyRef(existing.name, existing, incoming)
+  }
+}
+
 /** A job is a set of transform tasks executed using the specified engine.
   *
   * @param name:
   *   Job logical name
   * @param tasks
   *   List of transform tasks to execute
-  * @param area
-  *   Area where the data is located. When using the BigQuery engine, teh area corresponds to the
-  *   dataset name we will be working on in this job. When using the Spark engine, this is folder
-  *   where the data should be store. Default value is "business"
   * @param format
   *   output file format when using Spark engine. Ingored for BigQuery. Default value is "parquet"
   * @param coalesce
@@ -115,12 +122,17 @@ case class AutoTaskDesc(
 case class AutoJobDesc(
   name: String,
   tasks: List[AutoTaskDesc],
+  taskRefs: List[String] = Nil,
+  comment: Option[String] = None,
   format: Option[String],
   coalesce: Option[Boolean],
   udf: Option[String] = None,
   views: Option[Map[String, String]] = None,
-  engine: Option[Engine] = None
-) {
+  engine: Option[Engine] = None,
+  schedule: Map[String, String] = Map.empty
+) extends Named {
+  // TODO
+  def checkValidity() = true
 
   def getEngine(): Engine = engine.getOrElse(Engine.SPARK)
 
@@ -130,5 +142,73 @@ case class AutoJobDesc(
 
   def rlsTasks(): List[AutoTaskDesc] = tasks.filter { task =>
     task.rls.nonEmpty
+  }
+}
+
+object AutoJobDesc {
+  private def diffTasks(
+    existing: List[AutoTaskDesc],
+    incoming: List[AutoTaskDesc]
+  ): (List[AutoTaskDesc], List[AutoTaskDesc], List[AutoTaskDesc]) = {
+    val (commonTasks, deletedTasks) =
+      existing
+        .filter(_.name.nonEmpty)
+        .partition(task => incoming.map(_.name.toLowerCase).contains(task.name.toLowerCase))
+    val addedTasks =
+      incoming.filter(task =>
+        task.name.nonEmpty && !existing.map(_.name.toLowerCase).contains(task.name.toLowerCase)
+      )
+    (addedTasks, deletedTasks, commonTasks)
+  }
+
+  def compare(existing: AutoJobDesc, incoming: AutoJobDesc): Try[String] = {
+    Try {
+      val (addedTasks, deletedTasks, existingCommonTasks) =
+        diffTasks(existing.tasks, incoming.tasks)
+
+      val commonTasks: List[(AutoTaskDesc, AutoTaskDesc)] = existingCommonTasks.map { task =>
+        (
+          task,
+          incoming.tasks
+            .find(_.name.toLowerCase() == task.name.toLowerCase())
+            .getOrElse(throw new Exception("Should not happen"))
+        )
+      }
+
+      val updatedTasksDiff = commonTasks.map { case (existing, incoming) =>
+        AutoTaskDesc.compare(existing, incoming)
+      }
+      val updatedTasksDiffAsJson = updatedTasksDiff.map(JsonSerializer.serializeDiffNamed(_))
+
+      val taskRefsDiff =
+        AnyRefDiff.diffSetString("taskRefs", existing.taskRefs.toSet, incoming.taskRefs.toSet)
+      val formatDiff = AnyRefDiff.diffOptionString("format", existing.format, incoming.format)
+      val coalesceDiff = AnyRefDiff.diffOptionString(
+        "coalesce",
+        existing.coalesce.map(_.toString),
+        incoming.coalesce.map(_.toString)
+      )
+      val udfDiff = AnyRefDiff.diffOptionString("udf", existing.udf, incoming.udf)
+      val viewsDiff = AnyRefDiff.diffMap(
+        "views",
+        existing.views.getOrElse(Map.empty),
+        incoming.views.getOrElse(Map.empty)
+      )
+      val engineDiff = AnyRefDiff.diffOptionAnyRef("engine", existing.engine, incoming.engine)
+      val scheduleDiff = AnyRefDiff.diffMap("schedule", existing.schedule, incoming.schedule)
+
+      s"""{ "job": "${existing.name}", """ +
+      """"diff": [""" + (List(
+        JsonSerializer.serializeDiffStrings(taskRefsDiff),
+        JsonSerializer.serializeDiffStrings(formatDiff),
+        JsonSerializer.serializeDiffStrings(coalesceDiff),
+        JsonSerializer.serializeDiffStrings(udfDiff),
+        JsonSerializer.serializeDiffNamed(viewsDiff),
+        JsonSerializer.serializeDiffNamed(engineDiff),
+        JsonSerializer.serializeDiffNamed(scheduleDiff)
+      ).flatten.mkString("", ",", ",") ++
+      updatedTasksDiffAsJson.mkString(",")) + "]" +
+      "}"
+    }
   }
 }

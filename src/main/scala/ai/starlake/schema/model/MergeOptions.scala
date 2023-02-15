@@ -118,4 +118,7 @@ case class MergeOptions(
         .substring(lastEnd)
     }
   }
+
+  def compare(other: MergeOptions): ListDiff[Named] =
+    AnyRefDiff.diffAnyRef("", this, other)
 }
