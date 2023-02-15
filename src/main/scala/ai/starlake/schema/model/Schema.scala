@@ -33,15 +33,19 @@ import org.apache.spark.sql.types.{
   ByteType,
   DateType,
   DecimalType,
-  DoubleType,
+  DoubleType
+}
+
+import org.apache.spark.sql.types.{
   IntegerType,
   LongType,
   ShortType,
   StringType,
   StructField,
-  StructType,
-  TimestampType
+  StructType
 }
+
+import org.apache.spark.sql.types.TimestampType
 
 import java.util.regex.Pattern
 import scala.collection.mutable
