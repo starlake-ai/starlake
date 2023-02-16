@@ -19,6 +19,7 @@ class SinkUtils()(implicit settings: Settings) extends StrictLogging with Datase
     sinkType: Sink,
     dataframe: DataFrame,
     table: String,
+    maybeTableDescription: Option[String],
     /* arguments below used for filesink only */
     savePath: Path,
     lockPath: Path,
@@ -65,7 +66,14 @@ class SinkUtils()(implicit settings: Settings) extends StrictLogging with Datase
 
       case sink: BigQuerySink =>
         Try {
-          sinkToBigQuery(authInfo, dataframe, sink.name.getOrElse(table), table, sink.getOptions)
+          sinkToBigQuery(
+            authInfo,
+            dataframe,
+            sink.name.getOrElse(table),
+            table,
+            maybeTableDescription,
+            sink.getOptions
+          )
         }
 
       case sink: JdbcSink =>
@@ -90,6 +98,7 @@ class SinkUtils()(implicit settings: Settings) extends StrictLogging with Datase
     dataframe: DataFrame,
     bqDataset: String,
     bqTable: String,
+    maybeTableDescription: Option[String],
     options: Map[String, String]
   ): Unit = {
     if (dataframe.count() > 0) {
@@ -112,7 +121,10 @@ class SinkUtils()(implicit settings: Settings) extends StrictLogging with Datase
       // But since we are having a record of repeated field BQ does not like
       // the way we pass the schema. BQ needs an extra "list" subfield for repeated fields
       // So let him determine teh schema by himself or risk tonot to be able to append the metrics
-      val res = new BigQuerySparkJob(config).run()
+      val res = new BigQuerySparkJob(
+        config,
+        maybeTableDescription = maybeTableDescription
+      ).run()
       Utils.logFailure(res, logger)
     }
   }
