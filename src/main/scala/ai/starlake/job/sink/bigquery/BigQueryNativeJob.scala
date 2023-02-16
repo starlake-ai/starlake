@@ -10,7 +10,7 @@ import com.typesafe.scalalogging.StrictLogging
 
 import java.util.UUID
 import scala.collection.JavaConverters._
-import scala.util.{Failure, Success, Try}
+import scala.util.Try
 
 class BigQueryNativeJob(
   override val cliConfig: BigQueryLoadConfig,
@@ -190,28 +190,8 @@ class BigQueryNativeJob(
     }
   }
 
-  def createTable(datasetName: String, tableName: String, schema: Schema): Unit = {
-    Try {
-      val tableId = BigQueryJobBase.extractProjectDatasetAndTable(datasetName, tableName)
-      val table = scala.Option(bigquery().getTable(tableId))
-      table match {
-        case Some(tbl) if tbl.exists() =>
-        case _ =>
-          val tableDefinition = StandardTableDefinition.of(schema)
-          val tableInfo = TableInfo.newBuilder(tableId, tableDefinition).build
-          bigquery().create(tableInfo)
-          logger.info(s"Table $datasetName.$tableName created successfully")
-      }
-    } match {
-      case Success(_) =>
-      case Failure(e) =>
-        logger.info(s"Table $datasetName.$tableName was not created.")
-        Utils.logException(logger, e)
-    }
-  }
-
   @deprecated("Views are now created using the syntax WTH ... AS ...", "0.1.25")
-  def createViews(views: Map[String, String], udf: scala.Option[String]) = {
+  def createViews(views: Map[String, String], udf: scala.Option[String]): Unit = {
     views.foreach { case (key, value) =>
       val viewQuery: ViewDefinition.Builder =
         ViewDefinition.newBuilder(value).setUseLegacySql(false)
