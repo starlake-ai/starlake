@@ -1,8 +1,9 @@
 package ai.starlake.schema.generator
 
-import ai.starlake.config.Settings
+import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.{Domain, Schema}
+import ai.starlake.utils.YamlSerializer
 import ai.starlake.utils.repackaged.BigQuerySchemaConverters
 import com.google.cloud.bigquery.BigQuery.{DatasetListOption, TableListOption}
 import com.google.cloud.bigquery.{Dataset, StandardTableDefinition, Table}
@@ -89,10 +90,18 @@ object BigQuery2Yml {
       external.project -> extractor.extractDatasets()
     }.toMap
   }
-  def run(args: Array[String]) = {
+  def run(args: Array[String])(implicit settings: Settings): Unit = {
     implicit val settings: Settings = Settings(ConfigFactory.load())
     val config =
-      BigQueryTablesConfig.parse(args).getOrElse(throw new Exception("Could not parse arguments"))
-    new BigQuery2Yml(config).extractDatasets()
+      BigQueryTablesConfig
+        .parse(args.toSeq)
+        .getOrElse(throw new Exception("Could not parse arguments"))
+    val domains = new BigQuery2Yml(config).extractDatasets()
+    domains.foreach { domain =>
+      val domainYaml = YamlSerializer.serialize(domain)
+      if (settings.storageHandler.exists(DatasetArea.external))
+        settings.storageHandler.delete(DatasetArea.external)
+      settings.storageHandler.write(domainYaml, DatasetArea.external)
+    }
   }
 }

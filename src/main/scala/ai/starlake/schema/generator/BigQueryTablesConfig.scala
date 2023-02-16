@@ -14,7 +14,7 @@ case class BigQueryTablesConfig(
 ) extends GcpConnectionConfig
 
 object BigQueryTablesConfig extends CliConfig[BigQueryTablesConfig] {
-  val command = "bq2yml"
+  val command = "bq2yml or b2-log"
 
   val parser: OParser[Unit, BigQueryTablesConfig] = {
     val builder = OParser.builder[BigQueryTablesConfig]
