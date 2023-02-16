@@ -337,8 +337,11 @@ class Main() extends StrictLogging {
       case "bqinfo" =>
         BigQueryTableLog.run(args.drop(1))
         true
-      case "bq2yml" =>
+      case "bq-log" =>
         BigQueryTableLog.run(args.drop(1))
+        true
+      case "bq2yml" =>
+        BigQuery2Yml.run(args.drop(1))
         true
       case "serve" =>
         MainServerConfig.parse(args.drop(1)) match {
