@@ -18,14 +18,16 @@ class DummyIngestionJob(
   val options: Map[String, String]
 )(implicit val settings: Settings)
     extends IngestionJob {
-  override protected def loadDataSet(): Try[DataFrame] = ???
+  override protected def loadDataSet(): Try[DataFrame] = throw new Exception(
+    "Should never get called. Used for applying security only"
+  )
 
   /** ingestion algorithm
     *
     * @param dataset
     */
   override protected def ingest(dataset: DataFrame): (Dataset[String], Dataset[Row]) =
-    throw new Exception("Should never be called. User for applying security only")
+    throw new Exception("Should never be called. Used for applying security only")
 
   override def name: String = s"""${domain.name}-${schema.name}"""
 }

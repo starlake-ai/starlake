@@ -31,4 +31,6 @@ case class Version(var version: String) extends Comparable[Version] {
     else
       this.compareTo(that.asInstanceOf[Version]) == 0
   }
+
+  override def hashCode(): Int = version.hashCode()
 }
