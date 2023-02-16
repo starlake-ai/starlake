@@ -34,15 +34,15 @@ jobs:
         run: gcloud info
       - name: Run tests & Coverage Report On Push
         if: ${{ github.event_name != 'pull_request' }}
-        run: COMET_ACCESS_POLICIES_PROJECT_ID=${{ secrets.GCP_PROJECT }} TEMPORARY_GCS_BUCKET=${{ secrets.TEMPORARY_GCS_BUCKET }} COMET_GCP_TEST=true RELEASE_SONATYPE=false GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ secrets.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ secrets.SONATYPE_PASSWORD }} sbt ++2.12.15! coverage test coverageReport
+        run: COMET_ACCESS_POLICIES_PROJECT_ID=${{ secrets.GCP_PROJECT }} TEMPORARY_GCS_BUCKET=${{ secrets.TEMPORARY_GCS_BUCKET }} COMET_GCP_TEST=true RELEASE_SONATYPE=false GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ secrets.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ secrets.SONATYPE_PASSWORD }} sbt ++2.13.10! coverage test coverageReport
       - name: Run tests  on PR
         if: ${{ github.event_name == 'pull_request' }}
-        run: COMET_ACCESS_POLICIES_PROJECT_ID=${{ secrets.GCP_PROJECT }} TEMPORARY_GCS_BUCKET=${{ secrets.TEMPORARY_GCS_BUCKET }} COMET_GCP_TEST=false RELEASE_SONATYPE=false GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ secrets.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ secrets.SONATYPE_PASSWORD }} sbt ++2.12.17 test
+        run: COMET_ACCESS_POLICIES_PROJECT_ID=${{ secrets.GCP_PROJECT }} TEMPORARY_GCS_BUCKET=${{ secrets.TEMPORARY_GCS_BUCKET }} COMET_GCP_TEST=false RELEASE_SONATYPE=false GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} SONATYPE_USERNAME=${{ secrets.SONATYPE_USERNAME }} SONATYPE_PASSWORD=${{ secrets.SONATYPE_PASSWORD }} sbt ++2.13.10 test
       - name: Upload coverage to Codecov
         if: ${{ github.event_name != 'pull_request' }}
         uses: codecov/codecov-action@v1
         with:
-          file: target/scala-2.12/scoverage-report/scoverage.xml
+          file: target/scala-2.13/scoverage-report/scoverage.xml
           flags: unittests
           fail_ci_if_error: true
           verbose: true

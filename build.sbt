@@ -10,11 +10,9 @@ javacOptions ++= Seq("-source", "1.8", "-target", "1.8", "-Xlint")
 
 ThisBuild / sonatypeCredentialHost := "s01.oss.sonatype.org"
 
-lazy val scala212 = "2.12.17"
-
 lazy val scala213 = "2.13.10"
 
-ThisBuild / crossScalaVersions := List(scala212)
+ThisBuild / crossScalaVersions := List(scala213)
 
 organization := "ai.starlake"
 
