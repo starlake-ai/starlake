@@ -1,30 +1,28 @@
 package ai.starlake.job.sink.bigquery
 
 import ai.starlake.config.Settings
-import ai.starlake.utils.conversion.BigQueryUtils.sparkToBq
+import ai.starlake.schema.model.TableInfo
 import ai.starlake.utils.{JobResult, SparkJob, SparkJobResult, Utils}
 import com.google.cloud.bigquery.{
   BigQuery,
   BigQueryOptions,
-  Clustering,
   JobInfo,
   Schema => BQSchema,
   StandardTableDefinition,
-  Table,
-  TableInfo
+  Table
 }
 import com.google.cloud.hadoop.io.bigquery.BigQueryConfiguration
 import org.apache.hadoop.conf.Configuration
 import org.apache.spark.sql.functions.{col, date_format}
-import org.apache.spark.sql.{DataFrame, Row, SaveMode}
+import org.apache.spark.sql.{Row, SaveMode}
 import org.apache.spark.storage.StorageLevel
 
-import scala.collection.JavaConverters._
 import scala.util.Try
 
 class BigQuerySparkJob(
   override val cliConfig: BigQueryLoadConfig,
-  maybeSchema: Option[BQSchema] = None
+  maybeSchema: Option[BQSchema] = None,
+  maybeTableDescription: Option[String] = None
 )(implicit val settings: Settings)
     extends SparkJob
     with BigQueryJobBase {
@@ -61,81 +59,25 @@ class BigQuerySparkJob(
     conf
   }
 
-  def getOrCreateTable(
-    dataFrame: Option[DataFrame],
-    maybeSchema: Option[BQSchema]
-  ): (Table, StandardTableDefinition) = {
-    getOrCreateDataset()
-
-    val table = Option(bigquery().getTable(tableId)) getOrElse {
-      val withPartitionDefinition =
-        (maybeSchema, cliConfig.outputPartition) match {
-          case (Some(schema), Some(partitionField)) =>
-            // Generating schema from YML to get the descriptions in BQ
-            val partitioning =
-              timePartitioning(partitionField, cliConfig.days, cliConfig.requirePartitionFilter)
-                .build()
-            StandardTableDefinition
-              .newBuilder()
-              .setSchema(schema)
-              .setTimePartitioning(partitioning)
-          case (Some(schema), None) =>
-            // Generating schema from YML to get the descriptions in BQ
-            StandardTableDefinition
-              .newBuilder()
-              .setSchema(schema)
-          case (None, Some(partitionField)) =>
-            // We would have loved to let BQ do the whole job (StandardTableDefinition.newBuilder())
-            // But however seems like it does not work when there is an output partition
-            val partitioning =
-              timePartitioning(partitionField, cliConfig.days, cliConfig.requirePartitionFilter)
-                .build()
-            val tableDefinition =
-              StandardTableDefinition
-                .newBuilder()
-                .setTimePartitioning(partitioning)
-            dataFrame
-              .map(dataFrame => tableDefinition.setSchema(sparkToBq(dataFrame)))
-              .getOrElse(tableDefinition)
-          case (None, None) =>
-            // In case of complex types, our inferred schema does not work, BQ introduces a list subfield, let him do the dirty job
-            StandardTableDefinition
-              .newBuilder()
-        }
-
-      val withClusteringDefinition =
-        cliConfig.outputClustering match {
-          case Nil =>
-            withPartitionDefinition
-          case fields =>
-            val clustering = Clustering.newBuilder().setFields(fields.asJava).build()
-            withPartitionDefinition.setClustering(clustering)
-        }
-      bigquery().create(TableInfo.newBuilder(tableId, withClusteringDefinition.build()).build)
-    }
-    setTagsOnTable(table)
-    (table, table.getDefinition[StandardTableDefinition])
-  }
-
   def runSparkConnector(): Try[SparkJobResult] = {
     prepareConf()
     Try {
       val cacheStorageLevel =
         settings.comet.internal.map(_.cacheStorageLevel).getOrElse(StorageLevel.MEMORY_AND_DISK)
-      val sourceDF =
-        cliConfig.source match {
-          case Left(path) =>
-            session.read
-              .format(settings.comet.defaultFormat)
-              .load(path)
-              .persist(
-                cacheStorageLevel
-              )
-          case Right(df) => df.persist(cacheStorageLevel)
-        }
-
-      val (table, tableDefinition) = getOrCreateTable(Some(sourceDF), maybeSchema)
-
+      cliConfig.source match {
+        case Left(path) =>
+          session.read
+            .format(settings.comet.defaultFormat)
+            .load(path)
+            .persist(
+              cacheStorageLevel
+            )
+        case Right(df) => df.persist(cacheStorageLevel)
+      }
+    }.flatMap(sourceDF =>
+      getOrCreateTable(TableInfo(tableId, maybeTableDescription, maybeSchema), Some(sourceDF))
+        .map { case (table, _) => sourceDF -> table }
+    ).map { case (sourceDF, table) =>
       val stdTableDefinition =
         bigquery()
           .getTable(table.getTableId)
@@ -152,7 +94,7 @@ class BigQuerySparkJob(
       (cliConfig.writeDisposition, cliConfig.outputPartition, partitionOverwriteMode) match {
         case ("WRITE_TRUNCATE", Some(partitionField), "dynamic") =>
           // Partitioned table
-          logger.info(s"overwriting partition ${partitionField} in The BQ Table $bqTable")
+          logger.info(s"overwriting partition $partitionField in The BQ Table $bqTable")
           // BigQuery supports only this date format 'yyyyMMdd', so we have to use it
           // in order to overwrite only one partition
           val dateFormat = "yyyyMMdd"
@@ -231,8 +173,8 @@ class BigQuerySparkJob(
         case (writeDisposition, _, partitionOverwriteMode) =>
           assert(
             partitionOverwriteMode == "static" || partitionOverwriteMode == "dynamic",
-            s"""Only dynamic or static are values values for property 
-               |partitionOverwriteMode. $partitionOverwriteMode found""".stripMargin
+            s"""Only dynamic or static are values values for property
+                   |partitionOverwriteMode. $partitionOverwriteMode found""".stripMargin
           )
 
           val (saveMode, withFieldRelaxationOptions) = writeDisposition match {
