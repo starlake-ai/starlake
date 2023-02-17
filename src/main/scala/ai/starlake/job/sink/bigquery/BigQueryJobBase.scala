@@ -1,6 +1,7 @@
 package ai.starlake.job.sink.bigquery
 
 import ai.starlake.config.Settings
+import ai.starlake.schema.model
 import ai.starlake.schema.model.{
   AccessControlEntry,
   IamPolicyTag,
@@ -9,7 +10,8 @@ import ai.starlake.schema.model.{
   UserType
 }
 import ai.starlake.utils.Utils
-import com.google.cloud.bigquery.{Schema => BQSchema, _}
+import ai.starlake.utils.conversion.BigQueryUtils.sparkToBq
+import com.google.cloud.bigquery.{Schema => BQSchema, TableInfo => BQTableInfo, _}
 import com.google.cloud.datacatalog.v1.{
   ListPolicyTagsRequest,
   ListTaxonomiesRequest,
@@ -20,6 +22,7 @@ import com.google.cloud.{Identity, Policy, Role, ServiceOptions}
 import com.google.iam.v1.{Binding, Policy => IAMPolicy, SetIamPolicyRequest}
 import com.google.protobuf.FieldMask
 import com.typesafe.scalalogging.StrictLogging
+import org.apache.spark.sql.DataFrame
 
 import java.util
 import scala.collection.JavaConverters._
@@ -33,7 +36,7 @@ trait BigQueryJobBase extends StrictLogging {
     cliConfig.gcpProjectId.getOrElse(ServiceOptions.getDefaultProjectId())
 
   // Lazy otherwise tests fail since there is no GCP credentials in test mode
-  lazy val policyTagClient = PolicyTagManagerClient.create()
+  lazy val policyTagClient: PolicyTagManagerClient = PolicyTagManagerClient.create()
 
   def applyRLSAndCLS(forceApply: Boolean = false)(implicit settings: Settings): Try[Unit] = {
     for {
@@ -73,7 +76,7 @@ trait BigQueryJobBase extends StrictLogging {
                 job.getStatus.getExecutionErrors.asScala.reverse.mkString(",")
               )
             case Success(job) =>
-              logger.info(s"Job with id ${job} on Statement $rlsStatement succeeded")
+              logger.info(s"Job with id $job on Statement $rlsStatement succeeded")
           }
         }
       }
@@ -105,7 +108,7 @@ trait BigQueryJobBase extends StrictLogging {
             .setPolicy(iamPolicy)
             .setUpdateMask(FieldMask.newBuilder().addPaths("bindings").build())
             .build()
-        val createdPolicy = policyTagClient.setIamPolicy(request);
+        val createdPolicy = policyTagClient.setIamPolicy(request)
         logger.info(createdPolicy.toString)
       }
     }
@@ -272,7 +275,7 @@ trait BigQueryJobBase extends StrictLogging {
       rlsCreateStatement
     }
 
-    val rlsDeleteStatement = cliConfig.rls.map(_ => revokeAllPrivileges()).toList
+    val rlsDeleteStatement = cliConfig.rls.map(_ => revokeAllPrivileges())
 
     rlsDeleteStatement ++ rlsCreateStatements
   }
@@ -298,11 +301,61 @@ trait BigQueryJobBase extends StrictLogging {
     dataset
   }
 
+  def getOrCreateTable(
+    tableInfo: model.TableInfo,
+    dataFrame: scala.Option[DataFrame]
+  )(implicit settings: Settings): Try[(Table, StandardTableDefinition)] = {
+    val tryResult = Try {
+      getOrCreateDataset()
+
+      val tableDefinition = getTableDefinition(tableInfo, dataFrame)
+      val table = scala
+        .Option(bigquery().getTable(tableId))
+        .map(t => {
+          val out =
+            updateTableDescriptions(t, tableInfo.maybeTableDescription, Some(tableDefinition))
+          logger.info(s"Table ${tableId.getDataset}.${tableId.getTable} updated successfully")
+          out
+        }) getOrElse {
+        val bqTableInfo = BQTableInfo
+          .newBuilder(tableId, tableDefinition)
+          .setDescription(tableInfo.maybeTableDescription.orNull)
+          .build
+        val result = bigquery().create(
+          bqTableInfo
+        )
+        logger.info(s"Table ${tableId.getDataset}.${tableId.getTable} created successfully")
+        result
+      }
+      setTagsOnTable(table)
+      (table, table.getDefinition[StandardTableDefinition])
+    }
+    tryResult match {
+      case Failure(exception) =>
+        logger.info(s"Table ${tableId.getDataset}.${tableId.getTable} was not created.")
+        Utils.logException(logger, exception)
+        tryResult
+      case Success(_) => tryResult
+    }
+  }
+
   protected def setTagsOnTable(table: Table): Unit = {
     cliConfig.starlakeSchema.foreach { schema =>
       val tableTagPairs = Utils.extractTags(schema.tags)
       table.toBuilder.setLabels(tableTagPairs.toMap.asJava).build().update()
     }
+  }
+
+  protected def updateTableDescriptions(
+    table: Table,
+    maybeTableDescription: scala.Option[String],
+    maybeTableDefinition: scala.Option[TableDefinition]
+  ): Table = {
+    table.toBuilder
+      .setDescription(maybeTableDescription.orNull)
+      .setDefinition(maybeTableDefinition.orNull)
+      .build()
+      .update()
   }
 
   protected def setTagsOnDataset(dataset: Dataset): Unit = {
@@ -315,7 +368,7 @@ trait BigQueryJobBase extends StrictLogging {
     * each call, we compare if the existing policy is equal to the defined one (in the Yaml file) If
     * it's the case, we do nothing, otherwise we update the Table policy
     * @param tableId
-    * @param rls
+    * @param acl
     * @return
     */
   def applyACL(
@@ -350,6 +403,44 @@ trait BigQueryJobBase extends StrictLogging {
     }
   }
 
+  private def getTableDefinition(
+    tableInfo: model.TableInfo,
+    dataFrame: scala.Option[DataFrame]
+  ): TableDefinition = {
+    val maybeTimePartitioning = tableInfo.maybePartition.map(partitionInfo =>
+      timePartitioning(
+        partitionInfo.field,
+        partitionInfo.expirationDays,
+        partitionInfo.requirePartitionFilter
+      ).build()
+    )
+    val withPartitionDefinition = tableInfo.maybeSchema match {
+      case Some(schema) =>
+        StandardTableDefinition
+          .newBuilder()
+          .setSchema(schema)
+          .setTimePartitioning(maybeTimePartitioning.orNull)
+      case None =>
+        // We would have loved to let BQ do the whole job (StandardTableDefinition.newBuilder())
+        // But however seems like it does not work when there is an output partition
+        val tableDefinition =
+          StandardTableDefinition
+            .newBuilder()
+            .setTimePartitioning(maybeTimePartitioning.orNull)
+        dataFrame
+          .map(dataFrame => tableDefinition.setSchema(sparkToBq(dataFrame)))
+          .getOrElse(tableDefinition)
+    }
+    val withClusteringDefinition = tableInfo.maybeCluster match {
+      case Some(clusterConfig) =>
+        val clustering = Clustering.newBuilder().setFields(clusterConfig.fields.asJava).build()
+        withPartitionDefinition.setClustering(clustering)
+        withPartitionDefinition
+      case None => withPartitionDefinition
+    }
+    withClusteringDefinition.build()
+  }
+
   def timePartitioning(
     partitionField: String,
     days: scala.Option[Int] = None,
@@ -369,7 +460,6 @@ trait BigQueryJobBase extends StrictLogging {
           .setRequirePartitionFilter(requirePartitionFilter)
     }
   }
-
 }
 
 object BigQueryJobBase {
@@ -383,21 +473,24 @@ object BigQueryJobBase {
     *   <datasetId>.<tableId>
     * @return
     */
-  def extractProjectDatasetAndTable(value: String): TableId = {
+  def extractProjectDatasetAndTable(resourceId: String): TableId = {
     def extractDatasetAndTable(str: String): (String, String) = {
       val sepIndex = str.indexOf('.')
       if (sepIndex > 0)
         (str.substring(0, sepIndex), str.substring(sepIndex + 1))
       else
-        throw new Exception(s"Dataset cannot be null in BigQuery view name ($value)")
+        throw new Exception(s"Dataset cannot be null in BigQuery view name ($resourceId)")
     }
 
-    val sepIndex = value.indexOf(":")
+    val sepIndex = resourceId.indexOf(":")
     val (project, (dataset, table)) =
       if (sepIndex > 0)
-        (Some(value.substring(0, sepIndex)), extractDatasetAndTable(value.substring(sepIndex + 1)))
+        (
+          Some(resourceId.substring(0, sepIndex)),
+          extractDatasetAndTable(resourceId.substring(sepIndex + 1))
+        )
       else // parquet is the default
-        (None, extractDatasetAndTable(value))
+        (None, extractDatasetAndTable(resourceId))
 
     project
       .map(project => TableId.of(project, dataset, table))
@@ -416,5 +509,4 @@ object BigQueryJobBase {
       .map(project => DatasetId.of(project, dataset))
       .getOrElse(DatasetId.of(dataset))
   }
-
 }
