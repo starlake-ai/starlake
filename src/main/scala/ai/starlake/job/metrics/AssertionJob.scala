@@ -140,6 +140,7 @@ class AssertionJob(
         settings.comet.assertions.sink,
         assertionsDF,
         settings.comet.assertions.sink.name.getOrElse("assertions"),
+        Some("Assertion results"),
         DatasetArea.assertions(domainName, schemaName),
         lockPath(settings.comet.assertions.path),
         storageHandler,
