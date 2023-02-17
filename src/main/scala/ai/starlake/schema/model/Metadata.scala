@@ -95,7 +95,8 @@ case class Metadata(
   ack: Option[String] = None,
   options: Option[Map[String, String]] = None,
   validator: Option[String] = None,
-  schedule: Option[Map[String, String]] = None
+  schedule: Option[Map[String, String]] = None,
+  updateDescriptions: Option[Boolean] = None
 ) {
   def this() = this(None) // Should never be called. Here for Jackson deserialization only
 
@@ -120,6 +121,7 @@ case class Metadata(
        |options:${options}
        |validator:${validator}
        |schedule:${schedule}
+       |updateDescriptions:${updateDescriptions}
        |""".stripMargin
 
   def getMode(): Mode = mode.getOrElse(FILE)
@@ -160,6 +162,10 @@ case class Metadata(
   def getXsdPath(): Option[String] = {
     val xmlOptions = getXmlOptions()
     xmlOptions.get("rowValidationXSDPath").orElse(xmlOptions.get("xsdPath"))
+  }
+
+  def getUpdateDescriptions(): Boolean = {
+    updateDescriptions.getOrElse(false)
   }
 
   /** Merge a single attribute

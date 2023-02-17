@@ -28,7 +28,7 @@ import ai.starlake.job.sink.bigquery.{BigQueryLoadConfig, BigQueryNativeJob}
 import ai.starlake.job.sink.jdbc.{ConnectionLoadConfig, ConnectionLoadJob}
 import ai.starlake.schema.model._
 import ai.starlake.utils.{FileLock, Utils}
-import com.google.cloud.bigquery.{Field, Schema => BQSchema, StandardSQLTypeName}
+import com.google.cloud.bigquery.{Field, Schema => BQSchema, StandardSQLTypeName, TableId}
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
 import org.apache.spark.rdd.RDD
@@ -240,7 +240,12 @@ object AuditLog extends StrictLogging {
           log.asBqInsert(bqConfig.outputDataset + "." + bqConfig.outputTable),
           None
         )
-        bqJob.createTable(auditDataset, "audit", bqSchema())
+        val tableInfo = TableInfo(
+          TableId.of(auditDataset, "audit"),
+          Some("Information related to starlake executions"),
+          Some(bqSchema())
+        )
+        bqJob.getOrCreateTable(tableInfo, None)
         val res = bqJob.runBatchQuery()
         Utils.logFailure(res, logger)
       case _: EsSink =>

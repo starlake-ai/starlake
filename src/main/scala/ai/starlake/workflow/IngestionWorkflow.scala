@@ -53,7 +53,7 @@ import java.util.Collections
 import scala.annotation.nowarn
 import scala.collection.GenSeq
 import scala.collection.parallel.ForkJoinTaskSupport
-import scala.concurrent.forkjoin.ForkJoinPool
+import java.util.concurrent.ForkJoinPool
 import scala.util.{Failure, Success, Try}
 
 /** The whole worklfow works as follow :
@@ -703,7 +703,7 @@ class IngestionWorkflow(
                 val sinkOption = action.taskDesc.sink
                 logger.info(s"Spark Job succeeded. sinking data to $sinkOption")
                 sinkOption match {
-                  case Some(sink) => {
+                  case Some(sink) =>
                     sink match {
                       case _: EsSink if settings.comet.elasticsearch.active =>
                         saveToES(action)
@@ -736,7 +736,8 @@ class IngestionWorkflow(
                             options = bqSink.getOptions,
                             acl = action.taskDesc.acl
                           )
-                        val result = new BigQuerySparkJob(bqLoadConfig, None).run()
+                        val result =
+                          new BigQuerySparkJob(bqLoadConfig, None, action.taskDesc.comment).run()
                         result.isSuccess
 
                       case jdbcSink: JdbcSink =>
@@ -772,7 +773,6 @@ class IngestionWorkflow(
                         logger.warn(s"No supported Sink is activated for this job $sink")
                         true
                     }
-                  }
                   case None =>
                     logger.warn("Sink is not activated for this job")
                     true
@@ -821,9 +821,10 @@ class IngestionWorkflow(
 
   def bqload(
     config: BigQueryLoadConfig,
-    maybeSchema: Option[BQSchema] = None
+    maybeSchema: Option[BQSchema] = None,
+    maybeTableDescription: Option[String] = None
   ): Try[JobResult] = {
-    val res = new BigQuerySparkJob(config, maybeSchema).run()
+    val res = new BigQuerySparkJob(config, maybeSchema, maybeTableDescription).run()
     Utils.logFailure(res, logger)
   }
 
