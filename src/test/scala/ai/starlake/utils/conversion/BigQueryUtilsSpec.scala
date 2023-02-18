@@ -3,7 +3,7 @@ package ai.starlake.utils.conversion
 import ai.starlake.TestHelper
 import ai.starlake.config.SparkEnv
 import ai.starlake.schema.handlers.SchemaHandler
-import com.google.cloud.bigquery.{Field, Schema => BQSchema, StandardSQLTypeName}
+import com.google.cloud.bigquery.{Field, FieldList, Schema => BQSchema, StandardSQLTypeName}
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.types._
 
@@ -131,29 +131,54 @@ class BigQueryUtilsSpec extends TestHelper {
         val schema = schemaHandler
           .domains()
           .flatMap(_.tables)
-          .find(_.name == "User")
+          .find(_.name == "complexUser")
           .map(_.bqSchema(schemaHandler))
 
         val bqSchemaExpected = BQSchema.of(
           Field
             .newBuilder("firstname", StandardSQLTypeName.STRING)
             .setMode(Field.Mode.NULLABLE)
-            .setDescription("")
+            .setDescription("first name comment")
             .build(),
           Field
             .newBuilder("lastname", StandardSQLTypeName.STRING)
             .setMode(Field.Mode.NULLABLE)
-            .setDescription("")
+            .setDescription("last name comment")
             .build(),
           Field
             .newBuilder("age", StandardSQLTypeName.INT64)
             .setMode(Field.Mode.NULLABLE)
-            .setDescription("")
+            .setDescription("age comment")
             .build(),
           Field
-            .newBuilder("ok", StandardSQLTypeName.BOOL)
+            .newBuilder(
+              "familySituation",
+              StandardSQLTypeName.STRUCT,
+              FieldList.of(
+                Field
+                  .newBuilder(
+                    "children",
+                    StandardSQLTypeName.STRUCT,
+                    FieldList.of(
+                      Field
+                        .newBuilder("firstName", StandardSQLTypeName.STRING)
+                        .setMode(Field.Mode.NULLABLE)
+                        .setDescription("child first name comment")
+                        .build()
+                    )
+                  )
+                  .setMode(Field.Mode.REPEATED)
+                  .setDescription("children comment")
+                  .build(),
+                Field
+                  .newBuilder("married", StandardSQLTypeName.BOOL)
+                  .setMode(Field.Mode.NULLABLE)
+                  .setDescription("married comment")
+                  .build()
+              )
+            )
             .setMode(Field.Mode.NULLABLE)
-            .setDescription("")
+            .setDescription("family situation comment")
             .build()
         )
 
