@@ -8,6 +8,9 @@ __New Feature__:
 - Generate Dataset and Table statistics
 - upsert table description
 
+__Bug Fix__:
+- Upsert table description for nested fields
+
 # 0.6.3
 __New Feature__:
 - Support task refs in job definition files
