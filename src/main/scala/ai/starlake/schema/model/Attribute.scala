@@ -234,7 +234,8 @@ case class Attribute(
       if (attributes.isEmpty)
         throw new Exception("Should never happen: empty list of attributes")
       val fields = attributes.map { attr =>
-        StructField(attr.name, attr.sparkType(schemaHandler), !attr.required)
+        val structField = StructField(attr.name, attr.sparkType(schemaHandler), !attr.required)
+        attr.comment.map(structField.withComment).getOrElse(structField)
       }
       fields
     }
