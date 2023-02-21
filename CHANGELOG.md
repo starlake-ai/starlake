@@ -10,6 +10,7 @@ __New Feature__:
 
 __Bug Fix__:
 - Upsert table description for nested fields
+- Restore the ability to override intermediate bq format
 
 # 0.6.3
 __New Feature__:
