@@ -7,7 +7,7 @@ import org.apache.hadoop.fs.Path
 
 class AutoTaskSpec extends TestHelper {
   new WithSettings() {
-    "Load Transform Job with taskrefs" should "succeed" in {
+    "File Sink Spark Options in job description " should "be applied to resulting file" in {
       new SpecTrait(
         domainOrJobFilename = "csvOutputJob.comet.yml",
         sourceDomainOrJobPathname = "/sample/job/csvOutputJob.comet.yml",
