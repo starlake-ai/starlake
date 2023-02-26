@@ -762,7 +762,7 @@ trait IngestionJob extends SparkJob {
         (clusteredDFWriter, dataset)
 
       // We do not output empty datasets
-      if (finalDataset.isEmpty == 1) {
+      if (!finalDataset.isEmpty) {
         val finalTargetDatasetWriter =
           if (csvOutput() && area != StorageArea.rejected) {
             targetDatasetWriter
@@ -1097,7 +1097,7 @@ trait IngestionJob extends SparkJob {
       settings.comet.mergeOptimizePartitionWrite
     ) match {
       // no need to apply optimization if existing dataset is empty
-      case ("dynamic", Some(timestamp), true) if existingDF.isEmpty == 1 =>
+      case ("dynamic", Some(timestamp), true) if !existingDF.isEmpty =>
         logger.info(s"Computing partitions to update on date column $timestamp")
         val partitionsToUpdate =
           BigQueryUtils.computePartitionsToUpdateAfterMerge(finalIncomingDF, toDeleteDF, timestamp)
