@@ -421,8 +421,17 @@ case class AutoTask(
               .load()
         }
 
-      if (settings.comet.hive || settings.comet.sinkToFile)
-        sinkToFS(dataframe, FsSink())
+      if (settings.comet.hive || settings.comet.sinkToFile) {
+        val fsSink = sink match {
+          case Some(sink) =>
+            sink match {
+              case fsSink: FsSink => fsSink
+              case _              => FsSink()
+            }
+          case _ => FsSink()
+        }
+        sinkToFS(dataframe, fsSink)
+      }
 
       if (settings.comet.assertions.active) {
         new AssertionJob(
