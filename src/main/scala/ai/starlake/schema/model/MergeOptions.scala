@@ -64,13 +64,14 @@ case class MergeOptions(
   )(implicit
     settings: Settings
   ): Option[String] = {
+    val filteredPartitions = partitions.filter(!_.startsWith("__"))
     (queryFilterContainsLast, queryFilterContainsLatest) match {
-      case (true, false)  => buildBQQueryForLast(partitions, activeEnv, options)
-      case (false, true)  => buildBQQueryForLastest(partitions, activeEnv, options)
+      case (true, false)  => buildBQQueryForLast(filteredPartitions, activeEnv, options)
+      case (false, true)  => buildBQQueryForLastest(filteredPartitions, activeEnv, options)
       case (false, false) => formatQuery(activeEnv, options)
       case (true, true) =>
-        val last = buildBQQueryForLast(partitions, activeEnv, options)
-        this.copy(queryFilter = last).buildBQQueryForLastest(partitions, activeEnv, options)
+        val last = buildBQQueryForLast(filteredPartitions, activeEnv, options)
+        this.copy(queryFilter = last).buildBQQueryForLastest(filteredPartitions, activeEnv, options)
     }
   }
 
