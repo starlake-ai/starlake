@@ -160,10 +160,6 @@ object Dependencies {
     "com.dimafeng" %% "testcontainers-scala-kafka" % Versions.testContainers % Test excludeAll (jnaExclusions: _*)
   )
 
-  val graphviz = Seq(
-    "com.github.jsqlparser" % "jsqlparser" % Versions.jsqlparser
-  )
-
   val jna_apple_arm_testcontainers = Seq(
     "net.java.dev.jna" % "jna" % "5.12.1"
   )
@@ -174,5 +170,5 @@ object Dependencies {
 
   val dependencies =
     jna_apple_arm_testcontainers ++ scalate ++ logging ++ betterfiles ++ scalaTest ++ scopt ++ hadoop ++
-    gcp ++ azure ++ h2 ++ excelClientApi ++ kafkaClients ++ graphviz ++ jinja // ++ atlas
+    gcp ++ azure ++ h2 ++ excelClientApi ++ kafkaClients ++ jinja // ++ atlas
 }
