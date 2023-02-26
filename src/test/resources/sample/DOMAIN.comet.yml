@@ -130,3 +130,47 @@ load:
           attributes: []
         sink:
           type: None
+    - name: "complexUser"
+      pattern: "SCHEMA-.*.dsv"
+      attributes:
+        - name: "first name"
+          rename: "firstname"
+          type: "string"
+          required: false
+          privacy: "NONE"
+          comment: "first name comment"
+        - name: "last name"
+          rename: "lastname"
+          type: "string"
+          required: false
+          privacy: "MD5"
+          comment: "last name comment"
+        - name: "age"
+          rename: "age"
+          type: "int"
+          metricType: "discrete"
+          required: false
+          privacy: "NONE"
+          comment: "age comment"
+        - name: "familySituation"
+          type: "struct"
+          required: false
+          privacy: "NONE"
+          comment: "family situation comment"
+          attributes:
+            - name: "children"
+              type: "struct"
+              array: true
+              required: false
+              privacy: "NONE"
+              comment: "children comment"
+              attributes:
+                - name: "firstName"
+                  type: "string"
+                  required: false
+                  comment: "child first name comment"
+            - name: "married"
+              type: "boolean"
+              required: false
+              privacy: "NONE"
+              comment: "married comment"

@@ -178,12 +178,12 @@ case class Schema(
     p: Attribute => Boolean
   ): StructType = {
     val fields = attributes filter p map { attr =>
-      StructField(
+      val structField = StructField(
         attr.getFinalName(),
         attr.sparkType(schemaHandler),
         if (attr.script.isDefined) true else !attr.required
       )
-        .withComment(attr.comment.getOrElse(""))
+      attr.comment.map(structField.withComment).getOrElse(structField)
     }
     StructType(fields)
   }

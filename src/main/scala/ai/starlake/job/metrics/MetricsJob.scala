@@ -193,6 +193,7 @@ class MetricsJob(
             settings.comet.metrics.sink,
             df,
             table.toString,
+            Some("Metrics on tables"),
             new Path(savePath, table.toString),
             lockPath(settings.comet.metrics.path),
             storageHandler,
