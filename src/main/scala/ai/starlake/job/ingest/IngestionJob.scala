@@ -282,7 +282,7 @@ trait IngestionJob extends SparkJob {
 
   /** Merge new and existing dataset if required Save using overwrite / Append mode
     *
-    * @param acceptedDF
+    * @param validationResult
     */
   protected def saveAccepted(
     validationResult: ValidationResult
@@ -512,7 +512,7 @@ trait IngestionJob extends SparkJob {
             None,
             source = Right(mergedDF),
             outputTable = schema.getFinalName(),
-            outputDataset = domain.getFinalName,
+            outputDataset = domain.getFinalName(),
             sourceFormat = settings.comet.defaultFormat,
             createDisposition = createDisposition,
             writeDisposition = writeDisposition,
@@ -527,7 +527,11 @@ trait IngestionJob extends SparkJob {
             starlakeSchema = Some(schema),
             domainTags = domain.tags
           )
-          val res = new BigQuerySparkJob(config, tableSchema).run()
+          val res = new BigQuerySparkJob(
+            config,
+            tableSchema,
+            schema.comment
+          ).run()
           res match {
             case Success(_) => ;
             case Failure(e) =>
@@ -1209,7 +1213,13 @@ object IngestionUtil {
             None,
             options = sink.getOptions
           )
-          new BigQuerySparkJob(bqConfig, Some(bigqueryRejectedSchema())).run()
+          new BigQuerySparkJob(
+            bqConfig,
+            Some(bigqueryRejectedSchema()),
+            Some(
+              "Contains all rejections occurred during ingestion phase in order to give more insight on how to fix data ingestion"
+            )
+          ).run()
 
         case sink: JdbcSink =>
           val jdbcConfig = ConnectionLoadConfig.fromComet(
