@@ -29,7 +29,7 @@ object Versions {
   val kafkaClients = "7.3.1-ce"
   val confluentVersion = "7.3.1"
   val testContainers = "0.40.12"
-  val jsqlparser = "4.5"
+  val jsqlparser = "4.6"
   val gcpDataCatalog = "1.16.0"
   val jinja = "2.6.0"
 }
