@@ -252,7 +252,7 @@ class GenericIngestionJob(
         .load()
 
       logger.debug(dfIn.schema.treeString)
-      if (dfIn.limit(1).count() == 0) {
+      if (dfIn.isEmpty == 0) {
         // empty dataframe with accepted schema
         val sparkSchema = schema.sparkSchemaWithoutScriptedFields(schemaHandler)
 
