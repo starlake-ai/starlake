@@ -49,6 +49,7 @@ object SparkWriter extends StrictLogging {
     authInfo: Map[String, String],
     df: DataFrame,
     tableName: String,
+    maybeTableDescription: Option[String],
     writeMode: WriteMode
   )(implicit
     settings: Settings
@@ -78,7 +79,11 @@ object SparkWriter extends StrictLogging {
             options = sink.getOptions,
             acl = Nil
           )
-        val result = new BigQuerySparkJob(bqLoadConfig, None).run()
+        val result = new BigQuerySparkJob(
+          bqLoadConfig,
+          maybeSchema = None,
+          maybeTableDescription = maybeTableDescription
+        ).run()
         Utils.logFailure(result, logger)
         result.isSuccess
       case _: EsSink =>
@@ -136,7 +141,7 @@ object BigQueryTableLog {
       info.getRequirePartitionFilter(),
       logTime
     )
-  def sink(config: BigQueryTablesConfig)(implicit settings: Settings) = {
+  def sink(config: BigQueryTablesConfig)(implicit settings: Settings): Unit = {
     val logTime = java.sql.Timestamp.from(Instant.now)
     val authInfo = scala.collection.mutable.Map[String, String]()
     config.gcpProjectId match {
@@ -155,6 +160,7 @@ object BigQueryTableLog {
       authInfo.toMap,
       dfDataset,
       "dataset_info",
+      Some("Information related to datasets"),
       config.writeMode.getOrElse(WriteMode.OVERWRITE)
     )
     val tableInfos = infos.flatMap(_._2).map(BigQueryTableLog(_, logTime))
@@ -163,11 +169,12 @@ object BigQueryTableLog {
       authInfo.toMap,
       dfTable,
       "table_info",
+      Some("Information related to tables"),
       config.writeMode.getOrElse(WriteMode.OVERWRITE)
     )
   }
 
-  def run(args: Array[String]) = {
+  def run(args: Array[String]): Unit = {
     implicit val settings: Settings = Settings(ConfigFactory.load())
     val config =
       BigQueryTablesConfig.parse(args).getOrElse(throw new Exception("Could not parse arguments"))
