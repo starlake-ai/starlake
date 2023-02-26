@@ -479,11 +479,11 @@ case class AutoTask(
     AuditLog.sink(authInfo, session, log)
   }
 
-  private def logAuditSuccess(start: Timestamp, end: Timestamp, jobResultCount: Long) =
+  private def logAuditSuccess(start: Timestamp, end: Timestamp, jobResultCount: Long): Unit =
     logAudit(start, end, jobResultCount, success = true, "success")
 
-  private def logAuditFailure(start: Timestamp, end: Timestamp, e: Throwable) =
-    logAudit(start, end, -1, success = true, Utils.exceptionAsString(e))
+  private def logAuditFailure(start: Timestamp, end: Timestamp, e: Throwable): Unit =
+    logAudit(start, end, -1, success = false, Utils.exceptionAsString(e))
 
   def dependencies(): List[String] = {
     val result = SQLUtils.extractRefsFromSQL(this.parseMainSqlBQ())
