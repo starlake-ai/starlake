@@ -95,7 +95,8 @@ case class Metadata(
   ack: Option[String] = None,
   options: Option[Map[String, String]] = None,
   validator: Option[String] = None,
-  schedule: Option[Map[String, String]] = None
+  schedule: Option[Map[String, String]] = None,
+  freshness: Option[Freshness] = None
 ) {
   def this() = this(None) // Should never be called. Here for Jackson deserialization only
 
@@ -120,6 +121,7 @@ case class Metadata(
        |options:${options}
        |validator:${validator}
        |schedule:${schedule}
+       |freshness:${freshness}
        |""".stripMargin
 
   def getMode(): Mode = mode.getOrElse(FILE)
@@ -207,7 +209,8 @@ case class Metadata(
       ack = merge(this.ack, child.ack),
       options = merge(this.options, child.options),
       validator = merge(this.validator, child.validator),
-      schedule = merge(this.schedule, child.schedule)
+      schedule = merge(this.schedule, child.schedule),
+      freshness = merge(this.freshness, child.freshness)
     )
   }
 
@@ -220,13 +223,19 @@ case class Metadata(
     if (!isIgnoreUDF && getFormat() == Format.DSV)
       errorList += "When input format is DSV, ignore metadata attribute cannot be a regex, it must be an UDF"
 
+    import Format._
     if (
-      ignore.isDefined && !List(Format.DSV, Format.SIMPLE_JSON, Format.POSITION).contains(
-        getFormat()
-      )
+      ignore.isDefined &&
+      !List(DSV, SIMPLE_JSON, POSITION).contains(getFormat())
     )
       errorList += s"ignore not yet supported for format ${getFormat()}"
 
+    val freshnessValidity = freshness.map(_.checkValidity()).getOrElse(Right(true))
+    freshnessValidity match {
+      case Left(freshnessErrors) =>
+        freshnessErrors.foreach(errorList += _)
+      case Right(_) =>
+    }
     if (errorList.nonEmpty)
       Left(errorList.toList)
     else
