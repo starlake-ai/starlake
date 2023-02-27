@@ -1,8 +1,7 @@
 package ai.starlake.extract
 
 import ai.starlake.config.{GcpConnectionConfig, Settings}
-import ai.starlake.schema.model.Domain
-import com.google.cloud.bigquery.{BigQuery, Dataset, Table}
+import com.google.cloud.bigquery.{Dataset, Table}
 
 import scala.jdk.CollectionConverters.iterableAsScalaIterableConverter
 
@@ -13,7 +12,7 @@ case class BigQueryConnectionConfig(
 ) extends GcpConnectionConfig
 
 object BigQueryInfo {
-  def extractProjectInfo(
+  def extractInfo(
     project: Option[String] = None
   )(implicit settings: Settings): List[(Dataset, List[Table])] = {
     val config = BigQueryConnectionConfig(project)
@@ -33,28 +32,5 @@ object BigQueryInfo {
         (bqDataset, bqTables.toList)
       }
       .toList
-  }
-
-  def extractDomainsInfo(
-    domains: List[Domain]
-  )(implicit settings: Settings): List[(Dataset, List[Table])] = {
-    domains.map { domain =>
-      val project = domain.project
-      val config = BigQueryConnectionConfig(project)
-      val bigquery = config.bigquery()
-      extractDomainInfo(domain, bigquery)
-    }
-  }
-
-  def extractDomainInfo(domain: Domain, bigquery: BigQuery): (Dataset, List[Table]) = {
-    val bqDataset: Dataset = bigquery.getDataset(domain.getFinalName())
-    val bqTables = domain.tables.map { table =>
-      extractTableInfo(domain.getFinalName(), table.getFinalName(), bigquery)
-    }
-    (bqDataset, bqTables)
-  }
-
-  def extractTableInfo(domainName: String, tableName: String, bigquery: BigQuery) = {
-    bigquery.getTable(domainName, tableName)
   }
 }

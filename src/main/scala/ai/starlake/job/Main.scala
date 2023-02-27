@@ -16,7 +16,7 @@ import ai.starlake.job.transform.{AutoTask2GraphVizConfig, AutoTaskToGraphViz, T
 import ai.starlake.schema.generator._
 import ai.starlake.schema.handlers.{SchemaHandler, ValidateConfig}
 import ai.starlake.serve.{MainServerConfig, SingleUserMainServer}
-import ai.starlake.utils.{CliConfig, CliEnvConfig}
+import ai.starlake.utils.{CliConfig, CliEnvConfig, JsonSerializer}
 import ai.starlake.workflow.IngestionWorkflow
 import buildinfo.BuildInfo
 import com.typesafe.config.ConfigFactory
@@ -63,7 +63,9 @@ class Main() extends StrictLogging {
   val configs: List[CliConfig[_]] = List(
     AutoTask2GraphVizConfig,
     BootstrapConfig,
+    BigQueryFreshnessConfig,
     BigQueryLoadConfig,
+    BigQueryTablesConfig,
     ConnectionLoadConfig,
     ESLoadConfig,
     ExtractDataConfig,
@@ -334,14 +336,22 @@ class Main() extends StrictLogging {
       case "extract-data" =>
         ExtractData.run(args.drop(1))
         true
-      case "bqinfo" =>
-        BigQueryTableLog.run(args.drop(1))
-        true
-      case "bq-log" =>
-        BigQueryTableLog.run(args.drop(1))
+      case "bq-info" =>
+        BigQueryTableInfo.run(args.drop(1))
         true
       case "bq2yml" =>
         BigQuery2Yml.run(args.drop(1))
+        true
+      case "bq-freshness" =>
+        val result = BigQueryFreshnessInfo.run(args.drop(1))
+        val warnFound = result.find(_.warnOrError == "WARN")
+        val errFound = result.find(_.warnOrError == "ERROR")
+        // scalastyle:off println
+        println(JsonSerializer.serializeObject(result))
+        if (errFound.isDefined)
+          System.exit(2)
+        if (warnFound.isDefined)
+          System.exit(1)
         true
       case "serve" =>
         MainServerConfig.parse(args.drop(1)) match {

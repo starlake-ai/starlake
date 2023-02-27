@@ -64,11 +64,13 @@ case class AutoTaskDesc(
   acl: List[AccessControlEntry] = Nil,
   comment: Option[String] = None,
   format: Option[String] = None,
-  coalesce: Option[Boolean] = None
+  coalesce: Option[Boolean] = None,
+  freshness: Option[Freshness] = None
 ) extends Named {
 
-  // TODO
-  def checkValidity() = true
+  def checkValidity(): Either[List[String], Boolean] = {
+    freshness.map(_.checkValidity()).getOrElse(Right(true))
+  }
 
   def this() = this(
     "",
