@@ -42,6 +42,10 @@ load:
           sampling: 0
           attributes: []
     - name: "account"
+      metadata:
+        freshness:
+          warn: "1 ms"
+          error: "2 ms"
       tags: ["tablekey=value", "tablekeynovalue"]
       rls:
         - name: "bqrls"
