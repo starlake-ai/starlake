@@ -36,7 +36,8 @@ object BigQueryFreshnessInfo {
             table match {
               case None => Nil
               case Some(table) =>
-                val freshness = table.metadata.flatMap(_.freshness)
+                val freshness =
+                  table.metadata.flatMap(_.freshness).orElse(domain.metadata.flatMap(_.freshness))
                 freshness match {
                   case None => Nil
                   case Some(freshness) =>
