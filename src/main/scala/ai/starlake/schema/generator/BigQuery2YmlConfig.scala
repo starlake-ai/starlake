@@ -14,7 +14,7 @@ case class BigQueryTablesConfig(
 ) extends GcpConnectionConfig
 
 object BigQueryTablesConfig extends CliConfig[BigQueryTablesConfig] {
-  val command = "bq2yml or b2-log"
+  val command = "bq2yml or bq-info"
 
   val parser: OParser[Unit, BigQueryTablesConfig] = {
     val builder = OParser.builder[BigQueryTablesConfig]
@@ -38,7 +38,7 @@ object BigQueryTablesConfig extends CliConfig[BigQueryTablesConfig] {
       opt[String]("location")
         .action { (x, c) => c.copy(location = Some(x)) }
         .optional()
-        .text("tables"),
+        .text("location"),
       opt[Seq[String]]("tables")
         .action { (x, c) =>
           val tables = x.map(_.split(".")).map(tab => tab(0) -> tab(1)).groupBy(_._1).map {

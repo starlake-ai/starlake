@@ -192,7 +192,6 @@ class BigQuerySparkJob(
                 SaveMode.Append,
                 connectorOptions
               )
-
           }
 
           val finalDF = sourceDF.write
@@ -201,7 +200,6 @@ class BigQuerySparkJob(
             .option("table", bqTable)
             .option("intermediateFormat", intermediateFormat)
             .options(withFieldRelaxationOptions)
-
           finalDF.save()
       }
 
