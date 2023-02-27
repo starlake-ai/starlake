@@ -2,7 +2,13 @@ package ai.starlake.job.sink.bigquery
 
 import ai.starlake.TestHelper
 import ai.starlake.config.Settings
-import ai.starlake.extract.{BigQueryDatasetLog, BigQueryInfo, BigQueryTableLog}
+import ai.starlake.extract.{
+  BigQueryDatasetInfo,
+  BigQueryFreshnessConfig,
+  BigQueryFreshnessInfo,
+  BigQueryInfo,
+  BigQueryTableInfo
+}
 import ai.starlake.job.ingest.WatchConfig
 import ai.starlake.job.transform.TransformConfig
 import ai.starlake.schema.generator.BigQueryTablesConfig
@@ -139,15 +145,39 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
     new WithSettings() {
       val logTime = java.sql.Timestamp.from(Instant.now)
       val start = System.currentTimeMillis()
-      val infos = BigQueryInfo.extractProjectInfo()
+      val infos = BigQueryInfo.extractInfo()
       val end = System.currentTimeMillis()
       println((end - start) / 1000)
-      val datasetInfos = infos.map(_._1).map(BigQueryDatasetLog(_, logTime))
-      val tableInfos = infos.flatMap(_._2).map(BigQueryTableLog(_, logTime))
+      val datasetInfos = infos.map(_._1).map(BigQueryDatasetInfo(_, logTime))
+      val tableInfos = infos.flatMap(_._2).map(BigQueryTableInfo(_, logTime))
       println(JsonSerializer.serializeObject(datasetInfos))
       println(JsonSerializer.serializeObject(tableInfos))
       val config = BigQueryTablesConfig()
-      BigQueryTableLog.sink(config)
+      BigQueryTableInfo.sink(config)
+    }
+  }
+  "Freshness of Table" should "return list of warning & errors" in {
+    if (sys.env.getOrElse("COMET_GCP_TEST", "false").toBoolean) {
+      import org.slf4j.impl.StaticLoggerBinder
+      val binder = StaticLoggerBinder.getSingleton
+      logger.debug(binder.getLoggerFactory.toString)
+      logger.debug(binder.getLoggerFactoryClassStr)
+
+      new WithSettings() {
+        new SpecTrait(
+          domainOrJobFilename = "bqtest.comet.yml",
+          sourceDomainOrJobPathname = "/sample/position/bqtest.comet.yml",
+          datasetDomainName = "bqtest",
+          sourceDatasetPathName = "/sample/position/XPOSTBL"
+        ) {
+          val config = BigQueryFreshnessConfig(tables = Map("bqtest" -> List("account")))
+          val result = BigQueryFreshnessInfo.freshness(config)
+          val json = JsonSerializer.serializeObject(result)
+          println(json)
+
+        }
+      }
+
     }
   }
 }
