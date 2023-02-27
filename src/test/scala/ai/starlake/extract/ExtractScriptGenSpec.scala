@@ -1,7 +1,7 @@
 package ai.starlake.extract
 
 import ai.starlake.TestHelper
-import ai.starlake.schema.handlers.{SchemaHandler, SimpleLauncher}
+import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.PrivacyLevel
 import better.files.File
 
@@ -25,28 +25,24 @@ class ExtractScriptGenSpec extends TestHelper {
         activeEnv = Map.empty
       )
 
-      val templatesPayloadFromDir = new ExtractScript(
-        storageHandler,
-        new SchemaHandler(settings.storageHandler),
-        new SimpleLauncher()
-      ).templatizeFolder(
-        File(
-          getClass.getResource("/sample/database")
-        ),
-        templateParams
-      ).head
+      val templatesPayloadFromDir = new ExtractScript(new SchemaHandler(settings.storageHandler))
+        .templatizeFolder(
+          File(
+            getClass.getResource("/sample/database")
+          ),
+          templateParams
+        )
+        .head
         .pathAsString
 
       println(File(templatesPayloadFromDir).lines.mkString("\n").toLowerCase)
 
-      val templatePayload = new ExtractScript(
-        storageHandler,
-        new SchemaHandler(settings.storageHandler),
-        new SimpleLauncher()
-      ).templatizeFile(
-        File(getClass.getResource("/sample/database/EXTRACT_TABLE.sql.mustache")).pathAsString,
-        templateParams
-      ).pathAsString
+      val templatePayload = new ExtractScript(new SchemaHandler(settings.storageHandler))
+        .templatizeFile(
+          File(getClass.getResource("/sample/database/EXTRACT_TABLE.sql.mustache")).pathAsString,
+          templateParams
+        )
+        .pathAsString
 
       File(templatePayload).lines.mkString("\n").toLowerCase shouldBe File(
         getClass.getResource("/sample/database/expected_script_payload.txt")
@@ -70,14 +66,12 @@ class ExtractScriptGenSpec extends TestHelper {
         activeEnv = Map.empty
       )
 
-      val templatePayload: String = new ExtractScript(
-        storageHandler,
-        new SchemaHandler(settings.storageHandler),
-        new SimpleLauncher()
-      ).templatizeFile(
-        File(getClass.getResource("/sample/database/EXTRACT_TABLE.sql.ssp")).pathAsString,
-        templateParams
-      ).pathAsString
+      val templatePayload: String = new ExtractScript(new SchemaHandler(settings.storageHandler))
+        .templatizeFile(
+          File(getClass.getResource("/sample/database/EXTRACT_TABLE.sql.ssp")).pathAsString,
+          templateParams
+        )
+        .pathAsString
 
       print(getClass.getResource("/sample/database/expected_script_payload2.txt").getPath)
       File(templatePayload).lines.mkString("\n").toLowerCase shouldBe File(

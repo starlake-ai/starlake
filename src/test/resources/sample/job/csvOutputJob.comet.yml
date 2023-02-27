@@ -1,0 +1,17 @@
+transform:
+  coalesce: true
+  format: csv
+  tasks:
+    - name: csvOutput
+      domain: result
+      table: file
+      write: OVERWRITE
+      sql: |
+        select '  Name' as name,'Last Name   ' as lastName, '' as emptColumn
+      sink:
+        type: "FS"
+        options:
+          emptyValue: ""
+          delimiter: "|"
+          ignoreLeadingWhiteSpace: false
+          ignoreTrailingWhiteSpace: false
