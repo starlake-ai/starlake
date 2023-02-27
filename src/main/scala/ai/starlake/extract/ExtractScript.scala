@@ -1,7 +1,7 @@
 package ai.starlake.extract
 
 import ai.starlake.config.{DatasetArea, Settings}
-import ai.starlake.schema.handlers.{LaunchHandler, SchemaHandler, StorageHandler}
+import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.Domain
 import better.files.File
 import com.typesafe.config.ConfigFactory
@@ -9,11 +9,7 @@ import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
 import org.fusesource.scalate._
 
-class ExtractScript(
-  storageHandler: StorageHandler,
-  schemaHandler: SchemaHandler,
-  launchHandler: LaunchHandler
-)(implicit settings: Settings)
+class ExtractScript(schemaHandler: SchemaHandler)(implicit settings: Settings)
     extends StrictLogging {
   val engine: TemplateEngine = new TemplateEngine
 
@@ -152,8 +148,8 @@ class ExtractScript(
   }
 
   def run(config: ExtractScriptConfig)(implicit settings: Settings): Boolean = {
-    DatasetArea.initMetadata(storageHandler)
-    val schemaHandler = new SchemaHandler(storageHandler)
+    DatasetArea.initMetadata(settings.storageHandler)
+    val schemaHandler = new SchemaHandler(settings.storageHandler)
     config.domain match {
       case Nil =>
         logger.warn(s"No domain or jobs provided. Extracting all domains")
@@ -195,12 +191,12 @@ class ExtractScript(
 
 object Main {
   implicit val settings: Settings = Settings(ConfigFactory.load())
-  import settings.{launcherService, storageHandler}
+  import settings.storageHandler
   DatasetArea.initMetadata(storageHandler)
   val schemaHandler = new SchemaHandler(storageHandler)
 
   def main(args: Array[String]): Unit = {
-    val result = new ExtractScript(storageHandler, schemaHandler, launcherService).run(args)
+    val result = new ExtractScript(schemaHandler).run(args)
     if (!result) throw new Exception("ScriptGen failed!")
   }
 }
