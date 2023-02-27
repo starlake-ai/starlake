@@ -327,7 +327,7 @@ class Main() extends StrictLogging {
         }
         true
       case "extract-script" =>
-        new ExtractScript(storageHandler, schemaHandler, launcherService).run(args.drop(1))
+        new ExtractScript(schemaHandler).run(args.drop(1))
       case "extract-schema" =>
         ExtractSchema.run(args.drop(1))
         true
