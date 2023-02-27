@@ -98,7 +98,8 @@ class InferSchemaJobSpec extends TestHelper {
             "flat_locations",
             sourceFile.pathAsString,
             targetDir.pathAsString,
-            true
+            true,
+            None
           )
           val targetFile = File(targetDir, "locations.comet.yml")
           val maybeDomain =
