@@ -48,11 +48,12 @@ class InferSchema(
   schemaName: String,
   dataPath: String,
   saveDir: String,
-  header: Boolean = false
+  header: Boolean = false,
+  format: Option[String] = None
 )(implicit settings: Settings) {
 
   def run(): Try[Unit] =
-    (new InferSchemaJob).infer(domainName, schemaName, dataPath, saveDir, header)
+    (new InferSchemaJob).infer(domainName, schemaName, dataPath, saveDir, header, format)
 
 }
 
@@ -207,7 +208,8 @@ class InferSchemaJob(implicit settings: Settings) {
     schemaName: String,
     dataPath: String,
     saveDir: String,
-    header: Boolean
+    header: Boolean,
+    forceFormat: Option[String]
   ): Try[Unit] = {
     Try {
       val path = new Path(dataPath)
@@ -216,7 +218,10 @@ class InferSchemaJob(implicit settings: Settings) {
 
       val dataframeWithFormat = createDataFrameWithFormat(lines, dataPath, header)
 
-      val format = getFormatFile(lines)
+      val format = forceFormat match {
+        case None    => getFormatFile(lines)
+        case Some(f) => f
+      }
 
       val array = format == "ARRAY_JSON"
 
