@@ -7,6 +7,9 @@ __New Feature__:
 - Import existing BigQuery Datasets and Tables
 - Generate Dataset and Table statistics
 - upsert table description
+- Support freshness in command line mode (getting ready for dependency mode)
+- Extract BigQuery Tables infos to dataset_info and table_info tables
+- Import BigQuery Project into external metadata folder
 
 __Bug Fix__:
 - Upsert table description for nested fields
