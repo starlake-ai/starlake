@@ -47,4 +47,16 @@ trait GcpConnectionConfig {
     bqService
   }
 
+  def authInfo(): Map[String, String] = {
+    val authInfo = scala.collection.mutable.Map[String, String]()
+    gcpProjectId match {
+      case Some(prj) => authInfo += ("gcpProjectId" -> prj)
+      case None      =>
+    }
+    gcpSAJsonKey match {
+      case Some(prj) => authInfo += ("gcpSAJsonKey" -> prj)
+      case None      =>
+    }
+    authInfo.toMap
+  }
 }
