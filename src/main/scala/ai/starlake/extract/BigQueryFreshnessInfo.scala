@@ -1,25 +1,29 @@
 package ai.starlake.extract
 
-import ai.starlake.config.Settings
+import ai.starlake.config.{Settings, SparkEnv}
+import ai.starlake.job.sink.bigquery.BigQuerySparkWriter
 import ai.starlake.schema.handlers.SchemaHandler
+import ai.starlake.schema.model.WriteMode
 import com.google.cloud.bigquery.{Dataset, Table}
 import com.typesafe.config.ConfigFactory
 
+import java.sql.Timestamp
+import java.util.UUID
 import scala.concurrent.duration.Duration
 
 case class FreshnessStatus(
   domain: String,
   table: String,
-  lastModifiedTime: Long,
-  currentTime: Long,
+  lastModifiedTime: java.sql.Timestamp,
+  timestamp: java.sql.Timestamp,
   duration: Long,
   warnOrError: String
 )
 
 object BigQueryFreshnessInfo {
-  def freshness(config: BigQueryFreshnessConfig)(implicit
-    settings: Settings
-  ): List[FreshnessStatus] = {
+  def freshness(
+    config: BigQueryFreshnessConfig
+  )(implicit settings: Settings): List[FreshnessStatus] = {
     val tables: List[(Dataset, List[Table])] =
       BigQueryTableInfo.extractTableInfos(config.gcpProjectId, config.tables)
     import settings.storageHandler
@@ -104,7 +108,20 @@ object BigQueryFreshnessInfo {
           }
       }
     }
-    tablesFreshnessStatuses ++ jobsFreshnessStatuses
+    val statuses = tablesFreshnessStatuses ++ jobsFreshnessStatuses
+
+    if (config.persist) {
+      val session = new SparkEnv("BigQueryFreshnessInfo-" + UUID.randomUUID().toString).session
+      val dfDataset = session.createDataFrame(statuses)
+      BigQuerySparkWriter.sink(
+        config.authInfo(),
+        dfDataset,
+        "freshness_info",
+        Some("Information related to table freshness"),
+        config.writeMode.getOrElse(WriteMode.OVERWRITE)
+      )
+    }
+    statuses
   }
 
   private def getFreshnessStatus(
@@ -126,8 +143,8 @@ object BigQueryFreshnessInfo {
             FreshnessStatus(
               domainName,
               tableName,
-              lastModifiedTime,
-              now,
+              new Timestamp(lastModifiedTime),
+              new Timestamp(now),
               warnOrErrorDuration,
               level
             )

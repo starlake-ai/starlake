@@ -29,6 +29,7 @@ import com.typesafe.config.ConfigFactory
 
 import java.sql.Timestamp
 import java.time.Instant
+import java.util.UUID
 
 case class BigQueryDatasetInfo(
   project: String,
@@ -88,23 +89,14 @@ object BigQueryTableInfo {
     )
   def sink(config: BigQueryTablesConfig)(implicit settings: Settings): Unit = {
     val logTime = java.sql.Timestamp.from(Instant.now)
-    val authInfo = scala.collection.mutable.Map[String, String]()
-    config.gcpProjectId match {
-      case Some(prj) => authInfo += ("gcpProjectId" -> prj)
-      case None      =>
-    }
-    config.gcpSAJsonKey match {
-      case Some(prj) => authInfo += ("gcpSAJsonKey" -> prj)
-      case None      =>
-    }
     val selectedInfos: List[(Dataset, List[Table])] =
       extractTableInfos(config.gcpProjectId, config.tables)
 
     val datasetInfos = selectedInfos.map(_._1).map(BigQueryDatasetInfo(_, logTime))
-    val session = new SparkEnv("").session
+    val session = new SparkEnv("BigQueryTablesInfo-" + UUID.randomUUID().toString).session
     val dfDataset = session.createDataFrame(datasetInfos)
     BigQuerySparkWriter.sink(
-      authInfo.toMap,
+      config.authInfo(),
       dfDataset,
       "dataset_info",
       Some("Information related to datasets"),
@@ -113,7 +105,7 @@ object BigQueryTableInfo {
     val tableInfos = selectedInfos.flatMap(_._2).map(BigQueryTableInfo(_, logTime))
     val dfTable = session.createDataFrame(tableInfos)
     BigQuerySparkWriter.sink(
-      authInfo.toMap,
+      config.authInfo(),
       dfTable,
       "table_info",
       Some("Information related to tables"),

@@ -1,6 +1,7 @@
 package ai.starlake.extract
 
 import ai.starlake.config.GcpConnectionConfig
+import ai.starlake.schema.model.WriteMode
 import ai.starlake.utils.CliConfig
 import scopt.OParser
 
@@ -9,7 +10,9 @@ case class BigQueryFreshnessConfig(
   gcpSAJsonKey: Option[String] = None,
   location: Option[String] = None,
   tables: Map[String, List[String]] = Map.empty,
-  jobs: Seq[String] = Seq.empty
+  jobs: Seq[String] = Seq.empty,
+  persist: Boolean = false,
+  writeMode: Option[WriteMode] = None
 ) extends GcpConnectionConfig
 
 object BigQueryFreshnessConfig extends CliConfig[BigQueryFreshnessConfig] {
@@ -33,6 +36,14 @@ object BigQueryFreshnessConfig extends CliConfig[BigQueryFreshnessConfig] {
         .action { (x, c) => c.copy(location = Some(x)) }
         .optional()
         .text("location"),
+      opt[Boolean]("persist")
+        .action { (x, c) => c.copy(persist = x) }
+        .optional()
+        .text("Persist results ?"),
+      opt[String]("write_mode")
+        .action((x, c) => c.copy(writeMode = Some(WriteMode.fromString(x))))
+        .text(s"One of ${WriteMode.writes}")
+        .optional(),
       opt[Seq[String]]("tables")
         .action { (x, c) =>
           val tables = x.map(_.split(".")).map(tab => tab(0) -> tab(1)).groupBy(_._1).map {
