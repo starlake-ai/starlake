@@ -309,6 +309,8 @@ case class Schema(
 
   }
 
+  def containsArrayOfRecords(): Boolean = attributes.exists(_.containsArrayOfRecords())
+
   private def dotRow(
     attr: Attribute,
     isPK: Boolean,
@@ -405,6 +407,7 @@ case class Schema(
       ""
     }
   }
+
 }
 
 object Schema {

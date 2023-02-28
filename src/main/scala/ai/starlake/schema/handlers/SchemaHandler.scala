@@ -357,7 +357,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     paths.zip(domains)
   }
 
-  def domains(reload: Boolean = false) = {
+  def domains(reload: Boolean = false): List[Domain] = {
     if (reload)
       loadDomains()
     _domains
