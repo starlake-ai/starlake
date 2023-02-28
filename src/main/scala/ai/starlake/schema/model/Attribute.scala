@@ -377,6 +377,14 @@ case class Attribute(
   def compare(other: Metadata): ListDiff[Named] =
     AnyRefDiff.diffAnyRef(name, this, other)
 
+  def containsArrayOfRecords(): Boolean = {
+    val isArrayOfRecords = this.array.getOrElse(false) && this.`type` == "struct"
+    if (isArrayOfRecords) {
+      true
+    } else {
+      attributes.exists(_.containsArrayOfRecords())
+    }
+  }
 }
 
 object Attribute {

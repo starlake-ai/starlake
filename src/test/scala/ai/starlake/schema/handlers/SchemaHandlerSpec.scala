@@ -184,6 +184,26 @@ class SchemaHandlerSpec extends TestHelper {
       }
     }
 
+    "Contains Array Of records" should "succeed" in {
+      new WithSettings() {
+        new SpecTrait(
+          domainOrJobFilename = "DOMAIN.comet.yml",
+          sourceDomainOrJobPathname = s"/sample/DOMAIN.comet.yml",
+          datasetDomainName = "DOMAIN",
+          sourceDatasetPathName = "/sample/SCHEMA-VALID.dsv"
+        ) {
+          getDomain("DOMAIN").foreach { domain =>
+            val result = domain.tables.map { table =>
+              table.getFinalName() -> table.containsArrayOfRecords()
+            }
+            val expected =
+              List(("User", false), ("Players", false), ("employee", false), ("complexUser", true))
+            result should contain theSameElementsAs expected
+          }
+        }
+      }
+    }
+
     "load to elasticsearch" should "work" in {
       new WithSettings(configuration) {
         new SpecTrait(

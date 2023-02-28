@@ -86,8 +86,18 @@ class BigQuerySparkJob(
         s"BigQuery Saving to  ${table.getTableId} containing ${stdTableDefinition.getNumRows} rows"
       )
 
+      cliConfig.starlakeSchema.map { schema =>
+        schema.attributes
+
+      }
+      val containsArrayOfRecords = cliConfig.starlakeSchema.exists(_.containsArrayOfRecords())
+
       val intermediateFormat =
-        settings.comet.internal.map(_.intermediateBigqueryFormat).getOrElse("orc")
+        if (containsArrayOfRecords)
+          "orc"
+        else
+          settings.comet.internal.map(_.intermediateBigqueryFormat).getOrElse("parquet")
+
       val partitionOverwriteMode =
         session.conf.get("spark.sql.sources.partitionOverwriteMode", "static").toLowerCase()
 

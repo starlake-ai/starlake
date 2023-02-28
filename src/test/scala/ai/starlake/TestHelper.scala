@@ -23,7 +23,7 @@ package ai.starlake
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.job.ingest.{ImportConfig, LoadConfig, WatchConfig}
 import ai.starlake.schema.handlers.{SchemaHandler, SimpleLauncher, StorageHandler}
-import ai.starlake.schema.model.{Attribute, AutoJobDesc}
+import ai.starlake.schema.model.{Attribute, AutoJobDesc, Domain}
 import ai.starlake.utils.{CometObjectMapper, Utils}
 import ai.starlake.workflow.IngestionWorkflow
 import better.files.{File => BetterFile}
@@ -372,6 +372,14 @@ trait TestHelper
 
     def getJobs(): Map[String, AutoJobDesc] = {
       new SchemaHandler(settings.storageHandler).jobs()
+    }
+
+    def getDomains(): List[Domain] = {
+      new SchemaHandler(settings.storageHandler).domains()
+    }
+
+    def getDomain(domainName: String): Option[Domain] = {
+      new SchemaHandler(settings.storageHandler).getDomain(domainName)
     }
 
     def landingPath: String =
