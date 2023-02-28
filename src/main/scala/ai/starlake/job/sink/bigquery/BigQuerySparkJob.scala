@@ -91,12 +91,14 @@ class BigQuerySparkJob(
 
       }
       val containsArrayOfRecords = cliConfig.starlakeSchema.exists(_.containsArrayOfRecords())
+      val defaultIntermediateFormat =
+        settings.comet.internal.map(_.intermediateBigqueryFormat).getOrElse("parquet")
 
       val intermediateFormat =
-        if (containsArrayOfRecords)
+        if (containsArrayOfRecords && defaultIntermediateFormat == "parquet")
           "orc"
         else
-          settings.comet.internal.map(_.intermediateBigqueryFormat).getOrElse("parquet")
+          defaultIntermediateFormat
 
       val partitionOverwriteMode =
         session.conf.get("spark.sql.sources.partitionOverwriteMode", "static").toLowerCase()
