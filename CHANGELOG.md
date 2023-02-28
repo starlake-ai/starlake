@@ -10,6 +10,7 @@ __New Feature__:
 - Support freshness in command line mode (getting ready for dependency mode)
 - Extract BigQuery Tables infos to dataset_info and table_info tables
 - Import BigQuery Project into external metadata folder
+- Automatically switch to ORC when ingesting complex structures (array of records) into bigquery (https://github.com/GoogleCloudDataproc/spark-bigquery-connector/issues/251)
 
 __Bug Fix__:
 - Upsert table description for nested fields
