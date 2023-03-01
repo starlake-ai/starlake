@@ -161,7 +161,8 @@ final case class FsSink(
   extension: Option[String] = None,
   clustering: Option[Seq[String]] = None,
   partition: Option[Partition] = None,
-  options: Option[Map[String, String]] = None
+  options: Option[Map[String, String]] = None,
+  coalesce: Option[Boolean] = None
 ) extends Sink(SinkType.FS.value)
 
 /** When the sink *type* field is set to JDBC, the options below should be provided.
