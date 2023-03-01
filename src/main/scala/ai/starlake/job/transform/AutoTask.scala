@@ -317,6 +317,7 @@ case class AutoTask(
       .map(_.richFormat(schemaHandler.activeEnv(), sqlParameters))
 
   def sinkToFS(dataframe: DataFrame, sink: FsSink): Boolean = {
+    val coalesce = sink.coalesce.getOrElse(this.coalesce)
     val targetPath = taskDesc.getTargetPath()
     logger.info(s"About to write resulting dataset to $targetPath")
     // Target Path exist only if a storage area has been defined at task or job level
@@ -376,7 +377,10 @@ case class AutoTask(
 
       finalDataset.save()
       if (coalesce) {
-        val extension = sink.format.getOrElse(format.getOrElse(settings.comet.defaultFormat))
+        val extension =
+          sink.extension.getOrElse(
+            sink.format.getOrElse(format.getOrElse(settings.comet.defaultFormat))
+          )
         val csvPath = storageHandler
           .list(targetPath, s".$extension", LocalDateTime.MIN, recursive = false)
           .head
