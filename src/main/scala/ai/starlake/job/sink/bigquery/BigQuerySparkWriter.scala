@@ -51,7 +51,7 @@ object BigQuerySparkWriter extends StrictLogging {
       case _: EsSink =>
         // TODO Sink Audit Log to ES
         throw new Exception("Sinking Audit log to Elasticsearch not yet supported")
-      case _: NoneSink | FsSink(_, _, _, _, _, _) =>
+      case _: NoneSink | FsSink(_, _, _, _, _, _, _) =>
       // Do nothing dataset already sinked to file. Forced at the reference.conf level
       case _ =>
     }
