@@ -3,7 +3,7 @@
 
 # 0.6.4
 __New Feature__:
-- Add Project diffs
+- Add Project diffs and produce HTML report
 - Import existing BigQuery Datasets and Tables
 - Generate Dataset and Table statistics
 - upsert table description
@@ -60,7 +60,6 @@ __New Feature__:
 - single command setup and run using starlake.sh / starlake.cmd
 - Updated quickstart with docker use
 - Infer schema now recognize date as date not timestamp
-- Support metadata folder comparison and produce HTML report
 
 # 0.5.2
 __New Feature__:
