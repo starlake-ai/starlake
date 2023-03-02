@@ -22,7 +22,7 @@ package ai.starlake.schema.model
 
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.schema.handlers.SchemaHandler
-import ai.starlake.utils.{JsonSerializer, Utils}
+import ai.starlake.utils.Utils
 import com.fasterxml.jackson.annotation.JsonIgnore
 import org.apache.hadoop.fs.Path
 
@@ -277,7 +277,7 @@ import scala.util.{Failure, Success, Try}
 }
 
 object Domain {
-  def compare(existing: Domain, incoming: Domain): Try[String] = {
+  def compare(existing: Domain, incoming: Domain): Try[DomainDiff] = {
     Try {
       val (addedTables, deletedTables, existingCommonTables) =
         AnyRefDiff.partitionNamed(existing.tables, incoming.tables)
@@ -291,9 +291,8 @@ object Domain {
         )
       }
 
-      val updatedTablesDiffAsJson: List[String] = commonTables.flatMap {
-        case (existing, incoming) =>
-          Schema.compare(existing, incoming).toOption
+      val updatedTablesDiff: List[SchemaDiff] = commonTables.flatMap { case (existing, incoming) =>
+        Schema.compare(existing, incoming).toOption
       }
 
       val metadataDiff: ListDiff[Named] =
@@ -304,21 +303,19 @@ object Domain {
       val tagsDiffs = AnyRefDiff.diffSetString("tags", existing.tags, incoming.tags)
       val renameDiff = AnyRefDiff.diffOptionString("rename", existing.rename, incoming.rename)
 
-      s"""{ "domain": "${existing.name}", """ +
-      s"""
-           |"tables": {
-           |  "added": ${JsonSerializer.serializeObject(addedTables.map(_.name))}
-           |  , "deleted": ${JsonSerializer.serializeObject(deletedTables.map(_.name))}
-           |  , "updated": [${updatedTablesDiffAsJson.mkString(",")}]
-           |},""".stripMargin +
-      """"diff": [""" + List(
-        JsonSerializer.serializeDiffNamed(metadataDiff),
-        JsonSerializer.serializeDiffStrings(tableRefsDiff),
-        JsonSerializer.serializeDiffStrings(commentDiff),
-        JsonSerializer.serializeDiffStrings(tagsDiffs),
-        JsonSerializer.serializeDiffStrings(renameDiff)
-      ).flatten.mkString(",") + "]}"
+      DomainDiff(
+        name = existing.name,
+        tables = SchemasDiff(
+          added = addedTables.map(_.name),
+          deleted = deletedTables.map(_.name),
+          updated = updatedTablesDiff
+        ),
+        metadataDiff,
+        tableRefsDiff,
+        commentDiff,
+        tagsDiffs,
+        renameDiff
+      )
     }
   }
-
 }

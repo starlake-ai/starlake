@@ -15,6 +15,7 @@ import ai.starlake.job.sink.kafka.KafkaJobConfig
 import ai.starlake.job.transform.{AutoTask2GraphVizConfig, AutoTaskToGraphViz, TransformConfig}
 import ai.starlake.schema.generator._
 import ai.starlake.schema.handlers.{SchemaHandler, ValidateConfig}
+import ai.starlake.schema.{ProjectCompare, ProjectCompareConfig}
 import ai.starlake.serve.{MainServerConfig, SingleUserMainServer}
 import ai.starlake.utils.{CliConfig, CliEnvConfig, JsonSerializer}
 import ai.starlake.workflow.IngestionWorkflow
@@ -66,6 +67,7 @@ class Main() extends StrictLogging {
     BigQueryFreshnessConfig,
     BigQueryLoadConfig,
     BigQueryTablesConfig,
+    ProjectCompareConfig,
     ConnectionLoadConfig,
     ESLoadConfig,
     ExtractDataConfig,
@@ -83,8 +85,7 @@ class Main() extends StrictLogging {
     Xls2YmlConfig,
     Yml2DDLConfig,
     Yml2GraphVizConfig,
-    Yml2XlsConfig,
-    BigQueryTablesConfig
+    Yml2XlsConfig
   )
   private def printUsage() = {
     // scalastyle:off println
@@ -352,6 +353,9 @@ class Main() extends StrictLogging {
           System.exit(2)
         if (warnFound.isDefined)
           System.exit(1)
+        true
+      case "compare" =>
+        ProjectCompare.run(args.drop(1))
         true
       case "serve" =>
         MainServerConfig.parse(args.drop(1)) match {
