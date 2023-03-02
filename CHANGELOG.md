@@ -11,6 +11,7 @@ __New Feature__:
 - Extract BigQuery Tables infos to dataset_info and table_info tables
 - Import BigQuery Project into external metadata folder
 - Automatically switch to ORC when ingesting complex structures (array of records) into bigquery (https://github.com/GoogleCloudDataproc/spark-bigquery-connector/issues/251)
+- Support metadata folder comparison and produce HTML report
 
 __Bug Fix__:
 - Upsert table description for nested fields
@@ -60,7 +61,6 @@ __New Feature__:
 - single command setup and run using starlake.sh / starlake.cmd
 - Updated quickstart with docker use
 - Infer schema now recognize date as date not timestamp
-- Support metadata folder comparison and produce HTML report
 
 # 0.5.2
 __New Feature__:
