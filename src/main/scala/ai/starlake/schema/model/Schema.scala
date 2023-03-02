@@ -23,7 +23,7 @@ package ai.starlake.schema.model
 import ai.starlake.config.{CometColumns, Settings}
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.utils.Formatter._
-import ai.starlake.utils.{JsonSerializer, Utils}
+import ai.starlake.utils.Utils
 import ai.starlake.utils.conversion.BigQueryUtils
 import com.fasterxml.jackson.annotation.JsonIgnore
 import com.google.cloud.bigquery.{Schema => BQSchema}
@@ -465,7 +465,7 @@ object Schema {
     )
   }
 
-  def compare(existing: Schema, incoming: Schema): Try[String] = {
+  def compare(existing: Schema, incoming: Schema): Try[SchemaDiff] = {
     Try {
       if (!existing.isFlat() || !incoming.isFlat())
         throw new Exception("Only flat schemas are supported")
@@ -523,25 +523,23 @@ object Schema {
       val sampleDiff: ListDiff[String] =
         AnyRefDiff.diffOptionString("sample", existing.sample, incoming.sample)
 
-      s"""{ "table": "${existing.name}", """ +
-      """"diff": [""" +
-      List(
-        JsonSerializer.serializeDiffNamed(attributesDiff),
-        JsonSerializer.serializeDiffStrings(patternDiff),
-        JsonSerializer.serializeDiffNamed(metadataDiff),
-        JsonSerializer.serializeDiffNamed(mergeDiff),
-        JsonSerializer.serializeDiffStrings(commentDiff),
-        JsonSerializer.serializeDiffStrings(presqlDiff),
-        JsonSerializer.serializeDiffStrings(postsqlDiff),
-        JsonSerializer.serializeDiffStrings(tagsDiff),
-        JsonSerializer.serializeDiffNamed(rlsDiff),
-        JsonSerializer.serializeDiffNamed(assertionsDiff),
-        JsonSerializer.serializeDiffStrings(primaryKeyDiff),
-        JsonSerializer.serializeDiffNamed(aclDiff),
-        JsonSerializer.serializeDiffStrings(renameDiff),
-        JsonSerializer.serializeDiffStrings(sampleDiff)
-      ).flatten.mkString(",") + "]" +
-      "}"
+      SchemaDiff(
+        existing.name,
+        attributesDiff,
+        patternDiff,
+        metadataDiff,
+        mergeDiff,
+        commentDiff,
+        presqlDiff,
+        postsqlDiff,
+        tagsDiff,
+        rlsDiff,
+        assertionsDiff,
+        primaryKeyDiff,
+        aclDiff,
+        renameDiff,
+        sampleDiff
+      )
     }
   }
 }

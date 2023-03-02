@@ -1,12 +1,14 @@
 package ai.starlake.utils
 
 import ai.starlake.TestHelper
+import ai.starlake.schema.{ProjectCompare, ProjectCompareConfig}
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model._
 import org.apache.hadoop.fs.Path
 
 import java.io.InputStream
 
+// TODO check tests return values and support folder in tests
 class AnyRefDiffSpec extends TestHelper {
   def readDomain(resource: String): Domain = {
     val lines: String = readYmlFile(resource)
@@ -80,13 +82,19 @@ class AnyRefDiffSpec extends TestHelper {
       val resource2 = getClass.getClassLoader.getResource(
         "/Users/hayssams/git/public/starlake/internal/anyref/quickstart2"
       )
+      ProjectCompare.compare(
+        ProjectCompareConfig(
+          "/Users/hayssams/git/public/starlake/internal/anyref/quickstart1",
+          "/Users/hayssams/git/public/starlake/internal/anyref/quickstart2"
+        )
+      )
       val res = Project.compare(
         new Path("/Users/hayssams/git/public/starlake/internal/anyref/quickstart1"),
         new Path("/Users/hayssams/git/public/starlake/internal/anyref/quickstart2")
         // new Path(resource1.toURI),
         // new Path(resource2.toURI)
       )(settings)
-      println(res)
+      println(JsonSerializer.serializeObject(res))
     }
     "Generic Job Diff" should "be valid" in {
 

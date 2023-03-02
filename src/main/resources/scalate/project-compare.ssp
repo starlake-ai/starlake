@@ -1,0 +1,9 @@
+<%@ val diff: ai.starlake.schema.model.ProjectDiff %>
+
+
+
+<%
+val diffAsJson = ai.starlake.utils.JsonSerializer.serializeObject(diff)
+%>
+
+${diffAsJson}

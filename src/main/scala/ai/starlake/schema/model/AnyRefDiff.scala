@@ -133,5 +133,105 @@ case class ListDiff[T](
   deleted: List[T],
   updated: List[(T, T)]
 ) {
-  def isEmpty() = added.isEmpty && deleted.isEmpty && updated.isEmpty
+  def isEmpty(): Boolean = added.isEmpty && deleted.isEmpty && updated.isEmpty
+}
+
+case class DomainsDiff(added: List[String], deleted: List[String], updated: List[DomainDiff]) {
+  def isEmpty(): Boolean = added.isEmpty && deleted.isEmpty && updated.forall(_.isEmpty())
+}
+
+case class JobsDiff(added: List[String], deleted: List[String], updated: List[JobDiff]) {
+  def isEmpty(): Boolean = added.isEmpty && deleted.isEmpty && updated.forall(_.isEmpty())
+}
+
+case class ProjectDiff(
+  project1: String,
+  project2: String,
+  domains: DomainsDiff,
+  jobsDiff: JobsDiff
+) {
+  def isEmpty(): Boolean = domains.isEmpty()
+}
+case class SchemaDiff(
+  name: String,
+  attributes: ListDiff[Named],
+  pattern: ListDiff[String],
+  metadata: ListDiff[Named],
+  merge: ListDiff[Named],
+  comment: ListDiff[String],
+  presql: ListDiff[String],
+  postsql: ListDiff[String],
+  tags: ListDiff[String],
+  rls: ListDiff[Named],
+  assertions: ListDiff[Named],
+  primaryKey: ListDiff[String],
+  acl: ListDiff[Named],
+  rename: ListDiff[String],
+  sample: ListDiff[String]
+) {
+  def isEmpty(): Boolean =
+    attributes.isEmpty() &&
+    attributes.isEmpty() &&
+    pattern.isEmpty() &&
+    metadata.isEmpty() &&
+    merge.isEmpty() &&
+    comment.isEmpty() &&
+    presql.isEmpty() &&
+    postsql.isEmpty() &&
+    tags.isEmpty() &&
+    rls.isEmpty() &&
+    primaryKey.isEmpty() &&
+    acl.isEmpty() &&
+    rename.isEmpty() &&
+    sample.isEmpty()
+
+}
+case class SchemasDiff(added: List[String], deleted: List[String], updated: List[SchemaDiff]) {
+  def isEmpty(): Boolean = added.isEmpty && deleted.isEmpty && updated.forall(_.isEmpty())
+}
+
+case class DomainDiff(
+  name: String,
+  tables: SchemasDiff,
+  metadata: ListDiff[Named],
+  tableRefs: ListDiff[String],
+  comment: ListDiff[String],
+  tags: ListDiff[String],
+  rename: ListDiff[String]
+) {
+  def isEmpty(): Boolean =
+    tables.isEmpty &&
+    metadata.isEmpty &&
+    tableRefs.isEmpty &&
+    comment.isEmpty &&
+    tags.isEmpty &&
+    rename.isEmpty
+
+}
+
+case class TasksDiff(
+  added: List[String],
+  deleted: List[String],
+  updated: List[ListDiff[Named]]
+)
+
+case class JobDiff(
+  name: String,
+  tasks: TasksDiff,
+  taskRefs: ListDiff[String],
+  format: ListDiff[String],
+  coalesce: ListDiff[String],
+  udf: ListDiff[String],
+  views: ListDiff[Named],
+  engine: ListDiff[Named],
+  schedule: ListDiff[Named]
+) {
+  def isEmpty() =
+    taskRefs.isEmpty() &&
+    format.isEmpty() &&
+    coalesce.isEmpty() &&
+    udf.isEmpty() &&
+    views.isEmpty() &&
+    engine.isEmpty() &&
+    schedule.isEmpty()
 }

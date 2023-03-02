@@ -636,6 +636,24 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       name
     }
 
+  def deserializedJobs(jobPath: Path): List[(Path, Try[AutoJobDesc])] = {
+    val paths = storage.list(
+      jobPath,
+      extension = ".yml",
+      recursive = true,
+      exclude = Some(Pattern.compile("_.*"))
+    )
+
+    val jobs = paths
+      .map { path =>
+        YamlSerializer.deserializeJob(
+          Utils.parseJinja(storage.read(path), activeEnv()),
+          path.toString
+        )
+      }
+    paths.zip(jobs)
+  }
+
   def jobs(reload: Boolean = false): Map[String, AutoJobDesc] = {
     if (reload) loadJobs()
     _jobs
