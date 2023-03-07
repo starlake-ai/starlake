@@ -95,7 +95,8 @@ object ExtractSchema extends Extract with LazyLogging {
       val tableWithPatternAndWrite = jdbcSchema.pattern match {
         case None => tableWithWrite
         case Some(pattern) =>
-          val pat = Pattern.compile(pattern)
+          val interpolatePattern = formatExtractPattern(jdbcSchema, table.name, pattern)
+          val pat = Pattern.compile(interpolatePattern)
           tableWithWrite.copy(pattern = pat)
       }
 
@@ -127,5 +128,20 @@ object ExtractSchema extends Extract with LazyLogging {
   ): Domain = {
     val selectedTablesAndColumns = JDBCUtils.extractJDBCTables(jdbcSchema, connectionOptions)
     JDBCUtils.extractDomain(jdbcSchema, domainTemplate, selectedTablesAndColumns)
+  }
+
+  private def formatExtractPattern(
+    jdbcSchema: JDBCSchema,
+    table: String,
+    pattern: String
+  )(implicit settings: Settings): String = {
+    pattern.richFormat(
+      Map(
+        "catalog" -> jdbcSchema.catalog.getOrElse(""),
+        "schema"  -> jdbcSchema.schema,
+        "table"   -> table
+      ),
+      Map.empty
+    )
   }
 }
