@@ -37,7 +37,7 @@ class ExtractSpec extends TestHelper {
       )
       val domainTemplate = Domain(name = "CUSTOM_NAME", metadata = Some(metadata))
       ExtractSchema.extractSchema(
-        JDBCSchema(None, "PUBLIC"),
+        JDBCSchema(None, "PUBLIC", pattern = Some("{{schema}}-{{table}}.*")),
         settings.comet.connections("test-h2").options,
         File("/tmp"),
         Some(domainTemplate)
@@ -68,6 +68,14 @@ class ExtractSpec extends TestHelper {
       table.attributes.map(_.name) should contain theSameElementsAs Set("ID", "NAME")
       table.attributes.map(_.`type`) should contain theSameElementsAs Set("long", "string")
       table.primaryKey should contain("ID")
+      table.pattern.pattern() shouldBe "PUBLIC-TEST_TABLE1.*"
+      val viewFile = File("/tmp/PUBLIC", "_TEST_VIEW1.comet.yml")
+      val view =
+        YamlSerializer
+          .deserializeSchemas(viewFile.contentAsString, viewFile.pathAsString)
+          .tables
+          .head
+      view.pattern.pattern() shouldBe "PUBLIC-TEST_VIEW1.*"
     }
   }
 
@@ -96,6 +104,7 @@ class ExtractSpec extends TestHelper {
           |        - "ALIAS"
           |        - "SYNONYM"
           |      template: "/my-templates/domain-template.yml" # Metadata to use for the generated YML file.
+          |      pattern: "{{schema}}-{{table}}.*"
           |""".stripMargin
       val jdbcMapping = File.newTemporaryFile()
       val outputDir = File.newTemporaryDirectory()
@@ -107,7 +116,7 @@ class ExtractSpec extends TestHelper {
     }
   }
 
-  "JDBC2Yml of some columns" should "should generated only the tables and columns requested" in {
+  "JDBC2Yml of some columns" should "should generate only the tables and columns requested" in {
     new WithSettings() {
       val jdbcOptions = settings.comet.connections("test-h2")
       val conn = DriverManager.getConnection(
