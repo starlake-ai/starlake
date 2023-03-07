@@ -441,7 +441,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     }
 
     val directoryErrors = Utils.duplicates(
-      domains.map(_.resolveDirectory()),
+      domains.flatMap(_.resolveDirectoryOpt()),
       s"%s is defined %d times. A directory can only appear once in a domain definition file."
     ) match {
       case Right(_) =>

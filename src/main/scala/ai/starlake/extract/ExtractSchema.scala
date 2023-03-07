@@ -53,14 +53,10 @@ object ExtractSchema extends Extract with LazyLogging {
           .richFormat(schemaHandler.activeEnv(), Map.empty)
         YamlSerializer.deserializeDomain(content, ymlTemplate) match {
           case Success(domain) =>
-            domain.metadata match {
-              case Some(metadata) if metadata.directory.isEmpty =>
-                throw new Exception(
-                  "Domain metadata directory property is mandatory in template file."
-                )
-              case Some(_) =>
-                domain
-            }
+            if (domain.resolveDirectoryOpt().isEmpty)
+              throw new Exception(
+                "Domain metadata directory property is mandatory in template file."
+              )
             domain
           case Failure(e) => throw e
         }
