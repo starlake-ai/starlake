@@ -75,7 +75,7 @@ class Yml2Xls(schemaHandler: SchemaHandler) extends LazyLogging with XlsModel {
     fillHeaders(workbook, allDomainHeaders, domainSheet)
     val domainRow = domainSheet.createRow(2)
     domainRow.createCell(0).setCellValue(domain.name)
-    domainRow.createCell(1).setCellValue(domain.resolveDirectory())
+    domainRow.createCell(1).setCellValue(domain.resolveDirectoryOpt().getOrElse(""))
     domainRow.createCell(2).setCellValue(domain.resolveAck().getOrElse(""))
     domainRow.createCell(3).setCellValue(domain.comment.getOrElse(""))
     domainRow.createCell(4).setCellValue(domain.tableRefs.mkString(","))
