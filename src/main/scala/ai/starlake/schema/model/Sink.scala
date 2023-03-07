@@ -96,7 +96,7 @@ class SinkTypeDeserializer extends JsonDeserializer[SinkType] {
     new JsonSubTypes.Type(value = classOf[JdbcSink], name = "JDBC")
   )
 )
-sealed abstract class Sink(val `type`: String) {
+sealed abstract class Sink(val `type`: String, val write: Option[WriteMode] = None) {
   def getType(): SinkType = SinkType.fromString(`type`)
   def name: Option[String]
   def options: Option[Map[String, String]]

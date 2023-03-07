@@ -69,7 +69,7 @@ import scala.util.{Failure, Success, Try}
   @nowarn @deprecated("Moved to Metadata", "0.2.8") directory: Option[String] = None,
   metadata: Option[Metadata] = None,
   tableRefs: List[String] = Nil,
-  tables: List[Schema] = Nil,
+  tables: List[Schema] = Nil, // deprecated("Moved to tableRefs", "0.6.4")
   comment: Option[String] = None,
   @nowarn @deprecated("Moved to Metadata", "0.2.8") extensions: List[String] = Nil,
   @nowarn @deprecated("Moved to Metadata", "0.2.8") ack: Option[String] = None,
