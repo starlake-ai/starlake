@@ -54,12 +54,12 @@ class XlsDomainReader(input: Input) extends XlsModel {
           .flatMap(formatter.formatCellValue)
           .map(_.split(",").toList)
           .getOrElse(Nil)
-      (nameOpt, directoryOpt) match {
-        case (Some(name), Some(directory)) =>
+      nameOpt match {
+        case Some(name) =>
           Some(
             Domain(
               name,
-              metadata = Some(Metadata(directory = Some(directory), ack = ack)),
+              metadata = Some(Metadata(directory = directoryOpt, ack = ack)),
               comment = comment,
               tableRefs = schemaRefs,
               rename = renameOpt
