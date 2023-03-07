@@ -28,7 +28,7 @@ import org.apache.hadoop.fs.Path
 
 import scala.annotation.nowarn
 import scala.collection.mutable
-import scala.util.{Failure, Success, Try}
+import scala.util.Try
 
 /** Let's say you are willing to import customers and orders from your Sales system. Sales is
   * therefore the domain and customer & order are your datasets. In a DBMS, A Domain would be
@@ -156,17 +156,21 @@ import scala.util.{Failure, Success, Try}
     * @return
     */
   @nowarn def resolveDirectory(): String = {
+    resolveDirectoryOpt() match {
+      case Some(directory) => directory
+      case None => throw new Exception("directory attribute is mandatory. should never happen")
+    }
+  }
+
+  /** @return
+    *   directory if any
+    */
+  def resolveDirectoryOpt(): Option[String] = {
     val maybeDirectory = for {
       metadata  <- metadata
       directory <- metadata.directory
     } yield directory
-
-    maybeDirectory match {
-      case Some(directory) => directory
-      case None =>
-        this.directory
-          .getOrElse(throw new Exception("directory attribute is mandatory. should never happen"))
-    }
+    maybeDirectory.orElse(this.directory)
   }
 
   @nowarn def resolveAck(): Option[String] = {
@@ -215,10 +219,9 @@ import scala.util.{Failure, Success, Try}
 
     val forceTablePrefixRegex = settings.comet.forceTablePattern.r
 
-    Try(resolveDirectory()) match {
-      case Success(_) => //
-      case Failure(_) =>
-        errorList += s"Domain with name $name should define the directory attribute"
+    resolveDirectoryOpt() match {
+      case Some(_) => //
+      case None    => errorList += s"Domain with name $name should define the directory attribute"
     }
 
     // Check Schemas validity
