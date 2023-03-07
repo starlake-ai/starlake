@@ -75,7 +75,7 @@ import scala.collection.mutable
   *   : com.databricks.spark.xml options to use (eq. rowTag)
   */
 case class Metadata(
-  mode: Option[Mode] = None,
+  mode: Option[Mode] = None, // deprecated("Unused but reserved", "0.6.4")
   format: Option[Format] = None,
   encoding: Option[String] = None,
   multiline: Option[Boolean] = None,
@@ -142,7 +142,7 @@ case class Metadata(
 
   def getEscape(): String = escape.getOrElse("\\")
 
-  def getWrite(): WriteMode = write.getOrElse(APPEND)
+  def getWrite(): WriteMode = this.getSink().flatMap(_.write).getOrElse(APPEND)
 
   @JsonIgnore
   def getPartitionAttributes(): List[String] = partition.map(_.getAttributes()).getOrElse(Nil)

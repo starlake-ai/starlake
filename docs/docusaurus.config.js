@@ -1,6 +1,6 @@
 /** @type {import('@docusaurus/types').DocusaurusConfig} */
 module.exports = {
-    title: "Quickly Build Optimized Big & Fast Data Pipelines",
+    title: "Supercharge your data pipelines",
     tagline: 'So your data just keep moving',
     url: 'https://starlake-ai.github.io',
     baseUrl: process.env.BASE_URL || '/',
