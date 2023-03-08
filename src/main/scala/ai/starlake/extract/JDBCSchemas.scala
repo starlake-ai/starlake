@@ -4,9 +4,51 @@ import ai.starlake.schema.model.WriteMode
 
 case class JDBCSchemas(
   jdbcSchemas: List[JDBCSchema],
+  globalJdbcSchema: Option[JDBCSchema],
   connectionRef: Option[String] = None,
   connection: Map[String, String] = Map.empty
-)
+) {
+
+  /** @return
+    *   jdbc schemas filled with global jdbc schemas attributes if empty. Considered attributes are
+    *   all except tables:
+    *   - catalog
+    *   - schema
+    *   - tableRemarks
+    *   - columnRemarks
+    *   - tableTypes
+    *   - template
+    *   - write
+    *   - pattern
+    */
+  def propageGlobalJdbcSchemas(): JDBCSchemas = {
+    if (globalJdbcSchema.isDefined) {
+      this.copy(jdbcSchemas = jdbcSchemas.map(schema => {
+        schema
+          .copy(
+            catalog = schema.catalog.orElse(globalJdbcSchema.flatMap(_.catalog)),
+            schema =
+              if (schema.schema.isEmpty) globalJdbcSchema.map(_.schema).getOrElse(schema.schema)
+              else schema.schema,
+            tableRemarks = schema.tableRemarks.orElse(globalJdbcSchema.flatMap(_.tableRemarks)),
+            columnRemarks = schema.columnRemarks.orElse(globalJdbcSchema.flatMap(_.columnRemarks)),
+            tableTypes =
+              if (schema.tableTypes.isEmpty)
+                globalJdbcSchema
+                  .map(_.tableTypes)
+                  .getOrElse(schema.tableTypes)
+              else schema.tableTypes,
+            template = schema.template.orElse(globalJdbcSchema.flatMap(_.template)),
+            write = schema.write.orElse(globalJdbcSchema.flatMap(_.write)),
+            pattern = schema.pattern.orElse(globalJdbcSchema.flatMap(_.pattern))
+          )
+          .fillWithDefaultValues()
+      }))
+    } else {
+      this
+    }
+  }
+}
 
 /** @param connectionRef
   *   : JDBC Configuration to use as defined in the connection section in the application.conf
@@ -26,7 +68,22 @@ case class JDBCSchema(
   tableRemarks: Option[String] = None,
   columnRemarks: Option[String] = None,
   tables: List[JDBCTable] = Nil,
-  tableTypes: List[String] = List(
+  tableTypes: List[String] = Nil,
+  template: Option[String] = None,
+  write: Option[WriteMode] = None,
+  pattern: Option[String] = None
+) {
+  def this() = this(None) // Should never be called. Here for Jackson deserialization only
+
+  def fillWithDefaultValues() = {
+    copy(
+      tableTypes = if (tableTypes.isEmpty) JDBCSchema.defaultTableTypes else tableTypes
+    )
+  }
+}
+
+object JDBCSchema {
+  val defaultTableTypes = List(
     "TABLE",
     "VIEW",
     "SYSTEM TABLE",
@@ -34,12 +91,7 @@ case class JDBCSchema(
     "LOCAL TEMPORARY",
     "ALIAS",
     "SYNONYM"
-  ),
-  template: Option[String] = None,
-  write: Option[WriteMode] = None,
-  pattern: Option[String] = None
-) {
-  def this() = this(None) // Should never be called. Here for Jackson deserialization only
+  )
 }
 
 /** @param name

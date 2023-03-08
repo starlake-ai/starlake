@@ -18,33 +18,38 @@ class ExtractSpec extends TestHelper {
         directory = Some("/{{domain}}/{{schema}}")
       )
       val domainTemplate = Domain(name = "CUSTOM_NAME", metadata = Some(metadata))
-      testSchemaExtraction(JDBCSchema(None, "PUBLIC", pattern = Some("{{schema}}-{{table}}.*")),
+      testSchemaExtraction(
+        JDBCSchema(None, "PUBLIC", pattern = Some("{{schema}}-{{table}}.*"))
+          .fillWithDefaultValues(),
         settings.comet.connections("test-h2").options,
-        Some(domainTemplate)) {
-        case (domain, _, _) =>
-          assert(domain.metadata.flatMap(_.quote).getOrElse("") == "::")
-          assert(domain.metadata.flatMap(_.mode).getOrElse(Mode.FILE) == Mode.STREAM)
-          assert(domain.metadata.flatMap(_.directory).isDefined)
+        Some(domainTemplate)
+      ) { case (domain, _, _) =>
+        assert(domain.metadata.flatMap(_.quote).getOrElse("") == "::")
+        assert(domain.metadata.flatMap(_.mode).getOrElse(Mode.FILE) == Mode.STREAM)
+        assert(domain.metadata.flatMap(_.directory).isDefined)
       }
     }
   }
 
   it should "should generated all the table schemas in a YML file without domain template" in {
     new WithSettings() {
-      testSchemaExtraction(JDBCSchema(None, "PUBLIC", pattern = Some("{{schema}}-{{table}}.*")),
+      testSchemaExtraction(
+        JDBCSchema(None, "PUBLIC", pattern = Some("{{schema}}-{{table}}.*"))
+          .fillWithDefaultValues(),
         settings.comet.connections("test-h2").options,
-        None){
-        case (domain, _, _) =>
-          assert(domain.metadata.isEmpty)
+        None
+      ) { case (domain, _, _) =>
+        assert(domain.metadata.isEmpty)
       }
     }
   }
 
-  private def testSchemaExtraction(jdbcSchema: JDBCSchema,
-                                   connectionOptions: Map[String, String],
-                                   domainTemplate: Option[Domain])
-                                  (assertOutput: (Domain, Schema, Schema) => Unit) // Domain, Table definition and View definition
-                                  (implicit settings: Settings) = {
+  private def testSchemaExtraction(
+    jdbcSchema: JDBCSchema,
+    connectionOptions: Map[String, String],
+    domainTemplate: Option[Domain]
+  )(assertOutput: (Domain, Schema, Schema) => Unit) // Domain, Table definition and View definition
+  (implicit settings: Settings) = {
     val jdbcOptions = settings.comet.connections("test-h2")
     val conn = DriverManager.getConnection(
       jdbcOptions.options("url"),
@@ -78,7 +83,7 @@ class ExtractSpec extends TestHelper {
         publicPath.pathAsString
       ) match {
         case Success(domain) => domain
-        case Failure(e) => throw e
+        case Failure(e)      => throw e
       }
     assert(domain.name == "PUBLIC")
     assert(domain.tableRefs.size == 2)
@@ -107,14 +112,14 @@ class ExtractSpec extends TestHelper {
     assertOutput(domain, table, view)
   }
 
-  "JDBCSchemas" should "deserialize corrected" in {
+  "JDBCSchemas" should "deserialize correctly" in {
     new WithSettings() {
       val input =
         """
           |extract:
+          |  connectionRef: "test-h2" # Connection name as defined in the connections section of the application.conf file
           |  jdbcSchemas:
-          |    - connectionRef: "test-h2" # Connection name as defined in the connections section of the application.conf file
-          |      catalog: "business" # Optional catalog name in the target database
+          |    - catalog: "business" # Optional catalog name in the target database
           |      schema: "public" # Database schema where tables are located
           |      tables:
           |        - name: "user"
@@ -135,12 +140,166 @@ class ExtractSpec extends TestHelper {
           |      pattern: "{{schema}}-{{table}}.*"
           |""".stripMargin
       val jdbcMapping = File.newTemporaryFile()
-      val outputDir = File.newTemporaryDirectory()
       jdbcMapping.overwrite(input)
 
       val jdbcSchemas =
         YamlSerializer.deserializeJDBCSchemas(jdbcMapping.contentAsString, jdbcMapping.pathAsString)
       assert(jdbcSchemas.jdbcSchemas.nonEmpty)
+      jdbcSchemas shouldBe JDBCSchemas(
+        connectionRef = Some("test-h2"),
+        jdbcSchemas = List(
+          JDBCSchema(
+            catalog = Some("business"),
+            schema = "public",
+            tables = List(
+              JDBCTable("user", List("id", "email")),
+              JDBCTable("product", Nil),
+              JDBCTable("*", Nil)
+            ),
+            tableTypes = List(
+              "TABLE",
+              "VIEW",
+              "SYSTEM TABLE",
+              "GLOBAL TEMPORARY",
+              "LOCAL TEMPORARY",
+              "ALIAS",
+              "SYNONYM"
+            ),
+            template = Some("/my-templates/domain-template.yml"),
+            pattern = Some("{{schema}}-{{table}}.*")
+          )
+        ),
+        globalJdbcSchema = None,
+        connection = Map.empty
+      )
+    }
+  }
+
+  "JDBCSchemas" should "deserialize with global jdbc schema override" in {
+    new WithSettings() {
+      val input =
+        """
+          |extract:
+          |  connectionRef: "test-h2" # Connection name as defined in the connections section of the application.conf file
+          |  globalJdbcSchema:
+          |    catalog: "business" # Optional catalog name in the target database
+          |    schema: "public" # Database schema where tables are located
+          |    tableTypes: # One or many of the types below
+          |      - "TABLE"
+          |      - "VIEW"
+          |    template: "/my-templates/domain-template.yml" # Metadata to use for the generated YML file.
+          |    pattern: "{{schema}}-{{table}}.*"
+          |  jdbcSchemas:
+          |    - tables:
+          |        - name: "user"
+          |          columns: # optional list of columns, if not present all columns should be exported.
+          |            - id
+          |            - email
+          |        - name: product # All columns should be exported
+          |        - name: "*" # Ignore any other table spec. Just export all tables
+          |""".stripMargin
+      val jdbcMapping = File.newTemporaryFile()
+      jdbcMapping.overwrite(input)
+
+      val jdbcSchemas =
+        YamlSerializer.deserializeJDBCSchemas(jdbcMapping.contentAsString, jdbcMapping.pathAsString)
+      assert(jdbcSchemas.jdbcSchemas.nonEmpty)
+      jdbcSchemas shouldBe JDBCSchemas(
+        connectionRef = Some("test-h2"),
+        jdbcSchemas = List(
+          JDBCSchema(
+            catalog = Some("business"),
+            schema = "public",
+            tables = List(
+              JDBCTable("user", List("id", "email")),
+              JDBCTable("product", Nil),
+              JDBCTable("*", Nil)
+            ),
+            tableTypes = List(
+              "TABLE",
+              "VIEW"
+            ),
+            template = Some("/my-templates/domain-template.yml"),
+            pattern = Some("{{schema}}-{{table}}.*")
+          )
+        ),
+        globalJdbcSchema = Some(
+          JDBCSchema(
+            catalog = Some("business"),
+            schema = "public",
+            tables = Nil,
+            tableTypes = List(
+              "TABLE",
+              "VIEW"
+            ),
+            template = Some("/my-templates/domain-template.yml"),
+            pattern = Some("{{schema}}-{{table}}.*")
+          )
+        ),
+        connection = Map.empty
+      )
+    }
+  }
+
+  "JDBCSchemas" should "deserialize with default value" in {
+    new WithSettings() {
+      val input =
+        """
+          |extract:
+          |  connectionRef: "test-h2" # Connection name as defined in the connections section of the application.conf file
+          |  globalJdbcSchema:
+          |    catalog: "business" # Optional catalog name in the target database
+          |    template: "/my-templates/domain-template.yml" # Metadata to use for the generated YML file.
+          |    pattern: "{{schema}}-{{table}}.*"
+          |  jdbcSchemas:
+          |    - tables:
+          |        - name: "user"
+          |          columns: # optional list of columns, if not present all columns should be exported.
+          |            - id
+          |            - email
+          |        - name: product # All columns should be exported
+          |        - name: "*" # Ignore any other table spec. Just export all tables
+          |""".stripMargin
+      val jdbcMapping = File.newTemporaryFile()
+      jdbcMapping.overwrite(input)
+
+      val jdbcSchemas =
+        YamlSerializer.deserializeJDBCSchemas(jdbcMapping.contentAsString, jdbcMapping.pathAsString)
+      assert(jdbcSchemas.jdbcSchemas.nonEmpty)
+      jdbcSchemas shouldBe JDBCSchemas(
+        connectionRef = Some("test-h2"),
+        jdbcSchemas = List(
+          JDBCSchema(
+            catalog = Some("business"),
+            tables = List(
+              JDBCTable("user", List("id", "email")),
+              JDBCTable("product", Nil),
+              JDBCTable("*", Nil)
+            ),
+            tableTypes = List(
+              "TABLE",
+              "VIEW",
+              "SYSTEM TABLE",
+              "GLOBAL TEMPORARY",
+              "LOCAL TEMPORARY",
+              "ALIAS",
+              "SYNONYM"
+            ),
+            template = Some("/my-templates/domain-template.yml"),
+            pattern = Some("{{schema}}-{{table}}.*")
+          )
+        ),
+        globalJdbcSchema = Some(
+          JDBCSchema(
+            catalog = Some("business"),
+            tables = Nil,
+            tableTypes = Nil,
+            template = Some("/my-templates/domain-template.yml"),
+            pattern = Some("{{schema}}-{{table}}.*")
+          )
+        ),
+        connection = Map.empty
+      )
     }
   }
 
@@ -172,7 +331,7 @@ class ExtractSpec extends TestHelper {
           None,
           None,
           List(JDBCTable("TEST_TABLE1", List("ID")))
-        ),
+        ).fillWithDefaultValues(),
         settings.comet.connections("test-h2").options,
         File("/tmp"),
         None
@@ -234,7 +393,7 @@ class ExtractSpec extends TestHelper {
           None,
           None,
           List(JDBCTable("TEST_TABLE2", Nil))
-        ),
+        ).fillWithDefaultValues(),
         settings.comet.connections("test-h2").options,
         File("/tmp"),
         None
