@@ -20,7 +20,8 @@ __Bug Fix__:
 - Upsert table description for nested fields
 - Restore the ability to override intermediate bq format
 - Exclude specific BQ partitions when applying Merge with a BQ Table
-- Apply spark options defined in the job description (sink) when saving into file 
+- Apply spark options defined in the job description (sink) when saving into file
+- archived Spark versions may be now referenced in starlake CLI (@sabino). 
 
 # 0.6.3
 __New Feature__:
