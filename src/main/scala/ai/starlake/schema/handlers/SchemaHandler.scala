@@ -409,6 +409,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
               )
             }
             .flatMap(_.tables)
+            .map(t => t.copy(metadata = Some(t.mergedMetadata(domain.metadata))))
           logger.info(s"Successfully loaded Domain  in $path")
           Success(domain.copy(tables = Option(domain.tables).getOrElse(Nil) ::: schemaRefs))
         case (path, Failure(e)) =>
@@ -441,7 +442,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     }
 
     val directoryErrors = Utils.duplicates(
-      domains.map(_.resolveDirectory()),
+      domains.flatMap(_.resolveDirectoryOpt()),
       s"%s is defined %d times. A directory can only appear once in a domain definition file."
     ) match {
       case Right(_) =>

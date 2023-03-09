@@ -69,7 +69,17 @@ object YamlSerializer extends LazyLogging {
         rootNode
       } else
         extractNode
-    mapper.treeToValue(jdbcNode, classOf[JDBCSchemas])
+    if (
+      jdbcNode
+        .path("globalJdbcSchema")
+        .isMissingNode && !jdbcNode.path("globalJdbcSchema").path("tables").isMissingNode
+    ) {
+      logger.warn(
+        "tables defined in globalJdbcSchema are ignored. Please define them in jdbcSchemas"
+      )
+    }
+    val jdbcSchemas = mapper.treeToValue(jdbcNode, classOf[JDBCSchemas])
+    jdbcSchemas.propageGlobalJdbcSchemas()
   }
 
   def serializeToFile(targetFile: File, domain: Domain): Unit = {
