@@ -41,8 +41,7 @@ The main advantages of the Starlake Data Pipeline project are :
 ## How it works
 
 Starlake Data Pipeline automates the loading and parsing of files and
-their ingestion into a Hadoop Datalake where datasets become
-available as Hive tables.
+their ingestion into your Datawarehouse.
 
 ![Complete Starlake Data Pipeline]( docs/static/img/guide/animated-elt.gif "Complete Starlake Data Pipeline")
 
