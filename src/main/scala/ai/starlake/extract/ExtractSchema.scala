@@ -53,14 +53,10 @@ object ExtractSchema extends Extract with LazyLogging {
           .richFormat(schemaHandler.activeEnv(), Map.empty)
         YamlSerializer.deserializeDomain(content, ymlTemplate) match {
           case Success(domain) =>
-            domain.metadata match {
-              case Some(metadata) if metadata.directory.isEmpty =>
-                throw new Exception(
-                  "Domain metadata directory property is mandatory in template file."
-                )
-              case Some(_) =>
-                domain
-            }
+            if (domain.resolveDirectoryOpt().isEmpty)
+              throw new Exception(
+                "Domain metadata directory property is mandatory in template file."
+              )
             domain
           case Failure(e) => throw e
         }
@@ -95,7 +91,8 @@ object ExtractSchema extends Extract with LazyLogging {
       val tableWithPatternAndWrite = jdbcSchema.pattern match {
         case None => tableWithWrite
         case Some(pattern) =>
-          val pat = Pattern.compile(pattern)
+          val interpolatePattern = formatExtractPattern(jdbcSchema, table.name, pattern)
+          val pat = Pattern.compile(interpolatePattern)
           tableWithWrite.copy(pattern = pat)
       }
 
@@ -127,5 +124,20 @@ object ExtractSchema extends Extract with LazyLogging {
   ): Domain = {
     val selectedTablesAndColumns = JDBCUtils.extractJDBCTables(jdbcSchema, connectionOptions)
     JDBCUtils.extractDomain(jdbcSchema, domainTemplate, selectedTablesAndColumns)
+  }
+
+  private def formatExtractPattern(
+    jdbcSchema: JDBCSchema,
+    table: String,
+    pattern: String
+  )(implicit settings: Settings): String = {
+    pattern.richFormat(
+      Map(
+        "catalog" -> jdbcSchema.catalog.getOrElse(""),
+        "schema"  -> jdbcSchema.schema,
+        "table"   -> table
+      ),
+      Map.empty
+    )
   }
 }
