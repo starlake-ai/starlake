@@ -151,7 +151,7 @@ if "%SPARK_DOWNLOADED%" == "TRUE" (
 
 SET SPARK_DIR_NAME=spark-%SPARK_VERSION%-bin-hadoop%HADOOP_VERSION%
 SET SPARK_TGZ_NAME=%SPARK_DIR_NAME%.tgz
-SET SPARK_TGZ_URL=https://downloads.apache.org/spark/spark-%SPARK_VERSION%/%SPARK_TGZ_NAME%
+SET SPARK_TGZ_URL=https://archive.apache.org/dist/spark/spark-%SPARK_VERSION%/%SPARK_TGZ_NAME%
 SET SPARK_DIR=%SCRIPT_DIR%\%SPARK_DIR_NAME%
 
 if not exist %SPARK_TGZ_NAME% (

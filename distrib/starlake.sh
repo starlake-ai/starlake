@@ -20,7 +20,7 @@ export COMET_MAIN=ai.starlake.job.Main
 export COMET_VALIDATE_ON_LOAD=false
 
 SPARK_TGZ_NAME=$SPARK_DIR_NAME.tgz
-SPARK_TGZ_URL=https://downloads.apache.org/spark/spark-$SPARK_VERSION/$SPARK_TGZ_NAME
+SPARK_TGZ_URL=https://archive.apache.org/dist/spark/spark-$SPARK_VERSION/$SPARK_TGZ_NAME
 SPARK_BQ_URL=https://repo1.maven.org/maven2/com/google/cloud/spark/$SPARK_BQ_ARTIFACT_NAME/$SPARK_BQ_VERSION/$SPARK_BQ_ARTIFACT_NAME-$SPARK_BQ_VERSION.jar
 
 initStarlakeInstallVariables() {
