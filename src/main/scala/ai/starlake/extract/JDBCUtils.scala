@@ -302,10 +302,6 @@ object JDBCUtils extends LazyLogging {
     domainTemplate: Option[Domain],
     selectedTablesAndColumns: Map[String, (TableRemarks, Columns, PrimaryKeys)]
   ) = {
-    val domainMetadata =
-      domainTemplate.flatMap(_.metadata)
-    val patternTemplate =
-      domainTemplate.flatMap(_.tables.headOption.map(_.pattern))
     val trimTemplate =
       domainTemplate.flatMap(_.tables.headOption.flatMap(_.attributes.head.trim))
 
