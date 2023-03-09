@@ -1,7 +1,7 @@
 
 # Release notes
 
-# 0.6.4
+# 0.7.0
 __New Feature__:
 - Add Project diffs and produce HTML report
 - Import existing BigQuery Datasets and Tables
@@ -11,8 +11,12 @@ __New Feature__:
 - Extract BigQuery Tables infos to dataset_info and table_info tables
 - Import BigQuery Project into external metadata folder
 - Automatically switch to ORC when ingesting complex structures (array of records) into bigquery (https://github.com/GoogleCloudDataproc/spark-bigquery-connector/issues/251)
+- Turn schema extract pattern to a template
+- Add global jdbc schema attributes in order to set common attributes once
+- Always propagate domain's metadata to tables
 
 __Bug Fix__:
+- **BREAKING CHANGE**: Make directory mandatory only when feature require it. If you rely on exception while generating YML files from xls and vice-versa for any missing directory, you'll have to change. 
 - Upsert table description for nested fields
 - Restore the ability to override intermediate bq format
 - Exclude specific BQ partitions when applying Merge with a BQ Table
