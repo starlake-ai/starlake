@@ -86,8 +86,9 @@ class InferSchemaJob(implicit settings: Settings) {
     *   : list of lines read from file
     * @return
     */
-  def getFormatFile(lines: List[String]): String = {
-    val firstLine = lines.head
+  def getFormatFile(lines: List[String], header: Boolean = true): String = {
+    // We take the second line when there is a header
+    val firstLine = if (lines.length > 1 && header) lines(1) else lines.head
     val lastLine = lines.last
 
     val jsonRegexStart = """\{.*""".r
@@ -118,14 +119,13 @@ class InferSchemaJob(implicit settings: Settings) {
     val firstLine = lines.head
     val (separator, count) =
       firstLine
-        .replaceAll("[A-Za-z0-9 \"'()@?!éèîàÀÉÈç+]", "")
+        .replaceAll("[A-Za-z0-9 \"'()@?!éèîàÀÉÈç+\\-_]", "")
         .toCharArray
         .map((_, 1))
         .groupBy(_._1)
         .mapValues(_.length)
         .toList
         .maxBy { case (ch, count) => count }
-    // .maxBy(_._2)
     separator.toString
   }
 
@@ -164,7 +164,7 @@ class InferSchemaJob(implicit settings: Settings) {
     dataPath: String,
     header: Boolean
   ): DataFrame = {
-    val formatFile = getFormatFile(lines)
+    val formatFile = getFormatFile(lines, header)
     formatFile match {
       case "ARRAY_JSON" =>
         val jsonRDD =
@@ -219,7 +219,7 @@ class InferSchemaJob(implicit settings: Settings) {
       val dataframeWithFormat = createDataFrameWithFormat(lines, dataPath, header)
 
       val format = forceFormat match {
-        case None    => getFormatFile(lines)
+        case None    => getFormatFile(lines, header)
         case Some(f) => f
       }
 
