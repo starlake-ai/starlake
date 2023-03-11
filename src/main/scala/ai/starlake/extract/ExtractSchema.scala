@@ -2,7 +2,7 @@ package ai.starlake.extract
 
 import ai.starlake.config.Settings
 import ai.starlake.schema.handlers.SchemaHandler
-import ai.starlake.schema.model.{Domain, Metadata, Schemas}
+import ai.starlake.schema.model.{Domain, Metadata, SchemaRefs}
 import ai.starlake.utils.Formatter._
 import ai.starlake.utils.YamlSerializer
 import better.files.File
@@ -96,7 +96,7 @@ object ExtractSchema extends Extract with LazyLogging {
           tableWithWrite.copy(pattern = pat)
       }
 
-      val content = YamlSerializer.serialize(Schemas(List(tableWithPatternAndWrite)))
+      val content = YamlSerializer.serialize(SchemaRefs(List(tableWithPatternAndWrite)))
       val file = File(baseOutputDir, domainName, "_" + table.name + ".comet.yml")
       file.overwrite(content)
     }
