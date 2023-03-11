@@ -22,7 +22,7 @@ package ai.starlake.job.infer
 
 import ai.starlake.config.{Settings, SparkEnv}
 import ai.starlake.schema.handlers.InferSchemaHandler
-import ai.starlake.schema.model.{Attribute, Domain}
+import ai.starlake.schema.model.{Attribute, Domain, Format, Position}
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.{DataFrame, Dataset, Encoders, SparkSession}
 
@@ -49,7 +49,7 @@ class InferSchema(
   dataPath: String,
   saveDir: String,
   header: Boolean = false,
-  format: Option[String] = None
+  format: Option[Format] = None
 )(implicit settings: Settings) {
 
   def run(): Try[Unit] =
@@ -86,9 +86,8 @@ class InferSchemaJob(implicit settings: Settings) {
     *   : list of lines read from file
     * @return
     */
-  def getFormatFile(lines: List[String], header: Boolean = true): String = {
-    // We take the second line when there is a header
-    val firstLine = if (lines.length > 1 && header) lines(1) else lines.head
+  def getFormatFile(lines: List[String]): String = {
+    val firstLine = lines.head
     val lastLine = lines.last
 
     val jsonRegexStart = """\{.*""".r
@@ -115,8 +114,9 @@ class InferSchemaJob(implicit settings: Settings) {
     * @return
     *   the file separator
     */
-  def getSeparator(lines: List[String]): String = {
-    val firstLine = lines.head
+  def getSeparator(lines: List[String], withHeader: Boolean): String = {
+    val linesWithoutHeader = if (withHeader) lines.drop(1) else lines
+    val firstLine = linesWithoutHeader.head
     val (separator, count) =
       firstLine
         .replaceAll("[A-Za-z0-9 \"'()@?!éèîàÀÉÈç+\\-_]", "")
@@ -162,9 +162,9 @@ class InferSchemaJob(implicit settings: Settings) {
   def createDataFrameWithFormat(
     lines: List[String],
     dataPath: String,
-    header: Boolean
+    withHeader: Boolean
   ): DataFrame = {
-    val formatFile = getFormatFile(lines, header)
+    val formatFile = getFormatFile(lines)
     formatFile match {
       case "ARRAY_JSON" =>
         val jsonRDD =
@@ -190,9 +190,9 @@ class InferSchemaJob(implicit settings: Settings) {
       case "DSV" =>
         session.read
           .format("com.databricks.spark.csv")
-          .option("header", header)
+          .option("header", withHeader)
           .option("inferSchema", value = true)
-          .option("delimiter", getSeparator(lines))
+          .option("delimiter", getSeparator(lines, withHeader))
           .option("parserLib", "UNIVOCITY")
           .load(dataPath)
     }
@@ -208,62 +208,78 @@ class InferSchemaJob(implicit settings: Settings) {
     schemaName: String,
     dataPath: String,
     saveDir: String,
-    header: Boolean,
-    forceFormat: Option[String]
+    withHeader: Boolean,
+    forceFormat: Option[Format]
   ): Try[Unit] = {
     Try {
       val path = new Path(dataPath)
 
       val lines = Source.fromFile(path.toString).getLines().toList.map(_.trim).filter(_.nonEmpty)
 
-      val dataframeWithFormat = createDataFrameWithFormat(lines, dataPath, header)
+      val schema = forceFormat match {
+        case Some(Format.POSITION) =>
+          var lastIndex = -1
+          val attributes = lines.zipWithIndex.map { case (line, index) =>
+            val startPosition = lastIndex + 1
+            val endPosition = startPosition + line.length
+            lastIndex = endPosition
+            Attribute(
+              name = s"_c$index",
+              position = Some(Position(startPosition, endPosition))
+            )
+          }
+          val metadata = InferSchemaHandler.createMetaData(Format.POSITION)
+          InferSchemaHandler.createSchema(
+            schemaName,
+            Pattern.compile(getSchemaPattern(path)),
+            attributes,
+            Some(metadata)
+          )
+        case forceFormat =>
+          val dataframeWithFormat = createDataFrameWithFormat(lines, dataPath, withHeader)
 
-      val format = forceFormat match {
-        case None    => getFormatFile(lines, header)
-        case Some(f) => f
+          val (format, array) = forceFormat match {
+            case None =>
+              val formatAsStr = getFormatFile(lines)
+              (Format.fromString(getFormatFile(lines)), formatAsStr == "ARRAY_JSON")
+            case Some(f) => (f, false)
+          }
+
+          val (dataLines, separator) =
+            format match {
+              case Format.DSV =>
+                val separator = getSeparator(lines, withHeader)
+                val linesWithoutHeader = if (withHeader) lines.drop(1) else lines
+                (linesWithoutHeader.map(_.split(Pattern.quote(separator))), Some(separator))
+              case _ => (Nil, None)
+            }
+
+          val attributes: List[Attribute] =
+            InferSchemaHandler.createAttributes(dataLines, dataframeWithFormat.schema, format)
+
+          val metadata = InferSchemaHandler.createMetaData(
+            format,
+            Option(array),
+            Option(withHeader),
+            separator
+          )
+
+          InferSchemaHandler.createSchema(
+            schemaName,
+            Pattern.compile(getSchemaPattern(path)),
+            attributes,
+            Some(metadata)
+          )
       }
 
-      val array = format == "ARRAY_JSON"
-
-      val withHeader = header
-
-      val separator = getSeparator(lines)
-
-      val inferSchema = InferSchemaHandler
-
-      val dataLines =
-        format match {
-          case "DSV" =>
-            val linesWithoutHeader = if (withHeader) lines.drop(1) else lines
-            linesWithoutHeader.map(_.split(Pattern.quote(separator)))
-          case _ => Nil
-        }
-
-      val attributes: List[Attribute] =
-        inferSchema.createAttributes(dataLines, dataframeWithFormat.schema)
-
-      val metadata = inferSchema.createMetaData(
-        format,
-        Option(array),
-        Option(withHeader),
-        Option(separator)
-      )
-
-      val schema = inferSchema.createSchema(
-        schemaName,
-        Pattern.compile(getSchemaPattern(path)),
-        attributes,
-        Some(metadata)
-      )
-
       val domain: Domain =
-        inferSchema.createDomain(
+        InferSchemaHandler.createDomain(
           domainName,
-          Some(metadata.copy(directory = Some(s"{{root_path}}/incoming/$domainName"))),
+          schema.metadata.map(_.copy(directory = Some(s"{{root_path}}/incoming/$domainName"))),
           schemas = List(schema)
         )
 
-      inferSchema.generateYaml(domain, saveDir)
+      InferSchemaHandler.generateYaml(domain, saveDir)
     }
   }
 }
