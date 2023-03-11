@@ -172,6 +172,15 @@ case class Type(
           assert(tf.size == 2)
           Pattern.compile(tf(0), Pattern.MULTILINE)
           Pattern.compile(tf(1), Pattern.MULTILINE)
+        case PrimitiveType.decimal =>
+          zone match {
+            case None =>
+            case Some(zone) =>
+              val precisionScale = zone.split(",")
+              assert(precisionScale.length == 2)
+              precisionScale(0).toInt
+              precisionScale(0).toInt
+          }
         case _ =>
           Pattern.compile(pattern)
       }
