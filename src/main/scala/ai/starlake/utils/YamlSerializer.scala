@@ -8,7 +8,8 @@ import ai.starlake.schema.model.{
   Domain,
   IamPolicyTags,
   Schema => ModelSchema,
-  Schemas
+  SchemaRef,
+  SchemaRefs
 }
 import better.files.File
 import com.fasterxml.jackson.databind.ObjectMapper
@@ -56,7 +57,7 @@ object YamlSerializer extends LazyLogging {
   }
 
   def serialize(jdbcSchemas: JDBCSchemas): String = mapper.writeValueAsString(jdbcSchemas)
-  def serialize(schemas: Schemas): String = mapper.writeValueAsString(schemas)
+  def serialize(schemas: SchemaRefs): String = mapper.writeValueAsString(schemas)
 
   def deserializeJDBCSchemas(content: String, inputFilename: String): JDBCSchemas = {
     val rootNode = mapper.readTree(content)
@@ -91,18 +92,22 @@ object YamlSerializer extends LazyLogging {
     mapper.writeValue(targetFile.toJava, iamPolicyTags)
   }
 
-  def serializeToFile(targetFile: File, schema: ModelSchema): Unit = {
-    case class Schema(schema: ModelSchema)
-    mapper.writeValue(targetFile.toJava, Schema(schema))
+  def serializeToFile(targetFile: File, schemaRef: SchemaRef): Unit = {
+    mapper.writeValue(targetFile.toJava, schemaRef)
   }
 
-  def deserializeSchemas(content: String, path: String): Schemas = {
+  def deserializeSchemaRefs(content: String, path: String): SchemaRefs = {
     Try {
       val rootNode = mapper.readTree(content).asInstanceOf[ObjectNode]
-      YamlSerializer.renameField(rootNode, "schemas", "tables")
-      val result = mapper.treeToValue(rootNode, classOf[Schemas])
-      result
-
+      YamlSerializer.renameField(rootNode, "schema", "table")
+      val tableNode = rootNode.path("table")
+      if (tableNode.isNull || tableNode.isMissingNode) {
+        YamlSerializer.renameField(rootNode, "schemas", "tables")
+        mapper.treeToValue(rootNode, classOf[SchemaRefs])
+      } else {
+        val ref = mapper.treeToValue(rootNode, classOf[SchemaRef])
+        SchemaRefs(List(ref.table))
+      }
     } match {
       case Success(value) => value
       case Failure(exception) =>

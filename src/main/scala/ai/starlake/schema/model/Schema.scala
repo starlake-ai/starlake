@@ -544,4 +544,5 @@ object Schema {
   }
 }
 
-case class Schemas(tables: List[Schema])
+case class SchemaRefs(tables: List[Schema])
+case class SchemaRef(table: Schema)

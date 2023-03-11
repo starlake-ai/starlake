@@ -401,7 +401,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
           val schemaRefs = tableRefNames
             .map { tableRefName =>
               val schemaPath = new Path(folder, tableRefName)
-              YamlSerializer.deserializeSchemas(
+              YamlSerializer.deserializeSchemaRefs(
                 Utils
                   .parseJinja(storage.read(schemaPath), activeEnv())
                   .richFormat(activeEnv(), Map.empty),

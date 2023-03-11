@@ -42,7 +42,8 @@ object InferSchemaHandler {
     */
   def createAttributes(
     lines: List[Array[String]],
-    schema: StructType
+    schema: StructType,
+    format: Format
   )(implicit settings: Settings): List[Attribute] = {
     val schemaWithIndex: Seq[(StructField, Int)] = schema.zipWithIndex
 
@@ -57,7 +58,7 @@ object InferSchemaHandler {
               row.dataType.typeName,
               Some(false),
               !row.nullable,
-              attributes = createAttributes(lines, row.dataType.asInstanceOf[StructType])
+              attributes = createAttributes(lines, row.dataType.asInstanceOf[StructType], format)
             )
 
           case "array" =>
@@ -70,7 +71,7 @@ object InferSchemaHandler {
                 elemType.typeName,
                 Some(true),
                 !row.nullable,
-                attributes = createAttributes(lines, elemType.asInstanceOf[StructType])
+                attributes = createAttributes(lines, elemType.asInstanceOf[StructType], format)
               )
             else
               // if it is a regular array. {ages: [21, 25]}
@@ -78,15 +79,22 @@ object InferSchemaHandler {
 
           // if the datatype is a simple Attribute
           case _ =>
-            val cellType = if (row.dataType.typeName == "timestamp") {
-              // We handle here the case when it is a date and not a timestamp
-              val timestamps = lines.map(row => row(index)).flatMap(Option(_))
-              if (timestamps.forall(v => datePattern.matcher(v).matches()))
-                "date"
-              else
-                "timestamp"
-            } else
-              row.dataType.typeName
+            val cellType =
+              if (
+                row.dataType.typeName == "timestamp" && Set(
+                  Format.DSV,
+                  Format.POSITION,
+                  Format.SIMPLE_JSON
+                ).contains(format)
+              ) {
+                // We handle here the case when it is a date and not a timestamp
+                val timestamps = lines.map(row => row(index)).flatMap(Option(_))
+                if (timestamps.forall(v => datePattern.matcher(v).matches()))
+                  "date"
+                else
+                  "timestamp"
+              } else
+                row.dataType.typeName
             Attribute(row.name, cellType, Some(false), !row.nullable)
         }
       }
@@ -106,19 +114,19 @@ object InferSchemaHandler {
     */
 
   def createMetaData(
-    format: String,
-    array: Option[Boolean],
-    withHeader: Option[Boolean],
-    separator: Option[String]
+    format: Format,
+    array: Option[Boolean] = None,
+    withHeader: Option[Boolean] = None,
+    separator: Option[String] = None
   ): Metadata =
     Metadata(
-      Some(Mode.fromString("FILE")),
-      Some(Format.fromString(format)),
-      None,
+      mode = Some(Mode.fromString("FILE")),
+      format = Some(format),
+      encoding = None,
       multiline = None,
-      array,
-      withHeader,
-      separator
+      array = array,
+      withHeader = withHeader,
+      separator = separator
     )
 
   /** * builds the Schema case class
