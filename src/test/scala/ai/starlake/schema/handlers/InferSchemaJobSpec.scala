@@ -52,11 +52,11 @@ class InferSchemaJobSpec extends TestHelper {
     lazy val inferSchemaJob: InferSchemaJob = new InferSchemaJob()
 
     "GetSeparatorSemiColon" should "succeed" in {
-      inferSchemaJob.getSeparator(csvLines) shouldBe ";"
+      inferSchemaJob.getSeparator(csvLines, false) shouldBe ";"
     }
 
     "GetSeparatorPipe" should "succeed" in {
-      inferSchemaJob.getSeparator(psvLines) shouldBe "|"
+      inferSchemaJob.getSeparator(psvLines, true) shouldBe "|"
     }
 
     "GetFormatCSV" should "succeed" in {

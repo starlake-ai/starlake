@@ -91,7 +91,7 @@ class ExtractSpec extends TestHelper {
     val tableFile = publicOutputDir / "_TEST_TABLE1.comet.yml"
     val table =
       YamlSerializer
-        .deserializeSchemas(tableFile.contentAsString, tableFile.pathAsString)
+        .deserializeSchemaRefs(tableFile.contentAsString, tableFile.pathAsString)
         .tables
         .head
     domain.tableRefs should contain theSameElementsAs Set(
@@ -105,7 +105,7 @@ class ExtractSpec extends TestHelper {
     val viewFile = publicOutputDir / "_TEST_VIEW1.comet.yml"
     val view =
       YamlSerializer
-        .deserializeSchemas(viewFile.contentAsString, viewFile.pathAsString)
+        .deserializeSchemaRefs(viewFile.contentAsString, viewFile.pathAsString)
         .tables
         .head
     view.pattern.pattern() shouldBe "PUBLIC-TEST_VIEW1.*"
@@ -351,7 +351,7 @@ class ExtractSpec extends TestHelper {
       val tableFile = File("/tmp/PUBLIC", "_TEST_TABLE1.comet.yml")
       val table =
         YamlSerializer
-          .deserializeSchemas(tableFile.contentAsString, tableFile.pathAsString)
+          .deserializeSchemaRefs(tableFile.contentAsString, tableFile.pathAsString)
           .tables
           .head
       table.attributes
@@ -413,7 +413,7 @@ class ExtractSpec extends TestHelper {
       val tableFile = File("/tmp/PUBLIC", "_TEST_TABLE2.comet.yml")
       val table =
         YamlSerializer
-          .deserializeSchemas(tableFile.contentAsString, tableFile.pathAsString)
+          .deserializeSchemaRefs(tableFile.contentAsString, tableFile.pathAsString)
           .tables
           .head
       table.attributes
