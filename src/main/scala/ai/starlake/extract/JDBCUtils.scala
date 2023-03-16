@@ -215,10 +215,10 @@ object JDBCUtils extends LazyLogging {
           val remarks =
             extractColumnRemarks(jdbcSchema, connectionOptions, tableName).getOrElse(Map.empty)
 
-          val attrs = new Iterator[Attribute] {
+          val attrs = new Iterator[(Attribute, Int)] {
             def hasNext: Boolean = columnsResultSet.next()
 
-            def next(): Attribute = {
+            def next(): (Attribute, Int) = {
               val colName = columnsResultSet.getString("COLUMN_NAME")
               logger.info(s"COLUMN_NAME=$tableName.$colName")
               val colType = columnsResultSet.getInt("DATA_TYPE")
@@ -227,19 +227,25 @@ object JDBCUtils extends LazyLogging {
                 remarks.getOrElse(colName, columnsResultSet.getString("REMARKS"))
               val colRequired = columnsResultSet.getString("IS_NULLABLE").equals("NO")
               val foreignKey = foreignKeys.get(colName.toUpperCase)
-
+              val colDecimalDigits = Option(columnsResultSet.getInt("DECIMAL_DIGITS"))
+              val columnPosition = columnsResultSet.getInt("ORDINAL_POSITION")
               Attribute(
                 name = colName,
-                `type` = sparkType(colType, tableName, colName, colTypename),
+                `type` = sparkType(colType, tableName, colName, colTypename, colDecimalDigits),
                 required = colRequired,
                 comment = Option(colRemarks),
                 foreignKey = foreignKey
-              )
+              ) -> columnPosition
             }
           }.to[ListBuffer]
           // remove duplicates
           // see https://stackoverflow.com/questions/1601203/jdbc-databasemetadata-getcolumns-returns-duplicate-columns
-          val columns = attrs.groupBy(_.name).map { case (_, uniqAttr) => uniqAttr.head }
+          val columns = attrs
+            .groupBy { case (a, _) => a.name }
+            .map { case (_, uniqAttr) => uniqAttr.head }
+            .toList
+            .sortBy { case (_, colOrder) => colOrder }
+            .map { case (attr, _) => attr }
 
           logger.whenDebugEnabled {
             columns.foreach(column => logger.debug(s"column: $tableName.${column.name}"))
@@ -349,14 +355,19 @@ object JDBCUtils extends LazyLogging {
     jdbcType: Int,
     tableName: String,
     colName: String,
-    colTypename: String
+    colTypename: String,
+    decimalDigit: Option[Int]
   ): String = {
     val sqlType = reverseSqlTypes.getOrElse(jdbcType, colTypename)
     jdbcType match {
-      case VARCHAR | CHAR | LONGVARCHAR          => "string"
-      case BIT | BOOLEAN                         => "boolean"
-      case DOUBLE | FLOAT | REAL                 => "double"
-      case NUMERIC | DECIMAL                     => "decimal"
+      case VARCHAR | CHAR | LONGVARCHAR => "string"
+      case BIT | BOOLEAN                => "boolean"
+      case DOUBLE | FLOAT | REAL        => "double"
+      case NUMERIC | DECIMAL =>
+        decimalDigit match {
+          case Some(0) => "long"
+          case _       => "decimal"
+        }
       case TINYINT | SMALLINT | INTEGER | BIGINT => "long"
       case DATE                                  => "date"
       case TIMESTAMP                             => "timestamp"
