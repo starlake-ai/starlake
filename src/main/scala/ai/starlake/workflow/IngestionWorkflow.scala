@@ -78,7 +78,20 @@ class IngestionWorkflow(
 )(implicit settings: Settings)
     extends StrictLogging {
 
-  val domains: List[Domain] = schemaHandler.domains()
+  private var _domains: List[Domain] = Nil
+
+  private val domains: List[Domain] = {
+    if (_domains.isEmpty) {
+      _domains = schemaHandler.domains()
+    }
+    _domains
+  }
+
+  def domains(domainName: String): List[Domain] = {
+    val loadedDomains = schemaHandler.domain(domainName)
+    assert(loadedDomains.length == 1)
+    loadedDomains
+  }
 
   /** Move the files from the landing area to the pending area. files are loaded one domain at a
     * time each domain has its own directory and is specified in the "directory" key of Domain YML
@@ -401,7 +414,7 @@ class IngestionWorkflow(
       val schemaName = config.schema
       val ingestingPaths = config.paths
       val result = for {
-        domain <- domains.find(_.name == domainName)
+        domain <- domains(domainName).find(_.name == domainName)
         schema <- domain.tables.find(_.name == schemaName)
       } yield ingest(domain, schema, ingestingPaths, config.options)
       result match {

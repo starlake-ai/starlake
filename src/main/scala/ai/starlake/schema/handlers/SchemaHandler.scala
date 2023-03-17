@@ -369,6 +369,21 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     paths.zip(domains)
   }
 
+  def domain(domainName: String): List[Domain] = {
+    val path =
+      if (domainName.endsWith(".yml"))
+        new Path(DatasetArea.domains, domainName)
+      else
+        new Path(DatasetArea.domains, s"$domainName.comet.yml")
+
+    val domain = YamlSerializer.deserializeDomain(
+      Utils.parseJinja(storage.read(path), activeEnv()),
+      path.toString
+    )
+    loadDomains(List((path, domain)))
+    _domains
+  }
+
   def domains(reload: Boolean = false): List[Domain] = {
     if (reload)
       loadDomains()
@@ -378,18 +393,19 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   private var (_domainErrors, _domains): (List[String], List[Domain]) = loadDomains()
 
   def loadDomains(): (List[String], List[Domain]) = {
-    loadDomains(DatasetArea.domains)
+    loadDomains(deserializedDomains(DatasetArea.domains))
   }
 
   def loadExternals(): (List[String], List[Domain]) = {
-    loadDomains(DatasetArea.external)
+    loadDomains(deserializedDomains(DatasetArea.external))
   }
 
-  /** All defined domains Domains are defined under the "domains" folder in the metadata folder
-    */
+  /** All defined domains Domains are defined under the "domains" folder in the metadata folder */
   @throws[Exception]
-  private def loadDomains(area: Path): (List[String], List[Domain]) = {
-    val (validDomainsFile, invalidDomainsFiles) = deserializedDomains(area)
+  private def loadDomains(
+    deserializedDomains: List[(Path, Try[Domain])]
+  ): (List[String], List[Domain]) = {
+    val (validDomainsFile, invalidDomainsFiles) = deserializedDomains
       .map {
         case (path, Success(domain)) =>
           logger.info(s"Loading domain from $path")
