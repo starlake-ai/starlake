@@ -245,7 +245,7 @@ object AuditLog extends StrictLogging {
           Some("Information related to starlake executions"),
           Some(bqSchema())
         )
-        bqJob.getOrCreateTable(tableInfo, None)
+        bqJob.getOrCreateTable(None, tableInfo, None)
         val res = bqJob.runBatchQuery()
         Utils.logFailure(res, logger)
       case _: EsSink =>
