@@ -288,25 +288,32 @@ trait BigQueryJobBase extends StrictLogging {
 
   val bqTable = s"${cliConfig.outputDataset}.${cliConfig.outputTable}"
 
-  def getOrCreateDataset()(implicit settings: Settings): Dataset = {
+  def getOrCreateDataset(
+    domainDescription: scala.Option[String]
+  )(implicit settings: Settings): Dataset = {
     val existingDataset = scala.Option(bigquery().getDataset(datasetId))
-    val dataset = existingDataset.getOrElse {
-      val datasetInfo = DatasetInfo
-        .newBuilder(BigQueryJobBase.extractProjectDataset(cliConfig.outputDataset))
-        .setLocation(cliConfig.getLocation())
-        .build
-      bigquery().create(datasetInfo)
+    val labels = Utils.extractTags(cliConfig.domainTags).toMap
+    existingDataset match {
+      case Some(ds) =>
+        updateDatasetInfo(ds, domainDescription, labels)
+      case None =>
+        val datasetInfo = DatasetInfo
+          .newBuilder(BigQueryJobBase.extractProjectDataset(cliConfig.outputDataset))
+          .setLocation(cliConfig.getLocation())
+          .setDescription(domainDescription.orNull)
+          .setLabels(labels.asJava)
+          .build
+        bigquery().create(datasetInfo)
     }
-    setTagsOnDataset(dataset)
-    dataset
   }
 
   def getOrCreateTable(
+    domainDescription: scala.Option[String],
     tableInfo: model.TableInfo,
     dataFrame: scala.Option[DataFrame]
   )(implicit settings: Settings): Try[(Table, StandardTableDefinition)] = {
     val tryResult = Try {
-      getOrCreateDataset()
+      getOrCreateDataset(domainDescription)
 
       val tableDefinition = getTableDefinition(tableInfo, dataFrame)
       val table = scala
@@ -358,9 +365,39 @@ trait BigQueryJobBase extends StrictLogging {
       .update()
   }
 
-  protected def setTagsOnDataset(dataset: Dataset): Unit = {
-    val datasetTagPairs = Utils.extractTags(cliConfig.domainTags)
-    dataset.toBuilder.setLabels(datasetTagPairs.toMap.asJava).build().update()
+  protected def updateDatasetInfo(
+    dataset: Dataset,
+    description: scala.Option[String],
+    labels: Map[String, String]
+  ): Dataset = {
+    val alterDescriptionIfChanged = (datasetBuilder: Dataset.Builder, changeState: Boolean) => {
+      if (description.isDefined && scala.Option(dataset.getDescription) != description) {
+        // Update dataset description only when description is explicitly set
+        logger.info("Dataset's description has changed")
+        datasetBuilder.setDescription(description.orNull) -> true
+      } else
+        datasetBuilder -> changeState
+    }
+    val alterLabelsIfChanged = (datasetBuilder: Dataset.Builder, changeState: Boolean) => {
+      val existingLabels =
+        scala.Option(dataset.getLabels).map(_.asScala).getOrElse(Map.empty[String, String])
+      if (existingLabels.size != labels.size || existingLabels != labels) {
+        logger.info("Dataset's labels has changed")
+        datasetBuilder.setLabels(labels.asJava) -> true
+      } else
+        datasetBuilder -> changeState
+    }
+    val (builder, changed) =
+      List(alterDescriptionIfChanged, alterLabelsIfChanged).foldLeft(dataset.toBuilder -> false) {
+        case ((builder, state), alterFunc) => alterFunc(builder, state)
+      }
+    if (changed) {
+      logger.info("Updating dataset")
+      builder.build().update()
+    } else {
+      logger.info("No metadata change for dataset")
+      dataset
+    }
   }
 
   /** To set access control on a table or view, we can use Identity and Access Management (IAM)
