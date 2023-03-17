@@ -1179,7 +1179,7 @@ object IngestionUtil {
     val rejectedPath = new Path(DatasetArea.rejected(domainName), schemaName)
     val rejectedPathName = rejectedPath.toString
     // We need to save first the application ID
-    // refrencing it inside the worker (rdd.map) below would fail.
+    // referencing it inside the worker (rdd.map) below would fail.
     val applicationId = session.sparkContext.applicationId
     val rejectedTypedDS = rejectedDS.map { err =>
       RejectedRecord(
