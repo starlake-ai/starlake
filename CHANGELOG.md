@@ -14,6 +14,9 @@ __New Feature__:
 - Turn schema extract pattern to a template
 - Add global jdbc schema attributes in order to set common attributes once
 - Always propagate domain's metadata to tables
+- Turn numeric without scale as long while extracting schema
+- Order column extraction from extract-schema according to database column order
+- Set domain description if given on bigquery
 
 __Bug Fix__:
 - **BREAKING CHANGE**: Make directory mandatory only when feature require it. If you rely on exception while generating YML files from xls and vice-versa for any missing directory, you'll have to change. 
@@ -21,7 +24,9 @@ __Bug Fix__:
 - Restore the ability to override intermediate bq format
 - Exclude specific BQ partitions when applying Merge with a BQ Table
 - Apply spark options defined in the job description (sink) when saving into file
-- archived Spark versions may be now referenced in starlake CLI (@sabino). 
+- archived Spark versions may be now referenced in starlake CLI (@sabino).
+- Use gs if full uri is given even if default fs is file
+- Remove lowercase on various name in extract-script in order to make it coherent with extract-schema
 
 # 0.6.3
 __New Feature__:
