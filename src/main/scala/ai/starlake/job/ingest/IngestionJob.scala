@@ -932,8 +932,8 @@ trait IngestionJob extends SparkJob {
       settings.comet.scheduling.poolName
     )
 
-    val jobResult = domain.checkValidity(schemaHandler) match {
-      case Left(errors) =>
+    val jobResult = domain.checkValidity(schemaHandler, directorySeverity = Disabled) match {
+      case Left((errors, _)) =>
         val errs = errors.reduce { (errs, err) =>
           errs + "\n" + err
         }
