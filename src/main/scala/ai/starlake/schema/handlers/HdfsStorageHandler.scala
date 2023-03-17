@@ -80,12 +80,14 @@ class HdfsStorageHandler(fileSystem: String)(implicit
 
   def fs(inputPath: Path): FileSystem = {
     val (scheme, bucket, path) = extracSchemeAndBucketAndFilePath(inputPath.toString)
-    defaultFS.getScheme() match {
+    val fs = defaultFS.getScheme() match {
       case "gs" =>
         conf.set("fs.defaultFS", defaultNormalizedFileSystem)
         FileSystem.get(conf)
       case _ => defaultFS
     }
+    fs.setWriteChecksum(false)
+    fs
   }
 
   /** Gets the outputstream given a path
