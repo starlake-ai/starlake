@@ -331,12 +331,12 @@ class IngestionWorkflow(
     result.forall(_ == true)
   }
 
-  private def domainsToWatch(config: WatchConfig) = {
+  private def domainsToWatch(config: WatchConfig): List[Domain] = {
     val includedDomains = (config.includes, config.excludes) match {
       case (Nil, Nil) =>
         domains
       case (_, Nil) =>
-        domains.filter(domain => config.includes.contains(domain.name))
+        config.includes.flatMap(domainName => schemaHandler.domain(domainName)).toList
       case (Nil, _) =>
         domains.filter(domain => !config.excludes.contains(domain.name))
       case (_, _) => throw new Exception("Should never happen ")
