@@ -370,18 +370,23 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   }
 
   def domain(domainName: String): List[Domain] = {
-    val path =
-      if (domainName.endsWith(".yml"))
-        new Path(DatasetArea.domains, domainName)
-      else
-        new Path(DatasetArea.domains, s"$domainName.comet.yml")
+    _domains match {
+      case domain :: Nil if domain.name == domainName =>
+        _domains
+      case _ =>
+        val path =
+          if (domainName.endsWith(".yml"))
+            new Path(DatasetArea.domains, domainName)
+          else
+            new Path(DatasetArea.domains, s"$domainName.comet.yml")
 
-    val domain = YamlSerializer.deserializeDomain(
-      Utils.parseJinja(storage.read(path), activeEnv()),
-      path.toString
-    )
-    loadDomains(List((path, domain)))
-    _domains
+        val domain = YamlSerializer.deserializeDomain(
+          Utils.parseJinja(storage.read(path), activeEnv()),
+          path.toString
+        )
+        loadDomains(List((path, domain)))
+        _domains
+    }
   }
 
   def domains(reload: Boolean = false): List[Domain] = {
