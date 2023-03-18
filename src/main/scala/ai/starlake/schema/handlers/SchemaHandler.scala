@@ -472,6 +472,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       case Success(_) => // ignore
     }
     this._domainErrors = nameErrors ++ renameErrors ++ directoryErrors
+    this._domainErrors.foreach(logger.error(_))
     (this._domainErrors, this._domains)
   }
 

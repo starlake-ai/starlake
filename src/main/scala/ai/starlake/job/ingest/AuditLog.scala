@@ -28,7 +28,7 @@ import ai.starlake.job.sink.bigquery.{BigQueryLoadConfig, BigQueryNativeJob}
 import ai.starlake.job.sink.jdbc.{ConnectionLoadConfig, ConnectionLoadJob}
 import ai.starlake.schema.model._
 import ai.starlake.utils.{FileLock, Utils}
-import com.google.cloud.bigquery.{Field, Schema => BQSchema, StandardSQLTypeName, TableId}
+import com.google.cloud.bigquery.{Field, Job, Schema => BQSchema, StandardSQLTypeName, TableId}
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
 import org.apache.spark.rdd.RDD
@@ -37,6 +37,7 @@ import org.apache.spark.sql.{SaveMode, SparkSession}
 
 import java.sql.Timestamp
 import java.text.SimpleDateFormat
+import scala.util.Try
 
 sealed case class Step(value: String) {
   override def toString: String = value
@@ -100,20 +101,20 @@ case class AuditLog(
     val timestampStr = df.format(timestamp)
     s"""
        |insert into $table(
-       | jobid, 
+       | jobid,
        | paths,
        | domain,
        | schema,
-       | success, 
-       | count, 
-       | countAccepted, 
-       | countRejected, 
-       | timestamp, 
-       | duration, 
-       | message, 
+       | success,
+       | count,
+       | countAccepted,
+       | countRejected,
+       | timestamp,
+       | duration,
+       | message,
        | step
-       |) 
-       |values( 
+       |)
+       |values(
        |'$jobid',
        |'$paths',
        |'$domain',
@@ -219,34 +220,7 @@ object AuditLog extends StrictLogging {
         new ConnectionLoadJob(jdbcConfig).run()
 
       case sink: BigQuerySink =>
-        val auditDataset = sink.name.getOrElse("audit")
-        val bqConfig = BigQueryLoadConfig(
-          authInfo.get("gcpProjectId"),
-          authInfo.get("gcpSAJsonKey"),
-          Left("ignore"),
-          outputDataset = auditDataset,
-          outputTable = "audit",
-          None,
-          Nil,
-          settings.comet.defaultFormat,
-          "CREATE_IF_NEEDED",
-          "WRITE_APPEND",
-          None,
-          None,
-          options = sink.getOptions
-        )
-        val bqJob = new BigQueryNativeJob(
-          bqConfig,
-          log.asBqInsert(bqConfig.outputDataset + "." + bqConfig.outputTable),
-          None
-        )
-        val tableInfo = TableInfo(
-          TableId.of(auditDataset, "audit"),
-          Some("Information related to starlake executions"),
-          Some(bqSchema())
-        )
-        bqJob.getOrCreateTable(tableInfo, None)
-        val res = bqJob.runBatchQuery()
+        val res = sinToBigQuery(authInfo, log, sink)
         Utils.logFailure(res, logger)
       case _: EsSink =>
         // TODO Sink Audit Log to ES
@@ -256,5 +230,43 @@ object AuditLog extends StrictLogging {
       case _: NoneSink | FsSink(_, _, _, _, _, _, _) if settings.comet.sinkToFile =>
       // Do nothing dataset already sinked to file. Forced at the reference.conf level
     }
+  }
+
+  def sinToBigQuery(
+    authInfo: Map[String, String],
+    log: AuditLog,
+    sink: BigQuerySink
+  )(implicit
+    settings: Settings
+  ): Try[Job] = {
+    val auditDataset = sink.name.getOrElse("audit")
+    val bqConfig = BigQueryLoadConfig(
+      authInfo.get("gcpProjectId"),
+      authInfo.get("gcpSAJsonKey"),
+      Left("ignore"),
+      outputDataset = auditDataset,
+      outputTable = "audit",
+      None,
+      Nil,
+      settings.comet.defaultFormat,
+      "CREATE_IF_NEEDED",
+      "WRITE_APPEND",
+      None,
+      None,
+      options = sink.getOptions
+    )
+    val bqJob = new BigQueryNativeJob(
+      bqConfig,
+      log.asBqInsert(bqConfig.outputDataset + "." + bqConfig.outputTable),
+      None
+    )
+    val tableInfo = TableInfo(
+      TableId.of(auditDataset, "audit"),
+      Some("Information related to starlake executions"),
+      Some(bqSchema())
+    )
+    bqJob.getOrCreateTable(tableInfo, None)
+    val res = bqJob.runBatchQuery()
+    res
   }
 }

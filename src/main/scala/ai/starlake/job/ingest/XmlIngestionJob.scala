@@ -63,7 +63,7 @@ class XmlIngestionJob(
     *   Spark Dataframe loaded using metadata options
     */
   protected def loadDataSet(): Try[DataFrame] = {
-    val xmlOptions = metadata.getXmlOptions()
+    val xmlOptions = mergedMetadata.getXmlOptions()
     Try {
       val rowTag = xmlOptions.get("rowTag")
       rowTag.map { _ =>
@@ -73,8 +73,8 @@ class XmlIngestionJob(
               .format("com.databricks.spark.xml")
               .options(xmlOptions)
               .option("inferSchema", value = false)
-              .option("encoding", metadata.getEncoding())
-              .options(metadata.getOptions())
+              .option("encoding", mergedMetadata.getEncoding())
+              .options(mergedMetadata.getOptions())
               .schema(schema.sparkSchemaUntypedEpochWithoutScriptedFields(schemaHandler))
               .load(singlePath.toString)
           }
@@ -101,7 +101,7 @@ class XmlIngestionJob(
     val datasetSchema = dataset.schema
     val errorList = compareTypes(schemaSparkType, datasetSchema)
     val rejectedDS = errorList.toDS
-    metadata.getXmlOptions().get("skipValidation") match {
+    mergedMetadata.getXmlOptions().get("skipValidation") match {
       case Some(_) =>
         val rejectedDS = errorList.toDS()
         saveRejected(rejectedDS, session.emptyDataset[String])
@@ -123,8 +123,8 @@ class XmlIngestionJob(
         val validationResult =
           treeRowValidator.validate(
             session,
-            metadata.getFormat(),
-            metadata.getSeparator(),
+            mergedMetadata.getFormat(),
+            mergedMetadata.getSeparator(),
             withInputFileNameDS,
             schema.attributes,
             types,

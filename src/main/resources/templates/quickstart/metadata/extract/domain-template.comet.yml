@@ -10,7 +10,7 @@ load:
     separator: "/"
     quote: "\""
     escape: "\\"
-    write: "APPEND"
+    write: "OVERWRITE"
   tables:
     - name: "User"
       metadata:

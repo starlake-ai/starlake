@@ -10,7 +10,7 @@ import org.sparkproject.jetty.server.Server
 import org.sparkproject.jetty.servlet.ServletHandler
 
 object SingleUserMainServer {
-  val mapper: ObjectMapper = Utils.newMapper()
+  val mapper: ObjectMapper = Utils.newJsonMapper()
   def serve(config: MainServerConfig): Unit = {
 
     val server = new Server(config.port)
