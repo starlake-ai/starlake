@@ -1,13 +1,17 @@
 package ai.starlake.job.sink.bigquery
 
 import ai.starlake.config.Settings
+import ai.starlake.job.ingest.{AuditLog, Step}
+import ai.starlake.schema.model.{BigQuerySink, Format}
 import ai.starlake.utils.{JobBase, JobResult, Utils}
-import com.google.cloud.bigquery.JobInfo.{CreateDisposition, WriteDisposition}
-import com.google.cloud.bigquery.JobStatistics.QueryStatistics
+import com.google.cloud.bigquery.JobInfo.{CreateDisposition, SchemaUpdateOption, WriteDisposition}
+import com.google.cloud.bigquery.JobStatistics.{LoadStatistics, QueryStatistics}
 import com.google.cloud.bigquery.QueryJobConfiguration.Priority
-import com.google.cloud.bigquery._
+import com.google.cloud.bigquery.{Schema => BQSchema, Table, _}
 import com.typesafe.scalalogging.StrictLogging
 
+import java.sql.Timestamp
+import java.time.Instant
 import java.util.UUID
 import scala.collection.JavaConverters._
 import scala.util.Try
@@ -24,6 +28,115 @@ class BigQueryNativeJob(
 
   logger.info(s"BigQuery Config $cliConfig")
 
+  def loadPathsToBQ(bqSchema: BQSchema) = {
+    Try {
+      val formatOptions = cliConfig.starlakeSchema.flatMap(_.metadata) match {
+        case Some(metadata) =>
+          metadata.getFormat() match {
+            case Format.DSV =>
+              val formatOptions =
+                CsvOptions.newBuilder.setAllowQuotedNewLines(true).setAllowJaggedRows(true)
+              if (metadata.isWithHeader())
+                formatOptions.setSkipLeadingRows(1).build
+              metadata.encoding match {
+                case Some(encoding) =>
+                  formatOptions.setEncoding(encoding)
+                case None =>
+              }
+              formatOptions.setFieldDelimiter(metadata.getSeparator())
+              formatOptions.setQuote(metadata.getQuote())
+              formatOptions.build()
+            case Format.JSON =>
+              FormatOptions.json()
+            case _ =>
+              throw new Exception("Should never happen")
+          }
+        case None =>
+          throw new Exception("Should never happen")
+      }
+      getOrCreateDataset(cliConfig.domainDescription)
+      cliConfig.source match {
+        case Left(sourceURIs) =>
+          val loadConfig =
+            LoadJobConfiguration
+              .newBuilder(tableId, sourceURIs.split(",").toList.asJava, formatOptions)
+              .setIgnoreUnknownValues(true)
+              .setCreateDisposition(JobInfo.CreateDisposition.valueOf(cliConfig.createDisposition))
+              .setWriteDisposition(JobInfo.WriteDisposition.valueOf(cliConfig.writeDisposition))
+              .setSchema(bqSchema)
+
+          if (cliConfig.writeDisposition == JobInfo.WriteDisposition.WRITE_APPEND.toString) {
+            loadConfig.setSchemaUpdateOptions(
+              List(
+                SchemaUpdateOption.ALLOW_FIELD_ADDITION,
+                SchemaUpdateOption.ALLOW_FIELD_RELAXATION
+              ).asJava
+            )
+            if (!settings.comet.rejectAllOnError)
+              loadConfig.setMaxBadRecords(settings.comet.rejectMaxRecords)
+          }
+
+          cliConfig.outputPartition match {
+            case Some(partitionField) =>
+              // Generating schema from YML to get the descriptions in BQ
+              val partitioning =
+                timePartitioning(partitionField, cliConfig.days, cliConfig.requirePartitionFilter)
+                  .build()
+              loadConfig.setTimePartitioning(partitioning)
+            case None =>
+          }
+          cliConfig.outputClustering match {
+            case Nil =>
+            case fields =>
+              val clustering = Clustering.newBuilder().setFields(fields.asJava).build()
+              loadConfig.setClustering(clustering)
+          }
+          // Load data from a GCS CSV file into the table
+          var job = bigquery().create(JobInfo.of(loadConfig.build))
+          // Blocks until this load table job completes its execution, either failing or succeeding.
+          job = job.waitFor()
+          if (job.isDone) {
+            val stats = job.getStatistics.asInstanceOf[LoadStatistics]
+            applyRLSAndCLS().recover { case e =>
+              Utils.logException(logger, e)
+              throw e
+            }
+            logger.info(
+              s"ingestion-summary -> files: [$sourceURIs], domain: ${cliConfig.outputDataset}, schema: ${cliConfig.outputTable}, input: ${stats.getOutputRows + stats.getBadRecords}, accepted: ${stats.getOutputRows}, rejected:${stats.getBadRecords}"
+            )
+            val success = !settings.comet.rejectAllOnError || stats.getBadRecords == 0
+            val log = AuditLog(
+              job.getJobId.getJob,
+              sourceURIs,
+              cliConfig.outputDataset,
+              cliConfig.outputTable,
+              success = success,
+              stats.getOutputRows + stats.getBadRecords,
+              stats.getOutputRows,
+              stats.getBadRecords,
+              Timestamp.from(Instant.ofEpochMilli(stats.getStartTime)),
+              stats.getEndTime - stats.getStartTime,
+              if (success) "success" else s"${stats.getBadRecords} invalid records",
+              Step.LOAD.toString
+            )
+            settings.comet.audit.sink match {
+              case sink: BigQuerySink =>
+                AuditLog.sinToBigQuery(Map.empty, log, sink)
+              case _ =>
+                throw new Exception("Not Supported")
+            }
+
+            BigQueryJobResult(None, stats.getInputBytes)
+          } else
+            throw new Exception(
+              "BigQuery was unable to load into the table due to an error:" + job.getStatus.getError
+            )
+        case Right(_) =>
+          throw new Exception("Should never happen")
+
+      }
+    }
+  }
   def runInteractiveQuery(): Try[JobResult] = {
     Try {
       getOrCreateDataset(cliConfig.domainDescription)
