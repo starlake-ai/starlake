@@ -525,7 +525,8 @@ trait IngestionJob extends SparkJob {
             options = sink.map(_.getOptions).getOrElse(Map.empty),
             partitionsToUpdate = partitionsToUpdate,
             starlakeSchema = Some(schema),
-            domainTags = domain.tags
+            domainTags = domain.tags,
+            domainDescription = domain.comment
           )
           val res = new BigQuerySparkJob(
             config,
