@@ -63,10 +63,12 @@ class PositionIngestionJob(
     */
   override protected def loadDataSet(): Try[DataFrame] = {
     Try {
-      val dfIn = metadata.getEncoding().toUpperCase match {
-        case "UTF-8" => session.read.options(metadata.getOptions()).text(path.map(_.toString): _*)
+      val dfIn = mergedMetadata.getEncoding().toUpperCase match {
+        case "UTF-8" =>
+          session.read.options(mergedMetadata.getOptions()).text(path.map(_.toString): _*)
         case _ => {
-          val rdd = PositionIngestionUtil.loadDfWithEncoding(session, path, metadata.getEncoding())
+          val rdd =
+            PositionIngestionUtil.loadDfWithEncoding(session, path, mergedMetadata.getEncoding())
           val schema: StructType = StructType(Array(StructField("value", StringType)))
           session.createDataFrame(rdd.map(line => Row.fromSeq(Seq(line))), schema)
         }
@@ -77,7 +79,7 @@ class PositionIngestionJob(
 
       val df = applyIgnore(dfIn)
 
-      metadata.withHeader match {
+      mergedMetadata.withHeader match {
         case Some(true) =>
           throw new Exception("No Header allowed for Position File Format ")
         case Some(false) | None =>
@@ -103,8 +105,8 @@ class PositionIngestionJob(
 
     val validationResult = flatRowValidator.validate(
       session,
-      metadata.getFormat(),
-      metadata.getSeparator(),
+      mergedMetadata.getFormat(),
+      mergedMetadata.getSeparator(),
       dataset,
       orderedAttributes,
       orderedTypes,

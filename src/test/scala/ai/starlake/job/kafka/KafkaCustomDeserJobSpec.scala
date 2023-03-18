@@ -13,7 +13,7 @@ import org.apache.spark.sql.SaveMode
 import scala.util.{Failure, Success}
 
 object TestSinkTransformer extends SinkTransformer {
-  val mapper: ObjectMapper = Utils.newMapper()
+  val mapper: ObjectMapper = Utils.newJsonMapper()
   def requestUris(url: String, rows: Array[Seq[String]]): Seq[HttpUriRequest] = {
     rows.foreach { row =>
       val jsonValue = row(1)

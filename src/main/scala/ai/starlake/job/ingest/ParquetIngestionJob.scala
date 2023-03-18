@@ -73,9 +73,9 @@ class ParquetIngestionJob(
     */
   protected def loadDataSet(): Try[DataFrame] = {
     Try {
-      val format = metadata.getOptions().getOrElse("format", "parquet")
+      val format = mergedMetadata.getOptions().getOrElse("format", "parquet")
       val dfIn = session.read
-        .options(metadata.getOptions())
+        .options(mergedMetadata.getOptions())
         .format(format)
         .load(path.map(_.toString): _*)
 
@@ -125,8 +125,8 @@ class ParquetIngestionJob(
 
     val validationResult = treeRowValidator.validate(
       session,
-      metadata.getFormat(),
-      metadata.getSeparator(),
+      mergedMetadata.getFormat(),
+      mergedMetadata.getSeparator(),
       dataset,
       orderedAttributes,
       orderedTypes,

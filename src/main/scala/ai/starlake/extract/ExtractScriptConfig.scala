@@ -76,17 +76,7 @@ object ExtractScriptConfig extends CliConfig[ExtractScriptConfig] {
         .optional()
         .text(
           """The default date column used to determine new rows to export. Overrides config database-extractor.default-column value.""".stripMargin
-        ),
-      opt[String]("script-output-pattern")
-        .action((x, c) => c.copy(scriptOutputPattern = Some(x)))
-        .optional()
-        .text("""Default output file pattern name
-            |the following variables are allowed.
-            |When applied to a domain:
-            |  - {{domain}}: domain name
-            |  - {{table}}: Table name
-            |  By default : extract_{{table}}
-            |  """.stripMargin)
+        )
     )
   }
 
