@@ -26,7 +26,7 @@ class BigQueryNativeJob(
 
   def runInteractiveQuery(): Try[JobResult] = {
     Try {
-      getOrCreateDataset()
+      getOrCreateDataset(cliConfig.domainDescription)
       val queryConfig: QueryJobConfiguration.Builder =
         QueryJobConfiguration
           .newBuilder(sql)
@@ -75,7 +75,7 @@ class BigQueryNativeJob(
   }
   private def RunAndSinkAsMaterializedView(): Try[Table] = {
     Try {
-      getOrCreateDataset()
+      getOrCreateDataset(None)
       val materializedViewDefinitionBuilder = MaterializedViewDefinition.newBuilder(sql)
       cliConfig.outputPartition match {
         case Some(partitionField) =>
@@ -106,7 +106,7 @@ class BigQueryNativeJob(
 
   private def RunAndSinkAsTable(): Try[BigQueryJobResult] = {
     Try {
-      val targetDataset = getOrCreateDataset()
+      val targetDataset = getOrCreateDataset(None)
       val queryConfig: QueryJobConfiguration.Builder =
         QueryJobConfiguration
           .newBuilder(sql)
@@ -163,7 +163,7 @@ class BigQueryNativeJob(
 
   def runBatchQuery(): Try[Job] = {
     Try {
-      getOrCreateDataset()
+      getOrCreateDataset(None)
       val jobId = JobId
         .newBuilder()
         .setJob(

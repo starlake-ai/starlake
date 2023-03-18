@@ -42,7 +42,7 @@ case class TemplateParams(
       case (name, tpe, ignore, privacyLevel) :: Nil =>
         List(
           Map(
-            "name"              -> name.toLowerCase(),
+            "name"              -> name,
             "type"              -> tpe,
             "trailing_col_char" -> "",
             "ignore"            -> ignore,
@@ -56,14 +56,14 @@ case class TemplateParams(
         allButLast
           .map { case (name, tpe, ignore, privacyLevel) =>
             Map(
-              "name"              -> name.toLowerCase(),
+              "name"              -> name,
               "type"              -> tpe,
               "ignore"            -> ignore,
               "privacyLevel"      -> privacyLevel.toString,
               "trailing_col_char" -> ","
             )
           } :+ Map(
-          "name"              -> lastName.toLowerCase(),
+          "name"              -> lastName,
           "type"              -> lastType,
           "ignore"            -> lastIgnore,
           "privacyLevel"      -> lastPrivacyLevel,
@@ -74,9 +74,9 @@ case class TemplateParams(
       .foldLeft(
         List(
           "domain"       -> domainToExport,
-          "table"        -> tableToExport.toLowerCase,
+          "table"        -> tableToExport,
           "domain_table" -> domainToExport, // For compatibility
-          "table_name"   -> tableToExport.toLowerCase, // For compatibility
+          "table_name"   -> tableToExport, // For compatibility
           "delimiter"    -> dsvDelimiter,
           "columns"      -> columnsParam,
           "full_export"  -> fullExport,
