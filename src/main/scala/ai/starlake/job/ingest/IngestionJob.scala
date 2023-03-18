@@ -922,12 +922,74 @@ trait IngestionJob extends SparkJob {
     }
   }
 
+  private def selectEngine(): Engine = {
+    val sinkToBQ = mergedMetadata.getSink() match {
+      case None =>
+        false
+      case Some(sink) =>
+        sink.getType() == SinkType.BQ
+    }
+    val csvOrJsonLines =
+      !mergedMetadata.isArray() && Set(Format.DSV, Format.JSON).contains(mergedMetadata.getFormat())
+
+    val acceptAll = mergedMetadata.validator.getOrElse("").contains("AcceptAllValidator")
+    if (csvOrJsonLines && sinkToBQ && acceptAll) Engine.BQ else Engine.SPARK
+  }
+
+  def run(): Try[JobResult] = {
+    selectEngine() match {
+      case Engine.BQ =>
+        runBQ()
+      case Engine.SPARK =>
+        runSpark()
+      case _ =>
+        throw new Exception("should never happen")
+    }
+  }
+
+  def runBQ(): Try[JobResult] = {
+    val tableSchema = schema.bqSchema(schemaHandler)
+
+    val (createDisposition: String, writeDisposition: String) = Utils.getDBDisposition(
+      mergedMetadata.getWrite(),
+      schema.merge.exists(_.key.nonEmpty)
+    )
+    val config = BigQueryLoadConfig(
+      None,
+      None,
+      source = Left(path.map(_.toString).mkString(",")),
+      outputTable = schema.getFinalName(),
+      outputDataset = domain.getFinalName(),
+      sourceFormat = settings.comet.defaultFormat,
+      createDisposition = createDisposition,
+      writeDisposition = writeDisposition,
+      location = mergedMetadata.getSink().flatMap(_.asInstanceOf[BigQuerySink].location),
+      outputPartition = mergedMetadata.getSink().flatMap(_.asInstanceOf[BigQuerySink].timestamp),
+      outputClustering =
+        mergedMetadata.getSink().flatMap(_.asInstanceOf[BigQuerySink].clustering).getOrElse(Nil),
+      days = mergedMetadata.getSink().flatMap(_.asInstanceOf[BigQuerySink].days),
+      requirePartitionFilter = mergedMetadata
+        .getSink()
+        .flatMap(_.asInstanceOf[BigQuerySink].requirePartitionFilter)
+        .getOrElse(false),
+      rls = schema.rls,
+      options =
+        mergedMetadata.getSink().map(_.asInstanceOf[BigQuerySink].getOptions).getOrElse(Map.empty),
+      partitionsToUpdate = Nil,
+      starlakeSchema = Some(schema.copy(metadata = Some(mergedMetadata))),
+      domainTags = domain.tags,
+      domainDescription = domain.comment
+    )
+    val res = new BigQueryNativeJob(config, "", None).loadPathsToBQ(tableSchema)
+    res
+  }
+
   /** Main entry point as required by the Spark Job interface
     *
     * @return
     *   : Spark Session used for the job
     */
-  def run(): Try[JobResult] = {
+  def runSpark(): Try[JobResult] = {
     session.sparkContext.setLocalProperty(
       "spark.scheduler.pool",
       settings.comet.scheduling.poolName
