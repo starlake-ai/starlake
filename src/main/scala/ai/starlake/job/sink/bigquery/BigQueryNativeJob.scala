@@ -30,67 +30,12 @@ class BigQueryNativeJob(
 
   def loadPathsToBQ(bqSchema: BQSchema) = {
     Try {
-      val formatOptions = cliConfig.starlakeSchema.flatMap(_.metadata) match {
-        case Some(metadata) =>
-          metadata.getFormat() match {
-            case Format.DSV =>
-              val formatOptions =
-                CsvOptions.newBuilder.setAllowQuotedNewLines(true).setAllowJaggedRows(true)
-              if (metadata.isWithHeader())
-                formatOptions.setSkipLeadingRows(1).build
-              metadata.encoding match {
-                case Some(encoding) =>
-                  formatOptions.setEncoding(encoding)
-                case None =>
-              }
-              formatOptions.setFieldDelimiter(metadata.getSeparator())
-              formatOptions.setQuote(metadata.getQuote())
-              formatOptions.build()
-            case Format.JSON =>
-              FormatOptions.json()
-            case _ =>
-              throw new Exception("Should never happen")
-          }
-        case None =>
-          throw new Exception("Should never happen")
-      }
+      val formatOptions: FormatOptions = bqFormatOptions()
       getOrCreateDataset(cliConfig.domainDescription)
       cliConfig.source match {
         case Left(sourceURIs) =>
-          val loadConfig =
-            LoadJobConfiguration
-              .newBuilder(tableId, sourceURIs.split(",").toList.asJava, formatOptions)
-              .setIgnoreUnknownValues(true)
-              .setCreateDisposition(JobInfo.CreateDisposition.valueOf(cliConfig.createDisposition))
-              .setWriteDisposition(JobInfo.WriteDisposition.valueOf(cliConfig.writeDisposition))
-              .setSchema(bqSchema)
-
-          if (cliConfig.writeDisposition == JobInfo.WriteDisposition.WRITE_APPEND.toString) {
-            loadConfig.setSchemaUpdateOptions(
-              List(
-                SchemaUpdateOption.ALLOW_FIELD_ADDITION,
-                SchemaUpdateOption.ALLOW_FIELD_RELAXATION
-              ).asJava
-            )
-            if (!settings.comet.rejectAllOnError)
-              loadConfig.setMaxBadRecords(settings.comet.rejectMaxRecords)
-          }
-
-          cliConfig.outputPartition match {
-            case Some(partitionField) =>
-              // Generating schema from YML to get the descriptions in BQ
-              val partitioning =
-                timePartitioning(partitionField, cliConfig.days, cliConfig.requirePartitionFilter)
-                  .build()
-              loadConfig.setTimePartitioning(partitioning)
-            case None =>
-          }
-          cliConfig.outputClustering match {
-            case Nil =>
-            case fields =>
-              val clustering = Clustering.newBuilder().setFields(fields.asJava).build()
-              loadConfig.setClustering(clustering)
-          }
+          val loadConfig: LoadJobConfiguration.Builder =
+            bqLoadCOndig(bqSchema, formatOptions, sourceURIs)
           // Load data from a GCS CSV file into the table
           var job = bigquery().create(JobInfo.of(loadConfig.build))
           // Blocks until this load table job completes its execution, either failing or succeeding.
@@ -137,6 +82,73 @@ class BigQueryNativeJob(
       }
     }
   }
+
+  private def bqLoadCOndig(bqSchema: BQSchema, formatOptions: FormatOptions, sourceURIs: String) = {
+    val loadConfig =
+      LoadJobConfiguration
+        .newBuilder(tableId, sourceURIs.split(",").toList.asJava, formatOptions)
+        .setIgnoreUnknownValues(true)
+        .setCreateDisposition(JobInfo.CreateDisposition.valueOf(cliConfig.createDisposition))
+        .setWriteDisposition(JobInfo.WriteDisposition.valueOf(cliConfig.writeDisposition))
+        .setSchema(bqSchema)
+
+    if (cliConfig.writeDisposition == JobInfo.WriteDisposition.WRITE_APPEND.toString) {
+      loadConfig.setSchemaUpdateOptions(
+        List(
+          SchemaUpdateOption.ALLOW_FIELD_ADDITION,
+          SchemaUpdateOption.ALLOW_FIELD_RELAXATION
+        ).asJava
+      )
+      if (!settings.comet.rejectAllOnError)
+        loadConfig.setMaxBadRecords(settings.comet.rejectMaxRecords)
+    }
+
+    cliConfig.outputPartition match {
+      case Some(partitionField) =>
+        // Generating schema from YML to get the descriptions in BQ
+        val partitioning =
+          timePartitioning(partitionField, cliConfig.days, cliConfig.requirePartitionFilter)
+            .build()
+        loadConfig.setTimePartitioning(partitioning)
+      case None =>
+    }
+    cliConfig.outputClustering match {
+      case Nil =>
+      case fields =>
+        val clustering = Clustering.newBuilder().setFields(fields.asJava).build()
+        loadConfig.setClustering(clustering)
+    }
+    loadConfig
+  }
+
+  private def bqFormatOptions() = {
+    val formatOptions = cliConfig.starlakeSchema.flatMap(_.metadata) match {
+      case Some(metadata) =>
+        metadata.getFormat() match {
+          case Format.DSV =>
+            val formatOptions =
+              CsvOptions.newBuilder.setAllowQuotedNewLines(true).setAllowJaggedRows(true)
+            if (metadata.isWithHeader())
+              formatOptions.setSkipLeadingRows(1).build
+            metadata.encoding match {
+              case Some(encoding) =>
+                formatOptions.setEncoding(encoding)
+              case None =>
+            }
+            formatOptions.setFieldDelimiter(metadata.getSeparator())
+            formatOptions.setQuote(metadata.getQuote())
+            formatOptions.build()
+          case Format.JSON =>
+            FormatOptions.json()
+          case _ =>
+            throw new Exception("Should never happen")
+        }
+      case None =>
+        throw new Exception("Should never happen")
+    }
+    formatOptions
+  }
+
   def runInteractiveQuery(): Try[JobResult] = {
     Try {
       getOrCreateDataset(cliConfig.domainDescription)
