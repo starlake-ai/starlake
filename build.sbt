@@ -3,8 +3,7 @@ import sbtrelease.ReleasePlugin.autoImport.ReleaseTransformations._
 import sbtrelease.Version.Bump.Next
 import xerial.sbt.Sonatype._
 
-// require Java 8 for Spark 2 support
-javacOptions ++= Seq("-source", "1.8", "-target", "1.8", "-Xlint")
+javacOptions ++= Seq("-source", "11", "-target", "11", "-Xlint")
 
 Test / javaOptions ++= Seq("-Dfile.encoding=UTF-8")
 
@@ -118,7 +117,6 @@ assembly / assemblyExcludedJars := {
       "scala-parser-combinators_",
       "scala-reflect-",
       "scala-xml_",
-      "shapeless_",
       "slf4j-api-",
       "snappy-java-",
       "spark-tags_",
@@ -142,7 +140,11 @@ assembly / assemblyShadeRules := Seq(
   //shade it or else writing to bigquery wont work because spark comes with an older version of google common.
   ShadeRule.rename("com.google.common.**" -> "shade.@0").inAll,
   ShadeRule.rename("com.google.gson.**" -> "shade.@0").inAll,
-  ShadeRule.rename("com.google.protobuf.**" -> "shade.@0").inAll
+  ShadeRule.rename("com.google.protobuf.**" -> "shade.@0").inAll,
+  ShadeRule.rename("shapeless.**" -> "shadeshapless.@1").inLibrary("com.chuusai" % "shapeless_2.12" % "2.3.3"),
+  ShadeRule.rename("shapeless.**" -> "shadeshapless.@1").inLibrary("com.github.pureconfig" % "pureconfig_2.12" % Versions.pureConfig212ForSpark3),
+  ShadeRule.rename("shapeless.**" -> "shadeshapless.@1").inLibrary("com.github.pureconfig" % "pureconfig-generic_2.12" % Versions.pureConfig212ForSpark3)
+  .inProject
 )
 
 // Publish

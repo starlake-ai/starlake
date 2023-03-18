@@ -6,7 +6,6 @@ import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.storage.StorageLevel
 
 object AcceptAllValidator extends GenericRowValidator {
-
   override def validate(
     session: SparkSession,
     format: Format,

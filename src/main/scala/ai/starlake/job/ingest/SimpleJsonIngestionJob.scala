@@ -60,14 +60,14 @@ class SimpleJsonIngestionJob(
     Try {
 
       val dfIn =
-        if (metadata.isArray()) {
+        if (mergedMetadata.isArray()) {
           val jsonRDD =
             session.sparkContext.wholeTextFiles(path.map(_.toString).mkString(",")).map {
               case (_, content) => content
             }
 
           session.read
-            .options(metadata.getOptions())
+            .options(mergedMetadata.getOptions())
             .json(session.createDataset(jsonRDD)(Encoders.STRING))
             .withColumn(
               //  Spark cannot detect the input file automatically, so we should add it explicitly
@@ -78,9 +78,9 @@ class SimpleJsonIngestionJob(
 
         } else {
           session.read
-            .option("encoding", metadata.getEncoding())
-            .option("multiline", metadata.getMultiline())
-            .options(metadata.getOptions())
+            .option("encoding", mergedMetadata.getEncoding())
+            .option("multiline", mergedMetadata.getMultiline())
+            .options(mergedMetadata.getOptions())
             .json(path.map(_.toString): _*)
             .withColumn(
               //  Spark here can detect the input file automatically, so we're just using the input_file_name spark function

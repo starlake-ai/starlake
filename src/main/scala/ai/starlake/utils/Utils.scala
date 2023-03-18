@@ -270,7 +270,7 @@ object Utils {
     result
   }
 
-  def newMapper(): ObjectMapper = {
+  def newJsonMapper(): ObjectMapper = {
     val mapper = new ObjectMapper()
     setMapperProperties(mapper)
   }
