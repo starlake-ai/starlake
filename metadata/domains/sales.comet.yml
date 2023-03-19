@@ -1,0 +1,66 @@
+---
+load:
+  name: "sales"
+  metadata:
+    mode: "FILE"
+    format: "DSV"
+    encoding: "UTF-8"
+    multiline: false
+    array: false
+    withHeader: true
+    separator: "|"
+    quote: "\""
+    escape: "\\"
+    write: "APPEND"
+    directory: "{{root_path}}/incoming/sales"
+  tables:
+  - name: "customers"
+    pattern: "customers-2018-01-01.psv"
+    attributes:
+    - name: "id"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      ignore: false
+    - name: "signup"
+      type: "timestamp"
+      array: false
+      required: false
+      privacy: "NONE"
+      ignore: false
+    - name: "contact"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      ignore: false
+    - name: "firstname"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      ignore: false
+    - name: "lastname"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      ignore: false
+    - name: "country"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      ignore: false
+    metadata:
+      mode: "FILE"
+      format: "DSV"
+      encoding: "UTF-8"
+      multiline: false
+      array: false
+      withHeader: true
+      separator: "|"
+      quote: "\""
+      escape: "\\"
+      write: "APPEND"

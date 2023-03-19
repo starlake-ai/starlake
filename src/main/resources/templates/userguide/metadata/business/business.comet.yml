@@ -1,0 +1,13 @@
+---
+transform:
+  name: "business1"
+  tasks:
+    - sql: ""
+      name: "mytask"
+      area: "business"
+      domain: "dream2"
+      dataset: "client2"
+      write: "OVERWRITE"
+      partition:
+        - "year"
+        - "month"

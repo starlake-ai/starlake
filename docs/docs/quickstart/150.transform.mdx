@@ -1,0 +1,199 @@
+---
+sidebar_position: 150
+title: Transform
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+Now that our file is successfully loaded and available as a table, we usually need to crate KPIs or specialized tables.
+To illustrate how transform may be defined on tables, we will create two tables, one containing customers living in France
+and another one containing customers living in the USA.
+
+
+## Templated Job
+Starlake Transforms support Jinja2 templating inside SQL requests.
+
+We create a file `metadata/jobs/bycountry.sql` with the following content
+
+```SQL
+select * from customers where lower(country) like lower('{{ p_country }}')
+```
+
+The french customers will be stored in the table `cust_france` and the american customers in the table `cust_usa`.
+SQL file alone is not sufficient to be a Starlake Transform.
+In order to be one, a YAML file must be created next to the SQL file and have the same name.
+Therefore we need to create the YAML file `metadata/jobs/bycountry.comet.yml`.
+This file will instruct where the result of the SQL request will be stored.
+
+```yaml
+transform:
+  name: bycountry
+  views:
+    # The parquet file will be referenced as customers in the SQL request
+    customers: "FS:{{root_path}}/datasets/accepted/sales/customers"
+  tasks:
+    - domain: business
+      table: cust_{{ p_country }}
+      write: OVERWRITE
+      sink:
+        type: FS
+
+```
+
+In this file, we instruct to read data from the dataset stored on the filesystem (location of the previously loaded data)
+and store it in a view named `customers`. The key used inside `transform.views` define the name that can be used in the query.
+
+Even if we don't connect to any database, we can note here that we are expressing the transformation of our data in SQL
+by reading from a file stored on our machine.
+
+From now on, we are ready to filter out users. Since the job is to filter on one country and store it to a dynamic destination based on the country name, we need to execute the job twice.
+Once to create the french customers table and once to create the american customers.
+
+The result will be stored on the filesystem (sink.type: FS) in the datasets/business/bycountry_usa and datasets/business/bycountry_usa
+folders as parquet files.
+
+<Tabs groupId="customers">
+<TabItem value="france" label="French customers table">
+
+```sh
+$ cd $HOME/myproject
+$ $HOME/starlake/starlake.sh transform --name bycountry --options p_country=France
+```
+
+</TabItem>
+<TabItem value="usa" label="American customers table">
+
+```sh
+$ cd $HOME/myproject
+$ $HOME/starlake/starlake.sh transform --name bycountry --options p_country=USA
+```
+
+</TabItem>
+</Tabs>
+
+The `--options` allow to define variables that will be used for substitution and thus allowing a query to be parameterized and even a Transform!
+
+:::note
+The `--name` will match the transform file name and not its name.
+:::
+
+## Targeting another datawarehouse
+
+
+<Tabs groupId="warehouses">
+<TabItem value="bq" label="BigQuery">
+
+```yaml
+transform:
+  name: bycountry
+  engine: BigQuery            # We use BigQuery to execute the SQL request. We could have used SPARK.
+  tasks:
+    - domain: business
+      table: cust_{{ p_country }}
+      write: OVERWRITE
+      sink:
+        type: BigQuery        # We store the end result in BigQuery.
+```
+</TabItem>
+<TabItem value="databricks" label="Databricks">
+
+```yaml
+transform:
+  name: bycountry_{{ p_country }}
+  engine: Spark
+  tasks:
+    - domain: business
+      table: cust_{{ p_country }}
+      write: OVERWRITE
+      sink:
+        type: DATABRICKS
+```
+
+</TabItem>
+<TabItem value="hive" label="Hive">
+
+```yaml
+transform:
+  name: bycountry_{{ p_country }}
+  engine: Spark
+  tasks:
+    - domain: business
+      table: cust_{{ p_country }}
+      write: OVERWRITE
+      sink:
+        type: Hive
+```
+
+</TabItem>
+<TabItem value="redshift" label="Redshift">
+
+Amazon Redshift uses a JDBC URL and a specific format. We need to define our redshift connection in the metadata/application.conf file as follows:
+
+```json
+connections {
+  Redshift {
+    format = "com.databricks.spark.redshift"
+    options = {
+      url: "jdbc:redshift://redshifthost:5439/database",
+      user: "username",
+      password: "pass",
+      tempdir: "s3n://path/for/temp/data",
+      aws_iam_role: "arn:aws:iam::123456789000:role/redshift_iam_role"
+    }
+  }
+}
+```
+
+```yaml
+transform:
+  name: bycountry_{{ p_country }}
+  engine: Redshift
+  tasks:
+    - domain: business
+      table: cust_{{ p_country }}
+      write: OVERWRITE
+      sink:
+        type: Redshift
+```
+
+</TabItem>
+<TabItem value="snowflake" label="Snowflake">
+
+Snowflake uses a JDBC URL and a specific format. We need to define our snowflake connection in the metadata/application.conf file as follows:
+
+```json
+
+connections {
+  Snowflake {
+    format = "net.snowflake.spark.snowflake"
+    options = {
+      url: "jdbc:snowflake://myorganization-myaccount.snowflakecomputing.com/",
+      user: "username",
+      password: "pass",
+      account: "myorganization-myaccount",
+      warehouse: "mywh",
+      autopushdown: "off" # to pushdown set to 'on'
+      db: "mydb",
+      schema: "public"
+    }
+  }
+}
+
+```
+
+```yaml
+transform:
+  name: bycountry
+  engine: Snowflake
+  tasks:
+    - domain: business
+      table: cust_{{ p_country }}
+      write: OVERWRITE
+      sink:
+        type: Snowflake
+```
+
+</TabItem>
+
+</Tabs>
