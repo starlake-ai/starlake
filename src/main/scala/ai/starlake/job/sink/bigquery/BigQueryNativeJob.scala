@@ -28,7 +28,7 @@ class BigQueryNativeJob(
 
   logger.info(s"BigQuery Config $cliConfig")
 
-  def loadPathsToBQ(bqSchema: BQSchema) = {
+  def loadPathsToBQ(bqSchema: BQSchema): Try[BigQueryJobResult] = {
     Try {
       logger.info(s"BigQuery Schema: $bqSchema")
       val formatOptions: FormatOptions = bqFormatOptions()
@@ -84,7 +84,11 @@ class BigQueryNativeJob(
     }
   }
 
-  private def bqLoadConfig(bqSchema: BQSchema, formatOptions: FormatOptions, sourceURIs: String) = {
+  private def bqLoadConfig(
+    bqSchema: BQSchema,
+    formatOptions: FormatOptions,
+    sourceURIs: String
+  ): LoadJobConfiguration.Builder = {
     val loadConfig =
       LoadJobConfiguration
         .newBuilder(tableId, sourceURIs.split(",").toList.asJava, formatOptions)
@@ -122,7 +126,7 @@ class BigQueryNativeJob(
     loadConfig
   }
 
-  private def bqFormatOptions() = {
+  private def bqFormatOptions(): FormatOptions = {
     val formatOptions = cliConfig.starlakeSchema.flatMap(_.metadata) match {
       case Some(metadata) =>
         metadata.getFormat() match {
