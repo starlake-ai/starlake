@@ -178,7 +178,6 @@ object JDBCUtils extends LazyLogging {
       logger.whenInfoEnabled {
         selectedTables.keys.foreach(table => logger.info(s"Selected: $table"))
       }
-
       // Extract the Comet Schema
       val selectedTablesAndColumns: Map[String, (TableRemarks, Columns, PrimaryKeys)] =
         selectedTables.map { case (tableName, tableRemarks) =>
@@ -215,10 +214,10 @@ object JDBCUtils extends LazyLogging {
           val remarks =
             extractColumnRemarks(jdbcSchema, connectionOptions, tableName).getOrElse(Map.empty)
 
-          val attrs = new Iterator[(Attribute, Int)] {
+          val attrs = new Iterator[Attribute] {
             def hasNext: Boolean = columnsResultSet.next()
 
-            def next(): (Attribute, Int) = {
+            def next(): Attribute = {
               val colName = columnsResultSet.getString("COLUMN_NAME")
               logger.info(s"COLUMN_NAME=$tableName.$colName")
               val colType = columnsResultSet.getInt("DATA_TYPE")
@@ -228,24 +227,25 @@ object JDBCUtils extends LazyLogging {
               val colRequired = columnsResultSet.getString("IS_NULLABLE").equals("NO")
               val foreignKey = foreignKeys.get(colName.toUpperCase)
               val colDecimalDigits = Option(columnsResultSet.getInt("DECIMAL_DIGITS"))
-              val columnPosition = columnsResultSet.getInt("ORDINAL_POSITION")
+              // val columnPosition = columnsResultSet.getInt("ORDINAL_POSITION")
               Attribute(
                 name = colName,
                 `type` = sparkType(colType, tableName, colName, colTypename, colDecimalDigits),
                 required = colRequired,
                 comment = Option(colRemarks),
                 foreignKey = foreignKey
-              ) -> columnPosition
+              )
             }
           }.to[ListBuffer]
           // remove duplicates
           // see https://stackoverflow.com/questions/1601203/jdbc-databasemetadata-getcolumns-returns-duplicate-columns
-          val columns = attrs
-            .groupBy { case (a, _) => a.name }
-            .map { case (_, uniqAttr) => uniqAttr.head }
-            .toList
-            .sortBy { case (_, colOrder) => colOrder }
-            .map { case (attr, _) => attr }
+          def removeDuplicatesColumns(list: List[Attribute]): List[Attribute] =
+            list.foldLeft(List.empty[Attribute]) { (partialResult, element) =>
+              if (partialResult.exists(_.name == element.name)) partialResult
+              else partialResult :+ element
+            }
+
+          val columns = removeDuplicatesColumns(attrs.toList)
 
           logger.whenDebugEnabled {
             columns.foreach(column => logger.debug(s"column: $tableName.${column.name}"))
