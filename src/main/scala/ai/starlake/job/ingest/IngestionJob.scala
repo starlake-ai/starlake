@@ -1,17 +1,17 @@
 package ai.starlake.job.ingest
 
 import ai.starlake.config.{CometColumns, DatasetArea, Settings, StorageArea}
-import ai.starlake.job.sink.bigquery.{BigQueryLoadConfig, BigQueryNativeJob, BigQuerySparkJob}
-import ai.starlake.job.sink.jdbc.{ConnectionLoadConfig, ConnectionLoadJob}
-import ai.starlake.job.sink.es.{ESLoadConfig, ESLoadJob}
 import ai.starlake.job.metrics.{AssertionJob, MetricsJob}
+import ai.starlake.job.sink.bigquery.{BigQueryLoadConfig, BigQueryNativeJob, BigQuerySparkJob}
+import ai.starlake.job.sink.es.{ESLoadConfig, ESLoadJob}
+import ai.starlake.job.sink.jdbc.{ConnectionLoadConfig, ConnectionLoadJob}
 import ai.starlake.job.validator.{GenericRowValidator, ValidationResult}
 import ai.starlake.privacy.PrivacyEngine
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.Engine.SPARK
 import ai.starlake.schema.model.Rejection.{ColInfo, ColResult}
 import ai.starlake.schema.model.Stage.UNIT
-import ai.starlake.schema.model.Trim.{BOTH, LEFT, RIGHT}
+import ai.starlake.schema.model.Trim.{BOTH, LEFT, NONE, RIGHT}
 import ai.starlake.schema.model.WriteMode.APPEND
 import ai.starlake.schema.model._
 import ai.starlake.utils.Formatter._
@@ -1323,20 +1323,22 @@ object IngestionUtil {
 
     val trimmedColValue = colRawValue.map { colRawValue =>
       colAttribute.trim match {
-        case Some(LEFT)  => ltrim(colRawValue)
-        case Some(RIGHT) => rtrim(colRawValue)
-        case Some(BOTH)  => colRawValue.trim()
-        case _           => colRawValue
+        case Some(NONE) | None => colRawValue
+        case Some(LEFT)        => ltrim(colRawValue)
+        case Some(RIGHT)       => rtrim(colRawValue)
+        case Some(BOTH)        => colRawValue.trim()
+        case _                 => colRawValue
       }
     }
 
-    val colValue = trimmedColValue
-      .map { trimmedColValue =>
-        if (trimmedColValue.isEmpty) colAttribute.default.getOrElse("")
-        else
-          trimmedColValue
-      }
-      .orElse(colAttribute.default)
+    val colValue = colAttribute.default match {
+      case None =>
+        trimmedColValue
+      case Some(default) =>
+        trimmedColValue
+          .map(value => if (value.isEmpty) default else value)
+          .orElse(colAttribute.default)
+    }
 
     def colValueIsNullOrEmpty = colValue match {
       case None           => true
@@ -1350,28 +1352,26 @@ object IngestionUtil {
     def colPatternIsValid = colValue.exists(tpe.matches)
 
     val privacyLevel = colAttribute.getPrivacy()
-    val colValueWithPrivacyApplied = colValue.map { colValue =>
-      if (privacyLevel.sql || privacyLevel == PrivacyLevel.None)
+    val colValueWithPrivacyApplied =
+      if (privacyLevel == PrivacyLevel.None || privacyLevel.sql) {
         colValue
-      else {
+      } else {
         val ((privacyAlgo, privacyParams), _) = allPrivacyLevels(privacyLevel.value)
-        privacyLevel.crypt(colValue, colMap, privacyAlgo, privacyParams)
+        colValue.map(colValue => privacyLevel.crypt(colValue, colMap, privacyAlgo, privacyParams))
+
       }
-    }
 
     val colPatternOK = !requiredColIsEmpty && (optionalColIsEmpty || colPatternIsValid)
 
     val (sparkValue, colParseOK) = {
       (colPatternOK, colValueWithPrivacyApplied) match {
-        case (false, _) =>
-          (None, false)
-        case (true, None) =>
-          (None, true)
         case (true, Some(colValueWithPrivacyApplied)) =>
           Try(tpe.sparkValue(colValueWithPrivacyApplied)) match {
             case Success(res) => (Some(res), true)
             case Failure(_)   => (None, false)
           }
+        case (colPatternResult, _) =>
+          (None, colPatternResult)
       }
     }
     ColResult(
