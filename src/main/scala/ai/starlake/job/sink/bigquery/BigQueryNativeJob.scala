@@ -30,12 +30,13 @@ class BigQueryNativeJob(
 
   def loadPathsToBQ(bqSchema: BQSchema) = {
     Try {
+      logger.info(s"BigQuery Schema: $bqSchema")
       val formatOptions: FormatOptions = bqFormatOptions()
       getOrCreateDataset(cliConfig.domainDescription)
       cliConfig.source match {
         case Left(sourceURIs) =>
           val loadConfig: LoadJobConfiguration.Builder =
-            bqLoadCOndig(bqSchema, formatOptions, sourceURIs)
+            bqLoadConfig(bqSchema, formatOptions, sourceURIs)
           // Load data from a GCS CSV file into the table
           var job = bigquery().create(JobInfo.of(loadConfig.build))
           // Blocks until this load table job completes its execution, either failing or succeeding.
@@ -83,7 +84,7 @@ class BigQueryNativeJob(
     }
   }
 
-  private def bqLoadCOndig(bqSchema: BQSchema, formatOptions: FormatOptions, sourceURIs: String) = {
+  private def bqLoadConfig(bqSchema: BQSchema, formatOptions: FormatOptions, sourceURIs: String) = {
     val loadConfig =
       LoadJobConfiguration
         .newBuilder(tableId, sourceURIs.split(",").toList.asJava, formatOptions)
@@ -136,7 +137,8 @@ class BigQueryNativeJob(
               case None =>
             }
             formatOptions.setFieldDelimiter(metadata.getSeparator())
-            formatOptions.setQuote(metadata.getQuote())
+            metadata.quote.map(quote => formatOptions.setQuote(quote))
+
             formatOptions.build()
           case Format.JSON =>
             FormatOptions.json()
