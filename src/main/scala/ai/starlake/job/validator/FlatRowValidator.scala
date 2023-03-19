@@ -49,16 +49,17 @@ object FlatRowValidator extends GenericRowValidator {
     val now = Timestamp.from(Instant.now)
     val checkedRDD: RDD[RowResult] = dataset.rdd
       .map { row =>
-        val rowValues: Seq[(Option[String], Attribute)] = row.toSeq
+        val rowSeq = row.toSeq
+        val rowValues: Seq[(Option[String], Attribute)] = rowSeq
           .zip(attributes)
           .map { case (colValue, colAttribute) =>
             (Option(colValue).map(_.toString), colAttribute)
           }
-        val rowCols = rowValues.zip(types)
         lazy val colMap = rowValues.map { case (colValue, colAttr) =>
           (colAttr.name, colValue)
         }.toMap
-        val validNumberOfColumns = attributes.length <= rowCols.length
+        val validNumberOfColumns = attributes.length <= rowSeq.length
+        val rowCols = rowValues.zip(types)
         if (!validNumberOfColumns) {
           val colResults = rowCols.map { case ((colRawValue, colAttribute), tpe) =>
             ColResult(
