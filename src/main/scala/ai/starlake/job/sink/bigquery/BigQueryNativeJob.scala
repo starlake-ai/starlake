@@ -38,11 +38,11 @@ class BigQueryNativeJob(
           val loadConfig: LoadJobConfiguration.Builder =
             bqLoadConfig(bqSchema, formatOptions, sourceURIs)
           // Load data from a GCS CSV file into the table
-          var job = bigquery().create(JobInfo.of(loadConfig.build))
+          val job = bigquery().create(JobInfo.of(loadConfig.build))
           // Blocks until this load table job completes its execution, either failing or succeeding.
-          job = job.waitFor()
-          if (job.isDone) {
-            val stats = job.getStatistics.asInstanceOf[LoadStatistics]
+          val jobResult = job.waitFor()
+          if (jobResult.isDone) {
+            val stats = jobResult.getStatistics.asInstanceOf[LoadStatistics]
             applyRLSAndCLS().recover { case e =>
               Utils.logException(logger, e)
               throw e
@@ -52,7 +52,7 @@ class BigQueryNativeJob(
             )
             val success = !settings.comet.rejectAllOnError || stats.getBadRecords == 0
             val log = AuditLog(
-              job.getJobId.getJob,
+              jobResult.getJobId.getJob,
               sourceURIs,
               cliConfig.outputDataset,
               cliConfig.outputTable,
@@ -75,7 +75,7 @@ class BigQueryNativeJob(
             BigQueryJobResult(None, stats.getInputBytes)
           } else
             throw new Exception(
-              "BigQuery was unable to load into the table due to an error:" + job.getStatus.getError
+              "BigQuery was unable to load into the table due to an error:" + jobResult.getStatus.getError
             )
         case Right(_) =>
           throw new Exception("Should never happen")
