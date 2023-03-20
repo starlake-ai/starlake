@@ -55,7 +55,6 @@ object DatasetArea extends StrictLogging {
       new Path(
         s"${settings.comet.fileSystem}/${settings.comet.datasets}/$area/$domain"
       )
-
   }
 
   def path(domain: String)(implicit settings: Settings) =
