@@ -381,7 +381,6 @@ object JDBCUtils extends LazyLogging {
           case Some(0)               => "long"
           case _                     => "decimal"
         }
-        "decimal"
       case DECIMAL =>
         decimalDigit match {
           case Some(0) => "long"
