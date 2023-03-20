@@ -214,6 +214,7 @@ object JDBCUtils extends LazyLogging {
           val remarks =
             extractColumnRemarks(jdbcSchema, connectionOptions, tableName).getOrElse(Map.empty)
 
+          val isPostgres = connectionOptions("url").contains("postgres")
           val attrs = new Iterator[Attribute] {
             def hasNext: Boolean = columnsResultSet.next()
 
@@ -230,7 +231,8 @@ object JDBCUtils extends LazyLogging {
               // val columnPosition = columnsResultSet.getInt("ORDINAL_POSITION")
               Attribute(
                 name = colName,
-                `type` = sparkType(colType, tableName, colName, colTypename, colDecimalDigits),
+                `type` =
+                  sparkType(colType, tableName, colName, colTypename, colDecimalDigits, isPostgres),
                 required = colRequired,
                 comment = Option(colRemarks),
                 foreignKey = foreignKey
@@ -356,14 +358,31 @@ object JDBCUtils extends LazyLogging {
     tableName: String,
     colName: String,
     colTypename: String,
-    decimalDigit: Option[Int]
+    decimalDigit: Option[Int],
+    /*
+    because getInt(DECIMAL_DIGITS) returns 0 when this value is null and because
+    FROM Postgres DOC
+    without any precision or scale creates an “unconstrained numeric” column in which numeric values of any length
+    can be stored, up to the implementation limits. A column of this kind will not coerce input values to any particular scale,
+    whereas numeric columns with a declared scale will coerce input values to that scale.
+    (The SQL standard requires a default scale of 0, i.e., coercion to integer precision. We find this a bit useless.
+    If you're concerned about portability, always specify the precision and scale explicitly.)
+     */
+    isPostgres: Boolean
   ): String = {
     val sqlType = reverseSqlTypes.getOrElse(jdbcType, colTypename)
     jdbcType match {
       case VARCHAR | CHAR | LONGVARCHAR => "string"
       case BIT | BOOLEAN                => "boolean"
       case DOUBLE | FLOAT | REAL        => "double"
-      case NUMERIC | DECIMAL =>
+      case NUMERIC =>
+        decimalDigit match {
+          case Some(0) if isPostgres => "decimal"
+          case Some(0)               => "long"
+          case _                     => "decimal"
+        }
+        "decimal"
+      case DECIMAL =>
         decimalDigit match {
           case Some(0) => "long"
           case _       => "decimal"
