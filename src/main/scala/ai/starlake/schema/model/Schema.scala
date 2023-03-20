@@ -188,8 +188,15 @@ case class Schema(
     StructType(fields)
   }
 
+  def sparkSchemaWithoutIgnoreAndScript(schemaHandler: SchemaHandler): StructType =
+    sparkSchemaWithCondition(schemaHandler, attr => !attr.isIgnore() && !attr.script.isDefined)
+
   def bqSchema(schemaHandler: SchemaHandler): BQSchema = {
     BigQueryUtils.bqSchema(finalSparkSchema(schemaHandler))
+  }
+
+  def bqSchemaWithoutIgnoreAndScript(schemaHandler: SchemaHandler): BQSchema = {
+    BigQueryUtils.bqSchema(sparkSchemaWithoutIgnoreAndScript(schemaHandler))
   }
 
   /** return the list of renamed attributes

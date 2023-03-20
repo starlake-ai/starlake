@@ -932,8 +932,8 @@ trait IngestionJob extends SparkJob {
     val csvOrJsonLines =
       !mergedMetadata.isArray() && Set(Format.DSV, Format.JSON).contains(mergedMetadata.getFormat())
 
-    val acceptAll = mergedMetadata.validator.getOrElse("").contains("AcceptAllValidator")
-    if (csvOrJsonLines && sinkToBQ && acceptAll) Engine.BQ else Engine.SPARK
+    val nativeValidator = mergedMetadata.validator.getOrElse("").contains("NativeValidator")
+    if (csvOrJsonLines && sinkToBQ && nativeValidator) Engine.BQ else Engine.SPARK
   }
 
   def run(): Try[JobResult] = {
@@ -948,7 +948,7 @@ trait IngestionJob extends SparkJob {
   }
 
   def runBQ(): Try[JobResult] = {
-    val tableSchema = schema.bqSchema(schemaHandler)
+    val tableSchema = schema.bqSchemaWithoutIgnoreAndScript(schemaHandler)
 
     val (createDisposition: String, writeDisposition: String) = Utils.getDBDisposition(
       mergedMetadata.getWrite(),
