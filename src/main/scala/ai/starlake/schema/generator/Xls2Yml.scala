@@ -24,19 +24,22 @@ object Xls2Yml extends LazyLogging {
         s.attributes
           .filter(_.script.isEmpty)
           .map { attr =>
-            if (
-              privacy == Nil || privacy.contains(
-                attr.getPrivacy().toString
-              )
-            )
-              attr.copy(`type` = "string", required = false, rename = None)
-            else
-              attr.copy(
+            {
+              val attribute = attr.copy(
                 `type` = "string",
                 required = false,
                 privacy = PrivacyLevel.None,
                 rename = None
               )
+              if (
+                privacy == Nil || privacy.contains(
+                  attr.getPrivacy().toString
+                )
+              )
+                attribute
+              else
+                attr.copy(privacy = PrivacyLevel.None)
+            }
           }
       // pre-encryption YML should not contain any partition or sink elements.
       // Write mode is forced to APPEND since encryption output must not overwrite previous results
