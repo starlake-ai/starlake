@@ -100,6 +100,7 @@ class DsvIngestionJob(
         .option("multiLine", mergedMetadata.getMultiline())
         .option("quote", mergedMetadata.getQuote())
         .option("escape", mergedMetadata.getEscape())
+        .option("nullValue", mergedMetadata.getNullValue())
         .option("parserLib", "UNIVOCITY")
         .option("encoding", mergedMetadata.getEncoding())
         .options(mergedMetadata.getOptions())
