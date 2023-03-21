@@ -59,7 +59,7 @@ case class AutoTaskDesc(
   sink: Option[Sink] = None,
   rls: List[RowLevelSecurity] = Nil,
   assertions: Map[String, String] = Map.empty,
-  engine: Option[Engine] = None,
+  sqlEngine: Option[Engine] = None,
   acl: List[AccessControlEntry] = Nil,
   comment: Option[String] = None,
   format: Option[String] = None,
