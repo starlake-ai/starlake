@@ -505,8 +505,9 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
           tranformNode
       val tasksNode = autojobNode.path("tasks").asInstanceOf[ArrayNode]
       for (i <- 0 until tasksNode.size()) {
-        val taskNode = tasksNode.get(i).asInstanceOf[ObjectNode]
+        val taskNode: ObjectNode = tasksNode.get(i).asInstanceOf[ObjectNode]
         YamlSerializer.renameField(taskNode, "dataset", "table")
+        YamlSerializer.renameField(taskNode, "engine", "sqlEngine")
         taskNode.path("sink") match {
           case node if node.isMissingNode => // do nothing
           case sinkNode =>

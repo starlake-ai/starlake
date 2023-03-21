@@ -403,10 +403,10 @@ case class AutoTask(
 
       preSql.foreach(req => session.sql(req))
       logger.info(s"""START COMPILE SQL $sqlWithParameters END COMPILE SQL""")
-      logger.info(s"running sql request using ${taskDesc.engine}")
+      logger.info(s"running sql request using ${taskDesc.sqlEngine}")
 
       val dataframe =
-        taskDesc.engine.getOrElse(Engine.SPARK) match {
+        taskDesc.sqlEngine.getOrElse(Engine.SPARK) match {
           case Engine.BQ =>
             session.read
               .format("com.google.cloud.spark.bigquery")
