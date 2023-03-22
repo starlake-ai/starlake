@@ -83,6 +83,26 @@ trait XlsModel {
     "_policy"         -> "Access Policy"
   )
 
+  val allSchemaJobHeaders = List(
+    "_job"         -> "Job Name",
+    "_domain"      -> "Domain",
+    "_name"        -> "Name",
+    "_source"      -> "Tables sources for job",
+    "_write"       -> "Write Mode\n(OVERWRITE, APPEND, ERROR_IF_EXISTS)",
+    "_frequency"   -> "Job frenquency",
+    "_partition"   -> "Partition column",
+    "_description" -> "Description",
+    "_policy"      -> "Access Policy"
+  )
+
+  val allAttributeJobHeaders = List(
+    "_name"        -> "Name",
+    "_type"        -> "Semantic Type",
+    "_required"    -> "Required(true / false)",
+    "_script"      -> "Script",
+    "_description" -> "Description"
+  )
+
   protected def getColsOrder(
     sheet: Sheet,
     allHeaders: List[String]

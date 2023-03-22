@@ -361,10 +361,29 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
 
     val domains = paths
       .map { path =>
-        YamlSerializer.deserializeDomain(
-          Utils.parseJinja(storage.read(path), activeEnv()),
-          path.toString
-        )
+        YamlSerializer
+          .deserializeDomain(
+            Utils.parseJinja(storage.read(path), activeEnv()),
+            path.toString
+          )
+          // grants list can be set a comma separated list in YAML , and transformed to a list while parsing
+          .map { domain =>
+            {
+              val tables = domain.tables.map { table =>
+                table.copy(
+                  rls = table.rls.map(rls => {
+                    val grants = rls.grants.flatMap(_.replaceAll("\"", "").split(','))
+                    rls.copy(grants = grants)
+                  }),
+                  acl = table.acl.map(acl => {
+                    val grants = acl.grants.flatMap(_.replaceAll("\"", "").split(','))
+                    acl.copy(grants = grants)
+                  })
+                )
+              }
+              domain.copy(tables = tables)
+            }
+          }
       }
     paths.zip(domains)
   }
@@ -539,7 +558,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       val tasks = jobDescWithRefs.tasks.map { taskDesc =>
         val taskSqlFile: Option[Path] = taskSqlPath(jobPath, taskDesc.name)
 
-        taskSqlFile
+        val task = taskSqlFile
           .map { taskFile =>
             val sqlTask = SqlTaskExtractor(storage.read(taskFile))
             taskDesc.copy(
@@ -551,6 +570,17 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
             )
           }
           .getOrElse(taskDesc)
+        // grants list can be set a comma separated list in YAML , and transformed to a list while parsing
+        task.copy(
+          rls = task.rls.map(rls => {
+            val grants = rls.grants.flatMap(_.replaceAll("\"", "").split(','))
+            rls.copy(grants = grants)
+          }),
+          acl = task.acl.map(acl => {
+            val grants = acl.grants.flatMap(_.replaceAll("\"", "").split(','))
+            acl.copy(grants = grants)
+          })
+        )
       }
       val jobName = finalDomainOrJobName(jobPath, jobDesc.name)
       val tasksWithNoSQL = tasks.filter(_.sql.isEmpty)

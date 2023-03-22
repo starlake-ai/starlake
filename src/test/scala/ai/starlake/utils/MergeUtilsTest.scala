@@ -2,7 +2,10 @@ package ai.starlake.utils
 
 import ai.starlake.TestHelper
 import ai.starlake.schema.model.MergeOptions
-import org.apache.spark.sql.types.{IntegerType, StringType, StructType}
+import org.apache.spark.sql.Row
+import org.apache.spark.sql.types.{IntegerType, LongType, StringType, StructField, StructType}
+
+import scala.collection.JavaConverters._
 
 import scala.io.Source
 
@@ -139,5 +142,63 @@ class MergeUtilsTest extends TestHelper {
     val stream = getClass.getResourceAsStream("/sample/merge/existing.jsonl")
     val expected = Source.fromInputStream(stream).getLines().toList
     actual should contain theSameElementsAs expected
+  }
+
+  "Merge function " should "be merge structure information" in {
+    val incomingSchema1 = StructType(
+      Array(
+        StructField("field1", StringType).withComment("description field 1"),
+        StructField("field2", IntegerType).withComment("description field 2"),
+        StructField("field3", StringType).withComment("description field 3")
+      )
+    )
+    val existingSchema1 = StructType(
+      Array(
+        StructField("field1", StringType).withComment("description field 1"),
+        StructField("field2", LongType).withComment("description field 2")
+      )
+    )
+
+    val incomingDf1 = sparkSession.createDataFrame(
+      Seq(Row("1", 10, "val1"), Row("2", 20, "val2")).asJava,
+      incomingSchema1
+    )
+    val existingDf1 = sparkSession.createDataFrame(
+      Seq(Row("1", 100L), Row("4", 40L)).asJava,
+      existingSchema1
+    )
+
+    val (_, mergedDF1, _) =
+      MergeUtils.computeToMergeAndToDeleteDF(existingDf1, incomingDf1, MergeOptions(Nil))
+
+    assert(mergedDF1.schema.fields.count(_.getComment().isEmpty) == 0)
+
+    val incomingSchema2 = StructType(
+      Array(
+        StructField("field1", StringType).withComment("description field 1"),
+        StructField("field2", IntegerType).withComment("description field 2")
+      )
+    )
+    val existingSchema2 = StructType(
+      Array(
+        StructField("field1", StringType).withComment("description field 1"),
+        StructField("field2", LongType).withComment("description field 2"),
+        StructField("field3", StringType).withComment("description field 3")
+      )
+    )
+
+    val incomingDf2 = sparkSession.createDataFrame(
+      Seq(Row("1", 10), Row("2", 20)).asJava,
+      incomingSchema2
+    )
+    val existingDf2 = sparkSession.createDataFrame(
+      Seq(Row("1", 100L, "val1"), Row("4", 40L, "val2")).asJava,
+      existingSchema2
+    )
+
+    val (_, mergedDF2, _) =
+      MergeUtils.computeToMergeAndToDeleteDF(existingDf2, incomingDf2, MergeOptions(Nil))
+
+    assert(mergedDF2.schema.fields.count(_.getComment().isEmpty) == 0)
   }
 }

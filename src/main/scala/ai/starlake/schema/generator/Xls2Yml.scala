@@ -28,8 +28,9 @@ object Xls2Yml extends LazyLogging {
               val attribute = attr.copy(
                 `type` = "string",
                 required = false,
-                privacy = PrivacyLevel.None,
-                rename = None
+                rename = None,
+                ignore = None,
+                comment = None
               )
               if (
                 privacy == Nil || privacy.contains(
@@ -46,11 +47,16 @@ object Xls2Yml extends LazyLogging {
       val newMetaData: Option[Metadata] = s.metadata.map { m =>
         m.copy(partition = None, sink = None, write = Some(WriteMode.APPEND))
       }
-      s.copy(attributes = newAttributes)
-        .copy(metadata = newMetaData)
-        .copy(merge = None)
+      s.copy(
+        attributes = newAttributes,
+        metadata = newMetaData,
+        merge = None,
+        comment = None,
+        rls = Nil,
+        acl = Nil
+      )
     }
-    val preEncryptDomain = domain.copy(tables = preEncryptSchemas)
+    val preEncryptDomain = domain.copy(tables = preEncryptSchemas, comment = None)
     preEncryptDomain
   }
 
