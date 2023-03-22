@@ -37,9 +37,10 @@ class YamlSerializerSpec extends TestHelper {
         ),
         "format"   -> "parquet",
         "coalesce" -> false,
+        "engine"   -> "SPARK",
         "views"    -> Map("user_View" -> "accepted/user")
       )
-      assert((expected.toSet diff jobMap.toSet).toMap.isEmpty)
+      assert((jobMap.toSet diff expected.toSet).toMap.isEmpty)
     }
     "Job wit BQ engine toMap" should "should produce the correct map with right engine" in {
       val task = AutoTaskDesc(
