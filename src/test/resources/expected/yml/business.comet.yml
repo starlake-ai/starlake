@@ -1,5 +1,6 @@
 ---
 name: "business1"
+engine: "SPARK"
 tasks:
 - sql: "select * from domain"
   domain: "DOMAIN"
