@@ -478,7 +478,7 @@ object Schema {
     }
     Schema(
       name = taskDesc.name,
-      pattern = null,
+      pattern = Pattern.compile(taskDesc.name),
       attributes = attributes,
       None,
       None,
