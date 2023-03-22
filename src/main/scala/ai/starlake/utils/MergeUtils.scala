@@ -127,7 +127,7 @@ object MergeUtils extends StrictLogging with DatasetLogging {
 
     logger.whenDebugEnabled {
       logger.debug(s"Merge detected ${toDeleteDF.count()} items to update/delete")
-      logger.debug(s"Merge detected ${mergedDF.except(finalIncomingDF).count()} items to insert")
+      logger.debug(s"Merge detected ${mergedDF.count() - finalIncomingDF.count()} items to insert")
       logger.debug(mergedDF.showString(truncate = 0))
     }
 
