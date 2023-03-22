@@ -67,7 +67,7 @@ object AutoTask extends StrictLogging {
         taskDesc.coalesce.orElse(jobDesc.coalesce).getOrElse(false),
         jobDesc.udf,
         Views(jobDesc.views.getOrElse(Map.empty)),
-        jobDesc.getEngine(),
+        jobDesc.getAutoJobEngine(),
         taskDesc,
         configOptions,
         taskDesc.sink,
@@ -135,7 +135,10 @@ case class AutoTask(
       acl = taskDesc.acl,
       materializedView = taskDesc.sink.exists(sink =>
         sink.asInstanceOf[BigQuerySink].materializedView.getOrElse(false)
-      )
+      ),
+      attributesDesc = taskDesc.attributesDesc,
+      outputTableDesc = taskDesc.comment.getOrElse(""),
+      starlakeSchema = Some(Schema.fromTaskDesc(taskDesc))
     )
   }
 
@@ -391,7 +394,7 @@ case class AutoTask(
     true
   }
 
-  def runSpark(): Try[SparkJobResult] = {
+  def runSpark(): Try[(SparkJobResult, String)] = {
     val start = Timestamp.from(Instant.now())
     val res = Try {
       udf.foreach { udf =>
@@ -454,11 +457,11 @@ case class AutoTask(
 
       postSql.foreach(req => session.sql(req))
       // Let us return the Dataframe so that it can be piped to another sink
-      SparkJobResult(Some(dataframe))
+      (SparkJobResult(Some(dataframe)), sqlWithParameters)
     }
     val end = Timestamp.from(Instant.now())
     res match {
-      case Success(jobResult) =>
+      case Success((jobResult, _)) =>
         val end = Timestamp.from(Instant.now())
         val jobResultCount = jobResult.dataframe.map(_.count())
         jobResultCount.foreach(logAuditSuccess(start, end, _))

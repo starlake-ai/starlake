@@ -251,7 +251,9 @@ class XlsDomainReader(input: Input) extends XlsModel {
           val (withoutPredicate, withPredicate) = tablePolicies
             .partition(_.predicate.toUpperCase() == "TRUE")
 
-          val acl = withoutPredicate.map(rls => AccessControlEntry(rls.name, rls.grants.toList))
+          val acl = withoutPredicate.map(rls =>
+            AccessControlEntry("roles/bigquery.dataViewer", rls.grants.toList, rls.name)
+          )
           val rls = withPredicate
 
           val schema = Schema(

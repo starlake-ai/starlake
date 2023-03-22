@@ -1,7 +1,13 @@
 package ai.starlake.job.sink.bigquery
 
 import ai.starlake.config.GcpConnectionConfig
-import ai.starlake.schema.model.{AccessControlEntry, Engine, RowLevelSecurity, Schema}
+import ai.starlake.schema.model.{
+  AccessControlEntry,
+  AttributeDesc,
+  Engine,
+  RowLevelSecurity,
+  Schema
+}
 import ai.starlake.utils.CliConfig
 import org.apache.spark.sql.DataFrame
 import scopt.OParser
@@ -28,7 +34,10 @@ case class BigQueryLoadConfig(
   starlakeSchema: Option[Schema] = None,
   domainTags: Set[String] = Set.empty,
   domainDescription: Option[String] = None,
-  materializedView: Boolean = false
+  materializedView: Boolean = false,
+  outputTableDesc: String = "",
+  sqlSource: Option[String] = None,
+  attributesDesc: List[AttributeDesc] = Nil
 ) extends GcpConnectionConfig
 
 object BigQueryLoadConfig extends CliConfig[BigQueryLoadConfig] {
