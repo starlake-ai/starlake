@@ -21,6 +21,7 @@
 package ai.starlake.schema.model
 
 import ai.starlake.config.{DatasetArea, Settings, StorageArea}
+import com.fasterxml.jackson.annotation.JsonIgnore
 import org.apache.hadoop.fs.Path
 
 import scala.util.Try
@@ -64,7 +65,8 @@ case class AutoTaskDesc(
   comment: Option[String] = None,
   format: Option[String] = None,
   coalesce: Option[Boolean] = None,
-  freshness: Option[Freshness] = None
+  freshness: Option[Freshness] = None,
+  attributesDesc: List[AttributeDesc] = Nil
 ) extends Named {
 
   def checkValidity(): Either[List[String], Boolean] = {
@@ -125,17 +127,19 @@ case class AutoJobDesc(
   tasks: List[AutoTaskDesc],
   taskRefs: List[String] = Nil,
   comment: Option[String] = None,
-  format: Option[String],
-  coalesce: Option[Boolean],
+  format: Option[String] = None,
+  coalesce: Option[Boolean] = None,
   udf: Option[String] = None,
   views: Option[Map[String, String]] = None,
   engine: Option[Engine] = None,
   schedule: Map[String, String] = Map.empty
 ) extends Named {
+  def this() = this("", Nil) // Should never be called. Here for Jackson deserialization only
   // TODO
   def checkValidity() = true
 
-  def getEngine(): Engine = engine.getOrElse(Engine.SPARK)
+  @JsonIgnore
+  def getAutoJobEngine(): Engine = engine.getOrElse(Engine.SPARK)
 
   def aclTasks(): List[AutoTaskDesc] = tasks.filter { task =>
     task.acl.nonEmpty

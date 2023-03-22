@@ -1,12 +1,12 @@
 package ai.starlake.schema.generator
 
 import ai.starlake.TestHelper
-import ai.starlake.schema.model.{AutoJobDesc, AutoTaskDesc, WriteMode}
+import ai.starlake.schema.model.{AutoJobDesc, AutoTaskDesc, Engine, WriteMode}
 import ai.starlake.utils.YamlSerializer
 
 class YamlSerializerSpec extends TestHelper {
   new WithSettings() {
-    "Job toMap" should "should produce the correct map" in {
+    "Job with no explicit engine toMap" should "should produce the correct map" in {
       val task = AutoTaskDesc(
         "",
         Some("select firstname, lastname, age from {{view}} where age=${age}"),
@@ -37,8 +37,78 @@ class YamlSerializerSpec extends TestHelper {
         ),
         "format"   -> "parquet",
         "coalesce" -> false,
-        "views"    -> Map("user_View" -> "accepted/user"),
-        "engine"   -> "SPARK"
+        "views"    -> Map("user_View" -> "accepted/user")
+      )
+      assert((expected.toSet diff jobMap.toSet).toMap.isEmpty)
+    }
+    "Job wit BQ engine toMap" should "should produce the correct map with right engine" in {
+      val task = AutoTaskDesc(
+        "",
+        Some("select firstname, lastname, age from dataset.table where age=${age}"),
+        "user",
+        "user",
+        WriteMode.OVERWRITE
+      )
+      val job =
+        AutoJobDesc(
+          "user",
+          List(task),
+          Nil,
+          None,
+          Some("parquet"),
+          Some(false),
+          engine = Some(Engine.fromString("BQ"))
+        )
+      val jobMap = YamlSerializer.toMap(job)
+      val expected = Map(
+        "name" -> "user",
+        "tasks" -> List(
+          Map(
+            "sql"    -> "select firstname, lastname, age from dataset.table where age=${age}",
+            "domain" -> "user",
+            "table"  -> "user",
+            "write"  -> "OVERWRITE"
+          )
+        ),
+        "format"   -> "parquet",
+        "coalesce" -> false,
+        "engine"   -> "BQ"
+      )
+      assert((expected.toSet diff jobMap.toSet).toMap.isEmpty)
+    }
+    "Job with SPARK engine toMap" should "should produce the correct map" in {
+      val task = AutoTaskDesc(
+        "",
+        Some("select firstname, lastname, age from {{view}} where age=${age}"),
+        "user",
+        "user",
+        WriteMode.OVERWRITE
+      )
+      val job =
+        AutoJobDesc(
+          "user",
+          List(task),
+          Nil,
+          None,
+          Some("parquet"),
+          Some(false),
+          views = Some(Map("user_View" -> "accepted/user")),
+          engine = Some(Engine.fromString("SPARK"))
+        )
+      val jobMap = YamlSerializer.toMap(job)
+      val expected = Map(
+        "name" -> "user",
+        "tasks" -> List(
+          Map(
+            "sql"    -> "select firstname, lastname, age from {{view}} where age=${age}",
+            "domain" -> "user",
+            "table"  -> "user",
+            "write"  -> "OVERWRITE"
+          )
+        ),
+        "format"   -> "parquet",
+        "coalesce" -> false,
+        "views"    -> Map("user_View" -> "accepted/user")
       )
       assert((expected.toSet diff jobMap.toSet).toMap.isEmpty)
     }

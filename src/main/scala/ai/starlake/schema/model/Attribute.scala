@@ -410,3 +410,18 @@ object Attribute {
     }
   }
 }
+
+/** A field in the schema. For struct fields, the field "attributes" contains all sub attributes
+  *
+  * @param name
+  *   : Attribute name as defined in the source dataset and as received in the file
+  * @param comment
+  *   : free text for attribute description
+  */
+case class AttributeDesc(
+  name: String,
+  comment: String = "",
+  accessPolicy: Option[String] = None
+) {
+  def this() = this("") // Should never be called. Here for Jackson deserialization only
+}

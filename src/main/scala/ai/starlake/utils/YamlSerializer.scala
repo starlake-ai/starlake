@@ -32,6 +32,8 @@ object YamlSerializer extends LazyLogging {
     mapper.treeToValue(rootNode, classOf[IamPolicyTags])
   }
 
+  def serialize(autoJob: AutoJobDesc): String = mapper.writeValueAsString(autoJob)
+
   def serialize(schema: ModelSchema): String = mapper.writeValueAsString(schema)
 
   def serializeObject(obj: Object): String = mapper.writeValueAsString(obj)
@@ -81,6 +83,11 @@ object YamlSerializer extends LazyLogging {
     }
     val jdbcSchemas = mapper.treeToValue(jdbcNode, classOf[JDBCSchemas])
     jdbcSchemas.propageGlobalJdbcSchemas()
+  }
+
+  def serializeToFile(targetFile: File, autoJobDesc: AutoJobDesc): Unit = {
+    case class Transform(transform: AutoJobDesc)
+    mapper.writeValue(targetFile.toJava, Transform(autoJobDesc))
   }
 
   def serializeToFile(targetFile: File, domain: Domain): Unit = {

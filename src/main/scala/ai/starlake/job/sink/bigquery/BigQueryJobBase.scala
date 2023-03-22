@@ -1,30 +1,24 @@
 package ai.starlake.job.sink.bigquery
+import java.util
 
 import ai.starlake.config.Settings
 import ai.starlake.schema.model
-import ai.starlake.schema.model.{
-  AccessControlEntry,
-  IamPolicyTag,
-  IamPolicyTags,
-  RowLevelSecurity,
-  UserType
-}
+import ai.starlake.schema.model.{Schema => _, TableInfo => _, _}
 import ai.starlake.utils.Utils
 import ai.starlake.utils.conversion.BigQueryUtils.sparkToBq
 import com.google.cloud.bigquery.{Schema => BQSchema, TableInfo => BQTableInfo, _}
 import com.google.cloud.datacatalog.v1.{
   ListPolicyTagsRequest,
   ListTaxonomiesRequest,
-  PolicyTagManagerClient,
-  PolicyTagName
+  PolicyTagManagerClient
 }
 import com.google.cloud.{Identity, Policy, Role, ServiceOptions}
 import com.google.iam.v1.{Binding, Policy => IAMPolicy, SetIamPolicyRequest}
 import com.google.protobuf.FieldMask
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.catalyst.parser.ParserSQL
 
-import java.util
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 import scala.util.{Failure, Success, Try}
@@ -83,6 +77,31 @@ trait BigQueryJobBase extends StrictLogging {
     }
   }
 
+  private def getPolicyTag(
+    location: String,
+    projectId: String,
+    taxonomy: String,
+    taxonomyRef: String,
+    accessPolicy: String
+  ) = {
+    val policyTagsRequest =
+      ListPolicyTagsRequest.newBuilder().setParent(taxonomyRef).build()
+    val policyTags =
+      policyTagClient.listPolicyTags(policyTagsRequest)
+    val policyTagRef =
+      policyTags
+        .iterateAll()
+        .asScala
+        .filter(_.getDisplayName == accessPolicy)
+        .map(_.getName)
+        .headOption
+        .getOrElse(
+          throw new Exception(
+            s"PolicyTag $accessPolicy not found in Taxonomy $taxonomy in project $projectId in location $location"
+          )
+        )
+    policyTagRef
+  }
   def applyIamPolicyTags(iamPolicyTags: IamPolicyTags)(implicit settings: Settings): Try[Unit] = {
     Try {
       val (location, projectId, taxonomy, taxonomyRef) = getTaxonomy(policyTagClient)
@@ -99,12 +118,11 @@ trait BigQueryJobBase extends StrictLogging {
           binding.build()
         }
         val iamPolicy = IAMPolicy.newBuilder().addAllBindings(bindings.asJava).build()
+        val policyTagId = getPolicyTag(location, projectId, taxonomy, taxonomyRef, policyTag)
         val request =
           SetIamPolicyRequest
             .newBuilder()
-            .setResource(
-              PolicyTagName.of(projectId, location, taxonomy, policyTag).toString()
-            )
+            .setResource(policyTagId)
             .setPolicy(iamPolicy)
             .setUpdateMask(FieldMask.newBuilder().addPaths("bindings").build())
             .build()
@@ -191,22 +209,8 @@ trait BigQueryJobBase extends StrictLogging {
                       case Some(accessPolicy) =>
                         val policyTagId = policyTagIds.getOrElse(
                           accessPolicy, {
-                            val policyTagsRequest =
-                              ListPolicyTagsRequest.newBuilder().setParent(taxonomyRef).build()
-                            val policyTags =
-                              policyTagClient.listPolicyTags(policyTagsRequest)
                             val policyTagRef =
-                              policyTags
-                                .iterateAll()
-                                .asScala
-                                .filter(_.getDisplayName() == accessPolicy)
-                                .map(_.getName)
-                                .headOption
-                                .getOrElse(
-                                  throw new Exception(
-                                    s"PolicyTag $accessPolicy not found in Taxonomy $taxonomy in project $projectId in location $location"
-                                  )
-                                )
+                              getPolicyTag(location, projectId, taxonomy, taxonomyRef, accessPolicy)
                             policyTagIds.put(accessPolicy, policyTagRef)
                             policyTagRef
                           }
@@ -280,9 +284,9 @@ trait BigQueryJobBase extends StrictLogging {
     rlsDeleteStatement ++ rlsCreateStatements
   }
 
-  val datasetId: DatasetId = BigQueryJobBase.extractProjectDataset(cliConfig.outputDataset)
+  lazy val datasetId: DatasetId = BigQueryJobBase.extractProjectDataset(cliConfig.outputDataset)
 
-  val tableId: TableId = BigQueryJobBase.extractProjectDatasetAndTable(
+  lazy val tableId: TableId = BigQueryJobBase.extractProjectDatasetAndTable(
     cliConfig.outputDataset + "." + cliConfig.outputTable
   )
 
@@ -353,6 +357,20 @@ trait BigQueryJobBase extends StrictLogging {
     }
   }
 
+  protected def updateTableDescription(idTable: TableId)(implicit settings: Settings) = {
+    logger.info(
+      s"We are updating the description on this Table: ${idTable}"
+    )
+    bigquery().update(
+      bigquery()
+        .getTable(idTable)
+        .toBuilder
+        .setDescription(
+          cliConfig.outputTableDesc
+        )
+        .build()
+    )
+  }
   protected def updateTableDescriptions(
     table: Table,
     maybeTableDescription: scala.Option[String],
@@ -400,6 +418,86 @@ trait BigQueryJobBase extends StrictLogging {
     }
   }
 
+  /** Parses the input sql parameter to find all the referenced tables and finds the description of
+    * the columns of these tables based on the description found in the existing BigQuery tables and
+    * AttributeDesc comments provided in the Job description. The result is returned as a
+    * Map[String,String] with the column name as key, and its description as value.
+    * @param sql
+    * @return
+    *   a Map with all the
+    */
+  def getFieldsDescriptionSource(sql: String)(implicit settings: Settings): Map[String, String] = {
+    val tableIds = ParserSQL
+      .getTablesName(sql)
+      .flatMap(table => {
+        val infos = table.split("\\.").toList
+        infos match {
+          case datasetName :: tableName :: Nil =>
+            Some(TableId.of(projectId, datasetName, tableName))
+          case projectId :: datasetName :: tableName :: Nil =>
+            Some(TableId.of(projectId, datasetName, tableName))
+          case _ => None
+        }
+      })
+
+    tableIds
+      .flatMap(tableId =>
+        Try(bigquery().getTable(tableId))
+          .map(table => {
+            logger.info(s"Get table source description field : ${table.getTableId.toString}")
+            table
+              .getDefinition[StandardTableDefinition]
+              .getSchema
+              .getFields
+              .iterator()
+              .asScala
+              .toList
+          })
+          .getOrElse(Nil)
+      )
+
+      /** We expect that two tables with the same column name have exactly the same comment or else
+        * we pick anyone by default
+        */
+      .map(field => field.getName -> field.getDescription)
+      .toMap ++
+    cliConfig.attributesDesc
+      .filter(_.comment.nonEmpty)
+      .map(att => att.name -> att.comment)
+      .toMap
+  }
+
+  /** Update columns description from source tables in sql or from yaml job with attributes
+    * information
+    * @param sqlSource
+    * @return
+    *   Table with columns description updated
+    */
+  def updateColumnsDescription(sqlSource: String)(implicit settings: Settings) = {
+    logger.info(
+      s"We are updating the description field on this Table: $tableId"
+    )
+    val dictField = getFieldsDescriptionSource(sqlSource)
+    val tableTarget = bigquery().getTable(tableId)
+    val tableSchema = tableTarget.getDefinition.asInstanceOf[StandardTableDefinition].getSchema
+    val fieldList = tableSchema.getFields
+      .iterator()
+      .asScala
+      .toList
+      .map(field =>
+        field.toBuilder
+          .setDescription(dictField.getOrElse(field.getName, field.getDescription))
+          .build()
+      )
+      .asJava
+
+    bigquery.update(
+      tableTarget.toBuilder
+        .setDefinition(StandardTableDefinition.of(BQSchema.of(fieldList)))
+        .build()
+    )
+  }
+
   /** To set access control on a table or view, we can use Identity and Access Management (IAM)
     * policy After you create a table or view, you can set its policy with a set-iam-policy call For
     * each call, we compare if the existing policy is equal to the defined one (in the Yaml file) If
@@ -417,10 +515,10 @@ trait BigQueryJobBase extends StrictLogging {
     val existingPolicyBindings: util.Map[Role, util.Set[Identity]] = existingPolicy.getBindings
 
     val bindings = acl
-      .map { ace =>
-        Role.of(ace.role) -> ace.grants.toSet.map(Identity.valueOf).asJava
+      .groupBy(_.role)
+      .map { case (role, listAcl) =>
+        Role.of(role) -> listAcl.flatMap(_.grants).toSet.map(Identity.valueOf).asJava
       }
-      .toMap
       .asJava
 
     if (!existingPolicyBindings.equals(bindings)) {
