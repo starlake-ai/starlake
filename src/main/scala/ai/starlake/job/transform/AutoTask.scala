@@ -67,7 +67,7 @@ object AutoTask extends StrictLogging {
         taskDesc.coalesce.orElse(jobDesc.coalesce).getOrElse(false),
         jobDesc.udf,
         Views(jobDesc.views.getOrElse(Map.empty)),
-        jobDesc.getAutoJobEngine(),
+        jobDesc.getEngine(),
         taskDesc,
         configOptions,
         taskDesc.sink,
