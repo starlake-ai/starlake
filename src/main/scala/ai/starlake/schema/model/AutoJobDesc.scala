@@ -21,7 +21,6 @@
 package ai.starlake.schema.model
 
 import ai.starlake.config.{DatasetArea, Settings, StorageArea}
-import com.fasterxml.jackson.annotation.JsonIgnore
 import org.apache.hadoop.fs.Path
 
 import scala.util.Try
@@ -138,8 +137,7 @@ case class AutoJobDesc(
   // TODO
   def checkValidity() = true
 
-  @JsonIgnore
-  def getAutoJobEngine(): Engine = engine.getOrElse(Engine.SPARK)
+  def getEngine(): Engine = engine.getOrElse(Engine.SPARK)
 
   def aclTasks(): List[AutoTaskDesc] = tasks.filter { task =>
     task.acl.nonEmpty

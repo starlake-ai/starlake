@@ -8,16 +8,18 @@ object ParserSQL {
 
     def toAlias(name: String): Deps = Deps.zero.copy(aliases = Map(name.toUpperCase -> this.tables))
 
-    def ++(_def: Deps): Deps = {
-      def dealias(name: String) = aliases.getOrElse(name.toUpperCase, List(name))
+    def ++(deps: Deps): Deps = {
+      def dealias(name: String): List[String] = aliases.getOrElse(name.toUpperCase, List(name))
 
-      if (this == Deps.zero) _def
-      else if (_def == Deps.zero) this
-      else
-        Deps(
-          tables ++ _def.tables.flatMap(dealias),
-          aliases ++ _def.aliases.mapValues(_.flatMap(dealias))
-        )
+      (this, deps) match {
+        case (Deps.zero, _) => deps
+        case (_, Deps.zero) => this
+        case (_, _) =>
+          Deps(
+            tables ++ deps.tables.flatMap(dealias),
+            aliases ++ deps.aliases.mapValues(_.flatMap(dealias))
+          )
+      }
     }
   }
 
@@ -39,7 +41,7 @@ object ParserSQL {
         aggregate ++ nextResult
     }
 
-    def parse(sql: String) = {
+    def parse(sql: String): List[String] = {
       val lexer = new SqlBaseLexer(
         new UpperCaseCharStream(CharStreams.fromString(sql))
       )
