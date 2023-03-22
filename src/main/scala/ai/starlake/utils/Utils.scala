@@ -260,12 +260,10 @@ object Utils {
     settings: Settings
   ): List[String] = {
     val result = str.map { sql =>
-      CommentParser.stripComments(
-        jinjava
-          .render(sql, params.asJava)
-          .richFormat(params, Map.empty)
-          .trim
-      )
+      jinjava
+        .render(sql, params.asJava)
+        .richFormat(params, Map.empty)
+        .trim
     }
     result
   }
