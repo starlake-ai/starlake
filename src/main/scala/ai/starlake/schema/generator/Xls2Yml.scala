@@ -24,30 +24,39 @@ object Xls2Yml extends LazyLogging {
         s.attributes
           .filter(_.script.isEmpty)
           .map { attr =>
-            if (
-              privacy == Nil || privacy.contains(
-                attr.getPrivacy().toString
-              )
-            )
-              attr.copy(`type` = "string", required = false, rename = None)
-            else
-              attr.copy(
+            {
+              val attribute = attr.copy(
                 `type` = "string",
                 required = false,
-                privacy = PrivacyLevel.None,
-                rename = None
+                rename = None,
+                ignore = None,
+                comment = None
               )
+              if (
+                privacy == Nil || privacy.contains(
+                  attr.getPrivacy().toString
+                )
+              )
+                attribute
+              else
+                attr.copy(privacy = PrivacyLevel.None)
+            }
           }
       // pre-encryption YML should not contain any partition or sink elements.
       // Write mode is forced to APPEND since encryption output must not overwrite previous results
       val newMetaData: Option[Metadata] = s.metadata.map { m =>
         m.copy(partition = None, sink = None, write = Some(WriteMode.APPEND))
       }
-      s.copy(attributes = newAttributes)
-        .copy(metadata = newMetaData)
-        .copy(merge = None)
+      s.copy(
+        attributes = newAttributes,
+        metadata = newMetaData,
+        merge = None,
+        comment = None,
+        rls = Nil,
+        acl = Nil
+      )
     }
-    val preEncryptDomain = domain.copy(tables = preEncryptSchemas)
+    val preEncryptDomain = domain.copy(tables = preEncryptSchemas, comment = None)
     preEncryptDomain
   }
 
@@ -142,26 +151,33 @@ object Xls2Yml extends LazyLogging {
     val defaultOutputPath = DatasetArea.domains.toString
     Xls2YmlConfig.parse(args) match {
       case Some(config) =>
-        if (config.encryption) {
-          for {
-            file   <- config.files
-            domain <- new XlsDomainReader(InputPath(file)).getDomain()
-          } yield {
-            val preEncrypt = genPreEncryptionDomain(domain, config.privacy)
-            writeDomainYaml(
-              preEncrypt,
-              config.outputPath.getOrElse(defaultOutputPath),
-              "pre-encrypt-" + preEncrypt.name
+        config.job match {
+          case false =>
+            if (config.encryption) {
+              for {
+                file   <- config.files
+                domain <- new XlsDomainReader(InputPath(file)).getDomain()
+              } yield {
+                val preEncrypt = genPreEncryptionDomain(domain, config.privacy)
+                writeDomainYaml(
+                  preEncrypt,
+                  config.outputPath.getOrElse(defaultOutputPath),
+                  "pre-encrypt-" + preEncrypt.name
+                )
+                val postEncrypt = genPostEncryptionDomain(domain, config.delimiter, config.privacy)
+                writeDomainYaml(
+                  postEncrypt,
+                  config.outputPath.getOrElse(defaultOutputPath),
+                  "post-encrypt-" + domain.name
+                )
+              }
+            } else {
+              config.files.foreach(generateSchema(_, config.outputPath))
+            }
+          case true =>
+            config.files.foreach(
+              Xls2YmlAutoJob.generateSchema(_, config.policyFile, config.outputPath)
             )
-            val postEncrypt = genPostEncryptionDomain(domain, config.delimiter, config.privacy)
-            writeDomainYaml(
-              postEncrypt,
-              config.outputPath.getOrElse(defaultOutputPath),
-              "post-encrypt-" + domain.name
-            )
-          }
-        } else {
-          config.files.foreach(generateSchema(_, config.outputPath))
         }
         config.iamPolicyTagsFile.foreach { iamPolicyTagsPath =>
           val workbook = new XlsIamPolicyTagsReader(InputPath(iamPolicyTagsPath))

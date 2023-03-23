@@ -37,6 +37,8 @@ trait StorageHandler extends StrictLogging {
 
   def move(src: Path, dst: Path): Boolean
 
+  def copy(src: Path, dst: Path): Boolean
+
   def delete(path: Path): Boolean
 
   def exists(path: Path): Boolean
