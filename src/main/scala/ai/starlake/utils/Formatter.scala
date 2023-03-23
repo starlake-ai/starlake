@@ -4,6 +4,7 @@ import ai.starlake.config.Settings
 
 import java.util.regex.Pattern
 import scala.collection.mutable.ListBuffer
+import scala.util.matching.Regex
 object Formatter extends Formatter
 
 trait Formatter {
@@ -21,8 +22,14 @@ trait Formatter {
       if (settings.comet.internal.forall(_.substituteVars))
         (activeEnv ++ extraEnvVars).foldLeft(str) { case (res, (key, value)) =>
           res
-            .replaceAll(settings.comet.sqlParameterPattern.format(key), value) // new syntax
-            .replaceAll("\\{\\{\\s*%s\\s*\\}\\}".format(key), value) // old syntax
+            .replaceAll(
+              settings.comet.sqlParameterPattern.format(key),
+              Regex.quoteReplacement(value)
+            ) // new syntax
+            .replaceAll(
+              "\\{\\{\\s*%s\\s*\\}\\}".format(key),
+              Regex.quoteReplacement(value)
+            ) // old syntax
         }
       else
         str
