@@ -397,36 +397,13 @@ case class AutoTask(
   def runSpark(): Try[(SparkJobResult, String)] = {
     val start = Timestamp.from(Instant.now())
     val res = Try {
-      udf.foreach { udf =>
-        registerUdf(udf)
-      }
+      udf.foreach { udf => registerUdf(udf) }
       val cteSelects = createSparkViews(views, schemaHandler, sqlParameters)
-
       val (preSql, sqlWithParameters, postSql) = buildQuerySpark(cteSelects)
-
       preSql.foreach(req => session.sql(req))
       logger.info(s"""START COMPILE SQL $sqlWithParameters END COMPILE SQL""")
       logger.info(s"running sql request using ${taskDesc.sqlEngine}")
-
-      val dataframe =
-        taskDesc.sqlEngine.getOrElse(Engine.SPARK) match {
-          case Engine.BQ =>
-            session.read
-              .format("com.google.cloud.spark.bigquery")
-              .option("query", sqlWithParameters)
-              .load()
-          case Engine.SPARK => session.sql(sqlWithParameters)
-          case Engine.JDBC =>
-            logger.warn("JDBC Engine not supported on job task. Running query using Spark Engine")
-            session.sql(sqlWithParameters)
-          case custom =>
-            val connectionOptions = settings.comet.connections(custom.toString)
-            session.read
-              .format(connectionOptions.format)
-              .option("query", sqlWithParameters)
-              .options(connectionOptions.options)
-              .load()
-        }
+      val dataframe = loadQuery(sqlWithParameters)
 
       if (settings.comet.hive || settings.comet.sinkToFile) {
         val fsSink = sink match {
@@ -469,6 +446,27 @@ case class AutoTask(
         logAuditFailure(start, end, e)
     }
     res
+  }
+
+  private def loadQuery(sqlWithParameters: String) = {
+    taskDesc.sqlEngine.getOrElse(Engine.SPARK) match {
+      case Engine.BQ =>
+        session.read
+          .format("com.google.cloud.spark.bigquery")
+          .option("query", sqlWithParameters)
+          .load()
+      case Engine.SPARK => session.sql(sqlWithParameters)
+      case Engine.JDBC =>
+        logger.warn("JDBC Engine not supported on job task. Running query using Spark Engine")
+        session.sql(sqlWithParameters)
+      case custom =>
+        val connectionOptions = settings.comet.connections(custom.toString)
+        session.read
+          .format(connectionOptions.format)
+          .option("query", sqlWithParameters)
+          .options(connectionOptions.options)
+          .load()
+    }
   }
 
   private def logAudit(
