@@ -141,6 +141,7 @@ assembly / assemblyShadeRules := Seq(
   ShadeRule.rename("com.google.common.**" -> "shade.@0").inAll,
   ShadeRule.rename("com.google.gson.**" -> "shade.@0").inAll,
   ShadeRule.rename("com.google.protobuf.**" -> "shade.@0").inAll,
+  ShadeRule.rename("pureconfig.**" -> "shadepureconfig.@0").inAll,
   ShadeRule.rename("shapeless.**" -> "shadeshapless.@1").inLibrary("com.chuusai" % "shapeless_2.12" % "2.3.3"),
   ShadeRule.rename("shapeless.**" -> "shadeshapless.@1").inLibrary("com.github.pureconfig" % "pureconfig_2.12" % Versions.pureConfig212ForSpark3),
   ShadeRule.rename("shapeless.**" -> "shadeshapless.@1").inLibrary("com.github.pureconfig" % "pureconfig-generic_2.12" % Versions.pureConfig212ForSpark3)
