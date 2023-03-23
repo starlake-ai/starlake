@@ -472,6 +472,20 @@ object Schema {
     )
   }
 
+  def fromTaskDesc(taskDesc: AutoTaskDesc): Schema = {
+    val attributes: List[Attribute] = taskDesc.attributesDesc.map { ad =>
+      Attribute(name = ad.name, accessPolicy = ad.accessPolicy, comment = Some(ad.comment))
+    }
+    Schema(
+      name = taskDesc.name,
+      pattern = Pattern.compile(taskDesc.name),
+      attributes = attributes,
+      None,
+      None,
+      taskDesc.comment
+    )
+  }
+
   def compare(existing: Schema, incoming: Schema): Try[SchemaDiff] = {
     Try {
       if (!existing.isFlat() || !incoming.isFlat())

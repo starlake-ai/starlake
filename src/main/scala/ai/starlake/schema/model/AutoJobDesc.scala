@@ -59,12 +59,13 @@ case class AutoTaskDesc(
   sink: Option[Sink] = None,
   rls: List[RowLevelSecurity] = Nil,
   assertions: Map[String, String] = Map.empty,
-  engine: Option[Engine] = None,
+  sqlEngine: Option[Engine] = None,
   acl: List[AccessControlEntry] = Nil,
   comment: Option[String] = None,
   format: Option[String] = None,
   coalesce: Option[Boolean] = None,
-  freshness: Option[Freshness] = None
+  freshness: Option[Freshness] = None,
+  attributesDesc: List[AttributeDesc] = Nil
 ) extends Named {
 
   def checkValidity(): Either[List[String], Boolean] = {
@@ -125,13 +126,14 @@ case class AutoJobDesc(
   tasks: List[AutoTaskDesc],
   taskRefs: List[String] = Nil,
   comment: Option[String] = None,
-  format: Option[String],
-  coalesce: Option[Boolean],
+  format: Option[String] = None,
+  coalesce: Option[Boolean] = None,
   udf: Option[String] = None,
   views: Option[Map[String, String]] = None,
   engine: Option[Engine] = None,
   schedule: Map[String, String] = Map.empty
 ) extends Named {
+  def this() = this("", Nil) // Should never be called. Here for Jackson deserialization only
   // TODO
   def checkValidity() = true
 
@@ -144,6 +146,21 @@ case class AutoJobDesc(
   def rlsTasks(): List[AutoTaskDesc] = tasks.filter { task =>
     task.rls.nonEmpty
   }
+}
+
+/** A field in the schema. For struct fields, the field "attributes" contains all sub attributes
+  *
+  * @param name
+  *   : Attribute name as defined in the source dataset and as received in the file
+  * @param comment
+  *   : free text for attribute description
+  */
+case class AttributeDesc(
+  name: String,
+  comment: String = "",
+  accessPolicy: Option[String] = None
+) {
+  def this() = this("") // Should never be called. Here for Jackson deserialization only
 }
 
 object AutoJobDesc {

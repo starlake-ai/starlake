@@ -96,7 +96,8 @@ case class Metadata(
   options: Option[Map[String, String]] = None,
   validator: Option[String] = None,
   schedule: Option[Map[String, String]] = None,
-  freshness: Option[Freshness] = None
+  freshness: Option[Freshness] = None,
+  nullValue: Option[String] = None
 ) {
   def this() = this(None) // Should never be called. Here for Jackson deserialization only
 
@@ -122,6 +123,7 @@ case class Metadata(
        |validator:${validator}
        |schedule:${schedule}
        |freshness:${freshness}
+       |nullValue:${nullValue}
        |""".stripMargin
 
   def getMode(): Mode = mode.getOrElse(FILE)
@@ -143,6 +145,8 @@ case class Metadata(
   def getEscape(): String = escape.getOrElse("\\")
 
   def getWrite(): WriteMode = this.getSink().flatMap(_.write).orElse(write).getOrElse(APPEND)
+
+  def getNullValue(): String = nullValue.getOrElse("")
 
   @JsonIgnore
   def getPartitionAttributes(): List[String] = partition.map(_.getAttributes()).getOrElse(Nil)
@@ -210,7 +214,8 @@ case class Metadata(
       options = merge(this.options, child.options),
       validator = merge(this.validator, child.validator),
       schedule = merge(this.schedule, child.schedule),
-      freshness = merge(this.freshness, child.freshness)
+      freshness = merge(this.freshness, child.freshness),
+      nullValue = merge(this.nullValue, child.nullValue)
     )
   }
 

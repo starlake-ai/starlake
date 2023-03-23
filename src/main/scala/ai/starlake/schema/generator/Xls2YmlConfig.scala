@@ -37,7 +37,9 @@ case class Xls2YmlConfig(
   iamPolicyTagsFile: Option[String] = None,
   delimiter: Option[String] = None,
   privacy: Seq[String] = Nil,
-  outputPath: Option[String] = None
+  outputPath: Option[String] = None,
+  policyFile: Option[String] = None,
+  job: Boolean = false
 )
 
 object Xls2YmlConfig extends CliConfig[Xls2YmlConfig] {
@@ -53,7 +55,7 @@ object Xls2YmlConfig extends CliConfig[Xls2YmlConfig] {
       opt[Seq[String]]("files")
         .action((x, c) => c.copy(files = x))
         .required()
-        .text("List of Excel files describing Domains & Schemas"),
+        .text("List of Excel files describing Domains & Schemas OR Jobs"),
       opt[Boolean]("encryption")
         .action((x, c) => c.copy(encryption = x))
         .optional()
@@ -77,7 +79,17 @@ object Xls2YmlConfig extends CliConfig[Xls2YmlConfig] {
         .optional()
         .text(
           """Path for saving the resulting YAML file(s). Comet domains path is used by default.""".stripMargin
-        )
+        ),
+      opt[Option[String]]("policyFile")
+        .action((x, c) => c.copy(policyFile = x))
+        .optional()
+        .text(
+          """Optional File for centralising ACL & RLS definition.""".stripMargin
+        ),
+      opt[Boolean]("job")
+        .action((x, c) => c.copy(job = x))
+        .optional()
+        .text("If true generate YML for a Job.")
     )
   }
 
