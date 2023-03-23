@@ -56,6 +56,8 @@ object ParserSQL {
       .replaceAll("(?i)except[\\s(]+[^)]*\\)", "")
       .replaceAll("(?i)extract[\\s(]+.*?from.*?[\\s)]*\\)", "dateExtract")
       .replaceAll("(?i)safe_cast[\\s(]+.*?as.*?[\\s)]*\\)", "castField")
+      .replaceAll("(?i)\\[[^]]*\\]", "list")
+      .replaceAll("(?i)unnest", "")
 
     val tables = if (sqlWithoutSpecificBQ.nonEmpty) parse(sqlWithoutSpecificBQ) else Nil
     tables.map(_.replaceAll("`", "")) // bigquery project.dataset.table no legacy sql
