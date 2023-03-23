@@ -178,7 +178,6 @@ object JDBCUtils extends LazyLogging {
       logger.whenInfoEnabled {
         selectedTables.keys.foreach(table => logger.info(s"Selected: $table"))
       }
-
       // Extract the Comet Schema
       val selectedTablesAndColumns: Map[String, (TableRemarks, Columns, PrimaryKeys)] =
         selectedTables.map { case (tableName, tableRemarks) =>
@@ -215,10 +214,11 @@ object JDBCUtils extends LazyLogging {
           val remarks =
             extractColumnRemarks(jdbcSchema, connectionOptions, tableName).getOrElse(Map.empty)
 
-          val attrs = new Iterator[(Attribute, Int)] {
+          val isPostgres = connectionOptions("url").contains("postgres")
+          val attrs = new Iterator[Attribute] {
             def hasNext: Boolean = columnsResultSet.next()
 
-            def next(): (Attribute, Int) = {
+            def next(): Attribute = {
               val colName = columnsResultSet.getString("COLUMN_NAME")
               logger.info(s"COLUMN_NAME=$tableName.$colName")
               val colType = columnsResultSet.getInt("DATA_TYPE")
@@ -228,24 +228,26 @@ object JDBCUtils extends LazyLogging {
               val colRequired = columnsResultSet.getString("IS_NULLABLE").equals("NO")
               val foreignKey = foreignKeys.get(colName.toUpperCase)
               val colDecimalDigits = Option(columnsResultSet.getInt("DECIMAL_DIGITS"))
-              val columnPosition = columnsResultSet.getInt("ORDINAL_POSITION")
+              // val columnPosition = columnsResultSet.getInt("ORDINAL_POSITION")
               Attribute(
                 name = colName,
-                `type` = sparkType(colType, tableName, colName, colTypename, colDecimalDigits),
+                `type` =
+                  sparkType(colType, tableName, colName, colTypename, colDecimalDigits, isPostgres),
                 required = colRequired,
                 comment = Option(colRemarks),
                 foreignKey = foreignKey
-              ) -> columnPosition
+              )
             }
           }.to[ListBuffer]
           // remove duplicates
           // see https://stackoverflow.com/questions/1601203/jdbc-databasemetadata-getcolumns-returns-duplicate-columns
-          val columns = attrs
-            .groupBy { case (a, _) => a.name }
-            .map { case (_, uniqAttr) => uniqAttr.head }
-            .toList
-            .sortBy { case (_, colOrder) => colOrder }
-            .map { case (attr, _) => attr }
+          def removeDuplicatesColumns(list: List[Attribute]): List[Attribute] =
+            list.foldLeft(List.empty[Attribute]) { (partialResult, element) =>
+              if (partialResult.exists(_.name == element.name)) partialResult
+              else partialResult :+ element
+            }
+
+          val columns = removeDuplicatesColumns(attrs.toList)
 
           logger.whenDebugEnabled {
             columns.foreach(column => logger.debug(s"column: $tableName.${column.name}"))
@@ -356,14 +358,30 @@ object JDBCUtils extends LazyLogging {
     tableName: String,
     colName: String,
     colTypename: String,
-    decimalDigit: Option[Int]
+    decimalDigit: Option[Int],
+    /*
+    because getInt(DECIMAL_DIGITS) returns 0 when this value is null and because
+    FROM Postgres DOC
+    without any precision or scale creates an “unconstrained numeric” column in which numeric values of any length
+    can be stored, up to the implementation limits. A column of this kind will not coerce input values to any particular scale,
+    whereas numeric columns with a declared scale will coerce input values to that scale.
+    (The SQL standard requires a default scale of 0, i.e., coercion to integer precision. We find this a bit useless.
+    If you're concerned about portability, always specify the precision and scale explicitly.)
+     */
+    isPostgres: Boolean
   ): String = {
     val sqlType = reverseSqlTypes.getOrElse(jdbcType, colTypename)
     jdbcType match {
       case VARCHAR | CHAR | LONGVARCHAR => "string"
       case BIT | BOOLEAN                => "boolean"
       case DOUBLE | FLOAT | REAL        => "double"
-      case NUMERIC | DECIMAL =>
+      case NUMERIC =>
+        decimalDigit match {
+          case Some(0) if isPostgres => "decimal"
+          case Some(0)               => "long"
+          case _                     => "decimal"
+        }
+      case DECIMAL =>
         decimalDigit match {
           case Some(0) => "long"
           case _       => "decimal"
