@@ -94,15 +94,15 @@ class DsvIngestionJob(
   protected def loadDataSet(): Try[DataFrame] = {
     Try {
       val dfIn = session.read
-        .option("header", metadata.isWithHeader().toString)
+        .option("header", mergedMetadata.isWithHeader().toString)
         .option("inferSchema", value = false)
-        .option("delimiter", metadata.getSeparator())
-        .option("multiLine", metadata.getMultiline())
-        .option("quote", metadata.getQuote())
-        .option("escape", metadata.getEscape())
+        .option("delimiter", mergedMetadata.getSeparator())
+        .option("multiLine", mergedMetadata.getMultiline())
+        .option("quote", mergedMetadata.getQuote())
+        .option("escape", mergedMetadata.getEscape())
         .option("parserLib", "UNIVOCITY")
-        .option("encoding", metadata.getEncoding())
-        .options(metadata.getOptions())
+        .option("encoding", mergedMetadata.getEncoding())
+        .options(mergedMetadata.getOptions())
         .options(settings.comet.dsvOptions)
         .csv(path.map(_.toString): _*)
 
@@ -120,7 +120,7 @@ class DsvIngestionJob(
       } else {
         val df = applyIgnore(dfIn)
 
-        val resDF = metadata.withHeader match {
+        val resDF = mergedMetadata.withHeader match {
           case Some(true) =>
             val datasetHeaders: List[String] = df.columns.toList.map(cleanHeaderCol)
             val (_, drop) = intersectHeaders(datasetHeaders, schemaHeaders)
@@ -189,8 +189,8 @@ class DsvIngestionJob(
 
     val validationResult = flatRowValidator.validate(
       session,
-      metadata.getFormat(),
-      metadata.getSeparator(),
+      mergedMetadata.getFormat(),
+      mergedMetadata.getSeparator(),
       dataset,
       orderedAttributes,
       orderedTypes,

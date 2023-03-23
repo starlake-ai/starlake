@@ -58,7 +58,7 @@ class JsonIngestionJob(
     extends IngestionJob {
 
   protected def loadJsonData(): Dataset[String] = {
-    if (metadata.isArray()) {
+    if (mergedMetadata.isArray()) {
       val jsonRDD =
         session.sparkContext.wholeTextFiles(path.map(_.toString).mkString(",")).map {
           case (_, content) => content
@@ -68,8 +68,8 @@ class JsonIngestionJob(
     } else {
       session.read
         .option("inferSchema", value = false)
-        .option("encoding", metadata.getEncoding())
-        .options(metadata.getOptions())
+        .option("encoding", mergedMetadata.getEncoding())
+        .options(mergedMetadata.getOptions())
         .textFile(path.map(_.toString): _*)
     }
 
@@ -144,8 +144,8 @@ class JsonIngestionJob(
     val validationResult =
       treeRowValidator.validate(
         session,
-        metadata.getFormat(),
-        metadata.getSeparator(),
+        mergedMetadata.getFormat(),
+        mergedMetadata.getSeparator(),
         toValidate,
         schema.attributes,
         types,

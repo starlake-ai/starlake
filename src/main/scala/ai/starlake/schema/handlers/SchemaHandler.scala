@@ -59,13 +59,22 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     new CometObjectMapper(new YAMLFactory(), injectables = (classOf[Settings], settings) :: Nil)
 
   @throws[Exception]
-  private def checkValidity(reload: Boolean = false): List[String] = {
+  private def checkValidity(
+    directorySeverity: Severity,
+    reload: Boolean = false
+  ): List[String] = {
+    def toWarning(warnings: List[String]) = {
+      warnings.map("Warning: " + _)
+    }
+
     val typesValidity = this.types(reload).map(_.checkValidity())
     val loadedDomains = this.domains(reload)
-    val domainsValidity = loadedDomains.map(_.checkValidity(this))
+    val domainsValidity = loadedDomains.map(_.checkValidity(this, directorySeverity)).map {
+      case Left((errors, warnings)) => Left(errors ++ toWarning(warnings))
+      case Right(right)             => Right(right)
+    }
     val domainsVarsValidity = checkDomainsVars()
-    val jobsVarsValidity =
-      checkJobsVars().map("Warning: " + _) // job vars may be defined at runtime.
+    val jobsVarsValidity = toWarning(checkJobsVars()) // job vars may be defined at runtime.
     val allErrors = typesValidity ++ domainsValidity :+ checkViewsValidity()
 
     val errs = allErrors.flatMap {
@@ -95,8 +104,11 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     }
   }
 
-  def fullValidation(config: ValidateConfig = ValidateConfig(reload = false)): Unit = {
-    val validityErrorsAndWarnings = checkValidity(config.reload)
+  def fullValidation(
+    config: ValidateConfig = ValidateConfig()
+  ): Unit = {
+    val validityErrorsAndWarnings =
+      checkValidity(directorySeverity = Warning, reload = config.reload)
     val deserErrors = deserializedDomains(DatasetArea.domains)
       .filter { case (path, res) =>
         res.isFailure
@@ -460,6 +472,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       case Success(_) => // ignore
     }
     this._domainErrors = nameErrors ++ renameErrors ++ directoryErrors
+    this._domainErrors.foreach(logger.error(_))
     (this._domainErrors, this._domains)
   }
 

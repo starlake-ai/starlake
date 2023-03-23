@@ -95,7 +95,7 @@ object Dependencies {
 
   val pureConfig212 =
     Seq(
-      "com.github.pureconfig" %% "pureconfig" % Versions.pureConfig212ForSpark3 exclude ("com.chuusai", "shapeless") // shapeless provided by Spark
+      "com.github.pureconfig" %% "pureconfig" % Versions.pureConfig212ForSpark3
     )
 
   val gcsConnectorShadedJar =
