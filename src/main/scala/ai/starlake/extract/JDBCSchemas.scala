@@ -4,7 +4,7 @@ import ai.starlake.schema.model.WriteMode
 
 case class JDBCSchemas(
   jdbcSchemas: List[JDBCSchema],
-  globalJdbcSchema: Option[JDBCSchema],
+  globalJdbcSchema: Option[JDBCSchema] = None,
   connectionRef: Option[String] = None,
   connection: Map[String, String] = Map.empty
 ) {

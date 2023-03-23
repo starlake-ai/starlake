@@ -173,7 +173,7 @@ class GenericIngestionJob(
     */
   protected def loadDataSet(): Try[DataFrame] = {
     Try {
-      val options = metadata.getOptions()
+      val options = mergedMetadata.getOptions()
       val timestampColumn = options.get("_timestamp")
       val startTime = Timestamp.valueOf(LocalDateTime.now())
       for {
@@ -245,7 +245,7 @@ class GenericIngestionJob(
           } yield null
         }
       }
-      val format = metadata.getOptions().getOrElse("format", "jdbc")
+      val format = mergedMetadata.getOptions().getOrElse("format", "jdbc")
       val dfIn = session.read
         .options(options - "_timestamp")
         .format(format)
@@ -294,8 +294,8 @@ class GenericIngestionJob(
     val (orderedTypes, orderedSparkTypes) = reorderTypes(orderedAttributes)
     val validationResult = flatRowValidator.validate(
       session,
-      metadata.getFormat(),
-      metadata.getSeparator(),
+      mergedMetadata.getFormat(),
+      mergedMetadata.getSeparator(),
       dataset,
       orderedAttributes,
       orderedTypes,

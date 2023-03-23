@@ -27,6 +27,7 @@ case class BigQueryLoadConfig(
   acl: List[AccessControlEntry] = Nil,
   starlakeSchema: Option[Schema] = None,
   domainTags: Set[String] = Set.empty,
+  domainDescription: Option[String] = None,
   materializedView: Boolean = false
 ) extends GcpConnectionConfig
 

@@ -79,13 +79,25 @@ class HdfsStorageHandler(fileSystem: String)(implicit
   logger.info("defaultFS.getUri=" + defaultFS.getUri)
 
   def fs(inputPath: Path): FileSystem = {
-    val (scheme, bucket, path) = extracSchemeAndBucketAndFilePath(inputPath.toString)
-    defaultFS.getScheme() match {
+    val path =
+      if (inputPath.toString.contains(':')) inputPath
+      else new Path(settings.comet.fileSystem, inputPath.toString)
+    val (scheme, bucketOpt, _) = extracSchemeAndBucketAndFilePath(path.toString)
+    val fs = scheme match {
       case "gs" =>
-        conf.set("fs.defaultFS", defaultNormalizedFileSystem)
-        FileSystem.get(conf)
+        bucketOpt match {
+          case Some(bucket) =>
+            conf.set("fs.defaultFS", normalizedFileSystem(s"$scheme://$bucket"))
+            FileSystem.get(conf)
+          case None =>
+            throw new RuntimeException(
+              "Using gs scheme must be with a bucket name. gs://bucketName"
+            )
+        }
       case _ => defaultFS
     }
+    fs.setWriteChecksum(false)
+    fs
   }
 
   /** Gets the outputstream given a path
