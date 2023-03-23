@@ -17,7 +17,7 @@ trait SinkTransformer {
 }
 
 object DefaultSinkTransformer extends SinkTransformer {
-  val mapper: ObjectMapper = Utils.newMapper()
+  val mapper: ObjectMapper = Utils.newJsonMapper()
   def requestUris(url: String, rows: Array[Seq[String]]): Seq[HttpUriRequest] =
     rows.map { row =>
       val jsonValue = mapper.writeValueAsString(row)
