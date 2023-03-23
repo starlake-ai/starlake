@@ -55,11 +55,11 @@ trait BigQueryJobBase extends StrictLogging {
   private def applyRLS(forceApply: Boolean)(implicit settings: Settings): Try[Unit] = {
     Try {
       if (forceApply || settings.comet.accessPolicies.apply) {
-        val tableId = BigQueryJobBase.extractProjectDatasetAndTable(
-          cliConfig.outputDataset,
-          cliConfig.outputTable
-        )
-        applyACL(tableId, cliConfig.acl)
+        cliConfig.outputTableId match {
+          case None =>
+            throw new RuntimeException("TableId must be defined in order to apply access policies.")
+          case Some(outputTableId) => applyACL(outputTableId, cliConfig.acl)
+        }
         prepareRLS().foreach { rlsStatement =>
           logger.info(s"Applying row level security $rlsStatement")
           new BigQueryNativeJob(cliConfig, rlsStatement, None).runBatchQuery() match {
@@ -183,12 +183,11 @@ trait BigQueryJobBase extends StrictLogging {
               val (location, projectId, taxonomy, taxonomyRef) =
                 getTaxonomy(policyTagClient)
               val policyTagIds = mutable.Map.empty[String, String]
-              val tableId =
-                BigQueryJobBase.extractProjectDatasetAndTable(
-                  cliConfig.outputDataset,
-                  cliConfig.outputTable
-                )
-              val table: Table = bigquery().getTable(tableId)
+              val table = cliConfig.outputTableId match {
+                case None =>
+                  throw new RuntimeException("TableId must be defined in order to apply CLS")
+                case Some(outputTableId) => bigquery().getTable(outputTableId)
+              }
               val tableDefinition = table.getDefinition[StandardTableDefinition]
               val bqSchema = tableDefinition.getSchema()
               val bqFields = bqSchema.getFields.asScala.toList
@@ -247,30 +246,41 @@ trait BigQueryJobBase extends StrictLogging {
 
   def prepareRLS(): List[String] = {
     def revokeAllPrivileges(): String = {
-
-      s"DROP ALL ROW ACCESS POLICIES ON ${cliConfig.outputDataset}.${cliConfig.outputTable}"
+      cliConfig.outputTableId match {
+        case Some(outputTableId) =>
+          val outputTable = BigQueryJobBase.getBqNativeTable(outputTableId)
+          s"DROP ALL ROW ACCESS POLICIES ON `${outputTable}`"
+        case None =>
+          throw new RuntimeException("TableId must be defined in order to revoke privileges")
+      }
     }
 
     def grantPrivileges(rlsRetrieved: RowLevelSecurity): String = {
-      val grants = rlsRetrieved.grantees().map {
-        case (UserType.SA, u) =>
-          s"serviceAccount:$u"
-        case (userOrGroupOrDomainType, userOrGroupOrDomainName) =>
-          s"${userOrGroupOrDomainType.toString.toLowerCase}:$userOrGroupOrDomainName"
-      }
+      cliConfig.outputTableId match {
+        case None =>
+          throw new RuntimeException("TableId must be defined in order to grant privileges")
+        case Some(outputTableId) =>
+          val grants = rlsRetrieved.grantees().map {
+            case (UserType.SA, u) =>
+              s"serviceAccount:$u"
+            case (userOrGroupOrDomainType, userOrGroupOrDomainName) =>
+              s"${userOrGroupOrDomainType.toString.toLowerCase}:$userOrGroupOrDomainName"
+          }
 
-      val name = rlsRetrieved.name
-      val filter = rlsRetrieved.predicate
-      s"""
-         | CREATE ROW ACCESS POLICY
-         |  $name
-         | ON
-         |  ${cliConfig.outputDataset}.${cliConfig.outputTable}
-         | GRANT TO
-         |  (${grants.mkString("\"", "\",\"", "\"")})
-         | FILTER USING
-         |  ($filter)
-         |""".stripMargin
+          val name = rlsRetrieved.name
+          val filter = rlsRetrieved.predicate
+          val outputTable = BigQueryJobBase.getBqNativeTable(outputTableId)
+          s"""
+             | CREATE ROW ACCESS POLICY
+             |  $name
+             | ON
+             |  `${outputTable}`
+             | GRANT TO
+             |  (${grants.mkString("\"", "\",\"", "\"")})
+             | FILTER USING
+             |  ($filter)
+             |""".stripMargin
+      }
     }
     val rlsCreateStatements = cliConfig.rls.map { rlsRetrieved =>
       logger.info(s"Building security statement $rlsRetrieved")
@@ -284,30 +294,34 @@ trait BigQueryJobBase extends StrictLogging {
     rlsDeleteStatement ++ rlsCreateStatements
   }
 
-  lazy val datasetId: DatasetId = BigQueryJobBase.extractProjectDataset(cliConfig.outputDataset)
+  lazy val datasetIdOpt: scala.Option[DatasetId] =
+    cliConfig.outputTableId.map(BigQueryJobBase.getBqDatasetId)
 
-  lazy val tableId: TableId = BigQueryJobBase.extractProjectDatasetAndTable(
-    cliConfig.outputDataset + "." + cliConfig.outputTable
-  )
+  lazy val tableIdOpt: scala.Option[TableId] = cliConfig.outputTableId
 
-  val bqTable = s"${cliConfig.outputDataset}.${cliConfig.outputTable}"
+  val bqTableOpt: scala.Option[String] = tableIdOpt.map(BigQueryJobBase.getBqTable)
 
   def getOrCreateDataset(
     domainDescription: scala.Option[String]
   )(implicit settings: Settings): Dataset = {
-    val existingDataset = scala.Option(bigquery().getDataset(datasetId))
-    val labels = Utils.extractTags(cliConfig.domainTags).toMap
-    existingDataset match {
-      case Some(ds) =>
-        updateDatasetInfo(ds, domainDescription, labels)
+    datasetIdOpt match {
       case None =>
-        val datasetInfo = DatasetInfo
-          .newBuilder(BigQueryJobBase.extractProjectDataset(cliConfig.outputDataset))
-          .setLocation(cliConfig.getLocation())
-          .setDescription(domainDescription.orNull)
-          .setLabels(labels.asJava)
-          .build
-        bigquery().create(datasetInfo)
+        throw new RuntimeException("DatasetId must be defined in order to get or create dataset")
+      case Some(dataset) =>
+        val existingDataset = scala.Option(bigquery().getDataset(dataset))
+        val labels = Utils.extractTags(cliConfig.domainTags).toMap
+        existingDataset match {
+          case Some(ds) =>
+            updateDatasetInfo(ds, domainDescription, labels)
+          case None =>
+            val datasetInfo = DatasetInfo
+              .newBuilder(dataset)
+              .setLocation(cliConfig.getLocation())
+              .setDescription(domainDescription.orNull)
+              .setLabels(labels.asJava)
+              .build
+            bigquery().create(datasetInfo)
+        }
     }
   }
 
@@ -316,37 +330,42 @@ trait BigQueryJobBase extends StrictLogging {
     tableInfo: model.TableInfo,
     dataFrame: scala.Option[DataFrame]
   )(implicit settings: Settings): Try[(Table, StandardTableDefinition)] = {
-    val tryResult = Try {
-      getOrCreateDataset(domainDescription)
+    tableIdOpt match {
+      case None =>
+        Failure(new RuntimeException("TableId must be defined in order to get or create table"))
+      case Some(tableId) =>
+        val tryResult = Try {
+          getOrCreateDataset(domainDescription)
 
-      val tableDefinition = getTableDefinition(tableInfo, dataFrame)
-      val table = scala
-        .Option(bigquery().getTable(tableId))
-        .map(t => {
-          val out =
-            updateTableDescriptions(t, tableInfo.maybeTableDescription, Some(tableDefinition))
-          logger.info(s"Table ${tableId.getDataset}.${tableId.getTable} updated successfully")
-          out
-        }) getOrElse {
-        val bqTableInfo = BQTableInfo
-          .newBuilder(tableId, tableDefinition)
-          .setDescription(tableInfo.maybeTableDescription.orNull)
-          .build
-        val result = bigquery().create(
-          bqTableInfo
-        )
-        logger.info(s"Table ${tableId.getDataset}.${tableId.getTable} created successfully")
-        result
-      }
-      setTagsOnTable(table)
-      (table, table.getDefinition[StandardTableDefinition])
-    }
-    tryResult match {
-      case Failure(exception) =>
-        logger.info(s"Table ${tableId.getDataset}.${tableId.getTable} was not created.")
-        Utils.logException(logger, exception)
-        tryResult
-      case Success(_) => tryResult
+          val tableDefinition = getTableDefinition(tableInfo, dataFrame)
+          val table = scala
+            .Option(bigquery().getTable(tableId))
+            .map(t => {
+              val out =
+                updateTableDescriptions(t, tableInfo.maybeTableDescription, Some(tableDefinition))
+              logger.info(s"Table ${tableId.getDataset}.${tableId.getTable} updated successfully")
+              out
+            }) getOrElse {
+            val bqTableInfo = BQTableInfo
+              .newBuilder(tableId, tableDefinition)
+              .setDescription(tableInfo.maybeTableDescription.orNull)
+              .build
+            val result = bigquery().create(
+              bqTableInfo
+            )
+            logger.info(s"Table ${tableId.getDataset}.${tableId.getTable} created successfully")
+            result
+          }
+          setTagsOnTable(table)
+          (table, table.getDefinition[StandardTableDefinition])
+        }
+        tryResult match {
+          case Failure(exception) =>
+            logger.info(s"Table ${tableId.getDataset}.${tableId.getTable} was not created.")
+            Utils.logException(logger, exception)
+            tryResult
+          case Success(_) => tryResult
+        }
     }
   }
 
@@ -599,6 +618,30 @@ trait BigQueryJobBase extends StrictLogging {
 
 object BigQueryJobBase {
 
+  def getBqDatasetId(tableId: TableId): DatasetId = {
+    scala.Option(tableId.getProject) match {
+      case Some(_) => DatasetId.of(tableId.getProject, tableId.getDataset)
+      case None    => DatasetId.of(tableId.getDataset)
+    }
+  }
+  def getBqDataset(tableId: TableId): String = {
+    val projectId = getProjectIdPrefix(tableId.getProject, ":")
+    s"${projectId}${tableId.getDataset}"
+  }
+  def getBqNativeDataset(tableId: TableId): String = {
+    val projectId = getProjectIdPrefix(tableId.getProject, ".")
+    s"${projectId}${tableId.getDataset}"
+  }
+
+  def getBqTable(tableId: TableId): String = {
+    val projectId = getProjectIdPrefix(tableId.getProject, ":")
+    s"${projectId}${tableId.getDataset}.${tableId.getTable}"
+  }
+  def getBqNativeTable(tableId: TableId): String = {
+    val projectId = getProjectIdPrefix(tableId.getProject, ".")
+    s"${projectId}${tableId.getDataset}.${tableId.getTable}"
+  }
+
   def extractProjectDatasetAndTable(datasetId: String, tableId: String): TableId = {
     BigQueryJobBase.extractProjectDatasetAndTable(datasetId + "." + tableId)
   }
@@ -643,5 +686,9 @@ object BigQueryJobBase {
     project
       .map(project => DatasetId.of(project, dataset))
       .getOrElse(DatasetId.of(dataset))
+  }
+
+  private def getProjectIdPrefix(nullableProjectId: String, seperator: String): String = {
+    scala.Option(nullableProjectId).map(_ + seperator).getOrElse("")
   }
 }

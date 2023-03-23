@@ -30,7 +30,14 @@ class BigQuerySparkJob(
   val connectorOptions: Map[String, String] =
     cliConfig.options -- List("allowFieldAddition", "allowFieldRelaxation")
 
-  override def name: String = s"bqload-${cliConfig.outputDataset}-${cliConfig.outputTable}"
+  private lazy val tableId = {
+    require(tableIdOpt.isDefined, "TableId must be defined")
+    tableIdOpt.get
+  }
+
+  private lazy val tableIdStr = BigQueryJobBase.getBqTable(tableId)
+
+  override def name: String = s"bqload-${tableIdStr}"
 
   val conf: Configuration = session.sparkContext.hadoopConfiguration
   logger.info(s"BigQuery Config $cliConfig")
@@ -110,7 +117,7 @@ class BigQuerySparkJob(
       (cliConfig.writeDisposition, cliConfig.outputPartition, partitionOverwriteMode) match {
         case ("WRITE_TRUNCATE", Some(partitionField), "dynamic") =>
           // Partitioned table
-          logger.info(s"overwriting partition $partitionField in The BQ Table $bqTable")
+          logger.info(s"overwriting partition $partitionField in The BQ Table $tableIdStr")
           // BigQuery supports only this date format 'yyyyMMdd', so we have to use it
           // in order to overwrite only one partition
           val dateFormat = "yyyyMMdd"
@@ -148,7 +155,7 @@ class BigQuerySparkJob(
                 .mode(SaveMode.Overwrite)
                 .format("com.google.cloud.spark.bigquery")
                 .option("datePartition", partitionToUpdate)
-                .option("table", bqTable)
+                .option("table", tableIdStr)
                 .option("intermediateFormat", intermediateFormat)
 
               finalEmptyDF.options(connectorOptions).save()
@@ -159,7 +166,7 @@ class BigQuerySparkJob(
               sourceDF.write
                 .mode(SaveMode.Overwrite)
                 .format("com.google.cloud.spark.bigquery")
-                .option("table", bqTable)
+                .option("table", tableIdStr)
                 .option("intermediateFormat", intermediateFormat)
                 .options(connectorOptions)
                 .save()
@@ -176,7 +183,7 @@ class BigQuerySparkJob(
                     .mode(SaveMode.Overwrite)
                     .format("com.google.cloud.spark.bigquery")
                     .option("datePartition", partitionStr)
-                    .option("table", bqTable)
+                    .option("table", tableIdStr)
                     .option("intermediateFormat", intermediateFormat)
                     .options(connectorOptions)
                     .save()
@@ -213,7 +220,7 @@ class BigQuerySparkJob(
           val finalDF = sourceDF.write
             .mode(saveMode)
             .format("com.google.cloud.spark.bigquery")
-            .option("table", bqTable)
+            .option("table", tableIdStr)
             .option("intermediateFormat", intermediateFormat)
             .options(withFieldRelaxationOptions)
           finalDF.save()

@@ -20,15 +20,12 @@
 
 package ai.starlake.job.ingest
 
-import ai.starlake.job.sink.bigquery.BigQueryNativeJob
-import ai.starlake.job.sink.jdbc.ConnectionLoadConfig
-import ai.starlake.schema.model.{BigQuerySink, EsSink, JdbcSink, NoneSink}
 import ai.starlake.config.Settings
-import ai.starlake.job.sink.bigquery.{BigQueryLoadConfig, BigQueryNativeJob}
+import ai.starlake.job.sink.bigquery.{BigQueryJobBase, BigQueryLoadConfig, BigQueryNativeJob}
 import ai.starlake.job.sink.jdbc.{ConnectionLoadConfig, ConnectionLoadJob}
 import ai.starlake.schema.model._
 import ai.starlake.utils.{FileLock, Utils}
-import com.google.cloud.bigquery.{Field, Job, Schema => BQSchema, StandardSQLTypeName, TableId}
+import com.google.cloud.bigquery.{Field, Job, Schema => BQSchema, StandardSQLTypeName}
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
 import org.apache.spark.rdd.RDD
@@ -100,7 +97,7 @@ case class AuditLog(
     val df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
     val timestampStr = df.format(timestamp)
     s"""
-       |insert into $table(
+       |insert into `$table`(
        | jobid,
        | paths,
        | domain,
@@ -239,13 +236,13 @@ object AuditLog extends StrictLogging {
   )(implicit
     settings: Settings
   ): Try[Job] = {
-    val auditDataset = sink.name.getOrElse("audit")
+    val auditOutputTarget =
+      BigQueryJobBase.extractProjectDatasetAndTable(sink.name.getOrElse("audit") + "." + "audit")
     val bqConfig = BigQueryLoadConfig(
       authInfo.get("gcpProjectId"),
       authInfo.get("gcpSAJsonKey"),
       Left("ignore"),
-      outputDataset = auditDataset,
-      outputTable = "audit",
+      outputTableId = Some(auditOutputTarget),
       None,
       Nil,
       settings.comet.defaultFormat,
@@ -257,11 +254,11 @@ object AuditLog extends StrictLogging {
     )
     val bqJob = new BigQueryNativeJob(
       bqConfig,
-      log.asBqInsert(bqConfig.outputDataset + "." + bqConfig.outputTable),
+      log.asBqInsert(BigQueryJobBase.getBqNativeTable(auditOutputTarget)),
       None
     )
     val tableInfo = TableInfo(
-      TableId.of(auditDataset, "audit"),
+      auditOutputTarget,
       Some("Information related to starlake executions"),
       Some(bqSchema())
     )
