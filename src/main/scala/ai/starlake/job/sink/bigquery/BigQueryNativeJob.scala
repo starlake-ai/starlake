@@ -71,7 +71,6 @@ class BigQueryNativeJob(
               case _ =>
                 throw new Exception("Not Supported")
             }
-
             BigQueryJobResult(None, stats.getInputBytes)
           } else
             throw new Exception(
@@ -287,7 +286,8 @@ class BigQueryNativeJob(
         Utils.logException(logger, e)
         throw new Exception(e)
       }
-
+      updateTableDescription(tableId)
+      updateColumnsDescription(sql)
       BigQueryJobResult(Some(results), totalBytesProcessed)
     }
   }

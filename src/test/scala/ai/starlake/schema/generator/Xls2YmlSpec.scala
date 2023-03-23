@@ -221,7 +221,7 @@ class Xls2YmlSpec extends TestHelper {
         """
           |Usage: starlake xls2yml [options]
           |
-          |  --files <value>       List of Excel files describing Domains & Schemas
+          |  --files <value>       List of Excel files describing Domains & Schemas OR Jobs
           |  --encryption <value>  If true generate pre and post encryption YML
           |  --iamPolicyTagsFile <value>
           |                        If true generate IAM PolicyTags YML
@@ -230,6 +230,8 @@ class Xls2YmlSpec extends TestHelper {
           | All privacy policies are applied by default.
           |  --outputPath <value>  Path for saving the resulting YAML file(s).
           | Comet domains path is used by default.
+          |  --policyFile <value>  Optional File for centralising ACL & RLS definition.
+          |  --job <value>         If true generate YML for a Job.
           |""".stripMargin
       rendered.substring(rendered.indexOf("Usage:")).replaceAll("\\s", "") shouldEqual expected
         .replaceAll("\\s", "")

@@ -230,6 +230,7 @@ class BigQuerySparkJob(
         Utils.logException(logger, e)
         throw e
       }
+      updateColumnsDescription(cliConfig.sqlSource.getOrElse(""))
 
       SparkJobResult(None)
     }

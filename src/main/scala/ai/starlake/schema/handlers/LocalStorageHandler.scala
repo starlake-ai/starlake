@@ -160,9 +160,24 @@ class LocalStorageHandler(implicit
     }
   }
 
+  /** Copy file
+    * @param src
+    *   source path
+    * @param dest
+    *   destination path
+    * @return
+    */
+  override def copy(src: Path, dest: Path): Boolean = {
+    val fsrc = localFile(src)
+    val fdest = localFile(dest)
+    mkdirs(dest.getParent)
+    fsrc.copyTo(fdest)
+    true
+  }
+
   /** Move file
     *
-    * @param path
+    * @param src
     *   source path (file or folder)
     * @param dest
     *   destination path (file or folder)

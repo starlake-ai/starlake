@@ -4,7 +4,7 @@ import ai.starlake.schema.model.MergeOptions
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions._
-import org.apache.spark.sql.types.{ArrayType, DataType, StructType}
+import org.apache.spark.sql.types.{ArrayType, DataType, Metadata, StructField, StructType}
 import org.apache.spark.sql.{Column, DataFrame, DatasetLogging}
 
 object MergeUtils extends StrictLogging with DatasetLogging {
@@ -96,8 +96,10 @@ object MergeUtils extends StrictLogging with DatasetLogging {
 
         val allRowsDF = computeDataframeUnion(existingDF, finalIncomingDF)
 
-        val allRowsWithRownum = allRowsDF
-          .withColumn("rownum", row_number.over(orderingWindow))
+        val allRowsWithRownum = updateFieldComment(
+          allRowsDF,
+          existingDF.schema.fields ++ finalIncomingDF.schema.fields
+        ).withColumn("rownum", row_number.over(orderingWindow))
 
         // Deduplicate
         val mergedDF = allRowsWithRownum
@@ -116,12 +118,16 @@ object MergeUtils extends StrictLogging with DatasetLogging {
         val commonDF = patchedExistingDF
           .join(patchedIncomingDF.select(mergeOptions.key.map(col): _*), mergeOptions.key)
           .select(patchedIncomingDF.columns.map(col): _*)
-        (patchedExistingDF.except(commonDF).union(patchedIncomingDF), commonDF)
+        val mergeDF = updateFieldComment(
+          patchedExistingDF.except(commonDF).union(patchedIncomingDF),
+          existingDF.schema.fields ++ finalIncomingDF.schema.fields
+        )
+        (mergeDF, commonDF)
     }
 
     logger.whenDebugEnabled {
       logger.debug(s"Merge detected ${toDeleteDF.count()} items to update/delete")
-      logger.debug(s"Merge detected ${mergedDF.except(finalIncomingDF).count()} items to insert")
+      logger.debug(s"Merge detected ${mergedDF.count() - finalIncomingDF.count()} items to insert")
       logger.debug(mergedDF.showString(truncate = 0))
     }
 
@@ -203,6 +209,20 @@ object MergeUtils extends StrictLogging with DatasetLogging {
     val patchedIncomingDF = addMissingAttributes(incomingDF, existingDF)
 
     patchedIncomingDF.unionByName(patchedExistingDF)
+  }
+
+  private def updateFieldComment(df: DataFrame, allfields: Array[StructField]): DataFrame = {
+    val columns: Seq[Column] = df.schema.map {
+      case structField: StructField if structField.metadata == Metadata.empty =>
+        val newMt: Metadata = allfields
+          .collectFirst {
+            case st if st.name == structField.name && st.metadata != Metadata.empty => st.metadata
+          }
+          .getOrElse(Metadata.empty)
+        df(structField.name).as(structField.name, newMt)
+      case structField => df(structField.name)
+    }
+    df.select(columns: _*)
   }
 
   private def addMissingAttributes(existingDF: DataFrame, incomingDF: DataFrame) = {
