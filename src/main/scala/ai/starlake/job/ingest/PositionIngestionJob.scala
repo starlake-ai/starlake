@@ -88,6 +88,17 @@ class PositionIngestionJob(
     }
   }
 
+  def convertToCsv(path: Path) = {
+    loadDataSet().map { df =>
+      val csvDataset =
+        PositionIngestionUtil.prepare(session, df, schema.attributesWithoutScriptedFields)
+      csvDataset.write
+        .option("header", mergedMetadata.isWithHeader())
+        .option("delimiter", mergedMetadata.getSeparator())
+        .csv(path.toString)
+    }
+  }
+
   /** Apply the schema to the dataset. This is where all the magic happen Valid records are stored
     * in the accepted path / table and invalid records in the rejected path / table
     *
@@ -95,12 +106,10 @@ class PositionIngestionJob(
     *   : Spark Dataset
     */
   override protected def ingest(input: DataFrame): (Dataset[String], Dataset[Row]) = {
-
     val dataset: DataFrame =
       PositionIngestionUtil.prepare(session, input, schema.attributesWithoutScriptedFields)
 
     val orderedAttributes = reorderAttributes(dataset)
-
     val (orderedTypes, orderedSparkTypes) = reorderTypes(orderedAttributes)
 
     val validationResult = flatRowValidator.validate(
