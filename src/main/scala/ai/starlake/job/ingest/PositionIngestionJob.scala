@@ -95,12 +95,10 @@ class PositionIngestionJob(
     *   : Spark Dataset
     */
   override protected def ingest(input: DataFrame): (Dataset[String], Dataset[Row]) = {
-
     val dataset: DataFrame =
       PositionIngestionUtil.prepare(session, input, schema.attributesWithoutScriptedFields)
 
     val orderedAttributes = reorderAttributes(dataset)
-
     val (orderedTypes, orderedSparkTypes) = reorderTypes(orderedAttributes)
 
     val validationResult = flatRowValidator.validate(
