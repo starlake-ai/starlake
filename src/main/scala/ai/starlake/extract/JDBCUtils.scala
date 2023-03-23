@@ -2,7 +2,6 @@ package ai.starlake.extract
 
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.schema.model.{Attribute, Domain, Schema}
-import ai.starlake.utils.Utils
 import better.files.File
 import com.typesafe.scalalogging.LazyLogging
 
