@@ -130,7 +130,7 @@ class BigQueryNativeJob(
     val formatOptions = cliConfig.starlakeSchema.flatMap(_.metadata) match {
       case Some(metadata) =>
         metadata.getFormat() match {
-          case Format.DSV | Format.POSITION =>
+          case Format.DSV =>
             val formatOptions =
               CsvOptions.newBuilder.setAllowQuotedNewLines(true).setAllowJaggedRows(true)
             if (metadata.isWithHeader())
