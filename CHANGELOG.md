@@ -27,6 +27,10 @@ __Bug Fix__:
 - archived Spark versions may be now referenced in starlake CLI (@sabino).
 - Use gs if full uri is given even if default fs is file
 - Remove lowercase on various name in extract-script in order to make it coherent with extract-schema
+- remove strip comments
+- **BREAKING CHANGE**: support other projectId for bqNativeJob:
+- close resources for schema extraction
+- escape replacement value
 
 # 0.6.3
 __New Feature__:
