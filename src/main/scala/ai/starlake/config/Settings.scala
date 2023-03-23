@@ -325,6 +325,7 @@ object Settings extends StrictLogging {
     kafka: KafkaConfig,
     sqlParameterPattern: String,
     rejectAllOnError: Boolean,
+    rejectMaxRecords: Int,
     defaultFileExtensions: String,
     forceFileExtensions: String,
     accessPolicies: AccessPolicies,

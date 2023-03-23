@@ -75,7 +75,11 @@ class BigQuerySparkJob(
         case Right(df) => df.persist(cacheStorageLevel)
       }
     }.flatMap(sourceDF =>
-      getOrCreateTable(TableInfo(tableId, maybeTableDescription, maybeSchema), Some(sourceDF))
+      getOrCreateTable(
+        cliConfig.domainDescription,
+        TableInfo(tableId, maybeTableDescription, maybeSchema),
+        Some(sourceDF)
+      )
         .map { case (table, _) => sourceDF -> table }
     ).map { case (sourceDF, table) =>
       val stdTableDefinition =

@@ -8,7 +8,6 @@ import ai.starlake.utils.YamlSerializer
 import better.files.File
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.LazyLogging
-import org.apache.hadoop.fs.Path
 
 import java.util.regex.Pattern
 import scala.util.{Failure, Success}
@@ -49,7 +48,7 @@ object ExtractSchema extends Extract with LazyLogging {
     jdbcSchemas.jdbcSchemas.foreach { jdbcSchema =>
       val domainTemplate = jdbcSchema.template.map { ymlTemplate =>
         val content = settings.storageHandler
-          .read(new Path(ymlTemplate))
+          .read(mappingPath(ymlTemplate))
           .richFormat(schemaHandler.activeEnv(), Map.empty)
         YamlSerializer.deserializeDomain(content, ymlTemplate) match {
           case Success(domain) =>

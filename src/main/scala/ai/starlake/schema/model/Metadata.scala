@@ -142,7 +142,7 @@ case class Metadata(
 
   def getEscape(): String = escape.getOrElse("\\")
 
-  def getWrite(): WriteMode = this.getSink().flatMap(_.write).getOrElse(APPEND)
+  def getWrite(): WriteMode = this.getSink().flatMap(_.write).orElse(write).getOrElse(APPEND)
 
   @JsonIgnore
   def getPartitionAttributes(): List[String] = partition.map(_.getAttributes()).getOrElse(Nil)

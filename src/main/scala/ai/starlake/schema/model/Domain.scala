@@ -207,10 +207,12 @@ import scala.util.Try
     * @return
     */
   def checkValidity(
-    schemaHandler: SchemaHandler
-  )(implicit settings: Settings): Either[List[String], Boolean] = {
+    schemaHandler: SchemaHandler,
+    directorySeverity: Severity
+  )(implicit settings: Settings): Either[(List[String], List[String]), Boolean] = {
 
     val errorList: mutable.MutableList[String] = mutable.MutableList.empty
+    val warningList: mutable.MutableList[String] = mutable.MutableList.empty
 
     // Check Domain name validity
     val forceDomainPrefixRegex = settings.comet.forceDomainPattern.r
@@ -219,9 +221,18 @@ import scala.util.Try
 
     val forceTablePrefixRegex = settings.comet.forceTablePattern.r
 
-    resolveDirectoryOpt() match {
-      case Some(_) => //
-      case None    => errorList += s"Domain with name $name should define the directory attribute"
+    val directoryAssertionOpt = resolveDirectoryOpt() match {
+      case Some(_) => None
+      case None =>
+        Some(
+          s"Domain with name $name should define the directory attribute if 'import' command is used."
+        )
+    }
+    directorySeverity match {
+      case Error =>
+        errorList ++= directoryAssertionOpt
+      case Warning => warningList ++= directoryAssertionOpt
+      case _       => // do nothing even if directory is not resolved
     }
 
     // Check Schemas validity
@@ -246,7 +257,7 @@ import scala.util.Try
 
     // TODO Check partition columns
     if (errorList.nonEmpty)
-      Left(errorList.toList)
+      Left(errorList.toList, warningList.toList)
     else
       Right(true)
   }
