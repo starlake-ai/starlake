@@ -2,7 +2,12 @@ package ai.starlake.job.ingest
 
 import ai.starlake.config.{CometColumns, DatasetArea, Settings, StorageArea}
 import ai.starlake.job.metrics.{AssertionJob, MetricsJob}
-import ai.starlake.job.sink.bigquery.{BigQueryLoadConfig, BigQueryNativeJob, BigQuerySparkJob}
+import ai.starlake.job.sink.bigquery.{
+  BigQueryJobBase,
+  BigQueryLoadConfig,
+  BigQueryNativeJob,
+  BigQuerySparkJob
+}
 import ai.starlake.job.sink.es.{ESLoadConfig, ESLoadJob}
 import ai.starlake.job.sink.jdbc.{ConnectionLoadConfig, ConnectionLoadJob}
 import ai.starlake.job.validator.{GenericRowValidator, ValidationResult}
@@ -511,8 +516,10 @@ trait IngestionJob extends SparkJob {
             None,
             None,
             source = Right(mergedDF),
-            outputTable = schema.getFinalName(),
-            outputDataset = domain.getFinalName(),
+            outputTableId = Some(
+              BigQueryJobBase
+                .extractProjectDatasetAndTable(domain.getFinalName(), schema.getFinalName())
+            ),
             sourceFormat = settings.comet.defaultFormat,
             createDisposition = createDisposition,
             writeDisposition = writeDisposition,
@@ -958,8 +965,9 @@ trait IngestionJob extends SparkJob {
       None,
       None,
       source = Left(path.map(_.toString).mkString(",")),
-      outputTable = schema.getFinalName(),
-      outputDataset = domain.getFinalName(),
+      outputTableId = Some(
+        BigQueryJobBase.extractProjectDatasetAndTable(domain.getFinalName(), schema.getFinalName())
+      ),
       sourceFormat = settings.comet.defaultFormat,
       createDisposition = createDisposition,
       writeDisposition = writeDisposition,
@@ -1266,8 +1274,10 @@ object IngestionUtil {
             None,
             None,
             Right(rejectedDF),
-            outputDataset = sink.name.getOrElse("audit"),
-            outputTable = "rejected",
+            outputTableId = Some(
+              BigQueryJobBase
+                .extractProjectDatasetAndTable(sink.name.getOrElse("audit"), "rejected")
+            ),
             None,
             Nil,
             settings.comet.defaultFormat,

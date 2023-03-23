@@ -249,7 +249,7 @@ class Main() extends StrictLogging {
       case "bqload" =>
         BigQueryLoadConfig.parse(args.drop(1)) match {
           case Some(config) =>
-            workflow.bqload(config).isSuccess
+            workflow.bqload(config.asBigqueryLoadConfig()).isSuccess
           case _ =>
             println(BigQueryLoadConfig.usage())
             false
