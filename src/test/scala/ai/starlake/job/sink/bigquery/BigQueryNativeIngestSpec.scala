@@ -19,26 +19,4 @@ class BigQueryNativeIngestSpec extends TestHelper with BeforeAndAfterAll {
     }
   }
 
-  "Ingest to BigQuery" should "be ingested and stored in a BigQuery table" in {
-    if (sys.env.getOrElse("COMET_GCP_TEST", "false").toBoolean) {
-      new WithSettings() {
-        new SpecTrait(
-          domainOrJobFilename = "bqtest.comet.yml",
-          sourceDomainOrJobPathname = "/sample/native/bqtest.comet.yml",
-          datasetDomainName = "bqtest",
-          sourceDatasetPathName = "/sample/native/XPOSTBL"
-        ) {
-          cleanMetadata
-          cleanDatasets
-
-          logger.info(settings.comet.datasets)
-          loadPending
-        }
-      }
-      val tableFound =
-        Option(bigquery.getTable(TableId.of("bqtest", "account"))).isDefined
-      tableFound should be(true)
-
-    }
-  }
 }

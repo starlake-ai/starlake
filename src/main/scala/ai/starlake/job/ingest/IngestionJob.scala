@@ -35,7 +35,6 @@ import org.apache.spark.sql.types.{Metadata => _, _}
 
 import java.sql.Timestamp
 import java.time.{Instant, LocalDateTime}
-import java.util.UUID
 import scala.annotation.nowarn
 import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try}
@@ -930,13 +929,13 @@ trait IngestionJob extends SparkJob {
       case Some(sink) =>
         sink.getType() == SinkType.BQ
     }
-    val csvOrJsonOrPositionLines =
-      !mergedMetadata.isArray() && Set(Format.DSV, Format.POSITION, Format.JSON).contains(
+    val csvOrJsonLines =
+      !mergedMetadata.isArray() && Set(Format.DSV, Format.JSON).contains(
         mergedMetadata.getFormat()
       )
 
     val nativeValidator = mergedMetadata.validator.getOrElse("").contains("NativeValidator")
-    if (csvOrJsonOrPositionLines && sinkToBQ && nativeValidator) Engine.BQ else Engine.SPARK
+    if (csvOrJsonLines && sinkToBQ && nativeValidator) Engine.BQ else Engine.SPARK
   }
 
   def run(): Try[JobResult] = {
@@ -957,27 +956,10 @@ trait IngestionJob extends SparkJob {
       mergedMetadata.getWrite(),
       schema.merge.exists(_.key.nonEmpty)
     )
-    val finalPath = if (mergedMetadata.getFormat() == Format.POSITION) {
-      val converter = new PositionIngestionJob(
-        domain,
-        schema,
-        types,
-        path,
-        storageHandler,
-        schemaHandler,
-        options
-      )
-      val finalPath =
-        s"${settings.comet.fileSystem}/Users/hayssams/starlake-temp/starlake-position-to-csv-${UUID.randomUUID().toString}"
-      converter.convertToCsv(new Path(finalPath))
-      List(finalPath)
-    } else {
-      path
-    }
     val config = BigQueryLoadConfig(
       None,
       None,
-      source = Left(finalPath.map(_.toString).mkString(",")),
+      source = Left(path.map(_.toString).mkString(",")),
       outputTable = schema.getFinalName(),
       outputDataset = domain.getFinalName(),
       sourceFormat = settings.comet.defaultFormat,
