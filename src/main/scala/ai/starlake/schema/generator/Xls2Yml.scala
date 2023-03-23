@@ -151,26 +151,33 @@ object Xls2Yml extends LazyLogging {
     val defaultOutputPath = DatasetArea.domains.toString
     Xls2YmlConfig.parse(args) match {
       case Some(config) =>
-        if (config.encryption) {
-          for {
-            file   <- config.files
-            domain <- new XlsDomainReader(InputPath(file)).getDomain()
-          } yield {
-            val preEncrypt = genPreEncryptionDomain(domain, config.privacy)
-            writeDomainYaml(
-              preEncrypt,
-              config.outputPath.getOrElse(defaultOutputPath),
-              "pre-encrypt-" + preEncrypt.name
+        config.job match {
+          case false =>
+            if (config.encryption) {
+              for {
+                file   <- config.files
+                domain <- new XlsDomainReader(InputPath(file)).getDomain()
+              } yield {
+                val preEncrypt = genPreEncryptionDomain(domain, config.privacy)
+                writeDomainYaml(
+                  preEncrypt,
+                  config.outputPath.getOrElse(defaultOutputPath),
+                  "pre-encrypt-" + preEncrypt.name
+                )
+                val postEncrypt = genPostEncryptionDomain(domain, config.delimiter, config.privacy)
+                writeDomainYaml(
+                  postEncrypt,
+                  config.outputPath.getOrElse(defaultOutputPath),
+                  "post-encrypt-" + domain.name
+                )
+              }
+            } else {
+              config.files.foreach(generateSchema(_, config.outputPath))
+            }
+          case true =>
+            config.files.foreach(
+              Xls2YmlAutoJob.generateSchema(_, config.policyFile, config.outputPath)
             )
-            val postEncrypt = genPostEncryptionDomain(domain, config.delimiter, config.privacy)
-            writeDomainYaml(
-              postEncrypt,
-              config.outputPath.getOrElse(defaultOutputPath),
-              "post-encrypt-" + domain.name
-            )
-          }
-        } else {
-          config.files.foreach(generateSchema(_, config.outputPath))
         }
         config.iamPolicyTagsFile.foreach { iamPolicyTagsPath =>
           val workbook = new XlsIamPolicyTagsReader(InputPath(iamPolicyTagsPath))
