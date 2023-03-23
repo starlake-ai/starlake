@@ -84,12 +84,12 @@ object Xls2YmlConfig extends CliConfig[Xls2YmlConfig] {
         .action((x, c) => c.copy(policyFile = x))
         .optional()
         .text(
-          """Optional File for centralising ACL & RLS definition""".stripMargin
+          """Optional File for centralising ACL & RLS definition.""".stripMargin
         ),
       opt[Boolean]("job")
         .action((x, c) => c.copy(job = x))
         .optional()
-        .text("If true generate YML for a Job")
+        .text("If true generate YML for a Job.")
     )
   }
 

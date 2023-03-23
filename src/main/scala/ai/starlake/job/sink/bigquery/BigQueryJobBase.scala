@@ -17,7 +17,7 @@ import com.google.iam.v1.{Binding, Policy => IAMPolicy, SetIamPolicyRequest}
 import com.google.protobuf.FieldMask
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.sql.DataFrame
-import org.apache.spark.sql.catalyst.parser.ParserSQL
+import ai.starlake.utils.SQLUtils
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable
@@ -427,8 +427,8 @@ trait BigQueryJobBase extends StrictLogging {
     *   a Map with all the
     */
   def getFieldsDescriptionSource(sql: String)(implicit settings: Settings): Map[String, String] = {
-    val tableIds = ParserSQL
-      .getTablesName(sql)
+    val tableIds = SQLUtils
+      .extractRefsFromSQL(sql)
       .flatMap(table => {
         val infos = table.split("\\.").toList
         infos match {
