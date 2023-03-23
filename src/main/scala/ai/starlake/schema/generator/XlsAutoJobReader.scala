@@ -12,12 +12,7 @@ class XlsAutoJobReader(input: Input, policyInput: Option[Input]) extends XlsMode
     case InputFile(in) => WorkbookFactory.create(in)
   }
 
-  private val policies = policyInput
-    .map { file =>
-      val reader = new XlsPolicyReader(file)
-      reader.policies
-    }
-    .getOrElse(Nil)
+  private val policies = new XlsPolicyReader(policyInput.getOrElse(input)).policies
 
   lazy val autoJobsDesc: List[AutoJobDesc] = {
 

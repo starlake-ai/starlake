@@ -223,8 +223,7 @@ class HdfsStorageHandler(fileSystem: String)(implicit
     * @return
     */
   override def copy(src: Path, dst: Path): Boolean = {
-    val currentFS = fs(src)
-    FileUtil.copy(currentFS, src, currentFS, dst, false, conf)
+    FileUtil.copy(fs(src), src, fs(dst), dst, false, conf)
   }
 
   /** Move file
