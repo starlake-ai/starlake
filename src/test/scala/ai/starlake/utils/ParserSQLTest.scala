@@ -35,6 +35,10 @@ class ParserSQLTest extends TestHelper {
           |
           |
           |""".stripMargin
+      val sqlUnnest =
+        """
+          |select * from table1, unnest(select col1 from table2), unnest(alias) where "val1" in unnest(["val1","val2"])
+          |""".stripMargin
 
       ParserSQL.getTablesName(sqlWithoutTable) shouldEqual Nil
       ParserSQL.getTablesName(sqlWith) shouldEqual List("table1", "table2", "table3")
@@ -44,6 +48,7 @@ class ParserSQLTest extends TestHelper {
         "project.dataset.table",
         "dataset.table2"
       )
+      ParserSQL.getTablesName(sqlUnnest) shouldEqual List("table1", "table2", "alias")
 
     }
   }
