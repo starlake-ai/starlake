@@ -174,9 +174,7 @@ class DsvIngestionJob(
     *   : Spark Dataset
     */
   protected def ingest(dataset: DataFrame): (Dataset[String], Dataset[Row]) = {
-
     val orderedAttributes = reorderAttributes(dataset)
-
     def reorderTypes(): (List[Type], StructType) = {
       val typeMap: Map[String, Type] = types.map(tpe => tpe.name -> tpe).toMap
       val (tpes, sparkFields) = orderedAttributes.map { attribute =>

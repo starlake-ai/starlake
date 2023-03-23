@@ -48,7 +48,7 @@ class BigQueryNativeJob(
               throw e
             }
             logger.info(
-              s"ingestion-summary -> files: [$sourceURIs], domain: ${cliConfig.outputDataset}, schema: ${cliConfig.outputTable}, input: ${stats.getOutputRows + stats.getBadRecords}, accepted: ${stats.getOutputRows}, rejected:${stats.getBadRecords}"
+              s"bq-ingestion-summary -> files: [$sourceURIs], domain: ${cliConfig.outputDataset}, schema: ${cliConfig.outputTable}, input: ${stats.getOutputRows + stats.getBadRecords}, accepted: ${stats.getOutputRows}, rejected:${stats.getBadRecords}"
             )
             val success = !settings.comet.rejectAllOnError || stats.getBadRecords == 0
             val log = AuditLog(
