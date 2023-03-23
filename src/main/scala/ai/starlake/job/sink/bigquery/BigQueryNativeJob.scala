@@ -23,14 +23,7 @@ class BigQueryNativeJob(
 )(implicit val settings: Settings)
     extends JobBase
     with BigQueryJobBase {
-
-  private lazy val tableId = {
-    require(tableIdOpt.isDefined, "TableId must be defined")
-    tableIdOpt.get
-  }
-
-  private lazy val tableIdStr = BigQueryJobBase.getBqNativeTable(tableId)
-  override def name: String = s"bqload-${tableIdStr}"
+  override def name: String = s"bqload-${bqNativeTable}"
 
   logger.info(s"BigQuery Config $cliConfig")
 
