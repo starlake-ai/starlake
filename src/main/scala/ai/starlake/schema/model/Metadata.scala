@@ -134,7 +134,7 @@ case class Metadata(
 
   def isArray(): Boolean = array.getOrElse(false)
 
-  def isWithHeader(): Boolean = withHeader.getOrElse(true)
+  def isWithHeader(): Boolean = withHeader.getOrElse(false)
 
   def getSeparator(): String = separator.getOrElse(";")
 
