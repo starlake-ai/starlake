@@ -693,14 +693,14 @@ class IngestionWorkflow(
             result.isSuccess
           case SPARK =>
             (action.runSpark(), transformConfig.interactive) match {
-              case (Success(SparkJobResult(None)), _) =>
+              case (Success((SparkJobResult(None), _)), _) =>
                 true
-              case (Success(SparkJobResult(Some(dataFrame))), Some(_)) =>
+              case (Success((SparkJobResult(Some(dataFrame)), _)), Some(_)) =>
                 logger.info("""START QUERY SQL""")
                 dataFrame.show(false)
                 logger.info("""END QUERY SQL""")
                 true
-              case (Success(SparkJobResult(maybeDataFrame)), None) =>
+              case (Success((SparkJobResult(maybeDataFrame), sqlSource)), None) =>
                 val sinkOption = action.taskDesc.sink
                 logger.info(s"Spark Job succeeded. sinking data to $sinkOption")
                 sinkOption match {
@@ -735,7 +735,11 @@ class IngestionWorkflow(
                             requirePartitionFilter = bqSink.requirePartitionFilter.getOrElse(false),
                             rls = action.taskDesc.rls,
                             options = bqSink.getOptions,
-                            acl = action.taskDesc.acl
+                            acl = action.taskDesc.acl,
+                            starlakeSchema = Some(Schema.fromTaskDesc(action.taskDesc)),
+                            // outputTableDesc = action.taskDesc.comment.getOrElse(""),
+                            sqlSource = Some(sqlSource),
+                            attributesDesc = action.taskDesc.attributesDesc
                           )
                         val result =
                           new BigQuerySparkJob(bqLoadConfig, None, action.taskDesc.comment).run()

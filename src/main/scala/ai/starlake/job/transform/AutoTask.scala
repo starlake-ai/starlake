@@ -135,7 +135,10 @@ case class AutoTask(
       acl = taskDesc.acl,
       materializedView = taskDesc.sink.exists(sink =>
         sink.asInstanceOf[BigQuerySink].materializedView.getOrElse(false)
-      )
+      ),
+      attributesDesc = taskDesc.attributesDesc,
+      outputTableDesc = taskDesc.comment.getOrElse(""),
+      starlakeSchema = Some(Schema.fromTaskDesc(taskDesc))
     )
   }
 
@@ -391,39 +394,16 @@ case class AutoTask(
     true
   }
 
-  def runSpark(): Try[SparkJobResult] = {
+  def runSpark(): Try[(SparkJobResult, String)] = {
     val start = Timestamp.from(Instant.now())
     val res = Try {
-      udf.foreach { udf =>
-        registerUdf(udf)
-      }
+      udf.foreach { udf => registerUdf(udf) }
       val cteSelects = createSparkViews(views, schemaHandler, sqlParameters)
-
       val (preSql, sqlWithParameters, postSql) = buildQuerySpark(cteSelects)
-
       preSql.foreach(req => session.sql(req))
       logger.info(s"""START COMPILE SQL $sqlWithParameters END COMPILE SQL""")
-      logger.info(s"running sql request using ${taskDesc.engine}")
-
-      val dataframe =
-        taskDesc.engine.getOrElse(Engine.SPARK) match {
-          case Engine.BQ =>
-            session.read
-              .format("com.google.cloud.spark.bigquery")
-              .option("query", sqlWithParameters)
-              .load()
-          case Engine.SPARK => session.sql(sqlWithParameters)
-          case Engine.JDBC =>
-            logger.warn("JDBC Engine not supported on job task. Running query using Spark Engine")
-            session.sql(sqlWithParameters)
-          case custom =>
-            val connectionOptions = settings.comet.connections(custom.toString)
-            session.read
-              .format(connectionOptions.format)
-              .option("query", sqlWithParameters)
-              .options(connectionOptions.options)
-              .load()
-        }
+      logger.info(s"running sql request using ${taskDesc.sqlEngine}")
+      val dataframe = loadQuery(sqlWithParameters)
 
       if (settings.comet.hive || settings.comet.sinkToFile) {
         val fsSink = sink match {
@@ -454,11 +434,11 @@ case class AutoTask(
 
       postSql.foreach(req => session.sql(req))
       // Let us return the Dataframe so that it can be piped to another sink
-      SparkJobResult(Some(dataframe))
+      (SparkJobResult(Some(dataframe)), sqlWithParameters)
     }
     val end = Timestamp.from(Instant.now())
     res match {
-      case Success(jobResult) =>
+      case Success((jobResult, _)) =>
         val end = Timestamp.from(Instant.now())
         val jobResultCount = jobResult.dataframe.map(_.count())
         jobResultCount.foreach(logAuditSuccess(start, end, _))
@@ -466,6 +446,27 @@ case class AutoTask(
         logAuditFailure(start, end, e)
     }
     res
+  }
+
+  private def loadQuery(sqlWithParameters: String) = {
+    taskDesc.sqlEngine.getOrElse(Engine.SPARK) match {
+      case Engine.BQ =>
+        session.read
+          .format("com.google.cloud.spark.bigquery")
+          .option("query", sqlWithParameters)
+          .load()
+      case Engine.SPARK => session.sql(sqlWithParameters)
+      case Engine.JDBC =>
+        logger.warn("JDBC Engine not supported on job task. Running query using Spark Engine")
+        session.sql(sqlWithParameters)
+      case custom =>
+        val connectionOptions = settings.comet.connections(custom.toString)
+        session.read
+          .format(connectionOptions.format)
+          .option("query", sqlWithParameters)
+          .options(connectionOptions.options)
+          .load()
+    }
   }
 
   private def logAudit(

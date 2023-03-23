@@ -318,6 +318,9 @@ class Main() extends StrictLogging {
         new Yml2Xls(schemaHandler).run(args.drop(1))
         true
 
+      case "xls2ymljob" =>
+        Xls2YmlAutoJob.run(args.drop(1))
+
       case "yml2gv" =>
         new Yml2GraphViz(schemaHandler).run(args.drop(1))
         true
