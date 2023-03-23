@@ -930,9 +930,7 @@ trait IngestionJob extends SparkJob {
         sink.getType() == SinkType.BQ
     }
     val csvOrJsonLines =
-      !mergedMetadata.isArray() && Set(Format.DSV, Format.JSON).contains(
-        mergedMetadata.getFormat()
-      )
+      !mergedMetadata.isArray() && Set(Format.DSV, Format.JSON).contains(mergedMetadata.getFormat())
 
     val nativeValidator = mergedMetadata.validator.getOrElse("").contains("NativeValidator")
     if (csvOrJsonLines && sinkToBQ && nativeValidator) Engine.BQ else Engine.SPARK
