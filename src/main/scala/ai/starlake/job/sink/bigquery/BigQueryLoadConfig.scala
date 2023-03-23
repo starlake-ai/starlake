@@ -9,6 +9,7 @@ import ai.starlake.schema.model.{
   Schema
 }
 import ai.starlake.utils.CliConfig
+import com.google.cloud.bigquery.TableId
 import org.apache.spark.sql.DataFrame
 import scopt.OParser
 
@@ -16,8 +17,7 @@ case class BigQueryLoadConfig(
   gcpProjectId: Option[String],
   gcpSAJsonKey: Option[String],
   source: Either[String, DataFrame] = Left(""),
-  outputDataset: String = "",
-  outputTable: String = "",
+  outputTableId: Option[TableId] = None,
   outputPartition: Option[String] = None,
   outputClustering: Seq[String] = Nil,
   sourceFormat: String = "",
@@ -40,10 +40,10 @@ case class BigQueryLoadConfig(
   attributesDesc: List[AttributeDesc] = Nil
 ) extends GcpConnectionConfig
 
-object BigQueryLoadConfig extends CliConfig[BigQueryLoadConfig] {
+object BigQueryLoadConfig extends CliConfig[BigQueryLoadCliConfig] {
   val command = "bqload"
-  val parser: OParser[Unit, BigQueryLoadConfig] = {
-    val builder = OParser.builder[BigQueryLoadConfig]
+  val parser: OParser[Unit, BigQueryLoadCliConfig] = {
+    val builder = OParser.builder[BigQueryLoadCliConfig]
     import builder._
     OParser.sequence(
       programName(s"starlake $command"),
@@ -54,11 +54,11 @@ object BigQueryLoadConfig extends CliConfig[BigQueryLoadConfig] {
         .text("Full Path to source file")
         .required(),
       opt[String]("output_dataset")
-        .action((x, c) => c.copy(outputDataset = x))
+        .action((x, c) => c.copy(outputDataset = Some(x)))
         .text("BigQuery Output Dataset")
         .required(),
       opt[String]("output_table")
-        .action((x, c) => c.copy(outputTable = x))
+        .action((x, c) => c.copy(outputTable = Some(x)))
         .text("BigQuery Output Table")
         .required(),
       opt[String]("output_partition")
@@ -103,6 +103,6 @@ object BigQueryLoadConfig extends CliConfig[BigQueryLoadConfig] {
   }
 
   // comet bqload  --source_file xxx --output_dataset domain --output_table schema --source_format parquet --create_disposition  CREATE_IF_NEEDED --write_disposition WRITE_TRUNCATE
-  def parse(args: Seq[String]): Option[BigQueryLoadConfig] =
-    OParser.parse(parser, args, BigQueryLoadConfig(None, None))
+  def parse(args: Seq[String]): Option[BigQueryLoadCliConfig] =
+    OParser.parse(parser, args, BigQueryLoadCliConfig(None, None))
 }
