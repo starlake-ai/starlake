@@ -406,20 +406,10 @@ object JDBCUtils extends LazyLogging {
   ): String = {
     val sqlType = reverseSqlTypes.getOrElse(jdbcType, colTypename)
     jdbcType match {
-      case VARCHAR | CHAR | LONGVARCHAR => "string"
-      case BIT | BOOLEAN                => "boolean"
-      case DOUBLE | FLOAT | REAL        => "double"
-      case NUMERIC =>
-        decimalDigit match {
-          case Some(0) if isPostgres => "decimal"
-          case Some(0)               => "long"
-          case _                     => "decimal"
-        }
-      case DECIMAL =>
-        decimalDigit match {
-          case Some(0) => "long"
-          case _       => "decimal"
-        }
+      case VARCHAR | CHAR | LONGVARCHAR          => "string"
+      case BIT | BOOLEAN                         => "boolean"
+      case DOUBLE | FLOAT | REAL                 => "double"
+      case NUMERIC | DECIMAL                     => "decimal"
       case TINYINT | SMALLINT | INTEGER | BIGINT => "long"
       case DATE                                  => "date"
       case TIMESTAMP                             => "timestamp"
