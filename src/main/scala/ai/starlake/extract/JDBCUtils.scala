@@ -361,21 +361,35 @@ object JDBCUtils extends LazyLogging {
           primaryKey = primaryKeys
         )
     }
-    val domainName = jdbcSchema.schema.replaceAll("[^\\p{Alnum}]", "_")
+
     // Generate the domain with a dummy watch directory
     val incomingDir = domainTemplate
       .map { dom =>
         DatasetArea
-          .substituteDomainAndSchemaInPath(domainName, "", dom.resolveDirectory())
+          .substituteDomainAndSchemaInPath(
+            jdbcSchema.schema,
+            "",
+            dom.resolveDirectory()
+          )
           .toString
       }
       .getOrElse(s"/${jdbcSchema.schema}")
 
+    val normalizedDomainName = DatasetArea.normalizeDomainName(jdbcSchema.schema)
+    val rename = domainTemplate
+      .flatMap(_.rename)
+      .map { name =>
+        DatasetArea.substituteDomainAndSchema(jdbcSchema.schema, "", name)
+      }
+      .orElse(
+        if (normalizedDomainName != jdbcSchema.schema) Some(normalizedDomainName) else None
+      )
     val extensions = domainTemplate.map(_.resolveExtensions()).getOrElse(Nil)
     val ack = domainTemplate.flatMap(_.resolveAck())
 
     Domain(
-      name = domainName,
+      name = jdbcSchema.schema,
+      rename = rename,
       metadata = domainTemplate
         .flatMap(_.metadata)
         .map(_.copy(directory = Some(incomingDir), extensions = extensions, ack = ack)),
