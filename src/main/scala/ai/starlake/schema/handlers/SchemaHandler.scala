@@ -382,6 +382,8 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
                 )
               }
               val metadata = domain.metadata.getOrElse(Metadata())
+              // ideally the emptyNull field should set during object construction but the settings
+              // object is not available in the Metadata object
               val enrichedMetadata = metadata
                 .copy(emptyIsNull = metadata.emptyIsNull.orElse(Some(settings.comet.emptyIsNull)))
               domain.copy(tables = tables, metadata = Some(enrichedMetadata))
