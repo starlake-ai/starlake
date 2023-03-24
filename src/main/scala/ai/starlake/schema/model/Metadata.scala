@@ -95,6 +95,7 @@ case class Metadata(
   ack: Option[String] = None,
   options: Option[Map[String, String]] = None,
   validator: Option[String] = None,
+  emptyIsNull: Option[Boolean] = None,
   schedule: Option[Map[String, String]] = None,
   freshness: Option[Freshness] = None,
   nullValue: Option[String] = None
@@ -124,6 +125,7 @@ case class Metadata(
        |schedule:${schedule}
        |freshness:${freshness}
        |nullValue:${nullValue}
+       |emptyIsNull:${emptyIsNull}
        |""".stripMargin
 
   def getMode(): Mode = mode.getOrElse(FILE)
@@ -146,7 +148,9 @@ case class Metadata(
 
   def getWrite(): WriteMode = this.getSink().flatMap(_.write).orElse(write).getOrElse(APPEND)
 
-  def getNullValue(): String = nullValue.getOrElse("")
+  def getNullValue(): String = nullValue.getOrElse(if (isEmptyIsNull()) "" else null)
+
+  def isEmptyIsNull(): Boolean = emptyIsNull.getOrElse(true)
 
   @JsonIgnore
   def getPartitionAttributes(): List[String] = partition.map(_.getAttributes()).getOrElse(Nil)
@@ -215,7 +219,8 @@ case class Metadata(
       validator = merge(this.validator, child.validator),
       schedule = merge(this.schedule, child.schedule),
       freshness = merge(this.freshness, child.freshness),
-      nullValue = merge(this.nullValue, child.nullValue)
+      nullValue = merge(this.nullValue, child.nullValue),
+      emptyIsNull = merge(this.emptyIsNull, child.emptyIsNull)
     )
   }
 
