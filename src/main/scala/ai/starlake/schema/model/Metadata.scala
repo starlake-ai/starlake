@@ -148,7 +148,8 @@ case class Metadata(
 
   def getWrite(): WriteMode = this.getSink().flatMap(_.write).orElse(write).getOrElse(APPEND)
 
-  def getNullValue(): String = nullValue.getOrElse(if (isEmptyIsNull()) "" else null)
+  def getNullValue(): String =
+    nullValue.getOrElse(Some(isEmptyIsNull()).filter(identity).map(_ => "").orNull)
 
   def isEmptyIsNull(): Boolean = emptyIsNull.getOrElse(true)
 
