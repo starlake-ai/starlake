@@ -23,8 +23,7 @@ class BigQueryNativeJob(
 )(implicit val settings: Settings)
     extends JobBase
     with BigQueryJobBase {
-
-  override def name: String = s"bqload-${cliConfig.outputDataset}-${cliConfig.outputTable}"
+  override def name: String = s"bqload-${bqNativeTable}"
 
   logger.info(s"BigQuery Config $cliConfig")
 
@@ -48,14 +47,14 @@ class BigQueryNativeJob(
               throw e
             }
             logger.info(
-              s"bq-ingestion-summary -> files: [$sourceURIs], domain: ${cliConfig.outputDataset}, schema: ${cliConfig.outputTable}, input: ${stats.getOutputRows + stats.getBadRecords}, accepted: ${stats.getOutputRows}, rejected:${stats.getBadRecords}"
+              s"bq-ingestion-summary -> files: [$sourceURIs], domain: ${tableId.getDataset}, schema: ${tableId.getTable}, input: ${stats.getOutputRows + stats.getBadRecords}, accepted: ${stats.getOutputRows}, rejected:${stats.getBadRecords}"
             )
             val success = !settings.comet.rejectAllOnError || stats.getBadRecords == 0
             val log = AuditLog(
               jobResult.getJobId.getJob,
               sourceURIs,
-              cliConfig.outputDataset,
-              cliConfig.outputTable,
+              BigQueryJobBase.getBqNativeDataset(tableId),
+              tableId.getTable,
               success = success,
               stats.getOutputRows + stats.getBadRecords,
               stats.getOutputRows,

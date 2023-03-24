@@ -21,9 +21,9 @@
 package ai.starlake.schema.handlers
 
 import ai.starlake.config.Settings
-import ai.starlake.job.sink.bigquery.BigQueryLoadConfig
-import ai.starlake.job.sink.jdbc.ConnectionLoadConfig
+import ai.starlake.job.sink.bigquery.BigQueryLoadCliConfig
 import ai.starlake.job.sink.es.ESLoadConfig
+import ai.starlake.job.sink.jdbc.ConnectionLoadConfig
 import ai.starlake.schema.model.{Domain, Schema}
 import ai.starlake.utils.{AirflowJobResult, JobResult, Utils}
 import ai.starlake.workflow.IngestionWorkflow
@@ -94,7 +94,7 @@ trait LaunchHandler {
     *
     * @param config
     */
-  def bqload(workflow: IngestionWorkflow, config: BigQueryLoadConfig)(implicit
+  def bqload(workflow: IngestionWorkflow, config: BigQueryLoadCliConfig)(implicit
     settings: Settings
   ): Boolean
 
@@ -151,11 +151,11 @@ class SimpleLauncher extends LaunchHandler with StrictLogging {
     *
     * @param config
     */
-  override def bqload(workflow: IngestionWorkflow, config: BigQueryLoadConfig)(implicit
+  override def bqload(workflow: IngestionWorkflow, config: BigQueryLoadCliConfig)(implicit
     settings: Settings
   ): Boolean = {
     logger.info(s"Launch bq: ${config}")
-    workflow.bqload(config)
+    workflow.bqload(config.asBigqueryLoadConfig())
     true
 
   }
@@ -258,7 +258,7 @@ class AirflowLauncher extends LaunchHandler with StrictLogging {
     *
     * @param config
     */
-  override def bqload(workflow: IngestionWorkflow, config: BigQueryLoadConfig)(implicit
+  override def bqload(workflow: IngestionWorkflow, config: BigQueryLoadCliConfig)(implicit
     settings: Settings
   ): Boolean = {
     val endpoint = settings.comet.airflow.endpoint

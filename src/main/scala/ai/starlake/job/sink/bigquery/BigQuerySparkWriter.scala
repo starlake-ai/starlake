@@ -27,8 +27,10 @@ object BigQuerySparkWriter extends StrictLogging {
             authInfo.get("gcpProjectId"),
             authInfo.get("gcpSAJsonKey"),
             source = source,
-            outputTable = tableName,
-            outputDataset = sink.name.getOrElse("audit"),
+            outputTableId = Some(
+              BigQueryJobBase
+                .extractProjectDatasetAndTable(sink.name.getOrElse("audit"), tableName)
+            ),
             sourceFormat = settings.comet.defaultFormat,
             createDisposition = createDisposition,
             writeDisposition = writeDisposition,

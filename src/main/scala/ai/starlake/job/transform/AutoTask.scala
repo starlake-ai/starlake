@@ -23,7 +23,12 @@ package ai.starlake.job.transform
 import ai.starlake.config.Settings
 import ai.starlake.job.ingest.{AuditLog, Step}
 import ai.starlake.job.metrics.AssertionJob
-import ai.starlake.job.sink.bigquery.{BigQueryJobResult, BigQueryLoadConfig, BigQueryNativeJob}
+import ai.starlake.job.sink.bigquery.{
+  BigQueryJobBase,
+  BigQueryJobResult,
+  BigQueryLoadConfig,
+  BigQueryNativeJob
+}
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.Stage.UNIT
 import ai.starlake.schema.model._
@@ -120,8 +125,8 @@ case class AutoTask(
     BigQueryLoadConfig(
       gcpProjectId = authInfo.get("gcpProjectId"),
       gcpSAJsonKey = authInfo.get("gcpSAJsonKey"),
-      outputTable = taskDesc.table,
-      outputDataset = taskDesc.domain,
+      outputTableId =
+        Some(BigQueryJobBase.extractProjectDatasetAndTable(taskDesc.domain, taskDesc.table)),
       createDisposition = createDisposition,
       writeDisposition = writeDisposition,
       location = bqSink.location,
