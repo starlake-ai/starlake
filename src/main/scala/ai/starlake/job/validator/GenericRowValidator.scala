@@ -43,6 +43,7 @@ trait GenericRowValidator {
     sparkType: StructType,
     privacyOptions: Map[String, String],
     cacheStorageLevel: StorageLevel,
-    sinkReplayToFile: Boolean
+    sinkReplayToFile: Boolean,
+    emptyIsNull: Boolean
   ): ValidationResult
 }

@@ -301,6 +301,7 @@ object Settings extends StrictLogging {
     privacyOnly: Boolean,
     launcher: String,
     chewerPrefix: String,
+    emptyIsNull: Boolean,
     rowValidatorClass: String,
     treeValidatorClass: String,
     loadStrategyClass: String,

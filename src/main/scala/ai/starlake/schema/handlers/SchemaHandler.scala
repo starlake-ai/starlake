@@ -381,7 +381,10 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
                   })
                 )
               }
-              domain.copy(tables = tables)
+              val metadata = domain.metadata.getOrElse(Metadata())
+              val enrichedMetadata = metadata
+                .copy(emptyIsNull = metadata.emptyIsNull.orElse(Some(settings.comet.emptyIsNull)))
+              domain.copy(tables = tables, metadata = Some(enrichedMetadata))
             }
           }
       }
