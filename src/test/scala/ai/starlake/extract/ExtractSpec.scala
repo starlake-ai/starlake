@@ -99,8 +99,8 @@ class ExtractSpec extends TestHelper {
       "_TEST_VIEW1"
     )
     table.attributes.map(a => a.name -> a.`type`).toSet should contain theSameElementsAs Set(
-      "ID"             -> "long",
-      "NAME"           -> "string"
+      "ID"   -> "long",
+      "NAME" -> "string"
     )
     table.primaryKey should contain("ID")
     table.pattern.pattern() shouldBe "PUBLIC-TEST_TABLE1.*"
