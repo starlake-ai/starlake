@@ -44,7 +44,8 @@ object FlatRowValidator extends GenericRowValidator {
     sparkType: StructType,
     privacyOptions: Map[String, String],
     cacheStorageLevel: StorageLevel,
-    sinkReplayToFile: Boolean
+    sinkReplayToFile: Boolean,
+    emptyIsNull: Boolean
   ): ValidationResult = {
     val now = Timestamp.from(Instant.now)
     val checkedRDD: RDD[RowResult] = dataset.rdd
@@ -86,7 +87,8 @@ object FlatRowValidator extends GenericRowValidator {
               colAttribute,
               tpe,
               colMap,
-              PrivacyLevels.allPrivacyLevels(privacyOptions)
+              PrivacyLevels.allPrivacyLevels(privacyOptions),
+              emptyIsNull
             )
           }.toList
           val isRowAccepted = colResults.forall(_.colInfo.success)

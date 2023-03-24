@@ -16,6 +16,7 @@ __New Feature__:
 - Always propagate domain's metadata to tables
 - Order column extraction from extract-schema according to database column order
 - Set domain description if given on bigquery
+- Add the ability to consider empty string as valid value for required String
 
 __Bug Fix__:
 - **BREAKING CHANGE**: Make directory mandatory only when feature require it. If you rely on exception while generating YML files from xls and vice-versa for any missing directory, you'll have to change. 
