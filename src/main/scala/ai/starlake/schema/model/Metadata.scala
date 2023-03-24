@@ -148,9 +148,12 @@ case class Metadata(
 
   def getWrite(): WriteMode = this.getSink().flatMap(_.write).orElse(write).getOrElse(APPEND)
 
-  def getNullValue(): String =
-    nullValue.getOrElse(Some(isEmptyIsNull()).filter(identity).map(_ => "").orNull)
+  @JsonIgnore
+  // scalastyle:off null
+  def getNullValue(): String = nullValue.getOrElse(if (isEmptyIsNull()) "" else null)
+  // scalastyle:on null
 
+  @JsonIgnore
   def isEmptyIsNull(): Boolean = emptyIsNull.getOrElse(true)
 
   @JsonIgnore
