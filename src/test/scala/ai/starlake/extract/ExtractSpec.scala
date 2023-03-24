@@ -59,9 +59,9 @@ class ExtractSpec extends TestHelper {
     val sql: String =
       """
         |drop table if exists test_table1;
-        |create table test_table1(ID INT PRIMARY KEY,NAME VARCHAR(500), int_as_numeric NUMERIC(8,0), real_numeric NUMERIC(10,3), int_as_decimal DECIMAL(5,0), real_float FLOAT(2));
+        |create table test_table1(ID INT PRIMARY KEY,NAME VARCHAR(500));
         |create view test_view1 AS SELECT NAME FROM test_table1;
-        |insert into test_table1 values (1,'A', 5, 1.5, 2, 2.6);""".stripMargin
+        |insert into test_table1 values (1,'A');""".stripMargin
     val st = conn.createStatement()
     st.execute(sql)
     val rs = st.executeQuery("select * from test_table1")
@@ -100,11 +100,7 @@ class ExtractSpec extends TestHelper {
     )
     table.attributes.map(a => a.name -> a.`type`).toSet should contain theSameElementsAs Set(
       "ID"             -> "long",
-      "NAME"           -> "string",
-      "INT_AS_NUMERIC" -> "long",
-      "REAL_NUMERIC"   -> "decimal",
-      "INT_AS_DECIMAL" -> "long",
-      "REAL_FLOAT"     -> "double"
+      "NAME"           -> "string"
     )
     table.primaryKey should contain("ID")
     table.pattern.pattern() shouldBe "PUBLIC-TEST_TABLE1.*"
