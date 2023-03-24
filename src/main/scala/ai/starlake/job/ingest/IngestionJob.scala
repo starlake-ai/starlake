@@ -1325,7 +1325,8 @@ object IngestionUtil {
     colAttribute: Attribute,
     tpe: Type,
     colMap: => Map[String, Option[String]],
-    allPrivacyLevels: Map[String, ((PrivacyEngine, List[String]), PrivacyLevel)]
+    allPrivacyLevels: Map[String, ((PrivacyEngine, List[String]), PrivacyLevel)],
+    emptyIsNull: Boolean
   ): ColResult = {
     def ltrim(s: String) = s.replaceAll("^\\s+", "")
 
@@ -1355,9 +1356,16 @@ object IngestionUtil {
       case Some(colValue) => colValue.isEmpty
     }
 
+    def colValueIsNull = colValue.isEmpty
+
     def optionalColIsEmpty = !colAttribute.required && colValueIsNullOrEmpty
 
-    def requiredColIsEmpty = colAttribute.required && colValueIsNullOrEmpty
+    def requiredColIsEmpty = {
+      if (emptyIsNull)
+        colAttribute.required && colValueIsNullOrEmpty
+      else
+        colAttribute.required && colValueIsNull
+    }
 
     def colPatternIsValid = colValue.exists(tpe.matches)
 
