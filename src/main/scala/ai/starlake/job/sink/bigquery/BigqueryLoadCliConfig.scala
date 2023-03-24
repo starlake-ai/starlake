@@ -1,0 +1,55 @@
+package ai.starlake.job.sink.bigquery
+
+import ai.starlake.config.GcpConnectionConfig
+import ai.starlake.schema.model.{AccessControlEntry, Engine, RowLevelSecurity, Schema}
+import org.apache.spark.sql.DataFrame
+
+case class BigQueryLoadCliConfig(
+  gcpProjectId: Option[String],
+  gcpSAJsonKey: Option[String],
+  source: Either[String, DataFrame] = Left(""),
+  outputDataset: Option[String] = None,
+  outputTable: Option[String] = None,
+  outputPartition: Option[String] = None,
+  outputClustering: Seq[String] = Nil,
+  sourceFormat: String = "",
+  createDisposition: String = "",
+  writeDisposition: String = "",
+  location: Option[String] = None,
+  days: Option[Int] = None,
+  rls: List[RowLevelSecurity] = Nil,
+  requirePartitionFilter: Boolean = false,
+  engine: Engine = Engine.SPARK,
+  options: Map[String, String] = Map.empty,
+  partitionsToUpdate: List[String] = Nil,
+  acl: List[AccessControlEntry] = Nil,
+  starlakeSchema: Option[Schema] = None,
+  domainTags: Set[String] = Set.empty,
+  domainDescription: Option[String] = None,
+  materializedView: Boolean = false
+) extends GcpConnectionConfig {
+  def asBigqueryLoadConfig() = BigQueryLoadConfig(
+    gcpProjectId = gcpProjectId,
+    gcpSAJsonKey = gcpSAJsonKey,
+    source = source,
+    outputTableId =
+      Some(BigQueryJobBase.extractProjectDatasetAndTable(outputDataset.get, outputTable.get)),
+    outputPartition = outputPartition,
+    outputClustering = outputClustering,
+    sourceFormat = sourceFormat,
+    createDisposition = createDisposition,
+    writeDisposition = writeDisposition,
+    location = location,
+    days = days,
+    rls = rls,
+    requirePartitionFilter = requirePartitionFilter,
+    engine = engine,
+    options = options,
+    partitionsToUpdate = partitionsToUpdate,
+    acl = acl,
+    starlakeSchema = starlakeSchema,
+    domainTags = domainTags,
+    domainDescription = domainDescription,
+    materializedView = materializedView
+  )
+}
