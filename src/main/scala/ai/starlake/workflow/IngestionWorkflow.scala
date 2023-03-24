@@ -26,7 +26,12 @@ import ai.starlake.job.infer.{InferSchema, InferSchemaConfig}
 import ai.starlake.job.ingest._
 import ai.starlake.job.load.LoadStrategy
 import ai.starlake.job.metrics.{MetricsConfig, MetricsJob}
-import ai.starlake.job.sink.bigquery.{BigQueryJobResult, BigQueryLoadConfig, BigQuerySparkJob}
+import ai.starlake.job.sink.bigquery.{
+  BigQueryJobBase,
+  BigQueryJobResult,
+  BigQueryLoadConfig,
+  BigQuerySparkJob
+}
 import ai.starlake.job.sink.es.{ESLoadConfig, ESLoadJob}
 import ai.starlake.job.sink.jdbc.{ConnectionLoadConfig, ConnectionLoadJob}
 import ai.starlake.job.sink.kafka.{KafkaJob, KafkaJobConfig}
@@ -723,8 +728,12 @@ class IngestionWorkflow(
                             transformConfig.authInfo.get("gcpProjectId"),
                             transformConfig.authInfo.get("gcpSAJsonKey"),
                             source = source,
-                            outputTable = action.taskDesc.table,
-                            outputDataset = action.taskDesc.domain,
+                            outputTableId = Some(
+                              BigQueryJobBase.extractProjectDatasetAndTable(
+                                action.taskDesc.domain,
+                                action.taskDesc.table
+                              )
+                            ),
                             sourceFormat = settings.comet.defaultFormat,
                             createDisposition = createDisposition,
                             writeDisposition = writeDisposition,
@@ -911,8 +920,8 @@ class IngestionWorkflow(
           val config = BigQueryLoadConfig(
             None,
             None,
-            outputTable = schema.name,
-            outputDataset = domain.name,
+            outputTableId =
+              Some(BigQueryJobBase.extractProjectDatasetAndTable(domain.name, schema.name)),
             sourceFormat = settings.comet.defaultFormat,
             rls = schema.rls,
             acl = schema.acl,

@@ -2,7 +2,7 @@ package ai.starlake.schema.handlers
 
 import ai.starlake.TestHelper
 import ai.starlake.config.Settings
-import ai.starlake.job.sink.bigquery.{BigQueryLoadConfig, BigQuerySparkJob}
+import ai.starlake.job.sink.bigquery.{BigQueryJobBase, BigQueryLoadConfig, BigQuerySparkJob}
 import ai.starlake.job.transform.{AutoTask, TaskViewDependency, TransformConfig}
 import ai.starlake.schema.model._
 import ai.starlake.workflow.IngestionWorkflow
@@ -350,8 +350,9 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       val config = BigQueryLoadConfig(
         None,
         None,
-        outputDataset = businessTask1.domain,
-        outputTable = businessTask1.table,
+        outputTableId = Some(
+          BigQueryJobBase.extractProjectDatasetAndTable(businessTask1.domain, businessTask1.table)
+        ),
         sourceFormat = "parquet",
         createDisposition = "CREATE_IF_NEEDED",
         writeDisposition = "WRITE_TRUNCATE",
@@ -372,13 +373,13 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         BigQueryConfiguration.OUTPUT_TABLE_CREATE_DISPOSITION.getKey()
       ) shouldEqual "CREATE_IF_NEEDED"
 
-      val delStatement = "DROP ALL ROW ACCESS POLICIES ON DOMAIN.TABLE"
+      val delStatement = "DROP ALL ROW ACCESS POLICIES ON `DOMAIN.TABLE`"
       val createStatement =
         """
           | CREATE ROW ACCESS POLICY
           |  myrls
           | ON
-          |  DOMAIN.TABLE
+          |  `DOMAIN.TABLE`
           | GRANT TO
           |  ("user:hayssam.saleh@ebiznext.com")
           | FILTER USING
