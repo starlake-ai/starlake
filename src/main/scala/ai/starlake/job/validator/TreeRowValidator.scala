@@ -48,7 +48,8 @@ object TreeRowValidator extends GenericRowValidator {
     schemaSparkType: StructType,
     privacyOptions: Map[String, String],
     cacheStorageLevel: StorageLevel,
-    sinkReplayToFile: Boolean
+    sinkReplayToFile: Boolean,
+    emptyIsNull: Boolean
   ): ValidationResult = {
     val typesMap = types.map(tpe => tpe.name -> tpe).toMap
     val successErrorRDD =
@@ -57,7 +58,8 @@ object TreeRowValidator extends GenericRowValidator {
         attributes,
         schemaSparkType,
         typesMap,
-        privacyOptions
+        privacyOptions,
+        emptyIsNull
       )
     val successRDD: RDD[Row] =
       successErrorRDD
@@ -82,7 +84,8 @@ object TreeRowValidator extends GenericRowValidator {
     attributes: List[Attribute],
     schemaSparkType: StructType,
     typesMap: Map[String, Type],
-    privacyOptions: Map[String, String]
+    privacyOptions: Map[String, String],
+    emptyIsNull: Boolean
   ): RDD[Row] = {
 
     val schemaSparkTypeWithSuccessErrorMessage =
@@ -101,7 +104,8 @@ object TreeRowValidator extends GenericRowValidator {
         typesMap,
         schemaSparkTypeWithSuccessErrorMessage,
         PrivacyLevels.allPrivacyLevels(privacyOptions),
-        true
+        topLevel = true,
+        emptyIsNull = emptyIsNull
       )
       rowRes
     }
@@ -114,7 +118,8 @@ object TreeRowValidator extends GenericRowValidator {
     types: Map[String, Type],
     schemaSparkTypeWithSuccessErrorMessage: StructType,
     allPrivacyLevels: Map[String, ((PrivacyEngine, List[String]), PrivacyLevel)],
-    topLevel: Boolean
+    topLevel: Boolean,
+    emptyIsNull: Boolean
   ): (GenericRowWithSchema, mutable.MutableList[String]) = {
     val errorList: mutable.MutableList[String] = mutable.MutableList.empty
     def validateCol(attribute: Attribute, item: Any): Any = {
@@ -123,7 +128,8 @@ object TreeRowValidator extends GenericRowValidator {
         attribute,
         types(attribute.`type`),
         Map.empty[String, Option[String]],
-        allPrivacyLevels
+        allPrivacyLevels,
+        emptyIsNull
       )
       if (colResult.colInfo.success) {
         colResult.sparkValue
@@ -153,7 +159,8 @@ object TreeRowValidator extends GenericRowValidator {
               types,
               schemaSparkTypeWithSuccessErrorMessage,
               allPrivacyLevels,
-              false
+              topLevel = false,
+              emptyIsNull = emptyIsNull
             )
             errorList ++= errors
             row
@@ -167,7 +174,8 @@ object TreeRowValidator extends GenericRowValidator {
                   types,
                   schemaSparkTypeWithSuccessErrorMessage,
                   allPrivacyLevels,
-                  false
+                  topLevel = false,
+                  emptyIsNull = emptyIsNull
                 )
                 errorList ++= errors
                 row
