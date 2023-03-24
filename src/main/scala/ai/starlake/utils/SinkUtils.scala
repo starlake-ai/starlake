@@ -1,7 +1,7 @@
 package ai.starlake.utils
 
 import ai.starlake.config.Settings
-import ai.starlake.job.sink.bigquery.{BigQueryLoadConfig, BigQuerySparkJob}
+import ai.starlake.job.sink.bigquery.{BigQueryJobBase, BigQueryLoadConfig, BigQuerySparkJob}
 import ai.starlake.job.sink.jdbc.ConnectionLoadConfig
 import ai.starlake.schema.handlers.StorageHandler
 import ai.starlake.schema.model._
@@ -106,8 +106,7 @@ class SinkUtils()(implicit settings: Settings) extends StrictLogging with Datase
         authInfo.get("gcpProjectId"),
         authInfo.get("gcpSAJsonKey"),
         Right(dataframe),
-        outputDataset = bqDataset,
-        outputTable = bqTable,
+        outputTableId = Some(BigQueryJobBase.extractProjectDatasetAndTable(bqDataset, bqTable)),
         None,
         Nil,
         settings.comet.defaultFormat,
