@@ -443,9 +443,11 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
               )
             }
             .flatMap(_.tables)
-            .map(t => t.copy(metadata = Some(t.mergedMetadata(domain.metadata))))
+          val tables = (Option(domain.tables).getOrElse(Nil) ::: schemaRefs).map(t =>
+            t.copy(metadata = Some(t.mergedMetadata(domain.metadata)))
+          )
           logger.info(s"Successfully loaded Domain  in $path")
-          Success(domain.copy(tables = Option(domain.tables).getOrElse(Nil) ::: schemaRefs))
+          Success(domain.copy(tables = tables))
         case (path, Failure(e)) =>
           logger.error(s"Failed to load domain in $path")
           Utils.logException(logger, e)
