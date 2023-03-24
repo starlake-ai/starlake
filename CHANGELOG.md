@@ -14,7 +14,6 @@ __New Feature__:
 - Turn schema extract pattern to a template
 - Add global jdbc schema attributes in order to set common attributes once
 - Always propagate domain's metadata to tables
-- Turn numeric without scale as long while extracting schema
 - Order column extraction from extract-schema according to database column order
 - Set domain description if given on bigquery
 
