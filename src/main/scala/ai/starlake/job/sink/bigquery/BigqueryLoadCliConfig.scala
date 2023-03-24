@@ -32,8 +32,12 @@ case class BigQueryLoadCliConfig(
     gcpProjectId = gcpProjectId,
     gcpSAJsonKey = gcpSAJsonKey,
     source = source,
-    outputTableId =
-      Some(BigQueryJobBase.extractProjectDatasetAndTable(outputDataset.get, outputTable.get)),
+    outputTableId = Some(
+      BigQueryJobBase.extractProjectDatasetAndTable(
+        outputDataset.getOrElse(throw new Exception("outputDataset must be defined")),
+        outputTable.get
+      )
+    ),
     outputPartition = outputPartition,
     outputClustering = outputClustering,
     sourceFormat = sourceFormat,

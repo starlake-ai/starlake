@@ -293,8 +293,7 @@ trait BigQueryJobBase extends StrictLogging {
   }
 
   protected lazy val tableId: TableId = {
-    require(cliConfig.outputTableId.isDefined, "TableId must be defined")
-    cliConfig.outputTableId.get
+    cliConfig.outputTableId.getOrElse(throw new Exception("TableId must be defined"))
   }
 
   protected lazy val datasetId: DatasetId = BigQueryJobBase.getBqDatasetId(tableId)
