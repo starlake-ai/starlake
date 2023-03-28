@@ -8,11 +8,12 @@ class YamlSerializerSpec extends TestHelper {
   new WithSettings() {
     "Job with no explicit engine toMap" should "should produce the correct map" in {
       val task = AutoTaskDesc(
-        "",
-        Some("select firstname, lastname, age from {{view}} where age=${age}"),
-        "user",
-        "user",
-        WriteMode.OVERWRITE
+        name = "",
+        sql = Some("select firstname, lastname, age from {{view}} where age=${age}"),
+        domain = "user",
+        table = "user",
+        write = WriteMode.OVERWRITE,
+        python = None
       )
       val job =
         AutoJobDesc(
@@ -44,11 +45,12 @@ class YamlSerializerSpec extends TestHelper {
     }
     "Job wit BQ engine toMap" should "should produce the correct map with right engine" in {
       val task = AutoTaskDesc(
-        "",
-        Some("select firstname, lastname, age from dataset.table where age=${age}"),
-        "user",
-        "user",
-        WriteMode.OVERWRITE
+        name = "",
+        sql = Some("select firstname, lastname, age from dataset.table where age=${age}"),
+        domain = "user",
+        table = "user",
+        write = WriteMode.OVERWRITE,
+        python = None
       )
       val job =
         AutoJobDesc(
@@ -79,11 +81,12 @@ class YamlSerializerSpec extends TestHelper {
     }
     "Job with SPARK engine toMap" should "should produce the correct map" in {
       val task = AutoTaskDesc(
-        "",
-        Some("select firstname, lastname, age from {{view}} where age=${age}"),
-        "user",
-        "user",
-        WriteMode.OVERWRITE
+        name = "",
+        sql = Some("select firstname, lastname, age from {{view}} where age=${age}"),
+        domain = "user",
+        table = "user",
+        write = WriteMode.OVERWRITE,
+        python = None
       )
       val job =
         AutoJobDesc(

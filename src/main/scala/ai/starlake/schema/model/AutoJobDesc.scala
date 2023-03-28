@@ -59,13 +59,14 @@ case class AutoTaskDesc(
   sink: Option[Sink] = None,
   rls: List[RowLevelSecurity] = Nil,
   assertions: Map[String, String] = Map.empty,
-  sqlEngine: Option[Engine] = None,
+  engine: Option[Engine] = None,
   acl: List[AccessControlEntry] = Nil,
   comment: Option[String] = None,
   format: Option[String] = None,
   coalesce: Option[Boolean] = None,
   freshness: Option[Freshness] = None,
-  attributesDesc: List[AttributeDesc] = Nil
+  attributesDesc: List[AttributeDesc] = Nil,
+  python: Option[Path]
 ) extends Named {
 
   def checkValidity(): Either[List[String], Boolean] = {
@@ -73,11 +74,12 @@ case class AutoTaskDesc(
   }
 
   def this() = this(
-    "",
-    None,
-    "",
-    "",
-    WriteMode.OVERWRITE
+    name = "",
+    sql = None,
+    domain = "",
+    table = "",
+    write = WriteMode.OVERWRITE,
+    python = None
   ) // Should never be called. Here for Jackson deserialization only
 
   def getSql(): String = sql.getOrElse("")
