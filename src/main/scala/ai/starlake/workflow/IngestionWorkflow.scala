@@ -701,6 +701,7 @@ class IngestionWorkflow(
               case (Success((SparkJobResult(None), _)), _) =>
                 true
               case (Success((SparkJobResult(Some(dataFrame)), _)), Some(_)) =>
+                // For interactive display. Used by the VSCode plugin
                 logger.info("""START QUERY SQL""")
                 dataFrame.show(false)
                 logger.info("""END QUERY SQL""")
