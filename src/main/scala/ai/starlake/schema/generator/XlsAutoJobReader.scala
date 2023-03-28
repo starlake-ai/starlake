@@ -80,7 +80,7 @@ class XlsAutoJobReader(input: Input, policyInput: Option[Input]) extends XlsMode
               case _ => BigQuerySink()
             }),
             rls = rls,
-            sqlEngine = if (isPartition) Some(Engine.BQ) else None,
+            engine = if (isPartition) Some(Engine.BQ) else None,
             acl = acl,
             comment = commentOpt,
             attributesDesc = {
@@ -119,7 +119,8 @@ class XlsAutoJobReader(input: Input, policyInput: Option[Input]) extends XlsMode
                     }
                   }.toList
                 })
-            }.getOrElse(Nil)
+            }.getOrElse(Nil),
+            python = None
           )
         )
       )
