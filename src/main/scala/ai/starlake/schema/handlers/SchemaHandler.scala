@@ -98,7 +98,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     val paths = storage.list(DatasetArea.jobs, ".yml", recursive = true)
     paths.flatMap { path =>
       val ymlWarnings = checkVarsAreDefined(path)
-      val sqlPath = taskSqlPath(path, "")
+      val sqlPath = taskCommandPath(path, "")
       val sqlWarnings = sqlPath.map(checkVarsAreDefined).getOrElse(Nil)
       ymlWarnings ++ sqlWarnings
     }
@@ -269,14 +269,14 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     allFiles
   }
 
-  private def loadSqlJi2Files(path: Path): Map[String, String] = {
+  private def loadSqlJ2Files(path: Path): Map[String, String] = {
     val allFiles = listSqlj2Files(path)
     allFiles.map { sqlFile =>
       loadSqlJ2File(sqlFile)
     }.toMap
   }
 
-  def views(): Map[String, String] = loadSqlJi2Files(DatasetArea.views)
+  def views(): Map[String, String] = loadSqlJ2Files(DatasetArea.views)
 
   def view(viewName: String): Option[String] = loadSqlJ2File(DatasetArea.views, viewName)
 
@@ -533,7 +533,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       for (i <- 0 until tasksNode.size()) {
         val taskNode: ObjectNode = tasksNode.get(i).asInstanceOf[ObjectNode]
         YamlSerializer.renameField(taskNode, "dataset", "table")
-        YamlSerializer.renameField(taskNode, "engine", "sqlEngine")
+        YamlSerializer.renameField(taskNode, "sqlEngine", "engine")
         taskNode.path("sink") match {
           case node if node.isMissingNode => // do nothing
           case sinkNode =>
@@ -563,18 +563,26 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
         jobDesc.copy(tasks = Option(jobDesc.tasks).getOrElse(Nil) ::: autoTasksRefs)
 
       val tasks = jobDescWithRefs.tasks.map { taskDesc =>
-        val taskSqlFile: Option[Path] = taskSqlPath(jobPath, taskDesc.name)
+        val taskCommandFile: Option[Path] = taskCommandPath(jobPath, taskDesc.name)
 
-        val task = taskSqlFile
+        val task = taskCommandFile
           .map { taskFile =>
-            val sqlTask = SqlTaskExtractor(storage.read(taskFile))
-            taskDesc.copy(
-              domain = Option(taskDesc.domain).getOrElse(""),
-              table = taskDesc.table,
-              presql = sqlTask.presql,
-              sql = Option(sqlTask.sql),
-              postsql = sqlTask.postsql
-            )
+            if (taskFile.toString.endsWith(".py"))
+              taskDesc.copy(
+                domain = Option(taskDesc.domain).getOrElse(""),
+                table = taskDesc.table,
+                python = Some(taskFile)
+              )
+            else {
+              val sqlTask = SqlTaskExtractor(storage.read(taskFile))
+              taskDesc.copy(
+                domain = Option(taskDesc.domain).getOrElse(""),
+                table = taskDesc.table,
+                presql = sqlTask.presql,
+                sql = Option(sqlTask.sql),
+                postsql = sqlTask.postsql
+              )
+            }
           }
           .getOrElse(taskDesc)
         // grants list can be set a comma separated list in YAML , and transformed to a list while parsing
@@ -590,10 +598,10 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
         )
       }
       val jobName = finalDomainOrJobName(jobPath, jobDesc.name)
-      val tasksWithNoSQL = tasks.filter(_.sql.isEmpty)
+      val tasksWithoutCommand = tasks.filter(t => t.sql.isEmpty && t.python.isEmpty)
       assert(
-        tasksWithNoSQL.isEmpty,
-        s"Tasks ${tasksWithNoSQL.map(_.name).mkString(",")} in job ${jobDesc.name} in path $jobPath need to define a query either through sql attribute or a sql file."
+        tasksWithoutCommand.isEmpty,
+        s"Task(s) ${tasksWithoutCommand.map(_.name).mkString(",")} in job ${jobDesc.name} in path $jobPath need to define a query either through sql attribute or a sql file."
       )
       jobDesc.copy(
         name = jobName,
@@ -646,7 +654,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     autoTasksRefs
   }
 
-  private def taskSqlPath(path: Path, taskName: String): Option[Path] = {
+  private def taskCommandPath(path: Path, taskName: String): Option[Path] = {
     val sqlFilePrefix = path.toString.substring(0, path.toString.length - ".comet.yml".length)
     val sqlTaskFile = taskName.nonEmpty match {
       case true  => new Path(s"$sqlFilePrefix.$taskName.sql")
@@ -656,17 +664,18 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       case true  => new Path(s"$sqlFilePrefix.$taskName.sql.j2")
       case false => new Path(s"$sqlFilePrefix.sql.j2")
     }
-    val taskFile = (storage.exists(sqlTaskFile), storage.exists(j2TaskFile)) match {
-      case (true, true) =>
-        Some(j2TaskFile)
-      case (true, false) =>
-        Some(sqlTaskFile)
-      case (false, true) =>
-        Some(j2TaskFile)
-      case (false, false) =>
-        None
+    val pythonTaskFile = taskName.nonEmpty match {
+      case true  => new Path(s"$sqlFilePrefix.$taskName.py")
+      case false => new Path(s"$sqlFilePrefix.py")
     }
-    taskFile
+    if (storage.exists(pythonTaskFile))
+      Some(pythonTaskFile)
+    else if (storage.exists(j2TaskFile))
+      Some(j2TaskFile)
+    else if (storage.exists(sqlTaskFile))
+      Some(sqlTaskFile)
+    else
+      None
   }
 
   /** To be deprecated soon
