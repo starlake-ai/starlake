@@ -485,101 +485,16 @@ trait IngestionJob extends SparkJob {
       val sinkType = mergedMetadata.getSink().map(_.getType())
       sinkType.getOrElse(SinkType.None) match {
         case SinkType.ES if settings.comet.elasticsearch.active =>
-          val sink = mergedMetadata.getSink().map(_.asInstanceOf[EsSink])
-          val config = ESLoadConfig(
-            timestamp = sink.flatMap(_.timestamp),
-            id = sink.flatMap(_.id),
-            format = settings.comet.defaultFormat,
-            domain = domain.name,
-            schema = schema.name,
-            dataset = Some(Right(mergedDF)),
-            options = sink.map(_.getOptions).getOrElse(Map.empty)
-          )
-          new ESLoadJob(config, storageHandler, schemaHandler).run()
-          mergedDF
+          esSink(mergedDF)
         case SinkType.ES if !settings.comet.elasticsearch.active =>
           logger.warn("Indexing to ES requested but elasticsearch not active in conf file")
           mergedDF
         case SinkType.BQ =>
-          val sink = mergedMetadata.getSink().map(_.asInstanceOf[BigQuerySink])
-          val (createDisposition: String, writeDisposition: String) = Utils.getDBDisposition(
-            mergedMetadata.getWrite(),
-            schema.merge.exists(_.key.nonEmpty)
-          )
-
-          /* We load the schema from the postsql returned dataframe if any */
-          val tableSchema = schema.postsql match {
-            case Nil => Some(schema.bqSchema(schemaHandler))
-            case _   => Some(BigQueryUtils.bqSchema(mergedDF.schema))
-          }
-          val config = BigQueryLoadConfig(
-            None,
-            None,
-            source = Right(mergedDF),
-            outputTableId = Some(
-              BigQueryJobBase
-                .extractProjectDatasetAndTable(domain.getFinalName(), schema.getFinalName())
-            ),
-            sourceFormat = settings.comet.defaultFormat,
-            createDisposition = createDisposition,
-            writeDisposition = writeDisposition,
-            location = sink.flatMap(_.location),
-            outputPartition = sink.flatMap(_.timestamp),
-            outputClustering = sink.flatMap(_.clustering).getOrElse(Nil),
-            days = sink.flatMap(_.days),
-            requirePartitionFilter = sink.flatMap(_.requirePartitionFilter).getOrElse(false),
-            rls = schema.rls,
-            options = sink.map(_.getOptions).getOrElse(Map.empty),
-            partitionsToUpdate = partitionsToUpdate,
-            starlakeSchema = Some(schema),
-            domainTags = domain.tags,
-            domainDescription = domain.comment
-          )
-          val res = new BigQuerySparkJob(
-            config,
-            tableSchema,
-            schema.comment
-          ).run()
-          res match {
-            case Success(_) => ;
-            case Failure(e) =>
-              throw e
-          }
-          mergedDF
+          bqSink(mergedDF, partitionsToUpdate)
         case SinkType.KAFKA =>
-          Utils.withResources(new KafkaClient(settings.comet.kafka)) { kafkaClient =>
-            kafkaClient.sinkToTopic(settings.comet.kafka.topics(schema.getFinalName()), mergedDF)
-          }
-          mergedDF
+          kafkaSink(mergedDF)
         case SinkType.JDBC =>
-          val (createDisposition: CreateDisposition, writeDisposition: WriteDisposition) = {
-
-            val (cd, wd) = Utils.getDBDisposition(
-              mergedMetadata.getWrite(),
-              schema.merge.exists(_.key.nonEmpty)
-            )
-            (CreateDisposition.valueOf(cd), WriteDisposition.valueOf(wd))
-          }
-          val sink = mergedMetadata.getSink().map(_.asInstanceOf[JdbcSink])
-          sink.foreach { sink =>
-            val jdbcConfig = ConnectionLoadConfig.fromComet(
-              sink.connection,
-              settings.comet,
-              Right(mergedDF),
-              outputTable = schema.getFinalName(),
-              createDisposition = createDisposition,
-              writeDisposition = writeDisposition,
-              options = sink.getOptions
-            )
-
-            val res = new ConnectionLoadJob(jdbcConfig).run()
-            res match {
-              case Success(_) => ;
-              case Failure(e) =>
-                throw e
-            }
-          }
-          mergedDF
+          genericSink(mergedDF)
         case SinkType.FS if !settings.comet.sinkToFile =>
           val acceptedPath =
             new Path(DatasetArea.accepted(domain.getFinalName()), schema.getFinalName())
@@ -598,6 +513,107 @@ trait IngestionJob extends SparkJob {
           mergedDF
       }
     }
+  }
+
+  private def kafkaSink(mergedDF: DataFrame) = {
+    Utils.withResources(new KafkaClient(settings.comet.kafka)) { kafkaClient =>
+      kafkaClient.sinkToTopic(settings.comet.kafka.topics(schema.getFinalName()), mergedDF)
+    }
+    mergedDF
+  }
+
+  private def genericSink(mergedDF: DataFrame) = {
+    val (createDisposition: CreateDisposition, writeDisposition: WriteDisposition) = {
+
+      val (cd, wd) = Utils.getDBDisposition(
+        mergedMetadata.getWrite(),
+        schema.merge.exists(_.key.nonEmpty)
+      )
+      (CreateDisposition.valueOf(cd), WriteDisposition.valueOf(wd))
+    }
+    val sink = mergedMetadata.getSink().map(_.asInstanceOf[JdbcSink])
+    sink.foreach { sink =>
+      val jdbcConfig = ConnectionLoadConfig.fromComet(
+        sink.connection,
+        settings.comet,
+        Right(mergedDF),
+        outputTable = schema.getFinalName(),
+        createDisposition = createDisposition,
+        writeDisposition = writeDisposition,
+        options = sink.getOptions
+      )
+
+      val res = new ConnectionLoadJob(jdbcConfig).run()
+      res match {
+        case Success(_) => ;
+        case Failure(e) =>
+          throw e
+      }
+    }
+    mergedDF
+  }
+
+  private def bqSink(mergedDF: DataFrame, partitionsToUpdate: List[String]): DataFrame = {
+    val sink = mergedMetadata.getSink().map(_.asInstanceOf[BigQuerySink])
+    val (createDisposition: String, writeDisposition: String) = Utils.getDBDisposition(
+      mergedMetadata.getWrite(),
+      schema.merge.exists(_.key.nonEmpty)
+    )
+
+    /* We load the schema from the postsql returned dataframe if any */
+    val tableSchema = schema.postsql match {
+      case Nil => Some(schema.bqSchema(schemaHandler))
+      case _   => Some(BigQueryUtils.bqSchema(mergedDF.schema))
+    }
+    val config = BigQueryLoadConfig(
+      None,
+      None,
+      source = Right(mergedDF),
+      outputTableId = Some(
+        BigQueryJobBase
+          .extractProjectDatasetAndTable(domain.getFinalName(), schema.getFinalName())
+      ),
+      sourceFormat = settings.comet.defaultFormat,
+      createDisposition = createDisposition,
+      writeDisposition = writeDisposition,
+      location = sink.flatMap(_.location),
+      outputPartition = sink.flatMap(_.timestamp),
+      outputClustering = sink.flatMap(_.clustering).getOrElse(Nil),
+      days = sink.flatMap(_.days),
+      requirePartitionFilter = sink.flatMap(_.requirePartitionFilter).getOrElse(false),
+      rls = schema.rls,
+      options = sink.map(_.getOptions).getOrElse(Map.empty),
+      partitionsToUpdate = partitionsToUpdate,
+      starlakeSchema = Some(schema),
+      domainTags = domain.tags,
+      domainDescription = domain.comment
+    )
+    val res = new BigQuerySparkJob(
+      config,
+      tableSchema,
+      schema.comment
+    ).run()
+    res match {
+      case Success(_) => ;
+      case Failure(e) =>
+        throw e
+    }
+    mergedDF
+  }
+
+  private def esSink(mergedDF: DataFrame): DataFrame = {
+    val sink = mergedMetadata.getSink().map(_.asInstanceOf[EsSink])
+    val config = ESLoadConfig(
+      timestamp = sink.flatMap(_.timestamp),
+      id = sink.flatMap(_.id),
+      format = settings.comet.defaultFormat,
+      domain = domain.name,
+      schema = schema.name,
+      dataset = Some(Right(mergedDF)),
+      options = sink.map(_.getOptions).getOrElse(Map.empty)
+    )
+    new ESLoadJob(config, storageHandler, schemaHandler).run()
+    mergedDF
   }
 
   def extractTableAcl(): List[String] = {
