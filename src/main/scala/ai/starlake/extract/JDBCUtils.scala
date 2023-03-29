@@ -2,6 +2,7 @@ package ai.starlake.extract
 
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.schema.model.{Attribute, Domain, Schema}
+import ai.starlake.utils.Utils
 import better.files.File
 import com.typesafe.scalalogging.LazyLogging
 
@@ -349,8 +350,10 @@ object JDBCUtils extends LazyLogging {
 
     val cometSchema = selectedTablesAndColumns.map {
       case (tableName, (tableRemarks, selectedColumns, primaryKeys)) =>
+        val sanitizedTableName = Utils.keepAlphaNum(tableName)
         Schema(
           name = tableName,
+          rename = if (sanitizedTableName != tableName) Some(sanitizedTableName) else None,
           pattern = Pattern.compile(s"$tableName.*"),
           attributes = selectedColumns.map(_.copy(trim = trimTemplate)),
           metadata = None,
@@ -375,7 +378,7 @@ object JDBCUtils extends LazyLogging {
       }
       .getOrElse(s"/${jdbcSchema.schema}")
 
-    val normalizedDomainName = DatasetArea.normalizeDomainName(jdbcSchema.schema)
+    val normalizedDomainName = Utils.keepAlphaNum(jdbcSchema.schema)
     val rename = domainTemplate
       .flatMap(_.rename)
       .map { name =>
