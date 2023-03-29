@@ -73,6 +73,8 @@ import scala.collection.mutable
   *   : List of attributes to use for clustering
   * @param xml
   *   : com.databricks.spark.xml options to use (eq. rowTag)
+  * @param fillWithDefaultValue:
+  *   if true, then it getters return default value, otherwise return currently defined value only
   */
 case class Metadata(
   mode: Option[Mode] = None, // deprecated("Unused but reserved", "0.6.4")
@@ -98,7 +100,8 @@ case class Metadata(
   emptyIsNull: Option[Boolean] = None,
   schedule: Option[Map[String, String]] = None,
   freshness: Option[Freshness] = None,
-  nullValue: Option[String] = None
+  nullValue: Option[String] = None,
+  fillWithDefaultValue: Boolean = true
 ) {
   def this() = this(None) // Should never be called. Here for Jackson deserialization only
 
@@ -128,25 +131,29 @@ case class Metadata(
        |emptyIsNull:${emptyIsNull}
        |""".stripMargin
 
-  def getMode(): Mode = mode.getOrElse(FILE)
+  def getMode(): Mode = getFinalValue(mode, FILE)
 
-  def getFormat(): Format = format.getOrElse(DSV)
+  def getFormat(): Format = getFinalValue(format, DSV)
 
-  def getEncoding(): String = encoding.getOrElse("UTF-8")
+  def getEncoding(): String = getFinalValue(encoding, "UTF-8")
 
-  def getMultiline(): Boolean = multiline.getOrElse(false)
+  // scala Boolean value don't have implicit ev Null subtype and boxing java boolean to scala boolean turn null to False. That is why we keep the type as java one here
+  def getMultiline(): java.lang.Boolean =
+    getFinalValue(multiline.map(_.booleanValue()), false)
 
-  def isArray(): Boolean = array.getOrElse(false)
+  def isArray(): java.lang.Boolean =
+    getFinalValue(array.map(_.booleanValue()), false)
 
-  def isWithHeader(): Boolean = withHeader.getOrElse(true)
+  def isWithHeader(): java.lang.Boolean =
+    getFinalValue(withHeader.map(_.booleanValue()), false)
 
-  def getSeparator(): String = separator.getOrElse(";")
+  def getSeparator(): String = getFinalValue(separator, ";")
 
-  def getQuote(): String = quote.getOrElse("\"")
+  def getQuote(): String = getFinalValue(quote, "\"")
 
-  def getEscape(): String = escape.getOrElse("\\")
+  def getEscape(): String = getFinalValue(escape, "\\")
 
-  def getWrite(): WriteMode = this.getSink().flatMap(_.write).orElse(write).getOrElse(APPEND)
+  def getWrite(): WriteMode = getFinalValue(this.getSink().flatMap(_.write).orElse(write), APPEND)
 
   @JsonIgnore
   // scalastyle:off null
@@ -174,6 +181,18 @@ case class Metadata(
   def getXsdPath(): Option[String] = {
     val xmlOptions = getXmlOptions()
     xmlOptions.get("rowValidationXSDPath").orElse(xmlOptions.get("xsdPath"))
+  }
+
+  @JsonIgnore
+  def isFillWithDefaultValue(): Boolean = {
+    fillWithDefaultValue
+  }
+
+  private def getFinalValue[T](param: Option[T], defaultValue: => T)(implicit ev: Null <:< T): T = {
+    if (fillWithDefaultValue)
+      param.getOrElse(defaultValue)
+    else
+      param.orNull
   }
 
   /** Merge a single attribute
@@ -226,6 +245,57 @@ case class Metadata(
       nullValue = merge(this.nullValue, child.nullValue),
       emptyIsNull = merge(this.emptyIsNull, child.emptyIsNull)
     )
+  }
+
+  /** Keep metadata that are different only
+    *
+    * @param parent
+    *   : Schema level metadata
+    * @return
+    *   the metadata that differs between parent and this element.
+    */
+  def `keepIfDifferent`(parent: Metadata): Metadata = {
+    Metadata(
+      mode = if (parent.mode != this.mode) this.mode else None,
+      format = if (parent.format != this.format) this.format else None,
+      encoding = if (parent.encoding != this.encoding) this.encoding else None,
+      multiline = if (parent.multiline != this.multiline) this.multiline else None,
+      array = if (parent.array != this.array) this.array else None,
+      withHeader = if (parent.withHeader != this.withHeader) this.withHeader else None,
+      separator = if (parent.separator != this.separator) this.separator else None,
+      quote = if (parent.quote != this.quote) this.quote else None,
+      escape = if (parent.escape != this.escape) this.escape else None,
+      write = if (parent.write != this.write) this.write else None,
+      partition = if (parent.partition != this.partition) this.partition else None,
+      sink = if (parent.sink != this.sink) this.sink else None,
+      ignore = if (parent.ignore != this.ignore) this.ignore else None,
+      xml = if (parent.xml != this.xml) this.xml else None,
+      directory = if (parent.directory != this.directory) this.directory else None,
+      extensions = if (parent.extensions != this.extensions) this.extensions else Nil,
+      ack = if (parent.ack != this.ack) this.ack else None,
+      options = if (parent.options != this.options) this.options else None,
+      validator = if (parent.validator != this.validator) this.validator else None,
+      schedule = if (parent.schedule != this.schedule) this.schedule else None,
+      freshness = if (parent.freshness != this.freshness) this.freshness else None,
+      nullValue = if (parent.nullValue != this.nullValue) this.nullValue else None,
+      emptyIsNull = if (parent.emptyIsNull != this.emptyIsNull) this.emptyIsNull else None
+    )
+  }
+
+  /** @return
+    *   Some of current instance if any attribute is filled otherwise return None
+    */
+  def asOption(): Option[Metadata] = {
+    if (
+      mode.nonEmpty || format.nonEmpty || encoding.nonEmpty || multiline.nonEmpty || array.nonEmpty ||
+      withHeader.nonEmpty || separator.nonEmpty || quote.nonEmpty || escape.nonEmpty || write.nonEmpty ||
+      partition.nonEmpty || sink.nonEmpty || ignore.nonEmpty || xml.nonEmpty || directory.nonEmpty ||
+      extensions.nonEmpty || ack.nonEmpty || options.nonEmpty || validator.nonEmpty || schedule.nonEmpty ||
+      freshness.nonEmpty || nullValue.nonEmpty || emptyIsNull.nonEmpty
+    )
+      Some(this)
+    else
+      None
   }
 
   def checkValidity(
