@@ -49,7 +49,6 @@ object ExtractSchema extends Extract with LazyLogging {
       val domainTemplate = jdbcSchema.template.map { ymlTemplate =>
         val content = settings.storageHandler
           .read(mappingPath(ymlTemplate))
-          .richFormat(schemaHandler.activeEnv(), Map.empty)
         YamlSerializer.deserializeDomain(content, ymlTemplate) match {
           case Success(domain) =>
             if (domain.resolveDirectoryOpt().isEmpty)
