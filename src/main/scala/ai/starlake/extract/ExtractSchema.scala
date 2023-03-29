@@ -59,7 +59,14 @@ object ExtractSchema extends Extract with LazyLogging {
           case Failure(e) => throw e
         }
       }
-      extractSchema(jdbcSchema, connectionOptions, outputDir(config.outputDir), domainTemplate)
+      val currentDomain = schemaHandler.getDomain(jdbcSchema.schema, raw = true)
+      extractSchema(
+        jdbcSchema,
+        connectionOptions,
+        outputDir(config.outputDir),
+        domainTemplate,
+        currentDomain
+      )
     }
   }
 
@@ -67,31 +74,67 @@ object ExtractSchema extends Extract with LazyLogging {
     jdbcSchema: JDBCSchema,
     connectionOptions: Map[String, String],
     baseOutputDir: File,
-    domainTemplate: Option[Domain]
+    domainTemplate: Option[Domain],
+    currentDomain: Option[Domain]
   )(implicit
     settings: Settings
   ): Unit = {
 
+    // End of list element have higher precedence
+    def mergeAllMetadata(metadatas: List[Metadata]): Metadata = {
+      metadatas.foldLeft(Metadata())(_.`import`(_))
+    }
+
     val domainName = jdbcSchema.schema.replaceAll("[^\\p{Alnum}]", "_")
     baseOutputDir.createDirectories()
     File(baseOutputDir, domainName).createDirectories()
-    val domain = extractDomain(jdbcSchema, connectionOptions, domainTemplate)
+    val extractedDomain = extractDomain(jdbcSchema, connectionOptions, domainTemplate)
+    val domain = extractedDomain.copy(metadata =
+      mergeAllMetadata(Nil ++ currentDomain.flatMap(_.metadata) ++ extractedDomain.metadata)
+        .copy(fillWithDefaultValue = false)
+        .asOption()
+    )
     val tables = domain.tables
     val tableRefs = tables.map("_" + _.name)
     tables.foreach { table =>
-      val tableWithWrite = jdbcSchema.write match {
-        case None => table
-        case Some(write) =>
-          val metadata =
-            domainTemplate.flatMap(_.metadata).getOrElse(Metadata()).copy(write = jdbcSchema.write)
-          table.copy(metadata = Some(metadata))
-      }
+      val restoredTable =
+        currentDomain.flatMap(_.tables.find(_.name == table.name)) match {
+          case Some(currentTable) =>
+            table.copy(
+              rename = table.rename.orElse(currentTable.rename),
+              comment = table.comment.orElse(currentTable.comment),
+              metadata =
+                mergeAllMetadata(Nil ++ domain.metadata ++ currentTable.metadata ++ table.metadata)
+                  .`keepIfDifferent`(domain.metadata.getOrElse(Metadata()))
+                  .copy(fillWithDefaultValue = false)
+                  .asOption(),
+              merge = table.merge.orElse(currentTable.merge),
+              presql = if (table.presql.isEmpty) currentTable.presql else table.presql,
+              postsql = if (table.postsql.isEmpty) currentTable.postsql else table.postsql,
+              tags = if (table.tags.isEmpty) currentTable.tags else table.tags,
+              rls = if (table.rls.isEmpty) currentTable.rls else table.rls,
+              assertions =
+                if (table.assertions.isEmpty) currentTable.assertions else table.assertions,
+              acl = if (table.acl.isEmpty) currentTable.acl else table.acl,
+              sample = table.sample.orElse(currentTable.sample)
+            )
+          case None =>
+            table.copy(metadata =
+              mergeAllMetadata(Nil ++ domain.metadata ++ table.metadata)
+                .`keepIfDifferent`(
+                  domain.metadata.getOrElse(Metadata())
+                )
+                .copy(fillWithDefaultValue = false)
+                .asOption()
+            )
+        }
+
       val tableWithPatternAndWrite = jdbcSchema.pattern match {
-        case None => tableWithWrite
+        case None => restoredTable
         case Some(pattern) =>
           val interpolatePattern = formatExtractPattern(jdbcSchema, table.name, pattern)
           val pat = Pattern.compile(interpolatePattern)
-          tableWithWrite.copy(pattern = pat)
+          restoredTable.copy(pattern = pat)
       }
 
       val content = YamlSerializer.serialize(SchemaRefs(List(tableWithPatternAndWrite)))

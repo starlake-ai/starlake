@@ -299,4 +299,8 @@ object Utils {
     // apply new schema
     df.sqlContext.createDataFrame(df.rdd, newSchema)
   }
+
+  def keepAlphaNum(domain: String): String = {
+    domain.replaceAll("[^\\p{Alnum}]", "_")
+  }
 }

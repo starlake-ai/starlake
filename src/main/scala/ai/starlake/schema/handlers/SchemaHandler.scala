@@ -351,7 +351,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     */
   def getType(tpe: String): Option[Type] = types().find(_.name == tpe)
 
-  def deserializedDomains(domainPath: Path): List[(Path, Try[Domain])] = {
+  def deserializedDomains(domainPath: Path, raw: Boolean = false): List[(Path, Try[Domain])] = {
     val paths = storage.list(
       domainPath,
       extension = ".yml",
@@ -363,57 +363,67 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       .map { path =>
         YamlSerializer
           .deserializeDomain(
-            Utils.parseJinja(storage.read(path), activeEnv()),
+            if (raw) storage.read(path) else Utils.parseJinja(storage.read(path), activeEnv()),
             path.toString
           )
           // grants list can be set a comma separated list in YAML , and transformed to a list while parsing
           .map { domain =>
             {
-              val tables = domain.tables.map { table =>
-                table.copy(
-                  rls = table.rls.map(rls => {
-                    val grants = rls.grants.flatMap(_.replaceAll("\"", "").split(','))
-                    rls.copy(grants = grants)
-                  }),
-                  acl = table.acl.map(acl => {
-                    val grants = acl.grants.flatMap(_.replaceAll("\"", "").split(','))
-                    acl.copy(grants = grants)
-                  })
-                )
+              if (raw) {
+                domain
+              } else {
+                val tables = domain.tables.map { table =>
+                  table.copy(
+                    rls = table.rls.map(rls => {
+                      val grants = rls.grants.flatMap(_.replaceAll("\"", "").split(','))
+                      rls.copy(grants = grants)
+                    }),
+                    acl = table.acl.map(acl => {
+                      val grants = acl.grants.flatMap(_.replaceAll("\"", "").split(','))
+                      acl.copy(grants = grants)
+                    })
+                  )
+                }
+                val metadata = domain.metadata.getOrElse(Metadata())
+                // ideally the emptyNull field should set during object construction but the settings
+                // object is not available in the Metadata object
+                val enrichedMetadata = metadata
+                  .copy(emptyIsNull = metadata.emptyIsNull.orElse(Some(settings.comet.emptyIsNull)))
+                domain.copy(tables = tables, metadata = Some(enrichedMetadata))
               }
-              val metadata = domain.metadata.getOrElse(Metadata())
-              // ideally the emptyNull field should set during object construction but the settings
-              // object is not available in the Metadata object
-              val enrichedMetadata = metadata
-                .copy(emptyIsNull = metadata.emptyIsNull.orElse(Some(settings.comet.emptyIsNull)))
-              domain.copy(tables = tables, metadata = Some(enrichedMetadata))
             }
           }
       }
     paths.zip(domains)
   }
 
-  def domains(reload: Boolean = false): List[Domain] = {
-    if (reload)
-      loadDomains()
-    _domains
+  def domains(reload: Boolean = false, raw: Boolean = false): List[Domain] = {
+    if (reload || raw) { // raw is used only for special use cases so we force it to reload
+      val (_, domains) = loadDomains(raw)
+      domains
+    } else {
+      _domains
+    }
   }
 
   private var (_domainErrors, _domains): (List[String], List[Domain]) = loadDomains()
 
-  def loadDomains(): (List[String], List[Domain]) = {
-    loadDomains(DatasetArea.domains)
+  def loadDomains(raw: Boolean = false): (List[String], List[Domain]) = {
+    loadDomainsFromArea(DatasetArea.domains, raw)
   }
 
   def loadExternals(): (List[String], List[Domain]) = {
-    loadDomains(DatasetArea.external)
+    loadDomainsFromArea(DatasetArea.external)
   }
 
   /** All defined domains Domains are defined under the "domains" folder in the metadata folder
     */
   @throws[Exception]
-  private def loadDomains(area: Path): (List[String], List[Domain]) = {
-    val (validDomainsFile, invalidDomainsFiles) = deserializedDomains(area)
+  private def loadDomainsFromArea(
+    area: Path,
+    raw: Boolean = false
+  ): (List[String], List[Domain]) = {
+    val (validDomainsFile, invalidDomainsFiles) = deserializedDomains(area, raw)
       .map {
         case (path, Success(domain)) =>
           logger.info(s"Loading domain from $path")
@@ -438,18 +448,22 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
             .map { tableRefName =>
               val schemaPath = new Path(folder, tableRefName)
               YamlSerializer.deserializeSchemaRefs(
-                Utils
-                  .parseJinja(storage.read(schemaPath), activeEnv())
-                  .richFormat(activeEnv(), Map.empty),
+                if (raw)
+                  Utils
+                    .parseJinja(storage.read(schemaPath), activeEnv())
+                    .richFormat(activeEnv(), Map.empty)
+                else
+                  storage.read(schemaPath),
                 schemaPath.toString
               )
             }
             .flatMap(_.tables)
-          val tables = (Option(domain.tables).getOrElse(Nil) ::: schemaRefs).map(t =>
-            t.copy(metadata = Some(t.mergedMetadata(domain.metadata)))
-          )
+          val tables = Option(domain.tables).getOrElse(Nil) ::: schemaRefs
+          val finalTables =
+            if (raw) tables
+            else tables.map(t => t.copy(metadata = Some(t.mergedMetadata(domain.metadata))))
           logger.info(s"Successfully loaded Domain  in $path")
-          Success(domain.copy(tables = tables))
+          Success(domain.copy(tables = finalTables))
         case (path, Failure(e)) =>
           logger.error(s"Failed to load domain in $path")
           Utils.logException(logger, e)
@@ -484,7 +498,8 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       s"%s is defined %d times. A directory can only appear once in a domain definition file."
     ) match {
       case Right(_) =>
-        this._domains = domains
+        if (!raw)
+          this._domains = domains
         Nil
       case Left(errors) =>
         errors
@@ -499,7 +514,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     }
     this._domainErrors = nameErrors ++ renameErrors ++ directoryErrors
     this._domainErrors.foreach(logger.error(_))
-    (this._domainErrors, this._domains)
+    (this._domainErrors, domains)
   }
 
   private def checkVarsAreDefined(path: Path): Set[String] = {
@@ -796,7 +811,8 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     * @return
     *   Unique Domain referenced by this name.
     */
-  def getDomain(name: String): Option[Domain] = domains().find(_.name == name)
+  def getDomain(name: String, raw: Boolean = false): Option[Domain] =
+    domains(raw = raw).find(_.name == name)
 
   /** Return all schemas for a domain
     *

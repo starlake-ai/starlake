@@ -22,6 +22,7 @@ package ai.starlake.config
 
 import ai.starlake.schema.handlers.StorageHandler
 import ai.starlake.utils.Formatter.RichFormatter
+import ai.starlake.utils.Utils
 import better.files.File
 import com.fasterxml.jackson.core.{JsonGenerator, JsonParser}
 import com.fasterxml.jackson.databind.annotation.{JsonDeserialize, JsonSerialize}
@@ -151,15 +152,11 @@ object DatasetArea extends StrictLogging {
   }
 
   def substituteDomainAndSchema(domain: String, schema: String, template: String): String = {
-    val normalizedDomainName = normalizeDomainName(domain)
+    val normalizedDomainName = Utils.keepAlphaNum(domain)
     template
       .replace("{{domain}}", domain)
       .replace("{{normalized_domain}}", normalizedDomainName)
       .replace("{{schema}}", schema)
-  }
-
-  def normalizeDomainName(domain: String): String = {
-    domain.replaceAll("[^\\p{Alnum}]", "_")
   }
 
   def discreteMetrics(domain: String, schema: String)(implicit settings: Settings): Path =
