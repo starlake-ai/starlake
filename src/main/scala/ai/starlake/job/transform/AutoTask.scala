@@ -34,6 +34,7 @@ import ai.starlake.schema.model.Stage.UNIT
 import ai.starlake.schema.model._
 import ai.starlake.utils.Formatter.RichFormatter
 import ai.starlake.utils._
+import better.files.File
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
 import org.apache.spark.deploy.PythonRunner
@@ -412,15 +413,11 @@ case class AutoTask(
       val dataframe = (taskDesc.sql, taskDesc.python) match {
         case (Some(sql), None) =>
           Some(loadQuery(sqlWithParameters))
-        case (None, Some(python)) =>
-          PythonRunner.main(Array(python.toString, python.toString))
-          if (session.catalog.tableExists("STARLAKE_TABLE"))
-            Some(session.sqlContext.table("STARLAKE_TABLE"))
-          else
-            None
+        case (None, Some(pythonFile)) =>
+          runPySpark(pythonFile)
         case (None, None) =>
           throw new Exception(
-            s"At least one SQL or Python commadn should be present in task ${taskDesc.name}"
+            s"At least one SQL or Python command should be present in task ${taskDesc.name}"
           )
         case (Some(_), Some(_)) =>
           throw new Exception(
@@ -478,6 +475,33 @@ case class AutoTask(
         logAuditFailure(start, end, e)
     }
     res
+  }
+
+  private def runPySpark(pythonFile: Path): Option[DataFrame] = {
+    // We first download locally all files because PythonRunner only support local filesystem
+    val pyFiles =
+      pythonFile +: settings.sparkConfig.getString("py-files").split(",").map(x => new Path(x.trim))
+    val directory = new Path(File.newTemporaryDirectory().pathAsString)
+    logger.info(s"Python local directory is $directory")
+    pyFiles.foreach { pyFile =>
+      val pyName = pyFile.getName()
+      storageHandler.copyToLocal(pyFile, new Path(directory, pyName))
+    }
+    val pythonParams = commandParameters.flatMap { case (name, value) =>
+      List(s"""--$name""", s"""$value""")
+    }.toArray
+
+    PythonRunner.main(
+      Array(
+        new Path(directory, pythonFile.getName()).toString,
+        pyFiles.mkString(",")
+      ) ++ pythonParams
+    )
+
+    if (session.catalog.tableExists("STARLAKE_TABLE"))
+      Some(session.sqlContext.table("STARLAKE_TABLE"))
+    else
+      None
   }
 
   private def loadQuery(sqlWithParameters: String): DataFrame = {
