@@ -284,6 +284,7 @@ object Settings extends StrictLogging {
     env: String,
     tmpdir: String,
     datasets: String,
+    dags: String,
     metadata: String,
     metrics: Metrics,
     validateOnLoad: Boolean,

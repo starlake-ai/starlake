@@ -194,7 +194,7 @@ class SchemaHandlerSpec extends TestHelper {
         ) {
           getDomain("DOMAIN").foreach { domain =>
             val result = domain.tables.map { table =>
-              table.getFinalName() -> table.containsArrayOfRecords()
+              table.finalName -> table.containsArrayOfRecords()
             }
             val expected =
               List(("User", false), ("Players", false), ("employee", false), ("complexUser", true))
