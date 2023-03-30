@@ -286,11 +286,9 @@ object JDBCUtils extends LazyLogging {
                 .getOrElse(Nil)
             val selectedColumns =
               if (currentTableRequestedColumns.isEmpty)
-                columns.toList
+                columns
               else
-                columns.toList.filter(col =>
-                  currentTableRequestedColumns.contains(col.name.toUpperCase())
-                )
+                columns.filter(col => currentTableRequestedColumns.contains(col.name.toUpperCase()))
             logger.whenDebugEnabled {
               columns.foreach(column =>
                 logger.debug(s"Final schema column: $tableName.${column.name}")
@@ -352,7 +350,12 @@ object JDBCUtils extends LazyLogging {
         Schema(
           name = tableName,
           pattern = Pattern.compile(s"$tableName.*"),
-          attributes = selectedColumns.map(_.copy(trim = trimTemplate)),
+          attributes = selectedColumns.map(attr =>
+            attr.copy(trim =
+              if (isNumeric(attr.`type`)) jdbcSchema.numericTrim.orElse(trimTemplate)
+              else trimTemplate
+            )
+          ),
           metadata = None,
           merge = None,
           comment = Option(tableRemarks),
@@ -385,6 +388,13 @@ object JDBCUtils extends LazyLogging {
       extensions = Nil,
       ack = None
     )
+  }
+
+  private def isNumeric(sparkType: String): Boolean = {
+    sparkType match {
+      case "double" | "decimal" | "long" => true
+      case _                             => false
+    }
   }
 
   private def sparkType(

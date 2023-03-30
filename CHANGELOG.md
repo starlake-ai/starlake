@@ -17,6 +17,7 @@ __New Feature__:
 - Order column extraction from extract-schema according to database column order
 - Set domain description if given on bigquery
 - Add the ability to consider empty string as valid value for required String
+- Apply trim on all numeric during schema extraction. Have higher precedence than the one defined in the template.
 
 __Bug Fix__:
 - **BREAKING CHANGE**: Make directory mandatory only when feature require it. If you rely on exception while generating YML files from xls and vice-versa for any missing directory, you'll have to change. 
