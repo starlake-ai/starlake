@@ -1,6 +1,6 @@
 package ai.starlake.extract
 
-import ai.starlake.schema.model.WriteMode
+import ai.starlake.schema.model.{Trim, WriteMode}
 
 case class JDBCSchemas(
   jdbcSchemas: List[JDBCSchema],
@@ -40,7 +40,8 @@ case class JDBCSchemas(
               else schema.tableTypes,
             template = schema.template.orElse(globalJdbcSchema.flatMap(_.template)),
             write = schema.write.orElse(globalJdbcSchema.flatMap(_.write)),
-            pattern = schema.pattern.orElse(globalJdbcSchema.flatMap(_.pattern))
+            pattern = schema.pattern.orElse(globalJdbcSchema.flatMap(_.pattern)),
+            numericTrim = schema.numericTrim.orElse(globalJdbcSchema.flatMap(_.numericTrim))
           )
           .fillWithDefaultValues()
       }))
@@ -71,7 +72,8 @@ case class JDBCSchema(
   tableTypes: List[String] = Nil,
   template: Option[String] = None,
   write: Option[WriteMode] = None,
-  pattern: Option[String] = None
+  pattern: Option[String] = None,
+  numericTrim: Option[Trim] = None
 ) {
   def this() = this(None) // Should never be called. Here for Jackson deserialization only
 
