@@ -17,6 +17,8 @@ __New Feature__:
 - Order column extraction from extract-schema according to database column order
 - Set domain description if given on bigquery
 - Add the ability to consider empty string as valid value for required String
+- **BREAKING CHANGE** Add `normalized_domain` variable for schema extraction. `domain` keep the original name.
+- keep user changes if set in domain's metadata or table information. Domain-template and other rules that apply to it still have higher precedence.
 
 __Bug Fix__:
 - **BREAKING CHANGE**: Make directory mandatory only when feature require it. If you rely on exception while generating YML files from xls and vice-versa for any missing directory, you'll have to change. 
@@ -31,6 +33,7 @@ __Bug Fix__:
 - **BREAKING CHANGE**: support other projectId for bqNativeJob:
 - close resources for schema extraction
 - escape replacement value
+- **BREAKING CHANGE** domain template in extract-schema is no more interpolated since we plan to use domains accross multiple environment
 
 # 0.6.3
 __New Feature__:
