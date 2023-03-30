@@ -1,7 +1,7 @@
 package ai.starlake.job.sink.bigquery
 
 import ai.starlake.config.Settings
-import ai.starlake.schema.model.TableInfo
+import ai.starlake.schema.model.{ClusteringInfo, FieldPartitionInfo, TableInfo}
 import ai.starlake.utils.{JobResult, SparkJob, SparkJobResult, Utils}
 import com.google.cloud.bigquery.{
   BigQuery,
@@ -74,14 +74,27 @@ class BigQuerySparkJob(
             )
         case Right(df) => df.persist(cacheStorageLevel)
       }
-    }.flatMap(sourceDF =>
+    }.flatMap { sourceDF =>
+      val partitionField = cliConfig.outputPartition.map { partitionField =>
+        FieldPartitionInfo(partitionField, cliConfig.days, cliConfig.requirePartitionFilter)
+      }
+      val clusteringFields = cliConfig.outputClustering match {
+        case Nil    => None
+        case fields => Some(ClusteringInfo(fields.toList))
+      }
       getOrCreateTable(
         cliConfig.domainDescription,
-        TableInfo(tableId, maybeTableDescription, maybeSchema),
+        TableInfo(
+          tableId,
+          maybeTableDescription,
+          maybeSchema,
+          partitionField,
+          clusteringFields
+        ),
         Some(sourceDF)
       )
         .map { case (table, _) => sourceDF -> table }
-    ).map { case (sourceDF, table) =>
+    }.map { case (sourceDF, table) =>
       val stdTableDefinition =
         bigquery()
           .getTable(table.getTableId)
