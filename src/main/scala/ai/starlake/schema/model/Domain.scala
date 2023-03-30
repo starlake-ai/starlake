@@ -216,6 +216,12 @@ import scala.util.Try
 
     // Check Domain name validity
     val forceDomainPrefixRegex = settings.comet.forceDomainPattern.r
+    // TODO: name doesn't need to respect the pattern because it may be renamed. Restriction is based on target database restriction.
+    // We may check depending on the sink type but we may sink differently for each table.
+    // It would be better to assume a starlake pattern to describe a dataset and the container of the dataset such as the bigquery syntax project:dataset
+    // and then apply this syntax to all databases even if natively they don't accept that.
+    // Therefore, it means that we need to adapt on writing to the database, the target name.
+    // The same applies to table name.
     if (!forceDomainPrefixRegex.pattern.matcher(name).matches())
       errorList += s"Domain with name $name should respect the pattern ${forceDomainPrefixRegex.regex}"
 
