@@ -28,6 +28,8 @@ import com.fasterxml.jackson.annotation.JsonIgnore
 
 import scala.collection.mutable
 
+import DagGenerationConfig.dagGenerationConfigMerger
+
 /** Specify Schema properties. These properties may be specified at the schema or domain level Any
   * property not specified at the schema level is taken from the one specified at the domain level
   * or else the default value is returned.
@@ -98,7 +100,7 @@ case class Metadata(
   options: Option[Map[String, String]] = None,
   validator: Option[String] = None,
   emptyIsNull: Option[Boolean] = None,
-  schedule: Option[Map[String, String]] = None,
+  dag: Option[DagGenerationConfig] = None,
   freshness: Option[Freshness] = None,
   nullValue: Option[String] = None,
   fillWithDefaultValue: Boolean = true
@@ -125,7 +127,7 @@ case class Metadata(
        |ack:${ack}
        |options:${options}
        |validator:${validator}
-       |schedule:${schedule}
+       |dag:${dag}
        |freshness:${freshness}
        |nullValue:${nullValue}
        |emptyIsNull:${emptyIsNull}
@@ -207,8 +209,20 @@ case class Metadata(
   protected def merge[T](parent: Option[T], child: Option[T]): Option[T] =
     if (child.isDefined) child else parent
 
+  protected def merge[T, U](parent: Map[T, U], child: Map[T, U]): Map[T, U] =
+    parent ++ child
   protected def merge[T](parent: List[T], child: List[T]): List[T] =
     if (child.nonEmpty) child else parent
+
+  protected def typeMerge[T](parentOpt: Option[T], childOpt: Option[T])(implicit
+    tMerger: (T, T) => T
+  ): Option[T] = {
+    (childOpt, parentOpt) match {
+      case (Some(child), Some(parent)) => Some(tMerger(parent, child))
+      case (Some(_), _)                => childOpt
+      case _                           => parentOpt
+    }
+  }
 
   /** Merge this metadata with its child. Any property defined at the child level overrides the one
     * defined at this level This allow a schema to override the domain metadata attribute Applied to
@@ -219,7 +233,7 @@ case class Metadata(
     * @return
     *   the metadata resulting of the merge of the schema and the domain metadata.
     */
-  def `import`(child: Metadata): Metadata = {
+  def merge(child: Metadata): Metadata = {
     Metadata(
       mode = merge(this.mode, child.mode),
       format = merge(this.format, child.format),
@@ -240,7 +254,7 @@ case class Metadata(
       ack = merge(this.ack, child.ack),
       options = merge(this.options, child.options),
       validator = merge(this.validator, child.validator),
-      schedule = merge(this.schedule, child.schedule),
+      dag = typeMerge(this.dag, child.dag),
       freshness = merge(this.freshness, child.freshness),
       nullValue = merge(this.nullValue, child.nullValue),
       emptyIsNull = merge(this.emptyIsNull, child.emptyIsNull)
@@ -275,7 +289,7 @@ case class Metadata(
       ack = if (parent.ack != this.ack) this.ack else None,
       options = if (parent.options != this.options) this.options else None,
       validator = if (parent.validator != this.validator) this.validator else None,
-      schedule = if (parent.schedule != this.schedule) this.schedule else None,
+      dag = if (parent.dag != this.dag) this.dag else None,
       freshness = if (parent.freshness != this.freshness) this.freshness else None,
       nullValue = if (parent.nullValue != this.nullValue) this.nullValue else None,
       emptyIsNull = if (parent.emptyIsNull != this.emptyIsNull) this.emptyIsNull else None
@@ -290,7 +304,7 @@ case class Metadata(
       mode.nonEmpty || format.nonEmpty || encoding.nonEmpty || multiline.nonEmpty || array.nonEmpty ||
       withHeader.nonEmpty || separator.nonEmpty || quote.nonEmpty || escape.nonEmpty || write.nonEmpty ||
       partition.nonEmpty || sink.nonEmpty || ignore.nonEmpty || xml.nonEmpty || directory.nonEmpty ||
-      extensions.nonEmpty || ack.nonEmpty || options.nonEmpty || validator.nonEmpty || schedule.nonEmpty ||
+      extensions.nonEmpty || ack.nonEmpty || options.nonEmpty || validator.nonEmpty || dag.nonEmpty ||
       freshness.nonEmpty || nullValue.nonEmpty || emptyIsNull.nonEmpty
     )
       Some(this)
@@ -340,6 +354,6 @@ object Metadata {
   /** Merge all metadata into one. End of list element have higher precedence.
     */
   def mergeAll(metadatas: List[Metadata]): Metadata = {
-    metadatas.foldLeft(Metadata())(_.`import`(_))
+    metadatas.foldLeft(Metadata())(_.merge(_))
   }
 }

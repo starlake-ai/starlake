@@ -158,8 +158,11 @@ public class BigQuerySchemaConverters {
                             // nulls, so select required instead of nullable.
                             .setMode(Field.Mode.REQUIRED)
                             .build();
-
-            List<Object> valueList = (List<Object>) value;
+            List<?> valueList;
+            if(value instanceof List)
+                valueList = (List<?>) value;
+            else
+                throw new RuntimeException("Didn't expect something other than a list");
             return new GenericArrayData(
                     valueList.stream()
                             .map(v -> convert(nestedField, v, getStructFieldForRepeatedMode(userProvidedField)))
