@@ -423,53 +423,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     area: Path,
     raw: Boolean = false
   ): (List[String], List[Domain]) = {
-    val (validDomainsFile, invalidDomainsFiles) = deserializedDomains(area, raw)
-      .map {
-        case (path, Success(domain)) =>
-          logger.info(s"Loading domain from $path")
-          val folder = path.getParent()
-          val tableRefNames = domain.tableRefs match {
-            case "*" :: Nil =>
-              storage
-                .list(folder, extension = ".yml", recursive = true)
-                .map(_.getName())
-                .filter(_.startsWith("_"))
-            case _ =>
-              domain.tableRefs.map { ref =>
-                if (!ref.startsWith("_"))
-                  throw new Exception(
-                    s"reference to a schema should start with '_' in domain ${domain.name} in $path for schema ref $ref"
-                  )
-                if (ref.endsWith(".comet.yml") || ref.endsWith(".yaml")) ref else ref + ".comet.yml"
-              }
-          }
-
-          val schemaRefs = tableRefNames
-            .map { tableRefName =>
-              val schemaPath = new Path(folder, tableRefName)
-              YamlSerializer.deserializeSchemaRefs(
-                if (raw)
-                  Utils
-                    .parseJinja(storage.read(schemaPath), activeEnv())
-                    .richFormat(activeEnv(), Map.empty)
-                else
-                  storage.read(schemaPath),
-                schemaPath.toString
-              )
-            }
-            .flatMap(_.tables)
-          val tables = Option(domain.tables).getOrElse(Nil) ::: schemaRefs
-          val finalTables =
-            if (raw) tables
-            else tables.map(t => t.copy(metadata = Some(t.mergedMetadata(domain.metadata))))
-          logger.info(s"Successfully loaded Domain  in $path")
-          Success(domain.copy(tables = finalTables))
-        case (path, Failure(e)) =>
-          logger.error(s"Failed to load domain in $path")
-          Utils.logException(logger, e)
-          Failure(e)
-      }
-      .partition(_.isSuccess)
+    val (validDomainsFile, invalidDomainsFiles) = loadFullDomains(area, raw)
 
     val domains = validDomainsFile
       .collect { case Success(domain) => domain }
@@ -515,6 +469,57 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     this._domainErrors = nameErrors ++ renameErrors ++ directoryErrors
     this._domainErrors.foreach(logger.error(_))
     (this._domainErrors, domains)
+  }
+
+  private def loadFullDomains(area: Path, raw: Boolean): (List[Try[Domain]], List[Try[Domain]]) = {
+    val (validDomainsFile, invalidDomainsFiles) = deserializedDomains(area, raw)
+      .map {
+        case (path, Success(domain)) =>
+          logger.info(s"Loading domain from $path")
+          val folder = path.getParent()
+          val tableRefNames = domain.tableRefs match {
+            case "*" :: Nil =>
+              storage
+                .list(folder, extension = ".yml", recursive = true)
+                .map(_.getName())
+                .filter(_.startsWith("_"))
+            case _ =>
+              domain.tableRefs.map { ref =>
+                if (!ref.startsWith("_"))
+                  throw new Exception(
+                    s"reference to a schema should start with '_' in domain ${domain.name} in $path for schema ref $ref"
+                  )
+                if (ref.endsWith(".comet.yml") || ref.endsWith(".yaml")) ref else ref + ".comet.yml"
+              }
+          }
+
+          val schemaRefs = tableRefNames
+            .map { tableRefName =>
+              val schemaPath = new Path(folder, tableRefName)
+              YamlSerializer.deserializeSchemaRefs(
+                if (raw)
+                  storage.read(schemaPath)
+                else
+                  Utils
+                    .parseJinja(storage.read(schemaPath), activeEnv())
+                    .richFormat(activeEnv(), Map.empty),
+                schemaPath.toString
+              )
+            }
+            .flatMap(_.tables)
+          val tables = Option(domain.tables).getOrElse(Nil) ::: schemaRefs
+          val finalTables =
+            if (raw) tables
+            else tables.map(t => t.copy(metadata = Some(t.mergedMetadata(domain.metadata))))
+          logger.info(s"Successfully loaded Domain  in $path")
+          Success(domain.copy(tables = finalTables))
+        case (path, Failure(e)) =>
+          logger.error(s"Failed to load domain in $path")
+          Utils.logException(logger, e)
+          Failure(e)
+      }
+      .partition(_.isSuccess)
+    (validDomainsFile, invalidDomainsFiles)
   }
 
   private def checkVarsAreDefined(path: Path): Set[String] = {
