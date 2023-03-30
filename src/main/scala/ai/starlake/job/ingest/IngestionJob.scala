@@ -955,8 +955,23 @@ trait IngestionJob extends SparkJob {
     val csvOrJsonLines =
       !mergedMetadata.isArray() && Set(Format.DSV, Format.JSON).contains(mergedMetadata.getFormat())
 
-    val nativeValidator = mergedMetadata.validator.getOrElse("").contains("NativeValidator")
-    if (csvOrJsonLines && sinkToBQ && nativeValidator) Engine.BQ else Engine.SPARK
+    val defaultValidator = mergedMetadata.getFormat() match {
+      case Format.DSV | Format.POSITION | Format.GENERIC | Format.SIMPLE_JSON =>
+        settings.comet.rowValidatorClass
+      case Format.JSON | Format.PARQUET | Format.XML | Format.KAFKA | Format.KAFKASTREAM =>
+        settings.comet.treeValidatorClass
+      case _ => ""
+    }
+
+    val nativeValidator =
+      mergedMetadata.validator.getOrElse(defaultValidator).contains("NativeValidator")
+    if (csvOrJsonLines && sinkToBQ && nativeValidator) {
+      logger.info("Using BQ as ingestion engine")
+      Engine.BQ
+    } else {
+      logger.info("Using Spark as ingestion engine")
+      Engine.SPARK
+    }
   }
 
   def run(): Try[JobResult] = {
