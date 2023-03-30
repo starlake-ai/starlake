@@ -415,6 +415,32 @@ case class Schema(
     }
   }
 
+  /** @param fallbackSchema
+    *   complete missing information with this schema
+    * @param domainMetadata
+    *   metadata to compare with. Useful to keep only things that are different.
+    * @return
+    *   merged schema
+    */
+  def mergeWith(fallbackSchema: Schema, domainMetadata: Option[Metadata] = None) = {
+    this.copy(
+      rename = this.rename.orElse(fallbackSchema.rename),
+      comment = this.comment.orElse(fallbackSchema.comment),
+      metadata = Metadata
+        .mergeAll(Nil ++ domainMetadata ++ fallbackSchema.metadata ++ this.metadata)
+        .`keepIfDifferent`(domainMetadata.getOrElse(Metadata()))
+        .asOption(),
+      merge = this.merge.orElse(fallbackSchema.merge),
+      presql = if (this.presql.isEmpty) fallbackSchema.presql else this.presql,
+      postsql = if (this.postsql.isEmpty) fallbackSchema.postsql else this.postsql,
+      tags = if (this.tags.isEmpty) fallbackSchema.tags else this.tags,
+      rls = if (this.rls.isEmpty) fallbackSchema.rls else this.rls,
+      assertions = if (this.assertions.isEmpty) fallbackSchema.assertions else this.assertions,
+      acl = if (this.acl.isEmpty) fallbackSchema.acl else this.acl,
+      sample = this.sample.orElse(fallbackSchema.sample)
+    )
+  }
+
 }
 
 object Schema {
