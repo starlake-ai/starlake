@@ -336,4 +336,10 @@ object Metadata {
     */
   val CometPartitionColumns =
     List("comet_date", "comet_year", "comet_month", "comet_day", "comet_hour", "comet_minute")
+
+  /** Merge all metadata into one. End of list element have higher precedence.
+    */
+  def mergeAll(metadatas: List[Metadata]): Metadata = {
+    metadatas.foldLeft(Metadata())(_.`import`(_))
+  }
 }
