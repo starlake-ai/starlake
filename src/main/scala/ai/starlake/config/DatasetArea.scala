@@ -22,6 +22,7 @@ package ai.starlake.config
 
 import ai.starlake.schema.handlers.StorageHandler
 import ai.starlake.utils.Formatter.RichFormatter
+import ai.starlake.utils.Utils
 import better.files.File
 import com.fasterxml.jackson.core.{JsonGenerator, JsonParser}
 import com.fasterxml.jackson.databind.annotation.{JsonDeserialize, JsonSerialize}
@@ -140,12 +141,23 @@ object DatasetArea extends StrictLogging {
   def replay(domain: String)(implicit settings: Settings): Path =
     path(domain, settings.comet.area.replay)
 
-  def substituteDomainAndSchemaInPath(domain: String, schema: String, path: String): Path =
+  def substituteDomainAndSchemaInPath(
+    domain: String,
+    schema: String,
+    path: String
+  ): Path = {
     new Path(
-      path
-        .replace("{{domain}}", domain)
-        .replace("{{schema}}", schema)
+      substituteDomainAndSchema(domain, schema, path)
     )
+  }
+
+  def substituteDomainAndSchema(domain: String, schema: String, template: String): String = {
+    val normalizedDomainName = Utils.keepAlphaNum(domain)
+    template
+      .replace("{{domain}}", domain)
+      .replace("{{normalized_domain}}", normalizedDomainName)
+      .replace("{{schema}}", schema)
+  }
 
   def discreteMetrics(domain: String, schema: String)(implicit settings: Settings): Path =
     new Path(metrics(domain, schema), "discrete")
