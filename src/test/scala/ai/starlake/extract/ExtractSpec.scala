@@ -73,7 +73,8 @@ class ExtractSpec extends TestHelper {
       jdbcSchema,
       connectionOptions,
       outputDir,
-      domainTemplate
+      domainTemplate,
+      None
     )
     val publicOutputDir = outputDir / "PUBLIC"
     val publicPath = publicOutputDir / "PUBLIC.comet.yml"
@@ -336,6 +337,7 @@ class ExtractSpec extends TestHelper {
         ).fillWithDefaultValues(),
         settings.comet.connections("test-h2").options,
         File("/tmp"),
+        None,
         None
       )
       val publicPath = File("/tmp/PUBLIC/PUBLIC.comet.yml")
@@ -398,6 +400,7 @@ class ExtractSpec extends TestHelper {
         ).fillWithDefaultValues(),
         settings.comet.connections("test-h2").options,
         File("/tmp"),
+        None,
         None
       )
       val publicPath = File("/tmp/PUBLIC/PUBLIC.comet.yml")

@@ -49,7 +49,6 @@ object ExtractSchema extends Extract with LazyLogging {
       val domainTemplate = jdbcSchema.template.map { ymlTemplate =>
         val content = settings.storageHandler
           .read(mappingPath(ymlTemplate))
-          .richFormat(schemaHandler.activeEnv(), Map.empty)
         YamlSerializer.deserializeDomain(content, ymlTemplate) match {
           case Success(domain) =>
             if (domain.resolveDirectoryOpt().isEmpty)
@@ -60,7 +59,14 @@ object ExtractSchema extends Extract with LazyLogging {
           case Failure(e) => throw e
         }
       }
-      extractSchema(jdbcSchema, connectionOptions, outputDir(config.outputDir), domainTemplate)
+      val currentDomain = schemaHandler.getDomain(jdbcSchema.schema, raw = true)
+      extractSchema(
+        jdbcSchema,
+        connectionOptions,
+        outputDir(config.outputDir),
+        domainTemplate,
+        currentDomain
+      )
     }
   }
 
@@ -68,7 +74,8 @@ object ExtractSchema extends Extract with LazyLogging {
     jdbcSchema: JDBCSchema,
     connectionOptions: Map[String, String],
     baseOutputDir: File,
-    domainTemplate: Option[Domain]
+    domainTemplate: Option[Domain],
+    currentDomain: Option[Domain]
   )(implicit
     settings: Settings
   ): Unit = {
@@ -76,23 +83,41 @@ object ExtractSchema extends Extract with LazyLogging {
     val domainName = jdbcSchema.schema.replaceAll("[^\\p{Alnum}]", "_")
     baseOutputDir.createDirectories()
     File(baseOutputDir, domainName).createDirectories()
-    val domain = extractDomain(jdbcSchema, connectionOptions, domainTemplate)
+    val extractedDomain = extractDomain(jdbcSchema, connectionOptions, domainTemplate)
+    val domain = extractedDomain.copy(metadata =
+      Metadata
+        .mergeAll(Nil ++ currentDomain.flatMap(_.metadata) ++ extractedDomain.metadata)
+        .copy(fillWithDefaultValue = false)
+        .asOption()
+    )
     val tables = domain.tables
     val tableRefs = tables.map("_" + _.name)
     tables.foreach { table =>
-      val tableWithWrite = jdbcSchema.write match {
-        case None => table
-        case Some(write) =>
-          val metadata =
-            domainTemplate.flatMap(_.metadata).getOrElse(Metadata()).copy(write = jdbcSchema.write)
-          table.copy(metadata = Some(metadata))
-      }
+      val restoredTable =
+        currentDomain.flatMap(_.tables.find(_.name == table.name)) match {
+          case Some(currentTable) =>
+            val mergedTable = table.mergeWith(currentTable, domain.metadata)
+            mergedTable.copy(metadata =
+              mergedTable.metadata.map(_.copy(fillWithDefaultValue = false))
+            )
+          case None =>
+            table.copy(metadata =
+              Metadata
+                .mergeAll(Nil ++ domain.metadata ++ table.metadata)
+                .`keepIfDifferent`(
+                  domain.metadata.getOrElse(Metadata())
+                )
+                .copy(fillWithDefaultValue = false)
+                .asOption()
+            )
+        }
+
       val tableWithPatternAndWrite = jdbcSchema.pattern match {
-        case None => tableWithWrite
+        case None => restoredTable
         case Some(pattern) =>
           val interpolatePattern = formatExtractPattern(jdbcSchema, table.name, pattern)
           val pat = Pattern.compile(interpolatePattern)
-          tableWithWrite.copy(pattern = pat)
+          restoredTable.copy(pattern = pat)
       }
 
       val content = YamlSerializer.serialize(SchemaRefs(List(tableWithPatternAndWrite)))
