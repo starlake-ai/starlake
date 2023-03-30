@@ -80,17 +80,13 @@ object ExtractSchema extends Extract with LazyLogging {
     settings: Settings
   ): Unit = {
 
-    // End of list element have higher precedence
-    def mergeAllMetadata(metadatas: List[Metadata]): Metadata = {
-      metadatas.foldLeft(Metadata())(_.`import`(_))
-    }
-
     val domainName = jdbcSchema.schema.replaceAll("[^\\p{Alnum}]", "_")
     baseOutputDir.createDirectories()
     File(baseOutputDir, domainName).createDirectories()
     val extractedDomain = extractDomain(jdbcSchema, connectionOptions, domainTemplate)
     val domain = extractedDomain.copy(metadata =
-      mergeAllMetadata(Nil ++ currentDomain.flatMap(_.metadata) ++ extractedDomain.metadata)
+      Metadata
+        .mergeAll(Nil ++ currentDomain.flatMap(_.metadata) ++ extractedDomain.metadata)
         .copy(fillWithDefaultValue = false)
         .asOption()
     )
@@ -100,27 +96,14 @@ object ExtractSchema extends Extract with LazyLogging {
       val restoredTable =
         currentDomain.flatMap(_.tables.find(_.name == table.name)) match {
           case Some(currentTable) =>
-            table.copy(
-              rename = table.rename.orElse(currentTable.rename),
-              comment = table.comment.orElse(currentTable.comment),
-              metadata =
-                mergeAllMetadata(Nil ++ domain.metadata ++ currentTable.metadata ++ table.metadata)
-                  .`keepIfDifferent`(domain.metadata.getOrElse(Metadata()))
-                  .copy(fillWithDefaultValue = false)
-                  .asOption(),
-              merge = table.merge.orElse(currentTable.merge),
-              presql = if (table.presql.isEmpty) currentTable.presql else table.presql,
-              postsql = if (table.postsql.isEmpty) currentTable.postsql else table.postsql,
-              tags = if (table.tags.isEmpty) currentTable.tags else table.tags,
-              rls = if (table.rls.isEmpty) currentTable.rls else table.rls,
-              assertions =
-                if (table.assertions.isEmpty) currentTable.assertions else table.assertions,
-              acl = if (table.acl.isEmpty) currentTable.acl else table.acl,
-              sample = table.sample.orElse(currentTable.sample)
+            val mergedTable = table.mergeWith(currentTable, domain.metadata)
+            mergedTable.copy(metadata =
+              mergedTable.metadata.map(_.copy(fillWithDefaultValue = false))
             )
           case None =>
             table.copy(metadata =
-              mergeAllMetadata(Nil ++ domain.metadata ++ table.metadata)
+              Metadata
+                .mergeAll(Nil ++ domain.metadata ++ table.metadata)
                 .`keepIfDifferent`(
                   domain.metadata.getOrElse(Metadata())
                 )
