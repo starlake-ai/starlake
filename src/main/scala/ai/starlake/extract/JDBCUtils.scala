@@ -2,6 +2,7 @@ package ai.starlake.extract
 
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.schema.model.{Attribute, Domain, Schema}
+import ai.starlake.utils.Utils
 import better.files.File
 import com.typesafe.scalalogging.LazyLogging
 
@@ -349,8 +350,10 @@ object JDBCUtils extends LazyLogging {
 
     val cometSchema = selectedTablesAndColumns.map {
       case (tableName, (tableRemarks, selectedColumns, primaryKeys)) =>
+        val sanitizedTableName = Utils.keepAlphaNum(tableName)
         Schema(
           name = tableName,
+          rename = if (sanitizedTableName != tableName) Some(sanitizedTableName) else None,
           pattern = Pattern.compile(s"$tableName.*"),
           attributes = selectedColumns.map(_.copy(trim = trimTemplate)),
           metadata = None,
@@ -361,21 +364,35 @@ object JDBCUtils extends LazyLogging {
           primaryKey = primaryKeys
         )
     }
-    val domainName = jdbcSchema.schema.replaceAll("[^\\p{Alnum}]", "_")
+
     // Generate the domain with a dummy watch directory
     val incomingDir = domainTemplate
       .map { dom =>
         DatasetArea
-          .substituteDomainAndSchemaInPath(domainName, "", dom.resolveDirectory())
+          .substituteDomainAndSchemaInPath(
+            jdbcSchema.schema,
+            "",
+            dom.resolveDirectory()
+          )
           .toString
       }
       .getOrElse(s"/${jdbcSchema.schema}")
 
+    val normalizedDomainName = Utils.keepAlphaNum(jdbcSchema.schema)
+    val rename = domainTemplate
+      .flatMap(_.rename)
+      .map { name =>
+        DatasetArea.substituteDomainAndSchema(jdbcSchema.schema, "", name)
+      }
+      .orElse(
+        if (normalizedDomainName != jdbcSchema.schema) Some(normalizedDomainName) else None
+      )
     val extensions = domainTemplate.map(_.resolveExtensions()).getOrElse(Nil)
     val ack = domainTemplate.flatMap(_.resolveAck())
 
     Domain(
-      name = domainName,
+      name = jdbcSchema.schema,
+      rename = rename,
       metadata = domainTemplate
         .flatMap(_.metadata)
         .map(_.copy(directory = Some(incomingDir), extensions = extensions, ack = ack)),
