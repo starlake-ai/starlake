@@ -416,6 +416,27 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     loadDomainsFromArea(DatasetArea.external)
   }
 
+  def deserializedDagGenerationConfig(dagPath: Path): Try[DagGenerationConfig] = {
+    YamlSerializer.deserializeDagGenerationConfig(
+      Utils.parseJinjaTpl(storage.read(dagPath), activeEnv()),
+      dagPath.toString
+    )
+  }
+
+  /** Global dag generation config can only be defined in "dags" folder in the metadata folder.
+    * Override of dag generation config can be done inside domain config file at domain or table
+    * level.
+    */
+  def loadDagGenerationConfig(dagsAreaPath: Path): Try[DagGenerationConfig] = {
+    val dagConfigPath = new Path(dagsAreaPath, "default.comet.yml")
+    if (storage.exists(dagConfigPath)) {
+      deserializedDagGenerationConfig(dagConfigPath)
+    } else {
+      logger.info("No dags config provided. Use only configuration defined in domain config files.")
+      Success(DagGenerationConfig(None, None, None, None, None))
+    }
+  }
+
   /** All defined domains Domains are defined under the "domains" folder in the metadata folder
     */
   @throws[Exception]

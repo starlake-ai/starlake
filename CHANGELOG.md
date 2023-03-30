@@ -20,6 +20,7 @@ __New Feature__:
 - Apply trim on all numeric during schema extraction. Have higher precedence than the one defined in the template.
 - **BREAKING CHANGE** Add `normalized_domain` variable for schema extraction. `domain` keep the original name.
 - keep user changes if set in domain's metadata or table information. Domain-template and other rules that apply to it still have higher precedence.
+- Generate domain dags from yml via yml2dag command
 
 __Bug Fix__:
 - **BREAKING CHANGE**: Make directory mandatory only when feature require it. If you rely on exception while generating YML files from xls and vice-versa for any missing directory, you'll have to change. 
