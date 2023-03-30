@@ -84,7 +84,7 @@ import scala.util.Try
     *   renamed column if defined, source name otherwise
     */
   @JsonIgnore
-  def getFinalName(): String = rename.getOrElse(name)
+  lazy val finalName: String = rename.getOrElse(name)
 
   /** Get schema from filename Schema are matched against filenames using filename patterns. The
     * schema pattern that matches the filename is returned
@@ -282,7 +282,7 @@ import scala.util.Try
 
   def rlsTables(): Map[String, List[RowLevelSecurity]] =
     tables
-      .map(t => (t.getFinalName(), t.rls))
+      .map(t => (t.finalName, t.rls))
       .filter { case (tableName, rls) => rls.nonEmpty }
       .toMap
 
