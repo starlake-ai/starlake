@@ -140,5 +140,36 @@ echo Make sure your java home path does not contain space
 
 #SPARK_DRIVER_OPTIONS="-Dlog4j.configuration=file://$SCRIPT_DIR/bin/spark/conf/log4j2.properties"
 #export SPARK_DRIVER_OPTIONS="-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005 -Dlog4j.configuration=file://$SPARK_DIR/conf/log4j.properties"
-SPARK_SUBMIT="$SPARK_TARGET_FOLDER/bin/spark-submit"
-COMET_ROOT=$COMET_ROOT $SPARK_SUBMIT --driver-java-options "$SPARK_DRIVER_OPTIONS" $SPARK_CONF_OPTIONS --class $COMET_MAIN $SPARK_TARGET_FOLDER/jars/$STARLAKE_JAR_NAME $@
+
+  if [[ -z "$COMET_NATIVE" ]]
+  then
+    SPARK_SUBMIT="$SPARK_TARGET_FOLDER/bin/spark-submit"
+    COMET_ROOT=$COMET_ROOT $SPARK_SUBMIT --driver-java-options "$SPARK_DRIVER_OPTIONS" $SPARK_CONF_OPTIONS --class $COMET_MAIN $SPARK_TARGET_FOLDER/jars/$STARLAKE_JAR_NAME $@
+  else
+    case $COMET_AUDIT_SINK_TYPE in
+        BigQuerySink|NoneSink)
+          COMET_ROOT=$COMET_ROOT java \
+                              --add-opens=java.base/java.lang=ALL-UNNAMED \
+                              --add-opens=java.base/java.lang.invoke=ALL-UNNAMED \
+                              --add-opens=java.base/java.lang.reflect=ALL-UNNAMED \
+                              --add-opens=java.base/java.io=ALL-UNNAMED \
+                              --add-opens=java.base/java.net=ALL-UNNAMED \
+                              --add-opens=java.base/java.nio=ALL-UNNAMED \
+                              --add-opens=java.base/java.util=ALL-UNNAMED \
+                              --add-opens=java.base/java.util.concurrent=ALL-UNNAMED \
+                              --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED \
+                              --add-opens=java.base/sun.nio.ch=ALL-UNNAMED \
+                              --add-opens=java.base/sun.nio.cs=ALL-UNNAMED \
+                              --add-opens=java.base/sun.security.action=ALL-UNNAMED \
+                              --add-opens=java.base/sun.util.calendar=ALL-UNNAMED \
+                              --add-opens=java.security.jgss/sun.security.krb5=ALL-UNNAMED \
+                              -Dlog4j.configuration=file://$SPARK_TARGET_FOLDER/conf/log4j2.properties \
+                              -cp "$SPARK_TARGET_FOLDER/jars/*" $COMET_MAIN $@
+        ;;
+        *)
+          echo "COMET_AUDIT_SINK_TYPE env var must be set ot BigQuerySink or NoneSink"
+        ;;
+    esac
+  fi
+
+
