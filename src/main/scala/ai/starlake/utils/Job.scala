@@ -4,16 +4,15 @@ import ai.starlake.config.{Settings, SparkEnv, UdfRegistration}
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.SinkType.{BQ, FS, JDBC, KAFKA}
 import ai.starlake.schema.model.{Metadata, SinkType, Views}
-import ai.starlake.utils.kafka.KafkaClient
 import ai.starlake.utils.Formatter._
+import ai.starlake.utils.kafka.KafkaClient
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.SparkConf
 import org.apache.spark.sql._
 import org.apache.spark.sql.execution.datasources.jdbc.JDBCOptions
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.IntegerType
-import java.time.LocalDateTime
-import java.time.format.DateTimeFormatter
+
 import scala.util.{Failure, Success, Try}
 
 trait JobResult
@@ -30,12 +29,9 @@ trait JobBase extends StrictLogging with DatasetLogging {
   def name: String
   implicit def settings: Settings
 
-  val appName = {
-    val now = LocalDateTime
-      .now()
-      .format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss.SSS"))
-    s"$name-$now"
-  }
+  val appName = s"$name-${System.currentTimeMillis()}"
+
+  def applicationId(): String = appName
 
   /** Just to force any job to implement its entry point using within the "run" method
     *
@@ -108,7 +104,7 @@ trait SparkJob extends JobBase {
     sparkEnv.session
   }
 
-  val optionalAuditSession: Option[SparkSession] =
+  lazy val optionalAuditSession: Option[SparkSession] =
     if (settings.comet.audit.sink.getType() == SinkType.BQ) None else Some(session)
 
   // TODO Should we issue a warning if used with Overwrite mode ????

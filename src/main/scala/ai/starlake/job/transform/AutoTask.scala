@@ -482,7 +482,7 @@ case class AutoTask(
     message: String
   ): Unit = {
     val log = AuditLog(
-      appName,
+      applicationId(),
       this.name,
       this.taskDesc.domain,
       this.taskDesc.table,
