@@ -482,7 +482,7 @@ case class AutoTask(
     message: String
   ): Unit = {
     val log = AuditLog(
-      session.sparkContext.applicationId,
+      appName,
       this.name,
       this.taskDesc.domain,
       this.taskDesc.table,
@@ -495,7 +495,7 @@ case class AutoTask(
       message,
       Step.TRANSFORM.toString
     )
-    AuditLog.sink(authInfo, session, log)
+    AuditLog.sink(authInfo, optionalAuditSession, log)
   }
 
   private def logAuditSuccess(start: Timestamp, end: Timestamp, jobResultCount: Long): Unit =

@@ -30,6 +30,13 @@ trait JobBase extends StrictLogging with DatasetLogging {
   def name: String
   implicit def settings: Settings
 
+  val appName = {
+    val now = LocalDateTime
+      .now()
+      .format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss.SSS"))
+    s"$name-$now"
+  }
+
   /** Just to force any job to implement its entry point using within the "run" method
     *
     * @return
@@ -74,11 +81,6 @@ trait SparkJob extends JobBase {
     sourceConfig.remove("spark.datasource.bigquery.allowFieldAddition")
     sourceConfig.remove("spark.datasource.bigquery.allowFieldRelaxation")
 
-    val now = LocalDateTime
-      .now()
-      .format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss.SSS"))
-
-    val appName = s"$name-$now"
     val thisConf = sourceConfig.setAppName(appName).set("spark.app.id", appName)
     logger.whenDebugEnabled {
       logger.debug(thisConf.toDebugString)
@@ -105,6 +107,9 @@ trait SparkJob extends JobBase {
     udfs.foreach(registerUdf)
     sparkEnv.session
   }
+
+  val optionalAuditSession: Option[SparkSession] =
+    if (settings.comet.audit.sink.getType() == SinkType.BQ) None else Some(session)
 
   // TODO Should we issue a warning if used with Overwrite mode ????
   // TODO Check that the year / month / day / hour / minute do not already exist
