@@ -179,7 +179,7 @@ trait IngestionJob extends SparkJob {
         }
         val end = Timestamp.from(Instant.now())
         val log = AuditLog(
-          session.sparkContext.applicationId,
+          appName,
           rejectedPath.toString,
           domainName,
           schemaName,
@@ -192,13 +192,13 @@ trait IngestionJob extends SparkJob {
           "success",
           Step.SINK_REJECTED.toString
         )
-        AuditLog.sink(Map.empty, session, log)
+        AuditLog.sink(Map.empty, optionalAuditSession, log)
         Success(rejectedPath)
       case Failure(exception) =>
         logger.error("Failed to save Rejected", exception)
         val end = Timestamp.from(Instant.now())
         val log = AuditLog(
-          session.sparkContext.applicationId,
+          appName,
           new Path(DatasetArea.rejected(domainName), schemaName).toString,
           domainName,
           schemaName,
@@ -211,7 +211,7 @@ trait IngestionJob extends SparkJob {
           Utils.exceptionAsString(exception),
           Step.SINK_REJECTED.toString
         )
-        AuditLog.sink(Map.empty, session, log)
+        AuditLog.sink(Map.empty, optionalAuditSession, log)
         Failure(exception)
     }
   }
@@ -364,7 +364,7 @@ trait IngestionJob extends SparkJob {
         case Success(sinkedDF) =>
           val end = Timestamp.from(Instant.now())
           val log = AuditLog(
-            session.sparkContext.applicationId,
+            appName,
             acceptedPath.toString,
             domain.getFinalName(),
             schema.getFinalName(),
@@ -377,13 +377,13 @@ trait IngestionJob extends SparkJob {
             "success",
             Step.SINK_ACCEPTED.toString
           )
-          AuditLog.sink(Map.empty, session, log)
+          AuditLog.sink(Map.empty, optionalAuditSession, log)
           sinkedDF
         case Failure(exception) =>
           Utils.logException(logger, exception)
           val end = Timestamp.from(Instant.now())
           val log = AuditLog(
-            session.sparkContext.applicationId,
+            appName,
             acceptedPath.toString,
             domain.getFinalName(),
             schema.getFinalName(),
@@ -396,7 +396,7 @@ trait IngestionJob extends SparkJob {
             Utils.exceptionAsString(exception),
             Step.SINK_ACCEPTED.toString
           )
-          AuditLog.sink(Map.empty, session, log)
+          AuditLog.sink(Map.empty, optionalAuditSession, log)
           throw exception
       }
       (sinkedDF, acceptedPath)
@@ -1058,7 +1058,7 @@ trait IngestionJob extends SparkJob {
               val end = Timestamp.from(Instant.now())
               val success = !settings.comet.rejectAllOnError || rejectedCount == 0
               val log = AuditLog(
-                session.sparkContext.applicationId,
+                appName,
                 inputFiles,
                 domain.getFinalName(),
                 schema.getFinalName(),
@@ -1071,7 +1071,7 @@ trait IngestionJob extends SparkJob {
                 if (success) "success" else s"$rejectedCount invalid records",
                 Step.LOAD.toString
               )
-              AuditLog.sink(Map.empty, session, log)
+              AuditLog.sink(Map.empty, optionalAuditSession, log)
               if (success) SparkJobResult(None)
               else throw new Exception("Fail on rejected count requested")
             }
@@ -1079,7 +1079,7 @@ trait IngestionJob extends SparkJob {
             val end = Timestamp.from(Instant.now())
             val err = Utils.exceptionAsString(exception)
             val log = AuditLog(
-              session.sparkContext.applicationId,
+              appName,
               path.map(_.toString).mkString(","),
               domain.getFinalName(),
               schema.getFinalName(),
@@ -1092,7 +1092,7 @@ trait IngestionJob extends SparkJob {
               err,
               Step.LOAD.toString
             )
-            AuditLog.sink(Map.empty, session, log)
+            AuditLog.sink(Map.empty, optionalAuditSession, log)
             logger.error(err)
             Failure(throw exception)
         }

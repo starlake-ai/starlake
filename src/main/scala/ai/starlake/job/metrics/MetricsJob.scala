@@ -129,7 +129,7 @@ class MetricsJob(
     val allDF = List(continuousDF, discreteDF, frequenciesDF).map {
       case Some(dataset) =>
         val res = dataset
-          .withColumn("jobId", lit(session.sparkContext.applicationId))
+          .withColumn("jobId", lit(appName))
           .withColumn("domain", lit(domain.name))
           .withColumn("schema", lit(schema.name))
           .withColumn("count", lit(count))
