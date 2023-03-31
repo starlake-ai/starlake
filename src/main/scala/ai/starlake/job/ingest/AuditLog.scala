@@ -157,12 +157,13 @@ object AuditLog extends StrictLogging {
     BQSchema.of(fields: _*)
   }
 
-  def sink(authInfo: Map[String, String], session: SparkSession, log: AuditLog)(implicit
+  def sink(authInfo: Map[String, String], sessionOpt: Option[SparkSession], log: AuditLog)(implicit
     settings: Settings
   ): Any = {
-    import session.implicits._
 
     def sinkToFile(log: AuditLog, settings: Settings): Unit = {
+      val session = sessionOpt.getOrElse(throw new Exception("Spark Session required"))
+      import session.implicits._
       val lockPath = new Path(settings.comet.audit.path, s"audit.lock")
       val locker = new FileLock(lockPath, settings.storageHandler)
       locker.doExclusively() {
@@ -196,7 +197,9 @@ object AuditLog extends StrictLogging {
 
     settings.comet.audit.sink match {
       case sink: JdbcSink =>
+        val session = sessionOpt.getOrElse(throw new Exception("Spark Session required"))
         val auditTypedRDD: RDD[AuditLog] = session.sparkContext.parallelize(Seq(log))
+        import session.implicits._
         val auditDF = session
           .createDataFrame(
             auditTypedRDD.toDF().rdd,

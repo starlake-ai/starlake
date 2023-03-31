@@ -17,6 +17,7 @@ __New Feature__:
 - Order column extraction from extract-schema according to database column order
 - Set domain description if given on bigquery
 - Add the ability to consider empty string as valid value for required String
+- Apply trim on all numeric during schema extraction. Have higher precedence than the one defined in the template.
 - **BREAKING CHANGE** Add `normalized_domain` variable for schema extraction. `domain` keep the original name.
 - keep user changes if set in domain's metadata or table information. Domain-template and other rules that apply to it still have higher precedence.
 
