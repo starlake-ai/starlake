@@ -32,9 +32,9 @@ types:
       postgres: INT
   - name: "double"
     primitiveType: "double"
-    pattern: "[-+]?\\d*\\.?\\d+[Ee]?\\d*"
+    pattern: "[-+]?\\d*\\.?\\d+[Ee]?[-+]?\\d*"
     sample: "-45.78"
-    comment: "Any flating value"
+    comment: "Any floating value"
     ddlMapping:
       bigquery: FLOAT64
       snowflake: DOUBLE
