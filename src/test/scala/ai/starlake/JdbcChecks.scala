@@ -205,7 +205,7 @@ trait JdbcChecks {
       values.to[Vector]
     ) { rs =>
       val item = AuditLog(
-        rs.getString("jobid"),
+        sparkSession.sparkContext.applicationId,
         rs.getString("paths"),
         rs.getString("domain"),
         rs.getString("schema"),

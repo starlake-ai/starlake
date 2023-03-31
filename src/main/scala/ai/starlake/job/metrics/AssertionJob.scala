@@ -128,7 +128,7 @@ class AssertionJob(
 
       val assertionsDF = session
         .createDataFrame(assertionReports)
-        .withColumn("jobId", lit(session.sparkContext.applicationId))
+        .withColumn("jobId", lit(applicationId()))
         .withColumn("domain", lit(domainName))
         .withColumn("schema", lit(schemaName))
         .withColumn("count", lit(count))
