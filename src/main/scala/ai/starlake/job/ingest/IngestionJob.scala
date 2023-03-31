@@ -179,7 +179,7 @@ trait IngestionJob extends SparkJob {
         }
         val end = Timestamp.from(Instant.now())
         val log = AuditLog(
-          appName,
+          applicationId(),
           rejectedPath.toString,
           domainName,
           schemaName,
@@ -198,7 +198,7 @@ trait IngestionJob extends SparkJob {
         logger.error("Failed to save Rejected", exception)
         val end = Timestamp.from(Instant.now())
         val log = AuditLog(
-          appName,
+          applicationId(),
           new Path(DatasetArea.rejected(domainName), schemaName).toString,
           domainName,
           schemaName,
@@ -364,7 +364,7 @@ trait IngestionJob extends SparkJob {
         case Success(sinkedDF) =>
           val end = Timestamp.from(Instant.now())
           val log = AuditLog(
-            appName,
+            applicationId(),
             acceptedPath.toString,
             domain.getFinalName(),
             schema.getFinalName(),
@@ -383,7 +383,7 @@ trait IngestionJob extends SparkJob {
           Utils.logException(logger, exception)
           val end = Timestamp.from(Instant.now())
           val log = AuditLog(
-            appName,
+            applicationId(),
             acceptedPath.toString,
             domain.getFinalName(),
             schema.getFinalName(),
@@ -1058,7 +1058,7 @@ trait IngestionJob extends SparkJob {
               val end = Timestamp.from(Instant.now())
               val success = !settings.comet.rejectAllOnError || rejectedCount == 0
               val log = AuditLog(
-                appName,
+                applicationId(),
                 inputFiles,
                 domain.getFinalName(),
                 schema.getFinalName(),
@@ -1079,7 +1079,7 @@ trait IngestionJob extends SparkJob {
             val end = Timestamp.from(Instant.now())
             val err = Utils.exceptionAsString(exception)
             val log = AuditLog(
-              appName,
+              applicationId(),
               path.map(_.toString).mkString(","),
               domain.getFinalName(),
               schema.getFinalName(),
