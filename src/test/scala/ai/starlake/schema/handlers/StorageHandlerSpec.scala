@@ -146,16 +146,17 @@ class StorageHandlerSpec extends TestHelper {
 
     "Business Job Definition" should "be valid json" in {
       val businessTask1 = AutoTaskDesc(
-        "",
-        Some("select * from domain"),
-        "DOMAIN",
-        "ANALYSE",
-        WriteMode.OVERWRITE,
-        List("comet_year", "comet_month"),
-        Nil,
-        Nil,
-        None,
-        List(RowLevelSecurity("myrls", "TRUE", Set("user:hayssam.saleh@ebiznext.com")))
+        name = "",
+        sql = Some("select * from domain"),
+        domain = "DOMAIN",
+        table = "ANALYSE",
+        write = WriteMode.OVERWRITE,
+        partition = List("comet_year", "comet_month"),
+        presql = Nil,
+        postsql = Nil,
+        sink = None,
+        rls = List(RowLevelSecurity("myrls", "TRUE", Set("user:hayssam.saleh@ebiznext.com"))),
+        python = None
       )
       val businessJob =
         AutoJobDesc(

@@ -1,6 +1,0 @@
-my-job
-select * from dream_working.client
-dream2
-year,month
-
-
