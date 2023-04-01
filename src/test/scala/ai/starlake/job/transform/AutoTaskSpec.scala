@@ -7,10 +7,10 @@ import org.apache.hadoop.fs.Path
 
 class AutoTaskSpec extends TestHelper {
   new WithSettings() {
-    "File Sink Spark Options in job description " should "be applied to resulting file" in {
+    "File Sink Spark Options in SQL job description " should "be applied to resulting file" in {
       new SpecTrait(
         domainOrJobFilename = "csvOutputJob.comet.yml",
-        sourceDomainOrJobPathname = "/sample/job/csvOutputJob.comet.yml",
+        sourceDomainOrJobPathname = "/sample/job/sql/csvOutputJob.comet.yml",
         datasetDomainName = "file",
         sourceDatasetPathName = "",
         isDomain = false
@@ -26,5 +26,29 @@ class AutoTaskSpec extends TestHelper {
         ) shouldBe "  Name|Last Name   |"
       }
     }
+    "File Sink Spark Options in Python job description " should "be applied to resulting file" in {
+      new SpecTrait(
+        domainOrJobFilename = "piJob.comet.yml",
+        sourceDomainOrJobPathname = "/sample/job/python/piJob.comet.yml",
+        datasetDomainName = "file",
+        sourceDatasetPathName = "",
+        isDomain = false
+      ) {
+        cleanMetadata
+        cleanDatasets
+        deliverTestFile(
+          "/sample/job/python/piJob.pi.py",
+          new Path(this.jobMetadataRootPath, "piJob.pi.py")
+        )
+        val schemaHandler = new SchemaHandler(settings.storageHandler)
+        val workflow = new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher)
+        workflow.autoJob(TransformConfig(name = "piJob"))
+
+        readFileContent(
+          new Path(cometDatasetsPath + "/result/file/file.csv")
+        ).trim shouldBe "Pi is roughly 3.137320"
+      }
+    }
+
   }
 }
