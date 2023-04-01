@@ -178,7 +178,6 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
 
         }
       }
-
     }
   }
 }

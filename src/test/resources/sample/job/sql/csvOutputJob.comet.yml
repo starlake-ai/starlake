@@ -2,7 +2,7 @@ transform:
   coalesce: true
   format: csv
   tasks:
-    - name: csvOutput
+    - name: pi
       domain: result
       table: file
       write: OVERWRITE

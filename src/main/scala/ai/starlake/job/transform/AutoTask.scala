@@ -480,7 +480,11 @@ case class AutoTask(
   private def runPySpark(pythonFile: Path): Option[DataFrame] = {
     // We first download locally all files because PythonRunner only support local filesystem
     val pyFiles =
-      pythonFile +: settings.sparkConfig.getString("py-files").split(",").map(x => new Path(x.trim))
+      pythonFile +: settings.sparkConfig
+        .getString("py-files")
+        .split(",")
+        .filter(_.nonEmpty)
+        .map(x => new Path(x.trim))
     val directory = new Path(File.newTemporaryDirectory().pathAsString)
     logger.info(s"Python local directory is $directory")
     pyFiles.foreach { pyFile =>
