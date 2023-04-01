@@ -50,11 +50,12 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
     "trigger AutoJob by passing parameters on SQL statement" should "generate a dataset in business" in {
 
       val businessTask1 = AutoTaskDesc(
-        "",
-        Some("select firstname, lastname, age from {{view}} where age=${age}"),
-        "business/user",
-        "user",
-        WriteMode.OVERWRITE
+        name = "",
+        sql = Some("select firstname, lastname, age from {{view}} where age=${age}"),
+        domain = "business/user",
+        table = "user",
+        write = WriteMode.OVERWRITE,
+        python = None
       )
       val businessJob =
         AutoJobDesc(
@@ -99,14 +100,15 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
     "Extract file and view dependencies" should "work" in {
 
       val businessTask1 = AutoTaskDesc(
-        "",
-        Some(
+        name = "",
+        sql = Some(
           "select firstname, lastname, age from user_View where age={{age}} and lastname={{lastname}} and firstname={{firstname}}"
         ),
-        "user",
-        "user",
-        WriteMode.OVERWRITE,
-        assertions = Map("uniqFirstname" -> "isUnique(firstname)")
+        domain = "user",
+        table = "user",
+        write = WriteMode.OVERWRITE,
+        assertions = Map("uniqFirstname" -> "isUnique(firstname)"),
+        python = None
       )
       val businessJob =
         AutoJobDesc(
@@ -135,14 +137,15 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
     "trigger AutoJob by passing three parameters on SQL statement" should "generate a dataset in business" in {
 
       val businessTask1 = AutoTaskDesc(
-        "",
-        Some(
+        name = "",
+        sql = Some(
           "select firstname, lastname, age from user_View where age={{age}} and lastname={{lastname}} and firstname={{firstname}}"
         ),
-        "business/user",
-        "user",
-        WriteMode.OVERWRITE,
-        assertions = Map("uniqFirstname" -> "isUnique(firstname)")
+        domain = "business/user",
+        table = "user",
+        write = WriteMode.OVERWRITE,
+        assertions = Map("uniqFirstname" -> "isUnique(firstname)"),
+        python = None
       )
       val businessJob =
         AutoJobDesc(
@@ -188,11 +191,12 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
     "trigger AutoJob with no parameters on SQL statement" should "generate a dataset in business" in {
 
       val businessTask1 = AutoTaskDesc(
-        "",
-        Some("select firstname, lastname, age from user_View"),
-        "business/user",
-        "user",
-        WriteMode.OVERWRITE
+        name = "",
+        sql = Some("select firstname, lastname, age from user_View"),
+        domain = "business/user",
+        table = "user",
+        write = WriteMode.OVERWRITE,
+        python = None
       )
       val businessJob =
         AutoJobDesc(
@@ -233,11 +237,12 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
     "trigger AutoJob using an UDF" should "generate a dataset in business" in {
 
       val businessTask1 = AutoTaskDesc(
-        "",
-        Some("select concatWithSpace(firstname, lastname) as fullName from user_View"),
-        "business/user",
-        "user",
-        WriteMode.OVERWRITE
+        name = "",
+        sql = Some("select concatWithSpace(firstname, lastname) as fullName from user_View"),
+        domain = "business/user",
+        table = "user",
+        write = WriteMode.OVERWRITE,
+        python = None
       )
       val businessJob =
         AutoJobDesc(
@@ -280,18 +285,19 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
     "trigger AutoJob by passing parameters to presql statement" should "generate a dataset in business" in {
 
       val businessTask1 = AutoTaskDesc(
-        "",
-        Some("SELECT * FROM graduate_agg_view"),
-        "business/graduateProgram",
-        "output",
-        WriteMode.OVERWRITE,
+        name = "",
+        sql = Some("SELECT * FROM graduate_agg_view"),
+        domain = "business/graduateProgram",
+        table = "output",
+        write = WriteMode.OVERWRITE,
         presql = List("""
             |create or replace temporary view graduate_agg_view as
             |      select degree, department,
             |      school
             |      from graduate_View
             |      where school={{school}}
-            |""".stripMargin)
+            |""".stripMargin),
+        python = None
       )
       val businessJob =
         AutoJobDesc(
@@ -333,16 +339,17 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
 
     "BQ Business Job Definition" should "Prepare correctly against BQ" in {
       val businessTask1 = AutoTaskDesc(
-        "",
-        Some("select * from domain"),
-        "DOMAIN",
-        "TABLE",
-        WriteMode.OVERWRITE,
-        List("comet_year", "comet_month"),
-        Nil,
-        Nil,
+        name = "",
+        sql = Some("select * from domain"),
+        domain = "DOMAIN",
+        table = "TABLE",
+        write = WriteMode.OVERWRITE,
+        partition = List("comet_year", "comet_month"),
+        presql = Nil,
+        postsql = Nil,
         None,
-        List(RowLevelSecurity("myrls", "TRUE", Set("user:hayssam.saleh@ebiznext.com")))
+        rls = List(RowLevelSecurity("myrls", "TRUE", Set("user:hayssam.saleh@ebiznext.com"))),
+        python = None
       )
 
       val sink = businessTask1.sink.map(_.asInstanceOf[BigQuerySink])
