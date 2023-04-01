@@ -131,10 +131,9 @@ class BigQuerySparkJob(
             .select(date_format(col(partitionField), dateFormat).cast("string"))
             .where(col(partitionField).isNotNull)
             .distinct()
-            .rdd
-            .map(r => r.getString(0))
             .collect()
             .toList
+            .map(r => r.getString(0))
 
           cliConfig.partitionsToUpdate match {
             case Nil =>
@@ -167,38 +166,37 @@ class BigQuerySparkJob(
               finalEmptyDF.options(connectorOptions).save()
             }
           }
-          cliConfig.partitionsToUpdate match {
-            case Nil => // No optimisation requested. This happens when there is no existing dataset
-              sourceDF.write
+
+          partitions.foreach { partitionStr =>
+            val finalDF =
+              sourceDF
+                .where(
+                  date_format(col(partitionField), dateFormat).cast("string") === partitionStr
+                )
+                .write
                 .mode(SaveMode.Overwrite)
                 .format("com.google.cloud.spark.bigquery")
+                .option("datePartition", partitionStr)
                 .option("table", bqTable)
                 .option("intermediateFormat", intermediateFormat)
                 .options(connectorOptions)
-                .save()
-            case partitionsToUpdate =>
-              partitions.foreach { partitionStr =>
+            cliConfig.partitionsToUpdate match {
+              case Nil =>
+                finalDF.save()
+              case partitionsToUpdate =>
                 // We only overwrite partitions containing updated or newly added elements
                 if (partitionsToUpdate.contains(partitionStr)) {
-                  logger.info(s"Optimization -> Writing partition : $partitionStr")
-                  sourceDF
-                    .where(
-                      date_format(col(partitionField), dateFormat).cast("string") === partitionStr
-                    )
-                    .write
-                    .mode(SaveMode.Overwrite)
-                    .format("com.google.cloud.spark.bigquery")
-                    .option("datePartition", partitionStr)
-                    .option("table", bqTable)
-                    .option("intermediateFormat", intermediateFormat)
-                    .options(connectorOptions)
-                    .save()
+                  logger.info(
+                    s"Optimization -> Writing partition : $partitionStr"
+                  )
+                  finalDF.save()
                 } else {
-                  logger.info(s"Optimization -> Not writing partition : $partitionStr")
+                  logger.info(
+                    s"Optimization -> Not writing partition : $partitionStr"
+                  )
                 }
-              }
+            }
           }
-
         case (writeDisposition, _, partitionOverwriteMode) =>
           assert(
             partitionOverwriteMode == "static" || partitionOverwriteMode == "dynamic",
