@@ -34,8 +34,10 @@ import ai.starlake.schema.model.Stage.UNIT
 import ai.starlake.schema.model._
 import ai.starlake.utils.Formatter.RichFormatter
 import ai.starlake.utils._
+import better.files.File
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
+import org.apache.spark.deploy.PythonRunner
 import org.apache.spark.sql.{DataFrame, SaveMode}
 
 import java.sql.Timestamp
@@ -92,7 +94,7 @@ object AutoTask extends StrictLogging {
   *   : Where the resulting dataset is stored by default if not specified in the task
   * @param taskDesc
   *   : Task to run
-  * @param sqlParameters
+  * @param commandParameters
   *   : Sql Parameters to pass to SQL statements
   */
 case class AutoTask(
@@ -103,7 +105,7 @@ case class AutoTask(
   views: Views,
   engine: Engine,
   taskDesc: AutoTaskDesc,
-  sqlParameters: Map[String, String],
+  commandParameters: Map[String, String],
   sink: Option[Sink],
   interactive: Option[String],
   authInfo: Map[String, String]
@@ -321,8 +323,8 @@ case class AutoTask(
     */
   private def parseJinja(sqls: List[String]): List[String] =
     Utils
-      .parseJinja(sqls, schemaHandler.activeEnv() ++ sqlParameters)
-      .map(_.richFormat(schemaHandler.activeEnv(), sqlParameters))
+      .parseJinja(sqls, schemaHandler.activeEnv() ++ commandParameters)
+      .map(_.richFormat(schemaHandler.activeEnv(), commandParameters))
 
   def sinkToFS(dataframe: DataFrame, sink: FsSink): Boolean = {
     val coalesce = sink.coalesce.getOrElse(this.coalesce)
@@ -403,58 +405,111 @@ case class AutoTask(
     val start = Timestamp.from(Instant.now())
     val res = Try {
       udf.foreach { udf => registerUdf(udf) }
-      val cteSelects = createSparkViews(views, schemaHandler, sqlParameters)
+      val cteSelects = createSparkViews(views, schemaHandler, commandParameters)
       val (preSql, sqlWithParameters, postSql) = buildQuerySpark(cteSelects)
       preSql.foreach(req => session.sql(req))
       logger.info(s"""START COMPILE SQL $sqlWithParameters END COMPILE SQL""")
-      logger.info(s"running sql request using ${taskDesc.sqlEngine}")
-      val dataframe = loadQuery(sqlWithParameters)
-
-      if (settings.comet.hive || settings.comet.sinkToFile) {
-        val fsSink = sink match {
-          case Some(sink) =>
-            sink match {
-              case fsSink: FsSink => fsSink
-              case _              => FsSink()
+      logger.info(s"running sql request using ${taskDesc.engine}")
+      val dataframe = (taskDesc.sql, taskDesc.python) match {
+        case (Some(sql), None) =>
+          Some(loadQuery(sqlWithParameters))
+        case (None, Some(pythonFile)) =>
+          runPySpark(pythonFile)
+        case (None, None) =>
+          throw new Exception(
+            s"At least one SQL or Python command should be present in task ${taskDesc.name}"
+          )
+        case (Some(_), Some(_)) =>
+          throw new Exception(
+            s"Only one of 'sql' or 'python' attribute may be defined ${taskDesc.name}"
+          )
+      }
+      dataframe match {
+        case None =>
+          (SparkJobResult(None), sqlWithParameters)
+        case Some(dataframe) =>
+          if (settings.comet.hive || settings.comet.sinkToFile) {
+            val fsSink = sink match {
+              case Some(sink) =>
+                sink match {
+                  case fsSink: FsSink => fsSink
+                  case _              => FsSink()
+                }
+              case _ => FsSink()
             }
-          case _ => FsSink()
-        }
-        sinkToFS(dataframe, fsSink)
+            sinkToFS(dataframe, fsSink)
+          }
+
+          if (settings.comet.assertions.active) {
+            new AssertionJob(
+              authInfo,
+              taskDesc.domain,
+              taskDesc.table,
+              taskDesc.assertions,
+              Stage.UNIT,
+              storageHandler,
+              schemaHandler,
+              Some(dataframe),
+              engine,
+              sql => session.sql(sql).count()
+            ).run()
+          }
+
+          postSql.foreach(req => session.sql(req))
+          // Let us return the Dataframe so that it can be piped to another sink
+          (SparkJobResult(Some(dataframe)), sqlWithParameters)
       }
 
-      if (settings.comet.assertions.active) {
-        new AssertionJob(
-          authInfo,
-          taskDesc.domain,
-          taskDesc.table,
-          taskDesc.assertions,
-          Stage.UNIT,
-          storageHandler,
-          schemaHandler,
-          Some(dataframe),
-          engine,
-          sql => session.sql(sql).count()
-        ).run()
-      }
-
-      postSql.foreach(req => session.sql(req))
-      // Let us return the Dataframe so that it can be piped to another sink
-      (SparkJobResult(Some(dataframe)), sqlWithParameters)
     }
     val end = Timestamp.from(Instant.now())
     res match {
       case Success((jobResult, _)) =>
         val end = Timestamp.from(Instant.now())
-        val jobResultCount = jobResult.dataframe.map(_.count())
-        jobResultCount.foreach(logAuditSuccess(start, end, _))
+        val jobResultCount = jobResult.dataframe match {
+          case None => -1
+          case Some(dataframe) =>
+            dataframe.count()
+        }
+        logAuditSuccess(start, end, jobResultCount)
       case Failure(e) =>
         logAuditFailure(start, end, e)
     }
     res
   }
 
-  private def loadQuery(sqlWithParameters: String) = {
-    taskDesc.sqlEngine.getOrElse(Engine.SPARK) match {
+  private def runPySpark(pythonFile: Path): Option[DataFrame] = {
+    // We first download locally all files because PythonRunner only support local filesystem
+    val pyFiles =
+      pythonFile +: settings.sparkConfig
+        .getString("py-files")
+        .split(",")
+        .filter(_.nonEmpty)
+        .map(x => new Path(x.trim))
+    val directory = new Path(File.newTemporaryDirectory().pathAsString)
+    logger.info(s"Python local directory is $directory")
+    pyFiles.foreach { pyFile =>
+      val pyName = pyFile.getName()
+      storageHandler.copyToLocal(pyFile, new Path(directory, pyName))
+    }
+    val pythonParams = commandParameters.flatMap { case (name, value) =>
+      List(s"""--$name""", s"""$value""")
+    }.toArray
+
+    PythonRunner.main(
+      Array(
+        new Path(directory, pythonFile.getName()).toString,
+        pyFiles.mkString(",")
+      ) ++ pythonParams
+    )
+
+    if (session.catalog.tableExists("STARLAKE_TABLE"))
+      Some(session.sqlContext.table("STARLAKE_TABLE"))
+    else
+      None
+  }
+
+  private def loadQuery(sqlWithParameters: String): DataFrame = {
+    taskDesc.engine.getOrElse(Engine.SPARK) match {
       case Engine.BQ =>
         session.read
           .format("com.google.cloud.spark.bigquery")

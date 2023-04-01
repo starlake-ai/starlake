@@ -34,7 +34,7 @@ class Xls2YmlAutoJobTest extends TestHelper {
       job.sink shouldBe Some(
         BigQuerySink(timestamp = Some("partitionCol"), requirePartitionFilter = Some(true))
       )
-      job.sqlEngine shouldBe Some(Engine.BQ)
+      job.engine shouldBe Some(Engine.BQ)
       job.comment shouldBe Some("jointure source1 et source2")
       job.rls.size shouldBe 0
       job.acl.size shouldBe 1
@@ -57,7 +57,7 @@ class Xls2YmlAutoJobTest extends TestHelper {
       result2.name shouldBe "someJob2"
       result2.tasks.size shouldBe 1
       result2.engine shouldBe Some(Engine.SPARK)
-      result2.tasks.head.sqlEngine shouldBe Some(Engine.BQ)
+      result2.tasks.head.engine shouldBe Some(Engine.BQ)
     }
 
     Xls2YmlAutoJob.generateSchema(
@@ -86,7 +86,7 @@ class Xls2YmlAutoJobTest extends TestHelper {
       job.sink shouldBe Some(
         BigQuerySink()
       )
-      job.sqlEngine shouldBe None
+      job.engine shouldBe None
       job.comment shouldBe Some("jointure source1 et source2")
       job.rls.size shouldBe 0
       job.acl.size shouldBe 0
