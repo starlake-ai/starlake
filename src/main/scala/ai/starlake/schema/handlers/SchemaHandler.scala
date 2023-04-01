@@ -676,18 +676,27 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
 
   private def taskCommandPath(path: Path, taskName: String): Option[Path] = {
     val sqlFilePrefix = path.toString.substring(0, path.toString.length - ".comet.yml".length)
-    val sqlTaskFile = taskName.nonEmpty match {
-      case true  => new Path(s"$sqlFilePrefix.$taskName.sql")
-      case false => new Path(s"$sqlFilePrefix.sql")
-    }
-    val j2TaskFile = taskName.nonEmpty match {
-      case true  => new Path(s"$sqlFilePrefix.$taskName.sql.j2")
-      case false => new Path(s"$sqlFilePrefix.sql.j2")
-    }
-    val pythonTaskFile = taskName.nonEmpty match {
-      case true  => new Path(s"$sqlFilePrefix.$taskName.py")
-      case false => new Path(s"$sqlFilePrefix.py")
-    }
+    val sqlTaskFile =
+      if (taskName.nonEmpty) {
+        new Path(s"$sqlFilePrefix.$taskName.sql")
+      } else {
+        new Path(s"$sqlFilePrefix.sql")
+      }
+
+    val j2TaskFile =
+      if (taskName.nonEmpty) {
+        new Path(s"$sqlFilePrefix.$taskName.sql.j2")
+      } else {
+        new Path(s"$sqlFilePrefix.sql.j2")
+      }
+
+    val pythonTaskFile =
+      if (taskName.nonEmpty) {
+        new Path(s"$sqlFilePrefix.$taskName.py")
+      } else {
+        new Path(s"$sqlFilePrefix.py")
+      }
+
     if (storage.exists(pythonTaskFile))
       Some(pythonTaskFile)
     else if (storage.exists(j2TaskFile))
