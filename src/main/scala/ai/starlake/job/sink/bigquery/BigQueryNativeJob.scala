@@ -253,7 +253,17 @@ class BigQueryNativeJob(
           val partitioning =
             timePartitioning(partitionField, cliConfig.days, cliConfig.requirePartitionFilter)
               .build()
-          queryConfig.setTimePartitioning(partitioning)
+          if (cliConfig.writeDisposition == WriteDisposition.WRITE_APPEND.toString)
+            queryConfig
+              .setTimePartitioning(partitioning)
+              .setSchemaUpdateOptions(
+                List(
+                  SchemaUpdateOption.ALLOW_FIELD_ADDITION,
+                  SchemaUpdateOption.ALLOW_FIELD_RELAXATION
+                ).asJava
+              )
+          else
+            queryConfig.setTimePartitioning(partitioning)
         case None =>
           queryConfig
       }
