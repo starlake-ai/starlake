@@ -1,0 +1,15 @@
+transform:
+  tasks:
+    - domain: BQ_TEST_DS
+      table: BQ_TEST_TABLE
+      write: OVERWRITE
+      sink:
+        type: BQ
+        timestamp: DOB
+      sql: |
+        WITH _table as (
+          select "joe" as name,Date("2022-01-01") as dob
+          union all
+          select "sam" as name, Date("2023-02-01") as dob
+        )
+        select * from _table
