@@ -383,6 +383,9 @@ class IngestionWorkflow(
       )
       (schema, path)
     }
+    if (schemas.isEmpty) {
+      logger.info(s"No Files found to ingest.")
+    }
     schemas.partition { case (schema, _) => schema.isDefined }
   }
 
