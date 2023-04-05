@@ -11,6 +11,7 @@ import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.hadoop.fs.Path
 
+import java.nio.charset.StandardCharsets
 import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try}
 
@@ -58,12 +59,14 @@ class Yml2DagGenerateCommand(schemaHandler: SchemaHandler) extends LazyLogging {
               "sl" -> DagGenerationContext(
                 config = dagGenerationConfig,
                 domainTables = domainTables.asJava
-              )
+              ),
+              "env" -> schemaHandler.activeEnv().asJava
             )
           )
-          val outputPath = Path.mergePaths(DatasetArea.dags, new Path(s"/generated/domains/$effectiveDagName.py"))
+          val outputPath =
+            Path.mergePaths(DatasetArea.dags, new Path(s"/generated/domains/$effectiveDagName.py"))
           logger.info(s"Writing dag to $outputPath")
-          settings.storageHandler.write(dag, outputPath)
+          settings.storageHandler.write(dag, outputPath)(StandardCharsets.UTF_8)
         }
       }
       logger.info("Successfully generated dags")
@@ -72,18 +75,18 @@ class Yml2DagGenerateCommand(schemaHandler: SchemaHandler) extends LazyLogging {
   }
 
   private def logDagGenerationStart(
-    domainTables: List[(Domain, Schema)],
+    domainTables: List[DomainTable],
     effectiveDagName: String
   ): Unit = {
     val tables = domainTables
-      .map { case (domain, table) => s"${domain.name}.${table.name}" }
+      .map { case DomainTable(domain, table) => s"${domain.name}.${table.name}" }
       .mkString("\n\t - ", "\n\t - ", "")
     logger.info(s"Generating dag $effectiveDagName with the following tables: $tables")
   }
 
-  private def resolveGenerationConfig(domainTables: List[(Domain, Schema)]) = {
+  private def resolveGenerationConfig(domainTables: List[DomainTable]) = {
     domainTables
-      .map { case (_, schema) => schema }
+      .map(_.table)
       .headOption
       .flatMap(_.metadata)
       .flatMap(_.dag)
@@ -96,8 +99,10 @@ class Yml2DagGenerateCommand(schemaHandler: SchemaHandler) extends LazyLogging {
 
   case class DagGenerationContext(
     config: DagGenerationConfig,
-    domainTables: java.util.List[(Domain, Schema)]
+    domainTables: java.util.List[DomainTable]
   )
+
+  case class DomainTable(domain: Domain, table: Schema)
   private def propagateMetadata(
     defaultDagGenerationConfig: DagGenerationConfig,
     domain: Domain
@@ -121,32 +126,31 @@ class Yml2DagGenerateCommand(schemaHandler: SchemaHandler) extends LazyLogging {
     */
   private def groupByDagName(
     domains: List[Domain]
-  )(implicit settings: Settings): Map[String, List[(Domain, Schema)]] = {
-    domains.flatMap(d => d.tables.map(d -> _)).groupBy {
-      case (d, t) => {
-        val dagNamePattern = t.metadata
-          .flatMap(_.dag)
-          .flatMap(_.dagName)
-          .getOrElse(DagGenerationConfig.defaultDagNamePattern)
-        val datasetId = BigQueryJobBase.extractProjectDataset(d.finalName)
-        formatDagName(
-          dagNamePattern,
-          Option(datasetId.getProject),
-          datasetId.getDataset,
-          t.finalName
-        )
-      }
+  )(implicit settings: Settings): Map[String, List[DomainTable]] = {
+    domains.flatMap(d => d.tables.map(DomainTable(d, _))).groupBy { case DomainTable(d, t) =>
+      val dagNamePattern = t.metadata
+        .flatMap(_.dag)
+        .flatMap(_.dagName)
+        .getOrElse(DagGenerationConfig.defaultDagNamePattern)
+      val datasetId = BigQueryJobBase.extractProjectDataset(d.name)
+      formatDagName(
+        dagNamePattern,
+        Option(datasetId.getProject),
+        datasetId.getDataset,
+        t.name
+      )
     }
   }
 
   private def groupTables(
-    dagGroups: Map[String, List[(Domain, Schema)]]
-  ): Map[String, List[List[(Domain, Schema)]]] = {
+    dagGroups: Map[String, List[DomainTable]]
+  ): Map[String, List[List[DomainTable]]] = {
     dagGroups.mapValues(dagElements => {
       dagElements
-        .groupBy { case (_, t) => t.metadata.flatMap(_.dag) }
+        .groupBy(_.table.metadata.flatMap(_.dag))
         .values
         .toList
+        .map(_.sortBy(dt => dt.domain.name + "." + dt.table.name))
         .sortBy(
           _.size
         ) // sort by size for the moment but need to propagate index to domain file in order to make output sticky.
@@ -168,8 +172,8 @@ class Yml2DagGenerateCommand(schemaHandler: SchemaHandler) extends LazyLogging {
         !table.metadata
           .flatMap(_.dag)
           .exists(conf =>
-            conf.cluster.isDefined && conf.cluster.exists(dc =>
-              dc.region.isDefined && dc.profileVar.isDefined
+            conf.cluster.isDefined && conf.cluster.exists(cluster =>
+              cluster.region.isDefined && cluster.profileVar.isDefined
             ) && conf.sl.isDefined && conf.sl
               .exists(slc => slc.envVar.isDefined && slc.jarFileUrisVar.isDefined)
           )
@@ -182,7 +186,7 @@ class Yml2DagGenerateCommand(schemaHandler: SchemaHandler) extends LazyLogging {
         .mkString(", ")
       Failure(
         new RuntimeException(
-          "Tables did not define dataproc.profileVar, dataproc.region or slRootVar. Please set this on global dag generation config in one of the following location: dags/default.comet.yml, domain/metadata/dags, table/metadata/dags.\n" + tableList
+          "Tables did not define cluster.profileVar, cluster.region, sl.envVar or sl.jarFileUrisVar. Please set this on global dag generation config in one of the following location: dags/default.comet.yml, domain/metadata/dags, table/metadata/dags.\n" + tableList
         )
       )
     }
@@ -195,11 +199,11 @@ class Yml2DagGenerateCommand(schemaHandler: SchemaHandler) extends LazyLogging {
     * @return
     */
   private def assertDagGenerationGroupRequirements(
-    dagAndTables: Map[String, List[List[(Domain, Schema)]]]
+    dagAndTables: Map[String, List[List[DomainTable]]]
   ): Try[Unit] = {
-    def extractSuffixWithIndex(group: List[(Domain, Schema)]): Boolean = {
+    def extractSuffixWithIndex(group: List[DomainTable]): Boolean = {
       group.headOption
-        .flatMap { case (_, schema) => schema.metadata.flatMap(_.dag).flatMap(_.suffixWithIndex) }
+        .flatMap(_.table.metadata.flatMap(_.dag).flatMap(_.suffixWithIndex))
         .getOrElse(DagGenerationConfig.defaultSuffixWithIndex)
     }
     val outputConflict = dagAndTables.filter { case (_, dagOutputs) =>
@@ -207,9 +211,9 @@ class Yml2DagGenerateCommand(schemaHandler: SchemaHandler) extends LazyLogging {
       dagOutputs.count(extractSuffixWithIndex(_) == false) > 1
     }
     dagAndTables.flatMap { case (_, dagOutputs) => dagOutputs }.flatten.foreach {
-      case (domain, table) =>
+      case DomainTable(domain, table) =>
         logger.info(
-          s"${domain.finalName}.${table.finalName}:" + table.metadata
+          s"${domain.name}.${table.name}:" + table.metadata
             .flatMap(_.dag)
             .flatMap(_.suffixWithIndex)
             .getOrElse(false)
@@ -220,7 +224,7 @@ class Yml2DagGenerateCommand(schemaHandler: SchemaHandler) extends LazyLogging {
         .map { case (group, groupIndex) =>
           val suffixWithIndex = extractSuffixWithIndex(group)
           val tables = group
-            .map { case (domain, schema) => s"${domain.finalName}.${schema.finalName}" }
+            .map { case DomainTable(domain, schema) => s"${domain.name}.${schema.name}" }
             .mkString(", ")
           s"dag group $groupIndex (suffix with index: $suffixWithIndex) : $tables"
         }

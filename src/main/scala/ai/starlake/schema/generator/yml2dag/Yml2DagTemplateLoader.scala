@@ -9,6 +9,12 @@ import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try}
 
 object Yml2DagTemplateLoader {
+
+  private val JINJA_EXTENSION = ".j2"
+  private val TEMPLATE_FOLDER = "templates"
+  val DOMAIN_TEMPLATE_FOLDER = s"$TEMPLATE_FOLDER/domains"
+  private val RESOURCE_DOMAIN_TEMPLATE_FOLDER = s"yml2dag/$DOMAIN_TEMPLATE_FOLDER"
+
   def loadTemplate(template: Yml2DagTemplate)(implicit settings: Settings): Try[String] = {
     loadTemplateFromAbsolutePath(template)
       .orElse(loadTemplateFromDagPath(template))
@@ -33,18 +39,15 @@ object Yml2DagTemplateLoader {
     }
   }
 
-  private val JINJA_EXTENSION = ".j2"
-  private val customDomainExtension = ".domain" + JINJA_EXTENSION
-
   def loadTemplateFromDagPath(
     template: Yml2DagTemplate
   )(implicit settings: Settings): Try[String] = {
     val pathToResolve = template match {
-      case DomainTemplate(path) if !path.endsWith(customDomainExtension) =>
-        path + customDomainExtension
+      case DomainTemplate(path) if !path.endsWith(JINJA_EXTENSION) =>
+        path + JINJA_EXTENSION
       case DomainTemplate(path) => path
     }
-    val domainInDagPath = new Path(DatasetArea.dags, pathToResolve)
+    val domainInDagPath = new Path(DatasetArea.dags, DOMAIN_TEMPLATE_FOLDER + "/" + pathToResolve)
     if (settings.storageHandler.exists(domainInDagPath)) {
       Success(settings.storageHandler.read(domainInDagPath))
     } else {
@@ -57,14 +60,14 @@ object Yml2DagTemplateLoader {
       settings.storageHandler
         .list(
           DatasetArea.dags,
-          customDomainExtension,
+          JINJA_EXTENSION,
           recursive = true,
           sortByName = true
         )
         .map(p =>
           p.toUri.getPath.substring(
-            DatasetArea.dags.toUri.getPath.length + 1,
-            p.toUri.getPath.length - customDomainExtension.length
+            DatasetArea.dags.toUri.getPath.length + DOMAIN_TEMPLATE_FOLDER.length + 2,
+            p.toUri.getPath.length - JINJA_EXTENSION.length
           )
         )
         .map(DomainTemplate)
@@ -79,7 +82,7 @@ object Yml2DagTemplateLoader {
       case DomainTemplate(path) if path.endsWith(JINJA_EXTENSION) => path
       case DomainTemplate(path)                                   => path
     }
-    Resource.asString(s"yml2dag/templates/domain/${templateToResolve}") match {
+    Resource.asString(s"$RESOURCE_DOMAIN_TEMPLATE_FOLDER/${templateToResolve}") match {
       case Some(value) => Success(value)
       case None =>
         Failure(new RuntimeException(s"Relative template not found in for ${domainTemplate}"))
@@ -87,7 +90,7 @@ object Yml2DagTemplateLoader {
   }
 
   def listTemplateFromResources(): List[DomainTemplate] = {
-    val domainFolder = Resource.getUrl("yml2dag/templates/domain").toURI
+    val domainFolder = Resource.getUrl(s"$RESOURCE_DOMAIN_TEMPLATE_FOLDER").toURI
     val domainFolderPath = Paths.get(domainFolder)
     val walk = Files.walk(domainFolderPath)
     walk
