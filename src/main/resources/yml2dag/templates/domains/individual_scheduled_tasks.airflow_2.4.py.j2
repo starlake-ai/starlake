@@ -33,11 +33,11 @@ SPARK_DEFAULT_PROPERTIES = {
     'spark.sql.parquet.int96RebaseModeInWrite': 'CORRECTED',
     'spark.sql.catalogImplementation': 'in-memory',
     'spark.sql.adaptive.skewJoin.enabled': 'true',
-    'spark:spark.sql.cbo.enabled': 'true',
+    'spark.sql.cbo.enabled': 'true',
     'spark.sql.adaptive.enabled': 'true',
     'spark.sql.adaptive.coalescePartitions.enabled': 'true',
     'spark.sql.adaptive.coalescePartitions.initialPartitionNum': '8000',
-    'spark.sql.adaptive.coalescePartitions.minPartitionNum': '1',
+    'spark.sql.adaptive.coalescePartitions.minPartitionSize': '1',
     'spark.sql.adaptive.localShuffleReader.enabled': 'true'
 }
 
@@ -87,9 +87,9 @@ with DAG(dag_name, schedule="{{sl.config().schedule().get()}}" or None, default_
         load_task_dict = {}
         sensor_task_dict = {}
 {% for domainTable in sl.domainTables() %}
-        load_task_dict['{{domainTable._1().name()}}_{{domainTable._2().name()}}'] = submitJobFor('{{domainTable._1().name()}}', '{{domainTable._2().name()}}')
-        sensor_task_dict['{{domainTable._1().name()}}_{{domainTable._2().name()}}'] = waitForDataprocJob(load_task_dict['{{domainTable._1().name()}}_{{domainTable._2().name()}}'])
-        load_task_dict['{{domainTable._1().name()}}_{{domainTable._2().name()}}'] >> sensor_task_dict['{{domainTable._1().name()}}_{{domainTable._2().name()}}']
+        load_task_dict['{{domainTable.domain().name()}}_{{domainTable.table().name()}}'] = submitJobFor('{{domainTable.domain().name()}}', '{{domainTable.table().name()}}')
+        sensor_task_dict['{{domainTable.domain().name()}}_{{domainTable.table().name()}}'] = waitForDataprocJob(load_task_dict['{{domainTable.domain().name()}}_{{domainTable.table().name()}}'])
+        load_task_dict['{{domainTable.domain().name()}}_{{domainTable.table().name()}}'] >> sensor_task_dict['{{domainTable.domain().name()}}_{{domainTable.table().name()}}']
 {% endfor %}
     # Delete the Cloud Dataproc cluster.
     delete_cluster = DataprocDeleteClusterOperator(
