@@ -251,8 +251,10 @@ class BigQuerySparkJob(
             .fields
             .map(f => f.name -> f.getComment().getOrElse(""))
             .toMap[String, String]
-        case (Some(_), Some(_)) =>
-          throw new Exception("should never happen, sqlSource and Schema cannot be set together.")
+        case (_, _) =>
+          throw new Exception(
+            "Should never happen, SqlSource or TableSchema should be set exclusively"
+          )
       }
       updateColumnsDescription(fieldsDescription)
       // TODO verify if there is a difference between maybeTableDescription, schema.comment , task.desc
