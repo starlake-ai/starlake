@@ -332,22 +332,23 @@ trait BigQueryJobBase extends StrictLogging {
       val tableDefinition = getTableDefinition(tableInfo, dataFrame)
       val table = scala
         .Option(bigquery().getTable(tableId))
-        .map(t => {
+        /*.map(t => {
           val out =
             updateTableDescriptions(t, tableInfo.maybeTableDescription, Some(tableDefinition))
           logger.info(s"Table ${tableId.getDataset}.${tableId.getTable} updated successfully")
           out
-        }) getOrElse {
-        val bqTableInfo = BQTableInfo
-          .newBuilder(tableId, tableDefinition)
-          .setDescription(tableInfo.maybeTableDescription.orNull)
-          .build
-        val result = bigquery().create(
-          bqTableInfo
-        )
-        logger.info(s"Table ${tableId.getDataset}.${tableId.getTable} created successfully")
-        result
-      }
+        }) */
+        .getOrElse {
+          val bqTableInfo = BQTableInfo
+            .newBuilder(tableId, tableDefinition)
+            .setDescription(tableInfo.maybeTableDescription.orNull)
+            .build
+          val result = bigquery().create(
+            bqTableInfo
+          )
+          logger.info(s"Table ${tableId.getDataset}.${tableId.getTable} created successfully")
+          result
+        }
       setTagsOnTable(table)
       (table, table.getDefinition[StandardTableDefinition])
     }
@@ -367,19 +368,20 @@ trait BigQueryJobBase extends StrictLogging {
     }
   }
 
-  protected def updateTableDescription(idTable: TableId)(implicit settings: Settings) = {
+  protected def updateTableDescription(idTable: TableId, description: String)(implicit
+    settings: Settings
+  ) = {
     logger.info(
       s"We are updating the description on this Table: ${idTable}"
     )
-    bigquery().update(
-      bigquery()
-        .getTable(idTable)
-        .toBuilder
-        .setDescription(
-          cliConfig.outputTableDesc
-        )
-        .build()
-    )
+    bigquery()
+      .getTable(idTable)
+      .toBuilder
+      .setDescription(
+        description
+      )
+      .build()
+      .update()
   }
   protected def updateTableDescriptions(
     table: Table,
@@ -479,15 +481,15 @@ trait BigQueryJobBase extends StrictLogging {
 
   /** Update columns description from source tables in sql or from yaml job with attributes
     * information
-    * @param sqlSource
+    * @param dictField
+    *   Map of columns and their descriptions
     * @return
     *   Table with columns description updated
     */
-  def updateColumnsDescription(sqlSource: String)(implicit settings: Settings) = {
+  def updateColumnsDescription(dictField: Map[String, String])(implicit settings: Settings) = {
     logger.info(
       s"We are updating the description field on this Table: $bqTable"
     )
-    val dictField = getFieldsDescriptionSource(sqlSource)
     val tableTarget = bigquery().getTable(tableId)
     val tableSchema = tableTarget.getDefinition.asInstanceOf[StandardTableDefinition].getSchema
     val fieldList = tableSchema.getFields
