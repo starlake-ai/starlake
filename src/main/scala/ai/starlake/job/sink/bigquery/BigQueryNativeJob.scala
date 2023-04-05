@@ -253,7 +253,15 @@ class BigQueryNativeJob(
           val partitioning =
             timePartitioning(partitionField, cliConfig.days, cliConfig.requirePartitionFilter)
               .build()
-          if (cliConfig.writeDisposition == WriteDisposition.WRITE_APPEND.toString)
+
+          // Allow Field relaxation / addition in native job when appending to existing partitioned table
+          val tableExists = Try(
+            bigquery()
+              .getTable(tableId)
+              .exists()
+          ).toOption.getOrElse(false)
+
+          if (cliConfig.writeDisposition == WriteDisposition.WRITE_APPEND.toString && tableExists)
             queryConfig
               .setTimePartitioning(partitioning)
               .setSchemaUpdateOptions(
