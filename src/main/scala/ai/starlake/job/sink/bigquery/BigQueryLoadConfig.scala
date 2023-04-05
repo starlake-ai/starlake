@@ -35,7 +35,7 @@ case class BigQueryLoadConfig(
   domainTags: Set[String] = Set.empty,
   domainDescription: Option[String] = None,
   materializedView: Boolean = false,
-  outputTableDesc: String = "",
+  outputTableDesc: Option[String] = None,
   sqlSource: Option[String] = None,
   attributesDesc: List[AttributeDesc] = Nil
 ) extends GcpConnectionConfig

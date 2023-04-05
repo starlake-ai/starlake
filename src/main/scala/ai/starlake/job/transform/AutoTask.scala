@@ -144,7 +144,7 @@ case class AutoTask(
         sink.asInstanceOf[BigQuerySink].materializedView.getOrElse(false)
       ),
       attributesDesc = taskDesc.attributesDesc,
-      outputTableDesc = taskDesc.comment.getOrElse(""),
+      outputTableDesc = taskDesc.comment,
       starlakeSchema = Some(Schema.fromTaskDesc(taskDesc))
     )
   }
