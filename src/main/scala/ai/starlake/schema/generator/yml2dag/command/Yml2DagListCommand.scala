@@ -29,7 +29,7 @@ class Yml2DagListCommand() extends LazyLogging {
     logger.info(s"""
         | Available dag templates
         |
-        | In dags folder :
+        | In dags/${Yml2DagTemplateLoader.DOMAIN_TEMPLATE_FOLDER} folder :
         | \t$templatesInDagPathFormatted
         |
         | Starlake :
