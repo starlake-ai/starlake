@@ -303,8 +303,8 @@ class BigQueryNativeJob(
         Utils.logException(logger, e)
         throw new Exception(e)
       }
-      updateTableDescription(tableId)
-      updateColumnsDescription(sql)
+      updateTableDescription(tableId, cliConfig.outputTableDesc.getOrElse(""))
+      updateColumnsDescription(getFieldsDescriptionSource(sql))
       BigQueryJobResult(Some(results), totalBytesProcessed)
     }
   }

@@ -2,6 +2,7 @@ package ai.starlake.job.sink.bigquery
 
 import ai.starlake.config.Settings
 import ai.starlake.schema.model.{ClusteringInfo, FieldPartitionInfo, TableInfo}
+import ai.starlake.utils.repackaged.BigQuerySchemaConverters
 import ai.starlake.utils.{JobResult, SparkJob, SparkJobResult, Utils}
 import com.google.cloud.bigquery.{
   BigQuery,
@@ -131,10 +132,9 @@ class BigQuerySparkJob(
             .select(date_format(col(partitionField), dateFormat).cast("string"))
             .where(col(partitionField).isNotNull)
             .distinct()
-            .rdd
-            .map(r => r.getString(0))
             .collect()
             .toList
+            .map(r => r.getString(0))
 
           cliConfig.partitionsToUpdate match {
             case Nil =>
@@ -167,38 +167,37 @@ class BigQuerySparkJob(
               finalEmptyDF.options(connectorOptions).save()
             }
           }
-          cliConfig.partitionsToUpdate match {
-            case Nil => // No optimisation requested. This happens when there is no existing dataset
-              sourceDF.write
+
+          partitions.foreach { partitionStr =>
+            val finalDF =
+              sourceDF
+                .where(
+                  date_format(col(partitionField), dateFormat).cast("string") === partitionStr
+                )
+                .write
                 .mode(SaveMode.Overwrite)
                 .format("com.google.cloud.spark.bigquery")
+                .option("datePartition", partitionStr)
                 .option("table", bqTable)
                 .option("intermediateFormat", intermediateFormat)
                 .options(connectorOptions)
-                .save()
-            case partitionsToUpdate =>
-              partitions.foreach { partitionStr =>
+            cliConfig.partitionsToUpdate match {
+              case Nil =>
+                finalDF.save()
+              case partitionsToUpdate =>
                 // We only overwrite partitions containing updated or newly added elements
                 if (partitionsToUpdate.contains(partitionStr)) {
-                  logger.info(s"Optimization -> Writing partition : $partitionStr")
-                  sourceDF
-                    .where(
-                      date_format(col(partitionField), dateFormat).cast("string") === partitionStr
-                    )
-                    .write
-                    .mode(SaveMode.Overwrite)
-                    .format("com.google.cloud.spark.bigquery")
-                    .option("datePartition", partitionStr)
-                    .option("table", bqTable)
-                    .option("intermediateFormat", intermediateFormat)
-                    .options(connectorOptions)
-                    .save()
+                  logger.info(
+                    s"Optimization -> Writing partition : $partitionStr"
+                  )
+                  finalDF.save()
                 } else {
-                  logger.info(s"Optimization -> Not writing partition : $partitionStr")
+                  logger.info(
+                    s"Optimization -> Not writing partition : $partitionStr"
+                  )
                 }
-              }
+            }
           }
-
         case (writeDisposition, _, partitionOverwriteMode) =>
           assert(
             partitionOverwriteMode == "static" || partitionOverwriteMode == "dynamic",
@@ -243,8 +242,23 @@ class BigQuerySparkJob(
         Utils.logException(logger, e)
         throw e
       }
-      updateColumnsDescription(cliConfig.sqlSource.getOrElse(""))
-
+      val fieldsDescription: Map[String, String] = (cliConfig.sqlSource, maybeSchema) match {
+        case (Some(sql), None) => getFieldsDescriptionSource(sql) // case of a Transformation (Job)
+        // TODO investigate difference between maybeSchema and starlakeSchema of cliConfig
+        case (None, Some(bqSchema)) => // case of Load (Ingestion)
+          BigQuerySchemaConverters
+            .toSpark(bqSchema)
+            .fields
+            .map(f => f.name -> f.getComment().getOrElse(""))
+            .toMap[String, String]
+        case (_, _) =>
+          throw new Exception(
+            "Should never happen, SqlSource or TableSchema should be set exclusively"
+          )
+      }
+      updateColumnsDescription(fieldsDescription)
+      // TODO verify if there is a difference between maybeTableDescription, schema.comment , task.desc
+      updateTableDescription(tableId, maybeTableDescription.getOrElse(""))
       SparkJobResult(None)
     }
   }
