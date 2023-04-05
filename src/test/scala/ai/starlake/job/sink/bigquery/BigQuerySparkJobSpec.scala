@@ -11,7 +11,7 @@ import org.apache.hadoop.fs.Path
 import org.scalatest.BeforeAndAfterAll
 
 class BigQuerySparkJobSpec extends TestHelper with BeforeAndAfterAll {
-  val bigquery = BigQueryOptions.newBuilder().build().getService()
+  private val bigquery = BigQueryOptions.newBuilder().build().getService
   override def beforeAll(): Unit = {
     if (sys.env.getOrElse("COMET_GCP_TEST", "false").toBoolean) {
       bigquery.delete(TableId.of("BQ_TEST_DS", "BQ_TEST_TABLE"))
@@ -45,7 +45,7 @@ class BigQuerySparkJobSpec extends TestHelper with BeforeAndAfterAll {
           sourceDatasetPathName = "",
           isDomain = false
         ) {
-          val query =
+          private val query: String =
             """
               |WITH _table as (
               |  select "sam" as name,Date("1990-01-01") as dob
@@ -54,7 +54,7 @@ class BigQuerySparkJobSpec extends TestHelper with BeforeAndAfterAll {
               |)
               |select * from _table
               |""".stripMargin
-          val businessTask1 = AutoTaskDesc(
+          private val businessTask1 = AutoTaskDesc(
             "",
             Some(query),
             "BQ_TEST_DS",
@@ -62,7 +62,7 @@ class BigQuerySparkJobSpec extends TestHelper with BeforeAndAfterAll {
             WriteMode.OVERWRITE,
             sink = Some(BigQuerySink(name = Some("sinktest"), timestamp = Some("DOB")))
           )
-          val businessJob =
+          private val businessJob =
             AutoJobDesc(
               "addPartitionsWithOverwrite",
               List(businessTask1),
@@ -71,30 +71,32 @@ class BigQuerySparkJobSpec extends TestHelper with BeforeAndAfterAll {
               None,
               None
             )
-          cleanMetadata
-          cleanDatasets
-          val schemaHandler = new SchemaHandler(metadataStorageHandler)
-          val validator = new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
-          validator.autoJob(TransformConfig("tableWithPartitions")) shouldBe true
-
-          val businessJobDef = mapper
+          private val businessJobDef = mapper
             .writer()
             .withAttribute(classOf[Settings], settings)
             .writeValueAsString(businessJob)
-          val pathBusiness =
+          cleanMetadata
+          cleanDatasets
+          val pathJob =
             new Path(cometMetadataPath + "/jobs/addPartitionsWithOverwrite.comet.yml")
-          storageHandler.write(businessJobDef, pathBusiness)
-          private val table: Table = bigquery.getTable(TableId.of("BQ_TEST_DS", "BQ_TEST_TABLE"))
-          table.getNumRows.intValue() shouldBe 2
-          table.getDefinition[StandardTableDefinition].getTimePartitioning.getField shouldBe "DOB"
-
-          /*val schemaHandler = new SchemaHandler(metadataStorageHandler)
-
-          val workflow =
-            new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
-          val config = TransformConfig("bqjobtest")
-          workflow.autoJob(config) should be(true)
-           */
+          storageHandler.write(businessJobDef, pathJob)
+          val schemaHandler = new SchemaHandler(metadataStorageHandler)
+          val validator = new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
+          validator.autoJob(TransformConfig("tableWithPartitions")) shouldBe true
+          // check that table is created correctly with the right number of lines
+          private val createdTable: Table =
+            bigquery.getTable(TableId.of("BQ_TEST_DS", "BQ_TEST_TABLE"))
+          createdTable.getNumRows.intValue() shouldBe 2
+          createdTable
+            .getDefinition[StandardTableDefinition]
+            .getTimePartitioning
+            .getField
+            .shouldBe("DOB")
+          validator.autoJob(TransformConfig("addPartitionsWithOverwrite")) shouldBe true
+          private val updatedTable: Table =
+            bigquery.getTable(TableId.of("BQ_TEST_DS", "BQ_TEST_TABLE"))
+          // check that table is appended with new partitions
+          updatedTable.getNumRows.intValue() shouldBe 4
         }
       }
     }
