@@ -2,6 +2,7 @@ package ai.starlake.job.sink.bigquery
 
 import ai.starlake.config.Settings
 import ai.starlake.schema.model.{ClusteringInfo, FieldPartitionInfo, TableInfo}
+import ai.starlake.utils.repackaged.BigQuerySchemaConverters
 import ai.starlake.utils.{JobResult, SparkJob, SparkJobResult, Utils}
 import com.google.cloud.bigquery.{
   BigQuery,
@@ -241,8 +242,21 @@ class BigQuerySparkJob(
         Utils.logException(logger, e)
         throw e
       }
-      updateColumnsDescription(cliConfig.sqlSource.getOrElse(""))
-
+      val fieldsDescription: Map[String, String] = (cliConfig.sqlSource, maybeSchema) match {
+        case (Some(sql), None) => getFieldsDescriptionSource(sql) // case of a Transformation (Job)
+        // TODO investigate difference between maybeSchema and starlakeSchema of cliConfig
+        case (None, Some(bqSchema)) => // case of Load (Ingestion)
+          BigQuerySchemaConverters
+            .toSpark(bqSchema)
+            .fields
+            .map(f => f.name -> f.getComment().getOrElse(""))
+            .toMap[String, String]
+        case (Some(_), Some(_)) =>
+          throw new Exception("should never happen, sqlSource and Schema cannot be set together.")
+      }
+      updateColumnsDescription(fieldsDescription)
+      // TODO verify if there is a difference between maybeTableDescription, schema.comment , task.desc
+      updateTableDescription(tableId, maybeTableDescription.getOrElse(""))
       SparkJobResult(None)
     }
   }
