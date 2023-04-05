@@ -332,12 +332,6 @@ trait BigQueryJobBase extends StrictLogging {
       val tableDefinition = getTableDefinition(tableInfo, dataFrame)
       val table = scala
         .Option(bigquery().getTable(tableId))
-        /*.map(t => {
-          val out =
-            updateTableDescriptions(t, tableInfo.maybeTableDescription, Some(tableDefinition))
-          logger.info(s"Table ${tableId.getDataset}.${tableId.getTable} updated successfully")
-          out
-        }) */
         .getOrElse {
           val bqTableInfo = BQTableInfo
             .newBuilder(tableId, tableDefinition)
@@ -380,17 +374,6 @@ trait BigQueryJobBase extends StrictLogging {
       .setDescription(
         description
       )
-      .build()
-      .update()
-  }
-  protected def updateTableDescriptions(
-    table: Table,
-    maybeTableDescription: scala.Option[String],
-    maybeTableDefinition: scala.Option[TableDefinition]
-  ): Table = {
-    table.toBuilder
-      .setDescription(maybeTableDescription.orNull)
-      .setDefinition(maybeTableDefinition.orNull)
       .build()
       .update()
   }
