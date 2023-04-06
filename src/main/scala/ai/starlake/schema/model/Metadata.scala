@@ -145,7 +145,7 @@ case class Metadata(
     getFinalValue(array.map(_.booleanValue()), false)
 
   def isWithHeader(): java.lang.Boolean =
-    getFinalValue(withHeader.map(_.booleanValue()), false)
+    getFinalValue(withHeader.map(_.booleanValue()), true)
 
   def getSeparator(): String = getFinalValue(separator, ";")
 
