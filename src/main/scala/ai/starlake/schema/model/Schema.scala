@@ -98,7 +98,7 @@ case class Schema(
     *   renamed column if defined, source name otherwise
     */
   @JsonIgnore
-  def getFinalName(): String = rename.getOrElse(name)
+  lazy val finalName: String = rename.getOrElse(name)
 
   @JsonIgnore
   lazy val attributesWithoutScriptedFields: List[Attribute] = attributes.filter(_.script.isEmpty)
@@ -283,7 +283,7 @@ case class Schema(
       "properties" -> properties,
       "attributes" -> attrs,
       "domain"     -> domainName.toLowerCase,
-      "schema"     -> getFinalName().toLowerCase
+      "schema"     -> finalName.toLowerCase
     )
 
     template
@@ -312,7 +312,7 @@ case class Schema(
   def mergedMetadata(domainMetadata: Option[Metadata]): Metadata = {
     domainMetadata
       .getOrElse(Metadata())
-      .`import`(this.metadata.getOrElse(Metadata()))
+      .merge(this.metadata.getOrElse(Metadata()))
 
   }
 
@@ -382,7 +382,6 @@ case class Schema(
   }
 
   def asDot(domain: String, includeAllAttrs: Boolean, fkTables: Set[String]): String = {
-    val finalName = getFinalName()
     val isFKTable = fkTables.contains(finalName.toLowerCase)
     if (isFKTable || includeAllAttrs) {
       val tableLabel = s"${domain}_$finalName"

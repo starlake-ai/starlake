@@ -184,6 +184,9 @@ object DatasetArea extends StrictLogging {
   def types(implicit settings: Settings): Path =
     new Path(metadata, "types")
 
+  def dags(implicit settings: Settings): Path =
+    new Path(settings.comet.dags)
+
   def assertions(implicit settings: Settings): Path =
     new Path(metadata, "assertions")
 
@@ -304,6 +307,10 @@ object DatasetArea extends StrictLogging {
           "incoming/sales/customers-2018-01-01.psv"
         )
         copyToFolder(rootResources, s"templates/quickstart", metadataFile.parent)
+        val dagResources = List(
+          "dags/default.comet.yml"
+        )
+        copyToFolder(dagResources, s"templates/quickstart", metadataFile.parent)
       case _ => // do nothing
     }
   }
