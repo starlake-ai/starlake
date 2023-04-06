@@ -138,7 +138,7 @@ class HdfsStorageHandler(fileSystem: String)(implicit
     */
   def write(data: String, path: Path)(implicit charset: Charset): Unit = {
     val os: FSDataOutputStream = getOutputStream(path).asInstanceOf[FSDataOutputStream]
-    os.writeBytes(data)
+    os.write(data.getBytes(charset))
     os.close()
   }
 
