@@ -5,6 +5,7 @@ import ai.starlake.extract.JDBCSchemas
 import ai.starlake.schema.model.{
   AutoJobDesc,
   AutoTaskDesc,
+  DagGenerationConfig,
   Domain,
   IamPolicyTags,
   Schema => ModelSchema,
@@ -145,6 +146,24 @@ object YamlSerializer extends LazyLogging {
       case Success(value) => Success(value)
       case Failure(exception) =>
         logger.error(s"Invalid domain file: $path(${exception.getMessage})")
+        Failure(exception)
+    }
+  }
+
+  def deserializeDagGenerationConfig(content: String, path: String): Try[DagGenerationConfig] = {
+    Try {
+      val rootNode = mapper.readTree(content)
+      val dagNode = rootNode.path("dag")
+      if (dagNode.isNull() || dagNode.isMissingNode) {
+        throw new RuntimeException(
+          s"No 'dag' attribute found in $path. Please define your dag generation config under 'dags' attribute."
+        )
+      }
+      mapper.treeToValue(dagNode, classOf[DagGenerationConfig])
+    } match {
+      case Success(value) => Success(value)
+      case Failure(exception) =>
+        logger.error(s"Invalid dag file: $path(${exception.getMessage})")
         Failure(exception)
     }
   }
