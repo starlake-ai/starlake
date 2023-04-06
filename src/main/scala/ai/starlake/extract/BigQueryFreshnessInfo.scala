@@ -30,13 +30,13 @@ object BigQueryFreshnessInfo {
     val schemaHandler = new SchemaHandler(storageHandler)
     val domains = schemaHandler.domains()
     val tablesFreshnessStatuses = tables.flatMap { case (dsInfo, tableInfos) =>
-      val domain = domains.find(_.getFinalName().equalsIgnoreCase(dsInfo.getDatasetId.getDataset))
+      val domain = domains.find(_.finalName.equalsIgnoreCase(dsInfo.getDatasetId.getDataset))
       domain match {
         case None => Nil
         case Some(domain) =>
           tableInfos.flatMap { tableInfo =>
             val tableName = tableInfo.getTableId.getTable
-            val table = domain.tables.find(_.getFinalName().equalsIgnoreCase(tableName))
+            val table = domain.tables.find(_.finalName.equalsIgnoreCase(tableName))
             table match {
               case None => Nil
               case Some(table) =>
@@ -47,18 +47,18 @@ object BigQueryFreshnessInfo {
                   case Some(freshness) =>
                     val warnStatus =
                       getFreshnessStatus(
-                        domain.getFinalName(),
+                        domain.finalName,
                         tableInfo,
-                        table.getFinalName(),
+                        table.finalName,
                         freshness.warn,
                         "WARN",
                         "TABLE"
                       )
                     val errorStatus =
                       getFreshnessStatus(
-                        domain.getFinalName(),
+                        domain.finalName,
                         tableInfo,
-                        table.getFinalName(),
+                        table.finalName,
                         freshness.error,
                         "ERROR",
                         "TABLE"

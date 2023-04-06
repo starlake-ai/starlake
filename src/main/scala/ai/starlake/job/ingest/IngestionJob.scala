@@ -130,8 +130,8 @@ trait IngestionJob extends SparkJob {
       logger.debug(s"rejectedRDD SIZE ${errMessagesDS.count()}")
       errMessagesDS.take(100).foreach(rejected => logger.debug(rejected.replaceAll("\n", "|")))
     }
-    val domainName = domain.getFinalName()
-    val schemaName = schema.getFinalName()
+    val domainName = domain.finalName
+    val schemaName = schema.finalName
 
     val start = Timestamp.from(Instant.now())
     val formattedDate = new java.text.SimpleDateFormat("yyyyMMddHHmmss").format(start)
@@ -245,8 +245,8 @@ trait IngestionJob extends SparkJob {
     if (settings.comet.assertions.active) {
       new AssertionJob(
         Map.empty, // Auth Info from env var since run from spark submit only
-        this.domain.getFinalName(),
-        this.schema.getFinalName(),
+        this.domain.finalName,
+        this.schema.finalName,
         this.schema.assertions,
         UNIT,
         storageHandler,
@@ -300,7 +300,7 @@ trait IngestionJob extends SparkJob {
       }
 
       val acceptedPath =
-        new Path(DatasetArea.accepted(domain.getFinalName()), schema.getFinalName())
+        new Path(DatasetArea.accepted(domain.finalName), schema.finalName)
       val acceptedRenamedFields = dfWithAttributesRenamed(validationResult.accepted)
 
       val acceptedDfWithScriptFields: DataFrame = computeScriptedAttributes(
@@ -366,8 +366,8 @@ trait IngestionJob extends SparkJob {
           val log = AuditLog(
             applicationId(),
             acceptedPath.toString,
-            domain.getFinalName(),
-            schema.getFinalName(),
+            domain.finalName,
+            schema.finalName,
             success = true,
             -1,
             -1,
@@ -385,8 +385,8 @@ trait IngestionJob extends SparkJob {
           val log = AuditLog(
             applicationId(),
             acceptedPath.toString,
-            domain.getFinalName(),
-            schema.getFinalName(),
+            domain.finalName,
+            schema.finalName,
             success = false,
             -1,
             -1,
@@ -497,7 +497,7 @@ trait IngestionJob extends SparkJob {
           genericSink(mergedDF)
         case SinkType.FS if !settings.comet.sinkToFile =>
           val acceptedPath =
-            new Path(DatasetArea.accepted(domain.getFinalName()), schema.getFinalName())
+            new Path(DatasetArea.accepted(domain.finalName), schema.finalName)
           val sinkedDF = sinkToFile(
             mergedDF,
             acceptedPath,
@@ -517,7 +517,7 @@ trait IngestionJob extends SparkJob {
 
   private def kafkaSink(mergedDF: DataFrame) = {
     Utils.withResources(new KafkaClient(settings.comet.kafka)) { kafkaClient =>
-      kafkaClient.sinkToTopic(settings.comet.kafka.topics(schema.getFinalName()), mergedDF)
+      kafkaClient.sinkToTopic(settings.comet.kafka.topics(schema.finalName), mergedDF)
     }
     mergedDF
   }
@@ -537,7 +537,7 @@ trait IngestionJob extends SparkJob {
         sink.connection,
         settings.comet,
         Right(mergedDF),
-        outputTable = schema.getFinalName(),
+        outputTable = schema.finalName,
         createDisposition = createDisposition,
         writeDisposition = writeDisposition,
         options = sink.getOptions
@@ -571,7 +571,7 @@ trait IngestionJob extends SparkJob {
       source = Right(mergedDF),
       outputTableId = Some(
         BigQueryJobBase
-          .extractProjectDatasetAndTable(domain.getFinalName(), schema.getFinalName())
+          .extractProjectDatasetAndTable(domain.finalName, schema.finalName)
       ),
       sourceFormat = settings.comet.defaultFormat,
       createDisposition = createDisposition,
@@ -632,7 +632,7 @@ trait IngestionJob extends SparkJob {
           ace.grants.map { grant =>
             val principal =
               if (grant.indexOf('@') > 0 && !grant.startsWith("`")) s"`$grant`" else grant
-            s"GRANT ${ace.role} ON TABLE ${domain.getFinalName()}.${schema.getFinalName()} TO $principal"
+            s"GRANT ${ace.role} ON TABLE ${domain.finalName}.${schema.finalName} TO $principal"
           }
         } else { // Hive
           ace.grants.map { grant =>
@@ -641,7 +641,7 @@ trait IngestionJob extends SparkJob {
                 s"USER ${grant.substring("user:".length)}"
               else if (grant.startsWith("group:") || grant.startsWith("role:"))
                 s"ROLE ${grant.substring("group:".length)}"
-            s"GRANT ${ace.role} ON TABLE ${domain.getFinalName()}.${schema.getFinalName()} TO $principal"
+            s"GRANT ${ace.role} ON TABLE ${domain.finalName}.${schema.finalName} TO $principal"
           }
         }
       }
@@ -679,7 +679,7 @@ trait IngestionJob extends SparkJob {
   ): DataFrame = {
     val resultDataFrame = if (dataset.columns.length > 0) {
       val saveMode = writeMode.toSaveMode
-      val hiveDB = StorageArea.area(domain.getFinalName(), Some(area))
+      val hiveDB = StorageArea.area(domain.finalName, Some(area))
       val tableName = schema.name
       val fullTableName = s"$hiveDB.$tableName"
       if (settings.comet.hive) {
@@ -997,7 +997,7 @@ trait IngestionJob extends SparkJob {
       None,
       source = Left(path.map(_.toString).mkString(",")),
       outputTableId = Some(
-        BigQueryJobBase.extractProjectDatasetAndTable(domain.getFinalName(), schema.getFinalName())
+        BigQueryJobBase.extractProjectDatasetAndTable(domain.finalName, schema.finalName)
       ),
       sourceFormat = settings.comet.defaultFormat,
       createDisposition = createDisposition,
@@ -1060,8 +1060,8 @@ trait IngestionJob extends SparkJob {
               val log = AuditLog(
                 applicationId(),
                 inputFiles,
-                domain.getFinalName(),
-                schema.getFinalName(),
+                domain.finalName,
+                schema.finalName,
                 success = success,
                 inputCount,
                 acceptedCount,
@@ -1081,8 +1081,8 @@ trait IngestionJob extends SparkJob {
             val log = AuditLog(
               applicationId(),
               path.map(_.toString).mkString(","),
-              domain.getFinalName(),
-              schema.getFinalName(),
+              domain.finalName,
+              schema.finalName,
               success = false,
               0,
               0,
@@ -1161,12 +1161,12 @@ trait IngestionJob extends SparkJob {
   ): (DataFrame, List[String]) = {
     // When merging to BigQuery, load existing DF from BigQuery
     val tableMetadata =
-      BigQuerySparkJob.getTable(domain.getFinalName() + "." + schema.getFinalName())
+      BigQuerySparkJob.getTable(domain.finalName + "." + schema.finalName)
     val existingDF = tableMetadata.table
       .map { table =>
         val incomingSchema = BigQueryUtils.normalizeSchema(schema.finalSparkSchema(schemaHandler))
         val updatedTable = updateBqTableSchema(table, incomingSchema)
-        val bqTable = s"${domain.getFinalName()}.${schema.getFinalName()}"
+        val bqTable = s"${domain.finalName}.${schema.finalName}"
         // We provided the acceptedDF schema here since BQ lose the required / nullable information of the schema
         val existingBQDFWithoutFilter = session.read
           .schema(incomingSchema)

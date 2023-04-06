@@ -1,0 +1,10 @@
+dags:
+    schedule: "0 0 * * *"
+    dagName: "{{'my-project-{{domain}}'}}"
+    suffixWithIndex: false
+    dataproc:
+        profileVar: "DATAPROC_MEDIUM"
+        region: "europe-west1"
+    sl:
+        envVar: "SL_ENV"
+        jarFileUrisVar: "SL_JARS"

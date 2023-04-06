@@ -46,7 +46,7 @@ class Yml2GraphViz(schemaHandler: SchemaHandler) extends LazyLogging {
   }
 
   private def tableAndAclAndRlsUsersAsDot() = {
-    val aclTables = schemaHandler.domains().map(d => d.getFinalName() -> d.aclTables().toSet).toMap
+    val aclTables = schemaHandler.domains().map(d => d.finalName -> d.aclTables().toSet).toMap
     val aclTableGrants = aclTables.values.flatten
       .flatMap(_.acl)
       .flatMap(_.grants)
@@ -130,7 +130,7 @@ class Yml2GraphViz(schemaHandler: SchemaHandler) extends LazyLogging {
   private def rlsTables() = {
     schemaHandler
       .domains()
-      .map(d => d.getFinalName() -> d.rlsTables())
+      .map(d => d.finalName -> d.rlsTables())
       .filter { case (domainName, rls) => rls.nonEmpty }
       .toMap
   }
@@ -185,7 +185,7 @@ class Yml2GraphViz(schemaHandler: SchemaHandler) extends LazyLogging {
 
     val aclTableNames = schemaHandler
       .domains()
-      .map(d => d.getFinalName() -> d.aclTables().toSet[Schema].map(x => x.getFinalName()))
+      .map(d => d.finalName -> d.aclTables().toSet[Schema].map(x => x.finalName))
       .toMap
 
     val tables: Map[String, Set[String]] = rlsTableNames ++ aclTableNames
@@ -218,11 +218,11 @@ class Yml2GraphViz(schemaHandler: SchemaHandler) extends LazyLogging {
   }
 
   private def aclRelationsAsDot(): String = {
-    val aclTables = schemaHandler.domains().map(d => d.getFinalName() -> d.aclTables().toSet).toMap
+    val aclTables = schemaHandler.domains().map(d => d.finalName -> d.aclTables().toSet).toMap
     val aclTablesRelations = aclTables.toList.flatMap { case (domainName, schemas) =>
       schemas.flatMap { schema =>
         val acls = schema.acl
-        val schemaName = schema.getFinalName()
+        val schemaName = schema.finalName
         acls.flatMap { ace =>
           ace.grants.map(userName => (userName, ace.role, schemaName, domainName))
         }
@@ -268,7 +268,7 @@ class Yml2GraphViz(schemaHandler: SchemaHandler) extends LazyLogging {
     val rlsTables =
       schemaHandler
         .domains()
-        .map(d => d.getFinalName() -> d.rlsTables())
+        .map(d => d.finalName -> d.rlsTables())
         .filter { case (domainName, rls) => rls.nonEmpty }
         .toMap
 
