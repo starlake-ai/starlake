@@ -219,7 +219,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
 
   def loadExternalSources(filename: String): List[ExternalProject] = {
     val externalPath = new Path(DatasetArea.external, filename)
-    logger.info(s"Loading assertions $externalPath")
+    logger.info(s"Loading external $externalPath")
     if (storage.exists(externalPath)) {
       val content = Utils
         .parseJinja(storage.read(externalPath), activeEnv())
