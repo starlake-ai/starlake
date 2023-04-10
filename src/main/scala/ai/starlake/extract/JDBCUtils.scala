@@ -520,7 +520,7 @@ object JDBCUtils extends LazyLogging {
     *   For dev mode, it may be useful to extract only a subset of the data
     * @param separator
     *   data are saved as CSV files. this is the separator to use.
-    * @param numPartitions
+    * @param defaultNumPartitions
     *   Parallelism level for the extraction process
     * @param settings
     */
@@ -531,7 +531,7 @@ object JDBCUtils extends LazyLogging {
     baseOutputDir: File,
     limit: Int,
     separator: String,
-    numPartitions: Int,
+    defaultNumPartitions: Int,
     clean: Boolean
   )(implicit
     settings: Settings
@@ -568,11 +568,20 @@ object JDBCUtils extends LazyLogging {
         val currentTable = jdbcSchema.tables.find(_.name == tableName)
         val currentTableConnectionOptions =
           currentTable.map(_.connectionOptions).getOrElse(Map.empty)
+
         val partitionColumn = currentTable
           .flatMap(_.partitionColumn)
           .orElse(jdbcSchema.partitionColumn)
+
         val fetchSize =
           jdbcSchema.fetchSize.orElse(currentTable.flatMap(_.fetchSize))
+
+        val numPartitions = currentTable
+          .flatMap { tbl =>
+            tbl.numPartitions.orElse(jdbcSchema.numPartitions)
+          }
+          .getOrElse(defaultNumPartitions)
+
         partitionColumn match {
           case None =>
             // non partitioned tables are fully extracted there is no delta mode
@@ -682,7 +691,8 @@ object JDBCUtils extends LazyLogging {
                       val (lower, upper) =
                         bounds.asInstanceOf[(java.math.BigDecimal, java.math.BigDecimal)]
                       statement.setBigDecimal(1, upper)
-                      if (!(boundaries.firstExport && index == 0)) statement.setBigDecimal(2, lower)
+                      if (!(boundaries.firstExport && index == 0))
+                        statement.setBigDecimal(2, lower)
                     case PrimitiveType.date =>
                       val (lower, upper) = bounds.asInstanceOf[(Date, Date)]
                       statement.setDate(1, upper)
@@ -691,7 +701,8 @@ object JDBCUtils extends LazyLogging {
                       val (lower, upper) =
                         bounds.asInstanceOf[(Timestamp, Timestamp)]
                       statement.setTimestamp(1, upper)
-                      if (!(boundaries.firstExport && index == 0)) statement.setTimestamp(2, lower)
+                      if (!(boundaries.firstExport && index == 0))
+                        statement.setTimestamp(2, lower)
                     case _ =>
                       throw new Exception(
                         s"type $partitionColumnType not supported for partition column"
