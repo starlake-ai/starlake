@@ -45,10 +45,7 @@ case class JDBCSchemas(
             numericTrim = schema.numericTrim.orElse(globalJdbcSchema.flatMap(_.numericTrim)),
             partitionColumn =
               schema.partitionColumn.orElse(globalJdbcSchema.flatMap(_.partitionColumn)),
-            numPartitions =
-              if (schema.numPartitions == 1) globalJdbcSchema.map(_.numPartitions).getOrElse(1)
-              else
-                schema.numPartitions,
+            numPartitions = schema.numPartitions.orElse(globalJdbcSchema.flatMap(_.numPartitions)),
             connectionOptions =
               if (schema.connectionOptions.isEmpty)
                 globalJdbcSchema.map(_.connectionOptions).getOrElse(schema.connectionOptions)
@@ -87,7 +84,7 @@ case class JDBCSchema(
   pattern: Option[String] = None,
   numericTrim: Option[Trim] = None,
   partitionColumn: Option[String] = None,
-  numPartitions: Int = 1,
+  numPartitions: Option[Int] = None,
   connectionOptions: Map[String, String] = Map.empty,
   fetchSize: Option[Int] = None
 ) {
@@ -123,7 +120,7 @@ case class JDBCTable(
   name: String,
   columns: List[String],
   partitionColumn: Option[String],
-  numPartitions: Int,
+  numPartitions: Option[Int],
   connectionOptions: Map[String, String],
   fetchSize: Option[Int]
 ) {
@@ -132,7 +129,7 @@ case class JDBCTable(
       "",
       Nil,
       None,
-      1,
+      None,
       Map.empty,
       None
     ) // Should never be called. Here for Jackson deserialization only
