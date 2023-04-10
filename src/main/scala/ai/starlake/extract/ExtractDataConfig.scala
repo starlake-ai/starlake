@@ -26,7 +26,9 @@ case class ExtractDataConfig(
   mapping: String = "",
   outputDir: Option[String] = None,
   limit: Int = 0,
-  separator: String = ";"
+  separator: String = ";",
+  numPartitions: Int = 1,
+  clean: Boolean = false
 )
 
 object ExtractDataConfig extends CliConfig[ExtractDataConfig] {
@@ -46,10 +48,18 @@ object ExtractDataConfig extends CliConfig[ExtractDataConfig] {
         .action((x, c) => c.copy(limit = x))
         .optional()
         .text("Limit number of records"),
+      opt[Int]("numPartitions")
+        .action((x, c) => c.copy(numPartitions = x))
+        .optional()
+        .text("How many parallel reads when using Spark reader"),
       opt[String]("separator")
         .action((x, c) => c.copy(separator = x))
         .optional()
         .text("Column separator"),
+      opt[Unit]("clean")
+        .action((x, c) => c.copy(clean = true))
+        .optional()
+        .text("Cleanup output directory first ?"),
       opt[String]("output-dir")
         .action((x, c) => c.copy(outputDir = Some(x)))
         .required()
