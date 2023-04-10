@@ -51,7 +51,7 @@ object ExtractDataConfig extends CliConfig[ExtractDataConfig] {
       opt[Int]("numPartitions")
         .action((x, c) => c.copy(numPartitions = x))
         .optional()
-        .text("How many parallel reads when using Spark reader"),
+        .text("parallelism level"),
       opt[String]("separator")
         .action((x, c) => c.copy(separator = x))
         .optional()
