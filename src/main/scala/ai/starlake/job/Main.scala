@@ -340,7 +340,7 @@ class Main() extends StrictLogging {
         ExtractSchema.run(args.drop(1))
         true
       case "extract-data" =>
-        ExtractData.run(args.drop(1))
+        new ExtractData(schemaHandler).run(args.drop(1))
         true
       case "bq-info" =>
         BigQueryTableInfo.run(args.drop(1))

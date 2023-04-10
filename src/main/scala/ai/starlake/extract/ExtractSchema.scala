@@ -35,8 +35,7 @@ object ExtractSchema extends Extract with LazyLogging {
     *   : Application configuration file
     */
   def run(config: ExtractSchemaConfig)(implicit settings: Settings): Unit = {
-    import settings.storageHandler
-    val schemaHandler = new SchemaHandler(storageHandler)
+    val schemaHandler = new SchemaHandler(settings.storageHandler)
     val content = settings.storageHandler
       .read(mappingPath(config.mapping))
       .richFormat(schemaHandler.activeEnv(), Map.empty)
