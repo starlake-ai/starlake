@@ -60,7 +60,7 @@ initEnv() {
 
   cp -r ../quickstart-template/* quickstart/
 
-  awk -v var="$COMET_ROOT" '{sub("__COMET_TEST_ROOT__", var)}1' ../quickstart-template/metadata/env.comet.yml >quickstart/metadata/env.comet.yml
+  awk -v var="$COMET_ROOT" '{sub("__SLK_TEST_ROOT__", var)}1' ../quickstart-template/metadata/env.comet.yml >quickstart/metadata/env.comet.yml
 
   if [[ ! -d "notebooks/" ]]
   then

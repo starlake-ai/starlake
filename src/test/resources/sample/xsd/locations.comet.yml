@@ -1,7 +1,7 @@
 ---
 load:
   name: "locations"
-  directory: "__COMET_TEST_ROOT__"
+  directory: "__SLK_TEST_ROOT__"
   metadata:
     mode: "FILE"
     format: "XML"
@@ -15,7 +15,7 @@ load:
     xml:
       rowTag: element
       inferSchema: false
-      rowValidationXSDPath: __COMET_TEST_ROOT__/metadata/domains/sample/xsd/locations.xsd
+      rowValidationXSDPath: __SLK_TEST_ROOT__/metadata/domains/sample/xsd/locations.xsd
     partition:
       attributes:
         - comet_year

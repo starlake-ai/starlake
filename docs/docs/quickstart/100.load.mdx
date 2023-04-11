@@ -81,7 +81,7 @@ c:\users\me\starlake> %userprofile%\starlake\starlake.cmd infer-schema  ^
 
 ```shell 
 $ docker run                                                        \
-    -e COMET_ROOT=/app/myproject                                    \
+    -e SLK_ROOT=/app/myproject                                    \
     -v $HOME/myproject:/app/myproject -it starlake infer-schema     \
     --domain sales                                                  \
     --table customers                                               \
@@ -157,7 +157,7 @@ In other word, we have the following environments
 | FS          | env.FS.comet.yml, env.comet.yml |
 | BQ          | env.BQ.comet.yml, env.comet.yml |
 
-Environment is set thanks to `COMET_ENV` environment variable. For more details, have a look at the [environment reference](../reference/environment)
+Environment is set thanks to `SLK_ENV` environment variable. For more details, have a look at the [environment reference](../reference/environment)
 
 In our example, the `root_path` must be defined to the location where the incoming directory containing the datasets to load will be located.
 Set it to your project directory as follows in the default environment file:
@@ -200,7 +200,7 @@ c:\users\me\starlake> %userprofile%\starlake\starlake.cmd import
 
 ```shell 
 $ docker run                                                        \
-    -e COMET_ROOT=/app/myproject                                    \
+    -e SLK_ROOT=/app/myproject                                    \
     -v $HOME/myproject:/app/myproject -it starlake import
 ```
 
@@ -243,7 +243,7 @@ c:\users\me\starlake> %userprofile%\starlake\starlake.cmd watch
 
 ```shell 
 $ docker run                                                        \
-    -e COMET_ROOT=/app/myproject                                    \
+    -e SLK_ROOT=/app/myproject                                    \
     -v $HOME/myproject:/app/myproject -it starlake watch
 ```
 
