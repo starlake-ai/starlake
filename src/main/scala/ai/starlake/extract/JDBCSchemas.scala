@@ -6,7 +6,8 @@ case class JDBCSchemas(
   jdbcSchemas: List[JDBCSchema],
   globalJdbcSchema: Option[JDBCSchema] = None,
   connectionRef: Option[String] = None,
-  connection: Map[String, String] = Map.empty
+  connection: Map[String, String] = Map.empty,
+  fetchSize: Option[Int] = None
 ) {
 
   /** @return
@@ -41,7 +42,15 @@ case class JDBCSchemas(
             template = schema.template.orElse(globalJdbcSchema.flatMap(_.template)),
             write = schema.write.orElse(globalJdbcSchema.flatMap(_.write)),
             pattern = schema.pattern.orElse(globalJdbcSchema.flatMap(_.pattern)),
-            numericTrim = schema.numericTrim.orElse(globalJdbcSchema.flatMap(_.numericTrim))
+            numericTrim = schema.numericTrim.orElse(globalJdbcSchema.flatMap(_.numericTrim)),
+            partitionColumn =
+              schema.partitionColumn.orElse(globalJdbcSchema.flatMap(_.partitionColumn)),
+            numPartitions = schema.numPartitions.orElse(globalJdbcSchema.flatMap(_.numPartitions)),
+            connectionOptions =
+              if (schema.connectionOptions.isEmpty)
+                globalJdbcSchema.map(_.connectionOptions).getOrElse(schema.connectionOptions)
+              else schema.connectionOptions,
+            fetchSize = schema.fetchSize.orElse(globalJdbcSchema.flatMap(_.fetchSize))
           )
           .fillWithDefaultValues()
       }))
@@ -73,11 +82,17 @@ case class JDBCSchema(
   template: Option[String] = None,
   write: Option[WriteMode] = None,
   pattern: Option[String] = None,
-  numericTrim: Option[Trim] = None
+  numericTrim: Option[Trim] = None,
+  partitionColumn: Option[String] = None,
+  numPartitions: Option[Int] = None,
+  connectionOptions: Map[String, String] = Map.empty,
+  fetchSize: Option[Int] = None
 ) {
   def this() = this(None) // Should never be called. Here for Jackson deserialization only
 
-  def fillWithDefaultValues() = {
+  def writeMode(): WriteMode = this.write.getOrElse(WriteMode.OVERWRITE)
+
+  def fillWithDefaultValues(): JDBCSchema = {
     copy(
       tableTypes = if (tableTypes.isEmpty) JDBCSchema.defaultTableTypes else tableTypes
     )
@@ -101,6 +116,21 @@ object JDBCSchema {
   * @param columns
   *   : List of columns (case insensitive). Nil if all columns should be extracted
   */
-case class JDBCTable(name: String, columns: List[String]) {
-  def this() = this("", Nil) // Should never be called. Here for Jackson deserialization only
+case class JDBCTable(
+  name: String,
+  columns: List[String],
+  partitionColumn: Option[String],
+  numPartitions: Option[Int],
+  connectionOptions: Map[String, String],
+  fetchSize: Option[Int]
+) {
+  def this() =
+    this(
+      "",
+      Nil,
+      None,
+      None,
+      Map.empty,
+      None
+    ) // Should never be called. Here for Jackson deserialization only
 }
