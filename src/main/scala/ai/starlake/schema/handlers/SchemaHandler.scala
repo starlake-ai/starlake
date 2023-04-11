@@ -323,7 +323,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     // We first load all variables defined in the common environment file.
     // variables defined here are default values.
     val globalsCometPath = new Path(DatasetArea.metadata, s"env.comet.yml")
-    // The env var COMET_ENV should be set to the profile under wich starlake is run.
+    // The env var SLK_ENV should be set to the profile under wich starlake is run.
     // If no profile is defined, only default values are used.
     val envsCometPath = new Path(DatasetArea.metadata, s"env.${settings.comet.env}.comet.yml")
     // System Env variables may be used as valuesY
