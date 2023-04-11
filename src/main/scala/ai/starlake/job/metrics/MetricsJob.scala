@@ -76,7 +76,7 @@ class MetricsJob(
     * @return
     */
 
-  def unionDisContMetric(
+  private def unionDisContMetric(
     discreteDataset: Option[DataFrame],
     continuousDataset: Option[DataFrame],
     domain: Domain,

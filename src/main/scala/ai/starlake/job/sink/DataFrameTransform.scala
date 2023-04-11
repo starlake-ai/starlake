@@ -16,7 +16,7 @@ object IdentityDataFrameTransformer extends DataFrameTransform {
 }
 
 object HeaderDataFrameTransformer extends DataFrameTransform {
-  val avroSerializer = new KafkaAvroSerializer()
+  private val avroSerializer = new KafkaAvroSerializer()
   val settings = Settings(ConfigFactory.load())
   avroSerializer.configure(settings.comet.kafka.serverOptions.asJava, false)
   override def transform(dataFrame: DataFrame, session: SparkSession): DataFrame = {

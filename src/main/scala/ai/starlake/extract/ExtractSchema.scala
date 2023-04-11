@@ -138,7 +138,7 @@ object ExtractSchema extends Extract with LazyLogging {
     * @param settings
     *   : Application configuration file
     */
-  def extractDomain(
+  private def extractDomain(
     jdbcSchema: JDBCSchema,
     connectionOptions: Map[String, String],
     domainTemplate: Option[Domain]
