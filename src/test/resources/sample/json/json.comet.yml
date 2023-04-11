@@ -1,6 +1,6 @@
 ---
 name: "json"
-directory: "__COMET_TEST_ROOT__/json"
+directory: "__SLK_TEST_ROOT__/json"
 metadata:
   mode: "FILE"
   format: "JSON"

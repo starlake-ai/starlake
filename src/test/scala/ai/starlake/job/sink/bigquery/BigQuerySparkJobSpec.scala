@@ -13,16 +13,16 @@ import org.scalatest.BeforeAndAfterAll
 class BigQuerySparkJobSpec extends TestHelper with BeforeAndAfterAll {
   private val bigquery = BigQueryOptions.newBuilder().build().getService
   override def beforeAll(): Unit = {
-    if (sys.env.getOrElse("COMET_GCP_TEST", "false").toBoolean) {
+    if (sys.env.getOrElse("SLK_GCP_TEST", "false").toBoolean) {
       bigquery.delete(TableId.of("BQ_TEST_DS", "BQ_TEST_TABLE"))
     }
   }
   override def afterAll(): Unit = {
-    if (sys.env.getOrElse("COMET_GCP_TEST", "false").toBoolean) {
+    if (sys.env.getOrElse("SLK_GCP_TEST", "false").toBoolean) {
       // BigQueryJobBase.bigquery.delete(TableId.of("bqtest", "account"))
     }
   }
-  if (sys.env.getOrElse("COMET_GCP_TEST", "false").toBoolean) {
+  if (sys.env.getOrElse("SLK_GCP_TEST", "false").toBoolean) {
     // TODO
     // import com.google.cloud.bigquery.TableId
     /*

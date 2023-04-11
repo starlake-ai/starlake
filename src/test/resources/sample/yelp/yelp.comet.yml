@@ -1,6 +1,6 @@
 ---
 name: "yelp"
-directory: "__COMET_TEST_ROOT__/yelp"
+directory: "__SLK_TEST_ROOT__/yelp"
 metadata:
   mode: FILE
   format: JSON
