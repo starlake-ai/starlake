@@ -30,7 +30,7 @@ trait JobBase extends StrictLogging with DatasetLogging {
   implicit def settings: Settings
 
   val appName =
-    Option(System.getenv("COMET_JOB_ID")).getOrElse(s"$name-${System.currentTimeMillis()}")
+    Option(System.getenv("SLK_JOB_ID")).getOrElse(s"$name-${System.currentTimeMillis()}")
 
   def applicationId(): String = appName
 

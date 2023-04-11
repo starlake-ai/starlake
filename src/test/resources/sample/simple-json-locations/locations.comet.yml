@@ -1,6 +1,6 @@
 ---
 name: "locations"
-directory: "__COMET_TEST_ROOT__"
+directory: "__SLK_TEST_ROOT__"
 metadata:
   mode: "FILE"
   format: "SIMPLE_JSON"
