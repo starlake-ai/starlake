@@ -131,7 +131,7 @@ case class AuditLog(
 
 object AuditLog extends StrictLogging {
 
-  val auditCols = List(
+  private val auditCols = List(
     ("jobid", StandardSQLTypeName.STRING, StringType),
     ("paths", StandardSQLTypeName.STRING, StringType),
     ("domain", StandardSQLTypeName.STRING, StringType),
