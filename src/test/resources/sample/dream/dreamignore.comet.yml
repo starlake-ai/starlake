@@ -1,6 +1,6 @@
 ---
 name: "dreamignore"
-directory: "__COMET_TEST_ROOT__/dream"
+directory: "__SLK_TEST_ROOT__/dream"
 metadata:
   mode: "FILE"
   format: "DSV"

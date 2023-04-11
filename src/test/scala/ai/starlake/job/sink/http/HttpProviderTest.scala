@@ -23,7 +23,7 @@ class HttpProviderTest
     with DatasetLogging {
 
   def startHttpServer(): HttpServer = {
-    val server = HttpServer.create(new InetSocketAddress(9000), 0)
+    val server = HttpServer.create(new InetSocketAddress(10000), 0)
     server.createContext("/", new RootHandler())
     server.setExecutor(null)
     server.start()
@@ -99,7 +99,7 @@ class HttpProviderTest
   }
   s"Save in HTTP Sink" should "work" in {
     val spark = SparkSession.builder
-      .master("local[4]")
+      .master("local[1]")
       .getOrCreate();
     File("/tmp/sink").delete(true)
     File("/tmp/sink").createDirectory()
@@ -115,7 +115,7 @@ class HttpProviderTest
       .toDF()
       .writeStream
       .format("starlake-http")
-      .option("url", "http://localhost:9000")
+      .option("url", "http://localhost:10000")
       .start
     events.addData("0", "1", "2")
     // streamingQuery.processAllAvailable()

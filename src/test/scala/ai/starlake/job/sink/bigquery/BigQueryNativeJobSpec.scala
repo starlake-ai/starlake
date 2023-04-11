@@ -25,20 +25,20 @@ import java.time.Instant
 class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
   val bigquery = BigQueryOptions.newBuilder().build().getService()
   override def beforeAll(): Unit = {
-    if (sys.env.getOrElse("COMET_GCP_TEST", "false").toBoolean) {
+    if (sys.env.getOrElse("SLK_GCP_TEST", "false").toBoolean) {
       bigquery.delete(TableId.of("bqtest", "account"))
       bigquery.delete(TableId.of("bqtest", "jobresult"))
     }
   }
   override def afterAll(): Unit = {
-    if (sys.env.getOrElse("COMET_GCP_TEST", "false").toBoolean) {
+    if (sys.env.getOrElse("SLK_GCP_TEST", "false").toBoolean) {
       // BigQueryJobBase.bigquery.delete(TableId.of("bqtest", "account"))
       // BigQueryJobBase.bigquery.delete(TableId.of("bqtest", "jobresult"))
     }
   }
 
   "Ingest to BigQuery" should "be ingested and stored in a BigQuery table" in {
-    if (sys.env.getOrElse("COMET_GCP_TEST", "false").toBoolean) {
+    if (sys.env.getOrElse("SLK_GCP_TEST", "false").toBoolean) {
       import org.slf4j.impl.StaticLoggerBinder
       val binder = StaticLoggerBinder.getSingleton
       logger.debug(binder.getLoggerFactory.toString)
@@ -65,7 +65,7 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
     }
   }
   "Secure BigQuery Tables" should "should set policies in tables" in {
-    if (false && sys.env.getOrElse("COMET_GCP_TEST", "false").toBoolean) {
+    if (false && sys.env.getOrElse("SLK_GCP_TEST", "false").toBoolean) {
       import org.slf4j.impl.StaticLoggerBinder
       val binder = StaticLoggerBinder.getSingleton
       logger.debug(binder.getLoggerFactory.toString)
@@ -93,7 +93,7 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
   }
 
   "Native BigQuery AutoJob" should "succeed" in {
-    if (sys.env.getOrElse("COMET_GCP_TEST", "false").toBoolean) {
+    if (sys.env.getOrElse("SLK_GCP_TEST", "false").toBoolean) {
       new WithSettings() {
         new SpecTrait(
           domainOrJobFilename = "bqtest.comet.yml",
@@ -158,7 +158,7 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
     }
   }
   "Freshness of Table" should "return list of warning & errors" in {
-    if (sys.env.getOrElse("COMET_GCP_TEST", "false").toBoolean) {
+    if (sys.env.getOrElse("SLK_GCP_TEST", "false").toBoolean) {
       import org.slf4j.impl.StaticLoggerBinder
       val binder = StaticLoggerBinder.getSingleton
       logger.debug(binder.getLoggerFactory.toString)
