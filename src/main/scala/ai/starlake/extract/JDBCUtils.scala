@@ -565,7 +565,7 @@ object JDBCUtils extends LazyLogging {
         val header = selectedColumns.map(_.name).mkString(separator)
 
         // Get the current table partition column and  connection options if any
-        val currentTable = jdbcSchema.tables.find(_.name == tableName)
+        val currentTable = jdbcSchema.tables.find(_.name.equalsIgnoreCase(tableName))
         val currentTableConnectionOptions =
           currentTable.map(_.connectionOptions).getOrElse(Map.empty)
 
@@ -578,14 +578,15 @@ object JDBCUtils extends LazyLogging {
 
         val numPartitions = currentTable
           .flatMap { tbl =>
-            tbl.numPartitions.orElse(jdbcSchema.numPartitions)
+            tbl.numPartitions
           }
+          .orElse(jdbcSchema.numPartitions)
           .getOrElse(defaultNumPartitions)
 
         partitionColumn match {
           case None =>
             // non partitioned tables are fully extracted there is no delta mode
-            val sql = s"select $cols from ${jdbcSchema.schema}.$tableName"
+            val sql = s"""select $cols from "${jdbcSchema.schema}"."$tableName""""
             val start = System.currentTimeMillis()
             val count = Try {
               withJDBCConnection(connectionOptions ++ currentTableConnectionOptions) { connection =>
@@ -1024,7 +1025,7 @@ object LastExportUtils {
     columnName: String
   )(apply: ResultSet => T): T = {
     val SQL_LAST_EXPORT_VALUE =
-      s"select max($columnName) from SLK_LAST_EXPORT where domain like ? and schema like ?"
+      s"""select max("$columnName") from SLK_LAST_EXPORT where "domain" like ? and "schema" like ?"""
     val preparedStatement = conn.prepareStatement(SQL_LAST_EXPORT_VALUE)
     preparedStatement.setString(1, domain)
     preparedStatement.setString(2, table)
@@ -1038,7 +1039,7 @@ object LastExportUtils {
     partitionColumn: String
   )(apply: PreparedStatement => T): T = {
     val SQL_BOUNDARIES_VALUES =
-      s"""select count($partitionColumn) as count_value, min($partitionColumn) as min_value, max($partitionColumn) as max_value
+      s"""select count("$partitionColumn") as count_value, min("$partitionColumn") as min_value, max("$partitionColumn") as max_value
            |from $domain.$table
            |where $partitionColumn > ?""".stripMargin
     val preparedStatement = conn.prepareStatement(SQL_BOUNDARIES_VALUES)
@@ -1054,7 +1055,7 @@ object LastExportUtils {
     val sqlInsert =
       partitionColumnType match {
         case None =>
-          s"insert into SLK_LAST_EXPORT(domain, schema, start_ts, end_ts, duration, mode, count, success, message, step) values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+          s"""insert into SLK_LAST_EXPORT("domain", "schema", "start_ts", "end_ts", "duration", "mode", "count", "success", "message", "step") values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"""
         case Some(partitionColumnType) =>
           val lastExportColumn = partitionColumnType match {
             case PrimitiveType.int | PrimitiveType.long | PrimitiveType.short => "last_long"
@@ -1064,7 +1065,7 @@ object LastExportUtils {
             case _ =>
               throw new Exception(s"type $partitionColumnType not supported for partition column")
           }
-          s"insert into SLK_LAST_EXPORT(domain, schema, start_ts, end_ts, duration, mode, count, success, message, step, $lastExportColumn) values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+          s"""insert into SLK_LAST_EXPORT("domain", "schema", "start_ts", "end_ts", "duration", "mode", "count", "success", "message", "step", "$lastExportColumn") values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"""
       }
 
     val preparedStatement = conn.prepareStatement(sqlInsert)
@@ -1098,14 +1099,6 @@ object LastExportUtils {
     preparedStatement.executeUpdate()
   }
 
-  class LastExportDateRequest(domainName: String, schemaName: String)
-      extends SQlRequest[java.sql.Timestamp] {
-    val queryString =
-      s"SELECT max(timestamp) FROM SLK_LAST_EXPORT where domain like '$domainName' and schema like '$schemaName'"
-
-    def getResult(resultSet: ResultSet): java.sql.Timestamp = resultSet.getTimestamp(0)
-  }
-
   private def executeQuery[T](
     stmt: PreparedStatement
   )(apply: ResultSet => T): T = {
@@ -1123,23 +1116,6 @@ object LastExportUtils {
       count
     }
 
-  trait SQlRequest[T] {
-    def getResult(resultSet: ResultSet): T
-  }
-
-  class NewExportDateRequest(
-    dbtable: String,
-    timestampColumn: String,
-    domainName: String,
-    schemaName: String,
-    lastExportDate: Timestamp
-  ) extends SQlRequest[java.sql.Timestamp] {
-    val queryString =
-      s"SELECT max($timestampColumn) FROM $dbtable WHERE $timestampColumn > '$lastExportDate'"
-
-    def getResult(resultSet: ResultSet): java.sql.Timestamp = resultSet.getTimestamp(0)
-  }
-
   class CountRowsRequest(
     fullTableName: String,
     timestampColumn: String,
@@ -1147,9 +1123,9 @@ object LastExportUtils {
     schemaName: String,
     lastExportDate: Timestamp,
     newExportDate: Timestamp
-  ) extends SQlRequest[Int] {
+  ) {
     val queryString =
-      s"SELECT COUNT(*) FROM $fullTableName WHERE $timestampColumn > '$lastExportDate' AND $timestampColumn <= '$newExportDate'"
+      s"""SELECT COUNT(*) FROM "$fullTableName"" WHERE "$timestampColumn" > '$lastExportDate' AND "$timestampColumn" <= '$newExportDate'"""
 
     def getResult(resultSet: ResultSet): Int = resultSet.getInt(0)
   }
