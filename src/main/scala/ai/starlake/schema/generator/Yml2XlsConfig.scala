@@ -51,7 +51,7 @@ object Yml2XlsConfig extends CliConfig[Yml2XlsConfig] {
         .action((x, c) => c.copy(iamPolicyTagsFile = Some(x)))
         .optional()
         .text(
-          "IAM PolicyTag file to convert to XLS, COMET_METADATA/iam-policy-tags.yml by default)"
+          "IAM PolicyTag file to convert to XLS, SLK_METADATA/iam-policy-tags.yml by default)"
         ),
       opt[String]("xls")
         .action((x, c) => c.copy(xlsDirectory = x))
