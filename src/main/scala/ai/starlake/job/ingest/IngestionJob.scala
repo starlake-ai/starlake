@@ -940,7 +940,7 @@ trait IngestionJob extends SparkJob {
 
   private def runPostSQL(mergedDF: DataFrame): DataFrame = {
     schema.postsql.foldLeft(mergedDF) { (df, query) =>
-      df.createOrReplaceTempView("COMET_TABLE")
+      df.createOrReplaceTempView("SLK_TABLE")
       df.sparkSession.sql(query.richFormat(schemaHandler.activeEnv(), options))
     }
   }
