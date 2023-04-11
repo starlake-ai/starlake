@@ -216,7 +216,7 @@ trait IngestionJob extends SparkJob {
     }
   }
 
-  def getWriteMode(): WriteMode =
+  private def getWriteMode(): WriteMode =
     schema.merge
       .map(_ => WriteMode.OVERWRITE)
       .getOrElse(mergedMetadata.getWrite())
@@ -616,7 +616,7 @@ trait IngestionJob extends SparkJob {
     mergedDF
   }
 
-  def extractTableAcl(): List[String] = {
+  private def extractTableAcl(): List[String] = {
     if (settings.comet.hive) {
       schema.acl.flatMap { ace =>
         if (Utils.isRunningInDatabricks()) {
@@ -1251,7 +1251,7 @@ trait IngestionJob extends SparkJob {
 
 object IngestionUtil {
 
-  val rejectedCols = List(
+  private val rejectedCols = List(
     ("jobid", LegacySQLTypeName.STRING, StringType),
     ("timestamp", LegacySQLTypeName.TIMESTAMP, TimestampType),
     ("domain", LegacySQLTypeName.STRING, StringType),

@@ -147,7 +147,7 @@ class InferSchemaJob(implicit settings: Settings) {
     * @return
     *   the schema pattern
     */
-  def getSchemaPattern(path: Path): String = {
+  private def getSchemaPattern(path: Path): String = {
     path.getName
   }
 
@@ -159,7 +159,7 @@ class InferSchemaJob(implicit settings: Settings) {
     *   : file path
     * @return
     */
-  def createDataFrameWithFormat(
+  private def createDataFrameWithFormat(
     lines: List[String],
     dataPath: String,
     withHeader: Boolean

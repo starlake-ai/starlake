@@ -12,8 +12,8 @@ case class DeltaColumnsMapping(
 )
 
 object DeltaColumnsMapping {
-  type TableName = String
-  type ColumnName = String
+  private type TableName = String
+  private type ColumnName = String
 }
 
 object ExtractorSettings extends StrictLogging {

@@ -6,8 +6,6 @@ import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.{DoubleType, LongType, StringType}
 import org.apache.spark.sql.{Column, DataFrame}
 
-import scala.annotation.nowarn
-
 sealed case class MetricsTable(value: String) {
   override def toString: String = value
 }
@@ -56,23 +54,23 @@ object Metrics extends StrictLogging {
 
   object Sum extends ContinuousMetric("sum", sum)
 
-  object Skewness extends ContinuousMetric("skewness", skewness)
+  private object Skewness extends ContinuousMetric("skewness", skewness)
 
-  object Kurtosis extends ContinuousMetric("kurtosis", kurtosis)
+  private object Kurtosis extends ContinuousMetric("kurtosis", kurtosis)
 
-  object Percentile75 extends ContinuousMetric("percentile75", percentile75)
+  private object Percentile75 extends ContinuousMetric("percentile75", percentile75)
 
-  object Percentile25 extends ContinuousMetric("percentile25", percentile25)
+  private object Percentile25 extends ContinuousMetric("percentile25", percentile25)
 
-  object Median extends ContinuousMetric("median", customMedian)
+  private object Median extends ContinuousMetric("median", customMedian)
 
-  object Mean extends ContinuousMetric("mean", customMean)
+  private object Mean extends ContinuousMetric("mean", customMean)
 
-  object Variance extends ContinuousMetric("variance", customVariance)
+  private object Variance extends ContinuousMetric("variance", customVariance)
 
-  object Stddev extends ContinuousMetric("standardDev", customStddev)
+  private object Stddev extends ContinuousMetric("standardDev", customStddev)
 
-  object CountMissValues extends ContinuousMetric("missingValues", customCountMissValues)
+  private object CountMissValues extends ContinuousMetric("missingValues", customCountMissValues)
 
   /** List of all available metrics
     */
@@ -104,7 +102,11 @@ object Metrics extends StrictLogging {
     *   : the computed value of the function
     */
 
-  def customMetric(e: Column, metricName: String, metricFunction: Column => Column): Column = {
+  private def customMetric(
+    e: Column,
+    metricName: String,
+    metricFunction: Column => Column
+  ): Column = {
     val aliasMetricName: String = metricName + "(" + e.toString() + ")"
     metricFunction(e).as(aliasMetricName)
   }
@@ -117,7 +119,7 @@ object Metrics extends StrictLogging {
     *   Integer : the computed value of the mean
     */
 
-  def customMean(e: Column): Column = {
+  private def customMean(e: Column): Column = {
     customMetric(e: Column, "mean", mean)
   }
 
@@ -129,7 +131,7 @@ object Metrics extends StrictLogging {
     *   Integer : the computed value of the variance
     */
 
-  def customVariance(e: Column): Column = {
+  private def customVariance(e: Column): Column = {
     customMetric(e: Column, "variance", variance)
   }
 
@@ -141,7 +143,7 @@ object Metrics extends StrictLogging {
     *   Integer : the computed value of the Stddev
     */
 
-  def customStddev(e: Column): Column = {
+  private def customStddev(e: Column): Column = {
     customMetric(e: Column, "standardDev", stddev)
   }
 
@@ -160,7 +162,7 @@ object Metrics extends StrictLogging {
     *   : the value to pass to stat_method
     * @return
     */
-  def customMetricUDF(
+  private def customMetricUDF(
     e: Column,
     metricName: String,
     metricFunction: (String, Column*) => Column,
@@ -180,9 +182,8 @@ object Metrics extends StrictLogging {
     *   Integer : the computed value of the percentile of order 0.25
     */
 
-  @nowarn
   def percentile25(e: Column): Column = {
-    customMetricUDF(e: Column, "percentile25", callUDF, "percentile_approx", 0.25)
+    customMetricUDF(e: Column, "percentile25", call_udf, "percentile_approx", 0.25)
   }
 
   /** Customize Median of the column e
@@ -193,9 +194,8 @@ object Metrics extends StrictLogging {
     *   Integer : the computed value of the Median
     */
 
-  @nowarn
-  def customMedian(e: Column): Column = {
-    customMetricUDF(e: Column, "median", callUDF, "percentile_approx", 0.50)
+  private def customMedian(e: Column): Column = {
+    customMetricUDF(e: Column, "median", call_udf, "percentile_approx", 0.50)
   }
 
   /** Customize percentile of order 0.75 of the column e
@@ -206,9 +206,8 @@ object Metrics extends StrictLogging {
     *   Integer : the computed value of the percentile of order 0.75
     */
 
-  @nowarn
   def percentile75(e: Column): Column = {
-    customMetricUDF(e: Column, "percentile75", callUDF, "percentile_approx", 0.75)
+    customMetricUDF(e: Column, "percentile75", call_udf, "percentile_approx", 0.75)
   }
 
   /** Customize missing values
@@ -218,7 +217,7 @@ object Metrics extends StrictLogging {
     * @return
     *   Integer : the number of missing values, NaN values and null values
     */
-  def customCountMissValues(e: Column): Column = {
+  private def customCountMissValues(e: Column): Column = {
     val nameCol = e.toString()
     val aliasCountMissValues: String = "missingValues" + "(" + nameCol + ")"
     val unionMissingValues = sum(
@@ -241,7 +240,10 @@ object Metrics extends StrictLogging {
     *   : the DataFrame metric associated to the variable (namecol).
     */
 
-  def regroupContinuousMetricsByVariable(nameCol: String, metricFrame: DataFrame): DataFrame = {
+  private def regroupContinuousMetricsByVariable(
+    nameCol: String,
+    metricFrame: DataFrame
+  ): DataFrame = {
     // Get the whole list of headers that contains the column name
     val listColumns = metricFrame.columns.filter(_.contains(s"($nameCol)")).sorted
     // Select only columns in listColumns
@@ -321,13 +323,13 @@ object Metrics extends StrictLogging {
 
   case class DiscreteMetric(name: String, function: ((Column, DataFrame)) => Column)
 
-  object CountDistinct extends DiscreteMetric("countDistinct", customCountDistinct)
+  private object CountDistinct extends DiscreteMetric("countDistinct", customCountDistinct)
 
-  object CatCountFreq extends DiscreteMetric("catCountFreq", customCatCountFreq)
+  private object CatCountFreq extends DiscreteMetric("catCountFreq", customCatCountFreq)
 
   object CountDiscrete extends DiscreteMetric("countByCategory", customCountDiscrete)
 
-  object CountMissValuesDiscrete
+  private object CountMissValuesDiscrete
       extends DiscreteMetric("missingValuesDiscrete", customCountMissValuesDiscrete)
 
   /** List of all available metrics.
@@ -347,7 +349,7 @@ object Metrics extends StrictLogging {
     *   Dataframe : with all the values of discrete metrics
     */
 
-  def dataToMetricData(
+  private def dataToMetricData(
     colNamDataCatCountFreq: (Column, DataFrame),
     operations: List[DiscreteMetric]
   ): DataFrame = {
@@ -380,7 +382,7 @@ object Metrics extends StrictLogging {
     *   (Column, DataFrame) : tuple2 of the column of the variable and the initial Dataframe
     */
 
-  def categoryCountFreqDataframe(e: Column, dataInit: DataFrame): (Column, DataFrame) = {
+  private def categoryCountFreqDataframe(e: Column, dataInit: DataFrame): (Column, DataFrame) = {
     val dataCatCount: DataFrame = dataInit.groupBy(e).count().toDF("Category", "CountDiscrete")
     val sumValues: Long = dataInit.count()
 
@@ -410,7 +412,7 @@ object Metrics extends StrictLogging {
     *   Column : of that contain the list of category values
     */
 
-  def metricCategory(dataCategoryCount: DataFrame): Column = {
+  private def metricCategory(dataCategoryCount: DataFrame): Column = {
     collect_list(col("Category"))
   }
 
@@ -422,7 +424,7 @@ object Metrics extends StrictLogging {
     *   Column : of that contain the list of CountDiscrete values
     */
 
-  def metricCountDiscret(dataCategoryCount: DataFrame): Column = {
+  private def metricCountDiscret(dataCategoryCount: DataFrame): Column = {
     collect_list(map(col("CategoryChange"), col("CountDiscrete"))).as("countByCategory")
   }
 
@@ -434,7 +436,7 @@ object Metrics extends StrictLogging {
     *   Column : of that contain the list of frequencies values
     */
 
-  def metricFrequency(dataCategoryCount: DataFrame): Column = {
+  private def metricFrequency(dataCategoryCount: DataFrame): Column = {
     collect_list(map(col("CategoryChange"), col("Frequencies"))).as("frequencies")
   }
 
@@ -446,7 +448,7 @@ object Metrics extends StrictLogging {
     *   Column : of that contain the list of CountDistinct values
     */
 
-  def metricCountDistinct(dataCategoryCount: DataFrame): Column = {
+  private def metricCountDistinct(dataCategoryCount: DataFrame): Column = {
     count(col("Category"))
   }
 
@@ -455,7 +457,7 @@ object Metrics extends StrictLogging {
     * @param dataCategoryCount
     * @return
     */
-  def metricCatCountFreq(dataCategoryCount: DataFrame): Column = {
+  private def metricCatCountFreq(dataCategoryCount: DataFrame): Column = {
     collect_list(col("cat_count_freq")).as("catCountFreq")
   }
 
@@ -467,7 +469,7 @@ object Metrics extends StrictLogging {
     *   Column : of that contain the list of Missing Values values
     */
 
-  def metricMissingValues(dataCategoryCount: DataFrame): Column = {
+  private def metricMissingValues(dataCategoryCount: DataFrame): Column = {
     sum(col("NumMissVals"))
   }
 
@@ -485,7 +487,7 @@ object Metrics extends StrictLogging {
     *   Column : the computed value of the function
     */
 
-  def customMetricDiscret(
+  private def customMetricDiscret(
     e: Column,
     dataCategoryCount: DataFrame,
     metricName: String,
@@ -516,7 +518,7 @@ object Metrics extends StrictLogging {
     *   Column : the computed value of the function metricCountDistinct
     */
 
-  def customCountDistinct(colNameDataCatCount: (Column, DataFrame)): Column = {
+  private def customCountDistinct(colNameDataCatCount: (Column, DataFrame)): Column = {
     val (colVar, dataCatCount) = colNameDataCatCount
     customMetricDiscret(colVar, dataCatCount, "countDistinct", metricCountDistinct)
   }
@@ -526,7 +528,7 @@ object Metrics extends StrictLogging {
     * @param colNameDataCatCount
     * @return
     */
-  def customCatCountFreq(colNameDataCatCount: (Column, DataFrame)): Column = {
+  private def customCatCountFreq(colNameDataCatCount: (Column, DataFrame)): Column = {
     val (colVar, dataCatCount) = colNameDataCatCount
     customMetricDiscret(colVar, dataCatCount, "catCountFreq", metricCatCountFreq)
   }
@@ -539,7 +541,7 @@ object Metrics extends StrictLogging {
     *   Column : the computed value of the function metricCountDiscret
     */
 
-  def customCountDiscrete(colNameDataCatCount: (Column, DataFrame)): Column = {
+  private def customCountDiscrete(colNameDataCatCount: (Column, DataFrame)): Column = {
     val (colVar, dataCatCount) = colNameDataCatCount
     customMetricDiscret(colVar, dataCatCount, "countByCategory", metricCountDiscret)
   }
@@ -565,7 +567,7 @@ object Metrics extends StrictLogging {
     *   Column : the computed value of the function metricMissingValues
     */
 
-  def customCountMissValuesDiscrete(colNameDataCatCount: (Column, DataFrame)): Column = {
+  private def customCountMissValuesDiscrete(colNameDataCatCount: (Column, DataFrame)): Column = {
     val (colVar, dataCatCount) = colNameDataCatCount
     customMetricDiscret(colVar, dataCatCount, "missingValuesDiscrete", metricMissingValues)
   }
