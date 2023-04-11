@@ -155,9 +155,9 @@ class ExtractSpec extends TestHelper {
             catalog = Some("business"),
             schema = "public",
             tables = List(
-              JDBCTable("user", List("id", "email")),
-              JDBCTable("product", Nil),
-              JDBCTable("*", Nil)
+              JDBCTable("user", List("id", "email"), None, None, Map.empty, None),
+              JDBCTable("product", Nil, None, None, Map.empty, None),
+              JDBCTable("*", Nil, None, None, Map.empty, None)
             ),
             tableTypes = List(
               "TABLE",
@@ -214,9 +214,9 @@ class ExtractSpec extends TestHelper {
             catalog = Some("business"),
             schema = "public",
             tables = List(
-              JDBCTable("user", List("id", "email")),
-              JDBCTable("product", Nil),
-              JDBCTable("*", Nil)
+              JDBCTable("user", List("id", "email"), None, None, Map.empty, None),
+              JDBCTable("product", Nil, None, None, Map.empty, None),
+              JDBCTable("*", Nil, None, None, Map.empty, None)
             ),
             tableTypes = List(
               "TABLE",
@@ -275,9 +275,9 @@ class ExtractSpec extends TestHelper {
           JDBCSchema(
             catalog = Some("business"),
             tables = List(
-              JDBCTable("user", List("id", "email")),
-              JDBCTable("product", Nil),
-              JDBCTable("*", Nil)
+              JDBCTable("user", List("id", "email"), None, None, Map.empty, None),
+              JDBCTable("product", Nil, None, None, Map.empty, None),
+              JDBCTable("*", Nil, None, None, Map.empty, None)
             ),
             tableTypes = List(
               "TABLE",
@@ -333,7 +333,7 @@ class ExtractSpec extends TestHelper {
           "PUBLIC",
           None,
           None,
-          List(JDBCTable("TEST_TABLE1", List("ID")))
+          List(JDBCTable("TEST_TABLE1", List("ID"), None, None, Map.empty, None))
         ).fillWithDefaultValues(),
         settings.comet.connections("test-h2").options,
         File("/tmp"),
@@ -396,7 +396,7 @@ class ExtractSpec extends TestHelper {
           "PUBLIC",
           None,
           None,
-          List(JDBCTable("TEST_TABLE2", Nil))
+          List(JDBCTable("TEST_TABLE2", Nil, None, None, Map.empty, None))
         ).fillWithDefaultValues(),
         settings.comet.connections("test-h2").options,
         File("/tmp"),
@@ -438,7 +438,9 @@ class ExtractSpec extends TestHelper {
         |
         |  --mapping <value>  Database tables & connection info
         |  --limit <value>         Limit number of records
+        |  --numPartitions <value>  parallelism level
         |  --separator <value>     Column separator
+        |  --clean                  Cleanup output directory first ?
         |  --output-dir <value>    Where to output csv files
         |""".stripMargin
     rendered.substring(rendered.indexOf("Usage:")).replaceAll("\\s", "") shouldEqual expected
