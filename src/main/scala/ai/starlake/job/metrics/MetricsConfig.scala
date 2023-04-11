@@ -1,7 +1,6 @@
 package ai.starlake.job.metrics
 
 import ai.starlake.schema.model.Stage
-import ai.starlake.schema.model.Stage
 import ai.starlake.utils.CliConfig
 import scopt.OParser
 

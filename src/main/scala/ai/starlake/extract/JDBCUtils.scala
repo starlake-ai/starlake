@@ -32,7 +32,7 @@ object JDBCUtils extends LazyLogging {
   type PrimaryKeys = List[String]
 
   // java.sql.Types
-  val sqlTypes = Map(
+  private val sqlTypes = Map(
     "BIT"                     -> -7,
     "TINYINT"                 -> -6,
     "SMALLINT"                -> 5,
@@ -63,7 +63,7 @@ object JDBCUtils extends LazyLogging {
   )
 
   // The other part of the biMap
-  val reverseSqlTypes = sqlTypes map (_.swap)
+  private val reverseSqlTypes = sqlTypes map (_.swap)
 
   /** Execute a block of code in the context of a newly created connection. We better use here a
     * Connection pool, but since starlake processes are short lived, we do not really need it.
@@ -119,7 +119,7 @@ object JDBCUtils extends LazyLogging {
     * @param settings
     * @return
     */
-  def extractTableRemarks(
+  private def extractTableRemarks(
     jdbcSchema: JDBCSchema,
     connectionOptions: Map[String, String],
     table: String
@@ -149,7 +149,7 @@ object JDBCUtils extends LazyLogging {
     * @param settings
     * @return
     */
-  def extractColumnRemarks(
+  private def extractColumnRemarks(
     jdbcSchema: JDBCSchema,
     connectionOptions: Map[String, String],
     table: String
@@ -202,7 +202,7 @@ object JDBCUtils extends LazyLogging {
           )
         ) { resultSet =>
           while (resultSet.next()) {
-            val tableName = resultSet.getString("TABLE_NAME");
+            val tableName = resultSet.getString("TABLE_NAME")
             if (tablesToExtract.isEmpty || tablesToExtract.contains(tableName.toUpperCase())) {
               val _remarks = extractTableRemarks(jdbcSchema, connectionOptions, tableName)
               val remarks = _remarks.getOrElse(resultSet.getString("REMARKS"))
@@ -854,9 +854,9 @@ object LastExportUtils {
     partitions: Array[(Any, Any)]
   )
 
-  val MIN_TS = Timestamp.valueOf("1970-01-01 00:00:00")
-  val MIN_DATE = java.sql.Date.valueOf("1970-01-01")
-  val MIN_DECIMAL = java.math.BigDecimal.ZERO
+  private val MIN_TS = Timestamp.valueOf("1970-01-01 00:00:00")
+  private val MIN_DATE = java.sql.Date.valueOf("1970-01-01")
+  private val MIN_DECIMAL = java.math.BigDecimal.ZERO
 
   def getBoundaries(
     conn: SQLConnection,
@@ -1012,7 +1012,7 @@ object LastExportUtils {
         }
       case _ =>
         throw new Exception(
-          s"Unsupported type ${partitionColumnType} for column partition column $partitionColumn in table $domain.$table"
+          s"Unsupported type $partitionColumnType for column partition column $partitionColumn in table $domain.$table"
         )
     }
 
@@ -1115,20 +1115,6 @@ object LastExportUtils {
       stmt.close()
       count
     }
-
-  class CountRowsRequest(
-    fullTableName: String,
-    timestampColumn: String,
-    domainName: String,
-    schemaName: String,
-    lastExportDate: Timestamp,
-    newExportDate: Timestamp
-  ) {
-    val queryString =
-      s"""SELECT COUNT(*) FROM "$fullTableName"" WHERE "$timestampColumn" > '$lastExportDate' AND "$timestampColumn" <= '$newExportDate'"""
-
-    def getResult(resultSet: ResultSet): Int = resultSet.getInt(0)
-  }
 
 }
 

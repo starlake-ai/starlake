@@ -28,7 +28,7 @@ trait BigQueryJobBase extends StrictLogging {
     cliConfig.gcpProjectId.getOrElse(ServiceOptions.getDefaultProjectId())
 
   // Lazy otherwise tests fail since there is no GCP credentials in test mode
-  lazy val policyTagClient: PolicyTagManagerClient = PolicyTagManagerClient.create()
+  private lazy val policyTagClient: PolicyTagManagerClient = PolicyTagManagerClient.create()
 
   def applyRLSAndCLS(forceApply: Boolean = false)(implicit settings: Settings): Try[Unit] = {
     for {
@@ -247,7 +247,7 @@ trait BigQueryJobBase extends StrictLogging {
       cliConfig.outputTableId match {
         case Some(outputTableId) =>
           val outputTable = BigQueryJobBase.getBqNativeTable(outputTableId)
-          s"DROP ALL ROW ACCESS POLICIES ON `${outputTable}`"
+          s"DROP ALL ROW ACCESS POLICIES ON `$outputTable`"
         case None =>
           throw new RuntimeException("TableId must be defined in order to revoke privileges")
       }
@@ -272,7 +272,7 @@ trait BigQueryJobBase extends StrictLogging {
              | CREATE ROW ACCESS POLICY
              |  $name
              | ON
-             |  `${outputTable}`
+             |  `$outputTable`
              | GRANT TO
              |  (${grants.mkString("\"", "\",\"", "\"")})
              | FILTER USING
@@ -355,7 +355,7 @@ trait BigQueryJobBase extends StrictLogging {
     }
   }
 
-  protected def setTagsOnTable(table: Table): Unit = {
+  private def setTagsOnTable(table: Table): Unit = {
     cliConfig.starlakeSchema.foreach { schema =>
       val tableTagPairs = Utils.extractTags(schema.tags)
       table.toBuilder.setLabels(tableTagPairs.toMap.asJava).build().update()
@@ -366,7 +366,7 @@ trait BigQueryJobBase extends StrictLogging {
     settings: Settings
   ) = {
     logger.info(
-      s"We are updating the description on this Table: ${idTable}"
+      s"We are updating the description on this Table: $idTable"
     )
     bigquery()
       .getTable(idTable)
@@ -378,7 +378,7 @@ trait BigQueryJobBase extends StrictLogging {
       .update()
   }
 
-  protected def updateDatasetInfo(
+  private def updateDatasetInfo(
     dataset: Dataset,
     description: scala.Option[String],
     labels: Map[String, String]
@@ -501,7 +501,7 @@ trait BigQueryJobBase extends StrictLogging {
     * @param acl
     * @return
     */
-  def applyACL(
+  private def applyACL(
     tableId: TableId,
     acl: List[AccessControlEntry]
   )(implicit settings: Settings): Policy = {
@@ -594,7 +594,7 @@ trait BigQueryJobBase extends StrictLogging {
 
 object BigQueryJobBase {
 
-  def getBqDatasetId(tableId: TableId): DatasetId = {
+  private def getBqDatasetId(tableId: TableId): DatasetId = {
     scala.Option(tableId.getProject) match {
       case Some(_) => DatasetId.of(tableId.getProject, tableId.getDataset)
       case None    => DatasetId.of(tableId.getDataset)

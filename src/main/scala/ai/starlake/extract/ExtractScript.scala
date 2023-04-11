@@ -32,7 +32,7 @@ class ExtractScript(schemaHandler: SchemaHandler)(implicit settings: Settings)
     * @return
     *   The produced script payload
     */
-  def templatize(templateName: String, templateParams: TemplateParams): List[File] = {
+  private def templatize(templateName: String, templateParams: TemplateParams): List[File] = {
     val templateFolder = File(new Path(DatasetArea.extract, templateName).toString)
     templatizeFolder(templateFolder, templateParams)
   }
@@ -79,7 +79,7 @@ class ExtractScript(schemaHandler: SchemaHandler)(implicit settings: Settings)
     * @return
     *   The list of produced files
     */
-  def generateDomain(
+  private def generateDomain(
     domain: Domain,
     scriptTemplateName: String,
     defaultDeltaColumn: Option[String],
