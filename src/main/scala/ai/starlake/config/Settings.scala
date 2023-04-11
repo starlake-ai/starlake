@@ -392,8 +392,12 @@ object Settings extends StrictLogging {
       .fromConfig(effectiveConfig)
       .loadOrThrow[Comet]
 
-    logger.info("ENV COMET_FS=" + System.getenv("COMET_FS"))
-    logger.info("ENV COMET_ROOT=" + System.getenv("COMET_ROOT"))
+    logger.info(
+      "ENV SLK_FS=" + Option(System.getenv("COMET_FS")).getOrElse(System.getenv("SLK_FS"))
+    )
+    logger.info(
+      "ENV SLK_ROOT=" + Option(System.getenv("COMET_ROOT")).getOrElse(System.getenv("SLK_ROOT"))
+    )
     logger.debug(YamlSerializer.serializeObject(loaded))
     val settings =
       Settings(loaded, effectiveConfig.getConfig("spark"), effectiveConfig.getConfig("extra"))
