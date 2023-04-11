@@ -63,7 +63,7 @@ class HttpProviderTest
 
     val df = spark.readStream
       .format("starlake-http")
-      .option("port", "10000")
+      .option("port", "9000")
       .option("urls", "/test1")
       .option(
         "transformers",
@@ -73,8 +73,8 @@ class HttpProviderTest
     val thread = new Thread {
       override def run {
         Thread.sleep(2000)
-        val post1 = new HttpPost("http://localhost:10000/test1")
-        val post2 = new HttpPost("http://localhost:10000/test2")
+        val post1 = new HttpPost("http://localhost:9000/test1")
+        val post2 = new HttpPost("http://localhost:9000/test2")
         val client = HttpClientBuilder.create.build()
         post1.setEntity(new StringEntity("http data1"))
         client.execute(post1)
@@ -90,7 +90,7 @@ class HttpProviderTest
       .queryName("http")
       .outputMode("append")
       .start()
-      .awaitTermination(10000)
+      .awaitTermination(9000)
     val httpData = spark
       .sql("select value from http")
       .collect()
