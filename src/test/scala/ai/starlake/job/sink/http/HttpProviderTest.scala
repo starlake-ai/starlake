@@ -128,5 +128,4 @@ class HttpProviderTest
 
     outputStream.toString should be("""["0"]["1"]["2"]""")
   }
-
 }
