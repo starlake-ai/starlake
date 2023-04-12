@@ -1,7 +1,7 @@
 ---
 load:
   name: "DOMAIN"
-  directory: "__SLK_TEST_ROOT__/DOMAIN"
+  directory: "__SL_TEST_ROOT__/DOMAIN"
   metadata:
     mode: "FILE"
     format: "DSV"

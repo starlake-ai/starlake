@@ -104,7 +104,7 @@ class GenericIngestionJob(
   class LastExportDateRequest(domainName: String, schemaName: String)
       extends SQlRequest[java.sql.Timestamp] {
     val queryString =
-      s"SELECT max(timestamp) FROM SLK_LAST_EXPORT where domain like '$domainName' and schema like '$schemaName'"
+      s"SELECT max(timestamp) FROM SL_LAST_EXPORT where domain like '$domainName' and schema like '$schemaName'"
     def getResult(resultSet: ResultSet): java.sql.Timestamp = resultSet.getTimestamp(0)
   }
 
@@ -150,7 +150,7 @@ class GenericIngestionJob(
   ): Try[PreparedStatement] = {
     Try {
       val sqlInsert =
-        s"insert into SLK_LAST_EXPORT(domain, schema, timestamp, duration, mode, count, success, message, step) values(?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        s"insert into SL_LAST_EXPORT(domain, schema, timestamp, duration, mode, count, success, message, step) values(?, ?, ?, ?, ?, ?, ?, ?, ?)"
       val preparedStatement = conn.prepareStatement(sqlInsert)
       preparedStatement.setString(1, row.domain)
       preparedStatement.setString(2, row.schema)

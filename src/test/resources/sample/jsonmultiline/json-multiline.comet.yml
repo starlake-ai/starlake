@@ -1,6 +1,6 @@
 ---
 name: "jsonmultiline"
-directory: "__SLK_TEST_ROOT__/json"
+directory: "__SL_TEST_ROOT__/json"
 metadata:
   mode: "FILE"
   format: "JSON"
