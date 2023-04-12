@@ -130,8 +130,8 @@ trait IngestionJob extends SparkJob {
       logger.debug(s"rejectedRDD SIZE ${errMessagesDS.count()}")
       errMessagesDS.take(100).foreach(rejected => logger.debug(rejected.replaceAll("\n", "|")))
     }
-    val domainName = domain.finalName
-    val schemaName = schema.finalName
+    val domainName = domain.name
+    val schemaName = schema.name
 
     val start = Timestamp.from(Instant.now())
     val formattedDate = new java.text.SimpleDateFormat("yyyyMMddHHmmss").format(start)
@@ -300,7 +300,7 @@ trait IngestionJob extends SparkJob {
       }
 
       val acceptedPath =
-        new Path(DatasetArea.accepted(domain.finalName), schema.finalName)
+        new Path(DatasetArea.accepted(domain.name), schema.name)
       val acceptedRenamedFields = dfWithAttributesRenamed(validationResult.accepted)
 
       val acceptedDfWithScriptFields: DataFrame = computeScriptedAttributes(
@@ -366,8 +366,8 @@ trait IngestionJob extends SparkJob {
           val log = AuditLog(
             applicationId(),
             acceptedPath.toString,
-            domain.finalName,
-            schema.finalName,
+            domain.name,
+            schema.name,
             success = true,
             -1,
             -1,
@@ -385,8 +385,8 @@ trait IngestionJob extends SparkJob {
           val log = AuditLog(
             applicationId(),
             acceptedPath.toString,
-            domain.finalName,
-            schema.finalName,
+            domain.name,
+            schema.name,
             success = false,
             -1,
             -1,
@@ -497,7 +497,7 @@ trait IngestionJob extends SparkJob {
           genericSink(mergedDF)
         case SinkType.FS if !settings.comet.sinkToFile =>
           val acceptedPath =
-            new Path(DatasetArea.accepted(domain.finalName), schema.finalName)
+            new Path(DatasetArea.accepted(domain.name), schema.name)
           val sinkedDF = sinkToFile(
             mergedDF,
             acceptedPath,
@@ -1060,8 +1060,8 @@ trait IngestionJob extends SparkJob {
               val log = AuditLog(
                 applicationId(),
                 inputFiles,
-                domain.finalName,
-                schema.finalName,
+                domain.name,
+                schema.name,
                 success = success,
                 inputCount,
                 acceptedCount,
@@ -1081,8 +1081,8 @@ trait IngestionJob extends SparkJob {
             val log = AuditLog(
               applicationId(),
               path.map(_.toString).mkString(","),
-              domain.finalName,
-              schema.finalName,
+              domain.name,
+              schema.name,
               success = false,
               0,
               0,
