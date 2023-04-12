@@ -18,7 +18,7 @@ import ai.starlake.schema.generator.yml2dag.config.Yml2DagConfigForMain
 import ai.starlake.schema.handlers.{SchemaHandler, ValidateConfig}
 import ai.starlake.schema.{ProjectCompare, ProjectCompareConfig}
 import ai.starlake.serve.{MainServerConfig, SingleUserMainServer}
-import ai.starlake.utils.{CliConfig, CliEnvConfig, JsonSerializer}
+import ai.starlake.utils.{CliConfig, CliEnvConfig, DeprecatedChecks, JsonSerializer}
 import ai.starlake.workflow.IngestionWorkflow
 import buildinfo.BuildInfo
 import com.typesafe.config.ConfigFactory
@@ -54,6 +54,7 @@ object Main extends StrictLogging {
     *     on specific schema in a specific domain
     */
   def main(args: Array[String]): Unit = {
+    DeprecatedChecks.cometEnvVars()
     val settings: Settings = Settings(ConfigFactory.load())
     new Main().run(args)(settings)
   }
