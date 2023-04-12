@@ -22,13 +22,6 @@ class HttpProviderTest
     with StrictLogging
     with DatasetLogging {
 
-  def startHttpServer(): HttpServer = {
-    val server = HttpServer.create(new InetSocketAddress(9000), 0)
-    server.createContext("/", new RootHandler())
-    server.setExecutor(null)
-    server.start()
-    server
-  }
   val outputStream = new ByteArrayOutputStream()
 
   class RootHandler extends HttpHandler {
@@ -51,10 +44,11 @@ class HttpProviderTest
       os.close()
     }
   }
+  private val LOAD_PORT = 9000
 
   s"Load from HTTP Source to multiple URLs" should "work" in {
     val spark = SparkSession.builder
-      .master("local[4]")
+      .master("local[1]")
       .getOrCreate();
     File("/tmp/http2").delete(true)
     spark.conf.set("spark.sql.streaming.checkpointLocation", s"/tmp/http2");
@@ -63,7 +57,7 @@ class HttpProviderTest
 
     val df = spark.readStream
       .format("starlake-http")
-      .option("port", "9000")
+      .option("port", s"$LOAD_PORT")
       .option("urls", "/test1")
       .option(
         "transformers",
@@ -73,8 +67,8 @@ class HttpProviderTest
     val thread = new Thread {
       override def run {
         Thread.sleep(2000)
-        val post1 = new HttpPost("http://localhost:9000/test1")
-        val post2 = new HttpPost("http://localhost:9000/test2")
+        val post1 = new HttpPost(s"http://localhost:$LOAD_PORT/test1")
+        val post2 = new HttpPost(s"http://localhost:$LOAD_PORT/test2")
         val client = HttpClientBuilder.create.build()
         post1.setEntity(new StringEntity("http data1"))
         client.execute(post1)
@@ -97,6 +91,16 @@ class HttpProviderTest
       .map(_.getAs[String](0))
     httpData.toList should contain theSameElementsAs List("http data1")
   }
+
+  private val SAVE_PORT = 9100
+  def startHttpServer(): HttpServer = {
+    val server = HttpServer.create(new InetSocketAddress(SAVE_PORT), 0)
+    server.createContext("/", new RootHandler())
+    server.setExecutor(null)
+    server.start()
+    server
+  }
+
   s"Save in HTTP Sink" should "work" in {
     val spark = SparkSession.builder
       .master("local[1]")
@@ -115,7 +119,7 @@ class HttpProviderTest
       .toDF()
       .writeStream
       .format("starlake-http")
-      .option("url", "http://localhost:9000")
+      .option("url", s"http://localhost:$SAVE_PORT")
       .start
     events.addData("0", "1", "2")
     // streamingQuery.processAllAvailable()
