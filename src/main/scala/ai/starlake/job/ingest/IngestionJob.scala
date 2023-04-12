@@ -300,7 +300,7 @@ trait IngestionJob extends SparkJob {
       }
 
       val acceptedPath =
-        new Path(DatasetArea.accepted(domain.name), schema.name)
+        new Path(DatasetArea.accepted(domain.finalName), schema.finalName)
       val acceptedRenamedFields = dfWithAttributesRenamed(validationResult.accepted)
 
       val acceptedDfWithScriptFields: DataFrame = computeScriptedAttributes(
@@ -497,7 +497,7 @@ trait IngestionJob extends SparkJob {
           genericSink(mergedDF)
         case SinkType.FS if !settings.comet.sinkToFile =>
           val acceptedPath =
-            new Path(DatasetArea.accepted(domain.name), schema.name)
+            new Path(DatasetArea.accepted(domain.finalName), schema.finalName)
           val sinkedDF = sinkToFile(
             mergedDF,
             acceptedPath,
