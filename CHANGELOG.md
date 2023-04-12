@@ -2,6 +2,9 @@
 # Release notes
 
 # 0.7.0
+__Deprecated__:
+- Env vars that start with COMET_ are now deprecated. replace prefix with SLK_
+
 __New Feature__:
 - Add Project diffs and produce HTML report
 - Import existing BigQuery Datasets and Tables
@@ -21,6 +24,9 @@ __New Feature__:
 - **BREAKING CHANGE** Add `normalized_domain` variable for schema extraction. `domain` keep the original name.
 - keep user changes if set in domain's metadata or table information. Domain-template and other rules that apply to it still have higher precedence.
 - Generate domain dags from yml via yml2dag command
+- Env vars should start with SLK_. Starting with COMET_ is snow deprecated
+- Extract database data using multi threading
+- Extract Database data in delta mode
 
 __Bug Fix__:
 - **BREAKING CHANGE**: Make directory mandatory only when feature require it. If you rely on exception while generating YML files from xls and vice-versa for any missing directory, you'll have to change. 
