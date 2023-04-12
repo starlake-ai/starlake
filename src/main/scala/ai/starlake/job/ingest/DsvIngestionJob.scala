@@ -131,6 +131,11 @@ class DsvIngestionJob(
                                    | Dataset Headers : ${datasetHeaders.mkString(",")}
              """.stripMargin)
             }
+            // TODO: add warning or raise error when schemaHeader is optional or required
+            // Source: COL1 COL2
+            // schema: COL1 COL3 => Col3 should not be discarded silently
+            // Maybe we should complete the dataframe with null values for the missing columns
+            // This will allow failure on required attributes during validation
             df.drop(drop: _*)
           case Some(false) | None =>
             /* No header, let's make sure we take the first attributes
