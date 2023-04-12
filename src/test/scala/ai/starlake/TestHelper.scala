@@ -84,21 +84,21 @@ trait TestHelper
   def testConfiguration: Config = {
     val rootConfig = ConfigFactory.parseString(
       s"""
-        |SLK_ASSERTIONS_ACTIVE=true
-        |SLK_ROOT="${cometTestRoot}"
-        |SLK_TEST_ID="${cometTestId}"
-        |SLK_DATASETS="${cometDatasetsPath}"
-        |SLK_METADATA="${cometMetadataPath}"
-        |SLK_TMPDIR="${cometTestRoot}/tmp"
-        |SLK_LOCK_PATH="${cometTestRoot}/locks"
-        |SLK_METRICS_PATH="${cometTestRoot}/metrics/{{domain}}/{{schema}}"
-        |SLK_AUDIT_PATH="${cometTestRoot}/audit"
-        |SLK_UDFS="ai.starlake.udf.TestUdf"
+        |SL_ASSERTIONS_ACTIVE=true
+        |SL_ROOT="${cometTestRoot}"
+        |SL_TEST_ID="${cometTestId}"
+        |SL_DATASETS="${cometDatasetsPath}"
+        |SL_METADATA="${cometMetadataPath}"
+        |SL_TMPDIR="${cometTestRoot}/tmp"
+        |SL_LOCK_PATH="${cometTestRoot}/locks"
+        |SL_METRICS_PATH="${cometTestRoot}/metrics/{{domain}}/{{schema}}"
+        |SL_AUDIT_PATH="${cometTestRoot}/audit"
+        |SL_UDFS="ai.starlake.udf.TestUdf"
         |TEMPORARY_GCS_BUCKET="${sys.env.getOrElse("TEMPORARY_GCS_BUCKET", "invalid_gcs_bucket")}"
-        |SLK_ACCESS_POLICIES_LOCATION="eu"
-        |SLK_ACCESS_POLICIES_TAXONOMY="RGPD"
-        |SLK_ACCESS_POLICIES_PROJECT_ID="${sys.env
-          .getOrElse("SLK_ACCESS_POLICIES_PROJECT_ID", "invalid_project")}"
+        |SL_ACCESS_POLICIES_LOCATION="eu"
+        |SL_ACCESS_POLICIES_TAXONOMY="RGPD"
+        |SL_ACCESS_POLICIES_PROJECT_ID="${sys.env
+          .getOrElse("SL_ACCESS_POLICIES_PROJECT_ID", "invalid_project")}"
         |include required("application-test.conf")
         |""".stripMargin,
       ConfigParseOptions.defaults().setAllowMissing(false)
@@ -179,7 +179,7 @@ trait TestHelper
   def readFileContent(path: Path): String = readFileContent(path.toUri.getPath)
 
   def applyTestFileSubstitutions(fileContent: String): String = {
-    fileContent.replaceAll("__SLK_TEST_ROOT__", cometTestRoot)
+    fileContent.replaceAll("__SL_TEST_ROOT__", cometTestRoot)
   }
 
   def withSettings(configuration: Config)(op: Settings => Assertion): Assertion =
