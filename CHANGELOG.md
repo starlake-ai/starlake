@@ -42,6 +42,7 @@ __Bug Fix__:
 - close resources for schema extraction
 - escape replacement value
 - **BREAKING CHANGE** domain template in extract-schema is no more interpolated since we plan to use domains accross multiple environment
+- **BREAKING CHANGE** use original domain and table's name. Applies to starlake folder and audit logs. 
 
 # 0.6.3
 __New Feature__:
