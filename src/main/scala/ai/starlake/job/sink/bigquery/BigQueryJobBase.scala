@@ -364,7 +364,7 @@ trait BigQueryJobBase extends StrictLogging {
 
   protected def updateTableDescription(idTable: TableId, description: String)(implicit
     settings: Settings
-  ) = {
+  ): Table = {
     logger.info(
       s"We are updating the description on this Table: $idTable"
     )
