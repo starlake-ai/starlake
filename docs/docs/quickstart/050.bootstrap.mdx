@@ -31,11 +31,11 @@ c:\users\me\myproject> %userprofile%\starlake\starlake.cmd bootstrap --template 
 
 </TabItem>
 <TabItem value="docker" label="Docker">
-We first need to mount the project folder in the container et explicitly set the SLK_ROOT env variable to bootstrap the project
+We first need to mount the project folder in the container et explicitly set the SL_ROOT env variable to bootstrap the project
 
 ```sh
 $ mkdir $HOME/myproject
-$ docker run -e SLK_ROOT=/app/myproject       \
+$ docker run -e SL_ROOT=/app/myproject       \
              -v $HOME/myproject:/app/myproject  \
              -it starlake bootstrap             \
              --template quickstart
@@ -48,26 +48,26 @@ $ docker run -e SLK_ROOT=/app/myproject       \
 :::note
 
 By default, the project will be created in the current working directory.
-To bootstrap the project in a different folder set SLK_ROOT env variable to that folder:
+To bootstrap the project in a different folder set SL_ROOT env variable to that folder:
 
 <Tabs groupId="platforms">
 <TabItem value="linux_macos" label="Linux/MacOS">
 
 ```
-$ SLK_ROOT=/my/other/project $HOME/starlake/starlake.sh bootstrap
+$ SL_ROOT=/my/other/project $HOME/starlake/starlake.sh bootstrap
 ```
 
 </TabItem>
 <TabItem value="windows" label="Windows">
 
 ```
-c:\> export SLK_ROOT=c:\my\other\project
+c:\> export SL_ROOT=c:\my\other\project
 c:\> %userprofile%\starlake\starlake.cmd bootstrap
 ```
 
 </TabItem>
 <TabItem value="docker" label="Docker">
-In Docker you always need to pass the SLK_ROOT env variable before running starlake as decribed in the command above.
+In Docker you always need to pass the SL_ROOT env variable before running starlake as decribed in the command above.
 
 </TabItem>
 </Tabs>

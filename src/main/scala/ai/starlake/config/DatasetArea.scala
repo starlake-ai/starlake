@@ -39,7 +39,7 @@ import java.util.Locale
 import scala.io.Source
 
 /** Utilities methods to reference datasets paths Datasets paths are constructed as follows :
-  *   - root path defined by the SLK_DATASETS env var or datasets application property
+  *   - root path defined by the SL_DATASETS env var or datasets application property
   *   - followed by the area name
   *   - followed by the the domain name
   */
@@ -250,7 +250,7 @@ object DatasetArea extends StrictLogging {
         val targetFile = File(targetFolder.pathAsString, resource.split('/'): _*)
         targetFile.parent.createDirectories()
         val contents =
-          lines.mkString("\n").replace("__SLK_TEST_ROOT__", metadata.getParent.toString)
+          lines.mkString("\n").replace("__SL_TEST_ROOT__", metadata.getParent.toString)
         targetFile.overwrite(contents)
       }
     }

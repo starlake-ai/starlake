@@ -54,11 +54,11 @@ In the `Advanced Settings / Environment variables`  section set the variables be
 
 Environnement variable |Value|Description
 ---|---|---
-SLK_METRICS_ACTIVE|true|Should we compute metrics set on individuals table columns at ingestion time
-SLK_ROOT|/mnt/starlake-app/tmp/quickstart|This is a DBFS mounted directory (see below). It should reference the base directory where your starlake metadata is located
-SLK_AUDIT_SINK_TYPE|BigQuerySink|Where to save audit logs. Here we decide to save it in BigQuery. Tos ave it as a hive table or file on the cloud storage, set it to FsSink
-SLK_FS|dbfs://|Filesystem. Always set it to DBFS in Databricks.
-SLK_HIVE|true|Should we store the resulting parquet files as Databricks tables ?
+SL_METRICS_ACTIVE|true|Should we compute metrics set on individuals table columns at ingestion time
+SL_ROOT|/mnt/starlake-app/tmp/quickstart|This is a DBFS mounted directory (see below). It should reference the base directory where your starlake metadata is located
+SL_AUDIT_SINK_TYPE|BigQuerySink|Where to save audit logs. Here we decide to save it in BigQuery. Tos ave it as a hive table or file on the cloud storage, set it to FsSink
+SL_FS|dbfs://|Filesystem. Always set it to DBFS in Databricks.
+SL_HIVE|true|Should we store the resulting parquet files as Databricks tables ?
 TEMPORARY_GCS_BUCKET|starlake-app|Bucket name where Google Cloud API store temporary files when saving data to BigQuery
 
 
@@ -106,10 +106,10 @@ Start the `import`task first and then the `watch` task. The execution logs are a
 ![tasks runs]( /img/databricks/runs.png "tasks runs")
 
 
-Since we set the `SLK_HIVE=true` environnment variable, ingested data are also available as tables.
+Since we set the `SL_HIVE=true` environnment variable, ingested data are also available as tables.
 ![starlake watch]( /img/databricks/database.png "starlake watch")
 
-The audit log for the above tasks will be stored in a BigQuery table since we set `SLK_AUDIT_SINK_TYPE=BigQuerySink` environnment variable 
+The audit log for the above tasks will be stored in a BigQuery table since we set `SL_AUDIT_SINK_TYPE=BigQuerySink` environnment variable 
 
 
 

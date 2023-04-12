@@ -69,7 +69,7 @@ class Yml2XlsSpec extends TestHelper {
         |
         |  --domain <value>  domains to convert to XLS
         |  --iamPolicyTagsFile <value>
-        |                           IAM PolicyTag file to convert to XLS, SLK_METADATA/iam-policy-tags.yml by default)
+        |                           IAM PolicyTag file to convert to XLS, SL_METADATA/iam-policy-tags.yml by default)
         |  --xls <value>     directory where XLS files are generated
         |""".stripMargin
     rendered.substring(rendered.indexOf("Usage:")).replaceAll("\\s", "") shouldEqual expected

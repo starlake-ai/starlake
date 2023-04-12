@@ -1,5 +1,5 @@
 name: "positionWithEncoding"
-directory: "__SLK_TEST_ROOT__/position"
+directory: "__SL_TEST_ROOT__/position"
 ack: ""
 metadata:
   mode: "FILE"
