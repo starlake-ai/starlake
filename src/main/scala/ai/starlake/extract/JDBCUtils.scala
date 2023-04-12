@@ -536,6 +536,11 @@ object JDBCUtils extends LazyLogging {
   )(implicit
     settings: Settings
   ): Unit = {
+    // Because mysql does not support "" when framing column names to handle cases where
+    // column names are keywords in the target dialect
+    val isMySQL = connectionOptions("url").contains("jdbc:mysql")
+    // use backticks instead of quotes for MySQL column names
+    val (colStart, colEnd) = if (isMySQL) ('`', '`') else ('"', '"')
     val auditConnectionOptions =
       settings.comet.connections.get("audit").map(_.options).getOrElse(connectionOptions)
 
@@ -559,7 +564,7 @@ object JDBCUtils extends LazyLogging {
         val dateTime = formatter.format(Instant.now())
 
         // get cols to extract and frame colums names with quotes to handle cols that are keywords in the target database
-        val cols = selectedColumns.map('"' + _.name + '"').mkString(",")
+        val cols = selectedColumns.map(colStart + _.name + colEnd).mkString(",")
 
         // We always add header line to the export with the column names
         val header = selectedColumns.map(_.name).mkString(separator)
@@ -629,7 +634,7 @@ object JDBCUtils extends LazyLogging {
               step = "ALL"
             )
             withJDBCConnection(auditConnectionOptions) { connection =>
-              LastExportUtils.insertNewLastExport(connection, deltaRow, None)
+              LastExportUtils.insertNewLastExport(connection, deltaRow, None, colStart, colEnd)
             }
 
           case Some(partitionColumn) =>
@@ -639,12 +644,12 @@ object JDBCUtils extends LazyLogging {
             // This is applied when the table is exported for the first time
             val sqlFirst =
               s"""select $cols
-                 |from ${jdbcSchema.schema}.$tableName
-                 |where $partitionColumn <= ?""".stripMargin
+                 |from $colStart${jdbcSchema.schema}$colEnd.$colStart$tableName$colEnd
+                 |where $colStart$partitionColumn$colEnd <= ?""".stripMargin
             val sqlNext =
               s"""select $cols
-                 |from ${jdbcSchema.schema}.$tableName
-                 |where $partitionColumn <= ? and $partitionColumn > ?""".stripMargin
+                 |from $colStart${jdbcSchema.schema}$colEnd.$colStart$tableName$colEnd
+                 |where $colStart$partitionColumn$colEnd <= ? and $colStart$partitionColumn$colEnd > ?""".stripMargin
 
             // Get the partition column type. Since comparing numeric, big decimal, date and timestamps are not the same
             val partitionColumnType =
@@ -666,7 +671,9 @@ object JDBCUtils extends LazyLogging {
                 tableName,
                 partitionColumn,
                 partitionColumnType,
-                numPartitions
+                numPartitions,
+                colStart,
+                colEnd
               )
             }
 
@@ -737,7 +744,9 @@ object JDBCUtils extends LazyLogging {
                     LastExportUtils.insertNewLastExport(
                       connection,
                       deltaRow,
-                      Some(partitionColumnType)
+                      Some(partitionColumnType),
+                      colStart,
+                      colEnd
                     )
                   }
                 }
@@ -767,7 +776,9 @@ object JDBCUtils extends LazyLogging {
               LastExportUtils.insertNewLastExport(
                 connection,
                 deltaRow,
-                Some(partitionColumnType)
+                Some(partitionColumnType),
+                colStart,
+                colEnd
               )
             }
 
@@ -864,19 +875,21 @@ object LastExportUtils {
     table: String,
     partitionColumn: String,
     partitionColumnType: PrimitiveType,
-    nbPartitions: Int
+    nbPartitions: Int,
+    colStart: Char,
+    colEnd: Char
   ): Bounds = {
     val partitionRange = 0 until nbPartitions
     partitionColumnType match {
       case PrimitiveType.long | PrimitiveType.short | PrimitiveType.int =>
-        val lastExport = lastExportValue(conn, domain, table, "last_long") { rs =>
+        val lastExport = lastExportValue(conn, domain, table, "last_long", colStart, colEnd) { rs =>
           if (rs.next()) {
             val res = rs.getLong(1)
             if (res == 0) None else Some(res) // because null return 0
           } else
             None
         }
-        internalBoundaries(conn, domain, table, partitionColumn) { statement =>
+        internalBoundaries(conn, domain, table, partitionColumn, colStart, colEnd) { statement =>
           statement.setLong(1, lastExport.getOrElse(Long.MinValue))
           executeQuery(statement) { rs =>
             rs.next()
@@ -910,13 +923,14 @@ object LastExportUtils {
         }
 
       case PrimitiveType.decimal =>
-        val lastExport = lastExportValue(conn, domain, table, "last_decimal") { rs =>
-          if (rs.next())
-            Some(rs.getBigDecimal(1))
-          else
-            None
+        val lastExport = lastExportValue(conn, domain, table, "last_decimal", colStart, colEnd) {
+          rs =>
+            if (rs.next())
+              Some(rs.getBigDecimal(1))
+            else
+              None
         }
-        internalBoundaries(conn, domain, table, partitionColumn) { statement =>
+        internalBoundaries(conn, domain, table, partitionColumn, colStart, colEnd) { statement =>
           statement.setBigDecimal(1, lastExport.getOrElse(MIN_DECIMAL))
           executeQuery(statement) { rs =>
             rs.next()
@@ -944,13 +958,13 @@ object LastExportUtils {
         }
 
       case PrimitiveType.date =>
-        val lastExport = lastExportValue(conn, domain, table, "last_date") { rs =>
+        val lastExport = lastExportValue(conn, domain, table, "last_date", colStart, colEnd) { rs =>
           if (rs.next())
             Some(rs.getDate(1))
           else
             None
         }
-        internalBoundaries(conn, domain, table, partitionColumn) { statement =>
+        internalBoundaries(conn, domain, table, partitionColumn, colStart, colEnd) { statement =>
           statement.setDate(1, lastExport.getOrElse(MIN_DATE))
           executeQuery(statement) { rs =>
             rs.next()
@@ -978,13 +992,13 @@ object LastExportUtils {
         }
 
       case PrimitiveType.timestamp =>
-        val lastExport = lastExportValue(conn, domain, table, "last_ts") { rs =>
+        val lastExport = lastExportValue(conn, domain, table, "last_ts", colStart, colEnd) { rs =>
           if (rs.next())
             Some(rs.getTimestamp(1))
           else
             None
         }
-        internalBoundaries(conn, domain, table, partitionColumn) { statement =>
+        internalBoundaries(conn, domain, table, partitionColumn, colStart, colEnd) { statement =>
           statement.setTimestamp(1, lastExport.getOrElse(MIN_TS))
           executeQuery(statement) { rs =>
             rs.next()
@@ -1022,10 +1036,12 @@ object LastExportUtils {
     conn: SQLConnection,
     domain: String,
     table: String,
-    columnName: String
+    columnName: String,
+    colStart: Char,
+    colEnd: Char
   )(apply: ResultSet => T): T = {
     val SQL_LAST_EXPORT_VALUE =
-      s"""select max("$columnName") from SLK_LAST_EXPORT where "domain" like ? and "schema" like ?"""
+      s"""select max($colStart$columnName$colEnd) from SL_LAST_EXPORT where ${colStart}domain${colEnd} like ? and ${colStart}schema${colEnd} like ?"""
     val preparedStatement = conn.prepareStatement(SQL_LAST_EXPORT_VALUE)
     preparedStatement.setString(1, domain)
     preparedStatement.setString(2, table)
@@ -1036,12 +1052,14 @@ object LastExportUtils {
     conn: SQLConnection,
     domain: String,
     table: String,
-    partitionColumn: String
+    partitionColumn: String,
+    colStart: Char,
+    colEnd: Char
   )(apply: PreparedStatement => T): T = {
     val SQL_BOUNDARIES_VALUES =
-      s"""select count("$partitionColumn") as count_value, min("$partitionColumn") as min_value, max("$partitionColumn") as max_value
-           |from $domain.$table
-           |where $partitionColumn > ?""".stripMargin
+      s"""select count("$partitionColumn") as count_value, min($colStart$partitionColumn$colEnd) as min_value, max($colStart$partitionColumn$colEnd) as max_value
+           |from $colStart$domain$colEnd.$colStart$table$colEnd
+           |where $colStart$partitionColumn$colEnd > ?""".stripMargin
     val preparedStatement = conn.prepareStatement(SQL_BOUNDARIES_VALUES)
     apply(preparedStatement)
   }
@@ -1049,13 +1067,27 @@ object LastExportUtils {
   def insertNewLastExport(
     conn: SQLConnection,
     row: DeltaRow,
-    partitionColumnType: Option[PrimitiveType]
+    partitionColumnType: Option[PrimitiveType],
+    colStart: Char,
+    colEnd: Char
   ): Int = {
     conn.setAutoCommit(true)
+    val cols = List(
+      "domain",
+      "schema",
+      "start_ts",
+      "end_ts",
+      "duration",
+      "mode",
+      "count",
+      "success",
+      "message",
+      "step"
+    ).map(col => colStart + col + colEnd).mkString(",")
     val sqlInsert =
       partitionColumnType match {
         case None =>
-          s"""insert into SLK_LAST_EXPORT("domain", "schema", "start_ts", "end_ts", "duration", "mode", "count", "success", "message", "step") values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"""
+          s"""insert into SL_LAST_EXPORT($cols) values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"""
         case Some(partitionColumnType) =>
           val lastExportColumn = partitionColumnType match {
             case PrimitiveType.int | PrimitiveType.long | PrimitiveType.short => "last_long"
@@ -1065,7 +1097,7 @@ object LastExportUtils {
             case _ =>
               throw new Exception(s"type $partitionColumnType not supported for partition column")
           }
-          s"""insert into SLK_LAST_EXPORT("domain", "schema", "start_ts", "end_ts", "duration", "mode", "count", "success", "message", "step", "$lastExportColumn") values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"""
+          s"""insert into SL_LAST_EXPORT($cols, $colStart$lastExportColumn$colEnd) values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"""
       }
 
     val preparedStatement = conn.prepareStatement(sqlInsert)

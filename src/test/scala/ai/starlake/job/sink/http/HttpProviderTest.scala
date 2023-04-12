@@ -44,7 +44,7 @@ class HttpProviderTest
       os.close()
     }
   }
-  private val LOAD_PORT = 9000
+  private val LOAD_PORT = 9100
 
   s"Load from HTTP Source to multiple URLs" should "work" in {
     val spark = SparkSession.builder
@@ -84,7 +84,7 @@ class HttpProviderTest
       .queryName("http")
       .outputMode("append")
       .start()
-      .awaitTermination(9000)
+      .awaitTermination(LOAD_PORT)
     val httpData = spark
       .sql("select value from http")
       .collect()
@@ -92,7 +92,7 @@ class HttpProviderTest
     httpData.toList should contain theSameElementsAs List("http data1")
   }
 
-  private val SAVE_PORT = 9100
+  private val SAVE_PORT = 9200
   def startHttpServer(): HttpServer = {
     val server = HttpServer.create(new InetSocketAddress(SAVE_PORT), 0)
     server.createContext("/", new RootHandler())

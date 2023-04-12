@@ -122,10 +122,10 @@ class Main() extends StrictLogging {
       case _ =>
     }
 
-    sys.env.get("COMET_ROOT").orElse(sys.env.get("SLK_ROOT")) match {
+    sys.env.get("COMET_ROOT").orElse(sys.env.get("SL_ROOT")) match {
       case None =>
         logger.warn(
-          "Define and set the SLK_ROOT env variable to your starlake project folder"
+          "Define and set the SL_ROOT env variable to your starlake project folder"
         )
       case Some(rootDir) =>
         logger.info(s"Project located in $rootDir")

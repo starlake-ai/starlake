@@ -51,11 +51,11 @@ the environnment variables below:
 
 Environnement variable |Value|Description
 ---|---|---
-SLK_ROOT|/mnt/starlake-app|It should reference the base directory where your starlake metadata is located
-SLK_AUDIT_SINK_TYPE|BigQuerySink|Where to save audit logs. Here we decide to save it in BigQuery. Tos ave it as a hive table or file on the cloud storage, set it to FsSink
-SLK_FS|gs://starlake-app|Filesystem. Reference the cloud storage bucket where all the files will be located.
+SL_ROOT|/mnt/starlake-app|It should reference the base directory where your starlake metadata is located
+SL_AUDIT_SINK_TYPE|BigQuerySink|Where to save audit logs. Here we decide to save it in BigQuery. Tos ave it as a hive table or file on the cloud storage, set it to FsSink
+SL_FS|gs://starlake-app|Filesystem. Reference the cloud storage bucket where all the files will be located.
 TEMPORARY_GCS_BUCKET|starlake-app|Bucket name where Google Cloud API store temporary files when saving data to BigQuery
-SLK_ENV|BQ|Starlake Env variables. This will instruct Starlake to use the env.`BQ`.comet.yml file located at the root of your project when running comet. The `sink_type` in this file instruct Starlake to save datasets in BigQuery instead of parquet files in Cloud Storage.   
+SL_ENV|BQ|Starlake Env variables. This will instruct Starlake to use the env.`BQ`.comet.yml file located at the root of your project when running comet. The `sink_type` in this file instruct Starlake to save datasets in BigQuery instead of parquet files in Cloud Storage.   
 
 To create the dataproc cluster using the CLI instead, just run the command below:
 
@@ -72,10 +72,10 @@ gcloud dataproc clusters create cluster-88ea \
       --image-version 2.0-debian10 \
       --project my-starlake-project-id \
       --properties \
-        spark-env:SLK_AUDIT_SINK_TYPE=BigQuerySink, \
-        spark-env:SLK_ENV=BQ, \
-        spark-env:SLK_FS=gs://starlake-app, \
-        spark-env:SLK_ROOT=/mnt/quickstart, \
+        spark-env:SL_AUDIT_SINK_TYPE=BigQuerySink, \
+        spark-env:SL_ENV=BQ, \
+        spark-env:SL_FS=gs://starlake-app, \
+        spark-env:SL_ROOT=/mnt/quickstart, \
         spark-env:TEMPORARY_GCS_BUCKET=starlake-app
 
 ````
@@ -132,7 +132,7 @@ Start the `import` job first and then the `watch` job. The execution logs are av
 Since we ingested data into BigQuery, We find it available in BigQuery datasets and tables 
 ![starlake watch]( /img/gcloud/bigquery.png "starlake watch")
 
-The audit log for the above jobs are available in a BigQuery table since we set the `SLK_AUDIT_SINK_TYPE=BigQuerySink` environnment variable.
+The audit log for the above jobs are available in a BigQuery table since we set the `SL_AUDIT_SINK_TYPE=BigQuerySink` environnment variable.
 
 
 ## Running Locally with Spark (Dev. Mode) 
