@@ -6,6 +6,9 @@ __Performance__:
 - disable table remarks fetch during data extraction
 - add parallelism option to data extraction and fetch tables in parallel along with their partitions fetching
 
+__Refactor__:
+- rely on a csv library during data extraction
+
 __Bug Fix__:
 - use different quote for audit connection
 
