@@ -26,7 +26,7 @@ case class ExtractDataConfig(
   mapping: String = "",
   outputDir: Option[String] = None,
   limit: Int = 0,
-  separator: String = ";",
+  separator: Char = ';',
   numPartitions: Int = 1,
   parallelism: Option[Int] = None,
   clean: Boolean = false
@@ -59,7 +59,7 @@ object ExtractDataConfig extends CliConfig[ExtractDataConfig] {
         .text(
           s"parallelism level of the extraction process. By default equals to the available cores: ${Runtime.getRuntime().availableProcessors()}"
         ),
-      opt[String]("separator")
+      opt[Char]("separator")
         .action((x, c) => c.copy(separator = x))
         .optional()
         .text("Column separator"),
