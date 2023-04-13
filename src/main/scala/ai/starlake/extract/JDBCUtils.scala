@@ -507,6 +507,20 @@ object JDBCUtils extends LazyLogging {
     }
   }
 
+  /** @param jdbcConnectionUrl
+    *   used to know which database we are targeting.
+    */
+  private def getColNameQuote(jdbcConnectionUrl: String) = {
+    val specialColNameQuote = List(
+      "jdbc:mysql" -> '`',
+      "jdbc:h2"    -> '`'
+    )
+    specialColNameQuote
+      .find { case (jdbcPrefix, _) => jdbcConnectionUrl.contains(jdbcPrefix) }
+      .map { case (_, colNameQuote) => colNameQuote }
+      .getOrElse('"')
+  }
+
   /** Extract data and save to output directory
     * @param schemaHandler
     * @param jdbcSchema
@@ -536,13 +550,12 @@ object JDBCUtils extends LazyLogging {
   )(implicit
     settings: Settings
   ): Unit = {
-    // Because mysql does not support "" when framing column names to handle cases where
-    // column names are keywords in the target dialect
-    val isMySQL = connectionOptions("url").contains("jdbc:mysql")
-    // use backticks instead of quotes for MySQL column names
-    val (colStart, colEnd) = if (isMySQL) ('`', '`') else ('"', '"')
     val auditConnectionOptions =
       settings.comet.connections.get("audit").map(_.options).getOrElse(connectionOptions)
+    // Because mysql does not support "" when framing column names to handle cases where
+    // column names are keywords in the target dialect
+    val colNameQuoteData = getColNameQuote(connectionOptions("url"))
+    val colNameQuoteAudit = getColNameQuote(auditConnectionOptions("url"))
 
     // Some database accept strange chars (aka DB2). We get rid of them
     val domainName = jdbcSchema.schema.replaceAll("[^\\p{Alnum}]", "_")
@@ -564,7 +577,7 @@ object JDBCUtils extends LazyLogging {
         val dateTime = formatter.format(Instant.now())
 
         // get cols to extract and frame colums names with quotes to handle cols that are keywords in the target database
-        val cols = selectedColumns.map(colStart + _.name + colEnd).mkString(",")
+        val cols = selectedColumns.map(colNameQuoteData + _.name + colNameQuoteData).mkString(",")
 
         // We always add header line to the export with the column names
         val header = selectedColumns.map(_.name).mkString(separator)
@@ -634,7 +647,13 @@ object JDBCUtils extends LazyLogging {
               step = "ALL"
             )
             withJDBCConnection(auditConnectionOptions) { connection =>
-              LastExportUtils.insertNewLastExport(connection, deltaRow, None, colStart, colEnd)
+              LastExportUtils.insertNewLastExport(
+                connection,
+                deltaRow,
+                None,
+                colNameQuoteAudit,
+                colNameQuoteAudit
+              )
             }
 
           case Some(partitionColumn) =>
@@ -644,12 +663,12 @@ object JDBCUtils extends LazyLogging {
             // This is applied when the table is exported for the first time
             val sqlFirst =
               s"""select $cols
-                 |from $colStart${jdbcSchema.schema}$colEnd.$colStart$tableName$colEnd
-                 |where $colStart$partitionColumn$colEnd <= ?""".stripMargin
+                 |from $colNameQuoteData${jdbcSchema.schema}$colNameQuoteData.$colNameQuoteData$tableName$colNameQuoteData
+                 |where $colNameQuoteData$partitionColumn$colNameQuoteData <= ?""".stripMargin
             val sqlNext =
               s"""select $cols
-                 |from $colStart${jdbcSchema.schema}$colEnd.$colStart$tableName$colEnd
-                 |where $colStart$partitionColumn$colEnd <= ? and $colStart$partitionColumn$colEnd > ?""".stripMargin
+                 |from $colNameQuoteData${jdbcSchema.schema}$colNameQuoteData.$colNameQuoteData$tableName$colNameQuoteData
+                 |where $colNameQuoteData$partitionColumn$colNameQuoteData <= ? and $colNameQuoteData$partitionColumn$colNameQuoteData > ?""".stripMargin
 
             // Get the partition column type. Since comparing numeric, big decimal, date and timestamps are not the same
             val partitionColumnType =
@@ -672,8 +691,8 @@ object JDBCUtils extends LazyLogging {
                 partitionColumn,
                 partitionColumnType,
                 numPartitions,
-                colStart,
-                colEnd
+                colNameQuoteData,
+                colNameQuoteData
               )
             }
 
@@ -745,8 +764,8 @@ object JDBCUtils extends LazyLogging {
                       connection,
                       deltaRow,
                       Some(partitionColumnType),
-                      colStart,
-                      colEnd
+                      colNameQuoteAudit,
+                      colNameQuoteAudit
                     )
                   }
                 }
@@ -777,8 +796,8 @@ object JDBCUtils extends LazyLogging {
                 connection,
                 deltaRow,
                 Some(partitionColumnType),
-                colStart,
-                colEnd
+                colNameQuoteAudit,
+                colNameQuoteAudit
               )
             }
 
