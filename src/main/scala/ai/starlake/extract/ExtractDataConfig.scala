@@ -28,6 +28,7 @@ case class ExtractDataConfig(
   limit: Int = 0,
   separator: String = ";",
   numPartitions: Int = 1,
+  parallelism: Option[Int] = None,
   clean: Boolean = false
 )
 
@@ -51,7 +52,13 @@ object ExtractDataConfig extends CliConfig[ExtractDataConfig] {
       opt[Int]("numPartitions")
         .action((x, c) => c.copy(numPartitions = x))
         .optional()
-        .text("parallelism level"),
+        .text("parallelism level regarding partitionned tables"),
+      opt[Int]("parallelism")
+        .action((x, c) => c.copy(parallelism = Some(x)))
+        .optional()
+        .text(
+          s"parallelism level of the extraction process. By default equals to the available cores: ${Runtime.getRuntime().availableProcessors()}"
+        ),
       opt[String]("separator")
         .action((x, c) => c.copy(separator = x))
         .optional()
