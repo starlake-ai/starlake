@@ -4,7 +4,8 @@ import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model._
 import ai.starlake.utils.Utils
-import better.files.File
+import au.com.bytecode.opencsv.{CSVWriter, ResultSetHelperService}
+import better.files.{using, File}
 import com.typesafe.scalalogging.LazyLogging
 
 import java.io.FileWriter
@@ -575,7 +576,7 @@ object JDBCUtils extends LazyLogging {
     connectionOptions: Map[String, String],
     baseOutputDir: File,
     limit: Int,
-    separator: String,
+    separator: Char,
     defaultNumPartitions: Int,
     clean: Boolean,
     parallelism: Int
@@ -613,9 +614,6 @@ object JDBCUtils extends LazyLogging {
 
         // get cols to extract and frame colums names with quotes to handle cols that are keywords in the target database
         val cols = selectedColumns.map(colNameQuoteData + _.name + colNameQuoteData).mkString(",")
-
-        // We always add header line to the export with the column names
-        val header = selectedColumns.map(_.name).mkString(separator)
 
         // Get the current table partition column and  connection options if any
         val currentTable = jdbcSchema.tables.find(_.name.equalsIgnoreCase(tableName))
@@ -657,8 +655,7 @@ object JDBCUtils extends LazyLogging {
                   tableName,
                   dateTime,
                   None,
-                  statement,
-                  header
+                  statement
                 )
               }
             } match {
@@ -780,8 +777,7 @@ object JDBCUtils extends LazyLogging {
                     tableName,
                     dateTime,
                     Some(index),
-                    statement,
-                    header
+                    statement
                   )
                   val end = System.currentTimeMillis()
                   val deltaRow = DeltaRow(
@@ -847,71 +843,43 @@ object JDBCUtils extends LazyLogging {
   private def extractPartitionToFile(
     context: String,
     limit: Int,
-    separator: String,
+    separator: Char,
     outputDir: File,
     tableName: String,
     dateTime: String,
     index: Option[Int],
-    statement: PreparedStatement,
-    header: String
+    statement: PreparedStatement
   ): Long = {
     val filename = index
       .map(index => tableName + s"-$dateTime-$index.csv")
       .getOrElse(tableName + s"-$dateTime.csv")
+    logger.info(s"$context Starting extraction into $filename")
     val outFile = File(outputDir, filename)
     val outFileWriter = outFile.newFileWriter(append = false)
-    val res =
-      extractPartitionToFileWriter(context, limit, separator, outFileWriter, statement, header)
-    outFileWriter.close()
-    res
-  }
-
-  private def extractPartitionToFileWriter(
-    context: String,
-    limit: Int,
-    separator: String,
-    outFileWriter: FileWriter,
-    statement: PreparedStatement,
-    header: String
-  ): Long = {
-    outFileWriter.append(header + "\n")
+    val csvWriterResource = new CSVWriter(outFileWriter, separator, '\\', separator)
     statement.setMaxRows(limit)
     val rs = statement.executeQuery()
-    val rsMetadata = rs.getMetaData()
+    val resultService = new ResultSetHelperService()
     var count: Long = 0
-    while (rs.next()) {
-      count = count + 1
-      val colList = ListBuffer.empty[String]
-      for (icol <- 1 to rsMetadata.getColumnCount) {
-        val obj = Option(rs.getObject(icol))
-        val sqlType = rsMetadata.getColumnType(icol)
-        import java.sql.Types
-        val colValue = sqlType match {
-          case Types.VARCHAR =>
-            "\"" + rs.getString(icol) + "\""
-          case Types.NULL =>
-            "null"
-          case Types.CHAR =>
-            "\"" + obj.map(_ => rs.getString(icol)).getOrElse("") + "\""
-          case Types.TIMESTAMP =>
-            "\"" + obj.map(_ => rs.getTimestamp(icol).toString).getOrElse("") + "\""
-          case Types.DOUBLE =>
-            obj.map(_ => rs.getDouble(icol).toString).getOrElse("")
-          case Types.INTEGER =>
-            obj.map(_ => rs.getInt(icol).toString).getOrElse("")
-          case Types.SMALLINT =>
-            obj.map(_ => rs.getInt(icol).toString).getOrElse("")
-          case Types.DECIMAL =>
-            obj.map(_ => rs.getBigDecimal(icol).toString).getOrElse("")
-          case _ =>
-            "\"" + obj.map(_.toString).getOrElse("") + "\""
+    using(csvWriterResource) { csvWriter =>
+      csvWriter.setResultService(resultService)
+      csvWriter.writeNext(resultService.getColumnNames(rs))
+      val heartBeatMs = 30000
+      val extractionStartMs = System.currentTimeMillis()
+      var lastHeartBeat = extractionStartMs
+      while (rs.next()) {
+        count = count + 1
+        csvWriter.writeNext(resultService.getColumnValues(rs))
+        if (System.currentTimeMillis() - lastHeartBeat > heartBeatMs) {
+          lastHeartBeat = System.currentTimeMillis()
+          val elapsedTimeSec = (System.currentTimeMillis() - extractionStartMs) / 1000
+          logger.info(
+            s"$context Extraction in progress. Already extracted $count rows in $elapsedTimeSec s"
+          )
         }
-        colList.append(colValue)
       }
-      val rowString = colList.mkString(separator)
-      outFileWriter.append(rowString + "\n")
     }
-    logger.info(s"$context Extracted $count rows")
+    logger.info(s"$context Extracted $count rows and saved into $filename")
     count
   }
 }
