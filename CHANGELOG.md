@@ -4,6 +4,7 @@
 # 0.7.1:
 __Performance__:
 - disable table remarks fetch during data extraction
+- add parallelism option to data extraction and fetch tables in parallel along with their partitions fetching
 
 __Bug Fix__:
 - use different quote for audit connection

@@ -21,8 +21,9 @@ import java.time.format.DateTimeFormatter
 import java.time.{Instant, ZoneId}
 import java.util.Properties
 import java.util.regex.Pattern
-import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
+import scala.collection.parallel.ForkJoinTaskSupport
+import scala.collection.{mutable, GenTraversable}
 import scala.util.{Failure, Success, Try, Using}
 
 object JDBCUtils extends LazyLogging {
@@ -527,6 +528,30 @@ object JDBCUtils extends LazyLogging {
       .getOrElse('"')
   }
 
+  private def createForkSupport(maxPar: Int): Option[ForkJoinTaskSupport] = {
+    if (
+      maxPar < 2
+    ) // don't treat 2 as parallel since we have two list to parallelize so we keep one available for them in order to avoid famine.
+      None
+    else {
+      val forkJoinPool = new java.util.concurrent.ForkJoinPool(maxPar)
+      Some(new ForkJoinTaskSupport(forkJoinPool))
+    }
+  }
+
+  private def makeParallel[T](
+    list: GenTraversable[T]
+  )(implicit fjp: Option[ForkJoinTaskSupport]): GenTraversable[T] = {
+    fjp match {
+      case Some(pool) =>
+        val parList = list.par
+        parList.tasksupport = pool
+        parList
+      case None =>
+        list
+    }
+  }
+
   /** Extract data and save to output directory
     * @param schemaHandler
     * @param jdbcSchema
@@ -552,7 +577,8 @@ object JDBCUtils extends LazyLogging {
     limit: Int,
     separator: String,
     defaultNumPartitions: Int,
-    clean: Boolean
+    clean: Boolean,
+    parallelism: Int
   )(implicit
     settings: Settings
   ): Unit = {
@@ -575,8 +601,11 @@ object JDBCUtils extends LazyLogging {
     val selectedTablesAndColumns: Map[String, (TableRemarks, Columns, PrimaryKeys)] =
       JDBCUtils.extractJDBCTables(jdbcSchema, connectionOptions, skipRemarks = true)
 
-    selectedTablesAndColumns.foreach {
+    implicit val forkJoinTaskSupport = createForkSupport(parallelism)
+
+    makeParallel(selectedTablesAndColumns).foreach {
       case (tableName, (tableRemarks, selectedColumns, primaryKeys)) =>
+        val context = s"[${jdbcSchema.schema}.$tableName]"
         val formatter = DateTimeFormatter
           .ofPattern("yyyyMMddHHmmss")
           .withZone(ZoneId.systemDefault())
@@ -617,9 +646,11 @@ object JDBCUtils extends LazyLogging {
                 connection.setAutoCommit(false)
                 val statement = connection.prepareStatement(sql)
                 fetchSize.foreach(fetchSize => statement.setFetchSize(fetchSize))
-                logger.info(s"SQL: $sql")
+                logger.info(s"$context Fetch size = ${statement.getFetchSize}")
+                logger.info(s"$context SQL: $sql")
                 // Export the whole table now
                 extractPartitionToFile(
+                  context,
                   limit,
                   separator,
                   outputDir,
@@ -702,14 +733,14 @@ object JDBCUtils extends LazyLogging {
               )
             }
 
-            logger.info(s"Boundaries: $boundaries")
+            logger.info(s"$context Boundaries for : $boundaries")
             val start = System.currentTimeMillis()
             // Export in parallel mode
             val success = Try {
-              boundaries.partitions.zipWithIndex.par.foreach { case (bounds, index) =>
-                logger.info(s"(lower, upper) bounds = $bounds")
+              makeParallel(boundaries.partitions.zipWithIndex).foreach { case (bounds, index) =>
+                logger.info(s"$context (lower, upper) bounds = $bounds")
                 val sql = if (boundaries.firstExport && index == 0) sqlFirst else sqlNext
-                logger.info(s"SQL: $sql")
+                logger.info(s"$context SQL: $sql")
                 withJDBCConnection(connectionOptions) { connection =>
                   val start = System.currentTimeMillis()
                   connection.setAutoCommit(false)
@@ -742,6 +773,7 @@ object JDBCUtils extends LazyLogging {
                       )
                   }
                   val count = extractPartitionToFile(
+                    context,
                     limit,
                     separator,
                     outputDir,
@@ -809,9 +841,11 @@ object JDBCUtils extends LazyLogging {
 
         }
     }
+    forkJoinTaskSupport.foreach(_.forkJoinPool.shutdown())
   }
 
   private def extractPartitionToFile(
+    context: String,
     limit: Int,
     separator: String,
     outputDir: File,
@@ -826,12 +860,14 @@ object JDBCUtils extends LazyLogging {
       .getOrElse(tableName + s"-$dateTime.csv")
     val outFile = File(outputDir, filename)
     val outFileWriter = outFile.newFileWriter(append = false)
-    val res = extractPartitionToFileWriter(limit, separator, outFileWriter, statement, header)
+    val res =
+      extractPartitionToFileWriter(context, limit, separator, outFileWriter, statement, header)
     outFileWriter.close()
     res
   }
 
   private def extractPartitionToFileWriter(
+    context: String,
     limit: Int,
     separator: String,
     outFileWriter: FileWriter,
@@ -875,7 +911,7 @@ object JDBCUtils extends LazyLogging {
       val rowString = colList.mkString(separator)
       outFileWriter.append(rowString + "\n")
     }
-    logger.info(s"Extracted $count rows")
+    logger.info(s"$context Extracted $count rows")
     count
   }
 }
