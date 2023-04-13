@@ -1,6 +1,10 @@
 
 # Release notes
 
+# 0.7.1:
+__Bug Fix__:
+- use different quote for audit connection
+
 # 0.7.0
 __Deprecated__:
 - Env vars that start with COMET_ are now deprecated. replace prefix with SL_
