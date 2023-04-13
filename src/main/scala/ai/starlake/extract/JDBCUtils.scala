@@ -180,7 +180,8 @@ object JDBCUtils extends LazyLogging {
     */
   def extractJDBCTables(
     jdbcSchema: JDBCSchema,
-    connectionOptions: Map[String, String]
+    connectionOptions: Map[String, String],
+    skipRemarks: Boolean
   )(implicit settings: Settings): Map[String, (TableRemarks, Columns, PrimaryKeys)] =
     withJDBCConnection(connectionOptions) { connection =>
       val databaseMetaData = connection.getMetaData()
@@ -204,7 +205,9 @@ object JDBCUtils extends LazyLogging {
           while (resultSet.next()) {
             val tableName = resultSet.getString("TABLE_NAME")
             if (tablesToExtract.isEmpty || tablesToExtract.contains(tableName.toUpperCase())) {
-              val _remarks = extractTableRemarks(jdbcSchema, connectionOptions, tableName)
+              val _remarks =
+                if (skipRemarks) None
+                else extractTableRemarks(jdbcSchema, connectionOptions, tableName)
               val remarks = _remarks.getOrElse(resultSet.getString("REMARKS"))
               logger.info(s"Extracting table $tableName: $remarks")
               tableNames += tableName -> remarks
@@ -273,8 +276,11 @@ object JDBCUtils extends LazyLogging {
                 null
               )
             )
-            val remarks =
-              extractColumnRemarks(jdbcSchema, connectionOptions, tableName).getOrElse(Map.empty)
+            val remarks: Map[TableRemarks, TableRemarks] = (
+              if (skipRemarks) None
+              else
+                extractColumnRemarks(jdbcSchema, connectionOptions, tableName)
+            ).getOrElse(Map.empty)
 
             val isPostgres = connectionOptions("url").contains("postgres")
             val attrs = new Iterator[Attribute] {
@@ -567,7 +573,7 @@ object JDBCUtils extends LazyLogging {
 
     // Map tables to columns and primary keys
     val selectedTablesAndColumns: Map[String, (TableRemarks, Columns, PrimaryKeys)] =
-      JDBCUtils.extractJDBCTables(jdbcSchema, connectionOptions)
+      JDBCUtils.extractJDBCTables(jdbcSchema, connectionOptions, skipRemarks = true)
 
     selectedTablesAndColumns.foreach {
       case (tableName, (tableRemarks, selectedColumns, primaryKeys)) =>

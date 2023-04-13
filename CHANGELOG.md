@@ -2,6 +2,9 @@
 # Release notes
 
 # 0.7.1:
+__Performance__:
+- disable table remarks fetch during data extraction
+
 __Bug Fix__:
 - use different quote for audit connection
 

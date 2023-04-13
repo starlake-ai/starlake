@@ -145,7 +145,8 @@ object ExtractSchema extends Extract with LazyLogging {
   )(implicit
     settings: Settings
   ): Domain = {
-    val selectedTablesAndColumns = JDBCUtils.extractJDBCTables(jdbcSchema, connectionOptions)
+    val selectedTablesAndColumns =
+      JDBCUtils.extractJDBCTables(jdbcSchema, connectionOptions, skipRemarks = false)
     JDBCUtils.extractDomain(jdbcSchema, domainTemplate, selectedTablesAndColumns)
   }
 
