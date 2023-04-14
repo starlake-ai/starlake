@@ -8,7 +8,6 @@ import au.com.bytecode.opencsv.{CSVWriter, ResultSetHelperService}
 import better.files.{using, File}
 import com.typesafe.scalalogging.LazyLogging
 
-import java.io.FileWriter
 import java.sql.Types._
 import java.sql.{
   Connection => SQLConnection,
@@ -21,6 +20,7 @@ import java.sql.{
 import java.time.format.DateTimeFormatter
 import java.time.{Instant, ZoneId}
 import java.util.Properties
+import java.util.concurrent.atomic.AtomicLong
 import java.util.regex.Pattern
 import scala.collection.mutable.ListBuffer
 import scala.collection.parallel.ForkJoinTaskSupport
@@ -585,9 +585,10 @@ object JDBCUtils extends LazyLogging {
   ): Unit = {
     val auditConnectionOptions =
       settings.comet.connections.get("audit").map(_.options).getOrElse(connectionOptions)
+    val jdbcUrl = connectionOptions("url")
     // Because mysql does not support "" when framing column names to handle cases where
     // column names are keywords in the target dialect
-    val colNameQuoteData = getColNameQuote(connectionOptions("url"))
+    val colNameQuoteData = getColNameQuote(jdbcUrl)
     val colNameQuoteAudit = getColNameQuote(auditConnectionOptions("url"))
 
     // Some database accept strange chars (aka DB2). We get rid of them
@@ -691,18 +692,20 @@ object JDBCUtils extends LazyLogging {
             }
 
           case Some(partitionColumn) =>
+            lazy val stringPartitionFuncTpl =
+              jdbcSchema.stringPartitionFunc.orElse(getStringPartitionFunc(jdbcUrl))
             // Table is partitioned, we only extract part of it. Actually, we need to export everything
             // that has not been exported based on the last exported value present in the audit log.
 
             // This is applied when the table is exported for the first time
-            val sqlFirst =
+            def sqlFirst(columnToDistribute: String) =
               s"""select $cols
                  |from $colNameQuoteData${jdbcSchema.schema}$colNameQuoteData.$colNameQuoteData$tableName$colNameQuoteData
-                 |where $colNameQuoteData$partitionColumn$colNameQuoteData <= ?""".stripMargin
-            val sqlNext =
+                 |where $columnToDistribute <= ?""".stripMargin
+            def sqlNext(columnToDistribute: String) =
               s"""select $cols
                  |from $colNameQuoteData${jdbcSchema.schema}$colNameQuoteData.$colNameQuoteData$tableName$colNameQuoteData
-                 |where $colNameQuoteData$partitionColumn$colNameQuoteData <= ? and $colNameQuoteData$partitionColumn$colNameQuoteData > ?""".stripMargin
+                 |where $columnToDistribute <= ? and $columnToDistribute > ?""".stripMargin
 
             // Get the partition column type. Since comparing numeric, big decimal, date and timestamps are not the same
             val partitionColumnType =
@@ -726,51 +729,92 @@ object JDBCUtils extends LazyLogging {
                 partitionColumnType,
                 numPartitions,
                 colNameQuoteData,
-                colNameQuoteData
+                colNameQuoteData,
+                stringPartitionFuncTpl
               )
             }
 
-            logger.info(s"$context Boundaries for : $boundaries")
-            val start = System.currentTimeMillis()
+            logger.info(s"$context Boundaries : $boundaries")
+            val globalStart = System.currentTimeMillis()
             // Export in parallel mode
+            var tableCount = new AtomicLong();
             val success = Try {
               makeParallel(boundaries.partitions.zipWithIndex).foreach { case (bounds, index) =>
-                logger.info(s"$context (lower, upper) bounds = $bounds")
-                val sql = if (boundaries.firstExport && index == 0) sqlFirst else sqlNext
-                logger.info(s"$context SQL: $sql")
+                val boundaryContext = s"$context[$index]"
+                logger.info(s"$boundaryContext (lower, upper) bounds = $bounds")
+                val quotedPartitionColumn = s"$colNameQuoteData$partitionColumn$colNameQuoteData"
+                def sql(
+                  columnToDistribute: String = quotedPartitionColumn
+                ) = if (boundaries.firstExport && index == 0) sqlFirst(columnToDistribute)
+                else
+                  sqlNext(columnToDistribute)
                 withJDBCConnection(connectionOptions) { connection =>
-                  val start = System.currentTimeMillis()
-                  connection.setAutoCommit(false)
-                  val statement = connection.prepareStatement(sql)
-                  fetchSize.foreach(fetchSize => statement.setFetchSize(fetchSize))
-                  partitionColumnType match {
+                  val (effectiveSql, statementFiller) = partitionColumnType match {
                     case PrimitiveType.int | PrimitiveType.long | PrimitiveType.short =>
                       val (lower, upper) = bounds.asInstanceOf[(Long, Long)]
-                      statement.setLong(1, upper)
-                      if (!(boundaries.firstExport && index == 0)) statement.setLong(2, lower)
+                      sql() -> ((st: PreparedStatement) => {
+                        st.setLong(1, upper)
+                        if (!(boundaries.firstExport && index == 0)) st.setLong(2, lower)
+                      })
                     case PrimitiveType.decimal =>
                       val (lower, upper) =
                         bounds.asInstanceOf[(java.math.BigDecimal, java.math.BigDecimal)]
-                      statement.setBigDecimal(1, upper)
-                      if (!(boundaries.firstExport && index == 0))
-                        statement.setBigDecimal(2, lower)
+                      sql() -> ((st: PreparedStatement) => {
+                        st.setBigDecimal(1, upper)
+                        if (!(boundaries.firstExport && index == 0))
+                          st.setBigDecimal(2, lower)
+                      })
+
                     case PrimitiveType.date =>
                       val (lower, upper) = bounds.asInstanceOf[(Date, Date)]
-                      statement.setDate(1, upper)
-                      if (!(boundaries.firstExport && index == 0)) statement.setDate(2, lower)
+                      sql() -> ((st: PreparedStatement) => {
+                        st.setDate(1, upper)
+                        if (!(boundaries.firstExport && index == 0)) st.setDate(2, lower)
+                      })
+
                     case PrimitiveType.timestamp =>
                       val (lower, upper) =
                         bounds.asInstanceOf[(Timestamp, Timestamp)]
-                      statement.setTimestamp(1, upper)
-                      if (!(boundaries.firstExport && index == 0))
-                        statement.setTimestamp(2, lower)
+                      sql() -> ((st: PreparedStatement) => {
+                        st.setTimestamp(1, upper)
+                        if (!(boundaries.firstExport && index == 0))
+                          st.setTimestamp(2, lower)
+                      })
+                    case PrimitiveType.string if stringPartitionFuncTpl.isDefined =>
+                      stringPartitionFuncTpl match {
+                        case Some(tpl) =>
+                          val stringPartitionFunc =
+                            Utils.parseJinjaTpl(
+                              tpl,
+                              Map(
+                                "col"           -> quotedPartitionColumn,
+                                "nb_partitions" -> numPartitions.toString
+                              )
+                            )
+                          val (lower, upper) = bounds.asInstanceOf[(Long, Long)]
+                          sql(stringPartitionFunc) -> ((st: PreparedStatement) => {
+                            st.setLong(1, upper)
+                            if (!(boundaries.firstExport && index == 0)) st.setLong(2, lower)
+                          })
+                        case None =>
+                          throw new RuntimeException(
+                            "Should never happen since stringPartitionFuncTpl is always defined here"
+                          )
+                      }
                     case _ =>
                       throw new Exception(
-                        s"type $partitionColumnType not supported for partition column"
+                        s"type $partitionColumnType not supported for partition columnToDistribute"
                       )
                   }
+                  logger.info(s"$boundaryContext SQL: $effectiveSql")
+                  val start = System.currentTimeMillis()
+                  connection.setAutoCommit(false)
+                  val statement = connection.prepareStatement(effectiveSql)
+                  statementFiller(statement)
+                  fetchSize.foreach(fetchSize => statement.setFetchSize(fetchSize))
+
                   val count = extractPartitionToFile(
-                    context,
+                    boundaryContext,
                     limit,
                     separator,
                     outputDir,
@@ -778,6 +822,20 @@ object JDBCUtils extends LazyLogging {
                     dateTime,
                     Some(index),
                     statement
+                  )
+                  val currentTableCount = tableCount.addAndGet(count)
+
+                  val lineLength = 100
+                  val progressPercent =
+                    (currentTableCount * lineLength / boundaries.count).toInt
+                  val progressPercentFilled = (0 until progressPercent).map(_ => "#").mkString
+                  val progressPercentUnfilled =
+                    (progressPercent until lineLength).map(_ => " ").mkString
+                  val progressBar =
+                    s"[$progressPercentFilled$progressPercentUnfilled] $progressPercent %"
+                  val elapsedTime = Utils.toHumanElapsedTimeFrom(globalStart)
+                  logger.info(
+                    s"$context $progressBar. Elapsed time: $elapsedTime"
                   )
                   val end = System.currentTimeMillis()
                   val deltaRow = DeltaRow(
@@ -812,13 +870,16 @@ object JDBCUtils extends LazyLogging {
                 false
             }
             val end = System.currentTimeMillis()
+            val duration = (end - globalStart).toInt
+            val elapsedTime = Utils.toHumanElapsedTime(duration)
+            logger.info(s"$context Extracted all lines in $elapsedTime")
             val deltaRow = DeltaRow(
               domain = jdbcSchema.schema,
               schema = tableName,
               lastExport = boundaries.max,
-              start = new Timestamp(start),
+              start = new Timestamp(globalStart),
               end = new Timestamp(end),
-              duration = (end - start).toInt,
+              duration = duration,
               mode = jdbcSchema.writeMode().toString,
               count = boundaries.count,
               success = success,
@@ -838,6 +899,19 @@ object JDBCUtils extends LazyLogging {
         }
     }
     forkJoinTaskSupport.foreach(_.forkJoinPool.shutdown())
+  }
+
+  private def getStringPartitionFunc(jdbcUrl: String): Option[String] = {
+    val hashFunctions = List(
+      "jdbc:sqlserver" -> "abs( binary_checksum({{col}}) % {{nb_partitions}} )",
+      "jdbc:postgres"  -> "abs( hashtext({{col}}) % {{nb_partitions}} )",
+      "jdbc:h2"        -> "ora_hash({{col}}, {{nb_partitions}} - 1)",
+      "jdbc:mysql"     -> "crc32({{col}}) % {{nb_partitions}}",
+      "jdbc:oracle"    -> "ora_hash({{col}}, {{nb_partitions}} - 1)"
+    )
+    hashFunctions.find { case (dbType, _) => jdbcUrl.contains(dbType) }.map {
+      case (_, partitionFunc) => partitionFunc
+    }
   }
 
   private def extractPartitionToFile(
@@ -861,30 +935,31 @@ object JDBCUtils extends LazyLogging {
     val rs = statement.executeQuery()
     val resultService = new ResultSetHelperService()
     var count: Long = 0
+    val extractionStartMs = System.currentTimeMillis()
     using(csvWriterResource) { csvWriter =>
       csvWriter.setResultService(resultService)
       csvWriter.writeNext(resultService.getColumnNames(rs))
       val heartBeatMs = 30000
-      val extractionStartMs = System.currentTimeMillis()
       var lastHeartBeat = extractionStartMs
       while (rs.next()) {
         count = count + 1
         csvWriter.writeNext(resultService.getColumnValues(rs))
         if (System.currentTimeMillis() - lastHeartBeat > heartBeatMs) {
           lastHeartBeat = System.currentTimeMillis()
-          val elapsedTimeSec = (System.currentTimeMillis() - extractionStartMs) / 1000
+          val elapsedTime = Utils.toHumanElapsedTimeFrom(extractionStartMs)
           logger.info(
-            s"$context Extraction in progress. Already extracted $count rows in $elapsedTimeSec s"
+            s"$context Extraction in progress. Already extracted $count rows in $elapsedTime"
           )
         }
       }
     }
-    logger.info(s"$context Extracted $count rows and saved into $filename")
+    val elapsedTime = Utils.toHumanElapsedTimeFrom(extractionStartMs)
+    logger.info(s"$context Extracted $count rows and saved into $filename in $elapsedTime")
     count
   }
 }
 
-object LastExportUtils {
+object LastExportUtils extends LazyLogging {
   case class Bounds(
     firstExport: Boolean,
     typ: PrimitiveType,
@@ -906,8 +981,9 @@ object LastExportUtils {
     partitionColumnType: PrimitiveType,
     nbPartitions: Int,
     colStart: Char,
-    colEnd: Char
-  ): Bounds = {
+    colEnd: Char,
+    stringPartitionFuncTpl: => Option[String]
+  )(implicit settings: Settings): Bounds = {
     val partitionRange = 0 until nbPartitions
     partitionColumnType match {
       case PrimitiveType.long | PrimitiveType.short | PrimitiveType.int =>
@@ -918,37 +994,38 @@ object LastExportUtils {
           } else
             None
         }
-        internalBoundaries(conn, domain, table, partitionColumn, colStart, colEnd) { statement =>
-          statement.setLong(1, lastExport.getOrElse(Long.MinValue))
-          executeQuery(statement) { rs =>
-            rs.next()
-            val count = rs.getLong(1)
-            val (min, max) =
-              if (partitionColumnType == PrimitiveType.long)
-                (rs.getLong(2), rs.getLong(3))
-              else if (partitionColumnType == PrimitiveType.int)
-                (rs.getInt(2).toLong, rs.getInt(3).toLong)
-              else // short
-                (rs.getShort(2).toLong, rs.getShort(3).toLong)
+        internalBoundaries(conn, domain, table, partitionColumn, colStart, colEnd, None) {
+          statement =>
+            statement.setLong(1, lastExport.getOrElse(Long.MinValue))
+            executeQuery(statement) { rs =>
+              rs.next()
+              val count = rs.getLong(1)
+              val (min, max) =
+                if (partitionColumnType == PrimitiveType.long)
+                  (rs.getLong(2), rs.getLong(3))
+                else if (partitionColumnType == PrimitiveType.int)
+                  (rs.getInt(2).toLong, rs.getInt(3).toLong)
+                else // short
+                  (rs.getShort(2).toLong, rs.getShort(3).toLong)
 
-            val interval = (max - min) / nbPartitions
-            val intervals = partitionRange.map { index =>
-              val upper =
-                if (index == nbPartitions - 1)
-                  max
-                else
-                  min + (interval * (index + 1))
-              (min + (interval * index), upper)
-            }.toArray
-            Bounds(
-              lastExport.isEmpty,
-              PrimitiveType.long,
-              count,
-              min,
-              max,
-              intervals.asInstanceOf[Array[(Any, Any)]]
-            )
-          }
+              val interval = (max - min) / nbPartitions
+              val intervals = partitionRange.map { index =>
+                val upper =
+                  if (index == nbPartitions - 1)
+                    max
+                  else
+                    min + (interval * (index + 1))
+                (min + (interval * index), upper)
+              }.toArray
+              Bounds(
+                lastExport.isEmpty,
+                PrimitiveType.long,
+                count,
+                min,
+                max,
+                intervals.asInstanceOf[Array[(Any, Any)]]
+              )
+            }
         }
 
       case PrimitiveType.decimal =>
@@ -959,31 +1036,32 @@ object LastExportUtils {
             else
               None
         }
-        internalBoundaries(conn, domain, table, partitionColumn, colStart, colEnd) { statement =>
-          statement.setBigDecimal(1, lastExport.getOrElse(MIN_DECIMAL))
-          executeQuery(statement) { rs =>
-            rs.next()
-            val count = rs.getLong(1)
-            val min = Option(rs.getBigDecimal(2)).getOrElse(MIN_DECIMAL)
-            val max = Option(rs.getBigDecimal(3)).getOrElse(MIN_DECIMAL)
-            val interval = max.subtract(min).divide(new java.math.BigDecimal(nbPartitions))
-            val intervals = partitionRange.map { index =>
-              val upper =
-                if (index == nbPartitions - 1)
-                  max
-                else
-                  min.add(interval.multiply(new java.math.BigDecimal(index + 1)))
-              (min.add(interval.multiply(new java.math.BigDecimal(index))), upper)
-            }.toArray
-            Bounds(
-              lastExport.isEmpty,
-              PrimitiveType.decimal,
-              count,
-              min,
-              max,
-              intervals.asInstanceOf[Array[(Any, Any)]]
-            )
-          }
+        internalBoundaries(conn, domain, table, partitionColumn, colStart, colEnd, None) {
+          statement =>
+            statement.setBigDecimal(1, lastExport.getOrElse(MIN_DECIMAL))
+            executeQuery(statement) { rs =>
+              rs.next()
+              val count = rs.getLong(1)
+              val min = Option(rs.getBigDecimal(2)).getOrElse(MIN_DECIMAL)
+              val max = Option(rs.getBigDecimal(3)).getOrElse(MIN_DECIMAL)
+              val interval = max.subtract(min).divide(new java.math.BigDecimal(nbPartitions))
+              val intervals = partitionRange.map { index =>
+                val upper =
+                  if (index == nbPartitions - 1)
+                    max
+                  else
+                    min.add(interval.multiply(new java.math.BigDecimal(index + 1)))
+                (min.add(interval.multiply(new java.math.BigDecimal(index))), upper)
+              }.toArray
+              Bounds(
+                lastExport.isEmpty,
+                PrimitiveType.decimal,
+                count,
+                min,
+                max,
+                intervals.asInstanceOf[Array[(Any, Any)]]
+              )
+            }
         }
 
       case PrimitiveType.date =>
@@ -993,31 +1071,32 @@ object LastExportUtils {
           else
             None
         }
-        internalBoundaries(conn, domain, table, partitionColumn, colStart, colEnd) { statement =>
-          statement.setDate(1, lastExport.getOrElse(MIN_DATE))
-          executeQuery(statement) { rs =>
-            rs.next()
-            val count = rs.getLong(1)
-            val min = Option(rs.getDate(2)).getOrElse(MIN_DATE)
-            val max = Option(rs.getDate(3)).getOrElse(MIN_DATE)
-            val interval = (max.getTime() - min.getTime()) / nbPartitions
-            val intervals = partitionRange.map { index =>
-              val upper =
-                if (index == nbPartitions - 1)
-                  max
-                else
-                  new java.sql.Date(min.getTime() + (interval * (index + 1)))
-              (new java.sql.Date(min.getTime() + (interval * index)), upper)
-            }.toArray
-            Bounds(
-              lastExport.isEmpty,
-              PrimitiveType.date,
-              count,
-              min,
-              max,
-              intervals.asInstanceOf[Array[(Any, Any)]]
-            )
-          }
+        internalBoundaries(conn, domain, table, partitionColumn, colStart, colEnd, None) {
+          statement =>
+            statement.setDate(1, lastExport.getOrElse(MIN_DATE))
+            executeQuery(statement) { rs =>
+              rs.next()
+              val count = rs.getLong(1)
+              val min = Option(rs.getDate(2)).getOrElse(MIN_DATE)
+              val max = Option(rs.getDate(3)).getOrElse(MIN_DATE)
+              val interval = (max.getTime() - min.getTime()) / nbPartitions
+              val intervals = partitionRange.map { index =>
+                val upper =
+                  if (index == nbPartitions - 1)
+                    max
+                  else
+                    new java.sql.Date(min.getTime() + (interval * (index + 1)))
+                (new java.sql.Date(min.getTime() + (interval * index)), upper)
+              }.toArray
+              Bounds(
+                lastExport.isEmpty,
+                PrimitiveType.date,
+                count,
+                min,
+                max,
+                intervals.asInstanceOf[Array[(Any, Any)]]
+              )
+            }
         }
 
       case PrimitiveType.timestamp =>
@@ -1027,30 +1106,83 @@ object LastExportUtils {
           else
             None
         }
-        internalBoundaries(conn, domain, table, partitionColumn, colStart, colEnd) { statement =>
-          statement.setTimestamp(1, lastExport.getOrElse(MIN_TS))
+        internalBoundaries(conn, domain, table, partitionColumn, colStart, colEnd, None) {
+          statement =>
+            statement.setTimestamp(1, lastExport.getOrElse(MIN_TS))
+            executeQuery(statement) { rs =>
+              rs.next()
+              val count = rs.getLong(1)
+              val min = Option(rs.getTimestamp(2)).getOrElse(MIN_TS)
+              val max = Option(rs.getTimestamp(3)).getOrElse(MIN_TS)
+              val interval = (max.getTime() - min.getTime()) / nbPartitions
+              val intervals = partitionRange.map { index =>
+                val upper =
+                  if (index == nbPartitions - 1)
+                    max
+                  else
+                    new java.sql.Timestamp(min.getTime() + (interval * (index + 1)))
+                (new java.sql.Timestamp(min.getTime() + (interval * index)), upper)
+              }.toArray
+              Bounds(
+                lastExport.isEmpty,
+                PrimitiveType.timestamp,
+                count,
+                min,
+                max,
+                intervals.asInstanceOf[Array[(Any, Any)]]
+              )
+            }
+        }
+      case PrimitiveType.string if stringPartitionFuncTpl.isDefined =>
+        logger.warn(
+          "Delta fetching is not compatible with partition on string. Going to extract fully in parallel."
+        )
+        val stringPartitionFunc = stringPartitionFuncTpl.map(
+          Utils.parseJinjaTpl(
+            _,
+            Map(
+              "col"           -> s"$colStart$partitionColumn$colEnd",
+              "nb_partitions" -> nbPartitions.toString
+            )
+          )
+        )
+        internalBoundaries(
+          conn,
+          domain,
+          table,
+          partitionColumn,
+          colStart,
+          colEnd,
+          stringPartitionFunc
+        ) { statement =>
+          statement.setLong(1, Long.MinValue)
           executeQuery(statement) { rs =>
             rs.next()
             val count = rs.getLong(1)
-            val min = Option(rs.getTimestamp(2)).getOrElse(MIN_TS)
-            val max = Option(rs.getTimestamp(3)).getOrElse(MIN_TS)
-            val interval = (max.getTime() - min.getTime()) / nbPartitions
-            val intervals = partitionRange.map { index =>
-              val upper =
-                if (index == nbPartitions - 1)
-                  max
-                else
-                  new java.sql.Timestamp(min.getTime() + (interval * (index + 1)))
-              (new java.sql.Timestamp(min.getTime() + (interval * index)), upper)
-            }.toArray
-            Bounds(
-              lastExport.isEmpty,
-              PrimitiveType.timestamp,
-              count,
-              min,
-              max,
-              intervals.asInstanceOf[Array[(Any, Any)]]
-            )
+            // The algorithm to fetch data doesn't support null values so putting 0 as default value is OK.
+            val min: Long = Option(rs.getLong(2)).getOrElse(0)
+            val max: Long = Option(rs.getLong(3)).getOrElse(0)
+            count match {
+              case 0 =>
+                Bounds(
+                  true,
+                  PrimitiveType.long,
+                  count,
+                  0,
+                  0,
+                  Array.empty[(Any, Any)]
+                )
+              case _ =>
+                val partitions = (min until max).map(p => p -> (p + 1)).toArray
+                Bounds(
+                  true,
+                  PrimitiveType.long,
+                  count,
+                  min,
+                  max,
+                  partitions.asInstanceOf[Array[(Any, Any)]]
+                )
+            }
           }
         }
       case _ =>
@@ -1083,12 +1215,15 @@ object LastExportUtils {
     table: String,
     partitionColumn: String,
     colStart: Char,
-    colEnd: Char
+    colEnd: Char,
+    hashFunc: Option[String]
   )(apply: PreparedStatement => T): T = {
+    val quotedColumn = s"$colStart$partitionColumn$colEnd"
+    val columnToDistribute = hashFunc.getOrElse(quotedColumn)
     val SQL_BOUNDARIES_VALUES =
-      s"""select count("$partitionColumn") as count_value, min($colStart$partitionColumn$colEnd) as min_value, max($colStart$partitionColumn$colEnd) as max_value
+      s"""select count($quotedColumn) as count_value, min($columnToDistribute) as min_value, max($columnToDistribute) as max_value
            |from $colStart$domain$colEnd.$colStart$table$colEnd
-           |where $colStart$partitionColumn$colEnd > ?""".stripMargin
+           |where $columnToDistribute > ?""".stripMargin
     val preparedStatement = conn.prepareStatement(SQL_BOUNDARIES_VALUES)
     apply(preparedStatement)
   }
@@ -1113,10 +1248,12 @@ object LastExportUtils {
       "message",
       "step"
     ).map(col => colStart + col + colEnd).mkString(",")
+    val fullReport = s"""insert into SL_LAST_EXPORT($cols) values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"""
     val sqlInsert =
       partitionColumnType match {
-        case None =>
-          s"""insert into SL_LAST_EXPORT($cols) values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"""
+        case None | Some(PrimitiveType.string) =>
+          // For string, we don't support delta. Inserting last value have no sense.
+          fullReport
         case Some(partitionColumnType) =>
           val lastExportColumn = partitionColumnType match {
             case PrimitiveType.int | PrimitiveType.long | PrimitiveType.short => "last_long"
@@ -1124,7 +1261,9 @@ object LastExportUtils {
             case PrimitiveType.date                                           => "last_date"
             case PrimitiveType.timestamp                                      => "last_ts"
             case _ =>
-              throw new Exception(s"type $partitionColumnType not supported for partition column")
+              throw new Exception(
+                s"type $partitionColumnType not supported for partition columnToDistribute"
+              )
           }
           s"""insert into SL_LAST_EXPORT($cols, $colStart$lastExportColumn$colEnd) values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"""
       }
@@ -1152,8 +1291,11 @@ object LastExportUtils {
             preparedStatement.setDate(11, row.lastExport.asInstanceOf[java.sql.Date])
           case PrimitiveType.timestamp =>
             preparedStatement.setTimestamp(11, row.lastExport.asInstanceOf[java.sql.Timestamp])
+          case PrimitiveType.string => // do nothing. If we encounter string here, it means we have succesfully partitionned on it previously.
           case _ =>
-            throw new Exception(s"type $partitionColumnType not supported for partition column")
+            throw new Exception(
+              s"type $partitionColumnType not supported for partition columnToDistribute"
+            )
         }
     }
 
