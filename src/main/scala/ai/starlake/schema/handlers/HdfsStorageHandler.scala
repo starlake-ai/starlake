@@ -49,8 +49,7 @@ class HdfsStorageHandler(fileSystem: String)(implicit
                   fs.gs.impl=com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystem,
                   google.cloud.auth.service.account.enable=true,
                   fs.default.name=gs://starlake-app,
-                  fs.defaultFS=gs://starlake-app,
-                  fs.gs.system.bucket=starlake-app"
+                  fs.defaultFS=gs://starlake-app"
    */
   sys.env.get("SL_STORAGE_CONF").foreach { value =>
     val kv = value

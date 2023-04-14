@@ -41,10 +41,14 @@ class BigQuerySparkJob(
   def prepareConf(): Configuration = {
     val conf = session.sparkContext.hadoopConfiguration
     logger.info(s"BigQuery Config $cliConfig")
-    val bucket = Option(conf.get("fs.gs.system.bucket"))
+    // fs.default.name
+    val bucket: Option[String] =
+      Option(conf.get("fs.gs.system.bucket")).orElse(Option(conf.get("fs.default.name")))
     bucket.foreach { bucket =>
       logger.info(s"Temporary GCS path $bucket")
-      session.conf.set("temporaryGcsBucket", bucket)
+      val prefix = bucket.indexOf("gs://")
+      val bucketName = if (prefix > 0) bucket.substring(prefix + "gs://".length) else bucket
+      session.conf.set("temporaryGcsBucket", bucketName)
     }
 
     val writeDisposition = JobInfo.WriteDisposition.valueOf(cliConfig.writeDisposition)
