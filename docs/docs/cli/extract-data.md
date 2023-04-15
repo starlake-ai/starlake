@@ -17,7 +17,8 @@ Parameter|Cardinality|Description
 ---|---|---
 --mapping:`<value>`|*Required*|Database tables & connection info
 --limit:`<value>`|*Optional*|Limit number of records
---numPartitions:`<value>`|*Optional*|parallelism level
+--numPartitions:`<value>`|*Optional*|parallelism level regarding partitionned tables
+--parallelism:`<value>`|*Optional*|parallelism level of the extraction process. By default equals to the available cores: 10
 --separator:`<value>`|*Optional*|Column separator
 --clean:`<value>`|*Optional*|Cleanup output directory first ?
 --output-dir:`<value>`|*Required*|Where to output csv files

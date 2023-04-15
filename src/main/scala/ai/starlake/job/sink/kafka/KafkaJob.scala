@@ -246,7 +246,7 @@ class KafkaJob(
     }
 
     val trigger = kafkaJobConfig.streamingTrigger.map(_.toLowerCase).map {
-      case "once"           => Trigger.Once()
+      case "once"           => Trigger.AvailableNow()
       case "processingtime" => Trigger.ProcessingTime(kafkaJobConfig.streamingTriggerOption)
       case "continuous"     => Trigger.Continuous(kafkaJobConfig.streamingTriggerOption)
     }
