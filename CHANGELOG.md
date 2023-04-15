@@ -1,6 +1,20 @@
 
 # Release notes
 
+# 0.8.0:
+__Feature__:
+- add support for parallel fetch with String in some databases and give the ability to customize it.
+
+__Performance__:
+- disable table remarks fetch during data extraction
+- add parallelism option to data extraction and fetch tables in parallel along with their partitions fetching
+
+__Refactor__:
+- rely on a csv library during data extraction
+
+__Bug Fix__:
+- use different quote for audit connection
+
 # 0.7.0
 __Deprecated__:
 - Env vars that start with COMET_ are now deprecated. replace prefix with SL_

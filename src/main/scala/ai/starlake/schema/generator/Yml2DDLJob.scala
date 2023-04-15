@@ -82,7 +82,8 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
                 List("TABLE"),
                 None
               ),
-              connectionOptions
+              connectionOptions,
+              skipRemarks = true
             )
           case None => Map.empty[String, (TableRemarks, Columns, PrimaryKeys)]
         }

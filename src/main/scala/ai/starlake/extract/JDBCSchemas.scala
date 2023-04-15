@@ -50,7 +50,9 @@ case class JDBCSchemas(
               if (schema.connectionOptions.isEmpty)
                 globalJdbcSchema.map(_.connectionOptions).getOrElse(schema.connectionOptions)
               else schema.connectionOptions,
-            fetchSize = schema.fetchSize.orElse(globalJdbcSchema.flatMap(_.fetchSize))
+            fetchSize = schema.fetchSize.orElse(globalJdbcSchema.flatMap(_.fetchSize)),
+            stringPartitionFunc =
+              schema.stringPartitionFunc.orElse(globalJdbcSchema.flatMap(_.stringPartitionFunc))
           )
           .fillWithDefaultValues()
       }))
@@ -86,7 +88,8 @@ case class JDBCSchema(
   partitionColumn: Option[String] = None,
   numPartitions: Option[Int] = None,
   connectionOptions: Map[String, String] = Map.empty,
-  fetchSize: Option[Int] = None
+  fetchSize: Option[Int] = None,
+  stringPartitionFunc: Option[String] = None
 ) {
   def this() = this(None) // Should never be called. Here for Jackson deserialization only
 
