@@ -93,4 +93,19 @@ trait StorageHandler extends StrictLogging {
   def lockRefreshPollTime: FiniteDuration
 
   def getScheme(): String
+
+  // conf passed as env variable
+  val extraConf: Map[String, String] = sys.env
+    .get("SL_STORAGE_CONF")
+    .map { value =>
+      value
+        .split(',')
+        .map { x =>
+          val t = x.split('=')
+          t(0).trim -> t(1).trim
+        }
+        .toMap
+    }
+    .getOrElse(Map.empty)
+
 }
