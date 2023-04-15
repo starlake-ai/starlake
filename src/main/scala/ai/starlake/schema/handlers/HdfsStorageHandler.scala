@@ -51,16 +51,9 @@ class HdfsStorageHandler(fileSystem: String)(implicit
                   fs.default.name=gs://starlake-app,
                   fs.defaultFS=gs://starlake-app"
    */
-  sys.env.get("SL_STORAGE_CONF").foreach { value =>
-    val kv = value
-      .split(',')
-      .map { x =>
-        val t = x.split('=')
-        t(0).trim -> t(1).trim
-      }
-      .foreach { case (k, v) => conf.set(k, v) }
 
-  }
+  this.extraConf.foreach { case (k, v) => conf.set(k, v) }
+
   settings.comet.hadoop.foreach { case (k, v) =>
     conf.set(k, v)
   }
