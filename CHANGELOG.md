@@ -1,10 +1,11 @@
 
 # Release notes
 
-# 0.8.0:
+# 0.7.1:
 __Feature__:
 - add support for parallel fetch with String in some databases and give the ability to customize it.
-
+- Add support for running as a standalone docker image
+ 
 __Performance__:
 - disable table remarks fetch during data extraction
 - add parallelism option to data extraction and fetch tables in parallel along with their partitions fetching
