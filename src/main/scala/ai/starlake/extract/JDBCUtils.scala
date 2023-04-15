@@ -207,10 +207,10 @@ object JDBCUtils extends LazyLogging {
           while (resultSet.next()) {
             val tableName = resultSet.getString("TABLE_NAME")
             if (tablesToExtract.isEmpty || tablesToExtract.contains(tableName.toUpperCase())) {
-              val _remarks =
+              val localRemarks =
                 if (skipRemarks) None
                 else extractTableRemarks(jdbcSchema, connectionOptions, tableName)
-              val remarks = _remarks.getOrElse(resultSet.getString("REMARKS"))
+              val remarks = localRemarks.getOrElse(resultSet.getString("REMARKS"))
               logger.info(s"Extracting table $tableName: $remarks")
               tableNames += tableName -> remarks
             }
