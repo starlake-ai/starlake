@@ -145,3 +145,4 @@ samples/airflow/docker-compose.yaml
 /samples/extract/quickstart/
 /samples/hadoop/
 distrib/bin
+.dockerenv
