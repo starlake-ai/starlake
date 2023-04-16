@@ -4,7 +4,7 @@
 # 0.7.1:
 __Feature__:
 - add support for parallel fetch with String in some databases and give the ability to customize it.
-- Add support for running as a standalone docker image
+- Add support for running as a standalone docker image on any cloud
  
 __Performance__:
 - disable table remarks fetch during data extraction
