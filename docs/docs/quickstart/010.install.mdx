@@ -43,10 +43,8 @@ You may also run Starlake from a docker container. To do so, download this [Dock
 and build your docker image
 	
 ```shell
-$ mkdir starlake
+$ git clone git@github.com:starlake-ai/starlake.git
 $ cd starlake
-$ curl -O https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/starlake.sh
-$ curl -O https://raw.githubusercontent.com/starlake-ai/starlake/master/distrib/Dockerfile
 $ docker build -t starlake .
 $ docker run -it starlake
 
@@ -54,11 +52,11 @@ $ docker run -it starlake
 </TabItem>
 </Tabs>
 
-This will download starlake dependencies and display commands supported by the CLI.
+This will display the commands supported by the CLI.
 
 
 ```
-Starlake Version 0.5.2
+Starlake Version 0.7.1
 Usage:
 	starlake [command]
 Available commands =>
@@ -97,8 +95,9 @@ The following files and folders should now have been created.
 │       │   ├── log4j2.properties
 │       ├── jars
 │       │   ├── ...
-│       │   ├── spark-3.1-bigquery-0.27.0-preview.jar
-│       │   ├── starlake-spark3_2.12-0.5.2-assembly.jar
+│       │   ├── gcs-connector-hadoop3-2.2.12-shaded.jar
+│       │   ├── spark-bigquery-with-dependencies_2.12-0.30.0.jar
+│       │   ├── starlake-spark3_2.12-0.7.1-assembly.jar
 └──     └── └── ...
 
 ```
@@ -121,15 +120,15 @@ Subsequent runs will use this version:
 <TabItem value="linux_macos" label="Linux/MacOS">
 
 ```sh
-$ SL_VERSION=0.5.3 ./starlake.sh # version 0.5.3 will be installed
-$ ./starlake.sh ... # version 0.5.3 will be running
+$ SL_VERSION=0.7.0 ./starlake.sh # version 0.7.0 will be installed
+$ ./starlake.sh ... # version 0.7.0 will be running
 ```
 
 </TabItem>
 <TabItem value="windows" label="Windows">
 
 ```powershell
-c:\users\me\starlake> SET SL_VERSION=0.5.3
+c:\users\me\starlake> SET SL_VERSION=0.7.0
 c:\users\me\starlake> starlake
 
 ```
@@ -138,7 +137,7 @@ c:\users\me\starlake> starlake
 <TabItem value="docker" label="Docker">
 
 ```shell
-$ docker build --build-arg SL_VERSION=0.5.3 -t starlake .
+$ docker build --build-arg SL_VERSION=0.7.0 -t starlake .
 $
 ```
 
