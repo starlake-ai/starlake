@@ -6,7 +6,7 @@ SCALA_VERSION=2.12
 SPARK_VERSION="${SPARK_VERSION:-3.3.2}"
 HADOOP_VERSION="${HADOOP_VERSION:-3}"
 SPARK_BQ_VERSION="${SPARK_BQ_VERSION:-0.30.0}"
-STARLAKE_ARTIFACT_NAME=starlake-spark3_$SCALA_VERSION
+SL_ARTIFACT_NAME=starlake-spark3_$SCALA_VERSION
 SPARK_DIR_NAME=spark-$SPARK_VERSION-bin-hadoop$HADOOP_VERSION
 SPARK_TARGET_FOLDER=$SCRIPT_DIR/bin/spark
 SPARK_BQ_ARTIFACT_NAME=spark-bigquery-with-dependencies_$SCALA_VERSION
@@ -25,14 +25,14 @@ SPARK_BQ_URL=https://repo1.maven.org/maven2/com/google/cloud/spark/$SPARK_BQ_ART
 
 initStarlakeInstallVariables() {
   if [[ -z "$SL_VERSION" ]]; then
-      SL_VERSION=$(curl -s --fail "https://search.maven.org/solrsearch/select?q=g:ai.starlake+AND+a:$STARLAKE_ARTIFACT_NAME&core=gav&start=0&rows=42&wt=json" | jq -r '.response.docs[].v' | sed '#-#!{s/$/_/}' | sort -Vr | sed 's/_$//' | head -n 1)
+      SL_VERSION=$(curl -s --fail "https://search.maven.org/solrsearch/select?q=g:ai.starlake+AND+a:$SL_ARTIFACT_NAME&core=gav&start=0&rows=42&wt=json" | jq -r '.response.docs[].v' | sed '#-#!{s/$/_/}' | sort -Vr | sed 's/_$//' | head -n 1)
   fi
-  STARLAKE_JAR_NAME=$STARLAKE_ARTIFACT_NAME-$SL_VERSION-assembly.jar
+  SL_JAR_NAME=$SL_ARTIFACT_NAME-$SL_VERSION-assembly.jar
   if [[ "$SL_VERSION" == *"SNAPSHOT"* ]]
   then
-    STARLAKE_JAR_URL=https://s01.oss.sonatype.org/content/repositories/snapshots/ai/starlake/starlake-spark3_$SCALA_VERSION/$SL_VERSION/$STARLAKE_JAR_NAME
+    SL_JAR_URL=https://s01.oss.sonatype.org/content/repositories/snapshots/ai/starlake/starlake-spark3_$SCALA_VERSION/$SL_VERSION/$SL_JAR_NAME
   else
-    STARLAKE_JAR_URL=https://s01.oss.sonatype.org/content/repositories/releases/ai/starlake/starlake-spark3_$SCALA_VERSION/$SL_VERSION/$STARLAKE_JAR_NAME
+    SL_JAR_URL=https://s01.oss.sonatype.org/content/repositories/releases/ai/starlake/starlake-spark3_$SCALA_VERSION/$SL_VERSION/$SL_JAR_NAME
   fi
 }
 
@@ -42,23 +42,23 @@ checkCurrentState() {
   echo "-------------------"
 
   SPARK_DOWNLOADED=1
-  STARLAKE_DOWNLOADED=1
+  SL_DOWNLOADED=1
   SPARK_BQ_DOWNLOADED=1
 
   if [[ -d "$SPARK_TARGET_FOLDER/jars" ]]
   then
     echo - spark: OK
     SPARK_DOWNLOADED=0
-    STARLAKE_JAR_RELATIVE_PATH=$(find "$SPARK_TARGET_FOLDER/jars" -maxdepth 1 -type f -name "$STARLAKE_ARTIFACT_NAME*")
-    if [[ -z "$STARLAKE_JAR_RELATIVE_PATH" ]]
+    SL_JAR_RELATIVE_PATH=$(find "$SPARK_TARGET_FOLDER/jars" -maxdepth 1 -type f -name "$SL_ARTIFACT_NAME*")
+    if [[ -z "$SL_JAR_RELATIVE_PATH" ]]
     then
       initStarlakeInstallVariables
       echo - starlake: KO
       SKIP_INSTALL=1
     else
-      STARLAKE_JAR_NAME=$(basename "$STARLAKE_JAR_RELATIVE_PATH")
+      SL_JAR_NAME=$(basename "$SL_JAR_RELATIVE_PATH")
       echo - starlake: OK
-      STARLAKE_DOWNLOADED=0
+      SL_DOWNLOADED=0
     fi
     if [[ $(find "$SPARK_TARGET_FOLDER/jars" -maxdepth 1 -type f -name "$SPARK_BQ_ARTIFACT_NAME*" | wc -l) -eq 1 ]]
     then
@@ -100,10 +100,10 @@ initEnv() {
     echo "- spark: skipped"
   fi
 
-  if [[ STARLAKE_DOWNLOADED -eq 1 ]]
+  if [[ SL_DOWNLOADED -eq 1 ]]
   then
-    echo "- starlake: downloading from $STARLAKE_JAR_URL"
-    curl --fail --output "$SPARK_TARGET_FOLDER/jars/$STARLAKE_JAR_NAME" "$STARLAKE_JAR_URL"
+    echo "- starlake: downloading from $SL_JAR_URL"
+    curl --fail --output "$SPARK_TARGET_FOLDER/jars/$SL_JAR_NAME" "$SL_JAR_URL"
     echo "Starlake Version: $SL_VERSION" >> "$SCRIPT_DIR/version.info"
     echo "- starlake: OK"
   else
@@ -145,7 +145,7 @@ echo Make sure your java home path does not contain space
 if [[ -z "$SL_BQ_NATIVE" ]]
 then
   SPARK_SUBMIT="$SPARK_TARGET_FOLDER/bin/spark-submit"
-  SL_ROOT=$SL_ROOT $SPARK_SUBMIT --driver-java-options "$SPARK_DRIVER_OPTIONS" $SPARK_CONF_OPTIONS --class $SL_MAIN $SPARK_TARGET_FOLDER/jars/$STARLAKE_JAR_NAME $@
+  SL_ROOT=$SL_ROOT $SPARK_SUBMIT --driver-java-options "$SPARK_DRIVER_OPTIONS" $SPARK_CONF_OPTIONS --class $SL_MAIN $SPARK_TARGET_FOLDER/jars/$SL_JAR_NAME $@
 else
   case $SL_AUDIT_SINK_TYPE in
       BigQuerySink|NoneSink)

@@ -24,6 +24,6 @@ if __name__ == "__main__":
     count = spark.sparkContext.parallelize(range(1, n + 1), partitions).map(f).reduce(add)
     result = "Pi is roughly %f" % (4.0 * count / n)
     df = spark.createDataFrame([[result]])
-    df.registerTempTable("STARLAKE_TABLE")
+    df.registerTempTable("SL_TABLE")
     print(result)
 

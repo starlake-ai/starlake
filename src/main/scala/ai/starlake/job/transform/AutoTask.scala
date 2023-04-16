@@ -502,8 +502,8 @@ case class AutoTask(
       ) ++ pythonParams
     )
 
-    if (session.catalog.tableExists("STARLAKE_TABLE"))
-      Some(session.sqlContext.table("STARLAKE_TABLE"))
+    if (session.catalog.tableExists("SL_TABLE"))
+      Some(session.sqlContext.table("SL_TABLE"))
     else
       None
   }
