@@ -1,8 +1,11 @@
+# Env vars
+
 BUCKET_NAME=starlake-app
 SL_ROOT=/mnt/quickstart
 PROJECT_ID=starlake-325712
 LOCATION=europe-west1
 
+# Cluster
 gcloud dataproc clusters create cluster-starlake
       --region europe-west1
       --zone europe-west1-b
