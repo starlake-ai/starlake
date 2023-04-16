@@ -1,0 +1,88 @@
+<%@ val attributes: List[Map[String, Any]] %>
+<%@ val newAttributes: List[Map[String, Any]] %>
+<%@ val alterAttributes: List[Map[String, Any]] %>
+<%@ val alterCommentAttributes: List[Map[String, Any]] %>
+<%@ val alterRequiredAttributes: List[Map[String, Any]] %>
+<%@ val alterDataTypeAttributes: List[Map[String, Any]] %>
+<%@ val droppedAttributes: List[Map[String, Any]] %>
+<%@ val domain: String %>
+<%@ val domainComment: String = ""  %>
+<%@ val schema: String %>
+<%@ val schemaComment: String = ""  %>
+<%@ val partitions: List[String] %>
+<%@ val primaryKeys: List[String] %>
+<%@ val domainLabels: Map[String, String] %>
+<%@ val schemaLabels: Map[String, String] %>
+<%@ val sink: Option[ai.starlake.schema.model.BigQuerySink] %>
+
+<%
+    val snowSink = sink.getOrElse(throw new Exception(s"$domain.$schema has no sink defined. Cannot generate DDL"))
+    val isPrimaryKeyDefined: Boolean  = primaryKeys.nonEmpty
+    val isClusterDefined: Boolean = snowSink.clustering.isDefined
+    val clusterCols = snowSink.clustering match {
+        case None       => ""
+        case Some(cols) => cols.mkString(",")
+    }
+
+    val requirePartitionFilter = snowSink.requirePartitionFilter.getOrElse(false)
+    val expiryInDaysDefined = snowSink.days.isDefined
+    val expiryInDays = snowSink.days match {
+        case None        => 0
+        case Some(value) => "value
+    }
+
+    val domainLabelsIsDefined = domainLabels.nonEmpty
+    val domainLabelsString = labels(domainLabels)
+    val schemaLabelsIsDefined = domainLabels.nonEmpty
+    val schemaLabelsString = labels(schemaLabels)
+
+    def labels(labels: Map[String, String]) = labels.map { case (k, v) => s"""$k = '$v'"""}.toList.mkString("(",",", ")")
+
+    def attributeDDL(attr: Map[String, Any]): String = {
+        val required = if (attr("required").toString.toBoolean) "NOT NULL" else ""
+        val attrName = attr("name")
+        val attrType = attr("type")
+        val attrComment = attr("comment")
+        val notNull = if (attr("required") == "true") "NOT NULL" else ""
+        val attrLabels = labels(attr("labels").asInstanceOf[Map[String, String]])
+        val withTags = if (attrLabels == "") "" else s"WITH TAG $attrLabels"
+
+        attr("nodeType") match {
+            case "leaf" =>
+                s"""$attrName $attrType $required comment '$attrComment' $notNull $withTags"""
+            case "node" =>
+                throw new Exception("Should never happen")
+        }
+    }
+%>
+CREATE SCHEMA IF NOT EXISTS ${domain}
+WITH
+#if (domainLabelsIsDefined == "")
+TAG ${domainLabelsString}
+#end
+COMMENT = '${domainComment}';
+
+
+CREATE TABLE IF NOT EXISTS ${domain}.${schema} (
+#{
+    val attributesCount = attributes.length
+    var attributesIndex = 1
+}#
+#for (attribute <- attributes)
+    #{
+        val attributeSuffix = if (attributesIndex == attributesCount) "" else ","
+        attributesIndex = attributesIndex + 1
+    }#
+    ${attributeDDL(attribute)}${attributeSuffix}
+#end
+)
+#if (isClusterDefined)
+CLUSTER BY ${clusterCols}
+#end
+#if (schemaComment.nonEmpty)
+COMMENT '${schemaComment}'
+#end
+#if (schemaLabelsIsDefined == "")
+WITH TAG ${schemaLabelsString}
+#end
+;
