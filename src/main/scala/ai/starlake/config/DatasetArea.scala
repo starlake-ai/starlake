@@ -157,6 +157,7 @@ object DatasetArea extends StrictLogging {
       .replace("{{domain}}", domain)
       .replace("{{normalized_domain}}", normalizedDomainName)
       .replace("{{schema}}", schema)
+      .replace("{{table}}", schema)
   }
 
   def discreteMetrics(domain: String, schema: String)(implicit settings: Settings): Path =
@@ -256,8 +257,12 @@ object DatasetArea extends StrictLogging {
     }
 
     initMetadata(settings.storageHandler)
+    val root = File(settings.comet.metadata)
+    if (root.exists)
+      throw new Exception(
+        s"No action taken, found ${root.pathAsString}. Please provide an empty directory to bootstrap a new project"
+      )
     List("out", "diagrams", "diagrams/domains", "diagrams/acl", "diagrams/jobs").foreach { folder =>
-      val root = File(settings.comet.metadata).parent
       File(root.pathAsString, folder.split('/'): _*).createDirectories()
     }
     val metadataFile = File(metadata.toString)
