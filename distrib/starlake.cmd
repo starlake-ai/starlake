@@ -4,7 +4,7 @@ SET SCRIPT_DIR=%~dp0
 SET SCRIPT_DIR=%SCRIPT_DIR:~0,-1%
 
 SET SCALA_VERSION=2.12
-SET STARLAKE_ARTIFACT_NAME=starlake-spark3_%SCALA_VERSION%
+SET SL_ARTIFACT_NAME=starlake-spark3_%SCALA_VERSION%
 SET SPARK_BQ_ARTIFACT_NAME=spark-bigquery-with-dependencies_%SCALA_VERSION%
 SET HADOOP_DEFAULT_VERSION=3.2.2
 SET HADOOP_DLL=https://github.com/cdarlint/winutils/raw/master/hadoop-%HADOOP_DEFAULT_VERSION%/bin/hadoop.dll
@@ -16,7 +16,7 @@ SET HADOOP_DOWNLOADED=FALSE
 SET HADOOP_DLL_DOWNLOADED=FALSE
 SET HADOOP_WINUTILS_DOWNLOADED=FALSE
 SET SPARK_DOWNLOADED=FALSE
-SET STARLAKE_DOWNLOADED=FALSE
+SET SL_DOWNLOADED=FALSE
 SET SKIP_INSTALL=TRUE
 
 ECHO -------------------
@@ -54,7 +54,7 @@ if exist %HADOOP_HOME%\bin\winutils.exe (
 if exist %SPARK_TARGET_FOLDER%\jars (
     ECHO - spark: OK
     SET SPARK_DOWNLOADED=TRUE
-    GOTO :FIND_STARLAKE_STAGE
+    GOTO :FIND_SL_STAGE
 ) else (
     SET SKIP_INSTALL=FALSE
     ECHO - spark: KO
@@ -63,23 +63,23 @@ if exist %SPARK_TARGET_FOLDER%\jars (
     GOTO :SKIP_ARTIFACTS_SEARCH_STAGE
 )
 
-:FIND_STARLAKE_STAGE
+:FIND_SL_STAGE
 for /f "tokens=*" %%f in ('dir %%SPARK_TARGET_FOLDER%%\jars /b /o-n /a-d') do (
     SET CURRENT_ARTIFACT=%%f
-    Echo %%f | findstr /C:%STARLAKE_ARTIFACT_NAME%>nul && (
+    Echo %%f | findstr /C:%SL_ARTIFACT_NAME%>nul && (
         ECHO - starlake: OK
-        SET STARLAKE_DOWNLOADED=TRUE
-        GOTO :SET_STARLAKE_JAR_FULL_NAME_STAGE
+        SET SL_DOWNLOADED=TRUE
+        GOTO :SET_SL_JAR_FULL_NAME_STAGE
     )
 )
 SET SKIP_INSTALL=FALSE
 ECHO - starlake: KO
-GOTO :SKIP_STARLAKE_SEARCH_STAGE
+GOTO :SKIP_SL_SEARCH_STAGE
 
-:SET_STARLAKE_JAR_FULL_NAME_STAGE
-SET STARLAKE_JAR_FULL_NAME=%SPARK_TARGET_FOLDER%\jars\%CURRENT_ARTIFACT%
+:SET_SL_JAR_FULL_NAME_STAGE
+SET SL_JAR_FULL_NAME=%SPARK_TARGET_FOLDER%\jars\%CURRENT_ARTIFACT%
 
-:SKIP_STARLAKE_SEARCH_STAGE
+:SKIP_SL_SEARCH_STAGE
 
 :FIND_SPARK_BQ_STAGE
 for /f "tokens=*" %%f in ('dir %%SPARK_TARGET_FOLDER%%\jars /b /o-n /a-d') do (
@@ -171,31 +171,31 @@ echo - spark: OK
 
 :SKIP_SPARK
 
-if "%STARLAKE_DOWNLOADED%" == "TRUE" (
+if "%SL_DOWNLOADED%" == "TRUE" (
     echo - starlake: skipped
-    GOTO :SKIP_STARLAKE_DOWNLOAD
+    GOTO :SKIP_SL_DOWNLOAD
 )
 
 if "x%COMET_VERSION%"=="x" (
-    for /f "usebackq delims=" %%a in (`powershell -Command "((((Invoke-WebRequest 'https://search.maven.org/solrsearch/select?q=g:ai.starlake AND a:%STARLAKE_ARTIFACT_NAME%&core=gav&start=0&rows=42&wt=json').content) | ConvertFrom-Json).response.docs.v | sort {[version] $_} -Descending)[0]"`) do (
+    for /f "usebackq delims=" %%a in (`powershell -Command "((((Invoke-WebRequest 'https://search.maven.org/solrsearch/select?q=g:ai.starlake AND a:%SL_ARTIFACT_NAME%&core=gav&start=0&rows=42&wt=json').content) | ConvertFrom-Json).response.docs.v | sort {[version] $_} -Descending)[0]"`) do (
         set COMET_VERSION=%%a
     )
 )
 
-SET STARLAKE_JAR_NAME=%STARLAKE_ARTIFACT_NAME%-%COMET_VERSION%-assembly.jar
-SET STARLAKE_JAR_FULL_NAME=%SPARK_TARGET_FOLDER%\jars\%STARLAKE_JAR_NAME%
-SET STARLAKE_JAR_URL=https://repo1.maven.org/maven2/ai/starlake/%STARLAKE_ARTIFACT_NAME%/%COMET_VERSION%/%STARLAKE_JAR_NAME%
+SET SL_JAR_NAME=%SL_ARTIFACT_NAME%-%COMET_VERSION%-assembly.jar
+SET SL_JAR_FULL_NAME=%SPARK_TARGET_FOLDER%\jars\%SL_JAR_NAME%
+SET SL_JAR_URL=https://repo1.maven.org/maven2/ai/starlake/%SL_ARTIFACT_NAME%/%COMET_VERSION%/%SL_JAR_NAME%
 
 if not x%COMET_VERSION:SNAPSHOT=%==x%COMET_VERSION% (
-    SET STARLAKE_JAR_URL=https://oss.sonatype.org/content/repositories/snapshots/ai/starlake/%STARLAKE_ARTIFACT_NAME%/%COMET_VERSION%/%STARLAKE_JAR_NAME%
+    SET SL_JAR_URL=https://oss.sonatype.org/content/repositories/snapshots/ai/starlake/%SL_ARTIFACT_NAME%/%COMET_VERSION%/%SL_JAR_NAME%
 )
 
-echo - starlake: downloading from %STARLAKE_JAR_URL%
-powershell -command "Start-BitsTransfer -Source %STARLAKE_JAR_URL% -Destination %SPARK_TARGET_FOLDER%/jars/%STARLAKE_JAR_NAME%"
+echo - starlake: downloading from %SL_JAR_URL%
+powershell -command "Start-BitsTransfer -Source %SL_JAR_URL% -Destination %SPARK_TARGET_FOLDER%/jars/%SL_JAR_NAME%"
 echo Starlake version: %COMET_VERSION% >> %SCRIPT_DIR%/version.info
 echo - starlake: OK
 
-:SKIP_STARLAKE_DOWNLOAD
+:SKIP_SL_DOWNLOAD
 
 if "%SPARK_BQ_DOWNLOADED%" == "TRUE" (
     echo - spark bq: skipped
@@ -252,4 +252,4 @@ ECHO Make sure your java home path does not contain space
 
 PATH|FIND /i "%HADOOP_HOME%\bin"    >nul || SET PATH=%path%;%HADOOP_HOME%\bin
 
-CALL %SPARK_SUBMIT% --driver-java-options "%SPARK_DRIVER_OPTIONS%" %SPARK_CONF_OPTIONS% --class ai.starlake.job.Main %STARLAKE_JAR_FULL_NAME% %*
+CALL %SPARK_SUBMIT% --driver-java-options "%SPARK_DRIVER_OPTIONS%" %SPARK_CONF_OPTIONS% --class ai.starlake.job.Main %SL_JAR_FULL_NAME% %*

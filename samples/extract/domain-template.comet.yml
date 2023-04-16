@@ -11,7 +11,7 @@ load:
     quote: "\""
     escape: "\\"
     write: "APPEND"
-  schemas:
+  tables:
     - name: "User"
       metadata:
         mode: "FILE"

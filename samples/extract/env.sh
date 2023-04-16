@@ -1,16 +1,16 @@
 source ../env.sh
 export H2_PORT="${H2PORT:-9092}"
-export COMET_ENV=FS
+export SL_ENV=FS
 export SPARK_DRIVER_MEMORY=4G
-export COMET_FS=file://
-export COMET_ROOT="$(PWD)/quickstart"
-export COMET_METRICS_ACTIVE=true
-export COMET_ASSERTIONS_ACTIVE=true
-export COMET_SINK_TO_FILE=true
-export COMET_ANALYZE=false
-export COMET_HIVE=false
-export COMET_GROUPED=false
-export COMET_METRICS_PATH="/tmp/metrics/{{domain}}"
+export SL_FS=file://
+export SL_ROOT="$(PWD)/quickstart"
+export SL_METRICS_ACTIVE=true
+export SL_ASSERTIONS_ACTIVE=true
+export SL_SINK_TO_FILE=true
+export SL_ANALYZE=false
+export SL_HIVE=false
+export SL_GROUPED=false
+export SL_METRICS_PATH="/tmp/metrics/{{domain}}"
 export SPARK_CONF_OPTIONS="--conf spark.driver.extraJavaOptions=-Dconfig.file=$PWD/application.conf"
 
 H2_JAR=h2-1.4.200.jar
@@ -36,6 +36,6 @@ mkdir output
 
 awk -v h2db="$PWD/h2db" '{gsub("H2_DB", h2db)}1' application-template.conf >application.conf
 
-COMET_LIBS="--jars drivers/$H2_JAR"
+SL_LIBS="--jars drivers/$H2_JAR"
 
-export COMET_SCRIPT="$SPARK_SUBMIT $SPARK_CONF_OPTIONS $COMET_LIBS --class ai.starlake.schema.generator.JDBC2Yml $COMET_JAR_FULL_NAME"
+export SL_SCRIPT="$SPARK_SUBMIT $SPARK_CONF_OPTIONS $SL_LIBS --class ai.starlake.schema.generator.JDBC2Yml $SL_JAR_FULL_NAME"

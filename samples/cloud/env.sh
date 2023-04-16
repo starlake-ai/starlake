@@ -21,19 +21,19 @@ if [[ -z "$GCP_SA_JSON_PATH" ]]; then
     exit 1
 fi
 
-export COMET_ENV=BQ
+export SL_ENV=BQ
 export SPARK_DRIVER_MEMORY=4G
-export COMET_FS="gs://$GCP_BUCKET_NAME"
-export COMET_ROOT="/mnt/starlake-app/quickstart"
-export COMET_METRICS_ACTIVE=true
-export COMET_ASSERTIONS_ACTIVE=true
-export COMET_AUDIT_SINK_TYPE=BigQuerySink
-export COMET_SINK_TO_FILE=false
-export COMET_ANALYZE=false
-export COMET_HIVE=false
-export COMET_GROUPED=false
-export COMET_MAIN=ai.starlake.job.Main
-export COMET_METRICS_PATH="/mnt/starlake-app/quickstart/metrics/{domain}"
+export SL_FS="gs://$GCP_BUCKET_NAME"
+export SL_ROOT="/mnt/starlake-app/quickstart"
+export SL_METRICS_ACTIVE=true
+export SL_ASSERTIONS_ACTIVE=true
+export SL_AUDIT_SINK_TYPE=BigQuerySink
+export SL_SINK_TO_FILE=false
+export SL_ANALYZE=false
+export SL_HIVE=false
+export SL_GROUPED=false
+export SL_MAIN=ai.starlake.job.Main
+export SL_METRICS_PATH="/mnt/starlake-app/quickstart/metrics/{domain}"
 export SPARK_DRIVER_OPTIONS="-Dlog4j.configuration=file://$SPARK_DIR/conf/log4j.properties.template"
 export SPARK_CONF_OPTIONS="--conf spark.executorEnv.GOOGLE_APPLICATION_CREDENTIALS=$GCP_SA_JSON_PATH \
                            --conf spark.yarn.appMasterEnv.GOOGLE_APPLICATION_CREDENTIALS=$GCP_SA_JSON_PATH"
