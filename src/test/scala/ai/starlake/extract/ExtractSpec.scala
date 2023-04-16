@@ -433,13 +433,15 @@ class ExtractSpec extends TestHelper {
     val rendered = ExtractDataConfig.usage()
     println(rendered)
     val expected =
-      """
+      s"""
         |Usage: starlake extract-data [options]
         |
         |  --mapping <value>        Database tables & connection info
         |  --limit <value>          Limit number of records
         |  --numPartitions <value>  parallelism level regarding partitionned tables
-        |  --parallelism <value>    parallelism level of the extraction process. By default equals to the available cores: 10
+        |  --parallelism <value>    parallelism level of the extraction process. By default equals to the available cores: ${Runtime
+          .getRuntime()
+          .availableProcessors()}
         |  --separator <value>      Column separator
         |  --clean                  Cleanup output directory first ?
         |  --output-dir <value>     Where to output csv files
