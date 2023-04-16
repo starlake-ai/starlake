@@ -1,4 +1,9 @@
-gcloud dataproc clusters create cluster-88ea
+BUCKET_NAME=starlake-app
+SL_ROOT=/mnt/quickstart
+PROJECT_ID=starlake-325712
+LOCATION=europe-west1
+
+gcloud dataproc clusters create cluster-starlake
       --region europe-west1
       --zone europe-west1-b
       --master-machine-type n1-standard-4
@@ -9,13 +14,13 @@ gcloud dataproc clusters create cluster-88ea
       --image-version 2.0-debian10
       --project starlake-325712
       --properties
-        spark-env:COMET_AUDIT_SINK_TYPE=BigQuerySink,
-        spark-env:COMET_ENV=BQ,
-        spark-env:COMET_FS=gs://starlake-app,
-        spark-env:COMET_MAIN=ai.starlake.job.Main,
-        spark-env:COMET_ROOT=/mnt/quickstart
+        spark-env:SL_AUDIT_SINK_TYPE=BigQuerySink,
+        spark-env:SL_ENV=BQ,
+        spark-env:SL_FS=gs://$BUCKET_NAME,
+        spark-env:SL_MAIN=ai.starlake.job.Main,
+        spark-env:SL_ROOT=$SL_ROOT
 
-gcloud dataproc jobs wait job-637ccb65 --project starlake-325712 --region europe-west1
+gcloud dataproc jobs wait job-637ccb65 --project $PROJECT_ID --region $LOCATION
 
 POST /v1/projects/starlake-325712/regions/europe-west1/jobs:submit/
 {

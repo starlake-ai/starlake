@@ -4,7 +4,7 @@
 # Pull base image.
 FROM ubuntu
 
-ARG STARLAKE_VERSION=0.6.4
+ARG SL_VERSION=0.6.4
 ARG SPARK_VERSION=3.3.1
 ARG HADOOP_VERSION=3
 
@@ -20,9 +20,9 @@ RUN tar -zxf spark-$SPARK_VERSION-bin-hadoop$HADOOP_VERSION.tgz -C /app
 RUN rm spark-$SPARK_VERSION-bin-hadoop$HADOOP_VERSION.tgz
 
 ## download starlake
-RUN curl -L -O https://s01.oss.sonatype.org/content/repositories/releases/ai/starlake/starlake-spark3_2.12/$STARLAKE_VERSION/starlake-spark3_2.12-$STARLAKE_VERSION-assembly.jar
+RUN curl -L -O https://s01.oss.sonatype.org/content/repositories/releases/ai/starlake/starlake-spark3_2.12/$SL_VERSION/starlake-spark3_2.12-$SL_VERSION-assembly.jar
 RUN mkdir -p /samples/bin
-RUN mv /app/starlake-spark3_2.12-$STARLAKE_VERSION-assembly.jar /samples/bin/
+RUN mv /app/starlake-spark3_2.12-$SL_VERSION-assembly.jar /samples/bin/
 RUN mv /app/spark-$SPARK_VERSION-bin-hadoop$HADOOP_VERSION /samples/bin/
 
 COPY local/ /samples/local/
