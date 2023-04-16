@@ -146,3 +146,4 @@ samples/airflow/docker-compose.yaml
 /samples/hadoop/
 distrib/bin
 .dockerenv
+/docker-publish.sh

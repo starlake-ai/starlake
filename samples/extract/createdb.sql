@@ -2,7 +2,7 @@ CREATE TABLE speakers (
                           speaker_id INT NOT NULL PRIMARY KEY,
                           title VARCHAR(50) NOT NULL,
                           author VARCHAR(20) NOT NULL,
-                          submission_date DATE,
+                          submission_date TIMESTAMP,
                           last_update_at TIMESTAMP
 );
 
@@ -10,7 +10,7 @@ CREATE TABLE votes (
                        vote_id INT NOT NULL PRIMARY KEY,
                        speaker_id INT NOT NULL,
                        rating INT NOT NULL,
-                       vote_date DATE,
+                       vote_date TIMESTAMP,
                        last_update_at TIMESTAMP,
                        FOREIGN KEY (speaker_id) REFERENCES speakers(speaker_id)
 );
