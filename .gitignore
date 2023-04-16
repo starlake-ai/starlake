@@ -147,3 +147,5 @@ samples/airflow/docker-compose.yaml
 distrib/bin
 .dockerenv
 /docker-publish.sh
+/samples/extract/drivers/
+/distrib/version.info
