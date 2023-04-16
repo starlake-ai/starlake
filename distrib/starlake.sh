@@ -139,7 +139,7 @@ echo "- SL_VALIDATE_ON_LOAD=$SL_VALIDATE_ON_LOAD"
 echo "- SPARK_DRIVER_MEMORY=$SPARK_DRIVER_MEMORY"
 echo Make sure your java home path does not contain space
 
-#SPARK_DRIVER_OPTIONS="-Dlog4j.configuration=file://$SCRIPT_DIR/bin/spark/conf/log4j2.properties"
+SPARK_DRIVER_OPTIONS="-Dlog4j.configuration=file://$SCRIPT_DIR/bin/spark/conf/log4j2.properties"
 #export SPARK_DRIVER_OPTIONS="-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005 -Dlog4j.configuration=file://$SPARK_DIR/conf/log4j.properties"
 
 if [[ -z "$SL_BQ_NATIVE" ]]
@@ -149,13 +149,13 @@ then
 else
   case $SL_AUDIT_SINK_TYPE in
       BigQuerySink|NoneSink)
-      if [[ -z "$SL_GCP_SA_JSON_FILE" ]]
+      if [[ -z "$GOOGLE_APPLICATION_CREDENTIALS" ]]
       then
-        echo "SL_GCP_SA_JSON_FILE should reference the service account json file"
+        echo "GOOGLE_APPLICATION_CREDENTIALS should reference the service account json file"
       else
       export SL_STORAGE_CONF="fs.AbstractFileSystem.gs.impl=com.google.cloud.hadoop.fs.gcs.GoogleHadoopFS,
                       google.cloud.auth.type=SERVICE_ACCOUNT_JSON_KEYFILE,
-                      google.cloud.auth.service.account.json.keyfile=$SL_GCP_SA_JSON_FILE,
+                      google.cloud.auth.service.account.json.keyfile=$GOOGLE_APPLICATION_CREDENTIALS,
                       fs.gs.impl=com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystem,
                       google.cloud.auth.service.account.enable=true,
                       fs.default.name=$SL_FS,
