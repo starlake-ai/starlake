@@ -1185,6 +1185,10 @@ object LastExportUtils extends LazyLogging {
             }
           }
         }
+      case PrimitiveType.string if stringPartitionFuncTpl.isEmpty =>
+        throw new Exception(
+          s"Unsupported type $partitionColumnType for column partition column $partitionColumn in table $domain.$table. You may define your own hash to int function via stringPartitionFunc in jdbcSchema in order to support parallel fetch. Eg: abs( hashtext({{col}}) % {{nb_partitions}} )"
+        )
       case _ =>
         throw new Exception(
           s"Unsupported type $partitionColumnType for column partition column $partitionColumn in table $domain.$table"
