@@ -155,9 +155,9 @@ class ExtractSpec extends TestHelper {
             catalog = Some("business"),
             schema = "public",
             tables = List(
-              JDBCTable("user", List("id", "email"), None, None, Map.empty, None),
-              JDBCTable("product", Nil, None, None, Map.empty, None),
-              JDBCTable("*", Nil, None, None, Map.empty, None)
+              JDBCTable("user", List("id", "email"), None, None, Map.empty, None, None),
+              JDBCTable("product", Nil, None, None, Map.empty, None, None),
+              JDBCTable("*", Nil, None, None, Map.empty, None, None)
             ),
             tableTypes = List(
               "TABLE",
@@ -214,16 +214,17 @@ class ExtractSpec extends TestHelper {
             catalog = Some("business"),
             schema = "public",
             tables = List(
-              JDBCTable("user", List("id", "email"), None, None, Map.empty, None),
-              JDBCTable("product", Nil, None, None, Map.empty, None),
-              JDBCTable("*", Nil, None, None, Map.empty, None)
+              JDBCTable("user", List("id", "email"), None, None, Map.empty, None, None),
+              JDBCTable("product", Nil, None, None, Map.empty, None, None),
+              JDBCTable("*", Nil, None, None, Map.empty, None, None)
             ),
             tableTypes = List(
               "TABLE",
               "VIEW"
             ),
             template = Some("/my-templates/domain-template.yml"),
-            pattern = Some("{{schema}}-{{table}}.*")
+            pattern = Some("{{schema}}-{{table}}.*"),
+            fullExport = Some(false)
           )
         ),
         globalJdbcSchema = Some(
@@ -275,9 +276,9 @@ class ExtractSpec extends TestHelper {
           JDBCSchema(
             catalog = Some("business"),
             tables = List(
-              JDBCTable("user", List("id", "email"), None, None, Map.empty, None),
-              JDBCTable("product", Nil, None, None, Map.empty, None),
-              JDBCTable("*", Nil, None, None, Map.empty, None)
+              JDBCTable("user", List("id", "email"), None, None, Map.empty, None, None),
+              JDBCTable("product", Nil, None, None, Map.empty, None, None),
+              JDBCTable("*", Nil, None, None, Map.empty, None, None)
             ),
             tableTypes = List(
               "TABLE",
@@ -289,7 +290,8 @@ class ExtractSpec extends TestHelper {
               "SYNONYM"
             ),
             template = Some("/my-templates/domain-template.yml"),
-            pattern = Some("{{schema}}-{{table}}.*")
+            pattern = Some("{{schema}}-{{table}}.*"),
+            fullExport = Some(false)
           )
         ),
         globalJdbcSchema = Some(
@@ -333,7 +335,7 @@ class ExtractSpec extends TestHelper {
           "PUBLIC",
           None,
           None,
-          List(JDBCTable("TEST_TABLE1", List("ID"), None, None, Map.empty, None))
+          List(JDBCTable("TEST_TABLE1", List("ID"), None, None, Map.empty, None, None))
         ).fillWithDefaultValues(),
         settings.comet.connections("test-h2").options,
         File("/tmp"),
@@ -396,7 +398,7 @@ class ExtractSpec extends TestHelper {
           "PUBLIC",
           None,
           None,
-          List(JDBCTable("TEST_TABLE2", Nil, None, None, Map.empty, None))
+          List(JDBCTable("TEST_TABLE2", Nil, None, None, Map.empty, None, None))
         ).fillWithDefaultValues(),
         settings.comet.connections("test-h2").options,
         File("/tmp"),
@@ -445,6 +447,7 @@ class ExtractSpec extends TestHelper {
         |  --separator <value>      Column separator
         |  --clean                  Cleanup output directory first ?
         |  --output-dir <value>     Where to output csv files
+        |  --fullExport             Force full export to all tables
         |""".stripMargin
     rendered.substring(rendered.indexOf("Usage:")).replaceAll("\\s", "") shouldEqual expected
       .replaceAll("\\s", "")
