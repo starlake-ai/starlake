@@ -23,4 +23,6 @@ Parameter|Cardinality|Description
 --clean:`<value>`|*Optional*|Cleanup output directory first ?
 --output-dir:`<value>`|*Required*|Where to output csv files
 --fullExport:`<value>`|*Optional*|Force full export to all tables
+--datePattern:`<value>`|*Optional*|Pattern used to format date during CSV writing
+--timestampPattern:`<value>`|*Optional*|Pattern used to format timestamp during CSV writing
 
