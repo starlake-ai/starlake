@@ -4,7 +4,7 @@ import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model._
 import ai.starlake.utils.Utils
-import au.com.bytecode.opencsv.{CSVWriter, ResultSetHelperService}
+import au.com.bytecode.opencsv.CSVWriter
 import better.files.{using, File}
 import com.typesafe.scalalogging.LazyLogging
 
@@ -584,7 +584,9 @@ object JDBCUtils extends LazyLogging {
     defaultNumPartitions: Int,
     clean: Boolean,
     parallelism: Int,
-    fullExportCli: Boolean
+    fullExportCli: Boolean,
+    datePattern: String,
+    timestampPattern: String
   )(implicit
     settings: Settings
   ): Unit = {
@@ -682,7 +684,9 @@ object JDBCUtils extends LazyLogging {
                   tableName,
                   dateTime,
                   None,
-                  statement
+                  statement,
+                  datePattern,
+                  timestampPattern
                 )
               }
             } match {
@@ -858,7 +862,9 @@ object JDBCUtils extends LazyLogging {
                     tableName,
                     dateTime,
                     Some(index),
-                    statement
+                    statement,
+                    datePattern,
+                    timestampPattern
                   )
                   val currentTableCount = tableCount.addAndGet(count)
 
@@ -962,7 +968,9 @@ object JDBCUtils extends LazyLogging {
     tableName: String,
     dateTime: String,
     index: Option[Int],
-    statement: PreparedStatement
+    statement: PreparedStatement,
+    datePattern: String,
+    timestampPattern: String
   ): Long = {
     val filename = index
       .map(index => tableName + s"-$dateTime-$index.csv")
@@ -973,7 +981,7 @@ object JDBCUtils extends LazyLogging {
     val csvWriterResource = new CSVWriter(outFileWriter, separator, '"', '\\')
     statement.setMaxRows(limit)
     val rs = statement.executeQuery()
-    val resultService = new ResultSetHelperService()
+    val resultService = new SLResultSetHelperService(datePattern, timestampPattern)
     var count: Long = 0
     val extractionStartMs = System.currentTimeMillis()
     using(csvWriterResource) { csvWriter =>
