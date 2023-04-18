@@ -12,6 +12,7 @@ __Bug Fix__:
 - Human Readable throw exception when elapsed time is 0
 - **Breaking Change** Make table's fetchSize to have higher precedence than the one defined in jdbcSchema.
 - list command for internal ressources doesn't work for yml2dag
+- **Breaking Change** Make default configuration of CSV writer in extract-data to match default value of Metadata. 
 
 # 0.7.1:
 __Feature__:
