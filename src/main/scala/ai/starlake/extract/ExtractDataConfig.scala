@@ -30,7 +30,9 @@ case class ExtractDataConfig(
   numPartitions: Int = 1,
   parallelism: Option[Int] = None,
   clean: Boolean = false,
-  fullExport: Boolean = false
+  fullExport: Boolean = false,
+  datePattern: String = "yyyy-MM-dd",
+  timestampPattern: String = "yyyy-MM-dd HH:mm:ss"
 )
 
 object ExtractDataConfig extends CliConfig[ExtractDataConfig] {
@@ -75,7 +77,15 @@ object ExtractDataConfig extends CliConfig[ExtractDataConfig] {
       opt[Unit]("fullExport")
         .action((x, c) => c.copy(fullExport = true))
         .optional()
-        .text("Force full export to all tables")
+        .text("Force full export to all tables"),
+      opt[String]("datePattern")
+        .action((x, c) => c.copy(datePattern = x))
+        .optional()
+        .text("Pattern used to format date during CSV writing"),
+      opt[String]("timestampPattern")
+        .action((x, c) => c.copy(timestampPattern = x))
+        .optional()
+        .text("Pattern used to format timestamp during CSV writing")
     )
   }
 
@@ -84,6 +94,9 @@ object ExtractDataConfig extends CliConfig[ExtractDataConfig] {
     * @return
     *   Option of case class JDBC2YmlConfig.
     */
-  def parse(args: Seq[String]): Option[ExtractDataConfig] =
+  def parse(args: Seq[String]): Option[ExtractDataConfig] = {
+    args.foreach(println)
     OParser.parse(parser, args, ExtractDataConfig())
+  }
+
 }
