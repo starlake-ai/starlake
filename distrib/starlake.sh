@@ -145,7 +145,7 @@ SPARK_DRIVER_OPTIONS="-Dlog4j.configuration=file://$SCRIPT_DIR/bin/spark/conf/lo
 if [[ -z "$SL_BQ_NATIVE" ]]
 then
   SPARK_SUBMIT="$SPARK_TARGET_FOLDER/bin/spark-submit"
-  SL_ROOT=$SL_ROOT $SPARK_SUBMIT --driver-java-options "$SPARK_DRIVER_OPTIONS" $SPARK_CONF_OPTIONS --class $SL_MAIN $SPARK_TARGET_FOLDER/jars/$SL_JAR_NAME $@
+  SL_ROOT=$SL_ROOT $SPARK_SUBMIT --driver-java-options "$SPARK_DRIVER_OPTIONS" $SPARK_CONF_OPTIONS --class $SL_MAIN $SPARK_TARGET_FOLDER/jars/$SL_JAR_NAME "$@"
 else
   case $SL_AUDIT_SINK_TYPE in
       BigQuerySink|NoneSink)
