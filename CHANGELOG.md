@@ -11,6 +11,7 @@ __Bug Fix__:
 - Division by zero when computing progress bar
 - Human Readable throw exception when elapsed time is 0
 - **Breaking Change** Make table's fetchSize to have higher precedence than the one defined in jdbcSchema.
+- list command for internal ressources doesn't work for yml2dag
 
 # 0.7.1:
 __Feature__:
