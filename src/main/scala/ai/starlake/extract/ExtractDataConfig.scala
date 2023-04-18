@@ -29,7 +29,8 @@ case class ExtractDataConfig(
   separator: Char = ';',
   numPartitions: Int = 1,
   parallelism: Option[Int] = None,
-  clean: Boolean = false
+  clean: Boolean = false,
+  fullExport: Boolean = false
 )
 
 object ExtractDataConfig extends CliConfig[ExtractDataConfig] {
@@ -70,7 +71,11 @@ object ExtractDataConfig extends CliConfig[ExtractDataConfig] {
       opt[String]("output-dir")
         .action((x, c) => c.copy(outputDir = Some(x)))
         .required()
-        .text("Where to output csv files")
+        .text("Where to output csv files"),
+      opt[Unit]("fullExport")
+        .action((x, c) => c.copy(fullExport = true))
+        .optional()
+        .text("Force full export to all tables")
     )
   }
 

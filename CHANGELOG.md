@@ -1,6 +1,17 @@
 
 # Release notes
 
+# 0.7.2:
+__Feature__:
+- allow full export for tables and use partition column only to speed up extraction
+- allow to force full export. Useful for re-init cases.
+
+__Bug Fix__:
+- Use audit connection settings while fetching last export and its column quotes
+- Division by zero when computing progress bar
+- Human Readable throw exception when elapsed time is 0
+- **Breaking Change** Make table's fetchSize to have higher precedence than the one defined in jdbcSchema.
+
 # 0.7.1:
 __Feature__:
 - add support for parallel fetch with String in some databases and give the ability to customize it.
