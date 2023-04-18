@@ -970,7 +970,7 @@ object JDBCUtils extends LazyLogging {
     logger.info(s"$context Starting extraction into $filename")
     val outFile = File(outputDir, filename)
     val outFileWriter = outFile.newFileWriter(append = false)
-    val csvWriterResource = new CSVWriter(outFileWriter, separator, '\\', separator)
+    val csvWriterResource = new CSVWriter(outFileWriter, separator, '"', '\\')
     statement.setMaxRows(limit)
     val rs = statement.executeQuery()
     val resultService = new ResultSetHelperService()
