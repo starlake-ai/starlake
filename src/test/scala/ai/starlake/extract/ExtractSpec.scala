@@ -448,6 +448,9 @@ class ExtractSpec extends TestHelper {
         |  --clean                  Cleanup output directory first ?
         |  --output-dir <value>     Where to output csv files
         |  --fullExport             Force full export to all tables
+        |  --datePattern <value>    Pattern used to format date during CSV writing
+        |  --timestampPattern <value>
+        |                           Pattern used to format timestamp during CSV writing
         |""".stripMargin
     rendered.substring(rendered.indexOf("Usage:")).replaceAll("\\s", "") shouldEqual expected
       .replaceAll("\\s", "")
