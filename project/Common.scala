@@ -72,6 +72,11 @@ object Common {
   def customSettings: Seq[Def.Setting[_]] =
     Seq(
       scalacOptions ++= Seq(
+        "-deprecation",
+        "-feature",
+        "-Xmacro-settings:materialize-derivations",
+        "-Ywarn-unused-import",
+        "-Xfatal-warnings"
       ),
       Test / testOptions ++= Seq(
         // show full stack traces and test case durations
