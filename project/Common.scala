@@ -72,7 +72,6 @@ object Common {
   def customSettings: Seq[Def.Setting[_]] =
     Seq(
       scalacOptions ++= Seq(
-
       ),
       Test / testOptions ++= Seq(
         // show full stack traces and test case durations
