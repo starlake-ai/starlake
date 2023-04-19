@@ -104,7 +104,7 @@ object Yml2DagTemplateLoader extends LazyLogging {
     }
     val domainFolderPath = fs.getPath(path)
     val walk = Files.walk(domainFolderPath)
-    try {
+    val result = Try {
       walk
         .iterator()
         .asScala
@@ -118,12 +118,13 @@ object Yml2DagTemplateLoader extends LazyLogging {
         )
         .map(DomainTemplate)
         .toList
-    } finally {
-      try {
-        fs.close()
-      } catch {
-        case _: UnsupportedOperationException => // ignore this warning UnixFileSystem doesn't implement this
-      }
+    }
+    Try(
+      fs.close() // Some implementation do not implement close, that is why it is in a Try
+    )
+    result match {
+      case Failure(exception) => throw exception
+      case Success(value)     => value
     }
   }
 }
