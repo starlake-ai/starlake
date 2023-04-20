@@ -20,6 +20,7 @@
 package ai.starlake.extract
 
 import ai.starlake.utils.CliConfig
+import org.joda.time.DateTime
 import scopt.OParser
 
 case class ExtractDataConfig(
@@ -32,7 +33,8 @@ case class ExtractDataConfig(
   clean: Boolean = false,
   fullExport: Boolean = false,
   datePattern: String = "yyyy-MM-dd",
-  timestampPattern: String = "yyyy-MM-dd HH:mm:ss"
+  timestampPattern: String = "yyyy-MM-dd HH:mm:ss",
+  ifExtractedBefore: Option[Long] = None
 )
 
 object ExtractDataConfig extends CliConfig[ExtractDataConfig] {
@@ -85,7 +87,13 @@ object ExtractDataConfig extends CliConfig[ExtractDataConfig] {
       opt[String]("timestampPattern")
         .action((x, c) => c.copy(timestampPattern = x))
         .optional()
-        .text("Pattern used to format timestamp during CSV writing")
+        .text("Pattern used to format timestamp during CSV writing"),
+      opt[String]("ifExtractedBefore")
+        .action((x, c) => c.copy(ifExtractedBefore = Some(DateTime.parse(x).getMillis)))
+        .optional()
+        .text(
+          "DateTime to compare with the last beginning extraction dateTime. If it is before that date, extraction is done else skipped."
+        )
     )
   }
 
