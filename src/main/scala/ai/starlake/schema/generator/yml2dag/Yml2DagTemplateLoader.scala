@@ -2,13 +2,15 @@ package ai.starlake.schema.generator.yml2dag
 
 import ai.starlake.config.{DatasetArea, Settings}
 import better.files.Resource
+import com.typesafe.scalalogging.LazyLogging
 import org.apache.hadoop.fs.Path
 
-import java.nio.file.{Files, Paths}
+import java.net.URI
+import java.nio.file.{FileSystems, Files}
 import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try}
 
-object Yml2DagTemplateLoader {
+object Yml2DagTemplateLoader extends LazyLogging {
 
   private val JINJA_EXTENSION = ".j2"
   private val TEMPLATE_FOLDER = "templates"
@@ -90,16 +92,39 @@ object Yml2DagTemplateLoader {
   }
 
   def listTemplateFromResources(): List[DomainTemplate] = {
-    val domainFolder = Resource.getUrl(s"$RESOURCE_DOMAIN_TEMPLATE_FOLDER").toURI
-    val domainFolderPath = Paths.get(domainFolder)
+    val domainFolderURI = Resource.getUrl(s"$RESOURCE_DOMAIN_TEMPLATE_FOLDER").toURI
+    val (fs, path) = if (domainFolderURI.toString.contains("!")) {
+      val (jarFile, path) = domainFolderURI.toString.splitAt(domainFolderURI.toString.indexOf("!"))
+      logger.info(s"Opening jar file at $jarFile")
+      val system = FileSystems
+        .newFileSystem(URI.create(jarFile), Map.empty[String, Any].asJava)
+      system -> path.tail
+    } else {
+      FileSystems.getDefault() -> domainFolderURI.getPath
+    }
+    val domainFolderPath = fs.getPath(path)
     val walk = Files.walk(domainFolderPath)
-    walk
-      .iterator()
-      .asScala
-      .map(_.toString)
-      .filter(_.endsWith(JINJA_EXTENSION))
-      .map(p => p.substring(domainFolder.getPath.length + 1, p.length - JINJA_EXTENSION.length))
-      .map(DomainTemplate)
-      .toList
+    val result = Try {
+      walk
+        .iterator()
+        .asScala
+        .map(_.toString)
+        .filter(_.endsWith(JINJA_EXTENSION))
+        .map(p =>
+          p.substring(
+            domainFolderPath.toAbsolutePath.toString.length + 1,
+            p.length - JINJA_EXTENSION.length
+          )
+        )
+        .map(DomainTemplate)
+        .toList
+    }
+    Try(
+      fs.close() // Some implementation do not implement close, that is why it is in a Try
+    )
+    result match {
+      case Failure(exception) => throw exception
+      case Success(value)     => value
+    }
   }
 }

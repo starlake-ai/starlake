@@ -5,12 +5,16 @@
 __Feature__:
 - allow full export for tables and use partition column only to speed up extraction
 - allow to force full export. Useful for re-init cases.
+- allow to change date and timestamp format during data extraction
 
 __Bug Fix__:
 - Use audit connection settings while fetching last export and its column quotes
 - Division by zero when computing progress bar
 - Human Readable throw exception when elapsed time is 0
 - **Breaking Change** Make table's fetchSize to have higher precedence than the one defined in jdbcSchema.
+- list command for internal ressources doesn't work for yml2dag
+- **Breaking Change** Make default configuration of CSV writer in extract-data to match default value of Metadata.
+- keep original args in starlake.sh  when they have spaces
 
 # 0.7.1:
 __Feature__:
