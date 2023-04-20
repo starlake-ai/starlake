@@ -301,6 +301,7 @@ trait IngestionJob extends SparkJob {
 
       val acceptedPath =
         new Path(DatasetArea.accepted(domain.finalName), schema.finalName)
+
       val acceptedRenamedFields = dfWithAttributesRenamed(validationResult.accepted)
 
       val acceptedDfWithScriptFields: DataFrame = computeScriptedAttributes(
