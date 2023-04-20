@@ -51,7 +51,9 @@ class ExtractData(schemaHandler: SchemaHandler) extends Extract with LazyLogging
         config.numPartitions,
         config.clean,
         config.parallelism.getOrElse(Runtime.getRuntime.availableProcessors()),
-        config.fullExport
+        config.fullExport,
+        config.datePattern,
+        config.timestampPattern
       )
     }
   }
