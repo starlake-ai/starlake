@@ -6,6 +6,7 @@ __Feature__:
 - allow full export for tables and use partition column only to speed up extraction
 - allow to force full export. Useful for re-init cases.
 - allow to change date and timestamp format during data extraction
+- allow to prevent extraction if last extraction is recent enough
 - allow to filter table data before sinking it.
 
 __Bug Fix__:
