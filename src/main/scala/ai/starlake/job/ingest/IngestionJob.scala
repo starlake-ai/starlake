@@ -301,7 +301,6 @@ trait IngestionJob extends SparkJob {
 
       val acceptedPath =
         new Path(DatasetArea.accepted(domain.finalName), schema.finalName)
-
       val acceptedRenamedFields = dfWithAttributesRenamed(validationResult.accepted)
 
       val acceptedDfWithScriptFields: DataFrame = computeScriptedAttributes(
@@ -311,8 +310,9 @@ trait IngestionJob extends SparkJob {
       val acceptedDfWithScriptAndTransformedFields: DataFrame = computeTransformedAttributes(
         acceptedDfWithScriptFields
       )
+      val acceptedDfFiltered = filterData(acceptedDfWithScriptAndTransformedFields)
       val acceptedDfWithoutIgnoredFields: DataFrame = removeIgnoredAttributes(
-        acceptedDfWithScriptAndTransformedFields
+        acceptedDfFiltered
       )
       val acceptedDF = acceptedDfWithoutIgnoredFields.drop(CometColumns.cometInputFileNameColumn)
       val finalAcceptedDF: DataFrame = computeFinalSchema(acceptedDF).cache()
@@ -404,6 +404,15 @@ trait IngestionJob extends SparkJob {
     } else {
       (session.emptyDataFrame, new Path("invalid-path"))
     }
+  }
+
+  private def filterData(acceptedDfWithScriptAndTransformedFields: DataFrame): Dataset[Row] = {
+    schema.filter
+      .map { filterExpr =>
+        logger.info(s"Applying data filter: $filterExpr")
+        acceptedDfWithScriptAndTransformedFields.filter(filterExpr)
+      }
+      .getOrElse(acceptedDfWithScriptAndTransformedFields)
   }
 
   private def applyMerge(
