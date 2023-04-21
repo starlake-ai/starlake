@@ -35,7 +35,11 @@ case class ExtractDataConfig(
   datePattern: String = "yyyy-MM-dd",
   timestampPattern: String = "yyyy-MM-dd HH:mm:ss",
   ifExtractedBefore: Option[Long] = None,
-  cleanOnExtract: Boolean = false
+  cleanOnExtract: Boolean = false,
+  includeSchemas: Seq[String] = Seq.empty,
+  excludeSchemas: Seq[String] = Seq.empty,
+  includeTables: Seq[String] = Seq.empty,
+  excludeTables: Seq[String] = Seq.empty
 )
 
 object ExtractDataConfig extends CliConfig[ExtractDataConfig] {
@@ -100,7 +104,47 @@ object ExtractDataConfig extends CliConfig[ExtractDataConfig] {
         .optional()
         .text(
           "Clean all files of table only when it is extracted."
-        )
+        ),
+      opt[Seq[String]]("includeSchemas")
+        .action((x, c) => c.copy(includeSchemas = x.map(_.trim)))
+        .valueName("schema1,schema2")
+        .optional()
+        .text("Domains to include during extraction."),
+      opt[Seq[String]]("excludeSchemas")
+        .valueName("schema1,schema2...")
+        .optional()
+        .action((x, c) => c.copy(excludeSchemas = x.map(_.trim)))
+        .text(
+          "Domains to exclude during extraction. if `include-domains` is defined, this config is ignored."
+        ),
+      opt[Seq[String]]("includeTables")
+        .valueName("table1,table2,table3...")
+        .optional()
+        .action((x, c) => c.copy(includeTables = x.map(_.trim)))
+        .text("Schemas to include during extraction."),
+      opt[Seq[String]]("excludeTables")
+        .valueName("table1,table2,table3...")
+        .optional()
+        .action((x, c) => c.copy(excludeTables = x.map(_.trim)))
+        .text(
+          "Schemas to exclude during extraction. if `include-schemas` is defined, this config is ignored."
+        ),
+      checkConfig { c =>
+        val domainChecks = (c.excludeSchemas, c.includeSchemas) match {
+          case (Nil, Nil) | (_, Nil) | (Nil, _) => Nil
+          case _ => List("You can't specify includeSchemas and excludeSchemas at the same time.")
+        }
+        val schemaChecks = (c.excludeTables, c.includeTables) match {
+          case (Nil, Nil) | (_, Nil) | (Nil, _) => Nil
+          case _ => List("You can't specify includeTables and excludeTables at the same time.")
+        }
+        val allErrors = domainChecks ++ schemaChecks
+        if (allErrors.isEmpty) {
+          success
+        } else {
+          failure(allErrors.mkString("\n"))
+        }
+      }
     )
   }
 
