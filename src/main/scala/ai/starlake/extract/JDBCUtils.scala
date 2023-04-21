@@ -587,7 +587,8 @@ object JDBCUtils extends LazyLogging {
     fullExportCli: Boolean,
     datePattern: String,
     timestampPattern: String,
-    extractionPredicate: Option[Long => Boolean]
+    extractionPredicate: Option[Long => Boolean],
+    cleanOnExtract: Boolean
   )(implicit
     settings: Settings
   ): Unit = {
@@ -647,6 +648,15 @@ object JDBCUtils extends LazyLogging {
           }
           .getOrElse(true)
         if (doExtraction) {
+          if (cleanOnExtract) {
+            logger.info(s"Deleting all files of $tableName")
+            outputDir.list
+              .filter(f => s"^$tableName-\\d{14}[\\.\\-].*".r.pattern.matcher(f.name).matches())
+              .foreach { f =>
+                f.delete(swallowIOExceptions = true)
+                logger.debug(f"${f.pathAsString} deleted")
+              }
+          }
           val formatter = DateTimeFormatter
             .ofPattern("yyyyMMddHHmmss")
             .withZone(ZoneId.systemDefault())
