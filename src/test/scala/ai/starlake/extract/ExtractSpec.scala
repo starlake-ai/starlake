@@ -454,6 +454,14 @@ class ExtractSpec extends TestHelper {
         |  --ifExtractedBefore <value>
         |                           DateTime to compare with the last beginning extraction dateTime. If it is before that date, extraction is done else skipped.
         |  --cleanOnExtract         Clean all files of table only when it is extracted.
+        |  --includeSchemas schema1,schema2
+        |                           Domains to include during extraction.
+        |  --excludeSchemas schema1,schema2...
+        |                           Domains to exclude during extraction. if `include-domains` is defined, this config is ignored.
+        |  --includeTables table1,table2,table3...
+        |                           Schemas to include during extraction.
+        |  --excludeTables table1,table2,table3...
+        |                           Schemas to exclude during extraction. if `include-schemas` is defined, this config is ignored.
         |""".stripMargin
     rendered.substring(rendered.indexOf("Usage:")).replaceAll("\\s", "") shouldEqual expected
       .replaceAll("\\s", "")

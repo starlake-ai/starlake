@@ -8,6 +8,7 @@ __Feature__:
 - allow to change date and timestamp format during data extraction
 - allow to prevent extraction if last extraction is recent enough
 - allow to clean all files of table only when it is extracted
+- allow to in/exclude schemas and/or tables from extraction
 - allow to filter table data before sinking it.
 
 __Bug Fix__:

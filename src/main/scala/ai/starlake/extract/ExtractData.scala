@@ -39,26 +39,36 @@ class ExtractData(schemaHandler: SchemaHandler) extends Extract with LazyLogging
     val connectionOptions = jdbcSchemas.connectionRef
       .map(settings.comet.connections(_).options)
       .getOrElse(jdbcSchemas.connection)
-    jdbcSchemas.jdbcSchemas.foreach { jdbcSchema =>
-      assert(config.numPartitions > 0)
-      JDBCUtils.extractData(
-        schemaHandler,
-        jdbcSchema,
-        connectionOptions ++ jdbcSchema.connectionOptions,
-        outputDir(config.outputDir),
-        config.limit,
-        config.separator,
-        config.numPartitions,
-        config.clean,
-        config.parallelism.getOrElse(Runtime.getRuntime.availableProcessors()),
-        config.fullExport,
-        config.datePattern,
-        config.timestampPattern,
-        config.ifExtractedBefore.map(userTimestamp =>
-          lastTimestamp => lastTimestamp < userTimestamp
-        ),
-        config.cleanOnExtract
-      )
-    }
+    jdbcSchemas.jdbcSchemas
+      .filter { s =>
+        (config.includeSchemas, config.excludeSchemas) match {
+          case (Nil, Nil) => true
+          case (inc, Nil) => inc.contains(s.schema)
+          case (Nil, exc) => !exc.contains(s.schema)
+          case (_, _)     => throw new RuntimeException("Should not happen")
+        }
+      }
+      .foreach { jdbcSchema =>
+        assert(config.numPartitions > 0)
+        JDBCUtils.extractData(
+          schemaHandler,
+          jdbcSchema,
+          connectionOptions ++ jdbcSchema.connectionOptions,
+          outputDir(config.outputDir),
+          config.limit,
+          config.separator,
+          config.numPartitions,
+          config.clean,
+          config.parallelism.getOrElse(Runtime.getRuntime.availableProcessors()),
+          config.fullExport,
+          config.datePattern,
+          config.timestampPattern,
+          config.ifExtractedBefore
+            .map(userTimestamp => lastTimestamp => lastTimestamp < userTimestamp),
+          config.cleanOnExtract,
+          config.includeTables,
+          config.excludeTables
+        )
+      }
   }
 }
