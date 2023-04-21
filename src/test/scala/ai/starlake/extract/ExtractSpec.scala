@@ -453,6 +453,7 @@ class ExtractSpec extends TestHelper {
         |                           Pattern used to format timestamp during CSV writing
         |  --ifExtractedBefore <value>
         |                           DateTime to compare with the last beginning extraction dateTime. If it is before that date, extraction is done else skipped.
+        |  --cleanOnExtract         Clean all files of table only when it is extracted.
         |""".stripMargin
     rendered.substring(rendered.indexOf("Usage:")).replaceAll("\\s", "") shouldEqual expected
       .replaceAll("\\s", "")

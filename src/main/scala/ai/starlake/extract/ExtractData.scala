@@ -56,7 +56,8 @@ class ExtractData(schemaHandler: SchemaHandler) extends Extract with LazyLogging
         config.timestampPattern,
         config.ifExtractedBefore.map(userTimestamp =>
           lastTimestamp => lastTimestamp < userTimestamp
-        )
+        ),
+        config.cleanOnExtract
       )
     }
   }
