@@ -56,6 +56,9 @@ import scala.util.Try
   *   : Set of string to attach to this Schema
   * @param rls
   *   : Experimental. Row level security to this to this schema. See :ref:`rowlevelsecurity_concept`
+  * @param filter
+  *   allow accepted data to be filtered out before sinking it and column renamed. Only apply to
+  *   spark engine.
   */
 case class Schema(
   name: String,
@@ -72,7 +75,8 @@ case class Schema(
   primaryKey: List[String] = Nil,
   acl: List[AccessControlEntry] = Nil,
   rename: Option[String] = None,
-  sample: Option[String] = None
+  sample: Option[String] = None,
+  filter: Option[String] = None
 ) extends Named {
   def this() = this(
     "",
@@ -436,7 +440,8 @@ case class Schema(
       rls = if (this.rls.isEmpty) fallbackSchema.rls else this.rls,
       assertions = if (this.assertions.isEmpty) fallbackSchema.assertions else this.assertions,
       acl = if (this.acl.isEmpty) fallbackSchema.acl else this.acl,
-      sample = this.sample.orElse(fallbackSchema.sample)
+      sample = this.sample.orElse(fallbackSchema.sample),
+      filter = this.filter.orElse(fallbackSchema.filter)
     )
   }
 
@@ -569,6 +574,9 @@ object Schema {
       val sampleDiff: ListDiff[String] =
         AnyRefDiff.diffOptionString("sample", existing.sample, incoming.sample)
 
+      val filter: ListDiff[String] =
+        AnyRefDiff.diffOptionString("filter", existing.filter, incoming.filter)
+
       SchemaDiff(
         existing.name,
         attributesDiff,
@@ -584,7 +592,8 @@ object Schema {
         primaryKeyDiff,
         aclDiff,
         renameDiff,
-        sampleDiff
+        sampleDiff,
+        filter
       )
     }
   }

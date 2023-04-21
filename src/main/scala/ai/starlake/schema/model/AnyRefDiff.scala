@@ -167,7 +167,8 @@ case class SchemaDiff(
   primaryKey: ListDiff[String],
   acl: ListDiff[Named],
   rename: ListDiff[String],
-  sample: ListDiff[String]
+  sample: ListDiff[String],
+  filter: ListDiff[String]
 ) {
   def isEmpty(): Boolean =
     attributes.isEmpty() &&
@@ -183,8 +184,8 @@ case class SchemaDiff(
     primaryKey.isEmpty() &&
     acl.isEmpty() &&
     rename.isEmpty() &&
-    sample.isEmpty()
-
+    sample.isEmpty() &&
+    filter.isEmpty()
 }
 case class SchemasDiff(added: List[String], deleted: List[String], updated: List[SchemaDiff]) {
   def isEmpty(): Boolean = added.isEmpty && deleted.isEmpty && updated.forall(_.isEmpty())
