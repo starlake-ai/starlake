@@ -34,7 +34,8 @@ case class ExtractDataConfig(
   fullExport: Boolean = false,
   datePattern: String = "yyyy-MM-dd",
   timestampPattern: String = "yyyy-MM-dd HH:mm:ss",
-  ifExtractedBefore: Option[Long] = None
+  ifExtractedBefore: Option[Long] = None,
+  cleanOnExtract: Boolean = false
 )
 
 object ExtractDataConfig extends CliConfig[ExtractDataConfig] {
@@ -93,6 +94,12 @@ object ExtractDataConfig extends CliConfig[ExtractDataConfig] {
         .optional()
         .text(
           "DateTime to compare with the last beginning extraction dateTime. If it is before that date, extraction is done else skipped."
+        ),
+      opt[Unit]("cleanOnExtract")
+        .action((x, c) => c.copy(cleanOnExtract = true))
+        .optional()
+        .text(
+          "Clean all files of table only when it is extracted."
         )
     )
   }

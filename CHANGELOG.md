@@ -7,6 +7,7 @@ __Feature__:
 - allow to force full export. Useful for re-init cases.
 - allow to change date and timestamp format during data extraction
 - allow to prevent extraction if last extraction is recent enough
+- allow to clean all files of table only when it is extracted
 - allow to filter table data before sinking it.
 
 __Bug Fix__:
