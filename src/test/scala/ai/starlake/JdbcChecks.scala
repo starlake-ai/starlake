@@ -75,6 +75,7 @@ trait JdbcChecks {
           None
         } catch {
           case ex: SQLException =>
+            ex.printStackTrace()
             /* this is okay! we're almost certainly lacking a table, which is as good as empty for this purpose */
             Some(Vector.empty)
         }
@@ -82,11 +83,11 @@ trait JdbcChecks {
       val fetched = lacksTheTable.getOrElse {
         /* We've validated that the table exists. So now we must succeed in pulling data from it. */
         val stmt = conn.createStatement()
-
         val fetched: Vector[T] = {
           val rs =
             stmt.executeQuery(
-              s"select ${columns.mkString(", ")} from ${referenceDatasetName}".stripMargin
+//              s"select ${columns.mkString(", ")} from ${referenceDatasetName}".stripMargin
+              s"select * from ${referenceDatasetName}".stripMargin
             )
 
           @tailrec
@@ -170,7 +171,7 @@ trait JdbcChecks {
 
     expectingJdbcDataset(
       jdbcName,
-      "rejected",
+      "audit.rejected",
       "jobid" :: "timestamp" :: "domain" :: "schema" :: "error" :: "path" :: Nil,
       values.to[Vector]
     ) { rs =>
@@ -198,7 +199,7 @@ trait JdbcChecks {
 
     expectingJdbcDataset(
       jdbcName,
-      "audit",
+      "audit.audit",
       "jobid" :: "paths" :: "domain" :: "schema" :: "success" ::
       "count" :: "countAccepted" :: "countRejected" :: "timestamp" ::
       "duration" :: "message" :: "step" :: Nil,
@@ -238,7 +239,7 @@ trait JdbcChecks {
 
     expectingJdbcDataset(
       jdbcName,
-      "continuous",
+      "audit.continuous",
       "domain" :: "schema" :: "attribute" ::
       "min" :: "max" :: "mean" :: "missingValues" :: "standardDev" :: "variance" :: "sum" ::
       "skewness" :: "kurtosis" :: "percentile25" :: "median" :: "percentile75" ::
@@ -271,7 +272,7 @@ trait JdbcChecks {
 
     expectingJdbcDataset(
       jdbcName,
-      "discrete",
+      "audit.discrete",
       "domain" :: "schema" :: "attribute" ::
       "missingValuesDiscrete" :: "countDistinct" :: "count" ::
       "cometTime" :: "cometStage" :: "cometMetric" :: "jobId" :: Nil,
@@ -293,7 +294,7 @@ trait JdbcChecks {
 
     expectingJdbcDataset(
       jdbcName,
-      "frequencies",
+      "audit.frequencies",
       "domain" :: "schema" :: "attribute" ::
       "category" :: "frequency" :: "count" ::
       "cometTime" :: "cometStage" :: "jobId" :: Nil,
