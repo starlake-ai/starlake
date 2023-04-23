@@ -2,7 +2,7 @@ package ai.starlake.utils
 
 import ai.starlake.config.{Settings, SparkEnv, UdfRegistration}
 import ai.starlake.schema.handlers.SchemaHandler
-import ai.starlake.schema.model.SinkType.{BQ, FS, JDBC, KAFKA}
+import ai.starlake.schema.model.SinkType.{BQ, FS, JDBC, KAFKA, SNOWFLAKE}
 import ai.starlake.schema.model.{Metadata, SinkType, Views}
 import ai.starlake.utils.Formatter._
 import ai.starlake.utils.kafka.KafkaClient
@@ -290,7 +290,7 @@ trait SparkJob extends JobBase {
     val df = sinkType match {
       case FS => // (FS, _, absolute_path|relative_path|sql)
         createFSView(path)
-      case JDBC => // (JDBC, connectionName, queryString)
+      case JDBC | SNOWFLAKE => // (JDBC, connectionName, queryString)
         createJDBCView(sinkConfig, path)
       case KAFKA => // (KAFKA, STREAM|FILE, topic)
         createKafkaView(sinkConfig, path)

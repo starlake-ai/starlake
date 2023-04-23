@@ -588,6 +588,8 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
                   parent.replace("type", new TextNode("FS"))
                 else if (sinkType == "BIGQUERY")
                   parent.replace("type", new TextNode("BQ"))
+                else if (sinkType == "SF")
+                  parent.replace("type", new TextNode("SNOWFLAKE"))
             }
         }
       }

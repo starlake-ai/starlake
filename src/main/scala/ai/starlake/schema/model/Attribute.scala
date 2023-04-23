@@ -208,6 +208,15 @@ case class Attribute(
   def `type`(schemaHandler: SchemaHandler): Option[Type] =
     schemaHandler.types().find(_.name == `type`)
 
+  def primitiveType(schemaHandler: SchemaHandler): Option[PrimitiveType] =
+    schemaHandler.types().find(_.name == `type`).map(_.primitiveType)
+
+  def samePrimitiveType(other: Attribute)(implicit schemaHandler: SchemaHandler): Boolean = {
+    this.primitiveType(schemaHandler).map(_.value) == other
+      .primitiveType(schemaHandler)
+      .map(_.value)
+  }
+
   /** Spark Type if this attribute is a primitive type of array of primitive type
     *
     * @return

@@ -48,26 +48,22 @@ object SinkType {
       case "BQ" | "BIGQUERY" | "BIGQUERYSINK" => SinkType.BQ
       case "ES" | "ESSINK"                    => SinkType.ES
       case "KAFKA" | "KAFKASINK"              => SinkType.KAFKA
+      case "SNOWFLAKE"                        => SinkType.SNOWFLAKE
     }
   }
 
   object None extends SinkType("None")
-
   object FS extends SinkType("FS")
-
   object BQ extends SinkType("BQ")
-
   object ES extends SinkType("ES")
-
   object KAFKA extends SinkType("KAFKA")
-
   object JDBC extends SinkType("JDBC")
+  object SNOWFLAKE extends SinkType("SNOWFLAKE")
 
-  val sinks: Set[SinkType] = Set(None, FS, BQ, ES, KAFKA, JDBC)
+  val sinks: Set[SinkType] = Set(None, FS, BQ, ES, KAFKA, JDBC, SNOWFLAKE)
 }
 
 class SinkTypeDeserializer extends JsonDeserializer[SinkType] {
-
   override def deserialize(jp: JsonParser, ctx: DeserializationContext): SinkType = {
     val value = jp.readValueAs[String](classOf[String])
     SinkType.fromString(value)
