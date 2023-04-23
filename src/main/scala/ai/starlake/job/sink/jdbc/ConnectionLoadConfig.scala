@@ -62,7 +62,7 @@ object ConnectionLoadConfig extends CliConfig[ConnectionLoadConfig] {
     outputTable: String,
     createDisposition: CreateDisposition = CreateDisposition.CREATE_IF_NEEDED,
     writeDisposition: WriteDisposition = WriteDisposition.WRITE_APPEND,
-    options: Map[String, String],
+    sinkOptions: Map[String, String],
     createTableIfAbsent: Boolean = true
   ): ConnectionLoadConfig = {
     // TODO: wanted to just call this "apply" but I'd need to get rid of the defaults in the ctor above
@@ -83,7 +83,7 @@ object ConnectionLoadConfig extends CliConfig[ConnectionLoadConfig] {
       writeDisposition = writeDisposition,
       jdbcOptions.format,
       jdbcOptions.mode,
-      jdbcOptions.options ++ options
+      jdbcOptions.options ++ sinkOptions
     )
   }
 

@@ -516,9 +516,6 @@ case class AutoTask(
           .option("query", sqlWithParameters)
           .load()
       case Engine.SPARK => session.sql(sqlWithParameters)
-      case Engine.JDBC =>
-        logger.warn("JDBC Engine not supported on job task. Running query using Spark Engine")
-        session.sql(sqlWithParameters)
       case custom =>
         val connectionOptions = settings.comet.connections(custom.toString)
         session.read

@@ -7,7 +7,7 @@ types:
     comment: "Any set of chars"
     ddlMapping:
       bigquery: STRING
-      snowflake: STRING
+      snowflake: VARCHAR
       postgres: varchar(8000)
       synapse: Varchar(8000) # https://docs.microsoft.com/fr-fr/azure/synapse-analytics/metadata/table
   - name: "int"
@@ -17,7 +17,7 @@ types:
     comment: "Int number"
     ddlMapping:
       bigquery: INT64
-      snowflake: INT
+      snowflake: INTEGER
       synapse: int
       postgres: INT
   - name: "byte"
@@ -27,7 +27,7 @@ types:
     comment: "Any set of chars"
     ddlMapping:
       bigquery: INT64
-      snowflake: INT
+      snowflake: INTEGER
       synapse: smallint
       postgres: INT
   - name: "double"
