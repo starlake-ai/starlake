@@ -214,8 +214,8 @@ object AuditLog extends StrictLogging {
           sink.connection,
           settings.comet,
           Right(auditDF),
-          "audit",
-          options = sink.getOptions
+          settings.comet.audit.sink.name.getOrElse("audit") + "." + "audit",
+          sinkOptions = sink.getOptions
         )
         new ConnectionLoadJob(jdbcConfig).run()
 

@@ -97,22 +97,6 @@ import scala.util.Try
     tables.find(_.pattern.matcher(filename).matches())
   }
 
-  def ddlMapping(datawarehouse: String, ddlType: String)(implicit
-    settings: Settings
-  ): (Path, String) = {
-    val rootPath = new Path(new Path(DatasetArea.mapping, "ddl"), datawarehouse)
-    val mustache = new Path(rootPath, s"$ddlType.mustache")
-    val ssp = new Path(rootPath, s"$ddlType.ssp")
-    val template =
-      if (settings.storageHandler.exists(mustache))
-        mustache
-      else if (settings.storageHandler.exists(ssp))
-        ssp
-      else
-        throw new Exception(s"No $ddlType.mustache/ssp found for datawarehouse $datawarehouse")
-    template -> settings.storageHandler.read(template)
-  }
-
   /** Load Elasticsearch template file if it exist
     *
     * @param schema
@@ -338,4 +322,21 @@ object Domain {
       )
     }
   }
+
+  def ddlMapping(datawarehouse: String, ddlType: String)(implicit
+    settings: Settings
+  ): (Path, String) = {
+    val rootPath = new Path(new Path(DatasetArea.mapping, "ddl"), datawarehouse)
+    val mustache = new Path(rootPath, s"$ddlType.mustache")
+    val ssp = new Path(rootPath, s"$ddlType.ssp")
+    val template =
+      if (settings.storageHandler.exists(mustache))
+        mustache
+      else if (settings.storageHandler.exists(ssp))
+        ssp
+      else
+        throw new Exception(s"No $ddlType.mustache/ssp found for datawarehouse $datawarehouse")
+    template -> settings.storageHandler.read(template)
+  }
+
 }

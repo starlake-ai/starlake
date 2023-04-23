@@ -37,7 +37,6 @@ import org.apache.spark.ml.feature.SQLTransformer
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.{Metadata => _, _}
-
 import java.sql.Timestamp
 import java.time.{Instant, LocalDateTime}
 import scala.annotation.nowarn
@@ -503,8 +502,9 @@ trait IngestionJob extends SparkJob {
           bqSink(mergedDF, partitionsToUpdate)
         case SinkType.KAFKA =>
           kafkaSink(mergedDF)
-        case SinkType.JDBC =>
+        case SinkType.JDBC | SinkType.SNOWFLAKE =>
           genericSink(mergedDF)
+
         case SinkType.FS if !settings.comet.sinkToFile =>
           val acceptedPath =
             new Path(DatasetArea.accepted(domain.finalName), schema.finalName)
@@ -525,14 +525,14 @@ trait IngestionJob extends SparkJob {
     }
   }
 
-  private def kafkaSink(mergedDF: DataFrame) = {
+  private def kafkaSink(mergedDF: DataFrame): DataFrame = {
     Utils.withResources(new KafkaClient(settings.comet.kafka)) { kafkaClient =>
       kafkaClient.sinkToTopic(settings.comet.kafka.topics(schema.finalName), mergedDF)
     }
     mergedDF
   }
 
-  private def genericSink(mergedDF: DataFrame) = {
+  private def genericSink(mergedDF: DataFrame): DataFrame = {
     val (createDisposition: CreateDisposition, writeDisposition: WriteDisposition) = {
 
       val (cd, wd) = Utils.getDBDisposition(
@@ -547,10 +547,10 @@ trait IngestionJob extends SparkJob {
         sink.connection,
         settings.comet,
         Right(mergedDF),
-        outputTable = schema.finalName,
+        outputTable = domain.finalName + "." + schema.finalName,
         createDisposition = createDisposition,
         writeDisposition = writeDisposition,
-        options = sink.getOptions
+        sinkOptions = sink.getOptions
       )
 
       val res = new ConnectionLoadJob(jdbcConfig).run()
@@ -1341,8 +1341,8 @@ object IngestionUtil {
             sink.connection,
             settings.comet,
             Right(rejectedDF),
-            "rejected",
-            options = sink.getOptions
+            settings.comet.audit.sink.name.getOrElse("audit") + "." + "rejected",
+            sinkOptions = sink.getOptions
           )
 
           new ConnectionLoadJob(jdbcConfig).run()

@@ -45,7 +45,7 @@ import scala.io.Source
   */
 object DatasetArea extends StrictLogging {
 
-  def path(domain: String, area: String)(implicit settings: Settings) = {
+  def path(domain: String, area: String)(implicit settings: Settings): Path = {
     if (area.contains("://"))
       new Path(area)
     else if (settings.comet.datasets.contains("://"))
@@ -58,7 +58,7 @@ object DatasetArea extends StrictLogging {
       )
   }
 
-  def path(domain: String)(implicit settings: Settings) =
+  def path(domain: String)(implicit settings: Settings): Path =
     if (settings.comet.datasets.contains("://"))
       new Path(
         s"${settings.comet.datasets}/$domain"
