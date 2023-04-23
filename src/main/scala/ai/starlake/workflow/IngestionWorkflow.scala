@@ -638,9 +638,9 @@ class IngestionWorkflow(
         case SPARK =>
           val (preSql, mainSQL, postSql) = action.buildQuerySpark(Nil)
           mainSQL
-        case _ =>
-          logger.error("Should never happen")
-          s"Invalid Engine $engine"
+        case customEngine =>
+          val (preSQL, mainSQL, postSQL) = action.buildQueryBQ()
+          mainSQL
       }
     }
     result.foreach { sql =>
@@ -699,7 +699,8 @@ class IngestionWorkflow(
             }
 
             result.isSuccess
-          case SPARK =>
+          case custom =>
+            logger.info(s"Entering $custom engine")
             (action.runSpark(), transformConfig.interactive) match {
               case (Success((SparkJobResult(None), _)), _) =>
                 true
@@ -770,11 +771,11 @@ class IngestionWorkflow(
                           jdbcName,
                           settings.comet,
                           source,
-                          outputTable = action.taskDesc.table,
+                          outputTable = action.taskDesc.domain + "." + action.taskDesc.table,
                           createDisposition = CreateDisposition.valueOf(createDisposition),
                           writeDisposition = WriteDisposition.valueOf(writeDisposition),
                           createTableIfAbsent = false,
-                          options = jdbcSink.getOptions
+                          sinkOptions = jdbcSink.getOptions
                         )
 
                         val res = new ConnectionLoadJob(jdbcConfig).run()
@@ -802,9 +803,6 @@ class IngestionWorkflow(
                 exception.printStackTrace()
                 false
             }
-          case _ =>
-            logger.error("Should never happen")
-            false
         }
       }
     result.forall(_ == true)

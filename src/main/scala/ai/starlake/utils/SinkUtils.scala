@@ -18,6 +18,7 @@ class SinkUtils()(implicit settings: Settings) extends StrictLogging with Datase
     authInfo: Map[String, String],
     sinkType: Sink,
     dataframe: DataFrame,
+    domain: String,
     table: String,
     maybeTableDescription: Option[String],
     /* arguments below used for filesink only */
@@ -82,8 +83,8 @@ class SinkUtils()(implicit settings: Settings) extends StrictLogging with Datase
             sink.connection,
             settings.comet,
             Right(dataframe),
-            table,
-            options = sink.getOptions
+            domain + "." + table,
+            sinkOptions = sink.getOptions
           )
           sinkToJdbc(jdbcConfig)
         }

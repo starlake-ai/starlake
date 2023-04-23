@@ -139,6 +139,7 @@ class AssertionJob(
         authInfo,
         settings.comet.assertions.sink,
         assertionsDF,
+        settings.comet.audit.sink.name.getOrElse("audit"),
         settings.comet.assertions.sink.name.getOrElse("assertions"),
         Some("Assertion results"),
         DatasetArea.assertions(domainName, schemaName),

@@ -199,7 +199,7 @@ object JDBCUtils extends LazyLogging {
         Using(
           databaseMetaData.getTables(
             jdbcSchema.catalog.orNull,
-            jdbcSchema.schema,
+            jdbcSchema.schema.toUpperCase(), // Because Snowflake is case sensitive
             "%",
             jdbcSchema.tableTypes.toArray
           )
@@ -248,8 +248,9 @@ object JDBCUtils extends LazyLogging {
             val foreignKeysResultSet = use(
               databaseMetaData.getImportedKeys(
                 jdbcSchema.catalog.orNull,
-                jdbcSchema.schema,
-                tableName
+                jdbcSchema.schema
+                  .toUpperCase(), // SNOWFLAKE DRIVER IS CASE SENSITIVE AND UPPERCASE ONLY
+                tableName.toUpperCase() // SNOWFLAKE DRIVER IS CASE SENSITIVE AND UPPERCASE ONLY
               )
             )
             val foreignKeys = new Iterator[(String, String)] {
@@ -273,8 +274,9 @@ object JDBCUtils extends LazyLogging {
             val columnsResultSet = use(
               databaseMetaData.getColumns(
                 jdbcSchema.catalog.orNull,
-                jdbcSchema.schema,
-                tableName,
+                jdbcSchema.schema
+                  .toUpperCase(), // SNOWFLAKE DRIVER IS CASE SENSITIVE AND UPPERCASE ONLY
+                tableName.toUpperCase(), // SNOWFLAKE DRIVER IS CASE SENSITIVE AND UPPERCASE ONLY
                 null
               )
             )
@@ -351,8 +353,9 @@ object JDBCUtils extends LazyLogging {
             val primaryKeysResultSet = use(
               databaseMetaData.getPrimaryKeys(
                 jdbcSchema.catalog.orNull,
-                jdbcSchema.schema,
-                tableName
+                jdbcSchema.schema
+                  .toUpperCase(), // SNOWFLAKE DRIVER IS CASE SENSITIVE AND UPPERCASE ONLY
+                tableName.toUpperCase() // SNOWFLAKE DRIVER IS CASE SENSITIVE AND UPPERCASE ONLY
               )
             )
             val primaryKeys = new Iterator[String] {
