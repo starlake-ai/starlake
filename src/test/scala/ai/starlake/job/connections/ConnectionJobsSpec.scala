@@ -21,13 +21,14 @@ class ConnectionJobsSpec extends TestHelper {
         ("Sam", "Hal", 20),
         ("Martin", "Odersky", 30)
       ).toDF("firstname", "lastname", "age")
-      val usersOptions = settings.comet.connections(connection).options + ("dbtable" -> "users")
+      val usersOptions =
+        settings.comet.connections(connection).options + ("dbtable" -> "users.users")
       usersDF.write.format("jdbc").options(usersOptions).mode(SaveMode.Overwrite).save()
 
       val businessTask1 = AutoTaskDesc(
         "",
         Some("select firstname, lastname from user_View where age = {{age}}"),
-        "user",
+        "users",
         "userout",
         WriteMode.OVERWRITE,
         sink = Some(JdbcSink(connection = connection)),
@@ -41,7 +42,7 @@ class ConnectionJobsSpec extends TestHelper {
           None,
           Some("parquet"),
           Some(false),
-          views = Some(Map("user_View" -> s"jdbc:$connection:select * from users"))
+          views = Some(Map("user_View" -> s"jdbc:$connection:select * from users.users"))
         )
 
       val businessJobDef = mapper
@@ -58,7 +59,8 @@ class ConnectionJobsSpec extends TestHelper {
 
       workflow.autoJob(TransformConfig("user"))
 
-      val userOutOptions = settings.comet.connections(connection).options + ("dbtable" -> "userout")
+      val userOutOptions =
+        settings.comet.connections(connection).options + ("dbtable" -> "users.userout")
       sparkSession.read.format("jdbc").options(userOutOptions).load.collect() should have size 1
     }
   }
