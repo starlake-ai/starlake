@@ -11,6 +11,7 @@ import com.typesafe.scalalogging.LazyLogging
 import java.sql.Types._
 import java.sql.{
   Connection => SQLConnection,
+  DatabaseMetaData,
   Date,
   DriverManager,
   PreparedStatement,
@@ -173,6 +174,29 @@ object JDBCUtils extends LazyLogging {
     }
   }
 
+  private def extractCaseInsensitiveSchemaName(
+    databaseMetaData: DatabaseMetaData,
+    catalog: Option[String],
+    schemaName: String
+  ): Try[String] = {
+
+    Using(
+      databaseMetaData.getSchemas(
+        catalog.orNull,
+        "%"
+      )
+    ) { resultSet =>
+      var result: Option[String] = None
+      while (result.isEmpty && resultSet.next()) {
+        val tableSchema = resultSet.getString("TABLE_SCHEM")
+        if (schemaName.equalsIgnoreCase(tableSchema)) {
+          result = Some(tableSchema)
+        }
+      }
+      result.getOrElse(throw new Exception(s"Schema $schemaName not found"))
+    }
+  }
+
   /** Get all tables, columns and primary keys of a database schema as described in the YML file.
     * Exclude tables not selected in the YML file
     * @param jdbcSchema
@@ -192,7 +216,19 @@ object JDBCUtils extends LazyLogging {
         jdbcSchema.tables
           .map(tblSchema => tblSchema.name.toUpperCase -> tblSchema)
           .toMap
-      val tableNames = jdbcTableMap.keys.toList
+      val uppercaseTableNames = jdbcTableMap.keys.toList
+
+      val schemaName =
+        extractCaseInsensitiveSchemaName(
+          databaseMetaData,
+          jdbcSchema.catalog,
+          jdbcSchema.schema
+        ) match {
+          case Success(schemaName) =>
+            schemaName
+          case Failure(exception) =>
+            throw exception
+        }
 
       /* Extract all tables from the database and return Map of tablename -> tableDescription */
       def extractTables(tablesToExtract: List[String] = Nil): Map[String, String] = {
@@ -200,7 +236,7 @@ object JDBCUtils extends LazyLogging {
         Using(
           databaseMetaData.getTables(
             jdbcSchema.catalog.orNull,
-            jdbcSchema.schema.toUpperCase(), // Because Snowflake is case sensitive
+            schemaName,
             "%",
             jdbcSchema.tableTypes.toArray
           )
@@ -219,7 +255,7 @@ object JDBCUtils extends LazyLogging {
         }
         tableNames.toMap
       }
-      val selectedTablesBeforeExclusion = tableNames match {
+      val selectedTablesBeforeExclusion = uppercaseTableNames match {
         case Nil =>
           extractTables()
         case list if list.contains("*") =>
@@ -253,9 +289,8 @@ object JDBCUtils extends LazyLogging {
             val foreignKeysResultSet = use(
               databaseMetaData.getImportedKeys(
                 jdbcSchema.catalog.orNull,
-                jdbcSchema.schema
-                  .toUpperCase(), // SNOWFLAKE DRIVER IS CASE SENSITIVE AND UPPERCASE ONLY
-                tableName.toUpperCase() // SNOWFLAKE DRIVER IS CASE SENSITIVE AND UPPERCASE ONLY
+                schemaName,
+                tableName
               )
             )
             val foreignKeys = new Iterator[(String, String)] {
@@ -279,9 +314,8 @@ object JDBCUtils extends LazyLogging {
             val columnsResultSet = use(
               databaseMetaData.getColumns(
                 jdbcSchema.catalog.orNull,
-                jdbcSchema.schema
-                  .toUpperCase(), // SNOWFLAKE DRIVER IS CASE SENSITIVE AND UPPERCASE ONLY
-                tableName.toUpperCase(), // SNOWFLAKE DRIVER IS CASE SENSITIVE AND UPPERCASE ONLY
+                schemaName,
+                tableName,
                 null
               )
             )
@@ -358,9 +392,8 @@ object JDBCUtils extends LazyLogging {
             val primaryKeysResultSet = use(
               databaseMetaData.getPrimaryKeys(
                 jdbcSchema.catalog.orNull,
-                jdbcSchema.schema
-                  .toUpperCase(), // SNOWFLAKE DRIVER IS CASE SENSITIVE AND UPPERCASE ONLY
-                tableName.toUpperCase() // SNOWFLAKE DRIVER IS CASE SENSITIVE AND UPPERCASE ONLY
+                schemaName,
+                tableName
               )
             )
             val primaryKeys = new Iterator[String] {
@@ -1365,12 +1398,13 @@ object LastExportUtils extends LazyLogging {
     columnName: String,
     colQuote: Char,
     fullExport: Boolean
-  )(apply: ResultSet => Option[T]): Option[T] = {
+  )(apply: ResultSet => Option[T])(implicit settings: Settings): Option[T] = {
+    val auditSchema = settings.comet.audit.sink.name.getOrElse("audit")
     if (fullExport) {
       None
     } else {
       val SQL_LAST_EXPORT_VALUE =
-        s"""select max($colQuote$columnName$colQuote) from SL_LAST_EXPORT where ${colQuote}domain${colQuote} like ? and ${colQuote}schema${colQuote} like ?"""
+        s"""select max($colQuote$columnName$colQuote) from $auditSchema.SL_LAST_EXPORT where ${colQuote}domain${colQuote} like ? and ${colQuote}schema${colQuote} like ?"""
       val preparedStatement = conn.prepareStatement(SQL_LAST_EXPORT_VALUE)
       preparedStatement.setString(1, domain)
       preparedStatement.setString(2, table)
@@ -1401,11 +1435,12 @@ object LastExportUtils extends LazyLogging {
     domain: String,
     schema: String,
     colNameQuote: Char
-  ): Option[Timestamp] = {
+  )(implicit settings: Settings): Option[Timestamp] = {
+    val auditSchema = settings.comet.audit.sink.name.getOrElse("audit")
     val lastExtractionSQL =
       s"""
          |select max(${colNameQuote}start_ts${colNameQuote})
-         |  from SL_LAST_EXPORT
+         |  from $auditSchema.SL_LAST_EXPORT
          |where
          |  ${colNameQuote}domain${colNameQuote} = ?
          |  and ${colNameQuote}schema${colNameQuote} = ?""".stripMargin
@@ -1427,7 +1462,7 @@ object LastExportUtils extends LazyLogging {
     partitionColumnType: Option[PrimitiveType],
     colStart: Char,
     colEnd: Char
-  ): Int = {
+  )(implicit settings: Settings): Int = {
     conn.setAutoCommit(true)
     val cols = List(
       "domain",
@@ -1441,7 +1476,9 @@ object LastExportUtils extends LazyLogging {
       "message",
       "step"
     ).map(col => colStart + col + colEnd).mkString(",")
-    val fullReport = s"""insert into SL_LAST_EXPORT($cols) values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"""
+    val auditSchema = settings.comet.audit.sink.name.getOrElse("audit")
+    val fullReport =
+      s"""insert into $auditSchema.SL_LAST_EXPORT($cols) values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"""
     val sqlInsert =
       partitionColumnType match {
         case None | Some(PrimitiveType.string) =>
@@ -1458,7 +1495,8 @@ object LastExportUtils extends LazyLogging {
                 s"type $partitionColumnType not supported for partition columnToDistribute"
               )
           }
-          s"""insert into SL_LAST_EXPORT($cols, $colStart$lastExportColumn$colEnd) values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"""
+          val auditSchema = settings.comet.audit.sink.name.getOrElse("audit")
+          s"""insert into $auditSchema.SL_LAST_EXPORT($cols, $colStart$lastExportColumn$colEnd) values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"""
       }
 
     val preparedStatement = conn.prepareStatement(sqlInsert)

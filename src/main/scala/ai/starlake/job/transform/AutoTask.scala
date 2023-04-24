@@ -74,10 +74,10 @@ object AutoTask extends StrictLogging {
         taskDesc.coalesce.orElse(jobDesc.coalesce).getOrElse(false),
         jobDesc.udf,
         Views(jobDesc.views.getOrElse(Map.empty)),
-        jobDesc.getEngine(),
+        taskDesc.engine.getOrElse(jobDesc.getEngine()),
         taskDesc,
         configOptions,
-        taskDesc.sink,
+        taskDesc.sink.orElse(jobDesc.sink),
         interactive,
         authInfo
       )(settings, storageHandler, schemaHandler)
