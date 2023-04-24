@@ -48,11 +48,11 @@ object LoadConfig extends CliConfig[LoadConfig] {
       head("starlake", command, "[options]"),
       note(""),
       arg[String]("domain")
-        .required()
+        .optional()
         .action((x, c) => c.copy(domain = x))
         .text("Domain name"),
       arg[String]("schema")
-        .required()
+        .optional()
         .action((x, c) => c.copy(schema = x))
         .text("Schema name"),
       arg[String]("paths")

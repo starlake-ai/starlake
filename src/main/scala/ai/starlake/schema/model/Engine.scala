@@ -41,7 +41,7 @@ object Engine {
     value.toUpperCase() match {
       case "BQ" | "BIGQUERY"                  => Engine.BQ
       case "PYSPARK" | "SPARK" | "DATABRICKS" => Engine.SPARK
-      case custom                             => Engine.Custom(custom)
+      case custom                             => Engine.Custom(value)
     }
   }
 

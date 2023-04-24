@@ -133,7 +133,8 @@ case class AutoJobDesc(
   udf: Option[String] = None,
   views: Option[Map[String, String]] = None,
   engine: Option[Engine] = None,
-  schedule: Map[String, String] = Map.empty
+  schedule: Map[String, String] = Map.empty,
+  sink: Option[Sink] = None
 ) extends Named {
   def this() = this("", Nil) // Should never be called. Here for Jackson deserialization only
   // TODO
