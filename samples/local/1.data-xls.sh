@@ -6,19 +6,14 @@ export SL_ENV="${SL_ENV:-LOCAL}"
 
 
 case $SL_ENV in
-    LOCAL|HDFS|GCP) echo "Running  in $SL_ENV env";;
+    LOCAL|HDFS|SNOWFLAKE) echo "Running  in $SL_ENV env";;
     *)             echo "$SL_ENV for SL_ENV unknown"; exit 1;;
 esac
 
 # shellcheck disable=SC1090
 source ./env."${SL_ENV}".sh
 
-set -x
-
-#SPARK_DRIVER_OPTIONS="-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005 -Dlog4j.configuration=file://$SPARK_DIR/conf/log4j.properties.template"
-$SPARK_SUBMIT --driver-java-options "$SPARK_DRIVER_OPTIONS" $SPARK_CONF_OPTIONS --class $SL_MAIN $SL_JAR_FULL_NAME import
 
 
-SL_INTERNAL_SUBSTITUTE_VARS=false $SPARK_SUBMIT --driver-java-options "$SPARK_DRIVER_OPTIONS" $SPARK_CONF_OPTIONS \
-    --class $SL_MAIN $SL_JAR_FULL_NAME yml2xls --xls $SL_ROOT/metadata/domains
+SL_INTERNAL_SUBSTITUTE_VARS=false $SL_BIN_DIR/starlake.sh yml2xls --xls $SL_ROOT/metadata/domains
 
