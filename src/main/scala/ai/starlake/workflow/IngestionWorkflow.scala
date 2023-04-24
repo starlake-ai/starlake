@@ -83,7 +83,7 @@ class IngestionWorkflow(
 )(implicit settings: Settings)
     extends StrictLogging {
 
-  val domains: List[Domain] = schemaHandler.domains()
+  var domains: List[Domain] = schemaHandler.domains()
 
   /** Move the files from the landing area to the pending area. files are loaded one domain at a
     * time each domain has its own directory and is specified in the "directory" key of Domain YML
@@ -399,24 +399,36 @@ class IngestionWorkflow(
   /** Ingest the file (called by the cron manager at ingestion time for a specific dataset
     */
   def load(config: LoadConfig): Boolean = {
-    val lockPath =
-      new Path(settings.comet.lock.path, s"${config.domain}_${config.schema}.lock")
-    val locker = new FileLock(lockPath, storageHandler)
-    val waitTimeMillis = settings.comet.lock.timeout
+    if (config.domain.isEmpty || config.schema.isEmpty) {
+      val domainToWatch = if (config.domain.nonEmpty) List(config.domain) else Nil
+      val schemasToWatch = if (config.schema.nonEmpty) List(config.schema) else Nil
+      loadPending(
+        WatchConfig(
+          includes = domainToWatch,
+          schemas = schemasToWatch,
+          options = config.options
+        )
+      )
+    } else {
+      val lockPath =
+        new Path(settings.comet.lock.path, s"${config.domain}_${config.schema}.lock")
+      val locker = new FileLock(lockPath, storageHandler)
+      val waitTimeMillis = settings.comet.lock.timeout
 
-    locker.doExclusively(waitTimeMillis) {
-      val domainName = config.domain
-      val schemaName = config.schema
-      val ingestingPaths = config.paths
-      val result = for {
-        domain <- domains.find(_.name == domainName)
-        schema <- domain.tables.find(_.name == schemaName)
-      } yield ingest(domain, schema, ingestingPaths, config.options)
-      result match {
-        case None | Some(Success(_)) => true
-        case Some(Failure(exception)) =>
-          Utils.logException(logger, exception)
-          false
+      locker.doExclusively(waitTimeMillis) {
+        val domainName = config.domain
+        val schemaName = config.schema
+        val ingestingPaths = config.paths
+        val result = for {
+          domain <- domains.find(_.name == domainName)
+          schema <- domain.tables.find(_.name == schemaName)
+        } yield ingest(domain, schema, ingestingPaths, config.options)
+        result match {
+          case None | Some(Success(_)) => true
+          case Some(Failure(exception)) =>
+            Utils.logException(logger, exception)
+            false
+        }
       }
     }
   }
@@ -678,7 +690,7 @@ class IngestionWorkflow(
                     logger.info("Sinking to BQ done")
                   case _ =>
                     // TODO Sinking not supported
-                    logger.error(s"Sinking from BQ to $sink not yet supported.")
+                    logger.info(s"Sinking defaulted to BQ.")
                 }
               case Some(format) =>
                 result.map { result =>
@@ -711,7 +723,7 @@ class IngestionWorkflow(
                 logger.info("""END QUERY SQL""")
                 true
               case (Success((SparkJobResult(maybeDataFrame), sqlSource)), None) =>
-                val sinkOption = action.taskDesc.sink
+                val sinkOption = action.sink
                 logger.info(s"Spark Job succeeded. sinking data to $sinkOption")
                 sinkOption match {
                   case Some(sink) =>

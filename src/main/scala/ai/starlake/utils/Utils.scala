@@ -41,6 +41,7 @@ import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try}
 
 object Utils {
+
   type Closeable = { def close(): Unit }
 
   /** Handle tansparently autocloseable resources and correctly chain exceptions

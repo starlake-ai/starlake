@@ -6,7 +6,8 @@ if [[ -z "$HDFS_URI" ]]; then
     echo "Must provide HDFS_URI in environment" 1>&2
     exit 1
 fi
-export SL_ENV=FS
+
+export SL_BIN_DIR="$(pwd)/../../distrib"
 export SPARK_DRIVER_MEMORY=4G
 export SL_FS="$HDFS_URI"
 export SL_ROOT="/tmp/quickstart"
@@ -19,5 +20,3 @@ export SL_HIVE=false
 export SL_GROUPED=false
 export SL_METRICS_PATH="/tmp/quickstart/metrics/{domain}"
 export SL_MAIN=ai.starlake.job.Main
-export SPARK_DRIVER_OPTIONS="-Dlog4j.configuration=file://$SPARK_DIR/conf/log4j.properties.template"
-
