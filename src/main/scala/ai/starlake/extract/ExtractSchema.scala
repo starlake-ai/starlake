@@ -78,7 +78,6 @@ object ExtractSchema extends Extract with LazyLogging {
   )(implicit
     settings: Settings
   ): Unit = {
-
     val domainName = jdbcSchema.schema.replaceAll("[^\\p{Alnum}]", "_")
     baseOutputDir.createDirectories()
     File(baseOutputDir, domainName).createDirectories()
