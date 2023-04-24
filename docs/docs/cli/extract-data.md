@@ -25,4 +25,5 @@ Parameter|Cardinality|Description
 --fullExport:`<value>`|*Optional*|Force full export to all tables
 --datePattern:`<value>`|*Optional*|Pattern used to format date during CSV writing
 --timestampPattern:`<value>`|*Optional*|Pattern used to format timestamp during CSV writing
+--ifExtractedBefore:`<value>`|*Optional*|DateTime to compare with the last beginning extraction dateTime. If it is before that date, extraction is done else skipped.
 
