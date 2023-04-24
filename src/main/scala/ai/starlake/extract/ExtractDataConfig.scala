@@ -50,7 +50,27 @@ object ExtractDataConfig extends CliConfig[ExtractDataConfig] {
     OParser.sequence(
       programName(s"starlake $command"),
       head("starlake", command, "[options]"),
-      note(""),
+      note(
+        """
+          |Extract data from any database defined in mapping file.
+          |
+          |Extraction is done in parallel by default and use all the available processors. It can be changed using `parallelism` CLI config.
+          |Extraction of a table can be divided in smaller chunk and fetched in parallel by defining partitionColumn and its numPartitions.
+          |
+          |Examples
+          |========
+          |
+          |Objective: Extract data and customize timestamp to have higher precision.
+          |
+          |  starlake.sh extract-data --mapping my-mapping --output-dir $PWD/output --timestampPattern "yyyy-MM-dd HH:mm:ss.SSSSSS"
+          |
+          |Objective: Plan to fetch all data but with different scheduling (once a day for all and twice a day for some) with failure recovery like behavior.
+          |  starlake.sh extract-data --mapping my-mapping --output-dir $PWD/output --includeSchemas aSchema
+          |         --includeTables table1RefreshedTwiceADay,table2RefreshedTwiceADay --ifExtractedBefore "2023-04-21 12:00:00"
+          |         --cleanOnExtract
+          |
+          |""".stripMargin
+      ),
       opt[String]("mapping")
         .action((x, c) => c.copy(mapping = x))
         .required()

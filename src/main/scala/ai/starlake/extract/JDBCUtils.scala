@@ -237,8 +237,9 @@ object JDBCUtils extends LazyLogging {
           }
           extractedTableNames
       }
+      val lowerCasedExcludeTables = excludeTables.map(_.toLowerCase)
       val selectedTables = selectedTablesBeforeExclusion.filter { case (tableName, _) =>
-        !excludeTables.contains(tableName)
+        !lowerCasedExcludeTables.contains(tableName.toLowerCase)
       }
       logger.whenInfoEnabled {
         selectedTables.keys.foreach(table => logger.info(s"Selected: $table"))
@@ -614,19 +615,24 @@ object JDBCUtils extends LazyLogging {
     if (clean)
       outputDir.list.foreach(_.delete(swallowIOExceptions = true))
 
-    val filteredJdbcSchema = if (includeTables.nonEmpty) {
+    val lowerCasedIncludeTables = includeTables.map(_.toLowerCase)
+    val filteredJdbcSchema = if (lowerCasedIncludeTables.nonEmpty) {
       val additionalTables = jdbcSchema.tables.find(_.name.trim == "*") match {
         case Some(allTableDef) =>
-          includeTables.diff(jdbcSchema.tables.map(_.name)).map(n => allTableDef.copy(name = n))
+          lowerCasedIncludeTables
+            .diff(jdbcSchema.tables.map(_.name.toLowerCase))
+            .map(n => allTableDef.copy(name = n))
         case None =>
           if (jdbcSchema.tables.isEmpty) {
-            includeTables.map(JDBCTable(_, Nil, None, None, Map.empty, None, None))
+            lowerCasedIncludeTables.map(JDBCTable(_, Nil, None, None, Map.empty, None, None))
           } else {
             Nil
           }
       }
       val tablesToFetch =
-        jdbcSchema.tables.filter(t => includeTables.contains(t.name)) ++ additionalTables
+        jdbcSchema.tables.filter(t =>
+          lowerCasedIncludeTables.contains(t.name.toLowerCase)
+        ) ++ additionalTables
       jdbcSchema.copy(tables = tablesToFetch)
     } else {
       jdbcSchema
