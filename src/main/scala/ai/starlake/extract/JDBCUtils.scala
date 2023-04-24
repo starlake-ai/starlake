@@ -1450,7 +1450,7 @@ object LastExportUtils extends LazyLogging {
     preparedStatement.setString(2, schema)
     val rs = preparedStatement.executeQuery()
     if (rs.next()) {
-      Some(rs.getTimestamp(1))
+      Option(rs.getTimestamp(1))
     } else {
       None
     }
