@@ -27,7 +27,7 @@ object Versions {
   val scalate = "1.9.8"
   val confluentVersion = "7.3.3"
   val kafkaClients = "7.3.3-ce"
-  val testContainers = "0.40.14"
+  val testContainers = "0.40.15"
   val gcpDataCatalog = "1.21.0"
   val jinja = "2.7.0"
   val snowflakeJDBC = "3.13.30"
