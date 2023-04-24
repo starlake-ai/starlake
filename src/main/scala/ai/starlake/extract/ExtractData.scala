@@ -43,8 +43,8 @@ class ExtractData(schemaHandler: SchemaHandler) extends Extract with LazyLogging
       .filter { s =>
         (config.includeSchemas, config.excludeSchemas) match {
           case (Nil, Nil) => true
-          case (inc, Nil) => inc.contains(s.schema)
-          case (Nil, exc) => !exc.contains(s.schema)
+          case (inc, Nil) => inc.map(_.toLowerCase).contains(s.schema.toLowerCase)
+          case (Nil, exc) => !exc.map(_.toLowerCase).contains(s.schema.toLowerCase)
           case (_, _)     => throw new RuntimeException("Should not happen")
         }
       }
