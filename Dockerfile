@@ -3,7 +3,7 @@
 # https://docs.docker.com/develop/develop-images/multistage-build/#use-multi-stage-builds
 FROM eclipse-temurin:17
 
-ENV SL_VERSION=0.7.1
+ENV SL_VERSION=0.7.2
 ENV SCALA_VERSION=2.12
 ENV SPARK_VERSION="3.3.2"
 ENV HADOOP_VERSION="3"
