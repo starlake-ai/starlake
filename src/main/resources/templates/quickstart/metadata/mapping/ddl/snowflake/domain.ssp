@@ -11,12 +11,12 @@
 %>
 
 
+alter session set TIMESTAMP_TYPE_MAPPING = 'TIMESTAMP_LTZ';
 CREATE SCHEMA IF NOT EXISTS ${domainName}
 #if (domainLabelsIsDefined)
 WITH TAG ${domainLabelsString}
 #end
 COMMENT = '${domainComment}';
-
 
 
 CREATE SCHEMA IF NOT EXISTS AUDIT;

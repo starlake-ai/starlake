@@ -17,6 +17,12 @@ RUN curl -L -O https://downloads.apache.org/spark/spark-3.3.2/spark-3.3.2-bin-ha
 RUN curl -L -O https://repo1.maven.org/maven2/com/google/cloud/spark/spark-bigquery-with-dependencies_2.12/0.30.0/spark-bigquery-with-dependencies_2.12-0.30.0.jar
 RUN curl -L -O https://repo1.maven.org/maven2/com/google/cloud/bigdataoss/gcs-connector/hadoop3-2.2.12/gcs-connector-hadoop3-2.2.12-shaded.jar
 
+# Azure dependency
+RUN curl -L -O https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-azure/3.3.5/hadoop-azure-3.3.5.jar
+RUN curl -L -O https://repo1.maven.org/maven2/com/microsoft/azure/azure-storage/8.6.6/azure-storage-8.6.6.jar
+RUN curl -L -O https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-util/9.4.51.v20230217/jetty-util-9.4.51.v20230217.jar
+RUN curl -L -O https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-util-ajax/9.4.51.v20230217/jetty-util-ajax-9.4.51.v20230217.jar
+
 # SNOWFLAKE Dependencies
 RUN curl -L -O https://repo1.maven.org/maven2/net/snowflake/spark-snowflake_2.12/2.11.2-spark_3.3/spark-snowflake_2.12-2.11.2-spark_3.3.jar
 RUN curl -L -O https://repo1.maven.org/maven2/net/snowflake/snowflake-jdbc/3.13.30/snowflake-jdbc-3.13.30.jar
@@ -32,12 +38,22 @@ RUN mv /app/bin/spark/spark-3.3.2-bin-hadoop3/* /app/bin/spark
 RUN rm spark-3.3.2-bin-hadoop3.tgz && rm -rf /app/bin/spark/spark-3.3.2-bin-hadoop3
 
 # Copy Dependencies
+## BigQuery
 RUN mv spark-bigquery-with-dependencies_2.12-0.30.0.jar /app/bin/spark/jars
 RUN mv gcs-connector-hadoop3-2.2.12-shaded.jar /app/bin/spark/jars
+## Snowflake
 RUN mv spark-snowflake_2.12-2.11.2-spark_3.3.jar /app/bin/spark/jars
 RUN mv snowflake-jdbc-3.13.30.jar /app/bin/spark/jars
+## Azure
+RUN mv hadoop-azure-3.3.5.jar /app/bin/spark/jars
+RUN mv azure-storage-8.6.6.jar /app/bin/spark/jars
+RUN mv jetty-util-9.4.51.v20230217.jar /app/bin/spark/jars
+RUN mv jetty-util-ajax-9.4.51.v20230217.jar /app/bin/spark/jars
 
+# Copy Starlake
 RUN mv starlake-spark3_$SCALA_VERSION-$SL_VERSION-assembly.jar /app/bin/spark/jars
 RUN mv /app/bin/spark/conf/log4j2.properties.template /app/bin/spark/jars/log4j2.properties
 COPY distrib/starlake.sh /app/
+
+
 ENTRYPOINT ["/app/starlake.sh"]
