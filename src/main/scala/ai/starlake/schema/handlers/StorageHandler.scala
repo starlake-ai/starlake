@@ -101,8 +101,11 @@ trait StorageHandler extends StrictLogging {
       value
         .split(',')
         .map { x =>
-          val t = x.split('=')
-          t(0).trim -> t(1).trim
+          val i = x.indexOf('=')
+          val key = x.substring(0, i)
+          val value = x.substring(i + 1)
+          // We do not do that because the value may contain the '=' sign (base64 azure key for example)
+          key.trim -> value.trim
         }
         .toMap
     }

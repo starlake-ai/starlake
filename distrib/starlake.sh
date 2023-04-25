@@ -142,13 +142,29 @@ echo Make sure your java home path does not contain space
 SPARK_DRIVER_OPTIONS="-Dlog4j.configuration=file://$SCRIPT_DIR/bin/spark/conf/log4j2.properties"
 #export SPARK_DRIVER_OPTIONS="-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005 -Dlog4j.configuration=file://$SPARK_DIR/conf/log4j2.properties"
 
-if [[ $SL_FS = gs:* ]]
+if [[ $SL_FS = abfs:* ]] || [[ $SL_FS = wasb:* ]]
+then
+  if [[ -z "$AZURE_STORAGE_ACCOUNT" ]]
+  then
+    echo "AZURE_STORAGE_ACCOUNT should reference storage account name"
+    exit 1
+  fi
+  if [[ -z "$AZURE_STORAGE_KEY" ]]
+  then
+    echo "AZURE_STORAGE_KEY should reference the storage account key"
+    exit 1
+  fi
+  export SL_STORAGE_CONF="fs.azure.account.auth.type.$AZURE_STORAGE_ACCOUNT.blob.core.windows.net=SharedKey,
+                  fs.azure.account.key.$AZURE_STORAGE_ACCOUNT.blob.core.windows.net="$AZURE_STORAGE_KEY",
+                  fs.default.name=$SL_FS,
+                  fs.defaultFS=$SL_FS"
+elif [[ $SL_FS = gs:* ]]
 then
   if [[ -z "$GOOGLE_APPLICATION_CREDENTIALS" ]]
   then
     echo "GOOGLE_APPLICATION_CREDENTIALS should reference the service account json file"
     exit 1
-  else
+  fi
   export SL_STORAGE_CONF="fs.AbstractFileSystem.gs.impl=com.google.cloud.hadoop.fs.gcs.GoogleHadoopFS,
                   google.cloud.auth.type=SERVICE_ACCOUNT_JSON_KEYFILE,
                   google.cloud.auth.service.account.json.keyfile=$GOOGLE_APPLICATION_CREDENTIALS,
@@ -156,18 +172,15 @@ then
                   google.cloud.auth.service.account.enable=true,
                   fs.default.name=$SL_FS,
                   fs.defaultFS=$SL_FS"
-  fi
-elif [[ $SL_FS = gs:* ]]
+elif [[ $SL_FS = hdfs:* ]]
 then
   if [[ -z "$HDFS_URI" ]]
   then
     echo "HDFS_URI should reference a valid hdfs cluster"
     exit 1
-  else
-  export SL_STORAGE_CONF="fs.default.name=$HDFS_URI"
   fi
+  export SL_STORAGE_CONF="fs.default.name=$HDFS_URI"
 fi
-
 
 if [[ -z "$SL_BQ_NATIVE" ]]
 then
