@@ -6,7 +6,7 @@ source ./env.sh
 
 azcopy remove "https://$AZURE_STORAGE_ACCOUNT.blob.core.windows.net/$AZURE_STORAGE_CONTAINER/mnt/starlake-app/quickstart/?$AZURE_STORAGE_SAS" --recursive=true
 azcopy copy "quickstart/" "https://$AZURE_STORAGE_ACCOUNT.blob.core.windows.net/$AZURE_STORAGE_CONTAINER/mnt/starlake-app/?$AZURE_STORAGE_SAS" --recursive=true
-azcopy copy application.snowflake.conf "https://$AZURE_STORAGE_ACCOUNT.blob.core.windows.net/$AZURE_STORAGE_CONTAINER/mnt/starlake-app/quickstart/metadata/application.conf"
+azcopy copy application.snowflake.conf "https://$AZURE_STORAGE_ACCOUNT.blob.core.windows.net/$AZURE_STORAGE_CONTAINER/mnt/starlake-app/quickstart/metadata/application.conf?$AZURE_STORAGE_SAS"
 
 
 
