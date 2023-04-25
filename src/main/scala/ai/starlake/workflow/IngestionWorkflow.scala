@@ -52,6 +52,10 @@ import com.google.cloud.bigquery.JobInfo.{CreateDisposition, WriteDisposition}
 import com.google.cloud.bigquery.{Schema => BQSchema}
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
+import org.apache.spark.sql.catalyst.SQLConfHelper
+import org.apache.spark.sql.execution.datasources.jdbc.JdbcUtils
+import org.apache.spark.sql.jdbc.{JdbcDialect, JdbcType}
+import org.apache.spark.sql.types.{BooleanType, DataType}
 
 import java.nio.file.{FileSystems, ProviderNotFoundException}
 import java.util.Collections
@@ -60,6 +64,15 @@ import scala.collection.GenSeq
 import scala.collection.parallel.ForkJoinTaskSupport
 import java.util.concurrent.ForkJoinPool
 import scala.util.{Failure, Success, Try}
+
+private case object SnowflakeDialect extends JdbcDialect with SQLConfHelper {
+  override def canHandle(url: String): Boolean = url.toLowerCase.startsWith("jdbc:snowflake:")
+  // override def quoteIdentifier(column: String): String = column
+  override def getJDBCType(dt: DataType): Option[JdbcType] = dt match {
+    case BooleanType => Some(JdbcType("BOOLEAN", java.sql.Types.BOOLEAN))
+    case _           => JdbcUtils.getCommonJDBCType(dt)
+  }
+}
 
 /** The whole worklfow works as follow :
   *   - loadLanding : Zipped files are uncompressed or raw files extracted from the local
@@ -82,6 +95,10 @@ class IngestionWorkflow(
   launchHandler: LaunchHandler
 )(implicit settings: Settings)
     extends StrictLogging {
+
+  import org.apache.spark.sql.jdbc.JdbcDialects
+
+  JdbcDialects.registerDialect(SnowflakeDialect)
 
   var domains: List[Domain] = schemaHandler.domains()
 
