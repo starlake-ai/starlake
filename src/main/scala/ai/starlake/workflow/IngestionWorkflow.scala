@@ -55,7 +55,7 @@ import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.catalyst.SQLConfHelper
 import org.apache.spark.sql.execution.datasources.jdbc.JdbcUtils
 import org.apache.spark.sql.jdbc.{JdbcDialect, JdbcType}
-import org.apache.spark.sql.types.{BooleanType, DataType}
+import org.apache.spark.sql.types.{BooleanType, DataType, TimestampType}
 
 import java.nio.file.{FileSystems, ProviderNotFoundException}
 import java.util.Collections
@@ -70,7 +70,9 @@ private case object SnowflakeDialect extends JdbcDialect with SQLConfHelper {
   // override def quoteIdentifier(column: String): String = column
   override def getJDBCType(dt: DataType): Option[JdbcType] = dt match {
     case BooleanType => Some(JdbcType("BOOLEAN", java.sql.Types.BOOLEAN))
-    case _           => JdbcUtils.getCommonJDBCType(dt)
+    case TimestampType =>
+      Some(JdbcType(sys.env.get("SF_TIMEZONE").getOrElse("TIMESTAMP"), java.sql.Types.BOOLEAN))
+    case _ => JdbcUtils.getCommonJDBCType(dt)
   }
 }
 
