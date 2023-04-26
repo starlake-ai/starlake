@@ -44,3 +44,4 @@ export SL_HIVE=false
 export SL_GROUPED=false
 export SL_MAIN=ai.starlake.job.Main
 export SL_METRICS_PATH="/mnt/starlake-app/quickstart/metrics/{domain}"
+export SF_TIMEZONE=TIMESTAMP_LTZ
