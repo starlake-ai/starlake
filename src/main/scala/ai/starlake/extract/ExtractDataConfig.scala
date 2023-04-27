@@ -24,7 +24,7 @@ import org.joda.time.DateTime
 import scopt.OParser
 
 case class ExtractDataConfig(
-  mapping: String = "",
+  extractConfig: String = "",
   outputDir: Option[String] = None,
   limit: Int = 0,
   separator: Char = ';',
@@ -62,17 +62,21 @@ object ExtractDataConfig extends CliConfig[ExtractDataConfig] {
           |
           |Objective: Extract data and customize timestamp to have higher precision.
           |
-          |  starlake.sh extract-data --mapping my-mapping --output-dir $PWD/output --timestampPattern "yyyy-MM-dd HH:mm:ss.SSSSSS"
+          |  starlake.sh extract-data --config my-config --output-dir $PWD/output --timestampPattern "yyyy-MM-dd HH:mm:ss.SSSSSS"
           |
           |Objective: Plan to fetch all data but with different scheduling (once a day for all and twice a day for some) with failure recovery like behavior.
-          |  starlake.sh extract-data --mapping my-mapping --output-dir $PWD/output --includeSchemas aSchema
+          |  starlake.sh extract-data --config my-config --output-dir $PWD/output --includeSchemas aSchema
           |         --includeTables table1RefreshedTwiceADay,table2RefreshedTwiceADay --ifExtractedBefore "2023-04-21 12:00:00"
           |         --cleanOnExtract
           |
           |""".stripMargin
       ),
       opt[String]("mapping")
-        .action((x, c) => c.copy(mapping = x))
+        .action((x, c) => c.copy(extractConfig = x))
+        .optional()
+        .text("Deprecated. Use config instead"),
+      opt[String]("config")
+        .action((x, c) => c.copy(extractConfig = x))
         .required()
         .text("Database tables & connection info"),
       opt[Int]("limit")

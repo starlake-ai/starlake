@@ -37,10 +37,10 @@ object ExtractSchema extends Extract with LazyLogging {
   def run(config: ExtractSchemaConfig)(implicit settings: Settings): Unit = {
     val schemaHandler = new SchemaHandler(settings.storageHandler)
     val content = settings.storageHandler
-      .read(mappingPath(config.mapping))
+      .read(mappingPath(config.extractConfig))
       .richFormat(schemaHandler.activeEnv(), Map.empty)
     val jdbcSchemas =
-      YamlSerializer.deserializeJDBCSchemas(content, config.mapping)
+      YamlSerializer.deserializeJDBCSchemas(content, config.extractConfig)
     val connectionOptions = jdbcSchemas.connectionRef
       .map(settings.comet.connections(_).options)
       .getOrElse(jdbcSchemas.connection)

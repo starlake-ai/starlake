@@ -449,15 +449,16 @@ class ExtractSpec extends TestHelper {
         |
         |Objective: Extract data and customize timestamp to have higher precision.
         |
-        |  starlake.sh extract-data --mapping my-mapping --output-dir $$PWD/output --timestampPattern "yyyy-MM-dd HH:mm:ss.SSSSSS"
+        |  starlake.sh extract-data --config my-config --output-dir $$PWD/output --timestampPattern "yyyy-MM-dd HH:mm:ss.SSSSSS"
         |
         |Objective: Plan to fetch all data but with different scheduling (once a day for all and twice a day for some) with failure recovery like behavior.
-        |  starlake.sh extract-data --mapping my-mapping --output-dir $$PWD/output --includeSchemas aSchema
+        |  starlake.sh extract-data --config my-config --output-dir $$PWD/output --includeSchemas aSchema
         |         --includeTables table1RefreshedTwiceADay,table2RefreshedTwiceADay --ifExtractedBefore "2023-04-21 12:00:00"
         |         --cleanOnExtract
         |
         |
-        |  --mapping <value>        Database tables & connection info
+        |  --mapping <value>        Deprecated. Use config instead
+        |  --config <value>         Database tables & connection info
         |  --limit <value>          Limit number of records
         |  --numPartitions <value>  parallelism level regarding partitionned tables
         |  --parallelism <value>    parallelism level of the extraction process. By default equals to the available cores: ${Runtime
@@ -482,6 +483,7 @@ class ExtractSpec extends TestHelper {
         |  --excludeTables table1,table2,table3...
         |                           Schemas to exclude during extraction. if `include-schemas` is defined, this config is ignored.
         |""".stripMargin
+    println(expected)
     rendered.substring(rendered.indexOf("Usage:")).replaceAll("\\s", "") shouldEqual expected
       .replaceAll("\\s", "")
   }
@@ -492,8 +494,8 @@ class ExtractSpec extends TestHelper {
     val expected =
       """
         |Usage: starlake extract-schema [options]
-        |
-        |  --mapping <value>        Database tables & connection info
+        |  --mapping <value>     Deprecated. Use config instead
+        |  --config <value>        Database tables & connection info
         |  --output-dir <value>    Where to output YML files
         |""".stripMargin
     rendered.substring(rendered.indexOf("Usage:")).replaceAll("\\s", "") shouldEqual expected

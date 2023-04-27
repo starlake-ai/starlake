@@ -64,7 +64,7 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
           List(res)
       }
       val sqlString = new StringBuffer()
-      Try(Domain.ddlMapping(config.datawarehouse, "global")) match {
+      Try(Domain.ddlExtract(config.datawarehouse, "global")) match {
         case scala.util.Success(_) =>
           // global.ssp exists
           val customParamMap = Map(
@@ -79,7 +79,7 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
       domains.map { domain =>
         val domainLabels = Utils.labels(domain.tags)
 
-        Try(Domain.ddlMapping(config.datawarehouse, "domain")) match {
+        Try(Domain.ddlExtract(config.datawarehouse, "domain")) match {
           case scala.util.Success(_) =>
             // domain.ssp exists
             val customParamMap = Map(
@@ -294,7 +294,7 @@ class Yml2DDLJob(config: Yml2DDLConfig, schemaHandler: SchemaHandler)(implicit
     dropParamMap: Map[TableRemarks, Any]
   ): String = {
     val (templatePath, templateContent) =
-      Domain.ddlMapping(
+      Domain.ddlExtract(
         config.datawarehouse,
         ddlType
       )
