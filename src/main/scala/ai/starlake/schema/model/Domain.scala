@@ -323,10 +323,10 @@ object Domain {
     }
   }
 
-  def ddlMapping(datawarehouse: String, ddlType: String)(implicit
+  def ddlExtract(datawarehouse: String, ddlType: String)(implicit
     settings: Settings
   ): (Path, String) = {
-    val rootPath = new Path(new Path(DatasetArea.mapping, "ddl"), datawarehouse)
+    val rootPath = new Path(new Path(DatasetArea.extract, "ddl"), datawarehouse)
     val mustache = new Path(rootPath, s"$ddlType.mustache")
     val ssp = new Path(rootPath, s"$ddlType.ssp")
     val template =

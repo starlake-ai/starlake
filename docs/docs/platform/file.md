@@ -10,8 +10,7 @@ If running the samples on MacOS or Linux, you may skip this section.
 To run the samples locally on Windows, you must first create the docker image :
 
 ````shell
-$ cd samples
-$ docker build --build-arg SL_VERSION=0.3.1 -t starlake .
+$ docker build --build-arg SL_VERSION=0.7.2.2 -t starlake .
 ````
 
 One the docker image is built locally, run it :

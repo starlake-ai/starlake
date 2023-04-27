@@ -15,6 +15,7 @@ title: extract-schema
 
 Parameter|Cardinality|Description
 ---|---|---
---mapping:`<value>`|*Required*|Database tables & connection info
+--mapping:`<value>`|*Optional*|Deprecated. Use config instead
+--config:`<value>`|*Required*|Database tables & connection info
 --output-dir:`<value>`|*Optional*|Where to output YML files
 
