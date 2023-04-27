@@ -166,7 +166,7 @@ class KafkaJob(
     }
   }
 
-  private def batchSave(df: DataFrame) = {
+  private def batchSave(df: DataFrame): DataFrame = {
     val finalDF =
       kafkaJobConfig.coalesce match {
         case None    => df

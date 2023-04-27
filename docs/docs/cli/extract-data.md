@@ -10,7 +10,7 @@ title: extract-data
 
 ## Description
 
-Extract data from any database defined in mapping file.
+Extract data from any database defined in config file.
 
 Extraction is done in parallel by default and use all the available processors. It can be changed using `parallelism` CLI config.
 Extraction of a table can be divided in smaller chunk and fetched in parallel by defining partitionColumn and its numPartitions.
@@ -20,10 +20,10 @@ Examples
 
 Objective: Extract data and customize timestamp to have higher precision.
 
-  starlake.sh extract-data --mapping my-mapping --output-dir $PWD/output --timestampPattern "yyyy-MM-dd HH:mm:ss.SSSSSS"
+  starlake.sh extract-data --config my-config --output-dir $PWD/output --timestampPattern "yyyy-MM-dd HH:mm:ss.SSSSSS"
 
 Objective: Plan to fetch all data but with different scheduling (once a day for all and twice a day for some) with failure recovery like behavior.
-  starlake.sh extract-data --mapping my-mapping --output-dir $PWD/output --includeSchemas aSchema
+  starlake.sh extract-data --config my-config --output-dir $PWD/output --includeSchemas aSchema
          --includeTables table1RefreshedTwiceADay,table2RefreshedTwiceADay --ifExtractedBefore "2023-04-21 12:00:00"
          --cleanOnExtract
 
@@ -33,7 +33,8 @@ Objective: Plan to fetch all data but with different scheduling (once a day for 
 
 Parameter|Cardinality|Description
 ---|---|---
---mapping:`<value>`|*Required*|Database tables & connection info
+--mapping:`<value>`|*Optional*|Deprecated. Use config instead
+--config:`<value>`|*Required*|Database tables & connection info
 --limit:`<value>`|*Optional*|Limit number of records
 --numPartitions:`<value>`|*Optional*|parallelism level regarding partitionned tables
 --parallelism:`<value>`|*Optional*|parallelism level of the extraction process. By default equals to the available cores: 10

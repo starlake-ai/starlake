@@ -4,7 +4,7 @@ import ai.starlake.utils.CliConfig
 import scopt.OParser
 
 case class ExtractSchemaConfig(
-  mapping: String = "",
+  extractConfig: String = "",
   outputDir: Option[String] = None
 )
 
@@ -18,7 +18,11 @@ object ExtractSchemaConfig extends CliConfig[ExtractSchemaConfig] {
       head("starlake", command, "[options]"),
       note(""),
       opt[String]("mapping")
-        .action((x, c) => c.copy(mapping = x))
+        .action((x, c) => c.copy(extractConfig = x))
+        .optional()
+        .text("Deprecated. Use config instead"),
+      opt[String]("config")
+        .action((x, c) => c.copy(extractConfig = x))
         .required()
         .text("Database tables & connection info"),
       opt[String]("output-dir")
