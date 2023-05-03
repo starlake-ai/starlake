@@ -161,7 +161,7 @@ class JsonIngestionJob(
 
     saveRejected(rejectedDS, validationResult.rejected)
     saveAccepted(validationResult) // prefer to let Spark compute the final schema
-    (rejectedDS, toValidate)
+    (rejectedDS, validationResult.accepted)
   }
 
   override def name: String = "JsonJob"
