@@ -1,6 +1,11 @@
 
 # Release notes
 
+# 0.7.3:
+
+__Bug Fix__:
+- report correct JSON accepted lines in audit
+
 # 0.7.2:
 __Feature__:
 - allow full export for tables and use partition column only to speed up extraction
