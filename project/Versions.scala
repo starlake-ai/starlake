@@ -1,4 +1,3 @@
-
 object Versions {
   val curator = "2.6.0"
   val spark3d0 = "3.3.2"
@@ -27,7 +26,7 @@ object Versions {
   val poi = "4.1.2"
   val scalate = "1.9.8"
   val confluentVersion = "7.3.3"
-  val kafkaClients = "7.3.3-ce"
+  val kafkaClients = "7.4.0-ce"
   val testContainers = "0.40.15"
   val gcpDataCatalog = "1.22.0"
   val jinja = "2.7.0"
