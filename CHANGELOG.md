@@ -3,7 +3,10 @@
 
 # 0.7.3:
 
-__Bug Fix__:
+__Feature__:
+- **BREAKING CHANGE**: Rename "cleanOnExtract" to "clean" in ExtractData CLI  
+  
+- __Bug Fix__:
 - report correct JSON accepted lines in audit
 
 # 0.7.2:
