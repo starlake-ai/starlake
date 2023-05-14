@@ -6,7 +6,7 @@ load:
     format: "JSON"
     sink:
       type: ${sink_type}
-  schemas:
+  tables:
     - name: "sellers"
       pattern: "sellers-.*.json"
       primaryKey:
