@@ -30,7 +30,6 @@ case class ExtractDataConfig(
   separator: Char = ';',
   numPartitions: Int = 1,
   parallelism: Option[Int] = None,
-  clean: Boolean = false,
   fullExport: Boolean = false,
   datePattern: String = "yyyy-MM-dd",
   timestampPattern: String = "yyyy-MM-dd HH:mm:ss",
@@ -67,7 +66,7 @@ object ExtractDataConfig extends CliConfig[ExtractDataConfig] {
           |Objective: Plan to fetch all data but with different scheduling (once a day for all and twice a day for some) with failure recovery like behavior.
           |  starlake.sh extract-data --config my-config --output-dir $PWD/output --includeSchemas aSchema
           |         --includeTables table1RefreshedTwiceADay,table2RefreshedTwiceADay --ifExtractedBefore "2023-04-21 12:00:00"
-          |         --cleanOnExtract
+          |         --clean
           |
           |""".stripMargin
       ),
@@ -98,9 +97,9 @@ object ExtractDataConfig extends CliConfig[ExtractDataConfig] {
         .optional()
         .text("Column separator"),
       opt[Unit]("clean")
-        .action((x, c) => c.copy(clean = true))
+        .action((x, c) => c.copy(cleanOnExtract = true))
         .optional()
-        .text("Cleanup output directory first ?"),
+        .text("Clean all files of table only when it is extracted."),
       opt[String]("output-dir")
         .action((x, c) => c.copy(outputDir = Some(x)))
         .required()
@@ -127,7 +126,7 @@ object ExtractDataConfig extends CliConfig[ExtractDataConfig] {
         .action((x, c) => c.copy(cleanOnExtract = true))
         .optional()
         .text(
-          "Clean all files of table only when it is extracted."
+          "Deprecated. Use --clean instead."
         ),
       opt[Seq[String]]("includeSchemas")
         .action((x, c) => c.copy(includeSchemas = x.map(_.trim)))

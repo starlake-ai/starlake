@@ -30,10 +30,12 @@ if [[ -z "$AZURE_STORAGE_SAS" ]]; then
     exit 1
 fi
 
+
+
 export SL_BIN_DIR="$PWD/../../distrib"
 export SL_ENV=SNOWFLAKE
 export SPARK_DRIVER_MEMORY=4G
-export SL_FS="wasb://$AZURE_STORAGE_CONTAINER@$AZURE_STORAGE_ACCOUNT.blob.core.windows.net/"
+export SL_FS="wasbs://$AZURE_STORAGE_CONTAINER@$AZURE_STORAGE_ACCOUNT.blob.core.windows.net/"
 export SL_ROOT="/mnt/starlake-app/quickstart"
 export SL_METRICS_ACTIVE=true
 export SL_ASSERTIONS_ACTIVE=true

@@ -623,7 +623,6 @@ object JDBCUtils extends LazyLogging {
     limit: Int,
     separator: Char,
     defaultNumPartitions: Int,
-    clean: Boolean,
     parallelism: Int,
     fullExportCli: Boolean,
     datePattern: String,
@@ -648,8 +647,6 @@ object JDBCUtils extends LazyLogging {
     baseOutputDir.createDirectories()
     val outputDir = File(baseOutputDir, domainName)
     outputDir.createDirectories()
-    if (clean)
-      outputDir.list.foreach(_.delete(swallowIOExceptions = true))
 
     val lowerCasedIncludeTables = includeTables.map(_.toLowerCase)
     val filteredJdbcSchema = if (lowerCasedIncludeTables.nonEmpty) {
