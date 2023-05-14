@@ -1,74 +1,127 @@
+---
 load:
   name: "sales"
-  directory: "${root_path}/incoming/sales"
   metadata:
     mode: "FILE"
     format: "DSV"
+    encoding: "UTF-8"
+    multiline: false
+    array: false
     withHeader: true
+    separator: ";"
     quote: "\""
     escape: "\\"
     write: "APPEND"
-    sink:
-      type: ${sink_type}
-      #timestamp: signup
-  schemas:
-    - name: "customers"
-      pattern: "customers-.*.psv"
-      metadata:
-        separator: "|"
-        partition:
-          attributes:
-            - signup
-      merge:
-        # for BQ only
-        #queryFilter: date(signup) in last(4)
-        #timestamp: signup
-        key:
-          - id
-      primaryKey:
-        - id
-      attributes:
-        - name: "id"
-          type: "customerid"
-          required: true
-        - name: "signup"
-          type: "timestamp"
-          required: false
-        - name: "contact"
-          type: "email"
-          required: false
-        - name: "birthdate"
-          type: "date"
-          required: false
-        - name: "name1"
-          type: "string"
-          required: false
-          rename: "firstname"
-        - name: "name2"
-          type: "string"
-          required: false
-          rename: "lastname"
-    - name: "orders"
-      pattern: "orders-.*.csv"
-      merge:
-        key:
-          - "id"
-        delete: "customer_id is null"
-      metadata:
-        separator: ","
-      attributes:
-        - name: "order_id"
-          type: "string"
-          required: true
-          rename: "id"
-        - name: "customer_id"
-          type: "customerid"
-          required: false
-          foreignKey: customers
-        - name: "amount"
-          type: "decimal"
-          required: false
-        - name: "seller_id"
-          type: "string"
-          required: false
-          foreignKey: hr.sellers.id
+    directory: "${root_path}/incoming/sales"
+  tables:
+  - name: "customers"
+    pattern: "customers-.*.psv"
+    attributes:
+    - name: "id"
+      type: "customerid"
+      array: false
+      required: true
+      privacy: "NONE"
+      ignore: false
+    - name: "signup"
+      type: "timestamp"
+      array: false
+      required: false
+      privacy: "NONE"
+      ignore: false
+    - name: "contact"
+      type: "email"
+      array: false
+      required: false
+      privacy: "NONE"
+      ignore: false
+    - name: "birthdate"
+      type: "date"
+      array: false
+      required: false
+      privacy: "NONE"
+      ignore: false
+    - name: "name1"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      rename: "firstname"
+      ignore: false
+    - name: "name2"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      rename: "lastname"
+      ignore: false
+    metadata:
+      mode: "FILE"
+      format: "DSV"
+      encoding: "UTF-8"
+      multiline: false
+      array: false
+      withHeader: true
+      separator: "|"
+      quote: "\""
+      escape: "\\"
+      write: "APPEND"
+      partition:
+        sampling: 0.0
+        attributes:
+        - "signup"
+      sink: !<FS>
+        type: "FS"
+    merge:
+      key:
+      - "id"
+    primaryKey:
+    - "id"
+    flat: true
+  - name: "orders"
+    pattern: "orders-.*.csv"
+    attributes:
+    - name: "order_id"
+      type: "string"
+      array: false
+      required: true
+      privacy: "NONE"
+      rename: "id"
+      ignore: false
+    - name: "customer_id"
+      type: "customerid"
+      array: false
+      required: false
+      privacy: "NONE"
+      foreignKey: "customers"
+      ignore: false
+    - name: "amount"
+      type: "decimal"
+      array: false
+      required: false
+      privacy: "NONE"
+      ignore: false
+    - name: "seller_id"
+      type: "string"
+      array: false
+      required: false
+      privacy: "NONE"
+      foreignKey: "hr.sellers.id"
+      ignore: false
+    metadata:
+      mode: "FILE"
+      format: "DSV"
+      encoding: "UTF-8"
+      multiline: false
+      array: false
+      withHeader: true
+      separator: ","
+      quote: "\""
+      escape: "\\"
+      write: "APPEND"
+      sink: !<FS>
+        type: "FS"
+    merge:
+      key:
+      - "id"
+    flat: true
