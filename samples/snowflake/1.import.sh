@@ -1,8 +1,8 @@
 if [[ -z "$SL_ENV" ]]; then
-    echo "SL_ENV not provided using default value LOCAL" 1>&2
+    echo "SL_ENV not provided using default value SNOWFLAKE" 1>&2
 fi
 
-export SL_ENV="${SL_ENV:-LOCAL}"
+export SL_ENV="${SL_ENV:-SNOWFLAKE}"
 
 
 case $SL_ENV in

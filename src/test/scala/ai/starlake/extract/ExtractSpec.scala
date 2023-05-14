@@ -454,7 +454,7 @@ class ExtractSpec extends TestHelper {
         |Objective: Plan to fetch all data but with different scheduling (once a day for all and twice a day for some) with failure recovery like behavior.
         |  starlake.sh extract-data --config my-config --output-dir $$PWD/output --includeSchemas aSchema
         |         --includeTables table1RefreshedTwiceADay,table2RefreshedTwiceADay --ifExtractedBefore "2023-04-21 12:00:00"
-        |         --cleanOnExtract
+        |         --clean
         |
         |
         |  --mapping <value>        Deprecated. Use config instead
@@ -465,7 +465,7 @@ class ExtractSpec extends TestHelper {
           .getRuntime()
           .availableProcessors()}
         |  --separator <value>      Column separator
-        |  --clean                  Cleanup output directory first ?
+        |  --clean                  Clean all files of table only when it is extracted.
         |  --output-dir <value>     Where to output csv files
         |  --fullExport             Force full export to all tables
         |  --datePattern <value>    Pattern used to format date during CSV writing
@@ -473,7 +473,7 @@ class ExtractSpec extends TestHelper {
         |                           Pattern used to format timestamp during CSV writing
         |  --ifExtractedBefore <value>
         |                           DateTime to compare with the last beginning extraction dateTime. If it is before that date, extraction is done else skipped.
-        |  --cleanOnExtract         Clean all files of table only when it is extracted.
+        |  --cleanOnExtract         Deprecated. Use --clean instead.
         |  --includeSchemas schema1,schema2
         |                           Domains to include during extraction.
         |  --excludeSchemas schema1,schema2...
