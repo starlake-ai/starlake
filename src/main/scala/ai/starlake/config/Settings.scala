@@ -404,9 +404,10 @@ object Settings extends StrictLogging {
     val applicationConfPath = new Path(DatasetArea.metadata(settings), "application.conf")
     val result: Settings = if (settings.storageHandler.exists(applicationConfPath)) {
       val applicationConfContent = settings.storageHandler.read(applicationConfPath)
-      val applicationConfig = ConfigFactory.parseString(applicationConfContent)
+      val applicationConfig = ConfigFactory.parseString(applicationConfContent).resolve()
       val effectiveApplicationConfig = applicationConfig
         .withFallback(effectiveConfig)
+      logger.info(effectiveApplicationConfig.toString)
       val mergedSettings = ConfigSource
         .fromConfig(effectiveApplicationConfig)
         .loadOrThrow[Comet]
