@@ -8,6 +8,7 @@ __Feature__:
   
 - __Bug Fix__:
 - report correct JSON accepted lines in audit
+- Resolve env vars in metadata/application.conf
 
 # 0.7.2:
 __Feature__:
