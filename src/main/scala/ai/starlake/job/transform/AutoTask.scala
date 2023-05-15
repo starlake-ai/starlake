@@ -372,7 +372,7 @@ case class AutoTask(
       .option("path", targetPath.toString)
       .options(sink.getOptions)
 
-    if (settings.comet.hive) {
+    if (settings.comet.isHiveCompatible()) {
       val tableName = taskDesc.table
       val hiveDB = taskDesc.getHiveDB()
       val fullTableName = s"$hiveDB.$tableName"
@@ -428,7 +428,7 @@ case class AutoTask(
         case None =>
           (SparkJobResult(None), sqlWithParameters)
         case Some(dataframe) =>
-          if (settings.comet.hive || settings.comet.sinkToFile) {
+          if (settings.comet.isHiveCompatible() || settings.comet.sinkToFile) {
             val fsSink = sink match {
               case Some(sink) =>
                 sink match {
