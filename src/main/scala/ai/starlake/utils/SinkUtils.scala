@@ -189,7 +189,7 @@ class SinkUtils()(implicit settings: Settings) extends StrictLogging with Datase
         .load(path.toString)
         .union(dataToSave)
 
-      if (settings.comet.hive) {
+      if (settings.comet.isHiveCompatible()) {
         val hiveDB = datasetName
         val fullTableName = s"$hiveDB.$tableName"
         session.sql(s"create database if not exists $hiveDB")
