@@ -28,7 +28,9 @@ import com.typesafe.config.{Config, ConfigFactory}
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.functions.{col, input_file_name, regexp_extract}
 
-abstract class JsonIngestionJobSpecBase(variant: String) extends TestHelper with JdbcChecks {
+abstract class JsonIngestionJobSpecBase(variant: String, jsonData: String)
+    extends TestHelper
+    with JdbcChecks {
 
   def expectedAuditLogs(implicit settings: Settings): List[AuditLog]
 
@@ -47,7 +49,7 @@ abstract class JsonIngestionJobSpecBase(variant: String) extends TestHelper with
         domainOrJobFilename = "json.comet.yml",
         sourceDomainOrJobPathname = "/sample/json/json.comet.yml",
         datasetDomainName = "json",
-        sourceDatasetPathName = "/sample/json/complex.json"
+        sourceDatasetPathName = "/sample/json/" + jsonData
       ) {
 
         cleanMetadata
@@ -57,9 +59,9 @@ abstract class JsonIngestionJobSpecBase(variant: String) extends TestHelper with
 
         // Check archive
         readFileContent(
-          cometDatasetsPath + s"/archive/${datasetDomainName}/complex.json"
+          cometDatasetsPath + s"/archive/${datasetDomainName}/$jsonData"
         ) shouldBe loadTextFile(
-          "/sample/json/complex.json"
+          s"/sample/json/$jsonData"
         )
 
         val schemaHandler = new SchemaHandler(settings.storageHandler)
@@ -75,7 +77,7 @@ abstract class JsonIngestionJobSpecBase(variant: String) extends TestHelper with
         val expectedDf = sparkSession.read
           .schema(sparkSchema)
           .json(
-            File(getClass.getResource(s"/sample/${datasetDomainName}/complex.json")).pathAsString
+            File(getClass.getResource(s"/sample/${datasetDomainName}/$jsonData")).pathAsString
           )
           .withColumn("email_domain", regexp_extract(col("email"), ".+@(.+)", 1))
           .withColumn("source_file_name", regexp_extract(input_file_name, ".+\\/(.+)$", 1))
@@ -101,7 +103,7 @@ abstract class JsonIngestionJobSpecBase(variant: String) extends TestHelper with
     }
   }
 
-  "Ingestion JSn Scheam" should "succceed" in {}
+  "Ingestion JSON Schema" should "succeed" in {}
   ("Ingest JSON with unordered scripted fields " + variant) should "fail" in {
     new WithSettings(configuration) {
 
@@ -109,7 +111,7 @@ abstract class JsonIngestionJobSpecBase(variant: String) extends TestHelper with
         domainOrJobFilename = "json.comet.yml",
         sourceDomainOrJobPathname = "/sample/json/json-invalid-script.comet.yml",
         datasetDomainName = "json",
-        sourceDatasetPathName = "/sample/json/complex.json"
+        sourceDatasetPathName = s"/sample/json/$jsonData"
       ) {
 
         cleanMetadata
@@ -121,14 +123,17 @@ abstract class JsonIngestionJobSpecBase(variant: String) extends TestHelper with
 }
 
 class JsonIngestionJobNoIndexNoMetricsNoAuditSpec
-    extends JsonIngestionJobSpecBase("No Index, No Metrics, No Audit") {
+    extends JsonIngestionJobSpecBase(
+      "No Index, No Metrics, No Audit",
+      "complex.json"
+    ) {
 
   override def configuration: Config =
     ConfigFactory
       .parseString("""
-          |audit.index.type = "None"
-          |audit.index.connection = "test-h2"
-          |""".stripMargin)
+                     |audit.index.type = "None"
+                     |audit.index.connection = "test-h2"
+                     |""".stripMargin)
       .withFallback(super.testConfiguration)
 
   override def expectedAuditLogs(implicit settings: Settings): List[AuditLog] = Nil
@@ -142,7 +147,10 @@ class JsonIngestionJobNoIndexNoMetricsNoAuditSpec
 }
 
 class JsonIngestionJobSpecNoIndexJdbcMetricsJdbcAuditSpec
-    extends JsonIngestionJobSpecBase("No Index, Jdbc Metrics, Jdbc Audit") {
+    extends JsonIngestionJobSpecBase(
+      "No Index, Jdbc Metrics, Jdbc Audit",
+      "complex.json"
+    ) {
 
   override def configuration: Config =
     ConfigFactory
@@ -178,6 +186,66 @@ class JsonIngestionJobSpecNoIndexJdbcMetricsJdbcAuditSpec
       count = 1,
       countAccepted = 1,
       countRejected = 0,
+      timestamp = TestStart,
+      duration = 1 /* fake */,
+      message = "success",
+      Step.LOAD.toString
+    ) :: Nil
+
+  override def expectedRejectRecords(implicit settings: Settings): List[RejectedRecord] =
+    Nil
+
+  override def expectedMetricRecords(implicit
+    settings: Settings
+  ): (List[ContinuousMetricRecord], List[DiscreteMetricRecord], List[FrequencyMetricRecord]) =
+    (
+      Nil,
+      Nil,
+      Nil
+    )
+}
+
+class JsonIngestionJobSpecNoIndexNoMetricsJdbcAuditSpec
+    extends JsonIngestionJobSpecBase(
+      "No Index, No Metrics, Jdbc Audit",
+      "complexWithError.json"
+    ) {
+
+  override def configuration: Config =
+    ConfigFactory
+      .parseString("""
+                     |grouped = false
+                     |
+                     |metrics {
+                     |  active = true
+                     |  sink {
+                     |    type = "JdbcSink"
+                     |    connection = "test-h2"
+                     |  }
+                     |}
+                     |
+                     |audit {
+                     |  active = true
+                     |  sink {
+                     |    type = "JdbcSink"
+                     |    connection = "test-h2"
+                     |  }
+                     |}
+                     |""".stripMargin)
+      .withFallback(super.testConfiguration)
+
+  override def expectedAuditLogs(implicit settings: Settings): List[AuditLog] =
+    AuditLog(
+      jobid = sparkSession.sparkContext.applicationId,
+      paths = new Path(
+        "file:///" + settings.comet.datasets + "/ingesting/json/complexWithError.json"
+      ).toString,
+      domain = "json",
+      schema = "sample_json",
+      success = true,
+      count = 2,
+      countAccepted = 1,
+      countRejected = 1,
       timestamp = TestStart,
       duration = 1 /* fake */,
       message = "success",
