@@ -43,7 +43,7 @@ class SparkEnv(name: String, confTransformer: SparkConf => SparkConf = identity)
     */
   lazy val session: SparkSession = {
     val session =
-      if (settings.comet.hive)
+      if (settings.comet.isHiveCompatible())
         SparkSession.builder.config(config).enableHiveSupport().getOrCreate()
       else {
         SparkSession.builder.config(config).getOrCreate()

@@ -45,6 +45,7 @@ import pureconfig.ConvertHelpers._
 import pureconfig._
 import pureconfig.generic.FieldCoproductHint
 import pureconfig.generic.auto._
+import com.fasterxml.jackson.annotation.JsonIgnore
 
 import java.io.ObjectStreamException
 import java.util.concurrent.TimeUnit
@@ -351,6 +352,10 @@ object Settings extends StrictLogging {
     protected def writeReplace: AnyRef = {
       Comet.JsonWrapped(this)
     }
+
+    @JsonIgnore
+    def isHiveCompatible(): Boolean = hive || Utils.isRunningInDatabricks()
+
   }
 
   object Comet {
