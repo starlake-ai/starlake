@@ -64,7 +64,7 @@ object Common {
 //    }
   )
 
-  def assemlySettings = Seq(
+  def assemblySettings = Seq(
     assembly / test := {},
     Compile / mainClass := Some("ai.starlake.job.Main")
   )
@@ -87,7 +87,7 @@ object Common {
       ),
       Test / parallelExecution := false,
       scalafmtOnCompile := true
-    ) ++ gitSettings ++ assemlySettings
+    ) ++ gitSettings ++ assemblySettings
 
 }
 
