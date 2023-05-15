@@ -939,7 +939,7 @@ class IngestionWorkflow(
     val includedDomains = domainsToWatch(config)
     val result = includedDomains.flatMap { domain =>
       domain.tables.map { schema =>
-        if (settings.comet.hive || Utils.isRunningInDatabricks()) {
+        if (settings.comet.isHiveCompatible()) {
           new DummyIngestionJob(
             domain,
             schema,

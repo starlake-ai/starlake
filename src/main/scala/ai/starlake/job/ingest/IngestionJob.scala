@@ -627,7 +627,7 @@ trait IngestionJob extends SparkJob {
   }
 
   private def extractTableAcl(): List[String] = {
-    if (settings.comet.hive) {
+    if (settings.comet.isHiveCompatible()) {
       schema.acl.flatMap { ace =>
         if (Utils.isRunningInDatabricks()) {
           /*
@@ -692,7 +692,7 @@ trait IngestionJob extends SparkJob {
       val hiveDB = StorageArea.area(domain.finalName, Some(area))
       val tableName = schema.name
       val fullTableName = s"$hiveDB.$tableName"
-      if (settings.comet.hive) {
+      if (settings.comet.isHiveCompatible()) {
         val dbComment = domain.comment.getOrElse("")
         val tableTagPairs = Utils.extractTags(domain.tags) + ("comment" -> dbComment)
         val tagsAsString = tableTagPairs.map { case (k, v) => s"'$k'='$v'" }.mkString(",")
@@ -815,7 +815,7 @@ trait IngestionJob extends SparkJob {
 
         logger.info(s"Saving Dataset to final location $targetPath in $saveMode mode")
 
-        if (settings.comet.hive) {
+        if (settings.comet.isHiveCompatible()) {
           finalTargetDatasetWriter.saveAsTable(fullTableName)
           val tableComment = schema.comment.getOrElse("")
           val tableTagPairs = Utils.extractTags(schema.tags) + ("comment" -> tableComment)
