@@ -8,7 +8,7 @@ __Feature__:
 - Imply SL_HIVE=true implicitly when running on Databricks
   
 __Bug Fix__:
-- report correct JSON accepted lines in audit
+- report correct JSON accepted lines in audit and added unit test
 - Resolve env vars in metadata/application.conf
 
 # 0.7.2:

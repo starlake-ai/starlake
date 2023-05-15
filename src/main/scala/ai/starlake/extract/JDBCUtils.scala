@@ -233,25 +233,31 @@ object JDBCUtils extends LazyLogging {
       /* Extract all tables from the database and return Map of tablename -> tableDescription */
       def extractTables(tablesToExtract: List[String] = Nil): Map[String, String] = {
         val tableNames = mutable.Map.empty[String, String]
-        Using(
+        Try {
           databaseMetaData.getTables(
             jdbcSchema.catalog.orNull,
             schemaName,
             "%",
             jdbcSchema.tableTypes.toArray
           )
-        ) { resultSet =>
-          while (resultSet.next()) {
-            val tableName = resultSet.getString("TABLE_NAME")
-            if (tablesToExtract.isEmpty || tablesToExtract.contains(tableName.toUpperCase())) {
-              val localRemarks =
-                if (skipRemarks) None
-                else extractTableRemarks(jdbcSchema, connectionOptions, tableName)
-              val remarks = localRemarks.getOrElse(resultSet.getString("REMARKS"))
-              logger.info(s"Extracting table $tableName: $remarks")
-              tableNames += tableName -> remarks
+        } match {
+          case Success(resultSet) =>
+            Using(resultSet) { resultSet =>
+              while (resultSet.next()) {
+                val tableName = resultSet.getString("TABLE_NAME")
+                if (tablesToExtract.isEmpty || tablesToExtract.contains(tableName.toUpperCase())) {
+                  val localRemarks =
+                    if (skipRemarks) None
+                    else extractTableRemarks(jdbcSchema, connectionOptions, tableName)
+                  val remarks = localRemarks.getOrElse(resultSet.getString("REMARKS"))
+                  logger.info(s"Extracting table $tableName: $remarks")
+                  tableNames += tableName -> remarks
+                }
+              }
             }
-          }
+          case Failure(exception) =>
+            logger.warn(Utils.exceptionAsString(exception))
+            logger.warn(s"The following schema could not be found $schemaName")
         }
         tableNames.toMap
       }
