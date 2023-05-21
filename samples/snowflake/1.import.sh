@@ -7,7 +7,7 @@ export SL_ENV="${SL_ENV:-SNOWFLAKE}"
 
 case $SL_ENV in
     LOCAL|SNOWFLAKE) echo "Running  in $SL_ENV env";;
-    *)             echo "$SL_ENV for SL_ENV unknown"; exit 1;;
+    *)               echo "$SL_ENV for SL_ENV unknown"; exit 1;;
 esac
 
 # shellcheck disable=SC1090
