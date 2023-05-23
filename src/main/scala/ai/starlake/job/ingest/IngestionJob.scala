@@ -626,7 +626,7 @@ trait IngestionJob extends SparkJob {
     mergedDF
   }
 
-  private def extractTableAcl(): List[String] = {
+  private def extractHiveTableAcl(): List[String] = {
     if (settings.comet.isHiveCompatible()) {
       schema.acl.flatMap { ace =>
         if (Utils.isRunningInDatabricks()) {
@@ -660,12 +660,33 @@ trait IngestionJob extends SparkJob {
     }
   }
 
-  def applyHiveTableAcl(forceApply: Boolean = false): Try[Unit] = {
+  def applyHiveTableAcl(forceApply: Boolean = false): Try[Unit] =
     Try {
       if (forceApply || settings.comet.accessPolicies.apply)
-        extractTableAcl().foreach(session.sql)
+        applySql(extractHiveTableAcl())
     }
+
+  private def applySql(sqls: List[String]): Unit = sqls.foreach { sql =>
+    logger.info(sql)
+    session.sql(sql)
   }
+
+  private def extractSnowflakeTableAcl(): List[String] =
+    schema.acl.flatMap { ace =>
+      /*
+        https://docs.snowflake.com/en/sql-reference/sql/grant-privilege
+        https://hevodata.com/learn/snowflake-grant-role-to-user/
+       */
+      ace.grants.map { principal =>
+        s"GRANT ${ace.role} ON TABLE ${domain.finalName}.${schema.finalName} TO ROLE $principal"
+      }
+    }
+
+  def applySnowflakeTableAcl(forceApply: Boolean = false): Try[Unit] =
+    Try {
+      if (forceApply || settings.comet.accessPolicies.apply)
+        applySql(extractSnowflakeTableAcl())
+    }
 
   /** Save typed dataset in parquet. If hive support is active, also register it as a Hive Table and
     * if analyze is active, also compute basic statistics
