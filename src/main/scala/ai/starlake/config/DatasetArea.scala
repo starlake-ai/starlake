@@ -47,7 +47,7 @@ object DatasetArea extends StrictLogging {
 
   def path(domain: String, area: String)(implicit settings: Settings): Path = {
     if (area.contains("://"))
-      new Path(area)
+      new Path(s"$area/$domain")
     else if (settings.comet.datasets.contains("://"))
       new Path(
         s"${settings.comet.datasets}/$area/$domain"
@@ -322,7 +322,7 @@ object DatasetArea extends StrictLogging {
   *     domain
   *   - The accepted database : contains tables referencing
   *   - The business database : contains tables where autjob tables are created by default
-  *   - The ciustom database : contains tables where autojob tables are created when a specific area
+  *   - The custom database : contains tables where autojob tables are created when a specific area
   *     is defined
   */
 object StorageArea {
