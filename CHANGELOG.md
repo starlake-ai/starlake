@@ -1,5 +1,7 @@
 
 # Release notes
+# 0.7.4:
+- **BREAKING CHANGE**: Add domain name to dataset area path for absolute dataset area reference
 
 # 0.7.3:
 
