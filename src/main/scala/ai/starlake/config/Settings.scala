@@ -148,6 +148,7 @@ object Settings extends StrictLogging {
     engineOverride: Option[String] = None
   ) {
     def engine: String = engineOverride.getOrElse(options("url").split(':')(1))
+    def isSnowflake: Boolean = options("url").contains("jdbc:snowflake")
   }
 
   /** Describes how to use a specific type of JDBC-accessible database engine

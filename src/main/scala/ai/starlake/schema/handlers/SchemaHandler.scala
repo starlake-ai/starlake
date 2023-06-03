@@ -27,7 +27,7 @@ import ai.starlake.utils.{CometObjectMapper, Utils, YamlSerializer}
 import better.files.File
 import com.databricks.spark.xml.util.XSDToSchema
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.databind.node.{ArrayNode, ObjectNode, TextNode}
+import com.fasterxml.jackson.databind.node.{ArrayNode, ObjectNode}
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.scala.ScalaObjectMapper
 import com.typesafe.scalalogging.StrictLogging
@@ -570,30 +570,14 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
           rootNode
         } else
           tranformNode
-      val tasksNode = autojobNode.path("tasks").asInstanceOf[ArrayNode]
-      for (i <- 0 until tasksNode.size()) {
-        val taskNode: ObjectNode = tasksNode.get(i).asInstanceOf[ObjectNode]
-        YamlSerializer.renameField(taskNode, "dataset", "table")
-        YamlSerializer.renameField(taskNode, "sqlEngine", "engine")
-        taskNode.path("sink") match {
-          case node if node.isMissingNode => // do nothing
-          case sinkNode =>
-            sinkNode.path("type") match {
-              case node if node.isMissingNode => // do thing
-              case node =>
-                val textNode = node.asInstanceOf[TextNode]
-                val sinkType = textNode.textValue().replaceAll("\"", "").toUpperCase()
-                val parent = sinkNode.asInstanceOf[ObjectNode]
-                if (sinkType == "DATABRICKS" || sinkType == "HIVE")
-                  parent.replace("type", new TextNode("FS"))
-                else if (sinkType == "BIGQUERY")
-                  parent.replace("type", new TextNode("BQ"))
-                else if (sinkType == "SF")
-                  parent.replace("type", new TextNode("SNOWFLAKE"))
-            }
+      val taskPathNode = autojobNode.path("tasks")
+      if (!taskPathNode.isMissingNode) {
+        val tasksNode = taskPathNode.asInstanceOf[ArrayNode]
+        for (i <- 0 until tasksNode.size()) {
+          val taskNode: ObjectNode = tasksNode.get(i).asInstanceOf[ObjectNode]
+          YamlSerializer.upgradeTaskNode(taskNode)
         }
       }
-
       // Now load any sql file related to this JOB
       // for file job.comet.yml containing a single unnamed task, we search for job.sql
       // for file job.comet.yml containing multiple named tasks (say task1, task2), we search for job.task1.sql & job.task2.sql
@@ -641,11 +625,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
         )
       }
       val jobName = finalDomainOrJobName(jobPath, jobDesc.name)
-      val tasksWithoutCommand = tasks.filter(t => t.sql.isEmpty && t.python.isEmpty)
-      assert(
-        tasksWithoutCommand.isEmpty,
-        s"Task(s) ${tasksWithoutCommand.map(_.name).mkString(",")} in job ${jobDesc.name} in path $jobPath need to define a query either through sql attribute or a sql file."
-      )
+      // We do not check if task has a sql file associated with it, as it can be a python task
       jobDesc.copy(
         name = jobName,
         tasks = tasks,
@@ -686,15 +666,24 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
 
     val autoTasksRefs = autoTasksRefNames.map { case (taskName, autoTasksRefName) =>
       val taskPath = new Path(folder, autoTasksRefName)
-      YamlSerializer
-        .deserializeTask(
-          Utils
-            .parseJinja(storage.read(taskPath), activeEnv())
-            .richFormat(activeEnv(), Map.empty)
-        )
-        .copy(name = taskName)
+      val taskNode = loadTaskRefNode(
+        Utils
+          .parseJinja(storage.read(taskPath), activeEnv())
+          .richFormat(activeEnv(), Map.empty)
+      )
+      YamlSerializer.upgradeTaskNode(taskNode)
+      YamlSerializer.deserializeTaskNode(taskNode).copy(name = taskName)
     }
     autoTasksRefs
+  }
+
+  private def loadTaskRefNode(content: String): ObjectNode = {
+    val rootNode = mapper.readTree(content)
+    val taskNode = rootNode.path("task")
+    if (taskNode.isNull() || taskNode.isMissingNode) // backward compatibility
+      rootNode.asInstanceOf[ObjectNode]
+    else
+      taskNode.asInstanceOf[ObjectNode]
   }
 
   private def taskCommandPath(path: Path, taskName: String): Option[Path] = {
