@@ -38,11 +38,12 @@ class BigQuerySparkJob(
 
   val bucket: String = conf.get("fs.defaultFS")
 
+  /** Prepare the configuration for the BigQuery connector
+    */
   def prepareConf(): Configuration = {
     val conf = session.sparkContext.hadoopConfiguration
     logger.info(s"BigQuery Config $cliConfig")
     // fs.default.name
-
     val bucketFromExtraConf = settings.storageHandler.extraConf
       .get("temporaryGcsBucket")
       .orElse(settings.storageHandler.extraConf.get("fs.gs.system.bucket"))

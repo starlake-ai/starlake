@@ -21,6 +21,8 @@ import scala.collection.JavaConverters._
 import scala.collection.mutable
 import scala.util.{Failure, Success, Try}
 
+/** Base class for BigQuery jobs
+  */
 trait BigQueryJobBase extends StrictLogging {
   def cliConfig: BigQueryLoadConfig
 
@@ -253,6 +255,10 @@ trait BigQueryJobBase extends StrictLogging {
       }
     }
 
+    /** Grant privileges to the users and groups defined in the schema
+      * @param rlsRetrieved
+      * @return
+      */
     def grantPrivileges(rlsRetrieved: RowLevelSecurity): String = {
       cliConfig.outputTableId match {
         case None =>
@@ -302,6 +308,13 @@ trait BigQueryJobBase extends StrictLogging {
 
   protected lazy val bqNativeTable: String = BigQueryJobBase.getBqNativeTable(tableId)
 
+  /** Get or create a BigQuery dataset
+    *
+    * @param domainDescription
+    *   the domain description
+    * @return
+    *   the dataset
+    */
   def getOrCreateDataset(
     domainDescription: scala.Option[String]
   )(implicit settings: Settings): Dataset = {
@@ -321,6 +334,17 @@ trait BigQueryJobBase extends StrictLogging {
     }
   }
 
+  /** Get or create a BigQuery table
+    *
+    * @param domainDescription
+    *   the domain description
+    * @param tableInfo
+    *   the table info
+    * @param maybeSourceDF
+    *   the source dataframe
+    * @return
+    *   the table and the source dataframe
+    */
   def getOrCreateTable(
     domainDescription: scala.Option[String],
     tableInfo: model.TableInfo,

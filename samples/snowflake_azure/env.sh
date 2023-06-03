@@ -35,7 +35,8 @@ if [[ -z "$AZURE_STORAGE_SAS" ]]; then
 fi
 
 
-
+# AZURE_STORAGE_ACCOUNT=starlakestoraccnt
+# AZURE_STORAGE_CONTAINER=starlakecontainer
 export SL_BIN_DIR="$PWD/../../distrib"
 export SL_ENV=SNOWFLAKE
 export SPARK_DRIVER_MEMORY=4G

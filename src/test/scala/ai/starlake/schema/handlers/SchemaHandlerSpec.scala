@@ -657,14 +657,14 @@ class SchemaHandlerSpec extends TestHelper {
       }
     }
 
-    "Load Transform Job" should "reject tasks without SQL" in {
+    "Load Transform Job" should "not reject tasks without SQL (SQL my be in external file)" in {
       cleanMetadata
       val schemaHandler = new SchemaHandler(storageHandler)
-      val filename = "/sample/job-tasks-without-sql/invalid.comet.yml"
+      val filename = "/sample/job-tasks-without-sql/nosql.comet.yml"
       val jobPath = new Path(getClass.getResource(filename).toURI)
 
       val job = schemaHandler.loadJobFromFile(jobPath)
-      job.isFailure shouldBe true
+      job.isFailure shouldBe false
     }
     "Load Transform Job with taskrefs" should "succeed" in {
       cleanMetadata
