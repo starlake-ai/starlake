@@ -939,31 +939,49 @@ class IngestionWorkflow(
     val includedDomains = domainsToWatch(config)
     val result = includedDomains.flatMap { domain =>
       domain.tables.map { schema =>
+        val metadata = schema.mergedMetadata(domain.metadata)
+        val dummyIngestionJob = new DummyIngestionJob(
+          domain,
+          schema,
+          schemaHandler.types(),
+          Nil,
+          storageHandler,
+          schemaHandler,
+          Map.empty
+        )
         if (settings.comet.isHiveCompatible()) {
-          new DummyIngestionJob(
-            domain,
-            schema,
-            schemaHandler.types(),
-            Nil,
-            storageHandler,
-            schemaHandler,
-            Map.empty
-          ).applyHiveTableAcl()
+          dummyIngestionJob.applyHiveTableAcl()
         } else {
-          val config = BigQueryLoadConfig(
-            None,
-            None,
-            outputTableId =
-              Some(BigQueryJobBase.extractProjectDatasetAndTable(domain.name, schema.name)),
-            sourceFormat = settings.comet.defaultFormat,
-            rls = schema.rls,
-            acl = schema.acl,
-            starlakeSchema = Some(schema)
-          )
-          val res = new BigQuerySparkJob(config).applyRLSAndCLS(forceApply = true)
-          res.recover { case e =>
-            Utils.logException(logger, e)
-            throw e
+          val sink = metadata.sink
+            .getOrElse(throw new Exception("Sink required"))
+          val isJdbcSink =
+            sink.isInstanceOf[JdbcSink]
+          if (isJdbcSink) {
+            val connectionName = sink.asInstanceOf[JdbcSink].connection
+            val connection = settings.comet.connections(connectionName)
+            if (connection.isSnowflake)
+              dummyIngestionJob.applySnowflakeTableAcl()
+            else
+              Success(true) // ignore other jdbc connection types
+          } else if (metadata.sink.exists(_.isInstanceOf[BigQuerySink])) {
+            val config = BigQueryLoadConfig(
+              None,
+              None,
+              outputTableId =
+                Some(BigQueryJobBase.extractProjectDatasetAndTable(domain.name, schema.name)),
+              sourceFormat = settings.comet.defaultFormat,
+              rls = schema.rls,
+              acl = schema.acl,
+              starlakeSchema = Some(schema)
+            )
+            val res = new BigQuerySparkJob(config).applyRLSAndCLS(forceApply = true)
+            res.recover { case e =>
+              Utils.logException(logger, e)
+              throw e
+            }
+
+          } else {
+            Success(true) // unknown sink, just ignore.
           }
         }
       }

@@ -14,7 +14,7 @@ import ai.starlake.schema.model.{
 }
 import better.files.File
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.databind.node.{ArrayNode, ObjectNode}
+import com.fasterxml.jackson.databind.node.{ArrayNode, ObjectNode, TextNode}
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.typesafe.scalalogging.LazyLogging
 
@@ -46,17 +46,6 @@ object YamlSerializer extends LazyLogging {
     val jsonContent = jobWriter.writeValueAsString(job)
     // val jobReader = mapper.reader().withAttribute(classOf[Settings], settings)
     mapper.readValue(jsonContent, classOf[Map[String, Any]])
-  }
-
-  def deserializeTask(content: String): AutoTaskDesc = {
-    val rootNode = mapper.readTree(content)
-    val taskNode = rootNode.path("task")
-    val targetNode =
-      if (taskNode.isNull() || taskNode.isMissingNode) {
-        rootNode.asInstanceOf[ObjectNode]
-      } else
-        taskNode.asInstanceOf[ObjectNode]
-    mapper.treeToValue(targetNode, classOf[AutoTaskDesc])
   }
 
   def serialize(jdbcSchemas: JDBCSchemas): String = mapper.writeValueAsString(jdbcSchemas)
@@ -165,6 +154,43 @@ object YamlSerializer extends LazyLogging {
       case Failure(exception) =>
         logger.error(s"Invalid dag file: $path(${exception.getMessage})")
         Failure(exception)
+    }
+  }
+
+  // Used by starlake-api
+  def deserializeTask(content: String): AutoTaskDesc = {
+    val rootNode = mapper.readTree(content)
+    val taskNode = rootNode.path("task")
+    val targetNode =
+      if (taskNode.isNull() || taskNode.isMissingNode) {
+        rootNode.asInstanceOf[ObjectNode]
+      } else
+        taskNode.asInstanceOf[ObjectNode]
+    mapper.treeToValue(targetNode, classOf[AutoTaskDesc])
+  }
+
+  def deserializeTaskNode(taskNode: ObjectNode): AutoTaskDesc =
+    mapper.treeToValue(taskNode, classOf[AutoTaskDesc])
+
+  def upgradeTaskNode(taskNode: ObjectNode): Unit = {
+    YamlSerializer.renameField(taskNode, "dataset", "table")
+    YamlSerializer.renameField(taskNode, "sqlEngine", "engine")
+    taskNode.path("sink") match {
+      case node if node.isMissingNode => // do nothing
+      case sinkNode =>
+        sinkNode.path("type") match {
+          case node if node.isMissingNode => // do thing
+          case node =>
+            val textNode = node.asInstanceOf[TextNode]
+            val sinkType = textNode.textValue().replaceAll("\"", "").toUpperCase()
+            val parent = sinkNode.asInstanceOf[ObjectNode]
+            if (sinkType == "DATABRICKS" || sinkType == "HIVE")
+              parent.replace("type", new TextNode("FS"))
+            else if (sinkType == "BIGQUERY")
+              parent.replace("type", new TextNode("BQ"))
+            else if (sinkType == "SF")
+              parent.replace("type", new TextNode("SNOWFLAKE"))
+        }
     }
   }
 

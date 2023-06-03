@@ -15,7 +15,7 @@
 <%@ val tableLabels: Map[String, String] %>
 <%@ val partitions: List[String] %>
 <%@ val primaryKeys: List[String] %>
-<%@ val sink: Option[ai.starlake.schema.model.SnowflakeSink] %>
+<%@ val sink: Option[ai.starlake.schema.model.JdbcSink] %>
 
 <%
     def labels(labels: Map[String, String]) = labels.map { case (k, v) => s"""$k = '$v'"""}.toList.mkString("(",",", ")")
@@ -40,14 +40,14 @@
 
     val snowSink = sink.getOrElse(throw new Exception(s"$domainName.$tableName has no sink defined. Cannot generate DDL"))
     val isPrimaryKeyDefined: Boolean  = primaryKeys.nonEmpty
-    val isClusterDefined: Boolean = snowSink.clustering.isDefined
-    val clusterCols = snowSink.clustering match {
+    val isClusterDefined: Boolean = snowSink.getOptions.get("clustering").isDefined
+    val clusterCols = snowSink.getOptions.get("clustering") match {
         case None       => ""
-        case Some(cols) => cols.mkString(",")
+        case Some(cols) => cols
     }
 
-    val expiryInDaysDefined = snowSink.days.isDefined
-    val expiryInDays = snowSink.days match {
+    val expiryInDaysDefined = snowSink.getOptions.get("days").isDefined
+    val expiryInDays = snowSink.getOptions.get("days") match {
         case None        => 0
         case Some(value) => value
     }
