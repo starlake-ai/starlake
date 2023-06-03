@@ -2,9 +2,9 @@
 
 
 <%
-    val azureContainer = sys.env.get("SL_AZURE_CONTAINER")
-    val azureTenant = sys.env.get("SL_AZURE_TENANT")
-    val azureAccount = sys.env.get("SL_AZURE_ACCOUNT")
+    val azureContainer = sys.env.get("SL_AZURE_CONTAINER").getOrElse("STARLAKE_CONTAINER")
+    val azureTenant = sys.env.get("SL_AZURE_TENANT").getOrElse("STARLAKE_TENANT")
+    val azureAccount = sys.env.get("SL_AZURE_ACCOUNT").getOrElse("STARLAKE_ACCOUNT")
     val azureIntegration = sys.env.get("SL_AZURE_INTEGRATION").getOrElse("STARLAKE_INTEGRATION")
     val azureNotificationIntegration = sys.env.get("SL_AZURE_NOTIFICATION_INTEGRATION").getOrElse("STARLAKE_NOTIFICATION_INTEGRATION")
     val azureGroup = sys.env.get("SL_AZURE_GROUP").getOrElse("STARLAKE_GROUP")
