@@ -131,9 +131,9 @@ object FlatRowValidator extends GenericRowValidator {
     val rejectedInputLinesDS = rejectedInputLinesRDD.toDS()
 
     ValidationResult(
-      rejectedDS persist cacheStorageLevel,
-      rejectedInputLinesDS persist cacheStorageLevel,
-      acceptedDS persist cacheStorageLevel
+      rejectedDS.persist(cacheStorageLevel),
+      rejectedInputLinesDS.persist(cacheStorageLevel),
+      acceptedDS.persist(cacheStorageLevel)
     )
   }
 }
