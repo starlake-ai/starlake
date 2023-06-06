@@ -160,7 +160,7 @@ then
                   fs.defaultFS=$SL_FS"
 elif [[ $SL_FS = gs:* ]]
 then
-  if [[ -z "$GOOGLE_APPLICATION_CREDENTIALS" ]]
+  if [[ -z "$GOOGLE_APPLICATION_CREDENTIALS" ]] && [[ -z "$SL_STORAGE_CONF" ]]
   then
     echo "GOOGLE_APPLICATION_CREDENTIALS should reference the service account json file"
     exit 1

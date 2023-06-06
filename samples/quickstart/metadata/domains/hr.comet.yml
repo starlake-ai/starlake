@@ -1,53 +1,104 @@
+---
 load:
   name: "hr"
-  directory: "${root_path}/incoming/hr"
   metadata:
     mode: "FILE"
-    format: "JSON"
-    sink:
-      type: ${sink_type}
+    format: "DSV"
+    encoding: "UTF-8"
+    multiline: false
+    array: false
+    withHeader: true
+    separator: ";"
+    quote: "\""
+    escape: "\\"
+    write: "APPEND"
+    directory: "/Users/hayssams/git/public/starlake/distrib/incoming/hr"
   tables:
-    - name: "sellers"
-      pattern: "sellers-.*.json"
-      primaryKey:
-        - id
-      metadata:
+  - name: "sellers"
+    pattern: "sellers-.*.json"
+    attributes:
+    - name: "id"
+      type: "string"
+      array: false
+      required: true
+      privacy: "NONE"
+      ignore: false
+      accessPolicy: "PII"
+    - name: "seller_email"
+      type: "email"
+      array: false
+      required: true
+      privacy: "NONE"
+      ignore: false
+    - name: "location_id"
+      type: "long"
+      array: false
+      required: true
+      privacy: "NONE"
+      ignore: false
+    metadata:
+      mode: "FILE"
+      format: "SIMPLE_JSON"
+      encoding: "UTF-8"
+      multiline: false
+      array: false
+      withHeader: false
+      separator: ";"
+      quote: "\""
+      escape: "\\"
+      write: "APPEND"
+      sink: !<FS>
+        type: "FS"
+    primaryKey:
+    - "id"
+    flat: true
+  - name: "locations"
+    pattern: "locations-.*.json"
+    attributes:
+    - name: "id"
+      type: "string"
+      array: false
+      required: true
+      privacy: "NONE"
+      ignore: false
+    - name: "address"
+      type: "struct"
+      array: false
+      required: true
+      privacy: "NONE"
+      attributes:
+      - name: "city"
+        type: "string"
+        array: false
+        required: true
+        privacy: "NONE"
+        ignore: false
+      - name: "stores"
+        type: "string"
         array: true
-        format: "SIMPLE_JSON"
-        write: "APPEND"
-      attributes:
-        - name: "id"
-          type: "string"
-          required: true
-          accessPolicy: PII
-        - name: "seller_email"
-          type: "email"
-          required: true
-        - name: "location_id"
-          type: "long"
-          required: true
-    - name: "locations"
-      pattern: "locations-.*.json"
-      primaryKey:
-        - id
-      metadata:
-        format: "JSON"
-        write: "OVERWRITE"
-      attributes:
-        - name: "id"
-          type: "string"
-          required: true
-        - name: "address"
-          type: "struct"
-          required: true
-          attributes:
-            - name: "city"
-              type: "string"
-              required: true
-            - name: "stores"
-              type: "string"
-              array: true
-              required: false
-            - name: "country"
-              type: "string"
-              required: true
+        required: false
+        privacy: "NONE"
+        ignore: false
+      - name: "country"
+        type: "string"
+        array: false
+        required: true
+        privacy: "NONE"
+        ignore: false
+      ignore: false
+    metadata:
+      mode: "FILE"
+      format: "JSON"
+      encoding: "UTF-8"
+      multiline: false
+      array: false
+      withHeader: false
+      separator: ";"
+      quote: "\""
+      escape: "\\"
+      write: "OVERWRITE"
+      sink: !<FS>
+        type: "FS"
+    primaryKey:
+    - "id"
+    flat: false
