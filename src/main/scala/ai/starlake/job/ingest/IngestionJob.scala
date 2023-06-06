@@ -314,7 +314,8 @@ trait IngestionJob extends SparkJob {
         acceptedDfFiltered
       )
       val acceptedDF = acceptedDfWithoutIgnoredFields.drop(CometColumns.cometInputFileNameColumn)
-      val finalAcceptedDF: DataFrame = computeFinalSchema(acceptedDF).cache()
+      val finalAcceptedDF: DataFrame =
+        computeFinalSchema(acceptedDF).persist(settings.comet.cacheStorageLevel)
       runAssertions(finalAcceptedDF)
       runMetrics(finalAcceptedDF)
       val (mergedDF, partitionsToUpdate) = applyMerge(acceptedPath, finalAcceptedDF)
