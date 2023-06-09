@@ -17,7 +17,7 @@ case class Freshness(
       Try {
         duration.map(Duration(_).toSeconds)
       } match {
-        case Failure(_) => errorList += s"$duration could not be parsed as a duration"
+        case Failure(_) => errorList += s"duration: $duration could not be parsed as a duration"
         case Success(_) =>
       }
     }
@@ -26,7 +26,7 @@ case class Freshness(
     checkDuration(error)
     timestamp match {
       case Some(_) if warn.isEmpty && error.isEmpty =>
-        errorList += "When freshness timestamp is present, warn and/or error duration should be defined"
+        errorList += "timestamp: When freshness timestamp is present, warn and/or error duration should be defined"
       case _ =>
     }
     if (errorList.isEmpty)

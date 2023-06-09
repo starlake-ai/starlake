@@ -381,6 +381,21 @@ case class AutoTask(
       if (taskDesc.write.toSaveMode == SaveMode.Overwrite)
         session.sql(s"drop table if exists $tableName")
       finalDataset.saveAsTable(fullTableName)
+      taskDesc.comment match {
+        case Some(comment) =>
+          session.sql(
+            s"ALTER TABLE $fullTableName SET TBLPROPERTIES('comment' = '$comment')"
+          )
+        case None =>
+
+      }
+      if (Utils.isRunningInDatabricks()) {
+        taskDesc.attributesDesc.foreach { attrDesc =>
+          session.sql(
+            s"ALTER TABLE $tableName CHANGE COLUMN ${attrDesc}.name COMMENT '${attrDesc.comment}'"
+          )
+        }
+      }
       analyze(fullTableName)
     } else {
       // TODO Handle SinkType.FS and SinkType to Hive in Sink section in the caller

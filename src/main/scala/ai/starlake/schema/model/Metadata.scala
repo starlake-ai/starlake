@@ -319,19 +319,19 @@ case class Metadata(
     val errorList: mutable.MutableList[String] = mutable.MutableList.empty
 
     if (!isIgnoreUDF && getFormat() == Format.DSV)
-      errorList += "When input format is DSV, ignore metadata attribute cannot be a regex, it must be an UDF"
+      errorList += "format: When input format is DSV, ignore metadata attribute cannot be a regex, it must be an UDF"
 
     import Format._
     if (
       ignore.isDefined &&
       !List(DSV, SIMPLE_JSON, POSITION).contains(getFormat())
     )
-      errorList += s"ignore not yet supported for format ${getFormat()}"
+      errorList += s"ignore: ignore not yet supported for format ${getFormat()}"
 
     val freshnessValidity = freshness.map(_.checkValidity()).getOrElse(Right(true))
     freshnessValidity match {
       case Left(freshnessErrors) =>
-        freshnessErrors.foreach(errorList += _)
+        freshnessErrors.foreach(errorList += "freshness: " + _)
       case Right(_) =>
     }
     if (errorList.nonEmpty)
