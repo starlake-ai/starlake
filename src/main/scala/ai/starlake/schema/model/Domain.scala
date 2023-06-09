@@ -207,15 +207,16 @@ import scala.util.Try
     // Therefore, it means that we need to adapt on writing to the database, the target name.
     // The same applies to table name.
     if (!forceDomainPrefixRegex.pattern.matcher(name).matches())
-      errorList += s"Domain with name $name should respect the pattern ${forceDomainPrefixRegex.regex}"
+      errorList += s"name: Domain with name $name should respect the pattern ${forceDomainPrefixRegex.regex}"
 
     val forceTablePrefixRegex = settings.comet.forceTablePattern.r
 
     val directoryAssertionOpt = resolveDirectoryOpt() match {
       case Some(_) => None
-      case None =>
+      case None    =>
+        // TODO Check in metadata
         Some(
-          s"Domain with name $name should define the directory attribute if 'import' command is used."
+          s"metadata: directory: Domain with name $name should define the directory attribute (used in the 'import' command)"
         )
     }
     directorySeverity match {
@@ -228,21 +229,21 @@ import scala.util.Try
     // Check Schemas validity
     tables.foreach { schema =>
       for (errors <- schema.checkValidity(this.metadata, schemaHandler).left) {
-        errorList ++= errors.map(s"schema ${schema.name}:" + _)
+        errorList ++= errors.map(s"tables: table ${schema.name}:" + _)
       }
     }
 
     // Check Metadata validity
     metadata.foreach { metadata =>
       for (errors <- metadata.checkValidity(schemaHandler).left) {
-        errorList ++= errors.map(s"domain $name:" + _)
+        errorList ++= errors.map(s"metadata:" + _)
       }
     }
 
     val duplicatesErrorMessage =
       "Schema %s defined %d times. A schema can only be defined once."
     for (errors <- Utils.duplicates(tables.map(_.name), duplicatesErrorMessage).left) {
-      errorList ++= errors.map(s"domain $name:" + _)
+      errorList ++= errors.map(s"tables:" + _)
     }
 
     // TODO Check partition columns

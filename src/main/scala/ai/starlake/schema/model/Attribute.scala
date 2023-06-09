@@ -152,49 +152,49 @@ case class Attribute(
   def checkValidity(schemaHandler: SchemaHandler): Either[List[String], Boolean] = {
     val errorList: mutable.MutableList[String] = mutable.MutableList.empty
     if (`type` == null)
-      errorList += s"$this : unspecified type"
+      errorList += s"type: $this : unspecified type"
 
     val colNamePattern = Pattern.compile("[a-zA-Z_][a-zA-Z0-9_]{1,767}")
     // We do not check if the name is valid. We only need to check that once renamed, the name is valid.
     if (!rename.forall(colNamePattern.matcher(_).matches()))
-      errorList += s"renamed attribute with renamed name '$rename' should respect the pattern ${colNamePattern.pattern()}"
+      errorList += s"rename: renamed attribute with renamed name '$rename' should respect the pattern ${colNamePattern.pattern()}"
 
     val primitiveType = `type`(schemaHandler).map(_.primitiveType)
 
     primitiveType match {
       case Some(tpe) =>
         if (tpe == PrimitiveType.struct && attributes.isEmpty)
-          errorList += s"Attribute $this : Struct types must have at least one attribute."
+          errorList += s"primitiveType: Attribute $this : Struct types must have at least one attribute."
         if (tpe != PrimitiveType.struct && attributes.nonEmpty)
-          errorList += s"Attribute $this : Simple attributes cannot have sub-attributes"
-      case None if attributes.isEmpty => errorList += s"Invalid Type ${`type`}"
+          errorList += s"AprimitiveType: ttribute $this : Simple attributes cannot have sub-attributes"
+      case None if attributes.isEmpty => errorList += s"primitiveType: Invalid Type ${`type`}"
       case _                          => // good boy
     }
 
     default.foreach { default =>
       if (required)
-        errorList += s"attribute with name $name: default value valid for optional fields only"
+        errorList += s"default: attribute with name $name - default value valid for optional fields only"
       primitiveType.foreach { primitiveType =>
         if (primitiveType == PrimitiveType.struct)
-          errorList += s"attribute with name $name: default value not valid for struct type fields"
+          errorList += s"default: attribute with name $name - default value not valid for struct type fields"
         `type`(schemaHandler).foreach { someTpe =>
           Try(someTpe.sparkValue(default)) match {
             case Success(_) =>
             case Failure(e) =>
-              errorList += s"attribute with name $name: Invalid default value for this attribute type ${e.getMessage()}"
+              errorList += s"default: attribute with name $name - Invalid default value for this attribute type ${e.getMessage()}"
           }
         }
       }
       array.foreach { isArray =>
         if (isArray)
-          errorList += s"attribute with name $name: default value not valid for array fields"
+          errorList += s"array: attribute with name $name: default value not valid for array fields"
       }
     }
 
     (script, required) match {
       case (Some(_), true) =>
         logger.warn(
-          s"Attribute $name : Scripted attributed cannot be required. It will be forced to optional"
+          s"script: Attribute $name : Scripted attributed cannot be required. It will be forced to optional"
         )
       case (_, _) =>
     }

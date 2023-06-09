@@ -70,7 +70,11 @@ case class AutoTaskDesc(
 ) extends Named {
 
   def checkValidity(): Either[List[String], Boolean] = {
-    freshness.map(_.checkValidity()).getOrElse(Right(true))
+    freshness.map(_.checkValidity()).getOrElse(Right(true)).left.map { errors =>
+      errors.map { error =>
+        s"freshness: $error"
+      }
+    }
   }
 
   def this() = this(

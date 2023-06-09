@@ -186,12 +186,12 @@ case class Type(
       }
     }
     if (patternIsValid.isFailure)
-      errorList += s"Type $name: invalid Pattern $pattern"
+      errorList += s"pattern: Type $name - invalid Pattern $pattern"
     val ok = sample.forall { sample =>
       this.matches(sample)
     }
     if (!ok)
-      errorList += s"Type $name: sample $sample does not match pattern $pattern"
+      errorList += s"sample: Type $name - sample $sample does not match pattern $pattern"
     if (errorList.nonEmpty)
       Left(errorList.toList)
     else
