@@ -1071,7 +1071,7 @@ trait IngestionJob extends SparkJob {
         val errs = errors.reduce { (errs, err) =>
           errs + "\n" + err
         }
-        Failure(throw new Exception(errs))
+        Failure(throw new Exception(s"-- Domain $name --\n" + errs))
       case Right(_) =>
         val start = Timestamp.from(Instant.now())
         runPreSql()
