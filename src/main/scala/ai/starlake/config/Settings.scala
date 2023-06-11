@@ -413,7 +413,7 @@ object Settings extends StrictLogging {
       val applicationConfig = ConfigFactory.parseString(applicationConfContent).resolve()
       val effectiveApplicationConfig = applicationConfig
         .withFallback(effectiveConfig)
-      logger.info(effectiveApplicationConfig.toString)
+      logger.debug(effectiveApplicationConfig.toString)
       val mergedSettings = ConfigSource
         .fromConfig(effectiveApplicationConfig)
         .loadOrThrow[Comet]
