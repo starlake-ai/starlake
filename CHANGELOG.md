@@ -1,8 +1,11 @@
 
 # Release notes
 
-# 0.7.3:
+# 0.7.4:
+__Feature__:
+- Add SL_PROJECT and SL_TENANT env vars to be used in audit table
 
+# 0.7.3:
 __Feature__:
 - **BREAKING CHANGE**: Rename "cleanOnExtract" to "clean" in ExtractData CLI
 - Imply SL_HIVE=true implicitly when running on Databricks
