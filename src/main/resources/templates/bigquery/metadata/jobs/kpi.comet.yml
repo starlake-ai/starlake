@@ -1,0 +1,13 @@
+transform:
+  name: kpi
+  engine: BQ
+  views:
+    sellers: "BQ:select * from hr.sellers"
+    orders: "BQ:select * from sales.orders"
+  tasks:
+    - name: byseller
+      domain: sales_kpi
+      table: byseller_kpi
+      write: OVERWRITE
+  area: business
+
