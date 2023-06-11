@@ -9,7 +9,7 @@ Test / javaOptions ++= Seq("-Dfile.encoding=UTF-8")
 
 ThisBuild / sonatypeCredentialHost := "s01.oss.sonatype.org"
 
-lazy val scala212 = "2.12.17"
+lazy val scala212 = "2.12.18"
 
 ThisBuild / crossScalaVersions := List(scala212)
 
