@@ -343,7 +343,9 @@ object Settings extends StrictLogging {
     forceJobPattern: String,
     forceTaskPattern: String,
     useLocalFileSystem: Boolean,
-    sessionDurationServe: Long
+    sessionDurationServe: Long,
+    project: String,
+    tenant: String
   ) extends Serializable {
 
     val cacheStorageLevel: StorageLevel =

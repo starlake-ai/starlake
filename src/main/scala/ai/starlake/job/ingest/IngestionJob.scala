@@ -189,7 +189,9 @@ trait IngestionJob extends SparkJob {
           start,
           end.getTime - start.getTime,
           "success",
-          Step.SINK_REJECTED.toString
+          Step.SINK_REJECTED.toString,
+          settings.comet.project,
+          settings.comet.tenant
         )
         AuditLog.sink(Map.empty, optionalAuditSession, log)
         Success(rejectedPath)
@@ -208,7 +210,9 @@ trait IngestionJob extends SparkJob {
           start,
           end.getTime - start.getTime,
           Utils.exceptionAsString(exception),
-          Step.SINK_REJECTED.toString
+          Step.SINK_REJECTED.toString,
+          settings.comet.project,
+          settings.comet.tenant
         )
         AuditLog.sink(Map.empty, optionalAuditSession, log)
         Failure(exception)
@@ -376,7 +380,9 @@ trait IngestionJob extends SparkJob {
             start,
             end.getTime - start.getTime,
             "success",
-            Step.SINK_ACCEPTED.toString
+            Step.SINK_ACCEPTED.toString,
+            settings.comet.project,
+            settings.comet.tenant
           )
           AuditLog.sink(Map.empty, optionalAuditSession, log)
           sinkedDF
@@ -395,7 +401,9 @@ trait IngestionJob extends SparkJob {
             start,
             end.getTime - start.getTime,
             Utils.exceptionAsString(exception),
-            Step.SINK_ACCEPTED.toString
+            Step.SINK_ACCEPTED.toString,
+            settings.comet.project,
+            settings.comet.tenant
           )
           AuditLog.sink(Map.empty, optionalAuditSession, log)
           throw exception
@@ -1101,7 +1109,9 @@ trait IngestionJob extends SparkJob {
                 start,
                 end.getTime - start.getTime,
                 if (success) "success" else s"$rejectedCount invalid records",
-                Step.LOAD.toString
+                Step.LOAD.toString,
+                settings.comet.project,
+                settings.comet.tenant
               )
               AuditLog.sink(Map.empty, optionalAuditSession, log)
               if (success) SparkJobResult(None)
@@ -1122,7 +1132,9 @@ trait IngestionJob extends SparkJob {
               start,
               end.getTime - start.getTime,
               err,
-              Step.LOAD.toString
+              Step.LOAD.toString,
+              settings.comet.project,
+              settings.comet.tenant
             )
             AuditLog.sink(Map.empty, optionalAuditSession, log)
             logger.error(err)

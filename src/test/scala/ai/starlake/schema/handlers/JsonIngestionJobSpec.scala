@@ -189,7 +189,9 @@ class JsonIngestionJobSpecNoIndexJdbcMetricsJdbcAuditSpec
       timestamp = TestStart,
       duration = 1 /* fake */,
       message = "success",
-      Step.LOAD.toString
+      Step.LOAD.toString,
+      settings.comet.project,
+      settings.comet.tenant
     ) :: Nil
 
   override def expectedRejectRecords(implicit settings: Settings): List[RejectedRecord] =
@@ -249,7 +251,9 @@ class JsonIngestionJobSpecNoIndexNoMetricsJdbcAuditSpec
       timestamp = TestStart,
       duration = 1 /* fake */,
       message = "success",
-      Step.LOAD.toString
+      Step.LOAD.toString,
+      settings.comet.project,
+      settings.comet.tenant
     ) :: Nil
 
   override def expectedRejectRecords(implicit settings: Settings): List[RejectedRecord] =
