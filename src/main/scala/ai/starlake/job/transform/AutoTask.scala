@@ -560,7 +560,9 @@ case class AutoTask(
       start,
       end.getTime - start.getTime,
       message,
-      Step.TRANSFORM.toString
+      Step.TRANSFORM.toString,
+      settings.comet.project,
+      settings.comet.tenant
     )
     AuditLog.sink(authInfo, optionalAuditSession, log)
   }

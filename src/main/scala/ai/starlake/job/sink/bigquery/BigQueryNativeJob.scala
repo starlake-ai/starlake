@@ -62,7 +62,9 @@ class BigQueryNativeJob(
               Timestamp.from(Instant.ofEpochMilli(stats.getStartTime)),
               stats.getEndTime - stats.getStartTime,
               if (success) "success" else s"${stats.getBadRecords} invalid records",
-              Step.LOAD.toString
+              Step.LOAD.toString,
+              settings.comet.project,
+              settings.comet.tenant
             )
             settings.comet.audit.sink match {
               case sink: BigQuerySink =>
