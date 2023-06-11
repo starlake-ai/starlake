@@ -74,7 +74,9 @@ case class AuditLog(
   timestamp: Timestamp,
   duration: Long,
   message: String,
-  step: String
+  step: String,
+  project: String,
+  tenant: String
 ) {
 
   override def toString(): String =
@@ -91,6 +93,8 @@ case class AuditLog(
        |duration=$duration
        |message=$message
        |step=$step
+       |project=$project
+       |tenant=$tenant
        |""".stripMargin.split('\n').mkString(",")
 
   def asBqInsert(table: String): String = {
@@ -109,7 +113,9 @@ case class AuditLog(
        | timestamp,
        | duration,
        | message,
-       | step
+       | step,
+       | project,
+       | tenant
        |)
        |values(
        |'$jobid',
@@ -123,7 +129,9 @@ case class AuditLog(
        |'$timestampStr',
        |$duration,
        |'$message',
-       |'$step'
+       |'$step',
+       |'$project',
+       |'$tenant'
        |)""".stripMargin
   }
 
@@ -143,7 +151,9 @@ object AuditLog extends StrictLogging {
     ("timestamp", StandardSQLTypeName.TIMESTAMP, TimestampType),
     ("duration", StandardSQLTypeName.INT64, LongType),
     ("message", StandardSQLTypeName.STRING, StringType),
-    ("step", StandardSQLTypeName.STRING, StringType)
+    ("step", StandardSQLTypeName.STRING, StringType),
+    ("project", StandardSQLTypeName.STRING, StringType),
+    ("tenant", StandardSQLTypeName.STRING, StringType)
   )
 
   private def bqSchema(): BQSchema = {
@@ -157,42 +167,45 @@ object AuditLog extends StrictLogging {
     BQSchema.of(fields: _*)
   }
 
+  private def sinkToFile(
+    log: AuditLog,
+    sessionOpt: Option[SparkSession],
+    settings: Settings
+  ): Unit = {
+    val session = sessionOpt.getOrElse(throw new Exception("Spark Session required"))
+    import session.implicits._
+    val lockPath = new Path(settings.comet.audit.path, s"audit.lock")
+    val locker = new FileLock(lockPath, settings.storageHandler)
+    locker.doExclusively() {
+      val auditPath = new Path(settings.comet.audit.path, s"ingestion-log")
+      val dfWriter = Seq(log).toDF.write.mode(SaveMode.Append)
+      logger.info(s"Saving audit to path $auditPath")
+      if (settings.comet.hive) {
+        val hiveDB = settings.comet.audit.sink.name.getOrElse("audit")
+        val tableName = "audit"
+        val fullTableName = s"$hiveDB.$tableName"
+        session.sql(s"create database if not exists $hiveDB")
+        session.sql(s"use $hiveDB")
+        logger.info(s"Saving audit to table $fullTableName")
+        dfWriter
+          .format(settings.comet.defaultAuditWriteFormat)
+          .saveAsTable(fullTableName)
+      } else {
+        logger.info(s"Saving audit to file $auditPath")
+        dfWriter
+          .format(settings.comet.defaultAuditWriteFormat)
+          .option("path", auditPath.toString)
+          .save()
+      }
+    }
+  }
+
   def sink(authInfo: Map[String, String], sessionOpt: Option[SparkSession], log: AuditLog)(implicit
     settings: Settings
   ): Any = {
-
-    def sinkToFile(log: AuditLog, settings: Settings): Unit = {
-      val session = sessionOpt.getOrElse(throw new Exception("Spark Session required"))
-      import session.implicits._
-      val lockPath = new Path(settings.comet.audit.path, s"audit.lock")
-      val locker = new FileLock(lockPath, settings.storageHandler)
-      locker.doExclusively() {
-        val auditPath = new Path(settings.comet.audit.path, s"ingestion-log")
-        val dfWriter = Seq(log).toDF.write.mode(SaveMode.Append)
-        logger.info(s"Saving audit to path $auditPath")
-        if (settings.comet.hive) {
-          val hiveDB = settings.comet.audit.sink.name.getOrElse("audit")
-          val tableName = "audit"
-          val fullTableName = s"$hiveDB.$tableName"
-          session.sql(s"create database if not exists $hiveDB")
-          session.sql(s"use $hiveDB")
-          logger.info(s"Saving audit to table $fullTableName")
-          dfWriter
-            .format(settings.comet.defaultAuditWriteFormat)
-            .saveAsTable(fullTableName)
-        } else {
-          logger.info(s"Saving audit to file $auditPath")
-          dfWriter
-            .format(settings.comet.defaultAuditWriteFormat)
-            .option("path", auditPath.toString)
-            .save()
-        }
-      }
-    }
-
     // We sink to a file when running unit tests
     if (settings.comet.sinkToFile) {
-      sinkToFile(log, settings)
+      sinkToFile(log, sessionOpt, settings)
     }
 
     settings.comet.audit.sink match {
@@ -226,7 +239,7 @@ object AuditLog extends StrictLogging {
         // TODO Sink Audit Log to ES
         throw new Exception("Sinking Audit log to Elasticsearch not yet supported")
       case _: NoneSink | FsSink(_, _, _, _, _, _, _) if !settings.comet.sinkToFile =>
-        sinkToFile(log, settings)
+        sinkToFile(log, sessionOpt, settings)
       case _: NoneSink | FsSink(_, _, _, _, _, _, _) if settings.comet.sinkToFile =>
       // Do nothing dataset already sinked to file. Forced at the reference.conf level
     }
