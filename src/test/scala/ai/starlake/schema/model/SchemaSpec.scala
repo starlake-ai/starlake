@@ -47,7 +47,9 @@ class SchemaSpec extends TestHelper {
         ) // Should raise an error. Privacy cannot be applied on types other than string
       )
 
-      attr.checkValidity(schemaHandler) shouldBe Left(List("Invalid Type invalid-type"))
+      attr.checkValidity(schemaHandler) shouldBe Left(
+        List("primitiveType: Invalid Type invalid-type")
+      )
     }
 
     "Attribute privacy" should "appliable to any type" in {
@@ -77,7 +79,7 @@ class SchemaSpec extends TestHelper {
         attributes = List[Attribute]()
       )
       val expectedErrors = List(
-        "Attribute Attribute(attr,struct,Some(true),true,ApproxLong(20),None,None,None,List(),None,None,Set()) : Struct types must have at least one attribute."
+        "primitiveType: Attribute Attribute(attr,struct,Some(true),true,ApproxLong(20),None,None,None,List(),None,None,Set()) : Struct types must have at least one attribute."
       )
 
       attr.checkValidity(schemaHandler) shouldBe Left(expectedErrors)
@@ -100,7 +102,7 @@ class SchemaSpec extends TestHelper {
         Attribute("requiredAttribute", "long", required = true, default = Some("10"))
       requiredAttribute.checkValidity(schemaHandler) shouldBe Left(
         List(
-          s"attribute with name ${requiredAttribute.name}: default value valid for optional fields only"
+          s"default: attribute with name ${requiredAttribute.name} - default value valid for optional fields only"
         )
       )
 
