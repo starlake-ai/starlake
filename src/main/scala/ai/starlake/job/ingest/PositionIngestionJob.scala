@@ -29,7 +29,7 @@ import org.apache.hadoop.mapred.TextInputFormat
 import org.apache.spark.sql._
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
 
-import scala.util.Try
+import scala.util.{Failure, Success, Try}
 
 /** Main class to ingest delimiter separated values file
   *
@@ -114,8 +114,13 @@ class PositionIngestionJob(
       settings.comet.sinkReplayToFile,
       mergedMetadata.emptyIsNull.getOrElse(settings.comet.emptyIsNull)
     )
-    saveRejected(validationResult.errors, validationResult.rejected)
-    saveAccepted(validationResult)
+    saveRejected(validationResult.errors, validationResult.rejected).map { _ =>
+      saveAccepted(validationResult)
+    } match {
+      case Failure(exception) =>
+        throw exception
+      case Success(_) => ;
+    }
     (validationResult.errors, validationResult.accepted)
   }
 
