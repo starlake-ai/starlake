@@ -30,7 +30,7 @@ import org.apache.spark.sql.types.StructType
 import java.sql._
 import java.time.LocalDateTime
 import java.util.Properties
-import scala.util.Try
+import scala.util.{Failure, Success, Try}
 
 /** Main class to ingest delimiter separated values file
   *
@@ -308,8 +308,13 @@ class GenericIngestionJob(
       mergedMetadata.emptyIsNull.getOrElse(settings.comet.emptyIsNull)
     )
 
-    saveRejected(validationResult.errors, validationResult.rejected)
-    saveAccepted(validationResult)
+    saveRejected(validationResult.errors, validationResult.rejected).map { _ =>
+      saveAccepted(validationResult)
+    } match {
+      case Failure(exception) =>
+        throw exception
+      case Success(_) => ;
+    }
     (validationResult.errors, validationResult.accepted)
   }
 }
