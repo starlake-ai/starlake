@@ -5,9 +5,13 @@ import ai.starlake.schema.model.{Schema => _, TableInfo => _, _}
 import ai.starlake.utils.conversion.BigQueryUtils.sparkToBq
 import ai.starlake.utils.{SQLUtils, Utils}
 import com.google.cloud.bigquery.{Schema => BQSchema, TableInfo => BQTableInfo, _}
-import com.google.cloud.datacatalog.v1.{ListPolicyTagsRequest, ListTaxonomiesRequest, PolicyTagManagerClient}
+import com.google.cloud.datacatalog.v1.{
+  ListPolicyTagsRequest,
+  ListTaxonomiesRequest,
+  PolicyTagManagerClient
+}
 import com.google.cloud.{Identity, Policy, Role, ServiceOptions}
-import com.google.iam.v1.{Binding, SetIamPolicyRequest, Policy => IAMPolicy}
+import com.google.iam.v1.{Binding, Policy => IAMPolicy, SetIamPolicyRequest}
 import com.google.protobuf.FieldMask
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.sql.DataFrame
@@ -16,7 +20,7 @@ import java.security.SecureRandom
 import java.util
 import scala.collection.JavaConverters._
 import scala.collection.mutable
-import scala.util.{Failure, Random, Success, Try}
+import scala.util.{Failure, Success, Try}
 
 /** Base class for BigQuery jobs
   */
@@ -313,13 +317,15 @@ trait BigQueryJobBase extends StrictLogging {
         bigqueryProcess
       }.recoverWith {
         case be: BigQueryException
-          if retry < 3 && scala.Option(be.getError).exists(_.getReason() == "rateLimitExceeded") =>
+            if retry < 3 && scala
+              .Option(be.getError)
+              .exists(_.getReason() == "rateLimitExceeded") =>
           val sleepTime = 5000 * (retry + 1) + SecureRandom.getInstanceStrong.nextInt(5000)
           logger.error(s"Retry in $sleepTime. ${be.getMessage}")
           Thread.sleep(sleepTime)
           processWithRetry(retry + 1, bigqueryProcess)
         case be: BigQueryException
-          if retry < 3 && scala.Option(be.getError).exists(_.getReason() == "duplicate") =>
+            if retry < 3 && scala.Option(be.getError).exists(_.getReason() == "duplicate") =>
           logger.error(be.getMessage)
           processWithRetry(retry + 1, bigqueryProcess)
       }
@@ -528,28 +534,40 @@ trait BigQueryJobBase extends StrictLogging {
     * @return
     *   Table with columns description updated
     */
-  def updateColumnsDescription(dictField: Map[String, String])(implicit settings: Settings) = {
-    logger.info(
-      s"We are updating the description field on this Table: $bqTable"
-    )
-    val tableTarget = bigquery().getTable(tableId)
-    val tableSchema = tableTarget.getDefinition.asInstanceOf[StandardTableDefinition].getSchema
-    val fieldList = tableSchema.getFields
-      .iterator()
-      .asScala
-      .toList
-      .map(field =>
-        field.toBuilder
-          .setDescription(dictField.getOrElse(field.getName, field.getDescription))
-          .build()
-      )
-      .asJava
-
-    bigquery.update(
-      tableTarget.toBuilder
-        .setDefinition(StandardTableDefinition.of(BQSchema.of(fieldList)))
-        .build()
-    )
+  def updateColumnsDescription(
+    dictField: Map[String, String]
+  )(implicit settings: Settings): Table = {
+    recoverBigqueryException {
+      val tableTarget = bigquery().getTable(tableId)
+      val tableSchema = tableTarget.getDefinition.asInstanceOf[StandardTableDefinition].getSchema
+      val (fieldList, descriptionChanged) = tableSchema.getFields
+        .iterator()
+        .asScala
+        .toList
+        .foldLeft(List[Field]() -> false) { case ((fields, changed), field) =>
+          val targetDescription = dictField.getOrElse(field.getName, field.getDescription)
+          val fieldDescriptionHasChange =
+            scala.Option(targetDescription) != scala.Option(field.getDescription)
+          (fields :+ field.toBuilder
+            .setDescription(targetDescription)
+            .build()) -> (changed || fieldDescriptionHasChange)
+        }
+      if (descriptionChanged) {
+        logger.info(s"$bqTable's column description has changed")
+        bigquery.update(
+          tableTarget.toBuilder
+            .setDefinition(StandardTableDefinition.of(BQSchema.of(fieldList.asJava)))
+            .build()
+        )
+      } else {
+        logger.info(s"$bqTable's column description has not changed")
+        tableTarget
+      }
+    } match {
+      case Failure(exception) =>
+        throw exception
+      case Success(table) => table
+    }
   }
 
   /** To set access control on a table or view, we can use Identity and Access Management (IAM)
