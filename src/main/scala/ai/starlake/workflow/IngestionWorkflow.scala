@@ -871,8 +871,7 @@ class IngestionWorkflow(
     maybeSchema: Option[BQSchema] = None,
     maybeTableDescription: Option[String] = None
   ): Try[JobResult] = {
-    val res = new BigQuerySparkJob(config, maybeSchema, maybeTableDescription).run()
-    Utils.logFailure(res, logger)
+    new BigQuerySparkJob(config, maybeSchema, maybeTableDescription).run()
   }
 
   def kafkaload(config: KafkaJobConfig): Try[JobResult] = {

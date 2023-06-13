@@ -8,6 +8,9 @@ __Feature__:
 __Improvements__:
 - retry on retryable bigquery exception: rateLimitExceeded and duplicate
 
+__Bug Fix__:
+- avoid swallowed exception related to BigquerySparkJob
+
 # 0.7.3:
 __Feature__:
 - **BREAKING CHANGE**: Rename "cleanOnExtract" to "clean" in ExtractData CLI
