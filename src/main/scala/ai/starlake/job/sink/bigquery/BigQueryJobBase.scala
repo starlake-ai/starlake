@@ -420,17 +420,21 @@ trait BigQueryJobBase extends StrictLogging {
   protected def updateTableDescription(idTable: TableId, description: String)(implicit
     settings: Settings
   ): Table = {
-    logger.info(
-      s"We are updating the description on this Table: $idTable"
-    )
-    bigquery()
-      .getTable(idTable)
-      .toBuilder
-      .setDescription(
-        description
-      )
-      .build()
-      .update()
+    recoverBigqueryException {
+      val bqTable = bigquery().getTable(idTable)
+      if (scala.Option(bqTable.getDescription) != scala.Option(description)) {
+        // Update dataset description only when description is explicitly set
+        logger.info("Table's description has changed")
+        bqTable.toBuilder.setDescription(description).build().update()
+      } else {
+        logger.info("Table's description has not changed")
+        bqTable
+      }
+    } match {
+      case Failure(exception) =>
+        throw exception
+      case Success(table) => table
+    }
   }
 
   private def updateDatasetInfo(
