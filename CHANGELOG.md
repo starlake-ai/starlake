@@ -8,6 +8,7 @@ __Feature__:
 __Improvements__:
 - retry on retryable bigquery exception: rateLimitExceeded and duplicate
 - avoid table description update if it didn't change
+- avoid table's column description update if it didn't change
 
 __Bug Fix__:
 - avoid swallowed exception related to BigquerySparkJob
