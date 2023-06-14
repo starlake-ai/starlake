@@ -30,7 +30,7 @@ import org.apache.spark.sql.functions.input_file_name
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 
-import scala.util.Try
+import scala.util.{Failure, Success, Try}
 
 /** Main class to XML file If your json contains only one level simple attribute aka. kind of dsv
   * but in json format please use SIMPLE_JSON instead. It's way faster
@@ -104,14 +104,19 @@ class XmlIngestionJob(
     mergedMetadata.getXmlOptions().get("skipValidation") match {
       case Some(_) =>
         val rejectedDS = errorList.toDS()
-        saveRejected(rejectedDS, session.emptyDataset[String])
-        saveAccepted(
-          ValidationResult(
-            session.emptyDataset[String],
-            session.emptyDataset[String],
-            dataset
+        saveRejected(rejectedDS, session.emptyDataset[String]).map { _ =>
+          saveAccepted(
+            ValidationResult(
+              session.emptyDataset[String],
+              session.emptyDataset[String],
+              dataset
+            )
           )
-        )
+        } match {
+          case Failure(exception) =>
+            throw exception
+          case Success(_) => ;
+        }
         (rejectedDS, dataset)
       case None =>
         val withInputFileNameDS =
@@ -136,8 +141,13 @@ class XmlIngestionJob(
           )
 
         val allRejected = rejectedDS.union(validationResult.errors)
-        saveRejected(allRejected, validationResult.rejected)
-        saveAccepted(validationResult)
+        saveRejected(allRejected, validationResult.rejected).map { _ =>
+          saveAccepted(validationResult)
+        } match {
+          case Failure(exception) =>
+            throw exception
+          case Success(_) => ;
+        }
         (allRejected, validationResult.accepted)
     }
   }

@@ -10,7 +10,7 @@ import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.{DataFrame, DatasetLogging, SaveMode, SparkSession}
 
-import scala.util.{Success, Try}
+import scala.util.{Failure, Success, Try}
 
 class SinkUtils()(implicit settings: Settings) extends StrictLogging with DatasetLogging {
 
@@ -125,7 +125,11 @@ class SinkUtils()(implicit settings: Settings) extends StrictLogging with Datase
         config,
         maybeTableDescription = maybeTableDescription
       ).run()
-      Utils.logFailure(res, logger)
+      res match {
+        case Success(_) => ;
+        case Failure(e) =>
+          throw e
+      }
     }
   }
 
