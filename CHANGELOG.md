@@ -5,6 +5,14 @@
 __Feature__:
 - Add SL_PROJECT and SL_TENANT env vars to be used in audit table
 
+__Improvements__:
+- retry on retryable bigquery exception: rateLimitExceeded and duplicate
+- avoid table description update if it didn't change
+- avoid table's column description update if it didn't change
+
+__Bug Fix__:
+- avoid swallowed exception related to BigquerySparkJob
+
 # 0.7.3:
 __Feature__:
 - **BREAKING CHANGE**: Rename "cleanOnExtract" to "clean" in ExtractData CLI
