@@ -6,6 +6,8 @@ import ai.starlake.utils.Utils
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.sql.DataFrame
 
+import scala.util.{Failure, Success}
+
 object BigQuerySparkWriter extends StrictLogging {
   def sink(
     authInfo: Map[String, String],
@@ -15,7 +17,7 @@ object BigQuerySparkWriter extends StrictLogging {
     writeMode: WriteMode
   )(implicit
     settings: Settings
-  ): Any = {
+  ): Unit = {
     settings.comet.tableInfo.sink match {
       case sink: BigQuerySink =>
         val source = Right(Utils.setNullableStateOfColumn(df, nullable = true))
@@ -48,8 +50,11 @@ object BigQuerySparkWriter extends StrictLogging {
           maybeSchema = None,
           maybeTableDescription = maybeTableDescription
         ).run()
-        Utils.logFailure(result, logger)
-        result.isSuccess
+        result match {
+          case Success(_) => ;
+          case Failure(e) =>
+            throw e
+        }
       case _: EsSink =>
         // TODO Sink Audit Log to ES
         throw new Exception("Sinking Audit log to Elasticsearch not yet supported")
