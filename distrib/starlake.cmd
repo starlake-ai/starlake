@@ -176,23 +176,23 @@ if "%SL_DOWNLOADED%" == "TRUE" (
     GOTO :SKIP_SL_DOWNLOAD
 )
 
-if "x%COMET_VERSION%"=="x" (
+if "x%SL_VERSION%"=="x" (
     for /f "usebackq delims=" %%a in (`powershell -Command "((((Invoke-WebRequest 'https://search.maven.org/solrsearch/select?q=g:ai.starlake AND a:%SL_ARTIFACT_NAME%&core=gav&start=0&rows=42&wt=json').content) | ConvertFrom-Json).response.docs.v | sort {[version] $_} -Descending)[0]"`) do (
-        set COMET_VERSION=%%a
+        set SL_VERSION=%%a
     )
 )
 
-SET SL_JAR_NAME=%SL_ARTIFACT_NAME%-%COMET_VERSION%-assembly.jar
+SET SL_JAR_NAME=%SL_ARTIFACT_NAME%-%SL_VERSION%-assembly.jar
 SET SL_JAR_FULL_NAME=%SPARK_TARGET_FOLDER%\jars\%SL_JAR_NAME%
-SET SL_JAR_URL=https://repo1.maven.org/maven2/ai/starlake/%SL_ARTIFACT_NAME%/%COMET_VERSION%/%SL_JAR_NAME%
+SET SL_JAR_URL=https://repo1.maven.org/maven2/ai/starlake/%SL_ARTIFACT_NAME%/%SL_VERSION%/%SL_JAR_NAME%
 
-if not x%COMET_VERSION:SNAPSHOT=%==x%COMET_VERSION% (
-    SET SL_JAR_URL=https://oss.sonatype.org/content/repositories/snapshots/ai/starlake/%SL_ARTIFACT_NAME%/%COMET_VERSION%/%SL_JAR_NAME%
+if not x%SL_VERSION:SNAPSHOT=%==x%SL_VERSION% (
+    SET SL_JAR_URL=https://oss.sonatype.org/content/repositories/snapshots/ai/starlake/%SL_ARTIFACT_NAME%/%SL_VERSION%/%SL_JAR_NAME%
 )
 
 echo - starlake: downloading from %SL_JAR_URL%
 powershell -command "Start-BitsTransfer -Source %SL_JAR_URL% -Destination %SPARK_TARGET_FOLDER%/jars/%SL_JAR_NAME%"
-echo Starlake version: %COMET_VERSION% >> %SCRIPT_DIR%/version.info
+echo Starlake version: %SL_VERSION% >> %SCRIPT_DIR%/version.info
 echo - starlake: OK
 
 :SKIP_SL_DOWNLOAD
@@ -214,24 +214,24 @@ echo - spark bq: OK
 :SKIP_SPARK_BQ_DOWNLOAD
 
 :SKIP_INSTALL
-if "x%COMET_ROOT%"=="x" (
-    set COMET_ROOT=%cd%
+if "x%SL_ROOT%"=="x" (
+    set SL_ROOT=%cd%
 )
 
-if "x%COMET_ENV%"=="x" (
-    set COMET_ENV=FS
+if "x%SL_ENV%"=="x" (
+    set SL_ENV=FS
 )
 
-if "x%COMET_FS%"=="x" (
-    set COMET_FS=file://
+if "x%SL_FS%"=="x" (
+    set SL_FS=file://
 )
 
-if "x%COMET_MAIN%"=="x" (
-    set COMET_MAIN=ai.starlake.job.Main
+if "x%SL_MAIN%"=="x" (
+    set SL_MAIN=ai.starlake.job.Main
 )
 
-if "x%COMET_VALIDATE_ON_LOAD%"=="x" (
-    set COMET_VALIDATE_ON_LOAD=false
+if "x%SL_VALIDATE_ON_LOAD%"=="x" (
+    set SL_VALIDATE_ON_LOAD=false
 )
 
 if "x%SPARK_DRIVER_MEMORY%"=="x" (
@@ -242,11 +242,11 @@ ECHO.
 ECHO Launching starlake.
 ECHO - HADOOP_HOME=%HADOOP_HOME%
 ECHO - JAVA_HOME=%JAVA_HOME%
-ECHO - COMET_ROOT=%COMET_ROOT%
-ECHO - COMET_ENV=%COMET_ENV%
-ECHO - COMET_FS=%COMET_FS%
-ECHO - COMET_MAIN=%COMET_MAIN%
-ECHO - COMET_VALIDATE_ON_LOAD=%COMET_VALIDATE_ON_LOAD%
+ECHO - SL_ROOT=%SL_ROOT%
+ECHO - SL_ENV=%SL_ENV%
+ECHO - SL_FS=%SL_FS%
+ECHO - SL_MAIN=%SL_MAIN%
+ECHO - SL_VALIDATE_ON_LOAD=%SL_VALIDATE_ON_LOAD%
 ECHO - SPARK_DRIVER_MEMORY=%SPARK_DRIVER_MEMORY%
 ECHO Make sure your java home path does not contain space
 
