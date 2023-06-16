@@ -29,7 +29,7 @@ import org.apache.spark.sql._
 import org.apache.spark.sql.execution.datasources.json.JsonIngestionUtil
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
 
-import scala.util.Try
+import scala.util.{Failure, Success, Try}
 
 /** Main class to complex json delimiter separated values file If your json contains only one level
   * simple attribute aka. kind of dsv but in json format please use SIMPLE_JSON instead. It's way
@@ -159,8 +159,13 @@ class JsonIngestionJob(
     import session.implicits._
     val rejectedDS = session.createDataset(withInvalidSchema).union(validationResult.errors)
 
-    saveRejected(rejectedDS, validationResult.rejected)
-    saveAccepted(validationResult) // prefer to let Spark compute the final schema
+    saveRejected(rejectedDS, validationResult.rejected).map { _ =>
+      saveAccepted(validationResult) // prefer to let Spark compute the final schema
+    } match {
+      case Failure(exception) =>
+        throw exception
+      case Success(_) => ;
+    }
     (rejectedDS, validationResult.accepted)
   }
 
