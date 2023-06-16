@@ -28,7 +28,7 @@ object AutoTask2GraphVizConfig extends CliConfig[AutoTask2GraphVizConfig] {
       opt[Option[String]]("jobs")
         .action((x, c) => c.copy(job = x))
         .optional()
-        .text("Where to save the generated dot file ? Output to the console by default"),
+        .text("Compute dependencies of this job only. If not specified, compute all jobs."),
       opt[Unit]("reload")
         .action((x, c) => c.copy(reload = true))
         .optional()

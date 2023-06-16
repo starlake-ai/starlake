@@ -203,7 +203,6 @@ object AutoJobDesc {
       val updatedTasksDiff = commonTasks.map { case (existing, incoming) =>
         AutoTaskDesc.compare(existing, incoming)
       }
-
       val taskRefsDiff =
         AnyRefDiff.diffSetString("taskRefs", existing.taskRefs.toSet, incoming.taskRefs.toSet)
       val formatDiff = AnyRefDiff.diffOptionString("format", existing.format, incoming.format)
