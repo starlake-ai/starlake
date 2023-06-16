@@ -619,7 +619,7 @@ class IngestionWorkflow(
     }
   }
 
-  def inferSchema(config: InferSchemaConfig): Try[Unit] = {
+  def inferSchema(config: InferSchemaConfig): Try[File] = {
     val result = new InferSchema(
       config.domainName,
       config.schemaName,
@@ -629,6 +629,7 @@ class IngestionWorkflow(
       config.format
     ).run()
     Utils.logFailure(result, logger)
+    result
   }
 
   def inferDDL(config: Yml2DDLConfig): Try[Unit] = {

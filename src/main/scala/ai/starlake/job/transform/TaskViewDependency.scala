@@ -1,5 +1,6 @@
 package ai.starlake.job.transform
 
+import ai.starlake.job.transform.TaskViewDependency.typLabel
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.Domain
 import ai.starlake.utils.SQLUtils
@@ -20,6 +21,14 @@ object TaskViewDependency extends StrictLogging {
   val VIEW_TYPE: String = "view"
   val UNKNOWN_TYPE: String = "unknown"
 
+  def typLabel(typ: String): String = typ match {
+    case TASK_TYPE     => "Transform"
+    case CTE_TYPE      => "CTE"
+    case TASKVIEW_TYPE => "Taskview"
+    case TABLE_TYPE    => "Load"
+    case VIEW_TYPE     => "View"
+    case _             => "Unknown"
+  }
   case class SimpleEntry(name: String, typ: String, parentRefs: List[String])
   def jobDependencies(jobName: String, tasks: List[AutoTask])(implicit
     schemaHandler: SchemaHandler
@@ -240,7 +249,9 @@ case class TaskViewDependency(
     s"""
        |$depId [label=<
        |<table border="0" cellborder="1" cellspacing="0">
-       |<tr><td port="0" bgcolor="$depBgColor"><B><FONT color="white"> ${typ.capitalize} </FONT></B></td></tr>
+       |<tr><td port="0" bgcolor="$depBgColor"><B><FONT color="white"> ${typLabel(
+        typ
+      )} </FONT></B></td></tr>
        |<tr><td port="1">$name</td></tr>
        |$sinkToTable
        |     </table>>];""".stripMargin

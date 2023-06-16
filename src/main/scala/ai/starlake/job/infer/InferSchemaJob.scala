@@ -23,6 +23,7 @@ package ai.starlake.job.infer
 import ai.starlake.config.{Settings, SparkEnv}
 import ai.starlake.schema.handlers.InferSchemaHandler
 import ai.starlake.schema.model.{Attribute, Domain, Format, Position}
+import better.files.File
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.{DataFrame, Dataset, Encoders, SparkSession}
 
@@ -52,7 +53,7 @@ class InferSchema(
   format: Option[Format] = None
 )(implicit settings: Settings) {
 
-  def run(): Try[Unit] =
+  def run(): Try[File] =
     (new InferSchemaJob).infer(domainName, schemaName, dataPath, saveDir, header, format)
 
 }
@@ -210,7 +211,7 @@ class InferSchemaJob(implicit settings: Settings) {
     saveDir: String,
     withHeader: Boolean,
     forceFormat: Option[Format]
-  ): Try[Unit] = {
+  ): Try[File] = {
     Try {
       val path = new Path(dataPath)
 
@@ -280,6 +281,6 @@ class InferSchemaJob(implicit settings: Settings) {
         )
 
       InferSchemaHandler.generateYaml(domain, saveDir)
-    }
+    }.flatten
   }
 }
