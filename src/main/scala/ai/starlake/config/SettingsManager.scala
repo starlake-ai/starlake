@@ -57,7 +57,6 @@ object SettingsManager {
     gcpProject.foreach { gcpProject =>
       sysProps.setProperty("GCP_PROJECT", gcpProject)
     }
-
     val currentSettings = settingsMap.getOrElse(
       sessionId, {
         settingsMap.synchronized {

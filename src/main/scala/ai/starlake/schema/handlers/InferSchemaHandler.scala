@@ -28,7 +28,7 @@ import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.types.{ArrayType, StructField, StructType}
 
 import java.util.regex.Pattern
-import scala.util.{Failure, Success}
+import scala.util.{Failure, Success, Try}
 
 object InferSchemaHandler {
   val datePattern = "[0-9]{4}-[0-9]{2}-[0-9]{2}".r.pattern
@@ -189,7 +189,7 @@ object InferSchemaHandler {
     */
   def generateYaml(domain: Domain, saveDir: String)(implicit
     settings: Settings
-  ): Unit = {
+  ): Try[File] = Try {
     val savePath = File(saveDir, s"${domain.name}.comet.yml")
     savePath.parent.createDirectories()
     if (savePath.exists) {
@@ -211,11 +211,14 @@ object InferSchemaHandler {
           val finalDomain =
             existingDomain.copy(tables = existingDomain.tables ++ domain.tables)
           YamlSerializer.serializeToFile(savePath, finalDomain)
-        case Failure(e) => e.printStackTrace()
+        case Failure(e) =>
+          e.printStackTrace()
+          throw e
       }
 
     } else {
       YamlSerializer.serializeToFile(savePath, domain)
     }
+    savePath
   }
 }

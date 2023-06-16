@@ -39,11 +39,14 @@ case class BigQueryDatasetInfo(
   location: String,
   description: String,
   defaultTableLifetime: Long,
-  timestamp: java.sql.Timestamp
+  timestamp: java.sql.Timestamp,
+  tenant: String
 )
 
 object BigQueryDatasetInfo {
-  def apply(info: DatasetInfo, logTime: java.sql.Timestamp): BigQueryDatasetInfo =
+  def apply(info: DatasetInfo, logTime: java.sql.Timestamp)(implicit
+    settings: Settings
+  ): BigQueryDatasetInfo =
     BigQueryDatasetInfo(
       info.getDatasetId.getProject(),
       info.getDatasetId.getDataset(),
@@ -52,7 +55,8 @@ object BigQueryDatasetInfo {
       info.getLocation(),
       info.getDescription(),
       info.getDefaultTableLifetime(),
-      logTime
+      logTime,
+      settings.comet.tenant
     )
 }
 
@@ -68,11 +72,14 @@ case class BigQueryTableInfo(
   numLongTermBytes: Long,
   numRows: Long,
   requirePartitionFilter: Boolean,
-  timestamp: java.sql.Timestamp
+  timestamp: java.sql.Timestamp,
+  tenant: String
 )
 
 object BigQueryTableInfo {
-  def apply(info: TableInfo, logTime: java.sql.Timestamp): BigQueryTableInfo =
+  def apply(info: TableInfo, logTime: java.sql.Timestamp)(implicit
+    settings: Settings
+  ): BigQueryTableInfo =
     BigQueryTableInfo(
       info.getTableId.getProject(),
       info.getTableId.getDataset(),
@@ -85,7 +92,8 @@ object BigQueryTableInfo {
       info.getNumLongTermBytes(),
       info.getNumRows().longValue(),
       info.getRequirePartitionFilter(),
-      logTime
+      logTime,
+      settings.comet.tenant
     )
   def sink(config: BigQueryTablesConfig)(implicit settings: Settings): Unit = {
     val logTime = java.sql.Timestamp.from(Instant.now)
