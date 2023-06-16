@@ -17,7 +17,9 @@ case class FreshnessStatus(
   lastModifiedTime: java.sql.Timestamp,
   timestamp: java.sql.Timestamp,
   duration: Long,
-  warnOrError: String
+  warnOrError: String,
+  project: String,
+  tenant: String
 )
 
 object BigQueryFreshnessInfo {
@@ -131,7 +133,7 @@ object BigQueryFreshnessInfo {
     duration: Option[String],
     level: String,
     typ: String
-  ): Option[FreshnessStatus] = {
+  )(implicit settings: Settings): Option[FreshnessStatus] = {
     duration match {
       case None => None
       case Some(duration) =>
@@ -146,7 +148,9 @@ object BigQueryFreshnessInfo {
               new Timestamp(lastModifiedTime),
               new Timestamp(now),
               warnOrErrorDuration,
-              level
+              level,
+              settings.comet.project,
+              settings.comet.tenant
             )
           )
         else
