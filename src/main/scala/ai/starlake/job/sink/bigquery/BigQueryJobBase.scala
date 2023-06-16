@@ -2,8 +2,8 @@ package ai.starlake.job.sink.bigquery
 import ai.starlake.config.Settings
 import ai.starlake.schema.model
 import ai.starlake.schema.model.{Schema => _, TableInfo => _, _}
-import ai.starlake.utils.{SQLUtils, Utils}
 import ai.starlake.utils.conversion.BigQueryUtils.sparkToBq
+import ai.starlake.utils.{SQLUtils, Utils}
 import com.google.cloud.bigquery.{Schema => BQSchema, TableInfo => BQTableInfo, _}
 import com.google.cloud.datacatalog.v1.{
   ListPolicyTagsRequest,
@@ -16,6 +16,7 @@ import com.google.protobuf.FieldMask
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.spark.sql.DataFrame
 
+import java.security.SecureRandom
 import java.util
 import scala.collection.JavaConverters._
 import scala.collection.mutable
@@ -308,6 +309,30 @@ trait BigQueryJobBase extends StrictLogging {
 
   protected lazy val bqNativeTable: String = BigQueryJobBase.getBqNativeTable(tableId)
 
+  /** Retry on retryable bigquery exception.
+    */
+  private def recoverBigqueryException[T](bigqueryProcess: => T): Try[T] = {
+    def processWithRetry(retry: Int = 0, bigqueryProcess: => T): Try[T] = {
+      Try {
+        bigqueryProcess
+      }.recoverWith {
+        case be: BigQueryException
+            if retry < 3 && scala
+              .Option(be.getError)
+              .exists(_.getReason() == "rateLimitExceeded") =>
+          val sleepTime = 5000 * (retry + 1) + SecureRandom.getInstanceStrong.nextInt(5000)
+          logger.error(s"Retry in $sleepTime. ${be.getMessage}")
+          Thread.sleep(sleepTime)
+          processWithRetry(retry + 1, bigqueryProcess)
+        case be: BigQueryException
+            if retry < 3 && scala.Option(be.getError).exists(_.getReason() == "duplicate") =>
+          logger.error(be.getMessage)
+          processWithRetry(retry + 1, bigqueryProcess)
+      }
+    }
+    processWithRetry(bigqueryProcess = bigqueryProcess)
+  }
+
   /** Get or create a BigQuery dataset
     *
     * @param domainDescription
@@ -317,20 +342,29 @@ trait BigQueryJobBase extends StrictLogging {
     */
   def getOrCreateDataset(
     domainDescription: scala.Option[String]
-  )(implicit settings: Settings): Dataset = {
-    val existingDataset = scala.Option(bigquery().getDataset(datasetId))
-    val labels = Utils.extractTags(cliConfig.domainTags).toMap
-    existingDataset match {
-      case Some(ds) =>
-        updateDatasetInfo(ds, domainDescription, labels)
-      case None =>
-        val datasetInfo = DatasetInfo
-          .newBuilder(datasetId)
-          .setLocation(cliConfig.getLocation())
-          .setDescription(domainDescription.orNull)
-          .setLabels(labels.asJava)
-          .build
-        bigquery().create(datasetInfo)
+  )(implicit settings: Settings): Try[Dataset] = {
+    val tryResult = recoverBigqueryException {
+      val existingDataset = scala.Option(bigquery().getDataset(datasetId))
+      val labels = Utils.extractTags(cliConfig.domainTags).toMap
+      existingDataset match {
+        case Some(ds) =>
+          updateDatasetInfo(ds, domainDescription, labels)
+        case None =>
+          val datasetInfo = DatasetInfo
+            .newBuilder(datasetId)
+            .setLocation(cliConfig.getLocation())
+            .setDescription(domainDescription.orNull)
+            .setLabels(labels.asJava)
+            .build
+          bigquery().create(datasetInfo)
+      }
+    }
+    tryResult match {
+      case Failure(exception) =>
+        logger.error(s"Dataset ${datasetId.getDataset} was not created / retrieved.")
+        Utils.logException(logger, exception)
+        tryResult
+      case Success(_) => tryResult
     }
   }
 
@@ -350,32 +384,35 @@ trait BigQueryJobBase extends StrictLogging {
     tableInfo: model.TableInfo,
     dataFrame: scala.Option[DataFrame]
   )(implicit settings: Settings): Try[(Table, StandardTableDefinition)] = {
-    val tryResult = Try {
-      getOrCreateDataset(domainDescription)
+    getOrCreateDataset(domainDescription).flatMap { _ =>
+      val tryResult = recoverBigqueryException {
 
-      val tableDefinition = getTableDefinition(tableInfo, dataFrame)
-      val table = scala
-        .Option(bigquery().getTable(tableId))
-        .getOrElse {
-          val bqTableInfo = BQTableInfo
-            .newBuilder(tableId, tableDefinition)
-            .setDescription(tableInfo.maybeTableDescription.orNull)
-            .build
-          val result = bigquery().create(
-            bqTableInfo
+        val tableDefinition = getTableDefinition(tableInfo, dataFrame)
+        val table = scala
+          .Option(bigquery().getTable(tableId))
+          .getOrElse {
+            val bqTableInfo = BQTableInfo
+              .newBuilder(tableId, tableDefinition)
+              .setDescription(tableInfo.maybeTableDescription.orNull)
+              .build
+            val result = bigquery().create(
+              bqTableInfo
+            )
+            logger.info(s"Table ${tableId.getDataset}.${tableId.getTable} created successfully")
+            result
+          }
+        setTagsOnTable(table)
+        (table, table.getDefinition[StandardTableDefinition])
+      }
+      tryResult match {
+        case Failure(exception) =>
+          logger.info(
+            s"Table ${tableId.getDataset}.${tableId.getTable} was not created / retrieved."
           )
-          logger.info(s"Table ${tableId.getDataset}.${tableId.getTable} created successfully")
-          result
-        }
-      setTagsOnTable(table)
-      (table, table.getDefinition[StandardTableDefinition])
-    }
-    tryResult match {
-      case Failure(exception) =>
-        logger.info(s"Table ${tableId.getDataset}.${tableId.getTable} was not created.")
-        Utils.logException(logger, exception)
-        tryResult
-      case Success(_) => tryResult
+          Utils.logException(logger, exception)
+          tryResult
+        case Success(_) => tryResult
+      }
     }
   }
 
@@ -389,17 +426,21 @@ trait BigQueryJobBase extends StrictLogging {
   protected def updateTableDescription(idTable: TableId, description: String)(implicit
     settings: Settings
   ): Table = {
-    logger.info(
-      s"We are updating the description on this Table: $idTable"
-    )
-    bigquery()
-      .getTable(idTable)
-      .toBuilder
-      .setDescription(
-        description
-      )
-      .build()
-      .update()
+    recoverBigqueryException {
+      val bqTable = bigquery().getTable(idTable)
+      if (scala.Option(bqTable.getDescription) != scala.Option(description)) {
+        // Update dataset description only when description is explicitly set
+        logger.info("Table's description has changed")
+        bqTable.toBuilder.setDescription(description).build().update()
+      } else {
+        logger.info("Table's description has not changed")
+        bqTable
+      }
+    } match {
+      case Failure(exception) =>
+        throw exception
+      case Success(table) => table
+    }
   }
 
   private def updateDatasetInfo(
@@ -493,28 +534,40 @@ trait BigQueryJobBase extends StrictLogging {
     * @return
     *   Table with columns description updated
     */
-  def updateColumnsDescription(dictField: Map[String, String])(implicit settings: Settings) = {
-    logger.info(
-      s"We are updating the description field on this Table: $bqTable"
-    )
-    val tableTarget = bigquery().getTable(tableId)
-    val tableSchema = tableTarget.getDefinition.asInstanceOf[StandardTableDefinition].getSchema
-    val fieldList = tableSchema.getFields
-      .iterator()
-      .asScala
-      .toList
-      .map(field =>
-        field.toBuilder
-          .setDescription(dictField.getOrElse(field.getName, field.getDescription))
-          .build()
-      )
-      .asJava
-
-    bigquery.update(
-      tableTarget.toBuilder
-        .setDefinition(StandardTableDefinition.of(BQSchema.of(fieldList)))
-        .build()
-    )
+  def updateColumnsDescription(
+    dictField: Map[String, String]
+  )(implicit settings: Settings): Table = {
+    recoverBigqueryException {
+      val tableTarget = bigquery().getTable(tableId)
+      val tableSchema = tableTarget.getDefinition.asInstanceOf[StandardTableDefinition].getSchema
+      val (fieldList, descriptionChanged) = tableSchema.getFields
+        .iterator()
+        .asScala
+        .toList
+        .foldLeft(List[Field]() -> false) { case ((fields, changed), field) =>
+          val targetDescription = dictField.getOrElse(field.getName, field.getDescription)
+          val fieldDescriptionHasChange =
+            scala.Option(targetDescription) != scala.Option(field.getDescription)
+          (fields :+ field.toBuilder
+            .setDescription(targetDescription)
+            .build()) -> (changed || fieldDescriptionHasChange)
+        }
+      if (descriptionChanged) {
+        logger.info(s"$bqTable's column description has changed")
+        bigquery.update(
+          tableTarget.toBuilder
+            .setDefinition(StandardTableDefinition.of(BQSchema.of(fieldList.asJava)))
+            .build()
+        )
+      } else {
+        logger.info(s"$bqTable's column description has not changed")
+        tableTarget
+      }
+    } match {
+      case Failure(exception) =>
+        throw exception
+      case Success(table) => table
+    }
   }
 
   /** To set access control on a table or view, we can use Identity and Access Management (IAM)

@@ -2,8 +2,19 @@
 # Release notes
 
 # 0.7.4:
+__Deprecated__:
+- **BREAKING CHANGE** Env vars that start with COMET_ are now replaced with SL_ prefix for starlake.cmd
+
 __Feature__:
 - Add SL_PROJECT and SL_TENANT env vars to be used in audit table
+
+__Improvements__:
+- retry on retryable bigquery exception: rateLimitExceeded and duplicate
+- avoid table description update if it didn't change
+- avoid table's column description update if it didn't change
+
+__Bug Fix__:
+- avoid swallowed exception related to BigquerySparkJob
 
 # 0.7.3:
 __Feature__:
