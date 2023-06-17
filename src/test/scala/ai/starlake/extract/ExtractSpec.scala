@@ -69,7 +69,7 @@ class ExtractSpec extends TestHelper {
     val row1InsertionCheck = (1 == rs.getInt("ID")) && ("A" == rs.getString("NAME"))
     assert(row1InsertionCheck, "Data not inserted")
     val outputDir: File = File(s"$cometTestRoot/extract-without-template")
-    ExtractSchema.extractSchema(
+    ExtractJDBCSchema.extractSchema(
       jdbcSchema,
       connectionOptions,
       outputDir,
@@ -329,7 +329,7 @@ class ExtractSpec extends TestHelper {
       val row1InsertionCheck = (1 == rs.getInt("ID")) && ("A" == rs.getString("NAME"))
       assert(row1InsertionCheck, "Data not inserted")
 
-      ExtractSchema.extractSchema(
+      ExtractJDBCSchema.extractSchema(
         JDBCSchema(
           None,
           "PUBLIC",
@@ -392,7 +392,7 @@ class ExtractSpec extends TestHelper {
       val row1InsertionCheck = (1 == rs.getInt("ID")) && ("A" == rs.getString("NAME"))
       assert(row1InsertionCheck, "Data not inserted")
 
-      ExtractSchema.extractSchema(
+      ExtractJDBCSchema.extractSchema(
         JDBCSchema(
           None,
           "PUBLIC",

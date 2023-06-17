@@ -92,7 +92,8 @@ trait XlsModel {
     "_frequency"   -> "Job frenquency",
     "_partition"   -> "Partition column",
     "_description" -> "Description",
-    "_policy"      -> "Access Policy"
+    "_policy"      -> "Access Policy",
+    "_database"    -> "Database"
   )
 
   val allAttributeJobHeaders = List(

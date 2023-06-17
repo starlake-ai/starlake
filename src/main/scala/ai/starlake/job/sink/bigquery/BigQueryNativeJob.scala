@@ -63,12 +63,12 @@ class BigQueryNativeJob(
                 stats.getEndTime - stats.getStartTime,
                 if (success) "success" else s"${stats.getBadRecords} invalid records",
                 Step.LOAD.toString,
-                settings.comet.project,
+                settings.comet.database,
                 settings.comet.tenant
               )
               settings.comet.audit.sink match {
                 case sink: BigQuerySink =>
-                  AuditLog.sinToBigQuery(Map.empty, log, sink)
+                  AuditLog.sinkToBigQuery(Map.empty, log, sink)
                 case _ =>
                   throw new Exception("Not Supported")
               }

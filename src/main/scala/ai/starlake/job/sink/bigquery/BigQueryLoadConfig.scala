@@ -53,6 +53,10 @@ object BigQueryLoadConfig extends CliConfig[BigQueryLoadCliConfig] {
         .action((x, c) => c.copy(source = Left(x)))
         .text("Full Path to source file")
         .required(),
+      opt[String]("output_database")
+        .action((x, c) => c.copy(outputDatabase = Some(x)))
+        .text("Target BigQuery Project")
+        .optional(),
       opt[String]("output_dataset")
         .action((x, c) => c.copy(outputDataset = Some(x)))
         .text("BigQuery Output Dataset")
