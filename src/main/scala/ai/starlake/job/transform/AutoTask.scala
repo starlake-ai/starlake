@@ -123,12 +123,16 @@ case class AutoTask(
 
   private def createBigQueryConfig(): BigQueryLoadConfig = {
     val bqSink =
-      taskDesc.sink.map(sink => sink.asInstanceOf[BigQuerySink]).getOrElse(BigQuerySink())
+      taskDesc.sink
+        .map(sink => sink.asInstanceOf[BigQuerySink])
+        .getOrElse(BigQuerySink())
     BigQueryLoadConfig(
       gcpProjectId = authInfo.get("gcpProjectId"),
       gcpSAJsonKey = authInfo.get("gcpSAJsonKey"),
-      outputTableId =
-        Some(BigQueryJobBase.extractProjectDatasetAndTable(taskDesc.domain, taskDesc.table)),
+      outputTableId = Some(
+        BigQueryJobBase
+          .extractProjectDatasetAndTable(taskDesc.database, taskDesc.domain, taskDesc.table)
+      ),
       createDisposition = createDisposition,
       writeDisposition = writeDisposition,
       location = bqSink.location,
@@ -561,7 +565,7 @@ case class AutoTask(
       end.getTime - start.getTime,
       message,
       Step.TRANSFORM.toString,
-      settings.comet.project,
+      settings.comet.database,
       settings.comet.tenant
     )
     AuditLog.sink(authInfo, optionalAuditSession, log)

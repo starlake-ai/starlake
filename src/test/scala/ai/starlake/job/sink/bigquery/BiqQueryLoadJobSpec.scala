@@ -12,6 +12,8 @@ class BiqQueryLoadJobSpec extends TestHelper {
           |
           |
           |  --source_file <value>    Full Path to source file
+          |  --output_database <value>
+          |                           Target BigQuery Project
           |  --output_dataset <value>
           |                           BigQuery Output Dataset
           |  --output_table <value>   BigQuery Output Table

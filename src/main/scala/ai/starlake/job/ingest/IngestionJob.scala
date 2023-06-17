@@ -164,7 +164,7 @@ trait IngestionJob extends SparkJob {
           )
         } else {
           settings.comet.audit.sink match {
-            case _: NoneSink | FsSink(_, _, _, _, _, _, _) =>
+            case _: NoneSink | FsSink(_, _, _, _, _, _, _, _) =>
               sinkToFile(
                 rejectedDF,
                 rejectedPath,
@@ -190,7 +190,7 @@ trait IngestionJob extends SparkJob {
           end.getTime - start.getTime,
           "success",
           Step.SINK_REJECTED.toString,
-          settings.comet.project,
+          domain.database.getOrElse(settings.comet.database),
           settings.comet.tenant
         )
         AuditLog.sink(Map.empty, optionalAuditSession, log)
@@ -211,7 +211,7 @@ trait IngestionJob extends SparkJob {
           end.getTime - start.getTime,
           Utils.exceptionAsString(exception),
           Step.SINK_REJECTED.toString,
-          settings.comet.project,
+          domain.database.getOrElse(settings.comet.database),
           settings.comet.tenant
         )
         AuditLog.sink(Map.empty, optionalAuditSession, log)
@@ -381,7 +381,7 @@ trait IngestionJob extends SparkJob {
             end.getTime - start.getTime,
             "success",
             Step.SINK_ACCEPTED.toString,
-            settings.comet.project,
+            domain.database.getOrElse(settings.comet.database),
             settings.comet.tenant
           )
           AuditLog.sink(Map.empty, optionalAuditSession, log)
@@ -402,7 +402,7 @@ trait IngestionJob extends SparkJob {
             end.getTime - start.getTime,
             Utils.exceptionAsString(exception),
             Step.SINK_ACCEPTED.toString,
-            settings.comet.project,
+            domain.database.getOrElse(settings.comet.database),
             settings.comet.tenant
           )
           AuditLog.sink(Map.empty, optionalAuditSession, log)
@@ -590,7 +590,7 @@ trait IngestionJob extends SparkJob {
       source = Right(mergedDF),
       outputTableId = Some(
         BigQueryJobBase
-          .extractProjectDatasetAndTable(domain.finalName, schema.finalName)
+          .extractProjectDatasetAndTable(domain.database, domain.finalName, schema.finalName)
       ),
       sourceFormat = settings.comet.defaultFormat,
       createDisposition = createDisposition,
@@ -1037,7 +1037,8 @@ trait IngestionJob extends SparkJob {
       None,
       source = Left(path.map(_.toString).mkString(",")),
       outputTableId = Some(
-        BigQueryJobBase.extractProjectDatasetAndTable(domain.finalName, schema.finalName)
+        BigQueryJobBase
+          .extractProjectDatasetAndTable(domain.database, domain.finalName, schema.finalName)
       ),
       sourceFormat = settings.comet.defaultFormat,
       createDisposition = createDisposition,
@@ -1110,7 +1111,7 @@ trait IngestionJob extends SparkJob {
                 end.getTime - start.getTime,
                 if (success) "success" else s"$rejectedCount invalid records",
                 Step.LOAD.toString,
-                settings.comet.project,
+                domain.database.getOrElse(settings.comet.database),
                 settings.comet.tenant
               )
               AuditLog.sink(Map.empty, optionalAuditSession, log)
@@ -1133,7 +1134,7 @@ trait IngestionJob extends SparkJob {
               end.getTime - start.getTime,
               err,
               Step.LOAD.toString,
-              settings.comet.project,
+              domain.database.getOrElse(settings.comet.database),
               settings.comet.tenant
             )
             AuditLog.sink(Map.empty, optionalAuditSession, log)
@@ -1351,7 +1352,11 @@ object IngestionUtil {
             Right(rejectedDF),
             outputTableId = Some(
               BigQueryJobBase
-                .extractProjectDatasetAndTable(sink.name.getOrElse("audit"), "rejected")
+                .extractProjectDatasetAndTable(
+                  sink.database,
+                  sink.name.getOrElse("audit"),
+                  "rejected"
+                )
             ),
             None,
             Nil,
@@ -1384,7 +1389,7 @@ object IngestionUtil {
         case _: EsSink =>
           // TODO Sink Rejected Log to ES
           throw new Exception("Sinking Audit log to Elasticsearch not yet supported")
-        case _: NoneSink | FsSink(_, _, _, _, _, _, _) =>
+        case _: NoneSink | FsSink(_, _, _, _, _, _, _, _) =>
           // We save in the caller
           // TODO rewrite this one
           Success(())

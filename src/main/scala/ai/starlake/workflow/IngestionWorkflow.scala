@@ -767,6 +767,7 @@ class IngestionWorkflow(
                             source = source,
                             outputTableId = Some(
                               BigQueryJobBase.extractProjectDatasetAndTable(
+                                action.taskDesc.database,
                                 action.taskDesc.domain,
                                 action.taskDesc.table
                               )
@@ -967,8 +968,10 @@ class IngestionWorkflow(
             val config = BigQueryLoadConfig(
               None,
               None,
-              outputTableId =
-                Some(BigQueryJobBase.extractProjectDatasetAndTable(domain.name, schema.name)),
+              outputTableId = Some(
+                BigQueryJobBase
+                  .extractProjectDatasetAndTable(domain.database, domain.name, schema.name)
+              ),
               sourceFormat = settings.comet.defaultFormat,
               rls = schema.rls,
               acl = schema.acl,
