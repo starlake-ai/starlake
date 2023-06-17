@@ -695,8 +695,17 @@ object BigQueryJobBase {
     s"${projectId}${tableId.getDataset}.${tableId.getTable}"
   }
 
-  def extractProjectDatasetAndTable(datasetId: String, tableId: String): TableId = {
-    BigQueryJobBase.extractProjectDatasetAndTable(datasetId + "." + tableId)
+  def extractProjectDatasetAndTable(
+    databaseId: scala.Option[String],
+    datasetId: String,
+    tableId: String
+  ): TableId = {
+    databaseId match {
+      case Some(dbId) =>
+        BigQueryJobBase.extractProjectDatasetAndTable(dbId + ":" + datasetId + "." + tableId)
+      case None =>
+        BigQueryJobBase.extractProjectDatasetAndTable(datasetId + "." + tableId)
+    }
   }
 
   /** @param resourceId

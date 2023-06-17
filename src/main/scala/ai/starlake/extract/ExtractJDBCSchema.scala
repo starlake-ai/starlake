@@ -12,7 +12,7 @@ import com.typesafe.scalalogging.LazyLogging
 import java.util.regex.Pattern
 import scala.util.{Failure, Success}
 
-object ExtractSchema extends Extract with LazyLogging {
+object ExtractJDBCSchema extends Extract with LazyLogging {
 
   def run(args: Array[String]): Unit = {
     implicit val settings: Settings = Settings(ConfigFactory.load())

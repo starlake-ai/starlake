@@ -18,7 +18,7 @@ case class FreshnessStatus(
   timestamp: java.sql.Timestamp,
   duration: Long,
   warnOrError: String,
-  project: String,
+  database: String,
   tenant: String
 )
 
@@ -49,6 +49,7 @@ object BigQueryFreshnessInfo {
                   case Some(freshness) =>
                     val warnStatus =
                       getFreshnessStatus(
+                        domain.database.getOrElse(settings.comet.database),
                         domain.finalName,
                         tableInfo,
                         table.finalName,
@@ -58,6 +59,7 @@ object BigQueryFreshnessInfo {
                       )
                     val errorStatus =
                       getFreshnessStatus(
+                        domain.database.getOrElse(settings.comet.database),
                         domain.finalName,
                         tableInfo,
                         table.finalName,
@@ -89,6 +91,7 @@ object BigQueryFreshnessInfo {
                 case Some(freshness) =>
                   val warnStatus =
                     getFreshnessStatus(
+                      task.database.getOrElse(settings.comet.database),
                       task.domain,
                       tableInfo,
                       task.name,
@@ -98,6 +101,7 @@ object BigQueryFreshnessInfo {
                     )
                   val errorStatus =
                     getFreshnessStatus(
+                      task.database.getOrElse(settings.comet.database),
                       task.domain,
                       tableInfo,
                       task.name,
@@ -127,6 +131,7 @@ object BigQueryFreshnessInfo {
   }
 
   private def getFreshnessStatus(
+    domainDatabaseName: String,
     domainName: String,
     tableInfo: Table,
     tableName: String,
@@ -149,7 +154,7 @@ object BigQueryFreshnessInfo {
               new Timestamp(now),
               warnOrErrorDuration,
               level,
-              settings.comet.project,
+              domainDatabaseName,
               settings.comet.tenant
             )
           )

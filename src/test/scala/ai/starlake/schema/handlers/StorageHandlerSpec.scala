@@ -148,6 +148,7 @@ class StorageHandlerSpec extends TestHelper {
       val businessTask1 = AutoTaskDesc(
         name = "",
         sql = Some("select * from domain"),
+        database = None,
         domain = "DOMAIN",
         table = "ANALYSE",
         write = WriteMode.OVERWRITE,

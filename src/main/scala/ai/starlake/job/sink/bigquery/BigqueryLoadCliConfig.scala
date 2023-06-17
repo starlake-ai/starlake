@@ -8,6 +8,7 @@ case class BigQueryLoadCliConfig(
   gcpProjectId: Option[String],
   gcpSAJsonKey: Option[String],
   source: Either[String, DataFrame] = Left(""),
+  outputDatabase: Option[String] = None,
   outputDataset: Option[String] = None,
   outputTable: Option[String] = None,
   outputPartition: Option[String] = None,
@@ -34,6 +35,7 @@ case class BigQueryLoadCliConfig(
     source = source,
     outputTableId = Some(
       BigQueryJobBase.extractProjectDatasetAndTable(
+        outputDatabase,
         outputDataset.getOrElse(throw new Exception("outputDataset must be defined")),
         outputTable.get
       )

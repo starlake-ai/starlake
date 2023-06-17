@@ -57,6 +57,7 @@ class BigQuerySparkJobSpec extends TestHelper with BeforeAndAfterAll {
           private val businessTask1 = AutoTaskDesc(
             "",
             Some(query),
+            None,
             "BQ_TEST_DS",
             "BQ_TEST_TABLE",
             WriteMode.OVERWRITE,

@@ -50,6 +50,7 @@ import scala.util.Try
 case class AutoTaskDesc(
   name: String,
   sql: Option[String],
+  database: Option[String],
   domain: String,
   table: String,
   write: WriteMode,
@@ -80,6 +81,7 @@ case class AutoTaskDesc(
   def this() = this(
     name = "",
     sql = None,
+    database = None,
     domain = "",
     table = "",
     write = WriteMode.OVERWRITE,

@@ -344,7 +344,7 @@ object Settings extends StrictLogging {
     forceTaskPattern: String,
     useLocalFileSystem: Boolean,
     sessionDurationServe: Long,
-    project: String,
+    database: String,
     tenant: String
   ) extends Serializable {
 
