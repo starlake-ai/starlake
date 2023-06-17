@@ -104,6 +104,7 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
           val businessTask1 = AutoTaskDesc(
             "",
             Some("select * except(code0000) from bqtest.account"),
+            None,
             "bqtest",
             "jobresult",
             WriteMode.OVERWRITE,

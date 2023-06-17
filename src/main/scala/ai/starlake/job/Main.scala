@@ -339,7 +339,7 @@ class Main() extends StrictLogging {
       case "extract-script" =>
         new ExtractScript(schemaHandler).run(args.drop(1))
       case "extract-schema" =>
-        ExtractSchema.run(args.drop(1))
+        ExtractJDBCSchema.run(args.drop(1))
         true
       case "extract-data" =>
         new ExtractData(schemaHandler).run(args.drop(1))
@@ -347,8 +347,8 @@ class Main() extends StrictLogging {
       case "bq-info" =>
         BigQueryTableInfo.run(args.drop(1))
         true
-      case "bq2yml" =>
-        BigQuery2Yml.run(args.drop(1))
+      case "extract-bq-schema" =>
+        ExtractBigQuerySchema.run(args.drop(1))
         true
       case "bq-freshness" =>
         val result = BigQueryFreshnessInfo.run(args.drop(1))

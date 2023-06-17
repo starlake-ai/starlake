@@ -12,7 +12,7 @@ import org.apache.spark.sql.types.{StructField, StructType}
 
 import scala.jdk.CollectionConverters.iterableAsScalaIterableConverter
 
-class BigQuery2Yml(config: BigQueryTablesConfig)(implicit settings: Settings) {
+class ExtractBigQuerySchema(config: BigQueryTablesConfig)(implicit settings: Settings) {
   val bigquery = config.bigquery()
   def extractDatasets(): List[Domain] = {
     val datasets = bigquery.listDatasets(DatasetListOption.pageSize(10000))
@@ -61,7 +61,8 @@ class BigQuery2Yml(config: BigQueryTablesConfig)(implicit settings: Settings) {
     Domain(
       name = dataset.getDatasetId().getDataset(),
       tables = schemas.toList,
-      comment = Option(dataset.getDescription)
+      comment = Option(dataset.getDescription),
+      database = Option(dataset.getDatasetId().getProject())
     )
   }
 
@@ -78,7 +79,7 @@ class BigQuery2Yml(config: BigQueryTablesConfig)(implicit settings: Settings) {
   }
 }
 
-object BigQuery2Yml {
+object ExtractBigQuerySchema {
   def extractDatasets(
     schemaHandler: SchemaHandler
   )(implicit settings: Settings): Map[String, List[Domain]] = {
@@ -86,7 +87,7 @@ object BigQuery2Yml {
     externalSources.map { external =>
       val config =
         BigQueryTablesConfig(gcpProjectId = Some(external.project), tables = external.toMap())
-      val extractor = new BigQuery2Yml(config)
+      val extractor = new ExtractBigQuerySchema(config)
       external.project -> extractor.extractDatasets()
     }.toMap
   }
@@ -96,7 +97,7 @@ object BigQuery2Yml {
       BigQueryTablesConfig
         .parse(args.toSeq)
         .getOrElse(throw new Exception("Could not parse arguments"))
-    val domains = new BigQuery2Yml(config).extractDatasets()
+    val domains = new ExtractBigQuerySchema(config).extractDatasets()
     domains.foreach { domain =>
       val domainYaml = YamlSerializer.serialize(domain)
       if (settings.storageHandler.exists(DatasetArea.external))

@@ -212,6 +212,7 @@ object JDBCUtils extends LazyLogging {
   )(implicit settings: Settings): Map[String, (TableRemarks, Columns, PrimaryKeys)] =
     withJDBCConnection(connectionOptions) { connection =>
       val databaseMetaData = connection.getMetaData()
+
       val jdbcTableMap =
         jdbcSchema.tables
           .map(tblSchema => tblSchema.name.toUpperCase -> tblSchema)

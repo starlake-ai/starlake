@@ -10,6 +10,7 @@ class YamlSerializerSpec extends TestHelper {
       val task = AutoTaskDesc(
         name = "",
         sql = Some("select firstname, lastname, age from {{view}} where age=${age}"),
+        database = None,
         domain = "user",
         table = "user",
         write = WriteMode.OVERWRITE,
@@ -47,6 +48,7 @@ class YamlSerializerSpec extends TestHelper {
       val task = AutoTaskDesc(
         name = "",
         sql = Some("select firstname, lastname, age from dataset.table where age=${age}"),
+        None,
         domain = "user",
         table = "user",
         write = WriteMode.OVERWRITE,
@@ -83,6 +85,7 @@ class YamlSerializerSpec extends TestHelper {
       val task = AutoTaskDesc(
         name = "",
         sql = Some("select firstname, lastname, age from {{view}} where age=${age}"),
+        database = None,
         domain = "user",
         table = "user",
         write = WriteMode.OVERWRITE,

@@ -52,6 +52,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       val businessTask1 = AutoTaskDesc(
         name = "",
         sql = Some("select firstname, lastname, age from {{view}} where age=${age}"),
+        database = None,
         domain = "business/user",
         table = "user",
         write = WriteMode.OVERWRITE,
@@ -104,6 +105,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         sql = Some(
           "select firstname, lastname, age from user_View where age={{age}} and lastname={{lastname}} and firstname={{firstname}}"
         ),
+        database = None,
         domain = "user",
         table = "user",
         write = WriteMode.OVERWRITE,
@@ -141,6 +143,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         sql = Some(
           "select firstname, lastname, age from user_View where age={{age}} and lastname={{lastname}} and firstname={{firstname}}"
         ),
+        database = None,
         domain = "business/user",
         table = "user",
         write = WriteMode.OVERWRITE,
@@ -193,6 +196,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       val businessTask1 = AutoTaskDesc(
         name = "",
         sql = Some("select firstname, lastname, age from user_View"),
+        database = None,
         domain = "business/user",
         table = "user",
         write = WriteMode.OVERWRITE,
@@ -239,6 +243,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       val businessTask1 = AutoTaskDesc(
         name = "",
         sql = Some("select concatWithSpace(firstname, lastname) as fullName from user_View"),
+        database = None,
         domain = "business/user",
         table = "user",
         write = WriteMode.OVERWRITE,
@@ -287,6 +292,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       val businessTask1 = AutoTaskDesc(
         name = "",
         sql = Some("SELECT * FROM graduate_agg_view"),
+        database = None,
         domain = "business/graduateProgram",
         table = "output",
         write = WriteMode.OVERWRITE,
@@ -341,6 +347,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       val businessTask1 = AutoTaskDesc(
         name = "",
         sql = Some("select * from domain"),
+        database = None,
         domain = "DOMAIN",
         table = "TABLE",
         write = WriteMode.OVERWRITE,
@@ -358,7 +365,11 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         None,
         None,
         outputTableId = Some(
-          BigQueryJobBase.extractProjectDatasetAndTable(businessTask1.domain, businessTask1.table)
+          BigQueryJobBase.extractProjectDatasetAndTable(
+            businessTask1.database,
+            businessTask1.domain,
+            businessTask1.table
+          )
         ),
         sourceFormat = "parquet",
         createDisposition = "CREATE_IF_NEEDED",

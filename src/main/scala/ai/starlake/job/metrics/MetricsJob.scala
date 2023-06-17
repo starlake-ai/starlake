@@ -192,6 +192,7 @@ class MetricsJob(
             Map.empty, // Auth info extracted from Env var since run through spark-submit only
             settings.comet.metrics.sink,
             df,
+            settings.comet.audit.sink.database,
             settings.comet.audit.sink.name.getOrElse("audit"),
             table.toString,
             Some("Metrics on tables"),

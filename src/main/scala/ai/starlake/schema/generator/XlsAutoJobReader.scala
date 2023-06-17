@@ -48,6 +48,12 @@ class XlsAutoJobReader(input: Input, policyInput: Option[Input]) extends XlsMode
         )
           .flatMap(formatter.formatCellValue)
 
+      val databaseOpt =
+        Option(
+          row.getCell(headerMapSchema("_database"), Row.MissingCellPolicy.RETURN_BLANK_AS_NULL)
+        )
+          .flatMap(formatter.formatCellValue)
+
       val tablePolicies = policiesOpt
         .map { tablePolicies =>
           policies.filter(p => tablePolicies.contains(p.name))
@@ -71,6 +77,7 @@ class XlsAutoJobReader(input: Input, policyInput: Option[Input]) extends XlsMode
           AutoTaskDesc(
             name = "",
             sql = None,
+            database = databaseOpt,
             domain = domainOpt.getOrElse("Default"),
             table = schemaOpt.getOrElse("Table"),
             write = writeOpt.getOrElse(WriteMode.OVERWRITE),
