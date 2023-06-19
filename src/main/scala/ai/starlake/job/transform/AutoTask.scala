@@ -73,7 +73,6 @@ object AutoTask extends StrictLogging {
         taskDesc.format.orElse(jobDesc.format),
         taskDesc.coalesce.orElse(jobDesc.coalesce).getOrElse(false),
         jobDesc.udf,
-        Views(jobDesc.views.getOrElse(Map.empty)),
         taskDesc.engine.getOrElse(jobDesc.getEngine()),
         taskDesc,
         configOptions,
@@ -102,7 +101,6 @@ case class AutoTask(
   format: scala.Option[String],
   coalesce: Boolean,
   udf: scala.Option[String],
-  views: Views,
   engine: Engine,
   taskDesc: AutoTaskDesc,
   commandParameters: Map[String, String],
@@ -153,66 +151,12 @@ case class AutoTask(
     )
   }
 
-  /** view directive in the yaml file is in the form:
-    *
-    * [view: select * from table]
-    *
-    * [view:] in that case it means it references a job or a domain table or a view defined in the
-    * views folder.
-    *
-    * @return
-    */
-  private def parseJobViews(): Map[String, String] =
-    views.views.flatMap { case (viewName, queryExpr) =>
-      Option(queryExpr) match {
-        case None =>
-          val viewContent = schemaHandler.view(viewName)
-          viewContent match {
-            case None =>
-              None
-            case Some(viewContent) =>
-              val (_, _, viewValue) = parseViewDefinition(parseJinja(viewContent))
-              Some((viewName, viewValue))
-          }
-        case Some(viewContent) =>
-          val (_, _, viewValue) = parseViewDefinition(parseJinja(viewContent))
-          Some((viewName, viewValue))
-      }
-    }
-
-  def parseMainSqlBQ(): String = {
-    logger.info(s"Parse Views")
-    val withViews = parseJobViews()
-    val mainTaskSQL = parseJinja(taskDesc.getSql())
-    val trimmedMainTaskSQL = mainTaskSQL.toLowerCase()
-    val result =
-      if (trimmedMainTaskSQL.startsWith("with ") || trimmedMainTaskSQL.startsWith("(with ")) {
-        mainTaskSQL
-      } else {
-        val subSelects = withViews.map { case (queryName, queryExpr) =>
-          val selectExpr =
-            if (queryExpr.toLowerCase.startsWith("select "))
-              queryExpr
-            else {
-              val allColumns = "*"
-              s"SELECT $allColumns FROM $queryExpr"
-            }
-          s"$queryName  AS ($selectExpr)"
-        }
-        val subSelectsString =
-          if (subSelects.nonEmpty) subSelects.mkString("WITH ", ", ", "") else ""
-        s"(\n$subSelectsString $mainTaskSQL\n)"
-      }
-    logger.info(s"Parse Main SQL: $result")
-    result
-  }
-
   def runBQ(): Try[JobResult] = {
     val start = Timestamp.from(Instant.now())
     logger.info(s"running BQ Query  start time $start")
     val config = createBigQueryConfig()
     logger.info(s"running BQ Query with config $config")
-    val (preSql, mainSql, postSql) = buildQueryBQ()
+    val (preSql, mainSql, postSql) = buildSQLQuery()
     logger.info(s"Config $config")
     // We add extra parenthesis required by BQ when using "WITH" keyword
     def bqNativeJob(sql: String) = {
@@ -297,25 +241,13 @@ case class AutoTask(
     }
   }
 
-  def buildQuerySpark(cteSelects: List[String]): (List[String], String, List[String]) = {
-    val sql = cteSelects match {
-      case Nil =>
-        parseJinja(taskDesc.getSql())
-      case list =>
-        list.mkString("WITH ", ", ", " ") + parseJinja(taskDesc.getSql())
-    }
-
-    val preSql = parseJinja(taskDesc.presql)
-    val postSql = parseJinja(taskDesc.postsql)
-    (preSql, sql, postSql)
-  }
-
-  def buildQueryBQ(): (List[String], String, List[String]) = {
-    val sql = parseMainSqlBQ()
+  def buildSQLQuery(): (List[String], String, List[String]) = {
+    val mainSql = parseJinja(taskDesc.getSql())
+    logger.info(s"Parse Main SQL: $mainSql")
     val preSql = parseJinja(taskDesc.presql)
     val postSql = parseJinja(taskDesc.postsql)
 
-    (preSql, sql, postSql)
+    (preSql, s"(\n$mainSql\n)", postSql)
   }
 
   private def parseJinja(sql: String): String = parseJinja(List(sql)).head
@@ -424,8 +356,7 @@ case class AutoTask(
     val start = Timestamp.from(Instant.now())
     val res = Try {
       udf.foreach { udf => registerUdf(udf) }
-      val cteSelects = createSparkViews(views, schemaHandler, commandParameters)
-      val (preSql, sqlWithParameters, postSql) = buildQuerySpark(cteSelects)
+      val (preSql, sqlWithParameters, postSql) = buildSQLQuery()
       preSql.foreach(req => session.sql(req))
       logger.info(s"""START COMPILE SQL $sqlWithParameters END COMPILE SQL""")
       logger.info(s"running sql request using ${taskDesc.engine}")
@@ -578,7 +509,7 @@ case class AutoTask(
     logAudit(start, end, -1, success = false, Utils.exceptionAsString(e))
 
   def dependencies(): List[String] = {
-    val result = SQLUtils.extractRefsFromSQL(this.parseMainSqlBQ())
+    val result = SQLUtils.extractRefsFromSQL(parseJinja(taskDesc.getSql()))
     logger.info(s"$name has ${result.length} dependencies: ${result.mkString(",")}")
     result
   }

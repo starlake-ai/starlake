@@ -16,7 +16,7 @@ title: bqload
 Parameter|Cardinality|Description
 ---|---|---
 --source_file:`<value>`|*Required*|Full Path to source file
---output_database:`<value>`|*Optional*|BigQuery Project
+--output_database:`<value>`|*Optional*|Target BigQuery Project
 --output_dataset:`<value>`|*Required*|BigQuery Output Dataset
 --output_table:`<value>`|*Required*|BigQuery Output Table
 --output_partition:`<value>`|*Optional*|BigQuery Partition Field

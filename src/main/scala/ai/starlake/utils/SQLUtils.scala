@@ -8,7 +8,7 @@ object SQLUtils {
     *
     * FROM identifier
     *
-    * FROM
+    * FROM parquet.`/path-to/file`
     *
     * FROM
     *
@@ -16,8 +16,9 @@ object SQLUtils {
     */
   //
   def extractRefsFromSQL(sql: String): List[String] = {
-    val fromsRegex = "(?i)\\s+FROM\\s+([_a-z0-9`./(]+\\s*[ _,A-Z0-9`./(]*)".r
-    val joinRegex = "(?i)\\s+JOIN\\s+([_a-z0-9`./]+)".r
+
+    val fromsRegex = "(?i)\\s+FROM\\s+([_\\-a-z0-9`./(]+\\s*[ _,A-Z0-9`./(]*)".r
+    val joinRegex = "(?i)\\s+JOIN\\s+([_\\-a-z0-9`./]+)".r
     // val cteRegex = "(?i)\\s+([a-z0-9]+)+\\s+AS\\s*\\(".r
 
     val froms =
@@ -27,7 +28,7 @@ object SQLUtils {
         .toList
         .flatMap(_.split(",").map(_.trim))
         .map {
-          // because the regex above is not powerfull enough
+          // because the regex above is not powerful enough
           table =>
             val space = table.replaceAll("\n", " ").replace("\t", " ").indexOf(' ')
             if (space > 0)

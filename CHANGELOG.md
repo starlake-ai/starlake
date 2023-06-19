@@ -1,6 +1,11 @@
 
 # Release notes
 
+# 0.8.0:
+__Deprecated__:
+- **BREAKING CHANGE** Views have their own sections. Views inside jobs are now deprecated.
+
+
 # 0.7.4:
 __Deprecated__:
 - **BREAKING CHANGE** Env vars that start with COMET_ are now replaced with SL_ prefix for starlake.cmd

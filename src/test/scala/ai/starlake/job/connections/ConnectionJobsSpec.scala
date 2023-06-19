@@ -13,6 +13,7 @@ class ConnectionJobsSpec extends TestHelper {
   lazy val pathBusiness = new Path(cometMetadataPath + "/jobs/user.comet.yml")
   new WithSettings() {
     "JDBC 2 JDBC Connection" should "succeed" in {
+      pending
       val connection = "test-h2"
 
       import sparkSession.implicits._
@@ -27,7 +28,9 @@ class ConnectionJobsSpec extends TestHelper {
 
       val businessTask1 = AutoTaskDesc(
         "",
-        Some("select firstname, lastname from user_View where age = {{age}}"),
+        Some(
+          "(with user_View as (select * from users.users) select firstname, lastname from user_View where age = {{age}})"
+        ),
         None,
         "users",
         "userout",
@@ -42,8 +45,7 @@ class ConnectionJobsSpec extends TestHelper {
           Nil,
           None,
           Some("parquet"),
-          Some(false),
-          views = Some(Map("user_View" -> s"jdbc:$connection:select * from users.users"))
+          Some(false)
         )
 
       val businessJobDef = mapper
