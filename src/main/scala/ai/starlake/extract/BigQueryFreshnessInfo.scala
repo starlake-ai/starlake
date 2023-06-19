@@ -81,7 +81,7 @@ object BigQueryFreshnessInfo {
       task match {
         case None => Nil
         case Some(task) =>
-          val tableInfo = tableInfos.find(_.getTableId.getTable.equalsIgnoreCase(task.name))
+          val tableInfo = tableInfos.find(_.getTableId.getTable.equalsIgnoreCase(task.table))
           tableInfo match {
             case None => Nil
             case Some(tableInfo) =>
@@ -94,7 +94,7 @@ object BigQueryFreshnessInfo {
                       task.database.getOrElse(settings.comet.database),
                       task.domain,
                       tableInfo,
-                      task.name,
+                      task.table,
                       freshness.warn,
                       "WARN",
                       "JOB"
@@ -104,7 +104,7 @@ object BigQueryFreshnessInfo {
                       task.database.getOrElse(settings.comet.database),
                       task.domain,
                       tableInfo,
-                      task.name,
+                      task.table,
                       freshness.error,
                       "ERROR",
                       "JOB"

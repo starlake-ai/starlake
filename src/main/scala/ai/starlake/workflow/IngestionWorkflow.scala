@@ -43,7 +43,7 @@ import ai.starlake.schema.handlers.{
   SchemaHandler,
   StorageHandler
 }
-import ai.starlake.schema.model.Engine.{BQ, SPARK}
+import ai.starlake.schema.model.Engine.BQ
 import ai.starlake.schema.model.Mode.{FILE, STREAM}
 import ai.starlake.schema.model._
 import ai.starlake.utils._
@@ -59,10 +59,10 @@ import org.apache.spark.sql.types.{BooleanType, DataType, TimestampType}
 
 import java.nio.file.{FileSystems, ProviderNotFoundException}
 import java.util.Collections
+import java.util.concurrent.ForkJoinPool
 import scala.annotation.nowarn
 import scala.collection.GenSeq
 import scala.collection.parallel.ForkJoinTaskSupport
-import java.util.concurrent.ForkJoinPool
 import scala.util.{Failure, Success, Try}
 
 private case object SnowflakeDialect extends JdbcDialect with SQLConfHelper {
@@ -663,17 +663,8 @@ class IngestionWorkflow(
     val result = buildTasks(config).map { action =>
       val engine = action.engine
       logger.info(s"running with -> $engine engine")
-      engine match {
-        case BQ =>
-          val (preSQL, mainSQL, postSQL) = action.buildQueryBQ()
-          mainSQL
-        case SPARK =>
-          val (preSql, mainSQL, postSql) = action.buildQuerySpark(Nil)
-          mainSQL
-        case customEngine =>
-          val (preSQL, mainSQL, postSQL) = action.buildQueryBQ()
-          mainSQL
-      }
+      val (_, mainSQL, _) = action.buildSQLQuery()
+      mainSQL
     }
     result.foreach { sql =>
       val output = settings.comet.rootServe.map(rootServe => File(File(rootServe), "compile.log"))

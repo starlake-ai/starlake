@@ -17,15 +17,7 @@ class YamlSerializerSpec extends TestHelper {
         python = None
       )
       val job =
-        AutoJobDesc(
-          "user",
-          List(task),
-          Nil,
-          None,
-          Some("parquet"),
-          Some(false),
-          views = Some(Map("user_View" -> "accepted/user"))
-        )
+        AutoJobDesc("user", List(task), Nil, None, Some("parquet"), Some(false))
       val jobMap = YamlSerializer.toMap(job)
       val expected = Map(
         "name" -> "user",
@@ -39,8 +31,7 @@ class YamlSerializerSpec extends TestHelper {
         ),
         "format"   -> "parquet",
         "coalesce" -> false,
-        "engine"   -> "SPARK",
-        "views"    -> Map("user_View" -> "accepted/user")
+        "engine"   -> "SPARK"
       )
       assert((jobMap.toSet diff expected.toSet).toMap.isEmpty)
     }
@@ -99,7 +90,6 @@ class YamlSerializerSpec extends TestHelper {
           None,
           Some("parquet"),
           Some(false),
-          views = Some(Map("user_View" -> "accepted/user")),
           engine = Some(Engine.fromString("SPARK"))
         )
       val jobMap = YamlSerializer.toMap(job)
@@ -114,8 +104,7 @@ class YamlSerializerSpec extends TestHelper {
           )
         ),
         "format"   -> "parquet",
-        "coalesce" -> false,
-        "views"    -> Map("user_View" -> "accepted/user")
+        "coalesce" -> false
       )
       assert((expected.toSet diff jobMap.toSet).toMap.isEmpty)
     }
