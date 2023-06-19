@@ -60,7 +60,7 @@ class Yml2DagGenerateCommand(schemaHandler: SchemaHandler) extends LazyLogging {
                 config = dagGenerationConfig,
                 domainTables = domainTables.asJava
               ),
-              "env" -> schemaHandler.activeEnv().asJava
+              "env" -> schemaHandler.activeEnvVars().asJava
             )
           )
           val outputPath =

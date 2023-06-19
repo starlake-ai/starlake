@@ -1,7 +1,9 @@
 package ai.starlake.schema.model
 
+import ai.starlake.config.Settings
 import ai.starlake.schema.model.Ref.anyRefPattern
 import com.fasterxml.jackson.annotation.JsonCreator
+import ai.starlake.utils.Formatter._
 
 import java.util.regex.Pattern
 
@@ -9,11 +11,16 @@ object Ref {
   val anyRefPattern: Pattern = Pattern.compile(".*")
 }
 
-case class Ref(table: Pattern = anyRefPattern, domain: Pattern = anyRefPattern) {
+case class Ref(
+  table: Pattern = anyRefPattern,
+  domain: Pattern = anyRefPattern,
+  rename: Option[String]
+) {
   @JsonCreator
   def this() = this(
     anyRefPattern,
-    anyRefPattern
+    anyRefPattern,
+    None
   ) // Should never be called. Here for Jackson deserialization only
 }
 
@@ -25,15 +32,19 @@ case class RefsRule(
   @JsonCreator
   def this() =
     this(Nil, None, None) // Should never be called. Here for Jackson deserialization only
+
+  def richFormat(activeEnv: Map[String, String], extraEnv: Map[String, String])(implicit
+    settings: Settings
+  ): RefsRule = {
+    RefsRule(
+      ref,
+      domain.map(_.richFormat(activeEnv, extraEnv)),
+      database.map(_.richFormat(activeEnv, extraEnv))
+    )
+  }
 }
 
-case class Env(
-  env: Map[String, String],
-  refs: List[RefsRule]
-) {
-  @JsonCreator
-  def this() = this(Map.empty, Nil) // Should never be called. Here for Jackson deserialization only
-
+case class EnvRefs(refs: List[RefsRule]) {
   def getDatabase(domain: String, table: String): Option[String] = {
     val matchedRefsRule: Option[RefsRule] = refs.flatMap { refsRule =>
       val refRule: Option[Ref] = refsRule.ref.find { refRule =>
@@ -74,5 +85,13 @@ case class Env(
       case (None, _)          => (None, None)
     }
   }
+}
+
+case class Env(
+  env: Map[String, String],
+  refs: List[RefsRule]
+) {
+  @JsonCreator
+  def this() = this(Map.empty, Nil) // Should never be called. Here for Jackson deserialization only
 
 }
