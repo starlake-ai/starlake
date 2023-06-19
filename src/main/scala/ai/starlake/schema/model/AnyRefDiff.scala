@@ -223,7 +223,6 @@ case class JobDiff(
   format: ListDiff[String],
   coalesce: ListDiff[String],
   udf: ListDiff[String],
-  views: ListDiff[Named],
   engine: ListDiff[Named],
   schedule: ListDiff[Named]
 ) {
@@ -232,7 +231,6 @@ case class JobDiff(
     format.isEmpty() &&
     coalesce.isEmpty() &&
     udf.isEmpty() &&
-    views.isEmpty() &&
     engine.isEmpty() &&
     schedule.isEmpty()
 }

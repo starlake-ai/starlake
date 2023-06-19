@@ -166,23 +166,15 @@ object TaskViewDependency extends StrictLogging {
                       parentSQLRef
                     )
                   case None =>
-                    val parentViewNameExist: Option[Boolean] = jobs
-                      .get(parentSQLRef)
-                      .map(_.exists(_.views.views.keys.exists(_.toLowerCase() == parentSQLRef)))
-                    parentViewNameExist match {
-                      case Some(true) =>
-                        TaskViewDependency(jobName, typ, parentSQLRef, TASKVIEW_TYPE, parentSQLRef)
-                      case None | Some(false) =>
-                        val found =
-                          schemaHandler
-                            .views()
-                            .keys
-                            .exists(_.toLowerCase() == parentSQLRef.toLowerCase())
-                        if (found)
-                          TaskViewDependency(jobName, typ, parentSQLRef, VIEW_TYPE, parentSQLRef)
-                        else
-                          TaskViewDependency(jobName, typ, "", UNKNOWN_TYPE, parentSQLRef)
-                    }
+                    val found =
+                      schemaHandler
+                        .views()
+                        .keys
+                        .exists(_.toLowerCase() == parentSQLRef.toLowerCase())
+                    if (found)
+                      TaskViewDependency(jobName, typ, parentSQLRef, VIEW_TYPE, parentSQLRef)
+                    else
+                      TaskViewDependency(jobName, typ, "", UNKNOWN_TYPE, parentSQLRef)
                 }
             }
 

@@ -49,9 +49,12 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
   new WithSettings() {
     "trigger AutoJob by passing parameters on SQL statement" should "generate a dataset in business" in {
 
+      val userView = s"${settings.comet.datasets}/accepted/user"
       val businessTask1 = AutoTaskDesc(
         name = "",
-        sql = Some("select firstname, lastname, age from {{view}} where age=${age}"),
+        sql = Some(
+          s"with user_view as (select * from parquet.`$userView`) select firstname, lastname, age from user_view where age={{age}}"
+        ),
         database = None,
         domain = "business/user",
         table = "user",
@@ -65,8 +68,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
           Nil,
           None,
           Some("parquet"),
-          Some(false),
-          views = Some(Map("user_View" -> "accepted/user"))
+          Some(false)
         )
 
       val businessJobDef = mapper
@@ -76,7 +78,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
       storageHandler.write(businessJobDef, pathBusiness)
 
       val schemaHandler =
-        new SchemaHandler(metadataStorageHandler, Map("view" -> "user_View", "age" -> "40"))
+        new SchemaHandler(metadataStorageHandler, Map("age" -> "40"))
 
       val workflow =
         new IngestionWorkflow(storageHandler, schemaHandler, new SimpleLauncher())
@@ -100,10 +102,12 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
 
     "Extract file and view dependencies" should "work" in {
 
+      val userView = s"${settings.comet.datasets}/accepted/user"
+      logger.info("************userView:" + userView)
       val businessTask1 = AutoTaskDesc(
         name = "",
         sql = Some(
-          "select firstname, lastname, age from user_View where age={{age}} and lastname={{lastname}} and firstname={{firstname}}"
+          s"with user_view as (select * from parquet.`$userView`) select firstname, lastname, age from user_view where age={{age}} and lastname={{lastname}} and firstname={{firstname}}"
         ),
         database = None,
         domain = "user",
@@ -119,8 +123,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
           Nil,
           None,
           Some("parquet"),
-          Some(false),
-          views = Some(Map("user_View" -> "accepted/user"))
+          Some(false)
         )
 
       val businessJobDef = mapper
@@ -133,15 +136,19 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
 
       val tasks = AutoTask.unauthenticatedTasks(true)(settings, storageHandler, schemaHandler)
       val deps = TaskViewDependency.dependencies(tasks)(schemaHandler)
-      deps.map(_.parentRef) should contain theSameElementsAs List("user_View", "accepted/user")
+      deps.map(_.parentRef) should contain theSameElementsAs List(
+        "parquet." + userView,
+        "user_view"
+      )
     }
 
     "trigger AutoJob by passing three parameters on SQL statement" should "generate a dataset in business" in {
 
+      val userView = s"${settings.comet.datasets}/accepted/user"
       val businessTask1 = AutoTaskDesc(
         name = "",
         sql = Some(
-          "select firstname, lastname, age from user_View where age={{age}} and lastname={{lastname}} and firstname={{firstname}}"
+          s"with user_view as (select * from parquet.`$userView`) select firstname, lastname, age from user_View where age={{age}} and lastname={{lastname}} and firstname={{firstname}}"
         ),
         database = None,
         domain = "business/user",
@@ -157,8 +164,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
           Nil,
           None,
           Some("parquet"),
-          Some(false),
-          views = Some(Map("user_View" -> "accepted/user"))
+          Some(false)
         )
 
       val businessJobDef = mapper
@@ -193,9 +199,12 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
 
     "trigger AutoJob with no parameters on SQL statement" should "generate a dataset in business" in {
 
+      val userView = s"${settings.comet.datasets}/accepted/user"
       val businessTask1 = AutoTaskDesc(
         name = "",
-        sql = Some("select firstname, lastname, age from user_View"),
+        sql = Some(
+          s"with user_view as (select * from parquet.`$userView`) select firstname, lastname, age from user_view"
+        ),
         database = None,
         domain = "business/user",
         table = "user",
@@ -209,8 +218,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
           Nil,
           None,
           Some("parquet"),
-          Some(false),
-          views = Some(Map("user_View" -> "accepted/user"))
+          Some(false)
         )
 
       val businessJobDef = mapper
@@ -240,9 +248,12 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
 
     "trigger AutoJob using an UDF" should "generate a dataset in business" in {
 
+      val userView = s"${settings.comet.datasets}/accepted/user"
       val businessTask1 = AutoTaskDesc(
         name = "",
-        sql = Some("select concatWithSpace(firstname, lastname) as fullName from user_View"),
+        sql = Some(
+          s"with user_view as (select * from parquet.`$userView`) select concatWithSpace(firstname, lastname) as fullName from user_View"
+        ),
         database = None,
         domain = "business/user",
         table = "user",
@@ -257,8 +268,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
           None,
           Some("parquet"),
           Some(false),
-          udf = Some("ai.starlake.udf.TestUdf"),
-          views = Some(Map("user_View" -> "accepted/user"))
+          udf = Some("ai.starlake.udf.TestUdf")
         )
 
       val businessJobDef = mapper
@@ -288,21 +298,24 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
     }
 
     "trigger AutoJob by passing parameters to presql statement" should "generate a dataset in business" in {
-
       val businessTask1 = AutoTaskDesc(
         name = "",
-        sql = Some("SELECT * FROM graduate_agg_view"),
+        sql = Some(
+          s"SELECT * FROM graduate_agg_view"
+        ),
         database = None,
         domain = "business/graduateProgram",
         table = "output",
         write = WriteMode.OVERWRITE,
-        presql = List("""
+        presql = List(
+          s"""
             |create or replace temporary view graduate_agg_view as
             |      select degree, department,
             |      school
-            |      from graduate_View
+            |      from parquet.`${settings.comet.datasets}/accepted/graduateProgram`
             |      where school={{school}}
-            |""".stripMargin),
+            |""".stripMargin
+        ),
         python = None
       )
       val businessJob =
@@ -312,8 +325,7 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
           Nil,
           None,
           Some("parquet"),
-          Some(false),
-          views = Some(Map("graduate_View" -> "accepted/graduateProgram"))
+          Some(false)
         )
 
       val businessJobDef = mapper
