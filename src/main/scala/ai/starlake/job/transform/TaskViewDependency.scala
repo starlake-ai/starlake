@@ -94,9 +94,8 @@ object TaskViewDependency extends StrictLogging {
                 val tablePart = parts.last
                 tasks
                   .find(task =>
-                    task.taskDesc.table.toLowerCase() == tablePart
-                      .toLowerCase() && task.taskDesc.domain
-                      .toLowerCase() == domainPart.toLowerCase()
+                    task.taskDesc.table.toLowerCase() == tablePart.toLowerCase() &&
+                    task.taskDesc.domain.toLowerCase() == domainPart.toLowerCase()
                   )
                   .map(_.name)
               case _ =>

@@ -38,7 +38,7 @@ object ExtractJDBCSchema extends Extract with LazyLogging {
     val schemaHandler = new SchemaHandler(settings.storageHandler)
     val content = settings.storageHandler
       .read(mappingPath(config.extractConfig))
-      .richFormat(schemaHandler.activeEnv(), Map.empty)
+      .richFormat(schemaHandler.activeEnvVars(), Map.empty)
     val jdbcSchemas =
       YamlSerializer.deserializeJDBCSchemas(content, config.extractConfig)
     val connectionOptions = jdbcSchemas.connectionRef

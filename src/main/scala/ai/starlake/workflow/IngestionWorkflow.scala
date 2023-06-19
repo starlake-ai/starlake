@@ -470,7 +470,7 @@ class IngestionWorkflow(
     )
 
     val ingestionResult = Try {
-      val optionsAndEnvVars = schemaHandler.activeEnv() ++ options
+      val optionsAndEnvVars = schemaHandler.activeEnvVars() ++ options
       metadata.getFormat() match {
         case Format.PARQUET =>
           new ParquetIngestionJob(
@@ -663,7 +663,7 @@ class IngestionWorkflow(
     val result = buildTasks(config).map { action =>
       val engine = action.engine
       logger.info(s"running with -> $engine engine")
-      val (_, mainSQL, _) = action.buildSQLQuery()
+      val (_, mainSQL, _) = action.buildAllSQLQueries()
       mainSQL
     }
     result.foreach { sql =>
