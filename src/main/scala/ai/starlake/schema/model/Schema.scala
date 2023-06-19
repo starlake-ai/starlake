@@ -310,7 +310,7 @@ case class Schema(
          |  }
          |}""".stripMargin
       }
-      .richFormat(schemaHandler.activeEnv(), tse)
+      .richFormat(schemaHandler.activeEnvVars(), tse)
   }
 
   def mergedMetadata(domainMetadata: Option[Metadata]): Metadata = {

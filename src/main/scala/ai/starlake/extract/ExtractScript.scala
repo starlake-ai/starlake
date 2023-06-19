@@ -177,7 +177,7 @@ class ExtractScript(schemaHandler: SchemaHandler)(implicit settings: Settings)
               config.deltaColumn.orElse(ExtractorSettings.deltaColumns.defaultColumn),
               ExtractorSettings.deltaColumns.deltaColumns,
               Some(config.auditDB),
-              schemaHandler.activeEnv()
+              schemaHandler.activeEnvVars()
             )
             true
           case None =>

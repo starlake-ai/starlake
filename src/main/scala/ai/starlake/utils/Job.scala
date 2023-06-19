@@ -35,31 +35,6 @@ trait JobBase extends StrictLogging with DatasetLogging {
     *   : Spark Dataframe for Spark Jobs None otherwise
     */
   def run(): Try[JobResult]
-
-  /** @param valueWithEnv
-    *   in the form [SinkType:[configName:]]viewName
-    * @return
-    *   (SinkType, configName, viewName)
-    */
-  protected def parseViewDefinition(
-    valueWithEnv: String
-  ): (SinkType, Option[String], String) = {
-    val sepIndex = valueWithEnv.indexOf(":")
-    if (sepIndex > 0) {
-      val key = valueWithEnv.substring(0, sepIndex)
-      val sepConfigIndex = valueWithEnv.indexOf(':', sepIndex + 1)
-      if (sepConfigIndex > 0) {
-        (
-          SinkType.fromString(key),
-          Some(valueWithEnv.substring(sepIndex + 1, sepConfigIndex)),
-          valueWithEnv.substring(sepConfigIndex + 1)
-        )
-      } else
-        (SinkType.fromString(key), None, valueWithEnv.substring(sepIndex + 1))
-    } else // parquet is the default
-      (SinkType.FS, None, valueWithEnv)
-  }
-
 }
 
 trait SparkJob extends JobBase {
@@ -231,18 +206,3 @@ trait SparkJob extends JobBase {
     }
   }
 }
-
-/*
-
-private def createJDBCView(sinkConfig: Option[String], path: String) = {
-  val jdbcConfig =
-    settings.comet.connections(sinkConfig.getOrElse(throw new Exception("")))
-  session.read
-    .options(jdbcConfig.options)
-    .format(jdbcConfig.format)
-    .option(JDBCOptions.JDBC_QUERY_STRING, path)
-    .load()
-    .cache()
-}
-
- */
