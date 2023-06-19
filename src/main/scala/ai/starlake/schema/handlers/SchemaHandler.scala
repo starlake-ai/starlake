@@ -208,8 +208,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     logger.info(s"Loading assertions $assertionsPath")
     if (storage.exists(assertionsPath)) {
       val content = Utils
-        .parseJinja(storage.read(assertionsPath), activeEnv())
-        .richFormat(activeEnv(), Map.empty)
+        .parseJinja(storage.read(assertionsPath), activeEnvVars())
       mapper
         .readValue(content, classOf[AssertionDefinitions])
         .assertionDefinitions
@@ -222,8 +221,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     logger.info(s"Loading external $externalPath")
     if (storage.exists(externalPath)) {
       val content = Utils
-        .parseJinja(storage.read(externalPath), activeEnv())
-        .richFormat(activeEnv(), Map.empty)
+        .parseJinja(storage.read(externalPath), activeEnvVars())
       mapper
         .readValue(content, classOf[ExternalSource])
         .projects
@@ -307,39 +305,62 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     )
   }
 
-  def activeEnv(reload: Boolean = false): Map[String, String] =
-    if (reload) loadActiveEnv() else _activeEnv
+  def activeEnv(reload: Boolean = false): (EnvRefs, Map[String, String]) =
+    if (reload) loadActiveEnv() else (_activeEnvRefs, _activeEnvVars)
 
-  private var _activeEnv = loadActiveEnv()
+  def activeEnvVars(reload: Boolean = false): Map[String, String] = {
+    if (reload) loadActiveEnv()
+    this._activeEnvVars
+  }
+
+  def activeEnvRefs(reload: Boolean = false): EnvRefs = {
+    if (reload) loadActiveEnv()
+    this._activeEnvRefs
+  }
+
+  private var (_activeEnvRefs, _activeEnvVars) = loadActiveEnv()
 
   @throws[Exception]
-  private def loadActiveEnv(): Map[String, String] = {
-    def loadEnv(path: Path): Map[String, String] =
+  private def loadActiveEnv(): (EnvRefs, Map[String, String]) = {
+    def loadEnv(path: Path): Option[Env] =
       if (storage.exists(path))
-        Option(mapper.readValue(storage.read(path), classOf[Env]).env)
-          .getOrElse(Map.empty)
+        Option(mapper.readValue(storage.read(path), classOf[Env]))
       else
-        Map.empty
+        None
     // We first load all variables defined in the common environment file.
     // variables defined here are default values.
     val globalsCometPath = new Path(DatasetArea.metadata, s"env.comet.yml")
     // The env var SL_ENV should be set to the profile under wich starlake is run.
     // If no profile is defined, only default values are used.
     val envsCometPath = new Path(DatasetArea.metadata, s"env.${settings.comet.env}.comet.yml")
+    val globalEnv = loadEnv(globalsCometPath)
     // System Env variables may be used as valuesY
-    val globalEnv = {
-      loadEnv(globalsCometPath).mapValues(
-        _.richFormat(sys.env, cometDateVars)
-      ) // will replace with sys.env
-    }
+    val globalEnvVars =
+      globalEnv
+        .map(_.env)
+        .getOrElse(Map.empty)
+        .mapValues(
+          _.richFormat(sys.env, cometDateVars)
+        ) // will replace with sys.env
+
     // We subsittute values defined in the current profile with variables defined
     // in the default env file
-    val localEnv =
-      loadEnv(envsCometPath).mapValues(_.richFormat(sys.env, globalEnv ++ cometDateVars))
+    val localEnvVars =
+      loadEnv(envsCometPath)
+        .map(_.env)
+        .getOrElse(Map.empty)
+        .mapValues(_.richFormat(sys.env, globalEnvVars ++ cometDateVars))
 
     // Please note below how profile specific vars override default profile vars.
-    this._activeEnv = cometDateVars ++ globalEnv ++ localEnv ++ cliEnv
-    this._activeEnv
+    val activeEnvVars = cometDateVars ++ globalEnvVars ++ localEnvVars ++ cliEnv
+
+    val env = globalEnv.getOrElse(Env(Map.empty, Nil))
+    val activeEnvRefs = EnvRefs(env.refs.map(_.richFormat(sys.env, activeEnvVars)))
+
+    this._activeEnvRefs = activeEnvRefs
+    this._activeEnvVars = activeEnvVars
+
+    (this._activeEnvRefs, this._activeEnvVars)
   }
 
   /** Fnd type by name
@@ -363,7 +384,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       .map { path =>
         YamlSerializer
           .deserializeDomain(
-            if (raw) storage.read(path) else Utils.parseJinja(storage.read(path), activeEnv()),
+            if (raw) storage.read(path) else Utils.parseJinja(storage.read(path), activeEnvVars()),
             path.toString
           )
           // grants list can be set a comma separated list in YAML , and transformed to a list while parsing
@@ -418,7 +439,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
 
   def deserializedDagGenerationConfig(dagPath: Path): Try[DagGenerationConfig] = {
     YamlSerializer.deserializeDagGenerationConfig(
-      Utils.parseJinjaTpl(storage.read(dagPath), activeEnv()),
+      Utils.parseJinjaTpl(storage.read(dagPath), activeEnvVars()),
       dagPath.toString
     )
   }
@@ -522,8 +543,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
                   storage.read(schemaPath)
                 else
                   Utils
-                    .parseJinja(storage.read(schemaPath), activeEnv())
-                    .richFormat(activeEnv(), Map.empty),
+                    .parseJinja(storage.read(schemaPath), activeEnvVars()),
                 schemaPath.toString
               )
             }
@@ -550,7 +570,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
 
   private def checkVarsAreDefined(path: Path, content: String): Set[String] = {
     val vars = content.extractVars()
-    val envVars = activeEnv().keySet
+    val envVars = activeEnvVars().keySet
     val undefinedVars = vars.diff(envVars)
     undefinedVars.map(undefVar => s"""${path.getName} contains undefined var: ${undefVar}""")
   }
@@ -558,7 +578,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
   def loadJobFromFile(jobPath: Path): Try[AutoJobDesc] =
     Try {
       val fileContent = storage.read(jobPath)
-      val rootContent = Utils.parseJinja(fileContent, activeEnv())
+      val rootContent = Utils.parseJinja(fileContent, activeEnvVars())
 
       val rootNode = mapper.readTree(rootContent)
       val tranformNode = rootNode.path("transform")
@@ -668,8 +688,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
       val taskPath = new Path(folder, autoTasksRefName)
       val taskNode = loadTaskRefNode(
         Utils
-          .parseJinja(storage.read(taskPath), activeEnv())
-          .richFormat(activeEnv(), Map.empty)
+          .parseJinja(storage.read(taskPath), activeEnvVars())
       )
       YamlSerializer.upgradeTaskNode(taskNode)
       YamlSerializer.deserializeTaskNode(taskNode).copy(name = taskName)
@@ -749,7 +768,7 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     val jobs = paths
       .map { path =>
         YamlSerializer.deserializeJob(
-          Utils.parseJinja(storage.read(path), activeEnv()),
+          Utils.parseJinja(storage.read(path), activeEnvVars()),
           path.toString
         )
       }
