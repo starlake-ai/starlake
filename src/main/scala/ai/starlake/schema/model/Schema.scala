@@ -366,6 +366,30 @@ case class Schema(
     }
   }
 
+  def fkComponents(attr: Attribute, domain: String): Option[(Attribute, String, String, String)] = { // (attr, refDomain, refSchema, refAttr)
+    attr.foreignKey match {
+      case None => None
+      case Some(ref) =>
+        val tab = ref.split('.')
+        val (refDomain, refSchema, refAttr) = tab.length match {
+          case 3 =>
+            (
+              tab(0),
+              tab(1),
+              if (tab(2).isEmpty) attr.getFinalName() else tab(2)
+            ) // ref to domain.table.column
+          case 2 =>
+            (domain, tab(0), if (tab(1).isEmpty) this.finalName else tab(1)) // ref to table.column
+          case 1 => (domain, tab(0), attr.getFinalName()) // ref to table
+          case _ =>
+            throw new Exception(
+              s"Invalid number of parts in relation $ref in domain $domain and table $name"
+            )
+        }
+        Some((attr, refDomain, refSchema, refAttr))
+    }
+  }
+
   @JsonIgnore
   def hasACL(): Boolean =
     acl.nonEmpty

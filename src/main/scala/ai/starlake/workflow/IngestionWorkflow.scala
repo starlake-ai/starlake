@@ -663,7 +663,7 @@ class IngestionWorkflow(
     val result = buildTasks(config).map { action =>
       val engine = action.engine
       logger.info(s"running with -> $engine engine")
-      val (_, mainSQL, _) = action.buildAllSQLQueries()
+      val (_, mainSQL, _) = action.buildSQLQuery()
       mainSQL
     }
     result.foreach { sql =>
