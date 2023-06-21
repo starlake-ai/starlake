@@ -259,8 +259,8 @@ case class AutoTask(
     */
   private def parseJinja(sqls: List[String]): List[String] =
     Utils
-      .parseJinja(sqls, schemaHandler.activeEnv() ++ commandParameters)
-      .map(_.richFormat(schemaHandler.activeEnv(), commandParameters))
+      .parseJinja(sqls, schemaHandler.activeEnvVars() ++ commandParameters)
+      .map(_.richFormat(schemaHandler.activeEnvVars(), commandParameters))
 
   def sinkToFS(dataframe: DataFrame, sink: FsSink): Boolean = {
     val coalesce = sink.coalesce.getOrElse(this.coalesce)
