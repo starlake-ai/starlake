@@ -4,6 +4,7 @@ import ai.starlake.schema.model
 import ai.starlake.schema.model.{Schema => _, TableInfo => _, _}
 import ai.starlake.utils.conversion.BigQueryUtils.sparkToBq
 import ai.starlake.utils.{SQLUtils, Utils}
+import com.google.cloud.bigquery.PrimaryKey
 import com.google.cloud.bigquery.{Schema => BQSchema, TableInfo => BQTableInfo, _}
 import com.google.cloud.datacatalog.v1.{
   ListPolicyTagsRequest,
@@ -623,9 +624,11 @@ trait BigQueryJobBase extends StrictLogging {
     )
     val withPartitionDefinition = tableInfo.maybeSchema match {
       case Some(schema) =>
+        val tableConstraints: TableConstraints = getTableConstraints()
         StandardTableDefinition
           .newBuilder()
           .setSchema(schema)
+          .setTableConstraints(tableConstraints)
           .setTimePartitioning(maybeTimePartitioning.orNull)
       case None =>
         // We would have loved to let BQ do the whole job (StandardTableDefinition.newBuilder())
@@ -646,6 +649,40 @@ trait BigQueryJobBase extends StrictLogging {
       case None => withPartitionDefinition
     }
     withClusteringDefinition.build()
+  }
+
+  private def getTableConstraints(): TableConstraints = {
+    val tableConstraints = cliConfig.starlakeSchema match {
+      case Some(starlakeSchema) =>
+        val pkTableConstraints = if (starlakeSchema.primaryKey.nonEmpty) {
+          val primaryKey =
+            PrimaryKey.newBuilder().setColumns(starlakeSchema.primaryKey.asJava).build()
+          TableConstraints.newBuilder().setPrimaryKey(primaryKey);
+        } else {
+          TableConstraints.newBuilder();
+        }
+        val fkComponents = starlakeSchema.attributes.flatMap { attr =>
+          starlakeSchema.fkComponents(attr, datasetId.getDataset)
+        }
+        val foreignKeys = fkComponents.map { case (attr, domain, table, referencedColumn) =>
+          val columnReference =
+            ColumnReference.newBuilder
+              .setReferencingColumn(attr.getFinalName())
+              .setReferencedColumn(referencedColumn)
+              .build
+
+          val tableIdPk = TableId.of(datasetId.getProject, domain, table)
+          ForeignKey.newBuilder
+            .setName("foreign_key")
+            .setColumnReferences(List(columnReference).asJava)
+            .setReferencedTable(tableIdPk)
+            .build
+        }
+        pkTableConstraints.setForeignKeys(foreignKeys.asJava)
+      case None =>
+        TableConstraints.newBuilder();
+    }
+    tableConstraints.build()
   }
 
   def timePartitioning(
