@@ -2,7 +2,14 @@ package ai.starlake.extract
 
 import ai.starlake.config.Settings
 import ai.starlake.schema.handlers.SchemaHandler
-import ai.starlake.schema.model.{Domain, Metadata, SchemaRefs}
+import ai.starlake.schema.model.{
+  AttributeMergeStrategy,
+  Domain,
+  KeepOnlyScriptDiff,
+  Metadata,
+  RefFirst,
+  SchemaRefs
+}
 import ai.starlake.utils.Formatter._
 import ai.starlake.utils.YamlSerializer
 import better.files.File
@@ -10,10 +17,12 @@ import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.LazyLogging
 
 import java.util.regex.Pattern
+import scala.util.matching.Regex
 import scala.util.{Failure, Success}
 
-object ExtractJDBCSchema extends Extract with LazyLogging {
+class ExtractJDBCSchema(schemaHandler: SchemaHandler) extends Extract with LazyLogging {
 
+  implicit val schemaHandlerImplicit = schemaHandler
   def run(args: Array[String]): Unit = {
     implicit val settings: Settings = Settings(ConfigFactory.load())
     ExtractSchemaConfig.parse(args) match {
@@ -35,7 +44,6 @@ object ExtractJDBCSchema extends Extract with LazyLogging {
     *   : Application configuration file
     */
   def run(config: ExtractSchemaConfig)(implicit settings: Settings): Unit = {
-    val schemaHandler = new SchemaHandler(settings.storageHandler)
     val content = settings.storageHandler
       .read(mappingPath(config.extractConfig))
       .richFormat(schemaHandler.activeEnvVars(), Map.empty)
@@ -94,7 +102,16 @@ object ExtractJDBCSchema extends Extract with LazyLogging {
       val restoredTable =
         currentDomain.flatMap(_.tables.find(_.name == table.name)) match {
           case Some(currentTable) =>
-            val mergedTable = table.mergeWith(currentTable, domain.metadata)
+            val mergedTable = table.mergeWith(
+              currentTable,
+              domain.metadata,
+              AttributeMergeStrategy(
+                failOnContainerMismatch = false,
+                failOnAttributesEmptinessMismatch = false,
+                keepSourceDiffAttributesStrategy = KeepOnlyScriptDiff,
+                attributePropertiesMergeStrategy = RefFirst
+              )
+            )
             mergedTable.copy(metadata =
               mergedTable.metadata.map(_.copy(fillWithDefaultValue = false))
             )
@@ -156,9 +173,9 @@ object ExtractJDBCSchema extends Extract with LazyLogging {
   )(implicit settings: Settings): String = {
     pattern.richFormat(
       Map(
-        "catalog" -> jdbcSchema.catalog.getOrElse(""),
-        "schema"  -> jdbcSchema.schema,
-        "table"   -> table
+        "catalog" -> jdbcSchema.catalog.map(Regex.quote).getOrElse(""),
+        "schema"  -> Regex.quote(jdbcSchema.schema),
+        "table"   -> Regex.quote(table)
       ),
       Map.empty
     )
