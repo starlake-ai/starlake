@@ -20,7 +20,7 @@
 
 package ai.starlake.extract
 
-import ai.starlake.config.{Settings, SparkEnv}
+import ai.starlake.config.{GcpConnectionConfig, Settings, SparkEnv}
 import ai.starlake.job.sink.bigquery.BigQuerySparkWriter
 import ai.starlake.schema.generator.BigQueryTablesConfig
 import ai.starlake.schema.model._
@@ -98,7 +98,7 @@ object BigQueryTableInfo {
   def sink(config: BigQueryTablesConfig)(implicit settings: Settings): Unit = {
     val logTime = java.sql.Timestamp.from(Instant.now)
     val selectedInfos: List[(Dataset, List[Table])] =
-      extractTableInfos(config.gcpProjectId, config.tables)
+      extractTableInfos(config, config.tables)
 
     val datasetInfos = selectedInfos.map(_._1).map(BigQueryDatasetInfo(_, logTime))
     val session = new SparkEnv("BigQueryTablesInfo-" + UUID.randomUUID().toString).session
@@ -121,10 +121,10 @@ object BigQueryTableInfo {
     )
   }
 
-  def extractTableInfos(gcpProjectId: Option[String], tables: Map[String, List[String]])(implicit
+  def extractTableInfos(config: GcpConnectionConfig, tables: Map[String, List[String]])(implicit
     settings: Settings
   ): List[(Dataset, List[Table])] = {
-    val infos = BigQueryInfo.extractInfo(gcpProjectId)
+    val infos = BigQueryInfo.extractInfo(config)
     val selectedInfos =
       if (tables.isEmpty)
         infos

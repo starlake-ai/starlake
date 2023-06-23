@@ -348,6 +348,9 @@ object Settings extends StrictLogging {
     tenant: String
   ) extends Serializable {
 
+    @JsonIgnore
+    def getDatabase(): Option[String] = if (database.isEmpty) None else Some(database)
+
     val cacheStorageLevel: StorageLevel =
       internal.map(_.cacheStorageLevel).getOrElse(StorageLevel.MEMORY_AND_DISK)
 
