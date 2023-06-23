@@ -2,10 +2,16 @@
 # Release notes
 
 # 0.8.0:
+__Feature__:
+- extract-schema keep original scripted fields and merge attributes' parameters
+- extract-schema quote catalog, schema and table name. 
+
 __Deprecated__:
 - **BREAKING CHANGE** Views have their own sections. Views inside jobs are now deprecated.
-  __Bug Fix__:
+
+__Bug Fix__:
 - Take into account extensions in domain / metadata attribute
+- Deserialization of privacy level was 'null' instead of its default value PrivacyLevel.None 
 
 
 # 0.7.4:
