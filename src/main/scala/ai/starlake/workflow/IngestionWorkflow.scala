@@ -777,7 +777,8 @@ class IngestionWorkflow(
                             starlakeSchema = Some(Schema.fromTaskDesc(action.taskDesc)),
                             // outputTableDesc = action.taskDesc.comment.getOrElse(""),
                             sqlSource = Some(sqlSource),
-                            attributesDesc = action.taskDesc.attributesDesc
+                            attributesDesc = action.taskDesc.attributesDesc,
+                            outputDatabase = action.taskDesc.database
                           )
                         val result =
                           new BigQuerySparkJob(bqLoadConfig, None, action.taskDesc.comment).run()
@@ -911,14 +912,15 @@ class IngestionWorkflow(
     }
   }
   def applyIamPolicies(): Boolean = {
-    val config = BigQueryLoadConfig(
+    val ignore = BigQueryLoadConfig(
       None,
-      None
+      None,
+      outputDatabase = None
     )
     schemaHandler
       .iamPolicyTags()
       .exists { iamPolicyTags =>
-        val res = new BigQuerySparkJob(config).applyIamPolicyTags(iamPolicyTags)
+        val res = new BigQuerySparkJob(ignore).applyIamPolicyTags(iamPolicyTags)
         res.recover { case e =>
           Utils.logException(logger, e)
           throw e
@@ -956,17 +958,19 @@ class IngestionWorkflow(
             else
               Success(true) // ignore other jdbc connection types
           } else if (metadata.sink.exists(_.isInstanceOf[BigQuerySink])) {
+            val database = schemaHandler.getDatabase(domain, schema.finalName)
             val config = BigQueryLoadConfig(
               None,
               None,
               outputTableId = Some(
                 BigQueryJobBase
-                  .extractProjectDatasetAndTable(domain.database, domain.name, schema.name)
+                  .extractProjectDatasetAndTable(database, domain.name, schema.finalName)
               ),
               sourceFormat = settings.comet.defaultFormat,
               rls = schema.rls,
               acl = schema.acl,
-              starlakeSchema = Some(schema)
+              starlakeSchema = Some(schema),
+              outputDatabase = database
             )
             val res = new BigQuerySparkJob(config).applyRLSAndCLS(forceApply = true)
             res.recover { case e =>

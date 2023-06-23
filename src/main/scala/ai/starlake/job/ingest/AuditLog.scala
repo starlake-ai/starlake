@@ -75,7 +75,7 @@ case class AuditLog(
   duration: Long,
   message: String,
   step: String,
-  project: String,
+  database: Option[String],
   tenant: String
 ) {
 
@@ -93,7 +93,7 @@ case class AuditLog(
        |duration=$duration
        |message=$message
        |step=$step
-       |project=$project
+       |project=$database
        |tenant=$tenant
        |""".stripMargin.split('\n').mkString(",")
 
@@ -130,7 +130,7 @@ case class AuditLog(
        |$duration,
        |'$message',
        |'$step',
-       |'$project',
+       |'$database',
        |'$tenant'
        |)""".stripMargin
   }
@@ -152,7 +152,7 @@ object AuditLog extends StrictLogging {
     ("duration", StandardSQLTypeName.INT64, LongType),
     ("message", StandardSQLTypeName.STRING, StringType),
     ("step", StandardSQLTypeName.STRING, StringType),
-    ("project", StandardSQLTypeName.STRING, StringType),
+    ("database", StandardSQLTypeName.STRING, StringType),
     ("tenant", StandardSQLTypeName.STRING, StringType)
   )
 
@@ -245,6 +245,12 @@ object AuditLog extends StrictLogging {
     }
   }
 
+  private def getDatabase(sink: Sink)(implicit
+    settings: Settings
+  ): Option[String] = {
+    sink.database
+      .orElse(settings.comet.getDatabase())
+  }
   def sinkToBigQuery(
     authInfo: Map[String, String],
     log: AuditLog,
@@ -266,7 +272,8 @@ object AuditLog extends StrictLogging {
       "WRITE_APPEND",
       None,
       None,
-      options = sink.getOptions
+      options = sink.getOptions,
+      outputDatabase = getDatabase(sink)
     )
     val bqJob = new BigQueryNativeJob(
       bqConfig,

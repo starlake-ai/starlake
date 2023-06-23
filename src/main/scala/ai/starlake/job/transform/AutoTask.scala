@@ -29,10 +29,10 @@ import ai.starlake.job.sink.bigquery.{
   BigQueryLoadConfig,
   BigQueryNativeJob
 }
+import ai.starlake.job.transform.AutoTask.getDatabase
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.Stage.UNIT
 import ai.starlake.schema.model._
-import ai.starlake.utils.Formatter.RichFormatter
 import ai.starlake.utils._
 import better.files.File
 import com.typesafe.scalalogging.StrictLogging
@@ -57,6 +57,18 @@ object AutoTask extends StrictLogging {
       .toList
   }
 
+  def getDatabase(taskDesc: AutoTaskDesc)(implicit
+    settings: Settings,
+    schemaHandler: SchemaHandler
+  ): Option[String] = {
+    taskDesc.sink
+      .flatMap(_.database) // database defined in sink
+      .orElse(
+        schemaHandler.activeEnvRefs().getDatabase(taskDesc.domain, taskDesc.table)
+      ) // mapping in envRefs
+      .orElse(settings.comet.getDatabase()) // database passed in env vars
+  }
+
   def tasks(
     jobDesc: AutoJobDesc,
     configOptions: Map[String, String],
@@ -78,7 +90,8 @@ object AutoTask extends StrictLogging {
         configOptions,
         taskDesc.sink.orElse(jobDesc.sink),
         interactive,
-        authInfo
+        authInfo,
+        getDatabase(taskDesc)
       )(settings, storageHandler, schemaHandler)
     )
   }
@@ -106,7 +119,8 @@ case class AutoTask(
   commandParameters: Map[String, String],
   sink: Option[Sink],
   interactive: Option[String],
-  authInfo: Map[String, String]
+  authInfo: Map[String, String],
+  database: Option[String]
 )(implicit val settings: Settings, storageHandler: StorageHandler, schemaHandler: SchemaHandler)
     extends SparkJob {
 
@@ -147,7 +161,8 @@ case class AutoTask(
       ),
       attributesDesc = taskDesc.attributesDesc,
       outputTableDesc = taskDesc.comment,
-      starlakeSchema = Some(Schema.fromTaskDesc(taskDesc))
+      starlakeSchema = Some(Schema.fromTaskDesc(taskDesc)),
+      outputDatabase = getDatabase(taskDesc)
     )
   }
 
@@ -156,7 +171,7 @@ case class AutoTask(
     logger.info(s"running BQ Query  start time $start")
     val config = createBigQueryConfig()
     logger.info(s"running BQ Query with config $config")
-    val (preSql, mainSql, postSql) = buildSQLQuery()
+    val (preSql, mainSql, postSql) = buildAllSQLQueries()
     logger.info(s"Config $config")
     // We add extra parenthesis required by BQ when using "WITH" keyword
     def bqNativeJob(sql: String) = {
@@ -241,8 +256,105 @@ case class AutoTask(
     }
   }
 
-  def buildSQLQuery(): (List[String], String, List[String]) = {
+  private def resolveTableRefInDomainsAndJobs(
+    database: Option[String],
+    domain: Option[String],
+    table: String
+  ): Try[(Option[String], String, String)] = Try {
+    domain match {
+      case Some(dom) => (database, dom, table)
+      case None =>
+        val domainsByFinalName = schemaHandler
+          .domains()
+          .filter { domain =>
+            domain.tables.exists(_.finalName == table)
+          }
+        val tasksByTable = schemaHandler
+          .jobs()
+          .values
+          .flatMap { job =>
+            job.tasks.find(_.table == table)
+          }
+          .toList
+
+        val tasksByName = schemaHandler
+          .jobs()
+          .values
+          .flatMap { job =>
+            job.tasks.find(_.name == table)
+          }
+          .toList
+
+        val nameCountMatch = domainsByFinalName.length + tasksByTable.length + tasksByName.length
+        if (nameCountMatch > 1) {
+          val domainNames = domainsByFinalName.map(_.finalName).mkString(",")
+          logger.error(s"Table $table is present in domain(s): $domainNames.")
+
+          val taskNamesByTable = tasksByTable.map(_.table).mkString(",")
+          logger.error(s"Table $table is present as a table in tasks(s): $taskNamesByTable.")
+
+          val taskNames = tasksByTable.map(_.name).mkString(",")
+          logger.error(s"Table $table is present as a table in tasks(s): $taskNames.")
+          throw new Exception("Table is present in multiple domains and/or tasks")
+        } else if (nameCountMatch == 0) {
+          throw new Exception(s"Table $table not found in any domain or task")
+        } else { // nameCountMatch == 1
+          val domainName = domainsByFinalName.headOption
+            .map(_.name)
+            .orElse(tasksByTable.headOption.map(_.domain))
+            .getOrElse(tasksByName.head.domain)
+          val databaseName = database
+            .orElse(
+              domainsByFinalName.headOption.flatMap(schemaHandler.getDatabase(_, table))
+            )
+            .orElse(tasksByTable.headOption.flatMap(_.database))
+            .orElse(tasksByName.headOption.flatMap(_.database))
+          (databaseName, domainName, table)
+        }
+    }
+  }
+
+  private def buildSingleSQLQuery(j2sql: String): String = {
+    val sql = parseJinja(j2sql)
+    val tableRefs = SQLUtils.extractRefsFromSQL(sql)
+    val refList = tableRefs.map { tableRef =>
+      val tableComponents = tableRef.replaceAll("`", "").split('.').toList
+      if (tableRef.contains("/")) // this is a parquet reference with Spark syntax
+        None
+      else {
+        val activeEnvRefs = schemaHandler.activeEnvRefs()
+        val databaseDomainTable = tableComponents match {
+          case table :: Nil =>
+            val (domain, database) = activeEnvRefs.getDomainAndDatabase(table)
+            Some(resolveTableRefInDomainsAndJobs(database, domain, table))
+          case domain :: table :: Nil =>
+            val database = activeEnvRefs.getDatabase(domain, table)
+            Some(resolveTableRefInDomainsAndJobs(database, Some(domain), table))
+          case database :: domain :: table :: Nil =>
+            Some(resolveTableRefInDomainsAndJobs(Some(database), Some(domain), table))
+          case _ =>
+            None
+        }
+        databaseDomainTable match {
+          case Some(Success((database, domain, table))) =>
+            Some((database, domain, table))
+          case Some(Failure(e)) =>
+            logger.error(s"Error resolving table reference $tableRef: ${e.getMessage}")
+            Utils.logException(logger, e)
+            throw e
+          case None =>
+            logger.warn(s"Could not resolve table reference $tableRef: no match found")
+            None
+        }
+      }
+    }
+    val resolvedSQL = SQLUtils.resolveRefsInSQL(sql, refList)
+    resolvedSQL
+  }
+
+  def buildAllSQLQueries(): (List[String], String, List[String]) = {
     val mainSql = parseJinja(taskDesc.getSql())
+
     logger.info(s"Parse Main SQL: $mainSql")
     val preSql = parseJinja(taskDesc.presql)
     val postSql = parseJinja(taskDesc.postsql)
@@ -259,8 +371,7 @@ case class AutoTask(
     */
   private def parseJinja(sqls: List[String]): List[String] =
     Utils
-      .parseJinja(sqls, schemaHandler.activeEnv() ++ commandParameters)
-      .map(_.richFormat(schemaHandler.activeEnv(), commandParameters))
+      .parseJinja(sqls, schemaHandler.activeEnvVars() ++ commandParameters)
 
   def sinkToFS(dataframe: DataFrame, sink: FsSink): Boolean = {
     val coalesce = sink.coalesce.getOrElse(this.coalesce)
@@ -356,7 +467,7 @@ case class AutoTask(
     val start = Timestamp.from(Instant.now())
     val res = Try {
       udf.foreach { udf => registerUdf(udf) }
-      val (preSql, sqlWithParameters, postSql) = buildSQLQuery()
+      val (preSql, sqlWithParameters, postSql) = buildAllSQLQueries()
       preSql.foreach(req => session.sql(req))
       logger.info(s"""START COMPILE SQL $sqlWithParameters END COMPILE SQL""")
       logger.info(s"running sql request using ${taskDesc.engine}")
@@ -496,7 +607,7 @@ case class AutoTask(
       end.getTime - start.getTime,
       message,
       Step.TRANSFORM.toString,
-      settings.comet.database,
+      getDatabase(taskDesc),
       settings.comet.tenant
     )
     AuditLog.sink(authInfo, optionalAuditSession, log)

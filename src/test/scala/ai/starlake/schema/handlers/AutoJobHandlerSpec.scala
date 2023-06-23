@@ -391,7 +391,8 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         outputClustering = sink.flatMap(_.clustering).getOrElse(Nil),
         days = sink.flatMap(_.days),
         requirePartitionFilter = sink.flatMap(_.requirePartitionFilter).getOrElse(false),
-        rls = businessTask1.rls
+        rls = businessTask1.rls,
+        outputDatabase = None
       )
       val job = new BigQuerySparkJob(config)
       val conf = job.prepareConf()
