@@ -2,13 +2,7 @@ package ai.starlake.job.sink.bigquery
 
 import ai.starlake.TestHelper
 import ai.starlake.config.Settings
-import ai.starlake.extract.{
-  BigQueryDatasetInfo,
-  BigQueryFreshnessConfig,
-  BigQueryFreshnessInfo,
-  BigQueryInfo,
-  BigQueryTableInfo
-}
+import ai.starlake.extract._
 import ai.starlake.job.ingest.WatchConfig
 import ai.starlake.job.transform.TransformConfig
 import ai.starlake.schema.generator.BigQueryTablesConfig
@@ -147,7 +141,7 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
     new WithSettings() {
       val logTime = java.sql.Timestamp.from(Instant.now)
       val start = System.currentTimeMillis()
-      val infos = BigQueryInfo.extractInfo()
+      val infos = BigQueryInfo.extractInfo(BigQueryConnectionConfig())
       val end = System.currentTimeMillis()
       println((end - start) / 1000)
       val datasetInfos = infos.map(_._1).map(BigQueryDatasetInfo(_, logTime))

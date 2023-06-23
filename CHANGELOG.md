@@ -4,6 +4,8 @@
 # 0.8.0:
 __Deprecated__:
 - **BREAKING CHANGE** Views have their own sections. Views inside jobs are now deprecated.
+  __Bug Fix__:
+- Take into account extensions in domain / metadata attribute
 
 
 # 0.7.4:
