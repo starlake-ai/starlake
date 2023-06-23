@@ -63,7 +63,7 @@ class BigQueryNativeJob(
                 stats.getEndTime - stats.getStartTime,
                 if (success) "success" else s"${stats.getBadRecords} invalid records",
                 Step.LOAD.toString,
-                settings.comet.database,
+                cliConfig.outputDatabase,
                 settings.comet.tenant
               )
               settings.comet.audit.sink match {

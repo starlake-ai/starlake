@@ -205,6 +205,14 @@ trait JdbcChecks {
       "duration" :: "message" :: "step" :: Nil,
       values.to[Vector]
     ) { rs =>
+      val rsmd = rs.getMetaData
+      val columnCount = rsmd.getColumnCount
+
+      // The column count starts from 1
+      for (i <- 1 to columnCount) {
+        val name = rsmd.getColumnName(i)
+        println(name)
+      }
       val item = AuditLog(
         sparkSession.sparkContext.applicationId,
         rs.getString("paths"),
@@ -218,7 +226,7 @@ trait JdbcChecks {
         rs.getInt("duration"),
         rs.getString("message"),
         rs.getString("step"),
-        rs.getString("project"),
+        Option(rs.getString("database")),
         rs.getString("tenant")
       )
 

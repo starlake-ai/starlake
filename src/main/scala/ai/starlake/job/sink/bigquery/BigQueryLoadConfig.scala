@@ -37,7 +37,8 @@ case class BigQueryLoadConfig(
   materializedView: Boolean = false,
   outputTableDesc: Option[String] = None,
   sqlSource: Option[String] = None,
-  attributesDesc: List[AttributeDesc] = Nil
+  attributesDesc: List[AttributeDesc] = Nil,
+  outputDatabase: Option[String]
 ) extends GcpConnectionConfig
 
 object BigQueryLoadConfig extends CliConfig[BigQueryLoadCliConfig] {
