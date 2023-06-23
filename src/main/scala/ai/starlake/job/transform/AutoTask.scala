@@ -29,6 +29,7 @@ import ai.starlake.job.sink.bigquery.{
   BigQueryLoadConfig,
   BigQueryNativeJob
 }
+import ai.starlake.job.transform.AutoTask.getDatabase
 import ai.starlake.schema.handlers.{SchemaHandler, StorageHandler}
 import ai.starlake.schema.model.Stage.UNIT
 import ai.starlake.schema.model._
@@ -56,6 +57,18 @@ object AutoTask extends StrictLogging {
       .toList
   }
 
+  def getDatabase(taskDesc: AutoTaskDesc)(implicit
+    settings: Settings,
+    schemaHandler: SchemaHandler
+  ): Option[String] = {
+    taskDesc.sink
+      .flatMap(_.database) // database defined in sink
+      .orElse(
+        schemaHandler.activeEnvRefs().getDatabase(taskDesc.domain, taskDesc.table)
+      ) // mapping in envRefs
+      .orElse(settings.comet.getDatabase()) // database passed in env vars
+  }
+
   def tasks(
     jobDesc: AutoJobDesc,
     configOptions: Map[String, String],
@@ -77,7 +90,8 @@ object AutoTask extends StrictLogging {
         configOptions,
         taskDesc.sink.orElse(jobDesc.sink),
         interactive,
-        authInfo
+        authInfo,
+        getDatabase(taskDesc)
       )(settings, storageHandler, schemaHandler)
     )
   }
@@ -105,7 +119,8 @@ case class AutoTask(
   commandParameters: Map[String, String],
   sink: Option[Sink],
   interactive: Option[String],
-  authInfo: Map[String, String]
+  authInfo: Map[String, String],
+  database: Option[String]
 )(implicit val settings: Settings, storageHandler: StorageHandler, schemaHandler: SchemaHandler)
     extends SparkJob {
 
@@ -146,7 +161,8 @@ case class AutoTask(
       ),
       attributesDesc = taskDesc.attributesDesc,
       outputTableDesc = taskDesc.comment,
-      starlakeSchema = Some(Schema.fromTaskDesc(taskDesc))
+      starlakeSchema = Some(Schema.fromTaskDesc(taskDesc)),
+      outputDatabase = getDatabase(taskDesc)
     )
   }
 
@@ -288,7 +304,9 @@ case class AutoTask(
             .orElse(tasksByTable.headOption.map(_.domain))
             .getOrElse(tasksByName.head.domain)
           val databaseName = database
-            .orElse(domainsByFinalName.headOption.flatMap(_.database))
+            .orElse(
+              domainsByFinalName.headOption.flatMap(schemaHandler.getDatabase(_, table))
+            )
             .orElse(tasksByTable.headOption.flatMap(_.database))
             .orElse(tasksByName.headOption.flatMap(_.database))
           (databaseName, domainName, table)
@@ -589,7 +607,7 @@ case class AutoTask(
       end.getTime - start.getTime,
       message,
       Step.TRANSFORM.toString,
-      settings.comet.database,
+      getDatabase(taskDesc),
       settings.comet.tenant
     )
     AuditLog.sink(authInfo, optionalAuditSession, log)

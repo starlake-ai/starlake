@@ -13,16 +13,19 @@ case class BigQueryConnectionConfig(
 
 object BigQueryInfo {
   def extractInfo(
-    project: Option[String] = None
+    authConfig: GcpConnectionConfig
   )(implicit settings: Settings): List[(Dataset, List[Table])] = {
-    val config = BigQueryConnectionConfig(project)
+    val config = BigQueryConnectionConfig(
+      authConfig.gcpProjectId,
+      authConfig.gcpSAJsonKey,
+      authConfig.location
+    )
     val bigquery = config.bigquery()
     val datasets = bigquery.listDatasets()
     datasets
       .iterateAll()
       .asScala
       .map { dataset =>
-        val config = BigQueryConnectionConfig(project)
         val bigquery = config.bigquery()
         val bqDataset: Dataset = bigquery.getDataset(dataset.getDatasetId)
         val tables = bigquery.listTables(dataset.getDatasetId)

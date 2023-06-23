@@ -56,6 +56,7 @@ case class BigQueryLoadCliConfig(
     starlakeSchema = starlakeSchema,
     domainTags = domainTags,
     domainDescription = domainDescription,
-    materializedView = materializedView
+    materializedView = materializedView,
+    outputDatabase = outputDatabase
   )
 }
