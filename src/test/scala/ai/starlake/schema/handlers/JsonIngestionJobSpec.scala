@@ -190,7 +190,7 @@ class JsonIngestionJobSpecNoIndexJdbcMetricsJdbcAuditSpec
       duration = 1 /* fake */,
       message = "success",
       Step.LOAD.toString,
-      settings.comet.database,
+      settings.comet.getDatabase(),
       settings.comet.tenant
     ) :: Nil
 
@@ -252,7 +252,7 @@ class JsonIngestionJobSpecNoIndexNoMetricsJdbcAuditSpec
       duration = 1 /* fake */,
       message = "success",
       Step.LOAD.toString,
-      settings.comet.database,
+      settings.comet.getDatabase(),
       settings.comet.tenant
     ) :: Nil
 

@@ -47,7 +47,8 @@ object BigQuerySparkWriter extends StrictLogging {
             requirePartitionFilter = sink.requirePartitionFilter.getOrElse(false),
             rls = Nil,
             options = sink.getOptions,
-            acl = Nil
+            acl = Nil,
+            outputDatabase = sink.database
           )
         val result = new BigQuerySparkJob(
           bqLoadConfig,

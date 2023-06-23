@@ -2,7 +2,7 @@ package ai.starlake.schema.generator
 
 import ai.starlake.config.{DatasetArea, Settings}
 import ai.starlake.schema.handlers.SchemaHandler
-import ai.starlake.schema.model.{Domain, Schema}
+import ai.starlake.schema.model.{BigQuerySink, Domain, Metadata, Schema}
 import ai.starlake.utils.YamlSerializer
 import ai.starlake.utils.repackaged.BigQuerySchemaConverters
 import com.google.cloud.bigquery.BigQuery.{DatasetListOption, TableListOption}
@@ -62,7 +62,9 @@ class ExtractBigQuerySchema(config: BigQueryTablesConfig)(implicit settings: Set
       name = dataset.getDatasetId().getDataset(),
       tables = schemas.toList,
       comment = Option(dataset.getDescription),
-      database = Option(dataset.getDatasetId().getProject())
+      metadata = Some(
+        Metadata(sink = Some(BigQuerySink(database = Option(dataset.getDatasetId().getProject()))))
+      )
     )
   }
 
