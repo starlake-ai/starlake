@@ -119,7 +119,8 @@ class SinkUtils()(implicit settings: Settings) extends StrictLogging with Datase
         "WRITE_APPEND",
         None,
         None,
-        options = options
+        options = options,
+        outputDatabase = bqDatabase
       )
       // Do not pass the schema here. Not that we do not compute the schema correctly
       // But since we are having a record of repeated field BQ does not like

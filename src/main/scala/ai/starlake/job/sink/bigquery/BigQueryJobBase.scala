@@ -29,7 +29,9 @@ trait BigQueryJobBase extends StrictLogging {
   def cliConfig: BigQueryLoadConfig
 
   def projectId: String =
-    cliConfig.gcpProjectId.getOrElse(ServiceOptions.getDefaultProjectId())
+    cliConfig.outputDatabase.getOrElse(
+      cliConfig.gcpProjectId.getOrElse(ServiceOptions.getDefaultProjectId())
+    )
 
   // Lazy otherwise tests fail since there is no GCP credentials in test mode
   private lazy val policyTagClient: PolicyTagManagerClient = PolicyTagManagerClient.create()
@@ -671,7 +673,8 @@ trait BigQueryJobBase extends StrictLogging {
               .setReferencedColumn(referencedColumn)
               .build
 
-          val tableIdPk = TableId.of(datasetId.getProject, domain, table)
+          val tableIdPk =
+            TableId.of(cliConfig.outputDatabase.getOrElse(this.projectId), domain, table)
           ForeignKey.newBuilder
             .setName("foreign_key")
             .setColumnReferences(List(columnReference).asJava)

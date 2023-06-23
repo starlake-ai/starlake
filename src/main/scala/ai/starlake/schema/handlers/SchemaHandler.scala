@@ -922,4 +922,21 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
     val merged = xsdTopLevelAttr.importAttr(ymlTopLevelAttr)
     merged.attributes
   }
+
+  def getDatabase(domain: Domain, schemaName: String)(implicit
+    settings: Settings
+  ): Option[String] = {
+    domain.metadata
+      .flatMap(_.sink)
+      .flatMap(_.database) // database defined in sink
+      .orElse(
+        this
+          .activeEnvRefs()
+          .getDatabase(domain.finalName, schemaName) // activeEnvRefs(domain, table)
+      )
+      .orElse(settings.comet.getDatabase())
+    // SL_DATABASE
+    // default database
+  }
+
 }

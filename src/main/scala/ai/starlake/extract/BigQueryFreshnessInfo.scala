@@ -27,7 +27,7 @@ object BigQueryFreshnessInfo {
     config: BigQueryFreshnessConfig
   )(implicit settings: Settings): List[FreshnessStatus] = {
     val tables: List[(Dataset, List[Table])] =
-      BigQueryTableInfo.extractTableInfos(config.gcpProjectId, config.tables)
+      BigQueryTableInfo.extractTableInfos(config, config.tables)
     import settings.storageHandler
     val schemaHandler = new SchemaHandler(storageHandler)
     val domains = schemaHandler.domains()
@@ -49,7 +49,7 @@ object BigQueryFreshnessInfo {
                   case Some(freshness) =>
                     val warnStatus =
                       getFreshnessStatus(
-                        domain.database.getOrElse(settings.comet.database),
+                        schemaHandler.getDatabase(domain, table.finalName).getOrElse(""),
                         domain.finalName,
                         tableInfo,
                         table.finalName,
@@ -59,7 +59,7 @@ object BigQueryFreshnessInfo {
                       )
                     val errorStatus =
                       getFreshnessStatus(
-                        domain.database.getOrElse(settings.comet.database),
+                        schemaHandler.getDatabase(domain, table.finalName).getOrElse(""),
                         domain.finalName,
                         tableInfo,
                         table.finalName,
