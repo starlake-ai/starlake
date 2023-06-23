@@ -74,8 +74,7 @@ import scala.util.Try
   @nowarn @deprecated("Moved to Metadata", "0.2.8") extensions: List[String] = Nil,
   @nowarn @deprecated("Moved to Metadata", "0.2.8") ack: Option[String] = None,
   tags: Set[String] = Set.empty,
-  rename: Option[String] = None,
-  database: Option[String] = None
+  rename: Option[String] = None
 ) extends Named {
 
   def this() = this("") // Should never be called. Here for Jackson deserialization only
@@ -170,7 +169,7 @@ import scala.util.Try
   }
 
   @nowarn def resolveExtensions(): List[String] = {
-    val ext = metadata.map(m => m.extensions)
+    val ext = metadata.map(m => m.extensions).filter(_.nonEmpty)
     ext.getOrElse(this.extensions)
   }
 
