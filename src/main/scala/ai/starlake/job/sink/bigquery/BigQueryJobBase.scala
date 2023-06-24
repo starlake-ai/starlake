@@ -4,6 +4,7 @@ import ai.starlake.schema.model
 import ai.starlake.schema.model.{Schema => _, TableInfo => _, _}
 import ai.starlake.utils.conversion.BigQueryUtils.sparkToBq
 import ai.starlake.utils.{SQLUtils, Utils}
+import com.google.auth.oauth2.ServiceAccountCredentials
 import com.google.cloud.bigquery.PrimaryKey
 import com.google.cloud.bigquery.{Schema => BQSchema, TableInfo => BQTableInfo, _}
 import com.google.cloud.datacatalog.v1.{
@@ -15,6 +16,7 @@ import com.google.cloud.{Identity, Policy, Role, ServiceOptions}
 import com.google.iam.v1.{Binding, Policy => IAMPolicy, SetIamPolicyRequest}
 import com.google.protobuf.FieldMask
 import com.typesafe.scalalogging.StrictLogging
+import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.DataFrame
 
 import java.security.SecureRandom
@@ -29,9 +31,13 @@ trait BigQueryJobBase extends StrictLogging {
   def cliConfig: BigQueryLoadConfig
 
   def projectId: String =
-    cliConfig.outputDatabase.getOrElse(
-      cliConfig.gcpProjectId.getOrElse(ServiceOptions.getDefaultProjectId())
-    )
+    cliConfig.outputDatabase
+      .orElse(cliConfig.gcpProjectId)
+      .orElse(getPropertyOrEnv("SL_DATABASE"))
+      .orElse(getPropertyOrEnv("GCP_PROJECT"))
+      .orElse(getPropertyOrEnv("GOOGLE_CLOUD_PROJECT"))
+      .orElse(scala.Option(ServiceOptions.getDefaultProjectId()))
+      .getOrElse(throw new Exception("GCP Project ID must be defined"))
 
   // Lazy otherwise tests fail since there is no GCP credentials in test mode
   private lazy val policyTagClient: PolicyTagManagerClient = PolicyTagManagerClient.create()
@@ -46,13 +52,45 @@ trait BigQueryJobBase extends StrictLogging {
   def bigquery()(implicit settings: Settings): BigQuery = {
     _bigquery match {
       case None =>
-        val bqService = cliConfig.bigquery()
+        val bqOptionsBuilder = BigQueryOptions.newBuilder()
+        val credentials = getCredentials()
+        val bqOptions = bqOptionsBuilder.setProjectId(projectId)
+        val bqService = credentials
+          .map(bqOptions.setCredentials)
+          .getOrElse(
+            bqOptions
+          ) // GOOGLE_APPLICATION_CREDENTIALS should reference the service account in the path
+          .build()
+          .getService()
         _bigquery = Some(bqService)
         bqService
       case Some(bqService) =>
         bqService
     }
   }
+
+  private def getCredentials()(implicit
+    settings: Settings
+  ): scala.Option[ServiceAccountCredentials] = {
+    cliConfig.gcpSAJsonKey.map { gcpSAJsonKey =>
+      val gcpSAJsonKeyAsString = if (!gcpSAJsonKey.trim.startsWith("{")) {
+        val path = new Path(gcpSAJsonKey)
+        if (settings.storageHandler.exists(path)) {
+          settings.storageHandler.read(path)
+        } else {
+          throw new Exception(s"Invalid GCP SA KEY Path: $path")
+        }
+      } else
+        gcpSAJsonKey
+      val credentialsStream = new java.io.ByteArrayInputStream(
+        gcpSAJsonKeyAsString.getBytes(java.nio.charset.StandardCharsets.UTF_8.name)
+      )
+      ServiceAccountCredentials.fromStream(credentialsStream)
+    }
+  }
+
+  private def getPropertyOrEnv(envVar: String): scala.Option[String] =
+    scala.Option(System.getProperty(envVar, System.getenv(envVar)))
 
   private var _bigquery: scala.Option[BigQuery] = None
 
