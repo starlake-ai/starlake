@@ -536,7 +536,8 @@ object Schema {
       attributes = attributes,
       None,
       None,
-      taskDesc.comment
+      taskDesc.comment,
+      tags = taskDesc.tags
     )
   }
 
