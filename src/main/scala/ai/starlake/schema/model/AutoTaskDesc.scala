@@ -45,7 +45,8 @@ case class AutoTaskDesc(
   coalesce: Option[Boolean] = None,
   freshness: Option[Freshness] = None,
   attributesDesc: List[AttributeDesc] = Nil,
-  python: Option[Path] = None
+  python: Option[Path] = None,
+  tags: Set[String] = Set.empty
 ) extends Named {
 
   def checkValidity(): Either[List[String], Boolean] = {
