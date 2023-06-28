@@ -1,6 +1,5 @@
 package ai.starlake.utils
 
-import ai.starlake.schema.model
 import ai.starlake.schema.model.Engine
 import net.sf.jsqlparser.parser.CCJSqlParserUtil
 import net.sf.jsqlparser.statement.StatementVisitorAdapter
