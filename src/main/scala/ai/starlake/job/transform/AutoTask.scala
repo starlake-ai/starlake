@@ -61,8 +61,11 @@ object AutoTask extends StrictLogging {
     settings: Settings,
     schemaHandler: SchemaHandler
   ): Option[String] = {
-    taskDesc.sink
-      .flatMap(_.database) // database defined in sink
+    taskDesc.database
+      .orElse(
+        taskDesc.sink
+          .flatMap(_.database) // database defined in sink
+      )
       .orElse(
         schemaHandler.activeEnvRefs().getDatabase(taskDesc.domain, taskDesc.table)
       ) // mapping in envRefs
@@ -167,13 +170,7 @@ case class AutoTask(
   }
 
   def runBQ(): Try[JobResult] = {
-    val start = Timestamp.from(Instant.now())
-    logger.info(s"running BQ Query  start time $start")
     val config = createBigQueryConfig()
-    logger.info(s"running BQ Query with config $config")
-    val (preSql, mainSql, postSql) = buildAllSQLQueries()
-    logger.info(s"Config $config")
-    // We add extra parenthesis required by BQ when using "WITH" keyword
     def bqNativeJob(sql: String) = {
       val toUpperSql = sql.toUpperCase()
       val finalSql =
@@ -183,6 +180,14 @@ case class AutoTask(
           sql
       new BigQueryNativeJob(config, finalSql, udf)
     }
+
+    val start = Timestamp.from(Instant.now())
+    logger.info(s"running BQ Query  start time $start")
+    val tableExists = bqNativeJob("ignore sql").tableExists(taskDesc.domain, taskDesc.table)
+    logger.info(s"running BQ Query with config $config")
+    val (preSql, mainSql, postSql) = buildAllSQLQueries(tableExists)
+    logger.info(s"Config $config")
+    // We add extra parenthesis required by BQ when using "WITH" keyword
 
     val presqlResult: List[Try[JobResult]] =
       preSql.map { sql =>
@@ -352,14 +357,34 @@ case class AutoTask(
     resolvedSQL
   }
 
-  def buildAllSQLQueries(): (List[String], String, List[String]) = {
+  def buildAllSQLQueries(tableExists: Boolean): (List[String], String, List[String]) = {
     val mainSql = parseJinja(taskDesc.getSql())
+    val mergeSql =
+      if (!tableExists)
+        mainSql
+      else {
+        logger.info(s"Parse Main SQL: $mainSql")
+        taskDesc.merge match {
+          case Some(options) =>
+            val mergeSql =
+              SQLUtils.buildMergeSql(
+                mainSql,
+                options.key,
+                getDatabase(taskDesc),
+                taskDesc.domain,
+                taskDesc.table,
+                taskDesc.engine.getOrElse(Engine.SPARK)
+              )
+            logger.info(s"Parse Merge SQL: $mergeSql")
+            mergeSql
+          case None => mainSql
+        }
+      }
 
-    logger.info(s"Parse Main SQL: $mainSql")
     val preSql = parseJinja(taskDesc.presql)
     val postSql = parseJinja(taskDesc.postsql)
 
-    (preSql, s"(\n$mainSql\n)", postSql)
+    (preSql, s"(\n$mergeSql\n)", postSql)
   }
 
   private def parseJinja(sql: String): String = parseJinja(List(sql)).head
@@ -466,7 +491,8 @@ case class AutoTask(
     val start = Timestamp.from(Instant.now())
     val res = Try {
       udf.foreach { udf => registerUdf(udf) }
-      val (preSql, sqlWithParameters, postSql) = buildAllSQLQueries()
+      val tableExists = session.catalog.tableExists(taskDesc.domain, taskDesc.table)
+      val (preSql, sqlWithParameters, postSql) = buildAllSQLQueries(tableExists)
       preSql.foreach(req => session.sql(req))
       logger.info(s"""START COMPILE SQL $sqlWithParameters END COMPILE SQL""")
       logger.info(s"running sql request using ${taskDesc.engine}")
