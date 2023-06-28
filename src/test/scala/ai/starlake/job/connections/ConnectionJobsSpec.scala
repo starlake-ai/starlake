@@ -36,7 +36,8 @@ class ConnectionJobsSpec extends TestHelper {
         "userout",
         WriteMode.OVERWRITE,
         sink = Some(JdbcSink(connection = connection)),
-        python = None
+        python = None,
+        merge = None
       )
       val businessJob =
         AutoJobDesc(

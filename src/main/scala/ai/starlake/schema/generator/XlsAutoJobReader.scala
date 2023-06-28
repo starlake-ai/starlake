@@ -127,7 +127,8 @@ class XlsAutoJobReader(input: Input, policyInput: Option[Input]) extends XlsMode
                   }.toList
                 })
             }.getOrElse(Nil),
-            python = None
+            python = None,
+            merge = None
           )
         )
       )

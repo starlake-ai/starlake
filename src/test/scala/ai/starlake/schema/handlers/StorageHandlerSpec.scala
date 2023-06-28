@@ -157,7 +157,8 @@ class StorageHandlerSpec extends TestHelper {
         postsql = Nil,
         sink = None,
         rls = List(RowLevelSecurity("myrls", "TRUE", Set("user:hayssam.saleh@ebiznext.com"))),
-        python = None
+        python = None,
+        merge = None
       )
       val businessJob =
         AutoJobDesc(

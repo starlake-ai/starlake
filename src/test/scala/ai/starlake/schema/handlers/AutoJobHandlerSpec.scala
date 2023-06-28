@@ -59,7 +59,8 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         domain = "business/user",
         table = "user",
         write = WriteMode.OVERWRITE,
-        python = None
+        python = None,
+        merge = None
       )
       val businessJob =
         AutoJobDesc(
@@ -114,7 +115,8 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         table = "user",
         write = WriteMode.OVERWRITE,
         assertions = Map("uniqFirstname" -> "isUnique(firstname)"),
-        python = None
+        python = None,
+        merge = None
       )
       val businessJob =
         AutoJobDesc(
@@ -155,7 +157,8 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         table = "user",
         write = WriteMode.OVERWRITE,
         assertions = Map("uniqFirstname" -> "isUnique(firstname)"),
-        python = None
+        python = None,
+        merge = None
       )
       val businessJob =
         AutoJobDesc(
@@ -209,7 +212,8 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         domain = "business/user",
         table = "user",
         write = WriteMode.OVERWRITE,
-        python = None
+        python = None,
+        merge = None
       )
       val businessJob =
         AutoJobDesc(
@@ -258,7 +262,8 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         domain = "business/user",
         table = "user",
         write = WriteMode.OVERWRITE,
-        python = None
+        python = None,
+        merge = None
       )
       val businessJob =
         AutoJobDesc(
@@ -316,7 +321,8 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
             |      where school={{school}}
             |""".stripMargin
         ),
-        python = None
+        python = None,
+        merge = None
       )
       val businessJob =
         AutoJobDesc(
@@ -368,7 +374,8 @@ class AutoJobHandlerSpec extends TestHelper with BeforeAndAfterAll {
         postsql = Nil,
         None,
         rls = List(RowLevelSecurity("myrls", "TRUE", Set("user:hayssam.saleh@ebiznext.com"))),
-        python = None
+        python = None,
+        merge = None
       )
 
       val sink = businessTask1.sink.map(_.asInstanceOf[BigQuerySink])

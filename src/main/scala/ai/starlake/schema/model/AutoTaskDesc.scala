@@ -46,7 +46,8 @@ case class AutoTaskDesc(
   freshness: Option[Freshness] = None,
   attributesDesc: List[AttributeDesc] = Nil,
   python: Option[Path] = None,
-  tags: Set[String] = Set.empty
+  tags: Set[String] = Set.empty,
+  merge: Option[MergeOptions]
 ) extends Named {
 
   def checkValidity(): Either[List[String], Boolean] = {
@@ -64,7 +65,8 @@ case class AutoTaskDesc(
     domain = "",
     table = "",
     write = WriteMode.OVERWRITE,
-    python = None
+    python = None,
+    merge = None
   ) // Should never be called. Here for Jackson deserialization only
 
   def getSql(): String = sql.getOrElse("")
