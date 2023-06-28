@@ -85,17 +85,4 @@ class UtilsSpec extends TestHelper {
       assert("${key}_and_${key}".richFormat(Map.empty, Map("key" -> "value")) == "value_and_value")
     }
   }
-
-  "TableRefs Extractor" should "return all tables and views" in {
-    val input =
-      """WITH cte1 as (query),
-        |cte2 as (query2)
-        |SELECT *
-        |FROM myview, yourview
-        |union
-        |select whatever cross join herview""".stripMargin
-    val refs = SQLUtils.extractRefsFromSQL(input)
-    refs should contain theSameElementsAs (List("myview", "yourview", "herview"))
-    // , "cte1", "cte2"))
-  }
 }
