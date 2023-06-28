@@ -374,6 +374,17 @@ trait BigQueryJobBase extends StrictLogging {
     processWithRetry(bigqueryProcess = bigqueryProcess)
   }
 
+  def tableExists(datasetName: String, tableName: String)(implicit settings: Settings): Boolean = {
+    try {
+      val table = bigquery().getTable(TableId.of(datasetName, tableName))
+      // table will be null if it is not found and setThrowNotFound is not set to `true`
+      table != null && table.exists
+    } catch {
+      case _: BigQueryException =>
+        false
+    }
+  }
+
   /** Get or create a BigQuery dataset
     *
     * @param domainDescription

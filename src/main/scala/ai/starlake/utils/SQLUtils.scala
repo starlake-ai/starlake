@@ -1,5 +1,12 @@
 package ai.starlake.utils
 
+import ai.starlake.schema.model
+import ai.starlake.schema.model.Engine
+import net.sf.jsqlparser.parser.CCJSqlParserUtil
+import net.sf.jsqlparser.statement.StatementVisitorAdapter
+import net.sf.jsqlparser.statement.select.{PlainSelect, Select, SelectVisitorAdapter}
+
+import scala.jdk.CollectionConverters.asScalaBufferConverter
 import scala.util.matching.Regex
 
 object SQLUtils {
@@ -48,6 +55,81 @@ object SQLUtils {
     val cteRegex = "(?i)\\s+([a-z0-9]+)+\\s+AS\\s*\\(".r
     val ctes = cteRegex.findAllMatchIn(sql).map(_.group(1)).toList
     ctes.map(_.replaceAll("`", ""))
+  }
+
+  def extractColumnNames(sql: String): List[String] = {
+    var result: List[String] = Nil
+    val selectVisitorAdapter = new SelectVisitorAdapter() {
+      override def visit(plainSelect: PlainSelect): Unit = {
+        result = plainSelect.getSelectItems.asScala.map { selectItem =>
+          selectItem.getASTNode.jjtGetLastToken().image
+        }.toList
+      }
+    }
+    val statementVisitor = new StatementVisitorAdapter() {
+      override def visit(select: Select): Unit = {
+        select.getSelectBody.accept(selectVisitorAdapter)
+      }
+    }
+    val select = CCJSqlParserUtil.parse(sql)
+    select.accept(statementVisitor)
+    result
+  }
+
+  private def buildWhenNotMatchedInsert(sql: String): String = {
+    val columnNames = SQLUtils.extractColumnNames(sql)
+    val columnNamesString = columnNames.map(colName => s""""$colName"""").mkString("(", ",", ")")
+    val columnValuesString = columnNames.mkString("(", ",", ")")
+    s"""WHEN NOT MATCHED THEN INSERT $columnNamesString VALUES $columnValuesString"""
+  }
+
+  private def buildWhenMatchedUpdate(sql: String) = {
+    val columnNames = SQLUtils.extractColumnNames(sql)
+    columnNames
+      .map { colName =>
+        s"""$colName = SL_INTERNAL_SOURCE.$colName"""
+      }
+      .mkString("WHEN MATCHED THEN UPDATE SET ", ", ", "")
+  }
+
+  def buildMergeSql(
+    sql: String,
+    key: List[String],
+    database: Option[String],
+    domain: String,
+    table: String,
+    engine: Engine
+  ): String = {
+
+    val quotes = Map(
+      Engine.SPARK.toString -> "`",
+      "SNOWFLAKE"           -> "\"",
+      Engine.BQ.toString    -> "`"
+    )
+    val quote = quotes(engine.toString)
+    key match {
+      case Nil => sql
+      case cols =>
+        val joinCondition = cols
+          .map { col =>
+            s"SL_INTERNAL_SOURCE.$col = SL_INTERNAL_SINK.$col"
+          }
+          .mkString(" AND ")
+
+        val fullTableName = database match {
+          case Some(db) => s"$quote$db$quote.$quote$domain$quote.$quote$table$quote"
+          case None     => s"$quote$domain$quote.$quote$table$quote"
+        }
+        s"""MERGE INTO
+           |$fullTableName as SL_INTERNAL_SINK
+           |USING($sql) as SL_INTERNAL_SOURCE ON $joinCondition
+           |${buildWhenMatchedUpdate(sql)}
+           |
+           |${buildWhenNotMatchedInsert(sql)}
+           |
+           |""".stripMargin
+
+    }
   }
 
   def resolveRefsInSQL(
