@@ -21,7 +21,9 @@ The screenshots below are taken from a Databricks cluster running on Google Clou
 
 :::
 
-### Create a service account
+## Create a service account
+### Google Cloud
+
 Create a bucket and name it for example `starlake-app`. This bucket will have the following purposes:
 - Store Starlake jars
 - Store Starlake metadata 
@@ -31,9 +33,21 @@ Create a service account and assign it the Storage Admin role.
 
 ![Create Service Account]( /img/databricks/create-service-account.png "create service account")
 
-### Create a Databricks Cluster
+### Azure
 
-In a Databricks Workspace, create a cluster and set the value of the `Service Account` field name to the service account you just create in the step above.
+Create a storage account and name it for example `starlakestorage` and assigns it to a resource group. In this storage account create a container that you can name `starlake-app` and set its public access level to `Container`. This container will have the following purposes:
+- Store Starlake jars
+- Store Starlake metadata 
+- Store parquet files after ingestion
+
+But you can also distribute these tasks across several containers.
+## Create a Databricks Cluster
+
+In a Databricks Workspace, create a cluster with the correct Databricks Runtime version : 9.1 LTS (Apache Spark 3.1.2, Scala 2.12).
+
+### Google Cloud
+
+set the value of the `Service Account` field name to the service account you just create in the step above.
 ![Create Databricks Cluster]( /img/databricks/cluster.png "[Create Databricks cluster")
 
 In the `Advanced Settings / Spark Config`  page set the variables below:
@@ -47,6 +61,14 @@ spark.hadoop.fs.gs.auth.service.account.email|me@dummy.iam.gserviceaccount.com|S
 spark.hadoop.fs.gs.project.id|my-project-id-123456|Project id
 spark.hadoop.fs.gs.auth.service.account.private.key|-----BEGIN PRIVATE KEY----- YOUR PRIVATE KEY GOES HERE-----END PRIVATE KEY-----|Private key as defined in your JSON file by the attribute `private_key`
 spark.hadoop.fs.gs.auth.service.account.private.key.id|df728e47e5e6c14402fafe6d39a3b8792a9967c7|Private key as defined in your JSON file by the attribute `private_key_id`
+
+### Azure
+
+In this section you don't have to set service account variables, we will set it when mounting our container. Just copy your key in your storage account in the access key frame.
+
+![Azure Key]( /img/databricks/azure-key.png "Azure access key")
+
+### Environment Variables
 
 In the `Advanced Settings / Environment variables`  section set the variables below:
 
@@ -62,7 +84,7 @@ SL_HIVE|true|Should we store the resulting parquet files as Databricks tables ?
 TEMPORARY_GCS_BUCKET|starlake-app|Bucket name where Google Cloud API store temporary files when saving data to BigQuery
 
 
-### Mount DBFS
+## Mount DBFS
 
 Databricks virtualize the underlying filesystem through DBFS. We first need to enable it in `Admin Console / Workspace Settings` page:
 
@@ -73,34 +95,78 @@ We now inside a `notebook` mount the cloud storage bucket created above and refe
 
 
 ````python
+# Google Cloud
 bucket_name = "starlake-app"
 mount_name = "starlake-app"
 dbutils.fs.mount("gs://%s" % bucket_name, "/mnt/%s" % mount_name)
 display(dbutils.fs.ls("/mnt/%s" % mount_name))
+
+# Azure
+storage_name= "starlakestorage"
+container_name = "starlake-app"
+storage_acces_key = "<Your access key>"
+mount_name = "starlake-app"
+dbutils.fs.mount(
+    source="wasbs://%s@%s.blob.core.windows.net" % (container_name, storage_name),
+    mount_point="/mnt/%s" % mount_name,
+    extra_configs={
+        "fs.azure.account.key.%s.blob.core.windows.net" % storage_name: storage_acces_key
+    }
+)
 ````
 
-The `gs://starlake-app` bucket is now accessible as a folder from Spark as the folder `dbfs:/mnt/starlake-app`
+Your storage account is now accessible on Databricks as a folder from Spark as the folder `dbfs:/mnt/starlake-app`
 
-### Create a Starlake job
+## Create a Starlake job
 
-To create a starlake job, you first upload the starlake uber jar and the jackson yaml (de)serializer into the gs://starlake-app folder.
+To create a starlake job, you first upload the starlake uber jar and the jackson yaml (de)serializer into the gs://starlake-app folder or starlake-app container.
 
-![bucket details]( /img/databricks/bucket.png "bucket details")
+![conatiner details Azure]( /img/databricks/jars-azure.png "container details Azure" )
 
 The version of the `jackson-dataformat-yaml`depends follows the version 
-of the others `jackson` components referenced by the databricks runtime
+of the others `jackson` components referenced by the databricks runtime. Download the correct version on [Maven Central](https://central.sonatype.com/artifact/com.fasterxml.jackson.dataformat/jackson-dataformat-yaml/2.12.3/versions). Then add the starlake assembly jar that you can find [here](https://central.sonatype.com/artifact/ai.starlake/starlake-spark3_2.12/0.7.4/versions).
 
-Create tasks and reference the two jars you uploaded to the cloud storage bucket and now visible to databricks through the `dbfs:/mnt/starlake-app` mount
+Note that only `import`, `watch/load/ingest`, `transform` and `metrics` command lines are designed exclusively for production environments
+
+You will need first to write your metadata configuration files from a local environment and then upload your starlake project in the `SL_ROOT` location like this :
+
+![metadata container]( /img/databricks/metadata-container.png "metadata container")
+
+If you are workin with an external data source, you can mount your data incoming location in databricks and reference it in the ``env.comet.yml`` file : 
+````yaml
+env:
+  root_path: "/mnt/starlake/tmp/quickstart"
+  incoming_path: "/mnt/sample-data"
+````
+Then reference your data source by using `{{incoming_path}}` variable in the domains schemas
+
+````yaml
+load:
+  name: "HR"
+  metadata:
+    mode: "FILE"
+    format: "JSON"
+    encoding: "UTF-8"
+    multiline: false
+    array: true
+    separator: "["
+    quote: "\""
+    escape: "\\"
+    write: "APPEND"
+    directory: "{{incoming_path}}/HR"
+````
+
+Create tasks and reference the two jars you uploaded and are now visible to databricks through the `dbfs:/mnt/starlake-app` mount
 
 - The first task (`import`) will copy the files matching the expected patterns into the pending directory for ingestion by starlake 
 
 ![starlake import]( /img/databricks/import-task.png "starlake import")
 
-- The second task (`watch`) will run the starlake ingestion job store the result as parquet files in the gs://starlake-app bucket.
+- The second task (`watch`) will run the starlake ingestion job store the result as parquet files in your dataset directory
 
 ![starlake watch]( /img/databricks/watch-task.png "starlake watch")
 
-### Ingest your data
+## Ingest your data
 Start the `import`task first and then the `watch` task. The execution logs are available through the `runs`tab:
 
 ![tasks runs]( /img/databricks/runs.png "tasks runs")
@@ -109,8 +175,6 @@ Start the `import`task first and then the `watch` task. The execution logs are a
 Since we set the `SL_HIVE=true` environnment variable, ingested data are also available as tables.
 ![starlake watch]( /img/databricks/database.png "starlake watch")
 
-The audit log for the above tasks will be stored in a BigQuery table since we set `SL_AUDIT_SINK_TYPE=BigQuerySink` environnment variable 
-
-
+The audit log for the above tasks will be stored in a BigQuery table if we set `SL_AUDIT_SINK_TYPE=BigQuerySink` environnment variable 
 
 
