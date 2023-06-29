@@ -13,6 +13,10 @@ __Deprecated__:
 - __Bug Fix__:
 - Take into account extensions in domain / metadata attribute
 
+__Fix__:
+- log failure in audit during ingestion job when unexpected behavior occurs
+- switch audit log and RLS queries as interactive to wait for job output to avoid any async exception and improve job output result accuracy
+- escape string parameters while using native query
 
 # 0.7.4:
 __Deprecated__:
