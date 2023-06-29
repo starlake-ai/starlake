@@ -555,7 +555,7 @@ trait BigQueryJobBase extends StrictLogging {
     tableIds
       .flatMap(tableId =>
         Try(bigquery().getTable(tableId))
-          .map(table => {
+          .map { table =>
             logger.info(s"Get table source description field : ${table.getTableId.toString}")
             table
               .getDefinition[StandardTableDefinition]
@@ -564,7 +564,7 @@ trait BigQueryJobBase extends StrictLogging {
               .iterator()
               .asScala
               .toList
-          })
+          }
           .getOrElse(Nil)
       )
 
