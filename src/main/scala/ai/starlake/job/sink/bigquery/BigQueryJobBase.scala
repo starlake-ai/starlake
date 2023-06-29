@@ -5,8 +5,7 @@ import ai.starlake.schema.model.{Schema => _, TableInfo => _, _}
 import ai.starlake.utils.conversion.BigQueryUtils.sparkToBq
 import ai.starlake.utils.{SQLUtils, Utils}
 import com.google.auth.oauth2.ServiceAccountCredentials
-import com.google.cloud.bigquery.PrimaryKey
-import com.google.cloud.bigquery.{Schema => BQSchema, TableInfo => BQTableInfo, _}
+import com.google.cloud.bigquery.{PrimaryKey, Schema => BQSchema, TableInfo => BQTableInfo, _}
 import com.google.cloud.datacatalog.v1.{
   ListPolicyTagsRequest,
   ListTaxonomiesRequest,
@@ -104,10 +103,11 @@ trait BigQueryJobBase extends StrictLogging {
         }
         prepareRLS().foreach { rlsStatement =>
           logger.info(s"Applying row level security $rlsStatement")
-          new BigQueryNativeJob(cliConfig, rlsStatement, None).runBatchQuery() match {
+          new BigQueryNativeJob(cliConfig, rlsStatement, None).runInteractiveQuery() match {
             case Failure(e) =>
               throw e
-            case Success(job) if job.getStatus.getExecutionErrors != null =>
+            case Success(BigQueryJobResult(_, _, Some(job)))
+                if job.getStatus.getExecutionErrors != null =>
               throw new RuntimeException(
                 job.getStatus.getExecutionErrors.asScala.reverse.mkString(",")
               )
