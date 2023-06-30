@@ -40,6 +40,8 @@ Create a storage account and name it for example `starlakestorage` and assigns i
 - Store Starlake metadata 
 - Store parquet files after ingestion
 
+![Azure create container]( /img/databricks/azure-container.png "Azure create container")
+
 But you can also distribute these tasks across several containers.
 ## Create a Databricks Cluster
 
@@ -47,8 +49,8 @@ In a Databricks Workspace, create a cluster with the correct Databricks Runtime 
 
 ### Google Cloud
 
-set the value of the `Service Account` field name to the service account you just create in the step above.
-![Create Databricks Cluster]( /img/databricks/cluster.png "[Create Databricks cluster")
+Set the value of the `Service Account` field name to the service account you just create in the step above.
+![Create Databricks Cluster]( /img/databricks/cluster.png "Create Databricks cluster")
 
 In the `Advanced Settings / Spark Config`  page set the variables below:
 
@@ -64,7 +66,7 @@ spark.hadoop.fs.gs.auth.service.account.private.key.id|df728e47e5e6c14402fafe6d3
 
 ### Azure
 
-In this section you don't have to set service account variables, we will set it when mounting our container. Just copy your key in your storage account in the access key frame.
+In this section you don't have to set service account variables, we will set it when mounting our container. Just copy your storage account access key we will use it later in a notebook.
 
 ![Azure Key]( /img/databricks/azure-key.png "Azure access key")
 
@@ -78,10 +80,10 @@ Environnement variable |Value|Description
 ---|---|---
 SL_METRICS_ACTIVE|true|Should we compute metrics set on individuals table columns at ingestion time
 SL_ROOT|/mnt/starlake-app/tmp/quickstart|This is a DBFS mounted directory (see below). It should reference the base directory where your starlake metadata is located
-SL_AUDIT_SINK_TYPE|BigQuerySink|Where to save audit logs. Here we decide to save it in BigQuery. Tos ave it as a hive table or file on the cloud storage, set it to FsSink
+SL_AUDIT_SINK_TYPE|BigQuerySink|Where to save audit logs. Here we decide to save it in BigQuery. To have it as a hive table or file on the cloud storage, set it to FsSink
 SL_FS|dbfs://|Filesystem. Always set it to DBFS in Databricks.
 SL_HIVE|true|Should we store the resulting parquet files as Databricks tables ?
-TEMPORARY_GCS_BUCKET|starlake-app|Bucket name where Google Cloud API store temporary files when saving data to BigQuery
+TEMPORARY_GCS_BUCKET|starlake-app|Bucket name where Google Cloud API store temporary files when saving data to BigQuery. Don't add this one if you're on Azure
 
 
 ## Mount DBFS
@@ -119,7 +121,7 @@ Your storage account is now accessible on Databricks as a folder from Spark as t
 
 ## Create a Starlake job
 
-To create a starlake job, you first upload the starlake uber jar and the jackson yaml (de)serializer into the gs://starlake-app folder or starlake-app container.
+To create a starlake job, you first upload the starlake uber jar and the jackson yaml (de)serializer into the gs://starlake-app folder or starlake-app container
 
 ![conatiner details Azure]( /img/databricks/jars-azure.png "container details Azure" )
 
@@ -132,7 +134,7 @@ You will need first to write your metadata configuration files from a local envi
 
 ![metadata container]( /img/databricks/metadata-container.png "metadata container")
 
-If you are workin with an external data source, you can mount your data incoming location in databricks and reference it in the ``env.comet.yml`` file : 
+If you are working with an external data source, you can mount your data incoming location in databricks and reference it in the ``env.comet.yml`` file: 
 ````yaml
 env:
   root_path: "/mnt/starlake/tmp/quickstart"
@@ -167,12 +169,13 @@ Create tasks and reference the two jars you uploaded and are now visible to data
 ![starlake watch]( /img/databricks/watch-task.png "starlake watch")
 
 ## Ingest your data
-Start the `import`task first and then the `watch` task. The execution logs are available through the `runs`tab:
+Start the `import`task first and then the `watch` task. The execution logs are available through the `runs` tab:
 
 ![tasks runs]( /img/databricks/runs.png "tasks runs")
 
 
 Since we set the `SL_HIVE=true` environnment variable, ingested data are also available as tables.
+
 ![starlake watch]( /img/databricks/database.png "starlake watch")
 
 The audit log for the above tasks will be stored in a BigQuery table if we set `SL_AUDIT_SINK_TYPE=BigQuerySink` environnment variable 
