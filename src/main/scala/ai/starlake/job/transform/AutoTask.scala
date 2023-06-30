@@ -428,14 +428,13 @@ case class AutoTask(
       if (taskDesc.write.toSaveMode == SaveMode.Overwrite)
         session.sql(s"drop table if exists $tableName")
       finalDataset.saveAsTable(fullTableName)
-      taskDesc.comment match {
-        case Some(comment) =>
-          session.sql(
-            s"ALTER TABLE $fullTableName SET TBLPROPERTIES('comment' = '$comment')"
-          )
-        case None =>
+      val tableTagPairs =
+        Utils.extractTags(this.taskDesc.tags) + ("comment" -> taskDesc.comment.getOrElse(""))
+      val tagsAsString = tableTagPairs.map { case (k, v) => s"'$k'='$v'" }.mkString(",")
+      session.sql(
+        s"ALTER TABLE $fullTableName SET TBLPROPERTIES($tagsAsString)"
+      )
 
-      }
       if (Utils.isRunningInDatabricks()) {
         taskDesc.attributesDesc.foreach { attrDesc =>
           session.sql(
