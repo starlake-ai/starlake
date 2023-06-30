@@ -104,7 +104,8 @@ class BigQueryNativeJobSpec extends TestHelper with BeforeAndAfterAll {
             WriteMode.OVERWRITE,
             sink = Some(BigQuerySink(name = Some("sinktest"), location = Some("EU"))),
             engine = Some(Engine.BQ),
-            python = None
+            python = None,
+            merge = None
           )
           val businessJob =
             AutoJobDesc(

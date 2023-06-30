@@ -2,9 +2,15 @@
 # Release notes
 
 # 0.8.0:
+- **BREAKING CHANGE** the new database and tenant fields should added to the audit table.
+  Please run the following SQL to update your audit table on BigQuery:
+```
+  ALTER TABLE audit.audit ADD COLUMN IF NOT EXISTS database STRING;
+  ALTER TABLE audit.audit ADD COLUMN IF NOT EXISTS tenant STRING;
+```
 __Deprecated__:
 - **BREAKING CHANGE** Views have their own sections. Views inside jobs are now deprecated.
-  __Bug Fix__:
+- __Bug Fix__:
 - Take into account extensions in domain / metadata attribute
 
 
