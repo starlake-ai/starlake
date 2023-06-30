@@ -94,7 +94,6 @@ class SinkTypeDeserializer extends JsonDeserializer[SinkType] {
 )
 sealed abstract class Sink(val `type`: String, val write: Option[WriteMode] = None) {
   def getType(): SinkType = SinkType.fromString(`type`)
-  def database: Option[String]
   def name: Option[String]
   def options: Option[Map[String, String]]
   def getOptions: Map[String, String] = options.getOrElse(Map.empty)
@@ -119,7 +118,6 @@ sealed abstract class Sink(val `type`: String, val write: Option[WriteMode] = No
 @JsonTypeName("BQ")
 final case class BigQuerySink(
   override val name: Option[String] = None,
-  override val database: Option[String] = None,
   location: Option[String] = None,
   timestamp: Option[String] = None,
   clustering: Option[Seq[String]] = None,
@@ -139,7 +137,6 @@ final case class BigQuerySink(
 @JsonTypeName("ES")
 final case class EsSink(
   override val name: Option[String] = None,
-  override val database: Option[String] = None,
   id: Option[String] = None,
   timestamp: Option[String] = None,
   options: Option[Map[String, String]] = None
@@ -148,7 +145,6 @@ final case class EsSink(
 @JsonTypeName("None")
 final case class NoneSink(
   override val name: Option[String] = None,
-  override val database: Option[String] = None,
   options: Option[Map[String, String]] = None
 ) extends Sink(SinkType.None.value)
 
@@ -157,7 +153,6 @@ final case class NoneSink(
 @JsonTypeName("FS")
 final case class FsSink(
   override val name: Option[String] = None,
-  override val database: Option[String] = None,
   format: Option[String] = None,
   extension: Option[String] = None,
   clustering: Option[Seq[String]] = None,
@@ -177,7 +172,6 @@ final case class FsSink(
 @JsonTypeName("JDBC")
 final case class JdbcSink(
   override val name: Option[String] = None,
-  override val database: Option[String] = None,
   connection: String,
   options: Option[Map[String, String]] = None
 ) extends Sink(SinkType.JDBC.value)

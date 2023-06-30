@@ -11,7 +11,7 @@ import org.apache.spark.sql.functions.lit
 
 import scala.util.{Failure, Success, Try}
 
-case class AssertionReport(
+case class ExpectationReport(
   name: String,
   params: String,
   sql: Option[String],
@@ -27,7 +27,7 @@ case class AssertionReport(
   }
 }
 
-/** Record assertion execution
+/** Record expectation execution
   */
 
 /** @param domain
@@ -39,11 +39,11 @@ case class AssertionReport(
   * @param storageHandler
   *   : Storage Handler
   */
-class AssertionJob(
+class ExpectationJob(
   authInfo: Map[String, String],
   domainName: String,
   schemaName: String,
-  assertions: Map[String, String],
+  expectations: Map[String, String],
   stage: Stage,
   storageHandler: StorageHandler,
   schemaHandler: SchemaHandler,
@@ -53,12 +53,12 @@ class AssertionJob(
 )(implicit val settings: Settings)
     extends SparkJob {
 
-  override def name: String = "Check Assertions"
+  override def name: String = "Check Expectations"
 
   def lockPath(path: String): Path = {
     new Path(
       settings.comet.lock.path,
-      "assertions" + path
+      "expectations" + path
         .replace("{{domain}}", domainName)
         .replace("{{schema}}", schemaName)
         .replace(":", "_")
@@ -72,15 +72,15 @@ class AssertionJob(
       dataset.count()
     } getOrElse 0
 
-    val assertionLibrary = schemaHandler.assertions(domainName)
-    val calls = AssertionCalls(assertions).assertionCalls
-    val assertionReports = calls.map { case (_, assertion) =>
-      val sql = assertionLibrary
-        .get(assertion.name)
+    val expectationLibrary = schemaHandler.expectations(domainName)
+    val calls = ExpectationCalls(expectations).expectationCalls
+    val expectationReports = calls.map { case (_, expectation) =>
+      val sql = expectationLibrary
+        .get(expectation.name)
         .map { ad =>
           logger.info(s"Applying substitution ${ad.name} -> ${ad.sql}")
           val paramsMap =
-            schemaHandler.activeEnvVars() ++ ad.params.zip(assertion.paramValues).toMap
+            schemaHandler.activeEnvVars() ++ ad.params.zip(expectation.paramValues).toMap
           // Apply substitution defined with {{ }} and overload options in env by option in command line
           Utils
             .subst(
@@ -90,32 +90,32 @@ class AssertionJob(
               paramsMap
             )
         }
-        .getOrElse(assertion.sql)
-      logger.info(s"Applying assertion ${assertion.name} with request $sql")
+        .getOrElse(expectation.sql)
+      logger.info(s"Applying expectation ${expectation.name} with request $sql")
       Try {
-        val assertionCount = sqlRunner(sql)
-        AssertionReport(
-          assertion.name,
-          assertion.paramValues.toString(),
+        val expectationCount = sqlRunner(sql)
+        ExpectationReport(
+          expectation.name,
+          expectation.paramValues.toString(),
           Some(sql),
-          Some(assertionCount),
+          Some(expectationCount),
           None,
           success = true
         )
       } match {
         case Failure(e: IllegalArgumentException) =>
-          AssertionReport(
-            assertion.name,
-            assertion.paramValues.toString(),
+          ExpectationReport(
+            expectation.name,
+            expectation.paramValues.toString(),
             None,
             None,
             Some(Utils.exceptionAsString(e)),
             success = false
           )
         case Failure(e) =>
-          AssertionReport(
-            assertion.name,
-            assertion.paramValues.toString(),
+          ExpectationReport(
+            expectation.name,
+            expectation.paramValues.toString(),
             Some(sql),
             None,
             Some(Utils.exceptionAsString(e)),
@@ -124,11 +124,11 @@ class AssertionJob(
         case Success(value) => value
       }
     }.toList
-    if (assertionReports.nonEmpty) {
-      assertionReports.foreach(r => logger.info(r.toString))
+    if (expectationReports.nonEmpty) {
+      expectationReports.foreach(r => logger.info(r.toString))
 
-      val assertionsDF = session
-        .createDataFrame(assertionReports)
+      val expectationsDF = session
+        .createDataFrame(expectationReports)
         .withColumn("jobId", lit(applicationId()))
         .withColumn("domain", lit(domainName))
         .withColumn("schema", lit(schemaName))
@@ -138,14 +138,14 @@ class AssertionJob(
 
       new SinkUtils().sink(
         authInfo,
-        settings.comet.assertions.sink,
-        assertionsDF,
-        settings.comet.audit.sink.database,
+        settings.comet.expectations.sink,
+        expectationsDF,
+        settings.comet.audit.database,
         settings.comet.audit.sink.name.getOrElse("audit"),
-        settings.comet.assertions.sink.name.getOrElse("assertions"),
-        Some("Assertion results"),
-        DatasetArea.assertions(domainName, schemaName),
-        lockPath(settings.comet.assertions.path),
+        settings.comet.expectations.sink.name.getOrElse("expectations"),
+        Some("Expectation results"),
+        DatasetArea.expectations(domainName, schemaName),
+        lockPath(settings.comet.expectations.path),
         storageHandler,
         engine,
         session

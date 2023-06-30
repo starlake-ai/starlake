@@ -238,19 +238,16 @@ object AuditLog extends StrictLogging {
       case _: EsSink =>
         // TODO Sink Audit Log to ES
         throw new Exception("Sinking Audit log to Elasticsearch not yet supported")
-      case _: NoneSink | FsSink(_, _, _, _, _, _, _, _) if !settings.comet.sinkToFile =>
+      case _: NoneSink | FsSink(_, _, _, _, _, _, _) if !settings.comet.sinkToFile =>
         sinkToFile(log, sessionOpt, settings)
-      case _: NoneSink | FsSink(_, _, _, _, _, _, _, _) if settings.comet.sinkToFile =>
+      case _: NoneSink | FsSink(_, _, _, _, _, _, _) if settings.comet.sinkToFile =>
       // Do nothing dataset already sinked to file. Forced at the reference.conf level
     }
   }
 
-  private def getDatabase(sink: Sink)(implicit
-    settings: Settings
-  ): Option[String] = {
-    sink.database
-      .orElse(settings.comet.getDatabase())
-  }
+  private def getDatabase()(implicit settings: Settings): Option[String] =
+    settings.comet.getDatabase()
+
   def sinkToBigQuery(
     authInfo: Map[String, String],
     log: AuditLog,
@@ -273,7 +270,7 @@ object AuditLog extends StrictLogging {
       None,
       None,
       options = sink.getOptions,
-      outputDatabase = getDatabase(sink)
+      outputDatabase = getDatabase()
     )
     val bqJob = new BigQueryNativeJob(
       bqConfig,

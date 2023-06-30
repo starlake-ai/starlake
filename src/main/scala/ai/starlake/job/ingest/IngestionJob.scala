@@ -1,7 +1,7 @@
 package ai.starlake.job.ingest
 
 import ai.starlake.config.{CometColumns, DatasetArea, Settings, StorageArea}
-import ai.starlake.job.metrics.{AssertionJob, MetricsJob}
+import ai.starlake.job.metrics.{ExpectationJob, MetricsJob}
 import ai.starlake.job.sink.bigquery.{
   BigQueryJobBase,
   BigQueryLoadConfig,
@@ -165,7 +165,7 @@ trait IngestionJob extends SparkJob {
           )
         } else {
           settings.comet.audit.sink match {
-            case _: NoneSink | FsSink(_, _, _, _, _, _, _, _) =>
+            case _: NoneSink | FsSink(_, _, _, _, _, _, _) =>
               sinkToFile(
                 rejectedDF,
                 rejectedPath,
@@ -245,13 +245,13 @@ trait IngestionJob extends SparkJob {
     else
       extension
 
-  private def runAssertions(acceptedDF: DataFrame) = {
-    if (settings.comet.assertions.active) {
-      new AssertionJob(
+  private def runExpectations(acceptedDF: DataFrame) = {
+    if (settings.comet.expectations.active) {
+      new ExpectationJob(
         Map.empty, // Auth Info from env var since run from spark submit only
         this.domain.finalName,
         this.schema.finalName,
-        this.schema.assertions,
+        this.schema.expectations,
         UNIT,
         storageHandler,
         schemaHandler,
@@ -321,7 +321,7 @@ trait IngestionJob extends SparkJob {
       val acceptedDF = acceptedDfWithoutIgnoredFields.drop(CometColumns.cometInputFileNameColumn)
       val finalAcceptedDF: DataFrame =
         computeFinalSchema(acceptedDF).persist(settings.comet.cacheStorageLevel)
-      runAssertions(finalAcceptedDF)
+      runExpectations(finalAcceptedDF)
       runMetrics(finalAcceptedDF)
       val (mergedDF, partitionsToUpdate) = applyMerge(acceptedPath, finalAcceptedDF)
 
@@ -1370,7 +1370,7 @@ object IngestionUtil {
             outputTableId = Some(
               BigQueryJobBase
                 .extractProjectDatasetAndTable(
-                  sink.database,
+                  settings.comet.audit.database,
                   sink.name.getOrElse("audit"),
                   "rejected"
                 )
@@ -1383,7 +1383,7 @@ object IngestionUtil {
             None,
             None,
             options = sink.getOptions,
-            outputDatabase = sink.database
+            outputDatabase = settings.comet.audit.database
           )
           new BigQuerySparkJob(
             bqConfig,
@@ -1407,7 +1407,7 @@ object IngestionUtil {
         case _: EsSink =>
           // TODO Sink Rejected Log to ES
           throw new Exception("Sinking Audit log to Elasticsearch not yet supported")
-        case _: NoneSink | FsSink(_, _, _, _, _, _, _, _) =>
+        case _: NoneSink | FsSink(_, _, _, _, _, _, _) =>
           // We save in the caller
           // TODO rewrite this one
           Success(())
