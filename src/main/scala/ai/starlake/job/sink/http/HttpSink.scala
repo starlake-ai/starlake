@@ -7,15 +7,11 @@ import org.apache.spark.sql.execution.streaming.Sink
 
 import scala.util.{Failure, Success, Try}
 
-class HtttpSink(
-  url: String,
-  maxMessages: Int,
-  numRetries: Int,
-  retryInterval: Int,
-  transformer: SinkTransformer
-) extends Sink
-    with StrictLogging {
-  val client = new HttpSinkClient(url, maxMessages, transformer)
+class HtttpSink(parameters: Map[String, String]) extends Sink with StrictLogging {
+  private val numRetries: Int = parameters.getOrElse("numRetries", "3").toInt
+  private val retryInterval: Int = parameters.getOrElse("retryInterval", "1000").toInt
+
+  val client = new HttpSinkClient(parameters)
 
   override def addBatch(batchId: Long, data: DataFrame) {
     var success = false;

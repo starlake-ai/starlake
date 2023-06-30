@@ -45,7 +45,7 @@ class SinkUtils()(implicit settings: Settings) extends StrictLogging with Datase
       }
     }
     sinkType match {
-      case _: NoneSink | FsSink(_, _, _, _, _, _, _, _) if !settings.comet.sinkToFile =>
+      case _: NoneSink | FsSink(_, _, _, _, _, _, _) if !settings.comet.sinkToFile =>
         if (engine == Engine.SPARK) {
           val waitTimeMillis = settings.comet.lock.timeout
           val locker = new FileLock(lockPath, storageHandler)
@@ -62,7 +62,7 @@ class SinkUtils()(implicit settings: Settings) extends StrictLogging with Datase
         } else
           Success(())
 
-      case _: NoneSink | FsSink(_, _, _, _, _, _, _, _) if settings.comet.sinkToFile =>
+      case _: NoneSink | FsSink(_, _, _, _, _, _, _) if settings.comet.sinkToFile =>
         // Do nothing dataset already sinked to file. Forced at the reference.conf level
         Success(())
 
@@ -71,7 +71,7 @@ class SinkUtils()(implicit settings: Settings) extends StrictLogging with Datase
           sinkToBigQuery(
             authInfo,
             dataframe,
-            sink.database,
+            database,
             sink.name.getOrElse(table),
             table,
             maybeTableDescription,
@@ -91,8 +91,8 @@ class SinkUtils()(implicit settings: Settings) extends StrictLogging with Datase
           sinkToJdbc(jdbcConfig)
         }
       case _: EsSink =>
-        // TODO Sink Assertions & Metrics to ES
-        throw new Exception("Sinking Assertions & Metrics to Elasticsearch not yet supported")
+        // TODO Sink Expectations & Metrics to ES
+        throw new Exception("Sinking Expectations & Metrics to Elasticsearch not yet supported")
     }
   }
 

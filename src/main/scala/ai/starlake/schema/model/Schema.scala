@@ -71,7 +71,7 @@ case class Schema(
   postsql: List[String] = Nil,
   tags: Set[String] = Set.empty,
   rls: List[RowLevelSecurity] = Nil,
-  assertions: Map[String, String] = Map.empty,
+  expectations: Map[String, String] = Map.empty,
   primaryKey: List[String] = Nil,
   acl: List[AccessControlEntry] = Nil,
   rename: Option[String] = None,
@@ -463,7 +463,8 @@ case class Schema(
       postsql = if (this.postsql.isEmpty) fallbackSchema.postsql else this.postsql,
       tags = if (this.tags.isEmpty) fallbackSchema.tags else this.tags,
       rls = if (this.rls.isEmpty) fallbackSchema.rls else this.rls,
-      assertions = if (this.assertions.isEmpty) fallbackSchema.assertions else this.assertions,
+      expectations =
+        if (this.expectations.isEmpty) fallbackSchema.expectations else this.expectations,
       acl = if (this.acl.isEmpty) fallbackSchema.acl else this.acl,
       sample = this.sample.orElse(fallbackSchema.sample),
       filter = this.filter.orElse(fallbackSchema.filter)
@@ -586,8 +587,8 @@ object Schema {
 
       val rlsDiff: ListDiff[Named] = AnyRefDiff.diffListNamed("rls", existing.rls, incoming.rls)
 
-      val assertionsDiff: ListDiff[Named] =
-        AnyRefDiff.diffMap("assertions", existing.assertions, incoming.assertions)
+      val expectationsDiff: ListDiff[Named] =
+        AnyRefDiff.diffMap("expectations", existing.expectations, incoming.expectations)
 
       val primaryKeyDiff: ListDiff[String] =
         AnyRefDiff.diffSetString("primaryKey", existing.primaryKey.toSet, incoming.primaryKey.toSet)
@@ -614,7 +615,7 @@ object Schema {
         postsqlDiff,
         tagsDiff,
         rlsDiff,
-        assertionsDiff,
+        expectationsDiff,
         primaryKeyDiff,
         aclDiff,
         renameDiff,

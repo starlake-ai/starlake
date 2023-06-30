@@ -133,14 +133,14 @@ trait TestHelper
     )
   )
 
-  val allAssertions: List[FileToImport] = List(
+  val allExpectations: List[FileToImport] = List(
     FileToImport(
       "default.comet.yml",
-      "/sample/assertions/default.comet.yml"
+      "/sample/expectations/default.comet.yml"
     ),
     FileToImport(
       "types.comet.yml",
-      "/sample/assertions/assertions.comet.yml"
+      "/sample/expectations/assertions.comet.yml"
     )
   )
 
@@ -250,8 +250,8 @@ trait TestHelper
         val typesPath = new Path(DatasetArea.types, typeToImport.name)
         deliverTestFile(typeToImport.path, typesPath)
       }
-      allAssertions.foreach { assertionToImport =>
-        val assertionPath = new Path(DatasetArea.assertions, assertionToImport.name)
+      allExpectations.foreach { assertionToImport =>
+        val assertionPath = new Path(DatasetArea.expectations, assertionToImport.name)
         deliverTestFile(assertionToImport.path, assertionPath)
       }
       allViews.foreach { viewToImport =>

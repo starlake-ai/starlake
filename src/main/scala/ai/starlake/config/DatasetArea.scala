@@ -135,8 +135,8 @@ object DatasetArea extends StrictLogging {
   def metrics(domain: String, schema: String)(implicit settings: Settings): Path =
     substituteDomainAndSchemaInPath(domain, schema, settings.comet.metrics.path)
 
-  def assertions(domain: String, schema: String)(implicit settings: Settings): Path =
-    substituteDomainAndSchemaInPath(domain, schema, settings.comet.assertions.path)
+  def expectations(domain: String, schema: String)(implicit settings: Settings): Path =
+    substituteDomainAndSchemaInPath(domain, schema, settings.comet.expectations.path)
 
   def replay(domain: String)(implicit settings: Settings): Path =
     path(domain, settings.comet.area.replay)
@@ -187,8 +187,8 @@ object DatasetArea extends StrictLogging {
   def dags(implicit settings: Settings): Path =
     new Path(settings.comet.dags)
 
-  def assertions(implicit settings: Settings): Path =
-    new Path(metadata, "assertions")
+  def expectations(implicit settings: Settings): Path =
+    new Path(metadata, "expectations")
 
   def mapping(implicit settings: Settings): Path =
     new Path(metadata, "mapping")
@@ -223,7 +223,7 @@ object DatasetArea extends StrictLogging {
   def initMetadata(
     storage: StorageHandler
   )(implicit settings: Settings): Unit = {
-    List(metadata, types, domains, external, extract, jobs, assertions, views, mapping).foreach(
+    List(metadata, types, domains, external, extract, jobs, expectations, views, mapping).foreach(
       storage.mkdirs
     )
   }
