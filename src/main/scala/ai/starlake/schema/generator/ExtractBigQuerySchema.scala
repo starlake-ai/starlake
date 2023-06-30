@@ -1,6 +1,7 @@
 package ai.starlake.schema.generator
 
 import ai.starlake.config.{DatasetArea, Settings}
+import ai.starlake.job.sink.bigquery.{BigQueryJobBase, BigQueryLoadConfig}
 import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.{BigQuerySink, Domain, Metadata, Schema}
 import ai.starlake.utils.YamlSerializer
@@ -13,7 +14,15 @@ import org.apache.spark.sql.types.{StructField, StructType}
 import scala.jdk.CollectionConverters.iterableAsScalaIterableConverter
 
 class ExtractBigQuerySchema(config: BigQueryTablesConfig)(implicit settings: Settings) {
-  val bigquery = config.bigquery()
+  val bqJob = new BigQueryJobBase {
+    override def cliConfig: BigQueryLoadConfig = new BigQueryLoadConfig(
+      gcpProjectId = config.gcpProjectId,
+      gcpSAJsonKey = config.gcpSAJsonKey,
+      location = config.location,
+      outputDatabase = None
+    )
+  }
+  val bigquery = bqJob.bigquery()
   def extractDatasets(): List[Domain] = {
     val datasets = bigquery.listDatasets(DatasetListOption.pageSize(10000))
     val allDatasets = datasets

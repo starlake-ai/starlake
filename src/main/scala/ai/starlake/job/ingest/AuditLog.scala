@@ -24,8 +24,8 @@ import ai.starlake.config.Settings
 import ai.starlake.job.sink.bigquery.{BigQueryJobBase, BigQueryLoadConfig, BigQueryNativeJob}
 import ai.starlake.job.sink.jdbc.{ConnectionLoadConfig, ConnectionLoadJob}
 import ai.starlake.schema.model._
-import ai.starlake.utils.{FileLock, Utils}
-import com.google.cloud.bigquery.{Field, Job, Schema => BQSchema, StandardSQLTypeName}
+import ai.starlake.utils.{FileLock, JobResult, Utils}
+import com.google.cloud.bigquery.{Field, Schema => BQSchema, StandardSQLTypeName}
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.hadoop.fs.Path
 import org.apache.spark.rdd.RDD
@@ -93,13 +93,15 @@ case class AuditLog(
        |duration=$duration
        |message=$message
        |step=$step
-       |project=$database
+       |database=$database
        |tenant=$tenant
        |""".stripMargin.split('\n').mkString(",")
 
   def asBqInsert(table: String): String = {
     val df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
     val timestampStr = df.format(timestamp)
+    val escapeStringParameter = (value: Any) =>
+      value.toString.replaceAll("'", "\\\\'").replaceAll("\n", "\\\\n")
     s"""
        |insert into `$table`(
        | jobid,
@@ -114,24 +116,24 @@ case class AuditLog(
        | duration,
        | message,
        | step,
-       | project,
+       | database,
        | tenant
        |)
        |values(
-       |'$jobid',
-       |'$paths',
-       |'$domain',
-       |'$schema',
+       |'${escapeStringParameter(jobid)}',
+       |'${escapeStringParameter(paths)}',
+       |'${escapeStringParameter(domain)}',
+       |'${escapeStringParameter(schema)}',
        |$success,
        |$count,
        |$countAccepted,
        |$countRejected,
-       |'$timestampStr',
+       |'${escapeStringParameter(timestampStr)}',
        |$duration,
-       |'$message',
-       |'$step',
-       |'$database',
-       |'$tenant'
+       |'${escapeStringParameter(message)}',
+       |'${escapeStringParameter(step)}',
+       |'${escapeStringParameter(database)}',
+       |'${escapeStringParameter(tenant)}'
        |)""".stripMargin
   }
 
@@ -257,7 +259,7 @@ object AuditLog extends StrictLogging {
     sink: BigQuerySink
   )(implicit
     settings: Settings
-  ): Try[Job] = {
+  ): Try[JobResult] = {
     val auditOutputTarget =
       BigQueryJobBase.extractProjectDatasetAndTable(sink.name.getOrElse("audit") + "." + "audit")
     val bqConfig = BigQueryLoadConfig(
@@ -286,7 +288,7 @@ object AuditLog extends StrictLogging {
       Some(bqSchema())
     )
     bqJob.getOrCreateTable(None, tableInfo, None)
-    val res = bqJob.runBatchQuery()
+    val res = bqJob.runInteractiveQuery()
     res
   }
 }
