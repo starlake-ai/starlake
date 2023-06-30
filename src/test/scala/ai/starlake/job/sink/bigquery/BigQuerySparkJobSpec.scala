@@ -61,7 +61,8 @@ class BigQuerySparkJobSpec extends TestHelper with BeforeAndAfterAll {
             "BQ_TEST_DS",
             "BQ_TEST_TABLE",
             WriteMode.OVERWRITE,
-            sink = Some(BigQuerySink(name = Some("sinktest"), timestamp = Some("DOB")))
+            sink = Some(BigQuerySink(name = Some("sinktest"), timestamp = Some("DOB"))),
+            merge = None
           )
           private val businessJob =
             AutoJobDesc(

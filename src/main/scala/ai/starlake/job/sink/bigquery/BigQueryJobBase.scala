@@ -457,7 +457,7 @@ trait BigQueryJobBase extends StrictLogging {
     }
   }
 
-  private def setTagsOnTable(table: Table): Unit = {
+  protected def setTagsOnTable(table: Table): Unit = {
     cliConfig.starlakeSchema.foreach { schema =>
       val tableTagPairs = Utils.extractTags(schema.tags)
       table.toBuilder.setLabels(tableTagPairs.toMap.asJava).build().update()

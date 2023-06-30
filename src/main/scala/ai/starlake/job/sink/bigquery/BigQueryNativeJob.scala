@@ -233,7 +233,10 @@ class BigQueryNativeJob(
           case Some(x) => materializedViewDefinitionBuilder.setRefreshIntervalMs(x.toLong)
           case None    =>
         }
-        bigquery().create(TableInfo.of(tableId, materializedViewDefinitionBuilder.build()))
+        val table =
+          bigquery().create(TableInfo.of(tableId, materializedViewDefinitionBuilder.build()))
+        setTagsOnTable(table)
+        table
       }
     }
   }
@@ -303,6 +306,9 @@ class BigQueryNativeJob(
         logger.info(
           s"Query large results performed successfully: ${results.getTotalRows} rows inserted."
         )
+
+        val table = bigquery().getTable(tableId)
+        setTagsOnTable(table)
 
         applyRLSAndCLS().recover { case e =>
           Utils.logException(logger, e)
