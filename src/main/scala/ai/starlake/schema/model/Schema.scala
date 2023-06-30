@@ -450,7 +450,13 @@ case class Schema(
     * @return
     *   merged schema
     */
-  def mergeWith(fallbackSchema: Schema, domainMetadata: Option[Metadata] = None) = {
+  def mergeWith(
+    fallbackSchema: Schema,
+    domainMetadata: Option[Metadata] = None,
+    attributeMergeStrategy: AttributeMergeStrategy
+  )(implicit
+    schemaHandler: SchemaHandler
+  ) = {
     this.copy(
       rename = this.rename.orElse(fallbackSchema.rename),
       comment = this.comment.orElse(fallbackSchema.comment),
@@ -467,7 +473,12 @@ case class Schema(
         if (this.expectations.isEmpty) fallbackSchema.expectations else this.expectations,
       acl = if (this.acl.isEmpty) fallbackSchema.acl else this.acl,
       sample = this.sample.orElse(fallbackSchema.sample),
-      filter = this.filter.orElse(fallbackSchema.filter)
+      filter = this.filter.orElse(fallbackSchema.filter),
+      attributes = Attribute.mergeAll(
+        this.attributes,
+        fallbackSchema.attributes,
+        attributeMergeStrategy
+      )
     )
   }
 

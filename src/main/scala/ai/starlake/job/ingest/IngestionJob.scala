@@ -1101,6 +1101,34 @@ trait IngestionJob extends SparkJob {
         val start = Timestamp.from(Instant.now())
         runPreSql()
         val dataset = loadDataSet()
+        val inputFiles = path.map(_.toString).mkString(",")
+
+        def logFailureInAudit[T](exception: Throwable): Try[T] = {
+          val end = Timestamp.from(Instant.now())
+          val err = Utils.exceptionAsString(exception)
+          Try {
+            val log = AuditLog(
+              applicationId(),
+              inputFiles,
+              domain.name,
+              schema.name,
+              success = false,
+              0,
+              0,
+              0,
+              start,
+              end.getTime - start.getTime,
+              err,
+              Step.LOAD.toString,
+              schemaHandler.getDatabase(domain, schema.finalName),
+              settings.comet.tenant
+            )
+            AuditLog.sink(Map.empty, optionalAuditSession, log)
+          }
+          logger.error(err)
+          Failure(exception)
+        }
+
         dataset match {
           case Success(dataset) =>
             Try {
@@ -1108,7 +1136,6 @@ trait IngestionJob extends SparkJob {
               val inputCount = dataset.count()
               val acceptedCount = acceptedDS.count()
               val rejectedCount = rejectedDS.count()
-              val inputFiles = path.map(_.toString).mkString(",")
               logger.info(
                 s"ingestion-summary -> files: [$inputFiles], domain: ${domain.name}, schema: ${schema.name}, input: $inputCount, accepted: $acceptedCount, rejected:$rejectedCount"
               )
@@ -1133,29 +1160,11 @@ trait IngestionJob extends SparkJob {
               AuditLog.sink(Map.empty, optionalAuditSession, log)
               if (success) SparkJobResult(None)
               else throw new Exception("Fail on rejected count requested")
+            }.recoverWith { case exception =>
+              logFailureInAudit(exception)
             }
           case Failure(exception) =>
-            val end = Timestamp.from(Instant.now())
-            val err = Utils.exceptionAsString(exception)
-            val log = AuditLog(
-              applicationId(),
-              path.map(_.toString).mkString(","),
-              domain.name,
-              schema.name,
-              success = false,
-              0,
-              0,
-              0,
-              start,
-              end.getTime - start.getTime,
-              err,
-              Step.LOAD.toString,
-              schemaHandler.getDatabase(domain, schema.finalName),
-              settings.comet.tenant
-            )
-            AuditLog.sink(Map.empty, optionalAuditSession, log)
-            logger.error(err)
-            Failure(throw exception)
+            logFailureInAudit(exception)
         }
     }
     // After each ingestionjob we explicitely clear the spark cache

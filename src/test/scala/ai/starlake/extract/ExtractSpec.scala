@@ -2,6 +2,7 @@ package ai.starlake.extract
 
 import ai.starlake.TestHelper
 import ai.starlake.config.Settings
+import ai.starlake.schema.handlers.SchemaHandler
 import ai.starlake.schema.model.{Domain, Metadata, Mode, Schema}
 import ai.starlake.utils.YamlSerializer
 import better.files.File
@@ -69,7 +70,7 @@ class ExtractSpec extends TestHelper {
     val row1InsertionCheck = (1 == rs.getInt("ID")) && ("A" == rs.getString("NAME"))
     assert(row1InsertionCheck, "Data not inserted")
     val outputDir: File = File(s"$cometTestRoot/extract-without-template")
-    ExtractJDBCSchema.extractSchema(
+    new ExtractJDBCSchema(new SchemaHandler(settings.storageHandler)).extractSchema(
       jdbcSchema,
       connectionOptions,
       outputDir,
@@ -104,14 +105,14 @@ class ExtractSpec extends TestHelper {
       "NAME" -> "string"
     )
     table.primaryKey should contain("ID")
-    table.pattern.pattern() shouldBe "PUBLIC-TEST_TABLE1.*"
+    table.pattern.pattern() shouldBe "\\QPUBLIC\\E-\\QTEST_TABLE1\\E.*"
     val viewFile = publicOutputDir / "_TEST_VIEW1.comet.yml"
     val view =
       YamlSerializer
         .deserializeSchemaRefs(viewFile.contentAsString, viewFile.pathAsString)
         .tables
         .head
-    view.pattern.pattern() shouldBe "PUBLIC-TEST_VIEW1.*"
+    view.pattern.pattern() shouldBe "\\QPUBLIC\\E-\\QTEST_VIEW1\\E.*"
     assertOutput(domain, table, view)
   }
 
@@ -329,7 +330,7 @@ class ExtractSpec extends TestHelper {
       val row1InsertionCheck = (1 == rs.getInt("ID")) && ("A" == rs.getString("NAME"))
       assert(row1InsertionCheck, "Data not inserted")
 
-      ExtractJDBCSchema.extractSchema(
+      new ExtractJDBCSchema(new SchemaHandler(settings.storageHandler)).extractSchema(
         JDBCSchema(
           None,
           "PUBLIC",
@@ -392,7 +393,7 @@ class ExtractSpec extends TestHelper {
       val row1InsertionCheck = (1 == rs.getInt("ID")) && ("A" == rs.getString("NAME"))
       assert(row1InsertionCheck, "Data not inserted")
 
-      ExtractJDBCSchema.extractSchema(
+      new ExtractJDBCSchema(new SchemaHandler(settings.storageHandler)).extractSchema(
         JDBCSchema(
           None,
           "PUBLIC",
