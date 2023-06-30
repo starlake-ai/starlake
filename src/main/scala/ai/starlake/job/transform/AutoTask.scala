@@ -22,7 +22,7 @@ package ai.starlake.job.transform
 
 import ai.starlake.config.Settings
 import ai.starlake.job.ingest.{AuditLog, Step}
-import ai.starlake.job.metrics.AssertionJob
+import ai.starlake.job.metrics.ExpectationJob
 import ai.starlake.job.sink.bigquery.{
   BigQueryJobBase,
   BigQueryJobResult,
@@ -62,10 +62,6 @@ object AutoTask extends StrictLogging {
     schemaHandler: SchemaHandler
   ): Option[String] = {
     taskDesc.database
-      .orElse(
-        taskDesc.sink
-          .flatMap(_.database) // database defined in sink
-      )
       .orElse(
         schemaHandler.activeEnvRefs().getDatabase(taskDesc.domain, taskDesc.table)
       ) // mapping in envRefs
@@ -228,12 +224,12 @@ case class AutoTask(
             jobResult.asInstanceOf[BigQueryJobResult].tableResult.map(_.getTotalRows)
           jobResultCount.foreach(logAuditSuccess(start, end, _))
           // We execute assertions only on success
-          if (settings.comet.assertions.active) {
-            new AssertionJob(
+          if (settings.comet.expectations.active) {
+            new ExpectationJob(
               authInfo,
               taskDesc.domain,
               taskDesc.table,
-              taskDesc.assertions,
+              taskDesc.expectations,
               UNIT,
               storageHandler,
               schemaHandler,
@@ -358,26 +354,25 @@ case class AutoTask(
   }
 
   def buildAllSQLQueries(tableExists: Boolean): (List[String], String, List[String]) = {
-    val mainSql = parseJinja(taskDesc.getSql())
     val mergeSql =
       if (!tableExists)
-        mainSql
+        buildSingleSQLQuery(taskDesc.getSql())
       else {
-        logger.info(s"Parse Main SQL: $mainSql")
         taskDesc.merge match {
           case Some(options) =>
             val mergeSql =
               SQLUtils.buildMergeSql(
-                mainSql,
+                parseJinja(taskDesc.getSql()),
                 options.key,
                 getDatabase(taskDesc),
                 taskDesc.domain,
                 taskDesc.table,
                 taskDesc.engine.getOrElse(Engine.SPARK)
               )
-            logger.info(s"Parse Merge SQL: $mergeSql")
+            logger.info(s"Merge SQL: $mergeSql")
             mergeSql
-          case None => mainSql
+          case None =>
+            buildSingleSQLQuery(parseJinja(taskDesc.getSql()))
         }
       }
 
@@ -394,9 +389,12 @@ case class AutoTask(
     * @param sqls
     * @return
     */
-  private def parseJinja(sqls: List[String]): List[String] =
-    Utils
+  private def parseJinja(sqls: List[String]): List[String] = {
+    val result = Utils
       .parseJinja(sqls, schemaHandler.activeEnvVars() ++ commandParameters)
+    logger.info(s"Parse Jinja result: $result")
+    result
+  }
 
   def sinkToFS(dataframe: DataFrame, sink: FsSink): Boolean = {
     val coalesce = sink.coalesce.getOrElse(this.coalesce)
@@ -526,12 +524,12 @@ case class AutoTask(
             sinkToFS(dataframe, fsSink)
           }
 
-          if (settings.comet.assertions.active) {
-            new AssertionJob(
+          if (settings.comet.expectations.active) {
+            new ExpectationJob(
               authInfo,
               taskDesc.domain,
               taskDesc.table,
-              taskDesc.assertions,
+              taskDesc.expectations,
               Stage.UNIT,
               storageHandler,
               schemaHandler,

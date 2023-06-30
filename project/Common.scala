@@ -82,7 +82,7 @@ object Common {
         // show full stack traces and test case durations
         Tests.Argument("-oDF"),
         // -v Log "test run started" / "test started" / "test run finished" events on log level "info" instead of "debug".
-        // -a Show stack traces a nd exception class name for AssertionErrors.
+        // -a Show stack traces a nd exception class name for ExpectationErrors.
         Tests.Argument(TestFrameworks.JUnit, "-v", "-a")
       ),
       Test / parallelExecution := false,
