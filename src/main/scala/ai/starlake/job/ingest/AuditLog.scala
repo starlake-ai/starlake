@@ -93,7 +93,7 @@ case class AuditLog(
        |duration=$duration
        |message=$message
        |step=$step
-       |project=$database
+       |database=$database
        |tenant=$tenant
        |""".stripMargin.split('\n').mkString(",")
 
@@ -114,7 +114,7 @@ case class AuditLog(
        | duration,
        | message,
        | step,
-       | project,
+       | database,
        | tenant
        |)
        |values(
