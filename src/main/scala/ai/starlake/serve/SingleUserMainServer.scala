@@ -2,7 +2,6 @@ package ai.starlake.serve
 
 import ai.starlake.config.SettingsManager
 import ai.starlake.job.Main
-import ai.starlake.serve.api.RequestHandler
 import ai.starlake.utils.Utils
 import buildinfo.BuildInfo
 import com.fasterxml.jackson.databind.ObjectMapper
@@ -16,7 +15,7 @@ object SingleUserMainServer {
     val server = new Server(config.port)
     val handler = new ServletHandler()
     server.setHandler(handler)
-    handler.addServletWithMapping(classOf[RequestHandler], "/")
+    handler.addServletWithMapping(classOf[SingleUserRequestHandler], "/")
     server.start()
   }
 

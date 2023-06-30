@@ -1,6 +1,7 @@
 package ai.starlake.extract
 
 import ai.starlake.config.{GcpConnectionConfig, Settings}
+import ai.starlake.job.sink.bigquery.{BigQueryJobBase, BigQueryLoadConfig}
 import com.google.cloud.bigquery.{Dataset, Table}
 
 import scala.jdk.CollectionConverters.iterableAsScalaIterableConverter
@@ -20,13 +21,20 @@ object BigQueryInfo {
       authConfig.gcpSAJsonKey,
       authConfig.location
     )
-    val bigquery = config.bigquery()
+    val bqJob = new BigQueryJobBase {
+      override def cliConfig: BigQueryLoadConfig = new BigQueryLoadConfig(
+        gcpProjectId = authConfig.gcpProjectId,
+        gcpSAJsonKey = authConfig.gcpSAJsonKey,
+        location = authConfig.location,
+        outputDatabase = None
+      )
+    }
+    val bigquery = bqJob.bigquery()
     val datasets = bigquery.listDatasets()
     datasets
       .iterateAll()
       .asScala
       .map { dataset =>
-        val bigquery = config.bigquery()
         val bqDataset: Dataset = bigquery.getDataset(dataset.getDatasetId)
         val tables = bigquery.listTables(dataset.getDatasetId)
         val bqTables = tables.iterateAll().asScala.map { table =>

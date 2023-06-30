@@ -76,7 +76,8 @@ case class Schema(
   acl: List[AccessControlEntry] = Nil,
   rename: Option[String] = None,
   sample: Option[String] = None,
-  filter: Option[String] = None
+  filter: Option[String] = None,
+  patternSample: Option[String] = None
 ) extends Named {
   def this() = this(
     "",
@@ -547,7 +548,8 @@ object Schema {
       attributes = attributes,
       None,
       None,
-      taskDesc.comment
+      taskDesc.comment,
+      tags = taskDesc.tags
     )
   }
 
