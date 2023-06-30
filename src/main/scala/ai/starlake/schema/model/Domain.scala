@@ -74,7 +74,8 @@ import scala.util.Try
   @nowarn @deprecated("Moved to Metadata", "0.2.8") extensions: List[String] = Nil,
   @nowarn @deprecated("Moved to Metadata", "0.2.8") ack: Option[String] = None,
   tags: Set[String] = Set.empty,
-  rename: Option[String] = None
+  rename: Option[String] = None,
+  database: Option[String] = None
 ) extends Named {
 
   def this() = this("") // Should never be called. Here for Jackson deserialization only
@@ -210,7 +211,7 @@ import scala.util.Try
 
     val forceTablePrefixRegex = settings.comet.forceTablePattern.r
 
-    val directoryAssertionOpt = resolveDirectoryOpt() match {
+    val directoryresExpectationOpt = resolveDirectoryOpt() match {
       case Some(_) => None
       case None    =>
         // TODO Check in metadata
@@ -220,8 +221,8 @@ import scala.util.Try
     }
     directorySeverity match {
       case Error =>
-        errorList ++= directoryAssertionOpt
-      case Warning => warningList ++= directoryAssertionOpt
+        errorList ++= directoryresExpectationOpt
+      case Warning => warningList ++= directoryresExpectationOpt
       case _       => // do nothing even if directory is not resolved
     }
 

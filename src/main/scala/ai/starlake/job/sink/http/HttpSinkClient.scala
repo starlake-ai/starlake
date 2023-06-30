@@ -7,19 +7,31 @@ import org.apache.http.impl.conn.PoolingHttpClientConnectionManager
 import org.apache.http.util.EntityUtils
 import org.apache.spark.sql.DataFrame
 
+import java.util.concurrent.TimeUnit
 import scala.collection.mutable.ArrayBuffer
 
-private[http] class HttpSinkClient(url: String, maxMessages: Int, transformer: SinkTransformer)
-    extends StrictLogging {
+private[http] class HttpSinkClient(parameters: Map[String, String]) extends StrictLogging {
+
+  val url: String = parameters("url")
+  val maxMessages: Int = parameters.getOrElse("maxMessages", "1").toInt
+  val maxTotalThreads: Int = parameters.getOrElse("maxTotalThreads", "200").toInt
+  val maxThreadsPerRoute: Int = parameters.getOrElse("maxThreadsPerRoute", "20").toInt
+  val maxIdleTimeInSeconds: Int = parameters.getOrElse("maxIdleTimeInSeconds", "10").toInt
+  val transformer: SinkTransformer = parameters
+    .get("transformer")
+    .map(Utils.loadInstance[SinkTransformer])
+    .getOrElse(DefaultSinkTransformer)
 
   val connectionManager = new PoolingHttpClientConnectionManager()
-  connectionManager.setMaxTotal(200);
-  connectionManager.setDefaultMaxPerRoute(20);
+  connectionManager.setMaxTotal(maxTotalThreads);
+  connectionManager.setDefaultMaxPerRoute(maxThreadsPerRoute);
 
   private def client =
     HttpClients
       .custom()
       .setConnectionManager(connectionManager)
+      .evictExpiredConnections()
+      .evictIdleConnections(maxIdleTimeInSeconds, TimeUnit.SECONDS)
       .build();
 
   def send(dataFrame: DataFrame): Int = {
@@ -46,13 +58,17 @@ private[http] class HttpSinkClient(url: String, maxMessages: Int, transformer: S
     logger.debug(s"request: ${rows.mkString("Array(", ", ", ")")}");
     transformer.requestUris(url, rows).foreach { requestUri =>
       Utils.withResources(client.execute(requestUri)) { response =>
-        val ok = (200 to 299) contains response.getStatusLine.getStatusCode
-        if (!ok)
-          throw new RuntimeException(response.getStatusLine.getReasonPhrase)
+        try {
+          val ok = (200 to 299) contains response.getStatusLine.getStatusCode
+          if (!ok)
+            throw new RuntimeException(response.getStatusLine.getReasonPhrase)
 
-        val responseBody = EntityUtils.toString(response.getEntity, "UTF-8")
-        logger.debug("Response from HTTP Sink: " + responseBody)
-        response.getStatusLine.getStatusCode
+          val responseBody = EntityUtils.toString(response.getEntity, "UTF-8")
+          logger.debug("Response from HTTP Sink: " + responseBody)
+          response.getStatusLine.getStatusCode
+        } finally {
+          response.close()
+        }
       }
     }
   }

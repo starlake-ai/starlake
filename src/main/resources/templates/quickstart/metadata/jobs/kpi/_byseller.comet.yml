@@ -1,0 +1,5 @@
+tasks:
+  - name: byseller
+    domain: sales_kpi
+    dataset: byseller_kpi
+    write: OVERWRITE

@@ -273,7 +273,7 @@ class BigQuerySparkJob(
       }
       updateColumnsDescription(fieldsDescription)
       // TODO verify if there is a difference between maybeTableDescription, schema.comment , task.desc
-      updateTableDescription(tableId, maybeTableDescription.getOrElse(""))
+      updateTableDescription(table, maybeTableDescription.getOrElse(""))
       SparkJobResult(None)
     }
   }
