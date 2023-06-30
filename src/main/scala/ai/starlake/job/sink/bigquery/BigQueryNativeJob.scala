@@ -71,7 +71,7 @@ class BigQueryNativeJob(
                 case _ =>
                   throw new Exception("Not Supported")
               }
-              BigQueryJobResult(None, stats.getInputBytes)
+              BigQueryJobResult(None, stats.getInputBytes, Some(jobResult))
             } else
               throw new Exception(
                 "BigQuery was unable to load into the table due to an error:" + jobResult.getStatus.getError
@@ -177,7 +177,7 @@ class BigQueryNativeJob(
           s"Query large results performed successfully: ${results.getTotalRows} rows returned."
         )
 
-        BigQueryJobResult(Some(results), totalBytesProcessed)
+        BigQueryJobResult(Some(results), totalBytesProcessed, Some(queryJob))
       }
     }
   }
@@ -200,7 +200,7 @@ class BigQueryNativeJob(
     */
   override def run(): Try[JobResult] = {
     if (cliConfig.materializedView) {
-      RunAndSinkAsMaterializedView().map(table => BigQueryJobResult(None, 0L))
+      RunAndSinkAsMaterializedView().map(table => BigQueryJobResult(None, 0L, None))
     } else {
       RunAndSinkAsTable()
     }
@@ -315,12 +315,12 @@ class BigQueryNativeJob(
         }
         updateTableDescription(table, cliConfig.outputTableDesc.getOrElse(""))
         updateColumnsDescription(getFieldsDescriptionSource(sql))
-        BigQueryJobResult(Some(results), totalBytesProcessed)
+        BigQueryJobResult(Some(results), totalBytesProcessed, Some(jobInfo))
       }
     }
   }
 
-  def runBatchQuery(): Try[Job] = {
+  def runBatchQuery(wait: Boolean): Try[Job] = {
     getOrCreateDataset(None).flatMap { _ =>
       Try {
         val jobId = JobId
@@ -344,8 +344,12 @@ class BigQueryNativeJob(
         )
         if (job == null)
           throw new Exception("Job not executed since it no longer exists.")
-        else
+        else {
+          if (wait) {
+            job.waitFor()
+          }
           job
+        }
       }
     }
   }

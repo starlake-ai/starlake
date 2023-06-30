@@ -910,17 +910,19 @@ class SchemaHandler(storage: StorageHandler, cliEnv: Map[String, String] = Map.e
         val sparkType = XSDToSchema.read(xsdContent)
         val topElement = sparkType.fields.map(field => Attribute(field))
         val xsdAttributes = topElement.head.attributes
-        val merged = mergeAttributes(ymlSchema.attributes, xsdAttributes)
+        val merged = Attribute.mergeAll(
+          xsdAttributes,
+          ymlSchema.attributes,
+          AttributeMergeStrategy(
+            failOnContainerMismatch = true,
+            failOnAttributesEmptinessMismatch = true,
+            keepSourceDiffAttributesStrategy =
+              DropAll, // Keep existing behavior but wonder if we should use KeepAllDiff
+            attributePropertiesMergeStrategy = SourceFirst
+          )
+        )(this)
         ymlSchema.copy(attributes = merged)
     }
-  }
-
-  def mergeAttributes(ymlAttrs: List[Attribute], xsdAttrs: List[Attribute]): List[Attribute] = {
-    val ymlTopLevelAttr = Attribute("__dummy", "struct", attributes = ymlAttrs)
-    val xsdTopLevelAttr = Attribute("__dummy", "struct", attributes = xsdAttrs)
-
-    val merged = xsdTopLevelAttr.importAttr(ymlTopLevelAttr)
-    merged.attributes
   }
 
   def getDatabase(domain: Domain, schemaName: String)(implicit
