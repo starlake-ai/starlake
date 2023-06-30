@@ -8,12 +8,17 @@
   ALTER TABLE audit.audit ADD COLUMN IF NOT EXISTS database STRING;
   ALTER TABLE audit.audit ADD COLUMN IF NOT EXISTS tenant STRING;
 ```
+
+__Feature__:
+- extract-schema keep original scripted fields and merge attributes' parameters
+- extract-schema quote catalog, schema and table name. 
+
 __Deprecated__:
 - **BREAKING CHANGE** Views have their own sections. Views inside jobs are now deprecated.
-- __Bug Fix__:
-- Take into account extensions in domain / metadata attribute
 
 __Fix__:
+- Take into account extensions in domain / metadata attribute
+- Deserialization of privacy level was 'null' instead of its default value PrivacyLevel.None 
 - log failure in audit during ingestion job when unexpected behavior occurs
 - switch audit log and RLS queries as interactive to wait for job output to avoid any async exception and improve job output result accuracy
 - escape string parameters while using native query
