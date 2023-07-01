@@ -137,8 +137,8 @@ object SQLUtils {
   ): String = {
     def getPrefix(sql: String, start: Int): String = {
       val substr = sql.substring(start).trim
-      val withFrom = substr.startsWith("FROM")
-      val withJoin = substr.trim.startsWith("JOIN")
+      val withFrom = substr.toUpperCase.startsWith("FROM")
+      val withJoin = substr.toUpperCase.trim.startsWith("JOIN")
       if (withFrom)
         " FROM "
       else if (withJoin)
